@@ -25,7 +25,6 @@ enum token
 	t_bin_notEquals,
 	t_bin_log_and,
 	t_bin_log_or,
-	t_bin_log_xor,
 	t_un_log_not,
 	t_reference,
 	t_dereference,

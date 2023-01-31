@@ -26,7 +26,6 @@ char *token_names[] = {
 	"binary not equals",
 	"binary logical and",
 	"binary logical or",
-	"binary logical xor",
 	"unary logical not",
 	"reference operator",
 	"dereference operator",
@@ -226,7 +225,6 @@ char *reserved[RESERVED_COUNT] = {
 	"!=",
 	"&&",
 	"||",
-	"^",
 	"!",
 	"$$"};
 
@@ -259,7 +257,6 @@ enum token reserved_t[RESERVED_COUNT] = {
 	t_bin_notEquals,
 	t_bin_log_and,
 	t_bin_log_or,
-	t_bin_log_xor,
 	t_un_log_not,
 	t_EOF};
 
@@ -794,7 +791,6 @@ struct AST *parseExpression(struct Dictionary *dict)
 	case t_bin_notEquals:
 	case t_bin_log_and:
 	case t_bin_log_or:
-	case t_bin_log_xor:
 	case t_semicolon:
 	case t_comma:
 	case t_rParen:
@@ -948,7 +944,6 @@ struct AST *parseConditionCheck(struct Dictionary *dict)
 	case t_bin_notEquals:
 	case t_bin_log_and:
 	case t_bin_log_or:
-	case t_bin_log_xor:
 		conditionCheck = match(nextToken, dict);
 		AST_InsertChild(conditionCheck, LHS);
 		AST_InsertChild(conditionCheck, parseConditionCheck(dict));
