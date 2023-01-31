@@ -194,7 +194,7 @@ char lookahead_char()
 	return r;
 }
 
-#define RESERVED_COUNT 31
+#define RESERVED_COUNT 30
 
 char *reserved[RESERVED_COUNT] = {
 	"asm",
@@ -288,7 +288,7 @@ enum token scan(char trackPos)
 			if (!strcmp(buffer, reserved[i]))
 			{
 				// allow catching both '<', '>', '=', and '<=', '>=', '=='
-				if (buffer[0] == '<' || buffer[0] == '>' || buffer[0] == '=')
+				if (buffer[0] == '<' || buffer[0] == '>' || buffer[0] == '=' || buffer[0] == '!')
 				{
 					if (lookahead_char() != '=')
 						return reserved_t[i];

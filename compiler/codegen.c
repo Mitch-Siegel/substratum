@@ -933,30 +933,30 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 		break;
 
 		case tt_label:
-			ErrorAndExit(ERROR_INTERNAL, "Code generation not implemented for this operation (%s) yet!\n", getAsmOp(thisTAC->operation));
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s_%d:", functionName, thisTAC->operands[0].name.val));
 			break;
 
 		case tt_return:
 		{
-			switch (thisTAC->operands[0].permutation)
-			{
-			case vp_literal:
-			{
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "movh %%rr, $%s", thisTAC->operands[0].name.str));
-			}
-			break;
+				switch (thisTAC->operands[0].permutation)
+				{
+				case vp_literal:
+				{
+					TRIM_APPEND(asmBlock, sprintf(printedLine, "movh %%rr, $%s", thisTAC->operands[0].name.str));
+				}
+				break;
 
-			case vp_standard:
-			case vp_temp:
-			{
-				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%rr, %%r%d", destReg));
-			}
-			break;
+				case vp_standard:
+				case vp_temp:
+				{
+					int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
+					TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%rr, %%r%d", destReg));
+				}
+				break;
 
-			default:
-				perror("unexpected type in return TAC!\n");
-			}
+				default:
+					perror("unexpected type in return TAC!\n");
+				}
 		}
 		break;
 

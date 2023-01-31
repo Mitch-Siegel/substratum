@@ -995,9 +995,12 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	return m.currentTACIndex;
 }
 
-struct TACLine *linearizeConditionalJump(int currentTACIndex, char *cmpOp, struct AST *correspondingTree)
+struct TACLine *linearizeConditionalJump(int currentTACIndex,
+										 char *cmpOp,
+										 char whichCondition,
+										 struct AST *correspondingTree)
 {
-	struct TACLine *notMetJump;
+	enum TACType jumpCondition;
 	switch (cmpOp[0])
 	{
 	case '<':
@@ -1005,12 +1008,16 @@ struct TACLine *linearizeConditionalJump(int currentTACIndex, char *cmpOp, struc
 		switch (cmpOp[1])
 		{
 		case '=':
-			notMetJump = newTACLine(currentTACIndex, tt_jg, correspondingTree);
-			break;
+		{
+			jumpCondition = (whichCondition ? tt_jle : tt_jg);
+		}
+		break;
 
 		case '\0':
-			notMetJump = newTACLine(currentTACIndex, tt_jge, correspondingTree);
-			break;
+		{
+			jumpCondition = (whichCondition ? tt_jl : tt_jge);
+		}
+		break;
 
 		default:
 			ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected value in comparison operator node\n");
@@ -1023,12 +1030,16 @@ struct TACLine *linearizeConditionalJump(int currentTACIndex, char *cmpOp, struc
 		switch (cmpOp[1])
 		{
 		case '=':
-			notMetJump = newTACLine(currentTACIndex, tt_jl, correspondingTree);
-			break;
+		{
+			jumpCondition = (whichCondition ? tt_jge : tt_jl);
+		}
+		break;
 
 		case '\0':
-			notMetJump = newTACLine(currentTACIndex, tt_jle, correspondingTree);
-			break;
+		{
+			jumpCondition = (whichCondition ? tt_jg : tt_jle);
+		}
+		break;
 
 		default:
 			ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected value in comparison operator node\n");
@@ -1038,21 +1049,20 @@ struct TACLine *linearizeConditionalJump(int currentTACIndex, char *cmpOp, struc
 
 	case '!':
 	{
-		notMetJump = newTACLine(currentTACIndex, tt_je, correspondingTree);
+		jumpCondition = (whichCondition ? tt_jne : tt_je);
 	}
 	break;
 
 	case '=':
 	{
-		notMetJump = newTACLine(currentTACIndex, tt_jne, correspondingTree);
+		jumpCondition = (whichCondition ? tt_je : tt_jne);
 	}
 	break;
 
 	default:
 		ErrorAndExit(ERROR_INTERNAL, "Error linearizing conditional jump - malformed parse tree: expected comparison operator, got [%s] instead!\n", cmpOp);
-
 	}
-	return notMetJump;
+	return newTACLine(currentTACIndex, jumpCondition, correspondingTree);
 }
 
 int linearizeDeclaration(struct LinearizationMetadata m)
@@ -1096,7 +1106,10 @@ int linearizeDeclaration(struct LinearizationMetadata m)
 }
 
 int linearizeConditionCheck(struct LinearizationMetadata m,
-							struct BasicBlock *ifFalse)
+							char whichCondition,
+							struct BasicBlock *target,
+							int *labelCount,
+							int depth)
 {
 	printf("LinearizeConditionCheck %s\n", getTokenName(m.ast->type));
 	switch (m.ast->type)
@@ -1106,14 +1119,49 @@ int linearizeConditionCheck(struct LinearizationMetadata m,
 		struct LinearizationMetadata LHS;
 		memcpy(&LHS, &m, sizeof(struct LinearizationMetadata));
 		LHS.ast = m.ast->child;
-		m.currentTACIndex = linearizeConditionCheck(LHS, ifFalse);
+		m.currentTACIndex = linearizeConditionCheck(LHS, 0, target, labelCount, depth + 1);
 
 		struct LinearizationMetadata RHS;
 		memcpy(&RHS, &m, sizeof(struct LinearizationMetadata));
 		RHS.ast = m.ast->child->sibling;
-		m.currentTACIndex = linearizeConditionCheck(RHS, ifFalse);
+		m.currentTACIndex = linearizeConditionCheck(RHS, 0, target, labelCount, depth + 1);
 
 		// no need for extra logic - if either condition is false the whole condition is false
+	}
+	break;
+
+	case t_bin_log_or:
+	{
+		struct TACLine *condTrueLabel = NULL;
+		if (depth == 0)
+		{
+			condTrueLabel = newTACLine(m.currentTACIndex, tt_label, m.ast);
+			condTrueLabel->operands[0].name.val = *labelCount;
+		}
+		struct LinearizationMetadata LHS;
+		memcpy(&LHS, &m, sizeof(struct LinearizationMetadata));
+		LHS.ast = m.ast->child;
+		m.currentTACIndex = linearizeConditionCheck(LHS, 1, target, labelCount, depth + 1);
+		struct TACLine *conditionJump = m.currentBlock->TACList->tail->data;
+		conditionJump->operands[0].name.val = *labelCount;
+
+		struct LinearizationMetadata RHS;
+		memcpy(&RHS, &m, sizeof(struct LinearizationMetadata));
+		RHS.ast = m.ast->child->sibling;
+		m.currentTACIndex = linearizeConditionCheck(RHS, 1, target, labelCount, depth + 1);
+		conditionJump = m.currentBlock->TACList->tail->data;
+		conditionJump->operands[0].name.val = *labelCount;
+
+		if (depth == 0)
+		{
+			struct TACLine *condFalseJump = newTACLine(m.currentTACIndex++, tt_jmp, m.ast);
+			condFalseJump->operands[0].name.val = target->labelNum;
+			condTrueLabel->index = m.currentTACIndex++;
+
+			BasicBlock_append(m.currentBlock, condFalseJump);
+			BasicBlock_append(m.currentBlock, condTrueLabel);
+			(*labelCount)++;
+		}
 	}
 	break;
 
@@ -1127,8 +1175,8 @@ int linearizeConditionCheck(struct LinearizationMetadata m,
 		m.currentTACIndex = linearizeExpression(m);
 
 		// generate a label and figure out condition to jump when the if statement isn't executed
-		struct TACLine *ifFalseJump = linearizeConditionalJump(m.currentTACIndex++, m.ast->value, m.ast);
-		ifFalseJump->operands[0].name.val = ifFalse->labelNum;
+		struct TACLine *ifFalseJump = linearizeConditionalJump(m.currentTACIndex++, m.ast->value, whichCondition, m.ast);
+		ifFalseJump->operands[0].name.val = target->labelNum;
 		BasicBlock_append(m.currentBlock, ifFalseJump);
 	}
 	break;
@@ -1157,12 +1205,12 @@ struct Stack *linearizeIfStatement(struct LinearizationMetadata m,
 	struct BasicBlock *elseBlock = NULL;
 	if (m.ast->child->sibling->sibling != NULL)
 	{
-		elseBlock = BasicBlock_new(++(*labelCount));
-		m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, elseBlock);
+		elseBlock = BasicBlock_new((*labelCount)++);
+		m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, 0, elseBlock, labelCount, 0);
 	}
 	else
 	{
-		m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, afterIfBlock);
+		m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, 0, afterIfBlock, labelCount, 0);
 	}
 
 	struct LinearizationMetadata ifMetadata;
@@ -1199,7 +1247,7 @@ struct LinearizationResult *linearizeWhileLoop(struct LinearizationMetadata m,
 {
 	struct BasicBlock *beforeWhileBlock = m.currentBlock;
 
-	m.currentBlock = BasicBlock_new(++(*labelCount));
+	m.currentBlock = BasicBlock_new((*labelCount)++);
 	int whileSubScopeIndex = m.scope->subScopeCount - 1;
 	Function_addBasicBlock(m.scope->parentFunction, m.currentBlock);
 
@@ -1215,7 +1263,7 @@ struct LinearizationResult *linearizeWhileLoop(struct LinearizationMetadata m,
 	memcpy(&conditionCheckMetadata, &m, sizeof(struct LinearizationMetadata));
 	conditionCheckMetadata.ast = m.ast->child;
 
-	m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, afterWhileBlock);
+	m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, 0, afterWhileBlock, labelCount, 0);
 
 	// create the scope for the while loop
 	struct LinearizationMetadata whileBodyScopeMetadata;
@@ -1439,7 +1487,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 		case t_if:
 		{
 			// this is the block that control will be passed to after the branch, regardless of what happens
-			struct BasicBlock *afterIfBlock = BasicBlock_new(++(*labelCount));
+			struct BasicBlock *afterIfBlock = BasicBlock_new((*labelCount)++);
 
 			struct LinearizationMetadata ifMetadata;
 			memcpy(&ifMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -1481,7 +1529,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 
 		case t_while:
 		{
-			struct BasicBlock *afterWhileBlock = BasicBlock_new(++(*labelCount));
+			struct BasicBlock *afterWhileBlock = BasicBlock_new((*labelCount)++);
 
 			struct LinearizationMetadata whileMetadata;
 			memcpy(&whileMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -1686,7 +1734,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 		case t_fun:
 		{
 			int funTempNum = 0; // track the number of temporary variables used
-			int labelCount = 0;
+			int labelCount = 1;
 			struct FunctionEntry *theFunction = Scope_lookupFun(globalScope, runner->child->value);
 
 			struct BasicBlock *functionBlock = BasicBlock_new(funTempNum);

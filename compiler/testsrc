@@ -2,7 +2,7 @@ asm
     {
     entry code
     code:
-    call condtest
+    call condTest
     hlt
 }
 ;
@@ -20,18 +20,32 @@ fun print(var value)
 fun condTest(var num)
 {
     var a = 0;
-    var b = 1;
+    var b = 0;
     var c;
 
-    if((a - 1 == 0) && (b == 0))
+    while(a < 3)
     {
-        c = 0;
+        b = 0;
+        while(b < 3)
+        {
+            if(((a == 0) && (b == 0)) || (a != b))
+            {
+                c = 0;
+            }
+            else
+            {
+                c = 1;
+            }
+            print(a + 48);
+            print(b + 48);
+            print(58);
+            print(c + 48);
+            print(10); // newline
+            b = b + 1;
+        }
+        a = a + 1;
     }
-    else
-    {
-        c = 1;
-    }
-    print(c);
+    
 }
 
 

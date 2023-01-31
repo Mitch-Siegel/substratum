@@ -33,12 +33,18 @@ int linearizeExpression(struct LinearizationMetadata m);
 
 int linearizeAssignment(struct LinearizationMetadata m);
 
-struct TACLine *linearizeConditionalJump(int currentTACIndex, char *cmpOp, struct AST *correspondingTree);
+struct TACLine *linearizeConditionalJump(int currentTACIndex,
+										 char *cmpOp,
+										 char whichCondition, // jump on condition true if nonzero, jump on condition false if zero
+										 struct AST *correspondingTree);
 
 int linearizeDeclaration(struct LinearizationMetadata m);
 
 int linearizeConditionCheck(struct LinearizationMetadata m,
-							struct BasicBlock *ifFalse);
+							char whichCondition, // jump on condition true if nonzero, jump on condition false if zero
+							struct BasicBlock *ifFalse,
+							int *labelCount, // label index tracking in starting block
+							int depth);
 
 struct Stack *linearizeIfStatement(struct LinearizationMetadata m,
 								   struct BasicBlock *afterIfBlock,
