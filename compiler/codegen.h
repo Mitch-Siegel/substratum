@@ -8,4 +8,10 @@ struct Stack *generateCodeForScope(struct Scope *scope, FILE *outFile);
 
 struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE *outFile);
 
-void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *allLifetimes, struct LinkedList *asmBlock, char *functionName, int reservedRegisters[2], char *touchedRegisters);
+void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
+                               struct Scope *thisScope,
+                               struct LinkedList *allLifetimes,
+                               struct LinkedList *asmBlock,
+                               char *functionName,
+                               int reservedRegisters[2],
+                               char *touchedRegisters);

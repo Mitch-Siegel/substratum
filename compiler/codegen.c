@@ -73,7 +73,7 @@ struct Stack *generateCodeForScope(struct Scope *scope, FILE *outFile)
 			int reservedRegisters[2];
 			reservedRegisters[0] = 0;
 			reservedRegisters[1] = 1;
-			GenerateCodeForBasicBlock(thisMember->entry, NULL, blockBlock, "global", reservedRegisters, touchedRegisters);
+			GenerateCodeForBasicBlock(thisMember->entry, scope, NULL, blockBlock, "global", reservedRegisters, touchedRegisters);
 			Stack_Push(scopeBlocks, blockBlock);
 		}
 		break;
@@ -463,7 +463,7 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	for (struct LinkedListNode *blockRunner = function->BasicBlockList->head; blockRunner != NULL; blockRunner = blockRunner->next)
 	{
 		struct BasicBlock *thisBlock = blockRunner->data;
-		GenerateCodeForBasicBlock(thisBlock, metadata.allLifetimes, functionBlock, function->name, metadata.reservedRegisters, metadata.touchedRegisters);
+		GenerateCodeForBasicBlock(thisBlock, function->mainScope, metadata.allLifetimes, functionBlock, function->name, metadata.reservedRegisters, metadata.touchedRegisters);
 	}
 
 	// meaningful code generated
@@ -523,7 +523,13 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 }
 
 // TODO: thisBlock vs asmBlock?!
-void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *allLifetimes, struct LinkedList *asmBlock, char *functionName, int reservedRegisters[2], char *touchedRegisters)
+void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
+							   struct Scope *thisScope,
+							   struct LinkedList *allLifetimes,
+							   struct LinkedList *asmBlock,
+							   char *functionName,
+							   int reservedRegisters[2],
+							   char *touchedRegisters)
 {
 	// TODO: generate localpointers as necessary
 	// to registers for those that get them and on-the-fly for those that don't
@@ -554,6 +560,33 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 			struct Lifetime *assignedLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
 			struct Lifetime *assignerLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[1].name.str);
 			// assign to register
+
+			char *movInstruction;
+			if (thisTAC->operands[1].permutation == vp_literal)
+			{
+				movInstruction = "movh";
+			}
+			else
+			{
+				switch (Scope_getSizeOfVariableByString(thisScope, thisTAC->operands[1].name.str))
+				{
+				case 1:
+					movInstruction = "movb";
+					break;
+
+				case 2:
+					movInstruction = "movh";
+					break;
+
+				case 4:
+					movInstruction = "mov";
+					break;
+
+				default:
+					ErrorAndExit(ERROR_INTERNAL, "Got unexpected variable size of %d for [%s]\n", Scope_getSizeOfVariableByString(thisScope, thisTAC->operands[1].name.str), thisTAC->operands[1].name.str);
+				}
+			}
+
 			if (assignedLifetime->isSpilled == 0)
 			{
 				switch (thisTAC->operands[1].permutation)
@@ -562,16 +595,16 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 				case vp_temp:
 					if (!assignerLifetime->isSpilled)
 					{
-						TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%r%d, %%r%d", assignedLifetime->stackOrRegLocation, assignerLifetime->stackOrRegLocation));
+						TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, %%r%d", movInstruction, assignedLifetime->stackOrRegLocation, assignerLifetime->stackOrRegLocation));
 					}
 					else
 					{
-						TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%r%d, (%%bp+%d*1)", assignedLifetime->stackOrRegLocation, assignerLifetime->stackOrRegLocation));
+						TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%bp+%d*1)", movInstruction, assignedLifetime->stackOrRegLocation, assignerLifetime->stackOrRegLocation));
 					}
 					break;
 
 				case vp_literal:
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "movh %%r%d, $%s", assignedLifetime->stackOrRegLocation, thisTAC->operands[1].name.str));
+					TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, $%s", movInstruction, assignedLifetime->stackOrRegLocation, thisTAC->operands[1].name.str));
 					break;
 				}
 			}
@@ -584,7 +617,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 				case vp_temp:
 					if (!assignerLifetime->isSpilled)
 					{
-						TRIM_APPEND(asmBlock, sprintf(printedLine, "mov (%%bp+%d), %%r%d", assignedLifetime->stackOrRegLocation, assignerLifetime->stackOrRegLocation));
+						TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%bp+%d), %%r%d", movInstruction, assignedLifetime->stackOrRegLocation, assignerLifetime->stackOrRegLocation));
 					}
 					else
 					{
@@ -596,7 +629,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 
 				case vp_literal:
 				{
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "mov (%%bp+%d), $%s", assignedLifetime->stackOrRegLocation, thisTAC->operands[1].name.str));
+					TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%bp+%d), $%s", movInstruction, assignedLifetime->stackOrRegLocation, thisTAC->operands[1].name.str));
 				}
 				break;
 				}
@@ -938,25 +971,25 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 
 		case tt_return:
 		{
-				switch (thisTAC->operands[0].permutation)
-				{
-				case vp_literal:
-				{
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "movh %%rr, $%s", thisTAC->operands[0].name.str));
-				}
-				break;
+			switch (thisTAC->operands[0].permutation)
+			{
+			case vp_literal:
+			{
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "movh %%rr, $%s", thisTAC->operands[0].name.str));
+			}
+			break;
 
-				case vp_standard:
-				case vp_temp:
-				{
-					int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%rr, %%r%d", destReg));
-				}
-				break;
+			case vp_standard:
+			case vp_temp:
+			{
+				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%rr, %%r%d", destReg));
+			}
+			break;
 
-				default:
-					perror("unexpected type in return TAC!\n");
-				}
+			default:
+				perror("unexpected type in return TAC!\n");
+			}
 		}
 		break;
 
