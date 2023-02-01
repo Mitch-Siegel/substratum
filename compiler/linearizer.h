@@ -42,7 +42,7 @@ int linearizeDeclaration(struct LinearizationMetadata m);
 
 int linearizeConditionCheck(struct LinearizationMetadata m,
 							char whichCondition, // jump on condition true if nonzero, jump on condition false if zero
-							struct BasicBlock *ifFalse,
+							int targetLabel,
 							int *labelCount, // label index tracking in starting block
 							int depth);
 

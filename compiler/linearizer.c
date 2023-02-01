@@ -1107,7 +1107,7 @@ int linearizeDeclaration(struct LinearizationMetadata m)
 
 int linearizeConditionCheck(struct LinearizationMetadata m,
 							char whichCondition,
-							struct BasicBlock *target,
+							int targetLabel,
 							int *labelCount,
 							int depth)
 {
@@ -1116,15 +1116,17 @@ int linearizeConditionCheck(struct LinearizationMetadata m,
 	{
 	case t_bin_log_and:
 	{
+		ErrorAndExit(ERROR_INTERNAL, "Logical And of expressions in condition checks not supported yet!\n");
+
 		struct LinearizationMetadata LHS;
 		memcpy(&LHS, &m, sizeof(struct LinearizationMetadata));
 		LHS.ast = m.ast->child;
-		m.currentTACIndex = linearizeConditionCheck(LHS, 0, target, labelCount, depth + 1);
+		m.currentTACIndex = linearizeConditionCheck(LHS, 0, targetLabel, labelCount, depth + 1);
 
 		struct LinearizationMetadata RHS;
 		memcpy(&RHS, &m, sizeof(struct LinearizationMetadata));
 		RHS.ast = m.ast->child->sibling;
-		m.currentTACIndex = linearizeConditionCheck(RHS, 0, target, labelCount, depth + 1);
+		m.currentTACIndex = linearizeConditionCheck(RHS, 0, targetLabel, labelCount, depth + 1);
 
 		// no need for extra logic - if either condition is false the whole condition is false
 	}
@@ -1132,35 +1134,39 @@ int linearizeConditionCheck(struct LinearizationMetadata m,
 
 	case t_bin_log_or:
 	{
-		struct TACLine *condTrueLabel = NULL;
-		if (depth == 0)
+		ErrorAndExit(ERROR_INTERNAL, "Logical Or of expressions in condition checks not supported yet!\n");
+
+		// if either condition is true, jump to the true label, if fall through both conditions, jump to false label
+		if (!whichCondition)
 		{
+			struct TACLine *condTrueLabel = NULL;
 			condTrueLabel = newTACLine(m.currentTACIndex, tt_label, m.ast);
 			condTrueLabel->operands[0].name.val = *labelCount;
-		}
-		struct LinearizationMetadata LHS;
-		memcpy(&LHS, &m, sizeof(struct LinearizationMetadata));
-		LHS.ast = m.ast->child;
-		m.currentTACIndex = linearizeConditionCheck(LHS, 1, target, labelCount, depth + 1);
-		struct TACLine *conditionJump = m.currentBlock->TACList->tail->data;
-		conditionJump->operands[0].name.val = *labelCount;
 
-		struct LinearizationMetadata RHS;
-		memcpy(&RHS, &m, sizeof(struct LinearizationMetadata));
-		RHS.ast = m.ast->child->sibling;
-		m.currentTACIndex = linearizeConditionCheck(RHS, 1, target, labelCount, depth + 1);
-		conditionJump = m.currentBlock->TACList->tail->data;
-		conditionJump->operands[0].name.val = *labelCount;
+			struct LinearizationMetadata LHS;
+			memcpy(&LHS, &m, sizeof(struct LinearizationMetadata));
+			LHS.ast = m.ast->child;
+			m.currentTACIndex = linearizeConditionCheck(LHS, 1, targetLabel, labelCount, depth + 1);
+			struct TACLine *conditionJump = m.currentBlock->TACList->tail->data;
+			conditionJump->operands[0].name.val = *labelCount;
 
-		if (depth == 0)
-		{
+			struct LinearizationMetadata RHS;
+			memcpy(&RHS, &m, sizeof(struct LinearizationMetadata));
+			RHS.ast = m.ast->child->sibling;
+			m.currentTACIndex = linearizeConditionCheck(RHS, 1, targetLabel, labelCount, depth + 1);
+			conditionJump = m.currentBlock->TACList->tail->data;
+			conditionJump->operands[0].name.val = *labelCount;
+
 			struct TACLine *condFalseJump = newTACLine(m.currentTACIndex++, tt_jmp, m.ast);
-			condFalseJump->operands[0].name.val = target->labelNum;
+			condFalseJump->operands[0].name.val = targetLabel;
 			condTrueLabel->index = m.currentTACIndex++;
 
 			BasicBlock_append(m.currentBlock, condFalseJump);
 			BasicBlock_append(m.currentBlock, condTrueLabel);
 			(*labelCount)++;
+		}
+		else
+		{
 		}
 	}
 	break;
@@ -1175,9 +1181,9 @@ int linearizeConditionCheck(struct LinearizationMetadata m,
 		m.currentTACIndex = linearizeExpression(m);
 
 		// generate a label and figure out condition to jump when the if statement isn't executed
-		struct TACLine *ifFalseJump = linearizeConditionalJump(m.currentTACIndex++, m.ast->value, whichCondition, m.ast);
-		ifFalseJump->operands[0].name.val = target->labelNum;
-		BasicBlock_append(m.currentBlock, ifFalseJump);
+		struct TACLine *condFalseJump = linearizeConditionalJump(m.currentTACIndex++, m.ast->value, whichCondition, m.ast);
+		condFalseJump->operands[0].name.val = targetLabel;
+		BasicBlock_append(m.currentBlock, condFalseJump);
 	}
 	break;
 
@@ -1206,11 +1212,11 @@ struct Stack *linearizeIfStatement(struct LinearizationMetadata m,
 	if (m.ast->child->sibling->sibling != NULL)
 	{
 		elseBlock = BasicBlock_new((*labelCount)++);
-		m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, 0, elseBlock, labelCount, 0);
+		m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, 0, elseBlock->labelNum, labelCount, 0);
 	}
 	else
 	{
-		m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, 0, afterIfBlock, labelCount, 0);
+		m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, 0, afterIfBlock->labelNum, labelCount, 0);
 	}
 
 	struct LinearizationMetadata ifMetadata;
@@ -1263,7 +1269,7 @@ struct LinearizationResult *linearizeWhileLoop(struct LinearizationMetadata m,
 	memcpy(&conditionCheckMetadata, &m, sizeof(struct LinearizationMetadata));
 	conditionCheckMetadata.ast = m.ast->child;
 
-	m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, 0, afterWhileBlock, labelCount, 0);
+	m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, 0, afterWhileBlock->labelNum, labelCount, 0);
 
 	// create the scope for the while loop
 	struct LinearizationMetadata whileBodyScopeMetadata;

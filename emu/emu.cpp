@@ -982,8 +982,8 @@ int main(int argc, char *argv[])
     std::cout << "dump file opened" << std::endl;
     for (uint32_t pageIndex : memory.ActivePages())
     {
-        char pageHeader[17];
-        snprintf(pageHeader, 16, "Page add%08x", pageIndex << PAGE_BIT_WIDTH);
+        char pageHeader[18];
+        snprintf(pageHeader, 17, "Page add%08x", pageIndex << PAGE_BIT_WIDTH);
         dumpFile << pageHeader;
         for (int i = 0; i < PAGE_SIZE; i++)
         {

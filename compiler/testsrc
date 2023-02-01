@@ -23,11 +23,11 @@ fun condTest(var num)
     var b = 0;
     var c;
 
-    while(a < 3)
-    {
-        b = 0;
-        while(b < 3)
-        {
+    // while(a < 3)
+    // {
+        // b = 0;
+        // while(b < 3)
+        // {
             if(((a == 0) && (b == 0)) || (a != b))
             {
                 c = 0;
@@ -41,11 +41,11 @@ fun condTest(var num)
             print(58);
             print(c + 48);
             print(10); // newline
-            b = b + 1;
-        }
-        a = a + 1;
-    }
-    
+            // b = b + 1;
+        // }
+        // a = a + 1;
+    // }
+    // 
 }
 
 
