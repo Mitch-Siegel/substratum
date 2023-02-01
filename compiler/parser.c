@@ -7,7 +7,9 @@ int curLine, curCol;
 char inChar;
 char *token_names[] = {
 	"asm",
-	"var",
+	"uint8",
+	"uint16",
+	"uint32",
 	"fun",
 	"return",
 	"if",
@@ -194,11 +196,13 @@ char lookahead_char()
 	return r;
 }
 
-#define RESERVED_COUNT 30
+#define RESERVED_COUNT 32
 
 char *reserved[RESERVED_COUNT] = {
 	"asm",
-	"var",
+	"uint8",
+	"uint16",
+	"uint32",
 	"fun",
 	"return",
 	"if",
@@ -230,7 +234,9 @@ char *reserved[RESERVED_COUNT] = {
 
 enum token reserved_t[RESERVED_COUNT] = {
 	t_asm,
-	t_var,
+	t_uint8,
+	t_uint16,
+	t_uint32,
 	t_fun,
 	t_return,
 	t_if,
@@ -429,7 +435,8 @@ struct AST *parseTLD(struct Dictionary *dict)
 	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseTLD\n");
 
 	struct AST *TLD;
-	switch (lookahead())
+	enum token nextToken;
+	switch ((nextToken = lookahead()))
 	{
 	case t_asm:
 		TLD = parseASM(dict);
@@ -448,11 +455,13 @@ struct AST *parseTLD(struct Dictionary *dict)
 		AST_InsertChild(TLD, parseScope(dict));
 		break;
 
-	// var [variable name];
-	// var [variable name] = [expression];
-	case t_var:
+	// type [variable name];
+	// type [variable name] = [expression];
+	case t_uint8:
+	case t_uint16:
+	case t_uint32:
 	{
-		TLD = match(t_var, dict);
+		TLD = match(nextToken, dict);
 		struct AST *name = parseDeclaration(dict);
 		if (lookahead() == t_assign)
 		{
@@ -622,9 +631,11 @@ struct AST *parseStatement(struct Dictionary *dict)
 		statement = parseASM(dict);
 		break;
 
-	// v [variable name];
-	// v [variable name] = [expression];
-	case t_var:
+	// type [variable name];
+	// type [variable name] = [expression];
+	case t_uint8:
+	case t_uint16:
+	case t_uint32:
 	{
 		struct AST *type = match(upcomingToken, dict);
 		statement = type;
@@ -819,7 +830,9 @@ struct AST *parseArgDefinitions(struct Dictionary *dict)
 		enum token next = lookahead();
 		switch (next)
 		{
-		case t_var:
+		case t_uint8:
+		case t_uint16:
+		case t_uint32:
 		{
 			struct AST *argument = match(next, dict);
 			struct AST *declaration = argument;

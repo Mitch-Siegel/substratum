@@ -6,7 +6,9 @@
 enum token
 {
 	t_asm,
-	t_var,
+	t_uint8,
+	t_uint16,
+	t_uint32,
 	t_fun,
 	t_return,
 	t_if,

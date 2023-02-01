@@ -268,8 +268,8 @@ void sortSpilledLifetimes(struct FunctionRegisterAllocationMetadata *metadata)
 		for (int j = 0; j < metadata->spilledLifetimes->size - i - 1; j++)
 		{
 			struct Lifetime *thisLifetime = metadata->spilledLifetimes->data[j];
-			int thisSize = Scope_getSizeOfVariable(metadata->function->mainScope, thisLifetime->variable);
-			int compSize = Scope_getSizeOfVariable(metadata->function->mainScope, ((struct Lifetime *)metadata->spilledLifetimes->data[j + 1])->variable);
+			int thisSize = Scope_getSizeOfVariableByString(metadata->function->mainScope, thisLifetime->variable);
+			int compSize = Scope_getSizeOfVariableByString(metadata->function->mainScope, ((struct Lifetime *)metadata->spilledLifetimes->data[j + 1])->variable);
 
 			if (thisSize < compSize)
 			{
@@ -396,7 +396,7 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	for (int i = 0; i < metadata.spilledLifetimes->size; i++)
 	{
 		struct Lifetime *thisLifetime = metadata.spilledLifetimes->data[i];
-		int thisSize = Scope_getSizeOfVariable(function->mainScope, thisLifetime->variable);
+		int thisSize = Scope_getSizeOfVariableByString(function->mainScope, thisLifetime->variable);
 		struct ScopeMember *thisVariableEntry = Scope_lookup(function->mainScope, thisLifetime->variable);
 		if (thisVariableEntry != NULL)
 		{

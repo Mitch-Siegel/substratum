@@ -7,7 +7,7 @@ char *symbolNames[] = {
 	"function"};
 
 // create a variable denoted to be an argument within the given function entry
-void FunctionEntry_createArgument(struct FunctionEntry *func, char *name, enum variableTypes type, int indirectionLevel, int arraySize)
+void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize)
 {
 	struct VariableEntry *newArgument = malloc(sizeof(struct VariableEntry));
 	newArgument->type = type;
@@ -16,7 +16,9 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, char *name, enum v
 	newArgument->declaredAt = -1;
 	newArgument->isAssigned = 0;
 	newArgument->mustSpill = 0;
-	newArgument->name = name;
+	newArgument->name = name->value;
+
+	Scope_insert(func->mainScope, name->value, newArgument, e_argument);
 
 	int argSize = Scope_getSizeOfVariable(func->mainScope, name);
 	newArgument->stackOffset = func->argStackSize + 8;
@@ -30,8 +32,8 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, char *name, enum v
 
 		objForArg->size = argSize;
 		objForArg->arraySize = arraySize;
-		char *modName = malloc(strlen(name) + 5);
-		sprintf(modName, "%s.obj", name);
+		char *modName = malloc(strlen(name->value) + 5);
+		sprintf(modName, "%s.obj", name->value);
 		Scope_insert(func->mainScope, Dictionary_LookupOrInsert(parseDict, modName), objForArg, e_stackobj);
 		free(modName);
 	}
@@ -39,10 +41,6 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, char *name, enum v
 	{
 		newArgument->localPointerTo = NULL;
 	}
-
-	Scope_insert(func->mainScope, name, newArgument, e_argument);
-
-	// return newArgument;
 }
 
 struct SymbolTable *SymbolTable_new(char *name)
@@ -147,7 +145,7 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
 }
 
 // create a variable within the given scope
-void Scope_createVariable(struct Scope *scope, char *name, enum variableTypes type, int indirectionLevel, int arraySize)
+void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize)
 {
 	struct VariableEntry *newVariable = malloc(sizeof(struct VariableEntry));
 	newVariable->type = type;
@@ -157,7 +155,9 @@ void Scope_createVariable(struct Scope *scope, char *name, enum variableTypes ty
 	newVariable->declaredAt = -1;
 	newVariable->isAssigned = 0;
 	newVariable->mustSpill = 0;
-	newVariable->name = name;
+	newVariable->name = name->value;
+
+	Scope_insert(scope, name->value, newVariable, e_variable);
 
 	int varSize = Scope_getSizeOfVariable(scope, name);
 
@@ -172,8 +172,8 @@ void Scope_createVariable(struct Scope *scope, char *name, enum variableTypes ty
 		// since indexing pushes address forward, set the stack offset of the variable to be index 0 (the - size * arraySize) term does this
 		objForvar->stackOffset = (scope->parentFunction->localStackSize * -1) - (objForvar->size * objForvar->arraySize);
 		scope->parentFunction->localStackSize += varSize * arraySize;
-		char *modName = malloc(strlen(name) + 5);
-		sprintf(modName, "%s.obj", name);
+		char *modName = malloc(strlen(name->value) + 5);
+		sprintf(modName, "%s.obj", name->value);
 		Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, modName), objForvar, e_stackobj);
 		free(modName);
 	}
@@ -181,9 +181,6 @@ void Scope_createVariable(struct Scope *scope, char *name, enum variableTypes ty
 	{
 		newVariable->localPointerTo = NULL;
 	}
-	Scope_insert(scope, name, newVariable, e_variable);
-	// scope->parentFunction->localStackSize += ( * arraySize);
-	// return newVariable;
 }
 
 // create a new function accessible within the given scope
@@ -195,7 +192,7 @@ struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name)
 	newFunction->mainScope = Scope_new(scope, "");
 	newFunction->BasicBlockList = LinkedList_New();
 	newFunction->mainScope->parentFunction = newFunction;
-	newFunction->returnType = vt_var; // hardcoded... for now ;)
+	newFunction->returnType = vt_uint32; // hardcoded... for now ;)
 	newFunction->name = name;
 	Scope_insert(scope, name, newFunction, e_function);
 	return newFunction;
@@ -255,12 +252,12 @@ struct ScopeMember *Scope_lookup(struct Scope *scope, char *name)
 	return NULL;
 }
 
-struct VariableEntry *Scope_lookupVar(struct Scope *scope, char *name)
+struct VariableEntry *Scope_lookupVarByString(struct Scope *scope, char *name)
 {
 	struct ScopeMember *lookedUp = Scope_lookup(scope, name);
 	if (lookedUp == NULL)
 	{
-		ErrorAndExit(ERROR_CODE, "Use of undeclared variable [%s]\n", name);
+		ErrorAndExit(ERROR_INTERNAL, "Lookup of variable [%s] by string name failed!\n", name);
 	}
 
 	switch (lookedUp->type)
@@ -270,16 +267,35 @@ struct VariableEntry *Scope_lookupVar(struct Scope *scope, char *name)
 		return lookedUp->entry;
 
 	default:
-		ErrorAndExit(ERROR_CODE, "Use of undeclared variable [%s]\n", name);
+		ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up variable!\n");
 	}
 }
 
-struct FunctionEntry *Scope_lookupFun(struct Scope *scope, char *name)
+struct VariableEntry *Scope_lookupVar(struct Scope *scope, struct AST *name)
 {
-	struct ScopeMember *lookedUp = Scope_lookup(scope, name);
+	struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
 	if (lookedUp == NULL)
 	{
-		ErrorAndExit(ERROR_CODE, "Use of undeclared function [%s]\n", name);
+		ErrorAndExit(ERROR_CODE, "Line: %d, Column %d\n\tUse of undeclared variable [%s]\n", name->sourceLine, name->sourceCol, name->value);
+	}
+
+	switch (lookedUp->type)
+	{
+	case e_argument:
+	case e_variable:
+		return lookedUp->entry;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up variable!\n");
+	}
+}
+
+struct FunctionEntry *Scope_lookupFun(struct Scope *scope, struct AST *name)
+{
+	struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
+	if (lookedUp == NULL)
+	{
+		ErrorAndExit(ERROR_CODE, "Line: %d, Column %d\n\tUse of undeclared function [%s]\n", name->sourceLine, name->sourceCol, name->value);
 	}
 	switch (lookedUp->type)
 	{
@@ -287,7 +303,7 @@ struct FunctionEntry *Scope_lookupFun(struct Scope *scope, char *name)
 		return lookedUp->entry;
 
 	default:
-		ErrorAndExit(ERROR_CODE, "Use of undeclared function [%s]\n", name);
+		ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up function!\n");
 	}
 }
 
@@ -317,20 +333,42 @@ struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char su
 	return lookedUp;
 }
 
-int Scope_getSizeOfVariable(struct Scope *scope, char *name)
+int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
 {
-	return 4;
-	/*
+	struct VariableEntry *theVariable = Scope_lookupVarByString(scope, name);
 	switch (theVariable->type)
 	{
-	case vt_var:
+	case vt_uint8:
+		return 1;
+
+	case vt_uint16:
 		return 2;
 
+	case vt_uint32:
+		return 4;
+
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Unexpected variable type %d!\n", theVariable->type);
-		break;
+		ErrorAndExit(ERROR_INTERNAL, "Unexepcted variable type %d!\n", theVariable->type);
 	}
-	*/
+}
+
+int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
+{
+	struct VariableEntry *theVariable = Scope_lookupVar(scope, name);
+	switch (theVariable->type)
+	{
+	case vt_uint8:
+		return 1;
+
+	case vt_uint16:
+		return 2;
+
+	case vt_uint32:
+		return 4;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Unexepcted variable type %d!\n", theVariable->type);
+	}
 }
 
 void Scope_print(struct Scope *it, int depth, char printTAC)
@@ -444,9 +482,10 @@ void walkStatement(struct AST *it, struct Scope *wip)
 		walkScope(it, Scope_createSubScope(wip), 0);
 		break;
 
-	case t_var:
+	case t_uint8:
+	case t_uint16:
+	case t_uint32:
 	{
-		char *varName;
 		int arraySize;
 		int indirectionLevel = 0;
 		runner = it;
@@ -468,31 +507,46 @@ void walkStatement(struct AST *it, struct Scope *wip)
 
 		if (runner->type == t_assign)
 		{
-			varName = runner->child->value;
+			runner = runner->child;
 		}
 		else
 		{
 			if (runner->type == t_array)
 			{
-				varName = runner->child->value;
-				arraySize = atoi(runner->child->sibling->value);
+				runner = runner->child;
+				arraySize = atoi(runner->sibling->value);
 			}
 			else
 			{
-				varName = runner->value;
 				arraySize = 1;
 			}
 		}
 
 		// lookup the variable being assigned, only insert if unique
 		// also covers modification of argument values
-		if (!Scope_contains(wip, varName))
+		if (!Scope_contains(wip, runner->value))
 		{
-			Scope_createVariable(wip, varName, vt_var, indirectionLevel, arraySize);
+			switch (it->type)
+			{
+			case t_uint8:
+				Scope_createVariable(wip, runner, vt_uint8, indirectionLevel, arraySize);
+				break;
+
+			case t_uint16:
+				Scope_createVariable(wip, runner, vt_uint16, indirectionLevel, arraySize);
+				break;
+
+			case t_uint32:
+				Scope_createVariable(wip, runner, vt_uint32, indirectionLevel, arraySize);
+				break;
+
+			default:
+				ErrorAndExit(ERROR_INTERNAL, "Invaild token for type of declared variable\n");
+			}
 		}
 		else
 		{
-			ErrorAndExit(ERROR_CODE, "Error - redeclaration of symbol [%s]\n", varName);
+			ErrorAndExit(ERROR_CODE, "Error - redeclaration of symbol [%s]\n", runner->value);
 		}
 	}
 	break;
@@ -626,17 +680,23 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 				enum variableTypes theType;
 				switch (argumentRunner->type)
 				{
-				case t_var:
-					theType = vt_var;
+				case t_uint8:
+					theType = vt_uint8;
+					break;
+
+				case t_uint16:
+					theType = vt_uint16;
+					break;
+
+				case t_uint32:
+					theType = vt_uint32;
 					break;
 
 				default:
-					// TODO: should this really be an internal error?
 					ErrorAndExit(ERROR_INTERNAL, "Unexpected argument type while walking function!\n");
 					break;
 				}
 
-				char *argName;
 				int arraySize;
 				int indirectionLevel = 0;
 				struct AST *runner = argumentRunner;
@@ -658,31 +718,30 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 
 				if (runner->type == t_assign)
 				{
-					argName = runner->child->value;
+					runner = runner->child;
 				}
 				else
 				{
 					if (runner->type == t_array)
 					{
-						argName = runner->child->value;
-						arraySize = atoi(runner->child->sibling->value);
+						runner = runner->child;
+						arraySize = atoi(runner->sibling->value);
 					}
 					else
 					{
-						argName = runner->value;
 						arraySize = 1;
 					}
 				}
 
 				// lookup the variable being assigned, only insert if unique
 				// also covers modification of argument values
-				if (!Scope_contains(func->mainScope, argName))
+				if (!Scope_contains(func->mainScope, runner->value))
 				{
-					FunctionEntry_createArgument(func, argName, theType, indirectionLevel, arraySize);
+					FunctionEntry_createArgument(func, runner, theType, indirectionLevel, arraySize);
 				}
 				else
 				{
-					ErrorAndExit(ERROR_CODE, "Error - redeclaration of symbol [%s]\n", argName);
+					ErrorAndExit(ERROR_CODE, "Error - redeclaration of symbol [%s]\n", runner->value);
 				}
 
 				argumentRunner = argumentRunner->sibling;
@@ -757,7 +816,9 @@ struct SymbolTable *walkAST(struct AST *it)
 		{
 		// global variable declarations/definitions are allowed
 		// use walkStatement to handle this
-		case t_var:
+		case t_uint8:
+		case t_uint16:
+		case t_uint32:
 		{
 			walkStatement(runner, programTable->globalScope);
 			struct AST *scraper = runner->child;
