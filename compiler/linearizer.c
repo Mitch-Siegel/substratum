@@ -410,7 +410,7 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 		m.currentTACIndex = linearizeExpression(expressionMetadata);
 		struct TACLine *recursiveExpression = m.currentBlock->TACList->tail->data;
 
-		parentExpression->operands[operandIndex].type = recursiveExpression->operands[1].type;
+		parentExpression->operands[operandIndex].type = recursiveExpression->operands[0].type;
 		parentExpression->operands[operandIndex].indirectionLevel = recursiveExpression->operands[0].indirectionLevel;
 	}
 	break;
