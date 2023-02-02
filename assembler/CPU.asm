@@ -128,7 +128,7 @@
     movb %{rd: reg}, (%{rbase: reg}+%{roffset: reg},{sclpow: i5}) => 0xa9 @ rd @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
     movb (%{rbase: reg}+%{roffset: reg},{sclpow:i5}), %{rs: reg}  => 0xab @ rs @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
 
-    movb %{rd: reg}, ${imm: i8}                                  => 0xaf @ rd @ 0x0 @ imm
+    movb %{rd: reg}, ${imm: i8}                                  => 0xaf @ rd @ 0x000 @ imm
 
     ; data movement (half word)
     movh %{rd: reg}, %{rs: reg}                                  => 0xb0 @ rs @ rd @ 0x0000
