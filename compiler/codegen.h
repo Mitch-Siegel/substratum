@@ -10,6 +10,8 @@ struct Stack *generateCodeForScope(struct Scope *scope, FILE *outFile);
 
 struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE *outFile);
 
+const char *SelectMovWidthForPrimitive(enum variableTypes type);
+
 const char *SelectMovWidth(struct TACOperand *dataDest, struct Scope *currentScope);
 
 void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,

@@ -143,6 +143,7 @@
     movh (%{rbase: reg}+%{roffset: reg},{sclpow:i5}), %{rs: reg} => 0xbb @ rs @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
 
     movh %{rd: reg}, ${imm: i16}                                 => 0xbf @ rd @ 0x0 @ imm
+    mov %{rd: reg}, ${imm: i16}                                 => 0xbf @ rd @ 0x0 @ imm
 
 
     ; data movement (full word)

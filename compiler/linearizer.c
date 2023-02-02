@@ -625,15 +625,28 @@ int linearizeExpression(struct LinearizationMetadata m)
 
 	if (thisExpression->operation != tt_cmp)
 	{
-		// An expression will take on the size of the largest of its two operands
 		// TODO: with signed types, error on arithmetic between different signs
-		if (thisExpression->operands[1].type > thisExpression->operands[2].type)
+
+		// if either operand is a literal, evaluate assigned size to the non-literal operand
+		if (thisExpression->operands[1].permutation == vp_literal)
+		{
+			thisExpression->operands[0].type = thisExpression->operands[2].type;
+		}
+		else if (thisExpression->operands[2].permutation == vp_literal)
 		{
 			thisExpression->operands[0].type = thisExpression->operands[1].type;
 		}
 		else
+		// otherwise, an expression will take on the size of the largest of its two operands
 		{
-			thisExpression->operands[0].type = thisExpression->operands[2].type;
+			if (thisExpression->operands[1].type > thisExpression->operands[2].type)
+			{
+				thisExpression->operands[0].type = thisExpression->operands[1].type;
+			}
+			else
+			{
+				thisExpression->operands[0].type = thisExpression->operands[2].type;
+			}
 		}
 	}
 
