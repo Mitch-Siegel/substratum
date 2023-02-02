@@ -1,4 +1,6 @@
 #include "regalloc.h"
+#include "symtab.h"
+
 
 void PlaceLiteralInRegister(struct LinkedList *currentBlock, char *literalStr, char *destReg);
 
@@ -7,6 +9,8 @@ struct Stack *generateCode(struct SymbolTable *table, FILE *outFile);
 struct Stack *generateCodeForScope(struct Scope *scope, FILE *outFile);
 
 struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE *outFile);
+
+const char *SelectMovWidth(struct TACOperand *dataDest, struct Scope *currentScope);
 
 void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
                                struct Scope *thisScope,

@@ -120,6 +120,8 @@ struct Scope *Scope_lookupSubScope(struct Scope *scope, char *name);
 
 struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char subScopeNumber);
 
+int GetSizeOfPrimitive(enum variableTypes type);
+
 int Scope_getSizeOfVariableByString(struct Scope *scope, char *name);
 
 int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name);

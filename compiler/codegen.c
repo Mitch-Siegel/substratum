@@ -522,6 +522,47 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	return functionBlock;
 }
 
+const char *SelectMovWidth(struct TACOperand *dataDest, struct Scope *currentScope)
+{
+	// pointers are always full-width
+	if (dataDest->indirectionLevel > 0)
+	{
+		return "mov";
+	}
+
+	int destSize;
+
+	switch (dataDest->permutation)
+	{
+		// do the lookup even if we know the type to ensure TAC consistency
+	case vp_standard:
+		destSize = Scope_getSizeOfVariableByString(currentScope, dataDest->name.str);
+		break;
+
+		// if we have a temp, it doesn't have a symtab entry because it must be a primitive (remember we caught pointers at the top of the function)
+	case vp_temp:
+		destSize = GetSizeOfPrimitive(dataDest->type);
+		break;
+
+	case vp_literal:
+		ErrorAndExit(ERROR_INTERNAL, "Error in SelectMovWidth: Data destination can't be a literal!");
+		break;
+	}
+
+	switch (destSize)
+	{
+	case 1:
+		return "movb";
+
+	case 2:
+		return "movh";
+
+	case 4:
+		return "mov";
+	}
+	ErrorAndExit(ERROR_INTERNAL, "Error in SelectMovWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, or 4 bytes!");
+}
+
 // TODO: thisBlock vs asmBlock?!
 void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 							   struct Scope *thisScope,
@@ -560,32 +601,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			struct Lifetime *assignedLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
 			struct Lifetime *assignerLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[1].name.str);
 			// assign to register
-
-			char *movInstruction;
-			if (thisTAC->operands[1].permutation == vp_literal)
-			{
-				movInstruction = "movh";
-			}
-			else
-			{
-				switch (Scope_getSizeOfVariableByString(thisScope, thisTAC->operands[1].name.str))
-				{
-				case 1:
-					movInstruction = "movb";
-					break;
-
-				case 2:
-					movInstruction = "movh";
-					break;
-
-				case 4:
-					movInstruction = "mov";
-					break;
-
-				default:
-					ErrorAndExit(ERROR_INTERNAL, "Got unexpected variable size of %d for [%s]\n", Scope_getSizeOfVariableByString(thisScope, thisTAC->operands[1].name.str), thisTAC->operands[1].name.str);
-				}
-			}
+			const char *movInstruction = SelectMovWidth(&thisTAC->operands[0], thisScope);
 
 			if (assignedLifetime->isSpilled == 0)
 			{

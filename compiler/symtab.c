@@ -333,10 +333,9 @@ struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char su
 	return lookedUp;
 }
 
-int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
+int GetSizeOfPrimitive(enum variableTypes type)
 {
-	struct VariableEntry *theVariable = Scope_lookupVarByString(scope, name);
-	switch (theVariable->type)
+	switch (type)
 	{
 	case vt_uint8:
 		return 1;
@@ -348,7 +347,20 @@ int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
 		return 4;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Unexepcted variable type %d!\n", theVariable->type);
+		ErrorAndExit(ERROR_INTERNAL, "Unexepcted primitive type (enum variableTypes %d)!\n", type);
+	}
+}
+
+int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
+{
+	struct VariableEntry *theVariable = Scope_lookupVarByString(scope, name);
+	if(theVariable->indirectionLevel > 0)
+	{
+		return 4;
+	}
+	else
+	{
+		return GetSizeOfPrimitive(theVariable->type);
 	}
 }
 
