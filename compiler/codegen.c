@@ -558,12 +558,9 @@ const char *SelectMovWidth(struct TACOperand *dataDest, struct Scope *currentSco
 
 	switch (dataDest->permutation)
 	{
-		// do the lookup even if we know the type to ensure TAC consistency
+		// if we have a var/ temp at this stage, it must be a primitive (remember we caught pointers at the top of the function)
 	case vp_standard:
-		destSize = Scope_getSizeOfVariableByString(currentScope, dataDest->name.str);
-		break;
 
-		// if we have a temp, it doesn't have a symtab entry because it must be a primitive (remember we caught pointers at the top of the function)
 	case vp_temp:
 		destSize = GetSizeOfPrimitive(dataDest->type);
 		break;
@@ -576,7 +573,6 @@ const char *SelectMovWidth(struct TACOperand *dataDest, struct Scope *currentSco
 	const char *returned = SelectMovWidthForSize(destSize);
 	printf("%s\n", returned);
 	return returned;
-
 }
 
 // TODO: thisBlock vs asmBlock?!
