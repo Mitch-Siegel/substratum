@@ -12,7 +12,7 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 
 const char *SelectMovWidthForPrimitive(enum variableTypes type);
 
-const char *SelectMovWidth(struct TACOperand *dataDest, struct Scope *currentScope);
+const char *SelectMovWidth(struct TACOperand *dataDest);
 
 void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
                                struct Scope *thisScope,

@@ -1283,7 +1283,7 @@ struct LinearizationResult *linearizeWhileLoop(struct LinearizationMetadata m,
 	struct BasicBlock *beforeWhileBlock = m.currentBlock;
 
 	m.currentBlock = BasicBlock_new((*labelCount)++);
-	int whileSubScopeIndex = m.scope->subScopeCount - 1;
+	// int whileSubScopeIndex = m.scope->subScopeCount - 1;
 	Function_addBasicBlock(m.scope->parentFunction, m.currentBlock);
 
 	struct TACLine *enterWhileJump = newTACLine(m.currentTACIndex++, tt_jmp, m.ast);
@@ -1306,11 +1306,11 @@ struct LinearizationResult *linearizeWhileLoop(struct LinearizationMetadata m,
 	whileBodyScopeMetadata.ast = m.ast->child->sibling->child;
 
 	struct LinearizationResult *r = linearizeScope(whileBodyScopeMetadata, m.currentBlock, labelCount, scopenesting);
-
-	// insert the conditional checks into that scope
-	Scope_addBasicBlock(Scope_lookupSubScopeByNumber(m.scope, whileSubScopeIndex), m.currentBlock);
+	struct TACLine *whileLoopJump = newTACLine(r->endingTACIndex++, tt_jmp, m.ast->child);
+	whileLoopJump->operands[0].name.val = m.currentBlock->labelNum;
 
 	struct TACLine *whileEndDo = newTACLine(r->endingTACIndex, tt_enddo, m.ast);
+	BasicBlock_append(r->block, whileLoopJump);
 	BasicBlock_append(r->block, whileEndDo);
 
 	return r;
@@ -1600,6 +1600,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 				BasicBlock_append(m.currentBlock, convergeControlJump);
 			}
 		}
+		// it would appear
 	}
 
 	struct LinearizationResult *r = malloc(sizeof(struct LinearizationResult));
