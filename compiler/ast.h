@@ -6,7 +6,9 @@
 enum token
 {
 	t_asm,
-	t_var,
+	t_uint8,
+	t_uint16,
+	t_uint32,
 	t_fun,
 	t_return,
 	t_if,
@@ -25,8 +27,9 @@ enum token
 	t_bin_notEquals,
 	t_bin_log_and,
 	t_bin_log_or,
-	t_bin_log_xor,
 	t_un_log_not,
+	t_un_add_assign,
+	t_un_sub_assign,
 	t_reference,
 	t_dereference,
 	t_assign,
@@ -54,6 +57,8 @@ struct AST
 	int sourceCol;
 };
 
+// instantiate a new AST with given type and value
+// the sourceLine and sourceCol fields will be automatically populated
 struct AST *AST_New(enum token t, char *value);
 
 void AST_InsertSibling(struct AST *it, struct AST *newSibling);

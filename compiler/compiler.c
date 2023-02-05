@@ -26,35 +26,34 @@ int main(int argc, char **argv)
 
 	printf("Parsing program from %s\n", argv[1]);
 
-	printf("Generating output to %s\n", argv[2]);
+	printf("Output will be generated to %s\n", argv[2]);
 	parseDict = Dictionary_New(10);
 	struct AST *program = ParseProgram(argv[1], parseDict);
 
-	serializeAST("astdump", program);
-	printf("\n");
+	// serializeAST("astdump", program);
+	// printf("\n");
 
-	AST_Print(program, 0);
+	// AST_Print(program, 0);
 	printf("Generating symbol table from AST");
 	struct SymbolTable *theTable = walkAST(program);
 	printf("\n");
 
 
-	printf("Symbol table before scope collapse:\n");
-	SymbolTable_print(theTable, 0);
-
-	
-
+	// printf("Symbol table before scope collapse:\n");
+	// SymbolTable_print(theTable, 0);
 
 	printf("Linearizing code to basic blocks\n");
 	linearizeProgram(program, theTable->globalScope, parseDict);
 
+	printf("Collapsing scopes\n");
 	collapseScopes(theTable->globalScope, parseDict, 1);
 
-	printf("Symbol table after lienarization/scope collapse:\n");
-	SymbolTable_print(theTable, 1);
+	// printf("Symbol table after lienarization/scope collapse:\n");
+	// SymbolTable_print(theTable, 1);
 
 	FILE *outFile = fopen(argv[2], "wb");
 
+	printf("Generating code\n");
 	struct Stack *outputBlocks;
 	outputBlocks = generateCode(theTable, outFile);
 	fprintf(outFile, "#include \"CPU.asm\"\n#include \"INT.asm\"\n");

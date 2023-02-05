@@ -3,6 +3,9 @@
 
 #include "ast.h"
 
+extern int curLine;
+extern int curCol;
+
 struct AST *AST_New(enum token t, char *value)
 {
 	struct AST *wip = malloc(sizeof(struct AST));
@@ -10,8 +13,8 @@ struct AST *AST_New(enum token t, char *value)
 	wip->sibling = NULL;
 	wip->type = t;
 	wip->value = value;
-	wip->sourceLine = 0;
-	wip->sourceCol = 0;
+	wip->sourceLine = curLine;
+	wip->sourceCol = curCol;
 	return wip;
 }
 

@@ -18,7 +18,7 @@ asm
 }
 ;
 
-fun print(var value)
+fun print(uint32 value)
 {
     // store r0, pull the argument into a register, then output that register
     asm {
@@ -28,7 +28,7 @@ fun print(var value)
     ;
 }
 
-fun mod(var a, var divisor)
+fun mod(uint32 a, uint32 divisor)
 {
     while (a >= divisor)
     {
@@ -37,9 +37,9 @@ fun mod(var a, var divisor)
     return a;
 }
 
-fun mul(var a, var b)
+fun mul(uint32 a, uint32 b)
 {
-    var result = 0;
+    uint32 result = 0;
     if (a > b)
     {
         while (b > 0)
@@ -59,9 +59,9 @@ fun mul(var a, var b)
     return result;
 }
 
-fun div(var a, var b)
+fun div(uint32 a, uint32 b)
 {
-    var quotient = 0;
+    uint32 quotient = 0;
     while (a >= b)
     {
         a = a - b;
@@ -70,10 +70,10 @@ fun div(var a, var b)
     return quotient;
 }
 
-fun printNum(var num)
+fun printNum(uint32 num)
 {
-    var outStr[16];
-    var digits = 1;
+    uint32 outStr[16];
+    uint32 digits = 1;
     if (num == 0)
     {
         outStr[0] = 48;
@@ -82,14 +82,14 @@ fun printNum(var num)
     {
         while (num > 0)
         {
-            var remainder = mod(num, 10);
+            uint32 remainder = mod(num, 10);
             outStr[digits] = remainder + 48;
             num = div(num, 10);
             digits = digits + 1;
         }
     }
 
-    var i = 0;
+    uint32 i = 0;
     while (i < digits)
     {
         print(outStr[digits - i]);
@@ -100,8 +100,8 @@ fun printNum(var num)
 
 fun multiples()
 {
-    var i = 1;
-    var sum = 0;
+    uint32 i = 1;
+    uint32 sum = 0;
     while (i < 1000)
     {
         if ((mod(i, 3) == 0))

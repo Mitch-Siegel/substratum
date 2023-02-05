@@ -1,5 +1,5 @@
 cd assembler && customasm ./main.asm
 cd ../emu && make
-sleep 2
+sleep 1
 ./emu ../assembler/main.bin
 

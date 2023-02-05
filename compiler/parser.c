@@ -7,7 +7,9 @@ int curLine, curCol;
 char inChar;
 char *token_names[] = {
 	"asm",
-	"var",
+	"uint8",
+	"uint16",
+	"uint32",
 	"fun",
 	"return",
 	"if",
@@ -26,8 +28,9 @@ char *token_names[] = {
 	"binary not equals",
 	"binary logical and",
 	"binary logical or",
-	"binary logical xor",
 	"unary logical not",
+	"unary add and assign",
+	"unary sub and assign"
 	"reference operator",
 	"dereference operator",
 	"assignment",
@@ -44,7 +47,7 @@ char *token_names[] = {
 	"scope",
 	"EOF"};
 
-#define VERBOSE_PARSE
+// #define VERBOSE_PARSE
 #ifdef VERBOSE_PARSE
 int parseDepth = 0;
 
@@ -54,7 +57,7 @@ int parseDepth = 0;
 		printf("\t");                                 \
 	}                                                 \
 	parseDepth++;                                     \
-	printf(string);
+	printf(string)
 
 #define PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE() parseDepth--
 
@@ -67,7 +70,7 @@ int parseDepth = 0;
 #else
 #define PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE(string)
 #define PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE()
-PRINT_MATCH_IF_VERBOSE()
+#define PRINT_MATCH_IF_VERBOSE(token, value)
 #endif
 
 #define ParserError(production, info)                                                 \
@@ -195,44 +198,49 @@ char lookahead_char()
 	return r;
 }
 
-#define RESERVED_COUNT 31
+#define RESERVED_COUNT 34
 
 char *reserved[RESERVED_COUNT] = {
-	"asm",
-	"var",
-	"fun",
-	"return",
-	"if",
-	"else",
-	"while",
-	",",
-	"(",
-	")",
-	"{",
-	"}",
-	"[",
-	"]",
-	";",
-	"=",
-	"+",
-	"-",
-	"*",
-	"&",
-	">",
-	"<",
-	">=",
-	"<=",
-	"==",
-	"!=",
-	"&&",
-	"||",
-	"^",
-	"!",
-	"$$"};
+	"asm",	  // t_asm,
+	"uint8",  // 	t_uint8,
+	"uint16", // 	t_uint16,
+	"uint32", // 	t_uint32,
+	"fun",	  // 	t_fun,
+	"return", // 	t_return,
+	"if",	  // 	t_if,
+	"else",	  // 	t_else,
+	"while",  // 	t_while,
+	",",	  // 	t_comma,
+	"(",	  // 	t_lParen,
+	")",	  // 	t_rParen,
+	"{",	  // 	t_lCurly,
+	"}",	  // 	t_rCurly,
+	"[",	  // 	t_lBracket,
+	"]",	  // 	t_rBracket,
+	";",	  // 	t_semicolon,
+	"=",	  // 	t_assign,
+	"+",	  // 	t_bin_add,
+	"+=",	  // 	t_un_add_assign,
+	"-",	  // 	t_bin_sub,
+	"-=",	  // 	t_un_sub_assign,
+	"*",	  // 	t_dereference,
+	"&",	  // 	t_reference,
+	">",	  // 	t_bin_gThan,
+	"<",	  // 	t_bin_lThan,
+	">=",	  // 	t_bin_gThanE,
+	"<=",	  // 	t_bin_lThanE,
+	"==",	  // 	t_bin_equals,
+	"!=",	  // 	t_bin_notEquals,
+	"&&",	  // 	t_bin_log_and,
+	"||",	  // 	t_bin_log_or,
+	"!",	  // 	t_un_log_not,
+	"$$"};	  // 	t_EOF
 
-enum token reserved_t[RESERVED_COUNT] = {
+enum token reserved_tokens[RESERVED_COUNT] = {
 	t_asm,
-	t_var,
+	t_uint8,
+	t_uint16,
+	t_uint32,
 	t_fun,
 	t_return,
 	t_if,
@@ -248,7 +256,9 @@ enum token reserved_t[RESERVED_COUNT] = {
 	t_semicolon,
 	t_assign,
 	t_bin_add,
+	t_un_add_assign,
 	t_bin_sub,
+	t_un_sub_assign,
 	t_dereference,
 	t_reference,
 	t_bin_gThan,
@@ -259,7 +269,6 @@ enum token reserved_t[RESERVED_COUNT] = {
 	t_bin_notEquals,
 	t_bin_log_and,
 	t_bin_log_or,
-	t_bin_log_xor,
 	t_un_log_not,
 	t_EOF};
 
@@ -291,10 +300,10 @@ enum token scan(char trackPos)
 			if (!strcmp(buffer, reserved[i]))
 			{
 				// allow catching both '<', '>', '=', and '<=', '>=', '=='
-				if (buffer[0] == '<' || buffer[0] == '>' || buffer[0] == '=')
+				if (buffer[0] == '<' || buffer[0] == '>' || buffer[0] == '=' || buffer[0] == '!' || buffer[0] == '+' || buffer[0] == '-')
 				{
 					if (lookahead_char() != '=')
-						return reserved_t[i];
+						return reserved_tokens[i];
 				}
 				else if ((buffer[0] == '&') && (buflen == 1))
 				{
@@ -305,7 +314,7 @@ enum token scan(char trackPos)
 				}
 				else
 				{
-					return reserved_t[i]; // return its token
+					return reserved_tokens[i]; // return its token
 				}
 			}
 		}
@@ -432,7 +441,8 @@ struct AST *parseTLD(struct Dictionary *dict)
 	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseTLD\n");
 
 	struct AST *TLD;
-	switch (lookahead())
+	enum token nextToken;
+	switch ((nextToken = lookahead()))
 	{
 	case t_asm:
 		TLD = parseASM(dict);
@@ -451,11 +461,13 @@ struct AST *parseTLD(struct Dictionary *dict)
 		AST_InsertChild(TLD, parseScope(dict));
 		break;
 
-	// var [variable name];
-	// var [variable name] = [expression];
-	case t_var:
+	// type [variable name];
+	// type [variable name] = [expression];
+	case t_uint8:
+	case t_uint16:
+	case t_uint32:
 	{
-		TLD = match(t_var, dict);
+		TLD = match(nextToken, dict);
 		struct AST *name = parseDeclaration(dict);
 		if (lookahead() == t_assign)
 		{
@@ -625,9 +637,11 @@ struct AST *parseStatement(struct Dictionary *dict)
 		statement = parseASM(dict);
 		break;
 
-	// v [variable name];
-	// v [variable name] = [expression];
-	case t_var:
+	// type [variable name];
+	// type [variable name] = [expression];
+	case t_uint8:
+	case t_uint16:
+	case t_uint32:
 	{
 		struct AST *type = match(upcomingToken, dict);
 		statement = type;
@@ -661,10 +675,18 @@ struct AST *parseStatement(struct Dictionary *dict)
 	{
 		struct AST *name = parseName(dict);
 
-		switch (lookahead())
+		enum token tokenAfterName;
+		switch (tokenAfterName = lookahead())
 		{
 		case t_assign:
 			statement = parseAssignment(name, dict);
+			break;
+
+		case t_un_add_assign:
+		case t_un_sub_assign:
+			statement = match(tokenAfterName, dict);
+			AST_InsertChild(statement, name);
+			AST_InsertChild(statement, parseExpression(dict));
 			break;
 
 		case t_lParen:
@@ -776,6 +798,8 @@ struct AST *parseExpression(struct Dictionary *dict)
 	// [left side][operator][right side]
 	case t_bin_add:
 	case t_bin_sub:
+	case t_un_add_assign:
+	case t_un_sub_assign:
 		expression = match(nextToken, dict);
 		AST_InsertChild(expression, lSide);
 		AST_InsertChild(expression, parseExpression(dict));
@@ -794,7 +818,6 @@ struct AST *parseExpression(struct Dictionary *dict)
 	case t_bin_notEquals:
 	case t_bin_log_and:
 	case t_bin_log_or:
-	case t_bin_log_xor:
 	case t_semicolon:
 	case t_comma:
 	case t_rParen:
@@ -823,7 +846,9 @@ struct AST *parseArgDefinitions(struct Dictionary *dict)
 		enum token next = lookahead();
 		switch (next)
 		{
-		case t_var:
+		case t_uint8:
+		case t_uint16:
+		case t_uint32:
 		{
 			struct AST *argument = match(next, dict);
 			struct AST *declaration = argument;
@@ -948,7 +973,6 @@ struct AST *parseConditionCheck(struct Dictionary *dict)
 	case t_bin_notEquals:
 	case t_bin_log_and:
 	case t_bin_log_or:
-	case t_bin_log_xor:
 		conditionCheck = match(nextToken, dict);
 		AST_InsertChild(conditionCheck, LHS);
 		AST_InsertChild(conditionCheck, parseConditionCheck(dict));

@@ -19,7 +19,6 @@ enum ScopeMemberType
 	e_stackobj,
 };
 
-
 struct ScopeMember
 {
 	char *name;
@@ -78,9 +77,15 @@ struct SymbolTable
 	char *name;
 	struct Scope *globalScope;
 };
+/*
+ * the create/lookup functions that use an AST (with simpler names) are the primary functions which should be used
+ * these provide higher verbosity to error messages (source line/col number associated with errors)
+ * the lookup functions with ByString name suffixes should be used only when manipulating pre-existing TAC
+ * in this case, only string names are available and any bad lookups should be caused by internal error cases
+ */
 
-
-void FunctionEntry_createArgument(struct FunctionEntry *func, char *name, enum variableTypes type, int indirectionLevel, int arraySize);
+// create an argument engty in the provided function entry, which is named by the provided AST node
+void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize);
 
 // symbol table functions
 struct SymbolTable *SymbolTable_new(char *name);
@@ -94,7 +99,7 @@ void Scope_print(struct Scope *it, int depth, char printTAC);
 
 void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMemberType type);
 
-void Scope_createVariable(struct Scope *scope, char *name, enum variableTypes type, int indirectionLevel, int arraySize);
+void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize);
 
 struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name);
 
@@ -105,15 +110,21 @@ char Scope_contains(struct Scope *scope, char *name);
 
 struct ScopeMember *Scope_lookup(struct Scope *scope, char *name);
 
-struct VariableEntry *Scope_lookupVar(struct Scope *scope, char *name);
+struct VariableEntry *Scope_lookupVarByString(struct Scope *scope, char *name);
 
-struct FunctionEntry *Scope_lookupFun(struct Scope *scope, char *name);
+struct VariableEntry *Scope_lookupVar(struct Scope *scope, struct AST *name);
+
+struct FunctionEntry *Scope_lookupFun(struct Scope *scope, struct AST *name);
 
 struct Scope *Scope_lookupSubScope(struct Scope *scope, char *name);
 
 struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char subScopeNumber);
 
-int Scope_getSizeOfVariable(struct Scope *scope, char *name);
+int GetSizeOfPrimitive(enum variableTypes type);
+
+int Scope_getSizeOfVariableByString(struct Scope *scope, char *name);
+
+int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name);
 
 // scope linearization functions
 
