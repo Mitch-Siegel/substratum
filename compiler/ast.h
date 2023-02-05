@@ -57,6 +57,8 @@ struct AST
 	int sourceCol;
 };
 
+// instantiate a new AST with given type and value
+// the sourceLine and sourceCol fields will be automatically populated
 struct AST *AST_New(enum token t, char *value);
 
 void AST_InsertSibling(struct AST *it, struct AST *newSibling);
