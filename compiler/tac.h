@@ -9,7 +9,9 @@
 enum variableTypes
 {
 	vt_null,
-	vt_var
+	vt_uint8,
+	vt_uint16,
+	vt_uint32
 };
 
 enum variablePermutations

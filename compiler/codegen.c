@@ -73,7 +73,7 @@ struct Stack *generateCodeForScope(struct Scope *scope, FILE *outFile)
 			int reservedRegisters[2];
 			reservedRegisters[0] = 0;
 			reservedRegisters[1] = 1;
-			GenerateCodeForBasicBlock(thisMember->entry, NULL, blockBlock, "global", reservedRegisters, touchedRegisters);
+			GenerateCodeForBasicBlock(thisMember->entry, scope, NULL, blockBlock, "global", reservedRegisters, touchedRegisters);
 			Stack_Push(scopeBlocks, blockBlock);
 		}
 		break;
@@ -268,8 +268,8 @@ void sortSpilledLifetimes(struct FunctionRegisterAllocationMetadata *metadata)
 		for (int j = 0; j < metadata->spilledLifetimes->size - i - 1; j++)
 		{
 			struct Lifetime *thisLifetime = metadata->spilledLifetimes->data[j];
-			int thisSize = Scope_getSizeOfVariable(metadata->function->mainScope, thisLifetime->variable);
-			int compSize = Scope_getSizeOfVariable(metadata->function->mainScope, ((struct Lifetime *)metadata->spilledLifetimes->data[j + 1])->variable);
+			int thisSize = Scope_getSizeOfVariableByString(metadata->function->mainScope, thisLifetime->variable);
+			int compSize = Scope_getSizeOfVariableByString(metadata->function->mainScope, ((struct Lifetime *)metadata->spilledLifetimes->data[j + 1])->variable);
 
 			if (thisSize < compSize)
 			{
@@ -396,7 +396,7 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	for (int i = 0; i < metadata.spilledLifetimes->size; i++)
 	{
 		struct Lifetime *thisLifetime = metadata.spilledLifetimes->data[i];
-		int thisSize = Scope_getSizeOfVariable(function->mainScope, thisLifetime->variable);
+		int thisSize = Scope_getSizeOfVariableByString(function->mainScope, thisLifetime->variable);
 		struct ScopeMember *thisVariableEntry = Scope_lookup(function->mainScope, thisLifetime->variable);
 		if (thisVariableEntry != NULL)
 		{
@@ -451,7 +451,8 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 				(thisLifetime->nreads || thisLifetime->nwrites)) // theyre are either read from or written to at all
 			{
 				struct VariableEntry *theArgument = thisEntry->entry;
-				TRIM_APPEND(functionBlock, sprintf(printedLine, "mov %%r%d, (%%bp+%d) ;place %s", thisLifetime->stackOrRegLocation, theArgument->stackOffset, thisLifetime->variable));
+				const char *movOp = SelectMovWidthForPrimitive(thisLifetime->type);
+				TRIM_APPEND(functionBlock, sprintf(printedLine, "%s %%r%d, (%%bp+%d) ;place %s", movOp, thisLifetime->stackOrRegLocation, theArgument->stackOffset, thisLifetime->variable));
 				metadata.touchedRegisters[thisLifetime->stackOrRegLocation] = 1;
 			}
 		}
@@ -463,7 +464,7 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	for (struct LinkedListNode *blockRunner = function->BasicBlockList->head; blockRunner != NULL; blockRunner = blockRunner->next)
 	{
 		struct BasicBlock *thisBlock = blockRunner->data;
-		GenerateCodeForBasicBlock(thisBlock, metadata.allLifetimes, functionBlock, function->name, metadata.reservedRegisters, metadata.touchedRegisters);
+		GenerateCodeForBasicBlock(thisBlock, function->mainScope, metadata.allLifetimes, functionBlock, function->name, metadata.reservedRegisters, metadata.touchedRegisters);
 	}
 
 	// meaningful code generated
@@ -522,8 +523,65 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	return functionBlock;
 }
 
+const char *SelectMovWidthForSize(int size)
+{
+	switch (size)
+	{
+	case 1:
+		return "movb";
+
+	case 2:
+		return "movh";
+
+	case 4:
+		return "mov";
+	}
+	ErrorAndExit(ERROR_INTERNAL, "Error in SelectMovWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, or 4 bytes!");
+}
+
+const char *SelectMovWidthForPrimitive(enum variableTypes type)
+{
+	return SelectMovWidthForSize(GetSizeOfPrimitive(type));
+}
+
+const char *SelectMovWidth(struct TACOperand *dataDest)
+{
+	printf("Select mov for %s:", dataDest->name.str);
+	// pointers are always full-width
+	if (dataDest->indirectionLevel > 0)
+	{
+		printf("mov\n");
+		return "mov";
+	}
+
+	int destSize;
+
+	switch (dataDest->permutation)
+	{
+		// if we have a var / temp at this stage, it must be a primitive (remember we caught pointers at the top of the function)
+	case vp_standard:
+	case vp_temp:
+		destSize = GetSizeOfPrimitive(dataDest->type);
+		break;
+
+	case vp_literal:
+		ErrorAndExit(ERROR_INTERNAL, "Error in SelectMovWidth: Data destination can't be a literal!");
+		break;
+	}
+
+	const char *returned = SelectMovWidthForSize(destSize);
+	printf("%s\n", returned);
+	return returned;
+}
+
 // TODO: thisBlock vs asmBlock?!
-void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *allLifetimes, struct LinkedList *asmBlock, char *functionName, int reservedRegisters[2], char *touchedRegisters)
+void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
+							   struct Scope *thisScope,
+							   struct LinkedList *allLifetimes,
+							   struct LinkedList *asmBlock,
+							   char *functionName,
+							   int reservedRegisters[2],
+							   char *touchedRegisters)
 {
 	// TODO: generate localpointers as necessary
 	// to registers for those that get them and on-the-fly for those that don't
@@ -554,6 +612,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 			struct Lifetime *assignedLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
 			struct Lifetime *assignerLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[1].name.str);
 			// assign to register
+			const char *movInstruction = SelectMovWidth(&thisTAC->operands[0]);
+
 			if (assignedLifetime->isSpilled == 0)
 			{
 				switch (thisTAC->operands[1].permutation)
@@ -562,16 +622,16 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 				case vp_temp:
 					if (!assignerLifetime->isSpilled)
 					{
-						TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%r%d, %%r%d", assignedLifetime->stackOrRegLocation, assignerLifetime->stackOrRegLocation));
+						TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, %%r%d", movInstruction, assignedLifetime->stackOrRegLocation, assignerLifetime->stackOrRegLocation));
 					}
 					else
 					{
-						TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%r%d, (%%bp+%d*1)", assignedLifetime->stackOrRegLocation, assignerLifetime->stackOrRegLocation));
+						TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%bp+%d*1)", movInstruction, assignedLifetime->stackOrRegLocation, assignerLifetime->stackOrRegLocation));
 					}
 					break;
 
 				case vp_literal:
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "movh %%r%d, $%s", assignedLifetime->stackOrRegLocation, thisTAC->operands[1].name.str));
+					TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, $%s", movInstruction, assignedLifetime->stackOrRegLocation, thisTAC->operands[1].name.str));
 					break;
 				}
 			}
@@ -584,7 +644,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 				case vp_temp:
 					if (!assignerLifetime->isSpilled)
 					{
-						TRIM_APPEND(asmBlock, sprintf(printedLine, "mov (%%bp+%d), %%r%d", assignedLifetime->stackOrRegLocation, assignerLifetime->stackOrRegLocation));
+						TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%bp+%d), %%r%d", movInstruction, assignedLifetime->stackOrRegLocation, assignerLifetime->stackOrRegLocation));
 					}
 					else
 					{
@@ -596,7 +656,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 
 				case vp_literal:
 				{
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "mov (%%bp+%d), $%s", assignedLifetime->stackOrRegLocation, thisTAC->operands[1].name.str));
+					TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%bp+%d), $%s", movInstruction, assignedLifetime->stackOrRegLocation, thisTAC->operands[1].name.str));
 				}
 				break;
 				}
@@ -718,7 +778,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 
 			if (assignedLifetime->isSpilled)
 			{
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "mov (%%bp+%d), %%r%d;replace %s", assignedLifetime->stackOrRegLocation, destinationRegister, assignedLifetime->variable));
+				const char *movOp = SelectMovWidthForPrimitive(assignedLifetime->type);
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%bp+%d), %%r%d;replace %s", movOp, assignedLifetime->stackOrRegLocation, destinationRegister, assignedLifetime->variable));
 			}
 		}
 		break;
@@ -731,7 +792,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 		{
 			int dstIndexReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
 			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
-			TRIM_APPEND(asmBlock, sprintf(printedLine, "mov (%%r%d), %%r%d", dstIndexReg, sourceReg));
+			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d), %%r%d", movOp, dstIndexReg, sourceReg));
 		}
 		break;
 
@@ -739,7 +801,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 		{
 			int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
 			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
-			TRIM_APPEND(asmBlock, sprintf(printedLine, "mov (%%r%d+%d), %%r%d", baseReg, thisTAC->operands[1].name.val, sourceReg));
+			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d+%d), %%r%d", movOp, baseReg, thisTAC->operands[1].name.val, sourceReg));
 		}
 		// ErrorAndExit(ERROR_INTERNAL, "Code generation not implemented for this operation (%s) yet!\n", getAsmOp(thisTAC->operation));
 		break;
@@ -749,7 +812,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 			int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
 			int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
 			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[3].name.str, asmBlock, 16, touchedRegisters);
-			TRIM_APPEND(asmBlock, sprintf(printedLine, "mov (%%r%d+%%r%d,%d), %%r%d", baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[2].name.val), sourceReg));
+			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d+%%r%d,%d), %%r%d", movOp, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[2].name.val), sourceReg));
 		}
 		break;
 
@@ -765,7 +829,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 			{
 				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
 				int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%r%d, (%%r%d)", destReg, sourceReg));
+				const char *movOp = SelectMovWidth(&thisTAC->operands[1]);
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d)", movOp, destReg, sourceReg));
 			}
 		}
 		break;
@@ -782,7 +847,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 			{
 				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
 				int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%r%d, (%%r%d+%d)", destReg, sourceReg, thisTAC->operands[2].name.val));
+				const char *movOp = SelectMovWidth(&thisTAC->operands[1]);
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d+%d)", movOp, destReg, sourceReg, thisTAC->operands[2].name.val));
 			}
 		}
 		break;
@@ -799,7 +865,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
 				int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
 				int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2].name.str, asmBlock, 16, touchedRegisters);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%r%d, (%%r%d+%%r%d,%d)", destReg, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[3].name.val)));
+				const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d+%%r%d,%d)", movOp, destReg, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[3].name.val)));
 			}
 		}
 		break;
@@ -938,25 +1005,25 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock, struct LinkedList *
 
 		case tt_return:
 		{
-				switch (thisTAC->operands[0].permutation)
-				{
-				case vp_literal:
-				{
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "movh %%rr, $%s", thisTAC->operands[0].name.str));
-				}
-				break;
+			switch (thisTAC->operands[0].permutation)
+			{
+			case vp_literal:
+			{
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "movh %%rr, $%s", thisTAC->operands[0].name.str));
+			}
+			break;
 
-				case vp_standard:
-				case vp_temp:
-				{
-					int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%rr, %%r%d", destReg));
-				}
-				break;
+			case vp_standard:
+			case vp_temp:
+			{
+				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%rr, %%r%d", destReg));
+			}
+			break;
 
-				default:
-					perror("unexpected type in return TAC!\n");
-				}
+			default:
+				perror("unexpected type in return TAC!\n");
+			}
 		}
 		break;
 

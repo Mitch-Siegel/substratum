@@ -2,12 +2,12 @@ asm
     {
     entry code
     code:
-    call condTest
+    call testfunction
     hlt
 }
 ;
 
-fun print(var value)
+fun print(uint32 value)
 {
     // store r0, pull the argument into a register, then output that register
     asm {
@@ -17,36 +17,103 @@ fun print(var value)
     ;
 }
 
-fun condTest(var num)
+fun mod(uint32 a, uint32 divisor)
 {
-    var a = 0;
-    var b = 0;
-    var c;
-
-    // while(a < 3)
-    // {
-        // b = 0;
-        // while(b < 3)
-        // {
-            if(((a == 0) && (b == 0)) || (a != b))
-            {
-                c = 0;
-            }
-            else
-            {
-                c = 1;
-            }
-            print(a + 48);
-            print(b + 48);
-            print(58);
-            print(c + 48);
-            print(10); // newline
-            // b = b + 1;
-        // }
-        // a = a + 1;
-    // }
-    // 
+    while (a >= divisor)
+    {
+        a = a - divisor;
+    }
+    return a;
 }
 
+fun mul(uint32 a, uint32 b)
+{
+    uint32 result = 0;
+    if (a > b)
+    {
+        while (b > 0)
+        {
+            result = result + a;
+            b = b - 1;
+        }
+    }
+    else
+    {
+        while (a > 0)
+        {
+            result = result + b;
+            a = a - 1;
+        }
+    }
+    return result;
+}
+
+fun div(uint32 a, uint32 b)
+{
+    uint32 quotient = 0;
+    while (a >= b)
+    {
+        a = a - b;
+        quotient = quotient + 1;
+    }
+    return quotient;
+}
+
+fun printNum(uint32 num)
+{
+    uint32 outStr[16];
+    uint32 digits = 1;
+    if (num == 0)
+    {
+        outStr[0] = 48;
+    }
+    else
+    {
+        while (num > 0)
+        {
+            uint32 remainder = mod(num, 10);
+            outStr[digits] = remainder + 48;
+            num = div(num, 10);
+            digits = digits + 1;
+        }
+    }
+
+    uint32 i = 0;
+    while (i < digits)
+    {
+        print(outStr[digits - i]);
+        i = i + 1;
+    }
+    print(10); // newline
+}
+
+fun testfunction()
+{
+    uint8 array[9];
+    array[0] = 70;
+    array[1] = 79;
+    array[2] = 82;
+    array[3] = 84;
+    array[4] = 78;
+    array[5] = 73;
+    array[6] = 84;
+    array[7] = 69;
+    array[8] = 10;
+
+    uint8 iterator = 0;
+    uint8 two = 2;
+    while (two == 2)
+    {
+        print(array[iterator]);
+        if (iterator == 8)
+        {
+            iterator = 0;
+        }
+        else
+        {
+            iterator = iterator + 1;
+        }
+    }
+}
 
 $$
