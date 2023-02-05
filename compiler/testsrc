@@ -105,13 +105,13 @@ fun testfunction()
     while (two == 2)
     {
         print(array[iterator]);
-        if (iterator == 8)
+        if (iterator == 0)
         {
             iterator = 0;
         }
         else
         {
-            iterator = iterator + 1;
+            iterator += 1;
         }
     }
 }

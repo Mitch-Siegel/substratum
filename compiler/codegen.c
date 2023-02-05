@@ -546,11 +546,9 @@ const char *SelectMovWidthForPrimitive(enum variableTypes type)
 
 const char *SelectMovWidth(struct TACOperand *dataDest)
 {
-	printf("Select mov for %s:", dataDest->name.str);
 	// pointers are always full-width
 	if (dataDest->indirectionLevel > 0)
 	{
-		printf("mov\n");
 		return "mov";
 	}
 
@@ -569,9 +567,7 @@ const char *SelectMovWidth(struct TACOperand *dataDest)
 		break;
 	}
 
-	const char *returned = SelectMovWidthForSize(destSize);
-	printf("%s\n", returned);
-	return returned;
+	return SelectMovWidthForSize(destSize);
 }
 
 // TODO: thisBlock vs asmBlock?!

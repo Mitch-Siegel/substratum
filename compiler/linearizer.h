@@ -33,6 +33,8 @@ int linearizeExpression(struct LinearizationMetadata m);
 
 int linearizeAssignment(struct LinearizationMetadata m);
 
+int linearizeArithmeticAssignment(struct LinearizationMetadata m);
+
 struct TACLine *linearizeConditionalJump(int currentTACIndex,
 										 char *cmpOp,
 										 char whichCondition, // jump on condition true if nonzero, jump on condition false if zero

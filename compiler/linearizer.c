@@ -1018,6 +1018,66 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	return m.currentTACIndex;
 }
 
+int linearizeArithmeticAssignment(struct LinearizationMetadata m)
+{
+	struct TACLine *arithmeticAssignmentLine = NULL;
+
+	switch (m.ast->type)
+	{
+	case t_un_add_assign:
+		arithmeticAssignmentLine = newTACLine(m.currentTACIndex, tt_add, m.ast);
+		break;
+
+	case t_un_sub_assign:
+		arithmeticAssignmentLine = newTACLine(m.currentTACIndex, tt_subtract, m.ast);
+		break;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Unexpected ast type %d passed to linearizeArithmeticAssignment!", m.ast->type);
+	}
+
+	struct VariableEntry *modifiedVariable = Scope_lookupVar(m.scope, m.ast->child);
+	arithmeticAssignmentLine->operands[0].name.str = m.ast->child->value;
+	arithmeticAssignmentLine->operands[0].type = modifiedVariable->type;
+	arithmeticAssignmentLine->operands[0].indirectionLevel = modifiedVariable->indirectionLevel;
+	arithmeticAssignmentLine->operands[0].permutation = vp_standard;
+
+	memcpy(&arithmeticAssignmentLine->operands[1], &arithmeticAssignmentLine->operands[0], sizeof(struct TACOperand));
+
+	switch (m.ast->child->sibling->type)
+	{
+	case t_literal:
+		arithmeticAssignmentLine->operands[2].indirectionLevel = 0;
+		arithmeticAssignmentLine->operands[2].name.str = m.ast->child->sibling->value;
+		arithmeticAssignmentLine->operands[2].permutation = vp_literal;
+		arithmeticAssignmentLine->operands[2].indirectionLevel = 0;
+		break;
+
+	case t_name:
+	{
+		struct VariableEntry *readVariable = Scope_lookupVar(m.scope, m.ast->child->sibling);
+		arithmeticAssignmentLine->operands[0].name.str = m.ast->child->sibling->value;
+		arithmeticAssignmentLine->operands[0].type = readVariable->type;
+		arithmeticAssignmentLine->operands[0].indirectionLevel = readVariable->indirectionLevel;
+		arithmeticAssignmentLine->operands[0].permutation = vp_standard;
+	}
+	break;
+
+	default:
+	{
+		struct LinearizationMetadata subExpressionMetadata;
+		memcpy(&subExpressionMetadata, &m, sizeof(struct LinearizationMetadata));
+		subExpressionMetadata.ast = m.ast->child->sibling;
+		m.currentTACIndex = linearizeSubExpression(subExpressionMetadata, arithmeticAssignmentLine, 2);
+	}
+	break;
+	}
+
+	BasicBlock_append(m.currentBlock, arithmeticAssignmentLine);
+
+	return m.currentTACIndex;
+}
+
 struct TACLine *linearizeConditionalJump(int currentTACIndex,
 										 char *cmpOp,
 										 char whichCondition,
@@ -1140,7 +1200,6 @@ int linearizeConditionCheck(struct LinearizationMetadata m,
 							int *labelCount,
 							int depth)
 {
-	printf("LinearizeConditionCheck %s\n", getTokenName(m.ast->type));
 	switch (m.ast->type)
 	{
 	case t_bin_log_and:
@@ -1326,13 +1385,11 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 	// the subscope will be used in this call and any calls generated from this one, allowing the scopes to recursively nest properly
 	if (scopeNesting->size > 0)
 	{
-		printf("Linearize scope at subscope number %d\n", *(int *)Stack_Peek(scopeNesting));
 		m.scope = Scope_lookupSubScopeByNumber(m.scope, *(int *)Stack_Peek(scopeNesting));
 	}
 	// otherwise the stack is empty so we should set it up to start at index 0
 	else
 	{
-		printf("Not descending into subscope, start off by making a new subscope index\n");
 		int newSubscopeIndex = 0;
 		Stack_Push(scopeNesting, &newSubscopeIndex);
 	}
@@ -1437,6 +1494,17 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			assignmentMetadata.ast = runner;
 
 			m.currentTACIndex = linearizeAssignment(assignmentMetadata);
+		}
+		break;
+
+		case t_un_add_assign:
+		case t_un_sub_assign:
+		{
+			struct LinearizationMetadata arithAssignMetadata;
+			memcpy(&arithAssignMetadata, &m, sizeof(struct LinearizationMetadata));
+			arithAssignMetadata.ast = runner;
+
+			m.currentTACIndex = linearizeArithmeticAssignment(arithAssignMetadata);
 		}
 		break;
 

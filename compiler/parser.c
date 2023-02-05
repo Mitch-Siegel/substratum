@@ -29,6 +29,8 @@ char *token_names[] = {
 	"binary logical and",
 	"binary logical or",
 	"unary logical not",
+	"unary add and assign",
+	"unary sub and assign"
 	"reference operator",
 	"dereference operator",
 	"assignment",
@@ -45,7 +47,7 @@ char *token_names[] = {
 	"scope",
 	"EOF"};
 
-#define VERBOSE_PARSE
+// #define VERBOSE_PARSE
 #ifdef VERBOSE_PARSE
 int parseDepth = 0;
 
@@ -55,7 +57,7 @@ int parseDepth = 0;
 		printf("\t");                                 \
 	}                                                 \
 	parseDepth++;                                     \
-	printf(string);
+	printf(string)
 
 #define PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE() parseDepth--
 
@@ -68,7 +70,7 @@ int parseDepth = 0;
 #else
 #define PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE(string)
 #define PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE()
-PRINT_MATCH_IF_VERBOSE()
+#define PRINT_MATCH_IF_VERBOSE(token, value)
 #endif
 
 #define ParserError(production, info)                                                 \
@@ -196,43 +198,45 @@ char lookahead_char()
 	return r;
 }
 
-#define RESERVED_COUNT 32
+#define RESERVED_COUNT 34
 
 char *reserved[RESERVED_COUNT] = {
-	"asm",
-	"uint8",
-	"uint16",
-	"uint32",
-	"fun",
-	"return",
-	"if",
-	"else",
-	"while",
-	",",
-	"(",
-	")",
-	"{",
-	"}",
-	"[",
-	"]",
-	";",
-	"=",
-	"+",
-	"-",
-	"*",
-	"&",
-	">",
-	"<",
-	">=",
-	"<=",
-	"==",
-	"!=",
-	"&&",
-	"||",
-	"!",
-	"$$"};
+	"asm",	  // t_asm,
+	"uint8",  // 	t_uint8,
+	"uint16", // 	t_uint16,
+	"uint32", // 	t_uint32,
+	"fun",	  // 	t_fun,
+	"return", // 	t_return,
+	"if",	  // 	t_if,
+	"else",	  // 	t_else,
+	"while",  // 	t_while,
+	",",	  // 	t_comma,
+	"(",	  // 	t_lParen,
+	")",	  // 	t_rParen,
+	"{",	  // 	t_lCurly,
+	"}",	  // 	t_rCurly,
+	"[",	  // 	t_lBracket,
+	"]",	  // 	t_rBracket,
+	";",	  // 	t_semicolon,
+	"=",	  // 	t_assign,
+	"+",	  // 	t_bin_add,
+	"+=",	  // 	t_un_add_assign,
+	"-",	  // 	t_bin_sub,
+	"-=",	  // 	t_un_sub_assign,
+	"*",	  // 	t_dereference,
+	"&",	  // 	t_reference,
+	">",	  // 	t_bin_gThan,
+	"<",	  // 	t_bin_lThan,
+	">=",	  // 	t_bin_gThanE,
+	"<=",	  // 	t_bin_lThanE,
+	"==",	  // 	t_bin_equals,
+	"!=",	  // 	t_bin_notEquals,
+	"&&",	  // 	t_bin_log_and,
+	"||",	  // 	t_bin_log_or,
+	"!",	  // 	t_un_log_not,
+	"$$"};	  // 	t_EOF
 
-enum token reserved_t[RESERVED_COUNT] = {
+enum token reserved_tokens[RESERVED_COUNT] = {
 	t_asm,
 	t_uint8,
 	t_uint16,
@@ -252,7 +256,9 @@ enum token reserved_t[RESERVED_COUNT] = {
 	t_semicolon,
 	t_assign,
 	t_bin_add,
+	t_un_add_assign,
 	t_bin_sub,
+	t_un_sub_assign,
 	t_dereference,
 	t_reference,
 	t_bin_gThan,
@@ -294,10 +300,10 @@ enum token scan(char trackPos)
 			if (!strcmp(buffer, reserved[i]))
 			{
 				// allow catching both '<', '>', '=', and '<=', '>=', '=='
-				if (buffer[0] == '<' || buffer[0] == '>' || buffer[0] == '=' || buffer[0] == '!')
+				if (buffer[0] == '<' || buffer[0] == '>' || buffer[0] == '=' || buffer[0] == '!' || buffer[0] == '+' || buffer[0] == '-')
 				{
 					if (lookahead_char() != '=')
-						return reserved_t[i];
+						return reserved_tokens[i];
 				}
 				else if ((buffer[0] == '&') && (buflen == 1))
 				{
@@ -308,7 +314,7 @@ enum token scan(char trackPos)
 				}
 				else
 				{
-					return reserved_t[i]; // return its token
+					return reserved_tokens[i]; // return its token
 				}
 			}
 		}
@@ -669,10 +675,18 @@ struct AST *parseStatement(struct Dictionary *dict)
 	{
 		struct AST *name = parseName(dict);
 
-		switch (lookahead())
+		enum token tokenAfterName;
+		switch (tokenAfterName = lookahead())
 		{
 		case t_assign:
 			statement = parseAssignment(name, dict);
+			break;
+
+		case t_un_add_assign:
+		case t_un_sub_assign:
+			statement = match(tokenAfterName, dict);
+			AST_InsertChild(statement, name);
+			AST_InsertChild(statement, parseExpression(dict));
 			break;
 
 		case t_lParen:
@@ -784,6 +798,8 @@ struct AST *parseExpression(struct Dictionary *dict)
 	// [left side][operator][right side]
 	case t_bin_add:
 	case t_bin_sub:
+	case t_un_add_assign:
+	case t_un_sub_assign:
 		expression = match(nextToken, dict);
 		AST_InsertChild(expression, lSide);
 		AST_InsertChild(expression, parseExpression(dict));

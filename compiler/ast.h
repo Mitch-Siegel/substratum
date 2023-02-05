@@ -28,6 +28,8 @@ enum token
 	t_bin_log_and,
 	t_bin_log_or,
 	t_un_log_not,
+	t_un_add_assign,
+	t_un_sub_assign,
 	t_reference,
 	t_dereference,
 	t_assign,

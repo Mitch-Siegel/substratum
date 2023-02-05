@@ -565,6 +565,8 @@ void walkStatement(struct AST *it, struct Scope *wip)
 
 		// ignore assignments as lifetime checks can be done more easily on TAC
 	case t_assign:
+	case t_un_add_assign:
+	case t_un_sub_assign:
 		break;
 
 	case t_if:
