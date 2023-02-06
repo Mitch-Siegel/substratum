@@ -1,23 +1,23 @@
-asm
-    {
-    entry code
-    code:
-    call testfunction
-    hlt
-}
-;
+// asm
+    // {
+    // entry code
+    // code:
+    // call testvoidction
+    // hlt
+// }
+// ;
 
-fun print(uint32 value)
+void print(uint32 value)
 {
     // store r0, pull the argument into a register, then output that register
-    asm {
-		mov %rr, (%bp+8)
-        int 5
-    }
-    ;
+    // asm {
+		// mov %rr, (%bp+8)
+        // int 5
+    // }
+    // ;
 }
 
-fun mod(uint32 a, uint32 divisor)
+void mod(uint32 a, uint32 divisor)
 {
     while (a >= divisor)
     {
@@ -26,7 +26,7 @@ fun mod(uint32 a, uint32 divisor)
     return a;
 }
 
-fun mul(uint32 a, uint32 b)
+void mul(uint32 a, uint32 b)
 {
     uint32 result = 0;
     if (a > b)
@@ -48,7 +48,7 @@ fun mul(uint32 a, uint32 b)
     return result;
 }
 
-fun div(uint32 a, uint32 b)
+void div(uint32 a, uint32 b)
 {
     uint32 quotient = 0;
     while (a >= b)
@@ -59,7 +59,7 @@ fun div(uint32 a, uint32 b)
     return quotient;
 }
 
-fun printNum(uint32 num)
+void printNum(uint32 num)
 {
     uint32 outStr[16];
     uint32 digits = 1;
@@ -87,7 +87,7 @@ fun printNum(uint32 num)
     print(10); // newline
 }
 
-fun testfunction()
+void testvoidction()
 {
     uint8 array[9];
     array[0] = 70;

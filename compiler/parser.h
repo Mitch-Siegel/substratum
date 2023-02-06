@@ -25,4 +25,6 @@ void consume(enum token t);
 
 char *getTokenName(enum token t);
 
+struct AST *TableParse(struct Dictionary *dict);
+
 struct AST *ParseProgram(char *inFileName, struct Dictionary *dict);
