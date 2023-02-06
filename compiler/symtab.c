@@ -565,8 +565,8 @@ void walkStatement(struct AST *it, struct Scope *wip)
 
 		// ignore assignments as lifetime checks can be done more easily on TAC
 	case t_assign:
-	case t_un_add_assign:
-	case t_un_sub_assign:
+	case t_add_assign:
+	case t_sub_assign:
 		break;
 
 	case t_if:
@@ -685,7 +685,7 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 		switch (functionRunner->type)
 		{
 		// looking at function name, which will have argument variables as children
-		case t_name:
+		case t_identifier:
 		{
 			struct AST *argumentRunner = functionRunner->child;
 			while (argumentRunner != NULL)
@@ -836,7 +836,7 @@ struct SymbolTable *walkAST(struct AST *it)
 		{
 			walkStatement(runner, programTable->globalScope);
 			struct AST *scraper = runner->child;
-			while (scraper->type != t_name)
+			while (scraper->type != t_identifier)
 			{
 				scraper = scraper->child;
 			}

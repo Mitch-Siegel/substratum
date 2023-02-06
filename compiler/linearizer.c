@@ -33,7 +33,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 	switch (m.ast->type)
 	{
 		// directly dereference variables
-	case t_name:
+	case t_identifier:
 	{
 		thisDereference->operands[1].name.str = m.ast->value;
 		struct VariableEntry *variableByName = Scope_lookupVar(m.scope, m.ast);
@@ -59,8 +59,8 @@ int linearizeDereference(struct LinearizationMetadata m)
 	break;
 
 		// handle pointer arithmetic to evalute the correct adddress to dereference
-	case t_bin_add:
-	case t_bin_sub:
+	case t_un_add:
+	case t_un_sub:
 	{
 		thisDereference->operands[1].name.str = m.ast->child->value; // base
 		int LHSSize;
@@ -68,7 +68,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 		// figure out what the LHS is
 		switch (m.ast->child->type)
 		{
-		case t_name:
+		case t_identifier:
 		{
 			struct VariableEntry *theVariable = Scope_lookupVar(m.scope, m.ast->child);
 			thisDereference->operands[1].type = theVariable->type;
@@ -77,7 +77,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 		}
 		break;
 
-		case t_literal:
+		case t_constant:
 		{
 			thisDereference->operands[1].type = LITERAL_VARIABLE_TYPE;
 			thisDereference->operands[1].permutation = vp_literal;
@@ -114,9 +114,9 @@ int linearizeDereference(struct LinearizationMetadata m)
 		// deal with the RHS (offset)
 		switch (m.ast->child->sibling->type)
 		{
-		case t_name:
+		case t_identifier:
 		{
-			if (m.ast->type == t_bin_sub)
+			if (m.ast->type == t_un_sub)
 			{
 				struct TACLine *subtractInvert = newTACLine(m.currentTACIndex++, tt_mul, m.ast);
 				subtractInvert->operands[0].name.str = TempList_Get(temps, *m.tempNum);
@@ -151,7 +151,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 		break;
 
 		// if literal, just use addressing mode base + offset
-		case t_literal:
+		case t_constant:
 		{
 			thisDereference->operation = tt_memr_2;
 
@@ -160,17 +160,17 @@ int linearizeDereference(struct LinearizationMetadata m)
 
 			int offset = atoi(m.ast->child->sibling->value);
 			// multiply offset by 4 for word size
-			thisDereference->operands[2].name.val = (offset * 4) * ((m.ast->type == t_bin_sub) ? -1 : 1);
+			thisDereference->operands[2].name.val = (offset * 4) * ((m.ast->type == t_un_sub) ? -1 : 1);
 			thisDereference->operands[2].type = LITERAL_VARIABLE_TYPE;
 			thisDereference->operands[2].permutation = vp_literal;
 		}
 		break;
 
-		case t_bin_add:
-		case t_bin_sub:
+		case t_un_add:
+		case t_un_sub:
 		{
 			// parent expression type requires inversion of entire (right) child expression if subtracting
-			if (m.ast->type == t_bin_sub)
+			if (m.ast->type == t_un_sub)
 			{
 				struct TACLine *subtractInvert = newTACLine(m.currentTACIndex++, tt_mul, m.ast);
 				subtractInvert->operands[0].name.str = TempList_Get(temps, *m.tempNum);
@@ -262,7 +262,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 	struct TACLine *thisArgument = NULL;
 	switch (m.ast->type)
 	{
-	case t_name:
+	case t_identifier:
 	{
 		thisArgument = newTACLine(m.currentTACIndex++, tt_push, m.ast);
 		thisArgument->operands[0].type = Scope_lookupVar(m.scope, m.ast)->type;
@@ -270,7 +270,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 	}
 	break;
 
-	case t_literal:
+	case t_constant:
 	{
 		thisArgument = newTACLine(m.currentTACIndex++, tt_push, m.ast);
 		thisArgument->operands[0].type = LITERAL_VARIABLE_TYPE;
@@ -294,8 +294,8 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 	}
 	break;
 
-	case t_bin_add:
-	case t_bin_sub:
+	case t_un_add:
+	case t_un_sub:
 	{
 		struct LinearizationMetadata expressionMetadata;
 		memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -394,8 +394,8 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 	}
 	break;
 
-	case t_bin_add:
-	case t_bin_sub:
+	case t_un_add:
+	case t_un_sub:
 	case t_bin_lThan:
 	case t_bin_lThanE:
 	case t_bin_gThan:
@@ -445,8 +445,8 @@ int linearizeExpression(struct LinearizationMetadata m)
 	// since 'cmp' doesn't generate a result, it just sets flags, no need to consume a temp for operations that become cmp's
 	switch (m.ast->type)
 	{
-	case t_bin_add:
-	case t_bin_sub:
+	case t_un_add:
+	case t_un_sub:
 	case t_dereference:
 		thisExpression->operands[0].name.str = TempList_Get(temps, *m.tempNum);
 		thisExpression->operands[0].permutation = vp_temp;
@@ -471,7 +471,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	{
 		thisExpression->operation = tt_memr_1;
 		// if simply dereferencing a name
-		if (m.ast->child->type == t_name)
+		if (m.ast->child->type == t_identifier)
 		{
 			thisExpression->operands[1].name.str = m.ast->child->value;
 			thisExpression->operands[1].type = Scope_lookupVar(m.scope, m.ast->child)->type;
@@ -503,8 +503,8 @@ int linearizeExpression(struct LinearizationMetadata m)
 	switch (m.ast->child->type)
 	{
 	case t_call:
-	case t_bin_add:
-	case t_bin_sub:
+	case t_un_add:
+	case t_un_sub:
 	case t_bin_lThan:
 	case t_bin_lThanE:
 	case t_bin_gThan:
@@ -521,7 +521,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	}
 	break;
 
-	case t_name:
+	case t_identifier:
 	{
 		thisExpression->operands[1].name.str = m.ast->child->value;
 		struct VariableEntry *theVariable = Scope_lookupVar(m.scope, m.ast->child);
@@ -530,7 +530,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	}
 	break;
 
-	case t_literal:
+	case t_constant:
 	{
 		thisExpression->operands[1].name.str = m.ast->child->value;
 		thisExpression->operands[1].type = LITERAL_VARIABLE_TYPE;
@@ -546,14 +546,14 @@ int linearizeExpression(struct LinearizationMetadata m)
 	// assign the TAC operation based on the operator at hand
 	switch (m.ast->type)
 	{
-	case t_bin_add:
+	case t_un_add:
 	{
 		thisExpression->reorderable = 1;
 		thisExpression->operation = tt_add;
 	}
 	break;
 
-	case t_bin_sub:
+	case t_un_sub:
 	{
 		thisExpression->operation = tt_subtract;
 	}
@@ -581,8 +581,8 @@ int linearizeExpression(struct LinearizationMetadata m)
 	switch (m.ast->child->sibling->type)
 	{
 	case t_call:
-	case t_bin_add:
-	case t_bin_sub:
+	case t_un_add:
+	case t_un_sub:
 	case t_bin_lThan:
 	case t_bin_lThanE:
 	case t_bin_gThan:
@@ -600,7 +600,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	}
 	break;
 
-	case t_name:
+	case t_identifier:
 	{
 		thisExpression->operands[2].name.str = m.ast->child->sibling->value;
 		struct VariableEntry *theVariable = Scope_lookupVar(m.scope, m.ast->child->sibling);
@@ -609,7 +609,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	}
 	break;
 
-	case t_literal:
+	case t_constant:
 	{
 		thisExpression->operands[2].name.str = m.ast->child->sibling->value;
 		thisExpression->operands[2].type = LITERAL_VARIABLE_TYPE;
@@ -773,7 +773,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 
 		switch (m.ast->child->sibling->type)
 		{
-		case t_literal:
+		case t_constant:
 		{
 			assignment->operands[1].type = LITERAL_VARIABLE_TYPE;
 			assignment->operands[0].type = LITERAL_VARIABLE_TYPE;
@@ -781,7 +781,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		}
 		break;
 
-		case t_name:
+		case t_identifier:
 		{
 			struct VariableEntry *theVariable = Scope_lookupVar(m.scope, m.ast->child->sibling);
 			assignment->operands[1].type = theVariable->type;
@@ -811,8 +811,8 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		}
 		break;
 
-		case t_bin_add:
-		case t_bin_sub:
+		case t_un_add:
+		case t_un_sub:
 		{
 			struct LinearizationMetadata expressionMetadata;
 			memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -838,7 +838,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	}
 
 	struct TACLine *RHS = m.currentBlock->TACList->tail->data;
-	if (m.ast->child->type == t_name)
+	if (m.ast->child->type == t_identifier)
 	{
 		struct VariableEntry *assignedVariable = Scope_lookupVar(m.scope, m.ast->child);
 		RHS->operands[0].name.str = m.ast->child->value;
@@ -862,7 +862,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 
 			switch (dereferencedExpression->type)
 			{
-			case t_name:
+			case t_identifier:
 			{
 				finalAssignment = newTACLine(m.currentTACIndex++, tt_memw_1, m.ast->child);
 				finalAssignment->operands[0].name.str = dereferencedExpression->value;
@@ -892,15 +892,15 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			}
 			break;
 
-			case t_bin_add:
-			case t_bin_sub:
+			case t_un_add:
+			case t_un_sub:
 			{
 
 				// linearize the RHS of the dereferenced arithmetic
 				struct AST *dereferencedRHS = dereferencedExpression->child->sibling;
 				switch (dereferencedRHS->type)
 				{
-				case t_literal:
+				case t_constant:
 				{
 					finalAssignment = newTACLine(m.currentTACIndex++, tt_memw_2, dereferencedRHS);
 					finalAssignment->operands[1].name.str = (char *)(long int)atoi(dereferencedRHS->value);
@@ -910,7 +910,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 				}
 				break;
 
-				case t_name:
+				case t_identifier:
 				{
 					finalAssignment = newTACLine(m.currentTACIndex++, tt_memw_3, dereferencedRHS);
 					struct VariableEntry *theVariable = Scope_lookupVar(m.scope, dereferencedRHS);
@@ -921,8 +921,8 @@ int linearizeAssignment(struct LinearizationMetadata m)
 				break;
 
 				// all other arithmetic goes here
-				case t_bin_add:
-				case t_bin_sub:
+				case t_un_add:
+				case t_un_sub:
 				{
 					struct LinearizationMetadata expressionMetadata;
 					memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -945,7 +945,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 				// check the LHS of the add
 				switch (dereferencedExpression->child->type)
 				{
-				case t_name:
+				case t_identifier:
 				{
 					struct VariableEntry *lhsVariable = Scope_lookupVar(m.scope, dereferencedExpression->child);
 					finalAssignment->operands[0].name.str = dereferencedExpression->child->value;
@@ -969,7 +969,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 					// finalAssignment->operands[1].indirectionLevel = 0; // extraneous
 
 					// make offset value negative if subtracting
-					if (dereferencedExpression->type == t_bin_sub)
+					if (dereferencedExpression->type == t_un_sub)
 					{
 						finalAssignment->operands[1].name.val = finalAssignment->operands[1].name.val * -1;
 					}
@@ -987,7 +987,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 					finalAssignment->operands[2].indirectionLevel = 0;
 
 					// make scale value negative if subtracting
-					if (dereferencedExpression->type == t_bin_sub)
+					if (dereferencedExpression->type == t_un_sub)
 					{
 						finalAssignment->operands[2].name.val = finalAssignment->operands[2].name.val * -1;
 					}
@@ -1024,11 +1024,11 @@ int linearizeArithmeticAssignment(struct LinearizationMetadata m)
 
 	switch (m.ast->type)
 	{
-	case t_un_add_assign:
+	case t_add_assign:
 		arithmeticAssignmentLine = newTACLine(m.currentTACIndex, tt_add, m.ast);
 		break;
 
-	case t_un_sub_assign:
+	case t_sub_assign:
 		arithmeticAssignmentLine = newTACLine(m.currentTACIndex, tt_subtract, m.ast);
 		break;
 
@@ -1046,14 +1046,14 @@ int linearizeArithmeticAssignment(struct LinearizationMetadata m)
 
 	switch (m.ast->child->sibling->type)
 	{
-	case t_literal:
+	case t_constant:
 		arithmeticAssignmentLine->operands[2].indirectionLevel = 0;
 		arithmeticAssignmentLine->operands[2].name.str = m.ast->child->sibling->value;
 		arithmeticAssignmentLine->operands[2].permutation = vp_literal;
 		arithmeticAssignmentLine->operands[2].indirectionLevel = 0;
 		break;
 
-	case t_name:
+	case t_identifier:
 	{
 		struct VariableEntry *readVariable = Scope_lookupVar(m.scope, m.ast->child->sibling);
 		arithmeticAssignmentLine->operands[0].name.str = m.ast->child->sibling->value;
@@ -1470,7 +1470,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 
 			// if just a declaration, do nothing
 			case t_array:
-			case t_name:
+			case t_identifier:
 			{
 				struct LinearizationMetadata declarationMetadata;
 				memcpy(&declarationMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -1497,8 +1497,8 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 		}
 		break;
 
-		case t_un_add_assign:
-		case t_un_sub_assign:
+		case t_add_assign:
+		case t_sub_assign:
 		{
 			struct LinearizationMetadata arithAssignMetadata;
 			memcpy(&arithAssignMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -1531,7 +1531,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 
 			switch (runner->child->type)
 			{
-			case t_name:
+			case t_identifier:
 			{
 				returned = runner->child->value;
 				returnedType = Scope_lookupVar(m.scope, runner->child)->type;
@@ -1539,7 +1539,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			}
 			break;
 
-			case t_literal:
+			case t_constant:
 			{
 				returned = runner->child->value;
 				returnedType = LITERAL_VARIABLE_TYPE;
@@ -1562,8 +1562,8 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			}
 			break;
 
-			case t_bin_add:
-			case t_bin_sub:
+			case t_un_add:
+			case t_un_sub:
 			{
 				returned = TempList_Get(temps, *m.tempNum);
 				returnedPermutation = vp_temp;
