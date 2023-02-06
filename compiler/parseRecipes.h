@@ -3,21 +3,19 @@
 enum token parseRecipes[p_null][10][8] =
     {
         //  p_primary_expression
-        {{t_identifier, p_null},
-         {t_constant, p_null},
-         {t_string_literal, p_null},
-         {t_lParen, p_expression, t_rParen, p_null},
+        {{t_identifier, p_null},                     // identifier
+         {t_constant, p_null},                       // constant
+         {t_string_literal, p_null},                 // string literal
+         {t_lParen, p_expression, t_rParen, p_null}, // (expr)
          {p_null}},
 
         // p_postfix_expression
-        {{p_primary_expression, p_null},
-         {p_primary_expression, t_lBracket, p_expression, t_rBracket, p_null},
-         {p_postfix_expression, t_lParen, t_rParen, p_null},
-         {p_postfix_expression, t_lParen, p_argument_expression_list, t_rParen, p_null},
-         {p_postfix_expression, t_dot, t_identifier, p_null},
-         {p_postfix_expression, t_pointer_op, t_identifier, p_null},
-         {p_postfix_expression, t_un_inc, p_null},
-         {p_postfix_expression, t_un_dec, p_null},
+        {{p_primary_expression, p_null},                                                 // primary-expr
+         {p_primary_expression, t_lBracket, p_expression, t_rBracket, p_null},           // primary-expr [expr]
+         {p_primary_expression, t_lParen, t_rParen, p_null},                             // primary-expr ()
+         {p_primary_expression, t_lParen, p_argument_expression_list, t_rParen, p_null}, // primary-expr (arg-expr-list)
+         {p_primary_expression, t_dot, t_identifier, p_null},                            // primary-expr . identifier
+         {p_primary_expression, t_pointer_op, t_identifier, p_null},                     // primary-expr -> identifier
          {p_null}},
 
         // p_argument_expression_list
@@ -26,90 +24,56 @@ enum token parseRecipes[p_null][10][8] =
          {p_null}},
 
         // p_unary_expression
-        {{p_postfix_expression, p_null},
-         {t_un_inc, p_unary_expression, p_null},
-         {t_un_dec, p_unary_expression, p_null},
-         {p_unary_operator, p_cast_expression, p_null},
-         {t_sizeof, p_unary_expression, p_null},
-         {t_sizeof, t_lParen, p_type_name, t_rParen, p_null},
+        {{p_postfix_expression, p_null},                      // postfix-expr
+         {t_un_inc, p_unary_expression, p_null},              // ++ unary-expr
+         {t_un_dec, p_unary_expression, p_null},              // -- unary-expr
+         {p_postfix_expression, t_un_inc, p_null},            // postfix-expr ++
+         {p_postfix_expression, t_un_dec, p_null},            // postfix-expr --
+         {p_unary_operator, p_cast_expression, p_null},       // unary-op cast-expr
+         {t_sizeof, p_unary_expression, p_null},              // sizeof unary-expr
+         {t_sizeof, t_lParen, p_type_name, t_rParen, p_null}, // sizeof (type-name)
+         {t_reference, p_primary_expression, p_null},         // & primary-expr
+         {t_dereference, p_primary_expression, p_null},       // * primary-expr
          {p_null}},
 
         // p_unary_operator
-        {{t_reference, p_null},
-         {t_dereference, p_null},
-         {t_un_add, p_null},
-         {t_un_sub, p_null},
-         {t_un_bit_not, p_null},
-         {t_un_log_not, p_null},
-         {p_null}},
+        {{t_reference, p_null},   // &
+         {t_dereference, p_null}, // *
+         {t_un_bit_not, p_null},  // ~
+         {t_un_log_not, p_null},  // !
+         {p_null}},               //
 
         // p_cast_expression
-        {{p_unary_expression, p_null},
-         {t_lParen, p_type_name, t_lParen, p_null},
-         {p_null}},
-
-        // p_multiplicative_expression
-        {{p_cast_expression, p_null},
-         {p_multiplicative_expression, t_dereference, p_null},
-         //  {p_multiplicative_expression, t_div, p_null}, // division not implemented in CPU yet
-         //  {p_multiplicative_expression, t_mod, p_null}, // modulo not implemented in CPU yet
-         {p_null}},
-
-        // p_additive_expression
-        {{p_multiplicative_expression, p_null},
-         {p_additive_expression, t_un_add, p_null},
-         {p_additive_expression, t_un_sub, p_null},
-         {p_null}},
-
-        // p_shift_expression
-        {{p_additive_expression, p_null},
-         {p_shift_expression, t_lShift, p_additive_expression, p_null},
-         {p_shift_expression, t_rShift, p_additive_expression, p_null},
-         {p_null}},
-
-        // p_relational_expression
-        {{p_shift_expression, p_null},
-         {p_relational_expression, t_bin_lThan, p_shift_expression, p_null},
-         {p_relational_expression, t_bin_gThan, p_shift_expression, p_null},
-         {p_relational_expression, t_bin_lThanE, p_shift_expression, p_null},
-         {p_relational_expression, t_bin_gThanE, p_shift_expression, p_null},
-         {p_null}},
-
-        // p_equality_expression
-        {{p_relational_expression, p_null},
-         {p_equality_expression, t_bin_equals, p_relational_expression, p_null},
-         {p_equality_expression, t_bin_notEquals, p_relational_expression, p_null},
-         {p_null}},
-
-        // p_and_expression
-        {{p_equality_expression, p_null},
-         {p_and_expression, t_reference, p_equality_expression, p_null},
-         {p_null}},
-
-        // p_exclusive_or_expression
-        {{p_and_expression, p_null},
-         {p_exclusive_or_expression, t_un_bit_xor, p_and_expression, p_null},
-         {p_null}},
-
-        // p_inclusive_or_expression
-        {{p_exclusive_or_expression, p_null},
-         {p_inclusive_or_expression, t_un_bit_or, p_inclusive_or_expression, p_null},
-         {p_null}},
-
-        // p_logical_and_expression
-        {{p_inclusive_or_expression, p_null},
-         {p_logical_and_expression, t_bin_log_and, p_inclusive_or_expression, p_null},
-         {p_null}},
-
-        // p_logical_or_expression
-        {{p_logical_and_expression, p_null},
-         {p_logical_or_expression, t_bin_log_or, p_logical_and_expression, p_null},
+        {{p_unary_expression, p_null},                                    // unary-expr
+         {t_lParen, p_type_name, t_lParen, p_primary_expression, p_null}, // ( type-name ) primary-expression
          {p_null}},
 
         // p_conditional_expression
-        {{p_logical_or_expression, p_null},
-         {p_logical_or_expression, t_ternary, p_expression, t_colon, p_conditional_expression, p_null},
-         {p_null}},
+        {
+            {p_primary_expression, t_bin_log_and, p_primary_expression, p_null}, // primary-expr && primary-expr
+            {p_primary_expression, t_bin_log_or, p_primary_expression, p_null},  // primary-expr || primary-expr
+            {p_null}},
+
+        // p_binary_expression
+        {
+            {p_primary_expression, p_null},
+            {p_primary_expression, t_dereference, p_primary_expression, p_null},                                    // primary-expr * primary-expr
+                                                                                                                    //  {p_arithmetic_expression, t_div, p_arithmetic_expression, p_null},                                                      // division not implemented in CPU yet
+                                                                                                                    //  {p_arithmetic_expression, t_mod, p_arithmetic_expression, p_null},                                                      // modulo not implemented in CPU yet
+            {p_primary_expression, t_un_add, p_primary_expression, p_null},                                         // primary-expr + primary-expr
+            {p_primary_expression, t_un_sub, p_primary_expression, p_null},                                         // primary-expr - primary-expr
+            {p_primary_expression, t_lShift, p_primary_expression, p_null},                                         // primary-expr <<primary- expr
+            {p_primary_expression, t_rShift, p_primary_expression, p_null},                                         // primary-expr >>primary- expr
+            {p_primary_expression, t_bin_lThan, p_primary_expression, p_null},                                      // primary-expr < primary-expr
+            {p_primary_expression, t_bin_gThan, p_primary_expression, p_null},                                      // primary-expr > primary-expr
+            {p_primary_expression, t_bin_lThanE, p_primary_expression, p_null},                                     // primary-expr <= primary-expr
+            {p_primary_expression, t_bin_gThanE, p_primary_expression, p_null},                                     // primary-expr >= primary-expr
+            {p_primary_expression, t_bin_equals, p_primary_expression, p_null},                                     // primary-expr == primary-expr
+            {p_primary_expression, t_bin_notEquals, p_primary_expression, p_null},                                  // primary-expr != primary-expr
+            {p_primary_expression, t_un_bit_xor, p_primary_expression, p_null},                                     // primary-expr ^ primary-expr
+            {p_primary_expression, t_un_bit_or, p_primary_expression, p_null},                                      // primary-expr | primary-expr
+            {p_conditional_expression, t_ternary, p_primary_expression, t_colon, p_conditional_expression, p_null}, // primary-expr  primary-expr
+            {p_null}},
 
         // p_assignment_expression
         {{p_conditional_expression, p_null},
@@ -117,51 +81,52 @@ enum token parseRecipes[p_null][10][8] =
          {p_null}},
 
         // p_assignment_operator
-        {{t_assign, p_null},
-         {t_mul_assign, p_null},
-         // {t_div_assign, p_null}, // division not implemented in CPU yet
-         // {t_mod_assign, p_null}, // modulo not implemented in CPU yet
-         {t_add_assign, p_null},
-         {t_sub_assign, p_null},
-         {t_lshift_assign, p_null},
-         {t_rshift_assign, p_null},
-         {t_bitand_assign, p_null},
-         {t_bitxor_assign, p_null},
-         {t_bitor_assign, p_null},
+        {{t_assign, p_null},        // =
+         {t_mul_assign, p_null},    // *=
+                                    // {t_div_assign, p_null}, // division not implemented in CPU yet /=
+                                    // {t_mod_assign, p_null}, // modulo not implemented in CPU yet %=
+         {t_add_assign, p_null},    // +=
+         {t_sub_assign, p_null},    // -=
+         {t_lshift_assign, p_null}, // <<=
+         {t_rshift_assign, p_null}, // >>=
+         {t_bitand_assign, p_null}, // &=
+         {t_bitxor_assign, p_null}, // ^=
+         {t_bitor_assign, p_null},  // |=
          {p_null}},
 
         // p_expression
-        {{p_assignment_expression, p_null},
-         {p_expression, t_comma, p_assignment_expression, p_null},
+        {{p_assignment_expression, p_null}, // assignment-expr
+         {p_primary_expression, p_null},    // primary-expr
+         {p_binary_expression, p_null},     // assignment-expr
          {p_null}},
 
         // p_constant_expression
-        {{p_conditional_expression, p_null},
-         {p_null}},
+        // {{p_conditional_expression, p_null},
+        //  {p_null}},
 
         // p_declaration
-        {{p_declaration_specifiers, t_semicolon, p_null},
-         {p_declaration_specifiers, p_init_declarator_list, t_semicolon, p_null},
+        {{p_declaration_specifiers, t_identifier, t_semicolon, p_null}, // declaration-specs identifier ;
          {p_null}},
 
         // p_declaration_specifiers
-        {{p_storage_class_specifier, p_null},
-         {p_storage_class_specifier, p_null},
-         {p_type_specifier, p_null},
-         {p_type_specifier, p_declaration_specifiers, p_null},
-         {p_type_qualifier, p_null},
-         {p_type_qualifier, p_declaration_specifiers, p_null},
+        {{p_storage_class_specifier, p_null},                           // storate-specs
+         {p_storage_class_specifier, p_declaration_specifiers, p_null}, // storage-specs declaration-specs
+         {p_type_specifier, p_null},                                    // type-spces
+         {p_type_specifier, p_declaration_specifiers, p_null},          // type-specs declaration-specs
+         {p_type_qualifier, p_null},                                    // type-qual
+         {p_type_qualifier, p_declaration_specifiers, p_null},          // type-qual declaration-specs
          {p_null}},
 
         // p_init_declarator_list
-        {{p_init_declarator, p_null},
-         {p_init_declarator_list, t_comma, p_init_declarator, p_null},
-         {p_null}},
+        // {{p_init_declarator, p_null},
+        //  {p_init_declarator, t_comma, p_init_declarator_list, p_null},
+        //  {p_init_declarator}
+        //  {p_null}},
 
         // p_init_declarator
-        {{p_declarator, p_null},
-         {p_declarator, t_assign, p_initializer, p_null},
-         {p_null}},
+        // {{p_declarator, p_null},
+        //  {p_declarator, t_assign, p_initializer, p_null},
+        //  {p_null}},
 
         // p_storage_class_specifier
         {/*{t_typedef, p_null},*/
@@ -207,31 +172,31 @@ enum token parseRecipes[p_null][10][8] =
          {p_null}},
 
         // p_struct_declarator_list
-        {{p_struct_declarator, p_null},
-         {p_struct_declarator_list, t_comma, p_struct_declarator, p_null},
-         {p_null}},
+        // {{p_struct_declarator, p_null},
+        //  {p_struct_declarator_list, t_comma, p_struct_declarator, p_null},
+        //  {p_null}},
 
         // p_struct_declarator
-        {{p_declarator, p_null},
-         {t_colon, p_constant_expression, p_null},
-         {p_declarator, t_colon, p_constant_expression, p_null},
-         {p_null}},
+        // {{p_declarator, p_null},
+        //  {t_colon, p_constant_expression, p_null},
+        //  {p_declarator, t_colon, p_constant_expression, p_null},
+        //  {p_null}},
 
         // p_enum_specifier
-        {/*{t_enum, t_lCurly, p_enumerator_list, t_rCurly, p_null},
-            {t_enum, t_identifier, t_lCurly, p_enumerator_list, t_rCurly, p_null},
-            {t_enum, t_identifier, p_null},*/
-         {p_null}},
+        // {/*{t_enum, t_lCurly, p_enumerator_list, t_rCurly, p_null},
+            // {t_enum, t_identifier, t_lCurly, p_enumerator_list, t_rCurly, p_null},
+            // {t_enum, t_identifier, p_null},*/
+        //  {p_null}},
 
         // p_enumerator_list
-        {{p_enumerator, p_null},
-         {p_enumerator_list, t_comma, p_enumerator, p_null},
-         {p_null}},
+        // {{p_enumerator, p_null},
+        //  {p_enumerator_list, t_comma, p_enumerator, p_null},
+        //  {p_null}},
 
         // p_enumerator
-        {{t_identifier, p_null},
-         {t_identifier, t_assign, p_constant_expression, p_null},
-         {p_null}},
+        // {{t_identifier, p_null},
+        //  {t_identifier, t_assign, p_constant_expression, p_null},
+        //  {p_null}},
 
         // p_type_qualifier
         {/*{t_const, p_null},
