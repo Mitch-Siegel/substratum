@@ -8,102 +8,53 @@ int curLine, curCol;
 char inChar;
 char *token_names[] = {
 	"p_primary_expression",
-	"p_postfix_expression",
-	"p_argument_expression_list",
-	"p_unary_expression",
-	"p_unary_operator",
-	"p_cast_expression",
-	"p_multiplicative_expression",
-	"p_additive_expression",
-	"p_shift_expression",
-	"p_relational_expression",
-	"p_equality_expression",
-	"p_and_expression",
-	"p_exclusive_or_expression",
-	"p_inclusive_or_expression",
-	"p_logical_and_expression",
-	"p_logical_or_expression",
-	"p_conditional_expression",
-	"p_assignment_expression",
-	"p_assignment_operator",
+	"p_binary_expression",
 	"p_expression",
-	"p_constant_expression",
-	"p_declaration",
-	"p_declaration_specifiers",
-	"p_init_declarator_list",
-	"p_init_declarator",
-	"p_storage_class_specifier",
-	"p_type_specifier",
-	"p_struct_or_union_specifier",
-	"p_struct_or_union",
-	"p_struct_declaration_list",
-	"p_struct_declaration",
-	"p_specifier_qualifier_list",
-	"p_struct_declarator_list",
-	"p_struct_declarator",
-	"p_enum_specifier",
-	"p_enumerator_list",
-	"p_enumerator",
-	"p_type_qualifier",
-	"p_declarator",
-	"p_direct_declarator",
-	"p_pointer",
-	"p_type_qualifier_list",
-	"p_parameter_type_list",
-	"p_parameter_list",
-	"p_parameter_declaration",
-	"p_identifier_list",
-	"p_type_name",
-	"p_abstract_declarator",
-	"p_direct_abstract_declarator",
-	"p_initializer",
-	"p_initializer_list",
-	"p_statement",
-	"p_labeled_statement",
-	"p_compound_statement",
-	"p_declaration_list",
-	"p_statement_list",
-	"p_expression_statement",
-	"p_selection_statement",
-	"p_iteration_statement",
-	"p_jump_statement",
-	"p_translation_unit",
-	"p_external_declaration",
-	"p_function_definition",
 	"p_null",
-	"t_sizeof",
+	"t_identifier",
+	"t_constant",
+	"t_string_literal",
+	// t_sizeof,
 	"t_asm",
+	// types
 	"t_void",
 	"t_uint8",
 	"t_uint16",
 	"t_uint32",
+	// function
 	"t_fun",
 	"t_return",
+	// control flow
 	"t_if",
 	"t_else",
 	"t_while",
 	"t_for",
 	"t_do",
-	"t_identifier",
-	"t_constant",
-	"t_string_literal",
-	"t_un_add",
-	"t_un_sub",
+
+	// arithmetic operators
+	// basic arithmetic
+	"t_bin_add",
+	"t_bin_sub",
 	"t_lShift",
 	"t_rShift",
+	// comparison operators
 	"t_bin_lThan",
 	"t_bin_gThan",
 	"t_bin_lThanE",
 	"t_bin_gThanE",
 	"t_bin_equals",
 	"t_bin_notEquals",
+	// logical operators
 	"t_bin_log_and",
 	"t_bin_log_or",
 	"t_un_log_not",
+	// bitwise operators
 	"t_un_bit_not",
 	"t_un_bit_xor",
 	"t_un_bit_or",
+	// ternary
 	"t_ternary",
+	// arithmetic-assign operators
 	"t_mul_assign",
 	"t_add_assign",
 	"t_sub_assign",
@@ -112,11 +63,14 @@ char *token_names[] = {
 	"t_bitand_assign",
 	"t_bitxor_assign",
 	"t_bitor_assign",
+	// unary operators
 	"t_un_inc",
 	"t_un_dec",
 	"t_reference",
-	"t_dereference",
+	"t_star",
+	// assignment
 	"t_assign",
+	//
 	"t_comma",
 	"t_dot",
 	"t_pointer_op",
@@ -261,76 +215,76 @@ char lookahead_char()
 #define RESERVED_COUNT 34
 
 char *reserved[RESERVED_COUNT] = {
-	"asm",	  // t_asm,
-	"uint8",  // 	t_uint8,
-	"uint16", // 	t_uint16,
-	"uint32", // 	t_uint32,
-	"fun",	  // 	t_fun,
-	"return", // 	t_return,
-	"if",	  // 	t_if,
-	"else",	  // 	t_else,
-	"while",  // 	t_while,
-	",",	  // 	t_comma,
-	"(",	  // 	t_lParen,
-	")",	  // 	t_rParen,
-	"{",	  // 	t_lCurly,
-	"}",	  // 	t_rCurly,
-	"[",	  // 	t_lBracket,
-	"]",	  // 	t_rBracket,
-	";",	  // 	t_semicolon,
-	"=",	  // 	t_assign,
-	"+",	  // 	t_un_add,
-	"+=",	  // 	t_add_assign,
-	"-",	  // 	t_un_sub,
-	"-=",	  // 	t_un_sub_assign,
-	"*",	  // 	t_dereference,
-	"&",	  // 	t_reference,
-	">",	  // 	t_bin_gThan,
-	"<",	  // 	t_bin_lThan,
-	">=",	  // 	t_bin_gThanE,
-	"<=",	  // 	t_bin_lThanE,
-	"==",	  // 	t_bin_equals,
-	"!=",	  // 	t_bin_notEquals,
-	"&&",	  // 	t_bin_log_and,
-	"||",	  // 	t_bin_log_or,
-	"!",	  // 	t_un_log_not,
+	"asm",	  //	t_asm
+	"uint8",  // 	t_uint8
+	"uint16", // 	t_uint16
+	"uint32", // 	t_uint32
+	"fun",	  // 	t_fun
+	"return", // 	t_return
+	"if",	  // 	t_if
+	"else",	  // 	t_else
+	"while",  // 	t_while
+	",",	  // 	t_comma
+	"(",	  // 	t_lParen
+	")",	  // 	t_rParen
+	"{",	  // 	t_lCurly
+	"}",	  // 	t_rCurly
+	"[",	  // 	t_lBracket
+	"]",	  // 	t_rBracket
+	";",	  // 	t_semicolon
+	"=",	  // 	t_assign
+	"+",	  // 	t_bin_add
+	"+=",	  // 	t_add_assign
+	"-",	  // 	t_bin_sub
+	"-=",	  // 	t_sub_assign
+	"*",	  // 	t_star
+	"&",	  // 	t_reference
+	">",	  // 	t_bin_gThan
+	"<",	  // 	t_bin_lThan
+	">=",	  // 	t_bin_gThanE
+	"<=",	  // 	t_bin_lThanE
+	"==",	  // 	t_bin_equals
+	"!=",	  // 	t_bin_notEqual
+	"&&",	  // 	t_bin_log_and
+	"||",	  // 	t_bin_log_or
+	"!",	  // 	t_un_log_not
 	"$$"};	  // 	t_EOF
 
 enum token reserved_tokens[RESERVED_COUNT] = {
-	t_asm,
-	t_uint8,
-	t_uint16,
-	t_uint32,
-	t_fun,
-	t_return,
-	t_if,
-	t_else,
-	t_while,
-	t_comma,
-	t_lParen,
-	t_rParen,
-	t_lCurly,
-	t_rCurly,
-	t_lBracket,
-	t_rBracket,
-	t_semicolon,
-	t_assign,
-	t_un_add,
-	t_add_assign,
-	t_un_sub,
-	t_sub_assign,
-	t_dereference,
-	t_reference,
-	t_bin_gThan,
-	t_bin_lThan,
-	t_bin_gThanE,
-	t_bin_lThanE,
-	t_bin_equals,
-	t_bin_notEquals,
-	t_bin_log_and,
-	t_bin_log_or,
-	t_un_log_not,
-	t_EOF};
+	t_asm,			 // t_asm,
+	t_uint8,		 // 	t_uint8,
+	t_uint16,		 // 	t_uint16,
+	t_uint32,		 // 	t_uint32,
+	t_fun,			 // 	t_fun,
+	t_return,		 // 	t_return,
+	t_if,			 // 	t_if,
+	t_else,			 // 	t_else,
+	t_while,		 // 	t_while,
+	t_comma,		 // 	t_comma,
+	t_lParen,		 // 	t_lParen,
+	t_rParen,		 // 	t_rParen,
+	t_lCurly,		 // 	t_lCurly,
+	t_rCurly,		 // 	t_rCurly,
+	t_lBracket,		 // 	t_lBracket,
+	t_rBracket,		 // 	t_rBracket,
+	t_semicolon,	 // 	t_semicolon,
+	t_assign,		 // 	t_assign,
+	t_bin_add,		 // 	t_bin_add,
+	t_add_assign,	 // 	t_add_assign,
+	t_bin_sub,		 // 	t_bin_sub,
+	t_sub_assign,	 // 	t_un_sub_assign,
+	t_star,			 // 	t_star,
+	t_reference,	 // 	t_reference,
+	t_bin_gThan,	 // 	t_bin_gThan,
+	t_bin_lThan,	 // 	t_bin_lThan,
+	t_bin_gThanE,	 // 	t_bin_gThanE,
+	t_bin_lThanE,	 // 	t_bin_lThanE,
+	t_bin_equals,	 // 	t_bin_equals,
+	t_bin_notEquals, // 	t_bin_notEquals,
+	t_bin_log_and,	 // 	t_bin_log_and,
+	t_bin_log_or,	 // 	t_bin_log_or,
+	t_un_log_not,	 // 	t_un_log_not,
+	t_EOF};			 // 	t_EOF
 
 enum token scan(char trackPos)
 {
@@ -462,12 +416,21 @@ char *getTokenName(enum token t)
 	return token_names[t];
 }
 
-struct ProductionPossibility
+struct InProgressProduction
 {
-	enum token t;
-	int recipeIndex;
+	enum token production;
+	struct AST *tree;
 };
 
+struct InProgressProduction *InProgressProduction_New(enum token production, struct AST *tree)
+{
+	struct InProgressProduction *wip = malloc(sizeof(struct InProgressProduction));
+	wip->production = production;
+	wip->tree = tree;
+	return wip;
+}
+
+/*
 struct LinkedList *visitedProductionsForLookahead = NULL;
 
 char compareTokens(enum token *a, enum token *b)
@@ -516,66 +479,161 @@ void GeneratePossibleLookaheads(struct Stack *possibleProductions, enum token cu
 		}
 	}
 }
+*/
+
+void printParseStack(struct Stack *parseStack)
+{
+	/*
+	printf("Parse Stack:\t");
+	for (int i = 0; i < parseStack->size; i++)
+	{
+		struct InProgressProduction *thisProduction = (struct InProgressProduction *)parseStack->data[i];
+		printf("%s ", getTokenName(thisProduction->production));
+	}
+	printf("\n\t");
+	*/
+	printf("Parse Stack:\t");
+	for (int i = 0; i < parseStack->size; i++)
+	{
+		struct InProgressProduction *thisProduction = (struct InProgressProduction *)parseStack->data[i];
+		if (thisProduction->production < p_null)
+		{
+			printf("%s ", getTokenName(thisProduction->production));
+		}
+		else if (thisProduction->production > p_null)
+		{
+			printf("%s ", thisProduction->tree->value);
+		}
+		else
+		{
+			ErrorAndExit(ERROR_INTERNAL, "null production in parse stack!\n");
+		}
+	}
+	printf("\n");
+}
+
+enum token foundReduction[2] = {p_null, 0};
+void findReduction(struct Stack *parseStack)
+{
+	foundReduction[0] = p_null;
+	foundReduction[1] = -1;
+	// iterate all recipe sets
+	for (int pi = 0; pi < p_null; pi++)
+	{
+		// iterate each recipe within the set
+		for (int qi = 0; parseRecipes[pi][qi][0] != p_null; qi++)
+		{
+
+			// iterate each production/token in the buffer
+			int ti;
+			int productionLength = 0;
+			for (; parseRecipes[pi][qi][productionLength] != p_null; productionLength++)
+				;
+			// if we don't have enough tokens for this production, skip it
+			if(parseStack->size < productionLength)
+			{
+				continue;
+			}
+
+			for (ti = 0; (ti < productionLength) && (parseRecipes[pi][qi][ti] != p_null); ti++)
+			{
+				struct InProgressProduction *examinedExistingProduction = (struct InProgressProduction *)parseStack->data[parseStack->size - (productionLength - ti)];
+				if (parseRecipes[pi][qi][ti] != examinedExistingProduction->production)
+				{
+					// printf("ingredient %d not what expected - moving on to next recipe\n", ti);
+					break;
+				}
+			}
+			if ((ti == productionLength) && (parseRecipes[pi][qi][ti] == p_null))
+			{
+				// printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
+				foundReduction[0] = pi;
+				foundReduction[1] = qi;
+				return;
+			}
+		}
+	}
+}
+
+void reduce(struct Stack *parseStack)
+{
+	int productionSize = 0;
+	while (parseRecipes[foundReduction[0]][foundReduction[1]][productionSize] != p_null)
+	{
+		productionSize++;
+	}
+	struct InProgressProduction **ingredients = malloc(productionSize * sizeof(struct InProgressProduction *));
+
+	// grab (in order) the ingredients we will use, copy them to an array here
+	for (int i = 0; i < productionSize; i++)
+	{
+		ingredients[i] = parseStack->data[parseStack->size - (productionSize - i)];
+	}
+
+	// take the ingredients off the stack
+	for (int i = 0; i < productionSize; i++)
+	{
+		Stack_Pop(parseStack);
+	}
+
+	// construct the tree for this production
+	struct InProgressProduction *produced = InProgressProduction_New(foundReduction[0], ingredients[0]->tree);
+	enum RecipeInstructions *thisRecipe = parseRecipeInstructions[foundReduction[0]][foundReduction[1]];
+	for (int i = 1; i < productionSize; i++)
+	{
+		switch (thisRecipe[i])
+		{
+		case above:
+		{
+			struct AST *oldTree = produced->tree;
+			produced->tree = ingredients[i]->tree;
+			AST_InsertChild(produced->tree, oldTree);
+		}
+		break;
+
+		case below:
+			AST_InsertChild(produced->tree, ingredients[i]->tree);
+			break;
+
+		case cnsme:
+			free(ingredients[i]->tree);
+			break;
+		}
+		free(ingredients[i]);
+	}
+
+	free(ingredients);
+	Stack_Push(parseStack, produced);
+}
 
 struct AST *TableParse(struct Dictionary *dict)
 {
 	struct Stack *parseStack = Stack_New();
-	struct Stack *newProductionStack = Stack_New();
-	Stack_Push(parseStack, (void *)p_translation_unit);
-	while (parseStack->size > 0)
+	// Stack_Push(parseStack, (void *)p_translation_unit);
+	char parsing = 1;
+	while (parsing)
 	{
-		if (visitedProductionsForLookahead != NULL)
+		if (parseStack->size > 0)
 		{
-			LinkedList_Free(visitedProductionsForLookahead, free);
+			findReduction(parseStack);
 		}
-		visitedProductionsForLookahead = LinkedList_New();
-
-		// enum token nextToken = lookahead();
-		enum token currentProduction = (enum token)Stack_Pop(parseStack);
-		printf("%s\n", getTokenName(currentProduction));
-		if (currentProduction < p_null)
+		if (foundReduction[0] != p_null)
 		{
-			struct Stack *possibleProductions = Stack_New();
-			for (int i = 0; parseRecipes[currentProduction][i][0] != p_null; i++)
-			{
-				GeneratePossibleLookaheads(possibleProductions, currentProduction, i, 0);
-			}
-			int recipeIndexCounts[9] = {0};
-			for (int i = 0; i < possibleProductions->size; i++)
-			{
-				struct ProductionPossibility *p = possibleProductions->data[i];
-				recipeIndexCounts[p->recipeIndex]++;
-				// printf("%s:%d->%s\n", getTokenName(currentProduction), p->recipeIndex, getTokenName(p->t));
-			}
-			int chosenIndex = -1;
-			for (int i = 0; i < 9; i++)
-			{
-				if (recipeIndexCounts[i])
-				{
-					if (chosenIndex > -1)
-					{
-						printf("Ambiguity :(\n");
-						exit(1);
-					}
-					else
-					{
-						chosenIndex = i;
-					}
-				}
-			}
-
-			for (int i = 0; parseRecipes[currentProduction][chosenIndex][i] != p_null; i++)
-			{
-				Stack_Push(newProductionStack, (void *)parseRecipes[currentProduction][chosenIndex][i]);
-			}
-			while (newProductionStack->size > 0)
-			{
-				Stack_Push(parseStack, Stack_Pop(newProductionStack));
-			}
+			reduce(parseStack);
+			printf("Reduce: %s:%d\n\t", getTokenName(foundReduction[0]), foundReduction[1]);
 		}
 		else
 		{
-			consume(currentProduction);
+			struct AST *nextToken = match(lookahead(), dict);
+			Stack_Push(parseStack, InProgressProduction_New(nextToken->type, nextToken));
+			// printf("shift [%s]\n", nextToken->value);
+			printf("Shift: [%s]\n\t", nextToken->value);
+		}
+		printParseStack(parseStack);
+		printf("\n");
+
+		for (int i = 0; i < 0xffffffff; i++)
+		{
 		}
 	}
 	return NULL;

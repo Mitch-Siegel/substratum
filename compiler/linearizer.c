@@ -43,7 +43,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 	break;
 
 		// recursively dereference nested dereferences
-	case t_dereference:
+	case t_star:
 	{
 		thisDereference->operands[1].name.str = TempList_Get(temps, *m.tempNum);
 		thisDereference->operands[1].permutation = vp_temp;
@@ -59,8 +59,8 @@ int linearizeDereference(struct LinearizationMetadata m)
 	break;
 
 		// handle pointer arithmetic to evalute the correct adddress to dereference
-	case t_un_add:
-	case t_un_sub:
+	case t_bin_add:
+	case t_bin_sub:
 	{
 		thisDereference->operands[1].name.str = m.ast->child->value; // base
 		int LHSSize;
@@ -85,7 +85,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 		}
 		break;
 
-		case t_dereference:
+		case t_star:
 		{
 			thisDereference->operands[1].name.str = TempList_Get(temps, *m.tempNum);
 			thisDereference->operands[1].permutation = vp_temp;
@@ -116,7 +116,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 		{
 		case t_identifier:
 		{
-			if (m.ast->type == t_un_sub)
+			if (m.ast->type == t_bin_sub)
 			{
 				struct TACLine *subtractInvert = newTACLine(m.currentTACIndex++, tt_mul, m.ast);
 				subtractInvert->operands[0].name.str = TempList_Get(temps, *m.tempNum);
@@ -160,17 +160,17 @@ int linearizeDereference(struct LinearizationMetadata m)
 
 			int offset = atoi(m.ast->child->sibling->value);
 			// multiply offset by 4 for word size
-			thisDereference->operands[2].name.val = (offset * 4) * ((m.ast->type == t_un_sub) ? -1 : 1);
+			thisDereference->operands[2].name.val = (offset * 4) * ((m.ast->type == t_bin_sub) ? -1 : 1);
 			thisDereference->operands[2].type = LITERAL_VARIABLE_TYPE;
 			thisDereference->operands[2].permutation = vp_literal;
 		}
 		break;
 
-		case t_un_add:
-		case t_un_sub:
+		case t_bin_add:
+		case t_bin_sub:
 		{
 			// parent expression type requires inversion of entire (right) child expression if subtracting
-			if (m.ast->type == t_un_sub)
+			if (m.ast->type == t_bin_sub)
 			{
 				struct TACLine *subtractInvert = newTACLine(m.currentTACIndex++, tt_mul, m.ast);
 				subtractInvert->operands[0].name.str = TempList_Get(temps, *m.tempNum);
@@ -279,7 +279,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 	}
 	break;
 
-	case t_dereference:
+	case t_star:
 	{
 		struct LinearizationMetadata dereferenceMetadata;
 		memcpy(&dereferenceMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -294,8 +294,8 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 	}
 	break;
 
-	case t_un_add:
-	case t_un_sub:
+	case t_bin_add:
+	case t_bin_sub:
 	{
 		struct LinearizationMetadata expressionMetadata;
 		memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -394,8 +394,8 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 	}
 	break;
 
-	case t_un_add:
-	case t_un_sub:
+	case t_bin_add:
+	case t_bin_sub:
 	case t_bin_lThan:
 	case t_bin_lThanE:
 	case t_bin_gThan:
@@ -415,7 +415,7 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 	}
 	break;
 
-	case t_dereference:
+	case t_star:
 	{
 		struct LinearizationMetadata dereferenceMetadata;
 		memcpy(&dereferenceMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -445,9 +445,9 @@ int linearizeExpression(struct LinearizationMetadata m)
 	// since 'cmp' doesn't generate a result, it just sets flags, no need to consume a temp for operations that become cmp's
 	switch (m.ast->type)
 	{
-	case t_un_add:
-	case t_un_sub:
-	case t_dereference:
+	case t_bin_add:
+	case t_bin_sub:
+	case t_star:
 		thisExpression->operands[0].name.str = TempList_Get(temps, *m.tempNum);
 		thisExpression->operands[0].permutation = vp_temp;
 		// increment count of temp variables, the parse of this expression will be written to a temp
@@ -467,7 +467,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	}
 	// support dereference and reference operations separately
 	// since these have only one operand
-	if (m.ast->type == t_dereference)
+	if (m.ast->type == t_star)
 	{
 		thisExpression->operation = tt_memr_1;
 		// if simply dereferencing a name
@@ -503,15 +503,15 @@ int linearizeExpression(struct LinearizationMetadata m)
 	switch (m.ast->child->type)
 	{
 	case t_call:
-	case t_un_add:
-	case t_un_sub:
+	case t_bin_add:
+	case t_bin_sub:
 	case t_bin_lThan:
 	case t_bin_lThanE:
 	case t_bin_gThan:
 	case t_bin_gThanE:
 	case t_bin_equals:
 	case t_bin_notEquals:
-	case t_dereference:
+	case t_star:
 	{
 		struct LinearizationMetadata subexpressionMetadata;
 		memcpy(&subexpressionMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -546,14 +546,14 @@ int linearizeExpression(struct LinearizationMetadata m)
 	// assign the TAC operation based on the operator at hand
 	switch (m.ast->type)
 	{
-	case t_un_add:
+	case t_bin_add:
 	{
 		thisExpression->reorderable = 1;
 		thisExpression->operation = tt_add;
 	}
 	break;
 
-	case t_un_sub:
+	case t_bin_sub:
 	{
 		thisExpression->operation = tt_subtract;
 	}
@@ -581,15 +581,15 @@ int linearizeExpression(struct LinearizationMetadata m)
 	switch (m.ast->child->sibling->type)
 	{
 	case t_call:
-	case t_un_add:
-	case t_un_sub:
+	case t_bin_add:
+	case t_bin_sub:
 	case t_bin_lThan:
 	case t_bin_lThanE:
 	case t_bin_gThan:
 	case t_bin_gThanE:
 	case t_bin_equals:
 	case t_bin_notEquals:
-	case t_dereference:
+	case t_star:
 	{
 
 		struct LinearizationMetadata subexpressionMetadata;
@@ -801,7 +801,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	{
 		switch (m.ast->child->sibling->type)
 		{
-		case t_dereference:
+		case t_star:
 		{
 			struct LinearizationMetadata dereferenceMetadata;
 			memcpy(&dereferenceMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -811,8 +811,8 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		}
 		break;
 
-		case t_un_add:
-		case t_un_sub:
+		case t_bin_add:
+		case t_bin_sub:
 		{
 			struct LinearizationMetadata expressionMetadata;
 			memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -856,7 +856,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		RHS->operands[0].indirectionLevel = RHS->operands[1].indirectionLevel;
 		switch (m.ast->child->type)
 		{
-		case t_dereference:
+		case t_star:
 		{
 			struct AST *dereferencedExpression = m.ast->child->child;
 
@@ -873,7 +873,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			}
 			break;
 
-			case t_dereference:
+			case t_star:
 			{
 				struct LinearizationMetadata dereferenceMetadata;
 				memcpy(&dereferenceMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -892,8 +892,8 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			}
 			break;
 
-			case t_un_add:
-			case t_un_sub:
+			case t_bin_add:
+			case t_bin_sub:
 			{
 
 				// linearize the RHS of the dereferenced arithmetic
@@ -921,8 +921,8 @@ int linearizeAssignment(struct LinearizationMetadata m)
 				break;
 
 				// all other arithmetic goes here
-				case t_un_add:
-				case t_un_sub:
+				case t_bin_add:
+				case t_bin_sub:
 				{
 					struct LinearizationMetadata expressionMetadata;
 					memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -969,7 +969,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 					// finalAssignment->operands[1].indirectionLevel = 0; // extraneous
 
 					// make offset value negative if subtracting
-					if (dereferencedExpression->type == t_un_sub)
+					if (dereferencedExpression->type == t_bin_sub)
 					{
 						finalAssignment->operands[1].name.val = finalAssignment->operands[1].name.val * -1;
 					}
@@ -987,7 +987,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 					finalAssignment->operands[2].indirectionLevel = 0;
 
 					// make scale value negative if subtracting
-					if (dereferencedExpression->type == t_un_sub)
+					if (dereferencedExpression->type == t_bin_sub)
 					{
 						finalAssignment->operands[2].name.val = finalAssignment->operands[2].name.val * -1;
 					}
@@ -1171,7 +1171,7 @@ int linearizeDeclaration(struct LinearizationMetadata m)
 	}
 
 	int dereferenceLevel = 0;
-	while (m.ast->child->type == t_dereference)
+	while (m.ast->child->type == t_star)
 	{
 		dereferenceLevel++;
 		m.ast = m.ast->child;
@@ -1443,10 +1443,10 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			}
 			break;
 
-			case t_dereference:
+			case t_star:
 			{
 				struct AST *dereferenceScraper = runner->child;
-				while (dereferenceScraper->type == t_dereference)
+				while (dereferenceScraper->type == t_star)
 					dereferenceScraper = dereferenceScraper->child;
 
 				if (dereferenceScraper->type == t_assign)
@@ -1547,7 +1547,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			}
 			break;
 
-			case t_dereference:
+			case t_star:
 			{
 				returned = TempList_Get(temps, *m.tempNum);
 				returnedPermutation = vp_temp;
@@ -1562,8 +1562,8 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			}
 			break;
 
-			case t_un_add:
-			case t_un_sub:
+			case t_bin_add:
+			case t_bin_sub:
 			{
 				returned = TempList_Get(temps, *m.tempNum);
 				returnedPermutation = vp_temp;
@@ -1881,7 +1881,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			struct AST *declarationScraper = runner;
 
 			// scrape down all pointer levels if necessary, then linearize if the variable is actually assigned
-			while (declarationScraper->child->type == t_dereference)
+			while (declarationScraper->child->type == t_star)
 				declarationScraper = declarationScraper->child;
 
 			declarationScraper = declarationScraper->child;

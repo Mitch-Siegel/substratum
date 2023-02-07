@@ -507,7 +507,7 @@ void walkStatement(struct AST *it, struct Scope *wip)
 			runner = runner->child;
 			switch (runner->type)
 			{
-			case t_dereference:
+			case t_star:
 				indirectionLevel++;
 				break;
 
@@ -720,7 +720,7 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 					runner = runner->child;
 					switch (runner->type)
 					{
-					case t_dereference:
+					case t_star:
 						indirectionLevel++;
 						break;
 
