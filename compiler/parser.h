@@ -9,11 +9,11 @@
 
 void ParserError();
 
-char lookahead_char_dumb();
+int lookahead_char_dumb();
 
 void trimWhitespace(char trackPos);
 
-char lookahead_char();
+int lookahead_char();
 
 enum token scan(char trackPos);
 

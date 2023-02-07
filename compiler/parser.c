@@ -5,11 +5,16 @@ FILE *inFile;
 char buffer[BUF_SIZE];
 int buflen;
 int curLine, curCol;
-char inChar;
 char *token_names[] = {
 	"p_primary_expression",
 	"p_binary_expression",
 	"p_expression",
+	"p_type_specifier",
+	"p_parameter_type",
+	"p_declarator",
+	"p_declaration",
+	"p_parameter_type_list",
+	"p_scope",
 	"p_null",
 	"t_identifier",
 	"t_constant",
@@ -97,10 +102,10 @@ char *token_names[] = {
 
 // return the char 'count' characters ahead
 // count must be >0, returns null char otherwise
-char lookahead_char_dumb(int count)
+int lookahead_char_dumb(int count)
 {
 	long offset = ftell(inFile);
-	char returnChar = '\0';
+	int returnChar = '\0';
 	for (int i = 0; i < count; i++)
 	{
 		returnChar = fgetc(inFile);
@@ -116,6 +121,9 @@ void trimWhitespace(char trackPos)
 	{
 		switch (lookahead_char_dumb(1))
 		{
+		case EOF:
+			return;
+
 		case '\n':
 			if (trackPos)
 			{
@@ -125,7 +133,6 @@ void trimWhitespace(char trackPos)
 			fgetc(inFile);
 			break;
 
-		case -1:
 		case '\0':
 		case ' ':
 		case '\t':
@@ -205,7 +212,7 @@ void trimWhitespace(char trackPos)
 	}
 }
 
-char lookahead_char()
+int lookahead_char()
 {
 	trimWhitespace(1);
 	char r = lookahead_char_dumb(1);
@@ -295,10 +302,23 @@ enum token scan(char trackPos)
 		return t_EOF;
 
 	enum token currentToken = -1;
+	int inChar;
 
 	while (1)
 	{
 		inChar = fgetc(inFile);
+		if (inChar == EOF)
+		{
+			if (buflen > 0)
+			{
+				buflen = 0;
+				return currentToken;
+			}
+			else
+			{
+				return t_EOF;
+			}
+		}
 		if (trackPos)
 			curCol++;
 
@@ -530,7 +550,7 @@ void findReduction(struct Stack *parseStack)
 			for (; parseRecipes[pi][qi][productionLength] != p_null; productionLength++)
 				;
 			// if we don't have enough tokens for this production, skip it
-			if(parseStack->size < productionLength)
+			if (parseStack->size < productionLength)
 			{
 				continue;
 			}
@@ -555,6 +575,34 @@ void findReduction(struct Stack *parseStack)
 	}
 }
 
+struct AST *performRecipeInstruction(struct AST *existingTree, struct AST *ingredientTree, enum RecipeInstructions instruction)
+{
+	// if no current tree and we don't want to consume the ingredient, the ingredient becomes the tree
+	if (existingTree == NULL && instruction != cnsme)
+	{
+		return ingredientTree;
+	}
+
+	switch (instruction)
+	{
+	case above:
+		AST_InsertChild(ingredientTree, existingTree);
+		return ingredientTree;
+
+	case below:
+		AST_InsertChild(existingTree, ingredientTree);
+		return existingTree;
+
+	case besid:
+		AST_InsertSibling(existingTree, ingredientTree);
+		return existingTree;
+
+	case cnsme:
+		free(ingredientTree);
+		return existingTree;
+	}
+}
+
 void reduce(struct Stack *parseStack)
 {
 	int productionSize = 0;
@@ -562,6 +610,7 @@ void reduce(struct Stack *parseStack)
 	{
 		productionSize++;
 	}
+	// printf("Reduce %s:%d - %d ingredients\n", getTokenName(foundReduction[0]), foundReduction[1], productionSize);
 	struct InProgressProduction **ingredients = malloc(productionSize * sizeof(struct InProgressProduction *));
 
 	// grab (in order) the ingredients we will use, copy them to an array here
@@ -577,28 +626,11 @@ void reduce(struct Stack *parseStack)
 	}
 
 	// construct the tree for this production
-	struct InProgressProduction *produced = InProgressProduction_New(foundReduction[0], ingredients[0]->tree);
+	struct InProgressProduction *produced = InProgressProduction_New(foundReduction[0], NULL);
 	enum RecipeInstructions *thisRecipe = parseRecipeInstructions[foundReduction[0]][foundReduction[1]];
-	for (int i = 1; i < productionSize; i++)
+	for (int i = 0; i < productionSize; i++)
 	{
-		switch (thisRecipe[i])
-		{
-		case above:
-		{
-			struct AST *oldTree = produced->tree;
-			produced->tree = ingredients[i]->tree;
-			AST_InsertChild(produced->tree, oldTree);
-		}
-		break;
-
-		case below:
-			AST_InsertChild(produced->tree, ingredients[i]->tree);
-			break;
-
-		case cnsme:
-			free(ingredients[i]->tree);
-			break;
-		}
+		produced->tree = performRecipeInstruction(produced->tree, ingredients[i]->tree, thisRecipe[i]);
 		free(ingredients[i]);
 	}
 
@@ -624,17 +656,23 @@ struct AST *TableParse(struct Dictionary *dict)
 		}
 		else
 		{
-			struct AST *nextToken = match(lookahead(), dict);
+			enum token lookaheadToken = lookahead();
+			struct AST *nextToken = NULL;
+			if (lookaheadToken == t_EOF)
+			{
+				parsing = 0;
+				break;
+			}
+			else
+			{
+				nextToken = match(lookaheadToken, dict);
+			}
 			Stack_Push(parseStack, InProgressProduction_New(nextToken->type, nextToken));
 			// printf("shift [%s]\n", nextToken->value);
 			printf("Shift: [%s]\n\t", nextToken->value);
 		}
 		printParseStack(parseStack);
 		printf("\n");
-
-		for (int i = 0; i < 0xffffffff; i++)
-		{
-		}
 	}
 	return NULL;
 }
