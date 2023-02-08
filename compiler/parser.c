@@ -22,74 +22,74 @@ char *token_names[] = {
 	"t_constant",
 	"t_string_literal",
 	// t_sizeof,
-	"t_asm",
+	"asm",
 	// types
-	"t_void",
-	"t_uint8",
-	"t_uint16",
-	"t_uint32",
+	"void",
+	"uint8",
+	"uint16",
+	"uint32",
 	// function
-	"t_fun",
-	"t_return",
+	"fun",
+	"return",
 	// control flow
-	"t_if",
-	"t_else",
-	"t_while",
-	"t_for",
-	"t_do",
+	"if",
+	"else",
+	"while",
+	"for",
+	"do",
 
 	// arithmetic operators
 	// basic arithmetic
-	"t_bin_add",
-	"t_bin_sub",
-	"t_lShift",
-	"t_rShift",
+	"+",
+	"-",
+	"<<",
+	">>",
 	// comparison operators
-	"t_bin_lThan",
-	"t_bin_gThan",
-	"t_bin_lThanE",
-	"t_bin_gThanE",
-	"t_bin_equals",
-	"t_bin_notEquals",
+	"<",
+	">",
+	"<=",
+	">=",
+	"==",
+	"!=",
 	// logical operators
-	"t_bin_log_and",
-	"t_bin_log_or",
-	"t_un_log_not",
+	"&&",
+	"||",
+	"!",
 	// bitwise operators
-	"t_un_bit_not",
-	"t_un_bit_xor",
-	"t_un_bit_or",
+	"~",
+	"^",
+	"|",
 	// ternary
-	"t_ternary",
+	"?",
 	// arithmetic-assign operators
-	"t_mul_assign",
-	"t_add_assign",
-	"t_sub_assign",
-	"t_lshift_assign",
-	"t_rshift_assign",
-	"t_bitand_assign",
-	"t_bitxor_assign",
-	"t_bitor_assign",
+	"*=",
+	"+=",
+	"-=",
+	"<<=",
+	">>=",
+	"&=",
+	"^=",
+	"|=",
 	// unary operators
-	"t_un_inc",
-	"t_un_dec",
-	"t_reference",
-	"t_star",
+	"++",
+	"--",
+	"&",
+	"*",
 	// assignment
-	"t_assign",
+	"=",
 	//
-	"t_comma",
-	"t_dot",
-	"t_pointer_op",
-	"t_semicolon",
-	"t_colon",
-	"t_lParen",
-	"t_rParen",
-	"t_lCurly",
-	"t_rCurly",
-	"t_lBracket",
-	"t_rBracket",
-	"t_array",
+	",",
+	".",
+	"->",
+	";",
+	":",
+	"(",
+	")",
+	"{",
+	"}",
+	"[",
+	"]",
+	"[]",
 	"t_call",
 	"t_scope",
 	"t_EOF"};
@@ -455,56 +455,65 @@ struct InProgressProduction *InProgressProduction_New(enum token production, str
 	return wip;
 }
 
-/*
-struct LinkedList *visitedProductionsForLookahead = NULL;
-
-char compareTokens(enum token *a, enum token *b)
+void printTokenNameStack(struct Stack *tokenNameStack)
 {
-	return *a != *b;
+	for (int i = 0; i < tokenNameStack->size; i++)
+	{
+		char *thisProductionName = tokenNameStack->data[i];
+		printf("[%s] ", thisProductionName);
+	}
+	printf("\n");
 }
 
-void GeneratePossibleLookaheads(struct Stack *possibleProductions, enum token currentProduction, int recipeIndex, int depth)
+void enumeratePossibleProductionsRecursive(struct Stack *productionStack, enum token currentProduction)
 {
-	if (depth > 80)
+	// depth-limit the recursion
+	if (productionStack->size > 10)
 	{
+		printTokenNameStack(productionStack);
 		return;
 	}
 
-	for (int i = 0; parseRecipes[currentProduction][i][0] != p_null; i++)
+	if (currentProduction < p_null)
 	{
-		enum token indirectIngredient = parseRecipes[currentProduction][i][0];
-		if (indirectIngredient > p_null)
+		// Stack_Push(productionStack, getTokenName(currentProduction));
+		for (int qi = 0; RECIPE_INGREDIENT(currentProduction, qi, 0) != p_null; qi++)
 		{
-			char foundAlready = 0;
-			for (int j = 0; j < possibleProductions->size; j++)
+			int terminalsToPop = 0;
+			for (int ti = 0; RECIPE_INGREDIENT(currentProduction, qi, ti) != p_null; ti++)
 			{
-				struct ProductionPossibility *existingP = possibleProductions->data[j];
-				if (existingP->t == indirectIngredient)
+				enum token enumeratedIngredient = RECIPE_INGREDIENT(currentProduction, qi, ti);
+				if (enumeratedIngredient < p_null)
 				{
-					foundAlready = 1;
+					// Stack_Push(productionStack, getTokenName(enumeratedIngredient));
+					enumeratePossibleProductionsRecursive(productionStack, enumeratedIngredient);
+					// Stack_Pop(productionStack);
+				}
+				else
+				{
+					terminalsToPop++;
+					Stack_Push(productionStack, getTokenName(enumeratedIngredient));
 				}
 			}
-			if (!foundAlready)
+			printTokenNameStack(productionStack);
+			for (int i = 0; i < terminalsToPop; i++)
 			{
-				struct ProductionPossibility *p = malloc(sizeof(struct ProductionPossibility));
-				p->recipeIndex = recipeIndex;
-				p->t = indirectIngredient;
-				Stack_Push(possibleProductions, (void *)p);
+				Stack_Pop(productionStack);
 			}
 		}
-		else
-		{
-			if (LinkedList_Find(visitedProductionsForLookahead, compareTokens, &indirectIngredient) == NULL)
-			{
-				enum token *currentProductionCopy = malloc(sizeof(enum token));
-				*currentProductionCopy = currentProduction;
-				LinkedList_Append(visitedProductionsForLookahead, currentProductionCopy);
-				GeneratePossibleLookaheads(possibleProductions, indirectIngredient, recipeIndex, depth + 1);
-			}
-		}
+		// Stack_Pop(productionStack);
 	}
+	// else
+	// {
+		// Stack_Push(productionStack, getTokenName(currentProduction));
+	// }
 }
-*/
+
+void enumeratePossibleProductions()
+{
+	struct Stack *enumerationStack = Stack_New();
+	enumeratePossibleProductionsRecursive(enumerationStack, 0);
+}
 
 void printParseStack(struct Stack *parseStack)
 {
@@ -689,6 +698,7 @@ struct AST *ParseProgram(char *inFileName, struct Dictionary *dict)
 	curLine = 1;
 	curCol = 1;
 	inFile = fopen(inFileName, "rb");
+	enumeratePossibleProductions();
 	struct AST *program = TableParse(dict);
 	fclose(inFile);
 
