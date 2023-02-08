@@ -11,10 +11,12 @@ enum token
 	p_type_specifier,
 	p_parameter_type,
 	p_declarator,
-	p_declaration,
+	p_variable_declaration,
+	p_function_declaration,
 	p_parameter_type_list,
 	p_scope,
 	p_null,
+	// begin tokens
 	t_identifier,
 	t_constant,
 	t_string_literal,

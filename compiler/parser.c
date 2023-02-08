@@ -12,10 +12,12 @@ char *token_names[] = {
 	"p_type_specifier",
 	"p_parameter_type",
 	"p_declarator",
-	"p_declaration",
+	"p_variable_declaration",
+	"p_function_declaration",
 	"p_parameter_type_list",
 	"p_scope",
 	"p_null",
+	// begin tokens
 	"t_identifier",
 	"t_constant",
 	"t_string_literal",
@@ -91,6 +93,9 @@ char *token_names[] = {
 	"t_call",
 	"t_scope",
 	"t_EOF"};
+
+#define RECIPE_INGREDIENT(production, permutation, index) parseRecipes[production][permutation][index][0]
+#define RECIPE_INSTRUCTION(production, permutation, index) parseRecipes[production][permutation][index][1]
 
 #define ParserError(production, info)                                                 \
 	{                                                                                 \
@@ -540,14 +545,13 @@ void findReduction(struct Stack *parseStack)
 	// iterate all recipe sets
 	for (int pi = 0; pi < p_null; pi++)
 	{
-		// iterate each recipe within the set
-		for (int qi = 0; parseRecipes[pi][qi][0] != p_null; qi++)
+		// iterate each recipe within the set (last recipe is just a singe null production)
+		for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++)
 		{
-
 			// iterate each production/token in the buffer
 			int ti;
 			int productionLength = 0;
-			for (; parseRecipes[pi][qi][productionLength] != p_null; productionLength++)
+			for (; RECIPE_INGREDIENT(pi, qi, productionLength) != p_null; productionLength++)
 				;
 			// if we don't have enough tokens for this production, skip it
 			if (parseStack->size < productionLength)
@@ -555,16 +559,18 @@ void findReduction(struct Stack *parseStack)
 				continue;
 			}
 
-			for (ti = 0; (ti < productionLength) && (parseRecipes[pi][qi][ti] != p_null); ti++)
+			for (ti = 0; (ti < productionLength) && (RECIPE_INGREDIENT(pi, qi, ti) != p_null); ti++)
 			{
 				struct InProgressProduction *examinedExistingProduction = (struct InProgressProduction *)parseStack->data[parseStack->size - (productionLength - ti)];
-				if (parseRecipes[pi][qi][ti] != examinedExistingProduction->production)
+				if (RECIPE_INGREDIENT(pi, qi, ti) != examinedExistingProduction->production)
 				{
 					// printf("ingredient %d not what expected - moving on to next recipe\n", ti);
 					break;
 				}
 			}
-			if ((ti == productionLength) && (parseRecipes[pi][qi][ti] == p_null))
+
+			// ensure we got to the end of the production and double check for sanity that the end is a null
+			if ((ti == productionLength) && (RECIPE_INGREDIENT(pi, qi, ti) == p_null))
 			{
 				// printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
 				foundReduction[0] = pi;
@@ -601,12 +607,14 @@ struct AST *performRecipeInstruction(struct AST *existingTree, struct AST *ingre
 		free(ingredientTree);
 		return existingTree;
 	}
+
+	ErrorAndExit(ERROR_INTERNAL, "Fell through switch on instruction type in performRecipeInstruction");
 }
 
 void reduce(struct Stack *parseStack)
 {
 	int productionSize = 0;
-	while (parseRecipes[foundReduction[0]][foundReduction[1]][productionSize] != p_null)
+	while (RECIPE_INGREDIENT(foundReduction[0], foundReduction[1], productionSize) != p_null)
 	{
 		productionSize++;
 	}
@@ -627,10 +635,9 @@ void reduce(struct Stack *parseStack)
 
 	// construct the tree for this production
 	struct InProgressProduction *produced = InProgressProduction_New(foundReduction[0], NULL);
-	enum RecipeInstructions *thisRecipe = parseRecipeInstructions[foundReduction[0]][foundReduction[1]];
 	for (int i = 0; i < productionSize; i++)
 	{
-		produced->tree = performRecipeInstruction(produced->tree, ingredients[i]->tree, thisRecipe[i]);
+		produced->tree = performRecipeInstruction(produced->tree, ingredients[i]->tree, RECIPE_INSTRUCTION(foundReduction[0], foundReduction[1], i));
 		free(ingredients[i]);
 	}
 
