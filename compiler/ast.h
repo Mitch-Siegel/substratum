@@ -56,8 +56,8 @@ enum token
 	t_un_log_not,
 	// bitwise operators
 	t_un_bit_not,
-	t_un_bit_xor,
-	t_un_bit_or,
+	t_bin_bit_xor,
+	t_bin_bit_or,
 	// ternary
 	t_ternary,
 	// arithmetic-assign operators

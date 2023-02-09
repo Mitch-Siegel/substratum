@@ -18,9 +18,9 @@ char *token_names[] = {
 	"p_scope",
 	"p_null",
 	// begin tokens
-	"t_identifier",
-	"t_constant",
-	"t_string_literal",
+	"IDENTIFIER",
+	"CONSTANT",
+	"STRING_LITERAL",
 	// t_sizeof,
 	"asm",
 	// types
@@ -455,64 +455,103 @@ struct InProgressProduction *InProgressProduction_New(enum token production, str
 	return wip;
 }
 
-void printTokenNameStack(struct Stack *tokenNameStack)
+void printProductionNameStack(struct Stack *productionNameStack)
 {
-	for (int i = 0; i < tokenNameStack->size; i++)
+	for (int i = 0; i < productionNameStack->size; i++)
 	{
-		char *thisProductionName = tokenNameStack->data[i];
-		printf("[%s] ", thisProductionName);
+
+		char *thisProductionName = getTokenName((enum token)productionNameStack->data[i]);
+		printf("%s ", thisProductionName);
 	}
 	printf("\n");
 }
 
-void enumeratePossibleProductionsRecursive(struct Stack *productionStack, enum token currentProduction)
+struct Stack *Stack_Duplicate(struct Stack *toDuplicate)
 {
-	// depth-limit the recursion
-	if (productionStack->size > 10)
+	struct Stack *duplicated = Stack_New();
+	free(duplicated->data);
+	duplicated->data = malloc(toDuplicate->allocated * sizeof(void *));
+	for (int i = 0; i < toDuplicate->size; i++)
 	{
-		printTokenNameStack(productionStack);
+		duplicated->data[i] = toDuplicate->data[i];
+	}
+	duplicated->size = toDuplicate->size;
+	return duplicated;
+}
+
+void enumeratePossibleProductionsRecursive(struct Stack *productionStack, struct Stack *poppedTerminalStack)
+{
+	if(productionStack->size + poppedTerminalStack->size > 20)
+	{
 		return;
 	}
-
-	if (currentProduction < p_null)
+	int nTerminalsAtEnd;
+	for (nTerminalsAtEnd = 0; nTerminalsAtEnd < productionStack->size; nTerminalsAtEnd++)
 	{
-		// Stack_Push(productionStack, getTokenName(currentProduction));
-		for (int qi = 0; RECIPE_INGREDIENT(currentProduction, qi, 0) != p_null; qi++)
+		if ((enum token)productionStack->data[(productionStack->size - 1) - nTerminalsAtEnd] < p_null)
 		{
-			int terminalsToPop = 0;
-			for (int ti = 0; RECIPE_INGREDIENT(currentProduction, qi, ti) != p_null; ti++)
+			break;
+		}
+	}
+
+	if ((nTerminalsAtEnd == productionStack->size))
+	{
+		for (int i = poppedTerminalStack->size; i-- > 0;)
+		{
+			Stack_Push(productionStack, poppedTerminalStack->data[i]);
+		}
+		printProductionNameStack(productionStack);
+		for (int i = 0; i < poppedTerminalStack->size; i++)
+		{
+			Stack_Pop(productionStack);
+		}
+	}
+	else
+	{
+		for (int i = 0; i < nTerminalsAtEnd; i++)
+		{
+			Stack_Push(poppedTerminalStack, Stack_Pop(productionStack));
+		}
+		enum token productionToExpand = (enum token)Stack_Pop(productionStack);
+
+		for (int qi = 0; RECIPE_INGREDIENT(productionToExpand, qi, 0) != p_null; qi++)
+		{
+			int expectedProductionStackSize = productionStack->size;
+			int expectedPoppedTerminalStackSize = poppedTerminalStack->size;
+			for (int ti = 0; RECIPE_INGREDIENT(productionToExpand, qi, ti) != p_null; ti++)
 			{
-				enum token enumeratedIngredient = RECIPE_INGREDIENT(currentProduction, qi, ti);
-				if (enumeratedIngredient < p_null)
-				{
-					// Stack_Push(productionStack, getTokenName(enumeratedIngredient));
-					enumeratePossibleProductionsRecursive(productionStack, enumeratedIngredient);
-					// Stack_Pop(productionStack);
-				}
-				else
-				{
-					terminalsToPop++;
-					Stack_Push(productionStack, getTokenName(enumeratedIngredient));
-				}
+				Stack_Push(productionStack, (void *)RECIPE_INGREDIENT(productionToExpand, qi, ti));
 			}
-			printTokenNameStack(productionStack);
-			for (int i = 0; i < terminalsToPop; i++)
+			enumeratePossibleProductionsRecursive(productionStack, poppedTerminalStack);
+
+			while (productionStack->size > expectedProductionStackSize)
 			{
 				Stack_Pop(productionStack);
 			}
+
+			while (poppedTerminalStack->size > expectedPoppedTerminalStackSize)
+			{
+				Stack_Pop(poppedTerminalStack);
+			}
 		}
-		// Stack_Pop(productionStack);
+
+		// while(thisRecipeSize-- > 0)
+		// {
+		// Stack_Pop()
+		// }
 	}
-	// else
-	// {
-		// Stack_Push(productionStack, getTokenName(currentProduction));
-	// }
 }
 
 void enumeratePossibleProductions()
 {
-	struct Stack *enumerationStack = Stack_New();
-	enumeratePossibleProductionsRecursive(enumerationStack, 0);
+	struct Stack *productionStack = Stack_New();
+	struct Stack *poppedTerminalStack = Stack_New();
+	Stack_Push(productionStack, (void *)0);
+	// for(int i = 0; i < p_null; i++)
+	// {
+	enumeratePossibleProductionsRecursive(productionStack, poppedTerminalStack);
+	// }
+	Stack_Free(productionStack);
 }
 
 void printParseStack(struct Stack *parseStack)
