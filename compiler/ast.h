@@ -2,19 +2,30 @@
 
 #pragma once
 
-
 enum token
 {
 	p_parameter_decl,
 	p_primary_expression,
-	p_binary_expression,
-	p_expression,
-	p_type_specifier,
+	p_postfix_expression,
+	p_unary_operator,
+	p_unary_expression,
+	p_cast_expression,
+	p_multiplicative_expression,
+	p_additive_expression,
+	p_shift_expression,
+	p_relational_expression,
+	p_equality_expression,
+	p_logical_and_expression,
+	p_logical_or_expression,
+	p_conditional_expression,
+	p_assignment_expression,
+	p_type_name,
 	p_declarator,
 	p_variable_declaration,
 	p_function_declaration,
 	p_parameter_decl_list,
 	p_scope,
+	p_expression,
 	p_null,
 	// begin tokens
 	t_identifier,
@@ -36,7 +47,7 @@ enum token
 	t_while,
 	t_for,
 	t_do,
-	
+
 	// arithmetic operators
 	// basic arithmetic
 	t_bin_add,
@@ -76,7 +87,7 @@ enum token
 	t_star,
 	// assignment
 	t_assign,
-	// 
+	//
 	t_comma,
 	t_dot,
 	t_pointer_op,

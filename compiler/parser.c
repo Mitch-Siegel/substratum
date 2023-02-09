@@ -8,14 +8,26 @@ int curLine, curCol;
 char *token_names[] = {
 	"p_parameter_decl",
 	"p_primary_expression",
-	"p_binary_expression",
-	"p_expression",
-	"p_type_specifier",
+	"p_postfix_expression",
+	"p_unary_operator",
+	"p_unary_expression",
+	"p_cast_expression",
+	"p_multiplicative_expression",
+	"p_additive_expression",
+	"p_shift_expression",
+	"p_relational_expression",
+	"p_equality_expression",
+	"p_logical_and_expression",
+	"p_logical_or_expression",
+	"p_conditional_expression",
+	"p_assignment_expression",
+	"p_type_name",
 	"p_declarator",
 	"p_variable_declaration",
 	"p_function_declaration",
 	"p_parameter_decl_list",
 	"p_scope",
+	"p_expression",
 	"p_null",
 	// begin tokens
 	"IDENTIFIER",
@@ -469,6 +481,7 @@ struct InProgressProduction *InProgressProduction_New(enum token production, str
 
 void printPossibleProduction(struct Stack *left, struct Stack *right)
 {
+	printf("\t");
 	for (int i = 0; i < left->size; i++)
 	{
 		char *thisProductionName = getTokenName((enum token)left->data[i]);
@@ -482,9 +495,9 @@ void printPossibleProduction(struct Stack *left, struct Stack *right)
 	printf("\n");
 }
 
-void enumeratePossibleProductionsRecursive(struct Stack *leftStack, struct Stack *rightStack)
+void enumeratePossibleProductionsRecursive(struct Stack *leftStack, struct Stack *rightStack, int depth)
 {
-	if (leftStack->size + rightStack->size > 10)
+	if (((leftStack->size + rightStack->size) * depth > 40))
 	{
 		return;
 	}
@@ -518,7 +531,7 @@ void enumeratePossibleProductionsRecursive(struct Stack *leftStack, struct Stack
 			{
 				Stack_Push(leftStack, (void *)addedIngredient);
 			}
-			enumeratePossibleProductionsRecursive(leftStack, rightStack);
+			enumeratePossibleProductionsRecursive(leftStack, rightStack, depth + 1);
 
 			while (leftStack->size > expectedleftStackSize)
 			{
@@ -541,7 +554,7 @@ void enumeratePossibleProductions()
 	{
 		Stack_Push(leftStack, (void *)i);
 		printf("All possible productions for: %s\n", getTokenName(i));
-		enumeratePossibleProductionsRecursive(leftStack, rightStack);
+		enumeratePossibleProductionsRecursive(leftStack, rightStack, 0);
 		printf("\n\n");
 		while (leftStack->size > 0)
 		{
