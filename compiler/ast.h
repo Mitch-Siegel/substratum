@@ -5,15 +5,15 @@
 
 enum token
 {
+	p_parameter_decl,
 	p_primary_expression,
 	p_binary_expression,
 	p_expression,
 	p_type_specifier,
-	p_parameter_type,
 	p_declarator,
 	p_variable_declaration,
 	p_function_declaration,
-	p_parameter_type_list,
+	p_parameter_decl_list,
 	p_scope,
 	p_null,
 	// begin tokens

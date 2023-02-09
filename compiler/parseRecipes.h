@@ -10,6 +10,18 @@ enum RecipeInstructions
 
 // let him cook!
 enum token parseRecipes[p_null][6][8][2] = {
+    
+    // p_parameter_decl - PARAMETER-TYPE
+    // higher parse precedence than primary expression so we can grab the identifier
+    {
+        // TYPE-SPECIFIER PRIMARY-EXPRESSION
+        {{p_type_specifier, above},
+         {t_identifier, above},
+         {p_null, p_null}},
+
+        {{p_null, p_null}},
+    },
+
     // p_primary_expression - PRIMARY-EXPRESSION
     {
         // identifier
@@ -53,7 +65,6 @@ enum token parseRecipes[p_null][6][8][2] = {
         {{p_primary_expression, above},
          {t_assign, above},
          {p_primary_expression, below},
-         {t_semicolon, cnsme},
          {p_null, p_null}},
 
         {{p_null, p_null}},
@@ -80,16 +91,6 @@ enum token parseRecipes[p_null][6][8][2] = {
         {{p_null, p_null}},
     },
 
-    // p_parameter_type - PARAMETER-TYPE
-    {
-        // TYPE-SPECIFIER PRIMARY-EXPRESSION
-        {{p_type_specifier, above},
-         {p_primary_expression, above},
-         {p_null, p_null}},
-
-        {{p_null, p_null}},
-    },
-
     // p_declarator - DECLARATOR
     {
         // ()
@@ -109,8 +110,8 @@ enum token parseRecipes[p_null][6][8][2] = {
     // p_variable_declaration - VARIABLE-DECLARATION
     // this is where it starts to get nasty
     {
-        // PARAMETER-TYPE DECLARATOR ';'
-        {{p_parameter_type, above},
+        // PARAMETER-DECL DECLARATOR ';'
+        {{p_parameter_decl, above},
          {p_declarator, below},
          {t_semicolon, cnsme},
          {p_null, p_null}},
@@ -120,26 +121,26 @@ enum token parseRecipes[p_null][6][8][2] = {
 
     // p_function_declaration - FUNCTION-DECLARATION
     {
-        // 'fun' TYPE-SPECIFIER '(' ')'
+        // 'fun' PARAMETER-DECL '(' ')'
         {{t_fun, above},
-         {p_parameter_type, below},
+         {p_parameter_decl, below},
          {t_lParen, cnsme},
          {t_rParen, cnsme},
          {p_null, p_null}},
 
-        // 'fun' PARAMETER-TYPE '(' PARAMETER-TYPE ')'
+        // 'fun' PARAMETER-DECL '(' PARAMETER-DECL ')'
         {{t_fun, above},
-         {p_parameter_type, above},
+         {p_parameter_decl, below},
          {t_lParen, cnsme},
-         {p_parameter_type, below},
+         {p_parameter_decl, below},
          {t_rParen, cnsme},
          {p_null, p_null}},
 
-        // 'fun' PARAMETER-TYPE '(' PARAMETER-TYPE-LIST ')'
+        // 'fun' PARAMETER-DECL '(' PARAMETER-DECL-LIST ')'
         {{t_fun, above},
-         {p_parameter_type, above},
+         {p_parameter_decl, below},
          {t_lParen, cnsme},
-         {p_parameter_type_list, below},
+         {p_parameter_decl_list, below},
          {t_rParen, cnsme},
          {p_null, p_null}},
 
@@ -147,12 +148,13 @@ enum token parseRecipes[p_null][6][8][2] = {
     },
 
     // allow parameters to stack up multiple into one production
-    // p_parameter_type_list - PARAMTER-TYPE-LIST
+    // p_parameter_decl_list - PARAMTER-DECL-LIST
     {
-        // PARAMETER-TYPE PARAMETER-TYPE
-        {{p_parameter_type, above},
-         {p_parameter_type, besid},
-         {p_null, p_null}},
+        // PARAMETER-DECL ',' PARAMETER-DECL
+        {{p_parameter_decl, above}, {t_comma, cnsme}, {p_parameter_decl, besid}, {p_null, p_null}},
+
+        // PARAMETER-DECL-LIST ',' PARAMETER-DECL
+        {{p_parameter_decl_list, above}, {t_comma, cnsme}, {p_parameter_decl, besid}, {p_null, p_null}},
 
         {{p_null, p_null}},
     },
@@ -160,9 +162,7 @@ enum token parseRecipes[p_null][6][8][2] = {
     // p_scope - SCOPE
     {
         // '{' '}'
-        {{t_lCurly, cnsme},
-         {t_rCurly, cnsme},
-         {p_null, p_null}},
+        {{t_lCurly, cnsme}, {t_rCurly, cnsme}, {p_null, p_null}},
 
         {{p_null, p_null}},
     },

@@ -6,15 +6,15 @@ char buffer[BUF_SIZE];
 int buflen;
 int curLine, curCol;
 char *token_names[] = {
+	"p_parameter_decl",
 	"p_primary_expression",
 	"p_binary_expression",
 	"p_expression",
 	"p_type_specifier",
-	"p_parameter_type",
 	"p_declarator",
 	"p_variable_declaration",
 	"p_function_declaration",
-	"p_parameter_type_list",
+	"p_parameter_decl_list",
 	"p_scope",
 	"p_null",
 	// begin tokens
@@ -224,10 +224,11 @@ int lookahead_char()
 	return r;
 }
 
-#define RESERVED_COUNT 34
+#define RESERVED_COUNT 35
 
 char *reserved[RESERVED_COUNT] = {
 	"asm",	  //	t_asm
+	"void",	  // t_void
 	"uint8",  // 	t_uint8
 	"uint16", // 	t_uint16
 	"uint32", // 	t_uint32
@@ -264,6 +265,7 @@ char *reserved[RESERVED_COUNT] = {
 
 enum token reserved_tokens[RESERVED_COUNT] = {
 	t_asm,			 // t_asm,
+	t_void,			 // t_void
 	t_uint8,		 // 	t_uint8,
 	t_uint16,		 // 	t_uint16,
 	t_uint32,		 // 	t_uint32,
@@ -455,103 +457,94 @@ struct InProgressProduction *InProgressProduction_New(enum token production, str
 	return wip;
 }
 
-void printProductionNameStack(struct Stack *productionNameStack)
+void printPossibleProduction(struct Stack *left, struct Stack *right)
 {
-	for (int i = 0; i < productionNameStack->size; i++)
+	for (int i = 0; i < left->size; i++)
 	{
+		char *thisProductionName = getTokenName((enum token)left->data[i]);
+		printf("%s\t", thisProductionName);
 
-		char *thisProductionName = getTokenName((enum token)productionNameStack->data[i]);
-		printf("%s ", thisProductionName);
+	}
+	for (int i = right->size; i-- > 0;)
+	{
+		char *thisProductionName = getTokenName((enum token)right->data[i]);
+		printf("%s\t", thisProductionName);
 	}
 	printf("\n");
 }
 
-struct Stack *Stack_Duplicate(struct Stack *toDuplicate)
+void enumeratePossibleProductionsRecursive(struct Stack *leftStack, struct Stack *rightStack)
 {
-	struct Stack *duplicated = Stack_New();
-	free(duplicated->data);
-	duplicated->data = malloc(toDuplicate->allocated * sizeof(void *));
-	for (int i = 0; i < toDuplicate->size; i++)
-	{
-		duplicated->data[i] = toDuplicate->data[i];
-	}
-	duplicated->size = toDuplicate->size;
-	return duplicated;
-}
-
-void enumeratePossibleProductionsRecursive(struct Stack *productionStack, struct Stack *poppedTerminalStack)
-{
-	if(productionStack->size + poppedTerminalStack->size > 20)
+	if (rightStack->size > 10)
 	{
 		return;
 	}
 	int nTerminalsAtEnd;
-	for (nTerminalsAtEnd = 0; nTerminalsAtEnd < productionStack->size; nTerminalsAtEnd++)
+	for (nTerminalsAtEnd = 0; nTerminalsAtEnd < leftStack->size; nTerminalsAtEnd++)
 	{
-		if ((enum token)productionStack->data[(productionStack->size - 1) - nTerminalsAtEnd] < p_null)
+		if ((enum token)leftStack->data[(leftStack->size - 1) - nTerminalsAtEnd] < p_null)
 		{
 			break;
 		}
 	}
 
-	if ((nTerminalsAtEnd == productionStack->size))
+	if ((nTerminalsAtEnd == leftStack->size))
 	{
-		for (int i = poppedTerminalStack->size; i-- > 0;)
-		{
-			Stack_Push(productionStack, poppedTerminalStack->data[i]);
-		}
-		printProductionNameStack(productionStack);
-		for (int i = 0; i < poppedTerminalStack->size; i++)
-		{
-			Stack_Pop(productionStack);
-		}
+		printPossibleProduction(leftStack, rightStack);
 	}
 	else
 	{
 		for (int i = 0; i < nTerminalsAtEnd; i++)
 		{
-			Stack_Push(poppedTerminalStack, Stack_Pop(productionStack));
+			Stack_Push(rightStack, Stack_Pop(leftStack));
 		}
-		enum token productionToExpand = (enum token)Stack_Pop(productionStack);
-
+		enum token productionToExpand = (enum token)Stack_Pop(leftStack);
 		for (int qi = 0; RECIPE_INGREDIENT(productionToExpand, qi, 0) != p_null; qi++)
 		{
-			int expectedProductionStackSize = productionStack->size;
-			int expectedPoppedTerminalStackSize = poppedTerminalStack->size;
-			for (int ti = 0; RECIPE_INGREDIENT(productionToExpand, qi, ti) != p_null; ti++)
-			{
-				Stack_Push(productionStack, (void *)RECIPE_INGREDIENT(productionToExpand, qi, ti));
-			}
-			enumeratePossibleProductionsRecursive(productionStack, poppedTerminalStack);
 
-			while (productionStack->size > expectedProductionStackSize)
+			int expectedleftStackSize = leftStack->size;
+			int expectedrightStackSize = rightStack->size;
+			enum token addedIngredient;
+			for (int ti = 0; (addedIngredient = RECIPE_INGREDIENT(productionToExpand, qi, ti)) != p_null; ti++)
 			{
-				Stack_Pop(productionStack);
+				Stack_Push(leftStack, (void *)addedIngredient);
+			}
+			enumeratePossibleProductionsRecursive(leftStack, rightStack);
+
+			while (leftStack->size > expectedleftStackSize)
+			{
+				Stack_Pop(leftStack);
 			}
 
-			while (poppedTerminalStack->size > expectedPoppedTerminalStackSize)
+			while (rightStack->size > expectedrightStackSize)
 			{
-				Stack_Pop(poppedTerminalStack);
+				Stack_Pop(rightStack);
 			}
 		}
-
-		// while(thisRecipeSize-- > 0)
-		// {
-		// Stack_Pop()
-		// }
 	}
 }
 
 void enumeratePossibleProductions()
 {
-	struct Stack *productionStack = Stack_New();
-	struct Stack *poppedTerminalStack = Stack_New();
-	Stack_Push(productionStack, (void *)0);
-	// for(int i = 0; i < p_null; i++)
-	// {
-	enumeratePossibleProductionsRecursive(productionStack, poppedTerminalStack);
-	// }
-	Stack_Free(productionStack);
+	struct Stack *leftStack = Stack_New();
+	struct Stack *rightStack = Stack_New();
+	for (size_t i = 0; i < p_null; i++)
+	{
+		Stack_Push(leftStack, (void *)i);
+		printf("All possible productions for: %s\n", getTokenName(i));
+		enumeratePossibleProductionsRecursive(leftStack, rightStack);
+		printf("\n\n");
+		while (leftStack->size > 0)
+		{
+			Stack_Pop(leftStack);
+		}
+		while (rightStack->size > 0)
+		{
+			Stack_Pop(rightStack);
+		}
+	}
+	Stack_Free(leftStack);
+	Stack_Free(rightStack);
 }
 
 void printParseStack(struct Stack *parseStack)
