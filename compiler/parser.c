@@ -224,83 +224,93 @@ int lookahead_char()
 	return r;
 }
 
-#define RESERVED_COUNT 35
+#define RESERVED_COUNT 53
 
-char *reserved[RESERVED_COUNT] = {
-	"asm",	  //	t_asm
-	"void",	  // t_void
-	"uint8",  // 	t_uint8
-	"uint16", // 	t_uint16
-	"uint32", // 	t_uint32
-	"fun",	  // 	t_fun
-	"return", // 	t_return
-	"if",	  // 	t_if
-	"else",	  // 	t_else
-	"while",  // 	t_while
-	",",	  // 	t_comma
-	"(",	  // 	t_lParen
-	")",	  // 	t_rParen
-	"{",	  // 	t_lCurly
-	"}",	  // 	t_rCurly
-	"[",	  // 	t_lBracket
-	"]",	  // 	t_rBracket
-	";",	  // 	t_semicolon
-	"=",	  // 	t_assign
-	"+",	  // 	t_bin_add
-	"+=",	  // 	t_add_assign
-	"-",	  // 	t_bin_sub
-	"-=",	  // 	t_sub_assign
-	"*",	  // 	t_star
-	"&",	  // 	t_reference
-	">",	  // 	t_bin_gThan
-	"<",	  // 	t_bin_lThan
-	">=",	  // 	t_bin_gThanE
-	"<=",	  // 	t_bin_lThanE
-	"==",	  // 	t_bin_equals
-	"!=",	  // 	t_bin_notEqual
-	"&&",	  // 	t_bin_log_and
-	"||",	  // 	t_bin_log_or
-	"!",	  // 	t_un_log_not
-	"$$"};	  // 	t_EOF
+struct ReservedToken
+{
+	const char *string;
+	enum token token;
+};
 
-enum token reserved_tokens[RESERVED_COUNT] = {
-	t_asm,			 // t_asm,
-	t_void,			 // t_void
-	t_uint8,		 // 	t_uint8,
-	t_uint16,		 // 	t_uint16,
-	t_uint32,		 // 	t_uint32,
-	t_fun,			 // 	t_fun,
-	t_return,		 // 	t_return,
-	t_if,			 // 	t_if,
-	t_else,			 // 	t_else,
-	t_while,		 // 	t_while,
-	t_comma,		 // 	t_comma,
-	t_lParen,		 // 	t_lParen,
-	t_rParen,		 // 	t_rParen,
-	t_lCurly,		 // 	t_lCurly,
-	t_rCurly,		 // 	t_rCurly,
-	t_lBracket,		 // 	t_lBracket,
-	t_rBracket,		 // 	t_rBracket,
-	t_semicolon,	 // 	t_semicolon,
-	t_assign,		 // 	t_assign,
-	t_bin_add,		 // 	t_bin_add,
-	t_add_assign,	 // 	t_add_assign,
-	t_bin_sub,		 // 	t_bin_sub,
-	t_sub_assign,	 // 	t_un_sub_assign,
-	t_star,			 // 	t_star,
-	t_reference,	 // 	t_reference,
-	t_bin_gThan,	 // 	t_bin_gThan,
-	t_bin_lThan,	 // 	t_bin_lThan,
-	t_bin_gThanE,	 // 	t_bin_gThanE,
-	t_bin_lThanE,	 // 	t_bin_lThanE,
-	t_bin_equals,	 // 	t_bin_equals,
-	t_bin_notEquals, // 	t_bin_notEquals,
-	t_bin_log_and,	 // 	t_bin_log_and,
-	t_bin_log_or,	 // 	t_bin_log_or,
-	t_un_log_not,	 // 	t_un_log_not,
-	t_EOF};			 // 	t_EOF
+struct ReservedToken reserved[RESERVED_COUNT] = {
+	// {"", 	t_identifier,}, //	t_identifier,
+	// {"", 	t_constant,}, //t_constant,
+	// {"", 	t_string_literal,}, //t_string_literal,
+	// t_sizeof,}, //// t_sizeof,
+	{"asm", t_asm},		  // t_asm,
+						  // types
+	{"void", t_void},	  // t_void,
+	{"uint8", t_uint8},	  // t_uint8,
+	{"uint16", t_uint16}, // t_uint16,
+	{"uint32", t_uint32}, // t_uint32,
+						  // function
+	{"fun", t_fun},		  // t_fun,
+	{"return", t_return}, // t_return,
+	// control flow
+	{"if", t_if},			  // t_if,
+	{"else", t_else},		  // t_else,
+	{"while", t_while},		  // t_while,
+	{"for", t_for},			  // t_for,
+							  // {"", 	t_do,}, //t_do,
+							  // arithmetic operators
+							  // basic arithmetic
+	{"+", t_bin_add},		  // t_bin_add,
+	{"-", t_bin_sub},		  // t_bin_sub,
+	{"<<", t_lShift},		  // t_lShift,
+	{">>", t_rShift},		  // t_rShift,
+							  // comparison operators
+	{"<", t_bin_lThan},		  // t_bin_lThan,
+	{">", t_bin_gThan},		  // t_bin_gThan,
+	{"<=", t_bin_lThanE},	  // t_bin_lThanE,
+	{">=", t_bin_gThanE},	  // t_bin_gThanE,
+	{"==", t_bin_equals},	  // t_bin_equals,
+	{"!=", t_bin_notEquals},  // t_bin_notEquals,
+							  // logical operators
+	{"&&", t_bin_log_and},	  // t_bin_log_and,
+	{"||", t_bin_log_or},	  // t_bin_log_or,
+	{"!", t_un_log_not},	  // t_un_log_not,
+							  // bitwise operators}, //// bitwise operators
+	{"~", t_un_bit_not},	  // t_un_bit_not,
+	{"^", t_bin_bit_xor},	  // t_bin_bit_xor,
+	{"|", t_bin_bit_or},	  // t_bin_bit_or,
+							  // ternary
+	{"?", t_ternary},		  // t_ternary,
+							  // arithmetic-assign operators}, //// arithmetic-assign operators
+	{"*=", t_mul_assign},	  // t_mul_assign,
+	{"+=", t_add_assign},	  // t_add_assign,
+	{"-=", t_sub_assign},	  // t_sub_assign,
+	{"<<=", t_lshift_assign}, // t_lshift_assign,
+	{">>=", t_rshift_assign}, // t_rshift_assign,
+	{"&=", t_bitand_assign},  // t_bitand_assign,
+	{"^=", t_bitxor_assign},  // t_bitxor_assign,
+	{"|=", t_bitor_assign},	  // t_bitor_assign,
+							  // unary operators
+	{"", t_un_inc},			  // t_un_inc,
+	{"", t_un_dec},			  // t_un_dec,
+	{"", t_reference},		  // t_reference,
+	{"", t_star},			  // t_star,
+							  // assignment
+	{"=", t_assign},		  // t_assign,
+							  // semantics
+	{",", t_comma},			  // t_comma,
+	{".", t_dot},			  // t_dot,
+	{"->", t_pointer_op},	  // t_pointer_op,
+	{";", t_semicolon},		  // t_semicolon,
+	{":", t_colon},			  // t_colon,
+	{"(", t_lParen},		  // t_lParen,
+	{")", t_rParen},		  // t_rParen,
+	{"{", t_lCurly},		  // t_lCurly,
+	{"}", t_rCurly},		  // t_rCurly,
+	{"[", t_lBracket},		  // t_lBracket,
+	{"]", t_rBracket},		  // t_rBracket,
+	{"[]", t_array},		  // t_array,
+							  // {"", 	t_call,}, //t_call,
+							  // {"", 	t_scope,}, //t_scope,
+							  // {"", 	t_EOF}, //t_EOF
+};
 
-enum token scan(char trackPos)
+enum token
+scan(char trackPos)
 {
 	buflen = 0;
 	// check if we're looking at whitespace - are we?
@@ -338,13 +348,13 @@ enum token scan(char trackPos)
 		for (int i = 0; i < RESERVED_COUNT; i++)
 		{
 			// if we match a reserved keyword
-			if (!strcmp(buffer, reserved[i]))
+			if (!strcmp(buffer, reserved[i].string))
 			{
 				// allow catching both '<', '>', '=', and '<=', '>=', '=='
 				if (buffer[0] == '<' || buffer[0] == '>' || buffer[0] == '=' || buffer[0] == '!' || buffer[0] == '+' || buffer[0] == '-')
 				{
 					if (lookahead_char() != '=')
-						return reserved_tokens[i];
+						return reserved[i].token;
 				}
 				else if ((buffer[0] == '&') && (buflen == 1))
 				{
@@ -355,7 +365,7 @@ enum token scan(char trackPos)
 				}
 				else
 				{
-					return reserved_tokens[i]; // return its token
+					return reserved[i].token; // return its token
 				}
 			}
 		}
@@ -463,7 +473,6 @@ void printPossibleProduction(struct Stack *left, struct Stack *right)
 	{
 		char *thisProductionName = getTokenName((enum token)left->data[i]);
 		printf("%s\t", thisProductionName);
-
 	}
 	for (int i = right->size; i-- > 0;)
 	{
@@ -475,7 +484,7 @@ void printPossibleProduction(struct Stack *left, struct Stack *right)
 
 void enumeratePossibleProductionsRecursive(struct Stack *leftStack, struct Stack *rightStack)
 {
-	if (rightStack->size > 10)
+	if (leftStack->size + rightStack->size > 10)
 	{
 		return;
 	}
