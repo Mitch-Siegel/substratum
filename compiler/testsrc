@@ -1,1 +1,6 @@
-void asdf, void asdf, void asdf
+fun sillyFunction(uint32 argument) : void
+{
+uint8 asdf;
+uint8 hjkl = 123;
+asdf = hjkl - 20;
+}

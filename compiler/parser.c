@@ -6,102 +6,75 @@ char buffer[BUF_SIZE];
 int buflen;
 int curLine, curCol;
 char *token_names[] = {
-	"p_parameter_decl",
+	"p_type_name",
 	"p_primary_expression",
-	"p_postfix_expression",
 	"p_unary_operator",
 	"p_unary_expression",
-	"p_cast_expression",
-	"p_multiplicative_expression",
-	"p_additive_expression",
-	"p_shift_expression",
-	"p_relational_expression",
-	"p_equality_expression",
-	"p_logical_and_expression",
-	"p_logical_or_expression",
-	"p_conditional_expression",
-	"p_assignment_expression",
-	"p_type_name",
-	"p_declarator",
-	"p_variable_declaration",
-	"p_function_declaration",
-	"p_parameter_decl_list",
-	"p_scope",
 	"p_expression",
+	"p_variable_declaration",
+	"p_declaration_list",
+	"p_variable_declaration_statement",
+	"p_expression_statement",
+	"p_statement",
+	"p_statement_list",
+	"p_scope",
+	"p_function_definition",
 	"p_null",
 	// begin tokens
-	"IDENTIFIER",
-	"CONSTANT",
-	"STRING_LITERAL",
+	"t_identifier",
+	"t_constant",
+	"t_string_literal",
 	// t_sizeof,
-	"asm",
+	"t_asm",
 	// types
-	"void",
-	"uint8",
-	"uint16",
-	"uint32",
+	"t_void",
+	"t_uint8",
+	"t_uint16",
+	"t_uint32",
 	// function
-	"fun",
-	"return",
+	"t_fun",
+	"t_return",
 	// control flow
-	"if",
-	"else",
-	"while",
-	"for",
-	"do",
-
+	"t_if",
+	"t_else",
+	"t_while",
+	"t_for",
+	"t_do",
 	// arithmetic operators
 	// basic arithmetic
-	"+",
-	"-",
-	"<<",
-	">>",
+	"t_plus",
+	"t_minus",
 	// comparison operators
-	"<",
-	">",
-	"<=",
-	">=",
-	"==",
-	"!=",
+	"t_lThan",
+	"t_gThan",
 	// logical operators
-	"&&",
-	"||",
-	"!",
+	"t_and",
+	"t_or",
+	"t_not",
 	// bitwise operators
-	"~",
-	"^",
-	"|",
+	"t_bit_not",
+	"t_xor",
 	// ternary
-	"?",
+	"t_ternary",
 	// arithmetic-assign operators
-	"*=",
-	"+=",
-	"-=",
-	"<<=",
-	">>=",
-	"&=",
-	"^=",
-	"|=",
 	// unary operators
-	"++",
-	"--",
-	"&",
-	"*",
+	"t_reference",
+	"t_star",
 	// assignment
-	"=",
+	"t_single_equals",
 	//
-	",",
-	".",
-	"->",
-	";",
-	":",
-	"(",
-	")",
-	"{",
-	"}",
-	"[",
-	"]",
-	"[]",
+	"t_comma",
+	"t_dot",
+	"t_pointer_op",
+	"t_semicolon",
+	"t_colon",
+	"t_lParen",
+	"t_rParen",
+	"t_lCurly",
+	"t_rCurly",
+	"t_lBracket",
+	"t_rBracket",
+	"t_array",
 	"t_call",
 	"t_scope",
 	"t_EOF"};
@@ -236,7 +209,7 @@ int lookahead_char()
 	return r;
 }
 
-#define RESERVED_COUNT 53
+#define RESERVED_COUNT 36
 
 struct ReservedToken
 {
@@ -259,66 +232,49 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 	{"fun", t_fun},		  // t_fun,
 	{"return", t_return}, // t_return,
 	// control flow
-	{"if", t_if},			  // t_if,
-	{"else", t_else},		  // t_else,
-	{"while", t_while},		  // t_while,
-	{"for", t_for},			  // t_for,
-							  // {"", 	t_do,}, //t_do,
-							  // arithmetic operators
-							  // basic arithmetic
-	{"+", t_bin_add},		  // t_bin_add,
-	{"-", t_bin_sub},		  // t_bin_sub,
-	{"<<", t_lShift},		  // t_lShift,
-	{">>", t_rShift},		  // t_rShift,
-							  // comparison operators
-	{"<", t_bin_lThan},		  // t_bin_lThan,
-	{">", t_bin_gThan},		  // t_bin_gThan,
-	{"<=", t_bin_lThanE},	  // t_bin_lThanE,
-	{">=", t_bin_gThanE},	  // t_bin_gThanE,
-	{"==", t_bin_equals},	  // t_bin_equals,
-	{"!=", t_bin_notEquals},  // t_bin_notEquals,
-							  // logical operators
-	{"&&", t_bin_log_and},	  // t_bin_log_and,
-	{"||", t_bin_log_or},	  // t_bin_log_or,
-	{"!", t_un_log_not},	  // t_un_log_not,
-							  // bitwise operators}, //// bitwise operators
-	{"~", t_un_bit_not},	  // t_un_bit_not,
-	{"^", t_bin_bit_xor},	  // t_bin_bit_xor,
-	{"|", t_bin_bit_or},	  // t_bin_bit_or,
-							  // ternary
-	{"?", t_ternary},		  // t_ternary,
-							  // arithmetic-assign operators}, //// arithmetic-assign operators
-	{"*=", t_mul_assign},	  // t_mul_assign,
-	{"+=", t_add_assign},	  // t_add_assign,
-	{"-=", t_sub_assign},	  // t_sub_assign,
-	{"<<=", t_lshift_assign}, // t_lshift_assign,
-	{">>=", t_rshift_assign}, // t_rshift_assign,
-	{"&=", t_bitand_assign},  // t_bitand_assign,
-	{"^=", t_bitxor_assign},  // t_bitxor_assign,
-	{"|=", t_bitor_assign},	  // t_bitor_assign,
-							  // unary operators
-	{"", t_un_inc},			  // t_un_inc,
-	{"", t_un_dec},			  // t_un_dec,
-	{"", t_reference},		  // t_reference,
-	{"", t_star},			  // t_star,
-							  // assignment
-	{"=", t_assign},		  // t_assign,
-							  // semantics
-	{",", t_comma},			  // t_comma,
-	{".", t_dot},			  // t_dot,
-	{"->", t_pointer_op},	  // t_pointer_op,
-	{";", t_semicolon},		  // t_semicolon,
-	{":", t_colon},			  // t_colon,
-	{"(", t_lParen},		  // t_lParen,
-	{")", t_rParen},		  // t_rParen,
-	{"{", t_lCurly},		  // t_lCurly,
-	{"}", t_rCurly},		  // t_rCurly,
-	{"[", t_lBracket},		  // t_lBracket,
-	{"]", t_rBracket},		  // t_rBracket,
-	{"[]", t_array},		  // t_array,
-							  // {"", 	t_call,}, //t_call,
-							  // {"", 	t_scope,}, //t_scope,
-							  // {"", 	t_EOF}, //t_EOF
+	{"if", t_if},			// t_if,
+	{"else", t_else},		// t_else,
+	{"while", t_while},		// t_while,
+	{"for", t_for},			// t_for,
+							// {"", 	t_do,}, //t_do,
+							// arithmetic operators
+							// basic arithmetic
+	{"+", t_plus},			// t_plus,
+	{"-", t_minus},			// t_minus,
+							// comparison operators
+	{"<", t_lThan},			// t_lThan,
+	{">", t_gThan},			// t_gThan,
+							// logical operators
+	{"&", t_and},			// t_and,
+	{"|", t_or},			// t_or,
+	{"!", t_not},			// t_not,
+							// bitwise operators}, //// bitwise operators
+	{"~", t_bit_not},		// t_bit_not,
+	{"^", t_xor},			// t_xor,
+							// ternary
+	{"?", t_ternary},		// t_ternary,
+							// arithmetic-assign operators}, //// arithmetic-assign operators
+							// unary operators
+	{"&", t_reference},		// t_reference,
+	{"*", t_star},			// t_star,
+							// assignment
+	{"=", t_single_equals}, // t_single_equals,
+							// semantics
+	{",", t_comma},			// t_comma,
+	{".", t_dot},			// t_dot,
+	{"->", t_pointer_op},	// t_pointer_op,
+	{";", t_semicolon},		// t_semicolon,
+	{":", t_colon},			// t_colon,
+	{"(", t_lParen},		// t_lParen,
+	{")", t_rParen},		// t_rParen,
+	{"{", t_lCurly},		// t_lCurly,
+	{"}", t_rCurly},		// t_rCurly,
+	{"[", t_lBracket},		// t_lBracket,
+	{"]", t_rBracket},		// t_rBracket,
+	{"[]", t_array},		// t_array,
+							// {"", 	t_call,}, //t_call,
+							// {"", 	t_scope,}, //t_scope,
+							// {"", 	t_EOF}, //t_EOF
 };
 
 enum token
@@ -362,23 +318,7 @@ scan(char trackPos)
 			// if we match a reserved keyword
 			if (!strcmp(buffer, reserved[i].string))
 			{
-				// allow catching both '<', '>', '=', and '<=', '>=', '=='
-				if (buffer[0] == '<' || buffer[0] == '>' || buffer[0] == '=' || buffer[0] == '!' || buffer[0] == '+' || buffer[0] == '-')
-				{
-					if (lookahead_char() != '=')
-						return reserved[i].token;
-				}
-				else if ((buffer[0] == '&') && (buflen == 1))
-				{
-					if (lookahead_char() == '&')
-					{
-						continue;
-					}
-				}
-				else
-				{
-					return reserved[i].token; // return its token
-				}
+				return reserved[i].token;
 			}
 		}
 
@@ -485,22 +425,20 @@ void printPossibleProduction(struct Stack *left, struct Stack *right)
 	for (int i = 0; i < left->size; i++)
 	{
 		char *thisProductionName = getTokenName((enum token)left->data[i]);
-		printf("%s\t", thisProductionName);
+		printf("%s ", thisProductionName);
 	}
 	for (int i = right->size; i-- > 0;)
 	{
 		char *thisProductionName = getTokenName((enum token)right->data[i]);
-		printf("%s\t", thisProductionName);
+		printf("%s ", thisProductionName);
 	}
 	printf("\n");
 }
 
+int nValidProductions = 0;
 void enumeratePossibleProductionsRecursive(struct Stack *leftStack, struct Stack *rightStack, int depth)
 {
-	if (((leftStack->size + rightStack->size) * depth > 40))
-	{
-		return;
-	}
+
 	int nTerminalsAtEnd;
 	for (nTerminalsAtEnd = 0; nTerminalsAtEnd < leftStack->size; nTerminalsAtEnd++)
 	{
@@ -512,10 +450,16 @@ void enumeratePossibleProductionsRecursive(struct Stack *leftStack, struct Stack
 
 	if ((nTerminalsAtEnd == leftStack->size))
 	{
+		nValidProductions++;
 		printPossibleProduction(leftStack, rightStack);
 	}
 	else
 	{
+		if ((depth > 25) || (nValidProductions > 99))
+		{
+			return;
+		}
+
 		for (int i = 0; i < nTerminalsAtEnd; i++)
 		{
 			Stack_Push(rightStack, Stack_Pop(leftStack));
@@ -553,7 +497,8 @@ void enumeratePossibleProductions()
 	for (size_t i = 0; i < p_null; i++)
 	{
 		Stack_Push(leftStack, (void *)i);
-		printf("All possible productions for: %s\n", getTokenName(i));
+		printf("Some possible productions for: %s\n", getTokenName(i));
+		nValidProductions = 0;
 		enumeratePossibleProductionsRecursive(leftStack, rightStack, 0);
 		printf("\n\n");
 		while (leftStack->size > 0)
@@ -654,14 +599,17 @@ struct AST *performRecipeInstruction(struct AST *existingTree, struct AST *ingre
 
 	switch (instruction)
 	{
+		// insert as of current node, current node becomes the inserted one
 	case above:
 		AST_InsertChild(ingredientTree, existingTree);
 		return ingredientTree;
 
+		// insert as child of current node, current node stays the same
 	case below:
 		AST_InsertChild(existingTree, ingredientTree);
 		return existingTree;
 
+		// insert as sibling of current node, current node stays the same
 	case besid:
 		AST_InsertSibling(existingTree, ingredientTree);
 		return existingTree;
@@ -741,9 +689,21 @@ struct AST *TableParse(struct Dictionary *dict)
 			// printf("shift [%s]\n", nextToken->value);
 			printf("Shift: [%s]\n\t", nextToken->value);
 		}
-		printParseStack(parseStack);
+		// printParseStack(parseStack);
+	}
+	printf("\n\n\nWe parsed:\n");
+	while (parseStack->size > 0)
+	{
+		struct InProgressProduction *popped = Stack_Pop(parseStack);
+		printf("%s:\n", getTokenName(popped->production));
+
+		if (popped->tree != NULL)
+		{
+			AST_Print(popped->tree, 0);
+		}
 		printf("\n");
 	}
+
 	return NULL;
 }
 
@@ -752,7 +712,7 @@ struct AST *ParseProgram(char *inFileName, struct Dictionary *dict)
 	curLine = 1;
 	curCol = 1;
 	inFile = fopen(inFileName, "rb");
-	enumeratePossibleProductions();
+	// enumeratePossibleProductions();
 	struct AST *program = TableParse(dict);
 	fclose(inFile);
 

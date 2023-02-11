@@ -517,7 +517,7 @@ void walkStatement(struct AST *it, struct Scope *wip)
 			}
 		}
 
-		if (runner->type == t_assign)
+		if (runner->type == t_single_equals)
 		{
 			runner = runner->child;
 		}
@@ -564,9 +564,9 @@ void walkStatement(struct AST *it, struct Scope *wip)
 	break;
 
 		// ignore assignments as lifetime checks can be done more easily on TAC
-	case t_assign:
-	case t_add_assign:
-	case t_sub_assign:
+	case t_single_equals:
+	// case t_add_assign:
+	// case t_sub_assign:
 		break;
 
 	case t_if:
@@ -730,7 +730,7 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 					}
 				}
 
-				if (runner->type == t_assign)
+				if (runner->type == t_single_equals)
 				{
 					runner = runner->child;
 				}
