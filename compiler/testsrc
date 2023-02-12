@@ -1,6 +1,16 @@
-fun sillyFunction(uint32 argument) : void
+
+fun doSomething(uint8 argument) : void
 {
-uint8 asdf;
-uint8 hjkl = 123;
-asdf = hjkl - 20;
+    argument = argument + 1;
+}
+
+fun doSomethingMoreInteresting(uint8 argument1, uint8 argument2) : void
+{
+    argument1 = argument1 + argument2;
+}
+
+fun manyArguments(uint8 arg1, uint16 arg2, uint32 arg3) : void
+{
+    uint8 asdf = 123;
+    doSomething(asdf);
 }

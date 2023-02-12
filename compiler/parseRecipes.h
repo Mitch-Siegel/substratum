@@ -46,11 +46,15 @@ enum token parseRecipes[p_null][8][9][2] = {
          {t_rParen, cnsme},
          {p_null, p_null}},
 
+        // UNARY-EXPRESSION
+        {{p_unary_expression, above},
+         {p_null, p_null}},
+
         // end
         {{p_null, p_null}},
     },
 
-    // p_unary_operator
+    // p_unary_operator - UNARY-OPERATOR
     {
         // '++'
         {{t_plus, above},
@@ -65,7 +69,7 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_null, p_null}},
     },
 
-    // p_unary_expression
+    // p_unary_expression - UNARY-EXPRESSION
     {
         // '*' PRIMARY-EXPRESSION
         {{t_star, above},
@@ -77,10 +81,37 @@ enum token parseRecipes[p_null][8][9][2] = {
          {p_primary_expression, below},
          {p_null, p_null}},
 
+        // PRIMARY-EXPRESSION '(' ')'
+        {{p_primary_expression, above},
+         {t_lParen, below},
+         {t_rParen, below},
+         {p_null, p_null}},
+
+        // PRIMARY-EXPRESSION '(' PRIMARY-EXPRESSION ')'
+        {{p_primary_expression, above},
+         {t_lParen, below},
+         {p_primary_expression, below},
+         {t_rParen, below},
+         {p_null, p_null}},
+
+        // PRIMARY-EXPRESSION '(' EXPRESSION ')'
+        {{p_primary_expression, above},
+         {t_lParen, below},
+         {p_expression, below},
+         {t_rParen, below},
+         {p_null, p_null}},
+
+        // PRIMARY-EXPRESSION '(' EXPRESSION-LIST ')'
+        {{p_primary_expression, above},
+         {t_lParen, below},
+         {p_expression_list, below},
+         {t_rParen, below},
+         {p_null, p_null}},
+
         {{p_null, p_null}},
     },
 
-    // p_expression
+    // p_expression - EXPRESSION
     {
         // PRIMARY-EXPRESSION UNARY-OPERATOR PRIMARY-EXPRESSION
         {{p_primary_expression, above},
@@ -115,7 +146,48 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_null, p_null}},
     },
 
-    // p_variable_declaration
+    // p_expression_list - EXPRESSION-LIST
+    {
+        //  PRIMARY_EXPRESSION ',' PRIMARY_EXPRESSION
+        {{p_primary_expression, above},
+         {t_comma, cnsme},
+         {p_primary_expression, besid},
+         {p_null, p_null}},
+
+        //  PRIMARY_EXPRESSION ',' EXPRESSION
+        {{p_primary_expression, above},
+         {t_comma, cnsme},
+         {p_expression, besid},
+         {p_null, p_null}},
+
+        //  EXPRESSION ',' PRIMARY_EXPRESSION
+        {{p_expression, besid},
+         {t_comma, cnsme},
+         {p_primary_expression, above},
+         {p_null, p_null}},
+
+        //  EXPRESSION ',' EXPRESSION
+        {{p_expression, besid},
+         {t_comma, cnsme},
+         {p_expression, above},
+         {p_null, p_null}},
+
+        // EXPRESSION_LIST ',' PRIMARY-EXPRESSION
+        {{p_expression_list, above},
+         {t_comma, cnsme},
+         {p_primary_expression, besid},
+         {p_null, p_null}},
+
+        // EXPRESSION_LIST ',' EXPRESSION
+        {{p_expression_list, above},
+         {t_comma, cnsme},
+         {p_expression, besid},
+         {p_null, p_null}},
+
+        {{p_null, p_null}},
+    },
+
+    // p_variable_declaration - VARIABLE-DECLARATION
     {
         // TYPE-NAME PRIMARY-EXPRESSION
         {{p_type_name, above},
@@ -125,22 +197,24 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_null, p_null}},
     },
 
-    // p_declaration_list
+    // p_declaration_list - DECLARATION-LIST
     {
         // VARIABLE-DECLARATION VARIABLE-DECLARATION
         {{p_variable_declaration, above},
+         {t_comma, cnsme},
          {p_variable_declaration, besid},
          {p_null, p_null}},
 
         // DECLARATION-LIST VARIABLE-DECLARATION
         {{p_declaration_list, above},
+         {t_comma, cnsme},
          {p_variable_declaration, besid},
          {p_null, p_null}},
 
         {{p_null, p_null}},
     },
 
-    // p_variable_declaration_statement
+    // p_variable_declaration_statement - VARIABLE-DECLARATION-STATEMENT
     {
         // VARIABLE-DECLARATION ';'
         {{p_variable_declaration, above},
@@ -157,7 +231,7 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_null, p_null}},
     },
 
-    // p_expression_statement
+    // p_expression_statement - EXPRESSION-STATEMENT
     // match expression statement down here with lower precedence to allow semicolons to stick on to other things first
     {
         // PRIMARY-EXPRESSION '=' PRIMARY-EXPRESSION ';'
@@ -195,7 +269,7 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_null, p_null}},
     },
 
-    // p_statement
+    // p_statement - STATEMENT
     {
         {{p_variable_declaration_statement, above},
          {p_null, p_null}},
@@ -203,10 +277,14 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_expression_statement, above},
          {p_null, p_null}},
 
+        {{p_primary_expression, above},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
+
         {{p_null, p_null}},
     },
 
-    // p_statement_list
+    // p_statement_list - STATEMENT-LIST
     {
         {{p_statement, above},
          {p_statement, besid},
@@ -219,25 +297,34 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_null, p_null}},
     },
 
-    // p_scope
+    // p_scope - SCOPE
     {
-        {{t_lCurly, cnsme},
-         {p_statement_list, above},
-         {t_rCurly, cnsme},
+        {{t_lCurly, above},
+         {p_statement_list, below},
+         {t_rCurly, below},
+         {p_null, p_null}},
+
+        {{t_lCurly, above},
+         {p_statement, below},
+         {t_rCurly, below},
+         {p_null, p_null}},
+
+        {{t_lCurly, above},
+         {t_rCurly, below},
          {p_null, p_null}},
 
         {{p_null, p_null}},
     },
 
-    // p_function_definition
+    // p_function_definition - FUNCTION-DEFINITION
     {
         // multiple arguments
         // 'fun' PRIMARY-EXPRESSION '(' DECLARATION-LIST ')' ':' TYPE-NAME SCOPE
         {{t_fun, above},
          {p_primary_expression, below},
-         {t_lParen, cnsme},
+         {t_lParen, below},
          {p_declaration_list, below},
-         {t_rParen, cnsme},
+         {t_rParen, below},
          {t_colon, cnsme},
          {p_type_name, below},
          {p_scope, below},
@@ -247,9 +334,9 @@ enum token parseRecipes[p_null][8][9][2] = {
         // 'fun' PRIMARY-EXPRESSION '(' VARIABLE-DECLARATION ')' ':' TYPE-NAME SCOPE
         {{t_fun, above},
          {p_primary_expression, below},
-         {t_lParen, cnsme},
+         {t_lParen, below},
          {p_variable_declaration, below},
-         {t_rParen, cnsme},
+         {t_rParen, below},
          {t_colon, cnsme},
          {p_type_name, below},
          {p_scope, below},
@@ -259,7 +346,7 @@ enum token parseRecipes[p_null][8][9][2] = {
         // 'fun' PRIMARY-EXPRESSION '(' ')' ':' TYPE-NAME SCOPE
         {{t_fun, above},
          {p_primary_expression, below},
-         {t_lParen, cnsme},
+         {t_lParen, below},
          {t_rParen, cnsme},
          {t_colon, cnsme},
          {p_type_name, below},
