@@ -18,6 +18,7 @@ enum token
 	p_statement_list,
 	p_scope,
 	p_function_definition,
+	p_translation_unit,
 	p_null,
 	// begin tokens
 	t_identifier,
@@ -73,9 +74,6 @@ enum token
 	t_rCurly,
 	t_lBracket,
 	t_rBracket,
-	t_array,
-	t_call,
-	t_scope,
 	t_EOF
 };
 

@@ -354,7 +354,7 @@ int GetSizeOfPrimitive(enum variableTypes type)
 int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
 {
 	struct VariableEntry *theVariable = Scope_lookupVarByString(scope, name);
-	if(theVariable->indirectionLevel > 0)
+	if (theVariable->indirectionLevel > 0)
 	{
 		return 4;
 	}
@@ -485,88 +485,107 @@ void Function_addBasicBlock(struct FunctionEntry *function, struct BasicBlock *b
 /*
  * AST walk and symbol table generation functions
  */
-void walkStatement(struct AST *it, struct Scope *wip)
+void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArgument)
 {
-	struct AST *runner;
-	switch (it->type)
+	printf("walk declaration for:\n");
+	AST_Print(declaration->child, 0);
+	enum variableTypes theType;
+	switch (declaration->type)
 	{
-	case t_scope:
-		walkScope(it, Scope_createSubScope(wip), 0);
+	case t_uint8:
+		theType = vt_uint8;
+		break;
+
+	case t_uint16:
+		theType = vt_uint16;
+		break;
+
+	case t_uint32:
+		theType = vt_uint32;
+		break;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Unexpected type while walking declaration!\n");
+		break;
+	}
+
+	int arraySize;
+	int indirectionLevel = 0;
+	struct AST *runner = declaration;
+	char scraping = 1;
+	while (scraping)
+	{
+		runner = runner->child;
+		switch (runner->type)
+		{
+		case t_star:
+			indirectionLevel++;
+			break;
+
+		default:
+			scraping = 0;
+			break;
+		}
+	}
+
+	if (runner->type == t_single_equals)
+	{
+		runner = runner->child;
+	}
+	else
+	{
+		if (runner->type == t_lBracket)
+		{
+			runner = runner->child;
+			arraySize = atoi(runner->sibling->value);
+		}
+		else
+		{
+			arraySize = 1;
+		}
+	}
+
+	// lookup the variable being assigned, only insert if unique
+	// also covers modification of argument values
+	if (!Scope_contains(wipScope, runner->value))
+	{
+		if (isArgument)
+		{
+			FunctionEntry_createArgument(wipScope->parentFunction, runner, theType, indirectionLevel, arraySize);
+		}
+		else
+		{
+			Scope_createVariable(wipScope, runner, theType, indirectionLevel, arraySize);
+		}
+	}
+	else
+	{
+		ErrorAndExit(ERROR_CODE, "Error - redeclaration of symbol [%s]\n", runner->value);
+	}
+}
+void walkStatement(struct AST *it, struct Scope *wipScope)
+{
+	printf("walkStatement for:");
+	AST_Print(it, 0);
+	printf("\n");
+ 	switch (it->type)
+	{
+	case t_lCurly:
+		walkScope(it, Scope_createSubScope(wipScope), 0);
 		break;
 
 	case t_uint8:
 	case t_uint16:
 	case t_uint32:
 	{
-		int arraySize;
-		int indirectionLevel = 0;
-		runner = it;
-		char scraping = 1;
-		while (scraping)
-		{
-			runner = runner->child;
-			switch (runner->type)
-			{
-			case t_star:
-				indirectionLevel++;
-				break;
-
-			default:
-				scraping = 0;
-				break;
-			}
-		}
-
-		if (runner->type == t_single_equals)
-		{
-			runner = runner->child;
-		}
-		else
-		{
-			if (runner->type == t_array)
-			{
-				runner = runner->child;
-				arraySize = atoi(runner->sibling->value);
-			}
-			else
-			{
-				arraySize = 1;
-			}
-		}
-
-		// lookup the variable being assigned, only insert if unique
-		// also covers modification of argument values
-		if (!Scope_contains(wip, runner->value))
-		{
-			switch (it->type)
-			{
-			case t_uint8:
-				Scope_createVariable(wip, runner, vt_uint8, indirectionLevel, arraySize);
-				break;
-
-			case t_uint16:
-				Scope_createVariable(wip, runner, vt_uint16, indirectionLevel, arraySize);
-				break;
-
-			case t_uint32:
-				Scope_createVariable(wip, runner, vt_uint32, indirectionLevel, arraySize);
-				break;
-
-			default:
-				ErrorAndExit(ERROR_INTERNAL, "Invaild token for type of declared variable\n");
-			}
-		}
-		else
-		{
-			ErrorAndExit(ERROR_CODE, "Error - redeclaration of symbol [%s]\n", runner->value);
-		}
+		walkDeclaration(it, wipScope, 0);
 	}
 	break;
 
 		// ignore assignments as lifetime checks can be done more easily on TAC
 	case t_single_equals:
-	// case t_add_assign:
-	// case t_sub_assign:
+		// case t_add_assign:
+		// case t_sub_assign:
 		break;
 
 	case t_if:
@@ -575,7 +594,7 @@ void walkStatement(struct AST *it, struct Scope *wip)
 		struct AST *ifRunner = it->child->sibling->child;
 		while (ifRunner != NULL)
 		{
-			walkStatement(ifRunner, wip);
+			walkStatement(ifRunner, wipScope);
 			ifRunner = ifRunner->sibling;
 		}
 
@@ -585,7 +604,7 @@ void walkStatement(struct AST *it, struct Scope *wip)
 			ifRunner = it->child->sibling->sibling->child->child;
 			while (ifRunner != NULL)
 			{
-				walkStatement(ifRunner, wip);
+				walkStatement(ifRunner, wipScope);
 				ifRunner = ifRunner->sibling;
 			}
 		}
@@ -597,21 +616,19 @@ void walkStatement(struct AST *it, struct Scope *wip)
 		struct AST *whileRunner = it->child->sibling->child;
 		while (whileRunner != NULL)
 		{
-			walkStatement(whileRunner, wip);
+			walkStatement(whileRunner, wipScope);
 			whileRunner = whileRunner->sibling;
 		}
 	}
 	break;
 
 	// function call/return and asm blocks can't create new symbols so ignore
-	case t_call:
-	case t_return:
 	case t_asm:
 		break;
 
 	default:
 		// TODO: should this really be an internal error?
-		ErrorAndExit(ERROR_INTERNAL, "Error walking AST for function %s - expected 'var', name, or function call, saw %s with value of [%s]\n", wip->parentFunction->name, getTokenName(it->type), it->value);
+		ErrorAndExit(ERROR_INTERNAL, "Error walking AST for function %s - expected 'var', name, or function call, saw %s with value of [%s]\n", wipScope->parentFunction->name, getTokenName(it->type), it->value);
 	}
 }
 
@@ -620,15 +637,16 @@ void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 	struct AST *scopeRunner = it->child;
 	while (scopeRunner != NULL)
 	{
+		printf("scopeRunner is %s\n", scopeRunner->value);
 		switch (scopeRunner->type)
 		{
 			// nested scopes!
-		case t_scope:
+		case t_lCurly:
 			walkScope(scopeRunner, Scope_createSubScope(wipScope), 0);
 			break;
 
 			// function call/return can't create new symbols so ignore
-		case t_call:
+		case t_identifier:
 		case t_return:
 			break;
 
@@ -666,7 +684,7 @@ void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 		}
 		break;
 
-		// otherwise we are looking at the body of the function, which is a statement list
+		// otherwise we are looking at some arbitrary statement
 		default:
 			walkStatement(scopeRunner, wipScope);
 			break;
@@ -679,91 +697,23 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 {
 	struct AST *functionRunner = it->child;
 	struct FunctionEntry *func = Scope_createFunction(parentScope, functionRunner->value);
+	functionRunner = functionRunner->sibling->sibling; // IDENTIFIER '(' optional arguments ')'
 	func->mainScope->parentScope = parentScope;
-	while (functionRunner != NULL)
+	while (functionRunner->type != t_rParen)
 	{
+		printf("Function runner is %s\n", functionRunner->value);
 		switch (functionRunner->type)
 		{
-		// looking at function name, which will have argument variables as children
-		case t_identifier:
+			// looking at argument declarations
+		case t_uint8:
+		case t_uint16:
+		case t_uint32:
 		{
-			struct AST *argumentRunner = functionRunner->child;
-			while (argumentRunner != NULL)
-			{
-
-				enum variableTypes theType;
-				switch (argumentRunner->type)
-				{
-				case t_uint8:
-					theType = vt_uint8;
-					break;
-
-				case t_uint16:
-					theType = vt_uint16;
-					break;
-
-				case t_uint32:
-					theType = vt_uint32;
-					break;
-
-				default:
-					ErrorAndExit(ERROR_INTERNAL, "Unexpected argument type while walking function!\n");
-					break;
-				}
-
-				int arraySize;
-				int indirectionLevel = 0;
-				struct AST *runner = argumentRunner;
-				char scraping = 1;
-				while (scraping)
-				{
-					runner = runner->child;
-					switch (runner->type)
-					{
-					case t_star:
-						indirectionLevel++;
-						break;
-
-					default:
-						scraping = 0;
-						break;
-					}
-				}
-
-				if (runner->type == t_single_equals)
-				{
-					runner = runner->child;
-				}
-				else
-				{
-					if (runner->type == t_array)
-					{
-						runner = runner->child;
-						arraySize = atoi(runner->sibling->value);
-					}
-					else
-					{
-						arraySize = 1;
-					}
-				}
-
-				// lookup the variable being assigned, only insert if unique
-				// also covers modification of argument values
-				if (!Scope_contains(func->mainScope, runner->value))
-				{
-					FunctionEntry_createArgument(func, runner, theType, indirectionLevel, arraySize);
-				}
-				else
-				{
-					ErrorAndExit(ERROR_CODE, "Error - redeclaration of symbol [%s]\n", runner->value);
-				}
-
-				argumentRunner = argumentRunner->sibling;
-			}
+			walkDeclaration(functionRunner, func->mainScope, 1);
 		}
 		break;
 
-		case t_scope:
+		case t_lCurly:
 		{
 			walkScope(functionRunner, func->mainScope, 1);
 		}
@@ -771,48 +721,6 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 
 		default:
 			ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected function name and main scope only!\nMalformed node was of type %s with value [%s]\n", getTokenName(functionRunner->type), functionRunner->value);
-
-			/*
-			// function call/return can't create new symbols so ignore
-			case t_call:
-			case t_return:
-				break;
-
-			case t_if:
-				// having fun yet?
-				struct ASTNode *ifRunner = functionRunner->child->sibling->child;
-				while (ifRunner != NULL)
-				{
-					walkStatement(ifRunner, subTable);
-					ifRunner = ifRunner->sibling;
-				}
-
-				// no, really! (if an else block exists, walk that too)
-				if (functionRunner->child->sibling->sibling != NULL)
-				{
-					ifRunner = functionRunner->child->sibling->sibling->child->child;
-					while (ifRunner != NULL)
-					{
-						walkStatement(ifRunner, subTable);
-						ifRunner = ifRunner->sibling;
-					}
-				}
-
-				break;
-
-			case t_while:
-				struct ASTNode *whileRunner = functionRunner->child->sibling->child;
-				while (whileRunner != NULL)
-				{
-					walkStatement(whileRunner, subTable);
-					whileRunner = whileRunner->sibling;
-				}
-				break;
-
-			// otherwise we are looking at the body of the function, which is a statement list
-			default:
-				walkStatement(functionRunner, subTable);
-			*/
 		}
 		functionRunner = functionRunner->sibling;
 	}

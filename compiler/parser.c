@@ -20,6 +20,7 @@ char *token_names[] = {
 	"p_statement_list",
 	"p_scope",
 	"p_function_definition",
+	"p_translation_unit",
 	"p_null",
 	// begin tokens
 	"t_identifier",
@@ -75,9 +76,6 @@ char *token_names[] = {
 	"t_rCurly",
 	"t_lBracket",
 	"t_rBracket",
-	"t_array",
-	"t_call",
-	"t_scope",
 	"t_EOF"};
 
 #define RECIPE_INGREDIENT(production, permutation, index) parseRecipes[production][permutation][index][0]
@@ -210,7 +208,7 @@ int lookahead_char()
 	return r;
 }
 
-#define RESERVED_COUNT 36
+#define RESERVED_COUNT 35
 
 struct ReservedToken
 {
@@ -272,9 +270,6 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 	{"}", t_rCurly},		// t_rCurly,
 	{"[", t_lBracket},		// t_lBracket,
 	{"]", t_rBracket},		// t_rBracket,
-	{"[]", t_array},		// t_array,
-							// {"", 	t_call,}, //t_call,
-							// {"", 	t_scope,}, //t_scope,
 							// {"", 	t_EOF}, //t_EOF
 };
 
@@ -692,20 +687,13 @@ struct AST *TableParse(struct Dictionary *dict)
 		}
 		// printParseStack(parseStack);
 	}
-	printf("\n\n\nWe parsed:\n");
-	while (parseStack->size > 0)
+
+	if(parseStack->size > 1)
 	{
-		struct InProgressProduction *popped = Stack_Pop(parseStack);
-		printf("%s:\n", getTokenName(popped->production));
-
-		if (popped->tree != NULL)
-		{
-			AST_Print(popped->tree, 0);
-		}
-		printf("\n");
+		printParseStack(parseStack);
+		ErrorAndExit(ERROR_INTERNAL, "Something bad happened during parsing - parse stack dump above");
 	}
-
-	return NULL;
+	return ((struct InProgressProduction *)Stack_Pop(parseStack))->tree;
 }
 
 struct AST *ParseProgram(char *inFileName, struct Dictionary *dict)

@@ -30,19 +30,17 @@ int main(int argc, char **argv)
 	parseDict = Dictionary_New(10);
 	struct AST *program = ParseProgram(argv[1], parseDict);
 	
-	exit(0);
-
 	// serializeAST("astdump", program);
-	// printf("\n");
+	printf("\n");
 
-	// AST_Print(program, 0);
+	AST_Print(program, 0);
 	printf("Generating symbol table from AST");
 	struct SymbolTable *theTable = walkAST(program);
 	printf("\n");
 
 
-	// printf("Symbol table before scope collapse:\n");
-	// SymbolTable_print(theTable, 0);
+	printf("Symbol table before scope collapse:\n");
+	SymbolTable_print(theTable, 0);
 
 	printf("Linearizing code to basic blocks\n");
 	linearizeProgram(program, theTable->globalScope, parseDict);

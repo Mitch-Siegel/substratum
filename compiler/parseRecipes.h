@@ -354,6 +354,17 @@ enum token parseRecipes[p_null][8][9][2] = {
          {p_null, p_null}},
 
         {{p_null, p_null}},
-    }
+    },
+
+    // p_translation_unit - TRANSLATION-UNIT
+    {
+        {{p_function_definition, above},
+         {p_null, p_null}},
+
+        {{p_translation_unit, above},
+         {p_translation_unit, besid},
+         {p_null, p_null}},
+
+        {{p_null, p_null}}}
 
 };
