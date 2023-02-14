@@ -420,7 +420,7 @@ void printPossibleProduction(struct Stack *left, struct Stack *right)
 	printf("\t");
 	for (int i = 0; i < left->size; i++)
 	{
-		char *thisProductionName = getTokenName((enum token)left->data[i]);
+		char *thisProductionName = getTokenName(((enum token)left->data[i]));
 		printf("%s ", thisProductionName);
 	}
 	for (int i = right->size; i-- > 0;)
@@ -444,7 +444,7 @@ void enumeratePossibleProductionsRecursive(struct Stack *leftStack, struct Stack
 		}
 	}
 
-	if ((nTerminalsAtEnd == leftStack->size))
+	if (nTerminalsAtEnd == leftStack->size)
 	{
 		nValidProductions++;
 		printPossibleProduction(leftStack, rightStack);

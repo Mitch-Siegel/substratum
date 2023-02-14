@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -Werror -Wall
+CFLAGS = -g -Werror -Wall -Wno-enum-conversion -Wno-void-pointer-to-enum-cast
 programs: mcc
 
 mcc: compiler.o parser.o ast.o tac.o symtab.o util.o linearizer.o regalloc.o codegen.o serialize.o
