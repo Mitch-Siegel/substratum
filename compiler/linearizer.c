@@ -1937,20 +1937,3 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 		runner = runner->sibling;
 	}
 }
-
-/*
-
-Generating symbol table from AST..
-Linearizing code to basic blocks
-Symbol Table Program
-> Function print (returns 1)
-	> Argument n (stack offset -4)
-> Function scopeTest (returns 1)
-	> Argument a (stack offset -4)
-	> Variable i (stack offset 0)
-	> Subscope _00
-		> Variable j (stack offset 2)
-		> Subscope _00_00
-			> Variable k (stack offset 4)
-
-*/
