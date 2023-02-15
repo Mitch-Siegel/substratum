@@ -283,6 +283,7 @@ void sortSpilledLifetimes(struct FunctionRegisterAllocationMetadata *metadata)
 
 void assignRegisters(struct FunctionRegisterAllocationMetadata *metadata)
 {
+	// printf("\nassigning registers\n");
 	// flag registers in use at any given TAC index so we can easily assign
 	char registers[REGISTER_COUNT];
 	struct Lifetime *occupiedBy[REGISTER_COUNT];
@@ -305,6 +306,7 @@ void assignRegisters(struct FunctionRegisterAllocationMetadata *metadata)
 		{
 			if (occupiedBy[j] != NULL && occupiedBy[j]->end <= i)
 			{
+				// printf("%s expires at %d\n", occupiedBy[j]->variable, i);
 				registers[j] = 0;
 				occupiedBy[j] = NULL;
 			}
@@ -356,6 +358,12 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	struct FunctionRegisterAllocationMetadata metadata;
 	metadata.function = function;
 	metadata.allLifetimes = findLifetimes(function);
+
+	for(struct LinkedListNode *thisLifetimeNode = metadata.allLifetimes->head; thisLifetimeNode != NULL; thisLifetimeNode = thisLifetimeNode->next)
+	{
+		struct Lifetime *thisLifetime = (struct Lifetime*)thisLifetimeNode->data;
+		printf("%s:%d,%d\n",thisLifetime->variable, thisLifetime->start, thisLifetime->end);
+	}
 
 	// find all overlapping lifetimes, to figure out which variables can live in registers vs being spilled
 	metadata.largestTacIndex = 0;
@@ -415,8 +423,9 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	}
 
 	assignRegisters(&metadata);
+	printf("assigned registers\n");
 
-	/*
+	
 	for (struct LinkedListNode *runner = metadata.allLifetimes->head; runner != NULL; runner = runner->next)
 	{
 		struct Lifetime *thisLifetime = runner->data;
@@ -428,7 +437,7 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 		{
 			printf("%16s: %%r%d\n", thisLifetime->variable, thisLifetime->stackOrRegLocation);
 		}
-	}*/
+	}
 
 	// actual registers have been assigned to variables
 	printf(".");

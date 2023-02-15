@@ -11,6 +11,7 @@ fun doSomethingMoreInteresting(uint8 argument1, uint8 argument2) : void
 
 fun manyArguments(uint8 arg1, uint16 arg2, uint32 arg3) : void
 {
-    uint8 asdf = 123;
-    doSomething(asdf);
+    uint8 asdf;
+    asdf = 123;
+    // doSomething(asdf);
 }
