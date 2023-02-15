@@ -565,10 +565,10 @@ void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArg
 }
 void walkStatement(struct AST *it, struct Scope *wipScope)
 {
-	printf("walkStatement for:");
+	printf("walkStatement for:\n");
 	AST_Print(it, 0);
 	printf("\n");
- 	switch (it->type)
+	switch (it->type)
 	{
 	case t_lCurly:
 		walkScope(it, Scope_createSubScope(wipScope), 0);
@@ -582,10 +582,21 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 	}
 	break;
 
-		// ignore assignments as lifetime checks can be done more easily on TAC
+	// check the LHS of the assignment to check if it is a declare-and-assign
 	case t_single_equals:
-		// case t_add_assign:
-		// case t_sub_assign:
+		switch (it->child->type)
+		{
+		case t_uint8:
+		case t_uint16:
+		case t_uint32:
+		{
+			walkDeclaration(it->child, wipScope, 0);
+		}
+
+		break;
+		default:
+			break;
+		}
 		break;
 
 	case t_if:
@@ -635,7 +646,7 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 {
 	struct AST *scopeRunner = it->child;
-	while (scopeRunner != NULL)
+	while (scopeRunner->type != t_rCurly)
 	{
 		printf("scopeRunner is %s\n", scopeRunner->value);
 		switch (scopeRunner->type)
@@ -724,6 +735,32 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 		}
 		functionRunner = functionRunner->sibling;
 	}
+	functionRunner = functionRunner->sibling;
+
+	switch (functionRunner->type)
+	{
+	case t_void:
+		func->returnType = vt_null;
+		break;
+
+	case t_uint8:
+		func->returnType = vt_uint8;
+		break;
+
+	case t_uint16:
+		func->returnType = vt_uint16;
+		break;
+
+	case t_uint32:
+		func->returnType = vt_uint32;
+
+		break;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected return type to be a type specifier!\nMalformed node was of type %s with value [%s]\n", getTokenName(functionRunner->type), functionRunner->value);
+	}
+	functionRunner = functionRunner->sibling;
+	walkScope(functionRunner, func->mainScope, 1);
 }
 
 // given an AST node for a program, walk the AST and generate a symbol table for the entire thing
