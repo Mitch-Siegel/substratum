@@ -299,7 +299,7 @@ void assignRegisters(struct FunctionRegisterAllocationMetadata *metadata)
 	registers[metadata->reservedRegisters[0]] = 1;
 	registers[metadata->reservedRegisters[1]] = 1;
 
-	for (int i = 0; i < metadata->largestTacIndex; i++)
+	for (int i = 0; i <= metadata->largestTacIndex; i++)
 	{
 		// free any registers inhabited by expired lifetimes
 		for (int j = 0; j < REGISTER_COUNT; j++)
