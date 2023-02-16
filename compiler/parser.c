@@ -512,10 +512,18 @@ void enumeratePossibleProductions()
 
 void printParseStack(struct Stack *parseStack)
 {
-	printf("Parse Stack:\t");
+	printf("Parse Stack:\n");
 	for (int i = 0; i < parseStack->size; i++)
 	{
 		struct InProgressProduction *thisProduction = (struct InProgressProduction *)parseStack->data[i];
+		if (thisProduction->tree == NULL)
+		{
+			printf("No line/col info available for: ");
+		}
+		else
+		{
+			printf("Line %3d:%-3d: %10s\t", thisProduction->tree->sourceLine, thisProduction->tree->sourceCol, thisProduction->tree->value);
+		}
 		if (thisProduction->production < p_null)
 		{
 			printf("%s ", getTokenName(thisProduction->production));
@@ -528,6 +536,7 @@ void printParseStack(struct Stack *parseStack)
 		{
 			ErrorAndExit(ERROR_INTERNAL, "null production in parse stack!\n");
 		}
+		printf("\n");
 	}
 	printf("\n");
 }

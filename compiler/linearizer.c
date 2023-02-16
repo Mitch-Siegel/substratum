@@ -14,7 +14,20 @@ int linearizeASMBlock(struct LinearizationMetadata m)
 	while (asmRunner != NULL)
 	{
 		struct TACLine *asmLine = newTACLine(m.currentTACIndex++, tt_asm, asmRunner);
-		asmLine->operands[0].name.str = asmRunner->value;
+
+		char *asmStr = asmRunner->value;
+		int lineLen = strlen(asmStr);
+		char *asmDupStr = malloc(lineLen + 1 * sizeof(char));
+		int asmDupLen = 0;
+		for(int i = 0; i <= lineLen; i++)
+		{
+			if(!isspace(asmStr[i]) || asmStr[i] != ' ')
+			{
+				asmDupStr[asmDupLen++] = asmStr[i];
+			}
+		}
+		asmDupStr[asmDupLen] = '\0';
+		asmLine->operands[0].name.str = asmDupStr;
 		BasicBlock_append(m.currentBlock, asmLine);
 		asmRunner = asmRunner->sibling;
 	}
