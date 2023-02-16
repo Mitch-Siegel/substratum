@@ -512,15 +512,6 @@ void enumeratePossibleProductions()
 
 void printParseStack(struct Stack *parseStack)
 {
-	/*
-	printf("Parse Stack:\t");
-	for (int i = 0; i < parseStack->size; i++)
-	{
-		struct InProgressProduction *thisProduction = (struct InProgressProduction *)parseStack->data[i];
-		printf("%s ", getTokenName(thisProduction->production));
-	}
-	printf("\n\t");
-	*/
 	printf("Parse Stack:\t");
 	for (int i = 0; i < parseStack->size; i++)
 	{
@@ -666,7 +657,7 @@ struct AST *TableParse(struct Dictionary *dict)
 		if (foundReduction[0] != p_null)
 		{
 			reduce(parseStack);
-			printf("Reduce: %s:%d\n\t", getTokenName(foundReduction[0]), foundReduction[1]);
+			// printf("Reduce: %s:%d\n\t", getTokenName(foundReduction[0]), foundReduction[1]);
 		}
 		else
 		{
@@ -677,18 +668,30 @@ struct AST *TableParse(struct Dictionary *dict)
 				parsing = 0;
 				break;
 			}
+			else if (lookaheadToken == t_asm)
+			{
+				nextToken = match(lookaheadToken, dict);
+				consume(t_lCurly);
+				while ((lookaheadToken = lookahead()) != t_rCurly)
+				{
+					buflen = 0;
+					while ((buffer[buflen++] = fgetc(inFile)) != '\n')
+						;
+					buffer[buflen - 1] = '\0';
+					AST_InsertChild(nextToken, AST_New(t_asm, Dictionary_LookupOrInsert(dict, buffer)));
+				}
+			}
 			else
 			{
 				nextToken = match(lookaheadToken, dict);
 			}
 			Stack_Push(parseStack, InProgressProduction_New(nextToken->type, nextToken));
-			// printf("shift [%s]\n", nextToken->value);
-			printf("Shift: [%s]\n\t", nextToken->value);
+			// printf("Shift: [%s]\n\t", nextToken->value);
 		}
 		// printParseStack(parseStack);
 	}
 
-	if(parseStack->size > 1)
+	if (parseStack->size > 1)
 	{
 		printParseStack(parseStack);
 		ErrorAndExit(ERROR_INTERNAL, "Something bad happened during parsing - parse stack dump above");

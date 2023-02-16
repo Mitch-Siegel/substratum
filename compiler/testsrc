@@ -1,3 +1,12 @@
+asm
+    {
+    entry code
+    code:
+    call multiples
+    hlt
+}
+;
+
 
 fun doSomething(uint8 argument) : void
 {
