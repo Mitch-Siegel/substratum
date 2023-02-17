@@ -602,9 +602,13 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 	for (struct LinkedListNode *TACRunner = thisBlock->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
 	{
 		struct TACLine *thisTAC = TACRunner->data;
-		char *printedTAC = sPrintTACLine(thisTAC);
-		TRIM_APPEND(asmBlock, sprintf(printedLine, ";%s", printedTAC));
-		free(printedTAC);
+
+		if(thisTAC->operation != tt_asm)
+		{
+			char *printedTAC = sPrintTACLine(thisTAC);
+			TRIM_APPEND(asmBlock, sprintf(printedLine, ";%s", printedTAC));
+			free(printedTAC);
+		}
 
 		switch (thisTAC->operation)
 		{

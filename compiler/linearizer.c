@@ -19,9 +19,20 @@ int linearizeASMBlock(struct LinearizationMetadata m)
 		int lineLen = strlen(asmStr);
 		char *asmDupStr = malloc(lineLen + 1 * sizeof(char));
 		int asmDupLen = 0;
-		for(int i = 0; i <= lineLen; i++)
+		char justCopiedSpace = 0;
+		for (int i = 0; i <= lineLen; i++)
 		{
-			if(!isspace(asmStr[i]) || asmStr[i] != ' ')
+			// we aren't looking at a space
+			if (isspace(asmStr[i]))
+			{
+				if (!justCopiedSpace)
+				{
+					asmDupStr[asmDupLen++] = asmStr[i];
+				}
+				justCopiedSpace = 1;
+			}
+			// we are looking at a space, we haven't already copied a space, so do the copy
+			else
 			{
 				asmDupStr[asmDupLen++] = asmStr[i];
 			}

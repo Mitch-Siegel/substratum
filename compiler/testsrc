@@ -10,20 +10,20 @@ results:
 
 */
 asm
-    {
-    entry code
-    code:
-    call multiples
-    hlt
+	{
+	entry code
+	code:
+	call multiples
+	hlt
 }
 ;
 
 fun print(uint32 value) : void
 {
-    // store r0, pull the argument into a register, then output that register
-    asm {
+	// store r0, pull the argument into a register, then output that register
+	asm {
 		mov %rr, (%bp+8)
-        int 5
-    }
-    ;
+		int 5
+	}
+	;
 }
