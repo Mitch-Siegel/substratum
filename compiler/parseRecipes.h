@@ -347,12 +347,10 @@ enum token parseRecipes[p_null][8][9][2] = {
          {p_scope, below},
          {p_null, p_null}},
 
-        // no arguments
-        // 'fun' PRIMARY-EXPRESSION '(' ')' ':' TYPE-NAME SCOPE
+        // no arguments - name() becomes PRIMARY-EXPRESSION - parens are consumed automatically
+        // 'fun' PRIMARY-EXPRESSION ':' TYPE-NAME SCOPE
         {{t_fun, above},
          {p_primary_expression, below},
-         {t_lParen, below},
-         {t_rParen, cnsme},
          {t_colon, cnsme},
          {p_type_name, below},
          {p_scope, below},

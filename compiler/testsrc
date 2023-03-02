@@ -34,12 +34,7 @@ fun print(uint32 value) : void
 
 fun printStuff() : void
 {
-	uint8 a = 1;
-	while(a < 10)
-	{
-		print(a);
-		a = a + 1;
-	}
+	
 
 }
 

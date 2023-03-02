@@ -725,6 +725,8 @@ struct AST *TableParse(struct Dictionary *dict)
 		}
 		if (foundReduction[0] != p_null)
 		{
+			printf("Reduce %s:%d\n", token_names[foundReduction[0]], foundReduction[1]);
+			printParseStack(parseStack);
 			reduce(parseStack);
 		}
 		else
