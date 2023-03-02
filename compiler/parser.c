@@ -654,11 +654,47 @@ void reduce(struct Stack *parseStack)
 
 struct AST *TableParse(struct Dictionary *dict)
 {
+	int mostPossibleNonterminals = 0;
+	// iterate all recipe sets
+	for (int pi = 0; pi < p_null; pi++)
+	{
+		// iterate each recipe within the set (last recipe is just a singe null production)
+		for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++)
+		{
+			int nNonTerminals = 0;
+			for (int ti = 0; RECIPE_INGREDIENT(pi, qi, ti) != p_null; ti++)
+			{
+				if (RECIPE_INGREDIENT(pi, qi, ti) < p_null)
+				{
+					nNonTerminals++;
+				}
+			}
+			if (nNonTerminals > mostPossibleNonterminals)
+			{
+				mostPossibleNonterminals = nNonTerminals;
+			}
+		}
+	}
+	printf("The longest possible production uses %d nonterminals\n", mostPossibleNonterminals);
+	// mostPossibleNonterminals++;
+
 	struct Stack *parseStack = Stack_New();
 	// Stack_Push(parseStack, (void *)p_translation_unit);
 	char parsing = 1;
 	while (parsing)
 	{
+		int nNonTerminals = 0;
+		for (int i = 0; i < parseStack->size; i++)
+		{
+			struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[i];
+			if (examinedIPP->production < p_null)
+			{
+				nNonTerminals++;
+			}
+		}
+		printf("%d nonterminals on stack\n", nNonTerminals);
+
+
 		if (parseStack->size > 0)
 		{
 			findReduction(parseStack);

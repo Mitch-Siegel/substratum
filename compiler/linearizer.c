@@ -22,7 +22,7 @@ int linearizeASMBlock(struct LinearizationMetadata m)
 		char justCopiedSpace = 0;
 		for (int i = 0; i <= lineLen; i++)
 		{
-			// we aren't looking at a space
+			// we aren looking at a space
 			if (isspace(asmStr[i]))
 			{
 				if (!justCopiedSpace)
@@ -31,10 +31,11 @@ int linearizeASMBlock(struct LinearizationMetadata m)
 				}
 				justCopiedSpace = 1;
 			}
-			// we are looking at a space, we haven't already copied a space, so do the copy
+			// we aren't looking at a space, we haven't already copied a space, so do the copy
 			else
 			{
 				asmDupStr[asmDupLen++] = asmStr[i];
+				justCopiedSpace = 0;
 			}
 		}
 		asmDupStr[asmDupLen] = '\0';
