@@ -7,7 +7,6 @@
 
 #define BUF_SIZE 128
 
-void ParserError();
 
 int lookahead_char_dumb();
 

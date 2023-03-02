@@ -26,7 +26,7 @@ int main(int argc, char **argv)
 
 	printf("Parsing program from %s\n", argv[1]);
 
-	printf("Output will be generated to %s\n", argv[2]);
+	printf("Output will be generated to %s\n\n", argv[2]);
 	parseDict = Dictionary_New(10);
 	struct AST *program = ParseProgram(argv[1], parseDict);
 	

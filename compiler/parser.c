@@ -81,14 +81,6 @@ char *token_names[] = {
 #define RECIPE_INGREDIENT(production, permutation, index) parseRecipes[production][permutation][index][0]
 #define RECIPE_INSTRUCTION(production, permutation, index) parseRecipes[production][permutation][index][1]
 
-#define ParserError(production, info)                                                 \
-	{                                                                                 \
-		printf("Error while parsing %s\n", production);                               \
-		printf("Error at line %d, col %d\n", curLine, curCol);                        \
-		printf("%s\n", info);                                                         \
-		ErrorAndExit(ERROR_CODE, "Parse buffer when error occurred: [%s]\n", buffer); \
-	}
-
 // return the char 'count' characters ahead
 // count must be >0, returns null char otherwise
 int lookahead_char_dumb(int count)
@@ -166,8 +158,9 @@ void trimWhitespace(char trackPos)
 						// disallow nesting of block comments
 					case '/':
 						if (lookahead_char_dumb(1) == '*')
-							ParserError("comment", "Error - nested block comments not allowed");
-
+						{
+							ErrorAndExit(ERROR_INVOCATION, "Error parsing comment - nested block comments are not allowed!\n");
+						}
 						break;
 
 						// otherwise just track position in the file if necessary
@@ -189,6 +182,7 @@ void trimWhitespace(char trackPos)
 				}
 				// catch the trailing slash of the comment closer
 				fgetc(inFile);
+				curCol++;
 				break;
 			}
 
@@ -331,7 +325,9 @@ scan(char trackPos)
 		{
 			// simple error checking for letters in literals
 			if (currentToken == t_constant && isalpha(inChar))
-				ParserError("literal", "Error - alphabetical character in literal!");
+			{
+				ErrorAndExit(ERROR_INTERNAL, "Error parsing literal - alphabetical character detected!\n");
+			}
 		}
 
 		// if the next input char is whitespace or a single-character token, we're done with this token
@@ -370,13 +366,15 @@ enum token lookahead()
 // error-checked method to consume and return AST node of expected token
 struct AST *match(enum token t, struct Dictionary *dict)
 {
+	trimWhitespace(1);
 	int line = curLine;
 	int col = curCol;
 	enum token result = scan(1);
+
 	if (result != t)
 	{
 		printf("Expected token %s, got %s\n", token_names[t], token_names[result]);
-		ParserError("match", "Error matching a token!");
+		ErrorAndExit(ERROR_INTERNAL, "Error matching token!\t");
 	}
 
 	struct AST *matched = AST_New(result, Dictionary_LookupOrInsert(dict, buffer));
@@ -392,7 +390,7 @@ void consume(enum token t)
 	if (result != t)
 	{
 		printf("Expected token %s, got %s\n", token_names[t], token_names[result]);
-		ParserError("consume", "Error consuming a token!");
+		ErrorAndExit(ERROR_INTERNAL, "Error consuming token!\t");
 	}
 }
 
@@ -615,7 +613,7 @@ struct AST *performRecipeInstruction(struct AST *existingTree, struct AST *ingre
 		return existingTree;
 	}
 
-	ErrorAndExit(ERROR_INTERNAL, "Fell through switch on instruction type in performRecipeInstruction");
+	ErrorAndExit(ERROR_INTERNAL, "Fell through switch on instruction type in performRecipeInstruction\n");
 }
 
 void reduce(struct Stack *parseStack)
@@ -655,6 +653,7 @@ void reduce(struct Stack *parseStack)
 struct AST *TableParse(struct Dictionary *dict)
 {
 	int mostPossibleNonterminals = 0;
+	int mostPossibleTerminals = 0;
 	// iterate all recipe sets
 	for (int pi = 0; pi < p_null; pi++)
 	{
@@ -662,28 +661,38 @@ struct AST *TableParse(struct Dictionary *dict)
 		for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++)
 		{
 			int nNonTerminals = 0;
+			int nTerminals = 0;
 			for (int ti = 0; RECIPE_INGREDIENT(pi, qi, ti) != p_null; ti++)
 			{
 				if (RECIPE_INGREDIENT(pi, qi, ti) < p_null)
 				{
 					nNonTerminals++;
 				}
+				else
+				{
+					nTerminals++;
+				}
 			}
 			if (nNonTerminals > mostPossibleNonterminals)
 			{
 				mostPossibleNonterminals = nNonTerminals;
 			}
+			if (nTerminals > mostPossibleTerminals)
+			{
+				mostPossibleTerminals = nTerminals;
+			}
 		}
 	}
-	printf("The longest possible production uses %d nonterminals\n", mostPossibleNonterminals);
-	// mostPossibleNonterminals++;
+
+	// add 1 to account for the p_translation_unit that will always be at the bottom of the stack
+	mostPossibleNonterminals++;
 
 	struct Stack *parseStack = Stack_New();
-	// Stack_Push(parseStack, (void *)p_translation_unit);
 	char parsing = 1;
 	while (parsing)
 	{
 		int nNonTerminals = 0;
+		int nTerminals = 0;
 		for (int i = 0; i < parseStack->size; i++)
 		{
 			struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[i];
@@ -691,9 +700,24 @@ struct AST *TableParse(struct Dictionary *dict)
 			{
 				nNonTerminals++;
 			}
+			else
+			{
+				nTerminals++;
+			}
 		}
-		printf("%d nonterminals on stack\n", nNonTerminals);
-
+		if (nTerminals > mostPossibleTerminals && nNonTerminals > mostPossibleNonterminals)
+		{
+			// printParseStack(parseStack);
+			struct InProgressProduction *firstIPP = (struct InProgressProduction *)parseStack->data[1];
+			printf("Error at or near line %d, col %d:\nSource code looks approximately like:\n\t", firstIPP->tree->sourceLine, firstIPP->tree->sourceCol);
+			for (int i = 1; i < parseStack->size; i++)
+			{
+				struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[i];
+				printf("%s ", examinedIPP->tree->value);
+			}
+			printf("\n\n");
+			ErrorAndExit(ERROR_INVOCATION, "Fix your program!\t");
+		}
 
 		if (parseStack->size > 0)
 		{
@@ -702,7 +726,6 @@ struct AST *TableParse(struct Dictionary *dict)
 		if (foundReduction[0] != p_null)
 		{
 			reduce(parseStack);
-			// printf("Reduce: %s:%d\n\t", getTokenName(foundReduction[0]), foundReduction[1]);
 		}
 		else
 		{
@@ -722,6 +745,8 @@ struct AST *TableParse(struct Dictionary *dict)
 					buflen = 0;
 					while ((buffer[buflen++] = fgetc(inFile)) != '\n')
 						;
+					curLine++;
+					curCol = 0;
 					buffer[buflen - 1] = '\0';
 					AST_InsertChild(nextToken, AST_New(t_asm, Dictionary_LookupOrInsert(dict, buffer)));
 				}
@@ -733,13 +758,12 @@ struct AST *TableParse(struct Dictionary *dict)
 			Stack_Push(parseStack, InProgressProduction_New(nextToken->type, nextToken));
 			// printf("Shift: [%s]\n\t", nextToken->value);
 		}
-		// printParseStack(parseStack);
 	}
 
 	if (parseStack->size > 1)
 	{
 		printParseStack(parseStack);
-		ErrorAndExit(ERROR_INTERNAL, "Something bad happened during parsing - parse stack dump above");
+		ErrorAndExit(ERROR_INTERNAL, "Something bad happened during parsing - parse stack dump above\t");
 	}
 	return ((struct InProgressProduction *)Stack_Pop(parseStack))->tree;
 }
