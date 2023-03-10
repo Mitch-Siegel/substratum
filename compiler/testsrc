@@ -8,15 +8,13 @@ Find the sum of all the multiples of 3 or 5 below 1000.
 results:
 1/15/23 - 1196487 instructions
 
-
-
-
 */
+
 asm
 	{
 	entry code
 	code:
-	call printStuff
+	call test
 	hlt
 }
 ;
@@ -32,9 +30,13 @@ fun print(uint32 value) : void
 }
 
 
-fun printStuff() : void
+fun test() : void
 {
-	
-
+	uint8 z = 0;
+	uint8 i = 0
+	uint16 abc = 234;
 }
 
+fun next() : void
+{
+}
