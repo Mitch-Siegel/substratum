@@ -645,17 +645,96 @@ void reduce(struct Stack *parseStack)
 	Stack_Push(parseStack, produced);
 }
 
+char *ExpandSourceFromAST(struct AST *tree, char *parentString)
+{
+	if (tree->child != NULL)
+	{
+		char *printed = NULL;
+		int printedLen = 0;
+
+		char *LHS = malloc(strlen(tree->child->value) + 1);
+		strcpy(LHS, tree->child->value);
+		LHS = ExpandSourceFromAST(tree->child, LHS);
+		int LHSLen = strlen(LHS);
+
+		printed = malloc(LHSLen + strlen(parentString) + 2);
+		strcpy(printed, LHS);
+		printed[LHSLen] = ' ';
+		strcpy(printed + LHSLen + 1, parentString);
+		free(parentString);
+
+		printedLen = strlen(printed);
+		// printf("Before siblings: [%s]\n", printed);
+
+		for (struct AST *siblingRunner = tree->child->sibling; siblingRunner != NULL; siblingRunner = siblingRunner->sibling)
+		{
+			char *siblingString = malloc(strlen(siblingRunner->value) + 1);
+			strcpy(siblingString, siblingRunner->value);
+			// printf("Put in [%s]\n", siblingString);
+			siblingString = ExpandSourceFromAST(siblingRunner, siblingString);
+			// printf("Get out [%s]\n", siblingString);
+			int siblingLen = strlen(siblingString);
+
+			char *printedNew = malloc(printedLen + siblingLen + 2);
+
+			strcpy(printedNew, printed);
+			printedNew[siblingLen] = ' ';
+			strcpy(printedNew + siblingLen + 1, siblingString);
+
+			printedLen += siblingLen;
+			free(printed);
+			printed = printedNew;
+		}
+		// printf("Return %s\n", printed);
+
+		return printed;
+	}
+	else
+	{
+		return parentString;
+	}
+}
+
 void TableParseError(struct Stack *parseStack)
 {
 	struct InProgressProduction *firstIPP = (struct InProgressProduction *)parseStack->data[1];
 	printf("Error at or near line %d, col %d:\nSource code looks approximately like:\n\t", firstIPP->tree->sourceLine, firstIPP->tree->sourceCol);
 
-	for (int i = 1; i < parseStack->size; i++)
+	char *printedSource = NULL;
+	int printedLen = 0;
+	for (int i = parseStack->size - 1; (i > 0) && (printedLen < 128); i--)
 	{
 		struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[i];
-		printf("%s ", examinedIPP->tree->value);
+
+		// expand this tree
+		char *parentStr = malloc(strlen(examinedIPP->tree->value) + 1);
+		strcpy(parentStr, examinedIPP->tree->value);
+		char *thisTreePrint = ExpandSourceFromAST(examinedIPP->tree, parentStr);
+		// printf("thistreeprint: [%s]\n", thisTreePrint);
+		int thisPrintedLen = strlen(thisTreePrint);
+
+		// calculate how long the new string will be and allocate it
+		int newLen = printedLen + thisPrintedLen;
+		char *newPrintedSource = malloc(newLen + 1 * sizeof(char));
+
+		// prepend the newly printed string
+		memcpy(newPrintedSource, thisTreePrint, thisPrintedLen);
+
+		// then copy over the existing string after it (if necessary)
+		if (printedLen > 0)
+		{
+			memcpy(newPrintedSource + printedLen, printedSource, printedLen);
+		}
+		newPrintedSource[newLen] = '\0';
+
+		if (printedLen > 0)
+		{
+			free(printedSource);
+		}
+		printedLen = newLen;
+		printedSource = newPrintedSource;
 	}
-	printf("\n\n");
+	printf("%s\n\n", printedSource);
 	printParseStack(parseStack);
 	ErrorAndExit(ERROR_INVOCATION, "Fix your program!\t");
 }
@@ -667,50 +746,60 @@ void ValidateParseStack(struct Stack *parseStack)
 	int nLoops = 0;
 	// printf("Validating parse stack:\n");
 
-	char stillGood = 1;
-	for (int startIndex = parseStack->size - 1; startIndex >= 0; startIndex--)
+	char valid = 1;
+	// look through stack starting from every possible index
+	// every starting index in the stack must also be the start of some contiguous part of a possible production
+	for (int startIndex = parseStack->size - 1; (startIndex > 0) && valid; startIndex--)
 	{
-		char goodThisIndex = 0;
-		for (int pi = 0; (pi < p_null) && stillGood; pi++)
+		// only examine starting indices which are tokens, not productions
+		// since productions have already been generated from tokens we can assume they're valid
+		// (and will only ever be used in other valid productions)
+		struct InProgressProduction *examinedIndex = (struct InProgressProduction *)parseStack->data[startIndex];
+		if (examinedIndex->production < p_null)
 		{
+			continue;
+		}
+
+		char validThisIndex = 0;
+		// for all possible productions
+		for (int pi = 0; pi < p_null; pi++)
+		{
+			// for all permutations per production
 			for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++)
 			{
+				// for every possible offset within the production
 				for (int ingredientOffset = 0; RECIPE_INGREDIENT(pi, qi, ingredientOffset) != p_null; ingredientOffset++)
 				{
+					// char validThisOffset = 1;
 					int ti;
-					// drive ti over the range from offset -> until out of ingredients (or the top of the parse stack)
+					// drive ti over the range from offset -> either: 1. out of ingredients (complete and valid production) 2. at top of stack (part of a valid production but not all)
 					for (ti = ingredientOffset; (ti < (parseStack->size - startIndex)) && (RECIPE_INGREDIENT(pi, qi, ti) != p_null); ti++)
 					{
 						nLoops++;
 						struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[startIndex + ti];
 						if (examinedIPP->production != RECIPE_INGREDIENT(pi, qi, ti))
 						{
+							// validThisOffset = 0;
 							break;
 						}
-
 					}
-
 					if ((startIndex + ti + 1 == parseStack->size) || (RECIPE_INGREDIENT(pi, qi, ti) == p_null))
 					{
-						goodThisIndex = 1;
+						validThisIndex = 1;
 						break;
 					}
 				}
-				if (goodThisIndex)
+				if (validThisIndex)
 				{
 					break;
 				}
 			}
-			if (goodThisIndex)
-			{
-				break;
-			}
 		}
-		// printf("Stack good at index %d?:%d\n", startIndex, goodThisIndex, nLoops);
-		stillGood &= goodThisIndex;
+		valid &= validThisIndex;
 	}
-	printf("Validation completed %d comparisons - good?:%d\n", nLoops, stillGood);
-	if(!stillGood)
+
+	printf("Validation completed %d comparisons - good?:%d\n", nLoops, valid);
+	if (!valid)
 	{
 		TableParseError(parseStack);
 	}
