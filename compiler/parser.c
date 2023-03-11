@@ -660,6 +660,62 @@ void TableParseError(struct Stack *parseStack)
 	ErrorAndExit(ERROR_INVOCATION, "Fix your program!\t");
 }
 
+// compare each subsection of the stack to all possible recipes to see if any production exists
+// return silently if good, call TableParseError if error detected
+void ValidateParseStack(struct Stack *parseStack)
+{
+	int nLoops = 0;
+	// printf("Validating parse stack:\n");
+
+	char stillGood = 1;
+	for (int startIndex = parseStack->size - 1; startIndex >= 0; startIndex--)
+	{
+		char goodThisIndex = 0;
+		for (int pi = 0; (pi < p_null) && stillGood; pi++)
+		{
+			for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++)
+			{
+				for (int ingredientOffset = 0; RECIPE_INGREDIENT(pi, qi, ingredientOffset) != p_null; ingredientOffset++)
+				{
+					int ti;
+					// drive ti over the range from offset -> until out of ingredients (or the top of the parse stack)
+					for (ti = ingredientOffset; (ti < (parseStack->size - startIndex)) && (RECIPE_INGREDIENT(pi, qi, ti) != p_null); ti++)
+					{
+						nLoops++;
+						struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[startIndex + ti];
+						if (examinedIPP->production != RECIPE_INGREDIENT(pi, qi, ti))
+						{
+							break;
+						}
+
+					}
+
+					if ((startIndex + ti + 1 == parseStack->size) || (RECIPE_INGREDIENT(pi, qi, ti) == p_null))
+					{
+						goodThisIndex = 1;
+						break;
+					}
+				}
+				if (goodThisIndex)
+				{
+					break;
+				}
+			}
+			if (goodThisIndex)
+			{
+				break;
+			}
+		}
+		// printf("Stack good at index %d?:%d\n", startIndex, goodThisIndex, nLoops);
+		stillGood &= goodThisIndex;
+	}
+	printf("Validation completed %d comparisons - good?:%d\n", nLoops, stillGood);
+	if(!stillGood)
+	{
+		TableParseError(parseStack);
+	}
+}
+
 struct AST *TableParse(struct Dictionary *dict)
 {
 	int maxNonterminals = 0;
@@ -720,52 +776,8 @@ struct AST *TableParse(struct Dictionary *dict)
 	char parsing = 1;
 	while (parsing)
 	{
-		int nNonTerminals = 0;
-		int nTerminalsOnTop = 0;
-		int nTerminals = 0;
-		char hitNonterminal = 0;
-		for (int i = parseStack->size - 1; i >= 0; i--)
-		{
-			struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[i];
-			if (examinedIPP->production < p_null)
-			{
-				hitNonterminal = 1;
-				nNonTerminals++;
-			}
-			else
-			{
-				if (!hitNonterminal)
-				{
-					nTerminalsOnTop++;
-				}
-				nTerminals++;
-			}
-		}
-		// check for errors first
-		if (nShifts == nTerminalsOnTop && nShifts >= maxTerminals)
-		{
-			printf("Too many shifts without reduction (1)!\n");
-			TableParseError(parseStack);
-		}
-		else if (nShifts >= (maxTerminals + maxNonterminals))
-		{
-			printf("Too many shifts without reduction (2)!\n");
-			TableParseError(parseStack);
-		}
-
-		printf("\nAt top of parse loop - %dT, %dNT, %dTOT %d shifts\n",
-			   nTerminals, nNonTerminals, nTerminalsOnTop, nShifts);
-		if (nTerminalsOnTop > maxTerminals)
-		{
-			printf("Too many terminals on top of parse stack!\n");
-			TableParseError(parseStack);
-		}
-		// if we have shifted more times than possible without a reduction, fail instantly
-		// else if (nShifts > maxTerminals && nNonTerminals > maxNonterminals)
-		// {
-		// printf("Went too long without parse stack decreasing in size!\n");
-		// TableParseError(parseStack);
-		// }
+		// check for errors
+		ValidateParseStack(parseStack);
 
 		// no errors, actually try to reduce or shift in a new token
 		if (parseStack->size > 0)

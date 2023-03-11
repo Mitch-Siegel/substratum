@@ -33,7 +33,7 @@ fun print(uint32 value) : void
 fun test() : void
 {
 	uint8 z = 0;
-	uint8 i = 0
+	uint8 i = 0;
 	uint16 abc = 234;
 }
 
