@@ -650,20 +650,15 @@ char *ExpandSourceFromAST(struct AST *tree, char *parentString)
 	if (tree->child != NULL)
 	{
 		char *printed = NULL;
-		int printedLen = 0;
 
-		char *LHS = malloc(strlen(tree->child->value) + 1);
+		int startLHSLen = strlen(tree->child->value);
+		char *LHS = malloc(strlen(tree->child->value) + 2);
 		strcpy(LHS, tree->child->value);
+		LHS[startLHSLen] = ' ';
+		LHS[startLHSLen + 1] = '\0';
 		LHS = ExpandSourceFromAST(tree->child, LHS);
-		int LHSLen = strlen(LHS);
 
-		printed = malloc(LHSLen + strlen(parentString) + 2);
-		strcpy(printed, LHS);
-		printed[LHSLen] = ' ';
-		strcpy(printed + LHSLen + 1, parentString);
-		free(parentString);
-
-		printedLen = strlen(printed);
+		printed = strAppend(LHS, parentString);
 		// printf("Before siblings: [%s]\n", printed);
 
 		for (struct AST *siblingRunner = tree->child->sibling; siblingRunner != NULL; siblingRunner = siblingRunner->sibling)
@@ -673,17 +668,8 @@ char *ExpandSourceFromAST(struct AST *tree, char *parentString)
 			// printf("Put in [%s]\n", siblingString);
 			siblingString = ExpandSourceFromAST(siblingRunner, siblingString);
 			// printf("Get out [%s]\n", siblingString);
-			int siblingLen = strlen(siblingString);
 
-			char *printedNew = malloc(printedLen + siblingLen + 2);
-
-			strcpy(printedNew, printed);
-			printedNew[siblingLen] = ' ';
-			strcpy(printedNew + siblingLen + 1, siblingString);
-
-			printedLen += siblingLen;
-			free(printed);
-			printed = printedNew;
+			printed = strAppend(printed, siblingString);
 		}
 		// printf("Return %s\n", printed);
 
@@ -697,45 +683,30 @@ char *ExpandSourceFromAST(struct AST *tree, char *parentString)
 
 void TableParseError(struct Stack *parseStack)
 {
-	struct InProgressProduction *firstIPP = (struct InProgressProduction *)parseStack->data[1];
-	printf("Error at or near line %d, col %d:\nSource code looks approximately like:\n\t", firstIPP->tree->sourceLine, firstIPP->tree->sourceCol);
+	struct InProgressProduction *firstIPP = (struct InProgressProduction *)parseStack->data[parseStack->size - 1];
+	printf("Error at or near line %d, col %d:\nSource code looks approximately like:", firstIPP->tree->sourceLine, firstIPP->tree->sourceCol);
 
-	char *printedSource = NULL;
-	int printedLen = 0;
-	for (int i = parseStack->size - 1; (i > 0) && (printedLen < 128); i--)
+	int curLine = 0;
+	for (int i = 1; i < parseStack->size; i++)
 	{
 		struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[i];
-
-		// expand this tree
-		char *parentStr = malloc(strlen(examinedIPP->tree->value) + 1);
-		strcpy(parentStr, examinedIPP->tree->value);
-		char *thisTreePrint = ExpandSourceFromAST(examinedIPP->tree, parentStr);
-		// printf("thistreeprint: [%s]\n", thisTreePrint);
-		int thisPrintedLen = strlen(thisTreePrint);
-
-		// calculate how long the new string will be and allocate it
-		int newLen = printedLen + thisPrintedLen;
-		char *newPrintedSource = malloc(newLen + 1 * sizeof(char));
-
-		// prepend the newly printed string
-		memcpy(newPrintedSource, thisTreePrint, thisPrintedLen);
-
-		// then copy over the existing string after it (if necessary)
-		if (printedLen > 0)
+		int examinedLine = examinedIPP->tree->sourceLine;
+		if (examinedLine > firstIPP->tree->sourceLine - 2)
 		{
-			memcpy(newPrintedSource + printedLen, printedSource, printedLen);
+			if(examinedLine > curLine)
+			{
+				printf("\n\t");
+				curLine = examinedLine;
+			}
+			char *parentStr = malloc(strlen(examinedIPP->tree->value) + 1);
+			strcpy(parentStr, examinedIPP->tree->value);
+			char *thisTreeStr = ExpandSourceFromAST(examinedIPP->tree, parentStr);
+			printf("%s ", thisTreeStr);
+			free(thisTreeStr);
 		}
-		newPrintedSource[newLen] = '\0';
-
-		if (printedLen > 0)
-		{
-			free(printedSource);
-		}
-		printedLen = newLen;
-		printedSource = newPrintedSource;
 	}
-	printf("%s\n\n", printedSource);
-	printParseStack(parseStack);
+	printf("\n");
+	// printParseStack(parseStack);
 	ErrorAndExit(ERROR_INVOCATION, "Fix your program!\t");
 }
 
@@ -798,7 +769,7 @@ void ValidateParseStack(struct Stack *parseStack)
 		valid &= validThisIndex;
 	}
 
-	printf("Validation completed %d comparisons - good?:%d\n", nLoops, valid);
+	// printf("Validation completed %d comparisons - good?:%d\n", nLoops, valid);
 	if (!valid)
 	{
 		TableParseError(parseStack);
@@ -876,13 +847,13 @@ struct AST *TableParse(struct Dictionary *dict)
 
 		if (foundReduction[0] != p_null)
 		{
-			int sizeBefore, sizeAfter;
-			sizeBefore = parseStack->size;
+			// int sizeBefore, sizeAfter;
+			// sizeBefore = parseStack->size;
 
 			reduce(parseStack);
-			sizeAfter = parseStack->size;
+			// sizeAfter = parseStack->size;
 
-			printf("\tReduce %s:%d - nshifts: %d\t stack size %d->%d\n", token_names[foundReduction[0]], foundReduction[1], nShifts, sizeBefore, sizeAfter);
+			// printf("\tReduce %s:%d - nshifts: %d\t stack size %d->%d\n", token_names[foundReduction[0]], foundReduction[1], nShifts, sizeBefore, sizeAfter);
 		}
 		else
 		{
@@ -911,7 +882,7 @@ struct AST *TableParse(struct Dictionary *dict)
 			else
 			{
 				nextToken = match(lookaheadToken, dict);
-				printf("\tShift token [%s] with type %s\n", nextToken->value, getTokenName(nextToken->type));
+				// printf("\tShift token [%s] with type %s\n", nextToken->value, getTokenName(nextToken->type));
 			}
 			Stack_Push(parseStack, InProgressProduction_New(nextToken->type, nextToken));
 			nShifts++;

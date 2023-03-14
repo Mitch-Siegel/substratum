@@ -93,6 +93,8 @@ void *LinkedList_Find(struct LinkedList *l, char (*compareFunction)(), void *ele
 
 char *strTrim(char *s, int l);
 
+char *strAppend(char *before, char *after);
+
 /*
  * TempList is a struct containing string names for TAC temps by number (eg t0, t1, t2, etc...)
  * _Get retrieves the string for the given number, or if it doesn't exist, generates it and then returns it

@@ -30,10 +30,10 @@ fun print(uint32 value) : void
 }
 
 
-fun test() : uint32
+fun test(uint8 argument1) : uint32
 {
 	uint8 z = 0;
-	uint8 i = 0;
+	uint8 i = 0
 }
 
 fun next() : void
