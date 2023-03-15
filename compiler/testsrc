@@ -29,9 +29,23 @@ fun print(uint32 value) : void
 	;
 }
 
-
-fun test(uint8 argument1) : uint32
+fun test(uint8 argument1, uint8 argument2, uint8 argument3) : uint32
 {
 	uint8 i = 0;
-	i = i + argument1 - 1;
+	if (argument1)
+	{
+		i = i + 1;
+	}
+	else if (argument2)
+	{
+		i = i + 2;
+	}
+	else if (argument3)
+	{
+		i = i + 3;
+	}
+	else
+	{
+		i = i + 4;
+	};
 }

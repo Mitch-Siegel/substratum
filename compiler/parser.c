@@ -19,6 +19,11 @@ char *token_names[] = {
 	"p_assignment_statement",
 	"p_statement",
 	"p_statement_list",
+	"p_if_statement",
+	"p_if_statement_final",
+	"p_if",
+	"p_else_statement",
+	"p_else",
 	"p_scope",
 	"p_function_definition",
 	"p_translation_unit",
@@ -540,6 +545,38 @@ void findReduction(struct Stack *parseStack)
 {
 	foundReduction[0] = p_null;
 	foundReduction[1] = -1;
+
+	for (int startIndex = 0; startIndex < parseStack->size; startIndex++)
+	{
+		for (int pi = 0; pi < p_null; pi++)
+		{
+			// iterate each recipe within the set (last recipe is just a singe null production)
+			for (int qi = 0; (RECIPE_INGREDIENT(pi, qi, 0) != p_null); qi++)
+			{
+				int ti;
+				for (ti = 0; (RECIPE_INGREDIENT(pi, qi, ti) != p_null) && (startIndex + ti < parseStack->size); ti++)
+				{
+					struct InProgressProduction *examinedExistingProduction = (struct InProgressProduction *)parseStack->data[startIndex + ti];
+					if (RECIPE_INGREDIENT(pi, qi, ti) != examinedExistingProduction->production)
+					{
+						// printf("ingredient %d not what expected - moving on to next recipe\n", ti);
+						break;
+					}
+				}
+
+				// ensure we got to the end of the production and double check for sanity that the end is a null
+				if (RECIPE_INGREDIENT(pi, qi, ti) == p_null && (ti = parseStack->size - 1))
+				{
+					// printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
+					foundReduction[0] = pi;
+					foundReduction[1] = qi;
+					return;
+				}
+			}
+		}
+	}
+
+	/*
 	// iterate all recipe sets
 	for (int pi = 0; pi < p_null; pi++)
 	{
@@ -577,6 +614,7 @@ void findReduction(struct Stack *parseStack)
 			}
 		}
 	}
+	*/
 }
 
 struct AST *performRecipeInstruction(struct AST *existingTree, struct AST *ingredientTree, enum RecipeInstructions instruction)
@@ -911,6 +949,8 @@ struct AST *TableParse(struct Dictionary *dict)
 			}
 			Stack_Push(parseStack, InProgressProduction_New(nextToken->type, nextToken));
 			nShifts++;
+
+			// printParseStack(parseStack);
 		}
 
 		if (parseStack->size < lastParseStackSize)

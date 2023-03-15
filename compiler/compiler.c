@@ -34,6 +34,8 @@ int main(int argc, char **argv)
 	printf("\n");
 
 	AST_Print(program, 0);
+	exit(0);
+	
 	printf("Generating symbol table from AST");
 	struct SymbolTable *theTable = walkAST(program);
 	printf("\n");
