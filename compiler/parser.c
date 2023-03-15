@@ -16,6 +16,7 @@ char *token_names[] = {
 	"p_declaration_list",
 	"p_variable_declaration_statement",
 	"p_expression_statement",
+	"p_assignment_statement",
 	"p_statement",
 	"p_statement_list",
 	"p_scope",
@@ -866,18 +867,20 @@ struct AST *TableParse(struct Dictionary *dict)
 
 		if (foundReduction[0] != p_null)
 		{
-			// int sizeBefore, sizeAfter;
-			// sizeBefore = parseStack->size;
+			int sizeBefore, sizeAfter;
+			sizeBefore = parseStack->size;
 
 			reduce(parseStack);
-			// sizeAfter = parseStack->size;
+			sizeAfter = parseStack->size;
 
-			// printf("\tReduce %s:%d - nshifts: %d\t stack size %d->%d\n", token_names[foundReduction[0]], foundReduction[1], nShifts, sizeBefore, sizeAfter);
+			printf("Reduce %s:%d - nshifts: %d\t stack size %d->%d\n", token_names[foundReduction[0]], foundReduction[1], nShifts, sizeBefore, sizeAfter);
+			printParseStack(parseStack);
+			printf("\n");
 		}
 		else
 		{
 			// check for errors
-			ValidateParseStack(parseStack);
+			// ValidateParseStack(parseStack);
 
 			enum token lookaheadToken = lookahead();
 			struct AST *nextToken = NULL;
@@ -904,7 +907,7 @@ struct AST *TableParse(struct Dictionary *dict)
 			else
 			{
 				nextToken = match(lookaheadToken, dict);
-				// printf("\tShift token [%s] with type %s\n", nextToken->value, getTokenName(nextToken->type));
+				printf("\tShift token [%s] with type %s\n", nextToken->value, getTokenName(nextToken->type));
 			}
 			Stack_Push(parseStack, InProgressProduction_New(nextToken->type, nextToken));
 			nShifts++;

@@ -32,9 +32,6 @@ fun print(uint32 value) : void
 
 fun test(uint8 argument1) : uint32
 {
-	uint8
-}
-
-fun next() : void
-{
+	uint8 i = 0;
+	i = i + argument1 - 1;
 }

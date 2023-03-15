@@ -40,9 +40,15 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{t_constant, above},
          {p_null, p_null}},
 
-        // '(' expression ')'
+        // '(' EXPRESSION ')'
         {{t_lParen, cnsme},
          {p_expression, above},
+         {t_rParen, cnsme},
+         {p_null, p_null}},
+
+        // '(' PRIMARY-EXPRESSION ')'
+        {{t_lParen, cnsme},
+         {p_primary_expression, above},
          {t_rParen, cnsme},
          {p_null, p_null}},
 
@@ -57,14 +63,14 @@ enum token parseRecipes[p_null][8][9][2] = {
     // p_unary_operator - UNARY-OPERATOR
     {
         // '++'
-        {{t_plus, above},
-         {t_plus, cnsme},
-         {p_null, p_null}},
+        // {{t_plus, above},
+        //  {t_plus, cnsme},
+        //  {p_null, p_null}},
 
         // '--'
-        {{t_minus, above},
-         {t_minus, cnsme},
-         {p_null, p_null}},
+        // {{t_minus, above},
+        //  {t_minus, cnsme},
+        //  {p_null, p_null}},
 
         {{p_null, p_null}},
     },
@@ -79,6 +85,11 @@ enum token parseRecipes[p_null][8][9][2] = {
         // UNARY-OPERATOR PRIMARY-EXPRESSION
         {{p_unary_operator, above},
          {p_primary_expression, below},
+         {p_null, p_null}},
+
+        // PRIMARY-EXPRESSION UNARY-OPERATOR
+        {{p_primary_expression, below},
+         {p_unary_operator, above},
          {p_null, p_null}},
 
         // PRIMARY-EXPRESSION '(' ')'
@@ -228,6 +239,20 @@ enum token parseRecipes[p_null][8][9][2] = {
          {t_semicolon, cnsme},
          {p_null, p_null}},
 
+        // VARIABLE-DECLARATION = 'UNARY-EXPRESSION ';'
+        {{p_variable_declaration, above},
+         {t_single_equals, above},
+         {p_unary_expression, below},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
+
+        // VARIABLE-DECLARATION = 'EXPRESSION ';'
+        {{p_variable_declaration, above},
+         {t_single_equals, above},
+         {p_expression, below},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
+
         {{p_null, p_null}},
     },
 
@@ -265,6 +290,32 @@ enum token parseRecipes[p_null][8][9][2] = {
         // ';'
         // {{t_semicolon, above},
         //  {p_null, p_null}},
+
+        {{p_null, p_null}},
+    },
+
+    // p_assignment_statement - ASSIGNMENT-STATEMENT
+    {
+        // PRIMARY-EXPRESSION '=' PRIMARY-EXPRESSION ';'
+        {{p_primary_expression, above},
+         {t_single_equals, above},
+         {p_primary_expression, below},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
+
+        // PRIMARY-EXPRESSION '=' EXPRESSION ';'
+        {{p_primary_expression, above},
+         {t_single_equals, above},
+         {p_expression, below},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
+
+        // PRIMARY-EXPRESSION '=' UNARY-EXPRESSION ';'
+        {{p_primary_expression, above},
+         {t_single_equals, above},
+         {p_unary_expression, below},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
 
         {{p_null, p_null}},
     },

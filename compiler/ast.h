@@ -14,6 +14,7 @@ enum token
 	p_declaration_list,
 	p_variable_declaration_statement,
 	p_expression_statement,
+	p_assignment_statement,
 	p_statement,
 	p_statement_list,
 	p_scope,
