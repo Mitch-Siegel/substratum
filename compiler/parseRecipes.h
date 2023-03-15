@@ -116,6 +116,22 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_null, p_null}},
     },
 
+    // p_expression_operator - EXPRESSION-OPERATOR
+    {
+        {{t_plus, above},
+         {p_null, p_null}},
+
+        {{t_minus, above},
+         {p_null, p_null}},
+
+        {{t_lThan, above},
+         {p_null, p_null}},
+
+        {{t_gThan, above},
+         {p_null, p_null}},
+
+        {{p_null, p_null}}},
+
     // p_expression - EXPRESSION
     {
         // PRIMARY-EXPRESSION UNARY-OPERATOR PRIMARY-EXPRESSION
@@ -124,27 +140,15 @@ enum token parseRecipes[p_null][8][9][2] = {
          {p_primary_expression, below},
          {p_null, p_null}},
 
-        // PRIMARY-EXPRESSION '+' PRIMARY-EXPRESSION
+        // PRIMARY-EXPRESSION EXPRESSION-OPERATOR PRIMARY-EXPRESSION
         {{p_primary_expression, above},
-         {t_plus, above},
+         {p_expression_operator, above},
          {p_primary_expression, below},
          {p_null, p_null}},
 
-        // EXPRESSION '+' PRIMARY-EXPRESSION
+        // EXPRESSION EXPRESSION-OPERATOR PRIMARY-EXPRESSION
         {{p_expression, above},
-         {t_plus, above},
-         {p_primary_expression, below},
-         {p_null, p_null}},
-
-        // PRIMARY-EXPRESSION '-' PRIMARY-EXPRESSION
-        {{p_primary_expression, above},
-         {t_minus, above},
-         {p_primary_expression, below},
-         {p_null, p_null}},
-
-        // EXPRESSION '-' PRIMARY-EXPRESSION
-        {{p_expression, above},
-         {t_minus, above},
+         {p_expression_operator, above},
          {p_primary_expression, below},
          {p_null, p_null}},
 
@@ -330,6 +334,10 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_if_statement_final, above},
          {p_null, p_null}},
 
+        // WHILE ';'
+        {{p_while, above},
+         {p_null, p_null}},
+
         {{t_asm, above},
          {t_rCurly, cnsme},
          {t_semicolon, cnsme},
@@ -366,25 +374,48 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_null, p_null}}},
 
     // p_if_statement_final - IF-STATEMENT-FINAL
-    {{{p_if_statement, above}, {p_null, p_null}},
+    {
+        // IF-STATEMENT
+        {{p_if_statement, above},
+         {p_null, p_null}},
 
-     {{t_else, above}, {p_if_statement, above}, {p_null, p_null}},
+        // ELSE IF-STATEMENT
+        {{t_else, above},
+         {p_if_statement, above},
+         {p_null, p_null}},
 
-     {{p_null, p_null}}},
+        {{p_null, p_null}}},
 
     // p_if - IF
     {
-        // 'if' '(' PRIMARY-EXPRESSION ')' SCOPE
-        {{t_if, above}, {t_lParen, cnsme}, {p_primary_expression, below}, {t_rParen, cnsme}, {p_scope, below}, {p_null, p_null}},
+        // remember that parens around an EXPRESSION becomes a PRIMARY-EXPRESSION
+        // 'if' PRIMARY-EXPRESSION SCOPE
+        {{t_if, above},
+         {p_primary_expression, below},
+         {p_scope, below},
+         {p_null, p_null}},
 
-        // 'if' '(' EXPRESSION ')' SCOPE
-        {{t_if, above}, {t_lParen, cnsme}, {p_expression, below}, {t_rParen, cnsme}, {p_scope, below}, {p_null, p_null}},
+        // 'if' PRIMARY-EXPRESSION STATEMENT
+        {{t_if, above},
+         {p_primary_expression, below},
+         {p_statement, below},
+         {p_null, p_null}},
+
+        // 'if' '(' PRIMARY-EXPRESSION ')' SCOPE
+        {{t_if, above},
+         {t_lParen, cnsme},
+         {p_primary_expression, below},
+         {t_rParen, cnsme},
+         {p_scope, below},
+         {p_null, p_null}},
 
         // 'if' '(' PRIMARY-EXPRESSION ')' STATEMENT
-        {{t_if, above}, {t_lParen, cnsme}, {p_primary_expression, below}, {t_rParen, cnsme}, {p_statement, below}, {p_null, p_null}},
-
-        // 'if' '(' EXPRESSION ')' STATEMENT
-        {{t_if, above}, {t_lParen, cnsme}, {p_expression, below}, {t_rParen, cnsme}, {p_statement, below}, {p_null, p_null}},
+        {{t_if, above},
+         {t_lParen, cnsme},
+         {p_primary_expression, below},
+         {t_rParen, cnsme},
+         {p_statement, below},
+         {p_null, p_null}},
 
         {{p_null, p_null}},
     },
@@ -392,10 +423,14 @@ enum token parseRecipes[p_null][8][9][2] = {
     // p_else_statement - ELSE-STATEMENT
     {
         // 'if' SCOPE
-        {{p_else, above}, {t_semicolon, cnsme}, {p_null, p_null}},
+        {{p_else, above},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
 
         // 'if' SCOPE
-        {{p_else, above}, {p_else_statement, below}, {p_null, p_null}},
+        {{p_else, above},
+         {p_else_statement, below},
+         {p_null, p_null}},
 
         {{p_null, p_null}},
     },
@@ -403,23 +438,71 @@ enum token parseRecipes[p_null][8][9][2] = {
     // p_else - ELSE
     {
         // 'if' SCOPE
-        {{t_else, above}, {p_scope, below}, {p_null, p_null}},
+        {{t_else, above},
+         {p_scope, below},
+         {p_null, p_null}},
 
         // 'else' STATEMENT
-        {{t_else, above}, {p_statement, below}, {p_null, p_null}},
+        {{t_else, above},
+         {p_statement, below},
+         {p_null, p_null}},
 
-        {{t_else, above}, {p_if, below}, {p_null, p_null}},
+        {{t_else, above},
+         {p_if, below},
+         {p_null, p_null}},
+
+        {{p_null, p_null}},
+    },
+
+    // p_while - WHILE
+    {
+        // remember that parens around an EXPRESSION becomes a PRIMARY-EXPRESSION
+        // 'while' PRIMARY-EXPRESSION SCOPE
+        {{t_while, above},
+         {p_primary_expression, below},
+         {p_scope, below},
+         {p_null, p_null}},
+
+        // 'while' PRIMARY-EXPRESSION STATEMENT
+        {{t_while, above},
+         {p_primary_expression, below},
+         {p_statement, below},
+         {p_null, p_null}},
+
+        // 'while' '(' PRIMARY-EXPRESSION ')' SCOPE
+        {{t_while, above},
+         {t_lParen, cnsme},
+         {p_primary_expression, below},
+         {t_rParen, cnsme},
+         {p_scope, below},
+         {p_null, p_null}},
+
+        // 'while' '(' PRIMARY-EXPRESSION ')' STATEMENT
+        {{t_while, above},
+         {t_lParen, cnsme},
+         {p_primary_expression, below},
+         {t_rParen, cnsme},
+         {p_statement, below},
+         {p_null, p_null}},
 
         {{p_null, p_null}},
     },
 
     // p_scope - SCOPE
     {
-        {{t_lCurly, above}, {p_statement_list, below}, {t_rCurly, below}, {p_null, p_null}},
+        {{t_lCurly, above},
+         {p_statement_list, below},
+         {t_rCurly, below},
+         {p_null, p_null}},
 
-        {{t_lCurly, above}, {p_statement, below}, {t_rCurly, below}, {p_null, p_null}},
+        {{t_lCurly, above},
+         {p_statement, below},
+         {t_rCurly, below},
+         {p_null, p_null}},
 
-        {{t_lCurly, above}, {t_rCurly, below}, {p_null, p_null}},
+        {{t_lCurly, above},
+         {t_rCurly, below},
+         {p_null, p_null}},
 
         {{p_null, p_null}},
     },
@@ -428,15 +511,36 @@ enum token parseRecipes[p_null][8][9][2] = {
     {
         // multiple arguments
         // 'fun' PRIMARY-EXPRESSION '(' DECLARATION-LIST ')' ':' TYPE-NAME SCOPE
-        {{t_fun, above}, {p_primary_expression, below}, {t_lParen, below}, {p_declaration_list, below}, {t_rParen, below}, {t_colon, cnsme}, {p_type_name, below}, {p_scope, below}, {p_null, p_null}},
+        {{t_fun, above},
+         {p_primary_expression, below},
+         {t_lParen, below},
+         {p_declaration_list, below},
+         {t_rParen, below},
+         {t_colon, cnsme},
+         {p_type_name, below},
+         {p_scope, below},
+         {p_null, p_null}},
 
         // 1 argument
         // 'fun' PRIMARY-EXPRESSION '(' VARIABLE-DECLARATION ')' ':' TYPE-NAME SCOPE
-        {{t_fun, above}, {p_primary_expression, below}, {t_lParen, below}, {p_variable_declaration, below}, {t_rParen, below}, {t_colon, cnsme}, {p_type_name, below}, {p_scope, below}, {p_null, p_null}},
+        {{t_fun, above},
+         {p_primary_expression, below},
+         {t_lParen, below},
+         {p_variable_declaration, below},
+         {t_rParen, below},
+         {t_colon, cnsme},
+         {p_type_name, below},
+         {p_scope, below},
+         {p_null, p_null}},
 
         // no arguments - name() becomes PRIMARY-EXPRESSION - parens are consumed automatically
         // 'fun' PRIMARY-EXPRESSION ':' TYPE-NAME SCOPE
-        {{t_fun, above}, {p_primary_expression, below}, {t_colon, cnsme}, {p_type_name, below}, {p_scope, below}, {p_null, p_null}},
+        {{t_fun, above},
+         {p_primary_expression, below},
+         {t_colon, cnsme},
+         {p_type_name, below},
+         {p_scope, below},
+         {p_null, p_null}},
 
         {{p_null, p_null}},
     },
