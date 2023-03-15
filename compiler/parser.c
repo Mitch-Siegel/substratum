@@ -683,30 +683,52 @@ char *ExpandSourceFromAST(struct AST *tree, char *parentString)
 
 void TableParseError(struct Stack *parseStack)
 {
-	struct InProgressProduction *firstIPP = (struct InProgressProduction *)parseStack->data[parseStack->size - 1];
-	printf("Error at or near line %d, col %d:\nSource code looks approximately like:", firstIPP->tree->sourceLine, firstIPP->tree->sourceCol);
+	printParseStack(parseStack);
 
-	int curLine = 0;
-	for (int i = 1; i < parseStack->size; i++)
+	struct InProgressProduction *firstIPP = (struct InProgressProduction *)parseStack->data[parseStack->size - 2];
+	printf("Error at or near line %d, col %d:\nSource code looks approximately like:\n\t", firstIPP->tree->sourceLine, firstIPP->tree->sourceCol);
+
+	char *printedSource = malloc(1);
+	printedSource[0] = '\0';
+
+	// i > 0 so we never attempt to expand the big translation unit at the bottom of the stack
+	char startedPrintingTokens = 0;
+	char allowOneMore = 1;
+	for (int i = parseStack->size - 1; i > 0; i--)
 	{
 		struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[i];
-		int examinedLine = examinedIPP->tree->sourceLine;
-		if (examinedLine > firstIPP->tree->sourceLine - 2)
+
+		if (examinedIPP->production > p_null)
 		{
-			if(examinedLine > curLine)
+			startedPrintingTokens = 1;
+		}
+		else if (startedPrintingTokens)
+		{
+			if (allowOneMore)
 			{
-				printf("\n\t");
-				curLine = examinedLine;
+				allowOneMore = 0;
 			}
-			char *parentStr = malloc(strlen(examinedIPP->tree->value) + 1);
-			strcpy(parentStr, examinedIPP->tree->value);
-			char *thisTreeStr = ExpandSourceFromAST(examinedIPP->tree, parentStr);
-			printf("%s ", thisTreeStr);
-			free(thisTreeStr);
+			else
+			{
+				break;
+			}
+		}
+		int examinedLine = examinedIPP->tree->sourceLine;
+
+		int valueLength = strlen(examinedIPP->tree->value);
+		char *parentStr = malloc(valueLength + 2);
+		strcpy(parentStr + 1, examinedIPP->tree->value);
+		parentStr[0] = ' ';
+
+		printedSource = strAppend(ExpandSourceFromAST(examinedIPP->tree, parentStr), printedSource);
+
+		if (strlen(printedSource) > 128 || (parseStack->size - i > 5) || examinedLine < (firstIPP->tree->sourceLine - 5))
+		{
+			break;
 		}
 	}
-	printf("\n");
-	// printParseStack(parseStack);
+	printf("%s\n\n", printedSource);
+	free(printedSource);
 	ErrorAndExit(ERROR_INVOCATION, "Fix your program!\t");
 }
 
@@ -836,9 +858,6 @@ struct AST *TableParse(struct Dictionary *dict)
 	char parsing = 1;
 	while (parsing)
 	{
-		// check for errors
-		ValidateParseStack(parseStack);
-
 		// no errors, actually try to reduce or shift in a new token
 		if (parseStack->size > 0)
 		{
@@ -857,6 +876,9 @@ struct AST *TableParse(struct Dictionary *dict)
 		}
 		else
 		{
+			// check for errors
+			ValidateParseStack(parseStack);
+
 			enum token lookaheadToken = lookahead();
 			struct AST *nextToken = NULL;
 			if (lookaheadToken == t_EOF)
