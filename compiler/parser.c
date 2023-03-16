@@ -565,53 +565,50 @@ struct InProgressProduction *findReduction(struct Stack *parseStack)
 	// loop at most 2 times - if a token of lookahead was popped it will be re-added on the second iteration
 	for (int i = 0; i < 2; i++)
 	{
-		// start greedily - from the earliest index possible in the parse stack
-		for (int startIndex = 0; startIndex < parseStack->size; startIndex++)
+		// iterate all possible productions
+		for (int pi = 0; pi < p_null; pi++)
 		{
-			// iterate all possible productions
-			for (int pi = 0; pi < p_null; pi++)
+			// iterate all permutations of each production
+			for (int qi = 0; (RECIPE_INGREDIENT(pi, qi, 0) != p_null); qi++)
 			{
-				// iterate all permutations of each production
-				for (int qi = 0; (RECIPE_INGREDIENT(pi, qi, 0) != p_null); qi++)
+				// calculate the size of this production
+				int thisProductionSize = 0;
+				for (thisProductionSize = 0; RECIPE_INGREDIENT(pi, qi, thisProductionSize) != p_null; thisProductionSize++)
+					;
+				// thisProductionSize++;
+
+				if (thisProductionSize > parseStack->size)
 				{
-					// calculate the size of this production
-					int thisProductionSize = 0;
-					for (thisProductionSize = 0; RECIPE_INGREDIENT(pi, qi, thisProductionSize) != p_null; thisProductionSize++)
-						;
-					// thisProductionSize++;
+					// printf("\tSkip %s:%d\n", getTokenName(pi), qi);
+					continue;
+				}
 
-					if ((startIndex + thisProductionSize) > parseStack->size)
+				// printf("\tTrying %s:%d (size of %d, start from index %d)\n", getTokenName(pi), qi, thisProductionSize, startIndex);
+				int startIndex = parseStack->size - thisProductionSize;
+				int ti;
+				enum token examinedIngredient;
+				for (ti = 0; ((examinedIngredient = RECIPE_INGREDIENT(pi, qi, ti)) != p_null) && (startIndex + ti < parseStack->size); ti++)
+				{
+					struct InProgressProduction *examinedExistingProduction = (struct InProgressProduction *)parseStack->data[startIndex + ti];
+					// printf("\t\t%s == %s?:\t", getTokenName(examinedExistingProduction->production), getTokenName(examinedIngredient));
+					if (examinedIngredient != examinedExistingProduction->production)
 					{
-						// printf("\tSkip %s:%d\n", getTokenName(pi), qi);
-						continue;
+						// printf("NO - moving on to next recipe\n\n");
+						break;
 					}
+					else
+					{
+						// printf("YES\n");
+					}
+				}
 
-					// printf("\tTrying %s:%d (size of %d, start from index %d)\n", getTokenName(pi), qi, thisProductionSize, startIndex);
-					int ti;
-					enum token examinedIngredient;
-					for (ti = 0; ((examinedIngredient = RECIPE_INGREDIENT(pi, qi, ti)) != p_null) && (startIndex + ti < parseStack->size); ti++)
-					{
-						struct InProgressProduction *examinedExistingProduction = (struct InProgressProduction *)parseStack->data[startIndex + ti];
-						// printf("\t\t%s == %s?:\t", getTokenName(examinedExistingProduction->production), getTokenName(examinedIngredient));
-						if (examinedIngredient != examinedExistingProduction->production)
-						{
-							// printf("NO - moving on to next recipe\n\n");
-							break;
-						}
-						else
-						{
-							// printf("YES\n");
-						}
-					}
-
-					// ensure we got to the end of the production
-					if ((ti == thisProductionSize) && (startIndex + ti == parseStack->size))
-					{
-						// printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
-						foundReduction[0] = pi;
-						foundReduction[1] = qi;
-						return poppedLookahead;
-					}
+				// ensure we got to the end of the production
+				if ((ti == thisProductionSize) && (startIndex + ti == parseStack->size))
+				{
+					// printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
+					foundReduction[0] = pi;
+					foundReduction[1] = qi;
+					return poppedLookahead;
 				}
 			}
 		}
