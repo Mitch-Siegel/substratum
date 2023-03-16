@@ -29,11 +29,10 @@ fun print(uint32 value) : void
 	;
 }
 
+
 fun test(uint8 argument1) : void
 {
-	uint8 i = 0;
-	while (i < argument1)
-	{
-		i = i + 1;
-	}
+	// uint8 i = 0;
+	i = i + 1;
 }
+

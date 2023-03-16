@@ -543,80 +543,92 @@ void printParseStack(struct Stack *parseStack)
 }
 
 enum token foundReduction[2] = {p_null, 0};
-void findReduction(struct Stack *parseStack)
+// arguments: a parse stack
+// returns: pointer to InProgressProduction for lookahead token from the top of the stack, not included in the found production
+// 			or NULL if no token popped
+struct InProgressProduction *findReduction(struct Stack *parseStack)
 {
+	struct InProgressProduction *poppedLookahead = NULL;
+
+	if (parseStack->size > 0)
+	{
+		struct InProgressProduction *topOfStack = (struct InProgressProduction *)Stack_Peek(parseStack);
+		if (topOfStack->production > p_null)
+		{
+			poppedLookahead = Stack_Pop(parseStack);
+		}
+	}
+
 	foundReduction[0] = p_null;
 	foundReduction[1] = -1;
 
-	for (int startIndex = 0; startIndex < parseStack->size; startIndex++)
+	// loop at most 2 times - if a token of lookahead was popped it will be re-added on the second iteration
+	for (int i = 0; i < 2; i++)
 	{
-		for (int pi = 0; pi < p_null; pi++)
+		// start greedily - from the earliest index possible in the parse stack
+		for (int startIndex = 0; startIndex < parseStack->size; startIndex++)
 		{
-			// iterate each recipe within the set (last recipe is just a singe null production)
-			for (int qi = 0; (RECIPE_INGREDIENT(pi, qi, 0) != p_null); qi++)
+			// iterate all possible productions
+			for (int pi = 0; pi < p_null; pi++)
 			{
-				int ti;
-				for (ti = 0; (RECIPE_INGREDIENT(pi, qi, ti) != p_null) && (startIndex + ti < parseStack->size); ti++)
+				// iterate all permutations of each production
+				for (int qi = 0; (RECIPE_INGREDIENT(pi, qi, 0) != p_null); qi++)
 				{
-					struct InProgressProduction *examinedExistingProduction = (struct InProgressProduction *)parseStack->data[startIndex + ti];
-					if (RECIPE_INGREDIENT(pi, qi, ti) != examinedExistingProduction->production)
+					// calculate the size of this production
+					int thisProductionSize = 0;
+					for (thisProductionSize = 0; RECIPE_INGREDIENT(pi, qi, thisProductionSize) != p_null; thisProductionSize++)
+						;
+					// thisProductionSize++;
+
+					if ((startIndex + thisProductionSize) > parseStack->size)
 					{
-						// printf("ingredient %d not what expected - moving on to next recipe\n", ti);
-						break;
+						// printf("\tSkip %s:%d\n", getTokenName(pi), qi);
+						continue;
+					}
+
+					// printf("\tTrying %s:%d (size of %d, start from index %d)\n", getTokenName(pi), qi, thisProductionSize, startIndex);
+					int ti;
+					enum token examinedIngredient;
+					for (ti = 0; ((examinedIngredient = RECIPE_INGREDIENT(pi, qi, ti)) != p_null) && (startIndex + ti < parseStack->size); ti++)
+					{
+						struct InProgressProduction *examinedExistingProduction = (struct InProgressProduction *)parseStack->data[startIndex + ti];
+						// printf("\t\t%s == %s?:\t", getTokenName(examinedExistingProduction->production), getTokenName(examinedIngredient));
+						if (examinedIngredient != examinedExistingProduction->production)
+						{
+							// printf("NO - moving on to next recipe\n\n");
+							break;
+						}
+						else
+						{
+							// printf("YES\n");
+						}
+					}
+
+					// ensure we got to the end of the production
+					if ((ti == thisProductionSize) && (startIndex + ti == parseStack->size))
+					{
+						// printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
+						foundReduction[0] = pi;
+						foundReduction[1] = qi;
+						return poppedLookahead;
 					}
 				}
-
-				// ensure we got to the end of the production and double check for sanity that the end is a null
-				if (RECIPE_INGREDIENT(pi, qi, ti) == p_null && (ti = parseStack->size - 1))
-				{
-					// printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
-					foundReduction[0] = pi;
-					foundReduction[1] = qi;
-					return;
-				}
 			}
 		}
-	}
 
-	/*
-	// iterate all recipe sets
-	for (int pi = 0; pi < p_null; pi++)
-	{
-		// iterate each recipe within the set (last recipe is just a singe null production)
-		for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++)
+		// if we popped off a token of lookahead, go ahead and add it back and let's go for another loop factoring it in
+		if (poppedLookahead != NULL)
 		{
-			// iterate each production/token in the buffer
-			int ti;
-			int productionLength = 0;
-			for (; RECIPE_INGREDIENT(pi, qi, productionLength) != p_null; productionLength++)
-				;
-			// if we don't have enough tokens for this production, skip it
-			if (parseStack->size < productionLength)
-			{
-				continue;
-			}
-
-			for (ti = 0; (ti < productionLength) && (RECIPE_INGREDIENT(pi, qi, ti) != p_null); ti++)
-			{
-				struct InProgressProduction *examinedExistingProduction = (struct InProgressProduction *)parseStack->data[parseStack->size - (productionLength - ti)];
-				if (RECIPE_INGREDIENT(pi, qi, ti) != examinedExistingProduction->production)
-				{
-					// printf("ingredient %d not what expected - moving on to next recipe\n", ti);
-					break;
-				}
-			}
-
-			// ensure we got to the end of the production and double check for sanity that the end is a null
-			if ((ti == productionLength) && (RECIPE_INGREDIENT(pi, qi, ti) == p_null))
-			{
-				// printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
-				foundReduction[0] = pi;
-				foundReduction[1] = qi;
-				return;
-			}
+			Stack_Push(parseStack, poppedLookahead);
+			poppedLookahead = NULL;
+		}
+		// if we didn't have lookahead, then we have nothing to return (and also didn't find a production)
+		else
+		{
+			return NULL;
 		}
 	}
-	*/
+	ErrorAndExit(ERROR_INTERNAL, "Bad condition led to exit of lookahead loop in findReduction()");
 }
 
 struct AST *performRecipeInstruction(struct AST *existingTree, struct AST *ingredientTree, enum RecipeInstructions instruction)
@@ -897,27 +909,72 @@ struct AST *TableParse(struct Dictionary *dict)
 
 	struct Stack *parseStack = Stack_New();
 	char parsing = 1;
+	char haveMoreInput = 1;
 	while (parsing)
 	{
+
+		char forceShift = 0;
 		// no errors, actually try to reduce or shift in a new token
 		if (parseStack->size > 0)
 		{
-			findReduction(parseStack);
+			struct InProgressProduction *topOfStack = (struct InProgressProduction *)parseStack->data[parseStack->size - 1];
+			if (topOfStack->production < p_null && haveMoreInput)
+			{
+				forceShift = 1;
+			}
 		}
 
-		if (foundReduction[0] != p_null)
+		switch (forceShift)
 		{
-			int sizeBefore, sizeAfter;
-			sizeBefore = parseStack->size;
+			// not being forced to shift in a lookahead token
+		case 0:
+		{
 
-			reduce(parseStack);
-			sizeAfter = parseStack->size;
+			// keep track of the lookahead production - findReduction will pop and return it if it's not used in the current reduce operation
+			struct InProgressProduction *lookaheadProduction = NULL;
 
-			printf("Reduce %s:%d - nshifts: %d\t stack size %d->%d\n", token_names[foundReduction[0]], foundReduction[1], nShifts, sizeBefore, sizeAfter);
-			printParseStack(parseStack);
-			printf("\n");
+			// try to find a reduction (potentially return one token from the top of the stack if it is obstructing a reduction underneath it)
+			lookaheadProduction = findReduction(parseStack);
+
+			// if we found a reduction
+			if (foundReduction[0] != p_null)
+			{
+				int sizeBefore, sizeAfter;
+				sizeBefore = parseStack->size;
+
+				// do the reduction
+				printParseStack(parseStack);
+				reduce(parseStack);
+
+				sizeAfter = parseStack->size;
+
+				printf("Reduce %s:%d - nshifts: %d\t stack size %d->%d\n", token_names[foundReduction[0]], foundReduction[1], nShifts, sizeBefore, sizeAfter);
+				printParseStack(parseStack);
+				printf("\n");
+
+				// if we have a lookahead that got popped, put it back
+				if (lookaheadProduction != NULL)
+				{
+					Stack_Push(parseStack, lookaheadProduction);
+				}
+				break;
+			}
+			// didn't find a reduction
+			else
+			{
+				// if we already hit EOF, we are done
+				if (!haveMoreInput)
+				{
+					parsing = 0;
+					break;
+				}
+			}
 		}
-		else
+			printf("fall through to do a shift\n");
+			// else, fall through to shift
+
+		// do a shift
+		case 1:
 		{
 			// check for errors
 			// ValidateParseStack(parseStack);
@@ -926,7 +983,7 @@ struct AST *TableParse(struct Dictionary *dict)
 			struct AST *nextToken = NULL;
 			if (lookaheadToken == t_EOF)
 			{
-				parsing = 0;
+				haveMoreInput = 0;
 				break;
 			}
 			else if (lookaheadToken == t_asm)
@@ -947,12 +1004,14 @@ struct AST *TableParse(struct Dictionary *dict)
 			else
 			{
 				nextToken = match(lookaheadToken, dict);
-				printf("\tShift token [%s] with type %s\n", nextToken->value, getTokenName(nextToken->type));
 			}
+			printf("\tShift token [%s] with type %s\n", nextToken->value, getTokenName(nextToken->type));
 			Stack_Push(parseStack, InProgressProduction_New(nextToken->type, nextToken));
 			nShifts++;
 
 			// printParseStack(parseStack);
+		}
+		break;
 		}
 
 		if (parseStack->size < lastParseStackSize)
@@ -962,7 +1021,7 @@ struct AST *TableParse(struct Dictionary *dict)
 		lastParseStackSize = parseStack->size;
 	}
 
-	if (parseStack->size > 1)
+	if (parseStack->size > 1 || parseStack->size == 0)
 	{
 		printParseStack(parseStack);
 		ErrorAndExit(ERROR_INTERNAL, "Something bad happened during parsing - parse stack dump above\t");
