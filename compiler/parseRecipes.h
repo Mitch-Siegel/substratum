@@ -318,70 +318,25 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_null, p_null}},
     },
 
-    // p_statement - STATEMENT
-    {
-        {{p_variable_declaration_statement, above},
-         {p_null, p_null}},
-
-        {{p_expression_statement, above},
-         {p_null, p_null}},
-
-        // {{p_primary_expression, above},
-        //  {t_semicolon, cnsme},
-        //  {p_null, p_null}},
-
-        // IF-STATEMENT-FINAL
-        {{p_if_statement_final, above},
-         {p_null, p_null}},
-
-        // WHILE ';'
-        {{p_while, above},
-         {p_null, p_null}},
-
-        {{t_asm, above},
-         {t_rCurly, cnsme},
-         {t_semicolon, cnsme},
-         {p_null, p_null}},
-
-        {{p_null, p_null}},
-    },
-
-    // p_statement_list - STATEMENT-LIST
-    {
-        {{p_statement, above},
-         {p_statement, besid},
-         {p_null, p_null}},
-
-        {{p_statement_list, above},
-         {p_statement, besid},
-         {p_null, p_null}},
-
-        {{p_null, p_null}},
-    },
-
     // ifs are treated a bit specially to allow stringing together of else-ifs
     // the order of the recipes determines the predence of p_if_statement over p_if_statement_final
-    // p_if_statement - IF-STATEMENT
+
+    // p_if_awating_else - IF-AWAITING-ELSE
     {
         {{p_if, above},
-         {t_semicolon, cnsme},
-         {p_null, p_null}},
-
-        {{p_if, above},
-         {p_else_statement, below},
+         {t_else, cnsme},
          {p_null, p_null}},
 
         {{p_null, p_null}}},
 
-    // p_if_statement_final - IF-STATEMENT-FINAL
+    // p_if_else - IF-ELSE
     {
-        // IF-STATEMENT
-        {{p_if_statement, above},
+        {{p_if_awating_else, above},
+         {p_statement, below},
          {p_null, p_null}},
 
-        // ELSE IF-STATEMENT
-        {{t_else, above},
-         {p_if_statement, above},
+        {{p_if_awating_else, above},
+         {p_scope, below},
          {p_null, p_null}},
 
         {{p_null, p_null}}},
@@ -420,35 +375,46 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_null, p_null}},
     },
 
-    // p_else_statement - ELSE-STATEMENT
+    // p_statement - STATEMENT
     {
-        // 'if' SCOPE
-        {{p_else, above},
-         {t_semicolon, cnsme},
+        {{p_variable_declaration_statement, above},
          {p_null, p_null}},
 
-        // 'if' SCOPE
-        {{p_else, above},
-         {p_else_statement, below},
+        {{p_expression_statement, above},
+         {p_null, p_null}},
+
+        // {{p_primary_expression, above},
+        //  {t_semicolon, cnsme},
+        //  {p_null, p_null}},
+
+        // IF
+        {{p_if, above},
+         {p_null, p_null}},
+
+        // IF-ELSE
+        {{p_if_else, above},
+         {p_null, p_null}},
+
+        // WHILE ';'
+        {{p_while, above},
+         {p_null, p_null}},
+
+        {{t_asm, above},
+         {t_rCurly, cnsme},
+         {t_semicolon, cnsme},
          {p_null, p_null}},
 
         {{p_null, p_null}},
     },
 
-    // p_else - ELSE
+    // p_statement_list - STATEMENT-LIST
     {
-        // 'if' SCOPE
-        {{t_else, above},
-         {p_scope, below},
+        {{p_statement, above},
+         {p_statement, besid},
          {p_null, p_null}},
 
-        // 'else' STATEMENT
-        {{t_else, above},
-         {p_statement, below},
-         {p_null, p_null}},
-
-        {{t_else, above},
-         {p_if, below},
+        {{p_statement_list, above},
+         {p_statement, besid},
          {p_null, p_null}},
 
         {{p_null, p_null}},

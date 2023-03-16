@@ -18,13 +18,11 @@ char *token_names[] = {
 	"p_variable_declaration_statement",
 	"p_expression_statement",
 	"p_assignment_statement",
+	"p_if_awating_else",
+	"p_if_else",
+	"p_if",
 	"p_statement",
 	"p_statement_list",
-	"p_if_statement",
-	"p_if_statement_final",
-	"p_if",
-	"p_else_statement",
-	"p_else",
 	"p_while",
 	"p_scope",
 	"p_function_definition",
@@ -953,16 +951,29 @@ struct AST *TableParse(struct Dictionary *dict)
 			// if we found a reduction
 			if (foundReduction[0] != p_null)
 			{
-				// int sizeBefore, sizeAfter;
-				// sizeBefore = parseStack->size;
-
 				// do the reduction
 				reduce(parseStack);
 
-				// sizeAfter = parseStack->size;
-				// printf("Reduce %s:%d - nshifts: %d\t stack size %d->%d\n", token_names[foundReduction[0]], foundReduction[1], nShifts, sizeBefore, sizeAfter);
+				// as long as we have some unused lookahead token, try to use it
+				while(lookaheadProduction != NULL)
+				{
+					Stack_Push(parseStack, lookaheadProduction);
+					lookaheadProduction = findReduction(parseStack, 1);
+					if(foundReduction[0] == p_null)
+					{
+						break;
+					}
+					reduce(parseStack);
+				}
 
-				// if we have a lookahead that got popped, put it back
+				if (lookaheadProduction != NULL)
+				{
+					Stack_Push(parseStack, lookaheadProduction);
+				}
+
+				// printf("Found reduction %s:%d\n", getTokenName(foundReduction[0]), foundReduction[1]);
+				// assumeMoreInput = 0;
+				// }
 				if (lookaheadProduction != NULL)
 				{
 					Stack_Push(parseStack, lookaheadProduction);
@@ -1027,10 +1038,10 @@ struct AST *TableParse(struct Dictionary *dict)
 		}
 		else
 		{
-			if (nShifts > (maxConsecutiveTokens * 2))
-			{
-				TableParseError(parseStack);
-			}
+			// if (nShifts > (maxConsecutiveTokens * 2))
+			// {
+			// TableParseError(parseStack);
+			// }
 		}
 		lastParseStackSize = parseStack->size;
 	}
