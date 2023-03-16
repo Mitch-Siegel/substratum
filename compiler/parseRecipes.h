@@ -47,8 +47,8 @@ enum token parseRecipes[p_null][8][9][2] = {
          {p_null, p_null}},
 
         // UNARY-EXPRESSION
-        {{p_unary_expression, above},
-         {p_null, p_null}},
+        // {{p_unary_expression, above},
+        //  {p_null, p_null}},
 
         // end
         {{p_null, p_null}},
@@ -326,9 +326,9 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_expression_statement, above},
          {p_null, p_null}},
 
-        {{p_primary_expression, above},
-         {t_semicolon, cnsme},
-         {p_null, p_null}},
+        // {{p_primary_expression, above},
+        //  {t_semicolon, cnsme},
+        //  {p_null, p_null}},
 
         // IF-STATEMENT-FINAL
         {{p_if_statement_final, above},

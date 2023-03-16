@@ -543,85 +543,109 @@ void printParseStack(struct Stack *parseStack)
 }
 
 enum token foundReduction[2] = {p_null, 0};
-// arguments: a parse stack
+// arguments: a parse stack and whether or not there is more input
 // returns: pointer to InProgressProduction for lookahead token from the top of the stack, not included in the found production
 // 			or NULL if no token popped
-struct InProgressProduction *findReduction(struct Stack *parseStack)
+struct InProgressProduction *findReduction(struct Stack *parseStack, char isRemainingInput)
 {
 	struct InProgressProduction *poppedLookahead = NULL;
 
-	if (parseStack->size > 0)
+	// skip over any productions of length 1 if we have a token on top of the stack (lookahead)
+	char disallowTrivialProductions = 0;
+	if (parseStack->size > 0 && isRemainingInput)
 	{
 		struct InProgressProduction *topOfStack = (struct InProgressProduction *)Stack_Peek(parseStack);
 		if (topOfStack->production > p_null)
 		{
-			poppedLookahead = Stack_Pop(parseStack);
+			disallowTrivialProductions = 1;
 		}
 	}
 
 	foundReduction[0] = p_null;
 	foundReduction[1] = -1;
 
-	// loop at most 2 times - if a token of lookahead was popped it will be re-added on the second iteration
+	// loop at most 2 times
 	for (int i = 0; i < 2; i++)
 	{
-		// iterate all possible productions
-		for (int pi = 0; pi < p_null; pi++)
+		// search greedily (in order of recipe enumeration) for longest possible production
+		for (int startIndex = 0; startIndex < parseStack->size; startIndex++)
 		{
-			// iterate all permutations of each production
-			for (int qi = 0; (RECIPE_INGREDIENT(pi, qi, 0) != p_null); qi++)
+			// iterate all possible productions
+			for (int pi = 0; pi < p_null; pi++)
 			{
-				// calculate the size of this production
-				int thisProductionSize = 0;
-				for (thisProductionSize = 0; RECIPE_INGREDIENT(pi, qi, thisProductionSize) != p_null; thisProductionSize++)
-					;
-				// thisProductionSize++;
-
-				if (thisProductionSize > parseStack->size)
+				// iterate all permutations of each production
+				for (int qi = 0; (RECIPE_INGREDIENT(pi, qi, 0) != p_null); qi++)
 				{
-					// printf("\tSkip %s:%d\n", getTokenName(pi), qi);
-					continue;
-				}
+					// calculate the size of this production
+					int thisProductionSize = 0;
+					for (thisProductionSize = 0; RECIPE_INGREDIENT(pi, qi, thisProductionSize) != p_null; thisProductionSize++)
+						;
+					// thisProductionSize++;
 
-				// printf("\tTrying %s:%d (size of %d, start from index %d)\n", getTokenName(pi), qi, thisProductionSize, startIndex);
-				int startIndex = parseStack->size - thisProductionSize;
-				int ti;
-				enum token examinedIngredient;
-				for (ti = 0; ((examinedIngredient = RECIPE_INGREDIENT(pi, qi, ti)) != p_null) && (startIndex + ti < parseStack->size); ti++)
-				{
-					struct InProgressProduction *examinedExistingProduction = (struct InProgressProduction *)parseStack->data[startIndex + ti];
-					// printf("\t\t%s == %s?:\t", getTokenName(examinedExistingProduction->production), getTokenName(examinedIngredient));
-					if (examinedIngredient != examinedExistingProduction->production)
+					if ((startIndex + thisProductionSize) != parseStack->size)
 					{
-						// printf("NO - moving on to next recipe\n\n");
-						break;
+						// printf("\tSkip %s:%d\n", getTokenName(pi), qi);
+						continue;
 					}
-					else
-					{
-						// printf("YES\n");
-					}
-				}
 
-				// ensure we got to the end of the production
-				if (ti == thisProductionSize)
-				{
-					// printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
-					foundReduction[0] = pi;
-					foundReduction[1] = qi;
-					return poppedLookahead;
+					if (disallowTrivialProductions && thisProductionSize == 1)
+					{
+						continue;
+					}
+
+					// printf("\tTrying %s:%d (size of %d, start from index %d)\n", getTokenName(pi), qi, thisProductionSize, startIndex);
+					int ti;
+					enum token examinedIngredient;
+					for (ti = 0; ((examinedIngredient = RECIPE_INGREDIENT(pi, qi, ti)) != p_null) && (startIndex + ti < parseStack->size); ti++)
+					{
+						struct InProgressProduction *examinedExistingProduction = (struct InProgressProduction *)parseStack->data[startIndex + ti];
+						// printf("\t\t%s == %s?:\t", getTokenName(examinedExistingProduction->production), getTokenName(examinedIngredient));
+						if (examinedIngredient != examinedExistingProduction->production)
+						{
+							// printf("NO - moving on to next recipe\n\n");
+							break;
+						}
+						else
+						{
+							// printf("YES\n");
+						}
+					}
+
+					// ensure we got to the end of the production
+					if (ti == thisProductionSize && (startIndex + ti == parseStack->size))
+					{
+						// printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
+						foundReduction[0] = pi;
+						foundReduction[1] = qi;
+						return poppedLookahead;
+					}
 				}
 			}
 		}
 
-		// if we popped off a token of lookahead, go ahead and add it back and let's go for another loop factoring it in
-		if (poppedLookahead != NULL)
+		if (poppedLookahead == NULL)
 		{
-			Stack_Push(parseStack, poppedLookahead);
-			poppedLookahead = NULL;
+			if (parseStack->size > 0)
+			{
+				struct InProgressProduction *topOfStack = (struct InProgressProduction *)Stack_Peek(parseStack);
+				if (topOfStack->production > p_null)
+				{
+					poppedLookahead = Stack_Pop(parseStack);
+					disallowTrivialProductions = 0;
+				}
+				else
+				{
+					return NULL;
+				}
+			}
+			else
+			{
+				return NULL;
+			}
 		}
-		// if we didn't have lookahead, then we have nothing to return (and also didn't find a production)
 		else
 		{
+			Stack_Push(parseStack, poppedLookahead);
 			return NULL;
 		}
 	}
@@ -924,7 +948,7 @@ struct AST *TableParse(struct Dictionary *dict)
 			struct InProgressProduction *lookaheadProduction = NULL;
 
 			// try to find a reduction (potentially return one token from the top of the stack if it is obstructing a reduction underneath it)
-			lookaheadProduction = findReduction(parseStack);
+			lookaheadProduction = findReduction(parseStack, haveMoreInput);
 
 			// if we found a reduction
 			if (foundReduction[0] != p_null)
