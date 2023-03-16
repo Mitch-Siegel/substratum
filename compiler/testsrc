@@ -27,6 +27,7 @@ fun print(uint32 value) : void
 		int 5
 	}
 	;
+qwe
 }
 
 

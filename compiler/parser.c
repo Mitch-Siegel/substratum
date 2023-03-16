@@ -603,7 +603,7 @@ struct InProgressProduction *findReduction(struct Stack *parseStack)
 				}
 
 				// ensure we got to the end of the production
-				if ((ti == thisProductionSize) && (startIndex + ti == parseStack->size))
+				if (ti == thisProductionSize)
 				{
 					// printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
 					foundReduction[0] = pi;
@@ -735,49 +735,65 @@ void TableParseError(struct Stack *parseStack)
 {
 	printParseStack(parseStack);
 
-	struct InProgressProduction *firstIPP = (struct InProgressProduction *)parseStack->data[parseStack->size - 2];
+	struct InProgressProduction *firstIPP = (struct InProgressProduction *)Stack_Peek(parseStack);
 	printf("Error at or near line %d, col %d:\nSource code looks approximately like:\n\t", firstIPP->tree->sourceLine, firstIPP->tree->sourceCol);
 
 	char *printedSource = malloc(1);
 	printedSource[0] = '\0';
 
+	int currentSourceLine = firstIPP->tree->sourceLine;
+
+	// spit out everything on the line it looks like the error occurred at
+	// plus any contiguous tokens before that point, followed by at most 1 production if there is one
 	// i > 0 so we never attempt to expand the big translation unit at the bottom of the stack
-	char startedPrintingTokens = 0;
-	char allowOneMore = 1;
 	for (int i = parseStack->size - 1; i > 0; i--)
 	{
 		struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[i];
-
-		if (examinedIPP->production > p_null)
-		{
-			startedPrintingTokens = 1;
-		}
-		else if (startedPrintingTokens)
-		{
-			if (allowOneMore)
-			{
-				allowOneMore = 0;
-			}
-			else
-			{
-				break;
-			}
-		}
-		int examinedLine = examinedIPP->tree->sourceLine;
-
 		int valueLength = strlen(examinedIPP->tree->value);
 		char *parentStr = malloc(valueLength + 2);
-		strcpy(parentStr + 1, examinedIPP->tree->value);
-		parentStr[0] = ' ';
+
+		if (examinedIPP->tree->sourceLine != currentSourceLine)
+		{
+			strcpy(parentStr, examinedIPP->tree->value);
+			parentStr[valueLength] = '\n';
+			parentStr[valueLength + 1] = '\0';
+		}
+		else
+		{
+			strcpy(parentStr + 1, examinedIPP->tree->value);
+			parentStr[0] = ' ';
+		}
+		currentSourceLine = examinedIPP->tree->sourceLine;
 
 		printedSource = strAppend(ExpandSourceFromAST(examinedIPP->tree, parentStr), printedSource);
 
-		if (strlen(printedSource) > 128 || (parseStack->size - i > 5) || examinedLine < (firstIPP->tree->sourceLine - 5))
+		// if we are no longer on the line the error appears to have occurred on, and we just expaneded a production rather than a production, we are done
+		if ((examinedIPP->tree->sourceLine < firstIPP->tree->sourceLine) && (examinedIPP->production < p_null))
 		{
 			break;
 		}
 	}
-	printf("%s\n\n", printedSource);
+
+	int printedLen = strlen(printedSource);
+	char justPrintedNL = 0;
+	for (int i = 0; i < printedLen; i++)
+	{
+		if (printedSource[i] == '\n')
+		{
+			justPrintedNL = 1;
+			printf("\n\t");
+		}
+		else
+		{
+			// skip any space which immediately follows a newline
+			if (!(justPrintedNL && printedSource[i] == ' '))
+			{
+				putchar(printedSource[i]);
+			}
+			justPrintedNL = 0;
+		}
+	}
+	printf("\n\n");
 	free(printedSource);
 	ErrorAndExit(ERROR_INVOCATION, "Fix your program!\t");
 }
@@ -850,59 +866,36 @@ void ValidateParseStack(struct Stack *parseStack)
 
 struct AST *TableParse(struct Dictionary *dict)
 {
-	int maxNonterminals = 0;
-	int maxTerminals = 0;
-
-	int mostPossibleTerminals[p_null] = {0};
-	int mostPossibleNonterminals[p_null] = {0};
-
-	// number of shifts since the parse stack has shrunk in size
+	// number of shifts since the last reduction
 	int nShifts = 0;
 	int lastParseStackSize = 0;
 
-	// scan recipes to figure out longest possible recipes for error handling
+	int maxConsecutiveTokens = 0;
+	// scan recipes to figure out the greatest number of consecutive tokens we can have on the stack (to catch errors)
 	// iterate all recipe sets
 	for (int pi = 0; pi < p_null; pi++)
 	{
 		// iterate each recipe within the set (last recipe is just a singe null production)
 		for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++)
 		{
-			int nNonTerminals = 0;
-			int nTerminals = 0;
+			int nConsecutiveTerminals = 0;
 			for (int ti = 0; RECIPE_INGREDIENT(pi, qi, ti) != p_null; ti++)
 			{
 				if (RECIPE_INGREDIENT(pi, qi, ti) < p_null)
 				{
-					nNonTerminals++;
+					nConsecutiveTerminals = 0;
 				}
 				else
 				{
-					nTerminals++;
+					nConsecutiveTerminals++;
+					if (nConsecutiveTerminals > maxConsecutiveTokens)
+					{
+						maxConsecutiveTokens = nConsecutiveTerminals;
+					}
 				}
-			}
-
-			if (nNonTerminals > maxNonterminals)
-			{
-				maxNonterminals = nNonTerminals;
-			}
-			if (nNonTerminals > mostPossibleNonterminals[qi])
-			{
-				mostPossibleNonterminals[qi] = nNonTerminals;
-			}
-
-			if (nTerminals > maxTerminals)
-			{
-				maxTerminals = nTerminals;
-			}
-			if (nTerminals > mostPossibleTerminals[qi])
-			{
-				mostPossibleTerminals[qi] = nTerminals;
 			}
 		}
 	}
-
-	// add 1 to account for the p_translation_unit that will always be at the bottom of the stack
-	maxNonterminals++;
 
 	struct Stack *parseStack = Stack_New();
 	char parsing = 1;
@@ -914,7 +907,7 @@ struct AST *TableParse(struct Dictionary *dict)
 		// no errors, actually try to reduce or shift in a new token
 		if (parseStack->size > 0)
 		{
-			struct InProgressProduction *topOfStack = (struct InProgressProduction *)parseStack->data[parseStack->size - 1];
+			struct InProgressProduction *topOfStack = (struct InProgressProduction *)Stack_Peek(parseStack);
 			if (topOfStack->production < p_null && haveMoreInput)
 			{
 				forceShift = 1;
@@ -936,18 +929,14 @@ struct AST *TableParse(struct Dictionary *dict)
 			// if we found a reduction
 			if (foundReduction[0] != p_null)
 			{
-				int sizeBefore, sizeAfter;
-				sizeBefore = parseStack->size;
+				// int sizeBefore, sizeAfter;
+				// sizeBefore = parseStack->size;
 
 				// do the reduction
-				printParseStack(parseStack);
 				reduce(parseStack);
 
-				sizeAfter = parseStack->size;
-
-				printf("Reduce %s:%d - nshifts: %d\t stack size %d->%d\n", token_names[foundReduction[0]], foundReduction[1], nShifts, sizeBefore, sizeAfter);
-				printParseStack(parseStack);
-				printf("\n");
+				// sizeAfter = parseStack->size;
+				// printf("Reduce %s:%d - nshifts: %d\t stack size %d->%d\n", token_names[foundReduction[0]], foundReduction[1], nShifts, sizeBefore, sizeAfter);
 
 				// if we have a lookahead that got popped, put it back
 				if (lookaheadProduction != NULL)
@@ -967,8 +956,7 @@ struct AST *TableParse(struct Dictionary *dict)
 				}
 			}
 		}
-			printf("fall through to do a shift\n");
-			// else, fall through to shift
+		// no reduction found, fall through to shift
 
 		// do a shift
 		case 1:
@@ -1002,11 +990,9 @@ struct AST *TableParse(struct Dictionary *dict)
 			{
 				nextToken = match(lookaheadToken, dict);
 			}
-			printf("\tShift token [%s] with type %s\n", nextToken->value, getTokenName(nextToken->type));
+			// printf("\tShift token [%s] with type %s\n", nextToken->value, getTokenName(nextToken->type));
 			Stack_Push(parseStack, InProgressProduction_New(nextToken->type, nextToken));
 			nShifts++;
-
-			// printParseStack(parseStack);
 		}
 		break;
 		}
@@ -1014,6 +1000,13 @@ struct AST *TableParse(struct Dictionary *dict)
 		if (parseStack->size < lastParseStackSize)
 		{
 			nShifts = 0;
+		}
+		else
+		{
+			if (nShifts > (maxConsecutiveTokens * 2))
+			{
+				TableParseError(parseStack);
+			}
 		}
 		lastParseStackSize = parseStack->size;
 	}
