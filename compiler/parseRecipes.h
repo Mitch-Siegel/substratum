@@ -47,10 +47,33 @@ enum token parseRecipes[p_null][8][9][2] = {
          {p_null, p_null}},
 
         // UNARY-EXPRESSION
-        // {{p_unary_expression, above},
+        {{p_unary_expression, above},
+         {p_null, p_null}},
+
+        // {{t_star, above},
+        //  {p_primary_expression, below},
         //  {p_null, p_null}},
 
+        {{p_wip_array_access, above},
+         {p_primary_expression, below},
+         {t_rBracket, cnsme},
+         {p_null, p_null}},
+
+        {{p_wip_array_access, above},
+         {p_expression, below},
+         {t_rBracket, cnsme},
+         {p_null, p_null}},
+
         // end
+        {{p_null, p_null}},
+    },
+
+    // p_wip_array_access
+    {
+        {{p_primary_expression, above},
+         {t_lBracket, above},
+         {p_null, p_null}},
+
         {{p_null, p_null}},
     },
 
@@ -152,6 +175,18 @@ enum token parseRecipes[p_null][8][9][2] = {
          {p_primary_expression, below},
          {p_null, p_null}},
 
+        // PRIMARY-EXPRESSION '*' PRIMARY-EXPRESSION
+        {{p_primary_expression, above},
+         {t_star, above},
+         {p_primary_expression, below},
+         {p_null, p_null}},
+
+        // EXPRESSION '*' PRIMARY-EXPRESSION
+        {{p_expression, above},
+         {t_star, above},
+         {p_primary_expression, below},
+         {p_null, p_null}},
+
         {{p_null, p_null}},
     },
 
@@ -196,11 +231,25 @@ enum token parseRecipes[p_null][8][9][2] = {
         {{p_null, p_null}},
     },
 
+    // p_wip_array_declaration - WIP-ARRAY-DECLARATION
+    {
+        {{p_variable_declaration, above},
+         {t_lBracket, above},
+         {p_null, p_null}},
+
+        {{p_null, p_null}},
+    },
+
     // p_variable_declaration - VARIABLE-DECLARATION
     {
         // TYPE-NAME PRIMARY-EXPRESSION
         {{p_type_name, above},
          {p_primary_expression, below},
+         {p_null, p_null}},
+
+        {{p_wip_array_declaration, above},
+         {p_primary_expression, below},
+         {t_rBracket, cnsme},
          {p_null, p_null}},
 
         {{p_null, p_null}},

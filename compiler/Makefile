@@ -36,6 +36,9 @@ serialize.o: serialize.c serialize.h
 	$(CC) -c $(CFLAGS) serialize.c
 
 
+recipes:
+	rm -f parser.o
+	make mcc
 
 clean:
 	rm *.o

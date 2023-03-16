@@ -8,11 +8,13 @@ int curLine, curCol;
 char *token_names[] = {
 	"p_type_name",
 	"p_primary_expression",
+	"p_wip_array_access",
 	"p_unary_operator",
 	"p_unary_expression",
 	"p_expression_operator",
 	"p_expression",
 	"p_expression_list",
+	"p_wip_array_declaration",
 	"p_variable_declaration",
 	"p_declaration_list",
 	"p_variable_declaration_statement",
