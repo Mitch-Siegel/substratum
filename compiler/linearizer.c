@@ -578,7 +578,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	break;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Unexpected type seen while linearizing expression LHS! Expected variable, literal, or subexpression\n");
+		ErrorAndExit(ERROR_INTERNAL, "Unexpected type (%s) with value [%s] seen while linearizing expression LHS! Expected variable, literal, or subexpression\n", getTokenName(m.ast->child->type), m.ast->child->value);
 	}
 
 	// assign the TAC operation based on the operator at hand
@@ -889,39 +889,56 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		}
 	}
 
-	struct TACLine *RHS = m.currentBlock->TACList->tail->data;
+	// grab the TAC we just generated for the RHS of the expression
+	struct TACLine *RHSTac = m.currentBlock->TACList->tail->data;
 
-	switch (m.ast->child->type)
+	struct AST *LHS = m.ast->child;
+
+	// if this is a declare-and-assign, skip the type
+	switch (LHS->type)
+	{
+	case t_uint8:
+	case t_uint16:
+	case t_uint32:
+		LHS = LHS->child;
+		break;
+
+	default:
+		break;
+	}
+
+	switch (LHS->type)
 	{
 	case t_identifier:
 	{
-		struct VariableEntry *assignedVariable = Scope_lookupVar(m.scope, m.ast->child);
-		RHS->operands[0].name.str = m.ast->child->value;
-		RHS->operands[0].type = assignedVariable->type;
-		RHS->operands[0].indirectionLevel = assignedVariable->indirectionLevel;
-		RHS->operands[0].permutation = vp_standard;
+		struct VariableEntry *assignedVariable = Scope_lookupVar(m.scope, LHS);
+		RHSTac->operands[0].name.str = LHS->value;
+		RHSTac->operands[0].type = assignedVariable->type;
+		RHSTac->operands[0].indirectionLevel = assignedVariable->indirectionLevel;
+		RHSTac->operands[0].permutation = vp_standard;
 	}
 	break;
 
+	// pointer dereference
 	case t_star:
 	{
 		struct TACLine *finalAssignment = NULL;
-		RHS->operands[0].name.str = TempList_Get(temps, *m.tempNum);
-		RHS->operands[0].permutation = vp_temp;
+		RHSTac->operands[0].name.str = TempList_Get(temps, *m.tempNum);
+		RHSTac->operands[0].permutation = vp_temp;
 		(*m.tempNum)++;
-		RHS->operands[0].type = RHS->operands[1].type;
-		RHS->operands[0].indirectionLevel = RHS->operands[1].indirectionLevel;
-		struct AST *dereferencedExpression = m.ast->child->child;
+		RHSTac->operands[0].type = RHSTac->operands[1].type;
+		RHSTac->operands[0].indirectionLevel = RHSTac->operands[1].indirectionLevel;
+		struct AST *dereferencedExpression = LHS->child;
 		switch (dereferencedExpression->type)
 		{
 		case t_identifier:
 		{
-			finalAssignment = newTACLine(m.currentTACIndex++, tt_memw_1, m.ast->child);
+			finalAssignment = newTACLine(m.currentTACIndex++, tt_memw_1, LHS);
 			finalAssignment->operands[0].name.str = dereferencedExpression->value;
 			finalAssignment->operands[0].type = Scope_lookupVar(m.scope, dereferencedExpression)->type;
 
 			// copy operand from RHS dest to final assignment operand
-			memcpy(&finalAssignment->operands[1], &RHS->operands[0], sizeof(struct TACOperand));
+			memcpy(&finalAssignment->operands[1], &RHSTac->operands[0], sizeof(struct TACOperand));
 		}
 		break;
 
@@ -937,7 +954,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			finalAssignment = newTACLine(m.currentTACIndex++, tt_memw_1, dereferencedExpression);
 
 			// transfer RHS dest to this expression operand
-			memcpy(&finalAssignment->operands[1], &RHS->operands[0], sizeof(struct TACOperand));
+			memcpy(&finalAssignment->operands[1], &RHSTac->operands[0], sizeof(struct TACOperand));
 
 			// transfer recursive dereference dest to final assignment operand
 			memcpy(&finalAssignment->operands[0], &recursiveDereference->operands[0], sizeof(struct TACOperand));
@@ -1027,7 +1044,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 				}
 
 				// copy RHS dest to final assignment operand
-				memcpy(&finalAssignment->operands[2], &RHS->operands[0], sizeof(struct TACOperand));
+				memcpy(&finalAssignment->operands[2], &RHSTac->operands[0], sizeof(struct TACOperand));
 			}
 			break;
 
@@ -1045,7 +1062,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 				}
 
 				// copy RHS dest to final assignment source
-				memcpy(&finalAssignment->operands[3], &RHS->operands[0], sizeof(struct TACOperand));
+				memcpy(&finalAssignment->operands[3], &RHSTac->operands[0], sizeof(struct TACOperand));
 			}
 			break;
 
@@ -1063,8 +1080,71 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	}
 	break;
 
+	// array element reference
+	case t_lBracket:
+	{
+		struct TACLine *finalAssignment = newTACLine(m.currentTACIndex++, tt_memw_3, LHS);
+
+		RHSTac->operands[0].name.str = TempList_Get(temps, *m.tempNum);
+		RHSTac->operands[0].permutation = vp_temp;
+		(*m.tempNum)++;
+		RHSTac->operands[0].type = RHSTac->operands[1].type;
+		RHSTac->operands[0].indirectionLevel = RHSTac->operands[1].indirectionLevel;
+
+		// copy the temp from the RHS to the source of the memory write operation
+		finalAssignment->operands[3] = RHSTac->operands[0];
+
+		// handle the scaling value (scale by size of array element)
+		finalAssignment->operands[2].indirectionLevel = 0;
+		finalAssignment->operands[2].permutation = vp_temp;
+		finalAssignment->operands[2].type = vt_uint8;
+		finalAssignment->operands[2].name.val = Scope_getSizeOfVariable(m.scope, LHS->child);
+
+		// handle the base (array start)
+
+		struct AST *arrayIndex = LHS->child->sibling;
+		switch (arrayIndex->type)
+		{
+		case t_identifier:
+		{
+			struct VariableEntry *indexVariable = Scope_lookupVar(m.scope, arrayIndex);
+
+			finalAssignment->operands[1].indirectionLevel = 0;
+			finalAssignment->operands[1].name.str = arrayIndex->value;
+			finalAssignment->operands[1].permutation = vp_standard;
+			finalAssignment->operands[1].type = indexVariable->type;
+		}
+		break;
+
+		case t_constant:
+		{
+			finalAssignment->operands[1].indirectionLevel = 0;
+			finalAssignment->operands[1].name.str = arrayIndex->value;
+			finalAssignment->operands[1].permutation = vp_literal;
+			finalAssignment->operands[1].type = vt_uint32;
+		}
+		break;
+
+		// if not identifier or constant, assume it must be some sort of expression inside the brackets
+		default:
+		{
+			struct LinearizationMetadata expressionMetadata;
+			memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
+			expressionMetadata.ast = arrayIndex;
+
+			m.currentTACIndex = linearizeExpression(expressionMetadata);
+
+			struct TACLine *finalArithmeticLine = m.currentBlock->TACList->tail->data;
+
+			finalAssignment->operands[1] = finalArithmeticLine->operands[0];
+		}
+		break;
+		}
+	}
+	break;
+
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected type on LHS of assignment expression\n\t");
+		ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected type (%s) with value [%s] on LHS of assignment expression\n\t", getTokenName(m.ast->child->type), m.ast->child->value);
 	}
 
 	return m.currentTACIndex;
@@ -1462,7 +1542,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			memcpy(&scopeMetadata, &m, sizeof(struct LinearizationMetadata));
 			scopeMetadata.ast = runner;
 
-			// TODO: find what case generates a real return value from here - why is the return not used in this?
+			// TODO: Is throwing away the return value safe? Test with multiple arbitrary scopes in series
 			linearizeScope(scopeMetadata, controlConvergesTo, labelCount, scopeNesting);
 		}
 		break;
@@ -1520,7 +1600,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			}
 			break;
 
-			// if just a declaration, do nothing
+			// if just a declaration, linearize the declaration
 			case t_lBracket:
 			case t_identifier:
 			{

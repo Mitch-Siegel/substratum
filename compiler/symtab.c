@@ -492,8 +492,6 @@ void Function_addBasicBlock(struct FunctionEntry *function, struct BasicBlock *b
  */
 void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArgument)
 {
-	printf("walk declaration for:\n");
-	AST_Print(declaration->child, 0);
 	enum variableTypes theType;
 	switch (declaration->type)
 	{
