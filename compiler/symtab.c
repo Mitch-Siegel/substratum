@@ -415,7 +415,7 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		{
 			struct VariableEntry *theVariable = thisMember->entry;
 			printf("> Variable");
-			for(int i = 0; i < theVariable->indirectionLevel; i++)
+			for (int i = 0; i < theVariable->indirectionLevel; i++)
 			{
 				printf("*");
 			}
@@ -664,22 +664,30 @@ void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 
 		case t_if:
 		{
-			// having fun yet?
-			struct AST *ifRunner = scopeRunner->child->sibling->child;
-			while (ifRunner != NULL)
+			// grab the body of the if statement and walk it
+			struct AST *ifBody = scopeRunner->child->sibling;
+
+			if (ifBody->type == t_lCurly)
 			{
-				walkStatement(ifRunner, wipScope);
-				ifRunner = ifRunner->sibling;
+				walkScope(ifBody, wipScope, 0);
+			}
+			else
+			{
+				walkStatement(ifBody, wipScope);
 			}
 
-			// no, really! (if an else block exists, walk that too)
-			if (scopeRunner->child->sibling->sibling != NULL)
+			// check if we have an else block, walk it too if we do
+			if (ifBody->sibling != NULL)
 			{
-				ifRunner = scopeRunner->child->sibling->sibling->child->child;
-				while (ifRunner != NULL)
+				struct AST *elseBody = ifBody->sibling;
+
+				if (elseBody->type == t_lCurly)
 				{
-					walkStatement(ifRunner, wipScope);
-					ifRunner = ifRunner->sibling;
+					walkScope(elseBody, wipScope, 0);
+				}
+				else
+				{
+					walkStatement(elseBody, wipScope);
 				}
 			}
 		}
@@ -689,7 +697,7 @@ void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 		{
 			struct AST *whileBody = scopeRunner->child->sibling;
 
-			if(whileBody->type == t_lCurly)
+			if (whileBody->type == t_lCurly)
 			{
 				walkScope(whileBody, wipScope, 0);
 			}
@@ -707,8 +715,8 @@ void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 		}
 		scopeRunner = scopeRunner->sibling;
 	}
-	
-	if(scopeRunner == NULL)
+
+	if (scopeRunner == NULL)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Malformed AST in scope - expected '}' (t_rcurly) to end, didn't see one!\n");
 	}

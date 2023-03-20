@@ -43,6 +43,16 @@ fun test(uint8 upTo) : void
 		fibArray[i + 1] = fibArray[i] + fibArray[i - 1];
 		i = i + 1;
 	}
+
+	uint8 result;
+	if(i > 0)
+	{
+		result = 123;
+	}
+	else
+	{
+		result = 456;
+	}
 	
 
 	// uint16 array[5][4];
