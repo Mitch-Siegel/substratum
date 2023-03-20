@@ -32,7 +32,7 @@ fun print(uint32 value) : void
 
 fun test(uint8 upTo) : void
 {
-	uint8 *fibArray = 4096;
+	uint8 fibArray[32];
 
 	*fibArray = 0;
 	fibArray[1] = 1;

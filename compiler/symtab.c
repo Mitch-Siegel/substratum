@@ -414,7 +414,12 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		case e_variable:
 		{
 			struct VariableEntry *theVariable = thisMember->entry;
-			printf("> Variable %s", thisMember->name);
+			printf("> Variable");
+			for(int i = 0; i < theVariable->indirectionLevel; i++)
+			{
+				printf("*");
+			}
+			printf(" %s", thisMember->name);
 			if (theVariable->localPointerTo != NULL)
 			{
 				printf("[%d]", theVariable->localPointerTo->arraySize);
@@ -565,9 +570,6 @@ void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArg
 }
 void walkStatement(struct AST *it, struct Scope *wipScope)
 {
-	printf("walkStatement for:\n");
-	AST_Print(it, 0);
-	printf("\n");
 	switch (it->type)
 	{
 	case t_lCurly:
@@ -646,9 +648,8 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 {
 	struct AST *scopeRunner = it->child;
-	while (scopeRunner->type != t_rCurly)
+	while (scopeRunner != NULL && scopeRunner->type != t_rCurly)
 	{
-		printf("scopeRunner is %s\n", scopeRunner->value);
 		switch (scopeRunner->type)
 		{
 			// nested scopes!
@@ -686,11 +687,15 @@ void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 
 		case t_while:
 		{
-			struct AST *whileRunner = scopeRunner->child->sibling->child;
-			while (whileRunner != NULL)
+			struct AST *whileBody = scopeRunner->child->sibling;
+
+			if(whileBody->type == t_lCurly)
 			{
-				walkStatement(whileRunner, wipScope);
-				whileRunner = whileRunner->sibling;
+				walkScope(whileBody, wipScope, 0);
+			}
+			else
+			{
+				walkStatement(whileBody, wipScope);
 			}
 		}
 		break;
@@ -701,6 +706,11 @@ void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 			break;
 		}
 		scopeRunner = scopeRunner->sibling;
+	}
+	
+	if(scopeRunner == NULL)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Malformed AST in scope - expected '}' (t_rcurly) to end, didn't see one!\n");
 	}
 }
 
