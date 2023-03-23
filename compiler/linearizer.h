@@ -31,6 +31,8 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 
 int linearizeExpression(struct LinearizationMetadata m);
 
+int linearizeArrayRef(struct LinearizationMetadata m);
+
 int linearizeAssignment(struct LinearizationMetadata m);
 
 int linearizeArithmeticAssignment(struct LinearizationMetadata m);

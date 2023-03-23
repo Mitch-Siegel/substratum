@@ -425,21 +425,22 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 	case t_lThan:
 	// case t_bin_lThanE:
 	case t_gThan:
-		// case t_bin_gThanE:
-		// case t_bin_equals:
-		// case t_bin_notEquals:
-		{
-			struct LinearizationMetadata expressionMetadata;
-			memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
-			expressionMetadata.ast = m.ast;
+	// case t_bin_gThanE:
+	// case t_bin_equals:
+	// case t_bin_notEquals:
+	case t_lBracket: // array reference
+	{
+		struct LinearizationMetadata expressionMetadata;
+		memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
+		expressionMetadata.ast = m.ast;
 
-			m.currentTACIndex = linearizeExpression(expressionMetadata);
-			struct TACLine *recursiveExpression = m.currentBlock->TACList->tail->data;
+		m.currentTACIndex = linearizeExpression(expressionMetadata);
+		struct TACLine *recursiveExpression = m.currentBlock->TACList->tail->data;
 
-			parentExpression->operands[operandIndex].type = recursiveExpression->operands[0].type;
-			parentExpression->operands[operandIndex].indirectionLevel = recursiveExpression->operands[0].indirectionLevel;
-		}
-		break;
+		parentExpression->operands[operandIndex].type = recursiveExpression->operands[0].type;
+		parentExpression->operands[operandIndex].indirectionLevel = recursiveExpression->operands[0].indirectionLevel;
+	}
+	break;
 
 	case t_star:
 	{
@@ -474,6 +475,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	case t_plus:
 	case t_minus:
 	case t_star:
+	case t_lBracket: // array reference
 		thisExpression->operands[0].name.str = TempList_Get(temps, *m.tempNum);
 		thisExpression->operands[0].permutation = vp_temp;
 		// increment count of temp variables, the parse of this expression will be written to a temp
@@ -491,8 +493,8 @@ int linearizeExpression(struct LinearizationMetadata m)
 	default:
 		break;
 	}
-	// support dereference and reference operations separately
-	// since these have only one operand
+
+	// these cases are handled by their own functions and return directly from within the if/else statements
 	if (m.ast->type == t_star)
 	{
 		thisExpression->operation = tt_memr_1;
@@ -523,6 +525,11 @@ int linearizeExpression(struct LinearizationMetadata m)
 		BasicBlock_append(m.currentBlock, thisExpression);
 		return m.currentTACIndex;
 	}
+	else if (m.ast->type == t_lBracket)
+	{
+		// pass array references through directly
+		return linearizeArrayRef(m);
+	}
 
 	// if we fall through to here, the expression contains a subexpression
 	// handle the LHS of the operation
@@ -537,6 +544,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	// case t_bin_equals:
 	// case t_bin_notEquals:
 	case t_star:
+	case t_lBracket:
 	{
 		struct LinearizationMetadata subexpressionMetadata;
 		memcpy(&subexpressionMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -627,6 +635,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	// case t_bin_equals:
 	// case t_bin_notEquals:
 	case t_star:
+	case t_lBracket:
 	{
 
 		struct LinearizationMetadata subexpressionMetadata;
@@ -808,6 +817,15 @@ int linearizeExpression(struct LinearizationMetadata m)
 
 	thisExpression->index = m.currentTACIndex++;
 	BasicBlock_append(m.currentBlock, thisExpression);
+	return m.currentTACIndex;
+}
+
+// given an AST node of an array reference, generate TAC for it
+int linearizeArrayRef(struct LinearizationMetadata m)
+{
+	printf("LinearizeArrayRef for:\n");
+	AST_Print(m.ast, 0);
+	printf("\n");
 	return m.currentTACIndex;
 }
 
