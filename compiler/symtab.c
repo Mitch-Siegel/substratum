@@ -566,6 +566,7 @@ void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArg
 		ErrorAndExit(ERROR_CODE, "Error - redeclaration of symbol [%s]\n", runner->value);
 	}
 }
+
 void walkStatement(struct AST *it, struct Scope *wipScope)
 {
 	switch (it->type)
@@ -601,22 +602,29 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 
 	case t_if:
 	{
-		// having fun yet?
-		struct AST *ifRunner = it->child->sibling->child;
-		while (ifRunner != NULL)
+		// walk the if true block (can skip the condition check because it can never declare anything)
+		struct AST *ifTrue = it->child->sibling;
+		if (ifTrue->type == t_lCurly)
 		{
-			walkStatement(ifRunner, wipScope);
-			ifRunner = ifRunner->sibling;
+			struct Scope *ifTrueScope = Scope_createSubScope(wipScope);
+			walkScope(ifTrue, ifTrueScope, 0);
+		}
+		else
+		{
+			walkStatement(ifTrue, wipScope);
 		}
 
-		// no, really!
-		if (it->child->sibling->sibling != NULL)
+		if (ifTrue->sibling != NULL)
 		{
-			ifRunner = it->child->sibling->sibling->child->child;
-			while (ifRunner != NULL)
+			struct AST *ifFalse = it->child->sibling;
+			if (ifFalse->type == t_lCurly)
 			{
-				walkStatement(ifRunner, wipScope);
-				ifRunner = ifRunner->sibling;
+				struct Scope *ifFalseScope = Scope_createSubScope(wipScope);
+				walkScope(ifFalse, ifFalseScope, 0);
+			}
+			else
+			{
+				walkStatement(ifFalse, wipScope);
 			}
 		}
 	}
@@ -624,11 +632,15 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 
 	case t_while:
 	{
-		struct AST *whileRunner = it->child->sibling->child;
-		while (whileRunner != NULL)
+		struct AST *whileBody = it->child->sibling;
+		if (whileBody->type == t_lCurly)
 		{
-			walkStatement(whileRunner, wipScope);
-			whileRunner = whileRunner->sibling;
+			struct Scope *whileBodyScope = Scope_createSubScope(wipScope);
+			walkScope(whileBody, whileBodyScope, 0);
+		}
+		else
+		{
+			walkStatement(whileBody, wipScope);
 		}
 	}
 	break;
@@ -650,61 +662,10 @@ void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 	{
 		switch (scopeRunner->type)
 		{
-			// nested scopes!
-		case t_lCurly:
-			walkScope(scopeRunner, Scope_createSubScope(wipScope), 0);
-			break;
-
 			// function call/return can't create new symbols so ignore
 		case t_identifier:
 		case t_return:
 			break;
-
-		case t_if:
-		{
-			// grab the body of the if statement and walk it
-			struct AST *ifBody = scopeRunner->child->sibling;
-
-			if (ifBody->type == t_lCurly)
-			{
-				walkScope(ifBody, wipScope, 0);
-			}
-			else
-			{
-				walkStatement(ifBody, wipScope);
-			}
-
-			// check if we have an else block, walk it too if we do
-			if (ifBody->sibling != NULL)
-			{
-				struct AST *elseBody = ifBody->sibling;
-
-				if (elseBody->type == t_lCurly)
-				{
-					walkScope(elseBody, wipScope, 0);
-				}
-				else
-				{
-					walkStatement(elseBody, wipScope);
-				}
-			}
-		}
-		break;
-
-		case t_while:
-		{
-			struct AST *whileBody = scopeRunner->child->sibling;
-
-			if (whileBody->type == t_lCurly)
-			{
-				walkScope(whileBody, wipScope, 0);
-			}
-			else
-			{
-				walkStatement(whileBody, wipScope);
-			}
-		}
-		break;
 
 		// otherwise we are looking at some arbitrary statement
 		default:
