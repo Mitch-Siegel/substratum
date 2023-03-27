@@ -826,6 +826,7 @@ int linearizeArrayRef(struct LinearizationMetadata m)
 	printf("LinearizeArrayRef for:\n");
 	AST_Print(m.ast, 0);
 	printf("\n");
+	exit(1);
 	return m.currentTACIndex;
 }
 
@@ -1459,7 +1460,7 @@ struct Stack *linearizeIfStatement(struct LinearizationMetadata m,
 
 	struct LinearizationMetadata ifMetadata;
 	memcpy(&ifMetadata, &m, sizeof(struct LinearizationMetadata));
-	ifMetadata.ast = m.ast->child->sibling->child;
+	ifMetadata.ast = m.ast->child->sibling;
 
 	struct LinearizationResult *r = linearizeScope(ifMetadata, afterIfBlock, labelCount, scopenesting);
 	Stack_Push(results, r);
@@ -1474,7 +1475,7 @@ struct Stack *linearizeIfStatement(struct LinearizationMetadata m,
 		// linearize the else block, it returns to the same afterIfBlock as the ifBlock does
 		struct LinearizationMetadata elseMetadata;
 		memcpy(&elseMetadata, &m, sizeof(struct LinearizationMetadata));
-		elseMetadata.ast = m.ast->child->sibling->sibling->child->child;
+		elseMetadata.ast = m.ast->child->sibling->sibling;
 		elseMetadata.currentBlock = elseBlock;
 
 		r = linearizeScope(elseMetadata, afterIfBlock, labelCount, scopenesting);
@@ -1512,7 +1513,7 @@ struct LinearizationResult *linearizeWhileLoop(struct LinearizationMetadata m,
 	// create the scope for the while loop
 	struct LinearizationMetadata whileBodyScopeMetadata;
 	memcpy(&whileBodyScopeMetadata, &m, sizeof(struct LinearizationMetadata));
-	whileBodyScopeMetadata.ast = m.ast->child->sibling->child;
+	whileBodyScopeMetadata.ast = m.ast->child->sibling;
 
 	struct LinearizationResult *r = linearizeScope(whileBodyScopeMetadata, m.currentBlock, labelCount, scopenesting);
 	struct TACLine *whileLoopJump = newTACLine(r->endingTACIndex++, tt_jmp, m.ast->child);
@@ -1651,7 +1652,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 		{
 			if (runner->child == NULL)
 			{
-				ErrorAndExit(ERROR_CODE, "Saw bare identifier %s - expected statement or function call", runner->value);
+				ErrorAndExit(ERROR_CODE, "Saw bare identifier %s - expected statement or function call\n", runner->value);
 			}
 			struct LinearizationMetadata callMetadata;
 			memcpy(&callMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -1794,6 +1795,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 		break;
 
 		default:
+			AST_Print(runner, 0);
 			ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected node type when linearizing statement\n");
 		}
 		runner = runner->sibling;

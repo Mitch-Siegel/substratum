@@ -662,8 +662,9 @@ void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 	{
 		switch (scopeRunner->type)
 		{
-			// function call/return can't create new symbols so ignore
+		// any statement starting with an identifier (eg 'a = b + 1', 'foo()', etc...) can't declare things so ignore
 		case t_identifier:
+		// return can't create new symbols so ignore
 		case t_return:
 			break;
 
@@ -675,9 +676,10 @@ void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 		scopeRunner = scopeRunner->sibling;
 	}
 
-	if (scopeRunner == NULL)
+	// sanity check to make sure we didn't run off the end and actually got the rCurly we expected
+	if (scopeRunner == NULL || scopeRunner->type != t_rCurly)
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Malformed AST in scope - expected '}' (t_rcurly) to end, didn't see one!\n");
+		ErrorAndExit(ERROR_INTERNAL, "Malformed AST in scope - expected '}' (t_rCurly) to end, didn't see one!\n");
 	}
 }
 

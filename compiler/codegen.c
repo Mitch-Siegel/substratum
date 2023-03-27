@@ -359,10 +359,10 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	metadata.function = function;
 	metadata.allLifetimes = findLifetimes(function);
 
-	for(struct LinkedListNode *thisLifetimeNode = metadata.allLifetimes->head; thisLifetimeNode != NULL; thisLifetimeNode = thisLifetimeNode->next)
+	for (struct LinkedListNode *thisLifetimeNode = metadata.allLifetimes->head; thisLifetimeNode != NULL; thisLifetimeNode = thisLifetimeNode->next)
 	{
-		struct Lifetime *thisLifetime = (struct Lifetime*)thisLifetimeNode->data;
-		printf("%s:%d,%d\n",thisLifetime->variable, thisLifetime->start, thisLifetime->end);
+		struct Lifetime *thisLifetime = (struct Lifetime *)thisLifetimeNode->data;
+		printf("%s:%d,%d\n", thisLifetime->variable, thisLifetime->start, thisLifetime->end);
 	}
 
 	// find all overlapping lifetimes, to figure out which variables can live in registers vs being spilled
@@ -425,7 +425,6 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	assignRegisters(&metadata);
 	printf("assigned registers\n");
 
-	
 	for (struct LinkedListNode *runner = metadata.allLifetimes->head; runner != NULL; runner = runner->next)
 	{
 		struct Lifetime *thisLifetime = runner->data;
@@ -603,7 +602,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 	{
 		struct TACLine *thisTAC = TACRunner->data;
 
-		if(thisTAC->operation != tt_asm)
+		if (thisTAC->operation != tt_asm)
 		{
 			char *printedTAC = sPrintTACLine(thisTAC);
 			TRIM_APPEND(asmBlock, sprintf(printedLine, ";%s", printedTAC));
