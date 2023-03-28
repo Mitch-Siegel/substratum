@@ -37,25 +37,14 @@ fun test(uint8 upTo) : void
 	*fibArray = 0;
 	fibArray[1] = 1;
 
-	uint8 i = 1;
-	while(fibArray[i] < upTo)
-	{
-		fibArray[i + 1] = fibArray[i] + fibArray[i - 1];
-		i = i + 1;
-	}
+	uint8 tester = 1 + fibArray[upTo];
 
-	uint8 result;
-	if(i > 0)
-	{
-		result = 123;
-	}
-	else
-	{
-		result = 456;
-	}
-	
-
-	// uint16 array[5][4];
+	// uint8 i = 1;
+	// while(fibArray[i] < upTo)
+	// {
+		// fibArray[i + 1] = fibArray[i] + fibArray[i - 1];
+		// i = i + 1;
+	// }
 
 }
 

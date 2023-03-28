@@ -404,8 +404,7 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 	// (if we got here, we must have already checked that the identifier has children - meaning it is in fact a function call)
 	case t_identifier:
 	{
-		struct LinearizationMetadata callMetadata;
-		memcpy(&callMetadata, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata callMetadata = m;
 		callMetadata.ast = m.ast;
 
 		m.currentTACIndex = linearizeFunctionCall(callMetadata);
@@ -430,8 +429,7 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 	// case t_bin_notEquals:
 	case t_lBracket: // array reference
 	{
-		struct LinearizationMetadata expressionMetadata;
-		memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata expressionMetadata = m;
 		expressionMetadata.ast = m.ast;
 
 		m.currentTACIndex = linearizeExpression(expressionMetadata);
@@ -826,7 +824,74 @@ int linearizeArrayRef(struct LinearizationMetadata m)
 	printf("LinearizeArrayRef for:\n");
 	AST_Print(m.ast, 0);
 	printf("\n");
-	exit(1);
+
+	struct AST *arrayBaseTree = m.ast->child;
+	if (arrayBaseTree->type != t_identifier)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Malformed AST for array reference!\nExpected identifier, got %s with value [%s]\n", getTokenName(m.ast->child->type), m.ast->value);
+	}
+
+	struct TACLine *arrayRefTAC = newTACLine(m.currentTACIndex, tt_memr_3, m.ast);
+
+	// set up the base address value for the memory read TAC operation
+	struct VariableEntry *arrayBaseEntry = Scope_lookupVar(m.scope, arrayBaseTree);
+	arrayRefTAC->operands[1].name.str = arrayBaseEntry->name;
+	arrayRefTAC->operands[1].indirectionLevel = arrayBaseEntry->indirectionLevel;
+	arrayRefTAC->operands[1].permutation = vp_standard;
+	arrayRefTAC->operands[1].type = arrayBaseEntry->type;
+
+	arrayRefTAC->operands[0].name.str = TempList_Get(temps, *m.tempNum);
+	arrayRefTAC->operands[0].permutation = vp_temp;
+	(*m.tempNum)++;
+	if (arrayBaseEntry->indirectionLevel > 0)
+	{
+		arrayRefTAC->operands[0].indirectionLevel = arrayBaseEntry->indirectionLevel - 1;
+	}
+	else
+	{
+		arrayRefTAC->operands[0].indirectionLevel = 0;
+	}
+	arrayRefTAC->operands[0].type = arrayRefTAC->operands[1].type;
+
+	struct AST *arrayIndexTree = m.ast->child->sibling;
+	// if the index is a constant, use addressing mode 2 and manually do the scaling at compile time
+	if (arrayIndexTree->type == t_constant)
+	{
+		arrayRefTAC->operation = tt_memr_2;
+
+		int indexSize = atoi(arrayIndexTree->value);
+		indexSize *= Scope_getSizeOfVariable(m.scope, arrayBaseTree);
+
+		arrayRefTAC->operands[2].name.val = indexSize;
+		arrayRefTAC->operands[2].indirectionLevel = 0;
+		arrayRefTAC->operands[2].permutation = vp_literal;
+		arrayRefTAC->operands[2].type = vt_uint32;
+	}
+	// otherwise, the index is either a variable or subexpression
+	else
+	{
+		// index is an identifier, just set directly
+		if (arrayIndexTree->type == t_identifier)
+		{
+			struct VariableEntry *arrayIndexEntry = Scope_lookupVar(m.scope, arrayIndexTree);
+
+			arrayRefTAC->operands[2].name.str = arrayIndexEntry->name;
+			arrayRefTAC->operands[2].permutation = vp_standard;
+			arrayRefTAC->operands[2].indirectionLevel = arrayIndexEntry->indirectionLevel;
+			arrayRefTAC->operands[2].type = arrayIndexTree->type;
+		}
+		// index is some sort of subexpression, pass it along to linearizeSubExpression
+		else
+		{
+			struct LinearizationMetadata indexExpressionMetadata = m;
+			indexExpressionMetadata.ast = arrayIndexTree;
+
+			m.currentTACIndex = linearizeSubExpression(indexExpressionMetadata, arrayRefTAC, 2);
+		}
+	}
+
+	arrayRefTAC->index = m.currentTACIndex++;
+	BasicBlock_append(m.currentBlock, arrayRefTAC);
 	return m.currentTACIndex;
 }
 
@@ -883,6 +948,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 
 		case t_plus:
 		case t_minus:
+		case t_lBracket:
 		{
 			struct LinearizationMetadata expressionMetadata;
 			memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
