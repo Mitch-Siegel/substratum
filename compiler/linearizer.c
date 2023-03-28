@@ -1206,12 +1206,22 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		}
 		break;
 
+		// switch to addressing mode 2 if we have a constant
 		case t_constant:
 		{
+			finalAssignment->operation = tt_memw_2;
 			finalAssignment->operands[1].indirectionLevel = 0;
-			finalAssignment->operands[1].name.str = arrayIndex->value;
+
+			int indexSize = atoi(arrayIndex->value);
+			indexSize *= Scope_getSizeOfVariable(m.scope, LHS->child);
+
+			finalAssignment->operands[1].name.val = indexSize;
 			finalAssignment->operands[1].permutation = vp_literal;
 			finalAssignment->operands[1].type = vt_uint32;
+
+			finalAssignment->operands[2] = finalAssignment->operands[3];
+
+			memset(&finalAssignment->operands[3], 0, sizeof(struct TACOperand));
 		}
 		break;
 
