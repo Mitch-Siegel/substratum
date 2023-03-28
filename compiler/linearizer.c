@@ -416,19 +416,31 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 	case t_lThan:
 	// case t_bin_lThanE:
 	case t_gThan:
-	// case t_bin_gThanE:
-	// case t_bin_equals:
-	// case t_bin_notEquals:
+		// case t_bin_gThanE:
+		// case t_bin_equals:
+		// case t_bin_notEquals:
+		{
+			struct LinearizationMetadata expressionMetadata = m;
+			expressionMetadata.ast = m.ast;
+
+			m.currentTACIndex = linearizeExpression(expressionMetadata);
+			struct TACLine *recursiveExpression = m.currentBlock->TACList->tail->data;
+
+			parentExpression->operands[operandIndex].type = recursiveExpression->operands[0].type;
+			parentExpression->operands[operandIndex].indirectionLevel = recursiveExpression->operands[0].indirectionLevel;
+		}
+		break;
+
 	case t_lBracket: // array reference
 	{
 		struct LinearizationMetadata expressionMetadata = m;
 		expressionMetadata.ast = m.ast;
 
-		m.currentTACIndex = linearizeExpression(expressionMetadata);
-		struct TACLine *recursiveExpression = m.currentBlock->TACList->tail->data;
+		m.currentTACIndex = linearizeArrayRef(expressionMetadata);
+		struct TACLine *recursiveArrayRef = m.currentBlock->TACList->tail->data;
 
-		parentExpression->operands[operandIndex].type = recursiveExpression->operands[0].type;
-		parentExpression->operands[operandIndex].indirectionLevel = recursiveExpression->operands[0].indirectionLevel;
+		parentExpression->operands[operandIndex].type = recursiveArrayRef->operands[0].type;
+		parentExpression->operands[operandIndex].indirectionLevel = recursiveArrayRef->operands[0].indirectionLevel;
 	}
 	break;
 
@@ -859,6 +871,10 @@ int linearizeArrayRef(struct LinearizationMetadata m)
 		arrayRefTAC->operands[2].indirectionLevel = 0;
 		arrayRefTAC->operands[2].permutation = vp_literal;
 		arrayRefTAC->operands[2].type = vt_uint32;
+
+		printf("\n\nTHIS CODE PATH\n\n\n");
+
+		printTACLine(arrayRefTAC);
 	}
 	// otherwise, the index is either a variable or subexpression
 	else
