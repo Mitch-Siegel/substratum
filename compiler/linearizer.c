@@ -508,8 +508,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 			thisExpression->operands[1].name.str = TempList_Get(temps, *m.tempNum);
 			thisExpression->operands[1].permutation = vp_temp;
 
-			struct LinearizationMetadata dereferenceMetadata;
-			memcpy(&dereferenceMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata dereferenceMetadata = m;
 			dereferenceMetadata.ast = m.ast->child;
 
 			m.currentTACIndex = linearizeDereference(dereferenceMetadata);
@@ -525,8 +524,15 @@ int linearizeExpression(struct LinearizationMetadata m)
 	}
 	else if (m.ast->type == t_lBracket)
 	{
-		// pass array references through directly
-		return linearizeArrayRef(m);
+		thisExpression->operands[1].name.str = TempList_Get(temps, *m.tempNum);
+		thisExpression->operands[1].permutation = vp_temp;
+
+		// can pass the metadata straight through
+		m.currentTACIndex = linearizeArrayRef(m);
+
+		thisExpression->index = m.currentTACIndex++;
+		BasicBlock_append(m.currentBlock, thisExpression);
+		return m.currentTACIndex;
 	}
 
 	// if we fall through to here, the expression contains a subexpression
@@ -949,6 +955,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		case t_plus:
 		case t_minus:
 		case t_lBracket:
+
 		{
 			struct LinearizationMetadata expressionMetadata;
 			memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
@@ -957,6 +964,16 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			m.currentTACIndex = linearizeExpression(expressionMetadata);
 		}
 		break;
+
+		/*
+		case t_lBracket:
+		{
+			struct LinearizationMetadata arrayReferenceMetadata = m;
+			arrayReferenceMetadata.ast = m.ast->child->sibling;
+
+			m.currentTACIndex = linearizeArrayRef(arrayReferenceMetadata);
+		}
+		break;*/
 
 		// identifier with child - function call
 		case t_identifier:
@@ -1160,7 +1177,6 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		default:
 			ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected type within dereference on LHS of assignment expression\n\t");
 		}
-
 		BasicBlock_append(m.currentBlock, finalAssignment);
 	}
 	break;
@@ -1169,6 +1185,13 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	case t_lBracket:
 	{
 		struct TACLine *finalAssignment = newTACLine(m.currentTACIndex++, tt_memw_3, LHS);
+
+		struct VariableEntry *assignedArray = Scope_lookupVar(m.scope, LHS->child);
+
+		finalAssignment->operands[0].name.str = assignedArray->name;
+		finalAssignment->operands[0].type = assignedArray->type;
+		finalAssignment->operands[0].indirectionLevel = assignedArray->indirectionLevel;
+		finalAssignment->operands[0].permutation = vp_standard;
 
 		RHSTac->operands[0].name.str = TempList_Get(temps, *m.tempNum);
 		RHSTac->operands[0].permutation = vp_temp;
@@ -1225,6 +1248,8 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		}
 		break;
 		}
+
+		BasicBlock_append(m.currentBlock, finalAssignment);
 	}
 	break;
 
