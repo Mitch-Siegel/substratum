@@ -73,8 +73,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 		thisDereference->operands[1].name.str = TempList_Get(temps, *m.tempNum);
 		thisDereference->operands[1].permutation = vp_temp;
 
-		struct LinearizationMetadata recursiveDereferenceMetadata;
-		memcpy(&recursiveDereferenceMetadata, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata recursiveDereferenceMetadata = m;
 		recursiveDereferenceMetadata.ast = m.ast->child;
 		m.currentTACIndex = linearizeDereference(recursiveDereferenceMetadata);
 		struct TACLine *recursiveDereference = m.currentBlock->TACList->tail->data;
@@ -115,8 +114,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 			thisDereference->operands[1].name.str = TempList_Get(temps, *m.tempNum);
 			thisDereference->operands[1].permutation = vp_temp;
 
-			struct LinearizationMetadata recursiveDereferenceMetadata;
-			memcpy(&recursiveDereferenceMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata recursiveDereferenceMetadata = m;
 			recursiveDereferenceMetadata.ast = m.ast->child->child;
 
 			m.currentTACIndex = linearizeDereference(recursiveDereferenceMetadata);
@@ -202,8 +200,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 				subtractInvert->operands[0].permutation = vp_temp;
 				(*m.tempNum)++;
 
-				struct LinearizationMetadata expressionMetadata;
-				memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
+				struct LinearizationMetadata expressionMetadata = m;
 				expressionMetadata.ast = m.ast->child->sibling;
 
 				m.currentTACIndex = linearizeExpression(expressionMetadata);
@@ -212,7 +209,8 @@ int linearizeDereference(struct LinearizationMetadata m)
 				// set inverted types based on the expression result type
 				subtractInvert->operands[0].type = recursiveExpression->operands[0].type;
 
-				memcpy(&subtractInvert->operands[1], &recursiveExpression->operands[0], sizeof(struct TACOperand));
+				// set the operand which will be inverted
+				subtractInvert->operands[1] = recursiveExpression->operands[0];
 
 				subtractInvert->operands[2].name.str = "-1";
 				subtractInvert->operands[2].type = LITERAL_VARIABLE_TYPE;
@@ -226,15 +224,13 @@ int linearizeDereference(struct LinearizationMetadata m)
 			{
 				// thisDereference->operands[2].name.str = TempList_Get(temps, *m.tempNum);
 
-				struct LinearizationMetadata expressionMetadata;
-				memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
+				struct LinearizationMetadata expressionMetadata = m;
 				expressionMetadata.ast = m.ast->child->sibling;
 
 				m.currentTACIndex = linearizeExpression(expressionMetadata);
 
 				struct TACLine *lastSubExpressionLine = m.currentBlock->TACList->tail->data;
-				memcpy(&thisDereference->operands[2], &lastSubExpressionLine->operands[0], sizeof(struct TACOperand));
-				// thisDereference->operands[2].type = lastSubExpressionLine->operands[0].type;
+				thisDereference->operands[2] = lastSubExpressionLine->operands[0];
 			}
 			thisDereference->operands[2].permutation = vp_temp;
 		}
@@ -278,8 +274,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 {
 	if (m.ast->sibling != NULL && m.ast->sibling->type != t_rCurly)
 	{
-		struct LinearizationMetadata argumentMetadata;
-		memcpy(&argumentMetadata, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata argumentMetadata = m;
 		argumentMetadata.ast = m.ast->sibling;
 
 		m.currentTACIndex = linearizeArgumentPushes(argumentMetadata);
@@ -306,8 +301,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 
 	case t_star:
 	{
-		struct LinearizationMetadata dereferenceMetadata;
-		memcpy(&dereferenceMetadata, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata dereferenceMetadata = m;
 		dereferenceMetadata.ast = m.ast->child;
 
 		m.currentTACIndex = linearizeDereference(dereferenceMetadata);
@@ -315,15 +309,14 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 		struct TACLine *recursiveDereference = m.currentBlock->TACList->tail->data;
 
 		// copy destination of dererence to source of argument push
-		memcpy(&thisArgument->operands[0], &recursiveDereference->operands[0], sizeof(struct TACOperand));
+		thisArgument->operands[0] = recursiveDereference->operands[0];
 	}
 	break;
 
 	case t_plus:
 	case t_minus:
 	{
-		struct LinearizationMetadata expressionMetadata;
-		memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata expressionMetadata = m;
 		expressionMetadata.ast = m.ast;
 
 		m.currentTACIndex = linearizeExpression(expressionMetadata);
@@ -332,7 +325,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 		thisArgument = newTACLine(m.currentTACIndex++, tt_push, m.ast);
 
 		// copy destination of expression to source of argument push
-		memcpy(&thisArgument->operands[0], &recursiveExpression->operands[0], sizeof(struct TACOperand));
+		thisArgument->operands[0] = recursiveExpression->operands[0];
 	}
 	break;
 
@@ -359,8 +352,7 @@ int linearizeFunctionCall(struct LinearizationMetadata m)
 	// push arguments iff they exist
 	if (m.ast->child->child != NULL)
 	{
-		struct LinearizationMetadata argumentMetadata;
-		memcpy(&argumentMetadata, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata argumentMetadata = m;
 		argumentMetadata.ast = m.ast->child->child;
 
 		m.currentTACIndex = linearizeArgumentPushes(argumentMetadata);
@@ -442,8 +434,7 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 
 	case t_star:
 	{
-		struct LinearizationMetadata dereferenceMetadata;
-		memcpy(&dereferenceMetadata, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata dereferenceMetadata = m;
 		dereferenceMetadata.ast = m.ast->child;
 
 		m.currentTACIndex = linearizeDereference(dereferenceMetadata);
@@ -550,8 +541,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	case t_star:
 	case t_lBracket:
 	{
-		struct LinearizationMetadata subexpressionMetadata;
-		memcpy(&subexpressionMetadata, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata subexpressionMetadata = m;
 		subexpressionMetadata.ast = m.ast->child;
 
 		m.currentTACIndex = linearizeSubExpression(subexpressionMetadata, thisExpression, 1);
@@ -571,8 +561,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 		// identifier represents a function call
 		else
 		{
-			struct LinearizationMetadata subexpressionMetadata;
-			memcpy(&subexpressionMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata subexpressionMetadata = m;
 			subexpressionMetadata.ast = m.ast->child;
 
 			m.currentTACIndex = linearizeSubExpression(subexpressionMetadata, thisExpression, 1);
@@ -642,8 +631,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	case t_lBracket:
 	{
 
-		struct LinearizationMetadata subexpressionMetadata;
-		memcpy(&subexpressionMetadata, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata subexpressionMetadata = m;
 		subexpressionMetadata.ast = m.ast->child->sibling;
 
 		m.currentTACIndex = linearizeSubExpression(subexpressionMetadata, thisExpression, 2);
@@ -663,8 +651,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 		// identifier represents a function call
 		else
 		{
-			struct LinearizationMetadata subexpressionMetadata;
-			memcpy(&subexpressionMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata subexpressionMetadata = m;
 			subexpressionMetadata.ast = m.ast->child->sibling;
 
 			m.currentTACIndex = linearizeSubExpression(subexpressionMetadata, thisExpression, 2);
@@ -748,10 +735,10 @@ int linearizeExpression(struct LinearizationMetadata m)
 				scaleMultiply->operands[0].indirectionLevel = thisExpression->operands[1].indirectionLevel;
 
 				// transfer the scaled operand out of the main expression
-				memcpy(&scaleMultiply->operands[1], &thisExpression->operands[0], sizeof(struct TACOperand));
+				scaleMultiply->operands[1] = thisExpression->operands[0];
 
 				// transfer the temp into the main expression
-				memcpy(&thisExpression->operands[2], &scaleMultiply->operands[0], sizeof(struct TACOperand));
+				thisExpression->operands[2] = scaleMultiply->operands[0];
 
 				// TODO: auto scale by size of pointer and operand with types
 				// TODO: scaling memory leak
@@ -795,10 +782,10 @@ int linearizeExpression(struct LinearizationMetadata m)
 					scaleMultiply->operands[0].indirectionLevel = thisExpression->operands[2].indirectionLevel;
 
 					// transfer the scaled operand out of the main expression
-					memcpy(&scaleMultiply->operands[1], &thisExpression->operands[1], sizeof(struct TACOperand));
+					scaleMultiply->operands[1] = thisExpression->operands[1];
 
 					// transfer the temp into the main expression
-					memcpy(&thisExpression->operands[1], &scaleMultiply->operands[0], sizeof(struct TACOperand));
+					thisExpression->operands[1] = scaleMultiply->operands[0];
 
 					// TODO: auto scale by size of pointer and operand with types
 					// TODO: scaling memory leak
@@ -944,8 +931,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		{
 		case t_star:
 		{
-			struct LinearizationMetadata dereferenceMetadata;
-			memcpy(&dereferenceMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata dereferenceMetadata = m;
 			dereferenceMetadata.ast = m.ast->child->sibling->child;
 
 			m.currentTACIndex = linearizeDereference(dereferenceMetadata);
@@ -957,8 +943,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		case t_lBracket:
 
 		{
-			struct LinearizationMetadata expressionMetadata;
-			memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata expressionMetadata = m;
 			expressionMetadata.ast = m.ast->child->sibling;
 
 			m.currentTACIndex = linearizeExpression(expressionMetadata);
@@ -978,8 +963,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		// identifier with child - function call
 		case t_identifier:
 		{
-			struct LinearizationMetadata callMetadata;
-			memcpy(&callMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata callMetadata = m;
 			callMetadata.ast = m.ast->child->sibling;
 
 			m.currentTACIndex = linearizeFunctionCall(callMetadata);
@@ -1040,14 +1024,13 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			finalAssignment->operands[0].type = Scope_lookupVar(m.scope, dereferencedExpression)->type;
 
 			// copy operand from RHS dest to final assignment operand
-			memcpy(&finalAssignment->operands[1], &RHSTac->operands[0], sizeof(struct TACOperand));
+			finalAssignment->operands[1] = RHSTac->operands[0];
 		}
 		break;
 
 		case t_star:
 		{
-			struct LinearizationMetadata dereferenceMetadata;
-			memcpy(&dereferenceMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata dereferenceMetadata = m;
 			dereferenceMetadata.ast = dereferencedExpression;
 
 			m.currentTACIndex = linearizeDereference(dereferenceMetadata);
@@ -1056,10 +1039,10 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			finalAssignment = newTACLine(m.currentTACIndex++, tt_memw_1, dereferencedExpression);
 
 			// transfer RHS dest to this expression operand
-			memcpy(&finalAssignment->operands[1], &RHSTac->operands[0], sizeof(struct TACOperand));
+			finalAssignment->operands[1] = RHSTac->operands[0];
 
 			// transfer recursive dereference dest to final assignment operand
-			memcpy(&finalAssignment->operands[0], &recursiveDereference->operands[0], sizeof(struct TACOperand));
+			finalAssignment->operands[0] = recursiveDereference->operands[0];
 		}
 		break;
 
@@ -1095,8 +1078,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			case t_plus:
 			case t_minus:
 			{
-				struct LinearizationMetadata expressionMetadata;
-				memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
+				struct LinearizationMetadata expressionMetadata = m;
 				expressionMetadata.ast = dereferencedRHS;
 
 				m.currentTACIndex = linearizeExpression(expressionMetadata);
@@ -1104,7 +1086,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 				struct TACLine *finalArithmeticLine = m.currentBlock->TACList->tail->data;
 				finalAssignment = newTACLine(m.currentTACIndex++, tt_memw_3, dereferencedRHS);
 
-				memcpy(&finalAssignment->operands[1], &finalArithmeticLine->operands[0], sizeof(struct TACOperand));
+				finalAssignment->operands[1] = finalArithmeticLine->operands[0];
 			}
 			break;
 
@@ -1146,7 +1128,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 				}
 
 				// copy RHS dest to final assignment operand
-				memcpy(&finalAssignment->operands[2], &RHSTac->operands[0], sizeof(struct TACOperand));
+				finalAssignment->operands[2] = RHSTac->operands[0];
 			}
 			break;
 
@@ -1164,7 +1146,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 				}
 
 				// copy RHS dest to final assignment source
-				memcpy(&finalAssignment->operands[3], &RHSTac->operands[0], sizeof(struct TACOperand));
+				finalAssignment->operands[3] = RHSTac->operands[0];
 			}
 			break;
 
@@ -1236,8 +1218,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		// if not identifier or constant, assume it must be some sort of expression inside the brackets
 		default:
 		{
-			struct LinearizationMetadata expressionMetadata;
-			memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata expressionMetadata = m;
 			expressionMetadata.ast = arrayIndex;
 
 			m.currentTACIndex = linearizeExpression(expressionMetadata);
@@ -1284,7 +1265,7 @@ int linearizeArithmeticAssignment(struct LinearizationMetadata m)
 	arithmeticAssignmentLine->operands[0].indirectionLevel = modifiedVariable->indirectionLevel;
 	arithmeticAssignmentLine->operands[0].permutation = vp_standard;
 
-	memcpy(&arithmeticAssignmentLine->operands[1], &arithmeticAssignmentLine->operands[0], sizeof(struct TACOperand));
+	arithmeticAssignmentLine->operands[1] = arithmeticAssignmentLine->operands[0];
 
 	switch (m.ast->child->sibling->type)
 	{
@@ -1307,8 +1288,7 @@ int linearizeArithmeticAssignment(struct LinearizationMetadata m)
 
 	default:
 	{
-		struct LinearizationMetadata subExpressionMetadata;
-		memcpy(&subExpressionMetadata, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata subExpressionMetadata = m;
 		subExpressionMetadata.ast = m.ast->child->sibling;
 		m.currentTACIndex = linearizeSubExpression(subExpressionMetadata, arithmeticAssignmentLine, 2);
 	}
@@ -1448,14 +1428,14 @@ int linearizeConditionCheck(struct LinearizationMetadata m,
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Logical And of expressions in condition checks not supported yet!\n");
 
-		struct LinearizationMetadata LHS;
-		memcpy(&LHS, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata LHS = m;
 		LHS.ast = m.ast->child;
+
 		m.currentTACIndex = linearizeConditionCheck(LHS, 0, targetLabel, labelCount, depth + 1);
 
-		struct LinearizationMetadata RHS;
-		memcpy(&RHS, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata RHS = m;
 		RHS.ast = m.ast->child->sibling;
+
 		m.currentTACIndex = linearizeConditionCheck(RHS, 0, targetLabel, labelCount, depth + 1);
 
 		// no need for extra logic - if either condition is false the whole condition is false
@@ -1473,15 +1453,14 @@ int linearizeConditionCheck(struct LinearizationMetadata m,
 			condTrueLabel = newTACLine(m.currentTACIndex, tt_label, m.ast);
 			condTrueLabel->operands[0].name.val = *labelCount;
 
-			struct LinearizationMetadata LHS;
-			memcpy(&LHS, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata LHS = m;
 			LHS.ast = m.ast->child;
+
 			m.currentTACIndex = linearizeConditionCheck(LHS, 1, targetLabel, labelCount, depth + 1);
 			struct TACLine *conditionJump = m.currentBlock->TACList->tail->data;
 			conditionJump->operands[0].name.val = *labelCount;
 
-			struct LinearizationMetadata RHS;
-			memcpy(&RHS, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata RHS = m;
 			RHS.ast = m.ast->child->sibling;
 			m.currentTACIndex = linearizeConditionCheck(RHS, 1, targetLabel, labelCount, depth + 1);
 			conditionJump = m.currentBlock->TACList->tail->data;
@@ -1532,8 +1511,7 @@ struct Stack *linearizeIfStatement(struct LinearizationMetadata m,
 	struct Stack *results = Stack_New();
 
 	// linearize the expression we will test
-	struct LinearizationMetadata conditionCheckMetadata;
-	memcpy(&conditionCheckMetadata, &m, sizeof(struct LinearizationMetadata));
+	struct LinearizationMetadata conditionCheckMetadata = m;
 	conditionCheckMetadata.ast = m.ast->child;
 
 	// if we need to generate an else statement, jump there on false
@@ -1549,8 +1527,7 @@ struct Stack *linearizeIfStatement(struct LinearizationMetadata m,
 		m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, 0, afterIfBlock->labelNum, labelCount, 0);
 	}
 
-	struct LinearizationMetadata ifMetadata;
-	memcpy(&ifMetadata, &m, sizeof(struct LinearizationMetadata));
+	struct LinearizationMetadata ifMetadata = m;
 	ifMetadata.ast = m.ast->child->sibling;
 
 	struct LinearizationResult *r = linearizeScope(ifMetadata, afterIfBlock, labelCount, scopenesting);
@@ -1564,8 +1541,7 @@ struct Stack *linearizeIfStatement(struct LinearizationMetadata m,
 		Function_addBasicBlock(m.scope->parentFunction, elseBlock);
 
 		// linearize the else block, it returns to the same afterIfBlock as the ifBlock does
-		struct LinearizationMetadata elseMetadata;
-		memcpy(&elseMetadata, &m, sizeof(struct LinearizationMetadata));
+		struct LinearizationMetadata elseMetadata = m;
 		elseMetadata.ast = m.ast->child->sibling->sibling;
 		elseMetadata.currentBlock = elseBlock;
 
@@ -1595,15 +1571,13 @@ struct LinearizationResult *linearizeWhileLoop(struct LinearizationMetadata m,
 	BasicBlock_append(m.currentBlock, whileDo);
 
 	// linearize the expression we will test
-	struct LinearizationMetadata conditionCheckMetadata;
-	memcpy(&conditionCheckMetadata, &m, sizeof(struct LinearizationMetadata));
+	struct LinearizationMetadata conditionCheckMetadata = m;
 	conditionCheckMetadata.ast = m.ast->child;
 
 	m.currentTACIndex = linearizeConditionCheck(conditionCheckMetadata, 0, afterWhileBlock->labelNum, labelCount, 0);
 
 	// create the scope for the while loop
-	struct LinearizationMetadata whileBodyScopeMetadata;
-	memcpy(&whileBodyScopeMetadata, &m, sizeof(struct LinearizationMetadata));
+	struct LinearizationMetadata whileBodyScopeMetadata = m;
 	whileBodyScopeMetadata.ast = m.ast->child->sibling;
 
 	struct LinearizationResult *r = linearizeScope(whileBodyScopeMetadata, m.currentBlock, labelCount, scopenesting);
@@ -1648,8 +1622,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 		{
 		case t_lCurly:
 		{
-			struct LinearizationMetadata scopeMetadata;
-			memcpy(&scopeMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata scopeMetadata = m;
 			scopeMetadata.ast = runner;
 
 			// TODO: Is throwing away the return value safe? Test with multiple arbitrary scopes in series
@@ -1659,8 +1632,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 
 		case t_asm:
 		{
-			struct LinearizationMetadata asmMetadata;
-			memcpy(&asmMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata asmMetadata = m;
 			asmMetadata.ast = runner;
 
 			m.currentTACIndex = linearizeASMBlock(asmMetadata);
@@ -1677,8 +1649,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			{
 			case t_single_equals:
 			{
-				struct LinearizationMetadata assignmentMetadata;
-				memcpy(&assignmentMetadata, &m, sizeof(struct LinearizationMetadata));
+				struct LinearizationMetadata assignmentMetadata = m;
 				assignmentMetadata.ast = runner->child;
 
 				m.currentTACIndex = linearizeAssignment(assignmentMetadata);
@@ -1693,16 +1664,14 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 
 				if (dereferenceScraper->type == t_single_equals)
 				{
-					struct LinearizationMetadata assignmentMetadata;
-					memcpy(&assignmentMetadata, &m, sizeof(struct LinearizationMetadata));
+					struct LinearizationMetadata assignmentMetadata = m;
 					assignmentMetadata.ast = dereferenceScraper;
 
 					m.currentTACIndex = linearizeAssignment(assignmentMetadata);
 				}
 				else
 				{
-					struct LinearizationMetadata declarationMetadata;
-					memcpy(&declarationMetadata, &m, sizeof(struct LinearizationMetadata));
+					struct LinearizationMetadata declarationMetadata = m;
 					declarationMetadata.ast = runner;
 
 					m.currentTACIndex = linearizeDeclaration(declarationMetadata);
@@ -1714,8 +1683,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			case t_lBracket:
 			case t_identifier:
 			{
-				struct LinearizationMetadata declarationMetadata;
-				memcpy(&declarationMetadata, &m, sizeof(struct LinearizationMetadata));
+				struct LinearizationMetadata declarationMetadata = m;
 				declarationMetadata.ast = runner;
 
 				m.currentTACIndex = linearizeDeclaration(declarationMetadata);
@@ -1731,8 +1699,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 		// if we see an assignment, generate the code and stick it on to the end of the block
 		case t_single_equals:
 		{
-			struct LinearizationMetadata assignmentMetadata;
-			memcpy(&assignmentMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata assignmentMetadata = m;
 			assignmentMetadata.ast = runner;
 
 			m.currentTACIndex = linearizeAssignment(assignmentMetadata);
@@ -1745,8 +1712,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			{
 				ErrorAndExit(ERROR_CODE, "Saw bare identifier %s - expected statement or function call\n", runner->value);
 			}
-			struct LinearizationMetadata callMetadata;
-			memcpy(&callMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata callMetadata = m;
 			callMetadata.ast = runner;
 
 			// for a raw call, return value is not used, null out that operand
@@ -1787,8 +1753,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 				returned = TempList_Get(temps, *m.tempNum);
 				returnedPermutation = vp_temp;
 
-				struct LinearizationMetadata dereferenceMetadata;
-				memcpy(&dereferenceMetadata, &m, sizeof(struct LinearizationMetadata));
+				struct LinearizationMetadata dereferenceMetadata = m;
 				dereferenceMetadata.ast = runner->child->child;
 
 				m.currentTACIndex = linearizeDereference(dereferenceMetadata);
@@ -1803,8 +1768,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 				returned = TempList_Get(temps, *m.tempNum);
 				returnedPermutation = vp_temp;
 
-				struct LinearizationMetadata expressionMetadata;
-				memcpy(&expressionMetadata, &m, sizeof(struct LinearizationMetadata));
+				struct LinearizationMetadata expressionMetadata = m;
 				expressionMetadata.ast = runner->child->child;
 
 				m.currentTACIndex = linearizeExpression(expressionMetadata);
@@ -1829,8 +1793,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			// this is the block that control will be passed to after the branch, regardless of what happens
 			struct BasicBlock *afterIfBlock = BasicBlock_new((*labelCount)++);
 
-			struct LinearizationMetadata ifMetadata;
-			memcpy(&ifMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata ifMetadata = m;
 			ifMetadata.ast = runner;
 
 			// linearize the if statement and attached else if it exists
@@ -1871,8 +1834,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 		{
 			struct BasicBlock *afterWhileBlock = BasicBlock_new((*labelCount)++);
 
-			struct LinearizationMetadata whileMetadata;
-			memcpy(&whileMetadata, &m, sizeof(struct LinearizationMetadata));
+			struct LinearizationMetadata whileMetadata = m;
 			whileMetadata.ast = runner;
 
 			struct LinearizationResult *r = linearizeWhileLoop(whileMetadata, afterWhileBlock, labelCount, scopeNesting);
