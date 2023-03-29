@@ -408,6 +408,23 @@ enum token parseRecipes[p_null][9][9][2] = {
         {{p_null, p_null}},
     },
 
+    // p_return_statement - RETURN-STATEMENT
+    {
+        // 'return' PRIMARY-EXPRESSION
+        {{t_return, above},
+         {p_primary_expression, below},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
+
+        // 'return' EXPRESSION
+        {{t_return, above},
+         {p_expression, below},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
+
+        {{p_null, p_null}},
+    },
+
     // ifs are treated a bit specially to allow stringing together of else-ifs
     // p_if_awating_else - IF-AWAITING-ELSE
     {
@@ -493,6 +510,10 @@ enum token parseRecipes[p_null][9][9][2] = {
         // FUNCTION-CALL
         {{p_function_call, above},
          {t_semicolon, cnsme},
+         {p_null, p_null}},
+
+        // RETURN-STATEMENT
+        {{p_return_statement, above},
          {p_null, p_null}},
 
         // ASM (autoparsed by scan()) '}' ';'

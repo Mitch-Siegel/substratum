@@ -29,7 +29,6 @@ fun print(uint32 value) : void
 	;
 }
 
-
 fun print2(uint32 value, uint8 otherArgument) : void
 {
 	// store r0, pull the argument into a register, then output that register
@@ -39,7 +38,6 @@ fun print2(uint32 value, uint8 otherArgument) : void
 	}
 	;
 }
-
 
 fun fib_array(uint8 upTo) : void
 {
@@ -76,3 +74,22 @@ fun fib_rec(uint8 n) : uint32
 	}
 }
 
+
+fun fib_rec(uint8 n) : uint32
+{
+	if (n > 1)
+	{
+		return (fib_rec(n - 1) + fib_rec(n - 2));
+	}
+	else
+	{
+		if (n > 0)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+}
