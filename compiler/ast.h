@@ -21,6 +21,7 @@ enum token
 	p_variable_declaration_statement,
 	p_expression_statement,
 	p_assignment_statement,
+	p_return_statement,
 	p_if_awating_else,
 	p_if_else,
 	p_if,
