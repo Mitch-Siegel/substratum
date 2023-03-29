@@ -409,9 +409,27 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 
 	switch (m.ast->type)
 	{
-	// handle recording return types from function calls here
-	// (if we got here, we must have already checked that the identifier has children - meaning it is in fact a function call)
+
 	case t_identifier:
+	{
+		struct VariableEntry *theVariable = Scope_lookupVar(m.scope, m.ast);
+		parentExpression->operands[operandIndex].name.str = theVariable->name;
+		parentExpression->operands[operandIndex].indirectionLevel = theVariable->indirectionLevel;
+		parentExpression->operands[operandIndex].permutation = vp_standard;
+		parentExpression->operands[operandIndex].type = theVariable->type;
+	}
+	break;
+
+	case t_constant:
+	{
+		parentExpression->operands[operandIndex].name.str = m.ast->value;
+		parentExpression->operands[operandIndex].indirectionLevel = 0;
+		parentExpression->operands[operandIndex].permutation = vp_standard;
+		parentExpression->operands[operandIndex].type = vt_uint32;
+	}
+	break;
+
+	case t_lParen:
 	{
 		struct LinearizationMetadata callMetadata = m;
 		callMetadata.ast = m.ast;
