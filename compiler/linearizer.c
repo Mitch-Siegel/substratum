@@ -272,7 +272,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 
 int linearizeArgumentPushes(struct LinearizationMetadata m)
 {
-	if (m.ast->sibling != NULL && m.ast->sibling->type != t_rCurly)
+	if (m.ast->sibling != NULL && m.ast->sibling->type != t_rParen)
 	{
 		struct LinearizationMetadata argumentMetadata = m;
 		argumentMetadata.ast = m.ast->sibling;
@@ -329,8 +329,23 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 	}
 	break;
 
+	case t_lBracket:
+	{
+		struct LinearizationMetadata arrayReferenceMetadata = m;
+		arrayReferenceMetadata.ast = m.ast;
+
+		m.currentTACIndex = linearizeArrayRef(arrayReferenceMetadata);
+		struct TACLine *recursiveArrayReference = m.currentBlock->TACList->tail->data;
+
+		thisArgument = newTACLine(m.currentTACIndex++, tt_push, m.ast);
+
+		// copy destination of expression to source of argument push
+		thisArgument->operands[0] = recursiveArrayReference->operands[0];
+	}
+	break;
+
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected argument node type\n");
+		ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected argument node type in linearizeArgumentPushes!\nGot type %s with content [%s], expected identifier/constant/expression\n", getTokenName(m.ast->type), m.ast->value);
 	}
 	if (thisArgument != NULL)
 		BasicBlock_append(m.currentBlock, thisArgument);
@@ -341,6 +356,8 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 // given an AST node of a function call, generate TAC to evaluate and push the arguments, then call it
 int linearizeFunctionCall(struct LinearizationMetadata m)
 {
+	printf("Linearizefunctioncall for:\n");
+	AST_Print(m.ast, 0);
 	char *operand0 = TempList_Get(temps, *m.tempNum);
 	struct FunctionEntry *calledFunction = Scope_lookupFun(m.scope, m.ast->child);
 
@@ -350,10 +367,10 @@ int linearizeFunctionCall(struct LinearizationMetadata m)
 	}
 
 	// push arguments iff they exist
-	if (m.ast->child->child != NULL)
+	if (m.ast->child->sibling != NULL)
 	{
 		struct LinearizationMetadata argumentMetadata = m;
-		argumentMetadata.ast = m.ast->child->child;
+		argumentMetadata.ast = m.ast->child->sibling;
 
 		m.currentTACIndex = linearizeArgumentPushes(argumentMetadata);
 	}
@@ -433,10 +450,10 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 
 	case t_lBracket: // array reference
 	{
-		struct LinearizationMetadata expressionMetadata = m;
-		expressionMetadata.ast = m.ast;
+		struct LinearizationMetadata arrayReferenceMetadata = m;
+		arrayReferenceMetadata.ast = m.ast;
 
-		m.currentTACIndex = linearizeArrayRef(expressionMetadata);
+		m.currentTACIndex = linearizeArrayRef(arrayReferenceMetadata);
 		struct TACLine *recursiveArrayRef = m.currentBlock->TACList->tail->data;
 
 		parentExpression->operands[operandIndex].type = recursiveArrayRef->operands[0].type;
@@ -1731,12 +1748,8 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 		}
 		break;
 
-		case t_identifier:
+		case t_lParen:
 		{
-			if (runner->child == NULL)
-			{
-				ErrorAndExit(ERROR_CODE, "Saw bare identifier %s - expected statement or function call\n", runner->value);
-			}
 			struct LinearizationMetadata callMetadata = m;
 			callMetadata.ast = runner;
 
@@ -2064,7 +2077,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 		{
 			int funTempNum = 0; // track the number of temporary variables used
 			int labelCount = 1;
-			struct FunctionEntry *theFunction = Scope_lookupFun(globalScope, runner->child);
+			struct FunctionEntry *theFunction = Scope_lookupFun(globalScope, runner->child->child);
 
 			struct BasicBlock *functionBlock = BasicBlock_new(funTempNum);
 

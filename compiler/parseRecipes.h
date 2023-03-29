@@ -182,8 +182,8 @@ enum token parseRecipes[p_null][9][9][2] = {
     // p_expression - EXPRESSION
     {
         // WIP-EXPRESSION PRIMARY-EXPRESSION
-        {{p_wip_expression, below},
-         {p_primary_expression, above},
+        {{p_wip_expression, above},
+         {p_primary_expression, below},
          {p_null, p_null}},
 
         // WIP-EXPRESSION EXPRESSION
@@ -197,7 +197,7 @@ enum token parseRecipes[p_null][9][9][2] = {
     // p_function_opener - FUNCTION-OPENER
     {
         {{t_identifier, above},
-         {t_lParen, below},
+         {t_lParen, above},
          {p_null, p_null}},
 
         {{p_null, p_null}},
@@ -409,8 +409,6 @@ enum token parseRecipes[p_null][9][9][2] = {
     },
 
     // ifs are treated a bit specially to allow stringing together of else-ifs
-    // the order of the recipes determines the predence of p_if_statement over p_if_statement_final
-
     // p_if_awating_else - IF-AWAITING-ELSE
     {
         {{p_if, above},

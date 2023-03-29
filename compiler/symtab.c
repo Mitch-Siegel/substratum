@@ -286,7 +286,7 @@ struct VariableEntry *Scope_lookupVar(struct Scope *scope, struct AST *name)
 		return lookedUp->entry;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up variable!\n");
+		ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up variable [%s]!\n", name->value);
 	}
 }
 
@@ -646,6 +646,7 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 	break;
 
 	// function call/return and asm blocks can't create new symbols so ignore
+	case t_lParen:
 	case t_asm:
 		break;
 
@@ -686,9 +687,12 @@ void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 void walkFunction(struct AST *it, struct Scope *parentScope)
 {
 	struct AST *functionRunner = it->child;
-	struct FunctionEntry *func = Scope_createFunction(parentScope, functionRunner->value);
-	functionRunner = functionRunner->sibling->sibling; // IDENTIFIER '(' optional arguments ')'
+
+	// child is the lparen, function name is the child of the lparen
+	struct FunctionEntry *func = Scope_createFunction(parentScope, functionRunner->child->value);
+	functionRunner = functionRunner->sibling; // start at argument definitions
 	func->mainScope->parentScope = parentScope;
+
 	while (functionRunner->type != t_rParen)
 	{
 		printf("Function runner is %s\n", functionRunner->value);
