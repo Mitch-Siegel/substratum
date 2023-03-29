@@ -887,7 +887,7 @@ int linearizeArrayRef(struct LinearizationMetadata m)
 			arrayRefTAC->operands[2].name.str = arrayIndexEntry->name;
 			arrayRefTAC->operands[2].permutation = vp_standard;
 			arrayRefTAC->operands[2].indirectionLevel = arrayIndexEntry->indirectionLevel;
-			arrayRefTAC->operands[2].type = arrayIndexTree->type;
+			arrayRefTAC->operands[2].type = arrayIndexEntry->type;
 		}
 		// index is some sort of subexpression, pass it along to linearizeSubExpression
 		else
@@ -1065,7 +1065,6 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		case t_plus:
 		case t_minus:
 		{
-
 			// linearize the RHS of the dereferenced arithmetic
 			struct AST *dereferencedRHS = dereferencedExpression->child->sibling;
 			switch (dereferencedRHS->type)
@@ -1202,7 +1201,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 
 		// handle the scaling value (scale by size of array element)
 		finalAssignment->operands[2].indirectionLevel = 0;
-		finalAssignment->operands[2].permutation = vp_temp;
+		finalAssignment->operands[2].permutation = vp_literal;
 		finalAssignment->operands[2].type = vt_uint8;
 		finalAssignment->operands[2].name.val = Scope_getSizeOfVariable(m.scope, LHS->child);
 
