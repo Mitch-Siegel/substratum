@@ -1,92 +1,103 @@
 #include "parser.h"
+#include "parseRecipes.h"
 
 FILE *inFile;
 char buffer[BUF_SIZE];
 int buflen;
 int curLine, curCol;
-char inChar;
 char *token_names[] = {
-	"asm",
-	"uint8",
-	"uint16",
-	"uint32",
-	"fun",
-	"return",
-	"if",
-	"else",
-	"while",
-	"do",
-	"name",
-	"literal",
-	"binary add",
-	"binary sub",
-	"binary less than",
-	"binary greater than",
-	"binary less than or equal",
-	"binary greater than or equal",
-	"binary equals",
-	"binary not equals",
-	"binary logical and",
-	"binary logical or",
-	"unary logical not",
-	"unary add and assign",
-	"unary sub and assign"
-	"reference operator",
-	"dereference operator",
-	"assignment",
-	"comma",
-	"semicolon",
-	"l paren",
-	"r paren",
-	"l curly",
-	"r curly",
-	"l bracket",
-	"r bracket",
-	"array",
-	"call",
-	"scope",
-	"EOF"};
+	"p_type_name",
+	"p_primary_expression",
+	"p_wip_array_access",
+	"p_unary_operator",
+	"p_unary_expression",
+	"p_expression_operator",
+	"p_wip_expression",
+	"p_expression",
+	"p_function_opener",
+	"p_function_call",
+	"p_expression_list",
+	"p_wip_array_declaration",
+	"p_variable_declaration",
+	"p_declaration_list",
+	"p_variable_declaration_statement",
+	"p_expression_statement",
+	"p_assignment_statement",
+	"p_if_awating_else",
+	"p_if_else",
+	"p_if",
+	"p_statement",
+	"p_statement_list",
+	"p_while",
+	"p_scope",
+	"p_function_definition",
+	"p_translation_unit",
+	"p_null",
+	// begin tokens
+	"t_identifier",
+	"t_constant",
+	"t_string_literal",
+	// t_sizeof,
+	"t_asm",
+	// types
+	"t_void",
+	"t_uint8",
+	"t_uint16",
+	"t_uint32",
+	// function
+	"t_fun",
+	"t_return",
+	// control flow
+	"t_if",
+	"t_else",
+	"t_while",
+	"t_for",
+	"t_do",
+	// arithmetic operators
+	// basic arithmetic
+	"t_plus",
+	"t_minus",
+	// comparison operators
+	"t_lThan",
+	"t_gThan",
+	// logical operators
+	"t_and",
+	"t_or",
+	"t_not",
+	// bitwise operators
+	"t_bit_not",
+	"t_xor",
+	// ternary
+	"t_ternary",
+	// arithmetic-assign operators
+	// unary operators
+	"t_reference",
+	"t_star",
+	// assignment
+	"t_single_equals",
+	//
+	"t_comma",
+	"t_dot",
+	"t_pointer_op",
+	"t_semicolon",
+	"t_colon",
+	"t_lParen",
+	"t_rParen",
+	"t_lCurly",
+	"t_rCurly",
+	"t_lBracket",
+	"t_rBracket",
+	"t_EOF"};
 
-// #define VERBOSE_PARSE
-#ifdef VERBOSE_PARSE
-int parseDepth = 0;
-
-#define PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE(string) \
-	for (int i = 0; i < parseDepth; i++)              \
-	{                                                 \
-		printf("\t");                                 \
-	}                                                 \
-	parseDepth++;                                     \
-	printf(string)
-
-#define PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE() parseDepth--
-
-#define PRINT_MATCH_IF_VERBOSE(token, value) \
-	for (int i = 0; i < parseDepth; i++)     \
-	{                                        \
-		printf("\t");                        \
-	}                                        \
-	printf("Matched %s: [%s]\n", token_names[token], value)
-#else
-#define PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE(string)
-#define PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE()
-#define PRINT_MATCH_IF_VERBOSE(token, value)
-#endif
-
-#define ParserError(production, info)                                                 \
-	{                                                                                 \
-		printf("Error while parsing %s\n", production);                               \
-		printf("Error at line %d, col %d\n", curLine, curCol);                        \
-		printf("%s\n", info);                                                         \
-		ErrorAndExit(ERROR_CODE, "Parse buffer when error occurred: [%s]\n", buffer); \
-	}
+#define RECIPE_INGREDIENT(production, permutation, index) parseRecipes[production][permutation][index][0]
+#define RECIPE_INSTRUCTION(production, permutation, index) parseRecipes[production][permutation][index][1]
 
 // return the char 'count' characters ahead
 // count must be >0, returns null char otherwise
-char lookahead_char_dumb(int count)
+int lookahead_char_dumb(int count)
 {
 	long offset = ftell(inFile);
-	char returnChar = '\0';
+	int returnChar = '\0';
 	for (int i = 0; i < count; i++)
 	{
 		returnChar = fgetc(inFile);
@@ -102,6 +113,9 @@ void trimWhitespace(char trackPos)
 	{
 		switch (lookahead_char_dumb(1))
 		{
+		case EOF:
+			return;
+
 		case '\n':
 			if (trackPos)
 			{
@@ -111,7 +125,6 @@ void trimWhitespace(char trackPos)
 			fgetc(inFile);
 			break;
 
-		case -1:
 		case '\0':
 		case ' ':
 		case '\t':
@@ -156,8 +169,9 @@ void trimWhitespace(char trackPos)
 						// disallow nesting of block comments
 					case '/':
 						if (lookahead_char_dumb(1) == '*')
-							ParserError("comment", "Error - nested block comments not allowed");
-
+						{
+							ErrorAndExit(ERROR_INVOCATION, "Error parsing comment - nested block comments are not allowed!\n");
+						}
 						break;
 
 						// otherwise just track position in the file if necessary
@@ -179,6 +193,7 @@ void trimWhitespace(char trackPos)
 				}
 				// catch the trailing slash of the comment closer
 				fgetc(inFile);
+				curCol++;
 				break;
 			}
 
@@ -191,88 +206,80 @@ void trimWhitespace(char trackPos)
 	}
 }
 
-char lookahead_char()
+int lookahead_char()
 {
 	trimWhitespace(1);
 	char r = lookahead_char_dumb(1);
 	return r;
 }
 
-#define RESERVED_COUNT 34
+#define RESERVED_COUNT 35
 
-char *reserved[RESERVED_COUNT] = {
-	"asm",	  // t_asm,
-	"uint8",  // 	t_uint8,
-	"uint16", // 	t_uint16,
-	"uint32", // 	t_uint32,
-	"fun",	  // 	t_fun,
-	"return", // 	t_return,
-	"if",	  // 	t_if,
-	"else",	  // 	t_else,
-	"while",  // 	t_while,
-	",",	  // 	t_comma,
-	"(",	  // 	t_lParen,
-	")",	  // 	t_rParen,
-	"{",	  // 	t_lCurly,
-	"}",	  // 	t_rCurly,
-	"[",	  // 	t_lBracket,
-	"]",	  // 	t_rBracket,
-	";",	  // 	t_semicolon,
-	"=",	  // 	t_assign,
-	"+",	  // 	t_bin_add,
-	"+=",	  // 	t_un_add_assign,
-	"-",	  // 	t_bin_sub,
-	"-=",	  // 	t_un_sub_assign,
-	"*",	  // 	t_dereference,
-	"&",	  // 	t_reference,
-	">",	  // 	t_bin_gThan,
-	"<",	  // 	t_bin_lThan,
-	">=",	  // 	t_bin_gThanE,
-	"<=",	  // 	t_bin_lThanE,
-	"==",	  // 	t_bin_equals,
-	"!=",	  // 	t_bin_notEquals,
-	"&&",	  // 	t_bin_log_and,
-	"||",	  // 	t_bin_log_or,
-	"!",	  // 	t_un_log_not,
-	"$$"};	  // 	t_EOF
+struct ReservedToken
+{
+	const char *string;
+	enum token token;
+};
 
-enum token reserved_tokens[RESERVED_COUNT] = {
-	t_asm,
-	t_uint8,
-	t_uint16,
-	t_uint32,
-	t_fun,
-	t_return,
-	t_if,
-	t_else,
-	t_while,
-	t_comma,
-	t_lParen,
-	t_rParen,
-	t_lCurly,
-	t_rCurly,
-	t_lBracket,
-	t_rBracket,
-	t_semicolon,
-	t_assign,
-	t_bin_add,
-	t_un_add_assign,
-	t_bin_sub,
-	t_un_sub_assign,
-	t_dereference,
-	t_reference,
-	t_bin_gThan,
-	t_bin_lThan,
-	t_bin_gThanE,
-	t_bin_lThanE,
-	t_bin_equals,
-	t_bin_notEquals,
-	t_bin_log_and,
-	t_bin_log_or,
-	t_un_log_not,
-	t_EOF};
+struct ReservedToken reserved[RESERVED_COUNT] = {
+	// {"", 	t_identifier,}, //	t_identifier,
+	// {"", 	t_constant,}, //t_constant,
+	// {"", 	t_string_literal,}, //t_string_literal,
+	// t_sizeof,}, //// t_sizeof,
+	{"asm", t_asm},		  // t_asm,
+						  // types
+	{"void", t_void},	  // t_void,
+	{"uint8", t_uint8},	  // t_uint8,
+	{"uint16", t_uint16}, // t_uint16,
+	{"uint32", t_uint32}, // t_uint32,
+						  // function
+	{"fun", t_fun},		  // t_fun,
+	{"return", t_return}, // t_return,
+	// control flow
+	{"if", t_if},			// t_if,
+	{"else", t_else},		// t_else,
+	{"while", t_while},		// t_while,
+	{"for", t_for},			// t_for,
+							// {"", 	t_do,}, //t_do,
+							// arithmetic operators
+							// basic arithmetic
+	{"+", t_plus},			// t_plus,
+	{"-", t_minus},			// t_minus,
+							// comparison operators
+	{"<", t_lThan},			// t_lThan,
+	{">", t_gThan},			// t_gThan,
+							// logical operators
+	{"&", t_and},			// t_and,
+	{"|", t_or},			// t_or,
+	{"!", t_not},			// t_not,
+							// bitwise operators}, //// bitwise operators
+	{"~", t_bit_not},		// t_bit_not,
+	{"^", t_xor},			// t_xor,
+							// ternary
+	{"?", t_ternary},		// t_ternary,
+							// arithmetic-assign operators}, //// arithmetic-assign operators
+							// unary operators
+	{"&", t_reference},		// t_reference,
+	{"*", t_star},			// t_star,
+							// assignment
+	{"=", t_single_equals}, // t_single_equals,
+							// semantics
+	{",", t_comma},			// t_comma,
+	{".", t_dot},			// t_dot,
+	{"->", t_pointer_op},	// t_pointer_op,
+	{";", t_semicolon},		// t_semicolon,
+	{":", t_colon},			// t_colon,
+	{"(", t_lParen},		// t_lParen,
+	{")", t_rParen},		// t_rParen,
+	{"{", t_lCurly},		// t_lCurly,
+	{"}", t_rCurly},		// t_rCurly,
+	{"[", t_lBracket},		// t_lBracket,
+	{"]", t_rBracket},		// t_rBracket,
+							// {"", 	t_EOF}, //t_EOF
+};
 
-enum token scan(char trackPos)
+enum token
+scan(char trackPos)
 {
 	buflen = 0;
 	// check if we're looking at whitespace - are we?
@@ -281,10 +288,23 @@ enum token scan(char trackPos)
 		return t_EOF;
 
 	enum token currentToken = -1;
+	int inChar;
 
 	while (1)
 	{
 		inChar = fgetc(inFile);
+		if (inChar == EOF)
+		{
+			if (buflen > 0)
+			{
+				buflen = 0;
+				return currentToken;
+			}
+			else
+			{
+				return t_EOF;
+			}
+		}
 		if (trackPos)
 			curCol++;
 
@@ -297,25 +317,9 @@ enum token scan(char trackPos)
 		for (int i = 0; i < RESERVED_COUNT; i++)
 		{
 			// if we match a reserved keyword
-			if (!strcmp(buffer, reserved[i]))
+			if (!strcmp(buffer, reserved[i].string))
 			{
-				// allow catching both '<', '>', '=', and '<=', '>=', '=='
-				if (buffer[0] == '<' || buffer[0] == '>' || buffer[0] == '=' || buffer[0] == '!' || buffer[0] == '+' || buffer[0] == '-')
-				{
-					if (lookahead_char() != '=')
-						return reserved_tokens[i];
-				}
-				else if ((buffer[0] == '&') && (buflen == 1))
-				{
-					if (lookahead_char() == '&')
-					{
-						continue;
-					}
-				}
-				else
-				{
-					return reserved_tokens[i]; // return its token
-				}
+				return reserved[i].token;
 			}
 		}
 
@@ -324,21 +328,25 @@ enum token scan(char trackPos)
 		{
 			// determine literal or name based on what we started with
 			if (isdigit(inChar))
-				currentToken = t_literal;
+				currentToken = t_constant;
 			else if (isalpha(inChar))
-				currentToken = t_name;
+				currentToken = t_identifier;
 		}
 		else
 		{
 			// simple error checking for letters in literals
-			if (currentToken == t_literal && isalpha(inChar))
-				ParserError("literal", "Error - alphabetical character in literal!");
+			if (currentToken == t_constant && isalpha(inChar))
+			{
+				ErrorAndExit(ERROR_INTERNAL, "Error parsing literal - alphabetical character detected!\n");
+			}
 		}
 
 		// if the next input char is whitespace or a single-character token, we're done with this token
 		switch (lookahead_char_dumb(1))
 		{
 		case ' ':
+		case '\n':
+		case '\t':
 		case ',':
 		case '(':
 		case ')':
@@ -347,8 +355,6 @@ enum token scan(char trackPos)
 		case '[':
 		case ']':
 		case ';':
-		case '\n':
-		case '\t':
 		case '+':
 		case '-':
 		case '*':
@@ -371,19 +377,20 @@ enum token lookahead()
 // error-checked method to consume and return AST node of expected token
 struct AST *match(enum token t, struct Dictionary *dict)
 {
+	trimWhitespace(1);
 	int line = curLine;
 	int col = curCol;
 	enum token result = scan(1);
+
 	if (result != t)
 	{
 		printf("Expected token %s, got %s\n", token_names[t], token_names[result]);
-		ParserError("match", "Error matching a token!");
+		ErrorAndExit(ERROR_INTERNAL, "Error matching token!\t");
 	}
 
 	struct AST *matched = AST_New(result, Dictionary_LookupOrInsert(dict, buffer));
 	matched->sourceLine = line;
 	matched->sourceCol = col;
-	PRINT_MATCH_IF_VERBOSE(matched->type, matched->value);
 	return matched;
 }
 
@@ -394,7 +401,7 @@ void consume(enum token t)
 	if (result != t)
 	{
 		printf("Expected token %s, got %s\n", token_names[t], token_names[result]);
-		ParserError("consume", "Error consuming a token!");
+		ErrorAndExit(ERROR_INTERNAL, "Error consuming token!\t");
 	}
 }
 
@@ -403,736 +410,665 @@ char *getTokenName(enum token t)
 	return token_names[t];
 }
 
+struct InProgressProduction
+{
+	enum token production;
+	struct AST *tree;
+};
+
+struct InProgressProduction *InProgressProduction_New(enum token production, struct AST *tree)
+{
+	struct InProgressProduction *wip = malloc(sizeof(struct InProgressProduction));
+	wip->production = production;
+	wip->tree = tree;
+	return wip;
+}
+
+void printPossibleProduction(struct Stack *left, struct Stack *right)
+{
+	printf("\t");
+	for (int i = 0; i < left->size; i++)
+	{
+		char *thisProductionName = getTokenName(((enum token)left->data[i]));
+		printf("%s ", thisProductionName);
+	}
+	for (int i = right->size; i-- > 0;)
+	{
+		char *thisProductionName = getTokenName((enum token)right->data[i]);
+		printf("%s ", thisProductionName);
+	}
+	printf("\n");
+}
+
+int nValidProductions = 0;
+void enumeratePossibleProductionsRecursive(struct Stack *leftStack, struct Stack *rightStack, int depth)
+{
+
+	int nTerminalsAtEnd;
+	for (nTerminalsAtEnd = 0; nTerminalsAtEnd < leftStack->size; nTerminalsAtEnd++)
+	{
+		if ((enum token)leftStack->data[(leftStack->size - 1) - nTerminalsAtEnd] < p_null)
+		{
+			break;
+		}
+	}
+
+	if (nTerminalsAtEnd == leftStack->size)
+	{
+		nValidProductions++;
+		printPossibleProduction(leftStack, rightStack);
+	}
+	else
+	{
+		if ((depth > 25) || (nValidProductions > 99))
+		{
+			return;
+		}
+
+		for (int i = 0; i < nTerminalsAtEnd; i++)
+		{
+			Stack_Push(rightStack, Stack_Pop(leftStack));
+		}
+		enum token productionToExpand = (enum token)Stack_Pop(leftStack);
+		for (int qi = 0; RECIPE_INGREDIENT(productionToExpand, qi, 0) != p_null; qi++)
+		{
+
+			int expectedleftStackSize = leftStack->size;
+			int expectedrightStackSize = rightStack->size;
+			enum token addedIngredient;
+			for (int ti = 0; (addedIngredient = RECIPE_INGREDIENT(productionToExpand, qi, ti)) != p_null; ti++)
+			{
+				Stack_Push(leftStack, (void *)addedIngredient);
+			}
+			enumeratePossibleProductionsRecursive(leftStack, rightStack, depth + 1);
+
+			while (leftStack->size > expectedleftStackSize)
+			{
+				Stack_Pop(leftStack);
+			}
+
+			while (rightStack->size > expectedrightStackSize)
+			{
+				Stack_Pop(rightStack);
+			}
+		}
+	}
+}
+
+void enumeratePossibleProductions()
+{
+	struct Stack *leftStack = Stack_New();
+	struct Stack *rightStack = Stack_New();
+	for (size_t i = 0; i < p_null; i++)
+	{
+		Stack_Push(leftStack, (void *)i);
+		printf("Some possible productions for: %s\n", getTokenName(i));
+		nValidProductions = 0;
+		enumeratePossibleProductionsRecursive(leftStack, rightStack, 0);
+		printf("\n\n");
+		while (leftStack->size > 0)
+		{
+			Stack_Pop(leftStack);
+		}
+		while (rightStack->size > 0)
+		{
+			Stack_Pop(rightStack);
+		}
+	}
+	Stack_Free(leftStack);
+	Stack_Free(rightStack);
+}
+
+void printParseStack(struct Stack *parseStack)
+{
+	printf("Parse Stack:\n");
+	for (int i = 0; i < parseStack->size; i++)
+	{
+		printf("%2d: ", i);
+		struct InProgressProduction *thisProduction = (struct InProgressProduction *)parseStack->data[i];
+		if (thisProduction->tree == NULL)
+		{
+			printf("No line/col info available for: ");
+		}
+		else
+		{
+			printf("Line %3d:%-3d: %10s\t", thisProduction->tree->sourceLine, thisProduction->tree->sourceCol, thisProduction->tree->value);
+		}
+
+		printf("%s ", getTokenName(thisProduction->production));
+
+		if (thisProduction->production == p_null)
+		{
+			ErrorAndExit(ERROR_INTERNAL, "null production in parse stack!\n");
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+
+enum token foundReduction[2] = {p_null, 0};
+// arguments: a parse stack and whether or not there is more input
+// returns: pointer to InProgressProduction for lookahead token from the top of the stack, not included in the found production
+// 			or NULL if no token popped
+struct InProgressProduction *findReduction(struct Stack *parseStack, char isRemainingInput)
+{
+	struct InProgressProduction *poppedLookahead = NULL;
+
+	// skip over any productions of length 1 if we have a token on top of the stack (lookahead)
+	char disallowTrivialProductions = 0;
+	if (parseStack->size > 0 && isRemainingInput)
+	{
+		struct InProgressProduction *topOfStack = (struct InProgressProduction *)Stack_Peek(parseStack);
+		if (topOfStack->production > p_null)
+		{
+			disallowTrivialProductions = 1;
+		}
+	}
+
+	foundReduction[0] = p_null;
+	foundReduction[1] = -1;
+
+	// loop at most 2 times
+	for (int i = 0; i < 2; i++)
+	{
+		// search greedily (in order of recipe enumeration) for longest possible production
+		for (int startIndex = 0; startIndex < parseStack->size; startIndex++)
+		{
+			// iterate all possible productions
+			for (int pi = 0; pi < p_null; pi++)
+			{
+				// iterate all permutations of each production
+				for (int qi = 0; (RECIPE_INGREDIENT(pi, qi, 0) != p_null); qi++)
+				{
+					// calculate the size of this production
+					int thisProductionSize = 0;
+					for (thisProductionSize = 0; RECIPE_INGREDIENT(pi, qi, thisProductionSize) != p_null; thisProductionSize++)
+						;
+					// thisProductionSize++;
+
+					if ((startIndex + thisProductionSize) != parseStack->size)
+					{
+						// printf("\tSkip %s:%d\n", getTokenName(pi), qi);
+						continue;
+					}
+
+					if (disallowTrivialProductions && thisProductionSize == 1)
+					{
+						continue;
+					}
+
+					// printf("\tTrying %s:%d (size of %d, start from index %d)\n", getTokenName(pi), qi, thisProductionSize, startIndex);
+					int ti;
+					enum token examinedIngredient;
+					for (ti = 0; ((examinedIngredient = RECIPE_INGREDIENT(pi, qi, ti)) != p_null) && (startIndex + ti < parseStack->size); ti++)
+					{
+						struct InProgressProduction *examinedExistingProduction = (struct InProgressProduction *)parseStack->data[startIndex + ti];
+						// printf("\t\t%s == %s?:\t", getTokenName(examinedExistingProduction->production), getTokenName(examinedIngredient));
+						if (examinedIngredient != examinedExistingProduction->production)
+						{
+							// printf("NO - moving on to next recipe\n\n");
+							break;
+						}
+						else
+						{
+							// printf("YES\n");
+						}
+					}
+
+					// ensure we got to the end of the production
+					if (ti == thisProductionSize && (startIndex + ti == parseStack->size))
+					{
+						// printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
+						foundReduction[0] = pi;
+						foundReduction[1] = qi;
+						return poppedLookahead;
+					}
+				}
+			}
+		}
+
+		if (poppedLookahead == NULL)
+		{
+			if (parseStack->size > 0)
+			{
+				struct InProgressProduction *topOfStack = (struct InProgressProduction *)Stack_Peek(parseStack);
+				if (topOfStack->production > p_null)
+				{
+					poppedLookahead = Stack_Pop(parseStack);
+					disallowTrivialProductions = 0;
+				}
+				else
+				{
+					return NULL;
+				}
+			}
+			else
+			{
+				return NULL;
+			}
+		}
+		else
+		{
+			Stack_Push(parseStack, poppedLookahead);
+			return NULL;
+		}
+	}
+	ErrorAndExit(ERROR_INTERNAL, "Bad condition led to exit of lookahead loop in findReduction()");
+}
+
+struct AST *performRecipeInstruction(struct AST *existingTree, struct AST *ingredientTree, enum RecipeInstructions instruction)
+{
+	// if no current tree and we don't want to consume the ingredient, the ingredient becomes the tree
+	if (existingTree == NULL && instruction != cnsme)
+	{
+		return ingredientTree;
+	}
+
+	switch (instruction)
+	{
+		// insert as of current node, current node becomes the inserted one
+	case above:
+		AST_InsertChild(ingredientTree, existingTree);
+		return ingredientTree;
+
+		// insert as child of current node, current node stays the same
+	case below:
+		AST_InsertChild(existingTree, ingredientTree);
+		return existingTree;
+
+		// insert as sibling of current node, current node stays the same
+	case besid:
+		AST_InsertSibling(existingTree, ingredientTree);
+		return existingTree;
+
+	case cnsme:
+		free(ingredientTree);
+		return existingTree;
+	}
+
+	ErrorAndExit(ERROR_INTERNAL, "Fell through switch on instruction type in performRecipeInstruction\n");
+}
+
+void reduce(struct Stack *parseStack)
+{
+	int productionSize = 0;
+	while (RECIPE_INGREDIENT(foundReduction[0], foundReduction[1], productionSize) != p_null)
+	{
+		productionSize++;
+	}
+	// printf("Reduce %s:%d - %d ingredients\n", getTokenName(foundReduction[0]), foundReduction[1], productionSize);
+	struct InProgressProduction **ingredients = malloc(productionSize * sizeof(struct InProgressProduction *));
+
+	// grab (in order) the ingredients we will use, copy them to an array here
+	for (int i = 0; i < productionSize; i++)
+	{
+		ingredients[i] = parseStack->data[parseStack->size - (productionSize - i)];
+	}
+
+	// take the ingredients off the stack
+	for (int i = 0; i < productionSize; i++)
+	{
+		Stack_Pop(parseStack);
+	}
+
+	// construct the tree for this production
+	struct InProgressProduction *produced = InProgressProduction_New(foundReduction[0], NULL);
+	for (int i = 0; i < productionSize; i++)
+	{
+		produced->tree = performRecipeInstruction(produced->tree, ingredients[i]->tree, RECIPE_INSTRUCTION(foundReduction[0], foundReduction[1], i));
+		free(ingredients[i]);
+	}
+
+	free(ingredients);
+	Stack_Push(parseStack, produced);
+}
+
+char *ExpandSourceFromAST(struct AST *tree, char *parentString)
+{
+	if (tree->child != NULL)
+	{
+		char *printed = NULL;
+
+		int startLHSLen = strlen(tree->child->value);
+		char *LHS = malloc(strlen(tree->child->value) + 2);
+		strcpy(LHS, tree->child->value);
+		LHS[startLHSLen] = ' ';
+		LHS[startLHSLen + 1] = '\0';
+		LHS = ExpandSourceFromAST(tree->child, LHS);
+
+		printed = strAppend(LHS, parentString);
+		// printf("Before siblings: [%s]\n", printed);
+
+		for (struct AST *siblingRunner = tree->child->sibling; siblingRunner != NULL; siblingRunner = siblingRunner->sibling)
+		{
+			char *siblingString = malloc(strlen(siblingRunner->value) + 1);
+			strcpy(siblingString, siblingRunner->value);
+			// printf("Put in [%s]\n", siblingString);
+			siblingString = ExpandSourceFromAST(siblingRunner, siblingString);
+			// printf("Get out [%s]\n", siblingString);
+
+			printed = strAppend(printed, siblingString);
+		}
+		// printf("Return %s\n", printed);
+
+		return printed;
+	}
+	else
+	{
+		return parentString;
+	}
+}
+
+void TableParseError(struct Stack *parseStack)
+{
+	printParseStack(parseStack);
+
+	struct InProgressProduction *firstIPP = (struct InProgressProduction *)Stack_Peek(parseStack);
+	printf("Error at or near line %d, col %d:\nSource code looks approximately like:\n\t", firstIPP->tree->sourceLine, firstIPP->tree->sourceCol);
+
+	char *printedSource = malloc(1);
+	printedSource[0] = '\0';
+
+	int currentSourceLine = firstIPP->tree->sourceLine;
+
+	// spit out everything on the line it looks like the error occurred at
+	// plus any contiguous tokens before that point, followed by at most 1 production if there is one
+	// i > 0 so we never attempt to expand the big translation unit at the bottom of the stack
+	for (int i = parseStack->size - 1; i > 0; i--)
+	{
+		struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[i];
+		int valueLength = strlen(examinedIPP->tree->value);
+		char *parentStr = malloc(valueLength + 2);
+
+		if (examinedIPP->tree->sourceLine != currentSourceLine)
+		{
+			strcpy(parentStr, examinedIPP->tree->value);
+			parentStr[valueLength] = '\n';
+			parentStr[valueLength + 1] = '\0';
+		}
+		else
+		{
+			strcpy(parentStr + 1, examinedIPP->tree->value);
+			parentStr[0] = ' ';
+		}
+		currentSourceLine = examinedIPP->tree->sourceLine;
+
+		printedSource = strAppend(ExpandSourceFromAST(examinedIPP->tree, parentStr), printedSource);
+
+		// if we are no longer on the line the error appears to have occurred on, and we just expaneded a production rather than a production, we are done
+		if ((examinedIPP->tree->sourceLine < firstIPP->tree->sourceLine) && (examinedIPP->production < p_null))
+		{
+			break;
+		}
+	}
+
+	int printedLen = strlen(printedSource);
+	char justPrintedNL = 0;
+	for (int i = 0; i < printedLen; i++)
+	{
+		if (printedSource[i] == '\n')
+		{
+			justPrintedNL = 1;
+			printf("\n\t");
+		}
+		else
+		{
+			// skip any space which immediately follows a newline
+			if (!(justPrintedNL && printedSource[i] == ' '))
+			{
+				putchar(printedSource[i]);
+			}
+			justPrintedNL = 0;
+		}
+	}
+	printf("\n\n");
+	free(printedSource);
+	ErrorAndExit(ERROR_INVOCATION, "Fix your program!\t");
+}
+
+// compare each subsection of the stack to all possible recipes to see if any production exists
+// return silently if good, call TableParseError if error detected
+void ValidateParseStack(struct Stack *parseStack)
+{
+	int nLoops = 0;
+	// printf("Validating parse stack:\n");
+
+	char valid = 1;
+	// look through stack starting from every possible index
+	// every starting index in the stack must also be the start of some contiguous part of a possible production
+	for (int startIndex = parseStack->size - 1; (startIndex > 0) && valid; startIndex--)
+	{
+		// only examine starting indices which are tokens, not productions
+		// since productions have already been generated from tokens we can assume they're valid
+		// (and will only ever be used in other valid productions)
+		struct InProgressProduction *examinedIndex = (struct InProgressProduction *)parseStack->data[startIndex];
+		if (examinedIndex->production < p_null)
+		{
+			continue;
+		}
+
+		char validThisIndex = 0;
+		// for all possible productions
+		for (int pi = 0; pi < p_null; pi++)
+		{
+			// for all permutations per production
+			for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++)
+			{
+				// for every possible offset within the production
+				for (int ingredientOffset = 0; RECIPE_INGREDIENT(pi, qi, ingredientOffset) != p_null; ingredientOffset++)
+				{
+					// char validThisOffset = 1;
+					int ti;
+					// drive ti over the range from offset -> either: 1. out of ingredients (complete and valid production) 2. at top of stack (part of a valid production but not all)
+					for (ti = ingredientOffset; (ti < (parseStack->size - startIndex)) && (RECIPE_INGREDIENT(pi, qi, ti) != p_null); ti++)
+					{
+						nLoops++;
+						struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[startIndex + ti];
+						if (examinedIPP->production != RECIPE_INGREDIENT(pi, qi, ti))
+						{
+							// validThisOffset = 0;
+							break;
+						}
+					}
+					if ((startIndex + ti + 1 == parseStack->size) || (RECIPE_INGREDIENT(pi, qi, ti) == p_null))
+					{
+						validThisIndex = 1;
+						break;
+					}
+				}
+				if (validThisIndex)
+				{
+					break;
+				}
+			}
+		}
+		valid &= validThisIndex;
+	}
+
+	// printf("Validation completed %d comparisons - good?:%d\n", nLoops, valid);
+	if (!valid)
+	{
+		TableParseError(parseStack);
+	}
+}
+
+struct AST *TableParse(struct Dictionary *dict)
+{
+	// number of shifts since the last reduction
+	int nShifts = 0;
+	int lastParseStackSize = 0;
+
+	int maxConsecutiveTokens = 0;
+	// scan recipes to figure out the greatest number of consecutive tokens we can have on the stack (to catch errors)
+	// iterate all recipe sets
+	for (int pi = 0; pi < p_null; pi++)
+	{
+		// iterate each recipe within the set (last recipe is just a singe null production)
+		for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++)
+		{
+			int nConsecutiveTerminals = 0;
+			for (int ti = 0; RECIPE_INGREDIENT(pi, qi, ti) != p_null; ti++)
+			{
+				if (RECIPE_INGREDIENT(pi, qi, ti) < p_null)
+				{
+					nConsecutiveTerminals = 0;
+				}
+				else
+				{
+					nConsecutiveTerminals++;
+					if (nConsecutiveTerminals > maxConsecutiveTokens)
+					{
+						maxConsecutiveTokens = nConsecutiveTerminals;
+					}
+				}
+			}
+		}
+	}
+
+	struct Stack *parseStack = Stack_New();
+	char parsing = 1;
+	char haveMoreInput = 1;
+	while (parsing)
+	{
+
+		char forceShift = 0;
+		// no errors, actually try to reduce or shift in a new token
+		if (parseStack->size > 0)
+		{
+			struct InProgressProduction *topOfStack = (struct InProgressProduction *)Stack_Peek(parseStack);
+			if (topOfStack->production < p_null && haveMoreInput)
+			{
+				forceShift = 1;
+			}
+		}
+
+		switch (forceShift)
+		{
+			// not being forced to shift in a lookahead token
+		case 0:
+		{
+
+			// keep track of the lookahead production - findReduction will pop and return it if it's not used in the current reduce operation
+			struct InProgressProduction *lookaheadProduction = NULL;
+
+			// try to find a reduction (potentially return one token from the top of the stack if it is obstructing a reduction underneath it)
+			lookaheadProduction = findReduction(parseStack, haveMoreInput);
+
+			// if we found a reduction
+			if (foundReduction[0] != p_null)
+			{
+				// do the reduction
+				reduce(parseStack);
+
+				// as long as we have some unused lookahead token, try to use it
+				while (lookaheadProduction != NULL)
+				{
+					Stack_Push(parseStack, lookaheadProduction);
+					lookaheadProduction = findReduction(parseStack, 1);
+					if (foundReduction[0] == p_null)
+					{
+						break;
+					}
+					reduce(parseStack);
+				}
+
+				if (lookaheadProduction != NULL)
+				{
+					Stack_Push(parseStack, lookaheadProduction);
+				}
+
+				// printf("Found reduction %s:%d\n", getTokenName(foundReduction[0]), foundReduction[1]);
+				// assumeMoreInput = 0;
+				// }
+				if (lookaheadProduction != NULL)
+				{
+					Stack_Push(parseStack, lookaheadProduction);
+				}
+				break;
+			}
+			// didn't find a reduction
+			else
+			{
+				// if we already hit EOF, we are done
+				if (!haveMoreInput)
+				{
+					parsing = 0;
+					break;
+				}
+			}
+		}
+		// no reduction found, fall through to shift
+
+		// do a shift
+		case 1:
+		{
+			// check for errors
+			// ValidateParseStack(parseStack);
+
+			enum token lookaheadToken = lookahead();
+			struct AST *nextToken = NULL;
+			if (lookaheadToken == t_EOF)
+			{
+				haveMoreInput = 0;
+				break;
+			}
+			else if (lookaheadToken == t_asm)
+			{
+				nextToken = match(lookaheadToken, dict);
+				consume(t_lCurly);
+				while ((lookaheadToken = lookahead()) != t_rCurly)
+				{
+					buflen = 0;
+					while ((buffer[buflen++] = fgetc(inFile)) != '\n')
+						;
+					curLine++;
+					curCol = 0;
+					buffer[buflen - 1] = '\0';
+					AST_InsertChild(nextToken, AST_New(t_asm, Dictionary_LookupOrInsert(dict, buffer)));
+				}
+			}
+			else
+			{
+				nextToken = match(lookaheadToken, dict);
+			}
+			// printf("\tShift token [%s] with type %s\n", nextToken->value, getTokenName(nextToken->type));
+			Stack_Push(parseStack, InProgressProduction_New(nextToken->type, nextToken));
+			nShifts++;
+		}
+		break;
+		}
+		printParseStack(parseStack);
+
+		if (parseStack->size < lastParseStackSize)
+		{
+			nShifts = 0;
+		}
+		else
+		{
+			// if (nShifts > (maxConsecutiveTokens * 2))
+			// {
+			// TableParseError(parseStack);
+			// }
+		}
+		lastParseStackSize = parseStack->size;
+	}
+
+	if (parseStack->size > 1 || parseStack->size == 0)
+	{
+		printParseStack(parseStack);
+		ErrorAndExit(ERROR_INTERNAL, "Something bad happened during parsing - parse stack dump above\t");
+	}
+	return ((struct InProgressProduction *)Stack_Pop(parseStack))->tree;
+}
+
 struct AST *ParseProgram(char *inFileName, struct Dictionary *dict)
 {
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseProgram\n");
-
 	curLine = 1;
 	curCol = 1;
 	inFile = fopen(inFileName, "rb");
-	struct AST *program = parseTLDList(dict);
+	// enumeratePossibleProductions();
+	struct AST *program = TableParse(dict);
 	fclose(inFile);
 
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
 	return program;
-}
-
-struct AST *parseTLDList(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseTLDList\n");
-
-	struct AST *TLDList = parseTLD(dict);
-	while (1)
-	{
-		if (lookahead() == t_EOF)
-			break;
-
-		AST_InsertSibling(TLDList, parseTLD(dict));
-	}
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return TLDList;
-}
-
-struct AST *parseTLD(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseTLD\n");
-
-	struct AST *TLD;
-	enum token nextToken;
-	switch ((nextToken = lookahead()))
-	{
-	case t_asm:
-		TLD = parseASM(dict);
-		break;
-
-	// fun [function name]({[argument list]})
-	case t_fun:
-		TLD = match(t_fun, dict);
-		struct AST *functionname = match(t_name, dict);
-		consume(t_lParen);
-		struct AST *argList = parseArgDefinitions(dict);
-		AST_InsertChild(functionname, argList);
-		AST_InsertChild(TLD, functionname);
-		consume(t_rParen);
-
-		AST_InsertChild(TLD, parseScope(dict));
-		break;
-
-	// type [variable name];
-	// type [variable name] = [expression];
-	case t_uint8:
-	case t_uint16:
-	case t_uint32:
-	{
-		TLD = match(nextToken, dict);
-		struct AST *name = parseDeclaration(dict);
-		if (lookahead() == t_assign)
-		{
-			struct AST *assignment = match(t_assign, dict);
-			AST_InsertChild(assignment, name);
-			AST_InsertChild(assignment, parseExpression(dict));
-			AST_InsertChild(TLD, assignment);
-		}
-		else
-		{
-			AST_InsertChild(TLD, name);
-		}
-
-		consume(t_semicolon);
-	}
-	break;
-	default:
-		ParserError("Top level declaration", "Expected function or variable");
-		exit(1);
-	}
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return TLD;
-}
-
-struct AST *parseAssignment(struct AST *name, struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseAssignment\n");
-
-	// pre-parsed name node taken as argument
-	// [name] = [expression]
-	struct AST *assign = match(t_assign, dict);
-	AST_InsertChild(assign, name);
-	AST_InsertChild(assign, parseExpression(dict));
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return assign;
-}
-
-struct AST *parseScope(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseScope\n");
-
-	struct AST *scope = AST_New(t_scope, "scope");
-	consume(t_lCurly);
-	// parse statements until we see the end of this scope
-	while (lookahead() != t_rCurly)
-	{
-		if (lookahead() == t_lCurly)
-		{
-			AST_InsertChild(scope, parseScope(dict));
-		}
-		else
-		{
-			AST_InsertChild(scope, parseStatement(dict));
-		}
-	}
-	consume(t_rCurly);
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return scope;
-}
-
-struct AST *parseName(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseName\n");
-
-	struct AST *name = match(t_name, dict);
-	if (lookahead() == t_lBracket)
-	{
-		struct AST *bracketOp = AST_New(t_bin_add, "+");
-		AST_InsertChild(bracketOp, name);
-		consume(t_lBracket);
-		switch (lookahead())
-		{
-		case t_name:
-		case t_literal:
-			AST_InsertChild(bracketOp, parseExpression(dict));
-			break;
-
-		default:
-			ParserError("statement", "Expected name or literal in square brackets after identifier");
-		}
-
-		consume(t_rBracket);
-
-		name = AST_New(t_dereference, "*");
-		AST_InsertChild(name, bracketOp);
-		// name = newName;
-	}
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return name;
-}
-
-struct AST *parseDeclaration(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseDeclaration\n");
-
-	struct AST *declared = NULL;
-	struct AST *declaredRunner = NULL;
-	enum token upcomingToken = lookahead();
-	while (upcomingToken == t_dereference)
-	{
-		if (declaredRunner == NULL)
-		{
-			declared = match(t_dereference, dict);
-			declaredRunner = declared;
-		}
-		else
-		{
-			AST_InsertChild(declaredRunner, match(t_dereference, dict));
-			declaredRunner = declaredRunner->child;
-		}
-		upcomingToken = lookahead();
-	}
-
-	struct AST *identifier = match(t_name, dict);
-
-	if (lookahead() == t_lBracket)
-	{
-		consume(t_lBracket);
-		struct AST *arrayDecl = AST_New(t_array, "[]");
-		AST_InsertChild(arrayDecl, identifier);
-		AST_InsertChild(arrayDecl, match(t_literal, dict));
-		if (declaredRunner != NULL)
-		{
-			AST_InsertChild(declaredRunner, arrayDecl);
-		}
-		else
-		{
-			declared = arrayDecl;
-		}
-		consume(t_rBracket);
-	}
-	else
-	{
-		if (declaredRunner != NULL)
-		{
-			AST_InsertChild(declaredRunner, identifier);
-		}
-		else
-		{
-			declared = identifier;
-		}
-	}
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return declared;
-}
-
-struct AST *parseStatement(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseStatement\n");
-
-	struct AST *statement = NULL;
-	enum token upcomingToken = lookahead();
-	switch (upcomingToken)
-	{
-
-	case t_asm:
-		statement = parseASM(dict);
-		break;
-
-	// type [variable name];
-	// type [variable name] = [expression];
-	case t_uint8:
-	case t_uint16:
-	case t_uint32:
-	{
-		struct AST *type = match(upcomingToken, dict);
-		statement = type;
-		// 'var' will obviously be a declaration
-
-		// declared type (including any '*'s)
-		struct AST *declaredType = parseDeclaration(dict);
-
-		AST_InsertChild(type, declaredType);
-
-		if (lookahead() == t_assign)
-		{
-			struct AST *assignedName = malloc(sizeof(struct AST));
-			struct AST *declaredName = declaredType;
-			while (declaredName->type == t_dereference)
-			{
-				declaredName = declaredName->child;
-			}
-			memcpy(assignedName, declaredName, sizeof(struct AST));
-			AST_InsertSibling(statement, parseAssignment(assignedName, dict));
-		}
-
-		// ASTNode_insertChild(statement, type);
-
-		consume(t_semicolon);
-	}
-	break;
-
-	// [variable name] = [expression];
-	case t_name:
-	{
-		struct AST *name = parseName(dict);
-
-		enum token tokenAfterName;
-		switch (tokenAfterName = lookahead())
-		{
-		case t_assign:
-			statement = parseAssignment(name, dict);
-			break;
-
-		case t_un_add_assign:
-		case t_un_sub_assign:
-			statement = match(tokenAfterName, dict);
-			AST_InsertChild(statement, name);
-			AST_InsertChild(statement, parseExpression(dict));
-			break;
-
-		case t_lParen:
-			statement = parseFunctionCall(name, dict);
-			break;
-
-		default:
-			ParserError("statement", "expected '(' or '=' after name");
-		}
-		consume(t_semicolon);
-	}
-	break;
-
-	case t_dereference:
-	{
-		struct AST *deref = match(t_dereference, dict);
-		switch (lookahead())
-		{
-		case t_dereference:
-		case t_lParen:
-			AST_InsertChild(deref, parseExpression(dict));
-			break;
-
-		default:
-			AST_InsertChild(deref, parseName(dict));
-			break;
-		}
-		statement = parseAssignment(deref, dict);
-		consume(t_semicolon);
-	}
-	break;
-
-	case t_return:
-	{
-		statement = match(t_return, dict);
-		AST_InsertChild(statement, parseExpression(dict));
-		consume(t_semicolon);
-	}
-	break;
-
-	case t_if:
-		statement = parseIfStatement(dict);
-		break;
-
-	case t_while:
-		statement = parseWhileLoop(dict);
-		break;
-
-	default:
-		ParserError("statement", "expected 'var', 'if', 'while', '}', or name");
-	}
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return statement;
-}
-
-struct AST *parseExpression(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseExpression\n");
-
-	// printf("parsing expression\n");
-	struct AST *expression = NULL;
-
-	// figure out what the left side of the expression is
-	struct AST *lSide = NULL;
-
-	enum token nextToken;
-
-	switch ((nextToken = lookahead()))
-	{
-	case t_name:
-	{
-		struct AST *name = parseName(dict);
-		if (lookahead() == t_lParen)
-		{
-			lSide = parseFunctionCall(name, dict);
-		}
-		else
-		{
-			lSide = name;
-		}
-	}
-	break;
-
-	case t_literal:
-		lSide = match(nextToken, dict);
-		break;
-
-	case t_lParen:
-		consume(t_lParen);
-		lSide = parseExpression(dict);
-		consume(t_rParen);
-		break;
-
-	case t_dereference:
-	case t_reference:
-		lSide = match(nextToken, dict);
-		break;
-
-	default:
-		ParserError("expression", "expected literal or name");
-		break;
-	}
-
-	// now, figure out whether there is a right side
-	switch ((nextToken = lookahead()))
-	{
-	// [left side][operator][right side]
-	case t_bin_add:
-	case t_bin_sub:
-	case t_un_add_assign:
-	case t_un_sub_assign:
-		expression = match(nextToken, dict);
-		AST_InsertChild(expression, lSide);
-		AST_InsertChild(expression, parseExpression(dict));
-		break;
-
-	case t_assign:
-		expression = lSide;
-		break;
-
-	// end of line or end of expression, or condition check - there isn't anything more than the left side
-	case t_bin_lThan:
-	case t_bin_lThanE:
-	case t_bin_gThan:
-	case t_bin_gThanE:
-	case t_bin_equals:
-	case t_bin_notEquals:
-	case t_bin_log_and:
-	case t_bin_log_or:
-	case t_semicolon:
-	case t_comma:
-	case t_rParen:
-	case t_rBracket:
-		expression = lSide;
-		break;
-
-	default:
-		printf("\n[%c]\n", lookahead());
-		ParserError("expression", "expected binary operator or terminator");
-	}
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return expression;
-}
-
-struct AST *parseArgDefinitions(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseArgDefinitions\n");
-
-	struct AST *argList = NULL;
-	int parsing = 1;
-	while (parsing)
-	{
-		enum token next = lookahead();
-		switch (next)
-		{
-		case t_uint8:
-		case t_uint16:
-		case t_uint32:
-		{
-			struct AST *argument = match(next, dict);
-			struct AST *declaration = argument;
-			while (lookahead() == t_dereference)
-			{
-				AST_InsertChild(argument, match(t_dereference, dict));
-				declaration = declaration->child;
-			}
-			AST_InsertChild(declaration, match(t_name, dict));
-
-			if (argList == NULL)
-				argList = argument;
-			else
-				AST_InsertSibling(argList, argument);
-		}
-		break;
-
-		case t_comma:
-			consume(next);
-			break;
-
-		default:
-			parsing = 0;
-			break;
-		}
-	}
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return argList;
-}
-
-struct AST *parseArgList(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseArgList\n");
-
-	struct AST *argList = NULL;
-	int parsing = 1;
-	while (parsing)
-	{
-		switch (lookahead())
-		{
-		case t_rParen:
-			parsing = 0;
-			break;
-
-		case t_comma:
-			consume(t_comma);
-			break;
-
-		case t_literal:
-			/*if (argList == NULL)
-				argList = match(t_literal, dict);
-			else
-				ASTNode_insertSibling(argList, match(t_literal, dict));
-			break;*/
-
-		default:
-			if (argList == NULL)
-				argList = parseExpression(dict);
-			else
-				AST_InsertSibling(argList, parseExpression(dict));
-			break;
-		}
-	}
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return argList;
-}
-
-struct AST *parseFunctionCall(struct AST *name, struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseFunctionCall\n");
-
-	consume(t_lParen);
-	struct AST *callNode = AST_New(t_call, "call");
-	AST_InsertChild(callNode, name);
-	AST_InsertChild(name, parseArgList(dict));
-	consume(t_rParen);
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return callNode;
-}
-
-struct AST *parseConditionCheck(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseConditionCheck\n");
-
-	struct AST *conditionCheck = NULL;
-
-	struct AST *LHS = NULL;
-
-	switch (lookahead())
-	{
-	case t_name:
-	case t_literal:
-	case t_dereference:
-	case t_reference:
-		LHS = parseExpression(dict);
-		break;
-
-	case t_lParen:
-		consume(t_lParen);
-		LHS = parseConditionCheck(dict);
-		consume(t_rParen);
-		break;
-
-	default:
-		ParserError("condition check", "expected expression or unary operator!");
-	}
-
-	enum token nextToken;
-	switch (nextToken = lookahead())
-	{
-	case t_bin_lThan:
-	case t_bin_lThanE:
-	case t_bin_gThan:
-	case t_bin_gThanE:
-	case t_bin_equals:
-	case t_bin_notEquals:
-	case t_bin_log_and:
-	case t_bin_log_or:
-		conditionCheck = match(nextToken, dict);
-		AST_InsertChild(conditionCheck, LHS);
-		AST_InsertChild(conditionCheck, parseConditionCheck(dict));
-		break;
-
-	case t_rParen:
-		conditionCheck = LHS;
-		break;
-
-	default:
-		ParserError("condition check", "expected comparison operator!");
-	}
-
-	/*
-	switch (lookahead())
-	{
-	case t_name:
-	case t_literal:
-	case t_dereference:
-	case t_reference:
-		AST_InsertChild(conditionCheck, parseExpression(dict));
-		break;
-
-	case t_lParen:
-		consume(t_lParen);
-		AST_InsertChild(conditionCheck, parseConditionCheck(dict));
-		consume(t_rParen);
-		break;
-
-	default:
-		ParserError("condition check (RHS)", "expected expression or unary operator!");
-	}
-	*/
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-	return conditionCheck;
-}
-
-struct AST *parseIfStatement(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseIfStatement\n");
-
-	struct AST *ifStatement = match(t_if, dict);
-	consume(t_lParen);
-	AST_InsertChild(ifStatement, parseConditionCheck(dict));
-	consume(t_rParen);
-	struct AST *doBlock = AST_New(t_do, "do");
-	AST_InsertChild(ifStatement, doBlock);
-
-	if (lookahead() == t_lCurly)
-	{
-		AST_InsertChild(doBlock, parseScope(dict));
-	}
-	else
-	{
-		struct AST *ifScope = AST_New(t_scope, "scope");
-		AST_InsertChild(ifScope, parseStatement(dict));
-		AST_InsertChild(doBlock, ifScope);
-	}
-
-	if (lookahead() == t_else)
-	{
-		AST_InsertChild(ifStatement, parseElseStatement(dict));
-	}
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return ifStatement;
-}
-
-struct AST *parseElseStatement(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseElseStatement\n");
-
-	struct AST *elseStatement = match(t_else, dict);
-	struct AST *doBlock = AST_New(t_do, "do");
-	AST_InsertChild(elseStatement, doBlock);
-	if (lookahead() == t_lCurly)
-	{
-		AST_InsertChild(doBlock, parseScope(dict));
-	}
-	else
-	{
-		struct AST *elseScope = AST_New(t_scope, "scope");
-		AST_InsertChild(elseScope, parseStatement(dict));
-		AST_InsertChild(doBlock, elseScope);
-	}
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return elseStatement;
-}
-
-struct AST *parseWhileLoop(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseWhileLoop\n");
-
-	struct AST *whileLoop = match(t_while, dict);
-	consume(t_lParen);
-	AST_InsertChild(whileLoop, parseConditionCheck(dict));
-	consume(t_rParen);
-	struct AST *doBlock = AST_New(t_do, "do");
-	AST_InsertChild(whileLoop, doBlock);
-	if (lookahead() == t_lCurly)
-	{
-		AST_InsertChild(doBlock, parseScope(dict));
-	}
-	else
-	{
-		struct AST *whileScope = AST_New(t_scope, "scope");
-		AST_InsertChild(whileScope, parseStatement(dict));
-		AST_InsertChild(doBlock, whileScope);
-	}
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return whileLoop;
-}
-
-struct AST *parseASM(struct Dictionary *dict)
-{
-	PRINT_PARSE_FUNCTION_ENTER_IF_VERBOSE("ParseASM\n");
-
-	struct AST *asmNode = match(t_asm, dict);
-	consume(t_lCurly);
-	trimWhitespace(1);
-	char inASMblock = 1;
-	int lineLen = 0;
-	char asmLine[32];
-	while (inASMblock)
-	{
-		switch (lookahead_char_dumb(1))
-		{
-		case '}':
-			if (lineLen > 0)
-			{
-				asmLine[lineLen] = '\0';
-				AST_InsertChild(asmNode, AST_New(t_asm, Dictionary_LookupOrInsert(dict, asmLine)));
-			}
-			curCol++;
-			inASMblock = 0;
-			break;
-
-		case '\n':
-			asmLine[lineLen] = '\0';
-			curCol = 0;
-			AST_InsertChild(asmNode, AST_New(t_asm, Dictionary_LookupOrInsert(dict, asmLine)));
-			trimWhitespace(1);
-			lineLen = 0;
-			break;
-
-		default:
-			asmLine[lineLen++] = fgetc(inFile);
-			curCol++;
-		}
-	}
-	consume(t_rCurly);
-	consume(t_semicolon);
-
-	PRINT_PARSE_FUNCTION_DONE_IF_VERBOSE();
-
-	return asmNode;
 }

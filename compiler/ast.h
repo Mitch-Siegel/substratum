@@ -2,49 +2,90 @@
 
 #pragma once
 
-
 enum token
 {
+	p_type_name,
+	p_primary_expression,
+	p_wip_array_access,
+	p_unary_operator,
+	p_unary_expression,
+	p_expression_operator,
+	p_wip_expression,
+	p_expression,
+	p_function_opener,
+	p_function_call,
+	p_expression_list,
+	p_wip_array_declaration,
+	p_variable_declaration,
+	p_declaration_list,
+	p_variable_declaration_statement,
+	p_expression_statement,
+	p_assignment_statement,
+	p_if_awating_else,
+	p_if_else,
+	p_if,
+	p_statement,
+	p_statement_list,
+	p_while,
+	p_scope,
+	p_function_definition,
+	p_translation_unit,
+	p_null,
+	// begin tokens
+	t_identifier,
+	t_constant,
+	t_string_literal,
+	// t_sizeof,
 	t_asm,
+	// types
+	t_void,
 	t_uint8,
 	t_uint16,
 	t_uint32,
+	// function
 	t_fun,
 	t_return,
+	// control flow
 	t_if,
 	t_else,
 	t_while,
+	t_for,
 	t_do,
-	t_name,
-	t_literal,
-	t_bin_add,
-	t_bin_sub,
-	t_bin_lThan,
-	t_bin_gThan,
-	t_bin_lThanE,
-	t_bin_gThanE,
-	t_bin_equals,
-	t_bin_notEquals,
-	t_bin_log_and,
-	t_bin_log_or,
-	t_un_log_not,
-	t_un_add_assign,
-	t_un_sub_assign,
+	// arithmetic operators
+	// basic arithmetic
+	t_plus,
+	t_minus,
+	// comparison operators
+	t_lThan,
+	t_gThan,
+	// logical operators
+	t_and,
+	t_or,
+	t_not,
+	// bitwise operators
+	t_bit_not,
+	t_xor,
+	// ternary
+	t_ternary,
+	// arithmetic-assign operators
+	// unary operators
 	t_reference,
-	t_dereference,
-	t_assign,
+	t_star,
+	// assignment
+	t_single_equals,
+	//
 	t_comma,
+	t_dot,
+	t_pointer_op,
 	t_semicolon,
+	t_colon,
 	t_lParen,
 	t_rParen,
 	t_lCurly,
 	t_rCurly,
 	t_lBracket,
 	t_rBracket,
-	t_array,
-	t_call,
-	t_scope,
-	t_EOF,
+	t_EOF
 };
 
 struct AST

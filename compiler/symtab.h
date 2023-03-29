@@ -139,7 +139,9 @@ void SymbolTable_print(struct SymbolTable *it, char printTAC);
 void SymbolTable_free(struct SymbolTable *it);
 
 // AST walk functions
-void walkStatement(struct AST *it, struct Scope *wip);
+void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArgument);
+
+void walkStatement(struct AST *it, struct Scope *wipScope);
 
 void walkScope(struct AST *it, struct Scope *wip, char isMainScope);
 

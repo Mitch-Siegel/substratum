@@ -115,6 +115,9 @@
     ; Limitations of this scaling setup:
     ; array size at 2^12 (4096) elements since that's the maximum offset
     ; element size at 2^(2^4 - 1) (32768 bytes) since that's the maximum scale
+    ; this is very silly and the way I now think it should be done is:
+    ; shuffle around the operands so sclpow is just a scale multiplier using an unsigned 9 bit
+    ; encode a few different instructions that bit shift the multiplier for larger sized array elements
 
     ; data movement (byte)
     movb %{rd: reg}, %{rs: reg}                                  => 0xa0 @ rs @ rd @ 0x0000
