@@ -12,7 +12,10 @@ char *token_names[] = {
 	"p_unary_operator",
 	"p_unary_expression",
 	"p_expression_operator",
+	"p_wip_expression",
 	"p_expression",
+	"p_function_opener",
+	"p_function_call",
 	"p_expression_list",
 	"p_wip_array_declaration",
 	"p_variable_declaration",
@@ -521,6 +524,7 @@ void printParseStack(struct Stack *parseStack)
 	printf("Parse Stack:\n");
 	for (int i = 0; i < parseStack->size; i++)
 	{
+		printf("%2d: ", i);
 		struct InProgressProduction *thisProduction = (struct InProgressProduction *)parseStack->data[i];
 		if (thisProduction->tree == NULL)
 		{
@@ -957,11 +961,11 @@ struct AST *TableParse(struct Dictionary *dict)
 				reduce(parseStack);
 
 				// as long as we have some unused lookahead token, try to use it
-				while(lookaheadProduction != NULL)
+				while (lookaheadProduction != NULL)
 				{
 					Stack_Push(parseStack, lookaheadProduction);
 					lookaheadProduction = findReduction(parseStack, 1);
-					if(foundReduction[0] == p_null)
+					if (foundReduction[0] == p_null)
 					{
 						break;
 					}
@@ -1033,6 +1037,7 @@ struct AST *TableParse(struct Dictionary *dict)
 		}
 		break;
 		}
+		printParseStack(parseStack);
 
 		if (parseStack->size < lastParseStackSize)
 		{
