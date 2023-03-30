@@ -333,6 +333,7 @@ struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char su
 	return lookedUp;
 }
 
+// return the actual size of a primitive in bytes
 int GetSizeOfPrimitive(enum variableTypes type)
 {
 	switch (type)
@@ -351,6 +352,7 @@ int GetSizeOfPrimitive(enum variableTypes type)
 	}
 }
 
+// return the actual size of a variable in bytes (lookup by its name only)
 int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
 {
 	struct VariableEntry *theVariable = Scope_lookupVarByString(scope, name);
@@ -360,10 +362,13 @@ int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
 	}
 	else
 	{
-		return GetSizeOfPrimitive(theVariable->type);
+		int s = GetSizeOfPrimitive(theVariable->type);
+		printf("Size of %s is %d\n", name, s);
+		return s;
 	}
 }
 
+// return the actual size of a variable in bytes (lookup by its name using the ast for line/col error messages)
 int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
 {
 	struct VariableEntry *theVariable = Scope_lookupVar(scope, name);
