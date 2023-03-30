@@ -6,8 +6,6 @@ void PlaceLiteralInRegister(struct LinkedList *currentBlock, char *literalStr, c
 
 struct Stack *generateCode(struct SymbolTable *table, FILE *outFile);
 
-struct Stack *generateCodeForScope(struct Scope *scope, FILE *outFile);
-
 struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE *outFile);
 
 const char *SelectMovWidthForPrimitive(enum variableTypes type);

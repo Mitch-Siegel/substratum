@@ -49,17 +49,10 @@ void PlaceLiteralInRegister(struct LinkedList *currentBlock, char *literalStr, c
 
 struct Stack *generateCode(struct SymbolTable *table, FILE *outFile)
 {
-	printf("generate code for [%s]\n", table->name);
-	return generateCodeForScope(table->globalScope, outFile);
-};
-
-struct Stack *generateCodeForScope(struct Scope *scope, FILE *outFile)
-{
 	struct Stack *scopeBlocks = Stack_New();
-	printf("generate code for scope [%s] (size %d)\n", scope->name, scope->entries->size);
-	for (int i = 0; i < scope->entries->size; i++)
+	for (int i = 0; i < table->globalScope->entries->size; i++)
 	{
-		struct ScopeMember *thisMember = scope->entries->data[i];
+		struct ScopeMember *thisMember = table->globalScope->entries->data[i];
 		switch (thisMember->type)
 		{
 		case e_function:
@@ -73,7 +66,7 @@ struct Stack *generateCodeForScope(struct Scope *scope, FILE *outFile)
 			int reservedRegisters[2];
 			reservedRegisters[0] = 0;
 			reservedRegisters[1] = 1;
-			GenerateCodeForBasicBlock(thisMember->entry, scope, NULL, blockBlock, "global", reservedRegisters, touchedRegisters);
+			GenerateCodeForBasicBlock(thisMember->entry, table->globalScope, NULL, blockBlock, "global", reservedRegisters, touchedRegisters);
 			Stack_Push(scopeBlocks, blockBlock);
 		}
 		break;
@@ -83,7 +76,7 @@ struct Stack *generateCodeForScope(struct Scope *scope, FILE *outFile)
 		}
 	}
 	return scopeBlocks;
-}
+};
 
 /*
  * code generation for funcitons (lifetime management, etc)
@@ -353,17 +346,11 @@ void assignRegisters(struct FunctionRegisterAllocationMetadata *metadata)
 
 struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 {
-	printf("Generate code for function %s", function->name);
+	printf("generate code for function %s", function->name);
 
 	struct FunctionRegisterAllocationMetadata metadata;
 	metadata.function = function;
 	metadata.allLifetimes = findLifetimes(function);
-
-	for (struct LinkedListNode *thisLifetimeNode = metadata.allLifetimes->head; thisLifetimeNode != NULL; thisLifetimeNode = thisLifetimeNode->next)
-	{
-		struct Lifetime *thisLifetime = (struct Lifetime *)thisLifetimeNode->data;
-		printf("%s:%d,%d\n", thisLifetime->variable, thisLifetime->start, thisLifetime->end);
-	}
 
 	// find all overlapping lifetimes, to figure out which variables can live in registers vs being spilled
 	metadata.largestTacIndex = 0;
@@ -423,20 +410,6 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	}
 
 	assignRegisters(&metadata);
-	printf("assigned registers\n");
-
-	for (struct LinkedListNode *runner = metadata.allLifetimes->head; runner != NULL; runner = runner->next)
-	{
-		struct Lifetime *thisLifetime = runner->data;
-		if (thisLifetime->isSpilled)
-		{
-			printf("%16s: %d(%%bp)\n", thisLifetime->variable, thisLifetime->stackOrRegLocation);
-		}
-		else
-		{
-			printf("%16s: %%r%d\n", thisLifetime->variable, thisLifetime->stackOrRegLocation);
-		}
-	}
 
 	// actual registers have been assigned to variables
 	printf(".");

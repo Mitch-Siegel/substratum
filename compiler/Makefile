@@ -11,7 +11,7 @@ mcc: $(addprefix $(OBJDIR)/,$(MCC_OBJS))
 
 $(OBJDIR)/%.o: %.c
 	@mkdir -p $(@D)
-	$(CC) -c $(CFLAGS) -o $@ $<
+	$(CC) -c $(CFLAGS) -o $@ $< -I ./include
 
 recipes:
 	rm -f parser.o

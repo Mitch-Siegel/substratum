@@ -52,7 +52,6 @@ int main(int argc, char **argv)
 	printf("Symbol table after linearization/scope collapse:\n");
 	SymbolTable_print(theTable, 0);
 
-	
 
 	FILE *outFile = fopen(argv[2], "wb");
 
@@ -84,5 +83,5 @@ int main(int argc, char **argv)
 	// freeDictionary(parseDict);
 	AST_Free(program);
 
-	printf("done printing\n");
+	printf("done!\n");
 }
