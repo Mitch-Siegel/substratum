@@ -715,15 +715,15 @@ int linearizeAssignment(struct LinearizationMetadata m)
 
 		struct TACOperand operandToWrite = RHSTac->operands[0];
 
-		struct AST *dereferencedExpression = LHS->child;
+		struct AST *assignedDereference = LHS->child;
 
-		if (dereferencedExpression->type == t_plus || dereferencedExpression->type == t_minus)
+		if (assignedDereference->type == t_plus || assignedDereference->type == t_minus)
 		{
-			if (dereferencedExpression->type == t_plus)
+			if (assignedDereference->type == t_plus)
 			{
 				finalAssignment->operation = tt_memw_3;
 			}
-			else if (dereferencedExpression->type == t_minus)
+			else if (assignedDereference->type == t_minus)
 			{
 				finalAssignment->operation = tt_memw_3_n;
 			}
@@ -734,12 +734,12 @@ int linearizeAssignment(struct LinearizationMetadata m)
 
 			// set base
 			struct LinearizationMetadata pointerArithLHS = m;
-			pointerArithLHS.ast = dereferencedExpression->child;
+			pointerArithLHS.ast = assignedDereference->child;
 			linearizeSubExpression(pointerArithLHS, finalAssignment, 0);
 
 			// set offset
 			struct LinearizationMetadata pointerArithRHS = m;
-			pointerArithRHS.ast = dereferencedExpression->child->sibling;
+			pointerArithRHS.ast = assignedDereference->child->sibling;
 			linearizeSubExpression(pointerArithRHS, finalAssignment, 1);
 
 			// set scale
@@ -756,7 +756,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		{
 			finalAssignment->operation = tt_memw_1;
 			struct LinearizationMetadata LHSIdentifierMetadata = m;
-			LHSIdentifierMetadata.ast = dereferencedExpression;
+			LHSIdentifierMetadata.ast = assignedDereference;
 			linearizeSubExpression(LHSIdentifierMetadata, finalAssignment, 0);
 
 			finalAssignment->operands[1] = operandToWrite;
@@ -1424,7 +1424,6 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 				BasicBlock_append(m.currentBlock, convergeControlJump);
 			}
 		}
-		// it would appear
 	}
 
 	struct LinearizationResult *r = malloc(sizeof(struct LinearizationResult));
@@ -1435,142 +1434,6 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 		*((int *)Stack_Peek(scopeNesting)) += 1;
 
 	return r;
-}
-
-void collapseScopes(struct Scope *scope, struct Dictionary *dict, int depth)
-{
-	// first pass: recurse depth-first so everything we do at this call depth will be 100% correct
-	for (int i = 0; i < scope->entries->size; i++)
-	{
-		struct ScopeMember *thisMember = scope->entries->data[i];
-		switch (thisMember->type)
-		{
-		case e_scope: // recurse to subscopes
-		{
-			collapseScopes(thisMember->entry, dict, depth + 1);
-		}
-		break;
-
-		case e_function: // recurse to functions
-		{
-			struct FunctionEntry *thisFunction = thisMember->entry;
-			collapseScopes(thisFunction->mainScope, dict, 0);
-		}
-		break;
-
-		// skip everything else
-		case e_variable:
-		case e_argument:
-		case e_basicblock:
-		case e_stackobj:
-			break;
-		}
-	}
-
-	// second pass: rename basic block operands relevant to the current scope
-	for (int i = 0; i < scope->entries->size; i++)
-	{
-		struct ScopeMember *thisMember = scope->entries->data[i];
-		switch (thisMember->type)
-		{
-		case e_scope:
-		case e_function:
-			break;
-
-		case e_basicblock:
-		{
-			// if we are in a nested scope
-			if (depth > 1)
-			{
-				// go through all TAC lines in this block
-				struct BasicBlock *thisBlock = thisMember->entry;
-				for (struct LinkedListNode *TACRunner = thisBlock->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
-				{
-					struct TACLine *thisTAC = TACRunner->data;
-					for (int j = 0; j < 4; j++)
-					{
-						// check only TAC operands that both exist and refer to a named variable from the source code (ignore temps etc)
-						if (thisTAC->operands[j].type != vt_null && thisTAC->operands[j].permutation == vp_standard)
-						{
-							char *originalName = thisTAC->operands[j].name.str;
-							// if this operand refers to a variable declared at this scope
-							if (Scope_contains(scope, originalName))
-							{
-								char *mangledName = malloc(strlen(originalName) + 4);
-								// tack on the name of this scope to the variable name since the same will happen to the variable entry itself in third pass
-								sprintf(mangledName, "%s%s", originalName, scope->name);
-								thisTAC->operands[j].name.str = Dictionary_LookupOrInsert(dict, mangledName);
-								free(mangledName);
-							}
-						}
-					}
-				}
-			}
-		}
-		break;
-
-		case e_variable:
-		case e_argument:
-		case e_stackobj:
-			break;
-		}
-	}
-
-	// third pass: move nested members (basic blocks and variables) to parent scope since names have been mangled
-	for (int i = 0; i < scope->entries->size; i++)
-	{
-		struct ScopeMember *thisMember = scope->entries->data[i];
-		switch (thisMember->type)
-		{
-		case e_scope:
-		case e_function:
-			break;
-
-		case e_basicblock:
-		{
-			if (depth > 0 && scope->parentScope != NULL)
-			{
-				Scope_insert(scope->parentScope, thisMember->name, thisMember->entry, thisMember->type);
-				free(scope->entries->data[i]);
-				for (int j = i; j < scope->entries->size; j++)
-				{
-					scope->entries->data[j] = scope->entries->data[j + 1];
-				}
-				scope->entries->size--;
-				i--;
-			}
-		}
-		break;
-
-		case e_stackobj:
-		case e_variable:
-		case e_argument:
-		{
-			if (depth > 0)
-			{
-				char *originalName = thisMember->name;
-				char *scopeName = scope->name;
-
-				char *mangledName = malloc(strlen(originalName) + strlen(scopeName) + 1);
-				sprintf(mangledName, "%s%s", originalName, scopeName);
-				char *newName = Dictionary_LookupOrInsert(dict, mangledName);
-				free(mangledName);
-				Scope_insert(scope->parentScope, newName, thisMember->entry, thisMember->type);
-				free(scope->entries->data[i]);
-				for (int j = i; j < scope->entries->size; j++)
-				{
-					scope->entries->data[j] = scope->entries->data[j + 1];
-				}
-				scope->entries->size--;
-				i--;
-			}
-		}
-		break;
-
-		default:
-			break;
-		}
-	}
 }
 
 // given an AST and a populated symbol table, generate three address code for the function entries

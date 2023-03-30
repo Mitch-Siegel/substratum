@@ -9,7 +9,7 @@ enum RecipeInstructions
 };
 
 // let him cook!
-enum token parseRecipes[p_null][9][9][2] = {
+enum token parseRecipes[p_null][10][9][2] = {
     // p_type_name
     {
         {{t_void, above},
@@ -519,6 +519,11 @@ enum token parseRecipes[p_null][9][9][2] = {
         // ASM (autoparsed by scan()) '}' ';'
         {{t_asm, above},
          {t_rCurly, cnsme},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
+         
+        // SCOPE;
+        {{p_scope, above},
          {t_semicolon, cnsme},
          {p_null, p_null}},
 

@@ -47,11 +47,12 @@ fun fib_deref(uint8 upTo) : void
 	*(fibArray + 1) = 1;
 
 	uint8 i = 1;
-	while(fibArray[i] < upTo)
+	while (fibArray[i] < upTo)
 	{
-		print(fibArray[i]);
+		uint16 previous = fibArray[i];
+		print(previous);
 		// fibArray[i] = *(fibArray + (i - 1)) + *(fibArray + (i - 2));
-		fibArray[i + 1] = fibArray[i] + fibArray[i - 1];
+		fibArray[i + 1] = previous + fibArray[i - 1];
 		i = i + 1;
 	}
 }
