@@ -186,7 +186,7 @@ void printTACLine(struct TACLine *it)
 
 	case tt_memw_3:
 		// operands base offset scale source
-		width += printf("(%s + %s * 2^%d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
+		width += printf("(%s + %s*2^%d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
 		break;
 
 	case tt_memw_2_n:
@@ -196,7 +196,7 @@ void printTACLine(struct TACLine *it)
 
 	case tt_memw_3_n:
 		// operands base offset scale source
-		width += printf("(%s - %s * 2^%d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
+		width += printf("(%s - %s*2^%d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
 		break;
 
 	case tt_memr_1:
@@ -211,7 +211,7 @@ void printTACLine(struct TACLine *it)
 
 	case tt_memr_3:
 		// operands: dest base offset scale
-		width += printf("%s = (%s + %s * 2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		width += printf("%s = (%s + %s*2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
 		break;
 
 	case tt_memr_2_n:
@@ -221,7 +221,7 @@ void printTACLine(struct TACLine *it)
 
 	case tt_memr_3_n:
 		// operands: dest base offset scale
-		width += printf("%s = (%s - %s * 2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		width += printf("%s = (%s - %s*2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
 		break;
 
 	case tt_jg:
@@ -284,7 +284,7 @@ void printTACLine(struct TACLine *it)
 		width += printf("end do");
 		break;
 	}
-	while (width++ < 24)
+	while (width++ < 32)
 	{
 		printf(" ");
 	}
@@ -312,7 +312,7 @@ void printTACLine(struct TACLine *it)
 		}
 		else
 		{
-			printf("[     ]");
+			printf("   -   ");
 		}
 	}
 }
