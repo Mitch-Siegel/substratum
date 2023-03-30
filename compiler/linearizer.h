@@ -20,9 +20,6 @@ int linearizeDereference(struct LinearizationMetadata m);
 
 int linearizeArgumentPushes(struct LinearizationMetadata m);
 
-int linearizePointerArithmetic(struct LinearizationMetadata m,
-							   int depth);
-
 int linearizeFunctionCall(struct LinearizationMetadata m);
 
 int linearizeSubExpression(struct LinearizationMetadata m,
