@@ -825,6 +825,25 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		}
 		break;
 
+		case tt_memw_2_n:
+		{
+			int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
+			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
+			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d-%d), %%r%d", movOp, baseReg, thisTAC->operands[1].name.val, sourceReg));
+		}
+		break;
+
+		case tt_memw_3_n:
+		{
+			int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
+			int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
+			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[3].name.str, asmBlock, 16, touchedRegisters);
+			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d-%%r%d,%d), %%r%d", movOp, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[2].name.val), sourceReg));
+		}
+		break;
+
 		case tt_dereference: // these are redundant... probably makes sense to remove one?
 		case tt_memr_1:
 		{
@@ -875,6 +894,41 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2].name.str, asmBlock, 16, touchedRegisters);
 				const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
 				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d+%%r%d,%d)", movOp, destReg, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[3].name.val)));
+			}
+		}
+		break;
+
+		case tt_memr_2_n:
+		{
+			struct Lifetime *destinationLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
+			if (destinationLifetime->isSpilled)
+			{
+				ErrorAndExit(ERROR_INTERNAL, "Code generation for tt_memr_2 with spilled destination not supported!\n");
+			}
+			else
+			{
+				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
+				int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
+				const char *movOp = SelectMovWidth(&thisTAC->operands[1]);
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d-%d)", movOp, destReg, sourceReg, thisTAC->operands[2].name.val));
+			}
+		}
+		break;
+
+		case tt_memr_3_n:
+		{
+			struct Lifetime *destinationLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
+			if (destinationLifetime->isSpilled)
+			{
+				ErrorAndExit(ERROR_INTERNAL, "Code generation for tt_memr_3 with spilled destination not supported!\n");
+			}
+			else
+			{
+				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
+				int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
+				int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2].name.str, asmBlock, 16, touchedRegisters);
+				const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d-%%r%d,%d)", movOp, destReg, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[3].name.val)));
 			}
 		}
 		break;

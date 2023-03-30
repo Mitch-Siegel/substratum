@@ -35,9 +35,13 @@ enum TACType
 	tt_memw_1, // mov (reg), reg
 	tt_memw_2, // mov offset(reg), reg
 	tt_memw_3, // mov offset(reg, scale), reg
+	tt_memw_2_n, // mov offset(reg), reg - offset is subtracted rather than added
+	tt_memw_3_n, // mov offset(reg, scale), reg - offset is subtracted rather than added
 	tt_memr_1, // same addressing modes as write
 	tt_memr_2,
 	tt_memr_3,
+	tt_memr_2_n,
+	tt_memr_3_n,
 	tt_cmp,
 	tt_jg,
 	tt_jge,

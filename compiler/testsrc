@@ -39,7 +39,23 @@ fun print2(uint32 value, uint8 otherArgument) : void
 	;
 }
 
+fun fib_deref(uint8 upTo) : void
+{
+	uint8 fibArray[32];
 
+	*fibArray = 0;
+	fibArray[1] = fibArray[0] + 1;
+
+	uint8 i = 2;
+	while(fibArray[i] < upTo)
+	{
+		print(fibArray[i]);
+		fibArray[i] = *(fibArray + (i - 1)) + *(fibArray + (i - 2));
+		i = i + 1;
+	}
+}
+
+/*
 fun fib_array(uint8 upTo) : void
 {
 	uint8 fibArray[32];
@@ -75,3 +91,4 @@ fun fib_rec(uint8 n) : uint32
 		}
 	}
 }
+*/
