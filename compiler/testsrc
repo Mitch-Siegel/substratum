@@ -39,7 +39,7 @@ fun print2(uint32 value, uint8 otherArgument) : void
 	;
 }
 
-/*
+
 fun fib_array(uint8 upTo) : void
 {
 	uint8 fibArray[32];
@@ -55,7 +55,7 @@ fun fib_array(uint8 upTo) : void
 		i = i + 1;
 	}
 
-}*/
+}
 
 fun fib_rec(uint8 n) : uint32
 {
