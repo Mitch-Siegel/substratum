@@ -35,19 +35,31 @@ char *getAsmOp(enum TACType t)
 		return "mov (reg), reg";
 
 	case tt_memw_2:
-		return "mov offset(reg), reg";
+		return "mov basereg + offset, reg";
 
 	case tt_memw_3:
-		return "mov offset(reg, scale), reg";
+		return "mov basereg + (offreg * 2^sclpow), reg";
+
+	case tt_memw_2_n:
+		return "mov basereg - offset, reg";
+
+	case tt_memw_3_n:
+		return "mov basereg - (offreg * 2^sclpow), reg";
 
 	case tt_memr_1:
 		return "mov reg, (reg)";
 
 	case tt_memr_2:
-		return "mov reg, offset(reg)";
+		return "mov reg, basereg + offset";
 
 	case tt_memr_3:
-		return "mov reg, offset(basereg, scale)";
+		return "mov reg, basereg + (offreg * 2^sclpow)";
+
+	case tt_memr_2_n:
+		return "mov reg, basereg - offset";
+
+	case tt_memr_3_n:
+		return "mov reg, basereg - (offreg * 2^sclpow)";
 
 	case tt_cmp:
 		return "cmp";
@@ -174,7 +186,17 @@ void printTACLine(struct TACLine *it)
 
 	case tt_memw_3:
 		// operands base offset scale source
-		width += printf("(%s + %s * %d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
+		width += printf("(%s + %s * 2^%d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
+		break;
+
+	case tt_memw_2_n:
+		// operands: base offset source
+		width += printf("(%s - %d) = %s", it->operands[0].name.str, it->operands[1].name.val, it->operands[2].name.str);
+		break;
+
+	case tt_memw_3_n:
+		// operands base offset scale source
+		width += printf("(%s - %s * 2^%d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
 		break;
 
 	case tt_memr_1:
@@ -189,7 +211,17 @@ void printTACLine(struct TACLine *it)
 
 	case tt_memr_3:
 		// operands: dest base offset scale
-		width += printf("%s = (%s + %s * %d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		width += printf("%s = (%s + %s * 2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		break;
+
+	case tt_memr_2_n:
+		// operands: dest base offset
+		width += printf("%s = (%s - %d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
+		break;
+
+	case tt_memr_3_n:
+		// operands: dest base offset scale
+		width += printf("%s = (%s - %s * 2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
 		break;
 
 	case tt_jg:
@@ -336,7 +368,17 @@ char *sPrintTACLine(struct TACLine *it)
 
 	case tt_memw_3:
 		// operands base offset scale source
-		width += sprintf(tacString, "(%s + %s * %d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
+		width += sprintf(tacString, "(%s + %s * 2^%d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
+		break;
+
+	case tt_memw_2_n:
+		// operands: base offset source
+		width += sprintf(tacString, "(%s - %d) = %s", it->operands[0].name.str, it->operands[1].name.val, it->operands[2].name.str);
+		break;
+
+	case tt_memw_3_n:
+		// operands base offset scale source
+		width += sprintf(tacString, "(%s - %s * 2^%d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
 		break;
 
 	case tt_memr_1:
@@ -351,7 +393,17 @@ char *sPrintTACLine(struct TACLine *it)
 
 	case tt_memr_3:
 		// operands: dest base offset scale
-		width += sprintf(tacString, "%s = (%s + %s * %d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		width += sprintf(tacString, "%s = (%s + %s * 2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		break;
+
+	case tt_memr_2_n:
+		// operands: dest base offset
+		width += sprintf(tacString, "%s = (%s - %d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
+		break;
+
+	case tt_memr_3_n:
+		// operands: dest base offset scale
+		width += sprintf(tacString, "%s = (%s - %s * 2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
 		break;
 
 	case tt_jg:
