@@ -47,10 +47,12 @@ int main(int argc, char **argv)
 	linearizeProgram(program, theTable->globalScope, parseDict);
 
 	printf("Collapsing scopes\n");
-	collapseScopes(theTable->globalScope, parseDict, 1);
+	SymbolTable_collapseScopes(theTable, parseDict);
 
-	printf("Symbol table after lienarization/scope collapse:\n");
-	SymbolTable_print(theTable, 1);
+	printf("Symbol table after linearization/scope collapse:\n");
+	SymbolTable_print(theTable, 0);
+
+	
 
 	FILE *outFile = fopen(argv[2], "wb");
 

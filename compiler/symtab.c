@@ -63,6 +63,148 @@ void SymbolTable_print(struct SymbolTable *it, char printTAC)
 	Scope_print(it->globalScope, 0, printTAC);
 }
 
+void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict, int depth)
+{
+	// first pass: recurse depth-first so everything we do at this call depth will be 100% correct
+	for (int i = 0; i < scope->entries->size; i++)
+	{
+		struct ScopeMember *thisMember = scope->entries->data[i];
+		switch (thisMember->type)
+		{
+		case e_scope: // recurse to subscopes
+		{
+			SymbolTable_collapseScopesRec(thisMember->entry, dict, depth + 1);
+		}
+		break;
+
+		case e_function: // recurse to functions
+		{
+			struct FunctionEntry *thisFunction = thisMember->entry;
+			SymbolTable_collapseScopesRec(thisFunction->mainScope, dict, 0);
+		}
+		break;
+
+		// skip everything else
+		case e_variable:
+		case e_argument:
+		case e_basicblock:
+		case e_stackobj:
+			break;
+		}
+	}
+
+	// second pass: rename basic block operands relevant to the current scope
+	for (int i = 0; i < scope->entries->size; i++)
+	{
+		struct ScopeMember *thisMember = scope->entries->data[i];
+		switch (thisMember->type)
+		{
+		case e_scope:
+		case e_function:
+			break;
+
+		case e_basicblock:
+		{
+			// if we are in a nested scope
+			if (depth > 1)
+			{
+				// go through all TAC lines in this block
+				struct BasicBlock *thisBlock = thisMember->entry;
+				for (struct LinkedListNode *TACRunner = thisBlock->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
+				{
+					struct TACLine *thisTAC = TACRunner->data;
+					for (int j = 0; j < 4; j++)
+					{
+						// check only TAC operands that both exist and refer to a named variable from the source code (ignore temps etc)
+						if (thisTAC->operands[j].type != vt_null && thisTAC->operands[j].permutation == vp_standard)
+						{
+							char *originalName = thisTAC->operands[j].name.str;
+							// if this operand refers to a variable declared at this scope
+							if (Scope_contains(scope, originalName))
+							{
+								char *mangledName = malloc(strlen(originalName) + 4);
+								// tack on the name of this scope to the variable name since the same will happen to the variable entry itself in third pass
+								sprintf(mangledName, "%s%s", originalName, scope->name);
+								thisTAC->operands[j].name.str = Dictionary_LookupOrInsert(dict, mangledName);
+								free(mangledName);
+							}
+						}
+					}
+				}
+			}
+		}
+		break;
+
+		case e_variable:
+		case e_argument:
+		case e_stackobj:
+			break;
+		}
+	}
+
+	// third pass: move nested members (basic blocks and variables) to parent scope since names have been mangled
+	for (int i = 0; i < scope->entries->size; i++)
+	{
+		struct ScopeMember *thisMember = scope->entries->data[i];
+		switch (thisMember->type)
+		{
+		case e_scope:
+		case e_function:
+			break;
+
+		case e_basicblock:
+		{
+			if (depth > 0 && scope->parentScope != NULL)
+			{
+				Scope_insert(scope->parentScope, thisMember->name, thisMember->entry, thisMember->type);
+				free(scope->entries->data[i]);
+				for (int j = i; j < scope->entries->size; j++)
+				{
+					scope->entries->data[j] = scope->entries->data[j + 1];
+				}
+				scope->entries->size--;
+				i--;
+			}
+		}
+		break;
+
+		case e_stackobj:
+		case e_variable:
+		case e_argument:
+		{
+			if (depth > 0)
+			{
+				char *originalName = thisMember->name;
+				char *scopeName = scope->name;
+
+				char *mangledName = malloc(strlen(originalName) + strlen(scopeName) + 1);
+				sprintf(mangledName, "%s%s", originalName, scopeName);
+				char *newName = Dictionary_LookupOrInsert(dict, mangledName);
+				free(mangledName);
+				Scope_insert(scope->parentScope, newName, thisMember->entry, thisMember->type);
+				free(scope->entries->data[i]);
+				for (int j = i; j < scope->entries->size; j++)
+				{
+					scope->entries->data[j] = scope->entries->data[j + 1];
+				}
+				scope->entries->size--;
+				i--;
+			}
+		}
+		break;
+
+		default:
+			break;
+		}
+	}
+}
+
+void SymbolTable_collapseScopes(struct SymbolTable *it, struct Dictionary *dict)
+{
+	SymbolTable_collapseScopesRec(it->globalScope, parseDict, 1);
+}
+
+
 void SymbolTable_free(struct SymbolTable *it)
 {
 	Scope_free(it->globalScope, 0);
@@ -333,6 +475,7 @@ struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char su
 	return lookedUp;
 }
 
+// return the actual size of a primitive in bytes
 int GetSizeOfPrimitive(enum variableTypes type)
 {
 	switch (type)
@@ -351,6 +494,7 @@ int GetSizeOfPrimitive(enum variableTypes type)
 	}
 }
 
+// return the actual size of a variable in bytes (lookup by its name only)
 int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
 {
 	struct VariableEntry *theVariable = Scope_lookupVarByString(scope, name);
@@ -360,10 +504,13 @@ int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
 	}
 	else
 	{
-		return GetSizeOfPrimitive(theVariable->type);
+		int s = GetSizeOfPrimitive(theVariable->type);
+		printf("Size of %s is %d\n", name, s);
+		return s;
 	}
 }
 
+// return the actual size of a variable in bytes (lookup by its name using the ast for line/col error messages)
 int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
 {
 	struct VariableEntry *theVariable = Scope_lookupVar(scope, name);

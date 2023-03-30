@@ -136,6 +136,10 @@ void Function_addBasicBlock(struct FunctionEntry *function, struct BasicBlock *b
 
 void SymbolTable_print(struct SymbolTable *it, char printTAC);
 
+void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict, int depth);
+
+void SymbolTable_collapseScopes(struct SymbolTable *it, struct Dictionary *dict);
+
 void SymbolTable_free(struct SymbolTable *it);
 
 // AST walk functions

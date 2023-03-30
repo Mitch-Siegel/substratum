@@ -62,6 +62,4 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 										   int *labelCount,
 										   struct Stack *scopenesting);
 
-void collapseScopes(struct Scope *scope, struct Dictionary *dict, int depth);
-
 void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictionary *dict);
