@@ -29,16 +29,15 @@ int main(int argc, char **argv)
 	printf("Output will be generated to %s\n\n", argv[2]);
 	parseDict = Dictionary_New(10);
 	struct AST *program = ParseProgram(argv[1], parseDict);
-	
+
 	// serializeAST("astdump", program);
 	printf("\n");
 
 	AST_Print(program, 0);
-	
+
 	printf("Generating symbol table from AST");
 	struct SymbolTable *theTable = walkAST(program);
 	printf("\n");
-
 
 	printf("Symbol table before scope collapse:\n");
 	SymbolTable_print(theTable, 0);
@@ -52,22 +51,25 @@ int main(int argc, char **argv)
 	printf("Symbol table after linearization/scope collapse:\n");
 	SymbolTable_print(theTable, 0);
 
-
 	FILE *outFile = fopen(argv[2], "wb");
 
 	printf("Generating code\n");
 	struct Stack *outputBlocks;
 	outputBlocks = generateCode(theTable, outFile);
 	fprintf(outFile, "#include \"CPU.asm\"\n#include \"INT.asm\"\n");
-	for(int i = 0; i < outputBlocks->size; i++)
+	for (int i = 0; i < outputBlocks->size; i++)
 	{
 		struct LinkedList *thisBlock = outputBlocks->data[i];
-		for(struct LinkedListNode *asmLine = thisBlock->head; asmLine != NULL; asmLine = asmLine->next)
+		for (struct LinkedListNode *asmLine = thisBlock->head; asmLine != NULL; asmLine = asmLine->next)
 		{
 			char *s = asmLine->data;
-			if(s[strlen(s) - 1] != ':')
+			int length = strlen(s);
+			if (length > 0)
 			{
-				fprintf(outFile, "\t");	
+				if (s[strlen(s) - 1] != ':')
+				{
+					fprintf(outFile, "\t");
+				}
 			}
 
 			fprintf(outFile, "%s\n", s);
