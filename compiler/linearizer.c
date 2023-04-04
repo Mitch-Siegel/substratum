@@ -14,8 +14,6 @@ int alignSize(int nBytes)
 		p *= 2;
 	}
 
-	printf("%d aligns to 2^%d (%d)\n", nBytes, i, p);
-
 	return i;
 }
 
@@ -149,8 +147,6 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 // given an AST node of a function call, generate TAC to evaluate and push the arguments, then call it
 int linearizeFunctionCall(struct LinearizationMetadata m)
 {
-	printf("Linearizefunctioncall for:\n");
-	AST_Print(m.ast, 0);
 	char *operand0 = TempList_Get(temps, *m.tempNum);
 	struct FunctionEntry *calledFunction = Scope_lookupFun(m.scope, m.ast->child);
 
@@ -553,10 +549,6 @@ int linearizeExpression(struct LinearizationMetadata m)
 // given an AST node of an array reference, generate TAC for it
 int linearizeArrayRef(struct LinearizationMetadata m)
 {
-	printf("LinearizeArrayRef for:\n");
-	AST_Print(m.ast, 0);
-	printf("\n");
-
 	struct AST *arrayBaseTree = m.ast->child;
 	if (arrayBaseTree->type != t_identifier)
 	{

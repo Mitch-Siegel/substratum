@@ -48,8 +48,8 @@ int main(int argc, char **argv)
 	printf("Collapsing scopes\n");
 	SymbolTable_collapseScopes(theTable, parseDict);
 
-	printf("Symbol table after linearization/scope collapse:\n");
-	SymbolTable_print(theTable, 0);
+	// printf("Symbol table after linearization/scope collapse:\n");
+	// SymbolTable_print(theTable, 0);
 
 	FILE *outFile = fopen(argv[2], "wb");
 
