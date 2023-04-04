@@ -207,7 +207,7 @@ void SymbolTable_collapseScopes(struct SymbolTable *it, struct Dictionary *dict)
 
 void SymbolTable_free(struct SymbolTable *it)
 {
-	Scope_free(it->globalScope, 0);
+	Scope_free(it->globalScope);
 	free(it);
 }
 
@@ -229,7 +229,7 @@ struct Scope *Scope_new(struct Scope *parentScope, char *name)
 	return wip;
 }
 
-void Scope_free(struct Scope *scope, int depth)
+void Scope_free(struct Scope *scope)
 {
 	for (int i = 0; i < scope->entries->size; i++)
 	{
@@ -237,14 +237,14 @@ void Scope_free(struct Scope *scope, int depth)
 		switch (examinedEntry->type)
 		{
 		case e_scope:
-			Scope_free(examinedEntry->entry, depth + 1);
+			Scope_free(examinedEntry->entry);
 			break;
 
 		case e_function:
 		{
 			struct FunctionEntry *theFunction = examinedEntry->entry;
 			LinkedList_Free(theFunction->BasicBlockList, NULL);
-			Scope_free(theFunction->mainScope, depth);
+			Scope_free(theFunction->mainScope);
 			free(theFunction);
 		}
 		break;

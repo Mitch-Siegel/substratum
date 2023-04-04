@@ -697,6 +697,7 @@ void reduce(struct Stack *parseStack)
 	{
 		productionSize++;
 	}
+
 	// printf("Reduce %s:%d - %d ingredients\n", getTokenName(foundReduction[0]), foundReduction[1], productionSize);
 	struct InProgressProduction **ingredients = malloc(productionSize * sizeof(struct InProgressProduction *));
 
@@ -1038,7 +1039,6 @@ struct AST *TableParse(struct Dictionary *dict)
 		}
 		break;
 		}
-		printParseStack(parseStack);
 
 		if (parseStack->size < lastParseStackSize)
 		{
@@ -1059,7 +1059,13 @@ struct AST *TableParse(struct Dictionary *dict)
 		printParseStack(parseStack);
 		ErrorAndExit(ERROR_INTERNAL, "Something bad happened during parsing - parse stack dump above\t");
 	}
-	return ((struct InProgressProduction *)Stack_Pop(parseStack))->tree;
+
+	struct InProgressProduction *finalProduction = (struct InProgressProduction *)Stack_Pop(parseStack);
+	struct AST *finalTree = finalProduction->tree;
+	free(finalProduction);
+	Stack_Free(parseStack);
+	
+	return finalTree;
 }
 
 struct AST *ParseProgram(char *inFileName, struct Dictionary *dict)

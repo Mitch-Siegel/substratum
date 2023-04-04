@@ -1173,7 +1173,8 @@ struct LinearizationResult *linearizeWhileLoop(struct LinearizationMetadata m,
 	struct BasicBlock *beforeWhileBlock = m.currentBlock;
 
 	m.currentBlock = BasicBlock_new((*labelCount)++);
-	// int whileSubScopeIndex = m.scope->subScopeCount - 1;
+
+	Scope_addBasicBlock(m.scope, m.currentBlock);
 	Function_addBasicBlock(m.scope->parentFunction, m.currentBlock);
 
 	struct TACLine *enterWhileJump = newTACLine(m.currentTACIndex++, tt_jmp, m.ast);

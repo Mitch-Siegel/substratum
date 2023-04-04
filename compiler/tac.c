@@ -465,7 +465,6 @@ char *sPrintTACLine(struct TACLine *it)
 
 void freeTAC(struct TACLine *it)
 {
-	printTACLine(it);
 	free(it);
 }
 
@@ -493,7 +492,7 @@ struct BasicBlock *BasicBlock_new(int labelNum)
 
 void BasicBlock_free(struct BasicBlock *b)
 {
-	LinkedList_Free(b->TACList, free);
+	LinkedList_Free(b->TACList, freeTAC);
 	free(b);
 }
 
