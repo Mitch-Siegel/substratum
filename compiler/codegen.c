@@ -200,7 +200,7 @@ int lifetimeHeuristic(struct Lifetime *lt)
 		h *= 100;
 	}
 
-	return h
+	return h;
 }
 
 void spillVariables(struct FunctionRegisterAllocationMetadata *metadata, int mostConcurrentLifetimes)
