@@ -207,13 +207,6 @@ void trimWhitespace(char trackPos)
 	}
 }
 
-int lookahead_char()
-{
-	trimWhitespace(1);
-	char r = lookahead_char_dumb(1);
-	return r;
-}
-
 #define RESERVED_COUNT 35
 
 struct ReservedToken
@@ -289,11 +282,10 @@ scan(char trackPos)
 		return t_EOF;
 
 	enum token currentToken = -1;
-	int inChar;
 
 	while (1)
 	{
-		inChar = fgetc(inFile);
+		int inChar = fgetc(inFile);
 		if (inChar == EOF)
 		{
 			if (buflen > 0)
@@ -1064,7 +1056,7 @@ struct AST *TableParse(struct Dictionary *dict)
 	struct AST *finalTree = finalProduction->tree;
 	free(finalProduction);
 	Stack_Free(parseStack);
-	
+
 	return finalTree;
 }
 

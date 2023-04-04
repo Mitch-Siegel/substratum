@@ -43,7 +43,8 @@ int main(int argc, char **argv)
 	SymbolTable_print(theTable, 0);
 
 	printf("Linearizing code to basic blocks\n");
-	linearizeProgram(program, theTable->globalScope, parseDict);
+	struct TempList *temps = TempList_New();
+	linearizeProgram(program, theTable->globalScope, parseDict, temps);
 
 	printf("Collapsing scopes\n");
 	SymbolTable_collapseScopes(theTable, parseDict);
@@ -82,8 +83,10 @@ int main(int argc, char **argv)
 	Stack_Free(outputBlocks);
 
 	fclose(outFile);
-	// freeDictionary(parseDict);
 	AST_Free(program);
+
+	TempList_Free(temps);
+	Dictionary_Free(parseDict);
 
 	printf("done!\n");
 }

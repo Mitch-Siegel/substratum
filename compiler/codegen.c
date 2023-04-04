@@ -176,6 +176,33 @@ int generateLifetimeOverlaps(struct FunctionRegisterAllocationMetadata *metadata
 	return mostConcurrentLifetimes;
 }
 
+// return the heuristic for how good a given lifetime is to spill - higher is better
+int lifetimeHeuristic(struct Lifetime *lt)
+{
+	// base heuristic is lifetime length
+	int h = lt->end - lt->start;
+	// add the number of reads for this variable since they have some cost
+	h += lt->nreads;
+	// multiply by number of writes for this variable since that is a high-cost operation
+	h *= lt->nwrites;
+
+	// inflate heuristics for cases which have no actual stack space cost to spill:
+	// super-prefer to "spill" arguments as they already have a stack address
+	if (lt->isArgument)
+	{
+		h *= 1000;
+	}
+
+	// secondarily prefer to "spill" pointers to local objects
+	// they can be generated on-the-fly from the base pointer with 1 arithmetic instruction
+	else if (lt->localPointerTo != NULL)
+	{
+		h *= 100;
+	}
+
+	return h
+}
+
 void spillVariables(struct FunctionRegisterAllocationMetadata *metadata, int mostConcurrentLifetimes)
 {
 	int MAXREG = REGISTER_COUNT;
@@ -200,32 +227,17 @@ void spillVariables(struct FunctionRegisterAllocationMetadata *metadata, int mos
 	{
 		while (calculateRegisterLoading(metadata->lifetimeOverlaps[i], i) > MAXREG)
 		{
-			int bestHeuristic = -1;
-			struct Lifetime *bestLifetime = NULL;
-			for (struct LinkedListNode *overlapRunner = metadata->lifetimeOverlaps[i]->head; overlapRunner != NULL; overlapRunner = overlapRunner->next)
+			struct LinkedListNode *overlapRunner = metadata->lifetimeOverlaps[i]->head;
+
+			// start off the best heuristic as the first item
+			struct Lifetime *bestLifetime = (struct Lifetime *)overlapRunner->data;
+			int bestHeuristic = lifetimeHeuristic(bestLifetime);
+
+			for (; overlapRunner != NULL; overlapRunner = overlapRunner->next)
 			{
 				struct Lifetime *thisLifetime = overlapRunner->data;
 
-				// base heuristic is lifetime length (is this worth it?)
-				int thisHeuristic = (thisLifetime->end - thisLifetime->start);
-				// add the number of reads for this variable since they have some cost
-				thisHeuristic += (thisLifetime->nreads);
-
-				// multiply by number of writes for this variable since that is a high-cost operation
-				thisHeuristic *= (thisLifetime->nwrites);
-
-				// inflate heuristics for cases which have no actual stack space cost to spill:
-				// super-prefer to "spill" arguments as they already have a stack address
-				if (thisLifetime->isArgument)
-				{
-					thisHeuristic *= 1000;
-				}
-				// secondarily prefer to "spill" ointers to local objects
-				// they can be generated on-the-fly from the base pointer with 1 arithmetic instruction
-				else if (thisLifetime->localPointerTo != NULL)
-				{
-					thisHeuristic *= 100;
-				}
+				int thisHeuristic = lifetimeHeuristic(thisLifetime);
 
 				// printf("%s has heuristic of %f\n", thisLifetime->variable, thisHeuristic);
 				if (thisHeuristic > bestHeuristic)
@@ -834,7 +846,6 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			}
 		}
 		break;
-			break;
 
 		case tt_memr_2:
 		{

@@ -2,18 +2,14 @@
 
 #define LITERAL_VARIABLE_TYPE vt_uint32
 
-struct TempList *temps = NULL;
-
 // given a raw size of an object, find the nearest power-of-two aligned size
 int alignSize(int nBytes)
 {
 	int i = 0;
-	int p = 1;
-	for (i = 0; i < 32 && (nBytes > (0b1 << i)); i++)
+	while((nBytes > (0b1 << i)) > 0)
 	{
-		p *= 2;
+		i++;
 	}
-
 	return i;
 }
 
@@ -64,7 +60,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 	// TAC index set at bottom of function so it aligns properly with any lines resulting from recursive calls
 	struct TACLine *thisDereference = newTACLine(m.currentTACIndex, tt_memr_1, m.ast);
 
-	thisDereference->operands[0].name.str = TempList_Get(temps, *m.tempNum);
+	thisDereference->operands[0].name.str = TempList_Get(m.temps, *m.tempNum);
 	thisDereference->operands[0].permutation = vp_temp;
 	(*m.tempNum)++;
 
@@ -147,7 +143,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 // given an AST node of a function call, generate TAC to evaluate and push the arguments, then call it
 int linearizeFunctionCall(struct LinearizationMetadata m)
 {
-	char *operand0 = TempList_Get(temps, *m.tempNum);
+	char *operand0 = TempList_Get(m.temps, *m.tempNum);
 	struct FunctionEntry *calledFunction = Scope_lookupFun(m.scope, m.ast->child);
 
 	if (calledFunction->returnType != vt_null)
@@ -193,7 +189,7 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 						   struct TACLine *parentExpression,
 						   int operandIndex)
 {
-	parentExpression->operands[operandIndex].name.str = TempList_Get(temps, *m.tempNum);
+	parentExpression->operands[operandIndex].name.str = TempList_Get(m.temps, *m.tempNum);
 	parentExpression->operands[operandIndex].permutation = vp_temp;
 
 	switch (m.ast->type)
@@ -301,7 +297,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	case t_minus:
 	case t_star:
 	case t_lBracket: // array reference
-		thisExpression->operands[0].name.str = TempList_Get(temps, *m.tempNum);
+		thisExpression->operands[0].name.str = TempList_Get(m.temps, *m.tempNum);
 		thisExpression->operands[0].permutation = vp_temp;
 		// increment count of temp variables, the parse of this expression will be written to a temp
 		(*m.tempNum)++;
@@ -332,7 +328,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 		// otherwise there's pointer arithmetic involved
 		else
 		{
-			thisExpression->operands[1].name.str = TempList_Get(temps, *m.tempNum);
+			thisExpression->operands[1].name.str = TempList_Get(m.temps, *m.tempNum);
 			thisExpression->operands[1].permutation = vp_temp;
 
 			struct LinearizationMetadata dereferenceMetadata = m;
@@ -351,7 +347,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	}
 	else if (m.ast->type == t_lBracket)
 	{
-		thisExpression->operands[1].name.str = TempList_Get(temps, *m.tempNum);
+		thisExpression->operands[1].name.str = TempList_Get(m.temps, *m.tempNum);
 		thisExpression->operands[1].permutation = vp_temp;
 
 		// can pass the metadata straight through
@@ -461,7 +457,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 			case vp_temp:
 			{
 				struct TACLine *scaleMultiply = newTACLine(m.currentTACIndex++, tt_mul, m.ast);
-				scaleMultiply->operands[0].name.str = TempList_Get(temps, *m.tempNum);
+				scaleMultiply->operands[0].name.str = TempList_Get(m.temps, *m.tempNum);
 				(*m.tempNum)++;
 				scaleMultiply->operands[0].permutation = vp_temp;
 				scaleMultiply->operands[0].type = thisExpression->operands[2].type;
@@ -508,7 +504,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 				{
 					struct TACLine *scaleMultiply;
 					scaleMultiply = newTACLine(m.currentTACIndex++, tt_mul, m.ast);
-					scaleMultiply->operands[0].name.str = TempList_Get(temps, *m.tempNum);
+					scaleMultiply->operands[0].name.str = TempList_Get(m.temps, *m.tempNum);
 					(*m.tempNum)++;
 					scaleMultiply->operands[0].permutation = vp_temp;
 					scaleMultiply->operands[0].type = thisExpression->operands[2].type;
@@ -564,7 +560,7 @@ int linearizeArrayRef(struct LinearizationMetadata m)
 	arrayRefTAC->operands[1].permutation = vp_standard;
 	arrayRefTAC->operands[1].type = arrayBaseEntry->type;
 
-	arrayRefTAC->operands[0].name.str = TempList_Get(temps, *m.tempNum);
+	arrayRefTAC->operands[0].name.str = TempList_Get(m.temps, *m.tempNum);
 	arrayRefTAC->operands[0].permutation = vp_temp;
 	(*m.tempNum)++;
 	if (arrayBaseEntry->indirectionLevel > 0)
@@ -699,7 +695,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		struct TACLine *finalAssignment = newTACLine(m.currentTACIndex, tt_memw_3, LHSTree);
 
 		// set RHS TAC to assign to a temp
-		RHSTac->operands[0].name.str = TempList_Get(temps, *m.tempNum);
+		RHSTac->operands[0].name.str = TempList_Get(m.temps, *m.tempNum);
 		RHSTac->operands[0].permutation = vp_temp;
 		(*m.tempNum)++;
 		RHSTac->operands[0].type = RHSTac->operands[1].type;
@@ -770,7 +766,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		finalAssignment->operands[0].indirectionLevel = assignedArray->indirectionLevel;
 		finalAssignment->operands[0].permutation = vp_standard;
 
-		RHSTac->operands[0].name.str = TempList_Get(temps, *m.tempNum);
+		RHSTac->operands[0].name.str = TempList_Get(m.temps, *m.tempNum);
 		RHSTac->operands[0].permutation = vp_temp;
 		(*m.tempNum)++;
 		RHSTac->operands[0].type = RHSTac->operands[1].type;
@@ -1430,9 +1426,8 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 }
 
 // given an AST and a populated symbol table, generate three address code for the function entries
-void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictionary *dict)
+void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictionary *dict, struct TempList *temps)
 {
-	temps = TempList_New();
 	struct BasicBlock *globalBlock = Scope_lookup(globalScope, "globalblock")->entry;
 
 	// scrape along the top level of the AST
@@ -1475,6 +1470,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			functionMetadata.currentTACIndex = 1;
 			functionMetadata.scope = theFunction->mainScope;
 			functionMetadata.tempNum = &funTempNum;
+			functionMetadata.temps = temps;
 			struct LinearizationResult *r = linearizeScope(functionMetadata, NULL, &labelCount, scopeStack);
 			free(r);
 			Stack_Free(scopeStack);
@@ -1490,6 +1486,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			asmMetadata.currentTACIndex = currentTACIndex;
 			asmMetadata.scope = NULL;
 			asmMetadata.tempNum = NULL;
+			asmMetadata.temps = NULL;
 			currentTACIndex = linearizeASMBlock(asmMetadata);
 			// currentTACIndex = linearizeASMBlock(currentTACIndex, globalBlock, runner);
 		}
@@ -1514,6 +1511,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 				assignmentMetadata.currentTACIndex = currentTACIndex;
 				assignmentMetadata.scope = globalScope;
 				assignmentMetadata.tempNum = &tempNum;
+				assignmentMetadata.temps = temps;
 				currentTACIndex = linearizeAssignment(assignmentMetadata);
 			}
 		}
@@ -1527,6 +1525,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			assignmentMetadata.currentTACIndex = currentTACIndex;
 			assignmentMetadata.scope = globalScope;
 			assignmentMetadata.tempNum = &tempNum;
+			assignmentMetadata.temps = temps;
 			currentTACIndex = linearizeAssignment(assignmentMetadata);
 		}
 		break;

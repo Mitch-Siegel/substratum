@@ -11,6 +11,7 @@ struct LinearizationMetadata
 	struct BasicBlock *currentBlock;
 	struct AST *ast;
 	int *tempNum;
+	struct TempList *temps;
 	struct Scope *scope;
 };
 
@@ -62,4 +63,4 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 										   int *labelCount,
 										   struct Stack *scopenesting);
 
-void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictionary *dict);
+void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictionary *dict, struct TempList *temps);
