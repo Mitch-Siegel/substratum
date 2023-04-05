@@ -59,8 +59,10 @@ struct SymbolTable *SymbolTable_new(char *name)
 
 void SymbolTable_print(struct SymbolTable *it, char printTAC)
 {
-	printf("Symbol Table %s\n", it->name);
+	printf("~~~~~~~~~~~~~\n");
+	printf("Symbol Table For %s:\n\n", it->name);
 	Scope_print(it->globalScope, 0, printTAC);
+	printf("~~~~~~~~~~~~~\n\n");
 }
 
 void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict, int depth)
@@ -204,10 +206,9 @@ void SymbolTable_collapseScopes(struct SymbolTable *it, struct Dictionary *dict)
 	SymbolTable_collapseScopesRec(it->globalScope, parseDict, 1);
 }
 
-
 void SymbolTable_free(struct SymbolTable *it)
 {
-	Scope_free(it->globalScope, 0);
+	Scope_free(it->globalScope);
 	free(it);
 }
 
@@ -229,7 +230,7 @@ struct Scope *Scope_new(struct Scope *parentScope, char *name)
 	return wip;
 }
 
-void Scope_free(struct Scope *scope, int depth)
+void Scope_free(struct Scope *scope)
 {
 	for (int i = 0; i < scope->entries->size; i++)
 	{
@@ -237,14 +238,14 @@ void Scope_free(struct Scope *scope, int depth)
 		switch (examinedEntry->type)
 		{
 		case e_scope:
-			Scope_free(examinedEntry->entry, depth + 1);
+			Scope_free(examinedEntry->entry);
 			break;
 
 		case e_function:
 		{
 			struct FunctionEntry *theFunction = examinedEntry->entry;
 			LinkedList_Free(theFunction->BasicBlockList, NULL);
-			Scope_free(theFunction->mainScope, depth);
+			Scope_free(theFunction->mainScope);
 			free(theFunction);
 		}
 		break;
@@ -504,9 +505,7 @@ int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
 	}
 	else
 	{
-		int s = GetSizeOfPrimitive(theVariable->type);
-		printf("Size of %s is %d\n", name, s);
-		return s;
+		return GetSizeOfPrimitive(theVariable->type);
 	}
 }
 
@@ -530,6 +529,20 @@ int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
 	}
 }
 
+void VariableEntry_Print(struct VariableEntry *it, int depth)
+{
+	for (int j = 0; j < depth; j++)
+	{
+		printf("\t");
+	}
+	printf("  - Type: %d", it->type);
+	for (int i = 0; i < it->indirectionLevel; i++)
+	{
+		printf("*");
+	}
+	printf("\n");
+}
+
 void Scope_print(struct Scope *it, int depth, char printTAC)
 {
 	for (int i = 0; i < it->entries->size; i++)
@@ -549,30 +562,32 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		case e_argument:
 		{
 			struct VariableEntry *theArgument = thisMember->entry;
-			printf("> Argument %s", thisMember->name);
+			printf("> Argument %s:", thisMember->name);
 			if (theArgument->localPointerTo != NULL)
 			{
 				printf("[%d]", theArgument->localPointerTo->arraySize);
 			}
-			printf(" (stack offset %d)\n", theArgument->stackOffset);
+			printf("\n");
+			VariableEntry_Print(theArgument, depth);
+			for (int j = 0; j < depth; j++)
+			{
+				printf("\t");
+			}
+			printf("  - Stack offset: %d\n\n", theArgument->stackOffset);
 		}
 		break;
 
 		case e_variable:
 		{
 			struct VariableEntry *theVariable = thisMember->entry;
-			printf("> Variable");
-			for (int i = 0; i < theVariable->indirectionLevel; i++)
-			{
-				printf("*");
-			}
-			printf(" %s", thisMember->name);
+			printf("> Variable %s:", thisMember->name);
 			if (theVariable->localPointerTo != NULL)
 			{
 				printf("[%d]", theVariable->localPointerTo->arraySize);
 			}
 			printf("\n");
-			// printf(" (stack offset %d)\n", theVariable->stackOffset);
+			VariableEntry_Print(theVariable, depth);
+			printf("\n");
 		}
 		break;
 
@@ -588,7 +603,6 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 				}
 			}
 			Scope_print(theFunction->mainScope, depth + 1, printTAC);
-			printf("\n");
 		}
 		break;
 
@@ -614,7 +628,12 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		case e_stackobj:
 		{
 			struct StackObjectEntry *thisObj = thisMember->entry;
-			printf("> Stack object (%d bytes * %d) for %s (stack offset of %d)\n", thisObj->size, thisObj->arraySize, thisObj->localPointer->name, thisObj->stackOffset);
+			printf("> Stack object (%d bytes * %d) for %s\n", thisObj->size, thisObj->arraySize, thisObj->localPointer->name);
+			for (int j = 0; j < depth; j++)
+			{
+				printf("\t");
+			}
+			printf("  - Stack offset: %d\n\n", thisObj->stackOffset);
 		}
 		break;
 		}
@@ -842,7 +861,6 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 
 	while (functionRunner->type != t_rParen)
 	{
-		printf("Function runner is %s\n", functionRunner->value);
 		switch (functionRunner->type)
 		{
 			// looking at argument declarations

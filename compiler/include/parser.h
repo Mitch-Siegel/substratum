@@ -12,8 +12,6 @@ int lookahead_char_dumb();
 
 void trimWhitespace(char trackPos);
 
-int lookahead_char();
-
 enum token scan(char trackPos);
 
 enum token lookahead();
