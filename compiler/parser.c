@@ -317,7 +317,7 @@ scan(char trackPos)
 				switch (reserved[i].token)
 				{
 				case t_single_equals:
-				case t_not;
+				case t_not:
 				case t_gThan:
 				case t_lThan:
 					if (lookahead_char_dumb(1) == '=')
