@@ -164,20 +164,20 @@
     pushb %{rs: reg}                        => 0xd0 @ 0x0 @ rs @ 0x0000
     pushh %{rs: reg}                        => 0xd1 @ 0x0 @ rs @ 0x0000
     push %{rs: reg}                         => 0xd2 @ 0x0 @ rs @ 0x0000
-    
+
     popb %{rd: reg}                         => 0xd3 @ 0x0 @ rd @ 0x0000
     poph %{rd: reg}                         => 0xd4 @ 0x0 @ rd @ 0x0000
     pop %{rd: reg}                          => 0xd5 @ 0x0 @ rd @ 0x0000
 
     ; call the function at address << 8 (256-byte alignment)
-    call {address: i32}                     => 0xd3 @ (address >> 8)`24
+    call {address: i32}                     => 0xd6 @ (address >> 8)`24
 
     ; wipe 'argw' number of bytes off the stack from arguments
-    ret {argw: i24}                         => 0xd4 @ argw
+    ret {argw: i24}                         => 0xd7 @ argw
     ret                                     => asm{ret 0}
     
-    int {code: i8}                          => 0xd5 @ code @ 0x0000
-    reti                                    => 0xd6 @ 0x000000
+    int {code: i8}                          => 0xd8 @ code @ 0x0000
+    reti                                    => 0xd9 @ 0x000000
 
     out {port: i8}, %{rs: reg}                         => 0xe2 @ port @ 0x0 @ rs @ 0x00
 

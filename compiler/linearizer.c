@@ -124,18 +124,24 @@ int linearizeDereference(struct LinearizationMetadata m)
 
 int linearizeArgumentPushes(struct LinearizationMetadata m)
 {
-	if (m.ast->sibling != NULL && m.ast->sibling->type != t_rParen)
+	struct Stack *argumentStack = Stack_New();
+
+	struct AST *argumentRunner = m.ast;
+	while (argumentRunner->type != t_rParen)
 	{
-		struct LinearizationMetadata argumentMetadata = m;
-		argumentMetadata.ast = m.ast->sibling;
+		struct TACLine *thisArgumentPush = newTACLine(m.currentTACIndex, tt_push, m.ast);
+		m.currentTACIndex = linearizeSubExpression(m, thisArgumentPush, 0);
 
-		m.currentTACIndex = linearizeArgumentPushes(argumentMetadata);
+		Stack_Push(argumentStack, thisArgumentPush);
+		argumentRunner = argumentRunner->sibling;
 	}
-	struct TACLine *thisArgumentPush = newTACLine(m.currentTACIndex, tt_push, m.ast);
 
-	m.currentTACIndex = linearizeSubExpression(m, thisArgumentPush, 0);
-	thisArgumentPush->index = m.currentTACIndex++;
-	BasicBlock_append(m.currentBlock, thisArgumentPush);
+	while (argumentStack->size > 0)
+	{
+		struct TACLine *thisArgumentPush = Stack_Pop(argumentStack);
+		thisArgumentPush->index = m.currentTACIndex++;
+		BasicBlock_append(m.currentBlock, thisArgumentPush);
+	}
 
 	return m.currentTACIndex;
 }
