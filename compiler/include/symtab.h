@@ -93,7 +93,7 @@ struct SymbolTable *SymbolTable_new(char *name);
 // scope functions
 struct Scope *Scope_new(struct Scope *parentScope, char *name);
 
-void Scope_free(struct Scope *scope, int depth);
+void Scope_free(struct Scope *scope);
 
 void Scope_print(struct Scope *it, int depth, char printTAC);
 
@@ -136,10 +136,16 @@ void Function_addBasicBlock(struct FunctionEntry *function, struct BasicBlock *b
 
 void SymbolTable_print(struct SymbolTable *it, char printTAC);
 
+void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict, int depth);
+
+void SymbolTable_collapseScopes(struct SymbolTable *it, struct Dictionary *dict);
+
 void SymbolTable_free(struct SymbolTable *it);
 
 // AST walk functions
-void walkStatement(struct AST *it, struct Scope *wip);
+void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArgument);
+
+void walkStatement(struct AST *it, struct Scope *wipScope);
 
 void walkScope(struct AST *it, struct Scope *wip, char isMainScope);
 

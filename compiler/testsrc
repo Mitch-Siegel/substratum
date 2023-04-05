@@ -1,119 +1,96 @@
+/*
+https://projecteuler.net/problem=1
+
+If we list all the natural numbers below 10 that are multiples of 3 or 5, we get 3, 5, 6 and 9. The sum of these multiples is 23.
+
+Find the sum of all the multiples of 3 or 5 below 1000.
+
+results:
+1/15/23 - 1196487 instructions
+
+*/
+
 asm
-    {
-    entry code
-    code:
-    call testfunction
-    hlt
+	{
+	entry code
+	code:
+	call test
+	hlt
 }
 ;
 
-fun print(uint32 value)
+fun print(uint32 value) : void
 {
-    // store r0, pull the argument into a register, then output that register
-    asm {
+	// store r0, pull the argument into a register, then output that register
+	asm {
 		mov %rr, (%bp+8)
-        int 5
-    }
-    ;
+		int 5
+	}
+	;
 }
 
-fun mod(uint32 a, uint32 divisor)
+fun print2(uint32 value, uint8 otherArgument) : void
 {
-    while (a >= divisor)
-    {
-        a = a - divisor;
-    }
-    return a;
+	// store r0, pull the argument into a register, then output that register
+	asm {
+		mov %rr, (%bp+8)
+		int 5
+	}
+	;
 }
 
-fun mul(uint32 a, uint32 b)
+fun fib_deref(uint8 upTo) : void
 {
-    uint32 result = 0;
-    if (a > b)
-    {
-        while (b > 0)
-        {
-            result = result + a;
-            b = b - 1;
-        }
-    }
-    else
-    {
-        while (a > 0)
-        {
-            result = result + b;
-            a = a - 1;
-        }
-    }
-    return result;
+	uint16 fibArray[32];
+
+	*fibArray = 0;
+	*(fibArray + 1) = 1;
+
+	uint8 i = 1;
+	while (fibArray[i] < upTo)
+	{
+		uint16 previous = fibArray[i];
+		print(previous);
+		// fibArray[i] = *(fibArray + (i - 1)) + *(fibArray + (i - 2));
+		fibArray[i + 1] = previous + fibArray[i - 1];
+		i = i + 1;
+	}
 }
 
-fun div(uint32 a, uint32 b)
+/*
+fun fib_array(uint8 upTo) : void
 {
-    uint32 quotient = 0;
-    while (a >= b)
-    {
-        a = a - b;
-        quotient = quotient + 1;
-    }
-    return quotient;
+	uint8 fibArray[32];
+
+	*fibArray = 0;
+	fibArray[1] = fibArray[0] + 1;
+
+	uint8 i = 1;
+	while(fibArray[i] < upTo)
+	{
+		print(fibArray[i]);
+		fibArray[i + 1] = fibArray[i] + fibArray[i - 1];
+		i = i + 1;
+	}
+
 }
 
-fun printNum(uint32 num)
+fun fib_rec(uint8 n) : uint32
 {
-    uint32 outStr[16];
-    uint32 digits = 1;
-    if (num == 0)
-    {
-        outStr[0] = 48;
-    }
-    else
-    {
-        while (num > 0)
-        {
-            uint32 remainder = mod(num, 10);
-            outStr[digits] = remainder + 48;
-            num = div(num, 10);
-            digits = digits + 1;
-        }
-    }
-
-    uint32 i = 0;
-    while (i < digits)
-    {
-        print(outStr[digits - i]);
-        i = i + 1;
-    }
-    print(10); // newline
+	if (n > 1)
+	{
+		return (fib_rec(n - 1) + fib_rec(n - 2));
+	}
+	else
+	{
+		if (n > 0)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
 }
-
-fun testfunction()
-{
-    uint8 array[9];
-    array[0] = 70;
-    array[1] = 79;
-    array[2] = 82;
-    array[3] = 84;
-    array[4] = 78;
-    array[5] = 73;
-    array[6] = 84;
-    array[7] = 69;
-    array[8] = 10;
-
-    uint8 iterator = 0;
-    uint8 two = 2;
-    while (two == 2)
-    {
-        print(array[iterator]);
-        if (iterator == 0)
-        {
-            iterator = 0;
-        }
-        else
-        {
-            iterator += 1;
-        }
-    }
-}
-
-$$
+*/

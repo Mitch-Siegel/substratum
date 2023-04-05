@@ -49,17 +49,10 @@ void PlaceLiteralInRegister(struct LinkedList *currentBlock, char *literalStr, c
 
 struct Stack *generateCode(struct SymbolTable *table, FILE *outFile)
 {
-	printf("generate code for [%s]\n", table->name);
-	return generateCodeForScope(table->globalScope, outFile);
-};
-
-struct Stack *generateCodeForScope(struct Scope *scope, FILE *outFile)
-{
 	struct Stack *scopeBlocks = Stack_New();
-	printf("generate code for scope [%s] (size %d)\n", scope->name, scope->entries->size);
-	for (int i = 0; i < scope->entries->size; i++)
+	for (int i = 0; i < table->globalScope->entries->size; i++)
 	{
-		struct ScopeMember *thisMember = scope->entries->data[i];
+		struct ScopeMember *thisMember = table->globalScope->entries->data[i];
 		switch (thisMember->type)
 		{
 		case e_function:
@@ -73,7 +66,7 @@ struct Stack *generateCodeForScope(struct Scope *scope, FILE *outFile)
 			int reservedRegisters[2];
 			reservedRegisters[0] = 0;
 			reservedRegisters[1] = 1;
-			GenerateCodeForBasicBlock(thisMember->entry, scope, NULL, blockBlock, "global", reservedRegisters, touchedRegisters);
+			GenerateCodeForBasicBlock(thisMember->entry, table->globalScope, NULL, blockBlock, "global", reservedRegisters, touchedRegisters);
 			Stack_Push(scopeBlocks, blockBlock);
 		}
 		break;
@@ -83,7 +76,7 @@ struct Stack *generateCodeForScope(struct Scope *scope, FILE *outFile)
 		}
 	}
 	return scopeBlocks;
-}
+};
 
 /*
  * code generation for funcitons (lifetime management, etc)
@@ -183,6 +176,33 @@ int generateLifetimeOverlaps(struct FunctionRegisterAllocationMetadata *metadata
 	return mostConcurrentLifetimes;
 }
 
+// return the heuristic for how good a given lifetime is to spill - higher is better
+int lifetimeHeuristic(struct Lifetime *lt)
+{
+	// base heuristic is lifetime length
+	int h = lt->end - lt->start;
+	// add the number of reads for this variable since they have some cost
+	h += lt->nreads;
+	// multiply by number of writes for this variable since that is a high-cost operation
+	h *= lt->nwrites;
+
+	// inflate heuristics for cases which have no actual stack space cost to spill:
+	// super-prefer to "spill" arguments as they already have a stack address
+	if (lt->isArgument)
+	{
+		h *= 1000;
+	}
+
+	// secondarily prefer to "spill" pointers to local objects
+	// they can be generated on-the-fly from the base pointer with 1 arithmetic instruction
+	else if (lt->localPointerTo != NULL)
+	{
+		h *= 100;
+	}
+
+	return h;
+}
+
 void spillVariables(struct FunctionRegisterAllocationMetadata *metadata, int mostConcurrentLifetimes)
 {
 	int MAXREG = REGISTER_COUNT;
@@ -207,32 +227,17 @@ void spillVariables(struct FunctionRegisterAllocationMetadata *metadata, int mos
 	{
 		while (calculateRegisterLoading(metadata->lifetimeOverlaps[i], i) > MAXREG)
 		{
-			int bestHeuristic = -1;
-			struct Lifetime *bestLifetime = NULL;
-			for (struct LinkedListNode *overlapRunner = metadata->lifetimeOverlaps[i]->head; overlapRunner != NULL; overlapRunner = overlapRunner->next)
+			struct LinkedListNode *overlapRunner = metadata->lifetimeOverlaps[i]->head;
+
+			// start off the best heuristic as the first item
+			struct Lifetime *bestLifetime = (struct Lifetime *)overlapRunner->data;
+			int bestHeuristic = lifetimeHeuristic(bestLifetime);
+
+			for (; overlapRunner != NULL; overlapRunner = overlapRunner->next)
 			{
 				struct Lifetime *thisLifetime = overlapRunner->data;
 
-				// base heuristic is lifetime length (is this worth it?)
-				int thisHeuristic = (thisLifetime->end - thisLifetime->start);
-				// add the number of reads for this variable since they have some cost
-				thisHeuristic += (thisLifetime->nreads);
-
-				// multiply by number of writes for this variable since that is a high-cost operation
-				thisHeuristic *= (thisLifetime->nwrites);
-
-				// inflate heuristics for cases which have no actual stack space cost to spill:
-				// super-prefer to "spill" arguments as they already have a stack address
-				if (thisLifetime->isArgument)
-				{
-					thisHeuristic *= 1000;
-				}
-				// secondarily prefer to "spill" ointers to local objects
-				// they can be generated on-the-fly from the base pointer with 1 arithmetic instruction
-				else if (thisLifetime->localPointerTo != NULL)
-				{
-					thisHeuristic *= 100;
-				}
+				int thisHeuristic = lifetimeHeuristic(thisLifetime);
 
 				// printf("%s has heuristic of %f\n", thisLifetime->variable, thisHeuristic);
 				if (thisHeuristic > bestHeuristic)
@@ -283,6 +288,7 @@ void sortSpilledLifetimes(struct FunctionRegisterAllocationMetadata *metadata)
 
 void assignRegisters(struct FunctionRegisterAllocationMetadata *metadata)
 {
+	// printf("\nassigning registers\n");
 	// flag registers in use at any given TAC index so we can easily assign
 	char registers[REGISTER_COUNT];
 	struct Lifetime *occupiedBy[REGISTER_COUNT];
@@ -298,13 +304,14 @@ void assignRegisters(struct FunctionRegisterAllocationMetadata *metadata)
 	registers[metadata->reservedRegisters[0]] = 1;
 	registers[metadata->reservedRegisters[1]] = 1;
 
-	for (int i = 0; i < metadata->largestTacIndex; i++)
+	for (int i = 0; i <= metadata->largestTacIndex; i++)
 	{
 		// free any registers inhabited by expired lifetimes
 		for (int j = 0; j < REGISTER_COUNT; j++)
 		{
 			if (occupiedBy[j] != NULL && occupiedBy[j]->end <= i)
 			{
+				// printf("%s expires at %d\n", occupiedBy[j]->variable, i);
 				registers[j] = 0;
 				occupiedBy[j] = NULL;
 			}
@@ -351,7 +358,7 @@ void assignRegisters(struct FunctionRegisterAllocationMetadata *metadata)
 
 struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 {
-	printf("Generate code for function %s", function->name);
+	printf("generate code for function %s", function->name);
 
 	struct FunctionRegisterAllocationMetadata metadata;
 	metadata.function = function;
@@ -415,20 +422,6 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	}
 
 	assignRegisters(&metadata);
-
-	/*
-	for (struct LinkedListNode *runner = metadata.allLifetimes->head; runner != NULL; runner = runner->next)
-	{
-		struct Lifetime *thisLifetime = runner->data;
-		if (thisLifetime->isSpilled)
-		{
-			printf("%16s: %d(%%bp)\n", thisLifetime->variable, thisLifetime->stackOrRegLocation);
-		}
-		else
-		{
-			printf("%16s: %%r%d\n", thisLifetime->variable, thisLifetime->stackOrRegLocation);
-		}
-	}*/
 
 	// actual registers have been assigned to variables
 	printf(".");
@@ -593,9 +586,13 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 	for (struct LinkedListNode *TACRunner = thisBlock->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
 	{
 		struct TACLine *thisTAC = TACRunner->data;
-		char *printedTAC = sPrintTACLine(thisTAC);
-		TRIM_APPEND(asmBlock, sprintf(printedLine, ";%s", printedTAC));
-		free(printedTAC);
+
+		if (thisTAC->operation != tt_asm)
+		{
+			char *printedTAC = sPrintTACLine(thisTAC);
+			TRIM_APPEND(asmBlock, sprintf(printedLine, ";%s", printedTAC));
+			free(printedTAC);
+		}
 
 		switch (thisTAC->operation)
 		{
@@ -813,6 +810,25 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		}
 		break;
 
+		case tt_memw_2_n:
+		{
+			int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
+			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
+			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d-%d), %%r%d", movOp, baseReg, thisTAC->operands[1].name.val, sourceReg));
+		}
+		break;
+
+		case tt_memw_3_n:
+		{
+			int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
+			int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
+			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[3].name.str, asmBlock, 16, touchedRegisters);
+			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d-%%r%d,%d), %%r%d", movOp, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[2].name.val), sourceReg));
+		}
+		break;
+
 		case tt_dereference: // these are redundant... probably makes sense to remove one?
 		case tt_memr_1:
 		{
@@ -830,7 +846,6 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			}
 		}
 		break;
-			break;
 
 		case tt_memr_2:
 		{
@@ -863,6 +878,41 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2].name.str, asmBlock, 16, touchedRegisters);
 				const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
 				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d+%%r%d,%d)", movOp, destReg, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[3].name.val)));
+			}
+		}
+		break;
+
+		case tt_memr_2_n:
+		{
+			struct Lifetime *destinationLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
+			if (destinationLifetime->isSpilled)
+			{
+				ErrorAndExit(ERROR_INTERNAL, "Code generation for tt_memr_2 with spilled destination not supported!\n");
+			}
+			else
+			{
+				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
+				int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
+				const char *movOp = SelectMovWidth(&thisTAC->operands[1]);
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d-%d)", movOp, destReg, sourceReg, thisTAC->operands[2].name.val));
+			}
+		}
+		break;
+
+		case tt_memr_3_n:
+		{
+			struct Lifetime *destinationLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
+			if (destinationLifetime->isSpilled)
+			{
+				ErrorAndExit(ERROR_INTERNAL, "Code generation for tt_memr_3 with spilled destination not supported!\n");
+			}
+			else
+			{
+				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
+				int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
+				int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2].name.str, asmBlock, 16, touchedRegisters);
+				const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d-%%r%d,%d)", movOp, destReg, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[3].name.val)));
 			}
 		}
 		break;

@@ -11,6 +11,7 @@ struct LinearizationMetadata
 	struct BasicBlock *currentBlock;
 	struct AST *ast;
 	int *tempNum;
+	struct TempList *temps;
 	struct Scope *scope;
 };
 
@@ -20,9 +21,6 @@ int linearizeDereference(struct LinearizationMetadata m);
 
 int linearizeArgumentPushes(struct LinearizationMetadata m);
 
-int linearizePointerArithmetic(struct LinearizationMetadata m,
-							   int depth);
-
 int linearizeFunctionCall(struct LinearizationMetadata m);
 
 int linearizeSubExpression(struct LinearizationMetadata m,
@@ -30,6 +28,8 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 						   int operandIndex);
 
 int linearizeExpression(struct LinearizationMetadata m);
+
+int linearizeArrayRef(struct LinearizationMetadata m);
 
 int linearizeAssignment(struct LinearizationMetadata m);
 
@@ -63,6 +63,4 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 										   int *labelCount,
 										   struct Stack *scopenesting);
 
-void collapseScopes(struct Scope *scope, struct Dictionary *dict, int depth);
-
-void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictionary *dict);
+void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictionary *dict, struct TempList *temps);

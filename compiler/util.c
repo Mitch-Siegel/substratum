@@ -300,6 +300,20 @@ char *strTrim(char *s, int l)
 	return newStr;
 }
 
+char *strAppend(char *before, char *after)
+{
+	int beforeLen = strlen(before);
+	int afterLen = strlen(after);
+
+	char *newStr = malloc(beforeLen + afterLen + 1);
+	strcpy(newStr, before);
+	strcpy(newStr + beforeLen, after);
+
+	free(before);
+	free(after);
+	return newStr;
+}
+
 /*
  *
  *
