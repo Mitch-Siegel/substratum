@@ -323,12 +323,30 @@ scan(char trackPos)
 					if (lookahead_char_dumb(1) == '=')
 					{
 						forceNextChar = 1;
-						break;
 					}
+					else
+					{
+						return reserved[i].token;
+					}
+					break;
+
+				case t_minus:
+					if (lookahead_char_dumb(1) == '>')
+					{
+						forceNextChar = 1;
+					}
+					else
+					{
+						return reserved[i].token;
+					}
+					break;
+
 				default:
 					return reserved[i].token;
 				}
-				if(forceNextChar){
+
+				if (forceNextChar)
+				{
 					break;
 				}
 			}

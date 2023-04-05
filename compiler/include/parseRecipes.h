@@ -611,34 +611,34 @@ enum token parseRecipes[p_null][10][9][2] = {
     // p_function_definition - FUNCTION-DEFINITION
     {
         // multiple arguments
-        // 'fun' FUNCTION-OPENER DECLARATION-LIST ')' ':' TYPE-NAME SCOPE
+        // 'fun' FUNCTION-OPENER DECLARATION-LIST '->' TYPE-NAME ')' SCOPE
         {{t_fun, above},
          {p_function_opener, below},
          {p_declaration_list, below},
-         {t_rParen, below},
-         {t_colon, cnsme},
+         {t_pointer_op, below},
          {p_type_name, below},
+         {t_rParen, cnsme},
          {p_scope, below},
          {p_null, p_null}},
 
         // 1 argument
-        // 'fun' FUNCTION-OPENER VARIABLE-DECLARATION ')' ':' TYPE-NAME SCOPE
+        // 'fun' FUNCTION-OPENER VARIABLE-DECLARATION '->' TYPE-NAME ')' SCOPE
         {{t_fun, above},
          {p_function_opener, below},
          {p_variable_declaration, below},
-         {t_rParen, below},
-         {t_colon, cnsme},
+         {t_pointer_op, below},
          {p_type_name, below},
+         {t_rParen, cnsme},
          {p_scope, below},
          {p_null, p_null}},
 
         // no arguments
-        // 'fun' FUNCTION-OPENER ')' ':' TYPE-NAME SCOPE
+        // 'fun' FUNCTION-OPENER '->' TYPE-NAME ')' SCOPE
         {{t_fun, above},
          {p_function_opener, below},
-         {t_rParen, below},
-         {t_colon, cnsme},
+         {t_pointer_op, below},
          {p_type_name, below},
+         {t_rParen, cnsme},
          {p_scope, below},
          {p_null, p_null}},
 

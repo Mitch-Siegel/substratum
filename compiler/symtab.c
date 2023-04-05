@@ -859,7 +859,7 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 	functionRunner = functionRunner->sibling; // start at argument definitions
 	func->mainScope->parentScope = parentScope;
 
-	while (functionRunner->type != t_rParen)
+	while (functionRunner->type != t_pointer_op)
 	{
 		switch (functionRunner->type)
 		{
@@ -901,7 +901,6 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 
 	case t_uint32:
 		func->returnType = vt_uint32;
-
 		break;
 
 	default:

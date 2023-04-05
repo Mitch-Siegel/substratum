@@ -6,7 +6,7 @@
 int alignSize(int nBytes)
 {
 	int i = 0;
-	while((nBytes > (0b1 << i)) > 0)
+	while ((nBytes > (0b1 << i)) > 0)
 	{
 		i++;
 	}
@@ -209,8 +209,8 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 	{
 		parentExpression->operands[operandIndex].name.str = m.ast->value;
 		parentExpression->operands[operandIndex].indirectionLevel = 0;
-		parentExpression->operands[operandIndex].permutation = vp_standard;
-		parentExpression->operands[operandIndex].type = vt_uint32;
+		parentExpression->operands[operandIndex].permutation = vp_literal;
+		parentExpression->operands[operandIndex].type = LITERAL_VARIABLE_TYPE;
 	}
 	break;
 
@@ -304,11 +304,11 @@ int linearizeExpression(struct LinearizationMetadata m)
 		break;
 
 	case t_lThan:
-	// case t_bin_lThanE:
 	case t_gThan:
-		// case t_bin_gThanE:
-		// case t_bin_equals:
-		// case t_bin_notEquals:
+	case t_lThanE:
+	case t_gThanE:
+	case t_equals:
+	case t_nEquals:
 		break;
 
 	default:
@@ -382,15 +382,15 @@ int linearizeExpression(struct LinearizationMetadata m)
 	break;
 
 	case t_lThan:
-	// case t_bin_lThanE:
 	case t_gThan:
-		// case t_bin_gThanE:
-		// case t_bin_equals:
-		// case t_bin_notEquals:
-		{
-			thisExpression->operation = tt_cmp;
-		}
-		break;
+	case t_lThanE:
+	case t_gThanE:
+	case t_equals:
+	case t_nEquals:
+	{
+		thisExpression->operation = tt_cmp;
+	}
+	break;
 
 	default:
 	{
@@ -1083,19 +1083,19 @@ int linearizeConditionCheck(struct LinearizationMetadata m,
 
 	case t_lThan:
 	case t_gThan:
-		// case t_bin_lThanE:
-		// case t_bin_gThanE:
-		// case t_bin_equals:
-		// case t_bin_notEquals:
-		{
-			m.currentTACIndex = linearizeExpression(m);
+	case t_lThanE:
+	case t_gThanE:
+	case t_equals:
+	case t_nEquals:
+	{
+		m.currentTACIndex = linearizeExpression(m);
 
-			// generate a label and figure out condition to jump when the if statement isn't executed
-			struct TACLine *condFalseJump = linearizeConditionalJump(m.currentTACIndex++, m.ast->value, whichCondition, m.ast);
-			condFalseJump->operands[0].name.val = targetLabel;
-			BasicBlock_append(m.currentBlock, condFalseJump);
-		}
-		break;
+		// generate a label and figure out condition to jump when the if statement isn't executed
+		struct TACLine *condFalseJump = linearizeConditionalJump(m.currentTACIndex++, m.ast->value, whichCondition, m.ast);
+		condFalseJump->operands[0].name.val = targetLabel;
+		BasicBlock_append(m.currentBlock, condFalseJump);
+	}
+	break;
 
 	default:
 		ErrorAndExit(ERROR_INTERNAL, "Error linearizing statement - malformed parse tree: expected comparison or logical operator!\n");
@@ -1458,10 +1458,12 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			struct LinearizationMetadata functionMetadata;
 
 			struct AST *functionMainScopeTree = runner->child;
-			while (functionMainScopeTree->type != t_rParen)
+			// skip over argument declarations
+			while (functionMainScopeTree->type != t_pointer_op)
 			{
 				functionMainScopeTree = functionMainScopeTree->sibling;
 			}
+			// skip over return type
 			functionMainScopeTree = functionMainScopeTree->sibling;
 			functionMainScopeTree = functionMainScopeTree->sibling;
 
