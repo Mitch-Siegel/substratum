@@ -15,6 +15,7 @@ $(OBJDIR)/%.o: %.c
 
 recipes:
 	rm -f parser.o
+	rm -f ./mcc
 	make mcc
 
 clean:

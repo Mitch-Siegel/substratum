@@ -29,14 +29,13 @@ fun print(uint32 value) : void
 	;
 }
 
-fun print2(uint32 value, uint8 otherArgument) : void
+fun mod(uint32 a, uint32 divisor) : void
 {
-	// store r0, pull the argument into a register, then output that register
-	asm {
-		mov %rr, (%bp+8)
-		int 5
-	}
-	;
+    while (a >= divisor)
+    {
+        a = a - divisor;
+    }
+    return a;
 }
 
 fun fib_deref(uint8 upTo) : void

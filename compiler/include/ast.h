@@ -59,6 +59,10 @@ enum token
 	// comparison operators
 	t_lThan,
 	t_gThan,
+	t_lThanE,
+	t_gThanE,
+	t_equals,
+	t_nEquals,
 	// logical operators
 	t_and,
 	t_or,
