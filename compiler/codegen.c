@@ -551,23 +551,43 @@ const char *SelectMovWidth(struct TACOperand *dataDest)
 		return "mov";
 	}
 
-	int destSize;
+	return SelectMovWidthForSize(GetSizeOfPrimitive(dataDest->type));
+}
 
-	switch (dataDest->permutation)
+const char *SelectPushWidthForSize(int size)
+{
+	switch (size)
 	{
-		// if we have a var / temp at this stage, it must be a primitive (remember we caught pointers at the top of the function)
-	case vp_standard:
-	case vp_temp:
-		destSize = GetSizeOfPrimitive(dataDest->type);
-		break;
+	case 1:
+		return "pushb";
 
-	case vp_literal:
-		ErrorAndExit(ERROR_INTERNAL, "Error in SelectMovWidth: Data destination can't be a literal!");
-		break;
+	case 2:
+		return "pushh";
+
+	case 4:
+		return "push";
+	}
+	ErrorAndExit(ERROR_INTERNAL, "Error in SelectPushWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, or 4 bytes!");
+
+}
+
+const char *SelectPushWidthForPrimitive(enum variableTypes type)
+{
+	return SelectPushWidthForSize(GetSizeOfPrimitive(type));
+}
+
+
+const char *SelectPushWidth(struct TACOperand *dataDest)
+{
+	// pointers are always full-width
+	if (dataDest->indirectionLevel > 0)
+	{
+		return "push";
 	}
 
-	return SelectMovWidthForSize(destSize);
+	return SelectPushWidthForSize(GetSizeOfPrimitive(dataDest->type));
 }
+
 
 // TODO: thisBlock vs asmBlock?!
 void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
@@ -1020,12 +1040,13 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			case vp_temp:
 			{
 				int registerIndex = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0].name.str, asmBlock, reservedRegisters[0], touchedRegisters);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "push %%r%d", registerIndex));
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d", SelectPushWidth(&thisTAC->operands[0]), registerIndex));
 			}
 			break;
 
 			case vp_literal:
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "pushi $%s", thisTAC->operands[0].name.str));
+				PlaceLiteralInRegister(asmBlock, thisTAC->operands[0].name.str, "%rr");
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%rr", SelectPushWidth(&thisTAC->operands[0])));
 				break;
 			}
 		}

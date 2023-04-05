@@ -69,7 +69,6 @@ void AST_PrintHorizontalRec(struct AST *it){
 
 void AST_PrintHorizontal(struct AST *it)
 {
-
 	printf("(");
 	printf("%s", it->value);
 

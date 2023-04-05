@@ -12,6 +12,11 @@ const char *SelectMovWidthForPrimitive(enum variableTypes type);
 
 const char *SelectMovWidth(struct TACOperand *dataDest);
 
+const char *SelectPushWidthForPrimitive(enum variableTypes type);
+
+const char *SelectPushWidth(struct TACOperand *dataDest);
+
+
 void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
                                struct Scope *thisScope,
                                struct LinkedList *allLifetimes,
