@@ -130,7 +130,10 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 	while (argumentRunner->type != t_rParen)
 	{
 		struct TACLine *thisArgumentPush = newTACLine(m.currentTACIndex, tt_push, m.ast);
-		m.currentTACIndex = linearizeSubExpression(m, thisArgumentPush, 0);
+		
+		struct LinearizationMetadata pushedArgumentMetadata = m;
+		pushedArgumentMetadata.ast = argumentRunner;
+		m.currentTACIndex = linearizeSubExpression(pushedArgumentMetadata, thisArgumentPush, 0);
 
 		Stack_Push(argumentStack, thisArgumentPush);
 		argumentRunner = argumentRunner->sibling;
