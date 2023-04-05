@@ -125,7 +125,7 @@
     movb %{rd: reg}, (%{rbase: reg})                             => 0xa2 @ rd @ rbase @ 0x0000
     movb (%{rbase: reg}), %{rs: reg}                             => 0xa4 @ rbase @ rs @ 0x0000
     
-    movb %{rd: reg}, (%{rbase: reg}+%{offset: i16})              => 0xa5 @ rd @ rbase @ offset
+    movb %{rd: reg}, (%{rbase: reg}+{offset: i16})              => 0xa5 @ rd @ rbase @ offset
     movb (%{rbase: reg}+{offset: i16}), %{rs: reg}               => 0xa7 @ rs @ rbase @ offset
 
     movb %{rd: reg}, (%{rbase: reg}+%{roffset: reg},{sclpow: i5}) => 0xa9 @ rd @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow

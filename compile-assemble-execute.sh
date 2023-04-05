@@ -3,7 +3,7 @@ if ! make; then
     exit
 fi
 
-if ! ./mcc source.txt ../assembler/main.asm; then
+if ! ./mcc testsrc ../assembler/main.asm; then
     exit
 fi
 

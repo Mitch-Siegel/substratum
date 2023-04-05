@@ -14,6 +14,7 @@ char *token_names[] = {
 	"p_expression_operator",
 	"p_wip_expression",
 	"p_expression",
+	"p_expression_tail",
 	"p_function_opener",
 	"p_function_call",
 	"p_expression_list",
@@ -21,7 +22,6 @@ char *token_names[] = {
 	"p_variable_declaration",
 	"p_declaration_list",
 	"p_variable_declaration_statement",
-	"p_expression_statement",
 	"p_assignment_statement",
 	"p_return_statement",
 	"p_if_awating_else",
@@ -919,7 +919,6 @@ struct AST *TableParse(struct Dictionary *dict)
 	char haveMoreInput = 1;
 	while (parsing)
 	{
-
 		char forceShift = 0;
 		// no errors, actually try to reduce or shift in a new token
 		if (parseStack->size > 0)
@@ -946,6 +945,8 @@ struct AST *TableParse(struct Dictionary *dict)
 			// if we found a reduction
 			if (foundReduction[0] != p_null)
 			{
+				printParseStack(parseStack);
+
 				// do the reduction
 				reduce(parseStack);
 

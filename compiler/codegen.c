@@ -425,6 +425,12 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 
 	// actual registers have been assigned to variables
 	printf(".");
+	// move any applicable arguments into registers if we are expecting them not to be spilled
+	for (struct LinkedListNode *ltRunner = metadata.allLifetimes->head; ltRunner != NULL; ltRunner = ltRunner->next)
+	{
+		struct Lifetime *thisLifetime = ltRunner->data;
+		printf("%s\t:Spilled:%d Location:%d Lifetime:%2d-%2d\n", thisLifetime->variable, thisLifetime->isSpilled, thisLifetime->stackOrRegLocation, thisLifetime->start, thisLifetime->end);
+	}
 
 	struct LinkedList *functionBlock = LinkedList_New();
 
@@ -1070,6 +1076,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			default:
 				perror("unexpected type in return TAC!\n");
 			}
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "jmp %s_done", functionName));
 		}
 		break;
 

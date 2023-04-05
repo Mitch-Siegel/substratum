@@ -9,7 +9,7 @@ enum RecipeInstructions
 };
 
 // let him cook!
-enum token parseRecipes[p_null][10][9][2] = {
+enum token parseRecipes[p_null][11][9][2] = {
     // p_type_name
     {
         {{t_void, above},
@@ -165,30 +165,7 @@ enum token parseRecipes[p_null][10][9][2] = {
          {t_star, above},
          {p_null, p_null}},
 
-        /*
-        // WIP-EXPRESSION EXPRESSION-OPERATOR
-        {{p_wip_expression, above},
-         {p_expression_operator, above},
-         {p_null, p_null}},
-
-        // WIP-EXPRESSION EXPRESSION-OPERATOR
-        {{p_wip_expression, above},
-         {p_expression_operator, above},
-         {p_null, p_null}},
-
-        // WIP-EXPRESSION '*'
-        {{p_wip_expression, above},
-         {t_star, above},
-         {p_null, p_null}},
-
-        // WIP-EXPRESSION '*'
-        {{p_wip_expression, above},
-         {t_star, above},
-         {p_null, p_null}},
-         */
-
         {{p_null, p_null}},
-
     },
 
     // p_expression - EXPRESSION
@@ -201,6 +178,26 @@ enum token parseRecipes[p_null][10][9][2] = {
         // WIP-EXPRESSION EXPRESSION
         {{p_wip_expression, above},
          {p_expression, below},
+         {p_null, p_null}},
+
+        {{p_null, p_null}},
+    },
+
+    // p_expression_tail - EXPRESSION-TAIL
+    {
+        // EXPRESSION ';'
+        {{p_expression, above},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
+
+        // PRIMARY-EXPRESSION ';'
+        {{p_primary_expression, above},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
+
+        // WIP-EXPRESSION EXPRESSION-TAIL
+        {{p_wip_expression, above},
+         {p_expression_tail, below},
          {p_null, p_null}},
 
         {{p_null, p_null}},
@@ -332,89 +329,27 @@ enum token parseRecipes[p_null][10][9][2] = {
          {t_semicolon, cnsme},
          {p_null, p_null}},
 
-        // VARIABLE-DECLARATION = 'PRIMARY-EXPRESSION ';'
-        {{p_variable_declaration, above},
-         {t_single_equals, above},
+        // TYPE-NAME PRIMARY-EXPRESSION ';'
+        {{p_type_name, above},
          {p_primary_expression, below},
          {t_semicolon, cnsme},
          {p_null, p_null}},
-
-        // VARIABLE-DECLARATION = 'UNARY-EXPRESSION ';'
-        {{p_variable_declaration, above},
-         {t_single_equals, above},
-         {p_unary_expression, below},
-         {t_semicolon, cnsme},
-         {p_null, p_null}},
-
-        // VARIABLE-DECLARATION = 'EXPRESSION ';'
-        {{p_variable_declaration, above},
-         {t_single_equals, above},
-         {p_expression, below},
-         {t_semicolon, cnsme},
-         {p_null, p_null}},
-
-        {{p_null, p_null}},
-    },
-
-    // p_expression_statement - EXPRESSION-STATEMENT
-    // match expression statement down here with lower precedence to allow semicolons to stick on to other things first
-    {
-        // PRIMARY-EXPRESSION '=' PRIMARY-EXPRESSION ';'
-        {{p_primary_expression, above},
-         {t_single_equals, above},
-         {p_primary_expression, below},
-         {t_semicolon, cnsme},
-         {p_null, p_null}},
-
-        // PRIMARY-EXPRESSION '=' EXPRESSION ';'
-        {{p_primary_expression, above},
-         {t_single_equals, above},
-         {p_expression, below},
-         {t_semicolon, cnsme},
-         {p_null, p_null}},
-
-        // UNARY-EXPRESSION '=' PRIMARY-EXPRESSION ';'
-        {{p_unary_expression, above},
-         {t_single_equals, above},
-         {p_primary_expression, below},
-         {t_semicolon, cnsme},
-         {p_null, p_null}},
-
-        // UNARY-EXPRESSION '=' EXPRESSION ';'
-        {{p_unary_expression, above},
-         {t_single_equals, above},
-         {p_expression, below},
-         {t_semicolon, cnsme},
-         {p_null, p_null}},
-
-        // ';'
-        // {{t_semicolon, above},
-        //  {p_null, p_null}},
 
         {{p_null, p_null}},
     },
 
     // p_assignment_statement - ASSIGNMENT-STATEMENT
     {
-        // PRIMARY-EXPRESSION '=' PRIMARY-EXPRESSION ';'
-        {{p_primary_expression, above},
+        // VARIABLE-DECLARATION '=' EXPRESSION-TAIL
+        {{p_variable_declaration, above},
          {t_single_equals, above},
-         {p_primary_expression, below},
-         {t_semicolon, cnsme},
+         {p_expression_tail, below},
          {p_null, p_null}},
 
-        // PRIMARY-EXPRESSION '=' EXPRESSION ';'
+        // PRIMARY-EXPRESSION '=' EXPRESSION-TAIL
         {{p_primary_expression, above},
          {t_single_equals, above},
-         {p_expression, below},
-         {t_semicolon, cnsme},
-         {p_null, p_null}},
-
-        // PRIMARY-EXPRESSION '=' UNARY-EXPRESSION ';'
-        {{p_primary_expression, above},
-         {t_single_equals, above},
-         {p_unary_expression, below},
-         {t_semicolon, cnsme},
+         {p_expression_tail, below},
          {p_null, p_null}},
 
         {{p_null, p_null}},
@@ -424,13 +359,11 @@ enum token parseRecipes[p_null][10][9][2] = {
     {
         // 'return' PRIMARY-EXPRESSION
         {{t_return, above},
-         {p_primary_expression, below},
-         {t_semicolon, cnsme},
+         {p_expression_tail, below},
          {p_null, p_null}},
 
-        // 'return' EXPRESSION
+        // 'return' ';'
         {{t_return, above},
-         {p_expression, below},
          {t_semicolon, cnsme},
          {p_null, p_null}},
 
@@ -498,14 +431,13 @@ enum token parseRecipes[p_null][10][9][2] = {
         {{p_variable_declaration_statement, above},
          {p_null, p_null}},
 
-        // EXPRESSION-STATEMENT
-        {{p_expression_statement, above},
+        // ASSIGNMENT-STATEMENT
+        {{p_assignment_statement, above},
          {p_null, p_null}},
 
-        // PRIMARY-EXPRESSION ';'
-        // {{p_primary_expression, above},
-        //  {t_semicolon, cnsme},
-        //  {p_null, p_null}},
+        // only convert to generic statement here so it has lower precedence than binding into an expression
+        {{p_expression_tail, above},
+         {p_null, p_null}},
 
         // IF
         {{p_if, above},
@@ -517,11 +449,6 @@ enum token parseRecipes[p_null][10][9][2] = {
 
         // WHILE
         {{p_while, above},
-         {p_null, p_null}},
-
-        // FUNCTION-CALL
-        {{p_function_call, above},
-         {t_semicolon, cnsme},
          {p_null, p_null}},
 
         // RETURN-STATEMENT
