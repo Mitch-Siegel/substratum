@@ -122,7 +122,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 	return m.currentTACIndex;
 }
 
-int linearizeArgumentPushes(struct LinearizationMetadata m)
+int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry *f)
 {
 	struct Stack *argumentStack = Stack_New();
 
@@ -139,11 +139,31 @@ int linearizeArgumentPushes(struct LinearizationMetadata m)
 		argumentRunner = argumentRunner->sibling;
 	}
 
+	int argumentIndex = 0;
+	if(argumentStack->size != f->arguments->size)
+	{
+		ErrorAndExit(ERROR_CODE, "Function %s expects %d arguments but %d were given!\n\tLine %d, Col %d\n", f->name, f->arguments->size, argumentStack->size, m.ast->sourceLine, m.ast->sourceCol);
+	}
+
 	while (argumentStack->size > 0)
 	{
+		struct VariableEntry *expectedArgument = (struct VariableEntry *)f->arguments->data[argumentIndex];
 		struct TACLine *thisArgumentPush = Stack_Pop(argumentStack);
+
+		if(thisArgumentPush->operands[0].type > expectedArgument->type)
+		{
+			printf("Warning - argument 2 (%s) to function %s has unexpected type!\n", expectedArgument->name, f->name);
+		}
+		else
+		{
+			if(thisArgumentPush->operands[0].type < expectedArgument->type)
+			{
+				thisArgumentPush->operands[0].type = expectedArgument->type;
+			}
+		}
 		thisArgumentPush->index = m.currentTACIndex++;
 		BasicBlock_append(m.currentBlock, thisArgumentPush);
+		argumentIndex++;
 	}
 
 	return m.currentTACIndex;
@@ -166,7 +186,7 @@ int linearizeFunctionCall(struct LinearizationMetadata m)
 		struct LinearizationMetadata argumentMetadata = m;
 		argumentMetadata.ast = m.ast->child->sibling;
 
-		m.currentTACIndex = linearizeArgumentPushes(argumentMetadata);
+		m.currentTACIndex = linearizeArgumentPushes(argumentMetadata, calledFunction);
 	}
 
 	struct TACLine *calltac = newTACLine(m.currentTACIndex++, tt_call, m.ast);

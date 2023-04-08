@@ -19,7 +19,7 @@ int linearizeASMBlock(struct LinearizationMetadata m);
 
 int linearizeDereference(struct LinearizationMetadata m);
 
-int linearizeArgumentPushes(struct LinearizationMetadata m);
+int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry *f);
 
 int linearizeFunctionCall(struct LinearizationMetadata m);
 

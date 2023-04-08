@@ -6,6 +6,20 @@ char *symbolNames[] = {
 	"variable",
 	"function"};
 
+struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, enum variableTypes returnType)
+{
+	struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
+	newFunction->arguments = Stack_New();
+	newFunction->argStackSize = 0;
+	newFunction->localStackSize = 0;
+	newFunction->mainScope = Scope_new(parentScope, "");
+	newFunction->BasicBlockList = LinkedList_New();
+	newFunction->mainScope->parentFunction = newFunction;
+	newFunction->returnType = returnType;
+	newFunction->name = name;
+	return newFunction;
+}
+
 // create a variable denoted to be an argument within the given function entry
 void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize)
 {
@@ -18,6 +32,7 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, 
 	newArgument->mustSpill = 0;
 	newArgument->name = name->value;
 
+	Stack_Push(func->arguments, newArgument); // keep track of all arguments in order
 	Scope_insert(func->mainScope, name->value, newArgument, e_argument);
 
 	int argSize = Scope_getSizeOfVariable(func->mainScope, name);
@@ -41,6 +56,13 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, 
 	{
 		newArgument->localPointerTo = NULL;
 	}
+}
+
+void FunctionEntry_free(struct FunctionEntry *f)
+{
+	Stack_Free(f->arguments);
+	LinkedList_Free(f->BasicBlockList, NULL);
+	Scope_free(f->mainScope);
 }
 
 struct SymbolTable *SymbolTable_new(char *name)
@@ -243,10 +265,7 @@ void Scope_free(struct Scope *scope)
 
 		case e_function:
 		{
-			struct FunctionEntry *theFunction = examinedEntry->entry;
-			LinkedList_Free(theFunction->BasicBlockList, NULL);
-			Scope_free(theFunction->mainScope);
-			free(theFunction);
+			FunctionEntry_free(examinedEntry->entry);
 		}
 		break;
 
@@ -327,16 +346,9 @@ void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTy
 }
 
 // create a new function accessible within the given scope
-struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name)
+struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name, enum variableTypes returnType)
 {
-	struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
-	newFunction->argStackSize = 0;
-	newFunction->localStackSize = 0;
-	newFunction->mainScope = Scope_new(scope, "");
-	newFunction->BasicBlockList = LinkedList_New();
-	newFunction->mainScope->parentFunction = newFunction;
-	newFunction->returnType = vt_uint32; // hardcoded... for now ;)
-	newFunction->name = name;
+	struct FunctionEntry *newFunction = FunctionEntry_new(scope, name, returnType);
 	Scope_insert(scope, name, newFunction, e_function);
 	return newFunction;
 }
@@ -855,8 +867,37 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 {
 	struct AST *functionRunner = it->child;
 
+	struct AST *returnTypeRunner = functionRunner;
+	while (returnTypeRunner->type != t_pointer_op)
+	{
+		returnTypeRunner = returnTypeRunner->sibling;
+	}
+	returnTypeRunner = returnTypeRunner->sibling;
+	enum variableTypes returnType;
+	switch (returnTypeRunner->type)
+	{
+	case t_void:
+		returnType = vt_null;
+		break;
+
+	case t_uint8:
+		returnType = vt_uint8;
+		break;
+
+	case t_uint16:
+		returnType = vt_uint16;
+		break;
+
+	case t_uint32:
+		returnType = vt_uint32;
+		break;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Malformed AST - unexpected node type seen as return type for function\n");
+	}
+
 	// child is the lparen, function name is the child of the lparen
-	struct FunctionEntry *func = Scope_createFunction(parentScope, functionRunner->child->value);
+	struct FunctionEntry *func = Scope_createFunction(parentScope, functionRunner->child->value, returnType);
 	functionRunner = functionRunner->sibling; // start at argument definitions
 	func->mainScope->parentScope = parentScope;
 

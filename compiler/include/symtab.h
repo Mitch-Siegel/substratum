@@ -42,8 +42,8 @@ struct FunctionEntry
 	int localStackSize;
 	int argStackSize;
 	enum variableTypes returnType;
-	// struct SymbolTable *table;
 	struct Scope *mainScope;
+	struct Stack *arguments; // stack of VariableEntry pointers corresponding by index to arguments
 	char *name; // duplicate pointer from ScopeMember for ease of use
 	struct LinkedList *BasicBlockList;
 };
@@ -85,7 +85,11 @@ struct SymbolTable
  */
 
 // create an argument engty in the provided function entry, which is named by the provided AST node
+struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, enum variableTypes returnType);
+
 void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize);
+
+void FunctionEntry_free(struct FunctionEntry *f);
 
 // symbol table functions
 struct SymbolTable *SymbolTable_new(char *name);
@@ -101,7 +105,7 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
 
 void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize);
 
-struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name);
+struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name, enum variableTypes returnType);
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
 
