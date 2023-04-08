@@ -93,11 +93,11 @@ fun fibRec(uint32 n->uint32)
 fun test(->void)
 {
 	printNum(1235);
-	// uint8 i = 0;
-	// while(i < 20)
-	// {
-		// printNum(i);
-		// fibRec(i);
-		// i = i + 1;
-	// }
+	uint8 i = 0;
+	while(i < 20)
+	{
+		printNum(i);
+		// printNum(fibRec(i));
+		i = i + 1;
+	}
 }

@@ -627,7 +627,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	struct AST *LHSTree = m.ast->child;
 	struct AST *RHSTree = LHSTree->sibling;
 
-	struct TACLine *assignment = newTACLine(m.currentTACIndex++, tt_assign, m.ast);
+	struct TACLine *assignment = newTACLine(m.currentTACIndex, tt_assign, m.ast);
 
 	// if this assignment is simply setting one thing to another
 	if (RHSTree->child == NULL)
@@ -666,6 +666,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		subexpressionMetadata.ast = RHSTree;
 		m.currentTACIndex = linearizeSubExpression(subexpressionMetadata, assignment, 1);
 	}
+	assignment->index = m.currentTACIndex++;
 	BasicBlock_append(m.currentBlock, assignment);
 
 	// grab the TAC we just generated for the RHS of the expression
@@ -766,7 +767,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	// array element reference
 	case t_lBracket:
 	{
-		struct TACLine *finalAssignment = newTACLine(m.currentTACIndex++, tt_memw_3, LHS);
+		struct TACLine *finalAssignment = newTACLine(m.currentTACIndex, tt_memw_3, LHS);
 
 		struct VariableEntry *assignedArray = Scope_lookupVar(m.scope, LHS->child);
 
@@ -839,7 +840,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		}
 		break;
 		}
-
+		finalAssignment->index = m.currentTACIndex++;
 		BasicBlock_append(m.currentBlock, finalAssignment);
 	}
 	break;
