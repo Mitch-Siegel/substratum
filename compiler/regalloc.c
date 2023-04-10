@@ -37,7 +37,7 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
 		// may be helpful when adding/troubleshooting new TAC generation
 		if (thisLt->type != type)
 		{
-			ErrorAndExit(ERROR_CODE, "Error - type mismatch between identically named variables [%s] expected %d, saw %d!\n", variable, thisLt->type, type);
+			ErrorAndExit(ERROR_INTERNAL, "Error - type mismatch between identically named variables [%s] expected %d, saw %d!\n", variable, thisLt->type, type);
 		}
 		if (newEnd > thisLt->end)
 			thisLt->end = newEnd;

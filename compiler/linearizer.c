@@ -149,10 +149,10 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 	{
 		struct VariableEntry *expectedArgument = (struct VariableEntry *)f->arguments->data[argumentIndex];
 		struct TACLine *thisArgumentPush = Stack_Pop(argumentStack);
-
+		
 		if(thisArgumentPush->operands[0].type > expectedArgument->type)
 		{
-			printf("Warning - argument %d (%s) to function %s has unexpected type!\n", argumentIndex, expectedArgument->name, f->name);
+			ErrorWithAST(ERROR_CODE, thisArgumentPush->correspondingTree, "Argument %s to function %s has unexpected type!\n", expectedArgument->name, f->name);
 		}
 		else
 		{
@@ -182,7 +182,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 					}
 					expectedIndirectionLevelStr[expectedArgument->indirectionLevel] = '\0';
 
-					ErrorAndExit(ERROR_CODE, "Argument %d provided to %s has type %d%s, expected type %d%s\n\tLine %d, Col %d\n", argumentIndex, f->name, castTo.indirectionLevel, providedIndirectionLevelStr, expectedArgument->type, expectedIndirectionLevelStr, thisArgumentPush->correspondingTree->sourceLine, thisArgumentPush->correspondingTree->sourceCol);
+					ErrorWithAST(ERROR_CODE, thisArgumentPush->correspondingTree, "Argument %d provided to %s has type %d%s, expected type %d%s\n", argumentIndex, f->name, castTo.indirectionLevel, providedIndirectionLevelStr, expectedArgument->type, expectedIndirectionLevelStr);
 				}
 
 				castTo.name.str = TempList_Get(m.temps, *m.tempNum);

@@ -297,7 +297,7 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
 {
 	if (Scope_contains(scope, name))
 	{
-		ErrorAndExit(ERROR_CODE, "Error defining symbol [%s] - name already exists!\n", name);
+		ErrorAndExit(ERROR_INTERNAL, "Error defining symbol [%s] - name already exists!\n", name);
 	}
 	struct ScopeMember *wip = malloc(sizeof(struct ScopeMember));
 	wip->name = name;
@@ -318,6 +318,11 @@ void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTy
 	newVariable->isAssigned = 0;
 	newVariable->mustSpill = 0;
 	newVariable->name = name->value;
+
+	if (Scope_contains(scope, name->value))
+	{
+		ErrorWithAST(ERROR_CODE, name, "Redifinition of symbol %s!\n", name->value);
+	}
 
 	Scope_insert(scope, name->value, newVariable, e_variable);
 
@@ -431,7 +436,7 @@ struct VariableEntry *Scope_lookupVar(struct Scope *scope, struct AST *name)
 	struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
 	if (lookedUp == NULL)
 	{
-		ErrorAndExit(ERROR_CODE, "Line: %d, Column %d\n\tUse of undeclared variable [%s]\n", name->sourceLine, name->sourceCol, name->value);
+		ErrorWithAST(ERROR_CODE, name, "Use of undeclared variable [%s]\n", name->value);
 	}
 
 	switch (lookedUp->type)
@@ -450,7 +455,7 @@ struct FunctionEntry *Scope_lookupFun(struct Scope *scope, struct AST *name)
 	struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
 	if (lookedUp == NULL)
 	{
-		ErrorAndExit(ERROR_CODE, "Line: %d, Column %d\n\tUse of undeclared function [%s]\n", name->sourceLine, name->sourceCol, name->value);
+		ErrorWithAST(ERROR_CODE, name, "Use of undeclared function [%s]\n", name->value);
 	}
 	switch (lookedUp->type)
 	{
@@ -467,7 +472,7 @@ struct Scope *Scope_lookupSubScope(struct Scope *scope, char *name)
 	struct ScopeMember *lookedUp = Scope_lookup(scope, name);
 	if (lookedUp == NULL)
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Use of undeclared scope [%s]\n", name);
+		ErrorAndExit(ERROR_INTERNAL, "Failure looking up scope with name [%s]\n", name);
 	}
 
 	switch (lookedUp->type)
@@ -476,7 +481,7 @@ struct Scope *Scope_lookupSubScope(struct Scope *scope, char *name)
 		return lookedUp->entry;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Use of undeclared scope [%s]\n", name);
+		ErrorAndExit(ERROR_INTERNAL, "Unexpected symbol table entry type found when attempting to look up scope [%s]\n", name);
 	}
 }
 
@@ -537,7 +542,7 @@ int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
 		return 4;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Unexepcted variable type %d!\n", theVariable->type);
+		ErrorWithAST(ERROR_INTERNAL, name, "Variable %s has unexpected type %d!\n", name->value, theVariable->type);
 	}
 }
 
@@ -741,7 +746,7 @@ void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArg
 	}
 	else
 	{
-		ErrorAndExit(ERROR_CODE, "Error - redeclaration of symbol [%s]\n", runner->value);
+		ErrorWithAST(ERROR_CODE, runner, "Redeclaration of identifier [%s]\n", runner->value);
 	}
 }
 
@@ -986,7 +991,7 @@ struct SymbolTable *walkAST(struct AST *it)
 			break;
 
 		default:
-			ErrorAndExit(ERROR_INTERNAL, "Error walking AST - expected 'v' or function declaration\nInstead, got %s with type %d\n", runner->value, runner->type);
+			ErrorAndExit(ERROR_INTERNAL, "Error walking AST - got %s with type %d\n", runner->value, runner->type);
 			break;
 		}
 		runner = runner->sibling;
