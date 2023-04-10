@@ -627,6 +627,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			break;
 
 		case tt_assign:
+		case tt_cast_assign:
 		{
 			struct Lifetime *assignedLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
 			struct Lifetime *assignerLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[1].name.str);

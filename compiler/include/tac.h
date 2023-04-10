@@ -25,6 +25,7 @@ enum TACType
 {
 	tt_asm,
 	tt_assign,
+	tt_cast_assign,
 	tt_declare,
 	tt_add,
 	tt_subtract,
