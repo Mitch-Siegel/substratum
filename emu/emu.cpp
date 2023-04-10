@@ -143,12 +143,12 @@ void stackPush(uint32_t value, uint8_t nBytes)
     {
     case 1:
         registers[sp] -= 1;
-        writeW(registers[sp], value);
+        writeB(registers[sp], value);
         break;
 
     case 2:
         registers[sp] -= 2;
-        writeW(registers[sp], value);
+        writeH(registers[sp], value);
         break;
 
     case 4:
@@ -168,12 +168,12 @@ uint32_t stackPop(uint8_t nBytes)
     switch (nBytes)
     {
     case 1:
-        value = readW(registers[sp]);
+        value = readB(registers[sp]);
         registers[sp] += 1;
         break;
 
     case 2:
-        value = readW(registers[sp]);
+        value = readH(registers[sp]);
         registers[sp] += 2;
         break;
 
@@ -594,13 +594,16 @@ int main(int argc, char *argv[])
         instructionData instruction = {{0}};
         if (registers[ip] & (0b11))
         {
-            SWI(0x02); // throw INT 1 on misaligned PC
+            printf("Program counter alignment fault\n");
+            running = false;
+            break;
         }
 
         instruction.word = consumeW(registers[ip]);
         if (opcodeNames.count(instruction.byte.b0) == 0)
         {
-            SWI(0x03); // throw INT 2 on opcode with no name in names.h
+            printf("Unnamed opcode fault\n");
+            running = false;
         }
         else
         {
