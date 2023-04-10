@@ -152,13 +152,46 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 
 		if(thisArgumentPush->operands[0].type > expectedArgument->type)
 		{
-			printf("Warning - argument 2 (%s) to function %s has unexpected type!\n", expectedArgument->name, f->name);
+			printf("Warning - argument %d (%s) to function %s has unexpected type!\n", argumentIndex, expectedArgument->name, f->name);
 		}
 		else
 		{
 			if(thisArgumentPush->operands[0].type < expectedArgument->type)
 			{
-				thisArgumentPush->operands[0].type = expectedArgument->type;
+				struct TACLine *castLine = newTACLine(m.currentTACIndex++, tt_cast_assign, NULL);
+				// actually use the subexpression we placed as RHS of cast
+				castLine->operands[1] = thisArgumentPush->operands[0];
+
+				// start castTo as the same as what we are casting from
+				struct TACOperand castTo = castLine->operands[1];
+
+				castTo.type = expectedArgument->type;
+				if(castTo.indirectionLevel != expectedArgument->indirectionLevel)
+				{
+					char *providedIndirectionLevelStr = malloc(castTo.indirectionLevel + 1);
+					char *expectedIndirectionLevelStr = malloc(expectedArgument->indirectionLevel + 1);
+					for(int i = 0; i < castTo.indirectionLevel; i++)
+					{
+						providedIndirectionLevelStr[i] = '*';
+					}
+					providedIndirectionLevelStr[castTo.indirectionLevel] = '\0';
+
+					for(int i = 0; i < expectedArgument->indirectionLevel; i++)
+					{
+						expectedIndirectionLevelStr[i] = '*';
+					}
+					expectedIndirectionLevelStr[expectedArgument->indirectionLevel] = '\0';
+
+					ErrorAndExit(ERROR_CODE, "Argument %d provided to %s has type %d%s, expected type %d%s\n\tLine %d, Col %d\n", argumentIndex, f->name, castTo.indirectionLevel, providedIndirectionLevelStr, expectedArgument->type, expectedIndirectionLevelStr, thisArgumentPush->correspondingTree->sourceLine, thisArgumentPush->correspondingTree->sourceCol);
+				}
+
+				castTo.name.str = TempList_Get(m.temps, *m.tempNum);
+
+				castLine->operands[0] = castTo;
+				thisArgumentPush->operands[0] = castTo;
+
+				(*m.tempNum)++;
+				BasicBlock_append(m.currentBlock, castLine);
 			}
 		}
 		thisArgumentPush->index = m.currentTACIndex++;

@@ -97,7 +97,7 @@ fun test(->void)
 	uint8 i = 0;
 	while(i < 20)
 	{
-		print(i);
+		printNum(fibRec(i));
 		i = i + 1;
 	}
 }
