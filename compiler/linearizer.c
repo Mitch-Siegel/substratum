@@ -77,7 +77,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 		}
 		else
 		{
-			ErrorAndExit(ERROR_INTERNAL, "Unexpected case of dereferenced expression operator for pointer arithmetic!\n");
+			ErrorWithAST(ERROR_CODE, dereferencedExpression, "Illegal expression type (%s) being dereferenced!\n", getTokenName(dereferencedExpression->type));
 		}
 
 		struct LinearizationMetadata pointerArithLHS = m;
@@ -142,7 +142,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 	int argumentIndex = 0;
 	if(argumentStack->size != f->arguments->size)
 	{
-		ErrorAndExit(ERROR_CODE, "Function %s expects %d arguments but %d were given!\n\tLine %d, Col %d\n", f->name, f->arguments->size, argumentStack->size, m.ast->sourceLine, m.ast->sourceCol);
+		ErrorWithAST(ERROR_CODE, m.ast, "Function %s expects %d arguments but %d were given!", f->name, f->arguments->size, argumentStack->size);
 	}
 
 	while (argumentStack->size > 0)
@@ -340,7 +340,7 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 	break;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Unexpected type seen while linearizing subexpression!\n");
+		ErrorWithAST(ERROR_INTERNAL, m.ast, "Malformed AST seen while linearizing subexpression!\n");
 	}
 	return m.currentTACIndex;
 }
@@ -456,7 +456,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 
 	default:
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Unexpected operator type found in linearizeExpression!\n");
+		ErrorWithAST(ERROR_INTERNAL, m.ast, "Malformed AST found for operator in linearizeExpression!\n");
 		break;
 	}
 	}
@@ -610,7 +610,7 @@ int linearizeArrayRef(struct LinearizationMetadata m)
 	struct AST *arrayBaseTree = m.ast->child;
 	if (arrayBaseTree->type != t_identifier)
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Malformed AST for array reference!\nExpected identifier, got %s with value [%s]\n", getTokenName(m.ast->child->type), m.ast->value);
+		ErrorWithAST(ERROR_INTERNAL, arrayBaseTree, "Malformed AST for array reference!\n");
 	}
 
 	struct TACLine *arrayRefTAC = newTACLine(m.currentTACIndex, tt_memr_3, m.ast);
@@ -686,9 +686,9 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	if (RHSTree->child == NULL)
 	{
 		// pull out the relevant values and generate a single line of TAC to return
-		assignment->operands[1].name.str = m.ast->child->sibling->value;
+		assignment->operands[1].name.str = RHSTree->value;
 
-		switch (m.ast->child->sibling->type)
+		switch (RHSTree->type)
 		{
 		case t_constant:
 		{
@@ -701,7 +701,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		// identifier with no child - identifier alone
 		case t_identifier:
 		{
-			struct VariableEntry *theVariable = Scope_lookupVar(m.scope, m.ast->child->sibling);
+			struct VariableEntry *theVariable = Scope_lookupVar(m.scope, RHSTree);
 			assignment->operands[1].type = theVariable->type;
 			assignment->operands[0].type = theVariable->type;
 			assignment->operands[1].indirectionLevel = theVariable->indirectionLevel;
@@ -709,7 +709,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		break;
 
 		default:
-			ErrorAndExit(ERROR_INTERNAL, "Error parsing simple assignment - unexpected type on RHS\n");
+			ErrorWithAST(ERROR_INTERNAL, RHSTree, "Malformed AST seen on right side of simple assignment\n");
 		}
 	}
 	else
@@ -780,7 +780,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			}
 			else
 			{
-				ErrorAndExit(ERROR_INTERNAL, "Unexpected case of dereferenced expression operator for pointer arithmetic!\n");
+				ErrorWithAST(ERROR_CODE, assignedDereference, "Illegal expression type (%s) being dereferenced for assignment to\n", getTokenName(assignedDereference->type));
 			}
 
 			// set base
@@ -899,7 +899,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	break;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected type (%s) with value [%s] on LHS of assignment expression\n\t", getTokenName(m.ast->child->type), m.ast->child->value);
+		ErrorWithAST(ERROR_INTERNAL, LHS, "Malformed AST on LHS of assignment");
 	}
 
 	return m.currentTACIndex;
@@ -920,7 +920,7 @@ int linearizeArithmeticAssignment(struct LinearizationMetadata m)
 		// break;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Unexpected ast type %d passed to linearizeArithmeticAssignment!", m.ast->type);
+		ErrorWithAST(ERROR_INTERNAL, m.ast, "Malformed AST in arithmetic assignment");
 	}
 
 	struct VariableEntry *modifiedVariable = Scope_lookupVar(m.scope, m.ast->child);
@@ -1053,7 +1053,7 @@ int linearizeDeclaration(struct LinearizationMetadata m)
 		break;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Unexpected type seen while linearizing declaration!");
+		ErrorWithAST(ERROR_INTERNAL, m.ast, "Malformed AST seen in declaration!");
 	}
 
 	int dereferenceLevel = 0;
@@ -1161,7 +1161,7 @@ int linearizeConditionCheck(struct LinearizationMetadata m,
 	break;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Error linearizing statement - malformed parse tree: expected comparison or logical operator!\n");
+		ErrorWithAST(ERROR_INTERNAL, m.ast, "Malformed AST in condition check\n");
 	}
 	return m.currentTACIndex;
 }
@@ -1356,7 +1356,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			break;
 
 			default:
-				ErrorAndExit(ERROR_INTERNAL, "Error linearizing statement - malformed parse tree under 'var' node\n");
+				ErrorWithAST(ERROR_INTERNAL, runner->child, "Malformed AST in declaration\n");
 			}
 		}
 		break;
@@ -1458,8 +1458,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 		break;
 
 		default:
-			AST_Print(runner, 0);
-			ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected node type when linearizing statement\n");
+			ErrorWithAST(ERROR_INTERNAL, runner, "Malformed AST in statement\n");
 		}
 		runner = runner->sibling;
 	}
@@ -1595,9 +1594,8 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 		}
 		break;
 
-		// ignore everything else (for now) - no global vars, etc...
 		default:
-			ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected statement type at global scope\n");
+			ErrorWithAST(ERROR_INTERNAL, runner, "Malformed AST for statement at global scope\n");
 		}
 		runner = runner->sibling;
 	}
