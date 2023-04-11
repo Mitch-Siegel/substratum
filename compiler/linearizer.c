@@ -130,7 +130,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 	while (argumentRunner->type != t_rParen)
 	{
 		struct TACLine *thisArgumentPush = newTACLine(m.currentTACIndex, tt_push, m.ast);
-		
+
 		struct LinearizationMetadata pushedArgumentMetadata = m;
 		pushedArgumentMetadata.ast = argumentRunner;
 		m.currentTACIndex = linearizeSubExpression(pushedArgumentMetadata, thisArgumentPush, 0);
@@ -140,7 +140,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 	}
 
 	int argumentIndex = 0;
-	if(argumentStack->size != f->arguments->size)
+	if (argumentStack->size != f->arguments->size)
 	{
 		ErrorWithAST(ERROR_CODE, m.ast, "Function %s expects %d arguments but %d were given!", f->name, f->arguments->size, argumentStack->size);
 	}
@@ -149,14 +149,14 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 	{
 		struct VariableEntry *expectedArgument = (struct VariableEntry *)f->arguments->data[argumentIndex];
 		struct TACLine *thisArgumentPush = Stack_Pop(argumentStack);
-		
-		if(thisArgumentPush->operands[0].type > expectedArgument->type)
+
+		if (thisArgumentPush->operands[0].type > expectedArgument->type)
 		{
 			ErrorWithAST(ERROR_CODE, thisArgumentPush->correspondingTree, "Argument %s to function %s has unexpected type!\n", expectedArgument->name, f->name);
 		}
 		else
 		{
-			if(thisArgumentPush->operands[0].type < expectedArgument->type)
+			if (thisArgumentPush->operands[0].type < expectedArgument->type)
 			{
 				struct TACLine *castLine = newTACLine(m.currentTACIndex++, tt_cast_assign, NULL);
 				// actually use the subexpression we placed as RHS of cast
@@ -166,17 +166,17 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 				struct TACOperand castTo = castLine->operands[1];
 
 				castTo.type = expectedArgument->type;
-				if(castTo.indirectionLevel != expectedArgument->indirectionLevel)
+				if (castTo.indirectionLevel != expectedArgument->indirectionLevel)
 				{
 					char *providedIndirectionLevelStr = malloc(castTo.indirectionLevel + 1);
 					char *expectedIndirectionLevelStr = malloc(expectedArgument->indirectionLevel + 1);
-					for(int i = 0; i < castTo.indirectionLevel; i++)
+					for (int i = 0; i < castTo.indirectionLevel; i++)
 					{
 						providedIndirectionLevelStr[i] = '*';
 					}
 					providedIndirectionLevelStr[castTo.indirectionLevel] = '\0';
 
-					for(int i = 0; i < expectedArgument->indirectionLevel; i++)
+					for (int i = 0; i < expectedArgument->indirectionLevel; i++)
 					{
 						expectedIndirectionLevelStr[i] = '*';
 					}
@@ -965,73 +965,40 @@ int linearizeArithmeticAssignment(struct LinearizationMetadata m)
 }
 
 struct TACLine *linearizeConditionalJump(int currentTACIndex,
-										 char *cmpOp,
-										 char whichCondition,
-										 struct AST *correspondingTree)
+										 struct AST *cmpOp,
+										 char whichCondition)
 {
 	enum TACType jumpCondition;
-	switch (cmpOp[0])
+	switch (cmpOp->type)
 	{
-	case '<':
-	{
-		switch (cmpOp[1])
-		{
-		case '=':
-		{
-			jumpCondition = (whichCondition ? tt_jle : tt_jg);
-		}
+	case t_lThanE:
+		jumpCondition = (whichCondition ? tt_jle : tt_jg);
 		break;
 
-		case '\0':
-		{
-			jumpCondition = (whichCondition ? tt_jl : tt_jge);
-		}
+	case t_lThan:
+		jumpCondition = (whichCondition ? tt_jl : tt_jge);
 		break;
 
-		default:
-			ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected value in comparison operator node\n");
-		}
-	}
-	break;
-
-	case '>':
-	{
-		switch (cmpOp[1])
-		{
-		case '=':
-		{
-			jumpCondition = (whichCondition ? tt_jge : tt_jl);
-		}
+	case t_gThanE:
+		jumpCondition = (whichCondition ? tt_jge : tt_jl);
 		break;
 
-		case '\0':
-		{
-			jumpCondition = (whichCondition ? tt_jg : tt_jle);
-		}
+	case t_gThan:
+		jumpCondition = (whichCondition ? tt_jg : tt_jle);
 		break;
 
-		default:
-			ErrorAndExit(ERROR_INTERNAL, "Error - Unexpected value in comparison operator node\n");
-		}
-	}
-	break;
-
-	case '!':
-	{
+	case t_nEquals:
 		jumpCondition = (whichCondition ? tt_jne : tt_je);
-	}
-	break;
+		break;
 
-	case '=':
-	{
+	case t_equals:
 		jumpCondition = (whichCondition ? tt_je : tt_jne);
-	}
-	break;
+		break;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Error linearizing conditional jump - malformed parse tree: expected comparison operator, got [%s] instead!\n", cmpOp);
+		ErrorWithAST(ERROR_INTERNAL, cmpOp, "Malformed AST seen in conditional jump\n");
 	}
-	return newTACLine(currentTACIndex, jumpCondition, correspondingTree);
+	return newTACLine(currentTACIndex, jumpCondition, cmpOp);
 }
 
 int linearizeDeclaration(struct LinearizationMetadata m)
@@ -1154,7 +1121,7 @@ int linearizeConditionCheck(struct LinearizationMetadata m,
 		m.currentTACIndex = linearizeExpression(m);
 
 		// generate a label and figure out condition to jump when the if statement isn't executed
-		struct TACLine *condFalseJump = linearizeConditionalJump(m.currentTACIndex++, m.ast->value, whichCondition, m.ast);
+		struct TACLine *condFalseJump = linearizeConditionalJump(m.currentTACIndex++, m.ast, whichCondition);
 		condFalseJump->operands[0].name.val = targetLabel;
 		BasicBlock_append(m.currentBlock, condFalseJump);
 	}
