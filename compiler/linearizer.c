@@ -82,11 +82,11 @@ int linearizeDereference(struct LinearizationMetadata m)
 
 		struct LinearizationMetadata pointerArithLHS = m;
 		pointerArithLHS.ast = dereferencedExpression->child;
-		m.currentTACIndex = linearizeSubExpression(pointerArithLHS, thisDereference, 1);
-
+		m.currentTACIndex = linearizeSubExpression(pointerArithLHS, thisDereference, 1, 1);
+		
 		struct LinearizationMetadata pointerArithRHS = m;
 		pointerArithRHS.ast = dereferencedExpression->child->sibling;
-		m.currentTACIndex = linearizeSubExpression(pointerArithRHS, thisDereference, 2);
+		m.currentTACIndex = linearizeSubExpression(pointerArithRHS, thisDereference, 2, 1);
 
 		thisDereference->operands[3].name.val = alignSize(Scope_getSizeOfVariableByString(m.scope, thisDereference->operands[1].name.str));
 		thisDereference->operands[3].indirectionLevel = 0;
@@ -96,7 +96,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 	else
 	{
 		// no direct pointer arithmetic to consider, just use linearizeSubExpression to populate what we are dereferencing
-		m.currentTACIndex = linearizeSubExpression(m, thisDereference, 1);
+		m.currentTACIndex = linearizeSubExpression(m, thisDereference, 1, 0);
 	}
 
 	thisDereference->operands[0].type = thisDereference->operands[1].type;
@@ -133,7 +133,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 
 		struct LinearizationMetadata pushedArgumentMetadata = m;
 		pushedArgumentMetadata.ast = argumentRunner;
-		m.currentTACIndex = linearizeSubExpression(pushedArgumentMetadata, thisArgumentPush, 0);
+		m.currentTACIndex = linearizeSubExpression(pushedArgumentMetadata, thisArgumentPush, 0, 0);
 
 		Stack_Push(argumentStack, thisArgumentPush);
 		argumentRunner = argumentRunner->sibling;
@@ -249,7 +249,8 @@ int linearizeFunctionCall(struct LinearizationMetadata m)
 // linearize any subexpression which results in the use of a temporary variable
 int linearizeSubExpression(struct LinearizationMetadata m,
 						   struct TACLine *parentExpression,
-						   int operandIndex)
+						   int operandIndex,
+						   char forceConstantToRegister)
 {
 	parentExpression->operands[operandIndex].name.str = TempList_Get(m.temps, *m.tempNum);
 	parentExpression->operands[operandIndex].permutation = vp_temp;
@@ -269,10 +270,37 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 
 	case t_constant:
 	{
-		parentExpression->operands[operandIndex].name.str = m.ast->value;
-		parentExpression->operands[operandIndex].indirectionLevel = 0;
-		parentExpression->operands[operandIndex].permutation = vp_literal;
-		parentExpression->operands[operandIndex].type = LITERAL_VARIABLE_TYPE;
+		// we need an operand for the literal one way or another
+		struct TACOperand literalOperand;
+		literalOperand.name.str = m.ast->value;
+		literalOperand.indirectionLevel = 0;
+		literalOperand.permutation = vp_literal;
+		literalOperand.type = LITERAL_VARIABLE_TYPE;
+
+		// if this subexpressin requires a register, we will need an extra instruction to load the literal to a register
+		if (forceConstantToRegister)
+		{
+			struct TACLine *literalLoadLine = newTACLine(m.currentTACIndex++, tt_assign, m.ast);
+			literalLoadLine->operands[1] = literalOperand;
+
+			// construct an operand for the temp this literal will occupy
+			struct TACOperand tempOperand;
+			tempOperand.name.str = TempList_Get(m.temps, *m.tempNum);
+			(*m.tempNum)++;
+			tempOperand.indirectionLevel = 0;
+			tempOperand.permutation = vp_temp;
+			tempOperand.type = LITERAL_VARIABLE_TYPE;
+
+			// assign to and read from the temp
+			literalLoadLine->operands[0] = tempOperand;
+			parentExpression->operands[operandIndex] = tempOperand;
+
+			BasicBlock_append(m.currentBlock, literalLoadLine);
+		}
+		else
+		{
+			parentExpression->operands[operandIndex] = literalOperand;
+		}
 	}
 	break;
 
@@ -425,7 +453,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	// handle the LHS of the expression
 	struct LinearizationMetadata LHSMetadata = m;
 	LHSMetadata.ast = m.ast->child;
-	m.currentTACIndex = linearizeSubExpression(LHSMetadata, thisExpression, 1);
+	m.currentTACIndex = linearizeSubExpression(LHSMetadata, thisExpression, 1, 0);
 
 	// assign the TAC operation based on the operator at hand
 	switch (m.ast->type)
@@ -464,7 +492,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 	// handle the RHS of the expression
 	struct LinearizationMetadata RHSMetadata = m;
 	RHSMetadata.ast = m.ast->child->sibling;
-	m.currentTACIndex = linearizeSubExpression(RHSMetadata, thisExpression, 2);
+	m.currentTACIndex = linearizeSubExpression(RHSMetadata, thisExpression, 2, 0);
 
 	if (thisExpression->operation != tt_cmp)
 	{
@@ -666,7 +694,7 @@ int linearizeArrayRef(struct LinearizationMetadata m)
 		struct LinearizationMetadata indexExpressionMetadata = m;
 		indexExpressionMetadata.ast = arrayIndexTree;
 
-		m.currentTACIndex = linearizeSubExpression(indexExpressionMetadata, arrayRefTAC, 2);
+		m.currentTACIndex = linearizeSubExpression(indexExpressionMetadata, arrayRefTAC, 2, 0);
 	}
 
 	arrayRefTAC->index = m.currentTACIndex++;
@@ -717,7 +745,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	{
 		struct LinearizationMetadata subexpressionMetadata = m;
 		subexpressionMetadata.ast = RHSTree;
-		m.currentTACIndex = linearizeSubExpression(subexpressionMetadata, assignment, 1);
+		m.currentTACIndex = linearizeSubExpression(subexpressionMetadata, assignment, 1, 0);
 	}
 	assignment->index = m.currentTACIndex++;
 	BasicBlock_append(m.currentBlock, assignment);
@@ -786,12 +814,12 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			// set base
 			struct LinearizationMetadata pointerArithLHS = m;
 			pointerArithLHS.ast = assignedDereference->child;
-			m.currentTACIndex = linearizeSubExpression(pointerArithLHS, finalAssignment, 0);
+			m.currentTACIndex = linearizeSubExpression(pointerArithLHS, finalAssignment, 0, 1);
 
 			// set offset
 			struct LinearizationMetadata pointerArithRHS = m;
 			pointerArithRHS.ast = assignedDereference->child->sibling;
-			m.currentTACIndex = linearizeSubExpression(pointerArithRHS, finalAssignment, 1);
+			m.currentTACIndex = linearizeSubExpression(pointerArithRHS, finalAssignment, 1, 1);
 
 			// set scale
 			finalAssignment->operands[2].name.val = alignSize(Scope_getSizeOfVariableByString(m.scope, finalAssignment->operands[0].name.str));
@@ -808,7 +836,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			finalAssignment->operation = tt_memw_1;
 			struct LinearizationMetadata LHSIdentifierMetadata = m;
 			LHSIdentifierMetadata.ast = assignedDereference;
-			m.currentTACIndex = linearizeSubExpression(LHSIdentifierMetadata, finalAssignment, 0);
+			m.currentTACIndex = linearizeSubExpression(LHSIdentifierMetadata, finalAssignment, 0, 0);
 
 			finalAssignment->operands[1] = operandToWrite;
 		}
@@ -954,7 +982,7 @@ int linearizeArithmeticAssignment(struct LinearizationMetadata m)
 	{
 		struct LinearizationMetadata subExpressionMetadata = m;
 		subExpressionMetadata.ast = m.ast->child->sibling;
-		m.currentTACIndex = linearizeSubExpression(subExpressionMetadata, arithmeticAssignmentLine, 2);
+		m.currentTACIndex = linearizeSubExpression(subExpressionMetadata, arithmeticAssignmentLine, 2, 0);
 	}
 	break;
 	}
@@ -1358,7 +1386,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			struct LinearizationMetadata returnMetadata = m;
 			returnMetadata.ast = runner->child;
 
-			m.currentTACIndex = linearizeSubExpression(returnMetadata, returnTac, 0);
+			m.currentTACIndex = linearizeSubExpression(returnMetadata, returnTac, 0, 0);
 			returnTac->index = m.currentTACIndex++;
 
 			BasicBlock_append(m.currentBlock, returnTac);

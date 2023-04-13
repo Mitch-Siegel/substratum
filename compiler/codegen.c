@@ -833,7 +833,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
 			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[3].name.str, asmBlock, 16, touchedRegisters);
 			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
-			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d+%%r%d,%d), %%r%d", movOp, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[2].name.val), sourceReg));
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d+%%r%d,%d), %%r%d", movOp, baseReg, offsetReg, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)), sourceReg));
 		}
 		break;
 
@@ -852,7 +852,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
 			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[3].name.str, asmBlock, 16, touchedRegisters);
 			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
-			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d-%%r%d,%d), %%r%d", movOp, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[2].name.val), sourceReg));
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d-%%r%d,%d), %%r%d", movOp, baseReg, offsetReg, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)), sourceReg));
 		}
 		break;
 
@@ -904,7 +904,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
 				int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2].name.str, asmBlock, 16, touchedRegisters);
 				const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d+%%r%d,%d)", movOp, destReg, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[3].name.val)));
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d+%%r%d,%d)", movOp, destReg, baseReg, offsetReg, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type))));
 			}
 		}
 		break;
@@ -939,7 +939,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1].name.str, asmBlock, reservedRegisters[1], touchedRegisters);
 				int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2].name.str, asmBlock, 16, touchedRegisters);
 				const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d-%%r%d,%d)", movOp, destReg, baseReg, offsetReg, ALIGNSIZE(thisTAC->operands[3].name.val)));
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d-%%r%d,%d)", movOp, destReg, baseReg, offsetReg, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type))));
 			}
 		}
 		break;

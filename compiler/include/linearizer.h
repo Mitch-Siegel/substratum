@@ -25,7 +25,8 @@ int linearizeFunctionCall(struct LinearizationMetadata m);
 
 int linearizeSubExpression(struct LinearizationMetadata m,
 						   struct TACLine *parentExpression,
-						   int operandIndex);
+						   int operandIndex, 
+						   char forceConstantToRegister);
 
 int linearizeExpression(struct LinearizationMetadata m);
 
