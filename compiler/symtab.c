@@ -6,7 +6,7 @@ char *symbolNames[] = {
 	"variable",
 	"function"};
 
-struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, enum variableTypes returnType)
+struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, enum variableTypes returnType, int returnIndirectionLevel)
 {
 	struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
 	newFunction->arguments = Stack_New();
@@ -16,6 +16,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, e
 	newFunction->BasicBlockList = LinkedList_New();
 	newFunction->mainScope->parentFunction = newFunction;
 	newFunction->returnType = returnType;
+	newFunction->returnIndirectionLevel = returnIndirectionLevel;
 	newFunction->name = name;
 	return newFunction;
 }
@@ -351,9 +352,9 @@ void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTy
 }
 
 // create a new function accessible within the given scope
-struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name, enum variableTypes returnType)
+struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name, enum variableTypes returnType, int returnIndirectionLevel)
 {
-	struct FunctionEntry *newFunction = FunctionEntry_new(scope, name, returnType);
+	struct FunctionEntry *newFunction = FunctionEntry_new(scope, name, returnType, returnIndirectionLevel);
 	Scope_insert(scope, name, newFunction, e_function);
 	return newFunction;
 }
@@ -673,9 +674,28 @@ void Function_addBasicBlock(struct FunctionEntry *function, struct BasicBlock *b
 /*
  * AST walk and symbol table generation functions
  */
+
+// scrape down a chain of nested child star tokens, expecting something at the bottom
+int scrapePointers(struct AST *pointerAST, struct AST **resultDestination)
+{
+	int dereferenceDepth = 0;
+	while (pointerAST->type == t_star)
+	{
+		if (pointerAST->sibling == NULL)
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Malformed AST seen in scrapePointers\n");
+		}
+		dereferenceDepth++;
+		pointerAST = pointerAST->sibling;
+	}
+	*resultDestination = pointerAST;
+	return dereferenceDepth;
+}
+
 void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArgument)
 {
 	enum variableTypes theType;
+
 	switch (declaration->type)
 	{
 	case t_uint8:
@@ -695,58 +715,37 @@ void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArg
 		break;
 	}
 
+	struct AST *declared = NULL;
+	int indirectionLevel = scrapePointers(declaration->child, &declared);
+
 	int arraySize;
-	int indirectionLevel = 0;
-	struct AST *runner = declaration;
-	char scraping = 1;
-	while (scraping)
-	{
-		runner = runner->child;
-		switch (runner->type)
-		{
-		case t_star:
-			indirectionLevel++;
-			break;
 
-		default:
-			scraping = 0;
-			break;
-		}
-	}
-
-	if (runner->type == t_single_equals)
+	if (declared->type == t_lBracket)
 	{
-		runner = runner->child;
+		declared = declared->child;
+		arraySize = atoi(declared->sibling->value);
 	}
 	else
 	{
-		if (runner->type == t_lBracket)
-		{
-			runner = runner->child;
-			arraySize = atoi(runner->sibling->value);
-		}
-		else
-		{
-			arraySize = 1;
-		}
+		arraySize = 1;
 	}
 
 	// lookup the variable being assigned, only insert if unique
 	// also covers modification of argument values
-	if (!Scope_contains(wipScope, runner->value))
+	if (!Scope_contains(wipScope, declared->value))
 	{
 		if (isArgument)
 		{
-			FunctionEntry_createArgument(wipScope->parentFunction, runner, theType, indirectionLevel, arraySize);
+			FunctionEntry_createArgument(wipScope->parentFunction, declared, theType, indirectionLevel, arraySize);
 		}
 		else
 		{
-			Scope_createVariable(wipScope, runner, theType, indirectionLevel, arraySize);
+			Scope_createVariable(wipScope, declared, theType, indirectionLevel, arraySize);
 		}
 	}
 	else
 	{
-		ErrorWithAST(ERROR_CODE, runner, "Redeclaration of identifier [%s]\n", runner->value);
+		ErrorWithAST(ERROR_CODE, declared, "Redeclaration of identifier [%s]\n", declared->value);
 	}
 }
 
@@ -757,6 +756,10 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 	case t_lCurly:
 		walkScope(it, Scope_createSubScope(wipScope), 0);
 		break;
+
+	case t_star:
+	{
+	}
 
 	case t_uint8:
 	case t_uint16:
@@ -872,12 +875,20 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 {
 	struct AST *functionRunner = it->child;
 
+	// skip past the argumnent declarations to the return type declaration
 	struct AST *returnTypeRunner = functionRunner;
 	while (returnTypeRunner->type != t_pointer_op)
 	{
 		returnTypeRunner = returnTypeRunner->sibling;
 	}
 	returnTypeRunner = returnTypeRunner->sibling;
+
+	int returnIndirectionLevel = 0;
+	while (returnTypeRunner->type == t_star)
+	{
+		returnIndirectionLevel++;
+		returnTypeRunner = returnTypeRunner->child;
+	}
 	enum variableTypes returnType;
 	switch (returnTypeRunner->type)
 	{
@@ -902,7 +913,7 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 	}
 
 	// child is the lparen, function name is the child of the lparen
-	struct FunctionEntry *func = Scope_createFunction(parentScope, functionRunner->child->value, returnType);
+	struct FunctionEntry *func = Scope_createFunction(parentScope, functionRunner->child->value, returnType, returnIndirectionLevel);
 	functionRunner = functionRunner->sibling; // start at argument definitions
 	func->mainScope->parentScope = parentScope;
 

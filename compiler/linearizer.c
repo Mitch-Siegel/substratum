@@ -83,7 +83,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 		struct LinearizationMetadata pointerArithLHS = m;
 		pointerArithLHS.ast = dereferencedExpression->child;
 		m.currentTACIndex = linearizeSubExpression(pointerArithLHS, thisDereference, 1, 1);
-		
+
 		struct LinearizationMetadata pointerArithRHS = m;
 		pointerArithRHS.ast = dereferencedExpression->child->sibling;
 		m.currentTACIndex = linearizeSubExpression(pointerArithRHS, thisDereference, 2, 1);
@@ -761,8 +761,11 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	case t_uint8:
 	case t_uint16:
 	case t_uint32:
-		LHS = LHS->child;
-		break;
+	{
+		// use scrapePoineters to go over to whatever is actually being declared so we can assign to it
+		scrapePointers(LHS->child, &LHS);
+	}
+	break;
 
 	default:
 		break;
@@ -1051,23 +1054,19 @@ int linearizeDeclaration(struct LinearizationMetadata m)
 		ErrorWithAST(ERROR_INTERNAL, m.ast, "Malformed AST seen in declaration!");
 	}
 
-	int dereferenceLevel = 0;
-	while (m.ast->child->type == t_star)
-	{
-		dereferenceLevel++;
-		m.ast = m.ast->child;
-	}
+	struct AST *declared = NULL;
+	int dereferenceLevel = scrapePointers(m.ast->child, &declared);
 
 	// if we are declaring an array, set the string with the size as the second operand
-	if (m.ast->child->type == t_lBracket)
+	if (declared->type == t_lBracket)
 	{
-		m.ast = m.ast->child;
-		declarationLine->operands[1].name.str = m.ast->child->sibling->value;
+		declared = declared->child;
+		declarationLine->operands[1].name.str = declared->sibling->value;
 		declarationLine->operands[1].permutation = vp_literal;
 		declarationLine->operands[1].type = LITERAL_VARIABLE_TYPE;
 	}
 
-	declarationLine->operands[0].name.str = m.ast->child->value;
+	declarationLine->operands[0].name.str = declared->value;
 	declarationLine->operands[0].type = declaredType;
 	declarationLine->operands[0].indirectionLevel = dereferenceLevel;
 
@@ -1318,24 +1317,12 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 
 			case t_star:
 			{
-				struct AST *dereferenceScraper = runner->child;
-				while (dereferenceScraper->type == t_star)
-					dereferenceScraper = dereferenceScraper->child;
+				struct AST *dereferenceScraper = NULL;
+				scrapePointers(runner->child, &dereferenceScraper);
+				struct LinearizationMetadata declarationMetadata = m;
+				declarationMetadata.ast = runner;
 
-				if (dereferenceScraper->type == t_single_equals)
-				{
-					struct LinearizationMetadata assignmentMetadata = m;
-					assignmentMetadata.ast = dereferenceScraper;
-
-					m.currentTACIndex = linearizeAssignment(assignmentMetadata);
-				}
-				else
-				{
-					struct LinearizationMetadata declarationMetadata = m;
-					declarationMetadata.ast = runner;
-
-					m.currentTACIndex = linearizeDeclaration(declarationMetadata);
-				}
+				m.currentTACIndex = linearizeDeclaration(declarationMetadata);
 			}
 			break;
 

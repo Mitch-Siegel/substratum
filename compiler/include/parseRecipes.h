@@ -27,6 +27,10 @@ enum token parseRecipes[p_null][11][9][2] = {
         {{t_uint32, above},
          {p_null, p_null}},
 
+        {{p_type_name, above},
+         {t_star, below},
+         {p_null, p_null}},
+
         {{p_null, p_null}},
     },
 

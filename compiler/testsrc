@@ -18,7 +18,6 @@ asm
 	hlt
 }
 ;
-
 fun print(uint32 value->void)
 {
 	// store r0, pull the argument into a register, then output that register
@@ -131,3 +130,23 @@ fun test(->void)
 		i = i + 1;
 	}
 }
+/*
+
+fun pointer(uint8 n->uint8)
+{
+	uint32 ***testpointer[8] = 123;
+	uint32 testint = 456;
+	uint32 *abc;
+	return n;
+}
+
+fun test(->void)
+{
+	uint8 i = 0;
+	while (i < 20)
+	{
+		printNum(pointer(i));
+		i = i + 1;
+	}
+}
+*/
