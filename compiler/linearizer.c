@@ -152,10 +152,30 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 
 		if (thisArgumentPush->operands[0].type > expectedArgument->type)
 		{
-			ErrorWithAST(ERROR_CODE, thisArgumentPush->correspondingTree, "Argument %s to function %s has unexpected type!\n", expectedArgument->name, f->name);
+			ErrorWithAST(ERROR_CODE, thisArgumentPush->correspondingTree, "Argument '%s' to function '%s' has unexpected type!\n", expectedArgument->name, f->name);
 		}
 		else
 		{
+			int thisIndirectionLevel = thisArgumentPush->operands[0].indirectionLevel;
+			if (thisIndirectionLevel != expectedArgument->indirectionLevel)
+			{
+				char *providedIndirectionLevelStr = malloc(thisIndirectionLevel + 1);
+				char *expectedIndirectionLevelStr = malloc(expectedArgument->indirectionLevel + 1);
+				for (int i = 0; i < thisIndirectionLevel; i++)
+				{
+					providedIndirectionLevelStr[i] = '*';
+				}
+				providedIndirectionLevelStr[thisIndirectionLevel] = '\0';
+
+				for (int i = 0; i < expectedArgument->indirectionLevel; i++)
+				{
+					expectedIndirectionLevelStr[i] = '*';
+				}
+				expectedIndirectionLevelStr[expectedArgument->indirectionLevel] = '\0';
+
+				ErrorWithAST(ERROR_CODE, thisArgumentPush->correspondingTree, "Argument '%s' of funciton '%s' expects type %d%s, but is being passed a %d%s\n", expectedArgument->name, f->name, expectedArgument->type, expectedIndirectionLevelStr, thisIndirectionLevel, providedIndirectionLevelStr);
+			}
+
 			if (thisArgumentPush->operands[0].type < expectedArgument->type)
 			{
 				struct TACLine *castLine = newTACLine(m.currentTACIndex++, tt_cast_assign, NULL);
@@ -166,25 +186,6 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 				struct TACOperand castTo = castLine->operands[1];
 
 				castTo.type = expectedArgument->type;
-				if (castTo.indirectionLevel != expectedArgument->indirectionLevel)
-				{
-					char *providedIndirectionLevelStr = malloc(castTo.indirectionLevel + 1);
-					char *expectedIndirectionLevelStr = malloc(expectedArgument->indirectionLevel + 1);
-					for (int i = 0; i < castTo.indirectionLevel; i++)
-					{
-						providedIndirectionLevelStr[i] = '*';
-					}
-					providedIndirectionLevelStr[castTo.indirectionLevel] = '\0';
-
-					for (int i = 0; i < expectedArgument->indirectionLevel; i++)
-					{
-						expectedIndirectionLevelStr[i] = '*';
-					}
-					expectedIndirectionLevelStr[expectedArgument->indirectionLevel] = '\0';
-
-					ErrorWithAST(ERROR_CODE, thisArgumentPush->correspondingTree, "Argument %d provided to %s has type %d%s, expected type %d%s\n", argumentIndex, f->name, castTo.indirectionLevel, providedIndirectionLevelStr, expectedArgument->type, expectedIndirectionLevelStr);
-				}
-
 				castTo.name.str = TempList_Get(m.temps, *m.tempNum);
 
 				castLine->operands[0] = castTo;

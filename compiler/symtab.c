@@ -437,7 +437,7 @@ struct VariableEntry *Scope_lookupVar(struct Scope *scope, struct AST *name)
 	struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
 	if (lookedUp == NULL)
 	{
-		ErrorWithAST(ERROR_CODE, name, "Use of undeclared variable [%s]\n", name->value);
+		ErrorWithAST(ERROR_CODE, name, "Use of undeclared variable '%s'\n", name->value);
 	}
 
 	switch (lookedUp->type)
@@ -456,7 +456,7 @@ struct FunctionEntry *Scope_lookupFun(struct Scope *scope, struct AST *name)
 	struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
 	if (lookedUp == NULL)
 	{
-		ErrorWithAST(ERROR_CODE, name, "Use of undeclared function [%s]\n", name->value);
+		ErrorWithAST(ERROR_CODE, name, "Use of undeclared function '%s'\n", name->value);
 	}
 	switch (lookedUp->type)
 	{
@@ -543,7 +543,7 @@ int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
 		return 4;
 
 	default:
-		ErrorWithAST(ERROR_INTERNAL, name, "Variable %s has unexpected type %d!\n", name->value, theVariable->type);
+		ErrorWithAST(ERROR_INTERNAL, name, "Variable '%s' has unexpected type %d!\n", name->value, theVariable->type);
 	}
 }
 
@@ -745,7 +745,7 @@ void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArg
 	}
 	else
 	{
-		ErrorWithAST(ERROR_CODE, declared, "Redeclaration of identifier [%s]\n", declared->value);
+		ErrorWithAST(ERROR_CODE, declared, "Redeclaration of identifier '%s'\n", declared->value);
 	}
 }
 
@@ -867,7 +867,7 @@ void walkScope(struct AST *it, struct Scope *wipScope, char isMainScope)
 	// sanity check to make sure we didn't run off the end and actually got the rCurly we expected
 	if (scopeRunner == NULL || scopeRunner->type != t_rCurly)
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Malformed AST in scope - expected '}' (t_rCurly) to end, didn't see one!\n");
+		ErrorAndExit(ERROR_INTERNAL, "Malformed AST at end of scope!\n");
 	}
 }
 
@@ -909,7 +909,7 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 		break;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Malformed AST - unexpected node type seen as return type for function\n");
+		ErrorAndExit(ERROR_INTERNAL, "Malformed AST as return type for function\n");
 	}
 
 	// child is the lparen, function name is the child of the lparen
