@@ -83,13 +83,32 @@ int placeOrFindOperandInRegister(struct LinkedList *lifetimes, char *variable, s
 		ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", variable);
 	}
 
+	if (registerIndex < 0 && relevantLifetime->isSpilled)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Call to attempt to place spilled variable %s when none should be spilled!", variable);
+	}
+	else
+	{
+		if (registerIndex < 0)
+		{
+			printf("%s better be in a register already\n", variable);
+		}
+	}
+
 	// if not a local pointer, the value for this variable *must* exist either in a register or spilled on the stack
 	if (relevantLifetime->localPointerTo == NULL)
 	{
 		if (relevantLifetime->isSpilled)
 		{
 			char *copyLine = malloc(32);
-			sprintf(copyLine, "mov %%r%d, %d(%%bp)", registerIndex, relevantLifetime->stackOrRegLocation);
+			if (relevantLifetime->stackOrRegLocation > 0)
+			{
+				sprintf(copyLine, "mov %%r%d, (%%bp+%d)", registerIndex, relevantLifetime->stackOrRegLocation);
+			}
+			else
+			{
+				sprintf(copyLine, "mov %%r%d, (%%bp%d)", registerIndex, relevantLifetime->stackOrRegLocation);
+			}
 			LinkedList_Append(currentBlock, copyLine);
 			touchedRegisters[registerIndex] = 1;
 			return registerIndex;
@@ -102,17 +121,17 @@ int placeOrFindOperandInRegister(struct LinkedList *lifetimes, char *variable, s
 	else
 	{
 		// if this local pointer doesn't live in a register, we will need to construct it on demant
-		if (relevantLifetime->stackOrRegLocation == -1)
+		if (relevantLifetime->isSpilled)
 		{
 			char *constructLocalPointerLine = malloc(64);
 			int basepointerOffset = relevantLifetime->localPointerTo->stackOffset;
 			if (basepointerOffset > 0)
 			{
-				sprintf(constructLocalPointerLine, "add %%r%d, %%bp, $%d", registerIndex, basepointerOffset);
+				sprintf(constructLocalPointerLine, "addi %%r%d, %%bp, $%d", registerIndex, basepointerOffset);
 			}
 			else if (basepointerOffset < 0)
 			{
-				sprintf(constructLocalPointerLine, "sub %%r%d, %%bp, $%d", registerIndex, -1 * basepointerOffset);
+				sprintf(constructLocalPointerLine, "subi %%r%d, %%bp, $%d", registerIndex, -1 * basepointerOffset);
 			}
 			else
 			{

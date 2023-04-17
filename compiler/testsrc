@@ -77,7 +77,6 @@ fun printNum(uint32 num->void)
 	print(10); // newline
 }
 
-/*
 fun fibRec(uint8 n->uint32)
 {
 	if (n > 1)
@@ -90,6 +89,7 @@ fun fibRec(uint8 n->uint32)
 	}
 }
 
+/*
 fun fibArr(uint8 n->uint32)
 {
 	uint32 fibArr[255];
@@ -119,24 +119,17 @@ fun fibArrDeref(uint8 n->uint32)
 }
 
 */
-fun pointer(uint8 *n->uint8 *)
-{
-	uint32 ***testpointer[8] = 123;
-	uint32 testint = 456;
-	uint32 *abc;
-	return n;
-}
 
 fun test(->void)
 {
-	// printNum(1235);
+	printNum(1235);
 	uint8 i = 0;
 	while (i < 20)
 	{
+		// printNum(i);
 		// printNum(fibRec(i));
 		// printNum(fibArr(i));
 		// printNum(fibArrDeref(i));
-		printNum(pointer(i));
 		print(10);
 		i = i + 1;
 	}

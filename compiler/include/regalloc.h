@@ -2,17 +2,8 @@
 #include "util.h"
 #include "symtab.h"
 #include "tac.h"
-/*
-	4: 4223
-	5: 3897
-	6: 3883
-	7: 3716
-	8: 3638
-	9: 3507
-	10:
 
-*/
-#define REGISTER_COUNT 12
+#define REGISTER_COUNT 4
 
 struct Lifetime
 {

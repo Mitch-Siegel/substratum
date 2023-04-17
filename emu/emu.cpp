@@ -371,15 +371,29 @@ void movOp(instructionData instruction, int nBytes)
     }
     break;
 
-    // mov reg, (reg + offimm)
+    // mov reg, (reg +/- offimm)
     case 0x5:
+    case 0x6:
     {
         uint8_t RD = instruction.byte.b1 >> 4;
         uint8_t rBase = instruction.byte.b1 & 0b1111;
         int16_t offset = instruction.hword.h1;
 
         int64_t longAddress = registers[rBase];
-        longAddress += offset;
+
+        if ((instruction.byte.b0 & 0b1111) == 0x5)
+        {
+            longAddress += offset;
+        }
+        else if ((instruction.byte.b0 & 0b1111) == 0x6)
+        {
+            longAddress -= offset;
+        }
+        else
+        {
+            printf("Error decoding instruction with opcode %02x\n", instruction.byte.b1);
+        }
+
         uint32_t address = longAddress;
 
 #ifdef PRINTEXECUTION
@@ -406,15 +420,31 @@ void movOp(instructionData instruction, int nBytes)
     }
     break;
 
-    // mov (reg + offimm), reg
+    // mov (reg +/- offimm), reg
     case 0x7:
+    case 0x8:
     {
         uint8_t RS = instruction.byte.b1 >> 4;
         uint8_t rBase = instruction.byte.b1 & 0b1111;
         int16_t offset = instruction.hword.h1;
 
-        int64_t longaddress = registers[rBase] + offset;
-        int32_t address = longaddress;
+        int64_t longAddress = registers[rBase];
+
+        if ((instruction.byte.b0 & 0b1111) == 0x7)
+        {
+            longAddress += offset;
+        }
+        else if ((instruction.byte.b0 & 0b1111) == 0x8)
+        {
+            longAddress -= offset;
+        }
+        else
+        {
+            printf("Error decoding instruction with opcode %02x\n", instruction.byte.b1);
+        }
+
+
+        int32_t address = longAddress;
 
 #ifdef PRINTEXECUTION
         printf("(%%r%d + %d), %%r%d\t(%08x)\n", rBase, offset, RS, address);
@@ -855,7 +885,9 @@ int main(int argc, char *argv[])
         case 0xa2:
         case 0xa4:
         case 0xa5:
+        case 0xa6:
         case 0xa7:
+        case 0xa8:
         case 0xa9:
         case 0xab:
         case 0xaf:
@@ -869,7 +901,9 @@ int main(int argc, char *argv[])
         case 0xb2:
         case 0xb4:
         case 0xb5:
+        case 0xb6:
         case 0xb7:
+        case 0xb8:
         case 0xb9:
         case 0xbb:
         case 0xbf:
@@ -883,7 +917,9 @@ int main(int argc, char *argv[])
         case 0xc2:
         case 0xc4:
         case 0xc5:
+        case 0xc6:
         case 0xc7:
+        case 0xc8:
         case 0xc9:
         case 0xcb:
         {
