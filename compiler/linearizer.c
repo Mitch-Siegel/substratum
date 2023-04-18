@@ -845,6 +845,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			finalAssignment->operands[1] = operandToWrite;
 		}
 
+		finalAssignment->index = m.currentTACIndex++;
 		BasicBlock_append(m.currentBlock, finalAssignment);
 	}
 	break;

@@ -138,6 +138,7 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 				break;
 
 			case tt_assign:
+			case tt_cast_assign:
 			{
 				recordVariableWrite(lifetimes, thisLine->operands[0].name.str, thisLine->operands[0].type, TACIndex);
 				if (thisLine->operands[1].permutation != vp_literal)
@@ -163,12 +164,6 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 			case tt_mul:
 			case tt_div:
 			case tt_cmp:
-			case tt_memr_1:
-			case tt_memr_2:
-			case tt_memr_3:
-			case tt_memw_1:
-			case tt_memw_2:
-			case tt_memw_3:
 			{
 				if (thisLine->operands[0].type != vt_null)
 				{
@@ -195,7 +190,47 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 			}
 			break;
 
-			default:
+			case tt_memr_1:
+			case tt_memr_2:
+			case tt_memr_2_n:
+			case tt_memr_3:
+			case tt_memr_3_n:
+			case tt_memw_1:
+			case tt_memw_2:
+			case tt_memw_2_n:
+			case tt_memw_3:
+			case tt_memw_3_n:
+			{
+				for (int i = 0; i < 4; i++)
+				{
+					// lifetimes for every permutation except literal
+					if (thisLine->operands[i].permutation != vp_literal)
+					{
+						// and any type except null
+						switch (thisLine->operands[i].type)
+						{
+						case vt_null:
+							break;
+
+						default:
+							recordVariableRead(lifetimes, thisLine->operands[i].name.str, thisLine->operands[i].type, TACIndex);
+							break;
+						}
+					}
+				}
+			}
+			break;
+
+			case tt_dereference:
+			case tt_reference:
+			case tt_jg:
+			case tt_jge:
+			case tt_jl:
+			case tt_jle:
+			case tt_je:
+			case tt_jne:
+			case tt_jmp:
+			case tt_label:
 				break;
 			}
 			TACRunner = TACRunner->next;
@@ -307,7 +342,7 @@ int lifetimeHeuristic(struct Lifetime *lt)
 void spillVariables(struct CodegenMetadata *metadata, int mostConcurrentLifetimes)
 {
 	// always keep 1 scratch register (for literal loading for example)
-	int MAXREG = REGISTER_COUNT - 1;
+	int MAXREG = REGISTERS_TO_ALLOCATE - 1;
 	metadata->reservedRegisters[0] = SCRATCH_REGISTER;
 
 	// if we have just enough room, simply use all registers
@@ -380,7 +415,7 @@ void sortSpilledLifetimes(struct CodegenMetadata *metadata)
 			int thisSize = Scope_getSizeOfVariableByString(metadata->function->mainScope, thisLifetime->variable);
 			int compSize = Scope_getSizeOfVariableByString(metadata->function->mainScope, ((struct Lifetime *)metadata->spilledLifetimes->data[j + 1])->variable);
 
-			if (thisSize < compSize)
+			if (thisSize > compSize)
 			{
 				struct Lifetime *swap = metadata->spilledLifetimes->data[j];
 				metadata->spilledLifetimes->data[j] = metadata->spilledLifetimes->data[j + 1];
@@ -394,10 +429,10 @@ void assignRegisters(struct CodegenMetadata *metadata)
 {
 	// printf("\nassigning registers\n");
 	// flag registers in use at any given TAC index so we can easily assign
-	char registers[REGISTER_COUNT];
-	struct Lifetime *occupiedBy[REGISTER_COUNT];
+	char registers[REGISTERS_TO_ALLOCATE];
+	struct Lifetime *occupiedBy[REGISTERS_TO_ALLOCATE];
 
-	for (int i = 0; i < REGISTER_COUNT; i++)
+	for (int i = 0; i < REGISTERS_TO_ALLOCATE; i++)
 	{
 		registers[i] = 0;
 		occupiedBy[i] = NULL;
@@ -407,17 +442,19 @@ void assignRegisters(struct CodegenMetadata *metadata)
 	// reserve scratch registers for arithmetic
 	// always will have one reserved register
 	registers[metadata->reservedRegisters[0]] = 1;
+	metadata->touchedRegisters[metadata->reservedRegisters[0]] = 1;
 
 	// if we have a second, mark that off as well
 	if (metadata->reservedRegisters[1] > 0)
 	{
 		registers[metadata->reservedRegisters[1]] = 1;
+		metadata->touchedRegisters[metadata->reservedRegisters[1]] = 1;
 	}
 
 	for (int i = 0; i <= metadata->largestTacIndex; i++)
 	{
 		// free any registers inhabited by expired lifetimes
-		for (int j = 0; j < REGISTER_COUNT; j++)
+		for (int j = 0; j < REGISTERS_TO_ALLOCATE; j++)
 		{
 			if (occupiedBy[j] != NULL && occupiedBy[j]->end <= i)
 			{
@@ -437,7 +474,7 @@ void assignRegisters(struct CodegenMetadata *metadata)
 			{
 				char registerFound = 0;
 				// scan through all registers, looking for an unoccupied one
-				for (int j = 0; j < REGISTER_COUNT; j++)
+				for (int j = 0; j < REGISTERS_TO_ALLOCATE; j++)
 				{
 					if (registers[j] == 0)
 					{

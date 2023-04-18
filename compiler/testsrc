@@ -102,7 +102,6 @@ fun fibArr(uint8 n->uint32)
 	}
 	return fibArr[n];
 }
-/*
 
 fun fibArrDeref(uint8 n->uint32)
 {
@@ -118,21 +117,24 @@ fun fibArrDeref(uint8 n->uint32)
 	return *(fibArr + n);
 }
 
-*/
 
 fun test(->void)
 {
-	// printNum(1235);
-	uint8 i = 0;
+	uint8 i = 1;
 	while (i < 20)
 	{
-
+		print(48 + div(20, i));
 		// printNum(i);
+		// fibArr(i);
+		// printNum(fibArr(i));
+		// fibRec(i);
+		// fibArr(i);
+		// fibArrDeref(i);
 		// printNum(fibRec(i));
-		printNum(fibArr(i));
+		// printNum(fibArr(i));
 		// printNum(fibArrDeref(i));
 		// printNum(i + 48);
-		// print(10);
+		print(10);
 		i = i + 1;
 	}
 	// print(10);

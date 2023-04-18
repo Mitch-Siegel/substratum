@@ -1,14 +1,17 @@
 #include "regalloc.h"
 #include "symtab.h"
 
-void PlaceLiteralInRegister(struct LinkedList *currentBlock, char *literalStr, int destReg);
+// place a literal in the register specified by numerical index, return string of register's name for asm
+char *PlaceLiteralInRegister(struct LinkedList *currentBlock, char *literalStr, int destReg);
 
-void WriteSpilledVariable(struct LinkedList *currentBlock, struct Lifetime *writtenTo, int sourceReg);
+// write a value from a register name, to a spilled lifetime on the stack
+void WriteSpilledVariable(struct LinkedList *currentBlock, struct Lifetime *writtenTo, char* sourceRegStr);
 
-void ReadSpilledVariable(struct LinkedList *currentBlock, int destReg, struct Lifetime *readFrom);
+// place a spilled variable's value in the register specified by numerical index, return string of register's name for asm
+char *ReadSpilledVariable(struct LinkedList *currentBlock, int destReg, struct Lifetime *readFrom);
 
-// places a variable in a register, with no guarantee that it is modifiable
-int placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOperand operand, struct LinkedList *currentBlock, int registerIndex, char *touchedRegisters);
+// places a variable in a register, with no guarantee that it is modifiable, returning the string of the register's name for asm
+char* placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOperand operand, struct LinkedList *currentBlock, int registerIndex, char *touchedRegisters);
 
 struct Stack *generateCode(struct SymbolTable *table, FILE *outFile);
 

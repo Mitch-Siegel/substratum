@@ -304,7 +304,7 @@ void printTACLine(struct TACLine *it)
 			switch (it->operands[i].permutation)
 			{
 			case vp_standard:
-				printf("S");
+				printf(" ");
 				break;
 
 			case vp_temp:

@@ -7,6 +7,25 @@ char printedLine[MAX_ASM_LINE_SIZE];
 #define TRIM_APPEND(currentBlock, nChars) (LinkedList_Append(currentBlock, strTrim(printedLine, nChars)))
 #define TRIM_PREPEND(currentBlock, nChars) (LinkedList_Prepend(currentBlock, strTrim(printedLine, nChars)))
 
+char *registerNames[MACHINE_REGISTER_COUNT] = {
+	"%r0",
+	"%r1",
+	"%r2",
+	"%r3",
+	"%r4",
+	"%r5",
+	"%r6",
+	"%r7",
+	"%r8",
+	"%r9",
+	"%r10",
+	"%r11",
+	"%r12",
+	"%rr",
+	"%sp",
+	"%bp",
+};
+
 int ALIGNSIZE(unsigned int size)
 {
 	unsigned int mask = 0b1;
@@ -19,26 +38,17 @@ int ALIGNSIZE(unsigned int size)
 	return i;
 }
 
-void PlaceLiteralInRegister(struct LinkedList *currentBlock, char *literalStr, int destReg)
+char *PlaceLiteralInRegister(struct LinkedList *currentBlock, char *literalStr, int destReg)
 {
-	char destRegStr[16];
-	if(destReg == RETURN_REGISTER)
-	{
-		sprintf(destRegStr, "%%rr");
-	}
-	else
-	{
-		sprintf(destRegStr, "%%r%d", destReg);
-	}
-
+	char *destRegStr = registerNames[destReg];
 	int literalValue = atoi(literalStr);
 	if (literalValue < 0x100)
 	{
-		TRIM_APPEND(currentBlock, sprintf(printedLine, "movb %%r%d, $%s", destReg, literalStr));
+		TRIM_APPEND(currentBlock, sprintf(printedLine, "movb %s, $%s", destRegStr, literalStr));
 	}
 	else if (literalValue < 0x10000)
 	{
-		TRIM_APPEND(currentBlock, sprintf(printedLine, "movh %%r%d, $%s", destReg, literalStr));
+		TRIM_APPEND(currentBlock, sprintf(printedLine, "movh %s, $%s", destRegStr, literalStr));
 	}
 	else
 	{
@@ -48,57 +58,50 @@ void PlaceLiteralInRegister(struct LinkedList *currentBlock, char *literalStr, i
 		char halvedString[16]; // will be long enough to hold any int32/uint32 so can definitely hold half of one
 
 		sprintf(halvedString, "%d", secondHalf);
-		TRIM_APPEND(currentBlock, sprintf(printedLine, "movh %%r%d, $%s", destReg, halvedString));
+		TRIM_APPEND(currentBlock, sprintf(printedLine, "movh %s, $%s", destRegStr, halvedString));
 
-		TRIM_APPEND(currentBlock, sprintf(printedLine, "shli %%r%d, $16", destReg));
+		TRIM_APPEND(currentBlock, sprintf(printedLine, "shli %s, $16", destRegStr));
 
 		sprintf(halvedString, "%d", firstHalf);
-		TRIM_APPEND(currentBlock, sprintf(printedLine, "movh %%r%d, $%s", destReg, halvedString));
+		TRIM_APPEND(currentBlock, sprintf(printedLine, "movh %s, $%s", destRegStr, halvedString));
 	}
+
+	return destRegStr;
 }
 
-void WriteSpilledVariable(struct LinkedList *currentBlock, struct Lifetime *writtenTo, int sourceReg)
+void WriteSpilledVariable(struct LinkedList *currentBlock, struct Lifetime *writtenTo, char *sourceRegStr)
 {
-	if (sourceReg == RETURN_REGISTER)
+	if (writtenTo->stackOrRegLocation > 0)
 	{
-		if (writtenTo->stackOrRegLocation > 0)
-		{
-			TRIM_APPEND(currentBlock, sprintf(printedLine, "mov (%%bp+%d), %%rr", writtenTo->stackOrRegLocation));
-		}
-		else
-		{
-			TRIM_APPEND(currentBlock, sprintf(printedLine, "mov (%%bp%d), %%rr", writtenTo->stackOrRegLocation));
-		}
+		TRIM_APPEND(currentBlock, sprintf(printedLine, "%s (%%bp+%d), %s", SelectMovWidthForPrimitive(writtenTo->type), writtenTo->stackOrRegLocation, sourceRegStr));
 	}
 	else
 	{
-		if (writtenTo->stackOrRegLocation > 0)
-		{
-			TRIM_APPEND(currentBlock, sprintf(printedLine, "mov (%%bp+%d), %%r%d", writtenTo->stackOrRegLocation, sourceReg));
-		}
-		else
-		{
-			TRIM_APPEND(currentBlock, sprintf(printedLine, "mov (%%bp%d), %%r%d", writtenTo->stackOrRegLocation, sourceReg));
-		}
+		TRIM_APPEND(currentBlock, sprintf(printedLine, "%s (%%bp%d), %s", SelectMovWidthForPrimitive(writtenTo->type), writtenTo->stackOrRegLocation, sourceRegStr));
 	}
 }
 
-void ReadSpilledVariable(struct LinkedList *currentBlock, int destReg, struct Lifetime *readFrom)
+char *ReadSpilledVariable(struct LinkedList *currentBlock, int destReg, struct Lifetime *readFrom)
 {
+	char *destRegStr = registerNames[destReg];
+
 	if (readFrom->stackOrRegLocation > 0)
 	{
-		TRIM_APPEND(currentBlock, sprintf(printedLine, "mov %%r%d, (%%bp+%d)", destReg, readFrom->stackOrRegLocation));
+		TRIM_APPEND(currentBlock, sprintf(printedLine, "%s %s, (%%bp+%d)", SelectMovWidthForPrimitive(readFrom->type), destRegStr, readFrom->stackOrRegLocation));
 	}
 	else
 	{
-		TRIM_APPEND(currentBlock, sprintf(printedLine, "mov %%r%d, (%%bp%d)", destReg, readFrom->stackOrRegLocation));
+		TRIM_APPEND(currentBlock, sprintf(printedLine, "%s %s, (%%bp%d)", SelectMovWidthForPrimitive(readFrom->type), destRegStr, readFrom->stackOrRegLocation));
 	}
+	return destRegStr;
 }
 
 // places an operand by name into the specified register, or returns the register containing if it's already in a register
 // does *NOT* guarantee that returned register indices are modifiable in the case where the variable is found in a register
-int placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOperand operand, struct LinkedList *currentBlock, int registerIndex, char *touchedRegisters)
+char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOperand operand, struct LinkedList *currentBlock, int registerIndex, char *touchedRegisters)
 {
+	char *destRegStr = registerNames[registerIndex];
+
 	if (operand.permutation == vp_literal)
 	{
 		if (registerIndex < 0)
@@ -106,8 +109,7 @@ int placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOperand
 			ErrorAndExit(ERROR_INTERNAL, "Expected scratch register to place literal in, didn't get one!");
 		}
 
-		PlaceLiteralInRegister(currentBlock, operand.name.str, registerIndex);
-		return registerIndex;
+		return PlaceLiteralInRegister(currentBlock, operand.name.str, registerIndex);
 	}
 
 	struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand.name.str);
@@ -133,13 +135,13 @@ int placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOperand
 	{
 		if (relevantLifetime->isSpilled)
 		{
-			ReadSpilledVariable(currentBlock, registerIndex, relevantLifetime);
+			char *resultRegisterStr = ReadSpilledVariable(currentBlock, registerIndex, relevantLifetime);
 			touchedRegisters[registerIndex] = 1;
-			return registerIndex;
+			return resultRegisterStr;
 		}
 		else
 		{
-			return relevantLifetime->stackOrRegLocation;
+			return registerNames[relevantLifetime->stackOrRegLocation];
 		}
 	}
 	else
@@ -151,24 +153,24 @@ int placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOperand
 			int basepointerOffset = relevantLifetime->localPointerTo->stackOffset;
 			if (basepointerOffset > 0)
 			{
-				sprintf(constructLocalPointerLine, "addi %%r%d, %%bp, $%d", registerIndex, basepointerOffset);
+				sprintf(constructLocalPointerLine, "addi %s, %%bp, $%d", destRegStr, basepointerOffset);
 			}
 			else if (basepointerOffset < 0)
 			{
-				sprintf(constructLocalPointerLine, "subi %%r%d, %%bp, $%d", registerIndex, -1 * basepointerOffset);
+				sprintf(constructLocalPointerLine, "subi %s, %%bp, $%d", destRegStr, -1 * basepointerOffset);
 			}
 			else
 			{
-				sprintf(constructLocalPointerLine, "mov %%r%d, %%bp", registerIndex);
+				sprintf(constructLocalPointerLine, "mov %s, %%bp", destRegStr);
 			}
 			LinkedList_Append(currentBlock, constructLocalPointerLine);
 			touchedRegisters[registerIndex] = 1;
-			return registerIndex;
+			return destRegStr;
 		}
 		// if it does get a register, all we need to do is return it
 		else
 		{
-			return relevantLifetime->stackOrRegLocation;
+			return registerNames[relevantLifetime->stackOrRegLocation];
 		}
 	}
 }
@@ -188,10 +190,17 @@ struct Stack *generateCode(struct SymbolTable *table, FILE *outFile)
 		case e_basicblock:
 		{
 			struct LinkedList *blockBlock = LinkedList_New();
-			char touchedRegisters[REGISTER_COUNT];
+			char touchedRegisters[REGISTERS_TO_ALLOCATE];
+			for (int i = 0; i < REGISTERS_TO_ALLOCATE; i++)
+			{
+				touchedRegisters[i] = 0;
+			}
 			int reservedRegisters[2];
 			reservedRegisters[0] = 0;
 			reservedRegisters[1] = 1;
+
+			touchedRegisters[0] = 1;
+			touchedRegisters[1] = 1;
 			GenerateCodeForBasicBlock(thisMember->entry, table->globalScope, NULL, blockBlock, "global", reservedRegisters, touchedRegisters);
 			Stack_Push(scopeBlocks, blockBlock);
 		}
@@ -259,15 +268,23 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 		if (thisVariableEntry != NULL)
 		{
 			struct VariableEntry *thisVariable = thisVariableEntry->entry;
-			if (thisVariableEntry->type == e_argument)
+
+			// if the variable isn't a local pointer (can calculate local pointers on the fly from base pointer so no need to store)
+			if (thisVariable->localPointerTo == NULL)
 			{
-				thisLifetime->stackOrRegLocation = thisVariable->stackOffset;
-			}
-			else
-			{
-				// constant offset of -2 for return address
-				thisLifetime->stackOrRegLocation = (-1 * stackOffset) - 2;
-				stackOffset += thisSize;
+
+				if (thisVariableEntry->type == e_argument)
+				{
+					thisLifetime->stackOrRegLocation = thisVariable->stackOffset;
+				}
+				else
+				{
+					printf("got it from stack offset %d\n", stackOffset);
+					// constant offset of -2 for return address
+					stackOffset += thisSize;
+					thisLifetime->stackOrRegLocation = -1 * stackOffset;
+				}
+				printf("%s: %%bp + %d (%d)\n", thisLifetime->variable, thisLifetime->stackOrRegLocation, thisLifetime->localPointerTo ? thisLifetime->localPointerTo->arraySize : 1);
 			}
 		}
 	}
@@ -294,7 +311,7 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	{
 		struct Lifetime *thisLifetime = ltRunner->data;
 		printf("%16s:", thisLifetime->variable);
-		for (int i = 0; i < metadata.largestTacIndex; i++)
+		for (int i = 0; i <= metadata.largestTacIndex; i++)
 		{
 			if (i >= thisLifetime->start && i <= thisLifetime->end)
 			{
@@ -356,7 +373,7 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 
 	TRIM_APPEND(functionBlock, sprintf(printedLine, "%s_done:", function->name));
 
-	for (int i = REGISTER_COUNT - 1; i >= 0; i--)
+	for (int i = REGISTERS_TO_ALLOCATE - 1; i >= 0; i--)
 	{
 		if (metadata.touchedRegisters[i])
 		{
@@ -518,8 +535,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				// spilled <- literal
 				if (assignedLifetime->isSpilled)
 				{
-					PlaceLiteralInRegister(asmBlock, thisTAC->operands[1].name.str, reservedRegisters[0]);
-					WriteSpilledVariable(asmBlock, assignedLifetime, reservedRegisters[0]);
+					char *placedRegisterStr = PlaceLiteralInRegister(asmBlock, thisTAC->operands[1].name.str, reservedRegisters[0]);
+					WriteSpilledVariable(asmBlock, assignedLifetime, placedRegisterStr);
 				}
 				// register <- literal
 				else
@@ -529,20 +546,16 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			}
 			else
 			{
+				char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[0], touchedRegisters);
 				// spilled <- ???
 				if (assignedLifetime->isSpilled)
 				{
-					int sourceIndex = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[0], touchedRegisters);
-					WriteSpilledVariable(asmBlock, assignedLifetime, sourceIndex);
+					WriteSpilledVariable(asmBlock, assignedLifetime, sourceRegStr);
 				}
 				// register <- ???
 				else
 				{
-					int sourceIndex = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, assignedLifetime->stackOrRegLocation, touchedRegisters);
-					if (sourceIndex != assignedLifetime->stackOrRegLocation)
-					{
-						TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, %%r%d", SelectMovWidth(&thisTAC->operands[0]), assignedLifetime->stackOrRegLocation, sourceIndex));
-					}
+					TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, %s", SelectMovWidth(&thisTAC->operands[0]), assignedLifetime->stackOrRegLocation, sourceRegStr));
 				}
 			}
 		}
@@ -674,49 +687,49 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 
 		case tt_memw_1:
 		{
-			int dstIndexReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
-			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
+			char *destRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
+			char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
 			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
-			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d), %%r%d", movOp, dstIndexReg, sourceReg));
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%s), %s", movOp, destRegStr, sourceRegStr));
 		}
 		break;
 
 		case tt_memw_2:
 		{
-			int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
-			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[1], touchedRegisters);
+			char *baseRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
+			char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[1], touchedRegisters);
 			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
-			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d+%d), %%r%d", movOp, baseReg, thisTAC->operands[1].name.val, sourceReg));
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%s+%d), %s", movOp, baseRegStr, thisTAC->operands[1].name.val, sourceRegStr));
 		}
 		// ErrorAndExit(ERROR_INTERNAL, "Code generation not implemented for this operation (%s) yet!\n", getAsmOp(thisTAC->operation));
 		break;
 
 		case tt_memw_3:
 		{
-			int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
-			int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
-			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[3], asmBlock, RETURN_REGISTER, touchedRegisters);
+			char *baseRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
+			char *offsetRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
+			char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[3], asmBlock, RETURN_REGISTER, touchedRegisters);
 			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
-			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d+%%r%d,%d), %%r%d", movOp, baseReg, offsetReg, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)), sourceReg));
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%s+%s,%d), %s", movOp, baseRegStr, offsetRegStr, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)), sourceRegStr));
 		}
 		break;
 
 		case tt_memw_2_n:
 		{
-			int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
-			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[1], touchedRegisters);
+			char *baseRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
+			char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[1], touchedRegisters);
 			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
-			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d-%d), %%r%d", movOp, baseReg, thisTAC->operands[1].name.val, sourceReg));
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%s-%d), %s", movOp, baseRegStr, thisTAC->operands[1].name.val, sourceRegStr));
 		}
 		break;
 
 		case tt_memw_3_n:
 		{
-			int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
-			int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
-			int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[3], asmBlock, 16, touchedRegisters);
+			char *baseRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
+			char *offsetRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
+			char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[3], asmBlock, 16, touchedRegisters);
 			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
-			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%r%d-%%r%d,%d), %%r%d", movOp, baseReg, offsetReg, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)), sourceReg));
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%s-%s,%d), %s", movOp, baseRegStr, offsetRegStr, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)), sourceRegStr));
 		}
 		break;
 
@@ -730,10 +743,10 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			}
 			else
 			{
-				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
-				int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
+				char *destRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
+				char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
 				const char *movOp = SelectMovWidth(&thisTAC->operands[1]);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d)", movOp, destReg, sourceReg));
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %s, (%s)", movOp, destRegStr, sourceRegStr));
 			}
 		}
 		break;
@@ -747,10 +760,10 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			}
 			else
 			{
-				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
-				int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
+				char *destRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
+				char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
 				const char *movOp = SelectMovWidth(&thisTAC->operands[1]);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d+%d)", movOp, destReg, sourceReg, thisTAC->operands[2].name.val));
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %s, (%s+%d)", movOp, destRegStr, sourceRegStr, thisTAC->operands[2].name.val));
 			}
 		}
 		break;
@@ -764,11 +777,11 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			}
 			else
 			{
-				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
-				int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
-				int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, 16, touchedRegisters);
+				char *destRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
+				char *baseRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
+				char *offsetRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, RETURN_REGISTER, touchedRegisters);
 				const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d+%%r%d,%d)", movOp, destReg, baseReg, offsetReg, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type))));
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %s, (%s+%s,%d)", movOp, destRegStr, baseRegStr, offsetRegStr, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type))));
 			}
 		}
 		break;
@@ -782,10 +795,10 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			}
 			else
 			{
-				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
-				int sourceReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
+				char *destRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
+				char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
 				const char *movOp = SelectMovWidth(&thisTAC->operands[1]);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d-%d)", movOp, destReg, sourceReg, thisTAC->operands[2].name.val));
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %s, (%s-%d)", movOp, destRegStr, sourceRegStr, thisTAC->operands[2].name.val));
 			}
 		}
 		break;
@@ -799,11 +812,11 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			}
 			else
 			{
-				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
-				int baseReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
-				int offsetReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, 16, touchedRegisters);
+				char *destRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
+				char *baseRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
+				char *offsetRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, 16, touchedRegisters);
 				const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, (%%r%d-%%r%d,%d)", movOp, destReg, baseReg, offsetReg, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type))));
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %s, (%s-%s,%d)", movOp, destRegStr, baseRegStr, offsetRegStr, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type))));
 			}
 		}
 		break;
@@ -818,16 +831,16 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			// immediate
 			if (thisTAC->operands[2].permutation == vp_literal)
 			{
-				int op1Index = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[0], touchedRegisters);
+				char *op1SourceStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[0], touchedRegisters);
 
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "%si %%r%d, $%s", getAsmOp(thisTAC->operation), op1Index, thisTAC->operands[2].name.str));
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%si %s, $%s", getAsmOp(thisTAC->operation), op1SourceStr, thisTAC->operands[2].name.str));
 			}
 			else
 			{
-				int op1Index = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[0], touchedRegisters);
-				int op2Index = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[1], touchedRegisters);
+				char *op1RegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[0], touchedRegisters);
+				char *op2RegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[1], touchedRegisters);
 
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, %%r%d", getAsmOp(thisTAC->operation), op1Index, op2Index));
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %s, %s", getAsmOp(thisTAC->operation), op1RegStr, op2RegStr));
 			}
 		}
 		break;
@@ -851,8 +864,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 
 		case tt_push:
 		{
-			int registerIndex = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
-			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d", SelectPushWidth(&thisTAC->operands[0]), registerIndex));
+			char *opRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, reservedRegisters[0], touchedRegisters);
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %s", SelectPushWidth(&thisTAC->operands[0]), opRegStr));
 		}
 		break;
 
@@ -870,7 +883,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				}
 				else
 				{
-					WriteSpilledVariable(asmBlock, returnedLifetime, 13);
+					WriteSpilledVariable(asmBlock, returnedLifetime, registerNames[13]);
 				}
 			}
 		}
@@ -882,30 +895,9 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 
 		case tt_return:
 		{
-			switch (thisTAC->operands[0].permutation)
-			{
-			case vp_literal:
-			{
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "movh %%rr, $%s", thisTAC->operands[0].name.str));
-			}
-			break;
 
-			case vp_standard:
-			case vp_temp:
-			{
-				// place the operand in r13 (%rr) if not already in a register
-				// if already in a different register, move it to %rr
-				int destReg = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, 13, touchedRegisters);
-				if (destReg != 13)
-				{
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%rr, %%r%d", destReg));
-				}
-			}
-			break;
-
-			default:
-				perror("unexpected type in return TAC!\n");
-			}
+			char *destRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], asmBlock, RETURN_REGISTER, touchedRegisters);
+			TRIM_APPEND(asmBlock, sprintf(printedLine, "mov %%rr, %s", destRegStr));
 			TRIM_APPEND(asmBlock, sprintf(printedLine, "jmp %s_done", functionName));
 		}
 		break;

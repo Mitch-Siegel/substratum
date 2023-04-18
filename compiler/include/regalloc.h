@@ -3,7 +3,8 @@
 #include "symtab.h"
 #include "tac.h"
 
-#define REGISTER_COUNT 5
+#define MACHINE_REGISTER_COUNT 16
+#define REGISTERS_TO_ALLOCATE 4
 #define SCRATCH_REGISTER 0
 #define SECOND_SCRATCH_REGISTER 1
 #define RETURN_REGISTER 13
@@ -70,7 +71,7 @@ struct CodegenMetadata
 	int reservedRegisters[2];
 
 	// flag registers which have *ever* been used so we know what to callee-save
-	char touchedRegisters[REGISTER_COUNT];
+	char touchedRegisters[REGISTERS_TO_ALLOCATE];
 };
 
 // populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i
