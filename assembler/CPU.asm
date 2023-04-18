@@ -141,8 +141,8 @@
     movh %{rd: reg}, (%{rbase: reg})                             => 0xb2 @ rd @ rbase @ 0x0000
     movh (%{rbase: reg}), %{rs: reg}                             => 0xb4 @ rbase @ rs @ 0x0000
     
-    movh %{rd: reg}, (%{rbase: reg}+%{offset: i16})              => 0xb5 @ rd @ rbase @ offset
-    movh %{rd: reg}, (%{rbase: reg}-%{offset: i16})              => 0xb6 @ rd @ rbase @ offset
+    movh %{rd: reg}, (%{rbase: reg}+{offset: i16})              => 0xb5 @ rd @ rbase @ offset
+    movh %{rd: reg}, (%{rbase: reg}-{offset: i16})              => 0xb6 @ rd @ rbase @ offset
     movh (%{rbase: reg}+{offset: i16}), %{rs: reg}              => 0xb7 @ rs @ rbase @ offset
     movh (%{rbase: reg}-{offset: i16}), %{rs: reg}              => 0xb8 @ rs @ rbase @ offset
 
@@ -185,7 +185,7 @@
     int {code: i8}                          => 0xd8 @ code @ 0x0000
     reti                                    => 0xd9 @ 0x000000
 
-    out {port: i8}, %{rs: reg}                         => 0xe2 @ port @ 0x0 @ rs @ 0x00
+    out {port: i8}, %{rs: reg}              => 0xe2 @ port @ 0x0 @ rs @ 0x00
 
     hlt                                    => 0xfe000000
 
