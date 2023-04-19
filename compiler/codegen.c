@@ -579,22 +579,15 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		case tt_mul:
 		case tt_div:
 		{
-			char immediateInstruction = 0;
-
 			struct Lifetime *assignedLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
-			struct Lifetime *operand1Lifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[1].name.str);
-			struct Lifetime *operand2Lifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[2].name.str);
-			int destinationRegister;
-			char op1[12];
-			char op2[12];
-			char reordering = 0;
+			char *destinationRegister;
 			if (assignedLifetime->isSpilled)
 			{
-				destinationRegister = reservedRegisters[0];
+				destinationRegister = registerNames[reservedRegisters[0]];
 			}
 			else
 			{
-				destinationRegister = assignedLifetime->stackOrRegLocation;
+				destinationRegister = registerNames[assignedLifetime->stackOrRegLocation];
 			}
 
 			if (thisTAC->operands[1].permutation == vp_literal && thisTAC->operands[2].permutation == vp_literal)
@@ -602,81 +595,44 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				ErrorAndExit(ERROR_INTERNAL, "Arithmetic between two literals!\n");
 			}
 
-			// examine the first operand, place it in regisetr if necessary, and handle reordering (if possible/beneficial)
-			switch (thisTAC->operands[1].permutation)
+			// op1 is a literal
+			if (thisTAC->operands[1].permutation == vp_literal)
 			{
-			case vp_standard:
-			case vp_temp:
-				if (!operand1Lifetime->isSpilled)
+				// op1 and op2 are literals
+				if (thisTAC->operands[2].permutation == vp_literal)
 				{
-					sprintf(op1, "%%r%d", operand1Lifetime->stackOrRegLocation);
+					ErrorAndExit(ERROR_INTERNAL, "Arithmetic between two literals!\n");
 				}
+				// only op1 is a literal
 				else
 				{
-					placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[0], touchedRegisters);
-					sprintf(op1, "%%r%d", reservedRegisters[0]);
-				}
-				break;
+					// try and reorder so we can use an immediate instruction
+					if (thisTAC->reorderable)
+					{
+						char *operand1String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[0], touchedRegisters);
+						TRIM_APPEND(asmBlock, sprintf(printedLine, "%si %s, %s, $%s", getAsmOp(thisTAC->operation), destinationRegister, operand1String, thisTAC->operands[1].name.str));
+					}
+					else
+					{
+						char *operand1String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[0], touchedRegisters);
+						char *operand2String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[0], touchedRegisters);
 
-			case vp_literal:
-				if (thisTAC->reorderable)
-				{
-					reordering = 1;
-					immediateInstruction = 1;
-					sprintf(op1, "$%s", thisTAC->operands[1].name.str);
-				}
-				break;
-			}
-
-			// examine the second operand, place it in register
-			switch (thisTAC->operands[2].permutation)
-			{
-			case vp_standard:
-			case vp_temp:
-				if (!operand2Lifetime->isSpilled)
-				{
-					sprintf(op2, "%%r%d", operand2Lifetime->stackOrRegLocation);
-				}
-				else
-				{
-					placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[1], touchedRegisters);
-					sprintf(op2, "%%r%d", reservedRegisters[1]);
-				}
-				break;
-
-			case vp_literal:
-				sprintf(op2, "$%s", thisTAC->operands[2].name.str);
-				immediateInstruction = 1;
-				break;
-			}
-
-			if (reordering)
-			{
-				if (immediateInstruction)
-				{
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "%si %%r%d, %s, %s", getAsmOp(thisTAC->operation), destinationRegister, op2, op1));
-				}
-				else
-				{
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, %s, %s", getAsmOp(thisTAC->operation), destinationRegister, op2, op1));
+						TRIM_APPEND(asmBlock, sprintf(printedLine, "%si %s, %s, $%s", getAsmOp(thisTAC->operation), destinationRegister, operand1String, operand2String));
+					}
 				}
 			}
 			else
 			{
-				if (immediateInstruction)
-				{
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "%si %%r%d, %s, %s", getAsmOp(thisTAC->operation), destinationRegister, op1, op2));
-				}
-				else
-				{
-					TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %%r%d, %s, %s", getAsmOp(thisTAC->operation), destinationRegister, op1, op2));
-				}
+				// op1 not a literal, don't care what op2 is
+				char *operand1String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[0], touchedRegisters);
+				char *operand2String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[0], touchedRegisters);
+
+				TRIM_APPEND(asmBlock, sprintf(printedLine, "%si %s, %s, $%s", getAsmOp(thisTAC->operation), destinationRegister, operand1String, operand2String));
 			}
 
 			if (assignedLifetime->isSpilled)
 			{
-				const char *movOp = SelectMovWidthForPrimitive(assignedLifetime->type);
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "%s (%%bp+%d), %%r%d;replace %s", movOp, assignedLifetime->stackOrRegLocation, destinationRegister, assignedLifetime->variable));
+				WriteSpilledVariable(asmBlock, assignedLifetime, destinationRegister);
 			}
 		}
 		break;

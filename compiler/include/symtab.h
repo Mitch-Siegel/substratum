@@ -96,7 +96,7 @@ void FunctionEntry_free(struct FunctionEntry *f);
 struct SymbolTable *SymbolTable_new(char *name);
 
 // scope functions
-struct Scope *Scope_new(struct Scope *parentScope, char *name);
+struct Scope *Scope_new(struct Scope *parentScope, char *name, struct FunctionEntry *parentFunction);
 
 void Scope_free(struct Scope *scope);
 

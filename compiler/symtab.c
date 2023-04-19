@@ -12,7 +12,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, e
 	newFunction->arguments = Stack_New();
 	newFunction->argStackSize = 0;
 	newFunction->localStackSize = 0;
-	newFunction->mainScope = Scope_new(parentScope, "");
+	newFunction->mainScope = Scope_new(parentScope, "", newFunction);
 	newFunction->BasicBlockList = LinkedList_New();
 	newFunction->mainScope->parentFunction = newFunction;
 	newFunction->returnType = returnType;
@@ -70,7 +70,7 @@ struct SymbolTable *SymbolTable_new(char *name)
 {
 	struct SymbolTable *wip = malloc(sizeof(struct SymbolTable));
 	wip->name = name;
-	wip->globalScope = Scope_new(NULL, "Global");
+	wip->globalScope = Scope_new(NULL, "Global", NULL);
 	struct BasicBlock *globalBlock = BasicBlock_new(0);
 	// char *globalBlockName = malloc(12);
 	// sprintf(globalBlockName, "globalblock");
@@ -239,14 +239,14 @@ void SymbolTable_free(struct SymbolTable *it)
  * Scope functions
  *
  */
-struct Scope *Scope_new(struct Scope *parentScope, char *name)
+struct Scope *Scope_new(struct Scope *parentScope, char *name, struct FunctionEntry *parentFunction)
 {
 	struct Scope *wip = malloc(sizeof(struct Scope));
 	wip->entries = Stack_New();
 
 	// need to set this manually to handle when new functions are declared
 	// TODO: supports nested functions? ;)
-	wip->parentFunction = NULL;
+	wip->parentFunction = parentFunction;
 	wip->parentScope = parentScope;
 	wip->name = name;
 	wip->subScopeCount = 0;
@@ -372,7 +372,7 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
 	free(helpStr);
 	parentScope->subScopeCount++;
 
-	struct Scope *newScope = Scope_new(parentScope, newScopeName);
+	struct Scope *newScope = Scope_new(parentScope, newScopeName, parentScope->parentFunction);
 	newScope->parentFunction = parentScope->parentFunction;
 
 	Scope_insert(parentScope, newScopeName, newScope, e_scope);
