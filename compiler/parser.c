@@ -945,7 +945,7 @@ struct AST *TableParse(struct Dictionary *dict)
 			// if we found a reduction
 			if (foundReduction[0] != p_null)
 			{
-				printParseStack(parseStack);
+				// printParseStack(parseStack);
 
 				// do the reduction
 				reduce(parseStack);

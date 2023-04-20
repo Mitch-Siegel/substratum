@@ -118,29 +118,27 @@ fun fibArrDeref(uint8 n->uint32)
 }
 
 
+/*
+Benchmarks of instruction count by number of registers allowed:
+4: 662497
+5: 646177
+6: 645064
+7: 644240
+
+*/
+
 fun test(->void)
 {
 	uint8 i = 1;
 	while (i < 20)
 	{
-		print(48 + div(20, i));
-		// printNum(i);
-		// fibArr(i);
-		// printNum(fibArr(i));
-		// fibRec(i);
-		// fibArr(i);
-		// fibArrDeref(i);
-		// printNum(fibRec(i));
-		// printNum(fibArr(i));
-		// printNum(fibArrDeref(i));
-		// printNum(i + 48);
+		printNum(fibRec(i));
+		printNum(fibArr(i));
+		printNum(fibArrDeref(i));
+
 		print(10);
 		i = i + 1;
 	}
-	// print(10);
-	// print(10);
-	// print(10);
-	// print(10);
-	// print(10);
+	
 }
 

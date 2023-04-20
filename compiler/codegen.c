@@ -615,7 +615,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 					else
 					{
 						char *operand1String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[0], touchedRegisters);
-						char *operand2String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[0], touchedRegisters);
+						char *operand2String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[1], touchedRegisters);
 
 						TRIM_APPEND(asmBlock, sprintf(printedLine, "%si %s, %s, $%s", getAsmOp(thisTAC->operation), destinationRegister, operand1String, operand2String));
 					}
@@ -623,11 +623,20 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			}
 			else
 			{
-				// op1 not a literal, don't care what op2 is
-				char *operand1String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[0], touchedRegisters);
-				char *operand2String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[0], touchedRegisters);
+				// op1 not a literal
 
-				TRIM_APPEND(asmBlock, sprintf(printedLine, "%si %s, %s, $%s", getAsmOp(thisTAC->operation), destinationRegister, operand1String, operand2String));
+				char *operand1String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], asmBlock, reservedRegisters[0], touchedRegisters);
+				// operand 2 is a literal, use an immediate instruction
+				if (thisTAC->operands[2].permutation == vp_literal)
+				{
+					TRIM_APPEND(asmBlock, sprintf(printedLine, "%si %s, %s, $%s", getAsmOp(thisTAC->operation), destinationRegister, operand1String, thisTAC->operands[2].name.str));
+				}
+				// operand 2 is not a literal
+				else
+				{
+					char *operand2String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], asmBlock, reservedRegisters[1], touchedRegisters);
+					TRIM_APPEND(asmBlock, sprintf(printedLine, "%s %s, %s, %s", getAsmOp(thisTAC->operation), destinationRegister, operand1String, operand2String));
+				}
 			}
 
 			if (assignedLifetime->isSpilled)
