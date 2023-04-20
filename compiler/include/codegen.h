@@ -21,7 +21,10 @@ const char *SelectMovWidthForPrimitive(enum variableTypes type);
 
 const char *SelectMovWidth(struct TACOperand *dataDest);
 
+const char *SelectMovWidthForLifetime(struct Lifetime *lifetime);
+
 const char *SelectPushWidthForPrimitive(enum variableTypes type);
+
 
 const char *SelectPushWidth(struct TACOperand *dataDest);
 

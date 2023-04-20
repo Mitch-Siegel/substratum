@@ -1,9 +1,11 @@
 #include "regalloc.h"
 
-struct Lifetime *newLifetime(char *variable, enum variableTypes type, int start)
+struct Lifetime *newLifetime(char *name, enum variableTypes type, int indirectionLevel, int start)
 {
 	struct Lifetime *wip = malloc(sizeof(struct Lifetime));
-	wip->variable = variable;
+	wip->name = name;
+	wip->type = type;
+	wip->indirectionLevel = indirectionLevel;
 	wip->start = start;
 	wip->end = start;
 	wip->stackOrRegLocation = -1;
@@ -18,18 +20,19 @@ struct Lifetime *newLifetime(char *variable, enum variableTypes type, int start)
 
 char compareLifetimes(struct Lifetime *a, char *variable)
 {
-	return strcmp(a->variable, variable);
+	return strcmp(a->name, variable);
 }
 
 // search through the list of existing lifetimes
 // update the lifetime if it exists, insert if it doesn't
 // returns pointer to the lifetime corresponding to the passed variable name
 struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
-										char *variable,
+										char *name,
 										enum variableTypes type,
+										int indirectionLevel,
 										int newEnd)
 {
-	struct Lifetime *thisLt = LinkedList_Find(ltList, &compareLifetimes, variable);
+	struct Lifetime *thisLt = LinkedList_Find(ltList, &compareLifetimes, name);
 
 	if (thisLt != NULL)
 	{
@@ -37,40 +40,43 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
 		// may be helpful when adding/troubleshooting new TAC generation
 		if (thisLt->type != type)
 		{
-			ErrorAndExit(ERROR_INTERNAL, "Error - type mismatch between identically named variables [%s] expected %d, saw %d!\n", variable, thisLt->type, type);
+			ErrorAndExit(ERROR_INTERNAL, "Error - type mismatch between identically named variables [%s] expected %d, saw %d!\n", name, type, type);
 		}
 		if (newEnd > thisLt->end)
 			thisLt->end = newEnd;
 	}
 	else
 	{
-		thisLt = newLifetime(variable, type, newEnd);
+		thisLt = newLifetime(name, type, indirectionLevel, newEnd);
 		LinkedList_Append(ltList, thisLt);
 	}
 
 	return thisLt;
 }
 
+struct Lifetime *updateOrInstertLifetimeFromTAC(struct LinkedList *ltList, struct TACOperand *operand, int index)
+{
+	return updateOrInsertLifetime(ltList, operand->name.str, operand->type, operand->indirectionLevel, index);
+}
+
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
 void recordVariableWrite(struct LinkedList *ltList,
-						 char *variable,
-						 enum variableTypes type,
+						 struct TACOperand *writtenOperand,
 						 int newEnd)
 {
-	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, variable, type, newEnd);
-	updatedLifetime->nwrites = updatedLifetime->nwrites + 1;
+	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, writtenOperand->name.str, writtenOperand->type, writtenOperand->indirectionLevel, newEnd);
+	updatedLifetime->nwrites += 1;
 }
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
 void recordVariableRead(struct LinkedList *ltList,
-						char *variable,
-						enum variableTypes type,
+						struct TACOperand *readOperand,
 						int newEnd)
 {
-	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, variable, type, newEnd);
-	updatedLifetime->nwrites = updatedLifetime->nreads + 1;
+	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, readOperand->name.str, readOperand->type, readOperand->indirectionLevel, newEnd);
+	updatedLifetime->nreads += 1;
 }
 
 struct LinkedList *findLifetimes(struct FunctionEntry *function)
@@ -81,9 +87,8 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 		struct ScopeMember *thisMember = function->mainScope->entries->data[i];
 		if (thisMember->type == e_argument)
 		{
-			// struct variableEntry *theArgument = table->entries[i]->entry;
-
-			struct Lifetime *argLifetime = updateOrInsertLifetime(lifetimes, thisMember->name, ((struct VariableEntry *)thisMember->entry)->type, 1);
+			struct VariableEntry *theArgument = thisMember->entry;
+			struct Lifetime *argLifetime = updateOrInsertLifetime(lifetimes, thisMember->name, theArgument->type, theArgument->indirectionLevel, 1);
 			argLifetime->isArgument = 1;
 		}
 	}
@@ -114,7 +119,7 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 					struct Lifetime *examinedLifetime = lifetimeRunner->data;
 					if (examinedLifetime->end >= extendFrom && examinedLifetime->end < extendTo)
 					{
-						if (examinedLifetime->variable[0] != '.')
+						if (examinedLifetime->name[0] != '.')
 						{
 							examinedLifetime->end = extendTo + 1;
 						}
@@ -127,23 +132,23 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 				break;
 
 			case tt_declare:
-				updateOrInsertLifetime(lifetimes, thisLine->operands[0].name.str, thisLine->operands[0].type, TACIndex);
+				updateOrInstertLifetimeFromTAC(lifetimes, &thisLine->operands[0], TACIndex);
 				break;
 
 			case tt_call:
 				if (thisLine->operands[0].type != vt_null)
 				{
-					recordVariableWrite(lifetimes, thisLine->operands[0].name.str, thisLine->operands[0].type, TACIndex);
+					recordVariableWrite(lifetimes, &thisLine->operands[0], TACIndex);
 				}
 				break;
 
 			case tt_assign:
 			case tt_cast_assign:
 			{
-				recordVariableWrite(lifetimes, thisLine->operands[0].name.str, thisLine->operands[0].type, TACIndex);
+				recordVariableWrite(lifetimes, &thisLine->operands[0], TACIndex);
 				if (thisLine->operands[1].permutation != vp_literal)
 				{
-					recordVariableRead(lifetimes, thisLine->operands[1].name.str, thisLine->operands[1].type, TACIndex);
+					recordVariableRead(lifetimes, &thisLine->operands[1], TACIndex);
 				}
 			}
 			break;
@@ -154,7 +159,7 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 			{
 				if (thisLine->operands[0].permutation != vp_literal)
 				{
-					recordVariableRead(lifetimes, thisLine->operands[0].name.str, thisLine->operands[0].type, TACIndex);
+					recordVariableRead(lifetimes, &thisLine->operands[0], TACIndex);
 				}
 			}
 			break;
@@ -167,7 +172,7 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 			{
 				if (thisLine->operands[0].type != vt_null)
 				{
-					recordVariableWrite(lifetimes, thisLine->operands[0].name.str, thisLine->operands[0].type, TACIndex);
+					recordVariableWrite(lifetimes, &thisLine->operands[0], TACIndex);
 				}
 
 				for (int i = 1; i < 4; i++)
@@ -182,7 +187,7 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 							break;
 
 						default:
-							recordVariableRead(lifetimes, thisLine->operands[i].name.str, thisLine->operands[i].type, TACIndex);
+							recordVariableRead(lifetimes, &thisLine->operands[i], TACIndex);
 							break;
 						}
 					}
@@ -213,7 +218,7 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 							break;
 
 						default:
-							recordVariableRead(lifetimes, thisLine->operands[i].name.str, thisLine->operands[i].type, TACIndex);
+							recordVariableRead(lifetimes, &thisLine->operands[i], TACIndex);
 							break;
 						}
 					}
@@ -273,7 +278,7 @@ int generateLifetimeOverlaps(struct CodegenMetadata *metadata)
 		struct Lifetime *thisLifetime = runner->data;
 
 		// if this lifetime must be spilled (has address-of operator used) (for future use - nothing currently uses(?)), add directly to the spilled list
-		struct ScopeMember *thisVariableEntry = Scope_lookup(metadata->function->mainScope, thisLifetime->variable);
+		struct ScopeMember *thisVariableEntry = Scope_lookup(metadata->function->mainScope, thisLifetime->name);
 
 		// if we have an argument, make sure to note that it is active at index 0
 		// this ensures that arguments that aren't used in code are still tracked (applies particularly to asm-only functions)
@@ -379,7 +384,7 @@ void spillVariables(struct CodegenMetadata *metadata, int mostConcurrentLifetime
 				int thisHeuristic = lifetimeHeuristic(thisLifetime);
 
 				// printf("%s has heuristic of %f\n", thisLifetime->variable, thisHeuristic);
-				if (thisHeuristic > bestHeuristic)
+				if (thisHeuristic < bestHeuristic)
 				{
 					bestHeuristic = thisHeuristic;
 					bestLifetime = thisLifetime;
@@ -390,7 +395,7 @@ void spillVariables(struct CodegenMetadata *metadata, int mostConcurrentLifetime
 			// if it becomes necessary to keep the untouched liveness array around, it will need to be copied within this function
 			for (int j = bestLifetime->start; j <= bestLifetime->end; j++)
 			{
-				LinkedList_Delete(metadata->lifetimeOverlaps[j], compareLifetimes, bestLifetime->variable);
+				LinkedList_Delete(metadata->lifetimeOverlaps[j], compareLifetimes, bestLifetime->name);
 			}
 			bestLifetime->isSpilled = 1;
 			Stack_Push(metadata->spilledLifetimes, bestLifetime);
@@ -412,8 +417,9 @@ void sortSpilledLifetimes(struct CodegenMetadata *metadata)
 		for (int j = 0; j < metadata->spilledLifetimes->size - i - 1; j++)
 		{
 			struct Lifetime *thisLifetime = metadata->spilledLifetimes->data[j];
-			int thisSize = Scope_getSizeOfVariableByString(metadata->function->mainScope, thisLifetime->variable);
-			int compSize = Scope_getSizeOfVariableByString(metadata->function->mainScope, ((struct Lifetime *)metadata->spilledLifetimes->data[j + 1])->variable);
+
+			int thisSize = GetSizeOfPrimitive(thisLifetime->type);
+			int compSize = GetSizeOfPrimitive(((struct Lifetime *)metadata->spilledLifetimes->data[j + 1])->type);
 
 			if (thisSize > compSize)
 			{
@@ -496,7 +502,7 @@ void assignRegisters(struct CodegenMetadata *metadata)
 					 * 2: something messed up before we got to this function and too many concurrent lifetimes have been allowed to expect a register assignment
 					 */
 
-					ErrorAndExit(ERROR_INTERNAL, "Unable to find register for variable %s!\n", thisLifetime->variable);
+					ErrorAndExit(ERROR_INTERNAL, "Unable to find register for variable %s!\n", thisLifetime->name);
 				}
 			}
 		}
