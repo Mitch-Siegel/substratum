@@ -122,13 +122,7 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOpera
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Call to attempt to place spilled variable %s when none should be spilled!", operand.name.str);
 	}
-	else
-	{
-		if (registerIndex < 0)
-		{
-			printf("%s better be in a register already\n", operand.name.str);
-		}
-	}
+	// else the variable is in a register already
 
 	// if not a local pointer, the value for this variable *must* exist either in a register or spilled on the stack
 	if (relevantLifetime->localPointerTo == NULL)
@@ -190,14 +184,12 @@ struct Stack *generateCode(struct SymbolTable *table, FILE *outFile)
 		case e_basicblock:
 		{
 			struct LinkedList *blockBlock = LinkedList_New();
-			char touchedRegisters[REGISTERS_TO_ALLOCATE];
-			for (int i = 0; i < REGISTERS_TO_ALLOCATE; i++)
+			char touchedRegisters[MACHINE_REGISTER_COUNT];
+			for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
 			{
 				touchedRegisters[i] = 0;
 			}
 			int reservedRegisters[2];
-			reservedRegisters[0] = 0;
-			reservedRegisters[1] = 1;
 
 			touchedRegisters[0] = 1;
 			touchedRegisters[1] = 1;
@@ -251,8 +243,8 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 
 	int mostConcurrentLifetimes = generateLifetimeOverlaps(&metadata);
 
-	printf("\n");
-	printf("at most %d concurrent lifetimes\n", mostConcurrentLifetimes);
+	// printf("\n");
+	// printf("at most %d concurrent lifetimes\n", mostConcurrentLifetimes);
 
 	spillVariables(&metadata, mostConcurrentLifetimes);
 
@@ -263,7 +255,6 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 	for (int i = 0; i < metadata.spilledLifetimes->size; i++)
 	{
 		struct Lifetime *thisLifetime = metadata.spilledLifetimes->data[i];
-		printf("Examine spilled variable %s\n", thisLifetime->name);
 		int thisSize = GetSizeOfPrimitive(thisLifetime->type);
 
 		// if the variable isn't a local pointer (can calculate local pointers on the fly from base pointer so no need to store)
@@ -287,12 +278,12 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 				stackOffset += thisSize;
 				thisLifetime->stackOrRegLocation = -1 * stackOffset;
 			}
-			printf("%s: %%bp + %d (%d)\n", thisLifetime->name, thisLifetime->stackOrRegLocation, thisLifetime->localPointerTo ? thisLifetime->localPointerTo->arraySize : 1);
 		}
 	}
 
 	assignRegisters(&metadata);
 
+	/*
 	for (struct LinkedListNode *ltRunner = metadata.allLifetimes->head; ltRunner != NULL; ltRunner = ltRunner->next)
 	{
 		struct Lifetime *thisLifetime = ltRunner->data;
@@ -315,11 +306,12 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 		}
 
 		printf("localPointer? %d\n", thisLifetime->localPointerTo != NULL);
-	}
+	}*/
 
 	// actual registers have been assigned to variables
 	printf(".");
-	// move any applicable arguments into registers if we are expecting them not to be spilled
+
+	/*
 	printf("\n%17s", "");
 	for (int i = 0; i < metadata.largestTacIndex; i++)
 	{
@@ -358,6 +350,7 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 		printf("\n");
 		// printf("%s\t:Spilled:%d Location:%d Lifetime:%2d-%2d\n", thisLifetime->variable, thisLifetime->isSpilled, thisLifetime->stackOrRegLocation, thisLifetime->start, thisLifetime->end);
 	}
+		*/
 
 	struct LinkedList *functionBlock = LinkedList_New();
 

@@ -31,16 +31,19 @@ int main(int argc, char **argv)
 	struct AST *program = ParseProgram(argv[1], parseDict);
 
 	// serializeAST("astdump", program);
-	printf("\n");
+	// printf("\n");
 
-	AST_Print(program, 0);
+	// AST_Print(program, 0);
 
 	printf("Generating symbol table from AST");
 	struct SymbolTable *theTable = walkAST(program);
 	printf("\n");
 
-	printf("Symbol table before scope collapse:\n");
-	SymbolTable_print(theTable, 0);
+	if (argc > 3)
+	{
+		printf("Symbol table before scope collapse:\n");
+		SymbolTable_print(theTable, 0);
+	}
 
 	printf("Linearizing code to basic blocks\n");
 	struct TempList *temps = TempList_New();

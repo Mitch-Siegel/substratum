@@ -804,7 +804,6 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 		if (ifTrue->sibling != NULL)
 		{
 			struct AST *ifFalse = ifTrue->sibling;
-			printf("if at %d:%d has else at %d:%d\n", it->sourceLine, it->sourceCol, ifFalse->sourceLine, ifFalse->sourceCol);
 			if (ifFalse->type == t_lCurly)
 			{
 				struct Scope *ifFalseScope = Scope_createSubScope(wipScope);

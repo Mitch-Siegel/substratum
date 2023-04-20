@@ -73,7 +73,7 @@ struct CodegenMetadata
 	int reservedRegisters[2];
 
 	// flag registers which have *ever* been used so we know what to callee-save
-	char touchedRegisters[REGISTERS_TO_ALLOCATE];
+	char touchedRegisters[MACHINE_REGISTER_COUNT];
 };
 
 // populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i

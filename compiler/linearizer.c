@@ -110,11 +110,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 	else
 	{
 		printf("\n%s - ", thisDereference->operands[1].name.str);
-		printf("Warning - dereference of non-indirect expression or statement\n\t");
-		AST_PrintHorizontal(m.ast);
-		printf("\n\tLine %d, Col %d\n", m.ast->sourceLine, m.ast->sourceCol);
-		printTACLine(thisDereference);
-		printf("\n");
+		ErrorWithAST(ERROR_CODE, m.ast, "Dereference of non-indirect expression or statement!\n");
 	}
 
 	thisDereference->operands[0].indirectionLevel = newIndirectionLevel;
@@ -265,7 +261,16 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 	{
 		struct VariableEntry *theVariable = Scope_lookupVar(m.scope, m.ast);
 		parentExpression->operands[operandIndex].name.str = theVariable->name;
-		parentExpression->operands[operandIndex].indirectionLevel = theVariable->indirectionLevel;
+		// if the variable is just a regular variable, use its indirection level
+		if (theVariable->localPointerTo == NULL)
+		{
+			parentExpression->operands[operandIndex].indirectionLevel = theVariable->indirectionLevel;
+		}
+		// but if it's a local pointer to something it will have indirection level of 1
+		else
+		{
+			parentExpression->operands[operandIndex].indirectionLevel = 1;
+		}
 		parentExpression->operands[operandIndex].permutation = vp_standard;
 		parentExpression->operands[operandIndex].type = theVariable->type;
 	}

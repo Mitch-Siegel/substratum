@@ -362,8 +362,6 @@ void spillVariables(struct CodegenMetadata *metadata, int mostConcurrentLifetime
 		return;
 	}
 
-	printf("Reserved registers are %%r%d and %%r%d\n", metadata->reservedRegisters[0], metadata->reservedRegisters[1]);
-
 	// look through the populated array of active lifetimes
 	// if a given index has too many active lifetimes, figure out which lifetime(s) to spill
 	// then allocate registers for any lifetimes without a home
