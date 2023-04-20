@@ -123,6 +123,7 @@ fun fibArrDeref(uint8 n->uint32)
 
 /*
 Benchmarks of instruction count by number of registers allowed:
+2: 908416
 3: 873730
 4: 674313
 5: 650847
