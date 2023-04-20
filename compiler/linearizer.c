@@ -1262,14 +1262,14 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 {
 	// if we are descending into a nested scope, look up the correct scope and use it
 	// the subscope will be used in this call and any calls generated from this one, allowing the scopes to recursively nest properly
+	int newSubscopeIndex = 0;
 	if (scopeNesting->size > 0)
 	{
-		m.scope = Scope_lookupSubScopeByNumber(m.scope, *(int *)Stack_Peek(scopeNesting));
+		m.scope = Scope_lookupSubScopeByNumber(m.scope, *((int *)Stack_Peek(scopeNesting)));
 	}
 	// otherwise the stack is empty so we should set it up to start at index 0
 	else
 	{
-		int newSubscopeIndex = 0;
 		Stack_Push(scopeNesting, &newSubscopeIndex);
 	}
 
