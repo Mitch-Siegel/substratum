@@ -12,7 +12,9 @@ enum CompilerErrors
 };
 
 
-#define ErrorAndExit(code, fmt, ...) printf(fmt, ##__VA_ARGS__); printf("Bailing from file %s, line %d\n\n", __FILE__, __LINE__); exit(code)
+#define ErrorAndExit(code, fmt, ...) printf(fmt, ##__VA_ARGS__);printf("Bailing from file %s, line %d\n\n", __FILE__, __LINE__);exit(code)
+
+#define ErrorWithAST(code, astPtr, fmt, ...) printf("Line %d Col %d: ", astPtr->sourceLine, astPtr->sourceCol); ErrorAndExit(code, fmt, ##__VA_ARGS__)
 
 /*
  * Dictionary for tracking strings

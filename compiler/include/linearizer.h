@@ -19,13 +19,14 @@ int linearizeASMBlock(struct LinearizationMetadata m);
 
 int linearizeDereference(struct LinearizationMetadata m);
 
-int linearizeArgumentPushes(struct LinearizationMetadata m);
+int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry *f);
 
 int linearizeFunctionCall(struct LinearizationMetadata m);
 
 int linearizeSubExpression(struct LinearizationMetadata m,
 						   struct TACLine *parentExpression,
-						   int operandIndex);
+						   int operandIndex, 
+						   char forceConstantToRegister);
 
 int linearizeExpression(struct LinearizationMetadata m);
 
@@ -36,9 +37,8 @@ int linearizeAssignment(struct LinearizationMetadata m);
 int linearizeArithmeticAssignment(struct LinearizationMetadata m);
 
 struct TACLine *linearizeConditionalJump(int currentTACIndex,
-										 char *cmpOp,
-										 char whichCondition, // jump on condition true if nonzero, jump on condition false if zero
-										 struct AST *correspondingTree);
+										 struct AST *cmpOp,
+										 char whichCondition); // jump on condition true if nonzero, jump on condition false if zero
 
 int linearizeDeclaration(struct LinearizationMetadata m);
 

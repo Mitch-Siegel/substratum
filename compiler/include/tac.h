@@ -25,6 +25,7 @@ enum TACType
 {
 	tt_asm,
 	tt_assign,
+	tt_cast_assign,
 	tt_declare,
 	tt_add,
 	tt_subtract,
@@ -69,7 +70,7 @@ struct TACOperand
 	// union nameUnion name;
 	enum variableTypes type;			   // enum of type
 	enum variablePermutations permutation; // enum of permutation (standard/temp/literal)
-	char indirectionLevel;
+	unsigned indirectionLevel;
 };
 
 struct TACLine

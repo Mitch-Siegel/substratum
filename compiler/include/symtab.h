@@ -42,8 +42,9 @@ struct FunctionEntry
 	int localStackSize;
 	int argStackSize;
 	enum variableTypes returnType;
-	// struct SymbolTable *table;
+	int returnIndirectionLevel;
 	struct Scope *mainScope;
+	struct Stack *arguments; // stack of VariableEntry pointers corresponding by index to arguments
 	char *name; // duplicate pointer from ScopeMember for ease of use
 	struct LinkedList *BasicBlockList;
 };
@@ -85,13 +86,17 @@ struct SymbolTable
  */
 
 // create an argument engty in the provided function entry, which is named by the provided AST node
+struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, enum variableTypes returnType, int returnIndirectionLevel);
+
 void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize);
+
+void FunctionEntry_free(struct FunctionEntry *f);
 
 // symbol table functions
 struct SymbolTable *SymbolTable_new(char *name);
 
 // scope functions
-struct Scope *Scope_new(struct Scope *parentScope, char *name);
+struct Scope *Scope_new(struct Scope *parentScope, char *name, struct FunctionEntry *parentFunction);
 
 void Scope_free(struct Scope *scope);
 
@@ -101,7 +106,7 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
 
 void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize);
 
-struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name);
+struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name, enum variableTypes returnType, int returnIndirectionLevel);
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
 
@@ -143,6 +148,10 @@ void SymbolTable_collapseScopes(struct SymbolTable *it, struct Dictionary *dict)
 void SymbolTable_free(struct SymbolTable *it);
 
 // AST walk functions
+
+// scrape down a chain of nested child star tokens, expecting something at the bottom
+int scrapePointers(struct AST *pointerAST, struct AST **resultDestination);
+
 void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArgument);
 
 void walkStatement(struct AST *it, struct Scope *wipScope);

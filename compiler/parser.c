@@ -14,6 +14,7 @@ char *token_names[] = {
 	"p_expression_operator",
 	"p_wip_expression",
 	"p_expression",
+	"p_expression_tail",
 	"p_function_opener",
 	"p_function_call",
 	"p_expression_list",
@@ -21,7 +22,6 @@ char *token_names[] = {
 	"p_variable_declaration",
 	"p_declaration_list",
 	"p_variable_declaration_statement",
-	"p_expression_statement",
 	"p_assignment_statement",
 	"p_return_statement",
 	"p_if_awating_else",
@@ -61,6 +61,10 @@ char *token_names[] = {
 	// comparison operators
 	"t_lThan",
 	"t_gThan",
+	"t_lThanE",
+	"t_gThanE",
+	"t_equals",
+	"t_nEquals",
 	// logical operators
 	"t_and",
 	"t_or",
@@ -207,7 +211,7 @@ void trimWhitespace(char trackPos)
 	}
 }
 
-#define RESERVED_COUNT 35
+#define RESERVED_COUNT 39
 
 struct ReservedToken
 {
@@ -216,60 +220,57 @@ struct ReservedToken
 };
 
 struct ReservedToken reserved[RESERVED_COUNT] = {
-	// {"", 	t_identifier,}, //	t_identifier,
-	// {"", 	t_constant,}, //t_constant,
-	// {"", 	t_string_literal,}, //t_string_literal,
-	// t_sizeof,}, //// t_sizeof,
-	{"asm", t_asm},		  // t_asm,
-						  // types
-	{"void", t_void},	  // t_void,
-	{"uint8", t_uint8},	  // t_uint8,
-	{"uint16", t_uint16}, // t_uint16,
-	{"uint32", t_uint32}, // t_uint32,
-						  // function
-	{"fun", t_fun},		  // t_fun,
-	{"return", t_return}, // t_return,
-	// control flow
-	{"if", t_if},			// t_if,
-	{"else", t_else},		// t_else,
-	{"while", t_while},		// t_while,
-	{"for", t_for},			// t_for,
-							// {"", 	t_do,}, //t_do,
-							// arithmetic operators
-							// basic arithmetic
-	{"+", t_plus},			// t_plus,
-	{"-", t_minus},			// t_minus,
-							// comparison operators
-	{"<", t_lThan},			// t_lThan,
-	{">", t_gThan},			// t_gThan,
-							// logical operators
-	{"&", t_and},			// t_and,
-	{"|", t_or},			// t_or,
-	{"!", t_not},			// t_not,
-							// bitwise operators}, //// bitwise operators
-	{"~", t_bit_not},		// t_bit_not,
-	{"^", t_xor},			// t_xor,
-							// ternary
-	{"?", t_ternary},		// t_ternary,
-							// arithmetic-assign operators}, //// arithmetic-assign operators
-							// unary operators
-	{"&", t_reference},		// t_reference,
-	{"*", t_star},			// t_star,
-							// assignment
-	{"=", t_single_equals}, // t_single_equals,
-							// semantics
-	{",", t_comma},			// t_comma,
-	{".", t_dot},			// t_dot,
-	{"->", t_pointer_op},	// t_pointer_op,
-	{";", t_semicolon},		// t_semicolon,
-	{":", t_colon},			// t_colon,
-	{"(", t_lParen},		// t_lParen,
-	{")", t_rParen},		// t_rParen,
-	{"{", t_lCurly},		// t_lCurly,
-	{"}", t_rCurly},		// t_rCurly,
-	{"[", t_lBracket},		// t_lBracket,
-	{"]", t_rBracket},		// t_rBracket,
-							// {"", 	t_EOF}, //t_EOF
+	{"asm", t_asm},
+
+	{"void", t_void},
+	{"uint8", t_uint8},
+	{"uint16", t_uint16},
+	{"uint32", t_uint32},
+
+	{"fun", t_fun},
+	{"return", t_return},
+
+	{"if", t_if},
+	{"else", t_else},
+	{"while", t_while},
+	{"for", t_for},
+
+	{"+", t_plus},
+	{"-", t_minus},
+
+	{"<", t_lThan},
+	{">", t_gThan},
+	{"<=", t_lThanE},
+	{">=", t_gThanE},
+	{"==", t_equals},
+	{"!=", t_nEquals},
+
+	{"&", t_and},
+	{"|", t_or},
+	{"!", t_not},
+
+	{"~", t_bit_not},
+	{"^", t_xor},
+
+	{"?", t_ternary},
+
+	{"&", t_reference},
+	{"*", t_star},
+
+	{"=", t_single_equals},
+
+	{",", t_comma},
+	{".", t_dot},
+	{"->", t_pointer_op},
+	{";", t_semicolon},
+	{":", t_colon},
+	{"(", t_lParen},
+	{")", t_rParen},
+	{"{", t_lCurly},
+	{"}", t_rCurly},
+	{"[", t_lBracket},
+	{"]", t_rBracket},
+
 };
 
 enum token
@@ -312,7 +313,42 @@ scan(char trackPos)
 			// if we match a reserved keyword
 			if (!strcmp(buffer, reserved[i].string))
 			{
-				return reserved[i].token;
+				char forceNextChar = 0;
+				switch (reserved[i].token)
+				{
+				case t_single_equals:
+				case t_not:
+				case t_gThan:
+				case t_lThan:
+					if (lookahead_char_dumb(1) == '=')
+					{
+						forceNextChar = 1;
+					}
+					else
+					{
+						return reserved[i].token;
+					}
+					break;
+
+				case t_minus:
+					if (lookahead_char_dumb(1) == '>')
+					{
+						forceNextChar = 1;
+					}
+					else
+					{
+						return reserved[i].token;
+					}
+					break;
+
+				default:
+					return reserved[i].token;
+				}
+
+				if (forceNextChar)
+				{
+					break;
+				}
 			}
 		}
 
@@ -883,7 +919,6 @@ struct AST *TableParse(struct Dictionary *dict)
 	char haveMoreInput = 1;
 	while (parsing)
 	{
-
 		char forceShift = 0;
 		// no errors, actually try to reduce or shift in a new token
 		if (parseStack->size > 0)
@@ -910,6 +945,8 @@ struct AST *TableParse(struct Dictionary *dict)
 			// if we found a reduction
 			if (foundReduction[0] != p_null)
 			{
+				// printParseStack(parseStack);
+
 				// do the reduction
 				reduce(parseStack);
 

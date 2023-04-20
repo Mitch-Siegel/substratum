@@ -18,79 +18,140 @@ asm
 	hlt
 }
 ;
-
-fun print(uint32 value) : void
+fun print(uint32 value->void)
 {
 	// store r0, pull the argument into a register, then output that register
 	asm {
-		mov %rr, (%bp+8)
-		int 5
+		mov %r0, (%bp+8)
+		out 0, %r0
 	}
 	;
 }
 
-fun print2(uint32 value, uint8 otherArgument) : void
+fun mod(uint32 a, uint32 divisor->uint32)
 {
-	// store r0, pull the argument into a register, then output that register
-	asm {
-		mov %rr, (%bp+8)
-		int 5
+	while (a >= divisor)
+	{
+		a = a - divisor;
 	}
-	;
+	return a;
 }
 
-fun fib_deref(uint8 upTo) : void
+fun div(uint32 a, uint32 b->uint32)
 {
-	uint16 fibArray[32];
-
-	*fibArray = 0;
-	*(fibArray + 1) = 1;
-
-	uint8 i = 1;
-	while (fibArray[i] < upTo)
+	uint32 quotient = 0;
+	while (a >= b)
 	{
-		uint16 previous = fibArray[i];
-		print(previous);
-		// fibArray[i] = *(fibArray + (i - 1)) + *(fibArray + (i - 2));
-		fibArray[i + 1] = previous + fibArray[i - 1];
-		i = i + 1;
+		a = a - b;
+		quotient = quotient + 1;
 	}
+	return quotient;
 }
 
-/*
-fun fib_array(uint8 upTo) : void
+fun printNum(uint32 num, uint32 newLine->void)
 {
-	uint8 fibArray[32];
-
-	*fibArray = 0;
-	fibArray[1] = fibArray[0] + 1;
-
-	uint8 i = 1;
-	while(fibArray[i] < upTo)
+	uint8 outStr[16];
+	uint32 digits = 1;
+	if (num == 0)
 	{
-		print(fibArray[i]);
-		fibArray[i + 1] = fibArray[i] + fibArray[i - 1];
-		i = i + 1;
-	}
-
-}
-
-fun fib_rec(uint8 n) : uint32
-{
-	if (n > 1)
-	{
-		return (fib_rec(n - 1) + fib_rec(n - 2));
+		print(48);
+		digits = 0;
 	}
 	else
 	{
-		if (n > 0)
+		while (num > 0)
 		{
-			return 1;
-		}
-		else
-		{
-			return 0;
+			uint32 remainder = mod(num, 10);
+			outStr[digits] = remainder + 48;
+			num = div(num, 10);
+			digits = digits + 1;
 		}
 	}
+
+	uint32 i = 1;
+	while (i < digits)
+	{
+		print(outStr[digits - i]);
+		i = i + 1;
+	}
+
+	if (newLine > 0)
+	{
+		print(10); // newline
+	}
 }
+
+fun fibRec(uint8 n->uint32)
+{
+	if (n > 1)
+	{
+		return fibRec(n - 1) + fibRec(n - 2);
+	}
+	else
+	{
+		return n;
+	}
+}
+
+fun fibArr(uint8 n->uint32)
+{
+	uint32 fibArr[255];
+	fibArr[0] = 0;
+	*(fibArr + 1) = 1;
+	uint16 i = 2;
+	while (i <= n)
+	{
+		fibArr[i] = fibArr[i - 1] + fibArr[i - 2];
+		i = i + 1;
+	}
+	return fibArr[n];
+}
+
+fun fibArrDeref(uint8 n->uint32)
+{
+	uint32 fibArr[255];
+	*fibArr = 0;
+	*(fibArr + 1) = 1;
+	uint16 i = 2;
+	while (i <= n)
+	{
+		*(fibArr + i) = *(fibArr + (i - 1)) + *(fibArr + (i - 2));
+		i = i + 1;
+	}
+	return *(fibArr + n);
+}
+
+/*
+Benchmarks of instruction count by number of registers allowed:
+2: 908416
+3: 873730
+4: 674313
+5: 650847
+6: 649025
+7: 648557
+8: 648557
+
 */
+
+fun test(->void)
+{
+	uint8 i = 1;
+	while (i < 20)
+	{
+		printNum(i, 0);
+		print(58);
+		print(10);
+
+		print(9);
+		printNum(fibRec(i), 1);
+		
+		print(9);
+		printNum(fibArr(i), 1);
+		
+		print(9);
+		printNum(fibArrDeref(i), 1);
+
+		print(10);
+		i = i + 1;
+	}
+}

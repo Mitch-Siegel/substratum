@@ -92,7 +92,7 @@ union instructionData
 
 void printState()
 {
-    for(int row = 0; row < 2; row++)
+    for (int row = 0; row < 2; row++)
     {
         for (int i = 0; i < (9 - row); i++)
         {
@@ -137,16 +137,56 @@ void setupMemory(char *filePath)
     inFile.close();
 }
 
-void stackPush(uint32_t value)
+void stackPush(uint32_t value, uint8_t nBytes)
 {
-    registers[sp] -= 4;
-    writeW(registers[sp], value);
+    switch (nBytes)
+    {
+    case 1:
+        registers[sp] -= 1;
+        writeB(registers[sp], value);
+        break;
+
+    case 2:
+        registers[sp] -= 2;
+        writeH(registers[sp], value);
+        break;
+
+    case 4:
+        registers[sp] -= 4;
+        writeW(registers[sp], value);
+        break;
+
+    default:
+        printf("Illegal argument to stackPush!");
+        exit(1);
+    }
 }
 
-uint32_t stackPop()
+uint32_t stackPop(uint8_t nBytes)
 {
-    uint32_t value = readW(registers[sp]);
-    registers[sp] += 4;
+    uint32_t value;
+    switch (nBytes)
+    {
+    case 1:
+        value = readB(registers[sp]);
+        registers[sp] += 1;
+        break;
+
+    case 2:
+        value = readH(registers[sp]);
+        registers[sp] += 2;
+        break;
+
+    case 4:
+        value = readW(registers[sp]);
+        registers[sp] += 4;
+        break;
+
+    default:
+        printf("Illegal argument to stackPop!");
+        exit(1);
+    }
+
     return value;
 }
 
@@ -331,15 +371,29 @@ void movOp(instructionData instruction, int nBytes)
     }
     break;
 
-    // mov reg, (reg + offimm)
+    // mov reg, (reg +/- offimm)
     case 0x5:
+    case 0x6:
     {
         uint8_t RD = instruction.byte.b1 >> 4;
         uint8_t rBase = instruction.byte.b1 & 0b1111;
         int16_t offset = instruction.hword.h1;
 
         int64_t longAddress = registers[rBase];
-        longAddress += offset;
+
+        if ((instruction.byte.b0 & 0b1111) == 0x5)
+        {
+            longAddress += offset;
+        }
+        else if ((instruction.byte.b0 & 0b1111) == 0x6)
+        {
+            longAddress -= offset;
+        }
+        else
+        {
+            printf("Error decoding instruction with opcode %02x\n", instruction.byte.b1);
+        }
+
         uint32_t address = longAddress;
 
 #ifdef PRINTEXECUTION
@@ -366,15 +420,31 @@ void movOp(instructionData instruction, int nBytes)
     }
     break;
 
-    // mov (reg + offimm), reg
+    // mov (reg +/- offimm), reg
     case 0x7:
+    case 0x8:
     {
         uint8_t RS = instruction.byte.b1 >> 4;
         uint8_t rBase = instruction.byte.b1 & 0b1111;
         int16_t offset = instruction.hword.h1;
 
-        int64_t longaddress = registers[rBase] + offset;
-        int32_t address = longaddress;
+        int64_t longAddress = registers[rBase];
+
+        if ((instruction.byte.b0 & 0b1111) == 0x7)
+        {
+            longAddress += offset;
+        }
+        else if ((instruction.byte.b0 & 0b1111) == 0x8)
+        {
+            longAddress -= offset;
+        }
+        else
+        {
+            printf("Error decoding instruction with opcode %02x\n", instruction.byte.b1);
+        }
+
+
+        int32_t address = longAddress;
 
 #ifdef PRINTEXECUTION
         printf("(%%r%d + %d), %%r%d\t(%08x)\n", rBase, offset, RS, address);
@@ -518,7 +588,7 @@ void movOp(instructionData instruction, int nBytes)
 
 void SWI(uint8_t num)
 {
-    stackPush(registers[ip]);
+    stackPush(registers[ip], 4);
     registers[ip] = readW(num * 4);
 }
 
@@ -554,13 +624,16 @@ int main(int argc, char *argv[])
         instructionData instruction = {{0}};
         if (registers[ip] & (0b11))
         {
-            SWI(0x02); // throw INT 1 on misaligned PC
+            printf("Program counter alignment fault\n");
+            running = false;
+            break;
         }
 
         instruction.word = consumeW(registers[ip]);
         if (opcodeNames.count(instruction.byte.b0) == 0)
         {
-            SWI(0x03); // throw INT 2 on opcode with no name in names.h
+            printf("Unnamed opcode fault\n");
+            running = false;
         }
         else
         {
@@ -812,7 +885,9 @@ int main(int argc, char *argv[])
         case 0xa2:
         case 0xa4:
         case 0xa5:
+        case 0xa6:
         case 0xa7:
+        case 0xa8:
         case 0xa9:
         case 0xab:
         case 0xaf:
@@ -826,7 +901,9 @@ int main(int argc, char *argv[])
         case 0xb2:
         case 0xb4:
         case 0xb5:
+        case 0xb6:
         case 0xb7:
+        case 0xb8:
         case 0xb9:
         case 0xbb:
         case 0xbf:
@@ -840,7 +917,9 @@ int main(int argc, char *argv[])
         case 0xc2:
         case 0xc4:
         case 0xc5:
+        case 0xc6:
         case 0xc7:
+        case 0xc8:
         case 0xc9:
         case 0xcb:
         {
@@ -850,30 +929,41 @@ int main(int argc, char *argv[])
 
         // stack, call/return
 
-        // PUSH
+        // PUSHB
         case 0xd0:
         {
             uint8_t RS = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
             printf("%%r%d\n", RS);
 #endif
-            stackPush(registers[RS]);
+            stackPush(registers[RS], 1);
         }
         break;
 
-        // PUSHI
+        // PUSHH
         case 0xd1:
         {
-            uint32_t imm = instruction.word & 0x00ffffff;
+            uint8_t RS = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-            printf("%u\n", imm);
+            printf("%%r%d\n", RS);
 #endif
-            stackPush(imm);
+            stackPush(registers[RS], 2);
         }
         break;
 
-        // POP
+        // PUSH
         case 0xd2:
+        {
+            uint8_t RS = instruction.byte.b1 & 0b1111;
+#ifdef PRINTEXECUTION
+            printf("%%r%d\n", RS);
+#endif
+            stackPush(registers[RS], 4);
+        }
+        break;
+
+        // POPB
+        case 0xd3:
         {
             uint8_t RD = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
@@ -886,40 +976,76 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            registers[RD] = stackPop();
+            registers[RD] = stackPop(1);
+        }
+        break;
+
+        // POPH
+        case 0xd4:
+        {
+            uint8_t RD = instruction.byte.b1 & 0b1111;
+#ifdef PRINTEXECUTION
+            printf("%%r%u\n", RD);
+#endif
+            // fault condition by which attempt to pop from a completely empty stack
+            if (registers[sp] >= 0xfffffffc)
+            {
+                printf("Stack underflow fault\n");
+                exit(1);
+            }
+
+            registers[RD] = stackPop(2);
+        }
+        break;
+
+        // POP
+        case 0xd5:
+        {
+            uint8_t RD = instruction.byte.b1 & 0b1111;
+#ifdef PRINTEXECUTION
+            printf("%%r%u\n", RD);
+#endif
+            // fault condition by which attempt to pop from a completely empty stack
+            if (registers[sp] >= 0xfffffffc)
+            {
+                printf("Stack underflow fault\n");
+                exit(1);
+            }
+
+            registers[RD] = stackPop(4);
         }
         break;
 
         // CALL
-        case 0xd3:
+        case 0xd6:
         {
             uint32_t callAddr = instruction.word << 8;
 #ifdef PRINTEXECUTION
             printf("%08x\n", callAddr);
 #endif
             // printf("call to %08x\n", callAddr);
-            stackPush(registers[bp]);
-            stackPush(registers[ip]);
+            stackPush(registers[bp], 4);
+            stackPush(registers[ip], 4);
             registers[bp] = registers[sp];
             registers[ip] = callAddr;
         }
         break;
 
         // RET
-        case 0xd4:
+        case 0xd7:
         {
             uint32_t argw = instruction.word & 0x00ffffff;
 #ifdef PRINTEXECUTION
             printf("%d\n", argw);
 #endif
-            registers[ip] = stackPop();
-            registers[bp] = stackPop();
+            registers[ip] = stackPop(4);
+            registers[bp] = stackPop(4);
             registers[sp] += argw;
         }
         break;
 
         // INT
-        case 0xd5:
+        case 0xd8:
         {
             uint8_t intNum = instruction.byte.b1;
 #ifdef PRINTEXECUTION
@@ -930,12 +1056,12 @@ int main(int argc, char *argv[])
         break;
 
         // RETI
-        case 0xd6:
+        case 0xd9:
         {
 #ifdef PRINTEXECUTION
             printf("\n");
 #endif
-            registers[ip] = stackPop();
+            registers[ip] = stackPop(4);
         }
         break;
 
@@ -959,7 +1085,9 @@ int main(int argc, char *argv[])
         break;
 
         default:
-            SWI(0x02); // throw INT 1 on undefined opcode
+            printf("Undefined opcode %02x!\n", instruction.byte.b0);
+            running = false;
+            break;
         }
 
         // printState();
