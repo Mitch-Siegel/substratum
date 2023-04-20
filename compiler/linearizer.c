@@ -26,7 +26,7 @@ int linearizeASMBlock(struct LinearizationMetadata m)
 
 		char *asmStr = asmRunner->value;
 		int lineLen = strlen(asmStr);
-		char *asmDupStr = malloc(lineLen + 1 * sizeof(char));
+		char *asmDupStr = malloc(lineLen + 2 * sizeof(char));
 		int asmDupLen = 0;
 		char justCopiedSpace = 0;
 		for (int i = 0; i <= lineLen; i++)
@@ -199,6 +199,8 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 		BasicBlock_append(m.currentBlock, thisArgumentPush);
 		argumentIndex++;
 	}
+
+	Stack_Free(argumentStack);
 
 	return m.currentTACIndex;
 }

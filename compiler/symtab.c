@@ -64,6 +64,7 @@ void FunctionEntry_free(struct FunctionEntry *f)
 	Stack_Free(f->arguments);
 	LinkedList_Free(f->BasicBlockList, NULL);
 	Scope_free(f->mainScope);
+	free(f);
 }
 
 struct SymbolTable *SymbolTable_new(char *name)
