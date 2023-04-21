@@ -183,6 +183,7 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 
 				castTo.type = expectedArgument->type;
 				castTo.name.str = TempList_Get(m.temps, *m.tempNum);
+				castTo.permutation = vp_temp;
 
 				castLine->operands[0] = castTo;
 				thisArgumentPush->operands[0] = castTo;
@@ -283,7 +284,20 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 		literalOperand.name.str = m.ast->value;
 		literalOperand.indirectionLevel = 0;
 		literalOperand.permutation = vp_literal;
-		literalOperand.type = LITERAL_VARIABLE_TYPE;
+
+		int literalValue = atoi(m.ast->value);
+		if (literalValue < 0x100)
+		{
+			literalOperand.type = vt_uint8;
+		}
+		else if (literalValue < 0x10000)
+		{
+			literalOperand.type = vt_uint16;
+		}
+		else
+		{
+			literalOperand.type = vt_uint32;
+		}
 
 		// if this subexpressin requires a register, we will need an extra instruction to load the literal to a register
 		if (forceConstantToRegister)
@@ -685,8 +699,6 @@ int linearizeArrayRef(struct LinearizationMetadata m)
 		arrayRefTAC->operands[2].permutation = vp_literal;
 		arrayRefTAC->operands[2].type = LITERAL_VARIABLE_TYPE;
 
-		printf("\n\nTHIS CODE PATH\n\n\n");
-
 		printTACLine(arrayRefTAC);
 	}
 	// otherwise, the index is either a variable or subexpression
@@ -941,65 +953,6 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	default:
 		ErrorWithAST(ERROR_INTERNAL, LHS, "Malformed AST on LHS of assignment");
 	}
-
-	return m.currentTACIndex;
-}
-
-int linearizeArithmeticAssignment(struct LinearizationMetadata m)
-{
-	struct TACLine *arithmeticAssignmentLine = NULL;
-
-	switch (m.ast->type)
-	{
-		// case t_add_assign:
-		// arithmeticAssignmentLine = newTACLine(m.currentTACIndex, tt_add, m.ast);
-		// break;
-
-		// case t_sub_assign:
-		// arithmeticAssignmentLine = newTACLine(m.currentTACIndex, tt_subtract, m.ast);
-		// break;
-
-	default:
-		ErrorWithAST(ERROR_INTERNAL, m.ast, "Malformed AST in arithmetic assignment");
-	}
-
-	struct VariableEntry *modifiedVariable = Scope_lookupVar(m.scope, m.ast->child);
-	arithmeticAssignmentLine->operands[0].name.str = m.ast->child->value;
-	arithmeticAssignmentLine->operands[0].type = modifiedVariable->type;
-	arithmeticAssignmentLine->operands[0].indirectionLevel = modifiedVariable->indirectionLevel;
-	arithmeticAssignmentLine->operands[0].permutation = vp_standard;
-
-	arithmeticAssignmentLine->operands[1] = arithmeticAssignmentLine->operands[0];
-
-	switch (m.ast->child->sibling->type)
-	{
-	case t_constant:
-		arithmeticAssignmentLine->operands[2].indirectionLevel = 0;
-		arithmeticAssignmentLine->operands[2].name.str = m.ast->child->sibling->value;
-		arithmeticAssignmentLine->operands[2].permutation = vp_literal;
-		arithmeticAssignmentLine->operands[2].type = LITERAL_VARIABLE_TYPE;
-		break;
-
-	case t_identifier:
-	{
-		struct VariableEntry *readVariable = Scope_lookupVar(m.scope, m.ast->child->sibling);
-		arithmeticAssignmentLine->operands[0].name.str = m.ast->child->sibling->value;
-		arithmeticAssignmentLine->operands[0].type = readVariable->type;
-		arithmeticAssignmentLine->operands[0].indirectionLevel = readVariable->indirectionLevel;
-		arithmeticAssignmentLine->operands[0].permutation = vp_standard;
-	}
-	break;
-
-	default:
-	{
-		struct LinearizationMetadata subExpressionMetadata = m;
-		subExpressionMetadata.ast = m.ast->child->sibling;
-		m.currentTACIndex = linearizeSubExpression(subExpressionMetadata, arithmeticAssignmentLine, 2, 0);
-	}
-	break;
-	}
-
-	BasicBlock_append(m.currentBlock, arithmeticAssignmentLine);
 
 	return m.currentTACIndex;
 }

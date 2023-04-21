@@ -100,7 +100,6 @@ char *ReadSpilledVariable(struct LinkedList *currentBlock, int destReg, struct L
 // does *NOT* guarantee that returned register indices are modifiable in the case where the variable is found in a register
 char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOperand operand, struct LinkedList *currentBlock, int registerIndex, char *touchedRegisters)
 {
-
 	if (operand.permutation == vp_literal)
 	{
 		if (registerIndex < 0)
