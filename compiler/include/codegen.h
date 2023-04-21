@@ -33,5 +33,5 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
                                struct LinkedList *allLifetimes,
                                struct LinkedList *asmBlock,
                                char *functionName,
-                               int reservedRegisters[2],
+                               int reservedRegisters[3],
                                char *touchedRegisters);

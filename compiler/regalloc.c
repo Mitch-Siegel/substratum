@@ -354,8 +354,9 @@ void spillVariables(struct CodegenMetadata *metadata, int mostConcurrentLifetime
 	// if we need to spill, ensure 2 scratch registers
 	if (mostConcurrentLifetimes > MAXREG)
 	{
-		MAXREG -= 1;
+		MAXREG -= 2;
 		metadata->reservedRegisters[1] = SECOND_SCRATCH_REGISTER;
+		metadata->reservedRegisters[2] = RETURN_REGISTER;
 	}
 	else
 	{

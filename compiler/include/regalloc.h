@@ -4,7 +4,7 @@
 #include "tac.h"
 
 #define MACHINE_REGISTER_COUNT 16
-#define REGISTERS_TO_ALLOCATE 2
+#define REGISTERS_TO_ALLOCATE 9
 #define SCRATCH_REGISTER 0
 #define SECOND_SCRATCH_REGISTER 1
 #define RETURN_REGISTER 13
@@ -70,7 +70,7 @@ struct CodegenMetadata
 	int largestTacIndex;
 
 	// flag 2 registers which should be used as scratch in case we have spilled variables (not always used)
-	int reservedRegisters[2];
+	int reservedRegisters[3];
 
 	// flag registers which have *ever* been used so we know what to callee-save
 	char touchedRegisters[MACHINE_REGISTER_COUNT];
