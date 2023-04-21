@@ -189,7 +189,7 @@ struct Stack *generateCode(struct SymbolTable *table, FILE *outFile)
 			{
 				touchedRegisters[i] = 0;
 			}
-			int reservedRegisters[3];
+			int reservedRegisters[3] = {-1, -1, -1};
 
 			GenerateCodeForBasicBlock(thisMember->entry, table->globalScope, NULL, blockBlock, "global", reservedRegisters, touchedRegisters);
 			Stack_Push(scopeBlocks, blockBlock);
@@ -238,6 +238,7 @@ struct LinkedList *generateCodeForFunction(struct FunctionEntry *function, FILE 
 
 	metadata.reservedRegisters[0] = 0;
 	metadata.reservedRegisters[1] = -1;
+	metadata.reservedRegisters[2] = -1;
 
 	int mostConcurrentLifetimes = generateLifetimeOverlaps(&metadata);
 
