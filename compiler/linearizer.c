@@ -88,7 +88,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 		pointerArithRHS.ast = dereferencedExpression->child->sibling;
 		m.currentTACIndex = linearizeSubExpression(pointerArithRHS, thisDereference, 2, 1);
 
-		thisDereference->operands[3].name.val = alignSize(Scope_getSizeOfVariableByString(m.scope, thisDereference->operands[1].name.str));
+		thisDereference->operands[3].name.val = alignSize(Scope_getSizeOfVariableByString(m.scope, thisDereference->operands[1].name.str, 1));
 		thisDereference->operands[3].indirectionLevel = 0;
 		thisDereference->operands[3].permutation = vp_literal;
 		thisDereference->operands[3].type = LITERAL_VARIABLE_TYPE;
@@ -278,25 +278,37 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 	break;
 
 	case t_constant:
+	case t_char_literal:
 	{
 		// we need an operand for the literal one way or another
 		struct TACOperand literalOperand;
-		literalOperand.name.str = m.ast->value;
 		literalOperand.indirectionLevel = 0;
 		literalOperand.permutation = vp_literal;
 
-		int literalValue = atoi(m.ast->value);
-		if (literalValue < 0x100)
+		if (m.ast->type == t_constant)
 		{
-			literalOperand.type = vt_uint8;
-		}
-		else if (literalValue < 0x10000)
-		{
-			literalOperand.type = vt_uint16;
+			literalOperand.name.str = m.ast->value;
+			int literalValue = atoi(m.ast->value);
+			if (literalValue < 0x100)
+			{
+				literalOperand.type = vt_uint8;
+			}
+			else if (literalValue < 0x10000)
+			{
+				literalOperand.type = vt_uint16;
+			}
+			else
+			{
+				literalOperand.type = vt_uint32;
+			}
 		}
 		else
 		{
-			literalOperand.type = vt_uint32;
+			// memory leak, need to include dictionary in linearizationMetadata to keep proper track of these values
+			char *literalAsNumber = malloc(8);
+			sprintf(literalAsNumber, "%d", m.ast->value[0]);
+			literalOperand.name.str = literalAsNumber;
+			literalOperand.type = vt_uint8;
 		}
 
 		// if this subexpressin requires a register, we will need an extra instruction to load the literal to a register
@@ -706,7 +718,8 @@ int linearizeArrayRef(struct LinearizationMetadata m)
 	{
 		// set the scale for the array access
 		// set scale
-		arrayRefTAC->operands[3].name.val = alignSize(Scope_getSizeOfVariableByString(m.scope, arrayRefTAC->operands[1].name.str));
+		
+		arrayRefTAC->operands[3].name.val = alignSize(Scope_getSizeOfVariableByString(m.scope, arrayRefTAC->operands[1].name.str, 1));
 		arrayRefTAC->operands[3].indirectionLevel = 0;
 		arrayRefTAC->operands[3].permutation = vp_literal;
 		arrayRefTAC->operands[3].type = LITERAL_VARIABLE_TYPE;
@@ -742,6 +755,18 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		{
 			assignment->operands[1].type = LITERAL_VARIABLE_TYPE;
 			assignment->operands[0].type = LITERAL_VARIABLE_TYPE;
+			assignment->operands[1].permutation = vp_literal;
+		}
+		break;
+
+		case t_char_literal:
+		{
+			// memory leak, need to include dictionary in linearizationMetadata to keep proper track of these values
+			char *literalAsNumber = malloc(8);
+			sprintf(literalAsNumber, "%d", RHSTree->value[0]);
+			assignment->operands[1].name.str = literalAsNumber;
+			assignment->operands[1].type = vt_uint8;
+			assignment->operands[0].type = vt_uint8;
 			assignment->operands[1].permutation = vp_literal;
 		}
 		break;
@@ -845,7 +870,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			m.currentTACIndex = linearizeSubExpression(pointerArithRHS, finalAssignment, 1, 1);
 
 			// set scale
-			finalAssignment->operands[2].name.val = alignSize(Scope_getSizeOfVariableByString(m.scope, finalAssignment->operands[0].name.str));
+			finalAssignment->operands[2].name.val = alignSize(Scope_getSizeOfVariableByString(m.scope, finalAssignment->operands[0].name.str, 1));
 			finalAssignment->operands[2].indirectionLevel = 0;
 			finalAssignment->operands[2].permutation = vp_literal;
 			finalAssignment->operands[2].type = LITERAL_VARIABLE_TYPE;

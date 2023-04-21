@@ -515,10 +515,11 @@ int GetSizeOfPrimitive(enum variableTypes type)
 }
 
 // return the actual size of a variable in bytes (lookup by its name only)
-int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
+int Scope_getSizeOfVariableByString(struct Scope *scope, char *name, char beingDereferenced)
 {
 	struct VariableEntry *theVariable = Scope_lookupVarByString(scope, name);
-	if (theVariable->indirectionLevel > 0)
+	int realIndirectionLevel = theVariable->indirectionLevel - (beingDereferenced > 0);
+	if (realIndirectionLevel > 0)
 	{
 		return 4;
 	}

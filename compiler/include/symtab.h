@@ -127,7 +127,8 @@ struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char su
 
 int GetSizeOfPrimitive(enum variableTypes type);
 
-int Scope_getSizeOfVariableByString(struct Scope *scope, char *name);
+// get the size of a variable by string name, also able to account for if this variable is being dereferenced
+int Scope_getSizeOfVariableByString(struct Scope *scope, char *name, char beingDereferenced);
 
 int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name);
 

@@ -284,6 +284,18 @@ scan(char trackPos)
 
 	enum token currentToken = -1;
 
+	if (lookahead_char_dumb(1) == '\'')
+	{
+		if (lookahead_char_dumb(3) == '\'')
+		{
+			fgetc(inFile);
+			buffer[0] = fgetc(inFile);
+			buffer[1] = '\0';
+			fgetc(inFile);
+			return t_char_literal;
+		}
+	}
+
 	while (1)
 	{
 		int inChar = fgetc(inFile);
@@ -1039,6 +1051,13 @@ struct AST *TableParse(struct Dictionary *dict)
 			// TableParseError(parseStack);
 			// }
 		}
+
+		if (parseStack->size > 128)
+		{
+			printParseStack(parseStack);
+			ErrorAndExit(ERROR_CODE, "Maximum parse stack size exceeded!\n");
+		}
+
 		lastParseStackSize = parseStack->size;
 	}
 

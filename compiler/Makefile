@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -Werror -Wall -Wno-enum-conversion -Wno-void-pointer-to-enum-cast -fsanitize=address
+CFLAGS = -g -Werror -Wall -Wno-enum-conversion -Wno-void-pointer-to-enum-cast -fsanitize=address -Wno-deprecated-declarations
 programs: mcc
 
 OBJDIR = build

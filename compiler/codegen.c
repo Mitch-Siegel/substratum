@@ -60,10 +60,10 @@ char *PlaceLiteralInRegister(struct LinkedList *currentBlock, char *literalStr, 
 		sprintf(halvedString, "%d", secondHalf);
 		TRIM_APPEND(currentBlock, sprintf(printedLine, "movh %s, $%s", destRegStr, halvedString));
 
-		TRIM_APPEND(currentBlock, sprintf(printedLine, "shli %s, $16", destRegStr));
+		TRIM_APPEND(currentBlock, sprintf(printedLine, "shli %s, %s, $16", destRegStr, destRegStr));
 
 		sprintf(halvedString, "%d", firstHalf);
-		TRIM_APPEND(currentBlock, sprintf(printedLine, "movh %s, $%s", destRegStr, halvedString));
+		TRIM_APPEND(currentBlock, sprintf(printedLine, "addi %s, %s, $%s", destRegStr, destRegStr, halvedString));
 	}
 
 	return destRegStr;

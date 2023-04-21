@@ -18,11 +18,11 @@ asm
 	hlt
 }
 ;
-fun print(uint32 value->void)
+fun print(uint8 value->void)
 {
 	// store r0, pull the argument into a register, then output that register
 	asm {
-		mov %r0, (%bp+8)
+		movb %r0, (%bp+8)
 		out 0, %r0
 	}
 	;
@@ -132,23 +132,54 @@ Benchmarks of instruction count by number of registers allowed:
 9: 648557
 */
 
+fun printStr(uint8 *str->void)
+{
+	uint32 strIndex = 0;
+	while(str[strIndex] != 0)
+	{
+		uint8 toPrint = str[strIndex];
+		print(toPrint);
+		strIndex = strIndex + 1;
+	}
+}
+
 fun test(->void)
 {
+	uint8 fibStr[16];
+	fibStr[0] = 'F';
+	fibStr[1] = 'i';
+	fibStr[2] = 'b';
+	fibStr[3] = 'o';
+	fibStr[4] = 'n';
+	fibStr[5] = 'a';
+	fibStr[6] = 'c';
+	fibStr[7] = 'c';
+	fibStr[8] = 'i';
+	fibStr[9] = '(';
+	fibStr[10] = 0;
+
+	uint8 commaStr[3];
+	commaStr[0] = ',';
+	commaStr[1] = 9;
+	commaStr[2] = 0;
+
 	uint8 i = 1;
 	while (i < 20)
 	{
+		printStr(fibStr);
 		printNum(i, 0);
-		print(58);
+		print(')');
+		print(':');
 		print(10);
+		print(9);
 
-		print(9);
-		printNum(fibRec(i), 1);
+		printNum(fibRec(i), 0);
+		printStr(commaStr);
 		
-		print(9);
-		printNum(fibArr(i), 1);
+		printNum(fibArr(i), 0);
+		printStr(commaStr);
 		
-		print(9);
-		printNum(fibArrDeref(i), 1);
+		printNum(fibArrDeref(i), 0);
 
 		print(10);
 		i = i + 1;
