@@ -533,6 +533,11 @@ int Scope_getSizeOfVariableByString(struct Scope *scope, char *name, char beingD
 int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
 {
 	struct VariableEntry *theVariable = Scope_lookupVar(scope, name);
+	if(theVariable->indirectionLevel > 0)
+	{
+		return 4;
+	}
+	
 	switch (theVariable->type)
 	{
 	case vt_uint8:
@@ -725,7 +730,12 @@ void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArg
 	if (declared->type == t_lBracket)
 	{
 		declared = declared->child;
-		arraySize = atoi(declared->sibling->value);
+		struct AST *declaredSize = declared->sibling;
+		if(declaredSize->type != t_constant)
+		{
+			ErrorWithAST(ERROR_CODE, declaredSize, "Locally scoped arrays must have a constant size!\n");
+		}
+		arraySize = atoi(declaredSize->value);
 	}
 	else
 	{
