@@ -63,7 +63,7 @@ int main(int argc, char **argv)
 	printf("Generating code\n");
 	struct Stack *outputBlocks;
 	outputBlocks = generateCode(theTable, outFile);
-	fprintf(outFile, "#include \"CPU.asm\"\n#include \"INT.asm\"\n");
+	fprintf(outFile, "#include \"CPU.asm\"\n");
 	for (int i = 0; i < outputBlocks->size; i++)
 	{
 		struct LinkedList *thisBlock = outputBlocks->data[i];
