@@ -163,9 +163,8 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOpera
 	}
 }
 
-struct Stack *generateCode(struct SymbolTable *table, FILE *outFile)
+void generateCode(struct SymbolTable *table, FILE *outFile)
 {
-	struct Stack *scopeBlocks = Stack_New();
 	for (int i = 0; i < table->globalScope->entries->size; i++)
 	{
 		struct ScopeMember *thisMember = table->globalScope->entries->data[i];
@@ -192,7 +191,6 @@ struct Stack *generateCode(struct SymbolTable *table, FILE *outFile)
 			break;
 		}
 	}
-	return scopeBlocks;
 };
 
 /*

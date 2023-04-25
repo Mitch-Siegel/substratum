@@ -24,31 +24,7 @@ int linearizeASMBlock(struct LinearizationMetadata m)
 	{
 		struct TACLine *asmLine = newTACLine(m.currentTACIndex++, tt_asm, asmRunner);
 
-		char *asmStr = asmRunner->value;
-		int lineLen = strlen(asmStr);
-		char *asmDupStr = malloc(lineLen + 2 * sizeof(char));
-		int asmDupLen = 0;
-		char justCopiedSpace = 0;
-		for (int i = 0; i <= lineLen; i++)
-		{
-			// we aren looking at a space
-			if (isspace(asmStr[i]))
-			{
-				if (!justCopiedSpace)
-				{
-					asmDupStr[asmDupLen++] = asmStr[i];
-				}
-				justCopiedSpace = 1;
-			}
-			// we aren't looking at a space, we haven't already copied a space, so do the copy
-			else
-			{
-				asmDupStr[asmDupLen++] = asmStr[i];
-				justCopiedSpace = 0;
-			}
-		}
-		asmDupStr[asmDupLen] = '\0';
-		asmLine->operands[0].name.str = asmDupStr;
+		asmLine->operands[0].name.str = asmRunner->value;
 		BasicBlock_append(m.currentBlock, asmLine);
 		asmRunner = asmRunner->sibling;
 	}

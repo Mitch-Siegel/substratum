@@ -13,7 +13,7 @@ char *ReadSpilledVariable(FILE *outFile, int destReg, struct Lifetime *readFrom)
 // places a variable in a register, with no guarantee that it is modifiable, returning the string of the register's name for asm
 char* placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOperand operand, FILE *outFile, int registerIndex, char *touchedRegisters);
 
-struct Stack *generateCode(struct SymbolTable *table, FILE *outFile);
+void generateCode(struct SymbolTable *table, FILE *outFile);
 
 void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile);
 
