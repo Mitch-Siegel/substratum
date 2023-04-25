@@ -305,9 +305,9 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 		else
 		{
 			// memory leak, need to include dictionary in linearizationMetadata to keep proper track of these values
-			char *literalAsNumber = malloc(8);
+			char literalAsNumber[8];
 			sprintf(literalAsNumber, "%d", m.ast->value[0]);
-			literalOperand.name.str = literalAsNumber;
+			literalOperand.name.str = Dictionary_LookupOrInsert(m.dict, literalAsNumber);
 			literalOperand.type = vt_uint8;
 		}
 
@@ -569,10 +569,9 @@ int linearizeExpression(struct LinearizationMetadata m)
 			{
 			case vp_literal:
 			{
-				// TODO: dynamically multiply here, fix memory leak
-				char *scaledLiteral = malloc(16);
+				char scaledLiteral[16];
 				sprintf(scaledLiteral, "%d", atoi(thisExpression->operands[2].name.str) * 4);
-				thisExpression->operands[2].name.str = scaledLiteral;
+				thisExpression->operands[2].name.str = Dictionary_LookupOrInsert(m.dict, scaledLiteral);
 				thisExpression->operands[2].indirectionLevel = thisExpression->operands[1].indirectionLevel;
 			}
 			break;
@@ -595,11 +594,9 @@ int linearizeExpression(struct LinearizationMetadata m)
 				// transfer the temp into the main expression
 				thisExpression->operands[2] = scaleMultiply->operands[0];
 
-				// TODO: auto scale by size of pointer and operand with types
-				// TODO: scaling memory leak
-				char *scalingLiteral = malloc(16);
+				char scalingLiteral[16];
 				sprintf(scalingLiteral, "%d", 4);
-				scaleMultiply->operands[2].name.str = scalingLiteral;
+				scaleMultiply->operands[2].name.str = Dictionary_LookupOrInsert(m.dict, scalingLiteral);
 				scaleMultiply->operands[2].permutation = vp_literal;
 				scaleMultiply->operands[2].type = LITERAL_VARIABLE_TYPE;
 				BasicBlock_append(m.currentBlock, scaleMultiply);
@@ -615,10 +612,9 @@ int linearizeExpression(struct LinearizationMetadata m)
 				{
 				case vp_literal:
 				{
-					// TODO: dynamically multiply here, fix memory leak
-					char *scaledLiteral = malloc(16);
+					char scaledLiteral[16];
 					sprintf(scaledLiteral, "%d", atoi(thisExpression->operands[1].name.str) * 4);
-					thisExpression->operands[1].name.str = scaledLiteral;
+					thisExpression->operands[1].name.str = Dictionary_LookupOrInsert(m.dict, scaledLiteral);
 					thisExpression->operands[1].indirectionLevel = thisExpression->operands[2].indirectionLevel;
 				}
 				break;
@@ -642,10 +638,9 @@ int linearizeExpression(struct LinearizationMetadata m)
 					// transfer the temp into the main expression
 					thisExpression->operands[1] = scaleMultiply->operands[0];
 
-					// TODO: auto scale by size of pointer and operand with types
-					// TODO: scaling memory leak
-					char *scalingLiteral = malloc(16);
+					char scalingLiteral[16];
 					sprintf(scalingLiteral, "%d", 4);
+					scaleMultiply->operands[2].name.str = Dictionary_LookupOrInsert(m.dict, scalingLiteral);
 					scaleMultiply->operands[2].name.str = scalingLiteral;
 					scaleMultiply->operands[2].permutation = vp_literal;
 					scaleMultiply->operands[2].type = LITERAL_VARIABLE_TYPE;
@@ -718,7 +713,7 @@ int linearizeArrayRef(struct LinearizationMetadata m)
 	{
 		// set the scale for the array access
 		// set scale
-		
+
 		arrayRefTAC->operands[3].name.val = alignSize(Scope_getSizeOfVariableByString(m.scope, arrayRefTAC->operands[1].name.str, 1));
 		arrayRefTAC->operands[3].indirectionLevel = 0;
 		arrayRefTAC->operands[3].permutation = vp_literal;
@@ -762,9 +757,9 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		case t_char_literal:
 		{
 			// memory leak, need to include dictionary in linearizationMetadata to keep proper track of these values
-			char *literalAsNumber = malloc(8);
+			char literalAsNumber[8];
 			sprintf(literalAsNumber, "%d", RHSTree->value[0]);
-			assignment->operands[1].name.str = literalAsNumber;
+			assignment->operands[1].name.str = Dictionary_LookupOrInsert(m.dict, literalAsNumber);
 			assignment->operands[1].type = vt_uint8;
 			assignment->operands[0].type = vt_uint8;
 			assignment->operands[1].permutation = vp_literal;
@@ -1498,6 +1493,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			functionMainScopeTree = functionMainScopeTree->sibling;
 			functionMainScopeTree = functionMainScopeTree->sibling;
 
+			functionMetadata.dict = dict;
 			functionMetadata.ast = functionMainScopeTree;
 			functionMetadata.currentBlock = functionBlock;
 			functionMetadata.currentTACIndex = 1;
@@ -1514,6 +1510,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 		case t_asm:
 		{
 			struct LinearizationMetadata asmMetadata;
+			asmMetadata.dict = dict;
 			asmMetadata.ast = runner;
 			asmMetadata.currentBlock = globalBlock;
 			asmMetadata.currentTACIndex = currentTACIndex;
@@ -1539,6 +1536,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			if (declarationScraper->type == t_single_equals)
 			{
 				struct LinearizationMetadata assignmentMetadata;
+				assignmentMetadata.dict = dict;
 				assignmentMetadata.ast = declarationScraper;
 				assignmentMetadata.currentBlock = globalBlock;
 				assignmentMetadata.currentTACIndex = currentTACIndex;
@@ -1553,6 +1551,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 		case t_single_equals:
 		{
 			struct LinearizationMetadata assignmentMetadata;
+			assignmentMetadata.dict = dict;
 			assignmentMetadata.ast = runner;
 			assignmentMetadata.currentBlock = globalBlock;
 			assignmentMetadata.currentTACIndex = currentTACIndex;

@@ -7,6 +7,7 @@
 
 struct LinearizationMetadata
 {
+	struct Dictionary *dict; // include the dict for literals and other things that require processing during linearization
 	int currentTACIndex;
 	struct BasicBlock *currentBlock;
 	struct AST *ast;
