@@ -61,32 +61,10 @@ int main(int argc, char **argv)
 	FILE *outFile = fopen(argv[2], "wb");
 
 	printf("Generating code\n");
-	struct Stack *outputBlocks;
-	outputBlocks = generateCode(theTable, outFile);
 	fprintf(outFile, "#include \"CPU.asm\"\n");
-	for (int i = 0; i < outputBlocks->size; i++)
-	{
-		struct LinkedList *thisBlock = outputBlocks->data[i];
-		for (struct LinkedListNode *asmLine = thisBlock->head; asmLine != NULL; asmLine = asmLine->next)
-		{
-			char *s = asmLine->data;
-			int length = strlen(s);
-			if (length > 0)
-			{
-				if (s[strlen(s) - 1] != ':')
-				{
-					fprintf(outFile, "\t");
-				}
-			}
+	generateCode(theTable, outFile);
 
-			fprintf(outFile, "%s\n", s);
-		}
-		// ASM_output(outputBlocks->data[i], outFile);
-		LinkedList_Free(thisBlock, free);
-	}
 	SymbolTable_free(theTable);
-
-	Stack_Free(outputBlocks);
 
 	fclose(outFile);
 	AST_Free(program);
