@@ -1247,7 +1247,7 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			// TODO: Is throwing away the return value safe? Test with multiple arbitrary scopes in series
 			struct LinearizationResult *scopeResult = linearizeScope(scopeMetadata, afterScopeBlock, labelCount, scopeNesting);
 			m.currentTACIndex = scopeResult->endingTACIndex;
-
+			free(scopeResult);
 			currentSubScopeIndex++;
 
 			m.currentBlock = afterScopeBlock;
