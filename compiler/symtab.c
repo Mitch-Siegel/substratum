@@ -681,12 +681,8 @@ void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *b)
 	char *blockName = malloc(10);
 	sprintf(blockName, "Block%d", b->labelNum);
 	Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), b, e_basicblock);
+	LinkedList_Append(scope->parentFunction->BasicBlockList, b);
 	free(blockName);
-}
-
-void Function_addBasicBlock(struct FunctionEntry *function, struct BasicBlock *b)
-{
-	LinkedList_Append(function->BasicBlockList, b);
 }
 
 /*
