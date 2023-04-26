@@ -41,11 +41,11 @@ char *PlaceLiteralInRegister(FILE *outFile, char *literalStr, int destReg)
 	int literalValue = atoi(literalStr);
 	if (literalValue < 0x100)
 	{
-		fprintf(outFile, "movb %s, $%s\n", destRegStr, literalStr);
+		fprintf(outFile, "\tmovb %s, $%s\n", destRegStr, literalStr);
 	}
 	else if (literalValue < 0x10000)
 	{
-		fprintf(outFile, "movh %s, $%s\n", destRegStr, literalStr);
+		fprintf(outFile, "\tmovh %s, $%s\n", destRegStr, literalStr);
 	}
 	else
 	{
@@ -55,12 +55,12 @@ char *PlaceLiteralInRegister(FILE *outFile, char *literalStr, int destReg)
 		char halvedString[16]; // will be long enough to hold any int32/uint32 so can definitely hold half of one
 
 		sprintf(halvedString, "%d", secondHalf);
-		fprintf(outFile, "movh %s, $%s\n", destRegStr, halvedString);
+		fprintf(outFile, "\tmovh %s, $%s\n", destRegStr, halvedString);
 
-		fprintf(outFile, "shli %s, %s, $16\n", destRegStr, destRegStr);
+		fprintf(outFile, "\tshli %s, %s, $16\n", destRegStr, destRegStr);
 
 		sprintf(halvedString, "%d", firstHalf);
-		fprintf(outFile, "addi %s, %s, $%s\n", destRegStr, destRegStr, halvedString);
+		fprintf(outFile, "\taddi %s, %s, $%s\n", destRegStr, destRegStr, halvedString);
 	}
 
 	return destRegStr;
@@ -70,11 +70,11 @@ void WriteSpilledVariable(FILE *outFile, struct Lifetime *writtenTo, char *sourc
 {
 	if (writtenTo->stackOrRegLocation > 0)
 	{
-		fprintf(outFile, "%s (%%bp+%d), %s\n", SelectMovWidthForLifetime(writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
+		fprintf(outFile, "\t%s (%%bp+%d), %s\n", SelectMovWidthForLifetime(writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
 	}
 	else
 	{
-		fprintf(outFile, "%s (%%bp%d), %s\n", SelectMovWidthForLifetime(writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
+		fprintf(outFile, "\t%s (%%bp%d), %s\n", SelectMovWidthForLifetime(writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
 	}
 }
 
@@ -84,11 +84,11 @@ char *ReadSpilledVariable(FILE *outFile, int destReg, struct Lifetime *readFrom)
 
 	if (readFrom->stackOrRegLocation > 0)
 	{
-		fprintf(outFile, "%s %s, (%%bp+%d)\n", SelectMovWidthForLifetime(readFrom), destRegStr, readFrom->stackOrRegLocation);
+		fprintf(outFile, "\t%s %s, (%%bp+%d)\n", SelectMovWidthForLifetime(readFrom), destRegStr, readFrom->stackOrRegLocation);
 	}
 	else
 	{
-		fprintf(outFile, "%s %s, (%%bp%d)\n", SelectMovWidthForLifetime(readFrom), destRegStr, readFrom->stackOrRegLocation);
+		fprintf(outFile, "\t%s %s, (%%bp%d)\n", SelectMovWidthForLifetime(readFrom), destRegStr, readFrom->stackOrRegLocation);
 	}
 	return destRegStr;
 }
@@ -142,15 +142,15 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOpera
 			int basepointerOffset = relevantLifetime->localPointerTo->stackOffset;
 			if (basepointerOffset > 0)
 			{
-				fprintf(outFile, "addi %s, %%bp, $%d\n", destRegStr, basepointerOffset);
+				fprintf(outFile, "\taddi %s, %%bp, $%d\n", destRegStr, basepointerOffset);
 			}
 			else if (basepointerOffset < 0)
 			{
-				fprintf(outFile, "subi %s, %%bp, $%d\n", destRegStr, -1 * basepointerOffset);
+				fprintf(outFile, "\tsubi %s, %%bp, $%d\n", destRegStr, -1 * basepointerOffset);
 			}
 			else
 			{
-				fprintf(outFile, "mov %s, %%bp\n", destRegStr);
+				fprintf(outFile, "\tmov %s, %%bp\n", destRegStr);
 			}
 			touchedRegisters[registerIndex] = 1;
 			return destRegStr;
@@ -276,20 +276,20 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 	printf(".");
 
 	// emit function prologue
-	fprintf(outFile, "#align 2048\n");
+	fprintf(outFile, "\t#align 2048\n");
 
 	fprintf(outFile, "%s:\n", function->name);
 
 	if (stackOffset > 0)
 	{
-		fprintf(outFile, "subi %%sp, %%sp, $%d\n", stackOffset);
+		fprintf(outFile, "\tsubi %%sp, %%sp, $%d\n", stackOffset);
 	}
 
 	for (int i = REGISTERS_TO_ALLOCATE - 1; i >= 0; i--)
 	{
 		if (metadata.touchedRegisters[i])
 		{
-			fprintf(outFile, "push %%r%d\n", i);
+			fprintf(outFile, "\tpush %%r%d\n", i);
 		}
 	}
 
@@ -310,7 +310,7 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 			{
 				struct VariableEntry *theArgument = thisEntry->entry;
 				const char *movOp = SelectMovWidthForLifetime(thisLifetime);
-				fprintf(outFile, "%s %%r%d, (%%bp+%d) ;place %s\n", movOp, thisLifetime->stackOrRegLocation, theArgument->stackOffset, thisLifetime->name);
+				fprintf(outFile, "\t%s %%r%d, (%%bp+%d) ;place %s\n", movOp, thisLifetime->stackOrRegLocation, theArgument->stackOffset, thisLifetime->name);
 				metadata.touchedRegisters[thisLifetime->stackOrRegLocation] = 1;
 			}
 		}
@@ -335,22 +335,22 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 	{
 		if (metadata.touchedRegisters[i])
 		{
-			fprintf(outFile, "pop %%r%d\n", i);
+			fprintf(outFile, "\tpop %%r%d\n", i);
 		}
 	}
 
 	if (stackOffset > 0)
 	{
-		fprintf(outFile, "addi %%sp, %%sp, $%d\n", stackOffset);
+		fprintf(outFile, "\taddi %%sp, %%sp, $%d\n", stackOffset);
 	}
 
 	if (function->argStackSize > 0)
 	{
-		fprintf(outFile, "ret %d\n", function->argStackSize);
+		fprintf(outFile, "\tret %d\n", function->argStackSize);
 	}
 	else
 	{
-		fprintf(outFile, "ret\n");
+		fprintf(outFile, "\tret\n");
 	}
 
 	// function setup and teardown code generated
@@ -461,7 +461,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 	}
 	else
 	{
-		fprintf(outFile, "%s_0:\n", functionName);
+		fprintf(outFile, "\t%s_0:\n", functionName);
 	}
 
 	for (struct LinkedListNode *TACRunner = thisBlock->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
@@ -471,7 +471,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		if (thisTAC->operation != tt_asm)
 		{
 			char *printedTAC = sPrintTACLine(thisTAC);
-			fprintf(outFile, ";%s\n", printedTAC);
+			fprintf(outFile, "\t;%s\n", printedTAC);
 			free(printedTAC);
 		}
 
@@ -513,7 +513,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				// register <- ???
 				else
 				{
-					fprintf(outFile, "%s %%r%d, %s\n", SelectMovWidth(&thisTAC->operands[0]), assignedLifetime->stackOrRegLocation, sourceRegStr);
+					fprintf(outFile, "\t%s %%r%d, %s\n", SelectMovWidth(&thisTAC->operands[0]), assignedLifetime->stackOrRegLocation, sourceRegStr);
 				}
 			}
 		}
@@ -527,7 +527,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			if ((declaredLifetime->localPointerTo != NULL) &&
 				(!declaredLifetime->isSpilled))
 			{
-				fprintf(outFile, "subi %%r%d, %%bp, $%d\n", declaredLifetime->stackOrRegLocation, declaredLifetime->localPointerTo->stackOffset * -1);
+				fprintf(outFile, "\tsubi %%r%d, %%bp, $%d\n", declaredLifetime->stackOrRegLocation, declaredLifetime->localPointerTo->stackOffset * -1);
 			}
 		}
 		break;
@@ -568,13 +568,13 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 					if (thisTAC->reorderable)
 					{
 						char *operand1String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], outFile, reservedRegisters[0], touchedRegisters);
-						fprintf(outFile, "%si %s, %s, $%s\n", getAsmOp(thisTAC->operation), destinationRegister, operand1String, thisTAC->operands[1].name.str);
+						fprintf(outFile, "\t%si %s, %s, $%s\n", getAsmOp(thisTAC->operation), destinationRegister, operand1String, thisTAC->operands[1].name.str);
 					}
 					else
 					{
 						char *operand1String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], outFile, reservedRegisters[0], touchedRegisters);
 						char *operand2String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], outFile, reservedRegisters[1], touchedRegisters);
-						fprintf(outFile, "%s %s, %s, %s\n", getAsmOp(thisTAC->operation), destinationRegister, operand1String, operand2String);
+						fprintf(outFile, "\t%s %s, %s, %s\n", getAsmOp(thisTAC->operation), destinationRegister, operand1String, operand2String);
 					}
 				}
 			}
@@ -586,13 +586,13 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				// operand 2 is a literal, use an immediate instruction
 				if (thisTAC->operands[2].permutation == vp_literal)
 				{
-					fprintf(outFile, "%si %s, %s, $%s\n", getAsmOp(thisTAC->operation), destinationRegister, operand1String, thisTAC->operands[2].name.str);
+					fprintf(outFile, "\t%si %s, %s, $%s\n", getAsmOp(thisTAC->operation), destinationRegister, operand1String, thisTAC->operands[2].name.str);
 				}
 				// operand 2 is not a literal
 				else
 				{
 					char *operand2String = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], outFile, reservedRegisters[1], touchedRegisters);
-					fprintf(outFile, "%s %s, %s, %s\n", getAsmOp(thisTAC->operation), destinationRegister, operand1String, operand2String);
+					fprintf(outFile, "\t%s %s, %s, %s\n", getAsmOp(thisTAC->operation), destinationRegister, operand1String, operand2String);
 				}
 			}
 
@@ -612,7 +612,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			char *destRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], outFile, reservedRegisters[0], touchedRegisters);
 			char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], outFile, reservedRegisters[1], touchedRegisters);
 			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
-			fprintf(outFile, "%s (%s), %s\n", movOp, destRegStr, sourceRegStr);
+			fprintf(outFile, "\t%s (%s), %s\n", movOp, destRegStr, sourceRegStr);
 		}
 		break;
 
@@ -624,11 +624,11 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
 			if (thisTAC->operation == tt_memw_2)
 			{
-				fprintf(outFile, "%s (%s+%d), %s\n", movOp, baseRegStr, thisTAC->operands[1].name.val, sourceRegStr);
+				fprintf(outFile, "\t%s (%s+%d), %s\n", movOp, baseRegStr, thisTAC->operands[1].name.val, sourceRegStr);
 			}
 			else
 			{
-				fprintf(outFile, "%s (%s-%d), %s\n", movOp, baseRegStr, thisTAC->operands[1].name.val, sourceRegStr);
+				fprintf(outFile, "\t%s (%s-%d), %s\n", movOp, baseRegStr, thisTAC->operands[1].name.val, sourceRegStr);
 			}
 		}
 		// ErrorAndExit(ERROR_INTERNAL, "Code generation not implemented for this operation (%s) yet!\n", getAsmOp(thisTAC->operation));
@@ -644,11 +644,11 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 
 			if (thisTAC->operation == tt_memw_3)
 			{
-				fprintf(outFile, "%s (%s+%s,%d), %s\n", movOp, baseRegStr, offsetRegStr, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)), sourceRegStr);
+				fprintf(outFile, "\t%s (%s+%s,%d), %s\n", movOp, baseRegStr, offsetRegStr, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)), sourceRegStr);
 			}
 			else
 			{
-				fprintf(outFile, "%s (%s-%s,%d), %s\n", movOp, baseRegStr, offsetRegStr, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)), sourceRegStr);
+				fprintf(outFile, "\t%s (%s-%s,%d), %s\n", movOp, baseRegStr, offsetRegStr, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)), sourceRegStr);
 			}
 		}
 		break;
@@ -666,7 +666,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				char *destRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], outFile, reservedRegisters[0], touchedRegisters);
 				char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], outFile, reservedRegisters[1], touchedRegisters);
 				const char *movOp = SelectMovWidth(&thisTAC->operands[1]);
-				fprintf(outFile, "%s %s, (%s)\n", movOp, destRegStr, sourceRegStr);
+				fprintf(outFile, "\t%s %s, (%s)\n", movOp, destRegStr, sourceRegStr);
 			}
 		}
 		break;
@@ -686,11 +686,11 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				const char *movOp = SelectMovWidth(&thisTAC->operands[1]);
 				if (thisTAC->operation == tt_memr_2)
 				{
-					fprintf(outFile, "%s %s, (%s+%d)\n", movOp, destRegStr, sourceRegStr, thisTAC->operands[2].name.val);
+					fprintf(outFile, "\t%s %s, (%s+%d)\n", movOp, destRegStr, sourceRegStr, thisTAC->operands[2].name.val);
 				}
 				else
 				{
-					fprintf(outFile, "%s %s, (%s-%d)\n", movOp, destRegStr, sourceRegStr, thisTAC->operands[2].name.val);
+					fprintf(outFile, "\t%s %s, (%s-%d)\n", movOp, destRegStr, sourceRegStr, thisTAC->operands[2].name.val);
 				}
 			}
 		}
@@ -714,11 +714,11 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
 			if (thisTAC->operation == tt_memr_3)
 			{
-				fprintf(outFile, "%s %s, (%s+%s,%d)\n", movOp, destRegStr, baseRegStr, offsetRegStr, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)));
+				fprintf(outFile, "\t%s %s, (%s+%s,%d)\n", movOp, destRegStr, baseRegStr, offsetRegStr, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)));
 			}
 			else
 			{
-				fprintf(outFile, "%s %s, (%s-%s,%d)\n", movOp, destRegStr, baseRegStr, offsetRegStr, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)));
+				fprintf(outFile, "\t%s %s, (%s-%s,%d)\n", movOp, destRegStr, baseRegStr, offsetRegStr, ALIGNSIZE(GetSizeOfPrimitive(thisTAC->operands[0].type)));
 			}
 
 			if (destinationLifetime->isSpilled)
@@ -741,14 +741,14 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			{
 				char *op1SourceStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], outFile, reservedRegisters[0], touchedRegisters);
 
-				fprintf(outFile, "%si %s, $%s\n", getAsmOp(thisTAC->operation), op1SourceStr, thisTAC->operands[2].name.str);
+				fprintf(outFile, "\t%si %s, $%s\n", getAsmOp(thisTAC->operation), op1SourceStr, thisTAC->operands[2].name.str);
 			}
 			else
 			{
 				char *op1RegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], outFile, reservedRegisters[0], touchedRegisters);
 				char *op2RegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], outFile, reservedRegisters[1], touchedRegisters);
 
-				fprintf(outFile, "%s %s, %s\n", getAsmOp(thisTAC->operation), op1RegStr, op2RegStr);
+				fprintf(outFile, "\t%s %s, %s\n", getAsmOp(thisTAC->operation), op1RegStr, op2RegStr);
 			}
 		}
 		break;
@@ -760,26 +760,26 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		case tt_je:
 		case tt_jne:
 		{
-			fprintf(outFile, "%s %s_%d\n", getAsmOp(thisTAC->operation), functionName, thisTAC->operands[0].name.val);
+			fprintf(outFile, "\t%s %s_%d\n", getAsmOp(thisTAC->operation), functionName, thisTAC->operands[0].name.val);
 		}
 		break;
 
 		case tt_jmp:
 		{
-			fprintf(outFile, "jmp %s_%d\n", functionName, thisTAC->operands[0].name.val);
+			fprintf(outFile, "\tjmp %s_%d\n", functionName, thisTAC->operands[0].name.val);
 		}
 		break;
 
 		case tt_push:
 		{
 			char *opRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], outFile, reservedRegisters[0], touchedRegisters);
-			fprintf(outFile, "%s %s\n", SelectPushWidth(&thisTAC->operands[0]), opRegStr);
+			fprintf(outFile, "\t%s %s\n", SelectPushWidth(&thisTAC->operands[0]), opRegStr);
 		}
 		break;
 
 		case tt_call:
 		{
-			fprintf(outFile, "call %s\n", thisTAC->operands[1].name.str);
+			fprintf(outFile, "\tcall %s\n", thisTAC->operands[1].name.str);
 
 			// the call returns a value
 			if (thisTAC->operands[0].name.str != NULL)
@@ -787,7 +787,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				struct Lifetime *returnedLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
 				if (!returnedLifetime->isSpilled)
 				{
-					fprintf(outFile, "%s %%r%d, %%rr\n", SelectMovWidth(&thisTAC->operands[0]), returnedLifetime->stackOrRegLocation);
+					fprintf(outFile, "\t%s %%r%d, %%rr\n", SelectMovWidth(&thisTAC->operands[0]), returnedLifetime->stackOrRegLocation);
 				}
 				else
 				{
@@ -798,15 +798,15 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		break;
 
 		case tt_label:
-			fprintf(outFile, "%s_%d:\n", functionName, thisTAC->operands[0].name.val);
+			fprintf(outFile, "\t%s_%d:\n", functionName, thisTAC->operands[0].name.val);
 			break;
 
 		case tt_return:
 		{
 
 			char *destRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], outFile, reservedRegisters[0], touchedRegisters);
-			fprintf(outFile, "mov %%rr, %s\n", destRegStr);
-			fprintf(outFile, "jmp %s_done\n", functionName);
+			fprintf(outFile, "\tmov %%rr, %s\n", destRegStr);
+			fprintf(outFile, "\tjmp %s_done\n", functionName);
 		}
 		break;
 
