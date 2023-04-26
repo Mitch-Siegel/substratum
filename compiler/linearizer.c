@@ -1214,12 +1214,15 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 										   int *labelCount,
 										   struct Stack *scopeNesting)
 {
-	// if we are descending into a nested scope, look up the correct scope and use it
+	// if we are descending into a nested scope, look up the correct scope and use it, starting a new basic block
 	// the subscope will be used in this call and any calls generated from this one, allowing the scopes to recursively nest properly
 	int newSubscopeIndex = 0;
 	if (scopeNesting->size > 0)
 	{
 		m.scope = Scope_lookupSubScopeByNumber(m.scope, *((int *)Stack_Peek(scopeNesting)));
+		m.currentBlock = BasicBlock_new((*labelCount)++);
+		Scope_addBasicBlock(m.scope, m.currentBlock);
+		Function_addBasicBlock(m.scope->parentFunction, m.currentBlock);
 	}
 	// otherwise the stack is empty so we should set it up to start at index 0
 	else
@@ -1231,8 +1234,9 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 	int depthThisScope = 0;
 	Stack_Push(scopeNesting, &depthThisScope);
 
-	// scrape along the function
+	// scrape along the scope
 	struct AST *runner = m.ast->child;
+	unsigned char currentSubScopeIndex = 0;
 	while (runner->type != t_rCurly)
 	{
 		switch (runner->type)
@@ -1243,7 +1247,14 @@ struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
 			scopeMetadata.ast = runner;
 
 			// TODO: Is throwing away the return value safe? Test with multiple arbitrary scopes in series
-			linearizeScope(scopeMetadata, controlConvergesTo, labelCount, scopeNesting);
+			struct LinearizationResult *scopeResult = linearizeScope(scopeMetadata, controlConvergesTo, labelCount, scopeNesting);
+			m.currentTACIndex = scopeResult->endingTACIndex;
+
+			currentSubScopeIndex++;
+
+			m.currentBlock = BasicBlock_new((*labelCount)++);
+			Scope_addBasicBlock(m.scope, m.currentBlock);
+			Function_addBasicBlock(m.scope->parentFunction, m.currentBlock);
 		}
 		break;
 

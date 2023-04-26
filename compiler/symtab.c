@@ -12,7 +12,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, e
 	newFunction->arguments = Stack_New();
 	newFunction->argStackSize = 0;
 	newFunction->localStackSize = 0;
-	newFunction->mainScope = Scope_new(parentScope, "", newFunction);
+	newFunction->mainScope = Scope_new(parentScope, name, newFunction);
 	newFunction->BasicBlockList = LinkedList_New();
 	newFunction->mainScope->parentFunction = newFunction;
 	newFunction->returnType = returnType;
@@ -91,6 +91,7 @@ void SymbolTable_print(struct SymbolTable *it, char printTAC)
 
 void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict, int depth)
 {
+	printf("collapse scopes for %s\n", scope->name);
 	// first pass: recurse depth-first so everything we do at this call depth will be 100% correct
 	for (int i = 0; i < scope->entries->size; i++)
 	{
@@ -105,6 +106,10 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 		case e_function: // recurse to functions
 		{
+			if(depth > 0)
+			{
+				ErrorAndExit(ERROR_INTERNAL, "Saw function at depth > 0 when collapsing scopes!\n");
+			}
 			struct FunctionEntry *thisFunction = thisMember->entry;
 			SymbolTable_collapseScopesRec(thisFunction->mainScope, dict, 0);
 		}
@@ -131,8 +136,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 		case e_basicblock:
 		{
-			// if we are in a nested scope
-			if (depth > 1)
+			if (depth > 0)
 			{
 				// go through all TAC lines in this block
 				struct BasicBlock *thisBlock = thisMember->entry;
@@ -148,11 +152,16 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 							// if this operand refers to a variable declared at this scope
 							if (Scope_contains(scope, originalName))
 							{
+								printf("%s contains %s\n", scope->name, originalName);
 								char *mangledName = malloc(strlen(originalName) + 4);
 								// tack on the name of this scope to the variable name since the same will happen to the variable entry itself in third pass
 								sprintf(mangledName, "%s%s", originalName, scope->name);
 								thisTAC->operands[j].name.str = Dictionary_LookupOrInsert(dict, mangledName);
 								free(mangledName);
+							}
+							else
+							{
+								printf("%s NOT CONTAINS %s\n", scope->name, originalName);
 							}
 						}
 					}
@@ -223,11 +232,13 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 			break;
 		}
 	}
+	printf("done in collapse scopes for %s\n", scope->name);
+
 }
 
 void SymbolTable_collapseScopes(struct SymbolTable *it, struct Dictionary *dict)
 {
-	SymbolTable_collapseScopesRec(it->globalScope, parseDict, 1);
+	SymbolTable_collapseScopesRec(it->globalScope, parseDict, 0);
 }
 
 void SymbolTable_free(struct SymbolTable *it)

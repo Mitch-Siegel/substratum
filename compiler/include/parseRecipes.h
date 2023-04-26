@@ -469,11 +469,6 @@ enum token parseRecipes[p_null][11][9][2] = {
          {t_semicolon, cnsme},
          {p_null, p_null}},
 
-        // SCOPE;
-        {{p_scope, above},
-         {t_semicolon, cnsme},
-         {p_null, p_null}},
-
         {{p_null, p_null}},
     },
 
@@ -486,6 +481,10 @@ enum token parseRecipes[p_null][11][9][2] = {
         {{p_statement_list, above},
          {p_statement, besid},
          {p_null, p_null}},
+
+        {{p_statement_list, above},
+        {p_scope, besid},
+        {p_null, p_null}},
 
         {{p_null, p_null}},
     },
