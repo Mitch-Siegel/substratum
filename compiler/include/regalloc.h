@@ -16,34 +16,39 @@ struct Lifetime
 	enum variableTypes type;
 	int indirectionLevel;
 	int stackOrRegLocation;
-	char isSpilled, isArgument;
-	struct StackObjectEntry *localPointerTo;
+	char isSpilled, isArgument, isGlobal;
+	struct ObjectEntry *localPointerTo;
 };
 
-struct Lifetime *newLifetime(char *name, enum variableTypes type, int indirectionLevel, int start);
+struct Lifetime *newLifetime(char *name,
+							 enum variableTypes type,
+							 int indirectionLevel,
+							 int start,
+							 char isGlobal);
 
 char compareLifetimes(struct Lifetime *a, char *variable);
 
 // update the lifetime start/end indices
 // returns pointer to the lifetime corresponding to the passed variable name
 struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
-										char *name, 
+										char *name,
 										enum variableTypes type,
 										int indirectionLevel,
-										int newEnd);
-
-struct Lifetime *updateOrInstertLifetimeFromTAC(struct LinkedList *ltList, struct TACOperand *operand, int index);
+										int newEnd,
+										char isGlobal);
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
 void recordVariableWrite(struct LinkedList *ltList,
 						 struct TACOperand *writtenOperand,
+						 struct Scope *scope,
 						 int newEnd);
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
 void recordVariableRead(struct LinkedList *ltList,
 						struct TACOperand *readOperand,
+						struct Scope *scope,
 						int newEnd);
 
 struct LinkedList *findLifetimes(struct FunctionEntry *function);

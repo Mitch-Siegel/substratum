@@ -31,6 +31,7 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, 
 	newArgument->declaredAt = -1;
 	newArgument->isAssigned = 0;
 	newArgument->mustSpill = 0;
+	newArgument->isGlobal = 0; // arguments are never globals (pass by value)
 	newArgument->name = name->value;
 
 	Stack_Push(func->arguments, newArgument); // keep track of all arguments in order
@@ -42,7 +43,7 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, 
 
 	if (arraySize > 1)
 	{
-		struct StackObjectEntry *objForArg = malloc(sizeof(struct StackObjectEntry));
+		struct ObjectEntry *objForArg = malloc(sizeof(struct ObjectEntry));
 		newArgument->localPointerTo = objForArg;
 		objForArg->localPointer = newArgument;
 
@@ -50,7 +51,7 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, 
 		objForArg->arraySize = arraySize;
 		char *modName = malloc(strlen(name->value) + 5);
 		sprintf(modName, "%s.obj", name->value);
-		Scope_insert(func->mainScope, Dictionary_LookupOrInsert(parseDict, modName), objForArg, e_stackobj);
+		Scope_insert(func->mainScope, Dictionary_LookupOrInsert(parseDict, modName), objForArg, e_object);
 		free(modName);
 	}
 	else
@@ -105,7 +106,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 		case e_function: // recurse to functions
 		{
-			if(depth > 0)
+			if (depth > 0)
 			{
 				ErrorAndExit(ERROR_INTERNAL, "Saw function at depth > 0 when collapsing scopes!\n");
 			}
@@ -118,7 +119,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 		case e_variable:
 		case e_argument:
 		case e_basicblock:
-		case e_stackobj:
+		case e_object:
 			break;
 		}
 	}
@@ -166,7 +167,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 		case e_variable:
 		case e_argument:
-		case e_stackobj:
+		case e_object:
 			break;
 		}
 	}
@@ -197,7 +198,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 		}
 		break;
 
-		case e_stackobj:
+		case e_object:
 		case e_variable:
 		case e_argument:
 		{
@@ -286,7 +287,7 @@ void Scope_free(struct Scope *scope)
 			BasicBlock_free(examinedEntry->entry);
 			break;
 
-		case e_stackobj:
+		case e_object:
 			free(examinedEntry->entry);
 			break;
 		}
@@ -312,7 +313,7 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
 }
 
 // create a variable within the given scope
-void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize)
+void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize, char isGlobal)
 {
 	struct VariableEntry *newVariable = malloc(sizeof(struct VariableEntry));
 	newVariable->type = type;
@@ -321,8 +322,18 @@ void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTy
 	newVariable->assignedAt = -1;
 	newVariable->declaredAt = -1;
 	newVariable->isAssigned = 0;
-	newVariable->mustSpill = 0;
 	newVariable->name = name->value;
+
+	if (isGlobal)
+	{
+		newVariable->isGlobal = 1;
+		newVariable->mustSpill = 1;
+	}
+	else
+	{
+		newVariable->isGlobal = 0;
+		newVariable->mustSpill = 0;
+	}
 
 	if (Scope_contains(scope, name->value))
 	{
@@ -335,18 +346,27 @@ void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTy
 
 	if (arraySize > 1)
 	{
-		struct StackObjectEntry *objForvar = malloc(sizeof(struct StackObjectEntry));
+		struct ObjectEntry *objForvar = malloc(sizeof(struct ObjectEntry));
 		newVariable->localPointerTo = objForvar;
 		objForvar->localPointer = newVariable;
 
 		objForvar->size = varSize;
 		objForvar->arraySize = arraySize;
-		// since indexing pushes address forward, set the stack offset of the variable to be index 0 (the - size * arraySize) term does this
-		objForvar->stackOffset = (scope->parentFunction->localStackSize * -1) - (objForvar->size * objForvar->arraySize);
-		scope->parentFunction->localStackSize += varSize * arraySize;
+
+		if (!isGlobal)
+		{
+			// since indexing pushes address forward, set the stack offset of the variable to be index 0 (the - size * arraySize) term does this
+			objForvar->stackOffset = (scope->parentFunction->localStackSize * -1) - (objForvar->size * objForvar->arraySize);
+			scope->parentFunction->localStackSize += varSize * arraySize;
+		}
+		else
+		{
+			objForvar->stackOffset = 0;
+		}
+
 		char *modName = malloc(strlen(name->value) + 5);
 		sprintf(modName, "%s.obj", name->value);
-		Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, modName), objForvar, e_stackobj);
+		Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, modName), objForvar, e_object);
 		free(modName);
 	}
 	else
@@ -356,10 +376,10 @@ void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTy
 }
 
 // create a new function accessible within the given scope
-struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name, enum variableTypes returnType, int returnIndirectionLevel)
+struct FunctionEntry *Scope_createFunction(struct Scope *parentScope, char *name, enum variableTypes returnType, int returnIndirectionLevel)
 {
-	struct FunctionEntry *newFunction = FunctionEntry_new(scope, name, returnType, returnIndirectionLevel);
-	Scope_insert(scope, name, newFunction, e_function);
+	struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, name, returnType, returnIndirectionLevel);
+	Scope_insert(parentScope, name, newFunction, e_function);
 	return newFunction;
 }
 
@@ -411,7 +431,6 @@ struct ScopeMember *Scope_lookup(struct Scope *scope, char *name)
 				return examinedEntry;
 			}
 		}
-
 		scope = scope->parentScope;
 	}
 	return NULL;
@@ -536,11 +555,11 @@ int Scope_getSizeOfVariableByString(struct Scope *scope, char *name, char beingD
 int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
 {
 	struct VariableEntry *theVariable = Scope_lookupVar(scope, name);
-	if(theVariable->indirectionLevel > 0)
+	if (theVariable->indirectionLevel > 0)
 	{
 		return 4;
 	}
-	
+
 	switch (theVariable->type)
 	{
 	case vt_uint8:
@@ -653,9 +672,9 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		}
 		break;
 
-		case e_stackobj:
+		case e_object:
 		{
-			struct StackObjectEntry *thisObj = thisMember->entry;
+			struct ObjectEntry *thisObj = thisMember->entry;
 			printf("> Stack object (%d bytes * %d) for %s\n", thisObj->size, thisObj->arraySize, thisObj->localPointer->name);
 			for (int j = 0; j < depth; j++)
 			{
@@ -730,7 +749,7 @@ void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArg
 	{
 		declared = declared->child;
 		struct AST *declaredSize = declared->sibling;
-		if(declaredSize->type != t_constant)
+		if (declaredSize->type != t_constant)
 		{
 			ErrorWithAST(ERROR_CODE, declaredSize, "Locally scoped arrays must have a constant size!\n");
 		}
@@ -751,7 +770,7 @@ void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArg
 		}
 		else
 		{
-			Scope_createVariable(wipScope, declared, theType, indirectionLevel, arraySize);
+			Scope_createVariable(wipScope, declared, theType, indirectionLevel, arraySize, wipScope->parentScope == NULL);
 		}
 	}
 	else
@@ -993,6 +1012,7 @@ struct SymbolTable *walkAST(struct AST *it)
 		case t_uint8:
 		case t_uint16:
 		case t_uint32:
+		case t_single_equals:
 		{
 			walkStatement(runner, programTable->globalScope);
 			struct AST *scraper = runner->child;

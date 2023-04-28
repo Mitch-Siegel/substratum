@@ -183,7 +183,19 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 			}
 			int reservedRegisters[3] = {-1, -1, -1};
 
-			GenerateCodeForBasicBlock(thisMember->entry, table->globalScope, NULL, "global", reservedRegisters, touchedRegisters, outFile);
+			struct LinkedList *globalLifetimes = LinkedList_New();
+			for (int i = 0; i < table->globalScope->entries->size; i++)
+			{
+				struct ScopeMember *thisMember = table->globalScope->entries->data[i];
+				if (thisMember->type == e_variable)
+				{
+					struct VariableEntry *theArgument = thisMember->entry;
+					struct Lifetime *globalLifetime = updateOrInsertLifetime(globalLifetimes, thisMember->name, theArgument->type, theArgument->indirectionLevel, 1, 1);
+					globalLifetime->isGlobal = 1;
+					globalLifetime->isSpilled = 1;
+				}
+			}
+			GenerateCodeForBasicBlock(thisMember->entry, table->globalScope, globalLifetimes, "global", reservedRegisters, touchedRegisters, outFile);
 		}
 		break;
 

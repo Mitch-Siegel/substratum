@@ -81,107 +81,32 @@ fun printNum(uint32 num, uint32 newLine->void)
 	}
 }
 
-fun fibRec(uint8 n->uint32)
-{
-	if (n > 1)
-	{
-		return fibRec(n - 1) + fibRec(n - 2);
-	}
-	else
-	{
-		return n;
-	}
-}
+uint32 nMultiplications = 0;
 
-fun fibArr(uint8 n->uint32)
+fun mul(uint32 a, uint32 b->uint32)
 {
-	uint32 fibArr[255];
-	fibArr[0] = 0;
-	*(fibArr + 1) = 1;
-	uint16 i = 2;
-	while (i <= n)
+	uint32 result = 0;
+	while(b > 0)
 	{
-		fibArr[i] = fibArr[i - 1] + fibArr[i - 2];
-		i = i + 1;
+		result = result + 1;
+		b = b - 1;
 	}
-	return fibArr[n];
-}
-
-fun fibArrDeref(uint8 n->uint32)
-{
-	uint32 fibArr[255];
-	*fibArr = 0;
-	*(fibArr + 1) = 1;
-	uint16 i = 2;
-	while (i <= n)
-	{
-		*(fibArr + i) = *(fibArr + (i - 1)) + *(fibArr + (i - 2));
-		i = i + 1;
-	}
-	return *(fibArr + n);
-}
-
-/*
-Benchmarks of instruction count by number of registers allowed:
-3: 908186
-4: 682381
-5: 652725
-6: 650847
-7: 648645
-8: 648557
-9: 648557
-*/
-
-fun printStr(uint8 * str->void)
-{
-	uint32 strIndex = 0;
-	while (str[strIndex] != 0)
-	{
-		uint8 toPrint = str[strIndex];
-		print(toPrint);
-		strIndex = strIndex + 1;
-	}
+	nMultiplications = nMultiplications + 1;
+	return result;
 }
 
 fun test(->void)
 {
-	uint8 fibStr[16];
-	fibStr[0] = 'F';
-	fibStr[1] = 'i';
-	fibStr[2] = 'b';
-	fibStr[3] = 'o';
-	fibStr[4] = 'n';
-	fibStr[5] = 'a';
-	fibStr[6] = 'c';
-	fibStr[7] = 'c';
-	fibStr[8] = 'i';
-	fibStr[9] = '(';
-	fibStr[10] = 0;
-
-	uint8 commaStr[3];
-	commaStr[0] = ',';
-	commaStr[1] = 9;
-	commaStr[2] = 0;
-
-	uint8 i = 1;
-	while (i < 20)
+	uint8 i = 0;
+	while(i < 10)
 	{
-		printStr(fibStr);
-		printNum(i, 0);
-		print(')');
-		print(':');
-		print(10);
-		print(9);
+		uint8 j = 0;
+		while(j < 10)
 		{
-			printNum(fibRec(i), 0);
-			printStr(commaStr);
+			printNum(mul(i, j), 1);
+			j = j + 1;
 		}
-		printNum(fibArr(i), 0);
-		printStr(commaStr);
-		{
-			printNum(fibArrDeref(i), 0);
-		}
-		print(10);
 		i = i + 1;
 	}
+	printNum(nMultiplications, 1);
 }

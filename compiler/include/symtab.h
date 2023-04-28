@@ -16,7 +16,7 @@ enum ScopeMemberType
 	e_argument,
 	e_scope,
 	e_basicblock,
-	e_stackobj,
+	e_object,
 };
 
 struct ScopeMember
@@ -52,20 +52,21 @@ struct FunctionEntry
 struct VariableEntry
 {
 	int stackOffset;
-	struct StackObjectEntry *localPointerTo;
+	struct ObjectEntry *localPointerTo;
 	char *name; // duplicate pointer from ScopeMember for ease of use
 	enum variableTypes type;
 	int indirectionLevel;
 	int assignedAt;
 	int declaredAt;
 	char isAssigned;
-	// if this variable has the address-of operator used on it
-	// we need to denote that it *must* live on the stack so it isn't lost
+	// if this variable has the address-of operator used on it or is a global variable
+	// we need to denote that it *must* live in memory so it isn't lost
 	// and can have an address
 	char mustSpill;
+	char isGlobal;
 };
 
-struct StackObjectEntry
+struct ObjectEntry
 {
 	int size;
 	int arraySize;
@@ -104,9 +105,9 @@ void Scope_print(struct Scope *it, int depth, char printTAC);
 
 void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMemberType type);
 
-void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize);
+void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize, char isGlobal);
 
-struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name, enum variableTypes returnType, int returnIndirectionLevel);
+struct FunctionEntry *Scope_createFunction(struct Scope *parentScope, char *name, enum variableTypes returnType, int returnIndirectionLevel);
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
 
