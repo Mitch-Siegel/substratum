@@ -90,12 +90,12 @@ void recordVariableRead(struct LinkedList *ltList,
 	updatedLifetime->nreads += 1;
 }
 
-struct LinkedList *findLifetimes(struct FunctionEntry *function)
+struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList)
 {
 	struct LinkedList *lifetimes = LinkedList_New();
-	for (int i = 0; i < function->mainScope->entries->size; i++)
+	for (int i = 0; i < scope->entries->size; i++)
 	{
-		struct ScopeMember *thisMember = function->mainScope->entries->data[i];
+		struct ScopeMember *thisMember = scope->entries->data[i];
 		if (thisMember->type == e_argument)
 		{
 			struct VariableEntry *theArgument = thisMember->entry;
@@ -104,7 +104,7 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 		}
 	}
 
-	struct LinkedListNode *blockRunner = function->BasicBlockList->head;
+	struct LinkedListNode *blockRunner = basicBlockList->head;
 	struct Stack *doDepth = Stack_New();
 	while (blockRunner != NULL)
 	{
@@ -152,17 +152,17 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 			case tt_call:
 				if (thisLine->operands[0].type != vt_null)
 				{
-					recordVariableWrite(lifetimes, &thisLine->operands[0], function->mainScope, TACIndex);
+					recordVariableWrite(lifetimes, &thisLine->operands[0], scope, TACIndex);
 				}
 				break;
 
 			case tt_assign:
 			case tt_cast_assign:
 			{
-				recordVariableWrite(lifetimes, &thisLine->operands[0], function->mainScope, TACIndex);
+				recordVariableWrite(lifetimes, &thisLine->operands[0], scope, TACIndex);
 				if (thisLine->operands[1].permutation != vp_literal)
 				{
-					recordVariableRead(lifetimes, &thisLine->operands[1], function->mainScope, TACIndex);
+					recordVariableRead(lifetimes, &thisLine->operands[1], scope, TACIndex);
 				}
 			}
 			break;
@@ -173,7 +173,7 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 			{
 				if (thisLine->operands[0].permutation != vp_literal)
 				{
-					recordVariableRead(lifetimes, &thisLine->operands[0], function->mainScope, TACIndex);
+					recordVariableRead(lifetimes, &thisLine->operands[0], scope, TACIndex);
 				}
 			}
 			break;
@@ -186,7 +186,7 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 			{
 				if (thisLine->operands[0].type != vt_null)
 				{
-					recordVariableWrite(lifetimes, &thisLine->operands[0], function->mainScope, TACIndex);
+					recordVariableWrite(lifetimes, &thisLine->operands[0], scope, TACIndex);
 				}
 
 				for (int i = 1; i < 4; i++)
@@ -201,7 +201,7 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 							break;
 
 						default:
-							recordVariableRead(lifetimes, &thisLine->operands[i], function->mainScope, TACIndex);
+							recordVariableRead(lifetimes, &thisLine->operands[i], scope, TACIndex);
 							break;
 						}
 					}
@@ -232,7 +232,7 @@ struct LinkedList *findLifetimes(struct FunctionEntry *function)
 							break;
 
 						default:
-							recordVariableRead(lifetimes, &thisLine->operands[i], function->mainScope, TACIndex);
+							recordVariableRead(lifetimes, &thisLine->operands[i], scope, TACIndex);
 							break;
 						}
 					}

@@ -176,26 +176,39 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 
 		case e_basicblock:
 		{
-			char touchedRegisters[MACHINE_REGISTER_COUNT];
-			for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
-			{
-				touchedRegisters[i] = 0;
-			}
-			int reservedRegisters[3] = {-1, -1, -1};
+			// char touchedRegisters[MACHINE_REGISTER_COUNT];
+			// for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
+			// {
+				// touchedRegisters[i] = 0;
+			// }
+			// int reservedRegisters[3] = {-1, -1, -1};
 
-			struct LinkedList *globalLifetimes = LinkedList_New();
-			for (int i = 0; i < table->globalScope->entries->size; i++)
+			struct LinkedList *globalBlockList = LinkedList_New();
+
+			for(int i = 0; i < table->globalScope->entries->size; i++)
 			{
-				struct ScopeMember *thisMember = table->globalScope->entries->data[i];
-				if (thisMember->type == e_variable)
+				struct ScopeMember *m = table->globalScope->entries->data[i];
+				if(m->type == e_basicblock)
 				{
-					struct VariableEntry *theArgument = thisMember->entry;
-					struct Lifetime *globalLifetime = updateOrInsertLifetime(globalLifetimes, thisMember->name, theArgument->type, theArgument->indirectionLevel, 1, 1);
-					globalLifetime->isGlobal = 1;
-					globalLifetime->isSpilled = 1;
+					LinkedList_Append(globalBlockList, m->entry);
 				}
 			}
-			GenerateCodeForBasicBlock(thisMember->entry, table->globalScope, globalLifetimes, "global", reservedRegisters, touchedRegisters, outFile);
+			// struct LinkedList *globalLifetimes = findLifetimes(table->globalScope, globalBlockList);
+
+			struct FunctionEntry start;
+			start.argStackSize = 0;
+			start.arguments = NULL;
+			start.BasicBlockList = globalBlockList;
+			start.localStackSize = 0;
+			start.mainScope = table->globalScope;
+			start.name = "START";
+			start.returnIndirectionLevel = 0;
+			start.returnType = vt_null;
+
+			generateCodeForFunction(&start, outFile);
+			LinkedList_Free(globalBlockList, NULL);
+
+			// GenerateCodeForBasicBlock(thisMember->entry, table->globalScope, globalLifetimes, "global", reservedRegisters, touchedRegisters, outFile);
 		}
 		break;
 
@@ -215,7 +228,7 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 
 	struct CodegenMetadata metadata;
 	metadata.function = function;
-	metadata.allLifetimes = findLifetimes(function);
+	metadata.allLifetimes = findLifetimes(function->mainScope, function->BasicBlockList);
 
 	// find all overlapping lifetimes, to figure out which variables can live in registers vs being spilled
 	metadata.largestTacIndex = 0;

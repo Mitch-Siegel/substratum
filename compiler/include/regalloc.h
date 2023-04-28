@@ -51,7 +51,7 @@ void recordVariableRead(struct LinkedList *ltList,
 						struct Scope *scope,
 						int newEnd);
 
-struct LinkedList *findLifetimes(struct FunctionEntry *function);
+struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList);
 
 int calculateRegisterLoading(struct LinkedList *activeLifetimes, int index);
 
