@@ -171,29 +171,39 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 		switch (thisMember->type)
 		{
 		case e_function:
-			generateCodeForFunction(thisMember->entry, outFile);
+			fprintf(outFile, "export function %s\n", thisMember->name);
+			struct FunctionEntry *generatedFunction = thisMember->entry;
+			if (generatedFunction->arguments->size > 0)
+			{
+				fprintf(outFile, "args\n");
+
+				for (int i = 0; i < generatedFunction->arguments->size; i++)
+				{
+					struct VariableEntry *examinedArgument = generatedFunction->arguments->data[i];
+					fprintf(outFile, "arg %d %d %d* %s\n", i, examinedArgument->type, examinedArgument->indirectionLevel, examinedArgument->name);
+				}
+				fprintf(outFile, "endargs\n");
+			}
+			else
+			{
+				fprintf(outFile, "noargs\n");
+			}
+			generateCodeForFunction(generatedFunction, outFile);
 			break;
 
 		case e_basicblock:
 		{
-			// char touchedRegisters[MACHINE_REGISTER_COUNT];
-			// for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
-			// {
-				// touchedRegisters[i] = 0;
-			// }
-			// int reservedRegisters[3] = {-1, -1, -1};
-
+			fprintf(outFile, "section userstart\n");
 			struct LinkedList *globalBlockList = LinkedList_New();
 
-			for(int i = 0; i < table->globalScope->entries->size; i++)
+			for (int i = 0; i < table->globalScope->entries->size; i++)
 			{
 				struct ScopeMember *m = table->globalScope->entries->data[i];
-				if(m->type == e_basicblock)
+				if (m->type == e_basicblock)
 				{
 					LinkedList_Append(globalBlockList, m->entry);
 				}
 			}
-			// struct LinkedList *globalLifetimes = findLifetimes(table->globalScope, globalBlockList);
 
 			struct FunctionEntry start;
 			start.argStackSize = 0;
@@ -207,8 +217,6 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 
 			generateCodeForFunction(&start, outFile);
 			LinkedList_Free(globalBlockList, NULL);
-
-			// GenerateCodeForBasicBlock(thisMember->entry, table->globalScope, globalLifetimes, "global", reservedRegisters, touchedRegisters, outFile);
 		}
 		break;
 
@@ -301,8 +309,6 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 	printf(".");
 
 	// emit function prologue
-	fprintf(outFile, "\t#align 2048\n");
-
 	fprintf(outFile, "%s:\n", function->name);
 
 	if (stackOffset > 0)
