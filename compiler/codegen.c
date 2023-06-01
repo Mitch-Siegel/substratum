@@ -171,29 +171,28 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 		switch (thisMember->type)
 		{
 		case e_function:
-			fprintf(outFile, "export function %s\n", thisMember->name);
+			fprintf(outFile, "~export function %s\n", thisMember->name);
 
 
 			struct FunctionEntry *generatedFunction = thisMember->entry;
 			
 			fprintf(outFile, "returns %d %d*\n", generatedFunction->returnType, generatedFunction->returnIndirectionLevel);
-			fprintf(outFile, "args\n");
+			fprintf(outFile, "%d arguments\n", generatedFunction->arguments->size);
 
 			for (int i = 0; i < generatedFunction->arguments->size; i++)
 			{
 				struct VariableEntry *examinedArgument = generatedFunction->arguments->data[i];
-				fprintf(outFile, "arg %d %d %d* %s\n", i, examinedArgument->type, examinedArgument->indirectionLevel, examinedArgument->name);
+				fprintf(outFile, "%d %d* %s\n", examinedArgument->type, examinedArgument->indirectionLevel, examinedArgument->name);
 			}
-			fprintf(outFile, "endargs\n");
 			generateCodeForFunction(generatedFunction, outFile);
 
-			fprintf(outFile, "end export function %s\n", thisMember->name);
+			fprintf(outFile, "~end export function %s\n", thisMember->name);
 
 			break;
 
 		case e_basicblock:
 		{
-			fprintf(outFile, "section userstart\n");
+			fprintf(outFile, "~export section userstart\n");
 			struct LinkedList *globalBlockList = LinkedList_New();
 
 			for (int i = 0; i < table->globalScope->entries->size; i++)
@@ -217,7 +216,7 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 
 			generateCodeForFunction(&start, outFile);
 			LinkedList_Free(globalBlockList, NULL);
-			fprintf(outFile, "end section userstart\n");
+			fprintf(outFile, "~end export section userstart\n");
 		}
 		break;
 
