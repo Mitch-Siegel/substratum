@@ -1,116 +1,9 @@
-#include "util.h"
 
 #include <stdlib.h>
 #include <unistd.h>
 
-enum LinkedSymbol
-{
-    s_variable,
-    s_function_declaration,
-    s_function_definition,
-    s_null,
-};
-
-enum LinkDirection
-{
-    export,
-    require,
-};
-
-struct VariableSymbol
-{
-    int type;
-    int indirectionLevel;
-};
-
-struct Type
-{
-    char isPrimitive;
-    union
-    {
-        int primitive;
-        struct
-        {
-            char isStruct;
-            char *name;
-        } structOrUnion;
-    } type;
-};
-
-struct FunctionDeclarationSymbol
-{
-    char *name;
-    struct Type *returnType;
-    struct Type *args;
-};
-
-struct Symbol
-{
-    char *name;                   // string name of the symbol
-    enum LinkDirection direction; // whether this symbol is exported or required from this file
-    enum LinkedSymbol symbolType; // what type of symbol this is
-    union
-    {
-        struct VariableSymbol asVariable;
-        struct FunctionDeclarationSymbol asFunction;
-    } data;                  // union exact details about this symbol
-    struct LinkedList *lines; // raw data of any text lines containing asm
-};
-
-struct Symbol *Symbol_New(char *name, enum LinkDirection direction, enum LinkedSymbol symbolType)
-{
-    struct Symbol *wip = malloc(sizeof(struct Symbol));
-    wip->name = name;
-    wip->direction = direction;
-    wip->symbolType = symbolType;
-    wip->lines = LinkedList_New();
-
-    return wip;
-}
-
-void Symbol_Free(struct Symbol *s)
-{
-    LinkedList_Free(s->lines, free);
-    free(s);
-}
-
-enum LinkedSymbol symbolNameToEnum(char *name)
-{
-    if (!strcmp(name, "function"))
-    {
-        return s_function_definition;
-    }
-    else if (!strcmp(name, "variable"))
-    {
-        return s_variable;
-    }
-    else if (!strcmp(name, "section"))
-    {
-        return s_function_definition;
-    }
-    else
-    {
-        ErrorAndExit(ERROR_INTERNAL, "Unexpected symbol name %s\n", name);
-    }
-}
-
-char *symbolEnumToName(enum LinkedSymbol s)
-{
-    switch(s)
-    {
-        case s_function_declaration:
-            return "function declaration";
-
-        case s_function_definition:
-            return "function definition";
-
-        case s_variable:
-            return "variable";
-
-        case s_null:
-            return "s_null";
-    }
-}
+#include "util.h"
+#include "symbols.h"
 
 // returns 0 if export, 1 if require
 char parseLinkDirection(char *directionString)
@@ -127,16 +20,6 @@ char parseLinkDirection(char *directionString)
     {
         ErrorAndExit(ERROR_INTERNAL, "Linker Error - unexpected direction %s\n", directionString);
     }
-}
-
-// compare symbols by type and string name
-int compareSymbols(struct Symbol *a, struct Symbol *b)
-{
-    if (a->symbolType != b->symbolType)
-    {
-        return 1;
-    }
-    return strcmp(a->name, b->name);
 }
 
 void addExport(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toAdd)
@@ -157,6 +40,35 @@ void addRequire(struct LinkedList **exports, struct LinkedList **requires, struc
     {
         LinkedList_Append(requires[symbolType], toRequire);
     }
+}
+
+size_t getline_force_raw(char **linep, size_t *linecapp, FILE *stream)
+{
+    size_t len = getline(linep, linecapp, stream);
+    if (len == 0)
+    {
+        ErrorAndExit(ERROR_INTERNAL, "getline_force expects non-zero line length, got 0!\n");
+    }
+    if ((*linep)[len - 1] == '\n')
+    {
+        (*linep)[len - 1] = '\0';
+        len--;
+    }
+    return len;
+}
+
+size_t getline_force(char **linep, size_t *linecapp, FILE *stream, struct Symbol *currentSymbol)
+{
+    size_t len = getline_force_raw(linep, linecapp, stream);
+    LinkedList_Append(currentSymbol->lines, strTrim(*linep, len));
+    return len;
+}
+
+size_t getline_force_metadata(char **linep, size_t *linecapp, FILE *stream, struct Symbol *currentSymbol)
+{
+    size_t len = getline_force_raw(linep, linecapp, stream);
+    LinkedList_Append(currentSymbol->linkerLines, strTrim(*linep, len));
+    return len;
 }
 
 int main(int argc, char **argv)
@@ -220,13 +132,11 @@ int main(int argc, char **argv)
 
         while (!feof(inFile))
         {
-            len = getline(&inBuf, &bufSize, inFile);
+            len = getline_force_raw(&inBuf, &bufSize, inFile);
             if (len == -1)
             {
                 break;
             }
-            inBuf[len - 1] = '\0';
-            len--;
 
             if (inBuf[0] == '~')
             {
@@ -281,7 +191,6 @@ int main(int argc, char **argv)
                     token = strtok(NULL, " ");
                     printf("%s\n", token);
                     currentSymbol = Symbol_New(strTrim(token, strlen(token) - 1), currentLinkDirection, currentLinkSymbolType);
-                    
 
                     switch (currentLinkSymbolType)
                     {
@@ -290,9 +199,41 @@ int main(int argc, char **argv)
                         break;
 
                     case s_function_definition:
-                        break;
+                    {
+                        len = getline_force_metadata(&inBuf, &bufSize, inFile, currentSymbol);
+                        char *token = strtok(inBuf, " ");
+                        if (strcmp(token, "returns"))
+                        {
+                            ErrorAndExit(ERROR_INTERNAL, "Expected returns [type] but got %s instead!\n", token);
+                        }
+
+                        currentSymbol->data.asFunction.returnType = parseType(inBuf + strlen(token) + 1);
+
+                        len = getline_force_metadata(&inBuf, &bufSize, inFile, currentSymbol);
+                        token = strtok(inBuf, " ");
+
+                        int nArgs = atoi(token);
+                        currentSymbol->data.asFunction.nArgs = nArgs;
+
+                        currentSymbol->data.asFunction.args = malloc(nArgs * sizeof(struct Type));
+
+                        token = strtok(NULL, " ");
+                        if (strcmp(token, "arguments"))
+                        {
+                            ErrorAndExit(ERROR_INTERNAL, "Expected '[n] arguments' but got %s %s instead!\n", inBuf, token);
+                        }
+
+                        while (nArgs-- > 0)
+                        {
+                            len = getline_force_metadata(&inBuf, &bufSize, inFile, currentSymbol);
+                        }
+                    }
+                    break;
 
                     case s_variable:
+                        break;
+
+                    case s_section:
                         break;
 
                     case s_null:
@@ -300,8 +241,7 @@ int main(int argc, char **argv)
                         break;
                     }
 
-
-                    if(currentLinkDirection == export)
+                    if (currentLinkDirection == export)
                     {
                         addExport(exports, requires, currentSymbol);
                     }
@@ -313,15 +253,13 @@ int main(int argc, char **argv)
 
                 // printf("%s\n", token);
             }
-            else
+            else // copying data, just stick the line onto the existing WIP symbol
             {
                 if (currentSymbol == NULL)
                 {
                     ErrorAndExit(ERROR_INVOCATION, "Malformed input file - couldn't find directive!\n");
                 }
-                char *thisLine = malloc(len + 1);
-                memcpy(thisLine, inBuf, len + 1);
-                LinkedList_Append(currentSymbol->lines, thisLine);
+                LinkedList_Append(currentSymbol->lines, strTrim(inBuf, len));
             }
             // loop through the string to extract all other tokens
             // while (token != NULL)
@@ -333,30 +271,39 @@ int main(int argc, char **argv)
         }
     }
 
-    printf("Exports:\n");
-    for(int i = 0; i < s_null; i++)
+    printf("Requirements not met:\n");
+    for (int i = 0; i < s_null; i++)
     {
-        if(exports[i]->size > 0)
+        if (requires[i] -> size > 0)
         {
-            printf("%s:\n", symbolEnumToName(i));
-            for(struct LinkedListNode *runner = exports[i]->head; runner != NULL; runner = runner->next)
+            printf("%s(s):\n", symbolEnumToName(i));
+            for (struct LinkedListNode *runner = requires[i] -> head; runner != NULL; runner = runner->next)
             {
-                struct Symbol *exported = runner->data;
-                printf("\t%s\n", exported->name);
+                struct Symbol *missing = runner->data;
+                printf("\t%s\n", missing->name);
             }
         }
     }
 
-    printf("Requirements not met:\n");
-    for(int i = 0; i < s_null; i++)
+    printf("Exports:\n");
+    for (int i = 0; i < s_null; i++)
     {
-        if(requires[i]->size > 0)
+        if (exports[i]->size > 0)
         {
-            printf("%s:\n", symbolEnumToName(i));
-            for(struct LinkedListNode *runner = requires[i]->head; runner != NULL; runner = runner->next)
+            printf("%s(s):\n", symbolEnumToName(i));
+            for (struct LinkedListNode *runner = exports[i]->head; runner != NULL; runner = runner->next)
             {
-                struct Symbol *missing = runner->data;
-                printf("\t%s\n", missing->name);
+                struct Symbol *exported = runner->data;
+                printf("\t%s\n", exported->name);
+                for (struct LinkedListNode *rawRunner = exported->linkerLines->head; rawRunner != NULL; rawRunner = rawRunner->next)
+                {
+                    printf("%s ", (char *)rawRunner->data);
+                }
+                printf("\n");
+                for (struct LinkedListNode *rawRunner = exported->lines->head; rawRunner != NULL; rawRunner = rawRunner->next)
+                {
+                    printf("\t\t%s\n", (char *)rawRunner->data);
+                }
             }
         }
     }
