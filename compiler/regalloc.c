@@ -19,7 +19,7 @@ struct Lifetime *newLifetime(char *name, enum variableTypes type, int indirectio
 	return wip;
 }
 
-char compareLifetimes(struct Lifetime *a, char *variable)
+int compareLifetimes(struct Lifetime *a, char *variable)
 {
 	return strcmp(a->name, variable);
 }

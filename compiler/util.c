@@ -236,7 +236,7 @@ void LinkedList_Prepend(struct LinkedList *l, void *element)
 	l->size++;
 }
 
-void *LinkedList_Delete(struct LinkedList *l, char (*compareFunction)(), void *element)
+void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *element)
 {
 	for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
 	{
@@ -277,7 +277,7 @@ void *LinkedList_Delete(struct LinkedList *l, char (*compareFunction)(), void *e
 	ErrorAndExit(ERROR_INTERNAL, "Couldn't delete element from linked list!\n");
 }
 
-void *LinkedList_Find(struct LinkedList *l, char (*compareFunction)(), void *element)
+void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *element)
 {
 	for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
 	{

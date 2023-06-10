@@ -54,19 +54,24 @@ struct Symbol
         struct VariableSymbol asVariable;
         struct FunctionDeclarationSymbol asFunction;
     } data;                  // union exact details about this symbol
-    struct LinkedList lines; // raw data of any text lines containing asm
+    struct LinkedList *lines; // raw data of any text lines containing asm
 };
 
-struct Symbol *Symbol_New(char *name, enum LinkDirection direction, enum LinkedSymbol symbolType, void *data)
+struct Symbol *Symbol_New(char *name, enum LinkDirection direction, enum LinkedSymbol symbolType)
 {
     struct Symbol *wip = malloc(sizeof(struct Symbol));
     wip->name = name;
     wip->direction = direction;
     wip->symbolType = symbolType;
-    wip->data = data;
     wip->lines = LinkedList_New();
 
     return wip;
+}
+
+void Symbol_Free(struct Symbol *s)
+{
+    LinkedList_Free(s->lines, free);
+    free(s);
 }
 
 enum LinkedSymbol symbolNameToEnum(char *name)
@@ -89,6 +94,24 @@ enum LinkedSymbol symbolNameToEnum(char *name)
     }
 }
 
+char *symbolEnumToName(enum LinkedSymbol s)
+{
+    switch(s)
+    {
+        case s_function_declaration:
+            return "function declaration";
+
+        case s_function_definition:
+            return "function definition";
+
+        case s_variable:
+            return "variable";
+
+        case s_null:
+            return "s_null";
+    }
+}
+
 // returns 0 if export, 1 if require
 char parseLinkDirection(char *directionString)
 {
@@ -106,12 +129,47 @@ char parseLinkDirection(char *directionString)
     }
 }
 
+// compare symbols by type and string name
+int compareSymbols(struct Symbol *a, struct Symbol *b)
+{
+    if (a->symbolType != b->symbolType)
+    {
+        return 1;
+    }
+    return strcmp(a->name, b->name);
+}
+
+void addExport(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toAdd)
+{
+    enum LinkedSymbol symbolType = toAdd->symbolType;
+    if (LinkedList_Find(requires[symbolType], compareSymbols, toAdd))
+    {
+        struct Symbol *deletedRequire = LinkedList_Delete(requires[symbolType], compareSymbols, toAdd);
+        Symbol_Free(deletedRequire);
+    }
+    LinkedList_Append(exports[symbolType], toAdd);
+}
+
+void addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire)
+{
+    enum LinkedSymbol symbolType = toRequire->symbolType;
+    if (!LinkedList_Find(exports[symbolType], compareSymbols, toRequire))
+    {
+        LinkedList_Append(requires[symbolType], toRequire);
+    }
+}
+
 int main(int argc, char **argv)
 {
-    struct LinkedList *exports = LinkedList_New();
+    struct LinkedList *exports[s_null];
     struct LinkedList *
-        requires
-    = LinkedList_New();
+        requires[s_null];
+
+    for (int i = 0; i < s_null; i++)
+    {
+        exports[i] = LinkedList_New();
+        requires[i] = LinkedList_New();
+    }
 
     struct Dictionary *inputFiles = Dictionary_New(1);
 
@@ -222,17 +280,8 @@ int main(int argc, char **argv)
 
                     token = strtok(NULL, " ");
                     printf("%s\n", token);
-                    currentSymbol = Symbol_New(strTrim(token, strlen(token) - 1), currentLinkDirection, currentLinkSymbolType, LinkedList_New());
-                    // printf("%s", token);
-                    // pre-checked by parseLinkDirection
-                    if (currentLinkDirection == export)
-                    {
-                        LinkedList_Append(exports, currentSymbol);
-                    }
-                    else
-                    {
-                        LinkedList_Append(requires, currentSymbol);
-                    }
+                    currentSymbol = Symbol_New(strTrim(token, strlen(token) - 1), currentLinkDirection, currentLinkSymbolType);
+                    
 
                     switch (currentLinkSymbolType)
                     {
@@ -250,6 +299,16 @@ int main(int argc, char **argv)
                         ErrorAndExit(ERROR_INTERNAL, "Saw s_null as link symbol type!\n");
                         break;
                     }
+
+
+                    if(currentLinkDirection == export)
+                    {
+                        addExport(exports, requires, currentSymbol);
+                    }
+                    else
+                    {
+                        addRequire(exports, requires, currentSymbol);
+                    }
                 }
 
                 // printf("%s\n", token);
@@ -262,7 +321,7 @@ int main(int argc, char **argv)
                 }
                 char *thisLine = malloc(len + 1);
                 memcpy(thisLine, inBuf, len + 1);
-                LinkedList_Append(currentSymbol->data, thisLine);
+                LinkedList_Append(currentSymbol->lines, thisLine);
             }
             // loop through the string to extract all other tokens
             // while (token != NULL)
@@ -271,6 +330,34 @@ int main(int argc, char **argv)
             // token = strtok(NULL, " ");
             // }
             // printf("\n");
+        }
+    }
+
+    printf("Exports:\n");
+    for(int i = 0; i < s_null; i++)
+    {
+        if(exports[i]->size > 0)
+        {
+            printf("%s:\n", symbolEnumToName(i));
+            for(struct LinkedListNode *runner = exports[i]->head; runner != NULL; runner = runner->next)
+            {
+                struct Symbol *exported = runner->data;
+                printf("\t%s\n", exported->name);
+            }
+        }
+    }
+
+    printf("Requirements not met:\n");
+    for(int i = 0; i < s_null; i++)
+    {
+        if(requires[i]->size > 0)
+        {
+            printf("%s:\n", symbolEnumToName(i));
+            for(struct LinkedListNode *runner = requires[i]->head; runner != NULL; runner = runner->next)
+            {
+                struct Symbol *missing = runner->data;
+                printf("\t%s\n", missing->name);
+            }
         }
     }
 }

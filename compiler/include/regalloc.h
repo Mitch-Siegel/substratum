@@ -26,7 +26,7 @@ struct Lifetime *newLifetime(char *name,
 							 int start,
 							 char isGlobal);
 
-char compareLifetimes(struct Lifetime *a, char *variable);
+int compareLifetimes(struct Lifetime *a, char *variable);
 
 // update the lifetime start/end indices
 // returns pointer to the lifetime corresponding to the passed variable name
