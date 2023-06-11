@@ -171,7 +171,7 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 		switch (thisMember->type)
 		{
 		case e_function:
-			fprintf(outFile, "~export function %s\n", thisMember->name);
+			fprintf(outFile, "~export funcdef %s\n", thisMember->name);
 
 
 			struct FunctionEntry *generatedFunction = thisMember->entry;
@@ -186,7 +186,7 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 			}
 			generateCodeForFunction(generatedFunction, outFile);
 
-			fprintf(outFile, "~end export function %s\n", thisMember->name);
+			fprintf(outFile, "~end export funcdef %s\n", thisMember->name);
 
 			break;
 

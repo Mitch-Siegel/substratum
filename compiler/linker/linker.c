@@ -84,31 +84,51 @@ int main(int argc, char **argv)
     }
 
     struct Dictionary *inputFiles = Dictionary_New(1);
+    char *outFileName = NULL;
+    FILE *outFile;
 
     int c;
+    char outputExecutable = 0;
 
     opterr = 0;
 
-    while ((c = getopt(argc, argv, "i:")) != -1)
+    while ((c = getopt(argc, argv, "i:o:e")) != -1)
         switch (c)
         {
         case 'i':
-            printf("arg -i\n");
             Dictionary_LookupOrInsert(inputFiles, optarg);
             break;
 
-        default:
-            printf("something bad happened - aborting!\n");
-            abort();
-        }
+        case 'o':
+            outFileName = strTrim(optarg, strlen(optarg));
+            break;
 
-    printf("done with optargs\n");
+        case 'e':
+            outputExecutable = 1;
+            break;
+
+        default:
+            ErrorAndExit(ERROR_INVOCATION, "Arguments:\n-i `filename`:\tinput file\n-o: `filename`:\toutput file\n-e:\toutput as executable instead of object file");
+        }
 
     if (inputFiles->buckets[0]->size == 0)
     {
-        printf("No input files provided!\n");
-        exit(1);
+        ErrorAndExit(ERROR_INVOCATION, "No input files provided!\n");
     }
+
+    if (outFileName == NULL)
+    {
+        ErrorAndExit(ERROR_INVOCATION, "No output file provided!\n");
+    }
+    else
+    {
+        outFile = fopen(outFileName, "wb");
+        if (outFile == NULL)
+        {
+            ErrorAndExit(ERROR_INTERNAL, "Error opening file %s for output\n", outFileName);
+        }
+    }
+
     printf("have %d input files\n", inputFiles->buckets[0]->size);
 
     for (struct LinkedListNode *inFileName = inputFiles->buckets[0]->head; inFileName != NULL; inFileName = inFileName->next)
@@ -271,39 +291,59 @@ int main(int argc, char **argv)
         }
     }
 
-    printf("Requirements not met:\n");
+    int nOutputRequirements = 0;
     for (int i = 0; i < s_null; i++)
     {
         if (requires[i] -> size > 0)
         {
-            printf("%s(s):\n", symbolEnumToName(i));
             for (struct LinkedListNode *runner = requires[i] -> head; runner != NULL; runner = runner->next)
             {
-                struct Symbol *missing = runner->data;
-                printf("\t%s\n", missing->name);
+                nOutputRequirements++;
             }
         }
     }
 
-    printf("Exports:\n");
+    if (nOutputRequirements && outputExecutable)
+    {
+        if (outputExecutable)
+        {
+            ErrorAndExit(ERROR_INVOCATION, "Unable to create executable - %d requirements not satisfied!\n", nOutputRequirements);
+        }
+        for (int i = 0; i < s_null; i++)
+        {
+            if (requires[i] -> size > 0)
+            {
+                for (struct LinkedListNode *runner = requires[i] -> head; runner != NULL; runner = runner->next)
+                {
+                }
+            }
+        }
+    }
     for (int i = 0; i < s_null; i++)
     {
+        printf("%d %s(s)\n", exports[i]->size, symbolEnumToName(i));
         if (exports[i]->size > 0)
         {
-            printf("%s(s):\n", symbolEnumToName(i));
             for (struct LinkedListNode *runner = exports[i]->head; runner != NULL; runner = runner->next)
             {
                 struct Symbol *exported = runner->data;
-                printf("\t%s\n", exported->name);
-                for (struct LinkedListNode *rawRunner = exported->linkerLines->head; rawRunner != NULL; rawRunner = rawRunner->next)
+                fprintf(outFile, "~export %s %s\n", symbolEnumToName(exported->symbolType), exported->name);
+                if (!outputExecutable)
                 {
-                    printf("%s ", (char *)rawRunner->data);
+                    for (struct LinkedListNode *rawRunner = exported->linkerLines->head; rawRunner != NULL; rawRunner = rawRunner->next)
+                    {
+                        fputs(rawRunner->data, outFile);
+                        fputc('\n', outFile);
+                        // printf("%s ", (char *)rawRunner->data);
+                    }
                 }
-                printf("\n");
                 for (struct LinkedListNode *rawRunner = exported->lines->head; rawRunner != NULL; rawRunner = rawRunner->next)
                 {
-                    printf("\t\t%s\n", (char *)rawRunner->data);
+                    fputs(rawRunner->data, outFile);
+                    fputc('\n', outFile);
+                    // printf("\t\t%s\n", (char *)rawRunner->data);
                 }
+                fprintf(outFile, "~end export %s %s\n", symbolEnumToName(exported->symbolType), exported->name);
             }
         }
     }

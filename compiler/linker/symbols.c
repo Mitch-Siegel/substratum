@@ -23,7 +23,7 @@ void Symbol_Free(struct Symbol *s)
 
 enum LinkedSymbol symbolNameToEnum(char *name)
 {
-    if (!strcmp(name, "function"))
+    if (!strcmp(name, "funcdef"))
     {
         return s_function_definition;
     }
@@ -46,10 +46,10 @@ char *symbolEnumToName(enum LinkedSymbol s)
     switch (s)
     {
     case s_function_declaration:
-        return "function declaration";
+        return "funcdec";
 
     case s_function_definition:
-        return "function definition";
+        return "funcdef";
 
     case s_variable:
         return "variable";

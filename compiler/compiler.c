@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 	FILE *outFile = fopen(argv[2], "wb");
 
 	printf("Generating code\n");
-	fprintf(outFile, "#include \"CPU.asm\"\nentry code\n");
+	// fprintf(outFile, "#include \"CPU.asm\"\nentry code\n");
 	generateCode(theTable, outFile);
 
 	SymbolTable_free(theTable);
