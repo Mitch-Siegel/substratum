@@ -131,6 +131,9 @@ int main(int argc, char **argv)
 
     printf("have %d input files\n", inputFiles->buckets[0]->size);
 
+    char *inBuf = malloc(513);
+    size_t bufSize = 512;
+
     for (struct LinkedListNode *inFileName = inputFiles->buckets[0]->head; inFileName != NULL; inFileName = inFileName->next)
     {
         printf("opening input file %s\n", (char *)inFileName->data);
@@ -139,11 +142,11 @@ int main(int argc, char **argv)
         {
             ErrorAndExit(ERROR_INTERNAL, "Error opening file %s\n", (char *)inFileName->data);
         }
-        char *inBuf = malloc(513);
-        size_t bufSize = 512;
+
+        int nSymbols[s_null];
+        memset(nSymbols, 0, s_null * sizeof(int));
 
         int len;
-
         char requireNewSymbol = 1;
 
         char currentLinkDirection = -1;
@@ -164,28 +167,24 @@ int main(int argc, char **argv)
                 char *token = strtok(inBuf + 1, " ");
                 if (!strcmp(token, "end"))
                 {
-                    printf("end ");
                     if (requireNewSymbol)
                     {
                         ErrorAndExit(ERROR_INTERNAL, "Linker error - expected new symbol to start but got end instead!\n");
                     }
 
                     token = strtok(NULL, " ");
-                    printf("%s ", token);
                     if (parseLinkDirection(token) != currentLinkDirection)
                     {
                         ErrorAndExit(ERROR_INTERNAL, "Unexpected end directive - link direction doesn't match start!\n");
                     }
 
                     token = strtok(NULL, " ");
-                    printf("%s ", token);
                     if (symbolNameToEnum(token) != currentLinkSymbolType)
                     {
                         ErrorAndExit(ERROR_INTERNAL, "End symbol type doesn't match start!\n");
                     }
 
                     token = strtok(NULL, " ");
-                    printf("%s\n\n", token);
                     if (strcmp(token, currentSymbol->name))
                     {
                         ErrorAndExit(ERROR_INTERNAL, "End symbol name (%s) doesn't match start (%s)!\n", token, currentSymbol->name);
@@ -202,14 +201,11 @@ int main(int argc, char **argv)
                     requireNewSymbol = 0;
 
                     currentLinkDirection = parseLinkDirection(token);
-                    printf("%s ", token);
 
                     token = strtok(NULL, " ");
-                    printf("%s ", token);
                     currentLinkSymbolType = symbolNameToEnum(token);
 
                     token = strtok(NULL, " ");
-                    printf("%s\n", token);
                     currentSymbol = Symbol_New(strTrim(token, strlen(token) - 1), currentLinkDirection, currentLinkSymbolType);
 
                     switch (currentLinkSymbolType)
@@ -269,9 +265,8 @@ int main(int argc, char **argv)
                     {
                         addRequire(exports, requires, currentSymbol);
                     }
+                    nSymbols[currentLinkSymbolType]++;
                 }
-
-                // printf("%s\n", token);
             }
             else // copying data, just stick the line onto the existing WIP symbol
             {
@@ -289,7 +284,16 @@ int main(int argc, char **argv)
             // }
             // printf("\n");
         }
+
+        printf("\t");
+        for (int i = 0; i < s_null; i++)
+        {
+            printf("%d %s ", nSymbols[i], symbolEnumToName(i));
+        }
+        printf("\n");
     }
+
+    printf("\n");
 
     int nOutputRequirements = 0;
     for (int i = 0; i < s_null; i++)
@@ -303,22 +307,28 @@ int main(int argc, char **argv)
         }
     }
 
-    if (nOutputRequirements && outputExecutable)
+    if (nOutputRequirements)
     {
         if (outputExecutable)
         {
             ErrorAndExit(ERROR_INVOCATION, "Unable to create executable - %d requirements not satisfied!\n", nOutputRequirements);
         }
+
         for (int i = 0; i < s_null; i++)
         {
             if (requires[i] -> size > 0)
             {
                 for (struct LinkedListNode *runner = requires[i] -> head; runner != NULL; runner = runner->next)
                 {
+                    struct Symbol *required = runner->data;
+                    fprintf(outFile, "~require %s %s\n", symbolEnumToName(required->symbolType), required->name);
+                    Symbol_Write(required, outFile, 0);
+                    fprintf(outFile, "~end require %s %s\n", symbolEnumToName(required->symbolType), required->name);
                 }
             }
         }
     }
+
     for (int i = 0; i < s_null; i++)
     {
         printf("%d %s(s)\n", exports[i]->size, symbolEnumToName(i));
@@ -328,21 +338,7 @@ int main(int argc, char **argv)
             {
                 struct Symbol *exported = runner->data;
                 fprintf(outFile, "~export %s %s\n", symbolEnumToName(exported->symbolType), exported->name);
-                if (!outputExecutable)
-                {
-                    for (struct LinkedListNode *rawRunner = exported->linkerLines->head; rawRunner != NULL; rawRunner = rawRunner->next)
-                    {
-                        fputs(rawRunner->data, outFile);
-                        fputc('\n', outFile);
-                        // printf("%s ", (char *)rawRunner->data);
-                    }
-                }
-                for (struct LinkedListNode *rawRunner = exported->lines->head; rawRunner != NULL; rawRunner = rawRunner->next)
-                {
-                    fputs(rawRunner->data, outFile);
-                    fputc('\n', outFile);
-                    // printf("\t\t%s\n", (char *)rawRunner->data);
-                }
+                Symbol_Write(exported, outFile, outputExecutable);
                 fprintf(outFile, "~end export %s %s\n", symbolEnumToName(exported->symbolType), exported->name);
             }
         }

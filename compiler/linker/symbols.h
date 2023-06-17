@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 enum LinkedSymbol
 {
     s_variable,
@@ -59,6 +61,8 @@ struct Symbol
 struct Symbol *Symbol_New(char *name, enum LinkDirection direction, enum LinkedSymbol symbolType);
 
 void Symbol_Free(struct Symbol *s);
+
+void Symbol_Write(struct Symbol *s, FILE *f, char writeLinkerLines);
 
 enum LinkedSymbol symbolNameToEnum(char *name);
 

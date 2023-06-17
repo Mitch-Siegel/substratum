@@ -21,6 +21,23 @@ void Symbol_Free(struct Symbol *s)
     free(s);
 }
 
+void Symbol_Write(struct Symbol *s, FILE *f, char surpressLinkerLines)
+{
+    if (!surpressLinkerLines)
+    {
+        for (struct LinkedListNode *rawRunner = s->linkerLines->head; rawRunner != NULL; rawRunner = rawRunner->next)
+        {
+            fputs(rawRunner->data, f);
+            fputc('\n', f);
+        }
+    }
+    for (struct LinkedListNode *rawRunner = s->lines->head; rawRunner != NULL; rawRunner = rawRunner->next)
+    {
+        fputs(rawRunner->data, f);
+        fputc('\n', f);
+    }
+}
+
 enum LinkedSymbol symbolNameToEnum(char *name)
 {
     if (!strcmp(name, "funcdef"))
