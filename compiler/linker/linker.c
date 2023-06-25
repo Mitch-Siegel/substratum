@@ -120,14 +120,6 @@ int main(int argc, char **argv)
     {
         ErrorAndExit(ERROR_INVOCATION, "No output file provided!\n");
     }
-    else
-    {
-        outFile = fopen(outFileName, "wb");
-        if (outFile == NULL)
-        {
-            ErrorAndExit(ERROR_INTERNAL, "Error opening file %s for output\n", outFileName);
-        }
-    }
 
     printf("have %d input files\n", inputFiles->buckets[0]->size);
 
@@ -295,6 +287,12 @@ int main(int argc, char **argv)
 
     printf("\n");
 
+    outFile = fopen(outFileName, "wb");
+    if (outFile == NULL)
+    {
+        ErrorAndExit(ERROR_INTERNAL, "Error opening file %s for output\n", outFileName);
+    }
+
     int nOutputRequirements = 0;
     for (int i = 0; i < s_null; i++)
     {
@@ -329,17 +327,29 @@ int main(int argc, char **argv)
         }
     }
 
+    if (outputExecutable)
+    {
+        fprintf(outFile, "#include \"CPU.asm\"\nentry main\n");
+    }
+
     for (int i = 0; i < s_null; i++)
     {
-        printf("%d %s(s)\n", exports[i]->size, symbolEnumToName(i));
+        // printf("%d %s(s)\n", exports[i]->size, symbolEnumToName(i));
         if (exports[i]->size > 0)
         {
             for (struct LinkedListNode *runner = exports[i]->head; runner != NULL; runner = runner->next)
             {
                 struct Symbol *exported = runner->data;
-                fprintf(outFile, "~export %s %s\n", symbolEnumToName(exported->symbolType), exported->name);
+                if (!outputExecutable)
+                {
+                    fprintf(outFile, "~export %s %s\n", symbolEnumToName(exported->symbolType), exported->name);
+                }
+
                 Symbol_Write(exported, outFile, outputExecutable);
-                fprintf(outFile, "~end export %s %s\n", symbolEnumToName(exported->symbolType), exported->name);
+                if (!outputExecutable)
+                {
+                    fprintf(outFile, "~end export %s %s\n", symbolEnumToName(exported->symbolType), exported->name);
+                }
             }
         }
     }

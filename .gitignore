@@ -9,6 +9,7 @@ a.out
 
 *.bin
 compiler/mcc
+compiler/mld
 compiler/astdump
 
 emu/emu
