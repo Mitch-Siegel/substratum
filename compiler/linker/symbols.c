@@ -77,6 +77,8 @@ char *symbolEnumToName(enum LinkedSymbol s)
     case s_null:
         return "s_null";
     }
+
+    return "s_null";
 }
 
 // compare symbols by type and string name
