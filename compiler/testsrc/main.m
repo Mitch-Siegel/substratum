@@ -1,3 +1,5 @@
+#include "math.h"
+
 fun print(uint8 value->void)
 {
 	// store r0, pull the argument into a register, then output that register
