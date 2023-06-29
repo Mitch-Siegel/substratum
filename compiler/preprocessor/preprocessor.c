@@ -110,8 +110,42 @@ void populateBuffer(struct RollingBuffer *b, FILE *inFile)
     }
 }
 
-void preprocessFile(FILE *inFile, FILE *outFile)
+// arguments: input file name and output file handle
+// store the current working directory
+// then change directory to the location of the input file
+// open the input file and preprocess it, generating output to the outFile handle
+// restore the old working directory
+void preprocessFile(char *inFileName, FILE *outFile)
 {
+    // handle directory traversal and old CWD storage
+    char *oldCWD = getcwd(NULL, 0);
+    char *inFileDir = dirname(strdup(inFileName));
+    if (chdir(inFileDir))
+    {
+        ErrorAndExit(ERROR_INTERNAL, "Unable to switch to directory %s\n", inFileDir);
+    }
+
+    char *justFileName = inFileName;
+
+    // if the directory for the infile is something other than .
+    if (strcmp(inFileDir, "."))
+    {
+        justFileName += strlen(inFileDir);
+        free(inFileDir);
+    }
+
+    if (justFileName[0] == '/')
+    {
+        justFileName++;
+    }
+
+    // open input file
+    FILE *inFile = fopen(justFileName, "rb");
+    if (inFile == NULL)
+    {
+        ErrorAndExit(ERROR_INVOCATION, "Unable to open input file %s\n", justFileName);
+    }
+
     // set up the main buffer for text input from the infile
     struct RollingBuffer mainBuffer;
     RollingBuffer_Setup(&mainBuffer);
@@ -156,20 +190,17 @@ void preprocessFile(FILE *inFile, FILE *outFile)
                 RollingBuffer_Add(&includeStrBuf, nextCharOfPath);
             }
 
-            printf("%s\n", RollingBuffer_RawData(&includeStrBuf));
+            // printf("%s\n", RollingBuffer_RawData(&includeStrBuf));
 
             char *rawFileName = RollingBuffer_RawData(&includeStrBuf);
             int rawFileNameLen = RollingBuffer_Size(&includeStrBuf);
+
             char *includedFileName = malloc(rawFileNameLen + 1);
             memcpy(includedFileName, rawFileName, rawFileNameLen);
             includedFileName[rawFileNameLen] = '\0';
-            FILE *includedFile = fopen(includedFileName, "rb");
-            if (includedFile == NULL)
-            {
-                ErrorAndExit(ERROR_INVOCATION, "Unable to open included file %s\n", includedFileName);
-            }
+
+            preprocessFile(includedFileName, outFile);
             free(includedFileName);
-            preprocessFile(includedFile, outFile);
         }
         break;
 
@@ -177,6 +208,12 @@ void preprocessFile(FILE *inFile, FILE *outFile)
             ErrorAndExit(ERROR_INTERNAL, "Invalid preprocessor token index %d\n", whichToken);
         }
     }
+
+    if (chdir(oldCWD))
+    {
+        ErrorAndExit(ERROR_INTERNAL, "Unable to set working directory back to %s after processing %s\n", oldCWD, inFileName);
+    }
+    free(oldCWD);
 }
 
 int main(int argc, char **argv)
@@ -200,33 +237,13 @@ int main(int argc, char **argv)
         ErrorAndExit(ERROR_INVOCATION, "Input and output files must be different!\n");
     }
 
-    char *inFileDir = dirname(strdup(argv[1]));
-    if(chdir(inFileDir))
-    {
-        ErrorAndExit(ERROR_INTERNAL, "Unable to switch to directory %s\n", inFileDir);
-    }
-
-    char *justFileName = argv[1] + strlen(inFileDir);
-    if(justFileName[0] == '/')
-    {
-        justFileName++;
-    }
-
-    // open base input and output files
-    FILE *inFile = fopen(justFileName, "rb");
-    if (inFile == NULL)
-    {
-        ErrorAndExit(ERROR_INVOCATION, "Unable to open input file %s\n", justFileName);
-    }
-    free(inFileDir);
-
     FILE *outFile = fopen(argv[2], "wb");
     if (outFile == NULL)
     {
         ErrorAndExit(ERROR_INVOCATION, "Unable to open output file %s\n", argv[2]);
     }
 
-        preprocessFile(inFile, outFile);
+    preprocessFile(argv[1], outFile);
 
     putc('\n', stdout);
 }
