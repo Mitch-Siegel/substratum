@@ -56,6 +56,10 @@ int main(int argc, char **argv)
 		{
 			ErrorAndExit(ERROR_INTERNAL, "Preprocessor execution failed!\n");
 		}
+		else
+		{
+			printf("\n");
+		}
 	}
 
 	parseDict = Dictionary_New(10);

@@ -151,7 +151,7 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
         ErrorAndExit(ERROR_INVOCATION, "Unable to open input file %s\n", justFileName);
     }
 
-    // fprintf(outFile, "FROMFILE=%s\n", justFileName);
+    fprintf(outFile, "#file %s\n", justFileName);
 
     // set up the main buffer for text input from the infile
     struct RollingBuffer mainBuffer;
@@ -224,7 +224,7 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
 
     if (oldInFileName)
     {
-        // fprintf(outFile, "FROMFILE=%s\n", oldInFileName);
+        fprintf(outFile, "#file %s\n", oldInFileName);
     }
 }
 

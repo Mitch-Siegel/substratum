@@ -91,7 +91,9 @@ enum token
 	t_rCurly,
 	t_lBracket,
 	t_rBracket,
-	t_EOF
+	t_file,
+	t_line,
+	t_EOF,
 };
 
 struct AST
@@ -102,6 +104,7 @@ struct AST
 	struct AST *sibling;
 	int sourceLine;
 	int sourceCol;
+	char *sourceFile;
 };
 
 // instantiate a new AST with given type and value
