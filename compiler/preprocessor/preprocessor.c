@@ -197,8 +197,6 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
                 RollingBuffer_Add(&includeStrBuf, nextCharOfPath);
             }
 
-            // printf("%s\n", RollingBuffer_RawData(&includeStrBuf));
-
             char *rawFileName = RollingBuffer_RawData(&includeStrBuf);
             int rawFileNameLen = RollingBuffer_Size(&includeStrBuf);
 
@@ -241,16 +239,25 @@ int main(int argc, char **argv)
         }
     }
 
-    if (argc != 2)
+    if (argc != 2 && argc != 3)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Usage: mld 'infile'\n");
+        ErrorAndExit(ERROR_INTERNAL, "Usage:mpp 'infile' [outfile]\n");
     }
 
-    // FILE *outFile = fopen(argv[2], "wb");
-    // if (outFile == NULL)
-    // {
-    //     ErrorAndExit(ERROR_INVOCATION, "Unable to open output file %s\n", argv[2]);
-    // }
+    FILE *outFile = stdout;
 
-    preprocessFile(argv[1], NULL, stdout);
+    if (argc == 3)
+    {
+        if (!strcmp(argv[1], argv[2]))
+        {
+            ErrorAndExit(ERROR_INTERNAL, "Input and output files must be different!\n");
+        }
+        outFile = fopen(argv[2], "wb");
+        if (outFile == NULL)
+        {
+            ErrorAndExit(ERROR_INVOCATION, "Unable to open output file %s\n", argv[2]);
+        }
+    }
+
+    preprocessFile(argv[1], NULL, outFile);
 }

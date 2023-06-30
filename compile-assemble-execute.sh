@@ -32,5 +32,5 @@ if ! make; then
     exit
 fi
 
-time ./emu ../assembler/main.bin
+time ./emu ../assembler/linked.bin
 

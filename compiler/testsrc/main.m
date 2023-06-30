@@ -10,16 +10,6 @@ fun print(uint8 value->void)
 	;
 }
 
-fun div(uint32 a, uint32 b->uint32)
-{
-	uint32 quotient = 0;
-	while (a >= b)
-	{
-		a = a - b;
-		quotient = quotient + 1;
-	}
-	return quotient;
-}
 
 fun printNum(uint32 num, uint32 newLine->uint8)
 {
@@ -56,19 +46,7 @@ fun printNum(uint32 num, uint32 newLine->uint8)
 	return digits;
 }
 
-uint32 nMultiplications = 0;
 
-fun mul(uint32 a, uint32 b->uint32)
-{
-	uint32 result = 0;
-	while(b > 0)
-	{
-		result = result + a;
-		b = b - 1;
-	}
-	nMultiplications = nMultiplications + 1;
-	return result;
-}
 
 fun test(->void)
 {
@@ -79,7 +57,7 @@ fun test(->void)
 		while(j < 10)
 		{
 			uint8 printedDigits = printNum(mul(i, j), 0);
-			while(printedDigits < 4)
+			while(printedDigits < 6)
 			{
 				print(' ');
 				printedDigits = printedDigits + 1;

@@ -329,7 +329,7 @@ int main(int argc, char **argv)
 
     if (outputExecutable)
     {
-        fprintf(outFile, "#include \"CPU.asm\"\nentry main\n");
+        fprintf(outFile, "#include \"CPU.asm\"\nentry START\n");
     }
 
     for (int i = 0; i < s_null; i++)

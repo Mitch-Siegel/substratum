@@ -31,6 +31,13 @@ void Symbol_Write(struct Symbol *s, FILE *f, char surpressLinkerLines)
             fputc('\n', f);
         }
     }
+    else
+    {
+        if(s->symbolType == s_function_definition)
+        {
+            fputs("#align 2048\n", f);
+        }
+    }
     for (struct LinkedListNode *rawRunner = s->lines->head; rawRunner != NULL; rawRunner = rawRunner->next)
     {
         fputs(rawRunner->data, f);

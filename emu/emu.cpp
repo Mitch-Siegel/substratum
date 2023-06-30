@@ -443,7 +443,6 @@ void movOp(instructionData instruction, int nBytes)
             printf("Error decoding instruction with opcode %02x\n", instruction.byte.b1);
         }
 
-
         int32_t address = longAddress;
 
 #ifdef PRINTEXECUTION
@@ -1038,9 +1037,10 @@ int main(int argc, char *argv[])
 #ifdef PRINTEXECUTION
             printf("%d\n", argw);
 #endif
-            if(registers[sp] != registers[bp])
+            if (registers[sp] != registers[bp])
             {
                 printf("Corrupted stack on return instruction - sp != bp!\n");
+                // printState();
                 exit(1);
             }
             registers[ip] = stackPop(4);

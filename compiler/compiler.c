@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <errno.h>
 
 #include "ast.h"
 #include "parser.h"
@@ -13,7 +15,6 @@
 #include "serialize.h"
 
 struct Dictionary *parseDict = NULL;
-
 int main(int argc, char **argv)
 {
 	if (argc < 2)
@@ -29,39 +30,36 @@ int main(int argc, char **argv)
 
 	printf("Output will be generated to %s\n\n", argv[2]);
 
-	int fd[2];
-	int pid;
-
-	pipe(fd);
+	int pid, status;
 
 	if ((pid = fork()) == -1)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Unable to fork!\n");
 	}
 
-	/*if (pid == 0)
+	if (pid == 0)
 	{
-		// child closes input
-		close(fd[0]);
+		// janky fix: write the preprocessed file to /tmp
+		char *args[4] = {"./mpp", argv[1], "/tmp/auto.mpp", NULL};
 
-		// stdout to pipe
-		dup2(fd[1], STDOUT_FILENO);
-		
-		char *args[2] = {argv[1], NULL};
-		
-		execvp("mpp", args);
+		if(execvp("./mpp", args) < 0)
+		{
+			perror(strerror(errno));
+			ErrorAndExit(ERROR_INTERNAL, "Unable to execute preprocessor!\n");
+		}
+		exit(0);
 	}
 	else
 	{
-		// parent closes output
-		close(fd[1]);
-
-		// stdin from pipe
-		dup2(STDIN_FILENO, fd[0]);
-	}*/
+		wait(&status);
+		if(status)
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Preprocessor execution failed!\n");
+		}
+	}
 
 	parseDict = Dictionary_New(10);
-	struct AST *program = ParseProgram(argv[1], parseDict);
+	struct AST *program = ParseProgram("/tmp/auto.mpp", parseDict);
 
 	// serializeAST("astdump", program);
 	// printf("\n");

@@ -1,16 +1,6 @@
 #include "CPU.asm"
-entry main
-print:
-	push %r1
-	push %r0
-	print_0:
-
-		movb %r0, (%bp+8)
-		out 0, %r0
-print_done:
-	pop %r0
-	pop %r1
-	ret 1
+entry START
+#align 2048
 mod:
 	push %r3
 	push %r2
@@ -47,6 +37,7 @@ mod_done:
 	pop %r2
 	pop %r3
 	ret 8
+#align 2048
 div:
 	push %r4
 	push %r3
@@ -91,6 +82,71 @@ div_done:
 	pop %r3
 	pop %r4
 	ret 8
+#align 2048
+mul:
+	subi %sp, %sp, $4
+	push %r4
+	push %r3
+	push %r2
+	push %r1
+	push %r0
+	mov %r1, (%bp+8) ;place a
+	mov %r2, (%bp+12) ;place b
+	mul_0:
+	;result = 0
+	movb %r3, $0
+	;jmp basicblock 2
+	jmp mul_2
+mul_2:
+	;do
+	;cmp b 0
+	cmpi %r2, $0
+	;jle basicblock 1
+	jle mul_1
+mul_3:
+	;.t0 = result + a
+	add %r4, %r3, %r1
+	;result = .t0
+	mov %r3, %r4
+	;.t1 = b - 1
+	subi %r4, %r2, $1
+	;b = .t1
+	mov %r2, %r4
+	;jmp basicblock 2
+	jmp mul_2
+	;jmp basicblock 2
+	jmp mul_2
+	;end do
+mul_1:
+	;.t2 = nMultiplications + 1
+	mov %r0, (%bp-4)
+	addi %r4, %r0, $1
+	;nMultiplications = .t2
+	mov (%bp-4), %r4
+	;ret result
+	mov %rr, %r3
+	jmp mul_done
+mul_done:
+	pop %r0
+	pop %r1
+	pop %r2
+	pop %r3
+	pop %r4
+	addi %sp, %sp, $4
+	ret 8
+#align 2048
+print:
+	push %r1
+	push %r0
+	print_0:
+
+		movb %r0, (%bp+8)
+		out 0, %r0
+print_done:
+	pop %r0
+	pop %r1
+	ret 1
+#align 2048
 printNum:
 	subi %sp, %sp, $16
 	push %r6
@@ -229,57 +285,7 @@ printNum_done:
 	pop %r6
 	addi %sp, %sp, $16
 	ret 8
-mul:
-	subi %sp, %sp, $4
-	push %r4
-	push %r3
-	push %r2
-	push %r1
-	push %r0
-	mov %r1, (%bp+8) ;place a
-	mov %r2, (%bp+12) ;place b
-	mul_0:
-	;result = 0
-	movb %r3, $0
-	;jmp basicblock 2
-	jmp mul_2
-mul_2:
-	;do
-	;cmp b 0
-	cmpi %r2, $0
-	;jle basicblock 1
-	jle mul_1
-mul_3:
-	;.t0 = result + a
-	add %r4, %r3, %r1
-	;result = .t0
-	mov %r3, %r4
-	;.t1 = b - 1
-	subi %r4, %r2, $1
-	;b = .t1
-	mov %r2, %r4
-	;jmp basicblock 2
-	jmp mul_2
-	;jmp basicblock 2
-	jmp mul_2
-	;end do
-mul_1:
-	;.t2 = nMultiplications + 1
-	mov %r0, (%bp-4)
-	addi %r4, %r0, $1
-	;nMultiplications = .t2
-	mov (%bp-4), %r4
-	;ret result
-	mov %rr, %r3
-	jmp mul_done
-mul_done:
-	pop %r0
-	pop %r1
-	pop %r2
-	pop %r3
-	pop %r4
-	addi %sp, %sp, $4
-	ret 8
+#align 2048
 test:
 	subi %sp, %sp, $4
 	push %r4
@@ -336,8 +342,8 @@ test_6:
 	jmp test_8
 test_8:
 	;do
-	;cmp printedDigits.00.00 4
-	cmpi %r3, $4
+	;cmp printedDigits.00.00 6
+	cmpi %r3, $6
 	;jge basicblock 7
 	jge test_7
 test_9:
@@ -403,6 +409,7 @@ test_done:
 	pop %r4
 	addi %sp, %sp, $4
 	ret
+#align 2048
 main:
 	push %r0
 	main_0:
