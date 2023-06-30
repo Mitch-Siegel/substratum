@@ -289,6 +289,42 @@ void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *elem
 	return NULL;
 }
 
+void *LinkedList_PopFront(struct LinkedList *l)
+{
+	if (l->size == 0)
+	{
+		ErrorAndExit(ERROR_INVOCATION, "Unable to pop front from empty linkedlist!\n");
+	}
+	struct LinkedListNode *popped = l->head;
+
+	l->head = l->head->next;
+	l->head->prev = NULL;
+	l->size--;
+
+	void *poppedData = popped->data;
+	free(popped);
+
+	return poppedData;
+}
+
+void *LinkedList_PopBack(struct LinkedList *l)
+{
+	if (l->size == 0)
+	{
+		ErrorAndExit(ERROR_INVOCATION, "Unable to pop front from empty linkedlist!\n");
+	}
+	struct LinkedListNode *popped = l->tail;
+
+	l->tail = l->tail->prev;
+	l->tail->next = NULL;
+	l->size--;
+
+	void *poppedData = popped->data;
+	free(popped);
+
+	return poppedData;
+}
+
 /*
  * string trimming - overallocate for sprintf and let this funciton trim it down
  */

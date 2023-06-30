@@ -535,7 +535,7 @@ void printParseStack(struct Stack *parseStack)
 			printf("Line %3d:%-3d: %10s\t", thisProduction->tree->sourceLine, thisProduction->tree->sourceCol, thisProduction->tree->value);
 		}
 
-		printf("%s ", getTokenName(thisProduction->production));
+		// printf("%s ", getTokenName(thisProduction->production));
 
 		if (thisProduction->production == p_null)
 		{

@@ -38,10 +38,10 @@ void RollingBuffer_Add(struct RollingBuffer *b, char c)
         ErrorAndExit(ERROR_INTERNAL, "Attempt to add to full rolling buffer!\n");
     }
     b->data[b->startPos + b->size++] = c;
-    if ((b->startPos + b->size) >= (ROLLING_BUFFER_SIZE * 2) || (b->size == ROLLING_BUFFER_SIZE))
+    if ((b->startPos + b->size) >= (ROLLING_BUFFER_SIZE * 2) || (b->size >= ROLLING_BUFFER_SIZE))
     {
-        memcpy(b->data, b->data + ROLLING_BUFFER_SIZE, ROLLING_BUFFER_SIZE);
-        b->size = ROLLING_BUFFER_SIZE;
+        memcpy(b->data, b->data + b->startPos, b->size);
+        // b->size = ROLLING_BUFFER_SIZE;
         b->startPos = 0;
     }
 }
@@ -106,7 +106,11 @@ void populateBuffer(struct RollingBuffer *b, FILE *inFile)
 {
     while ((!feof(inFile)) && (RollingBuffer_Size(b) < longestToken))
     {
-        RollingBuffer_Add(b, fgetc(inFile));
+        int gotten;
+        if ((gotten = fgetc(inFile)) != EOF)
+        {
+            RollingBuffer_Add(b, gotten);
+        }
     }
 }
 
@@ -115,8 +119,9 @@ void populateBuffer(struct RollingBuffer *b, FILE *inFile)
 // then change directory to the location of the input file
 // open the input file and preprocess it, generating output to the outFile handle
 // restore the old working directory
-void preprocessFile(char *inFileName, FILE *outFile)
+void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
 {
+    fprintf(stderr, "Preprocessing file %s\n", inFileName);
     // handle directory traversal and old CWD storage
     char *oldCWD = getcwd(NULL, 0);
     char *inFileDir = dirname(strdup(inFileName));
@@ -146,6 +151,8 @@ void preprocessFile(char *inFileName, FILE *outFile)
         ErrorAndExit(ERROR_INVOCATION, "Unable to open input file %s\n", justFileName);
     }
 
+    // fprintf(outFile, "FROMFILE=%s\n", justFileName);
+
     // set up the main buffer for text input from the infile
     struct RollingBuffer mainBuffer;
     RollingBuffer_Setup(&mainBuffer);
@@ -158,7 +165,7 @@ void preprocessFile(char *inFileName, FILE *outFile)
 
         if (whichToken == -1)
         {
-            putc(RollingBuffer_Consume(&mainBuffer), stdout);
+            putc(RollingBuffer_Consume(&mainBuffer), outFile);
             continue;
         }
 
@@ -199,7 +206,7 @@ void preprocessFile(char *inFileName, FILE *outFile)
             memcpy(includedFileName, rawFileName, rawFileNameLen);
             includedFileName[rawFileNameLen] = '\0';
 
-            preprocessFile(includedFileName, outFile);
+            preprocessFile(includedFileName, justFileName, outFile);
             free(includedFileName);
         }
         break;
@@ -214,6 +221,13 @@ void preprocessFile(char *inFileName, FILE *outFile)
         ErrorAndExit(ERROR_INTERNAL, "Unable to set working directory back to %s after processing %s\n", oldCWD, inFileName);
     }
     free(oldCWD);
+
+    putc('\n', outFile);
+
+    if (oldInFileName)
+    {
+        // fprintf(outFile, "FROMFILE=%s\n", oldInFileName);
+    }
 }
 
 int main(int argc, char **argv)
@@ -227,23 +241,16 @@ int main(int argc, char **argv)
         }
     }
 
-    if (argc != 3)
+    if (argc != 2)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Usage: mld 'infile' 'outfile'\n");
+        ErrorAndExit(ERROR_INTERNAL, "Usage: mld 'infile'\n");
     }
 
-    if (!strcmp(argv[1], argv[2]))
-    {
-        ErrorAndExit(ERROR_INVOCATION, "Input and output files must be different!\n");
-    }
+    // FILE *outFile = fopen(argv[2], "wb");
+    // if (outFile == NULL)
+    // {
+    //     ErrorAndExit(ERROR_INVOCATION, "Unable to open output file %s\n", argv[2]);
+    // }
 
-    FILE *outFile = fopen(argv[2], "wb");
-    if (outFile == NULL)
-    {
-        ErrorAndExit(ERROR_INVOCATION, "Unable to open output file %s\n", argv[2]);
-    }
-
-    preprocessFile(argv[1], outFile);
-
-    putc('\n', stdout);
+    preprocessFile(argv[1], NULL, stdout);
 }

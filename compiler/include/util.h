@@ -93,6 +93,10 @@ void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *el
 
 void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *element);
 
+void *LinkedList_PopFront(struct LinkedList *l);
+
+void *LinkedList_PopBack(struct LinkedList *l);
+
 char *strTrim(char *s, int l);
 
 char *strAppend(char *before, char *after);
