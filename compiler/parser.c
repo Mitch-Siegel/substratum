@@ -788,40 +788,88 @@ void reduce(struct Stack *parseStack)
 	Stack_Push(parseStack, produced);
 }
 
-char *ExpandSourceFromAST(struct AST *tree, char *parentString)
+char *ExpandSourceFromAST(struct AST *tree)
 {
-	if (tree->child != NULL)
+	struct Stack *allNodes = Stack_New();
+	struct Stack *toVisit = Stack_New();
+	Stack_Push(toVisit, tree);
+	while (toVisit->size > 0)
 	{
-		char *printed = NULL;
+		struct AST *visited = Stack_Pop(toVisit);
+		Stack_Push(allNodes, visited);
 
-		int startLHSLen = strlen(tree->child->value);
-		char *LHS = malloc(strlen(tree->child->value) + 2);
-		strcpy(LHS, tree->child->value);
-		LHS[startLHSLen] = ' ';
-		LHS[startLHSLen + 1] = '\0';
-		LHS = ExpandSourceFromAST(tree->child, LHS);
-
-		printed = strAppend(LHS, parentString);
-		// printf("Before siblings: [%s]\n", printed);
-
-		for (struct AST *siblingRunner = tree->child->sibling; siblingRunner != NULL; siblingRunner = siblingRunner->sibling)
+		if (visited->child != NULL)
 		{
-			char *siblingString = malloc(strlen(siblingRunner->value) + 1);
-			strcpy(siblingString, siblingRunner->value);
-			// printf("Put in [%s]\n", siblingString);
-			siblingString = ExpandSourceFromAST(siblingRunner, siblingString);
-			// printf("Get out [%s]\n", siblingString);
-
-			printed = strAppend(printed, siblingString);
+			Stack_Push(toVisit, visited->child);
 		}
-		// printf("Return %s\n", printed);
 
-		return printed;
+		if (visited->sibling != NULL)
+		{
+			Stack_Push(toVisit, visited->sibling);
+		}
 	}
-	else
+
+	for (int i = 0; i < allNodes->size; i++)
 	{
-		return parentString;
+		for (int j = 0; j < (allNodes->size - i) - 1; j++)
+		{
+			struct AST *a = allNodes->data[j];
+			struct AST *b = allNodes->data[j + 1];
+
+			if (a->sourceLine > b->sourceLine)
+			{
+				allNodes->data[j + 1] = a;
+				allNodes->data[j] = b;
+			}
+		}
 	}
+
+	for (int i = 0; i < allNodes->size; i++)
+	{
+		for (int j = 0; j < (allNodes->size - i) - 1; j++)
+		{
+			struct AST *a = allNodes->data[j];
+			struct AST *b = allNodes->data[j + 1];
+
+			if ((a->sourceLine == b->sourceLine) && (a->sourceCol > b->sourceCol))
+			{
+				allNodes->data[j + 1] = a;
+				allNodes->data[j] = b;
+				continue;
+			}
+		}
+	}
+
+	char *printedStr = malloc(1);
+	printedStr[0] = '\0';
+	struct AST *lastPrinted = allNodes->data[0];
+	for (int i = 0; i < allNodes->size; i++)
+	{
+		struct AST *nodeToPrint = allNodes->data[i];
+		if (nodeToPrint->sourceLine > lastPrinted->sourceLine)
+		{
+			char lineNo[10];
+			snprintf(lineNo, 9, "\n%4d:", nodeToPrint->sourceLine);
+			printedStr = strAppend(printedStr, strdup(lineNo));
+
+			for (int i = 0; i < nodeToPrint->sourceCol; i++)
+			{
+				printedStr = strAppend(printedStr, strdup(" "));
+			}
+		}
+		// else
+		// {
+			int sizeDiff = (nodeToPrint->sourceCol - strlen(lastPrinted->value)) - lastPrinted->sourceCol;
+			for (int i = 0; i < sizeDiff; i++)
+			{
+				printedStr = strAppend(printedStr, strdup(" "));
+			}
+		// }
+		printedStr = strAppend(printedStr, strdup(nodeToPrint->value));
+
+		lastPrinted = nodeToPrint;
+	}
+	return printedStr;
 }
 
 void TableParseError(struct Stack *parseStack)
@@ -834,59 +882,10 @@ void TableParseError(struct Stack *parseStack)
 	char *printedSource = malloc(1);
 	printedSource[0] = '\0';
 
-	int currentSourceLine = firstIPP->tree->sourceLine;
+	struct InProgressProduction *examinedIPP = Stack_Peek(parseStack);
+	printedSource = ExpandSourceFromAST(examinedIPP->tree);
 
-	// spit out everything on the line it looks like the error occurred at
-	// plus any contiguous tokens before that point, followed by at most 1 production if there is one
-	// i > 0 so we never attempt to expand the big translation unit at the bottom of the stack
-	for (int i = parseStack->size - 1; i > 0; i--)
-	{
-		struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[i];
-		int valueLength = strlen(examinedIPP->tree->value);
-		char *parentStr = malloc(valueLength + 2);
-
-		if (examinedIPP->tree->sourceLine != currentSourceLine)
-		{
-			strcpy(parentStr, examinedIPP->tree->value);
-			parentStr[valueLength] = '\n';
-			parentStr[valueLength + 1] = '\0';
-		}
-		else
-		{
-			strcpy(parentStr + 1, examinedIPP->tree->value);
-			parentStr[0] = ' ';
-		}
-		currentSourceLine = examinedIPP->tree->sourceLine;
-
-		printedSource = strAppend(ExpandSourceFromAST(examinedIPP->tree, parentStr), printedSource);
-
-		// if we are no longer on the line the error appears to have occurred on, and we just expaneded a production rather than a production, we are done
-		if ((examinedIPP->tree->sourceLine < firstIPP->tree->sourceLine) && (examinedIPP->production < p_null))
-		{
-			break;
-		}
-	}
-
-	int printedLen = strlen(printedSource);
-	char justPrintedNL = 0;
-	for (int i = 0; i < printedLen; i++)
-	{
-		if (printedSource[i] == '\n')
-		{
-			justPrintedNL = 1;
-			printf("\n\t");
-		}
-		else
-		{
-			// skip any space which immediately follows a newline
-			if (!(justPrintedNL && printedSource[i] == ' '))
-			{
-				putchar(printedSource[i]);
-			}
-			justPrintedNL = 0;
-		}
-	}
-	printf("\n\n");
+	printf("%s\n\n", printedSource);
 	free(printedSource);
 	ErrorAndExit(ERROR_INVOCATION, "Fix your program!\t");
 }

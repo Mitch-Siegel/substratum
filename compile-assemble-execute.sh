@@ -1,3 +1,4 @@
+set -e
 echo "building compiler"
 cd compiler
 if ! make; then
@@ -6,7 +7,7 @@ fi
 
 echo "\ncompiling files"
 # xargs -I {} sh -c "echo {}; ls -la {}"
-ls testsrc/*.m | cut -d '.' -f1 | xargs -I {} sh -c "echo {}; ./mcc {}.m {}.o"
+ls testsrc/*.m | cut -d '.' -f1 | xargs -I {} sh -c "echo {};./mcc {}.m {}.o"
 # if ! ./mcc testsrc ../assembler/main.asm; then
     # exit
 # fi
@@ -16,7 +17,7 @@ cd testsrc
 rm -f linked.o
 touch linked.o
 # xargs -I {} sh -c "echo {}; ls -la {}"
-ls *.o | xargs -I {} sh -c "if ! ../mld -i linked.o -i {} -o linked.o; then exit; fi"
+ls *.o | xargs -I {} sh -c "../mld -i linked.o -i {} -o linked.o"
 
 cd ..
 ./mld -i ./testsrc/linked.o -o ../assembler/linked.asm -e
