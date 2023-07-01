@@ -109,7 +109,56 @@ void populateBuffer(struct RollingBuffer *b, FILE *inFile)
         int gotten;
         if ((gotten = fgetc(inFile)) != EOF)
         {
-            RollingBuffer_Add(b, gotten);
+            if (gotten == '/')
+            {
+                gotten = fgetc(inFile);
+                switch (gotten)
+                {
+                case '/':
+                    do
+                    {
+                        gotten = fgetc(inFile);
+                        printf("%c\n", gotten);
+                    } while ((gotten != EOF) && (gotten != '\n'));
+                    printf("end of comment line\n");
+                    RollingBuffer_Add(b, gotten);
+                    break;
+
+                case '*':
+                {
+                    char inBlockComment = 1;
+                    do
+                    {
+                        gotten = fgetc(inFile);
+                        if (gotten == '*')
+                        {
+                            int second_gotten = fgetc(inFile);
+                            if (second_gotten == '/')
+                            {
+                                inBlockComment = 0;
+                            }
+                        }
+                    } while ((gotten != EOF) && inBlockComment);
+                    if(inBlockComment)
+                    {
+                        ErrorAndExit(ERROR_CODE, "Block comment does not end!\n");
+                    }
+                }
+                break;
+
+                default:
+                    RollingBuffer_Add(b, '/');
+                    if (gotten != EOF)
+                    {
+                        RollingBuffer_Add(b, gotten);
+                    }
+                    printf("not a coment\n");
+                }
+            }
+            else
+            {
+                RollingBuffer_Add(b, gotten);
+            }
         }
     }
 }
