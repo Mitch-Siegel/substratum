@@ -10,6 +10,10 @@
  * This data structure guarantees buffer contents are always sequentially accessible (no wrapping to access)
  *
  */
+#define POS_LINE 0
+#define POS_COL 1
+int curPos[2];
+
 #define ROLLING_BUFFER_SIZE 512
 
 struct RollingBuffer
@@ -102,25 +106,39 @@ int detectPreprocessorToken(struct RollingBuffer *b)
     return -1;
 }
 
+int getCharTrack(FILE *inFile)
+{
+    int gotten = fgetc(inFile);
+    if (gotten == '\n')
+    {
+        curPos[POS_COL] = 0;
+        curPos[POS_LINE]++;
+    }
+    else
+    {
+        curPos[POS_COL]++;
+    }
+    return gotten;
+}
+
 void populateBuffer(struct RollingBuffer *b, FILE *inFile)
 {
     while ((!feof(inFile)) && (RollingBuffer_Size(b) < longestToken))
     {
         int gotten;
-        if ((gotten = fgetc(inFile)) != EOF)
+        if ((gotten = getCharTrack(inFile)) != EOF)
         {
             if (gotten == '/')
             {
-                gotten = fgetc(inFile);
+                gotten = getCharTrack(inFile);
                 switch (gotten)
                 {
                 case '/':
                     do
                     {
-                        gotten = fgetc(inFile);
+                        gotten = getCharTrack(inFile);
                         printf("%c\n", gotten);
                     } while ((gotten != EOF) && (gotten != '\n'));
-                    printf("end of comment line\n");
                     RollingBuffer_Add(b, gotten);
                     break;
 
@@ -129,19 +147,28 @@ void populateBuffer(struct RollingBuffer *b, FILE *inFile)
                     char inBlockComment = 1;
                     do
                     {
-                        gotten = fgetc(inFile);
+                        gotten = getCharTrack(inFile);
                         if (gotten == '*')
                         {
-                            int second_gotten = fgetc(inFile);
+                            int second_gotten = getCharTrack(inFile);
                             if (second_gotten == '/')
                             {
                                 inBlockComment = 0;
                             }
                         }
                     } while ((gotten != EOF) && inBlockComment);
-                    if(inBlockComment)
+                    if (inBlockComment)
                     {
                         ErrorAndExit(ERROR_CODE, "Block comment does not end!\n");
+                    }
+                    else
+                    {
+                        char lineNumStr[32];
+                        int len = snprintf(lineNumStr, 31, "\n#line %d\n", curPos[POS_LINE]);
+                        for(int i = 0; i < len; i++)
+                        {
+                            RollingBuffer_Add(b, lineNumStr[i]);
+                        }
                     }
                 }
                 break;
@@ -170,6 +197,10 @@ void populateBuffer(struct RollingBuffer *b, FILE *inFile)
 // restore the old working directory
 void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
 {
+    int savedPos[2];
+    memcpy(savedPos, curPos, 2 * sizeof(int));
+    memset(curPos, 0, 2 * sizeof(int));
+
     fprintf(stderr, "Preprocessing file %s\n", inFileName);
     // handle directory traversal and old CWD storage
     char *oldCWD = getcwd(NULL, 0);
@@ -275,6 +306,7 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
     {
         fprintf(outFile, "#file %s\n", oldInFileName);
     }
+    memcpy(curPos, savedPos, 2 * sizeof(int));
 }
 
 int main(int argc, char **argv)
@@ -308,5 +340,7 @@ int main(int argc, char **argv)
         }
     }
 
+
+    memset(curPos, 0, 2 * sizeof(int));
     preprocessFile(argv[1], NULL, outFile);
 }
