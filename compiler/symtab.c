@@ -676,7 +676,7 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		case e_function:
 		{
 			struct FunctionEntry *theFunction = thisMember->entry;
-			printf("> Function %s (returns %d)\n", thisMember->name, theFunction->returnType);
+			printf("> Function %s (returns %d) (defined: %d)\n", thisMember->name, theFunction->returnType, theFunction->isDefined);
 			if (printTAC)
 			{
 				for (struct LinkedListNode *b = theFunction->BasicBlockList->head; b != NULL; b = b->next)
@@ -1106,8 +1106,16 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 						 Scope_getNameOfType(parentScope, existingFunc->returnType, existingFunc->returnIndirectionLevel));
 		}
 
-		parsedFunc->isDefined = 1;
-		walkScope(functionRunner, parsedFunc->mainScope, 1);
+		if (existingFunc != NULL)
+		{
+			existingFunc->isDefined = 1;
+			walkScope(functionRunner, existingFunc->mainScope, 1);
+		}
+		else
+		{
+			parsedFunc->isDefined = 1;
+			walkScope(functionRunner, parsedFunc->mainScope, 1);
+		}
 	}
 }
 

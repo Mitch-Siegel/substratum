@@ -1458,19 +1458,15 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			int labelCount = 1;
 			struct FunctionEntry *theFunction = Scope_lookupFun(globalScope, runner->child->child);
 
-			// if this is just a definition rather than a declaration, nothing to linearize
+			// if we know the function is never defined, don't try to walk it
 			if (!theFunction->isDefined)
 			{
 				break;
 			}
 
-			struct BasicBlock *functionBlock = BasicBlock_new(funTempNum);
-
-			Scope_addBasicBlock(theFunction->mainScope, functionBlock);
-			struct Stack *scopeStack = Stack_New();
-			struct LinearizationMetadata functionMetadata;
-
 			struct AST *functionMainScopeTree = runner->child;
+			printf("ast for function %s\n", theFunction->name);
+			AST_Print(functionMainScopeTree, 0);
 			// skip over argument declarations
 			while (functionMainScopeTree->type != t_pointer_op)
 			{
@@ -1479,6 +1475,23 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			// skip over return type
 			functionMainScopeTree = functionMainScopeTree->sibling;
 			functionMainScopeTree = functionMainScopeTree->sibling;
+
+			// if this is the AST for just the declaration no function body to walk, so bail
+			if(functionMainScopeTree == NULL)
+			{
+				printf("%s not defined at %s:%d:%d\n", theFunction->name, runner->sourceFile, runner->sourceLine, runner->sourceCol);
+				break;
+			}
+			else
+			{
+				printf("%s defined at %s:%d:%d\n", theFunction->name, runner->sourceFile, runner->sourceLine, runner->sourceCol);
+			}
+
+			struct BasicBlock *functionBlock = BasicBlock_new(funTempNum);
+
+			Scope_addBasicBlock(theFunction->mainScope, functionBlock);
+			struct Stack *scopeStack = Stack_New();
+			struct LinearizationMetadata functionMetadata;
 
 			functionMetadata.dict = dict;
 			functionMetadata.ast = functionMainScopeTree;

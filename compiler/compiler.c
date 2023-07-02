@@ -42,7 +42,7 @@ int main(int argc, char **argv)
 		// janky fix: write the preprocessed file to /tmp
 		char *args[4] = {"./mpp", argv[1], "/tmp/auto.mpp", NULL};
 
-		if(execvp("./mpp", args) < 0)
+		if (execvp("./mpp", args) < 0)
 		{
 			perror(strerror(errno));
 			ErrorAndExit(ERROR_INTERNAL, "Unable to execute preprocessor!\n");
@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 	else
 	{
 		wait(&status);
-		if(status)
+		if (status)
 		{
 			ErrorAndExit(ERROR_INTERNAL, "Preprocessor execution failed!\n");
 		}
