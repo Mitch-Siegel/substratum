@@ -121,7 +121,8 @@ int getCharTrack(FILE *inFile)
     return gotten;
 }
 
-void populateBuffer(struct RollingBuffer *b, FILE *inFile)
+// attempt to populate the rolling buffer, return the number of characters in the buffer
+int populateBuffer(struct RollingBuffer *b, FILE *inFile)
 {
     while ((!feof(inFile)) && (RollingBuffer_Size(b) < longestToken))
     {
@@ -157,6 +158,7 @@ void populateBuffer(struct RollingBuffer *b, FILE *inFile)
                             }
                         }
                     } while ((gotten != EOF) && inBlockComment);
+                    
                     if (inBlockComment)
                     {
                         ErrorAndExit(ERROR_CODE, "Block comment does not end!\n");
@@ -165,7 +167,7 @@ void populateBuffer(struct RollingBuffer *b, FILE *inFile)
                     {
                         char lineNumStr[32];
                         int len = snprintf(lineNumStr, 31, "\n#line %d\n", curPos[POS_LINE]);
-                        for(int i = 0; i < len; i++)
+                        for (int i = 0; i < len; i++)
                         {
                             RollingBuffer_Add(b, lineNumStr[i]);
                         }
@@ -179,7 +181,6 @@ void populateBuffer(struct RollingBuffer *b, FILE *inFile)
                     {
                         RollingBuffer_Add(b, gotten);
                     }
-                    printf("not a coment\n");
                 }
             }
             else
@@ -187,7 +188,12 @@ void populateBuffer(struct RollingBuffer *b, FILE *inFile)
                 RollingBuffer_Add(b, gotten);
             }
         }
+        else
+        {
+            break;
+        }
     }
+    return b->size;
 }
 
 // arguments: input file name and output file handle
@@ -204,7 +210,8 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
     fprintf(stderr, "Preprocessing file %s\n", inFileName);
     // handle directory traversal and old CWD storage
     char *oldCWD = getcwd(NULL, 0);
-    char *inFileDir = dirname(strdup(inFileName));
+    char *duped = strdup(inFileName);
+    char *inFileDir = dirname(duped);
     if (chdir(inFileDir))
     {
         ErrorAndExit(ERROR_INTERNAL, "Unable to switch to directory %s\n", inFileDir);
@@ -213,10 +220,10 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
     char *justFileName = inFileName;
 
     // if the directory for the infile is something other than .
-    if (strcmp(inFileDir, "."))
+    if (inFileDir && strcmp(inFileDir, "."))
     {
         justFileName += strlen(inFileDir);
-        free(inFileDir);
+        free(duped);
     }
 
     if (justFileName[0] == '/')
@@ -231,16 +238,15 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
         ErrorAndExit(ERROR_INVOCATION, "Unable to open input file %s\n", justFileName);
     }
 
-    fprintf(outFile, "#file %s\n", justFileName);
+    fprintf(outFile, "#file \"%s\"\n", justFileName);
 
     // set up the main buffer for text input from the infile
     struct RollingBuffer mainBuffer;
     RollingBuffer_Setup(&mainBuffer);
 
-    while (!feof(inFile) || (RollingBuffer_Size(&mainBuffer) > 0))
+    // try to grab more input for the buffer, if we can't and nothing left in buffer, we are done
+    while ((populateBuffer(&mainBuffer, inFile)) || (RollingBuffer_Size(&mainBuffer) > 0))
     {
-        populateBuffer(&mainBuffer, inFile);
-
         int whichToken = detectPreprocessorToken(&mainBuffer);
 
         if (whichToken == -1)
@@ -293,7 +299,8 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
             ErrorAndExit(ERROR_INTERNAL, "Invalid preprocessor token index %d\n", whichToken);
         }
     }
-
+    
+    printf("done in pp loop\n");
     if (chdir(oldCWD))
     {
         ErrorAndExit(ERROR_INTERNAL, "Unable to set working directory back to %s after processing %s\n", oldCWD, inFileName);
@@ -304,7 +311,7 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
 
     if (oldInFileName)
     {
-        fprintf(outFile, "#file %s\n", oldInFileName);
+        fprintf(outFile, "#file \"%s\"\n", oldInFileName);
     }
     memcpy(curPos, savedPos, 2 * sizeof(int));
 }
@@ -339,7 +346,6 @@ int main(int argc, char **argv)
             ErrorAndExit(ERROR_INVOCATION, "Unable to open output file %s\n", argv[2]);
         }
     }
-
 
     memset(curPos, 0, 2 * sizeof(int));
     preprocessFile(argv[1], NULL, outFile);

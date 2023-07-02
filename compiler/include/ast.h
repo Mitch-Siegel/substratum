@@ -29,6 +29,7 @@ enum token
 	p_statement_list,
 	p_while,
 	p_scope,
+	p_function_declaration,
 	p_function_definition,
 	p_translation_unit,
 	p_null,

@@ -942,59 +942,82 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 	}
 
 	// child is the lparen, function name is the child of the lparen
-	struct FunctionEntry *func = Scope_createFunction(parentScope, functionRunner->child->value, returnType, returnIndirectionLevel);
-	functionRunner = functionRunner->sibling; // start at argument definitions
-	func->mainScope->parentScope = parentScope;
 
-	while (functionRunner->type != t_pointer_op)
+	struct ScopeMember *lookedUpFunction = Scope_lookup(parentScope, functionRunner->child->value);
+	struct FunctionEntry *func;
+	if (lookedUpFunction == NULL)
 	{
+		func = Scope_createFunction(parentScope, functionRunner->child->value, returnType, returnIndirectionLevel);
+		functionRunner = functionRunner->sibling; // start at argument definitions
+		func->mainScope->parentScope = parentScope;
+
+		while (functionRunner->type != t_pointer_op)
+		{
+			switch (functionRunner->type)
+			{
+				// looking at argument declarations
+			case t_uint8:
+			case t_uint16:
+			case t_uint32:
+			{
+				walkDeclaration(functionRunner, func->mainScope, 1);
+			}
+			break;
+
+			case t_lCurly:
+			{
+				walkScope(functionRunner, func->mainScope, 1);
+			}
+			break;
+
+			default:
+				ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected function name and main scope only!\nMalformed node was of type %s with value [%s]\n", getTokenName(functionRunner->type), functionRunner->value);
+			}
+			functionRunner = functionRunner->sibling;
+		}
+		functionRunner = functionRunner->sibling;
+
 		switch (functionRunner->type)
 		{
-			// looking at argument declarations
-		case t_uint8:
-		case t_uint16:
-		case t_uint32:
-		{
-			walkDeclaration(functionRunner, func->mainScope, 1);
-		}
-		break;
+		case t_void:
+			func->returnType = vt_null;
+			break;
 
-		case t_lCurly:
-		{
-			walkScope(functionRunner, func->mainScope, 1);
-		}
-		break;
+		case t_uint8:
+			func->returnType = vt_uint8;
+			break;
+
+		case t_uint16:
+			func->returnType = vt_uint16;
+			break;
+
+		case t_uint32:
+			func->returnType = vt_uint32;
+			break;
 
 		default:
-			ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected function name and main scope only!\nMalformed node was of type %s with value [%s]\n", getTokenName(functionRunner->type), functionRunner->value);
+			ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected return type to be a type specifier!\nMalformed node was of type %s with value [%s]\n", getTokenName(functionRunner->type), functionRunner->value);
 		}
 		functionRunner = functionRunner->sibling;
 	}
-	functionRunner = functionRunner->sibling;
-
-	switch (functionRunner->type)
+	else
 	{
-	case t_void:
-		func->returnType = vt_null;
-		break;
+		if (lookedUpFunction->type != e_function)
+		{
+			ErrorWithAST(ERROR_CODE, it, "Redefinition of symbol %s as function!\n", functionRunner->child->value);
+		}
+		func = lookedUpFunction->entry;
 
-	case t_uint8:
-		func->returnType = vt_uint8;
-		break;
-
-	case t_uint16:
-		func->returnType = vt_uint16;
-		break;
-
-	case t_uint32:
-		func->returnType = vt_uint32;
-		break;
-
-	default:
-		ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected return type to be a type specifier!\nMalformed node was of type %s with value [%s]\n", getTokenName(functionRunner->type), functionRunner->value);
+		if(functionRunner == NULL)
+		{
+			ErrorWithAST(ERROR_CODE, it, "Redefinition of function %s!\n", functionRunner->child->value);
+		}
 	}
-	functionRunner = functionRunner->sibling;
-	walkScope(functionRunner, func->mainScope, 1);
+
+	if (functionRunner != NULL)
+	{
+		walkScope(functionRunner, func->mainScope, 1);
+	}
 }
 
 // given an AST node for a program, walk the AST and generate a symbol table for the entire thing

@@ -33,6 +33,7 @@ char *token_names[] = {
 	"p_statement_list",
 	"p_while",
 	"p_scope",
+	"p_function_declaration",
 	"p_function_definition",
 	"p_translation_unit",
 	"p_null",
@@ -282,6 +283,24 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 
 };
 
+int fgetc_track(char trackPos)
+{
+	int gotten = fgetc(inFile);
+	if (trackPos)
+	{
+		if (gotten == '\n')
+		{
+			curLine++;
+			curCol = 0;
+		}
+		else
+		{
+			curCol++;
+		}
+	}
+	return gotten;
+}
+
 // scan and return the raw token we see
 enum token _scan(char trackPos)
 {
@@ -293,21 +312,36 @@ enum token _scan(char trackPos)
 
 	enum token currentToken = -1;
 
-	if (lookahead_char_dumb(1) == '\'')
+	if (lookahead_char_dumb(1) == '"')
 	{
-		if (lookahead_char_dumb(3) == '\'')
+		fgetc_track(trackPos);
+		int inChar;
+		int gotEndQuote = 0;
+		while ((inChar = fgetc_track(trackPos)) != EOF)
 		{
-			fgetc(inFile);
-			buffer[0] = fgetc(inFile);
-			buffer[1] = '\0';
-			fgetc(inFile);
-			return t_char_literal;
+			if (inChar == '"')
+			{
+				gotEndQuote = 1;
+				break;
+			}
+			buffer[buflen++] = inChar;
+			buffer[buflen] = '\0';
 		}
+
+		if (!gotEndQuote)
+		{
+			struct AST ex;
+			ex.sourceFile = curFile;
+			ex.sourceCol = curCol;
+			ex.sourceLine = curLine;
+			ErrorWithAST(ERROR_CODE, (&ex), "String literal doesn't end!\n");
+		}
+		return t_string_literal;
 	}
 
 	while (1)
 	{
-		int inChar = fgetc(inFile);
+		int inChar = fgetc_track(trackPos);
 		if (inChar == EOF)
 		{
 			if (buflen > 0)
@@ -320,8 +354,6 @@ enum token _scan(char trackPos)
 				return t_EOF;
 			}
 		}
-		if (trackPos)
-			curCol++;
 
 		buffer[buflen++] = inChar;
 		buffer[buflen] = '\0';
@@ -427,7 +459,7 @@ enum token scan(char trackPos, struct Dictionary *dict)
 		{
 		case t_file:
 			// make sure we see what we expect after the #file
-			if (_scan(trackPos) != t_identifier)
+			if (_scan(trackPos) != t_string_literal)
 			{
 				struct AST ex;
 				ex.sourceCol = curCol;
@@ -859,11 +891,11 @@ char *ExpandSourceFromAST(struct AST *tree)
 		}
 		// else
 		// {
-			int sizeDiff = (nodeToPrint->sourceCol - strlen(lastPrinted->value)) - lastPrinted->sourceCol;
-			for (int i = 0; i < sizeDiff; i++)
-			{
-				printedStr = strAppend(printedStr, strdup(" "));
-			}
+		int sizeDiff = (nodeToPrint->sourceCol - strlen(lastPrinted->value)) - lastPrinted->sourceCol;
+		for (int i = 0; i < sizeDiff; i++)
+		{
+			printedStr = strAppend(printedStr, strdup(" "));
+		}
 		// }
 		printedStr = strAppend(printedStr, strdup(nodeToPrint->value));
 

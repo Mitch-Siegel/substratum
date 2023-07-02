@@ -483,8 +483,8 @@ enum token parseRecipes[p_null][11][9][2] = {
          {p_null, p_null}},
 
         {{p_statement_list, above},
-        {p_scope, besid},
-        {p_null, p_null}},
+         {p_scope, besid},
+         {p_null, p_null}},
 
         {{p_null, p_null}},
     },
@@ -542,37 +542,44 @@ enum token parseRecipes[p_null][11][9][2] = {
         {{p_null, p_null}},
     },
 
-    // p_function_definition - FUNCTION-DEFINITION
+    // p_function_declaration - FUNCTION-DECLARATION
     {
         // multiple arguments
-        // 'fun' FUNCTION-OPENER DECLARATION-LIST '->' TYPE-NAME ')' SCOPE
+        // 'fun' FUNCTION-OPENER DECLARATION-LIST '->' TYPE-NAME ')'
         {{t_fun, above},
          {p_function_opener, below},
          {p_declaration_list, below},
          {t_pointer_op, below},
          {p_type_name, below},
          {t_rParen, cnsme},
-         {p_scope, below},
          {p_null, p_null}},
 
         // 1 argument
-        // 'fun' FUNCTION-OPENER VARIABLE-DECLARATION '->' TYPE-NAME ')' SCOPE
+        // 'fun' FUNCTION-OPENER VARIABLE-DECLARATION '->' TYPE-NAME ')'
         {{t_fun, above},
          {p_function_opener, below},
          {p_variable_declaration, below},
          {t_pointer_op, below},
          {p_type_name, below},
          {t_rParen, cnsme},
-         {p_scope, below},
          {p_null, p_null}},
 
         // no arguments
-        // 'fun' FUNCTION-OPENER '->' TYPE-NAME ')' SCOPE
+        // 'fun' FUNCTION-OPENER '->' TYPE-NAME ')'
         {{t_fun, above},
          {p_function_opener, below},
          {t_pointer_op, below},
          {p_type_name, below},
          {t_rParen, cnsme},
+         {p_null, p_null}},
+
+        {{p_null, p_null}},
+    },
+
+    // p_function_definition - FUNCTION-DEFINITION
+    {
+        // FUNCTION-DECLARATION SCOPE
+        {{p_function_declaration, above},
          {p_scope, below},
          {p_null, p_null}},
 
@@ -581,6 +588,10 @@ enum token parseRecipes[p_null][11][9][2] = {
 
     // p_translation_unit - TRANSLATION-UNIT
     {
+        {{p_function_declaration, above},
+         {t_semicolon, cnsme},
+         {p_null, p_null}},
+
         {{p_function_definition, above},
          {p_null, p_null}},
 
