@@ -47,6 +47,7 @@ struct FunctionEntry
 	struct Stack *arguments; // stack of VariableEntry pointers corresponding by index to arguments
 	char *name; // duplicate pointer from ScopeMember for ease of use
 	struct LinkedList *BasicBlockList;
+	char isDefined;
 };
 
 struct VariableEntry

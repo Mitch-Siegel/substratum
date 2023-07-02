@@ -171,24 +171,38 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 		switch (thisMember->type)
 		{
 		case e_function:
-			fprintf(outFile, "~export funcdef %s\n", thisMember->name);
-
-
+		{
 			struct FunctionEntry *generatedFunction = thisMember->entry;
-			
+			if (generatedFunction->isDefined)
+			{
+				fprintf(outFile, "~export funcdef %s\n", thisMember->name);
+			}
+			else
+			{
+				fprintf(outFile, "~export funcdec %s\n", thisMember->name);
+			}
+
 			fprintf(outFile, "returns %d %d*\n", generatedFunction->returnType, generatedFunction->returnIndirectionLevel);
 			fprintf(outFile, "%d arguments\n", generatedFunction->arguments->size);
-
 			for (int i = 0; i < generatedFunction->arguments->size; i++)
 			{
 				struct VariableEntry *examinedArgument = generatedFunction->arguments->data[i];
 				fprintf(outFile, "%d %d* %s\n", examinedArgument->type, examinedArgument->indirectionLevel, examinedArgument->name);
 			}
-			generateCodeForFunction(generatedFunction, outFile);
 
-			fprintf(outFile, "~end export funcdef %s\n", thisMember->name);
+			if (generatedFunction->isDefined)
+			{
+				generateCodeForFunction(generatedFunction, outFile);
 
-			break;
+				fprintf(outFile, "~end export funcdef %s\n", thisMember->name);
+			}
+			else
+			{
+				fprintf(outFile, "~end export funcdec %s\n", thisMember->name);
+			}
+		}
+
+		break;
 
 		case e_basicblock:
 		{

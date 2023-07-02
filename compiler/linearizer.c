@@ -1454,6 +1454,22 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 		// then generate the TAC for it and add a reference to the start of the generated code to the function entry
 		case t_fun:
 		{
+			int funTempNum = 0; // track the number of temporary variables used
+			int labelCount = 1;
+			struct FunctionEntry *theFunction = Scope_lookupFun(globalScope, runner->child->child);
+
+			// if this is just a definition rather than a declaration, nothing to linearize
+			if (!theFunction->isDefined)
+			{
+				break;
+			}
+
+			struct BasicBlock *functionBlock = BasicBlock_new(funTempNum);
+
+			Scope_addBasicBlock(theFunction->mainScope, functionBlock);
+			struct Stack *scopeStack = Stack_New();
+			struct LinearizationMetadata functionMetadata;
+
 			struct AST *functionMainScopeTree = runner->child;
 			// skip over argument declarations
 			while (functionMainScopeTree->type != t_pointer_op)
@@ -1463,22 +1479,6 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			// skip over return type
 			functionMainScopeTree = functionMainScopeTree->sibling;
 			functionMainScopeTree = functionMainScopeTree->sibling;
-
-			// if this is just a definition rather than a declaration, nothing to linearize
-			if (functionMainScopeTree == NULL)
-			{
-				break;
-			}
-
-			int funTempNum = 0; // track the number of temporary variables used
-			int labelCount = 1;
-			struct FunctionEntry *theFunction = Scope_lookupFun(globalScope, runner->child->child);
-
-			struct BasicBlock *functionBlock = BasicBlock_new(funTempNum);
-
-			Scope_addBasicBlock(theFunction->mainScope, functionBlock);
-			struct Stack *scopeStack = Stack_New();
-			struct LinearizationMetadata functionMetadata;
 
 			functionMetadata.dict = dict;
 			functionMetadata.ast = functionMainScopeTree;

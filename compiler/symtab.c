@@ -18,6 +18,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, e
 	newFunction->returnType = returnType;
 	newFunction->returnIndirectionLevel = returnIndirectionLevel;
 	newFunction->name = name;
+	newFunction->isDefined = 0;
 	return newFunction;
 }
 
@@ -1016,6 +1017,7 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 
 	if (functionRunner != NULL)
 	{
+		func->isDefined = 1;
 		walkScope(functionRunner, func->mainScope, 1);
 	}
 }
