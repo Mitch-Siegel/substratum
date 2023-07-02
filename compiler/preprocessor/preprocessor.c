@@ -138,7 +138,6 @@ int populateBuffer(struct RollingBuffer *b, FILE *inFile)
                     do
                     {
                         gotten = getCharTrack(inFile);
-                        printf("%c\n", gotten);
                     } while ((gotten != EOF) && (gotten != '\n'));
                     RollingBuffer_Add(b, gotten);
                     break;
@@ -300,7 +299,6 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
         }
     }
     
-    printf("done in pp loop\n");
     if (chdir(oldCWD))
     {
         ErrorAndExit(ERROR_INTERNAL, "Unable to set working directory back to %s after processing %s\n", oldCWD, inFileName);

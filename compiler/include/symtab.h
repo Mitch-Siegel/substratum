@@ -45,7 +45,7 @@ struct FunctionEntry
 	int returnIndirectionLevel;
 	struct Scope *mainScope;
 	struct Stack *arguments; // stack of VariableEntry pointers corresponding by index to arguments
-	char *name; // duplicate pointer from ScopeMember for ease of use
+	char *name;				 // duplicate pointer from ScopeMember for ease of use
 	struct LinkedList *BasicBlockList;
 	char isDefined;
 };
@@ -133,6 +133,9 @@ int GetSizeOfPrimitive(enum variableTypes type);
 int Scope_getSizeOfVariableByString(struct Scope *scope, char *name, char beingDereferenced);
 
 int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name);
+
+// allocate and return a string containing the name and pointer level of a type
+char *Scope_getNameOfType(struct Scope *scope, enum variableTypes t, int indirectionLevel);
 
 // scope linearization functions
 

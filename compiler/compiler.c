@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 	// serializeAST("astdump", program);
 	// printf("\n");
 
-	// AST_Print(program, 0);
+	AST_Print(program, 0);
 
 	printf("Generating symbol table from AST");
 	struct SymbolTable *theTable = walkAST(program);

@@ -577,6 +577,40 @@ int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
 	}
 }
 
+// allocate and return a string containing the name and pointer level of a type
+char *Scope_getNameOfType(struct Scope *scope, enum variableTypes t, int indirectionLevel)
+{
+	char *name;
+	switch (t)
+	{
+	case vt_uint8:
+		name = "uint8";
+		break;
+
+	case vt_uint16:
+		name = "uint16";
+		break;
+
+	case vt_uint32:
+		name = "uint32";
+		break;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Unexepcted variable type %d in Scope_getNaeOfType!\n", t);
+	}
+
+	int nameLen = strlen(name);
+	int totalLen = nameLen + indirectionLevel + 1;
+	char *fullName = malloc(totalLen);
+	strcpy(fullName, name);
+	for (int i = nameLen; i < totalLen; i++)
+	{
+		fullName[i] = '*';
+	}
+	fullName[totalLen - 1] = '\0';
+	return fullName;
+}
+
 void VariableEntry_Print(struct VariableEntry *it, int depth)
 {
 	for (int j = 0; j < depth; j++)
@@ -705,12 +739,9 @@ void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *b)
 int scrapePointers(struct AST *pointerAST, struct AST **resultDestination)
 {
 	int dereferenceDepth = 0;
-	while (pointerAST->type == t_star)
+
+	while (pointerAST != NULL && pointerAST->type == t_star)
 	{
-		if (pointerAST->sibling == NULL)
-		{
-			ErrorAndExit(ERROR_INTERNAL, "Malformed AST seen in scrapePointers\n");
-		}
 		dereferenceDepth++;
 		pointerAST = pointerAST->sibling;
 	}
@@ -913,12 +944,6 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 	}
 	returnTypeRunner = returnTypeRunner->sibling;
 
-	int returnIndirectionLevel = 0;
-	while (returnTypeRunner->type == t_star)
-	{
-		returnIndirectionLevel++;
-		returnTypeRunner = returnTypeRunner->child;
-	}
 	enum variableTypes returnType;
 	switch (returnTypeRunner->type)
 	{
@@ -941,84 +966,148 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 	default:
 		ErrorAndExit(ERROR_INTERNAL, "Malformed AST as return type for function\n");
 	}
+	int returnIndirectionLevel = scrapePointers(returnTypeRunner->child, &returnTypeRunner);
 
 	// child is the lparen, function name is the child of the lparen
-
 	struct ScopeMember *lookedUpFunction = Scope_lookup(parentScope, functionRunner->child->value);
-	struct FunctionEntry *func;
-	if (lookedUpFunction == NULL)
+	struct FunctionEntry *parsedFunc = NULL;
+	struct FunctionEntry *existingFunc = NULL;
+
+	if (lookedUpFunction != NULL)
 	{
-		func = Scope_createFunction(parentScope, functionRunner->child->value, returnType, returnIndirectionLevel);
-		functionRunner = functionRunner->sibling; // start at argument definitions
-		func->mainScope->parentScope = parentScope;
-
-		while (functionRunner->type != t_pointer_op)
-		{
-			switch (functionRunner->type)
-			{
-				// looking at argument declarations
-			case t_uint8:
-			case t_uint16:
-			case t_uint32:
-			{
-				walkDeclaration(functionRunner, func->mainScope, 1);
-			}
-			break;
-
-			case t_lCurly:
-			{
-				walkScope(functionRunner, func->mainScope, 1);
-			}
-			break;
-
-			default:
-				ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected function name and main scope only!\nMalformed node was of type %s with value [%s]\n", getTokenName(functionRunner->type), functionRunner->value);
-			}
-			functionRunner = functionRunner->sibling;
-		}
-		functionRunner = functionRunner->sibling;
-
-		switch (functionRunner->type)
-		{
-		case t_void:
-			func->returnType = vt_null;
-			break;
-
-		case t_uint8:
-			func->returnType = vt_uint8;
-			break;
-
-		case t_uint16:
-			func->returnType = vt_uint16;
-			break;
-
-		case t_uint32:
-			func->returnType = vt_uint32;
-			break;
-
-		default:
-			ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected return type to be a type specifier!\nMalformed node was of type %s with value [%s]\n", getTokenName(functionRunner->type), functionRunner->value);
-		}
-		functionRunner = functionRunner->sibling;
+		existingFunc = lookedUpFunction->entry;
+		parsedFunc = FunctionEntry_new(parentScope, functionRunner->child->value, returnType, returnIndirectionLevel);
 	}
 	else
 	{
-		if (lookedUpFunction->type != e_function)
-		{
-			ErrorWithAST(ERROR_CODE, it, "Redefinition of symbol %s as function!\n", functionRunner->child->value);
-		}
-		func = lookedUpFunction->entry;
+		parsedFunc = Scope_createFunction(parentScope, functionRunner->child->value, returnType, returnIndirectionLevel);
+		parsedFunc->mainScope->parentScope = parentScope;
+		// record return type
+		parsedFunc->returnType = returnType;
+		parsedFunc->returnIndirectionLevel = returnIndirectionLevel;
+	}
 
-		if(functionRunner == NULL)
+	functionRunner = functionRunner->sibling; // start at argument definitions
+
+	// record argument definitions
+	while (functionRunner->type != t_pointer_op)
+	{
+		switch (functionRunner->type)
 		{
-			ErrorWithAST(ERROR_CODE, it, "Redefinition of function %s!\n", functionRunner->child->value);
+			// looking at argument declarations
+		case t_uint8:
+		case t_uint16:
+		case t_uint32:
+		{
+			walkDeclaration(functionRunner, parsedFunc->mainScope, 1);
+		}
+		break;
+
+		default:
+			ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected function name and main scope only!\nMalformed node was of type %s with value [%s]\n", getTokenName(functionRunner->type), functionRunner->value);
+		}
+		functionRunner = functionRunner->sibling;
+	}
+	// skip past return type
+	functionRunner = functionRunner->sibling;
+	functionRunner = functionRunner->sibling;
+
+	// if we are defining an existing declaration, make sure they match
+	if (existingFunc)
+	{
+		int mismatch = 0;
+
+		if (returnType != existingFunc->returnType || returnIndirectionLevel != existingFunc->returnIndirectionLevel)
+		{
+			mismatch = 1;
+		}
+
+		// ensure we have both the same number of bytes of arguments and same number of arguments
+		if (!mismatch &&
+			(existingFunc->argStackSize == parsedFunc->argStackSize) &&
+			(existingFunc->arguments->size == parsedFunc->arguments->size))
+		{
+			// if we have same number of bytes and same number, ensure everything is exactly the same
+			for (int i = 0; i < existingFunc->arguments->size; i++)
+			{
+				struct VariableEntry *existingArg = existingFunc->arguments->data[i];
+				struct VariableEntry *parsedArg = parsedFunc->arguments->data[i];
+				// ensure all arguments in order have same name, type, indirection level
+				if (strcmp(existingArg->name, parsedArg->name) ||
+					(existingArg->type != parsedArg->type) ||
+					(existingArg->indirectionLevel != parsedArg->indirectionLevel))
+				{
+					mismatch = 1;
+					break;
+				}
+			}
+		}
+		else
+		{
+			mismatch = 1;
+		}
+
+		if (mismatch)
+		{
+			printf("\nConflicting declarations of function:\n");
+
+			char *existingReturnType = Scope_getNameOfType(parentScope, existingFunc->returnType, existingFunc->returnIndirectionLevel);
+			printf("\t%s %s(", existingReturnType, existingFunc->name);
+			free(existingReturnType);
+			for (int i = 0; i < existingFunc->arguments->size; i++)
+			{
+				struct VariableEntry *existingArg = existingFunc->arguments->data[i];
+
+				char *argType = Scope_getNameOfType(parentScope, existingArg->type, existingArg->indirectionLevel);
+				printf("%s %s", argType, existingArg->name);
+				free(argType);
+
+				if (i < existingFunc->arguments->size - 1)
+				{
+					printf(", ");
+				}
+				else
+				{
+					printf(")");
+				}
+			}
+			char *parsedReturnType = Scope_getNameOfType(parentScope, returnType, returnIndirectionLevel);
+			printf("\n\t%s %s(", parsedReturnType, parsedFunc->name);
+			free(parsedReturnType);
+			for (int i = 0; i < parsedFunc->arguments->size; i++)
+			{
+				struct VariableEntry *parsedArg = parsedFunc->arguments->data[i];
+
+				char *argType = Scope_getNameOfType(parentScope, parsedArg->type, parsedArg->indirectionLevel);
+				printf("%s %s", argType, parsedArg->name);
+				free(argType);
+
+				if (i < parsedFunc->arguments->size - 1)
+				{
+					printf(", ");
+				}
+				else
+				{
+					printf(")");
+				}
+			}
+			printf("\n");
+
+			ErrorWithAST(ERROR_CODE, it, "");
 		}
 	}
 
 	if (functionRunner != NULL)
 	{
-		func->isDefined = 1;
-		walkScope(functionRunner, func->mainScope, 1);
+		if (existingFunc && existingFunc->isDefined)
+		{
+			ErrorWithAST(ERROR_CODE, it, "Redefinition of function %s->%s\n",
+						 existingFunc->name,
+						 Scope_getNameOfType(parentScope, existingFunc->returnType, existingFunc->returnIndirectionLevel));
+		}
+
+		parsedFunc->isDefined = 1;
+		walkScope(functionRunner, parsedFunc->mainScope, 1);
 	}
 }
 
