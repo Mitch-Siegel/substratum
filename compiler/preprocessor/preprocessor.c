@@ -157,7 +157,7 @@ int populateBuffer(struct RollingBuffer *b, FILE *inFile)
                             }
                         }
                     } while ((gotten != EOF) && inBlockComment);
-                    
+
                     if (inBlockComment)
                     {
                         ErrorAndExit(ERROR_CODE, "Block comment does not end!\n");
@@ -222,8 +222,8 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
     if (inFileDir && strcmp(inFileDir, "."))
     {
         justFileName += strlen(inFileDir);
-        free(duped);
     }
+    free(duped);
 
     if (justFileName[0] == '/')
     {
@@ -298,7 +298,7 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
             ErrorAndExit(ERROR_INTERNAL, "Invalid preprocessor token index %d\n", whichToken);
         }
     }
-    
+
     if (chdir(oldCWD))
     {
         ErrorAndExit(ERROR_INTERNAL, "Unable to set working directory back to %s after processing %s\n", oldCWD, inFileName);

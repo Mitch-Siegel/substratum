@@ -1093,7 +1093,7 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 			}
 			printf("\n");
 
-			ErrorWithAST(ERROR_CODE, it, "");
+			ErrorWithAST(ERROR_CODE, it, " ");
 		}
 	}
 
@@ -1117,6 +1117,9 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 			walkScope(functionRunner, parsedFunc->mainScope, 1);
 		}
 	}
+
+	if(lookedUpFunction != NULL)
+	FunctionEntry_free(parsedFunc);
 }
 
 // given an AST node for a program, walk the AST and generate a symbol table for the entire thing

@@ -1173,6 +1173,7 @@ struct AST *TableParse(struct Dictionary *dict)
 			{
 				Stack_Push(parseStack, Stack_Pop(newFileStack));
 			}
+			Stack_Free(newFileStack);
 		}
 	}
 
