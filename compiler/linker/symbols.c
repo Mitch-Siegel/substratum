@@ -18,6 +18,27 @@ struct Symbol *Symbol_New(char *name, enum LinkDirection direction, enum LinkedS
 void Symbol_Free(struct Symbol *s)
 {
     LinkedList_Free(s->lines, free);
+    LinkedList_Free(s->linkerLines, free);
+    switch(s->symbolType)
+    {
+        case s_function_declaration:
+        case s_function_definition:
+            {
+                free(s->data.asFunction.args);
+                free(s->data.asFunction.returnType);
+                // free(s->data.asFunction.name);
+            }
+            break;
+        case s_section:
+            break;
+
+        case s_variable:
+            break;
+
+        case s_null:
+            ErrorAndExit(ERROR_INTERNAL, "Symbol_Free called for symbol with type null!\n");
+            break;
+    }
     free(s);
 }
 
@@ -48,6 +69,10 @@ void Symbol_Write(struct Symbol *s, FILE *f, char surpressLinkerLines)
 enum LinkedSymbol symbolNameToEnum(char *name)
 {
     if (!strcmp(name, "funcdef"))
+    {
+        return s_function_definition;
+    }
+    else if (!strcmp(name, "funcdec"))
     {
         return s_function_definition;
     }

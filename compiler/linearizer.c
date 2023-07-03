@@ -1465,8 +1465,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			}
 
 			struct AST *functionMainScopeTree = runner->child;
-			printf("ast for function %s\n", theFunction->name);
-			AST_Print(functionMainScopeTree, 0);
+
 			// skip over argument declarations
 			while (functionMainScopeTree->type != t_pointer_op)
 			{
@@ -1479,12 +1478,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			// if this is the AST for just the declaration no function body to walk, so bail
 			if(functionMainScopeTree == NULL)
 			{
-				printf("%s not defined at %s:%d:%d\n", theFunction->name, runner->sourceFile, runner->sourceLine, runner->sourceCol);
 				break;
-			}
-			else
-			{
-				printf("%s defined at %s:%d:%d\n", theFunction->name, runner->sourceFile, runner->sourceLine, runner->sourceCol);
 			}
 
 			struct BasicBlock *functionBlock = BasicBlock_new(funTempNum);

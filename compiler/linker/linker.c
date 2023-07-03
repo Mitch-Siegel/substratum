@@ -42,13 +42,18 @@ void addRequire(struct LinkedList **exports, struct LinkedList **requires, struc
     }
 }
 
-size_t getline_force_raw(char **linep, size_t *linecapp, FILE *stream)
+int getline_force_raw(char **linep, size_t *linecapp, FILE *stream)
 {
-    size_t len = getline(linep, linecapp, stream);
+    int len = getline(linep, linecapp, stream);
     if (len == 0)
     {
         ErrorAndExit(ERROR_INTERNAL, "getline_force expects non-zero line length, got 0!\n");
     }
+    if (len == -1)
+    {
+        return len;
+    }
+
     if ((*linep)[len - 1] == '\n')
     {
         (*linep)[len - 1] = '\0';
@@ -84,6 +89,7 @@ int main(int argc, char **argv)
     }
 
     struct Dictionary *inputFiles = Dictionary_New(1);
+    struct Dictionary *symbolNames = Dictionary_New(10);
     char *outFileName = NULL;
     FILE *outFile;
 
@@ -123,8 +129,8 @@ int main(int argc, char **argv)
 
     printf("have %d input files\n", inputFiles->buckets[0]->size);
 
-    char *inBuf = malloc(513);
-    size_t bufSize = 512;
+    char *inBuf = NULL;
+    size_t bufSize = 0;
 
     for (struct LinkedListNode *inFileName = inputFiles->buckets[0]->head; inFileName != NULL; inFileName = inFileName->next)
     {
@@ -198,7 +204,8 @@ int main(int argc, char **argv)
                     currentLinkSymbolType = symbolNameToEnum(token);
 
                     token = strtok(NULL, " ");
-                    currentSymbol = Symbol_New(strTrim(token, strlen(token) - 1), currentLinkDirection, currentLinkSymbolType);
+
+                    currentSymbol = Symbol_New(Dictionary_LookupOrInsert(symbolNames, token), currentLinkDirection, currentLinkSymbolType);
 
                     switch (currentLinkSymbolType)
                     {
@@ -285,6 +292,7 @@ int main(int argc, char **argv)
         printf("\n");
     }
 
+    free(inBuf);
     printf("\n");
 
     outFile = fopen(outFileName, "wb");
@@ -292,6 +300,8 @@ int main(int argc, char **argv)
     {
         ErrorAndExit(ERROR_INTERNAL, "Error opening file %s for output\n", outFileName);
     }
+
+    free(outFileName);
 
     int nOutputRequirements = 0;
     for (int i = 0; i < s_null; i++)
@@ -353,4 +363,13 @@ int main(int argc, char **argv)
             }
         }
     }
+
+    for (int i = 0; i < s_null; i++)
+    {
+        LinkedList_Free(exports[i], Symbol_Free);
+        LinkedList_Free(requires[i], Symbol_Free);
+    }
+
+    Dictionary_Free(symbolNames);
+    Dictionary_Free(inputFiles);
 }
