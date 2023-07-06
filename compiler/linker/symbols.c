@@ -1,5 +1,6 @@
 #include "symbols.h"
 #include "util.h"
+#include "tac.h" // for variableTypes
 
 #include <string.h>
 
@@ -19,25 +20,25 @@ void Symbol_Free(struct Symbol *s)
 {
     LinkedList_Free(s->lines, free);
     LinkedList_Free(s->linkerLines, free);
-    switch(s->symbolType)
+    switch (s->symbolType)
     {
-        case s_function_declaration:
-        case s_function_definition:
-            {
-                free(s->data.asFunction.args);
-                free(s->data.asFunction.returnType);
-                // free(s->data.asFunction.name);
-            }
-            break;
-        case s_section:
-            break;
+    case s_function_declaration:
+    case s_function_definition:
+    {
+        free(s->data.asFunction.args);
+        free(s->data.asFunction.returnType);
+        // free(s->data.asFunction.name);
+    }
+    break;
+    case s_section:
+        break;
 
-        case s_variable:
-            break;
+    case s_variable:
+        break;
 
-        case s_null:
-            ErrorAndExit(ERROR_INTERNAL, "Symbol_Free called for symbol with type null!\n");
-            break;
+    case s_null:
+        ErrorAndExit(ERROR_INTERNAL, "Symbol_Free called for symbol with type null!\n");
+        break;
     }
     free(s);
 }
@@ -52,11 +53,31 @@ void Symbol_Write(struct Symbol *s, FILE *f, char surpressLinkerLines)
             fputc('\n', f);
         }
     }
+
     else
     {
-        if(s->symbolType == s_function_definition)
+        switch (s->symbolType)
+
+        {
+        case s_variable:
+            fprintf(f, "%s:\n#res %d\n", s->name, s->data.asVariable.size);
+            break;
+
+        case s_function_declaration:
+            break;
+
+        case s_function_definition:
         {
             fputs("#align 2048\n", f);
+        }
+        break;
+
+        case s_section:
+            break;
+
+        case s_null:
+            ErrorAndExit(ERROR_INTERNAL, "Got null symbol type in Symbol_Write!\n");
+            break;
         }
     }
     for (struct LinkedListNode *rawRunner = s->lines->head; rawRunner != NULL; rawRunner = rawRunner->next)
@@ -131,15 +152,30 @@ struct Type *parseType(char *declString)
     char *token = strtok_r(declString, " ", &lasts);
     int typeNum = atoi(token);
 
-    if (typeNum < 4)
+    switch ((enum variableTypes)typeNum)
     {
-        parsed->isPrimitive = 1;
-        parsed->data.primitive = typeNum;
-    }
-    else
+    case vt_null:
+        parsed->size = 0;
+        break;
+
+    case vt_uint8:
+        parsed->size = 1;
+        break;
+
+    case vt_uint16:
+        parsed->size = 2;
+        break;
+
+    case vt_uint32:
+        parsed->size = 4;
+        break;
+
+    default:
     {
         parsed->isPrimitive = 0;
         ErrorAndExit(ERROR_INTERNAL, "non-primitive types not yet supported!\n");
+    }
+    break;
     }
 
     token = strtok_r(NULL, " ", &lasts);
@@ -149,6 +185,10 @@ struct Type *parseType(char *declString)
     }
     token[strlen(token - 1)] = '\0';
     parsed->indirectionLevel = atoi(token);
+    if(parsed->indirectionLevel)
+    {
+        parsed->size = 4;
+    }
 
     return parsed;
 }

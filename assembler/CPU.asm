@@ -1,5 +1,11 @@
 ; customasm ruledef for the cpu
-#bits 8
+#bankdef a
+{
+    #bits 8
+    #addr 0x0
+    #size 0x100000000
+    #outp 0x0
+}
 
 #ruledef reg{
     r0  => 0b0000
@@ -22,9 +28,7 @@
 }
 
 
-; 2 instruction lengths - full word (32bit) and halfword (16bit)
-; lsb of opcode indicates length (0 for hword 1 for word)
-#ruledef{
+#ruledef cpu{
 
     nop             => 0x01 @ 0x000000
     
@@ -150,7 +154,7 @@
     movh (%{rbase: reg}+%{roffset: reg},{sclpow:i5}), %{rs: reg} => 0xbb @ rs @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
 
     movh %{rd: reg}, ${imm: i16}                                 => 0xbf @ rd @ 0x0 @ imm
-    mov %{rd: reg}, ${imm: i16}                                 => 0xbf @ rd @ 0x0 @ imm
+    ; mov %{rd: reg}, ${imm: i16}                                 => 0xbf @ rd @ 0x0 @ imm
 
 
     ; data movement (full word)
@@ -166,6 +170,15 @@
 
     mov %{rd: reg}, (%{rbase: reg}+%{roffset: reg},{sclpow: i5}) => 0xc9 @ rd @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
     mov (%{rbase: reg}+%{roffset: reg},{sclpow:i5}), %{rs: reg}  => 0xcb @ rs @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
+
+    mov %{rd: reg}, ${imm: i32}                                 => { 
+        upper = imm[31:16]
+        lower = imm[15:0]
+        0xbf @ {rd} @ 0x0 @ {upper} @
+        0x6b @ {rd} @ {rd} @ 0x0010 @
+        0x61 @ {rd} @ {rd} @ {lower}}
+    
+
 
     pushb %{rs: reg}                        => 0xd0 @ 0x0 @ rs @ 0x0000
     pushh %{rs: reg}                        => 0xd1 @ 0x0 @ rs @ 0x0000

@@ -15,24 +15,15 @@ enum LinkDirection
     require,
 };
 
-struct VariableSymbol
-{
-    int type;
-    int indirectionLevel;
-};
-
 struct Type
 {
     char isPrimitive;
-    union
+    int size;
+    struct
     {
-        int primitive;
-        struct
-        {
-            char isStruct;
-            char *name;
-        } structOrUnion;
-    } data;
+        char isStruct;
+        char *name;
+    } structOrUnion;
     int indirectionLevel;
 };
 
@@ -51,7 +42,7 @@ struct Symbol
     enum LinkedSymbol symbolType; // what type of symbol this is
     union
     {
-        struct VariableSymbol asVariable;
+        struct Type asVariable;
         struct FunctionDeclarationSymbol asFunction;
     } data;                         // union exact details about this symbol
     struct LinkedList *lines;       // raw data of any text lines containing asm
