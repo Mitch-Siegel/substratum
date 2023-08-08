@@ -338,6 +338,21 @@ enum token _scan(char trackPos)
 		}
 		return t_string_literal;
 	}
+	else if(lookahead_char_dumb(1) == '\'')
+	{
+		fgetc_track(trackPos);
+		buffer[buflen++] = fgetc_track(trackPos);
+		buffer[buflen] = '\0';
+		if(fgetc_track(trackPos) != '\'')
+		{
+			struct AST ex;
+			ex.sourceFile = curFile;
+			ex.sourceCol = curCol;
+			ex.sourceLine = curLine;
+			ErrorWithAST(ERROR_CODE, (&ex), "Character literal with more than one character inside!\n");
+		}
+		return t_char_literal;
+	}
 
 	while (1)
 	{

@@ -30,6 +30,30 @@ void addExport(struct LinkedList **exports, struct LinkedList **requires, struct
         struct Symbol *deletedRequire = LinkedList_Delete(requires[symbolType], compareSymbols, toAdd);
         Symbol_Free(deletedRequire);
     }
+
+    // check for duplicates of anything except function declarations
+    struct Symbol *found;
+    if ((found = LinkedList_Find(exports[symbolType], compareSymbols, toAdd)) && (toAdd->symbolType != s_function_declaration))
+    {
+        // if we see something other than section userstart duplicated, throw an error
+        if ((strcmp(toAdd->name, "userstart") || (toAdd->symbolType != s_section)))
+        {
+
+            ErrorAndExit(ERROR_CODE, "Multiple definition of symbol %s %s - from %s and %s!\n", symbolEnumToName(toAdd->symbolType), toAdd->name, found->fromFile, toAdd->fromFile);
+        }
+
+        LinkedList_Join(found->lines, toAdd->lines);
+
+        // printf("\n\n\n\ndelete duplicate start lines\n");
+        // while (LinkedList_Find(found->lines, strcmp, "START:"))
+        // {
+            // LinkedList_Delete(found->lines, strcmp, "START:");
+        // }
+
+        // Symbol_Free(toAdd);
+        return;
+    }
+
     LinkedList_Append(exports[symbolType], toAdd);
 }
 
@@ -146,7 +170,7 @@ int main(int argc, char **argv)
 
         if (outputExecutable)
         {
-            struct Symbol *main = Symbol_New(Dictionary_LookupOrInsert(symbolNames, "main"), require, s_function_definition);
+            struct Symbol *main = Symbol_New(Dictionary_LookupOrInsert(symbolNames, "main"), require, s_function_definition, inFileName->data);
             main->data.asFunction.nArgs = 0;
 
             struct Type *mainReturnType = malloc(sizeof(struct Type));
@@ -220,13 +244,13 @@ int main(int argc, char **argv)
 
                     token = strtok(NULL, " ");
 
-                    currentSymbol = Symbol_New(Dictionary_LookupOrInsert(symbolNames, token), currentLinkDirection, currentLinkSymbolType);
+                    currentSymbol = Symbol_New(Dictionary_LookupOrInsert(symbolNames, token), currentLinkDirection, currentLinkSymbolType, inFileName->data);
 
                     switch (currentLinkSymbolType)
                     {
                     case s_function_declaration:
-                        ErrorAndExit(ERROR_INTERNAL, "Function declaration not yet supported!\n");
-                        break;
+                        // ErrorAndExit(ERROR_INTERNAL, "Function declaration not yet supported!\n");
+                        // break;
 
                     case s_function_definition:
                     {

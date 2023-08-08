@@ -4,7 +4,7 @@
 
 #include <string.h>
 
-struct Symbol *Symbol_New(char *name, enum LinkDirection direction, enum LinkedSymbol symbolType)
+struct Symbol *Symbol_New(char *name, enum LinkDirection direction, enum LinkedSymbol symbolType, char *fromFile)
 {
     struct Symbol *wip = malloc(sizeof(struct Symbol));
     wip->name = name;
@@ -12,6 +12,7 @@ struct Symbol *Symbol_New(char *name, enum LinkDirection direction, enum LinkedS
     wip->symbolType = symbolType;
     wip->lines = LinkedList_New();
     wip->linkerLines = LinkedList_New();
+    wip->fromFile = fromFile;
 
     return wip;
 }
@@ -98,7 +99,7 @@ enum LinkedSymbol symbolNameToEnum(char *name)
     }
     else if (!strcmp(name, "funcdec"))
     {
-        return s_function_definition;
+        return s_function_declaration;
     }
     else if (!strcmp(name, "variable"))
     {

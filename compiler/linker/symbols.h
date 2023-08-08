@@ -47,9 +47,10 @@ struct Symbol
     } data;                         // union exact details about this symbol
     struct LinkedList *lines;       // raw data of any text lines containing asm
     struct LinkedList *linkerLines; // info that is used only by the linker
+    char *fromFile;                 // name of the file this symbol is from
 };
 
-struct Symbol *Symbol_New(char *name, enum LinkDirection direction, enum LinkedSymbol symbolType);
+struct Symbol *Symbol_New(char *name, enum LinkDirection direction, enum LinkedSymbol symbolType, char *fromFile);
 
 void Symbol_Free(struct Symbol *s);
 

@@ -236,6 +236,14 @@ void LinkedList_Prepend(struct LinkedList *l, void *element)
 	l->size++;
 }
 
+void LinkedList_Join(struct LinkedList *before, struct LinkedList *after)
+{
+	for(struct LinkedListNode *runner = after->head; runner != after->tail; runner = runner->next)
+	{
+		LinkedList_Append(before, runner->data);
+	}
+}
+
 void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *element)
 {
 	for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)

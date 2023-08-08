@@ -1,46 +1,25 @@
 #include "math.h"
-// #include "print.h"
-/*
-fun test(->void)
+#include "print.h"
+
+
+fun test(uint8 n->void)
 {
-	uint8 i = 1;
-	while(i < 15)
+	uint8 i = 0;
+	while(i < n)
 	{
-		uint8 j = 1;
-		while(j < 15)
-		{
-			uint8 printedDigits = printNum(mul(i, j), 0);
-			while(printedDigits < 5)
-			{
-				print(32);
-				printedDigits = printedDigits + 1;
-			}
-			j = j + 1;
-		}
-		print(10);
+		printNum(fib(i), 0);
 		i = i + 1;
+		if(i < n)
+		{
+			print(',');
+		}
 	}
 	print(10);
 }
 
-fun fib(uint8 n->uint32)
-{
-	if(n > 1)
-	{
-		return fib(n - 1) + fib(n - 2);
-	}
-	return n;
-}
-*/
-
-fun test(->void)
-{
-
-}
-
 fun main(->void)
 {
-	test();
+	test(15);
 	/*uint8 i = 0;
 	while(i < 10)
 	{

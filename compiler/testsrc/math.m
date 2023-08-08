@@ -32,3 +32,12 @@ fun mul(uint32 a, uint32 b->uint32)
 	nMultiplications = nMultiplications + 1;
 	return result;
 }
+
+fun fib(uint8 n->uint32)
+{
+	if(n > 1)
+	{
+		return fib(n - 1) + fib(n - 2);
+	}
+	return n;
+}
