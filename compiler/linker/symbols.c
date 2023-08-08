@@ -25,9 +25,12 @@ void Symbol_Free(struct Symbol *s)
     case s_function_declaration:
     case s_function_definition:
     {
-        free(s->data.asFunction.args);
+        if (s->data.asFunction.nArgs > 0)
+        {
+            free(s->data.asFunction.args);
+        }
         free(s->data.asFunction.returnType);
-        // free(s->data.asFunction.name);
+        // don't free name as it lives in the dictionary
     }
     break;
     case s_section:
@@ -185,7 +188,7 @@ struct Type *parseType(char *declString)
     }
     token[strlen(token - 1)] = '\0';
     parsed->indirectionLevel = atoi(token);
-    if(parsed->indirectionLevel)
+    if (parsed->indirectionLevel)
     {
         parsed->size = 4;
     }

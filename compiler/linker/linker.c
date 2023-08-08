@@ -144,6 +144,21 @@ int main(int argc, char **argv)
         int nSymbols[s_null];
         memset(nSymbols, 0, s_null * sizeof(int));
 
+        if (outputExecutable)
+        {
+            struct Symbol *main = Symbol_New(Dictionary_LookupOrInsert(symbolNames, "main"), require, s_function_definition);
+            main->data.asFunction.nArgs = 0;
+
+            struct Type *mainReturnType = malloc(sizeof(struct Type));
+            mainReturnType->isPrimitive = 1;
+            mainReturnType->size = 0;
+            mainReturnType->indirectionLevel = 0;
+
+            main->data.asFunction.returnType = mainReturnType;
+
+            addRequire(exports, requires, main);
+        }
+
         int len;
         char requireNewSymbol = 1;
 
@@ -230,7 +245,10 @@ int main(int argc, char **argv)
                         int nArgs = atoi(token);
                         currentSymbol->data.asFunction.nArgs = nArgs;
 
-                        currentSymbol->data.asFunction.args = malloc(nArgs * sizeof(struct Type));
+                        if (nArgs > 0)
+                        {
+                            currentSymbol->data.asFunction.args = malloc(nArgs * sizeof(struct Type));
+                        }
 
                         token = strtok(NULL, " ");
                         if (strcmp(token, "arguments"))
@@ -319,6 +337,20 @@ int main(int argc, char **argv)
     {
         if (outputExecutable)
         {
+            printf("Missing definitions:\n");
+            for (int i = 0; i < s_null; i++)
+            {
+                if (requires[i] -> size > 0)
+                {
+                    for (struct LinkedListNode *runner = requires[i] -> head; runner != NULL; runner = runner->next)
+                    {
+                        struct Symbol *required = runner->data;
+                        printf("\t%s %s\n", symbolEnumToName(required->symbolType), required->name);
+                        // Symbol_Write(required, stdout, 0);
+                    }
+                }
+            }
+            printf("\n");
             ErrorAndExit(ERROR_INVOCATION, "Unable to create executable - %d requirements not satisfied!\n", nOutputRequirements);
         }
 
