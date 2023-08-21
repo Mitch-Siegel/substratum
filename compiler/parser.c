@@ -4,6 +4,8 @@
 FILE *inFile;
 char buffer[BUF_SIZE];
 int buflen;
+char *curFile;
+char justStartedNewFile = 0;
 int curLine, curCol;
 char *token_names[] = {
 	"p_type_name",
@@ -31,12 +33,14 @@ char *token_names[] = {
 	"p_statement_list",
 	"p_while",
 	"p_scope",
+	"p_function_declaration",
 	"p_function_definition",
 	"p_translation_unit",
 	"p_null",
 	// begin tokens
 	"t_identifier",
 	"t_constant",
+	"t_char_literal",
 	"t_string_literal",
 	// t_sizeof,
 	"t_asm",
@@ -92,6 +96,8 @@ char *token_names[] = {
 	"t_rCurly",
 	"t_lBracket",
 	"t_rBracket",
+	"t_file",
+	"t_line",
 	"t_EOF"};
 
 #define RECIPE_INGREDIENT(production, permutation, index) parseRecipes[production][permutation][index][0]
@@ -211,7 +217,7 @@ void trimWhitespace(char trackPos)
 	}
 }
 
-#define RESERVED_COUNT 39
+#define RESERVED_COUNT 41
 
 struct ReservedToken
 {
@@ -271,10 +277,32 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 	{"[", t_lBracket},
 	{"]", t_rBracket},
 
+	// parser directives to inform where things came from at preprocess time
+	{"#file", t_file},
+	{"#line", t_line}
+
 };
 
-enum token
-scan(char trackPos)
+int fgetc_track(char trackPos)
+{
+	int gotten = fgetc(inFile);
+	if (trackPos)
+	{
+		if (gotten == '\n')
+		{
+			curLine++;
+			curCol = 0;
+		}
+		else
+		{
+			curCol++;
+		}
+	}
+	return gotten;
+}
+
+// scan and return the raw token we see
+enum token _scan(char trackPos)
 {
 	buflen = 0;
 	// check if we're looking at whitespace - are we?
@@ -284,9 +312,51 @@ scan(char trackPos)
 
 	enum token currentToken = -1;
 
+	if (lookahead_char_dumb(1) == '"')
+	{
+		fgetc_track(trackPos);
+		int inChar;
+		int gotEndQuote = 0;
+		while ((inChar = fgetc_track(trackPos)) != EOF)
+		{
+			if (inChar == '"')
+			{
+				gotEndQuote = 1;
+				break;
+			}
+			buffer[buflen++] = inChar;
+			buffer[buflen] = '\0';
+		}
+
+		if (!gotEndQuote)
+		{
+			struct AST ex;
+			ex.sourceFile = curFile;
+			ex.sourceCol = curCol;
+			ex.sourceLine = curLine;
+			ErrorWithAST(ERROR_CODE, (&ex), "String literal doesn't end!\n");
+		}
+		return t_string_literal;
+	}
+	else if(lookahead_char_dumb(1) == '\'')
+	{
+		fgetc_track(trackPos);
+		buffer[buflen++] = fgetc_track(trackPos);
+		buffer[buflen] = '\0';
+		if(fgetc_track(trackPos) != '\'')
+		{
+			struct AST ex;
+			ex.sourceFile = curFile;
+			ex.sourceCol = curCol;
+			ex.sourceLine = curLine;
+			ErrorWithAST(ERROR_CODE, (&ex), "Character literal with more than one character inside!\n");
+		}
+		return t_char_literal;
+	}
+
 	while (1)
 	{
-		int inChar = fgetc(inFile);
+		int inChar = fgetc_track(trackPos);
 		if (inChar == EOF)
 		{
 			if (buflen > 0)
@@ -299,8 +369,6 @@ scan(char trackPos)
 				return t_EOF;
 			}
 		}
-		if (trackPos)
-			curCol++;
 
 		buffer[buflen++] = inChar;
 		buffer[buflen] = '\0';
@@ -394,11 +462,66 @@ scan(char trackPos)
 	}
 }
 
+// wrapper around _scan
+// handles #file and #line directives in order to correctly track position in preprocessed files
+enum token scan(char trackPos, struct Dictionary *dict)
+{
+	enum token result = _scan(trackPos);
+	// chew through all instances of #file and #line
+	while (result == t_file || result == t_line)
+	{
+		switch (result)
+		{
+		case t_file:
+			// make sure we see what we expect after the #file
+			if (_scan(trackPos) != t_string_literal)
+			{
+				struct AST ex;
+				ex.sourceCol = curCol;
+				ex.sourceLine = curLine;
+				ErrorWithAST(ERROR_INTERNAL, (&ex), "Expected filename (as t_identifier) after #file\n\tSaw malformed preprocessor output and got [%s] instead!\n", buffer);
+			}
+
+			// if we are bothering to track position, actually update the current file
+			if (trackPos)
+			{
+				curFile = Dictionary_LookupOrInsert(dict, buffer);
+				justStartedNewFile = 1;
+			}
+			result = _scan(trackPos);
+			break;
+
+		case t_line:
+			// make sure we see what we expect after the #line
+			if (_scan(trackPos) != t_constant)
+			{
+				struct AST ex;
+				ex.sourceCol = curCol;
+				ex.sourceLine = curLine;
+				ErrorWithAST(ERROR_INTERNAL, (&ex), "Expected line (as t_constant) after #line\n\tSaw malformed preprocessor output and got [%s] instead!\n", buffer);
+			}
+
+			// if we are bothering to track position, actually update the current line
+			if (trackPos)
+			{
+				curLine = atoi(buffer);
+			}
+			result = _scan(trackPos);
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	return result;
+}
+
 // return the next token that would be scanned without consuming
 enum token lookahead()
 {
 	long offset = ftell(inFile);
-	enum token retToken = scan(0);
+	enum token retToken = scan(0, NULL);
 	fseek(inFile, offset, SEEK_SET);
 	return retToken;
 }
@@ -409,7 +532,7 @@ struct AST *match(enum token t, struct Dictionary *dict)
 	trimWhitespace(1);
 	int line = curLine;
 	int col = curCol;
-	enum token result = scan(1);
+	enum token result = scan(1, dict);
 
 	if (result != t)
 	{
@@ -424,9 +547,9 @@ struct AST *match(enum token t, struct Dictionary *dict)
 }
 
 // error-checked method to consume expected token with no return
-void consume(enum token t)
+void consume(enum token t, struct Dictionary *dict)
 {
-	enum token result = scan(1);
+	enum token result = scan(1, dict);
 	if (result != t)
 	{
 		printf("Expected token %s, got %s\n", token_names[t], token_names[result]);
@@ -520,7 +643,7 @@ void printParseStack(struct Stack *parseStack)
 		}
 		else
 		{
-			printf("Line %3d:%-3d: %10s\t", thisProduction->tree->sourceLine, thisProduction->tree->sourceCol, thisProduction->tree->value);
+			printf("%s:%3d:%-3d: %10s\t", thisProduction->tree->sourceFile, thisProduction->tree->sourceLine, thisProduction->tree->sourceCol, thisProduction->tree->value);
 		}
 
 		printf("%s ", getTokenName(thisProduction->production));
@@ -712,40 +835,88 @@ void reduce(struct Stack *parseStack)
 	Stack_Push(parseStack, produced);
 }
 
-char *ExpandSourceFromAST(struct AST *tree, char *parentString)
+char *ExpandSourceFromAST(struct AST *tree)
 {
-	if (tree->child != NULL)
+	struct Stack *allNodes = Stack_New();
+	struct Stack *toVisit = Stack_New();
+	Stack_Push(toVisit, tree);
+	while (toVisit->size > 0)
 	{
-		char *printed = NULL;
+		struct AST *visited = Stack_Pop(toVisit);
+		Stack_Push(allNodes, visited);
 
-		int startLHSLen = strlen(tree->child->value);
-		char *LHS = malloc(strlen(tree->child->value) + 2);
-		strcpy(LHS, tree->child->value);
-		LHS[startLHSLen] = ' ';
-		LHS[startLHSLen + 1] = '\0';
-		LHS = ExpandSourceFromAST(tree->child, LHS);
-
-		printed = strAppend(LHS, parentString);
-		// printf("Before siblings: [%s]\n", printed);
-
-		for (struct AST *siblingRunner = tree->child->sibling; siblingRunner != NULL; siblingRunner = siblingRunner->sibling)
+		if (visited->child != NULL)
 		{
-			char *siblingString = malloc(strlen(siblingRunner->value) + 1);
-			strcpy(siblingString, siblingRunner->value);
-			// printf("Put in [%s]\n", siblingString);
-			siblingString = ExpandSourceFromAST(siblingRunner, siblingString);
-			// printf("Get out [%s]\n", siblingString);
-
-			printed = strAppend(printed, siblingString);
+			Stack_Push(toVisit, visited->child);
 		}
-		// printf("Return %s\n", printed);
 
-		return printed;
+		if (visited->sibling != NULL)
+		{
+			Stack_Push(toVisit, visited->sibling);
+		}
 	}
-	else
+
+	for (int i = 0; i < allNodes->size; i++)
 	{
-		return parentString;
+		for (int j = 0; j < (allNodes->size - i) - 1; j++)
+		{
+			struct AST *a = allNodes->data[j];
+			struct AST *b = allNodes->data[j + 1];
+
+			if (a->sourceLine > b->sourceLine)
+			{
+				allNodes->data[j + 1] = a;
+				allNodes->data[j] = b;
+			}
+		}
 	}
+
+	for (int i = 0; i < allNodes->size; i++)
+	{
+		for (int j = 0; j < (allNodes->size - i) - 1; j++)
+		{
+			struct AST *a = allNodes->data[j];
+			struct AST *b = allNodes->data[j + 1];
+
+			if ((a->sourceLine == b->sourceLine) && (a->sourceCol > b->sourceCol))
+			{
+				allNodes->data[j + 1] = a;
+				allNodes->data[j] = b;
+				continue;
+			}
+		}
+	}
+
+	char *printedStr = malloc(1);
+	printedStr[0] = '\0';
+	struct AST *lastPrinted = allNodes->data[0];
+	for (int i = 0; i < allNodes->size; i++)
+	{
+		struct AST *nodeToPrint = allNodes->data[i];
+		if (nodeToPrint->sourceLine > lastPrinted->sourceLine)
+		{
+			char lineNo[10];
+			snprintf(lineNo, 9, "\n%4d:", nodeToPrint->sourceLine);
+			printedStr = strAppend(printedStr, strdup(lineNo));
+
+			for (int i = 0; i < nodeToPrint->sourceCol; i++)
+			{
+				printedStr = strAppend(printedStr, strdup(" "));
+			}
+		}
+		// else
+		// {
+		int sizeDiff = (nodeToPrint->sourceCol - strlen(lastPrinted->value)) - lastPrinted->sourceCol;
+		for (int i = 0; i < sizeDiff; i++)
+		{
+			printedStr = strAppend(printedStr, strdup(" "));
+		}
+		// }
+		printedStr = strAppend(printedStr, strdup(nodeToPrint->value));
+
+		lastPrinted = nodeToPrint;
+	}
+	return printedStr;
 }
 
 void TableParseError(struct Stack *parseStack)
@@ -758,59 +929,10 @@ void TableParseError(struct Stack *parseStack)
 	char *printedSource = malloc(1);
 	printedSource[0] = '\0';
 
-	int currentSourceLine = firstIPP->tree->sourceLine;
+	struct InProgressProduction *examinedIPP = Stack_Peek(parseStack);
+	printedSource = ExpandSourceFromAST(examinedIPP->tree);
 
-	// spit out everything on the line it looks like the error occurred at
-	// plus any contiguous tokens before that point, followed by at most 1 production if there is one
-	// i > 0 so we never attempt to expand the big translation unit at the bottom of the stack
-	for (int i = parseStack->size - 1; i > 0; i--)
-	{
-		struct InProgressProduction *examinedIPP = (struct InProgressProduction *)parseStack->data[i];
-		int valueLength = strlen(examinedIPP->tree->value);
-		char *parentStr = malloc(valueLength + 2);
-
-		if (examinedIPP->tree->sourceLine != currentSourceLine)
-		{
-			strcpy(parentStr, examinedIPP->tree->value);
-			parentStr[valueLength] = '\n';
-			parentStr[valueLength + 1] = '\0';
-		}
-		else
-		{
-			strcpy(parentStr + 1, examinedIPP->tree->value);
-			parentStr[0] = ' ';
-		}
-		currentSourceLine = examinedIPP->tree->sourceLine;
-
-		printedSource = strAppend(ExpandSourceFromAST(examinedIPP->tree, parentStr), printedSource);
-
-		// if we are no longer on the line the error appears to have occurred on, and we just expaneded a production rather than a production, we are done
-		if ((examinedIPP->tree->sourceLine < firstIPP->tree->sourceLine) && (examinedIPP->production < p_null))
-		{
-			break;
-		}
-	}
-
-	int printedLen = strlen(printedSource);
-	char justPrintedNL = 0;
-	for (int i = 0; i < printedLen; i++)
-	{
-		if (printedSource[i] == '\n')
-		{
-			justPrintedNL = 1;
-			printf("\n\t");
-		}
-		else
-		{
-			// skip any space which immediately follows a newline
-			if (!(justPrintedNL && printedSource[i] == ' '))
-			{
-				putchar(printedSource[i]);
-			}
-			justPrintedNL = 0;
-		}
-	}
-	printf("\n\n");
+	printf("%s\n\n", printedSource);
 	free(printedSource);
 	ErrorAndExit(ERROR_INVOCATION, "Fix your program!\t");
 }
@@ -883,9 +1005,8 @@ void ValidateParseStack(struct Stack *parseStack)
 
 struct AST *TableParse(struct Dictionary *dict)
 {
-	// number of shifts since the last reduction
+	// number of shifts from this file
 	int nShifts = 0;
-	int lastParseStackSize = 0;
 
 	int maxConsecutiveTokens = 0;
 	// scan recipes to figure out the greatest number of consecutive tokens we can have on the stack (to catch errors)
@@ -924,7 +1045,8 @@ struct AST *TableParse(struct Dictionary *dict)
 		if (parseStack->size > 0)
 		{
 			struct InProgressProduction *topOfStack = (struct InProgressProduction *)Stack_Peek(parseStack);
-			if (topOfStack->production < p_null && haveMoreInput)
+			// condition: top of stack holds production, we have more input
+			if ((topOfStack->production < p_null) && haveMoreInput)
 			{
 				forceShift = 1;
 			}
@@ -935,7 +1057,6 @@ struct AST *TableParse(struct Dictionary *dict)
 			// not being forced to shift in a lookahead token
 		case 0:
 		{
-
 			// keep track of the lookahead production - findReduction will pop and return it if it's not used in the current reduce operation
 			struct InProgressProduction *lookaheadProduction = NULL;
 
@@ -987,7 +1108,7 @@ struct AST *TableParse(struct Dictionary *dict)
 				}
 			}
 		}
-		// no reduction found, fall through to shift
+			// no reduction found, fall through to shift
 
 		// do a shift
 		case 1:
@@ -1005,7 +1126,7 @@ struct AST *TableParse(struct Dictionary *dict)
 			else if (lookaheadToken == t_asm)
 			{
 				nextToken = match(lookaheadToken, dict);
-				consume(t_lCurly);
+				consume(t_lCurly, dict);
 				while ((lookaheadToken = lookahead()) != t_rCurly)
 				{
 					buflen = 0;
@@ -1028,18 +1149,47 @@ struct AST *TableParse(struct Dictionary *dict)
 		break;
 		}
 
-		if (parseStack->size < lastParseStackSize)
+		if (parseStack->size > 128)
 		{
-			nShifts = 0;
+			printParseStack(parseStack);
+			ErrorAndExit(ERROR_CODE, "Maximum parse stack size exceeded!\n");
 		}
-		else
+
+		// ensure we reduce as much as possible when starting a new file
+		if (justStartedNewFile)
 		{
-			// if (nShifts > (maxConsecutiveTokens * 2))
-			// {
-			// TableParseError(parseStack);
-			// }
+			if (parseStack->size == 0)
+			{
+				justStartedNewFile = 0;
+				break;
+			}
+			struct Stack *newFileStack = Stack_New();
+			struct InProgressProduction *peeked = Stack_Peek(parseStack);
+			while (!strcmp(curFile, peeked->tree->sourceFile) && parseStack->size > 1)
+			{
+				Stack_Push(newFileStack, Stack_Pop(parseStack));
+				peeked = Stack_Peek(parseStack);
+			}
+
+			if (newFileStack->size > 1)
+			{
+				if (strcmp(curFile, peeked->tree->sourceFile))
+				{
+					if (parseStack->size > 0 && peeked->production != p_translation_unit)
+					{
+						printf("Error - files must contain complete translation units! (curFile: %s, peeked %d:%d)\n", curFile, peeked->tree->sourceLine, peeked->tree->sourceCol);
+						TableParseError(parseStack);
+					}
+				}
+				printf("%d from new file\n", newFileStack->size);
+				justStartedNewFile = 0;
+			}
+			while (newFileStack->size > 0)
+			{
+				Stack_Push(parseStack, Stack_Pop(newFileStack));
+			}
+			Stack_Free(newFileStack);
 		}
-		lastParseStackSize = parseStack->size;
 	}
 
 	if (parseStack->size > 1 || parseStack->size == 0)

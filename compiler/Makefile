@@ -1,17 +1,29 @@
 CC = gcc
-CFLAGS = -g -Werror -Wall -Wno-enum-conversion -Wno-void-pointer-to-enum-cast
-programs: mcc
+CFLAGS = -g -Werror -Wall -Wno-enum-conversion -Wno-void-pointer-to-enum-cast -Wno-deprecated-declarations -fsanitize=address
+programs: mcc mld mpp
 
 OBJDIR = build
 MCC_SRCS = $(basename $(wildcard *.c))
 MCC_OBJS = $(MCC_SRCS:%=%.o)
 
-mcc: $(addprefix $(OBJDIR)/,$(MCC_OBJS))
-	$(CC) $(CFLAGS) -o $@ $^
+MLD_SRCS = $(basename $(wildcard ./linker/*.c))
+MLD_OBJS = $(MLD_SRCS:%=%.o) util.o
+
+MPP_SRCS = $(basename $(wildcard ./preprocessor/*.c))
+MPP_OBJS = $(MPP_SRCS:%=%.o) util.o
 
 $(OBJDIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) -c $(CFLAGS) -o $@ $< -I ./include
+
+mcc: $(addprefix $(OBJDIR)/,$(MCC_OBJS))
+	$(CC) $(CFLAGS) -o $@ $^
+
+mld:$(addprefix $(OBJDIR)/,$(MLD_OBJS))
+	$(CC) $(CFLAGS) -o $@ $^ -I ./include
+
+mpp:$(addprefix $(OBJDIR)/,$(MPP_OBJS))
+	$(CC) $(CFLAGS) -o $@ $^ -I ./include
 
 recipes:
 	rm -f parser.o
@@ -20,8 +32,12 @@ recipes:
 
 clean:
 	rm -f $(OBJDIR)/*.o
+	rm -f $(OBJDIR)/linker/*.o
 	rm -f ./mcc
+	rm -f ./mld
 
 test:
-	$(info SRCS="$(MCC_SRCS)")
-	$(info OBJS="$(MCC_OBJS)")
+	$(info MCC SRCS="$(MCC_SRCS)")
+	$(info MCC OBJS="$(MCC_OBJS)")
+	$(info MLD SRCS="$(MLD_SRCS)")
+	$(info MLD OBJS="$(MLD_OBJS)")

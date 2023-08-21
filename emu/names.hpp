@@ -80,8 +80,6 @@ std::map<uint8_t, std::string> opcodeNames =
 
         {0xd6, "CALL"},
         {0xd7, "RET"},
-        {0xd8, "INT"},
-        {0xd9, "RETI"},
 
         {0xe2, "OUT"},
         {0xfe, "HLT"}};

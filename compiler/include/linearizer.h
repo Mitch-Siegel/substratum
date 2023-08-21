@@ -7,6 +7,7 @@
 
 struct LinearizationMetadata
 {
+	struct Dictionary *dict; // include the dict for literals and other things that require processing during linearization
 	int currentTACIndex;
 	struct BasicBlock *currentBlock;
 	struct AST *ast;
@@ -33,8 +34,6 @@ int linearizeExpression(struct LinearizationMetadata m);
 int linearizeArrayRef(struct LinearizationMetadata m);
 
 int linearizeAssignment(struct LinearizationMetadata m);
-
-int linearizeArithmeticAssignment(struct LinearizationMetadata m);
 
 struct TACLine *linearizeConditionalJump(int currentTACIndex,
 										 struct AST *cmpOp,

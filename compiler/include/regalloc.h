@@ -4,7 +4,7 @@
 #include "tac.h"
 
 #define MACHINE_REGISTER_COUNT 16
-#define REGISTERS_TO_ALLOCATE 2
+#define REGISTERS_TO_ALLOCATE 9
 #define SCRATCH_REGISTER 0
 #define SECOND_SCRATCH_REGISTER 1
 #define RETURN_REGISTER 13
@@ -16,37 +16,42 @@ struct Lifetime
 	enum variableTypes type;
 	int indirectionLevel;
 	int stackOrRegLocation;
-	char isSpilled, isArgument;
-	struct StackObjectEntry *localPointerTo;
+	char isSpilled, isArgument, isGlobal;
+	struct ObjectEntry *localPointerTo;
 };
 
-struct Lifetime *newLifetime(char *name, enum variableTypes type, int indirectionLevel, int start);
+struct Lifetime *newLifetime(char *name,
+							 enum variableTypes type,
+							 int indirectionLevel,
+							 int start,
+							 char isGlobal);
 
-char compareLifetimes(struct Lifetime *a, char *variable);
+int compareLifetimes(struct Lifetime *a, char *variable);
 
 // update the lifetime start/end indices
 // returns pointer to the lifetime corresponding to the passed variable name
 struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
-										char *name, 
+										char *name,
 										enum variableTypes type,
 										int indirectionLevel,
-										int newEnd);
-
-struct Lifetime *updateOrInstertLifetimeFromTAC(struct LinkedList *ltList, struct TACOperand *operand, int index);
+										int newEnd,
+										char isGlobal);
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
 void recordVariableWrite(struct LinkedList *ltList,
 						 struct TACOperand *writtenOperand,
+						 struct Scope *scope,
 						 int newEnd);
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
 void recordVariableRead(struct LinkedList *ltList,
 						struct TACOperand *readOperand,
+						struct Scope *scope,
 						int newEnd);
 
-struct LinkedList *findLifetimes(struct FunctionEntry *function);
+struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList);
 
 int calculateRegisterLoading(struct LinkedList *activeLifetimes, int index);
 
@@ -70,10 +75,10 @@ struct CodegenMetadata
 	int largestTacIndex;
 
 	// flag 2 registers which should be used as scratch in case we have spilled variables (not always used)
-	int reservedRegisters[2];
+	int reservedRegisters[3];
 
 	// flag registers which have *ever* been used so we know what to callee-save
-	char touchedRegisters[REGISTERS_TO_ALLOCATE];
+	char touchedRegisters[MACHINE_REGISTER_COUNT];
 };
 
 // populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i

@@ -29,12 +29,14 @@ enum token
 	p_statement_list,
 	p_while,
 	p_scope,
+	p_function_declaration,
 	p_function_definition,
 	p_translation_unit,
 	p_null,
 	// begin tokens
 	t_identifier,
 	t_constant,
+	t_char_literal,
 	t_string_literal,
 	// t_sizeof,
 	t_asm,
@@ -90,7 +92,9 @@ enum token
 	t_rCurly,
 	t_lBracket,
 	t_rBracket,
-	t_EOF
+	t_file,
+	t_line,
+	t_EOF,
 };
 
 struct AST
@@ -101,6 +105,7 @@ struct AST
 	struct AST *sibling;
 	int sourceLine;
 	int sourceCol;
+	char *sourceFile;
 };
 
 // instantiate a new AST with given type and value

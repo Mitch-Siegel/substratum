@@ -16,7 +16,7 @@ enum ScopeMemberType
 	e_argument,
 	e_scope,
 	e_basicblock,
-	e_stackobj,
+	e_object,
 };
 
 struct ScopeMember
@@ -45,27 +45,29 @@ struct FunctionEntry
 	int returnIndirectionLevel;
 	struct Scope *mainScope;
 	struct Stack *arguments; // stack of VariableEntry pointers corresponding by index to arguments
-	char *name; // duplicate pointer from ScopeMember for ease of use
+	char *name;				 // duplicate pointer from ScopeMember for ease of use
 	struct LinkedList *BasicBlockList;
+	char isDefined;
 };
 
 struct VariableEntry
 {
 	int stackOffset;
-	struct StackObjectEntry *localPointerTo;
+	struct ObjectEntry *localPointerTo;
 	char *name; // duplicate pointer from ScopeMember for ease of use
 	enum variableTypes type;
 	int indirectionLevel;
 	int assignedAt;
 	int declaredAt;
 	char isAssigned;
-	// if this variable has the address-of operator used on it
-	// we need to denote that it *must* live on the stack so it isn't lost
+	// if this variable has the address-of operator used on it or is a global variable
+	// we need to denote that it *must* live in memory so it isn't lost
 	// and can have an address
 	char mustSpill;
+	char isGlobal;
 };
 
-struct StackObjectEntry
+struct ObjectEntry
 {
 	int size;
 	int arraySize;
@@ -104,9 +106,9 @@ void Scope_print(struct Scope *it, int depth, char printTAC);
 
 void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMemberType type);
 
-void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize);
+void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize, char isGlobal);
 
-struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name, enum variableTypes returnType, int returnIndirectionLevel);
+struct FunctionEntry *Scope_createFunction(struct Scope *parentScope, char *name, enum variableTypes returnType, int returnIndirectionLevel);
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
 
@@ -127,17 +129,18 @@ struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char su
 
 int GetSizeOfPrimitive(enum variableTypes type);
 
-int Scope_getSizeOfVariableByString(struct Scope *scope, char *name);
+// get the size of a variable by string name, also able to account for if this variable is being dereferenced
+int Scope_getSizeOfVariableByString(struct Scope *scope, char *name, char beingDereferenced);
 
 int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name);
+
+// allocate and return a string containing the name and pointer level of a type
+char *Scope_getNameOfType(struct Scope *scope, enum variableTypes t, int indirectionLevel);
 
 // scope linearization functions
 
 // adds an entry in the given scope denoting that the block is from that scope
 void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *b);
-
-// add the basic block to the linkedlist for the parent function
-void Function_addBasicBlock(struct FunctionEntry *function, struct BasicBlock *b);
 
 void SymbolTable_print(struct SymbolTable *it, char printTAC);
 

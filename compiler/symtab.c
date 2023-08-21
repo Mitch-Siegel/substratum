@@ -12,12 +12,13 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, e
 	newFunction->arguments = Stack_New();
 	newFunction->argStackSize = 0;
 	newFunction->localStackSize = 0;
-	newFunction->mainScope = Scope_new(parentScope, "", newFunction);
+	newFunction->mainScope = Scope_new(parentScope, name, newFunction);
 	newFunction->BasicBlockList = LinkedList_New();
 	newFunction->mainScope->parentFunction = newFunction;
 	newFunction->returnType = returnType;
 	newFunction->returnIndirectionLevel = returnIndirectionLevel;
 	newFunction->name = name;
+	newFunction->isDefined = 0;
 	return newFunction;
 }
 
@@ -31,6 +32,7 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, 
 	newArgument->declaredAt = -1;
 	newArgument->isAssigned = 0;
 	newArgument->mustSpill = 0;
+	newArgument->isGlobal = 0; // arguments are never globals (pass by value)
 	newArgument->name = name->value;
 
 	Stack_Push(func->arguments, newArgument); // keep track of all arguments in order
@@ -42,7 +44,7 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, 
 
 	if (arraySize > 1)
 	{
-		struct StackObjectEntry *objForArg = malloc(sizeof(struct StackObjectEntry));
+		struct ObjectEntry *objForArg = malloc(sizeof(struct ObjectEntry));
 		newArgument->localPointerTo = objForArg;
 		objForArg->localPointer = newArgument;
 
@@ -50,7 +52,7 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, 
 		objForArg->arraySize = arraySize;
 		char *modName = malloc(strlen(name->value) + 5);
 		sprintf(modName, "%s.obj", name->value);
-		Scope_insert(func->mainScope, Dictionary_LookupOrInsert(parseDict, modName), objForArg, e_stackobj);
+		Scope_insert(func->mainScope, Dictionary_LookupOrInsert(parseDict, modName), objForArg, e_object);
 		free(modName);
 	}
 	else
@@ -105,6 +107,10 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 		case e_function: // recurse to functions
 		{
+			if (depth > 0)
+			{
+				ErrorAndExit(ERROR_INTERNAL, "Saw function at depth > 0 when collapsing scopes!\n");
+			}
 			struct FunctionEntry *thisFunction = thisMember->entry;
 			SymbolTable_collapseScopesRec(thisFunction->mainScope, dict, 0);
 		}
@@ -114,7 +120,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 		case e_variable:
 		case e_argument:
 		case e_basicblock:
-		case e_stackobj:
+		case e_object:
 			break;
 		}
 	}
@@ -131,8 +137,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 		case e_basicblock:
 		{
-			// if we are in a nested scope
-			if (depth > 1)
+			if (depth > 0)
 			{
 				// go through all TAC lines in this block
 				struct BasicBlock *thisBlock = thisMember->entry;
@@ -163,7 +168,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 		case e_variable:
 		case e_argument:
-		case e_stackobj:
+		case e_object:
 			break;
 		}
 	}
@@ -194,7 +199,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 		}
 		break;
 
-		case e_stackobj:
+		case e_object:
 		case e_variable:
 		case e_argument:
 		{
@@ -227,7 +232,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 void SymbolTable_collapseScopes(struct SymbolTable *it, struct Dictionary *dict)
 {
-	SymbolTable_collapseScopesRec(it->globalScope, parseDict, 1);
+	SymbolTable_collapseScopesRec(it->globalScope, parseDict, 0);
 }
 
 void SymbolTable_free(struct SymbolTable *it)
@@ -283,7 +288,7 @@ void Scope_free(struct Scope *scope)
 			BasicBlock_free(examinedEntry->entry);
 			break;
 
-		case e_stackobj:
+		case e_object:
 			free(examinedEntry->entry);
 			break;
 		}
@@ -309,7 +314,7 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
 }
 
 // create a variable within the given scope
-void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize)
+void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize, char isGlobal)
 {
 	struct VariableEntry *newVariable = malloc(sizeof(struct VariableEntry));
 	newVariable->type = type;
@@ -318,8 +323,18 @@ void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTy
 	newVariable->assignedAt = -1;
 	newVariable->declaredAt = -1;
 	newVariable->isAssigned = 0;
-	newVariable->mustSpill = 0;
 	newVariable->name = name->value;
+
+	if (isGlobal)
+	{
+		newVariable->isGlobal = 1;
+		newVariable->mustSpill = 1;
+	}
+	else
+	{
+		newVariable->isGlobal = 0;
+		newVariable->mustSpill = 0;
+	}
 
 	if (Scope_contains(scope, name->value))
 	{
@@ -332,18 +347,27 @@ void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTy
 
 	if (arraySize > 1)
 	{
-		struct StackObjectEntry *objForvar = malloc(sizeof(struct StackObjectEntry));
+		struct ObjectEntry *objForvar = malloc(sizeof(struct ObjectEntry));
 		newVariable->localPointerTo = objForvar;
 		objForvar->localPointer = newVariable;
 
 		objForvar->size = varSize;
 		objForvar->arraySize = arraySize;
-		// since indexing pushes address forward, set the stack offset of the variable to be index 0 (the - size * arraySize) term does this
-		objForvar->stackOffset = (scope->parentFunction->localStackSize * -1) - (objForvar->size * objForvar->arraySize);
-		scope->parentFunction->localStackSize += varSize * arraySize;
+
+		if (!isGlobal)
+		{
+			// since indexing pushes address forward, set the stack offset of the variable to be index 0 (the - size * arraySize) term does this
+			objForvar->stackOffset = (scope->parentFunction->localStackSize * -1) - (objForvar->size * objForvar->arraySize);
+			scope->parentFunction->localStackSize += varSize * arraySize;
+		}
+		else
+		{
+			objForvar->stackOffset = 0;
+		}
+
 		char *modName = malloc(strlen(name->value) + 5);
 		sprintf(modName, "%s.obj", name->value);
-		Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, modName), objForvar, e_stackobj);
+		Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, modName), objForvar, e_object);
 		free(modName);
 	}
 	else
@@ -353,10 +377,10 @@ void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTy
 }
 
 // create a new function accessible within the given scope
-struct FunctionEntry *Scope_createFunction(struct Scope *scope, char *name, enum variableTypes returnType, int returnIndirectionLevel)
+struct FunctionEntry *Scope_createFunction(struct Scope *parentScope, char *name, enum variableTypes returnType, int returnIndirectionLevel)
 {
-	struct FunctionEntry *newFunction = FunctionEntry_new(scope, name, returnType, returnIndirectionLevel);
-	Scope_insert(scope, name, newFunction, e_function);
+	struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, name, returnType, returnIndirectionLevel);
+	Scope_insert(parentScope, name, newFunction, e_function);
 	return newFunction;
 }
 
@@ -408,7 +432,6 @@ struct ScopeMember *Scope_lookup(struct Scope *scope, char *name)
 				return examinedEntry;
 			}
 		}
-
 		scope = scope->parentScope;
 	}
 	return NULL;
@@ -515,10 +538,11 @@ int GetSizeOfPrimitive(enum variableTypes type)
 }
 
 // return the actual size of a variable in bytes (lookup by its name only)
-int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
+int Scope_getSizeOfVariableByString(struct Scope *scope, char *name, char beingDereferenced)
 {
 	struct VariableEntry *theVariable = Scope_lookupVarByString(scope, name);
-	if (theVariable->indirectionLevel > 0)
+	int realIndirectionLevel = theVariable->indirectionLevel - (beingDereferenced > 0);
+	if (realIndirectionLevel > 0)
 	{
 		return 4;
 	}
@@ -532,6 +556,11 @@ int Scope_getSizeOfVariableByString(struct Scope *scope, char *name)
 int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
 {
 	struct VariableEntry *theVariable = Scope_lookupVar(scope, name);
+	if (theVariable->indirectionLevel > 0)
+	{
+		return 4;
+	}
+
 	switch (theVariable->type)
 	{
 	case vt_uint8:
@@ -546,6 +575,40 @@ int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
 	default:
 		ErrorWithAST(ERROR_INTERNAL, name, "Variable '%s' has unexpected type %d!\n", name->value, theVariable->type);
 	}
+}
+
+// allocate and return a string containing the name and pointer level of a type
+char *Scope_getNameOfType(struct Scope *scope, enum variableTypes t, int indirectionLevel)
+{
+	char *name;
+	switch (t)
+	{
+	case vt_uint8:
+		name = "uint8";
+		break;
+
+	case vt_uint16:
+		name = "uint16";
+		break;
+
+	case vt_uint32:
+		name = "uint32";
+		break;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Unexepcted variable type %d in Scope_getNaeOfType!\n", t);
+	}
+
+	int nameLen = strlen(name);
+	int totalLen = nameLen + indirectionLevel + 1;
+	char *fullName = malloc(totalLen);
+	strcpy(fullName, name);
+	for (int i = nameLen; i < totalLen; i++)
+	{
+		fullName[i] = '*';
+	}
+	fullName[totalLen - 1] = '\0';
+	return fullName;
 }
 
 void VariableEntry_Print(struct VariableEntry *it, int depth)
@@ -613,7 +676,7 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		case e_function:
 		{
 			struct FunctionEntry *theFunction = thisMember->entry;
-			printf("> Function %s (returns %d)\n", thisMember->name, theFunction->returnType);
+			printf("> Function %s (returns %d) (defined: %d)\n", thisMember->name, theFunction->returnType, theFunction->isDefined);
 			if (printTAC)
 			{
 				for (struct LinkedListNode *b = theFunction->BasicBlockList->head; b != NULL; b = b->next)
@@ -644,9 +707,9 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		}
 		break;
 
-		case e_stackobj:
+		case e_object:
 		{
-			struct StackObjectEntry *thisObj = thisMember->entry;
+			struct ObjectEntry *thisObj = thisMember->entry;
 			printf("> Stack object (%d bytes * %d) for %s\n", thisObj->size, thisObj->arraySize, thisObj->localPointer->name);
 			for (int j = 0; j < depth; j++)
 			{
@@ -664,12 +727,8 @@ void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *b)
 	char *blockName = malloc(10);
 	sprintf(blockName, "Block%d", b->labelNum);
 	Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), b, e_basicblock);
+	LinkedList_Append(scope->parentFunction->BasicBlockList, b);
 	free(blockName);
-}
-
-void Function_addBasicBlock(struct FunctionEntry *function, struct BasicBlock *b)
-{
-	LinkedList_Append(function->BasicBlockList, b);
 }
 
 /*
@@ -680,12 +739,9 @@ void Function_addBasicBlock(struct FunctionEntry *function, struct BasicBlock *b
 int scrapePointers(struct AST *pointerAST, struct AST **resultDestination)
 {
 	int dereferenceDepth = 0;
-	while (pointerAST->type == t_star)
+
+	while (pointerAST != NULL && pointerAST->type == t_star)
 	{
-		if (pointerAST->sibling == NULL)
-		{
-			ErrorAndExit(ERROR_INTERNAL, "Malformed AST seen in scrapePointers\n");
-		}
 		dereferenceDepth++;
 		pointerAST = pointerAST->sibling;
 	}
@@ -724,7 +780,12 @@ void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArg
 	if (declared->type == t_lBracket)
 	{
 		declared = declared->child;
-		arraySize = atoi(declared->sibling->value);
+		struct AST *declaredSize = declared->sibling;
+		if (declaredSize->type != t_constant)
+		{
+			ErrorWithAST(ERROR_CODE, declaredSize, "Locally scoped arrays must have a constant size!\n");
+		}
+		arraySize = atoi(declaredSize->value);
 	}
 	else
 	{
@@ -741,7 +802,7 @@ void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArg
 		}
 		else
 		{
-			Scope_createVariable(wipScope, declared, theType, indirectionLevel, arraySize);
+			Scope_createVariable(wipScope, declared, theType, indirectionLevel, arraySize, wipScope->parentScope == NULL);
 		}
 	}
 	else
@@ -804,7 +865,6 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 		if (ifTrue->sibling != NULL)
 		{
 			struct AST *ifFalse = ifTrue->sibling;
-			printf("if at %d:%d has else at %d:%d\n", it->sourceLine, it->sourceCol, ifFalse->sourceLine, ifFalse->sourceCol);
 			if (ifFalse->type == t_lCurly)
 			{
 				struct Scope *ifFalseScope = Scope_createSubScope(wipScope);
@@ -884,12 +944,6 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 	}
 	returnTypeRunner = returnTypeRunner->sibling;
 
-	int returnIndirectionLevel = 0;
-	while (returnTypeRunner->type == t_star)
-	{
-		returnIndirectionLevel++;
-		returnTypeRunner = returnTypeRunner->child;
-	}
 	enum variableTypes returnType;
 	switch (returnTypeRunner->type)
 	{
@@ -912,12 +966,30 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 	default:
 		ErrorAndExit(ERROR_INTERNAL, "Malformed AST as return type for function\n");
 	}
+	int returnIndirectionLevel = scrapePointers(returnTypeRunner->child, &returnTypeRunner);
 
 	// child is the lparen, function name is the child of the lparen
-	struct FunctionEntry *func = Scope_createFunction(parentScope, functionRunner->child->value, returnType, returnIndirectionLevel);
-	functionRunner = functionRunner->sibling; // start at argument definitions
-	func->mainScope->parentScope = parentScope;
+	struct ScopeMember *lookedUpFunction = Scope_lookup(parentScope, functionRunner->child->value);
+	struct FunctionEntry *parsedFunc = NULL;
+	struct FunctionEntry *existingFunc = NULL;
 
+	if (lookedUpFunction != NULL)
+	{
+		existingFunc = lookedUpFunction->entry;
+		parsedFunc = FunctionEntry_new(parentScope, functionRunner->child->value, returnType, returnIndirectionLevel);
+	}
+	else
+	{
+		parsedFunc = Scope_createFunction(parentScope, functionRunner->child->value, returnType, returnIndirectionLevel);
+		parsedFunc->mainScope->parentScope = parentScope;
+		// record return type
+		parsedFunc->returnType = returnType;
+		parsedFunc->returnIndirectionLevel = returnIndirectionLevel;
+	}
+
+	functionRunner = functionRunner->sibling; // start at argument definitions
+
+	// record argument definitions
 	while (functionRunner->type != t_pointer_op)
 	{
 		switch (functionRunner->type)
@@ -927,13 +999,7 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 		case t_uint16:
 		case t_uint32:
 		{
-			walkDeclaration(functionRunner, func->mainScope, 1);
-		}
-		break;
-
-		case t_lCurly:
-		{
-			walkScope(functionRunner, func->mainScope, 1);
+			walkDeclaration(functionRunner, parsedFunc->mainScope, 1);
 		}
 		break;
 
@@ -942,31 +1008,118 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 		}
 		functionRunner = functionRunner->sibling;
 	}
+	// skip past return type
+	functionRunner = functionRunner->sibling;
 	functionRunner = functionRunner->sibling;
 
-	switch (functionRunner->type)
+	// if we are defining an existing declaration, make sure they match
+	if (existingFunc)
 	{
-	case t_void:
-		func->returnType = vt_null;
-		break;
+		int mismatch = 0;
 
-	case t_uint8:
-		func->returnType = vt_uint8;
-		break;
+		if (returnType != existingFunc->returnType || returnIndirectionLevel != existingFunc->returnIndirectionLevel)
+		{
+			mismatch = 1;
+		}
 
-	case t_uint16:
-		func->returnType = vt_uint16;
-		break;
+		// ensure we have both the same number of bytes of arguments and same number of arguments
+		if (!mismatch &&
+			(existingFunc->argStackSize == parsedFunc->argStackSize) &&
+			(existingFunc->arguments->size == parsedFunc->arguments->size))
+		{
+			// if we have same number of bytes and same number, ensure everything is exactly the same
+			for (int i = 0; i < existingFunc->arguments->size; i++)
+			{
+				struct VariableEntry *existingArg = existingFunc->arguments->data[i];
+				struct VariableEntry *parsedArg = parsedFunc->arguments->data[i];
+				// ensure all arguments in order have same name, type, indirection level
+				if (strcmp(existingArg->name, parsedArg->name) ||
+					(existingArg->type != parsedArg->type) ||
+					(existingArg->indirectionLevel != parsedArg->indirectionLevel))
+				{
+					mismatch = 1;
+					break;
+				}
+			}
+		}
+		else
+		{
+			mismatch = 1;
+		}
 
-	case t_uint32:
-		func->returnType = vt_uint32;
-		break;
+		if (mismatch)
+		{
+			printf("\nConflicting declarations of function:\n");
 
-	default:
-		ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected return type to be a type specifier!\nMalformed node was of type %s with value [%s]\n", getTokenName(functionRunner->type), functionRunner->value);
+			char *existingReturnType = Scope_getNameOfType(parentScope, existingFunc->returnType, existingFunc->returnIndirectionLevel);
+			printf("\t%s %s(", existingReturnType, existingFunc->name);
+			free(existingReturnType);
+			for (int i = 0; i < existingFunc->arguments->size; i++)
+			{
+				struct VariableEntry *existingArg = existingFunc->arguments->data[i];
+
+				char *argType = Scope_getNameOfType(parentScope, existingArg->type, existingArg->indirectionLevel);
+				printf("%s %s", argType, existingArg->name);
+				free(argType);
+
+				if (i < existingFunc->arguments->size - 1)
+				{
+					printf(", ");
+				}
+				else
+				{
+					printf(")");
+				}
+			}
+			char *parsedReturnType = Scope_getNameOfType(parentScope, returnType, returnIndirectionLevel);
+			printf("\n\t%s %s(", parsedReturnType, parsedFunc->name);
+			free(parsedReturnType);
+			for (int i = 0; i < parsedFunc->arguments->size; i++)
+			{
+				struct VariableEntry *parsedArg = parsedFunc->arguments->data[i];
+
+				char *argType = Scope_getNameOfType(parentScope, parsedArg->type, parsedArg->indirectionLevel);
+				printf("%s %s", argType, parsedArg->name);
+				free(argType);
+
+				if (i < parsedFunc->arguments->size - 1)
+				{
+					printf(", ");
+				}
+				else
+				{
+					printf(")");
+				}
+			}
+			printf("\n");
+
+			ErrorWithAST(ERROR_CODE, it, " ");
+		}
 	}
-	functionRunner = functionRunner->sibling;
-	walkScope(functionRunner, func->mainScope, 1);
+
+	if (functionRunner != NULL)
+	{
+		if (existingFunc && existingFunc->isDefined)
+		{
+			ErrorWithAST(ERROR_CODE, it, "Redefinition of function %s->%s\n",
+						 existingFunc->name,
+						 Scope_getNameOfType(parentScope, existingFunc->returnType, existingFunc->returnIndirectionLevel));
+		}
+
+		if (existingFunc != NULL)
+		{
+			existingFunc->isDefined = 1;
+			walkScope(functionRunner, existingFunc->mainScope, 1);
+		}
+		else
+		{
+			parsedFunc->isDefined = 1;
+			walkScope(functionRunner, parsedFunc->mainScope, 1);
+		}
+	}
+
+	if(lookedUpFunction != NULL)
+	FunctionEntry_free(parsedFunc);
 }
 
 // given an AST node for a program, walk the AST and generate a symbol table for the entire thing
@@ -984,6 +1137,7 @@ struct SymbolTable *walkAST(struct AST *it)
 		case t_uint8:
 		case t_uint16:
 		case t_uint32:
+		case t_single_equals:
 		{
 			walkStatement(runner, programTable->globalScope);
 			struct AST *scraper = runner->child;

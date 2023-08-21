@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <errno.h>
 
 #include "ast.h"
 #include "parser.h"
@@ -12,7 +15,6 @@
 #include "serialize.h"
 
 struct Dictionary *parseDict = NULL;
-
 int main(int argc, char **argv)
 {
 	if (argc < 2)
@@ -27,20 +29,56 @@ int main(int argc, char **argv)
 	printf("Parsing program from %s\n", argv[1]);
 
 	printf("Output will be generated to %s\n\n", argv[2]);
+
+	int pid, status;
+
+	if ((pid = fork()) == -1)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Unable to fork!\n");
+	}
+
+	if (pid == 0)
+	{
+		// janky fix: write the preprocessed file to /tmp
+		char *args[4] = {"./mpp", argv[1], "/tmp/auto.mpp", NULL};
+
+		if (execvp("./mpp", args) < 0)
+		{
+			perror(strerror(errno));
+			ErrorAndExit(ERROR_INTERNAL, "Unable to execute preprocessor!\n");
+		}
+		exit(0);
+	}
+	else
+	{
+		wait(&status);
+		if (status)
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Preprocessor execution failed!\n");
+		}
+		else
+		{
+			printf("\n");
+		}
+	}
+
 	parseDict = Dictionary_New(10);
-	struct AST *program = ParseProgram(argv[1], parseDict);
+	struct AST *program = ParseProgram("/tmp/auto.mpp", parseDict);
 
 	// serializeAST("astdump", program);
-	printf("\n");
+	// printf("\n");
 
-	AST_Print(program, 0);
+	// AST_Print(program, 0);
 
 	printf("Generating symbol table from AST");
 	struct SymbolTable *theTable = walkAST(program);
 	printf("\n");
 
-	printf("Symbol table before scope collapse:\n");
-	SymbolTable_print(theTable, 0);
+	if (argc > 3)
+	{
+		printf("Symbol table before scope collapse:\n");
+		SymbolTable_print(theTable, 0);
+	}
 
 	printf("Linearizing code to basic blocks\n");
 	struct TempList *temps = TempList_New();
@@ -58,32 +96,10 @@ int main(int argc, char **argv)
 	FILE *outFile = fopen(argv[2], "wb");
 
 	printf("Generating code\n");
-	struct Stack *outputBlocks;
-	outputBlocks = generateCode(theTable, outFile);
-	fprintf(outFile, "#include \"CPU.asm\"\n#include \"INT.asm\"\n");
-	for (int i = 0; i < outputBlocks->size; i++)
-	{
-		struct LinkedList *thisBlock = outputBlocks->data[i];
-		for (struct LinkedListNode *asmLine = thisBlock->head; asmLine != NULL; asmLine = asmLine->next)
-		{
-			char *s = asmLine->data;
-			int length = strlen(s);
-			if (length > 0)
-			{
-				if (s[strlen(s) - 1] != ':')
-				{
-					fprintf(outFile, "\t");
-				}
-			}
+	// fprintf(outFile, "#include \"CPU.asm\"\nentry code\n");
+	generateCode(theTable, outFile);
 
-			fprintf(outFile, "%s\n", s);
-		}
-		// ASM_output(outputBlocks->data[i], outFile);
-		LinkedList_Free(thisBlock, free);
-	}
 	SymbolTable_free(theTable);
-
-	Stack_Free(outputBlocks);
 
 	fclose(outFile);
 	AST_Free(program);

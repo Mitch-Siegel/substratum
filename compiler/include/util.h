@@ -6,7 +6,7 @@
 
 enum CompilerErrors
 {
-	ERROR_INVOCATION, 	// user has made an error with arguments or other parameters
+	ERROR_INVOCATION = 1, 	// user has made an error with arguments or other parameters
 	ERROR_CODE,			// there is an error in the code which prevents a complete compilation
 	ERROR_INTERNAL,
 };
@@ -14,7 +14,7 @@ enum CompilerErrors
 
 #define ErrorAndExit(code, fmt, ...) printf(fmt, ##__VA_ARGS__);printf("Bailing from file %s, line %d\n\n", __FILE__, __LINE__);exit(code)
 
-#define ErrorWithAST(code, astPtr, fmt, ...) printf("Line %d Col %d: ", astPtr->sourceLine, astPtr->sourceCol); ErrorAndExit(code, fmt, ##__VA_ARGS__)
+#define ErrorWithAST(code, astPtr, fmt, ...) printf("%s:%d:%d: ", astPtr->sourceFile, astPtr->sourceLine, astPtr->sourceCol); ErrorAndExit(code, fmt, ##__VA_ARGS__)
 
 /*
  * Dictionary for tracking strings
@@ -89,9 +89,16 @@ void LinkedList_Append(struct LinkedList *l, void *element);
 
 void LinkedList_Prepend(struct LinkedList *l, void *element);
 
-void *LinkedList_Delete(struct LinkedList *l, char (*compareFunction)(), void *element);
+// join all elements of list 'after' after those of list 'before' in list 'before'
+void LinkedList_Join(struct LinkedList *before, struct LinkedList *after);
 
-void *LinkedList_Find(struct LinkedList *l, char (*compareFunction)(), void *element);
+void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *element);
+
+void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *element);
+
+void *LinkedList_PopFront(struct LinkedList *l);
+
+void *LinkedList_PopBack(struct LinkedList *l);
 
 char *strTrim(char *s, int l);
 
