@@ -6,7 +6,7 @@
 
 enum CompilerErrors
 {
-	ERROR_INVOCATION, 	// user has made an error with arguments or other parameters
+	ERROR_INVOCATION = 1, 	// user has made an error with arguments or other parameters
 	ERROR_CODE,			// there is an error in the code which prevents a complete compilation
 	ERROR_INTERNAL,
 };
