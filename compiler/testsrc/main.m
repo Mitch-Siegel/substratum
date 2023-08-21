@@ -19,7 +19,7 @@ fun test(uint8 n->void)
 
 fun main(->void)
 {
-	test(15);
+	test(20);
 	/*uint8 i = 0;
 	while(i < 10)
 	{

@@ -238,7 +238,7 @@ void LinkedList_Prepend(struct LinkedList *l, void *element)
 
 void LinkedList_Join(struct LinkedList *before, struct LinkedList *after)
 {
-	for(struct LinkedListNode *runner = after->head; runner != after->tail; runner = runner->next)
+	for(struct LinkedListNode *runner = after->head; runner != NULL; runner = runner->next)
 	{
 		LinkedList_Append(before, runner->data);
 	}

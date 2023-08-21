@@ -22,24 +22,33 @@ char parseLinkDirection(char *directionString)
     }
 }
 
+void addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire)
+{
+    enum LinkedSymbol symbolType = toRequire->symbolType;
+    if (LinkedList_Find(requires[symbolType], compareSymbols, toRequire) == NULL)
+    {
+        LinkedList_Append(requires[symbolType], toRequire);
+    }
+    else
+    {
+        Symbol_Free(toRequire);
+    }
+}
+
 void addExport(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toAdd)
 {
-    enum LinkedSymbol symbolType = toAdd->symbolType;
-    if (LinkedList_Find(requires[symbolType], compareSymbols, toAdd))
-    {
-        struct Symbol *deletedRequire = LinkedList_Delete(requires[symbolType], compareSymbols, toAdd);
-        Symbol_Free(deletedRequire);
-    }
+    enum LinkedSymbol addType = toAdd->symbolType;
 
     // check for duplicates of anything except function declarations
     struct Symbol *found;
-    if ((found = LinkedList_Find(exports[symbolType], compareSymbols, toAdd)) && (toAdd->symbolType != s_function_declaration))
+    if ((addType != s_function_declaration) &&
+        (found = LinkedList_Find(exports[addType], compareSymbols, toAdd)))
     {
         // if we see something other than section userstart duplicated, throw an error
-        if ((strcmp(toAdd->name, "userstart") || (toAdd->symbolType != s_section)))
+        if ((strcmp(toAdd->name, "userstart") || (addType != s_section)))
         {
 
-            ErrorAndExit(ERROR_CODE, "Multiple definition of symbol %s %s - from %s and %s!\n", symbolEnumToName(toAdd->symbolType), toAdd->name, found->fromFile, toAdd->fromFile);
+            ErrorAndExit(ERROR_CODE, "Multiple definition of symbol %s %s - from %s and %s!\n", symbolEnumToName(addType), toAdd->name, found->fromFile, toAdd->fromFile);
         }
 
         LinkedList_Join(found->lines, toAdd->lines);
@@ -47,23 +56,48 @@ void addExport(struct LinkedList **exports, struct LinkedList **requires, struct
         // printf("\n\n\n\ndelete duplicate start lines\n");
         // while (LinkedList_Find(found->lines, strcmp, "START:"))
         // {
-            // LinkedList_Delete(found->lines, strcmp, "START:");
+        // LinkedList_Delete(found->lines, strcmp, "START:");
         // }
 
         // Symbol_Free(toAdd);
         return;
     }
 
-    LinkedList_Append(exports[symbolType], toAdd);
-}
+    LinkedList_Append(exports[addType], toAdd);
 
-void addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire)
-{
-    enum LinkedSymbol symbolType = toRequire->symbolType;
-    if (!LinkedList_Find(exports[symbolType], compareSymbols, toRequire))
+    // if we export a declaration, we must require a definition for it as well
+    if (addType == s_function_declaration)
     {
-        LinkedList_Append(requires[symbolType], toRequire);
+        struct Symbol *funcDefRequired = Symbol_New(toAdd->name, require, s_function_definition, toAdd->fromFile);
+        funcDefRequired->data.asFunction = toAdd->data.asFunction;
+
+        funcDefRequired->data.asFunction.args = malloc(toAdd->data.asFunction.nArgs * sizeof(struct Type));
+        memcpy(funcDefRequired->data.asFunction.args, toAdd->data.asFunction.args, toAdd->data.asFunction.nArgs * sizeof(struct Type));
+
+        funcDefRequired->data.asFunction.returnType = malloc(sizeof(struct Type));
+        memcpy(funcDefRequired->data.asFunction.returnType, toAdd->data.asFunction.returnType, sizeof(struct Type));
+
+        for (struct LinkedListNode *runner = toAdd->lines->head; runner != NULL; runner = runner->next)
+        {
+            LinkedList_Append(funcDefRequired->lines, strdup(runner->data));
+        }
+
+        for (struct LinkedListNode *runner = toAdd->linkerLines->head; runner != NULL; runner = runner->next)
+        {
+            LinkedList_Append(funcDefRequired->linkerLines, strdup(runner->data));
+        }
+
+        addRequire(exports, requires, funcDefRequired);
     }
+
+    // if adding this export satisfies any requires, delete them    
+    if (LinkedList_Find(requires[addType], compareSymbols, toAdd) != NULL)
+    {
+        printf("delete require for symbol %s %s\n", symbolEnumToName(addType), toAdd->name);
+        struct Symbol *deletedRequire = LinkedList_Delete(requires[addType], compareSymbols, toAdd);
+        Symbol_Free(deletedRequire);
+    }
+
 }
 
 int getline_force_raw(char **linep, size_t *linecapp, FILE *stream)
@@ -226,7 +260,6 @@ int main(int argc, char **argv)
                     {
                         ErrorAndExit(ERROR_INTERNAL, "End symbol name (%s) doesn't match start (%s)!\n", token, currentSymbol->name);
                     }
-
                     requireNewSymbol = 1;
                 }
                 else
@@ -251,6 +284,7 @@ int main(int argc, char **argv)
                     case s_function_declaration:
                         // ErrorAndExit(ERROR_INTERNAL, "Function declaration not yet supported!\n");
                         // break;
+                        // fall through to function definition as the symbol data is identical for declaration and definition
 
                     case s_function_definition:
                     {
