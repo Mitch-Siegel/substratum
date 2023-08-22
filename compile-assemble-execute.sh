@@ -7,7 +7,7 @@ fi
 
 echo "\ncompiling files"
 # xargs -I {} sh -c "echo {}; ls -la {}"
-ls testsrc/*.m | cut -d '.' -f1 | xargs -I {} sh -c "echo {};./cacc {}.ca {}.o || exit 255"
+ls testsrc/*.ca | cut -d '.' -f1 | xargs -I {} sh -c "echo {};./cacc {}.ca {}.o || exit 255"
 # if ! ./mcc testsrc ../assembler/main.asm; then
     # exit
 # fi

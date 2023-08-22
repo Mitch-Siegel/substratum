@@ -33,6 +33,7 @@ recipes:
 clean:
 	rm -f $(OBJDIR)/*.o
 	rm -f $(OBJDIR)/linker/*.o
+	rm -f $(OBJDIR)/preprocessor/*.o
 	rm -f ./cacc
 	rm -f ./cald
 	rm -f ./capp
