@@ -10,9 +10,9 @@ a.out
 *.bin
 assembler/linked.asm
 
-compiler/mcc
-compiler/mld
-compiler/mpp
+capp
+cacc
+cald
 compiler/astdump
 
 emu/emu
