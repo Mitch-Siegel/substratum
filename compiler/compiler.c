@@ -40,9 +40,9 @@ int main(int argc, char **argv)
 	if (pid == 0)
 	{
 		// janky fix: write the preprocessed file to /tmp
-		char *args[4] = {"./mpp", argv[1], "/tmp/auto.mpp", NULL};
+		char *args[4] = {"./capp", argv[1], "/tmp/auto.capp", NULL};
 
-		if (execvp("./mpp", args) < 0)
+		if (execvp("./capp", args) < 0)
 		{
 			perror(strerror(errno));
 			ErrorAndExit(ERROR_INTERNAL, "Unable to execute preprocessor!\n");

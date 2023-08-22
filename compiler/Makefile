@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -g -Werror -Wall -Wno-enum-conversion -Wno-void-pointer-to-enum-cast -Wno-deprecated-declarations -fsanitize=address
-programs: mcc mld mpp
+programs: cacc cald capp
 
 OBJDIR = build
 MCC_SRCS = $(basename $(wildcard *.c))
@@ -16,13 +16,13 @@ $(OBJDIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) -c $(CFLAGS) -o $@ $< -I ./include
 
-mcc: $(addprefix $(OBJDIR)/,$(MCC_OBJS))
+cacc: $(addprefix $(OBJDIR)/,$(MCC_OBJS))
 	$(CC) $(CFLAGS) -o $@ $^
 
-mld:$(addprefix $(OBJDIR)/,$(MLD_OBJS))
+cald:$(addprefix $(OBJDIR)/,$(MLD_OBJS))
 	$(CC) $(CFLAGS) -o $@ $^ -I ./include
 
-mpp:$(addprefix $(OBJDIR)/,$(MPP_OBJS))
+capp:$(addprefix $(OBJDIR)/,$(MPP_OBJS))
 	$(CC) $(CFLAGS) -o $@ $^ -I ./include
 
 recipes:
@@ -33,8 +33,9 @@ recipes:
 clean:
 	rm -f $(OBJDIR)/*.o
 	rm -f $(OBJDIR)/linker/*.o
-	rm -f ./mcc
-	rm -f ./mld
+	rm -f ./cacc
+	rm -f ./cald
+	rm -f ./capp
 
 test:
 	$(info MCC SRCS="$(MCC_SRCS)")

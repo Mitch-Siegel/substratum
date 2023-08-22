@@ -7,7 +7,7 @@ fi
 
 echo "\ncompiling files"
 # xargs -I {} sh -c "echo {}; ls -la {}"
-ls testsrc/*.m | cut -d '.' -f1 | xargs -I {} sh -c "echo {};./mcc {}.m {}.o || exit 255"
+ls testsrc/*.m | cut -d '.' -f1 | xargs -I {} sh -c "echo {};./cacc {}.ca {}.o || exit 255"
 # if ! ./mcc testsrc ../assembler/main.asm; then
     # exit
 # fi
@@ -17,10 +17,10 @@ cd testsrc
 rm -f linked.o
 touch linked.o
 # xargs -I {} sh -c "echo {}; ls -la {}"
-ls *.o | xargs -I {} sh -c "../mld -i linked.o -i {} -o linked.o || exit 255"
+ls *.o | xargs -I {} sh -c "../cald -i linked.o -i {} -o linked.o || exit 255"
 
 cd ..
-./mld -i ./testsrc/linked.o -o ../assembler/linked.asm -e
+./cald -i ./testsrc/linked.o -o ../assembler/linked.asm -e
 
 
 cd ../assembler
