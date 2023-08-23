@@ -322,6 +322,12 @@ int main(int argc, char **argv)
                     break;
 
                     case s_variable:
+                        {
+                            getline_force_metadata(&inBuf, &bufSize, inFile, currentSymbol);
+                            struct Type *varType = parseType(inBuf);
+                            currentSymbol->data.asVariable = *varType;
+                            free(varType);
+                        }
                         break;
 
                     case s_section:

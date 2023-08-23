@@ -163,6 +163,7 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOpera
 	}
 }
 
+// generates code from the global scope, recursing inwards to functions
 void generateCode(struct SymbolTable *table, FILE *outFile)
 {
 	for (int i = 0; i < table->globalScope->entries->size; i++)
@@ -201,7 +202,6 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 				fprintf(outFile, "~end export funcdec %s\n", thisMember->name);
 			}
 		}
-
 		break;
 
 		case e_basicblock:
@@ -231,6 +231,15 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 			generateCodeForFunction(&start, outFile);
 			LinkedList_Free(globalBlockList, NULL);
 			fprintf(outFile, "~end export section userstart\n");
+		}
+		break;
+		
+		case e_variable:
+		{
+			struct VariableEntry *v = thisMember->entry;
+			fprintf(outFile, "~export variable %s\n", thisMember->name);
+			fprintf(outFile, "%d %d* %s\n", v->type, v->indirectionLevel, v->name);
+			fprintf(outFile, "~end export variable %s\n", thisMember->name);
 		}
 		break;
 
