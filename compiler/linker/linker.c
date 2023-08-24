@@ -93,7 +93,6 @@ void addExport(struct LinkedList **exports, struct LinkedList **requires, struct
     // if adding this export satisfies any requires, delete them    
     if (LinkedList_Find(requires[addType], compareSymbols, toAdd) != NULL)
     {
-        printf("delete require for symbol %s %s\n", symbolEnumToName(addType), toAdd->name);
         struct Symbol *deletedRequire = LinkedList_Delete(requires[addType], compareSymbols, toAdd);
         Symbol_Free(deletedRequire);
     }

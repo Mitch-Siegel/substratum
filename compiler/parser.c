@@ -482,8 +482,6 @@ enum token scan(char trackPos, struct Dictionary *dict)
 				ErrorWithAST(ERROR_INTERNAL, (&ex), "Expected filename (as t_identifier) after #file\n\tSaw malformed preprocessor output and got [%s] instead!\n", buffer);
 			}
 
-			printf("FILE: %s\n", buffer);
-
 			// if we are bothering to track position, actually update the current file
 			if (trackPos)
 			{
@@ -1183,7 +1181,6 @@ struct AST *TableParse(struct Dictionary *dict)
 						TableParseError(parseStack);
 					}
 				}
-				printf("%d from new file\n", newFileStack->size);
 				justStartedNewFile = 0;
 			}
 			while (newFileStack->size > 0)

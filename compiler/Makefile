@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -Werror -Wall -Wno-enum-conversion -Wno-void-pointer-to-enum-cast -Wno-deprecated-declarations -fsanitize=address
+CFLAGS = -g -Werror -Wall -Wno-enum-conversion -Wno-void-pointer-to-enum-cast -Wno-deprecated-declarations # -fsanitize=address
 programs: cacc cald capp
 
 OBJDIR = build

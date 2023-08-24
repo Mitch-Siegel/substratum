@@ -68,13 +68,27 @@ char *PlaceLiteralInRegister(FILE *outFile, char *literalStr, int destReg)
 
 void WriteSpilledVariable(FILE *outFile, struct Lifetime *writtenTo, char *sourceRegStr)
 {
-	if (writtenTo->stackOrRegLocation > 0)
+	// if we have a global, we will use a string reference to the variable's name for the linker to resolve once it places globals
+	if (writtenTo->isGlobal)
 	{
-		fprintf(outFile, "\t%s (%%bp+%d), %s\n", SelectMovWidthForLifetime(writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
+		// we will need 2 movs because the address of the global will be a 32-bit int, requiring an assembly macro of its own
+		fprintf(outFile, "\t%s %s, %s\n", SelectMovWidthForPrimitive(vt_uint32), registerNames[RETURN_REGISTER], writtenTo->name);
+		// then, once we have the address in a register we can write our value to it
+		fprintf(outFile, "\t%s (%s), %s\n", SelectMovWidthForLifetime(writtenTo), registerNames[RETURN_REGISTER], sourceRegStr);
 	}
+	// not a global
 	else
 	{
-		fprintf(outFile, "\t%s (%%bp%d), %s\n", SelectMovWidthForLifetime(writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
+		// location is a positive offset, we will add to the base pointer to get to this variable
+		if (writtenTo->stackOrRegLocation > 0)
+		{
+			fprintf(outFile, "\t%s (%%bp+%d), %s\n", SelectMovWidthForLifetime(writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
+		}
+		// location is a negative offset, we will subtract from the base pointer to get to this variable
+		else
+		{
+			fprintf(outFile, "\t%s (%%bp%d), %s\n", SelectMovWidthForLifetime(writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
+		}
 	}
 }
 
@@ -82,13 +96,27 @@ char *ReadSpilledVariable(FILE *outFile, int destReg, struct Lifetime *readFrom)
 {
 	char *destRegStr = registerNames[destReg];
 
-	if (readFrom->stackOrRegLocation > 0)
+	// if we have a global, we will use a string reference to the variable's name for the linker to resolve once it places globals
+	if (readFrom->isGlobal)
 	{
-		fprintf(outFile, "\t%s %s, (%%bp+%d)\n", SelectMovWidthForLifetime(readFrom), destRegStr, readFrom->stackOrRegLocation);
+		// we will need 2 movs because the address of the global will be a 32-bit int, requiring an assembly macro of its own
+		fprintf(outFile, "\t%s %s, %s\n", SelectMovWidthForPrimitive(vt_uint32), destRegStr, readFrom->name);
+		// then, once we have the address in a register we can read from it to grab our value
+		fprintf(outFile, "\t%s %s, (%s)\n", SelectMovWidthForLifetime(readFrom), destRegStr, destRegStr);
 	}
+	// not a global
 	else
 	{
-		fprintf(outFile, "\t%s %s, (%%bp%d)\n", SelectMovWidthForLifetime(readFrom), destRegStr, readFrom->stackOrRegLocation);
+		// location is a positive offset, we will add to the base pointer to get to this variable
+		if (readFrom->stackOrRegLocation > 0)
+		{
+			fprintf(outFile, "\t%s %s, (%%bp+%d)\n", SelectMovWidthForLifetime(readFrom), destRegStr, readFrom->stackOrRegLocation);
+		}
+		// location is a negative offset, we will subtract from the base pointer to get to this variable
+		else
+		{
+			fprintf(outFile, "\t%s %s, (%%bp%d)\n", SelectMovWidthForLifetime(readFrom), destRegStr, readFrom->stackOrRegLocation);
+		}
 	}
 	return destRegStr;
 }
@@ -233,7 +261,7 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 			fprintf(outFile, "~end export section userstart\n");
 		}
 		break;
-		
+
 		case e_variable:
 		{
 			struct VariableEntry *v = thisMember->entry;

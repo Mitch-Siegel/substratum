@@ -12,7 +12,14 @@ struct Lifetime *newLifetime(char *name, enum variableTypes type, int indirectio
 	wip->type = type;
 	wip->nwrites = 0;
 	wip->nreads = 0;
-	wip->isSpilled = 0;
+	if (isGlobal)
+	{
+		wip->isSpilled = 1;
+	}
+	else
+	{
+		wip->isSpilled = 0;
+	}
 	wip->isArgument = 0;
 	wip->isGlobal = isGlobal;
 	wip->localPointerTo = NULL;

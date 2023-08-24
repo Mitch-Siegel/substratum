@@ -26,7 +26,7 @@ int main(int argc, char **argv)
 		ErrorAndExit(ERROR_INVOCATION, "Error - please specify an output file!\n");
 	}
 
-	printf("Parsing program from %s\n", argv[1]);
+	printf("Compiling source file %s\n", argv[1]);
 
 	printf("Output will be generated to %s\n\n", argv[2]);
 

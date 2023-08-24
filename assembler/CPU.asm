@@ -177,6 +177,13 @@
         0xbf @ {rd} @ 0x0 @ {upper} @
         0x6b @ {rd} @ {rd} @ 0x0010 @
         0x61 @ {rd} @ {rd} @ {lower}}
+
+    mov %{rd: reg}, {imm: i32}                             => {
+        upper = imm[31:16]
+        lower = imm[15:0]
+        0xbf @ {rd} @ 0x0 @ {upper} @
+        0x6b @ {rd} @ {rd} @ 0x0010 @
+        0x61 @ {rd} @ {rd} @ {lower}}
     
 
 
