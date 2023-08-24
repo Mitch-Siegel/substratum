@@ -1,7 +1,7 @@
 set -e
 echo "building compiler"
 cd compiler
-if ! make; then
+if ! make -j`nproc`; then
     exit
 fi
 

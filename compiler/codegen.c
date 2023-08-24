@@ -99,6 +99,7 @@ char *ReadSpilledVariable(FILE *outFile, int destReg, struct Lifetime *readFrom)
 	// if we have a global, we will use a string reference to the variable's name for the linker to resolve once it places globals
 	if (readFrom->isGlobal)
 	{
+		fprintf(outFile, "\t; read global %s\n", readFrom->name);
 		// we will need 2 movs because the address of the global will be a 32-bit int, requiring an assembly macro of its own
 		fprintf(outFile, "\t%s %s, %s\n", SelectMovWidthForPrimitive(vt_uint32), destRegStr, readFrom->name);
 		// then, once we have the address in a register we can read from it to grab our value
@@ -107,6 +108,7 @@ char *ReadSpilledVariable(FILE *outFile, int destReg, struct Lifetime *readFrom)
 	// not a global
 	else
 	{
+		fprintf(outFile, "\t; read spilled variable %s\n", readFrom->name);
 		// location is a positive offset, we will add to the base pointer to get to this variable
 		if (readFrom->stackOrRegLocation > 0)
 		{
@@ -125,6 +127,17 @@ char *ReadSpilledVariable(FILE *outFile, int destReg, struct Lifetime *readFrom)
 // does *NOT* guarantee that returned register indices are modifiable in the case where the variable is found in a register
 char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOperand operand, FILE *outFile, int registerIndex, char *touchedRegisters)
 {
+	/*
+		TODO: Decide if this is too much of a hack?
+		In cases where we have enough registers to not spill any loca variables, we still reserve 1 scratch register
+		However, in cases where generic logic passes reserved[2] to this function, if that second operand is a global,
+			reserved[2] will be -1 and we will not have anywhere to put the global, so select REGTURN_REGISTER instead
+	*/
+	if(registerIndex == -1)
+	{
+		registerIndex = RETURN_REGISTER;
+	}
+
 	if (operand.permutation == vp_literal)
 	{
 		if (registerIndex < 0)
@@ -141,7 +154,7 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOpera
 		ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", operand.name.str);
 	}
 
-	if (registerIndex < 0 && relevantLifetime->isSpilled)
+	if (registerIndex < 0 && relevantLifetime->isSpilled && !relevantLifetime->isGlobal)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Call to attempt to place spilled variable %s when none should be spilled!", operand.name.str);
 	}
