@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 	struct SymbolTable *theTable = walkAST(program);
 	printf("\n");
 
-	if (argc > 3)
+	if (argc > 3 || 1)
 	{
 		printf("Symbol table before scope collapse:\n");
 		SymbolTable_print(theTable, 0);
@@ -87,7 +87,7 @@ int main(int argc, char **argv)
 	printf("Collapsing scopes\n");
 	SymbolTable_collapseScopes(theTable, parseDict);
 
-	if (argc > 3)
+	if (argc > 3 || 1)
 	{
 		printf("Symbol table after linearization/scope collapse:\n");
 		SymbolTable_print(theTable, 1);

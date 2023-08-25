@@ -73,6 +73,7 @@ struct ObjectEntry
 	int arraySize;
 	int stackOffset;
 	struct VariableEntry *localPointer;
+	char isGlobal;
 };
 
 struct SymbolTable
@@ -94,6 +95,7 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, 
 
 void FunctionEntry_free(struct FunctionEntry *f);
 
+
 // symbol table functions
 struct SymbolTable *SymbolTable_new(char *name);
 
@@ -111,6 +113,8 @@ void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTy
 struct FunctionEntry *Scope_createFunction(struct Scope *parentScope, char *name, enum variableTypes returnType, int returnIndirectionLevel);
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
+
+struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, int size, int arraySize, int stackOffset, struct VariableEntry *localPointer, char isGlobal);
 
 // scope lookup functions
 char Scope_contains(struct Scope *scope, char *name);

@@ -44,15 +44,16 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, 
 
 	if (arraySize > 1)
 	{
-		struct ObjectEntry *objForArg = malloc(sizeof(struct ObjectEntry));
-		newArgument->localPointerTo = objForArg;
-		objForArg->localPointer = newArgument;
-
-		objForArg->size = argSize;
-		objForArg->arraySize = arraySize;
 		char *modName = malloc(strlen(name->value) + 5);
 		sprintf(modName, "%s.obj", name->value);
-		Scope_insert(func->mainScope, Dictionary_LookupOrInsert(parseDict, modName), objForArg, e_object);
+
+		int calculatedStackOffset;
+		// since indexing pushes address forward, set the stack offset of the variable to be index 0 (the - size * arraySize) term does this
+		calculatedStackOffset = (func->localStackSize * -1) - (argSize * arraySize);
+		func->localStackSize += argSize * arraySize;
+
+		struct ObjectEntry *objForArg = Scope_createObject(func->mainScope, Dictionary_LookupOrInsert(parseDict, modName), argSize, arraySize, calculatedStackOffset, newArgument, 0);
+		newArgument->localPointerTo = objForArg;
 		free(modName);
 	}
 	else
@@ -291,6 +292,7 @@ void Scope_free(struct Scope *scope)
 		case e_object:
 			free(examinedEntry->entry);
 			break;
+
 		}
 
 		free(examinedEntry);
@@ -347,28 +349,25 @@ void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTy
 
 	if (arraySize > 1)
 	{
-		struct ObjectEntry *objForvar = malloc(sizeof(struct ObjectEntry));
-		newVariable->localPointerTo = objForvar;
-		objForvar->localPointer = newVariable;
+		char *modName = malloc(strlen(name->value) + 5);
+		sprintf(modName, "%s.obj", name->value);
 
-		objForvar->size = varSize;
-		objForvar->arraySize = arraySize;
-
+		int calculatedStackOffset;
 		if (!isGlobal)
 		{
 			// since indexing pushes address forward, set the stack offset of the variable to be index 0 (the - size * arraySize) term does this
-			objForvar->stackOffset = (scope->parentFunction->localStackSize * -1) - (objForvar->size * objForvar->arraySize);
+			calculatedStackOffset = (scope->parentFunction->localStackSize * -1) - (varSize * arraySize);
 			scope->parentFunction->localStackSize += varSize * arraySize;
 		}
 		else
 		{
-			objForvar->stackOffset = 0;
+			calculatedStackOffset = 0;
 		}
 
-		char *modName = malloc(strlen(name->value) + 5);
-		sprintf(modName, "%s.obj", name->value);
-		Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, modName), objForvar, e_object);
+		struct ObjectEntry *objForVar = Scope_createObject(scope, Dictionary_LookupOrInsert(parseDict, modName), varSize, arraySize, calculatedStackOffset, newVariable, isGlobal);
+		newVariable->localPointerTo = objForVar;
 		free(modName);
+
 	}
 	else
 	{
@@ -402,6 +401,21 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
 
 	Scope_insert(parentScope, newScopeName, newScope, e_scope);
 	return newScope;
+}
+
+struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, int size, int arraySize, int stackOffset, struct VariableEntry *localPointer, char isGlobal)
+{
+	struct ObjectEntry *newObject = malloc(sizeof(struct ObjectEntry));
+
+	newObject->size = size;
+	newObject->arraySize = arraySize;
+	newObject->stackOffset = stackOffset;
+	newObject->localPointer = localPointer;
+	newObject->isGlobal = isGlobal;
+
+	Scope_insert(scope, name, newObject, e_object);
+
+	return newObject;
 }
 
 // Scope lookup functions
