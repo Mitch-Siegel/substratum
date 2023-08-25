@@ -11,7 +11,8 @@ enum variableTypes
 	vt_null,
 	vt_uint8,
 	vt_uint16,
-	vt_uint32
+	vt_uint32,
+	vt_strlit,
 };
 
 enum variablePermutations

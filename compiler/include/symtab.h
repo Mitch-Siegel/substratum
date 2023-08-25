@@ -72,8 +72,12 @@ struct ObjectEntry
 	int size;
 	int arraySize;
 	int stackOffset;
-	struct VariableEntry *localPointer;
+	// byte array [size] bytes long indicating what the object should be initialized to
+	// should only be allocated if the object should be initialiized
+	// (handled outside of Scope_createObject on a case-by-case basis)
+	char *initializeTo; 
 	char isGlobal;
+	char initialized;
 };
 
 struct SymbolTable
@@ -91,10 +95,11 @@ struct SymbolTable
 // create an argument engty in the provided function entry, which is named by the provided AST node
 struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, enum variableTypes returnType, int returnIndirectionLevel);
 
-void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize);
+struct VariableEntry *FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize);
 
 void FunctionEntry_free(struct FunctionEntry *f);
 
+void ObjectEntry_free(struct ObjectEntry *o);
 
 // symbol table functions
 struct SymbolTable *SymbolTable_new(char *name);
@@ -108,13 +113,13 @@ void Scope_print(struct Scope *it, int depth, char printTAC);
 
 void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMemberType type);
 
-void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize, char isGlobal);
+struct VariableEntry *Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize, char isGlobal);
 
 struct FunctionEntry *Scope_createFunction(struct Scope *parentScope, char *name, enum variableTypes returnType, int returnIndirectionLevel);
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
 
-struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, int size, int arraySize, int stackOffset, struct VariableEntry *localPointer, char isGlobal);
+struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, int size, int arraySize, int stackOffset, char isGlobal);
 
 // scope lookup functions
 char Scope_contains(struct Scope *scope, char *name);
@@ -159,7 +164,7 @@ void SymbolTable_free(struct SymbolTable *it);
 // scrape down a chain of nested child star tokens, expecting something at the bottom
 int scrapePointers(struct AST *pointerAST, struct AST **resultDestination);
 
-void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArgument);
+struct VariableEntry *walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArgument);
 
 void walkStatement(struct AST *it, struct Scope *wipScope);
 

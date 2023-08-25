@@ -23,7 +23,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, e
 }
 
 // create a variable denoted to be an argument within the given function entry
-void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize)
+struct VariableEntry *FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize)
 {
 	struct VariableEntry *newArgument = malloc(sizeof(struct VariableEntry));
 	newArgument->type = type;
@@ -47,12 +47,12 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, 
 		char *modName = malloc(strlen(name->value) + 5);
 		sprintf(modName, "%s.obj", name->value);
 
-		int calculatedStackOffset;
+		int calculatedStackOffset = 0;
 		// since indexing pushes address forward, set the stack offset of the variable to be index 0 (the - size * arraySize) term does this
 		calculatedStackOffset = (func->localStackSize * -1) - (argSize * arraySize);
 		func->localStackSize += argSize * arraySize;
 
-		struct ObjectEntry *objForArg = Scope_createObject(func->mainScope, Dictionary_LookupOrInsert(parseDict, modName), argSize, arraySize, calculatedStackOffset, newArgument, 0);
+		struct ObjectEntry *objForArg = Scope_createObject(func->mainScope, Dictionary_LookupOrInsert(parseDict, modName), argSize, arraySize, calculatedStackOffset, 0);
 		newArgument->localPointerTo = objForArg;
 		free(modName);
 	}
@@ -60,6 +60,8 @@ void FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, 
 	{
 		newArgument->localPointerTo = NULL;
 	}
+
+	return newArgument;
 }
 
 void FunctionEntry_free(struct FunctionEntry *f)
@@ -68,6 +70,15 @@ void FunctionEntry_free(struct FunctionEntry *f)
 	LinkedList_Free(f->BasicBlockList, NULL);
 	Scope_free(f->mainScope);
 	free(f);
+}
+
+void ObjectEntry_free(struct ObjectEntry *o)
+{
+	if (o->initialized)
+	{
+		free(o->initializeTo);
+	}
+	free(o);
 }
 
 struct SymbolTable *SymbolTable_new(char *name)
@@ -290,9 +301,8 @@ void Scope_free(struct Scope *scope)
 			break;
 
 		case e_object:
-			free(examinedEntry->entry);
+			ObjectEntry_free(examinedEntry->entry);
 			break;
-
 		}
 
 		free(examinedEntry);
@@ -316,7 +326,7 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
 }
 
 // create a variable within the given scope
-void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize, char isGlobal)
+struct VariableEntry *Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize, char isGlobal)
 {
 	struct VariableEntry *newVariable = malloc(sizeof(struct VariableEntry));
 	newVariable->type = type;
@@ -364,15 +374,16 @@ void Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTy
 			calculatedStackOffset = 0;
 		}
 
-		struct ObjectEntry *objForVar = Scope_createObject(scope, Dictionary_LookupOrInsert(parseDict, modName), varSize, arraySize, calculatedStackOffset, newVariable, isGlobal);
+		struct ObjectEntry *objForVar = Scope_createObject(scope, Dictionary_LookupOrInsert(parseDict, modName), varSize, arraySize, calculatedStackOffset, isGlobal);
 		newVariable->localPointerTo = objForVar;
 		free(modName);
-
 	}
 	else
 	{
 		newVariable->localPointerTo = NULL;
 	}
+
+	return newVariable;
 }
 
 // create a new function accessible within the given scope
@@ -403,14 +414,13 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
 	return newScope;
 }
 
-struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, int size, int arraySize, int stackOffset, struct VariableEntry *localPointer, char isGlobal)
+struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, int size, int arraySize, int stackOffset, char isGlobal)
 {
 	struct ObjectEntry *newObject = malloc(sizeof(struct ObjectEntry));
 
 	newObject->size = size;
 	newObject->arraySize = arraySize;
 	newObject->stackOffset = stackOffset;
-	newObject->localPointer = localPointer;
 	newObject->isGlobal = isGlobal;
 
 	Scope_insert(scope, name, newObject, e_object);
@@ -724,12 +734,35 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		case e_object:
 		{
 			struct ObjectEntry *thisObj = thisMember->entry;
-			printf("> Stack object (%d bytes * %d) for %s\n", thisObj->size, thisObj->arraySize, thisObj->localPointer->name);
+			printf("> Object %s (%d bytes * %d)\n", thisMember->name, thisObj->size, thisObj->arraySize);
 			for (int j = 0; j < depth; j++)
 			{
 				printf("\t");
 			}
-			printf("  - Stack offset: %d\n\n", thisObj->stackOffset);
+			if (thisObj->isGlobal)
+			{
+				printf("  - Global\n");
+			}
+			else
+			{
+				printf("  - Stack offset: %d\n", thisObj->stackOffset);
+			}
+
+			for (int j = 0; j < depth; j++)
+			{
+				printf("\t");
+			}
+			printf("  - Initialized: %d", thisObj->initialized);
+			if (thisObj->initialized)
+			{
+				printf(" (hex: ");
+				for (int i = 0; i < thisObj->size; i++)
+				{
+					printf("%02x ", thisObj->initializeTo[i]);
+				}
+				printf(")");
+			}
+			printf("\n\n");
 		}
 		break;
 		}
@@ -763,7 +796,7 @@ int scrapePointers(struct AST *pointerAST, struct AST **resultDestination)
 	return dereferenceDepth;
 }
 
-void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArgument)
+struct VariableEntry *walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArgument)
 {
 	enum variableTypes theType;
 
@@ -806,23 +839,62 @@ void walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArg
 		arraySize = 1;
 	}
 
+	struct VariableEntry *created = NULL;
+
 	// lookup the variable being assigned, only insert if unique
 	// also covers modification of argument values
 	if (!Scope_contains(wipScope, declared->value))
 	{
 		if (isArgument)
 		{
-			FunctionEntry_createArgument(wipScope->parentFunction, declared, theType, indirectionLevel, arraySize);
+			created = FunctionEntry_createArgument(wipScope->parentFunction, declared, theType, indirectionLevel, arraySize);
 		}
 		else
 		{
-			Scope_createVariable(wipScope, declared, theType, indirectionLevel, arraySize, wipScope->parentScope == NULL);
+			created = Scope_createVariable(wipScope, declared, theType, indirectionLevel, arraySize, wipScope->parentScope == NULL);
 		}
 	}
 	else
 	{
 		ErrorWithAST(ERROR_CODE, declared, "Redeclaration of identifier '%s'\n", declared->value);
 	}
+
+	return created;
+}
+
+void walkStringLiteral(struct AST *stringLiteral, struct VariableEntry *myLocalPointer, struct Scope *wipScope)
+{
+	if (stringLiteral->type != t_string_literal)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "walkStringLiteral called with AST type %s!\n", getTokenName(stringLiteral->type));
+	}
+
+	int stringSize = strlen(stringLiteral->value) + 1;
+	struct ObjectEntry *stringObject = Scope_createObject(wipScope, stringLiteral->value, stringSize, 1, 0, 1);
+
+	stringObject->initialized = 1;
+	stringObject->initializeTo = malloc(stringSize);
+	strcpy(stringObject->initializeTo, stringLiteral->value);
+
+	myLocalPointer->localPointerTo = stringObject;
+
+	// if (declared->type == t_lBracket)
+	// {
+	// 	declared = declared->child;
+	// 	struct AST *declaredSize = declared->sibling;
+	// 	if (declaredSize->type != t_constant)
+	// 	{
+	// 		ErrorWithAST(ERROR_CODE, declaredSize, "Locally scoped arrays must have a constant size!\n");
+	// 	}
+	// 	arraySize = atoi(declaredSize->value);
+	// }
+	// else
+	// {
+	// 	arraySize = 1;
+	// }
+
+	// lookup the variable being assigned, only insert if unique
+	// also covers modification of argument values
 }
 
 void walkStatement(struct AST *it, struct Scope *wipScope)
@@ -847,16 +919,34 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 
 	// check the LHS of the assignment to check if it is a declare-and-assign
 	case t_single_equals:
+		struct VariableEntry *declaredVariable = NULL;
 		switch (it->child->type)
 		{
 		case t_uint8:
 		case t_uint16:
 		case t_uint32:
 		{
-			walkDeclaration(it->child, wipScope, 0);
+			declaredVariable = walkDeclaration(it->child, wipScope, 0);
+		}
+		break;
+
+		default:
+			break;
 		}
 
+		switch (it->child->sibling->type)
+		{
+		case t_string_literal:
+		{
+			if (declaredVariable == NULL)
+			{
+				ErrorWithAST(ERROR_CODE, it, "String literal in invalid position - must be on RHS of assignment!\n");
+			}
+
+			walkStringLiteral(it->child->sibling, declaredVariable, wipScope);
+		}
 		break;
+
 		default:
 			break;
 		}
@@ -1132,8 +1222,8 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 		}
 	}
 
-	if(lookedUpFunction != NULL)
-	FunctionEntry_free(parsedFunc);
+	if (lookedUpFunction != NULL)
+		FunctionEntry_free(parsedFunc);
 }
 
 // given an AST node for a program, walk the AST and generate a symbol table for the entire thing

@@ -14,7 +14,7 @@
  * printNum(small, 1);
  * should be 15, 105, 560, 76
  */
-
+ /*
 uint32 big;
 uint16 med;
 uint8 small;
@@ -117,6 +117,10 @@ fun main(->void)
 	printNum(med, 1);
 	printNum(small, 1);
 }
+*/
 
-
+fun main(->void)
+{
+	uint8 *string = "Hello, World!";
+}
 
