@@ -12,14 +12,14 @@ enum variableTypes
 	vt_uint8,
 	vt_uint16,
 	vt_uint32,
-	vt_strlit,
 };
 
 enum variablePermutations
 {
 	vp_standard,
 	vp_temp,
-	vp_literal
+	vp_literal,
+	vp_objptr,
 };
 
 enum TACType

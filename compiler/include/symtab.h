@@ -72,6 +72,7 @@ struct ObjectEntry
 	int size;
 	int arraySize;
 	int stackOffset;
+	struct VariableEntry *myLocalPointer;
 	// byte array [size] bytes long indicating what the object should be initialized to
 	// should only be allocated if the object should be initialiized
 	// (handled outside of Scope_createObject on a case-by-case basis)
@@ -119,7 +120,7 @@ struct FunctionEntry *Scope_createFunction(struct Scope *parentScope, char *name
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
 
-struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, int size, int arraySize, int stackOffset, char isGlobal);
+struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, struct VariableEntry *myLocalPointer, int size, int arraySize, int stackOffset, char isGlobal);
 
 // scope lookup functions
 char Scope_contains(struct Scope *scope, char *name);
@@ -135,6 +136,8 @@ struct FunctionEntry *Scope_lookupFun(struct Scope *scope, struct AST *name);
 struct Scope *Scope_lookupSubScope(struct Scope *scope, char *name);
 
 struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char subScopeNumber);
+
+struct ObjectEntry *Scope_lookupObject(struct Scope *scope, char *name);
 
 int GetSizeOfPrimitive(enum variableTypes type);
 

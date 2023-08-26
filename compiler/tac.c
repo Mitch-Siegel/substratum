@@ -314,6 +314,10 @@ void printTACLine(struct TACLine *it)
 			case vp_literal:
 				printf("L");
 				break;
+
+			case vp_objptr:
+				printf("O");
+				break;
 			}
 			printf(" %d*]", it->operands[i].indirectionLevel);
 		}

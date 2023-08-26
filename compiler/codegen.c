@@ -133,7 +133,7 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOpera
 		However, in cases where generic logic passes reserved[2] to this function, if that second operand is a global,
 			reserved[2] will be -1 and we will not have anywhere to put the global, so select REGTURN_REGISTER instead
 	*/
-	if(registerIndex == -1)
+	if (registerIndex == -1)
 	{
 		registerIndex = RETURN_REGISTER;
 	}
@@ -583,7 +583,9 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			struct Lifetime *assignedLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
 
 			// assign to literal value
-			if (thisTAC->operands[1].permutation == vp_literal)
+			switch (thisTAC->operands[1].permutation)
+			{
+			case vp_literal:
 			{
 				// spilled <- literal
 				if (assignedLifetime->isSpilled)
@@ -597,7 +599,10 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 					PlaceLiteralInRegister(outFile, thisTAC->operands[1].name.str, assignedLifetime->stackOrRegLocation);
 				}
 			}
-			else
+			break;
+
+			case vp_standard:
+			case vp_temp:
 			{
 				char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], outFile, reservedRegisters[0], touchedRegisters);
 				// spilled <- ???
@@ -611,6 +616,18 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 					fprintf(outFile, "\t%s %%r%d, %s\n", SelectMovWidth(&thisTAC->operands[0]), assignedLifetime->stackOrRegLocation, sourceRegStr);
 				}
 			}
+			break;
+
+			case vp_objptr:
+			{
+				fprintf(outFile, "ASSIGN OBJPOINTER %s HERE!\n", thisTAC->operands[1].name.str);
+				// struct Lifetime *assigneeLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[1].name.str);
+				// fprintf(outFile, "Assignee: %s\n", assigneeLifetime->name);
+			}
+
+			break;
+			}
+			break;
 		}
 		break;
 
@@ -620,7 +637,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		{
 			struct Lifetime *declaredLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
 			if ((declaredLifetime->localPointerTo != NULL) &&
-				(!declaredLifetime->isSpilled))
+				(!declaredLifetime->isSpilled) &&
+				(!declaredLifetime->localPointerTo->isGlobal))
 			{
 				fprintf(outFile, "\tsubi %%r%d, %%bp, $%d\n", declaredLifetime->stackOrRegLocation, declaredLifetime->localPointerTo->stackOffset * -1);
 			}

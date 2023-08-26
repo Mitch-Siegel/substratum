@@ -52,7 +52,7 @@ struct VariableEntry *FunctionEntry_createArgument(struct FunctionEntry *func, s
 		calculatedStackOffset = (func->localStackSize * -1) - (argSize * arraySize);
 		func->localStackSize += argSize * arraySize;
 
-		struct ObjectEntry *objForArg = Scope_createObject(func->mainScope, Dictionary_LookupOrInsert(parseDict, modName), argSize, arraySize, calculatedStackOffset, 0);
+		struct ObjectEntry *objForArg = Scope_createObject(func->mainScope, Dictionary_LookupOrInsert(parseDict, modName), newArgument, argSize, arraySize, calculatedStackOffset, 0);
 		newArgument->localPointerTo = objForArg;
 		free(modName);
 	}
@@ -103,8 +103,38 @@ void SymbolTable_print(struct SymbolTable *it, char printTAC)
 	printf("~~~~~~~~~~~~~\n\n");
 }
 
+char *SymbolTable_mangleName(struct Scope *scope, struct Dictionary *dict, char *toMangle)
+{
+	char *scopeName = scope->name;
+
+	char *mangledName = malloc(strlen(toMangle) + strlen(scopeName) + 2);
+	sprintf(mangledName, "%s.%s", scopeName, toMangle);
+	char *newName = Dictionary_LookupOrInsert(dict, mangledName);
+	free(mangledName);
+	return newName;
+}
+
+void SymbolTable_moveMemberToParentScope(struct Scope *scope, struct ScopeMember *toMove, int *indexWithinCurrentScope)
+{
+	Scope_insert(scope->parentScope, toMove->name, toMove->entry, toMove->type);
+	free(scope->entries->data[*indexWithinCurrentScope]);
+	for (int j = *indexWithinCurrentScope; j < scope->entries->size; j++)
+	{
+		scope->entries->data[j] = scope->entries->data[j + 1];
+	}
+	scope->entries->size--;
+
+	// decrement this so that if we are using it as an iterator to entries in the original scope, it is still valid
+	(*indexWithinCurrentScope)--;
+}
+
 void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict, int depth)
 {
+	for (int i = 0; i < depth; i++)
+	{
+		printf("\t");
+	}
+	printf("Scope: %s\n", scope->name);
 	// first pass: recurse depth-first so everything we do at this call depth will be 100% correct
 	for (int i = 0; i < scope->entries->size; i++)
 	{
@@ -136,7 +166,11 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 			break;
 		}
 	}
-
+	for (int i = 0; i < depth; i++)
+	{
+		printf("\t");
+	}
+	printf("back in Scope: %s\n", scope->name);
 	// second pass: rename basic block operands relevant to the current scope
 	for (int i = 0; i < scope->entries->size; i++)
 	{
@@ -149,7 +183,8 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 		case e_basicblock:
 		{
-			if (depth > 0)
+			// rename TAC lines if we are within a function
+			if (scope->parentFunction != NULL)
 			{
 				// go through all TAC lines in this block
 				struct BasicBlock *thisBlock = thisMember->entry;
@@ -159,17 +194,14 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 					for (int j = 0; j < 4; j++)
 					{
 						// check only TAC operands that both exist and refer to a named variable from the source code (ignore temps etc)
-						if (thisTAC->operands[j].type != vt_null && thisTAC->operands[j].permutation == vp_standard)
+						if (thisTAC->operands[j].type != vt_null && (thisTAC->operands[j].permutation == vp_standard || thisTAC->operands[j].permutation == vp_objptr))
 						{
 							char *originalName = thisTAC->operands[j].name.str;
+							printf("\n\n\noriginalName: [%s]\n", originalName);
 							// if this operand refers to a variable declared at this scope
 							if (Scope_contains(scope, originalName))
 							{
-								char *mangledName = malloc(strlen(originalName) + 4);
-								// tack on the name of this scope to the variable name since the same will happen to the variable entry itself in third pass
-								sprintf(mangledName, "%s%s", originalName, scope->name);
-								thisTAC->operands[j].name.str = Dictionary_LookupOrInsert(dict, mangledName);
-								free(mangledName);
+								thisTAC->operands[j].name.str = SymbolTable_mangleName(scope, dict, originalName);
 							}
 						}
 					}
@@ -185,7 +217,8 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 		}
 	}
 
-	// third pass: move nested members (basic blocks and variables) to parent scope since names have been mangled
+	// third pass: move nested members to parent scope based on mangled names
+	// also moves globals outwards
 	for (int i = 0; i < scope->entries->size; i++)
 	{
 		struct ScopeMember *thisMember = scope->entries->data[i];
@@ -199,39 +232,36 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 		{
 			if (depth > 0 && scope->parentScope != NULL)
 			{
-				Scope_insert(scope->parentScope, thisMember->name, thisMember->entry, thisMember->type);
-				free(scope->entries->data[i]);
-				for (int j = i; j < scope->entries->size; j++)
-				{
-					scope->entries->data[j] = scope->entries->data[j + 1];
-				}
-				scope->entries->size--;
-				i--;
+				SymbolTable_moveMemberToParentScope(scope, thisMember, &i);
 			}
 		}
 		break;
 
 		case e_object:
+		{
+			if (scope->parentScope != NULL)
+			{
+				thisMember->name = SymbolTable_mangleName(scope, dict, thisMember->name);
+				struct ObjectEntry *objectToMove = thisMember->entry;
+				if (objectToMove->isGlobal || depth > 0)
+				{
+					SymbolTable_moveMemberToParentScope(scope, thisMember, &i);
+				}
+			}
+		}
+		break;
+
 		case e_variable:
 		case e_argument:
 		{
-			if (depth > 0)
+			if (scope->parentScope != NULL)
 			{
-				char *originalName = thisMember->name;
-				char *scopeName = scope->name;
-
-				char *mangledName = malloc(strlen(originalName) + strlen(scopeName) + 1);
-				sprintf(mangledName, "%s%s", originalName, scopeName);
-				char *newName = Dictionary_LookupOrInsert(dict, mangledName);
-				free(mangledName);
-				Scope_insert(scope->parentScope, newName, thisMember->entry, thisMember->type);
-				free(scope->entries->data[i]);
-				for (int j = i; j < scope->entries->size; j++)
+				thisMember->name = SymbolTable_mangleName(scope, dict, thisMember->name);
+				struct VariableEntry *variableToMove = thisMember->entry;
+				if (variableToMove->isGlobal || depth > 0)
 				{
-					scope->entries->data[j] = scope->entries->data[j + 1];
+					SymbolTable_moveMemberToParentScope(scope, thisMember, &i);
 				}
-				scope->entries->size--;
-				i--;
 			}
 		}
 		break;
@@ -374,7 +404,7 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope, struct AST *name
 			calculatedStackOffset = 0;
 		}
 
-		struct ObjectEntry *objForVar = Scope_createObject(scope, Dictionary_LookupOrInsert(parseDict, modName), varSize, arraySize, calculatedStackOffset, isGlobal);
+		struct ObjectEntry *objForVar = Scope_createObject(scope, Dictionary_LookupOrInsert(parseDict, modName), newVariable, varSize, arraySize, calculatedStackOffset, isGlobal);
 		newVariable->localPointerTo = objForVar;
 		free(modName);
 	}
@@ -401,8 +431,8 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Too many subscopes of scope %s\n", parentScope->name);
 	}
-	char *helpStr = malloc(3 + strlen(parentScope->name) + 1);
-	sprintf(helpStr, ".%02x", parentScope->subScopeCount);
+	char *helpStr = malloc(2 + strlen(parentScope->name) + 1);
+	sprintf(helpStr, "%02x", parentScope->subScopeCount);
 	char *newScopeName = Dictionary_LookupOrInsert(parseDict, helpStr);
 	free(helpStr);
 	parentScope->subScopeCount++;
@@ -414,17 +444,32 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
 	return newScope;
 }
 
-struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, int size, int arraySize, int stackOffset, char isGlobal)
+/*
+ * this function may modify the `char *name` it is passed if:
+ *	- the name contains spaces (is a string literal)
+ *		- this has ramifications on the initialization of the object (value in the char * needs to be copied before calling this!)
+ */
+struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, struct VariableEntry *myLocalPointer, int size, int arraySize, int stackOffset, char isGlobal)
 {
 	struct ObjectEntry *newObject = malloc(sizeof(struct ObjectEntry));
 
+	newObject->myLocalPointer = myLocalPointer;
 	newObject->size = size;
 	newObject->arraySize = arraySize;
 	newObject->stackOffset = stackOffset;
 	newObject->isGlobal = isGlobal;
+	newObject->initialized = 0;
+
+	int nameLen = strlen(name);
+	for (int i = 0; i < nameLen; i++)
+	{
+		if (isspace(name[i]))
+		{
+			name[i] = '_';
+		}
+	}
 
 	Scope_insert(scope, name, newObject, e_object);
-
 	return newObject;
 }
 
@@ -476,7 +521,7 @@ struct VariableEntry *Scope_lookupVarByString(struct Scope *scope, char *name)
 		return lookedUp->entry;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up variable!\n");
+		ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up variable [%s]!\n", name);
 	}
 }
 
@@ -536,10 +581,28 @@ struct Scope *Scope_lookupSubScope(struct Scope *scope, char *name)
 
 struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char subScopeNumber)
 {
-	char subScopeName[4];
-	sprintf(subScopeName, ".%02x", subScopeNumber);
+	char subScopeName[3];
+	sprintf(subScopeName, "%02x", subScopeNumber);
 	struct Scope *lookedUp = Scope_lookupSubScope(scope, subScopeName);
 	return lookedUp;
+}
+
+struct ObjectEntry *Scope_lookupObject(struct Scope *scope, char *name)
+{
+	struct ScopeMember *lookedUp = Scope_lookup(scope, name);
+	if (lookedUp == NULL)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Failure looking up scope with name [%s]\n", name);
+	}
+
+	switch (lookedUp->type)
+	{
+	case e_object:
+		return lookedUp->entry;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Unexpected symbol table entry type found when attempting to look up object [%s]\n", name);
+	}
 }
 
 // return the actual size of a primitive in bytes
@@ -870,7 +933,7 @@ void walkStringLiteral(struct AST *stringLiteral, struct VariableEntry *myLocalP
 	}
 
 	int stringSize = strlen(stringLiteral->value) + 1;
-	struct ObjectEntry *stringObject = Scope_createObject(wipScope, stringLiteral->value, stringSize, 1, 0, 1);
+	struct ObjectEntry *stringObject = Scope_createObject(wipScope, stringLiteral->value, myLocalPointer, stringSize, 1, 0, 1);
 
 	stringObject->initialized = 1;
 	stringObject->initializeTo = malloc(stringSize);
@@ -938,12 +1001,18 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 		{
 		case t_string_literal:
 		{
-			if (declaredVariable == NULL)
+			// if this string literal corresponds to the declaration of a variable
+			if (declaredVariable != NULL)
 			{
-				ErrorWithAST(ERROR_CODE, it, "String literal in invalid position - must be on RHS of assignment!\n");
+				walkStringLiteral(it->child->sibling, declaredVariable, wipScope);
 			}
+			// alternatively, we could be setting a variable which has already been declared
+			else
+			{
+				struct VariableEntry *literalAssigneedTo = Scope_lookupVar(wipScope, it->child);
 
-			walkStringLiteral(it->child->sibling, declaredVariable, wipScope);
+				walkStringLiteral(it->child->sibling, literalAssigneedTo, wipScope);
+			}
 		}
 		break;
 

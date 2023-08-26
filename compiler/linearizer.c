@@ -578,6 +578,12 @@ int linearizeExpression(struct LinearizationMetadata m)
 				BasicBlock_append(m.currentBlock, scaleMultiply);
 			}
 			break;
+
+			case vp_objptr:
+			{
+				ErrorWithAST(ERROR_CODE, thisExpression->correspondingTree, "Arithmetic with object pointers not supported!\n");
+			}
+			break;
 			}
 		}
 		else
@@ -622,6 +628,12 @@ int linearizeExpression(struct LinearizationMetadata m)
 					scaleMultiply->operands[2].type = LITERAL_VARIABLE_TYPE;
 					BasicBlock_append(m.currentBlock, scaleMultiply);
 				}
+
+				case vp_objptr:
+				{
+					ErrorWithAST(ERROR_CODE, thisExpression->correspondingTree, "Arithmetic with object pointers not supported!\n");
+				}
+				break;
 				}
 			}
 		}
@@ -732,13 +744,22 @@ int linearizeAssignment(struct LinearizationMetadata m)
 
 		case t_char_literal:
 		{
-			// memory leak, need to include dictionary in linearizationMetadata to keep proper track of these values
 			char literalAsNumber[8];
 			sprintf(literalAsNumber, "%d", RHSTree->value[0]);
 			assignment->operands[1].name.str = Dictionary_LookupOrInsert(m.dict, literalAsNumber);
 			assignment->operands[1].type = vt_uint8;
 			assignment->operands[0].type = vt_uint8;
 			assignment->operands[1].permutation = vp_literal;
+		}
+		break;
+
+		// OK to hardcode these because we always know what a string literal will be
+		case t_string_literal:
+		{
+			assignment->operands[1].type = vt_uint8;
+			assignment->operands[1].permutation = vp_objptr;
+			assignment->operands[0].type = vt_uint8;
+			assignment->operands[1].indirectionLevel = 1;
 		}
 		break;
 
@@ -778,7 +799,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 	case t_uint16:
 	case t_uint32:
 	{
-		// use scrapePoineters to go over to whatever is actually being declared so we can assign to it
+		// use scrapePointers to go over to whatever is actually being declared so we can assign to it
 		scrapePointers(LHS->child, &LHS);
 	}
 	break;
@@ -1476,7 +1497,7 @@ void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictiona
 			functionMainScopeTree = functionMainScopeTree->sibling;
 
 			// if this is the AST for just the declaration no function body to walk, so bail
-			if(functionMainScopeTree == NULL)
+			if (functionMainScopeTree == NULL)
 			{
 				break;
 			}
