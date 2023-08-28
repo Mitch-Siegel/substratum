@@ -148,6 +148,12 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOpera
 		return PlaceLiteralInRegister(outFile, operand.name.str, registerIndex);
 	}
 
+	if(operand.permutation == vp_objptr)
+	{
+		fprintf(outFile, "\t%s %s, $%s\n", SelectMovWidth(&operand), registerNames[registerIndex], operand.name.str);
+		return registerNames[registerIndex];
+	}
+
 	struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand.name.str);
 	if (relevantLifetime == NULL)
 	{
@@ -281,6 +287,24 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 			fprintf(outFile, "~export variable %s\n", thisMember->name);
 			fprintf(outFile, "%d %d* %s\n", v->type, v->indirectionLevel, v->name);
 			fprintf(outFile, "~end export variable %s\n", thisMember->name);
+		}
+		break;
+
+		case e_object:
+		{
+			struct ObjectEntry *o = thisMember->entry;
+			fprintf(outFile, "~export object %s\n", thisMember->name);
+			fprintf(outFile, "size %d initialized %d\n", o->size, o->initialized);
+			if(o->initialized)
+			{
+				for(int i = 0; i < o->size; i++)
+				{
+					fprintf(outFile, "%02x ", o->initializeTo[i]);
+				}
+				fprintf(outFile, "\n");
+			}
+			fprintf(outFile, "~end export object %s\n", thisMember->name);
+		
 		}
 		break;
 
@@ -603,6 +627,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 
 			case vp_standard:
 			case vp_temp:
+			case vp_objptr:
 			{
 				char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], outFile, reservedRegisters[0], touchedRegisters);
 				// spilled <- ???
@@ -617,13 +642,6 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 				}
 			}
 			break;
-
-			case vp_objptr:
-			{
-				fprintf(outFile, "ASSIGN OBJPOINTER %s HERE!\n", thisTAC->operands[1].name.str);
-				// struct Lifetime *assigneeLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[1].name.str);
-				// fprintf(outFile, "Assignee: %s\n", assigneeLifetime->name);
-			}
 
 			break;
 			}

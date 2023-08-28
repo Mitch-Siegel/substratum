@@ -90,13 +90,12 @@ void addExport(struct LinkedList **exports, struct LinkedList **requires, struct
         addRequire(exports, requires, funcDefRequired);
     }
 
-    // if adding this export satisfies any requires, delete them    
+    // if adding this export satisfies any requires, delete them
     if (LinkedList_Find(requires[addType], compareSymbols, toAdd) != NULL)
     {
         struct Symbol *deletedRequire = LinkedList_Delete(requires[addType], compareSymbols, toAdd);
         Symbol_Free(deletedRequire);
     }
-
 }
 
 int getline_force_raw(char **linep, size_t *linecapp, FILE *stream)
@@ -321,16 +320,138 @@ int main(int argc, char **argv)
                     break;
 
                     case s_variable:
-                        {
-                            getline_force_metadata(&inBuf, &bufSize, inFile, currentSymbol);
-                            struct Type *varType = parseType(inBuf);
-                            currentSymbol->data.asVariable = *varType;
-                            free(varType);
-                        }
-                        break;
+                    {
+                        getline_force_metadata(&inBuf, &bufSize, inFile, currentSymbol);
+                        struct Type *varType = parseType(inBuf);
+                        currentSymbol->data.asVariable = *varType;
+                        free(varType);
+                    }
+                    break;
 
                     case s_section:
                         break;
+
+                    case s_object:
+                    {
+                        getline_force_metadata(&inBuf, &bufSize, inFile, currentSymbol);
+
+                        char *token = strtok(inBuf, " ");
+                        if (strcmp(token, "size"))
+                        {
+                            ErrorAndExit(ERROR_INTERNAL, "Expected size [size] but got %s instead!\n", token);
+                        }
+                        token = strtok(NULL, " ");
+
+                        currentSymbol->data.asObject.size = atoi(token);
+
+                        token = strtok(NULL, " ");
+                        if (strcmp(token, "initialized"))
+                        {
+                            ErrorAndExit(ERROR_INTERNAL, "Expected initialized [1/0] but got %s instead!\n", token);
+                        }
+                        token = strtok(NULL, " ");
+                        currentSymbol->data.asObject.isInitialized = (atoi(token) == 1);
+
+                        if (currentSymbol->data.asObject.isInitialized)
+                        {
+                            size_t nRead = getline_force_metadata(&inBuf, &bufSize, inFile, currentSymbol);
+
+                            if (currentSymbol->data.asObject.size * 3 != nRead)
+                            {
+                                ErrorAndExit(ERROR_INTERNAL, "Bad formatting of byte stream for object initialization!\n");
+                            }
+                            currentSymbol->data.asObject.initializeTo = malloc(currentSymbol->data.asObject.size);
+                            size_t charIndex = 0;
+                            size_t byteIndex = 0;
+                            while (byteIndex < currentSymbol->data.asObject.size)
+                            {
+                                unsigned char byte = 0;
+                                for (int i = 0; i < 2; i++)
+                                {
+                                    switch (inBuf[charIndex])
+                                    {
+                                    case '0':
+                                        byte |= 0;
+                                        break;
+
+                                    case '1':
+                                        byte |= 1;
+                                        break;
+
+                                    case '2':
+                                        byte |= 2;
+                                        break;
+
+                                    case '3':
+                                        byte |= 3;
+                                        break;
+
+                                    case '4':
+                                        byte |= 4;
+                                        break;
+
+                                    case '5':
+                                        byte |= 5;
+                                        break;
+
+                                    case '6':
+                                        byte |= 6;
+                                        break;
+
+                                    case '7':
+                                        byte |= 7;
+                                        break;
+
+                                    case '8':
+                                        byte |= 8;
+                                        break;
+
+                                    case '9':
+                                        byte |= 9;
+                                        break;
+
+                                    case 'a':
+                                        byte |= 10;
+                                        break;
+
+                                    case 'b':
+                                        byte |= 11;
+                                        break;
+
+                                    case 'c':
+                                        byte |= 12;
+                                        break;
+
+                                    case 'd':
+                                        byte |= 13;
+                                        break;
+
+                                    case 'e':
+                                        byte |= 14;
+                                        break;
+
+                                    case 'f':
+                                        byte |= 15;
+                                        break;
+
+                                    default:
+                                        ErrorAndExit(ERROR_INTERNAL, "Malformed hex input for object initialization data!\nGot char '%c', expected valid hex char\n", inBuf[charIndex]);
+                                    }
+
+                                    charIndex++;
+                                    // only shift on the first char
+                                    byte <<= (1 - i);
+                                }
+                                if (inBuf[charIndex] != ' ')
+                                {
+                                    ErrorAndExit(ERROR_INTERNAL, "Malformed hex input for object initialization data!\nSaw '%c', expected ' '\n", inBuf[charIndex]);
+                                }
+                                charIndex++;
+                                currentSymbol->data.asObject.initializeTo[byteIndex++] = byte;
+                            }
+                        }
+                    }
+                    break;
 
                     case s_null:
                         ErrorAndExit(ERROR_INTERNAL, "Saw s_null as link symbol type!\n");
@@ -425,7 +546,7 @@ int main(int argc, char **argv)
                 {
                     struct Symbol *required = runner->data;
                     fprintf(outFile, "~require %s %s\n", symbolEnumToName(required->symbolType), required->name);
-                    Symbol_Write(required, outFile, 0);
+                    Symbol_Write(required, outFile, outputExecutable);
                     fprintf(outFile, "~end require %s %s\n", symbolEnumToName(required->symbolType), required->name);
                 }
             }

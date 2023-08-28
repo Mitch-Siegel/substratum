@@ -35,10 +35,16 @@ void Symbol_Free(struct Symbol *s)
     }
     break;
     case s_section:
-        break;
-
     case s_variable:
         break;
+
+    case s_object:
+        if(s->data.asObject.isInitialized)
+        {
+            free(s->data.asObject.initializeTo);
+        }
+        break;
+
 
     case s_null:
         ErrorAndExit(ERROR_INTERNAL, "Symbol_Free called for symbol with type null!\n");
@@ -47,9 +53,9 @@ void Symbol_Free(struct Symbol *s)
     free(s);
 }
 
-void Symbol_Write(struct Symbol *s, FILE *f, char surpressLinkerLines)
+void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
 {
-    if (!surpressLinkerLines)
+    if (!outputExecutable)
     {
         for (struct LinkedListNode *rawRunner = s->linkerLines->head; rawRunner != NULL; rawRunner = rawRunner->next)
         {
@@ -79,11 +85,33 @@ void Symbol_Write(struct Symbol *s, FILE *f, char surpressLinkerLines)
         case s_section:
             break;
 
+        case s_object:
+            fprintf(f, "%s:\n", s->name);
+            if(s->data.asObject.isInitialized)
+            {
+                fputs("#d8 ", f);
+                for(int i = 0; i < s->data.asObject.size; i++)
+                {
+                    fprintf(f, "0x%02x", s->data.asObject.initializeTo[i]);
+                    if(i < s->data.asObject.size - 1)
+                    {
+                        fputs(", ", f);
+                    }
+                }
+                fputs("\n", f);
+            }
+            else
+            {
+                fprintf(f, "\t#res %d\n", s->data.asObject.size);
+            }
+            break;
+
         case s_null:
             ErrorAndExit(ERROR_INTERNAL, "Got null symbol type in Symbol_Write!\n");
             break;
         }
     }
+
     for (struct LinkedListNode *rawRunner = s->lines->head; rawRunner != NULL; rawRunner = rawRunner->next)
     {
         fputs(rawRunner->data, f);
@@ -109,6 +137,10 @@ enum LinkedSymbol symbolNameToEnum(char *name)
     {
         return s_section;
     }
+    else if (!strcmp(name, "object"))
+    {
+        return s_object;
+    }
     else
     {
         ErrorAndExit(ERROR_INTERNAL, "Unexpected symbol name %s\n", name);
@@ -130,6 +162,9 @@ char *symbolEnumToName(enum LinkedSymbol s)
 
     case s_section:
         return "section";
+
+    case s_object:
+        return "object";
 
     case s_null:
         return "s_null";

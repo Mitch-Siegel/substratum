@@ -113,6 +113,11 @@ int main(int argc, char **argv)
 
 	FILE *outFile = fopen(argv[2], "wb");
 
+	if(outFile == NULL)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", argv[2]);
+	}
+
 	printf("Generating code\n");
 	// fprintf(outFile, "#include \"CPU.asm\"\nentry code\n");
 	generateCode(theTable, outFile);

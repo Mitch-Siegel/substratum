@@ -14,7 +14,7 @@
 #define POS_COL 1
 int curPos[2];
 
-#define ROLLING_BUFFER_SIZE 512
+#define ROLLING_BUFFER_SIZE 1024
 
 struct RollingBuffer
 {

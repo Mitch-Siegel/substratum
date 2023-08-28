@@ -982,6 +982,7 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 
 	// check the LHS of the assignment to check if it is a declare-and-assign
 	case t_single_equals:
+	{
 		struct VariableEntry *declaredVariable = NULL;
 		switch (it->child->type)
 		{
@@ -1019,7 +1020,8 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 		default:
 			break;
 		}
-		break;
+	}
+	break;
 
 	case t_if:
 	{
