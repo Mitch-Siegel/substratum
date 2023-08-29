@@ -1,5 +1,5 @@
-//#include "math.h"
-//#include "print.h"
+#include "math.h"
+#include "print.h"
 
 /* 
  * come up with some magic numbers
@@ -121,11 +121,14 @@ fun main(->void)
 
 fun main(->void)
 {
-	uint8 *string = "Hello, World!";
-	uint8 *string1;
-	string1 = "I am string1";
+	//uint8 *string = "Hello, World!";
+	//uint8 *string1;
+	//string1 = "I am string1";
 
 	uint32 abc;
+	abc = 123;
+
+	printNum(abc, 1);
 
 
 	//printStr(string);

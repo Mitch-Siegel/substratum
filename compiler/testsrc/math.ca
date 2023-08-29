@@ -1,6 +1,7 @@
 #include "math.h"
 #include "print.h"
 
+
 fun mod(uint32 a, uint32 divisor->uint32)
 {
 	while (a >= divisor)
@@ -82,3 +83,4 @@ fun printMultiplications(->void)
 {
 	printNum(nMultiplications, 1);
 }
+

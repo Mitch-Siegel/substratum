@@ -8,6 +8,7 @@ fi
 echo ""
 echo "compiling files..."
 # xargs -I {} sh -c "echo {}; ls -la {}"
+rm -f testsrc/*.o
 ls testsrc/*.ca | cut -d '.' -f1 | xargs -I {} sh -c "./cacc {}.ca {}.o || exit 255"
 # if ! ./mcc testsrc ../assembler/main.asm; then
     # exit

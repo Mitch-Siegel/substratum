@@ -1,5 +1,7 @@
 #include <stdio.h>
 
+#ifndef _SYMBOLS_H_
+#define _SYMBOLS_H_
 enum LinkedSymbol
 {
     s_variable,
@@ -72,3 +74,8 @@ char *symbolEnumToName(enum LinkedSymbol s);
 int compareSymbols(struct Symbol *a, struct Symbol *b);
 
 struct Type *parseType(char *declString);
+
+void addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire);
+
+char addExport(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toAdd);
+#endif

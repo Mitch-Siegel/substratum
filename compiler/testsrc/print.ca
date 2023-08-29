@@ -1,6 +1,7 @@
 #include "print.h"
 
-#include "math.h"
+//#include "math.h"
+
 
 fun print(uint8 value->void)
 {
@@ -21,3 +22,4 @@ fun printStr(uint8 *str->void)
 		i = i + 1;
 	}
 }
+

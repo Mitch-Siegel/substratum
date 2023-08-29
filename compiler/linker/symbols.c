@@ -1,6 +1,5 @@
 #include "symbols.h"
 #include "util.h"
-#include "tac.h" // for variableTypes
 
 #include <string.h>
 
@@ -34,17 +33,17 @@ void Symbol_Free(struct Symbol *s)
         // don't free name as it lives in the dictionary
     }
     break;
+
     case s_section:
     case s_variable:
         break;
 
     case s_object:
-        if(s->data.asObject.isInitialized)
+        if (s->data.asObject.isInitialized)
         {
             free(s->data.asObject.initializeTo);
         }
         break;
-
 
     case s_null:
         ErrorAndExit(ERROR_INTERNAL, "Symbol_Free called for symbol with type null!\n");
@@ -87,13 +86,13 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
 
         case s_object:
             fprintf(f, "%s:\n", s->name);
-            if(s->data.asObject.isInitialized)
+            if (s->data.asObject.isInitialized)
             {
                 fputs("#d8 ", f);
-                for(int i = 0; i < s->data.asObject.size; i++)
+                for (int i = 0; i < s->data.asObject.size; i++)
                 {
                     fprintf(f, "0x%02x", s->data.asObject.initializeTo[i]);
-                    if(i < s->data.asObject.size - 1)
+                    if (i < s->data.asObject.size - 1)
                     {
                         fputs(", ", f);
                     }
@@ -183,51 +182,84 @@ int compareSymbols(struct Symbol *a, struct Symbol *b)
     return strcmp(a->name, b->name);
 }
 
-struct Type *parseType(char *declString)
+void addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire)
 {
-    char *lasts = NULL;
-
-    struct Type *parsed = malloc(sizeof(struct Type));
-    char *token = strtok_r(declString, " ", &lasts);
-    int typeNum = atoi(token);
-
-    switch ((enum variableTypes)typeNum)
+    enum LinkedSymbol symbolType = toRequire->symbolType;
+    if (LinkedList_Find(requires[symbolType], compareSymbols, toRequire) == NULL)
     {
-    case vt_null:
-        parsed->size = 0;
-        break;
-
-    case vt_uint8:
-        parsed->size = 1;
-        break;
-
-    case vt_uint16:
-        parsed->size = 2;
-        break;
-
-    case vt_uint32:
-        parsed->size = 4;
-        break;
-
-    default:
-    {
-        parsed->isPrimitive = 0;
-        ErrorAndExit(ERROR_INTERNAL, "non-primitive types not yet supported!\n");
+        LinkedList_Append(requires[symbolType], toRequire);
     }
-    break;
+    else
+    {
+        printf("AUTO-FREE SYMBOL %s\n", toRequire->name);
+        Symbol_Free(toRequire);
     }
+}
 
-    token = strtok_r(NULL, " ", &lasts);
-    if (token[strlen(token) - 1] != '*')
+// returns 0 if added, 1 if not
+char addExport(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toAdd)
+{
+    enum LinkedSymbol addType = toAdd->symbolType;
+
+    // check for duplicates of anything except function declarations
+    struct Symbol *found;
+    if ((addType != s_function_declaration) &&
+        (found = LinkedList_Find(exports[addType], compareSymbols, toAdd)))
     {
-        ErrorAndExit(ERROR_INTERNAL, "Expected to see * indicating dereference level of type at end of type string, got %s instead!\n", token);
-    }
-    token[strlen(token - 1)] = '\0';
-    parsed->indirectionLevel = atoi(token);
-    if (parsed->indirectionLevel)
-    {
-        parsed->size = 4;
+        // if we see something other than section userstart duplicated, throw an error
+        if ((strcmp(toAdd->name, "userstart") || (addType != s_section)))
+        {
+
+            ErrorAndExit(ERROR_CODE, "Multiple definition of symbol %s %s - from %s and %s!\n", symbolEnumToName(addType), toAdd->name, found->fromFile, toAdd->fromFile);
+        }
+
+        LinkedList_Join(found->lines, toAdd->lines);
+
+        // printf("\n\n\n\ndelete duplicate start lines\n");
+        // while (LinkedList_Find(found->lines, strcmp, "START:"))
+        // {
+        // LinkedList_Delete(found->lines, strcmp, "START:");
+        // }
+
+        return 1;
     }
 
-    return parsed;
+    LinkedList_Append(exports[addType], toAdd);
+
+    // if we export a declaration, we must require a definition for it as well
+    if (addType == s_function_declaration)
+    {
+        struct Symbol *funcDefRequired = Symbol_New(toAdd->name, require, s_function_definition, toAdd->fromFile);
+        funcDefRequired->data.asFunction = toAdd->data.asFunction;
+
+        if (toAdd->data.asFunction.nArgs)
+        {
+            funcDefRequired->data.asFunction.args = malloc(toAdd->data.asFunction.nArgs * sizeof(struct Type));
+        }
+        memcpy(funcDefRequired->data.asFunction.args, toAdd->data.asFunction.args, toAdd->data.asFunction.nArgs * sizeof(struct Type));
+
+        funcDefRequired->data.asFunction.returnType = malloc(sizeof(struct Type));
+        memcpy(funcDefRequired->data.asFunction.returnType, toAdd->data.asFunction.returnType, sizeof(struct Type));
+
+        for (struct LinkedListNode *runner = toAdd->lines->head; runner != NULL; runner = runner->next)
+        {
+            LinkedList_Append(funcDefRequired->lines, strdup(runner->data));
+        }
+
+        for (struct LinkedListNode *runner = toAdd->linkerLines->head; runner != NULL; runner = runner->next)
+        {
+            LinkedList_Append(funcDefRequired->linkerLines, strdup(runner->data));
+        }
+
+        addRequire(exports, requires, funcDefRequired);
+    }
+
+    // if adding this export satisfies any requires, delete them
+    if (LinkedList_Find(requires[addType], compareSymbols, toAdd) != NULL)
+    {
+        struct Symbol *deletedRequire = LinkedList_Delete(requires[addType], compareSymbols, toAdd);
+        Symbol_Free(deletedRequire);
+    }
+
+    return 0;
 }
