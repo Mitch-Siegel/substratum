@@ -86,14 +86,12 @@ void linkerParseFile(FILE *inFile, char *inFileName, struct Dictionary *symbolNa
                     // fall through to function definition as the symbol data is identical for declaration and definition
                 case s_function_definition:
                 {
-                    printf("function dec/def\n");
                     parseFunctionDeclaration(currentSymbol, inFile);
                 }
                 break;
 
                 case s_variable:
                 {
-                    printf("variable\n");
                     parseVariable(currentSymbol, inFile);
                 }
                 break;
@@ -103,7 +101,6 @@ void linkerParseFile(FILE *inFile, char *inFileName, struct Dictionary *symbolNa
 
                 case s_object:
                 {
-                    printf("object\n");
                     parseObject(currentSymbol, inFile);
                 }
                 break;
@@ -298,7 +295,7 @@ int main(int argc, char **argv)
 
     for (int i = 0; i < s_null; i++)
     {
-        printf("%d %s(s)\n", exports[i]->size, symbolEnumToName(i));
+        // printf("%d %s(s) ", exports[i]->size, symbolEnumToName(i));
         if (exports[i]->size > 0)
         {
             for (struct LinkedListNode *runner = exports[i]->head; runner != NULL; runner = runner->next)
@@ -310,7 +307,7 @@ int main(int argc, char **argv)
                 }
 
                 Symbol_Write(exported, outFile, outputExecutable);
-                printf("\t%s\n", exported->name);
+                // printf("\t%s\n", exported->name);
                 if (!outputExecutable)
                 {
                     fprintf(outFile, "~end export %s %s\n", symbolEnumToName(exported->symbolType), exported->name);

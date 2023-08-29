@@ -150,7 +150,7 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOpera
 
 	if(operand.permutation == vp_objptr)
 	{
-		fprintf(outFile, "\t%s %s, $%s\n", SelectMovWidth(&operand), registerNames[registerIndex], operand.name.str);
+		fprintf(outFile, "\t%s %s, %s\n", SelectMovWidth(&operand), registerNames[registerIndex], operand.name.str);
 		return registerNames[registerIndex];
 	}
 

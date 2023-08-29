@@ -14,7 +14,6 @@
  * printNum(small, 1);
  * should be 15, 105, 560, 76
  */
- /*
 uint32 big;
 uint16 med;
 uint8 small;
@@ -42,48 +41,11 @@ fun printFibs(uint8 n->void)
 
 fun main(->void)
 {
-	uint8 fibStr[12];
-	fibStr[0] = 'F';
-	fibStr[1] = 'i';	
-	fibStr[2] = 'b';	
-	fibStr[3] = 'o';	
-	fibStr[4] = 'n';	
-	fibStr[5] = 'a';	
-	fibStr[6] = 'c';	
-	fibStr[7] = 'c';
-	fibStr[8] = 'i';
-	fibStr[9] = ':';
-	fibStr[10] = ' ';
-	fibStr[11] = 0;
+	uint8 *fibStr = "Fibonacci: ";
 
-	uint8 timesStr[15];
-	timesStr[0] = 'T';
-	timesStr[1] = 'i';	
-	timesStr[2] = 'm';	
-	timesStr[3] = 'e';	
-	timesStr[4] = 's';	
-	timesStr[5] = ' ';	
-	timesStr[6] = 'T';	
-	timesStr[7] = 'a';
-	timesStr[8] = 'b';
-	timesStr[9] = 'l';
-	timesStr[10] = 'e';
-	timesStr[11] = 's';
-	timesStr[12] = ':';
-	timesStr[13] = 10;
-	timesStr[14] = 0;
+	uint8 *timesStr = "Times Tables: ";
 
-	uint8 mulStr[9];
-	mulStr[0] = '#';
-	mulStr[1] = ' ';	
-	mulStr[2] = 'M';	
-	mulStr[3] = 'u';	
-	mulStr[4] = 'l';	
-	mulStr[5] = 's';	
-	mulStr[6] = ':';	
-	mulStr[7] = ' ';
-	mulStr[8] = 0;
-
+	uint8 *mulStr = "Number of Multiplications: ";
 
 	printStr(fibStr);
 	printFibs(15);
@@ -116,32 +78,5 @@ fun main(->void)
 	printNum(big2, 1);
 	printNum(med, 1);
 	printNum(small, 1);
-}
-*/
-
-fun main(->void)
-{
-	//uint8 *string = "Hello, World!";
-	//uint8 *string1;
-	//string1 = "I am string1";
-
-	uint32 abc;
-	abc = 123;
-
-	printNum(abc, 1);
-
-
-	//printStr(string);
-	//printStr(string1);
-
-	{
-		uint8 variableinner1;
-		variableinner1 = 1;
-		{
-			uint8 variableinner2;
-			variableinner2 = 2;
-		}
-	}
-
 }
 

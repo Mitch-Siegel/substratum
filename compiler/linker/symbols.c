@@ -191,7 +191,6 @@ void addRequire(struct LinkedList **exports, struct LinkedList **requires, struc
     }
     else
     {
-        printf("AUTO-FREE SYMBOL %s\n", toRequire->name);
         Symbol_Free(toRequire);
     }
 }

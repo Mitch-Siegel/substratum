@@ -108,7 +108,7 @@ char *SymbolTable_mangleName(struct Scope *scope, struct Dictionary *dict, char 
 	char *scopeName = scope->name;
 
 	char *mangledName = malloc(strlen(toMangle) + strlen(scopeName) + 2);
-	sprintf(mangledName, "%s.%s", scopeName, toMangle);
+	sprintf(mangledName, "%s_%s", scopeName, toMangle);
 	char *newName = Dictionary_LookupOrInsert(dict, mangledName);
 	free(mangledName);
 	return newName;
@@ -118,7 +118,7 @@ void SymbolTable_moveMemberToParentScope(struct Scope *scope, struct ScopeMember
 {
 	Scope_insert(scope->parentScope, toMove->name, toMove->entry, toMove->type);
 	free(scope->entries->data[*indexWithinCurrentScope]);
-	for (int j = *indexWithinCurrentScope; j < scope->entries->size; j++)
+	for (int j = *indexWithinCurrentScope; j < scope->entries->size - 1; j++)
 	{
 		scope->entries->data[j] = scope->entries->data[j + 1];
 	}
@@ -463,9 +463,26 @@ struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, struct V
 	int nameLen = strlen(name);
 	for (int i = 0; i < nameLen; i++)
 	{
-		if (isspace(name[i]))
+		if (!isalnum(name[i]))
 		{
-			name[i] = '_';
+			if (isspace(name[i]))
+			{
+				name[i] = '_';
+			}
+			else
+			{
+				// for any non-whitespace character, map it to lower/uppercase alphabetic characters
+				// this should avoid collisions with renamed strings to the point that it isn't a problem
+				char altVal = name[i] % 52;
+				if(altVal > 25)
+				{
+					name[i] = altVal + 'A';
+				}
+				else
+				{
+					name[i] = altVal + 'a';
+				}
+			}
 		}
 	}
 
@@ -933,11 +950,12 @@ void walkStringLiteral(struct AST *stringLiteral, struct VariableEntry *myLocalP
 	}
 
 	int stringSize = strlen(stringLiteral->value) + 1;
+	char *stringValue = malloc(stringSize);
+	strcpy(stringValue, stringLiteral->value);
 	struct ObjectEntry *stringObject = Scope_createObject(wipScope, stringLiteral->value, myLocalPointer, stringSize, 1, 0, 1);
-
 	stringObject->initialized = 1;
-	stringObject->initializeTo = malloc(stringSize);
-	strcpy(stringObject->initializeTo, stringLiteral->value);
+	stringObject->initializeTo = stringValue;
+
 
 	myLocalPointer->localPointerTo = stringObject;
 

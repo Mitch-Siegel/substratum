@@ -127,7 +127,7 @@ unsigned char readHex(char *str)
             ErrorAndExit(ERROR_INTERNAL, "Malformed hex input for object initialization data!\nGot char '%c', expected valid hex char\n", str[i]);
         }
         // only shift on the first char
-        byte <<= (1 - i);
+        byte <<= 4 * (1 - i);
     }
     return byte;
 }
