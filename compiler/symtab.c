@@ -474,7 +474,7 @@ struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, struct V
 				// for any non-whitespace character, map it to lower/uppercase alphabetic characters
 				// this should avoid collisions with renamed strings to the point that it isn't a problem
 				char altVal = name[i] % 52;
-				if(altVal > 25)
+				if (altVal > 25)
 				{
 					name[i] = altVal + 'A';
 				}
@@ -956,8 +956,10 @@ void walkStringLiteral(struct AST *stringLiteral, struct VariableEntry *myLocalP
 	stringObject->initialized = 1;
 	stringObject->initializeTo = stringValue;
 
-
-	myLocalPointer->localPointerTo = stringObject;
+	if (myLocalPointer != NULL)
+	{
+		myLocalPointer->localPointerTo = stringObject;
+	}
 
 	// if (declared->type == t_lBracket)
 	// {
@@ -1086,8 +1088,21 @@ void walkStatement(struct AST *it, struct Scope *wipScope)
 	}
 	break;
 
-	// function call/return and asm blocks can't create new symbols so ignore
 	case t_lParen:
+	{
+		struct AST *functionArgument = it->child->sibling;
+		while (functionArgument != NULL)
+		{
+			if (functionArgument->type == t_string_literal)
+			{
+				walkStringLiteral(functionArgument, NULL, wipScope);
+			}
+			functionArgument = functionArgument->sibling;
+		}
+	}
+	break;
+
+	// asm blocks can't create new symbols so ignore
 	case t_asm:
 		break;
 

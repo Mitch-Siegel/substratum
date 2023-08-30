@@ -93,6 +93,8 @@ int main(int argc, char **argv)
 		SymbolTable_print(theTable, 1);
 	}
 
+	printf("Symbol table after linearization/scope collapse:\n");
+	SymbolTable_print(theTable, 1);
 
 	// ensure we always end the userstart section (jumped to from entry) by calling our main functoin
 	// just fudge this by calling it block number 123456 since we should never get that high
@@ -108,12 +110,11 @@ int main(int argc, char **argv)
 
 	Scope_insert(theTable->globalScope, "CALL_MAIN_BLOCK", executeMainBlock, e_basicblock);
 
-
 	// BasicBlock_append(
 
 	FILE *outFile = fopen(argv[2], "wb");
 
-	if(outFile == NULL)
+	if (outFile == NULL)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", argv[2]);
 	}

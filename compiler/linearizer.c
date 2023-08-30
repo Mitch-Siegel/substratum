@@ -377,6 +377,36 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 	}
 	break;
 
+	case t_string_literal:
+	{
+		// struct LinearizationMetadata m,
+		// struct TACLine *parentExpression,
+		// int operandIndex,
+		// char forceConstantToRegister)
+		struct TACLine *loadStringLiteral = newTACLine(m.currentTACIndex++, tt_assign, m.ast);
+		loadStringLiteral->operands[0].name.str = TempList_Get(m.temps, *m.tempNum++);
+		loadStringLiteral->operands[0].type = vt_uint8;
+		loadStringLiteral->operands[0].permutation = vp_temp;
+		loadStringLiteral->operands[0].indirectionLevel = 1;
+
+		loadStringLiteral->operands[1].type = vt_uint8;
+		loadStringLiteral->operands[1].permutation = vp_objptr;
+		loadStringLiteral->operands[1].indirectionLevel = 1;
+		loadStringLiteral->operands[1].name.str = m.ast->value;
+
+		BasicBlock_append(m.currentBlock, loadStringLiteral);
+		printTACLine(loadStringLiteral);
+
+		parentExpression->operands[operandIndex] = loadStringLiteral->operands[0];
+
+		// linearizeAssignment(
+		// assignment->operands[1].type = vt_uint8;
+		// assignment->operands[1].permutation = vp_objptr;
+		// assignment->operands[0].type = vt_uint8;
+		// assignment->operands[1].indirectionLevel = 1;
+	}
+	break;
+
 	default:
 		ErrorWithAST(ERROR_INTERNAL, m.ast, "Malformed AST seen while linearizing subexpression!\n");
 	}
