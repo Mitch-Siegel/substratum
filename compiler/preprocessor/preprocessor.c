@@ -164,11 +164,9 @@ int populateBuffer(struct RollingBuffer *b, FILE *inFile)
                     }
                     else
                     {
-                        char lineNumStr[32];
-                        int len = snprintf(lineNumStr, 31, "\n#line %d\n", curPos[POS_LINE]);
-                        for (int i = 0; i < len; i++)
+                        if (gotten == EOF)
                         {
-                            RollingBuffer_Add(b, lineNumStr[i]);
+                            return EOF;
                         }
                     }
                 }
@@ -189,7 +187,7 @@ int populateBuffer(struct RollingBuffer *b, FILE *inFile)
         }
         else
         {
-            break;
+            return EOF;
         }
     }
     return b->size;
@@ -243,12 +241,14 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
     struct RollingBuffer mainBuffer;
     RollingBuffer_Setup(&mainBuffer);
 
+    int nCharsPopulated = 0;
+
     // try to grab more input for the buffer, if we can't and nothing left in buffer, we are done
-    while ((populateBuffer(&mainBuffer, inFile)) || (RollingBuffer_Size(&mainBuffer) > 0))
+    while ((nCharsPopulated = populateBuffer(&mainBuffer, inFile) > 0) || (RollingBuffer_Size(&mainBuffer) > 0))
     {
         int whichToken = detectPreprocessorToken(&mainBuffer);
 
-        if (whichToken == -1)
+        if (whichToken == -1 && mainBuffer.size)
         {
             putc(RollingBuffer_Consume(&mainBuffer), outFile);
             continue;
@@ -256,12 +256,18 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
 
         switch (whichToken)
         {
+        case -1:
+            break;
+
         case 0:
         {
             struct RollingBuffer includeStrBuf;
             RollingBuffer_Setup(&includeStrBuf);
 
-            populateBuffer(&mainBuffer, inFile);
+            if (populateBuffer(&mainBuffer, inFile) == EOF)
+            {
+                ErrorAndExit(ERROR_CODE, "Got EOF while parsing #include directive!\n");
+            }
 
             char firstCharOfPath = RollingBuffer_Consume(&mainBuffer);
             if (firstCharOfPath != '"')
@@ -272,7 +278,10 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
             char secondQuoteFound = 0;
             while (!secondQuoteFound)
             {
-                populateBuffer(&mainBuffer, inFile);
+                if (populateBuffer(&mainBuffer, inFile) == EOF)
+                {
+                    ErrorAndExit(ERROR_CODE, "Got EOF while parsing #include directive!\n");
+                }
                 char nextCharOfPath = RollingBuffer_Consume(&mainBuffer);
                 if (nextCharOfPath == '"')
                 {
@@ -290,6 +299,7 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
             includedFileName[rawFileNameLen] = '\0';
 
             preprocessFile(includedFileName, justFileName, outFile);
+
             free(includedFileName);
         }
         break;
@@ -307,11 +317,11 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
 
     putc('\n', outFile);
 
+    memcpy(curPos, savedPos, 2 * sizeof(int));
     if (oldInFileName)
     {
-        fprintf(outFile, "#file \"%s\"\n", oldInFileName);
+        fprintf(outFile, "#file \"%s\"\n#line %d", oldInFileName, curPos[0]);
     }
-    memcpy(curPos, savedPos, 2 * sizeof(int));
 }
 
 int main(int argc, char **argv)

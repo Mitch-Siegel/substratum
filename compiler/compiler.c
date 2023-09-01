@@ -115,13 +115,13 @@ int main(int argc, char **argv)
 	// serializeAST("astdump", program);
 	// printf("\n");
 
-	AST_Print(program, 0);
+	// AST_Print(program, 0);
 
 	printf("Generating symbol table from AST");
 	struct SymbolTable *theTable = walkAST(program);
 	printf("\n");
 
-	if (argc > 3 || 1)
+	if (argc > 3)
 	{
 		printf("Symbol table before scope collapse:\n");
 		SymbolTable_print(theTable, 0);
@@ -135,7 +135,7 @@ int main(int argc, char **argv)
 	SymbolTable_collapseScopes(theTable, parseDict);
 
 
-	if (argc > 3 || 1)
+	if (argc > 3)
 	{
 		printf("Symbol table after linearization/scope collapse:\n");
 		SymbolTable_print(theTable, 1);
