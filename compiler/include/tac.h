@@ -91,6 +91,8 @@ char *sPrintTACLine(struct TACLine *it);
 
 struct TACLine *newTACLine(int index, enum TACType operation, struct AST *correspondingTree);
 
+char checkTACLine(struct TACLine *it);
+
 void freeTAC(struct TACLine *it);
 
 char TACLine_isEffective(struct TACLine *it);

@@ -1,6 +1,6 @@
 #include "linearizer.h"
 
-#define LITERAL_VARIABLE_TYPE vt_uint32
+// #define LITERAL_VARIABLE_TYPE vt_uint32
 
 // given a raw size of an object, find the nearest power-of-two aligned size
 int alignSize(int nBytes)
@@ -11,6 +11,28 @@ int alignSize(int nBytes)
 		i++;
 	}
 	return i;
+}
+
+enum variableTypes selectVariableTypeForNumber(int num)
+{
+	if(num < 256)
+	{
+		return vt_uint8;
+	}
+	else if(num < 65536)
+	{
+		return vt_uint16;
+	}
+	else
+	{
+		return vt_uint32;
+	}
+}
+
+enum variableTypes selectVariableTypeForLiteral(char *literal)
+{
+	int literalAsNumber = atoi(literal);
+	return selectVariableTypeForNumber(literalAsNumber);
 }
 
 /*
@@ -67,7 +89,7 @@ int linearizeDereference(struct LinearizationMetadata m)
 		thisDereference->operands[3].name.val = alignSize(Scope_getSizeOfVariableByString(m.scope, thisDereference->operands[1].name.str, 1));
 		thisDereference->operands[3].indirectionLevel = 0;
 		thisDereference->operands[3].permutation = vp_literal;
-		thisDereference->operands[3].type = LITERAL_VARIABLE_TYPE;
+		thisDereference->operands[3].type = selectVariableTypeForNumber(thisDereference->operands[3].name.val);
 	}
 	else
 	{
@@ -145,6 +167,11 @@ int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry
 				}
 				expectedIndirectionLevelStr[expectedArgument->indirectionLevel] = '\0';
 
+				for(struct LinkedListNode *r = m.currentBlock->TACList->head; r != NULL; r = r->next)
+				{
+					printTACLine(r->data);
+					printf("\n");
+				}
 				ErrorWithAST(ERROR_CODE, thisArgumentPush->correspondingTree, "Argument '%s' of funciton '%s' expects type %d%s, but is being passed a %d%s\n", expectedArgument->name, f->name, expectedArgument->type, expectedIndirectionLevelStr, thisIndirectionLevel, providedIndirectionLevelStr);
 			}
 
@@ -264,19 +291,7 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 		if (m.ast->type == t_constant)
 		{
 			literalOperand.name.str = m.ast->value;
-			int literalValue = atoi(m.ast->value);
-			if (literalValue < 0x100)
-			{
-				literalOperand.type = vt_uint8;
-			}
-			else if (literalValue < 0x10000)
-			{
-				literalOperand.type = vt_uint16;
-			}
-			else
-			{
-				literalOperand.type = vt_uint32;
-			}
+			literalOperand.type = selectVariableTypeForLiteral(m.ast->value);
 		}
 		else
 		{
@@ -299,7 +314,7 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 			(*m.tempNum)++;
 			tempOperand.indirectionLevel = 0;
 			tempOperand.permutation = vp_temp;
-			tempOperand.type = LITERAL_VARIABLE_TYPE;
+			tempOperand.type = literalOperand.type;
 
 			// assign to and read from the temp
 			literalLoadLine->operands[0] = tempOperand;
@@ -379,10 +394,7 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 
 	case t_string_literal:
 	{
-		// struct LinearizationMetadata m,
-		// struct TACLine *parentExpression,
-		// int operandIndex,
-		// char forceConstantToRegister)
+		/*
 		struct TACLine *loadStringLiteral = newTACLine(m.currentTACIndex++, tt_assign, m.ast);
 		loadStringLiteral->operands[0].name.str = TempList_Get(m.temps, *m.tempNum++);
 		loadStringLiteral->operands[0].type = vt_uint8;
@@ -397,8 +409,11 @@ int linearizeSubExpression(struct LinearizationMetadata m,
 		BasicBlock_append(m.currentBlock, loadStringLiteral);
 		printTACLine(loadStringLiteral);
 
-		parentExpression->operands[operandIndex] = loadStringLiteral->operands[0];
-
+		parentExpression->operands[operandIndex] = loadStringLiteral->operands[0];*/
+		parentExpression->operands[operandIndex].type = vt_uint8;
+		parentExpression->operands[operandIndex].permutation = vp_objptr;
+		parentExpression->operands[operandIndex].indirectionLevel = 1;
+		parentExpression->operands[operandIndex].name.str = m.ast->value;
 		// linearizeAssignment(
 		// assignment->operands[1].type = vt_uint8;
 		// assignment->operands[1].permutation = vp_objptr;
@@ -576,7 +591,8 @@ int linearizeExpression(struct LinearizationMetadata m)
 			case vp_literal:
 			{
 				char scaledLiteral[16];
-				sprintf(scaledLiteral, "%d", atoi(thisExpression->operands[2].name.str) * 4);
+				// TODO: this will cause issues when implementing objects as we only scale pointer arithmetic based on primitive sizes
+				sprintf(scaledLiteral, "%d", atoi(thisExpression->operands[2].name.str) * GetSizeOfPrimitive(thisExpression->operands[1].type));
 				thisExpression->operands[2].name.str = Dictionary_LookupOrInsert(m.dict, scaledLiteral);
 				thisExpression->operands[2].indirectionLevel = thisExpression->operands[1].indirectionLevel;
 			}
@@ -604,7 +620,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 				sprintf(scalingLiteral, "%d", 4);
 				scaleMultiply->operands[2].name.str = Dictionary_LookupOrInsert(m.dict, scalingLiteral);
 				scaleMultiply->operands[2].permutation = vp_literal;
-				scaleMultiply->operands[2].type = LITERAL_VARIABLE_TYPE;
+				scaleMultiply->operands[2].type = selectVariableTypeForLiteral(scaleMultiply->operands[2].name.str);;
 				BasicBlock_append(m.currentBlock, scaleMultiply);
 			}
 			break;
@@ -625,7 +641,8 @@ int linearizeExpression(struct LinearizationMetadata m)
 				case vp_literal:
 				{
 					char scaledLiteral[16];
-					sprintf(scaledLiteral, "%d", atoi(thisExpression->operands[1].name.str) * 4);
+					// TODO: this will cause issues when implementing objects as we only scale pointer arithmetic based on primitive sizes
+					sprintf(scaledLiteral, "%d", atoi(thisExpression->operands[1].name.str) * GetSizeOfPrimitive(thisExpression->operands[2].type));
 					thisExpression->operands[1].name.str = Dictionary_LookupOrInsert(m.dict, scaledLiteral);
 					thisExpression->operands[1].indirectionLevel = thisExpression->operands[2].indirectionLevel;
 				}
@@ -655,7 +672,7 @@ int linearizeExpression(struct LinearizationMetadata m)
 					scaleMultiply->operands[2].name.str = Dictionary_LookupOrInsert(m.dict, scalingLiteral);
 					scaleMultiply->operands[2].name.str = scalingLiteral;
 					scaleMultiply->operands[2].permutation = vp_literal;
-					scaleMultiply->operands[2].type = LITERAL_VARIABLE_TYPE;
+					scaleMultiply->operands[2].type = selectVariableTypeForLiteral(scaleMultiply->operands[2].name.str);
 					BasicBlock_append(m.currentBlock, scaleMultiply);
 				}
 
@@ -717,12 +734,21 @@ int linearizeArrayRef(struct LinearizationMetadata m)
 		arrayRefTAC->operation = tt_memr_2;
 
 		int indexSize = atoi(arrayIndexTree->value);
-		indexSize *= Scope_getSizeOfVariable(m.scope, arrayBaseTree);
+		struct VariableEntry *arrayVariable = Scope_lookupVar(m.scope, arrayBaseTree);
+		if (arrayVariable->indirectionLevel == 1)
+		{
+			// TODO: this will cause problems with complex types
+			indexSize *= GetSizeOfPrimitive(arrayVariable->type);
+		}
+		else
+		{
+			indexSize *= Scope_getSizeOfVariable(m.scope, arrayBaseTree);
+		}
 
 		arrayRefTAC->operands[2].name.val = indexSize;
 		arrayRefTAC->operands[2].indirectionLevel = 0;
 		arrayRefTAC->operands[2].permutation = vp_literal;
-		arrayRefTAC->operands[2].type = LITERAL_VARIABLE_TYPE;
+		arrayRefTAC->operands[2].type = selectVariableTypeForNumber(arrayRefTAC->operands[2].name.val);
 
 		printTACLine(arrayRefTAC);
 	}
@@ -735,7 +761,7 @@ int linearizeArrayRef(struct LinearizationMetadata m)
 		arrayRefTAC->operands[3].name.val = alignSize(Scope_getSizeOfVariableByString(m.scope, arrayRefTAC->operands[1].name.str, 1));
 		arrayRefTAC->operands[3].indirectionLevel = 0;
 		arrayRefTAC->operands[3].permutation = vp_literal;
-		arrayRefTAC->operands[3].type = LITERAL_VARIABLE_TYPE;
+		arrayRefTAC->operands[3].type = selectVariableTypeForNumber(arrayRefTAC->operands[3].name.val);
 
 		struct LinearizationMetadata indexExpressionMetadata = m;
 		indexExpressionMetadata.ast = arrayIndexTree;
@@ -766,8 +792,8 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		{
 		case t_constant:
 		{
-			assignment->operands[1].type = LITERAL_VARIABLE_TYPE;
-			assignment->operands[0].type = LITERAL_VARIABLE_TYPE;
+			assignment->operands[1].type = selectVariableTypeForLiteral(RHSTree->value);
+			assignment->operands[0].type = assignment->operands[1].type;
 			assignment->operands[1].permutation = vp_literal;
 		}
 		break;
@@ -895,7 +921,7 @@ int linearizeAssignment(struct LinearizationMetadata m)
 			finalAssignment->operands[2].name.val = alignSize(Scope_getSizeOfVariableByString(m.scope, finalAssignment->operands[0].name.str, 1));
 			finalAssignment->operands[2].indirectionLevel = 0;
 			finalAssignment->operands[2].permutation = vp_literal;
-			finalAssignment->operands[2].type = LITERAL_VARIABLE_TYPE;
+			finalAssignment->operands[2].type = selectVariableTypeForNumber(finalAssignment->operands[2].name.val);
 
 			// set source
 			finalAssignment->operands[3] = operandToWrite;
@@ -940,8 +966,8 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		// handle the scaling value (scale by size of array element)
 		finalAssignment->operands[2].indirectionLevel = 0;
 		finalAssignment->operands[2].permutation = vp_literal;
-		finalAssignment->operands[2].type = LITERAL_VARIABLE_TYPE;
 		finalAssignment->operands[2].name.val = alignSize(Scope_getSizeOfVariable(m.scope, LHS->child));
+		finalAssignment->operands[2].type = selectVariableTypeForNumber(finalAssignment->operands[2].name.val);
 
 		// handle the base (array start)
 
@@ -963,14 +989,25 @@ int linearizeAssignment(struct LinearizationMetadata m)
 		case t_constant:
 		{
 			finalAssignment->operation = tt_memw_2;
+			// finalAssignment->operands[0].indirectionLevel--;
 			finalAssignment->operands[1].indirectionLevel = 0;
 
 			int indexSize = atoi(arrayIndex->value);
-			indexSize *= Scope_getSizeOfVariable(m.scope, LHS->child);
+			// indexSize *= Scope_getSizeOfVariable(m.scope, LHS->child);
+
+			if (assignedArray->indirectionLevel == 1)
+			{
+				// TODO: this will cause problems with complex types
+				indexSize *= GetSizeOfPrimitive(assignedArray->type);
+			}
+			else
+			{
+				indexSize *= Scope_getSizeOfVariable(m.scope, LHS->child);
+			}
 
 			finalAssignment->operands[1].name.val = indexSize;
 			finalAssignment->operands[1].permutation = vp_literal;
-			finalAssignment->operands[1].type = LITERAL_VARIABLE_TYPE;
+			finalAssignment->operands[1].type = selectVariableTypeForNumber(finalAssignment->operands[1].name.val);
 
 			finalAssignment->operands[2] = finalAssignment->operands[3];
 
@@ -1072,7 +1109,7 @@ int linearizeDeclaration(struct LinearizationMetadata m)
 		declared = declared->child;
 		declarationLine->operands[1].name.str = declared->sibling->value;
 		declarationLine->operands[1].permutation = vp_literal;
-		declarationLine->operands[1].type = LITERAL_VARIABLE_TYPE;
+		declarationLine->operands[1].type = selectVariableTypeForLiteral(declarationLine->operands[1].name.str);
 	}
 
 	declarationLine->operands[0].name.str = declared->value;

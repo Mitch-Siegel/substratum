@@ -130,11 +130,6 @@ void SymbolTable_moveMemberToParentScope(struct Scope *scope, struct ScopeMember
 
 void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict, int depth)
 {
-	for (int i = 0; i < depth; i++)
-	{
-		printf("\t");
-	}
-	printf("Scope: %s\n", scope->name);
 	// first pass: recurse depth-first so everything we do at this call depth will be 100% correct
 	for (int i = 0; i < scope->entries->size; i++)
 	{
@@ -170,7 +165,6 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 	{
 		printf("\t");
 	}
-	printf("back in Scope: %s\n", scope->name);
 	// second pass: rename basic block operands relevant to the current scope
 	for (int i = 0; i < scope->entries->size; i++)
 	{
@@ -197,7 +191,6 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 						if (thisTAC->operands[j].type != vt_null && (thisTAC->operands[j].permutation == vp_standard || thisTAC->operands[j].permutation == vp_objptr))
 						{
 							char *originalName = thisTAC->operands[j].name.str;
-							printf("\n\n\noriginalName: [%s]\n", originalName);
 							// if this operand refers to a variable declared at this scope
 							if (Scope_contains(scope, originalName))
 							{
@@ -406,6 +399,7 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope, struct AST *name
 
 		struct ObjectEntry *objForVar = Scope_createObject(scope, Dictionary_LookupOrInsert(parseDict, modName), newVariable, varSize, arraySize, calculatedStackOffset, isGlobal);
 		newVariable->localPointerTo = objForVar;
+		newVariable->indirectionLevel++;
 		free(modName);
 	}
 	else
@@ -460,10 +454,16 @@ struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, struct V
 	newObject->isGlobal = isGlobal;
 	newObject->initialized = 0;
 
+	Scope_insert(scope, name, newObject, e_object);
+	return newObject;
+}
+
+struct ObjectEntry *Scope_createStringLiteral(struct Scope *scope, char *name, struct VariableEntry *myLocalPointer)
+{
 	int nameLen = strlen(name);
 	for (int i = 0; i < nameLen; i++)
 	{
-		if (!isalnum(name[i]))
+		if ((!isalnum(name[i])) && (name[i] != '_'))
 		{
 			if (isspace(name[i]))
 			{
@@ -486,8 +486,15 @@ struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, struct V
 		}
 	}
 
-	Scope_insert(scope, name, newObject, e_object);
-	return newObject;
+	struct ScopeMember *existingStringLiteral = Scope_lookup(scope, name);
+	if(existingStringLiteral != NULL)
+	{
+		return existingStringLiteral->entry;
+	}
+	else
+	{
+		return Scope_createObject(scope, name, myLocalPointer, nameLen + 1, 1, 0, 1);
+	}
 }
 
 // Scope lookup functions
@@ -952,7 +959,7 @@ void walkStringLiteral(struct AST *stringLiteral, struct VariableEntry *myLocalP
 	int stringSize = strlen(stringLiteral->value) + 1;
 	char *stringValue = malloc(stringSize);
 	strcpy(stringValue, stringLiteral->value);
-	struct ObjectEntry *stringObject = Scope_createObject(wipScope, stringLiteral->value, myLocalPointer, stringSize, 1, 0, 1);
+	struct ObjectEntry *stringObject = Scope_createStringLiteral(wipScope, stringLiteral->value, myLocalPointer);
 	stringObject->initialized = 1;
 	stringObject->initializeTo = stringValue;
 
@@ -960,24 +967,6 @@ void walkStringLiteral(struct AST *stringLiteral, struct VariableEntry *myLocalP
 	{
 		myLocalPointer->localPointerTo = stringObject;
 	}
-
-	// if (declared->type == t_lBracket)
-	// {
-	// 	declared = declared->child;
-	// 	struct AST *declaredSize = declared->sibling;
-	// 	if (declaredSize->type != t_constant)
-	// 	{
-	// 		ErrorWithAST(ERROR_CODE, declaredSize, "Locally scoped arrays must have a constant size!\n");
-	// 	}
-	// 	arraySize = atoi(declaredSize->value);
-	// }
-	// else
-	// {
-	// 	arraySize = 1;
-	// }
-
-	// lookup the variable being assigned, only insert if unique
-	// also covers modification of argument values
 }
 
 void walkStatement(struct AST *it, struct Scope *wipScope)

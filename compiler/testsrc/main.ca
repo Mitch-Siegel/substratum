@@ -1,4 +1,4 @@
-//#include "math.h"
+#include "math.h"
 #include "print.h"
 
 /* 
@@ -14,7 +14,6 @@
  * printNum(small, 1);
  * should be 15, 105, 560, 76
  */
- /*
 uint32 big;
 uint16 med;
 uint8 small;
@@ -44,9 +43,11 @@ fun main(->void)
 {
 	uint8 *fibStr = "Fibonacci: ";
 
-	uint8 *timesStr = "Times Tables: ";
-
-	uint8 *mulStr = "Number of Multiplications: ";
+	uint8 *timesStr;
+	timesStr = "Times Tables: ";
+	uint8 newlineChar = 10;
+	uint8 index = 5;
+	timesStr[index] = newlineChar;
 
 	printStr(fibStr);
 	printFibs(15);
@@ -72,19 +73,15 @@ fun main(->void)
 	}
 
 	
-	printStr(mulStr);
+	printStr("Number of multiplications: ");
 	printMultiplications();
 
+	printStr("Magic Number 1: ");
 	printNum(big, 1);
+	printStr("Magic Number 2: ");
 	printNum(big2, 1);
+	printStr("Magic Number 3: ");
 	printNum(med, 1);
+	printStr("Magic Number 4: ");
 	printNum(small, 1);
-}*/
-
-fun main(->void)
-{
-	uint8 *string1 = "Hello, World!";
-	printStr(string1);
-
-	printStr("asdf");
 }

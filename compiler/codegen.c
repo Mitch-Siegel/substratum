@@ -304,7 +304,6 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 				fprintf(outFile, "\n");
 			}
 			fprintf(outFile, "~end export object %s\n", thisMember->name);
-		
 		}
 		break;
 
@@ -516,8 +515,23 @@ const char *SelectMovWidth(struct TACOperand *dataDest)
 	{
 		return "mov";
 	}
+	else if(dataDest->indirectionLevel < 0)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Negative indirection level (%d) on operand passed to SelectMovWidth!\n", dataDest->indirectionLevel);
+	}
 
 	return SelectMovWidthForSize(GetSizeOfPrimitive(dataDest->type));
+}
+
+const char *SelectMovWidthForDereference(struct TACOperand *dataDestP)
+{
+	if(dataDestP->indirectionLevel < 1)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "SelectMovWidthForDereference called on non-indirect operand %s!\n", dataDestP->name.str);
+	}
+	struct TACOperand dereferenced = *dataDestP;
+	dereferenced.indirectionLevel--;
+	return SelectMovWidth(&dereferenced);
 }
 
 const char *SelectPushWidthForSize(int size)
@@ -752,7 +766,9 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		{
 			char *baseRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], outFile, reservedRegisters[0], touchedRegisters);
 			char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], outFile, reservedRegisters[1], touchedRegisters);
+
 			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+
 			if (thisTAC->operation == tt_memw_2)
 			{
 				fprintf(outFile, "\t%s (%s+%d), %s\n", movOp, baseRegStr, thisTAC->operands[1].name.val, sourceRegStr);
@@ -771,7 +787,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			char *baseRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], outFile, reservedRegisters[0], touchedRegisters);
 			char *offsetRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], outFile, reservedRegisters[1], touchedRegisters);
 			char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[3], outFile, reservedRegisters[2], touchedRegisters);
-			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+			const char *movOp = SelectMovWidthForDereference(&thisTAC->operands[0]);
 
 			if (thisTAC->operation == tt_memw_3)
 			{

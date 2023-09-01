@@ -478,6 +478,190 @@ char *sPrintTACLine(struct TACLine *it)
 	return trimmedString;
 }
 
+char checkTACLine(struct TACLine *it)
+{
+	char retval = 0;
+	switch (it->operation)
+	{
+	case tt_asm:
+		break;
+
+	case tt_add:
+	case tt_subtract:
+	case tt_mul:
+	case tt_div:
+		if (it->operands[0].indirectionLevel != it->operands[1].indirectionLevel && it->operands[0].indirectionLevel != it->operands[2].indirectionLevel)
+		{
+			printTACLine(it);
+			printf("\tOperand indirection levels don't match!\n");
+			retval = 1;
+		}
+		break;
+
+	case tt_dereference:
+		if ((it->operands[0].indirectionLevel + 1) != it->operands[1].indirectionLevel)
+		{
+			printTACLine(it);
+			printf("\tOperand indirection levels don't match!\n");
+			retval = 1;
+		}
+
+		if (it->operands[0].type != it->operands[1].type)
+		{
+			printTACLine(it);
+			printf("\tOperand types don't match!\n");
+			retval = 1;
+		}
+		break;
+
+	case tt_reference:
+	{
+		ErrorAndExit(ERROR_INTERNAL, "checkTACLine for tt_reference not yet implemented!\n");
+	}
+	break;
+
+	case tt_memw_1:
+		if ((it->operands[0].indirectionLevel - 1) != it->operands[1].indirectionLevel)
+		{
+			printTACLine(it);
+			printf("\tOperand indirection levels don't match!\n");
+			retval = 1;
+		}
+
+		if (it->operands[0].type != it->operands[1].type)
+		{
+			printTACLine(it);
+			printf("\tOperand types don't match!\n");
+			retval = 1;
+		}
+		break;
+
+	case tt_memw_2:
+	case tt_memw_2_n:
+		if ((it->operands[0].indirectionLevel - 1) != it->operands[2].indirectionLevel)
+		{
+			printTACLine(it);
+			printf("\tOperand indirection levels don't match!\n");
+			retval = 1;
+		}
+
+		if (it->operands[0].type < it->operands[2].type)
+		{
+			printTACLine(it);
+			printf("\tOperand types don't match!\n");
+			retval = 1;
+		}
+		break;
+
+	case tt_memw_3:
+	case tt_memw_3_n:
+		if ((it->operands[0].indirectionLevel - 1) != it->operands[3].indirectionLevel)
+		{
+			printTACLine(it);
+			printf("\tOperand indirection levels don't match!\n");
+			retval = 1;
+		}
+
+		if (it->operands[0].type < it->operands[3].type)
+		{
+			printTACLine(it);
+			printf("\tPotential narrowing conversion: %s %d:%d!\n", it->correspondingTree->sourceFile, it->correspondingTree->sourceLine, it->correspondingTree->sourceCol);
+		}
+		break;
+
+	case tt_memr_1:
+		if ((it->operands[0].indirectionLevel + 1) != it->operands[1].indirectionLevel)
+		{
+			printTACLine(it);
+			printf("\tOperand indirection levels don't match!\n");
+			retval = 1;
+		}
+
+		if (it->operands[0].type != it->operands[1].type)
+		{
+			printTACLine(it);
+			printf("\tOperand types don't match!\n");
+			retval = 1;
+		}
+		break;
+
+	case tt_memr_2:
+	case tt_memr_2_n:
+		if ((it->operands[0].indirectionLevel + 1) != it->operands[2].indirectionLevel)
+		{
+			printTACLine(it);
+			printf("\tOperand indirection levels don't match!\n");
+			retval = 1;
+		}
+
+		if (it->operands[0].type != it->operands[2].type)
+		{
+			printTACLine(it);
+			printf("\tOperand types don't match!\n");
+			retval = 1;
+		}
+		break;
+
+	case tt_memr_3:
+	case tt_memr_3_n:
+		if ((it->operands[0].indirectionLevel + 1) != it->operands[1].indirectionLevel)
+		{
+			printTACLine(it);
+			printf("\tOperand indirection levels don't match!\n");
+			retval = 1;
+		}
+
+		if (it->operands[0].type != it->operands[1].type)
+		{
+			printTACLine(it);
+			printf("\tOperand types don't match!\n");
+			retval = 1;
+		}
+		break;
+		break;
+
+	case tt_jg:
+	case tt_jge:
+	case tt_jl:
+	case tt_jle:
+	case tt_je:
+	case tt_jne:
+	case tt_jmp:
+		break;
+
+	case tt_cmp:
+		break;
+
+	case tt_assign:
+		if (it->operands[0].indirectionLevel != it->operands[1].indirectionLevel)
+		{
+			printTACLine(it);
+			printf("\tOperand indirection levels don't match!\n");
+			retval = 1;
+		}
+
+		if (it->operands[0].type < it->operands[1].type)
+		{
+			printTACLine(it);
+			printf("\tPotential narrowing conversion: %s %d:%d!\n", it->correspondingTree->sourceFile, it->correspondingTree->sourceLine, it->correspondingTree->sourceCol);
+		}
+		break;
+
+	case tt_cast_assign:
+		break;
+
+	case tt_declare:
+	case tt_push:
+	case tt_call:
+	case tt_label:
+	case tt_return:
+	case tt_do:
+	case tt_enddo:
+		break;
+	}
+	return retval;
+}
+
 void freeTAC(struct TACLine *it)
 {
 	free(it);
