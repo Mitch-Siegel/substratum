@@ -11,14 +11,15 @@ enum variableTypes
 	vt_null,
 	vt_uint8,
 	vt_uint16,
-	vt_uint32
+	vt_uint32,
 };
 
 enum variablePermutations
 {
 	vp_standard,
 	vp_temp,
-	vp_literal
+	vp_literal,
+	vp_objptr,
 };
 
 enum TACType
@@ -89,6 +90,8 @@ void printTACLine(struct TACLine *it);
 char *sPrintTACLine(struct TACLine *it);
 
 struct TACLine *newTACLine(int index, enum TACType operation, struct AST *correspondingTree);
+
+char checkTACLine(struct TACLine *it);
 
 void freeTAC(struct TACLine *it);
 

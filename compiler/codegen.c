@@ -68,13 +68,27 @@ char *PlaceLiteralInRegister(FILE *outFile, char *literalStr, int destReg)
 
 void WriteSpilledVariable(FILE *outFile, struct Lifetime *writtenTo, char *sourceRegStr)
 {
-	if (writtenTo->stackOrRegLocation > 0)
+	// if we have a global, we will use a string reference to the variable's name for the linker to resolve once it places globals
+	if (writtenTo->isGlobal)
 	{
-		fprintf(outFile, "\t%s (%%bp+%d), %s\n", SelectMovWidthForLifetime(writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
+		// we will need 2 movs because the address of the global will be a 32-bit int, requiring an assembly macro of its own
+		fprintf(outFile, "\t%s %s, %s\n", SelectMovWidthForPrimitive(vt_uint32), registerNames[RETURN_REGISTER], writtenTo->name);
+		// then, once we have the address in a register we can write our value to it
+		fprintf(outFile, "\t%s (%s), %s\n", SelectMovWidthForLifetime(writtenTo), registerNames[RETURN_REGISTER], sourceRegStr);
 	}
+	// not a global
 	else
 	{
-		fprintf(outFile, "\t%s (%%bp%d), %s\n", SelectMovWidthForLifetime(writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
+		// location is a positive offset, we will add to the base pointer to get to this variable
+		if (writtenTo->stackOrRegLocation > 0)
+		{
+			fprintf(outFile, "\t%s (%%bp+%d), %s\n", SelectMovWidthForLifetime(writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
+		}
+		// location is a negative offset, we will subtract from the base pointer to get to this variable
+		else
+		{
+			fprintf(outFile, "\t%s (%%bp%d), %s\n", SelectMovWidthForLifetime(writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
+		}
 	}
 }
 
@@ -82,13 +96,29 @@ char *ReadSpilledVariable(FILE *outFile, int destReg, struct Lifetime *readFrom)
 {
 	char *destRegStr = registerNames[destReg];
 
-	if (readFrom->stackOrRegLocation > 0)
+	// if we have a global, we will use a string reference to the variable's name for the linker to resolve once it places globals
+	if (readFrom->isGlobal)
 	{
-		fprintf(outFile, "\t%s %s, (%%bp+%d)\n", SelectMovWidthForLifetime(readFrom), destRegStr, readFrom->stackOrRegLocation);
+		fprintf(outFile, "\t; read global %s\n", readFrom->name);
+		// we will need 2 movs because the address of the global will be a 32-bit int, requiring an assembly macro of its own
+		fprintf(outFile, "\t%s %s, %s\n", SelectMovWidthForPrimitive(vt_uint32), destRegStr, readFrom->name);
+		// then, once we have the address in a register we can read from it to grab our value
+		fprintf(outFile, "\t%s %s, (%s)\n", SelectMovWidthForLifetime(readFrom), destRegStr, destRegStr);
 	}
+	// not a global
 	else
 	{
-		fprintf(outFile, "\t%s %s, (%%bp%d)\n", SelectMovWidthForLifetime(readFrom), destRegStr, readFrom->stackOrRegLocation);
+		fprintf(outFile, "\t; read spilled variable %s\n", readFrom->name);
+		// location is a positive offset, we will add to the base pointer to get to this variable
+		if (readFrom->stackOrRegLocation > 0)
+		{
+			fprintf(outFile, "\t%s %s, (%%bp+%d)\n", SelectMovWidthForLifetime(readFrom), destRegStr, readFrom->stackOrRegLocation);
+		}
+		// location is a negative offset, we will subtract from the base pointer to get to this variable
+		else
+		{
+			fprintf(outFile, "\t%s %s, (%%bp%d)\n", SelectMovWidthForLifetime(readFrom), destRegStr, readFrom->stackOrRegLocation);
+		}
 	}
 	return destRegStr;
 }
@@ -97,6 +127,17 @@ char *ReadSpilledVariable(FILE *outFile, int destReg, struct Lifetime *readFrom)
 // does *NOT* guarantee that returned register indices are modifiable in the case where the variable is found in a register
 char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOperand operand, FILE *outFile, int registerIndex, char *touchedRegisters)
 {
+	/*
+		TODO: Decide if this is too much of a hack?
+		In cases where we have enough registers to not spill any loca variables, we still reserve 1 scratch register
+		However, in cases where generic logic passes reserved[2] to this function, if that second operand is a global,
+			reserved[2] will be -1 and we will not have anywhere to put the global, so select REGTURN_REGISTER instead
+	*/
+	if (registerIndex == -1)
+	{
+		registerIndex = RETURN_REGISTER;
+	}
+
 	if (operand.permutation == vp_literal)
 	{
 		if (registerIndex < 0)
@@ -107,13 +148,19 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOpera
 		return PlaceLiteralInRegister(outFile, operand.name.str, registerIndex);
 	}
 
+	if(operand.permutation == vp_objptr)
+	{
+		fprintf(outFile, "\t%s %s, %s\n", SelectMovWidth(&operand), registerNames[registerIndex], operand.name.str);
+		return registerNames[registerIndex];
+	}
+
 	struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand.name.str);
 	if (relevantLifetime == NULL)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", operand.name.str);
 	}
 
-	if (registerIndex < 0 && relevantLifetime->isSpilled)
+	if (registerIndex < 0 && relevantLifetime->isSpilled && !relevantLifetime->isGlobal)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Call to attempt to place spilled variable %s when none should be spilled!", operand.name.str);
 	}
@@ -163,6 +210,7 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct TACOpera
 	}
 }
 
+// generates code from the global scope, recursing inwards to functions
 void generateCode(struct SymbolTable *table, FILE *outFile)
 {
 	for (int i = 0; i < table->globalScope->entries->size; i++)
@@ -201,7 +249,6 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 				fprintf(outFile, "~end export funcdec %s\n", thisMember->name);
 			}
 		}
-
 		break;
 
 		case e_basicblock:
@@ -231,6 +278,32 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 			generateCodeForFunction(&start, outFile);
 			LinkedList_Free(globalBlockList, NULL);
 			fprintf(outFile, "~end export section userstart\n");
+		}
+		break;
+
+		case e_variable:
+		{
+			struct VariableEntry *v = thisMember->entry;
+			fprintf(outFile, "~export variable %s\n", thisMember->name);
+			fprintf(outFile, "%d %d* %s\n", v->type, v->indirectionLevel, v->name);
+			fprintf(outFile, "~end export variable %s\n", thisMember->name);
+		}
+		break;
+
+		case e_object:
+		{
+			struct ObjectEntry *o = thisMember->entry;
+			fprintf(outFile, "~export object %s\n", thisMember->name);
+			fprintf(outFile, "size %d initialized %d\n", o->size, o->initialized);
+			if(o->initialized)
+			{
+				for(int i = 0; i < o->size; i++)
+				{
+					fprintf(outFile, "%02x ", o->initializeTo[i]);
+				}
+				fprintf(outFile, "\n");
+			}
+			fprintf(outFile, "~end export object %s\n", thisMember->name);
 		}
 		break;
 
@@ -442,8 +515,23 @@ const char *SelectMovWidth(struct TACOperand *dataDest)
 	{
 		return "mov";
 	}
+	else if(dataDest->indirectionLevel < 0)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Negative indirection level (%d) on operand passed to SelectMovWidth!\n", dataDest->indirectionLevel);
+	}
 
 	return SelectMovWidthForSize(GetSizeOfPrimitive(dataDest->type));
+}
+
+const char *SelectMovWidthForDereference(struct TACOperand *dataDestP)
+{
+	if(dataDestP->indirectionLevel < 1)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "SelectMovWidthForDereference called on non-indirect operand %s!\n", dataDestP->name.str);
+	}
+	struct TACOperand dereferenced = *dataDestP;
+	dereferenced.indirectionLevel--;
+	return SelectMovWidth(&dereferenced);
 }
 
 const char *SelectPushWidthForSize(int size)
@@ -533,7 +621,9 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			struct Lifetime *assignedLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
 
 			// assign to literal value
-			if (thisTAC->operands[1].permutation == vp_literal)
+			switch (thisTAC->operands[1].permutation)
+			{
+			case vp_literal:
 			{
 				// spilled <- literal
 				if (assignedLifetime->isSpilled)
@@ -547,7 +637,11 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 					PlaceLiteralInRegister(outFile, thisTAC->operands[1].name.str, assignedLifetime->stackOrRegLocation);
 				}
 			}
-			else
+			break;
+
+			case vp_standard:
+			case vp_temp:
+			case vp_objptr:
 			{
 				char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], outFile, reservedRegisters[0], touchedRegisters);
 				// spilled <- ???
@@ -561,6 +655,11 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 					fprintf(outFile, "\t%s %%r%d, %s\n", SelectMovWidth(&thisTAC->operands[0]), assignedLifetime->stackOrRegLocation, sourceRegStr);
 				}
 			}
+			break;
+
+			break;
+			}
+			break;
 		}
 		break;
 
@@ -570,7 +669,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		{
 			struct Lifetime *declaredLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
 			if ((declaredLifetime->localPointerTo != NULL) &&
-				(!declaredLifetime->isSpilled))
+				(!declaredLifetime->isSpilled) &&
+				(!declaredLifetime->localPointerTo->isGlobal))
 			{
 				fprintf(outFile, "\tsubi %%r%d, %%bp, $%d\n", declaredLifetime->stackOrRegLocation, declaredLifetime->localPointerTo->stackOffset * -1);
 			}
@@ -666,7 +766,9 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		{
 			char *baseRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], outFile, reservedRegisters[0], touchedRegisters);
 			char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[2], outFile, reservedRegisters[1], touchedRegisters);
+
 			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+
 			if (thisTAC->operation == tt_memw_2)
 			{
 				fprintf(outFile, "\t%s (%s+%d), %s\n", movOp, baseRegStr, thisTAC->operands[1].name.val, sourceRegStr);
@@ -685,7 +787,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			char *baseRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], outFile, reservedRegisters[0], touchedRegisters);
 			char *offsetRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], outFile, reservedRegisters[1], touchedRegisters);
 			char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[3], outFile, reservedRegisters[2], touchedRegisters);
-			const char *movOp = SelectMovWidth(&thisTAC->operands[0]);
+			const char *movOp = SelectMovWidthForDereference(&thisTAC->operands[0]);
 
 			if (thisTAC->operation == tt_memw_3)
 			{

@@ -1,0 +1,87 @@
+#include "math.h"
+#include "print.h"
+
+/* 
+ * come up with some magic numbers
+ * fiddle with what widths these variables are
+ * the values they come back with are always correct (modulo their widths)
+ * This proves that the global variable system works for arbitrary variables
+ *
+ * On printFibs(15), results of
+ * printNum(big, 1);
+ * printNum(big2, 1);
+ * printNum(med, 1);
+ * printNum(small, 1);
+ * should be 15, 105, 560, 76
+ */
+uint32 big;
+uint16 med;
+uint8 small;
+uint32 big2;
+
+fun printFibs(uint8 n->void)
+{
+	uint8 i = 0;
+	while(i < n)
+	{
+		// modify our global magic numbers based on the iterations of this loop
+		big = big + 1;
+		big2 = big2 + i;
+		med = med + big2;
+		small = small + med;
+		printNum(fib(i), 0);
+		i = i + 1;
+		if(i < n)
+		{
+			print(',');
+		}
+	}
+	print(10);
+}
+
+fun main(->void)
+{
+	uint8 *fibStr = "Fibonacci: ";
+
+	uint8 *timesStr;
+	timesStr = "Times Tables: ";
+	uint8 newlineChar = 10;
+	uint8 index = 5;
+	timesStr[index] = newlineChar;
+
+	printStr(fibStr);
+	printFibs(15);
+
+	printStr(timesStr);
+	uint8 i = 1;
+	uint8 j;
+	while(i < 10)
+	{
+		j = 1;
+		while(j < 10)
+		{
+			uint8 nPrinted = printNum(mul(i, j), 0);
+			while(nPrinted < 3)
+			{
+				print(' ');
+				nPrinted = nPrinted + 1;
+			}
+			j = j + 1;
+		}
+		print(10);
+		i = i + 1;
+	}
+
+	
+	printStr("Number of multiplications: ");
+	printMultiplications();
+
+	printStr("Magic Number 1: ");
+	printNum(big, 1);
+	printStr("Magic Number 2: ");
+	printNum(big2, 1);
+	printStr("Magic Number 3: ");
+	printNum(med, 1);
+	printStr("Magic Number 4: ");
+	printNum(small, 1);
+}

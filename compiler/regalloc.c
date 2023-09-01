@@ -12,7 +12,14 @@ struct Lifetime *newLifetime(char *name, enum variableTypes type, int indirectio
 	wip->type = type;
 	wip->nwrites = 0;
 	wip->nreads = 0;
-	wip->isSpilled = 0;
+	if (isGlobal)
+	{
+		wip->isSpilled = 1;
+	}
+	else
+	{
+		wip->isSpilled = 0;
+	}
 	wip->isArgument = 0;
 	wip->isGlobal = isGlobal;
 	wip->localPointerTo = NULL;
@@ -160,9 +167,16 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_cast_assign:
 			{
 				recordVariableWrite(lifetimes, &thisLine->operands[0], scope, TACIndex);
-				if (thisLine->operands[1].permutation != vp_literal)
+				switch(thisLine->operands[1].permutation)
 				{
+					case vp_standard:
+					case vp_temp:
 					recordVariableRead(lifetimes, &thisLine->operands[1], scope, TACIndex);
+					break;
+
+					case vp_literal:
+					case vp_objptr:
+						break;
 				}
 			}
 			break;
@@ -171,9 +185,16 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_push:
 			case tt_return:
 			{
-				if (thisLine->operands[0].permutation != vp_literal)
+				switch(thisLine->operands[0].permutation)
 				{
+					case vp_standard:
+					case vp_temp:
 					recordVariableRead(lifetimes, &thisLine->operands[0], scope, TACIndex);
+					break;
+
+					case vp_literal:
+					case vp_objptr:
+						break;
 				}
 			}
 			break;

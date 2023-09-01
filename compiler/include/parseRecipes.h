@@ -57,6 +57,9 @@ enum token parseRecipes[p_null][11][9][2] = {
         {{t_char_literal, above},
          {p_null, p_null}},
 
+        {{t_string_literal, above},
+         {p_null, p_null}},
+
         {{p_function_call, below},
          {p_null, p_null}},
 

@@ -5,8 +5,12 @@
 
 #define MACHINE_REGISTER_COUNT 16
 #define REGISTERS_TO_ALLOCATE 9
+// definitions for what we intend to use as scratch registers when applicable
 #define SCRATCH_REGISTER 0
 #define SECOND_SCRATCH_REGISTER 1
+// the return register is used as a de-facto n+1-th scratch register as many use cases cause infrequent need for an extra
+// we can use this register without caring about stomping the value instead of reserving another
+// we only need to preserve its value when we return something in it
 #define RETURN_REGISTER 13
 
 struct Lifetime

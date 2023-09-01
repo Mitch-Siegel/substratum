@@ -482,6 +482,12 @@ enum token scan(char trackPos, struct Dictionary *dict)
 				ErrorWithAST(ERROR_INTERNAL, (&ex), "Expected filename (as t_identifier) after #file\n\tSaw malformed preprocessor output and got [%s] instead!\n", buffer);
 			}
 
+			// ensure the #file directive is followed immediately by a new line, consume it without tracking position
+			if(fgetc_track(0) != '\n')
+			{
+				ErrorAndExit(ERROR_INTERNAL, "Saw something other than newline after #file directive in preprocessed input!\n");
+			}
+
 			// if we are bothering to track position, actually update the current file
 			if (trackPos)
 			{
@@ -499,6 +505,12 @@ enum token scan(char trackPos, struct Dictionary *dict)
 				ex.sourceCol = curCol;
 				ex.sourceLine = curLine;
 				ErrorWithAST(ERROR_INTERNAL, (&ex), "Expected line (as t_constant) after #line\n\tSaw malformed preprocessor output and got [%s] instead!\n", buffer);
+			}
+
+			// ensure the #file directive is followed immediately by a new line, consume it without tracking position
+			if(fgetc_track(0) != '\n')
+			{
+				ErrorAndExit(ERROR_INTERNAL, "Saw something other than newline after #file directive in preprocessed input!\n");
 			}
 
 			// if we are bothering to track position, actually update the current line
@@ -1181,7 +1193,6 @@ struct AST *TableParse(struct Dictionary *dict)
 						TableParseError(parseStack);
 					}
 				}
-				printf("%d from new file\n", newFileStack->size);
 				justStartedNewFile = 0;
 			}
 			while (newFileStack->size > 0)
