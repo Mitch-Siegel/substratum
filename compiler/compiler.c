@@ -118,7 +118,7 @@ int main(int argc, char **argv)
 	// AST_Print(program, 0);
 
 	printf("Generating symbol table from AST");
-	struct SymbolTable *theTable = walkAST(program);
+	struct SymbolTable *theTable = linearizeProgram(program);
 	printf("\n");
 
 	if (argc > 3)
@@ -128,8 +128,8 @@ int main(int argc, char **argv)
 	}
 
 	printf("Linearizing code to basic blocks\n");
-	struct TempList *temps = TempList_New();
-	linearizeProgram(program, theTable->globalScope, parseDict, temps);
+	// struct TempList *temps = TempList_New();
+	// linearizeProgram(program, theTable->globalScope, parseDict, temps);
 
 	printf("Collapsing scopes\n");
 	SymbolTable_collapseScopes(theTable, parseDict);
@@ -181,7 +181,7 @@ int main(int argc, char **argv)
 	fclose(outFile);
 	AST_Free(program);
 
-	TempList_Free(temps);
+	// TempList_Free(temps);
 	Dictionary_Free(parseDict);
 
 	printf("done!\n");

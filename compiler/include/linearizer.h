@@ -12,54 +12,96 @@ struct LinearizationMetadata
 	struct BasicBlock *currentBlock;
 	struct AST *ast;
 	int *tempNum;
-	struct TempList *temps;
 	struct Scope *scope;
 };
 
-int linearizeASMBlock(struct LinearizationMetadata m);
+struct SymbolTable *linearizeProgram(struct AST *program);
 
-int linearizeDereference(struct LinearizationMetadata m);
+struct VariableEntry *walkVariableDeclaration(struct AST *tree,
+											  struct BasicBlock *block,
+											  struct Scope *scope,
+											  int *TACIndex,
+											  int *tempNum);
 
-int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry *f);
+void walkAssignment(struct AST *tree,
+					struct BasicBlock *block,
+					struct Scope *scope,
+					int *TACIndex,
+					int *tempNum);
 
-int linearizeFunctionCall(struct LinearizationMetadata m);
+void walkSubExpression(struct AST *tree,
+					   struct BasicBlock *block,
+					   struct Scope *scope,
+					   int *TACIndex,
+					   int *tempNum,
+					   struct TACOperand *destinationOperand);
 
-int linearizeSubExpression(struct LinearizationMetadata m,
-						   struct TACLine *parentExpression,
-						   int operandIndex, 
-						   char forceConstantToRegister);
+void walkFunctionCall(struct AST *tree,
+					   struct BasicBlock *block,
+					   struct Scope *scope,
+					   int *TACIndex,
+					   int *tempNum,
+					   struct TACOperand *destinationOperand);
 
-int linearizeExpression(struct LinearizationMetadata m);
+struct TACOperand *walkExpression(struct AST *tree,
+					   struct BasicBlock *block,
+					   struct Scope *scope,
+					   int *TACIndex,
+					   int *tempNum);
 
-int linearizeArrayRef(struct LinearizationMetadata m);
+struct TACOperand *walkArrayRef(struct AST *tree,
+					   struct BasicBlock *block,
+					   struct Scope *scope,
+					   int *TACIndex,
+					   int *tempNum);
 
-int linearizeAssignment(struct LinearizationMetadata m);
+struct TACOperand *walkDereference(struct AST *tree,
+					   struct BasicBlock *block,
+					   struct Scope *scope,
+					   int *TACIndex,
+					   int *tempNum);
+	// int walkASMBlock(struct LinearizationMetadata m);
 
-struct TACLine *linearizeConditionalJump(int currentTACIndex,
-										 struct AST *cmpOp,
-										 char whichCondition); // jump on condition true if nonzero, jump on condition false if zero
+	// int walkDereference(struct LinearizationMetadata m);
 
-int linearizeDeclaration(struct LinearizationMetadata m);
+	// int walkArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry *f);
 
-int linearizeConditionCheck(struct LinearizationMetadata m,
-							char whichCondition, // jump on condition true if nonzero, jump on condition false if zero
-							int targetLabel,
-							int *labelCount, // label index tracking in starting block
-							int depth);
+	// int walkFunctionCall(struct LinearizationMetadata m);
 
-struct Stack *linearizeIfStatement(struct LinearizationMetadata m,
-								   struct BasicBlock *afterIfBlock,
-								   int *labelCount,
-								   struct Stack *scopenesting);
+	// int walkSubExpression(struct LinearizationMetadata m,
+	// 					  struct TACLine *parentExpression,
+	// 					  int operandIndex,
+	// 					  char forceConstantToRegister);
 
-struct LinearizationResult *linearizeWhileLoop(struct LinearizationMetadata m,
-											   struct BasicBlock *afterIfBlock,
-											   int *labelCount,
-											   struct Stack *scopenesting);
+	// int walkExpression(struct LinearizationMetadata m);
 
-struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
-										   struct BasicBlock *controlConvergesTo,
-										   int *labelCount,
-										   struct Stack *scopenesting);
+	// int walkArrayRef(struct LinearizationMetadata m);
 
-void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictionary *dict, struct TempList *temps);
+	// int walkAssignment(struct LinearizationMetadata m);
+
+	// struct TACLine *walkConditionalJump(int currentTACIndex,
+	// 									struct AST *cmpOp,
+	// 									char whichCondition); // jump on condition true if nonzero, jump on condition false if zero
+
+	// int walkConditionCheck(struct LinearizationMetadata m,
+	// 					   char whichCondition, // jump on condition true if nonzero, jump on condition false if zero
+	// 					   int targetLabel,
+	// 					   int *labelCount, // label index tracking in starting block
+	// 					   int depth);
+
+	// struct Stack *walkIfStatement(struct LinearizationMetadata m,
+	// 							  struct BasicBlock *afterIfBlock,
+	// 							  int *labelCount,
+	// 							  struct Stack *scopenesting);
+
+	// struct LinearizationResult *walkWhileLoop(struct LinearizationMetadata m,
+	// 										  struct BasicBlock *afterIfBlock,
+	// 										  int *labelCount,
+	// 										  struct Stack *scopenesting);
+
+	// struct LinearizationResult *walkScope(struct LinearizationMetadata m,
+	// 									  struct BasicBlock *controlConvergesTo,
+	// 									  int *labelCount,
+	// 									  struct Stack *scopenesting);
+
+	// void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictionary *dict, struct TempList *temps);

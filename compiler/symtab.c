@@ -38,7 +38,7 @@ struct VariableEntry *FunctionEntry_createArgument(struct FunctionEntry *func, s
 	Stack_Push(func->arguments, newArgument); // keep track of all arguments in order
 	Scope_insert(func->mainScope, name->value, newArgument, e_argument);
 
-	int argSize = Scope_getSizeOfVariable(func->mainScope, name);
+	int argSize = Scope_getSizeOfVariableByAst(func->mainScope, name);
 	newArgument->stackOffset = func->argStackSize + 8;
 	func->argStackSize += argSize;
 
@@ -349,14 +349,20 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
 }
 
 // create a variable within the given scope
-struct VariableEntry *Scope_createVariable(struct Scope *scope, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize, char isGlobal)
+struct VariableEntry *Scope_createVariable(struct Scope *scope,
+										   struct AST *name,
+										   enum variableTypes type,
+										   int indirectionLevel,
+										   int arraySize,
+										   char isGlobal,
+										   int declaredAt)
 {
 	struct VariableEntry *newVariable = malloc(sizeof(struct VariableEntry));
 	newVariable->type = type;
 	newVariable->indirectionLevel = indirectionLevel;
 	newVariable->stackOffset = 0;
 	newVariable->assignedAt = -1;
-	newVariable->declaredAt = -1;
+	newVariable->declaredAt = declaredAt;
 	newVariable->isAssigned = 0;
 	newVariable->name = name->value;
 
@@ -378,7 +384,7 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope, struct AST *name
 
 	Scope_insert(scope, name->value, newVariable, e_variable);
 
-	int varSize = Scope_getSizeOfVariable(scope, name);
+	int varSize = Scope_getSizeOfVariableByAst(scope, name);
 
 	if (arraySize > 1)
 	{
@@ -487,7 +493,7 @@ struct ObjectEntry *Scope_createStringLiteral(struct Scope *scope, char *name, s
 	}
 
 	struct ScopeMember *existingStringLiteral = Scope_lookup(scope, name);
-	if(existingStringLiteral != NULL)
+	if (existingStringLiteral != NULL)
 	{
 		return existingStringLiteral->entry;
 	}
@@ -648,23 +654,23 @@ int GetSizeOfPrimitive(enum variableTypes type)
 	}
 }
 
-// return the actual size of a variable in bytes (lookup by its name only)
-int Scope_getSizeOfVariableByString(struct Scope *scope, char *name, char beingDereferenced)
-{
-	struct VariableEntry *theVariable = Scope_lookupVarByString(scope, name);
-	int realIndirectionLevel = theVariable->indirectionLevel - (beingDereferenced > 0);
-	if (realIndirectionLevel > 0)
-	{
-		return 4;
-	}
-	else
-	{
-		return GetSizeOfPrimitive(theVariable->type);
-	}
-}
+// // return the actual size of a variable in bytes (lookup by its name only)
+// int Scope_getSizeOfVariableByString(struct Scope *scope, char *name, char beingDereferenced)
+// {
+// 	struct VariableEntry *theVariable = Scope_lookupVarByString(scope, name);
+// 	int realIndirectionLevel = theVariable->indirectionLevel - (beingDereferenced > 0);
+// 	if (realIndirectionLevel > 0)
+// 	{
+// 		return 4;
+// 	}
+// 	else
+// 	{
+// 		return GetSizeOfPrimitive(theVariable->type);
+// 	}
+// }
 
-// return the actual size of a variable in bytes (lookup by its name using the ast for line/col error messages)
-int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
+// // return the actual size of a variable in bytes (lookup by its name using the ast for line/col error messages)
+int Scope_getSizeOfVariableByAst(struct Scope *scope, struct AST *name)
 {
 	struct VariableEntry *theVariable = Scope_lookupVar(scope, name);
 	if (theVariable->indirectionLevel > 0)
@@ -673,6 +679,25 @@ int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
 	}
 
 	switch (theVariable->type)
+	{
+	case vt_uint8:
+	case vt_uint16:
+	case vt_uint32:
+		return GetSizeOfPrimitive(theVariable->type);
+		break;
+	default:
+		ErrorWithAST(ERROR_INTERNAL, name, "Variable '%s' has unexpected type %d!\n", name->value, theVariable->type);
+	}
+}
+
+int Scope_getSizeOfVariable(struct Scope *scope, struct VariableEntry *v)
+{
+	if (v->indirectionLevel > 0)
+	{
+		return 4;
+	}
+
+	switch (v->type)
 	{
 	case vt_uint8:
 		return 1;
@@ -684,7 +709,23 @@ int Scope_getSizeOfVariable(struct Scope *scope, struct AST *name)
 		return 4;
 
 	default:
-		ErrorWithAST(ERROR_INTERNAL, name, "Variable '%s' has unexpected type %d!\n", name->value, theVariable->type);
+		ErrorAndExit(ERROR_INTERNAL, "Variable '%s' has unexpected type %d!\n", v->name, v->type);
+	}
+}
+
+int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
+{
+	if(v->indirectionLevel < 1)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Non-indirect variable %s passed to Scope_getSizeOfArrayElement!\n", v->name);
+	}
+	else if(v->indirectionLevel == 1)
+	{
+		return GetSizeOfPrimitive(v->type);
+	}
+	else
+	{
+		return 4;
 	}
 }
 
@@ -883,6 +924,7 @@ int scrapePointers(struct AST *pointerAST, struct AST **resultDestination)
 	return dereferenceDepth;
 }
 
+/*
 struct VariableEntry *walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArgument)
 {
 	enum variableTypes theType;
@@ -938,7 +980,7 @@ struct VariableEntry *walkDeclaration(struct AST *declaration, struct Scope *wip
 		}
 		else
 		{
-			created = Scope_createVariable(wipScope, declared, theType, indirectionLevel, arraySize, wipScope->parentScope == NULL);
+			created = Scope_createVariable(wipScope, declared, theType, indirectionLevel, arraySize, wipScope->parentScope == NULL, current);
 		}
 	}
 	else
@@ -1318,46 +1360,4 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 	if (lookedUpFunction != NULL)
 		FunctionEntry_free(parsedFunc);
 }
-
-// given an AST node for a program, walk the AST and generate a symbol table for the entire thing
-struct SymbolTable *walkAST(struct AST *it)
-{
-	struct SymbolTable *programTable = SymbolTable_new("Program");
-	struct AST *runner = it;
-	while (runner != NULL)
-	{
-		printf(".");
-		switch (runner->type)
-		{
-		// global variable declarations/definitions are allowed
-		// use walkStatement to handle this
-		case t_uint8:
-		case t_uint16:
-		case t_uint32:
-		case t_single_equals:
-		{
-			walkStatement(runner, programTable->globalScope);
-			struct AST *scraper = runner->child;
-			while (scraper->type != t_identifier)
-			{
-				scraper = scraper->child;
-			}
-		}
-		break;
-
-		case t_fun:
-			walkFunction(runner, programTable->globalScope);
-			break;
-
-		// ignore asm blocks
-		case t_asm:
-			break;
-
-		default:
-			ErrorAndExit(ERROR_INTERNAL, "Error walking AST - got %s with type %d\n", runner->value, runner->type);
-			break;
-		}
-		runner = runner->sibling;
-	}
-	return programTable;
-}
+*/
