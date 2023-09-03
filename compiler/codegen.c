@@ -934,6 +934,11 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			if (thisTAC->operands[0].name.str != NULL)
 			{
 				struct Lifetime *returnedLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
+				if(returnedLifetime == NULL)
+				{
+					ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for [%s]!\n", thisTAC->operands[0].name.str);
+				}
+				
 				if (!returnedLifetime->isSpilled)
 				{
 					fprintf(outFile, "\t%s %%r%d, %%rr\n", SelectMovWidth(&thisTAC->operands[0]), returnedLifetime->stackOrRegLocation);

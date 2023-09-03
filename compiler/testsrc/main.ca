@@ -14,7 +14,7 @@
  * printNum(small, 1);
  * should be 15, 105, 560, 76
  */
- /*
+/*
 uint32 big;
 uint16 med;
 uint8 small;
@@ -88,11 +88,92 @@ fun main(->void)
 }
 */
 
+fun print(uint8 value->void)
+{
+	// store r0, pull the argument into a register, then output that register
+	asm {
+		movb %r0, (%bp+8)
+		out 0, %r0
+	}
+	;
+}
+fun mod(uint32 a, uint32 divisor->uint32)
+{
+	while (a >= divisor)
+	{
+		a = a - divisor;
+	}
+	return a;
+}
+
+fun div(uint32 a, uint32 b->uint32)
+{
+	uint32 al = a;
+	uint32 bl = b;
+	uint32 quotient = 0;
+	while (al >= bl)
+	{
+		al = al - bl;
+		quotient = quotient + 1;
+	}
+	return quotient;
+}
+
+uint32 nMultiplications = 0;
+fun mul(uint32 a, uint32 b->uint32)
+{
+	uint32 result = 0;
+	while(b > 0)
+	{
+		result = result + a;
+		b = b - 1;
+	}
+	nMultiplications = nMultiplications + 1;
+	return result;
+}
+
+fun printNum(uint32 num, uint32 newLine->uint8)
+{
+	uint8 outStr[16];
+	uint32 digits = 0;
+	if (num == 0)
+	{
+		outStr[0] = '0';
+		digits = 1;
+	}
+	else
+	{
+		while (num > 0)
+		{
+			uint32 remainder = mod(num, 10);
+			outStr[digits] = remainder + 48;
+			num = div(num, 10);
+			digits = digits + 1;
+		}
+	}
+
+	uint32 i = 0;
+	while (i < digits)
+	{
+		print(outStr[digits - i - 1]);
+		i = i + 1;
+	}
+
+	if (newLine > 0)
+	{
+		digits = digits + 1;
+		print(10); // newline
+	}
+	return digits;
+}
+
+
 fun main(->void)
 {
 	uint8 i = 0;
 	while(i < 20)
 	{
+		printNum((i + 1234), 1);
 		i = i + 1;
 	}
 

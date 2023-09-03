@@ -403,7 +403,7 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 	{
 		// if we have an argument, obvoiulsy it will be spilled because it comes in on the stack
 		newVariable->mustSpill = 1;
-		newVariable->stackOffset = scope->parentFunction->argStackSize;
+		newVariable->stackOffset = scope->parentFunction->argStackSize + 8;
 		scope->parentFunction->argStackSize += totalVariableFootprint;
 		Scope_insert(scope, name->value, newVariable, e_argument);
 	}
@@ -855,7 +855,7 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		case e_function:
 		{
 			struct FunctionEntry *theFunction = thisMember->entry;
-			printf("> Function %s (returns %d) (defined: %d)\n", thisMember->name, theFunction->returnType, theFunction->isDefined);
+			printf("> Function %s (returns %d) (defined: %d)\n\t%d bytes of arguments on stack\n", thisMember->name, theFunction->returnType, theFunction->isDefined, theFunction->argStackSize);
 			// if (printTAC)
 			// {
 				// for (struct LinkedListNode *b = theFunction->BasicBlockList->head; b != NULL; b = b->next)

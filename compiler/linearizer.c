@@ -181,8 +181,6 @@ void walkArgumentDeclaration(struct AST *tree,
 
 	delcaredArgument->assignedAt = 0;
 	delcaredArgument->isAssigned = 1;
-	delcaredArgument->stackOffset = fun->argStackSize;
-	fun->argStackSize += Scope_getSizeOfVariable(fun->mainScope, delcaredArgument);
 	Stack_Push(fun->arguments, delcaredArgument);
 }
 
@@ -355,6 +353,8 @@ void walkFunctionDeclaration(struct AST *tree,
 			ErrorWithAST(ERROR_CODE, tree, " ");
 		}
 	}
+	// free the basic block we used to walk declarations of arguments
+	BasicBlock_free(block);
 
 	struct AST *definition = argumentRunner->sibling->sibling;
 	if (definition != NULL)
@@ -387,7 +387,7 @@ void walkFunctionDefinition(struct AST *tree,
 	int labelNum = 1;
 	struct BasicBlock *block = BasicBlock_new(0);
 	Scope_addBasicBlock(fun->mainScope, block);
-	walkScope(tree, block, fun->mainScope, &TACIndex, &tempNum, &labelNum);
+	walkScope(tree, block, fun->mainScope, &TACIndex, &tempNum, &labelNum, -1);
 }
 
 void walkScope(struct AST *tree,
@@ -395,7 +395,8 @@ void walkScope(struct AST *tree,
 			   struct Scope *scope,
 			   int *TACIndex,
 			   int *tempNum,
-			   int *labelNum)
+			   int *labelNum,
+			   int controlConvergesToLabel)
 {
 	printf("walkScope: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
@@ -447,7 +448,10 @@ void walkScope(struct AST *tree,
 			// subscope
 			{
 				struct Scope *subScope = Scope_createSubScope(scope);
-				walkScope(scopeRunner, block, subScope, TACIndex, tempNum, labelNum);
+				struct BasicBlock *afterSubScopeBlock = BasicBlock_new((*labelNum)++);
+				walkScope(scopeRunner, block, subScope, TACIndex, tempNum, labelNum, afterSubScopeBlock->labelNum);
+				block = afterSubScopeBlock;
+				Scope_addBasicBlock(scope, afterSubScopeBlock);
 			}
 			break;
 
@@ -458,16 +462,20 @@ void walkScope(struct AST *tree,
 		case t_return:
 			// return
 			{
-				struct TACLine *returnLine = newTACLine((*TACIndex)++, tt_return, scopeRunner);
+				struct TACLine *returnLine = newTACLine(*TACIndex, tt_return, scopeRunner);
 				if (scopeRunner->child != NULL)
 				{
 					walkSubExpression(scopeRunner->child, block, scope, TACIndex, tempNum, &returnLine->operands[0]);
 				}
+
+				returnLine->index = (*TACIndex)++;
+
+				BasicBlock_append(block, returnLine);
 			}
 			break;
 
-		// ignore asm blocks
 		case t_asm:
+			walkAsmBlock(scopeRunner, block, scope, TACIndex, tempNum);
 			break;
 
 		case t_rCurly:
@@ -477,6 +485,13 @@ void walkScope(struct AST *tree,
 			ErrorWithAST(ERROR_INTERNAL, scopeRunner, "Unexpected AST type (%s - %s) seen in walkScope!\n", getTokenName(scopeRunner->type), scopeRunner->value);
 		}
 		scopeRunner = scopeRunner->sibling;
+	}
+
+	if (controlConvergesToLabel > 0)
+	{
+		struct TACLine *controlConvergeJmp = newTACLine((*TACIndex)++, tt_jmp, tree);
+		controlConvergeJmp->operands[0].name.val = controlConvergesToLabel;
+		BasicBlock_append(block, controlConvergeJmp);
 	}
 
 	if ((scopeRunner == NULL) || (scopeRunner->type != t_rCurly))
@@ -586,7 +601,7 @@ void walkWhileLoop(struct AST *tree,
 				   int *TACIndex,
 				   int *tempNum,
 				   int *labelNum,
-				   int afterWhileLabel)
+				   int controlConvergesToLabel)
 {
 	printf("walkWhileLoop: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
@@ -602,19 +617,24 @@ void walkWhileLoop(struct AST *tree,
 	BasicBlock_append(beforeWhileBlock, enterWhileJump);
 
 	// create a subscope from which we will work
-	scope = Scope_createSubScope(scope);
-	block = BasicBlock_new((*labelNum)++);
-	Scope_addBasicBlock(scope, block);
+	struct Scope *whileScope = Scope_createSubScope(scope);
+	struct BasicBlock *whileBlock = BasicBlock_new((*labelNum)++);
+	Scope_addBasicBlock(whileScope, whileBlock);
 
 	struct TACLine *whileDo = newTACLine((*TACIndex)++, tt_do, tree);
-	BasicBlock_append(block, whileDo);
+	BasicBlock_append(whileBlock, whileDo);
 
-	walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, afterWhileLabel);
+	walkConditionCheck(tree->child, whileBlock, whileScope, TACIndex, tempNum, controlConvergesToLabel);
 
-	walkScope(tree->child->sibling, block, scope, TACIndex, tempNum, labelNum);
+	int endWhileLabel = (*labelNum)++;
+
+	walkScope(tree->child->sibling, whileBlock, whileScope, TACIndex, tempNum, labelNum, endWhileLabel);
 
 	struct TACLine *whileLoopJump = newTACLine((*TACIndex)++, tt_jmp, tree);
-	whileLoopJump->operands[0].name.val = block->labelNum;
+	whileLoopJump->operands[0].name.val = whileBlock->labelNum;
+
+	block = BasicBlock_new(endWhileLabel);
+	Scope_addBasicBlock(scope, block);
 
 	struct TACLine *whileEndDo = newTACLine((*TACIndex)++, tt_enddo, tree);
 	BasicBlock_append(block, whileLoopJump);
@@ -643,18 +663,17 @@ void walkIfStatement(struct AST *tree,
 		struct Scope *ifScope = Scope_createSubScope(scope);
 		struct BasicBlock *ifBlock = BasicBlock_new((*labelNum)++);
 		Scope_addBasicBlock(scope, ifBlock);
-		walkScope(tree->child->sibling, ifBlock, ifScope, TACIndex, tempNum, labelNum);
-		struct TACLine *exitIfJump = newTACLine((*TACIndex)++, tt_jmp, tree);
-		exitIfJump->operands[0].name.val = controlConvergesToLabel;
-		BasicBlock_append(ifBlock, exitIfJump);
+
+		struct TACLine *enterIfJump = newTACLine((*TACIndex)++, tt_jmp, tree);
+		enterIfJump->operands[0].name.val = ifBlock->labelNum;
+		BasicBlock_append(block, enterIfJump);
+
+		walkScope(tree->child->sibling, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 
 		struct Scope *elseScope = Scope_createSubScope(scope);
-		struct BasicBlock *elseBlock = BasicBlock_new((*labelNum)++);
+		struct BasicBlock *elseBlock = BasicBlock_new(elseLabel);
 		Scope_addBasicBlock(scope, elseBlock);
-		walkScope(tree->child->sibling->sibling, elseBlock, elseScope, TACIndex, tempNum, labelNum);
-		struct TACLine *exitElseJump = newTACLine((*TACIndex)++, tt_jmp, tree);
-		exitElseJump->operands[0].name.val = controlConvergesToLabel;
-		BasicBlock_append(elseBlock, exitElseJump);
+		walkScope(tree->child->sibling->sibling, elseBlock, elseScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 	}
 	// no else block
 	else
@@ -664,11 +683,12 @@ void walkIfStatement(struct AST *tree,
 		struct Scope *ifScope = Scope_createSubScope(scope);
 		struct BasicBlock *ifBlock = BasicBlock_new((*labelNum)++);
 		Scope_addBasicBlock(scope, ifBlock);
-		walkScope(tree->child->sibling, ifBlock, ifScope, TACIndex, tempNum, labelNum);
 
-		struct TACLine *exitIfJump = newTACLine((*TACIndex)++, tt_jmp, tree);
-		exitIfJump->operands[0].name.val = controlConvergesToLabel;
-		BasicBlock_append(ifBlock, exitIfJump);
+		struct TACLine *enterIfJump = newTACLine((*TACIndex)++, tt_jmp, tree);
+		enterIfJump->operands[0].name.val = ifBlock->labelNum;
+		BasicBlock_append(block, enterIfJump);
+
+		walkScope(tree->child->sibling, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 	}
 }
 
@@ -740,7 +760,9 @@ void walkAssignment(struct AST *tree,
 		assignment->operands[2].indirectionLevel = 0;
 		assignment->operands[2].name.val = alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
 
-		walkSubExpression(arrayIndex, block, scope, TACIndex, tempNum, &assignment->operands[2]);
+		walkSubExpression(arrayIndex, block, scope, TACIndex, tempNum, &assignment->operands[1]);
+
+		assignment->operands[3] = assignedValue;
 	}
 	break;
 
@@ -985,10 +1007,27 @@ void walkFunctionCall(struct AST *tree,
 			ErrorWithAST(ERROR_CODE, pushedArgument, "Error in argument %d passed to function %s! Expect %d*, got %d*\n", argIndex, calledFunction->name, expectedArgument->indirectionLevel, push->operands[0].indirectionLevel);
 		}
 
+		// allow us to automatically widen
+		if(GetSizeOfPrimitive(push->operands[0].type) <= GetSizeOfPrimitive(expectedArgument->type))
+		{
+			struct TACLine *cast = newTACLine((*TACIndex)++, tt_cast_assign, tree);
+			cast->operands[1] = push->operands[0];
+			populateTACOperandFromVariable(&cast->operands[0], expectedArgument);
+			cast->operands[0].permutation = vp_temp;
+			cast->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+			push->operands[0] = cast->operands[0];
+			BasicBlock_append(block, cast);
+		}
+		else
+		{
+			ErrorWithAST(ERROR_CODE, pushedArgument, "Potential narrowing conversion passed to argument %s of function %s\n", expectedArgument->name, calledFunction->name);
+		}
+
 		push->index = (*TACIndex)++;
 		BasicBlock_append(block, push);
 		argIndex++;
 	}
+	Stack_Free(argumentTrees);
 
 	if (argIndex != calledFunction->arguments->size)
 	{
@@ -996,6 +1035,8 @@ void walkFunctionCall(struct AST *tree,
 	}
 
 	struct TACLine *call = newTACLine((*TACIndex)++, tt_call, tree);
+	call->operands[1].name.str = calledFunction->name;
+	BasicBlock_append(block, call);
 
 	if (destinationOperand != NULL)
 	{
@@ -1075,7 +1116,6 @@ struct TACOperand *walkArrayRef(struct AST *tree,
 								int *TACIndex,
 								int *tempNum)
 {
-
 	if (tree->type != t_lBracket)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) passed to walkArrayRef!\n", getTokenName(tree->type));
@@ -1153,6 +1193,30 @@ struct TACOperand *walkDereference(struct AST *tree,
 {
 	ErrorAndExit(ERROR_INTERNAL, "walkDereference not implemented!\n");
 	return NULL;
+}
+
+void walkAsmBlock(struct AST *tree,
+				  struct BasicBlock *block,
+				  struct Scope *scope,
+				  int *TACIndex,
+				  int *tempNum)
+{
+	if (tree->type != t_asm)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) passed to walkAsmBlock!\n", getTokenName(tree->type));
+	}
+
+	struct AST *asmRunner = tree->child;
+	while (asmRunner != NULL)
+	{
+		struct TACLine *asmLine = newTACLine((*TACIndex)++, tt_asm, asmRunner);
+		asmLine->operands[0].name.str = asmRunner->value;
+		printf("GOT AN ASM [%s]\n", asmRunner->value);
+
+		BasicBlock_append(block, asmLine);
+
+		asmRunner = asmRunner->sibling;
+	}
 }
 
 // int linearizeASMBlock(struct LinearizationMetadata m)

@@ -41,7 +41,8 @@ void walkScope(struct AST *tree,
 			   struct Scope *scope,
 			   int *TACIndex,
 			   int *tempNum,
-			   int *labelNum);
+			   int *labelNum,
+			   int controlConvergesToLabel);
 
 void walkConditionCheck(struct AST *tree,
 						struct BasicBlock *block,
@@ -103,6 +104,13 @@ struct TACOperand *walkDereference(struct AST *tree,
 								   struct Scope *scope,
 								   int *TACIndex,
 								   int *tempNum);
+
+void walkAsmBlock(struct AST *tree,
+				  struct BasicBlock *block,
+				  struct Scope *scope,
+				  int *TACIndex,
+				  int *tempNum);
+
 // int walkASMBlock(struct LinearizationMetadata m);
 
 // int walkDereference(struct LinearizationMetadata m);
