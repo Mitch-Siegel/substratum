@@ -75,7 +75,7 @@ int compareSymbols(struct Symbol *a, struct Symbol *b);
 
 struct Type *parseType(char *declString);
 
-void addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire);
+char addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire);
 
 char addExport(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toAdd);
 #endif

@@ -22,6 +22,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, e
 	return newFunction;
 }
 
+/*
 // create a variable denoted to be an argument within the given function entry
 struct VariableEntry *FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize)
 {
@@ -62,7 +63,7 @@ struct VariableEntry *FunctionEntry_createArgument(struct FunctionEntry *func, s
 	}
 
 	return newArgument;
-}
+}*/
 
 void FunctionEntry_free(struct FunctionEntry *f)
 {
@@ -355,11 +356,13 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 										   int indirectionLevel,
 										   int arraySize,
 										   char isGlobal,
-										   int declaredAt)
+										   int declaredAt,
+										   char isArgument)
 {
 	struct VariableEntry *newVariable = malloc(sizeof(struct VariableEntry));
 	newVariable->type = type;
 	newVariable->indirectionLevel = indirectionLevel;
+	newVariable->arraySize = arraySize;
 	newVariable->stackOffset = 0;
 	newVariable->assignedAt = -1;
 	newVariable->declaredAt = declaredAt;
@@ -374,7 +377,14 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 	else
 	{
 		newVariable->isGlobal = 0;
-		newVariable->mustSpill = 0;
+		if (arraySize > 1)
+		{
+			newVariable->mustSpill = 1;
+		}
+		else
+		{
+			newVariable->mustSpill = 0;
+		}
 	}
 
 	if (Scope_contains(scope, name->value))
@@ -382,8 +392,33 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 		ErrorWithAST(ERROR_CODE, name, "Redifinition of symbol %s!\n", name->value);
 	}
 
-	Scope_insert(scope, name->value, newVariable, e_variable);
+	if (arraySize > 1)
+	{
+		newVariable->indirectionLevel++;
+	}
 
+	int totalVariableFootprint = GetSizeOfPrimitive(newVariable->type) * arraySize;
+
+	if (isArgument)
+	{
+		// if we have an argument, obvoiulsy it will be spilled because it comes in on the stack
+		newVariable->mustSpill = 1;
+		newVariable->stackOffset = scope->parentFunction->argStackSize;
+		scope->parentFunction->argStackSize += totalVariableFootprint;
+		Scope_insert(scope, name->value, newVariable, e_argument);
+	}
+	else
+	{
+		if ((scope->parentFunction != NULL) && newVariable->mustSpill)
+		{
+
+			scope->parentFunction->localStackSize -= totalVariableFootprint;
+			newVariable->stackOffset = scope->parentFunction->localStackSize;
+		}
+		Scope_insert(scope, name->value, newVariable, e_variable);
+	}
+
+	/*
 	int varSize = Scope_getSizeOfVariableByAst(scope, name);
 
 	if (arraySize > 1)
@@ -411,7 +446,7 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 	else
 	{
 		newVariable->localPointerTo = NULL;
-	}
+	}*/
 
 	return newVariable;
 }
@@ -715,11 +750,11 @@ int Scope_getSizeOfVariable(struct Scope *scope, struct VariableEntry *v)
 
 int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 {
-	if(v->indirectionLevel < 1)
+	if (v->indirectionLevel < 1)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Non-indirect variable %s passed to Scope_getSizeOfArrayElement!\n", v->name);
 	}
-	else if(v->indirectionLevel == 1)
+	else if (v->indirectionLevel == 1)
 	{
 		return GetSizeOfPrimitive(v->type);
 	}
@@ -797,10 +832,6 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		{
 			struct VariableEntry *theArgument = thisMember->entry;
 			printf("> Argument %s:", thisMember->name);
-			if (theArgument->localPointerTo != NULL)
-			{
-				printf("[%d]", theArgument->localPointerTo->arraySize);
-			}
 			printf("\n");
 			VariableEntry_Print(theArgument, depth);
 			for (int j = 0; j < depth; j++)
@@ -815,10 +846,6 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		{
 			struct VariableEntry *theVariable = thisMember->entry;
 			printf("> Variable %s:", thisMember->name);
-			if (theVariable->localPointerTo != NULL)
-			{
-				printf("[%d]", theVariable->localPointerTo->arraySize);
-			}
 			printf("\n");
 			VariableEntry_Print(theVariable, depth);
 			printf("\n");
@@ -829,13 +856,13 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		{
 			struct FunctionEntry *theFunction = thisMember->entry;
 			printf("> Function %s (returns %d) (defined: %d)\n", thisMember->name, theFunction->returnType, theFunction->isDefined);
-			if (printTAC)
-			{
-				for (struct LinkedListNode *b = theFunction->BasicBlockList->head; b != NULL; b = b->next)
-				{
-					printBasicBlock(b->data, depth + 1);
-				}
-			}
+			// if (printTAC)
+			// {
+				// for (struct LinkedListNode *b = theFunction->BasicBlockList->head; b != NULL; b = b->next)
+				// {
+					// printBasicBlock(b->data, depth + 1);
+				// }
+			// }
 			Scope_print(theFunction->mainScope, depth + 1, printTAC);
 		}
 		break;
@@ -902,8 +929,12 @@ void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *b)
 	char *blockName = malloc(10);
 	sprintf(blockName, "Block%d", b->labelNum);
 	Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), b, e_basicblock);
-	LinkedList_Append(scope->parentFunction->BasicBlockList, b);
 	free(blockName);
+
+	if(scope->parentFunction != NULL)
+	{
+		LinkedList_Append(scope->parentFunction->BasicBlockList, b);
+	}
 }
 
 /*

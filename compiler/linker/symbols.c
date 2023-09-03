@@ -182,16 +182,17 @@ int compareSymbols(struct Symbol *a, struct Symbol *b)
     return strcmp(a->name, b->name);
 }
 
-void addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire)
+char addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire)
 {
     enum LinkedSymbol symbolType = toRequire->symbolType;
     if (LinkedList_Find(requires[symbolType], compareSymbols, toRequire) == NULL)
     {
         LinkedList_Append(requires[symbolType], toRequire);
+        return 0;
     }
     else
     {
-        Symbol_Free(toRequire);
+        return 1;
     }
 }
 

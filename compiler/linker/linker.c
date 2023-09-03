@@ -116,8 +116,7 @@ void linkerParseFile(FILE *inFile, char *inFileName, struct Dictionary *symbolNa
                 }
                 else
                 {
-                    addRequire(exports, requires, currentSymbol);
-                    ignoreDuplicateSymbol = 0;
+                    ignoreDuplicateSymbol = addRequire(exports, requires, currentSymbol);
                 }
                 nSymbols[currentLinkSymbolType]++;
             }

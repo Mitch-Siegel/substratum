@@ -906,6 +906,8 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		case tt_jle:
 		case tt_je:
 		case tt_jne:
+		case tt_jz:
+		case tt_jnz:
 		{
 			fprintf(outFile, "\t%s %s_%d\n", getAsmOp(thisTAC->operation), functionName, thisTAC->operands[0].name.val);
 		}

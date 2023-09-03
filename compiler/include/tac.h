@@ -51,6 +51,8 @@ enum TACType
 	tt_jle,
 	tt_je,
 	tt_jne,
+	tt_jz,
+	tt_jnz,
 	tt_jmp,
 	tt_push,
 	tt_call,

@@ -53,10 +53,10 @@ struct FunctionEntry
 struct VariableEntry
 {
 	int stackOffset;
-	struct ObjectEntry *localPointerTo;
 	char *name; // duplicate pointer from ScopeMember for ease of use
 	enum variableTypes type;
 	int indirectionLevel;
+	int arraySize;
 	int assignedAt;
 	int declaredAt;
 	char isAssigned;
@@ -135,7 +135,8 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 										   int indirectionLevel,
 										   int arraySize,
 										   char isGlobal,
-										   int declaredAt);
+										   int declaredAt,
+										   char isArgument);
 
 struct FunctionEntry *Scope_createFunction(struct Scope *parentScope,
 										   char *name,
@@ -223,7 +224,7 @@ int scrapePointers(struct AST *pointerAST,
 
 // void walkStatement(struct AST *it,struct Scope *wipScope);
 
-void walkScope(struct AST *it,struct Scope *wip,char isMainScope);
+// void walkScope(struct AST *it,struct Scope *wip,char isMainScope);
 
 // void walkFunction(struct AST *it,struct Scope *parentScope);
 

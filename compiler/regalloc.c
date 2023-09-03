@@ -269,6 +269,8 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_jle:
 			case tt_je:
 			case tt_jne:
+			case tt_jz:
+			case tt_jnz:
 			case tt_jmp:
 			case tt_label:
 				break;
@@ -332,12 +334,12 @@ int generateLifetimeOverlaps(struct CodegenMetadata *metadata)
 		{
 			// if we have a local pointer, make sure we track it in the localpointers stack
 			// but also put it into contention for a register, we will just prefer to spill localpointers first
-			if (thisVariableEntry != NULL && ((struct VariableEntry *)thisVariableEntry->entry)->localPointerTo != NULL)
-			{
-				thisLifetime->localPointerTo = ((struct VariableEntry *)thisVariableEntry->entry)->localPointerTo;
-				thisLifetime->stackOrRegLocation = -1;
-				Stack_Push(metadata->localPointerLifetimes, thisLifetime);
-			}
+			// if (thisVariableEntry != NULL && ((struct VariableEntry *)thisVariableEntry->entry)->localPointerTo != NULL)
+			// {
+				// thisLifetime->localPointerTo = ((struct VariableEntry *)thisVariableEntry->entry)->localPointerTo;
+				// thisLifetime->stackOrRegLocation = -1;
+				// Stack_Push(metadata->localPointerLifetimes, thisLifetime);
+			// }
 			for (int i = thisLifetime->start; i <= thisLifetime->end; i++)
 			{
 				LinkedList_Append(metadata->lifetimeOverlaps[i], thisLifetime);

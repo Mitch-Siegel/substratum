@@ -103,6 +103,12 @@ char *getAsmOp(enum TACType t)
 	case tt_jne:
 		return "jne";
 
+	case tt_jz:
+		return "jz";
+
+	case tt_jnz:
+		return "jnz";
+
 	case tt_jmp:
 		return "jmp";
 	}
@@ -233,6 +239,8 @@ void printTACLine(struct TACLine *it)
 	case tt_jle:
 	case tt_je:
 	case tt_jne:
+	case tt_jz:
+	case tt_jnz:
 	case tt_jmp:
 		width += printf("%s basicblock %d", getAsmOp(it->operation), it->operands[0].name.val);
 		break;
@@ -423,6 +431,8 @@ char *sPrintTACLine(struct TACLine *it)
 	case tt_jle:
 	case tt_je:
 	case tt_jne:
+	case tt_jz:
+	case tt_jnz:
 	case tt_jmp:
 		width += sprintf(tacString, "%s basicblock %d", getAsmOp(it->operation), it->operands[0].name.val);
 		break;
@@ -626,6 +636,8 @@ char checkTACLine(struct TACLine *it)
 	case tt_jle:
 	case tt_je:
 	case tt_jne:
+	case tt_jz:
+	case tt_jnz:
 	case tt_jmp:
 		break;
 
