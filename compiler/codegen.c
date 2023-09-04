@@ -232,9 +232,9 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 
 			fprintf(outFile, "returns %d %d*\n", generatedFunction->returnType, generatedFunction->returnIndirectionLevel);
 			fprintf(outFile, "%d arguments\n", generatedFunction->arguments->size);
-			for (int i = 0; i < generatedFunction->arguments->size; i++)
+			for (int j = 0; j < generatedFunction->arguments->size; j++)
 			{
-				struct VariableEntry *examinedArgument = generatedFunction->arguments->data[i];
+				struct VariableEntry *examinedArgument = generatedFunction->arguments->data[j];
 				fprintf(outFile, "%d %d* %s\n", examinedArgument->type, examinedArgument->indirectionLevel, examinedArgument->name);
 			}
 
@@ -256,9 +256,9 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 			fprintf(outFile, "~export section userstart\n");
 			struct LinkedList *globalBlockList = LinkedList_New();
 
-			for (int i = 0; i < table->globalScope->entries->size; i++)
+			for (int j = 0; j < table->globalScope->entries->size; j++)
 			{
-				struct ScopeMember *m = table->globalScope->entries->data[i];
+				struct ScopeMember *m = table->globalScope->entries->data[j];
 				if (m->type == e_basicblock)
 				{
 					LinkedList_Append(globalBlockList, m->entry);
@@ -297,9 +297,9 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 			fprintf(outFile, "size %d initialized %d\n", o->size, o->initialized);
 			if(o->initialized)
 			{
-				for(int i = 0; i < o->size; i++)
+				for(int j = 0; j < o->size; j++)
 				{
-					fprintf(outFile, "%02x ", o->initializeTo[i]);
+					fprintf(outFile, "%02x ", o->initializeTo[j]);
 				}
 				fprintf(outFile, "\n");
 			}

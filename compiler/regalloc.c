@@ -9,7 +9,6 @@ struct Lifetime *newLifetime(char *name, enum variableTypes type, int indirectio
 	wip->start = start;
 	wip->end = start;
 	wip->stackOrRegLocation = -1;
-	wip->type = type;
 	wip->nwrites = 0;
 	wip->nreads = 0;
 	if (isGlobal)

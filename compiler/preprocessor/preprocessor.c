@@ -247,7 +247,7 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
     int nCharsPopulated = 0;
 
     // try to grab more input for the buffer, if we can't and nothing left in buffer, we are done
-    while ((nCharsPopulated = populateBuffer(&mainBuffer, inFile, outFile) > 0) || (RollingBuffer_Size(&mainBuffer) > 0))
+    while (((nCharsPopulated = populateBuffer(&mainBuffer, inFile, outFile)) > 0) || (RollingBuffer_Size(&mainBuffer) > 0))
     {
         int whichToken = detectPreprocessorToken(&mainBuffer);
 

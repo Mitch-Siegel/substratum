@@ -221,13 +221,3 @@ void SymbolTable_free(struct SymbolTable *it);
 // scrape down a chain of nested child star tokens, expecting something at the bottom
 int scrapePointers(struct AST *pointerAST,
 				   struct AST **resultDestination);
-
-// struct VariableEntry *walkDeclaration(struct AST *declaration,struct Scope *wipScope,char isArgument);
-
-// void walkStatement(struct AST *it,struct Scope *wipScope);
-
-// void walkScope(struct AST *it,struct Scope *wip,char isMainScope);
-
-// void walkFunction(struct AST *it,struct Scope *parentScope);
-
-// struct SymbolTable *walkAST(struct AST *it);

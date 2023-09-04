@@ -719,20 +719,6 @@ void BasicBlock_prepend(struct BasicBlock *b, struct TACLine *l)
 	LinkedList_Prepend(b->TACList, l);
 }
 
-struct TACLine *findLastEffectiveTAC(struct BasicBlock *b)
-{
-	struct LinkedListNode *runner = b->TACList->tail;
-	while (runner != NULL && !TACLine_isEffective(runner->data))
-	{
-		runner = runner->prev;
-	}
-	if (runner == NULL)
-	{
-		return NULL;
-	}
-	return runner->data;
-}
-
 void printBasicBlock(struct BasicBlock *b, int indentLevel)
 {
 	for (int i = 0; i < indentLevel; i++)

@@ -23,7 +23,7 @@ int getline_force_raw(char **linep, size_t *linecapp, FILE *stream)
     int len = getline(linep, linecapp, stream);
     if (len == 0)
     {
-        ErrorAndExit(ERROR_INTERNAL, "getline_force expects non-zero line length, got 0!\n");
+        ErrorAndExit(ERROR_INTERNAL, "getline_force_raw expects non-zero line length, got 0!\n");
     }
     if (len == -1)
     {

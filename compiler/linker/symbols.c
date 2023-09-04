@@ -251,7 +251,10 @@ char addExport(struct LinkedList **exports, struct LinkedList **requires, struct
             LinkedList_Append(funcDefRequired->linkerLines, strdup(runner->data));
         }
 
-        addRequire(exports, requires, funcDefRequired);
+        if(addRequire(exports, requires, funcDefRequired))
+        {
+            Symbol_Free(funcDefRequired);
+        }
     }
 
     // if adding this export satisfies any requires, delete them

@@ -921,9 +921,9 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 			if (thisObj->initialized)
 			{
 				printf(" (hex: ");
-				for (int i = 0; i < thisObj->size; i++)
+				for (int j = 0; j < thisObj->size; j++)
 				{
-					printf("%02x ", thisObj->initializeTo[i]);
+					printf("%02x ", thisObj->initializeTo[j]);
 				}
 				printf(")");
 			}
