@@ -299,7 +299,7 @@ void printTACLine(struct TACLine *it)
 		width += printf("end do");
 		break;
 	}
-	while (width++ < 32)
+	while (width++ < 40)
 	{
 		printf(" ");
 	}
