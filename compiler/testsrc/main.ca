@@ -177,7 +177,7 @@ fun printStr(uint8 *str->void)
 	}
 }
 
-fun printStrBroken(uint8 *str->void)
+fun printStrDeref(uint8 *str->void)
 {
 	while(*str != 0)
 	{
@@ -189,12 +189,12 @@ fun printStrBroken(uint8 *str->void)
 
 fun main(->void)
 {
-	printStr("Good printstr: ");
+	printStr("Array printstr: ");
 	uint8 *testStr = "I am string";
 	printStr(testStr);
 	print(10);
-	printStr("Bad printstr: ");
-	printStrBroken(testStr);
+	printStrDeref("Pointer printstr: ");
+	printStrDeref(testStr);
 	print(10);
 	uint8 i = 0;
 	/*while(i < 10)

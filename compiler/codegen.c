@@ -812,7 +812,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			{
 				char *destRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[0], outFile, reservedRegisters[0], touchedRegisters);
 				char *sourceRegStr = placeOrFindOperandInRegister(allLifetimes, thisTAC->operands[1], outFile, reservedRegisters[1], touchedRegisters);
-				const char *movOp = SelectMovWidth(&thisTAC->operands[1]);
+				const char *movOp = SelectMovWidthForDereference(&thisTAC->operands[1]);
 				fprintf(outFile, "\t%s %s, (%s)\n", movOp, destRegStr, sourceRegStr);
 			}
 		}
