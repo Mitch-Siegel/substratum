@@ -189,13 +189,18 @@ fun printStrBroken(uint8 *str->void)
 
 fun main(->void)
 {
+	printStr("Good printstr: ");
 	uint8 *testStr = "I am string";
 	printStr(testStr);
+	print(10);
+	printStr("Bad printstr: ");
+	printStrBroken(testStr);
+	print(10);
 	uint8 i = 0;
-	while(i < 20)
+	/*while(i < 10)
 	{
-		printNum((i + 1234), 1);
+		printNum((i + 1000), 1);
 		i = i + 1;
-	}
+	}*/
 
 }

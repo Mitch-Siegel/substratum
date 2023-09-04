@@ -392,13 +392,20 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 		ErrorWithAST(ERROR_CODE, name, "Redifinition of symbol %s!\n", name->value);
 	}
 
+	int totalVariableFootprint = arraySize;
+	if (newVariable->indirectionLevel > 0)
+	{
+		totalVariableFootprint *= 4;
+	}
+	else
+	{
+		totalVariableFootprint *= GetSizeOfPrimitive(newVariable->type);
+	}
+
 	if (arraySize > 1)
 	{
 		newVariable->indirectionLevel++;
 	}
-
-	int totalVariableFootprint = GetSizeOfPrimitive(newVariable->type) * arraySize;
-
 	if (isArgument)
 	{
 		// if we have an argument, obvoiulsy it will be spilled because it comes in on the stack
