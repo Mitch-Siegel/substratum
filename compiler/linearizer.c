@@ -915,10 +915,7 @@ void walkSubExpression(struct AST *tree,
 
 	case t_string_literal:
 		// string literal
-		destinationOperand->type = vt_uint8;
-		destinationOperand->permutation = vp_objptr;
-		destinationOperand->indirectionLevel = 1;
-		destinationOperand->name.str = tree->value;
+		walkStringLiteral(tree, block, scope, destinationOperand);
 		break;
 
 	case t_lParen:
@@ -1008,7 +1005,7 @@ void walkFunctionCall(struct AST *tree,
 		}
 
 		// allow us to automatically widen
-		if(GetSizeOfPrimitive(push->operands[0].type) <= GetSizeOfPrimitive(expectedArgument->type))
+		if (GetSizeOfPrimitive(push->operands[0].type) <= GetSizeOfPrimitive(expectedArgument->type))
 		{
 			struct TACLine *cast = newTACLine((*TACIndex)++, tt_cast_assign, tree);
 			cast->operands[1] = push->operands[0];
@@ -1191,8 +1188,24 @@ struct TACOperand *walkDereference(struct AST *tree,
 								   int *TACIndex,
 								   int *tempNum)
 {
-	ErrorAndExit(ERROR_INTERNAL, "walkDereference not implemented!\n");
-	return NULL;
+	if (tree->type != t_star)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) passed to walkDereference!\n", getTokenName(tree->type));
+	}
+
+	struct TACLine *dereference = newTACLine((*tempNum), tt_dereference, tree);
+
+	walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &dereference->operands[1]);
+
+	dereference->operands[0].indirectionLevel = dereference->operands[1].indirectionLevel - 1;
+	dereference->operands[0].type = dereference->operands[1].type;
+	dereference->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+	dereference->operands[0].permutation = vp_temp;
+
+	dereference->index = (*tempNum)++;
+	BasicBlock_append(block, dereference);
+
+	return &dereference->operands[0];
 }
 
 void walkAsmBlock(struct AST *tree,
@@ -1219,6 +1232,27 @@ void walkAsmBlock(struct AST *tree,
 	}
 }
 
+void walkStringLiteral(struct AST *tree,
+									 struct BasicBlock *block,
+									 struct Scope *scope,
+									 struct TACOperand *destinationOperand)
+{
+	if (tree->type != t_string_literal)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) passed to walkStringLiteral!\n", getTokenName(tree->type));
+	}
+
+	// Scope_createStringLiteral will modify the value of our AST node
+	// it inserts underscores in place of spaces and other modifications to turn the literal into a name that the symtab can use
+	// but first, it copies the string exactly as-is so it knows what the string object should be initialized to
+	char *stringName = tree->value;
+	Scope_createStringLiteral(scope, stringName);
+
+	destinationOperand->type = vt_uint8;
+	destinationOperand->permutation = vp_objptr;
+	destinationOperand->indirectionLevel = 1;
+	destinationOperand->name.str = stringName;
+}
 // int linearizeASMBlock(struct LinearizationMetadata m)
 // {
 // 	struct AST *asmRunner = m.ast->child;

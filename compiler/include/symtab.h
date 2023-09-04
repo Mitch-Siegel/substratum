@@ -147,11 +147,13 @@ struct Scope *Scope_createSubScope(struct Scope *scope);
 
 struct ObjectEntry *Scope_createObject(struct Scope *scope,
 									   char *name,
-									   struct VariableEntry *myLocalPointer,
 									   int size,
 									   int arraySize,
 									   int stackOffset,
 									   char isGlobal);
+
+struct ObjectEntry *Scope_createStringLiteral(struct Scope *scope,
+											  char *name);
 
 // scope lookup functions
 char Scope_contains(struct Scope *scope,
@@ -186,7 +188,7 @@ int GetSizeOfPrimitive(enum variableTypes type);
 // char beingDereferenced);
 
 int Scope_getSizeOfVariableByAst(struct Scope *scope,
-							struct AST *name);
+								 struct AST *name);
 
 int Scope_getSizeOfVariable(struct Scope *scope, struct VariableEntry *v);
 

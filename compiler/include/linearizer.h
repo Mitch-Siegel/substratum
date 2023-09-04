@@ -111,6 +111,11 @@ void walkAsmBlock(struct AST *tree,
 				  int *TACIndex,
 				  int *tempNum);
 
+void walkStringLiteral(struct AST *tree,
+					   struct BasicBlock *block,
+					   struct Scope *scope,
+					   struct TACOperand *destinationOperand);
+
 // int walkASMBlock(struct LinearizationMetadata m);
 
 // int walkDereference(struct LinearizationMetadata m);

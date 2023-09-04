@@ -402,7 +402,6 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 	if (isArgument)
 	{
 		// if we have an argument, obvoiulsy it will be spilled because it comes in on the stack
-		newVariable->mustSpill = 1;
 		newVariable->stackOffset = scope->parentFunction->argStackSize + 8;
 		scope->parentFunction->argStackSize += totalVariableFootprint;
 		Scope_insert(scope, name->value, newVariable, e_argument);
@@ -484,11 +483,10 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
  *	- the name contains spaces (is a string literal)
  *		- this has ramifications on the initialization of the object (value in the char * needs to be copied before calling this!)
  */
-struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, struct VariableEntry *myLocalPointer, int size, int arraySize, int stackOffset, char isGlobal)
+struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, int size, int arraySize, int stackOffset, char isGlobal)
 {
 	struct ObjectEntry *newObject = malloc(sizeof(struct ObjectEntry));
 
-	newObject->myLocalPointer = myLocalPointer;
 	newObject->size = size;
 	newObject->arraySize = arraySize;
 	newObject->stackOffset = stackOffset;
@@ -499,8 +497,9 @@ struct ObjectEntry *Scope_createObject(struct Scope *scope, char *name, struct V
 	return newObject;
 }
 
-struct ObjectEntry *Scope_createStringLiteral(struct Scope *scope, char *name, struct VariableEntry *myLocalPointer)
+struct ObjectEntry *Scope_createStringLiteral(struct Scope *scope, char *name)
 {
+	char *stringValue = strdup(name);
 	int nameLen = strlen(name);
 	for (int i = 0; i < nameLen; i++)
 	{
@@ -530,11 +529,15 @@ struct ObjectEntry *Scope_createStringLiteral(struct Scope *scope, char *name, s
 	struct ScopeMember *existingStringLiteral = Scope_lookup(scope, name);
 	if (existingStringLiteral != NULL)
 	{
+		free(stringValue);
 		return existingStringLiteral->entry;
 	}
 	else
 	{
-		return Scope_createObject(scope, name, myLocalPointer, nameLen + 1, 1, 0, 1);
+		struct ObjectEntry *newStringObject = Scope_createObject(scope, name, nameLen + 1, 1, 0, 1);
+		newStringObject->initialized = 1;
+		newStringObject->initializeTo = stringValue;
+		return newStringObject;
 	}
 }
 
@@ -858,10 +861,10 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 			printf("> Function %s (returns %d) (defined: %d)\n\t%d bytes of arguments on stack\n", thisMember->name, theFunction->returnType, theFunction->isDefined, theFunction->argStackSize);
 			// if (printTAC)
 			// {
-				// for (struct LinkedListNode *b = theFunction->BasicBlockList->head; b != NULL; b = b->next)
-				// {
-					// printBasicBlock(b->data, depth + 1);
-				// }
+			// for (struct LinkedListNode *b = theFunction->BasicBlockList->head; b != NULL; b = b->next)
+			// {
+			// printBasicBlock(b->data, depth + 1);
+			// }
 			// }
 			Scope_print(theFunction->mainScope, depth + 1, printTAC);
 		}
@@ -931,7 +934,7 @@ void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *b)
 	Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), b, e_basicblock);
 	free(blockName);
 
-	if(scope->parentFunction != NULL)
+	if (scope->parentFunction != NULL)
 	{
 		LinkedList_Append(scope->parentFunction->BasicBlockList, b);
 	}

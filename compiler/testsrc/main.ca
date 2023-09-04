@@ -167,9 +167,30 @@ fun printNum(uint32 num, uint32 newLine->uint8)
 	return digits;
 }
 
+fun printStr(uint8 *str->void)
+{
+	uint32 i = 0;
+	while(str[i] != 0)
+	{
+		print(str[i]);
+		i = i + 1;
+	}
+}
+
+fun printStrBroken(uint8 *str->void)
+{
+	while(*str != 0)
+	{
+		print(*str);
+		str = str + 1;
+	}
+}
+
 
 fun main(->void)
 {
+	uint8 *testStr = "I am string";
+	printStr(testStr);
 	uint8 i = 0;
 	while(i < 20)
 	{
