@@ -234,12 +234,12 @@ char addExport(struct LinkedList **exports, struct LinkedList **requires, struct
 
         if (toAdd->data.asFunction.nArgs)
         {
-            funcDefRequired->data.asFunction.args = malloc(toAdd->data.asFunction.nArgs * sizeof(struct Type));
+            funcDefRequired->data.asFunction.args = malloc(toAdd->data.asFunction.nArgs * sizeof(struct LinkerType));
         }
-        memcpy(funcDefRequired->data.asFunction.args, toAdd->data.asFunction.args, toAdd->data.asFunction.nArgs * sizeof(struct Type));
+        memcpy(funcDefRequired->data.asFunction.args, toAdd->data.asFunction.args, toAdd->data.asFunction.nArgs * sizeof(struct LinkerType));
 
-        funcDefRequired->data.asFunction.returnType = malloc(sizeof(struct Type));
-        memcpy(funcDefRequired->data.asFunction.returnType, toAdd->data.asFunction.returnType, sizeof(struct Type));
+        funcDefRequired->data.asFunction.returnType = malloc(sizeof(struct LinkerType));
+        memcpy(funcDefRequired->data.asFunction.returnType, toAdd->data.asFunction.returnType, sizeof(struct LinkerType));
 
         for (struct LinkedListNode *runner = toAdd->lines->head; runner != NULL; runner = runner->next)
         {

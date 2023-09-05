@@ -1,11 +1,10 @@
 #include "regalloc.h"
 
-struct Lifetime *newLifetime(char *name, enum variableTypes type, int indirectionLevel, int start, char isGlobal)
+struct Lifetime *newLifetime(char *name, struct Type *type, int start, char isGlobal)
 {
 	struct Lifetime *wip = malloc(sizeof(struct Lifetime));
 	wip->name = name;
-	wip->type = type;
-	wip->indirectionLevel = indirectionLevel;
+	wip->type = *type;
 	wip->start = start;
 	wip->end = start;
 	wip->stackOrRegLocation = -1;
@@ -35,8 +34,7 @@ int compareLifetimes(struct Lifetime *a, char *variable)
 // returns pointer to the lifetime corresponding to the passed variable name
 struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
 										char *name,
-										enum variableTypes type,
-										int indirectionLevel,
+										struct Type *type,
 										int newEnd,
 										char isGlobal)
 {
@@ -46,16 +44,18 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
 	{
 		// this should never fire with well-formed TAC
 		// may be helpful when adding/troubleshooting new TAC generation
-		if (thisLt->type != type)
+		if (Type_Compare(&thisLt->type, type))
 		{
-			ErrorAndExit(ERROR_INTERNAL, "Error - type mismatch between identically named variables [%s] expected %d, saw %d!\n", name, type, type);
+			char *expectedTypeName = Type_GetName(&thisLt->type);
+			char *typeName = Type_GetName(type);
+			ErrorAndExit(ERROR_INTERNAL, "Error - type mismatch between identically named variables [%s] expected %s, saw %s!\n", name, expectedTypeName, typeName);
 		}
 		if (newEnd > thisLt->end)
 			thisLt->end = newEnd;
 	}
 	else
 	{
-		thisLt = newLifetime(name, type, indirectionLevel, newEnd, isGlobal);
+		thisLt = newLifetime(name, type, newEnd, isGlobal);
 		LinkedList_Append(ltList, thisLt);
 	}
 
@@ -75,7 +75,7 @@ void recordVariableWrite(struct LinkedList *ltList,
 		struct VariableEntry *recordedVariable = Scope_lookupVarByString(scope, writtenOperand->name.str);
 		isGlobal = recordedVariable->isGlobal;
 	}
-	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, writtenOperand->name.str, writtenOperand->type, writtenOperand->indirectionLevel, newEnd, isGlobal);
+	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, writtenOperand->name.str, &writtenOperand->type, newEnd, isGlobal);
 	updatedLifetime->nwrites += 1;
 }
 
@@ -92,7 +92,7 @@ void recordVariableRead(struct LinkedList *ltList,
 		struct VariableEntry *recordedVariable = Scope_lookupVarByString(scope, readOperand->name.str);
 		isGlobal = recordedVariable->isGlobal;
 	}
-	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, readOperand->name.str, readOperand->type, readOperand->indirectionLevel, newEnd, isGlobal);
+	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, readOperand->name.str, &readOperand->type, newEnd, isGlobal);
 	updatedLifetime->nreads += 1;
 }
 
@@ -105,7 +105,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 		if (thisMember->type == e_argument)
 		{
 			struct VariableEntry *theArgument = thisMember->entry;
-			struct Lifetime *argLifetime = updateOrInsertLifetime(lifetimes, thisMember->name, theArgument->type, theArgument->indirectionLevel, 1, 0);
+			struct Lifetime *argLifetime = updateOrInsertLifetime(lifetimes, thisMember->name, &theArgument->type, 1, 0);
 			argLifetime->isArgument = 1;
 		}
 	}
@@ -151,12 +151,12 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_declare:
 			{
 				struct TACOperand *declared = &thisLine->operands[0];
-				updateOrInsertLifetime(lifetimes, declared->name.str, declared->type, declared->indirectionLevel, TACIndex, 0);
+				updateOrInsertLifetime(lifetimes, declared->name.str, &declared->type, TACIndex, 0);
 			}
 			break;
 
 			case tt_call:
-				if (thisLine->operands[0].type != vt_null)
+				if (TAC_GetTypeOfOperand(thisLine, 0)->basicType != vt_null)
 				{
 					recordVariableWrite(lifetimes, &thisLine->operands[0], scope, TACIndex);
 				}
@@ -166,16 +166,16 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_cast_assign:
 			{
 				recordVariableWrite(lifetimes, &thisLine->operands[0], scope, TACIndex);
-				switch(thisLine->operands[1].permutation)
+				switch (thisLine->operands[1].permutation)
 				{
-					case vp_standard:
-					case vp_temp:
+				case vp_standard:
+				case vp_temp:
 					recordVariableRead(lifetimes, &thisLine->operands[1], scope, TACIndex);
 					break;
 
-					case vp_literal:
-					case vp_objptr:
-						break;
+				case vp_literal:
+				case vp_objptr:
+					break;
 				}
 			}
 			break;
@@ -184,16 +184,16 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_push:
 			case tt_return:
 			{
-				switch(thisLine->operands[0].permutation)
+				switch (thisLine->operands[0].permutation)
 				{
-					case vp_standard:
-					case vp_temp:
+				case vp_standard:
+				case vp_temp:
 					recordVariableRead(lifetimes, &thisLine->operands[0], scope, TACIndex);
 					break;
 
-					case vp_literal:
-					case vp_objptr:
-						break;
+				case vp_literal:
+				case vp_objptr:
+					break;
 				}
 			}
 			break;
@@ -204,7 +204,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_div:
 			case tt_cmp:
 			{
-				if (thisLine->operands[0].type != vt_null)
+				if (TAC_GetTypeOfOperand(thisLine, 0)->basicType != vt_null)
 				{
 					recordVariableWrite(lifetimes, &thisLine->operands[0], scope, TACIndex);
 				}
@@ -215,7 +215,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 					if (thisLine->operands[i].permutation != vp_literal)
 					{
 						// and any type except null
-						switch (thisLine->operands[i].type)
+						switch (TAC_GetTypeOfOperand(thisLine, i)->basicType)
 						{
 						case vt_null:
 							break;
@@ -246,7 +246,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 					if (thisLine->operands[i].permutation != vp_literal)
 					{
 						// and any type except null
-						switch (thisLine->operands[i].type)
+						switch (TAC_GetTypeOfOperand(thisLine, i)->basicType)
 						{
 						case vt_null:
 							break;
@@ -335,9 +335,9 @@ int generateLifetimeOverlaps(struct CodegenMetadata *metadata)
 			// but also put it into contention for a register, we will just prefer to spill localpointers first
 			// if (thisVariableEntry != NULL && ((struct VariableEntry *)thisVariableEntry->entry)->localPointerTo != NULL)
 			// {
-				// thisLifetime->localPointerTo = ((struct VariableEntry *)thisVariableEntry->entry)->localPointerTo;
-				// thisLifetime->stackOrRegLocation = -1;
-				// Stack_Push(metadata->localPointerLifetimes, thisLifetime);
+			// thisLifetime->localPointerTo = ((struct VariableEntry *)thisVariableEntry->entry)->localPointerTo;
+			// thisLifetime->stackOrRegLocation = -1;
+			// Stack_Push(metadata->localPointerLifetimes, thisLifetime);
 			// }
 			for (int i = thisLifetime->start; i <= thisLifetime->end; i++)
 			{
@@ -453,8 +453,8 @@ void sortSpilledLifetimes(struct CodegenMetadata *metadata)
 		{
 			struct Lifetime *thisLifetime = metadata->spilledLifetimes->data[j];
 
-			int thisSize = GetSizeOfPrimitive(thisLifetime->type);
-			int compSize = GetSizeOfPrimitive(((struct Lifetime *)metadata->spilledLifetimes->data[j + 1])->type);
+			int thisSize = Scope_getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+			int compSize = Scope_getSizeOfType(metadata->function->mainScope, &(((struct Lifetime *)metadata->spilledLifetimes->data[j + 1])->type));
 
 			if (thisSize > compSize)
 			{

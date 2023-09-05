@@ -13,7 +13,7 @@ int alignSize(int nBytes)
 	return i;
 }
 
-enum variableTypes selectVariableTypeForNumber(int num)
+enum basicTypes selectVariableTypeForNumber(int num)
 {
 	if (num < 256)
 	{
@@ -29,7 +29,7 @@ enum variableTypes selectVariableTypeForNumber(int num)
 	}
 }
 
-enum variableTypes selectVariableTypeForLiteral(char *literal)
+enum basicTypes selectVariableTypeForLiteral(char *literal)
 {
 	int literalAsNumber = atoi(literal);
 	return selectVariableTypeForNumber(literalAsNumber);
@@ -37,10 +37,9 @@ enum variableTypes selectVariableTypeForLiteral(char *literal)
 
 void populateTACOperandFromVariable(struct TACOperand *o, struct VariableEntry *e)
 {
-	o->indirectionLevel = e->indirectionLevel;
+	o->type = e->type;
 	o->name.str = e->name;
 	o->permutation = vp_standard;
-	o->type = e->type;
 }
 
 /*
@@ -105,19 +104,19 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	printf("walkVariableDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
 	struct TACLine *declarationLine = newTACLine((*TACIndex)++, tt_declare, tree);
-	enum variableTypes declaredType;
+	enum basicTypes declaredBasicType;
 	switch (tree->type)
 	{
 	case t_uint8:
-		declaredType = vt_uint8;
+		declaredBasicType = vt_uint8;
 		break;
 
 	case t_uint16:
-		declaredType = vt_uint16;
+		declaredBasicType = vt_uint16;
 		break;
 
 	case t_uint32:
-		declaredType = vt_uint32;
+		declaredBasicType = vt_uint32;
 		break;
 
 	default:
@@ -128,6 +127,10 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	int declaredIndirectionLevel = scrapePointers(tree->child, &declaredTree);
 	int declaredArraySize = 1;
 
+	struct Type declaredType;
+	declaredType.basicType = declaredBasicType;
+	declaredType.indirectionLevel = declaredIndirectionLevel;
+
 	// if we are declaring an array, set the string with the size as the second operand
 	if (declaredTree->type == t_lBracket)
 	{
@@ -136,20 +139,18 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 		declarationLine->operands[1].name.str = arraySizeString;
 		declaredArraySize = atoi(arraySizeString);
 		declarationLine->operands[1].permutation = vp_literal;
-		declarationLine->operands[1].type = selectVariableTypeForLiteral(arraySizeString);
+		declarationLine->operands[1].type.basicType = selectVariableTypeForLiteral(arraySizeString);
 	}
 
 	struct VariableEntry *declaredVariable = Scope_createVariable(scope,
 																  declaredTree,
-																  declaredType,
-																  declaredIndirectionLevel,
+																  &declaredType,
 																  declaredArraySize,
 																  (scope->parentScope == NULL),
 																  declarationLine->index,
 																  isArgument);
 	declarationLine->operands[0].name.str = declaredTree->value;
-	declarationLine->operands[0].type = declaredType;
-	declarationLine->operands[0].indirectionLevel = declaredIndirectionLevel;
+	TACOperand_SetBasicType(&declarationLine->operands[0], declaredBasicType, declaredIndirectionLevel);
 
 	BasicBlock_append(block, declarationLine);
 	return declaredVariable;
@@ -186,23 +187,23 @@ void walkFunctionDeclaration(struct AST *tree,
 	}
 	returnTypeRunner = returnTypeRunner->sibling;
 
-	enum variableTypes returnType;
+	enum basicTypes returnBasicType;
 	switch (returnTypeRunner->type)
 	{
 	case t_void:
-		returnType = vt_null;
+		returnBasicType = vt_null;
 		break;
 
 	case t_uint8:
-		returnType = vt_uint8;
+		returnBasicType = vt_uint8;
 		break;
 
 	case t_uint16:
-		returnType = vt_uint16;
+		returnBasicType = vt_uint16;
 		break;
 
 	case t_uint32:
-		returnType = vt_uint32;
+		returnBasicType = vt_uint32;
 		break;
 
 	default:
@@ -216,18 +217,19 @@ void walkFunctionDeclaration(struct AST *tree,
 	struct FunctionEntry *parsedFunc = NULL;
 	struct FunctionEntry *existingFunc = NULL;
 
+	struct Type returnType;
+	returnType.basicType = returnBasicType;
+	returnType.indirectionLevel = returnIndirectionLevel;
+
 	if (lookedUpFunction != NULL)
 	{
 		existingFunc = lookedUpFunction->entry;
-		parsedFunc = FunctionEntry_new(scope, functionNameTree->value, returnType, returnIndirectionLevel);
+		parsedFunc = FunctionEntry_new(scope, functionNameTree->value, &returnType);
 	}
 	else
 	{
-		parsedFunc = Scope_createFunction(scope, functionNameTree->value, returnType, returnIndirectionLevel);
+		parsedFunc = Scope_createFunction(scope, functionNameTree->value, &returnType);
 		parsedFunc->mainScope->parentScope = scope;
-		// record return type
-		parsedFunc->returnType = returnType;
-		parsedFunc->returnIndirectionLevel = returnIndirectionLevel;
 	}
 
 	struct AST *argumentRunner = tree->child->sibling;
@@ -259,7 +261,7 @@ void walkFunctionDeclaration(struct AST *tree,
 		// check that if a prototype declaration exists, that our parsed declaration matches it exactly
 		int mismatch = 0;
 
-		if (returnType != existingFunc->returnType || returnIndirectionLevel != existingFunc->returnIndirectionLevel)
+		if ((Type_Compare(&parsedFunc->returnType, &existingFunc->returnType)))
 		{
 			mismatch = 1;
 		}
@@ -276,8 +278,7 @@ void walkFunctionDeclaration(struct AST *tree,
 				struct VariableEntry *parsedArg = parsedFunc->arguments->data[i];
 				// ensure all arguments in order have same name, type, indirection level
 				if (strcmp(existingArg->name, parsedArg->name) ||
-					(existingArg->type != parsedArg->type) ||
-					(existingArg->indirectionLevel != parsedArg->indirectionLevel))
+					(Type_Compare(&existingArg->type, &parsedArg->type)))
 				{
 					mismatch = 1;
 					break;
@@ -293,14 +294,14 @@ void walkFunctionDeclaration(struct AST *tree,
 		{
 			printf("\nConflicting declarations of function:\n");
 
-			char *existingReturnType = Scope_getNameOfType(scope, existingFunc->returnType, existingFunc->returnIndirectionLevel);
+			char *existingReturnType = Type_GetName(&existingFunc->returnType);
 			printf("\t%s %s(", existingReturnType, existingFunc->name);
 			free(existingReturnType);
 			for (int i = 0; i < existingFunc->arguments->size; i++)
 			{
 				struct VariableEntry *existingArg = existingFunc->arguments->data[i];
 
-				char *argType = Scope_getNameOfType(scope, existingArg->type, existingArg->indirectionLevel);
+				char *argType = Type_GetName(&existingArg->type);
 				printf("%s %s", argType, existingArg->name);
 				free(argType);
 
@@ -313,14 +314,14 @@ void walkFunctionDeclaration(struct AST *tree,
 					printf(")");
 				}
 			}
-			char *parsedReturnType = Scope_getNameOfType(scope, returnType, returnIndirectionLevel);
+			char *parsedReturnType = Type_GetName(&parsedFunc->returnType);
 			printf("\n\t%s %s(", parsedReturnType, parsedFunc->name);
 			free(parsedReturnType);
 			for (int i = 0; i < parsedFunc->arguments->size; i++)
 			{
 				struct VariableEntry *parsedArg = parsedFunc->arguments->data[i];
 
-				char *argType = Scope_getNameOfType(scope, parsedArg->type, parsedArg->indirectionLevel);
+				char *argType = Type_GetName(&parsedArg->type);
 				printf("%s %s", argType, parsedArg->name);
 				free(argType);
 
@@ -556,8 +557,7 @@ void walkConditionCheck(struct AST *tree,
 			walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &compareOperation->operands[1]);
 			compareOperation->operands[2].name.val = 0;
 			compareOperation->operands[2].permutation = vp_literal;
-			compareOperation->operands[2].type = vt_uint32;
-			compareOperation->operands[2].indirectionLevel = 0;
+			TACOperand_SetBasicType(&compareOperation->operands[2], vt_uint32, 0);
 		}
 		break;
 
@@ -567,8 +567,7 @@ void walkConditionCheck(struct AST *tree,
 			walkSubExpression(tree, block, scope, TACIndex, tempNum, &compareOperation->operands[1]);
 			compareOperation->operands[2].name.val = 0;
 			compareOperation->operands[2].permutation = vp_literal;
-			compareOperation->operands[2].type = vt_uint32;
-			compareOperation->operands[2].indirectionLevel = 0;
+			TACOperand_SetBasicType(&compareOperation->operands[2], vt_uint32, 0);
 			condFalseJump->operation = tt_jz;
 		}
 		break;
@@ -733,7 +732,7 @@ void walkAssignment(struct AST *tree,
 		struct AST *arrayIndex = lhs->child->sibling;
 		struct VariableEntry *arrayVariable = Scope_lookupVar(scope, arrayName);
 
-		if (arrayVariable->indirectionLevel < 1)
+		if (arrayVariable->type.indirectionLevel < 1)
 		{
 			ErrorWithAST(ERROR_CODE, arrayName, "Use of non-pointer variable %s as array!\n", arrayName->value);
 		}
@@ -742,7 +741,8 @@ void walkAssignment(struct AST *tree,
 		populateTACOperandFromVariable(&assignment->operands[0], arrayVariable);
 
 		assignment->operands[2].permutation = vp_literal;
-		assignment->operands[2].indirectionLevel = 0;
+		assignment->operands[2].type.indirectionLevel = 0;
+		assignment->operands[2].type.basicType = vt_uint8;
 		assignment->operands[2].name.val = alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
 
 		walkSubExpression(arrayIndex, block, scope, TACIndex, tempNum, &assignment->operands[1]);
@@ -758,107 +758,6 @@ void walkAssignment(struct AST *tree,
 
 	assignment->index = (*TACIndex)++;
 	BasicBlock_append(block, assignment);
-
-	// grab the TAC we just generated for the RHS of the expression
-	// struct TACLine *RHSTac = currentBlock->TACList->tail->data;
-
-	// switch (lhs->type)
-
-	// // array element reference
-	// case t_lBracket:
-	// {
-	// 	struct TACLine *finalAssignment = newTACLine(m.currentTACIndex, tt_memw_3, LHS);
-
-	// 	struct VariableEntry *assignedArray = Scope_lookupVar(m.scope, LHS->child);
-
-	// 	finalAssignment->operands[0].name.str = assignedArray->name;
-	// 	finalAssignment->operands[0].type = assignedArray->type;
-	// 	finalAssignment->operands[0].indirectionLevel = assignedArray->indirectionLevel;
-	// 	finalAssignment->operands[0].permutation = vp_standard;
-
-	// 	RHSTac->operands[0].name.str = TempList_Get(temps, *m.tempNum);
-	// 	RHSTac->operands[0].permutation = vp_temp;
-	// 	(*m.tempNum)++;
-	// 	RHSTac->operands[0].type = RHSTac->operands[1].type;
-	// 	RHSTac->operands[0].indirectionLevel = RHSTac->operands[1].indirectionLevel;
-
-	// 	// copy the temp from the RHS to the source of the memory write operation
-	// 	finalAssignment->operands[3] = RHSTac->operands[0];
-
-	// 	// handle the scaling value (scale by size of array element)
-	// 	finalAssignment->operands[2].indirectionLevel = 0;
-	// 	finalAssignment->operands[2].permutation = vp_literal;
-	// 	finalAssignment->operands[2].name.val = alignSize(Scope_getSizeOfVariable(m.scope, LHS->child));
-	// 	finalAssignment->operands[2].type = selectVariableTypeForNumber(finalAssignment->operands[2].name.val);
-
-	// 	// handle the base (array start)
-
-	// 	struct AST *arrayIndex = LHS->child->sibling;
-	// 	switch (arrayIndex->type)
-	// 	{
-	// 	case t_identifier:
-	// 	{
-	// 		struct VariableEntry *indexVariable = Scope_lookupVar(m.scope, arrayIndex);
-
-	// 		finalAssignment->operands[1].indirectionLevel = 0;
-	// 		finalAssignment->operands[1].name.str = arrayIndex->value;
-	// 		finalAssignment->operands[1].permutation = vp_standard;
-	// 		finalAssignment->operands[1].type = indexVariable->type;
-	// 	}
-	// 	break;
-
-	// 	// switch to addressing mode 2 if we have a constant
-	// 	case t_constant:
-	// 	{
-	// 		finalAssignment->operation = tt_memw_2;
-	// 		// finalAssignment->operands[0].indirectionLevel--;
-	// 		finalAssignment->operands[1].indirectionLevel = 0;
-
-	// 		int indexSize = atoi(arrayIndex->value);
-	// 		// indexSize *= Scope_getSizeOfVariable(m.scope, LHS->child);
-
-	// 		if (assignedArray->indirectionLevel == 1)
-	// 		{
-	// 			// TODO: this will cause problems with complex types
-	// 			indexSize *= GetSizeOfPrimitive(assignedArray->type);
-	// 		}
-	// 		else
-	// 		{
-	// 			indexSize *= Scope_getSizeOfVariable(m.scope, LHS->child);
-	// 		}
-
-	// 		finalAssignment->operands[1].name.val = indexSize;
-	// 		finalAssignment->operands[1].permutation = vp_literal;
-	// 		finalAssignment->operands[1].type = selectVariableTypeForNumber(finalAssignment->operands[1].name.val);
-
-	// 		finalAssignment->operands[2] = finalAssignment->operands[3];
-
-	// 		memset(&finalAssignment->operands[3], 0, sizeof(struct TACOperand));
-	// 	}
-	// 	break;
-
-	// 	// if not identifier or constant, assume it must be some sort of expression inside the brackets
-	// 	default:
-	// 	{
-	// 		struct LinearizationMetadata expressionMetadata = m;
-	// 		expressionMetadata.ast = arrayIndex;
-
-	// 		m.currentTACIndex = walkExpression(expressionMetadata);
-
-	// 		struct TACLine *finalArithmeticLine = m.currentBlock->TACList->tail->data;
-
-	// 		finalAssignment->operands[1] = finalArithmeticLine->operands[0];
-	// 	}
-	// 	break;
-	// 	}
-	// 	finalAssignment->index = m.currentTACIndex++;
-	// 	BasicBlock_append(m.currentBlock, finalAssignment);
-	// }
-	// break;
-
-	// default:
-	// 	ErrorWithAST(ERROR_INTERNAL, LHS, "Malformed AST on LHS of assignment");
-	// }
 }
 
 void walkSubExpression(struct AST *tree,
@@ -881,9 +780,8 @@ void walkSubExpression(struct AST *tree,
 	case t_constant:
 		// constant
 		destinationOperand->name.str = tree->value;
-		destinationOperand->type = selectVariableTypeForLiteral(tree->value);
+		destinationOperand->type.basicType = selectVariableTypeForLiteral(tree->value);
 		destinationOperand->permutation = vp_literal;
-		destinationOperand->indirectionLevel = 0;
 		break;
 
 	case t_char_literal:
@@ -892,9 +790,8 @@ void walkSubExpression(struct AST *tree,
 			char literalAsNumber[8];
 			sprintf(literalAsNumber, "%d", tree->value[0]);
 			destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, literalAsNumber);
-			destinationOperand->type = selectVariableTypeForLiteral(literalAsNumber);
+			destinationOperand->type.basicType = selectVariableTypeForLiteral(literalAsNumber);
 			destinationOperand->permutation = vp_literal;
-			destinationOperand->indirectionLevel = 0;
 		}
 		break;
 
@@ -913,9 +810,9 @@ void walkSubExpression(struct AST *tree,
 	case t_lThan:
 	// case t_bin_lThanE:
 	case t_gThan:
-	// case t_bin_gThanE:
-	// case t_bin_equals:
-	// case t_bin_notEquals:
+		// case t_bin_gThanE:
+		// case t_bin_equals:
+		// case t_bin_notEquals:
 		{
 			struct TACOperand *expressionResult = walkExpression(tree, block, scope, TACIndex, tempNum);
 			*destinationOperand = *expressionResult;
@@ -957,7 +854,7 @@ void walkFunctionCall(struct AST *tree,
 
 	struct FunctionEntry *calledFunction = Scope_lookupFun(scope, tree->child);
 
-	if (destinationOperand != NULL && calledFunction->returnType == vt_null)
+	if (destinationOperand != NULL && (calledFunction->returnType.basicType == vt_null))
 	{
 		ErrorWithAST(ERROR_CODE, tree, "Attempt to use return value of function %s (returning void)\n", calledFunction->name);
 	}
@@ -984,21 +881,19 @@ void walkFunctionCall(struct AST *tree,
 
 		struct VariableEntry *expectedArgument = calledFunction->arguments->data[argIndex];
 
-		if (push->operands[0].indirectionLevel != expectedArgument->indirectionLevel)
+		if (Type_CompareAllowImplicitWidening(TAC_GetTypeOfOperand(push, 0), &expectedArgument->type))
 		{
-			ErrorWithAST(ERROR_CODE, pushedArgument, "Error in argument %d passed to function %s! Expect %d*, got %d*\n", argIndex, calledFunction->name, expectedArgument->indirectionLevel, push->operands[0].indirectionLevel);
+			ErrorWithAST(ERROR_CODE, pushedArgument, "Error in argument %s passed to function %s!\n\tExpected %s, got %s\n",
+						 expectedArgument->name,
+						 calledFunction->name,
+						 Type_GetName(&expectedArgument->type),
+						 Type_GetName(TAC_GetTypeOfOperand(push, 0)));
 		}
 
 		// allow us to automatically widen
-		if (GetSizeOfPrimitive(push->operands[0].type) <= GetSizeOfPrimitive(expectedArgument->type))
+		if (Scope_getSizeOfType(scope, &push->operands[0].type) <= Scope_getSizeOfType(scope, &expectedArgument->type))
 		{
-			struct TACLine *cast = newTACLine((*TACIndex)++, tt_cast_assign, tree);
-			cast->operands[1] = push->operands[0];
-			populateTACOperandFromVariable(&cast->operands[0], expectedArgument);
-			cast->operands[0].permutation = vp_temp;
-			cast->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-			push->operands[0] = cast->operands[0];
-			BasicBlock_append(block, cast);
+			push->operands[0].castAsType = expectedArgument->type;
 		}
 		else
 		{
@@ -1023,7 +918,7 @@ void walkFunctionCall(struct AST *tree,
 	if (destinationOperand != NULL)
 	{
 		call->operands[0].type = calledFunction->returnType;
-		call->operands[0].indirectionLevel = calledFunction->returnIndirectionLevel;
+		call->operands[0].type.indirectionLevel = calledFunction->returnType.indirectionLevel;
 		call->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 		call->operands[0].permutation = vp_temp;
 
@@ -1058,12 +953,12 @@ struct TACOperand *walkExpression(struct AST *tree,
 
 			struct TACOperand *operandA = &expression->operands[1];
 			struct TACOperand *operandB = &expression->operands[2];
-			if ((operandA->indirectionLevel > 0) && (operandB->indirectionLevel > 0))
+			if ((operandA->type.indirectionLevel > 0) && (operandB->type.indirectionLevel > 0))
 			{
 				ErrorWithAST(ERROR_CODE, tree, "Arithmetic between 2 pointers is not allowed!\n");
 			}
 
-			if (GetSizeOfPrimitive(operandA->type) > GetSizeOfPrimitive(operandB->type))
+			if (Scope_getSizeOfType(scope, &operandA->type) > Scope_getSizeOfType(scope, &operandB->type))
 			{
 				expression->operands[0].type = operandA->type;
 			}
@@ -1072,13 +967,13 @@ struct TACOperand *walkExpression(struct AST *tree,
 				expression->operands[0].type = operandB->type;
 			}
 
-			if (operandA->indirectionLevel > operandB->indirectionLevel)
+			if (operandA->type.indirectionLevel > operandB->type.indirectionLevel)
 			{
-				expression->operands[0].indirectionLevel = operandA->indirectionLevel;
+				expression->operands[0].type.indirectionLevel = operandA->type.indirectionLevel;
 			}
 			else
 			{
-				expression->operands[0].indirectionLevel = operandB->indirectionLevel;
+				expression->operands[0].type.indirectionLevel = operandB->type.indirectionLevel;
 			}
 		}
 		break;
@@ -1118,25 +1013,24 @@ struct TACOperand *walkArrayRef(struct AST *tree,
 	arrayRefTAC->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 	arrayRefTAC->operands[0].permutation = vp_temp;
 
-	if (arrayRefTAC->operands[0].indirectionLevel > 0)
+	arrayRefTAC->operands[0].type = arrayRefTAC->operands[1].type;
+	if (arrayRefTAC->operands[1].type.indirectionLevel > 0)
 	{
-		arrayRefTAC->operands[0].indirectionLevel = arrayRefTAC->operands[0].indirectionLevel - 1;
+		arrayRefTAC->operands[0].type.indirectionLevel = arrayRefTAC->operands[1].type.indirectionLevel - 1;
 	}
 	else
 	{
-		arrayRefTAC->operands[0].indirectionLevel = 0;
+		ErrorWithAST(ERROR_CODE, tree, "Use of non-pointer variable %s in array reference!\n", arrayVariable->name);
 	}
-	arrayRefTAC->operands[0].type = arrayRefTAC->operands[1].type;
 
 	if (arrayIndex->type == t_constant)
 	{
 		arrayRefTAC->operation = tt_memr_2;
 
 		int indexSize = atoi(arrayIndex->value);
-		if (arrayVariable->indirectionLevel == 1)
+		if (arrayVariable->type.indirectionLevel == 1)
 		{
-			// TODO: this will cause problems with complex types
-			indexSize *= GetSizeOfPrimitive(arrayVariable->type);
+			indexSize *= Scope_getSizeOfType(scope, &arrayVariable->type);
 		}
 		else
 		{
@@ -1144,18 +1038,16 @@ struct TACOperand *walkArrayRef(struct AST *tree,
 		}
 
 		arrayRefTAC->operands[2].name.val = indexSize;
-		arrayRefTAC->operands[2].indirectionLevel = 0;
 		arrayRefTAC->operands[2].permutation = vp_literal;
-		arrayRefTAC->operands[2].type = selectVariableTypeForNumber(arrayRefTAC->operands[2].name.val);
+		arrayRefTAC->operands[2].type.basicType = selectVariableTypeForNumber(arrayRefTAC->operands[2].name.val);
 	}
 	// otherwise, the index is either a variable or subexpression
 	else
 	{
 		// set the scale for the array access
 		arrayRefTAC->operands[3].name.val = alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
-		arrayRefTAC->operands[3].indirectionLevel = 0;
 		arrayRefTAC->operands[3].permutation = vp_literal;
-		arrayRefTAC->operands[3].type = selectVariableTypeForNumber(arrayRefTAC->operands[3].name.val);
+		arrayRefTAC->operands[3].type.basicType = selectVariableTypeForNumber(arrayRefTAC->operands[3].name.val);
 
 		walkSubExpression(arrayIndex, block, scope, TACIndex, tempNum, &arrayRefTAC->operands[2]);
 	}
@@ -1180,8 +1072,8 @@ struct TACOperand *walkDereference(struct AST *tree,
 
 	walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &dereference->operands[1]);
 
-	dereference->operands[0].indirectionLevel = dereference->operands[1].indirectionLevel - 1;
 	dereference->operands[0].type = dereference->operands[1].type;
+	dereference->operands[0].type.indirectionLevel = dereference->operands[1].type.indirectionLevel - 1;
 	dereference->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 	dereference->operands[0].permutation = vp_temp;
 
@@ -1216,9 +1108,9 @@ void walkAsmBlock(struct AST *tree,
 }
 
 void walkStringLiteral(struct AST *tree,
-									 struct BasicBlock *block,
-									 struct Scope *scope,
-									 struct TACOperand *destinationOperand)
+					   struct BasicBlock *block,
+					   struct Scope *scope,
+					   struct TACOperand *destinationOperand)
 {
 	if (tree->type != t_string_literal)
 	{
@@ -1231,8 +1123,7 @@ void walkStringLiteral(struct AST *tree,
 	char *stringName = tree->value;
 	Scope_createStringLiteral(scope, stringName);
 
-	destinationOperand->type = vt_uint8;
+	TACOperand_SetBasicType(destinationOperand, vt_uint8, 1);
 	destinationOperand->permutation = vp_objptr;
-	destinationOperand->indirectionLevel = 1;
 	destinationOperand->name.str = stringName;
 }

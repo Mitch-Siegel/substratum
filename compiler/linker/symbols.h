@@ -18,7 +18,7 @@ enum LinkDirection
     require,
 };
 
-struct Type
+struct LinkerType
 {
     char isPrimitive;
     int size;
@@ -33,9 +33,9 @@ struct Type
 struct FunctionDeclarationSymbol
 {
     char *name;
-    struct Type *returnType;
+    struct LinkerType *returnType;
     int nArgs;
-    struct Type *args;
+    struct LinkerType *args;
 };
 
 struct Object
@@ -52,7 +52,7 @@ struct Symbol
     enum LinkedSymbol symbolType; // what type of symbol this is
     union
     {
-        struct Type asVariable;
+        struct LinkerType asVariable;
         struct FunctionDeclarationSymbol asFunction;
         struct Object asObject;
     } data;                         // union exact details about this symbol
@@ -73,7 +73,7 @@ char *symbolEnumToName(enum LinkedSymbol s);
 
 int compareSymbols(struct Symbol *a, struct Symbol *b);
 
-struct Type *parseType(char *declString);
+struct LinkerType *parseType(char *declString);
 
 char addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire);
 

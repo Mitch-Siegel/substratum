@@ -17,16 +17,14 @@ struct Lifetime
 {
 	int start, end, nwrites, nreads;
 	char *name;
-	enum variableTypes type;
-	int indirectionLevel;
+	struct Type type;
 	int stackOrRegLocation;
 	char isSpilled, isArgument, isGlobal;
 	struct ObjectEntry *localPointerTo;
 };
 
 struct Lifetime *newLifetime(char *name,
-							 enum variableTypes type,
-							 int indirectionLevel,
+							 struct Type* type,
 							 int start,
 							 char isGlobal);
 
@@ -36,8 +34,7 @@ int compareLifetimes(struct Lifetime *a, char *variable);
 // returns pointer to the lifetime corresponding to the passed variable name
 struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
 										char *name,
-										enum variableTypes type,
-										int indirectionLevel,
+										struct Type *type,
 										int newEnd,
 										char isGlobal);
 

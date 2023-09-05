@@ -6,7 +6,7 @@ char *symbolNames[] = {
 	"variable",
 	"function"};
 
-struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, enum variableTypes returnType, int returnIndirectionLevel)
+struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, struct Type *returnType)
 {
 	struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
 	newFunction->arguments = Stack_New();
@@ -15,8 +15,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, e
 	newFunction->mainScope = Scope_new(parentScope, name, newFunction);
 	newFunction->BasicBlockList = LinkedList_New();
 	newFunction->mainScope->parentFunction = newFunction;
-	newFunction->returnType = returnType;
-	newFunction->returnIndirectionLevel = returnIndirectionLevel;
+	newFunction->returnType = *returnType;
 	newFunction->name = name;
 	newFunction->isDefined = 0;
 	return newFunction;
@@ -24,7 +23,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, e
 
 /*
 // create a variable denoted to be an argument within the given function entry
-struct VariableEntry *FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, enum variableTypes type, int indirectionLevel, int arraySize)
+struct VariableEntry *FunctionEntry_createArgument(struct FunctionEntry *func, struct AST *name, enum basicTypes type, int indirectionLevel, int arraySize)
 {
 	struct VariableEntry *newArgument = malloc(sizeof(struct VariableEntry));
 	newArgument->type = type;
@@ -189,7 +188,8 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 					for (int j = 0; j < 4; j++)
 					{
 						// check only TAC operands that both exist and refer to a named variable from the source code (ignore temps etc)
-						if (thisTAC->operands[j].type != vt_null && (thisTAC->operands[j].permutation == vp_standard || thisTAC->operands[j].permutation == vp_objptr))
+						if ((thisTAC->operands[j].type.basicType != vt_null) &&
+							((thisTAC->operands[j].permutation == vp_standard) || (thisTAC->operands[j].permutation == vp_objptr)))
 						{
 							char *originalName = thisTAC->operands[j].name.str;
 							// if this operand refers to a variable declared at this scope
@@ -352,16 +352,14 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
 // create a variable within the given scope
 struct VariableEntry *Scope_createVariable(struct Scope *scope,
 										   struct AST *name,
-										   enum variableTypes type,
-										   int indirectionLevel,
+										   struct Type *type,
 										   int arraySize,
 										   char isGlobal,
 										   int declaredAt,
 										   char isArgument)
 {
 	struct VariableEntry *newVariable = malloc(sizeof(struct VariableEntry));
-	newVariable->type = type;
-	newVariable->indirectionLevel = indirectionLevel;
+	newVariable->type = *type;
 	newVariable->arraySize = arraySize;
 	newVariable->stackOffset = 0;
 	newVariable->assignedAt = -1;
@@ -392,20 +390,13 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 		ErrorWithAST(ERROR_CODE, name, "Redifinition of symbol %s!\n", name->value);
 	}
 
-	int totalVariableFootprint = arraySize;
-	if (newVariable->indirectionLevel > 0)
-	{
-		totalVariableFootprint *= 4;
-	}
-	else
-	{
-		totalVariableFootprint *= GetSizeOfPrimitive(newVariable->type);
-	}
+	int totalVariableFootprint = arraySize * Scope_getSizeOfType(scope, &newVariable->type);
 
 	if (arraySize > 1)
 	{
-		newVariable->indirectionLevel++;
+		newVariable->type.indirectionLevel++;
 	}
+
 	if (isArgument)
 	{
 		// if we have an argument, obvoiulsy it will be spilled because it comes in on the stack
@@ -424,43 +415,13 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 		Scope_insert(scope, name->value, newVariable, e_variable);
 	}
 
-	/*
-	int varSize = Scope_getSizeOfVariableByAst(scope, name);
-
-	if (arraySize > 1)
-	{
-		char *modName = malloc(strlen(name->value) + 5);
-		sprintf(modName, "%s.obj", name->value);
-
-		int calculatedStackOffset;
-		if (!isGlobal)
-		{
-			// since indexing pushes address forward, set the stack offset of the variable to be index 0 (the - size * arraySize) term does this
-			calculatedStackOffset = (scope->parentFunction->localStackSize * -1) - (varSize * arraySize);
-			scope->parentFunction->localStackSize += varSize * arraySize;
-		}
-		else
-		{
-			calculatedStackOffset = 0;
-		}
-
-		struct ObjectEntry *objForVar = Scope_createObject(scope, Dictionary_LookupOrInsert(parseDict, modName), newVariable, varSize, arraySize, calculatedStackOffset, isGlobal);
-		newVariable->localPointerTo = objForVar;
-		newVariable->indirectionLevel++;
-		free(modName);
-	}
-	else
-	{
-		newVariable->localPointerTo = NULL;
-	}*/
-
 	return newVariable;
 }
 
 // create a new function accessible within the given scope
-struct FunctionEntry *Scope_createFunction(struct Scope *parentScope, char *name, enum variableTypes returnType, int returnIndirectionLevel)
+struct FunctionEntry *Scope_createFunction(struct Scope *parentScope, char *name, struct Type *returnType)
 {
-	struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, name, returnType, returnIndirectionLevel);
+	struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, name, returnType);
 	Scope_insert(parentScope, name, newFunction, e_function);
 	return newFunction;
 }
@@ -680,93 +641,56 @@ struct ObjectEntry *Scope_lookupObject(struct Scope *scope, char *name)
 	}
 }
 
-// return the actual size of a primitive in bytes
-int GetSizeOfPrimitive(enum variableTypes type)
+int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 {
-	switch (type)
+	int size = 0;
+
+	switch (t->basicType)
 	{
-	case vt_uint8:
-		return 1;
-
-	case vt_uint16:
-		return 2;
-
-	case vt_uint32:
-		return 4;
-
-	default:
-		ErrorAndExit(ERROR_INTERNAL, "Unexepcted primitive type (enum variableTypes %d)!\n", type);
-	}
-}
-
-// // return the actual size of a variable in bytes (lookup by its name only)
-// int Scope_getSizeOfVariableByString(struct Scope *scope, char *name, char beingDereferenced)
-// {
-// 	struct VariableEntry *theVariable = Scope_lookupVarByString(scope, name);
-// 	int realIndirectionLevel = theVariable->indirectionLevel - (beingDereferenced > 0);
-// 	if (realIndirectionLevel > 0)
-// 	{
-// 		return 4;
-// 	}
-// 	else
-// 	{
-// 		return GetSizeOfPrimitive(theVariable->type);
-// 	}
-// }
-
-// // return the actual size of a variable in bytes (lookup by its name using the ast for line/col error messages)
-int Scope_getSizeOfVariableByAst(struct Scope *scope, struct AST *name)
-{
-	struct VariableEntry *theVariable = Scope_lookupVar(scope, name);
-	if (theVariable->indirectionLevel > 0)
-	{
-		return 4;
-	}
-
-	switch (theVariable->type)
-	{
-	case vt_uint8:
-	case vt_uint16:
-	case vt_uint32:
-		return GetSizeOfPrimitive(theVariable->type);
+	case vt_null:
+		ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_null!\n");
 		break;
-	default:
-		ErrorWithAST(ERROR_INTERNAL, name, "Variable '%s' has unexpected type %d!\n", name->value, theVariable->type);
+
+	case vt_uint8:
+		size = 1;
+		break;
+
+	case vt_uint16:
+		size = 2;
+		break;
+
+	case vt_uint32:
+		size = 4;
+		break;
+
+	case vt_class:
+		ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_class - not supported yet!\n");
+		}
+
+	if (t->indirectionLevel > 0)
+	{
+		size = 4;
 	}
+
+	return size;
 }
 
 int Scope_getSizeOfVariable(struct Scope *scope, struct VariableEntry *v)
 {
-	if (v->indirectionLevel > 0)
-	{
-		return 4;
-	}
-
-	switch (v->type)
-	{
-	case vt_uint8:
-		return 1;
-
-	case vt_uint16:
-		return 2;
-
-	case vt_uint32:
-		return 4;
-
-	default:
-		ErrorAndExit(ERROR_INTERNAL, "Variable '%s' has unexpected type %d!\n", v->name, v->type);
-	}
+	return Scope_getSizeOfType(scope, &v->type);
 }
 
 int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 {
-	if (v->indirectionLevel < 1)
+	if (v->type.indirectionLevel < 1)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Non-indirect variable %s passed to Scope_getSizeOfArrayElement!\n", v->name);
 	}
-	else if (v->indirectionLevel == 1)
+	else if (v->type.indirectionLevel == 1)
 	{
-		return GetSizeOfPrimitive(v->type);
+		struct Type elementType = v->type;
+		elementType.indirectionLevel--;
+		return Scope_getSizeOfType(scope, &elementType);
 	}
 	else
 	{
@@ -775,7 +699,7 @@ int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 }
 
 // allocate and return a string containing the name and pointer level of a type
-char *Scope_getNameOfType(struct Scope *scope, enum variableTypes t, int indirectionLevel)
+char *Scope_getNameOfType(struct Scope *scope, enum basicTypes t, int indirectionLevel)
 {
 	char *name;
 	switch (t)
@@ -814,11 +738,9 @@ void VariableEntry_Print(struct VariableEntry *it, int depth)
 	{
 		printf("\t");
 	}
-	printf("  - Type: %d", it->type);
-	for (int i = 0; i < it->indirectionLevel; i++)
-	{
-		printf("*");
-	}
+	char *typeName = Type_GetName(&it->type);
+	printf("  - %s", typeName);
+	free(typeName);
 	printf("\n");
 }
 
@@ -865,7 +787,7 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		case e_function:
 		{
 			struct FunctionEntry *theFunction = thisMember->entry;
-			printf("> Function %s (returns %d) (defined: %d)\n\t%d bytes of arguments on stack\n", thisMember->name, theFunction->returnType, theFunction->isDefined, theFunction->argStackSize);
+			printf("> Function %s (returns %d) (defined: %d)\n\t%d bytes of arguments on stack\n", thisMember->name, theFunction->returnType.basicType, theFunction->isDefined, theFunction->argStackSize);
 			// if (printTAC)
 			// {
 			// for (struct LinkedListNode *b = theFunction->BasicBlockList->head; b != NULL; b = b->next)
@@ -968,7 +890,7 @@ int scrapePointers(struct AST *pointerAST, struct AST **resultDestination)
 /*
 struct VariableEntry *walkDeclaration(struct AST *declaration, struct Scope *wipScope, char isArgument)
 {
-	enum variableTypes theType;
+	enum basicTypes theType;
 
 	switch (declaration->type)
 	{
@@ -1224,7 +1146,7 @@ void walkFunction(struct AST *it, struct Scope *parentScope)
 	}
 	returnTypeRunner = returnTypeRunner->sibling;
 
-	enum variableTypes returnType;
+	enum basicTypes returnType;
 	switch (returnTypeRunner->type)
 	{
 	case t_void:

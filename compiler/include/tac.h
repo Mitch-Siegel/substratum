@@ -6,12 +6,13 @@
 
 #pragma once
 
-enum variableTypes
+enum basicTypes
 {
 	vt_null,
 	vt_uint8,
 	vt_uint16,
 	vt_uint32,
+	vt_class
 };
 
 enum variablePermutations
@@ -62,6 +63,16 @@ enum TACType
 	tt_enddo,
 };
 
+struct Type
+{
+	enum basicTypes basicType;
+	int indirectionLevel;
+	struct classType
+	{
+		char *name;
+	} classType;
+};
+
 struct TACOperand
 {
 	union nameUnion // name of variable as char*, or literal value as int
@@ -70,11 +81,19 @@ struct TACOperand
 		int val;
 	} name;
 
-	// union nameUnion name;
-	enum variableTypes type;			   // enum of type
+	struct Type type;
+	struct Type castAsType;
 	enum variablePermutations permutation; // enum of permutation (standard/temp/literal)
-	unsigned indirectionLevel;
 };
+
+
+int Type_Compare(struct Type *a, struct Type *b);
+
+int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b);
+
+char *Type_GetName(struct Type *t);
+
+void TACOperand_SetBasicType(struct TACOperand *o, enum basicTypes t, int indirectionLevel);
 
 struct TACLine
 {
@@ -84,6 +103,8 @@ struct TACLine
 	int index;
 	char reorderable;
 };
+
+struct Type *TAC_GetTypeOfOperand(struct TACLine *t, unsigned index);
 
 char *getAsmOp(enum TACType t);
 

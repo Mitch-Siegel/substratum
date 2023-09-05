@@ -135,15 +135,15 @@ unsigned char readHex(char *str)
 char *inBuf = NULL;
 size_t bufSize = 0;
 
-struct Type *parseType(char *declString)
+struct LinkerType *parseType(char *declString)
 {
     char *lasts = NULL;
 
-    struct Type *parsed = malloc(sizeof(struct Type));
+    struct LinkerType *parsed = malloc(sizeof(struct LinkerType));
     char *token = strtok_r(declString, " ", &lasts);
     int typeNum = atoi(token);
 
-    switch ((enum variableTypes)typeNum)
+    switch ((enum basicTypes)typeNum)
     {
     case vt_null:
         parsed->size = 0;
@@ -203,7 +203,7 @@ void parseFunctionDeclaration(struct Symbol *wipSymbol, FILE *inFile)
 
     if (nArgs > 0)
     {
-        wipSymbol->data.asFunction.args = malloc(nArgs * sizeof(struct Type));
+        wipSymbol->data.asFunction.args = malloc(nArgs * sizeof(struct LinkerType));
     }
 
     token = strtok(NULL, " ");
@@ -221,7 +221,7 @@ void parseFunctionDeclaration(struct Symbol *wipSymbol, FILE *inFile)
 void parseVariable(struct Symbol *wipSymbol, FILE *inFile)
 {
     getline_force_metadata(&inBuf, &bufSize, inFile, wipSymbol);
-    struct Type *varType = parseType(inBuf);
+    struct LinkerType *varType = parseType(inBuf);
     wipSymbol->data.asVariable = *varType;
     free(varType);
 }

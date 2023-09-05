@@ -41,8 +41,7 @@ struct FunctionEntry
 {
 	int localStackSize;
 	int argStackSize;
-	enum variableTypes returnType;
-	int returnIndirectionLevel;
+	struct Type returnType;
 	struct Scope *mainScope;
 	struct Stack *arguments; // stack of VariableEntry pointers corresponding by index to arguments
 	char *name;				 // duplicate pointer from ScopeMember for ease of use
@@ -54,8 +53,7 @@ struct VariableEntry
 {
 	int stackOffset;
 	char *name; // duplicate pointer from ScopeMember for ease of use
-	enum variableTypes type;
-	int indirectionLevel;
+	struct Type type;
 	int arraySize;
 	int assignedAt;
 	int declaredAt;
@@ -97,13 +95,11 @@ only string names are available and any bad lookups should be caused by internal
 // create an argument engty in the provided function entry,which is named by the provided AST node
 struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope,
 										char *name,
-										enum variableTypes returnType,
-										int returnIndirectionLevel);
+										struct Type *returnType);
 
 struct VariableEntry *FunctionEntry_createArgument(struct FunctionEntry *func,
 												   struct AST *name,
-												   enum variableTypes type,
-												   int indirectionLevel,
+												   enum basicTypes type,
 												   int arraySize);
 
 void FunctionEntry_free(struct FunctionEntry *f);
@@ -131,8 +127,7 @@ void Scope_insert(struct Scope *scope,
 
 struct VariableEntry *Scope_createVariable(struct Scope *scope,
 										   struct AST *name,
-										   enum variableTypes type,
-										   int indirectionLevel,
+										   struct Type *type,
 										   int arraySize,
 										   char isGlobal,
 										   int declaredAt,
@@ -140,8 +135,7 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 
 struct FunctionEntry *Scope_createFunction(struct Scope *parentScope,
 										   char *name,
-										   enum variableTypes returnType,
-										   int returnIndirectionLevel);
+										   struct Type *returnType);
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
 
@@ -180,23 +174,15 @@ struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope,
 struct ObjectEntry *Scope_lookupObject(struct Scope *scope,
 									   char *name);
 
-int GetSizeOfPrimitive(enum variableTypes type);
-
+int Scope_getSizeOfType(struct Scope *scope, struct Type *t);
 // get the size of a variable by string name, also able to account for if this variable is being dereferenced
 // int Scope_getSizeOfVariableByString(struct Scope *scope,
 // char *name,
 // char beingDereferenced);
 
-int Scope_getSizeOfVariableByAst(struct Scope *scope,
-								 struct AST *name);
-
 int Scope_getSizeOfVariable(struct Scope *scope, struct VariableEntry *v);
 
 int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v);
-// allocate and return a string containing the name and pointer level of a type
-char *Scope_getNameOfType(struct Scope *scope,
-						  enum variableTypes t,
-						  int indirectionLevel);
 
 // scope linearization functions
 

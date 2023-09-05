@@ -14,53 +14,6 @@
 #include "codegen.h"
 #include "serialize.h"
 
-char verifyBasicBlock(struct BasicBlock *b)
-{
-	char blockHasError = 0;
-	for (struct LinkedListNode *runner = b->TACList->head; runner != NULL; runner = runner->next)
-	{
-		struct TACLine *checkedLine = runner->data;
-		char result = checkTACLine(checkedLine);
-		blockHasError |= result;
-		if(result)
-		{
-			printf("\t%s %d:%d\n", checkedLine->correspondingTree->sourceFile, checkedLine->correspondingTree->sourceLine, checkedLine->correspondingTree->sourceCol);
-		}
-	}
-	return blockHasError;
-}
-
-char verifyTAC(struct Scope *s)
-{
-	char foundError = 0;
-	for (int i = 0; i < s->entries->size; i++)
-	{
-		struct ScopeMember *m = s->entries->data[i];
-		switch (m->type)
-		{
-
-		case e_basicblock:
-			foundError |= verifyBasicBlock(m->entry);
-			break;
-
-		case e_scope:
-			foundError |= verifyTAC(m->entry);
-			break;
-
-		case e_function:
-		{
-			struct FunctionEntry *f = m->entry;
-			foundError |= verifyTAC(f->mainScope);
-		}
-		break;
-
-		default:
-			break;
-		}
-	}
-	return foundError;
-}
-
 struct Dictionary *parseDict = NULL;
 int main(int argc, char **argv)
 {
