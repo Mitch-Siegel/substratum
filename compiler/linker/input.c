@@ -2,7 +2,6 @@
 #include "util.h"
 #include "tac.h" // for variableTypes
 
-
 // returns 0 if export, 1 if require
 char parseLinkDirection(char *directionString)
 {
@@ -141,41 +140,54 @@ struct LinkerType *parseType(char *declString)
 
     struct LinkerType *parsed = malloc(sizeof(struct LinkerType));
     char *token = strtok_r(declString, " ", &lasts);
-    int typeNum = atoi(token);
 
-    switch ((enum basicTypes)typeNum)
+    if (!strcmp(token, "uint8"))
     {
-    case vt_null:
-        parsed->size = 0;
-        break;
-
-    case vt_uint8:
         parsed->size = 1;
-        break;
-
-    case vt_uint16:
+    }
+    else if (!strcmp(token, "uint16"))
+    {
         parsed->size = 2;
-        break;
-
-    case vt_uint32:
+    }
+    else if (!strcmp(token, "uint32"))
+    {
         parsed->size = 4;
-        break;
-
-    default:
+    }
+    else if(!strcmp(token, "NOTYPE"))
     {
-        parsed->isPrimitive = 0;
-        ErrorAndExit(ERROR_INTERNAL, "non-primitive types not yet supported!\n");
+        parsed->size = 0;
     }
-    break;
+    else
+    {
+        ErrorAndExit(ERROR_INTERNAL, "Unexpected type string seen in parseType: [%s]\n", token);
     }
 
-    token = strtok_r(NULL, " ", &lasts);
-    if (token[strlen(token) - 1] != '*')
+    parsed->indirectionLevel = 0;
+
+    int tokLen = strlen(token);
+    int starStartIndex = 0;
+
+    for(int i = 0; i < tokLen; i++)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Expected to see * indicating dereference level of type at end of type string, got %s instead!\n", token);
+        if(token[i] == '*')
+        {
+            starStartIndex = i;
+            break;
+        }
     }
-    token[strlen(token - 1)] = '\0';
-    parsed->indirectionLevel = atoi(token);
+
+    if(starStartIndex)
+    {
+        for(int i = starStartIndex; i < tokLen; i++)
+        {
+            if(token[i] == '*')
+            {
+                parsed->indirectionLevel++;
+            }
+        }
+    }
+    
+
     if (parsed->indirectionLevel)
     {
         parsed->size = 4;
