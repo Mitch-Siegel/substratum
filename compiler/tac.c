@@ -1,9 +1,14 @@
 #include "tac.h"
 
-// struct Type *TACOperand_GetType(struct TACOperand *o)
-// {
-//
-// }
+struct Type *TACOperand_GetType(struct TACOperand *o)
+{
+	if (o->castAsType.basicType != vt_null)
+	{
+		return &o->castAsType;
+	}
+
+	return &o->type;
+}
 
 struct Type *TAC_GetTypeOfOperand(struct TACLine *t, unsigned index)
 {
@@ -12,13 +17,7 @@ struct Type *TAC_GetTypeOfOperand(struct TACLine *t, unsigned index)
 		ErrorAndExit(ERROR_INTERNAL, "Bad index %d passed to TAC_GetTypeOfOperand!\n", index);
 	}
 
-	struct TACOperand *o = &t->operands[index];
-	if (o->castAsType.basicType != vt_null)
-	{
-		return &o->castAsType;
-	}
-
-	return &o->type;
+	return TACOperand_GetType(&t->operands[index]);
 }
 
 int Type_Compare(struct Type *a, struct Type *b)
@@ -430,7 +429,7 @@ void printTACLine(struct TACLine *it)
 	case tt_declare:
 		width += printf("declare %s", it->operands[0].name.str);
 
-		// TODO: what is this
+		// also deal with printing the size of the array it is declared as
 		if (it->operands[1].name.str != NULL)
 		{
 			width += printf("[%s]", it->operands[1].name.str);

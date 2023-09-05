@@ -104,6 +104,8 @@ struct TACLine
 	char reorderable;
 };
 
+struct Type *TACOperand_GetType(struct TACOperand *o);
+
 struct Type *TAC_GetTypeOfOperand(struct TACLine *t, unsigned index);
 
 char *getAsmOp(enum TACType t);

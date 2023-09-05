@@ -150,7 +150,8 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 																  declarationLine->index,
 																  isArgument);
 	declarationLine->operands[0].name.str = declaredTree->value;
-	TACOperand_SetBasicType(&declarationLine->operands[0], declaredBasicType, declaredIndirectionLevel);
+	// use the *VariableEntry*'s indirection level as local pointers (arrays, objects) will have magically increased from 0 to 1 where relevant
+	TACOperand_SetBasicType(&declarationLine->operands[0], declaredBasicType, declaredVariable->type.indirectionLevel);
 
 	BasicBlock_append(block, declarationLine);
 	return declaredVariable;

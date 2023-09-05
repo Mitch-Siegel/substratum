@@ -75,6 +75,8 @@ void recordVariableWrite(struct LinkedList *ltList,
 		struct VariableEntry *recordedVariable = Scope_lookupVarByString(scope, writtenOperand->name.str);
 		isGlobal = recordedVariable->isGlobal;
 	}
+
+	// always use ->type as we don't care what it's cast as to determine its lifetime
 	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, writtenOperand->name.str, &writtenOperand->type, newEnd, isGlobal);
 	updatedLifetime->nwrites += 1;
 }
@@ -92,6 +94,8 @@ void recordVariableRead(struct LinkedList *ltList,
 		struct VariableEntry *recordedVariable = Scope_lookupVarByString(scope, readOperand->name.str);
 		isGlobal = recordedVariable->isGlobal;
 	}
+	
+	// always use ->type as we don't care what it's cast as to determine its lifetime
 	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, readOperand->name.str, &readOperand->type, newEnd, isGlobal);
 	updatedLifetime->nreads += 1;
 }
