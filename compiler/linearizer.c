@@ -2,7 +2,7 @@
 
 // #define LITERAL_VARIABLE_TYPE vt_uint32
 
-// given a raw size of an object, find the nearest power-of-two aligned size
+// given a raw size, find the nearest power-of-two aligned size
 int alignSize(int nBytes)
 {
 	int i = 0;
@@ -33,7 +33,6 @@ enum basicTypes selectVariableTypeForLiteral(char *literal)
 {
 	int literalAsNumber = atoi(literal);
 	enum basicTypes t = selectVariableTypeForNumber(literalAsNumber);
-	printf("%s: %d\n", literal, t);
 	return t;
 }
 
@@ -97,11 +96,11 @@ struct SymbolTable *linearizeProgram(struct AST *program)
 
 // int linearizeDeclaration(struct LinearizationMetadata m)
 struct VariableEntry *walkVariableDeclaration(struct AST *tree,
-											  struct BasicBlock *block,
-											  struct Scope *scope,
-											  int *TACIndex,
-											  int *tempNum,
-											  char isArgument)
+									 struct BasicBlock *block,
+									 struct Scope *scope,
+									 int *TACIndex,
+									 int *tempNum,
+									 char isArgument)
 {
 	printf("walkVariableDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
@@ -127,7 +126,6 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 
 	struct AST *declaredTree = NULL;
 	int declaredIndirectionLevel = scrapePointers(tree->child, &declaredTree);
-	int declaredArraySize = 1;
 
 	struct Type declaredType;
 	declaredType.basicType = declaredBasicType;
@@ -139,23 +137,30 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 		declaredTree = declaredTree->child;
 		char *arraySizeString = declaredTree->sibling->value;
 		declarationLine->operands[1].name.str = arraySizeString;
-		declaredArraySize = atoi(arraySizeString);
+		int declaredArraySize = atoi(arraySizeString);
 		declarationLine->operands[1].permutation = vp_literal;
 		declarationLine->operands[1].type.basicType = selectVariableTypeForLiteral(arraySizeString);
+
+		declaredType.arraySize = declaredArraySize;
+		declaredType.indirectionLevel++;
 	}
-
+	else
+	{
+		declaredType.arraySize = 0;
+	}
 	struct VariableEntry *declaredVariable = Scope_createVariable(scope,
-																  declaredTree,
-																  &declaredType,
-																  declaredArraySize,
-																  (scope->parentScope == NULL),
-																  declarationLine->index,
-																  isArgument);
+																	declaredTree,
+																	&declaredType,
+																	(scope->parentScope == NULL),
+																	declarationLine->index,
+																	isArgument);
 	declarationLine->operands[0].name.str = declaredTree->value;
-	// use the *VariableEntry*'s indirection level as local pointers (arrays, objects) will have magically increased from 0 to 1 where relevant
-	TACOperand_SetBasicType(&declarationLine->operands[0], declaredBasicType, declaredVariable->type.indirectionLevel);
 
+	// use the *VariableEntry*'s indirection level as local arrays will have magically (within Scope_createVariable) increased from 0 to 1 where relevant
+	declarationLine->operands[0].type = declaredType;
+	
 	BasicBlock_append(block, declarationLine);
+
 	return declaredVariable;
 }
 
@@ -166,11 +171,12 @@ void walkArgumentDeclaration(struct AST *tree,
 							 struct FunctionEntry *fun)
 {
 	printf("walkArgumentDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-	struct VariableEntry *delcaredArgument = walkVariableDeclaration(tree, block, fun->mainScope, TACIndex, tempNum, 1);
+	struct VariableEntry *declaredArgument = walkVariableDeclaration(tree, block, fun->mainScope, TACIndex, tempNum, 1);
 
-	delcaredArgument->assignedAt = 0;
-	delcaredArgument->isAssigned = 1;
-	Stack_Push(fun->arguments, delcaredArgument);
+	declaredArgument->assignedAt = 0;
+	declaredArgument->isAssigned = 1;
+
+	Stack_Push(fun->arguments, declaredArgument);
 }
 
 void walkFunctionDeclaration(struct AST *tree,
@@ -1102,7 +1108,6 @@ void walkAsmBlock(struct AST *tree,
 	{
 		struct TACLine *asmLine = newTACLine((*TACIndex)++, tt_asm, asmRunner);
 		asmLine->operands[0].name.str = asmRunner->value;
-		printf("GOT AN ASM [%s]\n", asmRunner->value);
 
 		BasicBlock_append(block, asmLine);
 
@@ -1124,9 +1129,67 @@ void walkStringLiteral(struct AST *tree,
 	// it inserts underscores in place of spaces and other modifications to turn the literal into a name that the symtab can use
 	// but first, it copies the string exactly as-is so it knows what the string object should be initialized to
 	char *stringName = tree->value;
-	Scope_createStringLiteral(scope, stringName);
+	char *stringValue = strdup(stringName);
+	int stringSize = strlen(stringName) + 1;
 
-	TACOperand_SetBasicType(destinationOperand, vt_uint8, 1);
-	destinationOperand->permutation = vp_objptr;
+	for (int i = 0; i < stringSize - 1; i++)
+	{
+		if ((!isalnum(stringName[i])) && (stringName[i] != '_'))
+		{
+			if (isspace(stringName[i]))
+			{
+				stringName[i] = '_';
+			}
+			else
+			{
+				// for any non-whitespace character, map it to lower/uppercase alphabetic characters
+				// this should avoid collisions with renamed strings to the point that it isn't a problem
+				char altVal = stringName[i] % 52;
+				if (altVal > 25)
+				{
+					stringName[i] = altVal + 'A';
+				}
+				else
+				{
+					stringName[i] = altVal + 'a';
+				}
+			}
+		}
+	}
+
+	struct VariableEntry *stringLiteralEntry = NULL;
+	struct ScopeMember *existingMember = NULL;
+	// if we already have a string literal for this thing, nothing else to do
+	if((existingMember = Scope_lookup(scope, stringName)) == NULL)
+	{
+		struct AST fakeStringTree;
+		fakeStringTree.value = stringName;
+		fakeStringTree.sourceFile = tree->sourceFile;
+		fakeStringTree.sourceLine = tree->sourceLine;
+		fakeStringTree.sourceCol = tree->sourceCol;
+
+		struct Type stringType;
+		stringType.basicType = vt_uint8;
+		stringType.arraySize = stringSize;
+		stringType.indirectionLevel = 1;
+
+		stringLiteralEntry = Scope_createVariable(scope, &fakeStringTree, &stringType, 1, 0, 0);
+
+		struct Type *realStringType = &stringLiteralEntry->type;
+		realStringType->initializeArrayTo = malloc(stringSize * sizeof(char *));
+		for(int i = 0; i < stringSize; i++)
+		{
+			realStringType->initializeArrayTo[i] = malloc(1);
+			*realStringType->initializeArrayTo[i] = stringValue[i];
+		}
+	}
+	else
+	{
+		stringLiteralEntry = existingMember->entry;
+	}
+
+	free(stringValue);
+	populateTACOperandFromVariable(destinationOperand, stringLiteralEntry);
 	destinationOperand->name.str = stringName;
+
 }

@@ -20,7 +20,6 @@ struct Lifetime *newLifetime(char *name, struct Type *type, int start, char isGl
 	}
 	wip->isArgument = 0;
 	wip->isGlobal = isGlobal;
-	wip->localPointerTo = NULL;
 	return wip;
 }
 
@@ -372,13 +371,6 @@ int lifetimeHeuristic(struct Lifetime *lt)
 	if (lt->isArgument)
 	{
 		h *= 1000;
-	}
-
-	// secondarily prefer to "spill" pointers to local objects
-	// they can be generated on-the-fly from the base pointer with 1 arithmetic instruction
-	else if (lt->localPointerTo != NULL)
-	{
-		h *= 100;
 	}
 
 	return h;

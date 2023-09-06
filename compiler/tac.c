@@ -147,13 +147,24 @@ char *Type_GetName(struct Type *t)
 		ErrorAndExit(ERROR_INTERNAL, "Unexpected enum basicTypes value %d seen in Type_GetName!\n", t->basicType);
 	}
 
+	int trueIndirectionLevel = t->indirectionLevel;
+	if(t->arraySize > 0)
+	{
+		trueIndirectionLevel--;
+	}
 	int i;
-	for (i = 0; i < t->indirectionLevel; i++)
+	for (i = 0; i < trueIndirectionLevel; i++)
 	{
 		typeName[len + i] = '*';
 		len += sprintf(typeName + len, "*");
 	}
 	typeName[len + i] = '\0';
+
+	if(t->arraySize > 0)
+	{
+		sprintf(typeName + len, "[%d]", t->arraySize);
+	}
+
 	return typeName;
 }
 

@@ -20,7 +20,6 @@ struct Lifetime
 	struct Type type;
 	int stackOrRegLocation;
 	char isSpilled, isArgument, isGlobal;
-	struct ObjectEntry *localPointerTo;
 };
 
 struct Lifetime *newLifetime(char *name,

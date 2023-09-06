@@ -16,7 +16,6 @@ enum ScopeMemberType
 	e_argument,
 	e_scope,
 	e_basicblock,
-	e_object,
 };
 
 struct ScopeMember
@@ -54,7 +53,6 @@ struct VariableEntry
 	int stackOffset;
 	char *name; // duplicate pointer from ScopeMember for ease of use
 	struct Type type;
-	int arraySize;
 	int assignedAt;
 	int declaredAt;
 	char isAssigned;
@@ -63,20 +61,6 @@ struct VariableEntry
 	// and can have an address
 	char mustSpill;
 	char isGlobal;
-};
-
-struct ObjectEntry
-{
-	int size;
-	int arraySize;
-	int stackOffset;
-	struct VariableEntry *myLocalPointer;
-	// byte array [size] bytes long indicating what the object should be initialized to
-	// should only be allocated if the object should be initialiized
-	// (handled outside of Scope_createObject on a case-by-case basis)
-	char *initializeTo;
-	char isGlobal;
-	char initialized;
 };
 
 struct SymbolTable
@@ -104,8 +88,6 @@ struct VariableEntry *FunctionEntry_createArgument(struct FunctionEntry *func,
 
 void FunctionEntry_free(struct FunctionEntry *f);
 
-void ObjectEntry_free(struct ObjectEntry *o);
-
 // symbol table functions
 struct SymbolTable *SymbolTable_new(char *name);
 
@@ -128,7 +110,6 @@ void Scope_insert(struct Scope *scope,
 struct VariableEntry *Scope_createVariable(struct Scope *scope,
 										   struct AST *name,
 										   struct Type *type,
-										   int arraySize,
 										   char isGlobal,
 										   int declaredAt,
 										   char isArgument);
@@ -138,16 +119,6 @@ struct FunctionEntry *Scope_createFunction(struct Scope *parentScope,
 										   struct Type *returnType);
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
-
-struct ObjectEntry *Scope_createObject(struct Scope *scope,
-									   char *name,
-									   int size,
-									   int arraySize,
-									   int stackOffset,
-									   char isGlobal);
-
-struct ObjectEntry *Scope_createStringLiteral(struct Scope *scope,
-											  char *name);
 
 // scope lookup functions
 char Scope_contains(struct Scope *scope,
@@ -170,9 +141,6 @@ struct Scope *Scope_lookupSubScope(struct Scope *scope,
 
 struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope,
 										   unsigned char subScopeNumber);
-
-struct ObjectEntry *Scope_lookupObject(struct Scope *scope,
-									   char *name);
 
 // gets the integer size (not aligned) of a given type
 int Scope_getSizeOfType(struct Scope *scope, struct Type *t);

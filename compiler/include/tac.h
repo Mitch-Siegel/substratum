@@ -67,6 +67,12 @@ struct Type
 {
 	enum basicTypes basicType;
 	int indirectionLevel;
+	int arraySize;
+	union
+	{
+		char *initializeTo;
+		char **initializeArrayTo;
+	};
 	struct classType
 	{
 		char *name;

@@ -166,7 +166,7 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct Scope *s
 	// else the variable is in a register already
 
 	// if not a local pointer, the value for this variable *must* exist either in a register or spilled on the stack
-	if (relevantLifetime->localPointerTo == NULL)
+	if (1 /*relevantLifetime->myObject == NULL*/)
 	{
 		if (relevantLifetime->isSpilled)
 		{
@@ -185,7 +185,7 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct Scope *s
 		if (relevantLifetime->isSpilled)
 		{
 			char *destRegStr = registerNames[registerIndex];
-			int basepointerOffset = relevantLifetime->localPointerTo->stackOffset;
+			int basepointerOffset = 0; //relevantLifetime->myObject->stackOffset;
 			if (basepointerOffset > 0)
 			{
 				fprintf(outFile, "\taddi %s, %%bp, $%d\n", destRegStr, basepointerOffset);
@@ -209,6 +209,7 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct Scope *s
 	}
 }
 
+/*
 // generates code from the global scope, recursing inwards to functions
 void generateCode(struct SymbolTable *table, FILE *outFile)
 {
@@ -301,12 +302,26 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 		{
 			struct ObjectEntry *o = thisMember->entry;
 			fprintf(outFile, "~export object %s\n", thisMember->name);
-			fprintf(outFile, "size %d initialized %d\n", o->size, o->initialized);
+			int objSize = Scope_getSizeOfType(table->globalScope, &o->type);
+			fprintf(outFile, "size %d\n", objSize);
+			if (o->arraySize > 1)
+			{
+				printf("[%d] (total size %d): initialized: %d\n", o->arraySize, objSize * o->arraySize, o->initialized);
+			}
+			else
+			{
+				printf("initialized: %d\n", o->initialized);
+			}
+
 			if (o->initialized)
 			{
-				for (int j = 0; j < o->size; j++)
+				for (int j = 0; j < o->arraySize; j++)
 				{
-					fprintf(outFile, "%02x ", o->initializeTo[j]);
+					for (int k = 0; k < objSize; k++)
+					{
+						fprintf(outFile, "%02x ", o->initializeTo[j][k]);
+					}
+					fprintf(outFile, "\n");
 				}
 				fprintf(outFile, "\n");
 			}
@@ -319,7 +334,8 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 		}
 	}
 };
-
+*/
+void generateCode(struct SymbolTable *table, FILE *outFile){}
 /*
  * code generation for funcitons (lifetime management, etc)
  *
@@ -362,6 +378,7 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 
 	sortSpilledLifetimes(&metadata);
 
+	/*
 	// find the total size of the function's stack frame containing local variables *and* spilled variables
 	for (int i = 0; i < metadata.spilledLifetimes->size; i++)
 	{
@@ -369,7 +386,7 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 		int thisSize = Scope_getSizeOfType(function->mainScope, &thisLifetime->type);
 
 		// if the variable isn't a local pointer (can calculate local pointers on the fly from base pointer so no need to store)
-		if (thisLifetime->localPointerTo == NULL)
+		if (thisLifetime->myObject == NULL)
 		{
 			struct ScopeMember *thisVariableEntry = Scope_lookup(function->mainScope, thisLifetime->name);
 			char stackSlotExists = 0;
@@ -390,10 +407,10 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 				thisLifetime->stackOrRegLocation = -1 * function->localStackSize;
 			}
 		}
-	}
+	}*/
 
 	assignRegisters(&metadata);
-
+	/*
 	printf("LIFETIMES FOR %s\n", metadata.function->name);
 	for (struct LinkedListNode *runner = metadata.allLifetimes->head; runner != NULL; runner = runner->next)
 	{
@@ -412,7 +429,7 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 		}
 		if (l->isSpilled)
 		{
-			if ((l->localPointerTo != NULL) && l->localPointerTo->isGlobal)
+			if ((l->myObject != NULL) && l->myObject->isGlobal)
 			{
 				printf("Global");
 			}
@@ -426,9 +443,9 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 			printf("%s", registerNames[l->stackOrRegLocation]);
 		}
 
-		if (l->localPointerTo != NULL)
+		if (l->myObject != NULL)
 		{
-			printf(" - %d bytes\n", l->localPointerTo->size);
+			printf(" - %d bytes\n", Scope_getSizeOfType(function->mainScope, &l->myObject->type) * l->myObject->arraySize);
 		}
 		else
 		{
@@ -436,6 +453,8 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 			printf(" - %d bytes\n", Scope_getSizeOfType(function->mainScope, &l->type));
 		}
 	}
+	*/
+	
 	// actual registers have been assigned to variables
 	printf(".");
 
@@ -607,7 +626,14 @@ const char *SelectPushWidth(struct Scope *scope, struct TACOperand *dataDest)
 
 	return SelectPushWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
 }
-
+void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
+							   struct Scope *thisScope,
+							   struct LinkedList *allLifetimes,
+							   char *functionName,
+							   int reservedRegisters[3],
+							   char *touchedRegisters,
+							   FILE *outFile){}
+/*
 void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 							   struct Scope *thisScope,
 							   struct LinkedList *allLifetimes,
@@ -698,11 +724,11 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		case tt_declare:
 		{
 			struct Lifetime *declaredLifetime = LinkedList_Find(allLifetimes, compareLifetimes, thisTAC->operands[0].name.str);
-			if ((declaredLifetime->localPointerTo != NULL) &&
+			if ((declaredLifetime->myObject != NULL) &&
 				(!declaredLifetime->isSpilled) &&
-				(!declaredLifetime->localPointerTo->isGlobal))
+				(!declaredLifetime->myObject->isGlobal))
 			{
-				fprintf(outFile, "\tsubi %%r%d, %%bp, $%d\n", declaredLifetime->stackOrRegLocation, declaredLifetime->localPointerTo->stackOffset * -1);
+				fprintf(outFile, "\tsubi %%r%d, %%bp, $%d\n", declaredLifetime->stackOrRegLocation, declaredLifetime->myObject->stackOffset * -1);
 			}
 		}
 		break;
@@ -1008,3 +1034,4 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 		}
 	}
 }
+*/
