@@ -1,5 +1,11 @@
-cd assembler && customasm ./main.asm
-cd ../emu && make
-sleep 1
-./emu ../assembler/main.bin
+cd ./assembler
+if ! customasm ./linked.asm; then
+    exit
+fi
 
+cd ../emu
+if ! make; then
+    exit
+fi
+
+time ./emu ../assembler/linked.bin

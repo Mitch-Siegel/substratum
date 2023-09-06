@@ -600,6 +600,11 @@ void Output(uint8_t port, uint8_t byte)
         fflush(stdout);
         break;
 
+    case 0x01:
+        printf("%02x\n", byte);
+        fflush(stdout);
+        break;
+
     default:
         SWI(0x04);
     }

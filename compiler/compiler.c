@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 	struct SymbolTable *theTable = linearizeProgram(program);
 	printf("\n");
 
-	if (argc > 3 || 1)
+	if (argc > 3)
 	{
 		printf("Symbol table before scope collapse:\n");
 		SymbolTable_print(theTable, 1);

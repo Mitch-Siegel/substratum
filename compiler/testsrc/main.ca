@@ -42,12 +42,13 @@ fun printFibs(uint8 n->void)
 
 fun main(->void)
 {
+	printNum(0, 1);
 	uint8 *fibStr = "Fibonacci: ";
 
 	uint8 *timesStr;
 	timesStr = "Times Tables: ";
 	uint8 newlineChar = 10;
-	uint8 index = 5;
+	uint8 index = 13;
 	timesStr[index] = newlineChar;
 
 	printStr(fibStr);
@@ -76,6 +77,7 @@ fun main(->void)
 	
 	printStr("Number of multiplications: ");
 	printMultiplications();
+
 
 	printStr("Magic Number 1: ");
 	printNum(big, 1);
