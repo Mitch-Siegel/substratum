@@ -32,7 +32,9 @@ enum basicTypes selectVariableTypeForNumber(int num)
 enum basicTypes selectVariableTypeForLiteral(char *literal)
 {
 	int literalAsNumber = atoi(literal);
-	return selectVariableTypeForNumber(literalAsNumber);
+	enum basicTypes t = selectVariableTypeForNumber(literalAsNumber);
+	printf("%s: %d\n", literal, t);
+	return t;
 }
 
 void populateTACOperandFromVariable(struct TACOperand *o, struct VariableEntry *e)
@@ -791,7 +793,7 @@ void walkSubExpression(struct AST *tree,
 			char literalAsNumber[8];
 			sprintf(literalAsNumber, "%d", tree->value[0]);
 			destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, literalAsNumber);
-			destinationOperand->type.basicType = selectVariableTypeForLiteral(literalAsNumber);
+			destinationOperand->type.basicType = vt_uint8;
 			destinationOperand->permutation = vp_literal;
 		}
 		break;

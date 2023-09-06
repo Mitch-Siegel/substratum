@@ -675,6 +675,13 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 	return size;
 }
 
+int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *t)
+{
+	struct Type dereferenced = *t;
+	dereferenced.indirectionLevel--;
+	return Scope_getSizeOfType(scope, &dereferenced);
+}
+
 int Scope_getSizeOfVariable(struct Scope *scope, struct VariableEntry *v)
 {
 	return Scope_getSizeOfType(scope, &v->type);

@@ -25,14 +25,13 @@ char *registerNames[MACHINE_REGISTER_COUNT] = {
 
 int ALIGNSIZE(unsigned int size)
 {
-	unsigned int mask = 0b1;
-	int i = 0;
-	while (mask < size)
+	unsigned int nBits = 0;
+	while (size)
 	{
-		mask <<= 1;
-		i++;
+		nBits++;
+		size >>= 1; 
 	}
-	return i;
+	return nBits;
 }
 
 char *PlaceLiteralInRegister(FILE *outFile, char *literalStr, int destReg)
@@ -238,7 +237,7 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 			for (int j = 0; j < generatedFunction->arguments->size; j++)
 			{
 				struct VariableEntry *examinedArgument = generatedFunction->arguments->data[j];
-				
+
 				char *typeName = Type_GetName(&examinedArgument->type);
 				fprintf(outFile, "%s %s\n", typeName, examinedArgument->name);
 				free(typeName);
@@ -519,7 +518,7 @@ const char *SelectMovWidth(struct Scope *scope, struct TACOperand *dataDest)
 		return "mov";
 	}
 
-	return SelectMovWidthForSize(Scope_getSizeOfType(scope, &dataDest->type));
+	return SelectMovWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
 }
 
 const char *SelectMovWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP)
@@ -528,9 +527,9 @@ const char *SelectMovWidthForDereference(struct Scope *scope, struct TACOperand 
 	{
 		ErrorAndExit(ERROR_INTERNAL, "SelectMovWidthForDereference called on non-indirect operand %s!\n", dataDestP->name.str);
 	}
-	struct TACOperand dereferenced = *dataDestP;
-	dereferenced.type.indirectionLevel--;
-	return SelectMovWidth(scope, &dereferenced);
+	struct Type dereferenced = *TACOperand_GetType(dataDestP);
+	dereferenced.indirectionLevel--;
+	return SelectMovWidthForSize(Scope_getSizeOfType(scope, &dereferenced));
 }
 
 const char *SelectPushWidthForSize(int size)
@@ -561,7 +560,7 @@ const char *SelectMovWidthForLifetime(struct Scope *scope, struct Lifetime *life
 	}
 }
 
-const char *SelectPushWidth(struct Scope* scope, struct TACOperand *dataDest)
+const char *SelectPushWidth(struct Scope *scope, struct TACOperand *dataDest)
 {
 	// pointers are always full-width
 	if (dataDest->type.indirectionLevel > 0)
@@ -569,7 +568,7 @@ const char *SelectPushWidth(struct Scope* scope, struct TACOperand *dataDest)
 		return "push";
 	}
 
-	return SelectPushWidthForSize(Scope_getSizeOfType(scope, &dataDest->type));
+	return SelectPushWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
 }
 
 void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
@@ -785,11 +784,19 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 
 			if (thisTAC->operation == tt_memw_3)
 			{
-				fprintf(outFile, "\t%s (%s+%s,%d), %s\n", movOp, baseRegStr, offsetRegStr, ALIGNSIZE(Scope_getSizeOfType(thisScope, &thisTAC->operands[0].type)), sourceRegStr);
+				fprintf(outFile, "\t%s (%s+%s,%d), %s\n",
+						movOp,
+						baseRegStr, offsetRegStr,
+						thisTAC->operands[2].name.val,
+						sourceRegStr);
 			}
 			else
 			{
-				fprintf(outFile, "\t%s (%s-%s,%d), %s\n", movOp, baseRegStr, offsetRegStr, ALIGNSIZE(Scope_getSizeOfType(thisScope, &thisTAC->operands[0].type)), sourceRegStr);
+				fprintf(outFile, "\t%s (%s-%s,%d), %s\n",
+						movOp,
+						baseRegStr, offsetRegStr,
+						thisTAC->operands[2].name.val,
+						sourceRegStr);
 			}
 		}
 		break;
@@ -855,11 +862,11 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			const char *movOp = SelectMovWidth(thisScope, &thisTAC->operands[0]);
 			if (thisTAC->operation == tt_memr_3)
 			{
-				fprintf(outFile, "\t%s %s, (%s+%s,%d)\n", movOp, destRegStr, baseRegStr, offsetRegStr, ALIGNSIZE(Scope_getSizeOfType(thisScope, &thisTAC->operands[0].type)));
+				fprintf(outFile, "\t%s %s, (%s+%s,%d)\n", movOp, destRegStr, baseRegStr, offsetRegStr, thisTAC->operands[3].name.val);
 			}
 			else
 			{
-				fprintf(outFile, "\t%s %s, (%s-%s,%d)\n", movOp, destRegStr, baseRegStr, offsetRegStr, ALIGNSIZE(Scope_getSizeOfType(thisScope, &thisTAC->operands[0].type)));
+				fprintf(outFile, "\t%s %s, (%s-%s,%d)\n", movOp, destRegStr, baseRegStr, offsetRegStr, thisTAC->operands[3].name.val);
 			}
 
 			if (destinationLifetime->isSpilled)

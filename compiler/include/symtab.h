@@ -174,11 +174,11 @@ struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope,
 struct ObjectEntry *Scope_lookupObject(struct Scope *scope,
 									   char *name);
 
+// gets the integer size (not aligned) of a given type
 int Scope_getSizeOfType(struct Scope *scope, struct Type *t);
-// get the size of a variable by string name, also able to account for if this variable is being dereferenced
-// int Scope_getSizeOfVariableByString(struct Scope *scope,
-// char *name,
-// char beingDereferenced);
+
+// gets the integer size (not aligned) of a given type, but based on the dereference level as (t->indirectionLevel - 1)
+int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *t);
 
 int Scope_getSizeOfVariable(struct Scope *scope, struct VariableEntry *v);
 
