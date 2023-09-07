@@ -79,7 +79,7 @@ void WriteSpilledVariable(FILE *outFile, struct Scope *scope, struct Lifetime *w
 	else
 	{
 		// location is a positive offset, we will add to the base pointer to get to this variable
-		if (writtenTo->stackOrRegLocation > 0)
+		/*if (writtenTo->stackOrRegLocation > 0)
 		{
 			fprintf(outFile, "\t%s (%%bp+%d), %s\n", SelectMovWidthForLifetime(scope, writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
 		}
@@ -87,7 +87,7 @@ void WriteSpilledVariable(FILE *outFile, struct Scope *scope, struct Lifetime *w
 		else
 		{
 			fprintf(outFile, "\t%s (%%bp%d), %s\n", SelectMovWidthForLifetime(scope, writtenTo), writtenTo->stackOrRegLocation, sourceRegStr);
-		}
+		}*/
 	}
 }
 
@@ -109,14 +109,14 @@ char *ReadSpilledVariable(FILE *outFile, struct Scope *scope, int destReg, struc
 	{
 		fprintf(outFile, "\t; read spilled variable %s\n", readFrom->name);
 		// location is a positive offset, we will add to the base pointer to get to this variable
-		if (readFrom->stackOrRegLocation > 0)
+		if (readFrom->stackLocation > 0)
 		{
-			fprintf(outFile, "\t%s %s, (%%bp+%d)\n", SelectMovWidthForLifetime(scope, readFrom), destRegStr, readFrom->stackOrRegLocation);
+			fprintf(outFile, "\t%s %s, (%%bp+%d)\n", SelectMovWidthForLifetime(scope, readFrom), destRegStr, readFrom->stackLocation);
 		}
 		// location is a negative offset, we will subtract from the base pointer to get to this variable
 		else
 		{
-			fprintf(outFile, "\t%s %s, (%%bp%d)\n", SelectMovWidthForLifetime(scope, readFrom), destRegStr, readFrom->stackOrRegLocation);
+			fprintf(outFile, "\t%s %s, (%%bp%d)\n", SelectMovWidthForLifetime(scope, readFrom), destRegStr, readFrom->stackLocation);
 		}
 	}
 	return destRegStr;
@@ -159,7 +159,7 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct Scope *s
 		ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", operand.name.str);
 	}
 
-	if (registerIndex < 0 && relevantLifetime->isSpilled && !relevantLifetime->isGlobal)
+	if (registerIndex < 0 && (!relevantLifetime->inRegister) && !relevantLifetime->isGlobal)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Call to attempt to place spilled variable %s when none should be spilled!", operand.name.str);
 	}
@@ -168,7 +168,7 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct Scope *s
 	// if not a local pointer, the value for this variable *must* exist either in a register or spilled on the stack
 	if (1 /*relevantLifetime->myObject == NULL*/)
 	{
-		if (relevantLifetime->isSpilled)
+		if (!relevantLifetime->inRegister)
 		{
 			char *resultRegisterStr = ReadSpilledVariable(outFile, scope, registerIndex, relevantLifetime);
 			touchedRegisters[registerIndex] = 1;
@@ -176,16 +176,16 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct Scope *s
 		}
 		else
 		{
-			return registerNames[relevantLifetime->stackOrRegLocation];
+			return registerNames[relevantLifetime->registerLocation];
 		}
 	}
 	else
 	{
 		// if this local pointer doesn't live in a register, we will need to construct it on demand
-		if (relevantLifetime->isSpilled)
+		if (!relevantLifetime->inRegister)
 		{
 			char *destRegStr = registerNames[registerIndex];
-			int basepointerOffset = 0; //relevantLifetime->myObject->stackOffset;
+			int basepointerOffset = 0; // relevantLifetime->myObject->stackOffset;
 			if (basepointerOffset > 0)
 			{
 				fprintf(outFile, "\taddi %s, %%bp, $%d\n", destRegStr, basepointerOffset);
@@ -204,12 +204,12 @@ char *placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct Scope *s
 		// if it does get a register, all we need to do is return it
 		else
 		{
-			return registerNames[relevantLifetime->stackOrRegLocation];
+			return registerNames[relevantLifetime->registerLocation];
 		}
 	}
 }
 
-/*
+
 // generates code from the global scope, recursing inwards to functions
 void generateCode(struct SymbolTable *table, FILE *outFile)
 {
@@ -298,85 +298,34 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 		}
 		break;
 
-		case e_object:
-		{
-			struct ObjectEntry *o = thisMember->entry;
-			fprintf(outFile, "~export object %s\n", thisMember->name);
-			int objSize = Scope_getSizeOfType(table->globalScope, &o->type);
-			fprintf(outFile, "size %d\n", objSize);
-			if (o->arraySize > 1)
-			{
-				printf("[%d] (total size %d): initialized: %d\n", o->arraySize, objSize * o->arraySize, o->initialized);
-			}
-			else
-			{
-				printf("initialized: %d\n", o->initialized);
-			}
-
-			if (o->initialized)
-			{
-				for (int j = 0; j < o->arraySize; j++)
-				{
-					for (int k = 0; k < objSize; k++)
-					{
-						fprintf(outFile, "%02x ", o->initializeTo[j][k]);
-					}
-					fprintf(outFile, "\n");
-				}
-				fprintf(outFile, "\n");
-			}
-			fprintf(outFile, "~end export object %s\n", thisMember->name);
-		}
-		break;
-
 		default:
 			break;
 		}
 	}
 };
-*/
-void generateCode(struct SymbolTable *table, FILE *outFile){}
+
+
+
 /*
  * code generation for funcitons (lifetime management, etc)
  *
  */
 void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 {
+
 	printf("generate code for function %s", function->name);
 
 	struct CodegenMetadata metadata;
+	memset(&metadata, 0, sizeof(struct CodegenMetadata));
 	metadata.function = function;
-	metadata.allLifetimes = findLifetimes(function->mainScope, function->BasicBlockList);
-
-	// find all overlapping lifetimes, to figure out which variables can live in registers vs being spilled
-	metadata.largestTacIndex = 0;
-	for (struct LinkedListNode *runner = metadata.allLifetimes->head; runner != NULL; runner = runner->next)
-	{
-		struct Lifetime *thisLifetime = runner->data;
-		if (thisLifetime->end > metadata.largestTacIndex)
-		{
-			metadata.largestTacIndex = thisLifetime->end;
-		}
-	}
-
-	// generate an array of lists corresponding to which lifetimes are active at a given TAC step by index in the array
-	metadata.lifetimeOverlaps = malloc((metadata.largestTacIndex + 1) * sizeof(struct LinkedList *));
-	for (int i = 0; i <= metadata.largestTacIndex; i++)
-	{
-		metadata.lifetimeOverlaps[i] = LinkedList_New();
-	}
-
-	metadata.spilledLifetimes = Stack_New();
-	metadata.localPointerLifetimes = Stack_New();
-
-	int mostConcurrentLifetimes = generateLifetimeOverlaps(&metadata);
-
+	allocateRegisters(&metadata);
+	
 	// printf("\n");
 	// printf("at most %d concurrent lifetimes\n", mostConcurrentLifetimes);
 
-	spillVariables(&metadata, mostConcurrentLifetimes);
+	// spillVariables(&metadata, mostConcurrentLifetimes);
 
-	sortSpilledLifetimes(&metadata);
+	// sortSpilledLifetimes(&metadata);
 
 	/*
 	// find the total size of the function's stack frame containing local variables *and* spilled variables
@@ -409,7 +358,6 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 		}
 	}*/
 
-	assignRegisters(&metadata);
 	/*
 	printf("LIFETIMES FOR %s\n", metadata.function->name);
 	for (struct LinkedListNode *runner = metadata.allLifetimes->head; runner != NULL; runner = runner->next)
@@ -454,7 +402,7 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 		}
 	}
 	*/
-	
+
 	// actual registers have been assigned to variables
 	printf(".");
 
@@ -486,13 +434,13 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 			// we need to place this variable into its register if:
 			if ((thisEntry != NULL) &&							 // it exists
 				(thisEntry->type == e_argument) &&				 // it's an argument
-				(!thisLifetime->isSpilled) &&					 // they're not spilled
+				(thisLifetime->inRegister) &&					 // they're not spilled
 				(thisLifetime->nreads || thisLifetime->nwrites)) // theyre are either read from or written to at all
 			{
 				struct VariableEntry *theArgument = thisEntry->entry;
 				const char *movOp = SelectMovWidthForLifetime(function->mainScope, thisLifetime);
-				fprintf(outFile, "\t%s %%r%d, (%%bp+%d) ;place %s\n", movOp, thisLifetime->stackOrRegLocation, theArgument->stackOffset, thisLifetime->name);
-				metadata.touchedRegisters[thisLifetime->stackOrRegLocation] = 1;
+				fprintf(outFile, "\t%s %%r%d, (%%bp+%d) ;place %s\n", movOp, thisLifetime->registerLocation, theArgument->stackOffset, thisLifetime->name);
+				metadata.touchedRegisters[thisLifetime->registerLocation] = 1;
 			}
 		}
 	}
@@ -537,8 +485,6 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 	// function setup and teardown code generated
 	printf(".");
 
-	Stack_Free(metadata.spilledLifetimes);
-	Stack_Free(metadata.localPointerLifetimes);
 	LinkedList_Free(metadata.allLifetimes, free);
 
 	for (int i = 0; i <= metadata.largestTacIndex; i++)
@@ -632,7 +578,7 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 							   char *functionName,
 							   int reservedRegisters[3],
 							   char *touchedRegisters,
-							   FILE *outFile){}
+							   FILE *outFile) {}
 /*
 void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 							   struct Scope *thisScope,

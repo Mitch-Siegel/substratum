@@ -4,7 +4,7 @@
 #include "tac.h"
 
 #define MACHINE_REGISTER_COUNT 16
-#define REGISTERS_TO_ALLOCATE 13
+#define REGISTERS_TO_ALLOCATE 6
 // definitions for what we intend to use as scratch registers when applicable
 #define SCRATCH_REGISTER 0
 #define SECOND_SCRATCH_REGISTER 1
@@ -18,8 +18,13 @@ struct Lifetime
 	int start, end, nwrites, nreads;
 	char *name;
 	struct Type type;
-	int stackOrRegLocation;
-	char isSpilled, isArgument, isGlobal;
+	union
+	{
+		unsigned registerLocation;
+		int stackLocation;
+	};
+	
+	char inRegister, isArgument, isGlobal, mustSpill;
 };
 
 struct Lifetime *newLifetime(char *name,
@@ -67,14 +72,15 @@ struct CodegenMetadata
 	// index i contains a linkedList of all lifetimes active at TAC index i
 	struct LinkedList **lifetimeOverlaps;
 
-	// tracking for specialized lifetimes which may be removed from lifetimeOverlaps and need to be explicitly tracked
-	struct Stack *spilledLifetimes;
-	struct Stack *localPointerLifetimes;
+	// tracking for lifetimes which live in registers
+	struct LinkedList *registerLifetimes;
 
 	// largest TAC index for any basic block within the function
 	int largestTacIndex;
 
-	// flag 2 registers which should be used as scratch in case we have spilled variables (not always used)
+
+	// flag registers which should be used as scratch in case we have spilled variables (not always used, but can have up to 3)
+	int reservedRegisterCount;
 	int reservedRegisters[3];
 
 	// flag registers which have *ever* been used so we know what to callee-save
@@ -95,3 +101,12 @@ void sortSpilledLifetimes(struct CodegenMetadata *metadata);
 // assign registers to variables which have registers
 // assign spill addresses to variables which are spilled
 void assignRegisters(struct CodegenMetadata *metadata);
+
+/*
+* the main function for register allocation
+* finds lifetimes and lifetime overlaps
+* figures out which lifetimes are in contention for registers
+* then gives stack offset or register indices to all lifetimes
+*/
+
+void allocateRegisters(struct CodegenMetadata *metadata);

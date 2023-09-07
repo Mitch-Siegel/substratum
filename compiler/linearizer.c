@@ -1191,5 +1191,4 @@ void walkStringLiteral(struct AST *tree,
 	free(stringValue);
 	populateTACOperandFromVariable(destinationOperand, stringLiteralEntry);
 	destinationOperand->name.str = stringName;
-
 }
