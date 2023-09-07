@@ -153,6 +153,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 		case e_variable:
 		case e_argument:
+			break;
 		}
 	}
 
@@ -507,9 +508,21 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 		ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_class - not supported yet!\n");
 	}
 
-	if (t->indirectionLevel > 0)
+	if (t->arraySize > 0)
 	{
-		size = 4;
+		if (t->indirectionLevel > 1)
+		{
+			size = 4;
+		}
+
+		size *= t->arraySize;
+	}
+	else
+	{
+		if (t->indirectionLevel > 0)
+		{
+			size = 4;
+		}
 	}
 
 	return size;

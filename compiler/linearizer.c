@@ -1023,6 +1023,9 @@ struct TACOperand *walkArrayRef(struct AST *tree,
 	arrayRefTAC->operands[0].permutation = vp_temp;
 
 	arrayRefTAC->operands[0].type = arrayRefTAC->operands[1].type;
+	// make sure we track that by reading the array we only retrieved 1 element, not actually another array
+	arrayRefTAC->operands[0].type.arraySize = 0;
+
 	if (arrayRefTAC->operands[1].type.indirectionLevel > 0)
 	{
 		arrayRefTAC->operands[0].type.indirectionLevel = arrayRefTAC->operands[1].type.indirectionLevel - 1;

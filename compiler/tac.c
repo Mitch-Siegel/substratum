@@ -61,6 +61,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 				break;
 
 			default:
+				break;
 			}
 			break;
 
@@ -148,7 +149,7 @@ char *Type_GetName(struct Type *t)
 	}
 
 	int trueIndirectionLevel = t->indirectionLevel;
-	if(t->arraySize > 0)
+	if (t->arraySize > 0)
 	{
 		trueIndirectionLevel--;
 	}
@@ -160,7 +161,7 @@ char *Type_GetName(struct Type *t)
 	}
 	typeName[len + i] = '\0';
 
-	if(t->arraySize > 0)
+	if (t->arraySize > 0)
 	{
 		sprintf(typeName + len, "[%d]", t->arraySize);
 	}

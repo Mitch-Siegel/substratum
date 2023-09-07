@@ -1,14 +1,23 @@
 fun main(->void)
 {
+	uint8 small[6];
+	uint8 large[4];
+	uint8 medium[2];
+	uint16 wacky[2];
 	uint8 a;
 	uint8 b;
-	uint8 c;
-	uint8 d;
-	uint8 e;
+	uint32 c;
+	uint16 d;
+	uint32 e;
+
+	small[0] = 0;
+	small[1] = 0;
 
 	e = e;
 	d = d;
 	c = c;
 	b = b;
+	c = 1;
 	a = a;	
+	small[0] = small[0];
 }

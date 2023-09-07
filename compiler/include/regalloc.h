@@ -4,7 +4,7 @@
 #include "tac.h"
 
 #define MACHINE_REGISTER_COUNT 16
-#define REGISTERS_TO_ALLOCATE 6
+#define REGISTERS_TO_ALLOCATE 5
 // definitions for what we intend to use as scratch registers when applicable
 #define SCRATCH_REGISTER 0
 #define SECOND_SCRATCH_REGISTER 1
@@ -18,17 +18,13 @@ struct Lifetime
 	int start, end, nwrites, nreads;
 	char *name;
 	struct Type type;
-	union
-	{
-		unsigned registerLocation;
-		int stackLocation;
-	};
-	
-	char inRegister, isArgument, isGlobal, mustSpill;
+	int stackLocation;
+	unsigned char registerLocation;
+	char inRegister, onStack, isArgument, isGlobal, mustSpill;
 };
 
 struct Lifetime *newLifetime(char *name,
-							 struct Type* type,
+							 struct Type *type,
 							 int start,
 							 char isGlobal);
 
@@ -66,7 +62,7 @@ struct CodegenMetadata
 {
 	struct FunctionEntry *function; // symbol table entry for the function the register allocation data is for
 
-	struct LinkedList *allLifetimes; // every lifetime that exists within this function
+	struct LinkedList *allLifetimes; // every lifetime that exists within this function based on variables and TAC operands
 
 	// array allocated (of size largestTacIndex) for liveness analysis
 	// index i contains a linkedList of all lifetimes active at TAC index i
@@ -77,7 +73,6 @@ struct CodegenMetadata
 
 	// largest TAC index for any basic block within the function
 	int largestTacIndex;
-
 
 	// flag registers which should be used as scratch in case we have spilled variables (not always used, but can have up to 3)
 	int reservedRegisterCount;
@@ -103,10 +98,10 @@ void sortSpilledLifetimes(struct CodegenMetadata *metadata);
 void assignRegisters(struct CodegenMetadata *metadata);
 
 /*
-* the main function for register allocation
-* finds lifetimes and lifetime overlaps
-* figures out which lifetimes are in contention for registers
-* then gives stack offset or register indices to all lifetimes
-*/
+ * the main function for register allocation
+ * finds lifetimes and lifetime overlaps
+ * figures out which lifetimes are in contention for registers
+ * then gives stack offset or register indices to all lifetimes
+ */
 
 void allocateRegisters(struct CodegenMetadata *metadata);
