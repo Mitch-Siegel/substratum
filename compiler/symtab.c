@@ -304,6 +304,7 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 	newVariable->type = *type;
 	newVariable->stackOffset = 0;
 	newVariable->assignedAt = -1;
+	newVariable->mustSpill = 0;
 	newVariable->declaredAt = declaredAt;
 	newVariable->isAssigned = 0;
 	newVariable->name = name->value;

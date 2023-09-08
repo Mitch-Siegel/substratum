@@ -1,6 +1,10 @@
 fun main(->void)
 {
-	uint8 small[6];
+	uint8 a = 0;
+	uint8 b = a + 1;
+	uint8 c = b + 1;
+	a = 1;
+	/*uint8 small[6];
 	uint8 large[4];
 	uint8 medium[2];
 	uint16 wacky[2];
@@ -19,5 +23,5 @@ fun main(->void)
 	b = b;
 	c = 1;
 	a = a;	
-	small[0] = small[0];
+	small[0] = small[0];*/
 }

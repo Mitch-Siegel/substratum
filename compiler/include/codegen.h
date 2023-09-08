@@ -11,7 +11,7 @@ void WriteSpilledVariable(FILE *outFile, struct Scope *scope, struct Lifetime *w
 char *ReadSpilledVariable(FILE *outFile, struct Scope *scope, int destReg, struct Lifetime *readFrom);
 
 // places a variable in a register, with no guarantee that it is modifiable, returning the string of the register's name for asm
-char* placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct Scope *scope, struct TACOperand operand, FILE *outFile, int registerIndex, char *touchedRegisters);
+int placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct Scope *scope, struct TACOperand operand, FILE *outFile, int registerIndex, char *touchedRegisters);
 
 void generateCode(struct SymbolTable *table, FILE *outFile);
 

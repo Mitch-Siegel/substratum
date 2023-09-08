@@ -4,7 +4,7 @@
 #include "tac.h"
 
 #define MACHINE_REGISTER_COUNT 16
-#define REGISTERS_TO_ALLOCATE 3
+#define REGISTERS_TO_ALLOCATE 13
 // definitions for what we intend to use as scratch registers when applicable
 #define SCRATCH_REGISTER 0
 #define SECOND_SCRATCH_REGISTER 1
@@ -13,20 +13,30 @@
 // we only need to preserve its value when we return something in it
 #define RETURN_REGISTER 13
 
+enum WritebackLocation
+{
+	wb_register,
+	wb_stack,
+	wb_global,
+	wb_unknown,
+};
+
 struct Lifetime
 {
 	int start, end, nwrites, nreads;
 	char *name;
 	struct Type type;
+	enum WritebackLocation wbLocation;
 	int stackLocation;
 	unsigned char registerLocation;
-	char inRegister, onStack, isArgument, isGlobal, mustSpill;
+	char inRegister, onStack, isArgument;
 };
 
 struct Lifetime *newLifetime(char *name,
 							 struct Type *type,
 							 int start,
-							 char isGlobal);
+							 char isGlobal,
+							 char mustSpill);
 
 int compareLifetimes(struct Lifetime *a, char *variable);
 
@@ -36,7 +46,8 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
 										char *name,
 										struct Type *type,
 										int newEnd,
-										char isGlobal);
+										char isGlobal,
+										char mustSpill);
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
