@@ -672,7 +672,7 @@ int assignStackSpace(struct CodegenMetadata *m)
 	return localStackFootprint;
 }
 
-void allocateRegisters(struct CodegenMetadata *metadata)
+int allocateRegisters(struct CodegenMetadata *metadata)
 {
 	metadata->allLifetimes = findLifetimes(metadata->function->mainScope, metadata->function->BasicBlockList);
 
@@ -812,4 +812,6 @@ void allocateRegisters(struct CodegenMetadata *metadata)
 			}
 		}
 	}
+
+	return localStackFootprint;
 }

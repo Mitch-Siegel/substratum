@@ -11,7 +11,6 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, s
 	struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
 	newFunction->arguments = Stack_New();
 	newFunction->argStackSize = 0;
-	newFunction->localStackSize = 0;
 	newFunction->mainScope = Scope_new(parentScope, name, newFunction);
 	newFunction->BasicBlockList = LinkedList_New();
 	newFunction->mainScope->parentFunction = newFunction;

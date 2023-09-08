@@ -4,7 +4,7 @@
 #include "tac.h"
 
 #define MACHINE_REGISTER_COUNT 16
-#define REGISTERS_TO_ALLOCATE 5
+#define REGISTERS_TO_ALLOCATE 3
 // definitions for what we intend to use as scratch registers when applicable
 #define SCRATCH_REGISTER 0
 #define SECOND_SCRATCH_REGISTER 1
@@ -102,6 +102,7 @@ void assignRegisters(struct CodegenMetadata *metadata);
  * finds lifetimes and lifetime overlaps
  * figures out which lifetimes are in contention for registers
  * then gives stack offset or register indices to all lifetimes
+ * returns the number of bytes of stack space required for locals
  */
 
-void allocateRegisters(struct CodegenMetadata *metadata);
+int allocateRegisters(struct CodegenMetadata *metadata);

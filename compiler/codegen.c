@@ -275,7 +275,6 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 			start.argStackSize = 0;
 			start.arguments = NULL;
 			start.BasicBlockList = globalBlockList;
-			start.localStackSize = 0;
 			start.mainScope = table->globalScope;
 			start.name = "START";
 			start.returnType.indirectionLevel = 0;
@@ -318,100 +317,16 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 	struct CodegenMetadata metadata;
 	memset(&metadata, 0, sizeof(struct CodegenMetadata));
 	metadata.function = function;
-	allocateRegisters(&metadata);
+	int localStackSize = allocateRegisters(&metadata);
+
+	printf("need %d bytes on stack :)\n", localStackSize);
 	
-	// printf("\n");
-	// printf("at most %d concurrent lifetimes\n", mostConcurrentLifetimes);
-
-	// spillVariables(&metadata, mostConcurrentLifetimes);
-
-	// sortSpilledLifetimes(&metadata);
-
-	/*
-	// find the total size of the function's stack frame containing local variables *and* spilled variables
-	for (int i = 0; i < metadata.spilledLifetimes->size; i++)
-	{
-		struct Lifetime *thisLifetime = metadata.spilledLifetimes->data[i];
-		int thisSize = Scope_getSizeOfType(function->mainScope, &thisLifetime->type);
-
-		// if the variable isn't a local pointer (can calculate local pointers on the fly from base pointer so no need to store)
-		if (thisLifetime->myObject == NULL)
-		{
-			struct ScopeMember *thisVariableEntry = Scope_lookup(function->mainScope, thisLifetime->name);
-			char stackSlotExists = 0;
-			if (thisVariableEntry != NULL)
-			{
-				if (thisVariableEntry->type == e_argument)
-				{
-					struct VariableEntry *thisVariable = thisVariableEntry->entry;
-					thisLifetime->stackOrRegLocation = thisVariable->stackOffset;
-					stackSlotExists = 1;
-				}
-			}
-
-			if (!stackSlotExists)
-			{
-				// constant offset of -2 for return address
-				function->localStackSize -= thisSize;
-				thisLifetime->stackOrRegLocation = -1 * function->localStackSize;
-			}
-		}
-	}*/
-
-	/*
-	printf("LIFETIMES FOR %s\n", metadata.function->name);
-	for (struct LinkedListNode *runner = metadata.allLifetimes->head; runner != NULL; runner = runner->next)
-	{
-		struct Lifetime *l = runner->data;
-		printf("%30s: ", l->name);
-		for (int i = 0; i < metadata.largestTacIndex; i++)
-		{
-			if (i >= l->start && i <= l->end)
-			{
-				printf("*");
-			}
-			else
-			{
-				printf(" ");
-			}
-		}
-		if (l->isSpilled)
-		{
-			if ((l->myObject != NULL) && l->myObject->isGlobal)
-			{
-				printf("Global");
-			}
-			else
-			{
-				printf("%%bp+%d", l->stackOrRegLocation);
-			}
-		}
-		else
-		{
-			printf("%s", registerNames[l->stackOrRegLocation]);
-		}
-
-		if (l->myObject != NULL)
-		{
-			printf(" - %d bytes\n", Scope_getSizeOfType(function->mainScope, &l->myObject->type) * l->myObject->arraySize);
-		}
-		else
-		{
-
-			printf(" - %d bytes\n", Scope_getSizeOfType(function->mainScope, &l->type));
-		}
-	}
-	*/
-
-	// actual registers have been assigned to variables
-	printf(".");
-
 	// emit function prologue
 	fprintf(outFile, "%s:\n", function->name);
 
-	if (function->localStackSize < 0)
+	if (localStackSize < 0)
 	{
-		fprintf(outFile, "\tsubi %%sp, %%sp, $%d\n", -1 * function->localStackSize);
+		fprintf(outFile, "\tsubi %%sp, %%sp, $%d\n", localStackSize);
 	}
 
 	for (int i = REGISTERS_TO_ALLOCATE - 1; i >= 0; i--)
@@ -468,9 +383,9 @@ void generateCodeForFunction(struct FunctionEntry *function, FILE *outFile)
 		}
 	}
 
-	if (function->localStackSize < 0)
+	if (localStackSize < 0)
 	{
-		fprintf(outFile, "\taddi %%sp, %%sp, $%d\n", -1 * function->localStackSize);
+		fprintf(outFile, "\taddi %%sp, %%sp, $%d\n", localStackSize);
 	}
 
 	if (function->argStackSize > 0)

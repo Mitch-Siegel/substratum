@@ -38,7 +38,6 @@ struct Scope
 
 struct FunctionEntry
 {
-	int localStackSize;
 	int argStackSize;
 	struct Type returnType;
 	struct Scope *mainScope;
