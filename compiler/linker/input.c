@@ -134,28 +134,31 @@ unsigned char readHex(char *str)
 char *inBuf = NULL;
 size_t bufSize = 0;
 
-struct Type *parseType(char *declString, struct Symbol *wipSymbol)
+struct Type *parseType(FILE *inFile, char *declString, struct Symbol *wipSymbol, char canInitialize)
 {
     char *lasts = NULL;
 
     struct Type *parsed = malloc(sizeof(struct Type));
-    char *token = strtok_r(declString, " ", &lasts);
+    memset(parsed, 0, sizeof(struct Type));
 
-    if (!strstr(token, "uint8"))
+    
+    char *token = strtok_r(declString, " ", &lasts);
+    if (strstr(token, "uint8"))
     {
         parsed->basicType = vt_uint8;
     }
-    else if (!strstr(token, "uint16"))
+    else if (strstr(token, "uint16"))
     {
         parsed->basicType = vt_uint16;
     }
-    else if (!strstr(token, "uint32"))
+    else if (strstr(token, "uint32"))
     {
         parsed->basicType = vt_uint32;
     }
-    else if (!strstr(token, "NOTYPE"))
+    else if (strstr(token, "NOTYPE"))
     {
         parsed->basicType = vt_null;
+        return parsed; // immediately return if notype, nothing else to parse
     }
     else
     {
@@ -205,23 +208,27 @@ struct Type *parseType(char *declString, struct Symbol *wipSymbol)
         }
     }
 
-    getline_force_metadata(&inBuf, &bufSize, wipSymbol);
-    if(!strcmp(inBuf, "noinitialize"))
+    if (canInitialize)
     {
-        parsed->initializeTo = NULL;
-    }
-    else
-    {
-        if(strcmp(inBuf, "initialize"))
+        getline_force_metadata(&inBuf, &bufSize, inFile, wipSymbol);
+        if (!strcmp(inBuf, "noinitialize"))
         {
-            ErrorAndExit(ERROR_INTERNAL, "Expected either 'initialize' or 'noinitialize' after type, got %s instead!\n", inBuf);
-        if(parsed->arraySize)
-        {
-            parsed->initializeArrayTo = malloc(parsed->arraySize * sizeof(char *));
+            parsed->initializeTo = NULL;
         }
         else
         {
-            // parsed->initializeArrayTo = malloc(getsize);
+            if (strcmp(inBuf, "initialize"))
+            {
+                ErrorAndExit(ERROR_INTERNAL, "Expected either 'initialize' or 'noinitialize' after type, got %s instead!\n", inBuf);
+            }
+            if (parsed->arraySize)
+            {
+                parsed->initializeArrayTo = malloc(parsed->arraySize * sizeof(char *));
+            }
+            else
+            {
+                // parsed->initializeArrayTo = malloc(getsize);
+            }
         }
     }
 
@@ -237,7 +244,7 @@ void parseFunctionDeclaration(struct Symbol *wipSymbol, FILE *inFile)
         ErrorAndExit(ERROR_INTERNAL, "Expected returns [type] but got %s instead!\n", token);
     }
 
-    wipSymbol->data.asFunction.returnType = parseType(inBuf + strlen(token) + 1);
+    wipSymbol->data.asFunction.returnType = parseType(inFile, inBuf + strlen(token) + 1, wipSymbol, 0);
 
     getline_force_metadata(&inBuf, &bufSize, inFile, wipSymbol);
     token = strtok(inBuf, " ");
@@ -265,7 +272,7 @@ void parseFunctionDeclaration(struct Symbol *wipSymbol, FILE *inFile)
 void parseVariable(struct Symbol *wipSymbol, FILE *inFile)
 {
     getline_force_metadata(&inBuf, &bufSize, inFile, wipSymbol);
-    struct Type *varType = parseType(inBuf);
+    struct Type *varType = parseType(inFile, inBuf, wipSymbol, 1);
     wipSymbol->data.asVariable = *varType;
     free(varType);
 }

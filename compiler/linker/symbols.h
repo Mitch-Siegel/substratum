@@ -62,7 +62,7 @@ char *symbolEnumToName(enum LinkedSymbol s);
 
 int compareSymbols(struct Symbol *a, struct Symbol *b);
 
-struct Type *parseType(char *declString);
+struct Type *parseType(FILE *inFile, char *declString, struct Symbol *wipSymbol, char canInitialize);
 
 char addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire);
 

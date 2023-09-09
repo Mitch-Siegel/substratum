@@ -20,6 +20,7 @@ uint16 med;
 uint8 small;
 uint32 big2;
 
+/*
 fun printFibs(uint8 n->void)
 {
 	uint8 i = 0;
@@ -30,23 +31,33 @@ fun printFibs(uint8 n->void)
 		big2 = big2 + i;
 		med = med + big2;
 		small = small + med;
-		printNum(fib(i), 0);
+		//printNum(fib(i), 0);
 		i = i + 1;
 		if(i < n)
 		{
-			print(',');
+			//print(',');
 		}
 	}
-	print(10);
-}
+	//print(10);
+}*/
 
 fun main(->void)
 {
-	printStr("asdf");
+	uint8 *str = "asdf";
+	uint8 char = str[1];
 	asm
 	{
 		hlt
 	};
+	print(str[1]);
+	print(str[1]);
+	print(str[2]);
+	
+	asm
+	{
+		hlt
+	};
+	printStr("asdf");
 	/*
 	printNum(0, 1);
 	uint8 *fibStr = "Fibonacci: ";
