@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "symtab.h" // for struct Type definition
 
 #ifndef _SYMBOLS_H_
 #define _SYMBOLS_H_
@@ -18,24 +19,12 @@ enum LinkDirection
     require,
 };
 
-struct LinkerType
-{
-    char isPrimitive;
-    int size;
-    struct
-    {
-        char isStruct;
-        char *name;
-    } structOrUnion;
-    int indirectionLevel;
-};
-
 struct FunctionDeclarationSymbol
 {
     char *name;
-    struct LinkerType *returnType;
+    struct Type *returnType;
     int nArgs;
-    struct LinkerType *args;
+    struct Type *args;
 };
 
 struct Object
@@ -52,7 +41,7 @@ struct Symbol
     enum LinkedSymbol symbolType; // what type of symbol this is
     union
     {
-        struct LinkerType asVariable;
+        struct Type asVariable;
         struct FunctionDeclarationSymbol asFunction;
         struct Object asObject;
     } data;                         // union exact details about this symbol
@@ -73,7 +62,7 @@ char *symbolEnumToName(enum LinkedSymbol s);
 
 int compareSymbols(struct Symbol *a, struct Symbol *b);
 
-struct LinkerType *parseType(char *declString);
+struct Type *parseType(char *declString);
 
 char addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire);
 

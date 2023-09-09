@@ -147,11 +147,9 @@ int populateBuffer(struct RollingBuffer *b, FILE *inFile, FILE *outFile)
                     do
                     {
                         gotten = getCharTrack(inFile);
-                        printf("%c\n", gotten);
                         if (gotten == '*')
                         {
                             int second_gotten = getCharTrack(inFile);
-                            printf("%c\n", second_gotten);
                             if (second_gotten == '/')
                             {
                                 inBlockComment = 0;
@@ -165,7 +163,12 @@ int populateBuffer(struct RollingBuffer *b, FILE *inFile, FILE *outFile)
                     }
                     else
                     {
-                        fprintf(outFile, "#line %d\n", curPos[POS_LINE]);
+                        char lineNum[64];
+                        int len = snprintf(lineNum, 63, "#line %d\n", curPos[POS_LINE]);
+                        for(int i = 0; i < len; i++)
+                        {
+                            RollingBuffer_Add(b, lineNum[i]);
+                        }
                         if (gotten == EOF)
                         {
                             return EOF;
@@ -360,4 +363,5 @@ int main(int argc, char **argv)
 
     memset(curPos, 0, 2 * sizeof(int));
     preprocessFile(argv[1], NULL, outFile);
+    printf("preprocessor done\n");
 }

@@ -3,6 +3,52 @@
 
 #include <string.h>
 
+int GetSizeOfPrimitive(struct Type *t)
+{
+    int size = 0;
+
+    switch (t->basicType)
+    {
+    case vt_null:
+        ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_null!\n");
+        break;
+
+    case vt_uint8:
+        size = 1;
+        break;
+
+    case vt_uint16:
+        size = 2;
+        break;
+
+    case vt_uint32:
+        size = 4;
+        break;
+
+    case vt_class:
+        ErrorAndExit(ERROR_INTERNAL, "GetSizeOfPrimitive called with basic type of vt_class!!\n");
+    }
+
+    if (t->arraySize > 0)
+    {
+        if (t->indirectionLevel > 1)
+        {
+            size = 4;
+        }
+
+        size *= t->arraySize;
+    }
+    else
+    {
+        if (t->indirectionLevel > 0)
+        {
+            size = 4;
+        }
+    }
+
+    return size;
+}
+
 struct Symbol *Symbol_New(char *name, enum LinkDirection direction, enum LinkedSymbol symbolType, char *fromFile)
 {
     struct Symbol *wip = malloc(sizeof(struct Symbol));
@@ -69,7 +115,7 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
 
         {
         case s_variable:
-            fprintf(f, "%s:\n#res %d\n", s->name, s->data.asVariable.size);
+            fprintf(f, "%s:\n#res %d\n", s->name, GetSizeOfPrimitive(&s->data.asVariable));
             break;
 
         case s_function_declaration:
@@ -234,12 +280,12 @@ char addExport(struct LinkedList **exports, struct LinkedList **requires, struct
 
         if (toAdd->data.asFunction.nArgs)
         {
-            funcDefRequired->data.asFunction.args = malloc(toAdd->data.asFunction.nArgs * sizeof(struct LinkerType));
+            funcDefRequired->data.asFunction.args = malloc(toAdd->data.asFunction.nArgs * sizeof(struct Type));
         }
-        memcpy(funcDefRequired->data.asFunction.args, toAdd->data.asFunction.args, toAdd->data.asFunction.nArgs * sizeof(struct LinkerType));
+        memcpy(funcDefRequired->data.asFunction.args, toAdd->data.asFunction.args, toAdd->data.asFunction.nArgs * sizeof(struct Type));
 
-        funcDefRequired->data.asFunction.returnType = malloc(sizeof(struct LinkerType));
-        memcpy(funcDefRequired->data.asFunction.returnType, toAdd->data.asFunction.returnType, sizeof(struct LinkerType));
+        funcDefRequired->data.asFunction.returnType = malloc(sizeof(struct Type));
+        memcpy(funcDefRequired->data.asFunction.returnType, toAdd->data.asFunction.returnType, sizeof(struct Type));
 
         for (struct LinkedListNode *runner = toAdd->lines->head; runner != NULL; runner = runner->next)
         {
@@ -251,7 +297,7 @@ char addExport(struct LinkedList **exports, struct LinkedList **requires, struct
             LinkedList_Append(funcDefRequired->linkerLines, strdup(runner->data));
         }
 
-        if(addRequire(exports, requires, funcDefRequired))
+        if (addRequire(exports, requires, funcDefRequired))
         {
             Symbol_Free(funcDefRequired);
         }

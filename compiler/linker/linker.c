@@ -205,9 +205,8 @@ int main(int argc, char **argv)
         struct Symbol *mainFunction = Symbol_New(Dictionary_LookupOrInsert(symbolNames, "main"), require, s_function_definition, "");
         mainFunction->data.asFunction.nArgs = 0;
 
-        struct LinkerType *mainReturnType = malloc(sizeof(struct LinkerType));
-        mainReturnType->isPrimitive = 1;
-        mainReturnType->size = 0;
+        struct Type *mainReturnType = malloc(sizeof(struct Type));
+        mainReturnType->basicType = vt_null;
         mainReturnType->indirectionLevel = 0;
 
         mainFunction->data.asFunction.returnType = mainReturnType;

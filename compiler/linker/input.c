@@ -134,28 +134,28 @@ unsigned char readHex(char *str)
 char *inBuf = NULL;
 size_t bufSize = 0;
 
-struct LinkerType *parseType(char *declString)
+struct Type *parseType(char *declString, struct Symbol *wipSymbol)
 {
     char *lasts = NULL;
 
-    struct LinkerType *parsed = malloc(sizeof(struct LinkerType));
+    struct Type *parsed = malloc(sizeof(struct Type));
     char *token = strtok_r(declString, " ", &lasts);
 
-    if (!strcmp(token, "uint8"))
+    if (!strstr(token, "uint8"))
     {
-        parsed->size = 1;
+        parsed->basicType = vt_uint8;
     }
-    else if (!strcmp(token, "uint16"))
+    else if (!strstr(token, "uint16"))
     {
-        parsed->size = 2;
+        parsed->basicType = vt_uint16;
     }
-    else if (!strcmp(token, "uint32"))
+    else if (!strstr(token, "uint32"))
     {
-        parsed->size = 4;
+        parsed->basicType = vt_uint32;
     }
-    else if(!strcmp(token, "NOTYPE"))
+    else if (!strstr(token, "NOTYPE"))
     {
-        parsed->size = 0;
+        parsed->basicType = vt_null;
     }
     else
     {
@@ -167,30 +167,62 @@ struct LinkerType *parseType(char *declString)
     int tokLen = strlen(token);
     int starStartIndex = 0;
 
-    for(int i = 0; i < tokLen; i++)
+    for (int i = 0; i < tokLen; i++)
     {
-        if(token[i] == '*')
+        if (token[i] == '*')
         {
             starStartIndex = i;
             break;
         }
     }
 
-    if(starStartIndex)
+    if (starStartIndex)
     {
-        for(int i = starStartIndex; i < tokLen; i++)
+        for (int i = starStartIndex; i < tokLen; i++)
         {
-            if(token[i] == '*')
+            if (token[i] == '*')
             {
                 parsed->indirectionLevel++;
             }
         }
     }
-    
-
-    if (parsed->indirectionLevel)
+    else
     {
-        parsed->size = 4;
+        if (token[0] == '[')
+        {
+            char *tokNumOnly = strdup(token + 1);
+            for (int i = 0; i < strlen(tokNumOnly); i++)
+            {
+                if (tokNumOnly[i] == ']')
+                {
+                    tokNumOnly[i] = '\0';
+                    break;
+                }
+            }
+
+            parsed->arraySize = atoi(tokNumOnly);
+            free(tokNumOnly);
+        }
+    }
+
+    getline_force_metadata(&inBuf, &bufSize, wipSymbol);
+    if(!strcmp(inBuf, "noinitialize"))
+    {
+        parsed->initializeTo = NULL;
+    }
+    else
+    {
+        if(strcmp(inBuf, "initialize"))
+        {
+            ErrorAndExit(ERROR_INTERNAL, "Expected either 'initialize' or 'noinitialize' after type, got %s instead!\n", inBuf);
+        if(parsed->arraySize)
+        {
+            parsed->initializeArrayTo = malloc(parsed->arraySize * sizeof(char *));
+        }
+        else
+        {
+            // parsed->initializeArrayTo = malloc(getsize);
+        }
     }
 
     return parsed;
@@ -215,7 +247,7 @@ void parseFunctionDeclaration(struct Symbol *wipSymbol, FILE *inFile)
 
     if (nArgs > 0)
     {
-        wipSymbol->data.asFunction.args = malloc(nArgs * sizeof(struct LinkerType));
+        wipSymbol->data.asFunction.args = malloc(nArgs * sizeof(struct Type));
     }
 
     token = strtok(NULL, " ");
@@ -233,7 +265,7 @@ void parseFunctionDeclaration(struct Symbol *wipSymbol, FILE *inFile)
 void parseVariable(struct Symbol *wipSymbol, FILE *inFile)
 {
     getline_force_metadata(&inBuf, &bufSize, inFile, wipSymbol);
-    struct LinkerType *varType = parseType(inBuf);
+    struct Type *varType = parseType(inBuf);
     wipSymbol->data.asVariable = *varType;
     free(varType);
 }

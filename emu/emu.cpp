@@ -7,7 +7,7 @@
 #include "names.hpp"
 #include "memory.h"
 
-// #define PRINTEXECUTION
+#define PRINTEXECUTION
 
 SystemMemory memory;
 // uint8_t memory[0x10000] = {0};

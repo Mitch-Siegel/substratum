@@ -896,7 +896,13 @@ void walkFunctionCall(struct AST *tree,
 		}
 		else
 		{
-			ErrorWithAST(ERROR_CODE, pushedArgument, "Potential narrowing conversion passed to argument %s of function %s\n", expectedArgument->name, calledFunction->name);
+			char *convertFromType = Type_GetName(&push->operands[0].type);
+			char *convertToTope = Type_GetName(&expectedArgument->type);
+			ErrorWithAST(ERROR_CODE, pushedArgument, "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s\n", 
+			expectedArgument->name, 
+			calledFunction->name,
+			convertFromType,
+			convertToTope);
 		}
 
 		push->index = (*TACIndex)++;
@@ -1184,4 +1190,5 @@ void walkStringLiteral(struct AST *tree,
 	free(stringValue);
 	populateTACOperandFromVariable(destinationOperand, stringLiteralEntry);
 	destinationOperand->name.str = stringName;
+	destinationOperand->type.arraySize = 0;
 }

@@ -550,6 +550,7 @@ int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 	{
 		struct Type elementType = v->type;
 		elementType.indirectionLevel--;
+		elementType.arraySize = 0;
 		return Scope_getSizeOfType(scope, &elementType);
 	}
 	else

@@ -78,7 +78,11 @@ void verifyCodegenPrimitive(struct TACOperand *operand)
 	}
 }
 
-void WriteVariable(FILE *outFile, struct LinkedList *lifetimes, struct Scope *scope, struct TACOperand *writtenTo, int sourceRegIndex)
+void WriteVariable(FILE *outFile,
+				   struct LinkedList *lifetimes,
+				   struct Scope *scope,
+				   struct TACOperand *writtenTo,
+				   int sourceRegIndex)
 {
 	verifyCodegenPrimitive(writtenTo);
 	struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, writtenTo->name.str);
@@ -92,30 +96,24 @@ void WriteVariable(FILE *outFile, struct LinkedList *lifetimes, struct Scope *sc
 	case wb_register:
 		if (sourceRegIndex != relevantLifetime->registerLocation)
 		{
-			fprintf(outFile, "\t;Write variable %s\n", relevantLifetime->name);
+			fprintf(outFile, "\t;Write register variable %s\n", relevantLifetime->name);
 			fprintf(outFile, "\t%s %s, %s\n", SelectMovWidth(scope, writtenTo), registerNames[relevantLifetime->registerLocation], registerNames[sourceRegIndex]);
 		}
 		break;
 
 	case wb_global:
 	{
-		ErrorAndExit(ERROR_INTERNAL, "writeback for global variables not yet implemented!\n");
 		const char *movOp = SelectMovWidth(scope, writtenTo);
-		if (relevantLifetime->stackLocation >= 0)
-		{
-			fprintf(outFile, "\t;Write variable %s\n", relevantLifetime->name);
-			fprintf(outFile, "\t%s (%%bp+%d), %s\n", movOp, relevantLifetime->stackLocation, registerNames[sourceRegIndex]);
-		}
-		else
-		{
-			fprintf(outFile, "\t;Write variable %s\n", relevantLifetime->name);
-			fprintf(outFile, "\t%s (%%bp%d), %s\n", movOp, relevantLifetime->stackLocation, registerNames[sourceRegIndex]);
-		}
+		fprintf(outFile, "\t;Write (global) variable %s\n", relevantLifetime->name);
+		fprintf(outFile, "\tmov %s, %s\n", registerNames[RETURN_REGISTER], relevantLifetime->name);
+		fprintf(outFile, "\t%s (%s), %s\n", movOp, registerNames[RETURN_REGISTER], registerNames[sourceRegIndex]);
 	}
 	break;
 
 	case wb_stack:
 	{
+		fprintf(outFile, "\t;Write stack variable %s\n", relevantLifetime->name);
+
 		const char *movOp = SelectMovWidthForLifetime(scope, relevantLifetime);
 		if (relevantLifetime->stackLocation >= 0)
 		{
@@ -182,7 +180,12 @@ int placeOrFindOperandInRegister(FILE *outFile,
 
 		const char *movOp = SelectMovWidthForLifetime(scope, relevantLifetime);
 		const char *usedRegister = registerNames[registerIndex];
-		fprintf(outFile, "\t%s %s, %s\n", movOp, usedRegister, relevantLifetime->name);
+		fprintf(outFile, "\tmov %s, %s\n", usedRegister, relevantLifetime->name);
+
+		if (relevantLifetime->type.indirectionLevel == 0)
+		{
+			fprintf(outFile, "\t%s %s, (%s)\n", movOp, usedRegister, usedRegister);
+		}
 		return registerIndex;
 	}
 	break;
@@ -321,6 +324,37 @@ void generateCode(struct SymbolTable *table, FILE *outFile)
 			char *typeName = Type_GetName(&v->type);
 			fprintf(outFile, "%s %s\n", typeName, v->name);
 			free(typeName);
+			if (v->type.initializeTo != NULL)
+			{
+				fprintf(outFile, "initialize\n");
+				if (v->type.arraySize)
+				{
+					for (int e = 0; e < v->type.arraySize; e++)
+					{
+						fprintf(outFile, "#d8 ");
+						for (int i = 0; i < Scope_getSizeOfArrayElement(table->globalScope, v); i++)
+						{
+
+							fprintf(outFile, "0x%02x ", v->type.initializeArrayTo[e][i]);
+						}
+						fprintf(outFile, "\n");
+					}
+				}
+				else
+				{
+					fprintf(outFile, "#d8 ");
+					for (int i = 0; i < Scope_getSizeOfType(table->globalScope, &v->type); i++)
+					{
+						fprintf(outFile, "0x%02x ", v->type.initializeTo[i]);
+					}
+					fprintf(outFile, "\n");
+				}
+			}
+			else
+			{
+				fprintf(outFile, "noinitialize\n");
+			}
+
 			fprintf(outFile, "~end export variable %s\n", thisMember->name);
 		}
 		break;
