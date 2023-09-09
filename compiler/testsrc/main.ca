@@ -1,27 +1,38 @@
+
+
+fun printNum(uint32 n->void)
+{
+	asm{
+		mov %r0, (%bp+8)
+		out $1, %r0
+	};
+}
+
+
+fun fibRec(uint8 n->uint32)
+{
+	if(n > 1)
+	{
+		return fibRec(n - 1) + fibRec(n - 2);
+	}
+	return n;
+}
+
 fun main(->void)
 {
-	uint8 a = 0;
-	uint8 b = a + 1;
-	uint8 c = b + 1;
-	a = 1;
-	/*uint8 small[6];
-	uint8 large[4];
-	uint8 medium[2];
-	uint16 wacky[2];
-	uint8 a;
-	uint8 b;
-	uint32 c;
-	uint16 d;
-	uint32 e;
+	uint32 fibs[15];
 
-	small[0] = 0;
-	small[1] = 0;
+	uint8 i = 0;
+	while(i < 15)
+	{
+		fibs[i] = fibRec(i);
+		i = i + 1;
+	}
 
-	e = e;
-	d = d;
-	c = c;
-	b = b;
-	c = 1;
-	a = a;	
-	small[0] = small[0];*/
+	i = 0;
+	while(i < 15)
+	{
+		printNum(fibs[i]);
+		i = i + 1;
+	}
 }

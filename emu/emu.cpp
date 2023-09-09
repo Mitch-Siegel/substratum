@@ -591,7 +591,7 @@ void SWI(uint8_t num)
     registers[ip] = readW(num * 4);
 }
 
-void Output(uint8_t port, uint8_t byte)
+void Output(uint8_t port, uint32_t byte)
 {
     switch (port)
     {
@@ -601,7 +601,7 @@ void Output(uint8_t port, uint8_t byte)
         break;
 
     case 0x01:
-        printf("%02x\n", byte);
+        printf("%i\n", byte);
         fflush(stdout);
         break;
 
