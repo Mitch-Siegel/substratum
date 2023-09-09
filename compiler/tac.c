@@ -185,12 +185,6 @@ char *getAsmOp(enum TACType t)
 	case tt_assign:
 		return "";
 
-	case tt_cast_assign:
-		return "";
-
-	case tt_declare:
-		return "";
-
 	case tt_add:
 		return "add";
 
@@ -434,20 +428,6 @@ void printTACLine(struct TACLine *it)
 		width += printf("%s = %s", it->operands[0].name.str, it->operands[1].name.str);
 		break;
 
-	case tt_cast_assign:
-		width += printf("%s CAST= %s", it->operands[0].name.str, it->operands[1].name.str);
-		break;
-
-	case tt_declare:
-		width += printf("declare %s", it->operands[0].name.str);
-
-		// also deal with printing the size of the array it is declared as
-		if (it->operands[1].name.str != NULL)
-		{
-			width += printf("[%s]", it->operands[1].name.str);
-		}
-		break;
-
 	case tt_push:
 		width += printf("push %s", it->operands[0].name.str);
 		break;
@@ -630,14 +610,6 @@ char *sPrintTACLine(struct TACLine *it)
 
 	case tt_assign:
 		width += sprintf(tacString, "%s = %s", it->operands[0].name.str, it->operands[1].name.str);
-		break;
-
-	case tt_cast_assign:
-		width += sprintf(tacString, "%s CAST= %s", it->operands[0].name.str, it->operands[1].name.str);
-		break;
-
-	case tt_declare:
-		width += sprintf(tacString, "declare %s", it->operands[0].name.str);
 		break;
 
 	case tt_push:

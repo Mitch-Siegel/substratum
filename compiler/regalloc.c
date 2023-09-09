@@ -165,14 +165,6 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_asm:
 				break;
 
-			case tt_declare:
-			{
-				struct TACOperand *declared = &thisLine->operands[0];
-				recordVariableRead(lifetimes, declared, scope, TACIndex);
-				// updateOrInsertLifetime(lifetimes, declared->name.str, &declared->type, TACIndex, 0);
-			}
-			break;
-
 			case tt_call:
 				if (TAC_GetTypeOfOperand(thisLine, 0)->basicType != vt_null)
 				{
@@ -181,7 +173,6 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 				break;
 
 			case tt_assign:
-			case tt_cast_assign:
 			{
 				recordVariableWrite(lifetimes, &thisLine->operands[0], scope, TACIndex);
 				switch (thisLine->operands[1].permutation)

@@ -246,6 +246,7 @@ int placeOrFindOperandInRegister(struct LinkedList *lifetimes, struct Scope *sco
 	break;
 
 	case wb_unknown:
+	default:
 		ErrorAndExit(ERROR_INTERNAL, "Lifetime for %s has unknown writeback location!\n", relevantLifetime->name);
 	}
 }
@@ -268,6 +269,7 @@ int pickWriteRegister(struct LinkedList *lifetimes, struct Scope *scope, struct 
 		return registerIndex;
 
 	case wb_unknown:
+	default:
 		ErrorAndExit(ERROR_INTERNAL, "Lifetime for %s has unknown writeback location!\n", relevantLifetime->name);
 	}
 }
@@ -577,17 +579,12 @@ void GenerateCodeForBasicBlock(struct BasicBlock *thisBlock,
 			break;
 
 		case tt_assign:
-		case tt_cast_assign:
 		{
 			// only works for primitive types that will fit in registers
 			int opLocReg = placeOrFindOperandInRegister(allLifetimes, thisScope, thisTAC->operands[1], outFile, reservedRegisters[0], touchedRegisters);
 			WriteVariable(outFile, allLifetimes, thisScope, &thisTAC->operands[0], opLocReg);
 		}
 		break;
-
-		case tt_declare:
-			// nothing to do
-			break;
 
 		case tt_add:
 		case tt_subtract:

@@ -104,7 +104,6 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 {
 	printf("walkVariableDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
-	struct TACLine *declarationLine = newTACLine((*TACIndex)++, tt_declare, tree);
 	enum basicTypes declaredBasicType;
 	switch (tree->type)
 	{
@@ -136,10 +135,7 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	{
 		declaredTree = declaredTree->child;
 		char *arraySizeString = declaredTree->sibling->value;
-		declarationLine->operands[1].name.str = arraySizeString;
 		int declaredArraySize = atoi(arraySizeString);
-		declarationLine->operands[1].permutation = vp_literal;
-		declarationLine->operands[1].type.basicType = selectVariableTypeForLiteral(arraySizeString);
 
 		declaredType.arraySize = declaredArraySize;
 		declaredType.indirectionLevel++;
@@ -152,14 +148,8 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 																	declaredTree,
 																	&declaredType,
 																	(scope->parentScope == NULL),
-																	declarationLine->index,
+																	*TACIndex,
 																	isArgument);
-	declarationLine->operands[0].name.str = declaredTree->value;
-
-	// use the *VariableEntry*'s indirection level as local arrays will have magically (within Scope_createVariable) increased from 0 to 1 where relevant
-	declarationLine->operands[0].type = declaredType;
-	
-	BasicBlock_append(block, declarationLine);
 
 	return declaredVariable;
 }
