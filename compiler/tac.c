@@ -1,5 +1,180 @@
 #include "tac.h"
 
+struct Type *TACOperand_GetType(struct TACOperand *o)
+{
+	if (o->castAsType.basicType != vt_null)
+	{
+		return &o->castAsType;
+	}
+
+	return &o->type;
+}
+
+struct Type *TAC_GetTypeOfOperand(struct TACLine *t, unsigned index)
+{
+	if (index > 3)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Bad index %d passed to TAC_GetTypeOfOperand!\n", index);
+	}
+
+	return TACOperand_GetType(&t->operands[index]);
+}
+
+int Type_Compare(struct Type *a, struct Type *b)
+{
+	if (a->basicType != b->basicType)
+	{
+		return 1;
+	}
+
+	if (a->indirectionLevel != b->indirectionLevel)
+	{
+		return 2;
+	}
+
+	if (a->basicType == vt_class)
+	{
+		return strcmp(a->classType.name, b->classType.name);
+	}
+
+	return 0;
+}
+
+int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
+{
+	if (a->basicType != b->basicType)
+	{
+		switch (a->basicType)
+		{
+		case vt_null:
+			return 1;
+
+		case vt_uint8:
+			switch (b->basicType)
+			{
+			case vt_null:
+			case vt_class:
+				return 1;
+			case vt_uint8:
+			case vt_uint16:
+			case vt_uint32:
+				break;
+
+			default:
+				break;
+			}
+			break;
+
+		case vt_uint16:
+			switch (b->basicType)
+			{
+			case vt_null:
+			case vt_uint8:
+			case vt_class:
+				return 1;
+			case vt_uint16:
+			case vt_uint32:
+				break;
+			}
+			break;
+
+		case vt_uint32:
+			switch (b->basicType)
+			{
+			case vt_null:
+			case vt_uint8:
+			case vt_uint16:
+			case vt_class:
+				return 1;
+
+			case vt_uint32:
+				break;
+			}
+			break;
+
+		case vt_class:
+			switch (b->basicType)
+			{
+			case vt_null:
+			case vt_uint8:
+			case vt_uint16:
+			case vt_uint32:
+				return 1;
+
+			case vt_class:
+				break;
+			}
+		}
+	}
+
+	if (a->indirectionLevel != b->indirectionLevel)
+	{
+		return 2;
+	}
+
+	if (a->basicType == vt_class)
+	{
+		return strcmp(a->classType.name, b->classType.name);
+	}
+	return 0;
+}
+
+char *Type_GetName(struct Type *t)
+{
+	char *typeName = malloc(1024);
+	int len = 0;
+	switch (t->basicType)
+	{
+	case vt_null:
+		len = sprintf(typeName, "NOTYPE");
+		break;
+
+	case vt_uint8:
+		len = sprintf(typeName, "uint8");
+		break;
+
+	case vt_uint16:
+		len = sprintf(typeName, "uint16");
+		break;
+
+	case vt_uint32:
+		len = sprintf(typeName, "uint32");
+		break;
+
+	case vt_class:
+		sprintf(typeName, "%s", t->classType.name);
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Unexpected enum basicTypes value %d seen in Type_GetName!\n", t->basicType);
+	}
+
+	int trueIndirectionLevel = t->indirectionLevel;
+	if (t->arraySize > 0)
+	{
+		trueIndirectionLevel--;
+	}
+	int i;
+	for (i = 0; i < trueIndirectionLevel; i++)
+	{
+		typeName[len + i] = '*';
+		len += sprintf(typeName + len, "*");
+	}
+	typeName[len + i] = '\0';
+
+	if (t->arraySize > 0)
+	{
+		sprintf(typeName + len, "[%d]", t->arraySize);
+	}
+
+	return typeName;
+}
+
+void TACOperand_SetBasicType(struct TACOperand *o, enum basicTypes t, int indirectionLevel)
+{
+	o->type.basicType = t;
+	o->type.indirectionLevel = indirectionLevel;
+}
+
 char *getAsmOp(enum TACType t)
 {
 	switch (t)
@@ -8,12 +183,6 @@ char *getAsmOp(enum TACType t)
 		return "";
 
 	case tt_assign:
-		return "";
-
-	case tt_cast_assign:
-		return "";
-
-	case tt_declare:
 		return "";
 
 	case tt_add:
@@ -103,6 +272,12 @@ char *getAsmOp(enum TACType t)
 	case tt_jne:
 		return "jne";
 
+	case tt_jz:
+		return "jz";
+
+	case tt_jnz:
+		return "jnz";
+
 	case tt_jmp:
 		return "jmp";
 	}
@@ -115,9 +290,15 @@ struct TACLine *newTACLine(int index, enum TACType operation, struct AST *corres
 	for (int i = 0; i < 4; i++)
 	{
 		wip->operands[i].name.str = NULL;
-		wip->operands[i].type = vt_null;
 		wip->operands[i].permutation = vp_standard;
-		wip->operands[i].indirectionLevel = 0;
+
+		wip->operands[i].type.basicType = vt_null;
+		wip->operands[i].type.classType.name = NULL;
+		wip->operands[i].type.indirectionLevel = 0;
+
+		wip->operands[i].castAsType.basicType = vt_null;
+		wip->operands[i].castAsType.classType.name = NULL;
+		wip->operands[i].castAsType.indirectionLevel = 0;
 	}
 	wip->correspondingTree = correspondingTree;
 
@@ -233,6 +414,8 @@ void printTACLine(struct TACLine *it)
 	case tt_jle:
 	case tt_je:
 	case tt_jne:
+	case tt_jz:
+	case tt_jnz:
 	case tt_jmp:
 		width += printf("%s basicblock %d", getAsmOp(it->operation), it->operands[0].name.val);
 		break;
@@ -243,20 +426,6 @@ void printTACLine(struct TACLine *it)
 
 	case tt_assign:
 		width += printf("%s = %s", it->operands[0].name.str, it->operands[1].name.str);
-		break;
-
-	case tt_cast_assign:
-		width += printf("%s CAST= %s", it->operands[0].name.str, it->operands[1].name.str);
-		break;
-
-	case tt_declare:
-		width += printf("declare %s", it->operands[0].name.str);
-
-		// TODO: what is this
-		if (it->operands[1].name.str != NULL)
-		{
-			width += printf("[%s]", it->operands[1].name.str);
-		}
 		break;
 
 	case tt_push:
@@ -291,16 +460,16 @@ void printTACLine(struct TACLine *it)
 		width += printf("end do");
 		break;
 	}
-	while (width++ < 32)
+	while (width++ < 40)
 	{
 		printf(" ");
 	}
 	printf("\t");
 	for (int i = 0; i < 4; i++)
 	{
-		if (it->operands[i].type != vt_null)
+		if (it->operands[i].type.basicType != vt_null)
 		{
-			printf("[%d", it->operands[i].type);
+			printf("[%d", it->operands[i].type.basicType);
 			switch (it->operands[i].permutation)
 			{
 			case vp_standard:
@@ -319,7 +488,13 @@ void printTACLine(struct TACLine *it)
 				printf("O");
 				break;
 			}
-			printf(" %d*]", it->operands[i].indirectionLevel);
+			printf(" %d*", it->operands[i].type.indirectionLevel);
+
+			if (it->operands[i].castAsType.basicType != vt_null)
+			{
+				printf("(%d %d*)", it->operands[i].castAsType.basicType, it->operands[i].castAsType.indirectionLevel);
+			}
+			printf("]");
 		}
 		else
 		{
@@ -423,6 +598,8 @@ char *sPrintTACLine(struct TACLine *it)
 	case tt_jle:
 	case tt_je:
 	case tt_jne:
+	case tt_jz:
+	case tt_jnz:
 	case tt_jmp:
 		width += sprintf(tacString, "%s basicblock %d", getAsmOp(it->operation), it->operands[0].name.val);
 		break;
@@ -433,14 +610,6 @@ char *sPrintTACLine(struct TACLine *it)
 
 	case tt_assign:
 		width += sprintf(tacString, "%s = %s", it->operands[0].name.str, it->operands[1].name.str);
-		break;
-
-	case tt_cast_assign:
-		width += sprintf(tacString, "%s CAST= %s", it->operands[0].name.str, it->operands[1].name.str);
-		break;
-
-	case tt_declare:
-		width += sprintf(tacString, "declare %s", it->operands[0].name.str);
 		break;
 
 	case tt_push:
@@ -476,190 +645,6 @@ char *sPrintTACLine(struct TACLine *it)
 	sprintf(trimmedString, "%s", tacString);
 	free(tacString);
 	return trimmedString;
-}
-
-char checkTACLine(struct TACLine *it)
-{
-	char retval = 0;
-	switch (it->operation)
-	{
-	case tt_asm:
-		break;
-
-	case tt_add:
-	case tt_subtract:
-	case tt_mul:
-	case tt_div:
-		if (it->operands[0].indirectionLevel != it->operands[1].indirectionLevel && it->operands[0].indirectionLevel != it->operands[2].indirectionLevel)
-		{
-			printTACLine(it);
-			printf("\tOperand indirection levels don't match!\n");
-			retval = 1;
-		}
-		break;
-
-	case tt_dereference:
-		if ((it->operands[0].indirectionLevel + 1) != it->operands[1].indirectionLevel)
-		{
-			printTACLine(it);
-			printf("\tOperand indirection levels don't match!\n");
-			retval = 1;
-		}
-
-		if (it->operands[0].type != it->operands[1].type)
-		{
-			printTACLine(it);
-			printf("\tOperand types don't match!\n");
-			retval = 1;
-		}
-		break;
-
-	case tt_reference:
-	{
-		ErrorAndExit(ERROR_INTERNAL, "checkTACLine for tt_reference not yet implemented!\n");
-	}
-	break;
-
-	case tt_memw_1:
-		if ((it->operands[0].indirectionLevel - 1) != it->operands[1].indirectionLevel)
-		{
-			printTACLine(it);
-			printf("\tOperand indirection levels don't match!\n");
-			retval = 1;
-		}
-
-		if (it->operands[0].type != it->operands[1].type)
-		{
-			printTACLine(it);
-			printf("\tOperand types don't match!\n");
-			retval = 1;
-		}
-		break;
-
-	case tt_memw_2:
-	case tt_memw_2_n:
-		if ((it->operands[0].indirectionLevel - 1) != it->operands[2].indirectionLevel)
-		{
-			printTACLine(it);
-			printf("\tOperand indirection levels don't match!\n");
-			retval = 1;
-		}
-
-		if (it->operands[0].type < it->operands[2].type)
-		{
-			printTACLine(it);
-			printf("\tOperand types don't match!\n");
-			retval = 1;
-		}
-		break;
-
-	case tt_memw_3:
-	case tt_memw_3_n:
-		if ((it->operands[0].indirectionLevel - 1) != it->operands[3].indirectionLevel)
-		{
-			printTACLine(it);
-			printf("\tOperand indirection levels don't match!\n");
-			retval = 1;
-		}
-
-		if (it->operands[0].type < it->operands[3].type)
-		{
-			printTACLine(it);
-			printf("\tPotential narrowing conversion: %s %d:%d!\n", it->correspondingTree->sourceFile, it->correspondingTree->sourceLine, it->correspondingTree->sourceCol);
-		}
-		break;
-
-	case tt_memr_1:
-		if ((it->operands[0].indirectionLevel + 1) != it->operands[1].indirectionLevel)
-		{
-			printTACLine(it);
-			printf("\tOperand indirection levels don't match!\n");
-			retval = 1;
-		}
-
-		if (it->operands[0].type != it->operands[1].type)
-		{
-			printTACLine(it);
-			printf("\tOperand types don't match!\n");
-			retval = 1;
-		}
-		break;
-
-	case tt_memr_2:
-	case tt_memr_2_n:
-		if ((it->operands[0].indirectionLevel + 1) != it->operands[2].indirectionLevel)
-		{
-			printTACLine(it);
-			printf("\tOperand indirection levels don't match!\n");
-			retval = 1;
-		}
-
-		if (it->operands[0].type != it->operands[2].type)
-		{
-			printTACLine(it);
-			printf("\tOperand types don't match!\n");
-			retval = 1;
-		}
-		break;
-
-	case tt_memr_3:
-	case tt_memr_3_n:
-		if ((it->operands[0].indirectionLevel + 1) != it->operands[1].indirectionLevel)
-		{
-			printTACLine(it);
-			printf("\tOperand indirection levels don't match!\n");
-			retval = 1;
-		}
-
-		if (it->operands[0].type != it->operands[1].type)
-		{
-			printTACLine(it);
-			printf("\tOperand types don't match!\n");
-			retval = 1;
-		}
-		break;
-		break;
-
-	case tt_jg:
-	case tt_jge:
-	case tt_jl:
-	case tt_jle:
-	case tt_je:
-	case tt_jne:
-	case tt_jmp:
-		break;
-
-	case tt_cmp:
-		break;
-
-	case tt_assign:
-		if (it->operands[0].indirectionLevel != it->operands[1].indirectionLevel)
-		{
-			printTACLine(it);
-			printf("\tOperand indirection levels don't match!\n");
-			retval = 1;
-		}
-
-		if (it->operands[0].type < it->operands[1].type)
-		{
-			printTACLine(it);
-			printf("\tPotential narrowing conversion: %s %d:%d!\n", it->correspondingTree->sourceFile, it->correspondingTree->sourceLine, it->correspondingTree->sourceCol);
-		}
-		break;
-
-	case tt_cast_assign:
-		break;
-
-	case tt_declare:
-	case tt_push:
-	case tt_call:
-	case tt_label:
-	case tt_return:
-	case tt_do:
-	case tt_enddo:
-		break;
-	}
-	return retval;
 }
 
 void freeTAC(struct TACLine *it)
@@ -705,20 +690,6 @@ void BasicBlock_prepend(struct BasicBlock *b, struct TACLine *l)
 {
 	b->containsEffectiveCode |= TACLine_isEffective(l);
 	LinkedList_Prepend(b->TACList, l);
-}
-
-struct TACLine *findLastEffectiveTAC(struct BasicBlock *b)
-{
-	struct LinkedListNode *runner = b->TACList->tail;
-	while (runner != NULL && !TACLine_isEffective(runner->data))
-	{
-		runner = runner->prev;
-	}
-	if (runner == NULL)
-	{
-		return NULL;
-	}
-	return runner->data;
 }
 
 void printBasicBlock(struct BasicBlock *b, int indentLevel)

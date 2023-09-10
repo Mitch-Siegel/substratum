@@ -109,6 +109,7 @@ uint8_t parseOpcode()
             break;
         }
     }
+
     return insOpcodes[i];
 }
 
@@ -140,7 +141,7 @@ uint8_t parseRegister()
 uint16_t parseImmediate()
 {
     scan();
-    uint16_t value;
+    uint16_t value = 0;
     int minBuf = buflen - 9 > 0 ? buflen - 9 : 0;
     for (int i = buflen - 1; i >= minBuf; i--)
     {

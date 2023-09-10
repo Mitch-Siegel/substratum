@@ -122,7 +122,7 @@ int getCharTrack(FILE *inFile)
 }
 
 // attempt to populate the rolling buffer, return the number of characters in the buffer
-int populateBuffer(struct RollingBuffer *b, FILE *inFile)
+int populateBuffer(struct RollingBuffer *b, FILE *inFile, FILE *outFile)
 {
     while ((!feof(inFile)) && (RollingBuffer_Size(b) < longestToken))
     {
@@ -139,7 +139,6 @@ int populateBuffer(struct RollingBuffer *b, FILE *inFile)
                     {
                         gotten = getCharTrack(inFile);
                     } while ((gotten != EOF) && (gotten != '\n'));
-                    RollingBuffer_Add(b, gotten);
                     break;
 
                 case '*':
@@ -164,6 +163,12 @@ int populateBuffer(struct RollingBuffer *b, FILE *inFile)
                     }
                     else
                     {
+                        char lineNum[64];
+                        int len = snprintf(lineNum, 63, "#line %d\n", curPos[POS_LINE]);
+                        for(int i = 0; i < len; i++)
+                        {
+                            RollingBuffer_Add(b, lineNum[i]);
+                        }
                         if (gotten == EOF)
                         {
                             return EOF;
@@ -178,6 +183,7 @@ int populateBuffer(struct RollingBuffer *b, FILE *inFile)
                     {
                         RollingBuffer_Add(b, gotten);
                     }
+                    break;
                 }
             }
             else
@@ -244,7 +250,7 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
     int nCharsPopulated = 0;
 
     // try to grab more input for the buffer, if we can't and nothing left in buffer, we are done
-    while ((nCharsPopulated = populateBuffer(&mainBuffer, inFile) > 0) || (RollingBuffer_Size(&mainBuffer) > 0))
+    while (((nCharsPopulated = populateBuffer(&mainBuffer, inFile, outFile)) > 0) || (RollingBuffer_Size(&mainBuffer) > 0))
     {
         int whichToken = detectPreprocessorToken(&mainBuffer);
 
@@ -264,7 +270,7 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
             struct RollingBuffer includeStrBuf;
             RollingBuffer_Setup(&includeStrBuf);
 
-            if (populateBuffer(&mainBuffer, inFile) == EOF)
+            if (populateBuffer(&mainBuffer, inFile, outFile) == EOF)
             {
                 ErrorAndExit(ERROR_CODE, "Got EOF while parsing #include directive!\n");
             }
@@ -278,7 +284,7 @@ void preprocessFile(char *inFileName, char *oldInFileName, FILE *outFile)
             char secondQuoteFound = 0;
             while (!secondQuoteFound)
             {
-                if (populateBuffer(&mainBuffer, inFile) == EOF)
+                if (populateBuffer(&mainBuffer, inFile, outFile) == EOF)
                 {
                     ErrorAndExit(ERROR_CODE, "Got EOF while parsing #include directive!\n");
                 }
@@ -357,4 +363,5 @@ int main(int argc, char **argv)
 
     memset(curPos, 0, 2 * sizeof(int));
     preprocessFile(argv[1], NULL, outFile);
+    printf("preprocessor done\n");
 }

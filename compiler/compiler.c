@@ -14,53 +14,6 @@
 #include "codegen.h"
 #include "serialize.h"
 
-char verifyBasicBlock(struct BasicBlock *b)
-{
-	char blockHasError = 0;
-	for (struct LinkedListNode *runner = b->TACList->head; runner != NULL; runner = runner->next)
-	{
-		struct TACLine *checkedLine = runner->data;
-		char result = checkTACLine(checkedLine);
-		blockHasError |= result;
-		if(result)
-		{
-			printf("\t%s %d:%d\n", checkedLine->correspondingTree->sourceFile, checkedLine->correspondingTree->sourceLine, checkedLine->correspondingTree->sourceCol);
-		}
-	}
-	return blockHasError;
-}
-
-char verifyTAC(struct Scope *s)
-{
-	char foundError = 0;
-	for (int i = 0; i < s->entries->size; i++)
-	{
-		struct ScopeMember *m = s->entries->data[i];
-		switch (m->type)
-		{
-
-		case e_basicblock:
-			foundError |= verifyBasicBlock(m->entry);
-			break;
-
-		case e_scope:
-			foundError |= verifyTAC(m->entry);
-			break;
-
-		case e_function:
-		{
-			struct FunctionEntry *f = m->entry;
-			foundError |= verifyTAC(f->mainScope);
-		}
-		break;
-
-		default:
-			break;
-		}
-	}
-	return foundError;
-}
-
 struct Dictionary *parseDict = NULL;
 int main(int argc, char **argv)
 {
@@ -115,36 +68,36 @@ int main(int argc, char **argv)
 	// serializeAST("astdump", program);
 	// printf("\n");
 
-	// AST_Print(program, 0);
+	AST_Print(program, 0);
 
 	printf("Generating symbol table from AST");
-	struct SymbolTable *theTable = walkAST(program);
+	struct SymbolTable *theTable = linearizeProgram(program);
 	printf("\n");
 
 	if (argc > 3)
 	{
 		printf("Symbol table before scope collapse:\n");
-		SymbolTable_print(theTable, 0);
+		SymbolTable_print(theTable, 1);
 	}
 
-	printf("Linearizing code to basic blocks\n");
-	struct TempList *temps = TempList_New();
-	linearizeProgram(program, theTable->globalScope, parseDict, temps);
+	// printf("Linearizing code to basic blocks\n");
+	// struct TempList *temps = TempList_New();
+	// linearizeProgram(program, theTable->globalScope, parseDict, temps);
 
 	printf("Collapsing scopes\n");
 	SymbolTable_collapseScopes(theTable, parseDict);
 
 
-	if (argc > 3)
+	if (argc > 3 || 1)
 	{
 		printf("Symbol table after linearization/scope collapse:\n");
 		SymbolTable_print(theTable, 1);
 	}
 
-	if(verifyTAC(theTable->globalScope))
+	/*if(verifyTAC(theTable->globalScope))
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Error(s) verifying TAC!\n");
-	}
+	}*/
 
 	// printf("Symbol table after linearization/scope collapse:\n");
 	// SymbolTable_print(theTable, 1);
@@ -181,7 +134,7 @@ int main(int argc, char **argv)
 	fclose(outFile);
 	AST_Free(program);
 
-	TempList_Free(temps);
+	// TempList_Free(temps);
 	Dictionary_Free(parseDict);
 
 	printf("done!\n");

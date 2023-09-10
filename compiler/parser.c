@@ -911,7 +911,7 @@ char *ExpandSourceFromAST(struct AST *tree)
 			snprintf(lineNo, 9, "\n%4d:", nodeToPrint->sourceLine);
 			printedStr = strAppend(printedStr, strdup(lineNo));
 
-			for (int i = 0; i < nodeToPrint->sourceCol; i++)
+			for (int j = 0; j < nodeToPrint->sourceCol; j++)
 			{
 				printedStr = strAppend(printedStr, strdup(" "));
 			}

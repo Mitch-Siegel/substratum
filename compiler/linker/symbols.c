@@ -3,6 +3,52 @@
 
 #include <string.h>
 
+int GetSizeOfPrimitive(struct Type *t)
+{
+    int size = 0;
+
+    switch (t->basicType)
+    {
+    case vt_null:
+        ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_null!\n");
+        break;
+
+    case vt_uint8:
+        size = 1;
+        break;
+
+    case vt_uint16:
+        size = 2;
+        break;
+
+    case vt_uint32:
+        size = 4;
+        break;
+
+    case vt_class:
+        ErrorAndExit(ERROR_INTERNAL, "GetSizeOfPrimitive called with basic type of vt_class!!\n");
+    }
+
+    if (t->arraySize > 0)
+    {
+        if (t->indirectionLevel > 1)
+        {
+            size = 4;
+        }
+
+        size *= t->arraySize;
+    }
+    else
+    {
+        if (t->indirectionLevel > 0)
+        {
+            size = 4;
+        }
+    }
+
+    return size;
+}
+
 struct Symbol *Symbol_New(char *name, enum LinkDirection direction, enum LinkedSymbol symbolType, char *fromFile)
 {
     struct Symbol *wip = malloc(sizeof(struct Symbol));
@@ -69,7 +115,13 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
 
         {
         case s_variable:
-            fprintf(f, "%s:\n#res %d\n", s->name, s->data.asVariable.size);
+            fprintf(f, "%s:\n", s->name);
+            // only reserve space if this variable is not initialized
+            // if it is initialized, the data directives we will output later will reserve the space on their own
+            if (s->data.asVariable.initializeTo == NULL)
+            {
+                fprintf(f, "#res %d\n", GetSizeOfPrimitive(&s->data.asVariable));
+            }
             break;
 
         case s_function_declaration:
@@ -182,16 +234,17 @@ int compareSymbols(struct Symbol *a, struct Symbol *b)
     return strcmp(a->name, b->name);
 }
 
-void addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire)
+char addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire)
 {
     enum LinkedSymbol symbolType = toRequire->symbolType;
     if (LinkedList_Find(requires[symbolType], compareSymbols, toRequire) == NULL)
     {
         LinkedList_Append(requires[symbolType], toRequire);
+        return 0;
     }
     else
     {
-        Symbol_Free(toRequire);
+        return 1;
     }
 }
 
@@ -250,7 +303,10 @@ char addExport(struct LinkedList **exports, struct LinkedList **requires, struct
             LinkedList_Append(funcDefRequired->linkerLines, strdup(runner->data));
         }
 
-        addRequire(exports, requires, funcDefRequired);
+        if (addRequire(exports, requires, funcDefRequired))
+        {
+            Symbol_Free(funcDefRequired);
+        }
     }
 
     // if adding this export satisfies any requires, delete them

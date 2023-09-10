@@ -1,5 +1,5 @@
-#include "math.h"
 #include "print.h"
+#include "math.h"
 
 /* 
  * come up with some magic numbers
@@ -14,12 +14,14 @@
  * printNum(small, 1);
  * should be 15, 105, 560, 76
  */
+
 uint32 big;
 uint16 med;
 uint8 small;
 uint32 big2;
 
-fun printFibs(uint8 n->void)
+
+fun printFibs(uint8 n, uint8 useArrayAlgo->void)
 {
 	uint8 i = 0;
 	while(i < n)
@@ -29,7 +31,14 @@ fun printFibs(uint8 n->void)
 		big2 = big2 + i;
 		med = med + big2;
 		small = small + med;
-		printNum(fib(i), 0);
+		if(useArrayAlgo == 0)
+		{
+			printNum(fibRec(i), 0);
+		}
+		else
+		{
+			printNum(fibArr(i), 0);
+		}
 		i = i + 1;
 		if(i < n)
 		{
@@ -41,16 +50,23 @@ fun printFibs(uint8 n->void)
 
 fun main(->void)
 {
+	printNum(0, 1);
 	uint8 *fibStr = "Fibonacci: ";
 
 	uint8 *timesStr;
 	timesStr = "Times Tables: ";
 	uint8 newlineChar = 10;
-	uint8 index = 5;
+	uint8 index = 13;
 	timesStr[index] = newlineChar;
 
+	
 	printStr(fibStr);
-	printFibs(15);
+	printStr("(Rec. Algo.)");
+	printFibs(25, 0);
+
+	printStr(fibStr);
+	printStr("(Arr. Algo.)");
+	printFibs(25, 1);
 
 	printStr(timesStr);
 	uint8 i = 1;
@@ -75,6 +91,7 @@ fun main(->void)
 	
 	printStr("Number of multiplications: ");
 	printMultiplications();
+
 
 	printStr("Magic Number 1: ");
 	printNum(big, 1);
