@@ -177,6 +177,8 @@ void walkFunctionDeclaration_0(struct AST *tree,
 	struct Type returnType;
 	returnType.basicType = returnBasicType;
 	returnType.indirectionLevel = returnIndirectionLevel;
+	returnType.arraySize = 0;
+	returnType.initializeArrayTo = NULL;
 
 	if (lookedUpFunction != NULL)
 	{
@@ -855,12 +857,12 @@ void walkFunctionCall_0(struct AST *tree,
 		else
 		{
 			char *convertFromType = Type_GetName(&push->operands[0].type);
-			char *convertToTope = Type_GetName(&expectedArgument->type);
+			char *convertToType = Type_GetName(&expectedArgument->type);
 			ErrorWithAST(ERROR_CODE, pushedArgument, "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s\n", 
 			expectedArgument->name, 
 			calledFunction->name,
 			convertFromType,
-			convertToTope);
+			convertToType);
 		}
 
 		push->index = (*TACIndex)++;

@@ -295,10 +295,14 @@ struct TACLine *newTACLine(int index, enum TACType operation, struct AST *corres
 		wip->operands[i].type.basicType = vt_null;
 		wip->operands[i].type.classType.name = NULL;
 		wip->operands[i].type.indirectionLevel = 0;
+		wip->operands[i].type.arraySize = 0;
+		wip->operands[i].type.initializeArrayTo = NULL;
 
 		wip->operands[i].castAsType.basicType = vt_null;
 		wip->operands[i].castAsType.classType.name = NULL;
 		wip->operands[i].castAsType.indirectionLevel = 0;
+		wip->operands[i].castAsType.arraySize = 0;
+		wip->operands[i].castAsType.initializeArrayTo = NULL;
 	}
 	wip->correspondingTree = correspondingTree;
 

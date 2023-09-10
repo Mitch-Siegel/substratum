@@ -48,6 +48,29 @@ fun printFibs(uint8 n, uint8 useArrayAlgo->void)
 	print(10);
 }
 
+fun dereferenceTest(->void)
+{
+	uint8 smallArr[4];
+	
+	*smallArr = 1;
+	*(smallArr + 1) = 2;
+	uint8 i = 2;
+	while(i < 4)
+	{
+		*(smallArr + i) = i + 1;
+		i = i + 1;
+	}
+	i = 0;
+	return;
+	while(i < 4)
+	{
+		printCheat(*(smallArr + i));
+		printNum(*(smallArr + i), 1);
+		i = i + 1;
+	}
+
+}
+
 fun main(->void)
 {
 	printNum(0, 1);
@@ -101,4 +124,6 @@ fun main(->void)
 	printNum(med, 1);
 	printStr("Magic Number 4: ");
 	printNum(small, 1);
+
+	dereferenceTest();
 }

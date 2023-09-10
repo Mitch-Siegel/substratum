@@ -194,16 +194,19 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_push:
 			case tt_return:
 			{
-				switch (thisLine->operands[0].permutation)
+				if (TAC_GetTypeOfOperand(thisLine, 0)->basicType != vt_null)
 				{
-				case vp_standard:
-				case vp_temp:
-					recordVariableRead(lifetimes, &thisLine->operands[0], scope, TACIndex);
-					break;
+					switch (thisLine->operands[0].permutation)
+					{
+					case vp_standard:
+					case vp_temp:
+						recordVariableRead(lifetimes, &thisLine->operands[0], scope, TACIndex);
+						break;
 
-				case vp_literal:
-				case vp_objptr:
-					break;
+					case vp_literal:
+					case vp_objptr:
+						break;
+					}
 				}
 			}
 			break;

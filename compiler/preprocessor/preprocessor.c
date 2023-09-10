@@ -14,7 +14,7 @@
 #define POS_COL 1
 int curPos[2];
 
-#define ROLLING_BUFFER_SIZE 1024
+#define ROLLING_BUFFER_SIZE 4096
 
 struct RollingBuffer
 {
@@ -88,12 +88,16 @@ int detectPreprocessorToken(struct RollingBuffer *b)
         maxTokenLength = longestToken;
     }
 
+    printf("MAX TOKEN LEN: %d\n", maxTokenLength);
+
     for (int i = 0; i < N_PREPROCESSOR_TOKENS; i++)
     {
         if (preprocessorTokenLengths[i] > maxTokenLength)
         {
             continue;
         }
+        printf("i: %d (%d len)\n", i, preprocessorTokenLengths[i]);
+        printf("Raw buffer: [%c]\n", *RollingBuffer_RawData(b));
         if (!strncmp(preprocessorTokens[i], RollingBuffer_RawData(b), preprocessorTokenLengths[i]))
         {
             for (int j = 0; j < preprocessorTokenLengths[i]; j++)
