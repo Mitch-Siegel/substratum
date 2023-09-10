@@ -15,20 +15,121 @@
 #include "serialize.h"
 
 struct Dictionary *parseDict = NULL;
+
+#define MAX_LINEARIAZTION_OPT 0
+#define MAX_REGALLOC_OPT 0
+#define MAX_CODEGEN_OPT 0
+#define MAX_GENERIC_OPT 0
+int linearizationOpt = 0;
+int regAllocOpt = 0;
+int codegenOpt = 0;
+
+void usage()
+{
+	printf("Classical language compiler: Usage\n");
+	printf("-i (infile) : specify input classical file to compile\n");
+	printf("-o (outfile): specify output file to generate object code to\n");
+	printf("-O (number) : set generic optimization tier level: max %d\n              (auto-combines l/r/c optimizations)\n", MAX_GENERIC_OPT);
+	printf("-l (number) : linearization (IR generation) optimization level: max %d\n", MAX_LINEARIAZTION_OPT);
+	printf("-r (number) : register allocation optimization level: max %d\n", MAX_REGALLOC_OPT);
+	printf("-c (number) : code generation optimization level: max %d\n", MAX_CODEGEN_OPT);
+	printf("\n");
+}
+
+void setOptimizations(int level)
+{
+	switch (level)
+	{
+	case 0:
+		linearizationOpt = 0;
+		regAllocOpt = 0;
+		codegenOpt = 0;
+		break;
+
+	default:
+		usage();
+		ErrorAndExit(ERROR_INVOCATION, "Invalid value (%d) provided to -O flag (max %d)!\n", level, MAX_GENERIC_OPT);
+	}
+}
+
+void checkOptimizations()
+{
+	if (linearizationOpt > MAX_LINEARIAZTION_OPT)
+	{
+		ErrorAndExit(ERROR_INVOCATION, "Provided value (%d) for linearization optimiaztion exceeds max (%d)!\n", linearizationOpt, MAX_LINEARIAZTION_OPT);
+		usage();
+	}
+
+	if (regAllocOpt > MAX_REGALLOC_OPT)
+	{
+		ErrorAndExit(ERROR_INVOCATION, "Provided value (%d) for linearization optimiaztion exceeds max (%d)!\n", regAllocOpt, MAX_REGALLOC_OPT);
+		usage();
+	}
+
+	if (codegenOpt > MAX_CODEGEN_OPT)
+	{
+		ErrorAndExit(ERROR_INVOCATION, "Provided value (%d) for linearization optimiaztion exceeds max (%d)!\n", codegenOpt, MAX_CODEGEN_OPT);
+		usage();
+	}
+}
+
 int main(int argc, char **argv)
 {
-	if (argc < 2)
+	char *inFileName = NULL;
+	char *outFileName = NULL;
+
+	int option;
+	while ((option = getopt(argc, argv, "i:o:O:l:r:c:")) != EOF)
 	{
-		ErrorAndExit(ERROR_INVOCATION, "Error - please specify an input and output file!\n");
-	}
-	else if (argc < 3)
-	{
-		ErrorAndExit(ERROR_INVOCATION, "Error - please specify an output file!\n");
+		switch (option)
+		{
+		case 'i':
+			inFileName = optarg;
+			break;
+
+		case 'o':
+			outFileName = optarg;
+			break;
+
+		case 'O':
+			setOptimizations(atoi(optarg));
+			break;
+
+		case 'l':
+			linearizationOpt = atoi(optarg);
+			break;
+
+		case 'r':
+			regAllocOpt = atoi(optarg);
+			break;
+
+		case 'c':
+			codegenOpt = atoi(optarg);
+			break;
+
+		default:
+			usage();
+			ErrorAndExit(ERROR_INVOCATION, ":(");
+		}
 	}
 
-	printf("Compiling source file %s\n", argv[1]);
+	checkOptimizations();
 
-	printf("Output will be generated to %s\n\n", argv[2]);
+	if (inFileName == NULL)
+	{
+		usage();
+		ErrorAndExit(ERROR_INVOCATION, "No input file provided!\n");
+	}
+
+	if (outFileName == NULL)
+	{
+		usage();
+		ErrorAndExit(ERROR_INVOCATION, "No input file provided!\n");
+	}
+
+	printf("Compiling source file %s\n", inFileName);
+
+	printf("Output will be generated to %s\n\n", outFileName);
 
 	int pid, status;
 
@@ -40,7 +141,7 @@ int main(int argc, char **argv)
 	if (pid == 0)
 	{
 		// janky fix: write the preprocessed file to /tmp
-		char *args[4] = {"./capp", argv[1], "/tmp/auto.capp", NULL};
+		char *args[4] = {"./capp", inFileName, "/tmp/auto.capp", NULL};
 
 		if (execvp("./capp", args) < 0)
 		{
@@ -87,7 +188,6 @@ int main(int argc, char **argv)
 	printf("Collapsing scopes\n");
 	SymbolTable_collapseScopes(theTable, parseDict);
 
-
 	if (argc > 3 || 1)
 	{
 		printf("Symbol table after linearization/scope collapse:\n");
@@ -118,11 +218,11 @@ int main(int argc, char **argv)
 
 	// BasicBlock_append(
 
-	FILE *outFile = fopen(argv[2], "wb");
+	FILE *outFile = fopen(outFileName, "wb");
 
 	if (outFile == NULL)
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", argv[2]);
+		ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", outFileName);
 	}
 
 	printf("Generating code\n");
