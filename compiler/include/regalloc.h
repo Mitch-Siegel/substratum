@@ -3,6 +3,8 @@
 #include "symtab.h"
 #include "tac.h"
 
+#ifndef _REGALLOC_H_
+#define _REGALLOC_H_
 #define MACHINE_REGISTER_COUNT 16
 #define REGISTERS_TO_ALLOCATE 13
 // definitions for what we intend to use as scratch registers when applicable
@@ -97,12 +99,6 @@ struct CodegenMetadata
 // then determine which variables should be spilled
 int generateLifetimeOverlaps(struct CodegenMetadata *metadata);
 
-// return the heuristic for how good a given lifetime is to spill - higher is better
-int lifetimeHeuristic(struct Lifetime *lt);
-
-void spillVariables(struct CodegenMetadata *metadata, int mostConcurrentLifetimes);
-
-void sortSpilledLifetimes(struct CodegenMetadata *metadata);
 
 // assign registers to variables which have registers
 // assign spill addresses to variables which are spilled
@@ -116,4 +112,6 @@ void assignRegisters(struct CodegenMetadata *metadata);
  * returns the number of bytes of stack space required for locals
  */
 
-int allocateRegisters(struct CodegenMetadata *metadata);
+int allocateRegisters(struct CodegenMetadata *metadata, int optimizationLevel);
+
+#endif

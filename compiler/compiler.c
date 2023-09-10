@@ -172,7 +172,7 @@ int main(int argc, char **argv)
 	AST_Print(program, 0);
 
 	printf("Generating symbol table from AST");
-	struct SymbolTable *theTable = linearizeProgram(program);
+	struct SymbolTable *theTable = linearizeProgram(program, linearizationOpt);
 	printf("\n");
 
 	if (argc > 3)
@@ -227,7 +227,7 @@ int main(int argc, char **argv)
 
 	printf("Generating code\n");
 	// fprintf(outFile, "#include \"CPU.asm\"\nentry code\n");
-	generateCode(theTable, outFile);
+	generateCode(theTable, outFile, regAllocOpt, codegenOpt);
 
 	SymbolTable_free(theTable);
 

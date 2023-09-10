@@ -1,117 +1,17 @@
-#include "ast.h"
-#include "util.h"
-#include "tac.h"
 #include "symtab.h"
+#include "tac.h"
 
-#pragma once
+#ifndef _LINEARIZER_H_
+#define _LINEARIZER_H_
 
-struct LinearizationMetadata
-{
-	struct Dictionary *dict; // include the dict for literals and other things that require processing during linearization
-	int currentTACIndex;
-	struct BasicBlock *currentBlock;
-	struct AST *ast;
-	int *tempNum;
-	struct Scope *scope;
-};
+int alignSize(int nBytes);
 
-struct SymbolTable *linearizeProgram(struct AST *program);
+enum basicTypes selectVariableTypeForNumber(int num);
 
-struct VariableEntry *walkVariableDeclaration(struct AST *tree,
-											  struct BasicBlock *block,
-											  struct Scope *scope,
-											  int *TACIndex,
-											  int *tempNum,
-											  char isArgument);
+enum basicTypes selectVariableTypeForLiteral(char *literal);
 
-void walkArgumentDeclaration(struct AST *tree,
-							 struct BasicBlock *block,
-							 int *TACIndex,
-							 int *tempNum,
-							 struct FunctionEntry *fun);
+void populateTACOperandFromVariable(struct TACOperand *o, struct VariableEntry *e);
 
-void walkFunctionDeclaration(struct AST *tree,
-							 struct Scope *scope);
+struct SymbolTable *linearizeProgram(struct AST *program, int optimizationLevel);
 
-void walkFunctionDefinition(struct AST *tree,
-							struct FunctionEntry *fun);
-
-void walkScope(struct AST *tree,
-			   struct BasicBlock *block,
-			   struct Scope *scope,
-			   int *TACIndex,
-			   int *tempNum,
-			   int *labelNum,
-			   int controlConvergesToLabel);
-
-void walkConditionCheck(struct AST *tree,
-						struct BasicBlock *block,
-						struct Scope *scope,
-						int *TACIndex,
-						int *tempNum,
-						int falseJumpLabelNum);
-
-void walkWhileLoop(struct AST *tree,
-				   struct BasicBlock *block,
-				   struct Scope *scope,
-				   int *TACIndex,
-				   int *tempNum,
-				   int *labelNum,
-				   int controlConvergesToLabel);
-
-void walkIfStatement(struct AST *tree,
-					 struct BasicBlock *block,
-					 struct Scope *scope,
-					 int *TACIndex,
-					 int *tempNum,
-					 int *labelNum,
-					 int controlConvergesToLabel);
-
-void walkAssignment(struct AST *tree,
-					struct BasicBlock *block,
-					struct Scope *scope,
-					int *TACIndex,
-					int *tempNum);
-
-void walkSubExpression(struct AST *tree,
-					   struct BasicBlock *block,
-					   struct Scope *scope,
-					   int *TACIndex,
-					   int *tempNum,
-					   struct TACOperand *destinationOperand);
-
-void walkFunctionCall(struct AST *tree,
-					  struct BasicBlock *block,
-					  struct Scope *scope,
-					  int *TACIndex,
-					  int *tempNum,
-					  struct TACOperand *destinationOperand);
-
-struct TACOperand *walkExpression(struct AST *tree,
-								  struct BasicBlock *block,
-								  struct Scope *scope,
-								  int *TACIndex,
-								  int *tempNum);
-
-struct TACOperand *walkArrayRef(struct AST *tree,
-								struct BasicBlock *block,
-								struct Scope *scope,
-								int *TACIndex,
-								int *tempNum);
-
-struct TACOperand *walkDereference(struct AST *tree,
-								   struct BasicBlock *block,
-								   struct Scope *scope,
-								   int *TACIndex,
-								   int *tempNum);
-
-void walkAsmBlock(struct AST *tree,
-				  struct BasicBlock *block,
-				  struct Scope *scope,
-				  int *TACIndex,
-				  int *tempNum);
-
-void walkStringLiteral(struct AST *tree,
-					   struct BasicBlock *block,
-					   struct Scope *scope,
-					   struct TACOperand *destinationOperand);
+#endif
