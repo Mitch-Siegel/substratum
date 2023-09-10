@@ -1037,39 +1037,7 @@ struct TACOperand *walkDereference_0(struct AST *tree,
 	case t_plus:
 	case t_minus:
 	{
-		struct AST *pointerArithLHS = tree->child->child;
-		struct AST *pointerArithRHS = tree->child->child->sibling;
-
-		struct TACLine *pointerArithmetic = newTACLine(*TACIndex, tt_add, tree->child);
-		walkSubExpression_0(pointerArithLHS, block, scope, TACIndex, tempNum, &pointerArithmetic->operands[1]);
-		pointerArithmetic->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-		pointerArithmetic->operands[0].type = pointerArithmetic->operands[1].type;
-		pointerArithmetic->operands[0].type.arraySize = 0;
-		pointerArithmetic->operands[0].permutation = vp_temp;
-
-		struct TACLine *scaleMultiplication = newTACLine(*TACIndex, tt_mul, pointerArithRHS);
-		walkSubExpression_0(pointerArithRHS, block, scope, TACIndex, tempNum, &scaleMultiplication->operands[1]);
-
-		scaleMultiplication->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-		scaleMultiplication->operands[0].type = scaleMultiplication->operands[1].type;
-		scaleMultiplication->operands[0].permutation = vp_temp;
-
-		char scaleVal[32];
-		snprintf(scaleVal, 31, "%d", Scope_getSizeOfDereferencedType(scope, TAC_GetTypeOfOperand(pointerArithmetic, 1)));
-		printf("Scale size for %s is %s\n", pointerArithmetic->operands[1].name.str, scaleVal);
-		printf("WTF WTF WTF\n");
-		scaleMultiplication->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, scaleVal);
-		scaleMultiplication->operands[2].permutation = vp_literal;
-		scaleMultiplication->operands[2].type.basicType = vt_uint32;
-
-		pointerArithmetic->operands[2] = scaleMultiplication->operands[0];
-
-		scaleMultiplication->index = (*TACIndex)++;
-		BasicBlock_append(block, scaleMultiplication);
-		pointerArithmetic->index = (*TACIndex)++;
-		BasicBlock_append(block, pointerArithmetic);
-
-		dereference->operands[1] = pointerArithmetic->operands[0];
+		walkPointerArithmetic_0(tree->child, block, scope, TACIndex, tempNum, &dereference->operands[1]);
 	}
 	break;
 
@@ -1086,6 +1054,58 @@ struct TACOperand *walkDereference_0(struct AST *tree,
 	BasicBlock_append(block, dereference);
 
 	return &dereference->operands[0];
+}
+
+void walkPointerArithmetic_0(struct AST *tree,
+							 struct BasicBlock *block,
+							 struct Scope *scope,
+							 int *TACIndex,
+							 int *tempNum,
+							 struct TACOperand *destinationOperand)
+{
+	if((tree->type != t_plus) && (tree->type != t_minus))
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) passed to walkPointerArithmetic!\n", getTokenName(tree->type));
+	}
+
+	struct AST *pointerArithLHS = tree->child;
+	struct AST *pointerArithRHS = tree->child->sibling;
+
+	struct TACLine *pointerArithmetic = newTACLine(*TACIndex, tt_add, tree->child);
+	if(tree->type == tt_subtract)
+	{
+		pointerArithmetic->operation = tt_subtract;
+	}
+	
+	walkSubExpression_0(pointerArithLHS, block, scope, TACIndex, tempNum, &pointerArithmetic->operands[1]);
+	pointerArithmetic->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+	pointerArithmetic->operands[0].type = pointerArithmetic->operands[1].type;
+	pointerArithmetic->operands[0].type.arraySize = 0;
+	pointerArithmetic->operands[0].permutation = vp_temp;
+
+	struct TACLine *scaleMultiplication = newTACLine(*TACIndex, tt_mul, pointerArithRHS);
+	walkSubExpression_0(pointerArithRHS, block, scope, TACIndex, tempNum, &scaleMultiplication->operands[1]);
+
+	scaleMultiplication->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+	scaleMultiplication->operands[0].type = scaleMultiplication->operands[1].type;
+	scaleMultiplication->operands[0].permutation = vp_temp;
+
+	char scaleVal[32];
+	snprintf(scaleVal, 31, "%d", Scope_getSizeOfDereferencedType(scope, TAC_GetTypeOfOperand(pointerArithmetic, 1)));
+	printf("Scale size for %s is %s\n", pointerArithmetic->operands[1].name.str, scaleVal);
+	printf("WTF WTF WTF\n");
+	scaleMultiplication->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, scaleVal);
+	scaleMultiplication->operands[2].permutation = vp_literal;
+	scaleMultiplication->operands[2].type.basicType = vt_uint32;
+
+	pointerArithmetic->operands[2] = scaleMultiplication->operands[0];
+
+	scaleMultiplication->index = (*TACIndex)++;
+	BasicBlock_append(block, scaleMultiplication);
+	pointerArithmetic->index = (*TACIndex)++;
+	BasicBlock_append(block, pointerArithmetic);
+
+	*destinationOperand = pointerArithmetic->operands[0];
 }
 
 void walkAsmBlock_0(struct AST *tree,
