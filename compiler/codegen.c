@@ -198,16 +198,31 @@ int placeOrFindOperandInRegister(FILE *outFile,
 			registerIndex = RETURN_REGISTER;
 		}
 
-		const char *movOp = SelectMovWidthForLifetime(scope, relevantLifetime);
 		const char *usedRegister = registerNames[registerIndex];
-		if (relevantLifetime->stackLocation >= 0)
+		if (relevantLifetime->type.arraySize > 0)
 		{
-			fprintf(outFile, "\t%s %s, (%%bp+%d)\n", movOp, usedRegister, relevantLifetime->stackLocation);
+			if (relevantLifetime->stackLocation >= 0)
+			{
+				fprintf(outFile, "\taddi %s, %%bp, $%d\n", usedRegister, relevantLifetime->stackLocation);
+			}
+			else
+			{
+				fprintf(outFile, "\tsubi %s, %%bp, $%d\n", usedRegister, -1 * relevantLifetime->stackLocation);
+			}
 		}
 		else
 		{
-			fprintf(outFile, "\t%s %s, (%%bp%d)\n", movOp, usedRegister, relevantLifetime->stackLocation);
+			const char *movOp = SelectMovWidthForLifetime(scope, relevantLifetime);
+			if (relevantLifetime->stackLocation >= 0)
+			{
+				fprintf(outFile, "\t%s %s, (%%bp+%d)\n", movOp, usedRegister, relevantLifetime->stackLocation);
+			}
+			else
+			{
+				fprintf(outFile, "\t%s %s, (%%bp%d)\n", movOp, usedRegister, relevantLifetime->stackLocation);
+			}
 		}
+
 		return registerIndex;
 	}
 	break;
@@ -420,7 +435,6 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 
 				const char *movOp = SelectMovWidthForLifetime(function->mainScope, thisLifetime);
 				fprintf(outFile, "\t%s %%r%d, (%%bp+%d) ;place %s\n", movOp, thisLifetime->registerLocation, theArgument->stackOffset, thisLifetime->name);
-				metadata.touchedRegisters[thisLifetime->registerLocation] = 1;
 			}
 		}
 	}
@@ -663,15 +677,17 @@ void GenerateCodeForBasicBlock(FILE *outFile,
 				curResIndex++;
 			}
 			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[curResIndex]);
-			if (baseReg == reservedRegisters[curResIndex])
+			if (offsetReg == reservedRegisters[curResIndex])
 			{
 				curResIndex++;
 			}
 			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[curResIndex]);
-			if (baseReg == reservedRegisters[curResIndex])
+			if (sourceReg == reservedRegisters[curResIndex])
 			{
 				curResIndex++;
 			}
+			printf("curResIndex: %d - res = %d %d %d\n", curResIndex, reservedRegisters[0], reservedRegisters[1], reservedRegisters[2]);
+			printf("Base: %d off: %d src: %d\n", baseReg, offsetReg, sourceReg);
 			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[0]);
 
 			if (thisTAC->operation == tt_memw_3)

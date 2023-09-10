@@ -359,17 +359,12 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
 {
 	int MAXREG = REGISTERS_TO_ALLOCATE - 2;
 	metadata->reservedRegisters[0] = SCRATCH_REGISTER;
+	metadata->touchedRegisters[SCRATCH_REGISTER] = 1;
 	metadata->reservedRegisters[1] = RETURN_REGISTER;
-	metadata->reservedRegisterCount = 2;
-
-	// 	// if we have just enough room, simply use all registers
-	// 	// if we need to spill, ensure 2 scratch registers
-	if (mostConcurrentLifetimes > MAXREG)
-	{
-		MAXREG -= 1;
-		metadata->reservedRegisters[2] = SECOND_SCRATCH_REGISTER;
-		metadata->reservedRegisterCount++;
-	}
+	metadata->touchedRegisters[SECOND_SCRATCH_REGISTER] = 1;
+	metadata->reservedRegisters[2] = SECOND_SCRATCH_REGISTER;
+	
+	metadata->reservedRegisterCount = 3;
 
 	metadata->registerLifetimes = LinkedList_New();
 

@@ -43,10 +43,8 @@ fun printFibs(uint8 n->void)
 
 fun main(->void)
 {
-	uint8 *str = "asdf";
-	printStr(str);
-	asm
-	{
+	printNum(0, 1);
+	asm{
 		hlt
 	};
 	/*
