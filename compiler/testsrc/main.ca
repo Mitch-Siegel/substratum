@@ -23,6 +23,7 @@ uint32 big2;
 
 fun printFibs(uint8 n, uint8 useArrayAlgo->void)
 {
+	/*
 	uint8 i = 0;
 	while(i < n)
 	{
@@ -45,14 +46,20 @@ fun printFibs(uint8 n, uint8 useArrayAlgo->void)
 			print(',');
 		}
 	}
-	print(10);
+	print(10);*/
 }
 
 fun dereferenceTest(->void)
 {
-	uint8 smallArr[4];
+	uint32 smallArr[4];
 	
-	*smallArr = 1;
+	uint8 i = 0;
+	while(i < 4)
+	{
+		smallArr[i] = i + 1;
+		i = i + 1;
+	}
+	/**smallArr = 1;
 	*(smallArr + 1) = 2;
 	uint8 i = 2;
 	while(i < 4)
@@ -60,11 +67,12 @@ fun dereferenceTest(->void)
 		*(smallArr + i) = i + 1;
 		i = i + 1;
 	}
+	*/
+
 	i = 0;
-	return;
+
 	while(i < 4)
 	{
-		printCheat(*(smallArr + i));
 		printNum(*(smallArr + i), 1);
 		i = i + 1;
 	}
@@ -73,7 +81,7 @@ fun dereferenceTest(->void)
 
 fun main(->void)
 {
-	printNum(0, 1);
+	/*printNum(0, 1);
 	uint8 *fibStr = "Fibonacci: ";
 
 	uint8 *timesStr;
@@ -123,7 +131,7 @@ fun main(->void)
 	printStr("Magic Number 3: ");
 	printNum(med, 1);
 	printStr("Magic Number 4: ");
-	printNum(small, 1);
+	printNum(small, 1);*/
 
 	dereferenceTest();
 }

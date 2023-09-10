@@ -532,6 +532,7 @@ int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *t)
 {
 	struct Type dereferenced = *t;
 	dereferenced.indirectionLevel--;
+	dereferenced.arraySize = 0;
 	return Scope_getSizeOfType(scope, &dereferenced);
 }
 

@@ -1,6 +1,5 @@
 #include "linearizer_opt0.h"
 
-
 /*
  * These functions walk the AST and convert it to three-address code
  */
@@ -54,11 +53,11 @@ struct SymbolTable *walkProgram_0(struct AST *program)
 
 // int linearizeDeclaration(struct LinearizationMetadata m)
 struct VariableEntry *walkVariableDeclaration_0(struct AST *tree,
-									 struct BasicBlock *block,
-									 struct Scope *scope,
-									 int *TACIndex,
-									 int *tempNum,
-									 char isArgument)
+												struct BasicBlock *block,
+												struct Scope *scope,
+												int *TACIndex,
+												int *tempNum,
+												char isArgument)
 {
 	printf("walkVariableDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
@@ -103,20 +102,20 @@ struct VariableEntry *walkVariableDeclaration_0(struct AST *tree,
 		declaredType.arraySize = 0;
 	}
 	struct VariableEntry *declaredVariable = Scope_createVariable(scope,
-																	declaredTree,
-																	&declaredType,
-																	(scope->parentScope == NULL),
-																	*TACIndex,
-																	isArgument);
+																  declaredTree,
+																  &declaredType,
+																  (scope->parentScope == NULL),
+																  *TACIndex,
+																  isArgument);
 
 	return declaredVariable;
 }
 
 void walkArgumentDeclaration_0(struct AST *tree,
-							 struct BasicBlock *block,
-							 int *TACIndex,
-							 int *tempNum,
-							 struct FunctionEntry *fun)
+							   struct BasicBlock *block,
+							   int *TACIndex,
+							   int *tempNum,
+							   struct FunctionEntry *fun)
 {
 	printf("walkArgumentDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	struct VariableEntry *declaredArgument = walkVariableDeclaration_0(tree, block, fun->mainScope, TACIndex, tempNum, 1);
@@ -128,7 +127,7 @@ void walkArgumentDeclaration_0(struct AST *tree,
 }
 
 void walkFunctionDeclaration_0(struct AST *tree,
-							 struct Scope *scope)
+							   struct Scope *scope)
 {
 	printf("walkFunctionDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	if (tree->type != t_fun)
@@ -319,7 +318,7 @@ void walkFunctionDeclaration_0(struct AST *tree,
 }
 
 void walkFunctionDefinition_0(struct AST *tree,
-							struct FunctionEntry *fun)
+							  struct FunctionEntry *fun)
 {
 	printf("walkFunctionDefinition: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
@@ -336,12 +335,12 @@ void walkFunctionDefinition_0(struct AST *tree,
 }
 
 void walkScope_0(struct AST *tree,
-			   struct BasicBlock *block,
-			   struct Scope *scope,
-			   int *TACIndex,
-			   int *tempNum,
-			   int *labelNum,
-			   int controlConvergesToLabel)
+				 struct BasicBlock *block,
+				 struct Scope *scope,
+				 int *TACIndex,
+				 int *tempNum,
+				 int *labelNum,
+				 int controlConvergesToLabel)
 {
 	printf("walkScope: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
@@ -446,11 +445,11 @@ void walkScope_0(struct AST *tree,
 }
 
 void walkConditionCheck_0(struct AST *tree,
-						struct BasicBlock *block,
-						struct Scope *scope,
-						int *TACIndex,
-						int *tempNum,
-						int falseJumpLabelNum)
+						  struct BasicBlock *block,
+						  struct Scope *scope,
+						  int *TACIndex,
+						  int *tempNum,
+						  int falseJumpLabelNum)
 {
 	printf("walkConditionCheck: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
@@ -539,12 +538,12 @@ void walkConditionCheck_0(struct AST *tree,
 }
 
 void walkWhileLoop_0(struct AST *tree,
-				   struct BasicBlock *block,
-				   struct Scope *scope,
-				   int *TACIndex,
-				   int *tempNum,
-				   int *labelNum,
-				   int controlConvergesToLabel)
+					 struct BasicBlock *block,
+					 struct Scope *scope,
+					 int *TACIndex,
+					 int *tempNum,
+					 int *labelNum,
+					 int controlConvergesToLabel)
 {
 	printf("walkWhileLoop: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
@@ -585,12 +584,12 @@ void walkWhileLoop_0(struct AST *tree,
 }
 
 void walkIfStatement_0(struct AST *tree,
-					 struct BasicBlock *block,
-					 struct Scope *scope,
-					 int *TACIndex,
-					 int *tempNum,
-					 int *labelNum,
-					 int controlConvergesToLabel)
+					   struct BasicBlock *block,
+					   struct Scope *scope,
+					   int *TACIndex,
+					   int *tempNum,
+					   int *labelNum,
+					   int controlConvergesToLabel)
 {
 	if (tree->type != t_if)
 	{
@@ -636,10 +635,10 @@ void walkIfStatement_0(struct AST *tree,
 }
 
 void walkAssignment_0(struct AST *tree,
-					struct BasicBlock *block,
-					struct Scope *scope,
-					int *TACIndex,
-					int *tempNum)
+					  struct BasicBlock *block,
+					  struct Scope *scope,
+					  int *TACIndex,
+					  int *tempNum)
 {
 	if (tree->type != t_single_equals)
 	{
@@ -720,11 +719,11 @@ void walkAssignment_0(struct AST *tree,
 }
 
 void walkSubExpression_0(struct AST *tree,
-					   struct BasicBlock *block,
-					   struct Scope *scope,
-					   int *TACIndex,
-					   int *tempNum,
-					   struct TACOperand *destinationOperand)
+						 struct BasicBlock *block,
+						 struct Scope *scope,
+						 int *TACIndex,
+						 int *tempNum,
+						 struct TACOperand *destinationOperand)
 {
 	switch (tree->type)
 	{
@@ -800,11 +799,11 @@ void walkSubExpression_0(struct AST *tree,
 }
 
 void walkFunctionCall_0(struct AST *tree,
-					  struct BasicBlock *block,
-					  struct Scope *scope,
-					  int *TACIndex,
-					  int *tempNum,
-					  struct TACOperand *destinationOperand)
+						struct BasicBlock *block,
+						struct Scope *scope,
+						int *TACIndex,
+						int *tempNum,
+						struct TACOperand *destinationOperand)
 {
 	if (tree->type != t_lParen)
 	{
@@ -858,11 +857,11 @@ void walkFunctionCall_0(struct AST *tree,
 		{
 			char *convertFromType = Type_GetName(&push->operands[0].type);
 			char *convertToType = Type_GetName(&expectedArgument->type);
-			ErrorWithAST(ERROR_CODE, pushedArgument, "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s\n", 
-			expectedArgument->name, 
-			calledFunction->name,
-			convertFromType,
-			convertToType);
+			ErrorWithAST(ERROR_CODE, pushedArgument, "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s\n",
+						 expectedArgument->name,
+						 calledFunction->name,
+						 convertFromType,
+						 convertToType);
 		}
 
 		push->index = (*TACIndex)++;
@@ -892,10 +891,10 @@ void walkFunctionCall_0(struct AST *tree,
 }
 
 struct TACOperand *walkExpression_0(struct AST *tree,
-								  struct BasicBlock *block,
-								  struct Scope *scope,
-								  int *TACIndex,
-								  int *tempNum)
+									struct BasicBlock *block,
+									struct Scope *scope,
+									int *TACIndex,
+									int *tempNum)
 {
 	// generically set to tt_add, we will actually set the operation within switch cases
 	struct TACLine *expression = newTACLine(*TACIndex, tt_subtract, tree);
@@ -953,10 +952,10 @@ struct TACOperand *walkExpression_0(struct AST *tree,
 }
 
 struct TACOperand *walkArrayRef_0(struct AST *tree,
-								struct BasicBlock *block,
-								struct Scope *scope,
-								int *TACIndex,
-								int *tempNum)
+								  struct BasicBlock *block,
+								  struct Scope *scope,
+								  int *TACIndex,
+								  int *tempNum)
 {
 	if (tree->type != t_lBracket)
 	{
@@ -1020,10 +1019,10 @@ struct TACOperand *walkArrayRef_0(struct AST *tree,
 }
 
 struct TACOperand *walkDereference_0(struct AST *tree,
-								   struct BasicBlock *block,
-								   struct Scope *scope,
-								   int *TACIndex,
-								   int *tempNum)
+									 struct BasicBlock *block,
+									 struct Scope *scope,
+									 int *TACIndex,
+									 int *tempNum)
 {
 	if (tree->type != t_star)
 	{
@@ -1032,7 +1031,51 @@ struct TACOperand *walkDereference_0(struct AST *tree,
 
 	struct TACLine *dereference = newTACLine((*tempNum), tt_dereference, tree);
 
-	walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &dereference->operands[1]);
+	printf("IN walk dereferennce, type is %s\n", getTokenName(tree->type));
+	switch (tree->child->type)
+	{
+	case t_plus:
+	case t_minus:
+	{
+		struct AST *pointerArithLHS = tree->child->child;
+		struct AST *pointerArithRHS = tree->child->child->sibling;
+
+		struct TACLine *pointerArithmetic = newTACLine(*TACIndex, tt_add, tree->child);
+		walkSubExpression_0(pointerArithLHS, block, scope, TACIndex, tempNum, &pointerArithmetic->operands[1]);
+		pointerArithmetic->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+		pointerArithmetic->operands[0].type = pointerArithmetic->operands[1].type;
+		pointerArithmetic->operands[0].type.arraySize = 0;
+		pointerArithmetic->operands[0].permutation = vp_temp;
+
+		struct TACLine *scaleMultiplication = newTACLine(*TACIndex, tt_mul, pointerArithRHS);
+		walkSubExpression_0(pointerArithRHS, block, scope, TACIndex, tempNum, &scaleMultiplication->operands[1]);
+
+		scaleMultiplication->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+		scaleMultiplication->operands[0].type = scaleMultiplication->operands[1].type;
+		scaleMultiplication->operands[0].permutation = vp_temp;
+
+		char scaleVal[32];
+		snprintf(scaleVal, 31, "%d", Scope_getSizeOfDereferencedType(scope, TAC_GetTypeOfOperand(pointerArithmetic, 1)));
+		printf("Scale size for %s is %s\n", pointerArithmetic->operands[1].name.str, scaleVal);
+		printf("WTF WTF WTF\n");
+		scaleMultiplication->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, scaleVal);
+		scaleMultiplication->operands[2].permutation = vp_literal;
+		scaleMultiplication->operands[2].type.basicType = vt_uint32;
+
+		pointerArithmetic->operands[2] = scaleMultiplication->operands[0];
+
+		scaleMultiplication->index = (*TACIndex)++;
+		BasicBlock_append(block, scaleMultiplication);
+		pointerArithmetic->index = (*TACIndex)++;
+		BasicBlock_append(block, pointerArithmetic);
+
+		dereference->operands[1] = pointerArithmetic->operands[0];
+	}
+	break;
+
+	default:
+		walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &dereference->operands[1]);
+	}
 
 	dereference->operands[0].type = dereference->operands[1].type;
 	dereference->operands[0].type.indirectionLevel = dereference->operands[1].type.indirectionLevel - 1;
@@ -1046,10 +1089,10 @@ struct TACOperand *walkDereference_0(struct AST *tree,
 }
 
 void walkAsmBlock_0(struct AST *tree,
-				  struct BasicBlock *block,
-				  struct Scope *scope,
-				  int *TACIndex,
-				  int *tempNum)
+					struct BasicBlock *block,
+					struct Scope *scope,
+					int *TACIndex,
+					int *tempNum)
 {
 	if (tree->type != t_asm)
 	{
@@ -1069,9 +1112,9 @@ void walkAsmBlock_0(struct AST *tree,
 }
 
 void walkStringLiteral_0(struct AST *tree,
-					   struct BasicBlock *block,
-					   struct Scope *scope,
-					   struct TACOperand *destinationOperand)
+						 struct BasicBlock *block,
+						 struct Scope *scope,
+						 struct TACOperand *destinationOperand)
 {
 	if (tree->type != t_string_literal)
 	{
@@ -1113,7 +1156,7 @@ void walkStringLiteral_0(struct AST *tree,
 	struct VariableEntry *stringLiteralEntry = NULL;
 	struct ScopeMember *existingMember = NULL;
 	// if we already have a string literal for this thing, nothing else to do
-	if((existingMember = Scope_lookup(scope, stringName)) == NULL)
+	if ((existingMember = Scope_lookup(scope, stringName)) == NULL)
 	{
 		struct AST fakeStringTree;
 		fakeStringTree.value = stringName;
@@ -1130,7 +1173,7 @@ void walkStringLiteral_0(struct AST *tree,
 
 		struct Type *realStringType = &stringLiteralEntry->type;
 		realStringType->initializeArrayTo = malloc(stringSize * sizeof(char *));
-		for(int i = 0; i < stringSize; i++)
+		for (int i = 0; i < stringSize; i++)
 		{
 			realStringType->initializeArrayTo[i] = malloc(1);
 			*realStringType->initializeArrayTo[i] = stringValue[i];

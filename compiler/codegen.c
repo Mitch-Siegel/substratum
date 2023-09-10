@@ -40,11 +40,11 @@ char *PlaceLiteralInRegister(FILE *outFile, char *literalStr, int destReg)
 	int literalValue = atoi(literalStr);
 	if (literalValue < 0x100)
 	{
-		fprintf(outFile, "\tmovb %s, $%s\n", destRegStr, literalStr);
+		fprintf(outFile, "\tmovb %s, $%s ; place literal\n", destRegStr, literalStr);
 	}
 	else if (literalValue < 0x10000)
 	{
-		fprintf(outFile, "\tmovh %s, $%s\n", destRegStr, literalStr);
+		fprintf(outFile, "\tmovh %s, $%s ; place literal\n", destRegStr, literalStr);
 	}
 	else
 	{
@@ -59,7 +59,7 @@ char *PlaceLiteralInRegister(FILE *outFile, char *literalStr, int destReg)
 		fprintf(outFile, "\tshli %s, %s, $16\n", destRegStr, destRegStr);
 
 		sprintf(halvedString, "%d", firstHalf);
-		fprintf(outFile, "\taddi %s, %s, $%s\n", destRegStr, destRegStr, halvedString);
+		fprintf(outFile, "\taddi %s, %s, $%s ; place literal %s\n", destRegStr, destRegStr, halvedString, literalStr);
 	}
 
 	return destRegStr;
@@ -180,11 +180,11 @@ int placeOrFindOperandInRegister(FILE *outFile,
 
 		const char *movOp = SelectMovWidthForLifetime(scope, relevantLifetime);
 		const char *usedRegister = registerNames[registerIndex];
-		fprintf(outFile, "\tmov %s, %s\n", usedRegister, relevantLifetime->name);
+		fprintf(outFile, "\tmov %s, %s ; place %s\n", usedRegister, relevantLifetime->name, operand->name.str);
 
 		if (relevantLifetime->type.indirectionLevel == 0)
 		{
-			fprintf(outFile, "\t%s %s, (%s)\n", movOp, usedRegister, usedRegister);
+			fprintf(outFile, "\t%s %s, (%s) ; place %s\n", movOp, usedRegister, usedRegister, operand->name.str);
 		}
 		return registerIndex;
 	}
@@ -203,11 +203,11 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		{
 			if (relevantLifetime->stackLocation >= 0)
 			{
-				fprintf(outFile, "\taddi %s, %%bp, $%d\n", usedRegister, relevantLifetime->stackLocation);
+				fprintf(outFile, "\taddi %s, %%bp, $%d ; place %s\n", usedRegister, relevantLifetime->stackLocation, operand->name.str);
 			}
 			else
 			{
-				fprintf(outFile, "\tsubi %s, %%bp, $%d\n", usedRegister, -1 * relevantLifetime->stackLocation);
+				fprintf(outFile, "\tsubi %s, %%bp, $%d ; place %s\n", usedRegister, -1 * relevantLifetime->stackLocation, operand->name.str);
 			}
 		}
 		else
@@ -215,11 +215,11 @@ int placeOrFindOperandInRegister(FILE *outFile,
 			const char *movOp = SelectMovWidthForLifetime(scope, relevantLifetime);
 			if (relevantLifetime->stackLocation >= 0)
 			{
-				fprintf(outFile, "\t%s %s, (%%bp+%d)\n", movOp, usedRegister, relevantLifetime->stackLocation);
+				fprintf(outFile, "\t%s %s, (%%bp+%d) ; place %s\n", movOp, usedRegister, relevantLifetime->stackLocation, operand->name.str);
 			}
 			else
 			{
-				fprintf(outFile, "\t%s %s, (%%bp%d)\n", movOp, usedRegister, relevantLifetime->stackLocation);
+				fprintf(outFile, "\t%s %s, (%%bp%d) ; place %s\n", movOp, usedRegister, relevantLifetime->stackLocation, operand->name.str);
 			}
 		}
 
@@ -278,7 +278,7 @@ const char *SelectMovWidthForSize(int size)
 const char *SelectMovWidth(struct Scope *scope, struct TACOperand *dataDest)
 {
 	// pointers are always full-width
-	if (dataDest->type.indirectionLevel > 0)
+	if (TACOperand_GetType(dataDest)->indirectionLevel > 0)
 	{
 		return "mov";
 	}
@@ -286,13 +286,13 @@ const char *SelectMovWidth(struct Scope *scope, struct TACOperand *dataDest)
 	return SelectMovWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
 }
 
-const char *SelectMovWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP)
+const char *SelectMovWidthForDereference(struct Scope *scope, struct TACOperand *dataDest)
 {
-	if (dataDestP->type.indirectionLevel < 1)
+	if (TACOperand_GetType(dataDest)->indirectionLevel < 1)
 	{
-		ErrorAndExit(ERROR_INTERNAL, "SelectMovWidthForDereference called on non-indirect operand %s!\n", dataDestP->name.str);
+		ErrorAndExit(ERROR_INTERNAL, "SelectMovWidthForDereference called on non-indirect operand %s!\n", dataDest->name.str);
 	}
-	struct Type dereferenced = *TACOperand_GetType(dataDestP);
+	struct Type dereferenced = *TACOperand_GetType(dataDest);
 	dereferenced.indirectionLevel--;
 	dereferenced.arraySize = 0;
 	return SelectMovWidthForSize(Scope_getSizeOfType(scope, &dereferenced));
@@ -329,7 +329,7 @@ const char *SelectMovWidthForLifetime(struct Scope *scope, struct Lifetime *life
 const char *SelectPushWidth(struct Scope *scope, struct TACOperand *dataDest)
 {
 	// pointers are always full-width
-	if (dataDest->type.indirectionLevel > 0)
+	if (TACOperand_GetType(dataDest)->indirectionLevel > 0)
 	{
 		return "push";
 	}
