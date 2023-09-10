@@ -35,13 +35,27 @@ fun mul(uint32 a, uint32 b->uint32)
 	return result;
 }
 
-fun fib(uint8 n->uint32)
+fun fibRec(uint8 n->uint32)
 {
 	if(n > 1)
 	{
-		return fib(n - 1) + fib(n - 2);
+		return fibRec(n - 1) + fibRec(n - 2);
 	}
 	return n;
+}
+
+fun fibArr(uint8 n->uint32)
+{
+	uint32 array[256];
+	array[0] = 0;
+	array[1] = 1;
+	uint8 i = 2;
+	while(i <= n)
+	{
+		array[i] = array[i - 2] + array[i - 1];
+		i = i + 1;
+	}
+	return array[n];
 }
 
 fun printNum(uint32 num, uint32 newLine->uint8)

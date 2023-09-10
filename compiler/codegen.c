@@ -682,12 +682,6 @@ void GenerateCodeForBasicBlock(FILE *outFile,
 				curResIndex++;
 			}
 			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[curResIndex]);
-			if (sourceReg == reservedRegisters[curResIndex])
-			{
-				curResIndex++;
-			}
-			printf("curResIndex: %d - res = %d %d %d\n", curResIndex, reservedRegisters[0], reservedRegisters[1], reservedRegisters[2]);
-			printf("Base: %d off: %d src: %d\n", baseReg, offsetReg, sourceReg);
 			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[0]);
 
 			if (thisTAC->operation == tt_memw_3)
