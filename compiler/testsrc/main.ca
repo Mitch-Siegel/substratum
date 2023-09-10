@@ -44,20 +44,11 @@ fun printFibs(uint8 n->void)
 fun main(->void)
 {
 	uint8 *str = "asdf";
-	uint8 char = str[1];
+	printStr(str);
 	asm
 	{
 		hlt
 	};
-	print(str[1]);
-	print(str[1]);
-	print(str[2]);
-	
-	asm
-	{
-		hlt
-	};
-	printStr("asdf");
 	/*
 	printNum(0, 1);
 	uint8 *fibStr = "Fibonacci: ";

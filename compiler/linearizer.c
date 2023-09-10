@@ -1036,14 +1036,8 @@ struct TACOperand *walkArrayRef(struct AST *tree,
 		arrayRefTAC->operation = tt_memr_2;
 
 		int indexSize = atoi(arrayIndex->value);
-		if (arrayVariable->type.indirectionLevel == 1)
-		{
-			indexSize *= Scope_getSizeOfType(scope, &arrayVariable->type);
-		}
-		else
-		{
-			indexSize *= alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
-		}
+		indexSize *= 1 << alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
+		printf("Index size for %s is %d\n", arrayVariable->name, indexSize);
 
 		arrayRefTAC->operands[2].name.val = indexSize;
 		arrayRefTAC->operands[2].permutation = vp_literal;

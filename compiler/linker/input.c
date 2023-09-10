@@ -221,14 +221,7 @@ struct Type *parseType(FILE *inFile, char *declString, struct Symbol *wipSymbol,
             {
                 ErrorAndExit(ERROR_INTERNAL, "Expected either 'initialize' or 'noinitialize' after type, got %s instead!\n", inBuf);
             }
-            if (parsed->arraySize)
-            {
-                parsed->initializeArrayTo = malloc(parsed->arraySize * sizeof(char *));
-            }
-            else
-            {
-                // parsed->initializeArrayTo = malloc(getsize);
-            }
+            parsed->initializeTo = (char *)1;
         }
     }
 

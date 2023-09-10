@@ -115,7 +115,14 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
 
         {
         case s_variable:
-            fprintf(f, "%s:\n#res %d\n", s->name, GetSizeOfPrimitive(&s->data.asVariable));
+            fprintf(f, "%s:\n", s->name);
+            // only reserve space if this variable is not initialized
+            // if it is initialized, the data directives we will output later will reserve the space on their own
+            if (s->data.asVariable.initializeTo == NULL)
+            {
+                printf("NON-INITIALIZED VARIABLE %s GETS RES DIRECTIVE\n", s->name);
+                fprintf(f, "#res %d\n", GetSizeOfPrimitive(&s->data.asVariable));
+            }
             break;
 
         case s_function_declaration:
