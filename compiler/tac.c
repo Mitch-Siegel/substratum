@@ -121,7 +121,6 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 
 char *Type_GetName(struct Type *t)
 {
-	printf("Type_getname: %d(%d*)[%d]\n", t->basicType, t->indirectionLevel, t->arraySize);
 	char *typeName = malloc(1024);
 	int len = 0;
 	switch (t->basicType)

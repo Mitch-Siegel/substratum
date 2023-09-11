@@ -88,16 +88,12 @@ int detectPreprocessorToken(struct RollingBuffer *b)
         maxTokenLength = longestToken;
     }
 
-    printf("MAX TOKEN LEN: %d\n", maxTokenLength);
-
     for (int i = 0; i < N_PREPROCESSOR_TOKENS; i++)
     {
         if (preprocessorTokenLengths[i] > maxTokenLength)
         {
             continue;
         }
-        printf("i: %d (%d len)\n", i, preprocessorTokenLengths[i]);
-        printf("Raw buffer: [%c]\n", *RollingBuffer_RawData(b));
         if (!strncmp(preprocessorTokens[i], RollingBuffer_RawData(b), preprocessorTokenLengths[i]))
         {
             for (int j = 0; j < preprocessorTokenLengths[i]; j++)

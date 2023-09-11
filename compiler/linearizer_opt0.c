@@ -174,7 +174,6 @@ void walkFunctionDeclaration_0(struct AST *tree,
 	struct FunctionEntry *existingFunc = NULL;
 
 	struct Type returnType;
-	printf("RETURNBASICTYPE: %d\n", returnBasicType);
 	returnType.basicType = returnBasicType;
 	returnType.indirectionLevel = returnIndirectionLevel;
 	returnType.arraySize = 0;
@@ -691,8 +690,6 @@ void walkAssignment_0(struct AST *tree,
 		}
 		assignment->operation = tt_memw_1;
 		assignment->operands[1] = assignedValue;
-		printf("PROBLEM ASSIGNMENT IS\n");
-		printTACLine(assignment);
 	}
 	break;
 
@@ -743,7 +740,6 @@ void walkSubExpression_0(struct AST *tree,
 		// variable read
 		{
 			struct VariableEntry *readVariable = Scope_lookupVar(scope, tree);
-			printf("Populate from variable %s\n", readVariable->name);
 			populateTACOperandFromVariable(destinationOperand, readVariable);
 		}
 		break;
@@ -864,10 +860,10 @@ void walkFunctionCall_0(struct AST *tree,
 		// allow us to automatically widen
 		if (Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(push, 0)) <= Scope_getSizeOfType(scope, &expectedArgument->type))
 		{
-			char *gottenName = Type_GetName(TAC_GetTypeOfOperand(push, 0));
-			char *expectedName = Type_GetName(&expectedArgument->type);
+			// char *gottenName = Type_GetName(TAC_GetTypeOfOperand(push, 0));
+			// char *expectedName = Type_GetName(&expectedArgument->type);
 
-			printf("Warning - implicit conversion from %s to %s\n", gottenName, expectedName);
+			// TODO: emit warning here
 			push->operands[0].castAsType = expectedArgument->type;
 		}
 		else
@@ -1048,7 +1044,6 @@ struct TACOperand *walkDereference_0(struct AST *tree,
 
 	struct TACLine *dereference = newTACLine((*tempNum), tt_dereference, tree);
 
-	printf("IN walk dereferennce, type is %s\n", getTokenName(tree->type));
 	switch (tree->child->type)
 	{
 	case t_plus:
@@ -1109,8 +1104,6 @@ void walkPointerArithmetic_0(struct AST *tree,
 
 	char scaleVal[32];
 	snprintf(scaleVal, 31, "%d", Scope_getSizeOfDereferencedType(scope, TAC_GetTypeOfOperand(pointerArithmetic, 1)));
-	printf("Scale size for %s is %s\n", pointerArithmetic->operands[1].name.str, scaleVal);
-	printf("WTF WTF WTF\n");
 	scaleMultiplication->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, scaleVal);
 	scaleMultiplication->operands[2].permutation = vp_literal;
 	scaleMultiplication->operands[2].type.basicType = vt_uint32;

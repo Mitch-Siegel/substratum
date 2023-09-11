@@ -175,7 +175,7 @@ int main(int argc, char **argv)
 	struct SymbolTable *theTable = linearizeProgram(program, linearizationOpt);
 	printf("\n");
 
-	if (argc > 3)
+	if (argc > 5)
 	{
 		printf("Symbol table before scope collapse:\n");
 		SymbolTable_print(theTable, 1);
@@ -188,7 +188,7 @@ int main(int argc, char **argv)
 	printf("Collapsing scopes\n");
 	SymbolTable_collapseScopes(theTable, parseDict);
 
-	if (argc > 3 || 1)
+	if (argc > 5)
 	{
 		printf("Symbol table after linearization/scope collapse:\n");
 		SymbolTable_print(theTable, 1);
@@ -198,9 +198,6 @@ int main(int argc, char **argv)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Error(s) verifying TAC!\n");
 	}*/
-
-	// printf("Symbol table after linearization/scope collapse:\n");
-	// SymbolTable_print(theTable, 1);
 
 	// ensure we always end the userstart section (jumped to from entry) by calling our main functoin
 	// just fudge this by calling it block number 123456 since we should never get that high
@@ -216,14 +213,11 @@ int main(int argc, char **argv)
 
 	Scope_insert(theTable->globalScope, "CALL_MAIN_BLOCK", executeMainBlock, e_basicblock);
 
-	// BasicBlock_append(
-
 	FILE *outFile = fopen(outFileName, "wb");
 
 	if (outFile == NULL)
 	{
-		// ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", outFileName);
-		outFile = stdout;
+		ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", outFileName);
 	}
 
 	printf("Generating code\n");
