@@ -925,7 +925,23 @@ struct TACOperand *walkExpression_0(struct AST *tree,
 		// basic arithmetic
 		{
 			walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &expression->operands[1]);
-			walkSubExpression_0(tree->child->sibling, block, scope, TACIndex, tempNum, &expression->operands[2]);
+
+			if (TAC_GetTypeOfOperand(expression, 1)->indirectionLevel > 0)
+			{
+				struct TACLine *scaleMultiply = setUpScaleMultiplication(tree, scope, TACIndex, tempNum, TAC_GetTypeOfOperand(expression, 1));
+				walkSubExpression_0(tree->child->sibling, block, scope, TACIndex, tempNum, &scaleMultiply->operands[1]);
+
+				scaleMultiply->operands[0].type = scaleMultiply->operands[1].type;
+				expression->operands[2] = scaleMultiply->operands[0];
+
+				scaleMultiply->index = (*TACIndex)++;
+				BasicBlock_append(block, scaleMultiply);
+
+			}
+			else
+			{
+				walkSubExpression_0(tree->child->sibling, block, scope, TACIndex, tempNum, &expression->operands[2]);
+			}
 			expression->index = (*TACIndex)++;
 
 			struct TACOperand *operandA = &expression->operands[1];
@@ -935,6 +951,7 @@ struct TACOperand *walkExpression_0(struct AST *tree,
 				ErrorWithAST(ERROR_CODE, tree, "Arithmetic between 2 pointers is not allowed!\n");
 			}
 
+			// TODO generate errors for bad pointer arithmetic here
 			if (Scope_getSizeOfType(scope, &operandA->type) > Scope_getSizeOfType(scope, &operandB->type))
 			{
 				expression->operands[0].type = operandA->type;

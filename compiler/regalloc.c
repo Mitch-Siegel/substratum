@@ -89,7 +89,7 @@ void recordVariableWrite(struct LinkedList *ltList,
 	}
 
 	// always use ->type as we don't care what it's cast as to determine its lifetime
-	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, writtenOperand->name.str, TACOperand_GetType(writtenOperand), newEnd, isGlobal, mustSpill);
+	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, writtenOperand->name.str, &(writtenOperand->type), newEnd, isGlobal, mustSpill);
 	updatedLifetime->nwrites += 1;
 }
 
@@ -110,7 +110,7 @@ void recordVariableRead(struct LinkedList *ltList,
 	}
 
 	// always use ->type as we don't care what it's cast as to determine its lifetime
-	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, readOperand->name.str, TACOperand_GetType(readOperand), newEnd, isGlobal, mustSpill);
+	struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, readOperand->name.str, &(readOperand->type), newEnd, isGlobal, mustSpill);
 	updatedLifetime->nreads += 1;
 }
 

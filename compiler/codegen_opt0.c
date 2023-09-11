@@ -499,7 +499,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 							registerNames[sourceReg]);
 				}
 			}
-			fprintf(outFile, "jmp %s_done\n", scope->parentFunction->name);
+			fprintf(outFile, "\tjmp %s_done\n", scope->parentFunction->name);
 		}
 		break;
 
