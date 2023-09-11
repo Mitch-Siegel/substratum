@@ -20,111 +20,119 @@ uint16 med;
 uint8 small;
 uint32 big2;
 
-
-fun printFibs(uint8 n, uint8 useArrayAlgo->void)
+fun fibRec(uint8 n->uint32)
 {
-	/*
+	if(n > 1)
+	{
+		return fibRec(n - 1) + fibRec(n - 2);
+	}
+	return n;
+}
+
+fun recursionTest(->void)
+{
+	printStr("Recursion test:");
 	uint8 i = 0;
+	while(i < 15)
+	{
+		printNum(fibRec(i), 0);
+		print(' ');
+		i = i + 1;
+	}
+	print(10);
+}
+
+fun fibArr(uint8 n->uint32)
+{
+	uint32 array[256];
+	array[0] = 0;
+	array[1] = 1;
+	uint8 i = 2;
+	while(i <= n)
+	{
+		array[i] = array[i - 2] + array[i - 1];
+		i = i + 1;
+	}
+	return array[n];
+}
+
+fun arrayTest(->void)
+{
+	printStr("Array test:");
+
+	uint8 i = 0;
+	while(i < 15)
+	{
+		printNum(fibArr(i), 0);
+		print(' ');
+		i = i + 1;
+	}
+	print(10);
+}
+
+fun fibDeref(uint8 n->uint32)
+{
+	uint32 array[256];
+	*array = 0;
+	*(array + 1) = 1;
+	uint8 i = 2;
 	while(i < n)
 	{
-		// modify our global magic numbers based on the iterations of this loop
-		big = big + 1;
-		big2 = big2 + i;
-		med = med + big2;
-		small = small + med;
-		if(useArrayAlgo == 0)
-		{
-			printNum(fibRec(i), 0);
-		}
-		else
-		{
-			printNum(fibArr(i), 0);
-		}
+		*(array + i) = *(array + (i - 1)) + *(array + (i - 2));
 		i = i + 1;
-		if(i < n)
-		{
-			print(',');
-		}
 	}
-	print(10);*/
+	return *(array + n);
 }
 
 fun dereferenceTest(->void)
 {
-	uint8 smallArr[4];
-	
-	*smallArr = 1;
-	*(smallArr + 1) = 2;
+	printStr("Dereference test:");
+	uint8 i = 0;
+	while(i < 15)
+	{
+		printNum(fibDeref(i), 0);
+		print(' ');
+		i = i + 1;
+	}
+	print(10);
+}
+
+fun fibPointerArithmetic(uint8 n->uint32)
+{
+	uint32 array[256];
+	uint32 *ptr = array;
+
+	*ptr = 0;
+	*(ptr + 1) = 1;
+
 	uint8 i = 2;
-	while(i < 4)
+	while(i < n)
 	{
-		*(smallArr + i) = i + 1000;
+		*(ptr + 2) = (*ptr) + (*(ptr + 1));
+		ptr = ptr + 1;
 		i = i + 1;
 	}
+	return array[n];
+}
 
-	i = 0;
-
-	while(i < 4)
+fun pointerArithemticTest(->void)
+{
+	printStr("Pointer Arithmetic test:");
+	uint8 i = 0;
+	while(i < 15)
 	{
-		printNum(*(smallArr + i), 1);
+		printNum(fibPointerArithmetic(i), 0);
+		print(' ');
 		i = i + 1;
 	}
-
+	print(10);
 }
 
 fun main(->void)
 {
-	/*printNum(0, 1);
-	uint8 *fibStr = "Fibonacci: ";
-
-	uint8 *timesStr;
-	timesStr = "Times Tables: ";
-	uint8 newlineChar = 10;
-	uint8 index = 13;
-	timesStr[index] = newlineChar;
-
-	
-	printStr(fibStr);
-	printStr("(Rec. Algo.)");
-	printFibs(25, 0);
-
-	printStr(fibStr);
-	printStr("(Arr. Algo.)");
-	printFibs(25, 1);
-
-	printStr(timesStr);
-	uint8 i = 1;
-	uint8 j;
-	while(i < 10)
-	{
-		j = 1;
-		while(j < 10)
-		{
-			uint8 nPrinted = printNum(mul(i, j), 0);
-			while(nPrinted < 3)
-			{
-				print(' ');
-				nPrinted = nPrinted + 1;
-			}
-			j = j + 1;
-		}
-		print(10);
-		i = i + 1;
-	}
-
-	
-	printStr("Number of multiplications: ");
-	printMultiplications();
-
-
-	printStr("Magic Number 1: ");
-	printNum(big, 1);
-	printStr("Magic Number 2: ");
-	printNum(big2, 1);
-	printStr("Magic Number 3: ");
-	printNum(med, 1);
-	printStr("Magic Number 4: ");
-	printNum(small, 1);*/
-
+	recursionTest();
+	arrayTest();
 	dereferenceTest();
+	pointerArithemticTest();
+
 }

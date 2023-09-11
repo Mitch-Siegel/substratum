@@ -1095,19 +1095,15 @@ void walkPointerArithmetic_0(struct AST *tree,
 	pointerArithmetic->operands[0].type.arraySize = 0;
 	pointerArithmetic->operands[0].permutation = vp_temp;
 
-	struct TACLine *scaleMultiplication = newTACLine(*TACIndex, tt_mul, pointerArithRHS);
+	struct TACLine *scaleMultiplication = setUpScaleMultiplication(pointerArithRHS,
+																   scope,
+																   TACIndex,
+																   tempNum,
+																   TAC_GetTypeOfOperand(pointerArithmetic, 1));
+
 	walkSubExpression_0(pointerArithRHS, block, scope, TACIndex, tempNum, &scaleMultiplication->operands[1]);
 
-	scaleMultiplication->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 	scaleMultiplication->operands[0].type = scaleMultiplication->operands[1].type;
-	scaleMultiplication->operands[0].permutation = vp_temp;
-
-	char scaleVal[32];
-	snprintf(scaleVal, 31, "%d", Scope_getSizeOfDereferencedType(scope, TAC_GetTypeOfOperand(pointerArithmetic, 1)));
-	scaleMultiplication->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, scaleVal);
-	scaleMultiplication->operands[2].permutation = vp_literal;
-	scaleMultiplication->operands[2].type.basicType = vt_uint32;
-
 	pointerArithmetic->operands[2] = scaleMultiplication->operands[0];
 
 	scaleMultiplication->index = (*TACIndex)++;

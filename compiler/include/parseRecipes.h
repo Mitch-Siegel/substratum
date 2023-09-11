@@ -50,6 +50,12 @@ enum token parseRecipes[p_null][11][9][2] = {
          {t_rParen, cnsme},
          {p_null, p_null}},
 
+        // '(' PRIMARY-EXPRESSION ')'
+        {{t_lParen, cnsme},
+         {p_primary_expression, above},
+         {t_rParen, cnsme},
+         {p_null, p_null}},
+
         // UNARY-EXPRESSION
         {{p_unary_expression, above},
          {p_null, p_null}},

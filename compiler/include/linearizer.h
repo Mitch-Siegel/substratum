@@ -12,6 +12,8 @@ enum basicTypes selectVariableTypeForLiteral(char *literal);
 
 void populateTACOperandFromVariable(struct TACOperand *o, struct VariableEntry *e);
 
+struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, int *TACIndex, int *tempNum, struct Type *pointerTypeOfToScale);
+
 struct SymbolTable *linearizeProgram(struct AST *program, int optimizationLevel);
 
 #endif
