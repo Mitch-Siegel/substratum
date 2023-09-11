@@ -222,7 +222,8 @@ int main(int argc, char **argv)
 
 	if (outFile == NULL)
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", outFileName);
+		// ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", outFileName);
+		outFile = stdout;
 	}
 
 	printf("Generating code\n");

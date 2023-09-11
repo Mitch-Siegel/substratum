@@ -299,7 +299,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		{
 			int destAddrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
-			const char *movOp = SelectMovWidth(scope, &thisTAC->operands[0]);
+			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[0]);
 			fprintf(outFile, "\t%s (%s), %s\n", movOp, registerNames[destAddrReg], registerNames[sourceReg]);
 		}
 		break;

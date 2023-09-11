@@ -650,7 +650,9 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		case e_function:
 		{
 			struct FunctionEntry *theFunction = thisMember->entry;
-			printf("> Function %s (returns %d) (defined: %d)\n\t%d bytes of arguments on stack\n", thisMember->name, theFunction->returnType.basicType, theFunction->isDefined, theFunction->argStackSize);
+			char *returnTypeName = Type_GetName(&theFunction->returnType);
+			printf("> Function %s (returns %s) (defined: %d)\n\t%d bytes of arguments on stack\n", thisMember->name, returnTypeName, theFunction->isDefined, theFunction->argStackSize);
+			free(returnTypeName);
 			// if (printTAC)
 			// {
 			// for (struct LinkedListNode *b = theFunction->BasicBlockList->head; b != NULL; b = b->next)

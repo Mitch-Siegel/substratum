@@ -174,6 +174,7 @@ void walkFunctionDeclaration_0(struct AST *tree,
 	struct FunctionEntry *existingFunc = NULL;
 
 	struct Type returnType;
+	printf("RETURNBASICTYPE: %d\n", returnBasicType);
 	returnType.basicType = returnBasicType;
 	returnType.indirectionLevel = returnIndirectionLevel;
 	returnType.arraySize = 0;
@@ -652,6 +653,7 @@ void walkAssignment_0(struct AST *tree,
 	struct TACLine *assignment = newTACLine((*TACIndex), tt_assign, tree);
 
 	struct TACOperand assignedValue;
+	memset(&assignedValue, 0, sizeof(struct TACOperand));
 	// walk the RHS of the assignment as a subexpression and save the operand for later
 	walkSubExpression_0(rhs, block, scope, TACIndex, tempNum, &assignedValue);
 
@@ -676,11 +678,21 @@ void walkAssignment_0(struct AST *tree,
 	case t_star:
 	{
 		struct AST *writtenPointer = lhs->child;
-		struct TACOperand writtenAddress;
-		walkSubExpression_0(writtenPointer, block, scope, TACIndex, tempNum, &writtenAddress);
+		switch (writtenPointer->type)
+		{
+		case t_plus:
+		case t_minus:
+			walkPointerArithmetic_0(writtenPointer, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+			break;
+
+		default:
+			walkSubExpression_0(writtenPointer, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+			break;
+		}
 		assignment->operation = tt_memw_1;
-		assignment->operands[0] = writtenAddress;
 		assignment->operands[1] = assignedValue;
+		printf("PROBLEM ASSIGNMENT IS\n");
+		printTACLine(assignment);
 	}
 	break;
 
@@ -731,6 +743,7 @@ void walkSubExpression_0(struct AST *tree,
 		// variable read
 		{
 			struct VariableEntry *readVariable = Scope_lookupVar(scope, tree);
+			printf("Populate from variable %s\n", readVariable->name);
 			populateTACOperandFromVariable(destinationOperand, readVariable);
 		}
 		break;
@@ -849,8 +862,12 @@ void walkFunctionCall_0(struct AST *tree,
 		}
 
 		// allow us to automatically widen
-		if (Scope_getSizeOfType(scope, &push->operands[0].type) <= Scope_getSizeOfType(scope, &expectedArgument->type))
+		if (Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(push, 0)) <= Scope_getSizeOfType(scope, &expectedArgument->type))
 		{
+			char *gottenName = Type_GetName(TAC_GetTypeOfOperand(push, 0));
+			char *expectedName = Type_GetName(&expectedArgument->type);
+
+			printf("Warning - implicit conversion from %s to %s\n", gottenName, expectedName);
 			push->operands[0].castAsType = expectedArgument->type;
 		}
 		else
@@ -1063,7 +1080,7 @@ void walkPointerArithmetic_0(struct AST *tree,
 							 int *tempNum,
 							 struct TACOperand *destinationOperand)
 {
-	if((tree->type != t_plus) && (tree->type != t_minus))
+	if ((tree->type != t_plus) && (tree->type != t_minus))
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) passed to walkPointerArithmetic!\n", getTokenName(tree->type));
 	}
@@ -1072,11 +1089,11 @@ void walkPointerArithmetic_0(struct AST *tree,
 	struct AST *pointerArithRHS = tree->child->sibling;
 
 	struct TACLine *pointerArithmetic = newTACLine(*TACIndex, tt_add, tree->child);
-	if(tree->type == tt_subtract)
+	if (tree->type == tt_subtract)
 	{
 		pointerArithmetic->operation = tt_subtract;
 	}
-	
+
 	walkSubExpression_0(pointerArithLHS, block, scope, TACIndex, tempNum, &pointerArithmetic->operands[1]);
 	pointerArithmetic->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 	pointerArithmetic->operands[0].type = pointerArithmetic->operands[1].type;
