@@ -1109,7 +1109,7 @@ void walkPointerArithmetic_0(struct AST *tree,
 
 	walkSubExpression_0(pointerArithRHS, block, scope, TACIndex, tempNum, &scaleMultiplication->operands[1]);
 
-	copyTACOperandDecayArrays(&scaleMultiplication->operands[0], &scaleMultiplication->operands[1]);
+	copyTACOperandTypeDecayArrays(&scaleMultiplication->operands[0], &scaleMultiplication->operands[1]);
 
 	copyTACOperandDecayArrays(&pointerArithmetic->operands[2], &scaleMultiplication->operands[0]);
 

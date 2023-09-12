@@ -97,6 +97,7 @@ fun dereferenceTest(->void)
 	print(10);
 }
 
+
 fun fibPointerArithmetic(uint8 n->uint32)
 {
 	uint32 array[256];
@@ -120,25 +121,21 @@ fun fibPointerArithmetic(uint8 n->uint32)
 
 fun pArithTest(->void)
 {
-	uint16 *ptr = 0;
-
-	*(ptr) = 123;
-	*(ptr + 1) = 456;
-
-	printCheat(*ptr);
-	//printCheat(*ptr);
-	//printNum(*ptr, 1);
-	asm
+	printStr("Pointer Arithmetic:");
+	uint8 i = 0;
+	while(i < 15)
 	{
-		hlt
-	};
+		printNum(fibPointerArithmetic(i), 0);
+		print(' ');
+		i = i + 1;
+	}
+	print(10);
 }
-
 fun main(->void)
 {
 	recursionTest();
 	arrayTest();
 	dereferenceTest();
-	//pArithTest();
+	pArithTest();
 
 }
