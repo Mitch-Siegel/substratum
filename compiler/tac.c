@@ -284,9 +284,11 @@ char *getAsmOp(enum TACType t)
 	return "";
 }
 
-struct TACLine *newTACLine(int index, enum TACType operation, struct AST *correspondingTree)
+struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST *correspondingTree, char *file, int line)
 {
 	struct TACLine *wip = malloc(sizeof(struct TACLine));
+	wip->allocFile = file;
+	wip->allocLine = line;
 	for (int i = 0; i < 4; i++)
 	{
 		wip->operands[i].name.str = NULL;
@@ -473,7 +475,7 @@ void printTACLine(struct TACLine *it)
 	{
 		if (it->operands[i].type.basicType != vt_null)
 		{
-			printf("[%d", it->operands[i].type.basicType);
+			printf("[");
 			switch (it->operands[i].permutation)
 			{
 			case vp_standard:
@@ -492,11 +494,15 @@ void printTACLine(struct TACLine *it)
 				printf("O");
 				break;
 			}
-			printf(" %d*", it->operands[i].type.indirectionLevel);
 
+			char *typeName = Type_GetName(&it->operands[i].type);
+			printf(" %s", typeName);
+			free(typeName);
 			if (it->operands[i].castAsType.basicType != vt_null)
 			{
-				printf("(%d %d*)", it->operands[i].castAsType.basicType, it->operands[i].castAsType.indirectionLevel);
+				char *castAsTypeName = Type_GetName(&it->operands[i].castAsType);
+				printf("(%s)", castAsTypeName);
+				free(castAsTypeName);
 			}
 			printf("]");
 		}

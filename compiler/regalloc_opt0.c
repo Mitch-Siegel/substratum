@@ -259,6 +259,17 @@ int allocateRegisters_0(struct CodegenMetadata *metadata)
         }
     }
 
+    // any local objects must live throughout the entire function since we currently can't know their true
+    // if we have uint32 array[123]; uint32 *pointer = array; then pointer extends the lifetime of array and we don't track it currently
+    for(struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
+	{
+		struct Lifetime *examined = runner->data;
+		if(examined->wbLocation == wb_stack)
+		{
+			examined->end = metadata->largestTacIndex;
+		}
+	}
+
     // generate an array of lists corresponding to which lifetimes are active at a given TAC step by index in the array
     metadata->lifetimeOverlaps = malloc((metadata->largestTacIndex + 1) * sizeof(struct LinkedList *));
     for (int i = 0; i <= metadata->largestTacIndex; i++)
@@ -302,7 +313,7 @@ int allocateRegisters_0(struct CodegenMetadata *metadata)
             break;
         }
         char *typeName = Type_GetName(&examinedLifetime->type);
-        printf("%25s (%10s)(wb:%c)(%2d-%2d): ", examinedLifetime->name, typeName, wbLocName,
+        printf("%40s (%10s)(wb:%c)(%2d-%2d): ", examinedLifetime->name, typeName, wbLocName,
                examinedLifetime->start, examinedLifetime->end);
         free(typeName);
         for (int i = 0; i <= metadata->largestTacIndex; i++)

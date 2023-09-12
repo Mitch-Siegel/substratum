@@ -373,11 +373,11 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		case tt_dereference: // these are redundant... probably makes sense to remove one?
 		case tt_memr_1:
 		{
-			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[1]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[0]);
+			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
 
-			fprintf(outFile, "\t%s %s, (%s)\n",
+			fprintf(outFile, "\t%s %s, (%s) ; HERE BE BUGS\n",
 					movOp,
 					registerNames[destReg],
 					registerNames[addrReg]);

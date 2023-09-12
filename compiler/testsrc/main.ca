@@ -76,7 +76,7 @@ fun fibDeref(uint8 n->uint32)
 	*array = 0;
 	*(array + 1) = 1;
 	uint8 i = 2;
-	while(i < n)
+	while(i <= n)
 	{
 		*(array + i) = *(array + (i - 1)) + *(array + (i - 2));
 		i = i + 1;
@@ -102,46 +102,43 @@ fun fibPointerArithmetic(uint8 n->uint32)
 	uint32 array[256];
 	uint32 *ptr = array;
 	*ptr = 0;
-	*(ptr + 1) = 1;
+	ptr = ptr + 1;
+	*(ptr) = 1;
+	ptr = ptr + 1;
+
+
+	uint8 i = 2;
+	while(i < n)
+	{
+		*ptr = (*ptr - 1) + *(ptr - 2);
+		ptr = ptr + 1;
+		i = i + 1;
+	}
+	return *(array + n);
+}
+
+
+fun pArithTest(->void)
+{
+	uint16 *ptr = 0;
+
+	*(ptr) = 123;
+	*(ptr + 1) = 456;
+
 	printCheat(*ptr);
-	printCheat(*(ptr + 1));
-	return 123;
-
-}
-
-fun pointerArithemticTest(->void)
-{
-	printStr("Pointer Arithmetic test:");
-	uint8 i = 0;
-	while(i < 15)
+	//printCheat(*ptr);
+	//printNum(*ptr, 1);
+	asm
 	{
-		printNum(fibPointerArithmetic(i), 0);
-		print(' ');
-		i = i + 1;
-	}
-	print(10);
-}
-
-fun wipeoutStack(->void)
-{
-	uint32 wipeout[1024];
-	uint16 i = 0;
-	while(i < 1024)
-	{
-		wipeout[i] = 0;
-		i = i + 1;
-	}
+		hlt
+	};
 }
 
 fun main(->void)
 {
-	wipeoutStack();
 	recursionTest();
-	wipeoutStack();
 	arrayTest();
-	wipeoutStack();
 	dereferenceTest();
-	wipeoutStack();
-	pointerArithemticTest();
+	//pArithTest();
 
 }

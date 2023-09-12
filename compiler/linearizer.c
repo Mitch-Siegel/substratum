@@ -42,6 +42,30 @@ void populateTACOperandFromVariable(struct TACOperand *o, struct VariableEntry *
 	o->permutation = vp_standard;
 }
 
+void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src)
+{
+	*dest = *src;
+	copyTACOperandTypeDecayArrays(dest, src);
+}
+
+void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *src)
+{
+	dest->type = src->type;
+	dest->castAsType = src->castAsType;
+
+	if(dest->type.arraySize > 0)
+	{
+		dest->type.arraySize = 0;
+		dest->type.indirectionLevel++;
+	}
+
+	if(dest->castAsType.arraySize > 0)
+	{
+		dest->castAsType.arraySize = 0;
+		dest->castAsType.indirectionLevel++;
+	}
+}
+
 extern struct TempList *temps;
 extern struct Dictionary *parseDict;
 struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, int *TACIndex, int *tempNum, struct Type *pointerTypeOfToScale)

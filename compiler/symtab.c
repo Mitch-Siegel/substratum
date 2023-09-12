@@ -543,11 +543,21 @@ int Scope_getSizeOfVariable(struct Scope *scope, struct VariableEntry *v)
 
 int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 {
-	if (v->type.indirectionLevel < 1)
+	if (v->type.arraySize < 1)
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Non-indirect variable %s passed to Scope_getSizeOfArrayElement!\n", v->name);
+		if (v->type.indirectionLevel)
+		{
+			char *nonArrayPointerTypeName = Type_GetName(&v->type);
+			printf("Warning - variable %s with type %s used in array access!\n", v->name, nonArrayPointerTypeName);
+			free(nonArrayPointerTypeName);
+		}
+		else
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Non-array variable %s passed to Scope_getSizeOfArrayElement!\n", v->name);
+		}
 	}
-	else if (v->type.indirectionLevel == 1)
+
+	if (v->type.indirectionLevel == 1)
 	{
 		struct Type elementType = v->type;
 		elementType.indirectionLevel--;

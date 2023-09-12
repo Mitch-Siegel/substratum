@@ -95,7 +95,6 @@ struct VariableEntry *walkVariableDeclaration_0(struct AST *tree,
 		int declaredArraySize = atoi(arraySizeString);
 
 		declaredType.arraySize = declaredArraySize;
-		declaredType.indirectionLevel++;
 	}
 	else
 	{
@@ -664,12 +663,19 @@ void walkAssignment_0(struct AST *tree,
 	case t_uint32:
 		assignedVariable = walkVariableDeclaration_0(lhs, block, scope, TACIndex, tempNum, 0);
 		populateTACOperandFromVariable(&assignment->operands[0], assignedVariable);
+		// copyTACOperandDecayArrays(&assignment->operands[1], &assignedValue);
 		assignment->operands[1] = assignedValue;
+		if (assignedVariable->type.arraySize > 0)
+		{
+			char *arrayName = Type_GetName(&assignedVariable->type);
+			ErrorWithAST(ERROR_CODE, tree, "Assignment to local array variable %s with type %s is not allowed!\n", assignedVariable->name, arrayName);
+		}
 		break;
 
 	case t_identifier:
 		assignedVariable = Scope_lookupVar(scope, lhs);
 		populateTACOperandFromVariable(&assignment->operands[0], assignedVariable);
+		// copyTACOperandDecayArrays(&assignment->operands[1], &assignedValue);
 		assignment->operands[1] = assignedValue;
 		break;
 
@@ -699,7 +705,8 @@ void walkAssignment_0(struct AST *tree,
 		struct AST *arrayIndex = lhs->child->sibling;
 		struct VariableEntry *arrayVariable = Scope_lookupVar(scope, arrayName);
 
-		if (arrayVariable->type.indirectionLevel < 1)
+		if ((arrayVariable->type.indirectionLevel < 1) &&
+			(arrayVariable->type.arraySize == 0))
 		{
 			ErrorWithAST(ERROR_CODE, arrayName, "Use of non-pointer variable %s as array!\n", arrayName->value);
 		}
@@ -932,17 +939,15 @@ struct TACOperand *walkExpression_0(struct AST *tree,
 				walkSubExpression_0(tree->child->sibling, block, scope, TACIndex, tempNum, &scaleMultiply->operands[1]);
 
 				scaleMultiply->operands[0].type = scaleMultiply->operands[1].type;
-				expression->operands[2] = scaleMultiply->operands[0];
+				copyTACOperandDecayArrays(&expression->operands[2], &scaleMultiply->operands[0]);
 
 				scaleMultiply->index = (*TACIndex)++;
 				BasicBlock_append(block, scaleMultiply);
-
 			}
 			else
 			{
 				walkSubExpression_0(tree->child->sibling, block, scope, TACIndex, tempNum, &expression->operands[2]);
 			}
-			expression->index = (*TACIndex)++;
 
 			struct TACOperand *operandA = &expression->operands[1];
 			struct TACOperand *operandB = &expression->operands[2];
@@ -954,20 +959,11 @@ struct TACOperand *walkExpression_0(struct AST *tree,
 			// TODO generate errors for bad pointer arithmetic here
 			if (Scope_getSizeOfType(scope, &operandA->type) > Scope_getSizeOfType(scope, &operandB->type))
 			{
-				expression->operands[0].type = operandA->type;
+				copyTACOperandTypeDecayArrays(&expression->operands[0], operandA);
 			}
 			else
 			{
-				expression->operands[0].type = operandB->type;
-			}
-
-			if (operandA->type.indirectionLevel > operandB->type.indirectionLevel)
-			{
-				expression->operands[0].type.indirectionLevel = operandA->type.indirectionLevel;
-			}
-			else
-			{
-				expression->operands[0].type.indirectionLevel = operandB->type.indirectionLevel;
+				copyTACOperandTypeDecayArrays(&expression->operands[0], operandB);
 			}
 		}
 		break;
@@ -976,6 +972,7 @@ struct TACOperand *walkExpression_0(struct AST *tree,
 		ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) passed to walkExpression!\n", getTokenName(tree->type));
 	}
 
+	expression->index = (*TACIndex)++;
 	BasicBlock_append(block, expression);
 
 	return &expression->operands[0];
@@ -1004,21 +1001,10 @@ struct TACOperand *walkArrayRef_0(struct AST *tree,
 	struct VariableEntry *arrayVariable = Scope_lookupVar(scope, arrayBase);
 	populateTACOperandFromVariable(&arrayRefTAC->operands[1], arrayVariable);
 
+	copyTACOperandDecayArrays(&arrayRefTAC->operands[0], &arrayRefTAC->operands[1]);
 	arrayRefTAC->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 	arrayRefTAC->operands[0].permutation = vp_temp;
-
-	arrayRefTAC->operands[0].type = arrayRefTAC->operands[1].type;
-	// make sure we track that by reading the array we only retrieved 1 element, not actually another array
-	arrayRefTAC->operands[0].type.arraySize = 0;
-
-	if (arrayRefTAC->operands[1].type.indirectionLevel > 0)
-	{
-		arrayRefTAC->operands[0].type.indirectionLevel = arrayRefTAC->operands[1].type.indirectionLevel - 1;
-	}
-	else
-	{
-		ErrorWithAST(ERROR_CODE, tree, "Use of non-pointer variable %s in array reference!\n", arrayVariable->name);
-	}
+	arrayRefTAC->operands[0].type.indirectionLevel--;
 
 	if (arrayIndex->type == t_constant)
 	{
@@ -1059,7 +1045,7 @@ struct TACOperand *walkDereference_0(struct AST *tree,
 		ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) passed to walkDereference!\n", getTokenName(tree->type));
 	}
 
-	struct TACLine *dereference = newTACLine((*tempNum), tt_dereference, tree);
+	struct TACLine *dereference = newTACLine(*tempNum, tt_dereference, tree);
 
 	switch (tree->child->type)
 	{
@@ -1072,14 +1058,15 @@ struct TACOperand *walkDereference_0(struct AST *tree,
 
 	default:
 		walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &dereference->operands[1]);
+		break;
 	}
 
-	dereference->operands[0].type = dereference->operands[1].type;
-	dereference->operands[0].type.indirectionLevel = dereference->operands[1].type.indirectionLevel - 1;
+	copyTACOperandDecayArrays(&dereference->operands[0], &dereference->operands[1]);
+	dereference->operands[0].type.indirectionLevel--;
 	dereference->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 	dereference->operands[0].permutation = vp_temp;
 
-	dereference->index = (*tempNum)++;
+	dereference->index = (*TACIndex)++;
 	BasicBlock_append(block, dereference);
 
 	return &dereference->operands[0];
@@ -1101,15 +1088,17 @@ void walkPointerArithmetic_0(struct AST *tree,
 	struct AST *pointerArithRHS = tree->child->sibling;
 
 	struct TACLine *pointerArithmetic = newTACLine(*TACIndex, tt_add, tree->child);
-	if (tree->type == tt_subtract)
+	if (tree->type == t_minus)
 	{
 		pointerArithmetic->operation = tt_subtract;
 	}
 
 	walkSubExpression_0(pointerArithLHS, block, scope, TACIndex, tempNum, &pointerArithmetic->operands[1]);
+	copyTACOperandDecayArrays(&pointerArithmetic->operands[0], &pointerArithmetic->operands[1]);
 	pointerArithmetic->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-	pointerArithmetic->operands[0].type = pointerArithmetic->operands[1].type;
-	pointerArithmetic->operands[0].type.arraySize = 0;
+
+	// pointerArithmetic->operands[0].type = pointerArithmetic->operands[1].type;
+	// pointerArithmetic->operands[0].type.arraySize = 0;
 	pointerArithmetic->operands[0].permutation = vp_temp;
 
 	struct TACLine *scaleMultiplication = setUpScaleMultiplication(pointerArithRHS,
@@ -1120,8 +1109,9 @@ void walkPointerArithmetic_0(struct AST *tree,
 
 	walkSubExpression_0(pointerArithRHS, block, scope, TACIndex, tempNum, &scaleMultiplication->operands[1]);
 
-	scaleMultiplication->operands[0].type = scaleMultiplication->operands[1].type;
-	pointerArithmetic->operands[2] = scaleMultiplication->operands[0];
+	copyTACOperandDecayArrays(&scaleMultiplication->operands[0], &scaleMultiplication->operands[1]);
+
+	copyTACOperandDecayArrays(&pointerArithmetic->operands[2], &scaleMultiplication->operands[0]);
 
 	scaleMultiplication->index = (*TACIndex)++;
 	BasicBlock_append(block, scaleMultiplication);

@@ -101,6 +101,8 @@ void TACOperand_SetBasicType(struct TACOperand *o, enum basicTypes t, int indire
 
 struct TACLine
 {
+	char *allocFile;
+	int allocLine;
 	struct AST *correspondingTree;
 	struct TACOperand operands[4];
 	enum TACType operation;
@@ -118,7 +120,8 @@ void printTACLine(struct TACLine *it);
 
 char *sPrintTACLine(struct TACLine *it);
 
-struct TACLine *newTACLine(int index, enum TACType operation, struct AST *correspondingTree);
+struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST *correspondingTree, char *file, int line);
+#define newTACLine(index, operation, correspondingTree) newTACLineFunction((index), (operation), (correspondingTree), __FILE__, __LINE__)
 
 char checkTACLine(struct TACLine *it);
 

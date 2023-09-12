@@ -1,7 +1,6 @@
 #include "codegen.h"
 #include "codegen_opt0.h"
 
-
 char printedLine[MAX_ASM_LINE_SIZE];
 
 char *registerNames[MACHINE_REGISTER_COUNT] = {
@@ -288,11 +287,21 @@ const char *SelectMovWidth(struct Scope *scope, struct TACOperand *dataDest)
 
 const char *SelectMovWidthForDereference(struct Scope *scope, struct TACOperand *dataDest)
 {
-	if (TACOperand_GetType(dataDest)->indirectionLevel < 1)
+	struct Type *operandType = TACOperand_GetType(dataDest);
+	if ((operandType->indirectionLevel == 0) &&
+		(operandType->arraySize == 0))
 	{
 		ErrorAndExit(ERROR_INTERNAL, "SelectMovWidthForDereference called on non-indirect operand %s!\n", dataDest->name.str);
 	}
-	struct Type dereferenced = *TACOperand_GetType(dataDest);
+	struct Type dereferenced = *operandType;
+	if (operandType->indirectionLevel == 0)
+	{
+		operandType->arraySize = 0;
+	}
+	else
+	{
+		operandType->indirectionLevel--;
+	}
 	dereferenced.indirectionLevel--;
 	dereferenced.arraySize = 0;
 	return SelectMovWidthForSize(Scope_getSizeOfType(scope, &dereferenced));
@@ -341,9 +350,9 @@ void generateCode(struct SymbolTable *table, FILE *outFile, int regAllocOpt, int
 {
 	switch (codegenOpt)
 	{
-		case 0:
+	case 0:
 		generateCodeForProgram_0(table, outFile, regAllocOpt);
-			break;
+		break;
 	default:
 		ErrorAndExit(ERROR_INTERNAL, "Got invalid optimization level in generateCode: %d\n", codegenOpt);
 	}

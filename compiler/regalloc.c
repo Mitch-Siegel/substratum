@@ -242,6 +242,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			}
 			break;
 
+			case tt_dereference:
 			case tt_memr_1:
 			case tt_memr_2:
 			case tt_memr_2_n:
@@ -273,7 +274,6 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			}
 			break;
 
-			case tt_dereference:
 			case tt_reference:
 			case tt_jg:
 			case tt_jge:
