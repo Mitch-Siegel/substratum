@@ -6,7 +6,7 @@ fun mod(uint32 a, uint32 divisor->uint32)
 {
 	while (a >= divisor)
 	{
-		a = a - divisor;
+		a -= divisor;
 	}
 	return a;
 }
@@ -16,8 +16,8 @@ fun div(uint32 a, uint32 b->uint32)
 	uint32 quotient = 0;
 	while (a >= b)
 	{
-		a = a - b;
-		quotient = quotient + 1;
+		a -= b;
+		quotient += 1;
 	}
 	return quotient;
 }
@@ -28,10 +28,10 @@ fun mul(uint32 a, uint32 b->uint32)
 	uint32 result = 0;
 	while(b > 0)
 	{
-		result = result + a;
-		b = b - 1;
+		result += a;
+		b -= 1;
 	}
-	nMultiplications = nMultiplications + 1;
+	nMultiplications += 1;
 	return result;
 }
 
@@ -51,7 +51,7 @@ fun printNum(uint32 num, uint32 newLine->uint8)
 			uint32 remainder = mod(num, 10);
 			outStr[digits] = remainder + '0';
 			num = div(num, 10);
-			digits = digits + 1;
+			digits += 1;
 		}
 	}
 
@@ -59,12 +59,12 @@ fun printNum(uint32 num, uint32 newLine->uint8)
 	while (i < digits)
 	{
 		print(outStr[(digits - (i + 1))]);
-		i = i + 1;
+		i += 1;
 	}
 
 	if (newLine > 0)
 	{
-		digits = digits + 1;
+		digits += 1;
 		print(10); // newline
 	}
 	return digits;

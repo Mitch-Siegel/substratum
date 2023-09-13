@@ -62,6 +62,9 @@ char *token_names[] = {
 	// basic arithmetic
 	"t_plus",
 	"t_minus",
+	// arithmetic assignment
+	"t_plus_equals",
+	"t_minus_equals",
 	// comparison operators
 	"t_lThan",
 	"t_gThan",
@@ -217,7 +220,7 @@ void trimWhitespace(char trackPos)
 	}
 }
 
-#define RESERVED_COUNT 41
+#define RESERVED_COUNT 43
 
 struct ReservedToken
 {
@@ -243,6 +246,9 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 
 	{"+", t_plus},
 	{"-", t_minus},
+
+	{"+=", t_plus_equals},
+	{"-=", t_minus_equals},
 
 	{"<", t_lThan},
 	{">", t_gThan},
@@ -338,12 +344,12 @@ enum token _scan(char trackPos)
 		}
 		return t_string_literal;
 	}
-	else if(lookahead_char_dumb(1) == '\'')
+	else if (lookahead_char_dumb(1) == '\'')
 	{
 		fgetc_track(trackPos);
 		buffer[buflen++] = fgetc_track(trackPos);
 		buffer[buflen] = '\0';
-		if(fgetc_track(trackPos) != '\'')
+		if (fgetc_track(trackPos) != '\'')
 		{
 			struct AST ex;
 			ex.sourceFile = curFile;
@@ -373,7 +379,9 @@ enum token _scan(char trackPos)
 		buffer[buflen++] = inChar;
 		buffer[buflen] = '\0';
 		if (feof(inFile))
+		{
 			return currentToken;
+		}
 
 		// Iterate all reserved keywords
 		for (int i = 0; i < RESERVED_COUNT; i++)
@@ -388,6 +396,7 @@ enum token _scan(char trackPos)
 				case t_not:
 				case t_gThan:
 				case t_lThan:
+				case t_plus:
 					if (lookahead_char_dumb(1) == '=')
 					{
 						forceNextChar = 1;
@@ -399,7 +408,9 @@ enum token _scan(char trackPos)
 					break;
 
 				case t_minus:
-					if (lookahead_char_dumb(1) == '>')
+				{
+					char nextChar = lookahead_char_dumb(1);
+					if ((nextChar == '>') || (nextChar == '='))
 					{
 						forceNextChar = 1;
 					}
@@ -407,7 +418,9 @@ enum token _scan(char trackPos)
 					{
 						return reserved[i].token;
 					}
-					break;
+				}
+
+				break;
 
 				default:
 					return reserved[i].token;
@@ -483,7 +496,7 @@ enum token scan(char trackPos, struct Dictionary *dict)
 			}
 
 			// ensure the #file directive is followed immediately by a new line, consume it without tracking position
-			if(fgetc_track(0) != '\n')
+			if (fgetc_track(0) != '\n')
 			{
 				ErrorAndExit(ERROR_INTERNAL, "Saw something other than newline after #file directive in preprocessed input!\n");
 			}
@@ -508,7 +521,7 @@ enum token scan(char trackPos, struct Dictionary *dict)
 			}
 
 			// ensure the #file directive is followed immediately by a new line, consume it without tracking position
-			if(fgetc_track(0) != '\n')
+			if (fgetc_track(0) != '\n')
 			{
 				ErrorAndExit(ERROR_INTERNAL, "Saw something other than newline after #file directive in preprocessed input!\n");
 			}

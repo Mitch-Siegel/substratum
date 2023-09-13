@@ -28,7 +28,7 @@ fun printStr(uint8 *str->void)
 	while(str[i] != 0)
 	{
 		print(str[i]);
-		i = i + 1;
+		i += 1;
 	}
 }
 

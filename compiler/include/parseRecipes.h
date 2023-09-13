@@ -369,6 +369,16 @@ enum token parseRecipes[p_null][11][9][2] = {
          {p_expression_tail, below},
          {p_null, p_null}},
 
+        {{p_primary_expression, above},
+         {t_plus_equals, above},
+         {p_expression_tail, below},
+         {p_null, p_null}},
+
+        {{p_primary_expression, above},
+         {t_minus_equals, above},
+         {p_expression_tail, below},
+         {p_null, p_null}},
+
         {{p_null, p_null}},
     },
 

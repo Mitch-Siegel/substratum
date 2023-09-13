@@ -58,6 +58,9 @@ enum token
 	// basic arithmetic
 	t_plus,
 	t_minus,
+	// arithmetic assignment
+	t_plus_equals,
+	t_minus_equals,
 	// comparison operators
 	t_lThan,
 	t_gThan,

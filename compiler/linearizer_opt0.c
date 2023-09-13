@@ -363,6 +363,11 @@ void walkScope_0(struct AST *tree,
 			walkAssignment_0(scopeRunner, block, scope, TACIndex, tempNum);
 			break;
 
+		case t_plus_equals:
+		case t_minus_equals:
+			walkArithmeticAssignment_0(scopeRunner, block, scope, TACIndex, tempNum);
+			break;
+
 		case t_while:
 			// while loop
 			{
@@ -732,6 +737,48 @@ void walkAssignment_0(struct AST *tree,
 
 	assignment->index = (*TACIndex)++;
 	BasicBlock_append(block, assignment);
+}
+
+void walkArithmeticAssignment_0(struct AST *tree,
+								struct BasicBlock *block,
+								struct Scope *scope,
+								int *TACIndex,
+								int *tempNum)
+{
+	struct AST fakeArith = *tree;
+	switch (tree->type)
+	{
+	case t_plus_equals:
+		fakeArith.type = t_plus;
+		fakeArith.value = "+";
+		break;
+
+	case t_minus_equals:
+		fakeArith.type = t_minus;
+		fakeArith.value = "-";
+		break;
+
+	default:
+		ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) passed to walkAssignment!\n", getTokenName(tree->type));
+	}
+
+	// our fake arithmetic ast will have the child of the arithmetic assignment operator
+	// this effectively duplicates the LHS of the assignment to the first operand of the arithmetic operator
+	struct AST *lhs = tree->child;
+	fakeArith.child = lhs;
+
+	struct AST fakelhs = *lhs;
+	fakelhs.sibling = &fakeArith;
+
+
+	struct AST fakeAssignment = *tree;
+	fakeAssignment.value = "=";
+	fakeAssignment.type = t_single_equals;
+
+	fakeAssignment.child = &fakelhs;
+
+	AST_Print(&fakeAssignment, 0);
+	walkAssignment_0(&fakeAssignment, block, scope, TACIndex, tempNum);
 }
 
 void walkSubExpression_0(struct AST *tree,

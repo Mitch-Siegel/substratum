@@ -64,6 +64,12 @@ void walkAssignment_0(struct AST *tree,
 					  int *TACIndex,
 					  int *tempNum);
 
+void walkArithmeticAssignment_0(struct AST *tree,
+					  struct BasicBlock *block,
+					  struct Scope *scope,
+					  int *TACIndex,
+					  int *tempNum);
+
 void walkSubExpression_0(struct AST *tree,
 						 struct BasicBlock *block,
 						 struct Scope *scope,
