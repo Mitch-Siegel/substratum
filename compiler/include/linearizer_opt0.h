@@ -65,10 +65,10 @@ void walkAssignment_0(struct AST *tree,
 					  int *tempNum);
 
 void walkArithmeticAssignment_0(struct AST *tree,
-					  struct BasicBlock *block,
-					  struct Scope *scope,
-					  int *TACIndex,
-					  int *tempNum);
+								struct BasicBlock *block,
+								struct Scope *scope,
+								int *TACIndex,
+								int *tempNum);
 
 void walkSubExpression_0(struct AST *tree,
 						 struct BasicBlock *block,
@@ -101,6 +101,12 @@ struct TACOperand *walkDereference_0(struct AST *tree,
 									 struct Scope *scope,
 									 int *TACIndex,
 									 int *tempNum);
+
+struct TACOperand *walkAddrOf_0(struct AST *tree,
+							  struct BasicBlock *block,
+							  struct Scope *scope,
+							  int *TACIndex,
+							  int *tempNum);
 
 void walkPointerArithmetic_0(struct AST *tree,
 							 struct BasicBlock *block,

@@ -257,8 +257,8 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 	{"==", t_equals},
 	{"!=", t_nEquals},
 
-	{"&", t_and},
-	{"|", t_or},
+	{"&&", t_and},
+	{"||", t_or},
 	{"!", t_not},
 
 	{"~", t_bit_not},
@@ -421,6 +421,17 @@ enum token _scan(char trackPos)
 				}
 
 				break;
+
+				case t_reference:
+					if (lookahead_char_dumb(1) == '&')
+					{
+						forceNextChar = 1;
+					}
+					else
+					{
+						return reserved[i].token;
+					}
+					break;
 
 				default:
 					return reserved[i].token;

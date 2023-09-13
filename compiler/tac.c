@@ -200,8 +200,8 @@ char *getAsmOp(enum TACType t)
 	case tt_dereference:
 		return "dereference";
 
-	case tt_reference:
-		return "reference";
+	case tt_addrof:
+		return "address-of";
 
 	case tt_memw_1:
 		return "mov (reg), reg";
@@ -360,7 +360,7 @@ void printTACLine(struct TACLine *it)
 		width += printf("%s = *%s", it->operands[0].name.str, it->operands[1].name.str);
 		break;
 
-	case tt_reference:
+	case tt_addrof:
 		width += printf("%s = &%s", it->operands[0].name.str, it->operands[1].name.str);
 		break;
 
@@ -548,7 +548,7 @@ char *sPrintTACLine(struct TACLine *it)
 		width += sprintf(tacString, "%s = *%s", it->operands[0].name.str, it->operands[1].name.str);
 		break;
 
-	case tt_reference:
+	case tt_addrof:
 		width += sprintf(tacString, "%s = &%s", it->operands[0].name.str, it->operands[1].name.str);
 		break;
 

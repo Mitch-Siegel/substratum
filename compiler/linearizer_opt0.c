@@ -770,7 +770,6 @@ void walkArithmeticAssignment_0(struct AST *tree,
 	struct AST fakelhs = *lhs;
 	fakelhs.sibling = &fakeArith;
 
-
 	struct AST fakeAssignment = *tree;
 	fakeAssignment.value = "=";
 	fakeAssignment.type = t_single_equals;
@@ -849,11 +848,20 @@ void walkSubExpression_0(struct AST *tree,
 		break;
 
 	case t_star:
-	{
-		struct TACOperand *dereferenceResult = walkDereference_0(tree, block, scope, TACIndex, tempNum);
-		*destinationOperand = *dereferenceResult;
-	}
-	break;
+		// '*' as dereference operator
+		{
+			struct TACOperand *dereferenceResult = walkDereference_0(tree, block, scope, TACIndex, tempNum);
+			*destinationOperand = *dereferenceResult;
+		}
+		break;
+
+	case t_reference:
+		// '&' as reference (address-of) operator
+		{
+			struct TACOperand *addrOfResult = walkAddrOf_0(tree, block, scope, TACIndex, tempNum);
+			*destinationOperand = *addrOfResult;
+		}
+		break;
 
 	default:
 		ErrorWithAST(ERROR_INTERNAL, tree, "Incorrect AST type (%s) seen while linearizing subexpression!\n", getTokenName(tree->type));
@@ -1117,6 +1125,46 @@ struct TACOperand *walkDereference_0(struct AST *tree,
 	BasicBlock_append(block, dereference);
 
 	return &dereference->operands[0];
+}
+
+struct TACOperand *walkAddrOf_0(struct AST *tree,
+								struct BasicBlock *block,
+								struct Scope *scope,
+								int *TACIndex,
+								int *tempNum)
+{
+	if (tree->type != t_reference)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) passed to walkDereference!\n", getTokenName(tree->type));
+	}
+
+	struct TACLine *addrOfLine = newTACLine(*TACIndex, tt_addrof, tree);
+	addrOfLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+	addrOfLine->operands[0].permutation = vp_temp;
+
+	switch (tree->child->type)
+	{
+	case t_identifier:
+		// look up the variable entry and ensure that we will spill it to the stack since we take its address
+		{
+			struct VariableEntry *addrTakenOf = Scope_lookupVar(scope, tree->child);
+			addrTakenOf->mustSpill = 1;
+			walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1]);
+		}
+		break;
+
+	default:
+		ErrorWithAST(ERROR_CODE, tree, "Address of operator is not supported for tokens other than identifier! Saw %s\n", getTokenName(tree->type));
+	}
+
+	addrOfLine->operands[0].type = *TAC_GetTypeOfOperand(addrOfLine, 1);
+	addrOfLine->operands[0].type.indirectionLevel++;
+	addrOfLine->operands[0].type.arraySize = 0;
+
+	addrOfLine->index = (*TACIndex)++;
+	BasicBlock_append(block, addrOfLine);
+
+	return &addrOfLine->operands[0];
 }
 
 void walkPointerArithmetic_0(struct AST *tree,

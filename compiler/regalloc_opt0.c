@@ -259,7 +259,7 @@ int allocateRegisters_0(struct CodegenMetadata *metadata)
         }
     }
 
-    // any local objects must live throughout the entire function since we currently can't know their true
+    // any local objects must live throughout the entire function since we currently can't know their true lifetime
     // if we have uint32 array[123]; uint32 *pointer = array; then pointer extends the lifetime of array and we don't track it currently
     for(struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
 	{

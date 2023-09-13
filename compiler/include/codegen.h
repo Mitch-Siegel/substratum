@@ -34,6 +34,12 @@ int pickWriteRegister(struct LinkedList *lifetimes,
                       struct TACOperand *operand,
                       int registerIndex);
 
+int placeAddrOfLifetimeInReg(FILE *file,
+                             struct LinkedList *lifetimes,
+                             struct Scope *scope,
+                             struct TACOperand *operand,
+                             int registerIndex);
+
 const char *SelectMovWidth(struct Scope *scope, struct TACOperand *dataDest);
 
 const char *SelectMovWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP);

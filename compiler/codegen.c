@@ -258,6 +258,45 @@ int pickWriteRegister(struct LinkedList *lifetimes,
 	}
 }
 
+int placeAddrOfLifetimeInReg(FILE *outFile,
+							 struct LinkedList *lifetimes,
+							 struct Scope *scope,
+							 struct TACOperand *operand,
+							 int registerIndex)
+{
+	struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand->name.str);
+	if (relevantLifetime == NULL)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", operand->name.str);
+	}
+
+	switch (relevantLifetime->wbLocation)
+	{
+	case wb_register:
+		ErrorAndExit(ERROR_INTERNAL, "placeAddrOfLifetimeInReg called on register lifetime %s!\n", relevantLifetime->name);
+		break;
+
+	case wb_global:
+	case wb_stack:
+		break;
+
+	case wb_unknown:
+		ErrorAndExit(ERROR_INTERNAL, "placeAddrOfLifetimeInReg called on lifetime with unknown writeback location %s!\n", relevantLifetime->name);
+		break;
+	}
+
+	if (relevantLifetime->stackLocation < 0)
+	{
+		fprintf(outFile, "\tsubi %s, %%bp, $%d\n", registerNames[registerIndex], -1 * relevantLifetime->stackLocation);
+	}
+	else
+	{
+		fprintf(outFile, "\tsubi %s, %%bp, $%d\n", registerNames[registerIndex], relevantLifetime->stackLocation);
+	}
+
+	return registerIndex;
+}
+
 const char *SelectMovWidthForSize(int size)
 {
 	switch (size)

@@ -234,11 +234,11 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 }
 
 void generateCodeForBasicBlock_0(FILE *outFile,
-							   struct BasicBlock *block,
-							   struct Scope *scope,
-							   struct LinkedList *lifetimes,
-							   char *functionName,
-							   int reservedRegisters[3])
+								 struct BasicBlock *block,
+								 struct Scope *scope,
+								 struct LinkedList *lifetimes,
+								 char *functionName,
+								 int reservedRegisters[3])
 {
 	fprintf(outFile, "%s_%d:\n", functionName, block->labelNum);
 
@@ -291,9 +291,13 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		}
 		break;
 
-		case tt_reference:
-			ErrorAndExit(ERROR_INTERNAL, "Code generation not implemented for this operation (%s) yet!\n", getAsmOp(thisTAC->operation));
-			break;
+		case tt_addrof:
+		{
+			int addrReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[0]);
+			addrReg = placeAddrOfLifetimeInReg(outFile, lifetimes, scope, &thisTAC->operands[1], addrReg);
+			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], addrReg);
+		}
+		break;
 
 		case tt_memw_1:
 		{

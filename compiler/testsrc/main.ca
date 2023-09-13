@@ -1,141 +1,45 @@
-#include "print.h"
-#include "math.h"
 
-/* 
- * come up with some magic numbers
- * fiddle with what widths these variables are
- * the values they come back with are always correct (modulo their widths)
- * This proves that the global variable system works for arbitrary variables
- *
- * On printFibs(15), results of
- * printNum(big, 1);
- * printNum(big2, 1);
- * printNum(med, 1);
- * printNum(small, 1);
- * should be 15, 105, 560, 76
- */
 
-uint32 big;
-uint16 med;
-uint8 small;
-uint32 big2;
-
-fun fibRec(uint8 n->uint32)
+fun printPtr(uint8 *ptr->void)
 {
-	if(n > 1)
+	asm
 	{
-		return fibRec(n - 1) + fibRec(n - 2);
-	}
-	return n;
+		push %r1
+
+		mov %r0, (%bp+8)
+		movb %r0, (%r0)
+		out 1, %r0
+
+		pop %r1
+	};
 }
 
-fun recursionTest(->void)
+fun recurseDeeply(uint8 iter1, uint8 *p, uint8 iter2->void)
 {
-	printStr("Recursion test:");
-	uint8 i = 0;
-	while(i < 15)
+	if(iter1 > 0)
 	{
-		printNum(fibRec(i), 0);
-		print(' ');
-		i += 1;
+		*p += 1;
+		recurseDeeply((iter1 - 1), p, iter2);
 	}
-	print(10);
-}
-
-fun fibArr(uint8 n->uint32)
-{
-	uint32 array[256];
-	array[0] = 0;
-	array[1] = 1;
-	uint8 i = 2;
-	while(i <= n)
+	else 
 	{
-		array[i] = array[i - 2] + array[i - 1];
-		i += 1;
+		if(iter2 > 0)
+		{
+			*p += 2;
+			recurseDeeply(iter1, p, (iter2 - 1));
+		}
+		else
+		{
+			printPtr(p);
+		}
 	}
-	return array[n];
-}
-
-fun arrayTest(->void)
-{
-	printStr("Array test:");
-
-	uint8 i = 0;
-	while(i < 15)
-	{
-		printNum(fibArr(i), 0);
-		print(' ');
-		i += 1;
-	}
-	print(10);
-}
-
-fun fibDeref(uint8 n->uint32)
-{
-	uint32 array[256];
-	*array = 0;
-	*(array + 1) = 1;
-	uint8 i = 2;
-	while(i <= n)
-	{
-		*(array + i) = *(array + (i - 1)) + *(array + (i - 2));
-		i += 1;
-	}
-	return *(array + n);
-}
-
-fun dereferenceTest(->void)
-{
-	printStr("Dereference test:");
-	uint8 i = 0;
-	while(i < 15)
-	{
-		printNum(fibDeref(i), 0);
-		print(' ');
-		i += 1;
-	}
-	print(10);
 }
 
 
-fun fibPointerArithmetic(uint8 n->uint32)
-{
-	uint32 array[256];
-	uint32 *ptr = array;
-	*ptr = 0;
-	ptr += 1;
-	*(ptr) = 1;
-	ptr = ptr + 1;
-
-
-	uint8 i = 2;
-	while(i < n)
-	{
-		*ptr = (*ptr - 1) + *(ptr - 2);
-		ptr += 1;
-		i += 1;
-	}
-	return *(array + n);
-}
-
-
-fun pArithTest(->void)
-{
-	printStr("Pointer Arithmetic:");
-	uint8 i = 0;
-	while(i < 15)
-	{
-		printNum(fibPointerArithmetic(i), 0);
-		print(' ');
-		i += 1;
-	}
-	print(10);
-}
 fun main(->void)
 {
-	recursionTest();
-	arrayTest();
-	dereferenceTest();
-	pArithTest();
-
+	uint8 a = 123;
+	uint8 *p = &a;
+	printPtr(p);
+	recurseDeeply(5, p, 5);
 }

@@ -274,7 +274,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			}
 			break;
 
-			case tt_reference:
+			case tt_addrof:
 			case tt_jg:
 			case tt_jge:
 			case tt_jl:

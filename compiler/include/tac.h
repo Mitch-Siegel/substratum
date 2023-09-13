@@ -32,7 +32,7 @@ enum TACType
 	tt_mul,
 	tt_div,
 	tt_dereference,
-	tt_reference,
+	tt_addrof,
 	tt_memw_1, // mov (reg), reg
 	tt_memw_2, // mov offset(reg), reg
 	tt_memw_3, // mov offset(reg, scale), reg

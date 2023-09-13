@@ -217,6 +217,11 @@ enum token parseRecipes[p_null][11][9][2] = {
          {p_expression_tail, below},
          {p_null, p_null}},
 
+        // '&' EXPRESSION-TAIL
+        {{t_reference, above},
+         {p_expression_tail, below},
+         {p_null, p_null}},
+
         {{p_null, p_null}},
     },
 
