@@ -931,6 +931,48 @@ int main(int argc, char *argv[])
         }
         break;
 
+        case 0xcc:
+        {
+            uint8_t RD = instruction.byte.b1 >> 4;
+            uint8_t rBase = instruction.byte.b1 & 0b1111;
+
+            uint8_t rOff = instruction.byte.b2 & 0b1111;
+            uint8_t sclPow = instruction.byte.b3 & 0b11111;
+            uint32_t offset = registers[rOff];
+
+            int64_t longaddress = registers[rBase];
+            longaddress += (offset << sclPow);
+            uint32_t address = longaddress;
+
+#ifdef PRINTEXECUTION
+            printf("%%r%d, (%%r%d+%%r%d*%d)\t(%08x)\n", RD, rBase, rOff, (1 << sclPow), address);
+#endif
+
+            registers[RD] = address;
+        }
+        break;
+
+        case 0xcd:
+            // LEA - addressing mode 3 (base + offset*sclpow)
+            {
+                uint8_t RD = instruction.byte.b1 >> 4;
+                uint8_t rBase = instruction.byte.b1 & 0b1111;
+
+                uint8_t rOff = instruction.byte.b2 & 0b1111;
+                uint8_t sclPow = instruction.byte.b3 & 0b11111;
+                uint32_t offset = registers[rOff];
+
+                int64_t longaddress = registers[rBase];
+                longaddress += (offset << sclPow);
+                uint32_t address = longaddress;
+
+#ifdef PRINTEXECUTION
+                printf("%%r%d, (%%r%d+%%r%d*%d)\t(%08x)\n", RD, rBase, rOff, (1 << sclPow), address);
+#endif
+                registers[RD] = address;
+            }
+            break;
+
         // stack, call/return
 
         // PUSHB

@@ -42,4 +42,10 @@ fun main(->void)
 	uint8 *p = &a;
 	printPtr(p);
 	recurseDeeply(5, p, 5);
+
+	uint8 arr[10];
+	arr[3] = 234;
+	uint8 i = 3;
+	p = &arr[i];
+	recurseDeeply(5, p, 5);
 }

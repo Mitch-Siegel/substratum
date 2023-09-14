@@ -71,6 +71,9 @@ std::map<uint8_t, std::string> opcodeNames =
         {0xc9, "MOV reg, (reg+reg*sclpow)"},
         {0xcb, "MOV (reg+reg*sclpow), reg"},
 
+        {0xcc, "LEA reg, (reg+off)"},
+        {0xcd, "LEA reg, (reg+reg*sclpow)"},
+
         {0xd0, "PUSHB"},
         {0xd1, "PUSHH"},
         {0xd2, "PUSH"},

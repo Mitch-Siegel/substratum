@@ -233,6 +233,9 @@ char *getAsmOp(enum TACType t)
 	case tt_memr_3_n:
 		return "mov reg, basereg - (offreg * 2^sclpow)";
 
+	case tt_lea_3:
+		return "lea reg, basereg + (offreg * 2^sclpow)";
+
 	case tt_cmp:
 		return "cmp";
 
@@ -414,6 +417,11 @@ void printTACLine(struct TACLine *it)
 		width += printf("%s = (%s - %s*2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
 		break;
 
+	case tt_lea_3:
+		// operands: dest base offset scale
+		width += printf("%s = &(%s + %s*2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		break;
+
 	case tt_jg:
 	case tt_jge:
 	case tt_jl:
@@ -590,6 +598,11 @@ char *sPrintTACLine(struct TACLine *it)
 	case tt_memr_3:
 		// operands: dest base offset scale
 		width += sprintf(tacString, "%s = (%s + %s * 2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		break;
+
+	case tt_lea_3:
+		// operands: dest base offset scale
+		width += sprintf(tacString, "%s = &(%s + %s * 2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
 		break;
 
 	case tt_memr_2_n:

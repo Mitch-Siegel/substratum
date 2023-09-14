@@ -420,7 +420,6 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		case tt_memr_3:
 		case tt_memr_3_n:
 		{
-
 			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
 			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
@@ -445,7 +444,20 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 			}
 			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
 		}
+		break;
 
+		case tt_lea_3:
+		{
+			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
+			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
+			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
+			fprintf(outFile, "\tlea %s, (%s+%s,%d)\n",
+					registerNames[destReg],
+					registerNames[addrReg],
+					registerNames[offsetReg],
+					ALIGNSIZE(thisTAC->operands[3].name.val));
+			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
+		}
 		break;
 
 		case tt_jg:

@@ -1153,8 +1153,49 @@ struct TACOperand *walkAddrOf_0(struct AST *tree,
 		}
 		break;
 
+	case t_lBracket:
+	{
+		struct AST *arrayBase = tree->child->child;
+		struct AST *arrayIndex = tree->child->child->sibling;
+		if (arrayBase->type != t_identifier)
+		{
+			ErrorWithAST(ERROR_INTERNAL, arrayBase, "Invalid AST type (%s) as child of arrayref\n", getTokenName(arrayBase->type));
+		}
+
+		struct VariableEntry *arrayVariable = Scope_lookupVar(scope, arrayBase);
+		populateTACOperandFromVariable(&addrOfLine->operands[1], arrayVariable);
+
+		if (arrayIndex->type == t_constant)
+		{
+			ErrorWithAST(ERROR_INTERNAL, arrayIndex, "LEA with constant array index not implemented yet!\n");
+			/*arrayRefTAC->operation = tt_memr_2;
+
+			int indexSize = atoi(arrayIndex->value);
+			indexSize *= 1 << alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
+			printf("Index size for %s is %d\n", arrayVariable->name, indexSize);
+
+			arrayRefTAC->operands[2].name.val = indexSize;
+			arrayRefTAC->operands[2].permutation = vp_literal;
+			arrayRefTAC->operands[2].type.basicType = selectVariableTypeForNumber(arrayRefTAC->operands[2].name.val);*/
+		}
+		// otherwise, the index is either a variable or subexpression
+		else
+		{
+			addrOfLine->operation = tt_lea_3;
+
+			// set the scale for the array access
+			addrOfLine->operands[3].name.val = alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
+			addrOfLine->operands[3].permutation = vp_literal;
+			addrOfLine->operands[3].type.basicType = selectVariableTypeForNumber(addrOfLine->operands[3].name.val);
+
+			walkSubExpression_0(arrayIndex, block, scope, TACIndex, tempNum, &addrOfLine->operands[2]);
+		}
+	}
+
+	break;
+
 	default:
-		ErrorWithAST(ERROR_CODE, tree, "Address of operator is not supported for tokens other than identifier! Saw %s\n", getTokenName(tree->type));
+		ErrorWithAST(ERROR_CODE, tree, "Address of operator is not supported for tokens other than identifier! Saw %s\n", getTokenName(tree->child->type));
 	}
 
 	addrOfLine->operands[0].type = *TAC_GetTypeOfOperand(addrOfLine, 1);

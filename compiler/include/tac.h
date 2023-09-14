@@ -43,6 +43,7 @@ enum TACType
 	tt_memr_3,
 	tt_memr_2_n,
 	tt_memr_3_n,
+	tt_lea_3,
 	tt_cmp,
 	tt_jg,
 	tt_jge,
