@@ -557,12 +557,14 @@ int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 		}
 	}
 
-	if (v->type.indirectionLevel == 1)
+	if (v->type.indirectionLevel == 0)
 	{
 		struct Type elementType = v->type;
 		elementType.indirectionLevel--;
 		elementType.arraySize = 0;
-		return Scope_getSizeOfType(scope, &elementType);
+		int s = Scope_getSizeOfType(scope, &elementType);
+		printf("GOT SIZE %d!!!\n", s);
+		return s;
 	}
 	else
 	{

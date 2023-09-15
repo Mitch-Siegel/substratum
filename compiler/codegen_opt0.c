@@ -381,7 +381,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[1]);
 			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
 
-			fprintf(outFile, "\t%s %s, (%s) ; HERE BE BUGS\n",
+			fprintf(outFile, "\t%s %s, (%s)\n",
 					movOp,
 					registerNames[destReg],
 					registerNames[addrReg]);
@@ -442,6 +442,19 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 						registerNames[offsetReg],
 						ALIGNSIZE(thisTAC->operands[3].name.val));
 			}
+			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
+		}
+		break;
+
+		case tt_lea_2:
+		{
+			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
+			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
+			fprintf(outFile, "\tlea %s, (%s+%d)\n",
+					registerNames[destReg],
+					registerNames[addrReg],
+					thisTAC->operands[2].name.val);
+
 			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
 		}
 		break;

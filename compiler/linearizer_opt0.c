@@ -1067,7 +1067,6 @@ struct TACOperand *walkArrayRef_0(struct AST *tree,
 
 		int indexSize = atoi(arrayIndex->value);
 		indexSize *= 1 << alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
-		printf("Index size for %s is %d\n", arrayVariable->name, indexSize);
 
 		arrayRefTAC->operands[2].name.val = indexSize;
 		arrayRefTAC->operands[2].permutation = vp_literal;
@@ -1167,16 +1166,15 @@ struct TACOperand *walkAddrOf_0(struct AST *tree,
 
 		if (arrayIndex->type == t_constant)
 		{
-			ErrorWithAST(ERROR_INTERNAL, arrayIndex, "LEA with constant array index not implemented yet!\n");
-			/*arrayRefTAC->operation = tt_memr_2;
+			addrOfLine->operation = tt_lea_2;
 
 			int indexSize = atoi(arrayIndex->value);
 			indexSize *= 1 << alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
-			printf("Index size for %s is %d\n", arrayVariable->name, indexSize);
 
-			arrayRefTAC->operands[2].name.val = indexSize;
-			arrayRefTAC->operands[2].permutation = vp_literal;
-			arrayRefTAC->operands[2].type.basicType = selectVariableTypeForNumber(arrayRefTAC->operands[2].name.val);*/
+			addrOfLine->operands[2].name.val = indexSize;
+			addrOfLine->operands[2].permutation = vp_literal;
+			addrOfLine->operands[2].type.basicType = selectVariableTypeForNumber(addrOfLine->operands[2].name.val);
+
 		}
 		// otherwise, the index is either a variable or subexpression
 		else

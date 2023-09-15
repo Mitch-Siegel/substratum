@@ -35,17 +35,34 @@ fun recurseDeeply(uint8 iter1, uint8 *p, uint8 iter2->void)
 	}
 }
 
-
-fun main(->void)
+fun varAddr(->void)
 {
 	uint8 a = 123;
 	uint8 *p = &a;
-	printPtr(p);
 	recurseDeeply(5, p, 5);
+}
 
+fun arrConstAddr(->void)
+{
 	uint8 arr[10];
-	arr[3] = 234;
-	uint8 i = 3;
-	p = &arr[i];
+	arr[3] = 123;
+	uint8 *p = &arr[3];
 	recurseDeeply(5, p, 5);
+}
+
+fun arrVarAddr(->void)
+{
+	uint8 arr[10];
+	arr[3] = 123;
+	uint8 i = 3;
+	uint8 *p = &arr[i];
+	recurseDeeply(5, p, 5);
+}
+
+
+fun main(->void)
+{
+	varAddr();
+	arrConstAddr();
+	arrVarAddr();
 }

@@ -591,18 +591,21 @@ void SWI(uint8_t num)
     registers[ip] = readW(num * 4);
 }
 
-void Output(uint8_t port, uint32_t byte)
+void Output(uint8_t port, uint32_t val)
 {
     switch (port)
     {
     case 0x00:
-        putchar(byte);
+        putchar(val);
         fflush(stdout);
         break;
 
     case 0x01:
-        printf("%i\n", byte);
-        fflush(stdout);
+        printf("%u\n", val);
+        break;
+
+    case 0x02:
+        printf("%08x\n", val);
         break;
 
     default:
@@ -932,25 +935,25 @@ int main(int argc, char *argv[])
         break;
 
         case 0xcc:
-        {
-            uint8_t RD = instruction.byte.b1 >> 4;
-            uint8_t rBase = instruction.byte.b1 & 0b1111;
+            // LEA - addressing mode 2 (base + offset)
+            {
+                uint8_t RD = instruction.byte.b1 >> 4;
+                uint8_t rBase = instruction.byte.b1 & 0b1111;
+                int16_t offset = instruction.hword.h1;
 
-            uint8_t rOff = instruction.byte.b2 & 0b1111;
-            uint8_t sclPow = instruction.byte.b3 & 0b11111;
-            uint32_t offset = registers[rOff];
+                int64_t longAddress = registers[rBase];
 
-            int64_t longaddress = registers[rBase];
-            longaddress += (offset << sclPow);
-            uint32_t address = longaddress;
+                longAddress += offset;
+
+                uint32_t address = longAddress;
 
 #ifdef PRINTEXECUTION
-            printf("%%r%d, (%%r%d+%%r%d*%d)\t(%08x)\n", RD, rBase, rOff, (1 << sclPow), address);
+                printf("%%r%d, (%%r%d+%d)\t(%08x)\n", RD, rBase, offset, address);
 #endif
 
-            registers[RD] = address;
-        }
-        break;
+                registers[RD] = address;
+            }
+            break;
 
         case 0xcd:
             // LEA - addressing mode 3 (base + offset*sclpow)
