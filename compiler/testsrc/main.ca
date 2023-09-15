@@ -1,61 +1,165 @@
+#include "print.h"
+#include "math.h"
+
+/* 
+ * come up with some magic numbers
+ * fiddle with what widths these variables are
+ * the values they come back with are always correct (modulo their widths)
+ * This proves that the global variable system works for arbitrary variables
+ *
+ * On printFibs(15), results of
+ * printNum(big, 1);
+ * printNum(big2, 1);
+ * printNum(med, 1);
+ * printNum(small, 1);
+ * should be 15, 105, 560, 76
+ */
+
+uint32 big;
+uint16 med;
+uint8 small;
+uint32 big2;
+
+fun fibRec(uint8 n->uint32)
+{
+	if(n > 1)
+	{
+		return fibRec(n - 1) + fibRec(n - 2);
+	}
+	return n;
+}
+
+fun recursionTest(->void)
+{
+	printStr("Recursion test:");
+	uint8 i = 0;
+	while(i < 15)
+	{
+		printNum(fibRec(i), 0);
+		print(' ');
+		i += 1;
+	}
+	print(10);
+}
+
+fun fibArr(uint8 n->uint32)
+{
+	uint32 array[256];
+	array[0] = 0;
+	array[1] = 1;
+	uint8 i = 2;
+	while(i <= n)
+	{
+		array[i] = array[i - 2] + array[i - 1];
+		i += 1;
+	}
+	return array[n];
+}
+
+fun arrayTest(->void)
+{
+	printStr("Array test:");
+
+	uint8 i = 0;
+	while(i < 15)
+	{
+		printNum(fibArr(i), 0);
+		print(' ');
+		i += 1;
+	}
+	print(10);
+}
+
+fun fibDeref(uint8 n->uint32)
+{
+	uint32 array[256];
+	*array = 0;
+	*(array + 1) = 1;
+	uint8 i = 2;
+	while(i <= n)
+	{
+		*(array + i) = *(array + (i - 1)) + *(array + (i - 2));
+		i += 1;
+	}
+	return *(array + n);
+}
+
+fun dereferenceTest(->void)
+{
+	printStr("Dereference test:");
+	uint8 i = 0;
+	while(i < 15)
+	{
+		printNum(fibDeref(i), 0);
+		print(' ');
+		i += 1;
+	}
+	print(10);
+}
 
 
-fun printPtr(uint8 *ptr->void)
+fun fibPointerArithmetic(uint8 n->uint32)
+{
+	uint32 array[256];
+	uint32 *ptr = array;
+	*ptr = 0;
+	ptr += 1;
+	*(ptr) = 1;
+	ptr = ptr + 1;
+
+
+	uint8 i = 2;
+	while(i < n)
+	{
+		*ptr = (*ptr - 1) + *(ptr - 2);
+		ptr += 1;
+		i += 1;
+	}
+	return *(array + n);
+}
+
+
+fun pArithTest(->void)
+{
+	printStr("Pointer Arithmetic:");
+	uint8 i = 0;
+	while(i < 15)
+	{
+		printNum(fibPointerArithmetic(i), 0);
+		print(' ');
+		i += 1;
+	}
+	print(10);
+}
+
+fun printPtr(uint16 *ptr->void)
 {
 	asm
 	{
 		push %r1
 
 		mov %r0, (%bp+8)
-		movb %r0, (%r0)
+		movh %r0, (%r0)
 		out 1, %r0
 
 		pop %r1
 	};
 }
 
-
-fun printAddr(uint8 *ptr->void)
-{
-	asm
-	{
-		push %r1
-
-		mov %r0, (%bp+8)
-		out 2, %r0
-
-		pop %r1
-	};
-}
-
-/*
-fun printAddr2(uint8 **ptr->void)
-{
-	asm
-	{
-		push %r1
-
-		mov %r0, (%bp+8)
-		out 2, %r0
-
-		pop %r1
-	};
-}
-
-
-fun recurseDeeply(uint8 iter1, uint8 *p, uint8 iter2->void)
+// recurse 1 time for (iter1 + iter2), each iter1 add 1 to *p, each iter2 add 2 to *p
+fun recurseDeeplyAddAndPrint(uint8 iter1, uint16 *p, uint8 iter2->void)
 {
 	if(iter1 > 0)
 	{
 		*p += 1;
-		recurseDeeply((iter1 - 1), p, iter2);
+		recurseDeeplyAddAndPrint((iter1 - 1), p, iter2);
 	}
 	else 
 	{
 		if(iter2 > 0)
 		{
 			*p += 2;
-			recurseDeeply(iter1, p, (iter2 - 1));
+			recurseDeeplyAddAndPrint(iter1, p, (iter2 - 1));
 		}
 		else
 		{
@@ -66,57 +170,50 @@ fun recurseDeeply(uint8 iter1, uint8 *p, uint8 iter2->void)
 
 fun varAddr(->void)
 {
-	uint8 a = 123;
-	uint8 *p = &a;
-	recurseDeeply(5, p, 5);
+	uint16 a = 254;
+	uint16 *p = &a;
+	recurseDeeplyAddAndPrint(5, p, 5);
 }
 
 fun arrConstAddr(->void)
 {
-	uint8 arr[10];
-	arr[3] = 123;
-	uint8 *p = &arr[3];
-	recurseDeeply(5, p, 5);
+	uint16 arr[10];
+	arr[3] = 255;
+	uint16 *p = &arr[3];
+	recurseDeeplyAddAndPrint(5, p, 5);
 }
 
 fun arrVarAddr(->void)
 {
-	uint8 arr[10];
-	arr[3] = 123;
-	uint8 i = 3;
-	uint8 *p = &arr[i];
-	recurseDeeply(5, p, 5);
-}
-*/
-
-fun printChar(uint8 char->void)
-{
-	asm
-	{
-		push %r0
-
-		movb %r0, (%bp+8)
-		out 0, %r0
-
-		pop %r0
-	};
+	uint16 arr[10];
+	arr[3] = 256;
+	uint16 i = 3;
+	uint16 *p = &arr[i];
+	recurseDeeplyAddAndPrint(5, p, 5);
 }
 
-fun printStr(uint8 *str->void)
+fun wipeStack(->void)
 {
-	while((*str) != 0)
+	uint8 bigArr[1024];
+	uint16 i = 0;
+	while(i < 1024)
 	{
-		printChar(*str);
-		str += 1;
+		bigArr[i] = 0;
+		i += 1;
 	}
 }
 
 fun main(->void)
 {
-	uint8 *string = "FUNY";
-	printAddr(string);
-	printStr(string);
-	//varAddr();
-	//arrConstAddr();
-	//arrVarAddr();
+	recursionTest();
+	arrayTest();
+	dereferenceTest();
+	pArithTest();
+	wipeStack();
+	varAddr();
+	wipeStack();
+	arrConstAddr();
+	wipeStack();
+	arrVarAddr();
+
 }

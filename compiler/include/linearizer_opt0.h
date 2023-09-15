@@ -28,7 +28,7 @@ void walkFunctionDefinition_0(struct AST *tree,
 							  struct FunctionEntry *fun);
 
 void walkStatement_0(struct AST *tree,
-					 struct BasicBlock *block,
+					 struct BasicBlock **blockP,
 					 struct Scope *scope,
 					 int *TACIndex,
 					 int *tempNum,
