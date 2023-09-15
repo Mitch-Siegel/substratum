@@ -14,6 +14,34 @@ fun printPtr(uint8 *ptr->void)
 	};
 }
 
+
+fun printAddr(uint8 *ptr->void)
+{
+	asm
+	{
+		push %r1
+
+		mov %r0, (%bp+8)
+		out 2, %r0
+
+		pop %r1
+	};
+}
+
+fun printAddr2(uint8 **ptr->void)
+{
+	asm
+	{
+		push %r1
+
+		mov %r0, (%bp+8)
+		out 2, %r0
+
+		pop %r1
+	};
+}
+
+
 fun recurseDeeply(uint8 iter1, uint8 *p, uint8 iter2->void)
 {
 	if(iter1 > 0)
@@ -59,10 +87,33 @@ fun arrVarAddr(->void)
 	recurseDeeply(5, p, 5);
 }
 
+fun arrPtr(uint8 **arrayP->void)
+{
+	uint8 *p = *arrayP;
+	printPtr(p);
+}
+
+
+fun arrArr(->void)
+{
+	uint8 arr[12];
+	uint8 i = 0;
+	while(i < 12)
+	{
+		arr[i] = 123;
+		i += 1;
+	}
+	uint8 *arrAsPtr = arr;
+	uint8 **ptr = &arr;
+
+	arrPtr(ptr);
+}
+
 
 fun main(->void)
 {
 	varAddr();
 	arrConstAddr();
 	arrVarAddr();
+	arrArr();
 }

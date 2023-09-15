@@ -1149,6 +1149,7 @@ struct TACOperand *walkAddrOf_0(struct AST *tree,
 			struct VariableEntry *addrTakenOf = Scope_lookupVar(scope, tree->child);
 			addrTakenOf->mustSpill = 1;
 			walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1]);
+			// copyTACOperandDecayArrays(&addrOfLine->operands[1], &addrOfLine->operands[1]);
 		}
 		break;
 

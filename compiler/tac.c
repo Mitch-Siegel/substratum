@@ -109,7 +109,28 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 
 	if (a->indirectionLevel != b->indirectionLevel)
 	{
-		return 2;
+		// both are arrays or both are not arrays
+		if ((a->arraySize > 0) == (b->arraySize > 0))
+		{
+			return 2;
+		}
+		// only a is an array
+		else if (a->arraySize > 0)
+		{
+			// b's indirection level should be a's + 1
+			if (b->indirectionLevel != (a->indirectionLevel + 1))
+			{
+				return 2;
+			}
+		}
+		else
+		{
+			// a's indirection level should be b's + 1
+			if ((b->indirectionLevel + 1) != a->indirectionLevel)
+			{
+				return 2;
+			}
+		}
 	}
 
 	if (a->basicType == vt_class)
