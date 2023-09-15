@@ -957,20 +957,15 @@ char *ExpandSourceFromAST(struct AST *tree)
 
 void TableParseError(struct Stack *parseStack)
 {
-	printParseStack(parseStack);
-
-	struct InProgressProduction *firstIPP = (struct InProgressProduction *)Stack_Peek(parseStack);
-	printf("Error at or near line %d, col %d:\nSource code looks approximately like:\n\t", firstIPP->tree->sourceLine, firstIPP->tree->sourceCol);
-
-	char *printedSource = malloc(1);
-	printedSource[0] = '\0';
-
-	struct InProgressProduction *examinedIPP = Stack_Peek(parseStack);
-	printedSource = ExpandSourceFromAST(examinedIPP->tree);
-
-	printf("%s\n\n", printedSource);
-	free(printedSource);
-	ErrorAndExit(ERROR_INVOCATION, "Fix your program!\t");
+	printf("Potential parse problem locations:\n");
+	for (int i = 0; i < parseStack->size; i++)
+	{
+		struct InProgressProduction *thisProduction = (struct InProgressProduction *)parseStack->data[i];
+		if (thisProduction->production > p_null)
+		{
+			printf("%s:%3d:%-3d\n", thisProduction->tree->sourceFile, thisProduction->tree->sourceLine, thisProduction->tree->sourceCol);
+		}
+	}
 }
 
 // compare each subsection of the stack to all possible recipes to see if any production exists
@@ -1230,6 +1225,7 @@ struct AST *TableParse(struct Dictionary *dict)
 	if (parseStack->size > 1 || parseStack->size == 0)
 	{
 		printParseStack(parseStack);
+		TableParseError(parseStack);
 		ErrorAndExit(ERROR_INTERNAL, "Something bad happened during parsing - parse stack dump above\t");
 	}
 
