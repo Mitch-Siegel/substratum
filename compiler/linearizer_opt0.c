@@ -1147,6 +1147,10 @@ struct TACOperand *walkAddrOf_0(struct AST *tree,
 		// look up the variable entry and ensure that we will spill it to the stack since we take its address
 		{
 			struct VariableEntry *addrTakenOf = Scope_lookupVar(scope, tree->child);
+			if(addrTakenOf->type.arraySize > 0)
+			{
+				ErrorWithAST(ERROR_CODE, tree->child, "Can't take address of local array %s!\n", addrTakenOf->name);
+			}
 			addrTakenOf->mustSpill = 1;
 			walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1]);
 			// copyTACOperandDecayArrays(&addrOfLine->operands[1], &addrOfLine->operands[1]);
@@ -1190,11 +1194,10 @@ struct TACOperand *walkAddrOf_0(struct AST *tree,
 			walkSubExpression_0(arrayIndex, block, scope, TACIndex, tempNum, &addrOfLine->operands[2]);
 		}
 	}
-
 	break;
 
 	default:
-		ErrorWithAST(ERROR_CODE, tree, "Address of operator is not supported for tokens other than identifier! Saw %s\n", getTokenName(tree->child->type));
+		ErrorWithAST(ERROR_CODE, tree, "Address of operator is not supported for non-identifiers! Saw %s\n", getTokenName(tree->child->type));
 	}
 
 	addrOfLine->operands[0].type = *TAC_GetTypeOfOperand(addrOfLine, 1);

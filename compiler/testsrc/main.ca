@@ -87,33 +87,9 @@ fun arrVarAddr(->void)
 	recurseDeeply(5, p, 5);
 }
 
-fun arrPtr(uint8 **arrayP->void)
-{
-	uint8 *p = *arrayP;
-	printPtr(p);
-}
-
-
-fun arrArr(->void)
-{
-	uint8 arr[12];
-	uint8 i = 0;
-	while(i < 12)
-	{
-		arr[i] = 123;
-		i += 1;
-	}
-	uint8 *arrAsPtr = arr;
-	uint8 **ptr = &arr;
-
-	arrPtr(ptr);
-}
-
-
 fun main(->void)
 {
 	varAddr();
 	arrConstAddr();
 	arrVarAddr();
-	arrArr();
 }
