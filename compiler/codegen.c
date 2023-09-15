@@ -177,14 +177,25 @@ int placeOrFindOperandInRegister(FILE *outFile,
 			registerIndex = RETURN_REGISTER;
 		}
 
-		const char *movOp = SelectMovWidthForLifetime(scope, relevantLifetime);
+		const char *movOp = NULL;
+
+		if (relevantLifetime->type.arraySize > 0)
+		{
+			// if array, treat as pointer
+			movOp = "mov";
+		}
+		else
+		{
+			movOp = SelectMovWidthForLifetime(scope, relevantLifetime);
+		}
 		const char *usedRegister = registerNames[registerIndex];
 		fprintf(outFile, "\tmov %s, %s ; place %s\n", usedRegister, relevantLifetime->name, operand->name.str);
 
-		if (relevantLifetime->type.indirectionLevel == 0)
+		if ((relevantLifetime->type.arraySize == 0))
 		{
 			fprintf(outFile, "\t%s %s, (%s) ; place %s\n", movOp, usedRegister, usedRegister, operand->name.str);
 		}
+
 		return registerIndex;
 	}
 	break;

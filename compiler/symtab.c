@@ -550,25 +550,31 @@ int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 			char *nonArrayPointerTypeName = Type_GetName(&v->type);
 			printf("Warning - variable %s with type %s used in array access!\n", v->name, nonArrayPointerTypeName);
 			free(nonArrayPointerTypeName);
+			struct Type elementType = v->type;
+			elementType.indirectionLevel--;
+			elementType.arraySize = 0;
+			int s = Scope_getSizeOfType(scope, &elementType);
+			return s;
 		}
 		else
 		{
 			ErrorAndExit(ERROR_INTERNAL, "Non-array variable %s passed to Scope_getSizeOfArrayElement!\n", v->name);
 		}
 	}
-
-	if (v->type.indirectionLevel == 0)
-	{
-		struct Type elementType = v->type;
-		elementType.indirectionLevel--;
-		elementType.arraySize = 0;
-		int s = Scope_getSizeOfType(scope, &elementType);
-		printf("GOT SIZE %d!!!\n", s);
-		return s;
-	}
 	else
 	{
-		return 4;
+		if (v->type.indirectionLevel == 0)
+		{
+			struct Type elementType = v->type;
+			elementType.indirectionLevel--;
+			elementType.arraySize = 0;
+			int s = Scope_getSizeOfType(scope, &elementType);
+			return s;
+		}
+		else
+		{
+			return 4;
+		}
 	}
 }
 

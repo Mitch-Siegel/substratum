@@ -586,11 +586,11 @@ void walkWhileLoop_0(struct AST *tree,
 	struct AST *whileBody = tree->child->sibling;
 	if (whileBody->type == t_lCurly)
 	{
-		walkScope_0(whileBody, whileBlock, whileScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+		walkScope_0(whileBody, whileBlock, whileScope, TACIndex, tempNum, labelNum, endWhileLabel);
 	}
 	else
 	{
-		walkStatement_0(whileBody, whileBlock, whileScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+		walkStatement_0(whileBody, whileBlock, whileScope, TACIndex, tempNum, labelNum, endWhileLabel);
 	}
 
 	struct TACLine *whileLoopJump = newTACLine((*TACIndex)++, tt_jmp, tree);
@@ -818,7 +818,6 @@ void walkArithmeticAssignment_0(struct AST *tree,
 
 	fakeAssignment.child = &fakelhs;
 
-	AST_Print(&fakeAssignment, 0);
 	walkAssignment_0(&fakeAssignment, block, scope, TACIndex, tempNum);
 }
 
@@ -1379,7 +1378,7 @@ void walkStringLiteral_0(struct AST *tree,
 		struct Type stringType;
 		stringType.basicType = vt_uint8;
 		stringType.arraySize = stringSize;
-		stringType.indirectionLevel = 1;
+		stringType.indirectionLevel = 0;
 
 		stringLiteralEntry = Scope_createVariable(scope, &fakeStringTree, &stringType, 1, 0, 0);
 
@@ -1399,5 +1398,5 @@ void walkStringLiteral_0(struct AST *tree,
 	free(stringValue);
 	populateTACOperandFromVariable(destinationOperand, stringLiteralEntry);
 	destinationOperand->name.str = stringName;
-	destinationOperand->type.arraySize = 0;
+	destinationOperand->type.arraySize = stringSize;
 }

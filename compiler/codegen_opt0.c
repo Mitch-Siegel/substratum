@@ -92,7 +92,6 @@ void generateCodeForProgram_0(struct SymbolTable *table, FILE *outFile, int regA
 						fprintf(outFile, "#d8 ");
 						for (int i = 0; i < Scope_getSizeOfArrayElement(table->globalScope, v); i++)
 						{
-
 							fprintf(outFile, "0x%02x ", v->type.initializeArrayTo[e][i]);
 						}
 						fprintf(outFile, "\n");

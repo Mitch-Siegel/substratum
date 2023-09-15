@@ -131,8 +131,14 @@ void assignRegisters(struct CodegenMetadata *metadata)
     printf("have %d reserved registers, this leaves us with %d to use\n", metadata->reservedRegisterCount, REGISTERS_TO_ALLOCATE - metadata->reservedRegisterCount);
     for (int i = 0; i <= metadata->largestTacIndex; i++)
     {
+        int j = metadata->reservedRegisterCount - 1;
+        if(metadata->reservedRegisterCount == 0)
+        {
+            j = 0;
+        }
+
         // free any registers inhabited by expired lifetimes
-        for (int j = metadata->reservedRegisterCount - 1; j < REGISTERS_TO_ALLOCATE; j++)
+        for (; j < REGISTERS_TO_ALLOCATE; j++)
         {
             if (occupiedBy[j] != NULL && occupiedBy[j]->end <= i)
             {
@@ -279,14 +285,14 @@ int allocateRegisters_0(struct CodegenMetadata *metadata)
 
     int mostConcurrentLifetimes = generateLifetimeOverlaps(metadata);
 
-    printf("at most %d concurrent lifetimes\n", mostConcurrentLifetimes);
+    // printf("at most %d concurrent lifetimes\n", mostConcurrentLifetimes);
 
     selectRegisterVariables(metadata, mostConcurrentLifetimes);
 
-    printf("selected which variables get registers\n");
-
+    // printf("selected which variables get registers\n");
     assignRegisters(metadata);
 
+    /*
     printf("assigned registers\n");
 
     printf("\nLifetimes for %s\n", metadata->function->name);
@@ -328,7 +334,7 @@ int allocateRegisters_0(struct CodegenMetadata *metadata)
             }
         }
         printf("\n");
-    }
+    }*/
 
     int localStackFootprint = -1 * assignStackSpace(metadata);
 
