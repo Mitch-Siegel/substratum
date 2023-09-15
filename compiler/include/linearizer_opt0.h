@@ -27,6 +27,14 @@ void walkFunctionDeclaration_0(struct AST *tree,
 void walkFunctionDefinition_0(struct AST *tree,
 							  struct FunctionEntry *fun);
 
+void walkStatement_0(struct AST *tree,
+					 struct BasicBlock *block,
+					 struct Scope *scope,
+					 int *TACIndex,
+					 int *tempNum,
+					 int *labelNum,
+					 int controlConvergesToLabel);
+
 void walkScope_0(struct AST *tree,
 				 struct BasicBlock *block,
 				 struct Scope *scope,
@@ -103,10 +111,10 @@ struct TACOperand *walkDereference_0(struct AST *tree,
 									 int *tempNum);
 
 struct TACOperand *walkAddrOf_0(struct AST *tree,
-							  struct BasicBlock *block,
-							  struct Scope *scope,
-							  int *TACIndex,
-							  int *tempNum);
+								struct BasicBlock *block,
+								struct Scope *scope,
+								int *TACIndex,
+								int *tempNum);
 
 void walkPointerArithmetic_0(struct AST *tree,
 							 struct BasicBlock *block,

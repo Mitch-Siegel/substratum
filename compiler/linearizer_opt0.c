@@ -20,8 +20,6 @@ struct SymbolTable *walkProgram_0(struct AST *program)
 	{
 		switch (programRunner->type)
 		{
-		// global variable declarations/definitions are allowed
-		// use walkStatement to handle this
 		case t_uint8:
 		case t_uint16:
 		case t_uint32:
@@ -333,6 +331,97 @@ void walkFunctionDefinition_0(struct AST *tree,
 	walkScope_0(tree, block, fun->mainScope, &TACIndex, &tempNum, &labelNum, -1);
 }
 
+void walkStatement_0(struct AST *tree,
+					 struct BasicBlock *block,
+					 struct Scope *scope,
+					 int *TACIndex,
+					 int *tempNum,
+					 int *labelNum,
+					 int controlConvergesToLabel)
+{
+	switch (tree->type)
+	{
+	case t_uint8:
+	case t_uint16:
+	case t_uint32:
+		walkVariableDeclaration_0(tree, block, scope, TACIndex, tempNum, 0);
+		break;
+
+	case t_single_equals:
+		walkAssignment_0(tree, block, scope, TACIndex, tempNum);
+		break;
+
+	case t_plus_equals:
+	case t_minus_equals:
+		walkArithmeticAssignment_0(tree, block, scope, TACIndex, tempNum);
+		break;
+
+	case t_while:
+		// while loop
+		{
+			struct BasicBlock *afterWhileBlock = BasicBlock_new((*labelNum)++);
+			walkWhileLoop_0(tree, block, scope, TACIndex, tempNum, labelNum, afterWhileBlock->labelNum);
+			block = afterWhileBlock;
+			Scope_addBasicBlock(scope, afterWhileBlock);
+		}
+		break;
+
+	case t_if:
+		// if statement
+		{
+			struct BasicBlock *afterIfBlock = BasicBlock_new((*labelNum)++);
+			walkIfStatement_0(tree, block, scope, TACIndex, tempNum, labelNum, afterIfBlock->labelNum);
+			block = afterIfBlock;
+			Scope_addBasicBlock(scope, afterIfBlock);
+		}
+		break;
+
+	case t_lParen:
+		walkFunctionCall_0(tree, block, scope, TACIndex, tempNum, NULL);
+		break;
+
+	case t_lCurly:
+		// subscope
+		{
+			struct Scope *subScope = Scope_createSubScope(scope);
+			struct BasicBlock *afterSubScopeBlock = BasicBlock_new((*labelNum)++);
+			walkScope_0(tree, block, subScope, TACIndex, tempNum, labelNum, afterSubScopeBlock->labelNum);
+			block = afterSubScopeBlock;
+			Scope_addBasicBlock(scope, afterSubScopeBlock);
+		}
+		break;
+
+		// case t_fun:
+		// walkFunctionDeclaration_0(tree, programTable->globalScope);
+		// break;
+
+	case t_return:
+		// return
+		{
+			struct TACLine *returnLine = newTACLine(*TACIndex, tt_return, tree);
+			if (tree->child != NULL)
+			{
+				walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &returnLine->operands[0]);
+			}
+
+			returnLine->index = (*TACIndex)++;
+
+			BasicBlock_append(block, returnLine);
+		}
+		break;
+
+	case t_asm:
+		walkAsmBlock_0(tree, block, scope, TACIndex, tempNum);
+		break;
+
+	case t_rCurly:
+		break;
+
+	default:
+		ErrorWithAST(ERROR_INTERNAL, tree, "Unexpected AST type (%s - %s) seen in walkStatement!\n", getTokenName(tree->type), tree->value);
+	}
+}
+
 void walkScope_0(struct AST *tree,
 				 struct BasicBlock *block,
 				 struct Scope *scope,
@@ -351,87 +440,7 @@ void walkScope_0(struct AST *tree,
 	struct AST *scopeRunner = tree->child;
 	while ((scopeRunner != NULL) && (scopeRunner->type != t_rCurly))
 	{
-		switch (scopeRunner->type)
-		{
-		case t_uint8:
-		case t_uint16:
-		case t_uint32:
-			walkVariableDeclaration_0(scopeRunner, block, scope, TACIndex, tempNum, 0);
-			break;
-
-		case t_single_equals:
-			walkAssignment_0(scopeRunner, block, scope, TACIndex, tempNum);
-			break;
-
-		case t_plus_equals:
-		case t_minus_equals:
-			walkArithmeticAssignment_0(scopeRunner, block, scope, TACIndex, tempNum);
-			break;
-
-		case t_while:
-			// while loop
-			{
-				struct BasicBlock *afterWhileBlock = BasicBlock_new((*labelNum)++);
-				walkWhileLoop_0(scopeRunner, block, scope, TACIndex, tempNum, labelNum, afterWhileBlock->labelNum);
-				block = afterWhileBlock;
-				Scope_addBasicBlock(scope, afterWhileBlock);
-			}
-			break;
-
-		case t_if:
-			// if statement
-			{
-				struct BasicBlock *afterIfBlock = BasicBlock_new((*labelNum)++);
-				walkIfStatement_0(scopeRunner, block, scope, TACIndex, tempNum, labelNum, afterIfBlock->labelNum);
-				block = afterIfBlock;
-				Scope_addBasicBlock(scope, afterIfBlock);
-			}
-			break;
-
-		case t_lParen:
-			walkFunctionCall_0(scopeRunner, block, scope, TACIndex, tempNum, NULL);
-			break;
-
-		case t_lCurly:
-			// subscope
-			{
-				struct Scope *subScope = Scope_createSubScope(scope);
-				struct BasicBlock *afterSubScopeBlock = BasicBlock_new((*labelNum)++);
-				walkScope_0(scopeRunner, block, subScope, TACIndex, tempNum, labelNum, afterSubScopeBlock->labelNum);
-				block = afterSubScopeBlock;
-				Scope_addBasicBlock(scope, afterSubScopeBlock);
-			}
-			break;
-
-			// case t_fun:
-			// walkFunctionDeclaration_0(scopeRunner, programTable->globalScope);
-			// break;
-
-		case t_return:
-			// return
-			{
-				struct TACLine *returnLine = newTACLine(*TACIndex, tt_return, scopeRunner);
-				if (scopeRunner->child != NULL)
-				{
-					walkSubExpression_0(scopeRunner->child, block, scope, TACIndex, tempNum, &returnLine->operands[0]);
-				}
-
-				returnLine->index = (*TACIndex)++;
-
-				BasicBlock_append(block, returnLine);
-			}
-			break;
-
-		case t_asm:
-			walkAsmBlock_0(scopeRunner, block, scope, TACIndex, tempNum);
-			break;
-
-		case t_rCurly:
-			break;
-
-		default:
-			ErrorWithAST(ERROR_INTERNAL, scopeRunner, "Unexpected AST type (%s - %s) seen in walkScope!\n", getTokenName(scopeRunner->type), scopeRunner->value);
-		}
+		walkStatement_0(scopeRunner, block, scope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 		scopeRunner = scopeRunner->sibling;
 	}
 
@@ -574,7 +583,15 @@ void walkWhileLoop_0(struct AST *tree,
 
 	int endWhileLabel = (*labelNum)++;
 
-	walkScope_0(tree->child->sibling, whileBlock, whileScope, TACIndex, tempNum, labelNum, endWhileLabel);
+	struct AST *whileBody = tree->child->sibling;
+	if (whileBody->type == t_lCurly)
+	{
+		walkScope_0(whileBody, whileBlock, whileScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+	}
+	else
+	{
+		walkStatement_0(whileBody, whileBlock, whileScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+	}
 
 	struct TACLine *whileLoopJump = newTACLine((*TACIndex)++, tt_jmp, tree);
 	whileLoopJump->operands[0].name.val = whileBlock->labelNum;
@@ -614,12 +631,29 @@ void walkIfStatement_0(struct AST *tree,
 		enterIfJump->operands[0].name.val = ifBlock->labelNum;
 		BasicBlock_append(block, enterIfJump);
 
-		walkScope_0(tree->child->sibling, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+		struct AST *ifBody = tree->child->sibling;
+		if (ifBody->type == t_lCurly)
+		{
+			walkScope_0(ifBody, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+		}
+		else
+		{
+			walkStatement_0(ifBody, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+		}
 
 		struct Scope *elseScope = Scope_createSubScope(scope);
 		struct BasicBlock *elseBlock = BasicBlock_new(elseLabel);
 		Scope_addBasicBlock(scope, elseBlock);
-		walkScope_0(tree->child->sibling->sibling, elseBlock, elseScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+
+		struct AST *elseBody = tree->child->sibling->sibling;
+		if (elseBody->type == t_lCurly)
+		{
+			walkScope_0(elseBody, elseBlock, elseScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+		}
+		else
+		{
+			walkStatement_0(elseBody, elseBlock, elseScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+		}
 	}
 	// no else block
 	else
@@ -634,7 +668,15 @@ void walkIfStatement_0(struct AST *tree,
 		enterIfJump->operands[0].name.val = ifBlock->labelNum;
 		BasicBlock_append(block, enterIfJump);
 
-		walkScope_0(tree->child->sibling, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+		struct AST *ifBody = tree->child->sibling;
+		if (ifBody->type == t_lCurly)
+		{
+			walkScope_0(ifBody, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+		}
+		else
+		{
+			walkStatement_0(ifBody, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+		}
 	}
 }
 
@@ -1147,7 +1189,7 @@ struct TACOperand *walkAddrOf_0(struct AST *tree,
 		// look up the variable entry and ensure that we will spill it to the stack since we take its address
 		{
 			struct VariableEntry *addrTakenOf = Scope_lookupVar(scope, tree->child);
-			if(addrTakenOf->type.arraySize > 0)
+			if (addrTakenOf->type.arraySize > 0)
 			{
 				ErrorWithAST(ERROR_CODE, tree->child, "Can't take address of local array %s!\n", addrTakenOf->name);
 			}
@@ -1179,7 +1221,6 @@ struct TACOperand *walkAddrOf_0(struct AST *tree,
 			addrOfLine->operands[2].name.val = indexSize;
 			addrOfLine->operands[2].permutation = vp_literal;
 			addrOfLine->operands[2].type.basicType = selectVariableTypeForNumber(addrOfLine->operands[2].name.val);
-
 		}
 		// otherwise, the index is either a variable or subexpression
 		else
