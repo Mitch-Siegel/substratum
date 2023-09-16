@@ -45,6 +45,7 @@ enum token
 	t_uint8,
 	t_uint16,
 	t_uint32,
+	t_class,
 	// function
 	t_fun,
 	t_return,
