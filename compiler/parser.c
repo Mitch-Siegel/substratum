@@ -307,6 +307,22 @@ int fgetc_track(char trackPos)
 	return gotten;
 }
 
+// return 1 if c can be part of an identifier (after the first character)
+char isIdentifierChar(char c)
+{
+	if (isalnum(c))
+	{
+		return 1;
+	}
+
+	if (c == '_')
+	{
+		return 1;
+	}
+
+	return 0;
+}
+
 // scan and return the raw token we see
 enum token _scan(char trackPos)
 {
@@ -428,6 +444,25 @@ enum token _scan(char trackPos)
 						forceNextChar = 1;
 					}
 					else
+					{
+						return reserved[i].token;
+					}
+					break;
+
+				// for reserved keywords that are might look like identifiers
+				// make sure we don't greedily match the first part of an identifier as a keyword
+				case t_asm:
+				case t_void:
+				case t_uint8:
+				case t_uint16:
+				case t_uint32:
+				case t_fun:
+				case t_return:
+				case t_if:
+				case t_else:
+				case t_while:
+				case t_for:
+					if (!isIdentifierChar(lookahead_char_dumb(1)))
 					{
 						return reserved[i].token;
 					}

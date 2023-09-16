@@ -216,4 +216,8 @@ fun main(->void)
 	wipeStack();
 	arrVarAddr();
 
+	uint8 *funnyString = "funny!";
+	printStr(funnyString);
+	print(10);
+
 }
