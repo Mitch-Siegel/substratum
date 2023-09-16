@@ -191,7 +191,7 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		const char *usedRegister = registerNames[registerIndex];
 		fprintf(outFile, "\tmov %s, %s ; place %s\n", usedRegister, relevantLifetime->name, operand->name.str);
 
-		if ((relevantLifetime->type.arraySize == 0))
+		if (relevantLifetime->type.arraySize == 0)
 		{
 			fprintf(outFile, "\t%s %s, (%s) ; place %s\n", movOp, usedRegister, usedRegister, operand->name.str);
 		}
