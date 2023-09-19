@@ -14,6 +14,7 @@ enum ScopeMemberType
 	e_variable,
 	e_function,
 	e_argument,
+	e_class,
 	e_scope,
 	e_basicblock,
 };
@@ -52,6 +53,9 @@ struct VariableEntry
 	int stackOffset;
 	char *name; // duplicate pointer from ScopeMember for ease of use
 	struct Type type;
+	// TODO: do these 3 variables need to be deleted?
+	// keeping them in could allow for more checks at linearization time
+	// but do these checks make sense to do at register allocation time?
 	int assignedAt;
 	int declaredAt;
 	char isAssigned;
@@ -60,6 +64,19 @@ struct VariableEntry
 	// and can have an address
 	char mustSpill;
 	char isGlobal;
+};
+
+struct ClassMemberLocation
+{
+	struct VariableEntry *variable;
+	int offset;
+};
+
+struct ClassEntry
+{
+	char *name;
+	struct Scope *members;
+	struct Stack *memberLocations;
 };
 
 struct SymbolTable
@@ -118,6 +135,10 @@ struct FunctionEntry *Scope_createFunction(struct Scope *parentScope,
 										   struct Type *returnType);
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
+
+// this represents the definition of a class itself, instantiation falls under variableEntry
+struct ClassEntry *Scope_createClass(struct Scope *scope,
+									 char *name);
 
 // scope lookup functions
 char Scope_contains(struct Scope *scope,

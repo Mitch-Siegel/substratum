@@ -103,6 +103,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 		// skip everything else
 		case e_variable:
 		case e_argument:
+		case e_class:
 		case e_basicblock:
 			break;
 		}
@@ -152,6 +153,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 		case e_variable:
 		case e_argument:
+		case e_class:
 			break;
 		}
 	}
@@ -267,6 +269,20 @@ void Scope_free(struct Scope *scope)
 		}
 		break;
 
+		case e_class:
+		{
+			struct ClassEntry *theClass = examinedEntry->entry;
+			Scope_free(theClass->members);
+
+			while(theClass->memberLocations->size > 0)
+			{
+				free(Stack_Pop(theClass->memberLocations));
+			}
+			
+			Stack_Free(theClass->memberLocations);
+		}
+		break;
+
 		case e_basicblock:
 			BasicBlock_free(examinedEntry->entry);
 			break;
@@ -368,6 +384,17 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
 	return newScope;
 }
 
+struct ClassEntry *Scope_createClass(struct Scope *scope,
+									 char *name)
+{
+	struct ClassEntry *wipClass = malloc(sizeof(struct ClassEntry));
+	wipClass->name = name;
+	wipClass->members = Scope_new(scope, "CLASS", NULL);
+	wipClass->memberLocations = Stack_New();
+
+	Scope_insert(scope, name, wipClass, e_class);
+	return wipClass;
+}
 // Scope lookup functions
 
 char Scope_contains(struct Scope *scope, char *name)
@@ -661,6 +688,16 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 			printf("> Variable %s:", thisMember->name);
 			printf("\n");
 			VariableEntry_Print(theVariable, depth);
+			printf("\n");
+		}
+		break;
+
+		case e_class:
+		{
+			struct ClassEntry *theClass = thisMember->entry;
+			printf("> Class %s:", thisMember->name);
+			printf("\n");
+			Scope_print(theClass->members, 0, 0);
 			printf("\n");
 		}
 		break;
