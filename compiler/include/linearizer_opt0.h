@@ -27,6 +27,10 @@ void walkFunctionDeclaration_0(struct AST *tree,
 void walkFunctionDefinition_0(struct AST *tree,
 							  struct FunctionEntry *fun);
 
+void walkClassDeclaration_0(struct AST *tree,
+							struct BasicBlock *block,
+							struct Scope *scope);
+
 void walkStatement_0(struct AST *tree,
 					 struct BasicBlock **blockP,
 					 struct Scope *scope,

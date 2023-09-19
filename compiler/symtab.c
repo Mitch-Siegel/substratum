@@ -274,11 +274,11 @@ void Scope_free(struct Scope *scope)
 			struct ClassEntry *theClass = examinedEntry->entry;
 			Scope_free(theClass->members);
 
-			while(theClass->memberLocations->size > 0)
+			while (theClass->memberLocations->size > 0)
 			{
 				free(Stack_Pop(theClass->memberLocations));
 			}
-			
+
 			Stack_Free(theClass->memberLocations);
 		}
 		break;
@@ -391,10 +391,27 @@ struct ClassEntry *Scope_createClass(struct Scope *scope,
 	wipClass->name = name;
 	wipClass->members = Scope_new(scope, "CLASS", NULL);
 	wipClass->memberLocations = Stack_New();
+	wipClass->totalSize = 0;
 
 	Scope_insert(scope, name, wipClass, e_class);
 	return wipClass;
 }
+
+struct VariableEntry *Class_createMemberVariable(struct ClassEntry *class,
+												 struct AST *name,
+												 struct Type *type)
+{
+	struct VariableEntry *member = Scope_createVariable(class->members, name, type, 0, 0, 0);
+
+	struct ClassMemberOffset *newMemberLocation = malloc(sizeof(struct ClassMemberOffset));
+	newMemberLocation->offset = class->totalSize;
+	class->totalSize += Scope_getSizeOfType(class->members, type);
+
+	Stack_Push(class->memberLocations, newMemberLocation);
+
+	return member;
+}
+
 // Scope lookup functions
 
 char Scope_contains(struct Scope *scope, char *name)

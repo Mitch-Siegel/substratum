@@ -66,7 +66,7 @@ struct VariableEntry
 	char isGlobal;
 };
 
-struct ClassMemberLocation
+struct ClassMemberOffset
 {
 	struct VariableEntry *variable;
 	int offset;
@@ -77,6 +77,7 @@ struct ClassEntry
 	char *name;
 	struct Scope *members;
 	struct Stack *memberLocations;
+	int totalSize;
 };
 
 struct SymbolTable
@@ -139,6 +140,10 @@ struct Scope *Scope_createSubScope(struct Scope *scope);
 // this represents the definition of a class itself, instantiation falls under variableEntry
 struct ClassEntry *Scope_createClass(struct Scope *scope,
 									 char *name);
+
+struct VariableEntry *Class_createMemberVariable(struct ClassEntry *class,
+												 struct AST *name,
+												 struct Type *type);
 
 // scope lookup functions
 char Scope_contains(struct Scope *scope,

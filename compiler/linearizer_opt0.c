@@ -26,6 +26,20 @@ struct SymbolTable *walkProgram_0(struct AST *program)
 			walkVariableDeclaration_0(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
 			break;
 
+		case t_class:
+		{
+			if (programRunner->child->sibling->type == t_lCurly)
+			{
+				walkClassDeclaration_0(programRunner, globalBlock, programTable->globalScope);
+				break;
+			}
+			else
+			{
+				walkVariableDeclaration_0(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
+			}
+		}
+		break;
+
 		case t_single_equals:
 			walkAssignment_0(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum);
 			break;
@@ -329,6 +343,46 @@ void walkFunctionDefinition_0(struct AST *tree,
 	struct BasicBlock *block = BasicBlock_new(0);
 	Scope_addBasicBlock(fun->mainScope, block);
 	walkScope_0(tree, block, fun->mainScope, &TACIndex, &tempNum, &labelNum, -1);
+}
+
+void walkClassDeclaration_0(struct AST *tree,
+							struct BasicBlock *block,
+							struct Scope *scope)
+{
+	if (tree->type != t_class)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) passed to walkClassDefinition!\n", getTokenName(tree->type));
+	}
+
+	struct ClassEntry *declaredClass = Scope_createClass(scope, tree->child->value);
+
+	printf("Declared class %s\n", declaredClass->name);
+
+	struct AST *classScope = tree->child->sibling;
+
+	if (classScope->type != t_lCurly)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Malformed AST seen in walkClassDefinition!\n");
+	}
+
+	struct AST *scopeRunner = classScope->child;
+	while ((scopeRunner != NULL) && (scopeRunner->type != t_rCurly))
+	{
+		switch (scopeRunner->type)
+		{
+		case t_uint8:
+		case t_uint16:
+		case t_uint32:
+			printf("Class member definition\n");
+			AST_Print(scopeRunner, 0);
+			break;
+
+		default:
+			ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) seen in body of class definition!\n", getTokenName(scopeRunner->type));
+		}
+		// walkStatement_0(scopeRunner, &block, scope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+		scopeRunner = scopeRunner->sibling;
+	}
 }
 
 void walkStatement_0(struct AST *tree,
