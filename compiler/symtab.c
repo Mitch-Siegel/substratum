@@ -397,19 +397,16 @@ struct ClassEntry *Scope_createClass(struct Scope *scope,
 	return wipClass;
 }
 
-struct VariableEntry *Class_createMemberVariable(struct ClassEntry *class,
-												 struct AST *name,
-												 struct Type *type)
+void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
+										 struct VariableEntry *v)
 {
-	struct VariableEntry *member = Scope_createVariable(class->members, name, type, 0, 0, 0);
 
 	struct ClassMemberOffset *newMemberLocation = malloc(sizeof(struct ClassMemberOffset));
 	newMemberLocation->offset = class->totalSize;
-	class->totalSize += Scope_getSizeOfType(class->members, type);
+	class->totalSize += Scope_getSizeOfType(class->members, &v->type);
 
 	Stack_Push(class->memberLocations, newMemberLocation);
 
-	return member;
 }
 
 // Scope lookup functions

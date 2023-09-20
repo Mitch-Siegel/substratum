@@ -73,19 +73,41 @@ struct VariableEntry *walkVariableDeclaration_0(struct AST *tree,
 {
 	printf("walkVariableDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
-	enum basicTypes declaredBasicType;
+	struct Type declaredType;
+
+	/* 'class' trees' children are the class name
+	 * other variables' children are the pointer or variable name
+	 * so we need to start at tree->child for non-class or tree->child->sibling for classes
+	 */
+
+	struct AST *startScrapeFrom = tree->child;
+
 	switch (tree->type)
 	{
 	case t_uint8:
-		declaredBasicType = vt_uint8;
+		declaredType.basicType = vt_uint8;
 		break;
 
 	case t_uint16:
-		declaredBasicType = vt_uint16;
+		declaredType.basicType = vt_uint16;
 		break;
 
 	case t_uint32:
-		declaredBasicType = vt_uint32;
+		declaredType.basicType = vt_uint32;
+		break;
+
+	case t_class:
+		declaredType.basicType = vt_class;
+		if (startScrapeFrom->type != t_identifier)
+		{
+			ErrorWithAST(ERROR_INTERNAL,
+						 startScrapeFrom,
+						 "Malformed AST seen in declaration!\nExpected class name after \"class\", saw %s (%s)!",
+						 startScrapeFrom->value,
+						 getTokenName(startScrapeFrom->type));
+		}
+		declaredType.classType.name = startScrapeFrom->value;
+		startScrapeFrom = startScrapeFrom->sibling;
 		break;
 
 	default:
@@ -93,11 +115,7 @@ struct VariableEntry *walkVariableDeclaration_0(struct AST *tree,
 	}
 
 	struct AST *declaredTree = NULL;
-	int declaredIndirectionLevel = scrapePointers(tree->child, &declaredTree);
-
-	struct Type declaredType;
-	declaredType.basicType = declaredBasicType;
-	declaredType.indirectionLevel = declaredIndirectionLevel;
+	declaredType.indirectionLevel = scrapePointers(startScrapeFrom, &declaredTree);
 
 	// if we are declaring an array, set the string with the size as the second operand
 	if (declaredTree->type == t_lBracket)
@@ -353,6 +371,7 @@ void walkClassDeclaration_0(struct AST *tree,
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) passed to walkClassDefinition!\n", getTokenName(tree->type));
 	}
+	int dummyNum = 0;
 
 	struct ClassEntry *declaredClass = Scope_createClass(scope, tree->child->value);
 
@@ -373,9 +392,11 @@ void walkClassDeclaration_0(struct AST *tree,
 		case t_uint8:
 		case t_uint16:
 		case t_uint32:
-			printf("Class member definition\n");
-			AST_Print(scopeRunner, 0);
-			break;
+		{
+			struct VariableEntry *declaredMember = walkVariableDeclaration_0(scopeRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0);
+			Class_assignOffsetToMemberVariable(declaredClass, declaredMember);
+		}
+		break;
 
 		default:
 			ErrorWithAST(ERROR_INTERNAL, tree, "Invalid AST type (%s) seen in body of class definition!\n", getTokenName(scopeRunner->type));
