@@ -518,6 +518,7 @@ enum token _scan(char trackPos)
 		case '-':
 		case '*':
 		case '/':
+		case '.':
 			return currentToken;
 			break;
 		}

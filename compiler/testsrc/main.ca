@@ -1,12 +1,13 @@
 
 
-uint8 Fraction;
-class Fraction *fracPointer;
-class Fraction number;
-uint8 *abcp;
-
-class Fraction
+class Fixed8
 {
-	uint8 whole;
+	uint8 integer;
 	uint8 fraction;
 };
+
+fun main(->void)
+{
+	class Fixed8 f;
+	f.integer = 0;
+}

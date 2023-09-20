@@ -9,7 +9,7 @@ enum RecipeInstructions
 };
 
 // let him cook!
-enum token parseRecipes[p_null][12][9][2] = {
+enum token parseRecipes[p_null][13][9][2] = {
     // p_type_name - TYPE-NAME
     {
         {{t_void, above},
@@ -42,6 +42,11 @@ enum token parseRecipes[p_null][12][9][2] = {
     {
         // identifier
         {{t_identifier, above},
+         {p_null, p_null}},
+
+        {{p_primary_expression, above},
+         {t_dot, above},
+         {t_identifier, below},
          {p_null, p_null}},
 
         // constant

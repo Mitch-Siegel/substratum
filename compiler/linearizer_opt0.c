@@ -428,6 +428,7 @@ void walkStatement_0(struct AST *tree,
 	case t_uint8:
 	case t_uint16:
 	case t_uint32:
+	case t_class:
 		walkVariableDeclaration_0(tree, *blockP, scope, TACIndex, tempNum, 0);
 		break;
 
