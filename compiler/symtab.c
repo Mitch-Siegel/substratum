@@ -409,7 +409,7 @@ void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
 	Stack_Push(class->memberLocations, newMemberLocation);
 }
 
-int Class_lookupOffsetOfMemberVariable(struct ClassEntry *class,
+struct ClassMemberOffset *Class_lookupMemberVariable(struct ClassEntry *class,
 									   struct AST *name)
 {
 	if (name->type != t_identifier)
@@ -426,7 +426,7 @@ int Class_lookupOffsetOfMemberVariable(struct ClassEntry *class,
 		struct ClassMemberOffset *co = class->memberLocations->data[i];
 		if (!strcmp(co->variable->name, name->value))
 		{
-			return co->offset;
+			return co;
 		}
 	}
 
@@ -612,7 +612,11 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 		break;
 
 	case vt_class:
-		ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_class - not supported yet!\n");
+	{
+		struct ClassEntry *class = Scope_lookupClassByType(scope, t);
+		size = class->totalSize;
+	}
+	break;
 	}
 
 	if (t->arraySize > 0)

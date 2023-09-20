@@ -144,9 +144,9 @@ struct ClassEntry *Scope_createClass(struct Scope *scope,
 void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
 										struct VariableEntry *v);
 
-int Class_lookupOffsetOfMemberVariable(struct ClassEntry *class,
-									struct AST *name);
-									
+struct ClassMemberOffset *Class_lookupMemberVariable(struct ClassEntry *class,
+													 struct AST *name);
+
 // scope lookup functions
 char Scope_contains(struct Scope *scope,
 					char *name);
