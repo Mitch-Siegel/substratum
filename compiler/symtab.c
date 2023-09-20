@@ -656,14 +656,9 @@ char *Scope_getNameOfType(struct Scope *scope, struct Type *t)
 
 void VariableEntry_Print(struct VariableEntry *it, int depth)
 {
-	for (int j = 0; j < depth; j++)
-	{
-		printf("\t");
-	}
 	char *typeName = Type_GetName(&it->type);
-	printf("  - %s", typeName);
+	printf("%s %s\n", typeName, it->name);
 	free(typeName);
-	printf("\n");
 }
 
 void Scope_print(struct Scope *it, int depth, char printTAC)
@@ -685,34 +680,29 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		case e_argument:
 		{
 			struct VariableEntry *theArgument = thisMember->entry;
-			printf("> Argument %s:", thisMember->name);
-			printf("\n");
+			printf("> Argument: ");
 			VariableEntry_Print(theArgument, depth);
 			for (int j = 0; j < depth; j++)
 			{
 				printf("\t");
 			}
-			printf("  - Stack offset: %d\n\n", theArgument->stackOffset);
+			printf("  - Stack offset: %d\n", theArgument->stackOffset);
 		}
 		break;
 
 		case e_variable:
 		{
 			struct VariableEntry *theVariable = thisMember->entry;
-			printf("> Variable %s:", thisMember->name);
-			printf("\n");
+			printf("> ");
 			VariableEntry_Print(theVariable, depth);
-			printf("\n");
 		}
 		break;
 
 		case e_class:
 		{
 			struct ClassEntry *theClass = thisMember->entry;
-			printf("> Class %s:", thisMember->name);
-			printf("\n");
-			Scope_print(theClass->members, 0, 0);
-			printf("\n");
+			printf("> Class %s:\n", thisMember->name);
+			Scope_print(theClass->members, depth + 1, 0);
 		}
 		break;
 

@@ -766,5 +766,5 @@ void printBasicBlock(struct BasicBlock *b, int indentLevel)
 			printf("\n");
 		}
 	}
-	printf("\n\n");
+	printf("\n");
 }
