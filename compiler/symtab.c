@@ -403,9 +403,34 @@ void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
 
 	struct ClassMemberOffset *newMemberLocation = malloc(sizeof(struct ClassMemberOffset));
 	newMemberLocation->offset = class->totalSize;
+	newMemberLocation->variable = v;
 	class->totalSize += Scope_getSizeOfType(class->members, &v->type);
 
 	Stack_Push(class->memberLocations, newMemberLocation);
+}
+
+int Class_lookupOffsetOfMemberVariable(struct ClassEntry *class,
+									   struct AST *name)
+{
+	if (name->type != t_identifier)
+	{
+		ErrorWithAST(ERROR_INTERNAL,
+					 name,
+					 "Non-identifier tree %s (%s) passed to Class_lookupOffsetOfMemberVariable!\n",
+					 name->value,
+					 getTokenName(name->type));
+	}
+
+	for (int i = 0; i < class->memberLocations->size; i++)
+	{
+		struct ClassMemberOffset *co = class->memberLocations->data[i];
+		if (!strcmp(co->variable->name, name->value))
+		{
+			return co->offset;
+		}
+	}
+
+	ErrorWithAST(ERROR_CODE, name, "Use of nonexistent member variable %s in class %s\n", name->value, class->name);
 }
 
 // Scope lookup functions
@@ -537,6 +562,30 @@ struct ClassEntry *Scope_lookupClass(struct Scope *scope,
 
 	default:
 		ErrorWithAST(ERROR_INTERNAL, name, "%s is not a class!\n", name->value);
+	}
+}
+
+struct ClassEntry *Scope_lookupClassByType(struct Scope *scope,
+										   struct Type *type)
+{
+	if (type->classType.name == NULL)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Type with null classType name passed to Scope_lookupClassByType!\n");
+	}
+
+	struct ScopeMember *lookedUp = Scope_lookup(scope, type->classType.name);
+	if (lookedUp == NULL)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Use of undeclared class '%s'\n", type->classType.name);
+	}
+
+	switch (lookedUp->type)
+	{
+	case e_class:
+		return lookedUp->entry;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Scope_lookupClassByType for %s lookup got a non-class ScopeMember!\n", type->classType.name);
 	}
 }
 

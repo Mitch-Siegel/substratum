@@ -857,6 +857,35 @@ void walkAssignment_0(struct AST *tree,
 	}
 	break;
 
+	case t_dot:
+	{
+		struct AST *class = lhs->child;
+		struct AST *member = lhs->child->sibling;
+		
+		assignment->operation = tt_memw_2;
+		walkSubExpression_0(class, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+
+		if(TAC_GetTypeOfOperand(assignment, 0)->basicType != vt_class)
+		{
+			ErrorWithAST(ERROR_CODE, class, "Use of non-class in dot operator!\n");
+		}
+
+		if(member->type != t_identifier)
+		{
+			ErrorWithAST(ERROR_CODE, member, "RHS of dot operator must be an identifier!\n");
+		}
+
+		struct ClassEntry *usedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(assignment, 0));
+		int offset = Class_lookupOffsetOfMemberVariable(usedClass, member);
+		
+		assignment->operands[2].type.basicType = vt_uint32;
+		assignment->operands[2].permutation = vp_literal;
+		assignment->operands[2].name.val = offset;
+
+		assignment->operands[2] = assignedValue;
+	}
+	break;
+
 	default:
 		ErrorWithAST(ERROR_INTERNAL, lhs, "Unexpected AST (%s) seen in walkAssignment!\n", lhs->value);
 		break;

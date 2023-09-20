@@ -144,6 +144,9 @@ struct ClassEntry *Scope_createClass(struct Scope *scope,
 void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
 										struct VariableEntry *v);
 
+int Class_lookupOffsetOfMemberVariable(struct ClassEntry *class,
+									struct AST *name);
+									
 // scope lookup functions
 char Scope_contains(struct Scope *scope,
 					char *name);
@@ -168,6 +171,9 @@ struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope,
 
 struct ClassEntry *Scope_lookupClass(struct Scope *scope,
 									 struct AST *name);
+
+struct ClassEntry *Scope_lookupClassByType(struct Scope *scope,
+										   struct Type *type);
 
 // gets the integer size (not aligned) of a given type
 int Scope_getSizeOfType(struct Scope *scope, struct Type *t);
