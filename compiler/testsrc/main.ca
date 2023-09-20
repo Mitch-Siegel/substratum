@@ -1,11 +1,12 @@
 
+
+uint8 Fraction;
+class Fraction *fracPointer;
+class Fraction number;
+uint8 *abcp;
+
 class Fraction
 {
 	uint8 whole;
 	uint8 fraction;
 };
-
-
-class Fraction number;
-uint8 *abcp;
-class Fraction *fracPointer;

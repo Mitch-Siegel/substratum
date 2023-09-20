@@ -81,6 +81,7 @@ struct VariableEntry *walkVariableDeclaration_0(struct AST *tree,
 	 */
 
 	struct AST *startScrapeFrom = tree->child;
+	struct AST *className = NULL;
 
 	switch (tree->type)
 	{
@@ -107,6 +108,7 @@ struct VariableEntry *walkVariableDeclaration_0(struct AST *tree,
 						 getTokenName(startScrapeFrom->type));
 		}
 		declaredType.classType.name = startScrapeFrom->value;
+		className = startScrapeFrom;
 		startScrapeFrom = startScrapeFrom->sibling;
 		break;
 
@@ -116,6 +118,13 @@ struct VariableEntry *walkVariableDeclaration_0(struct AST *tree,
 
 	struct AST *declaredTree = NULL;
 	declaredType.indirectionLevel = scrapePointers(startScrapeFrom, &declaredTree);
+
+	// don't allow declaration of variables of undeclared class (even pointers)
+	if (declaredType.basicType == vt_class)
+	{
+		// the lookup will bail out if an attempt is made to use an undeclared class
+		Scope_lookupClass(scope, className);
+	}
 
 	// if we are declaring an array, set the string with the size as the second operand
 	if (declaredTree->type == t_lBracket)

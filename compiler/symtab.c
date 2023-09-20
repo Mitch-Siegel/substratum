@@ -398,7 +398,7 @@ struct ClassEntry *Scope_createClass(struct Scope *scope,
 }
 
 void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
-										 struct VariableEntry *v)
+										struct VariableEntry *v)
 {
 
 	struct ClassMemberOffset *newMemberLocation = malloc(sizeof(struct ClassMemberOffset));
@@ -406,7 +406,6 @@ void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
 	class->totalSize += Scope_getSizeOfType(class->members, &v->type);
 
 	Stack_Push(class->memberLocations, newMemberLocation);
-
 }
 
 // Scope lookup functions
@@ -521,6 +520,24 @@ struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char su
 	sprintf(subScopeName, "%02x", subScopeNumber);
 	struct Scope *lookedUp = Scope_lookupSubScope(scope, subScopeName);
 	return lookedUp;
+}
+
+struct ClassEntry *Scope_lookupClass(struct Scope *scope,
+									 struct AST *name)
+{
+	struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
+	if (lookedUp == NULL)
+	{
+		ErrorWithAST(ERROR_CODE, name, "Use of undeclared class '%s'\n", name->value);
+	}
+	switch (lookedUp->type)
+	{
+	case e_class:
+		return lookedUp->entry;
+
+	default:
+		ErrorWithAST(ERROR_INTERNAL, name, "%s is not a class!\n", name->value);
+	}
 }
 
 int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
