@@ -1,3 +1,5 @@
+#include "math.h"
+#include "print.h"
 
 class Fixed8
 {
@@ -5,19 +7,39 @@ class Fixed8
 	uint8 fraction;
 };
 
+fun Fixed8_Print(class Fixed8 *f->void)
+{
+	printNum(f->integer, 0);
+	printStr(" ");
+	printNum(f->fraction, 0);
+	printStr("/256");
+	print(10);
+}
+
 fun Fixed8_Add(class Fixed8 *f, uint8 integer, uint8 fraction->void)
 {
+	f = f;
 	uint16 newInt = integer + (f->integer);
 	uint16 newFrac = fraction + (f->fraction);
+
+	while(newFrac > 255)
+	{
+		newInt += 1;
+		newFrac -= 256;
+	}
 
 	f->integer = newInt;
 	f->fraction = newFrac;
 }
 
+
+
+
 fun main(->void)
 {
-	class Fixed8 f;
-	f.integer = 0;
-	f.integer = f.integer + 1;
-	f.fraction = 0;
+	class Fixed8 fixedTest;
+
+	Fixed8_Add((&fixedTest), 123, 4);
+
+	Fixed8_Print(&fixedTest);
 }

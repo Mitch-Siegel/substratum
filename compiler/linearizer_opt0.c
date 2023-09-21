@@ -875,6 +875,7 @@ void walkAssignment_0(struct AST *tree,
 
 		walkSubExpression_0(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
 		copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
+		TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
 
 		getAddressForDot->index = (*TACIndex)++;
 		BasicBlock_append(block, getAddressForDot);
@@ -893,6 +894,8 @@ void walkAssignment_0(struct AST *tree,
 
 		struct ClassEntry *usedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(assignment, 0));
 		struct ClassMemberOffset *memberInfo = Class_lookupMemberVariable(usedClass, member);
+
+		assignment->operands[0].castAsType = memberInfo->variable->type;
 
 		assignment->operands[1].type.basicType = vt_uint32;
 		assignment->operands[1].permutation = vp_literal;
@@ -923,6 +926,8 @@ void walkAssignment_0(struct AST *tree,
 
 		struct ClassEntry *usedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(assignment, 0));
 		struct ClassMemberOffset *memberInfo = Class_lookupMemberVariable(usedClass, member);
+
+		assignment->operands[0].castAsType = memberInfo->variable->type;
 
 		assignment->operands[1].type.basicType = vt_uint32;
 		assignment->operands[1].permutation = vp_literal;
@@ -1118,7 +1123,16 @@ void walkFunctionCall_0(struct AST *tree,
 		ErrorWithAST(ERROR_INTERNAL, tree, "Expected t_rParen at end of arguments for function call %s\n", tree->child->value);
 	}
 
-	int argIndex = 0;
+	if (argumentTrees->size != calledFunction->arguments->size)
+	{
+		ErrorWithAST(ERROR_CODE, tree,
+					 "Error in call to function %s - expected %d arguments, saw %d!\n",
+					 calledFunction->name,
+					 calledFunction->arguments->size,
+					 argumentTrees->size);
+	}
+
+	int argIndex = calledFunction->arguments->size - 1;
 	while (argumentTrees->size > 0)
 	{
 		struct AST *pushedArgument = Stack_Pop(argumentTrees);
@@ -1163,18 +1177,9 @@ void walkFunctionCall_0(struct AST *tree,
 
 		push->index = (*TACIndex)++;
 		BasicBlock_append(block, push);
-		argIndex++;
+		argIndex--;
 	}
 	Stack_Free(argumentTrees);
-
-	if (argIndex != calledFunction->arguments->size)
-	{
-		ErrorWithAST(ERROR_CODE, tree,
-					 "Error in call to function %s - expected %d arguments, saw %d!\n",
-					 calledFunction->name,
-					 calledFunction->arguments->size,
-					 argIndex);
-	}
 
 	struct TACLine *call = newTACLine((*TACIndex)++, tt_call, tree);
 	call->operands[1].name.str = calledFunction->name;
@@ -1217,6 +1222,7 @@ void walkDotOperator_0(struct AST *tree,
 
 	walkSubExpression_0(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
 	copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
+	TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
 
 	getAddressForDot->index = (*TACIndex)++;
 	BasicBlock_append(block, getAddressForDot);
@@ -1250,10 +1256,6 @@ void walkDotOperator_0(struct AST *tree,
 	dotOperator->operands[2].type.basicType = vt_uint32;
 	dotOperator->operands[2].permutation = vp_literal;
 	dotOperator->operands[2].name.val = memberInfo->offset;
-
-	printf("DEBUG:\n");
-	printTACLine(getAddressForDot);
-	printTACLine(dotOperator);
 
 	dotOperator->index = (*TACIndex)++;
 	BasicBlock_append(block, dotOperator);
@@ -1313,8 +1315,6 @@ void walkArrowOperator_0(struct AST *tree,
 	arrowOperator->operands[2].type.basicType = vt_uint32;
 	arrowOperator->operands[2].permutation = vp_literal;
 	arrowOperator->operands[2].name.val = memberInfo->offset;
-
-	printTACLine(arrowOperator);
 
 	arrowOperator->index = (*TACIndex)++;
 	BasicBlock_append(block, arrowOperator);

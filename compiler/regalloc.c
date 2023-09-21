@@ -21,7 +21,7 @@ struct Lifetime *newLifetime(char *name, struct Type *type, int start, char isGl
 	}
 	else
 	{
-		if ((type->basicType == vt_class) || (type->arraySize > 0) || mustSpill)
+		if (((type->basicType == vt_class) && (type->indirectionLevel == 0)) || (type->arraySize > 0) || mustSpill)
 		{
 			wip->wbLocation = wb_stack;
 		}
@@ -255,6 +255,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_memw_3_n:
 			case tt_lea_2:
 			case tt_lea_3:
+			case tt_addrof:
 			{
 				for (int i = 0; i < 4; i++)
 				{
@@ -276,7 +277,6 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			}
 			break;
 
-			case tt_addrof:
 			case tt_jg:
 			case tt_jge:
 			case tt_jl:
