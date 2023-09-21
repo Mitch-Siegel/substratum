@@ -18,7 +18,6 @@ fun Fixed8_Print(class Fixed8 *f->void)
 
 fun Fixed8_Add(class Fixed8 *f, uint8 integer, uint8 fraction->void)
 {
-	f = f;
 	uint16 newInt = integer + (f->integer);
 	uint16 newFrac = fraction + (f->fraction);
 

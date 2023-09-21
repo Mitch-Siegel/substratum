@@ -123,7 +123,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 		if (thisMember->type == e_argument)
 		{
 			struct VariableEntry *theArgument = thisMember->entry;
-			struct Lifetime *argLifetime = updateOrInsertLifetime(lifetimes, thisMember->name, &theArgument->type, 1, 0, 0);
+			struct Lifetime *argLifetime = updateOrInsertLifetime(lifetimes, thisMember->name, &theArgument->type, 0, 0, 0);
 			argLifetime->isArgument = 1;
 		}
 	}
