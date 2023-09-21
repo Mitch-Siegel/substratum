@@ -880,7 +880,6 @@ void walkAssignment_0(struct AST *tree,
 		BasicBlock_append(block, getAddressForDot);
 
 		copyTACOperandDecayArrays(&assignment->operands[0], &getAddressForDot->operands[0]);
-		
 
 		if (TAC_GetTypeOfOperand(assignment, 0)->basicType != vt_class)
 		{
@@ -890,6 +889,36 @@ void walkAssignment_0(struct AST *tree,
 		if (member->type != t_identifier)
 		{
 			ErrorWithAST(ERROR_CODE, member, "RHS of dot operator must be an identifier!\n");
+		}
+
+		struct ClassEntry *usedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(assignment, 0));
+		struct ClassMemberOffset *memberInfo = Class_lookupMemberVariable(usedClass, member);
+
+		assignment->operands[1].type.basicType = vt_uint32;
+		assignment->operands[1].permutation = vp_literal;
+		assignment->operands[1].name.val = memberInfo->offset;
+
+		assignment->operands[2] = assignedValue;
+	}
+	break;
+
+	case t_arrow:
+	{
+		struct AST *class = lhs->child;
+		struct AST *member = lhs->child->sibling;
+
+		assignment->operation = tt_memw_2;
+
+		walkSubExpression_0(class, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+
+		if (TAC_GetTypeOfOperand(assignment, 0)->basicType != vt_class)
+		{
+			ErrorWithAST(ERROR_CODE, class, "Use of non-class in arrow operator!\n");
+		}
+
+		if (member->type != t_identifier)
+		{
+			ErrorWithAST(ERROR_CODE, member, "RHS of arrow operator must be an identifier!\n");
 		}
 
 		struct ClassEntry *usedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(assignment, 0));

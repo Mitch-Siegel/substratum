@@ -9,11 +9,15 @@ fun Fixed8_Add(class Fixed8 *f, uint8 integer, uint8 fraction->void)
 {
 	uint16 newInt = integer + (f->integer);
 	uint16 newFrac = fraction + (f->fraction);
+
+	f->integer = newInt;
+	f->fraction = newFrac;
 }
 
 fun main(->void)
 {
 	class Fixed8 f;
 	f.integer = 0;
+	f.integer = f.integer + 1;
 	f.fraction = 0;
 }
