@@ -87,7 +87,7 @@ enum token
 	//
 	t_comma,
 	t_dot,
-	t_pointer_op,
+	t_arrow,
 	t_semicolon,
 	t_colon,
 	t_lParen,

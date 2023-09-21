@@ -7,9 +7,8 @@ class Fixed8
 
 fun Fixed8_Add(class Fixed8 *f, uint8 integer, uint8 fraction->void)
 {
-	class Fixed8 local = *f; // cheesy but don't want to implement -> just yet
-	uint16 newInt = integer + (local.integer);
-	uint16 newFrac = fraction + (local.fraction);
+	uint16 newInt = integer + (f->integer);
+	uint16 newFrac = fraction + (f->fraction);
 }
 
 fun main(->void)

@@ -9,7 +9,7 @@ enum RecipeInstructions
 };
 
 // let him cook!
-enum token parseRecipes[p_null][13][9][2] = {
+enum token parseRecipes[p_null][14][9][2] = {
     // p_type_name - TYPE-NAME
     {
         {{t_void, above},
@@ -46,6 +46,11 @@ enum token parseRecipes[p_null][13][9][2] = {
 
         {{p_primary_expression, above},
          {t_dot, above},
+         {t_identifier, below},
+         {p_null, p_null}},
+
+        {{p_primary_expression, above},
+         {t_arrow, above},
          {t_identifier, below},
          {p_null, p_null}},
 
@@ -592,7 +597,7 @@ enum token parseRecipes[p_null][13][9][2] = {
         {{t_fun, above},
          {p_function_opener, below},
          {p_declaration_list, below},
-         {t_pointer_op, below},
+         {t_arrow, below},
          {p_type_name, below},
          {t_rParen, cnsme},
          {p_null, p_null}},
@@ -602,7 +607,7 @@ enum token parseRecipes[p_null][13][9][2] = {
         {{t_fun, above},
          {p_function_opener, below},
          {p_variable_declaration, below},
-         {t_pointer_op, below},
+         {t_arrow, below},
          {p_type_name, below},
          {t_rParen, cnsme},
          {p_null, p_null}},
@@ -611,7 +616,7 @@ enum token parseRecipes[p_null][13][9][2] = {
         // 'fun' FUNCTION-OPENER '->' TYPE-NAME ')'
         {{t_fun, above},
          {p_function_opener, below},
-         {t_pointer_op, below},
+         {t_arrow, below},
          {p_type_name, below},
          {t_rParen, cnsme},
          {p_null, p_null}},
