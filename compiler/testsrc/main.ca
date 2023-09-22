@@ -1,44 +1,35 @@
-#include "math.h"
-#include "print.h"
 
-class Fixed8
+
+class String
 {
-	uint8 integer;
-	uint8 fraction;
+    uint8 *data;
+    uint32 len;
 };
 
-fun Fixed8_Print(class Fixed8 *f->void)
+class Price
 {
-	printNum(f->integer, 0);
-	printStr(" ");
-	printNum(f->fraction, 0);
-	printStr("/256");
-	print(10);
-}
+    uint16 dollars;
+    uint8 cents;
+};
 
-fun Fixed8_Add(class Fixed8 *f, uint8 integer, uint8 fraction->void)
+
+class Item
 {
-	uint16 newInt = integer + (f->integer);
-	uint16 newFrac = fraction + (f->fraction);
+    class String name;
+    class Price price;
+};
 
-	while(newFrac > 255)
-	{
-		newInt += 1;
-		newFrac -= 256;
+fun printCheat(uint32 value->void)
+{
+	asm {
+		mov %r0, (%bp+8)
+		out 1, %r0
 	}
-
-	f->integer = newInt;
-	f->fraction = newFrac;
+	;
 }
-
-
 
 
 fun main(->void)
 {
-	class Fixed8 fixedTest;
 
-	Fixed8_Add((&fixedTest), 123, 4);
-
-	Fixed8_Print(&fixedTest);
 }

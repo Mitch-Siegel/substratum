@@ -772,6 +772,11 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		{
 			struct ClassEntry *theClass = thisMember->entry;
 			printf("> Class %s:\n", thisMember->name);
+			for (int j = 0; j < depth; j++)
+			{
+				printf("\t");
+			}
+			printf("  - Size: %d bytes\n", theClass->totalSize);
 			Scope_print(theClass->members, depth + 1, 0);
 		}
 		break;

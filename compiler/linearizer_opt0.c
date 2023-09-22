@@ -405,6 +405,7 @@ void walkClassDeclaration_0(struct AST *tree,
 		case t_uint8:
 		case t_uint16:
 		case t_uint32:
+		case t_class:
 		{
 			struct VariableEntry *declaredMember = walkVariableDeclaration_0(scopeRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0);
 			Class_assignOffsetToMemberVariable(declaredClass, declaredMember);
