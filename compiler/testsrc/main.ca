@@ -10,6 +10,7 @@ class Price
 {
     uint16 dollars;
     uint8 cents;
+    class String currency;
 };
 
 
@@ -17,6 +18,8 @@ class Item
 {
     class String name;
     class Price price;
+    class Price *priceP;
+    uint32 sku;
 };
 
 fun printCheat(uint32 value->void)
@@ -28,12 +31,32 @@ fun printCheat(uint32 value->void)
 	;
 }
 
+fun printChar(uint8 char->void)
+{
+    asm {
+		movb %r0, (%bp+8)
+		out 0, %r0
+	}
+	;
+}
+
+fun printStr(uint8 *s->void)
+{
+    while(*s != 0)
+    {
+        printChar(*s);
+        s += 1;
+    }
+    printChar(10);
+}
+
+fun doSomething(class Item *i->void)
+{
+    uint8 *curName = i->priceP->currency.data;
+}
+
 
 fun main(->void)
 {
     class Item i;
-    i.price.dollars = 234;
-    i.price.cents = 12;
-    printCheat(i.price.dollars);
-    printCheat(i.price.cents);
 }
