@@ -31,5 +31,6 @@ fun printCheat(uint32 value->void)
 
 fun main(->void)
 {
-
+    class Item i;
+    uint8 p = i.price.dollars;
 }

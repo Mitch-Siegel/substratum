@@ -865,44 +865,7 @@ void walkAssignment_0(struct AST *tree,
 
 	case t_dot:
 	{
-		struct AST *class = lhs->child;
-		struct AST *member = lhs->child->sibling;
-
-		assignment->operation = tt_memw_2;
-
-		struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
-		getAddressForDot->operands[0].permutation = vp_temp;
-		getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-
-		walkSubExpression_0(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
-		copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
-		TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
-
-		getAddressForDot->index = (*TACIndex)++;
-		BasicBlock_append(block, getAddressForDot);
-
-		copyTACOperandDecayArrays(&assignment->operands[0], &getAddressForDot->operands[0]);
-
-		if (TAC_GetTypeOfOperand(assignment, 0)->basicType != vt_class)
-		{
-			ErrorWithAST(ERROR_CODE, class, "Use of non-class in dot operator!\n");
-		}
-
-		if (member->type != t_identifier)
-		{
-			ErrorWithAST(ERROR_CODE, member, "RHS of dot operator must be an identifier!\n");
-		}
-
-		struct ClassEntry *usedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(assignment, 0));
-		struct ClassMemberOffset *memberInfo = Class_lookupMemberVariable(usedClass, member);
-
-		assignment->operands[0].castAsType = memberInfo->variable->type;
-
-		assignment->operands[1].type.basicType = vt_uint32;
-		assignment->operands[1].permutation = vp_literal;
-		assignment->operands[1].name.val = memberInfo->offset;
-
-		assignment->operands[2] = assignedValue;
+		walkDotOperator_0(lhs, block, scope, TACIndex, tempNum, &assignedValue, 1);
 	}
 	break;
 
@@ -1035,7 +998,7 @@ void walkSubExpression_0(struct AST *tree,
 	case t_dot:
 		// dot operator (reading from)
 		{
-			walkDotOperator_0(tree, block, scope, TACIndex, tempNum, destinationOperand);
+			walkDotOperator_0(tree, block, scope, TACIndex, tempNum, destinationOperand, 0);
 		}
 		break;
 
@@ -1197,29 +1160,61 @@ void walkFunctionCall_0(struct AST *tree,
 	}
 }
 
-void walkDotOperator_0(struct AST *tree,
-					   struct BasicBlock *block,
-					   struct Scope *scope,
-					   int *TACIndex,
-					   int *tempNum,
-					   struct TACOperand *destinationOperand)
+struct TACLine *setupDotOperator_0(struct AST *tree,
+								   struct BasicBlock *block,
+								   struct Scope *scope,
+								   int *TACIndex,
+								   int *tempNum,
+								   char isWrite)
 {
 	if (tree->type != t_dot)
 	{
-		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDotOperator!\n", getTokenName(tree->type));
+		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to setupDotOperator!\n", getTokenName(tree->type));
 	}
 
 	struct AST *class = tree->child;
 	struct AST *member = tree->child->sibling;
 
-	struct TACLine *dotOperator = newTACLine(*TACIndex, tt_memr_2, tree);
+	if (class->type == t_dot)
+	{
+		ErrorWithAST(ERROR_INTERNAL, class, "t_dot seen as lhs of dot in of setupDotOperator!\n");
+	}
 
-	dotOperator->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-	dotOperator->operands[0].permutation = vp_temp;
+	if (member->type != t_identifier)
+	{
+		ErrorWithAST(ERROR_CODE, member,
+					 "Expected identifier on RHS of dot operator, got %s (%s) instead!\n",
+					 member->value,
+					 getTokenName(member->type));
+	}
+
+	// index of the operand that:
+	int addrOperandIndex = -1;	 // holds the base address
+	int sdOperandIndex = -1;	 // holds the source/dest we read/write
+	int offsetOperandIndex = -1; // holds the offset from the base address
+
+	struct TACLine *dotOperator = NULL;
+	if (isWrite)
+	{
+		addrOperandIndex = 0;
+		sdOperandIndex = 2;
+		offsetOperandIndex = 1;
+		dotOperator = newTACLine(*TACIndex, tt_memw_2, tree);
+	}
+	else
+	{
+		addrOperandIndex = 1;
+		sdOperandIndex = 0;
+		offsetOperandIndex = 2;
+		dotOperator = newTACLine(*TACIndex, tt_memr_2, tree);
+	}
+
+	dotOperator->operands[sdOperandIndex].name.str = TempList_Get(temps, (*tempNum)++);
+	dotOperator->operands[sdOperandIndex].permutation = vp_temp;
 
 	struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
-	getAddressForDot->operands[0].permutation = vp_temp;
-	getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+	getAddressForDot->operands[sdOperandIndex].permutation = vp_temp;
+	getAddressForDot->operands[sdOperandIndex].name.str = TempList_Get(temps, (*tempNum)++);
 
 	walkSubExpression_0(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
 	copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
@@ -1228,12 +1223,12 @@ void walkDotOperator_0(struct AST *tree,
 	getAddressForDot->index = (*TACIndex)++;
 	BasicBlock_append(block, getAddressForDot);
 
-	copyTACOperandDecayArrays(&dotOperator->operands[1], &getAddressForDot->operands[0]);
+	copyTACOperandDecayArrays(&dotOperator->operands[addrOperandIndex], &getAddressForDot->operands[0]);
 
-	struct Type *dottedType = TAC_GetTypeOfOperand(dotOperator, 1);
+	struct Type *dottedType = TAC_GetTypeOfOperand(dotOperator, addrOperandIndex);
 	if (dottedType->basicType != vt_class)
 	{
-		ErrorWithAST(ERROR_CODE, class, "Use of non-class in arrow operator!\n");
+		ErrorWithAST(ERROR_CODE, class, "Use of non-class in dot operator!\n");
 	}
 
 	if ((dottedType->indirectionLevel > 0) && (dottedType->arraySize > 0))
@@ -1249,19 +1244,94 @@ void walkDotOperator_0(struct AST *tree,
 		ErrorWithAST(ERROR_INTERNAL, member, "RHS of dot operator must be an identifier!\n");
 	}
 
-	struct ClassEntry *usedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(dotOperator, 1));
+	struct ClassEntry *usedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(dotOperator, addrOperandIndex));
 
-	struct ClassMemberOffset *memberInfo = Class_lookupMemberVariable(usedClass, member);
-	dotOperator->operands[0].type = memberInfo->variable->type;
+	printf("Set up dot operator with class type %s\n", usedClass->name);
 
-	dotOperator->operands[2].type.basicType = vt_uint32;
-	dotOperator->operands[2].permutation = vp_literal;
-	dotOperator->operands[2].name.val = memberInfo->offset;
+	dotOperator->operands[offsetOperandIndex].type.basicType = vt_uint32;
+	dotOperator->operands[offsetOperandIndex].permutation = vp_literal;
 
 	dotOperator->index = (*TACIndex)++;
 	BasicBlock_append(block, dotOperator);
 
-	*destinationOperand = dotOperator->operands[0];
+	return dotOperator;
+}
+
+struct TACLine *walkDotOperator_0(struct AST *tree,
+								  struct BasicBlock *block,
+								  struct Scope *scope,
+								  int *TACIndex,
+								  int *tempNum,
+								  struct TACOperand *srcDestOperand,
+								  char isWrite)
+{
+	if (tree->type != t_dot)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDotOperator!\n", getTokenName(tree->type));
+	}
+
+	struct AST *lhs = tree->child;
+	struct AST *rhs = lhs->sibling;
+
+	if (rhs->type != t_identifier)
+	{
+		ErrorWithAST(ERROR_CODE, rhs,
+					 "Expected identifier on RHS of dot operator, got %s (%s) instead!\n",
+					 rhs->value,
+					 getTokenName(rhs->type));
+	}
+
+	struct TACLine *dotLine = NULL;
+	// index of the operand that:
+	int addrOperandIndex = -1;	 // holds the base address
+	int sdOperandIndex = -1;	 // holds the source/dest we read/write
+	int offsetOperandIndex = -1; // holds the offset from the base address
+
+	if (isWrite)
+	{
+		addrOperandIndex = 0;
+		sdOperandIndex = 2;
+		offsetOperandIndex = 1;
+	}
+	else
+	{
+		addrOperandIndex = 1;
+		sdOperandIndex = 0;
+		offsetOperandIndex = 2;
+	}
+
+	// if we are at the bottom of the tree of dots, just use setupdotoperator and let a higher-up recursive call finish our work
+	if (lhs->type != t_dot)
+	{
+		dotLine = setupDotOperator_0(tree, block, scope, TACIndex, tempNum, isWrite);
+
+		*srcDestOperand = dotLine->operands[sdOperandIndex];
+	}
+	else
+	{
+		dotLine = walkDotOperator_0(lhs, block, scope, TACIndex, tempNum, srcDestOperand, isWrite);
+	}
+
+	struct ClassEntry *dottedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(dotLine, addrOperandIndex));
+	printf("Dotted class is %s\n", dottedClass->name);
+
+	struct ClassMemberOffset *dottedMember = Class_lookupMemberVariable(dottedClass, rhs);
+	dotLine->operands[offsetOperandIndex].name.val += dottedMember->offset;
+	dotLine->operands[addrOperandIndex].castAsType = dottedMember->variable->type;
+
+	if (!isWrite)
+	{
+		dotLine->operands[sdOperandIndex].type = *TAC_GetTypeOfOperand(dotLine, addrOperandIndex);
+		*srcDestOperand = dotLine->operands[sdOperandIndex];
+	}
+	else
+	{
+		dotLine->operands[sdOperandIndex] = *srcDestOperand;
+	}
+
+	// TODO: check for narrowing conversions
+
+	return dotLine;
 }
 
 void walkArrowOperator_0(struct AST *tree,

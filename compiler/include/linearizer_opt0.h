@@ -96,19 +96,20 @@ void walkFunctionCall_0(struct AST *tree,
 						int *tempNum,
 						struct TACOperand *destinationOperand);
 
-void walkDotOperator_0(struct AST *tree,
-						struct BasicBlock *block,
-						struct Scope *scope,
-						int *TACIndex,
-						int *tempNum,
-						struct TACOperand *destinationOperand);
+struct TACLine *walkDotOperator_0(struct AST *tree,
+								  struct BasicBlock *block,
+								  struct Scope *scope,
+								  int *TACIndex,
+								  int *tempNum,
+								  struct TACOperand *srcDestOperand,
+								  char isWrite);
 
 void walkArrowOperator_0(struct AST *tree,
-						struct BasicBlock *block,
-						struct Scope *scope,
-						int *TACIndex,
-						int *tempNum,
-						struct TACOperand *destinationOperand);
+						 struct BasicBlock *block,
+						 struct Scope *scope,
+						 int *TACIndex,
+						 int *tempNum,
+						 struct TACOperand *destinationOperand);
 
 struct TACOperand *walkExpression_0(struct AST *tree,
 									struct BasicBlock *block,
