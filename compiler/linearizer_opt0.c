@@ -388,8 +388,6 @@ void walkClassDeclaration_0(struct AST *tree,
 
 	struct ClassEntry *declaredClass = Scope_createClass(scope, tree->child->value);
 
-	printf("Declared class %s\n", declaredClass->name);
-
 	struct AST *classScope = tree->child->sibling;
 
 	if (classScope->type != t_lCurly)
@@ -865,6 +863,9 @@ void walkAssignment_0(struct AST *tree,
 
 	case t_dot:
 	{
+		// the dot operator will perform the assignment for us as a write
+		freeTAC(assignment);
+		assignment = NULL;
 		walkDotOperator_0(lhs, block, scope, TACIndex, tempNum, &assignedValue, 1);
 	}
 	break;
@@ -906,8 +907,11 @@ void walkAssignment_0(struct AST *tree,
 		break;
 	}
 
-	assignment->index = (*TACIndex)++;
-	BasicBlock_append(block, assignment);
+	if (assignment != NULL)
+	{
+		assignment->index = (*TACIndex)++;
+		BasicBlock_append(block, assignment);
+	}
 }
 
 void walkArithmeticAssignment_0(struct AST *tree,
@@ -1230,8 +1234,8 @@ struct TACLine *walkDotOperator_0(struct AST *tree,
 		dotLine->operands[sdOperandIndex].permutation = vp_temp;
 
 		struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
-		getAddressForDot->operands[sdOperandIndex].permutation = vp_temp;
-		getAddressForDot->operands[sdOperandIndex].name.str = TempList_Get(temps, (*tempNum)++);
+		getAddressForDot->operands[0].permutation = vp_temp;
+		getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 
 		walkSubExpression_0(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
 		copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
@@ -1246,8 +1250,6 @@ struct TACLine *walkDotOperator_0(struct AST *tree,
 
 		dotLine->index = (*TACIndex)++;
 		BasicBlock_append(block, dotLine);
-
-		*srcDestOperand = dotLine->operands[sdOperandIndex];
 	}
 	else
 	{
@@ -1255,12 +1257,8 @@ struct TACLine *walkDotOperator_0(struct AST *tree,
 	}
 
 	struct ClassEntry *dottedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(dotLine, addrOperandIndex));
-	printf("Dotted class is %s\n", dottedClass->name);
-
 	struct ClassMemberOffset *dottedMember = Class_lookupMemberVariable(dottedClass, rhs);
-	char *dottedTypeName = Type_GetName(&dottedMember->variable->type);
-	printf("\tDotted member is %s\n", dottedTypeName);
-	free(dottedTypeName);
+
 	dotLine->operands[offsetOperandIndex].name.val += dottedMember->offset;
 	dotLine->operands[addrOperandIndex].castAsType = dottedMember->variable->type;
 
@@ -1274,7 +1272,7 @@ struct TACLine *walkDotOperator_0(struct AST *tree,
 		dotLine->operands[sdOperandIndex] = *srcDestOperand;
 	}
 
-	// TODO: check for narrowing conversions
+	// TODO: check for narrowing conversions?
 
 	return dotLine;
 }
