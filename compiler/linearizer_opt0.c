@@ -862,20 +862,12 @@ void walkAssignment_0(struct AST *tree,
 	break;
 
 	case t_dot:
-	{
-		// the memberaccess walk will perform the assignment for us as a write
-		freeTAC(assignment);
-		assignment = NULL;
-		walkMemberAccess(lhs, block, scope, TACIndex, tempNum, &assignedValue, 0, 1, 0);
-	}
-	break;
-
 	case t_arrow:
 	{
 		// the memberaccess walk will perform the assignment for us as a write
 		freeTAC(assignment);
 		assignment = NULL;
-		walkMemberAccess(lhs, block, scope, TACIndex, tempNum, &assignedValue, 1, 1, 0);
+		walkMemberAccess(lhs, block, scope, TACIndex, tempNum, &assignedValue, 1, 0);
 	}
 	break;
 
@@ -979,14 +971,14 @@ void walkSubExpression_0(struct AST *tree,
 	case t_dot:
 		// dot operator (reading from)
 		{
-			walkMemberAccess(tree, block, scope, TACIndex, tempNum, destinationOperand, 0, 0, 0);
+			walkMemberAccess(tree, block, scope, TACIndex, tempNum, destinationOperand, 0, 0);
 		}
 		break;
 
 	case t_arrow:
 	{
 		// arrow operator (reading from)
-		walkMemberAccess(tree, block, scope, TACIndex, tempNum, destinationOperand, 1, 0, 0);
+		walkMemberAccess(tree, block, scope, TACIndex, tempNum, destinationOperand, 0, 0);
 		break;
 	}
 
@@ -1145,7 +1137,6 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 								 int *TACIndex,
 								 int *tempNum,
 								 struct TACOperand *srcDestOperand,
-								 char isArrow,
 								 char isWrite,
 								 int depth)
 {
@@ -1188,24 +1179,12 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 	switch (lhs->type)
 	{
 	case t_dot:
-		accessLine = walkMemberAccess(lhs, block, scope, TACIndex, tempNum, srcDestOperand, 0, isWrite, depth + 1);
+	case t_arrow:
+		// always recurse with isWrite as 0, because only the rightmost dot/arrow of a.b.c.d = 123 (or a->b->c->d = 123 or any combination)
+		// is actually performing a write, the first ones are actually just computing our address or jumping through indirections (arrow operators)
+		accessLine = walkMemberAccess(lhs, block, scope, TACIndex, tempNum, srcDestOperand, 0, depth + 1);
 		break;
 
-	case t_arrow:
-		accessLine = walkMemberAccess(lhs, block, scope, TACIndex, tempNum, srcDestOperand, 1, isWrite, depth + 1);
-		accessLine->index = (*TACIndex)++;
-		accessLine->operation = tt_lea_2;
-		if (isWrite)
-		{
-			struct TACOperand temp = accessLine->operands[addrOperandIndex];
-			accessLine->operands[2] = accessLine->operands[sdOperandIndex];
-			accessLine->operands[1] = accessLine->operands[offsetOperandIndex];
-			accessLine->operands[0] = temp;
-		}
-		accessLine->operands[0].type.indirectionLevel++;
-		// BasicBlock_append(block, accessLine);
-
-		// fall through
 	default:
 	{
 		// the LHS of the dot/arrow is the class instance being accessed
@@ -1221,78 +1200,50 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 						 getTokenName(member->type));
 		}
 
-		// if we fell through from an arrow (which became an LEA)
-		// save that thing so it's possible to retrieve the address which it computed
-		struct TACLine *oldAccessLine = NULL;
-		if (lhs->type == t_arrow)
-		{
-			oldAccessLine = accessLine;
-		}
-
 		accessLine = newTACLine(*TACIndex, tt_memw_2, tree);
 		// this member access is a write
-		if (isWrite)
+
+		if (tree->type == t_arrow)
 		{
-			// we will always use memw
-			accessLine->operation = tt_memw_2;
+			if (isWrite)
+			{
+				accessLine->operation = tt_memw_2;
+			}
+			// this member access is a read
+			else
+			{
+				accessLine->operation = tt_lea_2;
+			}
 		}
-		// this member access is a read
 		else
 		{
-			// if reading and we are an arrow operator,
-			// the only time we want to actually read something is if we are at depth 0
-			// otherwise we will
-			// if (isArrow && (depth == 0))
-			// {
-			// accessLine->operation = tt_lea_2;
-			// }
-			// else
-			// {
-			accessLine->operation = tt_memr_2;
-			// }
+			if (isWrite)
+			{
+				accessLine->operation = tt_memw_2;
+			}
+			// this member access is a read
+			else
+			{
+				accessLine->operation = tt_memr_2;
+			}
 		}
 
 		accessLine->operands[sdOperandIndex].name.str = TempList_Get(temps, (*tempNum)++);
 		accessLine->operands[sdOperandIndex].permutation = vp_temp;
 
-		if (lhs->type == t_arrow)
-		{
-			copyTACOperandDecayArrays(&accessLine->operands[addrOperandIndex], &oldAccessLine->operands[0]);
+		// if we are at the bottom of potentially-nested dot/arrow operators,
+		// we need the base address of the object we're accessing the member from
+		struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
+		getAddressForDot->operands[0].permutation = vp_temp;
+		getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 
-		}
-		else
-		{
-			// if we are at the bottom of potentially-nested dot/arrow operators,
-			// we need the base address of the object we're accessing the member from
-			if (!isArrow)
-			{
-				if (accessLine->operation == tt_memr_2)
-				{
-					accessLine->operation = tt_lea_2;
-					walkSubExpression_0(class, block, scope, TACIndex, tempNum, &accessLine->operands[addrOperandIndex]);
-				}
-				else
-				{
-					struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
-					getAddressForDot->operands[0].permutation = vp_temp;
-					getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+		walkSubExpression_0(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
+		copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
+		TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
 
-					walkSubExpression_0(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
-					copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
-					TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
-
-					getAddressForDot->index = (*TACIndex)++;
-					BasicBlock_append(block, getAddressForDot);
-					copyTACOperandDecayArrays(&accessLine->operands[addrOperandIndex], &getAddressForDot->operands[0]);
-				}
-			}
-			else
-			{
-				accessLine->operands[addrOperandIndex].permutation = vp_temp;
-				accessLine->operands[addrOperandIndex].name.str = TempList_Get(temps, (*tempNum)++);
-				walkSubExpression_0(class, block, scope, TACIndex, tempNum, &accessLine->operands[addrOperandIndex]);
-			}
-		}
+		getAddressForDot->index = (*TACIndex)++;
+		BasicBlock_append(block, getAddressForDot);
+		copyTACOperandDecayArrays(&accessLine->operands[addrOperandIndex], &getAddressForDot->operands[0]);
 
 		accessLine->operands[offsetOperandIndex].type.basicType = vt_uint32;
 		accessLine->operands[offsetOperandIndex].permutation = vp_literal;
@@ -1303,15 +1254,34 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 	break;
 	}
 
+	if(tree->type == t_arrow && !isWrite)
+	{
+		BasicBlock_append(block, newTACLine((*TACIndex)++, tt_div, tree));
+	}
+
+	/*if (tree->type == t_arrow)
+	{
+		struct TACLine *oldAccessLine = accessLine;
+
+		if(!isWrite)
+		{
+			accessLine = newTACLine((*TACIndex)++, tt_memw_2, tree);
+		}
+		else
+		{
+			accessLine = newTACLine((*TACIndex)++, tt_lea_2, tree);
+		}
+
+
+
+
+	}*/
+
 	struct ClassEntry *dottedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(accessLine, addrOperandIndex));
 	struct ClassMemberOffset *dottedMember = Class_lookupMemberVariable(dottedClass, rhs);
 
 	accessLine->operands[offsetOperandIndex].name.val += dottedMember->offset;
 	accessLine->operands[addrOperandIndex].castAsType = dottedMember->variable->type;
-	if(lhs->type == t_arrow)
-	{
-		accessLine->operands[addrOperandIndex].castAsType.indirectionLevel++;
-	}
 
 	if (!isWrite)
 	{

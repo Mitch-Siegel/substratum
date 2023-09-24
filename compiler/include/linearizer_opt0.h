@@ -102,7 +102,6 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 								  int *TACIndex,
 								  int *tempNum,
 								  struct TACOperand *srcDestOperand,
-								  char isArrow, // if 0, is dot operator, otherwise is arrow
 								  char isWrite,
 								  int depth);
 
