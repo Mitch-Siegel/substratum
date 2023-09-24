@@ -102,7 +102,6 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 								  int *TACIndex,
 								  int *tempNum,
 								  struct TACOperand *srcDestOperand,
-								  char isWrite,
 								  int depth);
 
 struct TACOperand *walkExpression_0(struct AST *tree,
