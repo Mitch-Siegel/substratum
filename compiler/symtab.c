@@ -577,7 +577,7 @@ struct ClassEntry *Scope_lookupClassByType(struct Scope *scope,
 	struct ScopeMember *lookedUp = Scope_lookup(scope, type->classType.name);
 	if (lookedUp == NULL)
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Use of undeclared class '%s'\n", type->classType.name);
+		ErrorAndExit(ERROR_CODE, "Use of undeclared class '%s'\n", type->classType.name);
 	}
 
 	switch (lookedUp->type)

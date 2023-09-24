@@ -869,17 +869,30 @@ void walkAssignment_0(struct AST *tree,
 
 		if (member->type != t_identifier)
 		{
-			ErrorAndExit(ERROR_CODE, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", lhs->value, getTokenName(lhs->type));
+			ErrorWithAST(ERROR_CODE, member, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", lhs->value, getTokenName(lhs->type));
 		}
 
 		assignment->operation = tt_memw_2;
-		struct ClassEntry *writtenClass = NULL;
 		switch (class->type)
 		{
 		case t_identifier:
 		{
 			struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
-			writtenClass = Scope_lookupClassByType(scope, &classVariable->type);
+
+			// check that we actually refer to a class on the LHS of the dot
+			if (classVariable->type.basicType != vt_class)
+			{
+				char *typeName = Type_GetName(&classVariable->type);
+				ErrorWithAST(ERROR_CODE, class, "Can't use dot operator on %s (%s) - not a class!\n", classVariable->name, typeName);
+			}
+
+			// make sure whatever we're applying the dot operator to is actually a class instance, not a class array or class pointer
+			if ((classVariable->type.indirectionLevel > 0) || (classVariable->type.arraySize > 0))
+			{
+				char *typeName = Type_GetName(&classVariable->type);
+				ErrorWithAST(ERROR_CODE, class, "Can't use dot operator on indirect variable %s (%s)\n", classVariable->name, typeName);
+			}
+
 			struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
 			getAddressForDot->operands[0].permutation = vp_temp;
 			getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
@@ -899,6 +912,99 @@ void walkAssignment_0(struct AST *tree,
 			struct TACLine *memberAccess = walkMemberAccess(class, block, scope, TACIndex, tempNum, &assignment->operands[0], 0);
 			struct Type *readType = TAC_GetTypeOfOperand(memberAccess, 0);
 
+			// make sure whatever we're applying the dot operator to is actually a class instance, not a class array or class pointer
+			if ((readType->indirectionLevel > 0) || (readType->arraySize > 0))
+			{
+				char *typeName = Type_GetName(readType);
+				ErrorWithAST(ERROR_CODE, class, "Can't use dot operator on indirect type %s\n", typeName);
+			}
+
+			// if our arrow or dot operator results in getting a full class instead of a pointer
+			if ((readType->basicType == vt_class) &&
+				((readType->indirectionLevel == 0) &&
+				 (readType->arraySize == 0)))
+			{
+				// retroatcively convert the read to an LEA so we have the address we're about to write to
+				memberAccess->operation = tt_lea_2;
+				TAC_GetTypeOfOperand(memberAccess, 0)->indirectionLevel++;
+				TAC_GetTypeOfOperand(memberAccess, 1)->indirectionLevel++;
+				TAC_GetTypeOfOperand(assignment, 0)->indirectionLevel++;
+			}
+
+			break;
+
+		default:
+			ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operatory only!\n", class->value, getTokenName(class->type));
+		}
+
+		// check to see that what we expect to treat as our class pointer is actually a class
+		// this will throw a code error if there's a name that isn't a class (case in which the LHS of the dot was an identifier)
+		// or an internal error if something went awry in a recursive linearization step (case in which the LHS of the dot is something else)
+		struct ClassEntry *writtenClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(assignment, 0));
+
+		struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(writtenClass, member);
+
+		assignment->operands[1].type.basicType = vt_uint32;
+		assignment->operands[1].permutation = vp_literal;
+		assignment->operands[1].name.val = accessedMember->offset;
+
+		assignment->operands[2] = assignedValue;
+	}
+	break;
+
+	case t_arrow:
+	{
+		struct AST *class = lhs->child;
+		// the RHS is what member we are accessing
+		struct AST *member = lhs->child->sibling;
+
+		if (member->type != t_identifier)
+		{
+			ErrorAndExit(ERROR_CODE, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", lhs->value, getTokenName(lhs->type));
+		}
+
+		assignment->operation = tt_memw_2;
+		struct ClassEntry *writtenClass = NULL;
+		switch (class->type)
+		{
+		case t_identifier:
+		{
+			walkSubExpression_0(class, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+			struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
+
+			// check that we actually refer to a class on the LHS of the arrow
+			if (classVariable->type.basicType != vt_class)
+			{
+				char *typeName = Type_GetName(&classVariable->type);
+				ErrorWithAST(ERROR_CODE, lhs, "Can't use arrow operator on %s (%s) - not a class pointer!\n", classVariable->name, typeName);
+			}
+
+			// guarantee that we only ever use the arrow operator on single pointers
+			if (classVariable->type.indirectionLevel != 1)
+			{
+				char *typeName = Type_GetName(&classVariable->type);
+				ErrorWithAST(ERROR_CODE, lhs, "Can't use dot operator on indirect variable %s (%s)\n", classVariable->name, typeName);
+			}
+
+			if (TAC_GetTypeOfOperand(assignment, 0)->indirectionLevel == 0)
+			{
+				char *typeOfClass = Type_GetName(TAC_GetTypeOfOperand(assignment, 0));
+				ErrorWithAST(ERROR_CODE, lhs, "Use of non-indirect variable %s (%s) as LHS of arrow operator!\n", class->value, typeOfClass);
+			}
+		}
+		break;
+
+		case t_arrow:
+		case t_dot:
+			struct TACLine *memberAccess = walkMemberAccess(class, block, scope, TACIndex, tempNum, &assignment->operands[0], 0);
+			struct Type *readType = TAC_GetTypeOfOperand(memberAccess, 0);
+
+			if ((readType->indirectionLevel != 1))
+			{
+				char *typeName = Type_GetName(readType);
+				ErrorWithAST(ERROR_CODE, class, "Can't use dot operator on non-indirect type %s\n", typeName);
+			}
+
 			// if our arrow or dot operator results in getting a full class instead of a pointer
 			if ((readType->basicType == vt_class) &&
 				((readType->indirectionLevel == 0) &&
@@ -916,6 +1022,7 @@ void walkAssignment_0(struct AST *tree,
 		default:
 			ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operatory only!\n", class->value, getTokenName(class->type));
 		}
+
 		struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(writtenClass, member);
 
 		assignment->operands[1].type.basicType = vt_uint32;
@@ -923,16 +1030,6 @@ void walkAssignment_0(struct AST *tree,
 		assignment->operands[1].name.val = accessedMember->offset;
 
 		assignment->operands[2] = assignedValue;
-	}
-	break;
-
-	case t_arrow:
-	{
-		ErrorAndExit(ERROR_INTERNAL, "arrow operator not yet supported as LHS of assignment!\n");
-		// the memberaccess walk will perform the assignment for us as a write
-		freeTAC(assignment);
-		assignment = NULL;
-		walkMemberAccess(lhs, block, scope, TACIndex, tempNum, &assignedValue, 0);
 	}
 	break;
 
@@ -1255,6 +1352,14 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 			getAddressForDot->operands[0].permutation = vp_temp;
 			getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 
+			struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
+			// make sure whatever we're applying the dot operator to is actually a class instance, not a class array or class pointer
+			if ((classVariable->type.indirectionLevel > 0) || (classVariable->type.arraySize > 0))
+			{
+				char *typeName = Type_GetName(&classVariable->type);
+				ErrorWithAST(ERROR_CODE, class, "Can't use dot operator on indirect type %s\n", typeName);
+			}
+
 			walkSubExpression_0(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
 			copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
 			TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
@@ -1265,6 +1370,21 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 		}
 		else
 		{
+			struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
+			// check that we actually refer to a class on the LHS of the arrow
+			if (classVariable->type.basicType != vt_class)
+			{
+				char *typeName = Type_GetName(&classVariable->type);
+				ErrorWithAST(ERROR_CODE, lhs, "Can't use arrow operator on %s (%s) - not a class pointer!\n", classVariable->name, typeName);
+			}
+
+			// guarantee that we only ever use the arrow operator on single pointers
+			if (classVariable->type.indirectionLevel != 1)
+			{
+				char *typeName = Type_GetName(&classVariable->type);
+				ErrorWithAST(ERROR_CODE, lhs, "Can't use arrow operator on indirect variable %s (%s)\n", classVariable->name, typeName);
+			}
+
 			walkSubExpression_0(class, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
 			copyTACOperandTypeDecayArrays(&accessLine->operands[0], &accessLine->operands[1]);
 		}
