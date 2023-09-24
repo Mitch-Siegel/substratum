@@ -1,5 +1,33 @@
 
 
+fun printCheat(uint32 value->void)
+{
+	asm {
+		mov %r0, (%bp+8)
+		out 1, %r0
+	}
+	;
+}
+
+fun printChar(uint8 char->void)
+{
+    asm {
+		movb %r0, (%bp+8)
+		out 0, %r0
+	}
+	;
+}
+
+fun printStr(uint8 *s->void)
+{
+    while(*s != 0)
+    {
+        printChar(*s);
+        s += 1;
+    }
+    printChar(10);
+}
+
 class String
 {
     uint32 len;
@@ -43,48 +71,20 @@ class A
     class B b;
 };
 
-fun printCheat(uint32 value->void)
-{
-	asm {
-		mov %r0, (%bp+8)
-		out 1, %r0
-	}
-	;
-}
-
-fun printChar(uint8 char->void)
-{
-    asm {
-		movb %r0, (%bp+8)
-		out 0, %r0
-	}
-	;
-}
-
-fun printStr(uint8 *s->void)
-{
-    while(*s != 0)
-    {
-        printChar(*s);
-        s += 1;
-    }
-    printChar(10);
-}
-
-fun doSomething(class Item *i->void)
-{
-    //uint8 *curName = i->priceP->currency.data;
-	//printCheat(i->sku);
-	//printStr(curName);
-}
-
-
 fun main(->void)
 {
     class A a;
+
+    a.filler = 'e';
+    a.bp = 1684300900;
+    a.b.filler = 26471;
+
+    printCheat(a.filler);
+    printCheat(a.b.filler);
+
     //uint32 number = a.bp->myNumber;
     //uint32 number = a.bp->ap->bp->myNumber;
-    uint32 number = a.b.c.myNumber;
+    //uint32 number = a.b.c.myNumber;
 
 	//i.price.currency.data = "usd";
 	//i.sku = 1234;

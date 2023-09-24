@@ -862,9 +862,73 @@ void walkAssignment_0(struct AST *tree,
 	break;
 
 	case t_dot:
+	{
+		struct AST *class = lhs->child;
+		// the RHS is what member we are accessing
+		struct AST *member = lhs->child->sibling;
+
+		if (member->type != t_identifier)
+		{
+			ErrorAndExit(ERROR_CODE, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", lhs->value, getTokenName(lhs->type));
+		}
+
+		assignment->operation = tt_memw_2;
+		struct ClassEntry *writtenClass = NULL;
+		switch (class->type)
+		{
+		case t_identifier:
+		{
+			struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
+			writtenClass = Scope_lookupClassByType(scope, &classVariable->type);
+			struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
+			getAddressForDot->operands[0].permutation = vp_temp;
+			getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+
+			walkSubExpression_0(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
+			copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
+			TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
+
+			getAddressForDot->index = (*TACIndex)++;
+			BasicBlock_append(block, getAddressForDot);
+			copyTACOperandDecayArrays(&assignment->operands[0], &getAddressForDot->operands[0]);
+		}
+		break;
+
+		case t_arrow:
+		case t_dot:
+			struct TACLine *memberAccess = walkMemberAccess(class, block, scope, TACIndex, tempNum, &assignment->operands[0], 0);
+			struct Type *readType = TAC_GetTypeOfOperand(memberAccess, 0);
+
+			// if our arrow or dot operator results in getting a full class instead of a pointer
+			if ((readType->basicType == vt_class) &&
+				((readType->indirectionLevel == 0) &&
+				 (readType->arraySize == 0)))
+			{
+				// retroatcively convert the read to an LEA so we have the address we're about to write to
+				memberAccess->operation = tt_lea_2;
+				TAC_GetTypeOfOperand(memberAccess, 0)->indirectionLevel++;
+				TAC_GetTypeOfOperand(memberAccess, 1)->indirectionLevel++;
+				TAC_GetTypeOfOperand(assignment, 0)->indirectionLevel++;
+			}
+			writtenClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(assignment, 0));
+			break;
+
+		default:
+			ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operatory only!\n", class->value, getTokenName(class->type));
+		}
+		struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(writtenClass, member);
+
+		assignment->operands[1].type.basicType = vt_uint32;
+		assignment->operands[1].permutation = vp_literal;
+		assignment->operands[1].name.val = accessedMember->offset;
+
+		assignment->operands[2] = assignedValue;
+	}
+	break;
+
 	case t_arrow:
 	{
-		ErrorAndExit(ERROR_INTERNAL, "dot and arrow operators not yet supported as LHS of assignment!\n");
+		ErrorAndExit(ERROR_INTERNAL, "arrow operator not yet supported as LHS of assignment!\n");
 		// the memberaccess walk will perform the assignment for us as a write
 		freeTAC(assignment);
 		assignment = NULL;
@@ -1248,7 +1312,6 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 	}
 	else if (tree->type == t_arrow)
 	{
-		printf("DUMP DUMP\n");
 		struct TACLine *oldAccess = accessLine;
 
 		accessLine = newTACLine(*TACIndex, tt_memr_2, tree);
@@ -1271,17 +1334,6 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
 	accessLine->operands[1].castAsType = accessedMember->variable->type;
 	accessLine->operands[0].type = accessedMember->variable->type;
-
-	// struct Type *readType = TAC_GetTypeOfOperand(accessLine, 0);
-	// if((readType->basicType == vt_class) && (readType->indirectionLevel > 0))
-	// {
-	// 	printf("TURN %d TO LEA!\n", accessLine->index);
-	// 	accessLine->operation = tt_lea_2;
-	// 	TAC_GetTypeOfOperand(accessLine, 0)->indirectionLevel++;
-	// 	TAC_GetTypeOfOperand(accessLine, 1)->indirectionLevel++;
-	// }
-
-	// TODO: check for narrowing conversions?
 
 	if (depth == 0)
 	{

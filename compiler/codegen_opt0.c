@@ -313,7 +313,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
 
-			const char *movOp = SelectMovWidth(scope, &thisTAC->operands[0]);
+			const char *movOp = SelectMovWidth(scope, &thisTAC->operands[2]);
 
 			if (thisTAC->operation == tt_memw_2)
 			{

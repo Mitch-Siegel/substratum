@@ -194,7 +194,6 @@ int main(int argc, char **argv)
 		SymbolTable_print(theTable, 1);
 	}
 
-	return 0;
 	/*if(verifyTAC(theTable->globalScope))
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Error(s) verifying TAC!\n");
