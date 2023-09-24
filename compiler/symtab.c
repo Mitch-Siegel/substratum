@@ -280,6 +280,7 @@ void Scope_free(struct Scope *scope)
 			}
 
 			Stack_Free(theClass->memberLocations);
+			free(theClass);
 		}
 		break;
 

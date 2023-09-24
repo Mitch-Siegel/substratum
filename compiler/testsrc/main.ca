@@ -16,9 +16,9 @@ class Price
 
 class Item
 {
+    class Price *priceP;
     class String name;
     class Price price;
-    class Price *priceP;
     uint32 sku;
 };
 
@@ -53,10 +53,22 @@ fun printStr(uint8 *s->void)
 fun doSomething(class Item *i->void)
 {
     uint8 *curName = i->priceP->currency.data;
+	printCheat(i->sku);
+	printStr(curName);
 }
 
 
 fun main(->void)
 {
     class Item i;
+	i.priceP = (&i);
+	uint32 pasInt = &i;
+	printCheat(pasInt);
+	
+	pasInt = i.priceP;	
+	printCheat(pasInt);
+
+	i.price.currency.data = "usd";
+	i.sku = 1234;
+	doSomething(&i);
 }
