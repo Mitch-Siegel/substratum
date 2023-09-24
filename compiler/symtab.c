@@ -411,7 +411,7 @@ void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
 }
 
 struct ClassMemberOffset *Class_lookupMemberVariable(struct ClassEntry *class,
-									   struct AST *name)
+													 struct AST *name)
 {
 	if (name->type != t_identifier)
 	{
@@ -594,6 +594,15 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 {
 	int size = 0;
 
+	if (t->indirectionLevel > 0)
+	{
+		size = 4;
+		if (t->arraySize == 0)
+		{
+			return size;
+		}
+	}
+
 	switch (t->basicType)
 	{
 	case vt_null:
@@ -628,13 +637,6 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 		}
 
 		size *= t->arraySize;
-	}
-	else
-	{
-		if (t->indirectionLevel > 0)
-		{
-			size = 4;
-		}
 	}
 
 	return size;

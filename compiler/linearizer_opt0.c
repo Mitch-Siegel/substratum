@@ -122,8 +122,8 @@ struct VariableEntry *walkVariableDeclaration_0(struct AST *tree,
 	struct AST *declaredTree = NULL;
 	declaredType.indirectionLevel = scrapePointers(startScrapeFrom, &declaredTree);
 
-	// don't allow declaration of variables of undeclared class (even pointers)
-	if (declaredType.basicType == vt_class)
+	// don't allow declaration of variables of undeclared class or array of undeclared class (except pointers)
+	if ((declaredType.basicType == vt_class) && (declaredType.indirectionLevel == 0))
 	{
 		// the lookup will bail out if an attempt is made to use an undeclared class
 		Scope_lookupClass(scope, className);
@@ -1177,10 +1177,8 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 						 getTokenName(member->type));
 		}
 
-		accessLine = newTACLine(*TACIndex, tt_memw_2, tree);
+		accessLine = newTACLine(*TACIndex, tt_memr_2, tree);
 		// this member access is a write
-
-		accessLine->operation = tt_memr_2;
 
 		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 		accessLine->operands[0].permutation = vp_temp;
@@ -1216,34 +1214,72 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 	break;
 	}
 
-	struct ClassEntry *dottedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(accessLine, 1));
-	struct ClassMemberOffset *dottedMember = Class_lookupMemberVariable(dottedClass, rhs);
+	struct ClassEntry *accessedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(accessLine, 1));
+	struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(accessedClass, rhs);
 
-	accessLine->operands[2].name.val += dottedMember->offset;
-	accessLine->operands[1].castAsType = dottedMember->variable->type;
-
-	accessLine->operands[0].type = dottedMember->variable->type;
-
-	if (tree->type == t_arrow)
+	// if we are end up accessing an entire class, choose instead to just compute it address and continue with a pointer to it
+	// so we can do more indirection
+	if ((depth > 0) &&
+		(accessedMember->variable->type.basicType == vt_class) &&
+		(accessedMember->variable->type.indirectionLevel == 0) &&
+		(accessedMember->variable->type.arraySize == 0))
 	{
 		struct TACLine *oldAccess = accessLine;
 
-		accessLine = newTACLine(*TACIndex, tt_lea_2, tree);
-		// this member access is a write
+		oldAccess->operation = tt_lea_2;
+		oldAccess->operands[1].castAsType.indirectionLevel++;
+		oldAccess->operands[0].type.indirectionLevel++;
+		copyTACOperandTypeDecayArrays(&oldAccess->operands[0], &oldAccess->operands[1]);
+		oldAccess->operands[0].castAsType.basicType = vt_null;
+		// now create a new access
 
-		if (tree->type == t_arrow)
-		{
-			accessLine->operation = tt_lea_2;
-		}
-		else
-		{
-			accessLine->operation = tt_memr_2;
-		}
+		accessLine = newTACLine((*TACIndex)++, tt_memr_2, tree);
+
 		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 		accessLine->operands[0].permutation = vp_temp;
 		copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccess->operands[0]);
+		copyTACOperandTypeDecayArrays(&accessLine->operands[0], &accessLine->operands[1]);
+		TACOperand_GetType(&accessLine->operands[0])->indirectionLevel--;
+
+		accessLine->operands[2].type.basicType = vt_uint32;
+		accessLine->operands[2].permutation = vp_literal;
+
 		BasicBlock_append(block, accessLine);
 	}
+	else if (tree->type == t_arrow)
+	{
+		printf("DUMP DUMP\n");
+		struct TACLine *oldAccess = accessLine;
+
+		accessLine = newTACLine(*TACIndex, tt_memr_2, tree);
+		// this member access is a write
+
+		// TAC_GetTypeOfOperand(oldAccess, 0)->indirectionLevel++;
+		// TAC_GetTypeOfOperand(oldAccess, 1)->indirectionLevel++;
+
+		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+		accessLine->operands[0].permutation = vp_temp;
+		copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccess->operands[0]);
+
+		accessLine->operands[2].type.basicType = vt_uint32;
+		accessLine->operands[2].permutation = vp_literal;
+
+		BasicBlock_append(block, accessLine);
+	}
+
+	accessLine->operands[2].name.val += accessedMember->offset;
+
+	accessLine->operands[1].castAsType = accessedMember->variable->type;
+	accessLine->operands[0].type = accessedMember->variable->type;
+
+	// struct Type *readType = TAC_GetTypeOfOperand(accessLine, 0);
+	// if((readType->basicType == vt_class) && (readType->indirectionLevel > 0))
+	// {
+	// 	printf("TURN %d TO LEA!\n", accessLine->index);
+	// 	accessLine->operation = tt_lea_2;
+	// 	TAC_GetTypeOfOperand(accessLine, 0)->indirectionLevel++;
+	// 	TAC_GetTypeOfOperand(accessLine, 1)->indirectionLevel++;
+	// }
 
 	// TODO: check for narrowing conversions?
 

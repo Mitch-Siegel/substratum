@@ -22,6 +22,27 @@ class Item
     uint32 sku;
 };
 
+class C
+{
+    uint32 filler;
+    uint16 myNumber;
+};
+
+class B
+{
+    uint16 filler;
+    class A *ap;
+    uint32 myNumber;
+    class C c;
+};
+
+class A
+{
+    uint8 filler;
+    class B *bp;
+    class B b;
+};
+
 fun printCheat(uint32 value->void)
 {
 	asm {
@@ -60,10 +81,10 @@ fun doSomething(class Item *i->void)
 
 fun main(->void)
 {
-    class Item i;
-	//uint8 *currencyName = i->priceP->currency.data;
-	uint8 *currencyName = i->price.currency.data;
-
+    class A a;
+    //uint32 number = a.bp->myNumber;
+    //uint32 number = a.bp->ap->bp->myNumber;
+    uint32 number = a.b.c.myNumber;
 
 	//i.price.currency.data = "usd";
 	//i.sku = 1234;
