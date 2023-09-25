@@ -75,19 +75,6 @@ fun main(->void)
 {
     class A a;
 
-    a.filler = 'e';
-    a.bp = 1684300900;
-    a.b.filler = 26471;
-    uint32 bcd = a.bp->filler;
+    a.bp = &(a.b);
 
-    printCheat(a.filler);
-    printCheat(a.b.filler);
-
-    //uint32 number = a.bp->myNumber;
-    //uint32 number = a.bp->ap->bp->myNumber;
-    //uint32 number = a.b.c.myNumber;
-
-	//i.price.currency.data = "usd";
-	//i.sku = 1234;
-	//doSomething(&i);
 }

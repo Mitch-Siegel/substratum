@@ -815,6 +815,7 @@ void walkDotOperatorAssignment(struct AST *tree,
 
 	case t_arrow:
 	case t_dot:
+	{
 		struct TACLine *memberAccess = walkMemberAccess(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0], 0);
 		struct Type *readType = TAC_GetTypeOfOperand(memberAccess, 0);
 
@@ -831,8 +832,8 @@ void walkDotOperatorAssignment(struct AST *tree,
 			TAC_GetTypeOfOperand(memberAccess, 1)->indirectionLevel++;
 			TAC_GetTypeOfOperand(wipAssignment, 0)->indirectionLevel++;
 		}
-
-		break;
+	}
+	break;
 
 	default:
 		ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operatory only!\n", class->value, getTokenName(class->type));
@@ -889,6 +890,7 @@ void walkArrowOperatorAssignment(struct AST *tree,
 
 	case t_arrow:
 	case t_dot:
+	{
 		struct TACLine *memberAccess = walkMemberAccess(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0], 0);
 		struct Type *readType = TAC_GetTypeOfOperand(memberAccess, 0);
 
@@ -912,7 +914,8 @@ void walkArrowOperatorAssignment(struct AST *tree,
 			TAC_GetTypeOfOperand(wipAssignment, 0)->indirectionLevel++;
 		}
 		writtenClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(wipAssignment, 0));
-		break;
+	}
+	break;
 
 	default:
 		ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operatory only!\n", class->value, getTokenName(class->type));
@@ -1323,10 +1326,20 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 		// the RHS is what member we are accessing
 		struct AST *member = tree->child->sibling;
 
+		if (class->type != t_identifier)
+		{
+			ErrorWithAST(ERROR_CODE, member,
+						 "Expected identifier on LHS of %s operator, got %s (%s) instead!\n",
+						 (tree->type == t_dot ? "dot" : "arrow"),
+						 member->value,
+						 getTokenName(member->type));
+		}
+
 		if (member->type != t_identifier)
 		{
 			ErrorWithAST(ERROR_CODE, member,
-						 "Expected identifier on RHS of dot operator, got %s (%s) instead!\n",
+						 "Expected identifier on RHS of %s operator, got %s (%s) instead!\n",
+						 (tree->type == t_dot ? "dot" : "arrow"),
 						 member->value,
 						 getTokenName(member->type));
 		}
