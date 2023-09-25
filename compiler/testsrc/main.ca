@@ -78,6 +78,7 @@ fun main(->void)
     a.filler = 'e';
     a.bp = 1684300900;
     a.b.filler = 26471;
+    uint32 bcd = a.bp->filler;
 
     printCheat(a.filler);
     printCheat(a.b.filler);
