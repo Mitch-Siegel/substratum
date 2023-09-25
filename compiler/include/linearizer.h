@@ -22,9 +22,6 @@ struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, 
 
 struct SymbolTable *linearizeProgram(struct AST *program, int optimizationLevel);
 
-// check the type of an AST, return true if mismatch
-char ensureASTType(struct AST *tree, enum token type);
-
 // check the LHS of any dot operator make sure it is both a class and not indirect
 // special case handling for when tree is an identifier vs a subexpression
 void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type *type);
