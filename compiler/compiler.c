@@ -181,10 +181,6 @@ int main(int argc, char **argv)
 		SymbolTable_print(theTable, 1);
 	}
 
-	// printf("Linearizing code to basic blocks\n");
-	// struct TempList *temps = TempList_New();
-	// linearizeProgram(program, theTable->globalScope, parseDict, temps);
-
 	printf("Collapsing scopes\n");
 	SymbolTable_collapseScopes(theTable, parseDict);
 

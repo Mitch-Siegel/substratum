@@ -83,7 +83,7 @@ void WriteVariable(FILE *outFile,
 				   struct TACOperand *writtenTo,
 				   int sourceRegIndex)
 {
-	// verifyCodegenPrimitive(writtenTo);
+	verifyCodegenPrimitive(writtenTo);
 	struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, writtenTo->name.str);
 	if (relevantLifetime == NULL)
 	{
@@ -138,14 +138,7 @@ int placeOrFindOperandInRegister(FILE *outFile,
 								 struct TACOperand *operand,
 								 int registerIndex)
 {
-	// verifyCodegenPrimitive(operand);
-
-	/*
-		TODO: Decide if this is too much of a hack?
-		In cases where we have enough registers to not spill any loca variables, we still reserve 1 scratch register
-		However, in cases where generic logic passes reserved[2] to this function, if that second operand is a global,
-			reserved[2] will be -1 and we will not have anywhere to put the global, so select REGTURN_REGISTER instead
-	*/
+	verifyCodegenPrimitive(operand);
 
 	if (operand->permutation == vp_literal)
 	{

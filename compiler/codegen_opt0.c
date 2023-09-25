@@ -332,7 +332,6 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 						registerNames[sourceReg]);
 			}
 		}
-		// ErrorAndExit(ERROR_INTERNAL, "Code generation not implemented for this operation (%s) yet!\n", getAsmOp(thisTAC->operation));
 		break;
 
 		case tt_memw_3:

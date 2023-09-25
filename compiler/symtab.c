@@ -34,8 +34,7 @@ struct SymbolTable *SymbolTable_new(char *name)
 	wip->name = name;
 	wip->globalScope = Scope_new(NULL, "Global", NULL);
 	struct BasicBlock *globalBlock = BasicBlock_new(0);
-	// char *globalBlockName = malloc(12);
-	// sprintf(globalBlockName, "globalblock");
+
 	// manually insert a basic block for global code so we can give it the custom name of "globalblock"
 	Scope_insert(wip->globalScope, "globalblock", globalBlock, e_basicblock);
 
@@ -219,8 +218,6 @@ struct Scope *Scope_new(struct Scope *parentScope, char *name, struct FunctionEn
 	struct Scope *wip = malloc(sizeof(struct Scope));
 	wip->entries = Stack_New();
 
-	// need to set this manually to handle when new functions are declared
-	// TODO: supports nested functions? ;)
 	wip->parentFunction = parentFunction;
 	wip->parentScope = parentScope;
 	wip->name = name;
@@ -344,7 +341,7 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 
 	if (isArgument)
 	{
-		// if we have an argument, obvoiulsy it will be spilled because it comes in on the stack
+		// if we have an argument, it will be trivially spilled because it is passed in on the stack
 		newVariable->stackOffset = scope->parentFunction->argStackSize + 8;
 		scope->parentFunction->argStackSize += Scope_getSizeOfType(scope, type);
 		Scope_insert(scope, name->value, newVariable, e_argument);
@@ -790,13 +787,6 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 			char *returnTypeName = Type_GetName(&theFunction->returnType);
 			printf("> Function %s (returns %s) (defined: %d)\n\t%d bytes of arguments on stack\n", thisMember->name, returnTypeName, theFunction->isDefined, theFunction->argStackSize);
 			free(returnTypeName);
-			// if (printTAC)
-			// {
-			// for (struct LinkedListNode *b = theFunction->BasicBlockList->head; b != NULL; b = b->next)
-			// {
-			// printBasicBlock(b->data, depth + 1);
-			// }
-			// }
 			Scope_print(theFunction->mainScope, depth + 1, printTAC);
 		}
 		break;
