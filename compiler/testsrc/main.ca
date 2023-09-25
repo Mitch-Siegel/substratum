@@ -76,5 +76,10 @@ fun main(->void)
     class A a;
 
     a.bp = &(a.b);
+    a.bp->filler = 1234;
+
+    printCheat(a.b.filler);
+    a.b.filler = 2345;
+    printCheat(a.b.filler);
 
 }

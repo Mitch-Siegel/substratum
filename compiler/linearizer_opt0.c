@@ -1715,6 +1715,23 @@ struct TACOperand *walkAddrOf_0(struct AST *tree,
 	}
 	break;
 
+	case t_dot:
+	case t_arrow:
+	{
+		// walkMemberAccess can do everything we need
+		// the only thing we have to do is ensure we have an LEA at the end instead of a direct read
+		struct TACLine *memberAccessLine = walkMemberAccess(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1], 0);
+		memberAccessLine->operation = tt_lea_2;
+		memberAccessLine->operands[0].type.indirectionLevel++;
+		memberAccessLine->operands[1].castAsType.indirectionLevel++;
+		addrOfLine->operands[0].type.indirectionLevel++;
+
+		// free the line created at the top of this function and return early
+		freeTAC(addrOfLine);
+		return &memberAccessLine->operands[0];
+	}
+	break;
+
 	default:
 		ErrorWithAST(ERROR_CODE, tree, "Address of operator is not supported for non-identifiers! Saw %s\n", getTokenName(tree->child->type));
 	}
