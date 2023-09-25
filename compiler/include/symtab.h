@@ -14,6 +14,7 @@ enum ScopeMemberType
 	e_variable,
 	e_function,
 	e_argument,
+	e_class,
 	e_scope,
 	e_basicblock,
 };
@@ -52,6 +53,9 @@ struct VariableEntry
 	int stackOffset;
 	char *name; // duplicate pointer from ScopeMember for ease of use
 	struct Type type;
+	// TODO: do these 3 variables need to be deleted?
+	// keeping them in could allow for more checks at linearization time
+	// but do these checks make sense to do at register allocation time?
 	int assignedAt;
 	int declaredAt;
 	char isAssigned;
@@ -60,6 +64,20 @@ struct VariableEntry
 	// and can have an address
 	char mustSpill;
 	char isGlobal;
+};
+
+struct ClassMemberOffset
+{
+	struct VariableEntry *variable;
+	int offset;
+};
+
+struct ClassEntry
+{
+	char *name;
+	struct Scope *members;
+	struct Stack *memberLocations;
+	int totalSize;
 };
 
 struct SymbolTable
@@ -119,6 +137,16 @@ struct FunctionEntry *Scope_createFunction(struct Scope *parentScope,
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
 
+// this represents the definition of a class itself, instantiation falls under variableEntry
+struct ClassEntry *Scope_createClass(struct Scope *scope,
+									 char *name);
+
+void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
+										struct VariableEntry *v);
+
+struct ClassMemberOffset *Class_lookupMemberVariable(struct ClassEntry *class,
+													 struct AST *name);
+
 // scope lookup functions
 char Scope_contains(struct Scope *scope,
 					char *name);
@@ -140,6 +168,12 @@ struct Scope *Scope_lookupSubScope(struct Scope *scope,
 
 struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope,
 										   unsigned char subScopeNumber);
+
+struct ClassEntry *Scope_lookupClass(struct Scope *scope,
+									 struct AST *name);
+
+struct ClassEntry *Scope_lookupClassByType(struct Scope *scope,
+										   struct Type *type);
 
 // gets the integer size (not aligned) of a given type
 int Scope_getSizeOfType(struct Scope *scope, struct Type *t);

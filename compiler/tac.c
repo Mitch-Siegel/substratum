@@ -163,7 +163,8 @@ char *Type_GetName(struct Type *t)
 		break;
 
 	case vt_class:
-		sprintf(typeName, "%s", t->classType.name);
+		len = sprintf(typeName, "%s", t->classType.name);
+		break;
 
 	default:
 		ErrorAndExit(ERROR_INTERNAL, "Unexpected enum basicTypes value %d seen in Type_GetName!\n", t->basicType);
@@ -765,5 +766,5 @@ void printBasicBlock(struct BasicBlock *b, int indentLevel)
 			printf("\n");
 		}
 	}
-	printf("\n\n");
+	printf("\n");
 }

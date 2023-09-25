@@ -83,7 +83,7 @@ void WriteVariable(FILE *outFile,
 				   struct TACOperand *writtenTo,
 				   int sourceRegIndex)
 {
-	verifyCodegenPrimitive(writtenTo);
+	// verifyCodegenPrimitive(writtenTo);
 	struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, writtenTo->name.str);
 	if (relevantLifetime == NULL)
 	{
@@ -138,7 +138,7 @@ int placeOrFindOperandInRegister(FILE *outFile,
 								 struct TACOperand *operand,
 								 int registerIndex)
 {
-	verifyCodegenPrimitive(operand);
+	// verifyCodegenPrimitive(operand);
 
 	/*
 		TODO: Decide if this is too much of a hack?

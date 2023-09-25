@@ -49,6 +49,7 @@ char *token_names[] = {
 	"t_uint8",
 	"t_uint16",
 	"t_uint32",
+	"t_class",
 	// function
 	"t_fun",
 	"t_return",
@@ -220,7 +221,7 @@ void trimWhitespace(char trackPos)
 	}
 }
 
-#define RESERVED_COUNT 43
+#define RESERVED_COUNT 44
 
 struct ReservedToken
 {
@@ -235,6 +236,7 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 	{"uint8", t_uint8},
 	{"uint16", t_uint16},
 	{"uint32", t_uint32},
+	{"class", t_class},
 
 	{"fun", t_fun},
 	{"return", t_return},
@@ -273,7 +275,7 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 
 	{",", t_comma},
 	{".", t_dot},
-	{"->", t_pointer_op},
+	{"->", t_arrow},
 	{";", t_semicolon},
 	{":", t_colon},
 	{"(", t_lParen},
@@ -462,6 +464,7 @@ enum token _scan(char trackPos)
 				case t_else:
 				case t_while:
 				case t_for:
+				case t_class:
 					if (!isIdentifierChar(lookahead_char_dumb(1)))
 					{
 						return reserved[i].token;
@@ -515,6 +518,7 @@ enum token _scan(char trackPos)
 		case '-':
 		case '*':
 		case '/':
+		case '.':
 			return currentToken;
 			break;
 		}

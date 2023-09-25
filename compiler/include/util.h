@@ -6,15 +6,19 @@
 
 enum CompilerErrors
 {
-	ERROR_INVOCATION = 1, 	// user has made an error with arguments or other parameters
-	ERROR_CODE,			// there is an error in the code which prevents a complete compilation
+	ERROR_INVOCATION = 1, // user has made an error with arguments or other parameters
+	ERROR_CODE,			  // there is an error in the code which prevents a complete compilation
 	ERROR_INTERNAL,
 };
 
+#define ErrorAndExit(code, fmt, ...)                           \
+	printf(fmt, ##__VA_ARGS__);                                \
+	printf("Bailing from file %s:%d\n\n", __FILE__, __LINE__); \
+	exit(code)
 
-#define ErrorAndExit(code, fmt, ...) printf(fmt, ##__VA_ARGS__);printf("Bailing from file %s:%d\n\n", __FILE__, __LINE__);exit(code)
-
-#define ErrorWithAST(code, astPtr, fmt, ...) printf("%s:%d:%d: ", astPtr->sourceFile, astPtr->sourceLine, astPtr->sourceCol); ErrorAndExit(code, fmt, ##__VA_ARGS__)
+#define ErrorWithAST(code, astPtr, fmt, ...)                                         \
+	printf("%s:%d:%d: ", astPtr->sourceFile, astPtr->sourceLine, astPtr->sourceCol); \
+	ErrorAndExit(code, fmt, ##__VA_ARGS__)
 
 /*
  * Dictionary for tracking strings
@@ -61,7 +65,6 @@ void *Stack_Pop(struct Stack *s);
 
 void *Stack_Peek(struct Stack *s);
 
-
 /*
  * Unordered List data structure
  *
@@ -83,7 +86,7 @@ struct LinkedList
 
 struct LinkedList *LinkedList_New();
 
-void LinkedList_Free(struct LinkedList *l,  void (*dataFreeFunction)());
+void LinkedList_Free(struct LinkedList *l, void (*dataFreeFunction)());
 
 void LinkedList_Append(struct LinkedList *l, void *element);
 
@@ -107,7 +110,7 @@ char *strAppend(char *before, char *after);
 /*
  * TempList is a struct containing string names for TAC temps by number (eg t0, t1, t2, etc...)
  * _Get retrieves the string for the given number, or if it doesn't exist, generates it and then returns it
- * 
+ *
  */
 
 struct TempList

@@ -103,6 +103,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 		// skip everything else
 		case e_variable:
 		case e_argument:
+		case e_class:
 		case e_basicblock:
 			break;
 		}
@@ -152,6 +153,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 		case e_variable:
 		case e_argument:
+		case e_class:
 			break;
 		}
 	}
@@ -267,6 +269,21 @@ void Scope_free(struct Scope *scope)
 		}
 		break;
 
+		case e_class:
+		{
+			struct ClassEntry *theClass = examinedEntry->entry;
+			Scope_free(theClass->members);
+
+			while (theClass->memberLocations->size > 0)
+			{
+				free(Stack_Pop(theClass->memberLocations));
+			}
+
+			Stack_Free(theClass->memberLocations);
+			free(theClass);
+		}
+		break;
+
 		case e_basicblock:
 			BasicBlock_free(examinedEntry->entry);
 			break;
@@ -366,6 +383,55 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
 
 	Scope_insert(parentScope, newScopeName, newScope, e_scope);
 	return newScope;
+}
+
+struct ClassEntry *Scope_createClass(struct Scope *scope,
+									 char *name)
+{
+	struct ClassEntry *wipClass = malloc(sizeof(struct ClassEntry));
+	wipClass->name = name;
+	wipClass->members = Scope_new(scope, "CLASS", NULL);
+	wipClass->memberLocations = Stack_New();
+	wipClass->totalSize = 0;
+
+	Scope_insert(scope, name, wipClass, e_class);
+	return wipClass;
+}
+
+void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
+										struct VariableEntry *v)
+{
+
+	struct ClassMemberOffset *newMemberLocation = malloc(sizeof(struct ClassMemberOffset));
+	newMemberLocation->offset = class->totalSize;
+	newMemberLocation->variable = v;
+	class->totalSize += Scope_getSizeOfType(class->members, &v->type);
+
+	Stack_Push(class->memberLocations, newMemberLocation);
+}
+
+struct ClassMemberOffset *Class_lookupMemberVariable(struct ClassEntry *class,
+													 struct AST *name)
+{
+	if (name->type != t_identifier)
+	{
+		ErrorWithAST(ERROR_INTERNAL,
+					 name,
+					 "Non-identifier tree %s (%s) passed to Class_lookupOffsetOfMemberVariable!\n",
+					 name->value,
+					 getTokenName(name->type));
+	}
+
+	for (int i = 0; i < class->memberLocations->size; i++)
+	{
+		struct ClassMemberOffset *co = class->memberLocations->data[i];
+		if (!strcmp(co->variable->name, name->value))
+		{
+			return co;
+		}
+	}
+
+	ErrorWithAST(ERROR_CODE, name, "Use of nonexistent member variable %s in class %s\n", name->value, class->name);
 }
 
 // Scope lookup functions
@@ -482,9 +548,60 @@ struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char su
 	return lookedUp;
 }
 
+struct ClassEntry *Scope_lookupClass(struct Scope *scope,
+									 struct AST *name)
+{
+	struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
+	if (lookedUp == NULL)
+	{
+		ErrorWithAST(ERROR_CODE, name, "Use of undeclared class '%s'\n", name->value);
+	}
+	switch (lookedUp->type)
+	{
+	case e_class:
+		return lookedUp->entry;
+
+	default:
+		ErrorWithAST(ERROR_INTERNAL, name, "%s is not a class!\n", name->value);
+	}
+}
+
+struct ClassEntry *Scope_lookupClassByType(struct Scope *scope,
+										   struct Type *type)
+{
+	if (type->classType.name == NULL)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Type with null classType name passed to Scope_lookupClassByType!\n");
+	}
+
+	struct ScopeMember *lookedUp = Scope_lookup(scope, type->classType.name);
+	if (lookedUp == NULL)
+	{
+		ErrorAndExit(ERROR_CODE, "Use of undeclared class '%s'\n", type->classType.name);
+	}
+
+	switch (lookedUp->type)
+	{
+	case e_class:
+		return lookedUp->entry;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Scope_lookupClassByType for %s lookup got a non-class ScopeMember!\n", type->classType.name);
+	}
+}
+
 int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 {
 	int size = 0;
+
+	if (t->indirectionLevel > 0)
+	{
+		size = 4;
+		if (t->arraySize == 0)
+		{
+			return size;
+		}
+	}
 
 	switch (t->basicType)
 	{
@@ -505,7 +622,11 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 		break;
 
 	case vt_class:
-		ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_class - not supported yet!\n");
+	{
+		struct ClassEntry *class = Scope_lookupClassByType(scope, t);
+		size = class->totalSize;
+	}
+	break;
 	}
 
 	if (t->arraySize > 0)
@@ -516,13 +637,6 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 		}
 
 		size *= t->arraySize;
-	}
-	else
-	{
-		if (t->indirectionLevel > 0)
-		{
-			size = 4;
-		}
 	}
 
 	return size;
@@ -615,14 +729,9 @@ char *Scope_getNameOfType(struct Scope *scope, struct Type *t)
 
 void VariableEntry_Print(struct VariableEntry *it, int depth)
 {
-	for (int j = 0; j < depth; j++)
-	{
-		printf("\t");
-	}
 	char *typeName = Type_GetName(&it->type);
-	printf("  - %s", typeName);
+	printf("%s %s\n", typeName, it->name);
 	free(typeName);
-	printf("\n");
 }
 
 void Scope_print(struct Scope *it, int depth, char printTAC)
@@ -644,24 +753,34 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		case e_argument:
 		{
 			struct VariableEntry *theArgument = thisMember->entry;
-			printf("> Argument %s:", thisMember->name);
-			printf("\n");
+			printf("> Argument: ");
 			VariableEntry_Print(theArgument, depth);
 			for (int j = 0; j < depth; j++)
 			{
 				printf("\t");
 			}
-			printf("  - Stack offset: %d\n\n", theArgument->stackOffset);
+			printf("  - Stack offset: %d\n", theArgument->stackOffset);
 		}
 		break;
 
 		case e_variable:
 		{
 			struct VariableEntry *theVariable = thisMember->entry;
-			printf("> Variable %s:", thisMember->name);
-			printf("\n");
+			printf("> ");
 			VariableEntry_Print(theVariable, depth);
-			printf("\n");
+		}
+		break;
+
+		case e_class:
+		{
+			struct ClassEntry *theClass = thisMember->entry;
+			printf("> Class %s:\n", thisMember->name);
+			for (int j = 0; j < depth; j++)
+			{
+				printf("\t");
+			}
+			printf("  - Size: %d bytes\n", theClass->totalSize);
+			Scope_print(theClass->members, depth + 1, 0);
 		}
 		break;
 

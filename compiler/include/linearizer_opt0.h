@@ -27,6 +27,10 @@ void walkFunctionDeclaration_0(struct AST *tree,
 void walkFunctionDefinition_0(struct AST *tree,
 							  struct FunctionEntry *fun);
 
+void walkClassDeclaration_0(struct AST *tree,
+							struct BasicBlock *block,
+							struct Scope *scope);
+
 void walkStatement_0(struct AST *tree,
 					 struct BasicBlock **blockP,
 					 struct Scope *scope,
@@ -91,6 +95,14 @@ void walkFunctionCall_0(struct AST *tree,
 						int *TACIndex,
 						int *tempNum,
 						struct TACOperand *destinationOperand);
+
+struct TACLine *walkMemberAccess(struct AST *tree,
+								  struct BasicBlock *block,
+								  struct Scope *scope,
+								  int *TACIndex,
+								  int *tempNum,
+								  struct TACOperand *srcDestOperand,
+								  int depth);
 
 struct TACOperand *walkExpression_0(struct AST *tree,
 									struct BasicBlock *block,
