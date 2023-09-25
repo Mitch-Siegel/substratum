@@ -72,8 +72,10 @@ struct VariableEntry *walkVariableDeclaration_0(struct AST *tree,
 												int *tempNum,
 												char isArgument)
 {
-	printf("walkVariableDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkVariableDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
 	struct Type declaredType;
 
 	/* 'class' trees' children are the class name
@@ -156,7 +158,11 @@ void walkArgumentDeclaration_0(struct AST *tree,
 							   int *tempNum,
 							   struct FunctionEntry *fun)
 {
-	printf("walkArgumentDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkArgumentDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+	
 	struct VariableEntry *declaredArgument = walkVariableDeclaration_0(tree, block, fun->mainScope, TACIndex, tempNum, 1);
 
 	declaredArgument->assignedAt = 0;
@@ -168,7 +174,11 @@ void walkArgumentDeclaration_0(struct AST *tree,
 void walkFunctionDeclaration_0(struct AST *tree,
 							   struct Scope *scope)
 {
-	printf("walkFunctionDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkFunctionDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if (tree->type != t_fun)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionDeclaration!\n", getTokenName(tree->type));
@@ -360,7 +370,10 @@ void walkFunctionDeclaration_0(struct AST *tree,
 void walkFunctionDefinition_0(struct AST *tree,
 							  struct FunctionEntry *fun)
 {
-	printf("walkFunctionDefinition: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkFunctionDefinition: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
 
 	if (tree->type != t_lCurly)
 	{
@@ -379,6 +392,11 @@ void walkClassDeclaration_0(struct AST *tree,
 							struct BasicBlock *block,
 							struct Scope *scope)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkClassDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if (tree->type != t_class)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkClassDefinition!\n", getTokenName(tree->type));
@@ -425,6 +443,11 @@ void walkStatement_0(struct AST *tree,
 					 int *labelNum,
 					 int controlConvergesToLabel)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkStatement: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	switch (tree->type)
 	{
 	case t_uint8:
@@ -510,8 +533,10 @@ void walkScope_0(struct AST *tree,
 				 int *labelNum,
 				 int controlConvergesToLabel)
 {
-	printf("walkScope: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkScope: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
 	if (tree->type != t_lCurly)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkScope!\n", getTokenName(tree->type));
@@ -544,8 +569,10 @@ void walkConditionCheck_0(struct AST *tree,
 						  int *tempNum,
 						  int falseJumpLabelNum)
 {
-	printf("walkConditionCheck: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkConditionCheck: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
 	struct TACLine *condFalseJump = newTACLine(*TACIndex, tt_jmp, tree);
 	condFalseJump->operands[0].name.val = falseJumpLabelNum;
 
@@ -638,8 +665,10 @@ void walkWhileLoop_0(struct AST *tree,
 					 int *labelNum,
 					 int controlConvergesToLabel)
 {
-	printf("walkWhileLoop: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkWhileLoop: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
 	if (tree->type != t_while)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkWhileLoop!\n", getTokenName(tree->type));
@@ -692,6 +721,11 @@ void walkIfStatement_0(struct AST *tree,
 					   int *labelNum,
 					   int controlConvergesToLabel)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkIfStatement: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if (tree->type != t_if)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkIfStatement!\n", getTokenName(tree->type));
@@ -768,6 +802,11 @@ void walkDotOperatorAssignment(struct AST *tree,
 							   struct TACLine *wipAssignment,
 							   struct TACOperand *assignedValue)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkDotOperatorAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if (tree->type != t_dot)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDotOperatorAssignment!\n", getTokenName(tree->type));
@@ -852,6 +891,11 @@ void walkArrowOperatorAssignment(struct AST *tree,
 								 struct TACLine *wipAssignment,
 								 struct TACOperand *assignedValue)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkArrowOperatorAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if (tree->type != t_arrow)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkArrowOperatorAssignment!\n", getTokenName(tree->type));
@@ -927,6 +971,11 @@ void walkAssignment_0(struct AST *tree,
 					  int *TACIndex,
 					  int *tempNum)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if (tree->type != t_single_equals)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkAssignment!\n", getTokenName(tree->type));
@@ -1040,6 +1089,11 @@ void walkArithmeticAssignment_0(struct AST *tree,
 								int *TACIndex,
 								int *tempNum)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkArithmeticAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	struct AST fakeArith = *tree;
 	switch (tree->type)
 	{
@@ -1081,6 +1135,11 @@ void walkSubExpression_0(struct AST *tree,
 						 int *tempNum,
 						 struct TACOperand *destinationOperand)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkSubExpression: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	switch (tree->type)
 	{
 		// variable read
@@ -1173,6 +1232,11 @@ void walkFunctionCall_0(struct AST *tree,
 						int *tempNum,
 						struct TACOperand *destinationOperand)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkFunctionCall: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if (tree->type != t_lParen)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionCall!\n", getTokenName(tree->type));
@@ -1275,6 +1339,11 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 								 struct TACOperand *srcDestOperand,
 								 int depth)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkMemberAccess: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if ((tree->type != t_dot) && (tree->type != t_arrow))
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDotOperator!\n", getTokenName(tree->type));
@@ -1469,6 +1538,11 @@ struct TACOperand *walkExpression_0(struct AST *tree,
 									int *TACIndex,
 									int *tempNum)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkExpression: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	// generically set to tt_add, we will actually set the operation within switch cases
 	struct TACLine *expression = newTACLine(*TACIndex, tt_subtract, tree);
 
@@ -1537,6 +1611,11 @@ struct TACOperand *walkArrayRef_0(struct AST *tree,
 								  int *TACIndex,
 								  int *tempNum)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkArrayRef: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if (tree->type != t_lBracket)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkArrayRef!\n", getTokenName(tree->type));
@@ -1592,6 +1671,11 @@ struct TACOperand *walkDereference_0(struct AST *tree,
 									 int *TACIndex,
 									 int *tempNum)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkDereference: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if (tree->type != t_star)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDereference!\n", getTokenName(tree->type));
@@ -1630,6 +1714,11 @@ struct TACOperand *walkAddrOf_0(struct AST *tree,
 								int *TACIndex,
 								int *tempNum)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkAddrOf: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if (tree->type != t_reference)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDereference!\n", getTokenName(tree->type));
@@ -1730,6 +1819,11 @@ void walkPointerArithmetic_0(struct AST *tree,
 							 int *tempNum,
 							 struct TACOperand *destinationOperand)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkPointerArithmetic: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if ((tree->type != t_plus) && (tree->type != t_minus))
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkPointerArithmetic!\n", getTokenName(tree->type));
@@ -1776,6 +1870,11 @@ void walkAsmBlock_0(struct AST *tree,
 					int *TACIndex,
 					int *tempNum)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkAsmBlock: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if (tree->type != t_asm)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkAsmBlock!\n", getTokenName(tree->type));
@@ -1798,6 +1897,11 @@ void walkStringLiteral_0(struct AST *tree,
 						 struct Scope *scope,
 						 struct TACOperand *destinationOperand)
 {
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkStringLiteral: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
 	if (tree->type != t_string_literal)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkStringLiteral!\n", getTokenName(tree->type));

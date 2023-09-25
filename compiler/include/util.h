@@ -20,6 +20,22 @@ enum CompilerErrors
 	printf("%s:%d:%d: ", astPtr->sourceFile, astPtr->sourceLine, astPtr->sourceCol); \
 	ErrorAndExit(code, fmt, ##__VA_ARGS__)
 
+#define STAGE_PARSE 0
+#define STAGE_LINEARIZE 1
+#define STAGE_REGALLOC 2
+#define STAGE_CODEGEN 3
+#define STAGE_MAX 4
+
+#define VERBOSITY_SILENT 0
+#define VERBOSITY_MINIMAL 1
+#define VERBOSITY_MAX 2
+struct Config
+{
+	char stageVerbosities[STAGE_MAX];
+};
+
+extern char currentVerbosity;
+
 /*
  * Dictionary for tracking strings
  * Economizes heap space by only storing strings once each

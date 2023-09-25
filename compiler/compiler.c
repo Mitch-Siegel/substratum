@@ -24,6 +24,8 @@ int linearizationOpt = 0;
 int regAllocOpt = 0;
 int codegenOpt = 0;
 
+char currentVerbosity = 0;
+
 void usage()
 {
 	printf("Classical language compiler: Usage\n");
@@ -73,13 +75,14 @@ void checkOptimizations()
 	}
 }
 
+struct Config config;
 int main(int argc, char **argv)
 {
 	char *inFileName = NULL;
 	char *outFileName = NULL;
 
 	int option;
-	while ((option = getopt(argc, argv, "i:o:O:l:r:c:")) != EOF)
+	while ((option = getopt(argc, argv, "i:o:O:l:r:c:v:")) != EOF)
 	{
 		switch (option)
 		{
@@ -107,11 +110,54 @@ int main(int argc, char **argv)
 			codegenOpt = atoi(optarg);
 			break;
 
+		case 'v':
+		{
+			int nVFlags = strlen(optarg);
+			if (nVFlags == 1)
+			{
+				int stageVerbosities = atoi(optarg);
+				if (stageVerbosities < 0 || stageVerbosities > VERBOSITY_MAX)
+				{
+					printf("Illegal value %d specified for verbosity!\n", stageVerbosities);
+					usage();
+					ErrorAndExit(ERROR_INVOCATION, ":(");
+				}
+
+				for (int i = 0; i < STAGE_MAX; i++)
+				{
+					config.stageVerbosities[i] = stageVerbosities;
+				}
+			}
+			else if (nVFlags == STAGE_MAX)
+			{
+				for (int i = 0; i < STAGE_MAX; i++)
+				{
+					char thisVerbosityStr[2] = {'\0', '\0'};
+					thisVerbosityStr[0] = optarg[i];
+					config.stageVerbosities[i] = atoi(thisVerbosityStr);
+				}
+			}
+			else
+			{
+				printf("Unexpected number of verbosities (%d) provided\nExpected either 1 to set all levels, or %d to set each level independently\n", nVFlags, STAGE_MAX);
+				usage();
+				ErrorAndExit(ERROR_INVOCATION, ":(");
+			}
+		}
+		break;
+
 		default:
 			usage();
 			ErrorAndExit(ERROR_INVOCATION, ":(");
 		}
 	}
+
+	printf("Running with verbosity: ");
+	for (int i = 0; i < STAGE_MAX; i++)
+	{
+		printf("%d ", config.stageVerbosities[i]);
+	}
+	printf("\n");
 
 	checkOptimizations();
 
@@ -163,37 +209,40 @@ int main(int argc, char **argv)
 		}
 	}
 
+	currentVerbosity = config.stageVerbosities[STAGE_PARSE];
+
 	parseDict = Dictionary_New(10);
 	struct AST *program = ParseProgram("/tmp/auto.capp", parseDict);
 
 	// serializeAST("astdump", program);
 	// printf("\n");
-
-	AST_Print(program, 0);
-
-	printf("Generating symbol table from AST");
-	struct SymbolTable *theTable = linearizeProgram(program, linearizationOpt);
-	printf("\n");
-
-	if (argc > 5)
+	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
-		printf("Symbol table before scope collapse:\n");
-		SymbolTable_print(theTable, 1);
+		AST_Print(program, 0);
 	}
 
-	printf("Collapsing scopes\n");
+	currentVerbosity = config.stageVerbosities[STAGE_LINEARIZE];
+
+	if (currentVerbosity > VERBOSITY_SILENT)
+	{
+		printf("Generating symbol table from AST");
+	}
+	struct SymbolTable *theTable = linearizeProgram(program, linearizationOpt);
+
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("\nSymbol table before scope collapse:\n");
+		SymbolTable_print(theTable, 1);
+		printf("Collapsing scopes\n");
+	}
+
 	SymbolTable_collapseScopes(theTable, parseDict);
 
-	if (argc > 5)
+	if (currentVerbosity > VERBOSITY_SILENT)
 	{
 		printf("Symbol table after linearization/scope collapse:\n");
 		SymbolTable_print(theTable, 1);
 	}
-
-	/*if(verifyTAC(theTable->globalScope))
-	{
-		ErrorAndExit(ERROR_INTERNAL, "Error(s) verifying TAC!\n");
-	}*/
 
 	// ensure we always end the userstart section (jumped to from entry) by calling our main functoin
 	// just fudge this by calling it block number 123456 since we should never get that high
@@ -216,7 +265,12 @@ int main(int argc, char **argv)
 		ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", outFileName);
 	}
 
-	printf("Generating code\n");
+	currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
+
+	if (currentVerbosity > VERBOSITY_SILENT)
+	{
+		printf("Generating code\n");
+	}
 	// fprintf(outFile, "#include \"CPU.asm\"\nentry code\n");
 	generateCode(theTable, outFile, regAllocOpt, codegenOpt);
 
@@ -227,6 +281,4 @@ int main(int argc, char **argv)
 
 	// TempList_Free(temps);
 	Dictionary_Free(parseDict);
-
-	printf("done!\n");
 }

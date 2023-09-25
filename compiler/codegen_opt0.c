@@ -126,10 +126,14 @@ void generateCodeForProgram_0(struct SymbolTable *table, FILE *outFile, int regA
  * code generation for funcitons (lifetime management, etc)
  *
  */
+extern struct Config config;
 void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, int regAllocOpt)
 {
-
-	printf("generate code for function %s", function->name);
+	currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
+	if (currentVerbosity > VERBOSITY_SILENT)
+	{
+		printf("Generate code for function %s\n", function->name);
+	}
 
 	struct CodegenMetadata metadata;
 	memset(&metadata, 0, sizeof(struct CodegenMetadata));
@@ -138,11 +142,19 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	metadata.reservedRegisters[1] = -1;
 	metadata.reservedRegisters[2] = -1;
 	metadata.reservedRegisterCount = 0;
+	currentVerbosity = config.stageVerbosities[STAGE_REGALLOC];
 	int localStackSize = allocateRegisters(&metadata, regAllocOpt);
+	currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
 
-	printf("need %d bytes on stack :)\n", localStackSize);
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("Need %d bytes on stack\n", localStackSize);
+	}
 
-	// emit function prologue
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("Emitting function prologue\n");
+	}
 	fprintf(outFile, "%s:\n", function->name);
 
 	if (localStackSize > 0)
@@ -156,6 +168,12 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		{
 			fprintf(outFile, "\tpush %%r%d\n", i);
 		}
+	}
+
+
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("Arguments placed into registers\n");
 	}
 
 	// move any applicable arguments into registers if we are expecting them not to be spilled
@@ -181,8 +199,11 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		}
 	}
 
-	// arguments placed into registers
-	printf(".");
+
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("Generating code  for basic blocks\n");
+	}
 
 	for (struct LinkedListNode *blockRunner = function->BasicBlockList->head; blockRunner != NULL; blockRunner = blockRunner->next)
 	{
@@ -190,10 +211,12 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		generateCodeForBasicBlock_0(outFile, block, function->mainScope, metadata.allLifetimes, function->name, metadata.reservedRegisters);
 	}
 
-	// meaningful code generated
-	printf(".");
 
-	// emit function epilogue
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("Emitting function epilogue\n");
+	}
+
 	fprintf(outFile, "%s_done:\n", function->name);
 
 	for (int i = 0; i < REGISTERS_TO_ALLOCATE; i++)
@@ -219,8 +242,7 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	}
 
 	// function setup and teardown code generated
-	printf(".");
-
+	
 	LinkedList_Free(metadata.allLifetimes, free);
 
 	for (int i = 0; i <= metadata.largestTacIndex; i++)
@@ -228,8 +250,6 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		LinkedList_Free(metadata.lifetimeOverlaps[i], NULL);
 	}
 	free(metadata.lifetimeOverlaps);
-
-	printf("\n");
 }
 
 void generateCodeForBasicBlock_0(FILE *outFile,

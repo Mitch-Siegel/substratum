@@ -107,10 +107,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 			break;
 		}
 	}
-	for (int i = 0; i < depth; i++)
-	{
-		printf("\t");
-	}
+
 	// second pass: rename basic block operands relevant to the current scope
 	for (int i = 0; i < scope->entries->size; i++)
 	{
