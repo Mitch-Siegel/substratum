@@ -1,7 +1,10 @@
 #include <string.h>
 #include <stdio.h>
+#include <iostream>
+#include <fstream>
 
-#include "memory.h"
+#include "memory.hpp"
+#include "hardware.hpp"
 
 uint8_t SystemMemory::ReadByte(uint32_t address)
 {
@@ -35,3 +38,24 @@ const std::set<uint32_t> &SystemMemory::ActivePages()
 {
     return this->activePages;
 }
+
+
+void SystemMemory::InitializeFromFile(char *filePath)
+{
+    std::ifstream inFile;
+    inFile.open(filePath, std::ifstream::in);
+    if (!inFile.good())
+    {
+        std::cout << "Please enter valid bin file" << std::endl;
+        exit(1);
+    }
+    int i = 0;
+    char in;
+    while (inFile.good())
+    {
+        inFile.read(&in, 1);
+        writeB(i++, in);
+    }
+    inFile.close();
+}
+
