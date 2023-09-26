@@ -8,7 +8,11 @@ a.out
 *.o
 
 *.bin
-compiler/mcc
+assembler/linked.asm
+
+capp
+cacc
+cald
 compiler/astdump
 
 emu/emu

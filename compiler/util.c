@@ -236,7 +236,15 @@ void LinkedList_Prepend(struct LinkedList *l, void *element)
 	l->size++;
 }
 
-void *LinkedList_Delete(struct LinkedList *l, char (*compareFunction)(), void *element)
+void LinkedList_Join(struct LinkedList *before, struct LinkedList *after)
+{
+	for(struct LinkedListNode *runner = after->head; runner != NULL; runner = runner->next)
+	{
+		LinkedList_Append(before, runner->data);
+	}
+}
+
+void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *element)
 {
 	for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
 	{
@@ -277,7 +285,7 @@ void *LinkedList_Delete(struct LinkedList *l, char (*compareFunction)(), void *e
 	ErrorAndExit(ERROR_INTERNAL, "Couldn't delete element from linked list!\n");
 }
 
-void *LinkedList_Find(struct LinkedList *l, char (*compareFunction)(), void *element)
+void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *element)
 {
 	for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
 	{
@@ -287,6 +295,42 @@ void *LinkedList_Find(struct LinkedList *l, char (*compareFunction)(), void *ele
 		}
 	}
 	return NULL;
+}
+
+void *LinkedList_PopFront(struct LinkedList *l)
+{
+	if (l->size == 0)
+	{
+		ErrorAndExit(ERROR_INVOCATION, "Unable to pop front from empty linkedlist!\n");
+	}
+	struct LinkedListNode *popped = l->head;
+
+	l->head = l->head->next;
+	l->head->prev = NULL;
+	l->size--;
+
+	void *poppedData = popped->data;
+	free(popped);
+
+	return poppedData;
+}
+
+void *LinkedList_PopBack(struct LinkedList *l)
+{
+	if (l->size == 0)
+	{
+		ErrorAndExit(ERROR_INVOCATION, "Unable to pop front from empty linkedlist!\n");
+	}
+	struct LinkedListNode *popped = l->tail;
+
+	l->tail = l->tail->prev;
+	l->tail->next = NULL;
+	l->size--;
+
+	void *poppedData = popped->data;
+	free(popped);
+
+	return poppedData;
 }
 
 /*

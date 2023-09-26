@@ -1,18 +1,40 @@
-#include "string.h"
-#include "stdlib.h"
-#include "stdio.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #pragma once
 
 enum CompilerErrors
 {
-	ERROR_INVOCATION, 	// user has made an error with arguments or other parameters
-	ERROR_CODE,			// there is an error in the code which prevents a complete compilation
+	ERROR_INVOCATION = 1, // user has made an error with arguments or other parameters
+	ERROR_CODE,			  // there is an error in the code which prevents a complete compilation
 	ERROR_INTERNAL,
 };
 
+#define ErrorAndExit(code, fmt, ...)                           \
+	printf(fmt, ##__VA_ARGS__);                                \
+	printf("Bailing from file %s:%d\n\n", __FILE__, __LINE__); \
+	exit(code)
 
-#define ErrorAndExit(code, fmt, ...) printf(fmt, ##__VA_ARGS__); printf("Bailing from file %s, line %d\n\n", __FILE__, __LINE__); exit(code)
+#define ErrorWithAST(code, astPtr, fmt, ...)                                         \
+	printf("%s:%d:%d: ", astPtr->sourceFile, astPtr->sourceLine, astPtr->sourceCol); \
+	ErrorAndExit(code, fmt, ##__VA_ARGS__)
+
+#define STAGE_PARSE 0
+#define STAGE_LINEARIZE 1
+#define STAGE_REGALLOC 2
+#define STAGE_CODEGEN 3
+#define STAGE_MAX 4
+
+#define VERBOSITY_SILENT 0
+#define VERBOSITY_MINIMAL 1
+#define VERBOSITY_MAX 2
+struct Config
+{
+	char stageVerbosities[STAGE_MAX];
+};
+
+extern char currentVerbosity;
 
 /*
  * Dictionary for tracking strings
@@ -59,7 +81,6 @@ void *Stack_Pop(struct Stack *s);
 
 void *Stack_Peek(struct Stack *s);
 
-
 /*
  * Unordered List data structure
  *
@@ -81,15 +102,22 @@ struct LinkedList
 
 struct LinkedList *LinkedList_New();
 
-void LinkedList_Free(struct LinkedList *l,  void (*dataFreeFunction)());
+void LinkedList_Free(struct LinkedList *l, void (*dataFreeFunction)());
 
 void LinkedList_Append(struct LinkedList *l, void *element);
 
 void LinkedList_Prepend(struct LinkedList *l, void *element);
 
-void *LinkedList_Delete(struct LinkedList *l, char (*compareFunction)(), void *element);
+// join all elements of list 'after' after those of list 'before' in list 'before'
+void LinkedList_Join(struct LinkedList *before, struct LinkedList *after);
 
-void *LinkedList_Find(struct LinkedList *l, char (*compareFunction)(), void *element);
+void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *element);
+
+void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *element);
+
+void *LinkedList_PopFront(struct LinkedList *l);
+
+void *LinkedList_PopBack(struct LinkedList *l);
 
 char *strTrim(char *s, int l);
 
@@ -98,7 +126,7 @@ char *strAppend(char *before, char *after);
 /*
  * TempList is a struct containing string names for TAC temps by number (eg t0, t1, t2, etc...)
  * _Get retrieves the string for the given number, or if it doesn't exist, generates it and then returns it
- * 
+ *
  */
 
 struct TempList

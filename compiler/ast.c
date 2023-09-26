@@ -5,6 +5,7 @@
 
 extern int curLine;
 extern int curCol;
+extern char *curFile;
 
 struct AST *AST_New(enum token t, char *value)
 {
@@ -15,6 +16,7 @@ struct AST *AST_New(enum token t, char *value)
 	wip->value = value;
 	wip->sourceLine = curLine;
 	wip->sourceCol = curCol;
+	wip->sourceFile = curFile;
 	return wip;
 }
 
@@ -69,7 +71,6 @@ void AST_PrintHorizontalRec(struct AST *it){
 
 void AST_PrintHorizontal(struct AST *it)
 {
-
 	printf("(");
 	printf("%s", it->value);
 

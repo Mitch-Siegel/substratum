@@ -1,5 +1,11 @@
 ; customasm ruledef for the cpu
-#bits 8
+#bankdef a
+{
+    #bits 8
+    #addr 0x0
+    #size 0x100000000
+    #outp 0x0
+}
 
 #ruledef reg{
     r0  => 0b0000
@@ -22,9 +28,7 @@
 }
 
 
-; 2 instruction lengths - full word (32bit) and halfword (16bit)
-; lsb of opcode indicates length (0 for hword 1 for word)
-#ruledef{
+#ruledef cpu{
 
     nop             => 0x01 @ 0x000000
     
@@ -125,8 +129,10 @@
     movb %{rd: reg}, (%{rbase: reg})                             => 0xa2 @ rd @ rbase @ 0x0000
     movb (%{rbase: reg}), %{rs: reg}                             => 0xa4 @ rbase @ rs @ 0x0000
     
-    movb %{rd: reg}, (%{rbase: reg}+%{offset: i16})              => 0xa5 @ rd @ rbase @ offset
+    movb %{rd: reg}, (%{rbase: reg}+{offset: i16})              => 0xa5 @ rd @ rbase @ offset
+    movb %{rd: reg}, (%{rbase: reg}-{offset: i16})              => 0xa6 @ rd @ rbase @ offset
     movb (%{rbase: reg}+{offset: i16}), %{rs: reg}               => 0xa7 @ rs @ rbase @ offset
+    movb (%{rbase: reg}-{offset: i16}), %{rs: reg}               => 0xa8 @ rs @ rbase @ offset
 
     movb %{rd: reg}, (%{rbase: reg}+%{roffset: reg},{sclpow: i5}) => 0xa9 @ rd @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
     movb (%{rbase: reg}+%{roffset: reg},{sclpow:i5}), %{rs: reg}  => 0xab @ rs @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
@@ -139,14 +145,16 @@
     movh %{rd: reg}, (%{rbase: reg})                             => 0xb2 @ rd @ rbase @ 0x0000
     movh (%{rbase: reg}), %{rs: reg}                             => 0xb4 @ rbase @ rs @ 0x0000
     
-    movh %{rd: reg}, (%{rbase: reg}+%{offset: i16})              => 0xb5 @ rd @ rbase @ offset
+    movh %{rd: reg}, (%{rbase: reg}+{offset: i16})              => 0xb5 @ rd @ rbase @ offset
+    movh %{rd: reg}, (%{rbase: reg}-{offset: i16})              => 0xb6 @ rd @ rbase @ offset
     movh (%{rbase: reg}+{offset: i16}), %{rs: reg}              => 0xb7 @ rs @ rbase @ offset
+    movh (%{rbase: reg}-{offset: i16}), %{rs: reg}              => 0xb8 @ rs @ rbase @ offset
 
     movh %{rd: reg}, (%{rbase: reg}+%{roffset: reg},{sclpow: i5})=> 0xb9 @ rd @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
     movh (%{rbase: reg}+%{roffset: reg},{sclpow:i5}), %{rs: reg} => 0xbb @ rs @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
 
     movh %{rd: reg}, ${imm: i16}                                 => 0xbf @ rd @ 0x0 @ imm
-    mov %{rd: reg}, ${imm: i16}                                 => 0xbf @ rd @ 0x0 @ imm
+    ; mov %{rd: reg}, ${imm: i16}                                 => 0xbf @ rd @ 0x0 @ imm
 
 
     ; data movement (full word)
@@ -156,26 +164,51 @@
     mov (%{rbase: reg}), %{rs: reg}                              => 0xc4 @ rbase @ rs @ 0x0000
     
     mov %{rd: reg}, (%{rbase: reg}+{offset: i16})                => 0xc5 @ rd @ rbase @ offset
+    mov %{rd: reg}, (%{rbase: reg}-{offset: i16})                => 0xc6 @ rd @ rbase @ offset
     mov (%{rbase: reg}+{offset: i16}), %{rs: reg}                => 0xc7 @ rs @ rbase @ offset
+    mov (%{rbase: reg}-{offset: i16}), %{rs: reg}                => 0xc8 @ rs @ rbase @ offset
 
     mov %{rd: reg}, (%{rbase: reg}+%{roffset: reg},{sclpow: i5}) => 0xc9 @ rd @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
     mov (%{rbase: reg}+%{roffset: reg},{sclpow:i5}), %{rs: reg}  => 0xcb @ rs @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
 
-    push %{rs: reg}                         => 0xd0 @ 0x0 @ rs @ 0x0000
-    pushi ${imm: i24}                       => 0xd1 @ imm
-    pop %{rd: reg}                          => 0xd2 @ 0x0 @ rd @ 0x0000
+    mov %{rd: reg}, ${imm: i32}                                 => { 
+        upper = imm[31:16]
+        lower = imm[15:0]
+        0xbf @ {rd} @ 0x0 @ {upper} @
+        0x6b @ {rd} @ {rd} @ 0x0010 @
+        0x61 @ {rd} @ {rd} @ {lower}}
+
+    mov %{rd: reg}, {imm: i32}                             => {
+        upper = imm[31:16]
+        lower = imm[15:0]
+        0xbf @ {rd} @ 0x0 @ {upper} @
+        0x6b @ {rd} @ {rd} @ 0x0010 @
+        0x61 @ {rd} @ {rd} @ {lower}}
+
+    lea %{rd: reg}, (%{rbase: reg}+{offset: i16})                => 0xcc @ rd @ rbase @ offset
+    lea %{rd: reg}, (%{rbase: reg}+%{roffset: reg},{sclpow: i5}) => 0xcd @ rd @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
+    
+
+
+    pushb %{rs: reg}                        => 0xd0 @ 0x0 @ rs @ 0x0000
+    pushh %{rs: reg}                        => 0xd1 @ 0x0 @ rs @ 0x0000
+    push %{rs: reg}                         => 0xd2 @ 0x0 @ rs @ 0x0000
+
+    popb %{rd: reg}                         => 0xd3 @ 0x0 @ rd @ 0x0000
+    poph %{rd: reg}                         => 0xd4 @ 0x0 @ rd @ 0x0000
+    pop %{rd: reg}                          => 0xd5 @ 0x0 @ rd @ 0x0000
 
     ; call the function at address << 8 (256-byte alignment)
-    call {address: i32}                     => 0xd3 @ (address >> 8)`24
+    call {address: i32}                     => 0xd6 @ (address >> 8)`24
 
     ; wipe 'argw' number of bytes off the stack from arguments
-    ret {argw: i24}                         => 0xd4 @ argw
+    ret {argw: i24}                         => 0xd7 @ argw
     ret                                     => asm{ret 0}
     
-    int {code: i8}                          => 0xd5 @ code @ 0x0000
-    reti                                    => 0xd6 @ 0x000000
+    int {code: i8}                          => 0xd8 @ code @ 0x0000
+    reti                                    => 0xd9 @ 0x000000
 
-    out {port: i8}, %{rs: reg}                         => 0xe2 @ port @ 0x0 @ rs @ 0x00
+    out {port: i8}, %{rs: reg}              => 0xe2 @ port @ 0x0 @ rs @ 0x00
 
     hlt                                    => 0xfe000000
 

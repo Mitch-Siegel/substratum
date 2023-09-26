@@ -12,6 +12,7 @@ enum token
 	p_expression_operator,
 	p_wip_expression,
 	p_expression,
+	p_expression_tail,
 	p_function_opener,
 	p_function_call,
 	p_expression_list,
@@ -19,8 +20,8 @@ enum token
 	p_variable_declaration,
 	p_declaration_list,
 	p_variable_declaration_statement,
-	p_expression_statement,
 	p_assignment_statement,
+	p_return_statement,
 	p_if_awating_else,
 	p_if_else,
 	p_if,
@@ -28,12 +29,14 @@ enum token
 	p_statement_list,
 	p_while,
 	p_scope,
+	p_function_declaration,
 	p_function_definition,
 	p_translation_unit,
 	p_null,
 	// begin tokens
 	t_identifier,
 	t_constant,
+	t_char_literal,
 	t_string_literal,
 	// t_sizeof,
 	t_asm,
@@ -42,6 +45,7 @@ enum token
 	t_uint8,
 	t_uint16,
 	t_uint32,
+	t_class,
 	// function
 	t_fun,
 	t_return,
@@ -55,9 +59,17 @@ enum token
 	// basic arithmetic
 	t_plus,
 	t_minus,
+	t_divide,
+	// arithmetic assignment
+	t_plus_equals,
+	t_minus_equals,
 	// comparison operators
 	t_lThan,
 	t_gThan,
+	t_lThanE,
+	t_gThanE,
+	t_equals,
+	t_nEquals,
 	// logical operators
 	t_and,
 	t_or,
@@ -76,7 +88,7 @@ enum token
 	//
 	t_comma,
 	t_dot,
-	t_pointer_op,
+	t_arrow,
 	t_semicolon,
 	t_colon,
 	t_lParen,
@@ -85,7 +97,9 @@ enum token
 	t_rCurly,
 	t_lBracket,
 	t_rBracket,
-	t_EOF
+	t_file,
+	t_line,
+	t_EOF,
 };
 
 struct AST
@@ -96,6 +110,7 @@ struct AST
 	struct AST *sibling;
 	int sourceLine;
 	int sourceCol;
+	char *sourceFile;
 };
 
 // instantiate a new AST with given type and value

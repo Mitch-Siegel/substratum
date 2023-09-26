@@ -1,0 +1,19 @@
+
+
+fun printCheat(uint32 value->void)
+{
+	asm {
+		mov %r0, (%bp+8)
+		out 1, %r0
+	}
+	;
+}
+
+fun main(->void)
+{
+    uint8 a = 6;
+    uint8 b = 3;
+    printCheat(a * b);
+    printCheat(a / b);
+
+}

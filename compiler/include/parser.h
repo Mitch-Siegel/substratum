@@ -12,15 +12,18 @@ int lookahead_char_dumb();
 
 void trimWhitespace(char trackPos);
 
-int lookahead_char();
+// scan and return the raw token we see
+enum token _scan(char trackPos);
 
-enum token scan(char trackPos);
+// wrapper around _scan
+// handles #file and #line directives in order to correctly track position in preprocessed files
+enum token scan(char trackPos, struct Dictionary *dict);
 
 enum token lookahead();
 
 struct AST *match(enum token t, struct Dictionary *dict);
 
-void consume(enum token t);
+void consume(enum token t, struct Dictionary *dict);
 
 char *getTokenName(enum token t);
 
