@@ -153,6 +153,9 @@ enum token parseRecipes[p_null][14][9][2] = {
         {{t_minus, above},
          {p_null, p_null}},
 
+        {{t_divide, above},
+         {p_null, p_null}},
+
         {{t_lThan, above},
          {p_null, p_null}},
 

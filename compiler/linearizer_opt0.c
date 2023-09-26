@@ -162,7 +162,7 @@ void walkArgumentDeclaration_0(struct AST *tree,
 	{
 		printf("walkArgumentDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
-	
+
 	struct VariableEntry *declaredArgument = walkVariableDeclaration_0(tree, block, fun->mainScope, TACIndex, tempNum, 1);
 
 	declaredArgument->assignedAt = 0;
@@ -1183,6 +1183,7 @@ void walkSubExpression_0(struct AST *tree,
 
 	case t_plus:
 	case t_minus:
+	case t_divide:
 	case t_lThan:
 	// case t_bin_lThanE:
 	case t_gThan:
@@ -1203,11 +1204,20 @@ void walkSubExpression_0(struct AST *tree,
 	}
 	break;
 
-	// '*' as dereference operator
 	case t_star:
 	{
-		struct TACOperand *dereferenceResult = walkDereference_0(tree, block, scope, TACIndex, tempNum);
-		*destinationOperand = *dereferenceResult;
+		// '*' as dereference operator (*a)
+		if (tree->child->sibling == NULL)
+		{
+			struct TACOperand *dereferenceResult = walkDereference_0(tree, block, scope, TACIndex, tempNum);
+			*destinationOperand = *dereferenceResult;
+		}
+		// '*' as arithmetic operator (a * b)
+		else
+		{
+			struct TACOperand *expressionResult = walkExpression_0(tree, block, scope, TACIndex, tempNum);
+			*destinationOperand = *expressionResult;
+		}
 	}
 	break;
 
@@ -1549,13 +1559,34 @@ struct TACOperand *walkExpression_0(struct AST *tree,
 	expression->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 	expression->operands[0].permutation = vp_temp;
 
+	char fallingThrough = 0;
+
 	switch (tree->type)
 	{
 	// basic arithmetic
 	case t_plus:
 		expression->reorderable = 1;
 		expression->operation = tt_add;
+		fallingThrough = 1;
 		// fall through, having set to plus and reorderable
+
+	case t_star:
+		if (!fallingThrough)
+		{
+			expression->reorderable = 1;
+			expression->operation = tt_mul;
+			fallingThrough = 1;
+		}
+		// fall through
+
+	case t_divide:
+		if (!fallingThrough)
+		{
+			expression->operation = tt_div;
+			fallingThrough = 1;
+		}
+		// fall through
+
 	case t_minus:
 	{
 		walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &expression->operands[1]);

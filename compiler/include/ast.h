@@ -59,6 +59,7 @@ enum token
 	// basic arithmetic
 	t_plus,
 	t_minus,
+	t_divide,
 	// arithmetic assignment
 	t_plus_equals,
 	t_minus_equals,

@@ -63,6 +63,7 @@ char *token_names[] = {
 	// basic arithmetic
 	"t_plus",
 	"t_minus",
+	"t_divide",
 	// arithmetic assignment
 	"t_plus_equals",
 	"t_minus_equals",
@@ -150,10 +151,12 @@ void trimWhitespace(char trackPos)
 			break;
 
 		case '/':
+			printf("got /: next char is[%c]\n", lookahead_char_dumb(2));
 			switch (lookahead_char_dumb(2))
 			{
 				// single line comment
 			case '/':
+			{
 				while (fgetc(inFile) != '\n')
 					;
 
@@ -162,9 +165,11 @@ void trimWhitespace(char trackPos)
 					curLine++;
 					curCol = 1;
 				}
-				break;
+			}
+			break;
 
 			case '*':
+			{
 				// skip the comment opener, begin reading the comment
 				fgetc(inFile);
 				fgetc(inFile);
@@ -209,6 +214,11 @@ void trimWhitespace(char trackPos)
 				// catch the trailing slash of the comment closer
 				fgetc(inFile);
 				curCol++;
+			}
+			break;
+
+			default:
+				trimming = 0;
 				break;
 			}
 
@@ -221,7 +231,7 @@ void trimWhitespace(char trackPos)
 	}
 }
 
-#define RESERVED_COUNT 44
+#define RESERVED_COUNT 45
 
 struct ReservedToken
 {
@@ -248,6 +258,7 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 
 	{"+", t_plus},
 	{"-", t_minus},
+	{"/", t_divide},
 
 	{"+=", t_plus_equals},
 	{"-=", t_minus_equals},
