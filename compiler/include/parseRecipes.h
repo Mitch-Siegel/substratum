@@ -9,8 +9,8 @@ enum RecipeInstructions
 };
 
 // let him cook!
-enum token parseRecipes[p_null][11][9][2] = {
-    // p_type_name
+enum token parseRecipes[p_null][14][9][2] = {
+    // p_type_name - TYPE-NAME
     {
         {{t_void, above},
          {p_null, p_null}},
@@ -27,6 +27,10 @@ enum token parseRecipes[p_null][11][9][2] = {
         {{t_uint32, above},
          {p_null, p_null}},
 
+        {{t_class, above},
+         {t_identifier, below},
+         {p_null, p_null}},
+
         {{p_type_name, above},
          {t_star, below},
          {p_null, p_null}},
@@ -40,6 +44,16 @@ enum token parseRecipes[p_null][11][9][2] = {
         {{t_identifier, above},
          {p_null, p_null}},
 
+        {{p_primary_expression, above},
+         {t_dot, above},
+         {t_identifier, below},
+         {p_null, p_null}},
+
+        {{p_primary_expression, above},
+         {t_arrow, above},
+         {t_identifier, below},
+         {p_null, p_null}},
+
         // constant
         {{t_constant, above},
          {p_null, p_null}},
@@ -47,6 +61,12 @@ enum token parseRecipes[p_null][11][9][2] = {
         // '(' EXPRESSION ')'
         {{t_lParen, cnsme},
          {p_expression, above},
+         {t_rParen, cnsme},
+         {p_null, p_null}},
+
+        // '(' PRIMARY-EXPRESSION ')'
+        {{t_lParen, cnsme},
+         {p_primary_expression, above},
          {t_rParen, cnsme},
          {p_null, p_null}},
 
@@ -71,6 +91,10 @@ enum token parseRecipes[p_null][11][9][2] = {
         {{p_wip_array_access, above},
          {p_expression, below},
          {t_rBracket, cnsme},
+         {p_null, p_null}},
+
+        {{t_reference, above},
+         {p_primary_expression, below},
          {p_null, p_null}},
 
         // end
@@ -127,6 +151,9 @@ enum token parseRecipes[p_null][11][9][2] = {
          {p_null, p_null}},
 
         {{t_minus, above},
+         {p_null, p_null}},
+
+        {{t_divide, above},
          {p_null, p_null}},
 
         {{t_lThan, above},
@@ -208,6 +235,11 @@ enum token parseRecipes[p_null][11][9][2] = {
 
         // '*' EXPRESSION-TAIL
         {{t_star, above},
+         {p_expression_tail, below},
+         {p_null, p_null}},
+
+        // '&' EXPRESSION-TAIL
+        {{t_reference, above},
          {p_expression_tail, below},
          {p_null, p_null}},
 
@@ -363,6 +395,16 @@ enum token parseRecipes[p_null][11][9][2] = {
          {p_expression_tail, below},
          {p_null, p_null}},
 
+        {{p_primary_expression, above},
+         {t_plus_equals, above},
+         {p_expression_tail, below},
+         {p_null, p_null}},
+
+        {{p_primary_expression, above},
+         {t_minus_equals, above},
+         {p_expression_tail, below},
+         {p_null, p_null}},
+
         {{p_null, p_null}},
     },
 
@@ -440,6 +482,12 @@ enum token parseRecipes[p_null][11][9][2] = {
     {
         // VARIABLE-DECLARATION-STATEMENT
         {{p_variable_declaration_statement, above},
+         {p_null, p_null}},
+
+        // class declaration
+        {{p_type_name, above},
+         {p_scope, below},
+         {t_semicolon, cnsme},
          {p_null, p_null}},
 
         // ASSIGNMENT-STATEMENT
@@ -552,7 +600,7 @@ enum token parseRecipes[p_null][11][9][2] = {
         {{t_fun, above},
          {p_function_opener, below},
          {p_declaration_list, below},
-         {t_pointer_op, below},
+         {t_arrow, below},
          {p_type_name, below},
          {t_rParen, cnsme},
          {p_null, p_null}},
@@ -562,7 +610,7 @@ enum token parseRecipes[p_null][11][9][2] = {
         {{t_fun, above},
          {p_function_opener, below},
          {p_variable_declaration, below},
-         {t_pointer_op, below},
+         {t_arrow, below},
          {p_type_name, below},
          {t_rParen, cnsme},
          {p_null, p_null}},
@@ -571,7 +619,7 @@ enum token parseRecipes[p_null][11][9][2] = {
         // 'fun' FUNCTION-OPENER '->' TYPE-NAME ')'
         {{t_fun, above},
          {p_function_opener, below},
-         {t_pointer_op, below},
+         {t_arrow, below},
          {p_type_name, below},
          {t_rParen, cnsme},
          {p_null, p_null}},
@@ -608,6 +656,10 @@ enum token parseRecipes[p_null][11][9][2] = {
 
         {{p_translation_unit, above},
          {p_statement, besid},
+         {p_null, p_null}},
+
+        {{p_statement_list, above},
+         {p_translation_unit, besid},
          {p_null, p_null}},
 
         {{p_null, p_null}}}};

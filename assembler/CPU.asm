@@ -184,6 +184,9 @@
         0xbf @ {rd} @ 0x0 @ {upper} @
         0x6b @ {rd} @ {rd} @ 0x0010 @
         0x61 @ {rd} @ {rd} @ {lower}}
+
+    lea %{rd: reg}, (%{rbase: reg}+{offset: i16})                => 0xcc @ rd @ rbase @ offset
+    lea %{rd: reg}, (%{rbase: reg}+%{roffset: reg},{sclpow: i5}) => 0xcd @ rd @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
     
 
 

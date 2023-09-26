@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "symtab.h" // for struct Type definition
 
 #ifndef _SYMBOLS_H_
 #define _SYMBOLS_H_
@@ -16,18 +17,6 @@ enum LinkDirection
 {
     export,
     require,
-};
-
-struct Type
-{
-    char isPrimitive;
-    int size;
-    struct
-    {
-        char isStruct;
-        char *name;
-    } structOrUnion;
-    int indirectionLevel;
 };
 
 struct FunctionDeclarationSymbol
@@ -73,9 +62,9 @@ char *symbolEnumToName(enum LinkedSymbol s);
 
 int compareSymbols(struct Symbol *a, struct Symbol *b);
 
-struct Type *parseType(char *declString);
+struct Type *parseType(FILE *inFile, char *declString, struct Symbol *wipSymbol, char canInitialize);
 
-void addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire);
+char addRequire(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toRequire);
 
 char addExport(struct LinkedList **exports, struct LinkedList **requires, struct Symbol *toAdd);
 #endif

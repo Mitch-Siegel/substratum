@@ -6,12 +6,13 @@
 
 #pragma once
 
-enum variableTypes
+enum basicTypes
 {
 	vt_null,
 	vt_uint8,
 	vt_uint16,
 	vt_uint32,
+	vt_class
 };
 
 enum variablePermutations
@@ -26,14 +27,12 @@ enum TACType
 {
 	tt_asm,
 	tt_assign,
-	tt_cast_assign,
-	tt_declare,
 	tt_add,
 	tt_subtract,
 	tt_mul,
 	tt_div,
 	tt_dereference,
-	tt_reference,
+	tt_addrof,
 	tt_memw_1, // mov (reg), reg
 	tt_memw_2, // mov offset(reg), reg
 	tt_memw_3, // mov offset(reg, scale), reg
@@ -44,6 +43,8 @@ enum TACType
 	tt_memr_3,
 	tt_memr_2_n,
 	tt_memr_3_n,
+	tt_lea_2,
+	tt_lea_3,
 	tt_cmp,
 	tt_jg,
 	tt_jge,
@@ -51,6 +52,8 @@ enum TACType
 	tt_jle,
 	tt_je,
 	tt_jne,
+	tt_jz,
+	tt_jnz,
 	tt_jmp,
 	tt_push,
 	tt_call,
@@ -58,6 +61,22 @@ enum TACType
 	tt_return,
 	tt_do,
 	tt_enddo,
+};
+
+struct Type
+{
+	enum basicTypes basicType;
+	int indirectionLevel;
+	int arraySize;
+	union
+	{
+		char *initializeTo;
+		char **initializeArrayTo;
+	};
+	struct classType
+	{
+		char *name;
+	} classType;
 };
 
 struct TACOperand
@@ -68,14 +87,24 @@ struct TACOperand
 		int val;
 	} name;
 
-	// union nameUnion name;
-	enum variableTypes type;			   // enum of type
+	struct Type type;
+	struct Type castAsType;
 	enum variablePermutations permutation; // enum of permutation (standard/temp/literal)
-	unsigned indirectionLevel;
 };
+
+
+int Type_Compare(struct Type *a, struct Type *b);
+
+int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b);
+
+char *Type_GetName(struct Type *t);
+
+void TACOperand_SetBasicType(struct TACOperand *o, enum basicTypes t, int indirectionLevel);
 
 struct TACLine
 {
+	char *allocFile;
+	int allocLine;
 	struct AST *correspondingTree;
 	struct TACOperand operands[4];
 	enum TACType operation;
@@ -83,13 +112,18 @@ struct TACLine
 	char reorderable;
 };
 
+struct Type *TACOperand_GetType(struct TACOperand *o);
+
+struct Type *TAC_GetTypeOfOperand(struct TACLine *t, unsigned index);
+
 char *getAsmOp(enum TACType t);
 
 void printTACLine(struct TACLine *it);
 
 char *sPrintTACLine(struct TACLine *it);
 
-struct TACLine *newTACLine(int index, enum TACType operation, struct AST *correspondingTree);
+struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST *correspondingTree, char *file, int line);
+#define newTACLine(index, operation, correspondingTree) newTACLineFunction((index), (operation), (correspondingTree), __FILE__, __LINE__)
 
 char checkTACLine(struct TACLine *it);
 

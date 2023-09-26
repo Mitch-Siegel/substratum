@@ -45,6 +45,7 @@ enum token
 	t_uint8,
 	t_uint16,
 	t_uint32,
+	t_class,
 	// function
 	t_fun,
 	t_return,
@@ -58,6 +59,10 @@ enum token
 	// basic arithmetic
 	t_plus,
 	t_minus,
+	t_divide,
+	// arithmetic assignment
+	t_plus_equals,
+	t_minus_equals,
 	// comparison operators
 	t_lThan,
 	t_gThan,
@@ -83,7 +88,7 @@ enum token
 	//
 	t_comma,
 	t_dot,
-	t_pointer_op,
+	t_arrow,
 	t_semicolon,
 	t_colon,
 	t_lParen,

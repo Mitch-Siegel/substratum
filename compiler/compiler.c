@@ -14,68 +14,168 @@
 #include "codegen.h"
 #include "serialize.h"
 
-char verifyBasicBlock(struct BasicBlock *b)
+struct Dictionary *parseDict = NULL;
+
+#define MAX_LINEARIAZTION_OPT 0
+#define MAX_REGALLOC_OPT 0
+#define MAX_CODEGEN_OPT 0
+#define MAX_GENERIC_OPT 0
+int linearizationOpt = 0;
+int regAllocOpt = 0;
+int codegenOpt = 0;
+
+char currentVerbosity = 0;
+
+void usage()
 {
-	char blockHasError = 0;
-	for (struct LinkedListNode *runner = b->TACList->head; runner != NULL; runner = runner->next)
-	{
-		struct TACLine *checkedLine = runner->data;
-		char result = checkTACLine(checkedLine);
-		blockHasError |= result;
-		if(result)
-		{
-			printf("\t%s %d:%d\n", checkedLine->correspondingTree->sourceFile, checkedLine->correspondingTree->sourceLine, checkedLine->correspondingTree->sourceCol);
-		}
-	}
-	return blockHasError;
+	printf("Classical language compiler: Usage\n");
+	printf("-i (infile) : specify input classical file to compile\n");
+	printf("-o (outfile): specify output file to generate object code to\n");
+	printf("-O (number) : set generic optimization tier level: max %d\n              (auto-combines l/r/c optimizations)\n", MAX_GENERIC_OPT);
+	printf("-l (number) : linearization (IR generation) optimization level: max %d\n", MAX_LINEARIAZTION_OPT);
+	printf("-r (number) : register allocation optimization level: max %d\n", MAX_REGALLOC_OPT);
+	printf("-c (number) : code generation optimization level: max %d\n", MAX_CODEGEN_OPT);
+	printf("\n");
 }
 
-char verifyTAC(struct Scope *s)
+void setOptimizations(int level)
 {
-	char foundError = 0;
-	for (int i = 0; i < s->entries->size; i++)
+	switch (level)
 	{
-		struct ScopeMember *m = s->entries->data[i];
-		switch (m->type)
-		{
+	case 0:
+		linearizationOpt = 0;
+		regAllocOpt = 0;
+		codegenOpt = 0;
+		break;
 
-		case e_basicblock:
-			foundError |= verifyBasicBlock(m->entry);
+	default:
+		usage();
+		ErrorAndExit(ERROR_INVOCATION, "Invalid value (%d) provided to -O flag (max %d)!\n", level, MAX_GENERIC_OPT);
+	}
+}
+
+void checkOptimizations()
+{
+	if (linearizationOpt > MAX_LINEARIAZTION_OPT)
+	{
+		ErrorAndExit(ERROR_INVOCATION, "Provided value (%d) for linearization optimiaztion exceeds max (%d)!\n", linearizationOpt, MAX_LINEARIAZTION_OPT);
+		usage();
+	}
+
+	if (regAllocOpt > MAX_REGALLOC_OPT)
+	{
+		ErrorAndExit(ERROR_INVOCATION, "Provided value (%d) for linearization optimiaztion exceeds max (%d)!\n", regAllocOpt, MAX_REGALLOC_OPT);
+		usage();
+	}
+
+	if (codegenOpt > MAX_CODEGEN_OPT)
+	{
+		ErrorAndExit(ERROR_INVOCATION, "Provided value (%d) for linearization optimiaztion exceeds max (%d)!\n", codegenOpt, MAX_CODEGEN_OPT);
+		usage();
+	}
+}
+
+struct Config config;
+int main(int argc, char **argv)
+{
+	char *inFileName = NULL;
+	char *outFileName = NULL;
+
+	int option;
+	while ((option = getopt(argc, argv, "i:o:O:l:r:c:v:")) != EOF)
+	{
+		switch (option)
+		{
+		case 'i':
+			inFileName = optarg;
 			break;
 
-		case e_scope:
-			foundError |= verifyTAC(m->entry);
+		case 'o':
+			outFileName = optarg;
 			break;
 
-		case e_function:
+		case 'O':
+			setOptimizations(atoi(optarg));
+			break;
+
+		case 'l':
+			linearizationOpt = atoi(optarg);
+			break;
+
+		case 'r':
+			regAllocOpt = atoi(optarg);
+			break;
+
+		case 'c':
+			codegenOpt = atoi(optarg);
+			break;
+
+		case 'v':
 		{
-			struct FunctionEntry *f = m->entry;
-			foundError |= verifyTAC(f->mainScope);
+			int nVFlags = strlen(optarg);
+			if (nVFlags == 1)
+			{
+				int stageVerbosities = atoi(optarg);
+				if (stageVerbosities < 0 || stageVerbosities > VERBOSITY_MAX)
+				{
+					printf("Illegal value %d specified for verbosity!\n", stageVerbosities);
+					usage();
+					ErrorAndExit(ERROR_INVOCATION, ":(");
+				}
+
+				for (int i = 0; i < STAGE_MAX; i++)
+				{
+					config.stageVerbosities[i] = stageVerbosities;
+				}
+			}
+			else if (nVFlags == STAGE_MAX)
+			{
+				for (int i = 0; i < STAGE_MAX; i++)
+				{
+					char thisVerbosityStr[2] = {'\0', '\0'};
+					thisVerbosityStr[0] = optarg[i];
+					config.stageVerbosities[i] = atoi(thisVerbosityStr);
+				}
+			}
+			else
+			{
+				printf("Unexpected number of verbosities (%d) provided\nExpected either 1 to set all levels, or %d to set each level independently\n", nVFlags, STAGE_MAX);
+				usage();
+				ErrorAndExit(ERROR_INVOCATION, ":(");
+			}
 		}
 		break;
 
 		default:
-			break;
+			usage();
+			ErrorAndExit(ERROR_INVOCATION, ":(");
 		}
 	}
-	return foundError;
-}
 
-struct Dictionary *parseDict = NULL;
-int main(int argc, char **argv)
-{
-	if (argc < 2)
+	printf("Running with verbosity: ");
+	for (int i = 0; i < STAGE_MAX; i++)
 	{
-		ErrorAndExit(ERROR_INVOCATION, "Error - please specify an input and output file!\n");
+		printf("%d ", config.stageVerbosities[i]);
 	}
-	else if (argc < 3)
+	printf("\n");
+
+	checkOptimizations();
+
+	if (inFileName == NULL)
 	{
-		ErrorAndExit(ERROR_INVOCATION, "Error - please specify an output file!\n");
+		usage();
+		ErrorAndExit(ERROR_INVOCATION, "No input file provided!\n");
 	}
 
-	printf("Compiling source file %s\n", argv[1]);
+	if (outFileName == NULL)
+	{
+		usage();
+		ErrorAndExit(ERROR_INVOCATION, "No input file provided!\n");
+	}
 
-	printf("Output will be generated to %s\n\n", argv[2]);
+	printf("Compiling source file %s\n", inFileName);
+
+	printf("Output will be generated to %s\n\n", outFileName);
 
 	int pid, status;
 
@@ -87,7 +187,7 @@ int main(int argc, char **argv)
 	if (pid == 0)
 	{
 		// janky fix: write the preprocessed file to /tmp
-		char *args[4] = {"./capp", argv[1], "/tmp/auto.capp", NULL};
+		char *args[4] = {"./capp", inFileName, "/tmp/auto.capp", NULL};
 
 		if (execvp("./capp", args) < 0)
 		{
@@ -109,45 +209,40 @@ int main(int argc, char **argv)
 		}
 	}
 
+	currentVerbosity = config.stageVerbosities[STAGE_PARSE];
+
 	parseDict = Dictionary_New(10);
 	struct AST *program = ParseProgram("/tmp/auto.capp", parseDict);
 
 	// serializeAST("astdump", program);
 	// printf("\n");
-
-	// AST_Print(program, 0);
-
-	printf("Generating symbol table from AST");
-	struct SymbolTable *theTable = walkAST(program);
-	printf("\n");
-
-	if (argc > 3)
+	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
-		printf("Symbol table before scope collapse:\n");
-		SymbolTable_print(theTable, 0);
+		AST_Print(program, 0);
 	}
 
-	printf("Linearizing code to basic blocks\n");
-	struct TempList *temps = TempList_New();
-	linearizeProgram(program, theTable->globalScope, parseDict, temps);
+	currentVerbosity = config.stageVerbosities[STAGE_LINEARIZE];
 
-	printf("Collapsing scopes\n");
+	if (currentVerbosity > VERBOSITY_SILENT)
+	{
+		printf("Generating symbol table from AST");
+	}
+	struct SymbolTable *theTable = linearizeProgram(program, linearizationOpt);
+
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("\nSymbol table before scope collapse:\n");
+		SymbolTable_print(theTable, 1);
+		printf("Collapsing scopes\n");
+	}
+
 	SymbolTable_collapseScopes(theTable, parseDict);
 
-
-	if (argc > 3)
+	if (currentVerbosity > VERBOSITY_SILENT)
 	{
 		printf("Symbol table after linearization/scope collapse:\n");
 		SymbolTable_print(theTable, 1);
 	}
-
-	if(verifyTAC(theTable->globalScope))
-	{
-		ErrorAndExit(ERROR_INTERNAL, "Error(s) verifying TAC!\n");
-	}
-
-	// printf("Symbol table after linearization/scope collapse:\n");
-	// SymbolTable_print(theTable, 1);
 
 	// ensure we always end the userstart section (jumped to from entry) by calling our main functoin
 	// just fudge this by calling it block number 123456 since we should never get that high
@@ -163,26 +258,27 @@ int main(int argc, char **argv)
 
 	Scope_insert(theTable->globalScope, "CALL_MAIN_BLOCK", executeMainBlock, e_basicblock);
 
-	// BasicBlock_append(
-
-	FILE *outFile = fopen(argv[2], "wb");
+	FILE *outFile = fopen(outFileName, "wb");
 
 	if (outFile == NULL)
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", argv[2]);
+		ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", outFileName);
 	}
 
-	printf("Generating code\n");
+	currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
+
+	if (currentVerbosity > VERBOSITY_SILENT)
+	{
+		printf("Generating code\n");
+	}
 	// fprintf(outFile, "#include \"CPU.asm\"\nentry code\n");
-	generateCode(theTable, outFile);
+	generateCode(theTable, outFile, regAllocOpt, codegenOpt);
 
 	SymbolTable_free(theTable);
 
 	fclose(outFile);
 	AST_Free(program);
 
-	TempList_Free(temps);
+	// TempList_Free(temps);
 	Dictionary_Free(parseDict);
-
-	printf("done!\n");
 }

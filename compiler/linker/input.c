@@ -2,7 +2,6 @@
 #include "util.h"
 #include "tac.h" // for variableTypes
 
-
 // returns 0 if export, 1 if require
 char parseLinkDirection(char *directionString)
 {
@@ -23,7 +22,7 @@ int getline_force_raw(char **linep, size_t *linecapp, FILE *stream)
     int len = getline(linep, linecapp, stream);
     if (len == 0)
     {
-        ErrorAndExit(ERROR_INTERNAL, "getline_force expects non-zero line length, got 0!\n");
+        ErrorAndExit(ERROR_INTERNAL, "getline_force_raw expects non-zero line length, got 0!\n");
     }
     if (len == -1)
     {
@@ -135,50 +134,95 @@ unsigned char readHex(char *str)
 char *inBuf = NULL;
 size_t bufSize = 0;
 
-struct Type *parseType(char *declString)
+struct Type *parseType(FILE *inFile, char *declString, struct Symbol *wipSymbol, char canInitialize)
 {
     char *lasts = NULL;
 
     struct Type *parsed = malloc(sizeof(struct Type));
+    memset(parsed, 0, sizeof(struct Type));
+
+    
     char *token = strtok_r(declString, " ", &lasts);
-    int typeNum = atoi(token);
-
-    switch ((enum variableTypes)typeNum)
+    if (strstr(token, "uint8"))
     {
-    case vt_null:
-        parsed->size = 0;
-        break;
-
-    case vt_uint8:
-        parsed->size = 1;
-        break;
-
-    case vt_uint16:
-        parsed->size = 2;
-        break;
-
-    case vt_uint32:
-        parsed->size = 4;
-        break;
-
-    default:
-    {
-        parsed->isPrimitive = 0;
-        ErrorAndExit(ERROR_INTERNAL, "non-primitive types not yet supported!\n");
+        parsed->basicType = vt_uint8;
     }
-    break;
+    else if (strstr(token, "uint16"))
+    {
+        parsed->basicType = vt_uint16;
+    }
+    else if (strstr(token, "uint32"))
+    {
+        parsed->basicType = vt_uint32;
+    }
+    else if (strstr(token, "NOTYPE"))
+    {
+        parsed->basicType = vt_null;
+        return parsed; // immediately return if notype, nothing else to parse
+    }
+    else
+    {
+        ErrorAndExit(ERROR_INTERNAL, "Unexpected type string seen in parseType: [%s]\n", token);
     }
 
-    token = strtok_r(NULL, " ", &lasts);
-    if (token[strlen(token) - 1] != '*')
+    parsed->indirectionLevel = 0;
+
+    int tokLen = strlen(token);
+    int starStartIndex = 0;
+
+    for (int i = 0; i < tokLen; i++)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Expected to see * indicating dereference level of type at end of type string, got %s instead!\n", token);
+        if (token[i] == '*')
+        {
+            starStartIndex = i;
+            break;
+        }
     }
-    token[strlen(token - 1)] = '\0';
-    parsed->indirectionLevel = atoi(token);
-    if (parsed->indirectionLevel)
+
+    if (starStartIndex)
     {
-        parsed->size = 4;
+        for (int i = starStartIndex; i < tokLen; i++)
+        {
+            if (token[i] == '*')
+            {
+                parsed->indirectionLevel++;
+            }
+        }
+    }
+    else
+    {
+        if (token[0] == '[')
+        {
+            char *tokNumOnly = strdup(token + 1);
+            for (int i = 0; i < strlen(tokNumOnly); i++)
+            {
+                if (tokNumOnly[i] == ']')
+                {
+                    tokNumOnly[i] = '\0';
+                    break;
+                }
+            }
+
+            parsed->arraySize = atoi(tokNumOnly);
+            free(tokNumOnly);
+        }
+    }
+
+    if (canInitialize)
+    {
+        getline_force_metadata(&inBuf, &bufSize, inFile, wipSymbol);
+        if (!strcmp(inBuf, "noinitialize"))
+        {
+            parsed->initializeTo = NULL;
+        }
+        else
+        {
+            if (strcmp(inBuf, "initialize"))
+            {
+                ErrorAndExit(ERROR_INTERNAL, "Expected either 'initialize' or 'noinitialize' after type, got %s instead!\n", inBuf);
+            }
+            parsed->initializeTo = (char *)1;
+        }
     }
 
     return parsed;
@@ -193,7 +237,7 @@ void parseFunctionDeclaration(struct Symbol *wipSymbol, FILE *inFile)
         ErrorAndExit(ERROR_INTERNAL, "Expected returns [type] but got %s instead!\n", token);
     }
 
-    wipSymbol->data.asFunction.returnType = parseType(inBuf + strlen(token) + 1);
+    wipSymbol->data.asFunction.returnType = parseType(inFile, inBuf + strlen(token) + 1, wipSymbol, 0);
 
     getline_force_metadata(&inBuf, &bufSize, inFile, wipSymbol);
     token = strtok(inBuf, " ");
@@ -221,7 +265,7 @@ void parseFunctionDeclaration(struct Symbol *wipSymbol, FILE *inFile)
 void parseVariable(struct Symbol *wipSymbol, FILE *inFile)
 {
     getline_force_metadata(&inBuf, &bufSize, inFile, wipSymbol);
-    struct Type *varType = parseType(inBuf);
+    struct Type *varType = parseType(inFile, inBuf, wipSymbol, 1);
     wipSymbol->data.asVariable = *varType;
     free(varType);
 }

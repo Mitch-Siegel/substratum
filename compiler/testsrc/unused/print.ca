@@ -13,13 +13,22 @@ fun print(uint8 value->void)
 	;
 }
 
+fun printCheat(uint32 value->void)
+{
+	asm {
+		mov %r0, (%bp+8)
+		out 1, %r0
+	}
+	;
+}
+
 fun printStr(uint8 *str->void)
 {
 	uint32 i = 0;
 	while(str[i] != 0)
 	{
 		print(str[i]);
-		i = i + 1;
+		i += 1;
 	}
 }
 

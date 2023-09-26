@@ -1,65 +1,33 @@
-#include "ast.h"
-#include "util.h"
-#include "tac.h"
 #include "symtab.h"
+#include "tac.h"
 
-#pragma once
+#ifndef _LINEARIZER_H_
+#define _LINEARIZER_H_
 
-struct LinearizationMetadata
-{
-	struct Dictionary *dict; // include the dict for literals and other things that require processing during linearization
-	int currentTACIndex;
-	struct BasicBlock *currentBlock;
-	struct AST *ast;
-	int *tempNum;
-	struct TempList *temps;
-	struct Scope *scope;
-};
+int alignSize(int nBytes);
 
-int linearizeASMBlock(struct LinearizationMetadata m);
+enum basicTypes selectVariableTypeForNumber(int num);
 
-int linearizeDereference(struct LinearizationMetadata m);
+enum basicTypes selectVariableTypeForLiteral(char *literal);
 
-int linearizeArgumentPushes(struct LinearizationMetadata m, struct FunctionEntry *f);
+void populateTACOperandFromVariable(struct TACOperand *o, struct VariableEntry *e);
 
-int linearizeFunctionCall(struct LinearizationMetadata m);
+// copy over the entire TACOperand, all fields are changed
+void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src);
 
-int linearizeSubExpression(struct LinearizationMetadata m,
-						   struct TACLine *parentExpression,
-						   int operandIndex, 
-						   char forceConstantToRegister);
+// copy over only the type and castAsType fields, decaying array sizes to simple pointer types
+void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *src);
 
-int linearizeExpression(struct LinearizationMetadata m);
+struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, int *TACIndex, int *tempNum, struct Type *pointerTypeOfToScale);
 
-int linearizeArrayRef(struct LinearizationMetadata m);
+struct SymbolTable *linearizeProgram(struct AST *program, int optimizationLevel);
 
-int linearizeAssignment(struct LinearizationMetadata m);
+// check the LHS of any dot operator make sure it is both a class and not indirect
+// special case handling for when tree is an identifier vs a subexpression
+void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type *type);
 
-struct TACLine *linearizeConditionalJump(int currentTACIndex,
-										 struct AST *cmpOp,
-										 char whichCondition); // jump on condition true if nonzero, jump on condition false if zero
+// check the LHS of any arrow operator, make sure it is only a class pointer and nothing else
+// special case handling for when tree is an identifier vs a subexpression
+void checkAccessedClassForArrow(struct AST *tree, struct Scope *scope, struct Type *type);
 
-int linearizeDeclaration(struct LinearizationMetadata m);
-
-int linearizeConditionCheck(struct LinearizationMetadata m,
-							char whichCondition, // jump on condition true if nonzero, jump on condition false if zero
-							int targetLabel,
-							int *labelCount, // label index tracking in starting block
-							int depth);
-
-struct Stack *linearizeIfStatement(struct LinearizationMetadata m,
-								   struct BasicBlock *afterIfBlock,
-								   int *labelCount,
-								   struct Stack *scopenesting);
-
-struct LinearizationResult *linearizeWhileLoop(struct LinearizationMetadata m,
-											   struct BasicBlock *afterIfBlock,
-											   int *labelCount,
-											   struct Stack *scopenesting);
-
-struct LinearizationResult *linearizeScope(struct LinearizationMetadata m,
-										   struct BasicBlock *controlConvergesTo,
-										   int *labelCount,
-										   struct Stack *scopenesting);
-
-void linearizeProgram(struct AST *it, struct Scope *globalScope, struct Dictionary *dict, struct TempList *temps);
+#endif

@@ -11,7 +11,6 @@ void linkerParseFile(FILE *inFile, char *inFileName, struct Dictionary *symbolNa
     int nSymbols[s_null];
     memset(nSymbols, 0, s_null * sizeof(int));
 
-    int len;
     char requireNewSymbol = 1;
 
     char currentLinkDirection = -1;
@@ -21,7 +20,7 @@ void linkerParseFile(FILE *inFile, char *inFileName, struct Dictionary *symbolNa
     char ignoreDuplicateSymbol = 0;
     while (!feof(inFile))
     {
-        len = getline_force_raw(&inBuf, &bufSize, inFile);
+        int len = getline_force_raw(&inBuf, &bufSize, inFile);
         if (len == -1)
         {
             break;
@@ -56,7 +55,7 @@ void linkerParseFile(FILE *inFile, char *inFileName, struct Dictionary *symbolNa
                     ErrorAndExit(ERROR_INTERNAL, "End symbol name (%s) doesn't match start (%s)!\n", token, currentSymbol->name);
                 }
 
-                if(ignoreDuplicateSymbol)
+                if (ignoreDuplicateSymbol)
                 {
                     Symbol_Free(currentSymbol);
                 }
@@ -116,8 +115,7 @@ void linkerParseFile(FILE *inFile, char *inFileName, struct Dictionary *symbolNa
                 }
                 else
                 {
-                    addRequire(exports, requires, currentSymbol);
-                    ignoreDuplicateSymbol = 0;
+                    ignoreDuplicateSymbol = addRequire(exports, requires, currentSymbol);
                 }
                 nSymbols[currentLinkSymbolType]++;
             }
@@ -128,7 +126,7 @@ void linkerParseFile(FILE *inFile, char *inFileName, struct Dictionary *symbolNa
             {
                 ErrorAndExit(ERROR_INVOCATION, "Malformed input file - couldn't find directive!\n");
             }
-            
+
             LinkedList_Append(currentSymbol->lines, strTrim(inBuf, len));
         }
         // loop through the string to extract all other tokens
@@ -204,17 +202,16 @@ int main(int argc, char **argv)
 
     if (outputExecutable)
     {
-        struct Symbol *main = Symbol_New(Dictionary_LookupOrInsert(symbolNames, "main"), require, s_function_definition, "");
-        main->data.asFunction.nArgs = 0;
+        struct Symbol *mainFunction = Symbol_New(Dictionary_LookupOrInsert(symbolNames, "main"), require, s_function_definition, "");
+        mainFunction->data.asFunction.nArgs = 0;
 
         struct Type *mainReturnType = malloc(sizeof(struct Type));
-        mainReturnType->isPrimitive = 1;
-        mainReturnType->size = 0;
+        mainReturnType->basicType = vt_null;
         mainReturnType->indirectionLevel = 0;
 
-        main->data.asFunction.returnType = mainReturnType;
+        mainFunction->data.asFunction.returnType = mainReturnType;
 
-        addRequire(exports, requires, main);
+        addRequire(exports, requires, mainFunction);
     }
 
     for (struct LinkedListNode *inFileName = inputFiles->buckets[0]->head; inFileName != NULL; inFileName = inFileName->next)
