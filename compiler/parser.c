@@ -151,7 +151,6 @@ void trimWhitespace(char trackPos)
 			break;
 
 		case '/':
-			printf("got /: next char is[%c]\n", lookahead_char_dumb(2));
 			switch (lookahead_char_dumb(2))
 			{
 				// single line comment
