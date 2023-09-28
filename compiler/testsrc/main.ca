@@ -26,10 +26,14 @@ fun main(->void)
     uint8 a = 6;
     uint8 b = 3;
 	uint8 i = 0;
-	while(i < (a * b * a * b))
+	while(a > b)
 	{
-		printCheat(i);
-		i += 1;
+		i = 0;
+		while(i < 25)
+		{
+			printCheat(fibRec(i));
+			i += 1;
+		}
 	}
 
 }
