@@ -3,6 +3,8 @@
 #include "hardware.hpp"
 #include "names.hpp"
 
+#include <ncurses.h>
+
 Core::Core(uint8_t id)
 {
     this->configRegisters[cid] = id;
@@ -13,7 +15,7 @@ void Core::Start()
     this->registers[Registers::sp] = 0xfffffffc;
     this->configRegisters[ConfigRegisters::ip] = readW(0); // read the entry point to the code segment
 
-    printf("Read entry address of %08x\n", configRegisters[ConfigRegisters::ip]);
+    printw("Read entry address of %08x\n", configRegisters[ConfigRegisters::ip]);
 }
 
 void Core::StackPush(uint32_t value, uint8_t nBytes)

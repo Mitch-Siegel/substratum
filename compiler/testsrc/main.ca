@@ -9,11 +9,27 @@ fun printCheat(uint32 value->void)
 	;
 }
 
+fun fibRec(uint8 value->uint32)
+{
+	if(2 > value)
+	{
+		return value;
+	}
+	else
+	{
+		return fibRec(value - 2) + fibRec(value - 1);
+	}
+}
+
 fun main(->void)
 {
     uint8 a = 6;
     uint8 b = 3;
-    printCheat(a * b);
-    printCheat(a / b);
+	uint8 i = 0;
+	while(i < (a * b * a * b))
+	{
+		printCheat(i);
+		i += 1;
+	}
 
 }

@@ -1,8 +1,9 @@
 CC = g++ 
 CFLAGS = -Werror -Wall -O2 -g --std=c++17
+LDFLAGS = -lncurses
 programs: emu
 
-OBJDIR = build
+OBJDIR = ./build
 EMU_SRCS = $(basename $(wildcard *.cpp))
 EMU_OBJS = $(EMU_SRCS:%=%.o)
 
@@ -11,8 +12,8 @@ $(OBJDIR)/%.o: %.cpp
 	$(CC) -c $(CFLAGS) -o $@ $< -I ./include
 
 emu: $(addprefix $(OBJDIR)/,$(EMU_OBJS))
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^
 
 clean:
-	rm *.o
-	rm ./emu
+	rm -f $(OBJDIR)/*.o
+	rm -f ./emu

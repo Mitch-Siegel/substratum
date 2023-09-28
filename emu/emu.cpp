@@ -6,6 +6,13 @@
 #include "names.hpp"
 #include "memory.hpp"
 #include "hardware.hpp"
+
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <ncurses.h>
+#include <chrono>
+
 // #define PRINTEXECUTION
 
 // uint8_t memory[0x10000] = {0};
@@ -38,8 +45,66 @@
 //     */
 // }
 
+void cleanupncurses()
+{
+    if (OK != endwin())
+    {
+        printf("Error calling endwin()\n");
+    }
+}
+
+int tickRate = 0;
+WINDOW *infoWin = nullptr;
+WINDOW *consoleWin = nullptr;
+
+void *HardwareThread(void *params)
+{
+    std::chrono::steady_clock::time_point intervalStart = std::chrono::steady_clock::now();
+    int64_t leftoverMicros = 0;
+    while (hardware.Running())
+    {
+        if (tickRate)
+        {
+            hardware.Tick();
+            mvwprintw(infoWin, 0, 0, "IP: %08x (%d instructions/sec) %ld", hardware.GetCore(0).ConfigRegisters()[ip], tickRate, leftoverMicros);
+            std::chrono::steady_clock::time_point intervalEnd = std::chrono::steady_clock::now();
+            int64_t intervalDuration = std::chrono::duration_cast<std::chrono::microseconds>(intervalEnd - intervalStart).count();
+            leftoverMicros += ((1000000.0f / tickRate) - intervalDuration);
+            if (leftoverMicros > 100)
+            {
+                usleep(leftoverMicros);
+                leftoverMicros = 0;
+            }
+            intervalStart = std::chrono::steady_clock::now();
+        }
+        else
+        {
+            mvwprintw(infoWin, 0, 0, "IP: %08x (%d instructions/sec) %ld", hardware.GetCore(0).ConfigRegisters()[ip], tickRate, leftoverMicros);
+            usleep(100000);
+        }
+    }
+
+    return nullptr;
+}
+
 int main(int argc, char *argv[])
 {
+    initscr();
+    nodelay(stdscr, true);  // give us keypresses as soon as possible
+    // keypad(stdscr, TRUE);   // interpret special keys (arrow keys and such)
+    noecho();               // don't automatically print back what we type
+    atexit(cleanupncurses);
+
+    consoleWin = newwin(LINES - 1, COLS, 0, 0);
+    keypad(consoleWin, TRUE);   // interpret special keys (arrow keys and such)
+    scrollok(consoleWin, TRUE); // we want to scroll the console
+    infoWin = newwin(1, COLS, LINES - 1, 0);
+
+    wprintw(infoWin, "INFORMATION WINDOW :)\n");
+    box(infoWin, '*', '*');
+    wrefresh(infoWin);
+    wrefresh(stdscr);
+
     if (argc < 1)
     {
         std::cout << "Please provide bin file to read asm from!" << std::endl;
@@ -48,12 +113,61 @@ int main(int argc, char *argv[])
     hardware.memory.InitializeFromFile(argv[1]);
 
     hardware.Start();
+    pthread_t hwThread;
+    pthread_create(&hwThread, nullptr, HardwareThread, nullptr);
+
+    int ch = 0;
 
     uint32_t instructionCount = 0;
     while (hardware.Running())
     {
-        hardware.Tick();
+        if (-1 != (ch = wgetch(consoleWin)))
+        {
+            switch (ch)
+            {
+            case KEY_UP:
+                if (!tickRate)
+                {
+                    tickRate = 1;
+                }
+                else
+                {
+                    tickRate *= 2;
+                }
+                break;
+
+            case KEY_DOWN:
+                if (tickRate)
+                {
+                    if (tickRate == 1)
+                    {
+                        tickRate = 0;
+                    }
+                    else
+                    {
+                        tickRate /= 2;
+                    }
+                }
+                break;
+
+            default:
+                // mvwprintw(infoWin, 0, 25, "%c:%d", ch, ch);
+                break;
+            }
+        }
+        else
+        {
+            usleep((1000000.0 / 60.0));
+        }
+        wrefresh(stdscr);
+        wrefresh(infoWin);
     }
+
+    pthread_join(hwThread, nullptr);
+
+    printw("Press any key to exit...\n");
+    nodelay(stdscr, false); // block waiting to exit
+    getch();
 
     // printState();
     std::cout << "Execution halted after " << instructionCount << " instructions" << std::endl;

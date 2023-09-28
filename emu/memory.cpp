@@ -11,7 +11,7 @@ uint8_t SystemMemory::ReadByte(uint32_t address)
     uint32_t pageAddr = PAGE_ALIGN(address);
     if(this->pages.count(pageAddr) == 0)
     {
-        Page *p = new Page();
+        Page *p = new Page(pageAddr);
         memset(p->data, 0, PAGE_SIZE);
         this->pages[pageAddr] = p;
         this->activePages.insert(pageAddr >> PAGE_BIT_WIDTH);
@@ -25,7 +25,7 @@ void SystemMemory::WriteByte(uint32_t address, uint8_t value)
     uint32_t pageAddr = PAGE_ALIGN(address);
     if(this->pages.count(pageAddr) == 0)
     {
-        Page *p = new Page();
+        Page *p = new Page(pageAddr);
         memset(p->data, 0, PAGE_SIZE);
         this->pages[pageAddr] = p;
         this->activePages.insert(pageAddr >> PAGE_BIT_WIDTH);

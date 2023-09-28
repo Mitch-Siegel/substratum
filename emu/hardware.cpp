@@ -1,5 +1,7 @@
 #include "hardware.hpp"
 
+#include "ui.hpp"
+
 System hardware;
 
 System::System()
@@ -31,31 +33,31 @@ void System::Tick()
         Fault f = this->cores[i]->ExecuteInstruction();
         if (f != Fault::NO_FAULT)
         {
-            printf("EXCEPTION CAUGHT FROM CORE %d: ", i);
+            wprintw(consoleWin, "EXCEPTION CAUGHT FROM CORE %d: ", i);
             switch (f)
             {
             case Fault::NO_FAULT:
-                printf("no fault\n");
+                wprintw(consoleWin, "no fault\n");
                 break;
 
             case Fault::PC_ALIGNMENT:
-                printf("program counter alignment fault\n");
+                wprintw(consoleWin, "program counter alignment fault\n");
                 break;
 
             case Fault::INVALID_OPCODE:
-                printf("invalide opcode\n");
+                wprintw(consoleWin, "invalide opcode\n");
                 break;
 
             case Fault::STACK_UNDERFLOW:
-                printf("stack underflow\n");
+                wprintw(consoleWin, "stack underflow\n");
                 break;
 
             case Fault::RETURN_STACK_CORRUPT:
-                printf("bp/sp corruption detected on ret instruction!\n");
+                wprintw(consoleWin, "bp/sp corruption detected on ret instruction!\n");
                 break;
 
             case Fault::HALTED:
-                printf("halted\n");
+                wprintw(consoleWin, "halted\n");
                 break;
             }
             this->running_ = false;
@@ -68,19 +70,20 @@ void System::Output(uint8_t port, uint32_t val)
     switch (port)
     {
     case 0x00:
-        putchar(val);
-        fflush(stdout);
+        wprintw(consoleWin, "%c", val);
         break;
 
     case 0x01:
-        printf("%u\n", val);
+        wprintw(consoleWin, "%u\n", val);
         break;
 
     case 0x02:
-        printf("%08x\n", val);
+        wprintw(consoleWin, "%08x\n", val);
         break;
 
     default:
-        printf("Invalid port %d in output instruction!\n", port);
+        wprintw(consoleWin, "Invalid port %d in output instruction!\n", port);
     }
+
+    wrefresh(consoleWin);
 }

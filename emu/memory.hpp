@@ -20,10 +20,10 @@
     address += 4
 
 #define writeB(address, value) hardware.memory.WriteByte(address, value)
-#define writeH(address, value)             \
+#define writeH(address, value)                      \
     hardware.memory.WriteByte(address, value >> 8); \
     hardware.memory.WriteByte(address + 1, value)
-#define writeW(address, value)                    \
+#define writeW(address, value)                             \
     hardware.memory.WriteByte(address + 0, (value >> 24)); \
     hardware.memory.WriteByte(address + 1, (value >> 16)); \
     hardware.memory.WriteByte(address + 2, (value >> 8));  \
@@ -42,9 +42,21 @@
 typedef uint32_t pageAlignedAddress;
 #define PAGE_ALIGN(address) static_cast<pageAlignedAddress>(address & 0xfffff000);
 
-struct Page
+class Page
 {
+public:
+    uint32_t address;
     uint8_t data[PAGE_SIZE];
+
+    Page(uint32_t address)
+    {
+        this->address = address;
+    }
+
+    bool operator<(const Page &p)
+    {
+        return this->address < p.address;
+    }
 };
 
 class SystemMemory

@@ -83,6 +83,9 @@ public:
 
     Fault ExecuteInstruction();
 
+    const int32_t *const Registers() const {return this->registers;};
+    const int32_t *const ConfigRegisters() const {return this->configRegisters;};
+
 private:
     int32_t registers[16] = {0};
     int32_t configRegisters[16] = {0};
