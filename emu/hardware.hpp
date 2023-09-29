@@ -20,6 +20,8 @@ public:
     System();
 
     void Start();
+    
+    void Stop();
 
     bool Running();
 

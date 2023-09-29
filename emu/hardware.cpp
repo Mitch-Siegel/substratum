@@ -23,6 +23,11 @@ void System::Start()
     }
 }
 
+void System::Stop()
+{
+    this->running_ = false;
+}
+
 bool System::Running()
 {
     return this->running_;
@@ -74,6 +79,7 @@ void System::Tick()
                 wprintw(consoleWin, "halted\n");
                 break;
             }
+            wrefresh(consoleWin);
             this->running_ = false;
         }
     }

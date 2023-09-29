@@ -13,8 +13,6 @@
 #include <ncurses.h>
 #include <chrono>
 
-// #define PRINTEXECUTION
-
 // uint8_t memory[0x10000] = {0};
 
 // void printState()
@@ -60,6 +58,8 @@ bool flatout;          // run the emulator flat-out, tick as fast as possible
 int64_t leftoverMicros = 0;
 WINDOW *infoWin = nullptr;
 WINDOW *consoleWin = nullptr;
+WINDOW *insViewWin = nullptr;
+WINDOW *coreStateWin = nullptr;
 
 void printStatus()
 {
@@ -89,6 +89,7 @@ void *HardwareThread(void *params)
         if (tickRate || flatout)
         {
             hardware.Tick();
+            wrefresh(insViewWin);
             if (!flatout)
             {
                 std::chrono::steady_clock::time_point intervalEnd = std::chrono::steady_clock::now();
@@ -132,15 +133,21 @@ int main(int argc, char *argv[])
     noecho(); // don't automatically print back what we type
     atexit(cleanupncurses);
 
-    consoleWin = newwin(LINES - 1, COLS, 0, 0);
+    consoleWin = newwin(LINES - 1, COLS - 40, 0, 0);
     keypad(consoleWin, TRUE);   // interpret special keys (arrow keys and such)
     scrollok(consoleWin, TRUE); // we want to scroll the console
     infoWin = newwin(1, COLS, LINES - 1, 0);
 
-    wprintw(infoWin, "INFORMATION WINDOW :)\n");
-    box(infoWin, '*', '*');
-    wrefresh(infoWin);
-    wrefresh(stdscr);
+    insViewWin = newwin((LINES - 1) - 10, 45,
+                        0, COLS - 45);
+    coreStateWin = newwin(10, 45,
+                          (LINES - 1) - 10, COLS - 45);
+    scrollok(insViewWin, TRUE); // we want to scroll the instruction view
+
+    // wprintw(infoWin, "INFORMATION WINDOW :)\n");
+    // box(infoWin, '*', '*');
+    // wrefresh(infoWin);
+    // wrefresh(stdscr);
 
     if (argc < 1)
     {
@@ -217,6 +224,10 @@ int main(int argc, char *argv[])
                 printStatus();
                 break;
 
+            case 27:
+                hardware.Stop();
+                break;
+
             case '0':
                 tickRate = 0;
                 keymod = false;
@@ -253,6 +264,7 @@ int main(int argc, char *argv[])
         else
         {
             wrefresh(infoWin);
+            wrefresh(consoleWin);
             usleep((1000000.0 / 60.0));
         }
     }
@@ -267,7 +279,7 @@ int main(int argc, char *argv[])
     std::cout << "Execution halted after " << instructionCount << " instructions" << std::endl;
     std::cout << "opening dump file" << std::endl;
     std::ofstream dumpFile;
-    
+
     /*dumpFile.open("memdump.bin", std::ofstream::out);
     std::cout << "dump file opened" << std::endl;
     for (uint32_t pageIndex : hardware.memory.ActivePages())

@@ -5,5 +5,7 @@
 
 extern WINDOW *infoWin;
 extern WINDOW *consoleWin;
+extern WINDOW *insViewWin;
+extern WINDOW *coreStateWin;
 
 #endif

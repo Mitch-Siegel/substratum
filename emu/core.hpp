@@ -7,8 +7,8 @@
 #ifndef _CORE_HPP_
 #define _CORE_HPP_
 
-const static std::string registerNames[17] = {
-    "%r0", "%r1", "%r2", "%r3", "%r4", "%r5", "%r6", "%r7", "%r8", "%r9", "%ra", "%rb", "%rc", "%rr", "%%sp", "%bp", "%%ip"};
+const static std::string registerNames[16] = {
+    "%r0", "%r1", "%r2", "%r3", "%r4", "%r5", "%r6", "%r7", "%r8", "%r9", "%ra", "%rb", "%rc", "%rr", "%sp", "%bp"};
 
 enum Registers
 {
@@ -30,11 +30,30 @@ enum Registers
     bp
 };
 
+const static std::string configRegisterNames[16] = {
+    "%ip",
+    "cid",
+    "ptbr",
+    "palim",
+    "---",
+    "---",
+    "---",
+    "---",
+    "---",
+    "---",
+    "---",
+    "---",
+    "---",
+    "---",
+    "---",
+    "---",
+};
+
 enum ConfigRegisters
 {
-    ip,   // instruction pointer
-    cid,  // core id
-    ptbr, // page table base register
+    ip,    // instruction pointer
+    cid,   // core id
+    ptbr,  // page table base register
     palim, // max possible physical address
 };
 
