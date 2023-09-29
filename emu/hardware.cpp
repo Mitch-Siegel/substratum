@@ -6,6 +6,8 @@ System hardware;
 
 System::System()
 {
+    this->memory = SystemMemory(MEMORY_SIZE);
+
     for (uint8_t i = 0; i < CORE_COUNT; i++)
     {
         this->cores[i] = std::make_unique<Core>(i);
@@ -54,6 +56,18 @@ void System::Tick()
 
             case Fault::RETURN_STACK_CORRUPT:
                 wprintw(consoleWin, "bp/sp corruption detected on ret instruction!\n");
+                break;
+
+            case Fault::PTB_PHYS:
+                wprintw(consoleWin, "The physical address of the page table base exceeds the physical address space!\n");
+                break;
+
+            case Fault::INVALID_PAGE:
+                wprintw(consoleWin, "Attempt to access a virtual address not mapped!\n");
+                break;
+
+            case Fault::PTD_INVALID:
+                wprintw(consoleWin, "The physical address decoded from the page table exceeds the physical address space!\n");
                 break;
 
             case Fault::HALTED:

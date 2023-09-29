@@ -5,9 +5,12 @@
 #include "core.hpp"
 
 #define CORE_COUNT 1
+#define MEMORY_SIZE 0x4000
 
 class System
 {
+    friend class SystemMemory;
+
 private:
     std::unique_ptr<Core> cores[CORE_COUNT];
 

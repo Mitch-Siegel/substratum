@@ -11,6 +11,10 @@ $(OBJDIR)/%.o: %.cpp
 	@mkdir -p $(@D)
 	$(CC) -c $(CFLAGS) -o $@ $< -I ./include
 
+$(OBJDIR)/%.o: %.cpp
+	@mkdir -p $(@D)
+	$(CC) -c $(CFLAGS) -Wno-int-to-pointer-cast -o $@ $< -I ./include
+
 emu: $(addprefix $(OBJDIR)/,$(EMU_OBJS))
 	$(CC) $(LDFLAGS) -o $@ $^
 

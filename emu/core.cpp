@@ -3,72 +3,38 @@
 #include "hardware.hpp"
 #include "names.hpp"
 
+#include "ui.hpp"
+
 #include <ncurses.h>
 
 Core::Core(uint8_t id)
 {
     this->configRegisters[cid] = id;
+    this->configRegisters[ptbr] = 0;
+    this->configRegisters[palim] = MEMORY_SIZE;
 }
 
 void Core::Start()
 {
-    this->registers[Registers::sp] = 0xfffffffc;
-    this->configRegisters[ConfigRegisters::ip] = readW(0); // read the entry point to the code segment
+    this->registers[Registers::sp] = this->configRegisters[palim] & 0xFFFFFFF0;
+    hardware.memory.ReadWord(this->configRegisters[ptbr], 0, this->configRegisters[ip]); // read the entry point to the code segment
 
     printw("Read entry address of %08x\n", configRegisters[ConfigRegisters::ip]);
 }
 
-void Core::StackPush(uint32_t value, uint8_t nBytes)
+Fault Core::StackPush(uint8_t nBytes, uint32_t value)
 {
-    switch (nBytes)
-    {
-    case 1:
-        this->registers[Registers::sp] -= 1;
-        writeB(this->registers[Registers::sp], value);
-        break;
-
-    case 2:
-        this->registers[Registers::sp] -= 2;
-        writeH(this->registers[Registers::sp], value);
-        break;
-
-    case 4:
-        this->registers[Registers::sp] -= 4;
-        writeW(this->registers[Registers::sp], value);
-        break;
-
-    default:
-        printf("Illegal argument to stackPush!");
-        exit(1);
-    }
+    this->registers[Registers::sp] -= nBytes;
+    return this->ReadSizeFromAddress(nBytes, this->registers[Registers::sp], value);
 }
 
-uint32_t Core::StackPop(uint8_t nBytes)
+Fault Core::StackPop(uint8_t nBytes, uint32_t &popTo)
 {
-    uint32_t value;
-    switch (nBytes)
-    {
-    case 1:
-        value = readB(this->registers[Registers::sp]);
-        this->registers[Registers::sp] += 1;
-        break;
+    Fault f = Fault::NO_FAULT;
+    f = this->WriteSizeToAddress(nBytes, this->registers[Registers::sp], popTo);
+    this->registers[Registers::sp] += nBytes;
 
-    case 2:
-        value = readH(this->registers[Registers::sp]);
-        this->registers[Registers::sp] += 2;
-        break;
-
-    case 4:
-        value = readW(this->registers[Registers::sp]);
-        this->registers[Registers::sp] += 4;
-        break;
-
-    default:
-        printf("Illegal argument to StackPop!");
-        exit(1);
-    }
-
-    return value;
+    return f;
 }
 
 void Core::JmpOp(uint32_t offset24Bit)
@@ -158,7 +124,45 @@ void Core::ArithmeticOp(uint8_t RD, uint32_t S1, uint32_t S2, uint8_t opCode)
     }
 }
 
-void Core::MovOp(InstructionData instruction, int nBytes)
+Fault Core::ReadSizeFromAddress(uint8_t nBytes, uint32_t address, uint32_t &readTo)
+{
+    switch (nBytes)
+    {
+    case 1:
+        return hardware.memory.ReadByte(this->configRegisters[ptbr], address, readTo);
+        break;
+    case 2:
+        return hardware.memory.ReadHalfWord(this->configRegisters[ptbr], address, readTo);
+        break;
+    case 4:
+        return hardware.memory.ReadWord(this->configRegisters[ptbr], address, readTo);
+        break;
+    default:
+        printf("Illegal nBytes argument to ReadSizeFromAddress!\n");
+        exit(1);
+    };
+}
+
+Fault Core::WriteSizeToAddress(uint8_t nBytes, uint32_t address, uint32_t toWrite)
+{
+    switch (nBytes)
+    {
+    case 1:
+        return hardware.memory.WriteByte(this->configRegisters[ptbr], address, toWrite);
+        break;
+    case 2:
+        return hardware.memory.WriteHalfWord(this->configRegisters[ptbr], address, toWrite);
+        break;
+    case 4:
+        return hardware.memory.WriteWord(this->configRegisters[ptbr], address, toWrite);
+        break;
+    default:
+        printf("Illegal nBytes argument to WriteSizeToAddress!\n");
+        exit(1);
+    };
+}
+
+Fault Core::MovOp(InstructionData instruction, int nBytes)
 {
 
     switch (instruction.byte.b0 & 0b1111)
@@ -171,9 +175,8 @@ void Core::MovOp(InstructionData instruction, int nBytes)
         uint32_t value;
 
 #ifdef PRINTEXECUTION
-        printf("%%r%d, %%r%d\n", RD, RS);
+        wprintw(consoleWin, "%%r%d, %%r%d\n", RD, RS);
 #endif
-
         switch (nBytes)
         {
         case 1:
@@ -200,27 +203,10 @@ void Core::MovOp(InstructionData instruction, int nBytes)
         uint8_t rBase = instruction.byte.b1 & 0b1111;
 
 #ifdef PRINTEXECUTION
-        printf("%%r%d, (%%r%d)\t(%08x)\n", RD, rBase, this->registers[rBase]);
+        wprintw(consoleWin, "%%r%d, (%%r%d)\t(%08x)\n", RD, rBase, this->registers[rBase]);
 #endif
 
-        switch (nBytes)
-        {
-        case 1:
-            // this->registers[RD] &= 0xffffff00;
-            this->registers[RD] = readB(this->registers[rBase]);
-            break;
-        case 2:
-            // this->registers[RD] &= 0xffff0000;
-            this->registers[RD] = readH(this->registers[rBase]);
-            break;
-        case 4:
-            // this->registers[RD] &= 0x00000000;
-            this->registers[RD] = readW(this->registers[rBase]);
-            break;
-        default:
-            printf("Illegal nBytes argument to MovOp!\n");
-            exit(1);
-        };
+        return this->ReadSizeFromAddress(nBytes, this->registers[rBase], this->registers[RD]);
     }
     break;
 
@@ -231,24 +217,10 @@ void Core::MovOp(InstructionData instruction, int nBytes)
         uint8_t RS = instruction.byte.b1 & 0b1111;
 
 #ifdef PRINTEXECUTION
-        printf("(%%r%d), %%r%d\t(%08x)\n", rBase, RS, this->registers[rBase]);
+        wprintw(consoleWin, "(%%r%d), %%r%d\t(%08x)\n", rBase, RS, this->registers[rBase]);
 #endif
 
-        switch (nBytes)
-        {
-        case 1:
-            writeB(this->registers[rBase], this->registers[RS]);
-            break;
-        case 2:
-            writeH(this->registers[rBase], this->registers[RS]);
-            break;
-        case 4:
-            writeW(this->registers[rBase], this->registers[RS]);
-            break;
-        default:
-            printf("Illegal nBytes argument to MovOp!\n");
-            exit(1);
-        };
+        return this->WriteSizeToAddress(nBytes, this->registers[rBase], this->registers[RS]);
     }
     break;
 
@@ -278,26 +250,12 @@ void Core::MovOp(InstructionData instruction, int nBytes)
         uint32_t address = longAddress;
 
 #ifdef PRINTEXECUTION
-        printf("%%r%d, (%%r%d+%d)\t(%08x)\n", RD, rBase, offset, address);
+        wprintw(consoleWin, "%%r%d, (%%r%d+%d)\t(%08x)\n", RD, rBase, offset, address);
 #endif
 
-        // printf("address %08x + %d = %08x\n", this->registers[rBase], offset, address);
+        // wprintw(consoleWin, "address %08x + %d = %08x\n", this->registers[rBase], offset, address);
 
-        switch (nBytes)
-        {
-        case 1:
-            this->registers[RD] = readB(address);
-            break;
-        case 2:
-            this->registers[RD] = readH(address);
-            break;
-        case 4:
-            this->registers[RD] = readW(address);
-            break;
-        default:
-            printf("Illegal nBytes argument to MovOp!\n");
-            exit(1);
-        };
+        return this->ReadSizeFromAddress(nBytes, address, this->registers[RD]);
     }
     break;
 
@@ -321,32 +279,18 @@ void Core::MovOp(InstructionData instruction, int nBytes)
         }
         else
         {
-            printf("Error decoding instruction with opcode %02x\n", instruction.byte.b1);
+            wprintw(consoleWin, "Error decoding instruction with opcode %02x\n", instruction.byte.b1);
         }
 
         int32_t address = longAddress;
 
 #ifdef PRINTEXECUTION
-        printf("(%%r%d + %d), %%r%d\t(%08x)\n", rBase, offset, RS, address);
+        wprintw(consoleWin, "(%%r%d + %d), %%r%d\t(%08x)\n", rBase, offset, RS, address);
 #endif
 
-        // printf("address %08x + %d = %08x\n", this->registers[rBase], offset, address);
+        // wprintw(consoleWin, "address %08x + %d = %08x\n", this->registers[rBase], offset, address);
 
-        switch (nBytes)
-        {
-        case 1:
-            writeB(address, this->registers[RS]);
-            break;
-        case 2:
-            writeH(address, this->registers[RS]);
-            break;
-        case 4:
-            writeW(address, this->registers[RS]);
-            break;
-        default:
-            printf("Illegal nBytes argument to MovOp!\n");
-            exit(1);
-        };
+        return this->WriteSizeToAddress(nBytes, address, this->registers[RS]);
     }
     break;
 
@@ -365,24 +309,10 @@ void Core::MovOp(InstructionData instruction, int nBytes)
         uint32_t address = longaddress;
 
 #ifdef PRINTEXECUTION
-        printf("%%r%d, (%%r%d+%%r%d*%d)\t(%08x)\n", RD, rBase, rOff, (1 << sclPow), address);
+        wprintw(consoleWin, "%%r%d, (%%r%d+%%r%d*%d)\t(%08x)\n", RD, rBase, rOff, (1 << sclPow), address);
 #endif
 
-        switch (nBytes)
-        {
-        case 1:
-            this->registers[RD] = readB(address);
-            break;
-        case 2:
-            this->registers[RD] = readH(address);
-            break;
-        case 4:
-            this->registers[RD] = readW(address);
-            break;
-        default:
-            printf("Illegal nBytes argument to MovOp!\n");
-            exit(1);
-        };
+        return this->ReadSizeFromAddress(nBytes, address, this->registers[RD]);
     }
     break;
 
@@ -401,38 +331,23 @@ void Core::MovOp(InstructionData instruction, int nBytes)
         uint32_t address = longaddress;
 
 #ifdef PRINTEXECUTION
-        printf("(%%r%d+%%r%d*%d), %%r%d\t(%08x)<-", rBase, rOff, (1 << sclPow), RS, address);
+        wprintw(consoleWin, "(%%r%d+%%r%d*%d), %%r%d\t(%08x)<-", rBase, rOff, (1 << sclPow), RS, address);
         switch (nBytes)
         {
         case 1:
-            printf("%02x (%d/%u)\n", this->registers[RS], this->registers[RS], this->registers[RS]);
+            wprintw(consoleWin, "%02x (%d/%u)\n", this->registers[RS], this->registers[RS], this->registers[RS]);
             break;
         case 2:
-            printf("%04x (%d/%u)\n", this->registers[RS], this->registers[RS], this->registers[RS]);
+            wprintw(consoleWin, "%04x (%d/%u)\n", this->registers[RS], this->registers[RS], this->registers[RS]);
             break;
         case 4:
-            printf("%08x (%d/%u)\n", this->registers[RS], this->registers[RS], this->registers[RS]);
+            wprintw(consoleWin, "%08x (%d/%u)\n", this->registers[RS], this->registers[RS], this->registers[RS]);
             break;
         default:
             break;
         }
 #endif
-
-        switch (nBytes)
-        {
-        case 1:
-            writeB(address, this->registers[RS]);
-            break;
-        case 2:
-            writeH(address, this->registers[RS]);
-            break;
-        case 4:
-            writeW(address, this->registers[RS]);
-            break;
-        default:
-            printf("Illegal nBytes argument to MovOp!\n");
-            exit(1);
-        };
+        return this->WriteSizeToAddress(nBytes, address, this->registers[RS]);
     }
     break;
 
@@ -441,7 +356,7 @@ void Core::MovOp(InstructionData instruction, int nBytes)
     {
         uint8_t RD = instruction.byte.b1 >> 4;
 #ifdef PRINTEXECUTION
-        printf("%%r%d, %d\n", RD, instruction.hword.h1);
+        wprintw(consoleWin, "%%r%d, %d\n", RD, instruction.hword.h1);
 #endif
 
         switch (nBytes)
@@ -464,6 +379,8 @@ void Core::MovOp(InstructionData instruction, int nBytes)
         printf("Illegal MovOp instruction!\n");
         exit(1);
     }
+
+    return Fault::NO_FAULT;
 }
 
 Fault Core::ExecuteInstruction()
@@ -474,7 +391,12 @@ Fault Core::ExecuteInstruction()
         return Fault::PC_ALIGNMENT;
     }
 
-    instruction.word = consumeW(this->configRegisters[ConfigRegisters::ip]);
+    Fault insReadFault = this->ReadSizeFromAddress(4, this->registers[ip], instruction.word);
+    if (insReadFault != Fault::NO_FAULT)
+    {
+        return insReadFault;
+    }
+    this->registers[ip] += 4;
     if (opcodeNames.count(instruction.byte.b0) == 0)
     {
         return Fault::INVALID_OPCODE;
@@ -483,11 +405,11 @@ Fault Core::ExecuteInstruction()
     {
 #ifdef PRINTEXECUTION
         std::string opcodeName = opcodeNames[instruction.byte.b0];
-        printf("%08x: %02x:%-4s ", this->configRegisters[ConfigRegisters::ip] - 4, instruction.byte.b0, opcodeName.substr(0, opcodeName.find(" ")).c_str());
+        wprintw(consoleWin, "%08x: %02x:%-4s ", this->configRegisters[ConfigRegisters::ip] - 4, instruction.byte.b0, opcodeName.substr(0, opcodeName.find(" ")).c_str());
 #endif
     }
 
-    // printf("%02x, %02x, %02x, %02x | %04x, %04x | %08x\n", instruction.byte.b0, instruction.byte.b1, instruction.byte.b2, instruction.byte.b3, instruction.hword.h0, instruction.hword.h1, instruction.word);
+    // wprintw(consoleWin, "%02x, %02x, %02x, %02x | %04x, %04x | %08x\n", instruction.byte.b0, instruction.byte.b1, instruction.byte.b2, instruction.byte.b3, instruction.hword.h0, instruction.hword.h1, instruction.word);
 
     switch (instruction.byte.b0)
     {
@@ -495,7 +417,7 @@ Fault Core::ExecuteInstruction()
     case 0x00:
     {
 #ifdef PRINTEXECUTION
-        printf("\n");
+        wprintw(consoleWin, "\n");
 #endif
         return Fault::HALTED;
     }
@@ -504,7 +426,7 @@ Fault Core::ExecuteInstruction()
     case 0x01: // nop
     {
 #ifdef PRINTEXECUTION
-        printf("\n");
+        wprintw(consoleWin, "\n");
 #endif
     }
     break;
@@ -513,9 +435,9 @@ Fault Core::ExecuteInstruction()
     case 0x11:
     {
 #ifdef PRINTEXECUTION
-        printf("\n");
+        wprintw(consoleWin, "\n");
 #endif
-        // printf("NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // wprintw(consoleWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
         this->JmpOp(instruction.word & 0x00ffffff);
     }
     break;
@@ -523,19 +445,19 @@ Fault Core::ExecuteInstruction()
     // JE/JZ
     case 0x13:
     {
-        // printf("NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // wprintw(consoleWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
 
         if (Flags[ZF])
         {
 #ifdef PRINTEXECUTION
-            printf("TAKEN\n");
+            wprintw(consoleWin, "TAKEN\n");
 #endif
             this->JmpOp(instruction.word & 0x00ffffff);
         }
 #ifdef PRINTEXECUTION
         else
         {
-            printf("NOT TAKEN\n");
+            wprintw(consoleWin, "NOT TAKEN\n");
         }
 #endif
     }
@@ -544,19 +466,19 @@ Fault Core::ExecuteInstruction()
     // JNE/JNZ
     case 0x15:
     {
-        // printf("NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // wprintw(consoleWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
 
         if (!Flags[ZF])
         {
 #ifdef PRINTEXECUTION
-            printf("TAKEN\n");
+            wprintw(consoleWin, "TAKEN\n");
 #endif
             this->JmpOp(instruction.word & 0x00ffffff);
         }
 #ifdef PRINTEXECUTION
         else
         {
-            printf("NOT TAKEN\n");
+            wprintw(consoleWin, "NOT TAKEN\n");
         }
 #endif
     }
@@ -565,19 +487,19 @@ Fault Core::ExecuteInstruction()
     // JG
     case 0x17:
     {
-        // printf("NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // wprintw(consoleWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
 
         if ((!Flags[ZF]) && Flags[CF])
         {
 #ifdef PRINTEXECUTION
-            printf("TAKEN\n");
+            wprintw(consoleWin, "TAKEN\n");
 #endif
             this->JmpOp(instruction.word & 0x00ffffff);
         }
 #ifdef PRINTEXECUTION
         else
         {
-            printf("NOT TAKEN\n");
+            wprintw(consoleWin, "NOT TAKEN\n");
         }
 #endif
     }
@@ -586,19 +508,19 @@ Fault Core::ExecuteInstruction()
     // JL
     case 0x19:
     {
-        // printf("NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // wprintw(consoleWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
 
         if (!Flags[CF])
         {
 #ifdef PRINTEXECUTION
-            printf("TAKEN\n");
+            wprintw(consoleWin, "TAKEN\n");
 #endif
             this->JmpOp(instruction.word & 0x00ffffff);
         }
 #ifdef PRINTEXECUTION
         else
         {
-            printf("NOT TAKEN\n");
+            wprintw(consoleWin, "NOT TAKEN\n");
         }
 #endif
     }
@@ -607,19 +529,19 @@ Fault Core::ExecuteInstruction()
     // JGE
     case 0x1b:
     {
-        // printf("NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // wprintw(consoleWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
 
         if (Flags[CF])
         {
 #ifdef PRINTEXECUTION
-            printf("TAKEN\n");
+            wprintw(consoleWin, "TAKEN\n");
 #endif
             this->JmpOp(instruction.word & 0x00ffffff);
         }
 #ifdef PRINTEXECUTION
         else
         {
-            printf("NOT TAKEN\n");
+            wprintw(consoleWin, "NOT TAKEN\n");
         }
 #endif
     }
@@ -628,19 +550,19 @@ Fault Core::ExecuteInstruction()
     // JLE
     case 0x1d:
     {
-        // printf("NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // wprintw(consoleWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
 
         if (Flags[ZF] || (!Flags[CF]))
         {
 #ifdef PRINTEXECUTION
-            printf("TAKEN\n");
+            wprintw(consoleWin, "TAKEN\n");
 #endif
             this->JmpOp(instruction.word & 0x00ffffff);
         }
 #ifdef PRINTEXECUTION
         else
         {
-            printf("NOT TAKEN\n");
+            wprintw(consoleWin, "NOT TAKEN\n");
         }
 #endif
     }
@@ -662,7 +584,7 @@ Fault Core::ExecuteInstruction()
         uint8_t RS1 = instruction.byte.b1 & 0b1111;
         uint8_t RS2 = instruction.byte.b2 >> 4;
 #ifdef PRINTEXECUTION
-        printf("%%r%d, %%r%d, %%r%d\n", RD, RS1, RS2);
+        wprintw(consoleWin, "%%r%d, %%r%d, %%r%d\n", RD, RS1, RS2);
 #endif
         this->ArithmeticOp(RD, this->registers[RS1], this->registers[RS2], instruction.byte.b0);
     }
@@ -673,7 +595,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RD = instruction.byte.b1 >> 4;
 #ifdef PRINTEXECUTION
-        printf("%%r%d\n", RD);
+        wprintw(consoleWin, "%%r%d\n", RD);
 #endif
         this->registers[RD]++;
     }
@@ -684,7 +606,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RD = instruction.byte.b1 >> 4;
 #ifdef PRINTEXECUTION
-        printf("%%r%d\n", RD);
+        wprintw(consoleWin, "%%r%d\n", RD);
 #endif
         this->registers[RD]--;
     }
@@ -696,7 +618,7 @@ Fault Core::ExecuteInstruction()
         uint8_t RD = instruction.byte.b1 >> 4;
         uint8_t RS1 = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        printf("%%r%d, %%r%d\n", RD, RS1);
+        wprintw(consoleWin, "%%r%d, %%r%d\n", RD, RS1);
 #endif
         this->registers[RD] = ~this->registers[RS1];
     }
@@ -718,7 +640,7 @@ Fault Core::ExecuteInstruction()
             uint8_t RS1 = instruction.byte.b1 & 0b1111;
             uint16_t imm = instruction.hword.h1;
 #ifdef PRINTEXECUTION
-            printf("%%r%d, %%r%d, %u\n", RD, RS1, imm);
+            wprintw(consoleWin, "%%r%d, %%r%d, %u\n", RD, RS1, imm);
 #endif
             this->ArithmeticOp(RD, this->registers[RS1], imm, instruction.byte.b0);
         }
@@ -736,7 +658,7 @@ Fault Core::ExecuteInstruction()
     case 0xab:
     case 0xaf:
     {
-        this->MovOp(instruction, 1);
+        return this->MovOp(instruction, 1);
     }
     break;
 
@@ -785,7 +707,7 @@ Fault Core::ExecuteInstruction()
             uint32_t address = longAddress;
 
 #ifdef PRINTEXECUTION
-            printf("%%r%d, (%%r%d+%d)\t(%08x)\n", RD, rBase, offset, address);
+            wprintw(consoleWin, "%%r%d, (%%r%d+%d)\t(%08x)\n", RD, rBase, offset, address);
 #endif
 
             this->registers[RD] = address;
@@ -807,7 +729,7 @@ Fault Core::ExecuteInstruction()
             uint32_t address = longaddress;
 
 #ifdef PRINTEXECUTION
-            printf("%%r%d, (%%r%d+%%r%d*%d)\t(%08x)\n", RD, rBase, rOff, (1 << sclPow), address);
+            wprintw(consoleWin, "%%r%d, (%%r%d+%%r%d*%d)\t(%08x)\n", RD, rBase, rOff, (1 << sclPow), address);
 #endif
             this->registers[RD] = address;
         }
@@ -820,9 +742,14 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RS = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        printf("%%r%d\n", RS);
+        wprintw(consoleWin, "%%r%d\n", RS);
 #endif
-        this->StackPush(this->registers[RS], 1);
+
+        Fault pushFault = this->StackPush(this->registers[RS], 1);
+        if (pushFault != Fault::NO_FAULT)
+        {
+            return pushFault;
+        }
     }
     break;
 
@@ -831,9 +758,14 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RS = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        printf("%%r%d\n", RS);
+        wprintw(consoleWin, "%%r%d\n", RS);
 #endif
-        this->StackPush(this->registers[RS], 2);
+
+        Fault pushFault = this->StackPush(this->registers[RS], 2);
+        if (pushFault != Fault::NO_FAULT)
+        {
+            return pushFault;
+        }
     }
     break;
 
@@ -842,9 +774,14 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RS = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        printf("%%r%d\n", RS);
+        wprintw(consoleWin, "%%r%d\n", RS);
 #endif
-        this->StackPush(this->registers[RS], 4);
+
+        Fault pushFault = this->StackPush(this->registers[RS], 4);
+        if (pushFault != Fault::NO_FAULT)
+        {
+            return pushFault;
+        }
     }
     break;
 
@@ -853,7 +790,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RD = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        printf("%%r%u\n", RD);
+        wprintw(consoleWin, "%%r%u\n", RD);
 #endif
         // fault condition by which attempt to pop from a completely empty stack
         if (this->registers[Registers::sp] >= 0xfffffffc)
@@ -861,7 +798,11 @@ Fault Core::ExecuteInstruction()
             return Fault::STACK_UNDERFLOW;
         }
 
-        this->registers[RD] = this->StackPop(1);
+        Fault popFault = this->StackPop(1, this->registers[RD]);
+        if (popFault != Fault::NO_FAULT)
+        {
+            return popFault;
+        }
     }
     break;
 
@@ -870,7 +811,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RD = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        printf("%%r%u\n", RD);
+        wprintw(consoleWin, "%%r%u\n", RD);
 #endif
         // fault condition by which attempt to pop from a completely empty stack
         if (this->registers[Registers::sp] >= 0xfffffffc)
@@ -878,7 +819,11 @@ Fault Core::ExecuteInstruction()
             return Fault::STACK_UNDERFLOW;
         }
 
-        this->registers[RD] = this->StackPop(2);
+        Fault popFault = this->StackPop(2, this->registers[RD]);
+        if (popFault != Fault::NO_FAULT)
+        {
+            return popFault;
+        }
     }
     break;
 
@@ -887,7 +832,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RD = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        printf("%%r%u\n", RD);
+        wprintw(consoleWin, "%%r%u\n", RD);
 #endif
         // fault condition by which attempt to pop from a completely empty stack
         if (this->registers[Registers::sp] >= 0xfffffffc)
@@ -895,7 +840,11 @@ Fault Core::ExecuteInstruction()
             return Fault::STACK_UNDERFLOW;
         }
 
-        this->registers[RD] = this->StackPop(4);
+        Fault popFault = this->StackPop(4, this->registers[RD]);
+        if (popFault != Fault::NO_FAULT)
+        {
+            return popFault;
+        }
     }
     break;
 
@@ -904,11 +853,21 @@ Fault Core::ExecuteInstruction()
     {
         uint32_t callAddr = instruction.word << 8;
 #ifdef PRINTEXECUTION
-        printf("%08x\n", callAddr);
+        wprintw(consoleWin, "%08x\n", callAddr);
 #endif
-        // printf("call to %08x\n", callAddr);
-        StackPush(this->registers[Registers::bp], 4);
-        StackPush(this->configRegisters[ConfigRegisters::ip], 4);
+        // wprintw(consoleWin, "call to %08x\n", callAddr);
+        Fault pushFault = StackPush(4, this->registers[Registers::bp]);
+        if (pushFault != Fault::NO_FAULT)
+        {
+            return pushFault;
+        }
+
+        pushFault = StackPush(4, this->configRegisters[ConfigRegisters::ip]);
+        if (pushFault != Fault::NO_FAULT)
+        {
+            return pushFault;
+        }
+
         this->registers[Registers::bp] = this->registers[Registers::sp];
         this->configRegisters[ConfigRegisters::ip] = callAddr;
     }
@@ -919,14 +878,23 @@ Fault Core::ExecuteInstruction()
     {
         uint32_t argw = instruction.word & 0x00ffffff;
 #ifdef PRINTEXECUTION
-        printf("%d\n", argw);
+        wprintw(consoleWin, "%d\n", argw);
 #endif
         if (this->registers[Registers::sp] != this->registers[Registers::bp])
         {
             return Fault::RETURN_STACK_CORRUPT;
         }
-        this->configRegisters[ConfigRegisters::ip] = StackPop(4);
-        this->registers[Registers::bp] = StackPop(4);
+        Fault popFault = StackPop(4, this->configRegisters[ConfigRegisters::ip]);
+        if (popFault != Fault::NO_FAULT)
+        {
+            return popFault;
+        }
+
+        popFault = StackPop(4, this->registers[Registers::bp]);
+        if (popFault != Fault::NO_FAULT)
+        {
+            return popFault;
+        }
         this->registers[Registers::sp] += argw;
     }
     break;
@@ -937,14 +905,14 @@ Fault Core::ExecuteInstruction()
         uint8_t port = instruction.byte.b1;
         uint8_t rs = instruction.byte.b2 & 0xf;
         hardware.Output(port, this->registers[rs]);
-        // printf("\t\t%%r%d: %u\n", rs, this->registers[rs]);
+        // wprintw(consoleWin, "\t\t%%r%d: %u\n", rs, this->registers[rs]);
     }
     break;
 
     case 0xfe: // HLT
     {
 #ifdef PRINTEXECUTION
-        printf("\n");
+        wprintw(consoleWin, "\n");
 #endif
         return Fault::HALTED;
     }
@@ -954,16 +922,6 @@ Fault Core::ExecuteInstruction()
         return Fault::INVALID_OPCODE;
         break;
     }
-
-    // printState();
-    // printf("\n");
-
-    // {
-    // using namespace std::chrono_literals;
-    // std::this_thread::sleep_for(20ms);
-    // }
-
-    // printf("\n");
 
     this->instructionCount++;
     return Fault::NO_FAULT;

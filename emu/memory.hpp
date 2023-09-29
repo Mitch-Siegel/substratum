@@ -3,12 +3,14 @@
 #include <map>
 #include <set>
 
+#include "faults.hpp"
+
 #ifndef _MEMORY_HPP_
 #define _MEMORY_HPP_
 
-#define readB(address) hardware.memory.ReadByte(address);
-#define readH(address) ((hardware.memory.ReadByte(address) << 8) + hardware.memory.ReadByte(address + 1))
-#define readW(address) ((hardware.memory.ReadByte(address) << 24) + (hardware.memory.ReadByte(address + 1) << 16) + (hardware.memory.ReadByte(address + 2) << 8) + hardware.memory.ReadByte(address + 3))
+#define readB(ptb, address, dest) hardware.memory.ReadByte(ptb, address, dest);
+#define readH(ptb, address, dest) hardware.memory.ReadHalfWord(ptb, address, dest)
+#define readW(ptb, address, dest) hardware.memory.ReadWord(ptb, address, dest)
 #define consumeB(address) \
     readB(address);       \
     address++
@@ -37,42 +39,40 @@
  */
 
 #define PAGE_SIZE 4096
-#define PAGE_BIT_WIDTH 12
+#define PAGES_PER_TABLE (1 << 10)
 
 typedef uint32_t pageAlignedAddress;
 #define PAGE_ALIGN(address) static_cast<pageAlignedAddress>(address & 0xfffff000);
 
-class Page
-{
-public:
-    uint32_t address;
-    uint8_t data[PAGE_SIZE];
-
-    Page(uint32_t address)
-    {
-        this->address = address;
-    }
-
-    bool operator<(const Page &p)
-    {
-        return this->address < p.address;
-    }
-};
-
 class SystemMemory
 {
-private:
-    std::map<pageAlignedAddress, Page *> pages;
-    std::set<uint32_t> activePages;
-
 public:
-    uint8_t ReadByte(uint32_t address);
+    SystemMemory();
+    
+    SystemMemory(uint32_t size);
 
-    void WriteByte(uint32_t address, uint8_t value);
+    ~SystemMemory();
 
-    const std::set<uint32_t> &ActivePages();
+    Fault ReadByte(uint32_t ptba, uint32_t address, uint32_t &readTo);
+
+    Fault WriteByte(uint32_t ptba, uint32_t address, uint32_t value);
+
+    Fault ReadHalfWord(uint32_t ptba, uint32_t address, uint32_t &readTo);
+
+    Fault WriteHalfWord(uint32_t ptba, uint32_t address, uint32_t value);
+
+    Fault ReadWord(uint32_t ptba, uint32_t address, uint32_t &readTo);
+
+    Fault WriteWord(uint32_t ptba, uint32_t address, uint32_t value);
 
     void InitializeFromFile(char *filePath);
+
+private:
+    uint8_t *physicalMemory;
+    uint32_t physicalMemorySize;
+
+    // arguments: base address of the page table, virtual address, where to write the decoded physical address to
+    Fault WalkPageTable(uint32_t ptba, uint32_t va, uint32_t &paTo);
 };
 
 #endif

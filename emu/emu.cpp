@@ -267,7 +267,8 @@ int main(int argc, char *argv[])
     std::cout << "Execution halted after " << instructionCount << " instructions" << std::endl;
     std::cout << "opening dump file" << std::endl;
     std::ofstream dumpFile;
-    dumpFile.open("memdump.bin", std::ofstream::out);
+    
+    /*dumpFile.open("memdump.bin", std::ofstream::out);
     std::cout << "dump file opened" << std::endl;
     for (uint32_t pageIndex : hardware.memory.ActivePages())
     {
@@ -279,5 +280,5 @@ int main(int argc, char *argv[])
             dumpFile.put(hardware.memory.ReadByte((pageIndex << PAGE_BIT_WIDTH) + i));
         }
     }
-    dumpFile.close();
+    dumpFile.close();*/
 }

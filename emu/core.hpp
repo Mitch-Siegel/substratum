@@ -2,6 +2,7 @@
 #include <string>
 
 #include "memory.hpp"
+#include "faults.hpp"
 
 #ifndef _CORE_HPP_
 #define _CORE_HPP_
@@ -31,8 +32,10 @@ enum Registers
 
 enum ConfigRegisters
 {
-    ip,  // instruction pointer
-    cid, // core id
+    ip,   // instruction pointer
+    cid,  // core id
+    ptbr, // page table base register
+    palim, // max possible physical address
 };
 
 enum Flags
@@ -41,16 +44,6 @@ enum Flags
     ZF,
     CF,
     VF,
-};
-
-enum class Fault
-{
-    NO_FAULT,
-    PC_ALIGNMENT,
-    INVALID_OPCODE,
-    STACK_UNDERFLOW,
-    RETURN_STACK_CORRUPT,
-    HALTED,
 };
 
 class Core
@@ -83,24 +76,28 @@ public:
 
     Fault ExecuteInstruction();
 
-    const int32_t *const Registers() const {return this->registers;};
-    const int32_t *const ConfigRegisters() const {return this->configRegisters;};
+    const uint32_t *const Registers() const { return this->registers; };
+    const uint32_t *const ConfigRegisters() const { return this->configRegisters; };
 
 private:
-    int32_t registers[16] = {0};
-    int32_t configRegisters[16] = {0};
+    uint32_t registers[16] = {0};
+    uint32_t configRegisters[16] = {0};
     uint8_t Flags[4] = {0};
     uint64_t instructionCount = 0;
 
-    void StackPush(uint32_t value, uint8_t nBytes);
+    Fault StackPush(uint8_t nBytes, uint32_t value);
 
-    uint32_t StackPop(uint8_t nBytes);
+    Fault StackPop(uint8_t nBytes, uint32_t &popTo);
 
     void JmpOp(uint32_t offset24Bit);
 
     void ArithmeticOp(uint8_t RD, uint32_t S1, uint32_t S2, uint8_t opCode);
 
-    void MovOp(InstructionData instruction, int nBytes);
+    Fault ReadSizeFromAddress(uint8_t nBytes, uint32_t address, uint32_t &readTo);
+
+    Fault WriteSizeToAddress(uint8_t nBytes, uint32_t address, uint32_t toWrite);
+
+    Fault MovOp(InstructionData instruction, int nBytes);
 };
 
 #endif

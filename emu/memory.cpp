@@ -6,39 +6,179 @@
 #include "memory.hpp"
 #include "hardware.hpp"
 
-uint8_t SystemMemory::ReadByte(uint32_t address)
+#include "ui.hpp"
+
+SystemMemory::SystemMemory()
 {
-    uint32_t pageAddr = PAGE_ALIGN(address);
-    if(this->pages.count(pageAddr) == 0)
+    this->physicalMemory = nullptr;
+    this->physicalMemorySize = 0;
+}
+
+SystemMemory::SystemMemory(uint32_t size)
+{
+    // this->physicalMemory = (uint8_t *)malloc(size);
+    this->physicalMemory = new uint8_t[size];
+    printf("Allocated %u bytes (%p) for vm memory\n", size, this->physicalMemory);
+    this->physicalMemorySize = size;
+}
+
+SystemMemory::~SystemMemory()
+{
+    if (this->physicalMemory != nullptr)
     {
-        Page *p = new Page(pageAddr);
-        memset(p->data, 0, PAGE_SIZE);
-        this->pages[pageAddr] = p;
-        this->activePages.insert(pageAddr >> PAGE_BIT_WIDTH);
+        delete[] this->physicalMemory;
+        this->physicalMemory = nullptr;
     }
-    // printf("Read from address %08x\n", address);
-    return this->pages[pageAddr]->data[address & 0xfff];
+    this->physicalMemorySize = 0;
 }
 
-void SystemMemory::WriteByte(uint32_t address, uint8_t value)
+#define PTE_EXISTS(address) (address & 0b1)
+#define L1MASK(address) ((((uint32_t)address) >> (12)) & 0x3FF)
+#define L2MASK(address) ((((uint32_t)address) >> (12 + 10)) & 0x3FF)
+#define PTE_TO_PHYS(pte) (((pte) >> 10) << 12)
+
+Fault SystemMemory::WalkPageTable(uint32_t ptba, uint32_t va, uint32_t &paTo)
 {
-    uint32_t pageAddr = PAGE_ALIGN(address);
-    if(this->pages.count(pageAddr) == 0)
+    if (ptba > this->physicalMemorySize)
     {
-        Page *p = new Page(pageAddr);
-        memset(p->data, 0, PAGE_SIZE);
-        this->pages[pageAddr] = p;
-        this->activePages.insert(pageAddr >> PAGE_BIT_WIDTH);
+        return Fault::PTB_PHYS;
     }
-    // printf("Write to address %08x\n", address);
-    this->pages[pageAddr]->data[address & 0xfff] = value;
+
+    if (ptba == 0)
+    {
+        paTo = va;
+        return Fault::NO_FAULT;
+    }
+
+    // physical memory as page table entries
+    uint32_t *pt = reinterpret_cast<uint32_t *>(this->physicalMemory);
+
+    // walk the first level of the table
+    uint32_t *pte = &pt[L1MASK(va)];
+    if (!PTE_EXISTS(*pte))
+    {
+        return Fault::INVALID_PAGE;
+    }
+    pt = (uint32_t *)PTE_TO_PHYS(*pte);
+
+    pte = &pt[L2MASK(va)];
+    if (!PTE_EXISTS(*pte))
+    {
+        return Fault::INVALID_PAGE;
+    }
+    pt = (uint32_t *)PTE_TO_PHYS(*pte);
+
+    paTo = *pt;
+    if (paTo >= this->physicalMemorySize)
+    {
+        return Fault::PTD_INVALID;
+    }
+
+    return Fault::NO_FAULT;
 }
 
-const std::set<uint32_t> &SystemMemory::ActivePages()
+Fault SystemMemory::ReadByte(uint32_t ptba, uint32_t address, uint32_t &readTo)
 {
-    return this->activePages;
+    uint32_t pa = 0;
+    Fault f = this->WalkPageTable(ptba, address, pa);
+    if (f != Fault::NO_FAULT)
+    {
+        return f;
+    }
+    readTo = this->physicalMemory[pa];
+
+    return Fault::NO_FAULT;
 }
 
+Fault SystemMemory::WriteByte(uint32_t ptba, uint32_t address, uint32_t value)
+{
+    uint32_t pa = 0;
+    if (ptba > this->physicalMemorySize)
+    {
+        return Fault::PTB_PHYS;
+    }
+    Fault f = this->WalkPageTable(ptba, address, pa);
+    if (f != Fault::NO_FAULT)
+    {
+        return f;
+    }
+
+    this->physicalMemory[pa] = value & 0xff;
+
+    return Fault::NO_FAULT;
+}
+
+Fault SystemMemory::ReadHalfWord(uint32_t ptba, uint32_t address, uint32_t &readTo)
+{
+    uint32_t pa = 0;
+    Fault f = this->WalkPageTable(ptba, address, pa);
+    if (f != Fault::NO_FAULT)
+    {
+        return f;
+    }
+
+    readTo = this->physicalMemory[pa + 1];
+    readTo |= this->physicalMemory[pa] << 8;
+
+    return Fault::NO_FAULT;
+}
+
+Fault SystemMemory::WriteHalfWord(uint32_t ptba, uint32_t address, uint32_t value)
+{
+    uint32_t pa = 0;
+    if (ptba > this->physicalMemorySize)
+    {
+        return Fault::PTB_PHYS;
+    }
+    Fault f = this->WalkPageTable(ptba, address, pa);
+    if (f != Fault::NO_FAULT)
+    {
+        return f;
+    }
+
+    this->physicalMemory[pa + 1] = value & 0xff;
+    this->physicalMemory[pa] = (value >> 8) & 0xff;
+
+    return Fault::NO_FAULT;
+}
+
+Fault SystemMemory::ReadWord(uint32_t ptba, uint32_t address, uint32_t &readTo)
+{
+    uint32_t pa = 0;
+    Fault f = this->WalkPageTable(ptba, address, pa);
+    if (f != Fault::NO_FAULT)
+    {
+        return f;
+    }
+
+    readTo = this->physicalMemory[pa + 3];
+    readTo |= this->physicalMemory[pa + 2] << 8;
+    readTo |= this->physicalMemory[pa + 1] << 16;
+    readTo |= this->physicalMemory[pa] << 24;
+
+    return Fault::NO_FAULT;
+}
+
+Fault SystemMemory::WriteWord(uint32_t ptba, uint32_t address, uint32_t value)
+{
+    uint32_t pa = 0;
+    if (ptba > this->physicalMemorySize)
+    {
+        return Fault::PTB_PHYS;
+    }
+    Fault f = this->WalkPageTable(ptba, address, pa);
+    if (f != Fault::NO_FAULT)
+    {
+        return f;
+    }
+
+    this->physicalMemory[pa + 3] = value & 0xff;
+    this->physicalMemory[pa + 2] = (value >> 8) & 0xff;
+    this->physicalMemory[pa + 1] = (value >> 16) & 0xff;
+    this->physicalMemory[pa] = (value >> 24) & 0xff;
+
+    return Fault::NO_FAULT;
+}
 
 void SystemMemory::InitializeFromFile(char *filePath)
 {
@@ -54,8 +194,9 @@ void SystemMemory::InitializeFromFile(char *filePath)
     while (inFile.good())
     {
         inFile.read(&in, 1);
-        writeB(i++, in);
+        this->physicalMemory[i++] = in;
     }
     inFile.close();
-}
 
+    wprintw(consoleWin, "Loaded physical memory image (%d bytes)\n", i + 1);
+}
