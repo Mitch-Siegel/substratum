@@ -1,8 +1,10 @@
 #include <cstdint>
 #include <string>
+#include <type_traits>
 
 #include "memory.hpp"
 #include "faults.hpp"
+#include "ui.hpp"
 
 #ifndef _CORE_HPP_
 #define _CORE_HPP_
@@ -10,7 +12,7 @@
 const static std::string registerNames[16] = {
     "%r0", "%r1", "%r2", "%r3", "%r4", "%r5", "%r6", "%r7", "%r8", "%r9", "%ra", "%rb", "%rc", "%rr", "%sp", "%bp"};
 
-enum Registers
+enum class Registers
 {
     r0,
     r1,
@@ -35,7 +37,7 @@ const static std::string configRegisterNames[16] = {
     "cid",
     "ptbr",
     "palim",
-    "---",
+    "mapb",
     "---",
     "---",
     "---",
@@ -49,12 +51,13 @@ const static std::string configRegisterNames[16] = {
     "---",
 };
 
-enum ConfigRegisters
+enum class ConfigRegisters
 {
     ip,    // instruction pointer
     cid,   // core id
     ptbr,  // page table base register
     palim, // max possible physical address
+    mapb,  // base of reserved section of memory map
 };
 
 enum Flags
@@ -95,14 +98,44 @@ public:
 
     Fault ExecuteInstruction();
 
-    const uint32_t *const Registers() const { return this->registers; };
-    const uint32_t *const ConfigRegisters() const { return this->configRegisters; };
+    const uint32_t *const Registers() const { return this->registers.data; };
+    const uint32_t *const ConfigRegisters() const { return this->configRegisters.data; };
 
 private:
-    uint32_t registers[16] = {0};
-    uint32_t configRegisters[16] = {0};
+    class
+    {
+    public:
+        uint32_t &operator[](enum Registers index)
+        {
+            return this->data[static_cast<std::underlying_type_t<enum Registers>>(index)];
+        };
+
+        uint32_t &operator[](uint8_t index)
+        {
+            assert(index < 16);
+            return this->data[index];
+        };
+
+        uint32_t data[16] = {0};
+    } registers;
+
+    class
+    {
+    public:
+        uint32_t &operator[](enum ConfigRegisters index)
+        {
+            return this->data[static_cast<std::underlying_type_t<enum ConfigRegisters>>(index)];
+        };
+
+        uint32_t data[16] = {0};
+    } configRegisters;
+
     uint8_t Flags[4] = {0};
     uint64_t instructionCount = 0;
+
+    Fault WriteCSR(const enum ConfigRegisters CSRRD, const uint8_t RS);
+
+    Fault ReadCSR(const uint8_t RD, const enum ConfigRegisters CSRRS);
 
     Fault StackPush(uint8_t nBytes, uint32_t value);
 

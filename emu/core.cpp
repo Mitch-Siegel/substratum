@@ -11,17 +11,51 @@
 
 Core::Core(uint8_t id)
 {
-    this->configRegisters[cid] = id;
-    this->configRegisters[ptbr] = 0;
-    this->configRegisters[palim] = MEMORY_SIZE;
+    this->configRegisters[ConfigRegisters::cid] = id;
+    this->configRegisters[ConfigRegisters::ptbr] = 0;
+    this->configRegisters[ConfigRegisters::palim] = MEMORY_SIZE;
+    this->configRegisters[ConfigRegisters::mapb] = MEMMAP_BASE;
 }
 
 void Core::Start()
 {
-    this->registers[Registers::sp] = this->configRegisters[palim] & 0xFFFFFFF0;
-    hardware.memory.ReadWord(this->configRegisters[ptbr], 0, this->configRegisters[ip]); // read the entry point to the code segment
+    this->registers[Registers::sp] = this->configRegisters[ConfigRegisters::palim] & 0xFFFFFFF0;
+    hardware.memory->ReadWord(0, 0, this->configRegisters[ConfigRegisters::ip]); // read the entry point to the code segment
 
-    printw("Read entry address of %08x\n", configRegisters[ConfigRegisters::ip]);
+    wprintw(consoleWin, "Read entry address of %08x\n", configRegisters[ConfigRegisters::ip]);
+    wrefresh(consoleWin);
+}
+
+Fault Core::WriteCSR(const enum ConfigRegisters CSRRD, const uint8_t RS)
+{
+    switch (CSRRD)
+    {
+    case ConfigRegisters::ip:
+    case ConfigRegisters::ptbr:
+    case ConfigRegisters::mapb:
+        break;
+
+    case ConfigRegisters::cid:
+    case ConfigRegisters::palim:
+    default:
+        return Fault::ILLEGAL_CSR_WRITE;
+    }
+
+    this->configRegisters[CSRRD] = this->registers[RS];
+
+    return Fault::NO_FAULT;
+}
+
+Fault Core::ReadCSR(const uint8_t RD, const enum ConfigRegisters CSRRS)
+{
+    if (CSRRS > ConfigRegisters::mapb)
+    {
+        return Fault::ILLEGAL_CSR_WRITE;
+    }
+
+    this->registers[RD] = this->configRegisters[CSRRS];
+
+    return Fault::NO_FAULT;
 }
 
 Fault Core::StackPush(uint8_t nBytes, uint32_t value)
@@ -131,13 +165,13 @@ Fault Core::ReadSizeFromAddress(uint8_t nBytes, uint32_t address, uint32_t &read
     switch (nBytes)
     {
     case 1:
-        return hardware.memory.ReadByte(this->configRegisters[ptbr], address, readTo);
+        return hardware.memory->ReadByte(this->configRegisters[ConfigRegisters::ptbr], address, readTo);
         break;
     case 2:
-        return hardware.memory.ReadHalfWord(this->configRegisters[ptbr], address, readTo);
+        return hardware.memory->ReadHalfWord(this->configRegisters[ConfigRegisters::ptbr], address, readTo);
         break;
     case 4:
-        return hardware.memory.ReadWord(this->configRegisters[ptbr], address, readTo);
+        return hardware.memory->ReadWord(this->configRegisters[ConfigRegisters::ptbr], address, readTo);
         break;
     default:
         printf("Illegal nBytes argument to ReadSizeFromAddress!\n");
@@ -150,13 +184,13 @@ Fault Core::WriteSizeToAddress(uint8_t nBytes, uint32_t address, uint32_t toWrit
     switch (nBytes)
     {
     case 1:
-        return hardware.memory.WriteByte(this->configRegisters[ptbr], address, toWrite);
+        return hardware.memory->WriteByte(this->configRegisters[ConfigRegisters::ptbr], address, toWrite);
         break;
     case 2:
-        return hardware.memory.WriteHalfWord(this->configRegisters[ptbr], address, toWrite);
+        return hardware.memory->WriteHalfWord(this->configRegisters[ConfigRegisters::ptbr], address, toWrite);
         break;
     case 4:
-        return hardware.memory.WriteWord(this->configRegisters[ptbr], address, toWrite);
+        return hardware.memory->WriteWord(this->configRegisters[ConfigRegisters::ptbr], address, toWrite);
         break;
     default:
         printf("Illegal nBytes argument to WriteSizeToAddress!\n");
@@ -388,18 +422,35 @@ Fault Core::MovOp(InstructionData instruction, int nBytes)
 
 Fault Core::ExecuteInstruction()
 {
+#ifdef PRINTEXECUTION
+    for (int i = 0; i < 8; i++)
+    {
+        mvwprintw(coreStateWin, i, 0, "%s:%08x %s:%08x\n",
+                  registerNames[i].c_str(), this->registers[i],
+                  registerNames[(i + 8)].c_str(), this->registers[(i + 8)]);
+    }
+
+    for (int i = 0; i < 2; i++)
+    {
+        mvwprintw(coreStateWin, i + 8, 0, "%s:%08x %s:%08x\n",
+                  configRegisterNames[i].c_str(), this->configRegisters[static_cast<enum ConfigRegisters>(i)],
+                  configRegisterNames[(i + 2)].c_str(), this->configRegisters[static_cast<enum ConfigRegisters>(i + 2)]);
+    }
+    wrefresh(coreStateWin);
+#endif
+
     InstructionData instruction = {{0}};
     if (this->configRegisters[ConfigRegisters::ip] & (0b11))
     {
         return Fault::PC_ALIGNMENT;
     }
 
-    Fault insReadFault = this->ReadSizeFromAddress(4, this->configRegisters[ip], instruction.word);
+    Fault insReadFault = this->ReadSizeFromAddress(4, this->configRegisters[ConfigRegisters::ip], instruction.word);
     if (insReadFault != Fault::NO_FAULT)
     {
         return insReadFault;
     }
-    this->configRegisters[ip] += 4;
+    this->configRegisters[ConfigRegisters::ip] += 4;
     if (opcodeNames.count(instruction.byte.b0) == 0)
     {
         return Fault::INVALID_OPCODE;
@@ -412,7 +463,7 @@ Fault Core::ExecuteInstruction()
 #endif
     }
 
-    // wprintw(insViewWin, "%02x, %02x, %02x, %02x | %04x, %04x | %08x\n", instruction.byte.b0, instruction.byte.b1, instruction.byte.b2, instruction.byte.b3, instruction.hword.h0, instruction.hword.h1, instruction.word);
+    wprintw(insViewWin, "%02x, %02x, %02x, %02x | %04x, %04x | %08x\n", instruction.byte.b0, instruction.byte.b1, instruction.byte.b2, instruction.byte.b3, instruction.hword.h0, instruction.hword.h1, instruction.word);
 
     switch (instruction.byte.b0)
     {
@@ -738,6 +789,35 @@ Fault Core::ExecuteInstruction()
         }
         break;
 
+        //   wrcs %{rd: csreg}, %{rs: reg}                               => 0xce @ rs @ rd @0x0000
+        // rdcs %{rd: reg}, %{rs: csreg}                               => 0xcf @ rs @ rd @0x0000
+
+    case 0xce:
+    {
+        uint8_t RD = instruction.byte.b1 >> 4;
+        uint8_t RS = instruction.byte.b1 & 0xf;
+
+#ifdef PRINTEXECUTION
+        wprintw(insViewWin, "%s, %s\n", configRegisterNames[RD].c_str(), registerNames[RS].c_str());
+#endif
+
+        return this->WriteCSR(static_cast<enum ConfigRegisters>(RD), RS);
+    }
+    break;
+
+    case 0xcf:
+    {
+        uint8_t RD = instruction.byte.b1 >> 4;
+        uint8_t RS = instruction.byte.b1 & 0xf;
+
+#ifdef PRINTEXECUTION
+        wprintw(insViewWin, "%s, %s\n", registerNames[RD].c_str(), configRegisterNames[RS].c_str());
+#endif
+
+        return this->ReadCSR(RD, static_cast<enum ConfigRegisters>(RS));
+    }
+    break;
+
     // stack, call/return
 
     // PUSHB
@@ -929,21 +1009,5 @@ Fault Core::ExecuteInstruction()
 
     this->instructionCount++;
 
-#ifdef PRINTEXECUTION
-    for (int i = 0; i < 8; i++)
-    {
-        mvwprintw(coreStateWin, i, 0, "%s:%08x %s:%08x\n",
-                  registerNames[i].c_str(), this->registers[i],
-                  registerNames[(i + 8)].c_str(), this->registers[(i + 8)]);
-    }
-
-    for (int i = 0; i < 2; i++)
-    {
-        mvwprintw(coreStateWin, i + 8, 0, "%s:%08x %s:%08x\n",
-                  configRegisterNames[i].c_str(), this->configRegisters[i],
-                  configRegisterNames[(i + 2)].c_str(), this->configRegisters[(i + 2)]);
-    }
-    wrefresh(coreStateWin);
-#endif
     return Fault::NO_FAULT;
 }

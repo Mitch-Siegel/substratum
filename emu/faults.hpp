@@ -18,6 +18,10 @@ enum class Fault
     INVALID_PAGE,
     // the physical address decoded from the page table exceeds the physical memory size of the system
     PTD_INVALID,
+    // attempt to write a CSR without permission
+    ILLEGAL_CSR_WRITE,
+    // attempt to read a CSR without permission
+    ILLEGAL_CSR_READ,
     // the core ran a hlt instruction
     HALTED,
 };

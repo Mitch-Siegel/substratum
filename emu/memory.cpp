@@ -18,6 +18,7 @@ SystemMemory::SystemMemory(uint32_t size)
 {
     // this->physicalMemory = (uint8_t *)malloc(size);
     this->physicalMemory = new uint8_t[size];
+    memset(this->physicalMemory, 0xbe, size);
     printf("Allocated %u bytes (%p) for vm memory\n", size, this->physicalMemory);
     this->physicalMemorySize = size;
 }
@@ -191,12 +192,21 @@ void SystemMemory::InitializeFromFile(char *filePath)
     }
     int i = 0;
     char in;
+    printf("\n%04x: ", i);
     while (inFile.good())
     {
         inFile.read(&in, 1);
-        this->physicalMemory[i++] = in;
+        this->physicalMemory[i] = in & 0xff;
+        printf("%02x ", in & 0xff);
+        if ((i + 1) % 16 == 0)
+        {
+            printf("\n%04x: ", i + 1);
+        }
+
+        i++;
     }
+    printf("\n");
     inFile.close();
 
-    wprintw(consoleWin, "Loaded physical memory image (%d bytes)\n", i + 1);
+    printf("Loaded physical memory image (%d bytes)\n", i + 1);
 }

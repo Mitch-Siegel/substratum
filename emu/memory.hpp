@@ -3,6 +3,7 @@
 #include <map>
 #include <set>
 
+#include "memmap.hpp"
 #include "faults.hpp"
 
 #ifndef _MEMORY_HPP_
@@ -66,6 +67,21 @@ public:
     Fault WriteWord(uint32_t ptba, uint32_t address, uint32_t value);
 
     void InitializeFromFile(char *filePath);
+
+    struct IDT *MappedIDT()
+    {
+        return reinterpret_cast<struct IDT *>(&this->physicalMemory[MEMMAP_IDT]);
+    };
+
+    struct ScreenMem *MappedScreen()
+    {
+        return reinterpret_cast<struct ScreenMem *>(&this->physicalMemory[MEMMAP_SCREEN]);
+    };
+
+    struct KeyboardIn *MappedKeyboard()
+    {
+        return reinterpret_cast<struct KeyboardIn *>(&this->physicalMemory[MEMMAP_KEYBOARD]);
+    };
 
 private:
     uint8_t *physicalMemory;

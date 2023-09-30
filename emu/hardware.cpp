@@ -6,7 +6,7 @@ System hardware;
 
 System::System()
 {
-    this->memory = SystemMemory(MEMORY_SIZE);
+    this->memory = std::make_unique<SystemMemory>(MEMORY_SIZE);
 
     for (uint8_t i = 0; i < CORE_COUNT; i++)
     {
@@ -73,6 +73,14 @@ void System::Tick()
 
             case Fault::PTD_INVALID:
                 wprintw(consoleWin, "The physical address decoded from the page table exceeds the physical address space!\n");
+                break;
+
+            case Fault::ILLEGAL_CSR_WRITE:
+                wprintw(consoleWin, "Illegal csr write!\n");
+                break;
+
+            case Fault::ILLEGAL_CSR_READ:
+                wprintw(consoleWin, "Illegal read write!\n");
                 break;
 
             case Fault::HALTED:

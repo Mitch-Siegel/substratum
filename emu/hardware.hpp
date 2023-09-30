@@ -20,14 +20,14 @@ public:
     System();
 
     void Start();
-    
+
     void Stop();
 
     bool Running();
 
     void Tick();
 
-    SystemMemory memory;
+    std::unique_ptr<SystemMemory> memory;
 
     void Output(uint8_t port, uint32_t val);
 

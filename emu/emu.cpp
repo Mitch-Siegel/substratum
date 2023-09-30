@@ -13,36 +13,6 @@
 #include <ncurses.h>
 #include <chrono>
 
-// uint8_t memory[0x10000] = {0};
-
-// void printState()
-// {
-//     for (int row = 0; row < 2; row++)
-//     {
-//         for (int i = 0; i < (9 - row); i++)
-//         {
-//             printf("%8s|", Core::registerNames[(9 * row) + i].c_str());
-//         }
-//         std::cout << std::endl;
-//         for (int i = 0; i < (9 - row); i++)
-//         {
-//             printf("%8x|", Core::Registers[(9 * row) + i]);
-//         }
-//         std::cout << std::endl;
-//     }
-//     printf("\nNF: %d ZF: %d CF: %d VF: %d\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
-
-//     /*uint32_t stackScan = 0x10000;
-//     while (stackScan > (uint32_t)Registers[sp])
-//     {
-//         uint16_t val = readWord(stackScan - 1);
-//         printf("%04x: %05d // %04x\n", stackScan - 1, val, val);
-//         stackScan -= 2;
-//     }
-//     std::cout << std::endl;
-//     */
-// }
-
 void cleanupncurses()
 {
     if (OK != endwin())
@@ -65,7 +35,7 @@ void printStatus()
 {
     mvwprintw(infoWin, 0, 0, "[%3s] IP: %08x",
               (keymod ? "MOD" : "   "),
-              hardware.GetCore(0).ConfigRegisters()[ip]);
+              hardware.GetCore(0).ConfigRegisters()[static_cast<std::underlying_type_t<enum ConfigRegisters>>(ConfigRegisters::ip)]);
 
     wprintw(infoWin, "tickrate: ");
     if (flatout)
@@ -127,6 +97,19 @@ void *HardwareThread(void *params)
 
 int main(int argc, char *argv[])
 {
+
+    // wprintw(infoWin, "INFORMATION WINDOW :)\n");
+    // box(infoWin, '*', '*');
+    // wrefresh(infoWin);
+    // wrefresh(stdscr);
+
+    if (argc < 1)
+    {
+        std::cout << "Please provide bin file to read asm from!" << std::endl;
+        exit(1);
+    }
+    hardware.memory->InitializeFromFile(argv[1]);
+
     initscr();
     nodelay(stdscr, true); // give us keypresses as soon as possible
     // keypad(stdscr, TRUE);   // interpret special keys (arrow keys and such)
@@ -143,18 +126,6 @@ int main(int argc, char *argv[])
     coreStateWin = newwin(10, 45,
                           (LINES - 1) - 10, COLS - 45);
     scrollok(insViewWin, TRUE); // we want to scroll the instruction view
-
-    // wprintw(infoWin, "INFORMATION WINDOW :)\n");
-    // box(infoWin, '*', '*');
-    // wrefresh(infoWin);
-    // wrefresh(stdscr);
-
-    if (argc < 1)
-    {
-        std::cout << "Please provide bin file to read asm from!" << std::endl;
-        exit(1);
-    }
-    hardware.memory.InitializeFromFile(argv[1]);
 
     hardware.Start();
     pthread_t hwThread;
@@ -257,6 +228,7 @@ int main(int argc, char *argv[])
                 }
 
             default:
+                hardware.memory->MappedKeyboard()->keyPressed = 'A';
                 mvwprintw(infoWin, 0, 45, "%c:%d", ch, ch);
                 break;
             }
