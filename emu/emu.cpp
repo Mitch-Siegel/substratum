@@ -109,6 +109,7 @@ int main(int argc, char *argv[])
     atexit(cleanupncurses);
 
     consoleWin = newwin(LINES - 1, COLS - 40, 0, 0);
+    curs_set(0);
     nodelay(consoleWin, true);  // give us keypresses as soon as possible
     keypad(consoleWin, TRUE);   // interpret special keys (arrow keys and such)
     scrollok(consoleWin, TRUE); // we want to scroll the console
@@ -259,7 +260,7 @@ int main(int argc, char *argv[])
 
         std::chrono::steady_clock::time_point intervalEnd = std::chrono::steady_clock::now();
         int64_t intervalDuration = std::chrono::duration_cast<std::chrono::microseconds>(intervalEnd - intervalStart).count();
-        double tickDuration = (1000000.0f / 600.0f);
+        double tickDuration = (1000000.0f / 60.0f);
         leftoverMicros += (tickDuration - intervalDuration);
         if (leftoverMicros > 100)
         {
