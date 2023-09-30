@@ -40,51 +40,51 @@ void System::Tick()
         Fault f = this->cores[i]->ExecuteInstruction();
         if (f != Fault::NO_FAULT)
         {
-            wprintw(consoleWin, "EXCEPTION CAUGHT FROM CORE %d: ", i);
+            ui.wprintw_threadsafe(consoleWin, "EXCEPTION CAUGHT FROM CORE %d: ", i);
             switch (f)
             {
             case Fault::NO_FAULT:
-                wprintw(consoleWin, "no fault\n");
+                ui.wprintw_threadsafe(consoleWin, "no fault\n");
                 break;
 
             case Fault::PC_ALIGNMENT:
-                wprintw(consoleWin, "program counter alignment fault\n");
+                ui.wprintw_threadsafe(consoleWin, "program counter alignment fault\n");
                 break;
 
             case Fault::INVALID_OPCODE:
-                wprintw(consoleWin, "invalide opcode\n");
+                ui.wprintw_threadsafe(consoleWin, "invalide opcode\n");
                 break;
 
             case Fault::STACK_UNDERFLOW:
-                wprintw(consoleWin, "stack underflow\n");
+                ui.wprintw_threadsafe(consoleWin, "stack underflow\n");
                 break;
 
             case Fault::RETURN_STACK_CORRUPT:
-                wprintw(consoleWin, "bp/sp corruption detected on ret instruction!\n");
+                ui.wprintw_threadsafe(consoleWin, "bp/sp corruption detected on ret instruction!\n");
                 break;
 
             case Fault::PTB_PHYS:
-                wprintw(consoleWin, "The physical address of the page table base exceeds the physical address space!\n");
+                ui.wprintw_threadsafe(consoleWin, "The physical address of the page table base exceeds the physical address space!\n");
                 break;
 
             case Fault::INVALID_PAGE:
-                wprintw(consoleWin, "Attempt to access a virtual address not mapped!\n");
+                ui.wprintw_threadsafe(consoleWin, "Attempt to access a virtual address not mapped!\n");
                 break;
 
             case Fault::PTD_INVALID:
-                wprintw(consoleWin, "The physical address decoded from the page table exceeds the physical address space!\n");
+                ui.wprintw_threadsafe(consoleWin, "The physical address decoded from the page table exceeds the physical address space!\n");
                 break;
 
             case Fault::ILLEGAL_CSR_WRITE:
-                wprintw(consoleWin, "Illegal csr write!\n");
+                ui.wprintw_threadsafe(consoleWin, "Illegal csr write!\n");
                 break;
 
             case Fault::ILLEGAL_CSR_READ:
-                wprintw(consoleWin, "Illegal read write!\n");
+                ui.wprintw_threadsafe(consoleWin, "Illegal read write!\n");
                 break;
 
             case Fault::HALTED:
-                wprintw(consoleWin, "halted\n");
+                ui.wprintw_threadsafe(consoleWin, "halted\n");
                 break;
             }
             wrefresh(consoleWin);
@@ -98,20 +98,19 @@ void System::Output(uint8_t port, uint32_t val)
     switch (port)
     {
     case 0x00:
-        wprintw(consoleWin, "%c", val);
+        ui.wprintw_threadsafe(consoleWin, "%c", val);
         break;
 
     case 0x01:
-        wprintw(consoleWin, "%u\n", val);
+        ui.wprintw_threadsafe(consoleWin, "%u\n", val);
         break;
 
     case 0x02:
-        wprintw(consoleWin, "%08x\n", val);
+        ui.wprintw_threadsafe(consoleWin, "%08x\n", val);
         break;
 
     default:
-        wprintw(consoleWin, "Invalid port %d in output instruction!\n", port);
+        ui.wprintw_threadsafe(consoleWin, "Invalid port %d in output instruction!\n", port);
     }
 
-    wrefresh(consoleWin);
 }

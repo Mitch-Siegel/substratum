@@ -25,7 +25,6 @@ uint32_t tickRate = 0; // how fast we tick the system
 bool keymod;           // modifier key (sticky) so that we can use normal letters/numbers to control things
 bool flatout;          // run the emulator flat-out, tick as fast as possible
 // when we tick our time will be slightly off, track this and make up for it
-int64_t leftoverMicros = 0;
 WINDOW *infoWin = nullptr;
 WINDOW *consoleWin = nullptr;
 WINDOW *insViewWin = nullptr;
@@ -33,25 +32,24 @@ WINDOW *coreStateWin = nullptr;
 
 void printStatus()
 {
-    mvwprintw(infoWin, 0, 0, "[%3s] IP: %08x",
-              (keymod ? "MOD" : "   "),
-              hardware.GetCore(0).ConfigRegisters()[static_cast<std::underlying_type_t<enum ConfigRegisters>>(ConfigRegisters::ip)]);
+    ui.mvwprintw_threadsafe(infoWin, 0, 0, "[%3s] IP: %08x",
+                            (keymod ? "MOD" : "   "),
+                            hardware.GetCore(0).ConfigRegisters()[static_cast<std::underlying_type_t<enum ConfigRegisters>>(ConfigRegisters::ip)]);
 
-    wprintw(infoWin, "tickrate: ");
+    ui.wprintw_threadsafe(infoWin, "tickrate: ");
     if (flatout)
     {
-        wprintw(infoWin, "FLATOUT");
+        ui.wprintw_threadsafe(infoWin, "FLATOUT");
     }
     else
     {
-        wprintw(infoWin, "%-7d", tickRate);
+        ui.wprintw_threadsafe(infoWin, "%-7d", tickRate);
     }
-
-    wrefresh(infoWin);
 }
 
 void *HardwareThread(void *params)
 {
+    int64_t leftoverMicros = 0;
     std::chrono::steady_clock::time_point intervalStart = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point lastStatusPrint = intervalStart;
     while (hardware.Running())
@@ -59,7 +57,6 @@ void *HardwareThread(void *params)
         if (tickRate || flatout)
         {
             hardware.Tick();
-            wrefresh(insViewWin);
             if (!flatout)
             {
                 std::chrono::steady_clock::time_point intervalEnd = std::chrono::steady_clock::now();
@@ -98,11 +95,6 @@ void *HardwareThread(void *params)
 int main(int argc, char *argv[])
 {
 
-    // wprintw(infoWin, "INFORMATION WINDOW :)\n");
-    // box(infoWin, '*', '*');
-    // wrefresh(infoWin);
-    // wrefresh(stdscr);
-
     if (argc < 1)
     {
         std::cout << "Please provide bin file to read asm from!" << std::endl;
@@ -117,6 +109,7 @@ int main(int argc, char *argv[])
     atexit(cleanupncurses);
 
     consoleWin = newwin(LINES - 1, COLS - 40, 0, 0);
+    nodelay(consoleWin, true);  // give us keypresses as soon as possible
     keypad(consoleWin, TRUE);   // interpret special keys (arrow keys and such)
     scrollok(consoleWin, TRUE); // we want to scroll the console
     infoWin = newwin(1, COLS, LINES - 1, 0);
@@ -134,10 +127,23 @@ int main(int argc, char *argv[])
     int ch = 0;
 
     uint32_t instructionCount = 0;
+    int64_t leftoverMicros = 0;
+    std::chrono::steady_clock::time_point intervalStart = std::chrono::steady_clock::now();
+
+    wclear(stdscr);
+    wrefresh(consoleWin);
+    wrefresh(infoWin);
+    wrefresh(coreStateWin);
+    wrefresh(insViewWin);
+    refresh();
+
     while (hardware.Running())
     {
-        if (-1 != (ch = wgetch(consoleWin)))
+        ch = wgetch(consoleWin);
+
+        if (0 < ch)
         {
+            ui.mvwprintw_threadsafe(infoWin, 0, 45, "%4d:%3c", ch, ch);
             switch (ch)
             {
             case KEY_UP:
@@ -195,9 +201,9 @@ int main(int argc, char *argv[])
                 printStatus();
                 break;
 
-            case 27:
-                hardware.Stop();
-                break;
+                // case 27:
+                // hardware.Stop();
+                // break;
 
             case '0':
                 tickRate = 0;
@@ -228,17 +234,43 @@ int main(int argc, char *argv[])
                 }
 
             default:
-                hardware.memory->MappedKeyboard()->keyPressed = 'A';
-                mvwprintw(infoWin, 0, 45, "%c:%d", ch, ch);
+                hardware.memory->MappedKeyboard()->keyPressed = ch & 0xff;
                 break;
             }
         }
         else
         {
-            wrefresh(infoWin);
-            wrefresh(consoleWin);
-            usleep((1000000.0 / 60.0));
+            hardware.memory->MappedKeyboard()->keyPressed = 0;
         }
+
+        char scrBuf[(81 * 24) + 1];
+        uint16_t destA = 0;
+        struct ScreenMem *s = hardware.memory->MappedScreen();
+        for(uint8_t srcRow = 0; srcRow < 24; srcRow++)
+        {
+            memcpy(scrBuf + destA, s->rows[srcRow], 80);
+            destA += 80;
+            scrBuf[destA++] = '\n';
+        }
+        scrBuf[destA] = '\0';
+        ui.mvwprintw_threadsafe(consoleWin, 0, 0, "%s", scrBuf);
+
+        ui.Refresh();
+
+        std::chrono::steady_clock::time_point intervalEnd = std::chrono::steady_clock::now();
+        int64_t intervalDuration = std::chrono::duration_cast<std::chrono::microseconds>(intervalEnd - intervalStart).count();
+        double tickDuration = (1000000.0f / 600.0f);
+        leftoverMicros += (tickDuration - intervalDuration);
+        if (leftoverMicros > 100)
+        {
+            usleep(leftoverMicros);
+            leftoverMicros = 0;
+        }
+        // else if (leftoverMicros < (1000000.0f / 60.0f))
+        // {
+        // leftoverMicros = 0;
+        // }
+        intervalStart = std::chrono::steady_clock::now();
     }
 
     pthread_join(hwThread, nullptr);

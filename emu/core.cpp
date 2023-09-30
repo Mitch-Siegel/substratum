@@ -22,7 +22,7 @@ void Core::Start()
     this->registers[Registers::sp] = this->configRegisters[ConfigRegisters::palim] & 0xFFFFFFF0;
     hardware.memory->ReadWord(0, 0, this->configRegisters[ConfigRegisters::ip]); // read the entry point to the code segment
 
-    wprintw(consoleWin, "Read entry address of %08x\n", configRegisters[ConfigRegisters::ip]);
+    ui.wprintw_threadsafe(consoleWin, "Read entry address of %08x\n", configRegisters[ConfigRegisters::ip]);
     wrefresh(consoleWin);
 }
 
@@ -211,7 +211,7 @@ Fault Core::MovOp(InstructionData instruction, int nBytes)
         uint32_t value;
 
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%d, %%r%d\n", RD, RS);
+        ui.wprintw_threadsafe(insViewWin, "%%r%d, %%r%d\n", RD, RS);
 #endif
         switch (nBytes)
         {
@@ -239,7 +239,7 @@ Fault Core::MovOp(InstructionData instruction, int nBytes)
         uint8_t rBase = instruction.byte.b1 & 0b1111;
 
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%d, (%%r%d)\t(%08x)\n", RD, rBase, this->registers[rBase]);
+        ui.wprintw_threadsafe(insViewWin, "%%r%d, (%%r%d)\t(%08x)\n", RD, rBase, this->registers[rBase]);
 #endif
 
         return this->ReadSizeFromAddress(nBytes, this->registers[rBase], this->registers[RD]);
@@ -253,7 +253,7 @@ Fault Core::MovOp(InstructionData instruction, int nBytes)
         uint8_t RS = instruction.byte.b1 & 0b1111;
 
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "(%%r%d), %%r%d(%08x)\n", rBase, RS, this->registers[rBase]);
+        ui.wprintw_threadsafe(insViewWin, "(%%r%d), %%r%d(%08x)\n", rBase, RS, this->registers[rBase]);
 #endif
 
         return this->WriteSizeToAddress(nBytes, this->registers[rBase], this->registers[RS]);
@@ -286,10 +286,10 @@ Fault Core::MovOp(InstructionData instruction, int nBytes)
         uint32_t address = longAddress;
 
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%d, (%%r%d+%d)(%08x)\n", RD, rBase, offset, address);
+        ui.wprintw_threadsafe(insViewWin, "%%r%d, (%%r%d+%d)(%08x)\n", RD, rBase, offset, address);
 #endif
 
-        // wprintw(insViewWin, "address %08x + %d = %08x\n", this->registers[rBase], offset, address);
+        // ui.wprintw_threadsafe(insViewWin, "address %08x + %d = %08x\n", this->registers[rBase], offset, address);
 
         return this->ReadSizeFromAddress(nBytes, address, this->registers[RD]);
     }
@@ -315,17 +315,17 @@ Fault Core::MovOp(InstructionData instruction, int nBytes)
         }
         else
         {
-            wprintw(insViewWin, "Error decoding instruction with opcode %02x\n", instruction.byte.b1);
+            ui.wprintw_threadsafe(insViewWin, "Error decoding instruction with opcode %02x\n", instruction.byte.b1);
             return Fault::INVALID_OPCODE;
         }
 
         int32_t address = longAddress;
 
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "(%%r%d + %d), %%r%d(%08x)\n", rBase, offset, RS, address);
+        ui.wprintw_threadsafe(insViewWin, "(%%r%d + %d), %%r%d(%08x)\n", rBase, offset, RS, address);
 #endif
 
-        // wprintw(insViewWin, "address %08x + %d = %08x\n", this->registers[rBase], offset, address);
+        // ui.wprintw_threadsafe(insViewWin, "address %08x + %d = %08x\n", this->registers[rBase], offset, address);
 
         return this->WriteSizeToAddress(nBytes, address, this->registers[RS]);
     }
@@ -346,7 +346,7 @@ Fault Core::MovOp(InstructionData instruction, int nBytes)
         uint32_t address = longaddress;
 
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%d, (%%r%d+%%r%d*%d)(%08x)\n", RD, rBase, rOff, (1 << sclPow), address);
+        ui.wprintw_threadsafe(insViewWin, "%%r%d, (%%r%d+%%r%d*%d)(%08x)\n", RD, rBase, rOff, (1 << sclPow), address);
 #endif
 
         return this->ReadSizeFromAddress(nBytes, address, this->registers[RD]);
@@ -368,17 +368,17 @@ Fault Core::MovOp(InstructionData instruction, int nBytes)
         uint32_t address = longaddress;
 
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "(%%r%d+%%r%d*%d), %%r%d(%08x)<-", rBase, rOff, (1 << sclPow), RS, address);
+        ui.wprintw_threadsafe(insViewWin, "(%%r%d+%%r%d*%d), %%r%d(%08x)<-", rBase, rOff, (1 << sclPow), RS, address);
         switch (nBytes)
         {
         case 1:
-            wprintw(insViewWin, "%02x (%d/%u)\n", this->registers[RS], this->registers[RS], this->registers[RS]);
+            ui.wprintw_threadsafe(insViewWin, "%02x (%d/%u)\n", this->registers[RS], this->registers[RS], this->registers[RS]);
             break;
         case 2:
-            wprintw(insViewWin, "%04x (%d/%u)\n", this->registers[RS], this->registers[RS], this->registers[RS]);
+            ui.wprintw_threadsafe(insViewWin, "%04x (%d/%u)\n", this->registers[RS], this->registers[RS], this->registers[RS]);
             break;
         case 4:
-            wprintw(insViewWin, "%08x (%d/%u)\n", this->registers[RS], this->registers[RS], this->registers[RS]);
+            ui.wprintw_threadsafe(insViewWin, "%08x (%d/%u)\n", this->registers[RS], this->registers[RS], this->registers[RS]);
             break;
         default:
             break;
@@ -393,7 +393,7 @@ Fault Core::MovOp(InstructionData instruction, int nBytes)
     {
         uint8_t RD = instruction.byte.b1 >> 4;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%d, %d\n", RD, instruction.hword.h1);
+        ui.wprintw_threadsafe(insViewWin, "%%r%d, %d\n", RD, instruction.hword.h1);
 #endif
 
         switch (nBytes)
@@ -425,18 +425,17 @@ Fault Core::ExecuteInstruction()
 #ifdef PRINTEXECUTION
     for (int i = 0; i < 8; i++)
     {
-        mvwprintw(coreStateWin, i, 0, "%s:%08x %s:%08x\n",
+        ui.mvwprintw_threadsafe(coreStateWin, i, 0, "%s:%08x %s:%08x\n",
                   registerNames[i].c_str(), this->registers[i],
                   registerNames[(i + 8)].c_str(), this->registers[(i + 8)]);
     }
 
     for (int i = 0; i < 2; i++)
     {
-        mvwprintw(coreStateWin, i + 8, 0, "%s:%08x %s:%08x\n",
+        ui.mvwprintw_threadsafe(coreStateWin, i + 8, 0, "%s:%08x %s:%08x\n",
                   configRegisterNames[i].c_str(), this->configRegisters[static_cast<enum ConfigRegisters>(i)],
                   configRegisterNames[(i + 2)].c_str(), this->configRegisters[static_cast<enum ConfigRegisters>(i + 2)]);
     }
-    wrefresh(coreStateWin);
 #endif
 
     InstructionData instruction = {{0}};
@@ -459,11 +458,11 @@ Fault Core::ExecuteInstruction()
     {
 #ifdef PRINTEXECUTION
         std::string opcodeName = opcodeNames[instruction.byte.b0];
-        wprintw(insViewWin, "%08x: %02x:%-4s ", this->configRegisters[ConfigRegisters::ip] - 4, instruction.byte.b0, opcodeName.substr(0, opcodeName.find(" ")).c_str());
+        ui.wprintw_threadsafe(insViewWin, "%08x: %02x:%-4s ", this->configRegisters[ConfigRegisters::ip] - 4, instruction.byte.b0, opcodeName.substr(0, opcodeName.find(" ")).c_str());
 #endif
     }
 
-    wprintw(insViewWin, "%02x, %02x, %02x, %02x | %04x, %04x | %08x\n", instruction.byte.b0, instruction.byte.b1, instruction.byte.b2, instruction.byte.b3, instruction.hword.h0, instruction.hword.h1, instruction.word);
+    // ui.wprintw_threadsafe(insViewWin, "%02x, %02x, %02x, %02x | %04x, %04x | %08x\n", instruction.byte.b0, instruction.byte.b1, instruction.byte.b2, instruction.byte.b3, instruction.hword.h0, instruction.hword.h1, instruction.word);
 
     switch (instruction.byte.b0)
     {
@@ -471,7 +470,7 @@ Fault Core::ExecuteInstruction()
     case 0x00:
     {
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "\n");
+        ui.wprintw_threadsafe(insViewWin, "\n");
 #endif
         return Fault::HALTED;
     }
@@ -480,7 +479,7 @@ Fault Core::ExecuteInstruction()
     case 0x01: // nop
     {
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "\n");
+        ui.wprintw_threadsafe(insViewWin, "\n");
 #endif
     }
     break;
@@ -489,9 +488,9 @@ Fault Core::ExecuteInstruction()
     case 0x11:
     {
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "\n");
+        ui.wprintw_threadsafe(insViewWin, "\n");
 #endif
-        // wprintw(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
         this->JmpOp(instruction.word & 0x00ffffff);
     }
     break;
@@ -499,19 +498,19 @@ Fault Core::ExecuteInstruction()
     // JE/JZ
     case 0x13:
     {
-        // wprintw(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
 
         if (Flags[ZF])
         {
 #ifdef PRINTEXECUTION
-            wprintw(insViewWin, "TAKEN\n");
+            ui.wprintw_threadsafe(insViewWin, "TAKEN\n");
 #endif
             this->JmpOp(instruction.word & 0x00ffffff);
         }
 #ifdef PRINTEXECUTION
         else
         {
-            wprintw(insViewWin, "NOT TAKEN\n");
+            ui.wprintw_threadsafe(insViewWin, "NOT TAKEN\n");
         }
 #endif
     }
@@ -520,19 +519,19 @@ Fault Core::ExecuteInstruction()
     // JNE/JNZ
     case 0x15:
     {
-        // wprintw(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
 
         if (!Flags[ZF])
         {
 #ifdef PRINTEXECUTION
-            wprintw(insViewWin, "TAKEN\n");
+            ui.wprintw_threadsafe(insViewWin, "TAKEN\n");
 #endif
             this->JmpOp(instruction.word & 0x00ffffff);
         }
 #ifdef PRINTEXECUTION
         else
         {
-            wprintw(insViewWin, "NOT TAKEN\n");
+            ui.wprintw_threadsafe(insViewWin, "NOT TAKEN\n");
         }
 #endif
     }
@@ -541,19 +540,19 @@ Fault Core::ExecuteInstruction()
     // JG
     case 0x17:
     {
-        // wprintw(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
 
         if ((!Flags[ZF]) && Flags[CF])
         {
 #ifdef PRINTEXECUTION
-            wprintw(insViewWin, "TAKEN\n");
+            ui.wprintw_threadsafe(insViewWin, "TAKEN\n");
 #endif
             this->JmpOp(instruction.word & 0x00ffffff);
         }
 #ifdef PRINTEXECUTION
         else
         {
-            wprintw(insViewWin, "NOT TAKEN\n");
+            ui.wprintw_threadsafe(insViewWin, "NOT TAKEN\n");
         }
 #endif
     }
@@ -562,19 +561,19 @@ Fault Core::ExecuteInstruction()
     // JL
     case 0x19:
     {
-        // wprintw(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
 
         if (!Flags[CF])
         {
 #ifdef PRINTEXECUTION
-            wprintw(insViewWin, "TAKEN\n");
+            ui.wprintw_threadsafe(insViewWin, "TAKEN\n");
 #endif
             this->JmpOp(instruction.word & 0x00ffffff);
         }
 #ifdef PRINTEXECUTION
         else
         {
-            wprintw(insViewWin, "NOT TAKEN\n");
+            ui.wprintw_threadsafe(insViewWin, "NOT TAKEN\n");
         }
 #endif
     }
@@ -583,19 +582,19 @@ Fault Core::ExecuteInstruction()
     // JGE
     case 0x1b:
     {
-        // wprintw(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
 
         if (Flags[CF])
         {
 #ifdef PRINTEXECUTION
-            wprintw(insViewWin, "TAKEN\n");
+            ui.wprintw_threadsafe(insViewWin, "TAKEN\n");
 #endif
             this->JmpOp(instruction.word & 0x00ffffff);
         }
 #ifdef PRINTEXECUTION
         else
         {
-            wprintw(insViewWin, "NOT TAKEN\n");
+            ui.wprintw_threadsafe(insViewWin, "NOT TAKEN\n");
         }
 #endif
     }
@@ -604,19 +603,19 @@ Fault Core::ExecuteInstruction()
     // JLE
     case 0x1d:
     {
-        // wprintw(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
 
         if (Flags[ZF] || (!Flags[CF]))
         {
 #ifdef PRINTEXECUTION
-            wprintw(insViewWin, "TAKEN\n");
+            ui.wprintw_threadsafe(insViewWin, "TAKEN\n");
 #endif
             this->JmpOp(instruction.word & 0x00ffffff);
         }
 #ifdef PRINTEXECUTION
         else
         {
-            wprintw(insViewWin, "NOT TAKEN\n");
+            ui.wprintw_threadsafe(insViewWin, "NOT TAKEN\n");
         }
 #endif
     }
@@ -638,7 +637,7 @@ Fault Core::ExecuteInstruction()
         uint8_t RS1 = instruction.byte.b1 & 0b1111;
         uint8_t RS2 = instruction.byte.b2 >> 4;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%d, %%r%d, %%r%d\n", RD, RS1, RS2);
+        ui.wprintw_threadsafe(insViewWin, "%%r%d, %%r%d, %%r%d\n", RD, RS1, RS2);
 #endif
         this->ArithmeticOp(RD, this->registers[RS1], this->registers[RS2], instruction.byte.b0);
     }
@@ -649,7 +648,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RD = instruction.byte.b1 >> 4;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%d\n", RD);
+        ui.wprintw_threadsafe(insViewWin, "%%r%d\n", RD);
 #endif
         this->registers[RD]++;
     }
@@ -660,7 +659,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RD = instruction.byte.b1 >> 4;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%d\n", RD);
+        ui.wprintw_threadsafe(insViewWin, "%%r%d\n", RD);
 #endif
         this->registers[RD]--;
     }
@@ -672,7 +671,7 @@ Fault Core::ExecuteInstruction()
         uint8_t RD = instruction.byte.b1 >> 4;
         uint8_t RS1 = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%d, %%r%d\n", RD, RS1);
+        ui.wprintw_threadsafe(insViewWin, "%%r%d, %%r%d\n", RD, RS1);
 #endif
         this->registers[RD] = ~this->registers[RS1];
     }
@@ -694,7 +693,7 @@ Fault Core::ExecuteInstruction()
             uint8_t RS1 = instruction.byte.b1 & 0b1111;
             uint16_t imm = instruction.hword.h1;
 #ifdef PRINTEXECUTION
-            wprintw(insViewWin, "%%r%d, %%r%d, %u\n", RD, RS1, imm);
+            ui.wprintw_threadsafe(insViewWin, "%%r%d, %%r%d, %u\n", RD, RS1, imm);
 #endif
             this->ArithmeticOp(RD, this->registers[RS1], imm, instruction.byte.b0);
         }
@@ -761,7 +760,7 @@ Fault Core::ExecuteInstruction()
             uint32_t address = longAddress;
 
 #ifdef PRINTEXECUTION
-            wprintw(insViewWin, "%%r%d, (%%r%d+%d)(%08x)\n", RD, rBase, offset, address);
+            ui.wprintw_threadsafe(insViewWin, "%%r%d, (%%r%d+%d)(%08x)\n", RD, rBase, offset, address);
 #endif
 
             this->registers[RD] = address;
@@ -783,7 +782,7 @@ Fault Core::ExecuteInstruction()
             uint32_t address = longaddress;
 
 #ifdef PRINTEXECUTION
-            wprintw(insViewWin, "%%r%d, (%%r%d+%%r%d*%d)(%08x)\n", RD, rBase, rOff, (1 << sclPow), address);
+            ui.wprintw_threadsafe(insViewWin, "%%r%d, (%%r%d+%%r%d*%d)(%08x)\n", RD, rBase, rOff, (1 << sclPow), address);
 #endif
             this->registers[RD] = address;
         }
@@ -798,7 +797,7 @@ Fault Core::ExecuteInstruction()
         uint8_t RS = instruction.byte.b1 & 0xf;
 
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%s, %s\n", configRegisterNames[RD].c_str(), registerNames[RS].c_str());
+        ui.wprintw_threadsafe(insViewWin, "%s, %s\n", configRegisterNames[RD].c_str(), registerNames[RS].c_str());
 #endif
 
         return this->WriteCSR(static_cast<enum ConfigRegisters>(RD), RS);
@@ -811,7 +810,7 @@ Fault Core::ExecuteInstruction()
         uint8_t RS = instruction.byte.b1 & 0xf;
 
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%s, %s\n", registerNames[RD].c_str(), configRegisterNames[RS].c_str());
+        ui.wprintw_threadsafe(insViewWin, "%s, %s\n", registerNames[RD].c_str(), configRegisterNames[RS].c_str());
 #endif
 
         return this->ReadCSR(RD, static_cast<enum ConfigRegisters>(RS));
@@ -825,7 +824,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RS = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%d\n", RS);
+        ui.wprintw_threadsafe(insViewWin, "%%r%d\n", RS);
 #endif
 
         Fault pushFault = this->StackPush(1, this->registers[RS]);
@@ -841,7 +840,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RS = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%d\n", RS);
+        ui.wprintw_threadsafe(insViewWin, "%%r%d\n", RS);
 #endif
 
         Fault pushFault = this->StackPush(2, this->registers[RS]);
@@ -857,7 +856,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RS = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%d\n", RS);
+        ui.wprintw_threadsafe(insViewWin, "%%r%d\n", RS);
 #endif
 
         Fault pushFault = this->StackPush(4, this->registers[RS]);
@@ -873,7 +872,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RD = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%u\n", RD);
+        ui.wprintw_threadsafe(insViewWin, "%%r%u\n", RD);
 #endif
         // fault condition by which attempt to pop from a completely empty stack
         if (this->registers[Registers::sp] >= 0xfffffffc)
@@ -894,7 +893,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RD = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%u\n", RD);
+        ui.wprintw_threadsafe(insViewWin, "%%r%u\n", RD);
 #endif
         // fault condition by which attempt to pop from a completely empty stack
         if (this->registers[Registers::sp] >= 0xfffffffc)
@@ -915,7 +914,7 @@ Fault Core::ExecuteInstruction()
     {
         uint8_t RD = instruction.byte.b1 & 0b1111;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%%r%u\n", RD);
+        ui.wprintw_threadsafe(insViewWin, "%%r%u\n", RD);
 #endif
         // fault condition by which attempt to pop from a completely empty stack
         if (this->registers[Registers::sp] >= 0xfffffffc)
@@ -936,9 +935,9 @@ Fault Core::ExecuteInstruction()
     {
         uint32_t callAddr = instruction.word << 8;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%08x\n", callAddr);
+        ui.wprintw_threadsafe(insViewWin, "%08x\n", callAddr);
 #endif
-        // wprintw(insViewWin, "call to %08x\n", callAddr);
+        // ui.wprintw_threadsafe(insViewWin, "call to %08x\n", callAddr);
         Fault pushFault = StackPush(4, this->registers[Registers::bp]);
         if (pushFault != Fault::NO_FAULT)
         {
@@ -961,7 +960,7 @@ Fault Core::ExecuteInstruction()
     {
         uint32_t argw = instruction.word & 0x00ffffff;
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "%d\n", argw);
+        ui.wprintw_threadsafe(insViewWin, "%d\n", argw);
 #endif
         if (this->registers[Registers::sp] != this->registers[Registers::bp])
         {
@@ -989,14 +988,14 @@ Fault Core::ExecuteInstruction()
         uint8_t port = instruction.byte.b1;
         uint8_t rs = instruction.byte.b2 & 0xf;
         hardware.Output(port, this->registers[rs]);
-        // wprintw(insViewWin, "\t\t%%r%d: %u\n", rs, this->registers[rs]);
+        // ui.wprintw_threadsafe(insViewWin, "\t\t%%r%d: %u\n", rs, this->registers[rs]);
     }
     break;
 
     case 0xfe: // HLT
     {
 #ifdef PRINTEXECUTION
-        wprintw(insViewWin, "\n");
+        ui.wprintw_threadsafe(insViewWin, "\n");
 #endif
         return Fault::HALTED;
     }

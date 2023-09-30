@@ -1,4 +1,7 @@
-
+asm
+{
+	#addr 0x200
+};
 
 fun printCheat(uint32 value->void)
 {
@@ -23,6 +26,7 @@ fun fibRec(uint8 value->uint32)
 
 fun main(->void)
 {
+	printCheat(1234);
     uint8 a = 6;
     uint8 b = 3;
 	uint8 i = 0;
