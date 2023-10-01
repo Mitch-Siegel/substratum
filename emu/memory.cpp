@@ -47,6 +47,10 @@ Fault SystemMemory::WalkPageTable(uint32_t ptba, uint32_t va, uint32_t &paTo)
 
     if (ptba == 0)
     {
+        if(va >= this->physicalMemorySize)
+        {
+            return Fault::PTB_PHYS;
+        }
         paTo = va;
         return Fault::NO_FAULT;
     }

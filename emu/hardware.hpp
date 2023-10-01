@@ -27,6 +27,8 @@ public:
 
     void Tick();
 
+    void Interrupt(uint8_t index);
+
     std::unique_ptr<SystemMemory> memory;
 
     void Output(uint8_t port, uint32_t val);

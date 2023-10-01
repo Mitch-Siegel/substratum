@@ -1,16 +1,27 @@
 #include "core.hpp"
 
+#include <fcntl.h>
+#include <ncurses.h>
+
 #include "hardware.hpp"
 #include "names.hpp"
-
 #include "ui.hpp"
 
-#include <ncurses.h>
 
 #define PRINTEXECUTION
 
 Core::Core(uint8_t id)
 {
+    pthread_mutex_init(&this->interruptLock, nullptr);
+    char coreName[256];
+    snprintf(coreName, 255, "Core%x", id);
+    this->sem = sem_open(coreName, O_CREAT, 0644, 1);
+    if(this->sem == SEM_FAILED)
+    {
+        printf("Couldn't open semaphore for core %d: %s\n", id, strerror(errno));
+        exit(-1);
+    }
+
     this->configRegisters[ConfigRegisters::cid] = id;
     this->configRegisters[ConfigRegisters::ptbr] = 0;
     this->configRegisters[ConfigRegisters::palim] = MEMORY_SIZE;
@@ -66,11 +77,11 @@ Fault Core::StackPush(uint8_t nBytes, uint32_t value)
 
 Fault Core::StackPop(uint8_t nBytes, uint32_t &popTo)
 {
-    Fault f = Fault::NO_FAULT;
-    f = this->ReadSizeFromAddress(nBytes, this->registers[Registers::sp], popTo);
+    Fault retFault = Fault::NO_FAULT;
+    retFault = this->ReadSizeFromAddress(nBytes, this->registers[Registers::sp], popTo);
     this->registers[Registers::sp] += nBytes;
 
-    return f;
+    return retFault;
 }
 
 void Core::JmpOp(uint32_t offset24Bit)
@@ -422,37 +433,40 @@ Fault Core::MovOp(InstructionData instruction, int nBytes)
 
 Fault Core::ExecuteInstruction()
 {
+    sem_wait(this->sem);
+    Fault retFault = Fault::NO_FAULT;
 #ifdef PRINTEXECUTION
     for (int i = 0; i < 8; i++)
     {
         ui.mvwprintw_threadsafe(coreStateWin, i, 0, "%s:%08x %s:%08x\n",
-                  registerNames[i].c_str(), this->registers[i],
-                  registerNames[(i + 8)].c_str(), this->registers[(i + 8)]);
+                                registerNames[i].c_str(), this->registers[i],
+                                registerNames[(i + 8)].c_str(), this->registers[(i + 8)]);
     }
 
     for (int i = 0; i < 2; i++)
     {
         ui.mvwprintw_threadsafe(coreStateWin, i + 8, 0, "%s:%08x %s:%08x\n",
-                  configRegisterNames[i].c_str(), this->configRegisters[static_cast<enum ConfigRegisters>(i)],
-                  configRegisterNames[(i + 2)].c_str(), this->configRegisters[static_cast<enum ConfigRegisters>(i + 2)]);
+                                configRegisterNames[i].c_str(), this->configRegisters[static_cast<enum ConfigRegisters>(i)],
+                                configRegisterNames[(i + 2)].c_str(), this->configRegisters[static_cast<enum ConfigRegisters>(i + 2)]);
     }
 #endif
 
     InstructionData instruction = {{0}};
     if (this->configRegisters[ConfigRegisters::ip] & (0b11))
     {
-        return Fault::PC_ALIGNMENT;
+        retFault = Fault::PC_ALIGNMENT;
+        sem_post(this->sem);
+        return retFault;
     }
 
-    Fault insReadFault = this->ReadSizeFromAddress(4, this->configRegisters[ConfigRegisters::ip], instruction.word);
-    if (insReadFault != Fault::NO_FAULT)
-    {
-        return insReadFault;
-    }
-    this->configRegisters[ConfigRegisters::ip] += 4;
+
+    retFault = this->ReadSizeFromAddress(4, this->configRegisters[ConfigRegisters::ip], instruction.word);
+
     if (opcodeNames.count(instruction.byte.b0) == 0)
     {
-        return Fault::INVALID_OPCODE;
+        retFault = Fault::INVALID_OPCODE;
+        sem_post(this->sem);
+        return retFault;
     }
     else
     {
@@ -472,7 +486,7 @@ Fault Core::ExecuteInstruction()
 #ifdef PRINTEXECUTION
         ui.wprintw_threadsafe(insViewWin, "\n");
 #endif
-        return Fault::HALTED;
+        retFault = Fault::HALTED;
     }
     break;
 
@@ -711,7 +725,7 @@ Fault Core::ExecuteInstruction()
     case 0xab:
     case 0xaf:
     {
-        return this->MovOp(instruction, 1);
+        retFault = this->MovOp(instruction, 1);
     }
     break;
 
@@ -800,7 +814,7 @@ Fault Core::ExecuteInstruction()
         ui.wprintw_threadsafe(insViewWin, "%s, %s\n", configRegisterNames[RD].c_str(), registerNames[RS].c_str());
 #endif
 
-        return this->WriteCSR(static_cast<enum ConfigRegisters>(RD), RS);
+        retFault = this->WriteCSR(static_cast<enum ConfigRegisters>(RD), RS);
     }
     break;
 
@@ -813,7 +827,7 @@ Fault Core::ExecuteInstruction()
         ui.wprintw_threadsafe(insViewWin, "%s, %s\n", registerNames[RD].c_str(), configRegisterNames[RS].c_str());
 #endif
 
-        return this->ReadCSR(RD, static_cast<enum ConfigRegisters>(RS));
+        retFault = this->ReadCSR(RD, static_cast<enum ConfigRegisters>(RS));
     }
     break;
 
@@ -827,11 +841,7 @@ Fault Core::ExecuteInstruction()
         ui.wprintw_threadsafe(insViewWin, "%%r%d\n", RS);
 #endif
 
-        Fault pushFault = this->StackPush(1, this->registers[RS]);
-        if (pushFault != Fault::NO_FAULT)
-        {
-            return pushFault;
-        }
+        retFault = this->StackPush(1, this->registers[RS]);
     }
     break;
 
@@ -843,11 +853,7 @@ Fault Core::ExecuteInstruction()
         ui.wprintw_threadsafe(insViewWin, "%%r%d\n", RS);
 #endif
 
-        Fault pushFault = this->StackPush(2, this->registers[RS]);
-        if (pushFault != Fault::NO_FAULT)
-        {
-            return pushFault;
-        }
+        retFault = this->StackPush(2, this->registers[RS]);
     }
     break;
 
@@ -859,11 +865,7 @@ Fault Core::ExecuteInstruction()
         ui.wprintw_threadsafe(insViewWin, "%%r%d\n", RS);
 #endif
 
-        Fault pushFault = this->StackPush(4, this->registers[RS]);
-        if (pushFault != Fault::NO_FAULT)
-        {
-            return pushFault;
-        }
+        retFault = this->StackPush(4, this->registers[RS]);
     }
     break;
 
@@ -877,14 +879,11 @@ Fault Core::ExecuteInstruction()
         // fault condition by which attempt to pop from a completely empty stack
         if (this->registers[Registers::sp] >= 0xfffffffc)
         {
-            return Fault::STACK_UNDERFLOW;
+            retFault = Fault::STACK_UNDERFLOW;
+            break;
         }
 
-        Fault popFault = this->StackPop(1, this->registers[RD]);
-        if (popFault != Fault::NO_FAULT)
-        {
-            return popFault;
-        }
+        retFault = this->StackPop(1, this->registers[RD]);
     }
     break;
 
@@ -898,14 +897,11 @@ Fault Core::ExecuteInstruction()
         // fault condition by which attempt to pop from a completely empty stack
         if (this->registers[Registers::sp] >= 0xfffffffc)
         {
-            return Fault::STACK_UNDERFLOW;
+            retFault = Fault::STACK_UNDERFLOW;
+            break;
         }
 
-        Fault popFault = this->StackPop(2, this->registers[RD]);
-        if (popFault != Fault::NO_FAULT)
-        {
-            return popFault;
-        }
+        retFault = this->StackPop(2, this->registers[RD]);
     }
     break;
 
@@ -919,14 +915,11 @@ Fault Core::ExecuteInstruction()
         // fault condition by which attempt to pop from a completely empty stack
         if (this->registers[Registers::sp] >= 0xfffffffc)
         {
-            return Fault::STACK_UNDERFLOW;
+            retFault = Fault::STACK_UNDERFLOW;
+            break;
         }
 
-        Fault popFault = this->StackPop(4, this->registers[RD]);
-        if (popFault != Fault::NO_FAULT)
-        {
-            return popFault;
-        }
+        retFault = this->StackPop(4, this->registers[RD]);
     }
     break;
 
@@ -938,16 +931,16 @@ Fault Core::ExecuteInstruction()
         ui.wprintw_threadsafe(insViewWin, "%08x\n", callAddr);
 #endif
         // ui.wprintw_threadsafe(insViewWin, "call to %08x\n", callAddr);
-        Fault pushFault = StackPush(4, this->registers[Registers::bp]);
-        if (pushFault != Fault::NO_FAULT)
+        retFault = this->StackPush(4, this->registers[Registers::bp]);
+        if (retFault != Fault::NO_FAULT)
         {
-            return pushFault;
+            break;
         }
 
-        pushFault = StackPush(4, this->configRegisters[ConfigRegisters::ip]);
-        if (pushFault != Fault::NO_FAULT)
+        retFault = this->StackPush(4, this->configRegisters[ConfigRegisters::ip]);
+        if (retFault != Fault::NO_FAULT)
         {
-            return pushFault;
+            break;
         }
 
         this->registers[Registers::bp] = this->registers[Registers::sp];
@@ -964,21 +957,28 @@ Fault Core::ExecuteInstruction()
 #endif
         if (this->registers[Registers::sp] != this->registers[Registers::bp])
         {
-            return Fault::RETURN_STACK_CORRUPT;
+            retFault = Fault::RETURN_STACK_CORRUPT;
+            break;
         }
 
-        Fault popFault = StackPop(4, this->configRegisters[ConfigRegisters::ip]);
-        if (popFault != Fault::NO_FAULT)
+        retFault = this->StackPop(4, this->configRegisters[ConfigRegisters::ip]);
+        if (retFault != Fault::NO_FAULT)
         {
-            return popFault;
+            break;
         }
 
-        popFault = StackPop(4, this->registers[Registers::bp]);
-        if (popFault != Fault::NO_FAULT)
+        retFault = this->StackPop(4, this->registers[Registers::bp]);
+        if (retFault != Fault::NO_FAULT)
         {
-            return popFault;
+            break;
         }
         this->registers[Registers::sp] += argw;
+    }
+    break;
+
+    case 0xd9:
+    {
+        this->InterruptReturn();
     }
     break;
 
@@ -997,16 +997,53 @@ Fault Core::ExecuteInstruction()
 #ifdef PRINTEXECUTION
         ui.wprintw_threadsafe(insViewWin, "\n");
 #endif
-        return Fault::HALTED;
+        retFault = Fault::HALTED;
     }
     break;
 
     default:
-        return Fault::INVALID_OPCODE;
+        retFault = Fault::INVALID_OPCODE;
         break;
     }
 
     this->instructionCount++;
 
-    return Fault::NO_FAULT;
+    sem_post(this->sem);
+    return retFault;
+}
+
+void Core::Interrupt(uint8_t index)
+{
+
+    // do nothing if no ISR defined
+    if (hardware.memory->MappedIDT()->vectors[index] == 0)
+    {
+        return;
+    }
+
+    // otherwise, mutex and make ourselves un-interruptible
+    pthread_mutex_lock(&this->interruptLock);
+    sem_wait(this->sem);
+    // save our context
+    memcpy(&this->interruptContext.registers, &this->registers, 16 * sizeof(uint32_t));
+    memcpy(&this->interruptContext.configRegisters, &this->configRegisters, 16 * sizeof(uint32_t));
+    memcpy(&this->interruptContext.flags, &this->Flags, 4 * sizeof(uint8_t));
+
+    // jump to the ISR
+    this->configRegisters[ConfigRegisters::ip] = hardware.memory->MappedIDT()->vectors[index];
+    sem_post(this->sem);
+}
+
+void Core::InterruptReturn()
+{
+    // the only way to get here is from the RETI instruction
+    sem_wait(this->sem);
+
+    // restore our context (jumping out of the ISR) and make ourselves interruptible again
+    memcpy(&this->registers, &this->interruptContext.registers, 16 * sizeof(uint32_t));
+    memcpy(&this->configRegisters, &this->interruptContext.configRegisters, 16 * sizeof(uint32_t));
+    memcpy(&this->Flags, &this->interruptContext.flags, 4 * sizeof(uint8_t));
+
+    pthread_mutex_unlock(&this->interruptLock);
+    sem_post(this->sem);
 }

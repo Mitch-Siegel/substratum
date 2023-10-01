@@ -93,6 +93,11 @@ void System::Tick()
     }
 }
 
+void System::Interrupt(uint8_t index)
+{
+    this->cores[0]->Interrupt(index);
+}
+
 void System::Output(uint8_t port, uint32_t val)
 {
     switch (port)

@@ -236,12 +236,14 @@ int main(int argc, char *argv[])
 
             default:
                 hardware.memory->MappedKeyboard()->keyPressed = ch & 0xff;
+                hardware.Interrupt(0);
                 break;
             }
         }
         else
         {
             hardware.memory->MappedKeyboard()->keyPressed = 0;
+            hardware.Interrupt(0);
         }
 
         char scrBuf[(81 * 24) + 1];
@@ -276,7 +278,9 @@ int main(int argc, char *argv[])
 
     pthread_join(hwThread, nullptr);
 
-    printw("Press any key to exit...\n");
+    printw("\nPress any key to exit...\n");
+    usleep(1000000);
+    refresh();
     nodelay(stdscr, false); // block waiting to exit
     getch();
 

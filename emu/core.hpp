@@ -1,10 +1,12 @@
 #include <cstdint>
 #include <string>
 #include <type_traits>
+#include <sys/semaphore.h>
 
 #include "memory.hpp"
 #include "faults.hpp"
 #include "ui.hpp"
+
 
 #ifndef _CORE_HPP_
 #define _CORE_HPP_
@@ -71,6 +73,8 @@ enum Flags
 class Core
 {
 public:
+    sem_t *sem;
+
     union InstructionData
     {
         struct Byte
@@ -97,6 +101,8 @@ public:
     void Start();
 
     Fault ExecuteInstruction();
+
+    void Interrupt(uint8_t index);
 
     const uint32_t *const Registers() const { return this->registers.data; };
     const uint32_t *const ConfigRegisters() const { return this->configRegisters.data; };
@@ -133,6 +139,14 @@ private:
     uint8_t Flags[4] = {0};
     uint64_t instructionCount = 0;
 
+    struct
+    {
+        uint32_t registers[16];
+        uint32_t configRegisters[16];
+        uint8_t flags[4];
+    } interruptContext;
+    pthread_mutex_t interruptLock;
+
     Fault WriteCSR(const enum ConfigRegisters CSRRD, const uint8_t RS);
 
     Fault ReadCSR(const uint8_t RD, const enum ConfigRegisters CSRRS);
@@ -150,6 +164,9 @@ private:
     Fault WriteSizeToAddress(uint8_t nBytes, uint32_t address, uint32_t toWrite);
 
     Fault MovOp(InstructionData instruction, int nBytes);
+
+    void InterruptReturn();
+
 };
 
 #endif
