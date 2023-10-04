@@ -1,17 +1,23 @@
 CC = g++ 
-CFLAGS = -Werror -Wall -O2 -g --std=c++17
+CFLAGS = -Werror -Wall -O2 -g --std=c++17 -Wno-deprecated-declarations
+LDFLAGS = -lncurses
 programs: emu
 
-emu: emu.o memory.o
-	$(CC) $(CFLAGS) -o $@ $^
+OBJDIR = ./build
+EMU_SRCS = $(basename $(wildcard *.cpp))
+EMU_OBJS = $(EMU_SRCS:%=%.o)
 
-emu.o: emu.cpp
-	$(CC) -c $(CFLAGS) emu.cpp 
+$(OBJDIR)/%.o: %.cpp
+	@mkdir -p $(@D)
+	$(CC) -c $(CFLAGS) -o $@ $< -I ./include
 
-memory.o: memory.cpp
-	$(CC) -c $(CFLAGS) memory.cpp
+$(OBJDIR)/%.o: %.cpp
+	@mkdir -p $(@D)
+	$(CC) -c $(CFLAGS) -Wno-int-to-pointer-cast -o $@ $< -I ./include
 
+emu: $(addprefix $(OBJDIR)/,$(EMU_OBJS))
+	$(CC) $(LDFLAGS) -o $@ $^
 
 clean:
-	rm *.o
-	rm ./emu
+	rm -f $(OBJDIR)/*.o
+	rm -f ./emu

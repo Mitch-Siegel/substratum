@@ -102,10 +102,10 @@ void WriteVariable(FILE *outFile,
 
 	case wb_global:
 	{
-		const char *movOp = SelectMovWidth(scope, writtenTo);
+		const char *MovOp = SelectMovWidth(scope, writtenTo);
 		fprintf(outFile, "\t;Write (global) variable %s\n", relevantLifetime->name);
 		fprintf(outFile, "\tmov %s, %s\n", registerNames[RETURN_REGISTER], relevantLifetime->name);
-		fprintf(outFile, "\t%s (%s), %s\n", movOp, registerNames[RETURN_REGISTER], registerNames[sourceRegIndex]);
+		fprintf(outFile, "\t%s (%s), %s\n", MovOp, registerNames[RETURN_REGISTER], registerNames[sourceRegIndex]);
 	}
 	break;
 
@@ -113,14 +113,14 @@ void WriteVariable(FILE *outFile,
 	{
 		fprintf(outFile, "\t;Write stack variable %s\n", relevantLifetime->name);
 
-		const char *movOp = SelectMovWidthForLifetime(scope, relevantLifetime);
+		const char *MovOp = SelectMovWidthForLifetime(scope, relevantLifetime);
 		if (relevantLifetime->stackLocation >= 0)
 		{
-			fprintf(outFile, "\t%s (%%bp+%d), %s\n", movOp, relevantLifetime->stackLocation, registerNames[sourceRegIndex]);
+			fprintf(outFile, "\t%s (%%bp+%d), %s\n", MovOp, relevantLifetime->stackLocation, registerNames[sourceRegIndex]);
 		}
 		else
 		{
-			fprintf(outFile, "\t%s (%%bp%d), %s\n", movOp, relevantLifetime->stackLocation, registerNames[sourceRegIndex]);
+			fprintf(outFile, "\t%s (%%bp%d), %s\n", MovOp, relevantLifetime->stackLocation, registerNames[sourceRegIndex]);
 		}
 	}
 	break;
@@ -170,23 +170,23 @@ int placeOrFindOperandInRegister(FILE *outFile,
 			registerIndex = RETURN_REGISTER;
 		}
 
-		const char *movOp = NULL;
+		const char *MovOp = NULL;
 
 		if (relevantLifetime->type.arraySize > 0)
 		{
 			// if array, treat as pointer
-			movOp = "mov";
+			MovOp = "mov";
 		}
 		else
 		{
-			movOp = SelectMovWidthForLifetime(scope, relevantLifetime);
+			MovOp = SelectMovWidthForLifetime(scope, relevantLifetime);
 		}
 		const char *usedRegister = registerNames[registerIndex];
 		fprintf(outFile, "\tmov %s, %s ; place %s\n", usedRegister, relevantLifetime->name, operand->name.str);
 
 		if (relevantLifetime->type.arraySize == 0)
 		{
-			fprintf(outFile, "\t%s %s, (%s) ; place %s\n", movOp, usedRegister, usedRegister, operand->name.str);
+			fprintf(outFile, "\t%s %s, (%s) ; place %s\n", MovOp, usedRegister, usedRegister, operand->name.str);
 		}
 
 		return registerIndex;
@@ -215,14 +215,14 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		}
 		else
 		{
-			const char *movOp = SelectMovWidthForLifetime(scope, relevantLifetime);
+			const char *MovOp = SelectMovWidthForLifetime(scope, relevantLifetime);
 			if (relevantLifetime->stackLocation >= 0)
 			{
-				fprintf(outFile, "\t%s %s, (%%bp+%d) ; place %s\n", movOp, usedRegister, relevantLifetime->stackLocation, operand->name.str);
+				fprintf(outFile, "\t%s %s, (%%bp+%d) ; place %s\n", MovOp, usedRegister, relevantLifetime->stackLocation, operand->name.str);
 			}
 			else
 			{
-				fprintf(outFile, "\t%s %s, (%%bp%d) ; place %s\n", movOp, usedRegister, relevantLifetime->stackLocation, operand->name.str);
+				fprintf(outFile, "\t%s %s, (%%bp%d) ; place %s\n", MovOp, usedRegister, relevantLifetime->stackLocation, operand->name.str);
 			}
 		}
 
