@@ -98,6 +98,8 @@ public:
 
     Core(uint8_t id);
 
+    ~Core();
+
     void Start();
 
     Fault ExecuteInstruction();
@@ -166,6 +168,8 @@ private:
     Fault MovOp(InstructionData instruction, int nBytes);
 
     void InterruptReturn();
+
+    int mySemValue();
 
 };
 

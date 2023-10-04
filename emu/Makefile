@@ -1,5 +1,5 @@
 CC = g++ 
-CFLAGS = -Werror -Wall -O2 -g --std=c++17
+CFLAGS = -Werror -Wall -O2 -g --std=c++17 -Wno-deprecated-declarations
 LDFLAGS = -lncurses
 programs: emu
 

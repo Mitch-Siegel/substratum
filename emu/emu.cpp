@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
 
         if (0 < ch)
         {
-            ui.mvwprintw_threadsafe(infoWin, 0, 45, "%4d:%3c", ch, ch);
+            ui.mvwprintw_threadsafe(infoWin, 0, 45, "%4d:%3c (%4d:%3c)", ch, ch, hardware.memory->MappedKeyboard()->keyPressed);
             switch (ch)
             {
             case KEY_UP:
@@ -235,21 +235,25 @@ int main(int argc, char *argv[])
                 }
 
             default:
-                hardware.memory->MappedKeyboard()->keyPressed = ch & 0xff;
-                hardware.Interrupt(0);
+                if (isalnum(ch & 0xff))
+                {
+                    hardware.memory->MappedKeyboard()->keyPressed = ch & 0xff;
+                    hardware.Interrupt(0);
+                }
                 break;
             }
         }
         else
         {
-            hardware.memory->MappedKeyboard()->keyPressed = 0;
-            hardware.Interrupt(0);
+            // ch = 0;
+            // hardware.memory->MappedKeyboard()->keyPressed = 0;
+            // hardware.Interrupt(0);
         }
 
         char scrBuf[(81 * 24) + 1];
         uint16_t destA = 0;
         struct ScreenMem *s = hardware.memory->MappedScreen();
-        for(uint8_t srcRow = 0; srcRow < 24; srcRow++)
+        for (uint8_t srcRow = 0; srcRow < 24; srcRow++)
         {
             memcpy(scrBuf + destA, s->rows[srcRow], 80);
             destA += 80;

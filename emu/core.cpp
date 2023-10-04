@@ -7,25 +7,47 @@
 #include "names.hpp"
 #include "ui.hpp"
 
-
 #define PRINTEXECUTION
+
+int Core::mySemValue()
+{
+    int v;
+    sem_getvalue(this->sem, &v);
+    return v;
+}
 
 Core::Core(uint8_t id)
 {
     pthread_mutex_init(&this->interruptLock, nullptr);
     char coreName[256];
     snprintf(coreName, 255, "Core%x", id);
-    this->sem = sem_open(coreName, O_CREAT, 0644, 1);
-    if(this->sem == SEM_FAILED)
+
+    const int sem_perm = 0777;
+
+    if ((this->sem = sem_open(coreName, (O_CREAT | O_EXCL), sem_perm, 1)) == SEM_FAILED)
     {
-        printf("Couldn't open semaphore for core %d: %s\n", id, strerror(errno));
-        exit(-1);
+        printf("Semaphore %s already open - unlinking to re-open\n", coreName);
+        sem_unlink(coreName);
+
+        if ((this->sem = sem_open(coreName, (O_CREAT | O_EXCL), sem_perm, 1)) == SEM_FAILED)
+        {
+            printf("Couldn't open semaphore for core %d: %s\n", id, strerror(errno));
+            exit(-1);
+        }
     }
+    int semstart;
+    sem_getvalue(this->sem, &semstart);
+    printf("Sem has starting value: %d\n", semstart);
 
     this->configRegisters[ConfigRegisters::cid] = id;
     this->configRegisters[ConfigRegisters::ptbr] = 0;
     this->configRegisters[ConfigRegisters::palim] = MEMORY_SIZE;
     this->configRegisters[ConfigRegisters::mapb] = MEMMAP_BASE;
+}
+
+Core::~Core()
+{
+    sem_close(this->sem);
 }
 
 void Core::Start()
@@ -459,11 +481,14 @@ Fault Core::ExecuteInstruction()
         return retFault;
     }
 
-
     retFault = this->ReadSizeFromAddress(4, this->configRegisters[ConfigRegisters::ip], instruction.word);
 
     if (opcodeNames.count(instruction.byte.b0) == 0)
     {
+#ifdef PRINTEXECUTION
+        ui.wprintw_threadsafe(insViewWin, "%08x: %02x:UND\n", this->configRegisters[ConfigRegisters::ip] - 4, instruction.byte.b0);
+        ui.Refresh();
+#endif
         retFault = Fault::INVALID_OPCODE;
         sem_post(this->sem);
         return retFault;
@@ -476,20 +501,12 @@ Fault Core::ExecuteInstruction()
 #endif
     }
 
+    this->configRegisters[ConfigRegisters::ip] += 4;
+
     // ui.wprintw_threadsafe(insViewWin, "%02x, %02x, %02x, %02x | %04x, %04x | %08x\n", instruction.byte.b0, instruction.byte.b1, instruction.byte.b2, instruction.byte.b3, instruction.hword.h0, instruction.hword.h1, instruction.word);
 
     switch (instruction.byte.b0)
     {
-        // hlt instruction
-    case 0x00:
-    {
-#ifdef PRINTEXECUTION
-        ui.wprintw_threadsafe(insViewWin, "\n");
-#endif
-        retFault = Fault::HALTED;
-    }
-    break;
-
     case 0x01: // nop
     {
 #ifdef PRINTEXECUTION
@@ -741,7 +758,7 @@ Fault Core::ExecuteInstruction()
     case 0xbb:
     case 0xbf:
     {
-        this->MovOp(instruction, 2);
+        retFault = this->MovOp(instruction, 2);
     }
     break;
 
@@ -756,7 +773,7 @@ Fault Core::ExecuteInstruction()
     case 0xc9:
     case 0xcb:
     {
-        this->MovOp(instruction, 4);
+        retFault = this->MovOp(instruction, 4);
     }
     break;
 
@@ -1002,19 +1019,21 @@ Fault Core::ExecuteInstruction()
     break;
 
     default:
-        retFault = Fault::INVALID_OPCODE;
+        ui.wprintw_threadsafe(insViewWin, "Opcode %02x not caught in switch!\n", instruction.byte.b0);
+        exit(0);
+        // retFault = Fault::INVALID_OPCODE;
         break;
     }
 
     this->instructionCount++;
 
     sem_post(this->sem);
+
     return retFault;
 }
 
 void Core::Interrupt(uint8_t index)
 {
-
     // do nothing if no ISR defined
     if (hardware.memory->MappedIDT()->vectors[index] == 0)
     {
@@ -1024,20 +1043,33 @@ void Core::Interrupt(uint8_t index)
     // otherwise, mutex and make ourselves un-interruptible
     pthread_mutex_lock(&this->interruptLock);
     sem_wait(this->sem);
+
+#ifdef PRINTEXECUTION
+        ui.wprintw_threadsafe(insViewWin, "INT %02x\n", index);
+#endif
+
     // save our context
     memcpy(&this->interruptContext.registers, &this->registers, 16 * sizeof(uint32_t));
     memcpy(&this->interruptContext.configRegisters, &this->configRegisters, 16 * sizeof(uint32_t));
     memcpy(&this->interruptContext.flags, &this->Flags, 4 * sizeof(uint8_t));
 
+#ifdef PRINTEXECUTION
+        ui.wprintw_threadsafe(insViewWin, " ->%08x\n", __builtin_bswap32(hardware.memory->MappedIDT()->vectors[index]));
+#endif
+
     // jump to the ISR
-    this->configRegisters[ConfigRegisters::ip] = hardware.memory->MappedIDT()->vectors[index];
+    this->configRegisters[ConfigRegisters::ip] = __builtin_bswap32(hardware.memory->MappedIDT()->vectors[index]);
+
+#ifdef PRINTEXECUTION
+        ui.wprintw_threadsafe(insViewWin, "post+mvon\n");
+#endif
     sem_post(this->sem);
 }
 
 void Core::InterruptReturn()
 {
+    ui.wprintw_threadsafe(insViewWin, "W: RETI\n");
     // the only way to get here is from the RETI instruction
-    sem_wait(this->sem);
 
     // restore our context (jumping out of the ISR) and make ourselves interruptible again
     memcpy(&this->registers, &this->interruptContext.registers, 16 * sizeof(uint32_t));
@@ -1045,5 +1077,5 @@ void Core::InterruptReturn()
     memcpy(&this->Flags, &this->interruptContext.flags, 4 * sizeof(uint8_t));
 
     pthread_mutex_unlock(&this->interruptLock);
-    sem_post(this->sem);
+    ui.wprintw_threadsafe(insViewWin, "P: RETI\n");
 }
