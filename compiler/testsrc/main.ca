@@ -1,7 +1,20 @@
-asm
+
+fun scrollScreen(uint8** screen->void)
 {
-	#addr 0x200
-};
+	uint8 y = 1;
+	while(y < 24)
+	{
+		uint8 x = 0;
+		uint8 *upperLine = screen[y-1];
+		uint8 *lowerLine = screen[y];
+		while(x < 80)
+		{
+			upperLine[x] = lowerLine[x];
+			x += 1;
+		}
+		y += 1;
+	}
+}
 
 fun printCheat(uint32 value->void)
 {

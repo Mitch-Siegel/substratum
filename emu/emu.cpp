@@ -54,10 +54,10 @@ void *HardwareThread(void *params)
     std::chrono::steady_clock::time_point lastStatusPrint = intervalStart;
     while (hardware.Running())
     {
-        if (tickRate || flatout)
+        if (tickRate || flatout || hardware.GetCore(0).Interrupted())
         {
             hardware.Tick();
-            if (!flatout)
+            if (!flatout && !(hardware.GetCore(0).Interrupted()))
             {
                 std::chrono::steady_clock::time_point intervalEnd = std::chrono::steady_clock::now();
                 int64_t intervalDuration = std::chrono::duration_cast<std::chrono::microseconds>(intervalEnd - intervalStart).count();
@@ -235,8 +235,9 @@ int main(int argc, char *argv[])
                 }
 
             default:
-                if (isalnum(ch & 0xff))
+                if ((isalnum(ch & 0xff) || (isspace(ch & 0xff))) && (!hardware.GetCore(0).Interrupted()))
                 {
+
                     hardware.memory->MappedKeyboard()->keyPressed = ch & 0xff;
                     hardware.Interrupt(0);
                 }

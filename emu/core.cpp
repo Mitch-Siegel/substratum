@@ -9,13 +9,6 @@
 
 #define PRINTEXECUTION
 
-int Core::mySemValue()
-{
-    int v;
-    sem_getvalue(this->sem, &v);
-    return v;
-}
-
 Core::Core(uint8_t id)
 {
     pthread_mutex_init(&this->interruptLock, nullptr);
@@ -1078,4 +1071,14 @@ void Core::InterruptReturn()
 
     pthread_mutex_unlock(&this->interruptLock);
     ui.wprintw_threadsafe(insViewWin, "P: RETI\n");
+}
+
+bool Core::Interrupted()
+{
+    bool interrupted = false;
+    if(!(interrupted = pthread_mutex_trylock(&this->interruptLock)))
+    {
+        pthread_mutex_unlock(&this->interruptLock);
+    }
+    return interrupted;
 }

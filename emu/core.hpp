@@ -106,6 +106,8 @@ public:
 
     void Interrupt(uint8_t index);
 
+    bool Interrupted();
+
     const uint32_t *const Registers() const { return this->registers.data; };
     const uint32_t *const ConfigRegisters() const { return this->configRegisters.data; };
 
@@ -168,9 +170,6 @@ private:
     Fault MovOp(InstructionData instruction, int nBytes);
 
     void InterruptReturn();
-
-    int mySemValue();
-
 };
 
 #endif

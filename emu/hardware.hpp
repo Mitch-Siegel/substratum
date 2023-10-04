@@ -33,7 +33,7 @@ public:
 
     void Output(uint8_t port, uint32_t val);
 
-    const Core &GetCore(uint8_t index) { return *(cores[index]); };
+    Core &GetCore(uint8_t index) { return *(cores[index]); };
 };
 
 extern System hardware;
