@@ -24,7 +24,25 @@
     rr  => 0b1101 ;return register
     sp  => 0b1110
     bp  => 0b1111
-    ; 12 GP registers - plenty to give up a few for MMU and other stuff handling!
+}
+
+#ruledef csreg{
+    ip    => 0b0000 ; instruction pointer
+    cid   => 0b0001 ; core id
+    ptbr  => 0b0010 ; page table base register
+    palim => 0b0011 ; physical address limit
+    idt   => 0b0100 ; interrupt descriptor table
+    cs5   => 0b0101 ; others unused
+    cs6   => 0b0110
+    cs7   => 0b0111
+    cs8   => 0b1000
+    cs9   => 0b1001
+    csa   => 0b1010
+    csb   => 0b1011
+    csc   => 0b1100
+    csd   => 0b1101
+    cse   => 0b1110
+    csf   => 0b1111
 }
 
 
@@ -188,7 +206,8 @@
     lea %{rd: reg}, (%{rbase: reg}+{offset: i16})                => 0xcc @ rd @ rbase @ offset
     lea %{rd: reg}, (%{rbase: reg}+%{roffset: reg},{sclpow: i5}) => 0xcd @ rd @ rbase @ 0x0 @ roffset @ 0b000 @ sclpow
     
-
+    wrcs %{rd: csreg}, %{rs: reg}                               => 0xce @ rs @ rd @0x0000
+    rdcs %{rd: reg}, %{rs: csreg}                               => 0xcf @ rs @ rd @0x0000
 
     pushb %{rs: reg}                        => 0xd0 @ 0x0 @ rs @ 0x0000
     pushh %{rs: reg}                        => 0xd1 @ 0x0 @ rs @ 0x0000

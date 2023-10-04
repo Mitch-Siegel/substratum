@@ -1,5 +1,12 @@
+
+if ["$1" -eq "" ]
+then
+    echo "An argument for what to assemble is required!"
+    exit 1
+fi
+
 cd ./assembler
-if ! customasm ./linked.asm; then
+if ! customasm ./"$1"; then
     exit
 fi
 
@@ -8,4 +15,8 @@ if ! make; then
     exit
 fi
 
-time ./emu ../assembler/linked.bin
+BINFILE="$(echo "$1" | cut -f 1 -d '.').bin"
+echo $BINFILE
+
+time ./emu ../assembler/$BINFILE
+cd ..
