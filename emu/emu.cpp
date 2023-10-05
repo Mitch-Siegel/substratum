@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
     atexit(cleanupncurses);
 
     consoleWin = newwin(LINES - 1, COLS - 40, 0, 0);
-    curs_set(0);
+    // curs_set(0);
     nodelay(consoleWin, true);  // give us keypresses as soon as possible
     keypad(consoleWin, TRUE);   // interpret special keys (arrow keys and such)
     scrollok(consoleWin, TRUE); // we want to scroll the console
@@ -196,8 +196,12 @@ int main(int argc, char *argv[])
                 printStatus();
                 break;
 
-            case KEY_RIGHT:
             case KEY_LEFT:
+                hardware.Tick();
+                printStatus();
+                break;
+
+            case KEY_RIGHT:
                 keymod = !keymod;
                 printStatus();
                 break;
@@ -256,12 +260,13 @@ int main(int argc, char *argv[])
         struct ScreenMem *s = hardware.memory->MappedScreen();
         for (uint8_t srcRow = 0; srcRow < 24; srcRow++)
         {
-            memcpy(scrBuf + destA, s->rows[srcRow], 80);
+            memcpy(scrBuf + destA, &s->rows[srcRow], 80);
             destA += 80;
             scrBuf[destA++] = '\n';
         }
         scrBuf[destA] = '\0';
         ui.mvwprintw_threadsafe(consoleWin, 0, 0, "%s", scrBuf);
+        ui.mvwprintw_threadsafe(infoWin, 0, 60, "%lu", intervalStart.time_since_epoch() / 100000000);
 
         ui.Refresh();
 

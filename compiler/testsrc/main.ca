@@ -7,10 +7,23 @@ asm
 
 uint8 abc = 123;
 
+fun printTest(uint8 i->void)
+{
+	print('a' + i);
+	print(10);
+}
+
 fun main(->void)
 {
-	print('t');
-	print('e');
-	print('s');
-	print('t');
+	uint8 j = 0;
+	while (j < 30)
+	{
+	uint8 i = 0;
+	while(i < 25)
+	{
+		printTest(i);
+		i += 1;
+	}
+	j += 1;	
+	}
 }

@@ -10,7 +10,11 @@ struct IDT
 
 struct ScreenMem
 {
-    uint8_t rows[24][80];
+    struct Row
+    {
+        uint8_t chars[80];
+    };
+    struct Row rows[24];
 };
 
 struct KeyboardIn
