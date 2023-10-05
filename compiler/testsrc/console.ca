@@ -1,0 +1,9 @@
+#include "console.h"
+
+uint8 cursorPos = 0;
+uint8 *screenMem = 1280;
+
+fun print(uint8 c->void)
+{
+    *screenMem = c;
+}

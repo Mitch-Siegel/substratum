@@ -244,20 +244,6 @@ int main(int argc, char **argv)
 		SymbolTable_print(theTable, 1);
 	}
 
-	// ensure we always end the userstart section (jumped to from entry) by calling our main functoin
-	// just fudge this by calling it block number 123456 since we should never get that high
-	struct BasicBlock *executeMainBlock = BasicBlock_new(123456);
-
-	struct TACLine *asm1 = newTACLine(0, tt_asm, NULL);
-	asm1->operands[0].name.str = "call main";
-	struct TACLine *asm2 = newTACLine(0, tt_asm, NULL);
-	asm2->operands[0].name.str = "hlt";
-
-	BasicBlock_append(executeMainBlock, asm1);
-	BasicBlock_append(executeMainBlock, asm2);
-
-	Scope_insert(theTable->globalScope, "CALL_MAIN_BLOCK", executeMainBlock, e_basicblock);
-
 	FILE *outFile = fopen(outFileName, "wb");
 
 	if (outFile == NULL)

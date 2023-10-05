@@ -8,8 +8,9 @@ extern struct Dictionary *parseDict;
 struct SymbolTable *walkProgram_0(struct AST *program)
 {
 	struct SymbolTable *programTable = SymbolTable_new("Program");
-	struct BasicBlock *globalBlock = BasicBlock_new(1);
-	Scope_insert(programTable->globalScope, "GLOBALBLOCK", globalBlock, e_basicblock);
+	struct BasicBlock *globalBlock = Scope_lookup(programTable->globalScope, "globalblock")->entry;
+	struct BasicBlock *asmBlock = BasicBlock_new(1);
+	Scope_addBasicBlock(programTable->globalScope, asmBlock);
 	temps = TempList_New();
 
 	int globalTACIndex = 0;
@@ -50,6 +51,7 @@ struct SymbolTable *walkProgram_0(struct AST *program)
 
 		// ignore asm blocks
 		case t_asm:
+			walkAsmBlock_0(programRunner, asmBlock, programTable->globalScope, &globalTACIndex, &globalTempNum);
 			break;
 
 		default:

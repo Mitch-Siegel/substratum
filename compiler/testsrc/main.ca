@@ -1,56 +1,16 @@
+#include "console.h"
 
-fun scrollScreen(uint8** screen->void)
+asm
 {
-	uint8 y = 1;
-	while(y < 24)
-	{
-		uint8 x = 0;
-		uint8 *upperLine = screen[y-1];
-		uint8 *lowerLine = screen[y];
-		while(x < 80)
-		{
-			upperLine[x] = lowerLine[x];
-			x += 1;
-		}
-		y += 1;
-	}
-}
+	#res 123
+};
 
-fun printCheat(uint32 value->void)
-{
-	asm {
-		mov %r0, (%bp+8)
-		out 1, %r0
-	}
-	;
-}
-
-fun fibRec(uint8 value->uint32)
-{
-	if(2 > value)
-	{
-		return value;
-	}
-	else
-	{
-		return fibRec(value - 2) + fibRec(value - 1);
-	}
-}
+uint8 abc = 123;
 
 fun main(->void)
 {
-	printCheat(1234);
-    uint8 a = 6;
-    uint8 b = 3;
-	uint8 i = 0;
-	while(a > b)
-	{
-		i = 0;
-		while(i < 25)
-		{
-			printCheat(fibRec(i));
-			i += 1;
-		}
-	}
-
+	print('t');
+	print('e');
+	print('s');
+	print('t');
 }
