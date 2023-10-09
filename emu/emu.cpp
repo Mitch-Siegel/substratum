@@ -141,10 +141,10 @@ int main(int argc, char *argv[])
     while (hardware.Running())
     {
         ch = wgetch(consoleWin);
+        ui.mvwprintw_threadsafe(infoWin, 0, 45, "%4d:%3c (%4d:%3c)", ch, ch, hardware.memory->MappedKeyboard()->keyPressed);
 
         if (0 < ch)
         {
-            ui.mvwprintw_threadsafe(infoWin, 0, 45, "%4d:%3c (%4d:%3c)", ch, ch, hardware.memory->MappedKeyboard()->keyPressed);
             switch (ch)
             {
             case KEY_UP:

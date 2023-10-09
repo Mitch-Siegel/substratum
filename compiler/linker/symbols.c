@@ -272,10 +272,9 @@ char addExport(struct LinkedList **exports, struct LinkedList **requires, struct
     if ((addType != s_function_declaration) &&
         (found = LinkedList_Find(exports[addType], compareSymbols, toAdd)))
     {
-        // if we see something other than section userstart duplicated, throw an error
+        // if we see something other than a section duplicated, throw an error
         if ((addType != s_section))
         {
-
             ErrorAndExit(ERROR_CODE, "Multiple definition of symbol %s %s - from %s and %s!\n", symbolEnumToName(addType), toAdd->name, found->fromFile, toAdd->fromFile);
         }
 
