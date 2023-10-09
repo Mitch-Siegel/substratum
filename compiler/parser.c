@@ -1207,16 +1207,36 @@ struct AST *TableParse(struct Dictionary *dict)
 			{
 				nextToken = match(lookaheadToken, dict);
 				consume(t_lCurly, dict);
-				while ((lookaheadToken = lookahead()) != t_rCurly)
+				buflen = 0;
+				while (lookahead_char_dumb(1) != '}')
 				{
-					buflen = 0;
-					while ((buffer[buflen++] = fgetc(inFile)) != '\n')
-						;
-					curLine++;
-					curCol = 0;
-					buffer[buflen - 1] = '\0';
-					AST_InsertChild(nextToken, AST_New(t_asm, Dictionary_LookupOrInsert(dict, buffer)));
+					int asmChar = fgetc_track(1);
+					if (asmChar == EOF)
+					{
+						struct AST fakeTree;
+						fakeTree.sourceFile = curFile;
+						fakeTree.sourceLine = curLine;
+						fakeTree.sourceCol = curCol;
+						ErrorWithAST(ERROR_CODE, &fakeTree, "Non-terminated asm statement\n");
+					}
+					else if (asmChar == '\n')
+					{
+						buffer[buflen++] = '\0';
+						AST_InsertChild(nextToken, AST_New(t_asm, Dictionary_LookupOrInsert(dict, buffer)));
+						buflen = 0;
+					}
+					else
+					{
+						buffer[buflen++] = asmChar;
+					}
 				}
+				if (buflen > 0)
+				{
+					buffer[buflen++] = '\0';
+					AST_InsertChild(nextToken, AST_New(t_asm, Dictionary_LookupOrInsert(dict, buffer)));
+					buflen = 0;
+				}
+				consume(t_rCurly, dict);
 			}
 			else
 			{

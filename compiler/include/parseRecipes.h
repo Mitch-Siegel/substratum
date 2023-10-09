@@ -516,7 +516,6 @@ enum token parseRecipes[p_null][14][9][2] = {
 
         // ASM (autoparsed by scan()) '}' ';'
         {{t_asm, above},
-         {t_rCurly, cnsme},
          {t_semicolon, cnsme},
          {p_null, p_null}},
 
@@ -632,6 +631,10 @@ enum token parseRecipes[p_null][14][9][2] = {
         // FUNCTION-DECLARATION SCOPE
         {{p_function_declaration, above},
          {p_scope, below},
+         {p_null, p_null}},
+
+        {{p_function_declaration, above},
+         {t_asm, below},
          {p_null, p_null}},
 
         {{p_null, p_null}},
