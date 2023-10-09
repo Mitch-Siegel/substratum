@@ -1221,12 +1221,19 @@ struct AST *TableParse(struct Dictionary *dict)
 					}
 					else if (asmChar == '\n')
 					{
-						buffer[buflen++] = '\0';
-						AST_InsertChild(nextToken, AST_New(t_asm, Dictionary_LookupOrInsert(dict, buffer)));
-						buflen = 0;
+						if (buflen > 0)
+						{
+							buffer[buflen++] = '\0';
+							AST_InsertChild(nextToken, AST_New(t_asm, Dictionary_LookupOrInsert(dict, buffer)));
+							buflen = 0;
+						}
 					}
 					else
 					{
+						if (asmChar == '\t')
+						{
+							continue;
+						}
 						buffer[buflen++] = asmChar;
 					}
 				}

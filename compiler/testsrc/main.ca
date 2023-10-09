@@ -1,10 +1,5 @@
 #include "console.h"
 
-asm
-{
-	#res 123
-};
-
 uint8 inBuf[128];
 uint8 bufIndex = 0;
 uint8 *MEMMAP_SCREEN = 1280;

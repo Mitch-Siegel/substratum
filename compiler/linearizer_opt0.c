@@ -377,7 +377,7 @@ void walkFunctionDefinition_0(struct AST *tree,
 		printf("walkFunctionDefinition: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
 
-	if (tree->type != t_lCurly)
+	if ((tree->type != t_lCurly) && (tree->type != t_asm))
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionDefinition!\n", getTokenName(tree->type));
 	}
@@ -387,7 +387,16 @@ void walkFunctionDefinition_0(struct AST *tree,
 	int labelNum = 1;
 	struct BasicBlock *block = BasicBlock_new(0);
 	Scope_addBasicBlock(fun->mainScope, block);
-	walkScope_0(tree, block, fun->mainScope, &TACIndex, &tempNum, &labelNum, -1);
+
+	if (tree->type == t_lCurly)
+	{
+		walkScope_0(tree, block, fun->mainScope, &TACIndex, &tempNum, &labelNum, -1);
+	}
+	else
+	{
+		fun->isAsmFun = 1;
+		walkAsmBlock_0(tree, block, fun->mainScope, &TACIndex, &tempNum);
+	}
 }
 
 void walkClassDeclaration_0(struct AST *tree,

@@ -167,6 +167,36 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		printf("Generate code for function %s\n", function->name);
 	}
 
+	if(function->isAsmFun)
+	{
+		if(currentVerbosity > VERBOSITY_MINIMAL)
+		{
+			printf("%s is an asm function\n", function->name);
+		}
+		fprintf(outFile, "%s:\n", function->name);
+
+		if(function->BasicBlockList->size != 1)
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Asm function with %d basic blocks seen - expected 1!\n", function->BasicBlockList->size);
+		}
+
+		struct BasicBlock *asmBlock = function->BasicBlockList->head->data;
+
+		for(struct LinkedListNode *asmBlockRunner = asmBlock->TACList->head; asmBlockRunner != NULL; asmBlockRunner = asmBlockRunner->next)
+		{
+			struct TACLine *asmTAC = asmBlockRunner->data;
+			if(asmTAC->operation != tt_asm)
+			{
+				ErrorWithAST(ERROR_INTERNAL, asmTAC->correspondingTree, "Non-asm TAC type seen in asm function!\n");
+			}
+			fprintf(outFile, "\t%s\n", asmTAC->operands[0].name.str);
+		}
+		fprintf(outFile, "\tret %d\n", function->argStackSize);
+		
+		// early return, nothing else to do
+		return;
+	}
+
 	struct CodegenMetadata metadata;
 	memset(&metadata, 0, sizeof(struct CodegenMetadata));
 	metadata.function = function;

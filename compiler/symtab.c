@@ -17,6 +17,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, s
 	newFunction->returnType = *returnType;
 	newFunction->name = name;
 	newFunction->isDefined = 0;
+	newFunction->isAsmFun = 0;
 	return newFunction;
 }
 
