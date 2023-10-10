@@ -255,17 +255,28 @@ int main(int argc, char *argv[])
             // hardware.Interrupt(0);
         }
 
-        char scrBuf[(81 * 24) + 1];
-        uint16_t destA = 0;
         struct ScreenMem *s = hardware.memory->MappedScreen();
         for (uint8_t srcRow = 0; srcRow < 24; srcRow++)
         {
-            memcpy(scrBuf + destA, &s->rows[srcRow], 80);
-            destA += 80;
-            scrBuf[destA++] = '\n';
+            ui.mvwprintw_threadsafe(consoleWin, srcRow, 0, "");
+            for (uint8_t srcCol = 0; srcCol < 80; srcCol++)
+            {
+                char printedChar = s->rows[srcRow].chars[srcCol];
+
+                switch (printedChar)
+                {
+                case '\r':
+                case '\n':
+                case '\t':
+                    ui.wprintw_threadsafe(infoWin, "ILLEGAL CHAR IN SCREEN MEMORY: %d", printedChar);
+                    break;
+
+                default:
+                    ui.wprintw_threadsafe(consoleWin, "%c", printedChar);
+                    break;
+                }
+            }
         }
-        scrBuf[destA] = '\0';
-        ui.mvwprintw_threadsafe(consoleWin, 0, 0, "%s", scrBuf);
         ui.mvwprintw_threadsafe(infoWin, 0, 60, "%lu", intervalStart.time_since_epoch() / 100000000);
 
         ui.Refresh();

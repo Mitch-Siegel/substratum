@@ -48,6 +48,19 @@ fun regDup(->void) asm
     mov %r12, %r4
 }
 
+fun printArrayOffset(uint8 *arr, uint16 offset->void) asm
+{
+    push %r1
+    push %r0
+    mov %r0, (%bp+8)
+    movh %r1, (%bp+12)
+    lea %r0, (%r0+%r1,0)
+    push %r0
+    call cheat
+    pop %r0
+    pop %r1
+}
+
 fun print(uint8 c->void)
 {
     uint8 *screenMem = 1280;
@@ -61,6 +74,8 @@ fun print(uint8 c->void)
     {
         netOffset = cursY * 80;
         netOffset += cursX;
+        cheat(netOffset);
+        printArrayOffset(screenMem, netOffset);
         regDup();
         screenMem[netOffset] = c;
         cursX += 1;
