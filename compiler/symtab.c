@@ -17,6 +17,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, s
 	newFunction->returnType = *returnType;
 	newFunction->name = name;
 	newFunction->isDefined = 0;
+	newFunction->isAsmFun = 0;
 	return newFunction;
 }
 
@@ -140,6 +141,8 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 							{
 								thisTAC->operands[j].name.str = SymbolTable_mangleName(scope, dict, originalName);
 							}
+							// TODO: there is a bug here or somewhere similar in this function
+							//		 name mangling doesn't work correctly for variables declared at inner scopes
 						}
 					}
 				}

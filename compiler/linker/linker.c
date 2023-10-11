@@ -287,7 +287,7 @@ int main(int argc, char **argv)
 
     if (outputExecutable)
     {
-        fprintf(outFile, "#include \"CPU.asm\"\nentry START\n");
+        fprintf(outFile, "#include \"CPU.asm\"\nentry START\n#addr 4096\n");
     }
 
     for (int i = 0; i < s_null; i++)

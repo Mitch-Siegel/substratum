@@ -48,30 +48,62 @@ void generateCodeForProgram_0(struct SymbolTable *table, FILE *outFile, int regA
 
 		case e_basicblock:
 		{
-			fprintf(outFile, "~export section userstart\n");
-			struct LinkedList *globalBlockList = LinkedList_New();
-
-			for (int j = 0; j < table->globalScope->entries->size; j++)
+			struct BasicBlock *thisBlock = thisMember->entry;
+			if (thisBlock->labelNum == 0)
 			{
-				struct ScopeMember *m = table->globalScope->entries->data[j];
-				if (m->type == e_basicblock)
+				if (thisBlock->TACList->size == 0)
 				{
-					LinkedList_Append(globalBlockList, m->entry);
+					break;
 				}
+
+				fprintf(outFile, "~export section userstart\n");
+				struct LinkedList *fakeBlockList = LinkedList_New();
+				LinkedList_Append(fakeBlockList, thisBlock);
+
+				struct LinkedList *globalLifetimes = findLifetimes(table->globalScope, fakeBlockList);
+				LinkedList_Free(fakeBlockList, NULL);
+				int reserved[3] = {0, 1, 2};
+
+				generateCodeForBasicBlock_0(outFile, thisBlock, table->globalScope, globalLifetimes, NULL, reserved);
+				fprintf(outFile, "~end export section userstart\n");
+			}
+			else if (thisBlock->labelNum == 1)
+			{
+				fprintf(outFile, "~export section asm\n");
+
+				for (struct LinkedListNode *examinedLine = thisBlock->TACList->head; examinedLine != NULL; examinedLine = examinedLine->next)
+				{
+					struct TACLine *examinedTAC = examinedLine->data;
+					if (examinedTAC->operation != tt_asm)
+					{
+						ErrorAndExit(ERROR_INTERNAL, "Unexpected TAC type %d (%s) seen in global ASM block!\n",
+									 examinedTAC->operation,
+									 getAsmOp(examinedTAC->operation));
+					}
+					fprintf(outFile, "%s\n", examinedTAC->operands[0].name.str);
+				}
+				fprintf(outFile, "~end export section asm\n");
+			}
+			else
+			{
+				ErrorAndExit(ERROR_INTERNAL, "Unexpected basic block index %d at global scope!\n", thisBlock->labelNum);
 			}
 
-			struct FunctionEntry start;
-			start.argStackSize = 0;
-			start.arguments = NULL;
-			start.BasicBlockList = globalBlockList;
-			start.mainScope = table->globalScope;
-			start.name = "START";
-			start.returnType.indirectionLevel = 0;
-			start.returnType.basicType = vt_null;
+			/*
+			struct BasicBlock *thisBlock = (struct BasicBlock *)thisMember->entry;
+			fprintf(outFile, "~export asm\n");
 
-			generateCodeForFunction_0(outFile, &start, regAllocOpt);
-			LinkedList_Free(globalBlockList, NULL);
-			fprintf(outFile, "~end export section userstart\n");
+			for (struct LinkedListNode *asmLine = thisBlock->TACList->head; asmLine != NULL; asmLine = asmLine->next)
+			{
+				struct TACLine *asmTAC = (struct TACLine *)asmLine->data;
+				if (asmTAC->operation != tt_asm)
+				{
+					ErrorAndExit(ERROR_INTERNAL, "Expected only asm at global scope, got %s instead!\n", getAsmOp(asmTAC->operation));
+				}
+				fprintf(outFile, "%s\n", asmTAC->operands[0].name.str);
+			}
+
+			fprintf(outFile, "~end export asm\n");*/
 		}
 		break;
 
@@ -135,6 +167,36 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		printf("Generate code for function %s\n", function->name);
 	}
 
+	if(function->isAsmFun)
+	{
+		if(currentVerbosity > VERBOSITY_MINIMAL)
+		{
+			printf("%s is an asm function\n", function->name);
+		}
+		fprintf(outFile, "%s:\n", function->name);
+
+		if(function->BasicBlockList->size != 1)
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Asm function with %d basic blocks seen - expected 1!\n", function->BasicBlockList->size);
+		}
+
+		struct BasicBlock *asmBlock = function->BasicBlockList->head->data;
+
+		for(struct LinkedListNode *asmBlockRunner = asmBlock->TACList->head; asmBlockRunner != NULL; asmBlockRunner = asmBlockRunner->next)
+		{
+			struct TACLine *asmTAC = asmBlockRunner->data;
+			if(asmTAC->operation != tt_asm)
+			{
+				ErrorWithAST(ERROR_INTERNAL, asmTAC->correspondingTree, "Non-asm TAC type seen in asm function!\n");
+			}
+			fprintf(outFile, "\t%s\n", asmTAC->operands[0].name.str);
+		}
+		fprintf(outFile, "\tret %d\n", function->argStackSize);
+		
+		// early return, nothing else to do
+		return;
+	}
+
 	struct CodegenMetadata metadata;
 	memset(&metadata, 0, sizeof(struct CodegenMetadata));
 	metadata.function = function;
@@ -170,7 +232,6 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		}
 	}
 
-
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
 		printf("Arguments placed into registers\n");
@@ -199,7 +260,6 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		}
 	}
 
-
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
 		printf("Generating code  for basic blocks\n");
@@ -210,7 +270,6 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		struct BasicBlock *block = blockRunner->data;
 		generateCodeForBasicBlock_0(outFile, block, function->mainScope, metadata.allLifetimes, function->name, metadata.reservedRegisters);
 	}
-
 
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
@@ -242,7 +301,7 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	}
 
 	// function setup and teardown code generated
-	
+
 	LinkedList_Free(metadata.allLifetimes, free);
 
 	for (int i = 0; i <= metadata.largestTacIndex; i++)
@@ -259,7 +318,11 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 								 char *functionName,
 								 int reservedRegisters[3])
 {
-	fprintf(outFile, "%s_%d:\n", functionName, block->labelNum);
+	// we may pass null if we are generating the code to initialize global variables
+	if (functionName != NULL)
+	{
+		fprintf(outFile, "%s_%d:\n", functionName, block->labelNum);
+	}
 
 	for (struct LinkedListNode *TACRunner = block->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
 	{

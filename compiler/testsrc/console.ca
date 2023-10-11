@@ -1,0 +1,84 @@
+#include "console.h"
+
+uint32 cursX = 0;
+uint32 cursY = 0;
+
+/*
+fun scrollScreen(->void)
+{
+    uint8 scrolledY = 1;
+    while(scrolledY < 24)
+    {
+        uint8 *upperRow = screenMem + (80 * (scrolledY - 1));
+        uint8 *lowerRow = screenMem + (80 * scrolledY);
+        uint8 x = 0;
+        while(x < 80)
+        {
+            upperRow[x] = lowerRow[x];
+            x += 1;
+        }
+        scrolledY += 1;
+    }
+}*/
+
+fun cheat(uint32 val->void) asm
+{
+    mov %rr, (%bp+8)
+    out 1, %rr
+}
+
+fun cheatp(uint32 *val->void) asm
+{
+    mov %rr, (%bp+8)
+    out 1, %rr
+}
+
+fun setupConsole(->void)
+{
+    cursX = 0;
+    cursY = 0;
+}
+
+fun regDup(->void) asm
+{
+    mov %r8, %r0
+    mov %r9, %r1
+    mov %r10, %r2
+    mov %r11, %r3
+    mov %r12, %r4
+}
+
+fun printArrayOffset(uint8 *arr, uint16 offset->void) asm
+{
+    push %r1
+    push %r0
+    mov %r0, (%bp+8)
+    movh %r1, (%bp+12)
+    lea %r0, (%r0+%r1,0)
+    push %r0
+    call cheat
+    pop %r0
+    pop %r1
+}
+
+fun print(uint8 c->void)
+{
+    uint8 *screenMem = 1280;
+    uint16 netOffset = 0;
+    if(c == 10)
+    {
+        cursY += 1;
+        cursX = 0;
+    }
+    else
+    {
+        netOffset = cursY * 80;
+        netOffset += cursX;
+        cheat(netOffset);
+        printArrayOffset(screenMem, netOffset);
+        regDup();
+        screenMem[netOffset] = c;
+        cursX += 1;
+    }
+    //regDup();
+}

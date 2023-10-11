@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
     atexit(cleanupncurses);
 
     consoleWin = newwin(LINES - 1, COLS - 40, 0, 0);
-    curs_set(0);
+    // curs_set(0);
     nodelay(consoleWin, true);  // give us keypresses as soon as possible
     keypad(consoleWin, TRUE);   // interpret special keys (arrow keys and such)
     scrollok(consoleWin, TRUE); // we want to scroll the console
@@ -141,10 +141,10 @@ int main(int argc, char *argv[])
     while (hardware.Running())
     {
         ch = wgetch(consoleWin);
+        ui.mvwprintw_threadsafe(infoWin, 0, 45, "%4d:%3c (%4d:%3c)", ch, ch, hardware.memory->MappedKeyboard()->keyPressed);
 
         if (0 < ch)
         {
-            ui.mvwprintw_threadsafe(infoWin, 0, 45, "%4d:%3c (%4d:%3c)", ch, ch, hardware.memory->MappedKeyboard()->keyPressed);
             switch (ch)
             {
             case KEY_UP:
@@ -196,8 +196,12 @@ int main(int argc, char *argv[])
                 printStatus();
                 break;
 
-            case KEY_RIGHT:
             case KEY_LEFT:
+                hardware.Tick();
+                printStatus();
+                break;
+
+            case KEY_RIGHT:
                 keymod = !keymod;
                 printStatus();
                 break;
@@ -251,17 +255,29 @@ int main(int argc, char *argv[])
             // hardware.Interrupt(0);
         }
 
-        char scrBuf[(81 * 24) + 1];
-        uint16_t destA = 0;
         struct ScreenMem *s = hardware.memory->MappedScreen();
         for (uint8_t srcRow = 0; srcRow < 24; srcRow++)
         {
-            memcpy(scrBuf + destA, s->rows[srcRow], 80);
-            destA += 80;
-            scrBuf[destA++] = '\n';
+            ui.mvwprintw_threadsafe(consoleWin, srcRow, 0, "");
+            for (uint8_t srcCol = 0; srcCol < 80; srcCol++)
+            {
+                char printedChar = s->rows[srcRow].chars[srcCol];
+
+                switch (printedChar)
+                {
+                case '\r':
+                case '\n':
+                case '\t':
+                    ui.wprintw_threadsafe(infoWin, "ILLEGAL CHAR IN SCREEN MEMORY: %d", printedChar);
+                    break;
+
+                default:
+                    ui.wprintw_threadsafe(consoleWin, "%c", printedChar);
+                    break;
+                }
+            }
         }
-        scrBuf[destA] = '\0';
-        ui.mvwprintw_threadsafe(consoleWin, 0, 0, "%s", scrBuf);
+        ui.mvwprintw_threadsafe(infoWin, 0, 60, "%lu", intervalStart.time_since_epoch() / 100000000);
 
         ui.Refresh();
 

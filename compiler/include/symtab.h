@@ -46,6 +46,7 @@ struct FunctionEntry
 	char *name;				 // duplicate pointer from ScopeMember for ease of use
 	struct LinkedList *BasicBlockList;
 	char isDefined;
+	char isAsmFun;
 };
 
 struct VariableEntry
