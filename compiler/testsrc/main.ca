@@ -1,65 +1,12 @@
 #include "console.h"
 
-uint8 inBuf[128];
-uint8 bufIndex = 0;
-uint8 *MEMMAP_SCREEN = 1280;
-
-asm{
-	#d8 "READKEY HERE"
-};
-
-fun READKEY(->void)
-{
-	uint8 *memmap_keyboard = 3200;
-	uint8 key = *memmap_keyboard;
-	inBuf[0] = key;
-	//inBuf[bufIndex] = key;
-	//bufIndex += 1;
-	*memmap_keyboard = 0;
-	asm
-	{
-		reti
-	};
-}
-
-fun installISR(->void) asm
-{
-	push %r1
-	push %r0
-	mov %r0, $256 ; load the address of the IDT
-	mov %r1, READKEY
-	mov (%r0), %r1
-	pop %r0
-	pop %r1
-}
-
 fun main(->void)
 {
-	installISR();
+	uint8 *buf;
 	setupConsole();
 
 	uint8 j = 1;
 	while(j == 1)
 	{
-		if(inBuf[0] != 0)
-		{
-			print(inBuf[0]);
-			inBuf[0] = 0;
-		}
-	}
-
-	uint8 i = 0;
-	while(j == 1)
-	{
-		if(inBuf[bufIndex - 1] == 10)
-		{
-			i = 0;
-			while(i < bufIndex)
-			{
-				print(inBuf[i]);
-				i += 1;
-			}
-			bufIndex = 0;
-		}
 	}
 }

@@ -8,41 +8,34 @@ struct IDT
     uint32_t vectors[256];
 };
 
-struct ScreenMem
+// uart statuses (from perspective of the vm)
+#define UART_READY 0  // uart is idle
+#define UART_INPUT 1  // char sending to uart
+#define UART_OUTPUT 2 // char waiting from uart
+struct UartMem
 {
-    struct Row
-    {
-        uint8_t chars[80];
-    };
-    struct Row rows[24];
-};
-
-struct KeyboardIn
-{
-    uint8_t keyPressed;
+    uint8_t xr; // transmitted/received byte
+    uint8_t status;
 };
 
 struct MEMMAP_RESERVE
 {
     struct IDT idt;
-    struct ScreenMem screen;
-    struct KeyboardIn keyboard;
+    struct UartMem screen;
 };
 
 enum class MappedRegions
 {
     idt,
-    screen,
-    keyboard,
-    REGION_COUNT = keyboard + 1,
+    uart,
+    REGION_COUNT = uart + 1,
 };
 
 #define MEMMAP_BASE (0x00000100)
-#define MEMMAP_IDT (MEMMAP_BASE) // 0x0 offset
-#define MEMMAP_SCREEN (MEMMAP_IDT + sizeof(struct IDT)) // 0x0 + 0x400 = 0x400 offset
-#define MEMMAP_KEYBOARD (MEMMAP_SCREEN + sizeof(struct ScreenMem)) // 0x400 + 0x780 = 0B80 offset
-#define REGION_COUNT 3
-#define MEMMAP_RESERVED_SIZE (sizeof(struct IDT) + sizeof(struct ScreenMem) + sizeof(struct KeyboardIn));
+#define MEMMAP_IDT (MEMMAP_BASE)                      // 0x0 offset
+#define MEMMAP_UART (MEMMAP_IDT + sizeof(struct IDT)) // 0x0 + 0x400 = 0x400 offset
+#define REGION_COUNT 2
+#define MEMMAP_RESERVED_SIZE (sizeof(struct IDT) + sizeof(struct UartMem));
 
 extern uint32_t mapAddresses[REGION_COUNT];
 

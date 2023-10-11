@@ -1,84 +1,100 @@
 #include "console.h"
 
-uint32 cursX = 0;
-uint32 cursY = 0;
+uint8 *MEMMAP_UART = 1280;
+uint8 consBuf[128];
+uint8 consBufLen = 0;
 
-/*
-fun scrollScreen(->void)
+fun cheat(uint8 char->void) asm
 {
-    uint8 scrolledY = 1;
-    while(scrolledY < 24)
-    {
-        uint8 *upperRow = screenMem + (80 * (scrolledY - 1));
-        uint8 *lowerRow = screenMem + (80 * scrolledY);
-        uint8 x = 0;
-        while(x < 80)
-        {
-            upperRow[x] = lowerRow[x];
-            x += 1;
-        }
-        scrolledY += 1;
-    }
-}*/
-
-fun cheat(uint32 val->void) asm
-{
-    mov %rr, (%bp+8)
-    out 1, %rr
-}
-
-fun cheatp(uint32 *val->void) asm
-{
-    mov %rr, (%bp+8)
-    out 1, %rr
-}
-
-fun setupConsole(->void)
-{
-    cursX = 0;
-    cursY = 0;
-}
-
-fun regDup(->void) asm
-{
-    mov %r8, %r0
-    mov %r9, %r1
-    mov %r10, %r2
-    mov %r11, %r3
-    mov %r12, %r4
-}
-
-fun printArrayOffset(uint8 *arr, uint16 offset->void) asm
-{
-    push %r1
     push %r0
-    mov %r0, (%bp+8)
-    movh %r1, (%bp+12)
-    lea %r0, (%r0+%r1,0)
-    push %r0
-    call cheat
+    movb %r0, (%bp+8)
+    out $0, %r0
     pop %r0
-    pop %r1
 }
 
-fun print(uint8 c->void)
+fun numCheat(uint32 num->void) asm
 {
-    uint8 *screenMem = 1280;
-    uint16 netOffset = 0;
-    if(c == 10)
+    push %r0
+    movb %r0, $82
+    out $0, %r0
+    movb %r0, $69
+    out $0, %r0
+    mov %r0, (%bp+8)
+    out $1, %r0
+    pop %r0
+}
+
+fun write(uint8 char->void) asm
+{
+    push %r0
+    push %r1
+    push %r2
+    mov %r1, $1281 ; status register of uart
+    jmp write_skippy
+    write_spinloop:
+        movb %r0, (%r1)
+        out $0, %r0
+        cmpi %r0, $0
+        jne write_spinloop
+    write_skippy:
+        movb %r0, $2
+        movb (%r1), %r0
+        movb %r0, (%bp+8)
+        mov %r1, $1280 ; xr register of uart
+        movb (%r1), %r0
+    pop %r2
+    pop %r1
+    pop %r0
+    
+}
+
+fun handleLine(->void)
+{
+    uint8 i = 0;
+    while(i < consBufLen)
     {
-        cursY += 1;
-        cursX = 0;
+        write(consBuf[i]);
+        i = i + 1;
     }
-    else
+    consBufLen = 0;
+}
+
+fun charISR(->void)
+{
+    uint8 char = MEMMAP_UART[0];
+    write(char); // echo back the character
+
+    // handle backspace
+    if(char == 8)
     {
-        netOffset = cursY * 80;
-        netOffset += cursX;
-        cheat(netOffset);
-        printArrayOffset(screenMem, netOffset);
-        regDup();
-        screenMem[netOffset] = c;
-        cursX += 1;
+        consBufLen -= 1;
+        return;
     }
-    //regDup();
+
+    consBuf[consBufLen] = char;
+    consBufLen += 1;
+    MEMMAP_UART[1] = 0;
+
+    // handle enter
+    if(char == 10)
+    {
+        handleLine();
+    }
+}
+
+fun uartISR(->void) asm
+{
+    call charISR
+    reti   
+}
+
+fun setupConsole(->void) asm
+{
+	push %r1
+	push %r0
+	mov %r0, $256 ; load the address of the IDT
+	mov %r1, uartISR
+	mov (%r0), %r1
+	pop %r0
+	pop %r1
 }

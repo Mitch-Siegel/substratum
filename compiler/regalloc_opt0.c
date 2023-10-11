@@ -128,7 +128,6 @@ void assignRegisters(struct CodegenMetadata *metadata)
     {
         registers[i] = 0;
         occupiedBy[i] = NULL;
-        metadata->touchedRegisters[i] = 0;
     }
 
     for (int i = 0; i <= metadata->largestTacIndex; i++)

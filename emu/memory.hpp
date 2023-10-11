@@ -73,15 +73,11 @@ public:
         return reinterpret_cast<struct IDT *>(&this->physicalMemory[MEMMAP_IDT]);
     };
 
-    struct ScreenMem *MappedScreen()
+    struct UartMem *MappedUart()
     {
-        return reinterpret_cast<struct ScreenMem *>(&this->physicalMemory[MEMMAP_SCREEN]);
+        return reinterpret_cast<struct UartMem *>(&this->physicalMemory[MEMMAP_UART]);
     };
 
-    struct KeyboardIn *MappedKeyboard()
-    {
-        return reinterpret_cast<struct KeyboardIn *>(&this->physicalMemory[MEMMAP_KEYBOARD]);
-    };
 
 private:
     uint8_t *physicalMemory;
