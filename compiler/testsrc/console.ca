@@ -57,9 +57,21 @@ fun handleLine(->void)
     consBufLen = 0;
 }
 
+fun readUartChar(->uint8) asm
+{
+    push %r0
+    push %r1
+    movh %r0, $1281
+    movb %rr, (%r0)
+    movb %r1, $0
+    movb (%r0), %r1
+    pop %r1
+    pop %r0
+}
+
 fun charISR(->void)
 {
-    uint8 char = MEMMAP_UART[1];
+    uint8 char = readUartChar();
     write(char); // echo back the character
 
     // handle backspace

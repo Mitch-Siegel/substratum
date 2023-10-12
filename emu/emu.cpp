@@ -55,9 +55,10 @@ void *HardwareThread(void *params)
     std::chrono::steady_clock::time_point lastStatusPrint = intervalStart;
     while (hardware.Running())
     {
-        if (((!noTick) &&
+        if ((((!noTick) &&
              (tickRate || flatout)) ||
             hardware.GetCore(0).Interrupted())
+        )
         {
             hardware.Tick();
             if (!flatout && !(hardware.GetCore(0).Interrupted()))
@@ -138,7 +139,7 @@ int main(int argc, char *argv[])
 
     initscr();
     // nodelay(stdscr, true); // give us keypresses as soon as possible
-    keypad(stdscr, TRUE);   // interpret special keys (arrow keys and such)
+    keypad(stdscr, TRUE); // interpret special keys (arrow keys and such)
     atexit(cleanupncurses);
 
     keypad(stdscr, TRUE); // interpret special keys (arrow keys and such)
@@ -281,11 +282,20 @@ int main(int argc, char *argv[])
                     while (hardware.GetCore(0).Interrupted())
                     {
                     }
-                    if((ch == KEY_ENTER) || (ch == '\n'))
+
+                    while (uart->rcv != 0)
+                    {
+                        hardware.GetCore(0).Interrupt(0);
+                        while (hardware.GetCore(0).Interrupted())
+                        {
+                        }
+                    }
+
+                    if ((ch == KEY_ENTER) || (ch == '\n'))
                     {
                         uart->rcv = 10;
                     }
-                    else if(ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127)
+                    else if (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127)
                     {
                         uart->rcv = 8;
                     }

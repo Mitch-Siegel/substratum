@@ -109,12 +109,8 @@ Fault SystemMemory::WriteByte(uint32_t ptba, uint32_t address, uint32_t value)
     }
 
     // directly intercept uart memory status changes
-    if (pa == MEMMAP_UART + 1)
-    {
-        // prevent *ever* writing to the physical address of the uart's xmit register
-        // that register should only every contain bytes coming *to* us as the vm
-        return Fault::RO_WRITE;
-    }
+    // if the UART is writing "to us", print it out to the screen
+    // otherwise it is clearing its receive register indicating it's ready to receive again
     else if(pa == (MEMMAP_UART))
     {
         if(value != 8)

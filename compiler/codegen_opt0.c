@@ -113,7 +113,7 @@ void generateCodeForProgram_0(struct SymbolTable *table, FILE *outFile, int regA
 			struct VariableEntry *v = thisMember->entry;
 			fprintf(outFile, "~export variable %s\n", thisMember->name);
 			char *typeName = Type_GetName(&v->type);
-			fprintf(outFile, "%s %s\n", typeName, v->name);
+			fprintf(outFile, "%s\n", typeName);
 			free(typeName);
 			if (v->type.initializeTo != NULL)
 			{
