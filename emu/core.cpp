@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <ncurses.h>
+#include <cstring> // memcpy
 
 #include "hardware.hpp"
 #include "names.hpp"
@@ -1064,10 +1065,7 @@ void Core::InterruptReturn()
     ui.wprintw_threadsafe(insViewWin, "W: RETI\n");
     // the only way to get here is from the RETI instruction
 
-    // restore our context (jumping out of the ISR) and make ourselves interruptible again
-    memcpy(&this->registers, &this->interruptContext.registers, 16 * sizeof(uint32_t));
-    memcpy(&this->configRegisters, &this->interruptContext.configRegisters, 16 * sizeof(uint32_t));
-    memcpy(&this->Flags, &this->interruptContext.flags, 4 * sizeof(uint8_t));
+    // restore /home/mitch/.cargo/binFlags, &this->interruptContext.flags, 4 * sizeof(uint8_t));
 
     pthread_mutex_unlock(&this->interruptLock);
     ui.wprintw_threadsafe(insViewWin, "P: RETI\n");
