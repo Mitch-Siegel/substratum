@@ -1,7 +1,8 @@
 #include <cstdint>
 #include <string>
 #include <type_traits>
-#include <sys/semaphore.h>
+#include <semaphore.h>
+#include <cassert>
 
 #include "memory.hpp"
 #include "faults.hpp"

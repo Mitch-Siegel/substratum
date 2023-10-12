@@ -65,6 +65,7 @@ void generateCodeForProgram_0(struct SymbolTable *table, FILE *outFile, int regA
 				int reserved[3] = {0, 1, 2};
 
 				generateCodeForBasicBlock_0(outFile, thisBlock, table->globalScope, globalLifetimes, NULL, reserved);
+				LinkedList_Free(globalLifetimes, free);
 				fprintf(outFile, "~end export section userstart\n");
 			}
 			else if (thisBlock->labelNum == 1)

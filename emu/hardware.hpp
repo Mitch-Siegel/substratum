@@ -1,8 +1,12 @@
 
 #ifndef _SYSTEM_HPP_
 #define _SYSTEM_HPP_
+#include <memory>
+
 #include "memory.hpp"
 #include "core.hpp"
+
+
 
 #define CORE_COUNT 1
 #define MEMORY_SIZE 0x4000
