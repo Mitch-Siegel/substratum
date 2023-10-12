@@ -119,11 +119,11 @@ void Core::ArithmeticOp(uint8_t RD, uint32_t S1, uint32_t S2, uint8_t opCode)
     {
     case 0x1: // ADD
         result = S1 + S2;
-        Flags[CF] = (result < S1);
+        this->flags[CF] = (result < S1);
         break;
     case 0x3: // SUB
         result = S1 + invertedS2 + 1;
-        Flags[CF] = !(result > S1);
+        this->flags[CF] = !(result > S1);
         break;
     case 0x5: // MUL
         result = S1 * S2;
@@ -149,33 +149,33 @@ void Core::ArithmeticOp(uint8_t RD, uint32_t S1, uint32_t S2, uint8_t opCode)
     case 0x13: // CMP
         // uint16_t result = this->registers[RD] - value;
         result = S1 + invertedS2 + 1;
-        Flags[CF] = !(result > S1);
+        this->flags[CF] = !(result > S1);
         break;
     }
 
-    Flags[ZF] = ((result & 0xffffffff) == 0);
-    Flags[NF] = ((result >> 31) & 1);
-    // Flags[CF] = ((result >> 32) > 0);
+    this->flags[ZF] = ((result & 0xffffffff) == 0);
+    this->flags[NF] = ((result >> 31) & 1);
+    // this->flags[CF] = ((result >> 32) > 0);
 
     // this seems wrong... is it?
-    Flags[VF] = ((this->registers[RD] >> 31) ^ ((result >> 31) & 1)) && !(1 ^ (this->registers[RD] >> 31) ^ (S2 >> 31));
+    this->flags[VF] = ((this->registers[RD] >> 31) ^ ((result >> 31) & 1)) && !(1 ^ (this->registers[RD] >> 31) ^ (S2 >> 31));
 
-    // printf("NF: %d ZF: %d CF: %d VF: %d \n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+    // printf("NF: %d ZF: %d CF: %d VF: %d \n", this->flags[NF], this->flags[ZF], this->flags[CF], this->flags[VF]);
     // if the two inputs have MSB set
     /*if (this->registers[RD] >> 15 && value >> 15)
     {
         // opposite of whether result has sign flag
-        Flags[VF] = !((result >> 15) > 0);
+        this->flags[VF] = !((result >> 15) > 0);
     }
     else
     {
         if (!(this->registers[RD] >> 15) && !(value >> 15))
         {
-            Flags[VF] = (result >> 15) > 0;
+            this->flags[VF] = (result >> 15) > 0;
         }
         else
         {
-            Flags[VF] = 0;
+            this->flags[VF] = 0;
         }
     }*/
 
@@ -515,7 +515,7 @@ Fault Core::ExecuteInstruction()
 #ifdef PRINTEXECUTION
         ui.wprintw_threadsafe(insViewWin, "\n");
 #endif
-        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", this->flags[NF], this->flags[ZF], this->flags[CF], this->flags[VF]);
         this->JmpOp(instruction.word & 0x00ffffff);
     }
     break;
@@ -523,9 +523,9 @@ Fault Core::ExecuteInstruction()
     // JE/JZ
     case 0x13:
     {
-        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", this->flags[NF], this->flags[ZF], this->flags[CF], this->flags[VF]);
 
-        if (Flags[ZF])
+        if (this->flags[ZF])
         {
 #ifdef PRINTEXECUTION
             ui.wprintw_threadsafe(insViewWin, "TAKEN\n");
@@ -544,9 +544,9 @@ Fault Core::ExecuteInstruction()
     // JNE/JNZ
     case 0x15:
     {
-        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", this->flags[NF], this->flags[ZF], this->flags[CF], this->flags[VF]);
 
-        if (!Flags[ZF])
+        if (!this->flags[ZF])
         {
 #ifdef PRINTEXECUTION
             ui.wprintw_threadsafe(insViewWin, "TAKEN\n");
@@ -565,9 +565,9 @@ Fault Core::ExecuteInstruction()
     // JG
     case 0x17:
     {
-        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", this->flags[NF], this->flags[ZF], this->flags[CF], this->flags[VF]);
 
-        if ((!Flags[ZF]) && Flags[CF])
+        if ((!this->flags[ZF]) && this->flags[CF])
         {
 #ifdef PRINTEXECUTION
             ui.wprintw_threadsafe(insViewWin, "TAKEN\n");
@@ -586,9 +586,9 @@ Fault Core::ExecuteInstruction()
     // JL
     case 0x19:
     {
-        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", this->flags[NF], this->flags[ZF], this->flags[CF], this->flags[VF]);
 
-        if (!Flags[CF])
+        if (!this->flags[CF])
         {
 #ifdef PRINTEXECUTION
             ui.wprintw_threadsafe(insViewWin, "TAKEN\n");
@@ -607,9 +607,9 @@ Fault Core::ExecuteInstruction()
     // JGE
     case 0x1b:
     {
-        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", this->flags[NF], this->flags[ZF], this->flags[CF], this->flags[VF]);
 
-        if (Flags[CF])
+        if (this->flags[CF])
         {
 #ifdef PRINTEXECUTION
             ui.wprintw_threadsafe(insViewWin, "TAKEN\n");
@@ -628,9 +628,9 @@ Fault Core::ExecuteInstruction()
     // JLE
     case 0x1d:
     {
-        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", Flags[NF], Flags[ZF], Flags[CF], Flags[VF]);
+        // ui.wprintw_threadsafe(insViewWin, "NF: %d ZF: %d CF: %d VF: %d\n\n", this->flags[NF], this->flags[ZF], this->flags[CF], this->flags[VF]);
 
-        if (Flags[ZF] || (!Flags[CF]))
+        if (this->flags[ZF] || (!this->flags[CF]))
         {
 #ifdef PRINTEXECUTION
             ui.wprintw_threadsafe(insViewWin, "TAKEN\n");
@@ -1045,7 +1045,7 @@ void Core::Interrupt(uint8_t index)
     // save our context
     memcpy(&this->interruptContext.registers, &this->registers, 16 * sizeof(uint32_t));
     memcpy(&this->interruptContext.configRegisters, &this->configRegisters, 16 * sizeof(uint32_t));
-    memcpy(&this->interruptContext.flags, &this->Flags, 4 * sizeof(uint8_t));
+    memcpy(&this->interruptContext.flags, &this->flags, 4 * sizeof(uint8_t));
 
 #ifdef PRINTEXECUTION
         ui.wprintw_threadsafe(insViewWin, " ->%08x\n", __builtin_bswap32(hardware.memory->MappedIDT()->vectors[index]));
@@ -1065,7 +1065,10 @@ void Core::InterruptReturn()
     ui.wprintw_threadsafe(insViewWin, "W: RETI\n");
     // the only way to get here is from the RETI instruction
 
-    // restore /home/mitch/.cargo/binFlags, &this->interruptContext.flags, 4 * sizeof(uint8_t));
+    // restore our context (jumping out of the ISR) and make ourselves interruptible again
+    memcpy(&this->registers, &this->interruptContext.registers, 16 * sizeof(uint32_t));
+    memcpy(&this->configRegisters, &this->interruptContext.configRegisters, 16 * sizeof(uint32_t));
+    memcpy(&this->flags, &this->interruptContext.flags, 4 * sizeof(uint8_t));
 
     pthread_mutex_unlock(&this->interruptLock);
     ui.wprintw_threadsafe(insViewWin, "P: RETI\n");
