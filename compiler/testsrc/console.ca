@@ -29,19 +29,17 @@ fun write(uint8 char->void) asm
     push %r0
     push %r1
     push %r2
-    mov %r1, $1281 ; status register of uart
-    jmp write_skippy
-    write_spinloop:
+    mov %r1, $1280 ; status register of uart
+    pre_write_wait:
         movb %r0, (%r1)
-        out $0, %r0
         cmpi %r0, $0
-        jne write_spinloop
-    write_skippy:
-        movb %r0, $2
-        movb (%r1), %r0
+        jne pre_write_wait
         movb %r0, (%bp+8)
-        mov %r1, $1280 ; xr register of uart
         movb (%r1), %r0
+    post_write_wait:
+        movb %r0, (%r1)
+        cmpi %r0, $0
+        jne post_write_wait
     pop %r2
     pop %r1
     pop %r0
@@ -61,7 +59,7 @@ fun handleLine(->void)
 
 fun charISR(->void)
 {
-    uint8 char = MEMMAP_UART[0];
+    uint8 char = MEMMAP_UART[1];
     write(char); // echo back the character
 
     // handle backspace
@@ -73,12 +71,12 @@ fun charISR(->void)
 
     consBuf[consBufLen] = char;
     consBufLen += 1;
-    MEMMAP_UART[1] = 0;
 
     // handle enter
     if(char == 10)
     {
         handleLine();
+        consBufLen = 0;
     }
 }
 

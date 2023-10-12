@@ -75,6 +75,10 @@ void System::Tick()
                 ui.wprintw_threadsafe(consoleWin, "The physical address decoded from the page table exceeds the physical address space!\n");
                 break;
 
+            case Fault::RO_WRITE:
+                ui.wprintw_threadsafe(consoleWin, "Attempt to write a physical address that is read-only!\n");
+                break;
+
             case Fault::ILLEGAL_CSR_WRITE:
                 ui.wprintw_threadsafe(consoleWin, "Illegal csr write!\n");
                 break;

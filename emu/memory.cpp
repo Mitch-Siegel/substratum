@@ -109,14 +109,14 @@ Fault SystemMemory::WriteByte(uint32_t ptba, uint32_t address, uint32_t value)
     }
 
     // directly intercept uart memory status changes
-    if (pa == MEMMAP_UART)
+    if (pa == MEMMAP_UART + 1)
     {
-        if(this->physicalMemory[MEMMAP_UART + 1] != UART_OUTPUT)
-        {
-            return Fault::ILLEGAL_CSR_WRITE;
-        }
-
-        this->physicalMemory[MEMMAP_UART] = value;
+        // prevent *ever* writing to the physical address of the uart's xmit register
+        // that register should only every contain bytes coming *to* us as the vm
+        return Fault::RO_WRITE;
+    }
+    else if(pa == (MEMMAP_UART))
+    {
         if(value != 8)
         {
             ui.wprintw_threadsafe(consoleWin, "%c", value);
@@ -130,7 +130,6 @@ Fault SystemMemory::WriteByte(uint32_t ptba, uint32_t address, uint32_t value)
             ui.mvwprintw_threadsafe(consoleWin, y, x - 1, "");
         }
         this->physicalMemory[MEMMAP_UART + 1] = 0x00;
-        this->physicalMemory[MEMMAP_UART] = 0x00;
     }
     else
     {

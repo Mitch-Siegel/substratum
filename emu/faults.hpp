@@ -18,6 +18,8 @@ enum class Fault
     INVALID_PAGE,
     // the physical address decoded from the page table exceeds the physical memory size of the system
     PTD_INVALID,
+    // attempted to write a physical address marked as read-only
+    RO_WRITE,
     // attempt to write a CSR without permission
     ILLEGAL_CSR_WRITE,
     // attempt to read a CSR without permission

@@ -8,14 +8,10 @@ struct IDT
     uint32_t vectors[256];
 };
 
-// uart statuses (from perspective of the vm)
-#define UART_READY 0  // uart is idle
-#define UART_INPUT 1  // char sending to uart
-#define UART_OUTPUT 2 // char waiting from uart
 struct UartMem
 {
-    uint8_t xr; // transmitted/received byte
-    uint8_t status;
+    uint8_t xmit; // outbound byte (from vm's perspective)
+    uint8_t rcv;  // inbound byte  (from vm's perspective)
 };
 
 struct MEMMAP_RESERVE

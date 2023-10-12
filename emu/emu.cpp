@@ -283,20 +283,18 @@ int main(int argc, char *argv[])
                     }
                     if((ch == KEY_ENTER) || (ch == '\n'))
                     {
-                        uart->xr = 10;
+                        uart->rcv = 10;
                     }
                     else if(ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127)
                     {
-                        uart->xr = 8;
+                        uart->rcv = 8;
                     }
                     else
                     {
-                        uart->xr = ch & 0xff;
+                        uart->rcv = ch & 0xff;
                     }
-                    uart->status = UART_INPUT;
                     hardware.Interrupt(0);
                     ch = 0;
-
                     noTick = false;
                 }
                 break;

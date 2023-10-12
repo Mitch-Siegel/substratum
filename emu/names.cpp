@@ -1,6 +1,5 @@
 #include "names.hpp"
 
-#include <cstdint>
 std::map<uint8_t, std::string> opcodeNames =
     {
         {0x01, "NOP"},
