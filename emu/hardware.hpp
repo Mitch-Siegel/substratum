@@ -38,6 +38,7 @@ public:
     void Output(uint8_t port, uint32_t val);
 
     Core &GetCore(uint8_t index) { return *(cores[index]); };
+
 };
 
 extern System hardware;

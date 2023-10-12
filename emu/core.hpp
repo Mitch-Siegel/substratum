@@ -3,6 +3,7 @@
 #include <type_traits>
 #include <semaphore.h>
 #include <cassert>
+#include <array>
 
 #include "memory.hpp"
 #include "faults.hpp"
@@ -109,8 +110,8 @@ public:
 
     bool Interrupted();
 
-    const uint32_t *const Registers() const { return this->registers.data; };
-    const uint32_t *const ConfigRegisters() const { return this->configRegisters.data; };
+    const std::array<uint32_t, 16> & Registers() const { return this->registers.data; };
+    const std::array<uint32_t, 16> & ConfigRegisters() const { return this->configRegisters.data; };
 
 private:
     class
@@ -127,7 +128,7 @@ private:
             return this->data[index];
         };
 
-        uint32_t data[16] = {0};
+        std::array<uint32_t, 16> data;
     } registers;
 
     class
@@ -138,17 +139,17 @@ private:
             return this->data[static_cast<std::underlying_type_t<enum ConfigRegisters>>(index)];
         };
 
-        uint32_t data[16] = {0};
+        std::array<uint32_t, 16> data;
     } configRegisters;
 
-    uint8_t Flags[4] = {0};
+    std::array<uint8_t, 4> flags;
     uint64_t instructionCount = 0;
 
     struct
     {
-        uint32_t registers[16];
-        uint32_t configRegisters[16];
-        uint8_t flags[4];
+        std::array<uint32_t, 16> registers;
+        std::array<uint32_t, 16> configRegisters;
+        std::array<uint8_t, 4> flags;
     } interruptContext;
     pthread_mutex_t interruptLock;
 

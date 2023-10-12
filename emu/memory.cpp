@@ -47,7 +47,7 @@ Fault SystemMemory::WalkPageTable(uint32_t ptba, uint32_t va, uint32_t &paTo)
 
     if (ptba == 0)
     {
-        if(va >= this->physicalMemorySize)
+        if (va >= this->physicalMemorySize)
         {
             return Fault::PTB_PHYS;
         }
@@ -108,7 +108,33 @@ Fault SystemMemory::WriteByte(uint32_t ptba, uint32_t address, uint32_t value)
         return f;
     }
 
-    this->physicalMemory[pa] = value & 0xff;
+    // directly intercept uart memory status changes
+    if (pa == MEMMAP_UART + 1)
+    {
+        // prevent *ever* writing to the physical address of the uart's xmit register
+        // that register should only every contain bytes coming *to* us as the vm
+        return Fault::RO_WRITE;
+    }
+    else if(pa == (MEMMAP_UART))
+    {
+        if(value != 8)
+        {
+            ui.wprintw_threadsafe(consoleWin, "%c", value);
+        }
+        else
+        {
+            int y;
+            int x;
+            getyx(consoleWin, y, x);
+            ui.mvwprintw_threadsafe(consoleWin, y, x - 1, " ");
+            ui.mvwprintw_threadsafe(consoleWin, y, x - 1, "");
+        }
+        this->physicalMemory[MEMMAP_UART + 1] = 0x00;
+    }
+    else
+    {
+        this->physicalMemory[pa] = value & 0xff;
+    }
 
     return Fault::NO_FAULT;
 }

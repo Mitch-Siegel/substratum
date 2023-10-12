@@ -40,7 +40,7 @@ void System::Tick()
         Fault f = this->cores[i]->ExecuteInstruction();
         if (f != Fault::NO_FAULT)
         {
-            ui.wprintw_threadsafe(consoleWin, "EXCEPTION CAUGHT FROM CORE %d: ", i);
+            ui.wprintw_threadsafe(consoleWin, "\nEXCEPTION CAUGHT FROM CORE %d: ", i);
             switch (f)
             {
             case Fault::NO_FAULT:
@@ -73,6 +73,10 @@ void System::Tick()
 
             case Fault::PTD_INVALID:
                 ui.wprintw_threadsafe(consoleWin, "The physical address decoded from the page table exceeds the physical address space!\n");
+                break;
+
+            case Fault::RO_WRITE:
+                ui.wprintw_threadsafe(consoleWin, "Attempt to write a physical address that is read-only!\n");
                 break;
 
             case Fault::ILLEGAL_CSR_WRITE:

@@ -47,6 +47,7 @@ void printStatus()
     }
 }
 
+bool noTick;
 void *HardwareThread(void *params)
 {
     int64_t leftoverMicros = 0;
@@ -54,7 +55,9 @@ void *HardwareThread(void *params)
     std::chrono::steady_clock::time_point lastStatusPrint = intervalStart;
     while (hardware.Running())
     {
-        if (tickRate || flatout || hardware.GetCore(0).Interrupted())
+        if (((!noTick) &&
+             (tickRate || flatout)) ||
+            hardware.GetCore(0).Interrupted())
         {
             hardware.Tick();
             if (!flatout && !(hardware.GetCore(0).Interrupted()))
@@ -92,6 +95,37 @@ void *HardwareThread(void *params)
     return nullptr;
 }
 
+void *UiRefreshThread(void *params)
+{
+
+    int64_t leftoverMicros = 0;
+    std::chrono::steady_clock::time_point intervalStart = std::chrono::steady_clock::now();
+
+    while (hardware.Running())
+    {
+        ui.Refresh();
+
+        std::chrono::steady_clock::time_point intervalEnd = std::chrono::steady_clock::now();
+        int64_t intervalDuration = std::chrono::duration_cast<std::chrono::microseconds>(intervalEnd - intervalStart).count();
+        double tickDuration = (1000000.0f / 60.0f);
+        leftoverMicros += (tickDuration - intervalDuration);
+        ui.mvwprintw_threadsafe(infoWin, 0, 40, "%lu", intervalStart.time_since_epoch() / 100000000);
+
+        if (leftoverMicros > 100)
+        {
+            usleep(leftoverMicros);
+            leftoverMicros = 0;
+        }
+        // else if (leftoverMicros < (1000000.0f / 60.0f))
+        // {
+        // leftoverMicros = 0;
+        // }
+        intervalStart = std::chrono::steady_clock::now();
+    }
+
+    return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 
@@ -103,33 +137,32 @@ int main(int argc, char *argv[])
     hardware.memory->InitializeFromFile(argv[1]);
 
     initscr();
-    nodelay(stdscr, true); // give us keypresses as soon as possible
-    // keypad(stdscr, TRUE);   // interpret special keys (arrow keys and such)
-    noecho(); // don't automatically print back what we type
+    // nodelay(stdscr, true); // give us keypresses as soon as possible
+    keypad(stdscr, TRUE);   // interpret special keys (arrow keys and such)
     atexit(cleanupncurses);
 
+    keypad(stdscr, TRUE); // interpret special keys (arrow keys and such)
+
     consoleWin = newwin(LINES - 1, COLS - 40, 0, 0);
-    // curs_set(0);
-    nodelay(consoleWin, true);  // give us keypresses as soon as possible
+    noecho();
+    // nodelay(consoleWin, true);  // give us keypresses as soon as possible
     keypad(consoleWin, TRUE);   // interpret special keys (arrow keys and such)
     scrollok(consoleWin, TRUE); // we want to scroll the console
     infoWin = newwin(1, COLS, LINES - 1, 0);
 
-    insViewWin = newwin((LINES - 1) - 10, 45,
-                        0, COLS - 45);
-    coreStateWin = newwin(10, 45,
-                          (LINES - 1) - 10, COLS - 45);
+    insViewWin = newwin((LINES - 1) - 10, 45, 0, COLS - 45);
+    coreStateWin = newwin(10, 45, (LINES - 1) - 10, COLS - 45);
     scrollok(insViewWin, TRUE); // we want to scroll the instruction view
 
     hardware.Start();
     pthread_t hwThread;
+    pthread_t uiThread;
     pthread_create(&hwThread, nullptr, HardwareThread, nullptr);
+    pthread_create(&uiThread, nullptr, UiRefreshThread, nullptr);
 
     int ch = 0;
 
     uint32_t instructionCount = 0;
-    int64_t leftoverMicros = 0;
-    std::chrono::steady_clock::time_point intervalStart = std::chrono::steady_clock::now();
 
     wclear(stdscr);
     wrefresh(consoleWin);
@@ -138,10 +171,11 @@ int main(int argc, char *argv[])
     wrefresh(insViewWin);
     refresh();
 
+    struct UartMem *uart = hardware.memory->MappedUart();
+
     while (hardware.Running())
     {
         ch = wgetch(consoleWin);
-        ui.mvwprintw_threadsafe(infoWin, 0, 45, "%4d:%3c (%4d:%3c)", ch, ch, hardware.memory->MappedKeyboard()->keyPressed);
 
         if (0 < ch)
         {
@@ -239,11 +273,29 @@ int main(int argc, char *argv[])
                 }
 
             default:
-                if ((isalnum(ch & 0xff) || (isspace(ch & 0xff))) && (!hardware.GetCore(0).Interrupted()))
+                if ((isalnum(ch & 0xff) || (isspace(ch & 0xff) ||
+                                            ((ch == KEY_ENTER) || (ch == '\n')) ||
+                                            (ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127))))
                 {
-
-                    hardware.memory->MappedKeyboard()->keyPressed = ch & 0xff;
+                    noTick = true;
+                    while (hardware.GetCore(0).Interrupted())
+                    {
+                    }
+                    if((ch == KEY_ENTER) || (ch == '\n'))
+                    {
+                        uart->rcv = 10;
+                    }
+                    else if(ch == KEY_BACKSPACE || ch == KEY_DC || ch == 127)
+                    {
+                        uart->rcv = 8;
+                    }
+                    else
+                    {
+                        uart->rcv = ch & 0xff;
+                    }
                     hardware.Interrupt(0);
+                    ch = 0;
+                    noTick = false;
                 }
                 break;
             }
@@ -254,51 +306,10 @@ int main(int argc, char *argv[])
             // hardware.memory->MappedKeyboard()->keyPressed = 0;
             // hardware.Interrupt(0);
         }
-
-        struct ScreenMem *s = hardware.memory->MappedScreen();
-        for (uint8_t srcRow = 0; srcRow < 24; srcRow++)
-        {
-            ui.mvwprintw_threadsafe(consoleWin, srcRow, 0, "");
-            for (uint8_t srcCol = 0; srcCol < 80; srcCol++)
-            {
-                char printedChar = s->rows[srcRow].chars[srcCol];
-
-                switch (printedChar)
-                {
-                case '\r':
-                case '\n':
-                case '\t':
-                    ui.wprintw_threadsafe(infoWin, "ILLEGAL CHAR IN SCREEN MEMORY: %d", printedChar);
-                    break;
-
-                default:
-                    ui.wprintw_threadsafe(consoleWin, "%c", printedChar);
-                    break;
-                }
-            }
-        }
-        ui.mvwprintw_threadsafe(infoWin, 0, 60, "%lu", intervalStart.time_since_epoch() / 100000000);
-
-        ui.Refresh();
-
-        std::chrono::steady_clock::time_point intervalEnd = std::chrono::steady_clock::now();
-        int64_t intervalDuration = std::chrono::duration_cast<std::chrono::microseconds>(intervalEnd - intervalStart).count();
-        double tickDuration = (1000000.0f / 60.0f);
-        leftoverMicros += (tickDuration - intervalDuration);
-        if (leftoverMicros > 100)
-        {
-            usleep(leftoverMicros);
-            leftoverMicros = 0;
-        }
-        // else if (leftoverMicros < (1000000.0f / 60.0f))
-        // {
-        // leftoverMicros = 0;
-        // }
-        intervalStart = std::chrono::steady_clock::now();
     }
 
     pthread_join(hwThread, nullptr);
-
+    ui.Refresh();
     printw("\nPress any key to exit...\n");
     usleep(1000000);
     refresh();
