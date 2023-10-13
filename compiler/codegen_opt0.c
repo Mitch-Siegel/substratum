@@ -377,84 +377,8 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		}
 		break;
 
-		case tt_memw_1:
-		{
-			int destAddrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
-			const char *storeWidth = SelectWidthForDereference(scope, &thisTAC->operands[0]);
-			fprintf(outFile, "\ts%s (%s), %s\n",
-					storeWidth,
-					registerNames[destAddrReg],
-					registerNames[sourceReg]);
-		}
-		break;
 
-		case tt_memw_2:
-		{
-			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-			char *offReg = PlaceLiteralInRegister(outFile, thisTAC->operands[1].name.val, reservedRegisters[2]);
-
-			const char *storeWidth = SelectWidth(scope, &thisTAC->operands[2]);
-
-			fprintf(outFile, "\taddi %s, %s, %s",
-					registerNames[baseReg],
-					registerNames[baseReg],
-					offReg);
-
-			fprintf(outFile, "\ts%s %s, %s\n",
-					storeWidth,
-					registerNames[baseReg],
-					registerNames[sourceReg]);
-		}
-		break;
-
-		case tt_memw_3:
-		{
-			ErrorAndExit(ERROR_INTERNAL, "tt_memw_3 codegen not implemented\n");
-			int curResIndex = 0;
-			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[curResIndex]);
-			if (baseReg == reservedRegisters[curResIndex])
-			{
-				curResIndex++;
-			}
-			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[curResIndex]);
-			if (offsetReg == reservedRegisters[curResIndex])
-			{
-				curResIndex++;
-			}
-			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[curResIndex]);
-			const char *loadWidth = SelectWidthForDereference(scope, &thisTAC->operands[0]);
-
-			if (thisTAC->operation == tt_memw_3)
-			{
-				fprintf(outFile, "\tl%s (%s+%s,%d), %s\n",
-						loadWidth,
-						registerNames[baseReg],
-						registerNames[offsetReg],
-						ALIGNSIZE(thisTAC->operands[2].name.val),
-						registerNames[sourceReg]);
-			}
-		}
-		break;
-
-		case tt_dereference: // these are redundant... probably makes sense to remove one?
-		case tt_memr_1:
-		{
-			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			const char *loadWidth = SelectWidthForDereference(scope, &thisTAC->operands[1]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
-
-			fprintf(outFile, "\tl%s %s, %s\n",
-					loadWidth,
-					registerNames[destReg],
-					registerNames[addrReg]);
-
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
-		}
-		break;
-
-		case tt_memr_2:
+		case tt_load:
 		{
 			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
@@ -475,64 +399,15 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		}
 		break;
 
-		case tt_memr_3:
+		case tt_store:
 		{
-			ErrorAndExit(ERROR_INTERNAL, "tt_memr_3 codegen not implemented\n");
-
-			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
-			const char *loadWidth = SelectWidthForDereference(scope, &thisTAC->operands[1]);
-			if (thisTAC->operation == tt_memr_3)
-			{
-				fprintf(outFile, "\tl%s %s, (%s+%s,%d)\n",
-						loadWidth,
-						registerNames[destReg],
-						registerNames[addrReg],
-						registerNames[offsetReg],
-						ALIGNSIZE(thisTAC->operands[3].name.val));
-			}
-			else
-			{
-				fprintf(outFile, "\tl%s %s, (%s-%s,%d)\n",
-						loadWidth,
-						registerNames[destReg],
-						registerNames[addrReg],
-						registerNames[offsetReg],
-						ALIGNSIZE(thisTAC->operands[3].name.val));
-			}
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
-		}
-		break;
-
-		case tt_lea_2:
-		{
-			ErrorAndExit(ERROR_INTERNAL, "tt_lea_2 codegen not implemented (can this resolve to an add instruction?)\n");
-
-			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
-			fprintf(outFile, "\tlea %s, (%s+%d)\n",
-					registerNames[destReg],
-					registerNames[addrReg],
-					thisTAC->operands[2].name.val);
-
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
-		}
-		break;
-
-		case tt_lea_3:
-		{
-			ErrorAndExit(ERROR_INTERNAL, "tt_lea_3 codegen not implemented (can this resolve to an add instruction?)\n");
-
-			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
-			fprintf(outFile, "\tlea %s, (%s+%s,%d)\n",
-					registerNames[destReg],
-					registerNames[addrReg],
-					registerNames[offsetReg],
-					ALIGNSIZE(thisTAC->operands[3].name.val));
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
+			int destAddrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			const char *storeWidth = SelectWidthForDereference(scope, &thisTAC->operands[0]);
+			fprintf(outFile, "\ts%s (%s), %s\n",
+					storeWidth,
+					registerNames[destAddrReg],
+					registerNames[sourceReg]);
 		}
 		break;
 

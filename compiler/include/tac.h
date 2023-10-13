@@ -31,16 +31,9 @@ enum TACType
 	tt_subtract,
 	tt_mul,
 	tt_div,
-	tt_dereference,
+	tt_load,
+	tt_store,
 	tt_addrof,
-	tt_memw_1,	 // mov (reg), reg
-	tt_memw_2,	 // mov offset(reg), reg
-	tt_memw_3,	 // mov offset(reg, scale), reg
-	tt_memr_1,	 // same addressing modes as write
-	tt_memr_2,
-	tt_memr_3,
-	tt_lea_2,
-	tt_lea_3,
 	tt_beq,	 // branch equal
 	tt_bne,	 // branch not equal
 	tt_bgeu, // branch greater than or equal unsigned

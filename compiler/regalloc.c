@@ -241,15 +241,8 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			}
 			break;
 
-			case tt_dereference:
-			case tt_memr_1:
-			case tt_memr_2:
-			case tt_memr_3:
-			case tt_memw_1:
-			case tt_memw_2:
-			case tt_memw_3:
-			case tt_lea_2:
-			case tt_lea_3:
+			case tt_load:
+			case tt_store:
 			case tt_addrof:
 			{
 				for (int i = 0; i < 4; i++)

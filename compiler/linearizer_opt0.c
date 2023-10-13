@@ -833,7 +833,7 @@ void walkDotOperatorAssignment(struct AST *tree,
 		ErrorWithAST(ERROR_CODE, member, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", tree->value, getTokenName(tree->type));
 	}
 
-	wipAssignment->operation = tt_memw_2;
+	// wipAssignment->operation = tt_memw_2;
 	switch (class->type)
 	{
 	case t_identifier:
@@ -869,7 +869,7 @@ void walkDotOperatorAssignment(struct AST *tree,
 			 (readType->arraySize == 0)))
 		{
 			// retroatcively convert the read to an LEA so we have the address we're about to write to
-			memberAccess->operation = tt_lea_2;
+			// memberAccess->operation = tt_lea_2;
 			TAC_GetTypeOfOperand(memberAccess, 0)->indirectionLevel++;
 			TAC_GetTypeOfOperand(memberAccess, 1)->indirectionLevel++;
 			TAC_GetTypeOfOperand(wipAssignment, 0)->indirectionLevel++;
@@ -922,7 +922,7 @@ void walkArrowOperatorAssignment(struct AST *tree,
 		ErrorAndExit(ERROR_CODE, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", tree->value, getTokenName(tree->type));
 	}
 
-	wipAssignment->operation = tt_memw_2;
+	// wipAssignment->operation = tt_memw_2;
 	struct ClassEntry *writtenClass = NULL;
 	switch (class->type)
 	{
@@ -955,7 +955,7 @@ void walkArrowOperatorAssignment(struct AST *tree,
 			 (readType->arraySize == 0)))
 		{
 			// retroatcively convert the read to an LEA so we have the address we're about to write to
-			memberAccess->operation = tt_lea_2;
+			// memberAccess->operation = tt_lea_2;
 			TAC_GetTypeOfOperand(memberAccess, 0)->indirectionLevel++;
 			TAC_GetTypeOfOperand(memberAccess, 1)->indirectionLevel++;
 			TAC_GetTypeOfOperand(wipAssignment, 0)->indirectionLevel++;
@@ -1044,7 +1044,7 @@ void walkAssignment_0(struct AST *tree,
 			walkSubExpression_0(writtenPointer, block, scope, TACIndex, tempNum, &assignment->operands[0]);
 			break;
 		}
-		assignment->operation = tt_memw_1;
+		// assignment->operation = tt_memw_1;
 		assignment->operands[1] = assignedValue;
 	}
 	break;
@@ -1061,7 +1061,7 @@ void walkAssignment_0(struct AST *tree,
 			ErrorWithAST(ERROR_CODE, arrayName, "Use of non-pointer variable %s as array!\n", arrayName->value);
 		}
 
-		assignment->operation = tt_memw_3;
+		// assignment->operation = tt_memw_3;
 		populateTACOperandFromVariable(&assignment->operands[0], arrayVariable);
 
 		assignment->operands[2].permutation = vp_literal;
@@ -1417,7 +1417,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 						 getTokenName(member->type));
 		}
 
-		accessLine = newTACLine(*TACIndex, tt_memr_2, tree);
+		// accessLine = newTACLine(*TACIndex, tt_memr_2, tree);
 		// this member access is a write
 
 		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
@@ -1501,14 +1501,14 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 	{
 		struct TACLine *oldAccess = accessLine;
 
-		oldAccess->operation = tt_lea_2;
+		// oldAccess->operation = tt_lea_2;
 		oldAccess->operands[1].castAsType.indirectionLevel++;
 		oldAccess->operands[0].type.indirectionLevel++;
 		copyTACOperandTypeDecayArrays(&oldAccess->operands[0], &oldAccess->operands[1]);
 		oldAccess->operands[0].castAsType.basicType = vt_null;
 		// now create a new access
 
-		accessLine = newTACLine((*TACIndex)++, tt_memr_2, tree);
+		// accessLine = newTACLine((*TACIndex)++, tt_memr_2, tree);
 
 		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 		accessLine->operands[0].permutation = vp_temp;
@@ -1528,7 +1528,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 	{
 		struct TACLine *oldAccess = accessLine;
 
-		accessLine = newTACLine(*TACIndex, tt_memr_2, tree);
+		// accessLine = newTACLine(*TACIndex, tt_memr_2, tree);
 
 		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 		accessLine->operands[0].permutation = vp_temp;
@@ -1547,7 +1547,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
 	if (depth == 0)
 	{
-		accessLine->operation = tt_memr_2;
+		// accessLine->operation = tt_memr_2;
 		*srcDestOperand = accessLine->operands[0];
 	}
 
@@ -1671,7 +1671,7 @@ struct TACOperand *walkArrayRef_0(struct AST *tree,
 		ErrorWithAST(ERROR_INTERNAL, arrayBase, "Wrong AST (%s) as child of arrayref\n", getTokenName(arrayBase->type));
 	}
 
-	struct TACLine *arrayRefTAC = newTACLine((*TACIndex), tt_memr_3, tree);
+	struct TACLine *arrayRefTAC = newTACLine((*TACIndex), tt_load, tree);
 
 	struct VariableEntry *arrayVariable = Scope_lookupVar(scope, arrayBase);
 	populateTACOperandFromVariable(&arrayRefTAC->operands[1], arrayVariable);
@@ -1683,7 +1683,7 @@ struct TACOperand *walkArrayRef_0(struct AST *tree,
 
 	if (arrayIndex->type == t_constant)
 	{
-		arrayRefTAC->operation = tt_memr_2;
+		// arrayRefTAC->operation = tt_memr_2;
 
 		int indexSize = atoi(arrayIndex->value);
 		indexSize *= 1 << alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
@@ -1724,7 +1724,7 @@ struct TACOperand *walkDereference_0(struct AST *tree,
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDereference!\n", getTokenName(tree->type));
 	}
 
-	struct TACLine *dereference = newTACLine(*tempNum, tt_dereference, tree);
+	struct TACLine *dereference = newTACLine(*tempNum, tt_load, tree);
 
 	switch (tree->child->type)
 	{
@@ -1800,7 +1800,7 @@ struct TACOperand *walkAddrOf_0(struct AST *tree,
 
 		if (arrayIndex->type == t_constant)
 		{
-			addrOfLine->operation = tt_lea_2;
+			// addrOfLine->operation = tt_lea_2;
 
 			int indexSize = atoi(arrayIndex->value);
 			indexSize *= 1 << alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
@@ -1812,7 +1812,7 @@ struct TACOperand *walkAddrOf_0(struct AST *tree,
 		// otherwise, the index is either a variable or subexpression
 		else
 		{
-			addrOfLine->operation = tt_lea_3;
+			// addrOfLine->operation = tt_lea_3;
 
 			// set the scale for the array access
 			addrOfLine->operands[3].name.val = alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
@@ -1830,7 +1830,7 @@ struct TACOperand *walkAddrOf_0(struct AST *tree,
 		// walkMemberAccess can do everything we need
 		// the only thing we have to do is ensure we have an LEA at the end instead of a direct read
 		struct TACLine *memberAccessLine = walkMemberAccess(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1], 0);
-		memberAccessLine->operation = tt_lea_2;
+		// memberAccessLine->operation = tt_lea_2;
 		memberAccessLine->operands[0].type.indirectionLevel++;
 		memberAccessLine->operands[1].castAsType.indirectionLevel++;
 		addrOfLine->operands[0].type.indirectionLevel++;
