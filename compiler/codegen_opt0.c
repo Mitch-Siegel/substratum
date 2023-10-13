@@ -544,15 +544,16 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		case tt_bltu:
 		case tt_bgtu:
 		case tt_bleu:
-		case tt_bgtz:
+		case tt_beqz:
+		case tt_bnez:
 		{
 			int operand1register = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int operand2register = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-			fprintf(outFile, "\t%s %s, %s, %s_%d\n", getAsmOp(thisTAC->operation), 
-			registerNames[operand1register],
-			registerNames[operand2register],
-			functionName, 
-			thisTAC->operands[0].name.val);
+			fprintf(outFile, "\t%s %s, %s, %s_%d\n", getAsmOp(thisTAC->operation),
+					registerNames[operand1register],
+					registerNames[operand2register],
+					functionName,
+					thisTAC->operands[0].name.val);
 		}
 		break;
 

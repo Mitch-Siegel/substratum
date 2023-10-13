@@ -272,13 +272,14 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			}
 			break;
 
-			case tt_beq:  // branch equal
-			case tt_bne:  // branch not equal
-			case tt_bgeu: // branch greater than or equal unsigned
-			case tt_bltu: // branch less than unsigned
-			case tt_bgtu: // branch greater than unsigned
-			case tt_bleu: // branch less than or equal unsigned
-			case tt_bgtz: // branch greater than zero
+			case tt_beq:
+			case tt_bne:
+			case tt_bgeu:
+			case tt_bltu:
+			case tt_bgtu:
+			case tt_bleu:
+			case tt_beqz:
+			case tt_bnez:
 			{
 				for (int i = 1; i < 3; i++)
 				{

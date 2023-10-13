@@ -263,25 +263,28 @@ char *getAsmOp(enum TACType t)
 		return "end do";
 
 	case tt_beq:
-		return "beq";
+		return "tt_beq";
 
 	case tt_bne:
-		return "bne";
+		return "tt_bne";
 
 	case tt_bgeu:
-		return "bgeu";
+		return "tt_bgeu";
 
 	case tt_bltu:
-		return "bltu";
+		return "tt_bltu";
 
 	case tt_bgtu:
-		return "bgtu";
+		return "tt_bgtu";
 
 	case tt_bleu:
-		return "bleu";
+		return "tt_bleu";
 
-	case tt_bgtz:
-		return "bgtz";
+	case tt_beqz:
+		return "tt_beqz";
+
+	case tt_bnez:
+		return "tt_bnez";
 
 	case tt_jmp:
 		return "jmp";
@@ -413,7 +416,8 @@ char *sPrintTACLine(struct TACLine *it)
 	case tt_bltu:
 	case tt_bgtu:
 	case tt_bleu:
-	case tt_bgtz:
+	case tt_beqz:
+	case tt_bnez:
 		width += sprintf(tacString, "%s %s, %s, basicblock %d",
 						 getAsmOp(it->operation),
 						 it->operands[1].name.str,

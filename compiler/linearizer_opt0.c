@@ -595,27 +595,27 @@ void walkConditionCheck_0(struct AST *tree,
 		break;
 
 	case t_nEquals:
-		condFalseJump->operation = tt_bne;
+		condFalseJump->operation = tt_beq;
 		break;
 
 	case t_lThan:
-		condFalseJump->operation = tt_bltu;
-		break;
-
-	case t_gThan:
-		condFalseJump->operation = tt_bgtu;
-		break;
-
-	case t_lThanE:
-		condFalseJump->operation = tt_bleu;
-		break;
-
-	case t_gThanE:
 		condFalseJump->operation = tt_bgeu;
 		break;
 
+	case t_gThan:
+		condFalseJump->operation = tt_bleu;
+		break;
+
+	case t_lThanE:
+		condFalseJump->operation = tt_bgtu;
+		break;
+
+	case t_gThanE:
+		condFalseJump->operation = tt_bltu;
+		break;
+
 	case t_not:
-		condFalseJump->operation = tt_bgtz;
+		condFalseJump->operation = tt_beqz;
 		break;
 
 	default:
@@ -624,8 +624,6 @@ void walkConditionCheck_0(struct AST *tree,
 						tree->value);
 		// condFalseJump->operation = tt_jz;
 	}
-
-	struct TACLine *compareOperation = newTACLine(*TACIndex, tt_beq, tree);
 
 	// switch a second time to actually walk the condition
 	switch (tree->type)
@@ -638,18 +636,18 @@ void walkConditionCheck_0(struct AST *tree,
 	case t_gThanE:
 		// standard operators (==, !=, <, >, <=, >=)
 		{
-			walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &compareOperation->operands[1]);
-			walkSubExpression_0(tree->child->sibling, block, scope, TACIndex, tempNum, &compareOperation->operands[2]);
+			walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
+			walkSubExpression_0(tree->child->sibling, block, scope, TACIndex, tempNum, &condFalseJump->operands[2]);
 		}
 		break;
 
 	case t_not:
 		// NOT any condition (!)
 		{
-			walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &compareOperation->operands[1]);
-			compareOperation->operands[2].name.val = 0;
-			compareOperation->operands[2].permutation = vp_literal;
-			TACOperand_SetBasicType(&compareOperation->operands[2], vt_uint32, 0);
+			walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
+			condFalseJump->operands[2].name.val = 0;
+			condFalseJump->operands[2].permutation = vp_literal;
+			TACOperand_SetBasicType(&condFalseJump->operands[2], vt_uint32, 0);
 		}
 		break;
 
@@ -667,9 +665,6 @@ void walkConditionCheck_0(struct AST *tree,
 		}
 		break;
 	}
-	compareOperation->index = (*TACIndex)++;
-	BasicBlock_append(block, compareOperation);
-
 	condFalseJump->index = (*TACIndex)++;
 	BasicBlock_append(block, condFalseJump);
 }

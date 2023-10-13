@@ -47,7 +47,8 @@ enum TACType
 	tt_bltu, // branch less than unsigned
 	tt_bgtu, // branch greater than unsigned
 	tt_bleu, // branch less than or equal unsigned
-	tt_bgtz, // branch greater than zero
+	tt_beqz, // branch equal zero
+	tt_bnez, // branch not equal zero
 	tt_jmp,
 	tt_push,
 	tt_call,
