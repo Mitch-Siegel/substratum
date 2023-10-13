@@ -242,28 +242,28 @@ char *getAsmOp(enum TACType t)
 		return "end do";
 
 	case tt_beq:
-		return "tt_beq";
+		return "beq";
 
 	case tt_bne:
-		return "tt_bne";
+		return "bne";
 
 	case tt_bgeu:
-		return "tt_bgeu";
+		return "bgeu";
 
 	case tt_bltu:
-		return "tt_bltu";
+		return "bltu";
 
 	case tt_bgtu:
-		return "tt_bgtu";
+		return "bgtu";
 
 	case tt_bleu:
-		return "tt_bleu";
+		return "bleu";
 
 	case tt_beqz:
-		return "tt_beqz";
+		return "beqz";
 
 	case tt_bnez:
-		return "tt_bnez";
+		return "bnez";
 
 	case tt_jmp:
 		return "jmp";

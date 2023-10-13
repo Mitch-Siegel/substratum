@@ -225,11 +225,11 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		fprintf(outFile, "\tsubi %%sp, %%sp, $%d\n", localStackSize);
 	}
 
-	for (int i = REGISTERS_TO_ALLOCATE - 1; i >= 0; i--)
+	for (int i = MACHINE_REGISTER_COUNT - 1; i >= 0; i--)
 	{
 		if (metadata.touchedRegisters[i])
 		{
-			fprintf(outFile, "\tpushw %%r%d\n", i);
+			fprintf(outFile, "\tpushw %s\n", registerNames[i]);
 		}
 	}
 
@@ -283,11 +283,11 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 
 	fprintf(outFile, "%s_done:\n", function->name);
 
-	for (int i = 0; i < REGISTERS_TO_ALLOCATE; i++)
+	for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
 	{
 		if (metadata.touchedRegisters[i])
 		{
-			fprintf(outFile, "\tpopw %%r%d\n", i);
+			fprintf(outFile, "\tpopw %s\n", registerNames[i]);
 		}
 	}
 

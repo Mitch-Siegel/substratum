@@ -4,22 +4,38 @@
 char printedLine[MAX_ASM_LINE_SIZE];
 
 char *registerNames[MACHINE_REGISTER_COUNT] = {
-	"%r0",
-	"%r1",
-	"%r2",
-	"%r3",
-	"%r4",
-	"%r5",
-	"%r6",
-	"%r7",
-	"%r8",
-	"%r9",
-	"%r10",
-	"%r11",
-	"%r12",
-	"%rr",
-	"%sp",
-	"%fp",
+	"zero",
+	"ra",
+	"sp",
+	"gp",
+	"tp",
+	"t0",
+	"t1",
+	"t2",
+	"fp",
+	"s1",
+	"a0",
+	"a1",
+	"a2",
+	"a3",
+	"a4",
+	"a5",
+	"a6",
+	"a7",
+	"s2",
+	"s3",
+	"s4",
+	"s5",
+	"s6",
+	"s7",
+	"s8",
+	"s9",
+	"s10",
+	"s11",
+	"t3",
+	"t4",
+	"t5",
+	"t6",
 };
 
 int ALIGNSIZE(unsigned int size)
@@ -91,12 +107,12 @@ void WriteVariable(FILE *outFile,
 		fprintf(outFile, "\t;Write (global) variable %s\n", relevantLifetime->name);
 
 		fprintf(outFile, "\tli %s, %s\n",
-				registerNames[RETURN_REGISTER],
+				registerNames[TEMP_0],
 				relevantLifetime->name);
 
 		fprintf(outFile, "\ts%s (%s), %s\n",
 				width,
-				registerNames[RETURN_REGISTER],
+				registerNames[TEMP_0],
 				registerNames[sourceRegIndex]);
 	}
 	break;
@@ -155,7 +171,6 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		if (registerIndex == -1)
 		{
 			ErrorAndExit(ERROR_INTERNAL, "GOT -1 as register index to place operand in!\n");
-			registerIndex = RETURN_REGISTER;
 		}
 
 		const char *loadWidth = NULL;
@@ -193,7 +208,6 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		if (registerIndex == -1)
 		{
 			ErrorAndExit(ERROR_INTERNAL, "GOT -1 as register index to place operand in!\n");
-			registerIndex = RETURN_REGISTER;
 		}
 
 		const char *usedRegister = registerNames[registerIndex];
