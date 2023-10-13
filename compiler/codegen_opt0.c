@@ -168,32 +168,32 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		printf("Generate code for function %s\n", function->name);
 	}
 
-	if(function->isAsmFun)
+	if (function->isAsmFun)
 	{
-		if(currentVerbosity > VERBOSITY_MINIMAL)
+		if (currentVerbosity > VERBOSITY_MINIMAL)
 		{
 			printf("%s is an asm function\n", function->name);
 		}
 		fprintf(outFile, "%s:\n", function->name);
 
-		if(function->BasicBlockList->size != 1)
+		if (function->BasicBlockList->size != 1)
 		{
 			ErrorAndExit(ERROR_INTERNAL, "Asm function with %d basic blocks seen - expected 1!\n", function->BasicBlockList->size);
 		}
 
 		struct BasicBlock *asmBlock = function->BasicBlockList->head->data;
 
-		for(struct LinkedListNode *asmBlockRunner = asmBlock->TACList->head; asmBlockRunner != NULL; asmBlockRunner = asmBlockRunner->next)
+		for (struct LinkedListNode *asmBlockRunner = asmBlock->TACList->head; asmBlockRunner != NULL; asmBlockRunner = asmBlockRunner->next)
 		{
 			struct TACLine *asmTAC = asmBlockRunner->data;
-			if(asmTAC->operation != tt_asm)
+			if (asmTAC->operation != tt_asm)
 			{
 				ErrorWithAST(ERROR_INTERNAL, asmTAC->correspondingTree, "Non-asm TAC type seen in asm function!\n");
 			}
 			fprintf(outFile, "\t%s\n", asmTAC->operands[0].name.str);
 		}
 		fprintf(outFile, "\tret %d\n", function->argStackSize);
-		
+
 		// early return, nothing else to do
 		return;
 	}
@@ -255,8 +255,8 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 			{
 				struct VariableEntry *theArgument = thisEntry->entry;
 
-				const char *movOp = SelectMovWidthForLifetime(function->mainScope, thisLifetime);
-				fprintf(outFile, "\t%s %%r%d, (%%bp+%d) ;place %s\n", movOp, thisLifetime->registerLocation, theArgument->stackOffset, thisLifetime->name);
+				const char *width = SelectWidthForLifetime(function->mainScope, thisLifetime);
+				fprintf(outFile, "\t%s %%r%d, (%%bp+%d) ;place %s\n", width, thisLifetime->registerLocation, theArgument->stackOffset, thisLifetime->name);
 			}
 		}
 	}
@@ -365,15 +365,6 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		}
 		break;
 
-		case tt_cmp:
-		{
-			int op1Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int op2Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-
-			fprintf(outFile, "\t%s %s, %s\n", getAsmOp(thisTAC->operation), registerNames[op1Reg], registerNames[op2Reg]);
-		}
-		break;
-
 		case tt_addrof:
 		{
 			int addrReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[0]);
@@ -386,41 +377,34 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		{
 			int destAddrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
-			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[0]);
+			const char *movOp = SelectWidthForDereference(scope, &thisTAC->operands[0]);
 			fprintf(outFile, "\t%s (%s), %s\n", movOp, registerNames[destAddrReg], registerNames[sourceReg]);
 		}
 		break;
 
 		case tt_memw_2:
-		case tt_memw_2_n:
 		{
 			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
+			char *offReg = PlaceLiteralInRegister(outFile, thisTAC->operands[1].name.val, reservedRegisters[2]);
 
-			const char *movOp = SelectMovWidth(scope, &thisTAC->operands[2]);
+			const char *storeWidth = SelectWidth(scope, &thisTAC->operands[2]);
 
-			if (thisTAC->operation == tt_memw_2)
-			{
-				fprintf(outFile, "\t%s (%s+%d), %s\n",
-						movOp,
-						registerNames[baseReg],
-						thisTAC->operands[1].name.val,
-						registerNames[sourceReg]);
-			}
-			else
-			{
-				fprintf(outFile, "\t%s (%s-%d), %s\n",
-						movOp,
-						registerNames[baseReg],
-						thisTAC->operands[1].name.val,
-						registerNames[sourceReg]);
-			}
+			fprintf(outFile, "\taddi %s, %s, %s",
+					registerNames[baseReg],
+					registerNames[baseReg],
+					offReg);
+
+			fprintf(outFile, "\ts%s %s, %s\n",
+					storeWidth,
+					registerNames[baseReg],
+					registerNames[sourceReg]);
 		}
 		break;
 
 		case tt_memw_3:
-		case tt_memw_3_n:
 		{
+			ErrorAndExit(ERROR_INTERNAL, "tt_memw_3 codegen not implemented\n");
 			int curResIndex = 0;
 			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[curResIndex]);
 			if (baseReg == reservedRegisters[curResIndex])
@@ -433,7 +417,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 				curResIndex++;
 			}
 			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[curResIndex]);
-			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[0]);
+			const char *movOp = SelectWidthForDereference(scope, &thisTAC->operands[0]);
 
 			if (thisTAC->operation == tt_memw_3)
 			{
@@ -460,10 +444,10 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		case tt_memr_1:
 		{
 			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[1]);
+			const char *movOp = SelectWidthForDereference(scope, &thisTAC->operands[1]);
 			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
 
-			fprintf(outFile, "\t%s %s, (%s)\n",
+			fprintf(outFile, "\tl%s %s, %s\n",
 					movOp,
 					registerNames[destReg],
 					registerNames[addrReg]);
@@ -473,39 +457,34 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		break;
 
 		case tt_memr_2:
-		case tt_memr_2_n:
 		{
-			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
-			const char *movOp = SelectMovWidth(scope, &thisTAC->operands[0]);
-			if (thisTAC->operation == tt_memr_2)
-			{
-				fprintf(outFile, "\t%s %s, (%s+%d)\n",
-						movOp,
-						registerNames[destReg],
-						registerNames[addrReg],
-						thisTAC->operands[2].name.val);
-			}
-			else
-			{
-				fprintf(outFile, "\t%s %s, (%s-%d)\n",
-						movOp,
-						registerNames[destReg],
-						registerNames[addrReg],
-						thisTAC->operands[2].name.val);
-			}
+			char *offReg = PlaceLiteralInRegister(outFile, thisTAC->operands[2].name.val, reservedRegisters[2]);
+
+			fprintf(outFile, "\taddi %s, %s, %s",
+					registerNames[baseReg],
+					registerNames[baseReg],
+					offReg);
+
+			const char *loadWidth = SelectWidth(scope, &thisTAC->operands[0]);
+			fprintf(outFile, "\tl%s %s, %s\n",
+					loadWidth,
+					registerNames[destReg],
+					registerNames[baseReg]);
 
 			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
 		}
 		break;
 
 		case tt_memr_3:
-		case tt_memr_3_n:
 		{
+			ErrorAndExit(ERROR_INTERNAL, "tt_memr_3 codegen not implemented\n");
+
 			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
 			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
-			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[1]);
+			const char *movOp = SelectWidthForDereference(scope, &thisTAC->operands[1]);
 			if (thisTAC->operation == tt_memr_3)
 			{
 				fprintf(outFile, "\t%s %s, (%s+%s,%d)\n",
@@ -530,6 +509,8 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 
 		case tt_lea_2:
 		{
+			ErrorAndExit(ERROR_INTERNAL, "tt_lea_2 codegen not implemented (can this resolve to an add instruction?)\n");
+
 			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
 			fprintf(outFile, "\tlea %s, (%s+%d)\n",
@@ -543,6 +524,8 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 
 		case tt_lea_3:
 		{
+			ErrorAndExit(ERROR_INTERNAL, "tt_lea_3 codegen not implemented (can this resolve to an add instruction?)\n");
+
 			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
 			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
@@ -555,29 +538,34 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		}
 		break;
 
-		case tt_jg:
-		case tt_jge:
-		case tt_jl:
-		case tt_jle:
-		case tt_je:
-		case tt_jne:
-		case tt_jz:
-		case tt_jnz:
+		case tt_beq:
+		case tt_bne:
+		case tt_bgeu:
+		case tt_bltu:
+		case tt_bgtu:
+		case tt_bleu:
+		case tt_bgtz:
 		{
-			fprintf(outFile, "\t%s %s_%d\n", getAsmOp(thisTAC->operation), functionName, thisTAC->operands[0].name.val);
+			int operand1register = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
+			int operand2register = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
+			fprintf(outFile, "\t%s %s, %s, %s_%d\n", getAsmOp(thisTAC->operation), 
+			registerNames[operand1register],
+			registerNames[operand2register],
+			functionName, 
+			thisTAC->operands[0].name.val);
 		}
 		break;
 
 		case tt_jmp:
 		{
-			fprintf(outFile, "\tjmp %s_%d\n", functionName, thisTAC->operands[0].name.val);
+			fprintf(outFile, "\tj %s_%d\n", functionName, thisTAC->operands[0].name.val);
 		}
 		break;
 
 		case tt_push:
 		{
 			int operandRegister = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			fprintf(outFile, "\t%s %s\n", SelectPushWidth(scope, &thisTAC->operands[0]), registerNames[operandRegister]);
+			fprintf(outFile, "\tpush%s %s\n", SelectWidth(scope, &thisTAC->operands[0]), registerNames[operandRegister]);
 		}
 		break;
 
@@ -605,7 +593,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 				if (sourceReg != RETURN_REGISTER)
 				{
 					fprintf(outFile, "\t%s %s, %s\n",
-							SelectMovWidth(scope, &thisTAC->operands[0]),
+							SelectWidth(scope, &thisTAC->operands[0]),
 							registerNames[RETURN_REGISTER],
 							registerNames[sourceReg]);
 				}

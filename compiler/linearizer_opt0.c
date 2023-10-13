@@ -591,38 +591,41 @@ void walkConditionCheck_0(struct AST *tree,
 	switch (tree->type)
 	{
 	case t_equals:
-		condFalseJump->operation = tt_jne;
+		condFalseJump->operation = tt_beq;
 		break;
 
 	case t_nEquals:
-		condFalseJump->operation = tt_je;
+		condFalseJump->operation = tt_bne;
 		break;
 
 	case t_lThan:
-		condFalseJump->operation = tt_jge;
+		condFalseJump->operation = tt_bltu;
 		break;
 
 	case t_gThan:
-		condFalseJump->operation = tt_jle;
+		condFalseJump->operation = tt_bgtu;
 		break;
 
 	case t_lThanE:
-		condFalseJump->operation = tt_jg;
+		condFalseJump->operation = tt_bleu;
 		break;
 
 	case t_gThanE:
-		condFalseJump->operation = tt_jl;
+		condFalseJump->operation = tt_bgeu;
 		break;
 
 	case t_not:
-		condFalseJump->operation = tt_jnz;
+		condFalseJump->operation = tt_bgtz;
 		break;
 
 	default:
-		condFalseJump->operation = tt_jz;
+		ErrorAndExit(ERROR_INTERNAL, "Comparison operator %s (%s) not supported yet\n",
+						getTokenName(tree->type),
+						tree->value);
+		// condFalseJump->operation = tt_jz;
 	}
 
-	struct TACLine *compareOperation = newTACLine(*TACIndex, tt_cmp, tree);
+	struct TACLine *compareOperation = newTACLine(*TACIndex, tt_beq, tree);
 
 	// switch a second time to actually walk the condition
 	switch (tree->type)
@@ -653,11 +656,14 @@ void walkConditionCheck_0(struct AST *tree,
 	default:
 		// any other sort of condition - just some expression
 		{
-			walkSubExpression_0(tree, block, scope, TACIndex, tempNum, &compareOperation->operands[1]);
-			compareOperation->operands[2].name.val = 0;
-			compareOperation->operands[2].permutation = vp_literal;
-			TACOperand_SetBasicType(&compareOperation->operands[2], vt_uint32, 0);
-			condFalseJump->operation = tt_jz;
+			ErrorAndExit(ERROR_INTERNAL, "Comparison operator %s (%s) not supported yet\n",
+						getTokenName(tree->type),
+						tree->value);
+			// walkSubExpression_0(tree, block, scope, TACIndex, tempNum, &compareOperation->operands[1]);
+			// compareOperation->operands[2].name.val = 0;
+			// compareOperation->operands[2].permutation = vp_literal;
+			// TACOperand_SetBasicType(&compareOperation->operands[2], vt_uint32, 0);
+			// condFalseJump->operation = tt_jz;
 		}
 		break;
 	}

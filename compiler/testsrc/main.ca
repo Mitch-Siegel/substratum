@@ -1,12 +1,26 @@
-#include "console.h"
+fun fib(uint8 n->uint32)
+{
+	if(n > 2)
+	{
+		return fib(n - 1) + fib(n - 2);
+	}
+	else
+	{
+		return n;
+	}
+}
+
+fun print(uint32 n->void)
+{
+	n += 1;
+}
 
 fun main(->void)
 {
-	uint8 *buf;
-	setupConsole();
-
-	uint8 j = 1;
-	while(j == 1)
+	uint8 i = 0;
+	while(i < 20)
 	{
+		print(fib(i));
+		i += 1;	
 	}
 }

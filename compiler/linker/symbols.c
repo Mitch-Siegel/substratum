@@ -116,7 +116,6 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
         {
         case s_variable:
             fprintf(f, "%s:\n", s->name);
-            printf("Variable %s is a %d(%d*)[%d]\n", s->name, s->data.asVariable.basicType, s->data.asVariable.indirectionLevel, s->data.asVariable.arraySize);
             // only reserve space if this variable is not initialized
             // if it is initialized, the data directives we will output later will reserve the space on their own
             if (s->data.asVariable.initializeTo == NULL)

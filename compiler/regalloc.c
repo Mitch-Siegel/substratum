@@ -215,7 +215,6 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_subtract:
 			case tt_mul:
 			case tt_div:
-			case tt_cmp:
 			{
 				if (TAC_GetTypeOfOperand(thisLine, 0)->basicType != vt_null)
 				{
@@ -245,14 +244,10 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_dereference:
 			case tt_memr_1:
 			case tt_memr_2:
-			case tt_memr_2_n:
 			case tt_memr_3:
-			case tt_memr_3_n:
 			case tt_memw_1:
 			case tt_memw_2:
-			case tt_memw_2_n:
 			case tt_memw_3:
-			case tt_memw_3_n:
 			case tt_lea_2:
 			case tt_lea_3:
 			case tt_addrof:
@@ -277,14 +272,34 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			}
 			break;
 
-			case tt_jg:
-			case tt_jge:
-			case tt_jl:
-			case tt_jle:
-			case tt_je:
-			case tt_jne:
-			case tt_jz:
-			case tt_jnz:
+			case tt_beq:  // branch equal
+			case tt_bne:  // branch not equal
+			case tt_bgeu: // branch greater than or equal unsigned
+			case tt_bltu: // branch less than unsigned
+			case tt_bgtu: // branch greater than unsigned
+			case tt_bleu: // branch less than or equal unsigned
+			case tt_bgtz: // branch greater than zero
+			{
+				for (int i = 1; i < 3; i++)
+				{
+					// lifetimes for every permutation except literal
+					if (thisLine->operands[i].permutation != vp_literal)
+					{
+						// and any type except null
+						switch (TAC_GetTypeOfOperand(thisLine, i)->basicType)
+						{
+						case vt_null:
+							break;
+
+						default:
+							recordVariableRead(lifetimes, &thisLine->operands[i], scope, TACIndex);
+							break;
+						}
+					}
+				}
+			}
+			break;
+
 			case tt_jmp:
 			case tt_label:
 				break;

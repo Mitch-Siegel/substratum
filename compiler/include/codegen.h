@@ -12,7 +12,9 @@ extern char *registerNames[MACHINE_REGISTER_COUNT];
 int ALIGNSIZE(unsigned int size);
 
 // place a literal in the register specified by numerical index, return string of register's name for asm
-char *PlaceLiteralInRegister(FILE *outFile, char *literalStr, int destReg);
+char *PlaceLiteralStringInRegister(FILE *outFile, char *literalStr, int destReg);
+
+char *PlaceLiteralInRegister(FILE *outFile, int literal, int destReg);
 
 void verifyCodegenPrimitive(struct TACOperand *operand);
 
@@ -40,13 +42,11 @@ int placeAddrOfLifetimeInReg(FILE *file,
                              struct TACOperand *operand,
                              int registerIndex);
 
-const char *SelectMovWidth(struct Scope *scope, struct TACOperand *dataDest);
+const char *SelectWidth(struct Scope *scope, struct TACOperand *dataDest);
 
-const char *SelectMovWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP);
+const char *SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP);
 
-const char *SelectMovWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime);
-
-const char *SelectPushWidth(struct Scope *scope, struct TACOperand *dataDest);
+const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime);
 
 void generateCode(struct SymbolTable *table, FILE *outFile, int regAllocOpt, int codegenOpt);
 
