@@ -79,8 +79,7 @@ void WriteVariable(FILE *outFile,
 		if (sourceRegIndex != relevantLifetime->registerLocation)
 		{
 			fprintf(outFile, "\t;Write register variable %s\n", relevantLifetime->name);
-			fprintf(outFile, "\tmv%s %s, %s\n",
-					SelectWidth(scope, writtenTo),
+			fprintf(outFile, "\tmv %s, %s\n",
 					registerNames[relevantLifetime->registerLocation],
 					registerNames[sourceRegIndex]);
 		}
@@ -107,7 +106,10 @@ void WriteVariable(FILE *outFile,
 		fprintf(outFile, "\t;Write stack variable %s\n", relevantLifetime->name);
 
 		const char *width = SelectWidthForLifetime(scope, relevantLifetime);
-		fprintf(outFile, "\ts%s %d(%%fp), %s\n", width, relevantLifetime->stackLocation, registerNames[sourceRegIndex]);
+		fprintf(outFile, "\ts%s %d(%%fp), %s\n",
+				width,
+				relevantLifetime->stackLocation,
+				registerNames[sourceRegIndex]);
 	}
 	break;
 
@@ -168,11 +170,18 @@ int placeOrFindOperandInRegister(FILE *outFile,
 			loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
 		}
 		const char *usedRegister = registerNames[registerIndex];
-		fprintf(outFile, "\tmv %s, %s ; place %s\n", usedRegister, relevantLifetime->name, operand->name.str);
+		fprintf(outFile, "\tmv %s, %s ; place %s\n",
+				usedRegister,
+				relevantLifetime->name,
+				operand->name.str);
 
 		if (relevantLifetime->type.arraySize == 0)
 		{
-			fprintf(outFile, "\t%s %s, 0(%s) ; place %s\n", loadWidth, usedRegister, usedRegister, operand->name.str);
+			fprintf(outFile, "\t%s %s, 0(%s) ; place %s\n",
+					loadWidth,
+					usedRegister,
+					usedRegister,
+					operand->name.str);
 		}
 
 		return registerIndex;
@@ -202,7 +211,11 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		else
 		{
 			const char *loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
-			fprintf(outFile, "\tl%s %s, %d(%%fp) ; place %s\n", loadWidth, usedRegister, relevantLifetime->stackLocation, operand->name.str);
+			fprintf(outFile, "\tl%s %s, %d(%%fp) ; place %s\n",
+					loadWidth,
+					usedRegister,
+					relevantLifetime->stackLocation,
+					operand->name.str);
 		}
 
 		return registerIndex;
