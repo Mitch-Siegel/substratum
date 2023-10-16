@@ -1,14 +1,8 @@
-fun fib(uint8 n->uint32)
+class String
 {
-	if(n > 2)
-	{
-		return fib(n - 1) + fib(n - 2);
-	}
-	else
-	{
-		return n;
-	}
-}
+	uint8 *data;
+	uint32 len;
+};
 
 fun print(uint32 n->void)
 {
@@ -17,10 +11,6 @@ fun print(uint32 n->void)
 
 fun main(->void)
 {
-	uint8 i = 0;
-	while(i < 20)
-	{
-		print(fib(i));
-		i += 1;	
-	}
+	class String s;
+	s.len = 0;
 }

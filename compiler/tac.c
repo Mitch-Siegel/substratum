@@ -215,13 +215,31 @@ char *getAsmOp(enum TACType t)
 		return "div";
 
 	case tt_load:
-		return "l";
+		return "load";
+
+	case tt_load_off:
+		return "load (literal offset)";
+
+	case tt_load_arr:
+		return "load (array indexed)";
 
 	case tt_store:
-		return "s";
+		return "store";
+
+	case tt_store_off:
+		return "store (literal offset)";
+
+	case tt_store_arr:
+		return "store (array indexed)";
 
 	case tt_addrof:
 		return "address-of";
+
+	case tt_lea_off:
+		return "lea (literal offset)";
+
+	case tt_lea_arr:
+		return "lea (array indexed)";
 
 	case tt_push:
 		return "push";
@@ -345,12 +363,42 @@ char *sPrintTACLine(struct TACLine *it)
 		width += sprintf(tacString, "%s = *%s", it->operands[0].name.str, it->operands[1].name.str);
 		break;
 
+	case tt_load_off:
+		// operands: dest base offset
+		width += printf("%s = (%s + %d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
+		break;
+
+	case tt_load_arr:
+		// operands: dest base offset scale
+		width += printf("%s = (%s + %s*2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		break;
+
 	case tt_store:
 		width += sprintf(tacString, "*%s = %s", it->operands[0].name.str, it->operands[1].name.str);
 		break;
 
+	case tt_store_off:
+		// operands: base offset source
+		width += printf("(%s + %d) = %s", it->operands[0].name.str, it->operands[1].name.val, it->operands[2].name.str);
+		break;
+
+	case tt_store_arr:
+		// operands base offset scale source
+		width += printf("(%s + %s*2^%d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
+		break;
+
 	case tt_addrof:
 		width += sprintf(tacString, "%s = &%s", it->operands[0].name.str, it->operands[1].name.str);
+		break;
+
+	case tt_lea_off:
+		// operands: dest base offset scale
+		width += printf("%s = &(%s + %d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
+		break;
+
+	case tt_lea_arr:
+		// operands: dest base offset scale
+		width += printf("%s = &(%s + %s*2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
 		break;
 
 	case tt_beq:

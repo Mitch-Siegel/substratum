@@ -369,15 +369,6 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		}
 		break;
 
-		case tt_addrof:
-		{
-			int addrReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[0]);
-			addrReg = placeAddrOfLifetimeInReg(outFile, lifetimes, scope, &thisTAC->operands[1], addrReg);
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], addrReg);
-		}
-		break;
-
-
 		case tt_load:
 		{
 			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
@@ -399,6 +390,18 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		}
 		break;
 
+		case tt_load_off:
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented yet for tt_load_off!\n");
+		}
+		break;
+
+		case tt_load_arr:
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented yet for tt_load_arr!\n");
+		}
+		break;
+
 		case tt_store:
 		{
 			int destAddrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
@@ -408,6 +411,39 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 					storeWidth,
 					registerNames[destAddrReg],
 					registerNames[sourceReg]);
+		}
+		break;
+
+		case tt_store_off:
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented yet for tt_store_off!\n");
+		}
+		break;
+
+		case tt_store_arr:
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented yet for tt_store_arr!\n");
+		}
+		break;
+
+
+		case tt_addrof:
+		{
+			int addrReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[0]);
+			addrReg = placeAddrOfLifetimeInReg(outFile, lifetimes, scope, &thisTAC->operands[1], addrReg);
+			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], addrReg);
+		}
+		break;
+
+		case tt_lea_off:
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented yet for tt_lea_off!\n");
+		}
+		break;
+
+		case tt_lea_arr:
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented yet for tt_lea_arr!\n");
 		}
 		break;
 

@@ -242,8 +242,14 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			break;
 
 			case tt_load:
+			case tt_load_off:
+			case tt_load_arr:
 			case tt_store:
+			case tt_store_off:
+			case tt_store_arr:
 			case tt_addrof:
+			case tt_lea_off:
+			case tt_lea_arr:
 			{
 				for (int i = 0; i < 4; i++)
 				{

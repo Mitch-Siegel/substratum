@@ -32,8 +32,14 @@ enum TACType
 	tt_mul,
 	tt_div,
 	tt_load,
+	tt_load_off,
+	tt_load_arr,
 	tt_store,
+	tt_store_off,
+	tt_store_arr,
 	tt_addrof,
+	tt_lea_off,
+	tt_lea_arr,
 	tt_beq,	 // branch equal
 	tt_bne,	 // branch not equal
 	tt_bgeu, // branch greater than or equal unsigned
