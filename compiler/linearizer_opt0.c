@@ -833,7 +833,7 @@ void walkDotOperatorAssignment(struct AST *tree,
 		ErrorWithAST(ERROR_CODE, member, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", tree->value, getTokenName(tree->type));
 	}
 
-	wipAssignment->operation = tt_load_off;
+	wipAssignment->operation = tt_store_off;
 	switch (class->type)
 	{
 	case t_identifier:
@@ -922,7 +922,7 @@ void walkArrowOperatorAssignment(struct AST *tree,
 		ErrorAndExit(ERROR_CODE, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", tree->value, getTokenName(tree->type));
 	}
 
-	wipAssignment->operation = tt_load_off;
+	wipAssignment->operation = tt_store_off;
 	struct ClassEntry *writtenClass = NULL;
 	switch (class->type)
 	{

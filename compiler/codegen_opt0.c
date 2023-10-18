@@ -340,6 +340,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 			free(printedTAC);
 		}
 
+		
 		switch (thisTAC->operation)
 		{
 		case tt_asm:
@@ -351,7 +352,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		{
 			// only works for primitive types that will fit in registers
 			int opLocReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], opLocReg);
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], opLocReg);
 		}
 		break;
 
@@ -362,17 +363,17 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		{
 			int op1Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int op2Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[0]);
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 
 			fprintf(outFile, "\t%s %s, %s, %s\n", getAsmOp(thisTAC->operation), registerNames[destReg], registerNames[op1Reg], registerNames[op2Reg]);
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
 		}
 		break;
 
 		case tt_load:
 		{
 			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[1]);
 			char *offReg = PlaceLiteralInRegister(outFile, thisTAC->operands[2].name.val, reservedRegisters[2]);
 
 			fprintf(outFile, "\taddi %s, %s, %s",
@@ -386,19 +387,51 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 					registerNames[destReg],
 					registerNames[baseReg]);
 
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
 		}
 		break;
 
 		case tt_load_off:
 		{
-			ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented yet for tt_load_off!\n");
+			// TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[1]);
+
+			fprintf(outFile, "\tl%s %s, %d(%s)",
+					SelectWidth(scope, &thisTAC->operands[0]),
+					registerNames[destReg],
+					thisTAC->operands[2].name.val,
+					registerNames[baseReg]);
+
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
 		}
 		break;
 
 		case tt_load_arr:
 		{
-			ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented yet for tt_load_arr!\n");
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[2]);
+
+			// TODO: check for shift by 0 and don't shift when applicable
+			// perform a left shift by however many bits necessary to scale our value, place the result in reservedRegisters[2]
+			fprintf(outFile, "\tslli %s, %s, %d\n",
+					registerNames[reservedRegisters[2]],
+					registerNames[offsetReg],
+					thisTAC->operands[3].name.val);
+
+			// add our scaled offset to the base address, put the full address into reservedRegisters[1]
+			fprintf(outFile, "\tadd %s, %s, %s\n",
+					registerNames[reservedRegisters[1]],
+					registerNames[baseReg],
+					registerNames[reservedRegisters[2]]);
+
+			fprintf(outFile, "\tl%s %s, 0(%s)",
+					SelectWidthForDereference(scope, &thisTAC->operands[0]),
+					registerNames[destReg],
+					registerNames[reservedRegisters[0]]);
+
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
 		}
 		break;
 
@@ -407,6 +440,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 			int destAddrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
 			const char *storeWidth = SelectWidthForDereference(scope, &thisTAC->operands[0]);
+
 			fprintf(outFile, "\ts%s (%s), %s\n",
 					storeWidth,
 					registerNames[destAddrReg],
@@ -416,34 +450,86 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 
 		case tt_store_off:
 		{
-			ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented yet for tt_store_off!\n");
+			// TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
+			fprintf(outFile, "\ts%s %s, %d(%s)",
+					SelectWidth(scope, &thisTAC->operands[0]),
+					registerNames[sourceReg],
+					thisTAC->operands[1].name.val,
+					registerNames[baseReg]);
 		}
 		break;
 
 		case tt_store_arr:
 		{
-			ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented yet for tt_store_arr!\n");
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[2]);
+
+			// TODO: check for shift by 0 and don't shift when applicable
+			// perform a left shift by however many bits necessary to scale our value, place the result in reservedRegisters[1]
+			fprintf(outFile, "\tslli %s, %s, %d\n",
+					registerNames[reservedRegisters[1]],
+					registerNames[offsetReg],
+					thisTAC->operands[2].name.val);
+
+			// add our scaled offset to the base address, put the full address into reservedRegisters[0]
+			fprintf(outFile, "\tadd %s, %s, %s\n",
+					registerNames[reservedRegisters[0]],
+					registerNames[baseReg],
+					registerNames[reservedRegisters[1]]);
+
+			fprintf(outFile, "\ts%s %s, 0(%s)",
+					SelectWidthForDereference(scope, &thisTAC->operands[0]),
+					registerNames[sourceReg],
+					registerNames[reservedRegisters[0]]);
 		}
 		break;
 
-
 		case tt_addrof:
 		{
-			int addrReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[0]);
-			addrReg = placeAddrOfLifetimeInReg(outFile, lifetimes, scope, &thisTAC->operands[1], addrReg);
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], addrReg);
+			int addrReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			addrReg = placeAddrOfLifetimeInReg(outFile, scope, lifetimes, &thisTAC->operands[1], addrReg);
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], addrReg);
 		}
 		break;
 
 		case tt_lea_off:
 		{
-			ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented yet for tt_lea_off!\n");
+			// TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+
+			fprintf(outFile, "\taddi %s, %s, %d",
+					registerNames[destReg],
+					registerNames[baseReg],
+					thisTAC->operands[2].name.val);
+
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
 		}
 		break;
 
 		case tt_lea_arr:
 		{
-			ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented yet for tt_lea_arr!\n");
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[2]);
+
+			// TODO: check for shift by 0 and don't shift when applicable
+			// perform a left shift by however many bits necessary to scale our value, place the result in reservedRegisters[1]
+			fprintf(outFile, "\tslli %s, %s, %d\n",
+					registerNames[reservedRegisters[2]],
+					registerNames[offsetReg],
+					thisTAC->operands[2].name.val);
+
+			// add our scaled offset to the base address, put the full address into destReg
+			fprintf(outFile, "\tadd %s, %s, %s\n",
+					registerNames[destReg],
+					registerNames[baseReg],
+					registerNames[reservedRegisters[2]]);
+
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
 		}
 		break;
 
@@ -486,7 +572,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 
 			if (thisTAC->operands[0].name.str != NULL)
 			{
-				WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], RETURN_REGISTER);
+				WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
 			}
 		}
 		break;

@@ -13,4 +13,8 @@ fun main(->void)
 {
 	class String s;
 	s.len = 0;
+
+	uint16 testArray[12];
+	uint8 i = 2;
+	testArray[i] = 4;
 }

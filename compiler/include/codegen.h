@@ -19,8 +19,8 @@ char *PlaceLiteralInRegister(FILE *outFile, int literal, int destReg);
 void verifyCodegenPrimitive(struct TACOperand *operand);
 
 void WriteVariable(FILE *outFile,
-                   struct LinkedList *lifetimes,
                    struct Scope *scope,
+                   struct LinkedList *lifetimes,
                    struct TACOperand *writtenTo,
                    int sourceRegIndex);
 
@@ -31,14 +31,14 @@ int placeOrFindOperandInRegister(FILE *outFile,
                                  struct TACOperand *operand,
                                  int registerIndex);
 
-int pickWriteRegister(struct LinkedList *lifetimes,
-                      struct Scope *scope,
+int pickWriteRegister(struct Scope *scope,
+                      struct LinkedList *lifetimes,
                       struct TACOperand *operand,
                       int registerIndex);
 
 int placeAddrOfLifetimeInReg(FILE *file,
-                             struct LinkedList *lifetimes,
                              struct Scope *scope,
+                             struct LinkedList *lifetimes,
                              struct TACOperand *operand,
                              int registerIndex);
 

@@ -77,8 +77,8 @@ void verifyCodegenPrimitive(struct TACOperand *operand)
 }
 
 void WriteVariable(FILE *outFile,
-				   struct LinkedList *lifetimes,
 				   struct Scope *scope,
+				   struct LinkedList *lifetimes,
 				   struct TACOperand *writtenTo,
 				   int sourceRegIndex)
 {
@@ -242,8 +242,8 @@ int placeOrFindOperandInRegister(FILE *outFile,
 	}
 }
 
-int pickWriteRegister(struct LinkedList *lifetimes,
-					  struct Scope *scope,
+int pickWriteRegister(struct Scope *scope,
+					  struct LinkedList *lifetimes,
 					  struct TACOperand *operand,
 					  int registerIndex)
 {
@@ -269,8 +269,8 @@ int pickWriteRegister(struct LinkedList *lifetimes,
 }
 
 int placeAddrOfLifetimeInReg(FILE *outFile,
-							 struct LinkedList *lifetimes,
 							 struct Scope *scope,
+							 struct LinkedList *lifetimes,
 							 struct TACOperand *operand,
 							 int registerIndex)
 {

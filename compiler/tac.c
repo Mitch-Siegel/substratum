@@ -365,12 +365,12 @@ char *sPrintTACLine(struct TACLine *it)
 
 	case tt_load_off:
 		// operands: dest base offset
-		width += printf("%s = (%s + %d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
+		width += sprintf(tacString, "%s = (%s + %d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
 		break;
 
 	case tt_load_arr:
 		// operands: dest base offset scale
-		width += printf("%s = (%s + %s*2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		width += sprintf(tacString, "%s = (%s + %s*2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
 		break;
 
 	case tt_store:
@@ -379,12 +379,12 @@ char *sPrintTACLine(struct TACLine *it)
 
 	case tt_store_off:
 		// operands: base offset source
-		width += printf("(%s + %d) = %s", it->operands[0].name.str, it->operands[1].name.val, it->operands[2].name.str);
+		width += sprintf(tacString, "(%s + %d) = %s", it->operands[0].name.str, it->operands[1].name.val, it->operands[2].name.str);
 		break;
 
 	case tt_store_arr:
 		// operands base offset scale source
-		width += printf("(%s + %s*2^%d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
+		width += sprintf(tacString, "(%s + %s*2^%d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
 		break;
 
 	case tt_addrof:
@@ -393,12 +393,12 @@ char *sPrintTACLine(struct TACLine *it)
 
 	case tt_lea_off:
 		// operands: dest base offset scale
-		width += printf("%s = &(%s + %d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
+		width += sprintf(tacString, "%s = &(%s + %d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
 		break;
 
 	case tt_lea_arr:
 		// operands: dest base offset scale
-		width += printf("%s = &(%s + %s*2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		width += sprintf(tacString, "%s = &(%s + %s*2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
 		break;
 
 	case tt_beq:
