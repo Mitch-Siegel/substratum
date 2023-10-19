@@ -212,6 +212,9 @@ int main(int argc, char **argv)
         mainFunction->data.asFunction.returnType = mainReturnType;
 
         addRequire(exports, requires, mainFunction);
+
+        struct Symbol *userStart = Symbol_New(Dictionary_LookupOrInsert(symbolNames, "userstart"), export, s_section, "");
+        addExport(exports, requires, userStart);
     }
 
     for (struct LinkedListNode *inFileName = inputFiles->buckets[0]->head; inFileName != NULL; inFileName = inFileName->next)
@@ -287,7 +290,7 @@ int main(int argc, char **argv)
 
     if (outputExecutable)
     {
-        fprintf(outFile, ".global _start");
+        fprintf(outFile, ".global _start\n_start:\n\tjal ra, userstart\n\t");
     }
 
     for (int i = 0; i < s_null; i++)

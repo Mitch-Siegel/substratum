@@ -50,6 +50,7 @@ enum TACType
 	tt_bnez, // branch not equal zero
 	tt_jmp,
 	tt_push,
+	tt_pop,
 	tt_call,
 	tt_label,
 	tt_return,

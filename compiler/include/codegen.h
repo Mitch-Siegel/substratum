@@ -48,6 +48,20 @@ const char *SelectWidthForDereference(struct Scope *scope, struct TACOperand *da
 
 const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime);
 
+void EmitPushForOperand(FILE *outFile,
+                        struct Scope *scope,
+                        struct TACOperand *dataSource,
+                        int srcRegister);
+
+void EmitPushForSize(FILE *outFile, int size, int srcRegister);
+
+void EmitPopForOperand(FILE *outFile,
+                       struct Scope *scope,
+                       struct TACOperand *dataDest,
+                       int destRegister);
+
+void EmitPopForSize(FILE *outFile, int size, int destRegister);
+
 void generateCode(struct SymbolTable *table, FILE *outFile, int regAllocOpt, int codegenOpt);
 
 #endif

@@ -192,7 +192,9 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 			}
 			fprintf(outFile, "\t%s\n", asmTAC->operands[0].name.str);
 		}
-		fprintf(outFile, "\tret %d\n", function->argStackSize);
+
+		fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
+		fprintf(outFile, "\tret\n");
 
 		// early return, nothing else to do
 		return;
@@ -222,14 +224,14 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 
 	if (localStackSize > 0)
 	{
-		fprintf(outFile, "\tsubi %%sp, %%sp, $%d\n", localStackSize);
+		fprintf(outFile, "\taddi sp, sp, -%d\n", localStackSize);
 	}
 
 	for (int i = MACHINE_REGISTER_COUNT - 1; i >= 0; i--)
 	{
 		if (metadata.touchedRegisters[i])
 		{
-			fprintf(outFile, "\tpushw %s\n", registerNames[i]);
+			EmitPushForSize(outFile, 4, i);
 		}
 	}
 
@@ -256,9 +258,9 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 				struct VariableEntry *theArgument = thisEntry->entry;
 
 				const char *loadWidth = SelectWidthForLifetime(function->mainScope, thisLifetime);
-				fprintf(outFile, "\tl%s %%r%d, (%%bp+%d) ;place %s\n",
+				fprintf(outFile, "\tl%s %s, %d(fp) # place %s\n",
 						loadWidth,
-						thisLifetime->registerLocation,
+						registerNames[thisLifetime->registerLocation],
 						theArgument->stackOffset,
 						thisLifetime->name);
 			}
@@ -287,23 +289,21 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	{
 		if (metadata.touchedRegisters[i])
 		{
-			fprintf(outFile, "\tpopw %s\n", registerNames[i]);
+			EmitPopForSize(outFile, 4, i);
 		}
 	}
 
 	if (localStackSize > 0)
 	{
-		fprintf(outFile, "\taddi %%sp, %%sp, $%d\n", localStackSize);
+		fprintf(outFile, "\taddi sp, sp, %d\n", localStackSize);
 	}
 
 	if (function->argStackSize > 0)
 	{
-		fprintf(outFile, "\tret %d\n", function->argStackSize);
+		fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
 	}
-	else
-	{
-		fprintf(outFile, "\tret\n");
-	}
+	
+	fprintf(outFile, "\tret\n");
 
 	// function setup and teardown code generated
 
@@ -336,11 +336,10 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		if (thisTAC->operation != tt_asm)
 		{
 			char *printedTAC = sPrintTACLine(thisTAC);
-			fprintf(outFile, "\n\t;%s\n", printedTAC);
+			fprintf(outFile, "\n\t # %s\n", printedTAC);
 			free(printedTAC);
 		}
 
-		
 		switch (thisTAC->operation)
 		{
 		case tt_asm:
@@ -480,7 +479,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 					registerNames[baseReg],
 					registerNames[reservedRegisters[1]]);
 
-			fprintf(outFile, "\ts%s %s, 0(%s)",
+			fprintf(outFile, "\ts%s %s, 0(%s)\n",
 					SelectWidthForDereference(scope, &thisTAC->operands[0]),
 					registerNames[sourceReg],
 					registerNames[reservedRegisters[0]]);
@@ -562,7 +561,15 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		case tt_push:
 		{
 			int operandRegister = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			fprintf(outFile, "\tpush%s %s\n", SelectWidth(scope, &thisTAC->operands[0]), registerNames[operandRegister]);
+			EmitPushForOperand(outFile, scope, &thisTAC->operands[0], operandRegister);
+		}
+		break;
+
+		case tt_pop:
+		{
+			int operandRegister = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			EmitPopForOperand(outFile, scope, &thisTAC->operands[0], operandRegister);
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], operandRegister);
 		}
 		break;
 

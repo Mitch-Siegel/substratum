@@ -244,6 +244,9 @@ char *getAsmOp(enum TACType t)
 	case tt_push:
 		return "push";
 
+	case tt_pop:
+		return "pop";
+
 	case tt_call:
 		return "call";
 
@@ -426,6 +429,10 @@ char *sPrintTACLine(struct TACLine *it)
 
 	case tt_push:
 		width += sprintf(tacString, "push %s", it->operands[0].name.str);
+		break;
+
+	case tt_pop:
+		width += sprintf(tacString, "pop %s", it->operands[0].name.str);
 		break;
 
 	case tt_call:

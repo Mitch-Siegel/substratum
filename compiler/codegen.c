@@ -52,14 +52,14 @@ int ALIGNSIZE(unsigned int size)
 char *PlaceLiteralStringInRegister(FILE *outFile, char *literalStr, int destReg)
 {
 	char *destRegStr = registerNames[destReg];
-	fprintf(outFile, "\tli %s, %s ; place literal\n", destRegStr, literalStr);
+	fprintf(outFile, "\tli %s, %s # place literal\n", destRegStr, literalStr);
 	return destRegStr;
 }
 
 char *PlaceLiteralInRegister(FILE *outFile, int literal, int destReg)
 {
 	char *destRegStr = registerNames[destReg];
-	fprintf(outFile, "\tli %s, %d ; place literal\n", destRegStr, literal);
+	fprintf(outFile, "\tli %s, %d # place literal\n", destRegStr, literal);
 	return destRegStr;
 }
 
@@ -94,7 +94,7 @@ void WriteVariable(FILE *outFile,
 	case wb_register:
 		if (sourceRegIndex != relevantLifetime->registerLocation)
 		{
-			fprintf(outFile, "\t;Write register variable %s\n", relevantLifetime->name);
+			fprintf(outFile, "\t# Write register variable %s\n", relevantLifetime->name);
 			fprintf(outFile, "\tmv %s, %s\n",
 					registerNames[relevantLifetime->registerLocation],
 					registerNames[sourceRegIndex]);
@@ -104,7 +104,7 @@ void WriteVariable(FILE *outFile,
 	case wb_global:
 	{
 		const char *width = SelectWidth(scope, writtenTo);
-		fprintf(outFile, "\t;Write (global) variable %s\n", relevantLifetime->name);
+		fprintf(outFile, "\t# Write (global) variable %s\n", relevantLifetime->name);
 
 		fprintf(outFile, "\tli %s, %s\n",
 				registerNames[TEMP_0],
@@ -119,10 +119,10 @@ void WriteVariable(FILE *outFile,
 
 	case wb_stack:
 	{
-		fprintf(outFile, "\t;Write stack variable %s\n", relevantLifetime->name);
+		fprintf(outFile, "\t# Write stack variable %s\n", relevantLifetime->name);
 
 		const char *width = SelectWidthForLifetime(scope, relevantLifetime);
-		fprintf(outFile, "\ts%s %d(%%fp), %s\n",
+		fprintf(outFile, "\ts%s %d(fp), %s\n",
 				width,
 				relevantLifetime->stackLocation,
 				registerNames[sourceRegIndex]);
@@ -185,14 +185,14 @@ int placeOrFindOperandInRegister(FILE *outFile,
 			loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
 		}
 		const char *usedRegister = registerNames[registerIndex];
-		fprintf(outFile, "\tmv %s, %s ; place %s\n",
+		fprintf(outFile, "\tmv %s, %s # place %s\n",
 				usedRegister,
 				relevantLifetime->name,
 				operand->name.str);
 
 		if (relevantLifetime->type.arraySize == 0)
 		{
-			fprintf(outFile, "\t%s %s, 0(%s) ; place %s\n",
+			fprintf(outFile, "\t%s %s, 0(%s) # place %s\n",
 					loadWidth,
 					usedRegister,
 					usedRegister,
@@ -215,17 +215,17 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		{
 			if (relevantLifetime->stackLocation >= 0)
 			{
-				fprintf(outFile, "\taddi %s, %%fp, %d ; place %s\n", usedRegister, relevantLifetime->stackLocation, operand->name.str);
+				fprintf(outFile, "\taddi %s, fp, %d # place %s\n", usedRegister, relevantLifetime->stackLocation, operand->name.str);
 			}
 			else
 			{
-				fprintf(outFile, "\tsubi %s, %%fp, %d ; place %s\n", usedRegister, -1 * relevantLifetime->stackLocation, operand->name.str);
+				fprintf(outFile, "\taddi %s, fp, -%d # place %s\n", usedRegister, -1 * relevantLifetime->stackLocation, operand->name.str);
 			}
 		}
 		else
 		{
 			const char *loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
-			fprintf(outFile, "\tl%s %s, %d(%%fp) ; place %s\n",
+			fprintf(outFile, "\tl%s %s, %d(fp) # place %s\n",
 					loadWidth,
 					usedRegister,
 					relevantLifetime->stackLocation,
@@ -297,11 +297,11 @@ int placeAddrOfLifetimeInReg(FILE *outFile,
 
 	if (relevantLifetime->stackLocation < 0)
 	{
-		fprintf(outFile, "\tsubi %s, %%fp, %d\n", registerNames[registerIndex], -1 * relevantLifetime->stackLocation);
+		fprintf(outFile, "\taddi %s, fp, -%d\n", registerNames[registerIndex], -1 * relevantLifetime->stackLocation);
 	}
 	else
 	{
-		fprintf(outFile, "\tsubi %s, %%fp, %d\n", registerNames[registerIndex], relevantLifetime->stackLocation);
+		fprintf(outFile, "\taddi %s, fp, -%d\n", registerNames[registerIndex], relevantLifetime->stackLocation);
 	}
 
 	return registerIndex;
@@ -366,6 +366,64 @@ const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetim
 	{
 		return SelectWidthForSize(Scope_getSizeOfType(scope, &lifetime->type));
 	}
+}
+
+void EmitPushForOperand(FILE *outFile,
+						struct Scope *scope,
+						struct TACOperand *dataSource,
+						int srcRegister)
+{
+	int size = Scope_getSizeOfType(scope, TACOperand_GetType(dataSource));
+	switch (size)
+	{
+	case 1:
+	case 2:
+	case 4:
+		EmitPushForSize(outFile, size, srcRegister);
+
+		break;
+
+	default:
+		char *typeName = Type_GetName(TACOperand_GetType(dataSource));
+		ErrorAndExit(ERROR_INTERNAL, "Unsupported size %d seen in EmitPushForOperand (for type %s)\n", size, typeName);
+	}
+}
+
+void EmitPushForSize(FILE *outFile, int size, int srcRegister)
+{
+	fprintf(outFile, "\taddi sp, sp, -%d\n", size);
+	fprintf(outFile, "\ts%s %s, 0(sp)\n",
+			SelectWidthForSize(size),
+			registerNames[srcRegister]);
+}
+
+void EmitPopForOperand(FILE *outFile,
+							  struct Scope *scope,
+							  struct TACOperand *dataDest,
+							  int destRegister)
+{
+	int size = Scope_getSizeOfType(scope, TACOperand_GetType(dataDest));
+	switch (size)
+	{
+	case 1:
+	case 2:
+	case 4:
+		EmitPopForSize(outFile, size, destRegister);
+
+		break;
+
+	default:
+		char *typeName = Type_GetName(TACOperand_GetType(dataDest));
+		ErrorAndExit(ERROR_INTERNAL, "Unsupported size %d seen in EmitPopForOperand (for type %s)\n", size, typeName);
+	}
+}
+
+void EmitPopForSize(FILE *outFile, int size, int destRegister)
+{
+	fprintf(outFile, "\tl%s %s, 0(sp)\n",
+			SelectWidthForSize(size),
+			registerNames[destRegister]);
+	fprintf(outFile, "\taddi sp, sp, %d\n", size);
 }
 
 void generateCode(struct SymbolTable *table, FILE *outFile, int regAllocOpt, int codegenOpt)

@@ -98,6 +98,28 @@ void Symbol_Free(struct Symbol *s)
     free(s);
 }
 
+char *startup[] = {"li t0, 0x10000000",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 'h'",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 'e'",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 'l'",
+                  "sw t1, 0(t0)",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 'o'",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, '!'",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 10",
+                  "sw t1, 0(t0)",
+                  ""};
+
 void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
 {
     if (!outputExecutable)
@@ -129,16 +151,11 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
 
         case s_function_definition:
         {
-            fputs("#align 2048\n", f);
         }
         break;
 
         case s_section:
         {
-            if (!strcmp(s->name, "userstart"))
-            {
-                fprintf(f, "START:\n");
-            }
         }
         break;
 
@@ -179,8 +196,13 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
         (s->symbolType == s_section) &&
         (!strcmp(s->name, "userstart")))
     {
-        fprintf(f, "call main\n");
-        fprintf(f, "hlt\n");
+        fprintf(f, "userstart:\n");
+        for(int i = 0; startup[i][0] != '\0'; i++)
+        {
+            fprintf(f, "\t%s\n", startup[i]);
+        }
+        // fprintf(f, "\tcall main\n");
+        fprintf(f, "pgm_done:\n\twfi\n\tbeq t1, t1, pgm_done\n");
     }
 }
 

@@ -9,6 +9,8 @@ fun print(uint32 n->void)
 	n += 1;
 }
 
+uint8 dummy = 0;
+
 fun main(->void)
 {
 	class String s;

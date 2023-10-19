@@ -192,6 +192,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 
 			// single operand in slot 0
 			case tt_push:
+			case tt_pop:
 			case tt_return:
 			{
 				if (TAC_GetTypeOfOperand(thisLine, 0)->basicType != vt_null)
