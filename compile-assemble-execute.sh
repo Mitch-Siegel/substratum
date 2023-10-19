@@ -22,18 +22,13 @@ touch linked.o
 ls *.o | xargs -I {} sh -c "../cald -i linked.o -i {} -o linked.o || exit 255"
 
 cd ..
-./cald -i ./testsrc/linked.o -o ../assembler/linked.asm -e
+./cald -i ./testsrc/linked.o -o ../assembler/linked.s -e
 
 
 cd ../assembler
-if ! customasm ./linked.asm; then
-    exit
+if ! make run; then
+    cd ..
+    exit $?
 fi
 
-cd ../emu
-if ! make; then
-    exit
-fi
-
-time ./emu ../assembler/linked.bin
-
+cd ..
