@@ -1,4 +1,4 @@
-class String
+/*class String
 {
 	uint8 *data;
 	uint32 len;
@@ -7,11 +7,11 @@ class String
 fun print(uint32 n->void)
 {
 	n += 1;
-}
+}*/
 
 uint8 dummy = 0;
 
-fun main(->void)
+/*fun main(->void)
 {
 	class String s;
 	s.len = 0;
@@ -19,4 +19,11 @@ fun main(->void)
 	uint16 testArray[12];
 	uint8 i = 2;
 	testArray[i] = 4;
+}*/
+
+fun main(->void) asm
+{
+	andi t1, t1, 0
+	addi t1, t1, '!'
+	sw t1, 0(t0)
 }

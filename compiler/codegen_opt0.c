@@ -168,13 +168,20 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		printf("Generate code for function %s\n", function->name);
 	}
 
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("Emitting function prologue\n");
+	}
+	fprintf(outFile, "%s:\n", function->name);
+
+	EmitPushForSize(outFile, 4, 1);
+
 	if (function->isAsmFun)
 	{
 		if (currentVerbosity > VERBOSITY_MINIMAL)
 		{
 			printf("%s is an asm function\n", function->name);
 		}
-		fprintf(outFile, "%s:\n", function->name);
 
 		if (function->BasicBlockList->size != 1)
 		{
@@ -194,8 +201,8 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		}
 
 		fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
-		fprintf(outFile, "\tret\n");
-
+		EmitPopForSize(outFile, 4, 1);
+		fprintf(outFile, "\tjalr zero, 0(%s)\n", registerNames[1]);
 		// early return, nothing else to do
 		return;
 	}
@@ -211,20 +218,14 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	int localStackSize = allocateRegisters(&metadata, regAllocOpt);
 	currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
 
-	if (currentVerbosity > VERBOSITY_MINIMAL)
-	{
-		printf("Need %d bytes on stack\n", localStackSize);
-	}
-
-	if (currentVerbosity > VERBOSITY_MINIMAL)
-	{
-		printf("Emitting function prologue\n");
-	}
-	fprintf(outFile, "%s:\n", function->name);
-
 	if (localStackSize > 0)
 	{
 		fprintf(outFile, "\taddi sp, sp, -%d\n", localStackSize);
+	}
+
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("Need %d bytes on stack\n", localStackSize);
 	}
 
 	for (int i = MACHINE_REGISTER_COUNT - 1; i >= 0; i--)
@@ -258,7 +259,7 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 				struct VariableEntry *theArgument = thisEntry->entry;
 
 				const char *loadWidth = SelectWidthForLifetime(function->mainScope, thisLifetime);
-				fprintf(outFile, "\tl%s %s, %d(fp) # place %s\n",
+				fprintf(outFile, "\tl%su %s, %d(fp) # place %s\n",
 						loadWidth,
 						registerNames[thisLifetime->registerLocation],
 						theArgument->stackOffset,
@@ -302,8 +303,9 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	{
 		fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
 	}
-	
-	fprintf(outFile, "\tret\n");
+
+	EmitPopForSize(outFile, 4, 1);
+	fprintf(outFile, "\tjalr zero, 0(%s)\n", registerNames[1]);
 
 	// function setup and teardown code generated
 
@@ -381,7 +383,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 					offReg);
 
 			const char *loadWidth = SelectWidth(scope, &thisTAC->operands[0]);
-			fprintf(outFile, "\tl%s %s, %s\n",
+			fprintf(outFile, "\tl%su %s, %s\n",
 					loadWidth,
 					registerNames[destReg],
 					registerNames[baseReg]);
@@ -396,7 +398,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[1]);
 
-			fprintf(outFile, "\tl%s %s, %d(%s)",
+			fprintf(outFile, "\tl%su %s, %d(%s)",
 					SelectWidth(scope, &thisTAC->operands[0]),
 					registerNames[destReg],
 					thisTAC->operands[2].name.val,
@@ -425,7 +427,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 					registerNames[baseReg],
 					registerNames[reservedRegisters[2]]);
 
-			fprintf(outFile, "\tl%s %s, 0(%s)",
+			fprintf(outFile, "\tl%su %s, 0(%s)",
 					SelectWidthForDereference(scope, &thisTAC->operands[0]),
 					registerNames[destReg],
 					registerNames[reservedRegisters[0]]);
@@ -575,7 +577,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 
 		case tt_call:
 		{
-			fprintf(outFile, "\tcall %s\n", thisTAC->operands[1].name.str);
+			fprintf(outFile, "\tjalr ra, %s\n", thisTAC->operands[1].name.str);
 
 			if (thisTAC->operands[0].name.str != NULL)
 			{

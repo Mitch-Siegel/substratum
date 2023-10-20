@@ -178,7 +178,7 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		if (relevantLifetime->type.arraySize > 0)
 		{
 			// if array, treat as pointer
-			loadWidth = "w";
+			loadWidth = "wu";
 		}
 		else
 		{
@@ -225,7 +225,7 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		else
 		{
 			const char *loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
-			fprintf(outFile, "\tl%s %s, %d(fp) # place %s\n",
+			fprintf(outFile, "\tl%su %s, %d(fp) # place %s\n",
 					loadWidth,
 					usedRegister,
 					relevantLifetime->stackLocation,
@@ -328,7 +328,7 @@ const char *SelectWidth(struct Scope *scope, struct TACOperand *dataDest)
 	// pointers are always full-width
 	if (TACOperand_GetType(dataDest)->indirectionLevel > 0)
 	{
-		return "w";
+		return "wu";
 	}
 
 	return SelectWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
@@ -360,7 +360,7 @@ const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetim
 {
 	if (lifetime->type.indirectionLevel > 0)
 	{
-		return "w";
+		return "wu";
 	}
 	else
 	{
@@ -420,7 +420,7 @@ void EmitPopForOperand(FILE *outFile,
 
 void EmitPopForSize(FILE *outFile, int size, int destRegister)
 {
-	fprintf(outFile, "\tl%s %s, 0(sp)\n",
+	fprintf(outFile, "\tl%su %s, 0(sp)\n",
 			SelectWidthForSize(size),
 			registerNames[destRegister]);
 	fprintf(outFile, "\taddi sp, sp, %d\n", size);

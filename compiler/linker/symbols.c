@@ -202,7 +202,7 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
             fprintf(f, "\t%s\n", startup[i]);
         }
         // fprintf(f, "\tcall main\n");
-        fprintf(f, "pgm_done:\n\twfi\n\tbeq t1, t1, pgm_done\n");
+        fprintf(f, "\tli sp, 0x81000000\n\tjal ra, main\npgm_done:\n\twfi\n\tbeq t1, t1, pgm_done\n");
     }
 }
 
