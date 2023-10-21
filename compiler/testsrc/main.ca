@@ -9,6 +9,13 @@ fun print(uint32 n->void)
 	n += 1;
 }*/
 
+fun print(uint8 char->void) asm
+{
+	li t0, 0x10000000
+	lbu t1, 4(sp)
+	sb t1, 0(t0)
+}
+
 uint8 dummy = 0;
 
 /*fun main(->void)
@@ -21,9 +28,17 @@ uint8 dummy = 0;
 	testArray[i] = 4;
 }*/
 
-fun main(->void) asm
+fun dumdum(uint8 dummy->void)
 {
-	andi t1, t1, 0
-	addi t1, t1, '!'
-	sw t1, 0(t0)
+
+}
+
+
+fun main(->void)
+{
+	dumdum(123);
+	//print('!');
+	//print(10);
+	//print('@');
+	//print(10);
 }

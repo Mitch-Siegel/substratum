@@ -200,9 +200,10 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 			fprintf(outFile, "\t%s\n", asmTAC->operands[0].name.str);
 		}
 
-		fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
 		EmitPopForSize(outFile, 4, 1);
 		fprintf(outFile, "\tjalr zero, 0(%s)\n", registerNames[1]);
+
+		fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
 		// early return, nothing else to do
 		return;
 	}
@@ -227,7 +228,6 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	{
 		printf("Need %d bytes on stack\n", localStackSize);
 	}
-
 	for (int i = MACHINE_REGISTER_COUNT - 1; i >= 0; i--)
 	{
 		if (metadata.touchedRegisters[i])
@@ -285,7 +285,6 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	}
 
 	fprintf(outFile, "%s_done:\n", function->name);
-
 	for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
 	{
 		if (metadata.touchedRegisters[i])
@@ -299,12 +298,12 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		fprintf(outFile, "\taddi sp, sp, %d\n", localStackSize);
 	}
 
+	EmitPopForSize(outFile, 4, 1);
+
 	if (function->argStackSize > 0)
 	{
 		fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
 	}
-
-	EmitPopForSize(outFile, 4, 1);
 	fprintf(outFile, "\tjalr zero, 0(%s)\n", registerNames[1]);
 
 	// function setup and teardown code generated
@@ -577,7 +576,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 
 		case tt_call:
 		{
-			fprintf(outFile, "\tjalr ra, %s\n", thisTAC->operands[1].name.str);
+			fprintf(outFile, "\tjal ra, %s\n", thisTAC->operands[1].name.str);
 
 			if (thisTAC->operands[0].name.str != NULL)
 			{

@@ -1,4 +1,11 @@
 set -e
+
+if [ ! $1 ]
+then
+    echo "please provide an argument to be passed to the assembler makefile ('run' or 'run-for-debug')"
+    exit 1
+fi
+
 echo "building compiler"
 cd compiler
 if ! make -j`nproc`; then
@@ -26,7 +33,7 @@ cd ..
 
 
 cd ../assembler
-if ! make run; then
+if ! make $1; then
     cd ..
     exit $?
 fi

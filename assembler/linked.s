@@ -5,70 +5,59 @@ _start:
 #res 1
 print:
 	addi sp, sp, -4
-	sw a1, 0(sp)
+	sw ra, 0(sp)
+	li t0, 0x10000000
+	lbu t1, 4(sp)
+	sb t1, 0(t0)
+	lwu ra, 0(sp)
+	addi sp, sp, 4
+	jalr zero, 0(ra)
+	addi sp, sp, 1
+dumdum:
+	addi sp, sp, -4
+	sw ra, 0(sp)
 	addi sp, sp, -4
 	sw a0, 0(sp)
 	addi sp, sp, -4
 	sw t1, 0(sp)
 	addi sp, sp, -4
 	sw t0, 0(sp)
-	lw a0, 8(fp) # place print_n
-print_0:
-
-	 # .t0 = print_n + 1
-	li t1, 1 # place literal
-	add a1, a0, t1
-
-	 # print_n = .t0
-	# Write register variable print_n
-	mv a0, a1
-print_done:
-	lw t0, 0(sp)
+dumdum_0:
+dumdum_done:
+	lwu t0, 0(sp)
 	addi sp, sp, 4
-	lw t1, 0(sp)
+	lwu t1, 0(sp)
 	addi sp, sp, 4
-	lw a0, 0(sp)
+	lwu a0, 0(sp)
 	addi sp, sp, 4
-	lw a1, 0(sp)
+	lwu ra, 0(sp)
 	addi sp, sp, 4
-	addi sp, sp, 4
-	ret
+	addi sp, sp, 1
+	jalr zero, 0(ra)
 main:
-	addi sp, sp, -32
 	addi sp, sp, -4
-	sw a0, 0(sp)
+	sw ra, 0(sp)
 	addi sp, sp, -4
 	sw t1, 0(sp)
 	addi sp, sp, -4
 	sw t0, 0(sp)
 main_0:
 
-	 # .t0 = &main_s
-	addi a0, fp, -32
+	 # push 123
+	li t0, 123 # place literal
+	addi sp, sp, -1
+	sb t0, 0(sp)
 
-	 # (.t0 + 4) = 0
-	li t1, 0 # place literal
-	sw t1, 4(a0)
-	 # main_i = 2
-	li t0, 2 # place literal
-	# Write register variable main_i
-	mv a0, t0
-
-	 # (main_testArray + main_i*2^1) = 4
-	addi t0, fp, -24 # place main_testArray
-	li t2, 4 # place literal
-	slli t1, a0, 1
-	add t0, t0, t1
-	sh t2, 0(t0)
+	 # call dumdum
+	jal ra, dumdum
 main_done:
-	lw t0, 0(sp)
+	lwu t0, 0(sp)
 	addi sp, sp, 4
-	lw t1, 0(sp)
+	lwu t1, 0(sp)
 	addi sp, sp, 4
-	lw a0, 0(sp)
+	lwu ra, 0(sp)
 	addi sp, sp, 4
-	addi sp, sp, 32
-	ret
+	jalr zero, 0(ra)
 userstart:
 	li t0, 0x10000000
 	andi t1, t1, 0
@@ -90,6 +79,8 @@ userstart:
 	andi t1, t1, 0
 	addi t1, t1, 10
 	sw t1, 0(t0)
+	li sp, 0x81000000
+	jal ra, main
 pgm_done:
 	wfi
 	beq t1, t1, pgm_done
