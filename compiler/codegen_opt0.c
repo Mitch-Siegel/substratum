@@ -376,13 +376,13 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[1]);
 			char *offReg = PlaceLiteralInRegister(outFile, thisTAC->operands[2].name.val, reservedRegisters[2]);
 
-			fprintf(outFile, "\taddi %s, %s, %s",
+			fprintf(outFile, "\tadd %s, %s, %s\n",
 					registerNames[baseReg],
 					registerNames[baseReg],
 					offReg);
 
 			const char *loadWidth = SelectWidth(scope, &thisTAC->operands[0]);
-			fprintf(outFile, "\tl%su %s, %s\n",
+			fprintf(outFile, "\tl%su %s, 0(%s)\n",
 					loadWidth,
 					registerNames[destReg],
 					registerNames[baseReg]);
@@ -602,7 +602,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 							registerNames[sourceReg]);
 				}
 			}
-			fprintf(outFile, "\tjmp %s_done\n", scope->parentFunction->name);
+			fprintf(outFile, "\tj %s_done\n", scope->parentFunction->name);
 		}
 		break;
 

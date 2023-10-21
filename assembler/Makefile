@@ -11,7 +11,7 @@ run: linked
 # use -s to listen for gdb connections on port 1234
 # 	-S to not start the guest until told to do so from gdb
 run-for-debug: linked
-	qemu-system-riscv64  -s -S -machine virt -nographic -kernel linked -bios none
+	qemu-system-riscv64 -s -S -machine virt -nographic -kernel linked -bios none
 
 # to be run in a separate terminal, after `make run`
 debug: linked
@@ -20,4 +20,4 @@ debug: linked
 
 
 clean:
-	rm linked linked.o
+	rm -f linked linked.o

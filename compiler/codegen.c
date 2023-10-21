@@ -178,21 +178,21 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		if (relevantLifetime->type.arraySize > 0)
 		{
 			// if array, treat as pointer
-			loadWidth = "wu";
+			loadWidth = "w";
 		}
 		else
 		{
 			loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
 		}
 		const char *usedRegister = registerNames[registerIndex];
-		fprintf(outFile, "\tmv %s, %s # place %s\n",
+		fprintf(outFile, "\tla %s, %s # place %s\n",
 				usedRegister,
 				relevantLifetime->name,
 				operand->name.str);
 
 		if (relevantLifetime->type.arraySize == 0)
 		{
-			fprintf(outFile, "\t%s %s, 0(%s) # place %s\n",
+			fprintf(outFile, "\t%su %s, 0(%s) # place %s\n",
 					loadWidth,
 					usedRegister,
 					usedRegister,
@@ -328,7 +328,7 @@ const char *SelectWidth(struct Scope *scope, struct TACOperand *dataDest)
 	// pointers are always full-width
 	if (TACOperand_GetType(dataDest)->indirectionLevel > 0)
 	{
-		return "wu";
+		return "w";
 	}
 
 	return SelectWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
@@ -360,7 +360,7 @@ const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetim
 {
 	if (lifetime->type.indirectionLevel > 0)
 	{
-		return "wu";
+		return "w";
 	}
 	else
 	{

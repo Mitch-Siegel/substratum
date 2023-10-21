@@ -18,27 +18,21 @@ fun print(uint8 char->void) asm
 
 uint8 dummy = 0;
 
-/*fun main(->void)
+fun printStr(uint8 *str->uint32)
 {
-	class String s;
-	s.len = 0;
-
-	uint16 testArray[12];
-	uint8 i = 2;
-	testArray[i] = 4;
-}*/
-
-fun dumdum(uint8 dummy->void)
-{
-
+	uint32 numPrinted;
+	numPrinted = 0;
+	while(*str != 0)
+	{
+		print(*str);
+		str += 1;
+		numPrinted += 1;
+	}
+	return numPrinted;
 }
-
 
 fun main(->void)
 {
-	dumdum(123);
-	//print('!');
-	//print(10);
-	//print('@');
-	//print(10);
+	printStr("123");
+	print(10);
 }
