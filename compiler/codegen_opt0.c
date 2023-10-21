@@ -122,7 +122,7 @@ void generateCodeForProgram_0(struct SymbolTable *table, FILE *outFile, int regA
 				{
 					for (int e = 0; e < v->type.arraySize; e++)
 					{
-						fprintf(outFile, "#d8 ");
+						fprintf(outFile, ".byte ");
 						for (int i = 0; i < Scope_getSizeOfArrayElement(table->globalScope, v); i++)
 						{
 							fprintf(outFile, "0x%02x ", v->type.initializeArrayTo[e][i]);
@@ -132,7 +132,7 @@ void generateCodeForProgram_0(struct SymbolTable *table, FILE *outFile, int regA
 				}
 				else
 				{
-					fprintf(outFile, "#d8 ");
+					fprintf(outFile, ".byte ");
 					for (int i = 0; i < Scope_getSizeOfType(table->globalScope, &v->type); i++)
 					{
 						fprintf(outFile, "0x%02x ", v->type.initializeTo[i]);
@@ -174,7 +174,12 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	}
 	fprintf(outFile, "%s:\n", function->name);
 
+	// push return address
 	EmitPushForSize(outFile, 4, 1);
+
+	// push frame pointer, copy stack pointer to frame pointer
+	EmitPushForSize(outFile, 4, 8);
+	fprintf(outFile, "mv fp, sp\n");
 
 	if (function->isAsmFun)
 	{
@@ -200,10 +205,16 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 			fprintf(outFile, "\t%s\n", asmTAC->operands[0].name.str);
 		}
 
+		// pop frame pointer
+		EmitPopForSize(outFile, 4, 8);
+
+		// pop return address
 		EmitPopForSize(outFile, 4, 1);
-		fprintf(outFile, "\tjalr zero, 0(%s)\n", registerNames[1]);
 
 		fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
+
+		fprintf(outFile, "\tjalr zero, 0(%s)\n", registerNames[1]);
+
 		// early return, nothing else to do
 		return;
 	}
@@ -298,6 +309,10 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		fprintf(outFile, "\taddi sp, sp, %d\n", localStackSize);
 	}
 
+	// pop frame pointer
+	EmitPopForSize(outFile, 4, 8);
+
+	// pop return address
 	EmitPopForSize(outFile, 4, 1);
 
 	if (function->argStackSize > 0)
@@ -374,12 +389,6 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		{
 			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[1]);
-			char *offReg = PlaceLiteralInRegister(outFile, thisTAC->operands[2].name.val, reservedRegisters[2]);
-
-			fprintf(outFile, "\tadd %s, %s, %s\n",
-					registerNames[baseReg],
-					registerNames[baseReg],
-					offReg);
 
 			const char *loadWidth = SelectWidth(scope, &thisTAC->operands[0]);
 			fprintf(outFile, "\tl%su %s, 0(%s)\n",
@@ -441,10 +450,10 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
 			const char *storeWidth = SelectWidthForDereference(scope, &thisTAC->operands[0]);
 
-			fprintf(outFile, "\ts%s (%s), %s\n",
+			fprintf(outFile, "\ts%s %s, 0(%s)\n",
 					storeWidth,
-					registerNames[destAddrReg],
-					registerNames[sourceReg]);
+					registerNames[sourceReg],
+					registerNames[destAddrReg]);
 		}
 		break;
 

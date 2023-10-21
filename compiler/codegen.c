@@ -105,7 +105,6 @@ void WriteVariable(FILE *outFile,
 	{
 		const char *width = SelectWidth(scope, writtenTo);
 		fprintf(outFile, "\t# Write (global) variable %s\n", relevantLifetime->name);
-
 		fprintf(outFile, "\tli %s, %s\n",
 				registerNames[TEMP_0],
 				relevantLifetime->name);
@@ -122,10 +121,10 @@ void WriteVariable(FILE *outFile,
 		fprintf(outFile, "\t# Write stack variable %s\n", relevantLifetime->name);
 
 		const char *width = SelectWidthForLifetime(scope, relevantLifetime);
-		fprintf(outFile, "\ts%s %d(fp), %s\n",
+		fprintf(outFile, "\ts%s %s, %d(fp)\n",
 				width,
-				relevantLifetime->stackLocation,
-				registerNames[sourceRegIndex]);
+				registerNames[sourceRegIndex],
+				relevantLifetime->stackLocation);
 	}
 	break;
 
@@ -398,9 +397,9 @@ void EmitPushForSize(FILE *outFile, int size, int srcRegister)
 }
 
 void EmitPopForOperand(FILE *outFile,
-							  struct Scope *scope,
-							  struct TACOperand *dataDest,
-							  int destRegister)
+					   struct Scope *scope,
+					   struct TACOperand *dataDest,
+					   int destRegister)
 {
 	int size = Scope_getSizeOfType(scope, TACOperand_GetType(dataDest));
 	switch (size)

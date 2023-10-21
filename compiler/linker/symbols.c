@@ -163,7 +163,7 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
             fprintf(f, "%s:\n", s->name);
             if (s->data.asObject.isInitialized)
             {
-                fputs("#d8 ", f);
+                fputs(".byte ", f);
                 for (int i = 0; i < s->data.asObject.size; i++)
                 {
                     fprintf(f, "0x%02x", s->data.asObject.initializeTo[i]);
