@@ -1,14 +1,3 @@
-/*class String
-{
-	uint8 *data;
-	uint32 len;
-};
-
-fun print(uint32 n->void)
-{
-	n += 1;
-}*/
-
 fun print(uint8 char->void) asm
 {
 	li t0, 0x10000000
@@ -31,9 +20,14 @@ fun printStr(uint8 *str->uint32)
 	return numPrinted;
 }
 
-
 fun main(->void)
 {
+	uint8 manualString[3];
 	printStr("TEST STRING");
+	print(10);
+	manualString[0] = 'a';
+	manualString[1] = manualString[0] + 1;
+	manualString[2] = 0;
+	printStr(manualString);
 	print(10);
 }

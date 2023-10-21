@@ -15,7 +15,7 @@ run-for-debug: linked
 
 # to be run in a separate terminal, after `make run`
 debug: linked
-	riscv64-unknown-elf-gdb ./linked -x debug.gdb
+	riscv64-unknown-elf-gdb ./linked.elf -x debug.gdb
 
 
 

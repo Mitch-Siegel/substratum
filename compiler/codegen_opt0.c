@@ -404,7 +404,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		{
 			// TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
 			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[1]);
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
 
 			fprintf(outFile, "\tl%su %s, %d(%s)",
 					SelectWidth(scope, &thisTAC->operands[0]),
@@ -436,7 +436,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 					registerNames[reservedRegisters[2]]);
 
 			fprintf(outFile, "\tl%su %s, 0(%s)",
-					SelectWidthForDereference(scope, &thisTAC->operands[0]),
+					SelectWidthForDereference(scope, &thisTAC->operands[1]),
 					registerNames[destReg],
 					registerNames[reservedRegisters[0]]);
 
