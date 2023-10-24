@@ -179,7 +179,7 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 
 	// push frame pointer, copy stack pointer to frame pointer
 	EmitPushForSize(outFile, 4, 8);
-	fprintf(outFile, "mv fp, sp\n");
+	fprintf(outFile, "\tmv fp, sp\n");
 
 	if (function->isAsmFun)
 	{
@@ -438,7 +438,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 			fprintf(outFile, "\tl%su %s, 0(%s)",
 					SelectWidthForDereference(scope, &thisTAC->operands[1]),
 					registerNames[destReg],
-					registerNames[reservedRegisters[0]]);
+					registerNames[reservedRegisters[1]]);
 
 			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
 		}

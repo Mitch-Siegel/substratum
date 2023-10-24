@@ -25,17 +25,90 @@ fun printStr(uint8 *str, uint8 newline->uint32)
 	return numPrinted;
 }
 
-fun scopeTest(->void)
+fun arrTest(->void)
 {
+	uint32 sums[10];
 
+	uint8 driver = 0;
+	uint8 i = 0;
+	while(driver < 10)
+	{
+		uint8 arr[10];
+		arr[0] = 0;
+		arr[1] = 1;
+		i = 2;
+		while(i < driver)
+		{
+			print('0' + i);
+			arr[i] = arr[i - 1] + arr[i - 2];
+			i += 1;
+		}
+
+		sums[driver] = 0;
+		i = 0;
+		while(i < driver)
+		{
+			sums[driver] += arr[i];
+			uint8 j = arr[i];
+			uint8 k = 0;
+			while(k < j)
+			{
+				print('.');
+				k += 1;
+			}
+			print(10);
+			i += 1;
+		}
+		driver += 1;
+	}
+
+	i = 0;
+	while(i < 10)
+	{
+		uint8 j = sums[i];
+		uint8 k = 0;
+		while(k < j)
+		{
+			print('.');
+			k += 1;
+		}
+		print(10);
+		i += 1;
+	}
 }
+
+fun offsetTest(->void)
+{
+	uint16 arr[10];
+	*arr = 0;
+	*(arr + 1) = 1;
+	uint8 i = 2;
+	while(i < 10)
+	{
+		*(arr + i) = *(arr + (i - 1)) + *(arr + (i - 2));
+		i += 1;
+	}
+
+	i = 0;
+	while(i < 10)
+	{
+		uint8 j = arr[i];
+		uint8 k = 0;
+		while(k < j)
+		{
+			print('.');
+			k += 1;
+		}
+		print(10);
+		i += 1;
+	}
+}
+
 
 fun main(->void)
 {
-	uint8 manualString[3];
-	printStr("TEST STRING", 1);
-	manualString[0] = 'a';
-	manualString[1] = manualString[0] + 1;
-	manualString[2] = 0;
-	printStr(manualString, 1);
+	printStr("This is a test of arrays", 1);
+	arrTest();
+	printStr("This is a test of the * operator (pointer arithmetic)", 1);
+	offsetTest();
 }
