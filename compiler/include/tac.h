@@ -9,9 +9,9 @@
 enum basicTypes
 {
 	vt_null,
-	vt_uint8,
-	vt_uint16,
-	vt_uint32,
+	vt_u8,
+	vt_u16,
+	vt_u32,
 	vt_class
 };
 

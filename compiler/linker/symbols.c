@@ -13,15 +13,15 @@ int GetSizeOfType(struct Type *t)
         ErrorAndExit(ERROR_INTERNAL, "GetSizeOfType called with basic type of vt_null!\n");
         break;
 
-    case vt_uint8:
+    case vt_u8:
         size = 1;
         break;
 
-    case vt_uint16:
+    case vt_u16:
         size = 2;
         break;
 
-    case vt_uint32:
+    case vt_u32:
         size = 4;
         break;
 

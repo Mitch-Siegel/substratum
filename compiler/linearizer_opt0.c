@@ -21,9 +21,9 @@ struct SymbolTable *walkProgram_0(struct AST *program)
 	{
 		switch (programRunner->type)
 		{
-		case t_uint8:
-		case t_uint16:
-		case t_uint32:
+		case t_u8:
+		case t_u16:
+		case t_u32:
 			walkVariableDeclaration_0(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
 			break;
 
@@ -90,16 +90,16 @@ struct VariableEntry *walkVariableDeclaration_0(struct AST *tree,
 
 	switch (tree->type)
 	{
-	case t_uint8:
-		declaredType.basicType = vt_uint8;
+	case t_u8:
+		declaredType.basicType = vt_u8;
 		break;
 
-	case t_uint16:
-		declaredType.basicType = vt_uint16;
+	case t_u16:
+		declaredType.basicType = vt_u16;
 		break;
 
-	case t_uint32:
-		declaredType.basicType = vt_uint32;
+	case t_u32:
+		declaredType.basicType = vt_u32;
 		break;
 
 	case t_class:
@@ -201,16 +201,16 @@ void walkFunctionDeclaration_0(struct AST *tree,
 		returnBasicType = vt_null;
 		break;
 
-	case t_uint8:
-		returnBasicType = vt_uint8;
+	case t_u8:
+		returnBasicType = vt_u8;
 		break;
 
-	case t_uint16:
-		returnBasicType = vt_uint16;
+	case t_u16:
+		returnBasicType = vt_u16;
 		break;
 
-	case t_uint32:
-		returnBasicType = vt_uint32;
+	case t_u32:
+		returnBasicType = vt_u32;
 		break;
 
 	default:
@@ -250,9 +250,9 @@ void walkFunctionDeclaration_0(struct AST *tree,
 		switch (argumentRunner->type)
 		{
 		// looking at argument declarations
-		case t_uint8:
-		case t_uint16:
-		case t_uint32:
+		case t_u8:
+		case t_u16:
+		case t_u32:
 		case t_class:
 		{
 			walkArgumentDeclaration_0(argumentRunner, block, &TACIndex, &tempNum, parsedFunc);
@@ -428,9 +428,9 @@ void walkClassDeclaration_0(struct AST *tree,
 	{
 		switch (scopeRunner->type)
 		{
-		case t_uint8:
-		case t_uint16:
-		case t_uint32:
+		case t_u8:
+		case t_u16:
+		case t_u32:
 		case t_class:
 		{
 			struct VariableEntry *declaredMember = walkVariableDeclaration_0(scopeRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0);
@@ -461,9 +461,9 @@ void walkStatement_0(struct AST *tree,
 
 	switch (tree->type)
 	{
-	case t_uint8:
-	case t_uint16:
-	case t_uint32:
+	case t_u8:
+	case t_u16:
+	case t_u32:
 	case t_class:
 		walkVariableDeclaration_0(tree, *blockP, scope, TACIndex, tempNum, 0);
 		break;
@@ -647,7 +647,7 @@ void walkConditionCheck_0(struct AST *tree,
 			walkSubExpression_0(tree->child, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
 			condFalseJump->operands[2].name.val = 0;
 			condFalseJump->operands[2].permutation = vp_literal;
-			TACOperand_SetBasicType(&condFalseJump->operands[2], vt_uint32, 0);
+			TACOperand_SetBasicType(&condFalseJump->operands[2], vt_u32, 0);
 		}
 		break;
 
@@ -660,7 +660,7 @@ void walkConditionCheck_0(struct AST *tree,
 			// walkSubExpression_0(tree, block, scope, TACIndex, tempNum, &compareOperation->operands[1]);
 			// compareOperation->operands[2].name.val = 0;
 			// compareOperation->operands[2].permutation = vp_literal;
-			// TACOperand_SetBasicType(&compareOperation->operands[2], vt_uint32, 0);
+			// TACOperand_SetBasicType(&compareOperation->operands[2], vt_u32, 0);
 			// condFalseJump->operation = tt_jz;
 		}
 		break;
@@ -888,7 +888,7 @@ void walkDotOperatorAssignment(struct AST *tree,
 
 	struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(writtenClass, member);
 
-	wipAssignment->operands[1].type.basicType = vt_uint32;
+	wipAssignment->operands[1].type.basicType = vt_u32;
 	wipAssignment->operands[1].permutation = vp_literal;
 	wipAssignment->operands[1].name.val = accessedMember->offset;
 
@@ -970,7 +970,7 @@ void walkArrowOperatorAssignment(struct AST *tree,
 
 	struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(writtenClass, member);
 
-	wipAssignment->operands[1].type.basicType = vt_uint32;
+	wipAssignment->operands[1].type.basicType = vt_u32;
 	wipAssignment->operands[1].permutation = vp_literal;
 	wipAssignment->operands[1].name.val = accessedMember->offset;
 
@@ -1008,9 +1008,9 @@ void walkAssignment_0(struct AST *tree,
 	struct VariableEntry *assignedVariable = NULL;
 	switch (lhs->type)
 	{
-	case t_uint8:
-	case t_uint16:
-	case t_uint32:
+	case t_u8:
+	case t_u16:
+	case t_u32:
 	case t_class:
 		assignedVariable = walkVariableDeclaration_0(lhs, block, scope, TACIndex, tempNum, 0);
 		populateTACOperandFromVariable(&assignment->operands[0], assignedVariable);
@@ -1066,7 +1066,7 @@ void walkAssignment_0(struct AST *tree,
 
 		assignment->operands[2].permutation = vp_literal;
 		assignment->operands[2].type.indirectionLevel = 0;
-		assignment->operands[2].type.basicType = vt_uint8;
+		assignment->operands[2].type.basicType = vt_u8;
 		assignment->operands[2].name.val = alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
 
 		walkSubExpression_0(arrayIndex, block, scope, TACIndex, tempNum, &assignment->operands[1]);
@@ -1173,7 +1173,7 @@ void walkSubExpression_0(struct AST *tree,
 		char literalAsNumber[8];
 		sprintf(literalAsNumber, "%d", tree->value[0]);
 		destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, literalAsNumber);
-		destinationOperand->type.basicType = vt_uint8;
+		destinationOperand->type.basicType = vt_u8;
 		destinationOperand->permutation = vp_literal;
 	}
 	break;
@@ -1455,7 +1455,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 			copyTACOperandTypeDecayArrays(&accessLine->operands[0], &accessLine->operands[1]);
 		}
 
-		accessLine->operands[2].type.basicType = vt_uint32;
+		accessLine->operands[2].type.basicType = vt_u32;
 		accessLine->operands[2].permutation = vp_literal;
 
 		accessLine->index = (*TACIndex)++;
@@ -1516,7 +1516,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 		copyTACOperandTypeDecayArrays(&accessLine->operands[0], &accessLine->operands[1]);
 		TACOperand_GetType(&accessLine->operands[0])->indirectionLevel--;
 
-		accessLine->operands[2].type.basicType = vt_uint32;
+		accessLine->operands[2].type.basicType = vt_u32;
 		accessLine->operands[2].permutation = vp_literal;
 
 		BasicBlock_append(block, accessLine);
@@ -1534,7 +1534,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 		accessLine->operands[0].permutation = vp_temp;
 		copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccess->operands[0]);
 
-		accessLine->operands[2].type.basicType = vt_uint32;
+		accessLine->operands[2].type.basicType = vt_u32;
 		accessLine->operands[2].permutation = vp_literal;
 
 		BasicBlock_append(block, accessLine);
@@ -1995,7 +1995,7 @@ void walkStringLiteral_0(struct AST *tree,
 		fakeStringTree.sourceCol = tree->sourceCol;
 
 		struct Type stringType;
-		stringType.basicType = vt_uint8;
+		stringType.basicType = vt_u8;
 		stringType.arraySize = stringSize;
 		stringType.indirectionLevel = 0;
 

@@ -15,16 +15,16 @@ enum token parseRecipes[p_null][14][9][2] = {
         {{t_void, above},
          {p_null, p_null}},
 
-        // 'uint8'
-        {{t_uint8, above},
+        // 'u8'
+        {{t_u8, above},
          {p_null, p_null}},
 
-        // 'uint16'
-        {{t_uint16, above},
+        // 'u16'
+        {{t_u16, above},
          {p_null, p_null}},
 
-        // 'uint32'
-        {{t_uint32, above},
+        // 'u32'
+        {{t_u32, above},
          {p_null, p_null}},
 
         {{t_class, above},

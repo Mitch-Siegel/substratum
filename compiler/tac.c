@@ -49,15 +49,15 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 		case vt_null:
 			return 1;
 
-		case vt_uint8:
+		case vt_u8:
 			switch (b->basicType)
 			{
 			case vt_null:
 			case vt_class:
 				return 1;
-			case vt_uint8:
-			case vt_uint16:
-			case vt_uint32:
+			case vt_u8:
+			case vt_u16:
+			case vt_u32:
 				break;
 
 			default:
@@ -65,29 +65,29 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			}
 			break;
 
-		case vt_uint16:
+		case vt_u16:
 			switch (b->basicType)
 			{
 			case vt_null:
-			case vt_uint8:
+			case vt_u8:
 			case vt_class:
 				return 1;
-			case vt_uint16:
-			case vt_uint32:
+			case vt_u16:
+			case vt_u32:
 				break;
 			}
 			break;
 
-		case vt_uint32:
+		case vt_u32:
 			switch (b->basicType)
 			{
 			case vt_null:
-			case vt_uint8:
-			case vt_uint16:
+			case vt_u8:
+			case vt_u16:
 			case vt_class:
 				return 1;
 
-			case vt_uint32:
+			case vt_u32:
 				break;
 			}
 			break;
@@ -96,9 +96,9 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			switch (b->basicType)
 			{
 			case vt_null:
-			case vt_uint8:
-			case vt_uint16:
-			case vt_uint32:
+			case vt_u8:
+			case vt_u16:
+			case vt_u32:
 				return 1;
 
 			case vt_class:
@@ -150,16 +150,16 @@ char *Type_GetName(struct Type *t)
 		len = sprintf(typeName, "NOTYPE");
 		break;
 
-	case vt_uint8:
-		len = sprintf(typeName, "uint8");
+	case vt_u8:
+		len = sprintf(typeName, "u8");
 		break;
 
-	case vt_uint16:
-		len = sprintf(typeName, "uint16");
+	case vt_u16:
+		len = sprintf(typeName, "u16");
 		break;
 
-	case vt_uint32:
-		len = sprintf(typeName, "uint32");
+	case vt_u32:
+		len = sprintf(typeName, "u32");
 		break;
 
 	case vt_class:

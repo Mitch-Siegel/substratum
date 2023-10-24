@@ -136,20 +136,20 @@ size_t bufSize = 0;
 
 enum basicTypes parseBasicType(char *basicTypeString, int *len)
 {
-    if (strstr(basicTypeString, "uint8"))
+    if (strstr(basicTypeString, "u8"))
     {
         *len = 5;
-        return vt_uint8;
+        return vt_u8;
     }
-    else if (strstr(basicTypeString, "uint16"))
+    else if (strstr(basicTypeString, "u16"))
     {
         *len = 6;
-        return vt_uint16;
+        return vt_u16;
     }
-    else if (strstr(basicTypeString, "uint32"))
+    else if (strstr(basicTypeString, "u32"))
     {
         *len = 6;
-        return vt_uint32;
+        return vt_u32;
     }
     else if (strstr(basicTypeString, "NOTYPE"))
     {

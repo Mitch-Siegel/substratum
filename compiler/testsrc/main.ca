@@ -2,13 +2,13 @@
 
 fun arrTest(->void)
 {
-	uint32 sums[10];
+	u32 sums[10];
 
-	uint8 driver = 0;
-	uint8 i = 0;
+	u8 driver = 0;
+	u8 i = 0;
 	while(driver < 10)
 	{
-		uint8 arr[10];
+		u8 arr[10];
 		arr[0] = 0;
 		arr[1] = 1;
 		i = 2;
@@ -40,10 +40,10 @@ fun arrTest(->void)
 
 fun offsetTest(->void)
 {
-	uint16 arr[10];
+	u16 arr[10];
 	*arr = 0;
 	*(arr + 1) = 1;
-	uint8 i = 2;
+	u8 i = 2;
 	while(i < 10)
 	{
 		*(arr + i) = *(arr + (i - 1)) + *(arr + (i - 2));

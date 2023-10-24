@@ -46,9 +46,9 @@ char *token_names[] = {
 	"t_asm",
 	// types
 	"t_void",
-	"t_uint8",
-	"t_uint16",
-	"t_uint32",
+	"t_u8",
+	"t_u16",
+	"t_u32",
 	"t_class",
 	// function
 	"t_fun",
@@ -242,9 +242,9 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 	{"asm", t_asm},
 
 	{"void", t_void},
-	{"uint8", t_uint8},
-	{"uint16", t_uint16},
-	{"uint32", t_uint32},
+	{"u8", t_u8},
+	{"u16", t_u16},
+	{"u32", t_u32},
 	{"class", t_class},
 
 	{"fun", t_fun},
@@ -465,9 +465,9 @@ enum token _scan(char trackPos)
 				// make sure we don't greedily match the first part of an identifier as a keyword
 				case t_asm:
 				case t_void:
-				case t_uint8:
-				case t_uint16:
-				case t_uint32:
+				case t_u8:
+				case t_u16:
+				case t_u32:
 				case t_fun:
 				case t_return:
 				case t_if:

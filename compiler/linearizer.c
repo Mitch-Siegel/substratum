@@ -16,15 +16,15 @@ enum basicTypes selectVariableTypeForNumber(int num)
 {
 	if (num < 256)
 	{
-		return vt_uint8;
+		return vt_u8;
 	}
 	else if (num < 65536)
 	{
-		return vt_uint16;
+		return vt_u16;
 	}
 	else
 	{
-		return vt_uint32;
+		return vt_u32;
 	}
 }
 
@@ -79,7 +79,7 @@ struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, 
 	snprintf(scaleVal, 31, "%d", Scope_getSizeOfDereferencedType(scope, pointerTypeOfToScale));
 	scaleMultiplication->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, scaleVal);
 	scaleMultiplication->operands[2].permutation = vp_literal;
-	scaleMultiplication->operands[2].type.basicType = vt_uint32;
+	scaleMultiplication->operands[2].type.basicType = vt_u32;
 
 	return scaleMultiplication;
 }

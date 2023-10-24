@@ -1,15 +1,15 @@
 #include "print.h"
 
-fun print(uint8 char->void) asm
+fun print(u8 char->void) asm
 {
 	li t0, 0x10000000
 	lbu t1, 8(fp)
 	sb t1, 0(t0)
 }
 
-fun printStr(uint8 *str, uint8 newline->uint32)
+fun printStr(u8 *str, u8 newline->u32)
 {
-	uint32 numPrinted;
+	u32 numPrinted;
 	numPrinted = 0;
 	while(*str != 0)
 	{
@@ -27,7 +27,7 @@ fun printStr(uint8 *str, uint8 newline->uint32)
 	return numPrinted;
 }
 
-fun mod(uint32 a, uint32 b->uint32)
+fun mod(u32 a, u32 b->u32)
 {
 	while(a >= b)
 	{
@@ -36,9 +36,9 @@ fun mod(uint32 a, uint32 b->uint32)
 	return a;
 }
 
-fun div(uint32 a, uint32 b->uint32)
+fun div(u32 a, u32 b->u32)
 {
-	uint32 quotient = 0;
+	u32 quotient = 0;
 	while (a >= b)
 	{
 		a -= b;
@@ -47,14 +47,14 @@ fun div(uint32 a, uint32 b->uint32)
 	return quotient;
 }
 
-fun printNum(uint32 value->void)
+fun printNum(u32 value->void)
 {
-	uint8 chars[10];
-	uint8 nChars = 0;
-	uint32 vc = value;
+	u8 chars[10];
+	u8 nChars = 0;
+	u32 vc = value;
 	while(value > 0)
 	{
-		uint8 rv = mod(value, 10);
+		u8 rv = mod(value, 10);
 		chars[nChars] = rv + '0';
 		value = div(value, 10);
 		nChars += 1;
