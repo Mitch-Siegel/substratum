@@ -151,6 +151,7 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
 
         case s_function_definition:
         {
+            fprintf(f, ".align 4\n");
         }
         break;
 
@@ -196,7 +197,7 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
         (s->symbolType == s_section) &&
         (!strcmp(s->name, "userstart")))
     {
-        fprintf(f, "userstart:\n");
+        fprintf(f, ".align 4\nuserstart:\n");
         for(int i = 0; startup[i][0] != '\0'; i++)
         {
             fprintf(f, "\t%s\n", startup[i]);

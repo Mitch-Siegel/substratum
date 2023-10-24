@@ -5,9 +5,7 @@ fun print(uint8 char->void) asm
 	sb t1, 0(t0)
 }
 
-uint8 dummy = 0;
-
-fun printStr(uint8 *str->uint32)
+fun printStr(uint8 *str, uint8 newline->uint32)
 {
 	uint32 numPrinted;
 	numPrinted = 0;
@@ -17,17 +15,27 @@ fun printStr(uint8 *str->uint32)
 		str += 1;
 		numPrinted += 1;
 	}
+
+	if(newline != 0)
+	{
+		print(10);
+		numPrinted += 1;
+	}
+
 	return numPrinted;
+}
+
+fun scopeTest(->void)
+{
+
 }
 
 fun main(->void)
 {
 	uint8 manualString[3];
-	printStr("TEST STRING");
-	print(10);
+	printStr("TEST STRING", 1);
 	manualString[0] = 'a';
 	manualString[1] = manualString[0] + 1;
 	manualString[2] = 0;
-	printStr(manualString);
-	print(10);
+	printStr(manualString, 1);
 }

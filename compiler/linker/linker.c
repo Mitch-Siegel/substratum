@@ -290,7 +290,16 @@ int main(int argc, char **argv)
 
     if (outputExecutable)
     {
-        fprintf(outFile, ".global _start\n_start:\n\tjal ra, userstart\n\t");
+        char *startLabelCode[] = {".global _start",
+                                  "_start:",
+                                  "call userstart",
+                                  "\0"};
+
+        for (int i = 0; startLabelCode[i][0] != '\0'; i++)
+        {
+            fprintf(outFile, "%s\n", startLabelCode[i]);
+        }
+        // fprintf(outFile, ".global _start\n_start:\n\tla ra, userstart\n\taddi ra, ra, pc\n\tjalr zero, 0(ra)\n\t");
     }
 
     for (int i = 0; i < s_null; i++)
