@@ -10,7 +10,7 @@
 #define TEMP_1 6 // t1
 #define TEMP_2 7 // t2
 #define RETURN_REGISTER 10
-#define START_ALLOCATING_FROM 10
+#define START_ALLOCATING_FROM 11
 #define MACHINE_REGISTER_COUNT 32
 
 enum WritebackLocation

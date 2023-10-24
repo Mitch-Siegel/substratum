@@ -241,7 +241,7 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	}
 	for (int i = MACHINE_REGISTER_COUNT - 1; i >= 0; i--)
 	{
-		if (metadata.touchedRegisters[i])
+		if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
 		{
 			EmitPushForSize(outFile, 4, i);
 		}
@@ -298,7 +298,7 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	fprintf(outFile, "%s_done:\n", function->name);
 	for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
 	{
-		if (metadata.touchedRegisters[i])
+		if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
 		{
 			EmitPopForSize(outFile, 4, i);
 		}
@@ -352,7 +352,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		if (thisTAC->operation != tt_asm)
 		{
 			char *printedTAC = sPrintTACLine(thisTAC);
-			fprintf(outFile, "\n\t # %s\n", printedTAC);
+			fprintf(outFile, "\n\t# %s\n", printedTAC);
 			free(printedTAC);
 		}
 
@@ -609,6 +609,10 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 					fprintf(outFile, "\tmv %s, %s\n",
 							registerNames[RETURN_REGISTER],
 							registerNames[sourceReg]);
+				}
+				else
+				{
+					fprintf(outFile, "#OMGWTFBBQ\n");
 				}
 			}
 			fprintf(outFile, "\tj %s_done\n", scope->parentFunction->name);

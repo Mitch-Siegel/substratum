@@ -1,29 +1,4 @@
-fun print(uint8 char->void) asm
-{
-	li t0, 0x10000000
-	lbu t1, 8(fp)
-	sb t1, 0(t0)
-}
-
-fun printStr(uint8 *str, uint8 newline->uint32)
-{
-	uint32 numPrinted;
-	numPrinted = 0;
-	while(*str != 0)
-	{
-		print(*str);
-		str += 1;
-		numPrinted += 1;
-	}
-
-	if(newline != 0)
-	{
-		print(10);
-		numPrinted += 1;
-	}
-
-	return numPrinted;
-}
+#include "print.h"
 
 fun arrTest(->void)
 {
@@ -49,14 +24,7 @@ fun arrTest(->void)
 		while(i < driver)
 		{
 			sums[driver] += arr[i];
-			uint8 j = arr[i];
-			uint8 k = 0;
-			while(k < j)
-			{
-				print('.');
-				k += 1;
-			}
-			print(10);
+			printNum(arr[i]);
 			i += 1;
 		}
 		driver += 1;
@@ -65,14 +33,7 @@ fun arrTest(->void)
 	i = 0;
 	while(i < 10)
 	{
-		uint8 j = sums[i];
-		uint8 k = 0;
-		while(k < j)
-		{
-			print('.');
-			k += 1;
-		}
-		print(10);
+		printNum(sums[i]);
 		i += 1;
 	}
 }
@@ -92,14 +53,7 @@ fun offsetTest(->void)
 	i = 0;
 	while(i < 10)
 	{
-		uint8 j = arr[i];
-		uint8 k = 0;
-		while(k < j)
-		{
-			print('.');
-			k += 1;
-		}
-		print(10);
+		printNum(arr[i]);
 		i += 1;
 	}
 }
@@ -111,4 +65,5 @@ fun main(->void)
 	arrTest();
 	printStr("This is a test of the * operator (pointer arithmetic)", 1);
 	offsetTest();
+
 }
