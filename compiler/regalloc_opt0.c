@@ -22,12 +22,13 @@ int lifetimeHeuristic_0(struct Lifetime *lt)
 
 void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurrentLifetimes)
 {
-    int MAXREG = REGISTERS_TO_ALLOCATE - 2;
-    metadata->reservedRegisters[0] = SCRATCH_REGISTER;
-    metadata->touchedRegisters[SCRATCH_REGISTER] = 1;
-    metadata->reservedRegisters[1] = RETURN_REGISTER;
-    metadata->touchedRegisters[SECOND_SCRATCH_REGISTER] = 1;
-    metadata->reservedRegisters[2] = SECOND_SCRATCH_REGISTER;
+    int MAXREG = MACHINE_REGISTER_COUNT - 2;
+    metadata->reservedRegisters[0] = TEMP_0;
+    metadata->touchedRegisters[TEMP_0] = 1;
+    metadata->reservedRegisters[1] = TEMP_1;
+    metadata->touchedRegisters[TEMP_1] = 1;
+    metadata->reservedRegisters[2] = TEMP_2;
+    metadata->touchedRegisters[TEMP_1] = 1;
 
     metadata->reservedRegisterCount = 3;
 
@@ -121,10 +122,10 @@ void assignRegisters(struct CodegenMetadata *metadata)
 {
     // printf("\nassigning registers\n");
     // flag registers in use at any given TAC index so we can easily assign
-    char registers[REGISTERS_TO_ALLOCATE];
-    struct Lifetime *occupiedBy[REGISTERS_TO_ALLOCATE];
+    char registers[MACHINE_REGISTER_COUNT];
+    struct Lifetime *occupiedBy[MACHINE_REGISTER_COUNT];
 
-    for (int i = 0; i < REGISTERS_TO_ALLOCATE; i++)
+    for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
     {
         registers[i] = 0;
         occupiedBy[i] = NULL;
@@ -132,14 +133,10 @@ void assignRegisters(struct CodegenMetadata *metadata)
 
     for (int i = 0; i <= metadata->largestTacIndex; i++)
     {
-        int j = metadata->reservedRegisterCount - 1;
-        if (metadata->reservedRegisterCount == 0)
-        {
-            j = 0;
-        }
+        int j = START_ALLOCATING_FROM;
 
         // free any registers inhabited by expired lifetimes
-        for (; j < REGISTERS_TO_ALLOCATE; j++)
+        for (; j < MACHINE_REGISTER_COUNT; j++)
         {
             if (occupiedBy[j] != NULL && occupiedBy[j]->end <= i)
             {
@@ -158,18 +155,18 @@ void assignRegisters(struct CodegenMetadata *metadata)
             {
                 char registerFound = 0;
                 // scan through all registers, looking for an unoccupied one
-                for (int j = metadata->reservedRegisterCount - 1; j < REGISTERS_TO_ALLOCATE; j++)
+                for (int k = START_ALLOCATING_FROM; k < MACHINE_REGISTER_COUNT; k++)
                 {
-                    if (registers[j] == 0)
+                    if (registers[k] == 0)
                     {
-                        // printf("\tAssign register %d for variable %s\n", j, thisLifetime->name);
-                        thisLifetime->registerLocation = j;
+                        // printf("\tAssign register %d for variable %s\n", k, thisLifetime->name);
+                        thisLifetime->registerLocation = k;
                         thisLifetime->inRegister = 1;
                         thisLifetime->onStack = 0;
 
-                        registers[j] = 1;
-                        occupiedBy[j] = thisLifetime;
-                        metadata->touchedRegisters[j] = 1;
+                        registers[k] = 1;
+                        occupiedBy[k] = thisLifetime;
+                        metadata->touchedRegisters[k] = 1;
                         registerFound = 1;
                         break;
                     }

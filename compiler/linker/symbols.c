@@ -98,6 +98,28 @@ void Symbol_Free(struct Symbol *s)
     free(s);
 }
 
+char *startup[] = {"li t0, 0x10000000",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 'h'",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 'e'",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 'l'",
+                  "sw t1, 0(t0)",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 'o'",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, '!'",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 10",
+                  "sw t1, 0(t0)",
+                  ""};
+
 void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
 {
     if (!outputExecutable)
@@ -116,7 +138,6 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
         {
         case s_variable:
             fprintf(f, "%s:\n", s->name);
-            printf("Variable %s is a %d(%d*)[%d]\n", s->name, s->data.asVariable.basicType, s->data.asVariable.indirectionLevel, s->data.asVariable.arraySize);
             // only reserve space if this variable is not initialized
             // if it is initialized, the data directives we will output later will reserve the space on their own
             if (s->data.asVariable.initializeTo == NULL)
@@ -130,16 +151,12 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
 
         case s_function_definition:
         {
-            fputs("#align 2048\n", f);
+            fprintf(f, ".align 4\n");
         }
         break;
 
         case s_section:
         {
-            if (!strcmp(s->name, "userstart"))
-            {
-                fprintf(f, "START:\n");
-            }
         }
         break;
 
@@ -147,7 +164,7 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
             fprintf(f, "%s:\n", s->name);
             if (s->data.asObject.isInitialized)
             {
-                fputs("#d8 ", f);
+                fputs(".byte ", f);
                 for (int i = 0; i < s->data.asObject.size; i++)
                 {
                     fprintf(f, "0x%02x", s->data.asObject.initializeTo[i]);
@@ -180,8 +197,13 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
         (s->symbolType == s_section) &&
         (!strcmp(s->name, "userstart")))
     {
-        fprintf(f, "call main\n");
-        fprintf(f, "hlt\n");
+        fprintf(f, ".align 4\nuserstart:\n");
+        for(int i = 0; startup[i][0] != '\0'; i++)
+        {
+            fprintf(f, "\t%s\n", startup[i]);
+        }
+        // fprintf(f, "\tcall main\n");
+        fprintf(f, "\tli sp, 0x81000000\n\tjal ra, main\npgm_done:\n\twfi\n\tbeq t1, t1, pgm_done\n");
     }
 }
 

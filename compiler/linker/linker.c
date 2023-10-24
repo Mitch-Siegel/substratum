@@ -212,6 +212,9 @@ int main(int argc, char **argv)
         mainFunction->data.asFunction.returnType = mainReturnType;
 
         addRequire(exports, requires, mainFunction);
+
+        struct Symbol *userStart = Symbol_New(Dictionary_LookupOrInsert(symbolNames, "userstart"), export, s_section, "");
+        addExport(exports, requires, userStart);
     }
 
     for (struct LinkedListNode *inFileName = inputFiles->buckets[0]->head; inFileName != NULL; inFileName = inFileName->next)
@@ -287,7 +290,16 @@ int main(int argc, char **argv)
 
     if (outputExecutable)
     {
-        fprintf(outFile, "#include \"CPU.asm\"\nentry START\n#addr 4096\n");
+        char *startLabelCode[] = {".global _start",
+                                  "_start:",
+                                  "call userstart",
+                                  "\0"};
+
+        for (int i = 0; startLabelCode[i][0] != '\0'; i++)
+        {
+            fprintf(outFile, "%s\n", startLabelCode[i]);
+        }
+        // fprintf(outFile, ".global _start\n_start:\n\tla ra, userstart\n\taddi ra, ra, pc\n\tjalr zero, 0(ra)\n\t");
     }
 
     for (int i = 0; i < s_null; i++)

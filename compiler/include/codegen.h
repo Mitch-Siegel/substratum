@@ -12,13 +12,15 @@ extern char *registerNames[MACHINE_REGISTER_COUNT];
 int ALIGNSIZE(unsigned int size);
 
 // place a literal in the register specified by numerical index, return string of register's name for asm
-char *PlaceLiteralInRegister(FILE *outFile, char *literalStr, int destReg);
+char *PlaceLiteralStringInRegister(FILE *outFile, char *literalStr, int destReg);
+
+char *PlaceLiteralInRegister(FILE *outFile, int literal, int destReg);
 
 void verifyCodegenPrimitive(struct TACOperand *operand);
 
 void WriteVariable(FILE *outFile,
-                   struct LinkedList *lifetimes,
                    struct Scope *scope,
+                   struct LinkedList *lifetimes,
                    struct TACOperand *writtenTo,
                    int sourceRegIndex);
 
@@ -29,24 +31,36 @@ int placeOrFindOperandInRegister(FILE *outFile,
                                  struct TACOperand *operand,
                                  int registerIndex);
 
-int pickWriteRegister(struct LinkedList *lifetimes,
-                      struct Scope *scope,
+int pickWriteRegister(struct Scope *scope,
+                      struct LinkedList *lifetimes,
                       struct TACOperand *operand,
                       int registerIndex);
 
 int placeAddrOfLifetimeInReg(FILE *file,
-                             struct LinkedList *lifetimes,
                              struct Scope *scope,
+                             struct LinkedList *lifetimes,
                              struct TACOperand *operand,
                              int registerIndex);
 
-const char *SelectMovWidth(struct Scope *scope, struct TACOperand *dataDest);
+const char *SelectWidth(struct Scope *scope, struct TACOperand *dataDest);
 
-const char *SelectMovWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP);
+const char *SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP);
 
-const char *SelectMovWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime);
+const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime);
 
-const char *SelectPushWidth(struct Scope *scope, struct TACOperand *dataDest);
+void EmitPushForOperand(FILE *outFile,
+                        struct Scope *scope,
+                        struct TACOperand *dataSource,
+                        int srcRegister);
+
+void EmitPushForSize(FILE *outFile, int size, int srcRegister);
+
+void EmitPopForOperand(FILE *outFile,
+                       struct Scope *scope,
+                       struct TACOperand *dataDest,
+                       int destRegister);
+
+void EmitPopForSize(FILE *outFile, int size, int destRegister);
 
 void generateCode(struct SymbolTable *table, FILE *outFile, int regAllocOpt, int codegenOpt);
 

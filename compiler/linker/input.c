@@ -164,7 +164,6 @@ enum basicTypes parseBasicType(char *basicTypeString, int *len)
 
 struct Type *parseType(FILE *inFile, char *declString, struct Symbol *wipSymbol, char canInitialize)
 {
-    printf("parse type:\n%s\n", declString);
     struct Type *parsed = malloc(sizeof(struct Type));
     memset(parsed, 0, sizeof(struct Type));
 

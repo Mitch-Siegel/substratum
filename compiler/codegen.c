@@ -4,22 +4,38 @@
 char printedLine[MAX_ASM_LINE_SIZE];
 
 char *registerNames[MACHINE_REGISTER_COUNT] = {
-	"%r0",
-	"%r1",
-	"%r2",
-	"%r3",
-	"%r4",
-	"%r5",
-	"%r6",
-	"%r7",
-	"%r8",
-	"%r9",
-	"%r10",
-	"%r11",
-	"%r12",
-	"%rr",
-	"%sp",
-	"%bp",
+	"zero",
+	"ra",
+	"sp",
+	"gp",
+	"tp",
+	"t0",
+	"t1",
+	"t2",
+	"fp",
+	"s1",
+	"a0",
+	"a1",
+	"a2",
+	"a3",
+	"a4",
+	"a5",
+	"a6",
+	"a7",
+	"s2",
+	"s3",
+	"s4",
+	"s5",
+	"s6",
+	"s7",
+	"s8",
+	"s9",
+	"s10",
+	"s11",
+	"t3",
+	"t4",
+	"t5",
+	"t6",
 };
 
 int ALIGNSIZE(unsigned int size)
@@ -33,34 +49,17 @@ int ALIGNSIZE(unsigned int size)
 	return nBits;
 }
 
-char *PlaceLiteralInRegister(FILE *outFile, char *literalStr, int destReg)
+char *PlaceLiteralStringInRegister(FILE *outFile, char *literalStr, int destReg)
 {
 	char *destRegStr = registerNames[destReg];
-	int literalValue = atoi(literalStr);
-	if (literalValue < 0x100)
-	{
-		fprintf(outFile, "\tmovb %s, $%s ; place literal\n", destRegStr, literalStr);
-	}
-	else if (literalValue < 0x10000)
-	{
-		fprintf(outFile, "\tmovh %s, $%s ; place literal\n", destRegStr, literalStr);
-	}
-	else
-	{
-		int firstHalf, secondHalf;
-		firstHalf = literalValue & 0xffff;
-		secondHalf = literalValue >> 16;
-		char halvedString[16]; // will be long enough to hold any int32/uint32 so can definitely hold half of one
+	fprintf(outFile, "\tli %s, %s # place literal\n", destRegStr, literalStr);
+	return destRegStr;
+}
 
-		sprintf(halvedString, "%d", secondHalf);
-		fprintf(outFile, "\tmovh %s, $%s\n", destRegStr, halvedString);
-
-		fprintf(outFile, "\tshli %s, %s, $16\n", destRegStr, destRegStr);
-
-		sprintf(halvedString, "%d", firstHalf);
-		fprintf(outFile, "\taddi %s, %s, $%s ; place literal %s\n", destRegStr, destRegStr, halvedString, literalStr);
-	}
-
+char *PlaceLiteralInRegister(FILE *outFile, int literal, int destReg)
+{
+	char *destRegStr = registerNames[destReg];
+	fprintf(outFile, "\tli %s, %d # place literal\n", destRegStr, literal);
 	return destRegStr;
 }
 
@@ -78,8 +77,8 @@ void verifyCodegenPrimitive(struct TACOperand *operand)
 }
 
 void WriteVariable(FILE *outFile,
-				   struct LinkedList *lifetimes,
 				   struct Scope *scope,
+				   struct LinkedList *lifetimes,
 				   struct TACOperand *writtenTo,
 				   int sourceRegIndex)
 {
@@ -95,33 +94,37 @@ void WriteVariable(FILE *outFile,
 	case wb_register:
 		if (sourceRegIndex != relevantLifetime->registerLocation)
 		{
-			fprintf(outFile, "\t;Write register variable %s\n", relevantLifetime->name);
-			fprintf(outFile, "\t%s %s, %s\n", SelectMovWidth(scope, writtenTo), registerNames[relevantLifetime->registerLocation], registerNames[sourceRegIndex]);
+			fprintf(outFile, "\t# Write register variable %s\n", relevantLifetime->name);
+			fprintf(outFile, "\tmv %s, %s\n",
+					registerNames[relevantLifetime->registerLocation],
+					registerNames[sourceRegIndex]);
 		}
 		break;
 
 	case wb_global:
 	{
-		const char *MovOp = SelectMovWidth(scope, writtenTo);
-		fprintf(outFile, "\t;Write (global) variable %s\n", relevantLifetime->name);
-		fprintf(outFile, "\tmov %s, %s\n", registerNames[RETURN_REGISTER], relevantLifetime->name);
-		fprintf(outFile, "\t%s (%s), %s\n", MovOp, registerNames[RETURN_REGISTER], registerNames[sourceRegIndex]);
+		const char *width = SelectWidth(scope, writtenTo);
+		fprintf(outFile, "\t# Write (global) variable %s\n", relevantLifetime->name);
+		fprintf(outFile, "\tli %s, %s\n",
+				registerNames[TEMP_0],
+				relevantLifetime->name);
+
+		fprintf(outFile, "\ts%s (%s), %s\n",
+				width,
+				registerNames[TEMP_0],
+				registerNames[sourceRegIndex]);
 	}
 	break;
 
 	case wb_stack:
 	{
-		fprintf(outFile, "\t;Write stack variable %s\n", relevantLifetime->name);
+		fprintf(outFile, "\t# Write stack variable %s\n", relevantLifetime->name);
 
-		const char *MovOp = SelectMovWidthForLifetime(scope, relevantLifetime);
-		if (relevantLifetime->stackLocation >= 0)
-		{
-			fprintf(outFile, "\t%s (%%bp+%d), %s\n", MovOp, relevantLifetime->stackLocation, registerNames[sourceRegIndex]);
-		}
-		else
-		{
-			fprintf(outFile, "\t%s (%%bp%d), %s\n", MovOp, relevantLifetime->stackLocation, registerNames[sourceRegIndex]);
-		}
+		const char *width = SelectWidthForLifetime(scope, relevantLifetime);
+		fprintf(outFile, "\ts%s %s, %d(fp)\n",
+				width,
+				registerNames[sourceRegIndex],
+				relevantLifetime->stackLocation);
 	}
 	break;
 
@@ -147,7 +150,7 @@ int placeOrFindOperandInRegister(FILE *outFile,
 			ErrorAndExit(ERROR_INTERNAL, "Expected scratch register to place literal in, didn't get one!");
 		}
 
-		PlaceLiteralInRegister(outFile, operand->name.str, registerIndex);
+		PlaceLiteralStringInRegister(outFile, operand->name.str, registerIndex);
 		return registerIndex;
 	}
 
@@ -167,26 +170,32 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		if (registerIndex == -1)
 		{
 			ErrorAndExit(ERROR_INTERNAL, "GOT -1 as register index to place operand in!\n");
-			registerIndex = RETURN_REGISTER;
 		}
 
-		const char *MovOp = NULL;
+		const char *loadWidth = NULL;
 
 		if (relevantLifetime->type.arraySize > 0)
 		{
 			// if array, treat as pointer
-			MovOp = "mov";
+			loadWidth = "w";
 		}
 		else
 		{
-			MovOp = SelectMovWidthForLifetime(scope, relevantLifetime);
+			loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
 		}
 		const char *usedRegister = registerNames[registerIndex];
-		fprintf(outFile, "\tmov %s, %s ; place %s\n", usedRegister, relevantLifetime->name, operand->name.str);
+		fprintf(outFile, "\tla %s, %s # place %s\n",
+				usedRegister,
+				relevantLifetime->name,
+				operand->name.str);
 
 		if (relevantLifetime->type.arraySize == 0)
 		{
-			fprintf(outFile, "\t%s %s, (%s) ; place %s\n", MovOp, usedRegister, usedRegister, operand->name.str);
+			fprintf(outFile, "\t%su %s, 0(%s) # place %s\n",
+					loadWidth,
+					usedRegister,
+					usedRegister,
+					operand->name.str);
 		}
 
 		return registerIndex;
@@ -198,7 +207,6 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		if (registerIndex == -1)
 		{
 			ErrorAndExit(ERROR_INTERNAL, "GOT -1 as register index to place operand in!\n");
-			registerIndex = RETURN_REGISTER;
 		}
 
 		const char *usedRegister = registerNames[registerIndex];
@@ -206,24 +214,21 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		{
 			if (relevantLifetime->stackLocation >= 0)
 			{
-				fprintf(outFile, "\taddi %s, %%bp, $%d ; place %s\n", usedRegister, relevantLifetime->stackLocation, operand->name.str);
+				fprintf(outFile, "\taddi %s, fp, %d # place %s\n", usedRegister, relevantLifetime->stackLocation, operand->name.str);
 			}
 			else
 			{
-				fprintf(outFile, "\tsubi %s, %%bp, $%d ; place %s\n", usedRegister, -1 * relevantLifetime->stackLocation, operand->name.str);
+				fprintf(outFile, "\taddi %s, fp, -%d # place %s\n", usedRegister, -1 * relevantLifetime->stackLocation, operand->name.str);
 			}
 		}
 		else
 		{
-			const char *MovOp = SelectMovWidthForLifetime(scope, relevantLifetime);
-			if (relevantLifetime->stackLocation >= 0)
-			{
-				fprintf(outFile, "\t%s %s, (%%bp+%d) ; place %s\n", MovOp, usedRegister, relevantLifetime->stackLocation, operand->name.str);
-			}
-			else
-			{
-				fprintf(outFile, "\t%s %s, (%%bp%d) ; place %s\n", MovOp, usedRegister, relevantLifetime->stackLocation, operand->name.str);
-			}
+			const char *loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
+			fprintf(outFile, "\tl%su %s, %d(fp) # place %s\n",
+					loadWidth,
+					usedRegister,
+					relevantLifetime->stackLocation,
+					operand->name.str);
 		}
 
 		return registerIndex;
@@ -236,8 +241,8 @@ int placeOrFindOperandInRegister(FILE *outFile,
 	}
 }
 
-int pickWriteRegister(struct LinkedList *lifetimes,
-					  struct Scope *scope,
+int pickWriteRegister(struct Scope *scope,
+					  struct LinkedList *lifetimes,
 					  struct TACOperand *operand,
 					  int registerIndex)
 {
@@ -263,8 +268,8 @@ int pickWriteRegister(struct LinkedList *lifetimes,
 }
 
 int placeAddrOfLifetimeInReg(FILE *outFile,
-							 struct LinkedList *lifetimes,
 							 struct Scope *scope,
+							 struct LinkedList *lifetimes,
 							 struct TACOperand *operand,
 							 int registerIndex)
 {
@@ -291,50 +296,50 @@ int placeAddrOfLifetimeInReg(FILE *outFile,
 
 	if (relevantLifetime->stackLocation < 0)
 	{
-		fprintf(outFile, "\tsubi %s, %%bp, $%d\n", registerNames[registerIndex], -1 * relevantLifetime->stackLocation);
+		fprintf(outFile, "\taddi %s, fp, -%d\n", registerNames[registerIndex], -1 * relevantLifetime->stackLocation);
 	}
 	else
 	{
-		fprintf(outFile, "\tsubi %s, %%bp, $%d\n", registerNames[registerIndex], relevantLifetime->stackLocation);
+		fprintf(outFile, "\taddi %s, fp, -%d\n", registerNames[registerIndex], relevantLifetime->stackLocation);
 	}
 
 	return registerIndex;
 }
 
-const char *SelectMovWidthForSize(int size)
+const char *SelectWidthForSize(int size)
 {
 	switch (size)
 	{
 	case 1:
-		return "movb";
+		return "b";
 
 	case 2:
-		return "movh";
+		return "h";
 
 	case 4:
-		return "mov";
+		return "w";
 	}
-	ErrorAndExit(ERROR_INTERNAL, "Error in SelectMovWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, or 4 bytes!");
+	ErrorAndExit(ERROR_INTERNAL, "Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, or 4 bytes!");
 }
 
-const char *SelectMovWidth(struct Scope *scope, struct TACOperand *dataDest)
+const char *SelectWidth(struct Scope *scope, struct TACOperand *dataDest)
 {
 	// pointers are always full-width
 	if (TACOperand_GetType(dataDest)->indirectionLevel > 0)
 	{
-		return "mov";
+		return "w";
 	}
 
-	return SelectMovWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
+	return SelectWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
 }
 
-const char *SelectMovWidthForDereference(struct Scope *scope, struct TACOperand *dataDest)
+const char *SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDest)
 {
 	struct Type *operandType = TACOperand_GetType(dataDest);
 	if ((operandType->indirectionLevel == 0) &&
 		(operandType->arraySize == 0))
 	{
-		ErrorAndExit(ERROR_INTERNAL, "SelectMovWidthForDereference called on non-indirect operand %s!\n", dataDest->name.str);
+		ErrorAndExit(ERROR_INTERNAL, "SelectWidthForDereference called on non-indirect operand %s!\n", dataDest->name.str);
 	}
 	struct Type dereferenced = *operandType;
 	if (operandType->indirectionLevel == 0)
@@ -347,46 +352,77 @@ const char *SelectMovWidthForDereference(struct Scope *scope, struct TACOperand 
 	}
 	dereferenced.indirectionLevel--;
 	dereferenced.arraySize = 0;
-	return SelectMovWidthForSize(Scope_getSizeOfType(scope, &dereferenced));
+	return SelectWidthForSize(Scope_getSizeOfType(scope, &dereferenced));
 }
 
-const char *SelectPushWidthForSize(int size)
-{
-	switch (size)
-	{
-	case 1:
-		return "pushb";
-
-	case 2:
-		return "pushh";
-
-	case 4:
-		return "push";
-	}
-	ErrorAndExit(ERROR_INTERNAL, "Error in SelectPushWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, or 4 bytes!");
-}
-
-const char *SelectMovWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime)
+const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime)
 {
 	if (lifetime->type.indirectionLevel > 0)
 	{
-		return "mov";
+		return "w";
 	}
 	else
 	{
-		return SelectMovWidthForSize(Scope_getSizeOfType(scope, &lifetime->type));
+		return SelectWidthForSize(Scope_getSizeOfType(scope, &lifetime->type));
 	}
 }
 
-const char *SelectPushWidth(struct Scope *scope, struct TACOperand *dataDest)
+void EmitPushForOperand(FILE *outFile,
+						struct Scope *scope,
+						struct TACOperand *dataSource,
+						int srcRegister)
 {
-	// pointers are always full-width
-	if (TACOperand_GetType(dataDest)->indirectionLevel > 0)
+	int size = Scope_getSizeOfType(scope, TACOperand_GetType(dataSource));
+	switch (size)
 	{
-		return "push";
-	}
+	case 1:
+	case 2:
+	case 4:
+		EmitPushForSize(outFile, size, srcRegister);
 
-	return SelectPushWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
+		break;
+
+	default:
+		char *typeName = Type_GetName(TACOperand_GetType(dataSource));
+		ErrorAndExit(ERROR_INTERNAL, "Unsupported size %d seen in EmitPushForOperand (for type %s)\n", size, typeName);
+	}
+}
+
+void EmitPushForSize(FILE *outFile, int size, int srcRegister)
+{
+	fprintf(outFile, "\taddi sp, sp, -%d\n", size);
+	fprintf(outFile, "\ts%s %s, 0(sp)\n",
+			SelectWidthForSize(size),
+			registerNames[srcRegister]);
+}
+
+void EmitPopForOperand(FILE *outFile,
+					   struct Scope *scope,
+					   struct TACOperand *dataDest,
+					   int destRegister)
+{
+	int size = Scope_getSizeOfType(scope, TACOperand_GetType(dataDest));
+	switch (size)
+	{
+	case 1:
+	case 2:
+	case 4:
+		EmitPopForSize(outFile, size, destRegister);
+
+		break;
+
+	default:
+		char *typeName = Type_GetName(TACOperand_GetType(dataDest));
+		ErrorAndExit(ERROR_INTERNAL, "Unsupported size %d seen in EmitPopForOperand (for type %s)\n", size, typeName);
+	}
+}
+
+void EmitPopForSize(FILE *outFile, int size, int destRegister)
+{
+	fprintf(outFile, "\tl%su %s, 0(sp)\n",
+			SelectWidthForSize(size),
+			registerNames[destRegister]);
+	fprintf(outFile, "\taddi sp, sp, %d\n", size);
 }
 
 void generateCode(struct SymbolTable *table, FILE *outFile, int regAllocOpt, int codegenOpt)

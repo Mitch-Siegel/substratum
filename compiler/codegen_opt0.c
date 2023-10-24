@@ -122,7 +122,7 @@ void generateCodeForProgram_0(struct SymbolTable *table, FILE *outFile, int regA
 				{
 					for (int e = 0; e < v->type.arraySize; e++)
 					{
-						fprintf(outFile, "#d8 ");
+						fprintf(outFile, ".byte ");
 						for (int i = 0; i < Scope_getSizeOfArrayElement(table->globalScope, v); i++)
 						{
 							fprintf(outFile, "0x%02x ", v->type.initializeArrayTo[e][i]);
@@ -132,7 +132,7 @@ void generateCodeForProgram_0(struct SymbolTable *table, FILE *outFile, int regA
 				}
 				else
 				{
-					fprintf(outFile, "#d8 ");
+					fprintf(outFile, ".byte ");
 					for (int i = 0; i < Scope_getSizeOfType(table->globalScope, &v->type); i++)
 					{
 						fprintf(outFile, "0x%02x ", v->type.initializeTo[i]);
@@ -168,32 +168,53 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 		printf("Generate code for function %s\n", function->name);
 	}
 
-	if(function->isAsmFun)
+	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
-		if(currentVerbosity > VERBOSITY_MINIMAL)
+		printf("Emitting function prologue\n");
+	}
+	fprintf(outFile, "%s:\n", function->name);
+
+	// push return address
+	EmitPushForSize(outFile, 4, 1);
+
+	// push frame pointer, copy stack pointer to frame pointer
+	EmitPushForSize(outFile, 4, 8);
+	fprintf(outFile, "\tmv fp, sp\n");
+
+	if (function->isAsmFun)
+	{
+		if (currentVerbosity > VERBOSITY_MINIMAL)
 		{
 			printf("%s is an asm function\n", function->name);
 		}
-		fprintf(outFile, "%s:\n", function->name);
 
-		if(function->BasicBlockList->size != 1)
+		if (function->BasicBlockList->size != 1)
 		{
 			ErrorAndExit(ERROR_INTERNAL, "Asm function with %d basic blocks seen - expected 1!\n", function->BasicBlockList->size);
 		}
 
 		struct BasicBlock *asmBlock = function->BasicBlockList->head->data;
 
-		for(struct LinkedListNode *asmBlockRunner = asmBlock->TACList->head; asmBlockRunner != NULL; asmBlockRunner = asmBlockRunner->next)
+		for (struct LinkedListNode *asmBlockRunner = asmBlock->TACList->head; asmBlockRunner != NULL; asmBlockRunner = asmBlockRunner->next)
 		{
 			struct TACLine *asmTAC = asmBlockRunner->data;
-			if(asmTAC->operation != tt_asm)
+			if (asmTAC->operation != tt_asm)
 			{
 				ErrorWithAST(ERROR_INTERNAL, asmTAC->correspondingTree, "Non-asm TAC type seen in asm function!\n");
 			}
 			fprintf(outFile, "\t%s\n", asmTAC->operands[0].name.str);
 		}
-		fprintf(outFile, "\tret %d\n", function->argStackSize);
-		
+
+		// pop frame pointer
+		EmitPopForSize(outFile, 4, 8);
+
+		// pop return address
+		EmitPopForSize(outFile, 4, 1);
+
+		fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
+
+		fprintf(outFile, "\tjalr zero, 0(%s)\n", registerNames[1]);
+
 		// early return, nothing else to do
 		return;
 	}
@@ -209,27 +230,20 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	int localStackSize = allocateRegisters(&metadata, regAllocOpt);
 	currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
 
+	if (localStackSize > 0)
+	{
+		fprintf(outFile, "\taddi sp, sp, -%d\n", localStackSize);
+	}
+
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
 		printf("Need %d bytes on stack\n", localStackSize);
 	}
-
-	if (currentVerbosity > VERBOSITY_MINIMAL)
+	for (int i = MACHINE_REGISTER_COUNT - 1; i >= 0; i--)
 	{
-		printf("Emitting function prologue\n");
-	}
-	fprintf(outFile, "%s:\n", function->name);
-
-	if (localStackSize > 0)
-	{
-		fprintf(outFile, "\tsubi %%sp, %%sp, $%d\n", localStackSize);
-	}
-
-	for (int i = REGISTERS_TO_ALLOCATE - 1; i >= 0; i--)
-	{
-		if (metadata.touchedRegisters[i])
+		if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
 		{
-			fprintf(outFile, "\tpush %%r%d\n", i);
+			EmitPushForSize(outFile, 4, i);
 		}
 	}
 
@@ -255,8 +269,12 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 			{
 				struct VariableEntry *theArgument = thisEntry->entry;
 
-				const char *movOp = SelectMovWidthForLifetime(function->mainScope, thisLifetime);
-				fprintf(outFile, "\t%s %%r%d, (%%bp+%d) ;place %s\n", movOp, thisLifetime->registerLocation, theArgument->stackOffset, thisLifetime->name);
+				const char *loadWidth = SelectWidthForLifetime(function->mainScope, thisLifetime);
+				fprintf(outFile, "\tl%su %s, %d(fp) # place %s\n",
+						loadWidth,
+						registerNames[thisLifetime->registerLocation],
+						theArgument->stackOffset,
+						thisLifetime->name);
 			}
 		}
 	}
@@ -278,28 +296,30 @@ void generateCodeForFunction_0(FILE *outFile, struct FunctionEntry *function, in
 	}
 
 	fprintf(outFile, "%s_done:\n", function->name);
-
-	for (int i = 0; i < REGISTERS_TO_ALLOCATE; i++)
+	for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
 	{
-		if (metadata.touchedRegisters[i])
+		if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
 		{
-			fprintf(outFile, "\tpop %%r%d\n", i);
+			EmitPopForSize(outFile, 4, i);
 		}
 	}
 
 	if (localStackSize > 0)
 	{
-		fprintf(outFile, "\taddi %%sp, %%sp, $%d\n", localStackSize);
+		fprintf(outFile, "\taddi sp, sp, %d\n", localStackSize);
 	}
+
+	// pop frame pointer
+	EmitPopForSize(outFile, 4, 8);
+
+	// pop return address
+	EmitPopForSize(outFile, 4, 1);
 
 	if (function->argStackSize > 0)
 	{
-		fprintf(outFile, "\tret %d\n", function->argStackSize);
+		fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
 	}
-	else
-	{
-		fprintf(outFile, "\tret\n");
-	}
+	fprintf(outFile, "\tjalr zero, 0(%s)\n", registerNames[1]);
 
 	// function setup and teardown code generated
 
@@ -332,7 +352,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		if (thisTAC->operation != tt_asm)
 		{
 			char *printedTAC = sPrintTACLine(thisTAC);
-			fprintf(outFile, "\n\t;%s\n", printedTAC);
+			fprintf(outFile, "\n\t# %s\n", printedTAC);
 			free(printedTAC);
 		}
 
@@ -347,7 +367,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		{
 			// only works for primitive types that will fit in registers
 			int opLocReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], opLocReg);
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], opLocReg);
 		}
 		break;
 
@@ -358,236 +378,218 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 		{
 			int op1Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int op2Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[0]);
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 
 			fprintf(outFile, "\t%s %s, %s, %s\n", getAsmOp(thisTAC->operation), registerNames[destReg], registerNames[op1Reg], registerNames[op2Reg]);
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
 		}
 		break;
 
-		case tt_cmp:
+		case tt_load:
 		{
-			int op1Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int op2Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[1]);
 
-			fprintf(outFile, "\t%s %s, %s\n", getAsmOp(thisTAC->operation), registerNames[op1Reg], registerNames[op2Reg]);
+			const char *loadWidth = SelectWidth(scope, &thisTAC->operands[0]);
+			fprintf(outFile, "\tl%su %s, 0(%s)\n",
+					loadWidth,
+					registerNames[destReg],
+					registerNames[baseReg]);
+
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
+		}
+		break;
+
+		case tt_load_off:
+		{
+			// TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+
+			fprintf(outFile, "\tl%su %s, %d(%s)",
+					SelectWidth(scope, &thisTAC->operands[0]),
+					registerNames[destReg],
+					thisTAC->operands[2].name.val,
+					registerNames[baseReg]);
+
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
+		}
+		break;
+
+		case tt_load_arr:
+		{
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[2]);
+
+			// TODO: check for shift by 0 and don't shift when applicable
+			// perform a left shift by however many bits necessary to scale our value, place the result in reservedRegisters[2]
+			fprintf(outFile, "\tslli %s, %s, %d\n",
+					registerNames[reservedRegisters[2]],
+					registerNames[offsetReg],
+					thisTAC->operands[3].name.val);
+
+			// add our scaled offset to the base address, put the full address into reservedRegisters[1]
+			fprintf(outFile, "\tadd %s, %s, %s\n",
+					registerNames[reservedRegisters[1]],
+					registerNames[baseReg],
+					registerNames[reservedRegisters[2]]);
+
+			fprintf(outFile, "\tl%su %s, 0(%s)",
+					SelectWidthForDereference(scope, &thisTAC->operands[1]),
+					registerNames[destReg],
+					registerNames[reservedRegisters[1]]);
+
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
+		}
+		break;
+
+		case tt_store:
+		{
+			int destAddrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			const char *storeWidth = SelectWidthForDereference(scope, &thisTAC->operands[0]);
+
+			fprintf(outFile, "\ts%s %s, 0(%s)\n",
+					storeWidth,
+					registerNames[sourceReg],
+					registerNames[destAddrReg]);
+		}
+		break;
+
+		case tt_store_off:
+		{
+			// TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
+			fprintf(outFile, "\ts%s %s, %d(%s)",
+					SelectWidth(scope, &thisTAC->operands[0]),
+					registerNames[sourceReg],
+					thisTAC->operands[1].name.val,
+					registerNames[baseReg]);
+		}
+		break;
+
+		case tt_store_arr:
+		{
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[2]);
+
+			// TODO: check for shift by 0 and don't shift when applicable
+			// perform a left shift by however many bits necessary to scale our value, place the result in reservedRegisters[1]
+			fprintf(outFile, "\tslli %s, %s, %d\n",
+					registerNames[reservedRegisters[1]],
+					registerNames[offsetReg],
+					thisTAC->operands[2].name.val);
+
+			// add our scaled offset to the base address, put the full address into reservedRegisters[0]
+			fprintf(outFile, "\tadd %s, %s, %s\n",
+					registerNames[reservedRegisters[0]],
+					registerNames[baseReg],
+					registerNames[reservedRegisters[1]]);
+
+			fprintf(outFile, "\ts%s %s, 0(%s)\n",
+					SelectWidthForDereference(scope, &thisTAC->operands[0]),
+					registerNames[sourceReg],
+					registerNames[reservedRegisters[0]]);
 		}
 		break;
 
 		case tt_addrof:
 		{
-			int addrReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[0]);
-			addrReg = placeAddrOfLifetimeInReg(outFile, lifetimes, scope, &thisTAC->operands[1], addrReg);
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], addrReg);
+			int addrReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			addrReg = placeAddrOfLifetimeInReg(outFile, scope, lifetimes, &thisTAC->operands[1], addrReg);
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], addrReg);
 		}
 		break;
 
-		case tt_memw_1:
+		case tt_lea_off:
 		{
-			int destAddrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
-			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[0]);
-			fprintf(outFile, "\t%s (%s), %s\n", movOp, registerNames[destAddrReg], registerNames[sourceReg]);
-		}
-		break;
+			// TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
 
-		case tt_memw_2:
-		case tt_memw_2_n:
-		{
-			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-
-			const char *movOp = SelectMovWidth(scope, &thisTAC->operands[2]);
-
-			if (thisTAC->operation == tt_memw_2)
-			{
-				fprintf(outFile, "\t%s (%s+%d), %s\n",
-						movOp,
-						registerNames[baseReg],
-						thisTAC->operands[1].name.val,
-						registerNames[sourceReg]);
-			}
-			else
-			{
-				fprintf(outFile, "\t%s (%s-%d), %s\n",
-						movOp,
-						registerNames[baseReg],
-						thisTAC->operands[1].name.val,
-						registerNames[sourceReg]);
-			}
-		}
-		break;
-
-		case tt_memw_3:
-		case tt_memw_3_n:
-		{
-			int curResIndex = 0;
-			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[curResIndex]);
-			if (baseReg == reservedRegisters[curResIndex])
-			{
-				curResIndex++;
-			}
-			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[curResIndex]);
-			if (offsetReg == reservedRegisters[curResIndex])
-			{
-				curResIndex++;
-			}
-			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[curResIndex]);
-			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[0]);
-
-			if (thisTAC->operation == tt_memw_3)
-			{
-				fprintf(outFile, "\t%s (%s+%s,%d), %s\n",
-						movOp,
-						registerNames[baseReg],
-						registerNames[offsetReg],
-						ALIGNSIZE(thisTAC->operands[2].name.val),
-						registerNames[sourceReg]);
-			}
-			else
-			{
-				fprintf(outFile, "\t%s (%s-%s,%d), %s\n",
-						movOp,
-						registerNames[baseReg],
-						registerNames[offsetReg],
-						ALIGNSIZE(thisTAC->operands[2].name.val),
-						registerNames[sourceReg]);
-			}
-		}
-		break;
-
-		case tt_dereference: // these are redundant... probably makes sense to remove one?
-		case tt_memr_1:
-		{
-			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[1]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
-
-			fprintf(outFile, "\t%s %s, (%s)\n",
-					movOp,
+			fprintf(outFile, "\taddi %s, %s, %d",
 					registerNames[destReg],
-					registerNames[addrReg]);
-
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
-		}
-		break;
-
-		case tt_memr_2:
-		case tt_memr_2_n:
-		{
-			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
-			const char *movOp = SelectMovWidth(scope, &thisTAC->operands[0]);
-			if (thisTAC->operation == tt_memr_2)
-			{
-				fprintf(outFile, "\t%s %s, (%s+%d)\n",
-						movOp,
-						registerNames[destReg],
-						registerNames[addrReg],
-						thisTAC->operands[2].name.val);
-			}
-			else
-			{
-				fprintf(outFile, "\t%s %s, (%s-%d)\n",
-						movOp,
-						registerNames[destReg],
-						registerNames[addrReg],
-						thisTAC->operands[2].name.val);
-			}
-
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
-		}
-		break;
-
-		case tt_memr_3:
-		case tt_memr_3_n:
-		{
-			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
-			const char *movOp = SelectMovWidthForDereference(scope, &thisTAC->operands[1]);
-			if (thisTAC->operation == tt_memr_3)
-			{
-				fprintf(outFile, "\t%s %s, (%s+%s,%d)\n",
-						movOp,
-						registerNames[destReg],
-						registerNames[addrReg],
-						registerNames[offsetReg],
-						ALIGNSIZE(thisTAC->operands[3].name.val));
-			}
-			else
-			{
-				fprintf(outFile, "\t%s %s, (%s-%s,%d)\n",
-						movOp,
-						registerNames[destReg],
-						registerNames[addrReg],
-						registerNames[offsetReg],
-						ALIGNSIZE(thisTAC->operands[3].name.val));
-			}
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
-		}
-		break;
-
-		case tt_lea_2:
-		{
-			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
-			fprintf(outFile, "\tlea %s, (%s+%d)\n",
-					registerNames[destReg],
-					registerNames[addrReg],
+					registerNames[baseReg],
 					thisTAC->operands[2].name.val);
 
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
 		}
 		break;
 
-		case tt_lea_3:
+		case tt_lea_arr:
 		{
-			int addrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-			int destReg = pickWriteRegister(lifetimes, scope, &thisTAC->operands[0], reservedRegisters[1]);
-			fprintf(outFile, "\tlea %s, (%s+%s,%d)\n",
-					registerNames[destReg],
-					registerNames[addrReg],
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[2]);
+
+			// TODO: check for shift by 0 and don't shift when applicable
+			// perform a left shift by however many bits necessary to scale our value, place the result in reservedRegisters[1]
+			fprintf(outFile, "\tslli %s, %s, %d\n",
+					registerNames[reservedRegisters[2]],
 					registerNames[offsetReg],
-					ALIGNSIZE(thisTAC->operands[3].name.val));
-			WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], destReg);
+					thisTAC->operands[2].name.val);
+
+			// add our scaled offset to the base address, put the full address into destReg
+			fprintf(outFile, "\tadd %s, %s, %s\n",
+					registerNames[destReg],
+					registerNames[baseReg],
+					registerNames[reservedRegisters[2]]);
+
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
 		}
 		break;
 
-		case tt_jg:
-		case tt_jge:
-		case tt_jl:
-		case tt_jle:
-		case tt_je:
-		case tt_jne:
-		case tt_jz:
-		case tt_jnz:
+		case tt_beq:
+		case tt_bne:
+		case tt_bgeu:
+		case tt_bltu:
+		case tt_bgtu:
+		case tt_bleu:
+		case tt_beqz:
+		case tt_bnez:
 		{
-			fprintf(outFile, "\t%s %s_%d\n", getAsmOp(thisTAC->operation), functionName, thisTAC->operands[0].name.val);
+			int operand1register = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
+			int operand2register = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
+			fprintf(outFile, "\t%s %s, %s, %s_%d\n",
+					getAsmOp(thisTAC->operation),
+					registerNames[operand1register],
+					registerNames[operand2register],
+					functionName,
+					thisTAC->operands[0].name.val);
 		}
 		break;
 
 		case tt_jmp:
 		{
-			fprintf(outFile, "\tjmp %s_%d\n", functionName, thisTAC->operands[0].name.val);
+			fprintf(outFile, "\tj %s_%d\n", functionName, thisTAC->operands[0].name.val);
 		}
 		break;
 
 		case tt_push:
 		{
 			int operandRegister = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			fprintf(outFile, "\t%s %s\n", SelectPushWidth(scope, &thisTAC->operands[0]), registerNames[operandRegister]);
+			EmitPushForOperand(outFile, scope, &thisTAC->operands[0], operandRegister);
+		}
+		break;
+
+		case tt_pop:
+		{
+			int operandRegister = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			EmitPopForOperand(outFile, scope, &thisTAC->operands[0], operandRegister);
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], operandRegister);
 		}
 		break;
 
 		case tt_call:
 		{
-			fprintf(outFile, "\tcall %s\n", thisTAC->operands[1].name.str);
+			fprintf(outFile, "\tjal ra, %s\n", thisTAC->operands[1].name.str);
 
 			if (thisTAC->operands[0].name.str != NULL)
 			{
-				WriteVariable(outFile, lifetimes, scope, &thisTAC->operands[0], RETURN_REGISTER);
+				WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
 			}
 		}
 		break;
@@ -604,13 +606,16 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 
 				if (sourceReg != RETURN_REGISTER)
 				{
-					fprintf(outFile, "\t%s %s, %s\n",
-							SelectMovWidth(scope, &thisTAC->operands[0]),
+					fprintf(outFile, "\tmv %s, %s\n",
 							registerNames[RETURN_REGISTER],
 							registerNames[sourceReg]);
 				}
+				else
+				{
+					fprintf(outFile, "#OMGWTFBBQ\n");
+				}
 			}
-			fprintf(outFile, "\tjmp %s_done\n", scope->parentFunction->name);
+			fprintf(outFile, "\tj %s_done\n", scope->parentFunction->name);
 		}
 		break;
 

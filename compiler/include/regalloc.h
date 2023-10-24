@@ -5,15 +5,13 @@
 
 #ifndef _REGALLOC_H_
 #define _REGALLOC_H_
-#define MACHINE_REGISTER_COUNT 16
-#define REGISTERS_TO_ALLOCATE 13
 // definitions for what we intend to use as scratch registers when applicable
-#define SCRATCH_REGISTER 0
-#define SECOND_SCRATCH_REGISTER 1
-// the return register is used as a de-facto n+1-th scratch register as many use cases cause infrequent need for an extra
-// we can use this register without caring about stomping the value instead of reserving another
-// we only need to preserve its value when we return something in it
-#define RETURN_REGISTER 13
+#define TEMP_0 5 // t0
+#define TEMP_1 6 // t1
+#define TEMP_2 7 // t2
+#define RETURN_REGISTER 10
+#define START_ALLOCATING_FROM 11
+#define MACHINE_REGISTER_COUNT 32
 
 enum WritebackLocation
 {
