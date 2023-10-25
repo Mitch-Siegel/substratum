@@ -406,7 +406,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
 
-			fprintf(outFile, "\tl%su %s, %d(%s)",
+			fprintf(outFile, "\tl%su %s, %d(%s)\n",
 					SelectWidth(scope, &thisTAC->operands[0]),
 					registerNames[destReg],
 					thisTAC->operands[2].name.val,
@@ -435,7 +435,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 					registerNames[baseReg],
 					registerNames[reservedRegisters[2]]);
 
-			fprintf(outFile, "\tl%su %s, 0(%s)",
+			fprintf(outFile, "\tl%su %s, 0(%s)\n",
 					SelectWidthForDereference(scope, &thisTAC->operands[1]),
 					registerNames[destReg],
 					registerNames[reservedRegisters[1]]);
@@ -462,7 +462,7 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 			// TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
 			int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-			fprintf(outFile, "\ts%s %s, %d(%s)",
+			fprintf(outFile, "\ts%s %s, %d(%s)\n",
 					SelectWidth(scope, &thisTAC->operands[0]),
 					registerNames[sourceReg],
 					thisTAC->operands[1].name.val,
@@ -609,10 +609,6 @@ void generateCodeForBasicBlock_0(FILE *outFile,
 					fprintf(outFile, "\tmv %s, %s\n",
 							registerNames[RETURN_REGISTER],
 							registerNames[sourceReg]);
-				}
-				else
-				{
-					fprintf(outFile, "#OMGWTFBBQ\n");
 				}
 			}
 			fprintf(outFile, "\tj %s_done\n", scope->parentFunction->name);

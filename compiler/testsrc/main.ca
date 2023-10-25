@@ -66,4 +66,7 @@ fun main(->void)
 	printStr("This is a test of the * operator (pointer arithmetic)", 1);
 	offsetTest();
 
+	printNum(123);
+	printNum(345);
+
 }
