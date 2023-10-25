@@ -355,16 +355,47 @@ void walkFunctionDeclaration_0(struct AST *tree,
 	struct AST *definition = argumentRunner->sibling->sibling;
 	if (definition != NULL)
 	{
+
+		struct FunctionEntry *walkedFunction = NULL;
 		if (existingFunc != NULL)
 		{
 			FunctionEntry_free(parsedFunc);
 			existingFunc->isDefined = 1;
 			walkFunctionDefinition_0(definition, existingFunc);
+			walkedFunction = existingFunc;
 		}
 		else
 		{
 			parsedFunc->isDefined = 1;
 			walkFunctionDefinition_0(definition, parsedFunc);
+			walkedFunction = parsedFunc;
+		}
+
+		for (struct LinkedListNode *runner = walkedFunction->BasicBlockList->head; runner != NULL; runner = runner->next)
+		{
+			struct BasicBlock *b = runner->data;
+			int prevTacIndex = -1;
+			// iterate TAC lines backwards, because the last line with a duplicate number is actually the problem
+			// (because we should post-increment the index to number recursive linearzations correctly)
+			for (struct LinkedListNode *TACRunner = b->TACList->tail; TACRunner != NULL; TACRunner = TACRunner->prev)
+			{
+				struct TACLine *t = TACRunner->data;
+				if (prevTacIndex != -1)
+				{
+					if ((t->index + 1) != prevTacIndex)
+					{
+						printBasicBlock(b, 0);
+						char *printedTACLine = sPrintTACLine(t);
+						ErrorAndExit(ERROR_INTERNAL, "TAC line allocated at %s:%d doesn't obey ordering - numbering goes from 0x%x to 0x%x:\n\t%s\n",
+									 t->allocFile,
+									 t->allocLine,
+									 t->index,
+									 prevTacIndex,
+									 printedTACLine);
+					}
+				}
+				prevTacIndex = t->index;
+			}
 		}
 	}
 }
