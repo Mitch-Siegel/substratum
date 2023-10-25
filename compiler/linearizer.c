@@ -42,6 +42,16 @@ void populateTACOperandFromVariable(struct TACOperand *o, struct VariableEntry *
 	o->permutation = vp_standard;
 }
 
+void copyTypeDecayArrays(struct Type *dest, struct Type *src)
+{
+	*dest = *src;
+	if (dest->arraySize > 0)
+	{
+		dest->arraySize = 0;
+		dest->indirectionLevel++;
+	}
+}
+
 void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src)
 {
 	*dest = *src;
@@ -50,20 +60,8 @@ void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src)
 
 void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *src)
 {
-	dest->type = src->type;
-	dest->castAsType = src->castAsType;
-
-	if (dest->type.arraySize > 0)
-	{
-		dest->type.arraySize = 0;
-		dest->type.indirectionLevel++;
-	}
-
-	if (dest->castAsType.arraySize > 0)
-	{
-		dest->castAsType.arraySize = 0;
-		dest->castAsType.indirectionLevel++;
-	}
+	copyTypeDecayArrays(&dest->type, &src->type);
+	copyTypeDecayArrays(&dest->castAsType, &src->castAsType);
 }
 
 extern struct TempList *temps;

@@ -58,6 +58,10 @@ fun offsetTest(->void)
 	}
 }
 
+class Array
+{
+	u8 data[3];
+};
 
 fun main(->void)
 {
@@ -68,5 +72,8 @@ fun main(->void)
 
 	printNum(123);
 	printNum(345);
+
+	//class Array a;
+	//a.data[0] = 0;
 
 }

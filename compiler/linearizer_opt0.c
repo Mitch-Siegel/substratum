@@ -651,8 +651,8 @@ void walkConditionCheck_0(struct AST *tree,
 
 	default:
 		ErrorAndExit(ERROR_INTERNAL, "Comparison operator %s (%s) not supported yet\n",
-						getTokenName(tree->type),
-						tree->value);
+					 getTokenName(tree->type),
+					 tree->value);
 		// condFalseJump->operation = tt_jz;
 	}
 
@@ -686,8 +686,8 @@ void walkConditionCheck_0(struct AST *tree,
 		// any other sort of condition - just some expression
 		{
 			ErrorAndExit(ERROR_INTERNAL, "Comparison operator %s (%s) not supported yet\n",
-						getTokenName(tree->type),
-						tree->value);
+						 getTokenName(tree->type),
+						 tree->value);
 			// walkSubExpression_0(tree, block, scope, TACIndex, tempNum, &compareOperation->operands[1]);
 			// compareOperation->operands[2].name.val = 0;
 			// compareOperation->operands[2].permutation = vp_literal;
@@ -1082,23 +1082,45 @@ void walkAssignment_0(struct AST *tree,
 
 	case t_lBracket:
 	{
-		struct AST *arrayName = lhs->child;
+		struct AST *arrayBase = lhs->child;
 		struct AST *arrayIndex = lhs->child->sibling;
-		struct VariableEntry *arrayVariable = Scope_lookupVar(scope, arrayName);
-
-		if ((arrayVariable->type.indirectionLevel < 1) &&
-			(arrayVariable->type.arraySize == 0))
-		{
-			ErrorWithAST(ERROR_CODE, arrayName, "Use of non-pointer variable %s as array!\n", arrayName->value);
-		}
+		struct Type *arrayType = NULL;
 
 		assignment->operation = tt_store_arr;
-		populateTACOperandFromVariable(&assignment->operands[0], arrayVariable);
+
+		// if our array is simply an identifier, do a standard lookup to find it
+		if (arrayBase->type == t_identifier)
+		{
+			struct VariableEntry *arrayVariable = Scope_lookupVar(scope, arrayBase);
+			arrayType = &arrayVariable->type;
+			if ((arrayType->indirectionLevel < 1) &&
+				(arrayType->arraySize == 0))
+			{
+				ErrorWithAST(ERROR_CODE, arrayBase, "Use of non-pointer variable %s as array!\n", arrayBase->value);
+			}
+			populateTACOperandFromVariable(&assignment->operands[0], arrayVariable);
+		}
+		// otherwise, our array base comes from some sort of subexpression
+		else
+		{
+			walkSubExpression_0(arrayBase, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+			arrayType = TAC_GetTypeOfOperand(assignment, 0);
+
+			if ((arrayType->indirectionLevel < 1) &&
+				(arrayType->arraySize == 0))
+			{
+				ErrorWithAST(ERROR_CODE, arrayBase, "Use of non-pointer expression as array!\n");
+			}
+		}
+
+
 
 		assignment->operands[2].permutation = vp_literal;
 		assignment->operands[2].type.indirectionLevel = 0;
 		assignment->operands[2].type.basicType = vt_u8;
-		assignment->operands[2].name.val = alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
+		struct Type decayedType;
+		copyTypeDecayArrays(&decayedType, arrayType);
+		assignment->operands[2].name.val = alignSize(Scope_getSizeOfDereferencedType(scope, &decayedType));
 
 		walkSubExpression_0(arrayIndex, block, scope, TACIndex, tempNum, &assignment->operands[1]);
 

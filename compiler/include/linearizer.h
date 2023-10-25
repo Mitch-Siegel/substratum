@@ -12,6 +12,9 @@ enum basicTypes selectVariableTypeForLiteral(char *literal);
 
 void populateTACOperandFromVariable(struct TACOperand *o, struct VariableEntry *e);
 
+// copy a type, turning any array size > 0 into an increment of indirectionlevel
+void copyTypeDecayArrays(struct Type *dest, struct Type *src);
+
 // copy over the entire TACOperand, all fields are changed
 void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src);
 

@@ -186,6 +186,8 @@ int Scope_getSizeOfVariable(struct Scope *scope, struct VariableEntry *v);
 
 int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v);
 
+int Scope_getSizeOfArrayElementByType(struct Scope *scope, struct Type *t);
+
 // scope linearization functions
 
 // adds an entry in the given scope denoting that the block is from that scope
