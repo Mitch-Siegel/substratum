@@ -891,7 +891,6 @@ void walkDotOperatorAssignment(struct AST *tree,
 	{
 		struct TACLine *memberAccess = walkMemberAccess(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0], 0);
 		struct Type *readType = TAC_GetTypeOfOperand(memberAccess, 0);
-
 		checkAccessedClassForDot(class, scope, readType);
 
 		// if our arrow or dot operator results in getting a full class instead of a pointer
@@ -1556,9 +1555,11 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 		oldAccess->operands[0].type.indirectionLevel++;
 		copyTACOperandTypeDecayArrays(&oldAccess->operands[0], &oldAccess->operands[1]);
 		oldAccess->operands[0].castAsType.basicType = vt_null;
+		oldAccess->index = (*TACIndex)++;
+
 		// now create a new access
 
-		accessLine = newTACLine((*TACIndex)++, tt_load_off, tree);
+		accessLine = newTACLine((*TACIndex), tt_load_off, tree);
 
 		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 		accessLine->operands[0].permutation = vp_temp;

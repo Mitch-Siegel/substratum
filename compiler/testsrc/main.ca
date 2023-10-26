@@ -58,10 +58,18 @@ fun offsetTest(->void)
 	}
 }
 
+class B
+{
+	u8 stuff[15];
+	u8 nBytes;
+};
+
 class Array
 {
 	u8 data[3];
 	u16 bigData[5];
+	class B b;
+	class B *bp;
 };
 
 fun main(->void)
@@ -85,6 +93,13 @@ fun main(->void)
 	b->bigData[3] = 16631;
 	printNum(*(b->data + 1));
 	printNum(*(b->bigData + 3));
+
+
+	a.bp = &(a.b);
+	a.b.nBytes = 2;
+	printNum((a.b.nBytes));
+	a.bp->nBytes = 3;
+	printNum(a.bp->nBytes);
 
 
 }
