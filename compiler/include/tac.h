@@ -119,8 +119,6 @@ char *sPrintTACLine(struct TACLine *it);
 struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST *correspondingTree, char *file, int line);
 #define newTACLine(index, operation, correspondingTree) newTACLineFunction((index), (operation), (correspondingTree), __FILE__, __LINE__)
 
-char checkTACLine(struct TACLine *it);
-
 void freeTAC(struct TACLine *it);
 
 char TACLine_isEffective(struct TACLine *it);
@@ -138,10 +136,6 @@ struct BasicBlock *BasicBlock_new(int labelNum);
 void BasicBlock_free(struct BasicBlock *b);
 
 void BasicBlock_append(struct BasicBlock *b, struct TACLine *l);
-
-void BasicBlock_prepend(struct BasicBlock *b, struct TACLine *l);
-
-struct TACLine *findLastEffectiveTAC(struct BasicBlock *b);
 
 void printBasicBlock(struct BasicBlock *b, int indentLevel);
 

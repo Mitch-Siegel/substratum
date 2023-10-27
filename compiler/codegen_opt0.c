@@ -123,9 +123,9 @@ void generateCodeForProgram_0(struct SymbolTable *table, FILE *outFile, int regA
 					for (int e = 0; e < v->type.arraySize; e++)
 					{
 						fprintf(outFile, ".byte ");
-						for (int i = 0; i < Scope_getSizeOfArrayElement(table->globalScope, v); i++)
+						for (int j = 0; j < Scope_getSizeOfArrayElement(table->globalScope, v); j++)
 						{
-							fprintf(outFile, "0x%02x ", v->type.initializeArrayTo[e][i]);
+							fprintf(outFile, "0x%02x ", v->type.initializeArrayTo[e][j]);
 						}
 						fprintf(outFile, "\n");
 					}
@@ -133,9 +133,9 @@ void generateCodeForProgram_0(struct SymbolTable *table, FILE *outFile, int regA
 				else
 				{
 					fprintf(outFile, ".byte ");
-					for (int i = 0; i < Scope_getSizeOfType(table->globalScope, &v->type); i++)
+					for (int j = 0; j < Scope_getSizeOfType(table->globalScope, &v->type); j++)
 					{
-						fprintf(outFile, "0x%02x ", v->type.initializeTo[i]);
+						fprintf(outFile, "0x%02x ", v->type.initializeTo[j]);
 					}
 					fprintf(outFile, "\n");
 				}

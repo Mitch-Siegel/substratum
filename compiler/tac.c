@@ -552,12 +552,6 @@ void BasicBlock_append(struct BasicBlock *b, struct TACLine *l)
 	LinkedList_Append(b->TACList, l);
 }
 
-void BasicBlock_prepend(struct BasicBlock *b, struct TACLine *l)
-{
-	b->containsEffectiveCode |= TACLine_isEffective(l);
-	LinkedList_Prepend(b->TACList, l);
-}
-
 void printBasicBlock(struct BasicBlock *b, int indentLevel)
 {
 	for (int i = 0; i < indentLevel; i++)

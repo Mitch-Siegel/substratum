@@ -79,6 +79,11 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
                 }
             }
 
+            if(bestToSpill == NULL)
+            {
+                ErrorAndExit(ERROR_INTERNAL, "Couldn't choose lifetime to spill!\n");
+            }
+
             bestToSpill->wbLocation = wb_stack;
             // remove (from all indices) the lifetime we will no longer consider for a register
             for (int removeTacIndex = 0; removeTacIndex <= metadata->largestTacIndex; removeTacIndex++)

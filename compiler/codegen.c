@@ -38,28 +38,10 @@ char *registerNames[MACHINE_REGISTER_COUNT] = {
 	"t6",
 };
 
-int ALIGNSIZE(unsigned int size)
-{
-	unsigned int nBits = 0;
-	while (size)
-	{
-		nBits++;
-		size >>= 1;
-	}
-	return nBits;
-}
-
 char *PlaceLiteralStringInRegister(FILE *outFile, char *literalStr, int destReg)
 {
 	char *destRegStr = registerNames[destReg];
 	fprintf(outFile, "\tli %s, %s # place literal\n", destRegStr, literalStr);
-	return destRegStr;
-}
-
-char *PlaceLiteralInRegister(FILE *outFile, int literal, int destReg)
-{
-	char *destRegStr = registerNames[destReg];
-	fprintf(outFile, "\tli %s, %d # place literal\n", destRegStr, literal);
 	return destRegStr;
 }
 

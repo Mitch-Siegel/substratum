@@ -519,32 +519,6 @@ struct FunctionEntry *Scope_lookupFun(struct Scope *scope, struct AST *name)
 	}
 }
 
-struct Scope *Scope_lookupSubScope(struct Scope *scope, char *name)
-{
-	struct ScopeMember *lookedUp = Scope_lookup(scope, name);
-	if (lookedUp == NULL)
-	{
-		ErrorAndExit(ERROR_INTERNAL, "Failure looking up scope with name [%s]\n", name);
-	}
-
-	switch (lookedUp->type)
-	{
-	case e_scope:
-		return lookedUp->entry;
-
-	default:
-		ErrorAndExit(ERROR_INTERNAL, "Unexpected symbol table entry type found when attempting to look up scope [%s]\n", name);
-	}
-}
-
-struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char subScopeNumber)
-{
-	char subScopeName[3];
-	sprintf(subScopeName, "%02x", subScopeNumber);
-	struct Scope *lookedUp = Scope_lookupSubScope(scope, subScopeName);
-	return lookedUp;
-}
-
 struct ClassEntry *Scope_lookupClass(struct Scope *scope,
 									 struct AST *name)
 {
@@ -652,11 +626,6 @@ int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *t)
 	return Scope_getSizeOfType(scope, &dereferenced);
 }
 
-int Scope_getSizeOfVariable(struct Scope *scope, struct VariableEntry *v)
-{
-	return Scope_getSizeOfType(scope, &v->type);
-}
-
 int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 {
 	if (v->type.arraySize < 1)
@@ -692,41 +661,6 @@ int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 			return 4;
 		}
 	}
-}
-
-// allocate and return a string containing the name and pointer level of a type
-char *Scope_getNameOfType(struct Scope *scope, struct Type *t)
-{
-	char *name;
-	switch (t->basicType)
-	{
-	case vt_u8:
-		name = "u8";
-		break;
-
-	case vt_u16:
-		name = "u16";
-		break;
-
-	case vt_u32:
-		name = "u32";
-		break;
-
-	default:
-		name = t->classType.name;
-		ErrorAndExit(ERROR_INTERNAL, "Unexepcted variable type %s in Scope_getNameOfType!\n", t->classType.name);
-	}
-
-	int nameLen = strlen(name);
-	int totalLen = nameLen + t->indirectionLevel + 1;
-	char *fullName = malloc(totalLen);
-	strcpy(fullName, name);
-	for (int i = nameLen; i < totalLen; i++)
-	{
-		fullName[i] = '*';
-	}
-	fullName[totalLen - 1] = '\0';
-	return fullName;
 }
 
 void VariableEntry_Print(struct VariableEntry *it, int depth)

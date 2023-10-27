@@ -37,13 +37,6 @@ int getline_force_raw(char **linep, size_t *linecapp, FILE *stream)
     return len;
 }
 
-size_t getline_force(char **linep, size_t *linecapp, FILE *stream, struct Symbol *wipSymbol)
-{
-    size_t len = getline_force_raw(linep, linecapp, stream);
-    LinkedList_Append(wipSymbol->lines, strTrim(*linep, len));
-    return len;
-}
-
 size_t getline_force_metadata(char **linep, size_t *linecapp, FILE *stream, struct Symbol *wipSymbol)
 {
     size_t len = getline_force_raw(linep, linecapp, stream);

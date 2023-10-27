@@ -12,7 +12,6 @@
 #include "util.h"
 #include "linearizer.h"
 #include "codegen.h"
-#include "serialize.h"
 
 struct Dictionary *parseDict = NULL;
 

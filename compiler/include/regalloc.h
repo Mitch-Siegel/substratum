@@ -65,8 +65,6 @@ void recordVariableRead(struct LinkedList *ltList,
 
 struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList);
 
-int calculateRegisterLoading(struct LinkedList *activeLifetimes, int index);
-
 // things more related to codegen than specifically register allocation
 
 struct CodegenMetadata

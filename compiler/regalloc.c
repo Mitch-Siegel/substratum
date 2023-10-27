@@ -315,24 +315,6 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 	return lifetimes;
 }
 
-int calculateRegisterLoading(struct LinkedList *activeLifetimes, int index)
-{
-	int trueLoad = 0;
-	for (struct LinkedListNode *runner = activeLifetimes->head; runner != NULL; runner = runner->next)
-	{
-		struct Lifetime *thisLifetime = runner->data;
-		if (thisLifetime->start <= index && index < thisLifetime->end)
-		{
-			trueLoad++;
-		}
-		else if (thisLifetime->end >= index)
-		{
-			trueLoad--;
-		}
-	}
-	return trueLoad;
-}
-
 // populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i
 // then determine which variables should be spilled
 int generateLifetimeOverlaps(struct CodegenMetadata *metadata)

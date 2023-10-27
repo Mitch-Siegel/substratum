@@ -14,8 +14,6 @@ int ALIGNSIZE(unsigned int size);
 // place a literal in the register specified by numerical index, return string of register's name for asm
 char *PlaceLiteralStringInRegister(FILE *outFile, char *literalStr, int destReg);
 
-char *PlaceLiteralInRegister(FILE *outFile, int literal, int destReg);
-
 void verifyCodegenPrimitive(struct TACOperand *operand);
 
 void WriteVariable(FILE *outFile,

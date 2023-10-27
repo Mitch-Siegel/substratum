@@ -348,7 +348,7 @@ int main(int argc, char **argv)
 
     FILE *outFile = stdout;
 
-    if (argc == 3)
+    if (argc >= 3)
     {
         if (!strcmp(argv[1], argv[2]))
         {
