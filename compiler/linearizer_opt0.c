@@ -961,6 +961,7 @@ void walkArrowOperatorAssignment(struct AST *tree,
 		walkSubExpression_0(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0]);
 		struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
 
+		writtenClass = Scope_lookupClassByType(scope, &classVariable->type);
 		checkAccessedClassForArrow(class, scope, &classVariable->type);
 	}
 	break;
@@ -1468,7 +1469,6 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 		}
 
 		accessLine = newTACLine(*TACIndex, tt_load_off, tree);
-		// this member access is a write
 
 		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 		accessLine->operands[0].permutation = vp_temp;
@@ -1507,118 +1507,57 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
 		accessLine->operands[2].type.basicType = vt_u32;
 		accessLine->operands[2].permutation = vp_literal;
-
-		BasicBlock_append(block, accessLine);
 	}
 	break;
 	}
 
-	struct ClassEntry *accessedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(accessLine, 1));
-	struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(accessedClass, rhs);
-
-	// before we do any potential LEA conversion, sanity-check that we can actually do the dot/arrow we expect
-	// based on the operand type we got back from any recursive calls or setup
-	if (tree->type == t_dot)
+	// if we have an arrow, the first thing we need to do is "jump through" the indirection
+	// this if statement basically "finalizes" the load before the arrow operator,
+	// then sets up a new access solely for the arrow
+	if ((tree->type == t_arrow))
 	{
-		// if we are at the bottom of the recursion
-		if ((lhs->type != t_dot) && (lhs->type != t_arrow))
+		accessLine->index = (*TACIndex)++;
+		BasicBlock_append(block, accessLine);
+
+		struct Type *existingReadType = TAC_GetTypeOfOperand(accessLine, 0);
+
+		struct TACLine *oldAccessLine = accessLine;
+		if ((existingReadType->basicType == vt_class) &&
+			(existingReadType->indirectionLevel == 0))
 		{
-			// account for the fact that we added an implicit address-of operand
-			struct Type dummyType = *TAC_GetTypeOfOperand(accessLine, 1);
-			dummyType.indirectionLevel--;
-			checkAccessedClassForDot(tree, scope, &dummyType);
+			oldAccessLine->operation = tt_lea_off;
 		}
-		// otherwise, we are higher up in the recursion, and haven't converted accessLine to an LEA (if applicable)
-		// so we expect to be able to check the dot access just like we would any other
 		else
 		{
-			checkAccessedClassForDot(tree, scope, TAC_GetTypeOfOperand(accessLine, 1));
+			oldAccessLine->operation = tt_load_off;
 		}
-	}
-	else
-	{
-		// check arrow access just like we would any other
-		checkAccessedClassForArrow(tree, scope, TAC_GetTypeOfOperand(accessLine, 1));
-	}
+		accessLine = newTACLine(*TACIndex, tt_load_off, tree);
 
-	// if we are end up accessing an entire class, choose instead to just compute its address and continue with a pointer to it
-	// so we can do more indirection without having to copy the whole class as a temporary
-	if ((depth > 0) &&
-		(accessedMember->variable->type.basicType == vt_class) &&
-		(accessedMember->variable->type.indirectionLevel == 0) &&
-		(accessedMember->variable->type.arraySize == 0))
-	{
-		struct TACLine *oldAccess = accessLine;
+		copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccessLine->operands[0]);
 
-		oldAccess->operation = tt_lea_off;
-		oldAccess->operands[1].castAsType.indirectionLevel++;
-		oldAccess->operands[0].type.indirectionLevel++;
-		copyTACOperandTypeDecayArrays(&oldAccess->operands[0], &oldAccess->operands[1]);
-		oldAccess->operands[0].castAsType.basicType = vt_null;
-		oldAccess->index = (*TACIndex)++;
-
-		// now create a new access
-
-		accessLine = newTACLine((*TACIndex), tt_load_off, tree);
-
-		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 		accessLine->operands[0].permutation = vp_temp;
-		copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccess->operands[0]);
-		copyTACOperandTypeDecayArrays(&accessLine->operands[0], &accessLine->operands[1]);
-		TACOperand_GetType(&accessLine->operands[0])->indirectionLevel--;
+		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 
 		accessLine->operands[2].type.basicType = vt_u32;
 		accessLine->operands[2].permutation = vp_literal;
-
-		BasicBlock_append(block, accessLine);
+		// BasicBlock_append(block, accessLine);
 	}
+
+	// get the ClassEntry and ClassMemberOffset of what we're accessing within and the member we access
+	struct ClassEntry *accessedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(accessLine, 1));
+	struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(accessedClass, rhs);
+
+	// populate type information (use cast for the first operand as we are treating a class as a pointer to something else with a given offset)
+	accessLine->operands[1].castAsType = accessedMember->variable->type;
+	accessLine->operands[0].type = *TAC_GetTypeOfOperand(accessLine, 1);			   // copy type info to the temp we're reading to
+	copyTACOperandTypeDecayArrays(&accessLine->operands[0], &accessLine->operands[0]); // decay arrays in-place so we only have pointers instead of arrays
 
 	accessLine->operands[2].name.val += accessedMember->offset;
 
-	accessLine->operands[1].castAsType = accessedMember->variable->type;
-	accessLine->operands[0].type = accessedMember->variable->type;
-
-	char forceLea = 0;
-	// if depth > 0, we may need to "jump through" a level of indirection if we have an arrow operator
-	if (depth > 0)
-	{
-		// we need to actually do a step of indirection by reading the pointer and continuing on in a new TAC operation
-		if (tree->type == t_arrow)
-		{
-			struct TACLine *oldAccess = accessLine;
-			oldAccess->index = (*TACIndex)++;
-
-			accessLine = newTACLine(*TACIndex, tt_load_off, tree);
-
-			accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-			accessLine->operands[0].permutation = vp_temp;
-			copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccess->operands[0]);
-
-			accessLine->operands[2].type.basicType = vt_u32;
-			accessLine->operands[2].permutation = vp_literal;
-
-			BasicBlock_append(block, accessLine);
-		}
-	}
-	else
-	{
-		// decay the array in-place - our LEA calculates the address of a pointer, not an array
-		copyTACOperandDecayArrays(&accessLine->operands[0], &accessLine->operands[0]);
-		if (accessedMember->variable->type.arraySize > 0)
-		{
-			accessLine->operation = tt_lea_off;
-			forceLea = 1;
-		}
-	}
-
-
 	if (depth == 0)
 	{
-		if (!forceLea)
-		{
-			accessLine->operation = tt_load_off;
-		}
 		accessLine->index = (*TACIndex)++;
+		BasicBlock_append(block, accessLine);
 		*srcDestOperand = accessLine->operands[0];
 	}
 
