@@ -1455,8 +1455,8 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 			ErrorWithAST(ERROR_CODE, member,
 						 "Expected identifier on LHS of %s operator, got %s (%s) instead!\n",
 						 (tree->type == t_dot ? "dot" : "arrow"),
-						 member->value,
-						 getTokenName(member->type));
+						 class->value,
+						 getTokenName(class->type));
 		}
 
 		if (member->type != t_identifier)

@@ -1,66 +1,25 @@
 #include "print.h"
 
-class Nested
+class B
 {
-	u8 na;
-	u8 nb;
-	class Simple *nsimplep;
+	u8 value1;
+	u16 value2;
 };
 
-class Simple
+class A
 {
-	u8 a;
-	u8 b;
-	u8 c;
-	u8 d;
-	class Nested nested;
-	class Nested *nestedp;
+	class B *bp;
+	class B b;
 };
-
-fun basicClassTests(->void)
-{
-	class Simple simple;
-	u8 readTo = 0;
-
-	asm{###};
-
-	simple.a = 123;
-	readTo = simple.a;
-
-	asm{###};
-
-
-	class Simple *simplep;
-	simplep->a = 123;
-	readTo = simplep->a;
-}
-
-fun nestedClassTests(->void)
-{
-	class Simple simple;
-	u8 readTo = 0;
-
-	asm{###};
-
-	simple.nested.na = 234;
-	readTo = simple.nested.na;
-
-	asm{###};
-	simple.nestedp->na = 234;
-	readTo = simple.nestedp->na;
-}
-
-fun deeplyNestedArrowTests(->void)
-{
-	class Simple simple;
-	u8 readTo = 0;
-
-	asm{###};
-
-	simple.nested.nsimplep->nestedp->nsimplep->a = 123;
-}
 
 fun main(->void)
 {
-	
+	class A a;
+
+	a.bp = &(a.b);
+
+	a.b.value2 = 1235;
+	a.bp->value2 = 1234;
+	printNum(a.b.value2);
+	printNum(a.bp->value2);
 }
