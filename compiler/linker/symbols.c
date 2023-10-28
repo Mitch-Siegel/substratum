@@ -3,30 +3,30 @@
 
 #include <string.h>
 
-int GetSizeOfPrimitive(struct Type *t)
+int GetSizeOfType(struct Type *t)
 {
     int size = 0;
 
     switch (t->basicType)
     {
     case vt_null:
-        ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_null!\n");
+        ErrorAndExit(ERROR_INTERNAL, "GetSizeOfType called with basic type of vt_null!\n");
         break;
 
-    case vt_uint8:
+    case vt_u8:
         size = 1;
         break;
 
-    case vt_uint16:
+    case vt_u16:
         size = 2;
         break;
 
-    case vt_uint32:
+    case vt_u32:
         size = 4;
         break;
 
     case vt_class:
-        ErrorAndExit(ERROR_INTERNAL, "GetSizeOfPrimitive called with basic type of vt_class!!\n");
+        ErrorAndExit(ERROR_INTERNAL, "GetSizeOfType called with basic type of vt_class!!\n");
     }
 
     if (t->arraySize > 0)
@@ -98,6 +98,28 @@ void Symbol_Free(struct Symbol *s)
     free(s);
 }
 
+char *startup[] = {"li t0, 0x10000000",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 'h'",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 'e'",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 'l'",
+                  "sw t1, 0(t0)",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 'o'",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, '!'",
+                  "sw t1, 0(t0)",
+                  "andi t1, t1, 0",
+                  "addi t1, t1, 10",
+                  "sw t1, 0(t0)",
+                  ""};
+
 void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
 {
     if (!outputExecutable)
@@ -120,7 +142,7 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
             // if it is initialized, the data directives we will output later will reserve the space on their own
             if (s->data.asVariable.initializeTo == NULL)
             {
-                fprintf(f, "#res %d\n", GetSizeOfPrimitive(&s->data.asVariable));
+                fprintf(f, "#res %d\n", GetSizeOfType(&s->data.asVariable));
             }
             break;
 
@@ -129,18 +151,20 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
 
         case s_function_definition:
         {
-            fputs("#align 2048\n", f);
+            fprintf(f, ".align 4\n");
         }
         break;
 
         case s_section:
-            break;
+        {
+        }
+        break;
 
         case s_object:
             fprintf(f, "%s:\n", s->name);
             if (s->data.asObject.isInitialized)
             {
-                fputs("#d8 ", f);
+                fputs(".byte ", f);
                 for (int i = 0; i < s->data.asObject.size; i++)
                 {
                     fprintf(f, "0x%02x", s->data.asObject.initializeTo[i]);
@@ -167,6 +191,19 @@ void Symbol_Write(struct Symbol *s, FILE *f, char outputExecutable)
     {
         fputs(rawRunner->data, f);
         fputc('\n', f);
+    }
+
+    if (outputExecutable &&
+        (s->symbolType == s_section) &&
+        (!strcmp(s->name, "userstart")))
+    {
+        fprintf(f, ".align 4\nuserstart:\n");
+        for(int i = 0; startup[i][0] != '\0'; i++)
+        {
+            fprintf(f, "\t%s\n", startup[i]);
+        }
+        // fprintf(f, "\tcall main\n");
+        fprintf(f, "\tli sp, 0x81000000\n\tjal ra, main\npgm_done:\n\twfi\n\tbeq t1, t1, pgm_done\n");
     }
 }
 
@@ -258,10 +295,9 @@ char addExport(struct LinkedList **exports, struct LinkedList **requires, struct
     if ((addType != s_function_declaration) &&
         (found = LinkedList_Find(exports[addType], compareSymbols, toAdd)))
     {
-        // if we see something other than section userstart duplicated, throw an error
-        if ((strcmp(toAdd->name, "userstart") || (addType != s_section)))
+        // if we see something other than a section duplicated, throw an error
+        if ((addType != s_section))
         {
-
             ErrorAndExit(ERROR_CODE, "Multiple definition of symbol %s %s - from %s and %s!\n", symbolEnumToName(addType), toAdd->name, found->fromFile, toAdd->fromFile);
         }
 

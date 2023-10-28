@@ -46,6 +46,7 @@ struct FunctionEntry
 	char *name;				 // duplicate pointer from ScopeMember for ease of use
 	struct LinkedList *BasicBlockList;
 	char isDefined;
+	char isAsmFun;
 };
 
 struct VariableEntry
@@ -163,12 +164,6 @@ struct VariableEntry *Scope_lookupVar(struct Scope *scope,
 struct FunctionEntry *Scope_lookupFun(struct Scope *scope,
 									  struct AST *name);
 
-struct Scope *Scope_lookupSubScope(struct Scope *scope,
-								   char *name);
-
-struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope,
-										   unsigned char subScopeNumber);
-
 struct ClassEntry *Scope_lookupClass(struct Scope *scope,
 									 struct AST *name);
 
@@ -180,8 +175,6 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t);
 
 // gets the integer size (not aligned) of a given type, but based on the dereference level as (t->indirectionLevel - 1)
 int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *t);
-
-int Scope_getSizeOfVariable(struct Scope *scope, struct VariableEntry *v);
 
 int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v);
 

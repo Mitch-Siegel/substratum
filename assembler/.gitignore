@@ -1,4 +1,3 @@
-main.asm
-output.asm
-test.asm
-main.bin
+*.o
+*.s
+*.elf

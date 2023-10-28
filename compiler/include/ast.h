@@ -42,9 +42,9 @@ enum token
 	t_asm,
 	// types
 	t_void,
-	t_uint8,
-	t_uint16,
-	t_uint32,
+	t_u8,
+	t_u16,
+	t_u32,
 	t_class,
 	// function
 	t_fun,

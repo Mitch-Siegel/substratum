@@ -37,13 +37,6 @@ int getline_force_raw(char **linep, size_t *linecapp, FILE *stream)
     return len;
 }
 
-size_t getline_force(char **linep, size_t *linecapp, FILE *stream, struct Symbol *wipSymbol)
-{
-    size_t len = getline_force_raw(linep, linecapp, stream);
-    LinkedList_Append(wipSymbol->lines, strTrim(*linep, len));
-    return len;
-}
-
 size_t getline_force_metadata(char **linep, size_t *linecapp, FILE *stream, struct Symbol *wipSymbol)
 {
     size_t len = getline_force_raw(linep, linecapp, stream);
@@ -134,66 +127,86 @@ unsigned char readHex(char *str)
 char *inBuf = NULL;
 size_t bufSize = 0;
 
-struct Type *parseType(FILE *inFile, char *declString, struct Symbol *wipSymbol, char canInitialize)
+enum basicTypes parseBasicType(char *basicTypeString, int *len)
 {
-    char *lasts = NULL;
-
-    struct Type *parsed = malloc(sizeof(struct Type));
-    memset(parsed, 0, sizeof(struct Type));
-
-    
-    char *token = strtok_r(declString, " ", &lasts);
-    if (strstr(token, "uint8"))
+    if (strstr(basicTypeString, "u8"))
     {
-        parsed->basicType = vt_uint8;
+        *len = 5;
+        return vt_u8;
     }
-    else if (strstr(token, "uint16"))
+    else if (strstr(basicTypeString, "u16"))
     {
-        parsed->basicType = vt_uint16;
+        *len = 6;
+        return vt_u16;
     }
-    else if (strstr(token, "uint32"))
+    else if (strstr(basicTypeString, "u32"))
     {
-        parsed->basicType = vt_uint32;
+        *len = 6;
+        return vt_u32;
     }
-    else if (strstr(token, "NOTYPE"))
+    else if (strstr(basicTypeString, "NOTYPE"))
     {
-        parsed->basicType = vt_null;
-        return parsed; // immediately return if notype, nothing else to parse
+        *len = 6;
+        return vt_null;
     }
     else
     {
-        ErrorAndExit(ERROR_INTERNAL, "Unexpected type string seen in parseType: [%s]\n", token);
+        ErrorAndExit(ERROR_INTERNAL, "Unexpected type string seen in parseBasicType: [%s]\n", basicTypeString);
+    }
+}
+
+struct Type *parseType(FILE *inFile, char *declString, struct Symbol *wipSymbol, char canInitialize)
+{
+    struct Type *parsed = malloc(sizeof(struct Type));
+    memset(parsed, 0, sizeof(struct Type));
+
+    int typeNameLen = 0;
+    parsed->basicType = parseBasicType(declString, &typeNameLen);
+
+    if (parsed->basicType == vt_null)
+    {
+        return parsed;
     }
 
-    parsed->indirectionLevel = 0;
+    char *remainingTypeInfo = declString + typeNameLen;
 
-    int tokLen = strlen(token);
-    int starStartIndex = 0;
-
-    for (int i = 0; i < tokLen; i++)
+    if (parsed->basicType == vt_class)
     {
-        if (token[i] == '*')
+        ErrorAndExit(ERROR_INTERNAL, "Linker doesn't support parsing class types!\n");
+    }
+
+    while (isspace(*remainingTypeInfo))
+    {
+        remainingTypeInfo++;
+    }
+
+    int remainingLen = strlen(remainingTypeInfo);
+    int numStars = 0;
+
+    while (numStars < remainingLen)
+    {
+        if (remainingTypeInfo[numStars] == '*')
         {
-            starStartIndex = i;
+            numStars++;
+        }
+        else
+        {
             break;
         }
     }
 
-    if (starStartIndex)
+    remainingTypeInfo += numStars;
+    while (isspace(*remainingTypeInfo))
     {
-        for (int i = starStartIndex; i < tokLen; i++)
-        {
-            if (token[i] == '*')
-            {
-                parsed->indirectionLevel++;
-            }
-        }
+        remainingTypeInfo++;
     }
-    else
+    remainingLen = strlen(remainingTypeInfo);
+
+    if (remainingLen)
     {
-        if (token[0] == '[')
+        if (remainingTypeInfo[0] == '[')
         {
-            char *tokNumOnly = strdup(token + 1);
+            char *tokNumOnly = strdup(remainingTypeInfo + 1);
             for (int i = 0; i < strlen(tokNumOnly); i++)
             {
                 if (tokNumOnly[i] == ']')
@@ -202,7 +215,6 @@ struct Type *parseType(FILE *inFile, char *declString, struct Symbol *wipSymbol,
                     break;
                 }
             }
-
             parsed->arraySize = atoi(tokNumOnly);
             free(tokNumOnly);
         }

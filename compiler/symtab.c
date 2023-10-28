@@ -17,6 +17,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, s
 	newFunction->returnType = *returnType;
 	newFunction->name = name;
 	newFunction->isDefined = 0;
+	newFunction->isAsmFun = 0;
 	return newFunction;
 }
 
@@ -140,6 +141,8 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 							{
 								thisTAC->operands[j].name.str = SymbolTable_mangleName(scope, dict, originalName);
 							}
+							// TODO: there is a bug here or somewhere similar in this function
+							//		 name mangling doesn't work correctly for variables declared at inner scopes
 						}
 					}
 				}
@@ -516,32 +519,6 @@ struct FunctionEntry *Scope_lookupFun(struct Scope *scope, struct AST *name)
 	}
 }
 
-struct Scope *Scope_lookupSubScope(struct Scope *scope, char *name)
-{
-	struct ScopeMember *lookedUp = Scope_lookup(scope, name);
-	if (lookedUp == NULL)
-	{
-		ErrorAndExit(ERROR_INTERNAL, "Failure looking up scope with name [%s]\n", name);
-	}
-
-	switch (lookedUp->type)
-	{
-	case e_scope:
-		return lookedUp->entry;
-
-	default:
-		ErrorAndExit(ERROR_INTERNAL, "Unexpected symbol table entry type found when attempting to look up scope [%s]\n", name);
-	}
-}
-
-struct Scope *Scope_lookupSubScopeByNumber(struct Scope *scope, unsigned char subScopeNumber)
-{
-	char subScopeName[3];
-	sprintf(subScopeName, "%02x", subScopeNumber);
-	struct Scope *lookedUp = Scope_lookupSubScope(scope, subScopeName);
-	return lookedUp;
-}
-
 struct ClassEntry *Scope_lookupClass(struct Scope *scope,
 									 struct AST *name)
 {
@@ -603,15 +580,15 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 		ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_null!\n");
 		break;
 
-	case vt_uint8:
+	case vt_u8:
 		size = 1;
 		break;
 
-	case vt_uint16:
+	case vt_u16:
 		size = 2;
 		break;
 
-	case vt_uint32:
+	case vt_u32:
 		size = 4;
 		break;
 
@@ -640,13 +617,13 @@ int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *t)
 {
 	struct Type dereferenced = *t;
 	dereferenced.indirectionLevel--;
-	dereferenced.arraySize = 0;
-	return Scope_getSizeOfType(scope, &dereferenced);
-}
 
-int Scope_getSizeOfVariable(struct Scope *scope, struct VariableEntry *v)
-{
-	return Scope_getSizeOfType(scope, &v->type);
+	if (dereferenced.arraySize > 0)
+	{
+		dereferenced.arraySize = 0;
+		dereferenced.indirectionLevel++;
+	}
+	return Scope_getSizeOfType(scope, &dereferenced);
 }
 
 int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
@@ -684,41 +661,6 @@ int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 			return 4;
 		}
 	}
-}
-
-// allocate and return a string containing the name and pointer level of a type
-char *Scope_getNameOfType(struct Scope *scope, struct Type *t)
-{
-	char *name;
-	switch (t->basicType)
-	{
-	case vt_uint8:
-		name = "uint8";
-		break;
-
-	case vt_uint16:
-		name = "uint16";
-		break;
-
-	case vt_uint32:
-		name = "uint32";
-		break;
-
-	default:
-		name = t->classType.name;
-		ErrorAndExit(ERROR_INTERNAL, "Unexepcted variable type %s in Scope_getNameOfType!\n", t->classType.name);
-	}
-
-	int nameLen = strlen(name);
-	int totalLen = nameLen + t->indirectionLevel + 1;
-	char *fullName = malloc(totalLen);
-	strcpy(fullName, name);
-	for (int i = nameLen; i < totalLen; i++)
-	{
-		fullName[i] = '*';
-	}
-	fullName[totalLen - 1] = '\0';
-	return fullName;
 }
 
 void VariableEntry_Print(struct VariableEntry *it, int depth)

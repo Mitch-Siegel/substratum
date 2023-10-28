@@ -1,33 +1,146 @@
-#include "symtab.h"
+#include "ast.h"
+#include "util.h"
 #include "tac.h"
+#include "symtab.h"
 
-#ifndef _LINEARIZER_H_
-#define _LINEARIZER_H_
+#pragma once
 
-int alignSize(int nBytes);
+struct SymbolTable *walkProgram(struct AST *program);
 
-enum basicTypes selectVariableTypeForNumber(int num);
+struct VariableEntry *walkVariableDeclaration(struct AST *tree,
+												struct BasicBlock *block,
+												struct Scope *scope,
+												int *TACIndex,
+												int *tempNum,
+												char isArgument);
 
-enum basicTypes selectVariableTypeForLiteral(char *literal);
+void walkArgumentDeclaration(struct AST *tree,
+							   struct BasicBlock *block,
+							   int *TACIndex,
+							   int *tempNum,
+							   struct FunctionEntry *fun);
 
-void populateTACOperandFromVariable(struct TACOperand *o, struct VariableEntry *e);
+void walkFunctionDeclaration(struct AST *tree,
+							   struct Scope *scope);
 
-// copy over the entire TACOperand, all fields are changed
-void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src);
+void walkFunctionDefinition(struct AST *tree,
+							  struct FunctionEntry *fun);
 
-// copy over only the type and castAsType fields, decaying array sizes to simple pointer types
-void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *src);
+void walkClassDeclaration(struct AST *tree,
+							struct BasicBlock *block,
+							struct Scope *scope);
 
-struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, int *TACIndex, int *tempNum, struct Type *pointerTypeOfToScale);
+void walkStatement(struct AST *tree,
+					 struct BasicBlock **blockP,
+					 struct Scope *scope,
+					 int *TACIndex,
+					 int *tempNum,
+					 int *labelNum,
+					 int controlConvergesToLabel);
 
-struct SymbolTable *linearizeProgram(struct AST *program, int optimizationLevel);
+void walkScope(struct AST *tree,
+				 struct BasicBlock *block,
+				 struct Scope *scope,
+				 int *TACIndex,
+				 int *tempNum,
+				 int *labelNum,
+				 int controlConvergesToLabel);
 
-// check the LHS of any dot operator make sure it is both a class and not indirect
-// special case handling for when tree is an identifier vs a subexpression
-void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type *type);
+void walkConditionCheck(struct AST *tree,
+						  struct BasicBlock *block,
+						  struct Scope *scope,
+						  int *TACIndex,
+						  int *tempNum,
+						  int falseJumpLabelNum);
 
-// check the LHS of any arrow operator, make sure it is only a class pointer and nothing else
-// special case handling for when tree is an identifier vs a subexpression
-void checkAccessedClassForArrow(struct AST *tree, struct Scope *scope, struct Type *type);
+void walkWhileLoop(struct AST *tree,
+					 struct BasicBlock *block,
+					 struct Scope *scope,
+					 int *TACIndex,
+					 int *tempNum,
+					 int *labelNum,
+					 int controlConvergesToLabel);
 
-#endif
+void walkIfStatement(struct AST *tree,
+					   struct BasicBlock *block,
+					   struct Scope *scope,
+					   int *TACIndex,
+					   int *tempNum,
+					   int *labelNum,
+					   int controlConvergesToLabel);
+
+void walkAssignment(struct AST *tree,
+					  struct BasicBlock *block,
+					  struct Scope *scope,
+					  int *TACIndex,
+					  int *tempNum);
+
+void walkArithmeticAssignment(struct AST *tree,
+								struct BasicBlock *block,
+								struct Scope *scope,
+								int *TACIndex,
+								int *tempNum);
+
+void walkSubExpression(struct AST *tree,
+						 struct BasicBlock *block,
+						 struct Scope *scope,
+						 int *TACIndex,
+						 int *tempNum,
+						 struct TACOperand *destinationOperand);
+
+void walkFunctionCall(struct AST *tree,
+						struct BasicBlock *block,
+						struct Scope *scope,
+						int *TACIndex,
+						int *tempNum,
+						struct TACOperand *destinationOperand);
+
+struct TACLine *walkMemberAccess(struct AST *tree,
+								  struct BasicBlock *block,
+								  struct Scope *scope,
+								  int *TACIndex,
+								  int *tempNum,
+								  struct TACOperand *srcDestOperand,
+								  int depth);
+
+struct TACOperand *walkExpression(struct AST *tree,
+									struct BasicBlock *block,
+									struct Scope *scope,
+									int *TACIndex,
+									int *tempNum);
+
+struct TACOperand *walkArrayRef(struct AST *tree,
+								  struct BasicBlock *block,
+								  struct Scope *scope,
+								  int *TACIndex,
+								  int *tempNum);
+
+struct TACOperand *walkDereference(struct AST *tree,
+									 struct BasicBlock *block,
+									 struct Scope *scope,
+									 int *TACIndex,
+									 int *tempNum);
+
+struct TACOperand *walkAddrOf(struct AST *tree,
+								struct BasicBlock *block,
+								struct Scope *scope,
+								int *TACIndex,
+								int *tempNum);
+
+void walkPointerArithmetic(struct AST *tree,
+							 struct BasicBlock *block,
+							 struct Scope *scope,
+							 int *TACIndex,
+							 int *tempNum,
+							 struct TACOperand *destinationOperand);
+
+void walkAsmBlock(struct AST *tree,
+					struct BasicBlock *block,
+					struct Scope *scope,
+					int *TACIndex,
+					int *tempNum);
+
+void walkStringLiteral(struct AST *tree,
+						 struct BasicBlock *block,
+						 struct Scope *scope,
+						 struct TACOperand *destinationOperand);

@@ -1,11 +1,4 @@
 set -e
-
-if [ ! $1 ]
-then
-    echo "please provide an argument to be passed to the assembler makefile ('run' or 'run-for-debug')"
-    exit 1
-fi
-
 echo "building compiler"
 cd compiler
 if ! make -j`nproc`; then
@@ -30,12 +23,3 @@ ls *.o | xargs -I {} sh -c "../cald -i linked.o -i {} -o linked.o || exit 255"
 
 cd ..
 ./cald -i ./testsrc/linked.o -o ../assembler/linked.s -e
-
-
-cd ../assembler
-if ! make $1; then
-    cd ..
-    exit $?
-fi
-
-cd ..

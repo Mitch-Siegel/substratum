@@ -50,39 +50,6 @@ void AST_Print(struct AST *it, int depth)
 		AST_Print(it->child, depth + 1);
 }
 
-void AST_PrintHorizontalRec(struct AST *it){
-	if (it->sibling != NULL)
-	{
-		AST_PrintHorizontalRec(it->sibling);
-		printf(" ");
-	}
-
-	printf("(");
-	printf("%s", it->value);
-
-	if (it->child != NULL)
-	{
-		printf(" ");
-		AST_PrintHorizontalRec(it->child);
-	}
-
-	printf(")");
-}
-
-void AST_PrintHorizontal(struct AST *it)
-{
-	printf("(");
-	printf("%s", it->value);
-
-	if (it->child != NULL)
-	{
-		printf(" ");
-		AST_PrintHorizontalRec(it->child);
-	}
-
-	printf(")");
-}
-
 void AST_Free(struct AST *it)
 {
 	struct AST *runner = it;

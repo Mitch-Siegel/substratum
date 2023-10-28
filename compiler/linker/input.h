@@ -13,8 +13,6 @@ char parseLinkDirection(char *directionString);
 
 int getline_force_raw(char **linep, size_t *linecapp, FILE *stream);
 
-size_t getline_force(char **linep, size_t *linecapp, FILE *stream, struct Symbol *wipSymbol);
-
 size_t getline_force_metadata(char **linep, size_t *linecapp, FILE *stream, struct Symbol *wipSymbol);
 
 void parseFunctionDeclaration(struct Symbol *wipSymbol, FILE *inFile);

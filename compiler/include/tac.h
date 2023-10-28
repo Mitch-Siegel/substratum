@@ -9,9 +9,9 @@
 enum basicTypes
 {
 	vt_null,
-	vt_uint8,
-	vt_uint16,
-	vt_uint32,
+	vt_u8,
+	vt_u16,
+	vt_u32,
 	vt_class
 };
 
@@ -20,7 +20,7 @@ enum variablePermutations
 	vp_standard,
 	vp_temp,
 	vp_literal,
-	vp_objptr,
+	vp_objptr, // TODO: clean up after this
 };
 
 enum TACType
@@ -31,31 +31,26 @@ enum TACType
 	tt_subtract,
 	tt_mul,
 	tt_div,
-	tt_dereference,
+	tt_load,
+	tt_load_off,
+	tt_load_arr,
+	tt_store,
+	tt_store_off,
+	tt_store_arr,
 	tt_addrof,
-	tt_memw_1, // mov (reg), reg
-	tt_memw_2, // mov offset(reg), reg
-	tt_memw_3, // mov offset(reg, scale), reg
-	tt_memw_2_n, // mov offset(reg), reg - offset is subtracted rather than added
-	tt_memw_3_n, // mov offset(reg, scale), reg - offset is subtracted rather than added
-	tt_memr_1, // same addressing modes as write
-	tt_memr_2,
-	tt_memr_3,
-	tt_memr_2_n,
-	tt_memr_3_n,
-	tt_lea_2,
-	tt_lea_3,
-	tt_cmp,
-	tt_jg,
-	tt_jge,
-	tt_jl,
-	tt_jle,
-	tt_je,
-	tt_jne,
-	tt_jz,
-	tt_jnz,
+	tt_lea_off,
+	tt_lea_arr,
+	tt_beq,	 // branch equal
+	tt_bne,	 // branch not equal
+	tt_bgeu, // branch greater than or equal unsigned
+	tt_bltu, // branch less than unsigned
+	tt_bgtu, // branch greater than unsigned
+	tt_bleu, // branch less than or equal unsigned
+	tt_beqz, // branch equal zero
+	tt_bnez, // branch not equal zero
 	tt_jmp,
 	tt_push,
+	tt_pop,
 	tt_call,
 	tt_label,
 	tt_return,
@@ -92,7 +87,6 @@ struct TACOperand
 	enum variablePermutations permutation; // enum of permutation (standard/temp/literal)
 };
 
-
 int Type_Compare(struct Type *a, struct Type *b);
 
 int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b);
@@ -125,8 +119,6 @@ char *sPrintTACLine(struct TACLine *it);
 struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST *correspondingTree, char *file, int line);
 #define newTACLine(index, operation, correspondingTree) newTACLineFunction((index), (operation), (correspondingTree), __FILE__, __LINE__)
 
-char checkTACLine(struct TACLine *it);
-
 void freeTAC(struct TACLine *it);
 
 char TACLine_isEffective(struct TACLine *it);
@@ -144,10 +136,6 @@ struct BasicBlock *BasicBlock_new(int labelNum);
 void BasicBlock_free(struct BasicBlock *b);
 
 void BasicBlock_append(struct BasicBlock *b, struct TACLine *l);
-
-void BasicBlock_prepend(struct BasicBlock *b, struct TACLine *l);
-
-struct TACLine *findLastEffectiveTAC(struct BasicBlock *b);
 
 void printBasicBlock(struct BasicBlock *b, int indentLevel);
 
