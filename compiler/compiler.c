@@ -11,6 +11,7 @@
 #include "symtab.h"
 #include "util.h"
 #include "linearizer.h"
+#include "ir_optimization.h"
 #include "codegen.h"
 
 struct Dictionary *parseDict = NULL;
@@ -175,6 +176,8 @@ int main(int argc, char **argv)
 		printf("Symbol table after linearization/scope collapse:\n");
 		SymbolTable_print(theTable, 1);
 	}
+
+	optimizeIR(theTable);
 
 	FILE *outFile = fopen(outFileName, "wb");
 
