@@ -1515,7 +1515,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 	// if we have an arrow, the first thing we need to do is "jump through" the indirection
 	// this if statement basically "finalizes" the load before the arrow operator,
 	// then sets up a new access solely for the arrow
-	if ((tree->type == t_arrow))
+	if (tree->type == t_arrow)
 	{
 		accessLine->index = (*TACIndex)++;
 		BasicBlock_append(block, accessLine);

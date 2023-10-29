@@ -123,6 +123,6 @@ void AST_InsertChild(struct AST *it, struct AST *newChild);
 
 void AST_Print(struct AST *it, int depth);
 
-void AST_PrintHorizontal(struct AST *it);
+int AST_Compare(struct AST *a, struct AST *b);
 
 void AST_Free(struct AST *it);

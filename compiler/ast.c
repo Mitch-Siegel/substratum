@@ -50,6 +50,40 @@ void AST_Print(struct AST *it, int depth)
 		AST_Print(it->child, depth + 1);
 }
 
+int AST_Compare(struct AST *a, struct AST *b)
+{
+	if(a->type != b->type)
+	{
+		return 1;
+	}
+
+	if (strcmp(a->value, b->value))
+	{
+		return 2;
+	}
+
+	char recursiveResults = 0;
+	if((a->child == NULL) != (b->child == NULL))
+	{
+		return 3;
+	}
+	else if(a->child != NULL)
+	{
+		recursiveResults |= AST_Compare(a->child, b->child);
+	}
+
+	if((b->sibling == NULL) != (b->sibling == NULL))
+	{
+		return 3;
+	}
+	else if(a->sibling != NULL)
+	{
+		recursiveResults |= AST_Compare(a->sibling, b->sibling);
+	}
+
+	return recursiveResults;
+}
+
 void AST_Free(struct AST *it)
 {
 	struct AST *runner = it;

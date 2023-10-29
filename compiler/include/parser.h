@@ -8,7 +8,7 @@
 #define BUF_SIZE 128
 
 
-int lookahead_char_dumb();
+int lookahead_char_dumb(int count);
 
 void trimWhitespace(char trackPos);
 

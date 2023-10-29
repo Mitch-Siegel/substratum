@@ -360,12 +360,13 @@ void EmitPushForOperand(FILE *outFile,
 	case 2:
 	case 4:
 		EmitPushForSize(outFile, size, srcRegister);
-
 		break;
 
 	default:
+	{
 		char *typeName = Type_GetName(TACOperand_GetType(dataSource));
 		ErrorAndExit(ERROR_INTERNAL, "Unsupported size %d seen in EmitPushForOperand (for type %s)\n", size, typeName);
+	}
 	}
 }
 
@@ -389,12 +390,13 @@ void EmitPopForOperand(FILE *outFile,
 	case 2:
 	case 4:
 		EmitPopForSize(outFile, size, destRegister);
-
 		break;
 
 	default:
+	{
 		char *typeName = Type_GetName(TACOperand_GetType(dataDest));
 		ErrorAndExit(ERROR_INTERNAL, "Unsupported size %d seen in EmitPopForOperand (for type %s)\n", size, typeName);
+	}
 	}
 }
 

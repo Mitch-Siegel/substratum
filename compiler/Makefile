@@ -1,5 +1,17 @@
-CC = gcc
-CFLAGS = -g -Werror -Wall -Wno-enum-conversion -Wno-void-pointer-to-enum-cast -Wno-deprecated-declarations -fsanitize=address
+ifeq ($(OS),Windows_NT)
+	$error("Builds under windows not supported.")
+else
+    UNAME_S := $(shell uname -s)
+    ifeq ($(UNAME_S),Linux)
+		CC = gcc
+    endif
+    ifeq ($(UNAME_S),Darwin)
+		CC = clang
+		CFLAGS += -Wno-deprecated-non-prototype
+    endif
+endif
+
+CFLAGS += -g -Werror -Wall -Wno-enum-conversion -Wno-void-pointer-to-enum-cast -Wno-deprecated-declarations -fsanitize=address
 programs: cacc cald capp
 
 OBJDIR = build

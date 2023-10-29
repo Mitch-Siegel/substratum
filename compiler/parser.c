@@ -936,7 +936,7 @@ void TableParseError(struct Stack *parseStack)
 struct AST *TableParse(struct Dictionary *dict)
 {
 	// number of shifts from this file
-	int nShifts = 0;
+	// int nShifts = 0;
 
 	int maxConsecutiveTokens = 0;
 	// scan recipes to figure out the greatest number of consecutive tokens we can have on the stack (to catch errors)
@@ -1101,7 +1101,7 @@ struct AST *TableParse(struct Dictionary *dict)
 			}
 			// printf("\tShift token [%s] with type %s\n", nextToken->value, getTokenName(nextToken->type));
 			Stack_Push(parseStack, InProgressProduction_New(nextToken->type, nextToken));
-			nShifts++;
+			// nShifts++;
 		}
 		break;
 		}
