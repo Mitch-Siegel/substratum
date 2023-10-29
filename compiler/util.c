@@ -287,6 +287,8 @@ void LinkedList_DeleteNode(struct LinkedList *l, struct LinkedListNode *n)
 		l->head = NULL;
 		l->tail = NULL;
 	}
+
+	l->size--;
 	
 	free(n);
 }

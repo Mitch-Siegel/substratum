@@ -8,7 +8,7 @@
 struct LinkedListNode *deleteTACFromList(struct LinkedList *tacList, struct LinkedListNode *tacNodeToRemove)
 {
     struct LinkedListNode *afterRemoved = tacNodeToRemove->next;
-    for(struct LinkedListNode *renumberRunner = afterRemoved; renumberRunner != NULL; renumberRunner = renumberRunner->next)
+    for (struct LinkedListNode *renumberRunner = afterRemoved; renumberRunner != NULL; renumberRunner = renumberRunner->next)
     {
         struct TACLine *toRenumber = renumberRunner->data;
         toRenumber->index--;
@@ -20,6 +20,13 @@ struct LinkedListNode *deleteTACFromList(struct LinkedList *tacList, struct Link
     return afterRemoved;
 }
 
+/*
+ * peephole optimization to eliminiate use of extra temp variables
+ * TAC combos such as
+ * .t0 = a + b
+ * a = .t0
+ * convert to: a = a + b
+ */
 void peepholeReduceTemps(struct BasicBlock *block)
 {
     struct LinkedListNode *prevNode = NULL;
@@ -28,7 +35,7 @@ void peepholeReduceTemps(struct BasicBlock *block)
     {
         struct TACLine *curLine = blockRunner->data;
 
-        if(blockRunner->next == blockRunner)
+        if (blockRunner->next == blockRunner)
         {
             ErrorAndExit(ERROR_INTERNAL, "BIG ISSUE\n");
         }
@@ -59,9 +66,180 @@ void peepholeReduceTemps(struct BasicBlock *block)
     }
 }
 
+/*
+ * eliminate common subexpressions (re-calculation of temp variables when not necessary)
+ *
+ */
+struct Subexpression
+{
+    struct Stack *dependsOn;
+    struct TACOperand *provides;
+};
+
+void Subexpression_Free(struct Subexpression *s)
+{
+    Stack_Free(s->dependsOn);
+    free(s);
+}
+
+int Subexpression_Compare(struct Subexpression *a, struct Subexpression *b)
+{
+    return TACOperand_Compare(a->provides, b->provides);
+}
+
+int Subexpression_DependsOn(struct Subexpression *s, struct TACOperand *o)
+{
+    for (int i = 0; i < s->dependsOn->size; i++)
+    {
+        struct TACOperand *examined = (struct TACOperand *)s->dependsOn->data[i];
+        if (!TACOperand_Compare(examined, o))
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+void invalidateOldExpressions(struct TACOperand *newlyAssigned, struct LinkedList *activeExpressions)
+{
+    struct LinkedListNode *expRunner = activeExpressions->head;
+    while (expRunner != NULL)
+    {
+        struct Subexpression *theSubex = expRunner->data;
+
+        if (Subexpression_DependsOn(theSubex, newlyAssigned))
+        {
+            struct LinkedListNode *next = expRunner->next;
+            printf("invalidates %s\n", theSubex->provides->name.str);
+            free(expRunner->data);
+            LinkedList_DeleteNode(activeExpressions, expRunner);
+            expRunner = next;
+        }
+        else
+        {
+            expRunner = expRunner->next;
+        }
+    }
+}
+
+int addNewlyCalculatedSubexpression(struct TACLine *expression, struct LinkedList *activeExpressions)
+{
+    struct Subexpression *newSub = malloc(sizeof(struct Subexpression));
+    newSub->dependsOn = Stack_New();
+    newSub->provides = &expression->operands[0];
+
+    struct Subexpression *existingSub = LinkedList_Find(activeExpressions, Subexpression_Compare, newSub);
+    if (existingSub != NULL)
+    {
+        Subexpression_Free(LinkedList_FindAndDelete(activeExpressions, Subexpression_Compare, newSub));
+        printf("duplicate found!\n");
+    }
+    else
+    {
+        for (int i = 1; i < 4; i++)
+        {
+            if ((TACOperand_GetType(&expression->operands[i])->basicType != vt_null) &&
+                ((expression->operands[i].permutation == vp_standard) ||
+                 (expression->operands[i].permutation == vp_temp)) &&
+                !Subexpression_DependsOn(newSub, &expression->operands[i]))
+            {
+                struct Subexpression *recursiveSub = LinkedList_Find(activeExpressions, Subexpression_Compare, &expression->operands[i]);
+                if (recursiveSub != NULL)
+                {
+                    for (int j = 0; j < recursiveSub->dependsOn->size; j++)
+                    {
+                        struct TACOperand *recursiveDep = (struct TACOperand *)recursiveSub->dependsOn->data[i];
+                        if (!Subexpression_DependsOn(newSub, recursiveDep))
+                        {
+                            printf("\tadd dep %s\n", recursiveDep->name.str);
+                            Stack_Push(newSub->dependsOn, recursiveDep);
+                        }
+                    }
+                }
+                else
+                {
+                    Stack_Push(newSub->dependsOn, &expression->operands[i]);
+                }
+            }
+        }
+    }
+    invalidateOldExpressions(newSub->provides, activeExpressions);
+    LinkedList_Append(activeExpressions, newSub);
+
+    // struct LinkedListNode *expRunner = activeExpressions->head;
+    // while (expRunner != NULL)
+    // {
+    // struct Subexpression *theSubex = expRunner->data;
+    // if (!AST_Compare(theSubex->exprTree, newSub->exprTree))
+    // {
+    // printTACLine(expression);
+    // printf("is redundant\n");
+    // free(newSub);
+    // return 1;
+    // }/
+
+    // expRunner = expRunner->next;
+    // }
+
+    // LinkedList_Append(activeExpressions, newSub);
+
+    return 0;
+}
+
+void eliminiateCommonSubexpressions(struct BasicBlock *block)
+{
+    struct LinkedList *activeExpressions = LinkedList_New();
+
+    struct LinkedListNode *blockRunner = block->TACList->head;
+    while (blockRunner != NULL)
+    {
+        struct TACLine *curLine = blockRunner->data;
+
+        if (curLine->operands[0].permutation != vp_temp)
+        {
+            blockRunner = blockRunner->next;
+            continue;
+        }
+
+        switch (curLine->operation)
+        {
+        case tt_assign:
+        case tt_add:
+        case tt_subtract:
+        case tt_mul:
+        case tt_div:
+        case tt_load:
+        case tt_load_off:
+        case tt_load_arr:
+        case tt_store:
+        case tt_store_off:
+        case tt_store_arr:
+        case tt_addrof:
+        case tt_lea_off:
+        case tt_lea_arr:
+            printTACLine(curLine);
+            printf("\n");
+            if (addNewlyCalculatedSubexpression(curLine, activeExpressions))
+            {
+                printf("can eliminate something\n");
+            }
+            break;
+
+        default:
+            break;
+        }
+
+        blockRunner = blockRunner->next;
+    }
+
+    LinkedList_Free(activeExpressions, Subexpression_Free);
+}
+
 void optimizeIRForBasicBlock(struct Scope *scope, struct BasicBlock *block)
 {
-    peepholeReduceTemps(block);
+    // peepholeReduceTemps(block);
+    eliminiateCommonSubexpressions(block);
 }
 
 void optimizeIRForScope(struct Scope *scope)

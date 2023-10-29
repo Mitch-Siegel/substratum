@@ -1,14 +1,24 @@
 #include "print.h"
 
-fun tooManyTemps(u8 a, u8 b->u8)
+/*fun tooManyTemps(u8 a, u8 b->u8)
 {
 	u8 result = a;
 	result += b;
 
 	return result;
+}*/
+
+fun commonSubexpression(u8 a, u8 b->u8)
+{
+	u8 thing1 = 1 + (a + b);
+
+	a = a + 1;
+
+	u8 thing2 = a + b;
 }
 
 fun main(->void)
 {
-	printNum(tooManyTemps(1, 2));
+	//printNum(tooManyTemps(1, 2));
+	printNum(commonSubexpression(1, 2));
 }

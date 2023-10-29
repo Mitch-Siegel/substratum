@@ -72,7 +72,7 @@ int AST_Compare(struct AST *a, struct AST *b)
 		recursiveResults |= AST_Compare(a->child, b->child);
 	}
 
-	if((b->sibling == NULL) != (b->sibling == NULL))
+	if((a->sibling == NULL) != (b->sibling == NULL))
 	{
 		return 3;
 	}
