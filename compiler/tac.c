@@ -192,6 +192,45 @@ void TACOperand_SetBasicType(struct TACOperand *o, enum basicTypes t, int indire
 	o->type.indirectionLevel = indirectionLevel;
 }
 
+int TACOperand_Compare(struct TACOperand *a, struct TACOperand *b)
+{
+	if(a->permutation != b->permutation)
+	{
+		return 1;
+	}
+
+	if(Type_Compare(&a->type, &b->type))
+	{
+		return 3;
+	}
+
+	if(Type_Compare(&a->castAsType, &b->castAsType))
+	{
+		return 4;
+	}
+	
+	switch(a->permutation)
+	{
+		case vp_standard:
+		case vp_temp:
+			if(strcmp(a->name.str, b->name.str))
+			{
+				return 2;
+			}
+			break;
+
+		case vp_literal:
+			if(a->name.val != b->name.val)
+			{
+				return 2;
+			}
+			break;
+	}
+
+
+	return 0;
+}
+
 char *getAsmOp(enum TACType t)
 {
 	switch (t)
@@ -483,10 +522,6 @@ char *sPrintTACLine(struct TACLine *it)
 
 			case vp_literal:
 				width += sprintf(tacString + width, "L");
-				break;
-
-			case vp_objptr:
-				width += sprintf(tacString + width, "O");
 				break;
 			}
 

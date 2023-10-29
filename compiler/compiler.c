@@ -178,6 +178,11 @@ int main(int argc, char **argv)
 	}
 
 	optimizeIR(theTable);
+	if (currentVerbosity > VERBOSITY_SILENT)
+	{
+		printf("Symbol table after IR optimization:\n");
+		SymbolTable_print(theTable, 1);
+	}
 
 	FILE *outFile = fopen(outFileName, "wb");
 

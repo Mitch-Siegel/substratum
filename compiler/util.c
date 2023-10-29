@@ -238,46 +238,67 @@ void LinkedList_Prepend(struct LinkedList *l, void *element)
 
 void LinkedList_Join(struct LinkedList *before, struct LinkedList *after)
 {
-	for(struct LinkedListNode *runner = after->head; runner != NULL; runner = runner->next)
+	for (struct LinkedListNode *runner = after->head; runner != NULL; runner = runner->next)
 	{
 		LinkedList_Append(before, runner->data);
 	}
 }
 
-void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *element)
+void LinkedList_DeleteNode(struct LinkedList *l, struct LinkedListNode *n)
 {
+	char nodeInList = 0;
 	for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
 	{
-		if (!compareFunction(runner->data, element))
+		if (runner == n)
 		{
-			if (l->size > 1)
+			nodeInList = 1;
+			break;
+		}
+	}
+
+	if (!nodeInList)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "LinkedList_DeleteNode called with node not from the list provided!\n");
+	}
+
+	if (l->size > 1)
+	{
+		if (n == l->head)
+		{
+			l->head = n->next;
+			n->next->prev = NULL;
+		}
+		else
+		{
+			if (n == l->tail)
 			{
-				if (runner == l->head)
-				{
-					l->head = runner->next;
-					runner->next->prev = NULL;
-				}
-				else
-				{
-					if (runner == l->tail)
-					{
-						l->tail = runner->prev;
-						runner->prev->next = NULL;
-					}
-					else
-					{
-						runner->prev->next = runner->next;
-						runner->next->prev = runner->prev;
-					}
-				}
+				l->tail = n->prev;
+				n->prev->next = NULL;
 			}
 			else
 			{
-				l->head = NULL;
-				l->tail = NULL;
+				n->prev->next = n->next;
+				n->next->prev = n->prev;
 			}
+		}
+	}
+	else
+	{
+		l->head = NULL;
+		l->tail = NULL;
+	}
+	
+	free(n);
+}
+
+void *LinkedList_FindAndDelete(struct LinkedList *l, int (*compareFunction)(), void *elementData)
+{
+	for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
+	{
+		if (!compareFunction(runner->data, elementData))
+		{
 			void *data = runner->data;
-			free(runner);
+			LinkedList_DeleteNode(l, runner);
 			l->size--;
 			return data;
 		}
@@ -285,11 +306,11 @@ void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *el
 	ErrorAndExit(ERROR_INTERNAL, "Couldn't delete element from linked list!\n");
 }
 
-void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *element)
+void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *elementData)
 {
 	for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
 	{
-		if (!compareFunction(runner->data, element))
+		if (!compareFunction(runner->data, elementData))
 		{
 			return runner->data;
 		}

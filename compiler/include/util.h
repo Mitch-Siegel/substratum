@@ -111,9 +111,11 @@ void LinkedList_Prepend(struct LinkedList *l, void *element);
 // join all elements of list 'after' after those of list 'before' in list 'before'
 void LinkedList_Join(struct LinkedList *before, struct LinkedList *after);
 
-void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *element);
+void LinkedList_DeleteNode(struct LinkedList *l, struct LinkedListNode *n);
 
-void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *element);
+void *LinkedList_FindAndDelete(struct LinkedList *l, int (*compareFunction)(), void *elementData);
+
+void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *elementData);
 
 void *LinkedList_PopFront(struct LinkedList *l);
 

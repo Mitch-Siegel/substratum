@@ -20,7 +20,6 @@ enum variablePermutations
 	vp_standard,
 	vp_temp,
 	vp_literal,
-	vp_objptr, // TODO: clean up after this
 };
 
 enum TACType
@@ -94,6 +93,8 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b);
 char *Type_GetName(struct Type *t);
 
 void TACOperand_SetBasicType(struct TACOperand *o, enum basicTypes t, int indirectionLevel);
+
+int TACOperand_Compare(struct TACOperand *a, struct TACOperand *b);
 
 struct TACLine
 {

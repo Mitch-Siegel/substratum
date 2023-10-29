@@ -43,7 +43,7 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
         while (runner != NULL)
         {
             struct Lifetime *examinedLifetime = runner->data;
-            runner = runner->next; // drive the iterator here so our potential linkedlist_delete below doesn't invalidate/free it
+            runner = runner->next; // drive the iterator here so our potential LinkedList_LinkedList_FindAndDelete below doesn't invalidate/free it
 
             if (examinedLifetime->wbLocation != wb_unknown)
             {
@@ -52,7 +52,7 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
                 {
                     if (LinkedList_Find(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, examinedLifetime->name) != NULL)
                     {
-                        LinkedList_Delete(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, examinedLifetime->name);
+                        LinkedList_FindAndDelete(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, examinedLifetime->name);
                     }
                 }
             }
@@ -91,7 +91,7 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
             {
                 if (LinkedList_Find(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, bestToSpill->name) != NULL)
                 {
-                    LinkedList_Delete(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, bestToSpill->name);
+                    LinkedList_FindAndDelete(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, bestToSpill->name);
                 }
             }
         }
