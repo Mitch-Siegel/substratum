@@ -11,53 +11,27 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 		case e_function:
 		{
 			struct FunctionEntry *generatedFunction = thisMember->entry;
-			if (generatedFunction->isDefined)
+			if (!generatedFunction->isDefined)
 			{
-				fprintf(outFile, "~export funcdef %s\n", thisMember->name);
-			}
-			else
-			{
-				fprintf(outFile, "~export funcdec %s\n", thisMember->name);
+				break;
 			}
 
-			char *returnType = Type_GetName(&generatedFunction->returnType);
-			fprintf(outFile, "returns %s\n", returnType);
-			free(returnType);
-
-			fprintf(outFile, "%d arguments\n", generatedFunction->arguments->size);
-			for (int j = 0; j < generatedFunction->arguments->size; j++)
-			{
-				struct VariableEntry *examinedArgument = generatedFunction->arguments->data[j];
-
-				char *typeName = Type_GetName(&examinedArgument->type);
-				fprintf(outFile, "%s %s\n", typeName, examinedArgument->name);
-				free(typeName);
-			}
-
-			if (generatedFunction->isDefined)
-			{
-				generateCodeForFunction(outFile, generatedFunction);
-
-				fprintf(outFile, "~end export funcdef %s\n", thisMember->name);
-			}
-			else
-			{
-				fprintf(outFile, "~end export funcdec %s\n", thisMember->name);
-			}
+			generateCodeForFunction(outFile, generatedFunction);
 		}
 		break;
 
 		case e_basicblock:
 		{
 			struct BasicBlock *thisBlock = thisMember->entry;
+
+			// compiled code
 			if (thisBlock->labelNum == 0)
 			{
 				if (thisBlock->TACList->size == 0)
 				{
 					break;
 				}
-
-				fprintf(outFile, "~export section userstart\n");
+				fprintf(outFile, ".userstart:\n");
 				struct LinkedList *fakeBlockList = LinkedList_New();
 				LinkedList_Append(fakeBlockList, thisBlock);
 
@@ -67,11 +41,10 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 
 				generateCodeForBasicBlock(outFile, thisBlock, table->globalScope, globalLifetimes, NULL, reserved);
 				LinkedList_Free(globalLifetimes, free);
-				fprintf(outFile, "~end export section userstart\n");
-			}
+			} // assembly block
 			else if (thisBlock->labelNum == 1)
 			{
-				fprintf(outFile, "~export section asm\n");
+				fprintf(outFile, ".rawasm:\n");
 
 				for (struct LinkedListNode *examinedLine = thisBlock->TACList->head; examinedLine != NULL; examinedLine = examinedLine->next)
 				{
@@ -84,7 +57,6 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 					}
 					fprintf(outFile, "%s\n", examinedTAC->operands[0].name.str);
 				}
-				fprintf(outFile, "~end export section asm\n");
 			}
 			else
 			{
@@ -334,11 +306,11 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 }
 
 void generateCodeForBasicBlock(FILE *outFile,
-								 struct BasicBlock *block,
-								 struct Scope *scope,
-								 struct LinkedList *lifetimes,
-								 char *functionName,
-								 int reservedRegisters[3])
+							   struct BasicBlock *block,
+							   struct Scope *scope,
+							   struct LinkedList *lifetimes,
+							   char *functionName,
+							   int reservedRegisters[3])
 {
 	// we may pass null if we are generating the code to initialize global variables
 	if (functionName != NULL)

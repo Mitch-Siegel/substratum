@@ -1,25 +1,11 @@
 #include "print.h"
 
-class B
-{
-	u8 value1;
-	u16 value2;
-};
-
-class A
-{
-	class B *bp;
-	class B b;
-};
-
 fun main(->void)
 {
-	class A a;
-
-	a.bp = &(a.b);
-
-	a.b.value2 = 1235;
-	a.bp->value2 = 1234;
-	printNum(a.b.value2);
-	printNum(a.bp->value2);
+	print('h');
+	print('e');
+	print('l');
+	print('l');
+	print('o');
+	print(10);
 }
