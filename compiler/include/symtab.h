@@ -161,6 +161,9 @@ struct VariableEntry *Scope_lookupVarByString(struct Scope *scope,
 struct VariableEntry *Scope_lookupVar(struct Scope *scope,
 									  struct AST *name);
 
+struct FunctionEntry *Scope_lookupFunByString(struct Scope *scope,
+											  char *name);
+
 struct FunctionEntry *Scope_lookupFun(struct Scope *scope,
 									  struct AST *name);
 

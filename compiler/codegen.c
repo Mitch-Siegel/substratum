@@ -3,6 +3,7 @@
 
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 {
+	// fprintf(outFile, "\t.text\n");
 	for (int i = 0; i < table->globalScope->entries->size; i++)
 	{
 		struct ScopeMember *thisMember = table->globalScope->entries->data[i];
@@ -10,27 +11,40 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 		{
 		case e_function:
 		{
+			/*
+			.globl	add
+			.type	add, @function
+			*/
 			struct FunctionEntry *generatedFunction = thisMember->entry;
 			if (!generatedFunction->isDefined)
 			{
 				break;
 			}
+			if (!strcmp(generatedFunction->name, "main"))
+			{
+				fprintf(outFile, "\t.globl _start\n_start:\n\tli sp, 0x81000000\n\tcall main\n\tpgm_done:\n\twfi\n\tj pgm_done\n");
+
+			}
+
+			fprintf(outFile, "\t.globl %s\n", generatedFunction->name);
+			fprintf(outFile, "\t.type %s, @function\n", generatedFunction->name);
 
 			generateCodeForFunction(outFile, generatedFunction);
+			fprintf(outFile, "\t.size %s, .-%s\n", generatedFunction->name, generatedFunction->name);
 		}
 		break;
 
 		case e_basicblock:
 		{
 			struct BasicBlock *thisBlock = thisMember->entry;
+			if (thisBlock->TACList->size == 0)
+			{
+				break;
+			}
 
 			// compiled code
 			if (thisBlock->labelNum == 0)
 			{
-				if (thisBlock->TACList->size == 0)
-				{
-					break;
-				}
 				fprintf(outFile, ".userstart:\n");
 				struct LinkedList *fakeBlockList = LinkedList_New();
 				LinkedList_Append(fakeBlockList, thisBlock);
@@ -44,6 +58,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			} // assembly block
 			else if (thisBlock->labelNum == 1)
 			{
+
 				fprintf(outFile, ".rawasm:\n");
 
 				for (struct LinkedListNode *examinedLine = thisBlock->TACList->head; examinedLine != NULL; examinedLine = examinedLine->next)
@@ -558,7 +573,15 @@ void generateCodeForBasicBlock(FILE *outFile,
 
 		case tt_call:
 		{
-			fprintf(outFile, "\tjal ra, %s\n", thisTAC->operands[1].name.str);
+			struct FunctionEntry *called = Scope_lookupFunByString(scope, thisTAC->operands[1].name.str);
+			if (called->isDefined)
+			{
+				fprintf(outFile, "\tcall %s\n", thisTAC->operands[1].name.str);
+			}
+			else
+			{
+				fprintf(outFile, "\tcall %s@plt\n", thisTAC->operands[1].name.str);
+			}
 
 			if (thisTAC->operands[0].name.str != NULL)
 			{

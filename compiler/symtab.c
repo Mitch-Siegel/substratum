@@ -502,6 +502,24 @@ struct VariableEntry *Scope_lookupVar(struct Scope *scope, struct AST *name)
 	}
 }
 
+struct FunctionEntry *Scope_lookupFunByString(struct Scope *scope, char *name)
+{
+	struct ScopeMember *lookedUp = Scope_lookup(scope, name);
+	if (lookedUp == NULL)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Lookup of undeclared function '%s'\n", name);
+	}
+
+	switch (lookedUp->type)
+	{
+	case e_function:
+		return lookedUp->entry;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up function!\n");
+	}
+}
+
 struct FunctionEntry *Scope_lookupFun(struct Scope *scope, struct AST *name)
 {
 	struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
