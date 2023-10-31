@@ -160,6 +160,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 		printf("Emitting function prologue\n");
 	}
 	fprintf(outFile, "%s:\n", function->name);
+	fprintf(outFile, "\t.loc 1 %d %d\n", function->correspondingTree.sourceLine, function->correspondingTree.sourceCol);
 	fprintf(outFile, "\t.cfi_startproc\n");
 
 	// push return address
@@ -346,17 +347,17 @@ void generateCodeForBasicBlock(FILE *outFile,
 		fprintf(outFile, "%s_%d:\n", functionName, block->labelNum);
 	}
 
+	int lastLineNo = -1;
 	for (struct LinkedListNode *TACRunner = block->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
 	{
 		struct TACLine *thisTAC = TACRunner->data;
 
-		fprintf(outFile, "\t.loc 1 %d %d\n", thisTAC->correspondingTree.sourceLine, thisTAC->correspondingTree.sourceLine);
-
-		if (thisTAC->operation != tt_asm)
+		// don't duplicate .loc's for the same line
+		// riscv64-unknown-elf-gdb (or maybe the as/ld) don't enjoy going backwards/staying put in line or column loc
+		if (thisTAC->correspondingTree.sourceLine > lastLineNo)
 		{
-			char *printedTAC = sPrintTACLine(thisTAC);
-			fprintf(outFile, "\n\t# %s\n", printedTAC);
-			free(printedTAC);
+			fprintf(outFile, "\t.loc 1 %d\n", thisTAC->correspondingTree.sourceLine);
+			lastLineNo = thisTAC->correspondingTree.sourceLine;
 		}
 
 		switch (thisTAC->operation)
