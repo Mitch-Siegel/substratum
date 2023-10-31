@@ -1,13 +1,23 @@
 #include "print.h"
 
+u32 nRecursions = 0;
+fun fibRec(u8 n->u32)
+{
+	nRecursions += 1;
+	if(n < 2)
+	{
+		return n;
+	}
+	else
+	{
+		return fibRec(n - 1) + fibRec(n - 2);
+	}
+}
+
+
 fun main(->void)
 {
-	print('h');
-	print('e');
-	print('l');
-	print('l');
-	print('o');
-	print(10);
+	printStr("hello", 1);
 
 	printNum(123456 + 654321);
 }

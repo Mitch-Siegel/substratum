@@ -11,10 +11,6 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 		{
 		case e_function:
 		{
-			/*
-			.globl	add
-			.type	add, @function
-			*/
 			struct FunctionEntry *generatedFunction = thisMember->entry;
 			if (!generatedFunction->isDefined)
 			{
@@ -76,29 +72,50 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			{
 				ErrorAndExit(ERROR_INTERNAL, "Unexpected basic block index %d at global scope!\n", thisBlock->labelNum);
 			}
-
-			/*
-			struct BasicBlock *thisBlock = (struct BasicBlock *)thisMember->entry;
-			fprintf(outFile, "~export asm\n");
-
-			for (struct LinkedListNode *asmLine = thisBlock->TACList->head; asmLine != NULL; asmLine = asmLine->next)
-			{
-				struct TACLine *asmTAC = (struct TACLine *)asmLine->data;
-				if (asmTAC->operation != tt_asm)
-				{
-					ErrorAndExit(ERROR_INTERNAL, "Expected only asm at global scope, got %s instead!\n", getAsmOp(asmTAC->operation));
-				}
-				fprintf(outFile, "%s\n", asmTAC->operands[0].name.str);
-			}
-
-			fprintf(outFile, "~end export asm\n");*/
 		}
 		break;
 
 		case e_variable:
 		{
 			struct VariableEntry *v = thisMember->entry;
-			fprintf(outFile, "~export variable %s\n", thisMember->name);
+
+			char *varName = thisMember->name;
+			int varSize = Scope_getSizeOfType(table->globalScope, &v->type);
+
+			if(v->type.initializeTo != NULL)
+			{
+				fprintf(outFile, "\t.section\t.sdata\n");
+			}
+			else
+			{
+				fprintf(outFile, "\t.section\t.data\n");
+			}
+
+			fprintf(outFile, "\t.globl %s\n", varName);
+			fprintf(outFile, "\t.align %d\n", alignSize(varSize));
+			fprintf(outFile, "\t.type\t%s, @object\n", varName);
+			fprintf(outFile, "\t.size \t%s, %d\n", varName, varSize);
+			fprintf(outFile, "%s:\n", varName);
+			if(v->type.initializeTo != NULL)
+			{
+				for(int i = 0; i < varSize; i++)
+				{
+					if(v->type.arraySize > 0)
+					{
+						ErrorAndExit(ERROR_INTERNAL, "Initialized data in arrays not yet supported!\n");
+					}
+					fprintf(outFile, "\t.byte %d\n", v->type.initializeTo[i]);
+				}
+			}
+			else
+			{
+				fprintf(outFile, "\t.zero %d", varSize);
+			}
+
+			fprintf(outFile, "\t.text\n");
+			
+
+			/*
 			char *typeName = Type_GetName(&v->type);
 			fprintf(outFile, "%s\n", typeName);
 			free(typeName);
@@ -132,7 +149,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 				fprintf(outFile, "noinitialize\n");
 			}
 
-			fprintf(outFile, "~end export variable %s\n", thisMember->name);
+			fprintf(outFile, "~end export variable %s\n", thisMember->name);*/
 		}
 		break;
 

@@ -36,6 +36,8 @@ struct Config
 
 extern char currentVerbosity;
 
+int alignSize(int nBytes);
+
 /*
  * Dictionary for tracking strings
  * Economizes heap space by only storing strings once each
