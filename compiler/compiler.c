@@ -189,7 +189,33 @@ int main(int argc, char **argv)
 	{
 		printf("Generating code\n");
 	}
-	// fprintf(outFile, "#include \"CPU.asm\"\nentry code\n");
+	
+	{
+		char *boilerplateAsm1[] = {
+			"\t.Ltext0:",
+			"\t.cfi_sections\t.debug_frame",
+			NULL
+		};
+
+		for(int i = 0; boilerplateAsm1[i] != NULL; i++)
+		{
+			fprintf(outFile, "%s\n", boilerplateAsm1[i]);
+		}
+
+		fprintf(outFile, "\t.file 0 \"%s\"\n", inFileName);
+
+		char *boilerplateAsm2[] = {
+			"\t.attribute unaligned_access, 0",
+			NULL
+		};
+
+		for(int i = 0; boilerplateAsm2[i] != NULL; i++)
+		{
+			fprintf(outFile, "%s\n", boilerplateAsm2[i]);
+		}
+
+		fprintf(outFile, "\t.file 1 \"%s\"\n", inFileName);
+	}
 	generateCodeForProgram(theTable, outFile);
 
 	SymbolTable_free(theTable);

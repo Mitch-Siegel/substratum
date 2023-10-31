@@ -23,7 +23,6 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			if (!strcmp(generatedFunction->name, "main"))
 			{
 				fprintf(outFile, "\t.globl _start\n_start:\n\tli sp, 0x81000000\n\tcall main\n\tpgm_done:\n\twfi\n\tj pgm_done\n");
-
 			}
 
 			fprintf(outFile, "\t.globl %s\n", generatedFunction->name);
@@ -161,12 +160,15 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 		printf("Emitting function prologue\n");
 	}
 	fprintf(outFile, "%s:\n", function->name);
+	fprintf(outFile, "\t.cfi_startproc\n");
 
 	// push return address
 	EmitPushForSize(outFile, 4, 1);
+	fprintf(outFile, "\t.cfi_offset 1, -4\n");
 
 	// push frame pointer, copy stack pointer to frame pointer
 	EmitPushForSize(outFile, 4, 8);
+	fprintf(outFile, "\t.cfi_offset 8, -8\n");
 	fprintf(outFile, "\tmv fp, sp\n");
 
 	if (function->isAsmFun)
@@ -188,20 +190,24 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 			struct TACLine *asmTAC = asmBlockRunner->data;
 			if (asmTAC->operation != tt_asm)
 			{
-				ErrorWithAST(ERROR_INTERNAL, asmTAC->correspondingTree, "Non-asm TAC type seen in asm function!\n");
+				ErrorWithAST(ERROR_INTERNAL, &asmTAC->correspondingTree, "Non-asm TAC type seen in asm function!\n");
 			}
 			fprintf(outFile, "\t%s\n", asmTAC->operands[0].name.str);
 		}
 
 		// pop frame pointer
 		EmitPopForSize(outFile, 4, 8);
+		fprintf(outFile, "\t.cfi_restore 8\n");
 
 		// pop return address
 		EmitPopForSize(outFile, 4, 1);
+		fprintf(outFile, "\t.cfi_restore 1\n");
 
 		fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
 
+		fprintf(outFile, "\t.cfi_def_cfa_offset 0\n");
 		fprintf(outFile, "\tjalr zero, 0(%s)\n", registerNames[1]);
+		fprintf(outFile, "\t.cfi_endproc\n");
 
 		// early return, nothing else to do
 		return;
@@ -221,6 +227,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 	if (localStackSize > 0)
 	{
 		fprintf(outFile, "\taddi sp, sp, -%d\n", localStackSize);
+		fprintf(outFile, "\t.cfi_def_cfa_offset %d\n", localStackSize + 8);
 	}
 
 	if (currentVerbosity > VERBOSITY_MINIMAL)
@@ -299,15 +306,21 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 
 	// pop frame pointer
 	EmitPopForSize(outFile, 4, 8);
+	fprintf(outFile, "\t.cfi_restore 8\n");
 
 	// pop return address
 	EmitPopForSize(outFile, 4, 1);
+	fprintf(outFile, "\t.cfi_restore 1\n");
 
 	if (function->argStackSize > 0)
 	{
 		fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
 	}
+
+	fprintf(outFile, "\t.cfi_def_cfa_offset 0\n");
 	fprintf(outFile, "\tjalr zero, 0(%s)\n", registerNames[1]);
+
+	fprintf(outFile, "\t.cfi_endproc\n");
 
 	// function setup and teardown code generated
 
@@ -336,6 +349,8 @@ void generateCodeForBasicBlock(FILE *outFile,
 	for (struct LinkedListNode *TACRunner = block->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
 	{
 		struct TACLine *thisTAC = TACRunner->data;
+
+		fprintf(outFile, "\t.loc 1 %d %d\n", thisTAC->correspondingTree.sourceLine, thisTAC->correspondingTree.sourceLine);
 
 		if (thisTAC->operation != tt_asm)
 		{

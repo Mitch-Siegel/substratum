@@ -8,4 +8,6 @@ fun main(->void)
 	print('l');
 	print('o');
 	print(10);
+
+	printNum(123456 + 654321);
 }

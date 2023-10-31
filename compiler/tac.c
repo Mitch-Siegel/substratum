@@ -314,7 +314,7 @@ struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST
 		wip->operands[i].castAsType.arraySize = 0;
 		wip->operands[i].castAsType.initializeArrayTo = NULL;
 	}
-	wip->correspondingTree = correspondingTree;
+	wip->correspondingTree = *correspondingTree;
 
 	// default type of a line of TAC is assignment
 	wip->operation = operation;
