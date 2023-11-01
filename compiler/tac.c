@@ -485,9 +485,6 @@ char *sPrintTACLine(struct TACLine *it)
 				width += sprintf(tacString + width, "L");
 				break;
 
-			case vp_objptr:
-				width += sprintf(tacString + width, "O");
-				break;
 			}
 
 			char *typeName = Type_GetName(&it->operands[i].type);

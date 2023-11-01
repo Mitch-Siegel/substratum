@@ -133,7 +133,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 					{
 						// check only TAC operands that both exist and refer to a named variable from the source code (ignore temps etc)
 						if ((thisTAC->operands[j].type.basicType != vt_null) &&
-							((thisTAC->operands[j].permutation == vp_standard) || (thisTAC->operands[j].permutation == vp_objptr)))
+							((thisTAC->operands[j].permutation == vp_standard)))
 						{
 							char *originalName = thisTAC->operands[j].name.str;
 							// if this operand refers to a variable declared at this scope
