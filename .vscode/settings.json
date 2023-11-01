@@ -1,0 +1,9 @@
+{
+    "editor.stickyScroll.enabled": true,
+    "window.zoomLevel": 1,
+    "C_Cpp.clang_format_fallbackStyle": "",
+    "[c]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools"
+    },
+    "C_Cpp.clang_format_style": "{BasedOnStyle: LLVM, UseTab: Never, IndentWidth: 4, ColumnLimit: 0, BreakBeforeBraces: Custom}"
+}

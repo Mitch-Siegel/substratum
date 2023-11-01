@@ -37,20 +37,16 @@ char *registerNames[MACHINE_REGISTER_COUNT] = {
     "t6",
 };
 
-char *PlaceLiteralStringInRegister(FILE *outFile, char *literalStr, int destReg)
-{
+char *PlaceLiteralStringInRegister(FILE *outFile, char *literalStr, int destReg) {
     char *destRegStr = registerNames[destReg];
     fprintf(outFile, "\tli %s, %s # place literal\n", destRegStr, literalStr);
     return destRegStr;
 }
 
-void verifyCodegenPrimitive(struct TACOperand *operand)
-{
+void verifyCodegenPrimitive(struct TACOperand *operand) {
     struct Type *realType = TACOperand_GetType(operand);
-    if (realType->basicType == vt_class)
-    {
-        if (realType->indirectionLevel == 0)
-        {
+    if (realType->basicType == vt_class) {
+        if (realType->indirectionLevel == 0) {
             char *typeName = Type_GetName(realType);
             ErrorAndExit(ERROR_INTERNAL, "Error in verifyCodegenPrimitive: %s is not a primitive type!\n", typeName);
         }
@@ -61,20 +57,16 @@ void WriteVariable(FILE *outFile,
                    struct Scope *scope,
                    struct LinkedList *lifetimes,
                    struct TACOperand *writtenTo,
-                   int sourceRegIndex)
-{
+                   int sourceRegIndex) {
     verifyCodegenPrimitive(writtenTo);
     struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, writtenTo->name.str);
-    if (relevantLifetime == NULL)
-    {
+    if (relevantLifetime == NULL) {
         ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", writtenTo->name.str);
     }
 
-    switch (relevantLifetime->wbLocation)
-    {
+    switch (relevantLifetime->wbLocation) {
     case wb_register:
-        if (sourceRegIndex != relevantLifetime->registerLocation)
-        {
+        if (sourceRegIndex != relevantLifetime->registerLocation) {
             fprintf(outFile, "\t# Write register variable %s\n", relevantLifetime->name);
             fprintf(outFile, "\tmv %s, %s\n",
                     registerNames[relevantLifetime->registerLocation],
@@ -82,8 +74,7 @@ void WriteVariable(FILE *outFile,
         }
         break;
 
-    case wb_global:
-    {
+    case wb_global: {
         const char *width = SelectWidth(scope, writtenTo);
         fprintf(outFile, "\t# Write (global) variable %s\n", relevantLifetime->name);
         fprintf(outFile, "\tli %s, %s\n",
@@ -94,11 +85,9 @@ void WriteVariable(FILE *outFile,
                 width,
                 registerNames[TEMP_0],
                 registerNames[sourceRegIndex]);
-    }
-    break;
+    } break;
 
-    case wb_stack:
-    {
+    case wb_stack: {
         fprintf(outFile, "\t# Write stack variable %s\n", relevantLifetime->name);
 
         const char *width = SelectWidthForLifetime(scope, relevantLifetime);
@@ -106,8 +95,7 @@ void WriteVariable(FILE *outFile,
                 width,
                 registerNames[sourceRegIndex],
                 relevantLifetime->stackLocation);
-    }
-    break;
+    } break;
 
     case wb_unknown:
         ErrorAndExit(ERROR_INTERNAL, "Lifetime for %s has unknown writeback location!\n", relevantLifetime->name);
@@ -120,14 +108,11 @@ int placeOrFindOperandInRegister(FILE *outFile,
                                  struct Scope *scope,
                                  struct LinkedList *lifetimes,
                                  struct TACOperand *operand,
-                                 int registerIndex)
-{
+                                 int registerIndex) {
     verifyCodegenPrimitive(operand);
 
-    if (operand->permutation == vp_literal)
-    {
-        if (registerIndex < 0)
-        {
+    if (operand->permutation == vp_literal) {
+        if (registerIndex < 0) {
             ErrorAndExit(ERROR_INTERNAL, "Expected scratch register to place literal in, didn't get one!");
         }
 
@@ -136,32 +121,25 @@ int placeOrFindOperandInRegister(FILE *outFile,
     }
 
     struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand->name.str);
-    if (relevantLifetime == NULL)
-    {
+    if (relevantLifetime == NULL) {
         ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", operand->name.str);
     }
 
-    switch (relevantLifetime->wbLocation)
-    {
+    switch (relevantLifetime->wbLocation) {
     case wb_register:
         return relevantLifetime->registerLocation;
 
-    case wb_global:
-    {
-        if (registerIndex == -1)
-        {
+    case wb_global: {
+        if (registerIndex == -1) {
             ErrorAndExit(ERROR_INTERNAL, "GOT -1 as register index to place operand in!\n");
         }
 
         const char *loadWidth = NULL;
 
-        if (relevantLifetime->type.arraySize > 0)
-        {
+        if (relevantLifetime->type.arraySize > 0) {
             // if array, treat as pointer
             loadWidth = "w";
-        }
-        else
-        {
+        } else {
             loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
         }
         const char *usedRegister = registerNames[registerIndex];
@@ -170,8 +148,7 @@ int placeOrFindOperandInRegister(FILE *outFile,
                 relevantLifetime->name,
                 operand->name.str);
 
-        if (relevantLifetime->type.arraySize == 0)
-        {
+        if (relevantLifetime->type.arraySize == 0) {
             fprintf(outFile, "\t%su %s, 0(%s) # place %s\n",
                     loadWidth,
                     usedRegister,
@@ -180,30 +157,21 @@ int placeOrFindOperandInRegister(FILE *outFile,
         }
 
         return registerIndex;
-    }
-    break;
+    } break;
 
-    case wb_stack:
-    {
-        if (registerIndex == -1)
-        {
+    case wb_stack: {
+        if (registerIndex == -1) {
             ErrorAndExit(ERROR_INTERNAL, "GOT -1 as register index to place operand in!\n");
         }
 
         const char *usedRegister = registerNames[registerIndex];
-        if (relevantLifetime->type.arraySize > 0)
-        {
-            if (relevantLifetime->stackLocation >= 0)
-            {
+        if (relevantLifetime->type.arraySize > 0) {
+            if (relevantLifetime->stackLocation >= 0) {
                 fprintf(outFile, "\taddi %s, fp, %d # place %s\n", usedRegister, relevantLifetime->stackLocation, operand->name.str);
-            }
-            else
-            {
+            } else {
                 fprintf(outFile, "\taddi %s, fp, -%d # place %s\n", usedRegister, -1 * relevantLifetime->stackLocation, operand->name.str);
             }
-        }
-        else
-        {
+        } else {
             const char *loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
             fprintf(outFile, "\tl%su %s, %d(fp) # place %s\n",
                     loadWidth,
@@ -213,8 +181,7 @@ int placeOrFindOperandInRegister(FILE *outFile,
         }
 
         return registerIndex;
-    }
-    break;
+    } break;
 
     case wb_unknown:
     default:
@@ -225,16 +192,13 @@ int placeOrFindOperandInRegister(FILE *outFile,
 int pickWriteRegister(struct Scope *scope,
                       struct LinkedList *lifetimes,
                       struct TACOperand *operand,
-                      int registerIndex)
-{
+                      int registerIndex) {
     struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand->name.str);
-    if (relevantLifetime == NULL)
-    {
+    if (relevantLifetime == NULL) {
         ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", operand->name.str);
     }
 
-    switch (relevantLifetime->wbLocation)
-    {
+    switch (relevantLifetime->wbLocation) {
     case wb_register:
         return relevantLifetime->registerLocation;
 
@@ -252,16 +216,13 @@ int placeAddrOfLifetimeInReg(FILE *outFile,
                              struct Scope *scope,
                              struct LinkedList *lifetimes,
                              struct TACOperand *operand,
-                             int registerIndex)
-{
+                             int registerIndex) {
     struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand->name.str);
-    if (relevantLifetime == NULL)
-    {
+    if (relevantLifetime == NULL) {
         ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", operand->name.str);
     }
 
-    switch (relevantLifetime->wbLocation)
-    {
+    switch (relevantLifetime->wbLocation) {
     case wb_register:
         ErrorAndExit(ERROR_INTERNAL, "placeAddrOfLifetimeInReg called on register lifetime %s!\n", relevantLifetime->name);
         break;
@@ -275,22 +236,17 @@ int placeAddrOfLifetimeInReg(FILE *outFile,
         break;
     }
 
-    if (relevantLifetime->stackLocation < 0)
-    {
+    if (relevantLifetime->stackLocation < 0) {
         fprintf(outFile, "\taddi %s, fp, -%d\n", registerNames[registerIndex], -1 * relevantLifetime->stackLocation);
-    }
-    else
-    {
+    } else {
         fprintf(outFile, "\taddi %s, fp, -%d\n", registerNames[registerIndex], relevantLifetime->stackLocation);
     }
 
     return registerIndex;
 }
 
-const char *SelectWidthForSize(int size)
-{
-    switch (size)
-    {
+const char *SelectWidthForSize(int size) {
+    switch (size) {
     case 1:
         return "b";
 
@@ -303,32 +259,25 @@ const char *SelectWidthForSize(int size)
     ErrorAndExit(ERROR_INTERNAL, "Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, or 4 bytes!");
 }
 
-const char *SelectWidth(struct Scope *scope, struct TACOperand *dataDest)
-{
+const char *SelectWidth(struct Scope *scope, struct TACOperand *dataDest) {
     // pointers are always full-width
-    if (TACOperand_GetType(dataDest)->indirectionLevel > 0)
-    {
+    if (TACOperand_GetType(dataDest)->indirectionLevel > 0) {
         return "w";
     }
 
     return SelectWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
 }
 
-const char *SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDest)
-{
+const char *SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDest) {
     struct Type *operandType = TACOperand_GetType(dataDest);
     if ((operandType->indirectionLevel == 0) &&
-        (operandType->arraySize == 0))
-    {
+        (operandType->arraySize == 0)) {
         ErrorAndExit(ERROR_INTERNAL, "SelectWidthForDereference called on non-indirect operand %s!\n", dataDest->name.str);
     }
     struct Type dereferenced = *operandType;
-    if (operandType->indirectionLevel == 0)
-    {
+    if (operandType->indirectionLevel == 0) {
         operandType->arraySize = 0;
-    }
-    else
-    {
+    } else {
         operandType->indirectionLevel--;
     }
     dereferenced.indirectionLevel--;
@@ -336,14 +285,10 @@ const char *SelectWidthForDereference(struct Scope *scope, struct TACOperand *da
     return SelectWidthForSize(Scope_getSizeOfType(scope, &dereferenced));
 }
 
-const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime)
-{
-    if (lifetime->type.indirectionLevel > 0)
-    {
+const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime) {
+    if (lifetime->type.indirectionLevel > 0) {
         return "w";
-    }
-    else
-    {
+    } else {
         return SelectWidthForSize(Scope_getSizeOfType(scope, &lifetime->type));
     }
 }
@@ -351,11 +296,9 @@ const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetim
 void EmitPushForOperand(FILE *outFile,
                         struct Scope *scope,
                         struct TACOperand *dataSource,
-                        int srcRegister)
-{
+                        int srcRegister) {
     int size = Scope_getSizeOfType(scope, TACOperand_GetType(dataSource));
-    switch (size)
-    {
+    switch (size) {
     case 1:
     case 2:
     case 4:
@@ -369,8 +312,7 @@ void EmitPushForOperand(FILE *outFile,
     }
 }
 
-void EmitPushForSize(FILE *outFile, int size, int srcRegister)
-{
+void EmitPushForSize(FILE *outFile, int size, int srcRegister) {
     fprintf(outFile, "\taddi sp, sp, -%d\n", size);
     fprintf(outFile, "\ts%s %s, 0(sp)\n",
             SelectWidthForSize(size),
@@ -380,11 +322,9 @@ void EmitPushForSize(FILE *outFile, int size, int srcRegister)
 void EmitPopForOperand(FILE *outFile,
                        struct Scope *scope,
                        struct TACOperand *dataDest,
-                       int destRegister)
-{
+                       int destRegister) {
     int size = Scope_getSizeOfType(scope, TACOperand_GetType(dataDest));
-    switch (size)
-    {
+    switch (size) {
     case 1:
     case 2:
     case 4:
@@ -398,8 +338,7 @@ void EmitPopForOperand(FILE *outFile,
     }
 }
 
-void EmitPopForSize(FILE *outFile, int size, int destRegister)
-{
+void EmitPopForSize(FILE *outFile, int size, int destRegister) {
     fprintf(outFile, "\tl%su %s, 0(sp)\n",
             SelectWidthForSize(size),
             registerNames[destRegister]);

@@ -1,57 +1,45 @@
 #include "tac.h"
 
-struct Type *TACOperand_GetType(struct TACOperand *o)
-{
-    if (o->castAsType.basicType != vt_null)
-    {
+struct Type *TACOperand_GetType(struct TACOperand *o) {
+    if (o->castAsType.basicType != vt_null) {
         return &o->castAsType;
     }
 
     return &o->type;
 }
 
-struct Type *TAC_GetTypeOfOperand(struct TACLine *t, unsigned index)
-{
-    if (index > 3)
-    {
+struct Type *TAC_GetTypeOfOperand(struct TACLine *t, unsigned index) {
+    if (index > 3) {
         ErrorAndExit(ERROR_INTERNAL, "Bad index %d passed to TAC_GetTypeOfOperand!\n", index);
     }
 
     return TACOperand_GetType(&t->operands[index]);
 }
 
-int Type_Compare(struct Type *a, struct Type *b)
-{
-    if (a->basicType != b->basicType)
-    {
+int Type_Compare(struct Type *a, struct Type *b) {
+    if (a->basicType != b->basicType) {
         return 1;
     }
 
-    if (a->indirectionLevel != b->indirectionLevel)
-    {
+    if (a->indirectionLevel != b->indirectionLevel) {
         return 2;
     }
 
-    if (a->basicType == vt_class)
-    {
+    if (a->basicType == vt_class) {
         return strcmp(a->classType.name, b->classType.name);
     }
 
     return 0;
 }
 
-int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
-{
-    if (a->basicType != b->basicType)
-    {
-        switch (a->basicType)
-        {
+int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b) {
+    if (a->basicType != b->basicType) {
+        switch (a->basicType) {
         case vt_null:
             return 1;
 
         case vt_u8:
-            switch (b->basicType)
-            {
+            switch (b->basicType) {
             case vt_null:
             case vt_class:
                 return 1;
@@ -66,8 +54,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
             break;
 
         case vt_u16:
-            switch (b->basicType)
-            {
+            switch (b->basicType) {
             case vt_null:
             case vt_u8:
             case vt_class:
@@ -79,8 +66,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
             break;
 
         case vt_u32:
-            switch (b->basicType)
-            {
+            switch (b->basicType) {
             case vt_null:
             case vt_u8:
             case vt_u16:
@@ -93,8 +79,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
             break;
 
         case vt_class:
-            switch (b->basicType)
-            {
+            switch (b->basicType) {
             case vt_null:
             case vt_u8:
             case vt_u16:
@@ -107,45 +92,35 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
         }
     }
 
-    if (a->indirectionLevel != b->indirectionLevel)
-    {
+    if (a->indirectionLevel != b->indirectionLevel) {
         // both are arrays or both are not arrays
-        if ((a->arraySize > 0) == (b->arraySize > 0))
-        {
+        if ((a->arraySize > 0) == (b->arraySize > 0)) {
             return 2;
         }
         // only a is an array
-        else if (a->arraySize > 0)
-        {
+        else if (a->arraySize > 0) {
             // b's indirection level should be a's + 1
-            if (b->indirectionLevel != (a->indirectionLevel + 1))
-            {
+            if (b->indirectionLevel != (a->indirectionLevel + 1)) {
                 return 2;
             }
-        }
-        else
-        {
+        } else {
             // a's indirection level should be b's + 1
-            if ((b->indirectionLevel + 1) != a->indirectionLevel)
-            {
+            if ((b->indirectionLevel + 1) != a->indirectionLevel) {
                 return 2;
             }
         }
     }
 
-    if (a->basicType == vt_class)
-    {
+    if (a->basicType == vt_class) {
         return strcmp(a->classType.name, b->classType.name);
     }
     return 0;
 }
 
-char *Type_GetName(struct Type *t)
-{
+char *Type_GetName(struct Type *t) {
     char *typeName = malloc(1024);
     int len = 0;
-    switch (t->basicType)
-    {
+    switch (t->basicType) {
     case vt_null:
         len = sprintf(typeName, "NOTYPE");
         break;
@@ -171,31 +146,26 @@ char *Type_GetName(struct Type *t)
     }
 
     int i = 0;
-    for (i = 0; i < t->indirectionLevel; i++)
-    {
+    for (i = 0; i < t->indirectionLevel; i++) {
         typeName[len + i] = '*';
         len += sprintf(typeName + len, "*");
     }
     typeName[len + i] = '\0';
 
-    if (t->arraySize > 0)
-    {
+    if (t->arraySize > 0) {
         sprintf(typeName + len, "[%d]", t->arraySize);
     }
 
     return typeName;
 }
 
-void TACOperand_SetBasicType(struct TACOperand *o, enum basicTypes t, int indirectionLevel)
-{
+void TACOperand_SetBasicType(struct TACOperand *o, enum basicTypes t, int indirectionLevel) {
     o->type.basicType = t;
     o->type.indirectionLevel = indirectionLevel;
 }
 
-char *getAsmOp(enum TACType t)
-{
-    switch (t)
-    {
+char *getAsmOp(enum TACType t) {
+    switch (t) {
     case tt_asm:
         return "";
 
@@ -292,13 +262,11 @@ char *getAsmOp(enum TACType t)
     return "";
 }
 
-struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST *correspondingTree, char *file, int line)
-{
+struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST *correspondingTree, char *file, int line) {
     struct TACLine *wip = malloc(sizeof(struct TACLine));
     wip->allocFile = file;
     wip->allocLine = line;
-    for (int i = 0; i < 4; i++)
-    {
+    for (int i = 0; i < 4; i++) {
         wip->operands[i].name.str = NULL;
         wip->operands[i].permutation = vp_standard;
 
@@ -324,21 +292,18 @@ struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST
     return wip;
 }
 
-void printTACLine(struct TACLine *it)
-{
+void printTACLine(struct TACLine *it) {
     char *printedLine = sPrintTACLine(it);
     printf("%s", printedLine);
     free(printedLine);
 }
 
-char *sPrintTACLine(struct TACLine *it)
-{
+char *sPrintTACLine(struct TACLine *it) {
     char *operationStr;
     char *tacString = malloc(128);
     char fallingThrough = 0;
     int width = sprintf(tacString, "%2x:", it->index);
-    switch (it->operation)
-    {
+    switch (it->operation) {
     case tt_asm:
         width += sprintf(tacString + width, "ASM:%s", it->operands[0].name.str);
         break;
@@ -460,19 +425,15 @@ char *sPrintTACLine(struct TACLine *it)
         break;
     }
 
-    while (width < 40)
-    {
+    while (width < 40) {
         width += sprintf(tacString + width, " ");
     }
 
     width += sprintf(tacString + width, "\t");
-    for (int i = 0; i < 4; i++)
-    {
-        if (it->operands[i].type.basicType != vt_null)
-        {
+    for (int i = 0; i < 4; i++) {
+        if (it->operands[i].type.basicType != vt_null) {
             width += sprintf(tacString + width, "[");
-            switch (it->operands[i].permutation)
-            {
+            switch (it->operands[i].permutation) {
             case vp_standard:
                 width += sprintf(tacString + width, " ");
                 break;
@@ -484,22 +445,18 @@ char *sPrintTACLine(struct TACLine *it)
             case vp_literal:
                 width += sprintf(tacString + width, "L");
                 break;
-
             }
 
             char *typeName = Type_GetName(&it->operands[i].type);
             width += sprintf(tacString + width, " %s", typeName);
             free(typeName);
-            if (it->operands[i].castAsType.basicType != vt_null)
-            {
+            if (it->operands[i].castAsType.basicType != vt_null) {
                 char *castAsTypeName = Type_GetName(&it->operands[i].castAsType);
                 width += sprintf(tacString + width, "(%s)", castAsTypeName);
                 free(castAsTypeName);
             }
             width += sprintf(tacString + width, "]");
-        }
-        else
-        {
+        } else {
             width += sprintf(tacString + width, "   -   ");
         }
     }
@@ -510,15 +467,12 @@ char *sPrintTACLine(struct TACLine *it)
     return trimmedString;
 }
 
-void freeTAC(struct TACLine *it)
-{
+void freeTAC(struct TACLine *it) {
     free(it);
 }
 
-char TACLine_isEffective(struct TACLine *it)
-{
-    switch (it->operation)
-    {
+char TACLine_isEffective(struct TACLine *it) {
+    switch (it->operation) {
     case tt_do:
     case tt_enddo:
         return 0;
@@ -528,8 +482,7 @@ char TACLine_isEffective(struct TACLine *it)
     }
 }
 
-struct BasicBlock *BasicBlock_new(int labelNum)
-{
+struct BasicBlock *BasicBlock_new(int labelNum) {
     struct BasicBlock *wip = malloc(sizeof(struct BasicBlock));
     wip->TACList = LinkedList_New();
     wip->labelNum = labelNum;
@@ -537,35 +490,28 @@ struct BasicBlock *BasicBlock_new(int labelNum)
     return wip;
 }
 
-void BasicBlock_free(struct BasicBlock *b)
-{
+void BasicBlock_free(struct BasicBlock *b) {
     LinkedList_Free(b->TACList, freeTAC);
     free(b);
 }
 
-void BasicBlock_append(struct BasicBlock *b, struct TACLine *l)
-{
+void BasicBlock_append(struct BasicBlock *b, struct TACLine *l) {
     b->containsEffectiveCode |= TACLine_isEffective(l);
     LinkedList_Append(b->TACList, l);
 }
 
-void printBasicBlock(struct BasicBlock *b, int indentLevel)
-{
-    for (int i = 0; i < indentLevel; i++)
-    {
+void printBasicBlock(struct BasicBlock *b, int indentLevel) {
+    for (int i = 0; i < indentLevel; i++) {
         printf("\t");
     }
     printf("BASIC BLOCK %d\n", b->labelNum);
-    for (struct LinkedListNode *runner = b->TACList->head; runner != NULL; runner = runner->next)
-    {
+    for (struct LinkedListNode *runner = b->TACList->head; runner != NULL; runner = runner->next) {
         struct TACLine *this = runner->data;
-        for (int i = 0; i < indentLevel; i++)
-        {
+        for (int i = 0; i < indentLevel; i++) {
             printf("\t");
         }
 
-        if (runner->data != NULL)
-        {
+        if (runner->data != NULL) {
             printTACLine(this);
             printf("\n");
         }

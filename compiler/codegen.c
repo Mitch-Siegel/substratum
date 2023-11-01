@@ -1,22 +1,15 @@
 #include "codegen.h"
 #include "codegen_generic.h"
 
-void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
-{
-    for (int i = 0; i < table->globalScope->entries->size; i++)
-    {
+void generateCodeForProgram(struct SymbolTable *table, FILE *outFile) {
+    for (int i = 0; i < table->globalScope->entries->size; i++) {
         struct ScopeMember *thisMember = table->globalScope->entries->data[i];
-        switch (thisMember->type)
-        {
-        case e_function:
-        {
+        switch (thisMember->type) {
+        case e_function: {
             struct FunctionEntry *generatedFunction = thisMember->entry;
-            if (generatedFunction->isDefined)
-            {
+            if (generatedFunction->isDefined) {
                 fprintf(outFile, "~export funcdef %s\n", thisMember->name);
-            }
-            else
-            {
+            } else {
                 fprintf(outFile, "~export funcdec %s\n", thisMember->name);
             }
 
@@ -25,8 +18,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
             free(returnType);
 
             fprintf(outFile, "%d arguments\n", generatedFunction->arguments->size);
-            for (int j = 0; j < generatedFunction->arguments->size; j++)
-            {
+            for (int j = 0; j < generatedFunction->arguments->size; j++) {
                 struct VariableEntry *examinedArgument = generatedFunction->arguments->data[j];
 
                 char *typeName = Type_GetName(&examinedArgument->type);
@@ -34,26 +26,19 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
                 free(typeName);
             }
 
-            if (generatedFunction->isDefined)
-            {
+            if (generatedFunction->isDefined) {
                 generateCodeForFunction(outFile, generatedFunction);
 
                 fprintf(outFile, "~end export funcdef %s\n", thisMember->name);
-            }
-            else
-            {
+            } else {
                 fprintf(outFile, "~end export funcdec %s\n", thisMember->name);
             }
-        }
-        break;
+        } break;
 
-        case e_basicblock:
-        {
+        case e_basicblock: {
             struct BasicBlock *thisBlock = thisMember->entry;
-            if (thisBlock->labelNum == 0)
-            {
-                if (thisBlock->TACList->size == 0)
-                {
+            if (thisBlock->labelNum == 0) {
+                if (thisBlock->TACList->size == 0) {
                     break;
                 }
 
@@ -68,16 +53,12 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
                 generateCodeForBasicBlock(outFile, thisBlock, table->globalScope, globalLifetimes, NULL, reserved);
                 LinkedList_Free(globalLifetimes, free);
                 fprintf(outFile, "~end export section userstart\n");
-            }
-            else if (thisBlock->labelNum == 1)
-            {
+            } else if (thisBlock->labelNum == 1) {
                 fprintf(outFile, "~export section asm\n");
 
-                for (struct LinkedListNode *examinedLine = thisBlock->TACList->head; examinedLine != NULL; examinedLine = examinedLine->next)
-                {
+                for (struct LinkedListNode *examinedLine = thisBlock->TACList->head; examinedLine != NULL; examinedLine = examinedLine->next) {
                     struct TACLine *examinedTAC = examinedLine->data;
-                    if (examinedTAC->operation != tt_asm)
-                    {
+                    if (examinedTAC->operation != tt_asm) {
                         ErrorAndExit(ERROR_INTERNAL, "Unexpected TAC type %d (%s) seen in global ASM block!\n",
                                      examinedTAC->operation,
                                      getAsmOp(examinedTAC->operation));
@@ -85,9 +66,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
                     fprintf(outFile, "%s\n", examinedTAC->operands[0].name.str);
                 }
                 fprintf(outFile, "~end export section asm\n");
-            }
-            else
-            {
+            } else {
                 ErrorAndExit(ERROR_INTERNAL, "Unexpected basic block index %d at global scope!\n", thisBlock->labelNum);
             }
 
@@ -106,49 +85,37 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
             }
 
             fprintf(outFile, "~end export asm\n");*/
-        }
-        break;
+        } break;
 
-        case e_variable:
-        {
+        case e_variable: {
             struct VariableEntry *v = thisMember->entry;
             fprintf(outFile, "~export variable %s\n", thisMember->name);
             char *typeName = Type_GetName(&v->type);
             fprintf(outFile, "%s\n", typeName);
             free(typeName);
-            if (v->type.initializeTo != NULL)
-            {
+            if (v->type.initializeTo != NULL) {
                 fprintf(outFile, "initialize\n");
-                if (v->type.arraySize)
-                {
-                    for (int e = 0; e < v->type.arraySize; e++)
-                    {
+                if (v->type.arraySize) {
+                    for (int e = 0; e < v->type.arraySize; e++) {
                         fprintf(outFile, ".byte ");
-                        for (int j = 0; j < Scope_getSizeOfArrayElement(table->globalScope, v); j++)
-                        {
+                        for (int j = 0; j < Scope_getSizeOfArrayElement(table->globalScope, v); j++) {
                             fprintf(outFile, "0x%02x ", v->type.initializeArrayTo[e][j]);
                         }
                         fprintf(outFile, "\n");
                     }
-                }
-                else
-                {
+                } else {
                     fprintf(outFile, ".byte ");
-                    for (int j = 0; j < Scope_getSizeOfType(table->globalScope, &v->type); j++)
-                    {
+                    for (int j = 0; j < Scope_getSizeOfType(table->globalScope, &v->type); j++) {
                         fprintf(outFile, "0x%02x ", v->type.initializeTo[j]);
                     }
                     fprintf(outFile, "\n");
                 }
-            }
-            else
-            {
+            } else {
                 fprintf(outFile, "noinitialize\n");
             }
 
             fprintf(outFile, "~end export variable %s\n", thisMember->name);
-        }
-        break;
+        } break;
 
         default:
             break;
@@ -161,16 +128,13 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
  *
  */
 extern struct Config config;
-void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
-{
+void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function) {
     currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
+    if (currentVerbosity > VERBOSITY_SILENT) {
         printf("Generate code for function %s\n", function->name);
     }
 
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
+    if (currentVerbosity > VERBOSITY_MINIMAL) {
         printf("Emitting function prologue\n");
     }
     fprintf(outFile, "%s:\n", function->name);
@@ -182,25 +146,20 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
     EmitPushForSize(outFile, 4, 8);
     fprintf(outFile, "\tmv fp, sp\n");
 
-    if (function->isAsmFun)
-    {
-        if (currentVerbosity > VERBOSITY_MINIMAL)
-        {
+    if (function->isAsmFun) {
+        if (currentVerbosity > VERBOSITY_MINIMAL) {
             printf("%s is an asm function\n", function->name);
         }
 
-        if (function->BasicBlockList->size != 1)
-        {
+        if (function->BasicBlockList->size != 1) {
             ErrorAndExit(ERROR_INTERNAL, "Asm function with %d basic blocks seen - expected 1!\n", function->BasicBlockList->size);
         }
 
         struct BasicBlock *asmBlock = function->BasicBlockList->head->data;
 
-        for (struct LinkedListNode *asmBlockRunner = asmBlock->TACList->head; asmBlockRunner != NULL; asmBlockRunner = asmBlockRunner->next)
-        {
+        for (struct LinkedListNode *asmBlockRunner = asmBlock->TACList->head; asmBlockRunner != NULL; asmBlockRunner = asmBlockRunner->next) {
             struct TACLine *asmTAC = asmBlockRunner->data;
-            if (asmTAC->operation != tt_asm)
-            {
+            if (asmTAC->operation != tt_asm) {
                 ErrorWithAST(ERROR_INTERNAL, asmTAC->correspondingTree, "Non-asm TAC type seen in asm function!\n");
             }
             fprintf(outFile, "\t%s\n", asmTAC->operands[0].name.str);
@@ -231,36 +190,29 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
     int localStackSize = allocateRegisters(&metadata);
     currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
 
-    if (localStackSize > 0)
-    {
+    if (localStackSize > 0) {
         fprintf(outFile, "\taddi sp, sp, -%d\n", localStackSize);
     }
 
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
+    if (currentVerbosity > VERBOSITY_MINIMAL) {
         printf("Need %d bytes on stack\n", localStackSize);
     }
-    for (int i = MACHINE_REGISTER_COUNT - 1; i >= 0; i--)
-    {
-        if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
-        {
+    for (int i = MACHINE_REGISTER_COUNT - 1; i >= 0; i--) {
+        if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER)) {
             EmitPushForSize(outFile, 4, i);
         }
     }
 
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
+    if (currentVerbosity > VERBOSITY_MINIMAL) {
         printf("Arguments placed into registers\n");
     }
 
     // move any applicable arguments into registers if we are expecting them not to be spilled
-    for (struct LinkedListNode *ltRunner = metadata.allLifetimes->head; ltRunner != NULL; ltRunner = ltRunner->next)
-    {
+    for (struct LinkedListNode *ltRunner = metadata.allLifetimes->head; ltRunner != NULL; ltRunner = ltRunner->next) {
         struct Lifetime *thisLifetime = ltRunner->data;
 
         // (short-circuit away from looking up temps since they can't be arguments)
-        if (thisLifetime->name[0] != '.')
-        {
+        if (thisLifetime->name[0] != '.') {
             struct ScopeMember *thisEntry = Scope_lookup(function->mainScope, thisLifetime->name);
             // we need to place this variable into its register if:
             if ((thisEntry != NULL) &&                           // it exists
@@ -280,33 +232,27 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
         }
     }
 
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
+    if (currentVerbosity > VERBOSITY_MINIMAL) {
         printf("Generating code  for basic blocks\n");
     }
 
-    for (struct LinkedListNode *blockRunner = function->BasicBlockList->head; blockRunner != NULL; blockRunner = blockRunner->next)
-    {
+    for (struct LinkedListNode *blockRunner = function->BasicBlockList->head; blockRunner != NULL; blockRunner = blockRunner->next) {
         struct BasicBlock *block = blockRunner->data;
         generateCodeForBasicBlock(outFile, block, function->mainScope, metadata.allLifetimes, function->name, metadata.reservedRegisters);
     }
 
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
+    if (currentVerbosity > VERBOSITY_MINIMAL) {
         printf("Emitting function epilogue\n");
     }
 
     fprintf(outFile, "%s_done:\n", function->name);
-    for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
-    {
-        if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
-        {
+    for (int i = 0; i < MACHINE_REGISTER_COUNT; i++) {
+        if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER)) {
             EmitPopForSize(outFile, 4, i);
         }
     }
 
-    if (localStackSize > 0)
-    {
+    if (localStackSize > 0) {
         fprintf(outFile, "\taddi sp, sp, %d\n", localStackSize);
     }
 
@@ -316,8 +262,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
     // pop return address
     EmitPopForSize(outFile, 4, 1);
 
-    if (function->argStackSize > 0)
-    {
+    if (function->argStackSize > 0) {
         fprintf(outFile, "\taddi sp, sp, %d\n", function->argStackSize);
     }
     fprintf(outFile, "\tjalr zero, 0(%s)\n", registerNames[1]);
@@ -326,68 +271,57 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 
     LinkedList_Free(metadata.allLifetimes, free);
 
-    for (int i = 0; i <= metadata.largestTacIndex; i++)
-    {
+    for (int i = 0; i <= metadata.largestTacIndex; i++) {
         LinkedList_Free(metadata.lifetimeOverlaps[i], NULL);
     }
     free(metadata.lifetimeOverlaps);
 }
 
 void generateCodeForBasicBlock(FILE *outFile,
-                                 struct BasicBlock *block,
-                                 struct Scope *scope,
-                                 struct LinkedList *lifetimes,
-                                 char *functionName,
-                                 int reservedRegisters[3])
-{
+                               struct BasicBlock *block,
+                               struct Scope *scope,
+                               struct LinkedList *lifetimes,
+                               char *functionName,
+                               int reservedRegisters[3]) {
     // we may pass null if we are generating the code to initialize global variables
-    if (functionName != NULL)
-    {
+    if (functionName != NULL) {
         fprintf(outFile, "%s_%d:\n", functionName, block->labelNum);
     }
 
-    for (struct LinkedListNode *TACRunner = block->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
-    {
+    for (struct LinkedListNode *TACRunner = block->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next) {
         struct TACLine *thisTAC = TACRunner->data;
 
-        if (thisTAC->operation != tt_asm)
-        {
+        if (thisTAC->operation != tt_asm) {
             char *printedTAC = sPrintTACLine(thisTAC);
             fprintf(outFile, "\n\t# %s\n", printedTAC);
             free(printedTAC);
         }
 
-        switch (thisTAC->operation)
-        {
+        switch (thisTAC->operation) {
         case tt_asm:
             fputs(thisTAC->operands[0].name.str, outFile);
             fputc('\n', outFile);
             break;
 
-        case tt_assign:
-        {
+        case tt_assign: {
             // only works for primitive types that will fit in registers
             int opLocReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
             WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], opLocReg);
-        }
-        break;
+        } break;
 
         case tt_add:
         case tt_subtract:
         case tt_mul:
-        case tt_div:
-        {
+        case tt_div: {
             int op1Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
             int op2Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
             int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 
             fprintf(outFile, "\t%s %s, %s, %s\n", getAsmOp(thisTAC->operation), registerNames[destReg], registerNames[op1Reg], registerNames[op2Reg]);
             WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
-        }
-        break;
+        } break;
 
-        case tt_load:
-        {
+        case tt_load: {
             int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
             int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[1]);
 
@@ -398,11 +332,9 @@ void generateCodeForBasicBlock(FILE *outFile,
                     registerNames[baseReg]);
 
             WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
-        }
-        break;
+        } break;
 
-        case tt_load_off:
-        {
+        case tt_load_off: {
             // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
             int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
             int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
@@ -414,11 +346,9 @@ void generateCodeForBasicBlock(FILE *outFile,
                     registerNames[baseReg]);
 
             WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
-        }
-        break;
+        } break;
 
-        case tt_load_arr:
-        {
+        case tt_load_arr: {
             int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
             int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
             int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[2]);
@@ -442,11 +372,9 @@ void generateCodeForBasicBlock(FILE *outFile,
                     registerNames[reservedRegisters[1]]);
 
             WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
-        }
-        break;
+        } break;
 
-        case tt_store:
-        {
+        case tt_store: {
             int destAddrReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
             int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
             const char *storeWidth = SelectWidthForDereference(scope, &thisTAC->operands[0]);
@@ -455,11 +383,9 @@ void generateCodeForBasicBlock(FILE *outFile,
                     storeWidth,
                     registerNames[sourceReg],
                     registerNames[destAddrReg]);
-        }
-        break;
+        } break;
 
-        case tt_store_off:
-        {
+        case tt_store_off: {
             // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
             int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
             int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
@@ -468,11 +394,9 @@ void generateCodeForBasicBlock(FILE *outFile,
                     registerNames[sourceReg],
                     thisTAC->operands[1].name.val,
                     registerNames[baseReg]);
-        }
-        break;
+        } break;
 
-        case tt_store_arr:
-        {
+        case tt_store_arr: {
             int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
             int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
             int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[2]);
@@ -494,19 +418,15 @@ void generateCodeForBasicBlock(FILE *outFile,
                     SelectWidthForDereference(scope, &thisTAC->operands[0]),
                     registerNames[sourceReg],
                     registerNames[reservedRegisters[0]]);
-        }
-        break;
+        } break;
 
-        case tt_addrof:
-        {
+        case tt_addrof: {
             int addrReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
             addrReg = placeAddrOfLifetimeInReg(outFile, scope, lifetimes, &thisTAC->operands[1], addrReg);
             WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], addrReg);
-        }
-        break;
+        } break;
 
-        case tt_lea_off:
-        {
+        case tt_lea_off: {
             // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
             int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
             int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
@@ -517,11 +437,9 @@ void generateCodeForBasicBlock(FILE *outFile,
                     thisTAC->operands[2].name.val);
 
             WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
-        }
-        break;
+        } break;
 
-        case tt_lea_arr:
-        {
+        case tt_lea_arr: {
             int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
             int baseReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
             int offsetReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[2]);
@@ -540,8 +458,7 @@ void generateCodeForBasicBlock(FILE *outFile,
                     registerNames[reservedRegisters[2]]);
 
             WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
-        }
-        break;
+        } break;
 
         case tt_beq:
         case tt_bne:
@@ -550,8 +467,7 @@ void generateCodeForBasicBlock(FILE *outFile,
         case tt_bgtu:
         case tt_bleu:
         case tt_beqz:
-        case tt_bnez:
-        {
+        case tt_bnez: {
             int operand1register = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
             int operand2register = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
             fprintf(outFile, "\t%s %s, %s, %s_%d\n",
@@ -560,61 +476,47 @@ void generateCodeForBasicBlock(FILE *outFile,
                     registerNames[operand2register],
                     functionName,
                     thisTAC->operands[0].name.val);
-        }
-        break;
+        } break;
 
-        case tt_jmp:
-        {
+        case tt_jmp: {
             fprintf(outFile, "\tj %s_%d\n", functionName, thisTAC->operands[0].name.val);
-        }
-        break;
+        } break;
 
-        case tt_push:
-        {
+        case tt_push: {
             int operandRegister = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
             EmitPushForOperand(outFile, scope, &thisTAC->operands[0], operandRegister);
-        }
-        break;
+        } break;
 
-        case tt_pop:
-        {
+        case tt_pop: {
             int operandRegister = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
             EmitPopForOperand(outFile, scope, &thisTAC->operands[0], operandRegister);
             WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], operandRegister);
-        }
-        break;
+        } break;
 
-        case tt_call:
-        {
+        case tt_call: {
             fprintf(outFile, "\tjal ra, %s\n", thisTAC->operands[1].name.str);
 
-            if (thisTAC->operands[0].name.str != NULL)
-            {
+            if (thisTAC->operands[0].name.str != NULL) {
                 WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
             }
-        }
-        break;
+        } break;
 
         case tt_label:
             fprintf(outFile, "\t%s_%d:\n", functionName, thisTAC->operands[0].name.val);
             break;
 
-        case tt_return:
-        {
-            if (thisTAC->operands[0].name.str != NULL)
-            {
+        case tt_return: {
+            if (thisTAC->operands[0].name.str != NULL) {
                 int sourceReg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
 
-                if (sourceReg != RETURN_REGISTER)
-                {
+                if (sourceReg != RETURN_REGISTER) {
                     fprintf(outFile, "\tmv %s, %s\n",
                             registerNames[RETURN_REGISTER],
                             registerNames[sourceReg]);
                 }
             }
             fprintf(outFile, "\tj %s_done\n", scope->parentFunction->name);
-        }
-        break;
+        } break;
 
         case tt_do:
         case tt_enddo:

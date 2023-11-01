@@ -110,31 +110,25 @@ char *token_names[] = {
 
 // return the char 'count' characters ahead
 // count must be >0, returns null char otherwise
-int lookahead_char_dumb(int count)
-{
+int lookahead_char_dumb(int count) {
     long offset = ftell(inFile);
     int returnChar = '\0';
-    for (int i = 0; i < count; i++)
-    {
+    for (int i = 0; i < count; i++) {
         returnChar = fgetc(inFile);
     }
     fseek(inFile, offset, SEEK_SET);
     return returnChar;
 }
 
-void trimWhitespace(char trackPos)
-{
+void trimWhitespace(char trackPos) {
     int trimming = 1;
-    while (trimming)
-    {
-        switch (lookahead_char_dumb(1))
-        {
+    while (trimming) {
+        switch (lookahead_char_dumb(1)) {
         case EOF:
             return;
 
         case '\n':
-            if (trackPos)
-            {
+            if (trackPos) {
                 curLine++;
                 curCol = 1;
             }
@@ -151,33 +145,26 @@ void trimWhitespace(char trackPos)
             break;
 
         case '/':
-            switch (lookahead_char_dumb(2))
-            {
+            switch (lookahead_char_dumb(2)) {
                 // single line comment
-            case '/':
-            {
+            case '/': {
                 while (fgetc(inFile) != '\n')
                     ;
 
-                if (trackPos)
-                {
+                if (trackPos) {
                     curLine++;
                     curCol = 1;
                 }
-            }
-            break;
+            } break;
 
-            case '*':
-            {
+            case '*': {
                 // skip the comment opener, begin reading the comment
                 fgetc(inFile);
                 fgetc(inFile);
 
                 char inBlockComment = 1;
-                while (inBlockComment)
-                {
-                    switch (fgetc(inFile))
-                    {
+                while (inBlockComment) {
+                    switch (fgetc(inFile)) {
                         // look ahead if we see something that could be related to a block comment
                     case '*':
                         if (lookahead_char_dumb(1) == '/')
@@ -187,16 +174,14 @@ void trimWhitespace(char trackPos)
 
                         // disallow nesting of block comments
                     case '/':
-                        if (lookahead_char_dumb(1) == '*')
-                        {
+                        if (lookahead_char_dumb(1) == '*') {
                             ErrorAndExit(ERROR_INVOCATION, "Error parsing comment - nested block comments are not allowed!\n");
                         }
                         break;
 
                         // otherwise just track position in the file if necessary
                     case '\n':
-                        if (trackPos)
-                        {
+                        if (trackPos) {
                             curLine++;
                             curCol = 1;
                             break;
@@ -213,8 +198,7 @@ void trimWhitespace(char trackPos)
                 // catch the trailing slash of the comment closer
                 fgetc(inFile);
                 curCol++;
-            }
-            break;
+            } break;
 
             default:
                 trimming = 0;
@@ -232,8 +216,7 @@ void trimWhitespace(char trackPos)
 
 #define RESERVED_COUNT 45
 
-struct ReservedToken
-{
+struct ReservedToken {
     const char *string;
     enum token token;
 };
@@ -301,18 +284,13 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 
 };
 
-int fgetc_track(char trackPos)
-{
+int fgetc_track(char trackPos) {
     int gotten = fgetc(inFile);
-    if (trackPos)
-    {
-        if (gotten == '\n')
-        {
+    if (trackPos) {
+        if (gotten == '\n') {
             curLine++;
             curCol = 0;
-        }
-        else
-        {
+        } else {
             curCol++;
         }
     }
@@ -320,15 +298,12 @@ int fgetc_track(char trackPos)
 }
 
 // return 1 if c can be part of an identifier (after the first character)
-char isIdentifierChar(char c)
-{
-    if (isalnum(c))
-    {
+char isIdentifierChar(char c) {
+    if (isalnum(c)) {
         return 1;
     }
 
-    if (c == '_')
-    {
+    if (c == '_') {
         return 1;
     }
 
@@ -336,8 +311,7 @@ char isIdentifierChar(char c)
 }
 
 // scan and return the raw token we see
-enum token _scan(char trackPos)
-{
+enum token _scan(char trackPos) {
     buflen = 0;
     // check if we're looking at whitespace - are we?
     trimWhitespace(trackPos);
@@ -346,15 +320,12 @@ enum token _scan(char trackPos)
 
     enum token currentToken = -1;
 
-    if (lookahead_char_dumb(1) == '"')
-    {
+    if (lookahead_char_dumb(1) == '"') {
         fgetc_track(trackPos);
         int inChar;
         int gotEndQuote = 0;
-        while ((inChar = fgetc_track(trackPos)) != EOF)
-        {
-            if (inChar == '"')
-            {
+        while ((inChar = fgetc_track(trackPos)) != EOF) {
+            if (inChar == '"') {
                 gotEndQuote = 1;
                 break;
             }
@@ -362,8 +333,7 @@ enum token _scan(char trackPos)
             buffer[buflen] = '\0';
         }
 
-        if (!gotEndQuote)
-        {
+        if (!gotEndQuote) {
             struct AST ex;
             ex.sourceFile = curFile;
             ex.sourceCol = curCol;
@@ -371,14 +341,11 @@ enum token _scan(char trackPos)
             ErrorWithAST(ERROR_CODE, (&ex), "String literal doesn't end!\n");
         }
         return t_string_literal;
-    }
-    else if (lookahead_char_dumb(1) == '\'')
-    {
+    } else if (lookahead_char_dumb(1) == '\'') {
         fgetc_track(trackPos);
         buffer[buflen++] = fgetc_track(trackPos);
         buffer[buflen] = '\0';
-        if (fgetc_track(trackPos) != '\'')
-        {
+        if (fgetc_track(trackPos) != '\'') {
             struct AST ex;
             ex.sourceFile = curFile;
             ex.sourceCol = curCol;
@@ -388,62 +355,46 @@ enum token _scan(char trackPos)
         return t_char_literal;
     }
 
-    while (1)
-    {
+    while (1) {
         int inChar = fgetc_track(trackPos);
-        if (inChar == EOF)
-        {
-            if (buflen > 0)
-            {
+        if (inChar == EOF) {
+            if (buflen > 0) {
                 buflen = 0;
                 return currentToken;
-            }
-            else
-            {
+            } else {
                 return t_EOF;
             }
         }
 
         buffer[buflen++] = inChar;
         buffer[buflen] = '\0';
-        if (feof(inFile))
-        {
+        if (feof(inFile)) {
             return currentToken;
         }
 
         // Iterate all reserved keywords
-        for (int i = 0; i < RESERVED_COUNT; i++)
-        {
+        for (int i = 0; i < RESERVED_COUNT; i++) {
             // if we match a reserved keyword
-            if (!strcmp(buffer, reserved[i].string))
-            {
+            if (!strcmp(buffer, reserved[i].string)) {
                 char forceNextChar = 0;
-                switch (reserved[i].token)
-                {
+                switch (reserved[i].token) {
                 case t_single_equals:
                 case t_not:
                 case t_gThan:
                 case t_lThan:
                 case t_plus:
-                    if (lookahead_char_dumb(1) == '=')
-                    {
+                    if (lookahead_char_dumb(1) == '=') {
                         forceNextChar = 1;
-                    }
-                    else
-                    {
+                    } else {
                         return reserved[i].token;
                     }
                     break;
 
-                case t_minus:
-                {
+                case t_minus: {
                     char nextChar = lookahead_char_dumb(1);
-                    if ((nextChar == '>') || (nextChar == '='))
-                    {
+                    if ((nextChar == '>') || (nextChar == '=')) {
                         forceNextChar = 1;
-                    }
-                    else
-                    {
+                    } else {
                         return reserved[i].token;
                     }
                 }
@@ -451,12 +402,9 @@ enum token _scan(char trackPos)
                 break;
 
                 case t_reference:
-                    if (lookahead_char_dumb(1) == '&')
-                    {
+                    if (lookahead_char_dumb(1) == '&') {
                         forceNextChar = 1;
-                    }
-                    else
-                    {
+                    } else {
                         return reserved[i].token;
                     }
                     break;
@@ -475,8 +423,7 @@ enum token _scan(char trackPos)
                 case t_while:
                 case t_for:
                 case t_class:
-                    if (!isIdentifierChar(lookahead_char_dumb(1)))
-                    {
+                    if (!isIdentifierChar(lookahead_char_dumb(1))) {
                         return reserved[i].token;
                     }
                     break;
@@ -485,34 +432,28 @@ enum token _scan(char trackPos)
                     return reserved[i].token;
                 }
 
-                if (forceNextChar)
-                {
+                if (forceNextChar) {
                     break;
                 }
             }
         }
 
         // if on the first char of the token
-        if (buflen == 1)
-        {
+        if (buflen == 1) {
             // determine literal or name based on what we started with
             if (isdigit(inChar))
                 currentToken = t_constant;
             else if (isalpha(inChar))
                 currentToken = t_identifier;
-        }
-        else
-        {
+        } else {
             // simple error checking for letters in literals
-            if (currentToken == t_constant && isalpha(inChar))
-            {
+            if (currentToken == t_constant && isalpha(inChar)) {
                 ErrorAndExit(ERROR_INTERNAL, "Error parsing literal - alphabetical character detected!\n");
             }
         }
 
         // if the next input char is whitespace or a single-character token, we're done with this token
-        switch (lookahead_char_dumb(1))
-        {
+        switch (lookahead_char_dumb(1)) {
         case ' ':
         case '\n':
         case '\t':
@@ -537,18 +478,14 @@ enum token _scan(char trackPos)
 
 // wrapper around _scan
 // handles #file and #line directives in order to correctly track position in preprocessed files
-enum token scan(char trackPos, struct Dictionary *dict)
-{
+enum token scan(char trackPos, struct Dictionary *dict) {
     enum token result = _scan(trackPos);
     // chew through all instances of #file and #line
-    while (result == t_file || result == t_line)
-    {
-        switch (result)
-        {
+    while (result == t_file || result == t_line) {
+        switch (result) {
         case t_file:
             // make sure we see what we expect after the #file
-            if (_scan(trackPos) != t_string_literal)
-            {
+            if (_scan(trackPos) != t_string_literal) {
                 struct AST ex;
                 ex.sourceCol = curCol;
                 ex.sourceLine = curLine;
@@ -556,14 +493,12 @@ enum token scan(char trackPos, struct Dictionary *dict)
             }
 
             // ensure the #file directive is followed immediately by a new line, consume it without tracking position
-            if (fgetc_track(0) != '\n')
-            {
+            if (fgetc_track(0) != '\n') {
                 ErrorAndExit(ERROR_INTERNAL, "Saw something other than newline after #file directive in preprocessed input!\n");
             }
 
             // if we are bothering to track position, actually update the current file
-            if (trackPos)
-            {
+            if (trackPos) {
                 curFile = Dictionary_LookupOrInsert(dict, buffer);
                 justStartedNewFile = 1;
             }
@@ -572,8 +507,7 @@ enum token scan(char trackPos, struct Dictionary *dict)
 
         case t_line:
             // make sure we see what we expect after the #line
-            if (_scan(trackPos) != t_constant)
-            {
+            if (_scan(trackPos) != t_constant) {
                 struct AST ex;
                 ex.sourceCol = curCol;
                 ex.sourceLine = curLine;
@@ -581,14 +515,12 @@ enum token scan(char trackPos, struct Dictionary *dict)
             }
 
             // ensure the #file directive is followed immediately by a new line, consume it without tracking position
-            if (fgetc_track(0) != '\n')
-            {
+            if (fgetc_track(0) != '\n') {
                 ErrorAndExit(ERROR_INTERNAL, "Saw something other than newline after #file directive in preprocessed input!\n");
             }
 
             // if we are bothering to track position, actually update the current line
-            if (trackPos)
-            {
+            if (trackPos) {
                 curLine = atoi(buffer);
             }
             result = _scan(trackPos);
@@ -603,8 +535,7 @@ enum token scan(char trackPos, struct Dictionary *dict)
 }
 
 // return the next token that would be scanned without consuming
-enum token lookahead()
-{
+enum token lookahead() {
     long offset = ftell(inFile);
     enum token retToken = scan(0, NULL);
     fseek(inFile, offset, SEEK_SET);
@@ -612,15 +543,13 @@ enum token lookahead()
 }
 
 // error-checked method to consume and return AST node of expected token
-struct AST *match(enum token t, struct Dictionary *dict)
-{
+struct AST *match(enum token t, struct Dictionary *dict) {
     trimWhitespace(1);
     int line = curLine;
     int col = curCol;
     enum token result = scan(1, dict);
 
-    if (result != t)
-    {
+    if (result != t) {
         printf("Expected token %s, got %s\n", token_names[t], token_names[result]);
         ErrorAndExit(ERROR_INTERNAL, "Error matching token!\t");
     }
@@ -632,79 +561,62 @@ struct AST *match(enum token t, struct Dictionary *dict)
 }
 
 // error-checked method to consume expected token with no return
-void consume(enum token t, struct Dictionary *dict)
-{
+void consume(enum token t, struct Dictionary *dict) {
     enum token result = scan(1, dict);
-    if (result != t)
-    {
+    if (result != t) {
         printf("Expected token %s, got %s\n", token_names[t], token_names[result]);
         ErrorAndExit(ERROR_INTERNAL, "Error consuming token!\t");
     }
 }
 
-char *getTokenName(enum token t)
-{
+char *getTokenName(enum token t) {
     return token_names[t];
 }
 
-struct InProgressProduction
-{
+struct InProgressProduction {
     enum token production;
     struct AST *tree;
 };
 
-struct InProgressProduction *InProgressProduction_New(enum token production, struct AST *tree)
-{
+struct InProgressProduction *InProgressProduction_New(enum token production, struct AST *tree) {
     struct InProgressProduction *wip = malloc(sizeof(struct InProgressProduction));
     wip->production = production;
     wip->tree = tree;
     return wip;
 }
 
-void printUpper(char *str)
-{
+void printUpper(char *str) {
     int i = 0;
     char toPrint;
-    while ((toPrint = str[i++]) != '\0')
-    {
+    while ((toPrint = str[i++]) != '\0') {
         putchar(toupper(toPrint));
     }
 }
 
-void enumeratePossibleProductions()
-{
+void enumeratePossibleProductions() {
     // iterate all possible productions
-    for (int pi = 0; pi < p_null; pi++)
-    {
+    for (int pi = 0; pi < p_null; pi++) {
         printUpper(getTokenName(pi) + 2);
         puts(":");
         // iterate all permutations of each production
-        for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++)
-        {
+        for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++) {
             printf("\t");
             enum token currentIngredient;
-            for (int ti = 0; (currentIngredient = RECIPE_INGREDIENT(pi, qi, ti)) != p_null; ti++)
-            {
+            for (int ti = 0; (currentIngredient = RECIPE_INGREDIENT(pi, qi, ti)) != p_null; ti++) {
                 char *tokenName = getTokenName(currentIngredient);
-                if (currentIngredient < p_null)
-                {
+                if (currentIngredient < p_null) {
                     printUpper(tokenName + 2);
                     putchar(' ');
-                }
-                else
-                {
+                } else {
                     char found = 0;
-                    for (int i = 0; i < RESERVED_COUNT; i++)
-                    {
-                        if (reserved[i].token == currentIngredient)
-                        {
+                    for (int i = 0; i < RESERVED_COUNT; i++) {
+                        if (reserved[i].token == currentIngredient) {
                             printf("'%s' ", reserved[i].string);
                             found = 1;
                             break;
                         }
                     }
-                    if (!found)
-                    {
+                    if (!found) {
                         printf("%s ", tokenName);
                     }
                 }
@@ -715,26 +627,20 @@ void enumeratePossibleProductions()
     }
 }
 
-void printParseStack(struct Stack *parseStack)
-{
+void printParseStack(struct Stack *parseStack) {
     printf("Parse Stack:\n");
-    for (int i = 0; i < parseStack->size; i++)
-    {
+    for (int i = 0; i < parseStack->size; i++) {
         printf("%2d: ", i);
         struct InProgressProduction *thisProduction = (struct InProgressProduction *)parseStack->data[i];
-        if (thisProduction->tree == NULL)
-        {
+        if (thisProduction->tree == NULL) {
             printf("No line/col info available for: ");
-        }
-        else
-        {
+        } else {
             printf("%s:%3d:%-3d: %10s\t", thisProduction->tree->sourceFile, thisProduction->tree->sourceLine, thisProduction->tree->sourceCol, thisProduction->tree->value);
         }
 
         printf("%s ", getTokenName(thisProduction->production));
 
-        if (thisProduction->production == p_null)
-        {
+        if (thisProduction->production == p_null) {
             ErrorAndExit(ERROR_INTERNAL, "null production in parse stack!\n");
         }
         printf("\n");
@@ -746,17 +652,14 @@ enum token foundReduction[2] = {p_null, 0};
 // arguments: a parse stack and whether or not there is more input
 // returns: pointer to InProgressProduction for lookahead token from the top of the stack, not included in the found production
 //          or NULL if no token popped
-struct InProgressProduction *findReduction(struct Stack *parseStack, char isRemainingInput)
-{
+struct InProgressProduction *findReduction(struct Stack *parseStack, char isRemainingInput) {
     struct InProgressProduction *poppedLookahead = NULL;
 
     // skip over any productions of length 1 if we have a token on top of the stack (lookahead)
     char disallowTrivialProductions = 0;
-    if (parseStack->size > 0 && isRemainingInput)
-    {
+    if (parseStack->size > 0 && isRemainingInput) {
         struct InProgressProduction *topOfStack = (struct InProgressProduction *)Stack_Peek(parseStack);
-        if (topOfStack->production > p_null)
-        {
+        if (topOfStack->production > p_null) {
             disallowTrivialProductions = 1;
         }
     }
@@ -765,55 +668,44 @@ struct InProgressProduction *findReduction(struct Stack *parseStack, char isRema
     foundReduction[1] = -1;
 
     // loop at most 2 times
-    for (int i = 0; i < 2; i++)
-    {
+    for (int i = 0; i < 2; i++) {
         // search greedily (in order of recipe enumeration) for longest possible production
-        for (int startIndex = 0; startIndex < parseStack->size; startIndex++)
-        {
+        for (int startIndex = 0; startIndex < parseStack->size; startIndex++) {
             // iterate all possible productions
-            for (int pi = 0; pi < p_null; pi++)
-            {
+            for (int pi = 0; pi < p_null; pi++) {
                 // iterate all permutations of each production
-                for (int qi = 0; (RECIPE_INGREDIENT(pi, qi, 0) != p_null); qi++)
-                {
+                for (int qi = 0; (RECIPE_INGREDIENT(pi, qi, 0) != p_null); qi++) {
                     // calculate the size of this production
                     int thisProductionSize = 0;
                     for (thisProductionSize = 0; RECIPE_INGREDIENT(pi, qi, thisProductionSize) != p_null; thisProductionSize++)
                         ;
                     // thisProductionSize++;
 
-                    if ((startIndex + thisProductionSize) != parseStack->size)
-                    {
+                    if ((startIndex + thisProductionSize) != parseStack->size) {
                         // printf("\tSkip %s:%d\n", getTokenName(pi), qi);
                         continue;
                     }
 
-                    if (disallowTrivialProductions && thisProductionSize == 1)
-                    {
+                    if (disallowTrivialProductions && thisProductionSize == 1) {
                         continue;
                     }
 
                     // printf("\tTrying %s:%d (size of %d, start from index %d)\n", getTokenName(pi), qi, thisProductionSize, startIndex);
                     int ti;
                     enum token examinedIngredient;
-                    for (ti = 0; ((examinedIngredient = RECIPE_INGREDIENT(pi, qi, ti)) != p_null) && (startIndex + ti < parseStack->size); ti++)
-                    {
+                    for (ti = 0; ((examinedIngredient = RECIPE_INGREDIENT(pi, qi, ti)) != p_null) && (startIndex + ti < parseStack->size); ti++) {
                         struct InProgressProduction *examinedExistingProduction = (struct InProgressProduction *)parseStack->data[startIndex + ti];
                         // printf("\t\t%s == %s?:\t", getTokenName(examinedExistingProduction->production), getTokenName(examinedIngredient));
-                        if (examinedIngredient != examinedExistingProduction->production)
-                        {
+                        if (examinedIngredient != examinedExistingProduction->production) {
                             // printf("NO - moving on to next recipe\n\n");
                             break;
-                        }
-                        else
-                        {
+                        } else {
                             // printf("YES\n");
                         }
                     }
 
                     // ensure we got to the end of the production
-                    if (ti == thisProductionSize && (startIndex + ti == parseStack->size))
-                    {
+                    if (ti == thisProductionSize && (startIndex + ti == parseStack->size)) {
                         // printf("Found production %s, recipe %d\n", getTokenName(pi), qi);
                         foundReduction[0] = pi;
                         foundReduction[1] = qi;
@@ -823,28 +715,19 @@ struct InProgressProduction *findReduction(struct Stack *parseStack, char isRema
             }
         }
 
-        if (poppedLookahead == NULL)
-        {
-            if (parseStack->size > 0)
-            {
+        if (poppedLookahead == NULL) {
+            if (parseStack->size > 0) {
                 struct InProgressProduction *topOfStack = (struct InProgressProduction *)Stack_Peek(parseStack);
-                if (topOfStack->production > p_null)
-                {
+                if (topOfStack->production > p_null) {
                     poppedLookahead = Stack_Pop(parseStack);
                     disallowTrivialProductions = 0;
-                }
-                else
-                {
+                } else {
                     return NULL;
                 }
-            }
-            else
-            {
+            } else {
                 return NULL;
             }
-        }
-        else
-        {
+        } else {
             Stack_Push(parseStack, poppedLookahead);
             return NULL;
         }
@@ -852,16 +735,13 @@ struct InProgressProduction *findReduction(struct Stack *parseStack, char isRema
     ErrorAndExit(ERROR_INTERNAL, "Bad condition led to exit of lookahead loop in findReduction()");
 }
 
-struct AST *performRecipeInstruction(struct AST *existingTree, struct AST *ingredientTree, enum RecipeInstructions instruction)
-{
+struct AST *performRecipeInstruction(struct AST *existingTree, struct AST *ingredientTree, enum RecipeInstructions instruction) {
     // if no current tree and we don't want to consume the ingredient, the ingredient becomes the tree
-    if (existingTree == NULL && instruction != cnsme)
-    {
+    if (existingTree == NULL && instruction != cnsme) {
         return ingredientTree;
     }
 
-    switch (instruction)
-    {
+    switch (instruction) {
         // insert as of current node, current node becomes the inserted one
     case above:
         AST_InsertChild(ingredientTree, existingTree);
@@ -885,11 +765,9 @@ struct AST *performRecipeInstruction(struct AST *existingTree, struct AST *ingre
     ErrorAndExit(ERROR_INTERNAL, "Fell through switch on instruction type in performRecipeInstruction\n");
 }
 
-void reduce(struct Stack *parseStack)
-{
+void reduce(struct Stack *parseStack) {
     int productionSize = 0;
-    while (RECIPE_INGREDIENT(foundReduction[0], foundReduction[1], productionSize) != p_null)
-    {
+    while (RECIPE_INGREDIENT(foundReduction[0], foundReduction[1], productionSize) != p_null) {
         productionSize++;
     }
 
@@ -897,21 +775,18 @@ void reduce(struct Stack *parseStack)
     struct InProgressProduction **ingredients = malloc(productionSize * sizeof(struct InProgressProduction *));
 
     // grab (in order) the ingredients we will use, copy them to an array here
-    for (int i = 0; i < productionSize; i++)
-    {
+    for (int i = 0; i < productionSize; i++) {
         ingredients[i] = parseStack->data[parseStack->size - (productionSize - i)];
     }
 
     // take the ingredients off the stack
-    for (int i = 0; i < productionSize; i++)
-    {
+    for (int i = 0; i < productionSize; i++) {
         Stack_Pop(parseStack);
     }
 
     // construct the tree for this production
     struct InProgressProduction *produced = InProgressProduction_New(foundReduction[0], NULL);
-    for (int i = 0; i < productionSize; i++)
-    {
+    for (int i = 0; i < productionSize; i++) {
         produced->tree = performRecipeInstruction(produced->tree, ingredients[i]->tree, RECIPE_INSTRUCTION(foundReduction[0], foundReduction[1], i));
         free(ingredients[i]);
     }
@@ -920,44 +795,33 @@ void reduce(struct Stack *parseStack)
     Stack_Push(parseStack, produced);
 }
 
-void TableParseError(struct Stack *parseStack)
-{
+void TableParseError(struct Stack *parseStack) {
     printf("Potential parse problem locations:\n");
-    for (int i = 0; i < parseStack->size; i++)
-    {
+    for (int i = 0; i < parseStack->size; i++) {
         struct InProgressProduction *thisProduction = (struct InProgressProduction *)parseStack->data[i];
-        if (thisProduction->production > p_null)
-        {
+        if (thisProduction->production > p_null) {
             printf("%s:%3d:%-3d\n", thisProduction->tree->sourceFile, thisProduction->tree->sourceLine, thisProduction->tree->sourceCol);
         }
     }
 }
 
-struct AST *TableParse(struct Dictionary *dict)
-{
+struct AST *TableParse(struct Dictionary *dict) {
     // number of shifts from this file
     int nShifts = 0;
 
     int maxConsecutiveTokens = 0;
     // scan recipes to figure out the greatest number of consecutive tokens we can have on the stack (to catch errors)
     // iterate all recipe sets
-    for (int pi = 0; pi < p_null; pi++)
-    {
+    for (int pi = 0; pi < p_null; pi++) {
         // iterate each recipe within the set (last recipe is just a singe null production)
-        for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++)
-        {
+        for (int qi = 0; RECIPE_INGREDIENT(pi, qi, 0) != p_null; qi++) {
             int nConsecutiveTerminals = 0;
-            for (int ti = 0; RECIPE_INGREDIENT(pi, qi, ti) != p_null; ti++)
-            {
-                if (RECIPE_INGREDIENT(pi, qi, ti) < p_null)
-                {
+            for (int ti = 0; RECIPE_INGREDIENT(pi, qi, ti) != p_null; ti++) {
+                if (RECIPE_INGREDIENT(pi, qi, ti) < p_null) {
                     nConsecutiveTerminals = 0;
-                }
-                else
-                {
+                } else {
                     nConsecutiveTerminals++;
-                    if (nConsecutiveTerminals > maxConsecutiveTokens)
-                    {
+                    if (nConsecutiveTerminals > maxConsecutiveTokens) {
                         maxConsecutiveTokens = nConsecutiveTerminals;
                     }
                 }
@@ -968,25 +832,20 @@ struct AST *TableParse(struct Dictionary *dict)
     struct Stack *parseStack = Stack_New();
     char parsing = 1;
     char haveMoreInput = 1;
-    while (parsing)
-    {
+    while (parsing) {
         char forceShift = 0;
         // no errors, actually try to reduce or shift in a new token
-        if (parseStack->size > 0)
-        {
+        if (parseStack->size > 0) {
             struct InProgressProduction *topOfStack = (struct InProgressProduction *)Stack_Peek(parseStack);
             // condition: top of stack holds production, we have more input
-            if ((topOfStack->production < p_null) && haveMoreInput)
-            {
+            if ((topOfStack->production < p_null) && haveMoreInput) {
                 forceShift = 1;
             }
         }
 
-        switch (forceShift)
-        {
+        switch (forceShift) {
             // not being forced to shift in a lookahead token
-        case 0:
-        {
+        case 0: {
             // keep track of the lookahead production - findReduction will pop and return it if it's not used in the current reduce operation
             struct InProgressProduction *lookaheadProduction = NULL;
 
@@ -994,45 +853,38 @@ struct AST *TableParse(struct Dictionary *dict)
             lookaheadProduction = findReduction(parseStack, haveMoreInput);
 
             // if we found a reduction
-            if (foundReduction[0] != p_null)
-            {
+            if (foundReduction[0] != p_null) {
                 // printParseStack(parseStack);
 
                 // do the reduction
                 reduce(parseStack);
 
                 // as long as we have some unused lookahead token, try to use it
-                while (lookaheadProduction != NULL)
-                {
+                while (lookaheadProduction != NULL) {
                     Stack_Push(parseStack, lookaheadProduction);
                     lookaheadProduction = findReduction(parseStack, 1);
-                    if (foundReduction[0] == p_null)
-                    {
+                    if (foundReduction[0] == p_null) {
                         break;
                     }
                     reduce(parseStack);
                 }
 
-                if (lookaheadProduction != NULL)
-                {
+                if (lookaheadProduction != NULL) {
                     Stack_Push(parseStack, lookaheadProduction);
                 }
 
                 // printf("Found reduction %s:%d\n", getTokenName(foundReduction[0]), foundReduction[1]);
                 // assumeMoreInput = 0;
                 // }
-                if (lookaheadProduction != NULL)
-                {
+                if (lookaheadProduction != NULL) {
                     Stack_Push(parseStack, lookaheadProduction);
                 }
                 break;
             }
             // didn't find a reduction
-            else
-            {
+            else {
                 // if we already hit EOF, we are done
-                if (!haveMoreInput)
-                {
+                if (!haveMoreInput) {
                     parsing = 0;
                     break;
                 }
@@ -1041,115 +893,90 @@ struct AST *TableParse(struct Dictionary *dict)
             // no reduction found, fall through to shift
 
         // do a shift
-        case 1:
-        {
+        case 1: {
             // check for errors
             // ValidateParseStack(parseStack);
 
             enum token lookaheadToken = lookahead();
             struct AST *nextToken = NULL;
-            if (lookaheadToken == t_EOF)
-            {
+            if (lookaheadToken == t_EOF) {
                 haveMoreInput = 0;
                 break;
-            }
-            else if (lookaheadToken == t_asm)
-            {
+            } else if (lookaheadToken == t_asm) {
                 nextToken = match(lookaheadToken, dict);
                 consume(t_lCurly, dict);
                 buflen = 0;
-                while (lookahead_char_dumb(1) != '}')
-                {
+                while (lookahead_char_dumb(1) != '}') {
                     int asmChar = fgetc_track(1);
-                    if (asmChar == EOF)
-                    {
+                    if (asmChar == EOF) {
                         struct AST fakeTree;
                         fakeTree.sourceFile = curFile;
                         fakeTree.sourceLine = curLine;
                         fakeTree.sourceCol = curCol;
                         ErrorWithAST(ERROR_CODE, &fakeTree, "Non-terminated asm statement\n");
-                    }
-                    else if (asmChar == '\n')
-                    {
-                        if (buflen > 0)
-                        {
+                    } else if (asmChar == '\n') {
+                        if (buflen > 0) {
                             buffer[buflen++] = '\0';
                             AST_InsertChild(nextToken, AST_New(t_asm, Dictionary_LookupOrInsert(dict, buffer)));
                             buflen = 0;
                         }
-                    }
-                    else
-                    {
-                        if (asmChar == '\t')
-                        {
+                    } else {
+                        if (asmChar == '\t') {
                             continue;
                         }
                         buffer[buflen++] = asmChar;
                     }
                 }
-                if (buflen > 0)
-                {
+                if (buflen > 0) {
                     buffer[buflen++] = '\0';
                     AST_InsertChild(nextToken, AST_New(t_asm, Dictionary_LookupOrInsert(dict, buffer)));
                     buflen = 0;
                 }
                 consume(t_rCurly, dict);
-            }
-            else
-            {
+            } else {
                 nextToken = match(lookaheadToken, dict);
             }
             // printf("\tShift token [%s] with type %s\n", nextToken->value, getTokenName(nextToken->type));
             Stack_Push(parseStack, InProgressProduction_New(nextToken->type, nextToken));
             nShifts++;
-        }
-        break;
+        } break;
         }
 
-        if (parseStack->size > 128)
-        {
+        if (parseStack->size > 128) {
             printParseStack(parseStack);
             ErrorAndExit(ERROR_CODE, "Maximum parse stack size exceeded!\n");
         }
 
         // ensure we reduce as much as possible when starting a new file
-        if (justStartedNewFile)
-        {
-            if (parseStack->size == 0)
-            {
+        if (justStartedNewFile) {
+            if (parseStack->size == 0) {
                 justStartedNewFile = 0;
                 break;
             }
             struct Stack *newFileStack = Stack_New();
             struct InProgressProduction *peeked = Stack_Peek(parseStack);
-            while (!strcmp(curFile, peeked->tree->sourceFile) && parseStack->size > 1)
-            {
+            while (!strcmp(curFile, peeked->tree->sourceFile) && parseStack->size > 1) {
                 Stack_Push(newFileStack, Stack_Pop(parseStack));
                 peeked = Stack_Peek(parseStack);
             }
 
-            if (newFileStack->size > 1)
-            {
-                if (strcmp(curFile, peeked->tree->sourceFile))
-                {
-                    if (parseStack->size > 0 && peeked->production != p_translation_unit)
-                    {
+            if (newFileStack->size > 1) {
+                if (strcmp(curFile, peeked->tree->sourceFile)) {
+                    if (parseStack->size > 0 && peeked->production != p_translation_unit) {
                         printf("Error - files must contain complete translation units! (curFile: %s, peeked %d:%d)\n", curFile, peeked->tree->sourceLine, peeked->tree->sourceCol);
                         TableParseError(parseStack);
                     }
                 }
                 justStartedNewFile = 0;
             }
-            while (newFileStack->size > 0)
-            {
+            while (newFileStack->size > 0) {
                 Stack_Push(parseStack, Stack_Pop(newFileStack));
             }
             Stack_Free(newFileStack);
         }
     }
 
-    if (parseStack->size > 1 || parseStack->size == 0)
-    {
+    if (parseStack->size > 1 || parseStack->size == 0) {
         printParseStack(parseStack);
         TableParseError(parseStack);
         ErrorAndExit(ERROR_INTERNAL, "Something bad happened during parsing - parse stack dump above\t");
@@ -1163,8 +990,7 @@ struct AST *TableParse(struct Dictionary *dict)
     return finalTree;
 }
 
-struct AST *ParseProgram(char *inFileName, struct Dictionary *dict)
-{
+struct AST *ParseProgram(char *inFileName, struct Dictionary *dict) {
     curLine = 1;
     curCol = 1;
     inFile = fopen(inFileName, "rb");
