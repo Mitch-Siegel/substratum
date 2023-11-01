@@ -6,19 +6,19 @@
 
 enum CompilerErrors
 {
-	ERROR_INVOCATION = 1, // user has made an error with arguments or other parameters
-	ERROR_CODE,			  // there is an error in the code which prevents a complete compilation
-	ERROR_INTERNAL,
+    ERROR_INVOCATION = 1, // user has made an error with arguments or other parameters
+    ERROR_CODE,           // there is an error in the code which prevents a complete compilation
+    ERROR_INTERNAL,
 };
 
 #define ErrorAndExit(code, fmt, ...)                           \
-	printf(fmt, ##__VA_ARGS__);                                \
-	printf("Bailing from file %s:%d\n\n", __FILE__, __LINE__); \
-	exit(code)
+    printf(fmt, ##__VA_ARGS__);                                \
+    printf("Bailing from file %s:%d\n\n", __FILE__, __LINE__); \
+    exit(code)
 
 #define ErrorWithAST(code, astPtr, fmt, ...)                                         \
-	printf("%s:%d:%d: ", (astPtr)->sourceFile, (astPtr)->sourceLine, (astPtr)->sourceCol); \
-	ErrorAndExit(code, fmt, ##__VA_ARGS__)
+    printf("%s:%d:%d: ", (astPtr)->sourceFile, (astPtr)->sourceLine, (astPtr)->sourceCol); \
+    ErrorAndExit(code, fmt, ##__VA_ARGS__)
 
 #define STAGE_PARSE 0
 #define STAGE_LINEARIZE 1
@@ -31,7 +31,7 @@ enum CompilerErrors
 #define VERBOSITY_MAX 2
 struct Config
 {
-	char stageVerbosities[STAGE_MAX];
+    char stageVerbosities[STAGE_MAX];
 };
 
 extern char currentVerbosity;
@@ -43,8 +43,8 @@ extern char currentVerbosity;
  */
 struct Dictionary
 {
-	struct LinkedList **buckets;
-	int nBuckets;
+    struct LinkedList **buckets;
+    int nBuckets;
 };
 
 unsigned int hash(char *str);
@@ -66,9 +66,9 @@ void Dictionary_Free(struct Dictionary *dict);
 
 struct Stack
 {
-	void **data;
-	int size;
-	int allocated;
+    void **data;
+    int size;
+    int allocated;
 };
 
 struct Stack *Stack_New();
@@ -88,16 +88,16 @@ void *Stack_Peek(struct Stack *s);
 
 struct LinkedListNode
 {
-	struct LinkedListNode *next;
-	struct LinkedListNode *prev;
-	void *data;
+    struct LinkedListNode *next;
+    struct LinkedListNode *prev;
+    void *data;
 };
 
 struct LinkedList
 {
-	struct LinkedListNode *head;
-	struct LinkedListNode *tail;
-	int size;
+    struct LinkedListNode *head;
+    struct LinkedListNode *tail;
+    int size;
 };
 
 struct LinkedList *LinkedList_New();
@@ -131,7 +131,7 @@ char *strAppend(char *before, char *after);
 
 struct TempList
 {
-	struct Stack *temps;
+    struct Stack *temps;
 };
 
 // get the string for a given temp num

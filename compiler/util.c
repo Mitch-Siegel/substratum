@@ -7,90 +7,90 @@
  */
 unsigned int hash(char *str)
 {
-	unsigned int hash = 5381;
-	unsigned int c;
+    unsigned int hash = 5381;
+    unsigned int c;
 
-	while ((c = *str++))
-		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+    while ((c = *str++))
+        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 
-	return hash;
+    return hash;
 }
 
 struct Dictionary *Dictionary_New(int nBuckets)
 {
-	struct Dictionary *wip = malloc(sizeof(struct Dictionary));
-	wip->nBuckets = nBuckets;
-	wip->buckets = malloc(nBuckets * sizeof(struct LinkedList *));
+    struct Dictionary *wip = malloc(sizeof(struct Dictionary));
+    wip->nBuckets = nBuckets;
+    wip->buckets = malloc(nBuckets * sizeof(struct LinkedList *));
 
-	for (int i = 0; i < nBuckets; i++)
-	{
-		wip->buckets[i] = LinkedList_New();
-	}
+    for (int i = 0; i < nBuckets; i++)
+    {
+        wip->buckets[i] = LinkedList_New();
+    }
 
-	return wip;
+    return wip;
 }
 
 char *Dictionary_Insert(struct Dictionary *dict, char *value)
 {
 
-	char *string = malloc(strlen(value) + 1);
-	strncpy(string, value, strlen(value));
-	string[strlen(value)] = '\0';
-	unsigned int strHash = hash(value);
-	strHash = strHash % dict->nBuckets;
+    char *string = malloc(strlen(value) + 1);
+    strncpy(string, value, strlen(value));
+    string[strlen(value)] = '\0';
+    unsigned int strHash = hash(value);
+    strHash = strHash % dict->nBuckets;
 
-	LinkedList_Append(dict->buckets[strHash], string);
+    LinkedList_Append(dict->buckets[strHash], string);
 
-	return string;
+    return string;
 }
 
 char *Dictionary_Lookup(struct Dictionary *dict, char *value)
 {
-	unsigned int strHash = hash(value);
-	strHash = strHash % dict->nBuckets;
+    unsigned int strHash = hash(value);
+    strHash = strHash % dict->nBuckets;
 
-	struct LinkedList *bucket = dict->buckets[strHash];
-	if (bucket->size == 0)
-	{
-		return NULL;
-	}
+    struct LinkedList *bucket = dict->buckets[strHash];
+    if (bucket->size == 0)
+    {
+        return NULL;
+    }
 
-	struct LinkedListNode *runner = bucket->head;
+    struct LinkedListNode *runner = bucket->head;
 
-	while (runner != NULL)
-	{
-		if (!strcmp(runner->data, value))
-		{
-			return runner->data;
-		}
+    while (runner != NULL)
+    {
+        if (!strcmp(runner->data, value))
+        {
+            return runner->data;
+        }
 
-		runner = runner->next;
-	}
-	return NULL;
+        runner = runner->next;
+    }
+    return NULL;
 }
 
 char *Dictionary_LookupOrInsert(struct Dictionary *dict, char *value)
 {
-	char *lookupResult = Dictionary_Lookup(dict, value);
-	if (lookupResult != NULL)
-	{
-		return lookupResult;
-	}
-	else
-	{
-		char *pointer = Dictionary_Insert(dict, value);
-		return pointer;
-	}
+    char *lookupResult = Dictionary_Lookup(dict, value);
+    if (lookupResult != NULL)
+    {
+        return lookupResult;
+    }
+    else
+    {
+        char *pointer = Dictionary_Insert(dict, value);
+        return pointer;
+    }
 }
 
 void Dictionary_Free(struct Dictionary *dict)
 {
-	for (int i = 0; i < dict->nBuckets; i++)
-	{
-		LinkedList_Free(dict->buckets[i], free);
-	}
-	free(dict->buckets);
-	free(dict);
+    for (int i = 0; i < dict->nBuckets; i++)
+    {
+        LinkedList_Free(dict->buckets[i], free);
+    }
+    free(dict->buckets);
+    free(dict);
 }
 
 /*
@@ -100,57 +100,57 @@ void Dictionary_Free(struct Dictionary *dict)
 
 struct Stack *Stack_New()
 {
-	struct Stack *wip = malloc(sizeof(struct Stack));
-	wip->data = malloc(20 * sizeof(void *));
-	wip->size = 0;
-	wip->allocated = 20;
-	return wip;
+    struct Stack *wip = malloc(sizeof(struct Stack));
+    wip->data = malloc(20 * sizeof(void *));
+    wip->size = 0;
+    wip->allocated = 20;
+    return wip;
 }
 
 void Stack_Free(struct Stack *s)
 {
-	free(s->data);
-	free(s);
+    free(s->data);
+    free(s);
 }
 
 void Stack_Push(struct Stack *s, void *data)
 {
-	if (s->size >= s->allocated)
-	{
-		void **newData = malloc((int)(s->allocated * 1.5) * sizeof(void *));
-		memcpy(newData, s->data, s->allocated * sizeof(void *));
-		free(s->data);
-		s->data = newData;
-		s->allocated = (int)(s->allocated * 1.5);
-	}
+    if (s->size >= s->allocated)
+    {
+        void **newData = malloc((int)(s->allocated * 1.5) * sizeof(void *));
+        memcpy(newData, s->data, s->allocated * sizeof(void *));
+        free(s->data);
+        s->data = newData;
+        s->allocated = (int)(s->allocated * 1.5);
+    }
 
-	s->data[s->size++] = data;
+    s->data[s->size++] = data;
 }
 
 void *Stack_Pop(struct Stack *s)
 {
-	if (s->size > 0)
-	{
-		return s->data[--s->size];
-	}
-	else
-	{
-		printf("Error - attempted to pop from empty stack!\n");
-		exit(1);
-	}
+    if (s->size > 0)
+    {
+        return s->data[--s->size];
+    }
+    else
+    {
+        printf("Error - attempted to pop from empty stack!\n");
+        exit(1);
+    }
 }
 
 void *Stack_Peek(struct Stack *s)
 {
-	if (s->size > 0)
-	{
-		return s->data[s->size - 1];
-	}
-	else
-	{
-		printf("Error - attempted to peek empty stack!\n");
-		exit(1);
-	}
+    if (s->size > 0)
+    {
+        return s->data[s->size - 1];
+    }
+    else
+    {
+        printf("Error - attempted to peek empty stack!\n");
+        exit(1);
+    }
 }
 
 /*
@@ -160,177 +160,177 @@ void *Stack_Peek(struct Stack *s)
 
 struct LinkedList *LinkedList_New()
 {
-	struct LinkedList *wip = malloc(sizeof(struct LinkedList));
-	wip->head = NULL;
-	wip->tail = NULL;
-	wip->size = 0;
-	return wip;
+    struct LinkedList *wip = malloc(sizeof(struct LinkedList));
+    wip->head = NULL;
+    wip->tail = NULL;
+    wip->size = 0;
+    return wip;
 }
 
 void LinkedList_Free(struct LinkedList *l, void (*dataFreeFunction)())
 {
-	struct LinkedListNode *runner = l->head;
-	while (runner != NULL)
-	{
-		if (dataFreeFunction != NULL)
-		{
-			dataFreeFunction(runner->data);
-		}
-		struct LinkedListNode *old = runner;
-		runner = runner->next;
-		free(old);
-	}
-	free(l);
+    struct LinkedListNode *runner = l->head;
+    while (runner != NULL)
+    {
+        if (dataFreeFunction != NULL)
+        {
+            dataFreeFunction(runner->data);
+        }
+        struct LinkedListNode *old = runner;
+        runner = runner->next;
+        free(old);
+    }
+    free(l);
 }
 
 void LinkedList_Append(struct LinkedList *l, void *element)
 {
-	if (element == NULL)
-	{
-		perror("Attempt to append data with null pointer into LinkedList!");
-		exit(1);
-	}
+    if (element == NULL)
+    {
+        perror("Attempt to append data with null pointer into LinkedList!");
+        exit(1);
+    }
 
-	struct LinkedListNode *newNode = malloc(sizeof(struct LinkedListNode));
-	newNode->data = element;
-	if (l->size == 0)
-	{
-		newNode->next = NULL;
-		newNode->prev = NULL;
-		l->head = newNode;
-		l->tail = newNode;
-	}
-	else
-	{
-		l->tail->next = newNode;
-		newNode->prev = l->tail;
-		newNode->next = NULL;
-		l->tail = newNode;
-	}
-	l->size++;
+    struct LinkedListNode *newNode = malloc(sizeof(struct LinkedListNode));
+    newNode->data = element;
+    if (l->size == 0)
+    {
+        newNode->next = NULL;
+        newNode->prev = NULL;
+        l->head = newNode;
+        l->tail = newNode;
+    }
+    else
+    {
+        l->tail->next = newNode;
+        newNode->prev = l->tail;
+        newNode->next = NULL;
+        l->tail = newNode;
+    }
+    l->size++;
 }
 
 void LinkedList_Prepend(struct LinkedList *l, void *element)
 {
-	if (element == NULL)
-	{
-		perror("Attempt to prepend data with null pointer into LinkedList!");
-		exit(1);
-	}
+    if (element == NULL)
+    {
+        perror("Attempt to prepend data with null pointer into LinkedList!");
+        exit(1);
+    }
 
-	struct LinkedListNode *newNode = malloc(sizeof(struct LinkedListNode));
-	newNode->data = element;
-	if (l->size == 0)
-	{
-		newNode->next = NULL;
-		newNode->prev = NULL;
-		l->head = newNode;
-		l->tail = newNode;
-	}
-	else
-	{
-		l->head->prev = newNode;
-		newNode->next = l->head;
-		l->head = newNode;
-	}
-	l->size++;
+    struct LinkedListNode *newNode = malloc(sizeof(struct LinkedListNode));
+    newNode->data = element;
+    if (l->size == 0)
+    {
+        newNode->next = NULL;
+        newNode->prev = NULL;
+        l->head = newNode;
+        l->tail = newNode;
+    }
+    else
+    {
+        l->head->prev = newNode;
+        newNode->next = l->head;
+        l->head = newNode;
+    }
+    l->size++;
 }
 
 void LinkedList_Join(struct LinkedList *before, struct LinkedList *after)
 {
-	for(struct LinkedListNode *runner = after->head; runner != NULL; runner = runner->next)
-	{
-		LinkedList_Append(before, runner->data);
-	}
+    for(struct LinkedListNode *runner = after->head; runner != NULL; runner = runner->next)
+    {
+        LinkedList_Append(before, runner->data);
+    }
 }
 
 void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *element)
 {
-	for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
-	{
-		if (!compareFunction(runner->data, element))
-		{
-			if (l->size > 1)
-			{
-				if (runner == l->head)
-				{
-					l->head = runner->next;
-					runner->next->prev = NULL;
-				}
-				else
-				{
-					if (runner == l->tail)
-					{
-						l->tail = runner->prev;
-						runner->prev->next = NULL;
-					}
-					else
-					{
-						runner->prev->next = runner->next;
-						runner->next->prev = runner->prev;
-					}
-				}
-			}
-			else
-			{
-				l->head = NULL;
-				l->tail = NULL;
-			}
-			void *data = runner->data;
-			free(runner);
-			l->size--;
-			return data;
-		}
-	}
-	ErrorAndExit(ERROR_INTERNAL, "Couldn't delete element from linked list!\n");
+    for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
+    {
+        if (!compareFunction(runner->data, element))
+        {
+            if (l->size > 1)
+            {
+                if (runner == l->head)
+                {
+                    l->head = runner->next;
+                    runner->next->prev = NULL;
+                }
+                else
+                {
+                    if (runner == l->tail)
+                    {
+                        l->tail = runner->prev;
+                        runner->prev->next = NULL;
+                    }
+                    else
+                    {
+                        runner->prev->next = runner->next;
+                        runner->next->prev = runner->prev;
+                    }
+                }
+            }
+            else
+            {
+                l->head = NULL;
+                l->tail = NULL;
+            }
+            void *data = runner->data;
+            free(runner);
+            l->size--;
+            return data;
+        }
+    }
+    ErrorAndExit(ERROR_INTERNAL, "Couldn't delete element from linked list!\n");
 }
 
 void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *element)
 {
-	for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
-	{
-		if (!compareFunction(runner->data, element))
-		{
-			return runner->data;
-		}
-	}
-	return NULL;
+    for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
+    {
+        if (!compareFunction(runner->data, element))
+        {
+            return runner->data;
+        }
+    }
+    return NULL;
 }
 
 void *LinkedList_PopFront(struct LinkedList *l)
 {
-	if (l->size == 0)
-	{
-		ErrorAndExit(ERROR_INVOCATION, "Unable to pop front from empty linkedlist!\n");
-	}
-	struct LinkedListNode *popped = l->head;
+    if (l->size == 0)
+    {
+        ErrorAndExit(ERROR_INVOCATION, "Unable to pop front from empty linkedlist!\n");
+    }
+    struct LinkedListNode *popped = l->head;
 
-	l->head = l->head->next;
-	l->head->prev = NULL;
-	l->size--;
+    l->head = l->head->next;
+    l->head->prev = NULL;
+    l->size--;
 
-	void *poppedData = popped->data;
-	free(popped);
+    void *poppedData = popped->data;
+    free(popped);
 
-	return poppedData;
+    return poppedData;
 }
 
 void *LinkedList_PopBack(struct LinkedList *l)
 {
-	if (l->size == 0)
-	{
-		ErrorAndExit(ERROR_INVOCATION, "Unable to pop front from empty linkedlist!\n");
-	}
-	struct LinkedListNode *popped = l->tail;
+    if (l->size == 0)
+    {
+        ErrorAndExit(ERROR_INVOCATION, "Unable to pop front from empty linkedlist!\n");
+    }
+    struct LinkedListNode *popped = l->tail;
 
-	l->tail = l->tail->prev;
-	l->tail->next = NULL;
-	l->size--;
+    l->tail = l->tail->prev;
+    l->tail->next = NULL;
+    l->size--;
 
-	void *poppedData = popped->data;
-	free(popped);
+    void *poppedData = popped->data;
+    free(popped);
 
-	return poppedData;
+    return poppedData;
 }
 
 /*
@@ -339,23 +339,23 @@ void *LinkedList_PopBack(struct LinkedList *l)
 
 char *strTrim(char *s, int l)
 {
-	char *newStr = malloc(l + 1);
-	strcpy(newStr, s);
-	return newStr;
+    char *newStr = malloc(l + 1);
+    strcpy(newStr, s);
+    return newStr;
 }
 
 char *strAppend(char *before, char *after)
 {
-	int beforeLen = strlen(before);
-	int afterLen = strlen(after);
+    int beforeLen = strlen(before);
+    int afterLen = strlen(after);
 
-	char *newStr = malloc(beforeLen + afterLen + 1);
-	strcpy(newStr, before);
-	strcpy(newStr + beforeLen, after);
+    char *newStr = malloc(beforeLen + afterLen + 1);
+    strcpy(newStr, before);
+    strcpy(newStr + beforeLen, after);
 
-	free(before);
-	free(after);
-	return newStr;
+    free(before);
+    free(after);
+    return newStr;
 }
 
 /*
@@ -367,30 +367,30 @@ char *strAppend(char *before, char *after)
 
 char *TempList_Get(struct TempList *tempList, int tempNum)
 {
-	int sizeDiff = tempNum - tempList->temps->size;
-	while (sizeDiff-- >= 0)
-	{
-		char *thisTemp = malloc(6 * sizeof(char));
-		sprintf(thisTemp, ".t%d", tempList->temps->size);
-		Stack_Push(tempList->temps, thisTemp);
-	}
-	return tempList->temps->data[tempNum];
+    int sizeDiff = tempNum - tempList->temps->size;
+    while (sizeDiff-- >= 0)
+    {
+        char *thisTemp = malloc(6 * sizeof(char));
+        sprintf(thisTemp, ".t%d", tempList->temps->size);
+        Stack_Push(tempList->temps, thisTemp);
+    }
+    return tempList->temps->data[tempNum];
 }
 
 struct TempList *TempList_New()
 {
-	struct TempList *wip = malloc(sizeof(struct TempList));
-	wip->temps = Stack_New();
-	TempList_Get(wip, 10);
-	return wip;
+    struct TempList *wip = malloc(sizeof(struct TempList));
+    wip->temps = Stack_New();
+    TempList_Get(wip, 10);
+    return wip;
 }
 
 void TempList_Free(struct TempList *it)
 {
-	for (int i = 0; i < it->temps->size; i++)
-	{
-		free(it->temps->data[i]);
-	}
-	Stack_Free(it->temps);
-	free(it);
+    for (int i = 0; i < it->temps->size; i++)
+    {
+        free(it->temps->data[i]);
+    }
+    Stack_Free(it->temps);
+    free(it);
 }
