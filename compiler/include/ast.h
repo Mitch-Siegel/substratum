@@ -7,7 +7,6 @@ enum token
 	p_type_name,
 	p_primary_expression,
 	p_wip_array_access,
-	p_unary_operator,
 	p_unary_expression,
 	p_expression_operator,
 	p_wip_expression,
