@@ -32,13 +32,13 @@ enum token parseRecipes[p_null][14][9][2] = {
         {{t_constant, above}, {p_null, p_null}},
         // '(' EXPRESSION ')'
         {{t_lParen, cnsme}, {p_expression, above}, {t_rParen, cnsme}, {p_null, p_null}},
-        {{t_lParen, cnsme}, {p_primary_expression, above}, {t_rParen, cnsme}, {p_null, p_null}},
-        // UNARY-EXPRESSION
-        {{p_unary_expression, above}, {p_null, p_null}},
-        {{t_char_literal, above}, {p_null, p_null}},
+        {{t_lParen, cnsme}, {p_primary_expression, above}, {t_rParen, cnsme}, {p_null, p_null}},        {{t_char_literal, above}, {p_null, p_null}},
 
         {{t_string_literal, above}, {p_null, p_null}},
         {{p_function_call, below}, {p_null, p_null}},
+
+        {{t_star, above}, {p_primary_expression, below}, {p_null, p_null}},
+
         {{p_wip_array_access, above}, {p_primary_expression, below}, {t_rBracket, cnsme}, {p_null, p_null}},
         {{p_wip_array_access, above}, {p_expression, below}, {t_rBracket, cnsme}, {p_null, p_null}},
         {{t_reference, above}, {p_primary_expression, below}, {p_null, p_null}},
@@ -49,13 +49,6 @@ enum token parseRecipes[p_null][14][9][2] = {
     // p_wip_array_access
     {
         {{p_primary_expression, above}, {t_lBracket, above}, {p_null, p_null}},
-        {{p_null, p_null}},
-    },
-
-    // p_unary_expression - UNARY-EXPRESSION
-    {
-        // '*' PRIMARY-EXPRESSION
-        {{t_star, above}, {p_primary_expression, below}, {p_null, p_null}},
         {{p_null, p_null}},
     },
 
