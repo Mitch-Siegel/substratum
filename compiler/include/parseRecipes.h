@@ -9,7 +9,7 @@ enum RecipeInstructions
 };
 
 // let him cook!
-enum token parseRecipes[p_null][14][9][2] = {
+enum token parseRecipes[p_null][15][9][2] = {
     // p_type_name - TYPE-NAME
     {
         {{t_void, above}, {p_null, p_null}},
@@ -32,16 +32,18 @@ enum token parseRecipes[p_null][14][9][2] = {
         {{t_constant, above}, {p_null, p_null}},
         // '(' EXPRESSION ')'
         {{t_lParen, cnsme}, {p_expression, above}, {t_rParen, cnsme}, {p_null, p_null}},
-        {{t_lParen, cnsme}, {p_primary_expression, above}, {t_rParen, cnsme}, {p_null, p_null}},        {{t_char_literal, above}, {p_null, p_null}},
+        {{t_lParen, cnsme}, {p_primary_expression, above}, {t_rParen, cnsme}, {p_null, p_null}},
+        {{t_char_literal, above}, {p_null, p_null}},
 
         {{t_string_literal, above}, {p_null, p_null}},
         {{p_function_call, below}, {p_null, p_null}},
 
         {{t_star, above}, {p_primary_expression, below}, {p_null, p_null}},
+        {{t_bitwise_not, above}, {p_primary_expression, below}, {p_null, p_null}},
 
         {{p_wip_array_access, above}, {p_primary_expression, below}, {t_rBracket, cnsme}, {p_null, p_null}},
         {{p_wip_array_access, above}, {p_expression, below}, {t_rBracket, cnsme}, {p_null, p_null}},
-        {{t_reference, above}, {p_primary_expression, below}, {p_null, p_null}},
+        {{t_bitwise_and, above}, {p_primary_expression, below}, {p_null, p_null}},
         // end
         {{p_null, p_null}},
     },
@@ -57,12 +59,16 @@ enum token parseRecipes[p_null][14][9][2] = {
         {{t_plus, above}, {p_null, p_null}},
         {{t_minus, above}, {p_null, p_null}},
         {{t_divide, above}, {p_null, p_null}},
+        {{t_bitwise_or, above}, {p_null, p_null}},
+        {{t_bitwise_xor, above}, {p_null, p_null}},
         {{t_lThan, above}, {p_null, p_null}},
         {{t_lThanE, above}, {p_null, p_null}},
         {{t_gThan, above}, {p_null, p_null}},
         {{t_gThanE, above}, {p_null, p_null}},
         {{t_equals, above}, {p_null, p_null}},
         {{t_nEquals, above}, {p_null, p_null}},
+        {{t_lshift, above}, {p_null, p_null}},
+        {{t_rshift, above}, {p_null, p_null}},
         {{p_null, p_null}}},
 
     // p_wip_expression - WIP-EXPRESSION
@@ -73,6 +79,7 @@ enum token parseRecipes[p_null][14][9][2] = {
         {{p_expression, above}, {p_expression_operator, above}, {p_null, p_null}},
         // PRIMARY-EXPRESSION '*'
         {{p_primary_expression, above}, {t_star, above}, {p_null, p_null}},
+        {{p_primary_expression, above}, {t_bitwise_and, above}, {p_null, p_null}},
         // EXPRESSION '*'
         {{p_expression, above}, {t_star, above}, {p_null, p_null}},
         {{p_null, p_null}},
@@ -98,7 +105,7 @@ enum token parseRecipes[p_null][14][9][2] = {
         // '*' EXPRESSION-TAIL
         {{t_star, above}, {p_expression_tail, below}, {p_null, p_null}},
         // '&' EXPRESSION-TAIL
-        {{t_reference, above}, {p_expression_tail, below}, {p_null, p_null}},
+        {{t_bitwise_and, above}, {p_expression_tail, below}, {p_null, p_null}},
         {{p_null, p_null}},
     },
 
@@ -178,6 +185,12 @@ enum token parseRecipes[p_null][14][9][2] = {
         {{p_primary_expression, above}, {t_single_equals, above}, {p_expression_tail, below}, {p_null, p_null}},
         {{p_primary_expression, above}, {t_plus_equals, above}, {p_expression_tail, below}, {p_null, p_null}},
         {{p_primary_expression, above}, {t_minus_equals, above}, {p_expression_tail, below}, {p_null, p_null}},
+        {{p_primary_expression, above}, {t_times_equals, above}, {p_expression_tail, below}, {p_null, p_null}},
+        {{p_primary_expression, above}, {t_divide_equals, above}, {p_expression_tail, below}, {p_null, p_null}},
+        {{p_primary_expression, above}, {t_bitwise_and_equals, above}, {p_expression_tail, below}, {p_null, p_null}},
+        {{p_primary_expression, above}, {t_bitwise_or_equals, above}, {p_expression_tail, below}, {p_null, p_null}},
+        {{p_primary_expression, above}, {t_bitwise_not_equals, above}, {p_expression_tail, below}, {p_null, p_null}},
+        {{p_primary_expression, above}, {t_bitwise_xor_equals, above}, {p_expression_tail, below}, {p_null, p_null}},
         {{p_null, p_null}},
     },
 

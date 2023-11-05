@@ -215,6 +215,12 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_subtract:
 			case tt_mul:
 			case tt_div:
+			case tt_bitwise_and:
+			case tt_bitwise_or:
+			case tt_bitwise_xor:
+			case tt_bitwise_not:
+			case tt_lshift:
+			case tt_rshift:
 			{
 				if (TAC_GetTypeOfOperand(thisLine, 0)->basicType != vt_null)
 				{

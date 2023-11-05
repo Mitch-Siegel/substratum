@@ -1,4 +1,5 @@
 #include "print.h"
+#include "uart.h"
 
 class B
 {
@@ -12,8 +13,23 @@ class A
 	class B b;
 };
 
+fun arrayTest(->void)
+{
+	u8 array[12];
+	array[3] = 44;
+	printNum(array[3]);
+}
+
+fun whatBitwise(u8 c->void)
+{
+	print(c);
+	print(':');
+}
+
 fun main(->void)
 {
+	uart_init();
+	
 	class A a;
 
 	a.bp = &(a.b);
@@ -22,4 +38,24 @@ fun main(->void)
 	a.bp->value2 = 1234;
 	printNum(a.b.value2);
 	printNum(a.bp->value2);
+
+	arrayTest();
+	whatBitwise('L');
+	printNum(1 << 7);
+	whatBitwise('R');
+	printNum(7 >> 1);
+	whatBitwise('|');
+	printNum(3 | 5);
+	whatBitwise('^');
+	printNum(3 ^ 5);
+	whatBitwise('~');
+	u8 i = 0;
+	u8 toNot = 127;
+	toNot = toNot << 8;
+	toNot += 127;
+	toNot = toNot << 8;
+	toNot += 127;
+	toNot = toNot << 8;
+	printNum(~toNot);
+
 }

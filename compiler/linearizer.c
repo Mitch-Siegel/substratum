@@ -69,11 +69,11 @@ struct SymbolTable *walkProgram(struct AST *program)
 }
 
 struct VariableEntry *walkVariableDeclaration(struct AST *tree,
-												struct BasicBlock *block,
-												struct Scope *scope,
-												int *TACIndex,
-												int *tempNum,
-												char isArgument)
+											  struct BasicBlock *block,
+											  struct Scope *scope,
+											  int *TACIndex,
+											  int *tempNum,
+											  char isArgument)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -156,10 +156,10 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 }
 
 void walkArgumentDeclaration(struct AST *tree,
-							   struct BasicBlock *block,
-							   int *TACIndex,
-							   int *tempNum,
-							   struct FunctionEntry *fun)
+							 struct BasicBlock *block,
+							 int *TACIndex,
+							 int *tempNum,
+							 struct FunctionEntry *fun)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -175,7 +175,7 @@ void walkArgumentDeclaration(struct AST *tree,
 }
 
 void walkFunctionDeclaration(struct AST *tree,
-							   struct Scope *scope)
+							 struct Scope *scope)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -402,7 +402,7 @@ void walkFunctionDeclaration(struct AST *tree,
 }
 
 void walkFunctionDefinition(struct AST *tree,
-							  struct FunctionEntry *fun)
+							struct FunctionEntry *fun)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -432,8 +432,8 @@ void walkFunctionDefinition(struct AST *tree,
 }
 
 void walkClassDeclaration(struct AST *tree,
-							struct BasicBlock *block,
-							struct Scope *scope)
+						  struct BasicBlock *block,
+						  struct Scope *scope)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -479,12 +479,12 @@ void walkClassDeclaration(struct AST *tree,
 }
 
 void walkStatement(struct AST *tree,
-					 struct BasicBlock **blockP,
-					 struct Scope *scope,
-					 int *TACIndex,
-					 int *tempNum,
-					 int *labelNum,
-					 int controlConvergesToLabel)
+				   struct BasicBlock **blockP,
+				   struct Scope *scope,
+				   int *TACIndex,
+				   int *tempNum,
+				   int *labelNum,
+				   int controlConvergesToLabel)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -569,12 +569,12 @@ void walkStatement(struct AST *tree,
 }
 
 void walkScope(struct AST *tree,
-				 struct BasicBlock *block,
-				 struct Scope *scope,
-				 int *TACIndex,
-				 int *tempNum,
-				 int *labelNum,
-				 int controlConvergesToLabel)
+			   struct BasicBlock *block,
+			   struct Scope *scope,
+			   int *TACIndex,
+			   int *tempNum,
+			   int *labelNum,
+			   int controlConvergesToLabel)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -606,11 +606,11 @@ void walkScope(struct AST *tree,
 }
 
 void walkConditionCheck(struct AST *tree,
-						  struct BasicBlock *block,
-						  struct Scope *scope,
-						  int *TACIndex,
-						  int *tempNum,
-						  int falseJumpLabelNum)
+						struct BasicBlock *block,
+						struct Scope *scope,
+						int *TACIndex,
+						int *tempNum,
+						int falseJumpLabelNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -646,7 +646,7 @@ void walkConditionCheck(struct AST *tree,
 		condFalseJump->operation = tt_bltu;
 		break;
 
-	case t_not:
+	case t_logical_not:
 		condFalseJump->operation = tt_beqz;
 		break;
 
@@ -673,7 +673,7 @@ void walkConditionCheck(struct AST *tree,
 		}
 		break;
 
-	case t_not:
+	case t_logical_not:
 		// NOT any condition (!)
 		{
 			walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
@@ -702,12 +702,12 @@ void walkConditionCheck(struct AST *tree,
 }
 
 void walkWhileLoop(struct AST *tree,
-					 struct BasicBlock *block,
-					 struct Scope *scope,
-					 int *TACIndex,
-					 int *tempNum,
-					 int *labelNum,
-					 int controlConvergesToLabel)
+				   struct BasicBlock *block,
+				   struct Scope *scope,
+				   int *TACIndex,
+				   int *tempNum,
+				   int *labelNum,
+				   int controlConvergesToLabel)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -758,12 +758,12 @@ void walkWhileLoop(struct AST *tree,
 }
 
 void walkIfStatement(struct AST *tree,
-					   struct BasicBlock *block,
-					   struct Scope *scope,
-					   int *TACIndex,
-					   int *tempNum,
-					   int *labelNum,
-					   int controlConvergesToLabel)
+					 struct BasicBlock *block,
+					 struct Scope *scope,
+					 int *TACIndex,
+					 int *tempNum,
+					 int *labelNum,
+					 int controlConvergesToLabel)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1010,10 +1010,10 @@ void walkArrowOperatorAssignment(struct AST *tree,
 }
 
 void walkAssignment(struct AST *tree,
-					  struct BasicBlock *block,
-					  struct Scope *scope,
-					  int *TACIndex,
-					  int *tempNum)
+					struct BasicBlock *block,
+					struct Scope *scope,
+					int *TACIndex,
+					int *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1148,10 +1148,10 @@ void walkAssignment(struct AST *tree,
 }
 
 void walkArithmeticAssignment(struct AST *tree,
-								struct BasicBlock *block,
-								struct Scope *scope,
-								int *TACIndex,
-								int *tempNum)
+							  struct BasicBlock *block,
+							  struct Scope *scope,
+							  int *TACIndex,
+							  int *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1192,12 +1192,49 @@ void walkArithmeticAssignment(struct AST *tree,
 	walkAssignment(&fakeAssignment, block, scope, TACIndex, tempNum);
 }
 
+struct TACOperand *walkBitwiseNot(struct AST *tree,
+								  struct BasicBlock *block,
+								  struct Scope *scope,
+								  int *TACIndex,
+								  int *tempNum)
+{
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkBitwiseNot: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
+	if (tree->type != t_bitwise_not)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkBitwiseNot!\n", getTokenName(tree->type));
+	}
+
+	// generically set to tt_add, we will actually set the operation within switch cases
+	struct TACLine *bitwiseNotLine = newTACLine(*TACIndex, tt_bitwise_not, tree);
+
+	bitwiseNotLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+	bitwiseNotLine->operands[0].permutation = vp_temp;
+
+	walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &bitwiseNotLine->operands[1]);
+	copyTACOperandTypeDecayArrays(&bitwiseNotLine->operands[0], &bitwiseNotLine->operands[1]);
+
+	struct TACOperand *operandA = &bitwiseNotLine->operands[1];
+	if ((operandA->type.indirectionLevel > 0))
+	{
+		ErrorWithAST(ERROR_CODE, tree, "Bitwise arithmetic on pointers is not allowed!\n");
+	}
+
+	bitwiseNotLine->index = (*TACIndex)++;
+	BasicBlock_append(block, bitwiseNotLine);
+
+	return &bitwiseNotLine->operands[0];
+}
+
 void walkSubExpression(struct AST *tree,
-						 struct BasicBlock *block,
-						 struct Scope *scope,
-						 int *TACIndex,
-						 int *tempNum,
-						 struct TACOperand *destinationOperand)
+					   struct BasicBlock *block,
+					   struct Scope *scope,
+					   int *TACIndex,
+					   int *tempNum,
+					   struct TACOperand *destinationOperand)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1249,16 +1286,25 @@ void walkSubExpression(struct AST *tree,
 	case t_minus:
 	case t_divide:
 	case t_lThan:
-	// case t_bin_lThanE:
 	case t_gThan:
-		// case t_bin_gThanE:
-		// case t_bin_equals:
-		// case t_bin_notEquals:
-		{
-			struct TACOperand *expressionResult = walkExpression(tree, block, scope, TACIndex, tempNum);
-			*destinationOperand = *expressionResult;
-		}
-		break;
+	case t_lThanE:
+	case t_gThanE:
+	case t_lshift:
+	case t_rshift:
+	case t_bitwise_or:
+	case t_bitwise_xor:
+	{
+		struct TACOperand *expressionResult = walkExpression(tree, block, scope, TACIndex, tempNum);
+		*destinationOperand = *expressionResult;
+	}
+	break;
+
+	case t_bitwise_not:
+	{
+		struct TACOperand *bitwiseNotResult = walkBitwiseNot(tree, block, scope, TACIndex, tempNum);
+		*destinationOperand = *bitwiseNotResult;
+	}
+	break;
 
 	// array reference
 	case t_lBracket:
@@ -1285,11 +1331,20 @@ void walkSubExpression(struct AST *tree,
 	}
 	break;
 
-	// '&' as reference (address-of) operator
-	case t_reference:
+	case t_bitwise_and:
 	{
-		struct TACOperand *addrOfResult = walkAddrOf(tree, block, scope, TACIndex, tempNum);
-		*destinationOperand = *addrOfResult;
+		// '&' as address-of operator
+		if (tree->child->sibling == NULL)
+		{
+			struct TACOperand *addrOfResult = walkAddrOf(tree, block, scope, TACIndex, tempNum);
+			*destinationOperand = *addrOfResult;
+		}
+		// '&' as bitwise and operator
+		else
+		{
+			struct TACOperand *expressionResult = walkExpression(tree, block, scope, TACIndex, tempNum);
+			*destinationOperand = *expressionResult;
+		}
 	}
 	break;
 
@@ -1300,11 +1355,11 @@ void walkSubExpression(struct AST *tree,
 }
 
 void walkFunctionCall(struct AST *tree,
-						struct BasicBlock *block,
-						struct Scope *scope,
-						int *TACIndex,
-						int *tempNum,
-						struct TACOperand *destinationOperand)
+					  struct BasicBlock *block,
+					  struct Scope *scope,
+					  int *TACIndex,
+					  int *tempNum,
+					  struct TACOperand *destinationOperand)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1566,10 +1621,10 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 }
 
 struct TACOperand *walkExpression(struct AST *tree,
-									struct BasicBlock *block,
-									struct Scope *scope,
-									int *TACIndex,
-									int *tempNum)
+								  struct BasicBlock *block,
+								  struct Scope *scope,
+								  int *TACIndex,
+								  int *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1592,7 +1647,6 @@ struct TACOperand *walkExpression(struct AST *tree,
 		expression->operation = tt_add;
 		fallingThrough = 1;
 		// fall through, having set to plus and reorderable
-
 	case t_star:
 		if (!fallingThrough)
 		{
@@ -1601,11 +1655,58 @@ struct TACOperand *walkExpression(struct AST *tree,
 			fallingThrough = 1;
 		}
 		// fall through
-
+	case t_bitwise_and:
+		if (!fallingThrough)
+		{
+			expression->reorderable = 1;
+			expression->operation = tt_bitwise_and;
+			fallingThrough = 1;
+		}
+		// fall through
+	case t_bitwise_or:
+		if (!fallingThrough)
+		{
+			expression->reorderable = 1;
+			expression->operation = tt_bitwise_or;
+			fallingThrough = 1;
+		}
+		// fall through
+	case t_bitwise_xor:
+		if (!fallingThrough)
+		{
+			expression->reorderable = 1;
+			expression->operation = tt_bitwise_xor;
+			fallingThrough = 1;
+		}
+		// fall through
+	case t_bitwise_not:
+		if (!fallingThrough)
+		{
+			expression->reorderable = 1;
+			expression->operation = tt_bitwise_not;
+			fallingThrough = 1;
+		}
+		// fall through
 	case t_divide:
 		if (!fallingThrough)
 		{
 			expression->operation = tt_div;
+			fallingThrough = 1;
+		}
+		// fall through
+
+	case t_lshift:
+		if (!fallingThrough)
+		{
+			expression->operation = tt_lshift;
+			fallingThrough = 1;
+		}
+		// fall through
+
+	case t_rshift:
+		if (!fallingThrough)
+		{
+			expression->operation = tt_rshift;
 			fallingThrough = 1;
 		}
 		// fall through
@@ -1660,10 +1761,10 @@ struct TACOperand *walkExpression(struct AST *tree,
 }
 
 struct TACOperand *walkArrayRef(struct AST *tree,
-								  struct BasicBlock *block,
-								  struct Scope *scope,
-								  int *TACIndex,
-								  int *tempNum)
+								struct BasicBlock *block,
+								struct Scope *scope,
+								int *TACIndex,
+								int *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1720,10 +1821,10 @@ struct TACOperand *walkArrayRef(struct AST *tree,
 }
 
 struct TACOperand *walkDereference(struct AST *tree,
-									 struct BasicBlock *block,
-									 struct Scope *scope,
-									 int *TACIndex,
-									 int *tempNum)
+								   struct BasicBlock *block,
+								   struct Scope *scope,
+								   int *TACIndex,
+								   int *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1763,17 +1864,17 @@ struct TACOperand *walkDereference(struct AST *tree,
 }
 
 struct TACOperand *walkAddrOf(struct AST *tree,
-								struct BasicBlock *block,
-								struct Scope *scope,
-								int *TACIndex,
-								int *tempNum)
+							  struct BasicBlock *block,
+							  struct Scope *scope,
+							  int *TACIndex,
+							  int *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
 		printf("walkAddrOf: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
 
-	if (tree->type != t_reference)
+	if (tree->type != t_bitwise_and)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDereference!\n", getTokenName(tree->type));
 	}
@@ -1867,11 +1968,11 @@ struct TACOperand *walkAddrOf(struct AST *tree,
 }
 
 void walkPointerArithmetic(struct AST *tree,
-							 struct BasicBlock *block,
-							 struct Scope *scope,
-							 int *TACIndex,
-							 int *tempNum,
-							 struct TACOperand *destinationOperand)
+						   struct BasicBlock *block,
+						   struct Scope *scope,
+						   int *TACIndex,
+						   int *tempNum,
+						   struct TACOperand *destinationOperand)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1919,10 +2020,10 @@ void walkPointerArithmetic(struct AST *tree,
 }
 
 void walkAsmBlock(struct AST *tree,
-					struct BasicBlock *block,
-					struct Scope *scope,
-					int *TACIndex,
-					int *tempNum)
+				  struct BasicBlock *block,
+				  struct Scope *scope,
+				  int *TACIndex,
+				  int *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1947,9 +2048,9 @@ void walkAsmBlock(struct AST *tree,
 }
 
 void walkStringLiteral(struct AST *tree,
-						 struct BasicBlock *block,
-						 struct Scope *scope,
-						 struct TACOperand *destinationOperand)
+					   struct BasicBlock *block,
+					   struct Scope *scope,
+					   struct TACOperand *destinationOperand)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{

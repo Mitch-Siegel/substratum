@@ -62,9 +62,19 @@ char *token_names[] = {
 	"t_plus",
 	"t_minus",
 	"t_divide",
+	"t_lshift",
+	"t_rshift",
 	// arithmetic assignment
 	"t_plus_equals",
 	"t_minus_equals",
+	"t_times_equals",
+	"t_divide_equals",
+	"t_bitwise_and_equals",
+	"t_bitwise_or_equals",
+	"t_bitwise_not_equals",
+	"t_bitwise_xor_equals",
+	"t_lshift_equals",
+	"t_rshift_equals",
 	// comparison operators
 	"t_lThan",
 	"t_gThan",
@@ -73,17 +83,18 @@ char *token_names[] = {
 	"t_equals",
 	"t_nEquals",
 	// logical operators
-	"t_and",
-	"t_or",
-	"t_not",
+	"t_logical_and",
+	"t_logical_or",
+	"t_logical_not",
 	// bitwise operators
-	"t_bit_not",
-	"t_xor",
+	"t_bitwise_and",
+	"t_bitwise_or",
+	"t_bitwise_not",
+	"t_bitwise_xor",
 	// ternary
 	"t_ternary",
 	// arithmetic-assign operators
 	// unary operators
-	"t_reference",
 	"t_star",
 	// assignment
 	"t_single_equals",
@@ -228,7 +239,7 @@ void trimWhitespace(char trackPos)
 	}
 }
 
-#define RESERVED_COUNT 45
+#define RESERVED_COUNT 57
 
 struct ReservedToken
 {
@@ -256,9 +267,19 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 	{"+", t_plus},
 	{"-", t_minus},
 	{"/", t_divide},
+	{"<<", t_lshift},
+	{">>", t_rshift},
 
 	{"+=", t_plus_equals},
 	{"-=", t_minus_equals},
+	{"*=", t_times_equals},
+	{"/=", t_divide_equals},
+	{"&=", t_bitwise_and_equals},
+	{"|=", t_bitwise_or_equals},
+	{"~=", t_bitwise_not_equals},
+	{"^=", t_bitwise_xor_equals},
+	{"<<=", t_lshift_equals},
+	{">>=", t_rshift_equals},
 
 	{"<", t_lThan},
 	{">", t_gThan},
@@ -267,16 +288,18 @@ struct ReservedToken reserved[RESERVED_COUNT] = {
 	{"==", t_equals},
 	{"!=", t_nEquals},
 
-	{"&&", t_and},
-	{"||", t_or},
-	{"!", t_not},
+	{"&&", t_logical_and},
+	{"||", t_logical_or},
+	{"!", t_logical_not},
 
-	{"~", t_bit_not},
-	{"^", t_xor},
+	{"&", t_bitwise_and},
+	{"|", t_bitwise_or},
+	{"~", t_bitwise_not},
+	{"^", t_bitwise_xor},
 
 	{"?", t_ternary},
 
-	{"&", t_reference},
+	{"&", t_bitwise_and},
 	{"*", t_star},
 
 	{"=", t_single_equals},
@@ -419,10 +442,16 @@ enum token _scan(char trackPos)
 				switch (reserved[i].token)
 				{
 				case t_single_equals:
-				case t_not:
-				case t_gThan:
-				case t_lThan:
+				case t_logical_not:
 				case t_plus:
+				case t_star:
+				case t_divide:
+				// not possible to hit bitwise and/or here as we need to check for the logical versions
+				case t_logical_and: 
+				case t_logical_or:
+				case t_bitwise_xor:
+				case t_lshift:
+				case t_rshift:
 					if (lookahead_char_dumb(1) == '=')
 					{
 						forceNextChar = 1;
@@ -448,8 +477,12 @@ enum token _scan(char trackPos)
 
 				break;
 
-				case t_reference:
-					if (lookahead_char_dumb(1) == '&')
+				// bitwise to logical (& to &&, < to <<) or to assignment/compare (& to &= or < to <=)
+				case t_bitwise_and:
+				case t_bitwise_or:
+				case t_lThan:
+				case t_gThan:
+					if ((lookahead_char_dumb(1) == buffer[buflen - 1]) || (lookahead_char_dumb(1) == '='))
 					{
 						forceNextChar = 1;
 					}
@@ -458,6 +491,18 @@ enum token _scan(char trackPos)
 						return reserved[i].token;
 					}
 					break;
+
+				{
+					char nextChar = lookahead_char_dumb(1);
+					if ((nextChar == '>') || (nextChar == '='))
+					{
+						forceNextChar = 1;
+					}
+					else
+					{
+						return reserved[i].token;
+					}
+				}
 
 				// for reserved keywords that are might look like identifiers
 				// make sure we don't greedily match the first part of an identifier as a keyword
@@ -504,7 +549,11 @@ enum token _scan(char trackPos)
 			// simple error checking for letters in literals
 			if (currentToken == t_constant && isalpha(inChar))
 			{
-				ErrorAndExit(ERROR_INTERNAL, "Error parsing literal - alphabetical character detected!\n");
+				struct AST fake;
+				fake.sourceFile = curFile;
+				fake.sourceLine = curLine;
+				fake.sourceCol = curCol;
+				ErrorWithAST(ERROR_INTERNAL, &fake, "Error parsing literal - alphabetical character detected!\n");
 			}
 		}
 
