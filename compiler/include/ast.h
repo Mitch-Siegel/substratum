@@ -7,8 +7,6 @@ enum token
 	p_type_name,
 	p_primary_expression,
 	p_wip_array_access,
-	p_unary_operator,
-	p_unary_expression,
 	p_expression_operator,
 	p_wip_expression,
 	p_expression,
@@ -60,9 +58,19 @@ enum token
 	t_plus,
 	t_minus,
 	t_divide,
+	t_lshift,
+	t_rshift,
 	// arithmetic assignment
 	t_plus_equals,
 	t_minus_equals,
+	t_times_equals,
+	t_divide_equals,
+	t_bitwise_and_equals,
+	t_bitwise_or_equals,
+	t_bitwise_not_equals,
+	t_bitwise_xor_equals,
+	t_lshift_equals,
+	t_rshift_equals,
 	// comparison operators
 	t_lThan,
 	t_gThan,
@@ -71,17 +79,17 @@ enum token
 	t_equals,
 	t_nEquals,
 	// logical operators
-	t_and,
-	t_or,
-	t_not,
+	t_logical_and,
+	t_logical_or,
+	t_logical_not,
 	// bitwise operators
-	t_bit_not,
-	t_xor,
+	t_bitwise_and,
+	t_bitwise_or,
+	t_bitwise_not,
+	t_bitwise_xor,
 	// ternary
 	t_ternary,
 	// arithmetic-assign operators
-	// unary operators
-	t_reference,
 	t_star,
 	// assignment
 	t_single_equals,
