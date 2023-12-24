@@ -110,6 +110,8 @@ enum token
 	t_EOF,
 };
 
+char *getTokenName(enum token t);
+
 struct AST
 {
 	char *value;
@@ -128,6 +130,10 @@ struct AST *AST_New(enum token t, char *value);
 void AST_InsertSibling(struct AST *it, struct AST *newSibling);
 
 void AST_InsertChild(struct AST *it, struct AST *newChild);
+
+struct AST *AST_ConstructAddSibling(struct AST *it, struct AST *newSibling);
+
+struct AST *AST_ConstructAddChild(struct AST *it, struct AST *newChild);
 
 void AST_Print(struct AST *it, int depth);
 

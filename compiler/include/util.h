@@ -36,6 +36,14 @@ struct Config
 
 extern char currentVerbosity;
 
+struct ParseProgress
+{
+	unsigned int curLine;
+	unsigned int curCol;
+	FILE *f;
+};
+
+
 /*
  * Dictionary for tracking strings
  * Economizes heap space by only storing strings once each

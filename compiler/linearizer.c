@@ -1,6 +1,8 @@
 #include "linearizer.h"
 #include "linearizer_generic.h"
 
+#include <ctype.h>
+
 /*
  * These functions walk the AST and convert it to three-address code
  */

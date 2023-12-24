@@ -1,0 +1,126 @@
+# This code is hereby placed in the public domain.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHORS ''AS IS'' AND ANY EXPRESS
+# OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+# BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+# OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+# EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# %prefix "parser"
+
+%value "ast_p_t"
+%auxil "struct ParseProgress *"
+
+%header {
+        #include "util.h"
+        #include "ast.h"
+        typedef struct AST * ast_p_t;
+}
+
+%source {
+#define PCC_ERROR(auxil) {ErrorAndExit(ERROR_INTERNAL, "SYNTAX_ERROR_UNKNOWN: %d:%d\n", auxil->curLine, auxil->curCol);}
+#define PCC_GETCHAR(auxil) ({int inChar = fgetc(auxil->f); if(inChar == '\n'){auxil->curLine++; auxil->curCol = 0;}else{auxil->curCol++;}; inChar;})
+char *dbgEventNames[3] = {"EVAL", "MATC", "NOMA"};
+#define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length) printf("PCC @ %d:%d - %s:%s\n", auxil->curLine, auxil->curCol, dbgEventNames[event], rule);
+#define AST_S(original, newrightmost) (AST_ConstructAddSibling(original, newrightmost))
+#define AST_C(parent, child) (AST_ConstructAddChild(parent, child))
+}
+
+translation_unit
+   <- tld:top_level_declaration _
+    { 
+        $$ = tld;
+    }
+   / tu:translation_unit _ tld:top_level_declaration
+   {
+        $$ = AST_S(tu, tld);
+   }
+   / _ eof
+   {
+        $$ = AST_New(t_EOF, $0);
+   }
+
+top_level_declaration
+   <- v:variable_declaration _ kw_semicolon 
+    {
+        $$ = v;
+    }
+
+variable_declaration
+   <- t:type_name _ i:identifier
+    {
+        $$ = AST_S(t, i);
+    }
+
+type_name
+   <- kw_u8 
+    {
+        $$ = AST_New(t_u8, $0);
+    }
+    / kw_u16 
+    {
+        $$ = AST_New(t_u16, $0);
+    }
+    / kw_u32 
+    {
+        $$ = AST_New(t_u32, $0);
+    }
+
+identifier
+   <- !keyword L(L/D)*
+    {
+        $$ = AST_New(t_identifier, $0);
+    }
+
+# integer
+#		<- '0'[xX]X+
+#		 {
+#				 $$ = match(t_constant)
+#		 }
+#		 / !'0' D+
+#		 {
+#				 $$ = match(t_constant)
+#		 }
+
+keyword
+   <- kw_fun
+    / kw_void
+    / kw_u8
+    / kw_u16
+    / kw_u32
+    / kw_if
+    / kw_else
+    / kw_semicolon
+
+kw_fun		  <- 'fun'   !(L/D)
+kw_void		  <- 'void'  !(L/D)
+kw_u8		  <- 'u8'	 !(L/D)
+kw_u16		  <- 'u16'   !(L/D)
+kw_u32		  <- 'u32'   !(L/D)
+kw_if		  <- 'if'	 !(L/D)
+kw_else		  <- 'else'  !(L/D)
+kw_semicolon  <- ';'
+
+# O <- [0-7]
+D <- [0-9]
+# X <- [0-9a-fA-F]
+L <- [a-zA-Z_]
+
+_ <- ( space / comment )*
+comment
+   <- '/*' ( !'*/' . )* '*/'
+    ## error handling ##
+    / '/*' ( !'*/' . )*
+    {
+        ErrorAndExit(ERROR_CODE, "Unclosed comment block!");
+    }
+space <- blank / eol
+blank <- [ \t\v\f]
+eol <- '\r\n' / '\n' / '\r'
+eof <- !.

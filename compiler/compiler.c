@@ -144,12 +144,35 @@ int main(int argc, char **argv)
 	currentVerbosity = config.stageVerbosities[STAGE_PARSE];
 
 	parseDict = Dictionary_New(10);
-	struct AST *program = ParseProgram("/tmp/auto.capp", parseDict);
+
+	struct AST *program = NULL;
+
+	struct ParseProgress p;
+	memset(&p, 0, sizeof(struct ParseProgress));
+	p.curLine = 1;
+
+	p.f = fopen(inFileName, "rb");
+	if (p.f == NULL)
+	{
+		ErrorAndExit(ERROR_CODE, "Unable to open input file %s!\n", inFileName);
+	}
+
+	pcc_context_t *parseContext = pcc_create(&p);
+
+
+	while (pcc_parse(parseContext, &program))
+	{
+	}
+
+	fclose(p.f);
+
+	// struct AST *program = ParseProgram("/tmp/auto.capp", parseDict);
 
 	// serializeAST("astdump", program);
 	// printf("\n");
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
+		printf("Here's the AST we parsed:\n");
 		AST_Print(program, 0);
 	}
 

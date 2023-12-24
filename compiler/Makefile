@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -g -Werror -Wall -Wno-enum-conversion -Wno-void-pointer-to-enum-cast -Wno-deprecated-declarations -fsanitize=address
-programs: cacc cald capp
+programs: parser cacc cald capp 
 
 OBJDIR = build
 CACC_SRCS = $(basename $(wildcard *.c))
@@ -16,6 +16,10 @@ $(OBJDIR)/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) -c $(CFLAGS) -o $@ $< -I ./include
 
+$(OBJDIR)/parser.o : parser.c
+	@mkdir -p $(@D)
+	$(CC) -c $(CFLAGS) -o $@ $< -I ./include -Wno-discarded-qualifiers
+
 cacc: $(addprefix $(OBJDIR)/,$(CACC_OBJS))
 	$(CC) $(CFLAGS) -o $@ $^
 
@@ -24,6 +28,10 @@ cald:$(addprefix $(OBJDIR)/,$(CALD_OBJS))
 
 capp:$(addprefix $(OBJDIR)/,$(CAPP_OBJS))
 	$(CC) $(CFLAGS) -o $@ $^ -I ./include
+
+parser: parser.peg
+	packcc -a parser.peg
+	mv parser.h ./include
 
 recipes:
 	rm -f parser.o
