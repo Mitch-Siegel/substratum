@@ -43,7 +43,13 @@ struct ParseProgress
 	char *curFile;
 	FILE *f;
 	struct Dictionary *dict;
+	struct LinkedList *charsRemainingPerLine;
+	int lastMatchLocation;
 };
+
+void trackCharacter(struct LinkedList *charsPerLine, int c);
+
+void manageSourceLocation(char *matchedString, int charsConsumed, struct LinkedList *charsPerLine, unsigned int *curLineP, unsigned int *curColP);
 
 
 /*

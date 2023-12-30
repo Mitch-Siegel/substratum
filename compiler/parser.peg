@@ -39,7 +39,7 @@ translation_unit
    <- _ f:function_declaration _ ';' { $$ = f; }
     / _ f:function_definition        { $$ = f; }
     / _ sl: statement_list           { $$ = sl; }
-    / _ eof                          { $$ = AST_N(auxil, t_EOF, ""); }
+    / _ eof                          { $$ = AST_N(auxil, t_EOF, "", $0s); }
 
 variable_declaration
    <- t:type_name _ i:identifier  { $$ = AST_C(t, i); }
@@ -65,10 +65,10 @@ primary_expression
     / '(' _ e:expression _ ')' { $$ = e; }
 
 postfix_expression
-   <- p:postfix_expression _ '[' _ i:expression _ ']'      { $$ = AST_C(AST_N(auxil, t_array_index, "["), AST_S(p, i)); }
-    / i:identifier _ '(' _ ')'                             { $$ = AST_C(AST_N(auxil, t_function_call, "("), i); }
-    / i:identifier _ '(' _ a:argument_expression_list ')'  { $$ = AST_C(AST_N(auxil, t_function_call, "("), i); }
-    / p:postfix_expression _ '.' _ i:identifier            { $$ = AST_C(AST_N(auxil, t_dot, "."), AST_S(p, i)); }
+   <- p:postfix_expression _ '[' _ i:expression _ ']'      { $$ = AST_C(AST_N(auxil, t_array_index, "", $0s), AST_S(p, i)); }
+    / i:identifier _ '(' _ ')'                             { $$ = AST_C(AST_N(auxil, t_function_call, "", $0s), i); }
+    / i:identifier _ '(' _ a:argument_expression_list ')'  { $$ = AST_C(AST_N(auxil, t_function_call, "", $0s), AST_S(i, a)); }
+    / p:postfix_expression _ '.' _ i:identifier            { $$ = AST_C(AST_N(auxil, t_dot, "", $0s), AST_S(p, i)); }
     / p:postfix_expression _ a:arrow _ i:identifier        { $$ = AST_C(a, AST_S(p, i)); }
     / p:primary_expression                                 { $$ = p; }
 
@@ -81,24 +81,24 @@ unary_expression
     / p:postfix_expression                  { $$ = p; }
 
 unary_operator
-   <- '&' !('&')  { $$ = AST_N(auxil, t_address_of, "&"); }
-    / '*'         { $$ = AST_N(auxil, t_dereference, "*"); }
-    / '~'         { $$ = AST_N(auxil, t_bitwise_not, "~"); }
-    / '!' !('=')  { $$ = AST_N(auxil, t_logical_not, "!"); }
+   <- '&' !('&')  { $$ = AST_N(auxil, t_address_of, "", $0s); }
+    / '*'         { $$ = AST_N(auxil, t_dereference, "", $0s); }
+    / '~'         { $$ = AST_N(auxil, t_bitwise_not, "", $0s); }
+    / '!' !('=')  { $$ = AST_N(auxil, t_logical_not, "", $0s); }
 
 cast_expression
-   <- '(' _ t:type_name _ ')' _ c:cast_expression  { $$ = AST_C(AST_N(auxil, t_cast, ")"), AST_S(t, c)); }
+   <- '(' _ t:type_name _ ')' _ c:cast_expression  { $$ = AST_C(AST_N(auxil, t_cast, "", $0s), AST_S(t, c)); }
     / u:unary_expression                           { $$ = u; }
 
 multiplicative_expression
-   <- m:multiplicative_expression _ '*' _ c:cast_expression  { $$ = AST_C(AST_N(auxil, t_multiply, "*"), AST_S(m, c)); }
-    / m:multiplicative_expression _ '/' _ c:cast_expression  { $$ = AST_C(AST_N(auxil, t_divide, "/"), AST_S(m, c)); }
-    / m:multiplicative_expression _ '%' _ c:cast_expression  { $$ = AST_C(AST_N(auxil, t_modulo, "%"), AST_S(m, c)); }
+   <- m:multiplicative_expression _ '*' _ c:cast_expression  { $$ = AST_C(AST_N(auxil, t_multiply, "", $0s), AST_S(m, c)); }
+    / m:multiplicative_expression _ '/' _ c:cast_expression  { $$ = AST_C(AST_N(auxil, t_divide, "", $0s), AST_S(m, c)); }
+    / m:multiplicative_expression _ '%' _ c:cast_expression  { $$ = AST_C(AST_N(auxil, t_modulo, "", $0s), AST_S(m, c)); }
     / c:cast_expression                                      { $$ = c; }
 
 additive_expression
-   <- a:additive_expression _ '+' _ m:multiplicative_expression  { $$ = AST_C(AST_N(auxil, t_add, "+"), AST_S(a, m)); }
-    / a:additive_expression _ '-' _ m:multiplicative_expression  { $$ = AST_C(AST_N(auxil, t_subtract, "-"), AST_S(a, m)); }
+   <- a:additive_expression _ '+' _ m:multiplicative_expression  { $$ = AST_C(AST_N(auxil, t_add, "", $0s), AST_S(a, m)); }
+    / a:additive_expression _ '-' _ m:multiplicative_expression  { $$ = AST_C(AST_N(auxil, t_subtract, "", $0s), AST_S(a, m)); }
     / m:multiplicative_expression                                { $$ = m; }
 
 shift_expression
@@ -107,8 +107,8 @@ shift_expression
     / a:additive_expression                                    { $$ = a; }
 
 relational_expression
-   <- r:relational_expression _ '<' _ s:shift_expression        { $$ = AST_C(AST_N(auxil, t_greater_than, ">"), AST_S(r, s)); }
-    / r:relational_expression _ '>' _ s:shift_expression        { $$ = AST_C(AST_N(auxil, t_less_than, ">"), AST_S(r, s)); }
+   <- r:relational_expression _ '<' _ s:shift_expression        { $$ = AST_C(AST_N(auxil, t_greater_than, "", $0s), AST_S(r, s)); }
+    / r:relational_expression _ '>' _ s:shift_expression        { $$ = AST_C(AST_N(auxil, t_less_than, "", $0s), AST_S(r, s)); }
     / r:relational_expression _ lte:le_op _ s:shift_expression  { $$ = AST_C(lte, AST_S(r, s)); }
     / r:relational_expression _ gte:ge_op _ s:shift_expression  { $$ = AST_C(gte, AST_S(r, s)); }
     / s:shift_expression                                        { $$ = s; }
@@ -119,15 +119,15 @@ equality_expression
     / r:relational_expression                                    { $$ = r; }
 
 and_expression
-   <- a:and_expression _ '&' _ e:equality_expression  { $$ = AST_C(AST_N(auxil, t_bitwise_and, "&"), AST_S(a, e)); }
+   <- a:and_expression _ '&' _ e:equality_expression  { $$ = AST_C(AST_N(auxil, t_bitwise_and, "", $0s), AST_S(a, e)); }
     / e:equality_expression                          { $$ = e; }
 
 exclusive_or_expression
-   <- e:exclusive_or_expression _ '^' _ a:and_expression  { $$ = AST_C(AST_N(auxil, t_bitwise_xor, "^"), AST_S(e, a)); }
+   <- e:exclusive_or_expression _ '^' _ a:and_expression  { $$ = AST_C(AST_N(auxil, t_bitwise_xor, "", $0s), AST_S(e, a)); }
     / a:and_expression                                   { $$ = a; }
 
 inclusive_or_expression
-   <- i:inclusive_or_expression _ '|' _ e:exclusive_or_expression  { $$ = AST_C(AST_N(auxil, t_bitwise_or, "|"), AST_S(i, e)); }
+   <- i:inclusive_or_expression _ '|' _ e:exclusive_or_expression  { $$ = AST_C(AST_N(auxil, t_bitwise_or, "", $0s), AST_S(i, e)); }
     / e:exclusive_or_expression                                   { $$ = e; }
 
 logical_and_expression
@@ -146,30 +146,30 @@ assignment_expression
     / c:conditional_expression                                                { $$ = c; }
 
 assignment_operator
-   <- '='   { $$ = AST_N(auxil, t_assign, $0); }
-    / '+='  { $$ = AST_N(auxil, t_plus_equals, $0); }
-    / '-='  { $$ = AST_N(auxil, t_minus_equals, $0); }
-    / '*='  { $$ = AST_N(auxil, t_times_equals, $0); }
-    / '/='  { $$ = AST_N(auxil, t_divide_equals, $0); }
-    / '%='  { $$ = AST_N(auxil, t_modulo_equals, $0); }
-    / '&='  { $$ = AST_N(auxil, t_bitwise_and_equals, $0); }
-    / '|='  { $$ = AST_N(auxil, t_bitwise_or_equals, $0); }
-    / '^='  { $$ = AST_N(auxil, t_bitwise_xor_equals, $0); }
-    / '<<=' { $$ = AST_N(auxil, t_lshift_equals, $0); }
-    / '>>=' { $$ = AST_N(auxil, t_rshift_equals, $0); }
+   <- '='   { $$ = AST_N(auxil, t_assign, $0, $0s); }
+    / '+='  { $$ = AST_N(auxil, t_plus_equals, $0, $0s); }
+    / '-='  { $$ = AST_N(auxil, t_minus_equals, $0, $0s); }
+    / '*='  { $$ = AST_N(auxil, t_times_equals, $0, $0s); }
+    / '/='  { $$ = AST_N(auxil, t_divide_equals, $0, $0s); }
+    / '%='  { $$ = AST_N(auxil, t_modulo_equals, $0, $0s); }
+    / '&='  { $$ = AST_N(auxil, t_bitwise_and_equals, $0, $0s); }
+    / '|='  { $$ = AST_N(auxil, t_bitwise_or_equals, $0, $0s); }
+    / '^='  { $$ = AST_N(auxil, t_bitwise_xor_equals, $0, $0s); }
+    / '<<=' { $$ = AST_N(auxil, t_lshift_equals, $0, $0s); }
+    / '>>=' { $$ = AST_N(auxil, t_rshift_equals, $0, $0s); }
 
 expression
    <- a:assignment_expression  { $$ = a; }
 
 compound_statement
-   <- '{' _ '}'                     { $$ = AST_N(auxil, t_compound_statement, "{"); }
-    / '{' _ sl:statement_list _ '}' { $$ = AST_C(AST_N(auxil, t_compound_statement, "{"), sl); }
+   <- '{' _ '}'                     { $$ = AST_N(auxil, t_compound_statement, "", $0s); }
+    / '{' _ sl:statement_list _ '}' { $$ = AST_C(AST_N(auxil, t_compound_statement, "", $0s), sl); }
 
 statement
    <- c:compound_statement                                                           { $$ = c; }
     / ';'                                                                            { $$ = NULL; }
     / v:variable_declaration ';'                                                     { $$ = v; }
-    / v:variable_declaration _ '=' _ e:expression _ ';'                              { $$ = AST_C(AST_N(auxil, t_assign, "="), AST_S(v, e)); }
+    / v:variable_declaration _ '=' _ e:expression _ ';'                              { $$ = AST_C(AST_N(auxil, t_assign, "", $0s), AST_S(v, e)); }
     / e:expression _ ';'                                                             { $$ = e; }
     / if:if _ '(' _ e:expression _ ')' _ s:statement                                 { $$ = AST_C(if, AST_S(e, s)); }
     / if:if _ '(' _ e:expression _ ')' _ ifs:statement _ else:else _ elses:statement { $$ = AST_C(if, AST_S(e, AST_S(ifs, elses))); }
@@ -180,8 +180,8 @@ statement_list
     / s:statement                      { $$ = s; }
 
 type_name
-   <- t:non_pointer_typename _ '*'  { $$ = AST_S(t, AST_N(auxil, t_dereference, "*")); }
-    / t:type_name _ '*'             { $$ = AST_S(t, AST_N(auxil, t_dereference, "*")); }
+   <- t:non_pointer_typename _ '*'  { $$ = AST_S(t, AST_N(auxil, t_dereference, "", $0s)); }
+    / t:type_name _ '*'             { $$ = AST_S(t, AST_N(auxil, t_dereference, "", $0s)); }
     / n:non_pointer_typename       { $$ = n; }
 
 non_pointer_typename
@@ -192,7 +192,7 @@ non_pointer_typename
     / c:class _ i:identifier  { $$ = AST_C(c, i); }
 
 identifier
-   <- !keyword LETTER(LETTER/DIGIT)*  { $$ = AST_N(auxil, t_identifier, $0); }
+   <- !keyword LETTER(LETTER/DIGIT)*  { $$ = AST_N(auxil, t_identifier, $0, $0s); }
 
 # integer
 #		<- '0'[xX]X+
@@ -234,25 +234,25 @@ kw_ne_op       <- '!='
 kw_and_op      <- '&&'
 kw_or_op       <- '||'
 
-fun   <- kw_fun      { $$ = AST_N(auxil, t_fun, ""); }
-class <- kw_class  { $$ = AST_N(auxil, t_class, ""); }
-void  <- kw_void    { $$ = AST_N(auxil, t_void, ""); }
-u8    <- kw_u8        { $$ = AST_N(auxil, t_u8, ""); }
-u16   <- kw_u16      { $$ = AST_N(auxil, t_u16, ""); }
-u32   <- kw_u32      { $$ = AST_N(auxil, t_u32, ""); }
-if    <- kw_if        { $$ = AST_N(auxil, t_if, ""); }
-else  <- kw_else    { $$ = AST_N(auxil, t_else, ""); }
-while <- kw_while  { $$ = AST_N(auxil, t_while, ""); }
+fun   <- kw_fun      { $$ = AST_N(auxil, t_fun, $0, $0s); }
+class <- kw_class  { $$ = AST_N(auxil, t_class, $0, $0s); }
+void  <- kw_void    { $$ = AST_N(auxil, t_void, $0, $0s); }
+u8    <- kw_u8        { $$ = AST_N(auxil, t_u8, $0, $0s); }
+u16   <- kw_u16      { $$ = AST_N(auxil, t_u16, $0, $0s); }
+u32   <- kw_u32      { $$ = AST_N(auxil, t_u32, $0, $0s); }
+if    <- kw_if        { $$ = AST_N(auxil, t_if, $0, $0s); }
+else  <- kw_else    { $$ = AST_N(auxil, t_else, $0, $0s); }
+while <- kw_while  { $$ = AST_N(auxil, t_while, $0, $0s); }
 
-arrow         <- kw_arrow        { $$ = AST_N(auxil, t_arrow, ""); }
-left_op       <- kw_left_op   { $$ = AST_N(auxil, t_lshift, ""); }
-right_op      <- kw_right_op  { $$ = AST_N(auxil, t_rshift, ""); }
-le_op         <- kw_le_op     { $$ = AST_N(auxil, t_less_than_equals, ""); }
-ge_op         <- kw_ge_op     { $$ = AST_N(auxil, t_greater_than_equals, ""); }
-eq_op         <- kw_eq_op     { $$ = AST_N(auxil, t_equals, ""); }
-ne_op         <- kw_ne_op     { $$ = AST_N(auxil, t_not_equals, ""); }
-and_op        <- kw_and_op    { $$ = AST_N(auxil, t_logical_and, ""); }
-or_op         <- kw_or_op     { $$ = AST_N(auxil, t_logical_or, ""); }
+arrow         <- kw_arrow        { $$ = AST_N(auxil, t_arrow, $0, $0s); }
+left_op       <- kw_left_op   { $$ = AST_N(auxil, t_lshift, $0, $0s); }
+right_op      <- kw_right_op  { $$ = AST_N(auxil, t_rshift, $0, $0s); }
+le_op         <- kw_le_op     { $$ = AST_N(auxil, t_less_than_equals, $0, $0s); }
+ge_op         <- kw_ge_op     { $$ = AST_N(auxil, t_greater_than_equals, $0, $0s); }
+eq_op         <- kw_eq_op     { $$ = AST_N(auxil, t_equals, $0, $0s); }
+ne_op         <- kw_ne_op     { $$ = AST_N(auxil, t_not_equals, $0, $0s); }
+and_op        <- kw_and_op    { $$ = AST_N(auxil, t_logical_and, $0, $0s); }
+or_op         <- kw_or_op     { $$ = AST_N(auxil, t_logical_or, $0, $0s); }
 
 
 # O <- [0-7]
@@ -261,7 +261,7 @@ DIGIT <- [0-9]
 LETTER <- [a-zA-Z_]
 
 constant
-   <- DIGIT+  { $$ = AST_N(auxil, t_constant, $0); }
+   <- DIGIT+  { $$ = AST_N(auxil, t_constant, $0, $0s); }
 
 string_literal
    <- '"' 'abcd' '"'

@@ -152,6 +152,10 @@ int main(int argc, char **argv)
 	p.curLine = 1;
 	p.curCol = 1;
 	p.curFile = "FILE";
+	p.charsRemainingPerLine = LinkedList_New();
+	int *lineZeroChars = malloc(sizeof(int));
+	*lineZeroChars = 0;
+	LinkedList_Append(p.charsRemainingPerLine, lineZeroChars);
 
 	p.f = fopen(inFileName, "rb");
 	if (p.f == NULL)
@@ -171,6 +175,7 @@ int main(int argc, char **argv)
 	pcc_destroy(parseContext);
 
 	fclose(p.f);
+	LinkedList_Free(p.charsRemainingPerLine, free);
 
 	// struct AST *program = ParseProgram("/tmp/auto.capp", parseDict);
 
