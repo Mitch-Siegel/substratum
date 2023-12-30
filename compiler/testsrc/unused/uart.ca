@@ -1,0 +1,26 @@
+#include "uart.h"
+
+fun uart_init(->void)
+{
+    u8 *uart0 = 268435456;
+    *(uart0 + 1) = 0; // disable interrupts
+    *(uart0 + 3) = (1 << 7); // special mode to set baud rate
+    *(uart0) = 3; // lsb for baud rate of 38.4k
+    *(uart0 + 1) = 0; // msb for baud rate of 38.4k
+    *(uart0 + 3) = 3; // set word length to 8 bits, no parity
+    *(uart0 + 2) = 7; // reset, enable FIFOs
+    *(uart0 + 1) = 3; // enable transmit and receive interrupts
+
+
+}
+
+fun uart_putc(u8 c->void)
+{
+    u8 *uart0 = 268435456;
+    // 
+    while (((*(uart0 + 5)) & (1 << 5)) == 0)
+    {
+    }
+
+    *(uart0) = c;
+}

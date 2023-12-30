@@ -1,61 +1,18 @@
-#include "print.h"
-#include "uart.h"
+//#include "print.h"
+//#include "uart.h"
 
-class B
+void fun uart_putc(u8 c)
 {
-	u8 value1;
-	u16 value2;
-};
+    u8 *uart0 = 268435456;
+    // 
+    while (((*(uart0 + 5)) & (1 << 5)) == 0)
+    {
+    }
 
-class A
-{
-	class B *bp;
-	class B b;
-};
-
-fun arrayTest(->void)
-{
-	u8 array[12];
-	array[3] = 44;
-	printNum(array[3]);
+    *(uart0) = c;
 }
 
-fun whatBitwise(u8 c->void)
+void fun main()
 {
-	print(c);
-	print(':');
-}
-
-fun main(->void)
-{
-	uart_init();
-	
-	class A a;
-
-	a.bp = &(a.b);
-
-	a.b.value2 = 1235;
-	a.bp->value2 = 1234;
-	printNum(a.b.value2);
-	printNum(a.bp->value2);
-
-	arrayTest();
-	whatBitwise('L');
-	printNum(1 << 7);
-	whatBitwise('R');
-	printNum(7 >> 1);
-	whatBitwise('|');
-	printNum(3 | 5);
-	whatBitwise('^');
-	printNum(3 ^ 5);
-	whatBitwise('~');
-	u8 i = 0;
-	u8 toNot = 127;
-	toNot = toNot << 8;
-	toNot += 127;
-	toNot = toNot << 8;
-	toNot += 127;
-	toNot = toNot << 8;
-	printNum(~toNot);
-
+	uart_putc(65);
 }

@@ -150,6 +150,8 @@ int main(int argc, char **argv)
 	struct ParseProgress p;
 	memset(&p, 0, sizeof(struct ParseProgress));
 	p.curLine = 1;
+	p.curCol = 1;
+	p.curFile = "FILE";
 
 	p.f = fopen(inFileName, "rb");
 	if (p.f == NULL)

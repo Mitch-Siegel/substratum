@@ -190,15 +190,10 @@ void walkFunctionDeclaration(struct AST *tree,
 	}
 
 	// skip past the argumnent declarations to the return type declaration
-	struct AST *returnTypeRunner = tree->child;
-	while (returnTypeRunner->type != t_arrow)
-	{
-		returnTypeRunner = returnTypeRunner->sibling;
-	}
-	returnTypeRunner = returnTypeRunner->sibling;
+	struct AST *returnTypeTree = tree->child;
 
 	enum basicTypes returnBasicType;
-	switch (returnTypeRunner->type)
+	switch (returnTypeTree->type)
 	{
 	case t_void:
 		returnBasicType = vt_null;
@@ -219,10 +214,10 @@ void walkFunctionDeclaration(struct AST *tree,
 	default:
 		ErrorAndExit(ERROR_INTERNAL, "Malformed AST as return type for function\n");
 	}
-	int returnIndirectionLevel = scrapePointers(returnTypeRunner->child, &returnTypeRunner);
+	int returnIndirectionLevel = scrapePointers(returnTypeTree->child, &returnTypeTree);
 
 	// child is the lparen, function name is the child of the lparen
-	struct AST *functionNameTree = tree->child->child;
+	struct AST *functionNameTree = tree->child->sibling;
 	struct ScopeMember *lookedUpFunction = Scope_lookup(scope, functionNameTree->value);
 	struct FunctionEntry *parsedFunc = NULL;
 	struct FunctionEntry *existingFunc = NULL;
@@ -244,11 +239,11 @@ void walkFunctionDeclaration(struct AST *tree,
 		parsedFunc->mainScope->parentScope = scope;
 	}
 
-	struct AST *argumentRunner = tree->child->sibling;
+	struct AST *argumentRunner = tree->child->sibling->sibling;
 	int TACIndex = 0;
 	int tempNum = 0;
 	struct BasicBlock *block = BasicBlock_new(0);
-	while (argumentRunner->type != t_arrow)
+	while (argumentRunner->type != t_compound_statement)
 	{
 		switch (argumentRunner->type)
 		{
@@ -355,7 +350,7 @@ void walkFunctionDeclaration(struct AST *tree,
 	// free the basic block we used to walk declarations of arguments
 	BasicBlock_free(block);
 
-	struct AST *definition = argumentRunner->sibling->sibling;
+	struct AST *definition = argumentRunner->sibling;
 	if (definition != NULL)
 	{
 
