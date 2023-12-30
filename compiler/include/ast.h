@@ -4,34 +4,6 @@
 
 enum token
 {
-	p_type_name,
-	p_primary_expression,
-	p_wip_array_access,
-	p_expression_operator,
-	p_wip_expression,
-	p_expression,
-	p_expression_tail,
-	p_function_opener,
-	p_function_call,
-	p_expression_list,
-	p_wip_array_declaration,
-	p_variable_declaration,
-	p_declaration_list,
-	p_variable_declaration_statement,
-	p_assignment_statement,
-	p_return_statement,
-	p_if_awating_else,
-	p_if_else,
-	p_if,
-	p_statement,
-	p_statement_list,
-	p_while,
-	p_scope,
-	p_function_declaration,
-	p_function_definition,
-	p_translation_unit,
-	p_null,
-	// begin tokens
 	t_identifier,
 	t_constant,
 	t_char_literal,
@@ -44,6 +16,9 @@ enum token
 	t_u16,
 	t_u32,
 	t_class,
+	//
+	t_compound_statement,
+	//
 	// function
 	t_fun,
 	t_return,
@@ -53,11 +28,16 @@ enum token
 	t_while,
 	t_for,
 	t_do,
+	//
+	t_array_index,
+	t_function_call,
 	// arithmetic operators
 	// basic arithmetic
-	t_plus,
-	t_minus,
+	t_add,
+	t_subtract,
+	t_multiply,
 	t_divide,
+	t_modulo,
 	t_lshift,
 	t_rshift,
 	// arithmetic assignment
@@ -72,12 +52,12 @@ enum token
 	t_lshift_equals,
 	t_rshift_equals,
 	// comparison operators
-	t_lThan,
-	t_gThan,
-	t_lThanE,
-	t_gThanE,
+	t_less_than,
+	t_greater_than,
+	t_less_than_equals,
+	t_greater_than_equals,
 	t_equals,
-	t_nEquals,
+	t_not_equals,
 	// logical operators
 	t_logical_and,
 	t_logical_or,
@@ -89,22 +69,23 @@ enum token
 	t_bitwise_xor,
 	// ternary
 	t_ternary,
-	// arithmetic-assign operators
-	t_star,
+	// memory operators
+	t_dereference,
 	// assignment
-	t_single_equals,
+	t_assign,
 	//
+	t_cast,
 	t_comma,
 	t_dot,
 	t_arrow,
 	t_semicolon,
 	t_colon,
-	t_lParen,
-	t_rParen,
-	t_lCurly,
-	t_rCurly,
-	t_lBracket,
-	t_rBracket,
+	t_left_paren,
+	t_right_paren,
+	t_left_curly,
+	t_right_curly,
+	t_left_bracket,
+	t_right_bracket,
 	t_file,
 	t_line,
 	t_EOF,

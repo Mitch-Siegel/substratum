@@ -32,19 +32,19 @@ struct SymbolTable *walkProgram(struct AST *program)
 
 		case t_class:
 		{
-			if (programRunner->child->sibling->type == t_lCurly)
+			if (programRunner->child->sibling->type == t_compound_statement)
 			{
 				walkClassDeclaration(programRunner, globalBlock, programTable->globalScope);
 				break;
 			}
-			else
+			else // TODO: disallow bad sibling types?
 			{
 				walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
 			}
 		}
 		break;
 
-		case t_single_equals:
+		case t_assign:
 			walkAssignment(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum);
 			break;
 
@@ -135,7 +135,7 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	}
 
 	// if we are declaring an array, set the string with the size as the second operand
-	if (declaredTree->type == t_lBracket)
+	if (declaredTree->type == t_array_index)
 	{
 		declaredTree = declaredTree->child;
 		char *arraySizeString = declaredTree->sibling->value;
@@ -411,7 +411,7 @@ void walkFunctionDefinition(struct AST *tree,
 		printf("walkFunctionDefinition: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
 
-	if ((tree->type != t_lCurly) && (tree->type != t_asm))
+	if ((tree->type != t_compound_statement) && (tree->type != t_asm))
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionDefinition!\n", getTokenName(tree->type));
 	}
@@ -422,7 +422,7 @@ void walkFunctionDefinition(struct AST *tree,
 	struct BasicBlock *block = BasicBlock_new(0);
 	Scope_addBasicBlock(fun->mainScope, block);
 
-	if (tree->type == t_lCurly)
+	if (tree->type == t_compound_statement)
 	{
 		walkScope(tree, block, fun->mainScope, &TACIndex, &tempNum, &labelNum, -1);
 	}
@@ -452,13 +452,13 @@ void walkClassDeclaration(struct AST *tree,
 
 	struct AST *classScope = tree->child->sibling;
 
-	if (classScope->type != t_lCurly)
+	if (classScope->type != t_compound_statement)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Malformed AST seen in walkClassDefinition!\n");
 	}
 
 	struct AST *scopeRunner = classScope->child;
-	while ((scopeRunner != NULL) && (scopeRunner->type != t_rCurly))
+	while (scopeRunner != NULL)
 	{
 		switch (scopeRunner->type)
 		{
@@ -502,7 +502,7 @@ void walkStatement(struct AST *tree,
 		walkVariableDeclaration(tree, *blockP, scope, TACIndex, tempNum, 0);
 		break;
 
-	case t_single_equals:
+	case t_assign:
 		walkAssignment(tree, *blockP, scope, TACIndex, tempNum);
 		break;
 
@@ -529,12 +529,12 @@ void walkStatement(struct AST *tree,
 	}
 	break;
 
-	case t_lParen:
+	case t_function_call:
 		walkFunctionCall(tree, *blockP, scope, TACIndex, tempNum, NULL);
 		break;
 
 	// subscope
-	case t_lCurly:
+	case t_compound_statement:
 	{
 		struct Scope *subScope = Scope_createSubScope(scope);
 		struct BasicBlock *afterSubScopeBlock = BasicBlock_new((*labelNum)++);
@@ -562,9 +562,6 @@ void walkStatement(struct AST *tree,
 		walkAsmBlock(tree, *blockP, scope, TACIndex, tempNum);
 		break;
 
-	case t_rCurly:
-		break;
-
 	default:
 		ErrorWithAST(ERROR_INTERNAL, tree, "Unexpected AST type (%s - %s) seen in walkStatement!\n", getTokenName(tree->type), tree->value);
 	}
@@ -582,13 +579,13 @@ void walkScope(struct AST *tree,
 	{
 		printf("walkScope: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
-	if (tree->type != t_lCurly)
+	if (tree->type != t_compound_statement)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkScope!\n", getTokenName(tree->type));
 	}
 
 	struct AST *scopeRunner = tree->child;
-	while ((scopeRunner != NULL) && (scopeRunner->type != t_rCurly))
+	while (scopeRunner != NULL)
 	{
 		walkStatement(scopeRunner, &block, scope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 		scopeRunner = scopeRunner->sibling;
@@ -599,11 +596,6 @@ void walkScope(struct AST *tree,
 		struct TACLine *controlConvergeJmp = newTACLine((*TACIndex)++, tt_jmp, tree);
 		controlConvergeJmp->operands[0].name.val = controlConvergesToLabel;
 		BasicBlock_append(block, controlConvergeJmp);
-	}
-
-	if ((scopeRunner == NULL) || (scopeRunner->type != t_rCurly))
-	{
-		ErrorWithAST(ERROR_INTERNAL, tree, "Expected t_rCurly at end for scope\n");
 	}
 }
 
@@ -628,23 +620,23 @@ void walkConditionCheck(struct AST *tree,
 		condFalseJump->operation = tt_beq;
 		break;
 
-	case t_nEquals:
+	case t_not_equals:
 		condFalseJump->operation = tt_beq;
 		break;
 
-	case t_lThan:
+	case t_less_than:
 		condFalseJump->operation = tt_bgeu;
 		break;
 
-	case t_gThan:
+	case t_greater_than:
 		condFalseJump->operation = tt_bleu;
 		break;
 
-	case t_lThanE:
+	case t_less_than_equals:
 		condFalseJump->operation = tt_bgtu;
 		break;
 
-	case t_gThanE:
+	case t_greater_than_equals:
 		condFalseJump->operation = tt_bltu;
 		break;
 
@@ -663,11 +655,11 @@ void walkConditionCheck(struct AST *tree,
 	switch (tree->type)
 	{
 	case t_equals:
-	case t_nEquals:
-	case t_lThan:
-	case t_gThan:
-	case t_lThanE:
-	case t_gThanE:
+	case t_not_equals:
+	case t_less_than:
+	case t_greater_than:
+	case t_less_than_equals:
+	case t_greater_than_equals:
 		// standard operators (==, !=, <, >, <=, >=)
 		{
 			walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
@@ -739,7 +731,7 @@ void walkWhileLoop(struct AST *tree,
 	int endWhileLabel = (*labelNum)++;
 
 	struct AST *whileBody = tree->child->sibling;
-	if (whileBody->type == t_lCurly)
+	if (whileBody->type == t_compound_statement)
 	{
 		walkScope(whileBody, whileBlock, whileScope, TACIndex, tempNum, labelNum, endWhileLabel);
 	}
@@ -792,7 +784,7 @@ void walkIfStatement(struct AST *tree,
 		BasicBlock_append(block, enterIfJump);
 
 		struct AST *ifBody = tree->child->sibling;
-		if (ifBody->type == t_lCurly)
+		if (ifBody->type == t_compound_statement)
 		{
 			walkScope(ifBody, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 		}
@@ -806,7 +798,7 @@ void walkIfStatement(struct AST *tree,
 		Scope_addBasicBlock(scope, elseBlock);
 
 		struct AST *elseBody = tree->child->sibling->sibling;
-		if (elseBody->type == t_lCurly)
+		if (elseBody->type == t_compound_statement)
 		{
 			walkScope(elseBody, elseBlock, elseScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 		}
@@ -829,7 +821,7 @@ void walkIfStatement(struct AST *tree,
 		BasicBlock_append(block, enterIfJump);
 
 		struct AST *ifBody = tree->child->sibling;
-		if (ifBody->type == t_lCurly)
+		if (ifBody->type == t_compound_statement)
 		{
 			walkScope(ifBody, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 		}
@@ -1022,7 +1014,7 @@ void walkAssignment(struct AST *tree,
 		printf("walkAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
 
-	if (tree->type != t_single_equals)
+	if (tree->type != t_assign)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkAssignment!\n", getTokenName(tree->type));
 	}
@@ -1064,13 +1056,13 @@ void walkAssignment(struct AST *tree,
 		break;
 
 	// TODO: generate optimized addressing modes for arithmetic
-	case t_star:
+	case t_dereference:
 	{
 		struct AST *writtenPointer = lhs->child;
 		switch (writtenPointer->type)
 		{
-		case t_plus:
-		case t_minus:
+		case t_add:
+		case t_subtract:
 			walkPointerArithmetic(writtenPointer, block, scope, TACIndex, tempNum, &assignment->operands[0]);
 			break;
 
@@ -1083,7 +1075,7 @@ void walkAssignment(struct AST *tree,
 	}
 	break;
 
-	case t_lBracket:
+	case t_array_index:
 	{
 		struct AST *arrayBase = lhs->child;
 		struct AST *arrayIndex = lhs->child->sibling;
@@ -1164,12 +1156,12 @@ void walkArithmeticAssignment(struct AST *tree,
 	switch (tree->type)
 	{
 	case t_plus_equals:
-		fakeArith.type = t_plus;
+		fakeArith.type = t_add;
 		fakeArith.value = "+";
 		break;
 
 	case t_minus_equals:
-		fakeArith.type = t_minus;
+		fakeArith.type = t_subtract;
 		fakeArith.value = "-";
 		break;
 
@@ -1187,7 +1179,7 @@ void walkArithmeticAssignment(struct AST *tree,
 
 	struct AST fakeAssignment = *tree;
 	fakeAssignment.value = "=";
-	fakeAssignment.type = t_single_equals;
+	fakeAssignment.type = t_assign;
 
 	fakeAssignment.child = &fakelhs;
 
@@ -1273,7 +1265,7 @@ void walkSubExpression(struct AST *tree,
 		walkStringLiteral(tree, block, scope, destinationOperand);
 		break;
 
-	case t_lParen:
+	case t_function_call:
 		walkFunctionCall(tree, block, scope, TACIndex, tempNum, destinationOperand);
 		break;
 
@@ -1284,13 +1276,14 @@ void walkSubExpression(struct AST *tree,
 	}
 	break;
 
-	case t_plus:
-	case t_minus:
+	case t_add:
+	case t_subtract:
+	case t_multiply:
 	case t_divide:
-	case t_lThan:
-	case t_gThan:
-	case t_lThanE:
-	case t_gThanE:
+	case t_less_than:
+	case t_greater_than:
+	case t_less_than_equals:
+	case t_greater_than_equals:
 	case t_lshift:
 	case t_rshift:
 	case t_bitwise_or:
@@ -1309,27 +1302,17 @@ void walkSubExpression(struct AST *tree,
 	break;
 
 	// array reference
-	case t_lBracket:
+	case t_array_index:
 	{
 		struct TACOperand *arrayRefResult = walkArrayRef(tree, block, scope, TACIndex, tempNum);
 		*destinationOperand = *arrayRefResult;
 	}
 	break;
 
-	case t_star:
+	case t_dereference:
 	{
-		// '*' as dereference operator (*a)
-		if (tree->child->sibling == NULL)
-		{
-			struct TACOperand *dereferenceResult = walkDereference(tree, block, scope, TACIndex, tempNum);
-			*destinationOperand = *dereferenceResult;
-		}
-		// '*' as arithmetic operator (a * b)
-		else
-		{
-			struct TACOperand *expressionResult = walkExpression(tree, block, scope, TACIndex, tempNum);
-			*destinationOperand = *expressionResult;
-		}
+		struct TACOperand *dereferenceResult = walkDereference(tree, block, scope, TACIndex, tempNum);
+		*destinationOperand = *dereferenceResult;
 	}
 	break;
 
@@ -1368,7 +1351,7 @@ void walkFunctionCall(struct AST *tree,
 		printf("walkFunctionCall: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
 
-	if (tree->type != t_lParen)
+	if (tree->type != t_compound_statement)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionCall!\n", getTokenName(tree->type));
 	}
@@ -1382,15 +1365,10 @@ void walkFunctionCall(struct AST *tree,
 
 	struct Stack *argumentTrees = Stack_New();
 	struct AST *argumentRunner = tree->child->sibling;
-	while (argumentRunner != NULL && argumentRunner->type != t_rParen)
+	while (argumentRunner != NULL)
 	{
 		Stack_Push(argumentTrees, argumentRunner);
 		argumentRunner = argumentRunner->sibling;
-	}
-
-	if ((argumentRunner == NULL) || (argumentRunner->type != t_rParen))
-	{
-		ErrorWithAST(ERROR_INTERNAL, tree, "Expected t_rParen at end of arguments for function call %s\n", tree->child->value);
 	}
 
 	if (argumentTrees->size != calledFunction->arguments->size)
@@ -1644,12 +1622,12 @@ struct TACOperand *walkExpression(struct AST *tree,
 	switch (tree->type)
 	{
 	// basic arithmetic
-	case t_plus:
+	case t_add:
 		expression->reorderable = 1;
 		expression->operation = tt_add;
 		fallingThrough = 1;
 		// fall through, having set to plus and reorderable
-	case t_star:
+	case t_multiply:
 		if (!fallingThrough)
 		{
 			expression->reorderable = 1;
@@ -1713,7 +1691,7 @@ struct TACOperand *walkExpression(struct AST *tree,
 		}
 		// fall through
 
-	case t_minus:
+	case t_subtract:
 	{
 		walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &expression->operands[1]);
 
@@ -1773,7 +1751,7 @@ struct TACOperand *walkArrayRef(struct AST *tree,
 		printf("walkArrayRef: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
 
-	if (tree->type != t_lBracket)
+	if (tree->type != t_array_index)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkArrayRef!\n", getTokenName(tree->type));
 	}
@@ -1833,7 +1811,7 @@ struct TACOperand *walkDereference(struct AST *tree,
 		printf("walkDereference: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
 
-	if (tree->type != t_star)
+	if (tree->type != t_dereference)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDereference!\n", getTokenName(tree->type));
 	}
@@ -1842,8 +1820,8 @@ struct TACOperand *walkDereference(struct AST *tree,
 
 	switch (tree->child->type)
 	{
-	case t_plus:
-	case t_minus:
+	case t_add:
+	case t_subtract:
 	{
 		walkPointerArithmetic(tree->child, block, scope, TACIndex, tempNum, &dereference->operands[1]);
 	}
@@ -1900,7 +1878,7 @@ struct TACOperand *walkAddrOf(struct AST *tree,
 	}
 	break;
 
-	case t_lBracket:
+	case t_array_index:
 	{
 		struct AST *arrayBase = tree->child->child;
 		struct AST *arrayIndex = tree->child->child->sibling;
@@ -1981,7 +1959,7 @@ void walkPointerArithmetic(struct AST *tree,
 		printf("walkPointerArithmetic: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
 
-	if ((tree->type != t_plus) && (tree->type != t_minus))
+	if ((tree->type != t_add) && (tree->type != t_subtract))
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkPointerArithmetic!\n", getTokenName(tree->type));
 	}
@@ -1990,7 +1968,7 @@ void walkPointerArithmetic(struct AST *tree,
 	struct AST *pointerArithRHS = tree->child->sibling;
 
 	struct TACLine *pointerArithmetic = newTACLine(*TACIndex, tt_add, tree->child);
-	if (tree->type == t_minus)
+	if (tree->type == t_subtract)
 	{
 		pointerArithmetic->operation = tt_subtract;
 	}

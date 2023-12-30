@@ -41,6 +41,7 @@ struct ParseProgress
 	unsigned int curLine;
 	unsigned int curCol;
 	FILE *f;
+	struct Dictionary *dict;
 };
 
 

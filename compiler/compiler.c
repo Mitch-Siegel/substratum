@@ -157,12 +157,16 @@ int main(int argc, char **argv)
 		ErrorAndExit(ERROR_CODE, "Unable to open input file %s!\n", inFileName);
 	}
 
+	p.dict = parseDict;
+
 	pcc_context_t *parseContext = pcc_create(&p);
 
 
 	while (pcc_parse(parseContext, &program))
 	{
 	}
+
+	pcc_destroy(parseContext);
 
 	fclose(p.f);
 
