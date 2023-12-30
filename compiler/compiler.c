@@ -176,7 +176,7 @@ int main(int argc, char **argv)
 	// printf("\n");
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
-		printf("Here's the AST we parsed:\n");
+		printf("Here's the AST we parsed: %p\n", program);
 		AST_Print(program, 0);
 	}
 

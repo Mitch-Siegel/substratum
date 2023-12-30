@@ -7,111 +7,76 @@ int curLine;
 int curCol;
 char *curFile;
 char *token_names[] = {
-	"p_type_name",
-	"p_primary_expression",
-	"p_wip_array_access",
-	"p_expression_operator",
-	"p_wip_expression",
-	"p_expression",
-	"p_expression_tail",
-	"p_function_opener",
-	"p_function_call",
-	"p_expression_list",
-	"p_wip_array_declaration",
-	"p_variable_declaration",
-	"p_declaration_list",
-	"p_variable_declaration_statement",
-	"p_assignment_statement",
-	"p_return_statement",
-	"p_if_awating_else",
-	"p_if_else",
-	"p_if",
-	"p_statement",
-	"p_statement_list",
-	"p_while",
-	"p_scope",
-	"p_function_declaration",
-	"p_function_definition",
-	"p_translation_unit",
-	"p_null",
-	// begin tokens
 	"t_identifier",
 	"t_constant",
 	"t_char_literal",
 	"t_string_literal",
-	// t_sizeof,
 	"t_asm",
-	// types
 	"t_void",
 	"t_u8",
 	"t_u16",
 	"t_u32",
 	"t_class",
-	// function
+	"t_compound_statement",
 	"t_fun",
 	"t_return",
-	// control flow
 	"t_if",
 	"t_else",
 	"t_while",
 	"t_for",
 	"t_do",
-	// arithmetic operators
-	// basic arithmetic
-	"t_plus",
-	"t_minus",
+	"t_array_index",
+	"t_function_call",
+	"t_add",
+	"t_subtract",
+	"t_multiply",
 	"t_divide",
+	"t_modulo",
 	"t_lshift",
 	"t_rshift",
-	// arithmetic assignment
 	"t_plus_equals",
 	"t_minus_equals",
 	"t_times_equals",
 	"t_divide_equals",
+	"t_modulo_equals",
 	"t_bitwise_and_equals",
 	"t_bitwise_or_equals",
-	"t_bitwise_not_equals",
 	"t_bitwise_xor_equals",
 	"t_lshift_equals",
 	"t_rshift_equals",
-	// comparison operators
-	"t_lThan",
-	"t_gThan",
-	"t_lThanE",
-	"t_gThanE",
+	"t_less_than",
+	"t_greater_than",
+	"t_less_than_equals",
+	"t_greater_than_equals",
 	"t_equals",
-	"t_nEquals",
-	// logical operators
+	"t_not_equals",
 	"t_logical_and",
 	"t_logical_or",
 	"t_logical_not",
-	// bitwise operators
 	"t_bitwise_and",
 	"t_bitwise_or",
 	"t_bitwise_not",
 	"t_bitwise_xor",
-	// ternary
 	"t_ternary",
-	// arithmetic-assign operators
-	// unary operators
-	"t_star",
-	// assignment
-	"t_single_equals",
-	//
+	"t_dereference",
+	"t_address_of",
+	"t_assign",
+	"t_cast",
 	"t_comma",
 	"t_dot",
-	"t_pointer_op",
+	"t_arrow",
 	"t_semicolon",
 	"t_colon",
-	"t_lParen",
-	"t_rParen",
-	"t_lCurly",
-	"t_rCurly",
-	"t_lBracket",
-	"t_rBracket",
+	"t_left_paren",
+	"t_right_paren",
+	"t_left_curly",
+	"t_right_curly",
+	"t_left_bracket",
+	"t_right_bracket",
 	"t_file",
 	"t_line",
-	"t_EOF"};
+	"t_EOF",
+};
 
 char *getTokenName(enum token t)
 {
@@ -150,15 +115,8 @@ void AST_InsertChild(struct AST *it, struct AST *newChild)
 
 struct AST *AST_ConstructAddSibling(struct AST *it, struct AST *newSibling)
 {
-	if (it == NULL)
-	{
-		return newSibling;
-	}
-	else
-	{
-		AST_InsertSibling(it, newSibling);
-		return it;
-	}
+	AST_InsertSibling(it, newSibling);
+	return it;
 }
 
 struct AST *AST_ConstructAddChild(struct AST *it, struct AST *newChild)
@@ -175,7 +133,7 @@ void AST_Print(struct AST *it, int depth)
 	for (int i = 0; i < depth; i++)
 		printf("\t");
 
-	printf("%s\n", it->value);
+	printf("%s:%s\n", getTokenName(it->type), it->value);
 	if (it->child != NULL)
 		AST_Print(it->child, depth + 1);
 }

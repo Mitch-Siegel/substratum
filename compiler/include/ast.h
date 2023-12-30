@@ -45,9 +45,9 @@ enum token
 	t_minus_equals,
 	t_times_equals,
 	t_divide_equals,
+	t_modulo_equals,
 	t_bitwise_and_equals,
 	t_bitwise_or_equals,
-	t_bitwise_not_equals,
 	t_bitwise_xor_equals,
 	t_lshift_equals,
 	t_rshift_equals,
@@ -71,6 +71,7 @@ enum token
 	t_ternary,
 	// memory operators
 	t_dereference,
+	t_address_of,
 	// assignment
 	t_assign,
 	//
