@@ -2,10 +2,8 @@
 #include <string.h>
 
 #include "ast.h"
+#include "util.h"
 
-int curLine;
-int curCol;
-char *curFile;
 char *token_names[] = {
 	"t_identifier",
 	"t_constant",
@@ -83,7 +81,7 @@ char *getTokenName(enum token t)
 	return token_names[t];
 }
 
-struct AST *AST_New(enum token t, char *value)
+struct AST *AST_New(enum token t, char *value, char *curFile, int curLine, int curCol)
 {
 	struct AST *wip = malloc(sizeof(struct AST));
 	wip->child = NULL;

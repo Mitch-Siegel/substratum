@@ -40,6 +40,7 @@ struct ParseProgress
 {
 	unsigned int curLine;
 	unsigned int curCol;
+	char *curFile;
 	FILE *f;
 	struct Dictionary *dict;
 };
