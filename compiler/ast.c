@@ -131,7 +131,7 @@ void AST_Print(struct AST *it, int depth)
 	for (int i = 0; i < depth; i++)
 		printf("\t");
 
-	printf("%s:%s\n", getTokenName(it->type), it->value);
+	printf("%d:%d - %s:%s\n", it->sourceLine, it->sourceCol, getTokenName(it->type), it->value);
 	if (it->child != NULL)
 		AST_Print(it->child, depth + 1);
 }

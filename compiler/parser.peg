@@ -180,8 +180,8 @@ statement_list
     / s:statement                      { $$ = s; }
 
 type_name
-   <- t:non_pointer_typename _ '*'  { $$ = AST_S(t, AST_N(auxil, t_dereference, "", $0s)); }
-    / t:type_name _ '*'             { $$ = AST_S(t, AST_N(auxil, t_dereference, "", $0s)); }
+   <- t:non_pointer_typename _ '*'  { $$ = AST_C(t, AST_N(auxil, t_dereference, "", $0s)); }
+    / t:type_name _ '*'             { $$ = AST_C(t, AST_N(auxil, t_dereference, "", $0s)); }
     / n:non_pointer_typename       { $$ = n; }
 
 non_pointer_typename

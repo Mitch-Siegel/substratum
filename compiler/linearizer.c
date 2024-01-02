@@ -350,7 +350,7 @@ void walkFunctionDeclaration(struct AST *tree,
 	// free the basic block we used to walk declarations of arguments
 	BasicBlock_free(block);
 
-	struct AST *definition = argumentRunner->sibling;
+	struct AST *definition = argumentRunner;
 	if (definition != NULL)
 	{
 
@@ -1346,7 +1346,7 @@ void walkFunctionCall(struct AST *tree,
 		printf("walkFunctionCall: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
 
-	if (tree->type != t_compound_statement)
+	if (tree->type != t_function_call)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionCall!\n", getTokenName(tree->type));
 	}
