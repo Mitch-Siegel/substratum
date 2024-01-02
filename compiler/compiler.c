@@ -151,13 +151,15 @@ int main(int argc, char **argv)
 	memset(&p, 0, sizeof(struct ParseProgress));
 	p.curLine = 1;
 	p.curCol = 1;
+	p.curLineRaw = 1;
+	p.curColRaw = 1;
 	p.curFile = "FILE";
 	p.charsRemainingPerLine = LinkedList_New();
 	int *lineZeroChars = malloc(sizeof(int));
 	*lineZeroChars = 0;
 	LinkedList_Append(p.charsRemainingPerLine, lineZeroChars);
 
-	p.f = fopen(inFileName, "rb");
+	p.f = fopen("/tmp/auto.capp", "rb");
 	if (p.f == NULL)
 	{
 		ErrorAndExit(ERROR_CODE, "Unable to open input file %s!\n", inFileName);

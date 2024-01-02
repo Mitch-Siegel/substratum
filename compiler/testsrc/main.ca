@@ -1,18 +1,26 @@
 //#include "print.h"
-//#include "uart.h"
+#include "uart.h"
 
-void fun uart_putc(u8 c)
+u32 fun fib(u8 n)
 {
-    u8 *uart0 = 268435456;
-    // 
-    while (((*(uart0 + 5)) & (1 << 5)) == 0)
+    if(n > 2)
     {
+        return fib(n - 1) + fib(n - 2);
     }
-
-    *(uart0) = c;
+    else
+    {
+        return n;
+    }
 }
 
 void fun main()
 {
+    uart_init();
 	uart_putc(65);
+    u8 n = 0;
+    while(n < 6)
+    {
+        uart_putc(48 + fib(n));
+        n = n + 1;
+    }
 }

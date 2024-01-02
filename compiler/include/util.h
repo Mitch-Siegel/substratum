@@ -41,6 +41,8 @@ struct ParseProgress
 	unsigned int curLine;
 	unsigned int curCol;
 	char *curFile;
+	unsigned int curLineRaw;
+	unsigned int curColRaw;
 	FILE *f;
 	struct Dictionary *dict;
 	struct LinkedList *charsRemainingPerLine;
