@@ -14,6 +14,8 @@ capp
 cacc
 cald
 compiler/astdump
+compiler/parser.c
+compiler/include/parser.h
 
 emu/emu
 
