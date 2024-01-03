@@ -6,7 +6,6 @@
 #include <errno.h>
 
 #include "ast.h"
-#include "parser.h"
 #include "tac.h"
 #include "symtab.h"
 #include "util.h"
@@ -17,6 +16,7 @@ struct Dictionary *parseDict = NULL;
 
 char currentVerbosity = 0;
 
+
 void usage()
 {
 	printf("Classical language compiler: Usage\n");
@@ -25,14 +25,23 @@ void usage()
 	printf("\n");
 }
 
+struct Stack *parseProgressStack = NULL;
+struct Stack *parsedAsts = NULL;
+struct LinkedList *includePath = NULL;
+
+
 struct Config config;
+
 int main(int argc, char **argv)
 {
 	char *inFileName = NULL;
 	char *outFileName = NULL;
 
+	parsedAsts = Stack_New();
+	includePath = LinkedList_New();
+
 	int option;
-	while ((option = getopt(argc, argv, "i:o:O:l:r:c:v:")) != EOF)
+	while ((option = getopt(argc, argv, "i:o:O:l:r:c:v:I:")) != EOF)
 	{
 		switch (option)
 		{
@@ -80,6 +89,12 @@ int main(int argc, char **argv)
 		}
 		break;
 
+		case 'I':
+		{
+			LinkedList_Append(includePath, strdup(optarg));
+		}
+			break;
+
 		default:
 			usage();
 			ErrorAndExit(ERROR_INVOCATION, ":(");
@@ -109,83 +124,32 @@ int main(int argc, char **argv)
 
 	printf("Output will be generated to %s\n\n", outFileName);
 
-	int pid, status;
-
-	if ((pid = fork()) == -1)
-	{
-		ErrorAndExit(ERROR_INTERNAL, "Unable to fork!\n");
-	}
-
-	if (pid == 0)
-	{
-		// janky fix: write the preprocessed file to /tmp
-		char *args[4] = {"./capp", inFileName, "/tmp/auto.capp", NULL};
-
-		if (execvp("./capp", args) < 0)
-		{
-			perror(strerror(errno));
-			ErrorAndExit(ERROR_INTERNAL, "Unable to execute preprocessor!\n");
-		}
-		exit(0);
-	}
-	else
-	{
-		wait(&status);
-		if (status)
-		{
-			ErrorAndExit(ERROR_INTERNAL, "Preprocessor execution failed!\n");
-		}
-		else
-		{
-			printf("\n");
-		}
-	}
+	parseProgressStack = Stack_New();
 
 	currentVerbosity = config.stageVerbosities[STAGE_PARSE];
 
 	parseDict = Dictionary_New(10);
 
-	struct AST *program = NULL;
+	parseFile(inFileName);
 
-	struct ParseProgress p;
-	memset(&p, 0, sizeof(struct ParseProgress));
-	p.curLine = 1;
-	p.curCol = 1;
-	p.curLineRaw = 1;
-	p.curColRaw = 1;
-	p.curFile = "FILE";
-	p.charsRemainingPerLine = LinkedList_New();
-	int *lineZeroChars = malloc(sizeof(int));
-	*lineZeroChars = 0;
-	LinkedList_Append(p.charsRemainingPerLine, lineZeroChars);
-
-	p.f = fopen("/tmp/auto.capp", "rb");
-	if (p.f == NULL)
-	{
-		ErrorAndExit(ERROR_CODE, "Unable to open input file %s!\n", inFileName);
-	}
-
-	p.dict = parseDict;
-
-	pcc_context_t *parseContext = pcc_create(&p);
-
-
-	while (pcc_parse(parseContext, &program))
-	{
-	}
-
-	pcc_destroy(parseContext);
-
-	fclose(p.f);
-	LinkedList_Free(p.charsRemainingPerLine, free);
+	LinkedList_Free(includePath, free);
 
 	// struct AST *program = ParseProgram("/tmp/auto.capp", parseDict);
 
 	// serializeAST("astdump", program);
 	// printf("\n");
+
+	printf("Parsed %d individual ASTs (from includes)\n", parsedAsts->size);
+
+	struct AST *program = NULL;
+	for(int i = 0; i < parsedAsts->size; i++)
+	{
+		program = AST_ConstructAddSibling(program, parsedAsts->data[i]);
+	}
+
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
-		printf("Here's the AST we parsed: %p\n", program);
+		printf("Here's the AST(s) we parsed: %p\n", program);
 		AST_Print(program, 0);
 	}
 

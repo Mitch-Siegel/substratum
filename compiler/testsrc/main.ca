@@ -1,16 +1,8 @@
-//#include "print.h"
 #include "uart.h"
 
 u32 fun fib(u8 n)
 {
-    if(n > 2)
-    {
-        return fib(n - 1) + fib(n - 2);
-    }
-    else
-    {
-        return n;
-    }
+    return n;
 }
 
 void fun main()
@@ -20,7 +12,9 @@ void fun main()
     u8 n = 0;
     while(n < 6)
     {
-        uart_putc(48 + fib(n));
+        u32 thing1 = fib(n);
+        u8 thing2 = thing1;
+        uart_putc(48 + thing2);
         n = n + 1;
     }
 }

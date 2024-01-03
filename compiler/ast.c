@@ -113,6 +113,11 @@ void AST_InsertChild(struct AST *it, struct AST *newChild)
 
 struct AST *AST_ConstructAddSibling(struct AST *it, struct AST *newSibling)
 {
+	if(it == NULL)
+	{
+		return newSibling;
+	}
+	
 	AST_InsertSibling(it, newSibling);
 	return it;
 }

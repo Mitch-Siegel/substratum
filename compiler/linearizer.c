@@ -243,7 +243,7 @@ void walkFunctionDeclaration(struct AST *tree,
 	int TACIndex = 0;
 	int tempNum = 0;
 	struct BasicBlock *block = BasicBlock_new(0);
-	while (argumentRunner->type != t_compound_statement)
+	while ((argumentRunner != NULL) && (argumentRunner->type != t_compound_statement))
 	{
 		switch (argumentRunner->type)
 		{

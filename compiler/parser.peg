@@ -18,10 +18,10 @@
 %auxil "struct ParseProgress *"
 
 %header {
-        #include "util.h"
-        #include "ast.h"
-        #include "parser_config.h"
-        typedef struct AST * ast_p_t;
+#include "util.h"
+#include "ast.h"
+#include "parser_config.h"
+typedef struct AST * ast_p_t;
 }
 
 %source {
@@ -39,7 +39,7 @@ translation_unit
    <- _ f:function_declaration _ ';' { $$ = f; }
     / _ f:function_definition        { $$ = f; }
     / _ sl: statement_list           { $$ = sl; }
-    / _ eof                          { $$ = AST_N(auxil, t_EOF, "", $0s); }
+    / _ eof
 
 variable_declaration
    <- t:type_name _ i:identifier  { $$ = AST_C(t, i); }
@@ -287,9 +287,14 @@ _
    <- directive+ _
     / (space / comment)*
 
+kw_include <- "#include \""
+kw_quote <- "\""
+include_file <- ([^"\""]+) { parseFile($0); } 
+
 directive
-   <- "#file " [^'\n']+ '\n' { printf("SET THE CURRENT FILE\n"); auxil->curFile = Dictionary_LookupOrInsert(auxil->dict, $0); }
-    / "#line " (DIGIT)+      { auxil->curLine = atoi($0); auxil->curLineRaw = atoi($0); auxil->curCol = 1; auxil->curColRaw = 1; }
+   <- kw_include include_file kw_quote eol
+   #"#file " [^'\n']+ '\n' { printf("SET THE CURRENT FILE\n"); auxil->curFile = Dictionary_LookupOrInsert(auxil->dict, $0); }
+   # / "#line " (DIGIT)+      { auxil->curLine = atoi($0); auxil->curLineRaw = atoi($0); auxil->curCol = 1; auxil->curColRaw = 1; }
 
 
 comment
@@ -299,7 +304,7 @@ comment
     {
         ErrorAndExit(ERROR_CODE, "Unclosed comment block!");
     }
-    / '//' (!eol .)*
+    / '//' [^"\n"]* eol {printf("Matched comment %s\n", $0);}
 
 space <- blank / eol
 blank <- [ \t\v\f]

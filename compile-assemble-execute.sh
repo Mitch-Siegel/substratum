@@ -16,7 +16,7 @@ echo ""
 echo "compiling files..."
 # xargs -I {} sh -c "echo {}; ls -la {}"
 rm -f testsrc/*.o
-ls testsrc/*.ca | cut -d '.' -f1 | xargs -I {} sh -c "./cacc -i {}.ca -o {}.o || exit 255"
+ls testsrc/*.ca | cut -d '.' -f1 | xargs -I {} sh -c "./cacc -i {}.ca -o {}.o -I testsrc || exit 255"
 # if ! ./mcc testsrc ../assembler/main.asm; then
     # exit
 # fi

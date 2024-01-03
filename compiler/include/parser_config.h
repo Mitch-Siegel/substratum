@@ -1,3 +1,9 @@
+
+#ifndef _PARSER_BASE_H_
+#define _PARSER_BASE_H_
+
+void parseFile(char *inFileName);
+
 #define UPCOMING_CHARS_THIS_LINE(auxil) (*(int *)(auxil->charsRemainingPerLine->head->data))
 #define UPCOMING_CHARS_LAST_LINE(auxil) (*(int *)(auxil->charsRemainingPerLine->tail->data))
 
@@ -16,27 +22,27 @@
     inChar;                                               \
 })
 
-#define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length)                                           \
-    {                                                                                                       \
-        for (size_t i = 0; i < level; i++)                                                                  \
-        {                                                                                                   \
-            printf("-   ");                                                                                 \
-        }                                                                                                   \
+/*#define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length)                                                              \
+    {                                                                                                                          \
+        for (size_t i = 0; i < level; i++)                                                                                     \
+        {                                                                                                                      \
+            printf("-   ");                                                                                                    \
+        }                                                                                                                      \
         printf("PCC @ %s:%d:%2d - %s:%s %lu", auxil->curFile, auxil->curLine, auxil->curCol, dbgEventNames[event], rule, pos); \
-        printf("[");                                                                                        \
-        for (size_t i = 0; i < length; i++)                                                                 \
-        {                                                                                                   \
-            if (buffer[i] == '\n')                                                                          \
-            {                                                                                               \
-                printf("\\n");                                                                              \
-            }                                                                                               \
-            else                                                                                            \
-            {                                                                                               \
-                printf("%c", buffer[i]);                                                                    \
-            }                                                                                               \
-        }                                                                                                   \
-        printf("]\n");                                                                                      \
-    }
+        printf("[");                                                                                                           \
+        for (size_t i = 0; i < length; i++)                                                                                    \
+        {                                                                                                                      \
+            if (buffer[i] == '\n')                                                                                             \
+            {                                                                                                                  \
+                printf("\\n");                                                                                                 \
+            }                                                                                                                  \
+            else                                                                                                               \
+            {                                                                                                                  \
+                printf("%c", buffer[i]);                                                                                       \
+            }                                                                                                                  \
+        }                                                                                                                      \
+        printf("]\n");                                                                                                         \
+    }*/
 
 #define PCC_ERROR(auxil)                                                                                    \
     {                                                                                                       \
@@ -75,3 +81,5 @@
 // #ifndef AST_N
 // #define AST_N(token, value) ({struct AST *created = AST_New(token, Dictionary_LookupOrInsert(auxil->dict, value), auxil->curFile, auxil->curLine, auxil->curCol); printf("AST_N@ %s:%d -  %s, %s: %p\n", __FILE__, __LINE__, getTokenName(token), value, created); created; })
 // #endif
+
+#endif
