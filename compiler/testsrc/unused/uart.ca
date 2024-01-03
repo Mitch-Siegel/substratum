@@ -1,6 +1,6 @@
 #include "uart.h"
 
-void fun uart_init()
+fun uart_init(->void)
 {
     u8 *uart0 = 268435456;
     *(uart0 + 1) = 0; // disable interrupts
@@ -14,13 +14,13 @@ void fun uart_init()
 
 }
 
-void fun uart_putc(u8 c)
+fun uart_putc(u8 c->void)
 {
     u8 *uart0 = 268435456;
     // 
-    //while (((*(uart0 + 5)) & (1 << 5)) == 0)
-    //{
-    //}
+    while (((*(uart0 + 5)) & (1 << 5)) == 0)
+    {
+    }
 
     *(uart0) = c;
 }

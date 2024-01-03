@@ -1,4 +1,4 @@
 
-fun uart_init(->void);
+void fun uart_init();
 
-fun uart_putc(u8 c->void);
+void fun uart_putc(u8 c);
