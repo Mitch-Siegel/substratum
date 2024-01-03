@@ -2,6 +2,8 @@
 #include "util.h"
 #include "tac.h" // for variableTypes
 
+#include <ctype.h>
+
 // returns 0 if export, 1 if require
 char parseLinkDirection(char *directionString)
 {

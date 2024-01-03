@@ -198,94 +198,76 @@ char *getAsmOp(enum TACType t)
 	{
 	case tt_asm:
 		return "";
-
 	case tt_assign:
 		return "";
-
 	case tt_add:
 		return "add";
-
 	case tt_subtract:
 		return "sub";
-
 	case tt_mul:
 		return "mul";
-
 	case tt_div:
 		return "div";
-
+	case tt_bitwise_and:
+		return "and";
+	case tt_bitwise_or:
+		return "or";
+	case tt_bitwise_xor:
+		return "xor";
+	case tt_bitwise_not:
+		return "~";
+	case tt_lshift:
+		return "sll";
+	case tt_rshift:
+		return "srl";
 	case tt_load:
 		return "load";
-
 	case tt_load_off:
 		return "load (literal offset)";
-
 	case tt_load_arr:
 		return "load (array indexed)";
-
 	case tt_store:
 		return "store";
-
 	case tt_store_off:
 		return "store (literal offset)";
-
 	case tt_store_arr:
 		return "store (array indexed)";
-
 	case tt_addrof:
 		return "address-of";
-
 	case tt_lea_off:
 		return "lea (literal offset)";
-
 	case tt_lea_arr:
 		return "lea (array indexed)";
-
 	case tt_push:
 		return "push";
-
 	case tt_pop:
 		return "pop";
-
 	case tt_call:
 		return "call";
-
 	case tt_label:
 		return ".";
-
 	case tt_return:
 		return "ret";
-
 	case tt_do:
 		return "do";
-
 	case tt_enddo:
 		return "end do";
-
 	case tt_beq:
 		return "beq";
-
 	case tt_bne:
 		return "bne";
-
 	case tt_bgeu:
 		return "bgeu";
-
 	case tt_bltu:
 		return "bltu";
-
 	case tt_bgtu:
 		return "bgtu";
-
 	case tt_bleu:
 		return "bleu";
-
 	case tt_beqz:
 		return "beqz";
-
 	case tt_bnez:
 		return "bnez";
-
 	case tt_jmp:
 		return "jmp";
 	}
@@ -345,21 +327,63 @@ char *sPrintTACLine(struct TACLine *it)
 
 	case tt_add:
 		if (!fallingThrough)
+		{
 			operationStr = "+";
-		fallingThrough = 1;
+			fallingThrough = 1;
+		}
 	case tt_subtract:
 		if (!fallingThrough)
+		{
 			operationStr = "-";
-		fallingThrough = 1;
+			fallingThrough = 1;
+		}
 	case tt_mul:
 		if (!fallingThrough)
+		{
 			operationStr = "*";
-		fallingThrough = 1;
+			fallingThrough = 1;
+		}
 	case tt_div:
 		if (!fallingThrough)
+		{
 			operationStr = "/";
+			fallingThrough = 1;
+		}
+	case tt_bitwise_and:
+		if (!fallingThrough)
+		{
+			operationStr = "&";
+			fallingThrough = 1;
+		}
+	case tt_bitwise_or:
+		if (!fallingThrough)
+		{
+			operationStr = "|";
+			fallingThrough = 1;
+		}
+	case tt_bitwise_xor:
+		if (!fallingThrough)
+		{
+			operationStr = "^";
+			fallingThrough = 1;
+		}
+	case tt_lshift:
+		if (!fallingThrough)
+		{
+			operationStr = "<<";
+			fallingThrough = 1;
+		}
+	case tt_rshift:
+		if (!fallingThrough)
+		{
+			operationStr = ">>";
+		}
 
 		width += sprintf(tacString + width, "%s = %s %s %s", it->operands[0].name.str, it->operands[1].name.str, operationStr, it->operands[2].name.str);
+		break;
+
+	case tt_bitwise_not:
+		width += sprintf(tacString + width, "%s = ~%s", it->operands[0].name.str, it->operands[1].name.str);
 		break;
 
 	case tt_load:

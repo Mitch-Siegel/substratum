@@ -36,6 +36,23 @@ struct Config
 
 extern char currentVerbosity;
 
+struct ParseProgress
+{
+	unsigned int curLine;
+	unsigned int curCol;
+	char *curFile;
+	unsigned int curLineRaw;
+	unsigned int curColRaw;
+	FILE *f;
+	struct Dictionary *dict;
+	struct LinkedList *charsRemainingPerLine;
+	int lastMatchLocation;
+};
+
+void trackCharacter(struct LinkedList *charsPerLine, int c);
+
+void manageSourceLocation(char *matchedString, int charsConsumed, struct LinkedList *charsPerLine, unsigned int *curLineP, unsigned int *curColP);
+
 int alignSize(int nBytes);
 
 /*

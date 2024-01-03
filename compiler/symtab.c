@@ -793,7 +793,7 @@ int scrapePointers(struct AST *pointerAST, struct AST **resultDestination)
 {
 	int dereferenceDepth = 0;
 
-	while (pointerAST != NULL && pointerAST->type == t_star)
+	while (pointerAST != NULL && pointerAST->type == t_dereference)
 	{
 		dereferenceDepth++;
 		pointerAST = pointerAST->sibling;

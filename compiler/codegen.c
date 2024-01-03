@@ -396,6 +396,11 @@ void generateCodeForBasicBlock(FILE *outFile,
 		case tt_subtract:
 		case tt_mul:
 		case tt_div:
+		case tt_bitwise_and:
+		case tt_bitwise_or:
+		case tt_bitwise_xor:
+		case tt_lshift:
+		case tt_rshift:
 		{
 			int op1Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int op2Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
@@ -405,6 +410,17 @@ void generateCodeForBasicBlock(FILE *outFile,
 			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
 		}
 		break;
+
+		case tt_bitwise_not:
+		{
+			int op1Reg = placeOrFindOperandInRegister(outFile, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
+			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+
+			fprintf(outFile, "\txori %s, %s, -1\n", registerNames[destReg], registerNames[op1Reg]);
+			WriteVariable(outFile, scope, lifetimes, &thisTAC->operands[0], destReg);
+		}
+		break;
+
 
 		case tt_load:
 		{

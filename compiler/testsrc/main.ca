@@ -1,23 +1,20 @@
-#include "print.h"
+#include "uart.h"
 
-u32 nRecursions = 0;
-fun fibRec(u8 n->u32)
+u32 fun fib(u8 n)
 {
-	nRecursions += 1;
-	if(n < 2)
-	{
-		return n;
-	}
-	else
-	{
-		return fibRec(n - 1) + fibRec(n - 2);
-	}
+    return n;
 }
 
-
-fun main(->void)
+void fun main()
 {
-	printStr("hello", 1);
-
-	printNum(123456 + 654321);
+    uart_init();
+	uart_putc(65);
+    u8 n = 0;
+    while(n < 6)
+    {
+        u32 thing1 = fib(n);
+        u8 thing2 = thing1;
+        uart_putc(48 + thing2);
+        n = n + 1;
+    }
 }

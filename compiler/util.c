@@ -1,5 +1,40 @@
 #include "util.h"
 
+void trackCharacter(struct LinkedList *charsPerLine, int c)
+{
+	if (c != '\n')
+	{
+		(*(int *)charsPerLine->tail->data)++;
+	}
+	else
+	{
+		int *newLineChars = malloc(sizeof(int));
+		*newLineChars = 0;
+		LinkedList_Append(charsPerLine, newLineChars);
+	};
+}
+void manageSourceLocation(char *matchedString, int charsConsumed, struct LinkedList *charsPerLine, unsigned int *curLineP, unsigned int *curColP)
+{
+	int length = charsConsumed;
+	while (length > 0)
+	{
+		if ((*(int *)charsPerLine->head->data) >= length)
+		{
+			(*(int *)charsPerLine->head->data) -= length;
+			*curColP += length;
+			length = 0;
+		}
+		else
+		{
+			int *remaningCharsThisLine = LinkedList_PopFront(charsPerLine);
+			length -= *remaningCharsThisLine;
+			free(remaningCharsThisLine);
+			*curColP = 1;
+			(*curLineP)++;
+		}
+	}
+}
+
 
 // given a raw size, find the nearest power-of-two aligned size
 int alignSize(int nBytes)
@@ -250,7 +285,7 @@ void LinkedList_Prepend(struct LinkedList *l, void *element)
 
 void LinkedList_Join(struct LinkedList *before, struct LinkedList *after)
 {
-	for(struct LinkedListNode *runner = after->head; runner != NULL; runner = runner->next)
+	for (struct LinkedListNode *runner = after->head; runner != NULL; runner = runner->next)
 	{
 		LinkedList_Append(before, runner->data);
 	}
