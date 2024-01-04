@@ -25,7 +25,7 @@ ls testsrc/*.ca | cut -d '.' -f1 | xargs -I {} sh -c "./cacc -i {}.ca -o {}.S -I
 echo "linking files"
 OBJ_FILES=$(ls testsrc/*.o)
 echo "Object files to link: $OBJ_FILES"
-riscv64-unknown-elf-ld -T ../assembler/link.lds -o ../assembler/linked.elf $OBJ_FILES
+riscv64-unknown-elf-ld -i -o ../assembler/program.o $OBJ_FILES
 
 
 cd ../assembler

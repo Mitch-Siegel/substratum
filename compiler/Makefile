@@ -20,7 +20,7 @@ $(OBJDIR)/parser.o : parser.c
 	@mkdir -p $(@D)
 	$(CC) -c $(CFLAGS) -o $@ $< -I ./include -Wno-discarded-qualifiers
 
-cacc: $(addprefix $(OBJDIR)/,$(CACC_OBJS))
+cacc: $(addprefix $(OBJDIR)/,$(CACC_OBJS)) $(OBJDIR)/parser.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 cald:$(addprefix $(OBJDIR)/,$(CALD_OBJS))

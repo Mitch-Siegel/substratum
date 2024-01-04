@@ -1,8 +1,8 @@
-linked: linked.o link.lds
-	riscv64-unknown-elf-ld -T link.lds -o linked.elf linked.o
+loaderstub.o: loaderstub.S
+	riscv64-unknown-elf-as -r -o $@ $<
 
-linked.o: linked.s
-	riscv64-unknown-elf-as -o linked.o linked.s
+linked.elf: program.o link.lds
+	riscv64-unknown-elf-ld -T link.lds -o linked.elf loaderstub.o program.o
 
 # use `CTRL+a` followed by `x` to exit
 run: linked.elf
