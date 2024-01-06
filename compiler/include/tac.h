@@ -110,7 +110,10 @@ struct TACLine
 	struct AST correspondingTree;
 	struct TACOperand operands[4];
 	enum TACType operation;
-	int index;
+	// numerical index relative to other TAC lines
+	int index; 
+	// numerical index in terms of emitted instructions (from function entry point, populated during code generation)
+	int asmIndex;
 	char reorderable;
 };
 

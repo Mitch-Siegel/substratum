@@ -1,3 +1,4 @@
+#include "codegen_generic.h"
 #include "symtab.h"
 #include "util.h"
 
@@ -8,7 +9,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile);
 
 void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function);
 
-void generateCodeForBasicBlock(FILE *outFile,
+void generateCodeForBasicBlock(struct CodegenContext *context,
                                struct BasicBlock *block,
                                struct Scope *scope,
                                struct LinkedList *lifetimes,

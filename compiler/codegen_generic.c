@@ -1,5 +1,7 @@
 #include "codegen_generic.h"
 
+#include <stdarg.h>
+
 char printedLine[MAX_ASM_LINE_SIZE];
 
 char *registerNames[MACHINE_REGISTER_COUNT] = {
@@ -37,10 +39,28 @@ char *registerNames[MACHINE_REGISTER_COUNT] = {
 	"t6",
 };
 
-char *PlaceLiteralStringInRegister(FILE *outFile, char *literalStr, int destReg)
+void emitInstruction(struct TACLine *correspondingTACLine,
+					 struct CodegenContext *c,
+					 const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	vfprintf(c->outFile, format, args);
+	va_end(args);
+
+	if ((correspondingTACLine != NULL) && (correspondingTACLine->asmIndex == 0))
+	{
+		correspondingTACLine->asmIndex = (*(c->instructionIndex))++;
+	}
+}
+
+char *PlaceLiteralStringInRegister(struct TACLine *correspondingTACLine,
+								   struct CodegenContext *c,
+								   char *literalStr,
+								   int destReg)
 {
 	char *destRegStr = registerNames[destReg];
-	fprintf(outFile, "\tli %s, %s # place literal\n", destRegStr, literalStr);
+	emitInstruction(correspondingTACLine, c, "\tli %s, %s # place literal\n", destRegStr, literalStr);
 	return destRegStr;
 }
 
@@ -57,7 +77,8 @@ void verifyCodegenPrimitive(struct TACOperand *operand)
 	}
 }
 
-void WriteVariable(FILE *outFile,
+void WriteVariable(struct TACLine *correspondingTACLine,
+				   struct CodegenContext *c,
 				   struct Scope *scope,
 				   struct LinkedList *lifetimes,
 				   struct TACOperand *writtenTo,
@@ -75,37 +96,37 @@ void WriteVariable(FILE *outFile,
 	case wb_register:
 		if (sourceRegIndex != relevantLifetime->registerLocation)
 		{
-			fprintf(outFile, "\t# Write register variable %s\n", relevantLifetime->name);
-			fprintf(outFile, "\tmv %s, %s\n",
-					registerNames[relevantLifetime->registerLocation],
-					registerNames[sourceRegIndex]);
+			fprintf(c->outFile, "\t# Write register variable %s\n", relevantLifetime->name);
+			emitInstruction(correspondingTACLine, c, "\tmv %s, %s\n",
+							registerNames[relevantLifetime->registerLocation],
+							registerNames[sourceRegIndex]);
 		}
 		break;
 
 	case wb_global:
 	{
 		const char *width = SelectWidth(scope, writtenTo);
-		fprintf(outFile, "\t# Write (global) variable %s\n", relevantLifetime->name);
-		fprintf(outFile, "\tli %s, %s\n",
-				registerNames[TEMP_0],
-				relevantLifetime->name);
+		fprintf(c->outFile, "\t# Write (global) variable %s\n", relevantLifetime->name);
+		emitInstruction(correspondingTACLine, c, "\tli %s, %s\n",
+						registerNames[TEMP_0],
+						relevantLifetime->name);
 
-		fprintf(outFile, "\ts%s (%s), %s\n",
-				width,
-				registerNames[TEMP_0],
-				registerNames[sourceRegIndex]);
+		emitInstruction(correspondingTACLine, c, "\ts%s (%s), %s\n",
+						width,
+						registerNames[TEMP_0],
+						registerNames[sourceRegIndex]);
 	}
 	break;
 
 	case wb_stack:
 	{
-		fprintf(outFile, "\t# Write stack variable %s\n", relevantLifetime->name);
+		fprintf(c->outFile, "\t# Write stack variable %s\n", relevantLifetime->name);
 
 		const char *width = SelectWidthForLifetime(scope, relevantLifetime);
-		fprintf(outFile, "\ts%s %s, %d(fp)\n",
-				width,
-				registerNames[sourceRegIndex],
-				relevantLifetime->stackLocation);
+		emitInstruction(correspondingTACLine, c, "\ts%s %s, %d(fp)\n",
+						width,
+						registerNames[sourceRegIndex],
+						relevantLifetime->stackLocation);
 	}
 	break;
 
@@ -116,7 +137,8 @@ void WriteVariable(FILE *outFile,
 
 // places an operand by name into the specified register, or returns the index of the register containing if it's already in a register
 // does *NOT* guarantee that returned register indices are modifiable in the case where the variable is found in a register
-int placeOrFindOperandInRegister(FILE *outFile,
+int placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
+								 struct CodegenContext *c,
 								 struct Scope *scope,
 								 struct LinkedList *lifetimes,
 								 struct TACOperand *operand,
@@ -131,7 +153,7 @@ int placeOrFindOperandInRegister(FILE *outFile,
 			ErrorAndExit(ERROR_INTERNAL, "Expected scratch register to place literal in, didn't get one!");
 		}
 
-		PlaceLiteralStringInRegister(outFile, operand->name.str, registerIndex);
+		PlaceLiteralStringInRegister(correspondingTACLine, c, operand->name.str, registerIndex);
 		return registerIndex;
 	}
 
@@ -165,18 +187,18 @@ int placeOrFindOperandInRegister(FILE *outFile,
 			loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
 		}
 		const char *usedRegister = registerNames[registerIndex];
-		fprintf(outFile, "\tla %s, %s # place %s\n",
-				usedRegister,
-				relevantLifetime->name,
-				operand->name.str);
+		emitInstruction(correspondingTACLine, c, "\tla %s, %s # place %s\n",
+						usedRegister,
+						relevantLifetime->name,
+						operand->name.str);
 
 		if (relevantLifetime->type.arraySize == 0)
 		{
-			fprintf(outFile, "\t%su %s, 0(%s) # place %s\n",
-					loadWidth,
-					usedRegister,
-					usedRegister,
-					operand->name.str);
+			emitInstruction(correspondingTACLine, c, "\t%su %s, 0(%s) # place %s\n",
+							loadWidth,
+							usedRegister,
+							usedRegister,
+							operand->name.str);
 		}
 
 		return registerIndex;
@@ -195,21 +217,21 @@ int placeOrFindOperandInRegister(FILE *outFile,
 		{
 			if (relevantLifetime->stackLocation >= 0)
 			{
-				fprintf(outFile, "\taddi %s, fp, %d # place %s\n", usedRegister, relevantLifetime->stackLocation, operand->name.str);
+				emitInstruction(correspondingTACLine, c, "\taddi %s, fp, %d # place %s\n", usedRegister, relevantLifetime->stackLocation, operand->name.str);
 			}
 			else
 			{
-				fprintf(outFile, "\taddi %s, fp, -%d # place %s\n", usedRegister, -1 * relevantLifetime->stackLocation, operand->name.str);
+				emitInstruction(correspondingTACLine, c, "\taddi %s, fp, -%d # place %s\n", usedRegister, -1 * relevantLifetime->stackLocation, operand->name.str);
 			}
 		}
 		else
 		{
 			const char *loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
-			fprintf(outFile, "\tl%su %s, %d(fp) # place %s\n",
-					loadWidth,
-					usedRegister,
-					relevantLifetime->stackLocation,
-					operand->name.str);
+			emitInstruction(correspondingTACLine, c, "\tl%su %s, %d(fp) # place %s\n",
+							loadWidth,
+							usedRegister,
+							relevantLifetime->stackLocation,
+							operand->name.str);
 		}
 
 		return registerIndex;
@@ -248,7 +270,8 @@ int pickWriteRegister(struct Scope *scope,
 	}
 }
 
-int placeAddrOfLifetimeInReg(FILE *outFile,
+int placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
+							 struct CodegenContext *c,
 							 struct Scope *scope,
 							 struct LinkedList *lifetimes,
 							 struct TACOperand *operand,
@@ -277,11 +300,11 @@ int placeAddrOfLifetimeInReg(FILE *outFile,
 
 	if (relevantLifetime->stackLocation < 0)
 	{
-		fprintf(outFile, "\taddi %s, fp, -%d\n", registerNames[registerIndex], -1 * relevantLifetime->stackLocation);
+		emitInstruction(correspondingTACLine, c, "\taddi %s, fp, -%d\n", registerNames[registerIndex], -1 * relevantLifetime->stackLocation);
 	}
 	else
 	{
-		fprintf(outFile, "\taddi %s, fp, -%d\n", registerNames[registerIndex], relevantLifetime->stackLocation);
+		emitInstruction(correspondingTACLine, c, "\taddi %s, fp, -%d\n", registerNames[registerIndex], relevantLifetime->stackLocation);
 	}
 
 	return registerIndex;
@@ -348,7 +371,8 @@ const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetim
 	}
 }
 
-void EmitPushForOperand(FILE *outFile,
+void EmitPushForOperand(struct TACLine *correspondingTACLine,
+						struct CodegenContext *c,
 						struct Scope *scope,
 						struct TACOperand *dataSource,
 						int srcRegister)
@@ -359,7 +383,7 @@ void EmitPushForOperand(FILE *outFile,
 	case 1:
 	case 2:
 	case 4:
-		EmitPushForSize(outFile, size, srcRegister);
+		EmitPushForSize(correspondingTACLine, c, size, srcRegister);
 
 		break;
 
@@ -369,15 +393,19 @@ void EmitPushForOperand(FILE *outFile,
 	}
 }
 
-void EmitPushForSize(FILE *outFile, int size, int srcRegister)
+void EmitPushForSize(struct TACLine *correspondingTACLine,
+					 struct CodegenContext *c,
+					 int size,
+					 int srcRegister)
 {
-	fprintf(outFile, "\taddi sp, sp, -%d\n", size);
-	fprintf(outFile, "\ts%s %s, 0(sp)\n",
-			SelectWidthForSize(size),
-			registerNames[srcRegister]);
+	emitInstruction(correspondingTACLine, c, "\taddi sp, sp, -%d\n", size);
+	emitInstruction(correspondingTACLine, c, "\ts%s %s, 0(sp)\n",
+					SelectWidthForSize(size),
+					registerNames[srcRegister]);
 }
 
-void EmitPopForOperand(FILE *outFile,
+void EmitPopForOperand(struct TACLine *correspondingTACLine,
+					   struct CodegenContext *c,
 					   struct Scope *scope,
 					   struct TACOperand *dataDest,
 					   int destRegister)
@@ -388,7 +416,7 @@ void EmitPopForOperand(FILE *outFile,
 	case 1:
 	case 2:
 	case 4:
-		EmitPopForSize(outFile, size, destRegister);
+		EmitPopForSize(correspondingTACLine, c, size, destRegister);
 
 		break;
 
@@ -398,10 +426,13 @@ void EmitPopForOperand(FILE *outFile,
 	}
 }
 
-void EmitPopForSize(FILE *outFile, int size, int destRegister)
+void EmitPopForSize(struct TACLine *correspondingTACLine,
+					struct CodegenContext *c,
+					int size,
+					int destRegister)
 {
-	fprintf(outFile, "\tl%su %s, 0(sp)\n",
-			SelectWidthForSize(size),
-			registerNames[destRegister]);
-	fprintf(outFile, "\taddi sp, sp, %d\n", size);
+	emitInstruction(correspondingTACLine, c, "\tl%su %s, 0(sp)\n",
+					SelectWidthForSize(size),
+					registerNames[destRegister]);
+	emitInstruction(correspondingTACLine, c, "\taddi sp, sp, %d\n", size);
 }

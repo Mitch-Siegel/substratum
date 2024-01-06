@@ -303,6 +303,7 @@ struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST
 	// by default operands are NOT reorderable
 	wip->reorderable = 0;
 	wip->index = index;
+	wip->asmIndex = 0;
 	return wip;
 }
 
