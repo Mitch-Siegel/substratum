@@ -357,7 +357,7 @@ int allocateRegisters(struct CodegenMetadata *metadata)
     if (currentVerbosity == VERBOSITY_MAX)
     {
         // print the function's stack footprint
-
+        
         {
             struct Stack *stackLayout = Stack_New();
             for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
@@ -416,6 +416,8 @@ int allocateRegisters(struct CodegenMetadata *metadata)
                     }
                 }
             }
+
+            Stack_Free(stackLayout);
         }
     }
 
