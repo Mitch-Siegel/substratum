@@ -231,11 +231,11 @@ void walkFunctionDeclaration(struct AST *tree,
 	if (lookedUpFunction != NULL)
 	{
 		existingFunc = lookedUpFunction->entry;
-		parsedFunc = FunctionEntry_new(scope, functionNameTree->value, &returnType);
+		parsedFunc = FunctionEntry_new(scope, functionNameTree, &returnType);
 	}
 	else
 	{
-		parsedFunc = Scope_createFunction(scope, functionNameTree->value, &returnType);
+		parsedFunc = Scope_createFunction(scope, functionNameTree, &returnType);
 		parsedFunc->mainScope->parentScope = scope;
 	}
 

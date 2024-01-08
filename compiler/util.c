@@ -35,6 +35,18 @@ void manageSourceLocation(char *matchedString, int charsConsumed, struct LinkedL
 	}
 }
 
+
+// given a raw size, find the nearest power-of-two aligned size
+int alignSize(int nBytes)
+{
+	int i = 0;
+	while ((nBytes > (0b1 << i)) > 0)
+	{
+		i++;
+	}
+	return i;
+}
+
 /*
  * DICTIONARY FUNCTIONS
  * This string hashing algorithm is the djb2 algorithm

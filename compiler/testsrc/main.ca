@@ -10,11 +10,5 @@ void fun main()
     uart_init();
 	uart_putc(65);
     u8 n = 0;
-    while(n < 6)
-    {
-        u32 thing1 = fib(n);
-        u8 thing2 = thing1;
-        uart_putc(48 + thing2);
-        n = n + 1;
-    }
+    uart_putc(48 + 1);
 }

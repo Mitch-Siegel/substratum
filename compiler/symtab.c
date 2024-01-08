@@ -6,16 +6,17 @@ char *symbolNames[] = {
 	"variable",
 	"function"};
 
-struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, char *name, struct Type *returnType)
+struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType)
 {
 	struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
 	newFunction->arguments = Stack_New();
 	newFunction->argStackSize = 0;
-	newFunction->mainScope = Scope_new(parentScope, name, newFunction);
+	newFunction->mainScope = Scope_new(parentScope, nameTree->value, newFunction);
 	newFunction->BasicBlockList = LinkedList_New();
+	newFunction->correspondingTree = *nameTree;
 	newFunction->mainScope->parentFunction = newFunction;
 	newFunction->returnType = *returnType;
-	newFunction->name = name;
+	newFunction->name = nameTree->value;
 	newFunction->isDefined = 0;
 	newFunction->isAsmFun = 0;
 	return newFunction;
@@ -355,10 +356,10 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 }
 
 // create a new function accessible within the given scope
-struct FunctionEntry *Scope_createFunction(struct Scope *parentScope, char *name, struct Type *returnType)
+struct FunctionEntry *Scope_createFunction(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType)
 {
-	struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, name, returnType);
-	Scope_insert(parentScope, name, newFunction, e_function);
+	struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, nameTree, returnType);
+	Scope_insert(parentScope, nameTree->value, newFunction, e_function);
 	return newFunction;
 }
 
@@ -499,6 +500,24 @@ struct VariableEntry *Scope_lookupVar(struct Scope *scope, struct AST *name)
 
 	default:
 		ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up variable [%s]!\n", name->value);
+	}
+}
+
+struct FunctionEntry *Scope_lookupFunByString(struct Scope *scope, char *name)
+{
+	struct ScopeMember *lookedUp = Scope_lookup(scope, name);
+	if (lookedUp == NULL)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Lookup of undeclared function '%s'\n", name);
+	}
+
+	switch (lookedUp->type)
+	{
+	case e_function:
+		return lookedUp->entry;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up function!\n");
 	}
 }
 

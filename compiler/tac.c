@@ -296,13 +296,14 @@ struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST
 		wip->operands[i].castAsType.arraySize = 0;
 		wip->operands[i].castAsType.initializeArrayTo = NULL;
 	}
-	wip->correspondingTree = correspondingTree;
+	wip->correspondingTree = *correspondingTree;
 
 	// default type of a line of TAC is assignment
 	wip->operation = operation;
 	// by default operands are NOT reorderable
 	wip->reorderable = 0;
 	wip->index = index;
+	wip->asmIndex = 0;
 	return wip;
 }
 
