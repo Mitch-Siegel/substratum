@@ -1,0 +1,64 @@
+#include "print.h"
+#include "uart.h"
+
+u32 fun printStr(u8 *str, u8 newline)
+{
+	u32 numPrinted;
+	numPrinted = 0;
+	while(*str != 0)
+	{
+		uart_putc(*str);
+		str += 1;
+		numPrinted += 1;
+	}
+
+	if(newline != 0)
+	{
+		uart_putc(10);
+		numPrinted += 1;
+	}
+
+	return numPrinted;
+}
+
+u32 fun mod(u32 a, u32 b)
+{
+	while(a >= b)
+	{
+		a -= b;
+	}
+	return a;
+}
+
+u32 fun div(u32 a, u32 b)
+{
+	u32 quotient = 0;
+	while (a >= b)
+	{
+		a -= b;
+		quotient += 1;
+	}
+	return quotient;
+}
+
+void fun printNum(u32 value)
+{
+	u8[10] chars;
+	u8 nChars = 0;
+	u32 vc = value;
+	while(value > 0)
+	{
+		u8 rv = mod(value, 10);
+		chars[nChars] = rv + '0';
+		value = div(value, 10);
+		nChars = nChars + 1;
+		chars[nChars] = 0;
+	}
+	
+	while(nChars > 0)
+	{
+		uart_putc(chars[nChars - 1]);
+		nChars -= 1;
+	}
+	uart_putc(10);
+}
