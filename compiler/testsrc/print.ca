@@ -46,13 +46,22 @@ void fun printNum(u32 value)
 	u8[10] chars;
 	u8 nChars = 0;
 	u32 vc = value;
-	while(value > 0)
+
+	if(value > 0)
 	{
-		u8 rv = mod(value, 10);
-		chars[nChars] = rv + '0';
-		value = div(value, 10);
-		nChars = nChars + 1;
-		chars[nChars] = 0;
+		while(value > 0)
+		{
+			u8 rv = mod(value, 10);
+			chars[nChars] = rv + '0';
+			value = div(value, 10);
+			nChars = nChars + 1;
+			chars[nChars] = 0;
+		}
+	}
+	else
+	{
+		chars[0] = '0';
+		nChars = 1;
 	}
 	
 	while(nChars > 0)

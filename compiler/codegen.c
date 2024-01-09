@@ -1,6 +1,56 @@
 #include "codegen.h"
 #include "codegen_generic.h"
 
+void findAsmOffsetForVariable(struct Lifetime *lt, struct FunctionEntry *f, int *start, int *end)
+{
+	for (struct LinkedListNode *blockRunner = f->BasicBlockList->head; blockRunner != NULL; blockRunner = blockRunner->next)
+	{
+		struct BasicBlock *b = blockRunner->data;
+		for (struct LinkedListNode *TACRunner = b->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
+		{
+			struct TACLine *examinedLine = (struct TACLine *)TACRunner->data;
+			// if this TAC line occurs after the end of the examined lifetime, stop looking at this block
+			if (examinedLine->index > lt->end)
+			{
+				break;
+			}
+			// this TAC occurs at or after the start of the lifetime, but before the end
+			else if (examinedLine->index >= lt->start)
+			{
+				// compare the current start and end ASM offset to this TAC line's asm index, set if necessary
+				if (*start > examinedLine->asmIndex)
+				{
+					*start = examinedLine->asmIndex;
+				}
+
+				if (*end < examinedLine->asmIndex)
+				{
+					*end = examinedLine->asmIndex;
+				}
+			}
+		}
+	}
+}
+
+void emitDebugInfoForVariables(FILE *outFile, struct CodegenMetadata m)
+{
+	for (struct LinkedListNode *lifetimeRunner = m.allLifetimes->head; lifetimeRunner != NULL; lifetimeRunner = lifetimeRunner->next)
+	{
+		struct Lifetime *examinedLifetime = (struct Lifetime *)lifetimeRunner->data;
+
+		if (examinedLifetime->name[0] != '.')
+		{
+
+			int offsetStart = 99999;
+			int offsetEnd = 0;
+
+			findAsmOffsetForVariable(examinedLifetime, m.function, &offsetStart, &offsetEnd);
+
+			printf("%s exists from %s+%d to %s+%d\n", examinedLifetime->name, m.function->name, offsetStart, m.function->name, offsetEnd);
+		}
+	}
+}
+
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 {
 	struct CodegenContext globalContext;
@@ -349,6 +399,8 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 
 	fprintf(outFile, "\t.cfi_endproc\n");
 
+	emitDebugInfoForVariables(outFile, metadata);
+
 	// function setup and teardown code generated
 
 	LinkedList_Free(metadata.allLifetimes, free);
@@ -660,8 +712,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 				if (sourceReg != RETURN_REGISTER)
 				{
 					emitInstruction(thisTAC, context, "\tmv %s, %s\n",
-							registerNames[RETURN_REGISTER],
-							registerNames[sourceReg]);
+									registerNames[RETURN_REGISTER],
+									registerNames[sourceReg]);
 				}
 			}
 			emitInstruction(thisTAC, context, "\tj %s_done\n", scope->parentFunction->name);
