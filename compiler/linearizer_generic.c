@@ -1,16 +1,5 @@
 #include "linearizer_generic.h"
 
-// given a raw size, find the nearest power-of-two aligned size
-int alignSize(int nBytes)
-{
-	int i = 0;
-	while ((nBytes > (0b1 << i)) > 0)
-	{
-		i++;
-	}
-	return i;
-}
-
 enum basicTypes selectVariableTypeForNumber(int num)
 {
 	if (num < 256)

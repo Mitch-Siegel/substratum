@@ -105,10 +105,15 @@ struct TACLine
 {
 	char *allocFile;
 	int allocLine;
-	struct AST *correspondingTree;
+	// store the actual tree because some trees are manually generated and do not exist in the true parse tree
+	// such as the += operator (a += b is transformed into a tree corresponding to a = a + b)
+	struct AST correspondingTree;
 	struct TACOperand operands[4];
 	enum TACType operation;
-	int index;
+	// numerical index relative to other TAC lines
+	int index; 
+	// numerical index in terms of emitted instructions (from function entry point, populated during code generation)
+	int asmIndex;
 	char reorderable;
 };
 

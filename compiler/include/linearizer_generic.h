@@ -4,8 +4,6 @@
 #ifndef _LINEARIZER_H_
 #define _LINEARIZER_H_
 
-int alignSize(int nBytes);
-
 enum basicTypes selectVariableTypeForNumber(int num);
 
 enum basicTypes selectVariableTypeForLiteral(char *literal);

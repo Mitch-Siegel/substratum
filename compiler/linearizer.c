@@ -137,10 +137,10 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	// if we are declaring an array, set the string with the size as the second operand
 	if (declaredTree->type == t_array_index)
 	{
-		declaredTree = declaredTree->child;
-		char *arraySizeString = declaredTree->sibling->value;
+		char *arraySizeString = declaredTree->child->value;
 		int declaredArraySize = atoi(arraySizeString);
 
+		declaredTree = declaredTree->sibling;
 		declaredType.arraySize = declaredArraySize;
 	}
 	else
@@ -231,11 +231,11 @@ void walkFunctionDeclaration(struct AST *tree,
 	if (lookedUpFunction != NULL)
 	{
 		existingFunc = lookedUpFunction->entry;
-		parsedFunc = FunctionEntry_new(scope, functionNameTree->value, &returnType);
+		parsedFunc = FunctionEntry_new(scope, functionNameTree, &returnType);
 	}
 	else
 	{
-		parsedFunc = Scope_createFunction(scope, functionNameTree->value, &returnType);
+		parsedFunc = Scope_createFunction(scope, functionNameTree, &returnType);
 		parsedFunc->mainScope->parentScope = scope;
 	}
 
@@ -612,7 +612,7 @@ void walkConditionCheck(struct AST *tree,
 	switch (tree->type)
 	{
 	case t_equals:
-		condFalseJump->operation = tt_beq;
+		condFalseJump->operation = tt_bne;
 		break;
 
 	case t_not_equals:

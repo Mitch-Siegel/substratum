@@ -1,4 +1,5 @@
 set -e
+set -x # echo on
 
 if [ ! $1 ]
 then
@@ -16,20 +17,15 @@ echo ""
 echo "compiling files..."
 # xargs -I {} sh -c "echo {}; ls -la {}"
 rm -f testsrc/*.o
-ls testsrc/*.ca | cut -d '.' -f1 | xargs -I {} sh -c "./cacc -i {}.ca -o {}.o -I testsrc || exit 255"
+ls testsrc/*.ca | cut -d '.' -f1 | xargs -I {} sh -c "./cacc -i {}.ca -o {}.S -I testsrc && riscv64-unknown-elf-as -r -o {}.o {}.S || exit 255"
 # if ! ./mcc testsrc ../assembler/main.asm; then
     # exit
 # fi
 
 echo "linking files"
-cd testsrc
-rm -f linked.o
-touch linked.o
-# xargs -I {} sh -c "echo {}; ls -la {}"
-ls *.o | xargs -I {} sh -c "../cald -i linked.o -i {} -o linked.o || exit 255"
-
-cd ..
-./cald -i ./testsrc/linked.o -o ../assembler/linked.s -e
+OBJ_FILES=$(ls testsrc/*.o)
+echo "Object files to link: $OBJ_FILES"
+riscv64-unknown-elf-ld -i -o ../assembler/program.o $OBJ_FILES
 
 
 cd ../assembler

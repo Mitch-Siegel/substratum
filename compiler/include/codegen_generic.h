@@ -11,19 +11,34 @@ extern char *registerNames[MACHINE_REGISTER_COUNT];
 
 int ALIGNSIZE(unsigned int size);
 
+struct CodegenContext
+{
+    int *instructionIndex;
+    FILE *outFile;
+};
+
+void emitInstruction(struct TACLine *correspondingTACLine,
+                     struct CodegenContext *c,
+                     const char *format, ...);
+
 // place a literal in the register specified by numerical index, return string of register's name for asm
-char *PlaceLiteralStringInRegister(FILE *outFile, char *literalStr, int destReg);
+char *PlaceLiteralStringInRegister(struct TACLine *correspondingTACLine,
+                                   struct CodegenContext *c,
+                                   char *literalStr,
+                                   int destReg);
 
 void verifyCodegenPrimitive(struct TACOperand *operand);
 
-void WriteVariable(FILE *outFile,
+void WriteVariable(struct TACLine *correspondingTACLine,
+                   struct CodegenContext *c,
                    struct Scope *scope,
                    struct LinkedList *lifetimes,
                    struct TACOperand *writtenTo,
                    int sourceRegIndex);
 
 // places a variable in a register, with no guarantee that it is modifiable, returning the string of the register's name for asm
-int placeOrFindOperandInRegister(FILE *outFile,
+int placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
+                                 struct CodegenContext *c,
                                  struct Scope *scope,
                                  struct LinkedList *lifetimes,
                                  struct TACOperand *operand,
@@ -34,7 +49,8 @@ int pickWriteRegister(struct Scope *scope,
                       struct TACOperand *operand,
                       int registerIndex);
 
-int placeAddrOfLifetimeInReg(FILE *file,
+int placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
+                             struct CodegenContext *c,
                              struct Scope *scope,
                              struct LinkedList *lifetimes,
                              struct TACOperand *operand,
@@ -46,18 +62,26 @@ const char *SelectWidthForDereference(struct Scope *scope, struct TACOperand *da
 
 const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime);
 
-void EmitPushForOperand(FILE *outFile,
+void EmitPushForOperand(struct TACLine *correspondingTACLine,
+                        struct CodegenContext *c,
                         struct Scope *scope,
                         struct TACOperand *dataSource,
                         int srcRegister);
 
-void EmitPushForSize(FILE *outFile, int size, int srcRegister);
+void EmitPushForSize(struct TACLine *correspondingTACLine,
+                     struct CodegenContext *c,
+                     int size,
+                     int srcRegister);
 
-void EmitPopForOperand(FILE *outFile,
+void EmitPopForOperand(struct TACLine *correspondingTACLine,
+                       struct CodegenContext *c,
                        struct Scope *scope,
                        struct TACOperand *dataDest,
                        int destRegister);
 
-void EmitPopForSize(FILE *outFile, int size, int destRegister);
+void EmitPopForSize(struct TACLine *correspondingTACLine,
+                    struct CodegenContext *c,
+                    int size,
+                    int destRegister);
 
 #endif

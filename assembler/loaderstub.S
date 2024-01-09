@@ -1,0 +1,3 @@
+; it seems like the -kernel option for qemu-system-riscv just blindly sets the entry point to 0x80000000 rather than really reading the entry point from the ELF
+; so stick in a really cheesy jump right at the beginning of the .text section to jump to _start...
+j _start

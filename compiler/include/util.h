@@ -53,6 +53,7 @@ void trackCharacter(struct LinkedList *charsPerLine, int c);
 
 void manageSourceLocation(char *matchedString, int charsConsumed, struct LinkedList *charsPerLine, unsigned int *curLineP, unsigned int *curColP);
 
+int alignSize(int nBytes);
 
 /*
  * Dictionary for tracking strings
