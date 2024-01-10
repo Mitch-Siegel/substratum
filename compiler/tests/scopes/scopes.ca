@@ -1,0 +1,23 @@
+void fun uart_putc(u8 c)
+{
+    u8 *uart0 = 268435456;
+    *(uart0) = c;
+}
+
+void fun exit() asm
+{
+    
+}
+
+void fun main()
+{
+    u8 i = 0;
+    {
+        u8 i = 1;
+        while(i < 5)
+        {
+            uart_putc('0');
+        }
+    }
+    exit()
+}
