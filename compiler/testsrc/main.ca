@@ -1,16 +1,11 @@
 #include "uart.h"
 #include "print.h"
 
-u32 fun fib(u8 n)
+u8 fun testAsmFunction(u8 n) asm
 {
-    if(n > 1)
-    {
-        return fib(n - 1) + fib(n - 2);
-    }
-    else
-    {
-        return n;
-    }
+    lb t0, 8(fp)
+    mul t0, t0, t0
+    mv a0, t0
 }
 
 void fun main()
@@ -20,9 +15,7 @@ void fun main()
     u8 n = 0;
     while(n < 20)
     {
-        u32 result = fib(n);
-        u8 smallerResult = result;
-        printNum(smallerResult);
+        printNum(testAsmFunction(n));
         n = n + 1;
     }
 }

@@ -4,20 +4,67 @@ void fun uart_putc(u8 c)
     *(uart0) = c;
 }
 
+void fun testScopedShadowing()
+{
+    u8 i = 123;
+    {
+        u8 i = 0;
+        while(i < 5)
+        {
+            uart_putc('0');
+            i = i + 1;
+        }
+    }
+    uart_putc(10);
+}
+
+u8 fun returnByScope(u8 input)
+{
+    u8 retVal = 123;
+    if((input / 2 ) == ((input - 1) / 2))
+    {
+        u8 calculationFromIf = input / 2;
+        retVal = calculationFromIf;
+    }
+    else
+    {
+        u8 calculationFromElse = input * input;
+        retVal = calculationFromElse;
+    }
+    return retVal;
+}
+
+void fun testScopedLifetimes()
+{
+    u8 i = 0;
+    while(i < 5)
+    {
+        u8 result = returnByScope(i);
+        while(result > 0)
+        {
+            uart_putc('0' + result);
+        }
+        uart_putc(10);
+        i = i + 1;
+    }
+
+}
+
+/*
+FINISHER_FAIL = 0x3333,
+FINISHER_PASS = 0x5555,
+FINISHER_RESET = 0x7777
+*/
 void fun exit() asm
 {
-    
+    li a0, 0x100000
+    li a1, 0x5555
+    sw a1,0(a0)
 }
 
 void fun main()
 {
-    u8 i = 0;
-    {
-        u8 i = 1;
-        while(i < 5)
-        {
-            uart_putc('0');
-        }
-    }
-    exit()
+    testScopedShadowing();
+    testScopedLifetimes();
+    exit();
 }
