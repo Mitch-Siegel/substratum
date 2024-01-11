@@ -56,7 +56,7 @@ char *SymbolTable_mangleName(struct Scope *scope, struct Dictionary *dict, char 
 	char *scopeName = scope->name;
 
 	char *mangledName = malloc(strlen(toMangle) + strlen(scopeName) + 2);
-	sprintf(mangledName, "%s_%s", scopeName, toMangle);
+	sprintf(mangledName, "%s.%s", scopeName, toMangle);
 	char *newName = Dictionary_LookupOrInsert(dict, mangledName);
 	free(mangledName);
 	return newName;
@@ -110,6 +110,12 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 		}
 	}
 
+	// early return if depth 0 - don't need to rename or move anything to parent scope
+	if(depth == 0)
+	{
+		return;
+	}
+
 	// second pass: rename basic block operands relevant to the current scope
 	for (int i = 0; i < scope->entries->size; i++)
 	{
@@ -142,8 +148,6 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 							{
 								thisTAC->operands[j].name.str = SymbolTable_mangleName(scope, dict, originalName);
 							}
-							// TODO: there is a bug here or somewhere similar in this function
-							//		 name mangling doesn't work correctly for variables declared at inner scopes
 						}
 					}
 				}
