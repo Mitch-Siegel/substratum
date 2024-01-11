@@ -243,7 +243,7 @@ void walkFunctionDeclaration(struct AST *tree,
 	int TACIndex = 0;
 	int tempNum = 0;
 	struct BasicBlock *block = BasicBlock_new(0);
-	while ((argumentRunner != NULL) && (argumentRunner->type != t_compound_statement))
+	while ((argumentRunner != NULL) && (argumentRunner->type != t_compound_statement) && (argumentRunner->type != t_asm))
 	{
 		switch (argumentRunner->type)
 		{
@@ -353,7 +353,6 @@ void walkFunctionDeclaration(struct AST *tree,
 	struct AST *definition = argumentRunner;
 	if (definition != NULL)
 	{
-
 		struct FunctionEntry *walkedFunction = NULL;
 		if (existingFunc != NULL)
 		{
@@ -2013,6 +2012,11 @@ void walkAsmBlock(struct AST *tree,
 	struct AST *asmRunner = tree->child;
 	while (asmRunner != NULL)
 	{
+		if(asmRunner->type != t_asm)
+		{
+			ErrorWithAST(ERROR_INTERNAL, tree, "Non-asm seen as contents of ASM block!\n");
+		}
+		
 		struct TACLine *asmLine = newTACLine((*TACIndex)++, tt_asm, asmRunner);
 		asmLine->operands[0].name.str = asmRunner->value;
 

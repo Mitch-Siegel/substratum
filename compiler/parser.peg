@@ -56,7 +56,15 @@ function_declaration
     / t:type_name _ f:fun _ i:identifier _ '(' _ p:parameter_list _ ')'  { $$ = AST_C(f, AST_S(AST_S(t, i), p)); }
 
 function_definition
-   <- d:function_declaration _ c:compound_statement { $$ = AST_C(d, c); }
+   <- d:function_declaration _ a:asm_block { $$ = AST_C(d, a); }
+    / d:function_declaration _ c:compound_statement { $$ = AST_C(d, c); }
+
+asm_block
+   <- kw_asm _ '{' _ a:asm_block_contents _ '}' { $$ = AST_C(AST_N(auxil, t_asm, "", $0s), a); }
+
+asm_block_contents
+   <- a1:asm_block_contents _ a2:asm_block_contents { $$ = AST_S(a1, a2); }
+    / _ (!eol [^"}"])*eol                          { char *noNlStr = strdup($0); noNlStr[strlen(noNlStr) - 1] = '\0'; $$ = AST_N(auxil, t_asm, noNlStr, $0s); free(noNlStr); }
 
 primary_expression
    <- i:identifier             { $$ = i; }
@@ -221,6 +229,7 @@ keyword
     / kw_else
     / kw_while
     / kw_return
+    / kw_asm
     / kw_semicolon
     / kw_arrow
     / kw_left_op
@@ -242,6 +251,7 @@ kw_if		      <- 'if'	  !(LETTER/DIGIT)
 kw_else		   <- 'else'  !(LETTER/DIGIT)
 kw_while       <- 'while' !(LETTER/DIGIT)
 kw_return       <- 'return' !(LETTER/DIGIT)
+kw_asm         <- 'asm'
 kw_semicolon   <- ';'
 kw_arrow       <- '->'
 kw_left_op     <- '<<'
@@ -281,10 +291,10 @@ LETTER <- [a-zA-Z_]
 
 constant
    <- DIGIT+          { $$ = AST_N(auxil, t_constant, $0, $0s); }
-    / "\'" DIGIT "\'" { char *quotedText = malloc(strlen($0) - 1); memcpy(quotedText, $0 + 1, strlen($0) - 1); quotedText[strlen($0) - 2] = 0; $$ = AST_N(auxil, t_char_literal, quotedText, $0s); free(quotedText); }
+    / "\'" ([^"\'"]+) "\'" { char *quotedText = malloc(strlen($0) - 1); memcpy(quotedText, $0 + 1, strlen($0) - 1); quotedText[strlen($0) - 2] = 0; $$ = AST_N(auxil, t_char_literal, quotedText, $0s); free(quotedText); }
 
 string_literal
-   <- '"' 'abcd' '"'
+   <- '"' ([^"\""]+) '"' { char *quotedText = malloc(strlen($0) - 1); memcpy(quotedText, $0 + 1, strlen($0) - 1); quotedText[strlen($0) - 2] = 0; $$ = AST_N(auxil, t_string_literal, quotedText, $0s); free(quotedText); }
 
 _ 
    <- directive+ _
