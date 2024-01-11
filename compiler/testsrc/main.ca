@@ -16,13 +16,5 @@ u32 fun fib(u8 n)
 void fun main()
 {
     uart_init();
-	uart_putc(65);
-    u8 n = 0;
-    while(n < 20)
-    {
-        u32 result = fib(n);
-        u8 smallerResult = result;
-        printNum(smallerResult);
-        n = n + 1;
-    }
+	uart_putc('@');
 }
