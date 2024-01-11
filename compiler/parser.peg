@@ -284,7 +284,7 @@ constant
     / "\'" ([^"\'"]+) "\'" { char *quotedText = malloc(strlen($0) - 1); memcpy(quotedText, $0 + 1, strlen($0) - 1); quotedText[strlen($0) - 2] = 0; $$ = AST_N(auxil, t_char_literal, quotedText, $0s); free(quotedText); }
 
 string_literal
-   <- '"' 'abcd' '"'
+   <- '"' ([^"\""]+) '"' { char *quotedText = malloc(strlen($0) - 1); memcpy(quotedText, $0 + 1, strlen($0) - 1); quotedText[strlen($0) - 2] = 0; $$ = AST_N(auxil, t_string_literal, quotedText, $0s); free(quotedText); }
 
 _ 
    <- directive+ _
