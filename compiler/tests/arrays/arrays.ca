@@ -1,0 +1,91 @@
+void fun uart_putc(u8 c)
+{
+    u8 *uart0 = 268435456;
+    *(uart0) = c;
+}
+
+/*
+FINISHER_FAIL = 0x3333,
+FINISHER_PASS = 0x5555,
+FINISHER_RESET = 0x7777
+*/
+void fun exit() asm
+{
+    li a0, 0x100000
+    li a1, 0x5555
+    sw a1,0(a0)
+}
+
+void fun testu8Array()
+{
+    u8[10] array;
+    u8 i = 0;
+    while(i < 10)
+    {
+        array[i] = 255;
+        array[i] = i;
+        u8 readBack = array[i];
+        if (readBack != i)
+        {
+            uart_putc('!');
+        }
+        else
+        {
+            uart_putc('0' + readBack);
+        }
+        i = i + 1;
+    }
+    uart_putc(10);
+}
+
+void fun testu16Array()
+{
+    u16[10] array;
+    u8 i = 0;
+    while(i < 10)
+    {
+        array[i] = 65535;
+        array[i] = 256 + i;
+        u16 readBack = array[i];
+        if((readBack != (256 + i)))
+        {
+            uart_putc('!');
+        }
+        else
+        {
+            uart_putc('0' + readBack);
+        }
+        i = i + 1;
+    }
+    uart_putc(10);
+}
+
+void fun testu32Array()
+{
+    u32[10] array;
+    u8 i = 0;
+    while(i < 10)
+    {
+        array[i] = 4294967295;
+        array[i] = 65536 + i;
+        u32 readBack = array[i];
+        if(readBack != 65536 + i)
+        {
+            uart_putc('!');
+        }
+        else
+        {
+            uart_putc('0' + readBack);
+        }
+        i = i + 1;
+    }
+    uart_putc(10);
+}
+
+void fun main()
+{
+    testu8Array();
+    testu16Array();
+    testu32Array();
+    exit();
+}
