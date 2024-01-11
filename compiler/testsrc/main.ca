@@ -1,11 +1,15 @@
 #include "uart.h"
 #include "print.h"
 
-u8 fun testAsmFunction(u8 n) asm
+u8 fun scopeTest(u8 a)
 {
-    lb t0, 8(fp)
-    mul t0, t0, t0
-    mv a0, t0
+    if(((a - 1) / 2) == (a / 2))
+    {
+        u8 b = 123;
+        return b;
+    }
+
+    return a;
 }
 
 void fun main()
@@ -15,7 +19,7 @@ void fun main()
     u8 n = 0;
     while(n < 20)
     {
-        printNum(testAsmFunction(n));
+        printNum(scopeTest(n));
         n = n + 1;
     }
 }
