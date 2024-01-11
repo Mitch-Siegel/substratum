@@ -416,6 +416,8 @@ int allocateRegisters(struct CodegenMetadata *metadata)
                     }
                 }
             }
+
+            Stack_Free(stackLayout);
         }
     }
 

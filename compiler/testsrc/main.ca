@@ -1,20 +1,25 @@
 #include "uart.h"
 #include "print.h"
 
-u32 fun fib(u8 n)
+u8 fun scopeTest(u8 a)
 {
-    if(n > 1)
+    if(((a - 1) / 2) == (a / 2))
     {
-        return fib(n - 1) + fib(n - 2);
+        u8 b = 123;
+        return b;
     }
-    else
-    {
-        return n;
-    }
+
+    return a;
 }
 
 void fun main()
 {
     uart_init();
-	uart_putc('@');
+	uart_putc(65);
+    u8 n = 0;
+    while(n < 20)
+    {
+        printNum(scopeTest(n));
+        n = n + 1;
+    }
 }

@@ -771,7 +771,7 @@ void walkIfStatement(struct AST *tree,
 
 		struct Scope *ifScope = Scope_createSubScope(scope);
 		struct BasicBlock *ifBlock = BasicBlock_new((*labelNum)++);
-		Scope_addBasicBlock(scope, ifBlock);
+		Scope_addBasicBlock(ifScope, ifBlock);
 
 		struct TACLine *enterIfJump = newTACLine((*TACIndex)++, tt_jmp, tree);
 		enterIfJump->operands[0].name.val = ifBlock->labelNum;
@@ -789,7 +789,7 @@ void walkIfStatement(struct AST *tree,
 
 		struct Scope *elseScope = Scope_createSubScope(scope);
 		struct BasicBlock *elseBlock = BasicBlock_new(elseLabel);
-		Scope_addBasicBlock(scope, elseBlock);
+		Scope_addBasicBlock(elseScope, elseBlock);
 
 		struct AST *elseBody = tree->child->sibling->sibling;
 		if (elseBody->type == t_compound_statement)
@@ -808,7 +808,7 @@ void walkIfStatement(struct AST *tree,
 
 		struct Scope *ifScope = Scope_createSubScope(scope);
 		struct BasicBlock *ifBlock = BasicBlock_new((*labelNum)++);
-		Scope_addBasicBlock(scope, ifBlock);
+		Scope_addBasicBlock(ifScope, ifBlock);
 
 		struct TACLine *enterIfJump = newTACLine((*TACIndex)++, tt_jmp, tree);
 		enterIfJump->operands[0].name.val = ifBlock->labelNum;
