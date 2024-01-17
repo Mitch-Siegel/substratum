@@ -45,7 +45,7 @@ u8 fun testWhileScope(u8 a)
         }
         counter1 = counter1 + 1;
     }
-    return counter2;
+    return result;
 }
 
 void fun testScopedShadowing()
@@ -62,34 +62,36 @@ void fun testScopedShadowing()
 
 u8 fun returnByScope(u8 input)
 {
-    u8 retVal = 123;
+    u8 retVal = 'A';
     if((input / 2 ) == ((input - 1) / 2))
     {
-        u8 calculationFromIf = input / 2;
+        u8 calculationFromIf = input;
         retVal = calculationFromIf;
     }
     else
     {
-        u8 calculationFromElse = input * input;
+        u8 calculationFromElse = input - 1;
         retVal = calculationFromElse;
     }
-    return retVal;
+    return 'a' + retVal;
 }
 
 void fun testScopedLifetimes()
 {
     u8 i = 0;
-    while(i < 5)
+    while(i < 10)
     {
+        uart_putc('0' + i);
+        uart_putc(':');
         u8 result = returnByScope(i);
-        while(result > 0)
+        while(result >= 'a')
         {
-            uart_putc('0' + result);
+            uart_putc(result);
+            result = result - 1;
         }
-        uart_putc(10);
         i = i + 1;
     }
-
+    uart_putc(10);
 }
 
 /*
@@ -106,7 +108,16 @@ void fun exit() asm
 
 void fun main()
 {
-    testScopedShadowing();
+    u8 i = 0;
+    while(i < 5)
+    {
+        uart_putc('0' + testIfScope(i));
+        uart_putc('0' + testIfElseScope(i));
+        uart_putc('0' + testWhileScope(i));
+        uart_putc(10);
+        i = i + 1;
+    }
+    
     testScopedLifetimes();
     exit();
 }
