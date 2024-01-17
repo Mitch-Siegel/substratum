@@ -16,7 +16,7 @@ enum CompilerErrors
 	printf("Bailing from file %s:%d\n\n", __FILE__, __LINE__); \
 	exit(code)
 
-#define ErrorWithAST(code, astPtr, fmt, ...)                                         \
+#define ErrorWithAST(code, astPtr, fmt, ...)                                               \
 	printf("%s:%d:%d: ", (astPtr)->sourceFile, (astPtr)->sourceLine, (astPtr)->sourceCol); \
 	ErrorAndExit(code, fmt, ##__VA_ARGS__)
 
@@ -47,11 +47,8 @@ struct ParseProgress
 	struct Dictionary *dict;
 	struct LinkedList *charsRemainingPerLine;
 	int lastMatchLocation;
+	char eofReceived;
 };
-
-void trackCharacter(struct LinkedList *charsPerLine, int c);
-
-void manageSourceLocation(char *matchedString, int charsConsumed, struct LinkedList *charsPerLine, unsigned int *curLineP, unsigned int *curColP);
 
 int alignSize(int nBytes);
 
