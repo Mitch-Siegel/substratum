@@ -51,23 +51,21 @@ void fun exit() asm
 
 void fun main()
 {
-    u32 value = 0x1234;
+    u32 value = 1;
     printNum(value);
-    value = 0x4D2;
+    value -= 1;
     printNum(value);
-    value = 0x4d2;
+    value += 1;
     printNum(value);
-    value = 0xabcdef;
+    value *= 10;
     printNum(value);
-	value = 0xABCDEF;
+    value /= 5;
     printNum(value);
-	value = 0x1abcdef;
+    value |= 64;
     printNum(value);
-	value = 0x1ABCDEF;
+    value ^= 127;
     printNum(value);
-	value = 0xabcdef1;
-    printNum(value);
-	value = 0xABCDEF1;
+    value &= 255;
     printNum(value);
     exit();
 }
