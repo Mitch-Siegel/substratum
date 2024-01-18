@@ -503,6 +503,14 @@ void walkStatement(struct AST *tree,
 
 	case t_plus_equals:
 	case t_minus_equals:
+	case t_times_equals:
+	case t_divide_equals:
+	case t_modulo_equals:
+	case t_bitwise_and_equals:
+	case t_bitwise_or_equals:
+	case t_bitwise_xor_equals:
+	case t_lshift_equals:
+	case t_rshift_equals:
 		walkArithmeticAssignment(tree, *blockP, scope, TACIndex, tempNum);
 		break;
 
@@ -1160,8 +1168,48 @@ void walkArithmeticAssignment(struct AST *tree,
 		fakeArith.value = "-";
 		break;
 
+	case t_times_equals:
+		fakeArith.type = t_multiply;
+		fakeArith.value = "*";
+		break;
+
+	case t_divide_equals:
+		fakeArith.type = t_divide;
+		fakeArith.value = "/";
+		break;
+
+	case t_modulo_equals:
+		fakeArith.type = t_modulo;
+		fakeArith.value = "%";
+		break;
+
+	case t_bitwise_and_equals:
+		fakeArith.type = t_bitwise_and;
+		fakeArith.value = "&";
+		break;
+
+	case t_bitwise_or_equals:
+		fakeArith.type = t_bitwise_or;
+		fakeArith.value = "|";
+		break;
+
+	case t_bitwise_xor_equals:
+		fakeArith.type = t_bitwise_xor;
+		fakeArith.value = "^";
+		break;
+
+	case t_lshift_equals:
+		fakeArith.type = t_lshift;
+		fakeArith.value = "<<";
+		break;
+
+	case t_rshift_equals:
+		fakeArith.type = t_rshift;
+		fakeArith.value = ">>";
+		break;
+
 	default:
-		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkAssignment!\n", getTokenName(tree->type));
+		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkArithmeticAssignment!\n", getTokenName(tree->type));
 	}
 
 	// our fake arithmetic ast will have the child of the arithmetic assignment operator
@@ -1275,12 +1323,13 @@ void walkSubExpression(struct AST *tree,
 	case t_subtract:
 	case t_multiply:
 	case t_divide:
+	case t_modulo:
+	case t_lshift:
+	case t_rshift:
 	case t_less_than:
 	case t_greater_than:
 	case t_less_than_equals:
 	case t_greater_than_equals:
-	case t_lshift:
-	case t_rshift:
 	case t_bitwise_or:
 	case t_bitwise_xor:
 	{
