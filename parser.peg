@@ -42,10 +42,12 @@ translation_unit
     / _ eof
 
 variable_declaration
-   <- t:type_name _ i:identifier                      { $$ = AST_C(t, i); }
+   <- t:type_name _ i:identifier { $$ = AST_C(AST_N(auxil, t_variable_declaration, "", $0s), AST_S(t, i)); }
 
+# variable_declaration is valid in all places parameter_declaration is
+# however, parameter_declaration is not valid in all places variable_declaration but not vice-versa
 parameter_declaration
-   <- t:type_name _ i:identifier  { $$ = AST_C(t, i); }
+   <- t:type_name _ i:identifier { $$ = AST_C(AST_N(auxil, t_variable_declaration, "", $0s), AST_S(t, i)); }
 
 parameter_list
    <- pl:parameter_list _ ',' _ p:parameter_declaration  { $$ = AST_S(pl, p); }
@@ -191,12 +193,13 @@ statement_list
 
 # only allow array sizes to be declared at the very end of a type name (no multidimensional arrays)
 type_name
-   <- t:incomplete_type_name _ '[' _ c:constant _ ']' { $$ = AST_C(t, AST_C(AST_N(auxil, t_array_index, "", $0s), c)); }
-    / t:incomplete_type_name                          { $$ = t; }
+   <- t:incomplete_type_name _ '[' _ c:constant _ ']' { $$ = AST_C(AST_N(auxil, t_type_name, "", $0s), AST_S(t, AST_C(AST_N(auxil, t_array_index, "", $0s), c))); }
+    / t:incomplete_type_name                          { $$ = AST_C(AST_N(auxil, t_type_name, "", $0s), t); }
 
 incomplete_type_name
-   <- t:incomplete_type_name _ '*' { $$ = AST_C(t, AST_N(auxil, t_dereference, "", $0s)); }
+   <- t:incomplete_type_name _ '*' { $$ = AST_S(t, AST_N(auxil, t_dereference, "", $0s)); }
     / n:non_pointer_typename       { $$ = n; }
+    / i:identifier                 { $$ = i; }
 
 non_pointer_typename
    <- t:void                  { $$ = t; }

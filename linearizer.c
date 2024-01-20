@@ -24,9 +24,7 @@ struct SymbolTable *walkProgram(struct AST *program)
 	{
 		switch (programRunner->type)
 		{
-		case t_u8:
-		case t_u16:
-		case t_u32:
+		case t_variable_declaration:
 			walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
 			break;
 
@@ -81,6 +79,12 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	{
 		printf("walkVariableDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
+
+	if (tree->type != t_variable_declaration)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkVariableDeclaration!\n", getTokenName(tree->type));
+	}
+
 	struct Type declaredType;
 
 	/* 'class' trees' children are the class name
@@ -89,9 +93,16 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	 */
 
 	struct AST *startScrapeFrom = tree->child;
+	if(startScrapeFrom->type != t_type_name)
+	{
+		ErrorWithAST(ERROR_INTERNAL, startScrapeFrom, "Malformed AST seen in declaration!");
+	}
+	startScrapeFrom = startScrapeFrom->child;
+
+
 	struct AST *className = NULL;
 
-	switch (tree->type)
+	switch (startScrapeFrom->type)
 	{
 	case t_u8:
 		declaredType.basicType = vt_u8;
@@ -107,6 +118,7 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 
 	case t_class:
 		declaredType.basicType = vt_class;
+		startScrapeFrom = startScrapeFrom->child;
 		if (startScrapeFrom->type != t_identifier)
 		{
 			ErrorWithAST(ERROR_INTERNAL,
@@ -117,15 +129,14 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 		}
 		declaredType.classType.name = startScrapeFrom->value;
 		className = startScrapeFrom;
-		startScrapeFrom = startScrapeFrom->sibling;
 		break;
 
 	default:
-		ErrorWithAST(ERROR_INTERNAL, tree, "Malformed AST seen in declaration!");
+		ErrorWithAST(ERROR_INTERNAL, startScrapeFrom, "Malformed AST seen in declaration!");
 	}
 
-	struct AST *declaredTree = NULL;
-	declaredType.indirectionLevel = scrapePointers(startScrapeFrom, &declaredTree);
+	struct AST *declaredArray = NULL;
+	declaredType.indirectionLevel = scrapePointers(startScrapeFrom, &declaredArray);
 
 	// don't allow declaration of variables of undeclared class or array of undeclared class (except pointers)
 	if ((declaredType.basicType == vt_class) && (declaredType.indirectionLevel == 0))
@@ -135,12 +146,15 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	}
 
 	// if we are declaring an array, set the string with the size as the second operand
-	if (declaredTree->type == t_array_index)
+	if (declaredArray != NULL)
 	{
-		char *arraySizeString = declaredTree->child->value;
+		if(declaredArray->type != t_array_index)
+		{
+			ErrorWithAST(ERROR_INTERNAL, startScrapeFrom, "Unexpected AST at end of pointer declarations!");
+		}
+		char *arraySizeString = declaredArray->child->value;
 		int declaredArraySize = atoi(arraySizeString);
 
-		declaredTree = declaredTree->sibling;
 		declaredType.arraySize = declaredArraySize;
 	}
 	else
@@ -148,7 +162,7 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 		declaredType.arraySize = 0;
 	}
 	struct VariableEntry *declaredVariable = Scope_createVariable(scope,
-																  declaredTree,
+																  tree->child->sibling,
 																  &declaredType,
 																  (scope->parentScope == NULL),
 																  *TACIndex,
@@ -193,7 +207,12 @@ void walkFunctionDeclaration(struct AST *tree,
 	struct AST *returnTypeTree = tree->child;
 
 	enum basicTypes returnBasicType;
-	switch (returnTypeTree->type)
+	if (returnTypeTree->type != t_type_name)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Malformed AST as return type for function\n");
+	}
+
+	switch (returnTypeTree->child->type)
 	{
 	case t_void:
 		returnBasicType = vt_null;
@@ -248,10 +267,7 @@ void walkFunctionDeclaration(struct AST *tree,
 		switch (argumentRunner->type)
 		{
 		// looking at argument declarations
-		case t_u8:
-		case t_u16:
-		case t_u32:
-		case t_class:
+		case t_variable_declaration:
 		{
 			walkArgumentDeclaration(argumentRunner, block, &TACIndex, &tempNum, parsedFunc);
 		}
@@ -489,10 +505,7 @@ void walkStatement(struct AST *tree,
 
 	switch (tree->type)
 	{
-	case t_u8:
-	case t_u16:
-	case t_u32:
-	case t_class:
+	case t_variable_declaration:
 		walkVariableDeclaration(tree, *blockP, scope, TACIndex, tempNum, 0);
 		break;
 
@@ -1036,10 +1049,7 @@ void walkAssignment(struct AST *tree,
 	struct VariableEntry *assignedVariable = NULL;
 	switch (lhs->type)
 	{
-	case t_u8:
-	case t_u16:
-	case t_u32:
-	case t_class:
+	case t_variable_declaration:
 		assignedVariable = walkVariableDeclaration(lhs, block, scope, TACIndex, tempNum, 0);
 		populateTACOperandFromVariable(&assignment->operands[0], assignedVariable);
 		assignment->operands[1] = assignedValue;
@@ -2061,11 +2071,11 @@ void walkAsmBlock(struct AST *tree,
 	struct AST *asmRunner = tree->child;
 	while (asmRunner != NULL)
 	{
-		if(asmRunner->type != t_asm)
+		if (asmRunner->type != t_asm)
 		{
 			ErrorWithAST(ERROR_INTERNAL, tree, "Non-asm seen as contents of ASM block!\n");
 		}
-		
+
 		struct TACLine *asmLine = newTACLine((*TACIndex)++, tt_asm, asmRunner);
 		asmLine->operands[0].name.str = asmRunner->value;
 

@@ -792,16 +792,18 @@ void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *b)
  * AST walk and symbol table generation functions
  */
 
-// scrape down a chain of nested child star tokens, expecting something at the bottom
+// scrape down a chain of adjacent sibling star tokens, expecting something at the bottom
 int scrapePointers(struct AST *pointerAST, struct AST **resultDestination)
 {
 	int dereferenceDepth = 0;
+	pointerAST = pointerAST->sibling;
 
 	while ((pointerAST != NULL) && (pointerAST->type == t_dereference))
 	{
 		dereferenceDepth++;
 		pointerAST = pointerAST->sibling;
 	}
+	
 	*resultDestination = pointerAST;
 	return dereferenceDepth;
 }
