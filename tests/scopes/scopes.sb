@@ -1,8 +1,4 @@
-void fun uart_putc(u8 c)
-{
-    u8 *uart0 = 268435456;
-    *(uart0) = c;
-}
+#include "tests-common.sbh"
 
 u8 fun testIfScope(u8 a)
 {
@@ -92,18 +88,6 @@ void fun testScopedLifetimes()
         i = i + 1;
     }
     uart_putc(10);
-}
-
-/*
-FINISHER_FAIL = 0x3333,
-FINISHER_PASS = 0x5555,
-FINISHER_RESET = 0x7777
-*/
-void fun exit() asm
-{
-    li a0, 0x100000
-    li a1, 0x5555
-    sw a1,0(a0)
 }
 
 void fun main()

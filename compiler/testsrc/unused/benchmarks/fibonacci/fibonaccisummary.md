@@ -1,1 +1,0 @@
-This benchmark is testing how many instructions it takes to generate the fibonacci numbers up and including to the 20th entry in the series.

@@ -1,1 +1,0 @@
-This benchmark is testing how many instructions it takes to generate all prime numbers less than 1000. This represents the first 168 prime numbers.

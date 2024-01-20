@@ -1,9 +1,10 @@
+#include "tests-common.sbh"
+
 void fun uart_putc(u8 c)
 {
     u8 *uart0 = 268435456;
     *(uart0) = c;
 }
-
 
 u32 fun mod(u32 a, u32 b)
 {
@@ -70,7 +71,6 @@ void fun printHex(u32 value)
 	}
 }
 
-
 /*
 FINISHER_FAIL = 0x3333,
 FINISHER_PASS = 0x5555,
@@ -81,53 +81,4 @@ void fun exit() asm
     li a0, 0x100000
     li a1, 0x5555
     sw a1,0(a0)
-}
-
-u32 fun crc(u8 *string)
-{
-	u32 crc = 0;
-	crc = ~crc;
-	
-	u32 i = 0;
-	while(string[i] != 0)
-	{
-		crc = crc ^ string[i];
-		u8 j = 0;
-		while(j < 8)
-		{
-			crc = (crc >> 1);
-			if((crc & 1) > 0)
-			{
-				// magic number is 0x82f63b78 (CRC-32C polynomial)
-				crc = crc ^ 2197175160;
-			}
-			else
-
-			j = j + 1;
-		}
-		i = i + 1;
-	}
-	return crc;
-}
-
-void fun printCrc(u8 *string)
-{
-	u32 i = 0;
-	while(string[i] != 0)
-	{
-		uart_putc(string[i]);
-		i = i + 1;
-	}
-	uart_putc(':');
-	printHex(crc(string));
-}
-
-void fun main()
-{
-    printCrc("Hello, World!");
-    printCrc("the quick brown fox jumps over the lazy dog");
-    printCrc("The Quick Brown Fox Jumps Over The Lazy Dog");
-    printCrc("The Quick Brown Fox Jumps Over The Lazy Dog");
-    printCrc("Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.");
-    exit();
 }

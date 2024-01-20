@@ -1,0 +1,8 @@
+
+void fun uart_putc(u8 c);
+
+void fun printNum(u32 value);
+
+void fun printHex(u32 value);
+
+void fun exit();
