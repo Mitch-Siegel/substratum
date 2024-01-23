@@ -17,6 +17,7 @@ char *token_names[] = {
 	"t_u16",
 	"t_u32",
 	"t_class",
+	"t_class_body",
 	"t_compound_statement",
 	"t_fun",
 	"t_return",

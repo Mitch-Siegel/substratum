@@ -30,15 +30,15 @@ struct SymbolTable *walkProgram(struct AST *program)
 
 		case t_class:
 		{
-			if (programRunner->child->sibling->type == t_compound_statement)
-			{
+			// if (programRunner->child->sibling->type == t_compound_statement)
+			// {
 				walkClassDeclaration(programRunner, globalBlock, programTable->globalScope);
 				break;
-			}
-			else // TODO: disallow bad sibling types?
-			{
-				walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
-			}
+			// }
+			// else // TODO: disallow bad sibling types?
+			// {
+				// walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
+			// }
 		}
 		break;
 
@@ -465,33 +465,30 @@ void walkClassDeclaration(struct AST *tree,
 
 	struct ClassEntry *declaredClass = Scope_createClass(scope, tree->child->value);
 
-	struct AST *classScope = tree->child->sibling;
+	struct AST *classBody = tree->child->sibling;
 
-	if (classScope->type != t_compound_statement)
+	if (classBody->type != t_class_body)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Malformed AST seen in walkClassDefinition!\n");
 	}
 
-	struct AST *scopeRunner = classScope->child;
-	while (scopeRunner != NULL)
+	struct AST *classBodyRunner = classBody->child;
+	while (classBodyRunner != NULL)
 	{
-		switch (scopeRunner->type)
+		switch (classBodyRunner->type)
 		{
-		case t_u8:
-		case t_u16:
-		case t_u32:
-		case t_class:
+		case t_variable_declaration:
 		{
-			struct VariableEntry *declaredMember = walkVariableDeclaration(scopeRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0);
+			struct VariableEntry *declaredMember = walkVariableDeclaration(classBodyRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0);
 			Class_assignOffsetToMemberVariable(declaredClass, declaredMember);
 		}
 		break;
 
 		default:
-			ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) seen in body of class definition!\n", getTokenName(scopeRunner->type));
+			ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) seen in body of class definition!\n", getTokenName(classBodyRunner->type));
 		}
 
-		scopeRunner = scopeRunner->sibling;
+		classBodyRunner = classBodyRunner->sibling;
 	}
 }
 

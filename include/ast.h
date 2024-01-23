@@ -19,6 +19,7 @@ enum token
 	t_u32,
 	t_class,
 	//
+	t_class_body,
 	t_compound_statement,
 	//
 	// function
