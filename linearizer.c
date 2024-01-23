@@ -93,12 +93,11 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	 */
 
 	struct AST *startScrapeFrom = tree->child;
-	if(startScrapeFrom->type != t_type_name)
+	if (startScrapeFrom->type != t_type_name)
 	{
 		ErrorWithAST(ERROR_INTERNAL, startScrapeFrom, "Malformed AST seen in declaration!");
 	}
 	startScrapeFrom = startScrapeFrom->child;
-
 
 	struct AST *className = NULL;
 
@@ -118,17 +117,23 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 
 	case t_class:
 		declaredType.basicType = vt_class;
-		startScrapeFrom = startScrapeFrom->child;
-		if (startScrapeFrom->type != t_identifier)
+		if (startScrapeFrom->child == NULL)
 		{
 			ErrorWithAST(ERROR_INTERNAL,
 						 startScrapeFrom,
-						 "Malformed AST seen in declaration!\nExpected class name after \"class\", saw %s (%s)!",
-						 startScrapeFrom->value,
-						 getTokenName(startScrapeFrom->type));
+						 "Malformed AST seen in declaration!\nExpected class name as child of t_class, no child seen");
 		}
-		declaredType.classType.name = startScrapeFrom->value;
-		className = startScrapeFrom;
+
+		className = startScrapeFrom->child;
+		if (className->type != t_identifier)
+		{
+			ErrorWithAST(ERROR_INTERNAL,
+						 className,
+						 "Malformed AST seen in declaration!\nExpected class name as child of \"class\", saw %s (%s)!",
+						 className->value,
+						 getTokenName(className->type));
+		}
+		declaredType.classType.name = className->value;
 		break;
 
 	default:
@@ -148,7 +153,7 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	// if we are declaring an array, set the string with the size as the second operand
 	if (declaredArray != NULL)
 	{
-		if(declaredArray->type != t_array_index)
+		if (declaredArray->type != t_array_index)
 		{
 			ErrorWithAST(ERROR_INTERNAL, startScrapeFrom, "Unexpected AST at end of pointer declarations!");
 		}
