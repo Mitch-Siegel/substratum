@@ -1,2 +1,25 @@
+#include "tests-common.sbh"
 
-class thingamajig abc;
+class Money
+{
+    u32 dollars;
+    u8 cents;
+};
+
+void fun PrintMoney(Money *m)
+{
+    uart_putc('$');
+    printNum(m->dollars);
+    uart_putc('.');
+    printNum(m->cents);
+}
+
+void fun main()
+{
+    uart_putc('@');
+    Money twelveDollars;
+    twelveDollars.dollars = 12;
+    twelveDollars.cents = 0;
+    PrintMoney(&twelveDollars);
+    exit();
+}

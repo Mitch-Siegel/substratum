@@ -32,12 +32,12 @@ struct SymbolTable *walkProgram(struct AST *program)
 		{
 			// if (programRunner->child->sibling->type == t_compound_statement)
 			// {
-				walkClassDeclaration(programRunner, globalBlock, programTable->globalScope);
-				break;
+			walkClassDeclaration(programRunner, globalBlock, programTable->globalScope);
+			break;
 			// }
 			// else // TODO: disallow bad sibling types?
 			// {
-				// walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
+			// walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
 			// }
 		}
 		break;
@@ -115,16 +115,10 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 		declaredType.basicType = vt_u32;
 		break;
 
-	case t_class:
+	case t_identifier:
 		declaredType.basicType = vt_class;
-		if (startScrapeFrom->child == NULL)
-		{
-			ErrorWithAST(ERROR_INTERNAL,
-						 startScrapeFrom,
-						 "Malformed AST seen in declaration!\nExpected class name as child of t_class, no child seen");
-		}
 
-		className = startScrapeFrom->child;
+		className = startScrapeFrom;
 		if (className->type != t_identifier)
 		{
 			ErrorWithAST(ERROR_INTERNAL,
@@ -155,7 +149,8 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	{
 		if (declaredArray->type != t_array_index)
 		{
-			ErrorWithAST(ERROR_INTERNAL, startScrapeFrom, "Unexpected AST at end of pointer declarations!");
+			AST_Print(declaredArray, 0);
+			ErrorWithAST(ERROR_INTERNAL, declaredArray, "Unexpected AST at end of pointer declarations!");
 		}
 		char *arraySizeString = declaredArray->child->value;
 		int declaredArraySize = atoi(arraySizeString);
@@ -485,7 +480,7 @@ void walkClassDeclaration(struct AST *tree,
 		break;
 
 		default:
-			ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) seen in body of class definition!\n", getTokenName(classBodyRunner->type));
+			ErrorWithAST(ERROR_INTERNAL, classBodyRunner, "Wrong AST (%s) seen in body of class definition!\n", getTokenName(classBodyRunner->type));
 		}
 
 		classBodyRunner = classBodyRunner->sibling;
@@ -1371,20 +1366,17 @@ void walkSubExpression(struct AST *tree,
 	}
 	break;
 
+	case t_address_of:
+	{
+		struct TACOperand *addrOfResult = walkAddrOf(tree, block, scope, TACIndex, tempNum);
+		*destinationOperand = *addrOfResult;
+	}
+	break;
+
 	case t_bitwise_and:
 	{
-		// '&' as address-of operator
-		if (tree->child->sibling == NULL)
-		{
-			struct TACOperand *addrOfResult = walkAddrOf(tree, block, scope, TACIndex, tempNum);
-			*destinationOperand = *addrOfResult;
-		}
-		// '&' as bitwise and operator
-		else
-		{
-			struct TACOperand *expressionResult = walkExpression(tree, block, scope, TACIndex, tempNum);
-			*destinationOperand = *expressionResult;
-		}
+		struct TACOperand *expressionResult = walkExpression(tree, block, scope, TACIndex, tempNum);
+		*destinationOperand = *expressionResult;
 	}
 	break;
 
@@ -1909,9 +1901,9 @@ struct TACOperand *walkAddrOf(struct AST *tree,
 		printf("walkAddrOf: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
 
-	if (tree->type != t_bitwise_and)
+	if (tree->type != t_address_of)
 	{
-		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDereference!\n", getTokenName(tree->type));
+		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkAddressOf!\n", getTokenName(tree->type));
 	}
 
 	struct TACLine *addrOfLine = newTACLine(*TACIndex, tt_addrof, tree);
