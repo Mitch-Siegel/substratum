@@ -1600,20 +1600,19 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 	if ((tree->type == t_arrow))
 	{
 		accessLine->index = (*TACIndex)++;
+		// TODO: don't actually use the accessLine if it is a lea_off with offset 0, instead just replace to the new accessLine
 		BasicBlock_append(block, accessLine);
 
 		struct Type *existingReadType = TAC_GetTypeOfOperand(accessLine, 0);
+		
 
 		struct TACLine *oldAccessLine = accessLine;
-		if ((existingReadType->basicType == vt_class) &&
+		if ((existingReadType->basicType == vt_class) ||
 			(existingReadType->indirectionLevel == 0))
 		{
 			oldAccessLine->operation = tt_lea_off;
 		}
-		else
-		{
-			oldAccessLine->operation = tt_load_off;
-		}
+
 		accessLine = newTACLine(*TACIndex, tt_load_off, tree);
 
 		copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccessLine->operands[0]);
