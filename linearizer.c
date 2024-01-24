@@ -930,6 +930,9 @@ void walkDotOperatorAssignment(struct AST *tree,
 	wipAssignment->operands[1].name.val = accessedMember->offset;
 
 	wipAssignment->operands[2] = *assignedValue;
+
+	// cast the class pointer to the type we are actually reading out of the class
+	wipAssignment->operands[0].castAsType = accessedMember->variable->type;
 }
 
 void walkArrowOperatorAssignment(struct AST *tree,
@@ -1013,6 +1016,9 @@ void walkArrowOperatorAssignment(struct AST *tree,
 	wipAssignment->operands[1].name.val = accessedMember->offset;
 
 	wipAssignment->operands[2] = *assignedValue;
+
+	// cast the class pointer to the type we are actually reading out of the class
+	wipAssignment->operands[0].castAsType = accessedMember->variable->type;
 }
 
 void walkAssignment(struct AST *tree,
@@ -1604,7 +1610,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 		BasicBlock_append(block, accessLine);
 
 		struct Type *existingReadType = TAC_GetTypeOfOperand(accessLine, 0);
-		
+
 
 		struct TACLine *oldAccessLine = accessLine;
 		if ((existingReadType->basicType == vt_class) ||
