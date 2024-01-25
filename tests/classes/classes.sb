@@ -16,7 +16,6 @@ void fun PrintMoney(Money *m)
 
 void fun main()
 {
-    uart_putc('@');
     Money twelveDollars;
     twelveDollars.dollars = 12;
     twelveDollars.cents = 0;
