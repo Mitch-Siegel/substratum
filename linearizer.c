@@ -1541,11 +1541,21 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
 		if (class->type != t_identifier)
 		{
-			ErrorWithAST(ERROR_CODE, member,
-						 "Expected identifier on LHS of %s operator, got %s (%s) instead!\n",
-						 (tree->type == t_dot ? "dot" : "arrow"),
-						 class->value,
-						 getTokenName(class->type));
+			if (class->type == t_address_of)
+			{
+				if(tree->type == t_arrow)
+				{
+					ErrorWithAST(ERROR_CODE, class, "Use of arrow operator after address-of operator `(&a)->b` is not supported.\nUse `a.b` instead\n");
+				}
+			}
+			else
+			{
+				ErrorWithAST(ERROR_CODE, member,
+							 "Expected identifier on LHS of %s operator, got %s (%s) instead!\n",
+							 (tree->type == t_dot ? "dot" : "arrow"),
+							 class->value,
+							 getTokenName(class->type));
+			}
 		}
 
 		if (member->type != t_identifier)
@@ -1605,30 +1615,45 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 	// then sets up a new access solely for the arrow
 	if ((tree->type == t_arrow))
 	{
-		accessLine->index = (*TACIndex)++;
-		// TODO: don't actually use the accessLine if it is a lea_off with offset 0, instead just replace to the new accessLine
-		BasicBlock_append(block, accessLine);
-
-		struct Type *existingReadType = TAC_GetTypeOfOperand(accessLine, 0);
-
-
-		struct TACLine *oldAccessLine = accessLine;
-		if ((existingReadType->basicType == vt_class) ||
-			(existingReadType->indirectionLevel == 0))
+		// if the existing load operation actually applies an offset, it is necessary to actually "jump through" the indirection by dereferencing at that offset
+		// to do this, we cement the existing access for good and then create a new load TAC instruction which will apply only the offset from this arrow operator
+		if (accessLine->operands[2].name.val > 0)
 		{
-			oldAccessLine->operation = tt_lea_off;
+			// index and add the existing offset
+			accessLine->index = (*TACIndex)++;
+			BasicBlock_append(block, accessLine);
+
+			// understand some info about what we're actually reading at this offset, keep track of the old access
+			struct Type *existingReadType = TAC_GetTypeOfOperand(accessLine, 0);
+			struct TACLine *oldAccessLine = accessLine;
+
+			// the LHS of our arrow must be some sort of class pointer, otherwise we shouldn't be able to use the arrow operator on it!
+			if ((existingReadType->basicType == vt_class) && (existingReadType->indirectionLevel == 0))
+			{
+				// convert the old access to a lea - we don't want to dereference the class, we just need a pointer to it
+				oldAccessLine->operation = tt_lea_off;
+			}
+			else if (existingReadType->basicType != vt_class) // we are currently walking a member access using the arrow operator on something that's not a class pointer
+			{
+				char *existingReadTypeName = Type_GetName(existingReadType);
+				ErrorWithAST(ERROR_CODE, tree, "Use of arrow operator '->' on non-class-pointer type %s!\n", existingReadTypeName);
+			}
+
+			accessLine = newTACLine(*TACIndex, tt_load_off, tree);
+
+			copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccessLine->operands[0]);
+
+			accessLine->operands[0].permutation = vp_temp;
+			accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+
+			accessLine->operands[2].type.basicType = vt_u32;
+			accessLine->operands[2].permutation = vp_literal;
+			// BasicBlock_append(block, accessLine);
 		}
-
-		accessLine = newTACLine(*TACIndex, tt_load_off, tree);
-
-		copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccessLine->operands[0]);
-
-		accessLine->operands[0].permutation = vp_temp;
-		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-
-		accessLine->operands[2].type.basicType = vt_u32;
-		accessLine->operands[2].permutation = vp_literal;
-		// BasicBlock_append(block, accessLine);
+		else
+		{
+			accessLine->operation = tt_load_off;
+		}
 	}
 
 	// get the ClassEntry and ClassMemberOffset of what we're accessing within and the member we access
@@ -1972,8 +1997,9 @@ struct TACOperand *walkAddrOf(struct AST *tree,
 	case t_arrow:
 	{
 		// walkMemberAccess can do everything we need
-		// the only thing we have to do is ensure we have an LEA at the end instead of a direct read
+		// the only thing we have to do is ensure we have an LEA at the end instead of a direct read in the case of the dot operator
 		struct TACLine *memberAccessLine = walkMemberAccess(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1], 0);
+
 		memberAccessLine->operation = tt_lea_off;
 		memberAccessLine->operands[0].type.indirectionLevel++;
 		memberAccessLine->operands[1].castAsType.indirectionLevel++;
