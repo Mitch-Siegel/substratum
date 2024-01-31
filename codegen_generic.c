@@ -107,14 +107,14 @@ void WriteVariable(struct TACLine *correspondingTACLine,
 	{
 		const char *width = SelectWidth(scope, writtenTo);
 		fprintf(c->outFile, "\t# Write (global) variable %s\n", relevantLifetime->name);
-		emitInstruction(correspondingTACLine, c, "\tli %s, %s\n",
+		emitInstruction(correspondingTACLine, c, "\tla %s, %s\n",
 						registerNames[TEMP_0],
 						relevantLifetime->name);
 
-		emitInstruction(correspondingTACLine, c, "\ts%s (%s), %s\n",
+		emitInstruction(correspondingTACLine, c, "\ts%s %s, 0(%s)\n",
 						width,
-						registerNames[TEMP_0],
-						registerNames[sourceRegIndex]);
+						registerNames[sourceRegIndex],
+						registerNames[TEMP_0]);
 	}
 	break;
 
@@ -194,7 +194,7 @@ int placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
 
 		if (relevantLifetime->type.arraySize == 0)
 		{
-			emitInstruction(correspondingTACLine, c, "\t%su %s, 0(%s) # place %s\n",
+			emitInstruction(correspondingTACLine, c, "\tl%su %s, 0(%s) # place %s\n",
 							loadWidth,
 							usedRegister,
 							usedRegister,
