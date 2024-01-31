@@ -84,6 +84,12 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 		{
 			struct VariableEntry *v = thisMember->entry;
 
+			// early break if the variable is declared as extern, don't emit any code for it
+			if(v->isExtern)
+			{
+				break;
+			}
+
 			char *varName = thisMember->name;
 			int varSize = Scope_getSizeOfType(table->globalScope, &v->type);
 
@@ -114,7 +120,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			}
 			else
 			{
-				fprintf(outFile, "\t.zero %d", varSize);
+				fprintf(outFile, "\t.zero %d\n", varSize);
 			}
 
 			fprintf(outFile, "\t.text\n");
