@@ -42,10 +42,26 @@ translation_unit
     / _ eof
 
 variable_declaration
-   <- t:type_name _ i:identifier                      { $$ = AST_C(t, i); }
+   <- t:type_name _ i:identifier { $$ = AST_C(AST_N(auxil, t_variable_declaration, "", $0s), AST_S(t, i)); }
 
+variable_declaration_statement
+   <- e:extern _ v:variable_declaration { $$ = AST_C(e, v); } 
+    / v:variable_declaration _ ';'      { $$ = v; }
+
+class_declaration
+   <- c:class _ i:identifier _ '{' _ m:class_member_declaration_list _ '}' { $$ = AST_C(c, AST_S(i, AST_C(AST_N(auxil, t_class_body, "", $0s), m))); }
+
+class_member_declaration_list
+   <- l:class_member_declaration_list _ m:class_member_declaration _ { $$ = AST_S(l, m); }
+    / m:class_member_declaration                                   _ { $$ = m; }
+
+class_member_declaration
+   <- v:variable_declaration_statement _ { $$ = v; }
+
+# variable_declaration is valid in all places parameter_declaration is
+# however, parameter_declaration is not valid in all places variable_declaration but not vice-versa
 parameter_declaration
-   <- t:type_name _ i:identifier  { $$ = AST_C(t, i); }
+   <- t:type_name _ i:identifier { $$ = AST_C(AST_N(auxil, t_variable_declaration, "", $0s), AST_S(t, i)); }
 
 parameter_list
    <- pl:parameter_list _ ',' _ p:parameter_declaration  { $$ = AST_S(pl, p); }
@@ -175,9 +191,9 @@ compound_statement
 
 statement
    <- c:compound_statement                                                           { $$ = c; }
+    / c:class_declaration _ ';'                                                      { $$ = c; }
     / ';'                                                                            { $$ = NULL; }
-    / e:extern _ v:variable_declaration _ ';'                                        { $$ = AST_C(e, v); }
-    / v:variable_declaration _ ';'                                                   { $$ = v; }
+    / v:variable_declaration_statement                                               { $$ = v; }
     / v:variable_declaration _ '=' _ e:expression _ ';'                              { $$ = AST_C(AST_N(auxil, t_assign, "", $0s), AST_S(v, e)); }
     / e:expression _ ';'                                                             { $$ = e; }
     / if:if _ '(' _ e:expression _ ')' _ s1:statement _ kw_else _ s2:statement       { $$ = AST_C(if, AST_S(e, AST_S(s1, s2))); }
@@ -192,19 +208,19 @@ statement_list
 
 # only allow array sizes to be declared at the very end of a type name (no multidimensional arrays)
 type_name
-   <- t:incomplete_type_name _ '[' _ c:constant _ ']' { $$ = AST_C(t, AST_C(AST_N(auxil, t_array_index, "", $0s), c)); }
-    / t:incomplete_type_name                          { $$ = t; }
+   <- t:incomplete_type_name _ '[' _ c:constant _ ']' { $$ = AST_C(AST_N(auxil, t_type_name, "", $0s), AST_S(t, AST_C(AST_N(auxil, t_array_index, "", $0s), c))); }
+    / t:incomplete_type_name                          { $$ = AST_C(AST_N(auxil, t_type_name, "", $0s), t); }
 
 incomplete_type_name
-   <- t:incomplete_type_name _ '*' { $$ = AST_C(t, AST_N(auxil, t_dereference, "", $0s)); }
+   <- t:incomplete_type_name _ '*' { $$ = AST_S(t, AST_N(auxil, t_dereference, "", $0s)); }
     / n:non_pointer_typename       { $$ = n; }
 
 non_pointer_typename
-   <- t:void                  { $$ = t; }
-    / t:u8                    { $$ = t; }
-    / t:u16                   { $$ = t; }
-    / t:u32                   { $$ = t; }
-    / c:class _ i:identifier  { $$ = AST_C(c, i); }
+   <- t:void       { $$ = t; }
+    / t:u8         { $$ = t; }
+    / t:u16        { $$ = t; }
+    / t:u32        { $$ = t; }
+    / i:identifier { $$ = i; }
 
 identifier
    <- !keyword LETTER(LETTER/DIGIT)*  { $$ = AST_N(auxil, t_identifier, $0, $0s); }

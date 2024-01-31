@@ -561,7 +561,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
 
-			emitInstruction(thisTAC, context, "\taddi %s, %s, %d",
+			emitInstruction(thisTAC, context, "\taddi %s, %s, %d\n",
 							registerNames[destReg],
 							registerNames[baseReg],
 							thisTAC->operands[2].name.val);
