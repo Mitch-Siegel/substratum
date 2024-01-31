@@ -9,6 +9,7 @@ char *token_names[] = {
 	"t_constant",
 	"t_char_literal",
 	"t_string_literal",
+	"t_extern",
 	"t_asm",
 	"t_void",
 	"t_u8",
