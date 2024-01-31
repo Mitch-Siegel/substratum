@@ -67,6 +67,7 @@ struct VariableEntry
 	char mustSpill;
 	char isGlobal;
 	char isExtern;
+	char isStringLiteral;
 };
 
 struct ClassMemberOffset

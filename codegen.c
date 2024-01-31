@@ -85,7 +85,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			struct VariableEntry *v = thisMember->entry;
 
 			// early break if the variable is declared as extern, don't emit any code for it
-			if(v->isExtern)
+			if (v->isExtern)
 			{
 				break;
 			}
@@ -95,26 +95,52 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 
 			if (v->type.initializeTo != NULL)
 			{
-				fprintf(outFile, "\t.section\t.sdata\n");
+				if (v->isStringLiteral) // put string literals in rodata
+				{
+					fprintf(outFile, ".section\t.rodata\n");
+				}
+				else // put initialized data in sdata
+				{
+					fprintf(outFile, ".section\t.data\n");
+				}
 			}
-			else
+			else // put uninitialized data to bss
 			{
-				fprintf(outFile, "\t.section\t.data\n");
+				fprintf(outFile, ".section\t.bss\n");
 			}
 
 			fprintf(outFile, "\t.globl %s\n", varName);
+
 			fprintf(outFile, "\t.align %d\n", alignSize(varSize));
 			fprintf(outFile, "\t.type\t%s, @object\n", varName);
 			fprintf(outFile, "\t.size \t%s, %d\n", varName, varSize);
 			fprintf(outFile, "%s:\n", varName);
 			if (v->type.initializeTo != NULL)
 			{
-				if(v->type.arraySize > 0)
+				if (v->isStringLiteral)
 				{
 					int arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, v);
-					for(int i = 0; i < varSize / arrayElementSize; i++)
+					if (arrayElementSize != 1)
 					{
-						for(int j = 0; j < arrayElementSize; j++)
+						ErrorAndExit(ERROR_INTERNAL, "Saw array element size of %d for string literal (expected 1)!\n", arrayElementSize);
+					}
+
+					fprintf(outFile, "\t.asciz \"");
+					for (int i = 0; i < varSize; i++)
+					{
+						for (int j = 0; j < arrayElementSize; j++)
+						{
+							fprintf(outFile, "%c", v->type.initializeArrayTo[i][j]);
+						}
+					}
+					fprintf(outFile, "\"\n");
+				}
+				else if (v->type.arraySize > 0)
+				{
+					int arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, v);
+					for (int i = 0; i < varSize / arrayElementSize; i++)
+					{
+						for (int j = 0; j < arrayElementSize; j++)
 						{
 							fprintf(outFile, "\t.byte %d\n", v->type.initializeArrayTo[i][j]);
 						}
@@ -134,43 +160,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 				fprintf(outFile, "\t.zero %d\n", varSize);
 			}
 
-			fprintf(outFile, "\t.text\n");
-
-			/*
-			char *typeName = Type_GetName(&v->type);
-			fprintf(outFile, "%s\n", typeName);
-			free(typeName);
-			if (v->type.initializeTo != NULL)
-			{
-				fprintf(outFile, "initialize\n");
-				if (v->type.arraySize)
-				{
-					for (int e = 0; e < v->type.arraySize; e++)
-					{
-						fprintf(outFile, ".byte ");
-						for (int j = 0; j < Scope_getSizeOfArrayElement(table->globalScope, v); j++)
-						{
-							fprintf(outFile, "0x%02x ", v->type.initializeArrayTo[e][j]);
-						}
-						fprintf(outFile, "\n");
-					}
-				}
-				else
-				{
-					fprintf(outFile, ".byte ");
-					for (int j = 0; j < Scope_getSizeOfType(table->globalScope, &v->type); j++)
-					{
-						fprintf(outFile, "0x%02x ", v->type.initializeTo[j]);
-					}
-					fprintf(outFile, "\n");
-				}
-			}
-			else
-			{
-				fprintf(outFile, "noinitialize\n");
-			}
-
-			fprintf(outFile, "~end export variable %s\n", thisMember->name);*/
+			fprintf(outFile, ".section .text\n");
 		}
 		break;
 
@@ -677,8 +667,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 				if (sourceReg != RETURN_REGISTER)
 				{
 					emitInstruction(thisTAC, context, "\tmv %s, %s\n",
-							registerNames[RETURN_REGISTER],
-							registerNames[sourceReg]);
+									registerNames[RETURN_REGISTER],
+									registerNames[sourceReg]);
 				}
 			}
 			emitInstruction(thisTAC, context, "\tj %s_done\n", scope->parentFunction->name);

@@ -343,8 +343,9 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 		newVariable->isGlobal = 0;
 	}
 
-	// don't take this as an argument as it will only ever be set for global declarations
+	// don't take these as arguments as they will only ever be set for specific declarations
 	newVariable->isExtern = 0;
+	newVariable->isStringLiteral = 0;
 
 	if (Scope_contains(scope, name->value))
 	{
