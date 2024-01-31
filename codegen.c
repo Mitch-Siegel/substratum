@@ -109,13 +109,24 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			fprintf(outFile, "%s:\n", varName);
 			if (v->type.initializeTo != NULL)
 			{
-				for (int i = 0; i < varSize; i++)
+				if(v->type.arraySize > 0)
 				{
-					if (v->type.arraySize > 0)
+					int arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, v);
+					for(int i = 0; i < varSize / arrayElementSize; i++)
 					{
-						ErrorAndExit(ERROR_INTERNAL, "Initialized data in arrays not yet supported!\n");
+						for(int j = 0; j < arrayElementSize; j++)
+						{
+							fprintf(outFile, "\t.byte %d\n", v->type.initializeArrayTo[i][j]);
+						}
 					}
-					fprintf(outFile, "\t.byte %d\n", v->type.initializeTo[i]);
+				}
+				else
+				{
+					for (int i = 0; i < varSize; i++)
+					{
+						printf("%c\n", v->type.initializeTo[i]);
+						fprintf(outFile, "\t.byte %d\n", v->type.initializeTo[i]);
+					}
 				}
 			}
 			else
