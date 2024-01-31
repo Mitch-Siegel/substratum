@@ -1,0 +1,4 @@
+Hello, world!
+the quick brown fox jumps over the lazy dog
+some other string with wacky characters: !@#$%^&*()_+[;]
+the quick brown fox jumps over the lazy dog
