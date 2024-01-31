@@ -1,0 +1,13 @@
+#include "tests-common.sbh"
+#include "otherfile.sbh"
+
+extern u8 abc;
+
+void fun main()
+{
+    setValue(123);
+    printNum(abc);
+    setValue(234);
+    printNum(abc);
+    exit();
+}
