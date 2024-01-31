@@ -339,6 +339,9 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 		newVariable->isGlobal = 0;
 	}
 
+	// don't take this as an argument as it will only ever be set for global declarations
+	newVariable->isExtern = 0;
+
 	if (Scope_contains(scope, name->value))
 	{
 		ErrorWithAST(ERROR_CODE, name, "Redifinition of symbol %s!\n", name->value);

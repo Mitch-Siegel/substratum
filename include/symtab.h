@@ -66,6 +66,7 @@ struct VariableEntry
 	// and can have an address
 	char mustSpill;
 	char isGlobal;
+	char isExtern;
 };
 
 struct ClassMemberOffset

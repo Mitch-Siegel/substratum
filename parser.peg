@@ -45,7 +45,8 @@ variable_declaration
    <- t:type_name _ i:identifier { $$ = AST_C(AST_N(auxil, t_variable_declaration, "", $0s), AST_S(t, i)); }
 
 variable_declaration_statement
-   <- v:variable_declaration _ ';' { $$ = v; }
+   <- e:extern _ v:variable_declaration { $$ = AST_C(e, v); } 
+    / v:variable_declaration _ ';'      { $$ = v; }
 
 class_declaration
    <- c:class _ i:identifier _ '{' _ m:class_member_declaration_list _ '}' { $$ = AST_C(c, AST_S(i, AST_C(AST_N(auxil, t_class_body, "", $0s), m))); }
@@ -195,7 +196,7 @@ statement
     / v:variable_declaration_statement                                               { $$ = v; }
     / v:variable_declaration _ '=' _ e:expression _ ';'                              { $$ = AST_C(AST_N(auxil, t_assign, "", $0s), AST_S(v, e)); }
     / e:expression _ ';'                                                             { $$ = e; }
-    / if:if _ '(' _ e:expression _ ')' _ s1:statement _ kw_else _ s2:statement     { $$ = AST_C(if, AST_S(e, AST_S(s1, s2))); }
+    / if:if _ '(' _ e:expression _ ')' _ s1:statement _ kw_else _ s2:statement       { $$ = AST_C(if, AST_S(e, AST_S(s1, s2))); }
     / if:if _ '(' _ e:expression _ ')' _ s:statement                                 { $$ = AST_C(if, AST_S(e, s)); }
     / w:while _ '(' _ e:expression _ ')' _ s:statement                               { $$ = AST_C(w, AST_S(e, s)); }
     / r:return _ e:expression ';'                                                    { $$ = AST_C(r, e); }
@@ -266,7 +267,8 @@ kw_u32		   <- 'u32'   !(LETTER/DIGIT)
 kw_if		      <- 'if'	  !(LETTER/DIGIT)
 kw_else		   <- 'else'  !(LETTER/DIGIT)
 kw_while       <- 'while' !(LETTER/DIGIT)
-kw_return       <- 'return' !(LETTER/DIGIT)
+kw_return      <- 'return' !(LETTER/DIGIT)
+kw_extern      <- 'extern' !(LETTER/DIGIT)
 kw_asm         <- 'asm'
 kw_semicolon   <- ';'
 kw_arrow       <- '->'
@@ -288,6 +290,7 @@ u32   <- kw_u32     { $$ = AST_N(auxil, t_u32, $0, $0s); }
 if    <- kw_if      { $$ = AST_N(auxil, t_if, $0, $0s); }
 while <- kw_while   { $$ = AST_N(auxil, t_while, $0, $0s); }
 return <- kw_return { $$ = AST_N(auxil, t_return, $0, $0s); }
+extern <- kw_extern { $$ = AST_N(auxil, t_extern, $0, $0s); }
 
 arrow         <- kw_arrow        { $$ = AST_N(auxil, t_arrow, $0, $0s); }
 left_op       <- kw_left_op   { $$ = AST_N(auxil, t_lshift, $0, $0s); }

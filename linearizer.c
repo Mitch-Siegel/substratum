@@ -28,6 +28,13 @@ struct SymbolTable *walkProgram(struct AST *program)
 			walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
 			break;
 
+		case t_extern:
+			{
+				struct VariableEntry *declaredVariable = walkVariableDeclaration(programRunner->child, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
+				declaredVariable->isExtern = 1;
+			}
+			break;
+
 		case t_class:
 		{
 			// if (programRunner->child->sibling->type == t_compound_statement)
@@ -504,6 +511,10 @@ void walkStatement(struct AST *tree,
 	{
 	case t_variable_declaration:
 		walkVariableDeclaration(tree, *blockP, scope, TACIndex, tempNum, 0);
+		break;
+
+	case t_extern:
+		ErrorWithAST(ERROR_CODE, tree, "'extern' is only allowed at the global scope.\n");
 		break;
 
 	case t_assign:
