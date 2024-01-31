@@ -11,12 +11,15 @@ enum token
 	// t_sizeof,
 	t_asm,
 	// types
+	t_variable_declaration,
+	t_type_name,
 	t_void,
 	t_u8,
 	t_u16,
 	t_u32,
 	t_class,
 	//
+	t_class_body,
 	t_compound_statement,
 	//
 	// function

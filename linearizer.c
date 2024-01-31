@@ -24,23 +24,21 @@ struct SymbolTable *walkProgram(struct AST *program)
 	{
 		switch (programRunner->type)
 		{
-		case t_u8:
-		case t_u16:
-		case t_u32:
+		case t_variable_declaration:
 			walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
 			break;
 
 		case t_class:
 		{
-			if (programRunner->child->sibling->type == t_compound_statement)
-			{
-				walkClassDeclaration(programRunner, globalBlock, programTable->globalScope);
-				break;
-			}
-			else // TODO: disallow bad sibling types?
-			{
-				walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
-			}
+			// if (programRunner->child->sibling->type == t_compound_statement)
+			// {
+			walkClassDeclaration(programRunner, globalBlock, programTable->globalScope);
+			break;
+			// }
+			// else // TODO: disallow bad sibling types?
+			// {
+			// walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
+			// }
 		}
 		break;
 
@@ -81,6 +79,12 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	{
 		printf("walkVariableDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
+
+	if (tree->type != t_variable_declaration)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkVariableDeclaration!\n", getTokenName(tree->type));
+	}
+
 	struct Type declaredType;
 
 	/* 'class' trees' children are the class name
@@ -89,9 +93,15 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	 */
 
 	struct AST *startScrapeFrom = tree->child;
+	if (startScrapeFrom->type != t_type_name)
+	{
+		ErrorWithAST(ERROR_INTERNAL, startScrapeFrom, "Malformed AST seen in declaration!");
+	}
+	startScrapeFrom = startScrapeFrom->child;
+
 	struct AST *className = NULL;
 
-	switch (tree->type)
+	switch (startScrapeFrom->type)
 	{
 	case t_u8:
 		declaredType.basicType = vt_u8;
@@ -105,27 +115,27 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 		declaredType.basicType = vt_u32;
 		break;
 
-	case t_class:
+	case t_identifier:
 		declaredType.basicType = vt_class;
-		if (startScrapeFrom->type != t_identifier)
+
+		className = startScrapeFrom;
+		if (className->type != t_identifier)
 		{
 			ErrorWithAST(ERROR_INTERNAL,
-						 startScrapeFrom,
-						 "Malformed AST seen in declaration!\nExpected class name after \"class\", saw %s (%s)!",
-						 startScrapeFrom->value,
-						 getTokenName(startScrapeFrom->type));
+						 className,
+						 "Malformed AST seen in declaration!\nExpected class name as child of \"class\", saw %s (%s)!",
+						 className->value,
+						 getTokenName(className->type));
 		}
-		declaredType.classType.name = startScrapeFrom->value;
-		className = startScrapeFrom;
-		startScrapeFrom = startScrapeFrom->sibling;
+		declaredType.classType.name = className->value;
 		break;
 
 	default:
-		ErrorWithAST(ERROR_INTERNAL, tree, "Malformed AST seen in declaration!");
+		ErrorWithAST(ERROR_INTERNAL, startScrapeFrom, "Malformed AST seen in declaration!");
 	}
 
-	struct AST *declaredTree = NULL;
-	declaredType.indirectionLevel = scrapePointers(startScrapeFrom, &declaredTree);
+	struct AST *declaredArray = NULL;
+	declaredType.indirectionLevel = scrapePointers(startScrapeFrom, &declaredArray);
 
 	// don't allow declaration of variables of undeclared class or array of undeclared class (except pointers)
 	if ((declaredType.basicType == vt_class) && (declaredType.indirectionLevel == 0))
@@ -135,12 +145,16 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	}
 
 	// if we are declaring an array, set the string with the size as the second operand
-	if (declaredTree->type == t_array_index)
+	if (declaredArray != NULL)
 	{
-		char *arraySizeString = declaredTree->child->value;
+		if (declaredArray->type != t_array_index)
+		{
+			AST_Print(declaredArray, 0);
+			ErrorWithAST(ERROR_INTERNAL, declaredArray, "Unexpected AST at end of pointer declarations!");
+		}
+		char *arraySizeString = declaredArray->child->value;
 		int declaredArraySize = atoi(arraySizeString);
 
-		declaredTree = declaredTree->sibling;
 		declaredType.arraySize = declaredArraySize;
 	}
 	else
@@ -148,7 +162,7 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 		declaredType.arraySize = 0;
 	}
 	struct VariableEntry *declaredVariable = Scope_createVariable(scope,
-																  declaredTree,
+																  tree->child->sibling,
 																  &declaredType,
 																  (scope->parentScope == NULL),
 																  *TACIndex,
@@ -193,7 +207,12 @@ void walkFunctionDeclaration(struct AST *tree,
 	struct AST *returnTypeTree = tree->child;
 
 	enum basicTypes returnBasicType;
-	switch (returnTypeTree->type)
+	if (returnTypeTree->type != t_type_name)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Malformed AST as return type for function\n");
+	}
+
+	switch (returnTypeTree->child->type)
 	{
 	case t_void:
 		returnBasicType = vt_null;
@@ -248,10 +267,7 @@ void walkFunctionDeclaration(struct AST *tree,
 		switch (argumentRunner->type)
 		{
 		// looking at argument declarations
-		case t_u8:
-		case t_u16:
-		case t_u32:
-		case t_class:
+		case t_variable_declaration:
 		{
 			walkArgumentDeclaration(argumentRunner, block, &TACIndex, &tempNum, parsedFunc);
 		}
@@ -444,33 +460,30 @@ void walkClassDeclaration(struct AST *tree,
 
 	struct ClassEntry *declaredClass = Scope_createClass(scope, tree->child->value);
 
-	struct AST *classScope = tree->child->sibling;
+	struct AST *classBody = tree->child->sibling;
 
-	if (classScope->type != t_compound_statement)
+	if (classBody->type != t_class_body)
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Malformed AST seen in walkClassDefinition!\n");
 	}
 
-	struct AST *scopeRunner = classScope->child;
-	while (scopeRunner != NULL)
+	struct AST *classBodyRunner = classBody->child;
+	while (classBodyRunner != NULL)
 	{
-		switch (scopeRunner->type)
+		switch (classBodyRunner->type)
 		{
-		case t_u8:
-		case t_u16:
-		case t_u32:
-		case t_class:
+		case t_variable_declaration:
 		{
-			struct VariableEntry *declaredMember = walkVariableDeclaration(scopeRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0);
+			struct VariableEntry *declaredMember = walkVariableDeclaration(classBodyRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0);
 			Class_assignOffsetToMemberVariable(declaredClass, declaredMember);
 		}
 		break;
 
 		default:
-			ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) seen in body of class definition!\n", getTokenName(scopeRunner->type));
+			ErrorWithAST(ERROR_INTERNAL, classBodyRunner, "Wrong AST (%s) seen in body of class definition!\n", getTokenName(classBodyRunner->type));
 		}
 
-		scopeRunner = scopeRunner->sibling;
+		classBodyRunner = classBodyRunner->sibling;
 	}
 }
 
@@ -489,10 +502,7 @@ void walkStatement(struct AST *tree,
 
 	switch (tree->type)
 	{
-	case t_u8:
-	case t_u16:
-	case t_u32:
-	case t_class:
+	case t_variable_declaration:
 		walkVariableDeclaration(tree, *blockP, scope, TACIndex, tempNum, 0);
 		break;
 
@@ -920,6 +930,9 @@ void walkDotOperatorAssignment(struct AST *tree,
 	wipAssignment->operands[1].name.val = accessedMember->offset;
 
 	wipAssignment->operands[2] = *assignedValue;
+
+	// cast the class pointer to the type we are actually reading out of the class
+	wipAssignment->operands[0].castAsType = accessedMember->variable->type;
 }
 
 void walkArrowOperatorAssignment(struct AST *tree,
@@ -1003,6 +1016,9 @@ void walkArrowOperatorAssignment(struct AST *tree,
 	wipAssignment->operands[1].name.val = accessedMember->offset;
 
 	wipAssignment->operands[2] = *assignedValue;
+
+	// cast the class pointer to the type we are actually reading out of the class
+	wipAssignment->operands[0].castAsType = accessedMember->variable->type;
 }
 
 void walkAssignment(struct AST *tree,
@@ -1036,10 +1052,7 @@ void walkAssignment(struct AST *tree,
 	struct VariableEntry *assignedVariable = NULL;
 	switch (lhs->type)
 	{
-	case t_u8:
-	case t_u16:
-	case t_u32:
-	case t_class:
+	case t_variable_declaration:
 		assignedVariable = walkVariableDeclaration(lhs, block, scope, TACIndex, tempNum, 0);
 		populateTACOperandFromVariable(&assignment->operands[0], assignedVariable);
 		assignment->operands[1] = assignedValue;
@@ -1359,20 +1372,17 @@ void walkSubExpression(struct AST *tree,
 	}
 	break;
 
+	case t_address_of:
+	{
+		struct TACOperand *addrOfResult = walkAddrOf(tree, block, scope, TACIndex, tempNum);
+		*destinationOperand = *addrOfResult;
+	}
+	break;
+
 	case t_bitwise_and:
 	{
-		// '&' as address-of operator
-		if (tree->child->sibling == NULL)
-		{
-			struct TACOperand *addrOfResult = walkAddrOf(tree, block, scope, TACIndex, tempNum);
-			*destinationOperand = *addrOfResult;
-		}
-		// '&' as bitwise and operator
-		else
-		{
-			struct TACOperand *expressionResult = walkExpression(tree, block, scope, TACIndex, tempNum);
-			*destinationOperand = *expressionResult;
-		}
+		struct TACOperand *expressionResult = walkExpression(tree, block, scope, TACIndex, tempNum);
+		*destinationOperand = *expressionResult;
 	}
 	break;
 
@@ -1531,11 +1541,21 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
 		if (class->type != t_identifier)
 		{
-			ErrorWithAST(ERROR_CODE, member,
-						 "Expected identifier on LHS of %s operator, got %s (%s) instead!\n",
-						 (tree->type == t_dot ? "dot" : "arrow"),
-						 class->value,
-						 getTokenName(class->type));
+			if (class->type == t_address_of)
+			{
+				if(tree->type == t_arrow)
+				{
+					ErrorWithAST(ERROR_CODE, class, "Use of arrow operator after address-of operator `(&a)->b` is not supported.\nUse `a.b` instead\n");
+				}
+			}
+			else
+			{
+				ErrorWithAST(ERROR_CODE, member,
+							 "Expected identifier on LHS of %s operator, got %s (%s) instead!\n",
+							 (tree->type == t_dot ? "dot" : "arrow"),
+							 class->value,
+							 getTokenName(class->type));
+			}
 		}
 
 		if (member->type != t_identifier)
@@ -1595,31 +1615,45 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 	// then sets up a new access solely for the arrow
 	if ((tree->type == t_arrow))
 	{
-		accessLine->index = (*TACIndex)++;
-		BasicBlock_append(block, accessLine);
-
-		struct Type *existingReadType = TAC_GetTypeOfOperand(accessLine, 0);
-
-		struct TACLine *oldAccessLine = accessLine;
-		if ((existingReadType->basicType == vt_class) &&
-			(existingReadType->indirectionLevel == 0))
+		// if the existing load operation actually applies an offset, it is necessary to actually "jump through" the indirection by dereferencing at that offset
+		// to do this, we cement the existing access for good and then create a new load TAC instruction which will apply only the offset from this arrow operator
+		if (accessLine->operands[2].name.val > 0)
 		{
-			oldAccessLine->operation = tt_lea_off;
+			// index and add the existing offset
+			accessLine->index = (*TACIndex)++;
+			BasicBlock_append(block, accessLine);
+
+			// understand some info about what we're actually reading at this offset, keep track of the old access
+			struct Type *existingReadType = TAC_GetTypeOfOperand(accessLine, 0);
+			struct TACLine *oldAccessLine = accessLine;
+
+			// the LHS of our arrow must be some sort of class pointer, otherwise we shouldn't be able to use the arrow operator on it!
+			if ((existingReadType->basicType == vt_class) && (existingReadType->indirectionLevel == 0))
+			{
+				// convert the old access to a lea - we don't want to dereference the class, we just need a pointer to it
+				oldAccessLine->operation = tt_lea_off;
+			}
+			else if (existingReadType->basicType != vt_class) // we are currently walking a member access using the arrow operator on something that's not a class pointer
+			{
+				char *existingReadTypeName = Type_GetName(existingReadType);
+				ErrorWithAST(ERROR_CODE, tree, "Use of arrow operator '->' on non-class-pointer type %s!\n", existingReadTypeName);
+			}
+
+			accessLine = newTACLine(*TACIndex, tt_load_off, tree);
+
+			copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccessLine->operands[0]);
+
+			accessLine->operands[0].permutation = vp_temp;
+			accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+
+			accessLine->operands[2].type.basicType = vt_u32;
+			accessLine->operands[2].permutation = vp_literal;
+			// BasicBlock_append(block, accessLine);
 		}
 		else
 		{
-			oldAccessLine->operation = tt_load_off;
+			accessLine->operation = tt_load_off;
 		}
-		accessLine = newTACLine(*TACIndex, tt_load_off, tree);
-
-		copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccessLine->operands[0]);
-
-		accessLine->operands[0].permutation = vp_temp;
-		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-
-		accessLine->operands[2].type.basicType = vt_u32;
-		accessLine->operands[2].permutation = vp_literal;
-		// BasicBlock_append(block, accessLine);
 	}
 
 	// get the ClassEntry and ClassMemberOffset of what we're accessing within and the member we access
@@ -1897,9 +1931,9 @@ struct TACOperand *walkAddrOf(struct AST *tree,
 		printf("walkAddrOf: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
 
-	if (tree->type != t_bitwise_and)
+	if (tree->type != t_address_of)
 	{
-		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDereference!\n", getTokenName(tree->type));
+		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkAddressOf!\n", getTokenName(tree->type));
 	}
 
 	struct TACLine *addrOfLine = newTACLine(*TACIndex, tt_addrof, tree);
@@ -1963,8 +1997,9 @@ struct TACOperand *walkAddrOf(struct AST *tree,
 	case t_arrow:
 	{
 		// walkMemberAccess can do everything we need
-		// the only thing we have to do is ensure we have an LEA at the end instead of a direct read
+		// the only thing we have to do is ensure we have an LEA at the end instead of a direct read in the case of the dot operator
 		struct TACLine *memberAccessLine = walkMemberAccess(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1], 0);
+
 		memberAccessLine->operation = tt_lea_off;
 		memberAccessLine->operands[0].type.indirectionLevel++;
 		memberAccessLine->operands[1].castAsType.indirectionLevel++;
@@ -2061,11 +2096,11 @@ void walkAsmBlock(struct AST *tree,
 	struct AST *asmRunner = tree->child;
 	while (asmRunner != NULL)
 	{
-		if(asmRunner->type != t_asm)
+		if (asmRunner->type != t_asm)
 		{
 			ErrorWithAST(ERROR_INTERNAL, tree, "Non-asm seen as contents of ASM block!\n");
 		}
-		
+
 		struct TACLine *asmLine = newTACLine((*TACIndex)++, tt_asm, asmRunner);
 		asmLine->operands[0].name.str = asmRunner->value;
 

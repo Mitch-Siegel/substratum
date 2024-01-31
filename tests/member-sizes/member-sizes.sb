@@ -1,0 +1,288 @@
+#include "tests-common.sbh"
+
+// test classes with members of each size in various order
+// attempt to read and write values of all possible sizes 
+class AllSizes1
+{
+    u8 first;
+    u16 second;
+    u32 third;
+};
+
+void fun TestClass1(u32 write32, u16 write16, u8 write8)
+{
+    AllSizes1 a;
+    a.first = write32;
+    a.second = write32;
+    a.third = write32;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+
+    a.first = write16;
+    a.second = write16;
+    a.third = write16;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+
+    a.first = write8;
+    a.second = write8;
+    a.third = write8;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+	uart_putc(10);
+}
+
+class AllSizes2
+{
+    u8 first;
+    u32 second;
+    u16 third;
+};
+
+void fun TestClass2(u32 write32, u16 write16, u8 write8)
+{
+    AllSizes2 a;
+    a.first = write32;
+    a.second = write32;
+    a.third = write32;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+
+    a.first = write16;
+    a.second = write16;
+    a.third = write16;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+
+    a.first = write8;
+    a.second = write8;
+    a.third = write8;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+	uart_putc(10);
+}
+
+class AllSizes3
+{
+    u16 first;
+    u8 second;
+    u32 third;
+};
+
+void fun TestClass3(u32 write32, u16 write16, u8 write8)
+{
+    AllSizes3 a;
+    a.first = write32;
+    a.second = write32;
+    a.third = write32;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+
+    a.first = write16;
+    a.second = write16;
+    a.third = write16;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+
+    a.first = write8;
+    a.second = write8;
+    a.third = write8;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+	uart_putc(10);
+}
+
+class AllSizes4
+{
+    u16 first;
+    u32 second;
+    u8 third;
+};
+
+void fun TestClass4(u32 write32, u16 write16, u8 write8)
+{
+    AllSizes4 a;
+    a.first = write32;
+    a.second = write32;
+    a.third = write32;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+
+    a.first = write16;
+    a.second = write16;
+    a.third = write16;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+
+    a.first = write8;
+    a.second = write8;
+    a.third = write8;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+	uart_putc(10);
+}
+
+class AllSizes5
+{
+    u32 first;
+    u8 second;
+    u16 third;
+};
+
+void fun TestClass5(u32 write32, u16 write16, u8 write8)
+{
+    AllSizes5 a;
+    a.first = write32;
+    a.second = write32;
+    a.third = write32;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+
+    a.first = write16;
+    a.second = write16;
+    a.third = write16;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+
+    a.first = write8;
+    a.second = write8;
+    a.third = write8;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+	uart_putc(10);
+}
+
+class AllSizes6
+{
+    u32 first;
+    u16 second;
+    u8 third;
+};
+
+void fun TestClass6(u32 write32, u16 write16, u8 write8)
+{
+    AllSizes6 a;
+    a.first = write32;
+    a.second = write32;
+    a.third = write32;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+
+    a.first = write16;
+    a.second = write16;
+    a.third = write16;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+
+    a.first = write8;
+    a.second = write8;
+    a.third = write8;
+
+    printHex(a.first);
+	uart_putc(10);
+    printHex(a.second);
+	uart_putc(10);
+    printHex(a.third);
+	uart_putc(10);
+	uart_putc(10);
+}
+
+void fun main()
+{
+    u32 write32 = 0xFFFFFFFF;
+    u16 write16 = 0xEEEE;
+    u8 write8 = 0xDD;
+
+    TestClass1(write32, write16, write8);
+    TestClass2(write32, write16, write8);
+    TestClass3(write32, write16, write8);
+    TestClass4(write32, write16, write8);
+    TestClass5(write32, write16, write8);
+    TestClass6(write32, write16, write8);
+    exit();
+}
