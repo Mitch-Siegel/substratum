@@ -2141,9 +2141,9 @@ void walkStringLiteral(struct AST *tree,
 	// but first, it copies the string exactly as-is so it knows what the string object should be initialized to
 	char *stringName = tree->value;
 	char *stringValue = strdup(stringName);
-	int stringSize = strlen(stringName) + 1;
+	int stringLength = strlen(stringName);
 
-	for (int i = 0; i < stringSize - 1; i++)
+	for (int i = 0; i < stringLength; i++)
 	{
 		if ((!isalnum(stringName[i])) && (stringName[i] != '_'))
 		{
@@ -2182,14 +2182,15 @@ void walkStringLiteral(struct AST *tree,
 
 		struct Type stringType;
 		stringType.basicType = vt_u8;
-		stringType.arraySize = stringSize;
+		stringType.arraySize = stringLength;
 		stringType.indirectionLevel = 0;
 
 		stringLiteralEntry = Scope_createVariable(scope, &fakeStringTree, &stringType, 1, 0, 0);
+		stringLiteralEntry->isStringLiteral = 1;
 
 		struct Type *realStringType = &stringLiteralEntry->type;
-		realStringType->initializeArrayTo = malloc(stringSize * sizeof(char *));
-		for (int i = 0; i < stringSize; i++)
+		realStringType->initializeArrayTo = malloc(stringLength * sizeof(char *));
+		for (int i = 0; i < stringLength; i++)
 		{
 			realStringType->initializeArrayTo[i] = malloc(1);
 			*realStringType->initializeArrayTo[i] = stringValue[i];
@@ -2203,5 +2204,5 @@ void walkStringLiteral(struct AST *tree,
 	free(stringValue);
 	populateTACOperandFromVariable(destinationOperand, stringLiteralEntry);
 	destinationOperand->name.str = stringName;
-	destinationOperand->type.arraySize = stringSize;
+	destinationOperand->type.arraySize = stringLength;
 }

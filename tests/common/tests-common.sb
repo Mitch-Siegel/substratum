@@ -71,6 +71,17 @@ void fun printHex(u32 value)
 	}
 }
 
+u32 fun printStr(u8 *str)
+{
+	u32 idx = 0;
+	while(str[idx] != 0)
+	{
+		uart_putc(str[idx]);
+		idx = idx + 1;
+	}
+	return idx;
+}
+
 /*
 FINISHER_FAIL = 0x3333,
 FINISHER_PASS = 0x5555,

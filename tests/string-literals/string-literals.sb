@@ -1,0 +1,23 @@
+#include "tests-common.sbh"
+
+void fun printDuplicateStrings()
+{
+    u8 *string = "the quick brown fox jumps over the lazy dog";
+    printStr(string);
+    uart_putc(10);
+    string = "some other string with wacky characters: !@#$%^&*()_+[;]";
+    printStr(string);
+    uart_putc(10);
+    string = "the quick brown fox jumps over the lazy dog";
+    printStr(string);
+    uart_putc(10);
+}
+
+
+void fun main()
+{
+    printStr("Hello, world!");
+    uart_putc(10);
+    printDuplicateStrings();
+    exit();
+}

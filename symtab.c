@@ -110,55 +110,54 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 		}
 	}
 
-	// early return if depth 0 - don't need to rename or move anything to parent scope
-	if(depth == 0)
+	// only rename basic block operands if depth > 0
+	// we only want to alter variable names for variables whose names we will mangle as a result of a scope collapse
+	if (depth > 0)
 	{
-		return;
-	}
-
-	// second pass: rename basic block operands relevant to the current scope
-	for (int i = 0; i < scope->entries->size; i++)
-	{
-		struct ScopeMember *thisMember = scope->entries->data[i];
-		switch (thisMember->type)
+		// second pass: rename basic block operands relevant to the current scope
+		for (int i = 0; i < scope->entries->size; i++)
 		{
-		case e_scope:
-		case e_function:
-			break;
-
-		case e_basicblock:
-		{
-			// rename TAC lines if we are within a function
-			if (scope->parentFunction != NULL)
+			struct ScopeMember *thisMember = scope->entries->data[i];
+			switch (thisMember->type)
 			{
-				// go through all TAC lines in this block
-				struct BasicBlock *thisBlock = thisMember->entry;
-				for (struct LinkedListNode *TACRunner = thisBlock->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
+			case e_scope:
+			case e_function:
+				break;
+
+			case e_basicblock:
+			{
+				// rename TAC lines if we are within a function
+				if (scope->parentFunction != NULL)
 				{
-					struct TACLine *thisTAC = TACRunner->data;
-					for (int j = 0; j < 4; j++)
+					// go through all TAC lines in this block
+					struct BasicBlock *thisBlock = thisMember->entry;
+					for (struct LinkedListNode *TACRunner = thisBlock->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
 					{
-						// check only TAC operands that both exist and refer to a named variable from the source code (ignore temps etc)
-						if ((thisTAC->operands[j].type.basicType != vt_null) &&
-							((thisTAC->operands[j].permutation == vp_standard) || (thisTAC->operands[j].permutation == vp_objptr)))
+						struct TACLine *thisTAC = TACRunner->data;
+						for (int j = 0; j < 4; j++)
 						{
-							char *originalName = thisTAC->operands[j].name.str;
-							// if this operand refers to a variable declared at this scope
-							if (Scope_contains(scope, originalName))
+							// check only TAC operands that both exist and refer to a named variable from the source code (ignore temps etc)
+							if ((thisTAC->operands[j].type.basicType != vt_null) &&
+								((thisTAC->operands[j].permutation == vp_standard) || (thisTAC->operands[j].permutation == vp_objptr)))
 							{
-								thisTAC->operands[j].name.str = SymbolTable_mangleName(scope, dict, originalName);
+								char *originalName = thisTAC->operands[j].name.str;
+								// if this operand refers to a variable declared at this scope
+								if (Scope_contains(scope, originalName))
+								{
+									thisTAC->operands[j].name.str = SymbolTable_mangleName(scope, dict, originalName);
+								}
 							}
 						}
 					}
 				}
 			}
-		}
-		break;
-
-		case e_variable:
-		case e_argument:
-		case e_class:
 			break;
+
+			case e_variable:
+			case e_argument:
+			case e_class:
+				break;
+			}
 		}
 	}
 
@@ -187,10 +186,15 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 		{
 			if (scope->parentScope != NULL)
 			{
-				thisMember->name = SymbolTable_mangleName(scope, dict, thisMember->name);
 				struct VariableEntry *variableToMove = thisMember->entry;
-				if (variableToMove->isGlobal || depth > 0)
+				// we will only ever do anything if we are depth >0 or need to kick a global variable up a scope
+				if ((depth > 0) || (variableToMove->isGlobal))
 				{
+					// mangle all non-global names (want to mangle everything except for string literal names)
+					if (!variableToMove->isGlobal)
+					{
+						thisMember->name = SymbolTable_mangleName(scope, dict, thisMember->name);
+					}
 					SymbolTable_moveMemberToParentScope(scope, thisMember, &i);
 				}
 			}
@@ -339,8 +343,9 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 		newVariable->isGlobal = 0;
 	}
 
-	// don't take this as an argument as it will only ever be set for global declarations
+	// don't take these as arguments as they will only ever be set for specific declarations
 	newVariable->isExtern = 0;
+	newVariable->isStringLiteral = 0;
 
 	if (Scope_contains(scope, name->value))
 	{
@@ -806,7 +811,7 @@ int scrapePointers(struct AST *pointerAST, struct AST **resultDestination)
 		dereferenceDepth++;
 		pointerAST = pointerAST->sibling;
 	}
-	
+
 	*resultDestination = pointerAST;
 	return dereferenceDepth;
 }
