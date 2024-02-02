@@ -388,8 +388,10 @@ void EmitPushForOperand(struct TACLine *correspondingTACLine,
 		break;
 
 	default:
+	{
 		char *typeName = Type_GetName(TACOperand_GetType(dataSource));
 		ErrorAndExit(ERROR_INTERNAL, "Unsupported size %d seen in EmitPushForOperand (for type %s)\n", size, typeName);
+	}
 	}
 }
 
@@ -421,8 +423,10 @@ void EmitPopForOperand(struct TACLine *correspondingTACLine,
 		break;
 
 	default:
+	{
 		char *typeName = Type_GetName(TACOperand_GetType(dataDest));
 		ErrorAndExit(ERROR_INTERNAL, "Unsupported size %d seen in EmitPopForOperand (for type %s)\n", size, typeName);
+	}
 	}
 }
 

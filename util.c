@@ -178,7 +178,7 @@ struct LinkedList *LinkedList_New()
 	return wip;
 }
 
-void LinkedList_Free(struct LinkedList *l, void (*dataFreeFunction)())
+void LinkedList_Free(struct LinkedList *l, void (*dataFreeFunction)(void *))
 {
 	struct LinkedListNode *runner = l->head;
 	while (runner != NULL)
@@ -255,7 +255,7 @@ void LinkedList_Join(struct LinkedList *before, struct LinkedList *after)
 	}
 }
 
-void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *element)
+void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(void *, void *), void *element)
 {
 	for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
 	{
@@ -296,7 +296,7 @@ void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *el
 	ErrorAndExit(ERROR_INTERNAL, "Couldn't delete element from linked list!\n");
 }
 
-void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *element)
+void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(void *, void *), void *element)
 {
 	for (struct LinkedListNode *runner = l->head; runner != NULL; runner = runner->next)
 	{
