@@ -208,6 +208,8 @@ char *getAsmOp(enum TACType t)
 		return "mul";
 	case tt_div:
 		return "div";
+	case tt_modulo:
+		return "rem";
 	case tt_bitwise_and:
 		return "and";
 	case tt_bitwise_or:
@@ -348,6 +350,12 @@ char *sPrintTACLine(struct TACLine *it)
 		if (!fallingThrough)
 		{
 			operationStr = "/";
+			fallingThrough = 1;
+		}
+	case tt_modulo:
+		if (!fallingThrough)
+		{
+			operationStr = "%";
 			fallingThrough = 1;
 		}
 	case tt_bitwise_and:
