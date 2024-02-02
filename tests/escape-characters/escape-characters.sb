@@ -1,0 +1,18 @@
+#include "tests-common.sbh"
+
+
+void fun main()
+{
+    printStr("This string has a newline\n");
+    printStr("This string should have an 'A' after the colon:!\bA\n");
+    printStr("\tThis string should be indented by one tab\n");
+    printStr("This string should have a double quote after the colon:\"\n");
+    printStr("This string should have a single quote after the colon:\'"); // no newline here
+    uart_putc('\n'); // newline
+    uart_putc('\t');
+    uart_putc('!'); // ! indented
+    uart_putc('a'); // 'a' replaced with 'A'
+    uart_putc('\b');
+    uart_putc('A');
+    exit();
+}

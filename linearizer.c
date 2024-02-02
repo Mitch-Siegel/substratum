@@ -29,11 +29,11 @@ struct SymbolTable *walkProgram(struct AST *program)
 			break;
 
 		case t_extern:
-			{
-				struct VariableEntry *declaredVariable = walkVariableDeclaration(programRunner->child, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
-				declaredVariable->isExtern = 1;
-			}
-			break;
+		{
+			struct VariableEntry *declaredVariable = walkVariableDeclaration(programRunner->child, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
+			declaredVariable->isExtern = 1;
+		}
+		break;
 
 		case t_class:
 		{
@@ -1319,8 +1319,63 @@ void walkSubExpression(struct AST *tree,
 
 	case t_char_literal:
 	{
+		int literalLen = strlen(tree->value);
 		char literalAsNumber[8];
-		sprintf(literalAsNumber, "%d", tree->value[0]);
+		if (literalLen == 1)
+		{
+			sprintf(literalAsNumber, "%d", tree->value[0]);
+		}
+		else if (literalLen == 2)
+		{
+			if (tree->value[0] != '\\')
+			{
+				ErrorWithAST(ERROR_INTERNAL, tree, "Saw t_char_literal with escape character value of %s - expected first char to be \\!\n", tree->value);
+			}
+
+			char escapeCharValue = 0;
+
+			switch (tree->value[1])
+			{
+			case 'a':
+				escapeCharValue = '\a';
+				break;
+
+			case 'b':
+				escapeCharValue = '\b';
+				break;
+
+			case 'n':
+				escapeCharValue = '\n';
+				break;
+
+			case 'r':
+				escapeCharValue = '\r';
+				break;
+
+			case 't':
+				escapeCharValue = '\t';
+				break;
+
+			case '\\':
+				escapeCharValue = '\\';
+				break;
+
+			case '\'':
+				escapeCharValue = '\'';
+				break;
+
+			case '\"':
+				escapeCharValue = '\"';
+				break;
+			}
+
+			sprintf(literalAsNumber, "%d", escapeCharValue);
+		}
+		else
+		{
+			ErrorWithAST(ERROR_INTERNAL, tree, "Saw t_char_literal with string length of %d (value '%s')!\n", literalLen, tree->value);
+		}
+
 		destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, literalAsNumber);
 		destinationOperand->type.basicType = vt_u8;
 		destinationOperand->permutation = vp_literal;
@@ -1554,7 +1609,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 		{
 			if (class->type == t_address_of)
 			{
-				if(tree->type == t_arrow)
+				if (tree->type == t_arrow)
 				{
 					ErrorWithAST(ERROR_CODE, class, "Use of arrow operator after address-of operator `(&a)->b` is not supported.\nUse `a.b` instead\n");
 				}

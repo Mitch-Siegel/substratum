@@ -1,0 +1,6 @@
+This string has a newline
+This string should have an 'A' after the colon:!A
+	This string should be indented by one tab
+This string should have a double quote after the colon:"
+This string should have a single quote after the colon:'
+	!aA
