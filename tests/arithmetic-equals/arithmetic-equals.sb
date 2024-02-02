@@ -18,5 +18,7 @@ void fun main()
     printNum(value);
     value &= 255;
     printNum(value);
+    value %= 7;
+    printNum(value);
     exit();
 }

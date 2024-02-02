@@ -1763,6 +1763,14 @@ struct TACOperand *walkExpression(struct AST *tree,
 		}
 		// fall through
 
+	case t_modulo:
+		if (!fallingThrough)
+		{
+			expression->operation = tt_modulo;
+			fallingThrough = 1;
+		}
+		// fall through
+
 	case t_lshift:
 		if (!fallingThrough)
 		{

@@ -31,6 +31,7 @@ enum TACType
 	tt_subtract,
 	tt_mul,
 	tt_div,
+	tt_modulo,
 	tt_bitwise_and,
 	tt_bitwise_or,
 	tt_bitwise_xor,
