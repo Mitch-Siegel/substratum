@@ -1,6 +1,6 @@
 #include "tests-common.sbh"
 
-void fun main()
+fun main()
 {
     u32 value = 1;
     printNum(value);

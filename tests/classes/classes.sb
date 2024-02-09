@@ -6,7 +6,7 @@ class Money
     u8 cents;
 };
 
-void fun PrintMoney(Money *m)
+fun PrintMoney(Money *m)
 {
     uart_putc('$');
     printNum(m->dollars);
@@ -14,7 +14,7 @@ void fun PrintMoney(Money *m)
     printNum(m->cents);
 }
 
-void fun main()
+fun main()
 {
     Money twelveDollars;
     twelveDollars.dollars = 12;

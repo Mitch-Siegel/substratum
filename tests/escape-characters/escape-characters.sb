@@ -1,7 +1,7 @@
 #include "tests-common.sbh"
 
 
-void fun main()
+fun main()
 {
     printStr("This string has a newline\n");
     printStr("This string should have an 'A' after the colon:!\bA\n");

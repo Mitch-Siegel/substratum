@@ -44,7 +44,7 @@ u8 fun testWhileScope(u8 a)
     return result;
 }
 
-void fun testScopedShadowing()
+fun testScopedShadowing()
 {
     u8 i = 123;
     {
@@ -72,7 +72,7 @@ u8 fun returnByScope(u8 input)
     return 'a' + retVal;
 }
 
-void fun testScopedLifetimes()
+fun testScopedLifetimes()
 {
     u8 i = 0;
     while(i < 10)
@@ -90,7 +90,7 @@ void fun testScopedLifetimes()
     uart_putc(10);
 }
 
-void fun main()
+fun main()
 {
     u8 i = 0;
     while(i < 5)
