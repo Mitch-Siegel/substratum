@@ -1,7 +1,7 @@
 
 u8 abc;
 
-void fun setValue(u8 newValue)
+fun setValue(u8 newValue)
 {
     abc = newValue;
 }

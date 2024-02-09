@@ -70,6 +70,8 @@ parameter_list
 function_declaration
    <- t:type_name _ f:fun _ i:identifier _ '(' _ ')'                     { $$ = AST_C(f, AST_S(t, i)); }
     / t:type_name _ f:fun _ i:identifier _ '(' _ p:parameter_list _ ')'  { $$ = AST_C(f, AST_S(AST_S(t, i), p)); }
+    / f:fun _ i:identifier _ '(' _ ')'                     { $$ = AST_C(f, i); }
+    / f:fun _ i:identifier _ '(' _ p:parameter_list _ ')'  { $$ = AST_C(f, AST_S(i, p)); }
 
 function_definition
    <- d:function_declaration _ a:asm_block { $$ = AST_C(d, a); }
@@ -216,7 +218,7 @@ incomplete_type_name
     / n:non_pointer_typename       { $$ = n; }
 
 non_pointer_typename
-   <- t:void       { $$ = t; }
+   <- t:any       { $$ = t; }
     / t:u8         { $$ = t; }
     / t:u16        { $$ = t; }
     / t:u32        { $$ = t; }
@@ -238,7 +240,7 @@ identifier
 keyword
    <- kw_fun
     / kw_class
-    / kw_void
+    / kw_any
     / kw_u8
     / kw_u16
     / kw_u32
@@ -260,7 +262,7 @@ keyword
 
 kw_fun		   <- 'fun'   !(LETTER/DIGIT)
 kw_class       <- 'class' !(LETTER/DIGIT)
-kw_void		   <- 'void'  !(LETTER/DIGIT)
+kw_any		   <- 'any'  !(LETTER/DIGIT)
 kw_u8		      <- 'u8'	  !(LETTER/DIGIT)
 kw_u16		   <- 'u16'   !(LETTER/DIGIT)
 kw_u32		   <- 'u32'   !(LETTER/DIGIT)
@@ -283,7 +285,7 @@ kw_or_op       <- '||'
 
 fun   <- kw_fun     { $$ = AST_N(auxil, t_fun, $0, $0s); }
 class <- kw_class   { $$ = AST_N(auxil, t_class, $0, $0s); }
-void  <- kw_void    { $$ = AST_N(auxil, t_void, $0, $0s); }
+any   <- kw_any     { $$ = AST_N(auxil, t_any, $0, $0s); }
 u8    <- kw_u8      { $$ = AST_N(auxil, t_u8, $0, $0s); }
 u16   <- kw_u16     { $$ = AST_N(auxil, t_u16, $0, $0s); }
 u32   <- kw_u32     { $$ = AST_N(auxil, t_u32, $0, $0s); }
