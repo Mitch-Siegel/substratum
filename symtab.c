@@ -611,6 +611,10 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 		ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_null!\n");
 		break;
 
+	case vt_any:
+		size = 1;
+		break;
+
 	case vt_u8:
 		size = 1;
 		break;

@@ -8,7 +8,8 @@
 
 enum basicTypes
 {
-	vt_null,
+	vt_null, // type information describing no type at all (only results from declaration of functions with no return)
+	vt_any, // type information describing an pointer to indistinct type (a la c's void pointer, but to avoid use of the 'void' keyword, must have indirection level > 0)
 	vt_u8,
 	vt_u16,
 	vt_u32,
@@ -96,6 +97,7 @@ struct TACOperand
 
 int Type_Compare(struct Type *a, struct Type *b);
 
+// return 0 if 'a' is the same type as 'b', or if it can implicitly be widened to become equivalent
 int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b);
 
 char *Type_GetName(struct Type *t);
