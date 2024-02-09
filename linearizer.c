@@ -148,6 +148,19 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	struct AST *declaredArray = NULL;
 	declaredType.indirectionLevel = scrapePointers(startScrapeFrom, &declaredArray);
 
+	// if declaring something with the 'any' type, make sure it's only as a pointer (as its intended use is to point to unstructured data)
+	if (declaredType.basicType == vt_any)
+	{
+		if (declaredType.indirectionLevel == 0)
+		{
+			ErrorWithAST(ERROR_CODE, declaredArray, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
+		}
+		else if (declaredType.arraySize > 0)
+		{
+			ErrorWithAST(ERROR_CODE, declaredArray, "Use of the type 'any' in arrays is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
+		}
+	}
+
 	// don't allow declaration of variables of undeclared class or array of undeclared class (except pointers)
 	if ((declaredType.basicType == vt_class) && (declaredType.indirectionLevel == 0))
 	{
@@ -262,6 +275,12 @@ void walkFunctionDeclaration(struct AST *tree,
 		functionNameTree = returnTypeTree->sibling;
 
 		returnIndirectionLevel = scrapePointers(returnTypeTree->child, &returnTypeTree);
+
+		// if declaring a function with the return type of 'any', make sure it's only as a pointer (as its intended use is to point to unstructured data)
+		if ((returnBasicType == vt_any) && (returnIndirectionLevel == 0))
+		{
+			ErrorWithAST(ERROR_CODE, returnTypeTree, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
+		}
 	}
 	else
 	{
