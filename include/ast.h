@@ -14,7 +14,7 @@ enum token
 	// types
 	t_variable_declaration,
 	t_type_name,
-	t_void,
+	t_any,
 	t_u8,
 	t_u16,
 	t_u32,
