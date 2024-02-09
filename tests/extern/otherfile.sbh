@@ -1,2 +1,2 @@
 
-void fun setValue(u8 newValue);
+fun setValue(u8 newValue);

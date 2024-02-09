@@ -611,6 +611,16 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 		ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_null!\n");
 		break;
 
+	case vt_any:
+		// triple check that `any` is only ever used as a pointer type a la c's void *
+		if((t->indirectionLevel == 0) || (t->arraySize > 0))
+		{
+			char *illegalAnyTypeName = Type_GetName(t);
+			ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
+		}
+		size = 1;
+		break;
+
 	case vt_u8:
 		size = 1;
 		break;

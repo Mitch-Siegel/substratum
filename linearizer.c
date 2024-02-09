@@ -110,6 +110,10 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 
 	switch (startScrapeFrom->type)
 	{
+	case t_any:
+		declaredType.basicType = vt_any;
+		break;
+
 	case t_u8:
 		declaredType.basicType = vt_u8;
 		break;
@@ -143,6 +147,19 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 
 	struct AST *declaredArray = NULL;
 	declaredType.indirectionLevel = scrapePointers(startScrapeFrom, &declaredArray);
+
+	// if declaring something with the 'any' type, make sure it's only as a pointer (as its intended use is to point to unstructured data)
+	if (declaredType.basicType == vt_any)
+	{
+		if (declaredType.indirectionLevel == 0)
+		{
+			ErrorWithAST(ERROR_CODE, declaredArray, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
+		}
+		else if (declaredType.arraySize > 0)
+		{
+			ErrorWithAST(ERROR_CODE, declaredArray, "Use of the type 'any' in arrays is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
+		}
+	}
 
 	// don't allow declaration of variables of undeclared class or array of undeclared class (except pointers)
 	if ((declaredType.basicType == vt_class) && (declaredType.indirectionLevel == 0))
@@ -213,37 +230,65 @@ void walkFunctionDeclaration(struct AST *tree,
 	// skip past the argumnent declarations to the return type declaration
 	struct AST *returnTypeTree = tree->child;
 
-	enum basicTypes returnBasicType;
-	if (returnTypeTree->type != t_type_name)
+	// functions return nothing in the default case
+	enum basicTypes returnBasicType = vt_null;
+	int returnIndirectionLevel = 0;
+
+	struct AST *functionNameTree = NULL;
+
+	// if the function returns something, its return type will be the first child of the 'fun' token
+	if (returnTypeTree->type == t_type_name)
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Malformed AST as return type for function\n");
-	}
+		if (returnTypeTree->child == NULL)
+		{
+			ErrorWithAST(ERROR_INTERNAL, returnTypeTree, "Child of t_type_name declaring return type of function is null!\n");
+		}
 
-	switch (returnTypeTree->child->type)
+		switch (returnTypeTree->child->type)
+		{
+		case t_any:
+			returnBasicType = vt_any;
+			break;
+
+		case t_u8:
+			returnBasicType = vt_u8;
+			break;
+
+		case t_u16:
+			returnBasicType = vt_u16;
+			break;
+
+		case t_u32:
+			returnBasicType = vt_u32;
+			break;
+
+		case t_identifier:
+			returnBasicType = vt_class;
+			ErrorWithAST(ERROR_CODE, returnTypeTree, "Return of class types is not supported!\n");
+			break;
+
+		default:
+			ErrorWithAST(ERROR_INTERNAL, returnTypeTree->child, "Malformed AST as return type for function - unexpected return type token of %s\n", getTokenName(returnTypeTree->child->type));
+		}
+		// argument declarations (if present) start at the first sibling of the return type
+		// set it here because scrapePointers may modify what returnTypeTree contains
+		functionNameTree = returnTypeTree->sibling;
+
+		returnIndirectionLevel = scrapePointers(returnTypeTree->child, &returnTypeTree);
+
+		// if declaring a function with the return type of 'any', make sure it's only as a pointer (as its intended use is to point to unstructured data)
+		if ((returnBasicType == vt_any) && (returnIndirectionLevel == 0))
+		{
+			ErrorWithAST(ERROR_CODE, returnTypeTree, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
+		}
+	}
+	else
 	{
-	case t_void:
-		returnBasicType = vt_null;
-		break;
-
-	case t_u8:
-		returnBasicType = vt_u8;
-		break;
-
-	case t_u16:
-		returnBasicType = vt_u16;
-		break;
-
-	case t_u32:
-		returnBasicType = vt_u32;
-		break;
-
-	default:
-		ErrorAndExit(ERROR_INTERNAL, "Malformed AST as return type for function\n");
+		// there actually is no return type tree, we just go directly to argument declarations
+		functionNameTree = returnTypeTree;
 	}
-	int returnIndirectionLevel = scrapePointers(returnTypeTree->child, &returnTypeTree);
 
 	// child is the lparen, function name is the child of the lparen
-	struct AST *functionNameTree = tree->child->sibling;
 	struct ScopeMember *lookedUpFunction = Scope_lookup(scope, functionNameTree->value);
 	struct FunctionEntry *parsedFunc = NULL;
 	struct FunctionEntry *existingFunc = NULL;
@@ -265,7 +310,7 @@ void walkFunctionDeclaration(struct AST *tree,
 		parsedFunc->mainScope->parentScope = scope;
 	}
 
-	struct AST *argumentRunner = tree->child->sibling->sibling;
+	struct AST *argumentRunner = functionNameTree->sibling;
 	int TACIndex = 0;
 	int tempNum = 0;
 	struct BasicBlock *block = BasicBlock_new(0);
@@ -1477,9 +1522,12 @@ void walkFunctionCall(struct AST *tree,
 
 	struct FunctionEntry *calledFunction = Scope_lookupFun(scope, tree->child);
 
-	if (destinationOperand != NULL && (calledFunction->returnType.basicType == vt_null))
+	if ((destinationOperand != NULL) &&
+		((calledFunction->returnType.basicType == vt_null) &&
+		 (calledFunction->returnType.indirectionLevel == 0)))
 	{
-		ErrorWithAST(ERROR_CODE, tree, "Attempt to use return value of function %s (returning void)\n", calledFunction->name);
+		char *typeName = Type_GetName(&calledFunction->returnType);
+		ErrorWithAST(ERROR_CODE, tree, "Attempt to use return value of function %s (returning %s)\n", calledFunction->name, typeName);
 	}
 
 	struct Stack *argumentTrees = Stack_New();

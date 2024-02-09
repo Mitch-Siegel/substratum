@@ -27,7 +27,7 @@ u32 fun crc(u8 *string)
 	return crc;
 }
 
-void fun printCrc(u8 *string)
+fun printCrc(u8 *string)
 {
 	u32 i = 0;
 	while(string[i] != 0)
@@ -39,7 +39,7 @@ void fun printCrc(u8 *string)
 	printHex(crc(string));
 }
 
-void fun main()
+fun main()
 {
     printCrc("Hello, World!");
     printCrc("the quick brown fox jumps over the lazy dog");

@@ -49,12 +49,30 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 		case vt_null:
 			return 1;
 
+		case vt_any:
+			switch (b->basicType)
+			{
+			case vt_null:
+				return 1;
+			case vt_class:
+			case vt_any:
+			case vt_u8:
+			case vt_u16:
+			case vt_u32:
+				break;
+
+			default:
+				break;
+			}
+			break;
+
 		case vt_u8:
 			switch (b->basicType)
 			{
 			case vt_null:
 			case vt_class:
 				return 1;
+			case vt_any:
 			case vt_u8:
 			case vt_u16:
 			case vt_u32:
@@ -69,6 +87,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			switch (b->basicType)
 			{
 			case vt_null:
+			case vt_any:
 			case vt_u8:
 			case vt_class:
 				return 1;
@@ -82,6 +101,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			switch (b->basicType)
 			{
 			case vt_null:
+			case vt_any:
 			case vt_u8:
 			case vt_u16:
 			case vt_class:
@@ -96,6 +116,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			switch (b->basicType)
 			{
 			case vt_null:
+			case vt_any:
 			case vt_u8:
 			case vt_u16:
 			case vt_u32:
@@ -148,6 +169,10 @@ char *Type_GetName(struct Type *t)
 	{
 	case vt_null:
 		len = sprintf(typeName, "NOTYPE");
+		break;
+
+	case vt_any:
+		len = sprintf(typeName, "any");
 		break;
 
 	case vt_u8:

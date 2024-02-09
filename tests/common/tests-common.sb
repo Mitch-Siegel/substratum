@@ -1,6 +1,6 @@
 #include "tests-common.sbh"
 
-void fun uart_putc(u8 c)
+fun uart_putc(u8 c)
 {
     u8 *uart0 = 268435456;
     *(uart0) = c;
@@ -15,7 +15,7 @@ u32 fun mod(u32 a, u32 b)
 	return a;
 }
 
-void fun printNum(u32 value)
+fun printNum(u32 value)
 {
 	u8[10] chars;
 	u8 nChars = 0;
@@ -43,7 +43,7 @@ void fun printNum(u32 value)
 	uart_putc(10);
 }
 
-void fun printHex(u32 value)
+fun printHex(u32 value)
 {
 	uart_putc('0');
 	uart_putc('x');
@@ -87,7 +87,7 @@ FINISHER_FAIL = 0x3333,
 FINISHER_PASS = 0x5555,
 FINISHER_RESET = 0x7777
 */
-void fun exit() asm
+fun exit() asm
 {
     li a0, 0x100000
     li a1, 0x5555

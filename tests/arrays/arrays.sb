@@ -1,6 +1,6 @@
 #include "tests-common.sbh"
 
-void fun testu8Array()
+fun testu8Array()
 {
     u8[10] array;
     u8 i = 0;
@@ -22,7 +22,7 @@ void fun testu8Array()
     uart_putc(10);
 }
 
-void fun testu16Array()
+fun testu16Array()
 {
     u16[10] array;
     u8 i = 0;
@@ -45,7 +45,7 @@ void fun testu16Array()
     uart_putc(10);
 }
 
-void fun testu32Array()
+fun testu32Array()
 {
     u32[10] array;
     u8 i = 0;
@@ -68,7 +68,7 @@ void fun testu32Array()
     uart_putc(10);
 }
 
-void fun main()
+fun main()
 {
     testu8Array();
     testu16Array();
