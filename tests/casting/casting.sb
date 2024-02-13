@@ -1,0 +1,10 @@
+#include "tests-common.sbh"
+
+fun main()
+{
+    u32 largeValue = 0x12345678;
+    printHex(largeValue);
+    printHex((u16)largeValue);
+    printHex((u8)largeValue);
+    exit();
+}

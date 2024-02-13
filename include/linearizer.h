@@ -7,6 +7,8 @@
 
 struct SymbolTable *walkProgram(struct AST *program);
 
+void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTypeTo);
+
 struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 												struct BasicBlock *block,
 												struct Scope *scope,
