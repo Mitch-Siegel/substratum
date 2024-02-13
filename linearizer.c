@@ -1516,8 +1516,10 @@ void walkSubExpression(struct AST *tree,
 
 	case t_cast:
 	{
-		struct TACOperand *expressionResult = walkExpression(tree->child->sibling, block, scope, TACIndex, tempNum);
-		walkTypeName(tree->child, scope, &expressionResult->castAsType);
+		// TODO: actually generate a copy to a new temp when shortening values 
+		// otherwise we may end up implicitly widening them, effectively undoing the cast
+		walkSubExpression(tree->child->sibling, block, scope, TACIndex, tempNum, destinationOperand);
+		walkTypeName(tree->child, scope, &destinationOperand->castAsType);
 	}
 	break;
 
