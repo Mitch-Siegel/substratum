@@ -1523,14 +1523,24 @@ void walkSubExpression(struct AST *tree,
 		// set the result's cast as type based on the child of the cast, the type we are casting to
 		walkTypeName(tree->child, scope, &expressionResult.castAsType);
 
-		// If necessary, lop bits off the big end of the value with an explicit bitwise and operation, storing to an intermediate temp
-		// TODO: don't generarte this extra TAC instruction with pointers
-		if(!Type_CompareAllowImplicitWidening(&destinationOperand->castAsType, &destinationOperand->type))
+		if ((expressionResult.castAsType.basicType == vt_class) &&
+			(expressionResult.castAsType.indirectionLevel == 0))
 		{
-			struct TACLine *castBitManipulation = newTACLine((* TACIndex)++, tt_bitwise_and, tree);
-			
+			char *castToType = Type_GetName(&expressionResult.castAsType);
+			ErrorWithAST(ERROR_CODE, tree->child, "Casting to a class (%s) is not allowed!", castToType);
+		}
+
+			char *castToType = Type_GetName(&expressionResult.castAsType);
+		printf("cast to type %s\n", castToType);
+		free(castToType);
+
+		// If necessary, lop bits off the big end of the value with an explicit bitwise and operation, storing to an intermediate temp
+		if (Type_CompareAllowImplicitWidening(&expressionResult.castAsType, &destinationOperand->type) && (expressionResult.castAsType.indirectionLevel == 0))
+		{
+			struct TACLine *castBitManipulation = newTACLine((*TACIndex)++, tt_bitwise_and, tree);
+
 			// RHS of the assignment is whatever we are storing, what is being cast
-			castBitManipulation->operands[1] = expressionResult; 
+			castBitManipulation->operands[1] = expressionResult;
 
 			// construct the bit pattern we will use in order to properly mask off the extra bits (TODO: will not hold for unsigned types)
 			castBitManipulation->operands[2].permutation = vp_literal;
@@ -1554,8 +1564,6 @@ void walkSubExpression(struct AST *tree,
 			// no bit manipulation required, simply set the destination operand to the result of the casted subexpression (with cast as type set by us)
 			*destinationOperand = expressionResult;
 		}
-
-		
 	}
 	break;
 
