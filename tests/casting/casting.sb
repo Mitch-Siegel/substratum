@@ -1,10 +1,35 @@
 #include "tests-common.sbh"
 
-fun main()
+fun testBasicCasting()
 {
     u32 largeValue = 0x12345678;
     printHex(largeValue);
+    uart_putc('\n');
     printHex((u16)largeValue);
+    uart_putc('\n');
     printHex((u8)largeValue);
+    uart_putc('\n');
+}
+
+fun testCastStoring()
+{
+    u32 largerValue = 0xFFFFFFFF;
+    printHex(largerValue);
+    uart_putc('\n');
+    largerValue = (u16)largerValue;
+    printHex(largerValue);
+    uart_putc('\n');
+    largerValue += 2;
+    printHex(largerValue);
+    uart_putc('\n');
+    largerValue = (u8)largerValue;
+    printHex(largerValue);
+    uart_putc('\n');
+}
+
+fun main()
+{
+    testBasicCasting();
+    testCastStoring();
     exit();
 }

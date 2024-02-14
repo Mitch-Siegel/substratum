@@ -1516,10 +1516,46 @@ void walkSubExpression(struct AST *tree,
 
 	case t_cast:
 	{
-		// TODO: actually generate a copy to a new temp when shortening values 
-		// otherwise we may end up implicitly widening them, effectively undoing the cast
-		walkSubExpression(tree->child->sibling, block, scope, TACIndex, tempNum, destinationOperand);
-		walkTypeName(tree->child, scope, &destinationOperand->castAsType);
+		struct TACOperand expressionResult;
+
+		// walk the right child of the cast, the subexpression we are casting
+		walkSubExpression(tree->child->sibling, block, scope, TACIndex, tempNum, &expressionResult);
+		// set the result's cast as type based on the child of the cast, the type we are casting to
+		walkTypeName(tree->child, scope, &expressionResult.castAsType);
+
+		// If necessary, lop bits off the big end of the value with an explicit bitwise and operation, storing to an intermediate temp
+		// TODO: don't generarte this extra TAC instruction with pointers
+		if(!Type_CompareAllowImplicitWidening(&destinationOperand->castAsType, &destinationOperand->type))
+		{
+			struct TACLine *castBitManipulation = newTACLine((* TACIndex)++, tt_bitwise_and, tree);
+			
+			// RHS of the assignment is whatever we are storing, what is being cast
+			castBitManipulation->operands[1] = expressionResult; 
+
+			// construct the bit pattern we will use in order to properly mask off the extra bits (TODO: will not hold for unsigned types)
+			castBitManipulation->operands[2].permutation = vp_literal;
+			castBitManipulation->operands[2].type.basicType = vt_u32;
+			char literalAndValue[32];
+			sprintf(literalAndValue, "0x%x", (1 << (8 * Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)))) - 1);
+			castBitManipulation->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, literalAndValue);
+
+			// destination of our bit manipulation is a temporary variable with the type to which we are casting
+			castBitManipulation->operands[0].permutation = vp_temp;
+			castBitManipulation->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+			castBitManipulation->operands[0].type = *TAC_GetTypeOfOperand(castBitManipulation, 1);
+
+			// attach our bit manipulation operation to the end of the basic block
+			BasicBlock_append(block, castBitManipulation);
+			// set the destination operation of this subexpression to read the manipulated value we just wrote
+			*destinationOperand = castBitManipulation->operands[0];
+		}
+		else
+		{
+			// no bit manipulation required, simply set the destination operand to the result of the casted subexpression (with cast as type set by us)
+			*destinationOperand = expressionResult;
+		}
+
+		
 	}
 	break;
 
