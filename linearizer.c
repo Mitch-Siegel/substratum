@@ -75,6 +75,102 @@ struct SymbolTable *walkProgram(struct AST *program)
 	return programTable;
 }
 
+void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTypeTo)
+{
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkTypeName: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
+	if (tree->type != t_type_name)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkTypeName!\n", getTokenName(tree->type));
+	}
+
+	AST_Print(tree, 0);
+	memset(populateTypeTo, 0, sizeof(struct Type));
+
+	struct AST *className = NULL;
+
+	switch (tree->child->type)
+	{
+	case t_any:
+		populateTypeTo->basicType = vt_any;
+		break;
+
+	case t_u8:
+		populateTypeTo->basicType = vt_u8;
+		break;
+
+	case t_u16:
+		populateTypeTo->basicType = vt_u16;
+		break;
+
+	case t_u32:
+		populateTypeTo->basicType = vt_u32;
+		break;
+
+	case t_identifier:
+		populateTypeTo->basicType = vt_class;
+
+		className = tree->child;
+		if (className->type != t_identifier)
+		{
+			ErrorWithAST(ERROR_INTERNAL,
+						 className,
+						 "Malformed AST seen in declaration!\nExpected class name as child of \"class\", saw %s (%s)!",
+						 className->value,
+						 getTokenName(className->type));
+		}
+		populateTypeTo->classType.name = className->value;
+		break;
+
+	default:
+		ErrorWithAST(ERROR_INTERNAL, tree, "Malformed AST seen in declaration!");
+	}
+
+	struct AST *declaredArray = NULL;
+	populateTypeTo->indirectionLevel = scrapePointers(tree->child, &declaredArray);
+
+	// if declaring something with the 'any' type, make sure it's only as a pointer (as its intended use is to point to unstructured data)
+	if (populateTypeTo->basicType == vt_any)
+	{
+		if (populateTypeTo->indirectionLevel == 0)
+		{
+			ErrorWithAST(ERROR_CODE, declaredArray, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
+		}
+		else if (populateTypeTo->arraySize > 0)
+		{
+			ErrorWithAST(ERROR_CODE, declaredArray, "Use of the type 'any' in arrays is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
+		}
+	}
+
+	// don't allow declaration of variables of undeclared class or array of undeclared class (except pointers)
+	if ((populateTypeTo->basicType == vt_class) && (populateTypeTo->indirectionLevel == 0))
+	{
+		// the lookup will bail out if an attempt is made to use an undeclared class
+		Scope_lookupClass(scope, className);
+	}
+
+	// if we are declaring an array, set the string with the size as the second operand
+	if (declaredArray != NULL)
+	{
+		if (declaredArray->type != t_array_index)
+		{
+			AST_Print(declaredArray, 0);
+			ErrorWithAST(ERROR_INTERNAL, declaredArray, "Unexpected AST at end of pointer declarations!");
+		}
+		char *arraySizeString = declaredArray->child->value;
+		int declaredArraySize = atoi(arraySizeString);
+
+		populateTypeTo->arraySize = declaredArraySize;
+	}
+	else
+	{
+		populateTypeTo->arraySize = 0;
+	}
+}
+
 struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 											  struct BasicBlock *block,
 											  struct Scope *scope,
@@ -99,92 +195,13 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	 * so we need to start at tree->child for non-class or tree->child->sibling for classes
 	 */
 
-	struct AST *startScrapeFrom = tree->child;
-	if (startScrapeFrom->type != t_type_name)
+	if (tree->child->type != t_type_name)
 	{
-		ErrorWithAST(ERROR_INTERNAL, startScrapeFrom, "Malformed AST seen in declaration!");
-	}
-	startScrapeFrom = startScrapeFrom->child;
-
-	struct AST *className = NULL;
-
-	switch (startScrapeFrom->type)
-	{
-	case t_any:
-		declaredType.basicType = vt_any;
-		break;
-
-	case t_u8:
-		declaredType.basicType = vt_u8;
-		break;
-
-	case t_u16:
-		declaredType.basicType = vt_u16;
-		break;
-
-	case t_u32:
-		declaredType.basicType = vt_u32;
-		break;
-
-	case t_identifier:
-		declaredType.basicType = vt_class;
-
-		className = startScrapeFrom;
-		if (className->type != t_identifier)
-		{
-			ErrorWithAST(ERROR_INTERNAL,
-						 className,
-						 "Malformed AST seen in declaration!\nExpected class name as child of \"class\", saw %s (%s)!",
-						 className->value,
-						 getTokenName(className->type));
-		}
-		declaredType.classType.name = className->value;
-		break;
-
-	default:
-		ErrorWithAST(ERROR_INTERNAL, startScrapeFrom, "Malformed AST seen in declaration!");
+		ErrorWithAST(ERROR_INTERNAL, tree->child, "Malformed AST seen in declaration!");
 	}
 
-	struct AST *declaredArray = NULL;
-	declaredType.indirectionLevel = scrapePointers(startScrapeFrom, &declaredArray);
+	walkTypeName(tree->child, scope, &declaredType);
 
-	// if declaring something with the 'any' type, make sure it's only as a pointer (as its intended use is to point to unstructured data)
-	if (declaredType.basicType == vt_any)
-	{
-		if (declaredType.indirectionLevel == 0)
-		{
-			ErrorWithAST(ERROR_CODE, declaredArray, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
-		}
-		else if (declaredType.arraySize > 0)
-		{
-			ErrorWithAST(ERROR_CODE, declaredArray, "Use of the type 'any' in arrays is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
-		}
-	}
-
-	// don't allow declaration of variables of undeclared class or array of undeclared class (except pointers)
-	if ((declaredType.basicType == vt_class) && (declaredType.indirectionLevel == 0))
-	{
-		// the lookup will bail out if an attempt is made to use an undeclared class
-		Scope_lookupClass(scope, className);
-	}
-
-	// if we are declaring an array, set the string with the size as the second operand
-	if (declaredArray != NULL)
-	{
-		if (declaredArray->type != t_array_index)
-		{
-			AST_Print(declaredArray, 0);
-			ErrorWithAST(ERROR_INTERNAL, declaredArray, "Unexpected AST at end of pointer declarations!");
-		}
-		char *arraySizeString = declaredArray->child->value;
-		int declaredArraySize = atoi(arraySizeString);
-
-		declaredType.arraySize = declaredArraySize;
-	}
-	else
-	{
-		declaredType.arraySize = 0;
-	}
 	struct VariableEntry *declaredVariable = Scope_createVariable(scope,
 																  tree->child->sibling,
 																  &declaredType,
@@ -1494,6 +1511,59 @@ void walkSubExpression(struct AST *tree,
 	{
 		struct TACOperand *expressionResult = walkExpression(tree, block, scope, TACIndex, tempNum);
 		*destinationOperand = *expressionResult;
+	}
+	break;
+
+	case t_cast:
+	{
+		struct TACOperand expressionResult;
+
+		// walk the right child of the cast, the subexpression we are casting
+		walkSubExpression(tree->child->sibling, block, scope, TACIndex, tempNum, &expressionResult);
+		// set the result's cast as type based on the child of the cast, the type we are casting to
+		walkTypeName(tree->child, scope, &expressionResult.castAsType);
+
+		if ((expressionResult.castAsType.basicType == vt_class) &&
+			(expressionResult.castAsType.indirectionLevel == 0))
+		{
+			char *castToType = Type_GetName(&expressionResult.castAsType);
+			ErrorWithAST(ERROR_CODE, tree->child, "Casting to a class (%s) is not allowed!", castToType);
+		}
+
+			char *castToType = Type_GetName(&expressionResult.castAsType);
+		printf("cast to type %s\n", castToType);
+		free(castToType);
+
+		// If necessary, lop bits off the big end of the value with an explicit bitwise and operation, storing to an intermediate temp
+		if (Type_CompareAllowImplicitWidening(&expressionResult.castAsType, &destinationOperand->type) && (expressionResult.castAsType.indirectionLevel == 0))
+		{
+			struct TACLine *castBitManipulation = newTACLine((*TACIndex)++, tt_bitwise_and, tree);
+
+			// RHS of the assignment is whatever we are storing, what is being cast
+			castBitManipulation->operands[1] = expressionResult;
+
+			// construct the bit pattern we will use in order to properly mask off the extra bits (TODO: will not hold for unsigned types)
+			castBitManipulation->operands[2].permutation = vp_literal;
+			castBitManipulation->operands[2].type.basicType = vt_u32;
+			char literalAndValue[32];
+			sprintf(literalAndValue, "0x%x", (1 << (8 * Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)))) - 1);
+			castBitManipulation->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, literalAndValue);
+
+			// destination of our bit manipulation is a temporary variable with the type to which we are casting
+			castBitManipulation->operands[0].permutation = vp_temp;
+			castBitManipulation->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+			castBitManipulation->operands[0].type = *TAC_GetTypeOfOperand(castBitManipulation, 1);
+
+			// attach our bit manipulation operation to the end of the basic block
+			BasicBlock_append(block, castBitManipulation);
+			// set the destination operation of this subexpression to read the manipulated value we just wrote
+			*destinationOperand = castBitManipulation->operands[0];
+		}
+		else
+		{
+			// no bit manipulation required, simply set the destination operand to the result of the casted subexpression (with cast as type set by us)
+			*destinationOperand = expressionResult;
+		}
 	}
 	break;
 
