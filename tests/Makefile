@@ -3,17 +3,17 @@ SBCC = ../sbcc
 AS = riscv64-unknown-elf-as
 
 COMMON_DIR = ./common
+COVERAGE_DIR = ./coverage
 COMMON_SRCS = $(basename $(wildcard $(COMMON_DIR)/*.sb))
 COMMON_OBJS = $(COMMON_SRCS:%=%.o)
 SBCC_TESTS_DIRS = $(wildcard ./*/)
-SBCC_TESTS = $(filter-out $(COMMON_DIR), $(SBCC_TESTS_DIRS:/=))
+SBCC_TESTS = $(filter-out $(COMMON_DIR) $(COVERAGE_DIR), $(SBCC_TESTS_DIRS:/=))
 
 ifndef VERBOSE
 .SILENT:
 endif
 
 tests: $(COMMON_OBJS)
-	cd .. && make COVERAGE=true
 	@for test in $(SBCC_TESTS) ; do \
 		ls $${test}/*.sb | xargs -I {} echo {} | cut -d'.' -f2 | xargs -I {} make .{}.o;\
 		riscv64-unknown-elf-ld -T ./link.lds -o $${test}/$${test}.elf `ls ./common/*.o` `ls $${test}/*.o`;\
@@ -30,13 +30,18 @@ tests: $(COMMON_OBJS)
 		fi ;\
 	done
 
+coverage-report:
+	$(info "TRACEFILES: $(addprefix -a ,$(shell find $(COVERAGE_DIR) -type f -name "*.cov"))")
+	lcov $(addprefix -a ,$(shell find $(COVERAGE_DIR) -type f)) -o $(COVERAGE_DIR)/total-coverage.info
+	genhtml $(COVERAGE_DIR)/total-coverage.info -o $(COVERAGE_DIR)/totalcoverage
 
 # all test object files must have one and only one substratum source file
 %.o: %.sb
+	rm -f ../build/*.gcda
 	$(info "building file $@ from $<")
 	$(SBCC) -i $^ -o $(basename $@).S -I $(COMMON_DIR) -I $(shell dirname $@)
-	mkdir -p $(shell dirname ./coverage/$@)
-	geninfo "../build" -b ".." -o ./coverage/$(basename $@).cov
+	@mkdir -p $(shell dirname $(COVERAGE_DIR)/$@)
+	@geninfo "../build" -b ".." -o $(COVERAGE_DIR)/$(basename $@).cov
 	$(AS) -r -o $@ $(basename $@).S
 
 info:
