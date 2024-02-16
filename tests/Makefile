@@ -8,27 +8,33 @@ COMMON_OBJS = $(COMMON_SRCS:%=%.o)
 SBCC_TESTS_DIRS = $(wildcard ./*/)
 SBCC_TESTS = $(filter-out $(COMMON_DIR), $(SBCC_TESTS_DIRS:/=))
 
+ifndef VERBOSE
+.SILENT:
+endif
 
-tests: $(SBCC_TESTS)
+tests: $(COMMON_OBJS)
 	cd .. && make COVERAGE=true
-	@for test in $^ ; do \
-		echo $${test};\
+	@for test in $(SBCC_TESTS) ; do \
+		ls $${test}/*.sb | xargs -I {} echo {} | cut -d'.' -f2 | xargs -I {} make .{}.o;\
+		riscv64-unknown-elf-ld -T ./link.lds -o $${test}/$${test}.elf `ls ./common/*.o` `ls $${test}/*.o`;\
+		ENTRY_POINT=`readelf --file-header $${test}/$${test}.elf | grep "Entry point address" | grep -Eo "0x[0-9abcdef]+"`;\
+		VM_OUTPUT=`qemu-system-riscv64 -machine virt -nographic -bios $${test}/$${test}.elf -device loader,addr=$$ENTRY_POINT,cpu-num=0`;\
+		diff <(echo "$$VM_OUTPUT") <(cat "$${test}/$${test}.txt");\
+		DIFF_RESULT=$$?;\
+		if [ $$DIFF_RESULT -eq 0 ]; then \
+			echo "Test $${test} passed"; else \
+			echo "Test $${test} failed";\
+			echo "output:";\
+			echo "$$VM_OUTPUT";\
+		fi ;\
 	done
 
-$(SBCC_TESTS):
-	$(info "$@: $@ $^:$^")
 
+# all test object files must have one and only one substratum source file
 %.o: %.sb
-	cd .. && make COVERAGE=true
-	$(call compile_test_object, $(basename $@))
-
-
-define compile_test_object
-	@echo "Compiling test object $1"
-	$(SBCC) -i $1.sb -o $1.S -I ./common
-	$(AS) -r -o $1.o $1.S
-endef
-
+	$(info "building file $@ from $<")
+	$(SBCC) -i $^ -o $(basename $@).S -I $(COMMON_DIR) -I $(shell dirname $@)
+	$(AS) -r -o $@ $(basename $@).S
 
 info:
 	$(info "COMMON_SRCS: $(COMMON_SRCS)")
