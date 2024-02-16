@@ -26,6 +26,7 @@ tests: $(COMMON_OBJS)
 			echo "Test $${test} failed";\
 			echo "output:";\
 			echo "$$VM_OUTPUT";\
+			exit 1;\
 		fi ;\
 	done
 
@@ -34,6 +35,8 @@ tests: $(COMMON_OBJS)
 %.o: %.sb
 	$(info "building file $@ from $<")
 	$(SBCC) -i $^ -o $(basename $@).S -I $(COMMON_DIR) -I $(shell dirname $@)
+	mkdir -p $(shell dirname ./coverage/$@)
+	geninfo "../build" -b ".." -o ./coverage/$(basename $@).cov
 	$(AS) -r -o $@ $(basename $@).S
 
 info:
@@ -46,3 +49,4 @@ clean:
 	@find . -name "*.elf" | xargs rm -f
 	@find . -name "*.S" | xargs rm -f
 	@find . -name "*.o" | xargs rm -f
+	@rm -rf coverage
