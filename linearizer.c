@@ -1546,7 +1546,17 @@ void walkSubExpression(struct AST *tree,
 			castBitManipulation->operands[2].permutation = vp_literal;
 			castBitManipulation->operands[2].type.basicType = vt_u32;
 			char literalAndValue[32];
-			sprintf(literalAndValue, "0x%x", (1 << (8 * Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)))) - 1);
+
+			// manually generate a string with an 'F' hex digit for each 4 bits in the mask
+			sprintf(literalAndValue, "0x");
+			int maskBitWidth = (8 * Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)));
+			int maskBit = 0;
+			for(maskBit = 0; maskBit < maskBitWidth; maskBit += 4)
+			{
+				literalAndValue[2 + (maskBit / 4)] = 'F';
+				literalAndValue[3 + (maskBit / 4)] = '\0';
+			}
+
 			castBitManipulation->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, literalAndValue);
 
 			// destination of our bit manipulation is a temporary variable with the type to which we are casting
