@@ -18,7 +18,7 @@ $(OBJDIR)/%.o: %.c
 
 $(OBJDIR)/parser.o : parser.c
 	@mkdir -p $(@D)
-	$(CC) -c $(CFLAGS) -o $@ $< -I ./include -Wno-discarded-qualifiers
+	$(CC) -c $(CFLAGS) -o $@ $< -I ./include -Wno-discarded-qualifiers -Wno-incompatible-pointer-types-discards-qualifiers -Wno-unused-but-set-variable
 
 sbcc: $(addprefix $(OBJDIR)/,$(SBCC_OBJS)) $(OBJDIR)/parser.o
 	$(CC) $(CFLAGS) -o $@ $^

@@ -1807,7 +1807,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 	// if we have an arrow, the first thing we need to do is "jump through" the indirection
 	// this if statement basically "finalizes" the load before the arrow operator,
 	// then sets up a new access solely for the arrow
-	if ((tree->type == t_arrow))
+	if (tree->type == t_arrow)
 	{
 		// if the existing load operation actually applies an offset, it is necessary to actually "jump through" the indirection by dereferencing at that offset
 		// to do this, we cement the existing access for good and then create a new load TAC instruction which will apply only the offset from this arrow operator

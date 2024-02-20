@@ -152,7 +152,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 								struct VariableEntry *variableToMangle = Scope_lookupVarByString(scope, originalName);
 
 								// only mangle things which are not string literals
-								if ((variableToMangle->isStringLiteral == 0))
+								if (variableToMangle->isStringLiteral == 0)
 								{
 									// it should not be possible to see a global as being declared here
 									if (variableToMangle->isGlobal)
