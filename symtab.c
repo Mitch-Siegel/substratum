@@ -152,7 +152,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 								struct VariableEntry *variableToMangle = Scope_lookupVarByString(scope, originalName);
 
 								// it should not be possible to see a global as being declared here
-								if(variableToMangle->isGlobal == 0)
+								if(variableToMangle->isGlobal)
 								{
 									ErrorAndExit(ERROR_INTERNAL, "Declaration of variable %s at inner scope %s is marked as a global!\n", variableToMangle->name, scope->name);
 								}
