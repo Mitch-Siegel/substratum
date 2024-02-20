@@ -1,10 +1,10 @@
 
-void fun uart_putc(u8 c);
+fun uart_putc(u8 c);
 
-void fun printNum(u32 value);
+fun printNum(u32 value);
 
-void fun printHex(u32 value);
+fun printHex(u32 value);
 
 u32 fun printStr(u8 *str);
 
-void fun exit();
+fun exit();

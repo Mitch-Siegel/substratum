@@ -1,0 +1,23 @@
+#include "tests-common.sbh"
+
+any *fun funReturningAnyPointer()
+{
+    return 0xabcdefff;
+}
+
+fun printAnyPointer(any *a)
+{
+    u32 asNumber = a;
+    printHex(asNumber);
+}
+
+fun main()
+{
+    any *hereBeDragons = funReturningAnyPointer();
+    u32 dragons = hereBeDragons;
+    printHex(dragons);
+    uart_putc('\n');
+    printAnyPointer(hereBeDragons);
+    uart_putc('\n');
+    exit();
+}

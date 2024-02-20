@@ -20,7 +20,7 @@ class AccountWithPointer
     AccountWithPointer *me;
 };
 
-void fun PrintMoney(Money *m)
+fun PrintMoney(Money *m)
 {
     uart_putc('$');
     printNum(m->dollars);
@@ -28,12 +28,12 @@ void fun PrintMoney(Money *m)
     printNum(m->cents);
 }
 
-void fun PrintAccountWithPointer(AccountWithPointer *a)
+fun PrintAccountWithPointer(AccountWithPointer *a)
 {
     PrintMoney(a->amount);
 }
 
-void fun TestAccount()
+fun TestAccount()
 {
     Account a1;
     a1.amount.dollars = 1234;
@@ -42,7 +42,7 @@ void fun TestAccount()
     PrintMoney(&a1.amount);
 }
 
-void fun TestAccountWithPointer()
+fun TestAccountWithPointer()
 {
     Money m1;
     m1.dollars = 9999;
@@ -55,7 +55,7 @@ void fun TestAccountWithPointer()
     PrintAccountWithPointer(&a2);
 }
 
-void fun VerifyMemberIdenties()
+fun VerifyMemberIdenties()
 {
     Account a1;
     a1.me = &a1;
@@ -87,7 +87,7 @@ void fun VerifyMemberIdenties()
     PrintMoney(&(a1.me->amount));
 }
 
-void fun main()
+fun main()
 {
     TestAccount();
     TestAccountWithPointer();
