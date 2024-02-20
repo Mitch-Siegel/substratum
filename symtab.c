@@ -141,8 +141,24 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 								((thisTAC->operands[j].permutation == vp_standard) || (thisTAC->operands[j].permutation == vp_objptr)))
 							{
 								char *originalName = thisTAC->operands[j].name.str;
-								// if this operand refers to a variable declared at this scope
-								if (Scope_contains(scope, originalName))
+
+								// bail out early if the variable is not declared within this scope, as we will not need to mangle it
+								if(!Scope_contains(scope, originalName))
+								{
+									continue;
+								}
+
+								// if the declaration for the variable is owned by this scope, ensure that we actually get a variable or argument
+								struct VariableEntry *variableToMangle = Scope_lookupVarByString(scope, originalName);
+
+								// it should not be possible to see a global as being declared here
+								if(variableToMangle->isGlobal == 0)
+								{
+									ErrorAndExit(ERROR_INTERNAL, "Declaration of variable %s at inner scope %s is marked as a global!\n", variableToMangle->name, scope->name);
+								}
+
+								// only mangle things which are not string literals
+								if ((variableToMangle->isStringLiteral == 0))
 								{
 									thisTAC->operands[j].name.str = SymbolTable_mangleName(scope, dict, originalName);
 								}
