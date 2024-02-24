@@ -96,8 +96,6 @@ void parseFile(char *inFileName)
         }
     }
 
-    printf("Actual file name is %s: %p\n", actualFileName, p.f);
-
     p.dict = parseDict;
     p.curFile = actualFileName;
 

@@ -87,7 +87,6 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkTypeName!\n", getTokenName(tree->type));
 	}
 
-	AST_Print(tree, 0);
 	memset(populateTypeTo, 0, sizeof(struct Type));
 
 	struct AST *className = NULL;
@@ -1490,10 +1489,6 @@ void walkSubExpression(struct AST *tree,
 			char *castToType = Type_GetName(&expressionResult.castAsType);
 			ErrorWithAST(ERROR_CODE, tree->child, "Casting to a class (%s) is not allowed!", castToType);
 		}
-
-		char *castToType = Type_GetName(&expressionResult.castAsType);
-		printf("cast to type %s\n", castToType);
-		free(castToType);
 
 		// If necessary, lop bits off the big end of the value with an explicit bitwise and operation, storing to an intermediate temp
 		if (Type_CompareAllowImplicitWidening(&expressionResult.castAsType, &destinationOperand->type) && (expressionResult.castAsType.indirectionLevel == 0))
