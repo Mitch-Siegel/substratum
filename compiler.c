@@ -139,8 +139,6 @@ int main(int argc, char **argv)
 	// serializeAST("astdump", program);
 	// printf("\n");
 
-	printf("Parsed %d individual ASTs (from includes)\n", parsedAsts->size);
-
 	struct AST *program = NULL;
 	for(int i = 0; i < parsedAsts->size; i++)
 	{

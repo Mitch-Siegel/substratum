@@ -1,0 +1,25 @@
+#include "tests-common.sbh"
+
+class Money
+{
+    u32 dollars;
+    u8 cents;
+};
+
+Money *fun PrintMoney(Money *m)
+{
+    uart_putc('$');
+    printNum(m->dollars);
+    uart_putc('.');
+    printNum(m->cents);
+    return m;
+}
+
+fun main()
+{
+    Money twelveDollars;
+    twelveDollars.dollars = 12;
+    twelveDollars.cents = 1;
+    PrintMoney(PrintMoney(&twelveDollars));
+    exit();
+}

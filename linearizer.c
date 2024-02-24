@@ -87,7 +87,6 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkTypeName!\n", getTokenName(tree->type));
 	}
 
-	AST_Print(tree, 0);
 	memset(populateTypeTo, 0, sizeof(struct Type));
 
 	struct AST *className = NULL;
@@ -248,56 +247,23 @@ void walkFunctionDeclaration(struct AST *tree,
 	struct AST *returnTypeTree = tree->child;
 
 	// functions return nothing in the default case
-	enum basicTypes returnBasicType = vt_null;
-	int returnIndirectionLevel = 0;
+	struct Type returnType;
 
 	struct AST *functionNameTree = NULL;
 
 	// if the function returns something, its return type will be the first child of the 'fun' token
 	if (returnTypeTree->type == t_type_name)
 	{
-		if (returnTypeTree->child == NULL)
+		walkTypeName(returnTypeTree, scope, &returnType);
+
+		// if we are returning a class, ensure that we're returning some sort of pointer, not a whole object
+		if ((returnType.basicType == vt_class) && (returnType.indirectionLevel == 0))
 		{
-			ErrorWithAST(ERROR_INTERNAL, returnTypeTree, "Child of t_type_name declaring return type of function is null!\n");
+			// use tree->child to get the original returnTypeTree AST as scrapePointers may have modified it
+			ErrorWithAST(ERROR_CODE, tree->child, "Return of class object types is not supported!\n");
 		}
 
-		switch (returnTypeTree->child->type)
-		{
-		case t_any:
-			returnBasicType = vt_any;
-			break;
-
-		case t_u8:
-			returnBasicType = vt_u8;
-			break;
-
-		case t_u16:
-			returnBasicType = vt_u16;
-			break;
-
-		case t_u32:
-			returnBasicType = vt_u32;
-			break;
-
-		case t_identifier:
-			returnBasicType = vt_class;
-			ErrorWithAST(ERROR_CODE, returnTypeTree, "Return of class types is not supported!\n");
-			break;
-
-		default:
-			ErrorWithAST(ERROR_INTERNAL, returnTypeTree->child, "Malformed AST as return type for function - unexpected return type token of %s\n", getTokenName(returnTypeTree->child->type));
-		}
-		// argument declarations (if present) start at the first sibling of the return type
-		// set it here because scrapePointers may modify what returnTypeTree contains
 		functionNameTree = returnTypeTree->sibling;
-
-		returnIndirectionLevel = scrapePointers(returnTypeTree->child, &returnTypeTree);
-
-		// if declaring a function with the return type of 'any', make sure it's only as a pointer (as its intended use is to point to unstructured data)
-		if ((returnBasicType == vt_any) && (returnIndirectionLevel == 0))
-		{
-			ErrorWithAST(ERROR_CODE, returnTypeTree, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
-		}
 	}
 	else
 	{
@@ -309,12 +275,6 @@ void walkFunctionDeclaration(struct AST *tree,
 	struct ScopeMember *lookedUpFunction = Scope_lookup(scope, functionNameTree->value);
 	struct FunctionEntry *parsedFunc = NULL;
 	struct FunctionEntry *existingFunc = NULL;
-
-	struct Type returnType;
-	returnType.basicType = returnBasicType;
-	returnType.indirectionLevel = returnIndirectionLevel;
-	returnType.arraySize = 0;
-	returnType.initializeArrayTo = NULL;
 
 	if (lookedUpFunction != NULL)
 	{
@@ -1530,10 +1490,6 @@ void walkSubExpression(struct AST *tree,
 			ErrorWithAST(ERROR_CODE, tree->child, "Casting to a class (%s) is not allowed!", castToType);
 		}
 
-			char *castToType = Type_GetName(&expressionResult.castAsType);
-		printf("cast to type %s\n", castToType);
-		free(castToType);
-
 		// If necessary, lop bits off the big end of the value with an explicit bitwise and operation, storing to an intermediate temp
 		if (Type_CompareAllowImplicitWidening(&expressionResult.castAsType, &destinationOperand->type) && (expressionResult.castAsType.indirectionLevel == 0))
 		{
@@ -1551,7 +1507,7 @@ void walkSubExpression(struct AST *tree,
 			sprintf(literalAndValue, "0x");
 			int maskBitWidth = (8 * Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)));
 			int maskBit = 0;
-			for(maskBit = 0; maskBit < maskBitWidth; maskBit += 4)
+			for (maskBit = 0; maskBit < maskBitWidth; maskBit += 4)
 			{
 				literalAndValue[2 + (maskBit / 4)] = 'F';
 				literalAndValue[3 + (maskBit / 4)] = '\0';
