@@ -249,72 +249,22 @@ void walkFunctionDeclaration(struct AST *tree,
 
 	// functions return nothing in the default case
 	struct Type returnType;
-	int returnIndirectionLevel = 0;
 
 	struct AST *functionNameTree = NULL;
 
 	// if the function returns something, its return type will be the first child of the 'fun' token
 	if (returnTypeTree->type == t_type_name)
 	{
-		if (returnTypeTree->child == NULL)
-		{
-			ErrorWithAST(ERROR_INTERNAL, returnTypeTree, "Child of t_type_name declaring return type of function is null!\n");
-		}
+		walkTypeName(returnTypeTree, scope, &returnType);
 
-		switch (returnTypeTree->child->type)
-		{
-		case t_any:
-			returnType.basicType = vt_any;
-			break;
-
-		case t_u8:
-			returnType.basicType = vt_u8;
-			break;
-
-		case t_u16:
-			returnType.basicType = vt_u16;
-			break;
-
-		case t_u32:
-			returnType.basicType = vt_u32;
-			break;
-
-		case t_identifier:
-			returnType.basicType = vt_class;
-			break;
-
-		default:
-			ErrorWithAST(ERROR_INTERNAL, returnTypeTree->child, "Malformed AST as return type for function - unexpected return type token of %s\n", getTokenName(returnTypeTree->child->type));
-		}
-		// argument declarations (if present) start at the first sibling of the return type
-		// set it here because scrapePointers may modify what returnTypeTree contains
-		functionNameTree = returnTypeTree->sibling;
-
-		// if we are expecting to return a class type, grab its name *before* we scrape pointers
-		if (returnType.basicType == vt_class)
-		{
-			returnType.classType.name = Scope_lookupClass(scope, returnTypeTree->child)->name;
-		}
-
-		// scrape pointers to count how many *'s there are attached to the return type
-		returnIndirectionLevel = scrapePointers(returnTypeTree->child, &returnTypeTree);
-
-		// if declaring a function with the return type of 'any', make sure it's only as a pointer (as its intended use is to point to unstructured data)
-		if ((returnType.basicType == vt_any) && (returnIndirectionLevel == 0))
-		{
-			// use tree->child to get the original returnTypeTree AST as scrapePointers may have modified it
-			ErrorWithAST(ERROR_CODE, tree->child, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
-		}
 		// if we are returning a class, ensure that we're returning some sort of pointer, not a whole object
-		else if ((returnType.basicType == vt_class) && (returnIndirectionLevel == 0))
+		if ((returnType.basicType == vt_class) && (returnType.indirectionLevel == 0))
 		{
 			// use tree->child to get the original returnTypeTree AST as scrapePointers may have modified it
 			ErrorWithAST(ERROR_CODE, tree->child, "Return of class object types is not supported!\n");
 		}
 
-		returnType.indirectionLevel = returnIndirectionLevel;
-		returnType.arraySize = 0;
-		returnType.initializeArrayTo = NULL;
+		functionNameTree = returnTypeTree->sibling;
 	}
 	else
 	{
