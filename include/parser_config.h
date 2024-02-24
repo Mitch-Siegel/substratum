@@ -58,7 +58,7 @@ void parseFile(char *inFileName);
 
 #define PCC_ERROR(auxil)                                                                                    \
     {                                                                                                       \
-        ErrorAndExit(ERROR_INTERNAL, "SYNTAX_ERROR_UNKNOWN: %d:%d\n", auxil->curLineRaw, auxil->curColRaw); \
+        ErrorAndExit(ERROR_INTERNAL, "Syntax Error: %s:%d:%d\n", auxil->curFile, auxil->curLineRaw, auxil->curColRaw); \
     }
 
 #define AST_S(original, newrightmost) AST_ConstructAddSibling(original, newrightmost)
