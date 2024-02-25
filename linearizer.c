@@ -923,7 +923,6 @@ void walkDotOperatorAssignment(struct AST *tree,
 		// look up the identifier by name, make sure it's not a pointer (ensure a dot operator is valid on it)
 		checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
 
-
 		// copy the operand from [1] to [0] for the implicit address-of, incrementing the indirection level
 		copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
 		TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
@@ -1688,11 +1687,13 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
 	switch (lhs->type)
 	{
+	// in the case that we are dot/arrow-ing a LHS which is a dot or arrow, walkMemberAccess will generate the TAC line for the *read* which gets us the address to dot/arrow on
 	case t_dot:
 	case t_arrow:
 		accessLine = walkMemberAccess(lhs, block, scope, TACIndex, tempNum, srcDestOperand, depth + 1);
 		break;
 
+	// for all other cases, we can  populate the LHS using walkSubExpression as it is just a more basic read
 	default:
 	{
 		// the LHS of the dot/arrow is the class instance being accessed
@@ -1700,23 +1701,12 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 		// the RHS is what member we are accessing
 		struct AST *member = tree->child->sibling;
 
-		if (class->type != t_identifier)
+		// TODO: check more deeply what's being arrow/dotted? Shortlist: dereference, array index, identifier, maybe some pointer arithmetic?
+		//		 	- things like (myObjectPointer & 0xFFFFFFF0)->member are obviously wrong, so probably should disallow
+		// prevent silly things like (&a)->b
+		if ((class->type == t_address_of) && (tree->type == t_arrow))
 		{
-			if (class->type == t_address_of)
-			{
-				if (tree->type == t_arrow)
-				{
-					ErrorWithAST(ERROR_CODE, class, "Use of arrow operator after address-of operator `(&a)->b` is not supported.\nUse `a.b` instead\n");
-				}
-			}
-			else
-			{
-				ErrorWithAST(ERROR_CODE, member,
-							 "Expected identifier on LHS of %s operator, got %s (%s) instead!\n",
-							 (tree->type == t_dot ? "dot" : "arrow"),
-							 class->value,
-							 getTokenName(class->type));
-			}
+			ErrorWithAST(ERROR_CODE, class, "Use of arrow operator after address-of operator `(&a)->b` is not supported.\nUse `a.b` instead\n");
 		}
 
 		if (member->type != t_identifier)
@@ -1728,8 +1718,8 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 						 getTokenName(member->type));
 		}
 
+		// our access line is a completely new TAC line, which is a load operation with an offset, storing the load result to a temp
 		accessLine = newTACLine(*TACIndex, tt_load_off, tree);
-
 		accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 		accessLine->operands[0].permutation = vp_temp;
 
@@ -1741,12 +1731,11 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 			getAddressForDot->operands[0].permutation = vp_temp;
 			getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 
-			// while this check is duplicated in the checks immediately following the switch,
-			// we do have additional info based on the variable lookup since we know we have an identifier
-			struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
-			checkAccessedClassForDot(class, scope, &classVariable->type);
-
 			walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
+
+			// while this check is duplicated in the checks immediately following the switch,
+			// we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
+			checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
 			copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
 			TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
 
@@ -1755,13 +1744,13 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 			copyTACOperandDecayArrays(&accessLine->operands[1], &getAddressForDot->operands[0]);
 		}
 		else
-		{
-			// while this check is duplicated in the checks immediately following the switch,
-			// we do have additional info based on the variable lookup since we know we have an identifier
-			struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
-			checkAccessedClassForArrow(class, scope, &classVariable->type);
 
+		{
 			walkSubExpression(class, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
+
+			// while this check is duplicated in the checks immediately following the switch,
+			// we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
+			checkAccessedClassForArrow(class, scope, &accessLine->operands[1].type);
 			copyTACOperandTypeDecayArrays(&accessLine->operands[0], &accessLine->operands[1]);
 		}
 
