@@ -338,7 +338,7 @@ string_literal_character
     / [^"\""]
     / "'"
 _ 
-   <- directive+ _
+   <- directive+ _*
     / (space / comment)*
 
 kw_include <- "#include \""
