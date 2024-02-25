@@ -907,21 +907,32 @@ void walkDotOperatorAssignment(struct AST *tree,
 	wipAssignment->operation = tt_store_off;
 	switch (class->type)
 	{
-	case t_identifier:
-	{
-		struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
-		checkAccessedClassForDot(class, scope, &classVariable->type);
 
+	case t_identifier:
+	case t_array_index:
+	case t_dereference:
+	{
+		// construct a TAC line responsible for figuring out the address of what we're dotting since it's not a pointer already
 		struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
 		getAddressForDot->operands[0].permutation = vp_temp;
 		getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 
+		// walk the LHS of the dot operator using walkSubExpression
 		walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
+
+		// look up the identifier by name, make sure it's not a pointer (ensure a dot operator is valid on it)
+		checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
+
+
+		// copy the operand from [1] to [0] for the implicit address-of, incrementing the indirection level
 		copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
 		TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
 
+		// assign TAC index and append the address-of before the actual assignment
 		getAddressForDot->index = (*TACIndex)++;
 		BasicBlock_append(block, getAddressForDot);
+
+		// copy the TAC operands for the direct part of the assignment
 		copyTACOperandDecayArrays(&wipAssignment->operands[0], &getAddressForDot->operands[0]);
 	}
 	break;
@@ -948,7 +959,7 @@ void walkDotOperatorAssignment(struct AST *tree,
 	break;
 
 	default:
-		ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operatory only!\n", class->value, getTokenName(class->type));
+		ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operator only!\n", class->value, getTokenName(class->type));
 	}
 
 	// check to see that what we expect to treat as our class pointer is actually a class
