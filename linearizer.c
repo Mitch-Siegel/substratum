@@ -1458,8 +1458,8 @@ void walkSubExpression(struct AST *tree,
 	// array reference
 	case t_array_index:
 	{
-		struct TACOperand *arrayRefResult = walkArrayRef(tree, block, scope, TACIndex, tempNum);
-		*destinationOperand = *arrayRefResult;
+		struct TACLine *arrayRefLine = walkArrayRef(tree, block, scope, TACIndex, tempNum);
+		*destinationOperand = arrayRefLine->operands[0];
 	}
 	break;
 
@@ -1733,9 +1733,13 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
 			walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
 
-			// while this check is duplicated in the checks immediately following the switch,
-			// we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
-			checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
+			if (getAddressForDot->operands[1].permutation != vp_temp)
+			{
+				// while this check is duplicated in the checks immediately following the switch,
+				// we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
+				checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
+			}
+
 			copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
 			TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
 
@@ -1975,11 +1979,11 @@ struct TACOperand *walkExpression(struct AST *tree,
 	return &expression->operands[0];
 }
 
-struct TACOperand *walkArrayRef(struct AST *tree,
-								struct BasicBlock *block,
-								struct Scope *scope,
-								int *TACIndex,
-								int *tempNum)
+struct TACLine *walkArrayRef(struct AST *tree,
+							 struct BasicBlock *block,
+							 struct Scope *scope,
+							 int *TACIndex,
+							 int *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -2010,7 +2014,16 @@ struct TACOperand *walkArrayRef(struct AST *tree,
 
 	if (arrayIndex->type == t_constant)
 	{
-		arrayRefTAC->operation = tt_load_off;
+		// if referencing an array of classes, implicitly convert to an LEA to avoid copying the entire class to a temp
+		if ((arrayVariable->type.basicType == vt_class) && (arrayVariable->type.indirectionLevel == 0))
+		{
+			arrayRefTAC->operation = tt_lea_off;
+			arrayRefTAC->operands[0].type.indirectionLevel++;
+		}
+		else
+		{
+			arrayRefTAC->operation = tt_load_off;
+		}
 
 		int indexSize = atoi(arrayIndex->value);
 		indexSize *= 1 << alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
@@ -2022,6 +2035,12 @@ struct TACOperand *walkArrayRef(struct AST *tree,
 	// otherwise, the index is either a variable or subexpression
 	else
 	{
+		// if referencing an array of classes, implicitly convert to an LEA to avoid copying the entire class to a temp
+		if ((arrayVariable->type.basicType == vt_class) && (arrayVariable->type.indirectionLevel == 0))
+		{
+			arrayRefTAC->operation = tt_lea_arr;
+			arrayRefTAC->operands[0].type.indirectionLevel++;
+		}
 		// set the scale for the array access
 		arrayRefTAC->operands[3].name.val = alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
 		arrayRefTAC->operands[3].permutation = vp_literal;
@@ -2032,7 +2051,7 @@ struct TACOperand *walkArrayRef(struct AST *tree,
 
 	arrayRefTAC->index = (*TACIndex)++;
 	BasicBlock_append(block, arrayRefTAC);
-	return &arrayRefTAC->operands[0];
+	return arrayRefTAC;
 }
 
 struct TACOperand *walkDereference(struct AST *tree,
@@ -2115,39 +2134,31 @@ struct TACOperand *walkAddrOf(struct AST *tree,
 
 	case t_array_index:
 	{
-		struct AST *arrayBase = tree->child->child;
-		struct AST *arrayIndex = tree->child->child->sibling;
-		if (arrayBase->type != t_identifier)
+		// use walkArrayRef to generate the access we need, just the direct accessing load to an lea to calculate the address we would have loaded from
+		struct TACLine *arrayRefLine = walkArrayRef(tree->child, block, scope, TACIndex, tempNum);
+		switch (arrayRefLine->operation)
 		{
-			ErrorWithAST(ERROR_INTERNAL, arrayBase, "Wrong AST (%s) as child of arrayref\n", getTokenName(arrayBase->type));
+		case tt_load_arr:
+			arrayRefLine->operation = tt_lea_arr;
+			break;
+
+		case tt_load_off:
+			arrayRefLine->operation = tt_lea_off;
+			break;
+
+		default:
+			ErrorAndExit(ERROR_INTERNAL, "Unexpected TAC operation %s returned from walkArrayRef!\n", getAsmOp(arrayRefLine->operation));
+			break;
 		}
 
-		struct VariableEntry *arrayVariable = Scope_lookupVar(scope, arrayBase);
-		populateTACOperandFromVariable(&addrOfLine->operands[1], arrayVariable);
+		// increment indirection level as we just converted from a load to a lea
+		TAC_GetTypeOfOperand(arrayRefLine, 0)->indirectionLevel++;
 
-		if (arrayIndex->type == t_constant)
-		{
-			addrOfLine->operation = tt_lea_off;
+		// early return, no need for explicit address-of TAC
+		freeTAC(addrOfLine);
+		addrOfLine = NULL;
 
-			int indexSize = atoi(arrayIndex->value);
-			indexSize *= 1 << alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
-
-			addrOfLine->operands[2].name.val = indexSize;
-			addrOfLine->operands[2].permutation = vp_literal;
-			addrOfLine->operands[2].type.basicType = selectVariableTypeForNumber(addrOfLine->operands[2].name.val);
-		}
-		// otherwise, the index is either a variable or subexpression
-		else
-		{
-			addrOfLine->operation = tt_lea_arr;
-
-			// set the scale for the array access
-			addrOfLine->operands[3].name.val = alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
-			addrOfLine->operands[3].permutation = vp_literal;
-			addrOfLine->operands[3].type.basicType = selectVariableTypeForNumber(addrOfLine->operands[3].name.val);
-
-			walkSubExpression(arrayIndex, block, scope, TACIndex, tempNum, &addrOfLine->operands[2]);
-		}
+		return &arrayRefLine->operands[0];
 	}
 	break;
 
