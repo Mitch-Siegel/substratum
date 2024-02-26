@@ -908,9 +908,13 @@ void walkDotOperatorAssignment(struct AST *tree,
 	switch (class->type)
 	{
 
-	case t_identifier:
-	case t_array_index:
 	case t_dereference:
+		ErrorWithAST(ERROR_INTERNAL, class, "dot operator assignment on dereferenced values not yet supported!\n");
+
+	case t_array_index:
+		ErrorWithAST(ERROR_INTERNAL, class, "dot operator assignment on array-accessed values not yet supported!\n");
+
+	case t_identifier:
 	{
 		// construct a TAC line responsible for figuring out the address of what we're dotting since it's not a pointer already
 		struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
@@ -2136,23 +2140,7 @@ struct TACOperand *walkAddrOf(struct AST *tree,
 	{
 		// use walkArrayRef to generate the access we need, just the direct accessing load to an lea to calculate the address we would have loaded from
 		struct TACLine *arrayRefLine = walkArrayRef(tree->child, block, scope, TACIndex, tempNum);
-		switch (arrayRefLine->operation)
-		{
-		case tt_load_arr:
-			arrayRefLine->operation = tt_lea_arr;
-			break;
-
-		case tt_load_off:
-			arrayRefLine->operation = tt_lea_off;
-			break;
-
-		default:
-			ErrorAndExit(ERROR_INTERNAL, "Unexpected TAC operation %s returned from walkArrayRef!\n", getAsmOp(arrayRefLine->operation));
-			break;
-		}
-
-		// increment indirection level as we just converted from a load to a lea
-		TAC_GetTypeOfOperand(arrayRefLine, 0)->indirectionLevel++;
+		convertArrayRefLoadToLea(arrayRefLine);
 
 		// early return, no need for explicit address-of TAC
 		freeTAC(addrOfLine);

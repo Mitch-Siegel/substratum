@@ -1,0 +1,19 @@
+#include "tests-common.sbh"
+
+class Thingamajig
+{
+    u8 howBig;
+    u32 howFast;
+};
+
+Thingamajig[4] myThings;
+
+fun main()
+{
+    uart_putc('.');
+    uart_putc('\n');
+    myThings[3].howBig = 4;
+    //u8 toPrint = myThings[3].howBig;
+    //printNum(toPrint);
+    exit();
+}

@@ -145,3 +145,24 @@ void checkAccessedClassForArrow(struct AST *tree, struct Scope *scope, struct Ty
 		}
 	}
 }
+
+void convertArrayRefLoadToLea(struct TACLine *arrayRefLine)
+{
+	switch (arrayRefLine->operation)
+	{
+	case tt_load_arr:
+		arrayRefLine->operation = tt_lea_arr;
+		break;
+
+	case tt_load_off:
+		arrayRefLine->operation = tt_lea_off;
+		break;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Unexpected TAC operation %s seen in convertArrayRefLoadToLea!\n", getAsmOp(arrayRefLine->operation));
+		break;
+	}
+
+	// increment indirection level as we just converted from a load to a lea
+	TAC_GetTypeOfOperand(arrayRefLine, 0)->indirectionLevel++;
+}
