@@ -248,6 +248,7 @@ void walkFunctionDeclaration(struct AST *tree,
 
 	// functions return nothing in the default case
 	struct Type returnType;
+	memset(&returnType, 0, sizeof(struct Type));
 
 	struct AST *functionNameTree = NULL;
 
