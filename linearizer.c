@@ -909,10 +909,25 @@ void walkDotOperatorAssignment(struct AST *tree,
 	{
 
 	case t_dereference:
-		ErrorWithAST(ERROR_INTERNAL, class, "dot operator assignment on dereferenced values not yet supported!\n");
+		ErrorWithAST(ERROR_CODE, class, "Use of the dot operator assignment on dereferenced values is not supported\nAssign using object->member instead of (*object).member\n");
 
 	case t_array_index:
-		ErrorWithAST(ERROR_INTERNAL, class, "dot operator assignment on array-accessed values not yet supported!\n");
+	{
+		// let walkArrayRef do the heavy lifting for us
+		struct TACLine *arrayRefToDot = walkArrayRef(class, block, scope, TACIndex, tempNum);
+
+		// before we convert our array ref to an LEA to get the address of the class we're dotting, check to make sure everything is good
+		struct Type nonDecayedType = *TAC_GetTypeOfOperand(arrayRefToDot, 1);
+		nonDecayedType.arraySize = 0;
+		checkAccessedClassForDot(tree, scope, &nonDecayedType);
+
+		// now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
+		convertArrayRefLoadToLea(arrayRefToDot);
+
+		// copy the TAC operand containing the address on which we will dot
+		copyTACOperandDecayArrays(&wipAssignment->operands[0], &arrayRefToDot->operands[0]);
+	}
+	break;
 
 	case t_identifier:
 	{
@@ -966,8 +981,6 @@ void walkDotOperatorAssignment(struct AST *tree,
 	}
 
 	// check to see that what we expect to treat as our class pointer is actually a class
-	// this will throw a code error if there's a name that isn't a class (case in which the LHS of the dot was an identifier)
-	// or an internal error if something went awry in a recursive linearization step (case in which the LHS of the dot is something else)
 	struct ClassEntry *writtenClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(wipAssignment, 0));
 
 	struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(writtenClass, member);
@@ -1010,15 +1023,35 @@ void walkArrowOperatorAssignment(struct AST *tree,
 	}
 
 	wipAssignment->operation = tt_store_off;
-	struct ClassEntry *writtenClass = NULL;
 	switch (class->type)
 	{
+
+	case t_dereference:
+		ErrorWithAST(ERROR_CODE, class, "Use of the arrow operator assignment on dereferenced values is not yet supported\n");
+
+	case t_array_index:
+	{
+		// let walkArrayRef do the heavy lifting for us
+		struct TACLine *arrayRefToArrow = walkArrayRef(class, block, scope, TACIndex, tempNum);
+
+		// before we convert our array ref to an LEA to get the address of the class we're dotting, check to make sure everything is good
+		struct Type nonDecayedType = *TAC_GetTypeOfOperand(arrayRefToArrow, 1);
+		nonDecayedType.arraySize = 0;
+		checkAccessedClassForArrow(tree, scope, &nonDecayedType);
+
+		// now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
+		convertArrayRefLoadToLea(arrayRefToArrow);
+
+		// copy the TAC operand containing the address on which we will dot
+		copyTACOperandDecayArrays(&wipAssignment->operands[0], &arrayRefToArrow->operands[0]);
+	}
+	break;
+
 	case t_identifier:
 	{
 		walkSubExpression(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0]);
 		struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
 
-		writtenClass = Scope_lookupClassByType(scope, &classVariable->type);
 		checkAccessedClassForArrow(class, scope, &classVariable->type);
 	}
 	break;
@@ -1048,13 +1081,15 @@ void walkArrowOperatorAssignment(struct AST *tree,
 			TAC_GetTypeOfOperand(memberAccess, 1)->indirectionLevel++;
 			TAC_GetTypeOfOperand(wipAssignment, 0)->indirectionLevel++;
 		}
-		writtenClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(wipAssignment, 0));
 	}
 	break;
 
 	default:
-		ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operatory only!\n", class->value, getTokenName(class->type));
+		ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operator only!\n", class->value, getTokenName(class->type));
 	}
+
+	// check to see that what we expect to treat as our class pointer is actually a class
+	struct ClassEntry *writtenClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(wipAssignment, 0));
 
 	struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(writtenClass, member);
 
@@ -1752,7 +1787,6 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 			copyTACOperandDecayArrays(&accessLine->operands[1], &getAddressForDot->operands[0]);
 		}
 		else
-
 		{
 			walkSubExpression(class, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
 

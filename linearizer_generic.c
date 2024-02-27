@@ -148,6 +148,8 @@ void checkAccessedClassForArrow(struct AST *tree, struct Scope *scope, struct Ty
 
 void convertArrayRefLoadToLea(struct TACLine *arrayRefLine)
 {
+	// if we have a load instruction, convert it to the corresponding lea instrutcion
+	// leave existing lea instructions alone
 	switch (arrayRefLine->operation)
 	{
 	case tt_load_arr:
@@ -156,6 +158,10 @@ void convertArrayRefLoadToLea(struct TACLine *arrayRefLine)
 
 	case tt_load_off:
 		arrayRefLine->operation = tt_lea_off;
+		break;
+
+	case tt_lea_off:
+	case tt_lea_arr:
 		break;
 
 	default:
