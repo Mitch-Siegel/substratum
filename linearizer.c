@@ -581,6 +581,7 @@ void walkStatement(struct AST *tree,
 	// subscope
 	case t_compound_statement:
 	{
+		// TODO: is there a bug here for simple scopes within code (not attached to if/while/etc... statements? TAC dump for the scopes test seems to indicate so?)
 		struct Scope *subScope = Scope_createSubScope(scope);
 		struct BasicBlock *afterSubScopeBlock = BasicBlock_new((*labelNum)++);
 		walkScope(tree, *blockP, subScope, TACIndex, tempNum, labelNum, afterSubScopeBlock->labelNum);
@@ -1766,25 +1767,65 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 		// we need the base address of the object we're accessing the member from
 		if (tree->type == t_dot)
 		{
-			struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
-			getAddressForDot->operands[0].permutation = vp_temp;
-			getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-
-			walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
-
-			if (getAddressForDot->operands[1].permutation != vp_temp)
+			// we may need to do some manipulation of the subexpression depending on what exactly we're dotting
+			switch (class->type)
 			{
-				// while this check is duplicated in the checks immediately following the switch,
-				// we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
-				checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
+			case t_dereference:
+			{
+				struct TACOperand dummyOperand;
+				walkSubExpression(class, block, scope, TACIndex, tempNum, &dummyOperand);
+
+				char *indirectTypeName = Type_GetName(TACOperand_GetType(&dummyOperand));
+				ErrorWithAST(ERROR_CODE, class, "Use of dot operator on indirect type %s not supported - use arrow operator instead!\n", indirectTypeName);
 			}
+			break;
 
-			copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
-			TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
+			case t_array_index:
+			{
+				// let walkArrayRef do the heavy lifting for us
+				struct TACLine *arrayRefToDot = walkArrayRef(class, block, scope, TACIndex, tempNum);
 
-			getAddressForDot->index = (*TACIndex)++;
-			BasicBlock_append(block, getAddressForDot);
-			copyTACOperandDecayArrays(&accessLine->operands[1], &getAddressForDot->operands[0]);
+				// before we convert our array ref to an LEA to get the address of the class we're dotting, check to make sure everything is good
+				struct Type nonDecayedType = *TAC_GetTypeOfOperand(arrayRefToDot, 1);
+				nonDecayedType.arraySize = 0;
+				checkAccessedClassForDot(tree, scope, &nonDecayedType);
+
+				// now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
+				convertArrayRefLoadToLea(arrayRefToDot);
+
+				// copy the TAC operand containing the address on which we will dot
+				copyTACOperandDecayArrays(&accessLine->operands[1], &arrayRefToDot->operands[0]);
+			};
+			break;
+
+			case t_identifier:
+			{
+				struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
+				getAddressForDot->operands[0].permutation = vp_temp;
+				getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+
+				walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
+
+				if (getAddressForDot->operands[1].permutation != vp_temp)
+				{
+					// while this check is duplicated in the checks immediately following the switch,
+					// we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
+					checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
+				}
+
+				copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
+				TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
+
+				getAddressForDot->index = (*TACIndex)++;
+				BasicBlock_append(block, getAddressForDot);
+				copyTACOperandDecayArrays(&accessLine->operands[1], &getAddressForDot->operands[0]);
+			}
+			break;
+
+			default:
+				ErrorWithAST(ERROR_CODE, class, "Dot operator member access on disallowed tree type %s", getTokenName(class->type));
+				break;
+			}
 		}
 		else
 		{

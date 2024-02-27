@@ -10,10 +10,11 @@ Thingamajig[4] myThings;
 
 fun main()
 {
-    uart_putc('.');
+    myThings[3].howBig = 1234;
+    myThings[2].howFast = 0xFFFFFFFF;
+    printHex(myThings[2].howFast);
     uart_putc('\n');
-    myThings[3].howBig = 4;
-    //u8 toPrint = myThings[3].howBig;
-    //printNum(toPrint);
+    printNum(myThings[3].howBig);
+    uart_putc('\n');
     exit();
 }
