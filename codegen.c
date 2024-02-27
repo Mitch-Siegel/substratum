@@ -576,14 +576,14 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		{
 			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
-			int offsetReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[2]);
+			int offsetReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[2]);
 
 			// TODO: check for shift by 0 and don't shift when applicable
 			// perform a left shift by however many bits necessary to scale our value, place the result in reservedRegisters[1]
 			emitInstruction(thisTAC, context, "\tslli %s, %s, %d\n",
 							registerNames[reservedRegisters[2]],
 							registerNames[offsetReg],
-							thisTAC->operands[2].name.val);
+							thisTAC->operands[3].name.val);
 
 			// add our scaled offset to the base address, put the full address into destReg
 			emitInstruction(thisTAC, context, "\tadd %s, %s, %s\n",
