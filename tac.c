@@ -213,6 +213,10 @@ char *Type_GetName(struct Type *t)
 		len = sprintf(typeName, "u32");
 		break;
 
+	case vt_u64:
+		len = sprintf(typeName, "u64");
+		break;
+
 	case vt_class:
 		len = sprintf(typeName, "%s", t->classType.name);
 		break;
