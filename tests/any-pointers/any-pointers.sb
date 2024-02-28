@@ -7,7 +7,7 @@ any *fun funReturningAnyPointer()
 
 fun printAnyPointer(any *a)
 {
-    u32 asNumber = a;
+    u64 asNumber = a;
     printHex(asNumber);
 }
 

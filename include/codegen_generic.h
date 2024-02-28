@@ -4,6 +4,7 @@
 #ifndef _CODEGEN_H_
 #define _CODEGEN_H_
 
+#define MACHINE_REGISTER_SIZE_BYTES 8
 #define MAX_ASM_LINE_SIZE 256
 
 extern char printedLine[MAX_ASM_LINE_SIZE];
@@ -56,11 +57,13 @@ int placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
                              struct TACOperand *operand,
                              int registerIndex);
 
-const char *SelectWidth(struct Scope *scope, struct TACOperand *dataDest);
+const char *SelectSignForLoad(char loadSize, struct Type *loaded);
 
-const char *SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP);
+char SelectWidth(struct Scope *scope, struct TACOperand *dataDest);
 
-const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime);
+char SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP);
+
+char SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime);
 
 void EmitPushForOperand(struct TACLine *correspondingTACLine,
                         struct CodegenContext *c,

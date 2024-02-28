@@ -613,7 +613,7 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 
 	if (t->indirectionLevel > 0)
 	{
-		size = 4;
+		size = 8;
 		if (t->arraySize == 0)
 		{
 			return size;
@@ -664,7 +664,7 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 	{
 		if (t->indirectionLevel > 1)
 		{
-			size = 4;
+			size = 8;
 		}
 
 		size *= t->arraySize;
@@ -718,7 +718,7 @@ int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 		}
 		else
 		{
-			return 4;
+			return 8;
 		}
 	}
 }
