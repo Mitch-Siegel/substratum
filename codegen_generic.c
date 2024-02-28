@@ -69,7 +69,7 @@ void verifyCodegenPrimitive(struct TACOperand *operand)
 	struct Type *realType = TACOperand_GetType(operand);
 	if (realType->basicType == vt_class)
 	{
-		if (realType->indirectionLevel == 0)
+		if ((realType->indirectionLevel == 0) && (realType->arraySize == 0))
 		{
 			char *typeName = Type_GetName(realType);
 			ErrorAndExit(ERROR_INTERNAL, "Error in verifyCodegenPrimitive: %s is not a primitive type!\n", typeName);
@@ -328,8 +328,8 @@ const char *SelectWidthForSize(int size)
 
 const char *SelectWidth(struct Scope *scope, struct TACOperand *dataDest)
 {
-	// pointers are always full-width
-	if (TACOperand_GetType(dataDest)->indirectionLevel > 0)
+	// pointers and arrays (decay implicitly at this stage to pointers) are always full-width
+	if ((TACOperand_GetType(dataDest)->indirectionLevel > 0) || (TACOperand_GetType(dataDest)->arraySize > 0))
 	{
 		return "w";
 	}
