@@ -222,6 +222,7 @@ non_pointer_typename
     / t:u8         { $$ = t; }
     / t:u16        { $$ = t; }
     / t:u32        { $$ = t; }
+    / t:u64        { $$ = t; }
     / i:identifier { $$ = i; }
 
 identifier
@@ -244,6 +245,7 @@ keyword
     / kw_u8
     / kw_u16
     / kw_u32
+    / kw_u64
     / kw_if
     / kw_else
     / kw_while
@@ -266,6 +268,7 @@ kw_any		   <- 'any'  !(LETTER/DIGIT)
 kw_u8		      <- 'u8'	  !(LETTER/DIGIT)
 kw_u16		   <- 'u16'   !(LETTER/DIGIT)
 kw_u32		   <- 'u32'   !(LETTER/DIGIT)
+kw_u64		   <- 'u64'   !(LETTER/DIGIT)
 kw_if		      <- 'if'	  !(LETTER/DIGIT)
 kw_else		   <- 'else'  !(LETTER/DIGIT)
 kw_while       <- 'while' !(LETTER/DIGIT)
@@ -289,6 +292,7 @@ any   <- kw_any     { $$ = AST_N(auxil, t_any, $0, $0s); }
 u8    <- kw_u8      { $$ = AST_N(auxil, t_u8, $0, $0s); }
 u16   <- kw_u16     { $$ = AST_N(auxil, t_u16, $0, $0s); }
 u32   <- kw_u32     { $$ = AST_N(auxil, t_u32, $0, $0s); }
+u64   <- kw_u64     { $$ = AST_N(auxil, t_u64, $0, $0s); }
 if    <- kw_if      { $$ = AST_N(auxil, t_if, $0, $0s); }
 while <- kw_while   { $$ = AST_N(auxil, t_while, $0, $0s); }
 return <- kw_return { $$ = AST_N(auxil, t_return, $0, $0s); }
