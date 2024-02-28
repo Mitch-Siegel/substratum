@@ -180,7 +180,7 @@ int placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
 		if (relevantLifetime->type.arraySize > 0)
 		{
 			// if array, treat as pointer
-			loadWidth = "w";
+			loadWidth = "d";
 		}
 		else
 		{
@@ -322,8 +322,11 @@ const char *SelectWidthForSize(int size)
 
 	case 4:
 		return "w";
+
+	case 8:
+		return "d";
 	}
-	ErrorAndExit(ERROR_INTERNAL, "Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, or 4 bytes!");
+	ErrorAndExit(ERROR_INTERNAL, "Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, 4, or 8 bytes!");
 }
 
 const char *SelectWidth(struct Scope *scope, struct TACOperand *dataDest)
@@ -331,7 +334,7 @@ const char *SelectWidth(struct Scope *scope, struct TACOperand *dataDest)
 	// pointers and arrays (decay implicitly at this stage to pointers) are always full-width
 	if ((TACOperand_GetType(dataDest)->indirectionLevel > 0) || (TACOperand_GetType(dataDest)->arraySize > 0))
 	{
-		return "w";
+		return "d";
 	}
 
 	return SelectWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
@@ -363,7 +366,7 @@ const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetim
 {
 	if (lifetime->type.indirectionLevel > 0)
 	{
-		return "w";
+		return "d";
 	}
 	else
 	{
