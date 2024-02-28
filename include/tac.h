@@ -13,6 +13,7 @@ enum basicTypes
 	vt_u8,
 	vt_u16,
 	vt_u32,
+	vt_u64,
 	vt_class
 };
 

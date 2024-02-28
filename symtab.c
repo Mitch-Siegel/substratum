@@ -648,6 +648,10 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 		size = 4;
 		break;
 
+	case vt_u64:
+		size = 8;
+		break;
+
 	case vt_class:
 	{
 		struct ClassEntry *class = Scope_lookupClassByType(scope, t);

@@ -76,6 +76,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			case vt_u8:
 			case vt_u16:
 			case vt_u32:
+			case vt_u64:
 				break;
 
 			default:
@@ -93,6 +94,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			case vt_any:
 			case vt_u16:
 			case vt_u32:
+			case vt_u64:
 				break;
 			}
 			break;
@@ -108,6 +110,23 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 
 			case vt_any:
 			case vt_u32:
+			case vt_u64:
+				break;
+			}
+			break;
+
+		case vt_u64:
+			switch (b->basicType)
+			{
+			case vt_null:
+			case vt_u8:
+			case vt_u16:
+			case vt_u32:
+			case vt_class:
+				return 1;
+
+			case vt_any:
+			case vt_u64:
 				break;
 			}
 			break;
@@ -119,6 +138,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			case vt_u8:
 			case vt_u16:
 			case vt_u32:
+			case vt_u64:
 				return 1;
 
 			case vt_any:
