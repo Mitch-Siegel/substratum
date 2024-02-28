@@ -2,3 +2,19 @@ Hello, world!
 the quick brown fox jumps over the lazy dog
 some other string with wacky characters: !@#$%^&*()_+[;]
 the quick brown fox jumps over the lazy dog
+0x00000000:even
+0x00000001:odd
+0x00000002:even
+0x00000003:oddfizz
+0x00000004:even
+0x00000005:oddbuzz
+0x00000006:even
+0x00000007:odd
+0x00000008:even
+0x00000009:oddfizz
+0x0000000A:even
+0x0000000B:odd
+0x0000000C:even
+0x0000000D:odd
+0x0000000E:even
+0x0000000F:oddfizzbuzz

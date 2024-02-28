@@ -1,6 +1,6 @@
 #include "tests-common.sbh"
 
-void fun main()
+fun main()
 {
     u32 value = 1;
     printNum(value);
@@ -17,6 +17,8 @@ void fun main()
     value ^= 127;
     printNum(value);
     value &= 255;
+    printNum(value);
+    value %= 7;
     printNum(value);
     exit();
 }

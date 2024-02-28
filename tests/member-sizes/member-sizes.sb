@@ -9,7 +9,7 @@ class AllSizes1
     u32 third;
 };
 
-void fun TestClass1(u32 write32, u16 write16, u8 write8)
+fun TestClass1(u32 write32, u16 write16, u8 write8)
 {
     AllSizes1 a;
     a.first = write32;
@@ -54,7 +54,7 @@ class AllSizes2
     u16 third;
 };
 
-void fun TestClass2(u32 write32, u16 write16, u8 write8)
+fun TestClass2(u32 write32, u16 write16, u8 write8)
 {
     AllSizes2 a;
     a.first = write32;
@@ -99,7 +99,7 @@ class AllSizes3
     u32 third;
 };
 
-void fun TestClass3(u32 write32, u16 write16, u8 write8)
+fun TestClass3(u32 write32, u16 write16, u8 write8)
 {
     AllSizes3 a;
     a.first = write32;
@@ -144,7 +144,7 @@ class AllSizes4
     u8 third;
 };
 
-void fun TestClass4(u32 write32, u16 write16, u8 write8)
+fun TestClass4(u32 write32, u16 write16, u8 write8)
 {
     AllSizes4 a;
     a.first = write32;
@@ -189,7 +189,7 @@ class AllSizes5
     u16 third;
 };
 
-void fun TestClass5(u32 write32, u16 write16, u8 write8)
+fun TestClass5(u32 write32, u16 write16, u8 write8)
 {
     AllSizes5 a;
     a.first = write32;
@@ -234,7 +234,7 @@ class AllSizes6
     u8 third;
 };
 
-void fun TestClass6(u32 write32, u16 write16, u8 write8)
+fun TestClass6(u32 write32, u16 write16, u8 write8)
 {
     AllSizes6 a;
     a.first = write32;
@@ -272,7 +272,7 @@ void fun TestClass6(u32 write32, u16 write16, u8 write8)
 	uart_putc(10);
 }
 
-void fun main()
+fun main()
 {
     u32 write32 = 0xFFFFFFFF;
     u16 write16 = 0xEEEE;

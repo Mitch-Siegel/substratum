@@ -3,7 +3,7 @@
 
 extern u8 abc;
 
-void fun main()
+fun main()
 {
     setValue(123);
     printNum(abc);

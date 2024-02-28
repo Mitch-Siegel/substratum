@@ -215,6 +215,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_subtract:
 			case tt_mul:
 			case tt_div:
+			case tt_modulo:
 			case tt_bitwise_and:
 			case tt_bitwise_or:
 			case tt_bitwise_xor:

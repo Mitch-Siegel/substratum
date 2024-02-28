@@ -6,19 +6,20 @@ class Money
     u8 cents;
 };
 
-fun PrintMoney(Money *m)
+Money *fun PrintMoney(Money *m)
 {
     uart_putc('$');
     printNum(m->dollars);
     uart_putc('.');
     printNum(m->cents);
+    return m;
 }
 
 fun main()
 {
     Money twelveDollars;
     twelveDollars.dollars = 12;
-    twelveDollars.cents = 0;
-    PrintMoney(&twelveDollars);
+    twelveDollars.cents = 1;
+    PrintMoney(PrintMoney(&twelveDollars));
     exit();
 }

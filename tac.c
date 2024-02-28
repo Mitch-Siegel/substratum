@@ -49,12 +49,30 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 		case vt_null:
 			return 1;
 
+		case vt_any:
+			switch (b->basicType)
+			{
+			case vt_null:
+				return 1;
+			case vt_class:
+			case vt_any:
+			case vt_u8:
+			case vt_u16:
+			case vt_u32:
+				break;
+
+			default:
+				break;
+			}
+			break;
+
 		case vt_u8:
 			switch (b->basicType)
 			{
 			case vt_null:
 			case vt_class:
 				return 1;
+			case vt_any:
 			case vt_u8:
 			case vt_u16:
 			case vt_u32:
@@ -72,6 +90,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			case vt_u8:
 			case vt_class:
 				return 1;
+			case vt_any:
 			case vt_u16:
 			case vt_u32:
 				break;
@@ -87,6 +106,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			case vt_class:
 				return 1;
 
+			case vt_any:
 			case vt_u32:
 				break;
 			}
@@ -101,14 +121,21 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			case vt_u32:
 				return 1;
 
+			case vt_any:
 			case vt_class:
 				break;
 			}
 		}
 	}
 
-	if (a->indirectionLevel != b->indirectionLevel)
+	// allow implicit conversion from any type of pointer to 'any *' or 'any **', etc
+	if ((a->indirectionLevel > 0) && (b->indirectionLevel > 0) && (b->basicType == vt_any))
 	{
+		return 0;
+	}
+	else if (a->indirectionLevel != b->indirectionLevel)
+	{
+
 		// both are arrays or both are not arrays
 		if ((a->arraySize > 0) == (b->arraySize > 0))
 		{
@@ -148,6 +175,10 @@ char *Type_GetName(struct Type *t)
 	{
 	case vt_null:
 		len = sprintf(typeName, "NOTYPE");
+		break;
+
+	case vt_any:
+		len = sprintf(typeName, "any");
 		break;
 
 	case vt_u8:
@@ -208,6 +239,8 @@ char *getAsmOp(enum TACType t)
 		return "mul";
 	case tt_div:
 		return "div";
+	case tt_modulo:
+		return "rem";
 	case tt_bitwise_and:
 		return "and";
 	case tt_bitwise_or:
@@ -348,6 +381,12 @@ char *sPrintTACLine(struct TACLine *it)
 		if (!fallingThrough)
 		{
 			operationStr = "/";
+			fallingThrough = 1;
+		}
+	case tt_modulo:
+		if (!fallingThrough)
+		{
+			operationStr = "%";
 			fallingThrough = 1;
 		}
 	case tt_bitwise_and:

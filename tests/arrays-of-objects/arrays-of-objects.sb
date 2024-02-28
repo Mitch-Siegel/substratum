@@ -1,0 +1,20 @@
+#include "tests-common.sbh"
+
+class Thingamajig
+{
+    u8 howBig;
+    u32 howFast;
+};
+
+Thingamajig[4] myThings;
+
+fun main()
+{
+    myThings[3].howBig = 1234;
+    myThings[2].howFast = 0xFFFFFFFF;
+    printHex(myThings[2].howFast);
+    uart_putc('\n');
+    printNum(myThings[3].howBig);
+    uart_putc('\n');
+    exit();
+}

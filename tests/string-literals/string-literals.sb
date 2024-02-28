@@ -1,6 +1,6 @@
 #include "tests-common.sbh"
 
-void fun printDuplicateStrings()
+fun printDuplicateStrings()
 {
     u8 *string = "the quick brown fox jumps over the lazy dog";
     printStr(string);
@@ -13,11 +13,41 @@ void fun printDuplicateStrings()
     uart_putc(10);
 }
 
+// tests string literals declared at more deeply nested scopes
+fun printIsEven(u8 number)
+{
+    printHex(number);
+    uart_putc(':');
+    if(number % 2 == 0)
+    {
+        printStr("even");
+    }
+    else
+    {
+        printStr("odd");
+        if(number % 3 == 0)
+        {
+            printStr("fizz");
+        }
+        if(number % 5 == 0)
+        {
+            printStr("buzz");
+        }
+    }
+    uart_putc('\n');
+}
 
-void fun main()
+
+fun main()
 {
     printStr("Hello, world!");
     uart_putc(10);
     printDuplicateStrings();
+    u8 i = 0;
+    while(i < 16)
+    {
+        printIsEven(i);
+        i += 1;
+    }
     exit();
 }
