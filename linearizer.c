@@ -109,6 +109,10 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
 		populateTypeTo->basicType = vt_u32;
 		break;
 
+	case t_u64:
+		populateTypeTo->basicType = vt_u64;
+		break;
+
 	case t_identifier:
 		populateTypeTo->basicType = vt_class;
 
