@@ -1,4 +1,5 @@
 #include "symtab.h"
+#include "codegen_generic.h"
 
 extern struct Dictionary *parseDict;
 
@@ -370,7 +371,7 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 	if (isArgument)
 	{
 		// if we have an argument, it will be trivially spilled because it is passed in on the stack
-		newVariable->stackOffset = scope->parentFunction->argStackSize + 8;
+		newVariable->stackOffset = scope->parentFunction->argStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES);
 		scope->parentFunction->argStackSize += Scope_getSizeOfType(scope, type);
 		Scope_insert(scope, name->value, newVariable, e_argument);
 	}
@@ -613,7 +614,7 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 
 	if (t->indirectionLevel > 0)
 	{
-		size = 4;
+		size = 8;
 		if (t->arraySize == 0)
 		{
 			return size;
@@ -648,6 +649,10 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 		size = 4;
 		break;
 
+	case vt_u64:
+		size = 8;
+		break;
+
 	case vt_class:
 	{
 		struct ClassEntry *class = Scope_lookupClassByType(scope, t);
@@ -660,7 +665,7 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 	{
 		if (t->indirectionLevel > 1)
 		{
-			size = 4;
+			size = 8;
 		}
 
 		size *= t->arraySize;
@@ -714,7 +719,7 @@ int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 		}
 		else
 		{
-			return 4;
+			return 8;
 		}
 	}
 }

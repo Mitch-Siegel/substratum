@@ -18,6 +18,7 @@ enum token
 	t_u8,
 	t_u16,
 	t_u32,
+	t_u64,
 	t_class,
 	//
 	t_class_body,

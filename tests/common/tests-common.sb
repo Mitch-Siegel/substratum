@@ -2,7 +2,7 @@
 
 fun uart_putc(u8 c)
 {
-    u8 *uart0 = 268435456;
+    u8 *uart0 = 0x10000000;
     *(uart0) = c;
 }
 
@@ -43,18 +43,18 @@ fun printNum(u32 value)
 	uart_putc(10);
 }
 
-fun printHex(u32 value)
+fun printHex(u64 value)
 {
 	uart_putc('0');
 	uart_putc('x');
 	u8 i = 0;
-	while(i < 4)
+	while(i < 8)
 	{
-		u8 thisByte = (value >> ((3 - i) * 8)) & 255;
+		u8 thisByte = (value >> ((7 - i) * 8)) & 255;
 		u8 j = 0;
 		while(j < 2)
 		{
-			u8 thisNibble = (thisByte >> ((1 -j) * 4)) & 15;
+			u8 thisNibble = (thisByte >> ((1 - j) * 4)) & 15;
 			if(thisNibble < 10)
 			{
 				uart_putc('0' + thisNibble);

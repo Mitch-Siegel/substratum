@@ -105,13 +105,13 @@ void WriteVariable(struct TACLine *correspondingTACLine,
 
 	case wb_global:
 	{
-		const char *width = SelectWidth(scope, writtenTo);
+		char width = SelectWidth(scope, writtenTo);
 		fprintf(c->outFile, "\t# Write (global) variable %s\n", relevantLifetime->name);
 		emitInstruction(correspondingTACLine, c, "\tla %s, %s\n",
 						registerNames[TEMP_0],
 						relevantLifetime->name);
 
-		emitInstruction(correspondingTACLine, c, "\ts%s %s, 0(%s)\n",
+		emitInstruction(correspondingTACLine, c, "\ts%c %s, 0(%s)\n",
 						width,
 						registerNames[sourceRegIndex],
 						registerNames[TEMP_0]);
@@ -122,8 +122,8 @@ void WriteVariable(struct TACLine *correspondingTACLine,
 	{
 		fprintf(c->outFile, "\t# Write stack variable %s\n", relevantLifetime->name);
 
-		const char *width = SelectWidthForLifetime(scope, relevantLifetime);
-		emitInstruction(correspondingTACLine, c, "\ts%s %s, %d(fp)\n",
+		char width = SelectWidthForLifetime(scope, relevantLifetime);
+		emitInstruction(correspondingTACLine, c, "\ts%c %s, %d(fp)\n",
 						width,
 						registerNames[sourceRegIndex],
 						relevantLifetime->stackLocation);
@@ -175,17 +175,21 @@ int placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
 			ErrorAndExit(ERROR_INTERNAL, "GOT -1 as register index to place operand in!\n");
 		}
 
-		const char *loadWidth = NULL;
+		char loadWidth = 'X';
+		const char *loadSign = "";
 
 		if (relevantLifetime->type.arraySize > 0)
 		{
 			// if array, treat as pointer
-			loadWidth = "w";
+			loadWidth = 'd';
 		}
 		else
 		{
 			loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
+			loadSign = SelectSignForLoad(loadWidth, &relevantLifetime->type);
 		}
+
+
 		const char *usedRegister = registerNames[registerIndex];
 		emitInstruction(correspondingTACLine, c, "\tla %s, %s # place %s\n",
 						usedRegister,
@@ -194,8 +198,9 @@ int placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
 
 		if (relevantLifetime->type.arraySize == 0)
 		{
-			emitInstruction(correspondingTACLine, c, "\tl%su %s, 0(%s) # place %s\n",
+			emitInstruction(correspondingTACLine, c, "\tl%c%s %s, 0(%s) # place %s\n",
 							loadWidth,
+							loadSign,
 							usedRegister,
 							usedRegister,
 							operand->name.str);
@@ -226,9 +231,10 @@ int placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
 		}
 		else
 		{
-			const char *loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
-			emitInstruction(correspondingTACLine, c, "\tl%su %s, %d(fp) # place %s\n",
+			char loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
+			emitInstruction(correspondingTACLine, c, "\tl%c%s %s, %d(fp) # place %s\n",
 							loadWidth,
+							SelectSignForLoad(loadWidth, &relevantLifetime->type),
 							usedRegister,
 							relevantLifetime->stackLocation,
 							operand->name.str);
@@ -310,34 +316,54 @@ int placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
 	return registerIndex;
 }
 
-const char *SelectWidthForSize(int size)
+char SelectWidthForSize(int size)
 {
 	switch (size)
 	{
 	case 1:
-		return "b";
+		return 'b';
 
 	case 2:
-		return "h";
+		return 'h';
 
 	case 4:
-		return "w";
+		return 'w';
+
+	case 8:
+		return 'd';
 	}
-	ErrorAndExit(ERROR_INTERNAL, "Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, or 4 bytes!");
+	ErrorAndExit(ERROR_INTERNAL, "Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, 4, or 8 bytes!");
 }
 
-const char *SelectWidth(struct Scope *scope, struct TACOperand *dataDest)
+const char *SelectSignForLoad(char loadSize, struct Type *loaded)
+{
+	switch(loadSize)
+	{
+		case 'b':
+		case 'h':
+		case 'w':
+			return "u";
+
+		case 'd':
+			return "";
+
+		default:
+			ErrorAndExit(ERROR_INTERNAL, "Unexpected load size character seen in SelectSignForLoad!\n");
+	}
+}
+
+char SelectWidth(struct Scope *scope, struct TACOperand *dataDest)
 {
 	// pointers and arrays (decay implicitly at this stage to pointers) are always full-width
 	if ((TACOperand_GetType(dataDest)->indirectionLevel > 0) || (TACOperand_GetType(dataDest)->arraySize > 0))
 	{
-		return "w";
+		return 'd';
 	}
 
 	return SelectWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
 }
 
-const char *SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDest)
+char SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDest)
 {
 	struct Type *operandType = TACOperand_GetType(dataDest);
 	if ((operandType->indirectionLevel == 0) &&
@@ -359,11 +385,11 @@ const char *SelectWidthForDereference(struct Scope *scope, struct TACOperand *da
 	return SelectWidthForSize(Scope_getSizeOfType(scope, &dereferenced));
 }
 
-const char *SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime)
+char SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime)
 {
 	if (lifetime->type.indirectionLevel > 0)
 	{
-		return "w";
+		return 'd';
 	}
 	else
 	{
@@ -383,6 +409,7 @@ void EmitPushForOperand(struct TACLine *correspondingTACLine,
 	case 1:
 	case 2:
 	case 4:
+	case 8:
 		EmitPushForSize(correspondingTACLine, c, size, srcRegister);
 
 		break;
@@ -401,7 +428,7 @@ void EmitPushForSize(struct TACLine *correspondingTACLine,
 					 int srcRegister)
 {
 	emitInstruction(correspondingTACLine, c, "\taddi sp, sp, -%d\n", size);
-	emitInstruction(correspondingTACLine, c, "\ts%s %s, 0(sp)\n",
+	emitInstruction(correspondingTACLine, c, "\ts%c %s, 0(sp)\n",
 					SelectWidthForSize(size),
 					registerNames[srcRegister]);
 }
@@ -418,6 +445,7 @@ void EmitPopForOperand(struct TACLine *correspondingTACLine,
 	case 1:
 	case 2:
 	case 4:
+	case 8:
 		EmitPopForSize(correspondingTACLine, c, size, destRegister);
 
 		break;
@@ -435,8 +463,9 @@ void EmitPopForSize(struct TACLine *correspondingTACLine,
 					int size,
 					int destRegister)
 {
-	emitInstruction(correspondingTACLine, c, "\tl%su %s, 0(sp)\n",
+	emitInstruction(correspondingTACLine, c, "\tl%c%s %s, 0(sp)\n",
 					SelectWidthForSize(size),
+					(size == 8) ? "" : "u", // always generate an unsigned load (except for when loading 64 bit values, for which there is no unsigned load)
 					registerNames[destRegister]);
 	emitInstruction(correspondingTACLine, c, "\taddi sp, sp, %d\n", size);
 }
