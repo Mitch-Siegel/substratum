@@ -198,11 +198,11 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 
 	// push return address
 	EmitPushForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 1);
-	fprintf(outFile, "\t.cfi_offset 1, -8\n");
+	fprintf(outFile, "\t.cfi_offset 1, %d\n", MACHINE_REGISTER_SIZE_BYTES * -1);
 
 	// push frame pointer, copy stack pointer to frame pointer
 	EmitPushForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 8);
-	fprintf(outFile, "\t.cfi_offset 8, -16\n");
+	fprintf(outFile, "\t.cfi_offset 8, %d\n", MACHINE_REGISTER_SIZE_BYTES * -2);
 	emitInstruction(NULL, &context, "\tmv fp, sp\n");
 
 	if (function->isAsmFun)

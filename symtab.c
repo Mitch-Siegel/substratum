@@ -1,4 +1,5 @@
 #include "symtab.h"
+#include "codegen_generic.h"
 
 extern struct Dictionary *parseDict;
 
@@ -370,7 +371,7 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 	if (isArgument)
 	{
 		// if we have an argument, it will be trivially spilled because it is passed in on the stack
-		newVariable->stackOffset = scope->parentFunction->argStackSize + 8;
+		newVariable->stackOffset = scope->parentFunction->argStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES);
 		scope->parentFunction->argStackSize += Scope_getSizeOfType(scope, type);
 		Scope_insert(scope, name->value, newVariable, e_argument);
 	}
