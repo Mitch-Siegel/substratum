@@ -54,7 +54,7 @@ fun printHex(u64 value)
 		u8 j = 0;
 		while(j < 2)
 		{
-			u8 thisNibble = (thisByte >> ((1 -j) * 4)) & 15;
+			u8 thisNibble = (thisByte >> ((1 - j) * 4)) & 15;
 			if(thisNibble < 10)
 			{
 				uart_putc('0' + thisNibble);
