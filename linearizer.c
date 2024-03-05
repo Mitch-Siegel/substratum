@@ -1031,10 +1031,6 @@ void walkArrowOperatorAssignment(struct AST *tree,
 	wipAssignment->operation = tt_store_off;
 	switch (class->type)
 	{
-
-	case t_dereference:
-		ErrorWithAST(ERROR_CODE, class, "Use of the arrow operator assignment on dereferenced values is not yet supported\n");
-
 	case t_array_index:
 	{
 		// let walkArrayRef do the heavy lifting for us
@@ -1059,6 +1055,16 @@ void walkArrowOperatorAssignment(struct AST *tree,
 		struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
 
 		checkAccessedClassForArrow(class, scope, &classVariable->type);
+	}
+	break;
+
+	// nothing special to do for these, just treat as subexpression and check the ultimate type of the subexpression to ensure we can actually arrow it
+	case t_dereference:
+	case t_function_call:
+	{
+		walkSubExpression(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0]);
+
+		checkAccessedClassForArrow(class, scope, TAC_GetTypeOfOperand(wipAssignment, 0));
 	}
 	break;
 

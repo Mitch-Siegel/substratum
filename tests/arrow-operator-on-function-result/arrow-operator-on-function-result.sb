@@ -1,0 +1,24 @@
+#include "tests-common.sbh"
+
+class ExampleClass
+{
+    u8 member;
+    u16 anotherMember;
+};
+
+ExampleClass **fun IdentityFunction(ExampleClass *e)
+{
+    return e;
+}
+
+fun main()
+{
+    ExampleClass example;
+
+    IdentityFunction(&example)->member = 123;
+    IdentityFunction(&example)->anotherMember = 2345;
+
+    printNum(IdentityFunction(&example)->member);
+    printNum(IdentityFunction(&example)->anotherMember);
+    exit();
+}
