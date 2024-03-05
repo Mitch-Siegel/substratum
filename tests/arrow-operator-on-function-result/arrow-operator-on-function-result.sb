@@ -6,7 +6,7 @@ class ExampleClass
     u16 anotherMember;
 };
 
-ExampleClass **fun IdentityFunction(ExampleClass *e)
+ExampleClass *fun IdentityFunction(ExampleClass *e)
 {
     return e;
 }
