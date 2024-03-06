@@ -296,6 +296,10 @@ int placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
 		break;
 
 	case wb_global:
+		emitInstruction(correspondingTACLine, c, "\tla %s, %s\n", registerNames[registerIndex], relevantLifetime->name);
+		return registerIndex; // early return since all that's necessary to place address of a global is the la instruction
+
+	// stack variables are valid but require no action here, we emit an instruction calculating the offset next
 	case wb_stack:
 		break;
 
