@@ -25,8 +25,9 @@ struct SymbolTable *walkProgram(struct AST *program)
 		switch (programRunner->type)
 		{
 		case t_variable_declaration:
+			// walkVariableDeclaration sets isGlobal for us by checking if there is no parent scope
 			walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
-			break;
+		break;
 
 		case t_extern:
 		{
@@ -205,6 +206,7 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 
 	walkTypeName(tree->child, scope, &declaredType);
 
+	// automatically set as a global if there is no parent scope (declaring at the outermost scope)
 	struct VariableEntry *declaredVariable = Scope_createVariable(scope,
 																  tree->child->sibling,
 																  &declaredType,
