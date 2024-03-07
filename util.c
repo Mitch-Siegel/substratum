@@ -11,6 +11,12 @@ int alignSize(int nBytes)
 	return i;
 }
 
+// TODO: safety at the extremes/shifting UB
+int unalignSize(int nBits)
+{
+	return 1 << nBits;
+}
+
 /*
  * DICTIONARY FUNCTIONS
  * This string hashing algorithm is the djb2 algorithm

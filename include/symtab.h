@@ -145,6 +145,8 @@ struct Scope *Scope_createSubScope(struct Scope *scope);
 struct ClassEntry *Scope_createClass(struct Scope *scope,
 									 char *name);
 
+// given a VariableEntry corresponding to a class member which was just declared
+// generate a ClassMemberOffset with the aligned location of the member within the class
 void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
 										struct VariableEntry *v);
 
@@ -183,6 +185,9 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t);
 int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *t);
 
 int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v);
+
+// calculate the power of 2 to which a given type needs to be aligned
+int Scope_getAlignmentOfType(struct Scope *scope, struct Type *t);
 
 // scope linearization functions
 
