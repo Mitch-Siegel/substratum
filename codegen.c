@@ -111,7 +111,22 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 
 			fprintf(outFile, "\t.globl %s\n", varName);
 
-			fprintf(outFile, "\t.align %d\n", alignSize(varSize));
+			int alignBits = -1;
+
+			if (v->type.arraySize > 0)
+			{
+				alignBits = alignSize(Scope_getSizeOfArrayElement(table->globalScope, v));
+			}
+			else
+			{
+				alignBits = alignSize(varSize);
+			}
+
+			if(alignBits > 0)
+			{
+				fprintf(outFile, ".align %d\n", alignBits);
+			}
+
 			fprintf(outFile, "\t.type\t%s, @object\n", varName);
 			fprintf(outFile, "\t.size \t%s, %d\n", varName, varSize);
 			fprintf(outFile, "%s:\n", varName);
@@ -192,7 +207,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 	{
 		printf("Emitting function prologue\n");
 	}
-	fprintf(outFile, "%s:\n", function->name);
+	fprintf(outFile, ".align 2\n%s:\n", function->name);
 	fprintf(outFile, "\t.loc 1 %d %d\n", function->correspondingTree.sourceLine, function->correspondingTree.sourceCol);
 	fprintf(outFile, "\t.cfi_startproc\n");
 
