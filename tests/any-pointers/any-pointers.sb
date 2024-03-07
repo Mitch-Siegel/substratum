@@ -1,4 +1,4 @@
-#include "tests-common.sbh"
+#include "tests-common.sb"
 
 any *fun funReturningAnyPointer()
 {
