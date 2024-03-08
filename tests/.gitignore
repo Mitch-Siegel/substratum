@@ -1,5 +1,6 @@
 *.S
 *.o
 *.elf
+*.output
 
 coverage
