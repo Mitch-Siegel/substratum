@@ -1,0 +1,3 @@
+[submodule "substratum-preprocessor"]
+	path = substratum-preprocessor
+	url = git@github.com:Mitch-Siegel/substratum-preprocessor.git

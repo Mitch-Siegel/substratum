@@ -1,0 +1,123 @@
+#include "tests-common.sb"
+
+fun testu8Array()
+{
+    u8[10] array;
+    u8 i = 0;
+    while(i < 10)
+    {
+        array[i] = 255;
+        array[i] = i;
+        u8 readBack = array[i];
+        if (readBack != i)
+        {
+            uart_putc('!');
+        }
+        else
+        {
+            uart_putc('0' + readBack);
+        }
+        i = i + 1;
+    }
+    uart_putc(10);
+}
+
+fun testu16Array()
+{
+    u16[10] array;
+    u8 i = 0;
+    while(i < 10)
+    {
+        array[i] = 65535;
+        array[i] = 256 + i;
+        u16 readBack = array[i];
+        u8 toPrint = readBack;
+        if((readBack != (256 + i)))
+        {
+            uart_putc('!');
+        }
+        else
+        {
+            uart_putc('0' + toPrint);
+        }
+        i = i + 1;
+    }
+    uart_putc(10);
+}
+
+fun testu32Array()
+{
+    u32[10] array;
+    u8 i = 0;
+    while(i < 10)
+    {
+        array[i] = 4294967295;
+        array[i] = 65536 + i;
+        u32 readBack = array[i];
+        u8 toPrint = readBack;
+        if(readBack != 65536 + i)
+        {
+            uart_putc('!');
+        }
+        else
+        {
+            uart_putc('0' + toPrint);
+        }
+        i = i + 1;
+    }
+    uart_putc(10);
+}
+
+// ensure address calculation on array indices agrees with pointer arithmetic
+fun testArrAddr()
+{
+    u32[10] bigArrToAddr;
+    u16[10] medArrToAddr;
+    u8[10] smallArrToAddr;
+
+    if((&bigArrToAddr[4]) == (&bigArrToAddr[0] + 4))
+    {
+        uart_putc('T');
+    }
+    else
+    {
+        uart_putc('F');
+    }
+
+    if((&bigArrToAddr[0]) == (bigArrToAddr))
+    {
+        uart_putc('T');
+    }
+    else
+    {
+        uart_putc('F');
+    }
+
+    if((&medArrToAddr[4]) == (&medArrToAddr[0] + 4))
+    {
+        uart_putc('T');
+    }
+    else
+    {
+        uart_putc('F');
+    }
+
+    if((&smallArrToAddr[4]) == (&smallArrToAddr[0] + 4))
+    {
+        uart_putc('T');
+    }
+    else
+    {
+        uart_putc('F');
+    }
+}
+
+fun main()
+{
+    testu8Array();
+    testu16Array();
+    testu32Array();
+    testArrAddr();
+    uart_putc('\n');
+    exit();
+}

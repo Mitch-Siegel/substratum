@@ -1,0 +1,107 @@
+#include "tests-common.sb"
+
+u8 fun testIfScope(u8 a)
+{
+    if((a / 2) == ((a + 1) / 2))
+    {
+        u8 ifResult = a / 2;
+        return ifResult;
+    }
+    u8 noIfResult = a;
+    return noIfResult;
+}
+
+u8 fun testIfElseScope(u8 a)
+{
+    u8 result = 9;
+    if((a / 2) == ((a + 1) / 2))
+    {
+        u8 ifResult = a / 2;
+        result = ifResult;
+    }
+    else
+    {
+        u8 elseResult = a;
+        result = elseResult;
+    }
+    return result;
+}
+
+u8 fun testWhileScope(u8 a)
+{
+    u8 result = 0;
+    u8 counter1 = 0;
+    while(counter1 < a)
+    {
+        u8 counter2 = 0;
+        while(counter2 < a)
+        {
+            result += counter2;
+            counter2 = counter2 + 1;
+        }
+        counter1 = counter1 + 1;
+    }
+    return result;
+}
+
+fun testScopedShadowing()
+{
+    u8 i = 123;
+    {
+        u8 i = 0;
+        uart_putc('0' + i);
+        i = i + 1;
+        uart_putc('0' + i);
+    }
+    uart_putc(10);
+}
+
+u8 fun returnByScope(u8 input)
+{
+    u8 retVal = 'A';
+    if((input / 2 ) == ((input - 1) / 2))
+    {
+        u8 calculationFromIf = input;
+        retVal = calculationFromIf;
+    }
+    else
+    {
+        u8 calculationFromElse = input - 1;
+        retVal = calculationFromElse;
+    }
+    return 'a' + retVal;
+}
+
+fun testScopedLifetimes()
+{
+    u8 i = 0;
+    while(i < 10)
+    {
+        uart_putc('0' + i);
+        uart_putc(':');
+        u8 result = returnByScope(i);
+        while(result >= 'a')
+        {
+            uart_putc(result);
+            result = result - 1;
+        }
+        i = i + 1;
+    }
+    uart_putc(10);
+}
+
+fun main()
+{
+    u8 i = 0;
+    while(i < 5)
+    {
+        uart_putc('0' + testIfScope(i));
+        uart_putc('0' + testIfElseScope(i));
+        uart_putc('0' + testWhileScope(i));
+        uart_putc(10);
+        i = i + 1;
+    }
+    
+    testScopedLifetimes();
+    exit();
+}
