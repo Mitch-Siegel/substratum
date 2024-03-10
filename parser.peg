@@ -105,6 +105,8 @@ argument_expression_list
 unary_expression
    <- u:unary_operator _ c:cast_expression  { $$ = AST_C(u, c); }
     / p:postfix_expression                  { $$ = p; }
+    / s:sizeof _ u:unary_expression         { $$ = AST_C(s, u); }
+    / s:sizeof _ '(' _ t:type_name _ ')'    { $$ = AST_C(s, t); }
 
 unary_operator
    <- '&' !('&')  { $$ = AST_N(auxil, t_address_of, "", $0s); }
@@ -246,6 +248,7 @@ keyword
     / kw_u16
     / kw_u32
     / kw_u64
+    / kw_sizeof
     / kw_if
     / kw_else
     / kw_while
@@ -269,6 +272,7 @@ kw_u8		      <- 'u8'	  !(LETTER/DIGIT)
 kw_u16		   <- 'u16'   !(LETTER/DIGIT)
 kw_u32		   <- 'u32'   !(LETTER/DIGIT)
 kw_u64		   <- 'u64'   !(LETTER/DIGIT)
+kw_sizeof      <- 'sizeof'   !(LETTER/DIGIT)
 kw_if		      <- 'if'	  !(LETTER/DIGIT)
 kw_else		   <- 'else'  !(LETTER/DIGIT)
 kw_while       <- 'while' !(LETTER/DIGIT)
@@ -286,19 +290,20 @@ kw_ne_op       <- '!='
 kw_and_op      <- '&&'
 kw_or_op       <- '||'
 
-fun   <- kw_fun     { $$ = AST_N(auxil, t_fun, $0, $0s); }
-class <- kw_class   { $$ = AST_N(auxil, t_class, $0, $0s); }
-any   <- kw_any     { $$ = AST_N(auxil, t_any, $0, $0s); }
-u8    <- kw_u8      { $$ = AST_N(auxil, t_u8, $0, $0s); }
-u16   <- kw_u16     { $$ = AST_N(auxil, t_u16, $0, $0s); }
-u32   <- kw_u32     { $$ = AST_N(auxil, t_u32, $0, $0s); }
-u64   <- kw_u64     { $$ = AST_N(auxil, t_u64, $0, $0s); }
-if    <- kw_if      { $$ = AST_N(auxil, t_if, $0, $0s); }
-while <- kw_while   { $$ = AST_N(auxil, t_while, $0, $0s); }
-return <- kw_return { $$ = AST_N(auxil, t_return, $0, $0s); }
-extern <- kw_extern { $$ = AST_N(auxil, t_extern, $0, $0s); }
+fun    <- kw_fun     { $$ = AST_N(auxil, t_fun, $0, $0s); }
+class  <- kw_class   { $$ = AST_N(auxil, t_class, $0, $0s); }
+any    <- kw_any     { $$ = AST_N(auxil, t_any, $0, $0s); }
+u8     <- kw_u8      { $$ = AST_N(auxil, t_u8, $0, $0s); }
+u16    <- kw_u16     { $$ = AST_N(auxil, t_u16, $0, $0s); }
+u32    <- kw_u32     { $$ = AST_N(auxil, t_u32, $0, $0s); }
+u64    <- kw_u64     { $$ = AST_N(auxil, t_u64, $0, $0s); }
+sizeof <- kw_sizeof  { $$ = AST_N(auxil, t_sizeof, $0, $0s); }
+if     <- kw_if      { $$ = AST_N(auxil, t_if, $0, $0s); }
+while  <- kw_while   { $$ = AST_N(auxil, t_while, $0, $0s); }
+return <- kw_return  { $$ = AST_N(auxil, t_return, $0, $0s); }
+extern <- kw_extern  { $$ = AST_N(auxil, t_extern, $0, $0s); }
 
-arrow         <- kw_arrow        { $$ = AST_N(auxil, t_arrow, $0, $0s); }
+arrow         <- kw_arrow     { $$ = AST_N(auxil, t_arrow, $0, $0s); }
 left_op       <- kw_left_op   { $$ = AST_N(auxil, t_lshift, $0, $0s); }
 right_op      <- kw_right_op  { $$ = AST_N(auxil, t_rshift, $0, $0s); }
 le_op         <- kw_le_op     { $$ = AST_N(auxil, t_less_than_equals, $0, $0s); }
@@ -326,8 +331,8 @@ escape_character
     / "\\\""
 
 constant
-   <- "0x" [0-9ABCDEFabcdef]+ { $$ = AST_N(auxil, t_constant, $0, $0s); }
-    / DIGIT+                  { $$ = AST_N(auxil, t_constant, $0, $0s); }
+   <- "0x" [0-9ABCDEFabcdef]+             { $$ = AST_N(auxil, t_constant, $0, $0s); }
+    / DIGIT+                              { $$ = AST_N(auxil, t_constant, $0, $0s); }
     / "\'" char_literal_character "\'"    { char *quotedText = malloc(strlen($0) - 1); memcpy(quotedText, $0 + 1, strlen($0) - 1); quotedText[strlen($0) - 2] = 0; $$ = AST_N(auxil, t_char_literal, quotedText, $0s); free(quotedText); }
 
 char_literal_character
@@ -335,7 +340,7 @@ char_literal_character
     / [^"\'"]
 
 string_literal
-   <- '"' string_literal_character* '"' { char *quotedText = malloc(strlen($0) - 1); memcpy(quotedText, $0 + 1, strlen($0) - 1); quotedText[strlen($0) - 2] = 0; $$ = AST_N(auxil, t_string_literal, quotedText, $0s); free(quotedText); }
+   <- '"' string_literal_character* '"'   { char *quotedText = malloc(strlen($0) - 1); memcpy(quotedText, $0 + 1, strlen($0) - 1); quotedText[strlen($0) - 2] = 0; $$ = AST_N(auxil, t_string_literal, quotedText, $0s); free(quotedText); }
 
 string_literal_character
    <- escape_character

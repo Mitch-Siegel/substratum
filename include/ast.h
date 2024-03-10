@@ -9,7 +9,7 @@ enum token
 	t_char_literal,
 	t_string_literal,
 	t_extern,
-	// t_sizeof,
+	t_sizeof,
 	t_asm,
 	// types
 	t_variable_declaration,

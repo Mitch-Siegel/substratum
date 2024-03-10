@@ -1596,6 +1596,10 @@ void walkSubExpression(struct AST *tree,
 	}
 	break;
 
+	case t_sizeof:
+		walkSizeof(tree, block, scope, destinationOperand);
+		break;
+
 	default:
 		ErrorWithAST(ERROR_INTERNAL, tree, "Incorrect AST type (%s) seen while linearizing subexpression!\n", getTokenName(tree->type));
 		break;
@@ -2439,4 +2443,67 @@ void walkStringLiteral(struct AST *tree,
 	populateTACOperandFromVariable(destinationOperand, stringLiteralEntry);
 	destinationOperand->name.str = stringName;
 	destinationOperand->type.arraySize = stringLength;
+}
+
+void walkSizeof(struct AST *tree,
+				struct BasicBlock *block,
+				struct Scope *scope,
+				struct TACOperand *destinationOperand)
+{
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkSizeof: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
+	if (tree->type != t_sizeof)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkSizeof!\n", getTokenName(tree->type));
+	}
+
+	int sizeInBytes = -1;
+
+	switch (tree->child->type)
+	{
+	// if we see an identifier, it may be an identifier or a class name
+	case t_identifier:
+	{
+		// do a generic scope lookup on the identifier
+		struct ScopeMember *lookedUpIdentifier = Scope_lookup(scope, tree->child->value);
+		
+		// if it looks up nothing, or it's a variable
+		if ((lookedUpIdentifier == NULL) || (lookedUpIdentifier->type == e_variable))
+		{
+			// Scope_lookupVar is not redundant as it will give us a 'use of undeclared' error in the case where we looked up nothing
+			struct VariableEntry *getSizeof = Scope_lookupVar(scope, tree->child);
+
+			sizeInBytes = Scope_getSizeOfType(scope, &getSizeof->type);
+			break;
+		}
+		// we looked something up but it's not a variable 
+		else
+		{
+			struct ClassEntry *getSizeof = Scope_lookupClass(scope, tree->child);
+
+			sizeInBytes = getSizeof->totalSize;
+		}
+	}
+	break;
+
+	case t_type_name:
+	{
+		struct Type getSizeof;
+		walkTypeName(tree->child, scope, &getSizeof);
+
+		sizeInBytes = Scope_getSizeOfType(scope, &getSizeof);
+	}
+	break;
+	default:
+		ErrorWithAST(ERROR_CODE, tree, "sizeof is only supported on type names and identifiers!\n");
+	}
+
+	char sizeString[16];
+	snprintf(sizeString, 15, "%d", sizeInBytes);
+	destinationOperand->type.basicType = vt_u8;
+	destinationOperand->permutation = vp_literal;
+	destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, sizeString);
 }
