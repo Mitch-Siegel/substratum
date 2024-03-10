@@ -1,0 +1,82 @@
+#include "tests-common.sbh"
+
+fun testSizeofTypes()
+{
+    printHex(sizeof(u8));
+    uart_putc('\n');
+    printHex(sizeof(u16));
+    uart_putc('\n');
+    printHex(sizeof(u32));
+    uart_putc('\n');
+    printHex(sizeof(u64));
+    uart_putc('\n');
+    printHex(sizeof(u8 *));
+    uart_putc('\n');
+    printHex(sizeof(u16 *));
+    uart_putc('\n');
+    printHex(sizeof(u32 *));
+    uart_putc('\n');
+    printHex(sizeof(u64 *));
+    uart_putc('\n');
+    uart_putc('\n');
+}
+
+fun testSizeofArrays()
+{
+    printHex(sizeof(u8[10]));
+    uart_putc('\n');
+    printHex(sizeof(u16[10]));
+    uart_putc('\n');
+    printHex(sizeof(u32[10]));
+    uart_putc('\n');
+    printHex(sizeof(u64[10]));
+    uart_putc('\n');
+    uart_putc('\n');
+}
+
+class twoBytes
+{
+    u8 a;
+    u8 b;
+};
+
+// TODO: alignment not implemented yet, but will change when it is
+class needsPadding
+{
+    u8 a;
+    u32 b;
+};
+
+fun testSizeofClasses()
+{
+    printHex(sizeof(twoBytes));
+    uart_putc('\n');
+    printHex(sizeof(needsPadding));
+    uart_putc('\n');
+     printHex(sizeof(twoBytes *));
+    uart_putc('\n');
+    printHex(sizeof(needsPadding *));
+    uart_putc('\n');
+    uart_putc('\n');
+};
+
+fun testSizeofIdentifiers()
+{
+    twoBytes t;
+    needsPadding p;
+    printHex(sizeof(t));
+    uart_putc('\n');
+    printHex(sizeof(p));
+    uart_putc('\n');
+    uart_putc('\n');
+
+}
+
+fun main()
+{
+    testSizeofTypes();
+    testSizeofArrays();
+    testSizeofClasses();
+    testSizeofIdentifiers();
+    exit();
+}
