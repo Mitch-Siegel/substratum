@@ -16,7 +16,6 @@ struct Dictionary *parseDict = NULL;
 
 char currentVerbosity = 0;
 
-
 void usage()
 {
 	printf("Classical language compiler: Usage\n");
@@ -28,7 +27,6 @@ void usage()
 struct Stack *parseProgressStack = NULL;
 struct Stack *parsedAsts = NULL;
 struct LinkedList *includePath = NULL;
-
 
 struct Config config;
 
@@ -93,7 +91,7 @@ int main(int argc, char **argv)
 		{
 			LinkedList_Append(includePath, strdup(optarg));
 		}
-			break;
+		break;
 
 		default:
 			usage();
@@ -140,7 +138,7 @@ int main(int argc, char **argv)
 	// printf("\n");
 
 	struct AST *program = NULL;
-	for(int i = 0; i < parsedAsts->size; i++)
+	for (int i = 0; i < parsedAsts->size; i++)
 	{
 		program = AST_ConstructAddSibling(program, parsedAsts->data[i]);
 	}
@@ -187,15 +185,14 @@ int main(int argc, char **argv)
 	{
 		printf("Generating code\n");
 	}
-	
+
 	{
 		char *boilerplateAsm1[] = {
 			"\t.Ltext0:",
 			"\t.cfi_sections\t.debug_frame",
-			NULL
-		};
+			NULL};
 
-		for(int i = 0; boilerplateAsm1[i] != NULL; i++)
+		for (int i = 0; boilerplateAsm1[i] != NULL; i++)
 		{
 			fprintf(outFile, "%s\n", boilerplateAsm1[i]);
 		}
@@ -204,10 +201,9 @@ int main(int argc, char **argv)
 
 		char *boilerplateAsm2[] = {
 			"\t.attribute unaligned_access, 0",
-			NULL
-		};
+			NULL};
 
-		for(int i = 0; boilerplateAsm2[i] != NULL; i++)
+		for (int i = 0; boilerplateAsm2[i] != NULL; i++)
 		{
 			fprintf(outFile, "%s\n", boilerplateAsm2[i]);
 		}
@@ -223,4 +219,6 @@ int main(int argc, char **argv)
 
 	// TempList_Free(temps);
 	Dictionary_Free(parseDict);
+
+	return 0;
 }

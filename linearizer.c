@@ -141,7 +141,7 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
 	{
 		if (populateTypeTo->indirectionLevel == 0)
 		{
-			ErrorWithAST(ERROR_CODE, declaredArray, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
+			ErrorWithAST(ERROR_CODE, tree->child, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
 		}
 		else if (populateTypeTo->arraySize > 0)
 		{
