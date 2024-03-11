@@ -17,7 +17,7 @@ enum CompilerErrors
 	exit(code)
 
 #define ErrorWithAST(code, astPtr, fmt, ...)                                               \
-	printf("%s:%d:%d: ", (astPtr)->sourceFile, (astPtr)->sourceLine, (astPtr)->sourceCol); \
+	printf("%s:%d:%d:\n", (astPtr)->sourceFile, (astPtr)->sourceLine, (astPtr)->sourceCol); \
 	ErrorAndExit(code, fmt, ##__VA_ARGS__)
 
 #define STAGE_PARSE 0
