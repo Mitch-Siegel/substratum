@@ -658,6 +658,7 @@ struct BasicBlock *walkLogicalOperator(struct AST *tree,
 	{
 	case t_logical_and:
 	{
+		// if either condition is false, immediately jump to the false label
 		block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
 		block = walkConditionCheck(tree->child->sibling, block, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
 	}
@@ -665,7 +666,6 @@ struct BasicBlock *walkLogicalOperator(struct AST *tree,
 
 	case t_logical_or:
 	{
-
 		// this block will only be hit if the first condition comes back false
 		struct BasicBlock *checkSecondConditionBlock = BasicBlock_new((*labelNum)++);
 		Scope_addBasicBlock(scope, checkSecondConditionBlock);
@@ -673,31 +673,45 @@ struct BasicBlock *walkLogicalOperator(struct AST *tree,
 		// this is the block in which execution will end up if the condition is true
 		struct BasicBlock *trueBlock = BasicBlock_new((*labelNum)++);
 		Scope_addBasicBlock(scope, trueBlock);
-
-		struct BasicBlock *checkFirstConditionBlock = block;
 		block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, checkSecondConditionBlock->labelNum);
 
+		// if we pass the first condition (don't jump to checkSecondConditionBlock), short-circuit directly to the true block
 		struct TACLine *firstConditionTrueJump = newTACLine((*TACIndex)++, tt_jmp, tree->child);
 		firstConditionTrueJump->operands[0].name.val = trueBlock->labelNum;
-		BasicBlock_append(checkFirstConditionBlock, firstConditionTrueJump);
+		BasicBlock_append(block, firstConditionTrueJump);
 
+		// walk the second condition to checkSecondConditionBlock
 		block = walkConditionCheck(tree->child->sibling, checkSecondConditionBlock, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
 
+		// jump from whatever block the second condition check ends up in (passing path) to our block
+		// this ensures that regardless of which condition is true (first or second) execution always end up in the same block
 		struct TACLine *secondConditionTrueJump = newTACLine((*TACIndex)++, tt_jmp, tree->child->sibling);
 		secondConditionTrueJump->operands[0].name.val = trueBlock->labelNum;
-		BasicBlock_append(checkSecondConditionBlock, secondConditionTrueJump);
+		BasicBlock_append(block, secondConditionTrueJump);
+
+		block = trueBlock;
 	}
 	break;
 
 	case t_logical_not:
-		// NOT any condition (!)
-		{
-			// walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
-			// condFalseJump->operands[2].name.val = 0;
-			// condFalseJump->operands[2].permutation = vp_literal;
-			// TACOperand_SetBasicType(&condFalseJump->operands[2], vt_u32, 0);
-		}
-		break;
+	{
+		// walkConditionCheck already does everything we need it to
+		// so just create a block representing the opposite of the condition we are testing
+		// then, tell walkConditionCheck to go there if our subcondition is false (!subcondition is true)
+		struct BasicBlock *inverseConditionBlock = BasicBlock_new((*labelNum)++);
+		Scope_addBasicBlock(scope, inverseConditionBlock);
+
+		block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, inverseConditionBlock->labelNum);
+
+		// subcondition is true (!subcondition is false), then control flow should end up at the original conditionFalseJump destination
+		struct TACLine *conditionFalseJump = newTACLine((*TACIndex)++, tt_jmp, tree->child);
+		conditionFalseJump->operands[0].name.val = falseJumpLabelNum;
+		BasicBlock_append(block, conditionFalseJump);
+
+		// return the tricky block we created to be jumped to when our subcondition is false, or that the condition we are linearizing at this level is true
+		block = inverseConditionBlock;
+	}
+	break;
 
 	default:
 		ErrorAndExit(ERROR_INTERNAL, "Logical operator %s (%s) not supported yet\n",
@@ -900,7 +914,7 @@ void walkWhileLoop(struct AST *tree,
 	}
 
 	struct TACLine *whileLoopJump = newTACLine((*TACIndex)++, tt_jmp, tree);
-	whileLoopJump->operands[0].name.val = whileBlock->labelNum;
+	whileLoopJump->operands[0].name.val = enterWhileJump->operands[0].name.val;
 
 	block = BasicBlock_new(endWhileLabel);
 	Scope_addBasicBlock(scope, block);
