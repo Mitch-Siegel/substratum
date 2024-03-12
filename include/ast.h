@@ -9,7 +9,7 @@ enum token
 	t_char_literal,
 	t_string_literal,
 	t_extern,
-	// t_sizeof,
+	t_sizeof,
 	t_asm,
 	// types
 	t_variable_declaration,
@@ -18,6 +18,7 @@ enum token
 	t_u8,
 	t_u16,
 	t_u32,
+	t_u64,
 	t_class,
 	//
 	t_class_body,

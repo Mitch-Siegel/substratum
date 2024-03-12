@@ -3,7 +3,7 @@ fun uart_putc(u8 c);
 
 fun printNum(u32 value);
 
-fun printHex(u32 value);
+fun printHex(u64 value);
 
 u32 fun printStr(u8 *str);
 

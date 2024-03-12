@@ -197,12 +197,12 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 	fprintf(outFile, "\t.cfi_startproc\n");
 
 	// push return address
-	EmitPushForSize(NULL, &context, 4, 1);
-	fprintf(outFile, "\t.cfi_offset 1, -4\n");
+	EmitPushForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 1);
+	fprintf(outFile, "\t.cfi_offset 1, %d\n", MACHINE_REGISTER_SIZE_BYTES * -1);
 
 	// push frame pointer, copy stack pointer to frame pointer
-	EmitPushForSize(NULL, &context, 4, 8);
-	fprintf(outFile, "\t.cfi_offset 8, -8\n");
+	EmitPushForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 8);
+	fprintf(outFile, "\t.cfi_offset 8, %d\n", MACHINE_REGISTER_SIZE_BYTES * -2);
 	emitInstruction(NULL, &context, "\tmv fp, sp\n");
 
 	if (function->isAsmFun)
@@ -230,11 +230,11 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 		}
 
 		// pop frame pointer
-		EmitPopForSize(NULL, &context, 4, 8);
+		EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 8);
 		fprintf(outFile, "\t.cfi_restore 8\n");
 
 		// pop return address
-		EmitPopForSize(NULL, &context, 4, 1);
+		EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 1);
 		fprintf(outFile, "\t.cfi_restore 1\n");
 
 		emitInstruction(NULL, &context, "\taddi sp, sp, %d\n", function->argStackSize);
@@ -261,7 +261,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 	if (localStackSize > 0)
 	{
 		emitInstruction(NULL, &context, "\taddi sp, sp, -%d\n", localStackSize);
-		fprintf(outFile, "\t.cfi_def_cfa_offset %d\n", localStackSize + 8);
+		fprintf(outFile, "\t.cfi_def_cfa_offset %d\n", localStackSize + 16);
 	}
 
 	if (currentVerbosity > VERBOSITY_MINIMAL)
@@ -272,7 +272,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 	{
 		if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
 		{
-			EmitPushForSize(NULL, &context, 4, i);
+			EmitPushForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, i);
 		}
 	}
 
@@ -298,9 +298,10 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 			{
 				struct VariableEntry *theArgument = thisEntry->entry;
 
-				const char *loadWidth = SelectWidthForLifetime(function->mainScope, thisLifetime);
-				emitInstruction(NULL, &context, "\tl%su %s, %d(fp) # place %s\n",
+				char loadWidth = SelectWidthForLifetime(function->mainScope, thisLifetime);
+				emitInstruction(NULL, &context, "\tl%c%s %s, %d(fp) # place %s\n",
 								loadWidth,
+								SelectSignForLoad(loadWidth, &thisLifetime->type),
 								registerNames[thisLifetime->registerLocation],
 								theArgument->stackOffset,
 								thisLifetime->name);
@@ -329,7 +330,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 	{
 		if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
 		{
-			EmitPopForSize(NULL, &context, 4, i);
+			EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, i);
 		}
 	}
 
@@ -339,11 +340,11 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 	}
 
 	// pop frame pointer
-	EmitPopForSize(NULL, &context, 4, 8);
+	EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 8);
 	fprintf(outFile, "\t.cfi_restore 8\n");
 
 	// pop return address
-	EmitPopForSize(NULL, &context, 4, 1);
+	EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 1);
 	fprintf(outFile, "\t.cfi_restore 1\n");
 
 	if (function->argStackSize > 0)
@@ -443,9 +444,10 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[1]);
 
-			const char *loadWidth = SelectWidth(scope, &thisTAC->operands[0]);
-			emitInstruction(thisTAC, context, "\tl%su %s, 0(%s)\n",
+			char loadWidth = SelectWidth(scope, &thisTAC->operands[0]);
+			emitInstruction(thisTAC, context, "\tl%c%s %s, 0(%s)\n",
 							loadWidth,
+							SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 0)),
 							registerNames[destReg],
 							registerNames[baseReg]);
 
@@ -459,8 +461,10 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
 
-			emitInstruction(thisTAC, context, "\tl%su %s, %d(%s)\n",
-							SelectWidth(scope, &thisTAC->operands[0]),
+			char loadWidth = SelectWidth(scope, &thisTAC->operands[0]);
+			emitInstruction(thisTAC, context, "\tl%c%s %s, %d(%s)\n",
+							loadWidth,
+							SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 0)),
 							registerNames[destReg],
 							thisTAC->operands[2].name.val,
 							registerNames[baseReg]);
@@ -488,8 +492,10 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 							registerNames[baseReg],
 							registerNames[reservedRegisters[2]]);
 
-			emitInstruction(thisTAC, context, "\tl%su %s, 0(%s)\n",
-							SelectWidthForDereference(scope, &thisTAC->operands[1]),
+			char loadWidth = SelectWidthForDereference(scope, &thisTAC->operands[1]);
+			emitInstruction(thisTAC, context, "\tl%c%s %s, 0(%s)\n",
+							loadWidth,
+							SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 1)),
 							registerNames[destReg],
 							registerNames[reservedRegisters[1]]);
 
@@ -501,9 +507,9 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		{
 			int destAddrReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
-			const char *storeWidth = SelectWidthForDereference(scope, &thisTAC->operands[0]);
+			char storeWidth = SelectWidthForDereference(scope, &thisTAC->operands[0]);
 
-			emitInstruction(thisTAC, context, "\ts%s %s, 0(%s)\n",
+			emitInstruction(thisTAC, context, "\ts%c %s, 0(%s)\n",
 							storeWidth,
 							registerNames[sourceReg],
 							registerNames[destAddrReg]);
@@ -515,7 +521,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 			// TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
 			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-			emitInstruction(thisTAC, context, "\ts%s %s, %d(%s)\n",
+			emitInstruction(thisTAC, context, "\ts%c %s, %d(%s)\n",
 							SelectWidth(scope, &thisTAC->operands[0]),
 							registerNames[sourceReg],
 							thisTAC->operands[1].name.val,
@@ -542,7 +548,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 							registerNames[baseReg],
 							registerNames[reservedRegisters[1]]);
 
-			emitInstruction(thisTAC, context, "\ts%s %s, 0(%s)\n",
+			emitInstruction(thisTAC, context, "\ts%c %s, 0(%s)\n",
 							SelectWidthForDereference(scope, &thisTAC->operands[0]),
 							registerNames[sourceReg],
 							registerNames[reservedRegisters[0]]);

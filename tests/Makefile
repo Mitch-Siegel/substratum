@@ -1,6 +1,7 @@
 
 SBCC = ../sbcc
 AS = riscv64-unknown-elf-as
+RISCV_ARGS = -march=rv64g
 
 COMMON_DIR = ./common
 COVERAGE_DIR = ./coverage
@@ -42,7 +43,7 @@ coverage-report:
 	$(SBCC) -i $^ -o $(basename $@).S -I $(COMMON_DIR) -I $(shell dirname $@)
 	@mkdir -p $(shell dirname $(COVERAGE_DIR)/$@)
 	@geninfo "../build" -b ".." -o $(COVERAGE_DIR)/$(basename $@).cov
-	$(AS) -r -o $@ $(basename $@).S
+	$(AS) $(RISCV_ARGS) -r -o $@ $(basename $@).S
 
 info:
 	$(info "COMMON_SRCS: $(COMMON_SRCS)")

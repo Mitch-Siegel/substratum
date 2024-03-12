@@ -17,7 +17,9 @@ class sixteens
 
 fun testBasicCasting()
 {
-    u32 largeValue = 0x12345678;
+    u64 largeValue = 0x1234567890abcdef;
+    printHex((u64)largeValue);
+    uart_putc('\n');
     printHex((u32)largeValue);
     uart_putc('\n');
     printHex((u16)largeValue);
@@ -28,7 +30,10 @@ fun testBasicCasting()
 
 fun testCastStoring()
 {
-    u32 largerValue = 0xFFFFFFFF;
+    u64 largerValue = 0xFFFFFFFFFFFFFFFF;
+    printHex(largerValue);
+    uart_putc('\n');
+    largerValue = (u32)largerValue;
     printHex(largerValue);
     uart_putc('\n');
     largerValue = (u16)largerValue;

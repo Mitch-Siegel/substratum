@@ -161,3 +161,8 @@ void walkStringLiteral(struct AST *tree,
 					   struct BasicBlock *block,
 					   struct Scope *scope,
 					   struct TACOperand *destinationOperand);
+
+void walkSizeof(struct AST *tree,
+				struct BasicBlock *block,
+				struct Scope *scope,
+				struct TACOperand *destinationOperand);

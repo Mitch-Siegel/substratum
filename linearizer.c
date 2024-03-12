@@ -25,8 +25,9 @@ struct SymbolTable *walkProgram(struct AST *program)
 		switch (programRunner->type)
 		{
 		case t_variable_declaration:
+			// walkVariableDeclaration sets isGlobal for us by checking if there is no parent scope
 			walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
-			break;
+		break;
 
 		case t_extern:
 		{
@@ -107,6 +108,10 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
 
 	case t_u32:
 		populateTypeTo->basicType = vt_u32;
+		break;
+
+	case t_u64:
+		populateTypeTo->basicType = vt_u64;
 		break;
 
 	case t_identifier:
@@ -201,6 +206,7 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 
 	walkTypeName(tree->child, scope, &declaredType);
 
+	// automatically set as a global if there is no parent scope (declaring at the outermost scope)
 	struct VariableEntry *declaredVariable = Scope_createVariable(scope,
 																  tree->child->sibling,
 																  &declaredType,
@@ -1153,10 +1159,6 @@ void walkArrowOperatorAssignment(struct AST *tree,
 	wipAssignment->operation = tt_store_off;
 	switch (class->type)
 	{
-
-	case t_dereference:
-		ErrorWithAST(ERROR_CODE, class, "Use of the arrow operator assignment on dereferenced values is not yet supported\n");
-
 	case t_array_index:
 	{
 		// let walkArrayRef do the heavy lifting for us
@@ -1181,6 +1183,16 @@ void walkArrowOperatorAssignment(struct AST *tree,
 		struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
 
 		checkAccessedClassForArrow(class, scope, &classVariable->type);
+	}
+	break;
+
+	// nothing special to do for these, just treat as subexpression and check the ultimate type of the subexpression to ensure we can actually arrow it
+	case t_dereference:
+	case t_function_call:
+	{
+		walkSubExpression(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0]);
+
+		checkAccessedClassForArrow(class, scope, TAC_GetTypeOfOperand(wipAssignment, 0));
 	}
 	break;
 
@@ -1709,6 +1721,10 @@ void walkSubExpression(struct AST *tree,
 		}
 	}
 	break;
+
+	case t_sizeof:
+		walkSizeof(tree, block, scope, destinationOperand);
+		break;
 
 	default:
 		ErrorWithAST(ERROR_INTERNAL, tree, "Incorrect AST type (%s) seen while linearizing subexpression!\n", getTokenName(tree->type));
@@ -2553,4 +2569,67 @@ void walkStringLiteral(struct AST *tree,
 	populateTACOperandFromVariable(destinationOperand, stringLiteralEntry);
 	destinationOperand->name.str = stringName;
 	destinationOperand->type.arraySize = stringLength;
+}
+
+void walkSizeof(struct AST *tree,
+				struct BasicBlock *block,
+				struct Scope *scope,
+				struct TACOperand *destinationOperand)
+{
+	if (currentVerbosity == VERBOSITY_MAX)
+	{
+		printf("walkSizeof: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+	}
+
+	if (tree->type != t_sizeof)
+	{
+		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkSizeof!\n", getTokenName(tree->type));
+	}
+
+	int sizeInBytes = -1;
+
+	switch (tree->child->type)
+	{
+	// if we see an identifier, it may be an identifier or a class name
+	case t_identifier:
+	{
+		// do a generic scope lookup on the identifier
+		struct ScopeMember *lookedUpIdentifier = Scope_lookup(scope, tree->child->value);
+		
+		// if it looks up nothing, or it's a variable
+		if ((lookedUpIdentifier == NULL) || (lookedUpIdentifier->type == e_variable))
+		{
+			// Scope_lookupVar is not redundant as it will give us a 'use of undeclared' error in the case where we looked up nothing
+			struct VariableEntry *getSizeof = Scope_lookupVar(scope, tree->child);
+
+			sizeInBytes = Scope_getSizeOfType(scope, &getSizeof->type);
+			break;
+		}
+		// we looked something up but it's not a variable 
+		else
+		{
+			struct ClassEntry *getSizeof = Scope_lookupClass(scope, tree->child);
+
+			sizeInBytes = getSizeof->totalSize;
+		}
+	}
+	break;
+
+	case t_type_name:
+	{
+		struct Type getSizeof;
+		walkTypeName(tree->child, scope, &getSizeof);
+
+		sizeInBytes = Scope_getSizeOfType(scope, &getSizeof);
+	}
+	break;
+	default:
+		ErrorWithAST(ERROR_CODE, tree, "sizeof is only supported on type names and identifiers!\n");
+	}
+
+	char sizeString[16];
+	snprintf(sizeString, 15, "%d", sizeInBytes);
+	destinationOperand->type.basicType = vt_u8;
+	destinationOperand->permutation = vp_literal;
+	destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, sizeString);
 }

@@ -4,12 +4,13 @@
 #include "ast.h"
 #include "util.h"
 
-char *token_names[] = {
+char *token_names[t_EOF + 1] = {
 	"t_identifier",
 	"t_constant",
 	"t_char_literal",
 	"t_string_literal",
 	"t_extern",
+	"t_sizeof",
 	"t_asm",
 	"t_variable_declaration",
 	"t_type_name",
@@ -17,6 +18,7 @@ char *token_names[] = {
 	"t_u8",
 	"t_u16",
 	"t_u32",
+	"t_u64",
 	"t_class",
 	"t_class_body",
 	"t_compound_statement",
