@@ -11,7 +11,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *n
 {
 	struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
 	newFunction->arguments = Stack_New();
-	newFunction->argStackSize = 0;
+	newFunction->argStackSize = (2 * MACHINE_REGISTER_SIZE_BYTES); // always store base pointer and return address on stack?
 	newFunction->mainScope = Scope_new(parentScope, nameTree->value, newFunction);
 	newFunction->BasicBlockList = LinkedList_New();
 	newFunction->correspondingTree = *nameTree;
@@ -368,11 +368,17 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 		ErrorWithAST(ERROR_CODE, name, "Redifinition of symbol %s!\n", name->value);
 	}
 
+	// if we have an argument, it will be trivially spilled because it is passed in on the stack
 	if (isArgument)
 	{
-		// if we have an argument, it will be trivially spilled because it is passed in on the stack
-		newVariable->stackOffset = scope->parentFunction->argStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES);
+		// compute the padding necessary for alignment of this argument
+		scope->parentFunction->argStackSize += Scope_ComputePaddingForAlignment(scope, type, scope->parentFunction->argStackSize);
+
+		// put our argument's offset at the newly-aligned stack size, then add the size of the argument to the argument stack size
+		newVariable->stackOffset = scope->parentFunction->argStackSize;
 		scope->parentFunction->argStackSize += Scope_getSizeOfType(scope, type);
+		printf("%s goes at offset %d, total stack size %d\n", newVariable->name, newVariable->stackOffset, scope->parentFunction->argStackSize);
+
 		Scope_insert(scope, name->value, newVariable, e_argument);
 	}
 	else
@@ -424,26 +430,33 @@ struct ClassEntry *Scope_createClass(struct Scope *scope,
 	return wipClass;
 }
 
+int Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, int currentOffset)
+{
+	// calculate the number of bytes to which this member needs to be aligned
+	int alignBytesForType = unalignSize(Scope_getAlignmentOfType(scope, alignedType));
+
+	// compute how many bytes of padding we will need before this member to align it correctly
+	int paddingRequired = 0;
+	int bytesAfterAlignBoundary = currentOffset % alignBytesForType;
+	if(bytesAfterAlignBoundary)
+	{
+		paddingRequired = alignBytesForType - bytesAfterAlignBoundary;
+	}
+
+	// add the padding to the total size of the class
+	return paddingRequired;
+}
+
 void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
 										struct VariableEntry *v)
 {
 
 	struct ClassMemberOffset *newMemberLocation = malloc(sizeof(struct ClassMemberOffset));
 
-	// calculate the number of bytes to which this member needs to be aligned
-	int alignBytesForMember = unalignSize(Scope_getAlignmentOfType(class->members, &v->type));
 
-	// compute how many bytes of padding we will need before this member to align it correctly
-	int prePadding = 0;
-	int bytesAfterAlignBoundary = class->totalSize % alignBytesForMember;
-	if(bytesAfterAlignBoundary)
-	{
-		prePadding = alignBytesForMember - bytesAfterAlignBoundary;
-	}
 
-	printf("MEMBER %s of %s PRE-PADDED BY %d BYTES!\n", v->name, class->name, prePadding);
 	// add the padding to the total size of the class
-	class->totalSize += prePadding;
+	class->totalSize += Scope_ComputePaddingForAlignment(class->members, &v->type, class->totalSize);
 
 	// place the new member at the (now aligned) current max size of the class
 	newMemberLocation->offset = class->totalSize;

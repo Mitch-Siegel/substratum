@@ -145,6 +145,10 @@ struct Scope *Scope_createSubScope(struct Scope *scope);
 struct ClassEntry *Scope_createClass(struct Scope *scope,
 									 char *name);
 
+// given a scope, a type, and a current integer byte offset
+/// compute and return how many bytes of padding is necessary to create the first offset at which the type would be aligned if stored
+int Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, int currentOffset);
+
 // given a VariableEntry corresponding to a class member which was just declared
 // generate a ClassMemberOffset with the aligned location of the member within the class
 void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
