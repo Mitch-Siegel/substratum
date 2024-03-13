@@ -1619,6 +1619,8 @@ void walkFunctionCall(struct AST *tree,
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionCall!\n", getTokenName(tree->type));
 	}
 
+	scope->parentFunction->callsOtherFunction = 1;
+
 	struct FunctionEntry *calledFunction = Scope_lookupFun(scope, tree->child);
 
 	if ((destinationOperand != NULL) &&

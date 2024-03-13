@@ -48,6 +48,7 @@ struct FunctionEntry
 	struct AST correspondingTree;
 	char isDefined;
 	char isAsmFun;
+	char callsOtherFunction; // is it possible this function calls another function? (need to store return address on stack)
 };
 
 struct VariableEntry

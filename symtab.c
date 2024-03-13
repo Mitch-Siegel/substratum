@@ -11,7 +11,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *n
 {
 	struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
 	newFunction->arguments = Stack_New();
-	newFunction->argStackSize = (2 * MACHINE_REGISTER_SIZE_BYTES); // always store base pointer and return address on stack?
+	newFunction->argStackSize = 0;
 	newFunction->mainScope = Scope_new(parentScope, nameTree->value, newFunction);
 	newFunction->BasicBlockList = LinkedList_New();
 	newFunction->correspondingTree = *nameTree;
@@ -20,6 +20,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *n
 	newFunction->name = nameTree->value;
 	newFunction->isDefined = 0;
 	newFunction->isAsmFun = 0;
+	newFunction->callsOtherFunction = 0;
 	return newFunction;
 }
 
@@ -438,7 +439,7 @@ int Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedTy
 	// compute how many bytes of padding we will need before this member to align it correctly
 	int paddingRequired = 0;
 	int bytesAfterAlignBoundary = currentOffset % alignBytesForType;
-	if(bytesAfterAlignBoundary)
+	if (bytesAfterAlignBoundary)
 	{
 		paddingRequired = alignBytesForType - bytesAfterAlignBoundary;
 	}
@@ -452,8 +453,6 @@ void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
 {
 
 	struct ClassMemberOffset *newMemberLocation = malloc(sizeof(struct ClassMemberOffset));
-
-
 
 	// add the padding to the total size of the class
 	class->totalSize += Scope_ComputePaddingForAlignment(class->members, &v->type, class->totalSize);
@@ -806,12 +805,12 @@ int Scope_getAlignmentOfType(struct Scope *scope, struct Type *t)
 	{
 		struct ClassEntry *class = Scope_lookupClassByType(scope, t);
 
-		for(int i = 0; i < class->memberLocations->size; i++)
+		for (int i = 0; i < class->memberLocations->size; i++)
 		{
 			struct ClassMemberOffset *examinedMember = (struct ClassMemberOffset *)class->memberLocations->data[i];
-			
+
 			int examinedMemberAlignment = Scope_getAlignmentOfType(scope, &examinedMember->variable->type);
-			if(examinedMemberAlignment > alignment)
+			if (examinedMemberAlignment > alignment)
 			{
 				alignment = examinedMemberAlignment;
 			}
