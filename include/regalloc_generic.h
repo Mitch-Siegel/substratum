@@ -13,6 +13,42 @@
 #define START_ALLOCATING_FROM 11
 #define MACHINE_REGISTER_COUNT 32
 
+enum riscvRegisters
+{
+	zero,
+	ra,
+	sp,
+	gp,
+	tp,
+	t0,
+	t1,
+	t2,
+	fp,
+	s1,
+	a0,
+	a1,
+	a2,
+	a3,
+	a4,
+	a5,
+	a6,
+	a7,
+	s2,
+	s3,
+	s4,
+	s5,
+	s6,
+	s7,
+	s8,
+	s9,
+	s10,
+	s11,
+	t3,
+	t4,
+	t5,
+	t6,
+};
+
 enum WritebackLocation
 {
 	wb_register,
@@ -94,7 +130,6 @@ struct CodegenMetadata
 // populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i
 // then determine which variables should be spilled
 int generateLifetimeOverlaps(struct CodegenMetadata *metadata);
-
 
 // assign registers to variables which have registers
 // assign spill addresses to variables which are spilled

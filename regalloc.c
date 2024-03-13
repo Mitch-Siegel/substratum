@@ -197,8 +197,14 @@ void assignRegisters(struct CodegenMetadata *metadata)
 }
 
 int assignStackSpace(struct CodegenMetadata *m)
-{
+{   
     int localStackFootprint = 0;
+
+    // if this function may call other functions, it will save its base pointer and return address locally
+    if(m->function->callsOtherFunction)
+    {
+        localStackFootprint -= (2 * MACHINE_REGISTER_SIZE_BYTES);
+    }
 
     struct Stack *needStackSpace = Stack_New();
     for (struct LinkedListNode *runner = m->allLifetimes->head; runner != NULL; runner = runner->next)
@@ -247,6 +253,7 @@ int assignStackSpace(struct CodegenMetadata *m)
         }
         else
         {
+            localStackFootprint -= Scope_ComputePaddingForAlignment(m->function->mainScope, &thisLifetime->type, localStackFootprint);
             localStackFootprint -= Scope_getSizeOfType(m->function->mainScope, &thisLifetime->type);
             thisLifetime->stackLocation = localStackFootprint;
         }
@@ -357,7 +364,6 @@ int allocateRegisters(struct CodegenMetadata *metadata)
     if (currentVerbosity == VERBOSITY_MAX)
     {
         // print the function's stack footprint
-
         {
             struct Stack *stackLayout = Stack_New();
             for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)

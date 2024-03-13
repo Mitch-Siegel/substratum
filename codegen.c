@@ -122,7 +122,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 				alignBits = alignSize(varSize);
 			}
 
-			if(alignBits > 0)
+			if (alignBits > 0)
 			{
 				fprintf(outFile, ".align %d\n", alignBits);
 			}
@@ -211,17 +211,9 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 	fprintf(outFile, "\t.loc 1 %d %d\n", function->correspondingTree.sourceLine, function->correspondingTree.sourceCol);
 	fprintf(outFile, "\t.cfi_startproc\n");
 
-	// push return address
-	EmitPushForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 1);
-	fprintf(outFile, "\t.cfi_offset 1, %d\n", MACHINE_REGISTER_SIZE_BYTES * -1);
-
-	// push frame pointer, copy stack pointer to frame pointer
-	EmitPushForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 8);
-	fprintf(outFile, "\t.cfi_offset 8, %d\n", MACHINE_REGISTER_SIZE_BYTES * -2);
-	emitInstruction(NULL, &context, "\tmv fp, sp\n");
-
 	if (function->isAsmFun)
 	{
+		// TODO: debug symbols for asm functions?
 		if (currentVerbosity > VERBOSITY_MINIMAL)
 		{
 			printf("%s is an asm function\n", function->name);
@@ -244,18 +236,10 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 			emitInstruction(asmTAC, &context, "\t%s\n", asmTAC->operands[0].name.str);
 		}
 
-		// pop frame pointer
-		EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 8);
-		fprintf(outFile, "\t.cfi_restore 8\n");
-
-		// pop return address
-		EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 1);
-		fprintf(outFile, "\t.cfi_restore 1\n");
-
 		emitInstruction(NULL, &context, "\taddi sp, sp, %d\n", function->argStackSize);
 
 		fprintf(outFile, "\t.cfi_def_cfa_offset 0\n");
-		emitInstruction(NULL, &context, "\tjalr zero, 0(%s)\n", registerNames[1]);
+		emitInstruction(NULL, &context, "\tjalr zero, 0(%s)\n", registerNames[ra]);
 		fprintf(outFile, "\t.cfi_endproc\n");
 
 		// early return, nothing else to do
@@ -273,27 +257,54 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 	int localStackSize = allocateRegisters(&metadata);
 	currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
 
-	if (localStackSize > 0)
-	{
-		emitInstruction(NULL, &context, "\taddi sp, sp, -%d\n", localStackSize);
-		fprintf(outFile, "\t.cfi_def_cfa_offset %d\n", localStackSize + 16);
-	}
-
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
 		printf("Need %d bytes on stack\n", localStackSize);
 	}
+
+	emitInstruction(NULL, "mv %s, %s", registerNames[s1], registerNames[fp]); // store frame pointer
+
+	int nRegistersToSave = 0;
 	for (int i = MACHINE_REGISTER_COUNT - 1; i >= 0; i--)
 	{
 		if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
 		{
-			EmitPushForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, i);
+			nRegistersToSave++;
+		}
+	}
+	emitInstruction(NULL, &context, "addi %s, %s, %d\n", registerNames[sp], registerNames[sp], (nRegistersToSave * -1 * MACHINE_REGISTER_SIZE_BYTES) + localStackSize);
+
+	// if this function uses space on the stack
+	if (localStackSize > 0)
+	{
+		// FIXME: cfa offset if no local stack?
+		fprintf(outFile, "\t.cfi_def_cfa_offset %d\n", localStackSize + 16);
+
+		// store saved return address and saved frame pointer to the stack so they will be persisted across this function
+		if (function->callsOtherFunction)
+		{
+			emitInstruction(NULL, "sd %s, -8(%s)\n", registerNames[ra], registerNames[fp]);
+			emitInstruction(NULL, "sd %s, -16(%s)\n", registerNames[s1], registerNames[fp]);
+		}
+	}
+
+	emitInstruction(NULL, "mv %s, %s", registerNames[fp], registerNames[sp]); // generate new fp
+
+	// callee-save all registers (FIXME - caller vs callee save ABI?)
+	int regNumSaved = 0;
+	for (int i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
+	{
+		if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
+		{
+			// store registers we modify
+			emitInstruction(NULL, "sd %s, %d(%s)\n", (-1 * (localStackSize + ((regNumSaved + 1) * MACHINE_REGISTER_SIZE_BYTES))));
+			regNumSaved++;
 		}
 	}
 
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
-		printf("Arguments placed into registers\n");
+		printf("Placing arguments into registers\n");
 	}
 
 	// move any applicable arguments into registers if we are expecting them not to be spilled
@@ -341,34 +352,37 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 	}
 
 	fprintf(outFile, "%s_done:\n", function->name);
-	for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
+	// callee-restore all registers (FIXME - caller vs callee save ABI?)
+	int regNumRestored = 0;
+	for (int i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
 	{
 		if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
 		{
-			EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, i);
+			// store registers we modify
+			emitInstruction(NULL, "ld %s, %d(%s)\n", (-1 * (localStackSize + ((regNumRestored + 1) * MACHINE_REGISTER_SIZE_BYTES))));
+			regNumRestored++;
 		}
 	}
 
+	// if this function uses space on the stack
 	if (localStackSize > 0)
 	{
-		emitInstruction(NULL, &context, "\taddi sp, sp, %d\n", localStackSize);
+		// FIXME: cfa offset if no local stack?
+		fprintf(outFile, "\t.cfi_def_cfa_offset %d\n", localStackSize + 16);
+
+		// store saved return address and saved frame pointer to the stack so they will be persisted across this function
+		if (function->callsOtherFunction)
+		{
+			emitInstruction(NULL, "ld %s, -8(%s)\n", registerNames[ra], registerNames[fp]);
+			emitInstruction(NULL, "ld %s, -16(%s)\n", registerNames[s1], registerNames[fp]);
+		}
 	}
 
-	// pop frame pointer
-	EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 8);
-	fprintf(outFile, "\t.cfi_restore 8\n");
-
-	// pop return address
-	EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 1);
-	fprintf(outFile, "\t.cfi_restore 1\n");
-
-	if (function->argStackSize > 0)
-	{
-		emitInstruction(NULL, &context, "\taddi sp, sp, %d\n", function->argStackSize);
-	}
+	// reset our stack pointer, including argument space
+	emitInstruction(NULL, &context, "addi %s, %s, %d\n", registerNames[sp], registerNames[sp], (nRegistersToSave * -1 * MACHINE_REGISTER_SIZE_BYTES) + localStackSize + function->argStackSize);
 
 	fprintf(outFile, "\t.cfi_def_cfa_offset 0\n");
-	emitInstruction(NULL, &context, "\tjalr zero, 0(%s)\n", registerNames[1]);
+	emitInstruction(NULL, &context, "\tjalr zero, 0(%s)\n", registerNames[ra]);
 
 	fprintf(outFile, "\t.cfi_endproc\n");
 

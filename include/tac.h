@@ -58,8 +58,10 @@ enum TACType
 	tt_beqz, // branch equal zero
 	tt_bnez, // branch not equal zero
 	tt_jmp,
-	tt_push,
-	tt_pop,
+	tt_stack_reserve, // decrement the stack pointer before a series of stack_store ops
+	tt_stack_store,	  // store a value at a (positive) offset from the stack pointer
+	tt_stack_release, // increment the stack pointer after a series of stack_load ops
+	tt_stack_load,	  // load a value from a (positive) offset from the stack pointer
 	tt_call,
 	tt_label,
 	tt_return,

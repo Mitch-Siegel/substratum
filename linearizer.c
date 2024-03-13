@@ -1,5 +1,6 @@
 #include "linearizer.h"
 #include "linearizer_generic.h"
+#include "codegen_generic.h"
 
 #include <ctype.h>
 
@@ -1648,11 +1649,14 @@ void walkFunctionCall(struct AST *tree,
 					 argumentTrees->size);
 	}
 
+	struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, argumentTrees);
+	reserveStackSpaceForCall->operands[0].name.val = calledFunction->argStackSize + (STACK_ALIGN_BYTES - (calledFunction->argStackSize % STACK_ALIGN_BYTES));
+
 	int argIndex = calledFunction->arguments->size - 1;
 	while (argumentTrees->size > 0)
 	{
 		struct AST *pushedArgument = Stack_Pop(argumentTrees);
-		struct TACLine *push = newTACLine(*TACIndex, tt_push, pushedArgument);
+		struct TACLine *push = newTACLine(*TACIndex, tt_stack_store, pushedArgument);
 		walkSubExpression(pushedArgument, block, scope, TACIndex, tempNum, &push->operands[0]);
 
 		struct VariableEntry *expectedArgument = calledFunction->arguments->data[argIndex];

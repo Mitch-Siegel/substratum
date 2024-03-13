@@ -5,6 +5,7 @@
 #define _CODEGEN_H_
 
 #define MACHINE_REGISTER_SIZE_BYTES 8
+#define STACK_ALIGN_BYTES 16
 #define MAX_ASM_LINE_SIZE 256
 
 extern char printedLine[MAX_ASM_LINE_SIZE];
