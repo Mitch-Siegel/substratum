@@ -66,6 +66,30 @@ char SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP
 
 char SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime);
 
+void EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
+                           struct CodegenContext *c,
+                           enum riscvRegisters sourceReg,
+                           int size,
+                           int offset);
+
+void EmitFrameLoadForSize(struct TACLine *correspondingTACLine,
+                          struct CodegenContext *c,
+                          enum riscvRegisters destReg,
+                          int size,
+                          int offset);
+
+void EmitStackStoreForSize(struct TACLine *correspondingTACLine,
+                           struct CodegenContext *c,
+                           enum riscvRegisters sourceReg,
+                           int size,
+                           int offset);
+
+void EmitStackLoadForSize(struct TACLine *correspondingTACLine,
+                          struct CodegenContext *c,
+                          enum riscvRegisters sourceReg,
+                          int size,
+                          int offset);
+
 void EmitPushForOperand(struct TACLine *correspondingTACLine,
                         struct CodegenContext *c,
                         struct Scope *scope,

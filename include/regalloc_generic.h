@@ -125,6 +125,11 @@ struct CodegenMetadata
 
 	// flag registers which have *ever* been used so we know what to callee-save
 	char touchedRegisters[MACHINE_REGISTER_COUNT];
+
+	int nRegistersCalleeSaved;
+
+	// amount of stack space required to callee-save registers, save fp/ra if necessary, and store all locals
+	int localStackSize;
 };
 
 // populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i

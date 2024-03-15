@@ -189,7 +189,6 @@ int placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
 			loadSign = SelectSignForLoad(loadWidth, &relevantLifetime->type);
 		}
 
-
 		const char *usedRegister = registerNames[registerIndex];
 		emitInstruction(correspondingTACLine, c, "\tla %s, %s # place %s\n",
 						usedRegister,
@@ -341,18 +340,18 @@ char SelectWidthForSize(int size)
 
 const char *SelectSignForLoad(char loadSize, struct Type *loaded)
 {
-	switch(loadSize)
+	switch (loadSize)
 	{
-		case 'b':
-		case 'h':
-		case 'w':
-			return "u";
+	case 'b':
+	case 'h':
+	case 'w':
+		return "u";
 
-		case 'd':
-			return "";
+	case 'd':
+		return "";
 
-		default:
-			ErrorAndExit(ERROR_INTERNAL, "Unexpected load size character seen in SelectSignForLoad!\n");
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Unexpected load size character seen in SelectSignForLoad!\n");
 	}
 }
 
@@ -399,6 +398,46 @@ char SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime)
 	{
 		return SelectWidthForSize(Scope_getSizeOfType(scope, &lifetime->type));
 	}
+}
+
+// emit an instruction to store store 'size' bytes from 'sourceReg' at 'offset' bytes from the frame pointer
+void EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
+						   struct CodegenContext *c,
+						   enum riscvRegisters sourceReg,
+						   int size,
+						   int offset)
+{
+	emitInstruction(correspondingTACLine, c, "s%c %s, %d(fp)\n", SelectWidthForSize(size), registerNames[sourceReg], offset);
+}
+
+// emit an instruction to load store 'size' bytes to 'destReg' from 'offset' bytes from the frame pointer
+void EmitFrameLoadForSize(struct TACLine *correspondingTACLine,
+						  struct CodegenContext *c,
+						  enum riscvRegisters destReg,
+						  int size,
+						  int offset)
+{
+	emitInstruction(correspondingTACLine, c, "l%c %s, %d(fp)\n", SelectWidthForSize(size), registerNames[destReg], offset);
+}
+
+// emit an instruction to store store 'size' bytes from 'sourceReg' at 'offset' bytes from the stack pointer
+void EmitStackStoreForSize(struct TACLine *correspondingTACLine,
+						   struct CodegenContext *c,
+						   enum riscvRegisters sourceReg,
+						   int size,
+						   int offset)
+{
+	emitInstruction(correspondingTACLine, c, "s%c %s, %d(sp)\n", SelectWidthForSize(size), registerNames[sourceReg], offset);
+}
+
+// emit an instruction to load store 'size' bytes to 'destReg' from 'offset' bytes from the stack pointer
+void EmitStackLoadForSize(struct TACLine *correspondingTACLine,
+						  struct CodegenContext *c,
+						  enum riscvRegisters sourceReg,
+						  int size,
+						  int offset)
+{
+	emitInstruction(correspondingTACLine, c, "l%c %s, %d(sp)\n", SelectWidthForSize(size), registerNames[sourceReg], offset);
 }
 
 void EmitPushForOperand(struct TACLine *correspondingTACLine,

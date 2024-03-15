@@ -1649,8 +1649,9 @@ void walkFunctionCall(struct AST *tree,
 					 argumentTrees->size);
 	}
 
-	struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, argumentTrees);
+	struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, tree->child);
 	reserveStackSpaceForCall->operands[0].name.val = calledFunction->argStackSize + (STACK_ALIGN_BYTES - (calledFunction->argStackSize % STACK_ALIGN_BYTES));
+	BasicBlock_append(block, reserveStackSpaceForCall);
 
 	int argIndex = calledFunction->arguments->size - 1;
 	while (argumentTrees->size > 0)
@@ -1690,6 +1691,10 @@ void walkFunctionCall(struct AST *tree,
 						 convertFromType,
 						 convertToType);
 		}
+
+		push->operands[1].name.val = expectedArgument->stackOffset;
+		push->operands[1].type.basicType = vt_u64;
+		push->operands[1].permutation = vp_literal;
 
 		push->index = (*TACIndex)++;
 		BasicBlock_append(block, push);
