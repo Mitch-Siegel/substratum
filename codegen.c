@@ -231,6 +231,13 @@ void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metada
 	{
 		printf("Starting prologue\n");
 	}
+	emitInstruction(NULL, context, "\tmv %s, %s\n", registerNames[fp], registerNames[sp]);			  // generate new fp
+
+	if (metadata->localStackSize)
+	{
+		emitInstruction(NULL, context, "\taddi %s, %s, -%d\n", registerNames[sp], registerNames[sp], metadata->localStackSize);
+		calleeSaveRegisters(context, metadata);
+	}
 
 	// if necessary, store saved return address and saved frame pointer to the stack so they will be persisted across this function
 	if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
@@ -240,13 +247,7 @@ void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metada
 	}
 
 	emitInstruction(NULL, context, "\tmv %s, %s\n", registerNames[s1], registerNames[fp]); // store frame pointer
-	emitInstruction(NULL, context, "\tmv %s, %s\n", registerNames[fp], registerNames[sp]);			  // generate new fp
 
-	if (metadata->localStackSize)
-	{
-		emitInstruction(NULL, context, "\taddi %s, %s, -%d\n", registerNames[sp], registerNames[sp], metadata->localStackSize);
-		calleeSaveRegisters(context, metadata);
-	}
 
 	// FIXME: cfa offset if no local stack?
 	fprintf(context->outFile, "\t.cfi_def_cfa_offset %d\n", metadata->localStackSize);
@@ -297,6 +298,8 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
 		EmitStackLoadForSize(NULL, context, ra, MACHINE_REGISTER_SIZE_BYTES, (MACHINE_REGISTER_SIZE_BYTES * metadata->nRegistersCalleeSaved));
 		EmitStackLoadForSize(NULL, context, s1, MACHINE_REGISTER_SIZE_BYTES, (MACHINE_REGISTER_SIZE_BYTES * metadata->nRegistersCalleeSaved) + MACHINE_REGISTER_SIZE_BYTES);
 	}
+
+	calleeRestoreRegisters(context, metadata);
 
 	int localAndArgStackSize = metadata->localStackSize + metadata->function->argStackSize;
 	if(localAndArgStackSize > 0)
@@ -413,6 +416,10 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 	for (struct LinkedListNode *TACRunner = block->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
 	{
 		struct TACLine *thisTAC = TACRunner->data;
+
+		char *printedTAC = sPrintTACLine(thisTAC);
+		fprintf(context->outFile, "#%s\n", printedTAC);
+		free(printedTAC);
 
 		// don't duplicate .loc's for the same line
 		// riscv64-unknown-elf-gdb (or maybe the as/ld) don't enjoy going backwards/staying put in line or column loc

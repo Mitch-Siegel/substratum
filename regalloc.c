@@ -471,5 +471,10 @@ void allocateRegisters(struct CodegenMetadata *metadata)
     }
     printf("CALLS OTHER? %d ASM? %d - local footprint %d, total footprint %d\n", metadata->function->callsOtherFunction, metadata->function->isAsmFun, localStackFootprint, totalStackFootprint);
 
+    while(totalStackFootprint % STACK_ALIGN_BYTES)
+    {
+        totalStackFootprint++;
+    }
+
     metadata->localStackSize = totalStackFootprint;
 }

@@ -295,10 +295,6 @@ char *getAsmOp(enum TACType t)
 		return "lea (literal offset)";
 	case tt_lea_arr:
 		return "lea (array indexed)";
-	case tt_push:
-		return "push";
-	case tt_pop:
-		return "pop";
 	case tt_call:
 		return "call";
 	case tt_label:
@@ -327,6 +323,10 @@ char *getAsmOp(enum TACType t)
 		return "bnez";
 	case tt_jmp:
 		return "jmp";
+	case tt_stack_reserve:
+		return "stack reserve";
+	case tt_stack_store:
+		return "stack store";
 	}
 	return "";
 }
@@ -515,12 +515,12 @@ char *sPrintTACLine(struct TACLine *it)
 		width += sprintf(tacString + width, "%s = %s", it->operands[0].name.str, it->operands[1].name.str);
 		break;
 
-	case tt_push:
-		width += sprintf(tacString + width, "push %s", it->operands[0].name.str);
+	case tt_stack_reserve:
+		width += sprintf(tacString + width, "reserve %d bytes stack", it->operands[0].name.val);
 		break;
 
-	case tt_pop:
-		width += sprintf(tacString + width, "pop %s", it->operands[0].name.str);
+	case tt_stack_store:
+		width += sprintf(tacString + width, "store %s at stack offset %d", it->operands[0].name.str, it->operands[1].name.val);
 		break;
 
 	case tt_call:

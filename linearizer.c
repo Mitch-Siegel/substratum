@@ -28,7 +28,7 @@ struct SymbolTable *walkProgram(struct AST *program)
 		case t_variable_declaration:
 			// walkVariableDeclaration sets isGlobal for us by checking if there is no parent scope
 			walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
-		break;
+			break;
 
 		case t_extern:
 		{
@@ -314,6 +314,11 @@ void walkFunctionDeclaration(struct AST *tree,
 			ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected function name and main scope only!\nMalformed node was of type %s with value [%s]\n", getTokenName(argumentRunner->type), argumentRunner->value);
 		}
 		argumentRunner = argumentRunner->sibling;
+	}
+
+	while (parsedFunc->argStackSize % STACK_ALIGN_BYTES)
+	{
+		parsedFunc->argStackSize++;
 	}
 
 	// if we are parsing a declaration which precedes a definition, there may be an existing declaration (prototype)
@@ -1649,9 +1654,12 @@ void walkFunctionCall(struct AST *tree,
 					 argumentTrees->size);
 	}
 
-	struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, tree->child);
-	reserveStackSpaceForCall->operands[0].name.val = calledFunction->argStackSize + (STACK_ALIGN_BYTES - (calledFunction->argStackSize % STACK_ALIGN_BYTES));
-	BasicBlock_append(block, reserveStackSpaceForCall);
+	if (calledFunction->arguments->size > 0)
+	{
+		struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, tree->child);
+		reserveStackSpaceForCall->operands[0].name.val = calledFunction->argStackSize;
+		BasicBlock_append(block, reserveStackSpaceForCall);
+	}
 
 	int argIndex = calledFunction->arguments->size - 1;
 	while (argumentTrees->size > 0)
