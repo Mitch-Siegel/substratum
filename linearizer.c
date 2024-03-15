@@ -1645,6 +1645,7 @@ void walkFunctionCall(struct AST *tree,
 		argumentRunner = argumentRunner->sibling;
 	}
 
+	struct Stack *argumentPushes = Stack_New();
 	if (argumentTrees->size != calledFunction->arguments->size)
 	{
 		ErrorWithAST(ERROR_CODE, tree,
@@ -1654,18 +1655,12 @@ void walkFunctionCall(struct AST *tree,
 					 argumentTrees->size);
 	}
 
-	if (calledFunction->arguments->size > 0)
-	{
-		struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, tree->child);
-		reserveStackSpaceForCall->operands[0].name.val = calledFunction->argStackSize;
-		BasicBlock_append(block, reserveStackSpaceForCall);
-	}
-
 	int argIndex = calledFunction->arguments->size - 1;
 	while (argumentTrees->size > 0)
 	{
 		struct AST *pushedArgument = Stack_Pop(argumentTrees);
 		struct TACLine *push = newTACLine(*TACIndex, tt_stack_store, pushedArgument);
+		Stack_Push(argumentPushes, pushedArgument);
 		walkSubExpression(pushedArgument, block, scope, TACIndex, tempNum, &push->operands[0]);
 
 		struct VariableEntry *expectedArgument = calledFunction->arguments->data[argIndex];
@@ -1700,15 +1695,24 @@ void walkFunctionCall(struct AST *tree,
 						 convertToType);
 		}
 
-		push->operands[1].name.val = expectedArgument->stackOffset;
-		push->operands[1].type.basicType = vt_u64;
-		push->operands[1].permutation = vp_literal;
-
-		push->index = (*TACIndex)++;
-		BasicBlock_append(block, push);
 		argIndex--;
 	}
 	Stack_Free(argumentTrees);
+
+	if (calledFunction->arguments->size > 0)
+	{
+		struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, tree->child);
+		reserveStackSpaceForCall->operands[0].name.val = calledFunction->argStackSize;
+		BasicBlock_append(block, reserveStackSpaceForCall);
+	}
+
+	while (argumentPushes->size > 0)
+	{
+		struct TACLine *push = Stack_Pop(argumentPushes);
+		push->index = (*TACIndex)++;
+		BasicBlock_append(block, push);
+	}
+	Stack_Free(argumentPushes);
 
 	struct TACLine *call = newTACLine((*TACIndex)++, tt_call, tree);
 	call->operands[1].name.str = calledFunction->name;
