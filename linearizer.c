@@ -1660,7 +1660,7 @@ void walkFunctionCall(struct AST *tree,
 	{
 		struct AST *pushedArgument = Stack_Pop(argumentTrees);
 		struct TACLine *push = newTACLine(*TACIndex, tt_stack_store, pushedArgument);
-		Stack_Push(argumentPushes, pushedArgument);
+		Stack_Push(argumentPushes, push);
 		walkSubExpression(pushedArgument, block, scope, TACIndex, tempNum, &push->operands[0]);
 
 		struct VariableEntry *expectedArgument = calledFunction->arguments->data[argIndex];
