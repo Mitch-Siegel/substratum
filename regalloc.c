@@ -197,10 +197,8 @@ void assignRegisters(struct CodegenMetadata *metadata)
     metadata->registerLifetimes = NULL;
 }
 
-int assignStackSpace(struct CodegenMetadata *m)
+void assignStackSpace(struct CodegenMetadata *m)
 {
-    int localStackFootprint = 0;
-
     struct Stack *needStackSpace = Stack_New();
     for (struct LinkedListNode *runner = m->allLifetimes->head; runner != NULL; runner = runner->next)
     {
@@ -247,10 +245,15 @@ int assignStackSpace(struct CodegenMetadata *m)
         }
         else
         {
-            localStackFootprint -= Scope_ComputePaddingForAlignment(m->function->mainScope, &thisLifetime->type, localStackFootprint);
-            localStackFootprint -= Scope_getSizeOfType(m->function->mainScope, &thisLifetime->type);
-            thisLifetime->stackLocation = localStackFootprint;
+            m->localStackSize += Scope_ComputePaddingForAlignment(m->function->mainScope, &thisLifetime->type, m->localStackSize);
+            m->localStackSize += Scope_getSizeOfType(m->function->mainScope, &thisLifetime->type);
+            thisLifetime->stackLocation = -1 * m->localStackSize;
         }
+    }
+
+    while (m->localStackSize % MACHINE_REGISTER_SIZE_BYTES)
+    {
+        m->localStackSize++;
     }
 
     if (currentVerbosity > VERBOSITY_SILENT)
@@ -259,7 +262,6 @@ int assignStackSpace(struct CodegenMetadata *m)
     }
 
     Stack_Free(needStackSpace);
-    return localStackFootprint;
 }
 
 void allocateRegisters(struct CodegenMetadata *metadata)
@@ -353,7 +355,7 @@ void allocateRegisters(struct CodegenMetadata *metadata)
         }
     }
 
-    int localStackFootprint = -1 * assignStackSpace(metadata);
+    assignStackSpace(metadata);
 
     if (currentVerbosity == VERBOSITY_MAX)
     {
@@ -424,7 +426,7 @@ void allocateRegisters(struct CodegenMetadata *metadata)
     if (currentVerbosity > VERBOSITY_SILENT)
     {
         printf("Final roundup of variables and where they live:\n");
-        printf("Local stack footprint: %d bytes\n", localStackFootprint);
+        printf("Local stack footprint: %d bytes\n", metadata->localStackSize);
         for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
         {
             struct Lifetime *examined = runner->data;
@@ -453,13 +455,21 @@ void allocateRegisters(struct CodegenMetadata *metadata)
         }
     }
 
-    int totalStackFootprint = localStackFootprint *= -1;
+    if (metadata->localStackSize != 0)
+    {
+        printf("%s: Local stack variables: fp-%d\n", metadata->function->name, metadata->localStackSize);
+    }
+    else
+    {
+        printf("%s: No local stack variables\n", metadata->function->name);
+    }
 
     for (int i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
     {
         if (metadata->touchedRegisters[i])
         {
-            totalStackFootprint += MACHINE_REGISTER_SIZE_BYTES;
+            printf("fp-%d-fp-%d: %s\n", metadata->localStackSize + metadata->calleeSaveStackSize + MACHINE_REGISTER_SIZE_BYTES, metadata->localStackSize + metadata->calleeSaveStackSize, registerNames[i]);
+            metadata->calleeSaveStackSize += MACHINE_REGISTER_SIZE_BYTES;
             metadata->nRegistersCalleeSaved++;
         }
     }
@@ -467,14 +477,15 @@ void allocateRegisters(struct CodegenMetadata *metadata)
     // if this function calls another function or is an asm function, make space to store the frame pointer and return address
     if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
     {
-        totalStackFootprint += (2 * MACHINE_REGISTER_SIZE_BYTES);
+        printf("fp%d-fp%d: %s, %s\n", metadata->localStackSize + metadata->calleeSaveStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES), metadata->localStackSize + metadata->calleeSaveStackSize, registerNames[fp], registerNames[ra]);
+        metadata->calleeSaveStackSize += (2 * MACHINE_REGISTER_SIZE_BYTES);
+        metadata->nRegistersCalleeSaved++;
     }
-    printf("CALLS OTHER? %d ASM? %d - local footprint %d, total footprint %d\n", metadata->function->callsOtherFunction, metadata->function->isAsmFun, localStackFootprint, totalStackFootprint);
 
-    while(totalStackFootprint % STACK_ALIGN_BYTES)
+    metadata->totalStackSize = metadata->localStackSize + metadata->calleeSaveStackSize;
+    while (metadata->totalStackSize % STACK_ALIGN_BYTES)
     {
-        totalStackFootprint++;
+        metadata->totalStackSize++;
     }
-
-    metadata->localStackSize = totalStackFootprint;
+    printf("CALLS OTHER? %d ASM? %d - local footprint %d, total footprint %d\n", metadata->function->callsOtherFunction, metadata->function->isAsmFun, metadata->localStackSize, metadata->totalStackSize);
 }
