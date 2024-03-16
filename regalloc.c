@@ -474,11 +474,14 @@ void allocateRegisters(struct CodegenMetadata *metadata)
         }
     }
 
+    // make room to save frame pointer
+    metadata->calleeSaveStackSize += MACHINE_REGISTER_SIZE_BYTES;
+    metadata->nRegistersCalleeSaved++;
+
     // if this function calls another function or is an asm function, make space to store the frame pointer and return address
     if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
     {
-        printf("fp%d-fp%d: %s, %s\n", metadata->localStackSize + metadata->calleeSaveStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES), metadata->localStackSize + metadata->calleeSaveStackSize, registerNames[fp], registerNames[ra]);
-        metadata->calleeSaveStackSize += (2 * MACHINE_REGISTER_SIZE_BYTES);
+        metadata->calleeSaveStackSize += MACHINE_REGISTER_SIZE_BYTES;
         metadata->nRegistersCalleeSaved++;
     }
 

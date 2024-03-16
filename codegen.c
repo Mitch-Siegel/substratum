@@ -239,6 +239,22 @@ void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metada
 	{
 		printf("Starting prologue\n");
 	}
+
+	// save return address (if necessary) and frame pointer to the stack so they will be persisted across this function
+	if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
+	{
+		EmitStackStoreForSize(NULL,
+							  context,
+							  ra,
+							  MACHINE_REGISTER_SIZE_BYTES,
+							  (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((1) * MACHINE_REGISTER_SIZE_BYTES))));
+	}
+	EmitStackStoreForSize(NULL,
+						  context,
+						  fp,
+						  MACHINE_REGISTER_SIZE_BYTES,
+						  (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((0) * MACHINE_REGISTER_SIZE_BYTES))));
+
 	emitInstruction(NULL, context, "\tmv %s, %s\n", registerNames[fp], registerNames[sp]); // generate new fp
 
 	if (metadata->totalStackSize)
@@ -246,21 +262,6 @@ void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metada
 		emitInstruction(NULL, context, "\t# %d bytes locals, %d bytes callee-save\n", metadata->localStackSize, metadata->calleeSaveStackSize);
 		emitInstruction(NULL, context, "\taddi %s, %s, -%d\n", registerNames[sp], registerNames[sp], metadata->totalStackSize);
 		calleeSaveRegisters(context, metadata);
-	}
-
-	// if necessary, store saved return address and saved frame pointer to the stack so they will be persisted across this function
-	if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
-	{
-		EmitFrameStoreForSize(NULL,
-							  context,
-							  ra,
-							  MACHINE_REGISTER_SIZE_BYTES,
-							  (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((1) * MACHINE_REGISTER_SIZE_BYTES))));
-		EmitFrameStoreForSize(NULL,
-							  context,
-							  fp,
-							  MACHINE_REGISTER_SIZE_BYTES,
-							  (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((0) * MACHINE_REGISTER_SIZE_BYTES))));
 	}
 
 	// FIXME: cfa offset if no local stack?
@@ -306,20 +307,22 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
 
 	calleeRestoreRegisters(context, metadata);
 
-	// if necessary, store saved return address and saved frame pointer to the stack so they will be persisted across this function
+	// load saved return address (if necessary) and saved frame pointer to the stack so they will be persisted across this function
+
 	if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
 	{
 		EmitFrameLoadForSize(NULL,
-							  context,
-							  ra,
-							  MACHINE_REGISTER_SIZE_BYTES,
-							  (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((1) * MACHINE_REGISTER_SIZE_BYTES))));
-		EmitFrameLoadForSize(NULL,
-							  context,
-							  fp,
-							  MACHINE_REGISTER_SIZE_BYTES,
-							  (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((0) * MACHINE_REGISTER_SIZE_BYTES))));
+							 context,
+							 ra,
+							 MACHINE_REGISTER_SIZE_BYTES,
+							 (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((1) * MACHINE_REGISTER_SIZE_BYTES))));
 	}
+
+	EmitFrameLoadForSize(NULL,
+						 context,
+						 fp,
+						 MACHINE_REGISTER_SIZE_BYTES,
+						 (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((0) * MACHINE_REGISTER_SIZE_BYTES))));
 
 	int localAndArgStackSize = metadata->totalStackSize + metadata->function->argStackSize;
 	if (localAndArgStackSize > 0)
@@ -328,7 +331,7 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
 		emitInstruction(NULL, context, "\taddi %s, %s, %d\n", registerNames[sp], registerNames[sp], localAndArgStackSize);
 	}
 	// FIXME: cfa offset if no local stack?
-	
+
 	fprintf(context->outFile, "\t.cfi_def_cfa_offset %d\n", metadata->totalStackSize + 16);
 
 	fprintf(context->outFile, "\t.cfi_def_cfa_offset 0\n");
