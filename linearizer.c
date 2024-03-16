@@ -1663,6 +1663,7 @@ void walkFunctionCall(struct AST *tree,
 		Stack_Push(argumentPushes, push);
 		walkSubExpression(pushedArgument, block, scope, TACIndex, tempNum, &push->operands[0]);
 
+
 		struct VariableEntry *expectedArgument = calledFunction->arguments->data[argIndex];
 
 		if (Type_CompareAllowImplicitWidening(TAC_GetTypeOfOperand(push, 0), &expectedArgument->type))
@@ -1695,6 +1696,10 @@ void walkFunctionCall(struct AST *tree,
 						 convertToType);
 		}
 
+		push->operands[1].name.val = expectedArgument->stackOffset;
+		push->operands[1].type.basicType = vt_u64;
+		push->operands[1].permutation = vp_literal;
+		
 		argIndex--;
 	}
 	Stack_Free(argumentTrees);

@@ -407,7 +407,7 @@ void EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
 						   int size,
 						   int offset)
 {
-	emitInstruction(correspondingTACLine, c, "s%c %s, %d(fp)\n", SelectWidthForSize(size), registerNames[sourceReg], offset);
+	emitInstruction(correspondingTACLine, c, "\ts%c %s, %d(fp)\n", SelectWidthForSize(size), registerNames[sourceReg], offset);
 }
 
 // emit an instruction to load store 'size' bytes to 'destReg' from 'offset' bytes from the frame pointer
@@ -417,7 +417,7 @@ void EmitFrameLoadForSize(struct TACLine *correspondingTACLine,
 						  int size,
 						  int offset)
 {
-	emitInstruction(correspondingTACLine, c, "l%c %s, %d(fp)\n", SelectWidthForSize(size), registerNames[destReg], offset);
+	emitInstruction(correspondingTACLine, c, "\tl%c %s, %d(fp)\n", SelectWidthForSize(size), registerNames[destReg], offset);
 }
 
 // emit an instruction to store store 'size' bytes from 'sourceReg' at 'offset' bytes from the stack pointer
@@ -427,7 +427,7 @@ void EmitStackStoreForSize(struct TACLine *correspondingTACLine,
 						   int size,
 						   int offset)
 {
-	emitInstruction(correspondingTACLine, c, "s%c %s, %d(sp)\n", SelectWidthForSize(size), registerNames[sourceReg], offset);
+	emitInstruction(correspondingTACLine, c, "\ts%c %s, %d(sp)\n", SelectWidthForSize(size), registerNames[sourceReg], offset);
 }
 
 // emit an instruction to load store 'size' bytes to 'destReg' from 'offset' bytes from the stack pointer
@@ -437,7 +437,7 @@ void EmitStackLoadForSize(struct TACLine *correspondingTACLine,
 						  int size,
 						  int offset)
 {
-	emitInstruction(correspondingTACLine, c, "l%c %s, %d(sp)\n", SelectWidthForSize(size), registerNames[sourceReg], offset);
+	emitInstruction(correspondingTACLine, c, "\tl%c %s, %d(sp)\n", SelectWidthForSize(size), registerNames[sourceReg], offset);
 }
 
 void EmitPushForOperand(struct TACLine *correspondingTACLine,

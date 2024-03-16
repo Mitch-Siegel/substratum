@@ -235,6 +235,7 @@ void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metada
 
 	if (metadata->localStackSize)
 	{
+		emitInstruction(NULL, context, "\t# %d bytes locals, %d bytes callee-save\n", metadata->localStackSize - (MACHINE_REGISTER_SIZE_BYTES * metadata->nRegistersCalleeSaved), (MACHINE_REGISTER_SIZE_BYTES * metadata->nRegistersCalleeSaved));
 		emitInstruction(NULL, context, "\taddi %s, %s, -%d\n", registerNames[sp], registerNames[sp], metadata->localStackSize);
 		calleeSaveRegisters(context, metadata);
 	}
@@ -304,6 +305,7 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
 	int localAndArgStackSize = metadata->localStackSize + metadata->function->argStackSize;
 	if(localAndArgStackSize > 0)
 	{
+		emitInstruction(NULL, context, "\t# %d bytes locals, %d bytes callee-save, %d bytes arguments\n", metadata->localStackSize - (MACHINE_REGISTER_SIZE_BYTES * metadata->nRegistersCalleeSaved), (MACHINE_REGISTER_SIZE_BYTES * metadata->nRegistersCalleeSaved), metadata->function->argStackSize);
 		emitInstruction(NULL, context, "\taddi %s, %s, %d\n", registerNames[sp], registerNames[sp], localAndArgStackSize);
 	}
 	// FIXME: cfa offset if no local stack?
