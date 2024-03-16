@@ -378,7 +378,6 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 		// put our argument's offset at the newly-aligned stack size, then add the size of the argument to the argument stack size
 		newVariable->stackOffset = scope->parentFunction->argStackSize;
 		scope->parentFunction->argStackSize += Scope_getSizeOfType(scope, type);
-		printf("%s goes at offset %d, total stack size %d\n", newVariable->name, newVariable->stackOffset, scope->parentFunction->argStackSize);
 
 		Scope_insert(scope, name->value, newVariable, e_argument);
 	}

@@ -455,20 +455,11 @@ void allocateRegisters(struct CodegenMetadata *metadata)
         }
     }
 
-    if (metadata->localStackSize != 0)
-    {
-        printf("%s: Local stack variables: fp-%d\n", metadata->function->name, metadata->localStackSize);
-    }
-    else
-    {
-        printf("%s: No local stack variables\n", metadata->function->name);
-    }
 
     for (int i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
     {
         if (metadata->touchedRegisters[i])
         {
-            printf("fp-%d-fp-%d: %s\n", metadata->localStackSize + metadata->calleeSaveStackSize + MACHINE_REGISTER_SIZE_BYTES, metadata->localStackSize + metadata->calleeSaveStackSize, registerNames[i]);
             metadata->calleeSaveStackSize += MACHINE_REGISTER_SIZE_BYTES;
             metadata->nRegistersCalleeSaved++;
         }
@@ -490,5 +481,4 @@ void allocateRegisters(struct CodegenMetadata *metadata)
     {
         metadata->totalStackSize++;
     }
-    printf("CALLS OTHER? %d ASM? %d - local footprint %d, total footprint %d\n", metadata->function->callsOtherFunction, metadata->function->isAsmFun, metadata->localStackSize, metadata->totalStackSize);
 }
