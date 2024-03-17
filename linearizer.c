@@ -1,5 +1,6 @@
 #include "linearizer.h"
 #include "linearizer_generic.h"
+#include "codegen_generic.h"
 
 #include <ctype.h>
 
@@ -27,7 +28,7 @@ struct SymbolTable *walkProgram(struct AST *program)
 		case t_variable_declaration:
 			// walkVariableDeclaration sets isGlobal for us by checking if there is no parent scope
 			walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
-		break;
+			break;
 
 		case t_extern:
 		{
@@ -313,6 +314,11 @@ void walkFunctionDeclaration(struct AST *tree,
 			ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected function name and main scope only!\nMalformed node was of type %s with value [%s]\n", getTokenName(argumentRunner->type), argumentRunner->value);
 		}
 		argumentRunner = argumentRunner->sibling;
+	}
+
+	while (parsedFunc->argStackSize % STACK_ALIGN_BYTES)
+	{
+		parsedFunc->argStackSize++;
 	}
 
 	// if we are parsing a declaration which precedes a definition, there may be an existing declaration (prototype)
@@ -1749,6 +1755,8 @@ void walkFunctionCall(struct AST *tree,
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionCall!\n", getTokenName(tree->type));
 	}
 
+	scope->parentFunction->callsOtherFunction = 1;
+
 	struct FunctionEntry *calledFunction = Scope_lookupFun(scope, tree->child);
 
 	if ((destinationOperand != NULL) &&
@@ -1767,6 +1775,7 @@ void walkFunctionCall(struct AST *tree,
 		argumentRunner = argumentRunner->sibling;
 	}
 
+	struct Stack *argumentPushes = Stack_New();
 	if (argumentTrees->size != calledFunction->arguments->size)
 	{
 		ErrorWithAST(ERROR_CODE, tree,
@@ -1780,8 +1789,10 @@ void walkFunctionCall(struct AST *tree,
 	while (argumentTrees->size > 0)
 	{
 		struct AST *pushedArgument = Stack_Pop(argumentTrees);
-		struct TACLine *push = newTACLine(*TACIndex, tt_push, pushedArgument);
+		struct TACLine *push = newTACLine(*TACIndex, tt_stack_store, pushedArgument);
+		Stack_Push(argumentPushes, push);
 		walkSubExpression(pushedArgument, block, scope, TACIndex, tempNum, &push->operands[0]);
+
 
 		struct VariableEntry *expectedArgument = calledFunction->arguments->data[argIndex];
 
@@ -1815,11 +1826,28 @@ void walkFunctionCall(struct AST *tree,
 						 convertToType);
 		}
 
-		push->index = (*TACIndex)++;
-		BasicBlock_append(block, push);
+		push->operands[1].name.val = expectedArgument->stackOffset;
+		push->operands[1].type.basicType = vt_u64;
+		push->operands[1].permutation = vp_literal;
+		
 		argIndex--;
 	}
 	Stack_Free(argumentTrees);
+
+	if (calledFunction->arguments->size > 0)
+	{
+		struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, tree->child);
+		reserveStackSpaceForCall->operands[0].name.val = calledFunction->argStackSize;
+		BasicBlock_append(block, reserveStackSpaceForCall);
+	}
+
+	while (argumentPushes->size > 0)
+	{
+		struct TACLine *push = Stack_Pop(argumentPushes);
+		push->index = (*TACIndex)++;
+		BasicBlock_append(block, push);
+	}
+	Stack_Free(argumentPushes);
 
 	struct TACLine *call = newTACLine((*TACIndex)++, tt_call, tree);
 	call->operands[1].name.str = calledFunction->name;

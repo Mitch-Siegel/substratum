@@ -52,6 +52,8 @@ struct ParseProgress
 
 int alignSize(int nBytes);
 
+int unalignSize(int nBits);
+
 /*
  * Dictionary for tracking strings
  * Economizes heap space by only storing strings once each

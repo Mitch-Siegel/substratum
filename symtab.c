@@ -20,6 +20,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *n
 	newFunction->name = nameTree->value;
 	newFunction->isDefined = 0;
 	newFunction->isAsmFun = 0;
+	newFunction->callsOtherFunction = 0;
 	return newFunction;
 }
 
@@ -368,11 +369,16 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 		ErrorWithAST(ERROR_CODE, name, "Redifinition of symbol %s!\n", name->value);
 	}
 
+	// if we have an argument, it will be trivially spilled because it is passed in on the stack
 	if (isArgument)
 	{
-		// if we have an argument, it will be trivially spilled because it is passed in on the stack
-		newVariable->stackOffset = scope->parentFunction->argStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES);
+		// compute the padding necessary for alignment of this argument
+		scope->parentFunction->argStackSize += Scope_ComputePaddingForAlignment(scope, type, scope->parentFunction->argStackSize);
+
+		// put our argument's offset at the newly-aligned stack size, then add the size of the argument to the argument stack size
+		newVariable->stackOffset = scope->parentFunction->argStackSize;
 		scope->parentFunction->argStackSize += Scope_getSizeOfType(scope, type);
+
 		Scope_insert(scope, name->value, newVariable, e_argument);
 	}
 	else
@@ -424,13 +430,37 @@ struct ClassEntry *Scope_createClass(struct Scope *scope,
 	return wipClass;
 }
 
+int Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, int currentOffset)
+{
+	// calculate the number of bytes to which this member needs to be aligned
+	int alignBytesForType = unalignSize(Scope_getAlignmentOfType(scope, alignedType));
+
+	// compute how many bytes of padding we will need before this member to align it correctly
+	int paddingRequired = 0;
+	int bytesAfterAlignBoundary = currentOffset % alignBytesForType;
+	if (bytesAfterAlignBoundary)
+	{
+		paddingRequired = alignBytesForType - bytesAfterAlignBoundary;
+	}
+
+	// add the padding to the total size of the class
+	return paddingRequired;
+}
+
 void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
 										struct VariableEntry *v)
 {
 
 	struct ClassMemberOffset *newMemberLocation = malloc(sizeof(struct ClassMemberOffset));
+
+	// add the padding to the total size of the class
+	class->totalSize += Scope_ComputePaddingForAlignment(class->members, &v->type, class->totalSize);
+
+	// place the new member at the (now aligned) current max size of the class
 	newMemberLocation->offset = class->totalSize;
 	newMemberLocation->variable = v;
+
+	// add the size of the member we just added to the total size of the class
 	class->totalSize += Scope_getSizeOfType(class->members, &v->type);
 
 	Stack_Push(class->memberLocations, newMemberLocation);
@@ -722,6 +752,82 @@ int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
 			return 8;
 		}
 	}
+}
+
+int Scope_getAlignmentOfType(struct Scope *scope, struct Type *t)
+{
+	int alignment = 0;
+
+	// TODO: handle arrays of pointers
+	if (t->indirectionLevel > 0)
+	{
+		alignment = 3;
+		if (t->arraySize == 0)
+		{
+			return alignment;
+		}
+	}
+
+	switch (t->basicType)
+	{
+	case vt_null:
+		ErrorAndExit(ERROR_INTERNAL, "Scope_getAlignmentOfType called with basic type of vt_null!\n");
+		break;
+
+	case vt_any:
+		// triple check that `any` is only ever used as a pointer type a la c's void *
+		if ((t->indirectionLevel == 0) || (t->arraySize > 0))
+		{
+			char *illegalAnyTypeName = Type_GetName(t);
+			ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
+		}
+		alignment = 3;
+		break;
+
+	case vt_u8:
+		alignment = 0;
+		break;
+
+	case vt_u16:
+		alignment = 1;
+		break;
+
+	case vt_u32:
+		alignment = 2;
+		break;
+
+	case vt_u64:
+		alignment = 3;
+		break;
+
+	case vt_class:
+	{
+		struct ClassEntry *class = Scope_lookupClassByType(scope, t);
+
+		for (int i = 0; i < class->memberLocations->size; i++)
+		{
+			struct ClassMemberOffset *examinedMember = (struct ClassMemberOffset *)class->memberLocations->data[i];
+
+			int examinedMemberAlignment = Scope_getAlignmentOfType(scope, &examinedMember->variable->type);
+			if (examinedMemberAlignment > alignment)
+			{
+				alignment = examinedMemberAlignment;
+			}
+		}
+	}
+	break;
+	}
+
+	// TODO: see above todo about handling arrays of pointers
+	if (t->arraySize > 0)
+	{
+		if (t->indirectionLevel > 1)
+		{
+			alignment = 3;
+		}
+	}
+
+	return alignment;
 }
 
 void VariableEntry_Print(struct VariableEntry *it, int depth)
