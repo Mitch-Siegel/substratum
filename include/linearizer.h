@@ -48,12 +48,27 @@ void walkScope(struct AST *tree,
 			   int *labelNum,
 			   int controlConvergesToLabel);
 
-void walkConditionCheck(struct AST *tree,
-						struct BasicBlock *block,
-						struct Scope *scope,
-						int *TACIndex,
-						int *tempNum,
-						int falseJumpLabelNum);
+// walk the logical operator pointed to by the AST
+// returns the basic block which will be executed if the condition is met
+// jumps to falseJumpLabelNum if the condition is not met
+struct BasicBlock *walkLogicalOperator(struct AST *tree,
+									   struct BasicBlock *block,
+									   struct Scope *scope,
+									   int *TACIndex,
+									   int *tempNum,
+									   int *labelNum,
+									   int falseJumpLabelNum);
+
+// walk the condition check pointed to by the AST
+// returns the basic block which will be executed if the condition is met
+// jumps to falseJumpLabelNum if the condition is not met
+struct BasicBlock *walkConditionCheck(struct AST *tree,
+									  struct BasicBlock *block,
+									  struct Scope *scope,
+									  int *TACIndex,
+									  int *tempNum,
+									  int *labelNum,
+									  int falseJumpLabelNum);
 
 void walkWhileLoop(struct AST *tree,
 				   struct BasicBlock *block,

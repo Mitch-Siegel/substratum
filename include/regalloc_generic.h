@@ -10,8 +10,44 @@
 #define TEMP_1 6 // t1
 #define TEMP_2 7 // t2
 #define RETURN_REGISTER 10
-#define START_ALLOCATING_FROM 11
+#define START_ALLOCATING_FROM a1
 #define MACHINE_REGISTER_COUNT 32
+
+enum riscvRegisters
+{
+	zero,
+	ra,
+	sp,
+	gp,
+	tp,
+	t0,
+	t1,
+	t2,
+	fp,
+	s1,
+	a0,
+	a1,
+	a2,
+	a3,
+	a4,
+	a5,
+	a6,
+	a7,
+	s2,
+	s3,
+	s4,
+	s5,
+	s6,
+	s7,
+	s8,
+	s9,
+	s10,
+	s11,
+	t3,
+	t4,
+	t5,
+	t6,
+};
 
 enum WritebackLocation
 {
@@ -89,12 +125,18 @@ struct CodegenMetadata
 
 	// flag registers which have *ever* been used so we know what to callee-save
 	char touchedRegisters[MACHINE_REGISTER_COUNT];
+
+	int nRegistersCalleeSaved;
+
+	int localStackSize;		 // number of bytes required to store store all local stack variables of a function (aligned to MACHINE_REGISTER_SIZE_BYTES because callee-saved registers are at the stack addresses directly below these)
+	int calleeSaveStackSize; // number of bytes required to store all callee-saved registers (aligned to MACHINE_REGISTER_SIZE_BYTES by starting from localStackSize and only storing MACHINE_REGISTER_SIZE_BYTES at a time)
+
+	int totalStackSize;	// total number of bytes the function decrements the stack pointer to store all locals and callee-saved registers (aligned to STACK_ALIGN_BYTES)
 };
 
 // populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i
 // then determine which variables should be spilled
 int generateLifetimeOverlaps(struct CodegenMetadata *metadata);
-
 
 // assign registers to variables which have registers
 // assign spill addresses to variables which are spilled

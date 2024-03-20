@@ -1,5 +1,6 @@
 #include "regalloc.h"
 #include "regalloc_generic.h"
+#include "codegen_generic.h"
 
 // return the heuristic for how good a given lifetime is to spill - lower is better
 int lifetimeHeuristic(struct Lifetime *lt)
@@ -80,7 +81,7 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
                 }
             }
 
-            if(bestToSpill == NULL)
+            if (bestToSpill == NULL)
             {
                 ErrorAndExit(ERROR_INTERNAL, "Couldn't choose lifetime to spill!\n");
             }
@@ -196,10 +197,8 @@ void assignRegisters(struct CodegenMetadata *metadata)
     metadata->registerLifetimes = NULL;
 }
 
-int assignStackSpace(struct CodegenMetadata *m)
+void assignStackSpace(struct CodegenMetadata *m)
 {
-    int localStackFootprint = 0;
-
     struct Stack *needStackSpace = Stack_New();
     for (struct LinkedListNode *runner = m->allLifetimes->head; runner != NULL; runner = runner->next)
     {
@@ -236,7 +235,6 @@ int assignStackSpace(struct CodegenMetadata *m)
         }
     }
 
-
     for (int i = 0; i < needStackSpace->size; i++)
     {
         struct Lifetime *thisLifetime = needStackSpace->data[i];
@@ -247,21 +245,26 @@ int assignStackSpace(struct CodegenMetadata *m)
         }
         else
         {
-            localStackFootprint -= Scope_getSizeOfType(m->function->mainScope, &thisLifetime->type);
-            thisLifetime->stackLocation = localStackFootprint;
+            m->localStackSize += Scope_ComputePaddingForAlignment(m->function->mainScope, &thisLifetime->type, m->localStackSize);
+            m->localStackSize += Scope_getSizeOfType(m->function->mainScope, &thisLifetime->type);
+            thisLifetime->stackLocation = -1 * m->localStackSize;
         }
     }
 
-    if(currentVerbosity > VERBOSITY_SILENT)
+    while (m->localStackSize % MACHINE_REGISTER_SIZE_BYTES)
+    {
+        m->localStackSize++;
+    }
+
+    if (currentVerbosity > VERBOSITY_SILENT)
     {
         printf("Stack slots assigned for spilled/stack variables\n");
     }
 
     Stack_Free(needStackSpace);
-    return localStackFootprint;
 }
 
-int allocateRegisters(struct CodegenMetadata *metadata)
+void allocateRegisters(struct CodegenMetadata *metadata)
 {
     metadata->allLifetimes = findLifetimes(metadata->function->mainScope, metadata->function->BasicBlockList);
 
@@ -352,12 +355,11 @@ int allocateRegisters(struct CodegenMetadata *metadata)
         }
     }
 
-    int localStackFootprint = -1 * assignStackSpace(metadata);
+    assignStackSpace(metadata);
 
     if (currentVerbosity == VERBOSITY_MAX)
     {
         // print the function's stack footprint
-
         {
             struct Stack *stackLayout = Stack_New();
             for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
@@ -424,7 +426,7 @@ int allocateRegisters(struct CodegenMetadata *metadata)
     if (currentVerbosity > VERBOSITY_SILENT)
     {
         printf("Final roundup of variables and where they live:\n");
-        printf("Local stack footprint: %d bytes\n", localStackFootprint);
+        printf("Local stack footprint: %d bytes\n", metadata->localStackSize);
         for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
         {
             struct Lifetime *examined = runner->data;
@@ -453,5 +455,30 @@ int allocateRegisters(struct CodegenMetadata *metadata)
         }
     }
 
-    return localStackFootprint;
+
+    for (int i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
+    {
+        if (metadata->touchedRegisters[i])
+        {
+            metadata->calleeSaveStackSize += MACHINE_REGISTER_SIZE_BYTES;
+            metadata->nRegistersCalleeSaved++;
+        }
+    }
+
+    // make room to save frame pointer
+    metadata->calleeSaveStackSize += MACHINE_REGISTER_SIZE_BYTES;
+    metadata->nRegistersCalleeSaved++;
+
+    // if this function calls another function or is an asm function, make space to store the frame pointer and return address
+    if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
+    {
+        metadata->calleeSaveStackSize += MACHINE_REGISTER_SIZE_BYTES;
+        metadata->nRegistersCalleeSaved++;
+    }
+
+    metadata->totalStackSize = metadata->localStackSize + metadata->calleeSaveStackSize;
+    while (metadata->totalStackSize % STACK_ALIGN_BYTES)
+    {
+        metadata->totalStackSize++;
+    }
 }

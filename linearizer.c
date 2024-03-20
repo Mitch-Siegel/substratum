@@ -1,5 +1,6 @@
 #include "linearizer.h"
 #include "linearizer_generic.h"
+#include "codegen_generic.h"
 
 #include <ctype.h>
 
@@ -27,7 +28,7 @@ struct SymbolTable *walkProgram(struct AST *program)
 		case t_variable_declaration:
 			// walkVariableDeclaration sets isGlobal for us by checking if there is no parent scope
 			walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
-		break;
+			break;
 
 		case t_extern:
 		{
@@ -313,6 +314,11 @@ void walkFunctionDeclaration(struct AST *tree,
 			ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected function name and main scope only!\nMalformed node was of type %s with value [%s]\n", getTokenName(argumentRunner->type), argumentRunner->value);
 		}
 		argumentRunner = argumentRunner->sibling;
+	}
+
+	while (parsedFunc->argStackSize % STACK_ALIGN_BYTES)
+	{
+		parsedFunc->argStackSize++;
 	}
 
 	// if we are parsing a declaration which precedes a definition, there may be an existing declaration (prototype)
@@ -652,17 +658,95 @@ void walkScope(struct AST *tree,
 	}
 }
 
-void walkConditionCheck(struct AST *tree,
-						struct BasicBlock *block,
-						struct Scope *scope,
-						int *TACIndex,
-						int *tempNum,
-						int falseJumpLabelNum)
+struct BasicBlock *walkLogicalOperator(struct AST *tree,
+									   struct BasicBlock *block,
+									   struct Scope *scope,
+									   int *TACIndex,
+									   int *tempNum,
+									   int *labelNum,
+									   int falseJumpLabelNum)
+{
+	switch (tree->type)
+	{
+	case t_logical_and:
+	{
+		// if either condition is false, immediately jump to the false label
+		block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
+		block = walkConditionCheck(tree->child->sibling, block, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
+	}
+	break;
+
+	case t_logical_or:
+	{
+		// this block will only be hit if the first condition comes back false
+		struct BasicBlock *checkSecondConditionBlock = BasicBlock_new((*labelNum)++);
+		Scope_addBasicBlock(scope, checkSecondConditionBlock);
+
+		// this is the block in which execution will end up if the condition is true
+		struct BasicBlock *trueBlock = BasicBlock_new((*labelNum)++);
+		Scope_addBasicBlock(scope, trueBlock);
+		block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, checkSecondConditionBlock->labelNum);
+
+		// if we pass the first condition (don't jump to checkSecondConditionBlock), short-circuit directly to the true block
+		struct TACLine *firstConditionTrueJump = newTACLine((*TACIndex)++, tt_jmp, tree->child);
+		firstConditionTrueJump->operands[0].name.val = trueBlock->labelNum;
+		BasicBlock_append(block, firstConditionTrueJump);
+
+		// walk the second condition to checkSecondConditionBlock
+		block = walkConditionCheck(tree->child->sibling, checkSecondConditionBlock, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
+
+		// jump from whatever block the second condition check ends up in (passing path) to our block
+		// this ensures that regardless of which condition is true (first or second) execution always end up in the same block
+		struct TACLine *secondConditionTrueJump = newTACLine((*TACIndex)++, tt_jmp, tree->child->sibling);
+		secondConditionTrueJump->operands[0].name.val = trueBlock->labelNum;
+		BasicBlock_append(block, secondConditionTrueJump);
+
+		block = trueBlock;
+	}
+	break;
+
+	case t_logical_not:
+	{
+		// walkConditionCheck already does everything we need it to
+		// so just create a block representing the opposite of the condition we are testing
+		// then, tell walkConditionCheck to go there if our subcondition is false (!subcondition is true)
+		struct BasicBlock *inverseConditionBlock = BasicBlock_new((*labelNum)++);
+		Scope_addBasicBlock(scope, inverseConditionBlock);
+
+		block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, inverseConditionBlock->labelNum);
+
+		// subcondition is true (!subcondition is false), then control flow should end up at the original conditionFalseJump destination
+		struct TACLine *conditionFalseJump = newTACLine((*TACIndex)++, tt_jmp, tree->child);
+		conditionFalseJump->operands[0].name.val = falseJumpLabelNum;
+		BasicBlock_append(block, conditionFalseJump);
+
+		// return the tricky block we created to be jumped to when our subcondition is false, or that the condition we are linearizing at this level is true
+		block = inverseConditionBlock;
+	}
+	break;
+
+	default:
+		ErrorAndExit(ERROR_INTERNAL, "Logical operator %s (%s) not supported yet\n",
+					 getTokenName(tree->type),
+					 tree->value);
+	}
+
+	return block;
+}
+
+struct BasicBlock *walkConditionCheck(struct AST *tree,
+									  struct BasicBlock *block,
+									  struct Scope *scope,
+									  int *TACIndex,
+									  int *tempNum,
+									  int *labelNum,
+									  int falseJumpLabelNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
 		printf("walkConditionCheck: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 	}
+
 	struct TACLine *condFalseJump = newTACLine(*TACIndex, tt_jmp, tree);
 	condFalseJump->operands[0].name.val = falseJumpLabelNum;
 
@@ -693,20 +777,21 @@ void walkConditionCheck(struct AST *tree,
 		condFalseJump->operation = tt_bltu;
 		break;
 
+	case t_logical_and:
+	case t_logical_or:
 	case t_logical_not:
-		condFalseJump->operation = tt_beqz;
+		block = walkLogicalOperator(tree, block, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
 		break;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Comparison operator %s (%s) not supported yet\n",
-					 getTokenName(tree->type),
-					 tree->value);
-		// condFalseJump->operation = tt_jz;
+		condFalseJump->operation = tt_bne;
+		break;
 	}
 
 	// switch a second time to actually walk the condition
 	switch (tree->type)
 	{
+	// arithmetic comparisons
 	case t_equals:
 	case t_not_equals:
 	case t_less_than:
@@ -715,37 +800,84 @@ void walkConditionCheck(struct AST *tree,
 	case t_greater_than_equals:
 		// standard operators (==, !=, <, >, <=, >=)
 		{
-			walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
-			walkSubExpression(tree->child->sibling, block, scope, TACIndex, tempNum, &condFalseJump->operands[2]);
+			switch (tree->child->type)
+			{
+			case t_logical_and:
+			case t_logical_or:
+			case t_logical_not:
+				ErrorWithAST(ERROR_CODE, tree->child, "Use of comparison operators on results of logical operators is not supported!\n");
+				break;
+
+			default:
+				walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
+				break;
+			}
+
+			switch (tree->child->sibling->type)
+			{
+			case t_logical_and:
+			case t_logical_or:
+			case t_logical_not:
+				ErrorWithAST(ERROR_CODE, tree->child->sibling, "Use of comparison operators on results of logical operators is not supported!\n");
+				break;
+
+			default:
+				walkSubExpression(tree->child->sibling, block, scope, TACIndex, tempNum, &condFalseJump->operands[2]);
+				break;
+			}
 		}
 		break;
 
+	case t_logical_and:
+	case t_logical_or:
 	case t_logical_not:
-		// NOT any condition (!)
-		{
-			walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
-			condFalseJump->operands[2].name.val = 0;
-			condFalseJump->operands[2].permutation = vp_literal;
-			TACOperand_SetBasicType(&condFalseJump->operands[2], vt_u32, 0);
-		}
+		free(condFalseJump);
+		condFalseJump = NULL;
 		break;
+
+	case t_identifier:
+	case t_add:
+	case t_subtract:
+	case t_multiply:
+	case t_divide:
+	case t_modulo:
+	case t_lshift:
+	case t_rshift:
+	case t_bitwise_and:
+	case t_bitwise_or:
+	case t_bitwise_not:
+	case t_bitwise_xor:
+	case t_dereference:
+	case t_address_of:
+	case t_cast:
+	case t_dot:
+	case t_arrow:
+	case t_function_call:
+	{
+		condFalseJump->operation = tt_beq;
+		walkSubExpression(tree, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
+
+		condFalseJump->operands[2].type.basicType = vt_u8;
+		condFalseJump->operands[2].permutation = vp_literal;
+		condFalseJump->operands[2].name.str = "0";
+	}
+	break;
 
 	default:
-		// any other sort of condition - just some expression
-		{
-			ErrorAndExit(ERROR_INTERNAL, "Comparison operator %s (%s) not supported yet\n",
-						 getTokenName(tree->type),
-						 tree->value);
-			// walkSubExpression(tree, block, scope, TACIndex, tempNum, &compareOperation->operands[1]);
-			// compareOperation->operands[2].name.val = 0;
-			// compareOperation->operands[2].permutation = vp_literal;
-			// TACOperand_SetBasicType(&compareOperation->operands[2], vt_u32, 0);
-			// condFalseJump->operation = tt_jz;
-		}
-		break;
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Comparison operator %s (%s) not supported yet\n",
+					 getTokenName(tree->type),
+					 tree->value);
 	}
-	condFalseJump->index = (*TACIndex)++;
-	BasicBlock_append(block, condFalseJump);
+	break;
+	}
+
+	if (condFalseJump != NULL)
+	{
+		condFalseJump->index = (*TACIndex)++;
+		BasicBlock_append(block, condFalseJump);
+	}
+	return block;
 }
 
 void walkWhileLoop(struct AST *tree,
@@ -779,7 +911,7 @@ void walkWhileLoop(struct AST *tree,
 	struct TACLine *whileDo = newTACLine((*TACIndex)++, tt_do, tree);
 	BasicBlock_append(whileBlock, whileDo);
 
-	walkConditionCheck(tree->child, whileBlock, whileScope, TACIndex, tempNum, controlConvergesToLabel);
+	whileBlock = walkConditionCheck(tree->child, whileBlock, whileScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 
 	int endWhileLabel = (*labelNum)++;
 
@@ -794,7 +926,7 @@ void walkWhileLoop(struct AST *tree,
 	}
 
 	struct TACLine *whileLoopJump = newTACLine((*TACIndex)++, tt_jmp, tree);
-	whileLoopJump->operands[0].name.val = whileBlock->labelNum;
+	whileLoopJump->operands[0].name.val = enterWhileJump->operands[0].name.val;
 
 	block = BasicBlock_new(endWhileLabel);
 	Scope_addBasicBlock(scope, block);
@@ -826,7 +958,7 @@ void walkIfStatement(struct AST *tree,
 	if (tree->child->sibling->sibling != NULL)
 	{
 		int elseLabel = (*labelNum)++;
-		walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, elseLabel);
+		block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, elseLabel);
 
 		struct Scope *ifScope = Scope_createSubScope(scope);
 		struct BasicBlock *ifBlock = BasicBlock_new((*labelNum)++);
@@ -863,7 +995,7 @@ void walkIfStatement(struct AST *tree,
 	// no else block
 	else
 	{
-		walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, controlConvergesToLabel);
+		block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 
 		struct Scope *ifScope = Scope_createSubScope(scope);
 		struct BasicBlock *ifBlock = BasicBlock_new((*labelNum)++);
@@ -1623,6 +1755,8 @@ void walkFunctionCall(struct AST *tree,
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionCall!\n", getTokenName(tree->type));
 	}
 
+	scope->parentFunction->callsOtherFunction = 1;
+
 	struct FunctionEntry *calledFunction = Scope_lookupFun(scope, tree->child);
 
 	if ((destinationOperand != NULL) &&
@@ -1641,6 +1775,7 @@ void walkFunctionCall(struct AST *tree,
 		argumentRunner = argumentRunner->sibling;
 	}
 
+	struct Stack *argumentPushes = Stack_New();
 	if (argumentTrees->size != calledFunction->arguments->size)
 	{
 		ErrorWithAST(ERROR_CODE, tree,
@@ -1654,8 +1789,10 @@ void walkFunctionCall(struct AST *tree,
 	while (argumentTrees->size > 0)
 	{
 		struct AST *pushedArgument = Stack_Pop(argumentTrees);
-		struct TACLine *push = newTACLine(*TACIndex, tt_push, pushedArgument);
+		struct TACLine *push = newTACLine(*TACIndex, tt_stack_store, pushedArgument);
+		Stack_Push(argumentPushes, push);
 		walkSubExpression(pushedArgument, block, scope, TACIndex, tempNum, &push->operands[0]);
+
 
 		struct VariableEntry *expectedArgument = calledFunction->arguments->data[argIndex];
 
@@ -1689,11 +1826,28 @@ void walkFunctionCall(struct AST *tree,
 						 convertToType);
 		}
 
-		push->index = (*TACIndex)++;
-		BasicBlock_append(block, push);
+		push->operands[1].name.val = expectedArgument->stackOffset;
+		push->operands[1].type.basicType = vt_u64;
+		push->operands[1].permutation = vp_literal;
+		
 		argIndex--;
 	}
 	Stack_Free(argumentTrees);
+
+	if (calledFunction->arguments->size > 0)
+	{
+		struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, tree->child);
+		reserveStackSpaceForCall->operands[0].name.val = calledFunction->argStackSize;
+		BasicBlock_append(block, reserveStackSpaceForCall);
+	}
+
+	while (argumentPushes->size > 0)
+	{
+		struct TACLine *push = Stack_Pop(argumentPushes);
+		push->index = (*TACIndex)++;
+		BasicBlock_append(block, push);
+	}
+	Stack_Free(argumentPushes);
 
 	struct TACLine *call = newTACLine((*TACIndex)++, tt_call, tree);
 	call->operands[1].name.str = calledFunction->name;
