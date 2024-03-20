@@ -7,8 +7,6 @@ void trackCharacter(struct LinkedList *charsPerLine, int c);
 
 void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, int charsConsumed, struct LinkedList *charsPerLine, unsigned int *curLineP, unsigned int *curColP);
 
-void parseFile(char *inFileName);
-
 #define UPCOMING_CHARS_THIS_LINE(auxil) (*(int *)(auxil->charsRemainingPerLine->head->data))
 #define UPCOMING_CHARS_LAST_LINE(auxil) (*(int *)(auxil->charsRemainingPerLine->tail->data))
 

@@ -352,27 +352,7 @@ string_literal_character
     / [^"\""]
     / "'"
 _ 
-   <- directive+ _*
-    / (space / comment)*
-
-kw_include <- "#include \""
-kw_quote <- "\""
-include_file <- ([^"\""]+) { parseFile($0); } 
-
-directive
-   <- kw_include include_file kw_quote eol
-   #"#file " [^'\n']+ '\n' { printf("SET THE CURRENT FILE\n"); auxil->curFile = Dictionary_LookupOrInsert(auxil->dict, $0); }
-   # / "#line " (DIGIT)+      { auxil->curLine = atoi($0); auxil->curLineRaw = atoi($0); auxil->curCol = 1; auxil->curColRaw = 1; }
-
-
-comment
-   <- '/*' ( !'*/' . )* '*/'
-    ## error handling ##
-    / '/*' ( !'*/' . )*
-    {
-        ErrorAndExit(ERROR_CODE, "Unclosed comment block!");
-    }
-    / '//' (!eol .)* eol
+   <- (space)*
 
 space <- blank / eol
 blank <- [ \t\v\f]
