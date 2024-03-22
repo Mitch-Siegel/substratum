@@ -33,8 +33,10 @@ struct Config config;
 
 void runPreprocessor(char *inFileName)
 {
-	char **preprocessorArgv = malloc(((includePath->size * 2) + 2) * sizeof(char *));
+	char **preprocessorArgv = malloc(((includePath->size * 2) + 4) * sizeof(char *));
 	int preprocessorArgI = 0;
+
+	preprocessorArgv[preprocessorArgI++] = "sbpp";
 
 	if (strcmp(inFileName, "stdin"))
 	{
@@ -44,17 +46,11 @@ void runPreprocessor(char *inFileName)
 
 	for (struct LinkedListNode *includePathRunner = includePath->head; includePathRunner != NULL; includePathRunner = includePathRunner->next)
 	{
-		preprocessorArgv[preprocessorArgI++] = "-I ";
+		preprocessorArgv[preprocessorArgI++] = "-I";
 		preprocessorArgv[preprocessorArgI++] = includePathRunner->data;
 	}
 
 	preprocessorArgv[preprocessorArgI++] = NULL;
-
-	for (int i = 0; preprocessorArgv[i] != NULL; i++)
-	{
-		printf("%s\n", preprocessorArgv[i]);
-	}
-
 	execvp("sbpp", preprocessorArgv);
 }
 
