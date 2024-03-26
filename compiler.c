@@ -36,12 +36,18 @@ void runPreprocessor(char *inFileName)
 	char **preprocessorArgv = malloc(((includePath->size * 2) + 4) * sizeof(char *));
 	int preprocessorArgI = 0;
 
-	preprocessorArgv[preprocessorArgI++] = "sbpp";
+	preprocessorArgv[preprocessorArgI++] = "gcc";
+	preprocessorArgv[preprocessorArgI++] = "-x";
+	preprocessorArgv[preprocessorArgI++] = "c";
+	preprocessorArgv[preprocessorArgI++] = "-E";
 
 	if (strcmp(inFileName, "stdin"))
 	{
-		preprocessorArgv[preprocessorArgI++] = "-i";
 		preprocessorArgv[preprocessorArgI++] = inFileName;
+	}
+	else
+	{
+		preprocessorArgv[preprocessorArgI++] = "- ";
 	}
 
 	for (struct LinkedListNode *includePathRunner = includePath->head; includePathRunner != NULL; includePathRunner = includePathRunner->next)
@@ -51,12 +57,15 @@ void runPreprocessor(char *inFileName)
 	}
 
 	preprocessorArgv[preprocessorArgI++] = NULL;
-	execvp("sbpp", preprocessorArgv);
+	for(int i = 0; i < preprocessorArgI; i++)
+	{
+		fprintf(stderr, "%d:%s\n", i, preprocessorArgv[i]);
+	}
+	execvp("gcc", preprocessorArgv);
 }
 
 struct AST *parseFile(char *inFileName)
 {
-
 	struct ParseProgress p;
 	memset(&p, 0, sizeof(struct ParseProgress));
 	p.curLine = 0;
