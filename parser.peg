@@ -352,7 +352,7 @@ string_literal_character
     / [^"\""]
     / "'"
 _ 
-   <- '#' (!eol .)* eol _*    # for now, just ignore the preprocessor's line markers
+   <- '#' space* <DIGIT+> space* <(!space .)+> (!eol .)* eol _* { auxil->curLine = atoi($1); auxil->curFile = $2; auxil->curCol = 0; }    # for now, just ignore the preprocessor's line markers
     / space*
 
 space <- blank / eol
