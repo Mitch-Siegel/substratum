@@ -57,10 +57,7 @@ void runPreprocessor(char *inFileName)
 	}
 
 	preprocessorArgv[preprocessorArgI++] = NULL;
-	for(int i = 0; i < preprocessorArgI; i++)
-	{
-		fprintf(stderr, "%d:%s\n", i, preprocessorArgv[i]);
-	}
+
 	if(execvp(preprocessorArgv[0], preprocessorArgv) < 0)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Failed to execute preprocessor: %s\n", strerror(errno));
