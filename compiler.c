@@ -33,7 +33,7 @@ struct Config config;
 
 void runPreprocessor(char *inFileName)
 {
-	char **preprocessorArgv = malloc(((includePath->size * 2) + 5) * sizeof(char *));
+	char **preprocessorArgv = malloc(((includePath->size * 2) + 6) * sizeof(char *));
 	int preprocessorArgI = 0;
 
 	preprocessorArgv[preprocessorArgI++] = "gcc";
