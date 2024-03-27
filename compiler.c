@@ -33,7 +33,7 @@ struct Config config;
 
 void runPreprocessor(char *inFileName)
 {
-	char **preprocessorArgv = malloc(((includePath->size * 2) + 4) * sizeof(char *));
+	char **preprocessorArgv = malloc(((includePath->size * 2) + 5) * sizeof(char *));
 	int preprocessorArgI = 0;
 
 	preprocessorArgv[preprocessorArgI++] = "gcc";
@@ -61,7 +61,11 @@ void runPreprocessor(char *inFileName)
 	{
 		fprintf(stderr, "%d:%s\n", i, preprocessorArgv[i]);
 	}
-	execvp("gcc", preprocessorArgv);
+	if(execvp(preprocessorArgv[0], preprocessorArgv) < 0)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Failed to execute preprocessor: %s\n", strerror(errno));
+	}
+	ErrorAndExit(ERROR_INTERNAL, "Returned from exec of preprocessor!\n");
 }
 
 struct AST *parseFile(char *inFileName)
@@ -88,7 +92,7 @@ struct AST *parseFile(char *inFileName)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Unable to make pipe for preprocessor: %s\n", strerror(errno));
 	}
-
+	
 	if ((pid = fork()) == -1)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Couldn't fork to run preprocessor!\n");
@@ -105,7 +109,10 @@ struct AST *parseFile(char *inFileName)
 		close(preprocessorPipe[1]); // we won't write to the preprocessor
 		dup2(preprocessorPipe[0], STDIN_FILENO);
 		close(preprocessorPipe[0]); // duplicated
-		waitpid(pid, NULL, 0);
+		if(waitpid(pid, NULL, 0) != pid)
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Error waiting for preprocessor (pid %d): %s", pid, strerror(errno));
+		}
 	}
 
 	p.f = stdin;

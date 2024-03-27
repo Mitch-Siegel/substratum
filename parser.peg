@@ -352,7 +352,8 @@ string_literal_character
     / [^"\""]
     / "'"
 _ 
-   <- (space)*
+   <- '#' (!eol .)* eol _*    # for now, just ignore the preprocessor's line markers
+    / space*
 
 space <- blank / eol
 blank <- [ \t\v\f]
