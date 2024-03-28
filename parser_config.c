@@ -12,6 +12,13 @@ void trackCharacter(struct LinkedList *charsPerLine, int c)
 {
     if (c != '\n')
     {
+        if (charsPerLine->size == 0)
+        {
+            int *zeroCharLine = malloc(sizeof(int));
+            *zeroCharLine = 0;
+            LinkedList_Append(charsPerLine, zeroCharLine);
+        }
+
         (*(int *)charsPerLine->tail->data)++;
     }
     else
@@ -28,7 +35,7 @@ void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, int 
     while (length > 0)
     {
         // if we read EOF and there are no more lines to track source location with, early return
-        if (auxil->eofReceived && (charsPerLine->size == 0))
+        if (auxil->eofReceived || (charsPerLine->size == 0))
         {
             return;
         }
@@ -48,4 +55,9 @@ void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, int 
             (*curLineP)++;
         }
     }
+}
+
+void parserError(struct ParseProgress *auxil)
+{
+    ErrorAndExit(ERROR_INTERNAL, "Syntax Error between %s:%d:%d and %d\n", auxil->curFile, auxil->curLine, auxil->curCol, auxil->curLine + auxil->charsRemainingPerLine->size);
 }

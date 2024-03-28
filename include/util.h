@@ -46,7 +46,7 @@ struct ParseProgress
 	FILE *f;
 	struct Dictionary *dict;
 	struct LinkedList *charsRemainingPerLine;
-	int lastMatchLocation;
+	int lastMatchLocation; // location of last parser match relative to pcc buffer
 	char eofReceived;
 };
 

@@ -114,17 +114,23 @@ struct AST *parseFile(char *inFileName)
 
 	p.f = stdin;
 
+	struct AST *parsed = NULL;
 	struct AST *translationUnit = NULL;
 	while (pcc_parse(parseContext, &translationUnit))
 	{
+		parsed = AST_S(parsed, translationUnit);
+	}
+
+	if(p.curFile != NULL)
+	{
+		free(p.curFile);
 	}
 
 	pcc_destroy(parseContext);
 
 	LinkedList_Free(p.charsRemainingPerLine, free);
-	Stack_Push(parsedAsts, translationUnit);
 
-	return translationUnit;
+	return parsed;
 }
 
 int main(int argc, char **argv)
@@ -132,7 +138,6 @@ int main(int argc, char **argv)
 	char *inFileName = "stdin";
 	char *outFileName = "stdout";
 
-	parsedAsts = Stack_New();
 	includePath = LinkedList_New();
 
 	int option;
