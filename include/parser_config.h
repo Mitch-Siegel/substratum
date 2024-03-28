@@ -54,8 +54,28 @@ void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, int 
         printf("]\n");                                                                                                         \
     }*/
 
-#define PCC_ERROR(auxil)                                                                                    \
-    {                                                                                                       \
+#define PCC_ERROR(auxil)                                                                                               \
+    {                                                                                                                  \
+        int nNlFound = 0;                                                                                              \
+        ssize_t i = 0;                                                                                                 \
+        for (i = ctx->buffer.len - 1; (i >= 0) && (nNlFound < 3); i--)                                                 \
+        {                                                                                                              \
+            if (ctx->buffer.buf[i] == '\n')                                                                            \
+            {                                                                                                          \
+                nNlFound++;                                                                                            \
+            }                                                                                                          \
+        }                                                                                                              \
+        if (nNlFound == 3)                                                                                             \
+        {                                                                                                              \
+            i += 2;                                                                                                    \
+        }                                                                                                              \
+        fputs("Syntax error near:\n", stderr);                                                                         \
+        while (i < ctx->buffer.len)                                                                                    \
+        {                                                                                                              \
+            fputc(ctx->buffer.buf[i], stderr);                                                                         \
+            i++;                                                                                                       \
+        }                                                                                                              \
+        fputc('\n', stderr);                                                                                           \
         ErrorAndExit(ERROR_INTERNAL, "Syntax Error: %s:%d:%d\n", auxil->curFile, auxil->curLineRaw, auxil->curColRaw); \
     }
 
