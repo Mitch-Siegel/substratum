@@ -16,11 +16,10 @@ struct Dictionary *parseDict = NULL;
 
 char currentVerbosity = 0;
 
-
 void usage()
 {
-	printf("Classical language compiler: Usage\n");
-	printf("-i (infile) : specify input classical file to compile\n");
+	printf("Substratum language compiler: Usage\n");
+	printf("-i (infile) : specify input substratum file to compile\n");
 	printf("-o (outfile): specify output file to generate object code to\n");
 	printf("\n");
 }
@@ -28,16 +27,112 @@ void usage()
 struct Stack *parseProgressStack = NULL;
 struct Stack *parsedAsts = NULL;
 struct LinkedList *includePath = NULL;
-
+struct LinkedList *inputFiles = NULL;
 
 struct Config config;
 
+void runPreprocessor(char *inFileName)
+{
+	char **preprocessorArgv = malloc(((includePath->size * 2) + 6) * sizeof(char *));
+	int preprocessorArgI = 0;
+
+	preprocessorArgv[preprocessorArgI++] = "gcc";
+	preprocessorArgv[preprocessorArgI++] = "-x";
+	preprocessorArgv[preprocessorArgI++] = "c";
+	preprocessorArgv[preprocessorArgI++] = "-E";
+
+	if (strcmp(inFileName, "stdin"))
+	{
+		preprocessorArgv[preprocessorArgI++] = inFileName;
+	}
+	else
+	{
+		preprocessorArgv[preprocessorArgI++] = "- ";
+	}
+
+	for (struct LinkedListNode *includePathRunner = includePath->head; includePathRunner != NULL; includePathRunner = includePathRunner->next)
+	{
+		preprocessorArgv[preprocessorArgI++] = "-I";
+		preprocessorArgv[preprocessorArgI++] = includePathRunner->data;
+	}
+
+	preprocessorArgv[preprocessorArgI++] = NULL;
+
+	if(execvp(preprocessorArgv[0], preprocessorArgv) < 0)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Failed to execute preprocessor: %s\n", strerror(errno));
+	}
+	ErrorAndExit(ERROR_INTERNAL, "Returned from exec of preprocessor!\n");
+}
+
+struct AST *parseFile(char *inFileName)
+{
+	struct ParseProgress p;
+	memset(&p, 0, sizeof(struct ParseProgress));
+	p.curLine = 0;
+	p.curCol = 0;
+	p.curLineRaw = 0;
+	p.curColRaw = 0;
+	p.curFile = NULL;
+	p.charsRemainingPerLine = LinkedList_New();
+	int *lineZeroChars = malloc(sizeof(int));
+	*lineZeroChars = 0;
+	LinkedList_Append(p.charsRemainingPerLine, lineZeroChars);
+
+	p.dict = parseDict;
+
+	pcc_context_t *parseContext = pcc_create(&p);
+
+	int pid;
+	int preprocessorPipe[2] = {0};
+	if (pipe(preprocessorPipe) < 0)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Unable to make pipe for preprocessor: %s\n", strerror(errno));
+	}
+	
+	if ((pid = fork()) == -1)
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Couldn't fork to run preprocessor!\n");
+	}
+	else if (pid == 0)
+	{
+		dup2(preprocessorPipe[1], STDOUT_FILENO);
+		close(preprocessorPipe[0]); // duplicated
+		close(preprocessorPipe[1]); // not needed - we don't read from stdout
+		runPreprocessor(inFileName);
+	}
+	else
+	{
+		close(preprocessorPipe[1]); // we won't write to the preprocessor
+		dup2(preprocessorPipe[0], STDIN_FILENO);
+		close(preprocessorPipe[0]); // duplicated
+		if(waitpid(pid, NULL, 0) != pid)
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Error waiting for preprocessor (pid %d): %s", pid, strerror(errno));
+		}
+	}
+
+	p.f = stdin;
+
+	struct AST *parsed = NULL;
+	struct AST *translationUnit = NULL;
+	while (pcc_parse(parseContext, &translationUnit))
+	{
+		parsed = AST_S(parsed, translationUnit);
+	}
+
+	pcc_destroy(parseContext);
+
+	LinkedList_Free(p.charsRemainingPerLine, free);
+
+	return parsed;
+}
+
 int main(int argc, char **argv)
 {
-	char *inFileName = NULL;
-	char *outFileName = NULL;
+	char *inFileName = "stdin";
+	char *outFileName = "stdout";
 
-	parsedAsts = Stack_New();
 	includePath = LinkedList_New();
 
 	int option;
@@ -93,7 +188,7 @@ int main(int argc, char **argv)
 		{
 			LinkedList_Append(includePath, strdup(optarg));
 		}
-			break;
+		break;
 
 		default:
 			usage();
@@ -108,20 +203,6 @@ int main(int argc, char **argv)
 	}
 	printf("\n");
 
-	if (inFileName == NULL)
-	{
-		usage();
-		ErrorAndExit(ERROR_INVOCATION, "No input file provided!\n");
-	}
-
-	if (outFileName == NULL)
-	{
-		usage();
-		ErrorAndExit(ERROR_INVOCATION, "No input file provided!\n");
-	}
-
-	printf("Compiling source file %s\n", inFileName);
-
 	printf("Output will be generated to %s\n\n", outFileName);
 
 	parseProgressStack = Stack_New();
@@ -130,20 +211,8 @@ int main(int argc, char **argv)
 
 	parseDict = Dictionary_New(10);
 
-	parseFile(inFileName);
-
+	struct AST *program = parseFile(inFileName);
 	LinkedList_Free(includePath, free);
-
-	// struct AST *program = ParseProgram("/tmp/auto.capp", parseDict);
-
-	// serializeAST("astdump", program);
-	// printf("\n");
-
-	struct AST *program = NULL;
-	for(int i = 0; i < parsedAsts->size; i++)
-	{
-		program = AST_ConstructAddSibling(program, parsedAsts->data[i]);
-	}
 
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
@@ -174,11 +243,15 @@ int main(int argc, char **argv)
 		SymbolTable_print(theTable, 1);
 	}
 
-	FILE *outFile = fopen(outFileName, "wb");
+	FILE *outFile = stdout;
 
-	if (outFile == NULL)
+	if (strcmp(outFileName, "stdout"))
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", outFileName);
+		outFile = fopen(outFileName, "wb");
+		if (outFile == NULL)
+		{
+			ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", outFileName);
+		}
 	}
 
 	currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
@@ -187,15 +260,14 @@ int main(int argc, char **argv)
 	{
 		printf("Generating code\n");
 	}
-	
+
 	{
 		char *boilerplateAsm1[] = {
 			"\t.Ltext0:",
 			"\t.cfi_sections\t.debug_frame",
-			NULL
-		};
+			NULL};
 
-		for(int i = 0; boilerplateAsm1[i] != NULL; i++)
+		for (int i = 0; boilerplateAsm1[i] != NULL; i++)
 		{
 			fprintf(outFile, "%s\n", boilerplateAsm1[i]);
 		}
@@ -204,10 +276,9 @@ int main(int argc, char **argv)
 
 		char *boilerplateAsm2[] = {
 			"\t.attribute unaligned_access, 0",
-			NULL
-		};
+			NULL};
 
-		for(int i = 0; boilerplateAsm2[i] != NULL; i++)
+		for (int i = 0; boilerplateAsm2[i] != NULL; i++)
 		{
 			fprintf(outFile, "%s\n", boilerplateAsm2[i]);
 		}
