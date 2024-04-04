@@ -346,7 +346,7 @@ string_literal_character
     / "'"
 _ 
    <- _ _
-    / '#' space* <DIGIT+> space* <(!space .)+> (!eol .)* eol { auxil->curLine = atoi($1); if(auxil->curFile != NULL) { free(auxil->curFile); } auxil->curFile = strdup($2); auxil->curCol = 0; }    # for now, just ignore the preprocessor's line markers
+    / '#' space* <DIGIT+> space* <(!space .)+> (!eol .)* eol { auxil->curLine = atoi($1); setCurrentFile(&auxil->curFile, $2); auxil->curCol = 0; }    # for now, just ignore the preprocessor's line markers
     / space*
 
 space <- blank / eol

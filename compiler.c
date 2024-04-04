@@ -121,11 +121,6 @@ struct AST *parseFile(char *inFileName)
 		parsed = AST_S(parsed, translationUnit);
 	}
 
-	if(p.curFile != NULL)
-	{
-		free(p.curFile);
-	}
-
 	pcc_destroy(parseContext);
 
 	LinkedList_Free(p.charsRemainingPerLine, free);

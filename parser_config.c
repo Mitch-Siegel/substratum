@@ -61,3 +61,8 @@ void parserError(struct ParseProgress *auxil)
 {
     ErrorAndExit(ERROR_INTERNAL, "Syntax Error between %s:%d:%d and %d\n", auxil->curFile, auxil->curLine, auxil->curCol, auxil->curLine + auxil->charsRemainingPerLine->size);
 }
+
+void setCurrentFile(char **curFileP, char *fileName)
+{
+    *curFileP = Dictionary_LookupOrInsert(parseDict, fileName);
+}

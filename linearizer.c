@@ -2337,7 +2337,7 @@ struct TACOperand *walkDereference(struct AST *tree,
 	}
 
 	copyTACOperandDecayArrays(&dereference->operands[0], &dereference->operands[1]);
-	dereference->operands[0].type.indirectionLevel--;
+	TAC_GetTypeOfOperand(dereference, 0)->indirectionLevel--;
 	dereference->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 	dereference->operands[0].permutation = vp_temp;
 

@@ -9,6 +9,8 @@ void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, int 
 
 void parserError(struct ParseProgress *auxil);
 
+void setCurrentFile(char **curFileP, char *fileName);
+
 #define UPCOMING_CHARS_THIS_LINE(auxil) (*(int *)(auxil->charsRemainingPerLine->head->data))
 #define UPCOMING_CHARS_LAST_LINE(auxil) (*(int *)(auxil->charsRemainingPerLine->tail->data))
 
