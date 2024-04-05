@@ -41,15 +41,8 @@ struct SymbolTable *walkProgram(struct AST *program)
 
 		case t_class:
 		{
-			// if (programRunner->child->sibling->type == t_compound_statement)
-			// {
 			walkClassDeclaration(programRunner, globalBlock, programTable->globalScope);
 			break;
-			// }
-			// else // TODO: disallow bad sibling types?
-			// {
-			// walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
-			// }
 		}
 		break;
 
