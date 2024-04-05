@@ -10,6 +10,7 @@ char *token_names[t_EOF + 1] = {
 	"t_char_literal",
 	"t_string_literal",
 	"t_extern",
+	"t_sizeof",
 	"t_asm",
 	"t_variable_declaration",
 	"t_type_name",

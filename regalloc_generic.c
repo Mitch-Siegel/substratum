@@ -190,9 +190,8 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			break;
 
 			// single operand in slot 0
-			case tt_push:
-			case tt_pop:
 			case tt_return:
+			case tt_stack_store:
 			{
 				if (TAC_GetTypeOfOperand(thisLine, 0)->basicType != vt_null)
 				{
@@ -309,6 +308,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 
 			case tt_jmp:
 			case tt_label:
+			case tt_stack_reserve:
 				break;
 			}
 			TACRunner = TACRunner->next;

@@ -111,7 +111,22 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 
 			fprintf(outFile, "\t.globl %s\n", varName);
 
-			fprintf(outFile, "\t.align %d\n", alignSize(varSize));
+			int alignBits = -1;
+
+			if (v->type.arraySize > 0)
+			{
+				alignBits = alignSize(Scope_getSizeOfArrayElement(table->globalScope, v));
+			}
+			else
+			{
+				alignBits = alignSize(varSize);
+			}
+
+			if (alignBits > 0)
+			{
+				fprintf(outFile, ".align %d\n", alignBits);
+			}
+
 			fprintf(outFile, "\t.type\t%s, @object\n", varName);
 			fprintf(outFile, "\t.size \t%s, %d\n", varName, varSize);
 			fprintf(outFile, "%s:\n", varName);
@@ -170,6 +185,161 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 	}
 };
 
+void calleeSaveRegisters(struct CodegenContext *context, struct CodegenMetadata *metadata)
+{
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("Callee-saving touched registers\n");
+	}
+
+	// callee-save all registers (FIXME - caller vs callee save ABI?)
+	int regNumSaved = 0;
+	for (int i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
+	{
+		if (metadata->touchedRegisters[i] && (i != RETURN_REGISTER))
+		{
+			// store registers we modify
+			EmitFrameStoreForSize(NULL,
+								  context,
+								  i,
+								  MACHINE_REGISTER_SIZE_BYTES,
+								  (-1 * (metadata->localStackSize + ((regNumSaved + 1) * MACHINE_REGISTER_SIZE_BYTES)))); // (regNumSaved + 1) to account for stack growth downwards
+			regNumSaved++;
+		}
+	}
+}
+
+void calleeRestoreRegisters(struct CodegenContext *context, struct CodegenMetadata *metadata)
+{
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("Callee-restoring touched registers\n");
+	}
+
+	// callee-save all registers (FIXME - caller vs callee save ABI?)
+	int regNumRestored = 0;
+	for (int i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
+	{
+		if (metadata->touchedRegisters[i] && (i != RETURN_REGISTER))
+		{
+			// store registers we modify
+			EmitFrameLoadForSize(NULL,
+								 context,
+								 i,
+								 MACHINE_REGISTER_SIZE_BYTES,
+								 (-1 * (metadata->localStackSize + ((regNumRestored + 1) * MACHINE_REGISTER_SIZE_BYTES)))); // (regNumRestored + 1) to account for stack growth downwards
+			regNumRestored++;
+		}
+	}
+}
+
+void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metadata)
+{
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("Starting prologue\n");
+	}
+
+	// save return address (if necessary) and frame pointer to the stack so they will be persisted across this function
+	if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
+	{
+		EmitStackStoreForSize(NULL,
+							  context,
+							  ra,
+							  MACHINE_REGISTER_SIZE_BYTES,
+							  (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((1) * MACHINE_REGISTER_SIZE_BYTES))));
+	}
+	EmitStackStoreForSize(NULL,
+						  context,
+						  fp,
+						  MACHINE_REGISTER_SIZE_BYTES,
+						  (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((0) * MACHINE_REGISTER_SIZE_BYTES))));
+
+	emitInstruction(NULL, context, "\tmv %s, %s\n", registerNames[fp], registerNames[sp]); // generate new fp
+
+	if (metadata->totalStackSize)
+	{
+		emitInstruction(NULL, context, "\t# %d bytes locals, %d bytes callee-save\n", metadata->localStackSize, metadata->calleeSaveStackSize);
+		emitInstruction(NULL, context, "\taddi %s, %s, -%d\n", registerNames[sp], registerNames[sp], metadata->totalStackSize);
+		calleeSaveRegisters(context, metadata);
+	}
+
+	// FIXME: cfa offset if no local stack?
+	fprintf(context->outFile, "\t.cfi_def_cfa_offset %d\n", metadata->totalStackSize);
+
+	if (currentVerbosity > VERBOSITY_MINIMAL)
+	{
+		printf("Placing arguments into registers\n");
+	}
+
+	// move any applicable arguments into registers if we are expecting them not to be spilled
+	for (struct LinkedListNode *ltRunner = metadata->allLifetimes->head; ltRunner != NULL; ltRunner = ltRunner->next)
+	{
+		struct Lifetime *thisLifetime = ltRunner->data;
+
+		// (short-circuit away from looking up temps since they can't be arguments)
+		if (thisLifetime->name[0] != '.')
+		{
+			struct ScopeMember *thisEntry = Scope_lookup(metadata->function->mainScope, thisLifetime->name);
+			// we need to place this variable into its register if:
+			if ((thisEntry != NULL) &&							 // it exists
+				(thisEntry->type == e_argument) &&				 // it's an argument
+				(thisLifetime->wbLocation == wb_register) &&	 // it lives in a register
+				(thisLifetime->nreads || thisLifetime->nwrites)) // theyre are either read from or written to at all
+			{
+				struct VariableEntry *theArgument = thisEntry->entry;
+
+				char loadWidth = SelectWidthForLifetime(metadata->function->mainScope, thisLifetime);
+				emitInstruction(NULL, context, "\tl%c%s %s, %d(fp) # place %s\n",
+								loadWidth,
+								SelectSignForLoad(loadWidth, &thisLifetime->type),
+								registerNames[thisLifetime->registerLocation],
+								theArgument->stackOffset,
+								thisLifetime->name);
+			}
+		}
+	}
+}
+
+void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metadata)
+{
+	fprintf(context->outFile, "%s_done:\n", metadata->function->name);
+
+	calleeRestoreRegisters(context, metadata);
+
+	// load saved return address (if necessary) and saved frame pointer to the stack so they will be persisted across this function
+
+	if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
+	{
+		EmitFrameLoadForSize(NULL,
+							 context,
+							 ra,
+							 MACHINE_REGISTER_SIZE_BYTES,
+							 (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((1) * MACHINE_REGISTER_SIZE_BYTES))));
+	}
+
+	EmitFrameLoadForSize(NULL,
+						 context,
+						 fp,
+						 MACHINE_REGISTER_SIZE_BYTES,
+						 (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((0) * MACHINE_REGISTER_SIZE_BYTES))));
+
+	int localAndArgStackSize = metadata->totalStackSize + metadata->function->argStackSize;
+	if (localAndArgStackSize > 0)
+	{
+		emitInstruction(NULL, context, "\t# %d bytes locals, %d bytes callee-save, %d bytes arguments\n", metadata->totalStackSize - (MACHINE_REGISTER_SIZE_BYTES * metadata->nRegistersCalleeSaved), (MACHINE_REGISTER_SIZE_BYTES * metadata->nRegistersCalleeSaved), metadata->function->argStackSize);
+		emitInstruction(NULL, context, "\taddi %s, %s, %d\n", registerNames[sp], registerNames[sp], localAndArgStackSize);
+	}
+	// FIXME: cfa offset if no local stack?
+
+	fprintf(context->outFile, "\t.cfi_def_cfa_offset %d\n", metadata->totalStackSize + 16);
+
+	fprintf(context->outFile, "\t.cfi_def_cfa_offset 0\n");
+	emitInstruction(NULL, context, "\tjalr zero, 0(%s)\n", registerNames[ra]);
+
+	fprintf(context->outFile, "\t.cfi_endproc\n");
+}
+
 /*
  * code generation for funcitons (lifetime management, etc)
  *
@@ -192,60 +362,9 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 	{
 		printf("Emitting function prologue\n");
 	}
-	fprintf(outFile, "%s:\n", function->name);
+	fprintf(outFile, ".align 2\n%s:\n", function->name);
 	fprintf(outFile, "\t.loc 1 %d %d\n", function->correspondingTree.sourceLine, function->correspondingTree.sourceCol);
 	fprintf(outFile, "\t.cfi_startproc\n");
-
-	// push return address
-	EmitPushForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 1);
-	fprintf(outFile, "\t.cfi_offset 1, %d\n", MACHINE_REGISTER_SIZE_BYTES * -1);
-
-	// push frame pointer, copy stack pointer to frame pointer
-	EmitPushForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 8);
-	fprintf(outFile, "\t.cfi_offset 8, %d\n", MACHINE_REGISTER_SIZE_BYTES * -2);
-	emitInstruction(NULL, &context, "\tmv fp, sp\n");
-
-	if (function->isAsmFun)
-	{
-		if (currentVerbosity > VERBOSITY_MINIMAL)
-		{
-			printf("%s is an asm function\n", function->name);
-		}
-
-		if (function->BasicBlockList->size != 1)
-		{
-			ErrorAndExit(ERROR_INTERNAL, "Asm function with %d basic blocks seen - expected 1!\n", function->BasicBlockList->size);
-		}
-
-		struct BasicBlock *asmBlock = function->BasicBlockList->head->data;
-
-		for (struct LinkedListNode *asmBlockRunner = asmBlock->TACList->head; asmBlockRunner != NULL; asmBlockRunner = asmBlockRunner->next)
-		{
-			struct TACLine *asmTAC = asmBlockRunner->data;
-			if (asmTAC->operation != tt_asm)
-			{
-				ErrorWithAST(ERROR_INTERNAL, &asmTAC->correspondingTree, "Non-asm TAC type seen in asm function!\n");
-			}
-			emitInstruction(asmTAC, &context, "\t%s\n", asmTAC->operands[0].name.str);
-		}
-
-		// pop frame pointer
-		EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 8);
-		fprintf(outFile, "\t.cfi_restore 8\n");
-
-		// pop return address
-		EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 1);
-		fprintf(outFile, "\t.cfi_restore 1\n");
-
-		emitInstruction(NULL, &context, "\taddi sp, sp, %d\n", function->argStackSize);
-
-		fprintf(outFile, "\t.cfi_def_cfa_offset 0\n");
-		emitInstruction(NULL, &context, "\tjalr zero, 0(%s)\n", registerNames[1]);
-		fprintf(outFile, "\t.cfi_endproc\n");
-
-		// early return, nothing else to do
-		return;
-	}
 
 	struct CodegenMetadata metadata;
 	memset(&metadata, 0, sizeof(struct CodegenMetadata));
@@ -255,63 +374,30 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 	metadata.reservedRegisters[2] = -1;
 	metadata.reservedRegisterCount = 0;
 	currentVerbosity = config.stageVerbosities[STAGE_REGALLOC];
-	int localStackSize = allocateRegisters(&metadata);
+	allocateRegisters(&metadata);
 	currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
 
-	if (localStackSize > 0)
+	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
-		emitInstruction(NULL, &context, "\taddi sp, sp, -%d\n", localStackSize);
-		fprintf(outFile, "\t.cfi_def_cfa_offset %d\n", localStackSize + 16);
+		printf("Need %d bytes on stack\n", metadata.totalStackSize);
+	}
+
+	emitPrologue(&context, &metadata);
+
+	// TODO: debug symbols for asm functions?
+	if ((currentVerbosity > VERBOSITY_MINIMAL) && (function->isAsmFun))
+	{
+		printf("%s is an asm function\n", function->name);
+	}
+
+	if (function->isAsmFun && (function->BasicBlockList->size != 1))
+	{
+		ErrorAndExit(ERROR_INTERNAL, "Asm function with %d basic blocks seen - expected 1!\n", function->BasicBlockList->size);
 	}
 
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
-		printf("Need %d bytes on stack\n", localStackSize);
-	}
-	for (int i = MACHINE_REGISTER_COUNT - 1; i >= 0; i--)
-	{
-		if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
-		{
-			EmitPushForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, i);
-		}
-	}
-
-	if (currentVerbosity > VERBOSITY_MINIMAL)
-	{
-		printf("Arguments placed into registers\n");
-	}
-
-	// move any applicable arguments into registers if we are expecting them not to be spilled
-	for (struct LinkedListNode *ltRunner = metadata.allLifetimes->head; ltRunner != NULL; ltRunner = ltRunner->next)
-	{
-		struct Lifetime *thisLifetime = ltRunner->data;
-
-		// (short-circuit away from looking up temps since they can't be arguments)
-		if (thisLifetime->name[0] != '.')
-		{
-			struct ScopeMember *thisEntry = Scope_lookup(function->mainScope, thisLifetime->name);
-			// we need to place this variable into its register if:
-			if ((thisEntry != NULL) &&							 // it exists
-				(thisEntry->type == e_argument) &&				 // it's an argument
-				(thisLifetime->wbLocation == wb_register) &&	 // it lives in a register
-				(thisLifetime->nreads || thisLifetime->nwrites)) // theyre are either read from or written to at all
-			{
-				struct VariableEntry *theArgument = thisEntry->entry;
-
-				char loadWidth = SelectWidthForLifetime(function->mainScope, thisLifetime);
-				emitInstruction(NULL, &context, "\tl%c%s %s, %d(fp) # place %s\n",
-								loadWidth,
-								SelectSignForLoad(loadWidth, &thisLifetime->type),
-								registerNames[thisLifetime->registerLocation],
-								theArgument->stackOffset,
-								thisLifetime->name);
-			}
-		}
-	}
-
-	if (currentVerbosity > VERBOSITY_MINIMAL)
-	{
-		printf("Generating code  for basic blocks\n");
+		printf("Generating code for basic blocks\n");
 	}
 
 	for (struct LinkedListNode *blockRunner = function->BasicBlockList->head; blockRunner != NULL; blockRunner = blockRunner->next)
@@ -325,39 +411,9 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 		printf("Emitting function epilogue\n");
 	}
 
-	fprintf(outFile, "%s_done:\n", function->name);
-	for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
-	{
-		if (metadata.touchedRegisters[i] && (i != RETURN_REGISTER))
-		{
-			EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, i);
-		}
-	}
+	emitEpilogue(&context, &metadata);
 
-	if (localStackSize > 0)
-	{
-		emitInstruction(NULL, &context, "\taddi sp, sp, %d\n", localStackSize);
-	}
-
-	// pop frame pointer
-	EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 8);
-	fprintf(outFile, "\t.cfi_restore 8\n");
-
-	// pop return address
-	EmitPopForSize(NULL, &context, MACHINE_REGISTER_SIZE_BYTES, 1);
-	fprintf(outFile, "\t.cfi_restore 1\n");
-
-	if (function->argStackSize > 0)
-	{
-		emitInstruction(NULL, &context, "\taddi sp, sp, %d\n", function->argStackSize);
-	}
-
-	fprintf(outFile, "\t.cfi_def_cfa_offset 0\n");
-	emitInstruction(NULL, &context, "\tjalr zero, 0(%s)\n", registerNames[1]);
-
-	fprintf(outFile, "\t.cfi_endproc\n");
-
-	// function setup and teardown code generated
+	// clean up after ourselves
 
 	LinkedList_Free(metadata.allLifetimes, free);
 
@@ -385,6 +441,10 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 	for (struct LinkedListNode *TACRunner = block->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
 	{
 		struct TACLine *thisTAC = TACRunner->data;
+
+		char *printedTAC = sPrintTACLine(thisTAC);
+		fprintf(context->outFile, "#%s\n", printedTAC);
+		free(printedTAC);
 
 		// don't duplicate .loc's for the same line
 		// riscv64-unknown-elf-gdb (or maybe the as/ld) don't enjoy going backwards/staying put in line or column loc
@@ -627,18 +687,21 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		}
 		break;
 
-		case tt_push:
+		case tt_stack_reserve:
 		{
-			int operandRegister = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			EmitPushForOperand(thisTAC, context, scope, &thisTAC->operands[0], operandRegister);
+			emitInstruction(thisTAC, context, "\taddi %s, %s, -%d\n", registerNames[sp], registerNames[sp], thisTAC->operands[0].name.val);
 		}
 		break;
 
-		case tt_pop:
+		case tt_stack_store:
 		{
-			int operandRegister = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			EmitPopForOperand(thisTAC, context, scope, &thisTAC->operands[0], operandRegister);
-			WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], operandRegister);
+			int sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+
+			EmitStackStoreForSize(thisTAC,
+								  context,
+								  sourceReg,
+								  Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(thisTAC, 0)),
+								  thisTAC->operands[1].name.val);
 		}
 		break;
 

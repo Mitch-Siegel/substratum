@@ -7,6 +7,10 @@
 
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile);
 
+void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metadata);
+
+void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metadata);
+
 void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function);
 
 void generateCodeForBasicBlock(struct CodegenContext *context,
