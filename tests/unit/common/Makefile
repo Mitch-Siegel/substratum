@@ -14,17 +14,13 @@ always:
 
 programs: $(TEST_NAME).output
 
-%.S: %.sb
+%.output: %.sb %.txt always
+	rm -f $(SBCC_BUILD_DIR)/*.gcda
+	@-$(SBCC) -i $< -o /dev/null > $@ 2>&1 || true
 	$(eval COV_DEST_DIR = $(COVERAGE_BASE_DIR)/$(basename $@))
 	mkdir -p $(COV_DEST_DIR)
-	$(SBCC) -i $^ -o $(basename $@).S -I $(COMMON_DIR) -I $(shell dirname $@)
-	@mkdir -p $(COV_DEST_DIR)
 	cp $(SBCC_BUILD_DIR)/*.gcda $(COV_DEST_DIR)
 	@geninfo --build-directory $(SBCC_BUILD_DIR) $(COV_DEST_DIR) -o $(COV_DEST_DIR)/$(basename $@).cov
-
-
-%.output: %.sb %.txt always
-	@-$(SBCC) -i $< -o /dev/null > $@ 2>&1 || true
 	@GREP_OUTPUT=$$(grep -xFf $@ $(word 2,$^)); \
 	if [ "$$(echo "$$GREP_OUTPUT" | wc -c)" -ne "$$(wc -c < $(word 2,$^))" ] || \
 		[ "$$(echo "$$GREP_OUTPUT" | wc -w)" -ne "$$(wc -w < $(word 2,$^))" ] || \

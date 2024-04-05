@@ -26,6 +26,7 @@ always:
 programs: $(TEST_NAME).output
 
 %.S: %.sb
+	rm -f $(SBCC_BUILD_DIR)/*.gcda
 	$(eval COV_DEST_DIR = $(COVERAGE_BASE_DIR)/$(basename $@))
 	mkdir -p $(COV_DEST_DIR)
 	$(SBCC) -i $^ -o $(basename $@).S -I $(COMMON_DIR) -I $(shell dirname $@)
