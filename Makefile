@@ -20,7 +20,7 @@ $(OBJDIR)/parser.o : parser.c
 	@mkdir -p $(@D)
 	$(CC) -c $(CFLAGS) -o $@ $< -I ./include -Wno-discarded-qualifiers -Wno-incompatible-pointer-types-discards-qualifiers -Wno-unused-but-set-variable
 
-sbcc: $(addprefix $(OBJDIR)/,$(SBCC_OBJS)) $(OBJDIR)/parser.o 
+sbcc: $(OBJDIR)/parser.o $(addprefix $(OBJDIR)/,$(SBCC_OBJS)) 
 	$(CC) $(CFLAGS) -o $@ $^
 
 parser.c: parser.peg
