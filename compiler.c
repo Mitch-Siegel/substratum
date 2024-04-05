@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <errno.h>
 
+#include "substratum_defs.h"
 #include "ast.h"
 #include "tac.h"
 #include "symtab.h"
@@ -14,7 +15,7 @@
 
 struct Dictionary *parseDict = NULL;
 
-char currentVerbosity = 0;
+u8 currentVerbosity = 0;
 
 void usage()
 {
@@ -33,15 +34,16 @@ struct Config config;
 
 void runPreprocessor(char *inFileName)
 {
-	char **preprocessorArgv = malloc(((includePath->size * 2) + 6) * sizeof(char *));
-	int preprocessorArgI = 0;
+	const u32 basePreprocessorParamCount = 6;
+	char **preprocessorArgv = malloc(((includePath->size * 2) + basePreprocessorParamCount) * sizeof(char *));
+	u32 preprocessorArgI = 0;
 
 	preprocessorArgv[preprocessorArgI++] = "gcc";
 	preprocessorArgv[preprocessorArgI++] = "-x";
 	preprocessorArgv[preprocessorArgI++] = "c";
 	preprocessorArgv[preprocessorArgI++] = "-E";
 
-	if (strcmp(inFileName, "stdin"))
+	if (strcmp(inFileName, "stdin") != 0)
 	{
 		preprocessorArgv[preprocessorArgI++] = inFileName;
 	}
@@ -67,21 +69,21 @@ void runPreprocessor(char *inFileName)
 
 struct AST *parseFile(char *inFileName)
 {
-	struct ParseProgress p;
-	memset(&p, 0, sizeof(struct ParseProgress));
-	p.curLine = 0;
-	p.curCol = 0;
-	p.curLineRaw = 0;
-	p.curColRaw = 0;
-	p.curFile = NULL;
-	p.charsRemainingPerLine = LinkedList_New();
-	int *lineZeroChars = malloc(sizeof(int));
+	struct ParseProgress fileProgress;
+	memset(&fileProgress, 0, sizeof(struct ParseProgress));
+	fileProgress.curLine = 0;
+	fileProgress.curCol = 0;
+	fileProgress.curLineRaw = 0;
+	fileProgress.curColRaw = 0;
+	fileProgress.curFile = NULL;
+	fileProgress.charsRemainingPerLine = LinkedList_New();
+	i32 *lineZeroChars = malloc(sizeof(i32));
 	*lineZeroChars = 0;
-	LinkedList_Append(p.charsRemainingPerLine, lineZeroChars);
+	LinkedList_Append(fileProgress.charsRemainingPerLine, lineZeroChars);
 
-	p.dict = parseDict;
+	fileProgress.dict = parseDict;
 
-	pcc_context_t *parseContext = pcc_create(&p);
+	pcc_context_t *parseContext = pcc_create(&fileProgress);
 
 	int pid;
 	int preprocessorPipe[2] = {0};
@@ -90,7 +92,8 @@ struct AST *parseFile(char *inFileName)
 		ErrorAndExit(ERROR_INTERNAL, "Unable to make pipe for preprocessor: %s\n", strerror(errno));
 	}
 	
-	if ((pid = fork()) == -1)
+	pid = fork();
+	if (pid == -1)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Couldn't fork to run preprocessor!\n");
 	}
@@ -112,7 +115,7 @@ struct AST *parseFile(char *inFileName)
 		}
 	}
 
-	p.f = stdin;
+	fileProgress.f = stdin;
 
 	struct AST *parsed = NULL;
 	struct AST *translationUnit = NULL;
@@ -123,7 +126,7 @@ struct AST *parseFile(char *inFileName)
 
 	pcc_destroy(parseContext);
 
-	LinkedList_Free(p.charsRemainingPerLine, free);
+	LinkedList_Free(fileProgress.charsRemainingPerLine, free);
 
 	return parsed;
 }
@@ -150,7 +153,7 @@ int main(int argc, char **argv)
 
 		case 'v':
 		{
-			int nVFlags = strlen(optarg);
+			size_t nVFlags = strlen(optarg);
 			if (nVFlags == 1)
 			{
 				int stageVerbosities = atoi(optarg);
@@ -209,7 +212,8 @@ int main(int argc, char **argv)
 
 	currentVerbosity = config.stageVerbosities[STAGE_PARSE];
 
-	parseDict = Dictionary_New(10);
+	const int nParseDictBuckets = 10;
+	parseDict = Dictionary_New(nParseDictBuckets);
 
 	struct AST *program = parseFile(inFileName);
 	LinkedList_Free(includePath, free);
@@ -245,7 +249,7 @@ int main(int argc, char **argv)
 
 	FILE *outFile = stdout;
 
-	if (strcmp(outFileName, "stdout"))
+	if (strcmp(outFileName, "stdout") != 0)
 	{
 		outFile = fopen(outFileName, "wb");
 		if (outFile == NULL)

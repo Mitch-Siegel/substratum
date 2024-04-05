@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "substratum_defs.h"
+
 #pragma once
 
 enum CompilerErrors
@@ -31,10 +33,10 @@ enum CompilerErrors
 #define VERBOSITY_MAX 2
 struct Config
 {
-	char stageVerbosities[STAGE_MAX];
+	u8 stageVerbosities[STAGE_MAX];
 };
 
-extern char currentVerbosity;
+extern u8 currentVerbosity;
 
 struct ParseProgress
 {
