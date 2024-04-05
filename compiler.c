@@ -294,4 +294,6 @@ int main(int argc, char **argv)
 
 	// TempList_Free(temps);
 	Dictionary_Free(parseDict);
+
+	return 0;
 }

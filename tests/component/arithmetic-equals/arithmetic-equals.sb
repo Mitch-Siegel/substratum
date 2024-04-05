@@ -1,0 +1,24 @@
+#include "tests-common.sb"
+
+fun main()
+{
+    u32 value = 1;
+    printNum(value);
+    value -= 1;
+    printNum(value);
+    value += 1;
+    printNum(value);
+    value *= 10;
+    printNum(value);
+    value /= 5;
+    printNum(value);
+    value |= 64;
+    printNum(value);
+    value ^= 127;
+    printNum(value);
+    value &= 255;
+    printNum(value);
+    value %= 7;
+    printNum(value);
+    exit();
+}
