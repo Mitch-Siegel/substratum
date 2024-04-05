@@ -4,7 +4,7 @@
 #ifndef _LINEARIZER_H_
 #define _LINEARIZER_H_
 
-enum basicTypes selectVariableTypeForNumber(int num);
+enum basicTypes selectVariableTypeForNumber(size_t num);
 
 enum basicTypes selectVariableTypeForLiteral(char *literal);
 

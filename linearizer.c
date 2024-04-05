@@ -4,6 +4,8 @@
 
 #include <ctype.h>
 
+const int sPrintNumLength = 32; // TODO: this appears in (many?) other places - put it somewhere universal?
+
 /*
  * These functions walk the AST and convert it to three-address code
  */
@@ -179,8 +181,8 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
 struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 											  struct BasicBlock *block,
 											  struct Scope *scope,
-											  int *TACIndex,
-											  int *tempNum,
+											  const int *TACIndex,
+											  const int *tempNum,
 											  char isArgument)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
@@ -211,7 +213,7 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	struct VariableEntry *declaredVariable = Scope_createVariable(scope,
 																  tree->child->sibling,
 																  &declaredType,
-																  (scope->parentScope == NULL),
+																  (u8)(scope->parentScope == NULL),
 																  *TACIndex,
 																  isArgument);
 
@@ -343,7 +345,7 @@ void walkFunctionDeclaration(struct AST *tree,
 				struct VariableEntry *existingArg = existingFunc->arguments->data[i];
 				struct VariableEntry *parsedArg = parsedFunc->arguments->data[i];
 				// ensure all arguments in order have same name, type, indirection level
-				if (strcmp(existingArg->name, parsedArg->name) ||
+				if ((strcmp(existingArg->name, parsedArg->name) != 0) ||
 					(Type_Compare(&existingArg->type, &parsedArg->type)))
 				{
 					mismatch = 1;
@@ -428,28 +430,28 @@ void walkFunctionDeclaration(struct AST *tree,
 
 		for (struct LinkedListNode *runner = walkedFunction->BasicBlockList->head; runner != NULL; runner = runner->next)
 		{
-			struct BasicBlock *b = runner->data;
+			struct BasicBlock *checkedBlock = runner->data;
 			int prevTacIndex = -1;
 			// iterate TAC lines backwards, because the last line with a duplicate number is actually the problem
 			// (because we should post-increment the index to number recursive linearzations correctly)
-			for (struct LinkedListNode *TACRunner = b->TACList->tail; TACRunner != NULL; TACRunner = TACRunner->prev)
+			for (struct LinkedListNode *TACRunner = checkedBlock->TACList->tail; TACRunner != NULL; TACRunner = TACRunner->prev)
 			{
-				struct TACLine *t = TACRunner->data;
+				struct TACLine *checkedTAC = TACRunner->data;
 				if (prevTacIndex != -1)
 				{
-					if ((t->index + 1) != prevTacIndex)
+					if ((checkedTAC->index + 1) != prevTacIndex)
 					{
-						printBasicBlock(b, 0);
-						char *printedTACLine = sPrintTACLine(t);
+						printBasicBlock(checkedBlock, 0);
+						char *printedTACLine = sPrintTACLine(checkedTAC);
 						ErrorAndExit(ERROR_INTERNAL, "TAC line allocated at %s:%d doesn't obey ordering - numbering goes from 0x%x to 0x%x:\n\t%s\n",
-									 t->allocFile,
-									 t->allocLine,
-									 t->index,
+									 checkedTAC->allocFile,
+									 checkedTAC->allocLine,
+									 checkedTAC->index,
 									 prevTacIndex,
 									 printedTACLine);
 					}
 				}
-				prevTacIndex = t->index;
+				prevTacIndex = checkedTAC->index;
 			}
 		}
 	}
@@ -1536,8 +1538,8 @@ void walkSubExpression(struct AST *tree,
 
 	case t_char_literal:
 	{
-		int literalLen = strlen(tree->value);
-		char literalAsNumber[8];
+		size_t literalLen = strlen(tree->value);
+		char literalAsNumber[sPrintNumLength];
 		if (literalLen == 1)
 		{
 			sprintf(literalAsNumber, "%d", tree->value[0]);
@@ -1584,13 +1586,16 @@ void walkSubExpression(struct AST *tree,
 			case '\"':
 				escapeCharValue = '\"';
 				break;
+
+			default:
+				ErrorWithAST(ERROR_CODE, tree, "Unexpected escape character: %s\n", tree->value);
 			}
 
 			sprintf(literalAsNumber, "%d", escapeCharValue);
 		}
 		else
 		{
-			ErrorWithAST(ERROR_INTERNAL, tree, "Saw t_char_literal with string length of %d (value '%s')!\n", literalLen, tree->value);
+			ErrorWithAST(ERROR_INTERNAL, tree, "Saw t_char_literal with string length of %lu (value '%s')!\n", literalLen, tree->value);
 		}
 
 		destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, literalAsNumber);
@@ -1696,11 +1701,12 @@ void walkSubExpression(struct AST *tree,
 			// construct the bit pattern we will use in order to properly mask off the extra bits (TODO: will not hold for unsigned types)
 			castBitManipulation->operands[2].permutation = vp_literal;
 			castBitManipulation->operands[2].type.basicType = vt_u32;
-			char literalAndValue[32];
-
+			
+			char literalAndValue[sPrintNumLength];
 			// manually generate a string with an 'F' hex digit for each 4 bits in the mask
 			sprintf(literalAndValue, "0x");
-			int maskBitWidth = (8 * Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)));
+			const int bitsPerByte = 8; // TODO: move to substratum_defs?
+			int maskBitWidth = (bitsPerByte * Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)));
 			int maskBit = 0;
 			for (maskBit = 0; maskBit < maskBitWidth; maskBit += 4)
 			{
@@ -2533,7 +2539,7 @@ void walkStringLiteral(struct AST *tree,
 	// but first, it copies the string exactly as-is so it knows what the string object should be initialized to
 	char *stringName = tree->value;
 	char *stringValue = strdup(stringName);
-	int stringLength = strlen(stringName);
+	size_t stringLength = strlen(stringName);
 
 	for (int i = 0; i < stringLength; i++)
 	{
@@ -2547,24 +2553,25 @@ void walkStringLiteral(struct AST *tree,
 			{
 				// for any non-whitespace character, map it to lower/uppercase alphabetic characters
 				// this should avoid collisions with renamed strings to the point that it isn't a problem
-				char altVal = stringName[i] % 52;
-				if (altVal > 25)
+				const u16 charsInAlphabet = 26;
+				char altVal = (char)(stringName[i] % (charsInAlphabet * 1));
+				if (altVal > (charsInAlphabet - 1))
 				{
-					stringName[i] = altVal + 'A';
+					stringName[i] = (char)(altVal + 'A');
 				}
 				else
 				{
-					stringName[i] = altVal + 'a';
+					stringName[i] = (char)(altVal + 'a');
 				}
 			}
 		}
 	}
 
 	struct VariableEntry *stringLiteralEntry = NULL;
-	struct ScopeMember *existingMember = NULL;
+	struct ScopeMember *existingMember = Scope_lookup(scope, stringName);
 
 	// if we already have a string literal for this thing, nothing else to do
-	if ((existingMember = Scope_lookup(scope, stringName)) == NULL)
+	if (existingMember == NULL)
 	{
 		struct AST fakeStringTree;
 		fakeStringTree.value = stringName;
@@ -2631,7 +2638,6 @@ void walkSizeof(struct AST *tree,
 			struct VariableEntry *getSizeof = Scope_lookupVar(scope, tree->child);
 
 			sizeInBytes = Scope_getSizeOfType(scope, &getSizeof->type);
-			break;
 		}
 		// we looked something up but it's not a variable 
 		else
@@ -2655,8 +2661,8 @@ void walkSizeof(struct AST *tree,
 		ErrorWithAST(ERROR_CODE, tree, "sizeof is only supported on type names and identifiers!\n");
 	}
 
-	char sizeString[16];
-	snprintf(sizeString, 15, "%d", sizeInBytes);
+	char sizeString[sPrintNumLength];
+	snprintf(sizeString, sPrintNumLength - 1, "%d", sizeInBytes);
 	destinationOperand->type.basicType = vt_u8;
 	destinationOperand->permutation = vp_literal;
 	destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, sizeString);

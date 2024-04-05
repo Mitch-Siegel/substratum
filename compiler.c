@@ -180,7 +180,7 @@ int main(int argc, char **argv)
 			}
 			else
 			{
-				printf("Unexpected number of verbosities (%d) provided\nExpected either 1 to set all levels, or %d to set each level independently\n", nVFlags, STAGE_MAX);
+				printf("Unexpected number of verbosities (%lu) provided\nExpected either 1 to set all levels, or %d to set each level independently\n", nVFlags, STAGE_MAX);
 				usage();
 				ErrorAndExit(ERROR_INVOCATION, ":(");
 			}

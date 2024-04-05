@@ -12,8 +12,8 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
 struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 											  struct BasicBlock *block,
 											  struct Scope *scope,
-											  int *TACIndex,
-											  int *tempNum,
+											  const int *TACIndex,
+											  const int *tempNum,
 											  char isArgument);
 
 void walkArgumentDeclaration(struct AST *tree,

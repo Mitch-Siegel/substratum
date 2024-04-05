@@ -58,13 +58,13 @@ int placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
                              struct TACOperand *operand,
                              int registerIndex);
 
-const char *SelectSignForLoad(char loadSize, struct Type *loaded);
+const char *SelectSignForLoad(u8 loadSize, struct Type *loaded);
 
-char SelectWidth(struct Scope *scope, struct TACOperand *dataDest);
+u8 SelectWidth(struct Scope *scope, struct TACOperand *dataDest);
 
-char SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP);
+u8 SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP);
 
-char SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime);
+u8 SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime);
 
 void EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
                            struct CodegenContext *c,

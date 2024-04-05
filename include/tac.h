@@ -71,7 +71,7 @@ struct Type
 {
 	enum basicTypes basicType;
 	int indirectionLevel;
-	int arraySize;
+	size_t arraySize;
 	union
 	{
 		char *initializeTo;
@@ -88,7 +88,7 @@ struct TACOperand
 	union nameUnion // name of variable as char*, or literal value as int
 	{
 		char *str;
-		int val;
+		size_t val;
 	} name;
 
 	struct Type type;

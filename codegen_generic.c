@@ -105,7 +105,7 @@ void WriteVariable(struct TACLine *correspondingTACLine,
 
 	case wb_global:
 	{
-		char width = SelectWidth(scope, writtenTo);
+		u8 width = SelectWidth(scope, writtenTo);
 		fprintf(c->outFile, "\t# Write (global) variable %s\n", relevantLifetime->name);
 		emitInstruction(correspondingTACLine, c, "\tla %s, %s\n",
 						registerNames[TEMP_0],
@@ -122,7 +122,7 @@ void WriteVariable(struct TACLine *correspondingTACLine,
 	{
 		fprintf(c->outFile, "\t# Write stack variable %s\n", relevantLifetime->name);
 
-		char width = SelectWidthForLifetime(scope, relevantLifetime);
+		u8 width = SelectWidthForLifetime(scope, relevantLifetime);
 		emitInstruction(correspondingTACLine, c, "\ts%c %s, %d(fp)\n",
 						width,
 						registerNames[sourceRegIndex],
@@ -230,7 +230,7 @@ int placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
 		}
 		else
 		{
-			char loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
+			u8 loadWidth = SelectWidthForLifetime(scope, relevantLifetime);
 			emitInstruction(correspondingTACLine, c, "\tl%c%s %s, %d(fp) # place %s\n",
 							loadWidth,
 							SelectSignForLoad(loadWidth, &relevantLifetime->type),
@@ -319,7 +319,7 @@ int placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
 	return registerIndex;
 }
 
-char SelectWidthForSize(int size)
+u8 SelectWidthForSize(int size)
 {
 	switch (size)
 	{
@@ -338,7 +338,7 @@ char SelectWidthForSize(int size)
 	ErrorAndExit(ERROR_INTERNAL, "Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, 4, or 8 bytes!");
 }
 
-const char *SelectSignForLoad(char loadSize, struct Type *loaded)
+const char *SelectSignForLoad(u8 loadSize, struct Type *loaded)
 {
 	switch (loadSize)
 	{
@@ -355,7 +355,7 @@ const char *SelectSignForLoad(char loadSize, struct Type *loaded)
 	}
 }
 
-char SelectWidth(struct Scope *scope, struct TACOperand *dataDest)
+u8 SelectWidth(struct Scope *scope, struct TACOperand *dataDest)
 {
 	// pointers and arrays (decay implicitly at this stage to pointers) are always full-width
 	if ((TACOperand_GetType(dataDest)->indirectionLevel > 0) || (TACOperand_GetType(dataDest)->arraySize > 0))
@@ -366,7 +366,7 @@ char SelectWidth(struct Scope *scope, struct TACOperand *dataDest)
 	return SelectWidthForSize(Scope_getSizeOfType(scope, TACOperand_GetType(dataDest)));
 }
 
-char SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDest)
+u8 SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDest)
 {
 	struct Type *operandType = TACOperand_GetType(dataDest);
 	if ((operandType->indirectionLevel == 0) &&
@@ -388,7 +388,7 @@ char SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDest)
 	return SelectWidthForSize(Scope_getSizeOfType(scope, &dereferenced));
 }
 
-char SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime)
+u8 SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime)
 {
 	if (lifetime->type.indirectionLevel > 0)
 	{

@@ -39,16 +39,16 @@ struct Scope
 
 struct FunctionEntry
 {
-	int argStackSize;
+	size_t argStackSize;
 	struct Type returnType;
 	struct Scope *mainScope;
 	struct Stack *arguments; // stack of VariableEntry pointers corresponding by index to arguments
 	char *name;				 // duplicate pointer from ScopeMember for ease of use
 	struct LinkedList *BasicBlockList;
 	struct AST correspondingTree;
-	char isDefined;
-	char isAsmFun;
-	char callsOtherFunction; // is it possible this function calls another function? (need to store return address on stack)
+	u8 isDefined;
+	u8 isAsmFun;
+	u8 callsOtherFunction; // is it possible this function calls another function? (need to store return address on stack)
 };
 
 struct VariableEntry
@@ -132,9 +132,9 @@ void Scope_insert(struct Scope *scope,
 struct VariableEntry *Scope_createVariable(struct Scope *scope,
 										   struct AST *name,
 										   struct Type *type,
-										   char isGlobal,
-										   int declaredAt,
-										   char isArgument);
+										   u8 isGlobal,
+										   size_t declaredAt,
+										   u8 isArgument);
 
 struct FunctionEntry *Scope_createFunction(struct Scope *parentScope,
 										   struct AST *nameTree,

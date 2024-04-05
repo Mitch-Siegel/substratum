@@ -336,9 +336,9 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
 struct VariableEntry *Scope_createVariable(struct Scope *scope,
 										   struct AST *name,
 										   struct Type *type,
-										   char isGlobal,
-										   int declaredAt,
-										   char isArgument)
+										   u8 isGlobal,
+										   size_t declaredAt,
+										   u8 isArgument)
 {
 	struct VariableEntry *newVariable = malloc(sizeof(struct VariableEntry));
 	newVariable->type = *type;
@@ -891,7 +891,7 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 		{
 			struct FunctionEntry *theFunction = thisMember->entry;
 			char *returnTypeName = Type_GetName(&theFunction->returnType);
-			printf("> Function %s (returns %s) (defined: %d)\n\t%d bytes of arguments on stack\n", thisMember->name, returnTypeName, theFunction->isDefined, theFunction->argStackSize);
+			printf("> Function %s (returns %s) (defined: %d)\n\t%ld bytes of arguments on stack\n", thisMember->name, returnTypeName, theFunction->isDefined, theFunction->argStackSize);
 			free(returnTypeName);
 			Scope_print(theFunction->mainScope, depth + 1, printTAC);
 		}

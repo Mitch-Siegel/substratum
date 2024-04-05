@@ -1,6 +1,6 @@
 #include "linearizer_generic.h"
 
-enum basicTypes selectVariableTypeForNumber(int num)
+enum basicTypes selectVariableTypeForNumber(size_t num)
 {
 	if (num < 256)
 	{

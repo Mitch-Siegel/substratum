@@ -725,7 +725,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		break;
 
 		case tt_label:
-			fprintf(context->outFile, "\t%s_%d:\n", functionName, thisTAC->operands[0].name.val);
+			fprintf(context->outFile, "\t%s_%ld:\n", functionName, thisTAC->operands[0].name.val);
 			break;
 
 		case tt_return:

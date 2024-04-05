@@ -235,7 +235,7 @@ char *Type_GetName(struct Type *t)
 
 	if (t->arraySize > 0)
 	{
-		sprintf(typeName + len, "[%d]", t->arraySize);
+		sprintf(typeName + len, "[%lu]", t->arraySize);
 	}
 
 	return typeName;
@@ -456,12 +456,12 @@ char *sPrintTACLine(struct TACLine *it)
 
 	case tt_load_off:
 		// operands: dest base offset
-		width += sprintf(tacString + width, "%s = (%s + %d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
+		width += sprintf(tacString + width, "%s = (%s + %ld)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
 		break;
 
 	case tt_load_arr:
 		// operands: dest base offset scale
-		width += sprintf(tacString + width, "%s = (%s + %s*2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		width += sprintf(tacString + width, "%s = (%s + %s*2^%ld)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
 		break;
 
 	case tt_store:
@@ -470,12 +470,12 @@ char *sPrintTACLine(struct TACLine *it)
 
 	case tt_store_off:
 		// operands: base offset source
-		width += sprintf(tacString + width, "(%s + %d) = %s", it->operands[0].name.str, it->operands[1].name.val, it->operands[2].name.str);
+		width += sprintf(tacString + width, "(%s + %ld) = %s", it->operands[0].name.str, it->operands[1].name.val, it->operands[2].name.str);
 		break;
 
 	case tt_store_arr:
 		// operands base offset scale source
-		width += sprintf(tacString + width, "(%s + %s*2^%d) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
+		width += sprintf(tacString + width, "(%s + %s*2^%ld) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
 		break;
 
 	case tt_addrof:
@@ -484,12 +484,12 @@ char *sPrintTACLine(struct TACLine *it)
 
 	case tt_lea_off:
 		// operands: dest base offset scale
-		width += sprintf(tacString + width, "%s = &(%s + %d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
+		width += sprintf(tacString + width, "%s = &(%s + %ld)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
 		break;
 
 	case tt_lea_arr:
 		// operands: dest base offset scale
-		width += sprintf(tacString + width, "%s = &(%s + %s*2^%d)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		width += sprintf(tacString + width, "%s = &(%s + %s*2^%ld)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
 		break;
 
 	case tt_beq:
@@ -500,7 +500,7 @@ char *sPrintTACLine(struct TACLine *it)
 	case tt_bleu:
 	case tt_beqz:
 	case tt_bnez:
-		width += sprintf(tacString + width, "%s %s, %s, basicblock %d",
+		width += sprintf(tacString + width, "%s %s, %s, basicblock %ld",
 						 getAsmOp(it->operation),
 						 it->operands[1].name.str,
 						 it->operands[2].name.str,
@@ -508,7 +508,7 @@ char *sPrintTACLine(struct TACLine *it)
 		break;
 
 	case tt_jmp:
-		width += sprintf(tacString + width, "%s basicblock %d", getAsmOp(it->operation), it->operands[0].name.val);
+		width += sprintf(tacString + width, "%s basicblock %ld", getAsmOp(it->operation), it->operands[0].name.val);
 		break;
 
 	case tt_assign:
@@ -516,11 +516,11 @@ char *sPrintTACLine(struct TACLine *it)
 		break;
 
 	case tt_stack_reserve:
-		width += sprintf(tacString + width, "reserve %d bytes stack", it->operands[0].name.val);
+		width += sprintf(tacString + width, "reserve %ld bytes stack", it->operands[0].name.val);
 		break;
 
 	case tt_stack_store:
-		width += sprintf(tacString + width, "store %s at stack offset %d", it->operands[0].name.str, it->operands[1].name.val);
+		width += sprintf(tacString + width, "store %s at stack offset %ld", it->operands[0].name.str, it->operands[1].name.val);
 		break;
 
 	case tt_call:
@@ -532,7 +532,7 @@ char *sPrintTACLine(struct TACLine *it)
 		break;
 
 	case tt_label:
-		width += sprintf(tacString + width, "~label %d:", it->operands[0].name.val);
+		width += sprintf(tacString + width, "~label %ld:", it->operands[0].name.val);
 		break;
 
 	case tt_return:
