@@ -4,8 +4,6 @@
 
 #include <ctype.h>
 
-const int sPrintNumLength = 32; // TODO: this appears in (many?) other places - put it somewhere universal?
-
 /*
  * These functions walk the AST and convert it to three-address code
  */
@@ -41,15 +39,8 @@ struct SymbolTable *walkProgram(struct AST *program)
 
 		case t_class:
 		{
-			// if (programRunner->child->sibling->type == t_compound_statement)
-			// {
 			walkClassDeclaration(programRunner, globalBlock, programTable->globalScope);
 			break;
-			// }
-			// else // TODO: disallow bad sibling types?
-			// {
-			// walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
-			// }
 		}
 		break;
 
@@ -1539,7 +1530,7 @@ void walkSubExpression(struct AST *tree,
 	case t_char_literal:
 	{
 		size_t literalLen = strlen(tree->value);
-		char literalAsNumber[sPrintNumLength];
+		char literalAsNumber[sprintedNumberLength];
 		if (literalLen == 1)
 		{
 			sprintf(literalAsNumber, "%d", tree->value[0]);
@@ -1702,7 +1693,7 @@ void walkSubExpression(struct AST *tree,
 			castBitManipulation->operands[2].permutation = vp_literal;
 			castBitManipulation->operands[2].type.basicType = vt_u32;
 			
-			char literalAndValue[sPrintNumLength];
+			char literalAndValue[sprintedNumberLength];
 			// manually generate a string with an 'F' hex digit for each 4 bits in the mask
 			sprintf(literalAndValue, "0x");
 			const int bitsPerByte = 8; // TODO: move to substratum_defs?
@@ -2661,8 +2652,8 @@ void walkSizeof(struct AST *tree,
 		ErrorWithAST(ERROR_CODE, tree, "sizeof is only supported on type names and identifiers!\n");
 	}
 
-	char sizeString[sPrintNumLength];
-	snprintf(sizeString, sPrintNumLength - 1, "%d", sizeInBytes);
+	char sizeString[sprintedNumberLength];
+	snprintf(sizeString, sprintedNumberLength - 1, "%d", sizeInBytes);
 	destinationOperand->type.basicType = vt_u8;
 	destinationOperand->permutation = vp_literal;
 	destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, sizeString);

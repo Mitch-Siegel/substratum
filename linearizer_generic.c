@@ -2,32 +2,37 @@
 
 enum basicTypes selectVariableTypeForNumber(size_t num)
 {
-	if (num < 256)
+	const size_t eightBitMax = 255;
+	const size_t sixteenBitMax = 65535;
+
+	enum basicTypes selectedType = vt_u32;
+	if (num <= eightBitMax)
 	{
-		return vt_u8;
+		selectedType = vt_u8;
 	}
-	else if (num < 65536)
+	else if (num <= sixteenBitMax)
 	{
-		return vt_u16;
+		selectedType = vt_u16;
 	}
 	else
 	{
-		return vt_u32;
+		selectedType = vt_u32;
 	}
+
+	return selectedType;
 }
 
 enum basicTypes selectVariableTypeForLiteral(char *literal)
 {
 	int literalAsNumber = atoi(literal);
-	enum basicTypes t = selectVariableTypeForNumber(literalAsNumber);
-	return t;
+	return selectVariableTypeForNumber(literalAsNumber);
 }
 
-void populateTACOperandFromVariable(struct TACOperand *o, struct VariableEntry *e)
+void populateTACOperandFromVariable(struct TACOperand *operandToPopulate, struct VariableEntry *populateFrom)
 {
-	o->type = e->type;
-	o->name.str = e->name;
-	o->permutation = vp_standard;
+	operandToPopulate->type = populateFrom->type;
+	operandToPopulate->name.str = populateFrom->name;
+	operandToPopulate->permutation = vp_standard;
 }
 
 void copyTypeDecayArrays(struct Type *dest, struct Type *src)
@@ -54,26 +59,20 @@ void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *s
 
 extern struct TempList *temps;
 extern struct Dictionary *parseDict;
-struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, int *TACIndex, int *tempNum, struct Type *pointerTypeOfToScale)
+struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, const int *TACIndex, int *tempNum, struct Type *pointerTypeOfToScale)
 {
 	struct TACLine *scaleMultiplication = newTACLine(*TACIndex, tt_mul, tree);
 
 	scaleMultiplication->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 	scaleMultiplication->operands[0].permutation = vp_temp;
 
-	char scaleVal[32];
-	snprintf(scaleVal, 31, "%d", Scope_getSizeOfDereferencedType(scope, pointerTypeOfToScale));
+	char scaleVal[sprintedNumberLength];
+	snprintf(scaleVal, sprintedNumberLength - 1, "%d", Scope_getSizeOfDereferencedType(scope, pointerTypeOfToScale));
 	scaleMultiplication->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, scaleVal);
 	scaleMultiplication->operands[2].permutation = vp_literal;
 	scaleMultiplication->operands[2].type.basicType = vt_u32;
 
 	return scaleMultiplication;
-}
-
-// check the type of an AST, return true if mismatch
-char ensureASTType(struct AST *tree, enum token type)
-{
-	return !(tree->type == type);
 }
 
 // check the LHS of any dot operator make sure it is both a class and not indirect
@@ -85,7 +84,7 @@ void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type
 	{
 		char *typeName = Type_GetName(type);
 		// if we *are* looking at an identifier, print the identifier name and the type name
-		if (!ensureASTType(tree, t_identifier))
+		if (tree->type == t_identifier)
 		{
 			ErrorWithAST(ERROR_CODE, tree, "Can't use dot operator on %s (%s) - not a class!\n", tree->value, typeName);
 		}
@@ -100,7 +99,7 @@ void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type
 	if ((type->indirectionLevel > 0) || (type->arraySize > 0))
 	{
 		char *typeName = Type_GetName(type);
-		if (!ensureASTType(tree, t_identifier))
+		if (tree->type == t_identifier)
 		{
 			ErrorWithAST(ERROR_CODE, tree, "Can't use dot operator on indirect variable %s (%s)\n", tree->value, typeName);
 		}
@@ -120,7 +119,7 @@ void checkAccessedClassForArrow(struct AST *tree, struct Scope *scope, struct Ty
 	{
 		char *typeName = Type_GetName(type);
 		// if we *are* looking at an identifier, print the identifier name and the type name
-		if (!ensureASTType(tree, t_identifier))
+		if (tree->type == t_identifier)
 		{
 			ErrorWithAST(ERROR_CODE, tree, "Can't use arrow operator on %s (type %s) - not a class!\n", tree->value, typeName);
 		}
@@ -135,7 +134,7 @@ void checkAccessedClassForArrow(struct AST *tree, struct Scope *scope, struct Ty
 	if ((type->indirectionLevel != 1) || (type->arraySize > 0))
 	{
 		char *typeName = Type_GetName(type);
-		if (!ensureASTType(tree, t_identifier))
+		if (tree->type == t_identifier)
 		{
 			ErrorWithAST(ERROR_CODE, tree, "Can't use arrow operator on variable %s (type %s) - wrong indirection level!\n", tree->value, typeName);
 		}
