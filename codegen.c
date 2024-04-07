@@ -1,6 +1,8 @@
 #include "codegen.h"
 #include "codegen_generic.h"
 
+#include "symtab.h"
+
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 {
 	struct CodegenContext globalContext;

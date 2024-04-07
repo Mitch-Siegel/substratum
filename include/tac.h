@@ -3,19 +3,9 @@
 
 #include "ast.h"
 #include "util.h"
+#include "type.h"
 
 #pragma once
-
-enum basicTypes
-{
-	vt_null, // type information describing no type at all (only results from declaration of functions with no return)
-	vt_any, // type information describing an pointer to indistinct type (a la c's void pointer, but to avoid use of the 'void' keyword, must have indirection level > 0)
-	vt_u8,
-	vt_u16,
-	vt_u32,
-	vt_u64,
-	vt_class
-};
 
 enum variablePermutations
 {
@@ -67,22 +57,6 @@ enum TACType
 	tt_enddo,
 };
 
-struct Type
-{
-	enum basicTypes basicType;
-	int indirectionLevel;
-	size_t arraySize;
-	union
-	{
-		char *initializeTo;
-		char **initializeArrayTo;
-	};
-	struct classType
-	{
-		char *name;
-	} classType;
-};
-
 struct TACOperand
 {
 	union nameUnion // name of variable as char*, or literal value as int
@@ -95,13 +69,6 @@ struct TACOperand
 	struct Type castAsType;
 	enum variablePermutations permutation; // enum of permutation (standard/temp/literal)
 };
-
-int Type_Compare(struct Type *typeA, struct Type *typeB);
-
-// return 0 if 'a' is the same type as 'b', or if it can implicitly be widened to become equivalent
-int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB);
-
-char *Type_GetName(struct Type *type);
 
 void TACOperand_SetBasicType(struct TACOperand *operand, enum basicTypes t, int indirectionLevel);
 
@@ -135,24 +102,6 @@ struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST
 #define newTACLine(index, operation, correspondingTree) newTACLineFunction((index), (operation), (correspondingTree), __FILE__, __LINE__)
 
 void freeTAC(struct TACLine *line);
-
-char TACLine_isEffective(struct TACLine *line);
-
-struct BasicBlock
-{
-	struct LinkedList *TACList;
-	int labelNum;
-	// only set when the block contains TAC lines containing operations other than code generator directives
-	char containsEffectiveCode;
-};
-
-struct BasicBlock *BasicBlock_new(int labelNum);
-
-void BasicBlock_free(struct BasicBlock *b);
-
-void BasicBlock_append(struct BasicBlock *b, struct TACLine *l);
-
-void printBasicBlock(struct BasicBlock *b, size_t indentLevel);
 
 struct LinearizationResult
 {

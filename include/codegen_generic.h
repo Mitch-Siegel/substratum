@@ -4,7 +4,6 @@
 #ifndef _CODEGEN_H_
 #define _CODEGEN_H_
 
-#define MACHINE_REGISTER_SIZE_BYTES ((size_t) 8)
 #define STACK_ALIGN_BYTES ((size_t) 16)
 #define MAX_ASM_LINE_SIZE ((size_t) 256)
 
