@@ -64,13 +64,13 @@ char *SymbolTable_mangleName(struct Scope *scope, struct Dictionary *dict, char 
 	return newName;
 }
 
-void SymbolTable_moveMemberToParentScope(struct Scope *scope, struct ScopeMember *toMove, int *indexWithinCurrentScope)
+void SymbolTable_moveMemberToParentScope(struct Scope *scope, struct ScopeMember *toMove, size_t *indexWithinCurrentScope)
 {
 	Scope_insert(scope->parentScope, toMove->name, toMove->entry, toMove->type);
 	free(scope->entries->data[*indexWithinCurrentScope]);
-	for (int j = *indexWithinCurrentScope; j < scope->entries->size - 1; j++)
+	for (size_t entryIndex = *indexWithinCurrentScope; entryIndex < scope->entries->size - 1; entryIndex++)
 	{
-		scope->entries->data[j] = scope->entries->data[j + 1];
+		scope->entries->data[entryIndex] = scope->entries->data[entryIndex + 1];
 	}
 	scope->entries->size--;
 
@@ -78,12 +78,12 @@ void SymbolTable_moveMemberToParentScope(struct Scope *scope, struct ScopeMember
 	(*indexWithinCurrentScope)--;
 }
 
-void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict, int depth)
+void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict, size_t depth)
 {
 	// first pass: recurse depth-first so everything we do at this call depth will be 100% correct
-	for (int i = 0; i < scope->entries->size; i++)
+	for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
 	{
-		struct ScopeMember *thisMember = scope->entries->data[i];
+		struct ScopeMember *thisMember = scope->entries->data[entryIndex];
 		switch (thisMember->type)
 		{
 		case e_scope: // recurse to subscopes
@@ -117,9 +117,9 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 	if (depth > 0)
 	{
 		// second pass: rename basic block operands relevant to the current scope
-		for (int i = 0; i < scope->entries->size; i++)
+		for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
 		{
-			struct ScopeMember *thisMember = scope->entries->data[i];
+			struct ScopeMember *thisMember = scope->entries->data[entryIndex];
 			switch (thisMember->type)
 			{
 			case e_scope:
@@ -136,13 +136,13 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 					for (struct LinkedListNode *TACRunner = thisBlock->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
 					{
 						struct TACLine *thisTAC = TACRunner->data;
-						for (int j = 0; j < 4; j++)
+						for (size_t operandIndex = 0; operandIndex < 4; operandIndex++)
 						{
 							// check only TAC operands that both exist and refer to a named variable from the source code (ignore temps etc)
-							if ((thisTAC->operands[j].type.basicType != vt_null) &&
-								((thisTAC->operands[j].permutation == vp_standard) || (thisTAC->operands[j].permutation == vp_objptr)))
+							if ((thisTAC->operands[operandIndex].type.basicType != vt_null) &&
+								((thisTAC->operands[operandIndex].permutation == vp_standard) || (thisTAC->operands[operandIndex].permutation == vp_objptr)))
 							{
-								char *originalName = thisTAC->operands[j].name.str;
+								char *originalName = thisTAC->operands[operandIndex].name.str;
 
 								// bail out early if the variable is not declared within this scope, as we will not need to mangle it
 								if (!Scope_contains(scope, originalName))
@@ -161,7 +161,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 									{
 										ErrorAndExit(ERROR_INTERNAL, "Declaration of variable %s at inner scope %s is marked as a global!\n", variableToMangle->name, scope->name);
 									}
-									thisTAC->operands[j].name.str = SymbolTable_mangleName(scope, dict, originalName);
+									thisTAC->operands[operandIndex].name.str = SymbolTable_mangleName(scope, dict, originalName);
 								}
 							}
 						}
@@ -180,9 +180,9 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 
 	// third pass: move nested members to parent scope based on mangled names
 	// also moves globals outwards
-	for (int i = 0; i < scope->entries->size; i++)
+	for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
 	{
-		struct ScopeMember *thisMember = scope->entries->data[i];
+		struct ScopeMember *thisMember = scope->entries->data[entryIndex];
 		switch (thisMember->type)
 		{
 		case e_scope:
@@ -193,7 +193,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 		{
 			if (depth > 0 && scope->parentScope != NULL)
 			{
-				SymbolTable_moveMemberToParentScope(scope, thisMember, &i);
+				SymbolTable_moveMemberToParentScope(scope, thisMember, &entryIndex);
 			}
 		}
 		break;
@@ -212,7 +212,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 					{
 						thisMember->name = SymbolTable_mangleName(scope, dict, thisMember->name);
 					}
-					SymbolTable_moveMemberToParentScope(scope, thisMember, &i);
+					SymbolTable_moveMemberToParentScope(scope, thisMember, &entryIndex);
 				}
 			}
 		}
@@ -253,9 +253,9 @@ struct Scope *Scope_new(struct Scope *parentScope, char *name, struct FunctionEn
 
 void Scope_free(struct Scope *scope)
 {
-	for (int i = 0; i < scope->entries->size; i++)
+	for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
 	{
-		struct ScopeMember *examinedEntry = scope->entries->data[i];
+		struct ScopeMember *examinedEntry = scope->entries->data[entryIndex];
 		switch (examinedEntry->type)
 		{
 		case e_scope:
@@ -277,9 +277,9 @@ void Scope_free(struct Scope *scope)
 			{
 				if (variableType->arraySize > 0)
 				{
-					for (int i = 0; i < variableType->arraySize; i++)
+					for (size_t arrayInitializeIndex = 0; arrayInitializeIndex < variableType->arraySize; arrayInitializeIndex++)
 					{
-						free(variableType->initializeArrayTo[i]);
+						free(variableType->initializeArrayTo[arrayInitializeIndex]);
 					}
 					free(variableType->initializeArrayTo);
 				}
@@ -638,13 +638,13 @@ struct ClassEntry *Scope_lookupClassByType(struct Scope *scope,
 	}
 }
 
-int Scope_getSizeOfType(struct Scope *scope, struct Type *type)
+size_t Scope_getSizeOfType(struct Scope *scope, struct Type *type)
 {
-	int size = 0;
+	size_t size = 0;
 
 	if (type->indirectionLevel > 0)
 	{
-		size = 8;
+		size = MACHINE_REGISTER_SIZE_BYTES;
 		if (type->arraySize == 0)
 		{
 			return size;
@@ -664,23 +664,23 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *type)
 			char *illegalAnyTypeName = Type_GetName(type);
 			ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
 		}
-		size = 1;
+		size = sizeof(u8);
 		break;
 
 	case vt_u8:
-		size = 1;
+		size = sizeof(u8);
 		break;
 
 	case vt_u16:
-		size = 2;
+		size = sizeof(u16);
 		break;
 
 	case vt_u32:
-		size = 4;
+		size = sizeof(u32);
 		break;
 
 	case vt_u64:
-		size = 8;
+		size = sizeof(u64);
 		break;
 
 	case vt_class:
@@ -704,7 +704,7 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *type)
 	return size;
 }
 
-int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *type)
+size_t Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *type)
 {
 	struct Type dereferenced = *type;
 	dereferenced.indirectionLevel--;
@@ -717,9 +717,9 @@ int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *type)
 	return Scope_getSizeOfType(scope, &dereferenced);
 }
 
-int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *variable)
+size_t Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *variable)
 {
-	int size = 0;
+	size_t size = 0;
 	if (variable->type.arraySize < 1)
 	{
 		if (variable->type.indirectionLevel)
@@ -755,17 +755,18 @@ int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *varia
 	return size;
 }
 
-int Scope_getAlignmentOfType(struct Scope *scope, struct Type *type)
+// Return the number of bits required to align a given type
+u8 Scope_getAlignmentOfType(struct Scope *scope, struct Type *type)
 {
-	int alignment = 0;
+	u8 alignBits = 0;
 
 	// TODO: handle arrays of pointers
 	if (type->indirectionLevel > 0)
 	{
-		alignment = 3;
+		alignBits = alignSize(sizeof(size_t));
 		if (type->arraySize == 0)
 		{
-			return alignment;
+			return alignBits;
 		}
 	}
 
@@ -782,37 +783,39 @@ int Scope_getAlignmentOfType(struct Scope *scope, struct Type *type)
 			char *illegalAnyTypeName = Type_GetName(type);
 			ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
 		}
-		alignment = 3;
+		// TODO: unreachable? indirectionlevels > 0 should always be caught above.
+		alignBits = alignSize(sizeof(size_t));
 		break;
 
+	// the compiler is becoming the compilee
 	case vt_u8:
-		alignment = 0;
+		alignBits = alignSize(sizeof(u8));
 		break;
 
 	case vt_u16:
-		alignment = 1;
+		alignBits = alignSize(sizeof(u16));
 		break;
 
 	case vt_u32:
-		alignment = 2;
+		alignBits = alignSize(sizeof(u32));
 		break;
 
 	case vt_u64:
-		alignment = 3;
+		alignBits = alignSize(sizeof(u64));
 		break;
 
 	case vt_class:
 	{
 		struct ClassEntry *class = Scope_lookupClassByType(scope, type);
 
-		for (int i = 0; i < class->memberLocations->size; i++)
+		for (size_t i = 0; i < class->memberLocations->size; i++)
 		{
 			struct ClassMemberOffset *examinedMember = (struct ClassMemberOffset *)class->memberLocations->data[i];
 
-			int examinedMemberAlignment = Scope_getAlignmentOfType(scope, &examinedMember->variable->type);
-			if (examinedMemberAlignment > alignment)
+			u8 examinedMemberAlignment = Scope_getAlignmentOfType(scope, &examinedMember->variable->type);
+			if (examinedMemberAlignment > alignBits)
 			{
-				alignment = examinedMemberAlignment;
+				alignBits = examinedMemberAlignment;
 			}
 		}
 	}
@@ -824,11 +827,11 @@ int Scope_getAlignmentOfType(struct Scope *scope, struct Type *type)
 	{
 		if (type->indirectionLevel > 1)
 		{
-			alignment = 3;
+			alignBits = alignSize(sizeof(size_t));
 		}
 	}
 
-	return alignment;
+	return alignBits;
 }
 
 void VariableEntry_Print(struct VariableEntry *variable, int depth)
@@ -838,15 +841,15 @@ void VariableEntry_Print(struct VariableEntry *variable, int depth)
 	free(typeName);
 }
 
-void Scope_print(struct Scope *scope, int depth, char printTAC)
+void Scope_print(struct Scope *scope, size_t depth, char printTAC)
 {
-	for (int i = 0; i < scope->entries->size; i++)
+	for (size_t i = 0; i < scope->entries->size; i++)
 	{
 		struct ScopeMember *thisMember = scope->entries->data[i];
 
 		if (thisMember->type != e_basicblock || printTAC)
 		{
-			for (int j = 0; j < depth; j++)
+			for (size_t j = 0; j < depth; j++)
 			{
 				printf("\t");
 			}
@@ -859,7 +862,7 @@ void Scope_print(struct Scope *scope, int depth, char printTAC)
 			struct VariableEntry *theArgument = thisMember->entry;
 			printf("> Argument: ");
 			VariableEntry_Print(theArgument, depth);
-			for (int j = 0; j < depth; j++)
+			for (size_t j = 0; j < depth; j++)
 			{
 				printf("\t");
 			}
@@ -879,7 +882,7 @@ void Scope_print(struct Scope *scope, int depth, char printTAC)
 		{
 			struct ClassEntry *theClass = thisMember->entry;
 			printf("> Class %s:\n", thisMember->name);
-			for (int j = 0; j < depth; j++)
+			for (size_t j = 0; j < depth; j++)
 			{
 				printf("\t");
 			}
@@ -922,7 +925,7 @@ void Scope_print(struct Scope *scope, int depth, char printTAC)
 
 void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *block)
 {
-	const int basicBlockNameStrSize = 10; // TODO: manage this better
+	const u8 basicBlockNameStrSize = 10; // TODO: manage this better
 	char *blockName = malloc(basicBlockNameStrSize);
 	sprintf(blockName, "Block%d", block->labelNum);
 	Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), block, e_basicblock);
@@ -939,9 +942,9 @@ void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *block)
  */
 
 // scrape down a chain of adjacent sibling star tokens, expecting something at the bottom
-int scrapePointers(struct AST *pointerAST, struct AST **resultDestination)
+size_t scrapePointers(struct AST *pointerAST, struct AST **resultDestination)
 {
-	int dereferenceDepth = 0;
+	size_t dereferenceDepth = 0;
 	pointerAST = pointerAST->sibling;
 
 	while ((pointerAST != NULL) && (pointerAST->type == t_dereference))

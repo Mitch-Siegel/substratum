@@ -419,7 +419,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 
 	LinkedList_Free(metadata.allLifetimes, free);
 
-	for (int i = 0; i <= metadata.largestTacIndex; i++)
+	for (size_t i = 0; i <= metadata.largestTacIndex; i++)
 	{
 		LinkedList_Free(metadata.lifetimeOverlaps[i], NULL);
 	}

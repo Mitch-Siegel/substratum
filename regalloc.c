@@ -446,11 +446,11 @@ void allocateRegisters(struct CodegenMetadata *metadata)
             {
                 if (examined->stackLocation > 0)
                 {
-                    printf("%-20s: %%bp+%2d - %%bp+%2d\n", examined->name, examined->stackLocation, examined->stackLocation + Scope_getSizeOfType(metadata->function->mainScope, &examined->type));
+                    printf("%-20s: %%bp+%2d - %%bp+%2zu\n", examined->name, examined->stackLocation, examined->stackLocation + Scope_getSizeOfType(metadata->function->mainScope, &examined->type));
                 }
                 else
                 {
-                    printf("%-20s: %%bp%2d - %%bp%2d\n", examined->name, examined->stackLocation, examined->stackLocation + Scope_getSizeOfType(metadata->function->mainScope, &examined->type));
+                    printf("%-20s: %%bp%2d - %%bp%2zu\n", examined->name, examined->stackLocation, examined->stackLocation + Scope_getSizeOfType(metadata->function->mainScope, &examined->type));
                 }
             }
         }

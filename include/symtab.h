@@ -121,7 +121,7 @@ struct Scope *Scope_new(struct Scope *parentScope,
 void Scope_free(struct Scope *scope);
 
 void Scope_print(struct Scope *scope,
-				 int depth,
+				 size_t depth,
 				 char printTAC);
 
 void Scope_insert(struct Scope *scope,
@@ -184,15 +184,15 @@ struct ClassEntry *Scope_lookupClassByType(struct Scope *scope,
 										   struct Type *type);
 
 // gets the integer size (not aligned) of a given type
-int Scope_getSizeOfType(struct Scope *scope, struct Type *t);
+size_t Scope_getSizeOfType(struct Scope *scope, struct Type *t);
 
 // gets the integer size (not aligned) of a given type, but based on the dereference level as (t->indirectionLevel - 1)
-int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *t);
+size_t Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *t);
 
-int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v);
+size_t Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v);
 
 // calculate the power of 2 to which a given type needs to be aligned
-int Scope_getAlignmentOfType(struct Scope *scope, struct Type *t);
+u8 Scope_getAlignmentOfType(struct Scope *scope, struct Type *t);
 
 // scope linearization functions
 
@@ -205,7 +205,7 @@ void SymbolTable_print(struct SymbolTable *table,
 
 void SymbolTable_collapseScopesRec(struct Scope *scope,
 								   struct Dictionary *dict,
-								   int depth);
+								   size_t depth);
 
 void SymbolTable_collapseScopes(struct SymbolTable *table,
 								struct Dictionary *dict);
@@ -215,5 +215,5 @@ void SymbolTable_free(struct SymbolTable *table);
 // AST walk functions
 
 // scrape down a chain of nested child star tokens, expecting something at the bottom
-int scrapePointers(struct AST *pointerAST,
+size_t scrapePointers(struct AST *pointerAST,
 				   struct AST **resultDestination);
