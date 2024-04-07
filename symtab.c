@@ -24,12 +24,12 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *n
 	return newFunction;
 }
 
-void FunctionEntry_free(struct FunctionEntry *f)
+void FunctionEntry_free(struct FunctionEntry *function)
 {
-	Stack_Free(f->arguments);
-	LinkedList_Free(f->BasicBlockList, NULL);
-	Scope_free(f->mainScope);
-	free(f);
+	Stack_Free(function->arguments);
+	LinkedList_Free(function->BasicBlockList, NULL);
+	Scope_free(function->mainScope);
+	free(function);
 }
 
 struct SymbolTable *SymbolTable_new(char *name)
@@ -45,11 +45,11 @@ struct SymbolTable *SymbolTable_new(char *name)
 	return wip;
 }
 
-void SymbolTable_print(struct SymbolTable *it, char printTAC)
+void SymbolTable_print(struct SymbolTable *table, char printTAC)
 {
 	printf("~~~~~~~~~~~~~\n");
-	printf("Symbol Table For %s:\n\n", it->name);
-	Scope_print(it->globalScope, 0, printTAC);
+	printf("Symbol Table For %s:\n\n", table->name);
+	Scope_print(table->globalScope, 0, printTAC);
 	printf("~~~~~~~~~~~~~\n\n");
 }
 
@@ -224,15 +224,15 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 	}
 }
 
-void SymbolTable_collapseScopes(struct SymbolTable *it, struct Dictionary *dict)
+void SymbolTable_collapseScopes(struct SymbolTable *table, struct Dictionary *dict)
 {
-	SymbolTable_collapseScopesRec(it->globalScope, parseDict, 0);
+	SymbolTable_collapseScopesRec(table->globalScope, parseDict, 0);
 }
 
-void SymbolTable_free(struct SymbolTable *it)
+void SymbolTable_free(struct SymbolTable *table)
 {
-	Scope_free(it->globalScope);
-	free(it);
+	Scope_free(table->globalScope);
+	free(table);
 }
 
 /*
@@ -480,10 +480,10 @@ struct ClassMemberOffset *Class_lookupMemberVariable(struct ClassEntry *class,
 
 	for (int i = 0; i < class->memberLocations->size; i++)
 	{
-		struct ClassMemberOffset *co = class->memberLocations->data[i];
-		if (!strcmp(co->variable->name, name->value))
+		struct ClassMemberOffset *member = class->memberLocations->data[i];
+		if (!strcmp(member->variable->name, name->value))
 		{
-			return co;
+			return member;
 		}
 	}
 
@@ -638,20 +638,20 @@ struct ClassEntry *Scope_lookupClassByType(struct Scope *scope,
 	}
 }
 
-int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
+int Scope_getSizeOfType(struct Scope *scope, struct Type *type)
 {
 	int size = 0;
 
-	if (t->indirectionLevel > 0)
+	if (type->indirectionLevel > 0)
 	{
 		size = 8;
-		if (t->arraySize == 0)
+		if (type->arraySize == 0)
 		{
 			return size;
 		}
 	}
 
-	switch (t->basicType)
+	switch (type->basicType)
 	{
 	case vt_null:
 		ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_null!\n");
@@ -659,9 +659,9 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 
 	case vt_any:
 		// triple check that `any` is only ever used as a pointer type a la c's void *
-		if ((t->indirectionLevel == 0) || (t->arraySize > 0))
+		if ((type->indirectionLevel == 0) || (type->arraySize > 0))
 		{
-			char *illegalAnyTypeName = Type_GetName(t);
+			char *illegalAnyTypeName = Type_GetName(type);
 			ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
 		}
 		size = 1;
@@ -685,28 +685,28 @@ int Scope_getSizeOfType(struct Scope *scope, struct Type *t)
 
 	case vt_class:
 	{
-		struct ClassEntry *class = Scope_lookupClassByType(scope, t);
+		struct ClassEntry *class = Scope_lookupClassByType(scope, type);
 		size = class->totalSize;
 	}
 	break;
 	}
 
-	if (t->arraySize > 0)
+	if (type->arraySize > 0)
 	{
-		if (t->indirectionLevel > 1)
+		if (type->indirectionLevel > 1)
 		{
-			size = 8;
+			size = MACHINE_REGISTER_SIZE_BYTES;
 		}
 
-		size *= t->arraySize;
+		size *= type->arraySize;
 	}
 
 	return size;
 }
 
-int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *t)
+int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *type)
 {
-	struct Type dereferenced = *t;
+	struct Type dereferenced = *type;
 	dereferenced.indirectionLevel--;
 
 	if (dereferenced.arraySize > 0)
@@ -717,58 +717,59 @@ int Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *t)
 	return Scope_getSizeOfType(scope, &dereferenced);
 }
 
-int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v)
+int Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *variable)
 {
-	if (v->type.arraySize < 1)
+	int size = 0;
+	if (variable->type.arraySize < 1)
 	{
-		if (v->type.indirectionLevel)
+		if (variable->type.indirectionLevel)
 		{
-			char *nonArrayPointerTypeName = Type_GetName(&v->type);
-			printf("Warning - variable %s with type %s used in array access!\n", v->name, nonArrayPointerTypeName);
+			char *nonArrayPointerTypeName = Type_GetName(&variable->type);
+			printf("Warning - variable %s with type %s used in array access!\n", variable->name, nonArrayPointerTypeName);
 			free(nonArrayPointerTypeName);
-			struct Type elementType = v->type;
+			struct Type elementType = variable->type;
 			elementType.indirectionLevel--;
 			elementType.arraySize = 0;
-			int s = Scope_getSizeOfType(scope, &elementType);
-			return s;
+			size = Scope_getSizeOfType(scope, &elementType);
 		}
 		else
 		{
-			ErrorAndExit(ERROR_INTERNAL, "Non-array variable %s passed to Scope_getSizeOfArrayElement!\n", v->name);
+			ErrorAndExit(ERROR_INTERNAL, "Non-array variable %s passed to Scope_getSizeOfArrayElement!\n", variable->name);
 		}
 	}
 	else
 	{
-		if (v->type.indirectionLevel == 0)
+		if (variable->type.indirectionLevel == 0)
 		{
-			struct Type elementType = v->type;
+			struct Type elementType = variable->type;
 			elementType.indirectionLevel--;
 			elementType.arraySize = 0;
-			int s = Scope_getSizeOfType(scope, &elementType);
-			return s;
+			size = Scope_getSizeOfType(scope, &elementType);
 		}
 		else
 		{
-			return 8;
+			size = MACHINE_REGISTER_SIZE_BYTES;
 		}
 	}
+
+	return size;
 }
 
-int Scope_getAlignmentOfType(struct Scope *scope, struct Type *t)
+int Scope_getAlignmentOfType(struct Scope *scope, struct Type *type)
 {
 	int alignment = 0;
 
 	// TODO: handle arrays of pointers
-	if (t->indirectionLevel > 0)
+	if (type->indirectionLevel > 0)
 	{
 		alignment = 3;
-		if (t->arraySize == 0)
+		if (type->arraySize == 0)
 		{
 			return alignment;
 		}
 	}
 
-	switch (t->basicType)
+	switch (type->basicType)
 	{
 	case vt_null:
 		ErrorAndExit(ERROR_INTERNAL, "Scope_getAlignmentOfType called with basic type of vt_null!\n");
@@ -776,9 +777,9 @@ int Scope_getAlignmentOfType(struct Scope *scope, struct Type *t)
 
 	case vt_any:
 		// triple check that `any` is only ever used as a pointer type a la c's void *
-		if ((t->indirectionLevel == 0) || (t->arraySize > 0))
+		if ((type->indirectionLevel == 0) || (type->arraySize > 0))
 		{
-			char *illegalAnyTypeName = Type_GetName(t);
+			char *illegalAnyTypeName = Type_GetName(type);
 			ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
 		}
 		alignment = 3;
@@ -802,7 +803,7 @@ int Scope_getAlignmentOfType(struct Scope *scope, struct Type *t)
 
 	case vt_class:
 	{
-		struct ClassEntry *class = Scope_lookupClassByType(scope, t);
+		struct ClassEntry *class = Scope_lookupClassByType(scope, type);
 
 		for (int i = 0; i < class->memberLocations->size; i++)
 		{
@@ -819,9 +820,9 @@ int Scope_getAlignmentOfType(struct Scope *scope, struct Type *t)
 	}
 
 	// TODO: see above todo about handling arrays of pointers
-	if (t->arraySize > 0)
+	if (type->arraySize > 0)
 	{
-		if (t->indirectionLevel > 1)
+		if (type->indirectionLevel > 1)
 		{
 			alignment = 3;
 		}
@@ -830,18 +831,18 @@ int Scope_getAlignmentOfType(struct Scope *scope, struct Type *t)
 	return alignment;
 }
 
-void VariableEntry_Print(struct VariableEntry *it, int depth)
+void VariableEntry_Print(struct VariableEntry *variable, int depth)
 {
-	char *typeName = Type_GetName(&it->type);
-	printf("%s %s\n", typeName, it->name);
+	char *typeName = Type_GetName(&variable->type);
+	printf("%s %s\n", typeName, variable->name);
 	free(typeName);
 }
 
-void Scope_print(struct Scope *it, int depth, char printTAC)
+void Scope_print(struct Scope *scope, int depth, char printTAC)
 {
-	for (int i = 0; i < it->entries->size; i++)
+	for (int i = 0; i < scope->entries->size; i++)
 	{
-		struct ScopeMember *thisMember = it->entries->data[i];
+		struct ScopeMember *thisMember = scope->entries->data[i];
 
 		if (thisMember->type != e_basicblock || printTAC)
 		{
@@ -919,16 +920,17 @@ void Scope_print(struct Scope *it, int depth, char printTAC)
 	}
 }
 
-void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *b)
+void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *block)
 {
-	char *blockName = malloc(10);
-	sprintf(blockName, "Block%d", b->labelNum);
-	Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), b, e_basicblock);
+	const int basicBlockNameStrSize = 10; // TODO: manage this better
+	char *blockName = malloc(basicBlockNameStrSize);
+	sprintf(blockName, "Block%d", block->labelNum);
+	Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), block, e_basicblock);
 	free(blockName);
 
 	if (scope->parentFunction != NULL)
 	{
-		LinkedList_Append(scope->parentFunction->BasicBlockList, b);
+		LinkedList_Append(scope->parentFunction->BasicBlockList, block);
 	}
 }
 

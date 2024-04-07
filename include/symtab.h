@@ -120,7 +120,7 @@ struct Scope *Scope_new(struct Scope *parentScope,
 
 void Scope_free(struct Scope *scope);
 
-void Scope_print(struct Scope *it,
+void Scope_print(struct Scope *scope,
 				 int depth,
 				 char printTAC);
 
@@ -200,17 +200,17 @@ int Scope_getAlignmentOfType(struct Scope *scope, struct Type *t);
 void Scope_addBasicBlock(struct Scope *scope,
 						 struct BasicBlock *b);
 
-void SymbolTable_print(struct SymbolTable *it,
+void SymbolTable_print(struct SymbolTable *table,
 					   char printTAC);
 
 void SymbolTable_collapseScopesRec(struct Scope *scope,
 								   struct Dictionary *dict,
 								   int depth);
 
-void SymbolTable_collapseScopes(struct SymbolTable *it,
+void SymbolTable_collapseScopes(struct SymbolTable *table,
 								struct Dictionary *dict);
 
-void SymbolTable_free(struct SymbolTable *it);
+void SymbolTable_free(struct SymbolTable *table);
 
 // AST walk functions
 
