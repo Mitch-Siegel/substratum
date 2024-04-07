@@ -450,7 +450,7 @@ void EmitPushForOperand(struct TACLine *correspondingTACLine,
 						struct TACOperand *dataSource,
 						u8 srcRegister)
 {
-	int size = Scope_getSizeOfType(scope, TACOperand_GetType(dataSource));
+	size_t size = Scope_getSizeOfType(scope, TACOperand_GetType(dataSource));
 	switch (size)
 	{
 	case 1:
@@ -464,7 +464,7 @@ void EmitPushForOperand(struct TACLine *correspondingTACLine,
 	default:
 	{
 		char *typeName = Type_GetName(TACOperand_GetType(dataSource));
-		ErrorAndExit(ERROR_INTERNAL, "Unsupported size %d seen in EmitPushForOperand (for type %s)\n", size, typeName);
+		ErrorAndExit(ERROR_INTERNAL, "Unsupported size %zu seen in EmitPushForOperand (for type %s)\n", size, typeName);
 	}
 	}
 }
@@ -486,7 +486,7 @@ void EmitPopForOperand(struct TACLine *correspondingTACLine,
 					   struct TACOperand *dataDest,
 					   u8 destRegister)
 {
-	int size = Scope_getSizeOfType(scope, TACOperand_GetType(dataDest));
+	size_t size = Scope_getSizeOfType(scope, TACOperand_GetType(dataDest));
 	switch (size)
 	{
 	case 1:
@@ -500,7 +500,7 @@ void EmitPopForOperand(struct TACLine *correspondingTACLine,
 	default:
 	{
 		char *typeName = Type_GetName(TACOperand_GetType(dataDest));
-		ErrorAndExit(ERROR_INTERNAL, "Unsupported size %d seen in EmitPopForOperand (for type %s)\n", size, typeName);
+		ErrorAndExit(ERROR_INTERNAL, "Unsupported size %zu seen in EmitPopForOperand (for type %s)\n", size, typeName);
 	}
 	}
 }

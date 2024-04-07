@@ -24,7 +24,8 @@ enum basicTypes selectVariableTypeForNumber(size_t num)
 
 enum basicTypes selectVariableTypeForLiteral(char *literal)
 {
-	int literalAsNumber = atoi(literal);
+	// TODO: abstraction layer
+	i32 literalAsNumber = atoi(literal);
 	return selectVariableTypeForNumber(literalAsNumber);
 }
 
@@ -59,7 +60,7 @@ void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *s
 
 extern struct TempList *temps;
 extern struct Dictionary *parseDict;
-struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, const int *TACIndex, int *tempNum, struct Type *pointerTypeOfToScale)
+struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale)
 {
 	struct TACLine *scaleMultiplication = newTACLine(*TACIndex, tt_mul, tree);
 

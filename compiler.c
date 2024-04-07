@@ -282,9 +282,9 @@ int main(int argc, char **argv)
 			"\t.attribute unaligned_access, 0",
 			NULL};
 
-		for (int i = 0; boilerplateAsm2[i] != NULL; i++)
+		for (size_t asmIndex = 0; boilerplateAsm2[asmIndex] != NULL; asmIndex++)
 		{
-			fprintf(outFile, "%s\n", boilerplateAsm2[i]);
+			fprintf(outFile, "%s\n", boilerplateAsm2[asmIndex]);
 		}
 
 		fprintf(outFile, "\t.file 1 \"%s\"\n", inFileName);

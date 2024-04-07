@@ -22,7 +22,7 @@ void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src);
 // copy over only the type and castAsType fields, decaying array sizes to simple pointer types
 void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *src);
 
-struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, const int *TACIndex, int *tempNum, struct Type *pointerTypeOfToScale);
+struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale);
 
 // check the LHS of any dot operator make sure it is both a class and not indirect
 // special case handling for when tree is an identifier vs a subexpression

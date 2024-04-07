@@ -17,8 +17,8 @@ struct SymbolTable *walkProgram(struct AST *program)
 	Scope_addBasicBlock(programTable->globalScope, asmBlock);
 	temps = TempList_New();
 
-	int globalTACIndex = 0;
-	int globalTempNum = 0;
+	size_t globalTACIndex = 0;
+	size_t globalTempNum = 0;
 
 	struct AST *programRunner = program;
 	while (programRunner != NULL)
@@ -159,6 +159,7 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
 			ErrorWithAST(ERROR_INTERNAL, declaredArray, "Unexpected AST at end of pointer declarations!");
 		}
 		char *arraySizeString = declaredArray->child->value;
+		// TODO: abstract this
 		int declaredArraySize = atoi(arraySizeString);
 
 		populateTypeTo->arraySize = declaredArraySize;
@@ -172,8 +173,8 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
 struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 											  struct BasicBlock *block,
 											  struct Scope *scope,
-											  const int *TACIndex,
-											  const int *tempNum,
+											  const size_t *TACIndex,
+											  const size_t *tempNum,
 											  char isArgument)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
@@ -213,8 +214,8 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 
 void walkArgumentDeclaration(struct AST *tree,
 							 struct BasicBlock *block,
-							 int *TACIndex,
-							 int *tempNum,
+							 size_t *TACIndex,
+							 size_t *tempNum,
 							 struct FunctionEntry *fun)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
@@ -289,8 +290,8 @@ void walkFunctionDeclaration(struct AST *tree,
 	}
 
 	struct AST *argumentRunner = functionNameTree->sibling;
-	int TACIndex = 0;
-	int tempNum = 0;
+	size_t TACIndex = 0;
+	size_t tempNum = 0;
 	struct BasicBlock *block = BasicBlock_new(0);
 	while ((argumentRunner != NULL) && (argumentRunner->type != t_compound_statement) && (argumentRunner->type != t_asm))
 	{
@@ -318,7 +319,7 @@ void walkFunctionDeclaration(struct AST *tree,
 	if (existingFunc != NULL)
 	{
 		// check that if a prototype declaration exists, that our parsed declaration matches it exactly
-		int mismatch = 0;
+		u8 mismatch = 0;
 
 		if ((Type_Compare(&parsedFunc->returnType, &existingFunc->returnType)))
 		{
@@ -422,7 +423,7 @@ void walkFunctionDeclaration(struct AST *tree,
 		for (struct LinkedListNode *runner = walkedFunction->BasicBlockList->head; runner != NULL; runner = runner->next)
 		{
 			struct BasicBlock *checkedBlock = runner->data;
-			int prevTacIndex = -1;
+			i64 prevTacIndex = -1;
 			// iterate TAC lines backwards, because the last line with a duplicate number is actually the problem
 			// (because we should post-increment the index to number recursive linearzations correctly)
 			for (struct LinkedListNode *TACRunner = checkedBlock->TACList->tail; TACRunner != NULL; TACRunner = TACRunner->prev)
@@ -434,7 +435,7 @@ void walkFunctionDeclaration(struct AST *tree,
 					{
 						printBasicBlock(checkedBlock, 0);
 						char *printedTACLine = sPrintTACLine(checkedTAC);
-						ErrorAndExit(ERROR_INTERNAL, "TAC line allocated at %s:%d doesn't obey ordering - numbering goes from 0x%x to 0x%x:\n\t%s\n",
+						ErrorAndExit(ERROR_INTERNAL, "TAC line allocated at %s:%d doesn't obey ordering - numbering goes from 0x%x to 0x%lx:\n\t%s\n",
 									 checkedTAC->allocFile,
 									 checkedTAC->allocLine,
 									 checkedTAC->index,
@@ -461,9 +462,9 @@ void walkFunctionDefinition(struct AST *tree,
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionDefinition!\n", getTokenName(tree->type));
 	}
 
-	int TACIndex = 0;
-	int tempNum = 0;
-	int labelNum = 1;
+	size_t TACIndex = 0;
+	size_t tempNum = 0;
+	size_t labelNum = 1;
 	struct BasicBlock *block = BasicBlock_new(0);
 	Scope_addBasicBlock(fun->mainScope, block);
 
@@ -491,7 +492,7 @@ void walkClassDeclaration(struct AST *tree,
 	{
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkClassDefinition!\n", getTokenName(tree->type));
 	}
-	int dummyNum = 0;
+	size_t dummyNum = 0;
 
 	struct ClassEntry *declaredClass = Scope_createClass(scope, tree->child->value);
 
@@ -525,10 +526,10 @@ void walkClassDeclaration(struct AST *tree,
 void walkStatement(struct AST *tree,
 				   struct BasicBlock **blockP,
 				   struct Scope *scope,
-				   int *TACIndex,
-				   int *tempNum,
-				   int *labelNum,
-				   int controlConvergesToLabel)
+				   size_t *TACIndex,
+				   size_t *tempNum,
+				   size_t *labelNum,
+				   ssize_t controlConvergesToLabel)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -622,10 +623,10 @@ void walkStatement(struct AST *tree,
 void walkScope(struct AST *tree,
 			   struct BasicBlock *block,
 			   struct Scope *scope,
-			   int *TACIndex,
-			   int *tempNum,
-			   int *labelNum,
-			   int controlConvergesToLabel)
+			   size_t *TACIndex,
+			   size_t *tempNum,
+			   size_t *labelNum,
+			   ssize_t controlConvergesToLabel)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -654,10 +655,10 @@ void walkScope(struct AST *tree,
 struct BasicBlock *walkLogicalOperator(struct AST *tree,
 									   struct BasicBlock *block,
 									   struct Scope *scope,
-									   int *TACIndex,
-									   int *tempNum,
-									   int *labelNum,
-									   int falseJumpLabelNum)
+									   size_t *TACIndex,
+									   size_t *tempNum,
+									   size_t *labelNum,
+									   size_t falseJumpLabelNum)
 {
 	switch (tree->type)
 	{
@@ -730,10 +731,10 @@ struct BasicBlock *walkLogicalOperator(struct AST *tree,
 struct BasicBlock *walkConditionCheck(struct AST *tree,
 									  struct BasicBlock *block,
 									  struct Scope *scope,
-									  int *TACIndex,
-									  int *tempNum,
-									  int *labelNum,
-									  int falseJumpLabelNum)
+									  size_t *TACIndex,
+									  size_t *tempNum,
+									  size_t *labelNum,
+									  size_t falseJumpLabelNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -876,10 +877,10 @@ struct BasicBlock *walkConditionCheck(struct AST *tree,
 void walkWhileLoop(struct AST *tree,
 				   struct BasicBlock *block,
 				   struct Scope *scope,
-				   int *TACIndex,
-				   int *tempNum,
-				   int *labelNum,
-				   int controlConvergesToLabel)
+				   size_t *TACIndex,
+				   size_t *tempNum,
+				   size_t *labelNum,
+				   ssize_t controlConvergesToLabel)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -906,7 +907,7 @@ void walkWhileLoop(struct AST *tree,
 
 	whileBlock = walkConditionCheck(tree->child, whileBlock, whileScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 
-	int endWhileLabel = (*labelNum)++;
+	size_t endWhileLabel = (*labelNum)++;
 
 	struct AST *whileBody = tree->child->sibling;
 	if (whileBody->type == t_compound_statement)
@@ -932,10 +933,10 @@ void walkWhileLoop(struct AST *tree,
 void walkIfStatement(struct AST *tree,
 					 struct BasicBlock *block,
 					 struct Scope *scope,
-					 int *TACIndex,
-					 int *tempNum,
-					 int *labelNum,
-					 int controlConvergesToLabel)
+					 size_t *TACIndex,
+					 size_t *tempNum,
+					 size_t *labelNum,
+					 ssize_t controlConvergesToLabel)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -950,7 +951,7 @@ void walkIfStatement(struct AST *tree,
 	// if we have an else block
 	if (tree->child->sibling->sibling != NULL)
 	{
-		int elseLabel = (*labelNum)++;
+		size_t elseLabel = (*labelNum)++;
 		block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, elseLabel);
 
 		struct Scope *ifScope = Scope_createSubScope(scope);
@@ -1013,8 +1014,8 @@ void walkIfStatement(struct AST *tree,
 void walkDotOperatorAssignment(struct AST *tree,
 							   struct BasicBlock *block,
 							   struct Scope *scope,
-							   int *TACIndex,
-							   int *tempNum,
+							   size_t *TACIndex,
+							   size_t *tempNum,
 							   struct TACLine *wipAssignment,
 							   struct TACOperand *assignedValue)
 {
@@ -1131,8 +1132,8 @@ void walkDotOperatorAssignment(struct AST *tree,
 void walkArrowOperatorAssignment(struct AST *tree,
 								 struct BasicBlock *block,
 								 struct Scope *scope,
-								 int *TACIndex,
-								 int *tempNum,
+								 size_t *TACIndex,
+								 size_t *tempNum,
 								 struct TACLine *wipAssignment,
 								 struct TACOperand *assignedValue)
 {
@@ -1245,8 +1246,8 @@ void walkArrowOperatorAssignment(struct AST *tree,
 void walkAssignment(struct AST *tree,
 					struct BasicBlock *block,
 					struct Scope *scope,
-					int *TACIndex,
-					int *tempNum)
+					size_t *TACIndex,
+					size_t *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1380,8 +1381,8 @@ void walkAssignment(struct AST *tree,
 void walkArithmeticAssignment(struct AST *tree,
 							  struct BasicBlock *block,
 							  struct Scope *scope,
-							  int *TACIndex,
-							  int *tempNum)
+							  size_t *TACIndex,
+							  size_t *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1465,8 +1466,8 @@ void walkArithmeticAssignment(struct AST *tree,
 struct TACOperand *walkBitwiseNot(struct AST *tree,
 								  struct BasicBlock *block,
 								  struct Scope *scope,
-								  int *TACIndex,
-								  int *tempNum)
+								  size_t *TACIndex,
+								  size_t *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -1502,8 +1503,8 @@ struct TACOperand *walkBitwiseNot(struct AST *tree,
 void walkSubExpression(struct AST *tree,
 					   struct BasicBlock *block,
 					   struct Scope *scope,
-					   int *TACIndex,
-					   int *tempNum,
+					   size_t *TACIndex,
+					   size_t *tempNum,
 					   struct TACOperand *destinationOperand)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
@@ -1696,9 +1697,9 @@ void walkSubExpression(struct AST *tree,
 			char literalAndValue[sprintedNumberLength];
 			// manually generate a string with an 'F' hex digit for each 4 bits in the mask
 			sprintf(literalAndValue, "0x");
-			const int bitsPerByte = 8; // TODO: move to substratum_defs?
-			int maskBitWidth = (bitsPerByte * Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)));
-			int maskBit = 0;
+			const u8 bitsPerByte = 8; // TODO: move to substratum_defs?
+			size_t maskBitWidth = (bitsPerByte * Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)));
+			size_t maskBit = 0;
 			for (maskBit = 0; maskBit < maskBitWidth; maskBit += 4)
 			{
 				literalAndValue[2 + (maskBit / 4)] = 'F';
@@ -1738,8 +1739,8 @@ void walkSubExpression(struct AST *tree,
 void walkFunctionCall(struct AST *tree,
 					  struct BasicBlock *block,
 					  struct Scope *scope,
-					  int *TACIndex,
-					  int *tempNum,
+					  size_t *TACIndex,
+					  size_t *tempNum,
 					  struct TACOperand *destinationOperand)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
@@ -1782,7 +1783,7 @@ void walkFunctionCall(struct AST *tree,
 					 argumentTrees->size);
 	}
 
-	int argIndex = calledFunction->arguments->size - 1;
+	size_t argIndex = calledFunction->arguments->size - 1;
 	while (argumentTrees->size > 0)
 	{
 		struct AST *pushedArgument = Stack_Pop(argumentTrees);
@@ -1864,10 +1865,10 @@ void walkFunctionCall(struct AST *tree,
 struct TACLine *walkMemberAccess(struct AST *tree,
 								 struct BasicBlock *block,
 								 struct Scope *scope,
-								 int *TACIndex,
-								 int *tempNum,
+								 size_t *TACIndex,
+								 size_t *tempNum,
 								 struct TACOperand *srcDestOperand,
-								 int depth)
+								 size_t depth)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -2081,8 +2082,8 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 struct TACOperand *walkExpression(struct AST *tree,
 								  struct BasicBlock *block,
 								  struct Scope *scope,
-								  int *TACIndex,
-								  int *tempNum)
+								  size_t *TACIndex,
+								  size_t *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -2229,8 +2230,8 @@ struct TACOperand *walkExpression(struct AST *tree,
 struct TACLine *walkArrayRef(struct AST *tree,
 							 struct BasicBlock *block,
 							 struct Scope *scope,
-							 int *TACIndex,
-							 int *tempNum)
+							 size_t *TACIndex,
+							 size_t *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -2272,6 +2273,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
 			arrayRefTAC->operation = tt_load_off;
 		}
 
+		// TODO: abstract this
 		int indexSize = atoi(arrayIndex->value);
 		indexSize *= 1 << alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
 
@@ -2304,8 +2306,8 @@ struct TACLine *walkArrayRef(struct AST *tree,
 struct TACOperand *walkDereference(struct AST *tree,
 								   struct BasicBlock *block,
 								   struct Scope *scope,
-								   int *TACIndex,
-								   int *tempNum)
+								   size_t *TACIndex,
+								   size_t *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -2347,8 +2349,8 @@ struct TACOperand *walkDereference(struct AST *tree,
 struct TACOperand *walkAddrOf(struct AST *tree,
 							  struct BasicBlock *block,
 							  struct Scope *scope,
-							  int *TACIndex,
-							  int *tempNum)
+							  size_t *TACIndex,
+							  size_t *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -2428,8 +2430,8 @@ struct TACOperand *walkAddrOf(struct AST *tree,
 void walkPointerArithmetic(struct AST *tree,
 						   struct BasicBlock *block,
 						   struct Scope *scope,
-						   int *TACIndex,
-						   int *tempNum,
+						   size_t *TACIndex,
+						   size_t *tempNum,
 						   struct TACOperand *destinationOperand)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
@@ -2480,8 +2482,8 @@ void walkPointerArithmetic(struct AST *tree,
 void walkAsmBlock(struct AST *tree,
 				  struct BasicBlock *block,
 				  struct Scope *scope,
-				  int *TACIndex,
-				  int *tempNum)
+				  size_t *TACIndex,
+				  size_t *tempNum)
 {
 	if (currentVerbosity == VERBOSITY_MAX)
 	{
@@ -2612,7 +2614,7 @@ void walkSizeof(struct AST *tree,
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkSizeof!\n", getTokenName(tree->type));
 	}
 
-	int sizeInBytes = -1;
+	size_t sizeInBytes = 0;
 
 	switch (tree->child->type)
 	{
@@ -2653,7 +2655,7 @@ void walkSizeof(struct AST *tree,
 	}
 
 	char sizeString[sprintedNumberLength];
-	snprintf(sizeString, sprintedNumberLength - 1, "%d", sizeInBytes);
+	snprintf(sizeString, sprintedNumberLength - 1, "%zu", sizeInBytes);
 	destinationOperand->type.basicType = vt_u8;
 	destinationOperand->permutation = vp_literal;
 	destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, sizeString);
