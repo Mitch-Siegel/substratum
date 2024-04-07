@@ -271,9 +271,9 @@ int main(int argc, char **argv)
 			"\t.cfi_sections\t.debug_frame",
 			NULL};
 
-		for (int i = 0; boilerplateAsm1[i] != NULL; i++)
+		for (size_t asmIndex = 0; boilerplateAsm1[asmIndex] != NULL; asmIndex++)
 		{
-			fprintf(outFile, "%s\n", boilerplateAsm1[i]);
+			fprintf(outFile, "%s\n", boilerplateAsm1[asmIndex]);
 		}
 
 		fprintf(outFile, "\t.file 0 \"%s\"\n", inFileName);

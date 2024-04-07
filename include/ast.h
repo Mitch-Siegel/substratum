@@ -123,7 +123,7 @@ struct AST *AST_ConstructAddSibling(struct AST *tree, struct AST *newSibling);
 
 struct AST *AST_ConstructAddChild(struct AST *tree, struct AST *newChild);
 
-void AST_Print(struct AST *tree, u32 depth);
+void AST_Print(struct AST *tree, size_t depth);
 
 void AST_PrintHorizontal(struct AST *tree);
 

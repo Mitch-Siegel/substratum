@@ -140,14 +140,14 @@ struct AST *AST_ConstructAddChild(struct AST *tree, struct AST *newChild)
 	return tree;
 }
 
-void AST_Print(struct AST *tree, u32 depth)
+void AST_Print(struct AST *tree, size_t depth)
 {
 	if (tree->sibling != NULL)
 	{
 		AST_Print(tree->sibling, depth);
 	}
 
-	for (int i = 0; i < depth; i++)
+	for (size_t indentPrint = 0; indentPrint < depth; indentPrint++)
 	{
 		printf("\t");
 	}

@@ -478,9 +478,9 @@ struct ClassMemberOffset *Class_lookupMemberVariable(struct ClassEntry *class,
 					 getTokenName(name->type));
 	}
 
-	for (int i = 0; i < class->memberLocations->size; i++)
+	for (size_t memberIndex = 0; memberIndex < class->memberLocations->size; memberIndex++)
 	{
-		struct ClassMemberOffset *member = class->memberLocations->data[i];
+		struct ClassMemberOffset *member = class->memberLocations->data[memberIndex];
 		if (!strcmp(member->variable->name, name->value))
 		{
 			return member;
@@ -494,9 +494,9 @@ struct ClassMemberOffset *Class_lookupMemberVariable(struct ClassEntry *class,
 
 char Scope_contains(struct Scope *scope, char *name)
 {
-	for (int i = 0; i < scope->entries->size; i++)
+	for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
 	{
-		if (!strcmp(name, ((struct ScopeMember *)scope->entries->data[i])->name))
+		if (!strcmp(name, ((struct ScopeMember *)scope->entries->data[entryIndex])->name))
 		{
 			return 1;
 		}
@@ -510,9 +510,9 @@ struct ScopeMember *Scope_lookup(struct Scope *scope, char *name)
 {
 	while (scope != NULL)
 	{
-		for (int i = 0; i < scope->entries->size; i++)
+		for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
 		{
-			struct ScopeMember *examinedEntry = scope->entries->data[i];
+			struct ScopeMember *examinedEntry = scope->entries->data[entryIndex];
 			if (!strcmp(examinedEntry->name, name))
 			{
 				return examinedEntry;
@@ -808,9 +808,9 @@ u8 Scope_getAlignmentOfType(struct Scope *scope, struct Type *type)
 	{
 		struct ClassEntry *class = Scope_lookupClassByType(scope, type);
 
-		for (size_t i = 0; i < class->memberLocations->size; i++)
+		for (size_t memberIndex = 0; memberIndex < class->memberLocations->size; memberIndex++)
 		{
-			struct ClassMemberOffset *examinedMember = (struct ClassMemberOffset *)class->memberLocations->data[i];
+			struct ClassMemberOffset *examinedMember = (struct ClassMemberOffset *)class->memberLocations->data[memberIndex];
 
 			u8 examinedMemberAlignment = Scope_getAlignmentOfType(scope, &examinedMember->variable->type);
 			if (examinedMemberAlignment > alignBits)
@@ -843,13 +843,13 @@ void VariableEntry_Print(struct VariableEntry *variable, int depth)
 
 void Scope_print(struct Scope *scope, size_t depth, char printTAC)
 {
-	for (size_t i = 0; i < scope->entries->size; i++)
+	for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
 	{
-		struct ScopeMember *thisMember = scope->entries->data[i];
+		struct ScopeMember *thisMember = scope->entries->data[entryIndex];
 
 		if (thisMember->type != e_basicblock || printTAC)
 		{
-			for (size_t j = 0; j < depth; j++)
+			for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
 			{
 				printf("\t");
 			}
@@ -862,7 +862,7 @@ void Scope_print(struct Scope *scope, size_t depth, char printTAC)
 			struct VariableEntry *theArgument = thisMember->entry;
 			printf("> Argument: ");
 			VariableEntry_Print(theArgument, depth);
-			for (size_t j = 0; j < depth; j++)
+			for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
 			{
 				printf("\t");
 			}

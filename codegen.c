@@ -9,9 +9,9 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 	globalContext.outFile = outFile;
 
 	// fprintf(outFile, "\t.text\n");
-	for (size_t i = 0; i < table->globalScope->entries->size; i++)
+	for (size_t entryIndex = 0; entryIndex < table->globalScope->entries->size; entryIndex++)
 	{
-		struct ScopeMember *thisMember = table->globalScope->entries->data[i];
+		struct ScopeMember *thisMember = table->globalScope->entries->data[entryIndex];
 		switch (thisMember->type)
 		{
 		case e_function:
@@ -135,39 +135,37 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			{
 				if (variable->isStringLiteral)
 				{
-					int arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, variable);
+					size_t arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, variable);
 					if (arrayElementSize != 1)
 					{
-						ErrorAndExit(ERROR_INTERNAL, "Saw array element size of %d for string literal (expected 1)!\n", arrayElementSize);
+						ErrorAndExit(ERROR_INTERNAL, "Saw array element size of %zu for string literal (expected 1)!\n", arrayElementSize);
 					}
 
 					fprintf(outFile, "\t.asciz \"");
-					for (int i = 0; i < varSize; i++)
+					for (size_t arrayElementIndex = 0; arrayElementIndex < varSize; arrayElementIndex++)
 					{
-						for (int j = 0; j < arrayElementSize; j++)
-						{
-							fprintf(outFile, "%c", variable->type.initializeArrayTo[i][j]);
-						}
+							fprintf(outFile, "%c", variable->type.initializeArrayTo[arrayElementIndex][0]);
 					}
 					fprintf(outFile, "\"\n");
 				}
 				else if (variable->type.arraySize > 0)
 				{
-					int arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, variable);
-					for (int i = 0; i < varSize / arrayElementSize; i++)
+					// TODO: fully recursive arrays
+					size_t arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, variable);
+					for (size_t arrayElementIndex = 0; arrayElementIndex < varSize / arrayElementSize; arrayElementIndex++)
 					{
-						for (int j = 0; j < arrayElementSize; j++)
+						for (size_t arrayElementByte = 0; arrayElementByte < arrayElementSize; arrayElementByte++)
 						{
-							fprintf(outFile, "\t.byte %d\n", variable->type.initializeArrayTo[i][j]);
+							fprintf(outFile, "\t.byte %d\n", variable->type.initializeArrayTo[arrayElementIndex][arrayElementByte]);
 						}
 					}
 				}
 				else
 				{
-					for (int i = 0; i < varSize; i++)
+					for (size_t variableByte = 0; variableByte < varSize; variableByte++)
 					{
-						printf("%c\n", variable->type.initializeTo[i]);
-						fprintf(outFile, "\t.byte %d\n", variable->type.initializeTo[i]);
+						printf("%c\n", variable->type.initializeTo[variableByte]);
+						fprintf(outFile, "\t.byte %d\n", variable->type.initializeTo[variableByte]);
 					}
 				}
 			}
@@ -195,14 +193,14 @@ void calleeSaveRegisters(struct CodegenContext *context, struct CodegenMetadata 
 
 	// callee-save all registers (FIXME - caller vs callee save ABI?)
 	u8 regNumSaved = 0;
-	for (u8 i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
+	for (u8 reg = START_ALLOCATING_FROM; reg < MACHINE_REGISTER_COUNT; reg++)
 	{
-		if (metadata->touchedRegisters[i] && (i != RETURN_REGISTER))
+		if (metadata->touchedRegisters[reg] && (reg != RETURN_REGISTER))
 		{
 			// store registers we modify
 			EmitFrameStoreForSize(NULL,
 								  context,
-								  i,
+								  reg,
 								  MACHINE_REGISTER_SIZE_BYTES,
 								  (-1 * (ssize_t)(metadata->localStackSize + ((regNumSaved + 1) * MACHINE_REGISTER_SIZE_BYTES)))); // (regNumSaved + 1) to account for stack growth downwards
 			regNumSaved++;
@@ -218,15 +216,15 @@ void calleeRestoreRegisters(struct CodegenContext *context, struct CodegenMetada
 	}
 
 	// callee-save all registers (FIXME - caller vs callee save ABI?)
-	int regNumRestored = 0;
-	for (int i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
+	u8 regNumRestored = 0;
+	for (u8 reg = START_ALLOCATING_FROM; reg < MACHINE_REGISTER_COUNT; reg++)
 	{
-		if (metadata->touchedRegisters[i] && (i != RETURN_REGISTER))
+		if (metadata->touchedRegisters[reg] && (reg != RETURN_REGISTER))
 		{
 			// store registers we modify
 			EmitFrameLoadForSize(NULL,
 								 context,
-								 i,
+								 reg,
 								 MACHINE_REGISTER_SIZE_BYTES,
 								 (-1 * (ssize_t)(metadata->localStackSize + ((regNumRestored + 1) * MACHINE_REGISTER_SIZE_BYTES)))); // (regNumRestored + 1) to account for stack growth downwards
 			regNumRestored++;
@@ -419,9 +417,9 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 
 	LinkedList_Free(metadata.allLifetimes, free);
 
-	for (size_t i = 0; i <= metadata.largestTacIndex; i++)
+	for (size_t tacIndex = 0; tacIndex <= metadata.largestTacIndex; tacIndex++)
 	{
-		LinkedList_Free(metadata.lifetimeOverlaps[i], NULL);
+		LinkedList_Free(metadata.lifetimeOverlaps[tacIndex], NULL);
 	}
 	free(metadata.lifetimeOverlaps);
 }

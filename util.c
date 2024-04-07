@@ -46,9 +46,9 @@ struct Dictionary *Dictionary_New(int nBuckets)
 	wip->nBuckets = nBuckets;
 	wip->buckets = malloc(nBuckets * sizeof(struct LinkedList *));
 
-	for (int i = 0; i < nBuckets; i++)
+	for (int bucketIndex = 0; bucketIndex < nBuckets; bucketIndex++)
 	{
-		wip->buckets[i] = LinkedList_New();
+		wip->buckets[bucketIndex] = LinkedList_New();
 	}
 
 	return wip;
@@ -105,9 +105,9 @@ char *Dictionary_LookupOrInsert(struct Dictionary *dict, char *value)
 
 void Dictionary_Free(struct Dictionary *dict)
 {
-	for (int i = 0; i < dict->nBuckets; i++)
+	for (size_t bucketIndex = 0; bucketIndex < dict->nBuckets; bucketIndex++)
 	{
-		LinkedList_Free(dict->buckets[i], free);
+		LinkedList_Free(dict->buckets[bucketIndex], free);
 	}
 	free(dict->buckets);
 	free(dict);
@@ -393,9 +393,9 @@ struct TempList *TempList_New()
 
 void TempList_Free(struct TempList *toFree)
 {
-	for (int i = 0; i < toFree->temps->size; i++)
+	for (size_t tempIndex = 0; tempIndex < toFree->temps->size; tempIndex++)
 	{
-		free(toFree->temps->data[i]);
+		free(toFree->temps->data[tempIndex]);
 	}
 	Stack_Free(toFree->temps);
 	free(toFree);

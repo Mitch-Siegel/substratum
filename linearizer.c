@@ -331,10 +331,10 @@ void walkFunctionDeclaration(struct AST *tree,
 			(existingFunc->arguments->size == parsedFunc->arguments->size))
 		{
 			// if we have same number of bytes and same number, ensure everything is exactly the same
-			for (int i = 0; i < existingFunc->arguments->size; i++)
+			for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
 			{
-				struct VariableEntry *existingArg = existingFunc->arguments->data[i];
-				struct VariableEntry *parsedArg = parsedFunc->arguments->data[i];
+				struct VariableEntry *existingArg = existingFunc->arguments->data[argIndex];
+				struct VariableEntry *parsedArg = parsedFunc->arguments->data[argIndex];
 				// ensure all arguments in order have same name, type, indirection level
 				if ((strcmp(existingArg->name, parsedArg->name) != 0) ||
 					(Type_Compare(&existingArg->type, &parsedArg->type)))
@@ -356,15 +356,15 @@ void walkFunctionDeclaration(struct AST *tree,
 			char *existingReturnType = Type_GetName(&existingFunc->returnType);
 			printf("\t%s %s(", existingReturnType, existingFunc->name);
 			free(existingReturnType);
-			for (int i = 0; i < existingFunc->arguments->size; i++)
+			for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
 			{
-				struct VariableEntry *existingArg = existingFunc->arguments->data[i];
+				struct VariableEntry *existingArg = existingFunc->arguments->data[argIndex];
 
 				char *argType = Type_GetName(&existingArg->type);
 				printf("%s %s", argType, existingArg->name);
 				free(argType);
 
-				if (i < existingFunc->arguments->size - 1)
+				if (argIndex < existingFunc->arguments->size - 1)
 				{
 					printf(", ");
 				}
@@ -376,15 +376,15 @@ void walkFunctionDeclaration(struct AST *tree,
 			char *parsedReturnType = Type_GetName(&parsedFunc->returnType);
 			printf("\n\t%s %s(", parsedReturnType, parsedFunc->name);
 			free(parsedReturnType);
-			for (int i = 0; i < parsedFunc->arguments->size; i++)
+			for (size_t argIndex = 0; argIndex < parsedFunc->arguments->size; argIndex++)
 			{
-				struct VariableEntry *parsedArg = parsedFunc->arguments->data[i];
+				struct VariableEntry *parsedArg = parsedFunc->arguments->data[argIndex];
 
 				char *argType = Type_GetName(&parsedArg->type);
 				printf("%s %s", argType, parsedArg->name);
 				free(argType);
 
-				if (i < parsedFunc->arguments->size - 1)
+				if (argIndex < parsedFunc->arguments->size - 1)
 				{
 					printf(", ");
 				}
@@ -2532,27 +2532,27 @@ void walkStringLiteral(struct AST *tree,
 	char *stringValue = strdup(stringName);
 	size_t stringLength = strlen(stringName);
 
-	for (int i = 0; i < stringLength; i++)
+	for (size_t charIndex = 0; charIndex < stringLength; charIndex++)
 	{
-		if ((!isalnum(stringName[i])) && (stringName[i] != '_'))
+		if ((!isalnum(stringName[charIndex])) && (stringName[charIndex] != '_'))
 		{
-			if (isspace(stringName[i]))
+			if (isspace(stringName[charIndex]))
 			{
-				stringName[i] = '_';
+				stringName[charIndex] = '_';
 			}
 			else
 			{
 				// for any non-whitespace character, map it to lower/uppercase alphabetic characters
 				// this should avoid collisions with renamed strings to the point that it isn't a problem
 				const u16 charsInAlphabet = 26;
-				char altVal = (char)(stringName[i] % (charsInAlphabet * 1));
+				char altVal = (char)(stringName[charIndex] % (charsInAlphabet * 1));
 				if (altVal > (charsInAlphabet - 1))
 				{
-					stringName[i] = (char)(altVal + 'A');
+					stringName[charIndex] = (char)(altVal + 'A');
 				}
 				else
 				{
-					stringName[i] = (char)(altVal + 'a');
+					stringName[charIndex] = (char)(altVal + 'a');
 				}
 			}
 		}
@@ -2580,10 +2580,10 @@ void walkStringLiteral(struct AST *tree,
 
 		struct Type *realStringType = &stringLiteralEntry->type;
 		realStringType->initializeArrayTo = malloc(stringLength * sizeof(char *));
-		for (int i = 0; i < stringLength; i++)
+		for (size_t charIndex = 0; charIndex < stringLength; charIndex++)
 		{
-			realStringType->initializeArrayTo[i] = malloc(1);
-			*realStringType->initializeArrayTo[i] = stringValue[i];
+			realStringType->initializeArrayTo[charIndex] = malloc(1);
+			*realStringType->initializeArrayTo[charIndex] = stringValue[charIndex];
 		}
 	}
 	else

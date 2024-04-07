@@ -152,7 +152,7 @@ void BasicBlock_free(struct BasicBlock *b);
 
 void BasicBlock_append(struct BasicBlock *b, struct TACLine *l);
 
-void printBasicBlock(struct BasicBlock *b, int indentLevel);
+void printBasicBlock(struct BasicBlock *b, size_t indentLevel);
 
 struct LinearizationResult
 {

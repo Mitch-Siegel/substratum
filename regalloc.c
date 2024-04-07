@@ -133,10 +133,10 @@ void assignRegisters(struct CodegenMetadata *metadata)
     char registers[MACHINE_REGISTER_COUNT];
     struct Lifetime *occupiedBy[MACHINE_REGISTER_COUNT];
 
-    for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
+    for (u8 reg = 0; reg < MACHINE_REGISTER_COUNT; reg++)
     {
-        registers[i] = 0;
-        occupiedBy[i] = NULL;
+        registers[reg] = 0;
+        occupiedBy[reg] = NULL;
     }
 
     for (int tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
@@ -218,9 +218,9 @@ void assignStackSpace(struct CodegenMetadata *metadata)
     }
 
     // simple bubble sort the things that need stack space by their size
-    for (int i = 0; i < needStackSpace->size; i++)
+    for (size_t i = 0; i < needStackSpace->size; i++)
     {
-        for (int j = 0; j < needStackSpace->size - i - 1; j++)
+        for (size_t j = 0; j < needStackSpace->size - i - 1; j++)
         {
             struct Lifetime *thisLifetime = needStackSpace->data[j];
 
@@ -236,9 +236,9 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         }
     }
 
-    for (int i = 0; i < needStackSpace->size; i++)
+    for (size_t lifetimeIndex = 0; lifetimeIndex < needStackSpace->size; lifetimeIndex++)
     {
-        struct Lifetime *thisLifetime = needStackSpace->data[i];
+        struct Lifetime *thisLifetime = needStackSpace->data[lifetimeIndex];
         if (thisLifetime->isArgument)
         {
             struct VariableEntry *argumentEntry = Scope_lookupVarByString(metadata->function->mainScope, thisLifetime->name);
@@ -293,9 +293,9 @@ void allocateRegisters(struct CodegenMetadata *metadata)
 
     // generate an array of lists corresponding to which lifetimes are active at a given TAC step by index in the array
     metadata->lifetimeOverlaps = malloc((metadata->largestTacIndex + 1) * sizeof(struct LinkedList *));
-    for (int i = 0; i <= metadata->largestTacIndex; i++)
+    for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
     {
-        metadata->lifetimeOverlaps[i] = LinkedList_New();
+        metadata->lifetimeOverlaps[tacIndex] = LinkedList_New();
     }
 
     int mostConcurrentLifetimes = generateLifetimeOverlaps(metadata);
@@ -341,9 +341,9 @@ void allocateRegisters(struct CodegenMetadata *metadata)
             printf("%40s (%10s)(wb:%c)(%2d-%2d): ", examinedLifetime->name, typeName, wbLocName,
                    examinedLifetime->start, examinedLifetime->end);
             free(typeName);
-            for (int i = 0; i <= metadata->largestTacIndex; i++)
+            for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
             {
-                if (i >= examinedLifetime->start && i <= examinedLifetime->end)
+                if (tacIndex >= examinedLifetime->start && tacIndex <= examinedLifetime->end)
                 {
                     printf("*");
                 }
@@ -373,9 +373,9 @@ void allocateRegisters(struct CodegenMetadata *metadata)
             }
 
             // simple bubble sort the things that are on the stack by their address
-            for (int i = 0; i < stackLayout->size; i++)
+            for (size_t i = 0; i < stackLayout->size; i++)
             {
-                for (int j = 0; j < stackLayout->size - i - 1; j++)
+                for (size_t j = 0; j < stackLayout->size - i - 1; j++)
                 {
                     struct Lifetime *thisLifetime = stackLayout->data[j];
 
@@ -392,9 +392,9 @@ void allocateRegisters(struct CodegenMetadata *metadata)
             }
 
             char crossedZero = 0;
-            for (int i = 0; i < stackLayout->size; i++)
+            for (size_t lifetimeIndex = 0; lifetimeIndex < stackLayout->size; lifetimeIndex++)
             {
-                struct Lifetime *thisLifetime = stackLayout->data[i];
+                struct Lifetime *thisLifetime = stackLayout->data[lifetimeIndex];
                 if ((!crossedZero) && (thisLifetime->stackLocation < 0))
                 {
                     printf("SAVED BP\nSAVED BP\nSAVED BP\nSAVED BP\n");

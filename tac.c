@@ -337,22 +337,22 @@ struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST
 	struct TACLine *wip = malloc(sizeof(struct TACLine));
 	wip->allocFile = file;
 	wip->allocLine = line;
-	for (int i = 0; i < 4; i++)
+	for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
 	{
-		wip->operands[i].name.str = NULL;
-		wip->operands[i].permutation = vp_standard;
+		wip->operands[operandIndex].name.str = NULL;
+		wip->operands[operandIndex].permutation = vp_standard;
 
-		wip->operands[i].type.basicType = vt_null;
-		wip->operands[i].type.classType.name = NULL;
-		wip->operands[i].type.indirectionLevel = 0;
-		wip->operands[i].type.arraySize = 0;
-		wip->operands[i].type.initializeArrayTo = NULL;
+		wip->operands[operandIndex].type.basicType = vt_null;
+		wip->operands[operandIndex].type.classType.name = NULL;
+		wip->operands[operandIndex].type.indirectionLevel = 0;
+		wip->operands[operandIndex].type.arraySize = 0;
+		wip->operands[operandIndex].type.initializeArrayTo = NULL;
 
-		wip->operands[i].castAsType.basicType = vt_null;
-		wip->operands[i].castAsType.classType.name = NULL;
-		wip->operands[i].castAsType.indirectionLevel = 0;
-		wip->operands[i].castAsType.arraySize = 0;
-		wip->operands[i].castAsType.initializeArrayTo = NULL;
+		wip->operands[operandIndex].castAsType.basicType = vt_null;
+		wip->operands[operandIndex].castAsType.classType.name = NULL;
+		wip->operands[operandIndex].castAsType.indirectionLevel = 0;
+		wip->operands[operandIndex].castAsType.arraySize = 0;
+		wip->operands[operandIndex].castAsType.initializeArrayTo = NULL;
 	}
 	wip->correspondingTree = *correspondingTree;
 
@@ -561,12 +561,12 @@ char *sPrintTACLine(struct TACLine *line)
 	}
 
 	width += sprintf(tacString + width, "\t");
-	for (int i = 0; i < 4; i++)
+	for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
 	{
-		if (line->operands[i].type.basicType != vt_null)
+		if (line->operands[operandIndex].type.basicType != vt_null)
 		{
 			width += sprintf(tacString + width, "[");
-			switch (line->operands[i].permutation)
+			switch (line->operands[operandIndex].permutation)
 			{
 			case vp_standard:
 				width += sprintf(tacString + width, " ");
@@ -585,12 +585,12 @@ char *sPrintTACLine(struct TACLine *line)
 				break;
 			}
 
-			char *typeName = Type_GetName(&line->operands[i].type);
+			char *typeName = Type_GetName(&line->operands[operandIndex].type);
 			width += sprintf(tacString + width, " %s", typeName);
 			free(typeName);
-			if (line->operands[i].castAsType.basicType != vt_null)
+			if (line->operands[operandIndex].castAsType.basicType != vt_null)
 			{
-				char *castAsTypeName = Type_GetName(&line->operands[i].castAsType);
+				char *castAsTypeName = Type_GetName(&line->operands[operandIndex].castAsType);
 				width += sprintf(tacString + width, "(%s)", castAsTypeName);
 				free(castAsTypeName);
 			}
@@ -632,9 +632,9 @@ void BasicBlock_append(struct BasicBlock *block, struct TACLine *line)
 	LinkedList_Append(block->TACList, line);
 }
 
-void printBasicBlock(struct BasicBlock *block, int indentLevel)
+void printBasicBlock(struct BasicBlock *block, size_t indentLevel)
 {
-	for (int i = 0; i < indentLevel; i++)
+	for (size_t indentPrint = 0; indentPrint < indentLevel; indentPrint++)
 	{
 		printf("\t");
 	}
@@ -642,7 +642,7 @@ void printBasicBlock(struct BasicBlock *block, int indentLevel)
 	for (struct LinkedListNode *runner = block->TACList->head; runner != NULL; runner = runner->next)
 	{
 		struct TACLine *this = runner->data;
-		for (int i = 0; i < indentLevel; i++)
+		for (size_t indentPrint = 0; indentPrint < indentLevel; indentPrint++)
 		{
 			printf("\t");
 		}

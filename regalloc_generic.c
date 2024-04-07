@@ -118,9 +118,9 @@ void recordVariableRead(struct LinkedList *ltList,
 struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList)
 {
 	struct LinkedList *lifetimes = LinkedList_New();
-	for (int i = 0; i < scope->entries->size; i++)
+	for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
 	{
-		struct ScopeMember *thisMember = scope->entries->data[i];
+		struct ScopeMember *thisMember = scope->entries->data[entryIndex];
 		if (thisMember->type == e_argument)
 		{
 			struct VariableEntry *theArgument = thisMember->entry;
@@ -259,19 +259,19 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_lea_off:
 			case tt_lea_arr:
 			{
-				for (int i = 0; i < 4; i++)
+				for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
 				{
 					// lifetimes for every permutation except literal
-					if (thisLine->operands[i].permutation != vp_literal)
+					if (thisLine->operands[operandIndex].permutation != vp_literal)
 					{
 						// and any type except null
-						switch (TAC_GetTypeOfOperand(thisLine, i)->basicType)
+						switch (TAC_GetTypeOfOperand(thisLine, operandIndex)->basicType)
 						{
 						case vt_null:
 							break;
 
 						default:
-							recordVariableRead(lifetimes, &thisLine->operands[i], scope, TACIndex);
+							recordVariableRead(lifetimes, &thisLine->operands[operandIndex], scope, TACIndex);
 							break;
 						}
 					}
