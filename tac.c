@@ -1,56 +1,56 @@
 #include "tac.h"
 
-struct Type *TACOperand_GetType(struct TACOperand *o)
+struct Type *TACOperand_GetType(struct TACOperand *operand)
 {
-	if (o->castAsType.basicType != vt_null)
+	if (operand->castAsType.basicType != vt_null)
 	{
-		return &o->castAsType;
+		return &operand->castAsType;
 	}
 
-	return &o->type;
+	return &operand->type;
 }
 
-struct Type *TAC_GetTypeOfOperand(struct TACLine *t, unsigned index)
+struct Type *TAC_GetTypeOfOperand(struct TACLine *line, unsigned index)
 {
 	if (index > 3)
 	{
 		ErrorAndExit(ERROR_INTERNAL, "Bad index %d passed to TAC_GetTypeOfOperand!\n", index);
 	}
 
-	return TACOperand_GetType(&t->operands[index]);
+	return TACOperand_GetType(&line->operands[index]);
 }
 
-int Type_Compare(struct Type *a, struct Type *b)
+int Type_Compare(struct Type *typeA, struct Type *typeB)
 {
-	if (a->basicType != b->basicType)
+	if (typeA->basicType != typeB->basicType)
 	{
 		return 1;
 	}
 
-	if (a->indirectionLevel != b->indirectionLevel)
+	if (typeA->indirectionLevel != typeB->indirectionLevel)
 	{
 		return 2;
 	}
 
-	if (a->basicType == vt_class)
+	if (typeA->basicType == vt_class)
 	{
-		return strcmp(a->classType.name, b->classType.name);
+		return strcmp(typeA->classType.name, typeB->classType.name);
 	}
 
 	return 0;
 }
 
-int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
+int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
 {
-	if (a->basicType != b->basicType)
+	if (typeA->basicType != typeB->basicType)
 	{
-		switch (a->basicType)
+		switch (typeA->basicType)
 		{
 		case vt_null:
 			return 1;
 
 		case vt_any:
-			switch (b->basicType)
+			switch (typeB->basicType)
 			{
 			case vt_null:
 				return 1;
@@ -67,7 +67,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			break;
 
 		case vt_u8:
-			switch (b->basicType)
+			switch (typeB->basicType)
 			{
 			case vt_null:
 			case vt_class:
@@ -85,7 +85,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			break;
 
 		case vt_u16:
-			switch (b->basicType)
+			switch (typeB->basicType)
 			{
 			case vt_null:
 			case vt_u8:
@@ -100,7 +100,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			break;
 
 		case vt_u32:
-			switch (b->basicType)
+			switch (typeB->basicType)
 			{
 			case vt_null:
 			case vt_u8:
@@ -116,7 +116,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			break;
 
 		case vt_u64:
-			switch (b->basicType)
+			switch (typeB->basicType)
 			{
 			case vt_null:
 			case vt_u8:
@@ -132,7 +132,7 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 			break;
 
 		case vt_class:
-			switch (b->basicType)
+			switch (typeB->basicType)
 			{
 			case vt_null:
 			case vt_u8:
@@ -149,23 +149,23 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 	}
 
 	// allow implicit conversion from any type of pointer to 'any *' or 'any **', etc
-	if ((a->indirectionLevel > 0) && (b->indirectionLevel > 0) && (b->basicType == vt_any))
+	if ((typeA->indirectionLevel > 0) && (typeB->indirectionLevel > 0) && (typeB->basicType == vt_any))
 	{
 		return 0;
 	}
-	else if (a->indirectionLevel != b->indirectionLevel)
+	else if (typeA->indirectionLevel != typeB->indirectionLevel)
 	{
 
 		// both are arrays or both are not arrays
-		if ((a->arraySize > 0) == (b->arraySize > 0))
+		if ((typeA->arraySize > 0) == (typeB->arraySize > 0))
 		{
 			return 2;
 		}
 		// only a is an array
-		else if (a->arraySize > 0)
+		else if (typeA->arraySize > 0)
 		{
 			// b's indirection level should be a's + 1
-			if (b->indirectionLevel != (a->indirectionLevel + 1))
+			if (typeB->indirectionLevel != (typeA->indirectionLevel + 1))
 			{
 				return 2;
 			}
@@ -173,25 +173,26 @@ int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b)
 		else
 		{
 			// a's indirection level should be b's + 1
-			if ((b->indirectionLevel + 1) != a->indirectionLevel)
+			if ((typeB->indirectionLevel + 1) != typeA->indirectionLevel)
 			{
 				return 2;
 			}
 		}
 	}
 
-	if (a->basicType == vt_class)
+	if (typeA->basicType == vt_class)
 	{
-		return strcmp(a->classType.name, b->classType.name);
+		return strcmp(typeA->classType.name, typeB->classType.name);
 	}
 	return 0;
 }
 
-char *Type_GetName(struct Type *t)
+char *Type_GetName(struct Type *type)
 {
-	char *typeName = malloc(1024);
+	const u32 sprintTypeNameLength = 1024;
+	char *typeName = malloc(sprintTypeNameLength * sizeof(char));
 	int len = 0;
-	switch (t->basicType)
+	switch (type->basicType)
 	{
 	case vt_null:
 		len = sprintf(typeName, "NOTYPE");
@@ -218,43 +219,43 @@ char *Type_GetName(struct Type *t)
 		break;
 
 	case vt_class:
-		len = sprintf(typeName, "%s", t->classType.name);
+		len = sprintf(typeName, "%s", type->classType.name);
 		break;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Unexpected enum basicTypes value %d seen in Type_GetName!\n", t->basicType);
+		ErrorAndExit(ERROR_INTERNAL, "Unexpected enum basicTypes value %d seen in Type_GetName!\n", type->basicType);
 	}
 
-	int i = 0;
-	for (i = 0; i < t->indirectionLevel; i++)
+	int indirectionCounter = 0;
+	for (indirectionCounter = 0; indirectionCounter < type->indirectionLevel; indirectionCounter++)
 	{
-		typeName[len + i] = '*';
+		typeName[len + indirectionCounter] = '*';
 		len += sprintf(typeName + len, "*");
 	}
-	typeName[len + i] = '\0';
+	typeName[len + indirectionCounter] = '\0';
 
-	if (t->arraySize > 0)
+	if (type->arraySize > 0)
 	{
-		sprintf(typeName + len, "[%lu]", t->arraySize);
+		sprintf(typeName + len, "[%lu]", type->arraySize);
 	}
 
 	return typeName;
 }
 
-void TACOperand_SetBasicType(struct TACOperand *o, enum basicTypes t, int indirectionLevel)
+void TACOperand_SetBasicType(struct TACOperand *operand, enum basicTypes type, int indirectionLevel)
 {
-	o->type.basicType = t;
-	o->type.indirectionLevel = indirectionLevel;
+	operand->type.basicType = type;
+	operand->type.indirectionLevel = indirectionLevel;
 }
 
-char *getAsmOp(enum TACType t)
+char *getAsmOp(enum TACType type)
 {
-	switch (t)
+	switch (type)
 	{
 	case tt_asm:
-		return "";
+		return "tac-asm";
 	case tt_assign:
-		return "";
+		return "tac-assign";
 	case tt_add:
 		return "add";
 	case tt_subtract:
@@ -364,23 +365,24 @@ struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST
 	return wip;
 }
 
-void printTACLine(struct TACLine *it)
+void printTACLine(struct TACLine *line)
 {
-	char *printedLine = sPrintTACLine(it);
+	char *printedLine = sPrintTACLine(line);
 	printf("%s", printedLine);
 	free(printedLine);
 }
 
-char *sPrintTACLine(struct TACLine *it)
+char *sPrintTACLine(struct TACLine *line)
 {
+	const u32 sprintTacLineLength = 128;
 	char *operationStr;
-	char *tacString = malloc(128);
+	char *tacString = malloc(sprintTacLineLength * sizeof(char));
 	char fallingThrough = 0;
-	int width = sprintf(tacString, "%2x:", it->index);
-	switch (it->operation)
+	int width = sprintf(tacString, "%2x:", line->index);
+	switch (line->operation)
 	{
 	case tt_asm:
-		width += sprintf(tacString + width, "ASM:%s", it->operands[0].name.str);
+		width += sprintf(tacString + width, "ASM:%s", line->operands[0].name.str);
 		break;
 
 	case tt_add:
@@ -443,53 +445,53 @@ char *sPrintTACLine(struct TACLine *it)
 			operationStr = ">>";
 		}
 
-		width += sprintf(tacString + width, "%s = %s %s %s", it->operands[0].name.str, it->operands[1].name.str, operationStr, it->operands[2].name.str);
+		width += sprintf(tacString + width, "%s = %s %s %s", line->operands[0].name.str, line->operands[1].name.str, operationStr, line->operands[2].name.str);
 		break;
 
 	case tt_bitwise_not:
-		width += sprintf(tacString + width, "%s = ~%s", it->operands[0].name.str, it->operands[1].name.str);
+		width += sprintf(tacString + width, "%s = ~%s", line->operands[0].name.str, line->operands[1].name.str);
 		break;
 
 	case tt_load:
-		width += sprintf(tacString + width, "%s = *%s", it->operands[0].name.str, it->operands[1].name.str);
+		width += sprintf(tacString + width, "%s = *%s", line->operands[0].name.str, line->operands[1].name.str);
 		break;
 
 	case tt_load_off:
 		// operands: dest base offset
-		width += sprintf(tacString + width, "%s = (%s + %ld)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
+		width += sprintf(tacString + width, "%s = (%s + %ld)", line->operands[0].name.str, line->operands[1].name.str, line->operands[2].name.val);
 		break;
 
 	case tt_load_arr:
 		// operands: dest base offset scale
-		width += sprintf(tacString + width, "%s = (%s + %s*2^%ld)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		width += sprintf(tacString + width, "%s = (%s + %s*2^%ld)", line->operands[0].name.str, line->operands[1].name.str, line->operands[2].name.str, line->operands[3].name.val);
 		break;
 
 	case tt_store:
-		width += sprintf(tacString + width, "*%s = %s", it->operands[0].name.str, it->operands[1].name.str);
+		width += sprintf(tacString + width, "*%s = %s", line->operands[0].name.str, line->operands[1].name.str);
 		break;
 
 	case tt_store_off:
 		// operands: base offset source
-		width += sprintf(tacString + width, "(%s + %ld) = %s", it->operands[0].name.str, it->operands[1].name.val, it->operands[2].name.str);
+		width += sprintf(tacString + width, "(%s + %ld) = %s", line->operands[0].name.str, line->operands[1].name.val, line->operands[2].name.str);
 		break;
 
 	case tt_store_arr:
 		// operands base offset scale source
-		width += sprintf(tacString + width, "(%s + %s*2^%ld) = %s", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val, it->operands[3].name.str);
+		width += sprintf(tacString + width, "(%s + %s*2^%ld) = %s", line->operands[0].name.str, line->operands[1].name.str, line->operands[2].name.val, line->operands[3].name.str);
 		break;
 
 	case tt_addrof:
-		width += sprintf(tacString + width, "%s = &%s", it->operands[0].name.str, it->operands[1].name.str);
+		width += sprintf(tacString + width, "%s = &%s", line->operands[0].name.str, line->operands[1].name.str);
 		break;
 
 	case tt_lea_off:
 		// operands: dest base offset scale
-		width += sprintf(tacString + width, "%s = &(%s + %ld)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.val);
+		width += sprintf(tacString + width, "%s = &(%s + %ld)", line->operands[0].name.str, line->operands[1].name.str, line->operands[2].name.val);
 		break;
 
 	case tt_lea_arr:
 		// operands: dest base offset scale
-		width += sprintf(tacString + width, "%s = &(%s + %s*2^%ld)", it->operands[0].name.str, it->operands[1].name.str, it->operands[2].name.str, it->operands[3].name.val);
+		width += sprintf(tacString + width, "%s = &(%s + %s*2^%ld)", line->operands[0].name.str, line->operands[1].name.str, line->operands[2].name.str, line->operands[3].name.val);
 		break;
 
 	case tt_beq:
@@ -501,42 +503,46 @@ char *sPrintTACLine(struct TACLine *it)
 	case tt_beqz:
 	case tt_bnez:
 		width += sprintf(tacString + width, "%s %s, %s, basicblock %ld",
-						 getAsmOp(it->operation),
-						 it->operands[1].name.str,
-						 it->operands[2].name.str,
-						 it->operands[0].name.val);
+						 getAsmOp(line->operation),
+						 line->operands[1].name.str,
+						 line->operands[2].name.str,
+						 line->operands[0].name.val);
 		break;
 
 	case tt_jmp:
-		width += sprintf(tacString + width, "%s basicblock %ld", getAsmOp(it->operation), it->operands[0].name.val);
+		width += sprintf(tacString + width, "%s basicblock %ld", getAsmOp(line->operation), line->operands[0].name.val);
 		break;
 
 	case tt_assign:
-		width += sprintf(tacString + width, "%s = %s", it->operands[0].name.str, it->operands[1].name.str);
+		width += sprintf(tacString + width, "%s = %s", line->operands[0].name.str, line->operands[1].name.str);
 		break;
 
 	case tt_stack_reserve:
-		width += sprintf(tacString + width, "reserve %ld bytes stack", it->operands[0].name.val);
+		width += sprintf(tacString + width, "reserve %ld bytes stack", line->operands[0].name.val);
 		break;
 
 	case tt_stack_store:
-		width += sprintf(tacString + width, "store %s at stack offset %ld", it->operands[0].name.str, it->operands[1].name.val);
+		width += sprintf(tacString + width, "store %s at stack offset %ld", line->operands[0].name.str, line->operands[1].name.val);
 		break;
 
 	case tt_call:
-		if (it->operands[0].name.str == NULL)
-			width += sprintf(tacString + width, "call %s", it->operands[1].name.str);
+		if (line->operands[0].name.str == NULL)
+		{
+			width += sprintf(tacString + width, "call %s", line->operands[1].name.str);
+		}
 		else
-			width += sprintf(tacString + width, "%s = call %s", it->operands[0].name.str, it->operands[1].name.str);
+		{
+			width += sprintf(tacString + width, "%s = call %s", line->operands[0].name.str, line->operands[1].name.str);
+		}
 
 		break;
 
 	case tt_label:
-		width += sprintf(tacString + width, "~label %ld:", it->operands[0].name.val);
+		width += sprintf(tacString + width, "~label %ld:", line->operands[0].name.val);
 		break;
 
 	case tt_return:
-		width += sprintf(tacString + width, "ret %s", it->operands[0].name.str);
+		width += sprintf(tacString + width, "ret %s", line->operands[0].name.str);
 		break;
 
 	case tt_do:
@@ -548,7 +554,8 @@ char *sPrintTACLine(struct TACLine *it)
 		break;
 	}
 
-	while (width < 40)
+	const u32 sprintTacLineAlignWidth = 40;
+	while (width < sprintTacLineAlignWidth)
 	{
 		width += sprintf(tacString + width, " ");
 	}
@@ -556,10 +563,10 @@ char *sPrintTACLine(struct TACLine *it)
 	width += sprintf(tacString + width, "\t");
 	for (int i = 0; i < 4; i++)
 	{
-		if (it->operands[i].type.basicType != vt_null)
+		if (line->operands[i].type.basicType != vt_null)
 		{
 			width += sprintf(tacString + width, "[");
-			switch (it->operands[i].permutation)
+			switch (line->operands[i].permutation)
 			{
 			case vp_standard:
 				width += sprintf(tacString + width, " ");
@@ -578,12 +585,12 @@ char *sPrintTACLine(struct TACLine *it)
 				break;
 			}
 
-			char *typeName = Type_GetName(&it->operands[i].type);
+			char *typeName = Type_GetName(&line->operands[i].type);
 			width += sprintf(tacString + width, " %s", typeName);
 			free(typeName);
-			if (it->operands[i].castAsType.basicType != vt_null)
+			if (line->operands[i].castAsType.basicType != vt_null)
 			{
-				char *castAsTypeName = Type_GetName(&it->operands[i].castAsType);
+				char *castAsTypeName = Type_GetName(&line->operands[i].castAsType);
 				width += sprintf(tacString + width, "(%s)", castAsTypeName);
 				free(castAsTypeName);
 			}
@@ -601,22 +608,9 @@ char *sPrintTACLine(struct TACLine *it)
 	return trimmedString;
 }
 
-void freeTAC(struct TACLine *it)
+void freeTAC(struct TACLine *line)
 {
-	free(it);
-}
-
-char TACLine_isEffective(struct TACLine *it)
-{
-	switch (it->operation)
-	{
-	case tt_do:
-	case tt_enddo:
-		return 0;
-
-	default:
-		return 1;
-	}
+	free(line);
 }
 
 struct BasicBlock *BasicBlock_new(int labelNum)
@@ -624,30 +618,28 @@ struct BasicBlock *BasicBlock_new(int labelNum)
 	struct BasicBlock *wip = malloc(sizeof(struct BasicBlock));
 	wip->TACList = LinkedList_New();
 	wip->labelNum = labelNum;
-	wip->containsEffectiveCode = 0;
 	return wip;
 }
 
-void BasicBlock_free(struct BasicBlock *b)
+void BasicBlock_free(struct BasicBlock *block)
 {
-	LinkedList_Free(b->TACList, freeTAC);
-	free(b);
+	LinkedList_Free(block->TACList, freeTAC);
+	free(block);
 }
 
-void BasicBlock_append(struct BasicBlock *b, struct TACLine *l)
+void BasicBlock_append(struct BasicBlock *block, struct TACLine *line)
 {
-	b->containsEffectiveCode |= TACLine_isEffective(l);
-	LinkedList_Append(b->TACList, l);
+	LinkedList_Append(block->TACList, line);
 }
 
-void printBasicBlock(struct BasicBlock *b, int indentLevel)
+void printBasicBlock(struct BasicBlock *block, int indentLevel)
 {
 	for (int i = 0; i < indentLevel; i++)
 	{
 		printf("\t");
 	}
-	printf("BASIC BLOCK %d\n", b->labelNum);
-	for (struct LinkedListNode *runner = b->TACList->head; runner != NULL; runner = runner->next)
+	printf("BASIC BLOCK %d\n", block->labelNum);
+	for (struct LinkedListNode *runner = block->TACList->head; runner != NULL; runner = runner->next)
 	{
 		struct TACLine *this = runner->data;
 		for (int i = 0; i < indentLevel; i++)

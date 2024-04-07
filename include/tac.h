@@ -96,14 +96,14 @@ struct TACOperand
 	enum variablePermutations permutation; // enum of permutation (standard/temp/literal)
 };
 
-int Type_Compare(struct Type *a, struct Type *b);
+int Type_Compare(struct Type *typeA, struct Type *typeB);
 
 // return 0 if 'a' is the same type as 'b', or if it can implicitly be widened to become equivalent
-int Type_CompareAllowImplicitWidening(struct Type *a, struct Type *b);
+int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB);
 
-char *Type_GetName(struct Type *t);
+char *Type_GetName(struct Type *type);
 
-void TACOperand_SetBasicType(struct TACOperand *o, enum basicTypes t, int indirectionLevel);
+void TACOperand_SetBasicType(struct TACOperand *operand, enum basicTypes t, int indirectionLevel);
 
 struct TACLine
 {
@@ -121,22 +121,22 @@ struct TACLine
 	char reorderable;
 };
 
-struct Type *TACOperand_GetType(struct TACOperand *o);
+struct Type *TACOperand_GetType(struct TACOperand *operand);
 
-struct Type *TAC_GetTypeOfOperand(struct TACLine *t, unsigned index);
+struct Type *TAC_GetTypeOfOperand(struct TACLine *line, unsigned index);
 
 char *getAsmOp(enum TACType t);
 
-void printTACLine(struct TACLine *it);
+void printTACLine(struct TACLine *line);
 
-char *sPrintTACLine(struct TACLine *it);
+char *sPrintTACLine(struct TACLine *line);
 
 struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST *correspondingTree, char *file, int line);
 #define newTACLine(index, operation, correspondingTree) newTACLineFunction((index), (operation), (correspondingTree), __FILE__, __LINE__)
 
-void freeTAC(struct TACLine *it);
+void freeTAC(struct TACLine *line);
 
-char TACLine_isEffective(struct TACLine *it);
+char TACLine_isEffective(struct TACLine *line);
 
 struct BasicBlock
 {
