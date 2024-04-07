@@ -4,12 +4,12 @@
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 {
 	struct CodegenContext globalContext;
-	int globalInstructionIndex = 0;
+	size_t globalInstructionIndex = 0;
 	globalContext.instructionIndex = &globalInstructionIndex;
 	globalContext.outFile = outFile;
 
 	// fprintf(outFile, "\t.text\n");
-	for (int i = 0; i < table->globalScope->entries->size; i++)
+	for (size_t i = 0; i < table->globalScope->entries->size; i++)
 	{
 		struct ScopeMember *thisMember = table->globalScope->entries->data[i];
 		switch (thisMember->type)
@@ -51,7 +51,8 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 
 				struct LinkedList *globalLifetimes = findLifetimes(table->globalScope, fakeBlockList);
 				LinkedList_Free(fakeBlockList, NULL);
-				int reserved[3] = {0, 1, 2};
+				// TODO: defines for default reserved registers? This is for global-scoped code... 0 1 and 2 are definitely not right.
+				u8 reserved[3] = {0, 1, 2};
 
 				generateCodeForBasicBlock(&globalContext, thisBlock, table->globalScope, globalLifetimes, NULL, reserved);
 				LinkedList_Free(globalLifetimes, free);
@@ -91,7 +92,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			}
 
 			char *varName = thisMember->name;
-			int varSize = Scope_getSizeOfType(table->globalScope, &variable->type);
+			size_t varSize = Scope_getSizeOfType(table->globalScope, &variable->type);
 
 			if (variable->type.initializeTo != NULL)
 			{
@@ -111,7 +112,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 
 			fprintf(outFile, "\t.globl %s\n", varName);
 
-			int alignBits = -1;
+			u8 alignBits = 0;
 
 			if (variable->type.arraySize > 0)
 			{
@@ -128,7 +129,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			}
 
 			fprintf(outFile, "\t.type\t%s, @object\n", varName);
-			fprintf(outFile, "\t.size \t%s, %d\n", varName, varSize);
+			fprintf(outFile, "\t.size \t%s, %zu\n", varName, varSize);
 			fprintf(outFile, "%s:\n", varName);
 			if (variable->type.initializeTo != NULL)
 			{
@@ -172,7 +173,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			}
 			else
 			{
-				fprintf(outFile, "\t.zero %d\n", varSize);
+				fprintf(outFile, "\t.zero %zu\n", varSize);
 			}
 
 			fprintf(outFile, ".section .text\n");
@@ -193,8 +194,8 @@ void calleeSaveRegisters(struct CodegenContext *context, struct CodegenMetadata 
 	}
 
 	// callee-save all registers (FIXME - caller vs callee save ABI?)
-	int regNumSaved = 0;
-	for (int i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
+	u8 regNumSaved = 0;
+	for (u8 i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
 	{
 		if (metadata->touchedRegisters[i] && (i != RETURN_REGISTER))
 		{
@@ -203,7 +204,7 @@ void calleeSaveRegisters(struct CodegenContext *context, struct CodegenMetadata 
 								  context,
 								  i,
 								  MACHINE_REGISTER_SIZE_BYTES,
-								  (-1 * (metadata->localStackSize + ((regNumSaved + 1) * MACHINE_REGISTER_SIZE_BYTES)))); // (regNumSaved + 1) to account for stack growth downwards
+								  (-1 * (ssize_t)(metadata->localStackSize + ((regNumSaved + 1) * MACHINE_REGISTER_SIZE_BYTES)))); // (regNumSaved + 1) to account for stack growth downwards
 			regNumSaved++;
 		}
 	}
@@ -227,7 +228,7 @@ void calleeRestoreRegisters(struct CodegenContext *context, struct CodegenMetada
 								 context,
 								 i,
 								 MACHINE_REGISTER_SIZE_BYTES,
-								 (-1 * (metadata->localStackSize + ((regNumRestored + 1) * MACHINE_REGISTER_SIZE_BYTES)))); // (regNumRestored + 1) to account for stack growth downwards
+								 (-1 * (ssize_t)(metadata->localStackSize + ((regNumRestored + 1) * MACHINE_REGISTER_SIZE_BYTES)))); // (regNumRestored + 1) to account for stack growth downwards
 			regNumRestored++;
 		}
 	}
@@ -243,17 +244,18 @@ void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metada
 	// save return address (if necessary) and frame pointer to the stack so they will be persisted across this function
 	if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
 	{
+		// TODO: asserts against crazy large stack sizes causing overflow with ssize_t?
 		EmitStackStoreForSize(NULL,
 							  context,
 							  ra,
 							  MACHINE_REGISTER_SIZE_BYTES,
-							  (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((1) * MACHINE_REGISTER_SIZE_BYTES))));
+							  (-1 * (ssize_t)(metadata->localStackSize + metadata->calleeSaveStackSize - ((1) * MACHINE_REGISTER_SIZE_BYTES))));
 	}
 	EmitStackStoreForSize(NULL,
 						  context,
 						  fp,
 						  MACHINE_REGISTER_SIZE_BYTES,
-						  (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((0) * MACHINE_REGISTER_SIZE_BYTES))));
+						  (-1 * (ssize_t)(metadata->localStackSize + metadata->calleeSaveStackSize - ((0) * MACHINE_REGISTER_SIZE_BYTES))));
 
 	emitInstruction(NULL, context, "\tmv %s, %s\n", registerNames[fp], registerNames[sp]); // generate new fp
 
@@ -265,7 +267,7 @@ void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metada
 	}
 
 	// FIXME: cfa offset if no local stack?
-	fprintf(context->outFile, "\t.cfi_def_cfa_offset %d\n", metadata->totalStackSize);
+	fprintf(context->outFile, "\t.cfi_def_cfa_offset %zu\n", metadata->totalStackSize);
 
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
@@ -315,16 +317,16 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
 							 context,
 							 ra,
 							 MACHINE_REGISTER_SIZE_BYTES,
-							 (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((1) * MACHINE_REGISTER_SIZE_BYTES))));
+							 (-1 * (ssize_t)(metadata->localStackSize + metadata->calleeSaveStackSize - ((1) * MACHINE_REGISTER_SIZE_BYTES))));
 	}
 
 	EmitFrameLoadForSize(NULL,
 						 context,
 						 fp,
 						 MACHINE_REGISTER_SIZE_BYTES,
-						 (-1 * (metadata->localStackSize + metadata->calleeSaveStackSize - ((0) * MACHINE_REGISTER_SIZE_BYTES))));
+						 (-1 * (ssize_t)(metadata->localStackSize + metadata->calleeSaveStackSize - ((0) * MACHINE_REGISTER_SIZE_BYTES))));
 
-	int localAndArgStackSize = metadata->totalStackSize + metadata->function->argStackSize;
+	size_t localAndArgStackSize = metadata->totalStackSize + metadata->function->argStackSize;
 	if (localAndArgStackSize > 0)
 	{
 		emitInstruction(NULL, context, "\t# %d bytes locals, %d bytes callee-save, %d bytes arguments\n", metadata->totalStackSize - (MACHINE_REGISTER_SIZE_BYTES * metadata->nRegistersCalleeSaved), (MACHINE_REGISTER_SIZE_BYTES * metadata->nRegistersCalleeSaved), metadata->function->argStackSize);
@@ -332,7 +334,7 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
 	}
 	// FIXME: cfa offset if no local stack?
 
-	fprintf(context->outFile, "\t.cfi_def_cfa_offset %d\n", metadata->totalStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES));
+	fprintf(context->outFile, "\t.cfi_def_cfa_offset %zu\n", metadata->totalStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES));
 
 	fprintf(context->outFile, "\t.cfi_def_cfa_offset 0\n");
 	emitInstruction(NULL, context, "\tjalr zero, 0(%s)\n", registerNames[ra]);
@@ -348,7 +350,7 @@ extern struct Config config;
 void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 {
 	currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
-	int instructionIndex = 0; // index from start of function in terms of number of instructions
+	size_t instructionIndex = 0; // index from start of function in terms of number of instructions
 	struct CodegenContext context;
 	context.outFile = outFile;
 	context.instructionIndex = &instructionIndex;
@@ -379,7 +381,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 
 	if (currentVerbosity > VERBOSITY_MINIMAL)
 	{
-		printf("Need %d bytes on stack\n", metadata.totalStackSize);
+		printf("Need %zu bytes on stack\n", metadata.totalStackSize);
 	}
 
 	emitPrologue(&context, &metadata);
@@ -429,7 +431,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 							   struct Scope *scope,
 							   struct LinkedList *lifetimes,
 							   char *functionName,
-							   int reservedRegisters[3])
+							   u8 reservedRegisters[3])
 {
 	// we may pass null if we are generating the code to initialize global variables
 	if (functionName != NULL)
@@ -437,7 +439,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		fprintf(context->outFile, "%s_%d:\n", functionName, block->labelNum);
 	}
 
-	int lastLineNo = -1;
+	u32 lastLineNo = 0;
 	for (struct LinkedListNode *TACRunner = block->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
 	{
 		struct TACLine *thisTAC = TACRunner->data;
@@ -464,7 +466,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		case tt_assign:
 		{
 			// only works for primitive types that will fit in registers
-			int opLocReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
+			u8 opLocReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], opLocReg);
 		}
 		break;
@@ -480,9 +482,9 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		case tt_lshift:
 		case tt_rshift:
 		{
-			int op1Reg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int op2Reg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
-			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			u8 op1Reg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
+			u8 op2Reg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
+			u8 destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 
 			emitInstruction(thisTAC, context, "\t%s %s, %s, %s\n", getAsmOp(thisTAC->operation), registerNames[destReg], registerNames[op1Reg], registerNames[op2Reg]);
 			WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], destReg);
@@ -491,8 +493,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
 		case tt_bitwise_not:
 		{
-			int op1Reg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			u8 op1Reg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
+			u8 destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 
 			emitInstruction(thisTAC, context, "\txori %s, %s, -1\n", registerNames[destReg], registerNames[op1Reg]);
 			WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], destReg);
@@ -501,8 +503,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
 		case tt_load:
 		{
-			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[1]);
+			u8 baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
+			u8 destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[1]);
 
 			char loadWidth = SelectWidthChar(scope, &thisTAC->operands[0]);
 			emitInstruction(thisTAC, context, "\tl%c%s %s, 0(%s)\n",
@@ -518,8 +520,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		case tt_load_off:
 		{
 			// TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			u8 destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			u8 baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
 
 			char loadWidth = SelectWidthChar(scope, &thisTAC->operands[0]);
 			emitInstruction(thisTAC, context, "\tl%c%s %s, %d(%s)\n",
@@ -535,9 +537,9 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
 		case tt_load_arr:
 		{
-			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
-			int offsetReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[2]);
+			u8 destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			u8 baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			u8 offsetReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[2]);
 
 			// TODO: check for shift by 0 and don't shift when applicable
 			// perform a left shift by however many bits necessary to scale our value, place the result in reservedRegisters[2]
@@ -565,8 +567,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
 		case tt_store:
 		{
-			int destAddrReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			int sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			u8 destAddrReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			u8 sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
 			char storeWidth = SelectWidthCharForDereference(scope, &thisTAC->operands[0]);
 
 			emitInstruction(thisTAC, context, "\ts%c %s, 0(%s)\n",
@@ -579,8 +581,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		case tt_store_off:
 		{
 			// TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			int sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
+			u8 baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			u8 sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
 			emitInstruction(thisTAC, context, "\ts%c %s, %d(%s)\n",
 							SelectWidthChar(scope, &thisTAC->operands[0]),
 							registerNames[sourceReg],
@@ -591,9 +593,9 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
 		case tt_store_arr:
 		{
-			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			int offsetReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
-			int sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[2]);
+			u8 baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			u8 offsetReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			u8 sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[3], reservedRegisters[2]);
 
 			// TODO: check for shift by 0 and don't shift when applicable
 			// perform a left shift by however many bits necessary to scale our value, place the result in reservedRegisters[1]
@@ -617,7 +619,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
 		case tt_addrof:
 		{
-			int addrReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			u8 addrReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			addrReg = placeAddrOfLifetimeInReg(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], addrReg);
 			WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], addrReg);
 		}
@@ -626,8 +628,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		case tt_lea_off:
 		{
 			// TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			u8 destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			u8 baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
 
 			emitInstruction(thisTAC, context, "\taddi %s, %s, %d\n",
 							registerNames[destReg],
@@ -640,9 +642,9 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
 		case tt_lea_arr:
 		{
-			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
-			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
-			int offsetReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[2]);
+			u8 destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			u8 baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
+			u8 offsetReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[2]);
 
 			// TODO: check for shift by 0 and don't shift when applicable
 			// perform a left shift by however many bits necessary to scale our value, place the result in reservedRegisters[1]
@@ -670,8 +672,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		case tt_beqz:
 		case tt_bnez:
 		{
-			int operand1register = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
-			int operand2register = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
+			u8 operand1register = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
+			u8 operand2register = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
 			emitInstruction(thisTAC, context, "\t%s %s, %s, %s_%d\n",
 							getAsmOp(thisTAC->operation),
 							registerNames[operand1register],
@@ -695,7 +697,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
 		case tt_stack_store:
 		{
-			int sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
+			u8 sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 
 			EmitStackStoreForSize(thisTAC,
 								  context,
@@ -732,7 +734,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		{
 			if (thisTAC->operands[0].name.str != NULL)
 			{
-				int sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
+				u8 sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
 
 				if (sourceReg != RETURN_REGISTER)
 				{

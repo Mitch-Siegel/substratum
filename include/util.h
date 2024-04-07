@@ -52,9 +52,9 @@ struct ParseProgress
 	char eofReceived;
 };
 
-int alignSize(int nBytes);
+u8 alignSize(size_t nBytes);
 
-int unalignSize(int nBits);
+size_t unalignSize(u8 nBits);
 
 /*
  * Dictionary for tracking strings

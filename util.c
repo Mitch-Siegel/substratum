@@ -1,9 +1,9 @@
 #include "util.h"
 
-// given a raw size, find the nearest power-of-two aligned size
-int alignSize(int nBytes)
+// given a raw size, find the nearest power-of-two aligned size (number of bits required to store nBytes)
+u8 alignSize(size_t nBytes)
 {
-	int powerOfTwo = 0;
+	u8 powerOfTwo = 0;
 	while ((nBytes > (0b1 << powerOfTwo)) > 0)
 	{
 		powerOfTwo++;
@@ -11,9 +11,13 @@ int alignSize(int nBytes)
 	return powerOfTwo;
 }
 
-// TODO: safety at the extremes/shifting UB
-int unalignSize(int nBits)
+size_t unalignSize(u8 nBits)
 {
+	const u8 bitsInByte = 8;
+	if(nBits >= (sizeof(size_t) * bitsInByte))
+	{
+		ErrorAndExit(ERROR_INTERNAL, "unalignSize() called with %u bits\n", nBits);
+	}
 	return 1 << nBits;
 }
 

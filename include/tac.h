@@ -88,7 +88,7 @@ struct TACOperand
 	union nameUnion // name of variable as char*, or literal value as int
 	{
 		char *str;
-		size_t val;
+		ssize_t val;
 	} name;
 
 	struct Type type;

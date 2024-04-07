@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #pragma once
+#include "substratum_defs.h"
 
 enum token
 {
@@ -105,14 +106,14 @@ struct AST
 	enum token type;
 	struct AST *child;
 	struct AST *sibling;
-	int sourceLine;
-	int sourceCol;
+	u32 sourceLine;
+	u32 sourceCol;
 	char *sourceFile;
 };
 
 // instantiate a new AST with given type and value
 // the sourceLine and sourceCol fields will be automatically populated
-struct AST *AST_New(enum token type, char *value, char *curFile, int curLine, int curCol);
+struct AST *AST_New(enum token type, char *value, char *curFile, u32 curLine, u32 curCol);
 
 void AST_InsertSibling(struct AST *tree, struct AST *newSibling);
 
@@ -122,7 +123,7 @@ struct AST *AST_ConstructAddSibling(struct AST *tree, struct AST *newSibling);
 
 struct AST *AST_ConstructAddChild(struct AST *tree, struct AST *newChild);
 
-void AST_Print(struct AST *tree, int depth);
+void AST_Print(struct AST *tree, u32 depth);
 
 void AST_PrintHorizontal(struct AST *tree);
 

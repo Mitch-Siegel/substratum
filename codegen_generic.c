@@ -54,10 +54,11 @@ void emitInstruction(struct TACLine *correspondingTACLine,
 	}
 }
 
+// TODO: enum for registers?
 char *PlaceLiteralStringInRegister(struct TACLine *correspondingTACLine,
 								   struct CodegenContext *context,
 								   char *literalStr,
-								   int destReg)
+								   u8 destReg)
 {
 	char *destRegStr = registerNames[destReg];
 	emitInstruction(correspondingTACLine, context, "\tli %s, %s # place literal\n", destRegStr, literalStr);
@@ -82,7 +83,7 @@ void WriteVariable(struct TACLine *correspondingTACLine,
 				   struct Scope *scope,
 				   struct LinkedList *lifetimes,
 				   struct TACOperand *writtenTo,
-				   int sourceRegIndex)
+				   u8 sourceRegIndex)
 {
 	verifyCodegenPrimitive(writtenTo);
 	struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, writtenTo->name.str);
@@ -137,12 +138,12 @@ void WriteVariable(struct TACLine *correspondingTACLine,
 
 // places an operand by name into the specified register, or returns the index of the register containing if it's already in a register
 // does *NOT* guarantee that returned register indices are modifiable in the case where the variable is found in a register
-int placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
+u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
 								 struct CodegenContext *context,
 								 struct Scope *scope,
 								 struct LinkedList *lifetimes,
 								 struct TACOperand *operand,
-								 int registerIndex)
+								 u8 registerIndex)
 {
 	verifyCodegenPrimitive(operand);
 
@@ -249,10 +250,10 @@ int placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
 	}
 }
 
-int pickWriteRegister(struct Scope *scope,
+u8 pickWriteRegister(struct Scope *scope,
 					  struct LinkedList *lifetimes,
 					  struct TACOperand *operand,
-					  int registerIndex)
+					  u8 registerIndex)
 {
 	struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand->name.str);
 	if (relevantLifetime == NULL)
@@ -275,12 +276,12 @@ int pickWriteRegister(struct Scope *scope,
 	}
 }
 
-int placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
+u8 placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
 							 struct CodegenContext *context,
 							 struct Scope *scope,
 							 struct LinkedList *lifetimes,
 							 struct TACOperand *operand,
-							 int registerIndex)
+							 u8 registerIndex)
 {
 	struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand->name.str);
 	if (relevantLifetime == NULL)
@@ -319,7 +320,7 @@ int placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
 	return registerIndex;
 }
 
-char SelectWidthCharForSize(int size)
+char SelectWidthCharForSize(u8 size)
 {
 	switch (size)
 	{
@@ -407,8 +408,8 @@ char SelectWidthCharForLifetime(struct Scope *scope, struct Lifetime *lifetime)
 void EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
 						   struct CodegenContext *context,
 						   enum riscvRegisters sourceReg,
-						   int size,
-						   int offset)
+						   u8 size,
+						   ssize_t offset)
 {
 	emitInstruction(correspondingTACLine, context, "\ts%c %s, %d(fp)\n", SelectWidthCharForSize(size), registerNames[sourceReg], offset);
 }
@@ -417,8 +418,8 @@ void EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
 void EmitFrameLoadForSize(struct TACLine *correspondingTACLine,
 						  struct CodegenContext *context,
 						  enum riscvRegisters destReg,
-						  int size,
-						  int offset)
+						  u8 size,
+						  ssize_t offset)
 {
 	emitInstruction(correspondingTACLine, context, "\tl%c %s, %d(fp)\n", SelectWidthCharForSize(size), registerNames[destReg], offset);
 }
@@ -427,8 +428,8 @@ void EmitFrameLoadForSize(struct TACLine *correspondingTACLine,
 void EmitStackStoreForSize(struct TACLine *correspondingTACLine,
 						   struct CodegenContext *context,
 						   enum riscvRegisters sourceReg,
-						   int size,
-						   int offset)
+						   u8 size,
+						   ssize_t offset)
 {
 	emitInstruction(correspondingTACLine, context, "\ts%c %s, %d(sp)\n", SelectWidthCharForSize(size), registerNames[sourceReg], offset);
 }
@@ -437,8 +438,8 @@ void EmitStackStoreForSize(struct TACLine *correspondingTACLine,
 void EmitStackLoadForSize(struct TACLine *correspondingTACLine,
 						  struct CodegenContext *context,
 						  enum riscvRegisters sourceReg,
-						  int size,
-						  int offset)
+						  u8 size,
+						  ssize_t offset)
 {
 	emitInstruction(correspondingTACLine, context, "\tl%c %s, %d(sp)\n", SelectWidthCharForSize(size), registerNames[sourceReg], offset);
 }
@@ -447,7 +448,7 @@ void EmitPushForOperand(struct TACLine *correspondingTACLine,
 						struct CodegenContext *context,
 						struct Scope *scope,
 						struct TACOperand *dataSource,
-						int srcRegister)
+						u8 srcRegister)
 {
 	int size = Scope_getSizeOfType(scope, TACOperand_GetType(dataSource));
 	switch (size)
@@ -470,8 +471,8 @@ void EmitPushForOperand(struct TACLine *correspondingTACLine,
 
 void EmitPushForSize(struct TACLine *correspondingTACLine,
 					 struct CodegenContext *context,
-					 int size,
-					 int srcRegister)
+					 u8 size,
+					 u8 srcRegister)
 {
 	emitInstruction(correspondingTACLine, context, "\taddi sp, sp, -%d\n", size);
 	emitInstruction(correspondingTACLine, context, "\ts%c %s, 0(sp)\n",
@@ -483,7 +484,7 @@ void EmitPopForOperand(struct TACLine *correspondingTACLine,
 					   struct CodegenContext *context,
 					   struct Scope *scope,
 					   struct TACOperand *dataDest,
-					   int destRegister)
+					   u8 destRegister)
 {
 	int size = Scope_getSizeOfType(scope, TACOperand_GetType(dataDest));
 	switch (size)
@@ -506,8 +507,8 @@ void EmitPopForOperand(struct TACLine *correspondingTACLine,
 
 void EmitPopForSize(struct TACLine *correspondingTACLine,
 					struct CodegenContext *context,
-					int size,
-					int destRegister)
+					u8 size,
+					u8 destRegister)
 {
 	emitInstruction(correspondingTACLine, context, "\tl%c%s %s, 0(sp)\n",
 					SelectWidthCharForSize(size),

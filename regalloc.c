@@ -427,7 +427,7 @@ void allocateRegisters(struct CodegenMetadata *metadata)
     if (currentVerbosity > VERBOSITY_SILENT)
     {
         printf("Final roundup of variables and where they live:\n");
-        printf("Local stack footprint: %d bytes\n", metadata->localStackSize);
+        printf("Local stack footprint: %zu bytes\n", metadata->localStackSize);
         for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
         {
             struct Lifetime *examined = runner->data;

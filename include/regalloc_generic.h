@@ -117,21 +117,21 @@ struct CodegenMetadata
 	struct LinkedList *registerLifetimes;
 
 	// largest TAC index for any basic block within the function
-	int largestTacIndex;
+	size_t largestTacIndex;
 
 	// flag registers which should be used as scratch in case we have spilled variables (not always used, but can have up to 3)
-	int reservedRegisterCount;
-	int reservedRegisters[3];
+	u8 reservedRegisterCount;
+	u8 reservedRegisters[3];
 
 	// flag registers which have *ever* been used so we know what to callee-save
 	char touchedRegisters[MACHINE_REGISTER_COUNT];
 
-	int nRegistersCalleeSaved;
+	u8 nRegistersCalleeSaved;
 
-	int localStackSize;		 // number of bytes required to store store all local stack variables of a function (aligned to MACHINE_REGISTER_SIZE_BYTES because callee-saved registers are at the stack addresses directly below these)
-	int calleeSaveStackSize; // number of bytes required to store all callee-saved registers (aligned to MACHINE_REGISTER_SIZE_BYTES by starting from localStackSize and only storing MACHINE_REGISTER_SIZE_BYTES at a time)
+	size_t localStackSize;		 // number of bytes required to store store all local stack variables of a function (aligned to MACHINE_REGISTER_SIZE_BYTES because callee-saved registers are at the stack addresses directly below these)
+	size_t calleeSaveStackSize; // number of bytes required to store all callee-saved registers (aligned to MACHINE_REGISTER_SIZE_BYTES by starting from localStackSize and only storing MACHINE_REGISTER_SIZE_BYTES at a time)
 
-	int totalStackSize;	// total number of bytes the function decrements the stack pointer to store all locals and callee-saved registers (aligned to STACK_ALIGN_BYTES)
+	size_t totalStackSize;	// total number of bytes the function decrements the stack pointer to store all locals and callee-saved registers (aligned to STACK_ALIGN_BYTES)
 };
 
 // populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i

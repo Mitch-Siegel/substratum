@@ -87,7 +87,7 @@ char *getTokenName(enum token type)
 	return token_names[type];
 }
 
-struct AST *AST_New(enum token type, char *value, char *curFile, int curLine, int curCol)
+struct AST *AST_New(enum token type, char *value, char *curFile, u32 curLine, u32 curCol)
 {
 	struct AST *wip = malloc(sizeof(struct AST));
 	wip->child = NULL;
@@ -140,7 +140,7 @@ struct AST *AST_ConstructAddChild(struct AST *tree, struct AST *newChild)
 	return tree;
 }
 
-void AST_Print(struct AST *tree, int depth)
+void AST_Print(struct AST *tree, u32 depth)
 {
 	if (tree->sibling != NULL)
 	{

@@ -18,6 +18,6 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
                                struct Scope *scope,
                                struct LinkedList *lifetimes,
                                char *functionName,
-                               int reservedRegisters[3]);
+                               u8 reservedRegisters[3]);
 
 #endif
