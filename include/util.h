@@ -84,6 +84,9 @@ void Dictionary_Free(struct Dictionary *dict);
  *
  */
 
+#define STACK_DEFAULT_ALLOCATION 20
+#define STACK_SCALE_FACTOR 1.5
+
 struct Stack
 {
 	void **data;
@@ -93,13 +96,13 @@ struct Stack
 
 struct Stack *Stack_New();
 
-void Stack_Free(struct Stack *s);
+void Stack_Free(struct Stack *stack);
 
-void Stack_Push(struct Stack *s, void *data);
+void Stack_Push(struct Stack *stack, void *data);
 
-void *Stack_Pop(struct Stack *s);
+void *Stack_Pop(struct Stack *stack);
 
-void *Stack_Peek(struct Stack *s);
+void *Stack_Peek(struct Stack *stack);
 
 /*
  * Unordered List data structure
@@ -122,26 +125,22 @@ struct LinkedList
 
 struct LinkedList *LinkedList_New();
 
-void LinkedList_Free(struct LinkedList *l, void (*dataFreeFunction)());
+void LinkedList_Free(struct LinkedList *list, void (*dataFreeFunction)());
 
-void LinkedList_Append(struct LinkedList *l, void *element);
+void LinkedList_Append(struct LinkedList *list, void *element);
 
-void LinkedList_Prepend(struct LinkedList *l, void *element);
+void LinkedList_Prepend(struct LinkedList *list, void *element);
 
 // join all elements of list 'after' after those of list 'before' in list 'before'
 void LinkedList_Join(struct LinkedList *before, struct LinkedList *after);
 
-void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *element);
+void *LinkedList_Delete(struct LinkedList *list, int (*compareFunction)(), void *element);
 
-void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *element);
+void *LinkedList_Find(struct LinkedList *list, int (*compareFunction)(), void *element);
 
-void *LinkedList_PopFront(struct LinkedList *l);
+void *LinkedList_PopFront(struct LinkedList *list);
 
-void *LinkedList_PopBack(struct LinkedList *l);
-
-char *strTrim(char *s, int l);
-
-char *strAppend(char *before, char *after);
+void *LinkedList_PopBack(struct LinkedList *list);
 
 /*
  * TempList is a struct containing string names for TAC temps by number (eg t0, t1, t2, etc...)
@@ -161,4 +160,4 @@ char *TempList_Get(struct TempList *tempList, int tempNum);
 struct TempList *TempList_New();
 
 // free the templist
-void TempList_Free(struct TempList *it);
+void TempList_Free(struct TempList *toFree);
