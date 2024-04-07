@@ -24,14 +24,14 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *n
 
 void FunctionEntry_free(struct FunctionEntry *function);
 
-struct FunctionEntry *Scope_createFunction(struct Scope *parentScope,
+struct FunctionEntry *createFunction(struct Scope *parentScope,
 										   struct AST *nameTree,
 										   struct Type *returnType);
 
-struct FunctionEntry *Scope_lookupFunByString(struct Scope *scope,
+struct FunctionEntry *lookupFunByString(struct Scope *scope,
 											  char *name);
 
-struct FunctionEntry *Scope_lookupFun(struct Scope *scope,
+struct FunctionEntry *lookupFun(struct Scope *scope,
 									  struct AST *name);
 
 #endif

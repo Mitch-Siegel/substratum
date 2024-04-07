@@ -4,7 +4,7 @@
 #include "util.h"
 
 // create a variable within the given scope
-struct VariableEntry *Scope_createVariable(struct Scope *scope,
+struct VariableEntry *createVariable(struct Scope *scope,
                                            struct AST *name,
                                            struct Type *type,
                                            u8 isGlobal,
@@ -48,7 +48,7 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
 
         // put our argument's offset at the newly-aligned stack size, then add the size of the argument to the argument stack size
         newVariable->stackOffset = scope->parentFunction->argStackSize;
-        scope->parentFunction->argStackSize += Scope_getSizeOfType(scope, type);
+        scope->parentFunction->argStackSize += getSizeOfType(scope, type);
 
         Scope_insert(scope, name->value, newVariable, e_argument);
     }
@@ -60,7 +60,7 @@ struct VariableEntry *Scope_createVariable(struct Scope *scope,
     return newVariable;
 }
 
-struct VariableEntry *Scope_lookupVarByString(struct Scope *scope, char *name)
+struct VariableEntry *lookupVarByString(struct Scope *scope, char *name)
 {
     struct ScopeMember *lookedUp = Scope_lookup(scope, name);
     if (lookedUp == NULL)
@@ -79,7 +79,7 @@ struct VariableEntry *Scope_lookupVarByString(struct Scope *scope, char *name)
     }
 }
 
-struct VariableEntry *Scope_lookupVar(struct Scope *scope, struct AST *name)
+struct VariableEntry *lookupVar(struct Scope *scope, struct AST *name)
 {
     struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
     if (lookedUp == NULL)

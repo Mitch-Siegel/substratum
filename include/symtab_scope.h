@@ -65,15 +65,15 @@ struct ScopeMember *Scope_lookup(struct Scope *scope,
 								 char *name);
 
 // gets the integer size (not aligned) of a given type
-size_t Scope_getSizeOfType(struct Scope *scope, struct Type *t);
+size_t getSizeOfType(struct Scope *scope, struct Type *t);
 
 // gets the integer size (not aligned) of a given type, but based on the dereference level as (t->indirectionLevel - 1)
-size_t Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *t);
+size_t getSizeOfDereferencedType(struct Scope *scope, struct Type *t);
 
-size_t Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v);
+size_t getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *v);
 
 // calculate the power of 2 to which a given type needs to be aligned
-u8 Scope_getAlignmentOfType(struct Scope *scope, struct Type *t);
+u8 getAlignmentOfType(struct Scope *scope, struct Type *t);
 
 // scope linearization functions
 

@@ -106,7 +106,7 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
 
 
 // create a new function accessible within the given scope
-struct FunctionEntry *Scope_createFunction(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType)
+struct FunctionEntry *createFunction(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType)
 {
     struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, nameTree, returnType);
     Scope_insert(parentScope, nameTree->value, newFunction, e_function);
@@ -136,7 +136,7 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
 int Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, int currentOffset)
 {
     // calculate the number of bytes to which this member needs to be aligned
-    int alignBytesForType = unalignSize(Scope_getAlignmentOfType(scope, alignedType));
+    int alignBytesForType = unalignSize(getAlignmentOfType(scope, alignedType));
 
     // compute how many bytes of padding we will need before this member to align it correctly
     int paddingRequired = 0;
@@ -183,7 +183,7 @@ struct ScopeMember *Scope_lookup(struct Scope *scope, char *name)
     return NULL;
 }
 
-size_t Scope_getSizeOfType(struct Scope *scope, struct Type *type)
+size_t getSizeOfType(struct Scope *scope, struct Type *type)
 {
     size_t size = 0;
 
@@ -199,7 +199,7 @@ size_t Scope_getSizeOfType(struct Scope *scope, struct Type *type)
     switch (type->basicType)
     {
     case vt_null:
-        ErrorAndExit(ERROR_INTERNAL, "Scope_getSizeOfType called with basic type of vt_null!\n");
+        ErrorAndExit(ERROR_INTERNAL, "getSizeOfType called with basic type of vt_null!\n");
         break;
 
     case vt_any:
@@ -230,7 +230,7 @@ size_t Scope_getSizeOfType(struct Scope *scope, struct Type *type)
 
     case vt_class:
     {
-        struct ClassEntry *class = Scope_lookupClassByType(scope, type);
+        struct ClassEntry *class = lookupClassByType(scope, type);
         size = class->totalSize;
     }
     break;
@@ -249,7 +249,7 @@ size_t Scope_getSizeOfType(struct Scope *scope, struct Type *type)
     return size;
 }
 
-size_t Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *type)
+size_t getSizeOfDereferencedType(struct Scope *scope, struct Type *type)
 {
     struct Type dereferenced = *type;
     dereferenced.indirectionLevel--;
@@ -259,10 +259,10 @@ size_t Scope_getSizeOfDereferencedType(struct Scope *scope, struct Type *type)
         dereferenced.arraySize = 0;
         dereferenced.indirectionLevel++;
     }
-    return Scope_getSizeOfType(scope, &dereferenced);
+    return getSizeOfType(scope, &dereferenced);
 }
 
-size_t Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *variable)
+size_t getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *variable)
 {
     size_t size = 0;
     if (variable->type.arraySize < 1)
@@ -275,11 +275,11 @@ size_t Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *va
             struct Type elementType = variable->type;
             elementType.indirectionLevel--;
             elementType.arraySize = 0;
-            size = Scope_getSizeOfType(scope, &elementType);
+            size = getSizeOfType(scope, &elementType);
         }
         else
         {
-            ErrorAndExit(ERROR_INTERNAL, "Non-array variable %s passed to Scope_getSizeOfArrayElement!\n", variable->name);
+            ErrorAndExit(ERROR_INTERNAL, "Non-array variable %s passed to getSizeOfArrayElement!\n", variable->name);
         }
     }
     else
@@ -289,7 +289,7 @@ size_t Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *va
             struct Type elementType = variable->type;
             elementType.indirectionLevel--;
             elementType.arraySize = 0;
-            size = Scope_getSizeOfType(scope, &elementType);
+            size = getSizeOfType(scope, &elementType);
         }
         else
         {
@@ -301,7 +301,7 @@ size_t Scope_getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *va
 }
 
 // Return the number of bits required to align a given type
-u8 Scope_getAlignmentOfType(struct Scope *scope, struct Type *type)
+u8 getAlignmentOfType(struct Scope *scope, struct Type *type)
 
 {
     u8 alignBits = 0;
@@ -319,7 +319,7 @@ u8 Scope_getAlignmentOfType(struct Scope *scope, struct Type *type)
     switch (type->basicType)
     {
     case vt_null:
-        ErrorAndExit(ERROR_INTERNAL, "Scope_getAlignmentOfType called with basic type of vt_null!\n");
+        ErrorAndExit(ERROR_INTERNAL, "getAlignmentOfType called with basic type of vt_null!\n");
         break;
 
     case vt_any:
@@ -352,13 +352,13 @@ u8 Scope_getAlignmentOfType(struct Scope *scope, struct Type *type)
 
     case vt_class:
     {
-        struct ClassEntry *class = Scope_lookupClassByType(scope, type);
+        struct ClassEntry *class = lookupClassByType(scope, type);
 
         for (size_t memberIndex = 0; memberIndex < class->memberLocations->size; memberIndex++)
         {
             struct ClassMemberOffset *examinedMember = (struct ClassMemberOffset *)class->memberLocations->data[memberIndex];
 
-            u8 examinedMemberAlignment = Scope_getAlignmentOfType(scope, &examinedMember->variable->type);
+            u8 examinedMemberAlignment = getAlignmentOfType(scope, &examinedMember->variable->type);
             if (examinedMemberAlignment > alignBits)
             {
                 alignBits = examinedMemberAlignment;

@@ -30,7 +30,7 @@ void FunctionEntry_free(struct FunctionEntry *function)
 	free(function);
 }
 
-struct FunctionEntry *Scope_lookupFunByString(struct Scope *scope, char *name)
+struct FunctionEntry *lookupFunByString(struct Scope *scope, char *name)
 {
 	struct ScopeMember *lookedUp = Scope_lookup(scope, name);
 	if (lookedUp == NULL)
@@ -48,7 +48,7 @@ struct FunctionEntry *Scope_lookupFunByString(struct Scope *scope, char *name)
 	}
 }
 
-struct FunctionEntry *Scope_lookupFun(struct Scope *scope, struct AST *name)
+struct FunctionEntry *lookupFun(struct Scope *scope, struct AST *name)
 {
 	struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
 	if (lookedUp == NULL)

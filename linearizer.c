@@ -149,7 +149,7 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
 	if ((populateTypeTo->basicType == vt_class) && (populateTypeTo->indirectionLevel == 0))
 	{
 		// the lookup will bail out if an attempt is made to use an undeclared class
-		Scope_lookupClass(scope, className);
+		lookupClass(scope, className);
 	}
 
 	// if we are declaring an array, set the string with the size as the second operand
@@ -204,7 +204,7 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 	walkTypeName(tree->child, scope, &declaredType);
 
 	// automatically set as a global if there is no parent scope (declaring at the outermost scope)
-	struct VariableEntry *declaredVariable = Scope_createVariable(scope,
+	struct VariableEntry *declaredVariable = createVariable(scope,
 																  tree->child->sibling,
 																  &declaredType,
 																  (u8)(scope->parentScope == NULL),
@@ -287,7 +287,7 @@ void walkFunctionDeclaration(struct AST *tree,
 	}
 	else
 	{
-		parsedFunc = Scope_createFunction(scope, functionNameTree, &returnType);
+		parsedFunc = createFunction(scope, functionNameTree, &returnType);
 		parsedFunc->mainScope->parentScope = scope;
 	}
 
@@ -496,7 +496,7 @@ void walkClassDeclaration(struct AST *tree,
 	}
 	size_t dummyNum = 0;
 
-	struct ClassEntry *declaredClass = Scope_createClass(scope, tree->child->value);
+	struct ClassEntry *declaredClass = createClass(scope, tree->child->value);
 
 	struct AST *classBody = tree->child->sibling;
 
@@ -513,7 +513,7 @@ void walkClassDeclaration(struct AST *tree,
 		case t_variable_declaration:
 		{
 			struct VariableEntry *declaredMember = walkVariableDeclaration(classBodyRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0);
-			Class_assignOffsetToMemberVariable(declaredClass, declaredMember);
+			assignOffsetToMemberVariable(declaredClass, declaredMember);
 		}
 		break;
 
@@ -1117,9 +1117,9 @@ void walkDotOperatorAssignment(struct AST *tree,
 	}
 
 	// check to see that what we expect to treat as our class pointer is actually a class
-	struct ClassEntry *writtenClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(wipAssignment, 0));
+	struct ClassEntry *writtenClass = lookupClassByType(scope, TAC_GetTypeOfOperand(wipAssignment, 0));
 
-	struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(writtenClass, member);
+	struct ClassMemberOffset *accessedMember = lookupMemberVariable(writtenClass, member);
 
 	wipAssignment->operands[1].type.basicType = vt_u32;
 	wipAssignment->operands[1].permutation = vp_literal;
@@ -1182,7 +1182,7 @@ void walkArrowOperatorAssignment(struct AST *tree,
 	case t_identifier:
 	{
 		walkSubExpression(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0]);
-		struct VariableEntry *classVariable = Scope_lookupVar(scope, class);
+		struct VariableEntry *classVariable = lookupVar(scope, class);
 
 		checkAccessedClassForArrow(class, scope, &classVariable->type);
 	}
@@ -1231,9 +1231,9 @@ void walkArrowOperatorAssignment(struct AST *tree,
 	}
 
 	// check to see that what we expect to treat as our class pointer is actually a class
-	struct ClassEntry *writtenClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(wipAssignment, 0));
+	struct ClassEntry *writtenClass = lookupClassByType(scope, TAC_GetTypeOfOperand(wipAssignment, 0));
 
-	struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(writtenClass, member);
+	struct ClassMemberOffset *accessedMember = lookupMemberVariable(writtenClass, member);
 
 	wipAssignment->operands[1].type.basicType = vt_u32;
 	wipAssignment->operands[1].permutation = vp_literal;
@@ -1289,7 +1289,7 @@ void walkAssignment(struct AST *tree,
 		break;
 
 	case t_identifier:
-		assignedVariable = Scope_lookupVar(scope, lhs);
+		assignedVariable = lookupVar(scope, lhs);
 		populateTACOperandFromVariable(&assignment->operands[0], assignedVariable);
 		assignment->operands[1] = assignedValue;
 		break;
@@ -1325,7 +1325,7 @@ void walkAssignment(struct AST *tree,
 		// if our array is simply an identifier, do a standard lookup to find it
 		if (arrayBase->type == t_identifier)
 		{
-			struct VariableEntry *arrayVariable = Scope_lookupVar(scope, arrayBase);
+			struct VariableEntry *arrayVariable = lookupVar(scope, arrayBase);
 			arrayType = &arrayVariable->type;
 			if ((arrayType->indirectionLevel < 1) &&
 				(arrayType->arraySize == 0))
@@ -1352,7 +1352,7 @@ void walkAssignment(struct AST *tree,
 		assignment->operands[2].type.basicType = vt_u8;
 		struct Type decayedType;
 		copyTypeDecayArrays(&decayedType, arrayType);
-		assignment->operands[2].name.val = alignSize(Scope_getSizeOfDereferencedType(scope, &decayedType));
+		assignment->operands[2].name.val = alignSize(getSizeOfDereferencedType(scope, &decayedType));
 
 		walkSubExpression(arrayIndex, block, scope, TACIndex, tempNum, &assignment->operands[1]);
 
@@ -1519,7 +1519,7 @@ void walkSubExpression(struct AST *tree,
 		// variable read
 	case t_identifier:
 	{
-		struct VariableEntry *readVariable = Scope_lookupVar(scope, tree);
+		struct VariableEntry *readVariable = lookupVar(scope, tree);
 		populateTACOperandFromVariable(destinationOperand, readVariable);
 	}
 	break;
@@ -1700,7 +1700,7 @@ void walkSubExpression(struct AST *tree,
 			// manually generate a string with an 'F' hex digit for each 4 bits in the mask
 			sprintf(literalAndValue, "0x");
 			const u8 bitsPerByte = 8; // TODO: move to substratum_defs?
-			size_t maskBitWidth = (bitsPerByte * Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)));
+			size_t maskBitWidth = (bitsPerByte * getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)));
 			size_t maskBit = 0;
 			for (maskBit = 0; maskBit < maskBitWidth; maskBit += 4)
 			{
@@ -1757,7 +1757,7 @@ void walkFunctionCall(struct AST *tree,
 
 	scope->parentFunction->callsOtherFunction = 1;
 
-	struct FunctionEntry *calledFunction = Scope_lookupFun(scope, tree->child);
+	struct FunctionEntry *calledFunction = lookupFun(scope, tree->child);
 
 	if ((destinationOperand != NULL) &&
 		((calledFunction->returnType.basicType == vt_null) &&
@@ -1810,7 +1810,7 @@ void walkFunctionCall(struct AST *tree,
 		copyTACOperandDecayArrays(&decayed, &push->operands[0]);
 
 		// allow us to automatically widen
-		if (Scope_getSizeOfType(scope, TACOperand_GetType(&decayed)) <= Scope_getSizeOfType(scope, &expectedArgument->type))
+		if (getSizeOfType(scope, TACOperand_GetType(&decayed)) <= getSizeOfType(scope, &expectedArgument->type))
 		{
 			push->operands[0].castAsType = expectedArgument->type;
 		}
@@ -2061,8 +2061,8 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 	}
 
 	// get the ClassEntry and ClassMemberOffset of what we're accessing within and the member we access
-	struct ClassEntry *accessedClass = Scope_lookupClassByType(scope, TAC_GetTypeOfOperand(accessLine, 1));
-	struct ClassMemberOffset *accessedMember = Class_lookupMemberVariable(accessedClass, rhs);
+	struct ClassEntry *accessedClass = lookupClassByType(scope, TAC_GetTypeOfOperand(accessLine, 1));
+	struct ClassMemberOffset *accessedMember = lookupMemberVariable(accessedClass, rhs);
 
 	// populate type information (use cast for the first operand as we are treating a class as a pointer to something else with a given offset)
 	accessLine->operands[1].castAsType = accessedMember->variable->type;
@@ -2208,7 +2208,7 @@ struct TACOperand *walkExpression(struct AST *tree,
 		}
 
 		// TODO generate errors for bad pointer arithmetic here
-		if (Scope_getSizeOfType(scope, &operandA->type) > Scope_getSizeOfType(scope, &operandB->type))
+		if (getSizeOfType(scope, &operandA->type) > getSizeOfType(scope, &operandB->type))
 		{
 			copyTACOperandTypeDecayArrays(&expression->operands[0], operandA);
 		}
@@ -2254,7 +2254,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
 
 	struct TACLine *arrayRefTAC = newTACLine((*TACIndex), tt_load_arr, tree);
 
-	struct VariableEntry *arrayVariable = Scope_lookupVar(scope, arrayBase);
+	struct VariableEntry *arrayVariable = lookupVar(scope, arrayBase);
 	populateTACOperandFromVariable(&arrayRefTAC->operands[1], arrayVariable);
 
 	copyTACOperandDecayArrays(&arrayRefTAC->operands[0], &arrayRefTAC->operands[1]);
@@ -2277,7 +2277,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
 
 		// TODO: abstract this
 		int indexSize = atoi(arrayIndex->value);
-		indexSize *= 1 << alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
+		indexSize *= 1 << alignSize(getSizeOfArrayElement(scope, arrayVariable));
 
 		arrayRefTAC->operands[2].name.val = indexSize;
 		arrayRefTAC->operands[2].permutation = vp_literal;
@@ -2293,7 +2293,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
 			arrayRefTAC->operands[0].type.indirectionLevel++;
 		}
 		// set the scale for the array access
-		arrayRefTAC->operands[3].name.val = alignSize(Scope_getSizeOfArrayElement(scope, arrayVariable));
+		arrayRefTAC->operands[3].name.val = alignSize(getSizeOfArrayElement(scope, arrayVariable));
 		arrayRefTAC->operands[3].permutation = vp_literal;
 		arrayRefTAC->operands[3].type.basicType = selectVariableTypeForNumber(arrayRefTAC->operands[3].name.val);
 
@@ -2373,7 +2373,7 @@ struct TACOperand *walkAddrOf(struct AST *tree,
 	// look up the variable entry and ensure that we will spill it to the stack since we take its address
 	case t_identifier:
 	{
-		struct VariableEntry *addrTakenOf = Scope_lookupVar(scope, tree->child);
+		struct VariableEntry *addrTakenOf = lookupVar(scope, tree->child);
 		if (addrTakenOf->type.arraySize > 0)
 		{
 			ErrorWithAST(ERROR_CODE, tree->child, "Can't take address of local array %s!\n", addrTakenOf->name);
@@ -2529,7 +2529,6 @@ void walkStringLiteral(struct AST *tree,
 		ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkStringLiteral!\n", getTokenName(tree->type));
 	}
 
-	// Scope_createStringLiteral will modify the value of our AST node
 	// it inserts underscores in place of spaces and other modifications to turn the literal into a name that the symtab can use
 	// but first, it copies the string exactly as-is so it knows what the string object should be initialized to
 	char *stringName = tree->value;
@@ -2579,7 +2578,7 @@ void walkStringLiteral(struct AST *tree,
 		stringType.arraySize = stringLength;
 		stringType.indirectionLevel = 0;
 
-		stringLiteralEntry = Scope_createVariable(scope, &fakeStringTree, &stringType, 1, 0, 0);
+		stringLiteralEntry = createVariable(scope, &fakeStringTree, &stringType, 1, 0, 0);
 		stringLiteralEntry->isStringLiteral = 1;
 
 		struct Type *realStringType = &stringLiteralEntry->type;
@@ -2630,14 +2629,14 @@ void walkSizeof(struct AST *tree,
 		if ((lookedUpIdentifier == NULL) || (lookedUpIdentifier->type == e_variable))
 		{
 			// Scope_lookupVar is not redundant as it will give us a 'use of undeclared' error in the case where we looked up nothing
-			struct VariableEntry *getSizeof = Scope_lookupVar(scope, tree->child);
+			struct VariableEntry *getSizeof = lookupVar(scope, tree->child);
 
-			sizeInBytes = Scope_getSizeOfType(scope, &getSizeof->type);
+			sizeInBytes = getSizeOfType(scope, &getSizeof->type);
 		}
 		// we looked something up but it's not a variable 
 		else
 		{
-			struct ClassEntry *getSizeof = Scope_lookupClass(scope, tree->child);
+			struct ClassEntry *getSizeof = lookupClass(scope, tree->child);
 
 			sizeInBytes = getSizeof->totalSize;
 		}
@@ -2649,7 +2648,7 @@ void walkSizeof(struct AST *tree,
 		struct Type getSizeof;
 		walkTypeName(tree->child, scope, &getSizeof);
 
-		sizeInBytes = Scope_getSizeOfType(scope, &getSizeof);
+		sizeInBytes = getSizeOfType(scope, &getSizeof);
 	}
 	break;
 	default:

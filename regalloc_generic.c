@@ -89,7 +89,7 @@ void recordVariableWrite(struct LinkedList *ltList,
 	char mustSpill = 0;
 	if (writtenOperand->permutation == vp_standard)
 	{
-		struct VariableEntry *recordedVariable = Scope_lookupVarByString(scope, writtenOperand->name.str);
+		struct VariableEntry *recordedVariable = lookupVarByString(scope, writtenOperand->name.str);
 		isGlobal = recordedVariable->isGlobal;
 		mustSpill = recordedVariable->mustSpill;
 	}
@@ -110,7 +110,7 @@ void recordVariableRead(struct LinkedList *ltList,
 	char mustSpill = 0;
 	if (readOperand->permutation == vp_standard)
 	{
-		struct VariableEntry *recordedVariable = Scope_lookupVarByString(scope, readOperand->name.str);
+		struct VariableEntry *recordedVariable = lookupVarByString(scope, readOperand->name.str);
 		isGlobal = recordedVariable->isGlobal;
 		mustSpill = recordedVariable->mustSpill;
 	}

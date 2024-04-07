@@ -95,7 +95,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			}
 
 			char *varName = thisMember->name;
-			size_t varSize = Scope_getSizeOfType(table->globalScope, &variable->type);
+			size_t varSize = getSizeOfType(table->globalScope, &variable->type);
 
 			if (variable->type.initializeTo != NULL)
 			{
@@ -119,7 +119,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 
 			if (variable->type.arraySize > 0)
 			{
-				alignBits = alignSize(Scope_getSizeOfArrayElement(table->globalScope, variable));
+				alignBits = alignSize(getSizeOfArrayElement(table->globalScope, variable));
 			}
 			else
 			{
@@ -138,7 +138,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			{
 				if (variable->isStringLiteral)
 				{
-					size_t arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, variable);
+					size_t arrayElementSize = getSizeOfArrayElement(table->globalScope, variable);
 					if (arrayElementSize != 1)
 					{
 						ErrorAndExit(ERROR_INTERNAL, "Saw array element size of %zu for string literal (expected 1)!\n", arrayElementSize);
@@ -154,7 +154,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 				else if (variable->type.arraySize > 0)
 				{
 					// TODO: fully recursive arrays
-					size_t arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, variable);
+					size_t arrayElementSize = getSizeOfArrayElement(table->globalScope, variable);
 					for (size_t arrayElementIndex = 0; arrayElementIndex < varSize / arrayElementSize; arrayElementIndex++)
 					{
 						for (size_t arrayElementByte = 0; arrayElementByte < arrayElementSize; arrayElementByte++)
@@ -703,14 +703,14 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 			EmitStackStoreForSize(thisTAC,
 								  context,
 								  sourceReg,
-								  Scope_getSizeOfType(scope, TAC_GetTypeOfOperand(thisTAC, 0)),
+								  getSizeOfType(scope, TAC_GetTypeOfOperand(thisTAC, 0)),
 								  thisTAC->operands[1].name.val);
 		}
 		break;
 
 		case tt_call:
 		{
-			struct FunctionEntry *called = Scope_lookupFunByString(scope, thisTAC->operands[1].name.str);
+			struct FunctionEntry *called = lookupFunByString(scope, thisTAC->operands[1].name.str);
 			if (called->isDefined)
 			{
 				emitInstruction(thisTAC, context, "\tcall %s\n", thisTAC->operands[1].name.str);

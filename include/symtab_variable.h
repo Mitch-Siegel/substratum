@@ -26,16 +26,16 @@ struct VariableEntry
 	char isStringLiteral;
 };
 
-struct VariableEntry *Scope_createVariable(struct Scope *scope,
+struct VariableEntry *createVariable(struct Scope *scope,
 										   struct AST *name,
 										   struct Type *type,
 										   u8 isGlobal,
 										   size_t declaredAt,
 										   u8 isArgument);
 
-struct VariableEntry *Scope_lookupVarByString(struct Scope *scope,
+struct VariableEntry *lookupVarByString(struct Scope *scope,
 											  char *name);
 
-struct VariableEntry *Scope_lookupVar(struct Scope *scope,
+struct VariableEntry *lookupVar(struct Scope *scope,
 									  struct AST *name);
 #endif

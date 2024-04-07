@@ -123,7 +123,7 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
 								}
 
 								// if the declaration for the variable is owned by this scope, ensure that we actually get a variable or argument
-								struct VariableEntry *variableToMangle = Scope_lookupVarByString(scope, originalName);
+								struct VariableEntry *variableToMangle = lookupVarByString(scope, originalName);
 
 								// only mangle things which are not string literals
 								if (variableToMangle->isStringLiteral == 0)

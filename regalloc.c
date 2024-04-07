@@ -229,8 +229,8 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         {
             struct Lifetime *thisLifetime = needStackSpace->data[j];
 
-            size_t thisSize = Scope_getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
-            size_t compSize = Scope_getSizeOfType(metadata->function->mainScope, &(((struct Lifetime *)needStackSpace->data[j + 1])->type));
+            size_t thisSize = getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+            size_t compSize = getSizeOfType(metadata->function->mainScope, &(((struct Lifetime *)needStackSpace->data[j + 1])->type));
 
             if (thisSize < compSize)
             {
@@ -246,13 +246,13 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         struct Lifetime *thisLifetime = needStackSpace->data[lifetimeIndex];
         if (thisLifetime->isArgument)
         {
-            struct VariableEntry *argumentEntry = Scope_lookupVarByString(metadata->function->mainScope, thisLifetime->name);
+            struct VariableEntry *argumentEntry = lookupVarByString(metadata->function->mainScope, thisLifetime->name);
             thisLifetime->stackLocation = argumentEntry->stackOffset;
         }
         else
         {
             metadata->localStackSize += Scope_ComputePaddingForAlignment(metadata->function->mainScope, &thisLifetime->type, metadata->localStackSize);
-            metadata->localStackSize += Scope_getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+            metadata->localStackSize += getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
             thisLifetime->stackLocation = -1 * metadata->localStackSize;
         }
     }
@@ -407,7 +407,7 @@ void allocateRegisters(struct CodegenMetadata *metadata)
                     printf("---------BASE POINTER POINTS HERE--------\n");
                     crossedZero = 1;
                 }
-                size_t size = Scope_getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+                size_t size = getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
                 if (thisLifetime->type.arraySize > 0)
                 {
                     size_t elementSize = size / thisLifetime->type.arraySize;
@@ -451,11 +451,11 @@ void allocateRegisters(struct CodegenMetadata *metadata)
             {
                 if (examined->stackLocation > 0)
                 {
-                    printf("%-20s: %%bp+%2zd - %%bp+%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + Scope_getSizeOfType(metadata->function->mainScope, &examined->type));
+                    printf("%-20s: %%bp+%2zd - %%bp+%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + getSizeOfType(metadata->function->mainScope, &examined->type));
                 }
                 else
                 {
-                    printf("%-20s: %%bp%2zd - %%bp%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + Scope_getSizeOfType(metadata->function->mainScope, &examined->type));
+                    printf("%-20s: %%bp%2zd - %%bp%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + getSizeOfType(metadata->function->mainScope, &examined->type));
                 }
             }
         }

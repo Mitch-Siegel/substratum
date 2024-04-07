@@ -3,7 +3,7 @@
 #include "util.h"
 #include "symtab_scope.h"
 
-struct ClassEntry *Scope_createClass(struct Scope *scope,
+struct ClassEntry *createClass(struct Scope *scope,
 									 char *name)
 {
 	struct ClassEntry *wipClass = malloc(sizeof(struct ClassEntry));
@@ -16,7 +16,7 @@ struct ClassEntry *Scope_createClass(struct Scope *scope,
 	return wipClass;
 }
 
-void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
+void assignOffsetToMemberVariable(struct ClassEntry *class,
 										struct VariableEntry *variable)
 {
 
@@ -30,12 +30,12 @@ void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
 	newMemberLocation->variable = variable;
 
 	// add the size of the member we just added to the total size of the class
-	class->totalSize += Scope_getSizeOfType(class->members, &variable->type);
+	class->totalSize += getSizeOfType(class->members, &variable->type);
 
 	Stack_Push(class->memberLocations, newMemberLocation);
 }
 
-struct ClassMemberOffset *Class_lookupMemberVariable(struct ClassEntry *class,
+struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
 													 struct AST *name)
 {
 	if (name->type != t_identifier)
@@ -59,7 +59,7 @@ struct ClassMemberOffset *Class_lookupMemberVariable(struct ClassEntry *class,
 	ErrorWithAST(ERROR_CODE, name, "Use of nonexistent member variable %s in class %s\n", name->value, class->name);
 }
 
-struct ClassEntry *Scope_lookupClass(struct Scope *scope,
+struct ClassEntry *lookupClass(struct Scope *scope,
 									 struct AST *name)
 {
 	struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
@@ -77,12 +77,12 @@ struct ClassEntry *Scope_lookupClass(struct Scope *scope,
 	}
 }
 
-struct ClassEntry *Scope_lookupClassByType(struct Scope *scope,
+struct ClassEntry *lookupClassByType(struct Scope *scope,
 										   struct Type *type)
 {
 	if (type->classType.name == NULL)
 	{
-		ErrorAndExit(ERROR_INTERNAL, "Type with null classType name passed to Scope_lookupClassByType!\n");
+		ErrorAndExit(ERROR_INTERNAL, "Type with null classType name passed to lookupClassByType!\n");
 	}
 
 	struct ScopeMember *lookedUp = Scope_lookup(scope, type->classType.name);
@@ -97,6 +97,6 @@ struct ClassEntry *Scope_lookupClassByType(struct Scope *scope,
 		return lookedUp->entry;
 
 	default:
-		ErrorAndExit(ERROR_INTERNAL, "Scope_lookupClassByType for %s lookup got a non-class ScopeMember!\n", type->classType.name);
+		ErrorAndExit(ERROR_INTERNAL, "lookupClassByType for %s lookup got a non-class ScopeMember!\n", type->classType.name);
 	}
 }
