@@ -2,6 +2,8 @@
 #include "linearizer_generic.h"
 #include "codegen_generic.h"
 
+#include "symtab.h"
+
 #include <ctype.h>
 
 /*

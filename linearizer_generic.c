@@ -1,5 +1,11 @@
 #include "linearizer_generic.h"
 
+#include <stdlib.h>
+#include "util.h"
+#include "type.h"
+#include "tac.h"
+#include "symtab_variable.h"
+
 enum basicTypes selectVariableTypeForNumber(size_t num)
 {
 	const size_t eightBitMax = 255;

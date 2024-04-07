@@ -1,8 +1,9 @@
 #include "codegen_generic.h"
 
 #include <stdarg.h>
-
-char printedLine[MAX_ASM_LINE_SIZE];
+#include "util.h"
+#include "tac.h"
+#include "symtab_scope.h"
 
 char *registerNames[MACHINE_REGISTER_COUNT] = {
 	"zero",

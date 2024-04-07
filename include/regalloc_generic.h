@@ -1,10 +1,16 @@
-#include <stdlib.h>
-#include "util.h"
-#include "symtab.h"
-#include "tac.h"
-
 #ifndef _REGALLOC_H_
 #define _REGALLOC_H_
+
+#include <stdlib.h>
+#include <stdio.h>
+
+#include "type.h"
+
+struct TACOperand;
+struct TACLine;
+struct LinkedList;
+struct Scope;
+
 // definitions for what we intend to use as scratch registers when applicable
 #define TEMP_0 5 // t0
 #define TEMP_1 6 // t1

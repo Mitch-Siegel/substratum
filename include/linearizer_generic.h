@@ -1,9 +1,13 @@
-#include "symtab.h"
-#include "tac.h"
+#ifndef LINEARIZER_GENERIC_H
+#define LINEARIZER_GENERIC_H
 
-#ifndef _LINEARIZER_H_
-#define _LINEARIZER_H_
-
+#include "substratum_defs.h"
+struct TACOperand;
+struct VariableEntry;
+struct Type;
+struct AST;
+struct Scope;
+struct TACLine;
 
 #define sprintedNumberLength 32
 

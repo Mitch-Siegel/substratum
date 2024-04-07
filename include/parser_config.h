@@ -1,7 +1,9 @@
-#include "util.h"
+#ifndef PARSER_BASE_H
+#define PARSER_BASE_H
 
-#ifndef _PARSER_BASE_H_
-#define _PARSER_BASE_H_
+#include "substratum_defs.h"
+struct LinkedList;
+struct ParseProgress;
 
 void trackCharacter(struct LinkedList *charsPerLine, int trackedCharacter);
 

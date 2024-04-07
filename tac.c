@@ -1,5 +1,8 @@
 #include "tac.h"
 
+#include <stdio.h>
+#include "util.h"
+
 struct Type *TACOperand_GetType(struct TACOperand *operand)
 {
 	if (operand->castAsType.basicType != vt_null)

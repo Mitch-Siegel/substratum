@@ -1,6 +1,11 @@
 #include "regalloc.h"
+
+#include <string.h>
+
 #include "regalloc_generic.h"
 #include "codegen_generic.h"
+#include "util.h"
+#include "symtab.h"
 
 // return the heuristic for how good a given lifetime is to spill - lower is better
 i32 lifetimeHeuristic(struct Lifetime *lifetime)

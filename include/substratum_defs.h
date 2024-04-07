@@ -12,4 +12,5 @@ typedef int16_t i16;
 typedef int8_t i8;
 
 #define MACHINE_REGISTER_SIZE_BYTES ((size_t) 8)
+#define MACHINE_REGISTER_COUNT 32
 

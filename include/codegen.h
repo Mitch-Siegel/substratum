@@ -1,9 +1,16 @@
-#include "codegen_generic.h"
-#include "symtab.h"
-#include "util.h"
+#ifndef CODEGEN_H
+#define CODEGEN_H
+#include <stdio.h>
 
-#ifndef _CODEGEN_OPT0_H_
-#define _CODEGEN_OPT0_H_
+#include "substratum_defs.h"
+
+struct SymbolTable;
+struct CodegenContext;
+struct CodegenMetadata;
+struct FunctionEntry;
+struct BasicBlock;
+struct Scope;
+struct LinkedList;
 
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile);
 

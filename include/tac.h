@@ -1,11 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
+#ifndef TAC_H
+#define TAC_H
 
-#include "ast.h"
-#include "util.h"
 #include "type.h"
+#include "ast.h"
 
-#pragma once
 
 enum variablePermutations
 {
@@ -108,3 +106,5 @@ struct LinearizationResult
 	struct BasicBlock *block;
 	int endingTACIndex;
 };
+
+#endif

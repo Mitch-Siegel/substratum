@@ -1,9 +1,15 @@
-#include "ast.h"
-#include "util.h"
-#include "tac.h"
-#include "symtab.h"
+#ifndef LINEARIZER_H
+#define LINEARIZER_H
 
-#pragma once
+#include "substratum_defs.h"
+
+struct AST;
+struct SymbolTable;
+struct Scope;
+struct Type;
+struct FunctionEntry;
+struct BasicBlock;
+struct TACOperand;
 
 struct SymbolTable *walkProgram(struct AST *program);
 
@@ -166,3 +172,5 @@ void walkSizeof(struct AST *tree,
 				struct BasicBlock *block,
 				struct Scope *scope,
 				struct TACOperand *destinationOperand);
+
+#endif

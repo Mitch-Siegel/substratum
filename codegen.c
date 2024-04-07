@@ -1,7 +1,8 @@
 #include "codegen.h"
-#include "codegen_generic.h"
 
+#include "codegen_generic.h"
 #include "symtab.h"
+#include "regalloc.h"
 
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 {

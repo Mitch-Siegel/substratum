@@ -1,13 +1,11 @@
-#include "regalloc.h"
-#include "symtab.h"
-
 #ifndef _CODEGEN_H_
 #define _CODEGEN_H_
+#include "substratum_defs.h"
+#include "regalloc_generic.h"
 
 #define STACK_ALIGN_BYTES ((size_t) 16)
 #define MAX_ASM_LINE_SIZE ((size_t) 256)
 
-extern char printedLine[MAX_ASM_LINE_SIZE];
 extern char *registerNames[MACHINE_REGISTER_COUNT];
 
 int ALIGNSIZE(unsigned int size);
