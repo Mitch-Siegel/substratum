@@ -59,20 +59,20 @@ enum WritebackLocation
 
 struct Lifetime
 {
-	int start, end, nwrites, nreads;
+	size_t start, end, nwrites, nreads;
 	char *name;
 	struct Type type;
 	enum WritebackLocation wbLocation;
-	int stackLocation;
+	ssize_t stackLocation;
 	unsigned char registerLocation;
-	char inRegister, onStack, isArgument;
+	u8 inRegister, onStack, isArgument;
 };
 
 struct Lifetime *newLifetime(char *name,
 							 struct Type *type,
-							 int start,
-							 char isGlobal,
-							 char mustSpill);
+							 size_t start,
+							 u8 isGlobal,
+							 u8 mustSpill);
 
 int compareLifetimes(struct Lifetime *compared, char *variable);
 
@@ -81,23 +81,23 @@ int compareLifetimes(struct Lifetime *compared, char *variable);
 struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
 										char *name,
 										struct Type *type,
-										int newEnd,
-										char isGlobal,
-										char mustSpill);
+										size_t newEnd,
+										u8 isGlobal,
+										u8 mustSpill);
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
 void recordVariableWrite(struct LinkedList *ltList,
 						 struct TACOperand *writtenOperand,
 						 struct Scope *scope,
-						 int newEnd);
+						 size_t newEnd);
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
 void recordVariableRead(struct LinkedList *ltList,
 						struct TACOperand *readOperand,
 						struct Scope *scope,
-						int newEnd);
+						size_t newEnd);
 
 struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList);
 
@@ -136,7 +136,7 @@ struct CodegenMetadata
 
 // populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i
 // then determine which variables should be spilled
-int generateLifetimeOverlaps(struct CodegenMetadata *metadata);
+size_t generateLifetimeOverlaps(struct CodegenMetadata *metadata);
 
 // assign registers to variables which have registers
 // assign spill addresses to variables which are spilled

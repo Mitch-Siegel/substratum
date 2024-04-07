@@ -14,24 +14,24 @@ void trackCharacter(struct LinkedList *charsPerLine, int trackedChar)
     {
         if (charsPerLine->size == 0)
         {
-            int *zeroCharLine = malloc(sizeof(int));
+            size_t *zeroCharLine = malloc(sizeof(size_t));
             *zeroCharLine = 0;
             LinkedList_Append(charsPerLine, zeroCharLine);
         }
 
-        (*(int *)charsPerLine->tail->data)++;
+        (*(size_t *)charsPerLine->tail->data)++;
     }
     else
     {
-        int *newLineChars = malloc(sizeof(int));
+        size_t *newLineChars = malloc(sizeof(size_t));
         *newLineChars = 0;
         LinkedList_Append(charsPerLine, newLineChars);
     };
 }
 
-void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, int charsConsumed, struct LinkedList *charsPerLine, unsigned int *curLineP, unsigned int *curColP)
+void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, size_t charsConsumed, struct LinkedList *charsPerLine, size_t *curLineP, size_t *curColP)
 {
-    int length = charsConsumed;
+    size_t length = charsConsumed;
     while (length > 0)
     {
         // if we read EOF and there are no more lines to track source location with, early return
@@ -40,15 +40,15 @@ void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, int 
             return;
         }
 
-        if ((*(int *)charsPerLine->head->data) >= length)
+        if ((*(size_t *)charsPerLine->head->data) >= length)
         {
-            (*(int *)charsPerLine->head->data) -= length;
+            (*(size_t *)charsPerLine->head->data) -= length;
             *curColP += length;
             length = 0;
         }
         else
         {
-            int *remaningCharsThisLine = LinkedList_PopFront(charsPerLine);
+            size_t *remaningCharsThisLine = LinkedList_PopFront(charsPerLine);
             length -= *remaningCharsThisLine;
             free(remaningCharsThisLine);
             *curColP = 1;
@@ -59,7 +59,7 @@ void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, int 
 
 void parserError(struct ParseProgress *auxil)
 {
-    ErrorAndExit(ERROR_INTERNAL, "Syntax Error between %s:%d:%d and %d\n", auxil->curFile, auxil->curLine, auxil->curCol, auxil->curLine + auxil->charsRemainingPerLine->size);
+    ErrorAndExit(ERROR_INTERNAL, "Syntax Error between %s:%zu:%zu and %zu\n", auxil->curFile, auxil->curLine, auxil->curCol, auxil->curLine + auxil->charsRemainingPerLine->size);
 }
 
 void setCurrentFile(char **curFileP, char *fileName)

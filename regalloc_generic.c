@@ -1,6 +1,6 @@
 #include "regalloc_generic.h"
 
-struct Lifetime *newLifetime(char *name, struct Type *type, int start, char isGlobal, char mustSpill)
+struct Lifetime *newLifetime(char *name, struct Type *type, size_t start, u8 isGlobal, u8 mustSpill)
 {
 	struct Lifetime *wip = malloc(sizeof(struct Lifetime));
 	wip->name = name;
@@ -43,9 +43,9 @@ int compareLifetimes(struct Lifetime *compared, char *variable)
 struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
 										char *name,
 										struct Type *type,
-										int newEnd,
-										char isGlobal,
-										char mustSpill)
+										size_t newEnd,
+										u8 isGlobal,
+										u8 mustSpill)
 {
 	struct Lifetime *thisLt = LinkedList_Find(ltList, &compareLifetimes, name);
 
@@ -78,7 +78,7 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
 void recordVariableWrite(struct LinkedList *ltList,
 						 struct TACOperand *writtenOperand,
 						 struct Scope *scope,
-						 int newEnd)
+						 size_t newEnd)
 {
 	char isGlobal = 0;
 	char mustSpill = 0;
@@ -99,7 +99,7 @@ void recordVariableWrite(struct LinkedList *ltList,
 void recordVariableRead(struct LinkedList *ltList,
 						struct TACOperand *readOperand,
 						struct Scope *scope,
-						int newEnd)
+						size_t newEnd)
 {
 	char isGlobal = 0;
 	char mustSpill = 0;
@@ -138,7 +138,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 		while (TACRunner != NULL)
 		{
 			struct TACLine *thisLine = TACRunner->data;
-			int TACIndex = thisLine->index;
+			size_t TACIndex = thisLine->index;
 
 			switch (thisLine->operation)
 			{
@@ -148,8 +148,8 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 
 			case tt_enddo:
 			{
-				int extendTo = thisLine->index;
-				int extendFrom = (int)(long int)Stack_Pop(doDepth);
+				size_t extendTo = thisLine->index;
+				size_t extendFrom = (size_t)Stack_Pop(doDepth);
 				for (struct LinkedListNode *lifetimeRunner = lifetimes->head; lifetimeRunner != NULL; lifetimeRunner = lifetimeRunner->next)
 				{
 					struct Lifetime *examinedLifetime = lifetimeRunner->data;
@@ -229,19 +229,19 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 					recordVariableWrite(lifetimes, &thisLine->operands[0], scope, TACIndex);
 				}
 
-				for (int i = 1; i < 4; i++)
+				for (u8 operandIndex = 1; operandIndex < 4; operandIndex++)
 				{
 					// lifetimes for every permutation except literal
-					if (thisLine->operands[i].permutation != vp_literal)
+					if (thisLine->operands[operandIndex].permutation != vp_literal)
 					{
 						// and any type except null
-						switch (TAC_GetTypeOfOperand(thisLine, i)->basicType)
+						switch (TAC_GetTypeOfOperand(thisLine, operandIndex)->basicType)
 						{
 						case vt_null:
 							break;
 
 						default:
-							recordVariableRead(lifetimes, &thisLine->operands[i], scope, TACIndex);
+							recordVariableRead(lifetimes, &thisLine->operands[operandIndex], scope, TACIndex);
 							break;
 						}
 					}
@@ -288,19 +288,19 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 			case tt_beqz:
 			case tt_bnez:
 			{
-				for (int i = 1; i < 3; i++)
+				for (u8 operandIndex = 1; operandIndex < 3; operandIndex++)
 				{
 					// lifetimes for every permutation except literal
-					if (thisLine->operands[i].permutation != vp_literal)
+					if (thisLine->operands[operandIndex].permutation != vp_literal)
 					{
 						// and any type except null
-						switch (TAC_GetTypeOfOperand(thisLine, i)->basicType)
+						switch (TAC_GetTypeOfOperand(thisLine, operandIndex)->basicType)
 						{
 						case vt_null:
 							break;
 
 						default:
-							recordVariableRead(lifetimes, &thisLine->operands[i], scope, TACIndex);
+							recordVariableRead(lifetimes, &thisLine->operands[operandIndex], scope, TACIndex);
 							break;
 						}
 					}
@@ -325,21 +325,21 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
 
 // populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i
 // then determine which variables should be spilled
-int generateLifetimeOverlaps(struct CodegenMetadata *metadata)
+size_t generateLifetimeOverlaps(struct CodegenMetadata *metadata)
 {
-	int mostConcurrentLifetimes = 0;
+	size_t mostConcurrentLifetimes = 0;
 
 	// populate the array of active lifetimes
 	for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
 	{
 		struct Lifetime *thisLifetime = runner->data;
 
-		for (int i = thisLifetime->start; i <= thisLifetime->end; i++)
+		for (size_t liveIndex = thisLifetime->start; liveIndex <= thisLifetime->end; liveIndex++)
 		{
-			LinkedList_Append(metadata->lifetimeOverlaps[i], thisLifetime);
-			if (metadata->lifetimeOverlaps[i]->size > mostConcurrentLifetimes)
+			LinkedList_Append(metadata->lifetimeOverlaps[liveIndex], thisLifetime);
+			if (metadata->lifetimeOverlaps[liveIndex]->size > mostConcurrentLifetimes)
 			{
-				mostConcurrentLifetimes = metadata->lifetimeOverlaps[i]->size;
+				mostConcurrentLifetimes = metadata->lifetimeOverlaps[liveIndex]->size;
 			}
 		}
 	}

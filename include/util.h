@@ -40,15 +40,15 @@ extern u8 currentVerbosity;
 
 struct ParseProgress
 {
-	unsigned int curLine;
-	unsigned int curCol;
+	size_t curLine;
+	size_t curCol;
 	char *curFile;
-	unsigned int curLineRaw;
-	unsigned int curColRaw;
+	size_t curLineRaw;
+	size_t curColRaw;
 	FILE *f;
 	struct Dictionary *dict;
 	struct LinkedList *charsRemainingPerLine;
-	int lastMatchLocation; // location of last parser match relative to pcc buffer
+	size_t lastMatchLocation; // location of last parser match relative to pcc buffer
 	char eofReceived;
 };
 

@@ -3,11 +3,11 @@
 #include "codegen_generic.h"
 
 // return the heuristic for how good a given lifetime is to spill - lower is better
-int lifetimeHeuristic(struct Lifetime *lifetime)
+i32 lifetimeHeuristic(struct Lifetime *lifetime)
 {
     const i32 argumentSpillHeuristicMultiplier = 10;
     // base heuristic is lifetime length
-    int heuristic = lifetime->end - lifetime->start;
+    i32 heuristic = lifetime->end - lifetime->start;
     // add the number of reads for this variable since they have some cost
     heuristic += lifetime->nreads;
     // multiply by number of writes for this variable since that is a high-cost operation
@@ -23,9 +23,9 @@ int lifetimeHeuristic(struct Lifetime *lifetime)
     return heuristic;
 }
 
-void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurrentLifetimes)
+void selectRegisterVariables(struct CodegenMetadata *metadata, size_t mostConcurrentLifetimes)
 {
-    int MAXREG = MACHINE_REGISTER_COUNT - 2;
+    u8 MAXREG = MACHINE_REGISTER_COUNT - 2;
     metadata->reservedRegisters[0] = TEMP_0;
     metadata->touchedRegisters[TEMP_0] = 1;
     metadata->reservedRegisters[1] = TEMP_1;
@@ -38,7 +38,7 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
     metadata->registerLifetimes = LinkedList_New();
 
     // iterate all TAC indices, remove variables we must spill from contention for a register
-    for (int tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
+    for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
     {
         struct LinkedList *activeLifetimesThisIndex = metadata->lifetimeOverlaps[tacIndex];
         struct LinkedListNode *runner = activeLifetimesThisIndex->head;
@@ -50,7 +50,7 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
             if (examinedLifetime->wbLocation != wb_unknown)
             {
                 // remove (from all indices) the lifetime we will no longer consider for a register
-                for (int removeTacIndex = 0; removeTacIndex <= metadata->largestTacIndex; removeTacIndex++)
+                for (size_t removeTacIndex = 0; removeTacIndex <= metadata->largestTacIndex; removeTacIndex++)
                 {
                     if (LinkedList_Find(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, examinedLifetime->name) != NULL)
                     {
@@ -62,7 +62,7 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
     }
 
     // iterate all TAC indices
-    for (int tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
+    for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
     {
         struct LinkedList *activeLifetimesThisIndex = metadata->lifetimeOverlaps[tacIndex];
         // while too many lifetimes are in contention for a register at this index
@@ -70,11 +70,11 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
         {
             // loop over all lifetimes, find the one with the best heuristic to spill
             struct Lifetime *bestToSpill = NULL;
-            int bestHeuristic = __INT_MAX__;
+            i32 bestHeuristic = INT32_MAX;
             for (struct LinkedListNode *runner = activeLifetimesThisIndex->head; runner != NULL; runner = runner->next)
             {
                 struct Lifetime *examinedLifetime = runner->data;
-                int thisHeuristic = lifetimeHeuristic(examinedLifetime);
+                i32 thisHeuristic = lifetimeHeuristic(examinedLifetime);
                 if (thisHeuristic < bestHeuristic)
                 {
                     bestToSpill = examinedLifetime;
@@ -89,7 +89,7 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
 
             bestToSpill->wbLocation = wb_stack;
             // remove (from all indices) the lifetime we will no longer consider for a register
-            for (int removeTacIndex = 0; removeTacIndex <= metadata->largestTacIndex; removeTacIndex++)
+            for (size_t removeTacIndex = 0; removeTacIndex <= metadata->largestTacIndex; removeTacIndex++)
             {
                 if (LinkedList_Find(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, bestToSpill->name) != NULL)
                 {
@@ -99,7 +99,7 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
         }
     }
 
-    for (int tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
+    for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
     {
         struct LinkedList *activeLifetimesThisIndex = metadata->lifetimeOverlaps[tacIndex];
         for (struct LinkedListNode *runner = activeLifetimesThisIndex->head; runner != NULL; runner = runner->next)
@@ -139,9 +139,9 @@ void assignRegisters(struct CodegenMetadata *metadata)
         occupiedBy[reg] = NULL;
     }
 
-    for (int tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
+    for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
     {
-        int scannedRegister = START_ALLOCATING_FROM;
+        u8 scannedRegister = START_ALLOCATING_FROM;
 
         // free any registers inhabited by expired lifetimes
         for (; scannedRegister < MACHINE_REGISTER_COUNT; scannedRegister++)
@@ -163,18 +163,18 @@ void assignRegisters(struct CodegenMetadata *metadata)
             {
                 char registerFound = 0;
                 // scan through all registers, looking for an unoccupied one
-                for (int k = START_ALLOCATING_FROM; k < MACHINE_REGISTER_COUNT; k++)
+                for (u8 reg = START_ALLOCATING_FROM; reg < MACHINE_REGISTER_COUNT; reg++)
                 {
-                    if (registers[k] == 0)
+                    if (registers[reg] == 0)
                     {
                         // printf("\tAssign register %d for variable %s\n", k, thisLifetime->name);
-                        thisLifetime->registerLocation = k;
+                        thisLifetime->registerLocation = reg;
                         thisLifetime->inRegister = 1;
                         thisLifetime->onStack = 0;
 
-                        registers[k] = 1;
-                        occupiedBy[k] = thisLifetime;
-                        metadata->touchedRegisters[k] = 1;
+                        registers[reg] = 1;
+                        occupiedBy[reg] = thisLifetime;
+                        metadata->touchedRegisters[reg] = 1;
                         registerFound = 1;
                         break;
                     }
@@ -224,8 +224,8 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         {
             struct Lifetime *thisLifetime = needStackSpace->data[j];
 
-            int thisSize = Scope_getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
-            int compSize = Scope_getSizeOfType(metadata->function->mainScope, &(((struct Lifetime *)needStackSpace->data[j + 1])->type));
+            size_t thisSize = Scope_getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+            size_t compSize = Scope_getSizeOfType(metadata->function->mainScope, &(((struct Lifetime *)needStackSpace->data[j + 1])->type));
 
             if (thisSize < compSize)
             {
@@ -298,7 +298,7 @@ void allocateRegisters(struct CodegenMetadata *metadata)
         metadata->lifetimeOverlaps[tacIndex] = LinkedList_New();
     }
 
-    int mostConcurrentLifetimes = generateLifetimeOverlaps(metadata);
+    size_t mostConcurrentLifetimes = generateLifetimeOverlaps(metadata);
 
     // printf("at most %d concurrent lifetimes\n", mostConcurrentLifetimes);
 
@@ -338,7 +338,7 @@ void allocateRegisters(struct CodegenMetadata *metadata)
                 break;
             }
             char *typeName = Type_GetName(&examinedLifetime->type);
-            printf("%40s (%10s)(wb:%c)(%2d-%2d): ", examinedLifetime->name, typeName, wbLocName,
+            printf("%40s (%10s)(wb:%c)(%2zu-%2zu): ", examinedLifetime->name, typeName, wbLocName,
                    examinedLifetime->start, examinedLifetime->end);
             free(typeName);
             for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
@@ -379,8 +379,8 @@ void allocateRegisters(struct CodegenMetadata *metadata)
                 {
                     struct Lifetime *thisLifetime = stackLayout->data[j];
 
-                    int thisAddr = thisLifetime->stackLocation;
-                    int compAddr = ((struct Lifetime *)stackLayout->data[j + 1])->stackLocation;
+                    ssize_t thisAddr = thisLifetime->stackLocation;
+                    ssize_t compAddr = ((struct Lifetime *)stackLayout->data[j + 1])->stackLocation;
 
                     if (thisAddr < compAddr)
                     {
@@ -402,7 +402,7 @@ void allocateRegisters(struct CodegenMetadata *metadata)
                     printf("---------BASE POINTER POINTS HERE--------\n");
                     crossedZero = 1;
                 }
-                int size = Scope_getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+                size_t size = Scope_getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
                 if (thisLifetime->type.arraySize > 0)
                 {
                     size_t elementSize = size / thisLifetime->type.arraySize;
@@ -413,7 +413,7 @@ void allocateRegisters(struct CodegenMetadata *metadata)
                 }
                 else
                 {
-                    for (int j = 0; j < size; j++)
+                    for (size_t j = 0; j < size; j++)
                     {
                         printf("%s\n", thisLifetime->name);
                     }
@@ -446,20 +446,20 @@ void allocateRegisters(struct CodegenMetadata *metadata)
             {
                 if (examined->stackLocation > 0)
                 {
-                    printf("%-20s: %%bp+%2d - %%bp+%2zu\n", examined->name, examined->stackLocation, examined->stackLocation + Scope_getSizeOfType(metadata->function->mainScope, &examined->type));
+                    printf("%-20s: %%bp+%2zd - %%bp+%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + Scope_getSizeOfType(metadata->function->mainScope, &examined->type));
                 }
                 else
                 {
-                    printf("%-20s: %%bp%2d - %%bp%2zu\n", examined->name, examined->stackLocation, examined->stackLocation + Scope_getSizeOfType(metadata->function->mainScope, &examined->type));
+                    printf("%-20s: %%bp%2zd - %%bp%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + Scope_getSizeOfType(metadata->function->mainScope, &examined->type));
                 }
             }
         }
     }
 
 
-    for (int i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
+    for (u8 reg = START_ALLOCATING_FROM; reg < MACHINE_REGISTER_COUNT; reg++)
     {
-        if (metadata->touchedRegisters[i])
+        if (metadata->touchedRegisters[reg])
         {
             metadata->calleeSaveStackSize += MACHINE_REGISTER_SIZE_BYTES;
             metadata->nRegistersCalleeSaved++;

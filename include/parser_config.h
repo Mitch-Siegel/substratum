@@ -5,14 +5,14 @@
 
 void trackCharacter(struct LinkedList *charsPerLine, int trackedCharacter);
 
-void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, int charsConsumed, struct LinkedList *charsPerLine, unsigned int *curLineP, unsigned int *curColP);
+void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, size_t charsConsumed, struct LinkedList *charsPerLine, size_t *curLineP, size_t *curColP);
 
 void parserError(struct ParseProgress *auxil);
 
 void setCurrentFile(char **curFileP, char *fileName);
 
-#define UPCOMING_CHARS_THIS_LINE(auxil) (*(int *)(auxil->charsRemainingPerLine->head->data))
-#define UPCOMING_CHARS_LAST_LINE(auxil) (*(int *)(auxil->charsRemainingPerLine->tail->data))
+#define UPCOMING_CHARS_THIS_LINE(auxil) (*(size_t *)(auxil->charsRemainingPerLine->head->data))
+#define UPCOMING_CHARS_LAST_LINE(auxil) (*(size_t *)(auxil->charsRemainingPerLine->tail->data))
 
 #define PCC_GETCHAR(auxil) ({                                 \
     int inChar = fgetc(auxil->f);                             \
