@@ -82,17 +82,17 @@ char *token_names[t_EOF + 1] = {
 	"t_EOF",
 };
 
-char *getTokenName(enum token t)
+char *getTokenName(enum token type)
 {
-	return token_names[t];
+	return token_names[type];
 }
 
-struct AST *AST_New(enum token t, char *value, char *curFile, int curLine, int curCol)
+struct AST *AST_New(enum token type, char *value, char *curFile, int curLine, int curCol)
 {
 	struct AST *wip = malloc(sizeof(struct AST));
 	wip->child = NULL;
 	wip->sibling = NULL;
-	wip->type = t;
+	wip->type = type;
 	wip->value = value;
 	wip->sourceLine = curLine;
 	wip->sourceCol = curCol;
@@ -100,56 +100,68 @@ struct AST *AST_New(enum token t, char *value, char *curFile, int curLine, int c
 	return wip;
 }
 
-void AST_InsertSibling(struct AST *it, struct AST *newSibling)
+void AST_InsertSibling(struct AST *tree, struct AST *newSibling)
 {
-	struct AST *runner = it;
+	struct AST *runner = tree;
 	while (runner->sibling != NULL)
+	{
 		runner = runner->sibling;
+	}
 
 	runner->sibling = newSibling;
 }
 
-void AST_InsertChild(struct AST *it, struct AST *newChild)
+void AST_InsertChild(struct AST *tree, struct AST *newChild)
 {
-	if (it->child == NULL)
-		it->child = newChild;
+	if (tree->child == NULL)
+	{
+		tree->child = newChild;
+	}
 	else
-		AST_InsertSibling(it->child, newChild);
+	{
+		AST_InsertSibling(tree->child, newChild);
+	}
 }
 
-struct AST *AST_ConstructAddSibling(struct AST *it, struct AST *newSibling)
+struct AST *AST_ConstructAddSibling(struct AST *tree, struct AST *newSibling)
 {
-	if(it == NULL)
+	if(tree == NULL)
 	{
 		return newSibling;
 	}
 	
-	AST_InsertSibling(it, newSibling);
-	return it;
+	AST_InsertSibling(tree, newSibling);
+	return tree;
 }
 
-struct AST *AST_ConstructAddChild(struct AST *it, struct AST *newChild)
+struct AST *AST_ConstructAddChild(struct AST *tree, struct AST *newChild)
 {
-	AST_InsertChild(it, newChild);
-	return it;
+	AST_InsertChild(tree, newChild);
+	return tree;
 }
 
-void AST_Print(struct AST *it, int depth)
+void AST_Print(struct AST *tree, int depth)
 {
-	if (it->sibling != NULL)
-		AST_Print(it->sibling, depth);
+	if (tree->sibling != NULL)
+	{
+		AST_Print(tree->sibling, depth);
+	}
 
 	for (int i = 0; i < depth; i++)
+	{
 		printf("\t");
+	}
 
-	printf("%d:%d - %s:%s\n", it->sourceLine, it->sourceCol, getTokenName(it->type), it->value);
-	if (it->child != NULL)
-		AST_Print(it->child, depth + 1);
+	printf("%d:%d - %s:%s\n", tree->sourceLine, tree->sourceCol, getTokenName(tree->type), tree->value);
+	if (tree->child != NULL)
+	{
+		AST_Print(tree->child, depth + 1);
+	}
 }
 
-void AST_Free(struct AST *it)
+void AST_Free(struct AST *tree)
 {
-	struct AST *runner = it;
+	struct AST *runner = tree;
 	while (runner != NULL)
 	{
 		if (runner->child != NULL)

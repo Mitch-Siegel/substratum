@@ -3,7 +3,7 @@
 #ifndef _PARSER_BASE_H_
 #define _PARSER_BASE_H_
 
-void trackCharacter(struct LinkedList *charsPerLine, int c);
+void trackCharacter(struct LinkedList *charsPerLine, int trackedCharacter);
 
 void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, int charsConsumed, struct LinkedList *charsPerLine, unsigned int *curLineP, unsigned int *curColP);
 

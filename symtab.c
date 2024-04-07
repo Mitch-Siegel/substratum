@@ -448,20 +448,20 @@ int Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedTy
 }
 
 void Class_assignOffsetToMemberVariable(struct ClassEntry *class,
-										struct VariableEntry *v)
+										struct VariableEntry *variable)
 {
 
 	struct ClassMemberOffset *newMemberLocation = malloc(sizeof(struct ClassMemberOffset));
 
 	// add the padding to the total size of the class
-	class->totalSize += Scope_ComputePaddingForAlignment(class->members, &v->type, class->totalSize);
+	class->totalSize += Scope_ComputePaddingForAlignment(class->members, &variable->type, class->totalSize);
 
 	// place the new member at the (now aligned) current max size of the class
 	newMemberLocation->offset = class->totalSize;
-	newMemberLocation->variable = v;
+	newMemberLocation->variable = variable;
 
 	// add the size of the member we just added to the total size of the class
-	class->totalSize += Scope_getSizeOfType(class->members, &v->type);
+	class->totalSize += Scope_getSizeOfType(class->members, &variable->type);
 
 	Stack_Push(class->memberLocations, newMemberLocation);
 }

@@ -97,7 +97,7 @@ enum token
 	t_EOF,
 };
 
-char *getTokenName(enum token t);
+char *getTokenName(enum token type);
 
 struct AST
 {
@@ -112,18 +112,18 @@ struct AST
 
 // instantiate a new AST with given type and value
 // the sourceLine and sourceCol fields will be automatically populated
-struct AST *AST_New(enum token t, char *value, char *curFile, int curLine, int curCol);
+struct AST *AST_New(enum token type, char *value, char *curFile, int curLine, int curCol);
 
-void AST_InsertSibling(struct AST *it, struct AST *newSibling);
+void AST_InsertSibling(struct AST *tree, struct AST *newSibling);
 
-void AST_InsertChild(struct AST *it, struct AST *newChild);
+void AST_InsertChild(struct AST *tree, struct AST *newChild);
 
-struct AST *AST_ConstructAddSibling(struct AST *it, struct AST *newSibling);
+struct AST *AST_ConstructAddSibling(struct AST *tree, struct AST *newSibling);
 
-struct AST *AST_ConstructAddChild(struct AST *it, struct AST *newChild);
+struct AST *AST_ConstructAddChild(struct AST *tree, struct AST *newChild);
 
-void AST_Print(struct AST *it, int depth);
+void AST_Print(struct AST *tree, int depth);
 
-void AST_PrintHorizontal(struct AST *it);
+void AST_PrintHorizontal(struct AST *tree);
 
-void AST_Free(struct AST *it);
+void AST_Free(struct AST *tree);

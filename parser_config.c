@@ -8,9 +8,9 @@ extern struct Dictionary *parseDict;
 extern struct Stack *parsedAsts;
 extern struct LinkedList *includePath;
 
-void trackCharacter(struct LinkedList *charsPerLine, int c)
+void trackCharacter(struct LinkedList *charsPerLine, int trackedChar)
 {
-    if (c != '\n')
+    if (trackedChar != '\n')
     {
         if (charsPerLine->size == 0)
         {
