@@ -20,19 +20,19 @@ struct CodegenContext
 };
 
 void emitInstruction(struct TACLine *correspondingTACLine,
-                     struct CodegenContext *c,
+                     struct CodegenContext *context,
                      const char *format, ...);
 
 // place a literal in the register specified by numerical index, return string of register's name for asm
 char *PlaceLiteralStringInRegister(struct TACLine *correspondingTACLine,
-                                   struct CodegenContext *c,
+                                   struct CodegenContext *context,
                                    char *literalStr,
                                    int destReg);
 
 void verifyCodegenPrimitive(struct TACOperand *operand);
 
 void WriteVariable(struct TACLine *correspondingTACLine,
-                   struct CodegenContext *c,
+                   struct CodegenContext *context,
                    struct Scope *scope,
                    struct LinkedList *lifetimes,
                    struct TACOperand *writtenTo,
@@ -40,7 +40,7 @@ void WriteVariable(struct TACLine *correspondingTACLine,
 
 // places a variable in a register, with no guarantee that it is modifiable, returning the string of the register's name for asm
 int placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
-                                 struct CodegenContext *c,
+                                 struct CodegenContext *context,
                                  struct Scope *scope,
                                  struct LinkedList *lifetimes,
                                  struct TACOperand *operand,
@@ -52,7 +52,7 @@ int pickWriteRegister(struct Scope *scope,
                       int registerIndex);
 
 int placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
-                             struct CodegenContext *c,
+                             struct CodegenContext *context,
                              struct Scope *scope,
                              struct LinkedList *lifetimes,
                              struct TACOperand *operand,
@@ -60,55 +60,55 @@ int placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
 
 const char *SelectSignForLoad(u8 loadSize, struct Type *loaded);
 
-u8 SelectWidth(struct Scope *scope, struct TACOperand *dataDest);
+char SelectWidthChar(struct Scope *scope, struct TACOperand *dataDest);
 
-u8 SelectWidthForDereference(struct Scope *scope, struct TACOperand *dataDestP);
+char SelectWidthCharForDereference(struct Scope *scope, struct TACOperand *dataDestP);
 
-u8 SelectWidthForLifetime(struct Scope *scope, struct Lifetime *lifetime);
+char SelectWidthCharForLifetime(struct Scope *scope, struct Lifetime *lifetime);
 
 void EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
-                           struct CodegenContext *c,
+                           struct CodegenContext *context,
                            enum riscvRegisters sourceReg,
                            int size,
                            int offset);
 
 void EmitFrameLoadForSize(struct TACLine *correspondingTACLine,
-                          struct CodegenContext *c,
+                          struct CodegenContext *context,
                           enum riscvRegisters destReg,
                           int size,
                           int offset);
 
 void EmitStackStoreForSize(struct TACLine *correspondingTACLine,
-                           struct CodegenContext *c,
+                           struct CodegenContext *context,
                            enum riscvRegisters sourceReg,
                            int size,
                            int offset);
 
 void EmitStackLoadForSize(struct TACLine *correspondingTACLine,
-                          struct CodegenContext *c,
+                          struct CodegenContext *context,
                           enum riscvRegisters sourceReg,
                           int size,
                           int offset);
 
 void EmitPushForOperand(struct TACLine *correspondingTACLine,
-                        struct CodegenContext *c,
+                        struct CodegenContext *context,
                         struct Scope *scope,
                         struct TACOperand *dataSource,
                         int srcRegister);
 
 void EmitPushForSize(struct TACLine *correspondingTACLine,
-                     struct CodegenContext *c,
+                     struct CodegenContext *context,
                      int size,
                      int srcRegister);
 
 void EmitPopForOperand(struct TACLine *correspondingTACLine,
-                       struct CodegenContext *c,
+                       struct CodegenContext *context,
                        struct Scope *scope,
                        struct TACOperand *dataDest,
                        int destRegister);
 
 void EmitPopForSize(struct TACLine *correspondingTACLine,
-                    struct CodegenContext *c,
+                    struct CodegenContext *context,
                     int size,
                     int destRegister);
 

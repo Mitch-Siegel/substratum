@@ -82,20 +82,20 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 
 		case e_variable:
 		{
-			struct VariableEntry *v = thisMember->entry;
+			struct VariableEntry *variable = thisMember->entry;
 
 			// early break if the variable is declared as extern, don't emit any code for it
-			if (v->isExtern)
+			if (variable->isExtern)
 			{
 				break;
 			}
 
 			char *varName = thisMember->name;
-			int varSize = Scope_getSizeOfType(table->globalScope, &v->type);
+			int varSize = Scope_getSizeOfType(table->globalScope, &variable->type);
 
-			if (v->type.initializeTo != NULL)
+			if (variable->type.initializeTo != NULL)
 			{
-				if (v->isStringLiteral) // put string literals in rodata
+				if (variable->isStringLiteral) // put string literals in rodata
 				{
 					fprintf(outFile, ".section\t.rodata\n");
 				}
@@ -113,9 +113,9 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 
 			int alignBits = -1;
 
-			if (v->type.arraySize > 0)
+			if (variable->type.arraySize > 0)
 			{
-				alignBits = alignSize(Scope_getSizeOfArrayElement(table->globalScope, v));
+				alignBits = alignSize(Scope_getSizeOfArrayElement(table->globalScope, variable));
 			}
 			else
 			{
@@ -130,11 +130,11 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 			fprintf(outFile, "\t.type\t%s, @object\n", varName);
 			fprintf(outFile, "\t.size \t%s, %d\n", varName, varSize);
 			fprintf(outFile, "%s:\n", varName);
-			if (v->type.initializeTo != NULL)
+			if (variable->type.initializeTo != NULL)
 			{
-				if (v->isStringLiteral)
+				if (variable->isStringLiteral)
 				{
-					int arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, v);
+					int arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, variable);
 					if (arrayElementSize != 1)
 					{
 						ErrorAndExit(ERROR_INTERNAL, "Saw array element size of %d for string literal (expected 1)!\n", arrayElementSize);
@@ -145,19 +145,19 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 					{
 						for (int j = 0; j < arrayElementSize; j++)
 						{
-							fprintf(outFile, "%c", v->type.initializeArrayTo[i][j]);
+							fprintf(outFile, "%c", variable->type.initializeArrayTo[i][j]);
 						}
 					}
 					fprintf(outFile, "\"\n");
 				}
-				else if (v->type.arraySize > 0)
+				else if (variable->type.arraySize > 0)
 				{
-					int arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, v);
+					int arrayElementSize = Scope_getSizeOfArrayElement(table->globalScope, variable);
 					for (int i = 0; i < varSize / arrayElementSize; i++)
 					{
 						for (int j = 0; j < arrayElementSize; j++)
 						{
-							fprintf(outFile, "\t.byte %d\n", v->type.initializeArrayTo[i][j]);
+							fprintf(outFile, "\t.byte %d\n", variable->type.initializeArrayTo[i][j]);
 						}
 					}
 				}
@@ -165,8 +165,8 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 				{
 					for (int i = 0; i < varSize; i++)
 					{
-						printf("%c\n", v->type.initializeTo[i]);
-						fprintf(outFile, "\t.byte %d\n", v->type.initializeTo[i]);
+						printf("%c\n", variable->type.initializeTo[i]);
+						fprintf(outFile, "\t.byte %d\n", variable->type.initializeTo[i]);
 					}
 				}
 			}
@@ -289,7 +289,7 @@ void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metada
 			{
 				struct VariableEntry *theArgument = thisEntry->entry;
 
-				char loadWidth = SelectWidthForLifetime(metadata->function->mainScope, thisLifetime);
+				char loadWidth = SelectWidthCharForLifetime(metadata->function->mainScope, thisLifetime);
 				emitInstruction(NULL, context, "\tl%c%s %s, %d(fp) # place %s\n",
 								loadWidth,
 								SelectSignForLoad(loadWidth, &thisLifetime->type),
@@ -332,7 +332,7 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
 	}
 	// FIXME: cfa offset if no local stack?
 
-	fprintf(context->outFile, "\t.cfi_def_cfa_offset %d\n", metadata->totalStackSize + 16);
+	fprintf(context->outFile, "\t.cfi_def_cfa_offset %d\n", metadata->totalStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES));
 
 	fprintf(context->outFile, "\t.cfi_def_cfa_offset 0\n");
 	emitInstruction(NULL, context, "\tjalr zero, 0(%s)\n", registerNames[ra]);
@@ -504,7 +504,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
 			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[1]);
 
-			char loadWidth = SelectWidth(scope, &thisTAC->operands[0]);
+			char loadWidth = SelectWidthChar(scope, &thisTAC->operands[0]);
 			emitInstruction(thisTAC, context, "\tl%c%s %s, 0(%s)\n",
 							loadWidth,
 							SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 0)),
@@ -521,7 +521,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 			int destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
 
-			char loadWidth = SelectWidth(scope, &thisTAC->operands[0]);
+			char loadWidth = SelectWidthChar(scope, &thisTAC->operands[0]);
 			emitInstruction(thisTAC, context, "\tl%c%s %s, %d(%s)\n",
 							loadWidth,
 							SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 0)),
@@ -552,7 +552,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 							registerNames[baseReg],
 							registerNames[reservedRegisters[2]]);
 
-			char loadWidth = SelectWidthForDereference(scope, &thisTAC->operands[1]);
+			char loadWidth = SelectWidthCharForDereference(scope, &thisTAC->operands[1]);
 			emitInstruction(thisTAC, context, "\tl%c%s %s, 0(%s)\n",
 							loadWidth,
 							SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 1)),
@@ -567,7 +567,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 		{
 			int destAddrReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[1]);
-			char storeWidth = SelectWidthForDereference(scope, &thisTAC->operands[0]);
+			char storeWidth = SelectWidthCharForDereference(scope, &thisTAC->operands[0]);
 
 			emitInstruction(thisTAC, context, "\ts%c %s, 0(%s)\n",
 							storeWidth,
@@ -582,7 +582,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 			int baseReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 			int sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
 			emitInstruction(thisTAC, context, "\ts%c %s, %d(%s)\n",
-							SelectWidth(scope, &thisTAC->operands[0]),
+							SelectWidthChar(scope, &thisTAC->operands[0]),
 							registerNames[sourceReg],
 							thisTAC->operands[1].name.val,
 							registerNames[baseReg]);
@@ -609,7 +609,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 							registerNames[reservedRegisters[1]]);
 
 			emitInstruction(thisTAC, context, "\ts%c %s, 0(%s)\n",
-							SelectWidthForDereference(scope, &thisTAC->operands[0]),
+							SelectWidthCharForDereference(scope, &thisTAC->operands[0]),
 							registerNames[sourceReg],
 							registerNames[reservedRegisters[0]]);
 		}
