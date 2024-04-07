@@ -227,9 +227,6 @@ void walkArgumentDeclaration(struct AST *tree,
 
 	struct VariableEntry *declaredArgument = walkVariableDeclaration(tree, block, fun->mainScope, TACIndex, tempNum, 1);
 
-	declaredArgument->assignedAt = 0;
-	declaredArgument->isAssigned = 1;
-
 	Stack_Push(fun->arguments, declaredArgument);
 }
 

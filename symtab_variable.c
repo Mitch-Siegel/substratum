@@ -14,10 +14,7 @@ struct VariableEntry *createVariable(struct Scope *scope,
     struct VariableEntry *newVariable = malloc(sizeof(struct VariableEntry));
     newVariable->type = *type;
     newVariable->stackOffset = 0;
-    newVariable->assignedAt = -1;
     newVariable->mustSpill = 0;
-    newVariable->declaredAt = declaredAt;
-    newVariable->isAssigned = 0;
     newVariable->name = name->value;
 
     newVariable->type.initializeTo = NULL;

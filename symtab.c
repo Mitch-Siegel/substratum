@@ -239,7 +239,7 @@ void Scope_print(struct Scope *scope, size_t depth, char printTAC)
 			{
 				printf("\t");
 			}
-			printf("  - Stack offset: %d\n", theArgument->stackOffset);
+			printf("  - Stack offset: %zd\n", theArgument->stackOffset);
 		}
 		break;
 
