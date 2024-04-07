@@ -3,23 +3,24 @@
 #include "codegen_generic.h"
 
 // return the heuristic for how good a given lifetime is to spill - lower is better
-int lifetimeHeuristic(struct Lifetime *lt)
+int lifetimeHeuristic(struct Lifetime *lifetime)
 {
+    const i32 argumentSpillHeuristicMultiplier = 10;
     // base heuristic is lifetime length
-    int h = lt->end - lt->start;
+    int heuristic = lifetime->end - lifetime->start;
     // add the number of reads for this variable since they have some cost
-    h += lt->nreads;
+    heuristic += lifetime->nreads;
     // multiply by number of writes for this variable since that is a high-cost operation
-    h *= lt->nwrites;
+    heuristic *= lifetime->nwrites;
 
     // inflate heuristics for cases which have no actual stack space cost to spill:
     // super-prefer to "spill" arguments as they already have a stack address
-    if (!lt->isArgument)
+    if (!lifetime->isArgument)
     {
-        h *= 10;
+        heuristic *= argumentSpillHeuristicMultiplier;
     }
 
-    return h;
+    return heuristic;
 }
 
 void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurrentLifetimes)
@@ -138,18 +139,18 @@ void assignRegisters(struct CodegenMetadata *metadata)
         occupiedBy[i] = NULL;
     }
 
-    for (int i = 0; i <= metadata->largestTacIndex; i++)
+    for (int tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
     {
-        int j = START_ALLOCATING_FROM;
+        int scannedRegister = START_ALLOCATING_FROM;
 
         // free any registers inhabited by expired lifetimes
-        for (; j < MACHINE_REGISTER_COUNT; j++)
+        for (; scannedRegister < MACHINE_REGISTER_COUNT; scannedRegister++)
         {
-            if (occupiedBy[j] != NULL && occupiedBy[j]->end <= i)
+            if (occupiedBy[scannedRegister] != NULL && occupiedBy[scannedRegister]->end <= tacIndex)
             {
                 // printf("%s expires at %d\n", occupiedBy[j]->name, i);
-                registers[j] = 0;
-                occupiedBy[j] = NULL;
+                registers[scannedRegister] = 0;
+                occupiedBy[scannedRegister] = NULL;
             }
         }
 
@@ -157,7 +158,7 @@ void assignRegisters(struct CodegenMetadata *metadata)
         for (struct LinkedListNode *ltRunner = metadata->registerLifetimes->head; ltRunner != NULL; ltRunner = ltRunner->next)
         {
             struct Lifetime *thisLifetime = ltRunner->data;
-            if ((thisLifetime->start == i) && // if the lifetime starts at this step
+            if ((thisLifetime->start == tacIndex) && // if the lifetime starts at this step
                 (!thisLifetime->inRegister))  // lifetime doesn't yet have a register
             {
                 char registerFound = 0;
@@ -197,10 +198,10 @@ void assignRegisters(struct CodegenMetadata *metadata)
     metadata->registerLifetimes = NULL;
 }
 
-void assignStackSpace(struct CodegenMetadata *m)
+void assignStackSpace(struct CodegenMetadata *metadata)
 {
     struct Stack *needStackSpace = Stack_New();
-    for (struct LinkedListNode *runner = m->allLifetimes->head; runner != NULL; runner = runner->next)
+    for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
     {
         struct Lifetime *examined = runner->data;
         // we assign stack space after allocating registers for local variables
@@ -223,8 +224,8 @@ void assignStackSpace(struct CodegenMetadata *m)
         {
             struct Lifetime *thisLifetime = needStackSpace->data[j];
 
-            int thisSize = Scope_getSizeOfType(m->function->mainScope, &thisLifetime->type);
-            int compSize = Scope_getSizeOfType(m->function->mainScope, &(((struct Lifetime *)needStackSpace->data[j + 1])->type));
+            int thisSize = Scope_getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+            int compSize = Scope_getSizeOfType(metadata->function->mainScope, &(((struct Lifetime *)needStackSpace->data[j + 1])->type));
 
             if (thisSize < compSize)
             {
@@ -240,20 +241,20 @@ void assignStackSpace(struct CodegenMetadata *m)
         struct Lifetime *thisLifetime = needStackSpace->data[i];
         if (thisLifetime->isArgument)
         {
-            struct VariableEntry *argumentEntry = Scope_lookupVarByString(m->function->mainScope, thisLifetime->name);
+            struct VariableEntry *argumentEntry = Scope_lookupVarByString(metadata->function->mainScope, thisLifetime->name);
             thisLifetime->stackLocation = argumentEntry->stackOffset;
         }
         else
         {
-            m->localStackSize += Scope_ComputePaddingForAlignment(m->function->mainScope, &thisLifetime->type, m->localStackSize);
-            m->localStackSize += Scope_getSizeOfType(m->function->mainScope, &thisLifetime->type);
-            thisLifetime->stackLocation = -1 * m->localStackSize;
+            metadata->localStackSize += Scope_ComputePaddingForAlignment(metadata->function->mainScope, &thisLifetime->type, metadata->localStackSize);
+            metadata->localStackSize += Scope_getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+            thisLifetime->stackLocation = -1 * metadata->localStackSize;
         }
     }
 
-    while (m->localStackSize % MACHINE_REGISTER_SIZE_BYTES)
+    while (metadata->localStackSize % MACHINE_REGISTER_SIZE_BYTES)
     {
-        m->localStackSize++;
+        metadata->localStackSize++;
     }
 
     if (currentVerbosity > VERBOSITY_SILENT)
@@ -404,10 +405,10 @@ void allocateRegisters(struct CodegenMetadata *metadata)
                 int size = Scope_getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
                 if (thisLifetime->type.arraySize > 0)
                 {
-                    int elementSize = size / thisLifetime->type.arraySize;
-                    for (int j = 0; j < size; j++)
+                    size_t elementSize = size / thisLifetime->type.arraySize;
+                    for (size_t j = 0; j < size; j++)
                     {
-                        printf("%s[%d]\n", thisLifetime->name, j / elementSize);
+                        printf("%s[%lu]\n", thisLifetime->name, j / elementSize);
                     }
                 }
                 else

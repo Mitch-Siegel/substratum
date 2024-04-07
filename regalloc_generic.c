@@ -32,9 +32,9 @@ struct Lifetime *newLifetime(char *name, struct Type *type, int start, char isGl
 	return wip;
 }
 
-int compareLifetimes(struct Lifetime *a, char *variable)
+int compareLifetimes(struct Lifetime *compared, char *variable)
 {
-	return strcmp(a->name, variable);
+	return strcmp(compared->name, variable);
 }
 
 // search through the list of existing lifetimes
@@ -60,7 +60,9 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
 			ErrorAndExit(ERROR_INTERNAL, "Error - type mismatch between identically named variables [%s] expected %s, saw %s!\n", name, expectedTypeName, typeName);
 		}
 		if (newEnd > thisLt->end)
+		{
 			thisLt->end = newEnd;
+		}
 	}
 	else
 	{
