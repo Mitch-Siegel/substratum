@@ -259,7 +259,7 @@ void Scope_print(struct Scope *scope, size_t depth, char printTAC)
             {
                 printf("\t");
             }
-            printf("  - Size: %d bytes\n", theClass->totalSize);
+            printf("  - Size: %zu bytes\n", theClass->totalSize);
             Scope_print(theClass->members, depth + 1, 0);
         }
         break;

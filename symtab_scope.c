@@ -115,7 +115,7 @@ struct FunctionEntry *createFunction(struct Scope *parentScope, struct AST *name
 // create and return a child scope of the scope provided as an argument
 struct Scope *Scope_createSubScope(struct Scope *parentScope)
 {
-    if (parentScope->subScopeCount == 0xff)
+    if (parentScope->subScopeCount == U8_MAX)
     {
         ErrorAndExit(ERROR_INTERNAL, "Too many subscopes of scope %s\n", parentScope->name);
     }

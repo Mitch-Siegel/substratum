@@ -7,7 +7,7 @@
 struct ClassMemberOffset
 {
     struct VariableEntry *variable;
-    int offset;
+    ssize_t offset;
 };
 
 struct ClassEntry
@@ -15,7 +15,7 @@ struct ClassEntry
     char *name;
     struct Scope *members;
     struct Stack *memberLocations;
-    int totalSize;
+    size_t totalSize;
 };
 
 // this represents the definition of a class itself, instantiation falls under variableEntry

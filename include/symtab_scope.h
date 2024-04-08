@@ -31,7 +31,7 @@ struct Scope
     struct Scope *parentScope;
     struct FunctionEntry *parentFunction;
     struct Stack *entries;
-    unsigned char subScopeCount;
+    u8 subScopeCount;
     char *name; // duplicate pointer from ScopeMember for ease of use
 };
 
