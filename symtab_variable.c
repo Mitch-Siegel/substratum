@@ -5,11 +5,11 @@
 
 // create a variable within the given scope
 struct VariableEntry *createVariable(struct Scope *scope,
-                                           struct AST *name,
-                                           struct Type *type,
-                                           u8 isGlobal,
-                                           size_t declaredAt,
-                                           u8 isArgument)
+                                     struct AST *name,
+                                     struct Type *type,
+                                     u8 isGlobal,
+                                     size_t declaredAt,
+                                     u8 isArgument)
 {
     struct VariableEntry *newVariable = malloc(sizeof(struct VariableEntry));
     newVariable->type = *type;

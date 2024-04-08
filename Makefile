@@ -34,6 +34,12 @@ lint:
 		clang-tidy-17 $$SOURCE_FILE.c -- -I $(INCLUDE_DIR); \
 	done
 
+format:
+	$(info "SOURCES: $(SBCC_SRCS)")
+	for SOURCE_FILE in $(SBCC_SRCS); do \
+		clang-format-17 -i $$SOURCE_FILE.c; \
+	done
+
 clean:
 	rm -f $(OBJDIR)/*
 	rm -f ./sbcc

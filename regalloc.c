@@ -2,10 +2,10 @@
 
 #include <string.h>
 
-#include "regalloc_generic.h"
 #include "codegen_generic.h"
-#include "util.h"
+#include "regalloc_generic.h"
 #include "symtab.h"
+#include "util.h"
 
 // return the heuristic for how good a given lifetime is to spill - lower is better
 i32 lifetimeHeuristic(struct Lifetime *lifetime)
@@ -164,7 +164,7 @@ void assignRegisters(struct CodegenMetadata *metadata)
         {
             struct Lifetime *thisLifetime = ltRunner->data;
             if ((thisLifetime->start == tacIndex) && // if the lifetime starts at this step
-                (!thisLifetime->inRegister))  // lifetime doesn't yet have a register
+                (!thisLifetime->inRegister))         // lifetime doesn't yet have a register
             {
                 char registerFound = 0;
                 // scan through all registers, looking for an unoccupied one
@@ -460,7 +460,6 @@ void allocateRegisters(struct CodegenMetadata *metadata)
             }
         }
     }
-
 
     for (u8 reg = START_ALLOCATING_FROM; reg < MACHINE_REGISTER_COUNT; reg++)
     {

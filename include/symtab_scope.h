@@ -55,7 +55,7 @@ struct Scope *Scope_createSubScope(struct Scope *scope);
 
 // given a scope, a type, and a current integer byte offset
 /// compute and return how many bytes of padding is necessary to create the first offset at which the type would be aligned if stored
-int Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, int currentOffset);
+size_t Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, size_t currentOffset);
 
 // scope lookup functions
 char Scope_contains(struct Scope *scope,

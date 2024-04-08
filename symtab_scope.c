@@ -1,10 +1,10 @@
 #include "symtab_scope.h"
 
-#include "util.h"
 #include "symtab_basicblock.h"
+#include "symtab_class.h"
 #include "symtab_function.h"
 #include "symtab_variable.h"
-#include "symtab_class.h"
+#include "util.h"
 
 extern struct Dictionary *parseDict;
 /*
@@ -104,7 +104,6 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
     Stack_Push(scope->entries, wip);
 }
 
-
 // create a new function accessible within the given scope
 struct FunctionEntry *createFunction(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType)
 {
@@ -133,14 +132,14 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
     return newScope;
 }
 
-int Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, int currentOffset)
+size_t Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, size_t currentOffset)
 {
     // calculate the number of bytes to which this member needs to be aligned
-    int alignBytesForType = unalignSize(getAlignmentOfType(scope, alignedType));
+    size_t alignBytesForType = unalignSize(getAlignmentOfType(scope, alignedType));
 
     // compute how many bytes of padding we will need before this member to align it correctly
-    int paddingRequired = 0;
-    int bytesAfterAlignBoundary = currentOffset % alignBytesForType;
+    size_t paddingRequired = 0;
+    size_t bytesAfterAlignBoundary = currentOffset % alignBytesForType;
     if (bytesAfterAlignBoundary)
     {
         paddingRequired = alignBytesForType - bytesAfterAlignBoundary;
