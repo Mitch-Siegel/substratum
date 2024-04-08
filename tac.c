@@ -178,7 +178,6 @@ char *sPrintTACOperands(struct TACLine *line)
             case vp_literal:
                 width += sprintf(operandString + width, "L");
                 break;
-
             }
 
             char *typeName = Type_GetName(&line->operands[operandIndex].type);
@@ -363,7 +362,6 @@ char *sPrintTACLine(struct TACLine *line)
         {
             width += sprintf(tacString + width, "%s = call %s", line->operands[0].name.str, line->operands[1].name.str);
         }
-
         break;
 
     case tt_label:
@@ -390,12 +388,11 @@ char *sPrintTACLine(struct TACLine *line)
     }
 
     char *operandString = sPrintTACOperands(line);
-    if(width + strlen(operandString) + 1 > sprintTacLineLength)
+    if (width + strlen(operandString) + 1 > sprintTacLineLength)
     {
         ErrorAndExit(ERROR_INTERNAL, "sPrintTacLine length limit exceeded!\n");
     }
     width += sprintf(tacString + width, "\t%s", operandString);
-    
 
     char *trimmedString = malloc(width + 1);
     sprintf(trimmedString, "%s", tacString);

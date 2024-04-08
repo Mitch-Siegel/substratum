@@ -31,7 +31,7 @@ void assignOffsetToMemberVariable(struct ClassEntry *class,
         // TODO: implementation dependent size of size_t
         ErrorAndExit(ERROR_INTERNAL, "Class %s has size too large (%zd bytes)!\n", class->name, class->totalSize);
     }
-    newMemberLocation->offset = (ssize_t)class->totalSize;
+    newMemberLocation->offset = (ssize_t) class->totalSize;
     newMemberLocation->variable = variable;
 
     // add the size of the member we just added to the total size of the class

@@ -15,7 +15,7 @@ struct LinkedList;
 
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile);
 
-void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct Scope* globalScope, struct VariableEntry *variable);
+void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct Scope *globalScope, struct VariableEntry *variable);
 
 void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock);
 
