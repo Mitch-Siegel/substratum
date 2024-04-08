@@ -74,7 +74,7 @@ struct BasicBlock *walkConditionCheck(struct AST *tree,
                                       size_t *tacIndex,
                                       size_t *tempNum,
                                       ssize_t *labelNum,
-                                      size_t falseJumpLabelNum);
+                                      ssize_t falseJumpLabelNum);
 
 void walkWhileLoop(struct AST *tree,
                    struct BasicBlock *block,

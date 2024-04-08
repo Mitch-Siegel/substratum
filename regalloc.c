@@ -219,7 +219,7 @@ void assignStackSpace(struct CodegenMetadata *metadata)
 
     if (currentVerbosity > VERBOSITY_SILENT)
     {
-        printf("%d variables need stack space\n", needStackSpace->size);
+        printf("%zu variables need stack space\n", needStackSpace->size);
     }
 
     // simple bubble sort the things that need stack space by their size

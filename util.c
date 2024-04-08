@@ -40,13 +40,13 @@ unsigned int hash(char *str)
     return hash;
 }
 
-struct Dictionary *Dictionary_New(int nBuckets)
+struct Dictionary *Dictionary_New(size_t nBuckets)
 {
     struct Dictionary *wip = malloc(sizeof(struct Dictionary));
     wip->nBuckets = nBuckets;
     wip->buckets = malloc(nBuckets * sizeof(struct LinkedList *));
 
-    for (int bucketIndex = 0; bucketIndex < nBuckets; bucketIndex++)
+    for (size_t bucketIndex = 0; bucketIndex < nBuckets; bucketIndex++)
     {
         wip->buckets[bucketIndex] = LinkedList_New();
     }
@@ -137,11 +137,11 @@ void Stack_Push(struct Stack *stack, void *data)
 {
     if (stack->size >= stack->allocated)
     {
-        void **newData = malloc((int)(stack->allocated * STACK_SCALE_FACTOR) * sizeof(void *));
+        void **newData = malloc((stack->allocated * STACK_SCALE_FACTOR) * sizeof(void *));
         memcpy(newData, stack->data, stack->allocated * sizeof(void *));
         free(stack->data);
         stack->data = newData;
-        stack->allocated = (int)(stack->allocated * STACK_SCALE_FACTOR);
+        stack->allocated = (stack->allocated * STACK_SCALE_FACTOR);
     }
 
     stack->data[stack->size++] = data;
@@ -372,15 +372,15 @@ void *LinkedList_PopBack(struct LinkedList *list)
  */
 
 const unsigned int tempListSprintfLength = 6;
-char *TempList_Get(struct TempList *tempList, int tempNum)
+char *TempList_Get(struct TempList *tempList, size_t tempNum)
 {
-    int sizeDiff = tempNum - tempList->temps->size;
-    while (sizeDiff-- >= 0)
+    while (tempNum >= tempList->temps->size)
     {
         char *thisTemp = malloc(tempListSprintfLength * sizeof(char));
-        sprintf(thisTemp, ".t%d", tempList->temps->size);
+        sprintf(thisTemp, ".t%zu", tempList->temps->size);
         Stack_Push(tempList->temps, thisTemp);
     }
+
     return tempList->temps->data[tempNum];
 }
 

@@ -422,25 +422,30 @@ void walkFunctionDeclaration(struct AST *tree,
         for (struct LinkedListNode *runner = walkedFunction->BasicBlockList->head; runner != NULL; runner = runner->next)
         {
             struct BasicBlock *checkedBlock = runner->data;
-            i64 prevTacIndex = -1;
+            u8 firstCheck = 1;
+            size_t prevTacIndex = 0;
             // iterate TAC lines backwards, because the last line with a duplicate number is actually the problem
             // (because we should post-increment the index to number recursive linearzations correctly)
             for (struct LinkedListNode *TACRunner = checkedBlock->TACList->tail; TACRunner != NULL; TACRunner = TACRunner->prev)
             {
                 struct TACLine *checkedTAC = TACRunner->data;
-                if (prevTacIndex != -1)
+                if (!firstCheck)
                 {
                     if ((checkedTAC->index + 1) != prevTacIndex)
                     {
                         printBasicBlock(checkedBlock, 0);
                         char *printedTACLine = sPrintTACLine(checkedTAC);
-                        ErrorAndExit(ERROR_INTERNAL, "TAC line allocated at %s:%d doesn't obey ordering - numbering goes from 0x%x to 0x%lx:\n\t%s\n",
+                        ErrorAndExit(ERROR_INTERNAL, "TAC line allocated at %s:%d doesn't obey ordering - numbering goes from 0x%lx to 0x%lx:\n\t%s\n",
                                      checkedTAC->allocFile,
                                      checkedTAC->allocLine,
                                      checkedTAC->index,
                                      prevTacIndex,
                                      printedTACLine);
                     }
+                }
+                else
+                {
+                    firstCheck = 0;
                 }
                 prevTacIndex = checkedTAC->index;
             }
@@ -1776,7 +1781,7 @@ void walkFunctionCall(struct AST *tree,
     if (argumentTrees->size != calledFunction->arguments->size)
     {
         ErrorWithAST(ERROR_CODE, tree,
-                     "Error in call to function %s - expected %d arguments, saw %d!\n",
+                     "Error in call to function %s - expected %zu arguments, saw %zu!\n",
                      calledFunction->name,
                      calledFunction->arguments->size,
                      argumentTrees->size);

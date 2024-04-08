@@ -159,7 +159,7 @@ char *sPrintTACLine(struct TACLine *line)
     char *operationStr;
     char *tacString = malloc(sprintTacLineLength * sizeof(char));
     char fallingThrough = 0;
-    int width = sprintf(tacString, "%2x:", line->index);
+    int width = sprintf(tacString, "%2lx:", line->index);
     switch (line->operation)
     {
     case tt_asm:

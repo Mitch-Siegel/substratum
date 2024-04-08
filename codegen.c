@@ -395,7 +395,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 
     if (function->isAsmFun && (function->BasicBlockList->size != 1))
     {
-        ErrorAndExit(ERROR_INTERNAL, "Asm function with %d basic blocks seen - expected 1!\n", function->BasicBlockList->size);
+        ErrorAndExit(ERROR_INTERNAL, "Asm function with %zu basic blocks seen - expected 1!\n", function->BasicBlockList->size);
     }
 
     if (currentVerbosity > VERBOSITY_MINIMAL)

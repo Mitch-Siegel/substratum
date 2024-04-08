@@ -64,12 +64,12 @@ size_t unalignSize(u8 nBits);
 struct Dictionary
 {
     struct LinkedList **buckets;
-    int nBuckets;
+    size_t nBuckets;
 };
 
 unsigned int hash(char *str);
 
-struct Dictionary *Dictionary_New(int nBuckets);
+struct Dictionary *Dictionary_New(size_t nBuckets);
 
 char *Dictionary_Insert(struct Dictionary *dict, char *value);
 
@@ -90,8 +90,8 @@ void Dictionary_Free(struct Dictionary *dict);
 struct Stack
 {
     void **data;
-    int size;
-    int allocated;
+    size_t size;
+    size_t allocated;
 };
 
 struct Stack *Stack_New();
@@ -120,7 +120,7 @@ struct LinkedList
 {
     struct LinkedListNode *head;
     struct LinkedListNode *tail;
-    int size;
+    size_t size;
 };
 
 struct LinkedList *LinkedList_New();
@@ -154,7 +154,7 @@ struct TempList
 };
 
 // get the string for a given temp num
-char *TempList_Get(struct TempList *tempList, int tempNum);
+char *TempList_Get(struct TempList *tempList, size_t tempNum);
 
 // create a new templist
 struct TempList *TempList_New();

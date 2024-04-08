@@ -79,7 +79,7 @@ struct TACLine
     struct TACOperand operands[4];
     enum TACType operation;
     // numerical index relative to other TAC lines
-    int index;
+    size_t index;
     // numerical index in terms of emitted instructions (from function entry point, populated during code generation)
     size_t asmIndex;
     u8 reorderable;
