@@ -386,16 +386,14 @@ char SelectWidthCharForDereference(struct Scope *scope, struct TACOperand *dataD
         ErrorAndExit(ERROR_INTERNAL, "SelectWidthCharForDereference called on non-indirect operand %s!\n", dataDest->name.str);
     }
     struct Type dereferenced = *operandType;
-    if (operandType->indirectionLevel == 0)
+    if (dereferenced.indirectionLevel == 0)
     {
-        operandType->arraySize = 0;
+        dereferenced.arraySize = 0;
     }
     else
     {
-        operandType->indirectionLevel--;
+        dereferenced.indirectionLevel--;
     }
-    dereferenced.indirectionLevel--;
-    dereferenced.arraySize = 0;
     return SelectWidthCharForSize(getSizeOfType(scope, &dereferenced));
 }
 
