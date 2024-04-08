@@ -79,7 +79,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
             }
             else
             {
-                ErrorAndExit(ERROR_INTERNAL, "Unexpected basic block index %d at global scope!\n", thisBlock->labelNum);
+                ErrorAndExit(ERROR_INTERNAL, "Unexpected basic block index %zu at global scope!\n", thisBlock->labelNum);
             }
         }
         break;
@@ -437,7 +437,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
     // we may pass null if we are generating the code to initialize global variables
     if (functionName != NULL)
     {
-        fprintf(context->outFile, "%s_%d:\n", functionName, block->labelNum);
+        fprintf(context->outFile, "%s_%zu:\n", functionName, block->labelNum);
     }
 
     u32 lastLineNo = 0;

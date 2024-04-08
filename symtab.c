@@ -287,7 +287,7 @@ void Scope_print(struct Scope *scope, size_t depth, char printTAC)
             if (printTAC)
             {
                 struct BasicBlock *thisBlock = thisMember->entry;
-                printf("> Basic Block %d\n", thisBlock->labelNum);
+                printf("> Basic Block %zu\n", thisBlock->labelNum);
                 printBasicBlock(thisBlock, depth + 1);
             }
         }
@@ -300,7 +300,7 @@ void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *block)
 {
     const u8 basicBlockNameStrSize = 10; // TODO: manage this better
     char *blockName = malloc(basicBlockNameStrSize);
-    sprintf(blockName, "Block%d", block->labelNum);
+    sprintf(blockName, "Block%zu", block->labelNum);
     Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), block, e_basicblock);
     free(blockName);
 

@@ -1,6 +1,6 @@
 #include "symtab_basicblock.h"
 
-struct BasicBlock *BasicBlock_new(int labelNum)
+struct BasicBlock *BasicBlock_new(size_t labelNum)
 {
     struct BasicBlock *wip = malloc(sizeof(struct BasicBlock));
     wip->TACList = LinkedList_New();
@@ -25,7 +25,7 @@ void printBasicBlock(struct BasicBlock *block, size_t indentLevel)
     {
         printf("\t");
     }
-    printf("BASIC BLOCK %d\n", block->labelNum);
+    printf("BASIC BLOCK %zu\n", block->labelNum);
     for (struct LinkedListNode *runner = block->TACList->head; runner != NULL; runner = runner->next)
     {
         struct TACLine *this = runner->data;

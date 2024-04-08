@@ -7,10 +7,10 @@
 struct BasicBlock
 {
     struct LinkedList *TACList;
-    int labelNum;
+    size_t labelNum;
 };
 
-struct BasicBlock *BasicBlock_new(int labelNum);
+struct BasicBlock *BasicBlock_new(size_t labelNum);
 
 void BasicBlock_free(struct BasicBlock *block);
 

@@ -323,21 +323,30 @@ u8 placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
 
 char SelectWidthCharForSize(u8 size)
 {
+    char widthChar = '\0';
     switch (size)
     {
     case sizeof(u8):
-        return 'b';
+        widthChar = 'b';
+        break;
 
     case sizeof(u16):
-        return 'h';
+        widthChar = 'h';
+        break;
 
     case sizeof(u32):
-        return 'w';
+        widthChar = 'w';
+        break;
 
     case sizeof(u64):
-        return 'd';
+        widthChar = 'd';
+        break;
+
+    default:
+        ErrorAndExit(ERROR_INTERNAL, "Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, 4, or 8 bytes!");
     }
-    ErrorAndExit(ERROR_INTERNAL, "Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, 4, or 8 bytes!");
+
+    return widthChar;
 }
 
 const char *SelectSignForLoad(u8 loadSize, struct Type *loaded)
