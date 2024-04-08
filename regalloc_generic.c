@@ -106,8 +106,8 @@ void recordVariableRead(struct LinkedList *ltList,
                         struct Scope *scope,
                         size_t newEnd)
 {
-    char isGlobal = 0;
-    char mustSpill = 0;
+    u8 isGlobal = 0;
+    u8 mustSpill = 0;
     if (readOperand->permutation == vp_standard)
     {
         struct VariableEntry *recordedVariable = lookupVarByString(scope, readOperand->name.str);

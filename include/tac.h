@@ -81,8 +81,8 @@ struct TACLine
     // numerical index relative to other TAC lines
     int index;
     // numerical index in terms of emitted instructions (from function entry point, populated during code generation)
-    int asmIndex;
-    char reorderable;
+    size_t asmIndex;
+    u8 reorderable;
 };
 
 struct Type *TACOperand_GetType(struct TACOperand *operand);

@@ -325,16 +325,16 @@ char SelectWidthCharForSize(u8 size)
 {
     switch (size)
     {
-    case 1:
+    case sizeof(u8):
         return 'b';
 
-    case 2:
+    case sizeof(u16):
         return 'h';
 
-    case 4:
+    case sizeof(u32):
         return 'w';
 
-    case 8:
+    case sizeof(u64):
         return 'd';
     }
     ErrorAndExit(ERROR_INTERNAL, "Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, 4, or 8 bytes!");
@@ -454,12 +454,11 @@ void EmitPushForOperand(struct TACLine *correspondingTACLine,
     size_t size = getSizeOfType(scope, TACOperand_GetType(dataSource));
     switch (size)
     {
-    case 1:
-    case 2:
-    case 4:
-    case 8:
+    case sizeof(u8):
+    case sizeof(u16):
+    case sizeof(u32):
+    case sizeof(u64):
         EmitPushForSize(correspondingTACLine, context, size, srcRegister);
-
         break;
 
     default:
@@ -490,10 +489,10 @@ void EmitPopForOperand(struct TACLine *correspondingTACLine,
     size_t size = getSizeOfType(scope, TACOperand_GetType(dataDest));
     switch (size)
     {
-    case 1:
-    case 2:
-    case 4:
-    case 8:
+    case sizeof(u8):
+    case sizeof(u16):
+    case sizeof(u32):
+    case sizeof(u64):
         EmitPopForSize(correspondingTACLine, context, size, destRegister);
 
         break;
