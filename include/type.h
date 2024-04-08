@@ -17,7 +17,7 @@ enum basicTypes
 struct Type
 {
     enum basicTypes basicType;
-    int indirectionLevel;
+    size_t indirectionLevel;
     size_t arraySize;
     union
     {
