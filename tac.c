@@ -153,13 +153,61 @@ void printTACLine(struct TACLine *line)
     free(printedLine);
 }
 
+char *sPrintTACOperands(struct TACLine *line)
+{
+    const u32 sprintTacOperandLength = 128;
+    ssize_t width = 0;
+
+    char *operandString = malloc(sprintTacOperandLength * sizeof(char));
+
+    for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
+    {
+        if (line->operands[operandIndex].type.basicType != vt_null)
+        {
+            width += sprintf(operandString + width, "[");
+            switch (line->operands[operandIndex].permutation)
+            {
+            case vp_standard:
+                width += sprintf(operandString + width, " ");
+                break;
+
+            case vp_temp:
+                width += sprintf(operandString + width, "T");
+                break;
+
+            case vp_literal:
+                width += sprintf(operandString + width, "L");
+                break;
+
+            }
+
+            char *typeName = Type_GetName(&line->operands[operandIndex].type);
+            width += sprintf(operandString + width, " %s", typeName);
+            free(typeName);
+            if (line->operands[operandIndex].castAsType.basicType != vt_null)
+            {
+                char *castAsTypeName = Type_GetName(&line->operands[operandIndex].castAsType);
+                width += sprintf(operandString + width, "(%s)", castAsTypeName);
+                free(castAsTypeName);
+            }
+            width += sprintf(operandString + width, "]");
+        }
+        else
+        {
+            width += sprintf(operandString + width, "   -   ");
+        }
+    }
+
+    return operandString;
+}
+
 char *sPrintTACLine(struct TACLine *line)
 {
     const u32 sprintTacLineLength = 128;
     char *operationStr;
     char *tacString = malloc(sprintTacLineLength * sizeof(char));
     char fallingThrough = 0;
-    int width = sprintf(tacString, "%2lx:", line->index);
+    ssize_t width = sprintf(tacString, "%2lx:", line->index);
     switch (line->operation)
     {
     case tt_asm:
@@ -341,44 +389,13 @@ char *sPrintTACLine(struct TACLine *line)
         width += sprintf(tacString + width, " ");
     }
 
-    width += sprintf(tacString + width, "\t");
-    for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
+    char *operandString = sPrintTACOperands(line);
+    if(width + strlen(operandString) + 1 > sprintTacLineLength)
     {
-        if (line->operands[operandIndex].type.basicType != vt_null)
-        {
-            width += sprintf(tacString + width, "[");
-            switch (line->operands[operandIndex].permutation)
-            {
-            case vp_standard:
-                width += sprintf(tacString + width, " ");
-                break;
-
-            case vp_temp:
-                width += sprintf(tacString + width, "T");
-                break;
-
-            case vp_literal:
-                width += sprintf(tacString + width, "L");
-                break;
-
-            }
-
-            char *typeName = Type_GetName(&line->operands[operandIndex].type);
-            width += sprintf(tacString + width, " %s", typeName);
-            free(typeName);
-            if (line->operands[operandIndex].castAsType.basicType != vt_null)
-            {
-                char *castAsTypeName = Type_GetName(&line->operands[operandIndex].castAsType);
-                width += sprintf(tacString + width, "(%s)", castAsTypeName);
-                free(castAsTypeName);
-            }
-            width += sprintf(tacString + width, "]");
-        }
-        else
-        {
-            width += sprintf(tacString + width, "   -   ");
-        }
+        ErrorAndExit(ERROR_INTERNAL, "sPrintTacLine length limit exceeded!\n");
     }
+    width += sprintf(tacString + width, "\t%s", operandString);
+    
 
     char *trimmedString = malloc(width + 1);
     sprintf(trimmedString, "%s", tacString);
