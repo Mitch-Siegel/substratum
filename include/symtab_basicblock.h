@@ -1,13 +1,13 @@
 #ifndef BASICBLOCK_H
 #define BASICBLOCK_H
 
-#include "util.h"
 #include "tac.h"
+#include "util.h"
 
 struct BasicBlock
 {
-	struct LinkedList *TACList;
-	int labelNum;
+    struct LinkedList *TACList;
+    int labelNum;
 };
 
 struct BasicBlock *BasicBlock_new(int labelNum);

@@ -1,8 +1,8 @@
 #ifndef SYMTAB_CLASS_H
 #define SYMTAB_CLASS_H
 
-#include "symtab_variable.h"
 #include "ast.h"
+#include "symtab_variable.h"
 
 struct ClassMemberOffset
 {
@@ -20,20 +20,20 @@ struct ClassEntry
 
 // this represents the definition of a class itself, instantiation falls under variableEntry
 struct ClassEntry *createClass(struct Scope *scope,
-                                     char *name);
+                               char *name);
 
 // given a VariableEntry corresponding to a class member which was just declared
 // generate a ClassMemberOffset with the aligned location of the member within the class
 void assignOffsetToMemberVariable(struct ClassEntry *class,
-                                        struct VariableEntry *v);
+                                  struct VariableEntry *v);
 
 struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
-                                                     struct AST *name);
+                                               struct AST *name);
 
 struct ClassEntry *lookupClass(struct Scope *scope,
-                                     struct AST *name);
+                               struct AST *name);
 
 struct ClassEntry *lookupClassByType(struct Scope *scope,
-                                           struct Type *type);
+                                     struct Type *type);
 
 #endif

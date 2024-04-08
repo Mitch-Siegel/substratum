@@ -10,6 +10,7 @@ endif
 
 OBJDIR = build
 SBCC_SRCS = $(filter-out parser, $(basename $(wildcard *.c)))
+SBCC_HDRS = $(basename $(wildcard ./include/*.h))
 SBCC_OBJS = $(SBCC_SRCS:%=%.o)
 INCLUDE_DIR = ./include
 
@@ -33,11 +34,17 @@ lint:
 	for SOURCE_FILE in $(SBCC_SRCS); do \
 		clang-tidy-17 $$SOURCE_FILE.c -- -I $(INCLUDE_DIR); \
 	done
+	for HEADER_FILE in $(SBCC_HDRS); do \
+		clang-tidy-17 $$HEADER_FILE.h -- -I $(INCLUDE_DIR); \
+	done
 
 format:
 	$(info "SOURCES: $(SBCC_SRCS)")
 	for SOURCE_FILE in $(SBCC_SRCS); do \
 		clang-format-17 -i $$SOURCE_FILE.c; \
+	done
+	for HEADER_FILE in $(SBCC_HDRS); do \
+		clang-format-17 -i $$HEADER_FILE.h; \
 	done
 
 clean:
@@ -48,4 +55,5 @@ clean:
 
 info:
 	$(info SBCC SRCS="$(SBCC_SRCS)")
+	$(info SBCC HDRS="$(SBCC_HDRS)")
 	$(info SBCC OBJS="$(SBCC_OBJS)")

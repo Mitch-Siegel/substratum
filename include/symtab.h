@@ -1,11 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "util.h"
 #include "ast.h"
-#include "tac.h"
 #include "parser.h"
 #include "tac.h"
+#include "util.h"
 
 #include "symtab_basicblock.h"
 #include "symtab_class.h"
@@ -17,8 +16,8 @@
 
 struct SymbolTable
 {
-	char *name;
-	struct Scope *globalScope;
+    char *name;
+    struct Scope *globalScope;
 };
 /*
  * the create/lookup functions that use an AST (with simpler names) are the primary functions which should be used
@@ -32,14 +31,14 @@ only string names are available and any bad lookups should be caused by internal
 struct SymbolTable *SymbolTable_new(char *name);
 
 void SymbolTable_print(struct SymbolTable *table,
-					   char printTAC);
+                       char printTAC);
 
 void SymbolTable_collapseScopesRec(struct Scope *scope,
-								   struct Dictionary *dict,
-								   size_t depth);
+                                   struct Dictionary *dict,
+                                   size_t depth);
 
 void SymbolTable_collapseScopes(struct SymbolTable *table,
-								struct Dictionary *dict);
+                                struct Dictionary *dict);
 
 void SymbolTable_free(struct SymbolTable *table);
 
@@ -47,4 +46,4 @@ void SymbolTable_free(struct SymbolTable *table);
 
 // scrape down a chain of nested child star tokens, expecting something at the bottom
 size_t scrapePointers(struct AST *pointerAST,
-					  struct AST **resultDestination);
+                      struct AST **resultDestination);

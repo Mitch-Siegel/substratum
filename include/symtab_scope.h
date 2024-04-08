@@ -2,54 +2,54 @@
 #ifndef SYMTAB_SCOPE_H
 #define SYMTAB_SCOPE_H
 
+#include "ast.h"
 #include "substratum_defs.h"
 #include "type.h"
-#include "ast.h"
 
 struct BasicBlock;
 struct VariableEntry;
 
 enum ScopeMemberType
 {
-	e_variable,
-	e_function,
-	e_argument,
-	e_class,
-	e_scope,
-	e_basicblock,
+    e_variable,
+    e_function,
+    e_argument,
+    e_class,
+    e_scope,
+    e_basicblock,
 };
 
 struct ScopeMember
 {
-	char *name;
-	enum ScopeMemberType type;
-	void *entry;
+    char *name;
+    enum ScopeMemberType type;
+    void *entry;
 };
 
 struct Scope
 {
-	struct Scope *parentScope;
-	struct FunctionEntry *parentFunction;
-	struct Stack *entries;
-	unsigned char subScopeCount;
-	char *name; // duplicate pointer from ScopeMember for ease of use
+    struct Scope *parentScope;
+    struct FunctionEntry *parentFunction;
+    struct Stack *entries;
+    unsigned char subScopeCount;
+    char *name; // duplicate pointer from ScopeMember for ease of use
 };
 
 // scope functions
 struct Scope *Scope_new(struct Scope *parentScope,
-						char *name,
-						struct FunctionEntry *parentFunction);
+                        char *name,
+                        struct FunctionEntry *parentFunction);
 
 void Scope_free(struct Scope *scope);
 
 void Scope_print(struct Scope *scope,
-				 size_t depth,
-				 char printTAC);
+                 size_t depth,
+                 char printTAC);
 
 void Scope_insert(struct Scope *scope,
-				  char *name,
-				  void *newEntry,
-				  enum ScopeMemberType type);
+                  char *name,
+                  void *newEntry,
+                  enum ScopeMemberType type);
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
 
@@ -59,10 +59,10 @@ size_t Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *aligne
 
 // scope lookup functions
 char Scope_contains(struct Scope *scope,
-					char *name);
+                    char *name);
 
 struct ScopeMember *Scope_lookup(struct Scope *scope,
-								 char *name);
+                                 char *name);
 
 // gets the integer size (not aligned) of a given type
 size_t getSizeOfType(struct Scope *scope, struct Type *t);
@@ -79,6 +79,6 @@ u8 getAlignmentOfType(struct Scope *scope, struct Type *t);
 
 // adds an entry in the given scope denoting that the block is from that scope
 void Scope_addBasicBlock(struct Scope *scope,
-						 struct BasicBlock *b);
+                         struct BasicBlock *b);
 
 #endif

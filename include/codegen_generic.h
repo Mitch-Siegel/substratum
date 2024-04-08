@@ -1,10 +1,10 @@
 #ifndef _CODEGEN_H_
 #define _CODEGEN_H_
-#include "substratum_defs.h"
 #include "regalloc_generic.h"
+#include "substratum_defs.h"
 
-#define STACK_ALIGN_BYTES ((size_t) 16)
-#define MAX_ASM_LINE_SIZE ((size_t) 256)
+#define STACK_ALIGN_BYTES ((size_t)16)
+#define MAX_ASM_LINE_SIZE ((size_t)256)
 
 extern char *registerNames[MACHINE_REGISTER_COUNT];
 
@@ -37,23 +37,23 @@ void WriteVariable(struct TACLine *correspondingTACLine,
 
 // places a variable in a register, with no guarantee that it is modifiable, returning the string of the register's name for asm
 u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
-                                 struct CodegenContext *context,
-                                 struct Scope *scope,
-                                 struct LinkedList *lifetimes,
-                                 struct TACOperand *operand,
-                                 u8 registerIndex);
+                                struct CodegenContext *context,
+                                struct Scope *scope,
+                                struct LinkedList *lifetimes,
+                                struct TACOperand *operand,
+                                u8 registerIndex);
 
 u8 pickWriteRegister(struct Scope *scope,
-                      struct LinkedList *lifetimes,
-                      struct TACOperand *operand,
-                      u8 registerIndex);
+                     struct LinkedList *lifetimes,
+                     struct TACOperand *operand,
+                     u8 registerIndex);
 
 u8 placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
-                             struct CodegenContext *context,
-                             struct Scope *scope,
-                             struct LinkedList *lifetimes,
-                             struct TACOperand *operand,
-                             u8 registerIndex);
+                            struct CodegenContext *context,
+                            struct Scope *scope,
+                            struct LinkedList *lifetimes,
+                            struct TACOperand *operand,
+                            u8 registerIndex);
 
 const char *SelectSignForLoad(u8 loadSize, struct Type *loaded);
 
