@@ -190,7 +190,6 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
                     break;
 
                 case vp_literal:
-                case vp_objptr:
                     break;
                 }
             }
@@ -210,7 +209,6 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
                         break;
 
                     case vp_literal:
-                    case vp_objptr:
                         break;
                     }
                 }

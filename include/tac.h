@@ -9,7 +9,6 @@ enum variablePermutations
     vp_standard,
     vp_temp,
     vp_literal,
-    vp_objptr, // TODO: clean up after this
 };
 
 enum TACType
