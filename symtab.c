@@ -50,9 +50,8 @@ void SymbolTable_moveMemberToParentScope(struct Scope *scope, struct ScopeMember
     (*indexWithinCurrentScope)--;
 }
 
-void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict, size_t depth)
+static void collapseRecurseToSubScopes(struct Scope *scope, struct Dictionary *dict, size_t depth)
 {
-    // first pass: recurse depth-first so everything we do at this call depth will be 100% correct
     for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
     {
         struct ScopeMember *thisMember = scope->entries->data[entryIndex];
@@ -83,75 +82,80 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
             break;
         }
     }
+}
 
-    // only rename basic block operands if depth > 0
-    // we only want to alter variable names for variables whose names we will mangle as a result of a scope collapse
-    if (depth > 0)
+static void attemptOperandMangle(struct TACOperand *operand, struct Scope *scope, struct Dictionary *dict)
+{
+    // check only TAC operands that both exist and refer to a named variable from the source code (ignore temps etc)
+    if ((operand->type.basicType != vt_null) &&
+        (operand->permutation == vp_standard))
     {
-        // second pass: rename basic block operands relevant to the current scope
-        for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
+        char *originalName = operand->name.str;
+
+        // bail out early if the variable is not declared within this scope, as we will not need to mangle it
+        if (!Scope_contains(scope, originalName))
         {
-            struct ScopeMember *thisMember = scope->entries->data[entryIndex];
-            switch (thisMember->type)
-            {
-            case e_scope:
-            case e_function:
-                break;
+            return;
+        }
 
-            case e_basicblock:
+        // if the declaration for the variable is owned by this scope, ensure that we actually get a variable or argument
+        struct VariableEntry *variableToMangle = lookupVarByString(scope, originalName);
+
+        // only mangle things which are not string literals
+        if (variableToMangle->isStringLiteral == 0)
+        {
+            // it should not be possible to see a global as being declared here
+            if (variableToMangle->isGlobal)
             {
-                // rename TAC lines if we are within a function
-                if (scope->parentFunction != NULL)
+                ErrorAndExit(ERROR_INTERNAL, "Declaration of variable %s at inner scope %s is marked as a global!\n", variableToMangle->name, scope->name);
+            }
+            operand->name.str = SymbolTable_mangleName(scope, dict, originalName);
+        }
+    }
+}
+
+// iterate all TAC lines for all basic blocks within scope, mangling their operands if necessary
+static void mangleBlockContents(struct Scope *scope, struct Dictionary *dict)
+{
+    // second pass: rename basic block operands relevant to the current scope
+    for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
+    {
+        struct ScopeMember *thisMember = scope->entries->data[entryIndex];
+        switch (thisMember->type)
+        {
+        case e_scope:
+        case e_function:
+            break;
+
+        case e_basicblock:
+        {
+            // rename TAC lines if we are within a function
+            if (scope->parentFunction != NULL)
+            {
+                // go through all TAC lines in this block
+                struct BasicBlock *thisBlock = thisMember->entry;
+                for (struct LinkedListNode *TACRunner = thisBlock->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
                 {
-                    // go through all TAC lines in this block
-                    struct BasicBlock *thisBlock = thisMember->entry;
-                    for (struct LinkedListNode *TACRunner = thisBlock->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
+                    struct TACLine *thisTAC = TACRunner->data;
+                    for (size_t operandIndex = 0; operandIndex < 4; operandIndex++)
                     {
-                        struct TACLine *thisTAC = TACRunner->data;
-                        for (size_t operandIndex = 0; operandIndex < 4; operandIndex++)
-                        {
-                            // check only TAC operands that both exist and refer to a named variable from the source code (ignore temps etc)
-                            if ((thisTAC->operands[operandIndex].type.basicType != vt_null) &&
-                                (thisTAC->operands[operandIndex].permutation == vp_standard))
-                            {
-                                char *originalName = thisTAC->operands[operandIndex].name.str;
-
-                                // bail out early if the variable is not declared within this scope, as we will not need to mangle it
-                                if (!Scope_contains(scope, originalName))
-                                {
-                                    continue;
-                                }
-
-                                // if the declaration for the variable is owned by this scope, ensure that we actually get a variable or argument
-                                struct VariableEntry *variableToMangle = lookupVarByString(scope, originalName);
-
-                                // only mangle things which are not string literals
-                                if (variableToMangle->isStringLiteral == 0)
-                                {
-                                    // it should not be possible to see a global as being declared here
-                                    if (variableToMangle->isGlobal)
-                                    {
-                                        ErrorAndExit(ERROR_INTERNAL, "Declaration of variable %s at inner scope %s is marked as a global!\n", variableToMangle->name, scope->name);
-                                    }
-                                    thisTAC->operands[operandIndex].name.str = SymbolTable_mangleName(scope, dict, originalName);
-                                }
-                            }
-                        }
+                        attemptOperandMangle(&thisTAC->operands[operandIndex], scope, dict);
                     }
                 }
             }
-            break;
+        }
+        break;
 
-            case e_variable:
-            case e_argument:
-            case e_class:
-                break;
-            }
+        case e_variable:
+        case e_argument:
+        case e_class:
+            break;
         }
     }
+}
 
-    // third pass: move nested members to parent scope based on mangled names
-    // also moves globals outwards
+static void moveScopeMembersToParentScope(struct Scope *scope, struct Dictionary *dict, size_t depth)
+{
     for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
     {
         struct ScopeMember *thisMember = scope->entries->data[entryIndex];
@@ -194,6 +198,23 @@ void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict,
             break;
         }
     }
+}
+
+void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict, size_t depth)
+{
+    // first pass: recurse depth-first so everything we do at this call depth will be 100% correct
+    collapseRecurseToSubScopes(scope, dict, depth);
+
+    // only rename basic block operands if depth > 0
+    // we only want to alter variable names for variables whose names we will mangle as a result of a scope collapse
+    if (depth > 0)
+    {
+        mangleBlockContents(scope, dict);
+    }
+
+    // third pass: move nested members to parent scope based on mangled names
+    // also moves globals outwards
+    moveScopeMembersToParentScope(scope, dict, depth);
 }
 
 void SymbolTable_collapseScopes(struct SymbolTable *table, struct Dictionary *dict)
