@@ -85,7 +85,7 @@ void Dictionary_Free(struct Dictionary *dict);
  */
 
 #define STACK_DEFAULT_ALLOCATION 20
-#define STACK_SCALE_FACTOR 1.5
+#define STACK_SCALE_FACTOR 2
 
 struct Stack
 {

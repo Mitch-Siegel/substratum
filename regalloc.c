@@ -8,11 +8,11 @@
 #include "util.h"
 
 // return the heuristic for how good a given lifetime is to spill - lower is better
-i32 lifetimeHeuristic(struct Lifetime *lifetime)
+size_t lifetimeHeuristic(struct Lifetime *lifetime)
 {
-    const i32 argumentSpillHeuristicMultiplier = 10;
+    const size_t argumentSpillHeuristicMultiplier = 10;
     // base heuristic is lifetime length
-    i32 heuristic = lifetime->end - lifetime->start;
+    size_t heuristic = lifetime->end - lifetime->start;
     // add the number of reads for this variable since they have some cost
     heuristic += lifetime->nreads;
     // multiply by number of writes for this variable since that is a high-cost operation
@@ -75,11 +75,11 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, size_t mostConcur
         {
             // loop over all lifetimes, find the one with the best heuristic to spill
             struct Lifetime *bestToSpill = NULL;
-            i32 bestHeuristic = INT32_MAX;
+            size_t bestHeuristic = SIZE_MAX;
             for (struct LinkedListNode *runner = activeLifetimesThisIndex->head; runner != NULL; runner = runner->next)
             {
                 struct Lifetime *examinedLifetime = runner->data;
-                i32 thisHeuristic = lifetimeHeuristic(examinedLifetime);
+                size_t thisHeuristic = lifetimeHeuristic(examinedLifetime);
                 if (thisHeuristic < bestHeuristic)
                 {
                     bestToSpill = examinedLifetime;
@@ -253,7 +253,12 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         {
             metadata->localStackSize += Scope_ComputePaddingForAlignment(metadata->function->mainScope, &thisLifetime->type, metadata->localStackSize);
             metadata->localStackSize += getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
-            thisLifetime->stackLocation = -1 * metadata->localStackSize;
+            if (metadata->localStackSize > I64_MAX)
+            {
+                // TODO: implementation dependent size of size_t
+                ErrorAndExit(ERROR_INTERNAL, "Function %s has arg stack size too large (%zd bytes)!\n", metadata->function->name, metadata->localStackSize);
+            }
+            thisLifetime->stackLocation = -1 * (ssize_t)metadata->localStackSize;
         }
     }
 

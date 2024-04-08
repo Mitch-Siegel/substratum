@@ -207,7 +207,7 @@ void SymbolTable_free(struct SymbolTable *table)
     free(table);
 }
 
-void VariableEntry_Print(struct VariableEntry *variable, int depth)
+void VariableEntry_Print(struct VariableEntry *variable, size_t depth)
 {
     char *typeName = Type_GetName(&variable->type);
     printf("%s %s\n", typeName, variable->name);

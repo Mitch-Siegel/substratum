@@ -1838,7 +1838,12 @@ void walkFunctionCall(struct AST *tree,
     if (calledFunction->arguments->size > 0)
     {
         struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, tree->child);
-        reserveStackSpaceForCall->operands[0].name.val = calledFunction->argStackSize;
+        if (calledFunction->argStackSize > I64_MAX)
+        {
+            // TODO: implementation dependent size of size_t
+            ErrorAndExit(ERROR_INTERNAL, "Function %s has arg stack size too large (%zd bytes)!\n", calledFunction->name, calledFunction->argStackSize);
+        }
+        reserveStackSpaceForCall->operands[0].name.val = (ssize_t)calledFunction->argStackSize;
         BasicBlock_append(block, reserveStackSpaceForCall);
     }
 

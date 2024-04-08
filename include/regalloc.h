@@ -6,7 +6,7 @@ struct Lifetime;
 struct CodegenMetadata;
 
 // return the heuristic for how good a given lifetime is to spill - higher is better
-i32 lifetimeHeuristic(struct Lifetime *lifetime);
+size_t lifetimeHeuristic(struct Lifetime *lifetime);
 
 // populate the localStackSize field, aligning and placing any lifetimes which require stack space
 void assignStackSpace(struct CodegenMetadata *metadata);

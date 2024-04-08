@@ -44,7 +44,12 @@ struct VariableEntry *createVariable(struct Scope *scope,
         scope->parentFunction->argStackSize += Scope_ComputePaddingForAlignment(scope, type, scope->parentFunction->argStackSize);
 
         // put our argument's offset at the newly-aligned stack size, then add the size of the argument to the argument stack size
-        newVariable->stackOffset = scope->parentFunction->argStackSize;
+        if (scope->parentFunction->argStackSize > I64_MAX)
+        {
+            // TODO: implementation dependent size of size_t
+            ErrorAndExit(ERROR_INTERNAL, "Function %s has argument stack size too large (%zd bytes)!\n", scope->parentFunction->name, scope->parentFunction->argStackSize);
+        }
+        newVariable->stackOffset = (ssize_t)scope->parentFunction->argStackSize;
         scope->parentFunction->argStackSize += getSizeOfType(scope, type);
 
         Scope_insert(scope, name->value, newVariable, e_argument);
