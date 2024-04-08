@@ -267,9 +267,11 @@ size_t getSizeOfDereferencedType(struct Scope *scope, struct Type *type)
 size_t getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *variable)
 {
     size_t size = 0;
+    // if we have a non-array type
     if (variable->type.arraySize < 1)
     {
-        if (variable->type.indirectionLevel)
+        // some type of pointer (treating it as an array)
+        if (variable->type.indirectionLevel > 0)
         {
             char *nonArrayPointerTypeName = Type_GetName(&variable->type);
             printf("Warning - variable %s with type %s used in array access!\n", variable->name, nonArrayPointerTypeName);
@@ -279,20 +281,23 @@ size_t getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *variable
             elementType.arraySize = 0;
             size = getSizeOfType(scope, &elementType);
         }
+        // non-pointer, non-array can't be dereferenced
         else
         {
             ErrorAndExit(ERROR_INTERNAL, "Non-array variable %s passed to getSizeOfArrayElement!\n", variable->name);
         }
     }
+    // we have an array type
     else
     {
+        // array of non-pointers
         if (variable->type.indirectionLevel == 0)
         {
             struct Type elementType = variable->type;
-            elementType.indirectionLevel--;
             elementType.arraySize = 0;
             size = getSizeOfType(scope, &elementType);
         }
+        // array of pointers
         else
         {
             size = MACHINE_REGISTER_SIZE_BYTES;
