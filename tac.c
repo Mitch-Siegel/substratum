@@ -29,9 +29,9 @@ void TACOperand_SetBasicType(struct TACOperand *operand, enum basicTypes type, i
     operand->type.indirectionLevel = indirectionLevel;
 }
 
-char *getAsmOp(enum TACType type)
+char *getAsmOp(enum TACType tacOperation)
 {
-    switch (type)
+    switch (tacOperation)
     {
     case tt_asm:
         return "tac-asm";

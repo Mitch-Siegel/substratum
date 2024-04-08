@@ -1,5 +1,5 @@
-#ifndef _CODEGEN_H_
-#define _CODEGEN_H_
+#ifndef CODEGEN_GENERIC_H
+#define CODEGEN_GENERIC_H
 #include "regalloc_generic.h"
 #include "substratum_defs.h"
 

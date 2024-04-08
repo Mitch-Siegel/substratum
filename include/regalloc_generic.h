@@ -1,5 +1,5 @@
-#ifndef _REGALLOC_H_
-#define _REGALLOC_H_
+#ifndef REGALLOC_GENERIC_H
+#define REGALLOC_GENERIC_H
 
 #include <stdio.h>
 #include <stdlib.h>

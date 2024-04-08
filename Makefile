@@ -10,7 +10,7 @@ endif
 
 OBJDIR = build
 SBCC_SRCS = $(filter-out parser, $(basename $(wildcard *.c)))
-SBCC_HDRS = $(basename $(wildcard ./include/*.h))
+SBCC_HDRS = $(filter-out parser, $(basename $(wildcard ./include/*.h)))
 SBCC_OBJS = $(SBCC_SRCS:%=%.o)
 INCLUDE_DIR = ./include
 

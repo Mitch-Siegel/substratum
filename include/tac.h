@@ -67,7 +67,7 @@ struct TACOperand
     enum variablePermutations permutation; // enum of permutation (standard/temp/literal)
 };
 
-void TACOperand_SetBasicType(struct TACOperand *operand, enum basicTypes t, int indirectionLevel);
+void TACOperand_SetBasicType(struct TACOperand *operand, enum basicTypes type, int indirectionLevel);
 
 struct TACLine
 {
@@ -89,7 +89,7 @@ struct Type *TACOperand_GetType(struct TACOperand *operand);
 
 struct Type *TAC_GetTypeOfOperand(struct TACLine *line, unsigned index);
 
-char *getAsmOp(enum TACType t);
+char *getAsmOp(enum TACType tacOperation);
 
 void printTACLine(struct TACLine *line);
 

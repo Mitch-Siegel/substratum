@@ -25,7 +25,7 @@ struct ClassEntry *createClass(struct Scope *scope,
 // given a VariableEntry corresponding to a class member which was just declared
 // generate a ClassMemberOffset with the aligned location of the member within the class
 void assignOffsetToMemberVariable(struct ClassEntry *class,
-                                  struct VariableEntry *v);
+                                  struct VariableEntry *variable);
 
 struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
                                                struct AST *name);
