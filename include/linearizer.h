@@ -43,7 +43,7 @@ void walkStatement(struct AST *tree,
                    struct Scope *scope,
                    size_t *tacIndex,
                    size_t *tempNum,
-                   size_t *labelNum,
+                   ssize_t *labelNum,
                    ssize_t controlConvergesToLabel);
 
 void walkScope(struct AST *tree,
@@ -51,7 +51,7 @@ void walkScope(struct AST *tree,
                struct Scope *scope,
                size_t *tacIndex,
                size_t *tempNum,
-               size_t *labelNum,
+               ssize_t *labelNum,
                ssize_t controlConvergesToLabel);
 
 // walk the logical operator pointed to by the AST
@@ -62,8 +62,8 @@ struct BasicBlock *walkLogicalOperator(struct AST *tree,
                                        struct Scope *scope,
                                        size_t *tacIndex,
                                        size_t *tempNum,
-                                       size_t *labelNum,
-                                       size_t falseJumpLabelNum);
+                                       ssize_t *labelNum,
+                                       ssize_t falseJumpLabelNum);
 
 // walk the condition check pointed to by the AST
 // returns the basic block which will be executed if the condition is met
@@ -73,7 +73,7 @@ struct BasicBlock *walkConditionCheck(struct AST *tree,
                                       struct Scope *scope,
                                       size_t *tacIndex,
                                       size_t *tempNum,
-                                      size_t *labelNum,
+                                      ssize_t *labelNum,
                                       size_t falseJumpLabelNum);
 
 void walkWhileLoop(struct AST *tree,
@@ -81,7 +81,7 @@ void walkWhileLoop(struct AST *tree,
                    struct Scope *scope,
                    size_t *tacIndex,
                    size_t *tempNum,
-                   size_t *labelNum,
+                   ssize_t *labelNum,
                    ssize_t controlConvergesToLabel);
 
 void walkIfStatement(struct AST *tree,
@@ -89,7 +89,7 @@ void walkIfStatement(struct AST *tree,
                      struct Scope *scope,
                      size_t *tacIndex,
                      size_t *tempNum,
-                     size_t *labelNum,
+                     ssize_t *labelNum,
                      ssize_t controlConvergesToLabel);
 
 void walkAssignment(struct AST *tree,

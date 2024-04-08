@@ -463,7 +463,7 @@ void walkFunctionDefinition(struct AST *tree,
 
     size_t TACIndex = 0;
     size_t tempNum = 0;
-    size_t labelNum = 1;
+    ssize_t labelNum = 1;
     struct BasicBlock *block = BasicBlock_new(0);
     Scope_addBasicBlock(fun->mainScope, block);
 
@@ -527,7 +527,7 @@ void walkStatement(struct AST *tree,
                    struct Scope *scope,
                    size_t *TACIndex,
                    size_t *tempNum,
-                   size_t *labelNum,
+                   ssize_t *labelNum,
                    ssize_t controlConvergesToLabel)
 {
     if (currentVerbosity == VERBOSITY_MAX)
@@ -624,7 +624,7 @@ void walkScope(struct AST *tree,
                struct Scope *scope,
                size_t *TACIndex,
                size_t *tempNum,
-               size_t *labelNum,
+               ssize_t *labelNum,
                ssize_t controlConvergesToLabel)
 {
     if (currentVerbosity == VERBOSITY_MAX)
@@ -656,8 +656,8 @@ struct BasicBlock *walkLogicalOperator(struct AST *tree,
                                        struct Scope *scope,
                                        size_t *TACIndex,
                                        size_t *tempNum,
-                                       size_t *labelNum,
-                                       size_t falseJumpLabelNum)
+                                       ssize_t *labelNum,
+                                       ssize_t falseJumpLabelNum)
 {
     switch (tree->type)
     {
@@ -732,8 +732,8 @@ struct BasicBlock *walkConditionCheck(struct AST *tree,
                                       struct Scope *scope,
                                       size_t *TACIndex,
                                       size_t *tempNum,
-                                      size_t *labelNum,
-                                      size_t falseJumpLabelNum)
+                                      ssize_t *labelNum,
+                                      ssize_t falseJumpLabelNum)
 {
     if (currentVerbosity == VERBOSITY_MAX)
     {
@@ -878,7 +878,7 @@ void walkWhileLoop(struct AST *tree,
                    struct Scope *scope,
                    size_t *TACIndex,
                    size_t *tempNum,
-                   size_t *labelNum,
+                   ssize_t *labelNum,
                    ssize_t controlConvergesToLabel)
 {
     if (currentVerbosity == VERBOSITY_MAX)
@@ -906,7 +906,7 @@ void walkWhileLoop(struct AST *tree,
 
     whileBlock = walkConditionCheck(tree->child, whileBlock, whileScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 
-    size_t endWhileLabel = (*labelNum)++;
+    ssize_t endWhileLabel = (*labelNum)++;
 
     struct AST *whileBody = tree->child->sibling;
     if (whileBody->type == t_compound_statement)
@@ -934,7 +934,7 @@ void walkIfStatement(struct AST *tree,
                      struct Scope *scope,
                      size_t *TACIndex,
                      size_t *tempNum,
-                     size_t *labelNum,
+                     ssize_t *labelNum,
                      ssize_t controlConvergesToLabel)
 {
     if (currentVerbosity == VERBOSITY_MAX)
@@ -950,7 +950,7 @@ void walkIfStatement(struct AST *tree,
     // if we have an else block
     if (tree->child->sibling->sibling != NULL)
     {
-        size_t elseLabel = (*labelNum)++;
+        ssize_t elseLabel = (*labelNum)++;
         block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, elseLabel);
 
         struct Scope *ifScope = Scope_createSubScope(scope);

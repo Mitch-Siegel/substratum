@@ -7,10 +7,10 @@
 struct BasicBlock
 {
     struct LinkedList *TACList;
-    size_t labelNum;
+    ssize_t labelNum; // ssize_t because some linearization functions take a label number < 0 as a signal to structure control flow
 };
 
-struct BasicBlock *BasicBlock_new(size_t labelNum);
+struct BasicBlock *BasicBlock_new(ssize_t labelNum);
 
 void BasicBlock_free(struct BasicBlock *block);
 

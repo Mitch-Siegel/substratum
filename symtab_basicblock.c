@@ -1,6 +1,6 @@
 #include "symtab_basicblock.h"
 
-struct BasicBlock *BasicBlock_new(size_t labelNum)
+struct BasicBlock *BasicBlock_new(ssize_t labelNum)
 {
     struct BasicBlock *wip = malloc(sizeof(struct BasicBlock));
     wip->TACList = LinkedList_New();
