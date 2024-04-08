@@ -39,145 +39,13 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 
         case e_basicblock:
         {
-            struct BasicBlock *thisBlock = thisMember->entry;
-            if (thisBlock->TACList->size == 0)
-            {
-                break;
-            }
-
-            // compiled code
-            if (thisBlock->labelNum == 0)
-            {
-                fprintf(outFile, ".userstart:\n");
-                struct LinkedList *fakeBlockList = LinkedList_New();
-                LinkedList_Append(fakeBlockList, thisBlock);
-
-                struct LinkedList *globalLifetimes = findLifetimes(table->globalScope, fakeBlockList);
-                LinkedList_Free(fakeBlockList, NULL);
-                // TODO: defines for default reserved registers? This is for global-scoped code... 0 1 and 2 are definitely not right.
-                u8 reserved[3] = {0, 1, 2};
-
-                generateCodeForBasicBlock(&globalContext, thisBlock, table->globalScope, globalLifetimes, NULL, reserved);
-                LinkedList_Free(globalLifetimes, free);
-            } // assembly block
-            else if (thisBlock->labelNum == 1)
-            {
-
-                fprintf(outFile, ".rawasm:\n");
-
-                for (struct LinkedListNode *examinedLine = thisBlock->TACList->head; examinedLine != NULL; examinedLine = examinedLine->next)
-                {
-                    struct TACLine *examinedTAC = examinedLine->data;
-                    if (examinedTAC->operation != tt_asm)
-                    {
-                        ErrorAndExit(ERROR_INTERNAL, "Unexpected TAC type %d (%s) seen in global ASM block!\n",
-                                     examinedTAC->operation,
-                                     getAsmOp(examinedTAC->operation));
-                    }
-                    fprintf(outFile, "%s\n", examinedTAC->operands[0].name.str);
-                }
-            }
-            else
-            {
-                ErrorAndExit(ERROR_INTERNAL, "Unexpected basic block index %zu at global scope!\n", thisBlock->labelNum);
-            }
+            generateCodeForGlobalBlock(&globalContext, table->globalScope, thisMember->entry);
         }
         break;
 
         case e_variable:
         {
-            struct VariableEntry *variable = thisMember->entry;
-
-            // early break if the variable is declared as extern, don't emit any code for it
-            if (variable->isExtern)
-            {
-                break;
-            }
-
-            char *varName = thisMember->name;
-            size_t varSize = getSizeOfType(table->globalScope, &variable->type);
-
-            if (variable->type.initializeTo != NULL)
-            {
-                if (variable->isStringLiteral) // put string literals in rodata
-                {
-                    fprintf(outFile, ".section\t.rodata\n");
-                }
-                else // put initialized data in sdata
-                {
-                    fprintf(outFile, ".section\t.data\n");
-                }
-            }
-            else // put uninitialized data to bss
-            {
-                fprintf(outFile, ".section\t.bss\n");
-            }
-
-            fprintf(outFile, "\t.globl %s\n", varName);
-
-            u8 alignBits = 0;
-
-            if (variable->type.arraySize > 0)
-            {
-                alignBits = alignSize(getSizeOfArrayElement(table->globalScope, variable));
-            }
-            else
-            {
-                alignBits = alignSize(varSize);
-            }
-
-            if (alignBits > 0)
-            {
-                fprintf(outFile, ".align %d\n", alignBits);
-            }
-
-            fprintf(outFile, "\t.type\t%s, @object\n", varName);
-            fprintf(outFile, "\t.size \t%s, %zu\n", varName, varSize);
-            fprintf(outFile, "%s:\n", varName);
-            if (variable->type.initializeTo != NULL)
-            {
-                if (variable->isStringLiteral)
-                {
-                    size_t arrayElementSize = getSizeOfArrayElement(table->globalScope, variable);
-                    if (arrayElementSize != 1)
-                    {
-                        ErrorAndExit(ERROR_INTERNAL, "Saw array element size of %zu for string literal (expected 1)!\n", arrayElementSize);
-                    }
-
-                    fprintf(outFile, "\t.asciz \"");
-                    for (size_t arrayElementIndex = 0; arrayElementIndex < varSize; arrayElementIndex++)
-                    {
-                        fprintf(outFile, "%c", variable->type.initializeArrayTo[arrayElementIndex][0]);
-                    }
-                    fprintf(outFile, "\"\n");
-                }
-                else if (variable->type.arraySize > 0)
-                {
-                    // TODO: fully recursive arrays
-                    size_t arrayElementSize = getSizeOfArrayElement(table->globalScope, variable);
-                    for (size_t arrayElementIndex = 0; arrayElementIndex < varSize / arrayElementSize; arrayElementIndex++)
-                    {
-                        for (size_t arrayElementByte = 0; arrayElementByte < arrayElementSize; arrayElementByte++)
-                        {
-                            fprintf(outFile, "\t.byte %d\n", variable->type.initializeArrayTo[arrayElementIndex][arrayElementByte]);
-                        }
-                    }
-                }
-                else
-                {
-                    for (size_t variableByte = 0; variableByte < varSize; variableByte++)
-                    {
-                        printf("%c\n", variable->type.initializeTo[variableByte]);
-                        fprintf(outFile, "\t.byte %d\n", variable->type.initializeTo[variableByte]);
-                    }
-                }
-            }
-            else
-            {
-                fprintf(outFile, "\t.zero %zu\n", varSize);
-            }
-
-            fprintf(outFile, ".section .text\n");
+            generateCodeForGlobalVariable(&globalContext, table->globalScope, thisMember->entry);
         }
         break;
 
@@ -186,6 +54,145 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
         }
     }
 };
+
+void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock)
+{
+    // early return if no code to generate
+    if (globalBlock->TACList->size == 0)
+    {
+        return;
+    }
+    // compiled code
+    if (globalBlock->labelNum == 0)
+    {
+        fprintf(globalContext->outFile, ".userstart:\n");
+        struct LinkedList *fakeBlockList = LinkedList_New();
+        LinkedList_Append(fakeBlockList, globalBlock);
+
+        struct LinkedList *globalLifetimes = findLifetimes(globalScope, fakeBlockList);
+        LinkedList_Free(fakeBlockList, NULL);
+        // TODO: defines for default reserved registers? This is for global-scoped code... 0 1 and 2 are definitely not right.
+        u8 reserved[3] = {0, 1, 2};
+
+        generateCodeForBasicBlock(globalContext, globalBlock, globalScope, globalLifetimes, NULL, reserved);
+        LinkedList_Free(globalLifetimes, free);
+    } // assembly block
+    else if (globalBlock->labelNum == 1)
+    {
+
+        fprintf(globalContext->outFile, ".rawasm:\n");
+
+        for (struct LinkedListNode *examinedLine = globalBlock->TACList->head; examinedLine != NULL; examinedLine = examinedLine->next)
+        {
+            struct TACLine *examinedTAC = examinedLine->data;
+            if (examinedTAC->operation != tt_asm)
+            {
+                ErrorAndExit(ERROR_INTERNAL, "Unexpected TAC type %d (%s) seen in global ASM block!\n",
+                             examinedTAC->operation,
+                             getAsmOp(examinedTAC->operation));
+            }
+            fprintf(globalContext->outFile, "%s\n", examinedTAC->operands[0].name.str);
+        }
+    }
+    else
+    {
+        ErrorAndExit(ERROR_INTERNAL, "Unexpected basic block index %zu at global scope!\n", globalBlock->labelNum);
+    }
+}
+
+void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct Scope *globalScope, struct VariableEntry *variable)
+{
+    // early return if the variable is declared as extern, don't emit any code for it
+    if (variable->isExtern)
+    {
+        return;
+    }
+
+    char *varName = variable->name;
+    size_t varSize = getSizeOfType(globalScope, &variable->type);
+
+    if (variable->type.initializeTo != NULL)
+    {
+        if (variable->isStringLiteral) // put string literals in rodata
+        {
+            fprintf(globalContext->outFile, ".section\t.rodata\n");
+        }
+        else // put initialized data in sdata
+        {
+            fprintf(globalContext->outFile, ".section\t.data\n");
+        }
+    }
+    else // put uninitialized data to bss
+    {
+        fprintf(globalContext->outFile, ".section\t.bss\n");
+    }
+
+    fprintf(globalContext->outFile, "\t.globl %s\n", varName);
+
+    u8 alignBits = 0;
+
+    if (variable->type.arraySize > 0)
+    {
+        alignBits = alignSize(getSizeOfArrayElement(globalScope, variable));
+    }
+    else
+    {
+        alignBits = alignSize(varSize);
+    }
+
+    if (alignBits > 0)
+    {
+        fprintf(globalContext->outFile, ".align %d\n", alignBits);
+    }
+
+    fprintf(globalContext->outFile, "\t.type\t%s, @object\n", varName);
+    fprintf(globalContext->outFile, "\t.size \t%s, %zu\n", varName, varSize);
+    fprintf(globalContext->outFile, "%s:\n", varName);
+    if (variable->type.initializeTo != NULL)
+    {
+        if (variable->isStringLiteral)
+        {
+            size_t arrayElementSize = getSizeOfArrayElement(globalScope, variable);
+            if (arrayElementSize != 1)
+            {
+                ErrorAndExit(ERROR_INTERNAL, "Saw array element size of %zu for string literal (expected 1)!\n", arrayElementSize);
+            }
+
+            fprintf(globalContext->outFile, "\t.asciz \"");
+            for (size_t arrayElementIndex = 0; arrayElementIndex < varSize; arrayElementIndex++)
+            {
+                fprintf(globalContext->outFile, "%c", variable->type.initializeArrayTo[arrayElementIndex][0]);
+            }
+            fprintf(globalContext->outFile, "\"\n");
+        }
+        else if (variable->type.arraySize > 0)
+        {
+            // TODO: fully recursive arrays
+            size_t arrayElementSize = getSizeOfArrayElement(globalScope, variable);
+            for (size_t arrayElementIndex = 0; arrayElementIndex < varSize / arrayElementSize; arrayElementIndex++)
+            {
+                for (size_t arrayElementByte = 0; arrayElementByte < arrayElementSize; arrayElementByte++)
+                {
+                    fprintf(globalContext->outFile, "\t.byte %d\n", variable->type.initializeArrayTo[arrayElementIndex][arrayElementByte]);
+                }
+            }
+        }
+        else
+        {
+            for (size_t variableByte = 0; variableByte < varSize; variableByte++)
+            {
+                printf("%c\n", variable->type.initializeTo[variableByte]);
+                fprintf(globalContext->outFile, "\t.byte %d\n", variable->type.initializeTo[variableByte]);
+            }
+        }
+    }
+    else
+    {
+        fprintf(globalContext->outFile, "\t.zero %zu\n", varSize);
+    }
+
+    fprintf(globalContext->outFile, ".section .text\n");
+}
 
 void calleeSaveRegisters(struct CodegenContext *context, struct CodegenMetadata *metadata)
 {

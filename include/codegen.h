@@ -8,11 +8,16 @@ struct SymbolTable;
 struct CodegenContext;
 struct CodegenMetadata;
 struct FunctionEntry;
+struct VariableEntry;
 struct BasicBlock;
 struct Scope;
 struct LinkedList;
 
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile);
+
+void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct Scope* globalScope, struct VariableEntry *variable);
+
+void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock);
 
 void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metadata);
 
