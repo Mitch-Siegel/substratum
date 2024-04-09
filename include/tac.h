@@ -61,6 +61,7 @@ struct TACOperand
         ssize_t val;
     } name;
 
+    size_t ssaNumber;
     struct Type type;
     struct Type castAsType;
     enum variablePermutations permutation; // enum of permutation (standard/temp/literal)

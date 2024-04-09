@@ -8,6 +8,7 @@
 #include "ast.h"
 #include "codegen.h"
 #include "linearizer.h"
+#include "ssa.h"
 #include "substratum_defs.h"
 #include "symtab.h"
 #include "tac.h"
@@ -238,6 +239,9 @@ int main(int argc, char **argv)
         SymbolTable_print(theTable, 1);
         printf("Collapsing scopes\n");
     }
+
+    generateSsa(theTable);
+    ErrorAndExit(ERROR_INTERNAL, "Bail out after generating ssa\n");
 
     SymbolTable_collapseScopes(theTable, parseDict);
 
