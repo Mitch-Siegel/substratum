@@ -120,9 +120,158 @@ void recordVariableRead(struct LinkedList *ltList,
     updatedLifetime->nreads += 1;
 }
 
-struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList)
+void recordLifetimeWriteForOperand(struct LinkedList *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
 {
-    struct LinkedList *lifetimes = LinkedList_New();
+    if ((TACOperand_GetType(operand)->basicType != vt_null) && (operand->permutation != vp_literal))
+    {
+        recordVariableWrite(lifetimes, operand, scope, tacIndex);
+    }
+}
+
+void recordLifetimeReadForOperand(struct LinkedList *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
+{
+    if ((TACOperand_GetType(operand)->basicType != vt_null) && (operand->permutation != vp_literal))
+    {
+        recordVariableRead(lifetimes, operand, scope, tacIndex);
+    }
+}
+
+void findLifetimesForTac(struct LinkedList *lifetimes, struct Scope *scope, struct TACLine *line, struct Stack *doDepth)
+{
+    switch (line->operation)
+    {
+    case tt_do:
+        Stack_Push(doDepth, (void *)(long int)line->index);
+        break;
+
+    case tt_enddo:
+    {
+        size_t extendTo = line->index;
+        size_t extendFrom = (size_t)Stack_Pop(doDepth);
+        for (struct LinkedListNode *lifetimeRunner = lifetimes->head; lifetimeRunner != NULL; lifetimeRunner = lifetimeRunner->next)
+        {
+            struct Lifetime *examinedLifetime = lifetimeRunner->data;
+            if (examinedLifetime->end >= extendFrom && examinedLifetime->end < extendTo)
+            {
+                if (examinedLifetime->name[0] != '.')
+                {
+                    examinedLifetime->end = extendTo + 1;
+                }
+            }
+        }
+    }
+    break;
+
+    case tt_asm:
+        break;
+
+    case tt_call:
+        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
+        break;
+
+    case tt_assign:
+    {
+        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
+    }
+    break;
+
+    // single operand in slot 0
+    case tt_return:
+    case tt_stack_store:
+    {
+        recordLifetimeReadForOperand(lifetimes, &line->operands[0], scope, line->index);
+    }
+    break;
+
+    case tt_add:
+    case tt_subtract:
+    case tt_mul:
+    case tt_div:
+    case tt_modulo:
+    case tt_bitwise_and:
+    case tt_bitwise_or:
+    case tt_bitwise_xor:
+    case tt_bitwise_not:
+    case tt_lshift:
+    case tt_rshift:
+    {
+        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
+
+        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[2], scope, line->index);
+    }
+    break;
+
+    // loading writes the destination, while reading from the pointer
+    case tt_load:
+    case tt_load_off: // load_off uses a literal for operands[2]
+        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
+        break;
+
+    case tt_load_arr:
+        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[2], scope, line->index);
+        break;
+
+    // storing actually reads the variable containing the pionter to the location which the data is written
+    case tt_store:
+        recordLifetimeReadForOperand(lifetimes, &line->operands[0], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
+        break;
+
+    case tt_store_off:
+        recordLifetimeReadForOperand(lifetimes, &line->operands[0], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[2], scope, line->index);
+        break;
+
+    case tt_store_arr:
+        recordLifetimeReadForOperand(lifetimes, &line->operands[0], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[3], scope, line->index);
+        break;
+
+    case tt_addrof:
+        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
+        recordLifetimeWriteForOperand(lifetimes, &line->operands[1], scope, line->index);
+        break;
+
+    case tt_lea_off:
+        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
+        break;
+
+    case tt_lea_arr:
+        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[2], scope, line->index);
+        break;
+
+    case tt_beq:
+    case tt_bne:
+    case tt_bgeu:
+    case tt_bltu:
+    case tt_bgtu:
+    case tt_bleu:
+    case tt_beqz:
+    case tt_bnez:
+    {
+        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
+        recordLifetimeReadForOperand(lifetimes, &line->operands[2], scope, line->index);
+    }
+    break;
+
+    case tt_jmp:
+    case tt_label:
+    case tt_stack_reserve:
+        break;
+    }
+}
+
+void addArgumentLifetimesForScope(struct LinkedList *lifetimes, struct Scope *scope)
+{
     for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
     {
         struct ScopeMember *thisMember = scope->entries->data[entryIndex];
@@ -133,6 +282,13 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
             argLifetime->isArgument = 1;
         }
     }
+}
+
+struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList)
+{
+    struct LinkedList *lifetimes = LinkedList_New();
+
+    addArgumentLifetimesForScope(lifetimes, scope);
 
     struct LinkedListNode *blockRunner = basicBlockList->head;
     struct Stack *doDepth = Stack_New();
@@ -143,179 +299,7 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
         while (TACRunner != NULL)
         {
             struct TACLine *thisLine = TACRunner->data;
-            size_t TACIndex = thisLine->index;
-
-            switch (thisLine->operation)
-            {
-            case tt_do:
-                Stack_Push(doDepth, (void *)(long int)thisLine->index);
-                break;
-
-            case tt_enddo:
-            {
-                size_t extendTo = thisLine->index;
-                size_t extendFrom = (size_t)Stack_Pop(doDepth);
-                for (struct LinkedListNode *lifetimeRunner = lifetimes->head; lifetimeRunner != NULL; lifetimeRunner = lifetimeRunner->next)
-                {
-                    struct Lifetime *examinedLifetime = lifetimeRunner->data;
-                    if (examinedLifetime->end >= extendFrom && examinedLifetime->end < extendTo)
-                    {
-                        if (examinedLifetime->name[0] != '.')
-                        {
-                            examinedLifetime->end = extendTo + 1;
-                        }
-                    }
-                }
-            }
-            break;
-
-            case tt_asm:
-                break;
-
-            case tt_call:
-                if (TAC_GetTypeOfOperand(thisLine, 0)->basicType != vt_null)
-                {
-                    recordVariableWrite(lifetimes, &thisLine->operands[0], scope, TACIndex);
-                }
-                break;
-
-            case tt_assign:
-            {
-                recordVariableWrite(lifetimes, &thisLine->operands[0], scope, TACIndex);
-                switch (thisLine->operands[1].permutation)
-                {
-                case vp_standard:
-                case vp_temp:
-                    recordVariableRead(lifetimes, &thisLine->operands[1], scope, TACIndex);
-                    break;
-
-                case vp_literal:
-                    break;
-                }
-            }
-            break;
-
-            // single operand in slot 0
-            case tt_return:
-            case tt_stack_store:
-            {
-                if (TAC_GetTypeOfOperand(thisLine, 0)->basicType != vt_null)
-                {
-                    switch (thisLine->operands[0].permutation)
-                    {
-                    case vp_standard:
-                    case vp_temp:
-                        recordVariableRead(lifetimes, &thisLine->operands[0], scope, TACIndex);
-                        break;
-
-                    case vp_literal:
-                        break;
-                    }
-                }
-            }
-            break;
-
-            case tt_add:
-            case tt_subtract:
-            case tt_mul:
-            case tt_div:
-            case tt_modulo:
-            case tt_bitwise_and:
-            case tt_bitwise_or:
-            case tt_bitwise_xor:
-            case tt_bitwise_not:
-            case tt_lshift:
-            case tt_rshift:
-            {
-                if (TAC_GetTypeOfOperand(thisLine, 0)->basicType != vt_null)
-                {
-                    recordVariableWrite(lifetimes, &thisLine->operands[0], scope, TACIndex);
-                }
-
-                for (u8 operandIndex = 1; operandIndex < 4; operandIndex++)
-                {
-                    // lifetimes for every permutation except literal
-                    if (thisLine->operands[operandIndex].permutation != vp_literal)
-                    {
-                        // and any type except null
-                        switch (TAC_GetTypeOfOperand(thisLine, operandIndex)->basicType)
-                        {
-                        case vt_null:
-                            break;
-
-                        default:
-                            recordVariableRead(lifetimes, &thisLine->operands[operandIndex], scope, TACIndex);
-                            break;
-                        }
-                    }
-                }
-            }
-            break;
-
-            case tt_load:
-            case tt_load_off:
-            case tt_load_arr:
-            case tt_store:
-            case tt_store_off:
-            case tt_store_arr:
-            case tt_addrof:
-            case tt_lea_off:
-            case tt_lea_arr:
-            {
-                for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
-                {
-                    // lifetimes for every permutation except literal
-                    if (thisLine->operands[operandIndex].permutation != vp_literal)
-                    {
-                        // and any type except null
-                        switch (TAC_GetTypeOfOperand(thisLine, operandIndex)->basicType)
-                        {
-                        case vt_null:
-                            break;
-
-                        default:
-                            recordVariableRead(lifetimes, &thisLine->operands[operandIndex], scope, TACIndex);
-                            break;
-                        }
-                    }
-                }
-            }
-            break;
-
-            case tt_beq:
-            case tt_bne:
-            case tt_bgeu:
-            case tt_bltu:
-            case tt_bgtu:
-            case tt_bleu:
-            case tt_beqz:
-            case tt_bnez:
-            {
-                for (u8 operandIndex = 1; operandIndex < 3; operandIndex++)
-                {
-                    // lifetimes for every permutation except literal
-                    if (thisLine->operands[operandIndex].permutation != vp_literal)
-                    {
-                        // and any type except null
-                        switch (TAC_GetTypeOfOperand(thisLine, operandIndex)->basicType)
-                        {
-                        case vt_null:
-                            break;
-
-                        default:
-                            recordVariableRead(lifetimes, &thisLine->operands[operandIndex], scope, TACIndex);
-                            break;
-                        }
-                    }
-                }
-            }
-            break;
-
-            case tt_jmp:
-            case tt_label:
-            case tt_stack_reserve:
-                break;
-            }
+            findLifetimesForTac(lifetimes, scope, thisLine, doDepth);
             TACRunner = TACRunner->next;
         }
         blockRunner = blockRunner->next;
