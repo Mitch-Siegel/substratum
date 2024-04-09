@@ -126,6 +126,13 @@ struct TACLine *walkMemberAccess(struct AST *tree,
                                  struct TACOperand *srcDestOperand,
                                  size_t depth);
 
+void walkNonPointerArithmetic(struct AST *tree,
+                              struct BasicBlock *block,
+                              struct Scope *scope,
+                              size_t *TACIndex,
+                              size_t *tempNum,
+                              struct TACLine *expression);
+
 struct TACOperand *walkExpression(struct AST *tree,
                                   struct BasicBlock *block,
                                   struct Scope *scope,

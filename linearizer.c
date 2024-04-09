@@ -2087,6 +2087,89 @@ struct TACLine *walkMemberAccess(struct AST *tree,
     return accessLine;
 }
 
+void walkNonPointerArithmetic(struct AST *tree,
+                              struct BasicBlock *block,
+                              struct Scope *scope,
+                              size_t *TACIndex,
+                              size_t *tempNum,
+                              struct TACLine *expression)
+{
+    if (currentVerbosity == VERBOSITY_MAX)
+    {
+        printf("walkNonPointerArithmetic: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+    }
+
+    switch (tree->type)
+    {
+    case t_multiply:
+        expression->reorderable = 1;
+        expression->operation = tt_mul;
+        break;
+
+    case t_bitwise_and:
+        expression->reorderable = 1;
+        expression->operation = tt_bitwise_and;
+        break;
+
+    case t_bitwise_or:
+        expression->reorderable = 1;
+        expression->operation = tt_bitwise_or;
+        break;
+
+    case t_bitwise_xor:
+        expression->reorderable = 1;
+        expression->operation = tt_bitwise_xor;
+        break;
+
+    case t_bitwise_not:
+        expression->reorderable = 1;
+        expression->operation = tt_bitwise_not;
+        break;
+
+    case t_divide:
+        expression->operation = tt_div;
+        break;
+
+    case t_modulo:
+        expression->operation = tt_modulo;
+        break;
+
+    case t_lshift:
+        expression->operation = tt_lshift;
+        break;
+
+    case t_rshift:
+        expression->operation = tt_rshift;
+        break;
+
+    default:
+        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkNonPointerArithmetic!\n", getTokenName(tree->type));
+        break;
+    }
+
+    walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &expression->operands[1]);
+    walkSubExpression(tree->child->sibling, block, scope, TACIndex, tempNum, &expression->operands[2]);
+
+    for (u8 operandIndex = 1; operandIndex < 2; operandIndex++)
+    {
+        struct Type *checkedType = TAC_GetTypeOfOperand(expression, operandIndex);
+        if ((checkedType->indirectionLevel > 0) || (checkedType->arraySize > 0))
+        {
+            char *typeName = Type_GetName(checkedType);
+            ErrorWithAST(ERROR_CODE, tree->child, "Arithmetic operation attempted on type %s, %s is only allowed on non-indirect types", typeName, tree->value);
+        }
+    }
+
+    if (getSizeOfType(scope, TAC_GetTypeOfOperand(expression, 1)) > getSizeOfType(scope, TAC_GetTypeOfOperand(expression, 2)))
+    {
+        copyTACOperandTypeDecayArrays(&expression->operands[0], &expression->operands[1]);
+    }
+    else
+    {
+        copyTACOperandTypeDecayArrays(&expression->operands[0], &expression->operands[2]);
+    }
+}
+
 struct TACOperand *walkExpression(struct AST *tree,
                                   struct BasicBlock *block,
                                   struct Scope *scope,
@@ -2104,90 +2187,35 @@ struct TACOperand *walkExpression(struct AST *tree,
     expression->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
     expression->operands[0].permutation = vp_temp;
 
-    char fallingThrough = 0;
+    u8 fallingThrough = 0;
 
     switch (tree->type)
     {
     // basic arithmetic
-    case t_add:
-        expression->reorderable = 1;
-        expression->operation = tt_add;
-        fallingThrough = 1;
-        // fall through, having set to plus and reorderable
     case t_multiply:
-        if (!fallingThrough)
-        {
-            expression->reorderable = 1;
-            expression->operation = tt_mul;
-            fallingThrough = 1;
-        }
-        // fall through
     case t_bitwise_and:
-        if (!fallingThrough)
-        {
-            expression->reorderable = 1;
-            expression->operation = tt_bitwise_and;
-            fallingThrough = 1;
-        }
-        // fall through
     case t_bitwise_or:
-        if (!fallingThrough)
-        {
-            expression->reorderable = 1;
-            expression->operation = tt_bitwise_or;
-            fallingThrough = 1;
-        }
-        // fall through
     case t_bitwise_xor:
-        if (!fallingThrough)
-        {
-            expression->reorderable = 1;
-            expression->operation = tt_bitwise_xor;
-            fallingThrough = 1;
-        }
-        // fall through
     case t_bitwise_not:
-        if (!fallingThrough)
-        {
-            expression->reorderable = 1;
-            expression->operation = tt_bitwise_not;
-            fallingThrough = 1;
-        }
-        // fall through
     case t_divide:
-        if (!fallingThrough)
-        {
-            expression->operation = tt_div;
-            fallingThrough = 1;
-        }
-        // fall through
-
     case t_modulo:
-        if (!fallingThrough)
-        {
-            expression->operation = tt_modulo;
-            fallingThrough = 1;
-        }
-        // fall through
-
     case t_lshift:
-        if (!fallingThrough)
-        {
-            expression->operation = tt_lshift;
-            fallingThrough = 1;
-        }
-        // fall through
-
     case t_rshift:
-        if (!fallingThrough)
-        {
-            expression->operation = tt_rshift;
-            fallingThrough = 1;
-        }
-        // fall through
+        walkNonPointerArithmetic(tree, block, scope, TACIndex, tempNum, expression);
+        break;
 
+    case t_add:
+        expression->operation = tt_add;
+        expression->reorderable = 1;
+        fallingThrough = 1;
     case t_subtract:
     {
+        if(!fallingThrough)
+        {
+            expression->operation = tt_subtract;
+            fallingThrough = 1;
+        }
+
         walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &expression->operands[1]);
 
         if (TAC_GetTypeOfOperand(expression, 1)->indirectionLevel > 0)
@@ -2214,7 +2242,7 @@ struct TACOperand *walkExpression(struct AST *tree,
         }
 
         // TODO generate errors for bad pointer arithmetic here
-        if (getSizeOfType(scope, &operandA->type) > getSizeOfType(scope, &operandB->type))
+        if (getSizeOfType(scope, TACOperand_GetType(operandA)) > getSizeOfType(scope, TACOperand_GetType(operandB)))
         {
             copyTACOperandTypeDecayArrays(&expression->operands[0], operandA);
         }
