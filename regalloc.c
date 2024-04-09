@@ -1,30 +1,109 @@
 #include "regalloc.h"
-#include "regalloc_generic.h"
+
+#include <string.h>
+
 #include "codegen_generic.h"
+#include "regalloc_generic.h"
+#include "symtab.h"
+#include "util.h"
 
 // return the heuristic for how good a given lifetime is to spill - lower is better
-int lifetimeHeuristic(struct Lifetime *lt)
+size_t lifetimeHeuristic(struct Lifetime *lifetime)
 {
+    const size_t argumentSpillHeuristicMultiplier = 10;
     // base heuristic is lifetime length
-    int h = lt->end - lt->start;
+    size_t heuristic = lifetime->end - lifetime->start;
     // add the number of reads for this variable since they have some cost
-    h += lt->nreads;
+    heuristic += lifetime->nreads;
     // multiply by number of writes for this variable since that is a high-cost operation
-    h *= lt->nwrites;
+    heuristic *= lifetime->nwrites;
 
     // inflate heuristics for cases which have no actual stack space cost to spill:
     // super-prefer to "spill" arguments as they already have a stack address
-    if (!lt->isArgument)
+    if (!lifetime->isArgument)
     {
-        h *= 10;
+        heuristic *= argumentSpillHeuristicMultiplier;
     }
 
-    return h;
+    return heuristic;
 }
 
-void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurrentLifetimes)
+void printRegisterLifetimes(struct CodegenMetadata *metadata)
 {
-    int MAXREG = MACHINE_REGISTER_COUNT - 2;
+    printf("These lifetimes get a register: ");
+    for (struct LinkedListNode *runner = metadata->registerLifetimes->head; runner != NULL; runner = runner->next)
+    {
+        struct Lifetime *getsRegister = runner->data;
+        printf("%s, ", getsRegister->name);
+    }
+    printf("\n");
+}
+
+void removeNonContendingLifetimes(struct CodegenMetadata *metadata)
+{
+    // iterate all TAC indices, remove variables not in contention for a register
+    for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
+    {
+        struct LinkedList *activeLifetimesThisIndex = metadata->lifetimeOverlaps[tacIndex];
+        struct LinkedListNode *runner = activeLifetimesThisIndex->head;
+        while (runner != NULL)
+        {
+            struct Lifetime *examinedLifetime = runner->data;
+            runner = runner->next; // drive the iterator here so our potential linkedlist_delete below doesn't invalidate/free it
+
+            // if we already know where the lifetime will end up, it is trivially not in contention for a register
+            if (examinedLifetime->wbLocation != wb_unknown)
+            {
+                // remove (from all indices) the lifetime we will no longer consider for a register
+                for (size_t removeTacIndex = 0; removeTacIndex <= metadata->largestTacIndex; removeTacIndex++)
+                {
+                    if (LinkedList_Find(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, examinedLifetime->name) != NULL)
+                    {
+                        LinkedList_Delete(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, examinedLifetime->name);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// spill the lifetime with the most optimal heuristic from activeLifetimesThisIndex
+void spillAtIndex(struct CodegenMetadata *metadata, struct LinkedList *activeLifetimesThisIndex)
+{
+    // loop over all lifetimes, find the one with the best heuristic to spill
+    struct Lifetime *bestToSpill = NULL;
+    size_t bestHeuristic = SIZE_MAX;
+    for (struct LinkedListNode *runner = activeLifetimesThisIndex->head; runner != NULL; runner = runner->next)
+    {
+        struct Lifetime *examinedLifetime = runner->data;
+        size_t thisHeuristic = lifetimeHeuristic(examinedLifetime);
+        if (thisHeuristic < bestHeuristic)
+        {
+            bestToSpill = examinedLifetime;
+            bestHeuristic = thisHeuristic;
+        }
+    }
+
+    if (bestToSpill == NULL)
+    {
+        ErrorAndExit(ERROR_INTERNAL, "Couldn't choose lifetime to spill!\n");
+    }
+
+    // now that it's not in contention for a register, we know it will go on the stack
+    bestToSpill->wbLocation = wb_stack;
+    // remove (from all indices) the lifetime we will no longer consider for a register
+    for (size_t removeTacIndex = 0; removeTacIndex <= metadata->largestTacIndex; removeTacIndex++)
+    {
+        if (LinkedList_Find(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, bestToSpill->name) != NULL)
+        {
+            LinkedList_Delete(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, bestToSpill->name);
+        }
+    }
+}
+
+void selectRegisterVariables(struct CodegenMetadata *metadata, size_t mostConcurrentLifetimes)
+{
+    u8 MAXREG = MACHINE_REGISTER_COUNT - 2;
     metadata->reservedRegisters[0] = TEMP_0;
     metadata->touchedRegisters[TEMP_0] = 1;
     metadata->reservedRegisters[1] = TEMP_1;
@@ -36,75 +115,28 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
 
     metadata->registerLifetimes = LinkedList_New();
 
-    // iterate all TAC indices, remove variables we must spill from contention for a register
-    for (int tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
-    {
-        struct LinkedList *activeLifetimesThisIndex = metadata->lifetimeOverlaps[tacIndex];
-        struct LinkedListNode *runner = activeLifetimesThisIndex->head;
-        while (runner != NULL)
-        {
-            struct Lifetime *examinedLifetime = runner->data;
-            runner = runner->next; // drive the iterator here so our potential linkedlist_delete below doesn't invalidate/free it
+    // remove any lifetimes which we already know the location of
+    removeNonContendingLifetimes(metadata);
 
-            if (examinedLifetime->wbLocation != wb_unknown)
-            {
-                // remove (from all indices) the lifetime we will no longer consider for a register
-                for (int removeTacIndex = 0; removeTacIndex <= metadata->largestTacIndex; removeTacIndex++)
-                {
-                    if (LinkedList_Find(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, examinedLifetime->name) != NULL)
-                    {
-                        LinkedList_Delete(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, examinedLifetime->name);
-                    }
-                }
-            }
-        }
-    }
-
-    // iterate all TAC indices
-    for (int tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
+    // iterate all TAC indices, selecting which lifetimes will be spilled if too many are in contention for registers
+    for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
     {
         struct LinkedList *activeLifetimesThisIndex = metadata->lifetimeOverlaps[tacIndex];
         // while too many lifetimes are in contention for a register at this index
         while (activeLifetimesThisIndex->size > MAXREG)
         {
-            // loop over all lifetimes, find the one with the best heuristic to spill
-            struct Lifetime *bestToSpill = NULL;
-            int bestHeuristic = __INT_MAX__;
-            for (struct LinkedListNode *runner = activeLifetimesThisIndex->head; runner != NULL; runner = runner->next)
-            {
-                struct Lifetime *examinedLifetime = runner->data;
-                int thisHeuristic = lifetimeHeuristic(examinedLifetime);
-                if (thisHeuristic < bestHeuristic)
-                {
-                    bestToSpill = examinedLifetime;
-                    bestHeuristic = thisHeuristic;
-                }
-            }
-
-            if (bestToSpill == NULL)
-            {
-                ErrorAndExit(ERROR_INTERNAL, "Couldn't choose lifetime to spill!\n");
-            }
-
-            bestToSpill->wbLocation = wb_stack;
-            // remove (from all indices) the lifetime we will no longer consider for a register
-            for (int removeTacIndex = 0; removeTacIndex <= metadata->largestTacIndex; removeTacIndex++)
-            {
-                if (LinkedList_Find(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, bestToSpill->name) != NULL)
-                {
-                    LinkedList_Delete(metadata->lifetimeOverlaps[removeTacIndex], compareLifetimes, bestToSpill->name);
-                }
-            }
+            spillAtIndex(metadata, activeLifetimesThisIndex);
         }
     }
 
-    for (int tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
+    // at this point, we know that we have at least enough registers to allocate one for each lifetime remaining in metadata->lifetimeOverlaps
+    for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
     {
         struct LinkedList *activeLifetimesThisIndex = metadata->lifetimeOverlaps[tacIndex];
         for (struct LinkedListNode *runner = activeLifetimesThisIndex->head; runner != NULL; runner = runner->next)
         {
             struct Lifetime *addedLifetime = runner->data;
-
+            // if we find a a lifetime which has not been added to the registerLifetimes list, put it there
             if (LinkedList_Find(metadata->registerLifetimes, compareLifetimes, addedLifetime->name) == NULL)
             {
                 addedLifetime->wbLocation = wb_register;
@@ -115,13 +147,23 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, int mostConcurren
 
     if (currentVerbosity == VERBOSITY_MAX)
     {
-        printf("These lifetimes get a register: ");
-        for (struct LinkedListNode *runner = metadata->registerLifetimes->head; runner != NULL; runner = runner->next)
+        printRegisterLifetimes(metadata);
+    }
+}
+
+void freeExpiringRegisters(u8 registers[MACHINE_REGISTER_COUNT], struct Lifetime *occupiedBy[MACHINE_REGISTER_COUNT], size_t index)
+{
+    u8 scannedRegister = START_ALLOCATING_FROM;
+
+    // free any registers inhabited by expired lifetimes
+    for (; scannedRegister < MACHINE_REGISTER_COUNT; scannedRegister++)
+    {
+        if (occupiedBy[scannedRegister] != NULL && occupiedBy[scannedRegister]->end <= index)
         {
-            struct Lifetime *getsRegister = runner->data;
-            printf("%s, ", getsRegister->name);
+            // printf("%s expires at %d\n", occupiedBy[j]->name, i);
+            registers[scannedRegister] = 0;
+            occupiedBy[scannedRegister] = NULL;
         }
-        printf("\n");
     }
 }
 
@@ -129,51 +171,41 @@ void assignRegisters(struct CodegenMetadata *metadata)
 {
     // printf("\nassigning registers\n");
     // flag registers in use at any given TAC index so we can easily assign
-    char registers[MACHINE_REGISTER_COUNT];
+    u8 registers[MACHINE_REGISTER_COUNT];
     struct Lifetime *occupiedBy[MACHINE_REGISTER_COUNT];
 
-    for (int i = 0; i < MACHINE_REGISTER_COUNT; i++)
+    for (u8 reg = 0; reg < MACHINE_REGISTER_COUNT; reg++)
     {
-        registers[i] = 0;
-        occupiedBy[i] = NULL;
+        registers[reg] = 0;
+        occupiedBy[reg] = NULL;
     }
 
-    for (int i = 0; i <= metadata->largestTacIndex; i++)
+    for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
     {
-        int j = START_ALLOCATING_FROM;
-
-        // free any registers inhabited by expired lifetimes
-        for (; j < MACHINE_REGISTER_COUNT; j++)
-        {
-            if (occupiedBy[j] != NULL && occupiedBy[j]->end <= i)
-            {
-                // printf("%s expires at %d\n", occupiedBy[j]->name, i);
-                registers[j] = 0;
-                occupiedBy[j] = NULL;
-            }
-        }
+        // free up registers which contain lifetimes expiring at this index
+        freeExpiringRegisters(registers, occupiedBy, tacIndex);
 
         // iterate all lifetimes and assign newly-live ones to a register
         for (struct LinkedListNode *ltRunner = metadata->registerLifetimes->head; ltRunner != NULL; ltRunner = ltRunner->next)
         {
             struct Lifetime *thisLifetime = ltRunner->data;
-            if ((thisLifetime->start == i) && // if the lifetime starts at this step
-                (!thisLifetime->inRegister))  // lifetime doesn't yet have a register
+            if ((thisLifetime->start == tacIndex) && // if the lifetime starts at this step
+                (!thisLifetime->inRegister))         // lifetime doesn't yet have a register
             {
                 char registerFound = 0;
                 // scan through all registers, looking for an unoccupied one
-                for (int k = START_ALLOCATING_FROM; k < MACHINE_REGISTER_COUNT; k++)
+                for (u8 reg = START_ALLOCATING_FROM; reg < MACHINE_REGISTER_COUNT; reg++)
                 {
-                    if (registers[k] == 0)
+                    if (registers[reg] == 0)
                     {
                         // printf("\tAssign register %d for variable %s\n", k, thisLifetime->name);
-                        thisLifetime->registerLocation = k;
+                        thisLifetime->registerLocation = reg;
                         thisLifetime->inRegister = 1;
                         thisLifetime->onStack = 0;
 
-                        registers[k] = 1;
-                        occupiedBy[k] = thisLifetime;
-                        metadata->touchedRegisters[k] = 1;
+                        registers[reg] = 1;
+                        occupiedBy[reg] = thisLifetime;
+                        metadata->touchedRegisters[reg] = 1;
                         registerFound = 1;
                         break;
                     }
@@ -197,10 +229,10 @@ void assignRegisters(struct CodegenMetadata *metadata)
     metadata->registerLifetimes = NULL;
 }
 
-void assignStackSpace(struct CodegenMetadata *m)
+void assignStackSpace(struct CodegenMetadata *metadata)
 {
     struct Stack *needStackSpace = Stack_New();
-    for (struct LinkedListNode *runner = m->allLifetimes->head; runner != NULL; runner = runner->next)
+    for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
     {
         struct Lifetime *examined = runner->data;
         // we assign stack space after allocating registers for local variables
@@ -213,18 +245,18 @@ void assignStackSpace(struct CodegenMetadata *m)
 
     if (currentVerbosity > VERBOSITY_SILENT)
     {
-        printf("%d variables need stack space\n", needStackSpace->size);
+        printf("%zu variables need stack space\n", needStackSpace->size);
     }
 
     // simple bubble sort the things that need stack space by their size
-    for (int i = 0; i < needStackSpace->size; i++)
+    for (size_t i = 0; i < needStackSpace->size; i++)
     {
-        for (int j = 0; j < needStackSpace->size - i - 1; j++)
+        for (size_t j = 0; j < needStackSpace->size - i - 1; j++)
         {
             struct Lifetime *thisLifetime = needStackSpace->data[j];
 
-            int thisSize = Scope_getSizeOfType(m->function->mainScope, &thisLifetime->type);
-            int compSize = Scope_getSizeOfType(m->function->mainScope, &(((struct Lifetime *)needStackSpace->data[j + 1])->type));
+            size_t thisSize = getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+            size_t compSize = getSizeOfType(metadata->function->mainScope, &(((struct Lifetime *)needStackSpace->data[j + 1])->type));
 
             if (thisSize < compSize)
             {
@@ -235,25 +267,30 @@ void assignStackSpace(struct CodegenMetadata *m)
         }
     }
 
-    for (int i = 0; i < needStackSpace->size; i++)
+    for (size_t lifetimeIndex = 0; lifetimeIndex < needStackSpace->size; lifetimeIndex++)
     {
-        struct Lifetime *thisLifetime = needStackSpace->data[i];
+        struct Lifetime *thisLifetime = needStackSpace->data[lifetimeIndex];
         if (thisLifetime->isArgument)
         {
-            struct VariableEntry *argumentEntry = Scope_lookupVarByString(m->function->mainScope, thisLifetime->name);
+            struct VariableEntry *argumentEntry = lookupVarByString(metadata->function->mainScope, thisLifetime->name);
             thisLifetime->stackLocation = argumentEntry->stackOffset;
         }
         else
         {
-            m->localStackSize += Scope_ComputePaddingForAlignment(m->function->mainScope, &thisLifetime->type, m->localStackSize);
-            m->localStackSize += Scope_getSizeOfType(m->function->mainScope, &thisLifetime->type);
-            thisLifetime->stackLocation = -1 * m->localStackSize;
+            metadata->localStackSize += Scope_ComputePaddingForAlignment(metadata->function->mainScope, &thisLifetime->type, metadata->localStackSize);
+            metadata->localStackSize += getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+            if (metadata->localStackSize > I64_MAX)
+            {
+                // TODO: implementation dependent size of size_t
+                ErrorAndExit(ERROR_INTERNAL, "Function %s has arg stack size too large (%zd bytes)!\n", metadata->function->name, metadata->localStackSize);
+            }
+            thisLifetime->stackLocation = -1 * (ssize_t)metadata->localStackSize;
         }
     }
 
-    while (m->localStackSize % MACHINE_REGISTER_SIZE_BYTES)
+    while (metadata->localStackSize % MACHINE_REGISTER_SIZE_BYTES)
     {
-        m->localStackSize++;
+        metadata->localStackSize++;
     }
 
     if (currentVerbosity > VERBOSITY_SILENT)
@@ -262,6 +299,148 @@ void assignStackSpace(struct CodegenMetadata *m)
     }
 
     Stack_Free(needStackSpace);
+}
+
+void printLifetimes(struct CodegenMetadata *metadata)
+{
+    printf("\nLifetimes for %s\n", metadata->function->name);
+    for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
+    {
+        struct Lifetime *examinedLifetime = runner->data;
+        char wbLocName = '?';
+        switch (examinedLifetime->wbLocation)
+        {
+        case wb_register:
+            wbLocName = 'R';
+            break;
+
+        case wb_stack:
+            wbLocName = 'S';
+            break;
+
+        case wb_global:
+            wbLocName = 'G';
+            break;
+
+        case wb_unknown:
+            wbLocName = '?';
+            break;
+        }
+        char *typeName = Type_GetName(&examinedLifetime->type);
+        printf("%40s (%10s)(wb:%c)(%2zu-%2zu): ", examinedLifetime->name, typeName, wbLocName,
+               examinedLifetime->start, examinedLifetime->end);
+        free(typeName);
+        for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
+        {
+            if (tacIndex >= examinedLifetime->start && tacIndex <= examinedLifetime->end)
+            {
+                printf("*");
+            }
+            else
+            {
+                printf(" ");
+            }
+        }
+        printf("\n");
+    }
+}
+
+void printStackFootprint(struct CodegenMetadata *metadata)
+{
+    // print the function's stack footprint
+    {
+        struct Stack *stackLayout = Stack_New();
+        for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
+        {
+            struct Lifetime *examined = runner->data;
+            if (examined->onStack)
+            {
+                Stack_Push(stackLayout, examined);
+            }
+        }
+
+        // simple bubble sort the things that are on the stack by their address
+        for (size_t i = 0; i < stackLayout->size; i++)
+        {
+            for (size_t j = 0; j < stackLayout->size - i - 1; j++)
+            {
+                struct Lifetime *thisLifetime = stackLayout->data[j];
+
+                ssize_t thisAddr = thisLifetime->stackLocation;
+                ssize_t compAddr = ((struct Lifetime *)stackLayout->data[j + 1])->stackLocation;
+
+                if (thisAddr < compAddr)
+                {
+                    struct Lifetime *swap = stackLayout->data[j];
+                    stackLayout->data[j] = stackLayout->data[j + 1];
+                    stackLayout->data[j + 1] = swap;
+                }
+            }
+        }
+
+        char crossedZero = 0;
+        for (size_t lifetimeIndex = 0; lifetimeIndex < stackLayout->size; lifetimeIndex++)
+        {
+            struct Lifetime *thisLifetime = stackLayout->data[lifetimeIndex];
+            if ((!crossedZero) && (thisLifetime->stackLocation < 0))
+            {
+                printf("SAVED BP\nSAVED BP\nSAVED BP\nSAVED BP\n");
+                printf("RETURN ADDRESSS\nRETURN ADDRESSS\nRETURN ADDRESSS\nRETURN ADDRESSS\n");
+                printf("---------BASE POINTER POINTS HERE--------\n");
+                crossedZero = 1;
+            }
+            size_t size = getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+            if (thisLifetime->type.arraySize > 0)
+            {
+                size_t elementSize = size / thisLifetime->type.arraySize;
+                for (size_t j = 0; j < size; j++)
+                {
+                    printf("%s[%lu]\n", thisLifetime->name, j / elementSize);
+                }
+            }
+            else
+            {
+                for (size_t j = 0; j < size; j++)
+                {
+                    printf("%s\n", thisLifetime->name);
+                }
+            }
+        }
+
+        Stack_Free(stackLayout);
+    }
+}
+
+void printVariableLocations(struct CodegenMetadata *metadata)
+{
+    printf("Final roundup of variables and where they live:\n");
+    printf("Local stack footprint: %zu bytes\n", metadata->localStackSize);
+    for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
+    {
+        struct Lifetime *examined = runner->data;
+        if (examined->inRegister)
+        {
+            if (examined->onStack)
+            {
+                printf("&%-19s: %%r%d\n", examined->name, examined->registerLocation);
+            }
+            else
+            {
+                printf("%-20s: %%r%d\n", examined->name, examined->registerLocation);
+            }
+        }
+        if (examined->onStack)
+        {
+            if (examined->stackLocation > 0)
+            {
+                printf("%-20s: %%bp+%2zd - %%bp+%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + getSizeOfType(metadata->function->mainScope, &examined->type));
+            }
+            else
+            {
+                printf("%-20s: %%bp%2zd - %%bp%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + getSizeOfType(metadata->function->mainScope, &examined->type));
+            }
+        }
+    }
 }
 
 void allocateRegisters(struct CodegenMetadata *metadata)
@@ -292,12 +471,12 @@ void allocateRegisters(struct CodegenMetadata *metadata)
 
     // generate an array of lists corresponding to which lifetimes are active at a given TAC step by index in the array
     metadata->lifetimeOverlaps = malloc((metadata->largestTacIndex + 1) * sizeof(struct LinkedList *));
-    for (int i = 0; i <= metadata->largestTacIndex; i++)
+    for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
     {
-        metadata->lifetimeOverlaps[i] = LinkedList_New();
+        metadata->lifetimeOverlaps[tacIndex] = LinkedList_New();
     }
 
-    int mostConcurrentLifetimes = generateLifetimeOverlaps(metadata);
+    size_t mostConcurrentLifetimes = generateLifetimeOverlaps(metadata);
 
     // printf("at most %d concurrent lifetimes\n", mostConcurrentLifetimes);
 
@@ -313,152 +492,24 @@ void allocateRegisters(struct CodegenMetadata *metadata)
 
     if (currentVerbosity == VERBOSITY_MAX)
     {
-        printf("\nLifetimes for %s\n", metadata->function->name);
-        for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
-        {
-            struct Lifetime *examinedLifetime = runner->data;
-            char wbLocName = '?';
-            switch (examinedLifetime->wbLocation)
-            {
-            case wb_register:
-                wbLocName = 'R';
-                break;
-
-            case wb_stack:
-                wbLocName = 'S';
-                break;
-
-            case wb_global:
-                wbLocName = 'G';
-                break;
-
-            case wb_unknown:
-                wbLocName = '?';
-                break;
-            }
-            char *typeName = Type_GetName(&examinedLifetime->type);
-            printf("%40s (%10s)(wb:%c)(%2d-%2d): ", examinedLifetime->name, typeName, wbLocName,
-                   examinedLifetime->start, examinedLifetime->end);
-            free(typeName);
-            for (int i = 0; i <= metadata->largestTacIndex; i++)
-            {
-                if (i >= examinedLifetime->start && i <= examinedLifetime->end)
-                {
-                    printf("*");
-                }
-                else
-                {
-                    printf(" ");
-                }
-            }
-            printf("\n");
-        }
+        printLifetimes(metadata);
     }
 
     assignStackSpace(metadata);
 
     if (currentVerbosity == VERBOSITY_MAX)
     {
-        // print the function's stack footprint
-        {
-            struct Stack *stackLayout = Stack_New();
-            for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
-            {
-                struct Lifetime *examined = runner->data;
-                if (examined->onStack)
-                {
-                    Stack_Push(stackLayout, examined);
-                }
-            }
-
-            // simple bubble sort the things that are on the stack by their address
-            for (int i = 0; i < stackLayout->size; i++)
-            {
-                for (int j = 0; j < stackLayout->size - i - 1; j++)
-                {
-                    struct Lifetime *thisLifetime = stackLayout->data[j];
-
-                    int thisAddr = thisLifetime->stackLocation;
-                    int compAddr = ((struct Lifetime *)stackLayout->data[j + 1])->stackLocation;
-
-                    if (thisAddr < compAddr)
-                    {
-                        struct Lifetime *swap = stackLayout->data[j];
-                        stackLayout->data[j] = stackLayout->data[j + 1];
-                        stackLayout->data[j + 1] = swap;
-                    }
-                }
-            }
-
-            char crossedZero = 0;
-            for (int i = 0; i < stackLayout->size; i++)
-            {
-                struct Lifetime *thisLifetime = stackLayout->data[i];
-                if ((!crossedZero) && (thisLifetime->stackLocation < 0))
-                {
-                    printf("SAVED BP\nSAVED BP\nSAVED BP\nSAVED BP\n");
-                    printf("RETURN ADDRESSS\nRETURN ADDRESSS\nRETURN ADDRESSS\nRETURN ADDRESSS\n");
-                    printf("---------BASE POINTER POINTS HERE--------\n");
-                    crossedZero = 1;
-                }
-                int size = Scope_getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
-                if (thisLifetime->type.arraySize > 0)
-                {
-                    int elementSize = size / thisLifetime->type.arraySize;
-                    for (int j = 0; j < size; j++)
-                    {
-                        printf("%s[%d]\n", thisLifetime->name, j / elementSize);
-                    }
-                }
-                else
-                {
-                    for (int j = 0; j < size; j++)
-                    {
-                        printf("%s\n", thisLifetime->name);
-                    }
-                }
-            }
-
-            Stack_Free(stackLayout);
-        }
+        printStackFootprint(metadata);
     }
 
     if (currentVerbosity > VERBOSITY_SILENT)
     {
-        printf("Final roundup of variables and where they live:\n");
-        printf("Local stack footprint: %d bytes\n", metadata->localStackSize);
-        for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
-        {
-            struct Lifetime *examined = runner->data;
-            if (examined->inRegister)
-            {
-                if (examined->onStack)
-                {
-                    printf("&%-19s: %%r%d\n", examined->name, examined->registerLocation);
-                }
-                else
-                {
-                    printf("%-20s: %%r%d\n", examined->name, examined->registerLocation);
-                }
-            }
-            if (examined->onStack)
-            {
-                if (examined->stackLocation > 0)
-                {
-                    printf("%-20s: %%bp+%2d - %%bp+%2d\n", examined->name, examined->stackLocation, examined->stackLocation + Scope_getSizeOfType(metadata->function->mainScope, &examined->type));
-                }
-                else
-                {
-                    printf("%-20s: %%bp%2d - %%bp%2d\n", examined->name, examined->stackLocation, examined->stackLocation + Scope_getSizeOfType(metadata->function->mainScope, &examined->type));
-                }
-            }
-        }
+        printVariableLocations(metadata);
     }
 
-
-    for (int i = START_ALLOCATING_FROM; i < MACHINE_REGISTER_COUNT; i++)
+    for (u8 reg = START_ALLOCATING_FROM; reg < MACHINE_REGISTER_COUNT; reg++)
     {
-        if (metadata->touchedRegisters[i])
+        if (metadata->touchedRegisters[reg])
         {
             metadata->calleeSaveStackSize += MACHINE_REGISTER_SIZE_BYTES;
             metadata->nRegistersCalleeSaved++;
