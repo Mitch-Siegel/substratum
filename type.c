@@ -26,22 +26,20 @@ int Type_Compare(struct Type *typeA, struct Type *typeB)
     return 0;
 }
 
-int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
+int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum basicTypes basicTypeB)
 {
-    const int cantWiden = 1;
-    const int indirectionMismatch = 2;
-
     int retVal = 0;
-    if (typeA->basicType != typeB->basicType)
+    const int cantWiden = 1;
+    if (basicTypeA != basicTypeB)
     {
-        switch (typeA->basicType)
+        switch (basicTypeA)
         {
         case vt_null:
             retVal = cantWiden;
             break;
 
         case vt_any:
-            switch (typeB->basicType)
+            switch (basicTypeB)
             {
             case vt_null:
                 retVal = cantWiden;
@@ -57,7 +55,7 @@ int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
             break;
 
         case vt_u8:
-            switch (typeB->basicType)
+            switch (basicTypeB)
             {
             case vt_null:
             case vt_class:
@@ -73,7 +71,7 @@ int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
             break;
 
         case vt_u16:
-            switch (typeB->basicType)
+            switch (basicTypeB)
             {
             case vt_null:
             case vt_u8:
@@ -89,7 +87,7 @@ int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
             break;
 
         case vt_u32:
-            switch (typeB->basicType)
+            switch (basicTypeB)
             {
             case vt_null:
             case vt_u8:
@@ -106,7 +104,7 @@ int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
             break;
 
         case vt_u64:
-            switch (typeB->basicType)
+            switch (basicTypeB)
             {
             case vt_null:
             case vt_u8:
@@ -123,7 +121,7 @@ int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
             break;
 
         case vt_class:
-            switch (typeB->basicType)
+            switch (basicTypeB)
             {
             case vt_null:
             case vt_u8:
@@ -138,7 +136,14 @@ int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
             }
         }
     }
+    return retVal;
+}
 
+int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
+{
+    const int indirectionMismatch = 2;
+
+    int retVal = Type_CompareBasicTypeAllowImplicitWidening(typeA->basicType, typeB->basicType);
     if (retVal)
     {
         return retVal;

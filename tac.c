@@ -200,12 +200,15 @@ char *sPrintTACOperands(struct TACLine *line)
     return operandString;
 }
 
+ssize_t sPrintArithmeticOperation(char *tacString, ssize_t width, char *operationStr, struct TACOperand operands[3])
+{
+    return sprintf(tacString + width, "%s = %s %s %s", operands[0].name.str, operands[1].name.str, operationStr, operands[2].name.str);
+}
+
 char *sPrintTACLine(struct TACLine *line)
 {
     const u32 sprintTacLineLength = 128;
-    char *operationStr;
     char *tacString = malloc(sprintTacLineLength * sizeof(char));
-    char fallingThrough = 0;
     ssize_t width = sprintf(tacString, "%2lx:", line->index);
     switch (line->operation)
     {
@@ -214,66 +217,43 @@ char *sPrintTACLine(struct TACLine *line)
         break;
 
     case tt_add:
-        if (!fallingThrough)
-        {
-            operationStr = "+";
-            fallingThrough = 1;
-        }
-    case tt_subtract:
-        if (!fallingThrough)
-        {
-            operationStr = "-";
-            fallingThrough = 1;
-        }
-    case tt_mul:
-        if (!fallingThrough)
-        {
-            operationStr = "*";
-            fallingThrough = 1;
-        }
-    case tt_div:
-        if (!fallingThrough)
-        {
-            operationStr = "/";
-            fallingThrough = 1;
-        }
-    case tt_modulo:
-        if (!fallingThrough)
-        {
-            operationStr = "%";
-            fallingThrough = 1;
-        }
-    case tt_bitwise_and:
-        if (!fallingThrough)
-        {
-            operationStr = "&";
-            fallingThrough = 1;
-        }
-    case tt_bitwise_or:
-        if (!fallingThrough)
-        {
-            operationStr = "|";
-            fallingThrough = 1;
-        }
-    case tt_bitwise_xor:
-        if (!fallingThrough)
-        {
-            operationStr = "^";
-            fallingThrough = 1;
-        }
-    case tt_lshift:
-        if (!fallingThrough)
-        {
-            operationStr = "<<";
-            fallingThrough = 1;
-        }
-    case tt_rshift:
-        if (!fallingThrough)
-        {
-            operationStr = ">>";
-        }
+        width += sPrintArithmeticOperation(tacString, width, "+", line->operands);
+        break;
 
-        width += sprintf(tacString + width, "%s = %s %s %s", line->operands[0].name.str, line->operands[1].name.str, operationStr, line->operands[2].name.str);
+    case tt_subtract:
+        width += sPrintArithmeticOperation(tacString, width, "-", line->operands);
+        break;
+
+    case tt_mul:
+        width += sPrintArithmeticOperation(tacString, width, "*", line->operands);
+        break;
+
+    case tt_div:
+        width += sPrintArithmeticOperation(tacString, width, "/", line->operands);
+        break;
+
+    case tt_modulo:
+        width += sPrintArithmeticOperation(tacString, width, "%", line->operands);
+        break;
+
+    case tt_bitwise_and:
+        width += sPrintArithmeticOperation(tacString, width, "&", line->operands);
+        break;
+
+    case tt_bitwise_or:
+        width += sPrintArithmeticOperation(tacString, width, "|", line->operands);
+        break;
+
+    case tt_bitwise_xor:
+        width += sPrintArithmeticOperation(tacString, width, "^", line->operands);
+        break;
+
+    case tt_lshift:
+        width += sPrintArithmeticOperation(tacString, width, "<<", line->operands);
+        break;
+
+    case tt_rshift:
+        width += sPrintArithmeticOperation(tacString, width, ">>", line->operands);
         break;
 
     case tt_bitwise_not:
@@ -313,7 +293,7 @@ char *sPrintTACLine(struct TACLine *line)
         break;
 
     case tt_lea_off:
-        // operands: dest base offset scale
+        // operands: dest base offset
         width += sprintf(tacString + width, "%s = &(%s + %ld)", line->operands[0].name.str, line->operands[1].name.str, line->operands[2].name.val);
         break;
 
