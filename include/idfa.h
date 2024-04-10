@@ -35,10 +35,10 @@ struct Idfa
     void (*findGenKills)(struct Idfa *idfa);
 };
 
-struct Idfa *Idfa_Create(struct LinkedList *blocks,
+struct Idfa *Idfa_Create(struct IdfaContext *context,
                          struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts), // transfer function
-                         void (*findGenKills)(struct Idfa *idfa),                                                 // findGenKills function
-                         int (*compareFacts)(void *factA, void *factB));                                          // compare function for facts in the domain of the analysis
+                         void (*findGenKills)(struct Idfa *idfa),                                                  // findGenKills function
+                         int (*compareFacts)(void *factA, void *factB));                                           // compare function for facts in the domain of the analysis
 
 void Idfa_AnalyzeForwards(struct Idfa *idfa);
 

@@ -32,6 +32,7 @@ struct Set **generateSuccessors(struct BasicBlock **blocks, size_t nBlocks)
             case tt_beqz:
             case tt_bnez:
             case tt_jmp:
+                printf("%zu->%zu\n", blockIndex, thisTAC->operands[0].name.val);
                 Set_Insert(thisblockSuccessors, blocks[thisTAC->operands[0].name.val]);
                 break;
 
@@ -51,10 +52,15 @@ struct Set **generatePredecessors(struct BasicBlock **blocks, struct Set **succe
     for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
     {
         blockPredecessors[blockIndex] = Set_New(compareBasicBlocks);
+    }
 
+    for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
+    {
+        blockPredecessors[blockIndex] = Set_New(compareBasicBlocks);
         for (struct LinkedListNode *successorRunner = successors[blockIndex]->elements->head; successorRunner != NULL; successorRunner = successorRunner->next)
         {
             struct BasicBlock *successor = successorRunner->data;
+            printf("%zu<-%zu\n", blockIndex, successor->labelNum);
             Set_Insert(blockPredecessors[successor->labelNum], blocks[blockIndex]);
         }
     }
@@ -84,18 +90,23 @@ struct IdfaContext *IdfaContext_Create(struct LinkedList *blocks)
     return wip;
 }
 
-struct Idfa *Idfa_Create(struct LinkedList *blocks,
+struct Idfa *Idfa_Create(struct IdfaContext *context,
                          struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts),
                          void (*findGenKills)(struct Idfa *idfa),
                          int (*compareFacts)(void *factA, void *factB))
 {
     struct Idfa *wip = malloc(sizeof(struct Idfa));
-    wip->context = IdfaContext_Create(blocks);
+    wip->context = context;
     wip->fTransfer = fTransfer;
     wip->findGenKills = findGenKills;
     wip->compareFacts = compareFacts;
 
-    for(size_t i = 0; i < wip->context->nBlocks; i++)
+    wip->facts.in = malloc(wip->context->nBlocks * sizeof(struct Set *));
+    wip->facts.out = malloc(wip->context->nBlocks * sizeof(struct Set *));
+    wip->facts.gen = malloc(wip->context->nBlocks * sizeof(struct Set *));
+    wip->facts.kill = malloc(wip->context->nBlocks * sizeof(struct Set *));
+    
+    for (size_t i = 0; i < wip->context->nBlocks; i++)
     {
         wip->facts.in[i] = Set_New(wip->compareFacts);
         wip->facts.out[i] = Set_New(wip->compareFacts);
@@ -122,14 +133,14 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
             struct Set *newInFacts = Set_New(idfa->compareFacts);
             idfa->facts.in[i] = newInFacts;
 
-            for(struct LinkedListNode *predecessorRunner = idfa->context->predecessors[i]->elements->head; predecessorRunner != NULL; predecessorRunner = predecessorRunner->next)
+            for (struct LinkedListNode *predecessorRunner = idfa->context->predecessors[i]->elements->head; predecessorRunner != NULL; predecessorRunner = predecessorRunner->next)
             {
                 struct BasicBlock *predecessor = predecessorRunner->data;
                 Set_Merge(newInFacts, idfa->facts.out[predecessor->labelNum]);
             }
 
             struct Set *transferred = idfa->fTransfer(idfa, idfa->context->blocks[i], newInFacts);
-            if(transferred->elements->size != idfa->facts.out[i]->elements->size)
+            if (transferred->elements->size != idfa->facts.out[i]->elements->size)
             {
                 nChangedOutputs++;
             }
