@@ -40,7 +40,18 @@ int compareTacOperand(void *dataA, void *dataB)
 
 struct Set *liveVars_transfer(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts)
 {
+    printf("livevars_transfer for block %zu\n", block->labelNum);
     struct Set *transferred = Set_New(idfa->compareFacts);
+
+    for (struct LinkedListNode *factRunner = idfa->facts.gen[block->labelNum]->elements->head; factRunner != NULL; factRunner = factRunner->next)
+    {
+        struct TACOperand *examinedFact = factRunner->data;
+        // transfer anything not killed
+        if (Set_Find(idfa->facts.kill[block->labelNum], examinedFact) == NULL)
+        {
+            Set_Insert(transferred, examinedFact);
+        }
+    }
 
     for (struct LinkedListNode *factRunner = facts->elements->head; factRunner != NULL; factRunner = factRunner->next)
     {
@@ -57,6 +68,39 @@ struct Set *liveVars_transfer(struct Idfa *idfa, struct BasicBlock *block, struc
 
 void liveVars_findGenKills(struct Idfa *idfa)
 {
+    printf("calc gen kills in ths\n");
+    for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
+    {
+        struct BasicBlock *genKillBlock = idfa->context->blocks[blockIndex];
+        for (struct LinkedListNode *tacRunner = genKillBlock->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
+        {
+            struct TACLine *genKillLine = tacRunner->data;
+            for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
+            {
+                switch (getUseOfOperand(genKillLine, operandIndex))
+                {
+                case u_unused:
+                    break;
+
+                case u_read:
+                    Set_Insert(idfa->facts.kill[blockIndex], &genKillLine->operands[operandIndex]);
+                    break;
+
+                case u_write:
+                    Set_Insert(idfa->facts.gen[blockIndex], &genKillLine->operands[operandIndex]);
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void printTACOperand(void *operandData)
+{
+    struct TACOperand *operand = operandData;
+    char *typeName = Type_GetName(TACOperand_GetType(operand));
+    printf("%s %s ", typeName, operand->name.str);
+    free(typeName);
 }
 
 struct Idfa *analyzeLiveVars(struct IdfaContext *context)
@@ -64,7 +108,8 @@ struct Idfa *analyzeLiveVars(struct IdfaContext *context)
     struct Idfa *liveVarsIdfa = Idfa_Create(context,
                                             liveVars_transfer,
                                             liveVars_findGenKills,
-                                            compareTacOperand);
+                                            compareTacOperand,
+                                            printTACOperand);
 
     Idfa_AnalyzeForwards(liveVarsIdfa);
     return liveVarsIdfa;

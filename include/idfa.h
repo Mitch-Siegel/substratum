@@ -28,6 +28,7 @@ struct Idfa
     struct IdfaContext *context;
 
     int (*compareFacts)(void *factA, void *factB);
+    void (*printFact)(void *factData);
     struct IdfaFacts facts;
 
     // pointer to function returning a struct Set
@@ -38,7 +39,10 @@ struct Idfa
 struct Idfa *Idfa_Create(struct IdfaContext *context,
                          struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts), // transfer function
                          void (*findGenKills)(struct Idfa *idfa),                                                  // findGenKills function
-                         int (*compareFacts)(void *factA, void *factB));                                           // compare function for facts in the domain of the analysis
+                         int (*compareFacts)(void *factA, void *factB),                                            // compare function for facts in the domain of the analysis
+                         void (*printFact)(void *factData));                                                       // print function for facts in the domain of the analysis
+
+void Idfa_printFacts(struct Idfa *idfa);
 
 void Idfa_AnalyzeForwards(struct Idfa *idfa);
 

@@ -93,19 +93,21 @@ struct IdfaContext *IdfaContext_Create(struct LinkedList *blocks)
 struct Idfa *Idfa_Create(struct IdfaContext *context,
                          struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts),
                          void (*findGenKills)(struct Idfa *idfa),
-                         int (*compareFacts)(void *factA, void *factB))
+                         int (*compareFacts)(void *factA, void *factB),
+                         void (*printFact)(void *factData))
 {
     struct Idfa *wip = malloc(sizeof(struct Idfa));
     wip->context = context;
     wip->fTransfer = fTransfer;
     wip->findGenKills = findGenKills;
     wip->compareFacts = compareFacts;
+    wip->printFact = printFact;
 
     wip->facts.in = malloc(wip->context->nBlocks * sizeof(struct Set *));
     wip->facts.out = malloc(wip->context->nBlocks * sizeof(struct Set *));
     wip->facts.gen = malloc(wip->context->nBlocks * sizeof(struct Set *));
     wip->facts.kill = malloc(wip->context->nBlocks * sizeof(struct Set *));
-    
+
     for (size_t i = 0; i < wip->context->nBlocks; i++)
     {
         wip->facts.in[i] = Set_New(wip->compareFacts);
@@ -117,36 +119,86 @@ struct Idfa *Idfa_Create(struct IdfaContext *context,
     return wip;
 }
 
+void Idfa_printFactsForBlock(struct Idfa *idfa, size_t blockIndex)
+{
+    printf("Block %zu facts:\n", blockIndex);
+
+    printf("\tGen: ");
+    for (struct LinkedListNode *factRunner = idfa->facts.gen[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
+    {
+        printf("[");
+        idfa->printFact(factRunner->data);
+        printf("] ");
+    }
+
+    printf("\n\tKill: ");
+    for (struct LinkedListNode *factRunner = idfa->facts.kill[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
+    {
+        printf("[");
+        idfa->printFact(factRunner->data);
+        printf("] ");
+    }
+
+    printf("\n\tIn: ");
+    for (struct LinkedListNode *factRunner = idfa->facts.in[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
+    {
+        printf("[");
+        idfa->printFact(factRunner->data);
+        printf("] ");
+    }
+
+    printf("\n\tOut: ");
+    for (struct LinkedListNode *factRunner = idfa->facts.out[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
+    {
+        printf("[");
+        idfa->printFact(factRunner->data);
+        printf("] ");
+    }
+    printf("\n\n");
+}
+
+void Idfa_printFacts(struct Idfa *idfa)
+{
+    for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
+    {
+        Idfa_printFactsForBlock(idfa, blockIndex);
+    }
+}
+
 void Idfa_AnalyzeForwards(struct Idfa *idfa)
 {
+    idfa->findGenKills(idfa);
     size_t iteration = 0;
     size_t nChangedOutputs = 0;
     do
     {
+        printf("idfa iteration %zu\n", iteration);
         nChangedOutputs = 0;
 
         // skip the entry block as we go using predecessors
-        for (size_t i = 1; i < idfa->context->nBlocks; i++)
+        for (size_t blockIndex = 1; blockIndex < idfa->context->nBlocks; blockIndex++)
         {
-            Set_Free(idfa->facts.in[i]);
+            Idfa_printFactsForBlock(idfa, blockIndex);
+            Set_Free(idfa->facts.in[blockIndex]);
 
             struct Set *newInFacts = Set_New(idfa->compareFacts);
-            idfa->facts.in[i] = newInFacts;
+            idfa->facts.in[blockIndex] = newInFacts;
 
-            for (struct LinkedListNode *predecessorRunner = idfa->context->predecessors[i]->elements->head; predecessorRunner != NULL; predecessorRunner = predecessorRunner->next)
+            for (struct LinkedListNode *predecessorRunner = idfa->context->predecessors[blockIndex]->elements->head; predecessorRunner != NULL; predecessorRunner = predecessorRunner->next)
             {
                 struct BasicBlock *predecessor = predecessorRunner->data;
                 Set_Merge(newInFacts, idfa->facts.out[predecessor->labelNum]);
             }
 
-            struct Set *transferred = idfa->fTransfer(idfa, idfa->context->blocks[i], newInFacts);
-            if (transferred->elements->size != idfa->facts.out[i]->elements->size)
+            struct Set *transferred = idfa->fTransfer(idfa, idfa->context->blocks[blockIndex], newInFacts);
+            printf("block %zu insize: %zu - transferred size: %zu\n", blockIndex, newInFacts->elements->size, transferred->elements->size);
+            if (transferred->elements->size != idfa->facts.out[blockIndex]->elements->size)
             {
                 nChangedOutputs++;
             }
 
-            Set_Free(idfa->facts.out[i]);
-            idfa->facts.out[i] = transferred;
+            Set_Free(idfa->facts.out[blockIndex]);
+            idfa->facts.out[blockIndex] = transferred;
         }
 
         iteration++;

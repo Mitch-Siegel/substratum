@@ -44,6 +44,8 @@ void generateSsaForFunction(struct FunctionEntry *function)
 
     struct Idfa *liveVars = analyzeLiveVars(context);
 
+    Idfa_printFacts(liveVars);
+
     for (size_t blockIndex = 0; blockIndex < function->BasicBlockList->size; blockIndex++)
     {
         printf("%s_%zu\n", function->name, blockIndex);
