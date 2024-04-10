@@ -406,6 +406,7 @@ void *Set_Find(struct Set *set, void *element)
     return LinkedList_Find(set->elements, set->compareFunction, element);
 }
 
+
 void Set_Merge(struct Set *into, struct Set *from)
 {
     for (struct LinkedListNode *runner = from->elements->head; runner != NULL; runner = runner->next)
@@ -413,6 +414,46 @@ void Set_Merge(struct Set *into, struct Set *from)
         Set_Insert(into, runner->data);
     }
 }
+
+struct Set *Set_Copy(struct Set *set)
+{
+    struct Set *copied = Set_New(set->compareFunction);
+    Set_Merge(copied, set);
+    return copied;
+}
+
+struct Set *Set_Union(struct Set *setA, struct Set *setB)
+{
+    struct Set *unionedSet = Set_New(setA->compareFunction);
+    if (setA->compareFunction != setB->compareFunction)
+    {
+        ErrorAndExit(ERROR_CODE, "Call to Set_Union with mismatch in set compare functions between sets to union!\n");
+    }
+
+    Set_Merge(unionedSet, setA);
+    Set_Merge(unionedSet, setB);
+    return unionedSet;
+}
+
+struct Set *Set_Intersection(struct Set *setA, struct Set *setB)
+{
+    struct Set *intersectedSet = Set_New(setA->compareFunction);
+    if (setA->compareFunction != setB->compareFunction)
+    {
+        ErrorAndExit(ERROR_CODE, "Call to Set_Union with mismatch in set compare functions between sets to union!\n");
+    }
+
+    for (struct LinkedListNode *elementNode = setA->elements->head; elementNode != NULL; elementNode = elementNode->next)
+    {
+        if (Set_Find(setB, elementNode->data) != NULL)
+        {
+            Set_Insert(intersectedSet, elementNode->data);
+        }
+    }
+
+    return intersectedSet;
+}
+
 void Set_Free(struct Set *set)
 {
     LinkedList_Free(set->elements, NULL);

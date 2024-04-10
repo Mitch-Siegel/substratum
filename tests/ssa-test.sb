@@ -1,0 +1,16 @@
+
+fun livevars(u8 a, u8 b, u8 c)
+{
+    u16 ghi = a + b + c;
+    u16 other = c - b;
+    if(a)
+    {
+        ghi *= b;
+    }
+    else
+    {
+        ghi *= other;
+    }
+
+    ghi += 2;
+}

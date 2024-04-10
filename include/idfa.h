@@ -33,14 +33,18 @@ struct Idfa
 
     // pointer to function returning a struct Set
     struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts);
+    // pointer to function to find the gen and kill set for all basic blocks
     void (*findGenKills)(struct Idfa *idfa);
+    // pionter to function taking 2 sets and returning a new set with the meet of them (union or intersection)
+    struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB);
 };
 
 struct Idfa *Idfa_Create(struct IdfaContext *context,
                          struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts), // transfer function
                          void (*findGenKills)(struct Idfa *idfa),                                                  // findGenKills function
                          int (*compareFacts)(void *factA, void *factB),                                            // compare function for facts in the domain of the analysis
-                         void (*printFact)(void *factData));                                                       // print function for facts in the domain of the analysis
+                         void (*printFact)(void *factData),                                                        // print function for facts in the domain of the analysis
+                         struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB));                            // set operation used to collect data from predecessor/successor blocks
 
 void Idfa_printFacts(struct Idfa *idfa);
 

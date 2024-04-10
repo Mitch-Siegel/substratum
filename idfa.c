@@ -56,7 +56,6 @@ struct Set **generatePredecessors(struct BasicBlock **blocks, struct Set **succe
 
     for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
     {
-        blockPredecessors[blockIndex] = Set_New(compareBasicBlocks);
         for (struct LinkedListNode *successorRunner = successors[blockIndex]->elements->head; successorRunner != NULL; successorRunner = successorRunner->next)
         {
             struct BasicBlock *successor = successorRunner->data;
@@ -94,14 +93,16 @@ struct Idfa *Idfa_Create(struct IdfaContext *context,
                          struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts),
                          void (*findGenKills)(struct Idfa *idfa),
                          int (*compareFacts)(void *factA, void *factB),
-                         void (*printFact)(void *factData))
+                         void (*printFact)(void *factData),
+                         struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB))
 {
     struct Idfa *wip = malloc(sizeof(struct Idfa));
     wip->context = context;
-    wip->fTransfer = fTransfer;
-    wip->findGenKills = findGenKills;
     wip->compareFacts = compareFacts;
     wip->printFact = printFact;
+    wip->fTransfer = fTransfer;
+    wip->findGenKills = findGenKills;
+    wip->fMeet = fMeet;
 
     wip->facts.in = malloc(wip->context->nBlocks * sizeof(struct Set *));
     wip->facts.out = malloc(wip->context->nBlocks * sizeof(struct Set *));
@@ -176,19 +177,39 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
         nChangedOutputs = 0;
 
         // skip the entry block as we go using predecessors
-        for (size_t blockIndex = 1; blockIndex < idfa->context->nBlocks; blockIndex++)
+        for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
         {
+            // get rid of our previous "in" facts as we will generate them again
             Idfa_printFactsForBlock(idfa, blockIndex);
-            Set_Free(idfa->facts.in[blockIndex]);
+            struct Set *oldInFacts = idfa->facts.in[blockIndex];
 
-            struct Set *newInFacts = Set_New(idfa->compareFacts);
-            idfa->facts.in[blockIndex] = newInFacts;
-
+            // re-generate our "in" facts from the union of the "out" facts of all predecessors
+            struct Set *newInFacts = NULL;
             for (struct LinkedListNode *predecessorRunner = idfa->context->predecessors[blockIndex]->elements->head; predecessorRunner != NULL; predecessorRunner = predecessorRunner->next)
             {
                 struct BasicBlock *predecessor = predecessorRunner->data;
-                Set_Merge(newInFacts, idfa->facts.out[predecessor->labelNum]);
+                printf("%zu is a pred of %zu\n", predecessor->labelNum, blockIndex);
+                struct Set *predOuts = idfa->facts.out[predecessor->labelNum];
+
+                if (newInFacts == NULL)
+                {
+                    printf("newInFacts is null, just copy this bad boy\n");
+                    newInFacts = Set_Copy(predOuts);
+                }
+                else
+                {
+                    printf("newinfacts not null, gotta meet!\n");
+                    struct Set *metInFacts = idfa->fMeet(newInFacts, predOuts);
+                    Set_Free(newInFacts);
+                    newInFacts = metInFacts;
+                }
             }
+            if(newInFacts == NULL)
+            {
+                newInFacts = Set_New(oldInFacts->compareFunction);
+            }
+            Set_Free(oldInFacts);
+            idfa->facts.in[blockIndex] = newInFacts;
 
             struct Set *transferred = idfa->fTransfer(idfa, idfa->context->blocks[blockIndex], newInFacts);
             printf("block %zu insize: %zu - transferred size: %zu\n", blockIndex, newInFacts->elements->size, transferred->elements->size);

@@ -121,6 +121,7 @@ struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST
     for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
     {
         wip->operands[operandIndex].name.str = NULL;
+        wip->operands[operandIndex].ssaNumber = 0;
         wip->operands[operandIndex].permutation = vp_standard;
 
         wip->operands[operandIndex].type.basicType = vt_null;

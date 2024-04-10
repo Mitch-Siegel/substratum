@@ -162,6 +162,14 @@ void *Set_Find(struct Set *set, void *element);
 
 void Set_Merge(struct Set *into, struct Set *from);
 
+struct Set *Set_Copy(struct Set *set);
+
+// given two input sets, construct and return a third set containing data from the union of the two
+struct Set *Set_Union(struct Set *setA, struct Set *setB);
+
+// given two input sets, construct and return a third set containing data from the intersection of the two
+struct Set *Set_Intersection(struct Set *setA, struct Set *setB);
+
 void Set_Free(struct Set *set);
 
 /*
