@@ -241,7 +241,7 @@ int main(int argc, char **argv)
     }
 
     generateSsa(theTable);
-    ErrorAndExit(ERROR_INTERNAL, "Bail out after generating ssa\n");
+    // ErrorAndExit(ERROR_INTERNAL, "Bail out after generating ssa\n");
 
     SymbolTable_collapseScopes(theTable, parseDict);
 

@@ -67,6 +67,14 @@ struct TACOperand
     enum variablePermutations permutation; // enum of permutation (standard/temp/literal)
 };
 
+// Enum denoting how a particular TAC operand is used
+enum TACOperandUse
+{
+    u_unused,
+    u_read,
+    u_write,
+};
+
 void TACOperand_SetBasicType(struct TACOperand *operand, enum basicTypes type, int indirectionLevel);
 
 struct TACLine
@@ -99,6 +107,8 @@ struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST
 #define newTACLine(index, operation, correspondingTree) newTACLineFunction((index), (operation), (correspondingTree), __FILE__, __LINE__)
 
 void freeTAC(struct TACLine *line);
+
+enum TACOperandUse getUseOfOperand(struct TACLine *line, u8 operandIndex);
 
 struct LinearizationResult
 {

@@ -384,3 +384,163 @@ void freeTAC(struct TACLine *line)
 {
     free(line);
 }
+
+enum TACOperandUse getUseOfOperand(struct TACLine *line, u8 operandIndex)
+{
+    enum TACOperandUse use = u_unused;
+    switch (line->operation)
+    {
+    case tt_do:
+    case tt_enddo:
+    case tt_asm:
+        break;
+
+    case tt_call:
+        if (operandIndex == 0)
+        {
+            use = u_write;
+        }
+        break;
+
+    case tt_assign:
+    {
+        if (operandIndex == 0)
+        {
+            use = u_write;
+        }
+        else if (operandIndex == 1)
+        {
+            use = u_read;
+        }
+    }
+    break;
+
+    // single operand in slot 0
+    case tt_return:
+    case tt_stack_store:
+        if (operandIndex == 0)
+        {
+            use = u_read;
+        }
+        break;
+
+    case tt_add:
+    case tt_subtract:
+    case tt_mul:
+    case tt_div:
+    case tt_modulo:
+    case tt_bitwise_and:
+    case tt_bitwise_or:
+    case tt_bitwise_xor:
+    case tt_bitwise_not:
+    case tt_lshift:
+    case tt_rshift:
+        if (operandIndex == 0)
+        {
+            use = u_write;
+        }
+        else if ((operandIndex == 1) || (operandIndex == 2))
+        {
+            use = u_read;
+        }
+        break;
+
+    // loading writes the destination, while reading from the pointer
+    case tt_load:
+    case tt_load_off: // load_off uses a literal for operands[2]
+        if (operandIndex == 0)
+        {
+            use = u_write;
+        }
+        else if (operandIndex == 1)
+        {
+            use = u_read;
+        }
+        break;
+
+    case tt_load_arr:
+        if (operandIndex == 0)
+        {
+            use = u_write;
+        }
+        else if ((operandIndex == 1) || (operandIndex == 2))
+        {
+            use = u_read;
+        }
+        break;
+
+    // storing actually reads the variable containing the pionter to the location which the data is written
+    case tt_store:
+        if ((operandIndex == 0) || (operandIndex == 1))
+        {
+            use = u_read;
+        }
+        break;
+
+    case tt_store_off:
+        if ((operandIndex == 0) || (operandIndex == 2))
+        {
+            use = u_read;
+        }
+        break;
+
+    case tt_store_arr:
+        if ((operandIndex == 0) || (operandIndex == 1) || (operandIndex == 3))
+        {
+            use = u_read;
+        }
+        break;
+
+    case tt_addrof:
+        if ((operandIndex == 0) || (operandIndex == 1))
+        {
+            use = u_write;
+        }
+        break;
+
+    case tt_lea_off:
+        if (operandIndex == 0)
+        {
+            use = u_write;
+        }
+        else if (operandIndex == 1)
+        {
+            use = u_read;
+        }
+        break;
+
+    case tt_lea_arr:
+        if (operandIndex == 0)
+        {
+            use = u_write;
+        }
+        else if ((operandIndex == 1) || (operandIndex == 2))
+        {
+            use = u_read;
+        }
+        break;
+
+    case tt_beq:
+    case tt_bne:
+    case tt_bgeu:
+    case tt_bltu:
+    case tt_bgtu:
+    case tt_bleu:
+    case tt_beqz:
+    case tt_bnez:
+    {
+        if ((operandIndex == 1) || (operandIndex == 2))
+        {
+            use = u_read;
+        }
+    }
+    break;
+
+    case tt_jmp:
+    case tt_label:
+    case tt_stack_reserve:
+        break;
+    }
+
+    return use;
+}
