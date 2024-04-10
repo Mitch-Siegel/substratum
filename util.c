@@ -365,6 +365,61 @@ void *LinkedList_PopBack(struct LinkedList *list)
 }
 
 /*
+ * Set data structure
+ */
+
+struct Set *Set_New(int (*compareFunction)(void *, void *))
+{
+    struct Set *wip = malloc(sizeof(struct Set));
+    wip->elements = LinkedList_New();
+    wip->compareFunction = compareFunction;
+    return wip;
+}
+
+void Set_Insert(struct Set *set, void *element)
+{
+    if (element == NULL)
+    {
+        ErrorAndExit(ERROR_INTERNAL, "Attempt to insert null data into set!\n");
+    }
+
+    if (LinkedList_Find(set->elements, set->compareFunction, element) == NULL)
+    {
+        LinkedList_Append(set->elements, element);
+    }
+}
+
+void Set_Delete(struct Set *set, void *element)
+{
+    if (LinkedList_Find(set->elements, set->compareFunction, element) != NULL)
+    {
+        LinkedList_Delete(set->elements, set->compareFunction, element);
+    }
+    else
+    {
+        ErrorAndExit(ERROR_INTERNAL, "Attempt to delete non-existent element from set!\n");
+    }
+}
+
+void *Set_Find(struct Set *set, void *element)
+{
+    return LinkedList_Find(set->elements, set->compareFunction, element);
+}
+
+void Set_Merge(struct Set *into, struct Set *from)
+{
+    for (struct LinkedListNode *runner = from->elements->head; runner != NULL; runner = runner->next)
+    {
+        Set_Insert(into, runner->data);
+    }
+}
+void Set_Free(struct Set *set)
+{
+    LinkedList_Free(set->elements, NULL);
+    free(set);
+}
+
+/*
  *
  *
  *

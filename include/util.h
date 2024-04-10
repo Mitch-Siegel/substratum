@@ -143,6 +143,28 @@ void *LinkedList_PopFront(struct LinkedList *list);
 void *LinkedList_PopBack(struct LinkedList *list);
 
 /*
+ * Set data structure
+ */
+
+struct Set
+{
+    struct LinkedList *elements;
+    int (*compareFunction)(void *elementA, void *elementB);
+};
+
+struct Set *Set_New(int (*compareFunction)(void *elementA, void *elementB));
+
+void Set_Insert(struct Set *set, void *element);
+
+void Set_Delete(struct Set *set, void *element);
+
+void *Set_Find(struct Set *set, void *element);
+
+void Set_Merge(struct Set *into, struct Set *from);
+
+void Set_Free(struct Set *set);
+
+/*
  * TempList is a struct containing string names for TAC temps by number (eg t0, t1, t2, etc...)
  * _Get retrieves the string for the given number, or if it doesn't exist, generates it and then returns it
  *
