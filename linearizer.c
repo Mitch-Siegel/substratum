@@ -2210,7 +2210,7 @@ struct TACOperand *walkExpression(struct AST *tree,
         fallingThrough = 1;
     case t_subtract:
     {
-        if(!fallingThrough)
+        if (!fallingThrough)
         {
             expression->operation = tt_subtract;
             fallingThrough = 1;

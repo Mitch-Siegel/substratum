@@ -1,7 +1,8 @@
 #include "ssa.h"
 #include "symtab.h"
 
-#include "livevars.h"
+#include "idfa_livevars.h"
+#include "idfa_reachingdefs.h"
 
 int compareBlockNumbers(void *numberA, void *numberB)
 {
@@ -436,9 +437,16 @@ void generateSsaForFunction(struct FunctionEntry *function)
 
     insertPhiFunctions(liveVars);
 
+
+
     printControlFlowsAsDot(liveVars, function->name);
 
     renameWrittenTACOperands(context);
+
+    struct Idfa *reachingDefs = analyzeReachingDefs(context);
+    Idfa_printFacts(reachingDefs);
+    Idfa_Free(reachingDefs);
+    exit(-1);
 
     printControlFlowsAsDot(liveVars, function->name);
 
@@ -455,6 +463,7 @@ void generateSsaForFunction(struct FunctionEntry *function)
 
 
     Idfa_Free(liveVars);
+
     IdfaContext_Free(context);
 }
 

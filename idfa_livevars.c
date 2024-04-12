@@ -1,4 +1,4 @@
-#include "livevars.h"
+#include "idfa_livevars.h"
 
 #include "symtab_basicblock.h"
 #include "util.h"
