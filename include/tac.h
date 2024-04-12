@@ -51,6 +51,7 @@ enum TACType
     tt_return,
     tt_do,
     tt_enddo,
+    tt_phi,
 };
 
 struct TACOperand

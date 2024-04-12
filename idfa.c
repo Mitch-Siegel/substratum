@@ -204,7 +204,7 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
                     newInFacts = metInFacts;
                 }
             }
-            if(newInFacts == NULL)
+            if (newInFacts == NULL)
             {
                 newInFacts = Set_New(oldInFacts->compareFunction);
             }
@@ -224,4 +224,22 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
 
         iteration++;
     } while (nChangedOutputs > 0);
+}
+
+void Idfa_Free(struct Idfa *idfa)
+{
+    for (size_t i = 0; i < idfa->context->nBlocks; i++)
+    {
+        Set_Free(idfa->facts.in[i]);
+        Set_Free(idfa->facts.out[i]);
+        Set_Free(idfa->facts.gen[i]);
+        Set_Free(idfa->facts.kill[i]);
+    }
+
+    free(idfa->facts.in);
+    free(idfa->facts.out);
+    free(idfa->facts.gen);
+    free(idfa->facts.kill);
+
+    free(idfa);
 }

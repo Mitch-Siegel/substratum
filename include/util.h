@@ -57,23 +57,56 @@ u8 alignSize(size_t nBytes);
 size_t unalignSize(u8 nBits);
 
 /*
+ *
+ *
+ */
+
+struct HashTableEntry
+{
+    void *key;
+    void *value;
+    int (*compareFunction)(void *keyA, void *keyB);
+};
+
+struct HashTable
+{
+    struct Set **buckets;
+    size_t nBuckets;
+    size_t (*hashFunction)(void *key);
+    int (*compareFunction)(void *keyA, void *keyB);
+    void (*keyFreeFunction)(void *data);
+    void (*valueFreeFunction)(void *data);
+};
+
+struct HashTable *HashTable_New(size_t nBuckets,
+                                size_t (*hashFunction)(void *key),
+                                int (*compareFunction)(void *keyA, void *keyB),
+                                void (*keyFreeFunction)(void *data),
+                                void (*valueFreeFunction)(void *data));
+
+void *HashTable_Lookup(struct HashTable *table, void *key);
+
+void HashTable_Insert(struct HashTable *table, void *key, void *value);
+
+void *HashTable_Delete(struct HashTable *table, void *key);
+
+void HashTable_Free(struct HashTable *table);
+
+/*
  * Dictionary for tracking strings
  * Economizes heap space by only storing strings once each
  * Uses a simple hash table which supports different bucket counts
  */
 struct Dictionary
 {
-    struct LinkedList **buckets;
-    size_t nBuckets;
+    struct HashTable *table;
 };
 
-unsigned int hash(char *str);
+size_t hashString(void *data);
 
 struct Dictionary *Dictionary_New(size_t nBuckets);
 
 char *Dictionary_Insert(struct Dictionary *dict, char *value);
-
-char *Dictionary_Lookup(struct Dictionary *dict, char *value);
 
 char *Dictionary_LookupOrInsert(struct Dictionary *dict, char *value);
 

@@ -52,4 +52,6 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa);
 
 void Idfa_AnalyzeBackwards(struct Idfa *idfa);
 
+void Idfa_Free(struct Idfa *idfa);
+
 #endif

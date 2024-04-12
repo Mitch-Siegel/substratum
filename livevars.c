@@ -3,7 +3,7 @@
 #include "symtab_basicblock.h"
 #include "util.h"
 
-int compareTacOperand(void *dataA, void *dataB)
+int compareTacOperandIgnoreSsaNumber(void *dataA, void *dataB)
 {
     struct TACOperand *operandA = dataA;
     struct TACOperand *operandB = dataB;
@@ -26,6 +26,19 @@ int compareTacOperand(void *dataA, void *dataB)
         }
     }
     else if (operandA->permutation != operandB->permutation)
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+int compareTacOperand(void *dataA, void *dataB)
+{
+    struct TACOperand *operandA = dataA;
+    struct TACOperand *operandB = dataB;
+
+    if (compareTacOperandIgnoreSsaNumber(dataA, dataB))
     {
         return 1;
     }
@@ -89,10 +102,16 @@ void printTACOperand(void *operandData)
 {
     struct TACOperand *operand = operandData;
     char *typeName = Type_GetName(&operand->type);
-    char *castAsTypeName = Type_GetName(&operand->castAsType);
-    printf("%s(%s) %s %zu ", typeName, castAsTypeName, operand->name.str, operand->ssaNumber);
+    printf("%s", typeName);
+    if (operand->castAsType.basicType != vt_null)
+
+    {
+        char *castAsTypeName = Type_GetName(&operand->castAsType);
+        printf("(%s)", castAsTypeName);
+        free(castAsTypeName);
+    }
+    printf(" %s_%zu", operand->name.str, operand->ssaNumber);
     free(typeName);
-    free(castAsTypeName);
 }
 
 struct Idfa *analyzeLiveVars(struct IdfaContext *context)

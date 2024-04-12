@@ -22,14 +22,111 @@ size_t unalignSize(u8 nBits)
 }
 
 /*
+ *
+ *
+ */
+
+int HashTableEntry_Compare(void *dataA, void *dataB)
+{
+    struct HashTableEntry *entryA = dataA;
+    struct HashTableEntry *entryB = dataB;
+    return entryA->compareFunction(entryA->key, entryB->key);
+}
+
+struct HashTableEntry *HashTableEntry_New(void *key, void *value, int (*compareFunction)(void *keyA, void *keyB))
+{
+    struct HashTableEntry *wip = malloc(sizeof(struct HashTableEntry));
+    wip->key = key;
+    wip->value = value;
+    wip->compareFunction = compareFunction;
+    return wip;
+}
+
+struct HashTable *HashTable_New(size_t nBuckets,
+                                size_t (*hashFunction)(void *key),
+                                int (*compareFunction)(void *keyA, void *keyB),
+                                void (*keyFreeFunction)(void *data),
+                                void (*valueFreeFunction)(void *data))
+{
+    struct HashTable *wip = malloc(sizeof(struct HashTable));
+    wip->nBuckets = nBuckets;
+    wip->buckets = malloc(nBuckets * sizeof(struct Set *));
+    wip->hashFunction = hashFunction;
+    wip->compareFunction = compareFunction;
+    wip->keyFreeFunction = keyFreeFunction;
+    wip->valueFreeFunction = valueFreeFunction;
+
+    for (size_t bucketIndex = 0; bucketIndex < nBuckets; bucketIndex++)
+    {
+        wip->buckets[bucketIndex] = Set_New(HashTableEntry_Compare);
+    }
+
+    return wip;
+}
+
+void *HashTable_Lookup(struct HashTable *table, void *key)
+{
+    size_t hash = table->hashFunction(key);
+    hash %= table->nBuckets;
+
+    struct HashTableEntry dummyEntry;
+    dummyEntry.key = key;
+    dummyEntry.value = NULL;
+    dummyEntry.compareFunction = table->compareFunction;
+
+    struct Set *bucket = table->buckets[hash];
+    struct HashTableEntry *entryForKey = Set_Find(bucket, &dummyEntry);
+    if (entryForKey == NULL)
+    {
+        return NULL;
+    }
+    return entryForKey->value;
+}
+
+void HashTable_Insert(struct HashTable *table, void *key, void *value)
+{
+    size_t hash = table->hashFunction(key);
+    hash %= table->nBuckets;
+
+    struct Set *bucket = table->buckets[hash];
+    struct HashTableEntry *entry = HashTableEntry_New(key, value, table->compareFunction);
+    Set_Insert(bucket, entry);
+}
+
+void HashTable_Free(struct HashTable *table)
+{
+    for (size_t bucketIndex = 0; bucketIndex < table->nBuckets; bucketIndex++)
+    {
+        struct Set *bucket = table->buckets[bucketIndex];
+        for (struct LinkedListNode *entryNode = bucket->elements->head; entryNode != NULL; entryNode = entryNode->next)
+        {
+            struct HashTableEntry *entry = entryNode->data;
+            if (table->keyFreeFunction != NULL)
+            {
+                table->keyFreeFunction(entry->key);
+            }
+            if (table->valueFreeFunction != NULL)
+            {
+                table->valueFreeFunction(entry->value);
+            }
+            free(entry);
+        }
+        Set_Free(bucket);
+    }
+    free(table->buckets);
+    free(table);
+}
+
+/*
  * DICTIONARY FUNCTIONS
  * This string hashing algorithm is the djb2 algorithm
  * further information can be found at http://www.cse.yorku.ca/~oz/hash.html
  */
 const unsigned int djb2HashSeed = 5381;
 const unsigned int djb2MultiplcationFactor = 33;
-unsigned int hash(char *str)
+size_t hashString(void *data)
 {
+    char *str = data;
     unsigned int hash = djb2HashSeed;
 
     while (*str)
@@ -43,59 +140,20 @@ unsigned int hash(char *str)
 struct Dictionary *Dictionary_New(size_t nBuckets)
 {
     struct Dictionary *wip = malloc(sizeof(struct Dictionary));
-    wip->nBuckets = nBuckets;
-    wip->buckets = malloc(nBuckets * sizeof(struct LinkedList *));
-
-    for (size_t bucketIndex = 0; bucketIndex < nBuckets; bucketIndex++)
-    {
-        wip->buckets[bucketIndex] = LinkedList_New();
-    }
-
+    wip->table = HashTable_New(nBuckets, hashString, (int (*)(void *, void *))strcmp, NULL, free);
     return wip;
 }
 
 char *Dictionary_Insert(struct Dictionary *dict, char *value)
 {
-
-    char *string = malloc(strlen(value) + 1);
-    strncpy(string, value, strlen(value));
-    string[strlen(value)] = '\0';
-    unsigned int strHash = hash(value);
-    strHash = strHash % dict->nBuckets;
-
-    LinkedList_Append(dict->buckets[strHash], string);
-
-    return string;
-}
-
-char *Dictionary_Lookup(struct Dictionary *dict, char *value)
-{
-    unsigned int strHash = hash(value);
-    strHash = strHash % dict->nBuckets;
-
-    struct LinkedList *bucket = dict->buckets[strHash];
-    if (bucket->size == 0)
-    {
-        return NULL;
-    }
-
-    struct LinkedListNode *runner = bucket->head;
-
-    while (runner != NULL)
-    {
-        if (!strcmp(runner->data, value))
-        {
-            return runner->data;
-        }
-
-        runner = runner->next;
-    }
-    return NULL;
+    char *duplicatedString = strdup(value);
+    HashTable_Insert(dict->table, duplicatedString, duplicatedString);
+    return duplicatedString;
 }
 
 char *Dictionary_LookupOrInsert(struct Dictionary *dict, char *value)
 {
-    char *returnedStr = Dictionary_Lookup(dict, value);
+    char *returnedStr = HashTable_Lookup(dict->table, value);
     if (returnedStr == NULL)
     {
         returnedStr = Dictionary_Insert(dict, value);
@@ -105,11 +163,7 @@ char *Dictionary_LookupOrInsert(struct Dictionary *dict, char *value)
 
 void Dictionary_Free(struct Dictionary *dict)
 {
-    for (size_t bucketIndex = 0; bucketIndex < dict->nBuckets; bucketIndex++)
-    {
-        LinkedList_Free(dict->buckets[bucketIndex], free);
-    }
-    free(dict->buckets);
+    HashTable_Free(dict->table);
     free(dict);
 }
 
@@ -405,7 +459,6 @@ void *Set_Find(struct Set *set, void *element)
 {
     return LinkedList_Find(set->elements, set->compareFunction, element);
 }
-
 
 void Set_Merge(struct Set *into, struct Set *from)
 {
