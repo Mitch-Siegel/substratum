@@ -5,7 +5,14 @@ fun livevars(u8 a, u8 b, u8 c)
     u16 other = c - b;
     if(a)
     {
-        ghi *= b;
+        if(a > 6)
+        {
+            ghi *= b;
+        }
+        else
+        {
+            ghi += b;
+        }
     }
     else
     {

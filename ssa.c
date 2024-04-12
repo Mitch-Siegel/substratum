@@ -60,7 +60,7 @@ void insertPhiFunctions(struct Idfa *liveVars)
             blockEntryTacIndex = ((struct TACLine *)phiBlock->TACList->head->data)->index;
         }
         // hash table to map from TAC operand -> count of number of predecessor blocks the variable is live out from
-        struct HashTable *phiVars = HashTable_New(1, hashTacOperand, compareTacOperandIgnoreSsaNumber, NULL, free);
+        struct HashTable *phiVars = HashTable_New(1, hashTacOperand, compareTacOperand, NULL, free);
         // iterate all predecessor blocks
         for (struct LinkedListNode *predecessorRunner = liveVars->context->predecessors[blockIndex]->elements->head; predecessorRunner != NULL; predecessorRunner = predecessorRunner->next)
         {
@@ -69,6 +69,13 @@ void insertPhiFunctions(struct Idfa *liveVars)
             for (struct LinkedListNode *liveVarRunner = liveVars->facts.out[predecessorBlock->labelNum]->elements->head; liveVarRunner != NULL; liveVarRunner = liveVarRunner->next)
             {
                 struct TACOperand *liveOut = liveVarRunner->data;
+
+                // temporary variables generated during linearization are inherently single-assignment by their very nature
+                if(liveOut->permutation == vp_temp)
+                {
+                    continue;
+                }
+
                 size_t *liveOutCount = HashTable_Lookup(phiVars, liveOut);
                 if (liveOutCount == NULL)
                 {
@@ -333,6 +340,11 @@ struct LinkedListNode *resolvePhisForVariable(struct Idfa *liveVars,
         }
         phiLineToResolve = phiRunner->data;
 
+        if(phiLineToResolve->operation != tt_phi)
+        {
+            ErrorAndExit(ERROR_CODE, "Still had %zu phis to resolve but found non-phi TAC!\n", allLiveIns->elements->size);
+        }
+
         // pop another phi var to resolve, sanity check it
         resolvedPhiVar = LinkedList_PopBack(allLiveIns->elements);
 
@@ -347,7 +359,7 @@ struct LinkedListNode *resolvePhisForVariable(struct Idfa *liveVars,
         // if we have already been around the loop, that means we are phi-ing a single live in variable with the output of a previous phi function within this block
         if (lastPhiOutputVariable != NULL)
         {
-            phiLineToResolve->operands[0] = *lastPhiOutputVariable;
+            phiLineToResolve->operands[1] = *lastPhiOutputVariable;
         }
         // track the operand which this phi function writes to
         lastPhiOutputVariable = &phiLineToResolve->operands[0];
@@ -438,6 +450,9 @@ void generateSsaForFunction(struct FunctionEntry *function)
     printControlFlowsAsDot(liveVars, function->name);
 
     resolvePhiFunctions(liveVars);
+
+    printControlFlowsAsDot(liveVars, function->name);
+
 
     Idfa_Free(liveVars);
     IdfaContext_Free(context);
