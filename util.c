@@ -409,7 +409,10 @@ void *LinkedList_PopBack(struct LinkedList *list)
     struct LinkedListNode *popped = list->tail;
 
     list->tail = list->tail->prev;
-    list->tail->next = NULL;
+    if (list->tail != NULL)
+    {
+        list->tail->next = NULL;
+    }
     list->size--;
 
     void *poppedData = popped->data;
