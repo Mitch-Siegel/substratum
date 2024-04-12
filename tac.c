@@ -382,6 +382,7 @@ char *sPrintTACLine(struct TACLine *line)
         ErrorAndExit(ERROR_INTERNAL, "sPrintTacLine length limit exceeded!\n");
     }
     width += sprintf(tacString + width, "\t%s", operandString);
+    free(operandString);
 
     char *trimmedString = malloc(width + 1);
     sprintf(trimmedString, "%s", tacString);

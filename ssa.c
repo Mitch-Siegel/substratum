@@ -107,6 +107,8 @@ void insertPhiFunctions(struct Idfa *liveVars)
                 }
             }
         }
+    
+        HashTable_Free(phiVars);
     }
 }
 
@@ -127,11 +129,11 @@ struct TACOperand *ssaOperandLookupOrInsert(struct Set *ssaOperands, struct TACO
 // go over all TAC operands which are assigned to and give them unique SSA numbers
 void renameWrittenTACOperands(struct IdfaContext *context)
 {
-    struct Set *ssaOperandNumbers = Set_New(compareTacOperandIgnoreSsaNumber);
+    struct Set *ssaOperandNumbers = Set_New(compareTacOperandIgnoreSsaNumber, free);
     // make a list of blocks to traverse, use it as a queue
     struct LinkedList *blocksToTraverse = LinkedList_New();
     LinkedList_Append(blocksToTraverse, context->blocks[0]); // block 0 is always the entry of the function
-    struct Set *seenBlocks = Set_New(compareBlockNumbers);
+    struct Set *seenBlocks = Set_New(compareBlockNumbers, NULL);
     while (blocksToTraverse->size > 0)
     {
         // grab the block at the front of the queue
@@ -166,11 +168,15 @@ void renameWrittenTACOperands(struct IdfaContext *context)
             }
         }
     }
+
+    Set_Free(ssaOperandNumbers);
+    LinkedList_Free(blocksToTraverse, NULL);
+    Set_Free(seenBlocks);
 }
 
 struct Set *findHighestSsaLiveIns(struct Idfa *liveVars, size_t blockIndex)
 {
-    struct Set *highestSsaLiveIns = Set_New(compareTacOperandIgnoreSsaNumber);
+    struct Set *highestSsaLiveIns = Set_New(compareTacOperandIgnoreSsaNumber, NULL);
 
     for (struct LinkedListNode *liveInRunner = liveVars->facts.in[blockIndex]->elements->head; liveInRunner != NULL; liveInRunner = liveInRunner->next)
     {
@@ -193,7 +199,7 @@ struct Set *findHighestSsaLiveIns(struct Idfa *liveVars, size_t blockIndex)
 // find all SSA variables live in to block blockIndex based on tacOperand
 struct Set *findAllSsaLiveInsForVariable(struct Idfa *liveVars, size_t blockIndex, struct TACOperand *operand)
 {
-    struct Set *matchingOperands = Set_New(compareTacOperand);
+    struct Set *matchingOperands = Set_New(compareTacOperand, NULL);
     for (struct LinkedListNode *liveInRunner = liveVars->facts.in[blockIndex]->elements->head; liveInRunner != NULL; liveInRunner = liveInRunner->next)
     {
         struct TACOperand *thisLiveIn = liveInRunner->data;
@@ -230,7 +236,7 @@ void renameReadTACOperands(struct Idfa *liveVars)
         // the highest SSA numbers that live in to this basic block
         struct Set *highestSsaLiveIns = findHighestSsaLiveIns(liveVars, blockIndex);
         // any SSA operands which are assigned to within the block
-        struct Set *ssaLivesFromThisBlock = Set_New(compareTacOperandIgnoreSsaNumber);
+        struct Set *ssaLivesFromThisBlock = Set_New(compareTacOperandIgnoreSsaNumber, NULL);
 
         // iterate all TAC in the block
         struct BasicBlock *thisBlock = liveVars->context->blocks[blockIndex];
@@ -276,6 +282,9 @@ void renameReadTACOperands(struct Idfa *liveVars)
                 }
             }
         }
+    
+        Set_Free(highestSsaLiveIns);
+        Set_Free(ssaLivesFromThisBlock);
     }
 }
 
@@ -377,6 +386,8 @@ void resolvePhiFunctions(struct Idfa *liveVars)
                     resolvePhisForVariable(liveVars, blockIndex, phiVarToResolve, &phiRunner, allLiveIns);
                     phiRunner = phiRunner->next;
                 }
+
+                Set_Free(allLiveIns);
             }
             else
             {
@@ -426,6 +437,9 @@ void generateSsaForFunction(struct FunctionEntry *function)
     resolvePhiFunctions(liveVars);
 
     printControlFlowsAsDot(liveVars, function->name);
+
+    Idfa_Free(liveVars);
+    IdfaContext_Free(context);
 }
 
 void generateSsa(struct SymbolTable *theTable)

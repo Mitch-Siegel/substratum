@@ -14,7 +14,7 @@ struct Set **generateSuccessors(struct BasicBlock **blocks, size_t nBlocks)
 
     for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
     {
-        blockSuccessors[blockIndex] = Set_New(compareBasicBlocks);
+        blockSuccessors[blockIndex] = Set_New(compareBasicBlocks, NULL);
 
         struct Set *thisblockSuccessors = blockSuccessors[blockIndex];
 
@@ -51,7 +51,7 @@ struct Set **generatePredecessors(struct BasicBlock **blocks, struct Set **succe
 
     for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
     {
-        blockPredecessors[blockIndex] = Set_New(compareBasicBlocks);
+        blockPredecessors[blockIndex] = Set_New(compareBasicBlocks, NULL);
     }
 
     for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
@@ -89,6 +89,19 @@ struct IdfaContext *IdfaContext_Create(struct LinkedList *blocks)
     return wip;
 }
 
+void IdfaContext_Free(struct IdfaContext *context)
+{
+    free(context->blocks);
+    for(size_t blockIndex = 0; blockIndex < context->nBlocks; blockIndex++)
+    {
+        Set_Free(context->successors[blockIndex]);
+        Set_Free(context->predecessors[blockIndex]);
+    }
+    free(context->successors);
+    free(context->predecessors);
+    free(context);
+}
+
 struct Idfa *Idfa_Create(struct IdfaContext *context,
                          struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts),
                          void (*findGenKills)(struct Idfa *idfa),
@@ -111,10 +124,10 @@ struct Idfa *Idfa_Create(struct IdfaContext *context,
 
     for (size_t i = 0; i < wip->context->nBlocks; i++)
     {
-        wip->facts.in[i] = Set_New(wip->compareFacts);
-        wip->facts.out[i] = Set_New(wip->compareFacts);
-        wip->facts.gen[i] = Set_New(wip->compareFacts);
-        wip->facts.kill[i] = Set_New(wip->compareFacts);
+        wip->facts.in[i] = Set_New(wip->compareFacts, NULL);
+        wip->facts.out[i] = Set_New(wip->compareFacts, NULL);
+        wip->facts.gen[i] = Set_New(wip->compareFacts, NULL);
+        wip->facts.kill[i] = Set_New(wip->compareFacts, NULL);
     }
 
     return wip;
@@ -206,7 +219,7 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
             }
             if (newInFacts == NULL)
             {
-                newInFacts = Set_New(oldInFacts->compareFunction);
+                newInFacts = Set_New(oldInFacts->compareFunction, oldInFacts->dataFreeFunction);
             }
             Set_Free(oldInFacts);
             idfa->facts.in[blockIndex] = newInFacts;

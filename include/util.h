@@ -66,6 +66,8 @@ struct HashTableEntry
     void *key;
     void *value;
     int (*compareFunction)(void *keyA, void *keyB);
+    void (*keyFreeFunction)(void *key);
+    void (*valueFreeFunction)(void *value);
 };
 
 struct HashTable
@@ -183,9 +185,10 @@ struct Set
 {
     struct LinkedList *elements;
     int (*compareFunction)(void *elementA, void *elementB);
+    void (*dataFreeFunction);
 };
 
-struct Set *Set_New(int (*compareFunction)(void *elementA, void *elementB));
+struct Set *Set_New(int (*compareFunction)(void *elementA, void *elementB), void (*dataFreeFunction));
 
 void Set_Insert(struct Set *set, void *element);
 

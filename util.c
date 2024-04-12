@@ -26,6 +26,7 @@ size_t unalignSize(u8 nBits)
  *
  */
 
+// TODO: just use the raw linkedlist data structure in hashtable
 int HashTableEntry_Compare(void *dataA, void *dataB)
 {
     struct HashTableEntry *entryA = dataA;
@@ -33,12 +34,32 @@ int HashTableEntry_Compare(void *dataA, void *dataB)
     return entryA->compareFunction(entryA->key, entryB->key);
 }
 
-struct HashTableEntry *HashTableEntry_New(void *key, void *value, int (*compareFunction)(void *keyA, void *keyB))
+void HashTableEntry_Free(void *entry)
+{
+    struct HashTableEntry *toFree = entry;
+    if(toFree->keyFreeFunction)
+    {
+        toFree->keyFreeFunction(toFree->key);
+    }
+    if(toFree->valueFreeFunction)
+    {
+        toFree->valueFreeFunction(toFree->value);
+    }
+    free(toFree);
+}
+
+struct HashTableEntry *HashTableEntry_New(void *key,
+                                          void *value,
+                                          int (*compareFunction)(void *keyA, void *keyB),
+                                          void (*keyFreeFunction)(void *key),
+                                          void (*valueFreeFunction)(void *value))
 {
     struct HashTableEntry *wip = malloc(sizeof(struct HashTableEntry));
     wip->key = key;
     wip->value = value;
     wip->compareFunction = compareFunction;
+    wip->keyFreeFunction = keyFreeFunction;
+    wip->valueFreeFunction = valueFreeFunction;
     return wip;
 }
 
@@ -58,7 +79,7 @@ struct HashTable *HashTable_New(size_t nBuckets,
 
     for (size_t bucketIndex = 0; bucketIndex < nBuckets; bucketIndex++)
     {
-        wip->buckets[bucketIndex] = Set_New(HashTableEntry_Compare);
+        wip->buckets[bucketIndex] = Set_New(HashTableEntry_Compare, HashTableEntry_Free);
     }
 
     return wip;
@@ -89,7 +110,7 @@ void HashTable_Insert(struct HashTable *table, void *key, void *value)
     hash %= table->nBuckets;
 
     struct Set *bucket = table->buckets[hash];
-    struct HashTableEntry *entry = HashTableEntry_New(key, value, table->compareFunction);
+    struct HashTableEntry *entry = HashTableEntry_New(key, value, table->compareFunction, table->keyFreeFunction, table->valueFreeFunction);
     Set_Insert(bucket, entry);
 }
 
@@ -98,19 +119,6 @@ void HashTable_Free(struct HashTable *table)
     for (size_t bucketIndex = 0; bucketIndex < table->nBuckets; bucketIndex++)
     {
         struct Set *bucket = table->buckets[bucketIndex];
-        for (struct LinkedListNode *entryNode = bucket->elements->head; entryNode != NULL; entryNode = entryNode->next)
-        {
-            struct HashTableEntry *entry = entryNode->data;
-            if (table->keyFreeFunction != NULL)
-            {
-                table->keyFreeFunction(entry->key);
-            }
-            if (table->valueFreeFunction != NULL)
-            {
-                table->valueFreeFunction(entry->value);
-            }
-            free(entry);
-        }
         Set_Free(bucket);
     }
     free(table->buckets);
@@ -408,12 +416,18 @@ void *LinkedList_PopBack(struct LinkedList *list)
     }
     struct LinkedListNode *popped = list->tail;
 
-    list->tail = list->tail->prev;
-    if (list->tail != NULL)
-    {
-        list->tail->next = NULL;
-    }
     list->size--;
+
+    if (list->size)
+    {
+        list->tail = list->tail->prev;
+    }
+    else
+    {
+        list->tail = NULL;
+        ;
+        list->head = NULL;
+    }
 
     void *poppedData = popped->data;
     free(popped);
@@ -425,11 +439,12 @@ void *LinkedList_PopBack(struct LinkedList *list)
  * Set data structure
  */
 
-struct Set *Set_New(int (*compareFunction)(void *, void *))
+struct Set *Set_New(int (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction))
 {
     struct Set *wip = malloc(sizeof(struct Set));
     wip->elements = LinkedList_New();
     wip->compareFunction = compareFunction;
+    wip->dataFreeFunction = dataFreeFunction;
     return wip;
 }
 
@@ -473,17 +488,21 @@ void Set_Merge(struct Set *into, struct Set *from)
 
 struct Set *Set_Copy(struct Set *set)
 {
-    struct Set *copied = Set_New(set->compareFunction);
+    struct Set *copied = Set_New(set->compareFunction, set->dataFreeFunction);
     Set_Merge(copied, set);
     return copied;
 }
 
 struct Set *Set_Union(struct Set *setA, struct Set *setB)
 {
-    struct Set *unionedSet = Set_New(setA->compareFunction);
+    struct Set *unionedSet = Set_New(setA->compareFunction, setA->dataFreeFunction);
     if (setA->compareFunction != setB->compareFunction)
     {
         ErrorAndExit(ERROR_CODE, "Call to Set_Union with mismatch in set compare functions between sets to union!\n");
+    }
+    if (setA->dataFreeFunction != setB->dataFreeFunction)
+    {
+        ErrorAndExit(ERROR_CODE, "Call to Set_Union with mismatch in set data free functions between sets to union!\n");
     }
 
     Set_Merge(unionedSet, setA);
@@ -493,10 +512,14 @@ struct Set *Set_Union(struct Set *setA, struct Set *setB)
 
 struct Set *Set_Intersection(struct Set *setA, struct Set *setB)
 {
-    struct Set *intersectedSet = Set_New(setA->compareFunction);
+    struct Set *intersectedSet = Set_New(setA->compareFunction, setA->dataFreeFunction);
     if (setA->compareFunction != setB->compareFunction)
     {
-        ErrorAndExit(ERROR_CODE, "Call to Set_Union with mismatch in set compare functions between sets to union!\n");
+        ErrorAndExit(ERROR_CODE, "Call to Set_Intersection with mismatch in set compare functions between sets to intersect!\n");
+    }
+    if (setA->dataFreeFunction != setB->dataFreeFunction)
+    {
+        ErrorAndExit(ERROR_CODE, "Call to Set_Intersection with mismatch in set data free functions between sets to intersect!\n");
     }
 
     for (struct LinkedListNode *elementNode = setA->elements->head; elementNode != NULL; elementNode = elementNode->next)
@@ -512,7 +535,7 @@ struct Set *Set_Intersection(struct Set *setA, struct Set *setB)
 
 void Set_Free(struct Set *set)
 {
-    LinkedList_Free(set->elements, NULL);
+    LinkedList_Free(set->elements, set->dataFreeFunction);
     free(set);
 }
 

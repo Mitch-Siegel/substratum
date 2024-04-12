@@ -78,7 +78,7 @@ struct AST *parseFile(char *inFileName)
     fileProgress.curColRaw = 0;
     fileProgress.curFile = NULL;
     fileProgress.charsRemainingPerLine = LinkedList_New();
-    i32 *lineZeroChars = malloc(sizeof(i32));
+    size_t *lineZeroChars = malloc(sizeof(size_t));
     *lineZeroChars = 0;
     LinkedList_Append(fileProgress.charsRemainingPerLine, lineZeroChars);
 

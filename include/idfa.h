@@ -15,6 +15,8 @@ struct IdfaContext
 
 struct IdfaContext *IdfaContext_Create(struct LinkedList *blocks);
 
+void IdfaContext_Free(struct IdfaContext *context);
+
 struct IdfaFacts
 {
     struct Set **in;
