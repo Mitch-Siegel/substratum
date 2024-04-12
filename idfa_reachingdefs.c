@@ -78,6 +78,8 @@ void reacingDefs_findGenKills(struct Idfa *idfa)
         {
             Set_Insert(idfa->facts.gen[blockIndex], highestSsaRunner->data);
         }
+
+        Set_Free(highestSsas);
     }
 }
 
