@@ -37,11 +37,11 @@ int HashTableEntry_Compare(void *dataA, void *dataB)
 void HashTableEntry_Free(void *entry)
 {
     struct HashTableEntry *toFree = entry;
-    if(toFree->keyFreeFunction)
+    if (toFree->keyFreeFunction)
     {
         toFree->keyFreeFunction(toFree->key);
     }
-    if(toFree->valueFreeFunction)
+    if (toFree->valueFreeFunction)
     {
         toFree->valueFreeFunction(toFree->value);
     }

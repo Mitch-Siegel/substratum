@@ -53,7 +53,6 @@ int compareTacOperand(void *dataA, void *dataB)
 
 struct Set *liveVars_transfer(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts)
 {
-    printf("livevars_transfer for block %zu\n", block->labelNum);
     struct Set *transferred = Set_Copy(idfa->facts.gen[block->labelNum]);
 
     for (struct LinkedListNode *factRunner = facts->elements->head; factRunner != NULL; factRunner = factRunner->next)
@@ -71,7 +70,6 @@ struct Set *liveVars_transfer(struct Idfa *idfa, struct BasicBlock *block, struc
 
 void liveVars_findGenKills(struct Idfa *idfa)
 {
-    printf("calc gen kills in ths\n");
     for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
     {
         struct BasicBlock *genKillBlock = idfa->context->blocks[blockIndex];

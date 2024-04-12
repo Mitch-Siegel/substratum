@@ -32,7 +32,6 @@ struct Set **generateSuccessors(struct BasicBlock **blocks, size_t nBlocks)
             case tt_beqz:
             case tt_bnez:
             case tt_jmp:
-                printf("%zu->%zu\n", blockIndex, thisTAC->operands[0].name.val);
                 Set_Insert(thisblockSuccessors, blocks[thisTAC->operands[0].name.val]);
                 break;
 
@@ -59,7 +58,6 @@ struct Set **generatePredecessors(struct BasicBlock **blocks, struct Set **succe
         for (struct LinkedListNode *successorRunner = successors[blockIndex]->elements->head; successorRunner != NULL; successorRunner = successorRunner->next)
         {
             struct BasicBlock *successor = successorRunner->data;
-            printf("%zu<-%zu\n", blockIndex, successor->labelNum);
             Set_Insert(blockPredecessors[successor->labelNum], blocks[blockIndex]);
         }
     }
@@ -92,7 +90,7 @@ struct IdfaContext *IdfaContext_Create(struct LinkedList *blocks)
 void IdfaContext_Free(struct IdfaContext *context)
 {
     free(context->blocks);
-    for(size_t blockIndex = 0; blockIndex < context->nBlocks; blockIndex++)
+    for (size_t blockIndex = 0; blockIndex < context->nBlocks; blockIndex++)
     {
         Set_Free(context->successors[blockIndex]);
         Set_Free(context->predecessors[blockIndex]);
@@ -186,14 +184,14 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
     size_t nChangedOutputs = 0;
     do
     {
-        printf("idfa iteration %zu\n", iteration);
+        // printf("idfa iteration %zu\n", iteration);
         nChangedOutputs = 0;
 
         // skip the entry block as we go using predecessors
         for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
         {
             // get rid of our previous "in" facts as we will generate them again
-            Idfa_printFactsForBlock(idfa, blockIndex);
+            // Idfa_printFactsForBlock(idfa, blockIndex);
             struct Set *oldInFacts = idfa->facts.in[blockIndex];
 
             // re-generate our "in" facts from the union of the "out" facts of all predecessors
@@ -201,17 +199,14 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
             for (struct LinkedListNode *predecessorRunner = idfa->context->predecessors[blockIndex]->elements->head; predecessorRunner != NULL; predecessorRunner = predecessorRunner->next)
             {
                 struct BasicBlock *predecessor = predecessorRunner->data;
-                printf("%zu is a pred of %zu\n", predecessor->labelNum, blockIndex);
                 struct Set *predOuts = idfa->facts.out[predecessor->labelNum];
 
                 if (newInFacts == NULL)
                 {
-                    printf("newInFacts is null, just copy this bad boy\n");
                     newInFacts = Set_Copy(predOuts);
                 }
                 else
                 {
-                    printf("newinfacts not null, gotta meet!\n");
                     struct Set *metInFacts = idfa->fMeet(newInFacts, predOuts);
                     Set_Free(newInFacts);
                     newInFacts = metInFacts;
@@ -225,7 +220,6 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
             idfa->facts.in[blockIndex] = newInFacts;
 
             struct Set *transferred = idfa->fTransfer(idfa, idfa->context->blocks[blockIndex], newInFacts);
-            printf("block %zu insize: %zu - transferred size: %zu\n", blockIndex, newInFacts->elements->size, transferred->elements->size);
             if (transferred->elements->size != idfa->facts.out[blockIndex]->elements->size)
             {
                 nChangedOutputs++;

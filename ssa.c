@@ -107,7 +107,7 @@ void insertPhiFunctions(struct Idfa *liveVars)
                 }
             }
         }
-    
+
         HashTable_Free(phiVars);
     }
 }
@@ -282,7 +282,7 @@ void renameReadTACOperands(struct Idfa *liveVars)
                 }
             }
         }
-    
+
         Set_Free(highestSsaLiveIns);
         Set_Free(ssaLivesFromThisBlock);
     }
@@ -303,14 +303,14 @@ struct LinkedListNode *removeExtraneousPhi(struct BasicBlock *block, struct Link
 
 // this function iterates over continuous TAC lines containing one or more phi functions for the same variable
 // it is capable of handling phis for join count >2, which require more than one phi function (because tt_phi reads 2 ssa operands to write a new one)
-void resolvePhisForVariable(struct Idfa *liveVars,
-                            size_t blockIndex,
-                            struct TACOperand *phiVarToResolve, // TAC operand containing the variable we are resolving phi functions for
-                            struct LinkedListNode **phiRunner,  // pointer to linked list node on which we are iterating our way through the TAC list
-                            struct Set *allLiveIns)             // set of all SSA operands for this variable
+struct LinkedListNode *resolvePhisForVariable(struct Idfa *liveVars,
+                                              size_t blockIndex,
+                                              struct TACOperand *phiVarToResolve, // TAC operand containing the variable we are resolving phi functions for
+                                              struct LinkedListNode *phiRunner,   // pointer to linked list node on which we are iterating our way through the TAC list
+                                              struct Set *allLiveIns)             // set of all SSA operands for this variable
 {
     struct TACOperand *resolvedPhiVar = LinkedList_PopBack(allLiveIns->elements);
-    struct TACLine *phiLineToResolve = (*phiRunner)->data;
+    struct TACLine *phiLineToResolve = phiRunner->data;
     if (compareTacOperandIgnoreSsaNumber(phiVarToResolve, resolvedPhiVar) != 0)
     {
         ErrorAndExit(ERROR_CODE, "phiVarToResolve is not equivalent to resolvedPhiVar! (ignoring ssa number)\n");
@@ -331,7 +331,7 @@ void resolvePhisForVariable(struct Idfa *liveVars,
         {
             ErrorAndExit(ERROR_CODE, "Ran out of phi functions to resolve in resolvePhisForVariable!\n");
         }
-        phiLineToResolve = (*phiRunner)->data;
+        phiLineToResolve = phiRunner->data;
 
         // pop another phi var to resolve, sanity check it
         resolvedPhiVar = LinkedList_PopBack(allLiveIns->elements);
@@ -352,8 +352,10 @@ void resolvePhisForVariable(struct Idfa *liveVars,
         // track the operand which this phi function writes to
         lastPhiOutputVariable = &phiLineToResolve->operands[0];
 
-        *phiRunner = (*phiRunner)->next;
+        phiRunner = phiRunner->next;
     }
+
+    return phiRunner;
 }
 
 void resolvePhiFunctions(struct Idfa *liveVars)
@@ -370,21 +372,22 @@ void resolvePhiFunctions(struct Idfa *liveVars)
             if (phiLineToResolve->operation == tt_phi)
             {
                 // if we encounter a phi function, its RHS operands need to be populated
-                struct TACOperand *phiVarToResolve = &phiLineToResolve->operands[0];
+                // actually copy it into this scope because removeExtraneousPhis may free the line containing the operand
+                // but if removeExtraneousPhis has multiple lines to remoev it requires phiVarToResolve to still be valid
+                struct TACOperand phiVarToResolve = phiLineToResolve->operands[0];
 
                 // go out and find the set of all instances of this variable which are live into the block
-                struct Set *allLiveIns = findAllSsaLiveInsForVariable(liveVars, blockIndex, phiVarToResolve);
+                struct Set *allLiveIns = findAllSsaLiveInsForVariable(liveVars, blockIndex, &phiVarToResolve);
 
                 if (allLiveIns->elements->size < 2)
                 {
-                    // if fewer than 2 instances of the operand exist, this phi function is extra. remove it
+                    // if fewer than 2 differently-ssa-numbered instances of the operand exist, this phi function is extra. remove it
                     phiRunner = removeExtraneousPhi(toResolve, phiRunner);
                 }
                 else
                 {
                     // for any number >= 2 of relevant variables live into this block, use resolvePhisForVariable to correctly resolve *all* phi functions for this variable
-                    resolvePhisForVariable(liveVars, blockIndex, phiVarToResolve, &phiRunner, allLiveIns);
-                    phiRunner = phiRunner->next;
+                    phiRunner = resolvePhisForVariable(liveVars, blockIndex, &phiVarToResolve, phiRunner, allLiveIns);
                 }
 
                 Set_Free(allLiveIns);
@@ -435,8 +438,6 @@ void generateSsaForFunction(struct FunctionEntry *function)
     printControlFlowsAsDot(liveVars, function->name);
 
     resolvePhiFunctions(liveVars);
-
-    printControlFlowsAsDot(liveVars, function->name);
 
     Idfa_Free(liveVars);
     IdfaContext_Free(context);
