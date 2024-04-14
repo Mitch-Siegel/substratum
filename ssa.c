@@ -463,6 +463,8 @@ void doFunChecks(struct IdfaContext *context)
             printf(" ");
         }
     }
+
+    Idfa_Free(reachingDefs);
 }
 
 void generateSsaForFunction(struct FunctionEntry *function)
