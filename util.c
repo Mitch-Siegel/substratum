@@ -478,6 +478,12 @@ void *Set_Find(struct Set *set, void *element)
     return LinkedList_Find(set->elements, set->compareFunction, element);
 }
 
+void Set_Clear(struct Set *toClear)
+{
+    LinkedList_Free(toClear->elements, toClear->dataFreeFunction);
+    toClear->elements = LinkedList_New();
+}
+
 void Set_Merge(struct Set *into, struct Set *from)
 {
     for (struct LinkedListNode *runner = from->elements->head; runner != NULL; runner = runner->next)

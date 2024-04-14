@@ -29,10 +29,6 @@ void BasicBlock_prepend(struct BasicBlock *block, struct TACLine *line)
             ErrorAndExit(ERROR_INTERNAL, "BasicBlock_prepend called with line index %zu - must be %zu (same as start of block!)!\n", line->index, first->index);
         }
     }
-    else
-    {
-        ErrorAndExit(ERROR_INTERNAL, "BasicBlock_prepend called on empty block!\n");
-    }
 
     LinkedList_Prepend(block->TACList, line);
 }

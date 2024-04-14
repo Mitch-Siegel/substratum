@@ -406,7 +406,7 @@ enum TACOperandUse getUseOfOperand(struct TACLine *line, u8 operandIndex)
         break;
 
     case tt_call:
-        if (operandIndex == 0)
+        if ((operandIndex == 0) && (TAC_GetTypeOfOperand(line, 0)->basicType != vt_null))
         {
             use = u_write;
         }

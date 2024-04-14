@@ -4,6 +4,8 @@
 #include "idfa_livevars.h"
 #include "idfa_reachingdefs.h"
 
+// TODO: implement TAC tt_declare for arguments so that we can ssa subsequent reassignments to them correctly
+
 int compareBlockNumbers(void *numberA, void *numberB)
 {
     return (ssize_t)numberA != (ssize_t)numberB;
@@ -46,80 +48,6 @@ void printControlFlowsAsDot(struct Idfa *idfa, char *functionName)
     printf("}\n\n\n");
 }
 
-void insertPhiFunctions(struct Idfa *liveVars)
-{
-    struct AST fakePhiTree;
-    memset(&fakePhiTree, 0, sizeof(struct AST));
-
-    // iterate all blocks
-    for (size_t blockIndex = 0; blockIndex < liveVars->context->nBlocks; blockIndex++)
-    {
-        struct BasicBlock *phiBlock = liveVars->context->blocks[blockIndex];
-        size_t blockEntryTacIndex = 0;
-        if (phiBlock->TACList->size > 0)
-        {
-            blockEntryTacIndex = ((struct TACLine *)phiBlock->TACList->head->data)->index;
-        }
-        // hash table to map from TAC operand -> count of number of predecessor blocks the variable is live out from
-        struct HashTable *phiVars = HashTable_New(1, hashTacOperand, compareTacOperand, NULL, free);
-        // iterate all predecessor blocks
-        for (struct LinkedListNode *predecessorRunner = liveVars->context->predecessors[blockIndex]->elements->head; predecessorRunner != NULL; predecessorRunner = predecessorRunner->next)
-        {
-            struct BasicBlock *predecessorBlock = predecessorRunner->data;
-            // iterate all live vars out facts from the predecessor
-            for (struct LinkedListNode *liveVarRunner = liveVars->facts.out[predecessorBlock->labelNum]->elements->head; liveVarRunner != NULL; liveVarRunner = liveVarRunner->next)
-            {
-                struct TACOperand *liveOut = liveVarRunner->data;
-
-                // temporary variables generated during linearization are inherently single-assignment by their very nature
-                if(liveOut->permutation == vp_temp)
-                {
-                    continue;
-                }
-
-                size_t *liveOutCount = HashTable_Lookup(phiVars, liveOut);
-                if (liveOutCount == NULL)
-                {
-                    // if it's the first time we've seen this operand as live out, allocate a new count for it
-                    liveOutCount = malloc(sizeof(size_t));
-                    memset(liveOutCount, 0, sizeof(size_t));
-                    HashTable_Insert(phiVars, liveOut, liveOutCount);
-                }
-                // increment the count of number of times we've seen this variable live out of a predecessor
-                (*liveOutCount)++;
-            }
-        }
-
-        // iterate all entries in the hash table we created in the loop above
-        for (struct LinkedListNode *phiVarRunner = phiVars->buckets[0]->elements->head; phiVarRunner != NULL; phiVarRunner = phiVarRunner->next)
-        {
-            struct HashTableEntry *phiVarEntry = phiVarRunner->data;
-            size_t *nBlocksLiveInFrom = phiVarEntry->value;
-            // for any variables which are live out of more than one predecessor block
-            if (*nBlocksLiveInFrom > 1)
-            {
-                // predecrement so we can insert exactly the right number of phis
-                (*nBlocksLiveInFrom)--;
-                struct TACOperand *phiVar = phiVarEntry->key;
-
-                // insert a phi for each occurrence (- 1 because the first phi can take 2 unique operands instead of one new operand and the output of a previous phi)
-                while (*nBlocksLiveInFrom > 0)
-                {
-                    struct TACLine *newPhi = newTACLine(blockEntryTacIndex, tt_phi, &fakePhiTree);
-                    newPhi->operands[0] = *phiVar;
-                    newPhi->operands[1] = *phiVar;
-                    newPhi->operands[2] = *phiVar;
-                    BasicBlock_prepend(phiBlock, newPhi);
-
-                    (*nBlocksLiveInFrom)--;
-                }
-            }
-        }
-
-        HashTable_Free(phiVars);
-    }
-}
-
 struct TACOperand *ssaOperandLookupOrInsert(struct Set *ssaOperands, struct TACOperand *originalOperand)
 {
     struct TACOperand *foundOperand = Set_Find(ssaOperands, originalOperand);
@@ -134,52 +62,254 @@ struct TACOperand *ssaOperandLookupOrInsert(struct Set *ssaOperands, struct TACO
     return foundOperand;
 }
 
-// go over all TAC operands which are assigned to and give them unique SSA numbers
-void renameWrittenTACOperands(struct IdfaContext *context)
+// iterate over all blocks in the order to which they are reachable from the entry block
+// call operationOnBlock for each block, passing the specific block and the generic data pointer to the function
+void traverseBlocksHierarchically(struct IdfaContext *context, void (*operationOnBlock)(struct BasicBlock *, void *data), void *data)
 {
-    struct Set *ssaOperandNumbers = Set_New(compareTacOperandIgnoreSsaNumber, free);
-    // make a list of blocks to traverse, use it as a queue
     struct LinkedList *blocksToTraverse = LinkedList_New();
-    LinkedList_Append(blocksToTraverse, context->blocks[0]); // block 0 is always the entry of the function
-    struct Set *seenBlocks = Set_New(compareBlockNumbers, NULL);
+    // block 0 is always the entry of the function, so as long as we start with it we will be fine
+    LinkedList_Append(blocksToTraverse, context->blocks[0]);
+    struct Set *visited = Set_New(compareBlockNumbers, NULL);
+
+    struct Set *stronglyConnectedComponent = Set_New(compareBlockNumbers, NULL);
+
     while (blocksToTraverse->size > 0)
     {
         // grab the block at the front of the queue
         struct BasicBlock *thisBlock = LinkedList_PopFront(blocksToTraverse);
+        printf("Look at %zu\t", thisBlock->labelNum);
 
-        // iterate all successors of this block
-        for (struct LinkedListNode *successorRunner = context->successors[thisBlock->labelNum]->elements->head; successorRunner != NULL; successorRunner = successorRunner->next)
+        // figure out if we have visited all predecessors of this block
+        u8 sawAllPredecessors = 1;
+        for (struct LinkedListNode *predRunner = context->predecessors[thisBlock->labelNum]->elements->head; predRunner != NULL; predRunner = predRunner->next)
         {
-            struct BasicBlock *successorBlock = successorRunner->data;
-            // if we have not added them to the back of the queue yet, do so and mark that we have seen them
-            if (Set_Find(seenBlocks, successorBlock) == NULL)
+            struct BasicBlock *predecessorBlock = predRunner->data;
+
+            if (Set_Find(visited, predecessorBlock) == NULL)
             {
-                LinkedList_Append(blocksToTraverse, successorBlock);
-                Set_Insert(seenBlocks, successorBlock);
+                printf("haven't visited pred %zu yet\n", predecessorBlock->labelNum);
+                sawAllPredecessors = 0;
+                break;
             }
         }
 
-        // iterate all TAC in this block
-        for (struct LinkedListNode *tacRunner = thisBlock->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
+        // if we have not yet visited all predecessors of this block, put it back on the list to be traversed later
+        if (!sawAllPredecessors)
         {
-            struct TACLine *thisTac = tacRunner->data;
-
-            // iterate all operands in this TAC, setting the ssa number and incrementing our count so the next assignment will have a different number
-            for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
+            if (stronglyConnectedComponent->elements->size == blocksToTraverse->size)
             {
-                if (getUseOfOperand(thisTac, operandIndex) == u_write)
-                {
-                    struct TACOperand *originalOperand = &thisTac->operands[operandIndex];
-                    struct TACOperand *ssaOperand = ssaOperandLookupOrInsert(ssaOperandNumbers, originalOperand);
-                    originalOperand->ssaNumber = ssaOperand->ssaNumber++;
-                }
+                printf("strongly connected component\n");
+                Set_Insert(stronglyConnectedComponent, thisBlock);
+            }
+            else
+            {
+                printf("have not visited all predecessors, put back at end of queue\n");
+                Set_Insert(stronglyConnectedComponent, thisBlock);
+                LinkedList_Append(blocksToTraverse, thisBlock);
+                continue;
+            }
+        }
+        printf("have visited all predecessors (or in SCC), good to visit this one\n");
+
+        operationOnBlock(thisBlock, data);
+
+        Set_Clear(stronglyConnectedComponent);
+
+        // mark this block as visited
+        Set_Insert(visited, thisBlock);
+
+        for (struct LinkedListNode *successorRunner = context->successors[thisBlock->labelNum]->elements->head; successorRunner != NULL; successorRunner = successorRunner->next)
+        {
+            struct BasicBlock *successorBlock = successorRunner->data;
+            if (Set_Find(visited, successorBlock) == NULL)
+            {
+                LinkedList_Append(blocksToTraverse, successorBlock);
             }
         }
     }
 
-    Set_Free(ssaOperandNumbers);
     LinkedList_Free(blocksToTraverse, NULL);
-    Set_Free(seenBlocks);
+    Set_Free(visited);
+    Set_Free(stronglyConnectedComponent);
+}
+
+/*
+ - breaks on loops/cycles
+// iterate over all blocks in the order to which they are reachable from the entry block
+// call operationOnBlock for each block, passing the specific block and the generic data pointer to the function
+void traverseBlocksHierarchically(struct IdfaContext *context, void (*operationOnBlock)(struct BasicBlock *, void *data), void *data)
+{
+    struct LinkedList *blocksToTraverse = LinkedList_New();
+    // block 0 is always the entry of the function, so as long as we start with it we will be fine
+    for (size_t blockIndex = 0; blockIndex < context->nBlocks; blockIndex++)
+    {
+        LinkedList_Append(blocksToTraverse, context->blocks[blockIndex]);
+    }
+    struct Set *visited = Set_New(compareBlockNumbers, NULL);
+
+    while (blocksToTraverse->size > 0)
+    {
+        // grab the block at the front of the queue
+        struct BasicBlock *thisBlock = LinkedList_PopFront(blocksToTraverse);
+        printf("Look at %zu\t", thisBlock->labelNum);
+
+        // figure out if we have visited all predecessors of this block
+        u8 sawAllPredecessors = 1;
+        for (struct LinkedListNode *predRunner = context->predecessors[thisBlock->labelNum]->elements->head; predRunner != NULL; predRunner = predRunner->next)
+        {
+            struct BasicBlock *predecessorBlock = predRunner->data;
+
+            // if the predecessor is the block itself, ignore it
+            if (predecessorBlock == thisBlock)
+            {
+                continue;
+            }
+            if (Set_Find(visited, predecessorBlock) == NULL)
+            {
+                printf("haven't visited pred %zu yet\n", predecessorBlock->labelNum);
+                sawAllPredecessors = 0;
+                break;
+            }
+        }
+
+        // if we have not yet visited all predecessors of this block, put it back on the list to be traversed later
+        if (!sawAllPredecessors)
+        {
+            printf("have not visited all predecessors, put back at end of queue\n");
+            for(size_t z = 0xfffffff; z > 1; z--){};
+            LinkedList_Append(blocksToTraverse, thisBlock);
+            continue;
+        }
+        printf("have visited all predecessors, good to visit this one\n");
+
+        operationOnBlock(thisBlock, data);
+
+        // mark this block as visited
+        Set_Insert(visited, thisBlock);
+    }
+
+    LinkedList_Free(blocksToTraverse, NULL);
+    Set_Free(visited);
+}
+*/
+struct PhiContext
+{
+    struct Idfa *reachingDefs;
+    struct Set *ssaNumbers;
+};
+
+void insertPhiFunctionsForBlock(struct BasicBlock *block, void *data)
+{
+    struct AST fakePhiTree;
+    memset(&fakePhiTree, 0, sizeof(struct AST));
+
+    struct PhiContext *context = data;
+
+    struct Idfa *reachingDefs = context->reachingDefs;
+
+    size_t blockEntryTacIndex = 0;
+    if (block->TACList->size > 0)
+    {
+        blockEntryTacIndex = ((struct TACLine *)block->TACList->head->data)->index;
+    }
+    // hash table to map from TAC operand -> count of number of predecessor blocks the variable is live out from
+    struct HashTable *phiVars = HashTable_New(1, hashTacOperand, compareTacOperandIgnoreSsaNumber, NULL, (void (*)(void *))Set_Free);
+    // iterate all predecessor blocks
+    for (struct LinkedListNode *predecessorRunner = reachingDefs->context->predecessors[block->labelNum]->elements->head; predecessorRunner != NULL; predecessorRunner = predecessorRunner->next)
+    {
+        struct BasicBlock *predecessorBlock = predecessorRunner->data;
+        // iterate all live vars out facts from the predecessor
+        for (struct LinkedListNode *liveVarRunner = reachingDefs->facts.out[predecessorBlock->labelNum]->elements->head; liveVarRunner != NULL; liveVarRunner = liveVarRunner->next)
+        {
+            struct TACOperand *liveOut = liveVarRunner->data;
+
+            struct Set *ssasLiveOut = HashTable_Lookup(phiVars, liveOut);
+            if (ssasLiveOut == NULL)
+            {
+                ssasLiveOut = Set_New(compareTacOperand, NULL);
+                HashTable_Insert(phiVars, liveOut, ssasLiveOut);
+            }
+
+            Set_Insert(ssasLiveOut, liveOut);
+        }
+    }
+
+    // iterate all entries in the hash table we created in the loop above
+    for (struct LinkedListNode *phiVarRunner = phiVars->buckets[0]->elements->head; phiVarRunner != NULL; phiVarRunner = phiVarRunner->next)
+    {
+        struct HashTableEntry *phiVarEntry = phiVarRunner->data;
+        struct Set *inboundSsasToPhi = phiVarEntry->value;
+        // for any variables which are live out of more than one predecessor block
+        if (inboundSsasToPhi->elements->size > 1)
+        {
+            // predecrement so we can insert exactly the right number of phis
+            struct TACOperand *phiVar = phiVarEntry->key;
+
+            // insert a phi for each occurrence (- 1 because the first phi can take 2 unique operands instead of one new operand and the output of a previous phi)
+            while (inboundSsasToPhi->elements->size > 1)
+            {
+                struct TACLine *newPhi = newTACLine(blockEntryTacIndex, tt_phi, &fakePhiTree);
+                struct TACOperand *assignedSsa = ssaOperandLookupOrInsert(context->ssaNumbers, phiVar);
+                newPhi->operands[0] = *assignedSsa;
+                assignedSsa->ssaNumber++;
+
+                struct TACOperand *liveIn = LinkedList_PopFront(inboundSsasToPhi->elements);
+                newPhi->operands[1] = *liveIn;
+                liveIn = LinkedList_PopFront(inboundSsasToPhi->elements);
+                newPhi->operands[2] = *liveIn;
+                BasicBlock_prepend(block, newPhi);
+
+                Set_Insert(inboundSsasToPhi, &newPhi->operands[0]);
+            }
+        }
+    }
+
+    HashTable_Free(phiVars);
+
+    Idfa_Redo(reachingDefs);
+}
+
+void insertPhiFunctions(struct Idfa *reachingDefs, struct Set *ssaNumbers)
+{
+    struct PhiContext context = {reachingDefs, ssaNumbers};
+    traverseBlocksHierarchically(reachingDefs->context, insertPhiFunctionsForBlock, &context);
+}
+
+// rename all operands which are written to in the block to have unique SSA numbers
+void renameWrittenTacOperandsForBlock(struct BasicBlock *block, void *data)
+{
+    // set of all operands which are ever written in the IdfaContext
+    struct Set *ssaOperands = data;
+    printf("rename written tac operands for block %zu:%p-%zu\n", block->labelNum, data, ssaOperands->elements->size);
+
+    // iterate all TAC in the block
+    for (struct LinkedListNode *tacRunner = block->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
+    {
+        struct TACLine *thisTac = tacRunner->data;
+        // iterate all operands in the TAC
+        for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
+        {
+            // written operands are the only ones which need to be assigned an SSA number at this point
+            if (getUseOfOperand(thisTac, operandIndex) == u_write)
+            {
+                struct TACOperand *thisOperand = &thisTac->operands[operandIndex];
+
+                // assign a unique SSA number to the operand
+                struct TACOperand *ssaOperand = ssaOperandLookupOrInsert(ssaOperands, thisOperand);
+                thisOperand->ssaNumber = ssaOperand->ssaNumber++;
+            }
+        }
+    }
+}
+
+// go over all TAC operands which are assigned to and give them unique SSA numbers
+struct Set *renameWrittenTACOperands(struct IdfaContext *context)
+{
+    struct Set *ssaOperandNumbers = Set_New(compareTacOperandIgnoreSsaNumber, free);
+
+    traverseBlocksHierarchically(context, renameWrittenTacOperandsForBlock, ssaOperandNumbers);
+
+    return ssaOperandNumbers;
 }
 
 struct Set *findHighestSsaLiveIns(struct Idfa *liveVars, size_t blockIndex)
@@ -205,15 +335,19 @@ struct Set *findHighestSsaLiveIns(struct Idfa *liveVars, size_t blockIndex)
 }
 
 // find all SSA variables live in to block blockIndex based on tacOperand
-struct Set *findAllSsaLiveInsForVariable(struct Idfa *liveVars, size_t blockIndex, struct TACOperand *operand)
+struct Set *findUnusedSsaReachingDefs(struct Idfa *reachingDefs, size_t blockIndex, struct TACOperand *operand)
 {
     struct Set *matchingOperands = Set_New(compareTacOperand, NULL);
-    for (struct LinkedListNode *liveInRunner = liveVars->facts.in[blockIndex]->elements->head; liveInRunner != NULL; liveInRunner = liveInRunner->next)
+    for (struct LinkedListNode *reachingDefRunner = reachingDefs->facts.in[blockIndex]->elements->head; reachingDefRunner != NULL; reachingDefRunner = reachingDefRunner->next)
     {
-        struct TACOperand *thisLiveIn = liveInRunner->data;
-        if (compareTacOperandIgnoreSsaNumber(operand, thisLiveIn) == 0)
+        struct TACOperand *reachingDef = reachingDefRunner->data;
+        if (compareTacOperandIgnoreSsaNumber(operand, reachingDef) == 0)
         {
-            Set_Insert(matchingOperands, thisLiveIn);
+            // only include operands which are not killed in the block
+            if (Set_Find(reachingDefs->facts.kill[blockIndex], reachingDef) == NULL)
+            {
+                Set_Insert(matchingOperands, reachingDef);
+            }
         }
     }
     return matchingOperands;
@@ -251,11 +385,6 @@ void renameReadTACOperands(struct Idfa *liveVars)
         for (struct LinkedListNode *tacRunner = thisBlock->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
         {
             struct TACLine *thisTac = tacRunner->data;
-            // skip phi functions for now, just resolve other TAC operands
-            if (thisTac->operation == tt_phi)
-            {
-                continue;
-            }
 
             // iterate all operands
             for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
@@ -268,6 +397,11 @@ void renameReadTACOperands(struct Idfa *liveVars)
 
                 // for operands we read, set their SSA number to the relevant SSA number if possible
                 case u_read:
+                    // don't modify SSA numbers if it is being read by a phi function
+                    if (thisTac->operation == tt_phi)
+                    {
+                        break;
+                    }
                     struct TACOperand *mostRecentAssignment = lookupMostRecentSsaAssignment(highestSsaLiveIns, ssaLivesFromThisBlock, thisOperand);
                     if (mostRecentAssignment != NULL)
                     {
@@ -301,115 +435,32 @@ int compareTacLinePointers(void *lineA, void *lineB)
     return lineA != lineB;
 }
 
-struct LinkedListNode *removeExtraneousPhi(struct BasicBlock *block, struct LinkedListNode *extraneousPhiNode)
+void doFunChecks(struct IdfaContext *context)
 {
-    struct LinkedListNode *next = extraneousPhiNode->next;
-    struct TACLine *extraneousLine = LinkedList_Delete(block->TACList, compareTacLinePointers, extraneousPhiNode->data);
-    freeTAC(extraneousLine);
-    return next;
-}
+    struct Idfa *reachingDefs = analyzeReachingDefs(context);
 
-// this function iterates over continuous TAC lines containing one or more phi functions for the same variable
-// it is capable of handling phis for join count >2, which require more than one phi function (because tt_phi reads 2 ssa operands to write a new one)
-struct LinkedListNode *resolvePhisForVariable(struct Idfa *liveVars,
-                                              size_t blockIndex,
-                                              struct TACOperand *phiVarToResolve, // TAC operand containing the variable we are resolving phi functions for
-                                              struct LinkedListNode *phiRunner,   // pointer to linked list node on which we are iterating our way through the TAC list
-                                              struct Set *allLiveIns)             // set of all SSA operands for this variable
-{
-    struct TACOperand *resolvedPhiVar = LinkedList_PopBack(allLiveIns->elements);
-    struct TACLine *phiLineToResolve = phiRunner->data;
-    if (compareTacOperandIgnoreSsaNumber(phiVarToResolve, resolvedPhiVar) != 0)
+    struct BasicBlock *lastBlock = NULL;
+    for (size_t blockIndex = 0; blockIndex < context->nBlocks; blockIndex++)
     {
-        ErrorAndExit(ERROR_CODE, "phiVarToResolve is not equivalent to resolvedPhiVar! (ignoring ssa number)\n");
+        if (context->successors[blockIndex]->elements->size == 0)
+        {
+            printf("%zu is last?\n", blockIndex);
+            lastBlock = context->blocks[blockIndex];
+            continue;
+        }
     }
 
-    // start off by setting the ssa number of the first read operand in the first phi function
-    phiLineToResolve->operands[1].ssaNumber = resolvedPhiVar->ssaNumber;
+    printf("%p%p\n", lastBlock, reachingDefs);
+    printf("Potentially unused variables: \t");
 
-    // track what SSA operand our last phi function assigned to
-    struct TACOperand *lastPhiOutputVariable = NULL;
-
-    // resolve arbitrarily many phi functions for as many inbound instances of the variable as exist
-    // assumption: insertPhiFunctions has inserted the exact number of phi functions we need
-    while (allLiveIns->elements->size > 0)
+    struct Set *reachingOut = reachingDefs->facts.out[lastBlock->labelNum];
+    for (struct LinkedListNode *runner = reachingOut->elements->head; runner != NULL; runner = runner->next)
     {
-        // sanity check to make sure that the correct number of phi function TAC lines got inserted by insertPhiFunctions
-        if (phiRunner == NULL)
+        struct TACOperand *liveOutOperand = runner->data;
+        if (liveOutOperand->permutation == vp_standard)
         {
-            ErrorAndExit(ERROR_CODE, "Ran out of phi functions to resolve in resolvePhisForVariable!\n");
-        }
-        phiLineToResolve = phiRunner->data;
-
-        if(phiLineToResolve->operation != tt_phi)
-        {
-            ErrorAndExit(ERROR_CODE, "Still had %zu phis to resolve but found non-phi TAC!\n", allLiveIns->elements->size);
-        }
-
-        // pop another phi var to resolve, sanity check it
-        resolvedPhiVar = LinkedList_PopBack(allLiveIns->elements);
-
-        if (compareTacOperandIgnoreSsaNumber(phiVarToResolve, resolvedPhiVar) != 0)
-        {
-            ErrorAndExit(ERROR_CODE, "phiVarToResolve is not equivalent to resolvedPhiVar! (ignoring ssa number)\n");
-        }
-
-        // slot our resolved var into the second "read" slot of the phi function
-        phiLineToResolve->operands[2] = *resolvedPhiVar;
-
-        // if we have already been around the loop, that means we are phi-ing a single live in variable with the output of a previous phi function within this block
-        if (lastPhiOutputVariable != NULL)
-        {
-            phiLineToResolve->operands[1] = *lastPhiOutputVariable;
-        }
-        // track the operand which this phi function writes to
-        lastPhiOutputVariable = &phiLineToResolve->operands[0];
-
-        phiRunner = phiRunner->next;
-    }
-
-    return phiRunner;
-}
-
-void resolvePhiFunctions(struct Idfa *liveVars)
-{
-    // iterate all blocks
-    for (size_t blockIndex = 0; blockIndex < liveVars->context->nBlocks; blockIndex++)
-    {
-        struct BasicBlock *toResolve = liveVars->context->blocks[blockIndex];
-        struct LinkedListNode *phiRunner = toResolve->TACList->head;
-        // iterate all TAC in the block
-        while (phiRunner != NULL)
-        {
-            struct TACLine *phiLineToResolve = phiRunner->data;
-            if (phiLineToResolve->operation == tt_phi)
-            {
-                // if we encounter a phi function, its RHS operands need to be populated
-                // actually copy it into this scope because removeExtraneousPhis may free the line containing the operand
-                // but if removeExtraneousPhis has multiple lines to remoev it requires phiVarToResolve to still be valid
-                struct TACOperand phiVarToResolve = phiLineToResolve->operands[0];
-
-                // go out and find the set of all instances of this variable which are live into the block
-                struct Set *allLiveIns = findAllSsaLiveInsForVariable(liveVars, blockIndex, &phiVarToResolve);
-
-                if (allLiveIns->elements->size < 2)
-                {
-                    // if fewer than 2 differently-ssa-numbered instances of the operand exist, this phi function is extra. remove it
-                    phiRunner = removeExtraneousPhi(toResolve, phiRunner);
-                }
-                else
-                {
-                    // for any number >= 2 of relevant variables live into this block, use resolvePhisForVariable to correctly resolve *all* phi functions for this variable
-                    phiRunner = resolvePhisForVariable(liveVars, blockIndex, &phiVarToResolve, phiRunner, allLiveIns);
-                }
-
-                Set_Free(allLiveIns);
-            }
-            else
-            {
-                // not a phi function, skip
-                phiRunner = phiRunner->next;
-            }
+            printTACOperand(liveOutOperand);
+            printf(" ");
         }
     }
 }
@@ -425,44 +476,34 @@ void generateSsaForFunction(struct FunctionEntry *function)
     printControlFlowsAsDot(liveVars, function->name);
     Idfa_printFacts(liveVars);
 
-    for (size_t blockIndex = 0; blockIndex < function->BasicBlockList->size; blockIndex++)
-    {
-        printf("%s_%zu\n", function->name, blockIndex);
-        printf("gen: %zu kill: %zu in: %zu out: %zu\n",
-               liveVars->facts.gen[blockIndex]->elements->size,
-               liveVars->facts.kill[blockIndex]->elements->size,
-               liveVars->facts.in[blockIndex]->elements->size,
-               liveVars->facts.out[blockIndex]->elements->size);
-    }
+    // for (size_t blockIndex = 0; blockIndex < function->BasicBlockList->size; blockIndex++)
+    // {
+    //     printf("%s_%zu\n", function->name, blockIndex);
+    //     printf("gen: %zu kill: %zu in: %zu out: %zu\n",
+    //            liveVars->facts.gen[blockIndex]->elements->size,
+    //            liveVars->facts.kill[blockIndex]->elements->size,
+    //            liveVars->facts.in[blockIndex]->elements->size,
+    //            liveVars->facts.out[blockIndex]->elements->size);
+    // }
 
-    insertPhiFunctions(liveVars);
-
-
-
-    printControlFlowsAsDot(liveVars, function->name);
-
-    renameWrittenTACOperands(context);
+    struct Set *ssaNumbers = renameWrittenTACOperands(context);
 
     struct Idfa *reachingDefs = analyzeReachingDefs(context);
+    insertPhiFunctions(reachingDefs, ssaNumbers);
+
+    Set_Free(ssaNumbers);
+
+    Idfa_Redo(reachingDefs);
+
+    renameReadTACOperands(reachingDefs);
+    Idfa_Free(liveVars);
+    printControlFlowsAsDot(reachingDefs, function->name);
+
     Idfa_printFacts(reachingDefs);
+
     Idfa_Free(reachingDefs);
-    exit(-1);
 
-    printControlFlowsAsDot(liveVars, function->name);
-
-    Idfa_Free(liveVars);
-    liveVars = analyzeLiveVars(context);
-
-    Idfa_printFacts(liveVars);
-    renameReadTACOperands(liveVars);
-    printControlFlowsAsDot(liveVars, function->name);
-
-    resolvePhiFunctions(liveVars);
-
-    printControlFlowsAsDot(liveVars, function->name);
-
-
-    Idfa_Free(liveVars);
+    doFunChecks(context);
 
     IdfaContext_Free(context);
 }

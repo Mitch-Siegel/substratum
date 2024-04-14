@@ -85,10 +85,25 @@ void liveVars_findGenKills(struct Idfa *idfa)
 
                 case u_read:
                     Set_Insert(idfa->facts.kill[blockIndex], &genKillLine->operands[operandIndex]);
+                    if (genKillLine->operands[operandIndex].name.str == NULL)
+                    {
+                        ErrorAndExit(ERROR_CODE, "NULL OPERAND\n");
+                    }
+                    printf("READ: ");
+                    printTACOperand(&genKillLine->operands[operandIndex]);
+                    printf("\n");
                     break;
 
                 case u_write:
+                    if (genKillLine->operands[operandIndex].name.str == NULL)
+                    {
+                        ErrorAndExit(ERROR_CODE, "NULL OPERAND\n");
+                    }
                     Set_Insert(idfa->facts.gen[blockIndex], &genKillLine->operands[operandIndex]);
+                    printf("WRITE: ");
+                    printTACOperand(&genKillLine->operands[operandIndex]);
+                    printf("\n");
+
                     break;
                 }
             }
@@ -117,10 +132,10 @@ struct Idfa *analyzeLiveVars(struct IdfaContext *context)
     struct Idfa *liveVarsIdfa = Idfa_Create(context,
                                             liveVars_transfer,
                                             liveVars_findGenKills,
+                                            d_forwards,
                                             compareTacOperand,
                                             printTACOperand,
                                             Set_Union);
 
-    Idfa_AnalyzeForwards(liveVarsIdfa);
     return liveVarsIdfa;
 }

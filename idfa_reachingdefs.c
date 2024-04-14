@@ -8,7 +8,7 @@ struct Set *reacingDefs_transfer(struct Idfa *idfa, struct BasicBlock *block, st
 {
     struct Set *transferred = Set_New(facts->compareFunction, facts->dataFreeFunction);
 
-        // transfer anything in GEN but not in KILL
+    // transfer anything in GEN but not in KILL
     for (struct LinkedListNode *factRunner = idfa->facts.gen[block->labelNum]->elements->head; factRunner != NULL; factRunner = factRunner->next)
     {
         struct TACOperand *examinedFact = factRunner->data;
@@ -88,10 +88,10 @@ struct Idfa *analyzeReachingDefs(struct IdfaContext *context)
     struct Idfa *reacingDefsIdfa = Idfa_Create(context,
                                                reacingDefs_transfer,
                                                reacingDefs_findGenKills,
+                                               d_forwards,
                                                compareTacOperand,
                                                printTACOperand,
                                                Set_Union);
 
-    Idfa_AnalyzeForwards(reacingDefsIdfa);
     return reacingDefsIdfa;
 }

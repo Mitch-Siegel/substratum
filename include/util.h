@@ -196,6 +196,8 @@ void Set_Delete(struct Set *set, void *element);
 
 void *Set_Find(struct Set *set, void *element);
 
+void Set_Clear(struct Set *toClear);
+
 void Set_Merge(struct Set *into, struct Set *from);
 
 struct Set *Set_Copy(struct Set *set);

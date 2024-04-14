@@ -13,6 +13,12 @@ struct IdfaContext
     struct Set **predecessors;
 };
 
+enum IdfaAnalysisDirection
+{
+    d_forwards,
+    d_backwards,
+};
+
 struct IdfaContext *IdfaContext_Create(struct LinkedList *blocks);
 
 void IdfaContext_Free(struct IdfaContext *context);
@@ -32,6 +38,7 @@ struct Idfa
     int (*compareFacts)(void *factA, void *factB);
     void (*printFact)(void *factData);
     struct IdfaFacts facts;
+    enum IdfaAnalysisDirection direction;
 
     // pointer to function returning a struct Set
     struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts);
@@ -44,6 +51,7 @@ struct Idfa
 struct Idfa *Idfa_Create(struct IdfaContext *context,
                          struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts), // transfer function
                          void (*findGenKills)(struct Idfa *idfa),                                                  // findGenKills function
+                         enum IdfaAnalysisDirection direction,                                                     // direction which data flows in the analysis
                          int (*compareFacts)(void *factA, void *factB),                                            // compare function for facts in the domain of the analysis
                          void (*printFact)(void *factData),                                                        // print function for facts in the domain of the analysis
                          struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB));                            // set operation used to collect data from predecessor/successor blocks
@@ -53,6 +61,10 @@ void Idfa_printFacts(struct Idfa *idfa);
 void Idfa_AnalyzeForwards(struct Idfa *idfa);
 
 void Idfa_AnalyzeBackwards(struct Idfa *idfa);
+
+void Idfa_Analyze(struct Idfa *idfa);
+
+void Idfa_Redo(struct Idfa *idfa);
 
 void Idfa_Free(struct Idfa *idfa);
 

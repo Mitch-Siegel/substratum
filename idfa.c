@@ -103,6 +103,7 @@ void IdfaContext_Free(struct IdfaContext *context)
 struct Idfa *Idfa_Create(struct IdfaContext *context,
                          struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts),
                          void (*findGenKills)(struct Idfa *idfa),
+                         enum IdfaAnalysisDirection direction,
                          int (*compareFacts)(void *factA, void *factB),
                          void (*printFact)(void *factData),
                          struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB))
@@ -114,6 +115,7 @@ struct Idfa *Idfa_Create(struct IdfaContext *context,
     wip->fTransfer = fTransfer;
     wip->findGenKills = findGenKills;
     wip->fMeet = fMeet;
+    wip->direction = direction;
 
     wip->facts.in = malloc(wip->context->nBlocks * sizeof(struct Set *));
     wip->facts.out = malloc(wip->context->nBlocks * sizeof(struct Set *));
@@ -127,6 +129,8 @@ struct Idfa *Idfa_Create(struct IdfaContext *context,
         wip->facts.gen[i] = Set_New(wip->compareFacts, NULL);
         wip->facts.kill[i] = Set_New(wip->compareFacts, NULL);
     }
+
+    Idfa_Analyze(wip);
 
     return wip;
 }
@@ -231,6 +235,44 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
 
         iteration++;
     } while (nChangedOutputs > 0);
+}
+
+void Idfa_AnalyzeBackwards(struct Idfa *idfa)
+{
+    ErrorAndExit(ERROR_INTERNAL, "Backwards dataflow analysis not implemented");
+}
+
+void Idfa_Analyze(struct Idfa *idfa)
+{
+    switch (idfa->direction)
+    {
+    case d_forwards:
+        Idfa_AnalyzeForwards(idfa);
+        break;
+
+    case d_backwards:
+        Idfa_AnalyzeBackwards(idfa);
+        break;
+    }
+}
+
+void Idfa_Redo(struct Idfa *idfa)
+{
+    for (size_t i = 0; i < idfa->context->nBlocks; i++)
+    {
+        Set_Free(idfa->facts.in[i]);
+        idfa->facts.in[i] = Set_New(idfa->compareFacts, NULL);
+
+        Set_Free(idfa->facts.out[i]);
+        idfa->facts.out[i] = Set_New(idfa->compareFacts, NULL);
+
+        Set_Free(idfa->facts.gen[i]);
+        idfa->facts.gen[i] = Set_New(idfa->compareFacts, NULL);
+
+        Set_Free(idfa->facts.kill[i]);
+        idfa->facts.kill[i] = Set_New(idfa->compareFacts, NULL);
+    }
+    Idfa_Analyze(idfa);
 }
 
 void Idfa_Free(struct Idfa *idfa)
