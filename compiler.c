@@ -240,10 +240,9 @@ int main(int argc, char **argv)
         printf("Collapsing scopes\n");
     }
 
-    generateSsa(theTable);
-    ErrorAndExit(ERROR_INTERNAL, "Bail out after generating ssa\n");
-
     SymbolTable_collapseScopes(theTable, parseDict);
+
+    generateSsa(theTable);
 
     if (currentVerbosity > VERBOSITY_SILENT)
     {

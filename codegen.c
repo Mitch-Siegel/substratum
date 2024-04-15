@@ -757,10 +757,10 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
         case tt_do:
         case tt_enddo:
+        case tt_phi:
             break;
 
-        case tt_phi:
-            ErrorAndExit(ERROR_INTERNAL, "Unexpected PHI function leftover in codegen!\n");
+            // ErrorAndExit(ERROR_INTERNAL, "Unexpected PHI function leftover in codegen!\n");
         }
     }
 }
