@@ -242,7 +242,7 @@ int main(int argc, char **argv)
 
     SymbolTable_collapseScopes(theTable, parseDict);
 
-    generateSsa(theTable);
+    // generateSsa(theTable);
 
     if (currentVerbosity > VERBOSITY_SILENT)
     {
