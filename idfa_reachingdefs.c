@@ -37,7 +37,7 @@ void reacingDefs_findGenKills(struct Idfa *idfa)
     for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
     {
         struct BasicBlock *genKillBlock = idfa->context->blocks[blockIndex];
-        struct Set *highestSsas = Set_New(compareTacOperandIgnoreSsaNumber, NULL);
+        struct Set *highestSsas = Set_New(TACOperand_CompareIgnoreSsaNumber, NULL);
         for (struct LinkedListNode *tacRunner = genKillBlock->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
         {
             struct TACLine *genKillLine = tacRunner->data;
@@ -89,7 +89,7 @@ struct Idfa *analyzeReachingDefs(struct IdfaContext *context)
                                                reacingDefs_transfer,
                                                reacingDefs_findGenKills,
                                                d_forwards,
-                                               compareTacOperand,
+                                               TACOperand_Compare,
                                                printTACOperand,
                                                Set_Union);
 

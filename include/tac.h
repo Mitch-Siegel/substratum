@@ -2,14 +2,8 @@
 #define TAC_H
 
 #include "ast.h"
+#include "tac_operand.h"
 #include "type.h"
-
-enum variablePermutations
-{
-    vp_standard,
-    vp_temp,
-    vp_literal,
-};
 
 enum TACType
 {
@@ -53,30 +47,6 @@ enum TACType
     tt_enddo,
     tt_phi,
 };
-
-struct TACOperand
-{
-    union nameUnion // name of variable as char*, or literal value as int
-    {
-        char *str;
-        ssize_t val;
-    } name;
-
-    size_t ssaNumber;
-    struct Type type;
-    struct Type castAsType;
-    enum variablePermutations permutation; // enum of permutation (standard/temp/literal)
-};
-
-// Enum denoting how a particular TAC operand is used
-enum TACOperandUse
-{
-    u_unused,
-    u_read,
-    u_write,
-};
-
-void TACOperand_SetBasicType(struct TACOperand *operand, enum basicTypes type, int indirectionLevel);
 
 struct TACLine
 {

@@ -3,16 +3,6 @@
 #include "util.h"
 #include <stdio.h>
 
-struct Type *TACOperand_GetType(struct TACOperand *operand)
-{
-    if (operand->castAsType.basicType != vt_null)
-    {
-        return &operand->castAsType;
-    }
-
-    return &operand->type;
-}
-
 struct Type *TAC_GetTypeOfOperand(struct TACLine *line, unsigned index)
 {
     if (index > 3)
