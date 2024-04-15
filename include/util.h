@@ -1,24 +1,26 @@
-#include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "substratum_defs.h"
 
 #pragma once
 
 enum CompilerErrors
 {
-	ERROR_INVOCATION = 1, // user has made an error with arguments or other parameters
-	ERROR_CODE,			  // there is an error in the code which prevents a complete compilation
-	ERROR_INTERNAL,
+    ERROR_INVOCATION = 1, // user has made an error with arguments or other parameters
+    ERROR_CODE,           // there is an error in the code which prevents a complete compilation
+    ERROR_INTERNAL,
 };
 
 #define ErrorAndExit(code, fmt, ...)                           \
-	printf(fmt, ##__VA_ARGS__);                                \
-	printf("Bailing from file %s:%d\n\n", __FILE__, __LINE__); \
-	exit(code)
+    printf(fmt, ##__VA_ARGS__);                                \
+    printf("Bailing from file %s:%d\n\n", __FILE__, __LINE__); \
+    exit(code)
 
-#define ErrorWithAST(code, astPtr, fmt, ...)                                               \
-	printf("%s:%d:%d:\n", (astPtr)->sourceFile, (astPtr)->sourceLine, (astPtr)->sourceCol); \
-	ErrorAndExit(code, fmt, ##__VA_ARGS__)
+#define ErrorWithAST(code, astPtr, fmt, ...)                                                \
+    printf("%s:%d:%d:\n", (astPtr)->sourceFile, (astPtr)->sourceLine, (astPtr)->sourceCol); \
+    ErrorAndExit(code, fmt, ##__VA_ARGS__)
 
 #define STAGE_PARSE 0
 #define STAGE_LINEARIZE 1
@@ -31,28 +33,69 @@ enum CompilerErrors
 #define VERBOSITY_MAX 2
 struct Config
 {
-	char stageVerbosities[STAGE_MAX];
+    u8 stageVerbosities[STAGE_MAX];
 };
 
-extern char currentVerbosity;
+extern u8 currentVerbosity;
 
 struct ParseProgress
 {
-	unsigned int curLine;
-	unsigned int curCol;
-	char *curFile;
-	unsigned int curLineRaw;
-	unsigned int curColRaw;
-	FILE *f;
-	struct Dictionary *dict;
-	struct LinkedList *charsRemainingPerLine;
-	int lastMatchLocation; // location of last parser match relative to pcc buffer
-	char eofReceived;
+    size_t curLine;
+    size_t curCol;
+    char *curFile;
+    size_t curLineRaw;
+    size_t curColRaw;
+    FILE *f;
+    struct Dictionary *dict;
+    struct LinkedList *charsRemainingPerLine;
+    size_t lastMatchLocation; // location of last parser match relative to pcc buffer
+    char eofReceived;
 };
 
-int alignSize(int nBytes);
+u8 alignSize(size_t nBytes);
 
-int unalignSize(int nBits);
+size_t unalignSize(u8 nBits);
+
+// directly compares dataA to dataB
+ssize_t ssizet_compare(void *dataA, void *dataB);
+
+/*
+ *
+ *
+ */
+
+struct HashTableEntry
+{
+    void *key;
+    void *value;
+    ssize_t (*compareFunction)(void *keyA, void *keyB);
+    void (*keyFreeFunction)(void *key);
+    void (*valueFreeFunction)(void *value);
+};
+
+struct HashTable
+{
+    struct Set **buckets;
+    size_t nBuckets;
+    size_t (*hashFunction)(void *key);
+    ssize_t (*compareFunction)(void *keyA, void *keyB);
+    void (*keyFreeFunction)(void *data);
+    void (*valueFreeFunction)(void *data);
+};
+
+struct HashTable *HashTable_New(size_t nBuckets,
+                                size_t (*hashFunction)(void *key),
+                                ssize_t (*compareFunction)(void *keyA, void *keyB),
+                                void (*keyFreeFunction)(void *data),
+                                void (*valueFreeFunction)(void *data));
+
+void *HashTable_Lookup(struct HashTable *table, void *key);
+
+void HashTable_Insert(struct HashTable *table, void *key, void *value);
+
+void *HashTable_Delete(struct HashTable *table, void *key);
+
+void HashTable_Free(struct HashTable *table);
 
 /*
  * Dictionary for tracking strings
@@ -61,17 +104,14 @@ int unalignSize(int nBits);
  */
 struct Dictionary
 {
-	struct LinkedList **buckets;
-	int nBuckets;
+    struct HashTable *table;
 };
 
-unsigned int hash(char *str);
+size_t hashString(void *data);
 
-struct Dictionary *Dictionary_New(int nBuckets);
+struct Dictionary *Dictionary_New(size_t nBuckets);
 
 char *Dictionary_Insert(struct Dictionary *dict, char *value);
-
-char *Dictionary_Lookup(struct Dictionary *dict, char *value);
 
 char *Dictionary_LookupOrInsert(struct Dictionary *dict, char *value);
 
@@ -82,22 +122,25 @@ void Dictionary_Free(struct Dictionary *dict);
  *
  */
 
+#define STACK_DEFAULT_ALLOCATION 20
+#define STACK_SCALE_FACTOR 2
+
 struct Stack
 {
-	void **data;
-	int size;
-	int allocated;
+    void **data;
+    size_t size;
+    size_t allocated;
 };
 
 struct Stack *Stack_New();
 
-void Stack_Free(struct Stack *s);
+void Stack_Free(struct Stack *stack);
 
-void Stack_Push(struct Stack *s, void *data);
+void Stack_Push(struct Stack *stack, void *data);
 
-void *Stack_Pop(struct Stack *s);
+void *Stack_Pop(struct Stack *stack);
 
-void *Stack_Peek(struct Stack *s);
+void *Stack_Peek(struct Stack *stack);
 
 /*
  * Unordered List data structure
@@ -106,40 +149,69 @@ void *Stack_Peek(struct Stack *s);
 
 struct LinkedListNode
 {
-	struct LinkedListNode *next;
-	struct LinkedListNode *prev;
-	void *data;
+    struct LinkedListNode *next;
+    struct LinkedListNode *prev;
+    void *data;
 };
 
 struct LinkedList
 {
-	struct LinkedListNode *head;
-	struct LinkedListNode *tail;
-	int size;
+    struct LinkedListNode *head;
+    struct LinkedListNode *tail;
+    size_t size;
 };
 
 struct LinkedList *LinkedList_New();
 
-void LinkedList_Free(struct LinkedList *l, void (*dataFreeFunction)());
+void LinkedList_Free(struct LinkedList *list, void (*dataFreeFunction)());
 
-void LinkedList_Append(struct LinkedList *l, void *element);
+void LinkedList_Append(struct LinkedList *list, void *element);
 
-void LinkedList_Prepend(struct LinkedList *l, void *element);
+void LinkedList_Prepend(struct LinkedList *list, void *element);
 
 // join all elements of list 'after' after those of list 'before' in list 'before'
 void LinkedList_Join(struct LinkedList *before, struct LinkedList *after);
 
-void *LinkedList_Delete(struct LinkedList *l, int (*compareFunction)(), void *element);
+void *LinkedList_Delete(struct LinkedList *list, ssize_t (*compareFunction)(), void *element);
 
-void *LinkedList_Find(struct LinkedList *l, int (*compareFunction)(), void *element);
+void *LinkedList_Find(struct LinkedList *list, ssize_t (*compareFunction)(), void *element);
 
-void *LinkedList_PopFront(struct LinkedList *l);
+void *LinkedList_PopFront(struct LinkedList *list);
 
-void *LinkedList_PopBack(struct LinkedList *l);
+void *LinkedList_PopBack(struct LinkedList *list);
 
-char *strTrim(char *s, int l);
+/*
+ * Set data structure
+ */
 
-char *strAppend(char *before, char *after);
+struct Set
+{
+    struct LinkedList *elements;
+    ssize_t (*compareFunction)(void *elementA, void *elementB);
+    void(*dataFreeFunction);
+};
+
+struct Set *Set_New(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction));
+
+void Set_Insert(struct Set *set, void *element);
+
+void Set_Delete(struct Set *set, void *element);
+
+void *Set_Find(struct Set *set, void *element);
+
+void Set_Clear(struct Set *toClear);
+
+void Set_Merge(struct Set *into, struct Set *from);
+
+struct Set *Set_Copy(struct Set *set);
+
+// given two input sets, construct and return a third set containing data from the union of the two
+struct Set *Set_Union(struct Set *setA, struct Set *setB);
+
+// given two input sets, construct and return a third set containing data from the intersection of the two
+struct Set *Set_Intersection(struct Set *setA, struct Set *setB);
+
+void Set_Free(struct Set *set);
 
 /*
  * TempList is a struct containing string names for TAC temps by number (eg t0, t1, t2, etc...)
@@ -149,14 +221,14 @@ char *strAppend(char *before, char *after);
 
 struct TempList
 {
-	struct Stack *temps;
+    struct Stack *temps;
 };
 
 // get the string for a given temp num
-char *TempList_Get(struct TempList *tempList, int tempNum);
+char *TempList_Get(struct TempList *tempList, size_t tempNum);
 
 // create a new templist
 struct TempList *TempList_New();
 
 // free the templist
-void TempList_Free(struct TempList *it);
+void TempList_Free(struct TempList *toFree);

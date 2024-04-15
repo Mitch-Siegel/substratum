@@ -1,11 +1,23 @@
-#include "codegen_generic.h"
-#include "symtab.h"
-#include "util.h"
+#ifndef CODEGEN_H
+#define CODEGEN_H
+#include <stdio.h>
 
-#ifndef _CODEGEN_OPT0_H_
-#define _CODEGEN_OPT0_H_
+#include "substratum_defs.h"
+
+struct SymbolTable;
+struct CodegenContext;
+struct CodegenMetadata;
+struct FunctionEntry;
+struct VariableEntry;
+struct BasicBlock;
+struct Scope;
+struct LinkedList;
 
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile);
+
+void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct Scope *globalScope, struct VariableEntry *variable);
+
+void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock);
 
 void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metadata);
 
@@ -18,6 +30,6 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
                                struct Scope *scope,
                                struct LinkedList *lifetimes,
                                char *functionName,
-                               int reservedRegisters[3]);
+                               u8 reservedRegisters[3]);
 
 #endif

@@ -15,7 +15,7 @@ ASMS = $(patsubst %.sb,%.S,$(SRCS))
 OBJS = $(patsubst %.sb,%.o,$(SRCS))
 
 # don't automatically remove .elf files
-.SECONDARY: $(TEST_NAME).elf
+.SECONDARY: $(TEST_NAME).elf $(ASMS)
 
 .DEFAULT_GOAL = $(TEST_NAME).output
 
@@ -37,7 +37,7 @@ programs: $(TEST_NAME).output
 
 # all test object files must have one and only one substratum source file
 %.o: %.S
-	$(AS) $(RISCV_ARGS) -r -o $@ $(basename $@).S
+	$(AS) $(RISCV_ARGS) --gdwarf-5 -r -o $@ $(basename $@).S
 
 %.elf: $(OBJS)
 	$(LD) -T ../link.lds -o $@ $^
