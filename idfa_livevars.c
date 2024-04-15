@@ -3,7 +3,7 @@
 #include "symtab_basicblock.h"
 #include "util.h"
 
-int compareTacOperandIgnoreSsaNumber(void *dataA, void *dataB)
+ssize_t compareTacOperandIgnoreSsaNumber(void *dataA, void *dataB)
 {
     struct TACOperand *operandA = dataA;
     struct TACOperand *operandB = dataB;
@@ -33,7 +33,7 @@ int compareTacOperandIgnoreSsaNumber(void *dataA, void *dataB)
     return 0;
 }
 
-int compareTacOperand(void *dataA, void *dataB)
+ssize_t compareTacOperand(void *dataA, void *dataB)
 {
     struct TACOperand *operandA = dataA;
     struct TACOperand *operandB = dataB;

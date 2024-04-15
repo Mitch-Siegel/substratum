@@ -3,9 +3,9 @@
 
 #include "idfa.h"
 
-int compareTacOperand(void *dataA, void *dataB);
+ssize_t compareTacOperand(void *dataA, void *dataB);
 
-int compareTacOperandIgnoreSsaNumber(void *dataA, void *dataB);
+ssize_t compareTacOperandIgnoreSsaNumber(void *dataA, void *dataB);
 
 void printTACOperand(void *operandData);
 

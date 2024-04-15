@@ -80,7 +80,7 @@ struct Lifetime *newLifetime(char *name,
                              u8 isGlobal,
                              u8 mustSpill);
 
-int compareLifetimes(struct Lifetime *compared, char *variable);
+ssize_t compareLifetimes(struct Lifetime *compared, char *variable);
 
 // update the lifetime start/end indices
 // returns pointer to the lifetime corresponding to the passed variable name

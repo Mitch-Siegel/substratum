@@ -2,19 +2,14 @@
 #include "symtab_basicblock.h"
 #include "util.h"
 
-// iterative dataflow analysis
-int compareBasicBlocks(void *blockA, void *blockB)
-{
-    return blockA != blockB;
-}
-
 struct Set **generateSuccessors(struct BasicBlock **blocks, size_t nBlocks)
 {
     struct Set **blockSuccessors = malloc(nBlocks * sizeof(struct LinkedList *));
 
     for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
     {
-        blockSuccessors[blockIndex] = Set_New(compareBasicBlocks, NULL);
+        // block pointers will be unique, so we can directly compare them
+        blockSuccessors[blockIndex] = Set_New(ssizet_compare, NULL);
 
         struct Set *thisblockSuccessors = blockSuccessors[blockIndex];
 
@@ -50,7 +45,8 @@ struct Set **generatePredecessors(struct BasicBlock **blocks, struct Set **succe
 
     for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
     {
-        blockPredecessors[blockIndex] = Set_New(compareBasicBlocks, NULL);
+        // block pointers will always be unique, so we can directly compare them
+        blockPredecessors[blockIndex] = Set_New(ssizet_compare, NULL);
     }
 
     for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
@@ -104,7 +100,7 @@ struct Idfa *Idfa_Create(struct IdfaContext *context,
                          struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts),
                          void (*findGenKills)(struct Idfa *idfa),
                          enum IdfaAnalysisDirection direction,
-                         int (*compareFacts)(void *factA, void *factB),
+                         ssize_t (*compareFacts)(void *factA, void *factB),
                          void (*printFact)(void *factData),
                          struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB))
 {

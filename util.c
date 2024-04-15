@@ -21,13 +21,18 @@ size_t unalignSize(u8 nBits)
     return 1 << nBits;
 }
 
+ssize_t ssizet_compare(void *dataA, void *dataB)
+{
+    return (ssize_t)dataA - (ssize_t)dataB;
+}
+
 /*
  *
  *
  */
 
 // TODO: just use the raw linkedlist data structure in hashtable
-int HashTableEntry_Compare(void *dataA, void *dataB)
+ssize_t HashTableEntry_Compare(void *dataA, void *dataB)
 {
     struct HashTableEntry *entryA = dataA;
     struct HashTableEntry *entryB = dataB;
@@ -50,7 +55,7 @@ void HashTableEntry_Free(void *entry)
 
 struct HashTableEntry *HashTableEntry_New(void *key,
                                           void *value,
-                                          int (*compareFunction)(void *keyA, void *keyB),
+                                          ssize_t (*compareFunction)(void *keyA, void *keyB),
                                           void (*keyFreeFunction)(void *key),
                                           void (*valueFreeFunction)(void *value))
 {
@@ -65,7 +70,7 @@ struct HashTableEntry *HashTableEntry_New(void *key,
 
 struct HashTable *HashTable_New(size_t nBuckets,
                                 size_t (*hashFunction)(void *key),
-                                int (*compareFunction)(void *keyA, void *keyB),
+                                ssize_t (*compareFunction)(void *keyA, void *keyB),
                                 void (*keyFreeFunction)(void *data),
                                 void (*valueFreeFunction)(void *data))
 {
@@ -148,7 +153,7 @@ size_t hashString(void *data)
 struct Dictionary *Dictionary_New(size_t nBuckets)
 {
     struct Dictionary *wip = malloc(sizeof(struct Dictionary));
-    wip->table = HashTable_New(nBuckets, hashString, (int (*)(void *, void *))strcmp, NULL, free);
+    wip->table = HashTable_New(nBuckets, hashString, (ssize_t(*)(void *, void *))strcmp, NULL, free);
     return wip;
 }
 
@@ -330,7 +335,7 @@ void LinkedList_Join(struct LinkedList *before, struct LinkedList *after)
     }
 }
 
-void *LinkedList_Delete(struct LinkedList *list, int (*compareFunction)(void *, void *), void *element)
+void *LinkedList_Delete(struct LinkedList *list, ssize_t (*compareFunction)(void *, void *), void *element)
 {
     for (struct LinkedListNode *runner = list->head; runner != NULL; runner = runner->next)
     {
@@ -371,7 +376,7 @@ void *LinkedList_Delete(struct LinkedList *list, int (*compareFunction)(void *, 
     ErrorAndExit(ERROR_INTERNAL, "Couldn't delete element from linked list!\n");
 }
 
-void *LinkedList_Find(struct LinkedList *list, int (*compareFunction)(void *, void *), void *element)
+void *LinkedList_Find(struct LinkedList *list, ssize_t (*compareFunction)(void *, void *), void *element)
 {
     for (struct LinkedListNode *runner = list->head; runner != NULL; runner = runner->next)
     {
@@ -439,7 +444,7 @@ void *LinkedList_PopBack(struct LinkedList *list)
  * Set data structure
  */
 
-struct Set *Set_New(int (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction))
+struct Set *Set_New(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction))
 {
     struct Set *wip = malloc(sizeof(struct Set));
     wip->elements = LinkedList_New();

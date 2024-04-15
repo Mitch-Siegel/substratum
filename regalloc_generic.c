@@ -37,7 +37,7 @@ struct Lifetime *newLifetime(char *name, struct Type *type, size_t start, u8 isG
     return wip;
 }
 
-int compareLifetimes(struct Lifetime *compared, char *variable)
+ssize_t compareLifetimes(struct Lifetime *compared, char *variable)
 {
     return strcmp(compared->name, variable);
 }

@@ -35,7 +35,7 @@ struct Idfa
 {
     struct IdfaContext *context;
 
-    int (*compareFacts)(void *factA, void *factB);
+    ssize_t (*compareFacts)(void *factA, void *factB);
     void (*printFact)(void *factData);
     struct IdfaFacts facts;
     enum IdfaAnalysisDirection direction;
@@ -52,7 +52,7 @@ struct Idfa *Idfa_Create(struct IdfaContext *context,
                          struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts), // transfer function
                          void (*findGenKills)(struct Idfa *idfa),                                                  // findGenKills function
                          enum IdfaAnalysisDirection direction,                                                     // direction which data flows in the analysis
-                         int (*compareFacts)(void *factA, void *factB),                                            // compare function for facts in the domain of the analysis
+                         ssize_t (*compareFacts)(void *factA, void *factB),                                        // compare function for facts in the domain of the analysis
                          void (*printFact)(void *factData),                                                        // print function for facts in the domain of the analysis
                          struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB));                            // set operation used to collect data from predecessor/successor blocks
 

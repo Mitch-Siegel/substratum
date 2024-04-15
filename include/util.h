@@ -56,6 +56,9 @@ u8 alignSize(size_t nBytes);
 
 size_t unalignSize(u8 nBits);
 
+// directly compares dataA to dataB
+ssize_t ssizet_compare(void *dataA, void *dataB);
+
 /*
  *
  *
@@ -65,7 +68,7 @@ struct HashTableEntry
 {
     void *key;
     void *value;
-    int (*compareFunction)(void *keyA, void *keyB);
+    ssize_t (*compareFunction)(void *keyA, void *keyB);
     void (*keyFreeFunction)(void *key);
     void (*valueFreeFunction)(void *value);
 };
@@ -75,14 +78,14 @@ struct HashTable
     struct Set **buckets;
     size_t nBuckets;
     size_t (*hashFunction)(void *key);
-    int (*compareFunction)(void *keyA, void *keyB);
+    ssize_t (*compareFunction)(void *keyA, void *keyB);
     void (*keyFreeFunction)(void *data);
     void (*valueFreeFunction)(void *data);
 };
 
 struct HashTable *HashTable_New(size_t nBuckets,
                                 size_t (*hashFunction)(void *key),
-                                int (*compareFunction)(void *keyA, void *keyB),
+                                ssize_t (*compareFunction)(void *keyA, void *keyB),
                                 void (*keyFreeFunction)(void *data),
                                 void (*valueFreeFunction)(void *data));
 
@@ -169,9 +172,9 @@ void LinkedList_Prepend(struct LinkedList *list, void *element);
 // join all elements of list 'after' after those of list 'before' in list 'before'
 void LinkedList_Join(struct LinkedList *before, struct LinkedList *after);
 
-void *LinkedList_Delete(struct LinkedList *list, int (*compareFunction)(), void *element);
+void *LinkedList_Delete(struct LinkedList *list, ssize_t (*compareFunction)(), void *element);
 
-void *LinkedList_Find(struct LinkedList *list, int (*compareFunction)(), void *element);
+void *LinkedList_Find(struct LinkedList *list, ssize_t (*compareFunction)(), void *element);
 
 void *LinkedList_PopFront(struct LinkedList *list);
 
@@ -184,11 +187,11 @@ void *LinkedList_PopBack(struct LinkedList *list);
 struct Set
 {
     struct LinkedList *elements;
-    int (*compareFunction)(void *elementA, void *elementB);
+    ssize_t (*compareFunction)(void *elementA, void *elementB);
     void(*dataFreeFunction);
 };
 
-struct Set *Set_New(int (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction));
+struct Set *Set_New(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction));
 
 void Set_Insert(struct Set *set, void *element);
 

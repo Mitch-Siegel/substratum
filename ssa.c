@@ -6,11 +6,6 @@
 
 // TODO: implement TAC tt_declare for arguments so that we can ssa subsequent reassignments to them correctly
 
-int compareBlockNumbers(void *numberA, void *numberB)
-{
-    return (ssize_t)numberA != (ssize_t)numberB;
-}
-
 size_t hashTacOperand(void *operand)
 {
     size_t hash = 0;
@@ -76,9 +71,9 @@ void traverseBlocksHierarchically(struct IdfaContext *context, void (*operationO
 
     // block 0 is always the entry of the function, so as long as we start with it we will be fine
     LinkedList_Append(blocksToTraverse, context->blocks[0]);
-    struct Set *visited = Set_New(compareBlockNumbers, NULL);
+    struct Set *visited = Set_New(ssizet_compare, NULL);
 
-    struct Set *stronglyConnectedComponent = Set_New(compareBlockNumbers, NULL);
+    struct Set *stronglyConnectedComponent = Set_New(ssizet_compare, NULL);
 
     while (blocksToTraverse->size > 0)
     {
@@ -430,11 +425,6 @@ void renameReadTACOperandsInBlock(struct BasicBlock *block, void *data)
 void renameReadTACOperands(struct Idfa *liveVars)
 {
     traverseBlocksHierarchically(liveVars->context, renameReadTACOperandsInBlock, liveVars);
-}
-
-int compareTacLinePointers(void *lineA, void *lineB)
-{
-    return lineA != lineB;
 }
 
 void doFunChecks(struct IdfaContext *context)
