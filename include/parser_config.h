@@ -1,37 +1,41 @@
-#include "util.h"
+#ifndef PARSER_BASE_H
+#define PARSER_BASE_H
 
-#ifndef _PARSER_BASE_H_
-#define _PARSER_BASE_H_
+#include "substratum_defs.h"
+struct LinkedList;
+struct ParseProgress;
 
-void trackCharacter(struct LinkedList *charsPerLine, int c);
+void trackCharacter(struct LinkedList *charsPerLine, int trackedCharacter);
 
-void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, int charsConsumed, struct LinkedList *charsPerLine, unsigned int *curLineP, unsigned int *curColP);
+void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, size_t charsConsumed, struct LinkedList *charsPerLine, size_t *curLineP, size_t *curColP);
 
-void parseFile(char *inFileName);
+void parserError(struct ParseProgress *auxil);
 
-#define UPCOMING_CHARS_THIS_LINE(auxil) (*(int *)(auxil->charsRemainingPerLine->head->data))
-#define UPCOMING_CHARS_LAST_LINE(auxil) (*(int *)(auxil->charsRemainingPerLine->tail->data))
+void setCurrentFile(char **curFileP, char *fileName);
 
-#define PCC_GETCHAR(auxil) ({                                 \
-    int inChar = fgetc(auxil->f);                             \
-    if (inChar == '\n')                                       \
-    {                                                         \
-        auxil->curLineRaw++;                                  \
-        auxil->curColRaw = 0;                                 \
-    }                                                         \
-    else                                                      \
-    {                                                         \
-        auxil->curColRaw++;                                   \
-    }                                                         \
-    if (inChar == EOF)                                        \
-    {                                                         \
-        auxil->eofReceived = 1;                               \
-    }                                                         \
-    else                                                      \
-    {                                                         \
-        trackCharacter(auxil->charsRemainingPerLine, inChar); \
-    }                                                         \
-    inChar;                                                   \
+#define UPCOMING_CHARS_THIS_LINE(auxil) (*(size_t *)((auxil)->charsRemainingPerLine->head->data))
+#define UPCOMING_CHARS_LAST_LINE(auxil) (*(size_t *)((auxil)->charsRemainingPerLine->tail->data))
+
+#define PCC_GETCHAR(auxil) ({                                     \
+    int inChar = fgetc((auxil)->f);                               \
+    if ((inChar) == '\n')                                         \
+    {                                                             \
+        (auxil)->curLineRaw++;                                    \
+        (auxil)->curColRaw = 0;                                   \
+    }                                                             \
+    else                                                          \
+    {                                                             \
+        (auxil)->curColRaw++;                                     \
+    }                                                             \
+    if ((inChar) == EOF)                                          \
+    {                                                             \
+        (auxil)->eofReceived = 1;                                 \
+    }                                                             \
+    else                                                          \
+    {                                                             \
+        trackCharacter((auxil)->charsRemainingPerLine, (inChar)); \
+    }                                                             \
+    (inChar);                                                     \
 })
 
 /*#define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length)                                                              \
@@ -56,32 +60,55 @@ void parseFile(char *inFileName);
         printf("]\n");                                                                                                         \
     }*/
 
-#define PCC_ERROR(auxil)                                                                                    \
-    {                                                                                                       \
-        ErrorAndExit(ERROR_INTERNAL, "Syntax Error: %s:%d:%d\n", auxil->curFile, auxil->curLineRaw, auxil->curColRaw); \
+#define PCC_ERROR(auxil)                                                   \
+    {                                                                      \
+        if ((ctx != NULL) && (ctx->buffer.len > 0))                        \
+        {                                                                  \
+            int nNlFound = 0;                                              \
+            ssize_t i = 0;                                                 \
+            for (i = ctx->buffer.len - 1; (i >= 0) && (nNlFound < 3); i--) \
+            {                                                              \
+                if (ctx->buffer.buf[i] == '\n')                            \
+                {                                                          \
+                    nNlFound++;                                            \
+                }                                                          \
+            }                                                              \
+            if (nNlFound == 3)                                             \
+            {                                                              \
+                i += 2;                                                    \
+            }                                                              \
+            fputs("Syntax error near:\n", stderr);                         \
+            while (i < ctx->buffer.len)                                    \
+            {                                                              \
+                fputc(ctx->buffer.buf[i], stderr);                         \
+                i++;                                                       \
+            }                                                              \
+            fputc('\n', stderr);                                           \
+        }                                                                  \
+        parserError(auxil);                                                \
     }
 
 #define AST_S(original, newrightmost) AST_ConstructAddSibling(original, newrightmost)
 #define AST_C(parent, child) AST_ConstructAddChild(parent, child)
-#define AST_N(auxil, token, value, location)                                                                                                        \
-    ({                                                                                                                                              \
-        struct AST *created = NULL;                                                                                                                 \
-        if (strlen(value) > 0)                                                                                                                      \
-        {                                                                                                                                           \
-            if (auxil->lastMatchLocation == 0)                                                                                                      \
-            {                                                                                                                                       \
-                manageSourceLocation(auxil, value, (location + 1) - strlen(value), auxil->charsRemainingPerLine, &auxil->curLine, &auxil->curCol);  \
-                auxil->lastMatchLocation = location;                                                                                                \
-            }                                                                                                                                       \
-            created = AST_New(token, Dictionary_LookupOrInsert(auxil->dict, value), auxil->curFile, auxil->curLine, auxil->curCol);                 \
-            manageSourceLocation(auxil, value, location - auxil->lastMatchLocation, auxil->charsRemainingPerLine, &auxil->curLine, &auxil->curCol); \
-            auxil->lastMatchLocation = location;                                                                                                    \
-        }                                                                                                                                           \
-        else                                                                                                                                        \
-        {                                                                                                                                           \
-            created = AST_New(token, Dictionary_LookupOrInsert(auxil->dict, value), auxil->curFile, auxil->curLine, auxil->curCol);                 \
-        }                                                                                                                                           \
-        created;                                                                                                                                    \
+#define AST_N(auxil, token, value, location)                                                                                                                      \
+    ({                                                                                                                                                            \
+        struct AST *created = NULL;                                                                                                                               \
+        if (strlen((value)) > 0)                                                                                                                                  \
+        {                                                                                                                                                         \
+            if ((auxil)->lastMatchLocation == 0)                                                                                                                  \
+            {                                                                                                                                                     \
+                manageSourceLocation((auxil), (value), ((location) + 1) - strlen((value)), (auxil)->charsRemainingPerLine, &(auxil)->curLine, &(auxil)->curCol);  \
+                (auxil)->lastMatchLocation = (location);                                                                                                          \
+            }                                                                                                                                                     \
+            created = AST_New(token, Dictionary_LookupOrInsert((auxil)->dict, (value)), (auxil)->curFile, (auxil)->curLine, (auxil)->curCol);                     \
+            manageSourceLocation((auxil), (value), (location) - (auxil)->lastMatchLocation, (auxil)->charsRemainingPerLine, &(auxil)->curLine, &(auxil)->curCol); \
+            (auxil)->lastMatchLocation = (location);                                                                                                              \
+        }                                                                                                                                                         \
+        else                                                                                                                                                      \
+        {                                                                                                                                                         \
+            created = AST_New(token, Dictionary_LookupOrInsert((auxil)->dict, (value)), (auxil)->curFile, (auxil)->curLine, (auxil)->curCol);                     \
+        }                                                                                                                                                         \
+        created;                                                                                                                                                  \
     })
 
 // #ifndef AST_S

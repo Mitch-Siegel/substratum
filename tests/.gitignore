@@ -1,5 +1,9 @@
 *.S
 *.o
 *.elf
+*.output
+*.cov
+*.gcda
+*/coverage/*
 
-coverage
+aggregate-coverage-report

@@ -1,14 +1,21 @@
-#include "symtab.h"
-#include "tac.h"
+#ifndef LINEARIZER_GENERIC_H
+#define LINEARIZER_GENERIC_H
 
-#ifndef _LINEARIZER_H_
-#define _LINEARIZER_H_
+#include "substratum_defs.h"
+struct TACOperand;
+struct VariableEntry;
+struct Type;
+struct AST;
+struct Scope;
+struct TACLine;
 
-enum basicTypes selectVariableTypeForNumber(int num);
+#define sprintedNumberLength 32
+
+enum basicTypes selectVariableTypeForNumber(size_t num);
 
 enum basicTypes selectVariableTypeForLiteral(char *literal);
 
-void populateTACOperandFromVariable(struct TACOperand *o, struct VariableEntry *e);
+void populateTACOperandFromVariable(struct TACOperand *operandToPopulate, struct VariableEntry *populateFrom);
 
 // copy a type, turning any array size > 0 into an increment of indirectionlevel
 void copyTypeDecayArrays(struct Type *dest, struct Type *src);
@@ -19,7 +26,7 @@ void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src);
 // copy over only the type and castAsType fields, decaying array sizes to simple pointer types
 void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *src);
 
-struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, int *TACIndex, int *tempNum, struct Type *pointerTypeOfToScale);
+struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale);
 
 // check the LHS of any dot operator make sure it is both a class and not indirect
 // special case handling for when tree is an identifier vs a subexpression
