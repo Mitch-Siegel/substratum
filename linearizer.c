@@ -613,7 +613,7 @@ void walkStatement(struct AST *tree,
 
         BasicBlock_append(*blockP, returnLine);
 
-        if(tree->sibling != NULL)
+        if (tree->sibling != NULL)
         {
             ErrorWithAST(ERROR_CODE, tree->sibling, "Code after return statement is unreachable!\n");
         }
@@ -2286,15 +2286,40 @@ struct TACLine *walkArrayRef(struct AST *tree,
 
     struct AST *arrayBase = tree->child;
     struct AST *arrayIndex = tree->child->sibling;
-    if (arrayBase->type != t_identifier)
-    {
-        ErrorWithAST(ERROR_INTERNAL, arrayBase, "Wrong AST (%s) as child of arrayref\n", getTokenName(arrayBase->type));
-    }
 
     struct TACLine *arrayRefTAC = newTACLine((*TACIndex), tt_load_arr, tree);
+    struct Type *arrayBaseType = NULL;
 
-    struct VariableEntry *arrayVariable = lookupVar(scope, arrayBase);
-    populateTACOperandFromVariable(&arrayRefTAC->operands[1], arrayVariable);
+    switch (arrayBase->type)
+    {
+    // if the array base is an identifier, we can just look it up
+    case t_identifier:
+        struct VariableEntry *arrayVariable = lookupVar(scope, arrayBase);
+        populateTACOperandFromVariable(&arrayRefTAC->operands[1], arrayVariable);
+        arrayBaseType = TAC_GetTypeOfOperand(arrayRefTAC, 1);
+
+        // sanity check - can print the name of the variable if incorrectly accessing an identifier
+        // TODO: check against size of array if index is constant?
+        if ((arrayBaseType->arraySize == 0) && (arrayBaseType->indirectionLevel == 0))
+        {
+            ErrorWithAST(ERROR_CODE, arrayBase, "Array reference on non-indirect variable %s %s\n", Type_GetName(arrayBaseType), arrayBase->value);
+        }
+        break;
+
+    // otherwise, we need to walk the subexpression to get the array base
+    default:
+    {
+        walkSubExpression(arrayBase, block, scope, TACIndex, tempNum, &arrayRefTAC->operands[1]);
+        arrayBaseType = TAC_GetTypeOfOperand(arrayRefTAC, 1);
+
+        // sanity check - can only print the type of the base if incorrectly accessing a non-identifier through a subexpression
+        if ((arrayBaseType->arraySize == 0) && (arrayBaseType->indirectionLevel == 0))
+        {
+            ErrorWithAST(ERROR_CODE, arrayBase, "Array reference on non-indirect type %s\n", Type_GetName(arrayBaseType));
+        }
+    }
+    break;
+    }
 
     copyTACOperandDecayArrays(&arrayRefTAC->operands[0], &arrayRefTAC->operands[1]);
     arrayRefTAC->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
@@ -2304,7 +2329,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
     if (arrayIndex->type == t_constant)
     {
         // if referencing an array of classes, implicitly convert to an LEA to avoid copying the entire class to a temp
-        if ((arrayVariable->type.basicType == vt_class) && (arrayVariable->type.indirectionLevel == 0))
+        if ((arrayBaseType->basicType == vt_class) && (arrayBaseType->indirectionLevel == 0))
         {
             arrayRefTAC->operation = tt_lea_off;
             arrayRefTAC->operands[0].type.indirectionLevel++;
@@ -2316,7 +2341,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
 
         // TODO: abstract this
         int indexSize = atoi(arrayIndex->value);
-        indexSize *= 1 << alignSize(getSizeOfArrayElement(scope, arrayVariable));
+        indexSize *= 1 << alignSize(getSizeOfDereferencedType(scope, arrayBaseType));
 
         arrayRefTAC->operands[2].name.val = indexSize;
         arrayRefTAC->operands[2].permutation = vp_literal;
@@ -2326,13 +2351,14 @@ struct TACLine *walkArrayRef(struct AST *tree,
     else
     {
         // if referencing an array of classes, implicitly convert to an LEA to avoid copying the entire class to a temp
-        if ((arrayVariable->type.basicType == vt_class) && (arrayVariable->type.indirectionLevel == 0))
+        if ((arrayBaseType->basicType == vt_class) && (arrayBaseType->indirectionLevel == 0))
         {
             arrayRefTAC->operation = tt_lea_arr;
             arrayRefTAC->operands[0].type.indirectionLevel++;
         }
         // set the scale for the array access
-        arrayRefTAC->operands[3].name.val = alignSize(getSizeOfArrayElement(scope, arrayVariable));
+
+        arrayRefTAC->operands[3].name.val = alignSize(getSizeOfDereferencedType(scope, arrayBaseType));
         arrayRefTAC->operands[3].permutation = vp_literal;
         arrayRefTAC->operands[3].type.basicType = selectVariableTypeForNumber(arrayRefTAC->operands[3].name.val);
 
