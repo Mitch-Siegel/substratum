@@ -612,6 +612,11 @@ void walkStatement(struct AST *tree,
         returnLine->index = (*TACIndex)++;
 
         BasicBlock_append(*blockP, returnLine);
+
+        if(tree->sibling != NULL)
+        {
+            ErrorWithAST(ERROR_CODE, tree->sibling, "Code after return statement is unreachable!\n");
+        }
     }
     break;
 
