@@ -1,0 +1,38 @@
+#include "tests-common.sbh"
+
+class Stack
+{
+    u8[16] data;
+    u8 top;
+};
+
+fun Stack_Init(Stack *stack)
+{
+    stack->top = 0;
+}
+
+fun Stack_Push(Stack *stack, u8 value)
+{
+    stack->data[stack->top] = value;
+    stack->top += 1;
+}
+
+u8 fun Stack_Pop(Stack *stack)
+{
+    stack->top -= 1;
+    u8 toReturn = stack->data[stack->top];
+}
+
+fun main()
+{
+    Stack stack;
+    Stack_Init(&stack);
+    Stack_Push(&stack, 5);
+    Stack_Push(&stack, 3);
+    Stack_Push(&stack, 1);
+    while(stack.top > 0)
+    {
+        printHex(Stack_Pop(&stack));
+    }
+    exit();
+}
