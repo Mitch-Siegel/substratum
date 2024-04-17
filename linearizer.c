@@ -663,6 +663,10 @@ void walkStatement(struct AST *tree,
         walkFunctionCall(tree, *blockP, scope, TACIndex, tempNum, NULL);
         break;
 
+    case t_method_call:
+        walkMethodCall(tree, *blockP, scope, TACIndex, tempNum, NULL);
+        break;
+
     // subscope
     case t_compound_statement:
     {
@@ -1819,27 +1823,10 @@ void walkSubExpression(struct AST *tree,
     }
 }
 
-void walkFunctionCall(struct AST *tree,
-                      struct BasicBlock *block,
-                      struct Scope *scope,
-                      size_t *TACIndex,
-                      size_t *tempNum,
-                      struct TACOperand *destinationOperand)
+void checkFunctionReturnUse(struct AST *tree,
+                            struct TACOperand *destinationOperand,
+                            struct FunctionEntry *calledFunction)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkFunctionCall: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
-
-    if (tree->type != t_function_call)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionCall!\n", getTokenName(tree->type));
-    }
-
-    scope->parentFunction->callsOtherFunction = 1;
-
-    struct FunctionEntry *calledFunction = lookupFun(scope, tree->child);
-
     if ((destinationOperand != NULL) &&
         ((calledFunction->returnType.basicType == vt_null) &&
          (calledFunction->returnType.indirectionLevel == 0)))
@@ -1847,9 +1834,16 @@ void walkFunctionCall(struct AST *tree,
         char *typeName = Type_GetName(&calledFunction->returnType);
         ErrorWithAST(ERROR_CODE, tree, "Attempt to use return value of function %s (returning %s)\n", calledFunction->name, typeName);
     }
+}
 
+struct Stack *walkArgumentPushes(struct AST *argumentRunner,
+                                 struct FunctionEntry *calledFunction,
+                                 struct BasicBlock *block,
+                                 struct Scope *scope,
+                                 size_t *TACIndex,
+                                 size_t *tempNum)
+{
     struct Stack *argumentTrees = Stack_New();
-    struct AST *argumentRunner = tree->child->sibling;
     while (argumentRunner != NULL)
     {
         Stack_Push(argumentTrees, argumentRunner);
@@ -1859,7 +1853,7 @@ void walkFunctionCall(struct AST *tree,
     struct Stack *argumentPushes = Stack_New();
     if (argumentTrees->size != calledFunction->arguments->size)
     {
-        ErrorWithAST(ERROR_CODE, tree,
+        ErrorWithAST(ERROR_CODE, argumentRunner,
                      "Error in call to function %s - expected %zu arguments, saw %zu!\n",
                      calledFunction->name,
                      calledFunction->arguments->size,
@@ -1914,9 +1908,14 @@ void walkFunctionCall(struct AST *tree,
     }
     Stack_Free(argumentTrees);
 
+    return argumentPushes;
+}
+
+void reserveAndStoreStackArgs(struct AST *callTree, struct FunctionEntry *calledFunction, struct Stack *argumentPushes, struct BasicBlock *block, size_t *TACIndex)
+{
     if (calledFunction->arguments->size > 0)
     {
-        struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, tree->child);
+        struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, callTree);
         if (calledFunction->argStackSize > I64_MAX)
         {
             // TODO: implementation dependent size of size_t
@@ -1932,9 +1931,16 @@ void walkFunctionCall(struct AST *tree,
         push->index = (*TACIndex)++;
         BasicBlock_append(block, push);
     }
-    Stack_Free(argumentPushes);
+}
 
-    struct TACLine *call = newTACLine((*TACIndex)++, tt_call, tree);
+void generateCallTac(struct AST *callTree,
+                     struct FunctionEntry *calledFunction,
+                     struct BasicBlock *block,
+                     size_t *TACIndex,
+                     size_t *tempNum,
+                     struct TACOperand *destinationOperand)
+{
+    struct TACLine *call = newTACLine((*TACIndex)++, tt_call, callTree);
     call->operands[1].name.str = calledFunction->name;
     BasicBlock_append(block, call);
 
@@ -1947,6 +1953,91 @@ void walkFunctionCall(struct AST *tree,
 
         *destinationOperand = call->operands[0];
     }
+}
+
+void walkFunctionCall(struct AST *tree,
+                      struct BasicBlock *block,
+                      struct Scope *scope,
+                      size_t *TACIndex,
+                      size_t *tempNum,
+                      struct TACOperand *destinationOperand)
+{
+    if (currentVerbosity == VERBOSITY_MAX)
+    {
+        printf("walkFunctionCall: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+    }
+
+    if (tree->type != t_function_call)
+    {
+        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionCall!\n", getTokenName(tree->type));
+    }
+
+    scope->parentFunction->callsOtherFunction = 1;
+
+    struct FunctionEntry *calledFunction = lookupFun(scope, tree->child);
+
+    checkFunctionReturnUse(tree, destinationOperand, calledFunction);
+
+    struct Stack *argumentPushes = walkArgumentPushes(tree->child->sibling,
+                                                      calledFunction,
+                                                      block,
+                                                      scope,
+                                                      TACIndex,
+                                                      tempNum);
+
+    reserveAndStoreStackArgs(tree, calledFunction, argumentPushes, block, TACIndex);
+
+    Stack_Free(argumentPushes);
+
+    generateCallTac(tree, calledFunction, block, TACIndex, tempNum, destinationOperand);
+}
+
+void walkMethodCall(struct AST *tree,
+                    struct BasicBlock *block,
+                    struct Scope *scope,
+                    size_t *TACIndex,
+                    size_t *tempNum,
+                    struct TACOperand *destinationOperand)
+{
+    if (currentVerbosity == VERBOSITY_MAX)
+    {
+        printf("walkMethodCall: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+    }
+
+    if (tree->type != t_method_call)
+    {
+        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkMethodCall!\n", getTokenName(tree->type));
+    }
+
+    // don't need to track scope->parentFunction->callsOtherFunction as walkFunctionCall will do this on our behalf
+
+    struct AST *classTree = tree->child->child;
+    struct ClassEntry *classCalledOn = NULL;
+    struct AST *callTree = tree->child->child->sibling;
+
+    struct TACOperand classOperand;
+    memset(&classOperand, 0, sizeof(struct TACOperand));
+
+    if (classTree == t_identifier)
+    {
+        classCalledOn = lookupClass(scope, classTree);
+    }
+    else
+    {
+        walkSubExpression(classTree, block, scope, TACIndex, tempNum, &classOperand);
+        if (TACOperand_GetType(&classOperand)->basicType != vt_class)
+        {
+            char *nonClassType = Type_GetName(TACOperand_GetType(&classOperand));
+            ErrorWithAST(ERROR_CODE, classTree, "Attempt to call method %s on non-class type %s", callTree->child->value, nonClassType);
+        }
+        classCalledOn = lookupClassByType(scope, TACOperand_GetType(&classOperand));
+
+        // TODO: check arrow vs dot operator against indirection level here?
+    }
+
+
+
+    printf("call %s.%s\n", classCalledOn->name, callTree->child->value);
 }
 
 struct TACLine *walkMemberAccess(struct AST *tree,
