@@ -717,8 +717,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
         case tt_function_call:
         {
-            struct FunctionEntry *called = lookupFunByString(scope, thisTAC->operands[1].name.str);
-            if (called->isDefined)
+            struct FunctionEntry *calledFunction = lookupFunByString(scope, thisTAC->operands[1].name.str);
+            if (calledFunction->isDefined)
             {
                 emitInstruction(thisTAC, context, "\tcall %s\n", thisTAC->operands[1].name.str);
             }
@@ -736,7 +736,22 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
         case tt_method_call:
         {
-            ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented for tt_method_call!\n");
+            struct ClassEntry *methodOf = lookupClassByType(scope, TAC_GetTypeOfOperand(thisTAC, 2));
+            struct FunctionEntry *calledMethod = lookupMethodByString(methodOf, thisTAC->operands[1].name.str);
+            // TODO: member function name mangling/uniqueness
+            if (calledMethod->isDefined)
+            {
+                emitInstruction(thisTAC, context, "\tcall %s_%s\n", methodOf->name, thisTAC->operands[1].name.str);
+            }
+            else
+            {
+                emitInstruction(thisTAC, context, "\tcall %s_%s@plt\n", methodOf->name, thisTAC->operands[1].name.str);
+            }
+
+            if (thisTAC->operands[0].name.str != NULL)
+            {
+                WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
+            }
         }
         break;
 

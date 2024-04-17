@@ -83,6 +83,25 @@ struct FunctionEntry *lookupMethod(struct ClassEntry *class,
     ErrorWithAST(ERROR_CODE, name, "Attempt to call nonexistent method %s.%s\n", class->name, name->value);
 }
 
+struct FunctionEntry *lookupMethodByString(struct ClassEntry *class,
+                                           char *name)
+{
+    for (size_t entryIndex = 0; entryIndex < class->members->entries->size; entryIndex++)
+    {
+        struct ScopeMember *examinedEntry = class->members->entries->data[entryIndex];
+        if (!strcmp(examinedEntry->name, name))
+        {
+            if (examinedEntry->type != e_function)
+            {
+                ErrorAndExit(ERROR_INTERNAL, "Attempt to call non-method member %s.%s as method!\n", class->name, name);
+            }
+            return examinedEntry->entry;
+        }
+    }
+
+    ErrorAndExit(ERROR_INTERNAL, "Attempt to call nonexistent method %s.%s\n", class->name, name);
+}
+
 struct ClassEntry *lookupClass(struct Scope *scope,
                                struct AST *name)
 {

@@ -1,3 +1,4 @@
+#include "tests-common.sb"
 
 class Counter {
     u32 count;
@@ -17,5 +18,7 @@ impl Counter {
 fun main() {
     Counter c;
     c.Set(123);
+    printHex(c.count);
     c.Increment();
+    printHex(c.count);
 }
