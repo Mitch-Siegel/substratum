@@ -344,11 +344,11 @@ char *sPrintTACLine(struct TACLine *line)
     case tt_method_call:
         if (line->operands[0].name.str == NULL)
         {
-            width += sprintf(tacString + width, "call %s.%s", line->operands[1].name.str, line->operands[2].type.classType.name);
+            width += sprintf(tacString + width, "call %s.%s", line->operands[2].type.classType.name, line->operands[1].name.str);
         }
         else
         {
-            width += sprintf(tacString + width, "%s!%zu = call %s.%s", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[2].type.classType.name);
+            width += sprintf(tacString + width, "%s!%zu = call %s.%s", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[2].type.classType.name, line->operands[1].name.str);
         }
         break;
 

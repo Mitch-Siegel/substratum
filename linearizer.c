@@ -1841,8 +1841,15 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
                                  struct BasicBlock *block,
                                  struct Scope *scope,
                                  size_t *TACIndex,
-                                 size_t *tempNum)
+                                 size_t *tempNum,
+                                 u8 forMethod) // if walking argument pushes for method, adjust indexing to skip the "self" parameter
 {
+    u8 argumentNumOffset = 0;
+    if (forMethod)
+    {
+        argumentNumOffset = 1;
+    }
+
     // save first argument so we can generate meaningful error messages if we mismatch argument count
     struct AST *lastArgument = argumentRunner;
 
@@ -1855,7 +1862,7 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
     }
 
     struct Stack *argumentPushes = Stack_New();
-    if (argumentTrees->size != calledFunction->arguments->size)
+    if (argumentTrees->size != (calledFunction->arguments->size - argumentNumOffset))
     {
         ErrorWithAST(ERROR_CODE, lastArgument,
                      "Error in call to function %s - expected %zu arguments, saw %zu!\n",
@@ -1937,12 +1944,12 @@ void reserveAndStoreStackArgs(struct AST *callTree, struct FunctionEntry *called
     }
 }
 
-void generateCallTac(struct AST *callTree,
-                     struct FunctionEntry *calledFunction,
-                     struct BasicBlock *block,
-                     size_t *TACIndex,
-                     size_t *tempNum,
-                     struct TACOperand *destinationOperand)
+struct TACLine *generateCallTac(struct AST *callTree,
+                                struct FunctionEntry *calledFunction,
+                                struct BasicBlock *block,
+                                size_t *TACIndex,
+                                size_t *tempNum,
+                                struct TACOperand *destinationOperand)
 {
     struct TACLine *call = newTACLine((*TACIndex)++, tt_function_call, callTree);
     call->operands[1].name.str = calledFunction->name;
@@ -1957,6 +1964,8 @@ void generateCallTac(struct AST *callTree,
 
         *destinationOperand = call->operands[0];
     }
+
+    return call;
 }
 
 void walkFunctionCall(struct AST *tree,
@@ -1987,7 +1996,8 @@ void walkFunctionCall(struct AST *tree,
                                                       block,
                                                       scope,
                                                       TACIndex,
-                                                      tempNum);
+                                                      tempNum,
+                                                      0);
 
     reserveAndStoreStackArgs(tree, calledFunction, argumentPushes, block, TACIndex);
 
@@ -2014,7 +2024,6 @@ void walkMethodCall(struct AST *tree,
     }
 
     // don't need to track scope->parentFunction->callsOtherFunction as walkFunctionCall will do this on our behalf
-
     struct AST *classTree = tree->child->child;
     struct ClassEntry *classCalledOn = NULL;
     struct AST *callTree = tree->child->child->sibling;
@@ -2043,24 +2052,44 @@ void walkMethodCall(struct AST *tree,
 
     checkFunctionReturnUse(tree, destinationOperand, calledFunction);
 
-    // this doesn't work because codegen just goes to look up a function name with no respect to the class scope
-    struct AST implicitThis;
-    implicitThis.type = t_address_of;
-    implicitThis.child = classTree;
-    implicitThis.sibling = tree->child->child->sibling->child->sibling;
-
-    struct Stack *argumentPushes = walkArgumentPushes(&implicitThis,
+    struct Stack *argumentPushes = walkArgumentPushes(tree->child->child->sibling->child->sibling,
                                                       calledFunction,
                                                       block,
                                                       scope,
                                                       TACIndex,
-                                                      tempNum);
+                                                      tempNum,
+                                                      1);
+
+    // if class we are calling method on is not indirect, automagically insert an intermediate address-of
+    if ((TACOperand_GetType(&classOperand)->indirectionLevel == 0) && (TACOperand_GetType(&classOperand)->arraySize == 0))
+    {
+        struct TACLine *pThisAddrOf = newTACLine((*TACIndex)++, tt_addrof, classTree);
+        pThisAddrOf->operands[1] = classOperand;
+
+        pThisAddrOf->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+        pThisAddrOf->operands[0].permutation = vp_temp;
+        copyTACOperandTypeDecayArrays(&pThisAddrOf->operands[0], &pThisAddrOf->operands[1]);
+        TAC_GetTypeOfOperand(pThisAddrOf, 0)->indirectionLevel++;
+        classOperand = pThisAddrOf->operands[0];
+        BasicBlock_append(block, pThisAddrOf);
+    }
+
+    struct TACLine *pThisPush = newTACLine(*TACIndex, tt_stack_store, classTree);
+    pThisPush->operands[0] = classOperand;
+    pThisPush->operands[1].name.val = 0;
+    pThisPush->operands[1].type.basicType = vt_u64;
+    pThisPush->operands[1].permutation = vp_literal;
+
+    Stack_Push(argumentPushes, pThisPush);
 
     reserveAndStoreStackArgs(tree, calledFunction, argumentPushes, block, TACIndex);
 
     Stack_Free(argumentPushes);
 
-    generateCallTac(tree, calledFunction, block, TACIndex, tempNum, destinationOperand);
+    struct TACLine *callLine = generateCallTac(tree, calledFunction, block, TACIndex, tempNum, destinationOperand);
+    callLine->operation = tt_method_call;
+    callLine->operands[2].type.basicType = vt_class;
+    callLine->operands[2].type.classType.name = classCalledOn->name;
 }
 
 struct TACLine *walkMemberAccess(struct AST *tree,
