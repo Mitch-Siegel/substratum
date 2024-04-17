@@ -72,7 +72,7 @@ struct FunctionEntry *lookupMethod(struct ClassEntry *class,
         struct ScopeMember *examinedEntry = class->members->entries->data[entryIndex];
         if (!strcmp(examinedEntry->name, name->value))
         {
-            if(examinedEntry->type != e_function)
+            if (examinedEntry->type != e_function)
             {
                 ErrorWithAST(ERROR_CODE, name, "Attempt to call non-method member %s.%s as method!\n", class->name, name->value);
             }

@@ -1944,7 +1944,7 @@ void generateCallTac(struct AST *callTree,
                      size_t *tempNum,
                      struct TACOperand *destinationOperand)
 {
-    struct TACLine *call = newTACLine((*TACIndex)++, tt_call, callTree);
+    struct TACLine *call = newTACLine((*TACIndex)++, tt_function_call, callTree);
     call->operands[1].name.str = calledFunction->name;
     BasicBlock_append(block, call);
 

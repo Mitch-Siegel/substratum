@@ -715,7 +715,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
         }
         break;
 
-        case tt_call:
+        case tt_function_call:
         {
             struct FunctionEntry *called = lookupFunByString(scope, thisTAC->operands[1].name.str);
             if (called->isDefined)
@@ -731,6 +731,12 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
             {
                 WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
             }
+        }
+        break;
+
+        case tt_method_call:
+        {
+            ErrorAndExit(ERROR_INTERNAL, "Codegen not implemented for tt_method_call!\n");
         }
         break;
 
