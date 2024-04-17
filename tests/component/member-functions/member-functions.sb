@@ -11,5 +11,6 @@ impl Counter {
 
 
 fun main() {
-
+    Counter c;
+    c.Increment();
 }
