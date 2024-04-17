@@ -4,8 +4,8 @@ class Counter {
 };
 
 impl Counter {
-    member fun Increment() {
-        
+    fun Increment(Counter *self) {
+        self->count += 1;
     }
 }
 

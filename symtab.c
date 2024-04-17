@@ -289,7 +289,15 @@ void Scope_print(struct Scope *scope, size_t depth, char printTAC)
         {
             struct FunctionEntry *theFunction = thisMember->entry;
             char *returnTypeName = Type_GetName(&theFunction->returnType);
-            printf("> Function %s (returns %s) (defined: %d)\n\t%ld bytes of arguments on stack\n", thisMember->name, returnTypeName, theFunction->isDefined, theFunction->argStackSize);
+            if (theFunction->methodOf != NULL)
+            {
+                printf("> Method %s.", theFunction->methodOf->name);
+            }
+            else
+            {
+                printf("> Function ");
+            }
+            printf("%s (returns %s) (defined: %d)\n\t%ld bytes of arguments on stack\n", thisMember->name, returnTypeName, theFunction->isDefined, theFunction->argStackSize);
             free(returnTypeName);
             Scope_print(theFunction->mainScope, depth + 1, printTAC);
         }

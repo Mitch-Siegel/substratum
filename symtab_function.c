@@ -16,6 +16,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *n
     newFunction->mainScope->parentFunction = newFunction;
     newFunction->returnType = *returnType;
     newFunction->name = nameTree->value;
+    newFunction->methodOf = NULL;
     newFunction->isDefined = 0;
     newFunction->isAsmFun = 0;
     newFunction->callsOtherFunction = 0;

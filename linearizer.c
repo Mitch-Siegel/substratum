@@ -50,6 +50,10 @@ struct SymbolTable *walkProgram(struct AST *program)
             walkAssignment(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum);
             break;
 
+        case t_impl:
+            walkImplementationBlock(programRunner, programTable->globalScope);
+            break;
+
         case t_fun:
             walkFunctionDeclaration(programRunner, programTable->globalScope);
             break;
@@ -230,8 +234,8 @@ void walkArgumentDeclaration(struct AST *tree,
     Stack_Push(fun->arguments, declaredArgument);
 }
 
-void walkFunctionDeclaration(struct AST *tree,
-                             struct Scope *scope)
+struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
+                                              struct Scope *scope)
 {
     if (currentVerbosity == VERBOSITY_MAX)
     {
@@ -276,16 +280,19 @@ void walkFunctionDeclaration(struct AST *tree,
     struct ScopeMember *lookedUpFunction = Scope_lookup(scope, functionNameTree->value);
     struct FunctionEntry *parsedFunc = NULL;
     struct FunctionEntry *existingFunc = NULL;
+    struct FunctionEntry *returnedFunc = NULL;
 
     if (lookedUpFunction != NULL)
     {
         existingFunc = lookedUpFunction->entry;
+        returnedFunc = existingFunc;
         parsedFunc = FunctionEntry_new(scope, functionNameTree, &returnType);
     }
     else
     {
         parsedFunc = createFunction(scope, functionNameTree, &returnType);
         parsedFunc->mainScope->parentScope = scope;
+        returnedFunc = parsedFunc;
     }
 
     struct AST *argumentRunner = functionNameTree->sibling;
@@ -451,6 +458,8 @@ void walkFunctionDeclaration(struct AST *tree,
             }
         }
     }
+
+    return returnedFunc;
 }
 
 void walkFunctionDefinition(struct AST *tree,
@@ -480,6 +489,71 @@ void walkFunctionDefinition(struct AST *tree,
     {
         fun->isAsmFun = 1;
         walkAsmBlock(tree, block, fun->mainScope, &TACIndex, &tempNum);
+    }
+}
+
+void walkMethod(struct AST *tree,
+                struct ClassEntry *class)
+{
+    if (currentVerbosity == VERBOSITY_MAX)
+    {
+        printf("walkMethod: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+    }
+
+    if (tree->type != t_fun)
+    {
+        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkMethod!\n", getTokenName(tree->type));
+    }
+
+    struct FunctionEntry *walkedMethod = walkFunctionDeclaration(tree, class->members);
+    if (walkedMethod->arguments->size > 0)
+    {
+        struct VariableEntry *firstArg = walkedMethod->arguments->data[0];
+
+        printf("first arg: %s\n", firstArg->name);
+        if ((firstArg->type.basicType == vt_class) && (strcmp(firstArg->type.classType.name, class->name) == 0))
+        {
+            if (strcmp(firstArg->name, "self") == 0)
+            {
+                walkedMethod->methodOf = class;
+            }
+        }
+    }
+}
+
+void walkImplementationBlock(struct AST *tree, struct Scope *scope)
+{
+    if (currentVerbosity == VERBOSITY_MAX)
+    {
+        printf("walkImplementation: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+    }
+
+    if (tree->type != t_impl)
+    {
+        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkImplementation!\n", getTokenName(tree->type));
+    }
+
+    struct AST *implementedClassTree = tree->child;
+    if (implementedClassTree->type != t_identifier)
+    {
+        ErrorWithAST(ERROR_INTERNAL, implementedClassTree, "Malformed AST seen in walkImplementation!\n");
+    }
+
+    struct ClassEntry *implementedClass = lookupClass(scope, implementedClassTree);
+
+    struct AST *implementationRunner = implementedClassTree->sibling;
+    while (implementationRunner != NULL)
+    {
+        switch (implementationRunner->type)
+        {
+        case t_fun:
+            walkMethod(implementationRunner, implementedClass);
+            break;
+
+        default:
+            ErrorAndExit(ERROR_INTERNAL, "Malformed AST seen %s (%s) in walkImplementation!\n", getTokenName(implementationRunner->type), implementationRunner->value);
+        }
+        implementationRunner = implementationRunner->sibling;
     }
 }
 

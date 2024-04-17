@@ -55,11 +55,11 @@ impl_block
    <- im:impl _ id: identifier _ '{' _ il:implementations_list _ '}' { $$ = AST_C(im, AST_S(id, il)); }
 
 implementations_list
-   <- il:statement_list _ i:implementation  { $$ = AST_S(il, i); }
+   <- il:implementations_list _ i:implementation  { $$ = AST_S(il, i); }
     / i:implementation                      { $$ = i; }
 
 implementation
-   <- m:member _ f:function_definition { $$ = AST_C(m, f); }
+   <- f:function_definition { $$ = f; }
 
 # variable_declaration is valid in all places parameter_declaration is
 # however, parameter_declaration is not valid in all places variable_declaration but not vice-versa
@@ -314,7 +314,6 @@ while  <- kw_while   { $$ = AST_N(auxil, t_while, $0, $0s); }
 return <- kw_return  { $$ = AST_N(auxil, t_return, $0, $0s); }
 extern <- kw_extern  { $$ = AST_N(auxil, t_extern, $0, $0s); }
 impl   <- kw_impl    { $$ = AST_N(auxil, t_impl, $0, $0s); }
-member <- kw_member  { $$ = AST_N(auxil, t_member, $0, $0s); }
 
 arrow         <- kw_arrow     { $$ = AST_N(auxil, t_arrow, $0, $0s); }
 left_op       <- kw_left_op   { $$ = AST_N(auxil, t_lshift, $0, $0s); }

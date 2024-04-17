@@ -22,7 +22,6 @@ char *token_names[t_EOF + 1] = {
     "t_class",
     "t_class_body",
     "t_impl",
-    "t_member",
     "t_compound_statement",
     "t_fun",
     "t_return",

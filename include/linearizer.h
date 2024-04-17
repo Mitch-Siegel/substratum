@@ -8,6 +8,7 @@ struct SymbolTable;
 struct Scope;
 struct Type;
 struct FunctionEntry;
+struct ClassEntry;
 struct BasicBlock;
 struct TACOperand;
 
@@ -28,11 +29,16 @@ void walkArgumentDeclaration(struct AST *tree,
                              size_t *tempNum,
                              struct FunctionEntry *fun);
 
-void walkFunctionDeclaration(struct AST *tree,
-                             struct Scope *scope);
+struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
+                                              struct Scope *scope);
 
 void walkFunctionDefinition(struct AST *tree,
                             struct FunctionEntry *fun);
+
+void walkMethod(struct AST *tree,
+                struct ClassEntry *class);
+
+void walkImplementationBlock(struct AST *tree, struct Scope *scope);
 
 void walkClassDeclaration(struct AST *tree,
                           struct BasicBlock *block,
