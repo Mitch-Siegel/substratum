@@ -1843,17 +1843,21 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
                                  size_t *TACIndex,
                                  size_t *tempNum)
 {
+    // save first argument so we can generate meaningful error messages if we mismatch argument count
+    struct AST *lastArgument = argumentRunner;
+
     struct Stack *argumentTrees = Stack_New();
     while (argumentRunner != NULL)
     {
         Stack_Push(argumentTrees, argumentRunner);
+        lastArgument = argumentRunner;
         argumentRunner = argumentRunner->sibling;
     }
 
     struct Stack *argumentPushes = Stack_New();
     if (argumentTrees->size != calledFunction->arguments->size)
     {
-        ErrorWithAST(ERROR_CODE, argumentRunner,
+        ErrorWithAST(ERROR_CODE, lastArgument,
                      "Error in call to function %s - expected %zu arguments, saw %zu!\n",
                      calledFunction->name,
                      calledFunction->arguments->size,
@@ -2035,9 +2039,28 @@ void walkMethodCall(struct AST *tree,
         // TODO: check arrow vs dot operator against indirection level here?
     }
 
+    struct FunctionEntry *calledFunction = lookupMethod(classCalledOn, callTree->child);
 
+    checkFunctionReturnUse(tree, destinationOperand, calledFunction);
 
-    printf("call %s.%s\n", classCalledOn->name, callTree->child->value);
+    // this doesn't work because codegen just goes to look up a function name with no respect to the class scope
+    struct AST implicitThis;
+    implicitThis.type = t_address_of;
+    implicitThis.child = classTree;
+    implicitThis.sibling = tree->child->child->sibling->child->sibling;
+
+    struct Stack *argumentPushes = walkArgumentPushes(&implicitThis,
+                                                      calledFunction,
+                                                      block,
+                                                      scope,
+                                                      TACIndex,
+                                                      tempNum);
+
+    reserveAndStoreStackArgs(tree, calledFunction, argumentPushes, block, TACIndex);
+
+    Stack_Free(argumentPushes);
+
+    generateCallTac(tree, calledFunction, block, TACIndex, tempNum, destinationOperand);
 }
 
 struct TACLine *walkMemberAccess(struct AST *tree,

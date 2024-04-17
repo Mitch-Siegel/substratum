@@ -64,6 +64,25 @@ struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
     ErrorWithAST(ERROR_CODE, name, "Use of nonexistent member variable %s in class %s\n", name->value, class->name);
 }
 
+struct FunctionEntry *lookupMethod(struct ClassEntry *class,
+                                   struct AST *name)
+{
+    for (size_t entryIndex = 0; entryIndex < class->members->entries->size; entryIndex++)
+    {
+        struct ScopeMember *examinedEntry = class->members->entries->data[entryIndex];
+        if (!strcmp(examinedEntry->name, name->value))
+        {
+            if(examinedEntry->type != e_function)
+            {
+                ErrorWithAST(ERROR_CODE, name, "Attempt to call non-method member %s.%s as method!\n", class->name, name->value);
+            }
+            return examinedEntry->entry;
+        }
+    }
+
+    ErrorWithAST(ERROR_CODE, name, "Attempt to call nonexistent method %s.%s\n", class->name, name->value);
+}
+
 struct ClassEntry *lookupClass(struct Scope *scope,
                                struct AST *name)
 {
