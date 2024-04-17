@@ -1,0 +1,15 @@
+
+class Counter {
+    u32 count;
+};
+
+impl Counter {
+    member fun Increment() {
+        
+    }
+}
+
+
+fun main() {
+
+}

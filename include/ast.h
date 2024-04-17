@@ -21,8 +21,11 @@ enum token
     t_u32,
     t_u64,
     t_class,
-    //
+    // class
     t_class_body,
+    t_impl,
+    t_member,
+    //
     t_compound_statement,
     //
     // function
