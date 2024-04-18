@@ -18,10 +18,8 @@ impl Counter {
 fun main() {
     Counter c;
     c.Set(123);
-    printHex(c.count);
-    uart_putc('\n');
+    printNum(c.count);
     c.Increment();
-    printHex(c.count);
-    uart_putc('\n');
+    printNum(c.count);
     exit();
 }
