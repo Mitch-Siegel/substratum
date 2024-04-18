@@ -32,7 +32,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
             fprintf(outFile, "\t.globl %s\n", generatedFunction->name);
             fprintf(outFile, "\t.type %s, @function\n", generatedFunction->name);
 
-            generateCodeForFunction(outFile, generatedFunction);
+            generateCodeForFunction(outFile, generatedFunction, NULL);
             fprintf(outFile, "\t.size %s, .-%s\n", generatedFunction->name, generatedFunction->name);
         }
         break;
@@ -49,11 +49,36 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
         }
         break;
 
+        case e_class:
+        {
+            generateCodeForClass(&globalContext, thisMember->entry);
+        }
+        break;
+
         default:
             break;
         }
     }
 };
+
+void generateCodeForClass(struct CodegenContext *globalContext, struct ClassEntry *class)
+{
+    for (size_t entryIndex = 0; entryIndex < class->members->entries->size; entryIndex++)
+    {
+        struct ScopeMember *thisMember = class->members->entries->data[entryIndex];
+        switch (thisMember->type)
+        {
+        case e_function:
+        {
+            generateCodeForFunction(globalContext->outFile, thisMember->entry, class->name);
+        }
+        break;
+
+        default:
+            break;
+        }
+    }
+}
 
 void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock)
 {
@@ -355,8 +380,17 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
  *
  */
 extern struct Config config;
-void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
+void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char *methodOfClassName)
 {
+    char *fullFunctionName = function->name;
+    if (methodOfClassName != NULL)
+    {
+        // TODO: member function name mangling/uniqueness
+        fullFunctionName = malloc(strlen(function->name) + strlen(methodOfClassName) + 2);
+        strcpy(fullFunctionName, methodOfClassName);
+        strcat(fullFunctionName, "_");
+        strcat(fullFunctionName, function->name);
+    }
     currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
     size_t instructionIndex = 0; // index from start of function in terms of number of instructions
     struct CodegenContext context;
@@ -365,14 +399,14 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 
     if (currentVerbosity > VERBOSITY_SILENT)
     {
-        printf("Generate code for function %s\n", function->name);
+        printf("Generate code for function %s\n", fullFunctionName);
     }
 
     if (currentVerbosity > VERBOSITY_MINIMAL)
     {
         printf("Emitting function prologue\n");
     }
-    fprintf(outFile, ".align 2\n%s:\n", function->name);
+    fprintf(outFile, ".align 2\n%s:\n", fullFunctionName);
     fprintf(outFile, "\t.loc 1 %d %d\n", function->correspondingTree.sourceLine, function->correspondingTree.sourceCol);
     fprintf(outFile, "\t.cfi_startproc\n");
 
@@ -397,7 +431,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
     // TODO: debug symbols for asm functions?
     if ((currentVerbosity > VERBOSITY_MINIMAL) && (function->isAsmFun))
     {
-        printf("%s is an asm function\n", function->name);
+        printf("%s is an asm function\n", fullFunctionName);
     }
 
     if (function->isAsmFun && (function->BasicBlockList->size != 1))
@@ -413,7 +447,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
     for (struct LinkedListNode *blockRunner = function->BasicBlockList->head; blockRunner != NULL; blockRunner = blockRunner->next)
     {
         struct BasicBlock *block = blockRunner->data;
-        generateCodeForBasicBlock(&context, block, function->mainScope, metadata.allLifetimes, function->name, metadata.reservedRegisters);
+        generateCodeForBasicBlock(&context, block, function->mainScope, metadata.allLifetimes, fullFunctionName, metadata.reservedRegisters);
     }
 
     if (currentVerbosity > VERBOSITY_MINIMAL)
@@ -432,6 +466,11 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
         LinkedList_Free(metadata.lifetimeOverlaps[tacIndex], NULL);
     }
     free(metadata.lifetimeOverlaps);
+
+    if (methodOfClassName != NULL)
+    {
+        free(fullFunctionName);
+    }
 }
 
 void generateCodeForBasicBlock(struct CodegenContext *context,

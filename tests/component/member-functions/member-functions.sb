@@ -19,6 +19,9 @@ fun main() {
     Counter c;
     c.Set(123);
     printHex(c.count);
+    uart_putc('\n');
     c.Increment();
     printHex(c.count);
+    uart_putc('\n');
+    exit();
 }
