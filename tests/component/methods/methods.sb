@@ -6,11 +6,11 @@ class Counter {
 
 impl Counter {
     fun Increment(Counter *self) {
-        self->count += 1;
+        self.count += 1;
     }
 
     fun Set(Counter *self, u32 value) {
-        self->count = value;
+        self.count = value;
     }
 }
 

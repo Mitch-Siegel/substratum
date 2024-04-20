@@ -66,12 +66,12 @@ fun testClassPointerCasting()
     printHex(e.d);
     uart_putc('\n');
 
-    printHex(sp->a);
+    printHex(sp.a);
     uart_putc('\n');
-    printHex(sp->b);
+    printHex(sp.b);
     uart_putc('\n');
 
-    sp->b = 0xffff;
+    sp.b = 0xffff;
     printHex(e.a);
     uart_putc('\n');
     printHex(e.b);

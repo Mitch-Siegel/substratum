@@ -70,7 +70,6 @@ char *token_names[t_EOF + 1] = {
     "t_cast",
     "t_comma",
     "t_dot",
-    "t_arrow",
     "t_semicolon",
     "t_colon",
     "t_left_paren",

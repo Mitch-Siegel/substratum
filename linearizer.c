@@ -510,7 +510,6 @@ void walkMethod(struct AST *tree,
     {
         struct VariableEntry *firstArg = walkedMethod->arguments->data[0];
 
-        printf("first arg: %s\n", firstArg->name);
         if ((firstArg->type.basicType == vt_class) && (strcmp(firstArg->type.classType.name, class->name) == 0))
         {
             if (strcmp(firstArg->name, "self") == 0)
@@ -932,7 +931,6 @@ struct BasicBlock *walkConditionCheck(struct AST *tree,
     case t_address_of:
     case t_cast:
     case t_dot:
-    case t_arrow:
     case t_function_call:
     {
         condFalseJump->operation = tt_beq;
@@ -1130,6 +1128,22 @@ void walkDotOperatorAssignment(struct AST *tree,
     {
 
     case t_dereference:
+    {
+        struct TACOperand dummyDereferencedOperand;
+        memset(&dummyDereferencedOperand, 0, sizeof(struct TACOperand));
+        walkSubExpression(class->child, block, scope, TACIndex, tempNum, &dummyDereferencedOperand);
+
+        struct Type dummyDecayType;
+        copyTypeDecayArrays(&dummyDecayType, TACOperand_GetType(&dummyDereferencedOperand));
+        if (dummyDecayType.indirectionLevel == 0)
+        {
+            char *dereferencedTypeName = Type_GetName(TACOperand_GetType(&dummyDereferencedOperand));
+            ErrorWithAST(ERROR_CODE, class, "Use of dereference on non-indirect type %s\n", dereferencedTypeName);
+        }
+
+        copyTACOperandDecayArrays(&wipAssignment->operands[0], &dummyDereferencedOperand);
+    }
+    break;
         ErrorWithAST(ERROR_CODE, class, "Use of the dot operator assignment on dereferenced values is not supported\nAssign using object->member instead of (*object).member\n");
 
     case t_array_index:
@@ -1152,38 +1166,43 @@ void walkDotOperatorAssignment(struct AST *tree,
 
     case t_identifier:
     {
-        // construct a TAC line responsible for figuring out the address of what we're dotting since it's not a pointer already
-        struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
-        getAddressForDot->operands[0].permutation = vp_temp;
-        getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+        // if we are dotting an identifier, insert an address-of if it is not a pointer already
+        struct VariableEntry *dottedVariable = lookupVar(scope, class);
 
-        // walk the LHS of the dot operator using walkSubExpression
-        walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
+        if (dottedVariable->type.indirectionLevel == 0)
+        {
+            // construct a TAC line responsible for figuring out the address of what we're dotting since it's not a pointer already
+            struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
+            getAddressForDot->operands[0].permutation = vp_temp;
+            getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
 
-        // look up the identifier by name, make sure it's not a pointer (ensure a dot operator is valid on it)
-        checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
+            // walk the LHS of the dot operator using walkSubExpression
+            walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
 
-        // copy the operand from [1] to [0] for the implicit address-of, incrementing the indirection level
-        copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
-        TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
+            // look up the identifier by name, make sure it's not a pointer (ensure a dot operator is valid on it)
+            checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
 
-        // assign TAC index and append the address-of before the actual assignment
-        getAddressForDot->index = (*TACIndex)++;
-        BasicBlock_append(block, getAddressForDot);
+            // copy the operand from [1] to [0] for the implicit address-of, incrementing the indirection level
+            copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
+            TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
 
-        // copy the TAC operands for the direct part of the assignment
-        copyTACOperandDecayArrays(&wipAssignment->operands[0], &getAddressForDot->operands[0]);
+            // assign TAC index and append the address-of before the actual assignment
+            getAddressForDot->index = (*TACIndex)++;
+            BasicBlock_append(block, getAddressForDot);
+
+            // copy the TAC operands for the direct part of the assignment
+            copyTACOperandDecayArrays(&wipAssignment->operands[0], &getAddressForDot->operands[0]);
+        }
     }
     break;
 
-    case t_arrow:
     case t_dot:
     {
         struct TACLine *memberAccess = walkMemberAccess(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0], 0);
         struct Type *readType = TAC_GetTypeOfOperand(memberAccess, 0);
         checkAccessedClassForDot(class, scope, readType);
 
-        // if our arrow or dot operator results in getting a full class instead of a pointer
+        // if our dot operator results in getting a full class instead of a pointer
         if ((readType->basicType == vt_class) &&
             ((readType->indirectionLevel == 0) &&
              (readType->arraySize == 0)))
@@ -1198,121 +1217,7 @@ void walkDotOperatorAssignment(struct AST *tree,
     break;
 
     default:
-        ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operator only!\n", class->value, getTokenName(class->type));
-    }
-
-    // check to see that what we expect to treat as our class pointer is actually a class
-    struct ClassEntry *writtenClass = lookupClassByType(scope, TAC_GetTypeOfOperand(wipAssignment, 0));
-
-    struct ClassMemberOffset *accessedMember = lookupMemberVariable(writtenClass, member);
-
-    wipAssignment->operands[1].type.basicType = vt_u32;
-    wipAssignment->operands[1].permutation = vp_literal;
-    wipAssignment->operands[1].name.val = accessedMember->offset;
-
-    wipAssignment->operands[2] = *assignedValue;
-
-    // cast the class pointer to the type we are actually reading out of the class
-    wipAssignment->operands[0].castAsType = accessedMember->variable->type;
-}
-
-void walkArrowOperatorAssignment(struct AST *tree,
-                                 struct BasicBlock *block,
-                                 struct Scope *scope,
-                                 size_t *TACIndex,
-                                 size_t *tempNum,
-                                 struct TACLine *wipAssignment,
-                                 struct TACOperand *assignedValue)
-{
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkArrowOperatorAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
-
-    if (tree->type != t_arrow)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkArrowOperatorAssignment!\n", getTokenName(tree->type));
-    }
-
-    struct AST *class = tree->child;
-    // the RHS is what member we are accessing
-    struct AST *member = tree->child->sibling;
-
-    if (member->type != t_identifier)
-    {
-        ErrorAndExit(ERROR_CODE, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", tree->value, getTokenName(tree->type));
-    }
-
-    wipAssignment->operation = tt_store_off;
-    switch (class->type)
-    {
-    case t_array_index:
-    {
-        // let walkArrayRef do the heavy lifting for us
-        struct TACLine *arrayRefToArrow = walkArrayRef(class, block, scope, TACIndex, tempNum);
-
-        // before we convert our array ref to an LEA to get the address of the class we're dotting, check to make sure everything is good
-        struct Type nonDecayedType = *TAC_GetTypeOfOperand(arrayRefToArrow, 1);
-        nonDecayedType.arraySize = 0;
-        checkAccessedClassForArrow(tree, scope, &nonDecayedType);
-
-        // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
-        convertArrayRefLoadToLea(arrayRefToArrow);
-
-        // copy the TAC operand containing the address on which we will dot
-        copyTACOperandDecayArrays(&wipAssignment->operands[0], &arrayRefToArrow->operands[0]);
-    }
-    break;
-
-    case t_identifier:
-    {
-        walkSubExpression(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0]);
-        struct VariableEntry *classVariable = lookupVar(scope, class);
-
-        checkAccessedClassForArrow(class, scope, &classVariable->type);
-    }
-    break;
-
-    // nothing special to do for these, just treat as subexpression and check the ultimate type of the subexpression to ensure we can actually arrow it
-    case t_dereference:
-    case t_function_call:
-    {
-        walkSubExpression(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0]);
-
-        checkAccessedClassForArrow(class, scope, TAC_GetTypeOfOperand(wipAssignment, 0));
-    }
-    break;
-
-    case t_arrow:
-    case t_dot:
-    {
-        struct TACLine *memberAccess = walkMemberAccess(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0], 0);
-        struct Type *readType = TAC_GetTypeOfOperand(memberAccess, 0);
-
-        if ((readType->indirectionLevel != 1))
-        {
-            char *typeName = Type_GetName(readType);
-            ErrorWithAST(ERROR_CODE, class, "Can't use dot operator on non-indirect type %s\n", typeName);
-        }
-
-        checkAccessedClassForArrow(class, scope, readType);
-
-        // if our arrow or dot operator results in getting a full class instead of a pointer
-        if ((readType->basicType == vt_class) &&
-            ((readType->indirectionLevel == 0) &&
-             (readType->arraySize == 0)))
-        {
-            // retroatcively convert the read to an LEA so we have the address we're about to write to
-            memberAccess->operation = tt_lea_off;
-            TAC_GetTypeOfOperand(memberAccess, 0)->indirectionLevel++;
-            TAC_GetTypeOfOperand(memberAccess, 1)->indirectionLevel++;
-            TAC_GetTypeOfOperand(wipAssignment, 0)->indirectionLevel++;
-        }
-    }
-    break;
-
-    default:
-        ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operator only!\n", class->value, getTokenName(class->type));
+        ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier or dot operator only!\n", class->value, getTokenName(class->type));
     }
 
     // check to see that what we expect to treat as our class pointer is actually a class
@@ -1447,10 +1352,6 @@ void walkAssignment(struct AST *tree,
 
     case t_dot:
         walkDotOperatorAssignment(lhs, block, scope, TACIndex, tempNum, assignment, &assignedValue);
-        break;
-
-    case t_arrow:
-        walkArrowOperatorAssignment(lhs, block, scope, TACIndex, tempNum, assignment, &assignedValue);
         break;
 
     default:
@@ -1692,7 +1593,6 @@ void walkSubExpression(struct AST *tree,
         break;
 
     case t_dot:
-    case t_arrow:
     {
         walkMemberAccess(tree, block, scope, TACIndex, tempNum, destinationOperand, 0);
     }
@@ -2105,9 +2005,9 @@ struct TACLine *walkMemberAccess(struct AST *tree,
         printf("walkMemberAccess: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
     }
 
-    if ((tree->type != t_dot) && (tree->type != t_arrow))
+    if (tree->type != t_dot)
     {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDotOperator!\n", getTokenName(tree->type));
+        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkMemberAccess!\n", getTokenName(tree->type));
     }
 
     struct AST *lhs = tree->child;
@@ -2126,33 +2026,27 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
     switch (lhs->type)
     {
-    // in the case that we are dot/arrow-ing a LHS which is a dot or arrow, walkMemberAccess will generate the TAC line for the *read* which gets us the address to dot/arrow on
+    // in the case that we are dot-ing a LHS which is a dot, walkMemberAccess will generate the TAC line for the *read* which gets us the address to dot on
     case t_dot:
-    case t_arrow:
         accessLine = walkMemberAccess(lhs, block, scope, TACIndex, tempNum, srcDestOperand, depth + 1);
         break;
 
     // for all other cases, we can  populate the LHS using walkSubExpression as it is just a more basic read
     default:
     {
-        // the LHS of the dot/arrow is the class instance being accessed
+        // the LHS of the dot is the class instance being accessed
         struct AST *class = tree->child;
         // the RHS is what member we are accessing
         struct AST *member = tree->child->sibling;
 
-        // TODO: check more deeply what's being arrow/dotted? Shortlist: dereference, array index, identifier, maybe some pointer arithmetic?
+        // TODO: check more deeply what's being dotted? Shortlist: dereference, array index, identifier, maybe some pointer arithmetic?
         //		 	- things like (myObjectPointer & 0xFFFFFFF0)->member are obviously wrong, so probably should disallow
         // prevent silly things like (&a)->b
-        if ((class->type == t_address_of) && (tree->type == t_arrow))
-        {
-            ErrorWithAST(ERROR_CODE, class, "Use of arrow operator after address-of operator `(&a)->b` is not supported.\nUse `a.b` instead\n");
-        }
 
         if (member->type != t_identifier)
         {
             ErrorWithAST(ERROR_CODE, member,
-                         "Expected identifier on RHS of %s operator, got %s (%s) instead!\n",
-                         (tree->type == t_dot ? "dot" : "arrow"),
+                         "Expected identifier on RHS of dot operator, got %s (%s) instead!\n",
                          member->value,
                          getTokenName(member->type));
         }
@@ -2162,20 +2056,29 @@ struct TACLine *walkMemberAccess(struct AST *tree,
         accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
         accessLine->operands[0].permutation = vp_temp;
 
-        // if we are at the bottom of potentially-nested dot/arrow operators,
+        // if we are at the bottom of potentially-nested dot operators,
         // we need the base address of the object we're accessing the member from
         if (tree->type == t_dot)
         {
             // we may need to do some manipulation of the subexpression depending on what exactly we're dotting
             switch (class->type)
             {
+                // skip the dereference and actually just get the subexpression for the indirect type
             case t_dereference:
             {
-                struct TACOperand dummyOperand;
-                walkSubExpression(class, block, scope, TACIndex, tempNum, &dummyOperand);
+                struct TACOperand dummyDereferencedOperand;
+                memset(&dummyDereferencedOperand, 0, sizeof(struct TACOperand));
+                walkSubExpression(class->child, block, scope, TACIndex, tempNum, &dummyDereferencedOperand);
 
-                char *indirectTypeName = Type_GetName(TACOperand_GetType(&dummyOperand));
-                ErrorWithAST(ERROR_CODE, class, "Use of dot operator on indirect type %s not supported - use arrow operator instead!\n", indirectTypeName);
+                struct Type dummyDecayType;
+                copyTypeDecayArrays(&dummyDecayType, TACOperand_GetType(&dummyDereferencedOperand));
+                if (dummyDecayType.indirectionLevel == 0)
+                {
+                    char *dereferencedTypeName = Type_GetName(TACOperand_GetType(&dummyDereferencedOperand));
+                    ErrorWithAST(ERROR_CODE, class, "Use of dereference on non-indirect type %s\n", dereferencedTypeName);
+                }
+
+                copyTACOperandDecayArrays(&accessLine->operands[1], &dummyDereferencedOperand);
             }
             break;
 
@@ -2199,25 +2102,35 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
             case t_identifier:
             {
-                struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
-                getAddressForDot->operands[0].permutation = vp_temp;
-                getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+                // if we are dotting an identifier, insert an address-of if it is not a pointer already
+                struct VariableEntry *dottedVariable = lookupVar(scope, class);
 
-                walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
-
-                if (getAddressForDot->operands[1].permutation != vp_temp)
+                if (dottedVariable->type.indirectionLevel == 0)
                 {
-                    // while this check is duplicated in the checks immediately following the switch,
-                    // we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
-                    checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
+                    struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
+                    getAddressForDot->operands[0].permutation = vp_temp;
+                    getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+
+                    walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
+
+                    if (getAddressForDot->operands[1].permutation != vp_temp)
+                    {
+                        // while this check is duplicated in the checks immediately following the switch,
+                        // we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
+                        checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
+                    }
+
+                    copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
+                    TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
+
+                    getAddressForDot->index = (*TACIndex)++;
+                    BasicBlock_append(block, getAddressForDot);
+                    copyTACOperandDecayArrays(&accessLine->operands[1], &getAddressForDot->operands[0]);
                 }
-
-                copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
-                TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
-
-                getAddressForDot->index = (*TACIndex)++;
-                BasicBlock_append(block, getAddressForDot);
-                copyTACOperandDecayArrays(&accessLine->operands[1], &getAddressForDot->operands[0]);
+                else
+                {
+                    walkSubExpression(class, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
+                }
             }
             break;
 
@@ -2232,7 +2145,6 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
             // while this check is duplicated in the checks immediately following the switch,
             // we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
-            checkAccessedClassForArrow(class, scope, &accessLine->operands[1].type);
             copyTACOperandTypeDecayArrays(&accessLine->operands[0], &accessLine->operands[1]);
         }
 
@@ -2242,54 +2154,15 @@ struct TACLine *walkMemberAccess(struct AST *tree,
     break;
     }
 
-    // if we have an arrow, the first thing we need to do is "jump through" the indirection
-    // this if statement basically "finalizes" the load before the arrow operator,
-    // then sets up a new access solely for the arrow
-    if (tree->type == t_arrow)
+    struct Type *accessedType = TAC_GetTypeOfOperand(accessLine, 1);
+    if (accessedType->basicType != vt_class)
     {
-        // if the existing load operation actually applies an offset, it is necessary to actually "jump through" the indirection by dereferencing at that offset
-        // to do this, we cement the existing access for good and then create a new load TAC instruction which will apply only the offset from this arrow operator
-        if (accessLine->operands[2].name.val > 0)
-        {
-            // index and add the existing offset
-            accessLine->index = (*TACIndex)++;
-            BasicBlock_append(block, accessLine);
-
-            // understand some info about what we're actually reading at this offset, keep track of the old access
-            struct Type *existingReadType = TAC_GetTypeOfOperand(accessLine, 0);
-            struct TACLine *oldAccessLine = accessLine;
-
-            // the LHS of our arrow must be some sort of class pointer, otherwise we shouldn't be able to use the arrow operator on it!
-            if ((existingReadType->basicType == vt_class) && (existingReadType->indirectionLevel == 0))
-            {
-                // convert the old access to a lea - we don't want to dereference the class, we just need a pointer to it
-                oldAccessLine->operation = tt_lea_off;
-            }
-            else if (existingReadType->basicType != vt_class) // we are currently walking a member access using the arrow operator on something that's not a class pointer
-            {
-                char *existingReadTypeName = Type_GetName(existingReadType);
-                ErrorWithAST(ERROR_CODE, tree, "Use of arrow operator '->' on non-class-pointer type %s!\n", existingReadTypeName);
-            }
-
-            accessLine = newTACLine(*TACIndex, tt_load_off, tree);
-
-            copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccessLine->operands[0]);
-
-            accessLine->operands[0].permutation = vp_temp;
-            accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-
-            accessLine->operands[2].type.basicType = vt_u32;
-            accessLine->operands[2].permutation = vp_literal;
-            // BasicBlock_append(block, accessLine);
-        }
-        else
-        {
-            accessLine->operation = tt_load_off;
-        }
+        char *accessedTypeName = Type_GetName(accessedType);
+        ErrorWithAST(ERROR_CODE, tree, "Use of dot operator for member access on non-class type %s\n", accessedTypeName);
     }
 
     // get the ClassEntry and ClassMemberOffset of what we're accessing within and the member we access
-    struct ClassEntry *accessedClass = lookupClassByType(scope, TAC_GetTypeOfOperand(accessLine, 1));
+    struct ClassEntry *accessedClass = lookupClassByType(scope, accessedType);
     struct ClassMemberOffset *accessedMember = lookupMemberVariable(accessedClass, rhs);
 
     // populate type information (use cast for the first operand as we are treating a class as a pointer to something else with a given offset)
@@ -2680,7 +2553,6 @@ struct TACOperand *walkAddrOf(struct AST *tree,
     break;
 
     case t_dot:
-    case t_arrow:
     {
         // walkMemberAccess can do everything we need
         // the only thing we have to do is ensure we have an LEA at the end instead of a direct read in the case of the dot operator

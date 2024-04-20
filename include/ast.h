@@ -87,7 +87,6 @@ enum token
     t_cast,
     t_comma,
     t_dot,
-    t_arrow,
     t_semicolon,
     t_colon,
     t_left_paren,
