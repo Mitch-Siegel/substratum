@@ -26,8 +26,12 @@ programs: $(TEST_NAME).output
 		[ "$$(echo "$$GREP_OUTPUT" | wc -w)" -ne "$$(wc -w < $(word 2,$^))" ] || \
 		[ "$$(echo "$$GREP_OUTPUT" | wc -l)" -ne "$$(wc -l < $(word 2,$^))" ]; then \
    		echo "Test '$(TEST_NAME)' failed"; \
-		echo "output:"; \
+		echo "matched output:"; \
 		echo $$GREP_OUTPUT; \
+		echo "full output:" ;\
+		cat $@ ;\
+		echo "expected output:" ;\
+		cat $(word 2,$^) ;\
 		exit 1; \
 		else \
 		echo "Test '$(TEST_NAME)' passed"; \

@@ -1,0 +1,1 @@
+Use of non-pointer variable notAnArray as array!
