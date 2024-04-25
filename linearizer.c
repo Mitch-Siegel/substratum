@@ -2316,8 +2316,8 @@ struct TACLine *walkArrayRef(struct AST *tree,
     break;
     }
 
-    populateTACOperandAsTemp(&arrayRefTAC->operands[0], tempNum);
     copyTACOperandDecayArrays(&arrayRefTAC->operands[0], &arrayRefTAC->operands[1]);
+    populateTACOperandAsTemp(&arrayRefTAC->operands[0], tempNum);
     arrayRefTAC->operands[0].type.indirectionLevel--;
 
     if (arrayIndex->type == t_constant)
