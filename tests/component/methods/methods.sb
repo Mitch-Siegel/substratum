@@ -1,25 +1,48 @@
 #include "tests-common.sb"
 
-class Counter {
-    u32 count;
+class Stack {
+    u8 topIndex;
+    u8[256] data;
 };
 
-impl Counter {
-    fun Increment(Counter *self) {
-        self.count += 1;
+impl Stack {
+    fun Init(Stack *self) {
+        self.topIndex = 0;
     }
 
-    fun Set(Counter *self, u32 value) {
-        self.count = value;
+    fun Push(Stack *self, u8 value) {
+        // crash here :(
+        // self.data[self.topIndex] doesn't work because self.data is an array
+        (&self.data)[self.topIndex] = value;
+        self.topIndex += 1;
+    }
+
+    u8 fun Pop(Stack *self) {
+        self.topIndex -= 1;
+        // same issue here as above
+        return (&self.data)[self.topIndex];
+    }
+
+    u8 fun Size(Stack *self) {
+        return self.topIndex;
     }
 }
 
 
 fun main() {
-    Counter c;
-    c.Set(123);
-    printNum(c.count);
-    c.Increment();
-    printNum(c.count);
+    Stack testStack;
+    testStack.Init();
+    u8 i = 0;
+    while(i < 10)
+    {
+        testStack.Push(10 * i);
+        i += 1;
+    }
+
+    while(testStack.Size() > 0)
+    {
+        printNum(testStack.Pop());
+    }
+
     exit();
 }
