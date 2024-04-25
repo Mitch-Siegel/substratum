@@ -37,7 +37,7 @@ struct Lifetime *newLifetime(char *name, struct Type *type, size_t start, u8 isG
     return wip;
 }
 
-int compareLifetimes(struct Lifetime *compared, char *variable)
+ssize_t compareLifetimes(struct Lifetime *compared, char *variable)
 {
     return strcmp(compared->name, variable);
 }
@@ -138,6 +138,7 @@ void recordLifetimeReadForOperand(struct LinkedList *lifetimes, struct TACOperan
 
 void findLifetimesForTac(struct LinkedList *lifetimes, struct Scope *scope, struct TACLine *line, struct Stack *doDepth)
 {
+    // handle tt_do/tt_enddo stack and lifetime extension
     switch (line->operation)
     {
     case tt_do:
@@ -162,111 +163,25 @@ void findLifetimesForTac(struct LinkedList *lifetimes, struct Scope *scope, stru
     }
     break;
 
-    case tt_asm:
+    default:
         break;
-
-    case tt_call:
-        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
-        break;
-
-    case tt_assign:
-    {
-        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
     }
-    break;
 
-    // single operand in slot 0
-    case tt_return:
-    case tt_stack_store:
+    for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
     {
-        recordLifetimeReadForOperand(lifetimes, &line->operands[0], scope, line->index);
-    }
-    break;
+        switch (getUseOfOperand(line, operandIndex))
+        {
+        case u_unused:
+            break;
 
-    case tt_add:
-    case tt_subtract:
-    case tt_mul:
-    case tt_div:
-    case tt_modulo:
-    case tt_bitwise_and:
-    case tt_bitwise_or:
-    case tt_bitwise_xor:
-    case tt_bitwise_not:
-    case tt_lshift:
-    case tt_rshift:
-    {
-        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
+        case u_read:
+            recordLifetimeReadForOperand(lifetimes, &line->operands[operandIndex], scope, line->index);
+            break;
 
-        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[2], scope, line->index);
-    }
-    break;
-
-    // loading writes the destination, while reading from the pointer
-    case tt_load:
-    case tt_load_off: // load_off uses a literal for operands[2]
-        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
-        break;
-
-    case tt_load_arr:
-        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[2], scope, line->index);
-        break;
-
-    // storing actually reads the variable containing the pionter to the location which the data is written
-    case tt_store:
-        recordLifetimeReadForOperand(lifetimes, &line->operands[0], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
-        break;
-
-    case tt_store_off:
-        recordLifetimeReadForOperand(lifetimes, &line->operands[0], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[2], scope, line->index);
-        break;
-
-    case tt_store_arr:
-        recordLifetimeReadForOperand(lifetimes, &line->operands[0], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[3], scope, line->index);
-        break;
-
-    case tt_addrof:
-        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
-        recordLifetimeWriteForOperand(lifetimes, &line->operands[1], scope, line->index);
-        break;
-
-    case tt_lea_off:
-        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
-        break;
-
-    case tt_lea_arr:
-        recordLifetimeWriteForOperand(lifetimes, &line->operands[0], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[2], scope, line->index);
-        break;
-
-    case tt_beq:
-    case tt_bne:
-    case tt_bgeu:
-    case tt_bltu:
-    case tt_bgtu:
-    case tt_bleu:
-    case tt_beqz:
-    case tt_bnez:
-    {
-        recordLifetimeReadForOperand(lifetimes, &line->operands[1], scope, line->index);
-        recordLifetimeReadForOperand(lifetimes, &line->operands[2], scope, line->index);
-    }
-    break;
-
-    case tt_jmp:
-    case tt_label:
-    case tt_stack_reserve:
-        break;
+        case u_write:
+            recordLifetimeWriteForOperand(lifetimes, &line->operands[operandIndex], scope, line->index);
+            break;
+        }
     }
 }
 

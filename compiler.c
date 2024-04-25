@@ -8,6 +8,7 @@
 #include "ast.h"
 #include "codegen.h"
 #include "linearizer.h"
+#include "ssa.h"
 #include "substratum_defs.h"
 #include "symtab.h"
 #include "tac.h"
@@ -77,7 +78,7 @@ struct AST *parseFile(char *inFileName)
     fileProgress.curColRaw = 0;
     fileProgress.curFile = NULL;
     fileProgress.charsRemainingPerLine = LinkedList_New();
-    i32 *lineZeroChars = malloc(sizeof(i32));
+    size_t *lineZeroChars = malloc(sizeof(size_t));
     *lineZeroChars = 0;
     LinkedList_Append(fileProgress.charsRemainingPerLine, lineZeroChars);
 
@@ -240,6 +241,8 @@ int main(int argc, char **argv)
     }
 
     SymbolTable_collapseScopes(theTable, parseDict);
+
+    // generateSsa(theTable);
 
     if (currentVerbosity > VERBOSITY_SILENT)
     {

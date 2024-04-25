@@ -56,6 +56,47 @@ u8 alignSize(size_t nBytes);
 
 size_t unalignSize(u8 nBits);
 
+// directly compares dataA to dataB
+ssize_t ssizet_compare(void *dataA, void *dataB);
+
+/*
+ *
+ *
+ */
+
+struct HashTableEntry
+{
+    void *key;
+    void *value;
+    ssize_t (*compareFunction)(void *keyA, void *keyB);
+    void (*keyFreeFunction)(void *key);
+    void (*valueFreeFunction)(void *value);
+};
+
+struct HashTable
+{
+    struct Set **buckets;
+    size_t nBuckets;
+    size_t (*hashFunction)(void *key);
+    ssize_t (*compareFunction)(void *keyA, void *keyB);
+    void (*keyFreeFunction)(void *data);
+    void (*valueFreeFunction)(void *data);
+};
+
+struct HashTable *HashTable_New(size_t nBuckets,
+                                size_t (*hashFunction)(void *key),
+                                ssize_t (*compareFunction)(void *keyA, void *keyB),
+                                void (*keyFreeFunction)(void *data),
+                                void (*valueFreeFunction)(void *data));
+
+void *HashTable_Lookup(struct HashTable *table, void *key);
+
+void HashTable_Insert(struct HashTable *table, void *key, void *value);
+
+void *HashTable_Delete(struct HashTable *table, void *key);
+
+void HashTable_Free(struct HashTable *table);
+
 /*
  * Dictionary for tracking strings
  * Economizes heap space by only storing strings once each
@@ -63,17 +104,14 @@ size_t unalignSize(u8 nBits);
  */
 struct Dictionary
 {
-    struct LinkedList **buckets;
-    size_t nBuckets;
+    struct HashTable *table;
 };
 
-unsigned int hash(char *str);
+size_t hashString(void *data);
 
 struct Dictionary *Dictionary_New(size_t nBuckets);
 
 char *Dictionary_Insert(struct Dictionary *dict, char *value);
-
-char *Dictionary_Lookup(struct Dictionary *dict, char *value);
 
 char *Dictionary_LookupOrInsert(struct Dictionary *dict, char *value);
 
@@ -134,13 +172,46 @@ void LinkedList_Prepend(struct LinkedList *list, void *element);
 // join all elements of list 'after' after those of list 'before' in list 'before'
 void LinkedList_Join(struct LinkedList *before, struct LinkedList *after);
 
-void *LinkedList_Delete(struct LinkedList *list, int (*compareFunction)(), void *element);
+void *LinkedList_Delete(struct LinkedList *list, ssize_t (*compareFunction)(), void *element);
 
-void *LinkedList_Find(struct LinkedList *list, int (*compareFunction)(), void *element);
+void *LinkedList_Find(struct LinkedList *list, ssize_t (*compareFunction)(), void *element);
 
 void *LinkedList_PopFront(struct LinkedList *list);
 
 void *LinkedList_PopBack(struct LinkedList *list);
+
+/*
+ * Set data structure
+ */
+
+struct Set
+{
+    struct LinkedList *elements;
+    ssize_t (*compareFunction)(void *elementA, void *elementB);
+    void(*dataFreeFunction);
+};
+
+struct Set *Set_New(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction));
+
+void Set_Insert(struct Set *set, void *element);
+
+void Set_Delete(struct Set *set, void *element);
+
+void *Set_Find(struct Set *set, void *element);
+
+void Set_Clear(struct Set *toClear);
+
+void Set_Merge(struct Set *into, struct Set *from);
+
+struct Set *Set_Copy(struct Set *set);
+
+// given two input sets, construct and return a third set containing data from the union of the two
+struct Set *Set_Union(struct Set *setA, struct Set *setB);
+
+// given two input sets, construct and return a third set containing data from the intersection of the two
+struct Set *Set_Intersection(struct Set *setA, struct Set *setB);
+
+void Set_Free(struct Set *set);
 
 /*
  * TempList is a struct containing string names for TAC temps by number (eg t0, t1, t2, etc...)

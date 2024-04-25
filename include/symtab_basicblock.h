@@ -16,6 +16,8 @@ void BasicBlock_free(struct BasicBlock *block);
 
 void BasicBlock_append(struct BasicBlock *block, struct TACLine *line);
 
+void BasicBlock_prepend(struct BasicBlock *block, struct TACLine *line);
+
 void printBasicBlock(struct BasicBlock *block, size_t indentLevel);
 
 #endif

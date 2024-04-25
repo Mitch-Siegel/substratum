@@ -19,6 +19,20 @@ void BasicBlock_append(struct BasicBlock *block, struct TACLine *line)
     LinkedList_Append(block->TACList, line);
 }
 
+void BasicBlock_prepend(struct BasicBlock *block, struct TACLine *line)
+{
+    if (block->TACList->size > 0)
+    {
+        struct TACLine *first = block->TACList->head->data;
+        if (line->index != first->index)
+        {
+            ErrorAndExit(ERROR_INTERNAL, "BasicBlock_prepend called with line index %zu - must be %zu (same as start of block!)!\n", line->index, first->index);
+        }
+    }
+
+    LinkedList_Prepend(block->TACList, line);
+}
+
 void printBasicBlock(struct BasicBlock *block, size_t indentLevel)
 {
     for (size_t indentPrint = 0; indentPrint < indentLevel; indentPrint++)

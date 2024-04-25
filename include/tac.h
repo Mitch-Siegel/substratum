@@ -2,14 +2,8 @@
 #define TAC_H
 
 #include "ast.h"
+#include "tac_operand.h"
 #include "type.h"
-
-enum variablePermutations
-{
-    vp_standard,
-    vp_temp,
-    vp_literal,
-};
 
 enum TACType
 {
@@ -51,22 +45,8 @@ enum TACType
     tt_return,
     tt_do,
     tt_enddo,
+    tt_phi,
 };
-
-struct TACOperand
-{
-    union nameUnion // name of variable as char*, or literal value as int
-    {
-        char *str;
-        ssize_t val;
-    } name;
-
-    struct Type type;
-    struct Type castAsType;
-    enum variablePermutations permutation; // enum of permutation (standard/temp/literal)
-};
-
-void TACOperand_SetBasicType(struct TACOperand *operand, enum basicTypes type, int indirectionLevel);
 
 struct TACLine
 {
@@ -98,6 +78,8 @@ struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST
 #define newTACLine(index, operation, correspondingTree) newTACLineFunction((index), (operation), (correspondingTree), __FILE__, __LINE__)
 
 void freeTAC(struct TACLine *line);
+
+enum TACOperandUse getUseOfOperand(struct TACLine *line, u8 operandIndex);
 
 struct LinearizationResult
 {

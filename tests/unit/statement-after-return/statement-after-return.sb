@@ -1,0 +1,7 @@
+
+u8 fun statement_after_return()
+{
+    u8 a = 2;
+    return a;
+    a += 2;
+}
