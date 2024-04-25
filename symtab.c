@@ -139,7 +139,10 @@ static void mangleBlockContents(struct Scope *scope, struct Dictionary *dict)
                     struct TACLine *thisTAC = TACRunner->data;
                     for (size_t operandIndex = 0; operandIndex < 4; operandIndex++)
                     {
-                        attemptOperandMangle(&thisTAC->operands[operandIndex], scope, dict);
+                        if (getUseOfOperand(thisTAC, operandIndex) != u_unused)
+                        {
+                            attemptOperandMangle(&thisTAC->operands[operandIndex], scope, dict);
+                        }
                     }
                 }
             }

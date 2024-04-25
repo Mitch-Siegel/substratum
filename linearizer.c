@@ -1193,6 +1193,10 @@ void walkDotOperatorAssignment(struct AST *tree,
             // copy the TAC operands for the direct part of the assignment
             copyTACOperandDecayArrays(&wipAssignment->operands[0], &getAddressForDot->operands[0]);
         }
+        else
+        {
+            walkSubExpression(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0]);
+        }
     }
     break;
 
@@ -1590,6 +1594,10 @@ void walkSubExpression(struct AST *tree,
 
     case t_function_call:
         walkFunctionCall(tree, block, scope, TACIndex, tempNum, destinationOperand);
+        break;
+
+    case t_method_call:
+        walkMethodCall(tree, block, scope, TACIndex, tempNum, destinationOperand);
         break;
 
     case t_dot:
