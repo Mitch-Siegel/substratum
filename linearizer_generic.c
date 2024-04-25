@@ -42,6 +42,7 @@ void populateTACOperandFromVariable(struct TACOperand *operandToPopulate, struct
     operandToPopulate->permutation = vp_standard;
 }
 
+extern struct TempList *temps;
 void populateTACOperandAsTemp(struct TACOperand *operandToPopulate, size_t *tempNum)
 {
     operandToPopulate->name.str = TempList_Get(temps, (*tempNum)++);
