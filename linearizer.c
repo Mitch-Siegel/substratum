@@ -6,6 +6,8 @@
 
 #include <ctype.h>
 
+// pre-refactoring - 2131 lines
+
 /*
  * These functions walk the AST and convert it to three-address code
  */
@@ -1076,8 +1078,8 @@ void walkDotOperatorAssignment(struct AST *tree,
     {
         // construct a TAC line responsible for figuring out the address of what we're dotting since it's not a pointer already
         struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
-        getAddressForDot->operands[0].permutation = vp_temp;
-        getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+
+        populateTACOperandAsTemp(&getAddressForDot->operands[0], tempNum);
 
         // walk the LHS of the dot operator using walkSubExpression
         walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
@@ -1491,8 +1493,7 @@ struct TACOperand *walkBitwiseNot(struct AST *tree,
     // generically set to tt_add, we will actually set the operation within switch cases
     struct TACLine *bitwiseNotLine = newTACLine(*TACIndex, tt_bitwise_not, tree);
 
-    bitwiseNotLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-    bitwiseNotLine->operands[0].permutation = vp_temp;
+    populateTACOperandAsTemp(&bitwiseNotLine->operands[0], tempNum);
 
     walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &bitwiseNotLine->operands[1]);
     copyTACOperandTypeDecayArrays(&bitwiseNotLine->operands[0], &bitwiseNotLine->operands[1]);
@@ -1718,8 +1719,7 @@ void walkSubExpression(struct AST *tree,
             castBitManipulation->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, literalAndValue);
 
             // destination of our bit manipulation is a temporary variable with the type to which we are casting
-            castBitManipulation->operands[0].permutation = vp_temp;
-            castBitManipulation->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+            populateTACOperandAsTemp(&castBitManipulation->operands[0], tempNum);            
             castBitManipulation->operands[0].type = *TAC_GetTypeOfOperand(castBitManipulation, 1);
 
             // attach our bit manipulation operation to the end of the basic block
@@ -1868,8 +1868,7 @@ void walkFunctionCall(struct AST *tree,
     {
         call->operands[0].type = calledFunction->returnType;
         call->operands[0].type.indirectionLevel = calledFunction->returnType.indirectionLevel;
-        call->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-        call->operands[0].permutation = vp_temp;
+        populateTACOperandAsTemp(&call->operands[0], tempNum);
 
         *destinationOperand = call->operands[0];
     }
@@ -1942,8 +1941,8 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
         // our access line is a completely new TAC line, which is a load operation with an offset, storing the load result to a temp
         accessLine = newTACLine(*TACIndex, tt_load_off, tree);
-        accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-        accessLine->operands[0].permutation = vp_temp;
+
+        populateTACOperandAsTemp(&accessLine->operands[0], tempNum);
 
         // if we are at the bottom of potentially-nested dot/arrow operators,
         // we need the base address of the object we're accessing the member from
@@ -1983,8 +1982,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
             case t_identifier:
             {
                 struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
-                getAddressForDot->operands[0].permutation = vp_temp;
-                getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+                populateTACOperandAsTemp(&getAddressForDot->operands[0], tempNum);
 
                 walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
 
@@ -2057,9 +2055,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
             accessLine = newTACLine(*TACIndex, tt_load_off, tree);
 
             copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccessLine->operands[0]);
-
-            accessLine->operands[0].permutation = vp_temp;
-            accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+            populateTACOperandAsTemp(&accessLine->operands[0], tempNum);
 
             accessLine->operands[2].type.basicType = vt_u32;
             accessLine->operands[2].permutation = vp_literal;
@@ -2189,8 +2185,7 @@ struct TACOperand *walkExpression(struct AST *tree,
     // generically set to tt_add, we will actually set the operation within switch cases
     struct TACLine *expression = newTACLine(*TACIndex, tt_subtract, tree);
 
-    expression->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-    expression->operands[0].permutation = vp_temp;
+    populateTACOperandAsTemp(&expression->operands[0], tempNum);
 
     u8 fallingThrough = 0;
 
@@ -2321,9 +2316,8 @@ struct TACLine *walkArrayRef(struct AST *tree,
     break;
     }
 
+    populateTACOperandAsTemp(&arrayRefTAC->operands[0].permutation, tempNum);
     copyTACOperandDecayArrays(&arrayRefTAC->operands[0], &arrayRefTAC->operands[1]);
-    arrayRefTAC->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-    arrayRefTAC->operands[0].permutation = vp_temp;
     arrayRefTAC->operands[0].type.indirectionLevel--;
 
     if (arrayIndex->type == t_constant)
@@ -2404,8 +2398,7 @@ struct TACOperand *walkDereference(struct AST *tree,
 
     copyTACOperandDecayArrays(&dereference->operands[0], &dereference->operands[1]);
     TAC_GetTypeOfOperand(dereference, 0)->indirectionLevel--;
-    dereference->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-    dereference->operands[0].permutation = vp_temp;
+    populateTACOperandAsTemp(&dereference->operands[0], tempNum);
 
     dereference->index = (*TACIndex)++;
     BasicBlock_append(block, dereference);
@@ -2430,8 +2423,7 @@ struct TACOperand *walkAddrOf(struct AST *tree,
     }
 
     struct TACLine *addrOfLine = newTACLine(*TACIndex, tt_addrof, tree);
-    addrOfLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-    addrOfLine->operands[0].permutation = vp_temp;
+    populateTACOperandAsTemp(&addrOfLine->operands[0], tempNum);
 
     switch (tree->child->type)
     {
@@ -2521,10 +2513,9 @@ void walkPointerArithmetic(struct AST *tree,
     }
 
     walkSubExpression(pointerArithLHS, block, scope, TACIndex, tempNum, &pointerArithmetic->operands[1]);
+    
+    populateTACOperandAsTemp(&pointerArithmetic->operands[0], tempNum);
     copyTACOperandDecayArrays(&pointerArithmetic->operands[0], &pointerArithmetic->operands[1]);
-    pointerArithmetic->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-
-    pointerArithmetic->operands[0].permutation = vp_temp;
 
     struct TACLine *scaleMultiplication = setUpScaleMultiplication(pointerArithRHS,
                                                                    scope,

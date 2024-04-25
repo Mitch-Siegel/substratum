@@ -42,6 +42,12 @@ void populateTACOperandFromVariable(struct TACOperand *operandToPopulate, struct
     operandToPopulate->permutation = vp_standard;
 }
 
+void populateTACOperandAsTemp(struct TACOperand *operandToPopulate, size_t *tempNum)
+{
+    operandToPopulate->name.str = TempList_Get(temps, (*tempNum)++);
+    operandToPopulate->permutation = vp_temp;
+}
+
 void copyTypeDecayArrays(struct Type *dest, struct Type *src)
 {
     *dest = *src;
