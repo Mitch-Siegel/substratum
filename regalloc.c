@@ -390,21 +390,12 @@ void printStackFootprint(struct CodegenMetadata *metadata)
                 crossedZero = 1;
             }
             size_t size = getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
-            if (thisLifetime->type.arraySize > 0)
+            char *typeName = Type_GetName(&thisLifetime->type);
+            for (size_t lineIndex = 0; lineIndex < size; lineIndex++)
             {
-                size_t elementSize = size / thisLifetime->type.arraySize;
-                for (size_t j = 0; j < size; j++)
-                {
-                    printf("%s[%lu]\n", thisLifetime->name, j / elementSize);
-                }
+                printf("%s\n", typeName);
             }
-            else
-            {
-                for (size_t j = 0; j < size; j++)
-                {
-                    printf("%s\n", thisLifetime->name);
-                }
-            }
+            free(typeName);
         }
 
         Stack_Free(stackLayout);
