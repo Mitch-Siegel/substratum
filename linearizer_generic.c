@@ -75,7 +75,7 @@ extern struct TempList *temps;
 extern struct Dictionary *parseDict;
 struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale)
 {
-    struct TACLine *scaleMultiplication = newTACLine(*TACIndex, tt_mul, tree);
+    struct TACLine *scaleMultiplication = newTACLine(tt_mul, tree);
 
     scaleMultiplication->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
     scaleMultiplication->operands[0].permutation = vp_temp;

@@ -605,15 +605,13 @@ void walkStatement(struct AST *tree,
 
     case t_return:
     {
-        struct TACLine *returnLine = newTACLine(*TACIndex, tt_return, tree);
+        struct TACLine *returnLine = newTACLine(tt_return, tree);
         if (tree->child != NULL)
         {
             walkSubExpression(tree->child, *blockP, scope, TACIndex, tempNum, &returnLine->operands[0]);
         }
 
-        returnLine->index = (*TACIndex)++;
-
-        BasicBlock_append(*blockP, returnLine);
+        BasicBlock_append(*blockP, returnLine, TACIndex);
 
         if (tree->sibling != NULL)
         {
@@ -657,9 +655,9 @@ void walkScope(struct AST *tree,
 
     if (controlConvergesToLabel > 0)
     {
-        struct TACLine *controlConvergeJmp = newTACLine((*TACIndex)++, tt_jmp, tree);
+        struct TACLine *controlConvergeJmp = newTACLine(tt_jmp, tree);
         controlConvergeJmp->operands[0].name.val = controlConvergesToLabel;
-        BasicBlock_append(block, controlConvergeJmp);
+        BasicBlock_append(block, controlConvergeJmp, TACIndex);
     }
 }
 
@@ -693,18 +691,18 @@ struct BasicBlock *walkLogicalOperator(struct AST *tree,
         block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, checkSecondConditionBlock->labelNum);
 
         // if we pass the first condition (don't jump to checkSecondConditionBlock), short-circuit directly to the true block
-        struct TACLine *firstConditionTrueJump = newTACLine((*TACIndex)++, tt_jmp, tree->child);
+        struct TACLine *firstConditionTrueJump = newTACLine(tt_jmp, tree->child);
         firstConditionTrueJump->operands[0].name.val = trueBlock->labelNum;
-        BasicBlock_append(block, firstConditionTrueJump);
+        BasicBlock_append(block, firstConditionTrueJump, TACIndex);
 
         // walk the second condition to checkSecondConditionBlock
         block = walkConditionCheck(tree->child->sibling, checkSecondConditionBlock, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
 
         // jump from whatever block the second condition check ends up in (passing path) to our block
         // this ensures that regardless of which condition is true (first or second) execution always end up in the same block
-        struct TACLine *secondConditionTrueJump = newTACLine((*TACIndex)++, tt_jmp, tree->child->sibling);
+        struct TACLine *secondConditionTrueJump = newTACLine(tt_jmp, tree->child->sibling);
         secondConditionTrueJump->operands[0].name.val = trueBlock->labelNum;
-        BasicBlock_append(block, secondConditionTrueJump);
+        BasicBlock_append(block, secondConditionTrueJump, TACIndex);
 
         block = trueBlock;
     }
@@ -721,9 +719,9 @@ struct BasicBlock *walkLogicalOperator(struct AST *tree,
         block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, inverseConditionBlock->labelNum);
 
         // subcondition is true (!subcondition is false), then control flow should end up at the original conditionFalseJump destination
-        struct TACLine *conditionFalseJump = newTACLine((*TACIndex)++, tt_jmp, tree->child);
+        struct TACLine *conditionFalseJump = newTACLine(tt_jmp, tree->child);
         conditionFalseJump->operands[0].name.val = falseJumpLabelNum;
-        BasicBlock_append(block, conditionFalseJump);
+        BasicBlock_append(block, conditionFalseJump, TACIndex);
 
         // return the tricky block we created to be jumped to when our subcondition is false, or that the condition we are linearizing at this level is true
         block = inverseConditionBlock;
@@ -752,7 +750,7 @@ struct BasicBlock *walkConditionCheck(struct AST *tree,
         printf("walkConditionCheck: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
     }
 
-    struct TACLine *condFalseJump = newTACLine(*TACIndex, tt_jmp, tree);
+    struct TACLine *condFalseJump = newTACLine(tt_jmp, tree);
     condFalseJump->operands[0].name.val = falseJumpLabelNum;
 
     // switch once to decide the jump type
@@ -879,8 +877,7 @@ struct BasicBlock *walkConditionCheck(struct AST *tree,
 
     if (condFalseJump != NULL)
     {
-        condFalseJump->index = (*TACIndex)++;
-        BasicBlock_append(block, condFalseJump);
+        BasicBlock_append(block, condFalseJump, TACIndex);
     }
     return block;
 }
@@ -904,17 +901,17 @@ void walkWhileLoop(struct AST *tree,
 
     struct BasicBlock *beforeWhileBlock = block;
 
-    struct TACLine *enterWhileJump = newTACLine((*TACIndex)++, tt_jmp, tree);
+    struct TACLine *enterWhileJump = newTACLine(tt_jmp, tree);
     enterWhileJump->operands[0].name.val = *labelNum;
-    BasicBlock_append(beforeWhileBlock, enterWhileJump);
+    BasicBlock_append(beforeWhileBlock, enterWhileJump, TACIndex);
 
     // create a subscope from which we will work
     struct Scope *whileScope = Scope_createSubScope(scope);
     struct BasicBlock *whileBlock = BasicBlock_new((*labelNum)++);
     Scope_addBasicBlock(whileScope, whileBlock);
 
-    struct TACLine *whileDo = newTACLine((*TACIndex)++, tt_do, tree);
-    BasicBlock_append(whileBlock, whileDo);
+    struct TACLine *whileDo = newTACLine(tt_do, tree);
+    BasicBlock_append(whileBlock, whileDo, TACIndex);
 
     whileBlock = walkConditionCheck(tree->child, whileBlock, whileScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
 
@@ -930,15 +927,15 @@ void walkWhileLoop(struct AST *tree,
         walkStatement(whileBody, &whileBlock, whileScope, TACIndex, tempNum, labelNum, endWhileLabel);
     }
 
-    struct TACLine *whileLoopJump = newTACLine((*TACIndex)++, tt_jmp, tree);
+    struct TACLine *whileLoopJump = newTACLine(tt_jmp, tree);
     whileLoopJump->operands[0].name.val = enterWhileJump->operands[0].name.val;
 
     block = BasicBlock_new(endWhileLabel);
     Scope_addBasicBlock(scope, block);
 
-    struct TACLine *whileEndDo = newTACLine((*TACIndex)++, tt_enddo, tree);
-    BasicBlock_append(block, whileLoopJump);
-    BasicBlock_append(block, whileEndDo);
+    struct TACLine *whileEndDo = newTACLine(tt_enddo, tree);
+    BasicBlock_append(block, whileLoopJump, TACIndex);
+    BasicBlock_append(block, whileEndDo, TACIndex);
 }
 
 void walkIfStatement(struct AST *tree,
@@ -969,9 +966,9 @@ void walkIfStatement(struct AST *tree,
         struct BasicBlock *ifBlock = BasicBlock_new((*labelNum)++);
         Scope_addBasicBlock(ifScope, ifBlock);
 
-        struct TACLine *enterIfJump = newTACLine((*TACIndex)++, tt_jmp, tree);
+        struct TACLine *enterIfJump = newTACLine(tt_jmp, tree);
         enterIfJump->operands[0].name.val = ifBlock->labelNum;
-        BasicBlock_append(block, enterIfJump);
+        BasicBlock_append(block, enterIfJump, TACIndex);
 
         struct AST *ifBody = tree->child->sibling;
         if (ifBody->type == t_compound_statement)
@@ -1006,9 +1003,9 @@ void walkIfStatement(struct AST *tree,
         struct BasicBlock *ifBlock = BasicBlock_new((*labelNum)++);
         Scope_addBasicBlock(ifScope, ifBlock);
 
-        struct TACLine *enterIfJump = newTACLine((*TACIndex)++, tt_jmp, tree);
+        struct TACLine *enterIfJump = newTACLine(tt_jmp, tree);
         enterIfJump->operands[0].name.val = ifBlock->labelNum;
-        BasicBlock_append(block, enterIfJump);
+        BasicBlock_append(block, enterIfJump, TACIndex);
 
         struct AST *ifBody = tree->child->sibling;
         if (ifBody->type == t_compound_statement)
@@ -1077,7 +1074,7 @@ void walkDotOperatorAssignment(struct AST *tree,
     case t_identifier:
     {
         // construct a TAC line responsible for figuring out the address of what we're dotting since it's not a pointer already
-        struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
+        struct TACLine *getAddressForDot = newTACLine(tt_addrof, tree);
 
         populateTACOperandAsTemp(&getAddressForDot->operands[0], tempNum);
 
@@ -1092,8 +1089,7 @@ void walkDotOperatorAssignment(struct AST *tree,
         TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
 
         // assign TAC index and append the address-of before the actual assignment
-        getAddressForDot->index = (*TACIndex)++;
-        BasicBlock_append(block, getAddressForDot);
+        BasicBlock_append(block, getAddressForDot, TACIndex);
 
         // copy the TAC operands for the direct part of the assignment
         copyTACOperandDecayArrays(&wipAssignment->operands[0], &getAddressForDot->operands[0]);
@@ -1274,7 +1270,7 @@ void walkAssignment(struct AST *tree,
     struct AST *rhs = tree->child->sibling;
 
     // don't increment the index until after we deal with nested expressions
-    struct TACLine *assignment = newTACLine((*TACIndex), tt_assign, tree);
+    struct TACLine *assignment = newTACLine(tt_assign, tree);
 
     struct TACOperand assignedValue;
     memset(&assignedValue, 0, sizeof(struct TACOperand));
@@ -1384,8 +1380,7 @@ void walkAssignment(struct AST *tree,
 
     if (assignment != NULL)
     {
-        assignment->index = (*TACIndex)++;
-        BasicBlock_append(block, assignment);
+        BasicBlock_append(block, assignment, TACIndex);
     }
 }
 
@@ -1491,7 +1486,7 @@ struct TACOperand *walkBitwiseNot(struct AST *tree,
     }
 
     // generically set to tt_add, we will actually set the operation within switch cases
-    struct TACLine *bitwiseNotLine = newTACLine(*TACIndex, tt_bitwise_not, tree);
+    struct TACLine *bitwiseNotLine = newTACLine(tt_bitwise_not, tree);
 
     populateTACOperandAsTemp(&bitwiseNotLine->operands[0], tempNum);
 
@@ -1504,8 +1499,7 @@ struct TACOperand *walkBitwiseNot(struct AST *tree,
         ErrorWithAST(ERROR_CODE, tree, "Bitwise arithmetic on pointers is not allowed!\n");
     }
 
-    bitwiseNotLine->index = (*TACIndex)++;
-    BasicBlock_append(block, bitwiseNotLine);
+    BasicBlock_append(block, bitwiseNotLine, TACIndex);
 
     return &bitwiseNotLine->operands[0];
 }
@@ -1695,7 +1689,7 @@ void walkSubExpression(struct AST *tree,
         // If necessary, lop bits off the big end of the value with an explicit bitwise and operation, storing to an intermediate temp
         if (Type_CompareAllowImplicitWidening(&expressionResult.castAsType, &destinationOperand->type) && (expressionResult.castAsType.indirectionLevel == 0))
         {
-            struct TACLine *castBitManipulation = newTACLine((*TACIndex)++, tt_bitwise_and, tree);
+            struct TACLine *castBitManipulation = newTACLine(tt_bitwise_and, tree);
 
             // RHS of the assignment is whatever we are storing, what is being cast
             castBitManipulation->operands[1] = expressionResult;
@@ -1719,11 +1713,11 @@ void walkSubExpression(struct AST *tree,
             castBitManipulation->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, literalAndValue);
 
             // destination of our bit manipulation is a temporary variable with the type to which we are casting
-            populateTACOperandAsTemp(&castBitManipulation->operands[0], tempNum);            
+            populateTACOperandAsTemp(&castBitManipulation->operands[0], tempNum);
             castBitManipulation->operands[0].type = *TAC_GetTypeOfOperand(castBitManipulation, 1);
 
             // attach our bit manipulation operation to the end of the basic block
-            BasicBlock_append(block, castBitManipulation);
+            BasicBlock_append(block, castBitManipulation, TACIndex);
             // set the destination operation of this subexpression to read the manipulated value we just wrote
             *destinationOperand = castBitManipulation->operands[0];
         }
@@ -1796,7 +1790,7 @@ void walkFunctionCall(struct AST *tree,
     while (argumentTrees->size > 0)
     {
         struct AST *pushedArgument = Stack_Pop(argumentTrees);
-        struct TACLine *push = newTACLine(*TACIndex, tt_stack_store, pushedArgument);
+        struct TACLine *push = newTACLine(tt_stack_store, pushedArgument);
         Stack_Push(argumentPushes, push);
         walkSubExpression(pushedArgument, block, scope, TACIndex, tempNum, &push->operands[0]);
 
@@ -1842,27 +1836,26 @@ void walkFunctionCall(struct AST *tree,
 
     if (calledFunction->arguments->size > 0)
     {
-        struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, tree->child);
+        struct TACLine *reserveStackSpaceForCall = newTACLine(tt_stack_reserve, tree->child);
         if (calledFunction->argStackSize > I64_MAX)
         {
             // TODO: implementation dependent size of size_t
             ErrorAndExit(ERROR_INTERNAL, "Function %s has arg stack size too large (%zd bytes)!\n", calledFunction->name, calledFunction->argStackSize);
         }
         reserveStackSpaceForCall->operands[0].name.val = (ssize_t)calledFunction->argStackSize;
-        BasicBlock_append(block, reserveStackSpaceForCall);
+        BasicBlock_append(block, reserveStackSpaceForCall, TACIndex);
     }
 
     while (argumentPushes->size > 0)
     {
         struct TACLine *push = Stack_Pop(argumentPushes);
-        push->index = (*TACIndex)++;
-        BasicBlock_append(block, push);
+        BasicBlock_append(block, push, TACIndex);
     }
     Stack_Free(argumentPushes);
 
-    struct TACLine *call = newTACLine((*TACIndex)++, tt_call, tree);
+    struct TACLine *call = newTACLine(tt_call, tree);
     call->operands[1].name.str = calledFunction->name;
-    BasicBlock_append(block, call);
+    BasicBlock_append(block, call, TACIndex);
 
     if (destinationOperand != NULL)
     {
@@ -1940,7 +1933,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
         }
 
         // our access line is a completely new TAC line, which is a load operation with an offset, storing the load result to a temp
-        accessLine = newTACLine(*TACIndex, tt_load_off, tree);
+        accessLine = newTACLine(tt_load_off, tree);
 
         populateTACOperandAsTemp(&accessLine->operands[0], tempNum);
 
@@ -1981,7 +1974,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
             case t_identifier:
             {
-                struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
+                struct TACLine *getAddressForDot = newTACLine(tt_addrof, tree);
                 populateTACOperandAsTemp(&getAddressForDot->operands[0], tempNum);
 
                 walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
@@ -1996,8 +1989,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
                 copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
                 TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
 
-                getAddressForDot->index = (*TACIndex)++;
-                BasicBlock_append(block, getAddressForDot);
+                BasicBlock_append(block, getAddressForDot, TACIndex);
                 copyTACOperandDecayArrays(&accessLine->operands[1], &getAddressForDot->operands[0]);
             }
             break;
@@ -2033,8 +2025,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
         if (accessLine->operands[2].name.val > 0)
         {
             // index and add the existing offset
-            accessLine->index = (*TACIndex)++;
-            BasicBlock_append(block, accessLine);
+            BasicBlock_append(block, accessLine, TACIndex);
 
             // understand some info about what we're actually reading at this offset, keep track of the old access
             struct Type *existingReadType = TAC_GetTypeOfOperand(accessLine, 0);
@@ -2052,14 +2043,14 @@ struct TACLine *walkMemberAccess(struct AST *tree,
                 ErrorWithAST(ERROR_CODE, tree, "Use of arrow operator '->' on non-class-pointer type %s!\n", existingReadTypeName);
             }
 
-            accessLine = newTACLine(*TACIndex, tt_load_off, tree);
+            accessLine = newTACLine(tt_load_off, tree);
 
             copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccessLine->operands[0]);
             populateTACOperandAsTemp(&accessLine->operands[0], tempNum);
 
             accessLine->operands[2].type.basicType = vt_u32;
             accessLine->operands[2].permutation = vp_literal;
-            // BasicBlock_append(block, accessLine);
+            // BasicBlock_append(block, accessLine,  TACIndex);
         }
         else
         {
@@ -2080,8 +2071,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
     if (depth == 0)
     {
-        accessLine->index = (*TACIndex)++;
-        BasicBlock_append(block, accessLine);
+        BasicBlock_append(block, accessLine, TACIndex);
         *srcDestOperand = accessLine->operands[0];
     }
 
@@ -2183,7 +2173,7 @@ struct TACOperand *walkExpression(struct AST *tree,
     }
 
     // generically set to tt_add, we will actually set the operation within switch cases
-    struct TACLine *expression = newTACLine(*TACIndex, tt_subtract, tree);
+    struct TACLine *expression = newTACLine(tt_subtract, tree);
 
     populateTACOperandAsTemp(&expression->operands[0], tempNum);
 
@@ -2226,8 +2216,7 @@ struct TACOperand *walkExpression(struct AST *tree,
             scaleMultiply->operands[0].type = scaleMultiply->operands[1].type;
             copyTACOperandDecayArrays(&expression->operands[2], &scaleMultiply->operands[0]);
 
-            scaleMultiply->index = (*TACIndex)++;
-            BasicBlock_append(block, scaleMultiply);
+            BasicBlock_append(block, scaleMultiply, TACIndex);
         }
         else
         {
@@ -2257,8 +2246,7 @@ struct TACOperand *walkExpression(struct AST *tree,
         ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkExpression!\n", getTokenName(tree->type));
     }
 
-    expression->index = (*TACIndex)++;
-    BasicBlock_append(block, expression);
+    BasicBlock_append(block, expression, TACIndex);
 
     return &expression->operands[0];
 }
@@ -2282,7 +2270,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
     struct AST *arrayBase = tree->child;
     struct AST *arrayIndex = tree->child->sibling;
 
-    struct TACLine *arrayRefTAC = newTACLine((*TACIndex), tt_load_arr, tree);
+    struct TACLine *arrayRefTAC = newTACLine(tt_load_arr, tree);
     struct Type *arrayBaseType = NULL;
 
     switch (arrayBase->type)
@@ -2359,8 +2347,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
         walkSubExpression(arrayIndex, block, scope, TACIndex, tempNum, &arrayRefTAC->operands[2]);
     }
 
-    arrayRefTAC->index = (*TACIndex)++;
-    BasicBlock_append(block, arrayRefTAC);
+    BasicBlock_append(block, arrayRefTAC, TACIndex);
     return arrayRefTAC;
 }
 
@@ -2380,7 +2367,7 @@ struct TACOperand *walkDereference(struct AST *tree,
         ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDereference!\n", getTokenName(tree->type));
     }
 
-    struct TACLine *dereference = newTACLine(*tempNum, tt_load, tree);
+    struct TACLine *dereference = newTACLine(tt_load, tree);
 
     switch (tree->child->type)
     {
@@ -2400,8 +2387,7 @@ struct TACOperand *walkDereference(struct AST *tree,
     TAC_GetTypeOfOperand(dereference, 0)->indirectionLevel--;
     populateTACOperandAsTemp(&dereference->operands[0], tempNum);
 
-    dereference->index = (*TACIndex)++;
-    BasicBlock_append(block, dereference);
+    BasicBlock_append(block, dereference, TACIndex);
 
     return &dereference->operands[0];
 }
@@ -2422,7 +2408,7 @@ struct TACOperand *walkAddrOf(struct AST *tree,
         ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkAddressOf!\n", getTokenName(tree->type));
     }
 
-    struct TACLine *addrOfLine = newTACLine(*TACIndex, tt_addrof, tree);
+    struct TACLine *addrOfLine = newTACLine(tt_addrof, tree);
     populateTACOperandAsTemp(&addrOfLine->operands[0], tempNum);
 
     switch (tree->child->type)
@@ -2480,8 +2466,7 @@ struct TACOperand *walkAddrOf(struct AST *tree,
     addrOfLine->operands[0].type.indirectionLevel++;
     addrOfLine->operands[0].type.arraySize = 0;
 
-    addrOfLine->index = (*TACIndex)++;
-    BasicBlock_append(block, addrOfLine);
+    BasicBlock_append(block, addrOfLine, TACIndex);
 
     return &addrOfLine->operands[0];
 }
@@ -2506,14 +2491,14 @@ void walkPointerArithmetic(struct AST *tree,
     struct AST *pointerArithLHS = tree->child;
     struct AST *pointerArithRHS = tree->child->sibling;
 
-    struct TACLine *pointerArithmetic = newTACLine(*TACIndex, tt_add, tree->child);
+    struct TACLine *pointerArithmetic = newTACLine(tt_add, tree->child);
     if (tree->type == t_subtract)
     {
         pointerArithmetic->operation = tt_subtract;
     }
 
     walkSubExpression(pointerArithLHS, block, scope, TACIndex, tempNum, &pointerArithmetic->operands[1]);
-    
+
     populateTACOperandAsTemp(&pointerArithmetic->operands[0], tempNum);
     copyTACOperandDecayArrays(&pointerArithmetic->operands[0], &pointerArithmetic->operands[1]);
 
@@ -2529,10 +2514,8 @@ void walkPointerArithmetic(struct AST *tree,
 
     copyTACOperandDecayArrays(&pointerArithmetic->operands[2], &scaleMultiplication->operands[0]);
 
-    scaleMultiplication->index = (*TACIndex)++;
-    BasicBlock_append(block, scaleMultiplication);
-    pointerArithmetic->index = (*TACIndex)++;
-    BasicBlock_append(block, pointerArithmetic);
+    BasicBlock_append(block, scaleMultiplication, TACIndex);
+    BasicBlock_append(block, pointerArithmetic, TACIndex);
 
     *destinationOperand = pointerArithmetic->operands[0];
 }
@@ -2561,10 +2544,10 @@ void walkAsmBlock(struct AST *tree,
             ErrorWithAST(ERROR_INTERNAL, tree, "Non-asm seen as contents of ASM block!\n");
         }
 
-        struct TACLine *asmLine = newTACLine((*TACIndex)++, tt_asm, asmRunner);
+        struct TACLine *asmLine = newTACLine(tt_asm, asmRunner);
         asmLine->operands[0].name.str = asmRunner->value;
 
-        BasicBlock_append(block, asmLine);
+        BasicBlock_append(block, asmLine, TACIndex);
 
         asmRunner = asmRunner->sibling;
     }
