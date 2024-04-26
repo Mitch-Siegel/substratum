@@ -42,7 +42,11 @@ void Type_Init(struct Type *type);
 
 struct Type *Type_New();
 
+void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *complexTypeName, size_t pointerLevel);
+
 size_t Type_GetIndirectionLevel(struct Type *type);
+
+void Type_DecayArrays(struct Type *type);
 
 int Type_Compare(struct Type *typeA, struct Type *typeB);
 

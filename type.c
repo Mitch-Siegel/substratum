@@ -17,6 +17,32 @@ struct Type *Type_New()
     Type_Init(wip);
 }
 
+void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *complexTypeName, size_t pointerLevel)
+{
+    if (type->basicType == vt_class)
+    {
+        if (complexTypeName == NULL)
+        {
+            ErrorAndExit(ERROR_INTERNAL, "Type_SetBasicType called with a null complexTypeName for vt_class!\n");
+        }
+    }
+    else
+    {
+        if (complexTypeName != NULL)
+        {
+            ErrorAndExit(ERROR_INTERNAL, "Type_SetBasicType called with a non-null complexTypeName for a non-vt_class type!\n");
+        }
+    }
+
+    type->basicType = basicType;
+    type->pointerLevel = pointerLevel;
+    ;
+    if (basicType == vt_class)
+    {
+        type->nonArray.complexType.name = complexTypeName;
+    }
+}
+
 size_t Type_GetIndirectionLevel(struct Type *type)
 {
     size_t indirectionLevel = type->pointerLevel;
@@ -27,6 +53,18 @@ size_t Type_GetIndirectionLevel(struct Type *type)
     }
 
     return indirectionLevel;
+}
+
+void Type_DecayArrays(struct Type *type)
+{
+    while (type->basicType == vt_array)
+    {
+        size_t oldPointerLevel = type->pointerLevel + 1;
+        struct Type liftedOutOfArray = *type->array.type;
+        free(type->array.type);
+        *type = liftedOutOfArray;
+        type->pointerLevel += oldPointerLevel;
+    }
 }
 
 int Type_Compare(struct Type *typeA, struct Type *typeB)
