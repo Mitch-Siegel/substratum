@@ -11,24 +11,38 @@ enum basicTypes
     vt_u16,
     vt_u32,
     vt_u64,
-    vt_class
+    vt_class,
+    vt_array
 };
 
 struct Type
 {
     enum basicTypes basicType;
-    size_t indirectionLevel;
-    size_t arraySize;
+    size_t pointerLevel;
     union
     {
-        char *initializeTo;
-        char **initializeArrayTo;
+        struct
+        {
+            u8 *initializeTo;
+            struct complexType
+            {
+                char *name;
+            } complexType;
+        } nonArray;
+        struct
+        {
+            size_t size;
+            struct Type *type;
+            void **initializeArrayTo;
+        } array;
     };
-    struct classType
-    {
-        char *name;
-    } classType;
 };
+
+void Type_Init(struct Type *type);
+
+struct Type *Type_New();
+
+size_t Type_GetIndirectionLevel(struct Type *type);
 
 int Type_Compare(struct Type *typeA, struct Type *typeB);
 

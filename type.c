@@ -6,6 +6,29 @@
 
 #include "util.h"
 
+void Type_Init(struct Type *type)
+{
+    memset(type, 0, sizeof(struct Type));
+}
+
+struct Type *Type_New()
+{
+    struct Type *wip = malloc(sizeof(struct Type));
+    Type_Init(wip);
+}
+
+size_t Type_GetIndirectionLevel(struct Type *type)
+{
+    size_t indirectionLevel = type->pointerLevel;
+    if (type->basicType == vt_array)
+    {
+        indirectionLevel++;
+        indirectionLevel += Type_GetIndirectionLevel(type->array.type);
+    }
+
+    return indirectionLevel;
+}
+
 int Type_Compare(struct Type *typeA, struct Type *typeB)
 {
     if (typeA->basicType != typeB->basicType)
@@ -13,14 +36,21 @@ int Type_Compare(struct Type *typeA, struct Type *typeB)
         return 1;
     }
 
-    if (typeA->indirectionLevel != typeB->indirectionLevel)
+    if (typeA->basicType = vt_array)
     {
-        return 2;
-    }
+        if (typeA->array.size > typeB->array.size)
+        {
+            return 1;
+        }
 
-    if (typeA->basicType == vt_class)
-    {
-        return strcmp(typeA->classType.name, typeB->classType.name);
+        if (typeB->array.size > typeA->array.size)
+        {
+            return -1;
+        }
+
+        // TODO: compare initializeArrayTo values?
+
+        return Type_Compare(typeA->array.type, typeB->array.type);
     }
 
     return 0;
@@ -42,6 +72,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             switch (basicTypeB)
             {
             case vt_null:
+            case vt_array:
                 retVal = cantWiden;
                 break;
             case vt_class:
@@ -59,6 +90,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             {
             case vt_null:
             case vt_class:
+            case vt_array:
                 retVal = cantWiden;
                 break;
             case vt_any:
@@ -76,6 +108,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_null:
             case vt_u8:
             case vt_class:
+            case vt_array:
                 retVal = cantWiden;
                 break;
             case vt_any:
@@ -93,6 +126,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_u8:
             case vt_u16:
             case vt_class:
+            case vt_array:
                 retVal = cantWiden;
                 break;
 
@@ -111,6 +145,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_u16:
             case vt_u32:
             case vt_class:
+            case vt_array:
                 retVal = cantWiden;
                 break;
 
@@ -128,12 +163,34 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_u16:
             case vt_u32:
             case vt_u64:
+            case vt_array:
                 retVal = cantWiden;
                 break;
             case vt_any:
             case vt_class:
                 break;
             }
+            break;
+
+        case vt_array:
+        {
+            switch (basicTypeB)
+            {
+            case vt_null:
+            case vt_u8:
+            case vt_u16:
+            case vt_u32:
+            case vt_u64:
+            case vt_class:
+                retVal = cantWiden;
+                break;
+            case vt_any:
+            case vt_array:
+                break;
+            }
+            break;
+        }
+        break;
         }
     }
     return retVal;
@@ -148,36 +205,20 @@ int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
     {
         return retVal;
     }
-
     // allow implicit conversion from any type of pointer to 'any *' or 'any **', etc
-    if ((typeA->indirectionLevel > 0) && (typeB->indirectionLevel > 0) && (typeB->basicType == vt_any))
+    if ((typeA->pointerLevel > 0) && (typeB->pointerLevel > 0) && (typeB->basicType == vt_any))
     {
         retVal = 0;
     }
-    else if (typeA->indirectionLevel != typeB->indirectionLevel)
+    else if (typeA->pointerLevel != typeB->pointerLevel)
     {
-
-        // both are arrays or both are not arrays
-        if ((typeA->arraySize > 0) == (typeB->arraySize > 0))
+        if (typeA->pointerLevel > typeB->pointerLevel)
         {
-            retVal = indirectionMismatch;
+            retVal = 1;
         }
-        // only a is an array
-        else if (typeA->arraySize > 0)
+        else if (typeA->pointerLevel < typeB->pointerLevel)
         {
-            // b's indirection level should be a's + 1
-            if (typeB->indirectionLevel != (typeA->indirectionLevel + 1))
-            {
-                retVal = indirectionMismatch;
-            }
-        }
-        else
-        {
-            // a's indirection level should be b's + 1
-            if ((typeB->indirectionLevel + 1) != typeA->indirectionLevel)
-            {
-                retVal = indirectionMismatch;
-            }
+            retVal = -1;
         }
     }
 
@@ -185,11 +226,15 @@ int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
     {
         return retVal;
     }
-
-    if (typeA->basicType == vt_class)
+    if (typeA->basicType == vt_array)
     {
-        retVal = strcmp(typeA->classType.name, typeB->classType.name);
+        retVal = Type_CompareAllowImplicitWidening(typeA->array.type, typeB->array.type);
     }
+    else if (typeA->basicType == vt_class)
+    {
+        retVal = strcmp(typeA->nonArray.complexType.name, typeB->nonArray.complexType.name);
+    }
+
     return retVal;
 }
 
@@ -225,25 +270,28 @@ char *Type_GetName(struct Type *type)
         break;
 
     case vt_class:
-        len = sprintf(typeName, "%s", type->classType.name);
+        len = sprintf(typeName, "%s", type->nonArray.complexType.name);
         break;
+
+    case vt_array:
+    {
+        char *arrayTypeName = Type_GetName(type->array.type);
+        len = sprintf(typeName, "%s[%zu]", arrayTypeName, type->array.size);
+        free(arrayTypeName);
+    }
+    break;
 
     default:
         ErrorAndExit(ERROR_INTERNAL, "Unexpected enum basicTypes value %d seen in Type_GetName!\n", type->basicType);
     }
 
-    int indirectionCounter = 0;
-    for (indirectionCounter = 0; indirectionCounter < type->indirectionLevel; indirectionCounter++)
+    int pointerCounter = 0;
+    for (pointerCounter = 0; pointerCounter < type->pointerLevel; pointerCounter++)
     {
-        typeName[len + indirectionCounter] = '*';
+        typeName[len + pointerCounter] = '*';
         len += sprintf(typeName + len, "*");
     }
-    typeName[len + indirectionCounter] = '\0';
-
-    if (type->arraySize > 0)
-    {
-        sprintf(typeName + len, "[%lu]", type->arraySize);
-    }
+    typeName[len + pointerCounter] = '\0';
 
     return typeName;
 }
