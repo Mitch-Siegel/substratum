@@ -100,6 +100,30 @@ void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Sco
     }
 }
 
+void generateCodeForObject(struct CodegenContext *globalContext, struct Scope *globalScope, struct Type *type)
+{
+    // how to handle multidimensional arrays with intiializeArrayTo at each level? Nested labels for nested elements?
+    if (type->basicType == vt_array)
+    {
+        ErrorAndExit(ERROR_INTERNAL, "generateCodeForObject called with array type - not supported yet!\n");
+    }
+    else
+    {
+        if (type->nonArray.initializeTo != NULL)
+        {
+            size_t objectSize = getSizeOfType(globalScope, type);
+            for (size_t byteIndex = 0; byteIndex < objectSize; byteIndex++)
+            {
+                fprintf(globalContext->outFile, "\t.byte %d\n", (type->nonArray.initializeTo)[byteIndex]);
+            }
+        }
+        else
+        {
+            fprintf(globalContext->outFile, "\t.zero %zu\n", getSizeOfType(globalScope, type));
+        }
+    }
+}
+
 void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct Scope *globalScope, struct VariableEntry *variable)
 {
     // early return if the variable is declared as extern, don't emit any code for it
@@ -111,35 +135,23 @@ void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct 
     char *varName = variable->name;
     size_t varSize = getSizeOfType(globalScope, &variable->type);
 
-    if (variable->type.initializeTo != NULL)
+    if (variable->type.basicType == vt_array)
     {
-        if (variable->isStringLiteral) // put string literals in rodata
+        // string literals go in rodata
+        if ((variable->type.array.initializeArrayTo != NULL) && (variable->isStringLiteral))
         {
             fprintf(globalContext->outFile, ".section\t.rodata\n");
         }
-        else // put initialized data in sdata
-        {
-            fprintf(globalContext->outFile, ".section\t.data\n");
-        }
+        fprintf(globalContext->outFile, ".section\t.data\n");
     }
-    else // put uninitialized data to bss
+    else
     {
         fprintf(globalContext->outFile, ".section\t.bss\n");
     }
 
     fprintf(globalContext->outFile, "\t.globl %s\n", varName);
 
-    u8 alignBits = 0;
-
-    if (variable->type.arraySize > 0)
-    {
-        alignBits = alignSize(getSizeOfArrayElement(globalScope, variable));
-    }
-    else
-    {
-        alignBits = alignSize(varSize);
-    }
-
+    u8 alignBits = getAlignmentOfType(globalScope, &variable->type);
     if (alignBits > 0)
     {
         fprintf(globalContext->outFile, ".align %d\n", alignBits);
@@ -148,47 +160,28 @@ void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct 
     fprintf(globalContext->outFile, "\t.type\t%s, @object\n", varName);
     fprintf(globalContext->outFile, "\t.size \t%s, %zu\n", varName, varSize);
     fprintf(globalContext->outFile, "%s:\n", varName);
-    if (variable->type.initializeTo != NULL)
-    {
-        if (variable->isStringLiteral)
-        {
-            size_t arrayElementSize = getSizeOfArrayElement(globalScope, variable);
-            if (arrayElementSize != 1)
-            {
-                ErrorAndExit(ERROR_INTERNAL, "Saw array element size of %zu for string literal (expected 1)!\n", arrayElementSize);
-            }
 
-            fprintf(globalContext->outFile, "\t.asciz \"");
-            for (size_t arrayElementIndex = 0; arrayElementIndex < varSize; arrayElementIndex++)
-            {
-                fprintf(globalContext->outFile, "%c", variable->type.initializeArrayTo[arrayElementIndex][0]);
-            }
-            fprintf(globalContext->outFile, "\"\n");
-        }
-        else if (variable->type.arraySize > 0)
+    if (variable->type.basicType == vt_array)
+    {
+        if (variable->type.array.initializeArrayTo != NULL)
         {
-            // TODO: fully recursive arrays
-            size_t arrayElementSize = getSizeOfArrayElement(globalScope, variable);
-            for (size_t arrayElementIndex = 0; arrayElementIndex < varSize / arrayElementSize; arrayElementIndex++)
+            if (variable->isStringLiteral)
             {
-                for (size_t arrayElementByte = 0; arrayElementByte < arrayElementSize; arrayElementByte++)
+                fprintf(globalContext->outFile, "\t.asciz \"");
+                for (size_t charIndex = 0; charIndex < variable->type.array.size; charIndex++)
                 {
-                    fprintf(globalContext->outFile, "\t.byte %d\n", variable->type.initializeArrayTo[arrayElementIndex][arrayElementByte]);
+                    fprintf(globalContext->outFile, "%c", ((char *)variable->type.array.initializeArrayTo[charIndex])[0]);
                 }
             }
-        }
-        else
-        {
-            for (size_t variableByte = 0; variableByte < varSize; variableByte++)
+            else
             {
-                printf("%c\n", variable->type.initializeTo[variableByte]);
-                fprintf(globalContext->outFile, "\t.byte %d\n", variable->type.initializeTo[variableByte]);
+                generateCodeForObject(globalContext, globalScope, &variable->type);
             }
         }
     }
     else
     {
-        fprintf(globalContext->outFile, "\t.zero %zu\n", varSize);
+        generateCodeForObject(globalContext, globalScope, &variable->type);
     }
 
     fprintf(globalContext->outFile, ".section .text\n");

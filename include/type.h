@@ -55,4 +55,6 @@ int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB);
 
 char *Type_GetName(struct Type *type);
 
+u8 Type_GetAlignment(struct Scope *scope, struct Type *type);
+
 #endif

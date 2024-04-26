@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "symtab.h"
+
 #include "util.h"
 
 void Type_Init(struct Type *type)
@@ -332,4 +334,69 @@ char *Type_GetName(struct Type *type)
     typeName[len + pointerCounter] = '\0';
 
     return typeName;
+}
+
+u8 Type_GetAlignment(struct Scope *scope, struct Type *type)
+{
+    struct Type actualType = *type;
+    u8 alignBits = 0;
+    while (type->basicType == vt_array)
+    {
+        actualType = *type->array.type;
+    }
+
+    switch (actualType.basicType)
+    {
+    // the compiler is becoming the compilee
+    case vt_any:
+        if (type->pointerLevel == 0)
+        {
+            ErrorAndExit(ERROR_INTERNAL, "Saw vt_any with pointerLevel 0 in Type_GetAlignment!\n");
+        }
+        break;
+
+    case vt_u8:
+        alignBits = alignSize(sizeof(u8));
+        break;
+
+    case vt_u16:
+        alignBits = alignSize(sizeof(u16));
+        break;
+
+    case vt_u32:
+        alignBits = alignSize(sizeof(u32));
+        break;
+
+    case vt_u64:
+        alignBits = alignSize(sizeof(u64));
+        break;
+
+    case vt_class:
+    {
+        struct ClassEntry *class = lookupClassByType(scope, type);
+
+        for (size_t memberIndex = 0; memberIndex < class->memberLocations->size; memberIndex++)
+        {
+            struct ClassMemberOffset *examinedMember = (struct ClassMemberOffset *)class->memberLocations->data[memberIndex];
+
+            u8 examinedMemberAlignment = getAlignmentOfType(scope, &examinedMember->variable->type);
+            if (examinedMemberAlignment > alignBits)
+            {
+                alignBits = examinedMemberAlignment;
+            }
+        }
+    }
+    break;
+
+    case vt_array:
+        ErrorAndExit(ERROR_INTERNAL, "Saw vt_array after scraping down array types in Type_GetAlignment!\n");
+    }
+
+    // if this is a pointer, it needs to be aligned to the size of a pointer irrespective of the type it points to
+    if (type->pointerLevel > 0)
+    {
+        alignBits = alignSize(sizeof(size_t));
+    }
+
+    return alignBits;
 }
