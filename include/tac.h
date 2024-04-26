@@ -74,8 +74,8 @@ void printTACLine(struct TACLine *line);
 
 char *sPrintTACLine(struct TACLine *line);
 
-struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST *correspondingTree, char *file, int line);
-#define newTACLine(index, operation, correspondingTree) newTACLineFunction((index), (operation), (correspondingTree), __FILE__, __LINE__)
+struct TACLine *newTACLineFunction(enum TACType operation, struct AST *correspondingTree, char *file, int line);
+#define newTACLine(operation, correspondingTree) newTACLineFunction((operation), (correspondingTree), __FILE__, __LINE__)
 
 void freeTAC(struct TACLine *line);
 

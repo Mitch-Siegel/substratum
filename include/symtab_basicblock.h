@@ -14,7 +14,7 @@ struct BasicBlock *BasicBlock_new(ssize_t labelNum);
 
 void BasicBlock_free(struct BasicBlock *block);
 
-void BasicBlock_append(struct BasicBlock *block, struct TACLine *line);
+void BasicBlock_append(struct BasicBlock *block, struct TACLine *line, size_t *tempNum);
 
 void BasicBlock_prepend(struct BasicBlock *block, struct TACLine *line);
 

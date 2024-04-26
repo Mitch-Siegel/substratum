@@ -105,7 +105,7 @@ char *getAsmOp(enum TACType tacOperation)
     return "";
 }
 
-struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST *correspondingTree, char *file, int line)
+struct TACLine *newTACLineFunction(enum TACType operation, struct AST *correspondingTree, char *file, int line)
 {
     struct TACLine *wip = malloc(sizeof(struct TACLine));
     wip->allocFile = file;
@@ -130,11 +130,10 @@ struct TACLine *newTACLineFunction(int index, enum TACType operation, struct AST
     }
     wip->correspondingTree = *correspondingTree;
 
-    // default type of a line of TAC is assignment
     wip->operation = operation;
     // by default operands are NOT reorderable
     wip->reorderable = 0;
-    wip->index = index;
+    wip->index = 0;
     wip->asmIndex = 0;
     return wip;
 }
