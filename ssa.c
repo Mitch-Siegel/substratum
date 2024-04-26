@@ -184,7 +184,8 @@ void insertPhiFunctionsForBlock(struct BasicBlock *block, void *data)
             // insert a phi for each occurrence (- 1 because the first phi can take 2 unique operands instead of one new operand and the output of a previous phi)
             while (inboundSsasToPhi->elements->size > 1)
             {
-                struct TACLine *newPhi = newTACLine(blockEntryTacIndex, tt_phi, &fakePhiTree);
+                struct TACLine *newPhi = newTACLine(tt_phi, &fakePhiTree);
+                newPhi->index = blockEntryTacIndex;
                 struct TACOperand *assignedSsa = ssaOperandLookupOrInsert(context->ssaNumbers, phiVar);
                 newPhi->operands[0] = *assignedSsa;
                 assignedSsa->ssaNumber++;

@@ -42,6 +42,13 @@ void populateTACOperandFromVariable(struct TACOperand *operandToPopulate, struct
     operandToPopulate->permutation = vp_standard;
 }
 
+extern struct TempList *temps;
+void populateTACOperandAsTemp(struct TACOperand *operandToPopulate, size_t *tempNum)
+{
+    operandToPopulate->name.str = TempList_Get(temps, (*tempNum)++);
+    operandToPopulate->permutation = vp_temp;
+}
+
 void copyTypeDecayArrays(struct Type *dest, struct Type *src)
 {
     *dest = *src;
@@ -68,7 +75,7 @@ extern struct TempList *temps;
 extern struct Dictionary *parseDict;
 struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale)
 {
-    struct TACLine *scaleMultiplication = newTACLine(*TACIndex, tt_mul, tree);
+    struct TACLine *scaleMultiplication = newTACLine(tt_mul, tree);
 
     scaleMultiplication->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
     scaleMultiplication->operands[0].permutation = vp_temp;
