@@ -3,6 +3,8 @@
 
 #include "substratum_defs.h"
 
+struct Scope;
+
 enum basicTypes
 {
     vt_null, // type information describing no type at all (only results from declaration of functions with no return)
