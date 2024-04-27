@@ -2636,8 +2636,10 @@ void walkStringLiteral(struct AST *tree,
 
         struct Type stringType;
         Type_SetBasicType(&stringType, vt_array, NULL, 0);
-        struct Type *charType = Type_New();
-        stringType.array.type = charType;
+        struct Type charType;
+        Type_Init(&charType);
+        charType.basicType = vt_u8;
+        stringType.array.type = Dictionary_LookupOrInsert(typeDict, &charType);
         stringType.array.size = stringLength;
 
         stringLiteralEntry = createVariable(scope, &fakeStringTree, &stringType, 1, 0, 0);

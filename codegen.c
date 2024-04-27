@@ -172,6 +172,7 @@ void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct 
                 {
                     fprintf(globalContext->outFile, "%c", ((char *)variable->type.array.initializeArrayTo[charIndex])[0]);
                 }
+                fprintf(globalContext->outFile, "\"\n");
             }
             else
             {
