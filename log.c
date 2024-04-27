@@ -5,30 +5,37 @@
 
 #include "ast.h"
 
+enum LogLevel logLevel = LOG_WARNING;
+
 void printLogLevel(enum LogLevel level, const char *file, size_t line)
 {
     switch (level)
     {
     case LOG_DEBUG:
-        printf("[DEBUG@%s:%zu] ", file, line);
+        printf("[  DEBUG] ");
         break;
     case LOG_INFO:
-        printf("[INFO@%s:%zu] ", file, line);
+        printf("[   INFO] ");
         break;
     case LOG_WARNING:
-        printf("[WARNING@%s:%zu] ", file, line);
+        printf("[WARNING] ");
         break;
     case LOG_ERROR:
-        printf("[ERROR@%s:%zu] ", file, line);
+        printf("[  ERROR] ");
         break;
     case LOG_FATAL:
-        printf("[FATAL@%s:%zu] ", file, line);
+        printf("[FATAL @ %s:%zu] ", file, line);
         break;
     }
 }
 
 void LogFunction(const char *file, size_t line, enum LogLevel level, const char *format, ...)
 {
+    if (level < logLevel)
+    {
+        return;
+    }
+
     va_list args;
     va_start(args, format);
     printLogLevel(level, file, line);
@@ -36,7 +43,7 @@ void LogFunction(const char *file, size_t line, enum LogLevel level, const char 
     putc('\n', stdout);
     va_end(args);
 
-    if(level == LOG_FATAL)
+    if (level == LOG_FATAL)
     {
         exit(1);
     }
@@ -44,6 +51,11 @@ void LogFunction(const char *file, size_t line, enum LogLevel level, const char 
 
 void LogTreeFunction(const char *file, size_t line, enum LogLevel level, struct AST *tree, const char *format, ...)
 {
+    if (level < logLevel)
+    {
+        return;
+    }
+
     va_list args;
     va_start(args, format);
     printLogLevel(level, file, line);
@@ -52,7 +64,7 @@ void LogTreeFunction(const char *file, size_t line, enum LogLevel level, struct 
     putc('\n', stdout);
     va_end(args);
 
-    if(level == LOG_FATAL)
+    if (level == LOG_FATAL)
     {
         exit(1);
     }
