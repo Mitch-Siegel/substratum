@@ -31,13 +31,12 @@ size_t lifetimeHeuristic(struct Lifetime *lifetime)
 
 void printRegisterLifetimes(struct CodegenMetadata *metadata)
 {
-    printf("These lifetimes get a register: ");
+    Log(LOG_DEBUG, "These lifetimes get a register: ");
     for (struct LinkedListNode *runner = metadata->registerLifetimes->head; runner != NULL; runner = runner->next)
     {
         struct Lifetime *getsRegister = runner->data;
-        printf("%s, ", getsRegister->name);
+        Log(LOG_DEBUG, "\t%s", getsRegister->name);
     }
-    printf("\n");
 }
 
 void removeNonContendingLifetimes(struct CodegenMetadata *metadata)
@@ -161,7 +160,7 @@ void freeExpiringRegisters(u8 registers[MACHINE_REGISTER_COUNT], struct Lifetime
     {
         if (occupiedBy[scannedRegister] != NULL && occupiedBy[scannedRegister]->end <= index)
         {
-            // printf("%s expires at %d\n", occupiedBy[j]->name, i);
+            Log(LOG_DEBUG, "%s expires at %d", occupiedBy[scannedRegister]->name, scannedRegister);
             registers[scannedRegister] = 0;
             occupiedBy[scannedRegister] = NULL;
         }
@@ -170,7 +169,7 @@ void freeExpiringRegisters(u8 registers[MACHINE_REGISTER_COUNT], struct Lifetime
 
 void assignRegisters(struct CodegenMetadata *metadata)
 {
-    // printf("\nassigning registers\n");
+    Log(LOG_INFO, "Assign registers for function %s", metadata->function->name);
     // flag registers in use at any given TAC index so we can easily assign
     u8 registers[MACHINE_REGISTER_COUNT];
     struct Lifetime *occupiedBy[MACHINE_REGISTER_COUNT];
@@ -199,7 +198,7 @@ void assignRegisters(struct CodegenMetadata *metadata)
                 {
                     if (registers[reg] == 0)
                     {
-                        // printf("\tAssign register %d for variable %s\n", k, thisLifetime->name);
+                        Log(LOG_DEBUG, "Assign register %s for variable %s", registerNames[reg], thisLifetime->name);
                         thisLifetime->registerLocation = reg;
                         thisLifetime->inRegister = 1;
                         thisLifetime->onStack = 0;
@@ -232,6 +231,7 @@ void assignRegisters(struct CodegenMetadata *metadata)
 
 void assignStackSpace(struct CodegenMetadata *metadata)
 {
+    Log(LOG_INFO, "Assign stack space for function %s", metadata->function->name);
     struct Stack *needStackSpace = Stack_New();
     for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
     {
@@ -246,7 +246,7 @@ void assignStackSpace(struct CodegenMetadata *metadata)
 
     if (currentVerbosity > VERBOSITY_SILENT)
     {
-        printf("%zu variables need stack space\n", needStackSpace->size);
+        Log(LOG_DEBUG, "%zu variables need stack space", needStackSpace->size);
     }
 
     // simple bubble sort the things that need stack space by their size
@@ -294,10 +294,7 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         metadata->localStackSize++;
     }
 
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("Stack slots assigned for spilled/stack variables\n");
-    }
+    Log(LOG_DEBUG, "Stack slots assigned for spilled/stack variables");
 
     Stack_Free(needStackSpace);
 }
@@ -479,17 +476,14 @@ void allocateRegisters(struct CodegenMetadata *metadata)
 
     size_t mostConcurrentLifetimes = generateLifetimeOverlaps(metadata);
 
-    // printf("at most %d concurrent lifetimes\n", mostConcurrentLifetimes);
+    Log(LOG_DEBUG, "at most %d concurrent lifetimes", mostConcurrentLifetimes);
 
     selectRegisterVariables(metadata, mostConcurrentLifetimes);
 
-    // printf("selected which variables get registers\n");
     assignRegisters(metadata);
 
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("assigned registers\n");
-    }
+
+    Log(LOG_DEBUG, "assigned registers");
 
     if (currentVerbosity == VERBOSITY_MAX)
     {

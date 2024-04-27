@@ -54,7 +54,7 @@ struct FunctionEntry *lookupFun(struct Scope *scope, struct AST *name)
     struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
     if (lookedUp == NULL)
     {
-        LogTree(LOG_FATAL,name, "Use of undeclared function '%s'\n", name->value);
+        LogTree(LOG_FATAL,name, "Use of undeclared function '%s'", name->value);
     }
     switch (lookedUp->type)
     {

@@ -76,11 +76,7 @@ struct SymbolTable *walkProgram(struct AST *program)
 
 void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTypeTo)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkTypeName: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
-
+    LogTree(LOG_DEBUG, tree, "walkTypeName");
     if (tree->type != t_type_name)
     {
         InternalError("Wrong AST (%s) passed to walkTypeName!\n", getTokenName(tree->type));
@@ -119,10 +115,10 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
         if (className->type != t_identifier)
         {
             LogTree(ERROR_INTERNAL,
-                          className,
-                          "Malformed AST seen in declaration!\nExpected class name as child of \"class\", saw %s (%s)!",
-                          className->value,
-                          getTokenName(className->type));
+                    className,
+                    "Malformed AST seen in declaration!\nExpected class name as child of \"class\", saw %s (%s)!",
+                    className->value,
+                    getTokenName(className->type));
         }
         populateTypeTo->classType.name = className->value;
         break;
@@ -180,10 +176,7 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
                                               const size_t *tempNum,
                                               char isArgument)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkVariableDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkVariableDeclaration");
 
     if (tree->type != t_variable_declaration)
     {
@@ -221,10 +214,7 @@ void walkArgumentDeclaration(struct AST *tree,
                              size_t *tempNum,
                              struct FunctionEntry *fun)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkArgumentDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkArgumentDeclaration");
 
     struct VariableEntry *declaredArgument = walkVariableDeclaration(tree, block, fun->mainScope, TACIndex, tempNum, 1);
 
@@ -234,10 +224,7 @@ void walkArgumentDeclaration(struct AST *tree,
 void walkFunctionDeclaration(struct AST *tree,
                              struct Scope *scope)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkFunctionDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkFunctionDeclaration");
 
     if (tree->type != t_fun)
     {
@@ -457,10 +444,7 @@ void walkFunctionDeclaration(struct AST *tree,
 void walkFunctionDefinition(struct AST *tree,
                             struct FunctionEntry *fun)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkFunctionDefinition: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkFunctionDefinition");
 
     if ((tree->type != t_compound_statement) && (tree->type != t_asm))
     {
@@ -488,10 +472,7 @@ void walkClassDeclaration(struct AST *tree,
                           struct BasicBlock *block,
                           struct Scope *scope)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkClassDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkClassDeclaration");
 
     if (tree->type != t_class)
     {
@@ -536,10 +517,7 @@ void walkStatement(struct AST *tree,
                    ssize_t *labelNum,
                    ssize_t controlConvergesToLabel)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkStatement: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkStatement");
 
     switch (tree->type)
     {
@@ -636,10 +614,8 @@ void walkScope(struct AST *tree,
                ssize_t *labelNum,
                ssize_t controlConvergesToLabel)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkScope: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkScope");
+
     if (tree->type != t_compound_statement)
     {
         LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkScope!\n", getTokenName(tree->type));
@@ -668,6 +644,8 @@ struct BasicBlock *walkLogicalOperator(struct AST *tree,
                                        ssize_t *labelNum,
                                        ssize_t falseJumpLabelNum)
 {
+    LogTree(LOG_DEBUG, tree, "walkLogicalOperator");
+
     switch (tree->type)
     {
     case t_logical_and:
@@ -744,10 +722,7 @@ struct BasicBlock *walkConditionCheck(struct AST *tree,
                                       ssize_t *labelNum,
                                       ssize_t falseJumpLabelNum)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkConditionCheck: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkConditionCheck");
 
     struct TACLine *condFalseJump = newTACLine(tt_jmp, tree);
     condFalseJump->operands[0].name.val = falseJumpLabelNum;
@@ -889,10 +864,8 @@ void walkWhileLoop(struct AST *tree,
                    ssize_t *labelNum,
                    ssize_t controlConvergesToLabel)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkWhileLoop: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkWhileLoop");
+
     if (tree->type != t_while)
     {
         LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkWhileLoop!\n", getTokenName(tree->type));
@@ -945,10 +918,7 @@ void walkIfStatement(struct AST *tree,
                      ssize_t *labelNum,
                      ssize_t controlConvergesToLabel)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkIfStatement: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkIfStatement");
 
     if (tree->type != t_if)
     {
@@ -1026,10 +996,7 @@ void walkDotOperatorAssignment(struct AST *tree,
                                struct TACLine *wipAssignment,
                                struct TACOperand *assignedValue)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkDotOperatorAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkDotOperatorAssignment");
 
     if (tree->type != t_dot)
     {
@@ -1143,10 +1110,7 @@ void walkArrowOperatorAssignment(struct AST *tree,
                                  struct TACLine *wipAssignment,
                                  struct TACOperand *assignedValue)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkArrowOperatorAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkArrowOperatorAssignment");
 
     if (tree->type != t_arrow)
     {
@@ -1255,10 +1219,7 @@ void walkAssignment(struct AST *tree,
                     size_t *TACIndex,
                     size_t *tempNum)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkAssignment");
 
     if (tree->type != t_assign)
     {
@@ -1389,10 +1350,7 @@ void walkArithmeticAssignment(struct AST *tree,
                               size_t *TACIndex,
                               size_t *tempNum)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkArithmeticAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkArithmeticAssignment");
 
     struct AST fakeArith = *tree;
     switch (tree->type)
@@ -1474,10 +1432,7 @@ struct TACOperand *walkBitwiseNot(struct AST *tree,
                                   size_t *TACIndex,
                                   size_t *tempNum)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkBitwiseNot: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkBitwiseNot");
 
     if (tree->type != t_bitwise_not)
     {
@@ -1510,10 +1465,7 @@ void walkSubExpression(struct AST *tree,
                        size_t *tempNum,
                        struct TACOperand *destinationOperand)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkSubExpression: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkSubExpression");
 
     switch (tree->type)
     {
@@ -1745,10 +1697,7 @@ void walkFunctionCall(struct AST *tree,
                       size_t *tempNum,
                       struct TACOperand *destinationOperand)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkFunctionCall: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkFunctionCall");
 
     if (tree->type != t_function_call)
     {
@@ -1874,10 +1823,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
                                  struct TACOperand *srcDestOperand,
                                  size_t depth)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkMemberAccess: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkMemberAccess");
 
     if ((tree->type != t_dot) && (tree->type != t_arrow))
     {
@@ -2084,10 +2030,7 @@ void walkNonPointerArithmetic(struct AST *tree,
                               size_t *tempNum,
                               struct TACLine *expression)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkNonPointerArithmetic: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkNonPointerArithmetic");
 
     switch (tree->type)
     {
@@ -2166,10 +2109,7 @@ struct TACOperand *walkExpression(struct AST *tree,
                                   size_t *TACIndex,
                                   size_t *tempNum)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkExpression: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkExpression");
 
     // generically set to tt_add, we will actually set the operation within switch cases
     struct TACLine *expression = newTACLine(tt_subtract, tree);
@@ -2256,10 +2196,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
                              size_t *TACIndex,
                              size_t *tempNum)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkArrayRef: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkArrayRef");
 
     if (tree->type != t_array_index)
     {
@@ -2356,10 +2293,7 @@ struct TACOperand *walkDereference(struct AST *tree,
                                    size_t *TACIndex,
                                    size_t *tempNum)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkDereference: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkDereference");
 
     if (tree->type != t_dereference)
     {
@@ -2397,10 +2331,7 @@ struct TACOperand *walkAddrOf(struct AST *tree,
                               size_t *TACIndex,
                               size_t *tempNum)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkAddrOf: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkAddrOf");
 
     if (tree->type != t_address_of)
     {
@@ -2477,10 +2408,7 @@ void walkPointerArithmetic(struct AST *tree,
                            size_t *tempNum,
                            struct TACOperand *destinationOperand)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkPointerArithmetic: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkPointerArithmetic");
 
     if ((tree->type != t_add) && (tree->type != t_subtract))
     {
@@ -2525,10 +2453,7 @@ void walkAsmBlock(struct AST *tree,
                   size_t *TACIndex,
                   size_t *tempNum)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkAsmBlock: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkAsmBlock");
 
     if (tree->type != t_asm)
     {
@@ -2557,10 +2482,7 @@ void walkStringLiteral(struct AST *tree,
                        struct Scope *scope,
                        struct TACOperand *destinationOperand)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkStringLiteral: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkStringLiteral");
 
     if (tree->type != t_string_literal)
     {
@@ -2643,10 +2565,7 @@ void walkSizeof(struct AST *tree,
                 struct Scope *scope,
                 struct TACOperand *destinationOperand)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkSizeof: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    LogTree(LOG_DEBUG, tree, "walkSizeof");
 
     if (tree->type != t_sizeof)
     {
