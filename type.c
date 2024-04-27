@@ -13,13 +13,6 @@ void Type_Init(struct Type *type)
     memset(type, 0, sizeof(struct Type));
 }
 
-struct Type *Type_New()
-{
-    struct Type *wip = malloc(sizeof(struct Type));
-    Type_Init(wip);
-    return wip;
-}
-
 void Type_Free(struct Type *type)
 {
     free(type);

@@ -42,8 +42,6 @@ struct Type
 
 void Type_Init(struct Type *type);
 
-struct Type *Type_New();
-
 void Type_Free(struct Type *type);
 
 void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *complexTypeName, size_t pointerLevel);
