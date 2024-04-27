@@ -4,6 +4,7 @@
 #include "tac.h"
 #include "util.h"
 #include <string.h>
+#include "log.h"
 
 struct Lifetime *newLifetime(char *name, struct Type *type, size_t start, u8 isGlobal, u8 mustSpill)
 {
@@ -62,7 +63,7 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
         {
             char *expectedTypeName = Type_GetName(&thisLt->type);
             char *typeName = Type_GetName(type);
-            ErrorAndExit(ERROR_INTERNAL, "Error - type mismatch between identically named variables [%s] expected %s, saw %s!\n", name, expectedTypeName, typeName);
+            InternalError("Type mismatch between identically named variables [%s] expected %s, saw %s!", name, expectedTypeName, typeName);
         }
         if (newEnd > thisLt->end)
         {

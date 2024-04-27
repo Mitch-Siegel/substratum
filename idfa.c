@@ -1,6 +1,7 @@
 #include "idfa.h"
 #include "symtab_basicblock.h"
 #include "util.h"
+#include "log.h"
 
 struct Set **generateSuccessors(struct BasicBlock **blocks, size_t nBlocks)
 {
@@ -72,7 +73,7 @@ struct IdfaContext *IdfaContext_Create(struct LinkedList *blocks)
         struct BasicBlock *thisBlock = blockRunner->data;
         if (thisBlock->labelNum >= wip->nBlocks)
         {
-            ErrorAndExit(ERROR_INTERNAL, "Block label number %zu exceeds number of blocks %zu in IdfaContext_Create", thisBlock->labelNum, blocks->size);
+            InternalError("Block label number %zu exceeds number of blocks %zu in IdfaContext_Create", thisBlock->labelNum, blocks->size);
         }
         wip->blocks[thisBlock->labelNum] = thisBlock;
     }
@@ -235,7 +236,7 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
 
 void Idfa_AnalyzeBackwards(struct Idfa *idfa)
 {
-    ErrorAndExit(ERROR_INTERNAL, "Backwards dataflow analysis not implemented");
+    InternalError("Backwards dataflow analysis not implemented");
 }
 
 void Idfa_Analyze(struct Idfa *idfa)

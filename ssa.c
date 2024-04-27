@@ -3,6 +3,7 @@
 
 #include "idfa_livevars.h"
 #include "idfa_reachingdefs.h"
+#include "log.h"
 
 // TODO: implement TAC tt_declare for arguments so that we can ssa subsequent reassignments to them correctly
 
@@ -348,7 +349,7 @@ void renameReadTACOperandsInBlock(struct BasicBlock *block, void *data)
             case u_write:
                 if (thisOperand->permutation == vp_literal)
                 {
-                    ErrorAndExit(ERROR_INTERNAL, "Written operand with permutation vp_literal seen in renameReadTacOperands!\n");
+                    InternalError("Written operand with permutation vp_literal seen in renameReadTacOperands!");
                 }
                 if (Set_Find(ssaLivesFromThisBlock, thisOperand) != NULL)
                 {

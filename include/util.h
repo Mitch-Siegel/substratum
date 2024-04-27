@@ -13,15 +13,6 @@ enum CompilerErrors
     ERROR_INTERNAL,
 };
 
-#define ErrorAndExit(code, fmt, ...)                           \
-    printf(fmt, ##__VA_ARGS__);                                \
-    printf("Bailing from file %s:%d\n\n", __FILE__, __LINE__); \
-    exit(code)
-
-#define ErrorWithAST(code, astPtr, fmt, ...)                                                \
-    printf("%s:%d:%d:\n", (astPtr)->sourceFile, (astPtr)->sourceLine, (astPtr)->sourceCol); \
-    ErrorAndExit(code, fmt, ##__VA_ARGS__)
-
 #define STAGE_PARSE 0
 #define STAGE_LINEARIZE 1
 #define STAGE_REGALLOC 2

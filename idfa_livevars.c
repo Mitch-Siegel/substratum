@@ -2,6 +2,7 @@
 
 #include "symtab_basicblock.h"
 #include "util.h"
+#include "log.h"
 
 struct Set *liveVars_transfer(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts)
 {
@@ -39,7 +40,7 @@ void liveVars_findGenKills(struct Idfa *idfa)
                     Set_Insert(idfa->facts.kill[blockIndex], &genKillLine->operands[operandIndex]);
                     if (genKillLine->operands[operandIndex].name.str == NULL)
                     {
-                        ErrorAndExit(ERROR_CODE, "NULL OPERAND\n");
+                        InternalError("NULL OPERAND");
                     }
                     printf("READ: ");
                     printTACOperand(&genKillLine->operands[operandIndex]);
@@ -49,7 +50,7 @@ void liveVars_findGenKills(struct Idfa *idfa)
                 case u_write:
                     if (genKillLine->operands[operandIndex].name.str == NULL)
                     {
-                        ErrorAndExit(ERROR_CODE, "NULL OPERAND\n");
+                        InternalError("NULL OPERAND");
                     }
                     Set_Insert(idfa->facts.gen[blockIndex], &genKillLine->operands[operandIndex]);
                     printf("WRITE: ");

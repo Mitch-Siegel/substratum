@@ -8,6 +8,7 @@
 #include "ast.h"
 #include "codegen.h"
 #include "linearizer.h"
+#include "log.h"
 #include "ssa.h"
 #include "substratum_defs.h"
 #include "symtab.h"
@@ -63,9 +64,9 @@ void runPreprocessor(char *inFileName)
 
     if (execvp(preprocessorArgv[0], preprocessorArgv) < 0)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Failed to execute preprocessor: %s\n", strerror(errno));
+        InternalError("Failed to execute preprocessor: %s", strerror(errno));
     }
-    ErrorAndExit(ERROR_INTERNAL, "Returned from exec of preprocessor!\n");
+    InternalError("Returned from exec of preprocessor!");
 }
 
 struct AST *parseFile(char *inFileName)
@@ -90,13 +91,13 @@ struct AST *parseFile(char *inFileName)
     int preprocessorPipe[2] = {0};
     if (pipe(preprocessorPipe) < 0)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Unable to make pipe for preprocessor: %s\n", strerror(errno));
+        InternalError("Unable to make pipe for preprocessor: %s", strerror(errno));
     }
 
     pid = fork();
     if (pid == -1)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Couldn't fork to run preprocessor!\n");
+        InternalError("Couldn't fork to run preprocessor!");
     }
     else if (pid == 0)
     {
@@ -112,7 +113,7 @@ struct AST *parseFile(char *inFileName)
         close(preprocessorPipe[0]); // duplicated
         if (waitpid(pid, NULL, 0) != pid)
         {
-            ErrorAndExit(ERROR_INTERNAL, "Error waiting for preprocessor (pid %d): %s", pid, strerror(errno));
+            InternalError("Error waiting for preprocessor (pid %d): %s", pid, strerror(errno));
         }
     }
 
@@ -160,9 +161,9 @@ int main(int argc, char **argv)
                 int stageVerbosities = atoi(optarg);
                 if (stageVerbosities < 0 || stageVerbosities > VERBOSITY_MAX)
                 {
-                    printf("Illegal value %d specified for verbosity!\n", stageVerbosities);
+                    Log(LOG_ERROR, "Illegal value %d specified for verbosity!", stageVerbosities);
                     usage();
-                    ErrorAndExit(ERROR_INVOCATION, ":(");
+                    exit(1);
                 }
 
                 for (int i = 0; i < STAGE_MAX; i++)
@@ -181,9 +182,9 @@ int main(int argc, char **argv)
             }
             else
             {
-                printf("Unexpected number of verbosities (%lu) provided\nExpected either 1 to set all levels, or %d to set each level independently\n", nVFlags, STAGE_MAX);
+                Log(LOG_ERROR, "Unexpected number of verbosities (%lu) provided\nExpected either 1 to set all levels, or %d to set each level independently\n", nVFlags, STAGE_MAX);
                 usage();
-                ErrorAndExit(ERROR_INVOCATION, ":(");
+                exit(1);
             }
         }
         break;
@@ -196,7 +197,8 @@ int main(int argc, char **argv)
 
         default:
             usage();
-            ErrorAndExit(ERROR_INVOCATION, ":(");
+            Log(LOG_ERROR, "Invalid argument flag \"%c\"", option);
+            exit(1);
         }
     }
 
@@ -257,7 +259,7 @@ int main(int argc, char **argv)
         outFile = fopen(outFileName, "wb");
         if (outFile == NULL)
         {
-            ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", outFileName);
+            InternalError("Unable to open output file %s", outFileName);
         }
     }
 

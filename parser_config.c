@@ -3,6 +3,7 @@
 
 #include "parser.h"
 #include "util.h"
+#include "log.h"
 
 extern struct Dictionary *parseDict;
 extern struct Stack *parsedAsts;
@@ -59,7 +60,7 @@ void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, size
 
 void parserError(struct ParseProgress *auxil)
 {
-    ErrorAndExit(ERROR_INTERNAL, "Syntax Error between %s:%zu:%zu and %zu\n", auxil->curFile, auxil->curLine, auxil->curCol, auxil->curLine + auxil->charsRemainingPerLine->size);
+    InternalError("Syntax Error between %s:%zu:%zu and %zu", auxil->curFile, auxil->curLine, auxil->curCol, auxil->curLine + auxil->charsRemainingPerLine->size);
 }
 
 void setCurrentFile(char **curFileP, char *fileName)

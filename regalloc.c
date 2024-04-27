@@ -6,6 +6,7 @@
 #include "regalloc_generic.h"
 #include "symtab.h"
 #include "util.h"
+#include "log.h"
 
 // return the heuristic for how good a given lifetime is to spill - lower is better
 size_t lifetimeHeuristic(struct Lifetime *lifetime)
@@ -86,7 +87,7 @@ void spillAtIndex(struct CodegenMetadata *metadata, struct LinkedList *activeLif
 
     if (bestToSpill == NULL)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Couldn't choose lifetime to spill!\n");
+        InternalError("Couldn't choose lifetime to spill!");
     }
 
     // now that it's not in contention for a register, we know it will go on the stack
@@ -219,7 +220,7 @@ void assignRegisters(struct CodegenMetadata *metadata)
                      * 2: something messed up before we got to this function and too many concurrent lifetimes have been allowed to expect a register assignment
                      */
 
-                    ErrorAndExit(ERROR_INTERNAL, "Unable to find register for variable %s!\n", thisLifetime->name);
+                    InternalError("Unable to find register for variable %s!", thisLifetime->name);
                 }
             }
         }
@@ -282,7 +283,7 @@ void assignStackSpace(struct CodegenMetadata *metadata)
             if (metadata->localStackSize > I64_MAX)
             {
                 // TODO: implementation dependent size of size_t
-                ErrorAndExit(ERROR_INTERNAL, "Function %s has arg stack size too large (%zd bytes)!\n", metadata->function->name, metadata->localStackSize);
+                InternalError("Function %s has arg stack size too large (%zd bytes)!", metadata->function->name, metadata->localStackSize);
             }
             thisLifetime->stackLocation = -1 * (ssize_t)metadata->localStackSize;
         }

@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "util.h"
+#include "log.h"
 
 int Type_Compare(struct Type *typeA, struct Type *typeB)
 {
@@ -229,7 +230,7 @@ char *Type_GetName(struct Type *type)
         break;
 
     default:
-        ErrorAndExit(ERROR_INTERNAL, "Unexpected enum basicTypes value %d seen in Type_GetName!\n", type->basicType);
+        InternalError("Unexpected enum basicTypes value %d seen in Type_GetName!", type->basicType);
     }
 
     int indirectionCounter = 0;

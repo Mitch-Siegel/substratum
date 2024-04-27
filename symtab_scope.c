@@ -5,6 +5,7 @@
 #include "symtab_function.h"
 #include "symtab_variable.h"
 #include "util.h"
+#include "log.h"
 
 extern struct Dictionary *parseDict;
 /*
@@ -95,7 +96,7 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
 {
     if (Scope_contains(scope, name))
     {
-        ErrorAndExit(ERROR_INTERNAL, "Error defining symbol [%s] - name already exists!\n", name);
+        InternalError("Error defining symbol [%s] - name already exists!", name);
     }
     struct ScopeMember *wip = malloc(sizeof(struct ScopeMember));
     wip->name = name;
@@ -117,7 +118,7 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
 {
     if (parentScope->subScopeCount == U8_MAX)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Too many subscopes of scope %s\n", parentScope->name);
+        InternalError("Too many subscopes of scope %s", parentScope->name);
     }
     char *helpStr = malloc(2 + strlen(parentScope->name) + 1);
     sprintf(helpStr, "%02x", parentScope->subScopeCount);
@@ -198,7 +199,7 @@ size_t getSizeOfType(struct Scope *scope, struct Type *type)
     switch (type->basicType)
     {
     case vt_null:
-        ErrorAndExit(ERROR_INTERNAL, "getSizeOfType called with basic type of vt_null!\n");
+        InternalError("getSizeOfType called with basic type of vt_null!");
         break;
 
     case vt_any:
@@ -206,7 +207,7 @@ size_t getSizeOfType(struct Scope *scope, struct Type *type)
         if ((type->indirectionLevel == 0) || (type->arraySize > 0))
         {
             char *illegalAnyTypeName = Type_GetName(type);
-            ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
+            InternalError("Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type", illegalAnyTypeName);
         }
         size = sizeof(u8);
         break;
@@ -284,7 +285,7 @@ size_t getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *variable
         // non-pointer, non-array can't be dereferenced
         else
         {
-            ErrorAndExit(ERROR_INTERNAL, "Non-array variable %s passed to getSizeOfArrayElement!\n", variable->name);
+            InternalError("Non-array variable %s passed to getSizeOfArrayElement!", variable->name);
         }
     }
     // we have an array type
@@ -326,7 +327,7 @@ u8 getAlignmentOfType(struct Scope *scope, struct Type *type)
     switch (type->basicType)
     {
     case vt_null:
-        ErrorAndExit(ERROR_INTERNAL, "getAlignmentOfType called with basic type of vt_null!\n");
+        InternalError("getAlignmentOfType called with basic type of vt_null!");
         break;
 
     case vt_any:
@@ -334,7 +335,7 @@ u8 getAlignmentOfType(struct Scope *scope, struct Type *type)
         if ((type->indirectionLevel == 0) || (type->arraySize > 0))
         {
             char *illegalAnyTypeName = Type_GetName(type);
-            ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
+            InternalError("Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type", illegalAnyTypeName);
         }
         // TODO: unreachable? indirectionlevels > 0 should always be caught above.
         alignBits = alignSize(sizeof(size_t));

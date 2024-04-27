@@ -3,6 +3,7 @@
 #include "codegen_generic.h"
 #include "regalloc.h"
 #include "symtab.h"
+#include "log.h"
 
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
 {
@@ -87,16 +88,16 @@ void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Sco
             struct TACLine *examinedTAC = examinedLine->data;
             if (examinedTAC->operation != tt_asm)
             {
-                ErrorAndExit(ERROR_INTERNAL, "Unexpected TAC type %d (%s) seen in global ASM block!\n",
-                             examinedTAC->operation,
-                             getAsmOp(examinedTAC->operation));
+                InternalError("Unexpected TAC type %d (%s) seen in global ASM block!\n",
+                              examinedTAC->operation,
+                              getAsmOp(examinedTAC->operation));
             }
             fprintf(globalContext->outFile, "%s\n", examinedTAC->operands[0].name.str);
         }
     }
     else
     {
-        ErrorAndExit(ERROR_INTERNAL, "Unexpected basic block index %zu at global scope!\n", globalBlock->labelNum);
+        InternalError("Unexpected basic block index %zu at global scope!", globalBlock->labelNum);
     }
 }
 
@@ -155,7 +156,7 @@ void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct 
             size_t arrayElementSize = getSizeOfArrayElement(globalScope, variable);
             if (arrayElementSize != 1)
             {
-                ErrorAndExit(ERROR_INTERNAL, "Saw array element size of %zu for string literal (expected 1)!\n", arrayElementSize);
+                InternalError("Saw array element size of %zu for string literal (expected 1)!", arrayElementSize);
             }
 
             fprintf(globalContext->outFile, "\t.asciz \"");
@@ -402,7 +403,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 
     if (function->isAsmFun && (function->BasicBlockList->size != 1))
     {
-        ErrorAndExit(ERROR_INTERNAL, "Asm function with %zu basic blocks seen - expected 1!\n", function->BasicBlockList->size);
+        InternalError("Asm function with %zu basic blocks seen - expected 1!", function->BasicBlockList->size);
     }
 
     if (currentVerbosity > VERBOSITY_MINIMAL)
@@ -759,8 +760,6 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
         case tt_enddo:
         case tt_phi:
             break;
-
-            // ErrorAndExit(ERROR_INTERNAL, "Unexpected PHI function leftover in codegen!\n");
         }
     }
 }

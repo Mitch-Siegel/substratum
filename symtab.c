@@ -2,6 +2,8 @@
 #include "codegen_generic.h"
 #include "symtab_scope.h"
 
+#include "log.h"
+
 extern struct Dictionary *parseDict;
 
 struct SymbolTable *SymbolTable_new(char *name)
@@ -67,7 +69,7 @@ static void collapseRecurseToSubScopes(struct Scope *scope, struct Dictionary *d
         {
             if (depth > 0)
             {
-                ErrorAndExit(ERROR_INTERNAL, "Saw function at depth > 0 when collapsing scopes!\n");
+                InternalError("Saw function at depth > 0 when collapsing scopes!");
             }
             struct FunctionEntry *thisFunction = thisMember->entry;
             SymbolTable_collapseScopesRec(thisFunction->mainScope, dict, 0);
@@ -107,7 +109,7 @@ static void attemptOperandMangle(struct TACOperand *operand, struct Scope *scope
             // it should not be possible to see a global as being declared here
             if (variableToMangle->isGlobal)
             {
-                ErrorAndExit(ERROR_INTERNAL, "Declaration of variable %s at inner scope %s is marked as a global!\n", variableToMangle->name, scope->name);
+                InternalError("Declaration of variable %s at inner scope %s is marked as a global!", variableToMangle->name, scope->name);
             }
             operand->name.str = SymbolTable_mangleName(scope, dict, originalName);
         }
