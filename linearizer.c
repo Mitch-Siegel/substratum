@@ -1078,8 +1078,7 @@ void walkDotOperatorAssignment(struct AST *tree,
         struct TACLine *arrayRefToDot = walkArrayRef(class, block, scope, TACIndex, tempNum);
 
         // before we convert our array ref to an LEA to get the address of the class we're dotting, check to make sure everything is good
-        struct Type nonDecayedType = *TAC_GetTypeOfOperand(arrayRefToDot, 1);
-        checkAccessedClassForDot(tree, scope, &nonDecayedType);
+        checkAccessedClassForDot(tree, scope, TAC_GetTypeOfOperand(arrayRefToDot, 0));
 
         // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
         convertArrayRefLoadToLea(arrayRefToDot);
@@ -1982,8 +1981,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
                 struct TACLine *arrayRefToDot = walkArrayRef(class, block, scope, TACIndex, tempNum);
 
                 // before we convert our array ref to an LEA to get the address of the class we're dotting, check to make sure everything is good
-                struct Type nonDecayedType = *TAC_GetTypeOfOperand(arrayRefToDot, 1);
-                checkAccessedClassForDot(tree, scope, &nonDecayedType);
+                checkAccessedClassForDot(tree, scope, TAC_GetTypeOfOperand(arrayRefToDot, 0));
 
                 // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
                 convertArrayRefLoadToLea(arrayRefToDot);
