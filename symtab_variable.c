@@ -17,7 +17,7 @@ struct VariableEntry *createVariable(struct Scope *scope,
     newVariable->mustSpill = 0;
     newVariable->name = name->value;
 
-    newVariable->type.initializeTo = NULL;
+    Type_Init(&newVariable->type);
 
     if (isGlobal)
     {

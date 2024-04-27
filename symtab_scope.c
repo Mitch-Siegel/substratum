@@ -45,19 +45,27 @@ void Scope_free(struct Scope *scope)
         {
             struct VariableEntry *theVariable = examinedEntry->entry;
             struct Type *variableType = &theVariable->type;
-            if (variableType->initializeTo != NULL)
+            if (variableType->basicType == vt_array)
             {
-                if (variableType->arraySize > 0)
+                struct Type typeRunner = *variableType;
+                while (typeRunner.basicType == vt_array)
                 {
-                    for (size_t arrayInitializeIndex = 0; arrayInitializeIndex < variableType->arraySize; arrayInitializeIndex++)
+                    if (typeRunner.array.initializeArrayTo != NULL)
                     {
-                        free(variableType->initializeArrayTo[arrayInitializeIndex]);
+                        for (size_t i = 0; i < typeRunner.array.size; i++)
+                        {
+                            free(typeRunner.array.initializeArrayTo[i]);
+                        }
+                        free(typeRunner.array.initializeArrayTo);
                     }
-                    free(variableType->initializeArrayTo);
+                    typeRunner = *typeRunner.array.type;
                 }
-                else
+            }
+            else
+            {
+                if (variableType->nonArray.initializeTo != NULL)
                 {
-                    free(variableType->initializeTo);
+                    free(variableType->nonArray.initializeTo);
                 }
             }
             free(theVariable);
@@ -186,13 +194,10 @@ size_t getSizeOfType(struct Scope *scope, struct Type *type)
 {
     size_t size = 0;
 
-    if (type->indirectionLevel > 0)
+    if (type->pointerLevel > 0)
     {
         size = MACHINE_REGISTER_SIZE_BYTES;
-        if (type->arraySize == 0)
-        {
-            return size;
-        }
+        return size;
     }
 
     switch (type->basicType)
@@ -203,7 +208,7 @@ size_t getSizeOfType(struct Scope *scope, struct Type *type)
 
     case vt_any:
         // triple check that `any` is only ever used as a pointer type a la c's void *
-        if ((type->indirectionLevel == 0) || (type->arraySize > 0))
+        if (type->pointerLevel == 0)
         {
             char *illegalAnyTypeName = Type_GetName(type);
             ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
@@ -233,16 +238,19 @@ size_t getSizeOfType(struct Scope *scope, struct Type *type)
         size = class->totalSize;
     }
     break;
-    }
 
-    if (type->arraySize > 0)
+    case vt_array:
     {
-        if (type->indirectionLevel > 1)
+        struct Type typeRunner = *type;
+        size = 1;
+        while (typeRunner.basicType == vt_array)
         {
-            size = MACHINE_REGISTER_SIZE_BYTES;
+            size *= typeRunner.array.size;
+            typeRunner = *typeRunner.array.type;
         }
-
-        size *= type->arraySize;
+        size *= getSizeOfType(scope, &typeRunner);
+    }
+    break;
     }
 
     return size;
@@ -252,137 +260,20 @@ size_t getSizeOfDereferencedType(struct Scope *scope, struct Type *type)
 {
     struct Type dereferenced = *type;
 
-    if (dereferenced.indirectionLevel == 0)
+    if (dereferenced.pointerLevel == 0)
     {
-        dereferenced.arraySize = 0;
+        dereferenced = *dereferenced.array.type;
     }
     else
     {
-        dereferenced.indirectionLevel--;
+        dereferenced.pointerLevel--;
     }
 
     return getSizeOfType(scope, &dereferenced);
 }
 
-size_t getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *variable)
-{
-    size_t size = 0;
-    // if we have a non-array type
-    if (variable->type.arraySize < 1)
-    {
-        // some type of pointer (treating it as an array)
-        if (variable->type.indirectionLevel > 0)
-        {
-            char *nonArrayPointerTypeName = Type_GetName(&variable->type);
-            printf("Warning - variable %s with type %s used in array access!\n", variable->name, nonArrayPointerTypeName);
-            free(nonArrayPointerTypeName);
-            struct Type elementType = variable->type;
-            elementType.indirectionLevel--;
-            elementType.arraySize = 0;
-            size = getSizeOfType(scope, &elementType);
-        }
-        // non-pointer, non-array can't be dereferenced
-        else
-        {
-            ErrorAndExit(ERROR_INTERNAL, "Non-array variable %s passed to getSizeOfArrayElement!\n", variable->name);
-        }
-    }
-    // we have an array type
-    else
-    {
-        // array of non-pointers
-        if (variable->type.indirectionLevel == 0)
-        {
-            struct Type elementType = variable->type;
-            elementType.arraySize = 0;
-            size = getSizeOfType(scope, &elementType);
-        }
-        // array of pointers
-        else
-        {
-            size = MACHINE_REGISTER_SIZE_BYTES;
-        }
-    }
-
-    return size;
-}
-
 // Return the number of bits required to align a given type
 u8 getAlignmentOfType(struct Scope *scope, struct Type *type)
-
 {
-    u8 alignBits = 0;
-
-    // TODO: handle arrays of pointers
-    if (type->indirectionLevel > 0)
-    {
-        alignBits = alignSize(sizeof(size_t));
-        if (type->arraySize == 0)
-        {
-            return alignBits;
-        }
-    }
-
-    switch (type->basicType)
-    {
-    case vt_null:
-        ErrorAndExit(ERROR_INTERNAL, "getAlignmentOfType called with basic type of vt_null!\n");
-        break;
-
-    case vt_any:
-        // triple check that `any` is only ever used as a pointer type a la c's void *
-        if ((type->indirectionLevel == 0) || (type->arraySize > 0))
-        {
-            char *illegalAnyTypeName = Type_GetName(type);
-            ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
-        }
-        // TODO: unreachable? indirectionlevels > 0 should always be caught above.
-        alignBits = alignSize(sizeof(size_t));
-        break;
-
-    // the compiler is becoming the compilee
-    case vt_u8:
-        alignBits = alignSize(sizeof(u8));
-        break;
-
-    case vt_u16:
-        alignBits = alignSize(sizeof(u16));
-        break;
-
-    case vt_u32:
-        alignBits = alignSize(sizeof(u32));
-        break;
-
-    case vt_u64:
-        alignBits = alignSize(sizeof(u64));
-        break;
-
-    case vt_class:
-    {
-        struct ClassEntry *class = lookupClassByType(scope, type);
-
-        for (size_t memberIndex = 0; memberIndex < class->memberLocations->size; memberIndex++)
-        {
-            struct ClassMemberOffset *examinedMember = (struct ClassMemberOffset *)class->memberLocations->data[memberIndex];
-
-            u8 examinedMemberAlignment = getAlignmentOfType(scope, &examinedMember->variable->type);
-            if (examinedMemberAlignment > alignBits)
-            {
-                alignBits = examinedMemberAlignment;
-            }
-        }
-    }
-    break;
-    }
-
-    // TODO: see above todo about handling arrays of pointers
-    if (type->arraySize > 0)
-    {
-        if (type->indirectionLevel > 1)
-        {
-            alignBits = alignSize(sizeof(size_t));
-        }
-    }
-
-    return alignBits;
+    return alignSize(getSizeOfType(scope, type));
 }

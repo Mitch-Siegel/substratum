@@ -85,15 +85,15 @@ struct ClassEntry *lookupClass(struct Scope *scope,
 struct ClassEntry *lookupClassByType(struct Scope *scope,
                                      struct Type *type)
 {
-    if (type->classType.name == NULL)
+    if (type->basicType != vt_class || type->nonArray.complexType.name == NULL)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Type with null classType name passed to lookupClassByType!\n");
+        ErrorAndExit(ERROR_INTERNAL, "Non-class type or class type with null name passed to lookupClassByType!\n");
     }
 
-    struct ScopeMember *lookedUp = Scope_lookup(scope, type->classType.name);
+    struct ScopeMember *lookedUp = Scope_lookup(scope, type->nonArray.complexType.name);
     if (lookedUp == NULL)
     {
-        ErrorAndExit(ERROR_CODE, "Use of undeclared class '%s'\n", type->classType.name);
+        ErrorAndExit(ERROR_CODE, "Use of undeclared class '%s'\n", type->nonArray.complexType.name);
     }
 
     switch (lookedUp->type)
@@ -102,6 +102,6 @@ struct ClassEntry *lookupClassByType(struct Scope *scope,
         return lookedUp->entry;
 
     default:
-        ErrorAndExit(ERROR_INTERNAL, "lookupClassByType for %s lookup got a non-class ScopeMember!\n", type->classType.name);
+        ErrorAndExit(ERROR_INTERNAL, "lookupClassByType for %s lookup got a non-class ScopeMember!\n", type->nonArray.complexType.name);
     }
 }
