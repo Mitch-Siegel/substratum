@@ -253,32 +253,30 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
     return retVal;
 }
 
-int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
+int Type_CompareAllowImplicitWidening(struct Type *source, struct Type *dest)
 {
-    int retVal = Type_CompareBasicTypeAllowImplicitWidening(typeA->basicType, typeB->basicType);
-    if (retVal && !((typeA->basicType == vt_array) || (typeB->basicType != vt_array)))
+    struct Type decayedSourceType = *source;
+    Type_DecayArrays(&decayedSourceType);
+    int retVal = Type_CompareBasicTypeAllowImplicitWidening(decayedSourceType.basicType, dest->basicType);
+    if (retVal)
     {
         return retVal;
     }
-    else
-    {
-        retVal = 0;
-    }
 
     // allow implicit conversion from any type of pointer to 'any *' or 'any **', etc
-    if ((typeA->pointerLevel > 0) && (typeB->pointerLevel > 0) && (typeB->basicType == vt_any))
+    if ((source->pointerLevel > 0) && (dest->pointerLevel > 0) && (dest->basicType == vt_any))
     {
         retVal = 0;
     }
-    else if (typeA->pointerLevel != typeB->pointerLevel)
+    else if (source->pointerLevel != dest->pointerLevel)
     {
-        if (!((typeA->basicType == vt_array) && (typeB->basicType == typeA->array.type->basicType) && (typeB->pointerLevel == (typeA->array.type->pointerLevel + 1))))
+        if (!((source->basicType == vt_array) && (dest->basicType == source->array.type->basicType) && (dest->pointerLevel == (source->array.type->pointerLevel + 1))))
         {
-            if (typeA->pointerLevel > typeB->pointerLevel)
+            if (source->pointerLevel > dest->pointerLevel)
             {
                 retVal = 1;
             }
-            else if (typeA->pointerLevel < typeB->pointerLevel)
+            else if (source->pointerLevel < dest->pointerLevel)
             {
                 retVal = -1;
             }
@@ -291,17 +289,17 @@ int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
     }
 
     // if we are converting from an array to something
-    if (typeA->basicType == vt_array)
+    if (source->basicType == vt_array)
     {
         // if we haven't already returned by the time we get to here, we know that we are doing an implicit conversion such as `something[123]->something*`
         // yank the arrayed type out, and decay its pointer manually, then recurse
-        struct Type decayedType = *typeA->array.type;
+        struct Type decayedType = *source->array.type;
         decayedType.pointerLevel++;
-        retVal = Type_CompareAllowImplicitWidening(&decayedType, typeB);
+        retVal = Type_CompareAllowImplicitWidening(&decayedType, dest);
     }
-    else if (typeA->basicType == vt_class)
+    else if (source->basicType == vt_class)
     {
-        retVal = strcmp(typeA->nonArray.complexType.name, typeB->nonArray.complexType.name);
+        retVal = strcmp(source->nonArray.complexType.name, dest->nonArray.complexType.name);
     }
 
     return retVal;

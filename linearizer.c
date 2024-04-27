@@ -1707,10 +1707,10 @@ void walkSubExpression(struct AST *tree,
         }
 
         struct Type *castFrom = &expressionResult.type;
-        struct Type *castTo = &destinationOperand->type;
+        struct Type *castTo = &expressionResult.castAsType;
 
         // If necessary, lop bits off the big end of the value with an explicit bitwise and operation, storing to an intermediate temp
-        if (Type_CompareAllowImplicitWidening(castTo, castFrom) && (castTo->pointerLevel == 0))
+        if (Type_CompareAllowImplicitWidening(castFrom, castTo) && (castTo->pointerLevel == 0))
         {
             struct TACLine *castBitManipulation = newTACLine(tt_bitwise_and, tree);
 
