@@ -104,7 +104,7 @@ ssize_t Type_Compare(struct Type *typeA, struct Type *typeB)
 size_t Type_Hash(struct Type *type)
 {
     size_t hash = 0;
-    for(size_t byteIndex = 0; byteIndex < sizeof(struct Type); byteIndex++)
+    for (size_t byteIndex = 0; byteIndex < sizeof(struct Type); byteIndex++)
     {
         hash += ((u8 *)type)[byteIndex];
         hash <<= 1;
@@ -116,6 +116,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
 {
     int retVal = 0;
     const int cantWiden = 1;
+
     if (basicTypeA != basicTypeB)
     {
         switch (basicTypeA)
@@ -255,10 +256,15 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
 int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
 {
     int retVal = Type_CompareBasicTypeAllowImplicitWidening(typeA->basicType, typeB->basicType);
-    if (retVal)
+    if (retVal && !((typeA->basicType == vt_array) || (typeB->basicType != vt_array)))
     {
         return retVal;
     }
+    else
+    {
+        retVal = 0;
+    }
+
     // allow implicit conversion from any type of pointer to 'any *' or 'any **', etc
     if ((typeA->pointerLevel > 0) && (typeB->pointerLevel > 0) && (typeB->basicType == vt_any))
     {
@@ -266,13 +272,16 @@ int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
     }
     else if (typeA->pointerLevel != typeB->pointerLevel)
     {
-        if (typeA->pointerLevel > typeB->pointerLevel)
+        if (!((typeA->basicType == vt_array) && (typeB->basicType == typeA->array.type->basicType) && (typeB->pointerLevel == (typeA->array.type->pointerLevel + 1))))
         {
-            retVal = 1;
-        }
-        else if (typeA->pointerLevel < typeB->pointerLevel)
-        {
-            retVal = -1;
+            if (typeA->pointerLevel > typeB->pointerLevel)
+            {
+                retVal = 1;
+            }
+            else if (typeA->pointerLevel < typeB->pointerLevel)
+            {
+                retVal = -1;
+            }
         }
     }
 
@@ -280,9 +289,15 @@ int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
     {
         return retVal;
     }
+
+    // if we are converting from an array to something
     if (typeA->basicType == vt_array)
     {
-        retVal = Type_CompareAllowImplicitWidening(typeA->array.type, typeB->array.type);
+        // if we haven't already returned by the time we get to here, we know that we are doing an implicit conversion such as `something[123]->something*`
+        // yank the arrayed type out, and decay its pointer manually, then recurse
+        struct Type decayedType = *typeA->array.type;
+        decayedType.pointerLevel++;
+        retVal = Type_CompareAllowImplicitWidening(&decayedType, typeB);
     }
     else if (typeA->basicType == vt_class)
     {
