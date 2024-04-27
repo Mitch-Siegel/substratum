@@ -197,7 +197,7 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
                         relevantLifetime->name,
                         operand->name.str);
 
-        if (relevantLifetime->type.basicType == vt_array)
+        if (relevantLifetime->type.basicType != vt_array)
         {
             emitInstruction(correspondingTACLine, context, "\tl%c%s %s, 0(%s) # place %s\n",
                             loadWidth,
