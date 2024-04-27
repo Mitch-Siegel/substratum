@@ -20,6 +20,11 @@ struct Type *Type_New()
     return wip;
 }
 
+void Type_Free(struct Type *type)
+{
+    free(type);
+}
+
 void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *complexTypeName, size_t pointerLevel)
 {
     if (type->basicType == vt_class)
@@ -64,13 +69,12 @@ void Type_DecayArrays(struct Type *type)
     {
         size_t oldPointerLevel = type->pointerLevel + 1;
         struct Type liftedOutOfArray = *type->array.type;
-        free(type->array.type);
         *type = liftedOutOfArray;
         type->pointerLevel += oldPointerLevel;
     }
 }
 
-int Type_Compare(struct Type *typeA, struct Type *typeB)
+ssize_t Type_Compare(struct Type *typeA, struct Type *typeB)
 {
     if (typeA->basicType != typeB->basicType)
     {
@@ -95,6 +99,17 @@ int Type_Compare(struct Type *typeA, struct Type *typeB)
     }
 
     return 0;
+}
+
+size_t Type_Hash(struct Type *type)
+{
+    size_t hash = 0;
+    for(size_t byteIndex = 0; byteIndex < sizeof(struct Type); byteIndex++)
+    {
+        hash += ((u8 *)type)[byteIndex];
+        hash <<= 1;
+    }
+    return hash;
 }
 
 int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum basicTypes basicTypeB)
@@ -333,6 +348,13 @@ char *Type_GetName(struct Type *type)
     typeName[len + pointerCounter] = '\0';
 
     return typeName;
+}
+
+struct Type *Type_Duplicate(struct Type *type)
+{
+    struct Type *dup = malloc(sizeof(struct Type));
+    memcpy(dup, type, sizeof(struct Type));
+    return dup;
 }
 
 u8 Type_GetAlignment(struct Scope *scope, struct Type *type)

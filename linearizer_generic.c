@@ -63,7 +63,7 @@ void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src)
 
 void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *src)
 {
-    copyTypeDecayArrays(TACOperand_GetType(dest), TACOperand_GetType(dest));
+    copyTypeDecayArrays(TACOperand_GetType(dest), TACOperand_GetType(src));
 }
 
 extern struct TempList *temps;

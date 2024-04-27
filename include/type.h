@@ -44,18 +44,24 @@ void Type_Init(struct Type *type);
 
 struct Type *Type_New();
 
+void Type_Free(struct Type *type);
+
 void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *complexTypeName, size_t pointerLevel);
 
 size_t Type_GetIndirectionLevel(struct Type *type);
 
 void Type_DecayArrays(struct Type *type);
 
-int Type_Compare(struct Type *typeA, struct Type *typeB);
+ssize_t Type_Compare(struct Type *typeA, struct Type *typeB);
+
+size_t Type_Hash(struct Type *type);
 
 // return 0 if 'a' is the same type as 'b', or if it can implicitly be widened to become equivalent
 int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB);
 
 char *Type_GetName(struct Type *type);
+
+struct Type *Type_Duplicate(struct Type *type);
 
 u8 Type_GetAlignment(struct Scope *scope, struct Type *type);
 

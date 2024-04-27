@@ -12,9 +12,11 @@
  * These functions walk the AST and convert it to three-address code
  */
 struct TempList *temps;
+struct Dictionary *typeDict;
 extern struct Dictionary *parseDict;
 struct SymbolTable *walkProgram(struct AST *program)
 {
+    typeDict = Dictionary_New(10, (void *(*)(void *))Type_Duplicate, (size_t(*)(void *))Type_Hash, (ssize_t(*)(void *, void *))Type_Compare, (void (*)(void *))Type_Free);
     struct SymbolTable *programTable = SymbolTable_new("Program");
     struct BasicBlock *globalBlock = Scope_lookup(programTable->globalScope, "globalblock")->entry;
     struct BasicBlock *asmBlock = BasicBlock_new(1);
@@ -168,8 +170,8 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
         // TODO: abstract this
         int declaredArraySize = atoi(arraySizeString);
 
-        struct Type *arrayedType = malloc(sizeof(struct Type));
-        memcpy(arrayedType, populateTypeTo, sizeof(struct Type));
+        
+        struct Type *arrayedType = Dictionary_LookupOrInsert(typeDict, populateTypeTo);
 
         // TODO: multidimensional array declarations
         populateTypeTo->basicType = vt_array;
