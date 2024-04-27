@@ -27,7 +27,7 @@ void Type_Free(struct Type *type)
 
 void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *complexTypeName, size_t pointerLevel)
 {
-    if (type->basicType == vt_class)
+    if (basicType == vt_class)
     {
         if (complexTypeName == NULL)
         {
