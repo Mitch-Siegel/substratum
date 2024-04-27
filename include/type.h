@@ -63,6 +63,14 @@ char *Type_GetName(struct Type *type);
 
 struct Type *Type_Duplicate(struct Type *type);
 
-u8 Type_GetAlignment(struct Scope *scope, struct Type *type);
+// gets the byte size (not aligned) of a given type
+size_t Type_GetSize(struct Type *type, struct Scope *scope);
+
+size_t Type_GetSizeWhenDereferenced(struct Type *type, struct Scope *scope);
+
+size_t Type_GetSizeOfArrayElement(struct Type *arrayType, struct Scope *scope);
+
+// calculate the power of 2 to which a given type needs to be aligned
+u8 Type_GetAlignment(struct Type *type, struct Scope *scope);
 
 #endif

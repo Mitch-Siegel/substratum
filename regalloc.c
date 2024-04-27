@@ -255,8 +255,8 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         {
             struct Lifetime *thisLifetime = needStackSpace->data[j];
 
-            size_t thisSize = getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
-            size_t compSize = getSizeOfType(metadata->function->mainScope, &(((struct Lifetime *)needStackSpace->data[j + 1])->type));
+            size_t thisSize = Type_GetSize(&thisLifetime->type, metadata->function->mainScope);
+            size_t compSize = Type_GetSize(&(((struct Lifetime *)needStackSpace->data[j + 1])->type), metadata->function->mainScope);
 
             if (thisSize < compSize)
             {
@@ -278,7 +278,7 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         else
         {
             metadata->localStackSize += Scope_ComputePaddingForAlignment(metadata->function->mainScope, &thisLifetime->type, metadata->localStackSize);
-            metadata->localStackSize += getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+            metadata->localStackSize += Type_GetSize(&thisLifetime->type, metadata->function->mainScope);
             if (metadata->localStackSize > I64_MAX)
             {
                 // TODO: implementation dependent size of size_t
@@ -389,7 +389,7 @@ void printStackFootprint(struct CodegenMetadata *metadata)
                 printf("---------BASE POINTER POINTS HERE--------\n");
                 crossedZero = 1;
             }
-            size_t size = getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+            size_t size = Type_GetSize(&thisLifetime->type, metadata->function->mainScope);
             char *typeName = Type_GetName(&thisLifetime->type);
             for (size_t lineIndex = 0; lineIndex < size; lineIndex++)
             {
@@ -424,11 +424,11 @@ void printVariableLocations(struct CodegenMetadata *metadata)
         {
             if (examined->stackLocation > 0)
             {
-                printf("%-20s: %%bp+%2zd - %%bp+%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + getSizeOfType(metadata->function->mainScope, &examined->type));
+                printf("%-20s: %%bp+%2zd - %%bp+%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + Type_GetSize(&examined->type, metadata->function->mainScope));
             }
             else
             {
-                printf("%-20s: %%bp%2zd - %%bp%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + getSizeOfType(metadata->function->mainScope, &examined->type));
+                printf("%-20s: %%bp%2zd - %%bp%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + Type_GetSize(&examined->type, metadata->function->mainScope));
             }
         }
     }

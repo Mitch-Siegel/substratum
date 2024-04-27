@@ -76,7 +76,7 @@ struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, 
     scaleMultiplication->operands[0].permutation = vp_temp;
 
     char scaleVal[sprintedNumberLength];
-    snprintf(scaleVal, sprintedNumberLength - 1, "%zu", getSizeOfDereferencedType(scope, pointerTypeOfToScale));
+    snprintf(scaleVal, sprintedNumberLength - 1, "%zu", Type_GetSizeWhenDereferenced(pointerTypeOfToScale, scope));
     scaleMultiplication->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, scaleVal);
     scaleMultiplication->operands[2].permutation = vp_literal;
     scaleMultiplication->operands[2].type.basicType = vt_u32;

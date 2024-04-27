@@ -140,23 +140,6 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
     return newScope;
 }
 
-size_t Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, size_t currentOffset)
-{
-    // calculate the number of bytes to which this member needs to be aligned
-    size_t alignBytesForType = unalignSize(getAlignmentOfType(scope, alignedType));
-
-    // compute how many bytes of padding we will need before this member to align it correctly
-    size_t paddingRequired = 0;
-    size_t bytesAfterAlignBoundary = currentOffset % alignBytesForType;
-    if (bytesAfterAlignBoundary)
-    {
-        paddingRequired = alignBytesForType - bytesAfterAlignBoundary;
-    }
-
-    // add the padding to the total size of the class
-    return paddingRequired;
-}
-
 // Scope lookup functions
 
 char Scope_contains(struct Scope *scope, char *name)
@@ -188,92 +171,4 @@ struct ScopeMember *Scope_lookup(struct Scope *scope, char *name)
         scope = scope->parentScope;
     }
     return NULL;
-}
-
-size_t getSizeOfType(struct Scope *scope, struct Type *type)
-{
-    size_t size = 0;
-
-    if (type->pointerLevel > 0)
-    {
-        size = MACHINE_REGISTER_SIZE_BYTES;
-        return size;
-    }
-
-    switch (type->basicType)
-    {
-    case vt_null:
-        ErrorAndExit(ERROR_INTERNAL, "getSizeOfType called with basic type of vt_null!\n");
-        break;
-
-    case vt_any:
-        // triple check that `any` is only ever used as a pointer type a la c's void *
-        if (type->pointerLevel == 0)
-        {
-            char *illegalAnyTypeName = Type_GetName(type);
-            ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
-        }
-        size = sizeof(u8);
-        break;
-
-    case vt_u8:
-        size = sizeof(u8);
-        break;
-
-    case vt_u16:
-        size = sizeof(u16);
-        break;
-
-    case vt_u32:
-        size = sizeof(u32);
-        break;
-
-    case vt_u64:
-        size = sizeof(u64);
-        break;
-
-    case vt_class:
-    {
-        struct ClassEntry *class = lookupClassByType(scope, type);
-        size = class->totalSize;
-    }
-    break;
-
-    case vt_array:
-    {
-        struct Type typeRunner = *type;
-        size = 1;
-        while (typeRunner.basicType == vt_array)
-        {
-            size *= typeRunner.array.size;
-            typeRunner = *typeRunner.array.type;
-        }
-        size *= getSizeOfType(scope, &typeRunner);
-    }
-    break;
-    }
-
-    return size;
-}
-
-size_t getSizeOfDereferencedType(struct Scope *scope, struct Type *type)
-{
-    struct Type dereferenced = *type;
-
-    if (dereferenced.pointerLevel == 0)
-    {
-        dereferenced = *dereferenced.array.type;
-    }
-    else
-    {
-        dereferenced.pointerLevel--;
-    }
-
-    return getSizeOfType(scope, &dereferenced);
-}
-
-// Return the number of bits required to align a given type
-u8 getAlignmentOfType(struct Scope *scope, struct Type *type)
-{
-    return alignSize(getSizeOfType(scope, type));
 }

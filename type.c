@@ -370,70 +370,118 @@ struct Type *Type_Duplicate(struct Type *type)
     return dup;
 }
 
-u8 Type_GetAlignment(struct Scope *scope, struct Type *type)
+size_t Type_GetSize(struct Type *type, struct Scope *scope)
 {
-    struct Type actualType = *type;
-    u8 alignBits = 0;
-    while (type->basicType == vt_array)
+    size_t size = 0;
+
+    if (type->pointerLevel > 0)
     {
-        actualType = *type->array.type;
+        size = MACHINE_REGISTER_SIZE_BYTES;
+        return size;
     }
 
-    switch (actualType.basicType)
+    switch (type->basicType)
     {
-    // the compiler is becoming the compilee
+    case vt_null:
+        ErrorAndExit(ERROR_INTERNAL, "Type_GetSize called with basic type of vt_null!\n");
+        break;
+
     case vt_any:
+        // triple check that `any` is only ever used as a pointer type a la c's void *
         if (type->pointerLevel == 0)
         {
-            ErrorAndExit(ERROR_INTERNAL, "Saw vt_any with pointerLevel 0 in Type_GetAlignment!\n");
+            char *illegalAnyTypeName = Type_GetName(type);
+            ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
         }
+        size = sizeof(u8);
         break;
 
     case vt_u8:
-        alignBits = alignSize(sizeof(u8));
+        size = sizeof(u8);
         break;
 
     case vt_u16:
-        alignBits = alignSize(sizeof(u16));
+        size = sizeof(u16);
         break;
 
     case vt_u32:
-        alignBits = alignSize(sizeof(u32));
+        size = sizeof(u32);
         break;
 
     case vt_u64:
-        alignBits = alignSize(sizeof(u64));
+        size = sizeof(u64);
         break;
 
     case vt_class:
     {
         struct ClassEntry *class = lookupClassByType(scope, type);
-
-        for (size_t memberIndex = 0; memberIndex < class->memberLocations->size; memberIndex++)
-        {
-            struct ClassMemberOffset *examinedMember = (struct ClassMemberOffset *)class->memberLocations->data[memberIndex];
-
-            u8 examinedMemberAlignment = getAlignmentOfType(scope, &examinedMember->variable->type);
-            if (examinedMemberAlignment > alignBits)
-            {
-                alignBits = examinedMemberAlignment;
-            }
-        }
+        size = class->totalSize;
     }
     break;
 
     case vt_array:
-        ErrorAndExit(ERROR_INTERNAL, "Saw vt_array after scraping down array types in Type_GetAlignment!\n");
-
-    case vt_null:
-        ErrorAndExit(ERROR_INTERNAL, "Saw vt_null in Type_GetAlignment!\n");
-    }
-
-    // if this is a pointer, it needs to be aligned to the size of a pointer irrespective of the type it points to
-    if (type->pointerLevel > 0)
     {
-        alignBits = alignSize(sizeof(size_t));
+        struct Type typeRunner = *type;
+        size = 1;
+        while (typeRunner.basicType == vt_array)
+        {
+            size *= typeRunner.array.size;
+            typeRunner = *typeRunner.array.type;
+        }
+        size *= Type_GetSize(&typeRunner, scope);
+    }
+    break;
     }
 
-    return alignBits;
+    return size;
+}
+
+size_t Type_GetSizeWhenDereferenced(struct Type *type, struct Scope *scope)
+{
+    if (type->pointerLevel == 0)
+    {
+        ErrorAndExit(ERROR_INTERNAL, "Type_GetSizeWhenDereferenced called with non-pointer type %s!\n", Type_GetName(type));
+    }
+    struct Type dereferenced = *type;
+    dereferenced.pointerLevel--;
+    return Type_GetSize(&dereferenced, scope);
+}
+
+size_t Type_GetSizeOfArrayElement(struct Type *arrayType, struct Scope *scope)
+{
+    if (arrayType->basicType == vt_array)
+    {
+        struct Type element = *arrayType->array.type;
+        return Type_GetSize(&element, scope);
+    }
+    if (arrayType->pointerLevel > 0)
+    {
+        struct Type element = *arrayType;
+        element.pointerLevel--;
+        return Type_GetSize(&element, scope);
+    }
+
+    ErrorAndExit(ERROR_INTERNAL, "Type_GetSizeOfArrayElement called with non-array and non-pointer type %s!\n", Type_GetName(arrayType));
+}
+
+u8 Type_GetAlignment(struct Type *type, struct Scope *scope)
+{
+    return alignSize(Type_GetSize(type, scope));
+}
+
+size_t Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, size_t currentOffset)
+{
+    // calculate the number of bytes to which this member needs to be aligned
+    size_t alignBytesForType = unalignSize(Type_GetAlignment(alignedType, scope));
+
+    // compute how many bytes of padding we will need before this member to align it correctly
+    size_t paddingRequired = 0;
+    size_t bytesAfterAlignBoundary = currentOffset % alignBytesForType;
+    if (bytesAfterAlignBoundary)
+    {
+        paddingRequired = alignBytesForType - bytesAfterAlignBoundary;
+    }
+
+    // add the padding to the total size of the class
+    return paddingRequired;
 }

@@ -35,7 +35,7 @@ void assignOffsetToMemberVariable(struct ClassEntry *class,
     newMemberLocation->variable = variable;
 
     // add the size of the member we just added to the total size of the class
-    class->totalSize += getSizeOfType(class->members, &variable->type);
+    class->totalSize += Type_GetSize(&variable->type, class->members);
 
     Stack_Push(class->memberLocations, newMemberLocation);
 }

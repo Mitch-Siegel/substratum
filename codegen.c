@@ -111,7 +111,7 @@ void generateCodeForObject(struct CodegenContext *globalContext, struct Scope *g
     {
         if (type->nonArray.initializeTo != NULL)
         {
-            size_t objectSize = getSizeOfType(globalScope, type);
+            size_t objectSize = Type_GetSize(type, globalScope);
             for (size_t byteIndex = 0; byteIndex < objectSize; byteIndex++)
             {
                 fprintf(globalContext->outFile, "\t.byte %d\n", (type->nonArray.initializeTo)[byteIndex]);
@@ -119,7 +119,7 @@ void generateCodeForObject(struct CodegenContext *globalContext, struct Scope *g
         }
         else
         {
-            fprintf(globalContext->outFile, "\t.zero %zu\n", getSizeOfType(globalScope, type));
+            fprintf(globalContext->outFile, "\t.zero %zu\n", Type_GetSize(type, globalScope));
         }
     }
 }
@@ -133,7 +133,7 @@ void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct 
     }
 
     char *varName = variable->name;
-    size_t varSize = getSizeOfType(globalScope, &variable->type);
+    size_t varSize = Type_GetSize(&variable->type, globalScope);
 
     if (variable->type.basicType == vt_array)
     {
@@ -151,7 +151,7 @@ void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct 
 
     fprintf(globalContext->outFile, "\t.globl %s\n", varName);
 
-    u8 alignBits = getAlignmentOfType(globalScope, &variable->type);
+    u8 alignBits = Type_GetAlignment(&variable->type, globalScope);
     if (alignBits > 0)
     {
         fprintf(globalContext->outFile, ".align %d\n", alignBits);
@@ -704,7 +704,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
             EmitStackStoreForSize(thisTAC,
                                   context,
                                   sourceReg,
-                                  getSizeOfType(scope, TAC_GetTypeOfOperand(thisTAC, 0)),
+                                  Type_GetSize(TAC_GetTypeOfOperand(thisTAC, 0), scope),
                                   thisTAC->operands[1].name.val);
         }
         break;

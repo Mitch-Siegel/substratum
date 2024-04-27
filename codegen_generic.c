@@ -374,7 +374,7 @@ char SelectWidthChar(struct Scope *scope, struct TACOperand *dataDest)
         return 'd';
     }
 
-    return SelectWidthCharForSize(getSizeOfType(scope, TACOperand_GetType(dataDest)));
+    return SelectWidthCharForSize(Type_GetSize(TACOperand_GetType(dataDest), scope));
 }
 
 char SelectWidthCharForDereference(struct Scope *scope, struct TACOperand *dataDest)
@@ -397,7 +397,7 @@ char SelectWidthCharForDereference(struct Scope *scope, struct TACOperand *dataD
         // is a pointer, decrement pointer level
         dereferenced.pointerLevel--;
     }
-    return SelectWidthCharForSize(getSizeOfType(scope, &dereferenced));
+    return SelectWidthCharForSize(Type_GetSize(&dereferenced, scope));
 }
 
 char SelectWidthCharForLifetime(struct Scope *scope, struct Lifetime *lifetime)
@@ -409,7 +409,7 @@ char SelectWidthCharForLifetime(struct Scope *scope, struct Lifetime *lifetime)
     }
     else
     {
-        widthChar = SelectWidthCharForSize(getSizeOfType(scope, &lifetime->type));
+        widthChar = SelectWidthCharForSize(Type_GetSize(&lifetime->type, scope));
     }
 
     return widthChar;
@@ -461,7 +461,7 @@ void EmitPushForOperand(struct TACLine *correspondingTACLine,
                         struct TACOperand *dataSource,
                         u8 srcRegister)
 {
-    size_t size = getSizeOfType(scope, TACOperand_GetType(dataSource));
+    size_t size = Type_GetSize(TACOperand_GetType(dataSource), scope);
     switch (size)
     {
     case sizeof(u8):
@@ -496,7 +496,7 @@ void EmitPopForOperand(struct TACLine *correspondingTACLine,
                        struct TACOperand *dataDest,
                        u8 destRegister)
 {
-    size_t size = getSizeOfType(scope, TACOperand_GetType(dataDest));
+    size_t size = Type_GetSize(TACOperand_GetType(dataDest), scope);
     switch (size)
     {
     case sizeof(u8):

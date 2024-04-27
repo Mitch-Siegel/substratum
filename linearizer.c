@@ -170,7 +170,6 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
         // TODO: abstract this
         int declaredArraySize = atoi(arraySizeString);
 
-        
         struct Type *arrayedType = Dictionary_LookupOrInsert(typeDict, populateTypeTo);
 
         // TODO: multidimensional array declarations
@@ -1374,7 +1373,7 @@ void walkAssignment(struct AST *tree,
         assignment->operands[2].type.basicType = vt_u8;
         struct Type decayedType;
         copyTypeDecayArrays(&decayedType, arrayType);
-        assignment->operands[2].name.val = alignSize(getSizeOfDereferencedType(scope, &decayedType));
+        assignment->operands[2].name.val = alignSize(Type_GetSizeWhenDereferenced(&decayedType, scope));
 
         walkSubExpression(arrayIndex, block, scope, TACIndex, tempNum, &assignment->operands[1]);
 
@@ -1725,7 +1724,7 @@ void walkSubExpression(struct AST *tree,
             // manually generate a string with an 'F' hex digit for each 4 bits in the mask
             sprintf(literalAndValue, "0x");
             const u8 bitsPerByte = 8; // TODO: move to substratum_defs?
-            size_t maskBitWidth = (bitsPerByte * getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)));
+            size_t maskBitWidth = (bitsPerByte * Type_GetSize(TAC_GetTypeOfOperand(castBitManipulation, 1), scope));
             size_t maskBit = 0;
             for (maskBit = 0; maskBit < maskBitWidth; maskBit += 4)
             {
@@ -1832,7 +1831,7 @@ void walkFunctionCall(struct AST *tree,
         copyTACOperandDecayArrays(&decayed, &push->operands[0]);
 
         // allow us to automatically widen
-        if (getSizeOfType(scope, TACOperand_GetType(&decayed)) <= getSizeOfType(scope, &expectedArgument->type))
+        if (Type_GetSize(TACOperand_GetType(&decayed), scope) <= Type_GetSize(&expectedArgument->type, scope))
         {
             push->operands[0].castAsType = expectedArgument->type;
         }
@@ -2171,7 +2170,7 @@ void walkNonPointerArithmetic(struct AST *tree,
         }
     }
 
-    if (getSizeOfType(scope, TAC_GetTypeOfOperand(expression, 1)) > getSizeOfType(scope, TAC_GetTypeOfOperand(expression, 2)))
+    if (Type_GetSize(TAC_GetTypeOfOperand(expression, 1), scope) > Type_GetSize(TAC_GetTypeOfOperand(expression, 2), scope))
     {
         copyTACOperandTypeDecayArrays(&expression->operands[0], &expression->operands[1]);
     }
@@ -2253,7 +2252,7 @@ struct TACOperand *walkExpression(struct AST *tree,
         }
 
         // TODO generate errors for bad pointer arithmetic here
-        if (getSizeOfType(scope, TACOperand_GetType(operandA)) > getSizeOfType(scope, TACOperand_GetType(operandB)))
+        if (Type_GetSize(TACOperand_GetType(operandA), scope) > Type_GetSize(TACOperand_GetType(operandB), scope))
         {
             copyTACOperandTypeDecayArrays(&expression->operands[0], operandA);
         }
@@ -2345,7 +2344,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
 
         // TODO: abstract this
         int indexSize = atoi(arrayIndex->value);
-        indexSize *= 1 << alignSize(getSizeOfDereferencedType(scope, arrayBaseType));
+        indexSize *= 1 << alignSize(Type_GetSizeOfArrayElement(arrayBaseType, scope));
 
         arrayRefTAC->operands[2].name.val = indexSize;
         arrayRefTAC->operands[2].permutation = vp_literal;
@@ -2362,7 +2361,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
         }
         // set the scale for the array access
 
-        arrayRefTAC->operands[3].name.val = alignSize(getSizeOfDereferencedType(scope, arrayBaseType));
+        arrayRefTAC->operands[3].name.val = alignSize(Type_GetSizeOfArrayElement(arrayBaseType, scope));
         arrayRefTAC->operands[3].permutation = vp_literal;
         arrayRefTAC->operands[3].type.basicType = selectVariableTypeForNumber(arrayRefTAC->operands[3].name.val);
 
@@ -2695,7 +2694,7 @@ void walkSizeof(struct AST *tree,
             // Scope_lookupVar is not redundant as it will give us a 'use of undeclared' error in the case where we looked up nothing
             struct VariableEntry *getSizeof = lookupVar(scope, tree->child);
 
-            sizeInBytes = getSizeOfType(scope, &getSizeof->type);
+            sizeInBytes = Type_GetSize(&getSizeof->type, scope);
         }
         // we looked something up but it's not a variable
         else
@@ -2712,7 +2711,7 @@ void walkSizeof(struct AST *tree,
         struct Type getSizeof;
         walkTypeName(tree->child, scope, &getSizeof);
 
-        sizeInBytes = getSizeOfType(scope, &getSizeof);
+        sizeInBytes = Type_GetSize(&getSizeof, scope);
     }
     break;
     default:
