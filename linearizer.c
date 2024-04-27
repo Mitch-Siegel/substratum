@@ -1707,7 +1707,7 @@ void walkSubExpression(struct AST *tree,
         }
 
         struct Type *castFrom = &expressionResult.type;
-        struct Type *castTo = &expressionResult.castAsType;
+        struct Type *castTo = &destinationOperand->type;
 
         // If necessary, lop bits off the big end of the value with an explicit bitwise and operation, storing to an intermediate temp
         if (Type_CompareAllowImplicitWidening(castTo, castFrom) && (castTo->pointerLevel == 0))
