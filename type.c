@@ -17,6 +17,7 @@ struct Type *Type_New()
 {
     struct Type *wip = malloc(sizeof(struct Type));
     Type_Init(wip);
+    return wip;
 }
 
 void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *complexTypeName, size_t pointerLevel)
@@ -76,7 +77,7 @@ int Type_Compare(struct Type *typeA, struct Type *typeB)
         return 1;
     }
 
-    if (typeA->basicType = vt_array)
+    if (typeA->basicType == vt_array)
     {
         if (typeA->array.size > typeB->array.size)
         {
@@ -238,8 +239,6 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
 
 int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB)
 {
-    const int indirectionMismatch = 2;
-
     int retVal = Type_CompareBasicTypeAllowImplicitWidening(typeA->basicType, typeB->basicType);
     if (retVal)
     {
@@ -390,6 +389,9 @@ u8 Type_GetAlignment(struct Scope *scope, struct Type *type)
 
     case vt_array:
         ErrorAndExit(ERROR_INTERNAL, "Saw vt_array after scraping down array types in Type_GetAlignment!\n");
+
+    case vt_null:
+        ErrorAndExit(ERROR_INTERNAL, "Saw vt_null in Type_GetAlignment!\n");
     }
 
     // if this is a pointer, it needs to be aligned to the size of a pointer irrespective of the type it points to

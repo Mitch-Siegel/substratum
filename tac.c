@@ -13,12 +13,6 @@ struct Type *TAC_GetTypeOfOperand(struct TACLine *line, unsigned index)
     return TACOperand_GetType(&line->operands[index]);
 }
 
-void TACOperand_SetBasicType(struct TACOperand *operand, enum basicTypes type, int indirectionLevel)
-{
-    operand->type.basicType = type;
-    operand->type.indirectionLevel = indirectionLevel;
-}
-
 char *getAsmOp(enum TACType tacOperation)
 {
     switch (tacOperation)
@@ -116,17 +110,8 @@ struct TACLine *newTACLineFunction(enum TACType operation, struct AST *correspon
         wip->operands[operandIndex].ssaNumber = 0;
         wip->operands[operandIndex].permutation = vp_standard;
 
-        wip->operands[operandIndex].type.basicType = vt_null;
-        wip->operands[operandIndex].type.classType.name = NULL;
-        wip->operands[operandIndex].type.indirectionLevel = 0;
-        wip->operands[operandIndex].type.arraySize = 0;
-        wip->operands[operandIndex].type.initializeArrayTo = NULL;
-
-        wip->operands[operandIndex].castAsType.basicType = vt_null;
-        wip->operands[operandIndex].castAsType.classType.name = NULL;
-        wip->operands[operandIndex].castAsType.indirectionLevel = 0;
-        wip->operands[operandIndex].castAsType.arraySize = 0;
-        wip->operands[operandIndex].castAsType.initializeArrayTo = NULL;
+        Type_Init(&wip->operands[operandIndex].type);
+        Type_Init(&wip->operands[operandIndex].castAsType);
     }
     wip->correspondingTree = *correspondingTree;
 
