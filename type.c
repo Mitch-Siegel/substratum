@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "util.h"
 #include "log.h"
+#include "util.h"
 
 int Type_Compare(struct Type *typeA, struct Type *typeB)
 {

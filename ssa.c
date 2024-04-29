@@ -430,7 +430,7 @@ void generateSsaForFunction(struct FunctionEntry *function)
 
 void generateSsa(struct SymbolTable *theTable)
 {
-    Log(LOG_INFO, "Generate ssa for %s\n", theTable->name);
+    Log(LOG_INFO, "Generate ssa for %s", theTable->name);
 
     for (size_t entryIndex = 0; entryIndex < theTable->globalScope->entries->size; entryIndex++)
     {

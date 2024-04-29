@@ -1,10 +1,10 @@
 #include "regalloc_generic.h"
 
+#include "log.h"
 #include "symtab.h"
 #include "tac.h"
 #include "util.h"
 #include <string.h>
-#include "log.h"
 
 struct Lifetime *newLifetime(char *name, struct Type *type, size_t start, u8 isGlobal, u8 mustSpill)
 {

@@ -1,11 +1,11 @@
 #include "symtab_scope.h"
 
+#include "log.h"
 #include "symtab_basicblock.h"
 #include "symtab_class.h"
 #include "symtab_function.h"
 #include "symtab_variable.h"
 #include "util.h"
-#include "log.h"
 
 extern struct Dictionary *parseDict;
 /*

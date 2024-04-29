@@ -1,7 +1,7 @@
 #include "tac.h"
 
-#include "util.h"
 #include "log.h"
+#include "util.h"
 #include <stdio.h>
 
 struct Type *TAC_GetTypeOfOperand(struct TACLine *line, unsigned index)

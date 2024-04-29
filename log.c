@@ -5,7 +5,7 @@
 
 #include "ast.h"
 
-enum LogLevel logLevel = LOG_WARNING;
+enum LogLevel logLevel = LOG_DEBUG;
 
 void printLogLevel(enum LogLevel level, const char *file, size_t line)
 {

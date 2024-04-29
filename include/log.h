@@ -5,7 +5,8 @@
 
 struct AST;
 
-enum LogLevel {
+enum LogLevel
+{
     LOG_DEBUG,
     LOG_INFO,
     LOG_WARNING,
@@ -21,6 +22,8 @@ void InternalErrorFunction(const char *file, size_t line, const char *format, ..
 
 #define Log(level, format, ...) LogFunction(__FILE__, __LINE__, level, format, ##__VA_ARGS__)
 #define LogTree(level, tree, format, ...) LogTreeFunction(__FILE__, __LINE__, level, tree, format, ##__VA_ARGS__)
-#define InternalError(format, ...) LogFunction(__FILE__, __LINE__, LOG_FATAL, format, ##__VA_ARGS__); exit(1)
+#define InternalError(format, ...)                                     \
+    LogFunction(__FILE__, __LINE__, LOG_FATAL, format, ##__VA_ARGS__); \
+    exit(1)
 
 #endif

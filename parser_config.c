@@ -1,9 +1,9 @@
 #include "parser_config.h"
 #include <stddef.h>
 
+#include "log.h"
 #include "parser.h"
 #include "util.h"
-#include "log.h"
 
 extern struct Dictionary *parseDict;
 extern struct Stack *parsedAsts;

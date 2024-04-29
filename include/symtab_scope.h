@@ -2,10 +2,10 @@
 #ifndef SYMTAB_SCOPE_H
 #define SYMTAB_SCOPE_H
 
-#include <stdio.h>
 #include "ast.h"
 #include "substratum_defs.h"
 #include "type.h"
+#include <stdio.h>
 
 struct BasicBlock;
 struct VariableEntry;

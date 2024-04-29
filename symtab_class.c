@@ -62,7 +62,7 @@ struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
         }
     }
 
-    LogTree(LOG_FATAL, name, "Use of nonexistent member variable %s in class %s\n", name->value, class->name);
+    LogTree(LOG_FATAL, name, "Use of nonexistent member variable %s in class %s", name->value, class->name);
     return NULL;
 }
 
@@ -72,7 +72,7 @@ struct ClassEntry *lookupClass(struct Scope *scope,
     struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
     if (lookedUp == NULL)
     {
-        LogTree(LOG_FATAL, name, "Use of undeclared class '%s'\n", name->value);
+        LogTree(LOG_FATAL, name, "Use of undeclared class '%s'", name->value);
     }
     switch (lookedUp->type)
     {
@@ -80,7 +80,7 @@ struct ClassEntry *lookupClass(struct Scope *scope,
         return lookedUp->entry;
 
     default:
-        LogTree(LOG_FATAL, name, "%s is not a class!\n", name->value);
+        LogTree(LOG_FATAL, name, "%s is not a class!", name->value);
     }
 
     return NULL;
@@ -97,7 +97,7 @@ struct ClassEntry *lookupClassByType(struct Scope *scope,
     struct ScopeMember *lookedUp = Scope_lookup(scope, type->classType.name);
     if (lookedUp == NULL)
     {
-        Log(LOG_FATAL, "Use of undeclared class '%s'\n", type->classType.name);
+        Log(LOG_FATAL, "Use of undeclared class '%s'", type->classType.name);
     }
 
     switch (lookedUp->type)

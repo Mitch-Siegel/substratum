@@ -1,7 +1,7 @@
 #include "idfa.h"
+#include "log.h"
 #include "symtab_basicblock.h"
 #include "util.h"
-#include "log.h"
 
 struct Set **generateSuccessors(struct BasicBlock **blocks, size_t nBlocks)
 {

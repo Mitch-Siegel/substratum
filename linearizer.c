@@ -180,7 +180,7 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
 
     if (tree->type != t_variable_declaration)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkVariableDeclaration!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkVariableDeclaration!", getTokenName(tree->type));
     }
 
     struct Type declaredType;
@@ -228,7 +228,7 @@ void walkFunctionDeclaration(struct AST *tree,
 
     if (tree->type != t_fun)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkFunctionDeclaration!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkFunctionDeclaration!", getTokenName(tree->type));
     }
 
     // skip past the argumnent declarations to the return type declaration
@@ -249,7 +249,7 @@ void walkFunctionDeclaration(struct AST *tree,
         if ((returnType.basicType == vt_class) && (returnType.indirectionLevel == 0))
         {
             // use tree->child to get the original returnTypeTree AST as scrapePointers may have modified it
-            LogTree(LOG_FATAL, tree->child, "Return of class object types is not supported!\n");
+            LogTree(LOG_FATAL, tree->child, "Return of class object types is not supported!");
         }
 
         functionNameTree = returnTypeTree->sibling;
@@ -448,7 +448,7 @@ void walkFunctionDefinition(struct AST *tree,
 
     if ((tree->type != t_compound_statement) && (tree->type != t_asm))
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkFunctionDefinition!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkFunctionDefinition!", getTokenName(tree->type));
     }
 
     size_t TACIndex = 0;
@@ -476,7 +476,7 @@ void walkClassDeclaration(struct AST *tree,
 
     if (tree->type != t_class)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkClassDefinition!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkClassDefinition!", getTokenName(tree->type));
     }
     size_t dummyNum = 0;
 
@@ -486,7 +486,7 @@ void walkClassDeclaration(struct AST *tree,
 
     if (classBody->type != t_class_body)
     {
-        LogTree(LOG_FATAL, tree, "Malformed AST seen in walkClassDefinition!\n");
+        LogTree(LOG_FATAL, tree, "Malformed AST seen in walkClassDefinition!");
     }
 
     struct AST *classBodyRunner = classBody->child;
@@ -502,7 +502,7 @@ void walkClassDeclaration(struct AST *tree,
         break;
 
         default:
-            LogTree(LOG_FATAL, classBodyRunner, "Wrong AST (%s) seen in body of class definition!\n", getTokenName(classBodyRunner->type));
+            LogTree(LOG_FATAL, classBodyRunner, "Wrong AST (%s) seen in body of class definition!", getTokenName(classBodyRunner->type));
         }
 
         classBodyRunner = classBodyRunner->sibling;
@@ -526,7 +526,7 @@ void walkStatement(struct AST *tree,
         break;
 
     case t_extern:
-        LogTree(LOG_FATAL, tree, "'extern' is only allowed at the global scope.\n");
+        LogTree(LOG_FATAL, tree, "'extern' is only allowed at the global scope.");
         break;
 
     case t_assign:
@@ -592,7 +592,7 @@ void walkStatement(struct AST *tree,
 
         if (tree->sibling != NULL)
         {
-            LogTree(LOG_FATAL, tree->sibling, "Code after return statement is unreachable!\n");
+            LogTree(LOG_FATAL, tree->sibling, "Code after return statement is unreachable!");
         }
     }
     break;
@@ -602,7 +602,7 @@ void walkStatement(struct AST *tree,
         break;
 
     default:
-        LogTree(LOG_FATAL, tree, "Unexpected AST type (%s - %s) seen in walkStatement!\n", getTokenName(tree->type), tree->value);
+        LogTree(LOG_FATAL, tree, "Unexpected AST type (%s - %s) seen in walkStatement!", getTokenName(tree->type), tree->value);
     }
 }
 
@@ -618,7 +618,7 @@ void walkScope(struct AST *tree,
 
     if (tree->type != t_compound_statement)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkScope!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkScope!", getTokenName(tree->type));
     }
 
     struct AST *scopeRunner = tree->child;
@@ -782,7 +782,7 @@ struct BasicBlock *walkConditionCheck(struct AST *tree,
             case t_logical_and:
             case t_logical_or:
             case t_logical_not:
-                LogTree(LOG_FATAL, tree->child, "Use of comparison operators on results of logical operators is not supported!\n");
+                LogTree(LOG_FATAL, tree->child, "Use of comparison operators on results of logical operators is not supported!");
                 break;
 
             default:
@@ -795,7 +795,7 @@ struct BasicBlock *walkConditionCheck(struct AST *tree,
             case t_logical_and:
             case t_logical_or:
             case t_logical_not:
-                LogTree(LOG_FATAL, tree->child->sibling, "Use of comparison operators on results of logical operators is not supported!\n");
+                LogTree(LOG_FATAL, tree->child->sibling, "Use of comparison operators on results of logical operators is not supported!");
                 break;
 
             default:
@@ -868,7 +868,7 @@ void walkWhileLoop(struct AST *tree,
 
     if (tree->type != t_while)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkWhileLoop!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkWhileLoop!", getTokenName(tree->type));
     }
 
     struct BasicBlock *beforeWhileBlock = block;
@@ -922,7 +922,7 @@ void walkIfStatement(struct AST *tree,
 
     if (tree->type != t_if)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkIfStatement!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkIfStatement!", getTokenName(tree->type));
     }
 
     // if we have an else block
@@ -1000,7 +1000,7 @@ void walkDotOperatorAssignment(struct AST *tree,
 
     if (tree->type != t_dot)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkDotOperatorAssignment!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkDotOperatorAssignment!", getTokenName(tree->type));
     }
 
     struct AST *class = tree->child;
@@ -1009,7 +1009,7 @@ void walkDotOperatorAssignment(struct AST *tree,
 
     if (member->type != t_identifier)
     {
-        LogTree(LOG_FATAL, member, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", tree->value, getTokenName(tree->type));
+        LogTree(LOG_FATAL, member, "Expected identifier on RHS of dot operator, got %s (%s) instead!", tree->value, getTokenName(tree->type));
     }
 
     wipAssignment->operation = tt_store_off;
@@ -1017,7 +1017,7 @@ void walkDotOperatorAssignment(struct AST *tree,
     {
 
     case t_dereference:
-        LogTree(LOG_FATAL, class, "Use of the dot operator assignment on dereferenced values is not supported\nAssign using object->member instead of (*object).member\n");
+        LogTree(LOG_FATAL, class, "Use of the dot operator assignment on dereferenced values is not supported\nAssign using object->member instead of (*object).member");
 
     case t_array_index:
     {
@@ -1114,7 +1114,7 @@ void walkArrowOperatorAssignment(struct AST *tree,
 
     if (tree->type != t_arrow)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkArrowOperatorAssignment!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkArrowOperatorAssignment!", getTokenName(tree->type));
     }
 
     struct AST *class = tree->child;
@@ -1123,7 +1123,7 @@ void walkArrowOperatorAssignment(struct AST *tree,
 
     if (member->type != t_identifier)
     {
-        LogTree(LOG_FATAL, member, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", tree->value, getTokenName(tree->type));
+        LogTree(LOG_FATAL, member, "Expected identifier on RHS of dot operator, got %s (%s) instead!", tree->value, getTokenName(tree->type));
     }
 
     wipAssignment->operation = tt_store_off;
@@ -1175,7 +1175,7 @@ void walkArrowOperatorAssignment(struct AST *tree,
         if ((readType->indirectionLevel != 1))
         {
             char *typeName = Type_GetName(readType);
-            LogTree(LOG_FATAL, class, "Can't use dot operator on non-indirect type %s\n", typeName);
+            LogTree(LOG_FATAL, class, "Can't use dot operator on non-indirect type %s", typeName);
         }
 
         checkAccessedClassForArrow(class, scope, readType);
@@ -1223,7 +1223,7 @@ void walkAssignment(struct AST *tree,
 
     if (tree->type != t_assign)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkAssignment!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkAssignment!", getTokenName(tree->type));
     }
 
     struct AST *lhs = tree->child;
@@ -1249,7 +1249,7 @@ void walkAssignment(struct AST *tree,
         if (assignedVariable->type.arraySize > 0)
         {
             char *arrayName = Type_GetName(&assignedVariable->type);
-            LogTree(LOG_FATAL, tree, "Assignment to local array variable %s with type %s is not allowed!\n", assignedVariable->name, arrayName);
+            LogTree(LOG_FATAL, tree, "Assignment to local array variable %s with type %s is not allowed!", assignedVariable->name, arrayName);
         }
         break;
 
@@ -1295,7 +1295,7 @@ void walkAssignment(struct AST *tree,
             if ((arrayType->indirectionLevel < 1) &&
                 (arrayType->arraySize == 0))
             {
-                LogTree(LOG_FATAL, arrayBase, "Use of non-pointer variable %s as array!\n", arrayBase->value);
+                LogTree(LOG_FATAL, arrayBase, "Use of non-pointer variable %s as array!", arrayBase->value);
             }
             populateTACOperandFromVariable(&assignment->operands[0], arrayVariable);
         }
@@ -1308,7 +1308,7 @@ void walkAssignment(struct AST *tree,
             if ((arrayType->indirectionLevel < 1) &&
                 (arrayType->arraySize == 0))
             {
-                LogTree(LOG_FATAL, arrayBase, "Use of non-pointer expression as array!\n");
+                LogTree(LOG_FATAL, arrayBase, "Use of non-pointer expression as array!");
             }
         }
 
@@ -1334,7 +1334,7 @@ void walkAssignment(struct AST *tree,
         break;
 
     default:
-        LogTree(LOG_FATAL, lhs, "Unexpected AST (%s) seen in walkAssignment!\n", lhs->value);
+        LogTree(LOG_FATAL, lhs, "Unexpected AST (%s) seen in walkAssignment!", lhs->value);
         break;
     }
 
@@ -1406,7 +1406,7 @@ void walkArithmeticAssignment(struct AST *tree,
         break;
 
     default:
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkArithmeticAssignment!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkArithmeticAssignment!", getTokenName(tree->type));
     }
 
     // our fake arithmetic ast will have the child of the arithmetic assignment operator
@@ -1436,7 +1436,7 @@ struct TACOperand *walkBitwiseNot(struct AST *tree,
 
     if (tree->type != t_bitwise_not)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkBitwiseNot!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkBitwiseNot!", getTokenName(tree->type));
     }
 
     // generically set to tt_add, we will actually set the operation within switch cases
@@ -1450,7 +1450,7 @@ struct TACOperand *walkBitwiseNot(struct AST *tree,
     struct TACOperand *operandA = &bitwiseNotLine->operands[1];
     if ((operandA->type.indirectionLevel > 0))
     {
-        LogTree(LOG_FATAL, tree, "Bitwise arithmetic on pointers is not allowed!\n");
+        LogTree(LOG_FATAL, tree, "Bitwise arithmetic on pointers is not allowed!");
     }
 
     BasicBlock_append(block, bitwiseNotLine, TACIndex);
@@ -1495,7 +1495,7 @@ void walkSubExpression(struct AST *tree,
         {
             if (tree->value[0] != '\\')
             {
-                LogTree(LOG_FATAL, tree, "Saw t_char_literal with escape character value of %s - expected first char to be \\!\n", tree->value);
+                LogTree(LOG_FATAL, tree, "Saw t_char_literal with escape character value of %s - expected first char to be \\!", tree->value);
             }
 
             char escapeCharValue = 0;
@@ -1535,14 +1535,14 @@ void walkSubExpression(struct AST *tree,
                 break;
 
             default:
-                LogTree(LOG_FATAL, tree, "Unexpected escape character: %s\n", tree->value);
+                LogTree(LOG_FATAL, tree, "Unexpected escape character: %s", tree->value);
             }
 
             sprintf(literalAsNumber, "%d", escapeCharValue);
         }
         else
         {
-            LogTree(LOG_FATAL, tree, "Saw t_char_literal with string length of %lu (value '%s')!\n", literalLen, tree->value);
+            LogTree(LOG_FATAL, tree, "Saw t_char_literal with string length of %lu (value '%s')!", literalLen, tree->value);
         }
 
         destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, literalAsNumber);
@@ -1685,7 +1685,7 @@ void walkSubExpression(struct AST *tree,
         break;
 
     default:
-        LogTree(LOG_FATAL, tree, "Incorrect AST type (%s) seen while linearizing subexpression!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Incorrect AST type (%s) seen while linearizing subexpression!", getTokenName(tree->type));
         break;
     }
 }
@@ -1701,7 +1701,7 @@ void walkFunctionCall(struct AST *tree,
 
     if (tree->type != t_function_call)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkFunctionCall!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkFunctionCall!", getTokenName(tree->type));
     }
 
     scope->parentFunction->callsOtherFunction = 1;
@@ -1713,7 +1713,7 @@ void walkFunctionCall(struct AST *tree,
          (calledFunction->returnType.indirectionLevel == 0)))
     {
         char *typeName = Type_GetName(&calledFunction->returnType);
-        LogTree(LOG_FATAL, tree, "Attempt to use return value of function %s (returning %s)\n", calledFunction->name, typeName);
+        LogTree(LOG_FATAL, tree, "Attempt to use return value of function %s (returning %s)", calledFunction->name, typeName);
     }
 
     struct Stack *argumentTrees = Stack_New();
@@ -1827,7 +1827,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
     if ((tree->type != t_dot) && (tree->type != t_arrow))
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkDotOperator!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkDotOperator!", getTokenName(tree->type));
     }
 
     struct AST *lhs = tree->child;
@@ -1865,7 +1865,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
         // prevent silly things like (&a)->b
         if ((class->type == t_address_of) && (tree->type == t_arrow))
         {
-            LogTree(LOG_FATAL, class, "Use of arrow operator after address-of operator `(&a)->b` is not supported.\nUse `a.b` instead\n");
+            LogTree(LOG_FATAL, class, "Use of arrow operator after address-of operator `(&a)->b` is not supported.\nUse `a.b` instead");
         }
 
         if (member->type != t_identifier)
@@ -1895,7 +1895,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
                 walkSubExpression(class, block, scope, TACIndex, tempNum, &dummyOperand);
 
                 char *indirectTypeName = Type_GetName(TACOperand_GetType(&dummyOperand));
-                LogTree(LOG_FATAL, class, "Use of dot operator on indirect type %s not supported - use arrow operator instead!\n", indirectTypeName);
+                LogTree(LOG_FATAL, class, "Use of dot operator on indirect type %s not supported - use arrow operator instead!", indirectTypeName);
             }
             break;
 
@@ -1985,7 +1985,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
             else if (existingReadType->basicType != vt_class) // we are currently walking a member access using the arrow operator on something that's not a class pointer
             {
                 char *existingReadTypeName = Type_GetName(existingReadType);
-                LogTree(LOG_FATAL, tree, "Use of arrow operator '->' on non-class-pointer type %s!\n", existingReadTypeName);
+                LogTree(LOG_FATAL, tree, "Use of arrow operator '->' on non-class-pointer type %s!", existingReadTypeName);
             }
 
             accessLine = newTACLine(tt_load_off, tree);
@@ -2076,7 +2076,7 @@ void walkNonPointerArithmetic(struct AST *tree,
         break;
 
     default:
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkNonPointerArithmetic!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkNonPointerArithmetic!", getTokenName(tree->type));
         break;
     }
 
@@ -2166,7 +2166,7 @@ struct TACOperand *walkExpression(struct AST *tree,
         struct TACOperand *operandB = &expression->operands[2];
         if ((operandA->type.indirectionLevel > 0) && (operandB->type.indirectionLevel > 0))
         {
-            LogTree(LOG_FATAL, tree, "Arithmetic between 2 pointers is not allowed!\n");
+            LogTree(LOG_FATAL, tree, "Arithmetic between 2 pointers is not allowed!");
         }
 
         // TODO generate errors for bad pointer arithmetic here
@@ -2182,7 +2182,7 @@ struct TACOperand *walkExpression(struct AST *tree,
     break;
 
     default:
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkExpression!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkExpression!", getTokenName(tree->type));
     }
 
     BasicBlock_append(block, expression, TACIndex);
@@ -2200,7 +2200,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
 
     if (tree->type != t_array_index)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkArrayRef!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkArrayRef!", getTokenName(tree->type));
     }
 
     struct AST *arrayBase = tree->child;
@@ -2221,7 +2221,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
         // TODO: check against size of array if index is constant?
         if ((arrayBaseType->arraySize == 0) && (arrayBaseType->indirectionLevel == 0))
         {
-            LogTree(LOG_FATAL, arrayBase, "Array reference on non-indirect variable %s %s\n", Type_GetName(arrayBaseType), arrayBase->value);
+            LogTree(LOG_FATAL, arrayBase, "Array reference on non-indirect variable %s %s", Type_GetName(arrayBaseType), arrayBase->value);
         }
         break;
 
@@ -2234,7 +2234,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
         // sanity check - can only print the type of the base if incorrectly accessing a non-identifier through a subexpression
         if ((arrayBaseType->arraySize == 0) && (arrayBaseType->indirectionLevel == 0))
         {
-            LogTree(LOG_FATAL, arrayBase, "Array reference on non-indirect type %s\n", Type_GetName(arrayBaseType));
+            LogTree(LOG_FATAL, arrayBase, "Array reference on non-indirect type %s", Type_GetName(arrayBaseType));
         }
     }
     break;
@@ -2297,7 +2297,7 @@ struct TACOperand *walkDereference(struct AST *tree,
 
     if (tree->type != t_dereference)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkDereference!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkDereference!", getTokenName(tree->type));
     }
 
     struct TACLine *dereference = newTACLine(tt_load, tree);
@@ -2335,7 +2335,7 @@ struct TACOperand *walkAddrOf(struct AST *tree,
 
     if (tree->type != t_address_of)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkAddressOf!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkAddressOf!", getTokenName(tree->type));
     }
 
     struct TACLine *addrOfLine = newTACLine(tt_addrof, tree);
@@ -2349,7 +2349,7 @@ struct TACOperand *walkAddrOf(struct AST *tree,
         struct VariableEntry *addrTakenOf = lookupVar(scope, tree->child);
         if (addrTakenOf->type.arraySize > 0)
         {
-            LogTree(LOG_FATAL, tree->child, "Can't take address of local array %s!\n", addrTakenOf->name);
+            LogTree(LOG_FATAL, tree->child, "Can't take address of local array %s!", addrTakenOf->name);
         }
         addrTakenOf->mustSpill = 1;
         walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1]);
@@ -2389,7 +2389,7 @@ struct TACOperand *walkAddrOf(struct AST *tree,
     break;
 
     default:
-        LogTree(LOG_FATAL, tree, "Address of operator is not supported for non-identifiers! Saw %s\n", getTokenName(tree->child->type));
+        LogTree(LOG_FATAL, tree, "Address of operator is not supported for non-identifiers! Saw %s", getTokenName(tree->child->type));
     }
 
     addrOfLine->operands[0].type = *TAC_GetTypeOfOperand(addrOfLine, 1);
@@ -2412,7 +2412,7 @@ void walkPointerArithmetic(struct AST *tree,
 
     if ((tree->type != t_add) && (tree->type != t_subtract))
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkPointerArithmetic!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkPointerArithmetic!", getTokenName(tree->type));
     }
 
     struct AST *pointerArithLHS = tree->child;
@@ -2457,7 +2457,7 @@ void walkAsmBlock(struct AST *tree,
 
     if (tree->type != t_asm)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkAsmBlock!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkAsmBlock!", getTokenName(tree->type));
     }
 
     struct AST *asmRunner = tree->child;
@@ -2465,7 +2465,7 @@ void walkAsmBlock(struct AST *tree,
     {
         if (asmRunner->type != t_asm)
         {
-            LogTree(LOG_FATAL, tree, "Non-asm seen as contents of ASM block!\n");
+            LogTree(LOG_FATAL, tree, "Non-asm seen as contents of ASM block!");
         }
 
         struct TACLine *asmLine = newTACLine(tt_asm, asmRunner);
@@ -2486,7 +2486,7 @@ void walkStringLiteral(struct AST *tree,
 
     if (tree->type != t_string_literal)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkStringLiteral!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkStringLiteral!", getTokenName(tree->type));
     }
 
     // it inserts underscores in place of spaces and other modifications to turn the literal into a name that the symtab can use
@@ -2569,7 +2569,7 @@ void walkSizeof(struct AST *tree,
 
     if (tree->type != t_sizeof)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkSizeof!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkSizeof!", getTokenName(tree->type));
     }
 
     size_t sizeInBytes = 0;
@@ -2609,7 +2609,7 @@ void walkSizeof(struct AST *tree,
     }
     break;
     default:
-        LogTree(LOG_FATAL, tree, "sizeof is only supported on type names and identifiers!\n");
+        LogTree(LOG_FATAL, tree, "sizeof is only supported on type names and identifiers!");
     }
 
     char sizeString[sprintedNumberLength];

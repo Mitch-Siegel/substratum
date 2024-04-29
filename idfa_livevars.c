@@ -1,8 +1,8 @@
 #include "idfa_livevars.h"
 
+#include "log.h"
 #include "symtab_basicblock.h"
 #include "util.h"
-#include "log.h"
 
 struct Set *liveVars_transfer(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts)
 {

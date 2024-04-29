@@ -196,13 +196,13 @@ int main(int argc, char **argv)
         break;
 
         default:
-            usage();
             Log(LOG_ERROR, "Invalid argument flag \"%c\"", option);
+            usage();
             exit(1);
         }
     }
 
-    Log(LOG_INFO, "Output will be generated to %s\n\n", outFileName);
+    Log(LOG_INFO, "Output will be generated to %s", outFileName);
 
     parseProgressStack = Stack_New();
 
@@ -227,7 +227,7 @@ int main(int argc, char **argv)
     /*Log(LOG_DEBUG, "Symbol table before scope collapse:");
     SymbolTable_print(theTable, stderr, 1);*/
 
-    Log(LOG_INFO, "Collapsing scopes\n");
+    Log(LOG_INFO, "Collapsing scopes");
 
     SymbolTable_collapseScopes(theTable, parseDict);
 
@@ -250,7 +250,7 @@ int main(int argc, char **argv)
 
     currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
 
-    Log(LOG_INFO, "Generating code\n");
+    Log(LOG_INFO, "Generating code");
 
     {
         char *boilerplateAsm1[] = {

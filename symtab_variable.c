@@ -35,7 +35,7 @@ struct VariableEntry *createVariable(struct Scope *scope,
 
     if (Scope_contains(scope, name->value))
     {
-        LogTree(LOG_FATAL, name, "Redifinition of symbol %s!\n", name->value);
+        LogTree(LOG_FATAL, name, "Redifinition of symbol %s!", name->value);
     }
 
     // if we have an argument, it will be trivially spilled because it is passed in on the stack
@@ -87,7 +87,7 @@ struct VariableEntry *lookupVar(struct Scope *scope, struct AST *name)
     struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
     if (lookedUp == NULL)
     {
-        LogTree(LOG_FATAL, name, "Use of undeclared variable '%s'\n", name->value);
+        LogTree(LOG_FATAL, name, "Use of undeclared variable '%s'", name->value);
     }
 
     switch (lookedUp->type)
