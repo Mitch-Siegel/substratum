@@ -18,30 +18,30 @@ size_t hashTacOperand(void *operand)
     return hash;
 }
 
-void printControlFlowsAsDot(struct Idfa *idfa, char *functionName)
+void printControlFlowsAsDot(struct Idfa *idfa, char *functionName, FILE *outFile)
 {
-    printf("digraph %s{\nedge[dir=forward]\nnode[shape=plaintext,style=filled]\n", functionName);
+    fprintf(outFile, "digraph %s{\nedge[dir=forward]\nnode[shape=plaintext,style=filled]\n", functionName);
     for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
     {
         for (struct LinkedListNode *flowRunner = idfa->context->successors[blockIndex]->elements->head; flowRunner != NULL; flowRunner = flowRunner->next)
         {
             struct BasicBlock *destinationBlock = flowRunner->data;
-            printf("%s_%zu:s->%s_%zu:n\n", functionName, blockIndex, functionName, destinationBlock->labelNum);
+            fprintf(outFile, "%s_%zu:s->%s_%zu:n\n", functionName, blockIndex, functionName, destinationBlock->labelNum);
         }
 
         struct BasicBlock *thisBlock = idfa->context->blocks[blockIndex];
-        printf("%s_%zu[label=<%s_%zu<BR />\n", functionName, thisBlock->labelNum, functionName, thisBlock->labelNum);
+        fprintf(outFile, "%s_%zu[label=<%s_%zu<BR />\n", functionName, thisBlock->labelNum, functionName, thisBlock->labelNum);
 
         for (struct LinkedListNode *tacRunner = thisBlock->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
         {
             char *tacString = sPrintTACLine(tacRunner->data);
-            printf("%s<BR />\n", tacString);
+            fprintf(outFile, "%s<BR />\n", tacString);
             free(tacString);
         }
-        printf(">]\n");
+        fprintf(outFile, ">]\n");
     }
 
-    printf("}\n\n\n");
+    fprintf(outFile, "}\n\n\n");
 }
 
 struct TACOperand *ssaOperandLookupOrInsert(struct Set *ssaOperands, struct TACOperand *originalOperand)
@@ -379,6 +379,8 @@ void doFunChecks(struct IdfaContext *context)
 
     struct Idfa *reachingDefs = analyzeReachingDefs(context);
 
+    // TODO: warn for unused variables
+    /*
     struct BasicBlock *lastBlock = NULL;
     for (size_t blockIndex = 0; blockIndex < context->nBlocks; blockIndex++)
     {
@@ -389,8 +391,7 @@ void doFunChecks(struct IdfaContext *context)
         }
     }
 
-    printf("%p%p\n", lastBlock, reachingDefs);
-    printf("Potentially unused variables: \t");
+    Log(LOG_WARNING, "Potentially unused variables: \t");
 
     struct Set *reachingOut = reachingDefs->facts.out[lastBlock->labelNum];
     for (struct LinkedListNode *runner = reachingOut->elements->head; runner != NULL; runner = runner->next)
@@ -402,6 +403,7 @@ void doFunChecks(struct IdfaContext *context)
             printf(" ");
         }
     }
+    */
 
     Idfa_Free(reachingDefs);
 }
@@ -428,7 +430,7 @@ void generateSsaForFunction(struct FunctionEntry *function)
 
 void generateSsa(struct SymbolTable *theTable)
 {
-    printf("generate ssa for %s\n", theTable->name);
+    Log(LOG_INFO, "Generate ssa for %s\n", theTable->name);
 
     for (size_t entryIndex = 0; entryIndex < theTable->globalScope->entries->size; entryIndex++)
     {

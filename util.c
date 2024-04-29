@@ -224,8 +224,7 @@ void *Stack_Pop(struct Stack *stack)
     }
     else
     {
-        printf("Error - attempted to pop from empty stack!\n");
-        exit(1);
+        Log(LOG_FATAL, "Error - attempted to pop from empty stack!\n");
     }
     return poppedData;
 }
@@ -239,8 +238,7 @@ void *Stack_Peek(struct Stack *stack)
     }
     else
     {
-        printf("Error - attempted to peek empty stack!\n");
-        exit(1);
+        Log(LOG_FATAL, "Error - attempted to peek empty stack!\n");
     }
     return peekedData;
 }

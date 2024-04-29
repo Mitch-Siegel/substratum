@@ -202,14 +202,7 @@ int main(int argc, char **argv)
         }
     }
 
-    printf("Running with verbosity: ");
-    for (int i = 0; i < STAGE_MAX; i++)
-    {
-        printf("%d ", config.stageVerbosities[i]);
-    }
-    printf("\n");
-
-    printf("Output will be generated to %s\n\n", outFileName);
+    Log(LOG_INFO, "Output will be generated to %s\n\n", outFileName);
 
     parseProgressStack = Stack_New();
 
@@ -221,36 +214,28 @@ int main(int argc, char **argv)
     struct AST *program = parseFile(inFileName);
     LinkedList_Free(includePath, free);
 
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
-        printf("Here's the AST(s) we parsed: %p\n", program);
-        AST_Print(program, 0);
-    }
+    // TODO: option to enable/disable ast dump
+    /*printf("Here's the AST(s) we parsed: %p\n", program);
+    AST_Print(program, 0);*/
 
     currentVerbosity = config.stageVerbosities[STAGE_LINEARIZE];
 
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("Generating symbol table from AST");
-    }
+    Log(LOG_INFO, "Generating symbol table from AST");
     struct SymbolTable *theTable = walkProgram(program);
 
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
-        printf("\nSymbol table before scope collapse:\n");
-        SymbolTable_print(theTable, 1);
-        printf("Collapsing scopes\n");
-    }
+    // TODO: option to enable/disable symtab dump
+    /*Log(LOG_DEBUG, "Symbol table before scope collapse:");
+    SymbolTable_print(theTable, stderr, 1);*/
+
+    Log(LOG_INFO, "Collapsing scopes\n");
 
     SymbolTable_collapseScopes(theTable, parseDict);
 
     // generateSsa(theTable);
 
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("Symbol table after linearization/scope collapse:\n");
-        SymbolTable_print(theTable, 1);
-    }
+    // TODO: option to enable/disable symtab dump
+    /*Log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
+    SymbolTable_print(theTable, stderr, 1);*/
 
     FILE *outFile = stdout;
 
@@ -265,10 +250,7 @@ int main(int argc, char **argv)
 
     currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
 
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("Generating code\n");
-    }
+    Log(LOG_INFO, "Generating code\n");
 
     {
         char *boilerplateAsm1[] = {

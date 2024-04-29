@@ -301,7 +301,7 @@ void assignStackSpace(struct CodegenMetadata *metadata)
 
 void printLifetimes(struct CodegenMetadata *metadata)
 {
-    printf("\nLifetimes for %s\n", metadata->function->name);
+    Log(LOG_DEBUG, "Lifetimes for %s", metadata->function->name);
     for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
     {
         struct Lifetime *examinedLifetime = runner->data;
@@ -325,21 +325,26 @@ void printLifetimes(struct CodegenMetadata *metadata)
             break;
         }
         char *typeName = Type_GetName(&examinedLifetime->type);
-        printf("%40s (%10s)(wb:%c)(%2zu-%2zu): ", examinedLifetime->name, typeName, wbLocName,
-               examinedLifetime->start, examinedLifetime->end);
+
+        size_t lineLen = 40 + strlen(typeName) + 30 + metadata->largestTacIndex;
+        char *lifetimeLine = malloc(lineLen + 1);
+
+        u32 startIndex = snprintf(lifetimeLine, lineLen, "%40s (%10s)(wb:%c)(%3zu-%3zu)", examinedLifetime->name, typeName, wbLocName, examinedLifetime->stackLocation, examinedLifetime->end);
         free(typeName);
         for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
         {
             if (tacIndex >= examinedLifetime->start && tacIndex <= examinedLifetime->end)
             {
-                printf("*");
+                lineLen += sprintf(lifetimeLine + startIndex, "*");
             }
             else
             {
-                printf(" ");
+                lineLen += sprintf(lifetimeLine + startIndex, " ");
             }
         }
-        printf("\n");
+
+        Log(LOG_DEBUG, lifetimeLine);
+        free(lifetimeLine);
     }
 }
 
@@ -382,9 +387,9 @@ void printStackFootprint(struct CodegenMetadata *metadata)
             struct Lifetime *thisLifetime = stackLayout->data[lifetimeIndex];
             if ((!crossedZero) && (thisLifetime->stackLocation < 0))
             {
-                printf("SAVED BP\nSAVED BP\nSAVED BP\nSAVED BP\n");
-                printf("RETURN ADDRESSS\nRETURN ADDRESSS\nRETURN ADDRESSS\nRETURN ADDRESSS\n");
-                printf("---------BASE POINTER POINTS HERE--------\n");
+                Log(LOG_DEBUG, "SAVED BP\nSAVED BP\nSAVED BP\nSAVED BP\n");
+                Log(LOG_DEBUG, "RETURN ADDRESSS\nRETURN ADDRESSS\nRETURN ADDRESSS\nRETURN ADDRESSS\n");
+                Log(LOG_DEBUG, "---------BASE POINTER POINTS HERE--------\n");
                 crossedZero = 1;
             }
             size_t size = getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
@@ -393,14 +398,14 @@ void printStackFootprint(struct CodegenMetadata *metadata)
                 size_t elementSize = size / thisLifetime->type.arraySize;
                 for (size_t j = 0; j < size; j++)
                 {
-                    printf("%s[%lu]\n", thisLifetime->name, j / elementSize);
+                    Log(LOG_DEBUG, "%s[%lu]\n", thisLifetime->name, j / elementSize);
                 }
             }
             else
             {
                 for (size_t j = 0; j < size; j++)
                 {
-                    printf("%s\n", thisLifetime->name);
+                    Log(LOG_DEBUG, "%s\n", thisLifetime->name);
                 }
             }
         }
@@ -411,8 +416,8 @@ void printStackFootprint(struct CodegenMetadata *metadata)
 
 void printVariableLocations(struct CodegenMetadata *metadata)
 {
-    printf("Final roundup of variables and where they live:\n");
-    printf("Local stack footprint: %zu bytes\n", metadata->localStackSize);
+    Log(LOG_DEBUG, "Final roundup of variables and where they live:\n");
+    Log(LOG_DEBUG, "Local stack footprint: %zu bytes\n", metadata->localStackSize);
     for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
     {
         struct Lifetime *examined = runner->data;
@@ -420,22 +425,22 @@ void printVariableLocations(struct CodegenMetadata *metadata)
         {
             if (examined->onStack)
             {
-                printf("&%-19s: %%r%d\n", examined->name, examined->registerLocation);
+                Log(LOG_DEBUG, "&%-19s: %%r%d\n", examined->name, examined->registerLocation);
             }
             else
             {
-                printf("%-20s: %%r%d\n", examined->name, examined->registerLocation);
+                Log(LOG_DEBUG, "%-20s: %%r%d\n", examined->name, examined->registerLocation);
             }
         }
         if (examined->onStack)
         {
             if (examined->stackLocation > 0)
             {
-                printf("%-20s: %%bp+%2zd - %%bp+%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + getSizeOfType(metadata->function->mainScope, &examined->type));
+                Log(LOG_DEBUG, "%-20s: %%bp+%2zd - %%bp+%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + getSizeOfType(metadata->function->mainScope, &examined->type));
             }
             else
             {
-                printf("%-20s: %%bp%2zd - %%bp%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + getSizeOfType(metadata->function->mainScope, &examined->type));
+                Log(LOG_DEBUG, "%-20s: %%bp%2zd - %%bp%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + getSizeOfType(metadata->function->mainScope, &examined->type));
             }
         }
     }

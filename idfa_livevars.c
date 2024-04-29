@@ -42,9 +42,6 @@ void liveVars_findGenKills(struct Idfa *idfa)
                     {
                         InternalError("NULL OPERAND");
                     }
-                    printf("READ: ");
-                    printTACOperand(&genKillLine->operands[operandIndex]);
-                    printf("\n");
                     break;
 
                 case u_write:
@@ -53,9 +50,6 @@ void liveVars_findGenKills(struct Idfa *idfa)
                         InternalError("NULL OPERAND");
                     }
                     Set_Insert(idfa->facts.gen[blockIndex], &genKillLine->operands[operandIndex]);
-                    printf("WRITE: ");
-                    printTACOperand(&genKillLine->operands[operandIndex]);
-                    printf("\n");
 
                     break;
                 }
