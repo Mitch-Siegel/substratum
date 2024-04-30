@@ -1,4 +1,4 @@
-#include "tests-common.sbh"
+#include "tests-common.sb"
 
 fun testLogicalAnd(u8 n)
 {

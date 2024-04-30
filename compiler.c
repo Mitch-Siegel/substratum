@@ -217,7 +217,7 @@ int main(int argc, char **argv)
 
     SymbolTable_collapseScopes(theTable, parseDict);
 
-    // generateSsa(theTable);
+    generateSsa(theTable);
 
     // TODO: option to enable/disable symtab dump
     /*Log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
