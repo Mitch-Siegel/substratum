@@ -125,30 +125,6 @@ void generateCodeForObject(struct CodegenContext *globalContext, struct Scope *g
     }
 }
 
-void generateCodeForObject(struct CodegenContext *globalContext, struct Scope *globalScope, struct Type *type)
-{
-    // how to handle multidimensional arrays with intiializeArrayTo at each level? Nested labels for nested elements?
-    if (type->basicType == vt_array)
-    {
-        ErrorAndExit(ERROR_INTERNAL, "generateCodeForObject called with array type - not supported yet!\n");
-    }
-    else
-    {
-        if (type->nonArray.initializeTo != NULL)
-        {
-            size_t objectSize = Type_GetSize(type, globalScope);
-            for (size_t byteIndex = 0; byteIndex < objectSize; byteIndex++)
-            {
-                fprintf(globalContext->outFile, "\t.byte %d\n", (type->nonArray.initializeTo)[byteIndex]);
-            }
-        }
-        else
-        {
-            fprintf(globalContext->outFile, "\t.zero %zu\n", Type_GetSize(type, globalScope));
-        }
-    }
-}
-
 void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct Scope *globalScope, struct VariableEntry *variable)
 {
     // early return if the variable is declared as extern, don't emit any code for it

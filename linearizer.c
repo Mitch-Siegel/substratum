@@ -267,7 +267,7 @@ void walkFunctionDeclaration(struct AST *tree,
             }
 
             char *arrayTypeName = Type_GetName(&returnType);
-            Log(LOG_FATAL, tree->child, "Return of array object types (%s) is not supported!\n", arrayTypeName);
+            LogTree(LOG_FATAL, tree->child, "Return of array object types (%s) is not supported!\n", arrayTypeName);
         }
         else if (returnType.basicType == vt_array)
         {
@@ -278,7 +278,7 @@ void walkFunctionDeclaration(struct AST *tree,
             }
 
             char *arrayTypeName = Type_GetName(&returnType);
-            ErrorWithAST(ERROR_CODE, tree->child, "Return of array object types (%s) is not supported!\n", arrayTypeName);
+            LogTree(LOG_FATAL, tree->child, "Return of array object types (%s) is not supported!\n", arrayTypeName);
         }
 
         functionNameTree = returnTypeTree->sibling;

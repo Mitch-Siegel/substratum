@@ -27,14 +27,14 @@ void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *compl
     {
         if (complexTypeName == NULL)
         {
-            ErrorAndExit(ERROR_INTERNAL, "Type_SetBasicType called with a null complexTypeName for vt_class!\n");
+            InternalError("Type_SetBasicType called with a null complexTypeName for vt_class!\n");
         }
     }
     else
     {
         if (complexTypeName != NULL)
         {
-            ErrorAndExit(ERROR_INTERNAL, "Type_SetBasicType called with a non-null complexTypeName for a non-vt_class type!\n");
+            InternalError("Type_SetBasicType called with a non-null complexTypeName for a non-vt_class type!\n");
         }
     }
 
@@ -379,7 +379,7 @@ size_t Type_GetSize(struct Type *type, struct Scope *scope)
     switch (type->basicType)
     {
     case vt_null:
-        ErrorAndExit(ERROR_INTERNAL, "Type_GetSize called with basic type of vt_null!\n");
+        InternalError("Type_GetSize called with basic type of vt_null!\n");
         break;
 
     case vt_any:
@@ -387,7 +387,7 @@ size_t Type_GetSize(struct Type *type, struct Scope *scope)
         if (type->pointerLevel == 0)
         {
             char *illegalAnyTypeName = Type_GetName(type);
-            ErrorAndExit(ERROR_INTERNAL, "Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
+            InternalError("Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
         }
         size = sizeof(u8);
         break;
@@ -436,7 +436,7 @@ size_t Type_GetSizeWhenDereferenced(struct Type *type, struct Scope *scope)
 {
     if (type->pointerLevel == 0)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Type_GetSizeWhenDereferenced called with non-pointer type %s!\n", Type_GetName(type));
+        InternalError("Type_GetSizeWhenDereferenced called with non-pointer type %s!\n", Type_GetName(type));
     }
     struct Type dereferenced = *type;
     dereferenced.pointerLevel--;
@@ -457,7 +457,7 @@ size_t Type_GetSizeOfArrayElement(struct Type *arrayType, struct Scope *scope)
         return Type_GetSize(&element, scope);
     }
 
-    ErrorAndExit(ERROR_INTERNAL, "Type_GetSizeOfArrayElement called with non-array and non-pointer type %s!\n", Type_GetName(arrayType));
+    InternalError("Type_GetSizeOfArrayElement called with non-array and non-pointer type %s!\n", Type_GetName(arrayType));
 }
 
 u8 Type_GetAlignment(struct Type *type, struct Scope *scope)
