@@ -196,6 +196,15 @@ int main(int argc, char **argv)
     // TODO: option to enable/disable ast dump
     /*printf("Here's the AST(s) we parsed: %p\n", program);
     AST_Print(program, 0);*/
+    {
+        FILE *astOutFile = NULL;
+        astOutFile = fopen("ast.dot", "wb");
+        if (astOutFile == NULL)
+        {
+            InternalError("Unable to open output file ast.dot");
+        }
+        AST_Dump(astOutFile, program);
+    }
 
     Log(LOG_INFO, "Generating symbol table from AST");
     struct SymbolTable *theTable = walkProgram(program);
