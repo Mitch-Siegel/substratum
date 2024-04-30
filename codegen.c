@@ -347,13 +347,12 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
 extern struct Config config;
 void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 {
-    currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
     size_t instructionIndex = 0; // index from start of function in terms of number of instructions
     struct CodegenContext context;
     context.outFile = outFile;
     context.instructionIndex = &instructionIndex;
 
-    Log(LOG_DEBUG, "Generate code for function %s", function->name);
+    Log(LOG_INFO, "Generate code for function %s", function->name);
 
     fprintf(outFile, ".align 2\n%s:\n", function->name);
     fprintf(outFile, "\t.loc 1 %d %d\n", function->correspondingTree.sourceLine, function->correspondingTree.sourceCol);
@@ -366,9 +365,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
     metadata.reservedRegisters[1] = -1;
     metadata.reservedRegisters[2] = -1;
     metadata.reservedRegisterCount = 0;
-    currentVerbosity = config.stageVerbosities[STAGE_REGALLOC];
     allocateRegisters(&metadata);
-    currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
 
     // TODO: debug symbols for asm functions?
     if (function->isAsmFun)
@@ -383,10 +380,10 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
         InternalError("Asm function with %zu basic blocks seen - expected 1!", function->BasicBlockList->size);
     }
 
-    Log(LOG_DEBUG, "Generating code for basic blocks");
     for (struct LinkedListNode *blockRunner = function->BasicBlockList->head; blockRunner != NULL; blockRunner = blockRunner->next)
     {
         struct BasicBlock *block = blockRunner->data;
+        Log(LOG_DEBUG, "Generating code for basic block %zd", block->labelNum);
         generateCodeForBasicBlock(&context, block, function->mainScope, metadata.allLifetimes, function->name, metadata.reservedRegisters);
     }
 

@@ -14,6 +14,8 @@ enum LogLevel
     LOG_FATAL
 };
 
+void setLogLevel(enum LogLevel newLevel);
+
 void LogFunction(const char *file, size_t line, enum LogLevel level, const char *format, ...);
 
 void LogTreeFunction(const char *file, size_t line, enum LogLevel level, struct AST *tree, const char *format, ...);

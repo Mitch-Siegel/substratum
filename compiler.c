@@ -17,8 +17,6 @@
 
 struct Dictionary *parseDict = NULL;
 
-u8 currentVerbosity = 0;
-
 void usage()
 {
     printf("Substratum language compiler: Usage\n");
@@ -31,8 +29,6 @@ struct Stack *parseProgressStack = NULL;
 struct Stack *parsedAsts = NULL;
 struct LinkedList *includePath = NULL;
 struct LinkedList *inputFiles = NULL;
-
-struct Config config;
 
 void runPreprocessor(char *inFileName)
 {
@@ -155,34 +151,19 @@ int main(int argc, char **argv)
 
         case 'v':
         {
-            size_t nVFlags = strlen(optarg);
-            if (nVFlags == 1)
+            int level = atoi(optarg);
+            switch (level)
             {
-                int stageVerbosities = atoi(optarg);
-                if (stageVerbosities < 0 || stageVerbosities > VERBOSITY_MAX)
-                {
-                    Log(LOG_ERROR, "Illegal value %d specified for verbosity!", stageVerbosities);
-                    usage();
-                    exit(1);
-                }
+            case LOG_DEBUG:
+            case LOG_INFO:
+            case LOG_WARNING:
+            case LOG_ERROR:
+            case LOG_FATAL:
+                setLogLevel(level);
+                break;
 
-                for (int i = 0; i < STAGE_MAX; i++)
-                {
-                    config.stageVerbosities[i] = stageVerbosities;
-                }
-            }
-            else if (nVFlags == STAGE_MAX)
-            {
-                for (int i = 0; i < STAGE_MAX; i++)
-                {
-                    char thisVerbosityStr[2] = {'\0', '\0'};
-                    thisVerbosityStr[0] = optarg[i];
-                    config.stageVerbosities[i] = atoi(thisVerbosityStr);
-                }
-            }
-            else
-            {
-                Log(LOG_ERROR, "Unexpected number of verbosities (%lu) provided\nExpected either 1 to set all levels, or %d to set each level independently\n", nVFlags, STAGE_MAX);
+            default:
+                Log(LOG_ERROR, "Unexpected log level %d - expected %d-%d\n", level, LOG_DEBUG, LOG_FATAL);
                 usage();
                 exit(1);
             }
@@ -206,8 +187,6 @@ int main(int argc, char **argv)
 
     parseProgressStack = Stack_New();
 
-    currentVerbosity = config.stageVerbosities[STAGE_PARSE];
-
     const int nParseDictBuckets = 10;
     parseDict = Dictionary_New(nParseDictBuckets);
 
@@ -217,8 +196,6 @@ int main(int argc, char **argv)
     // TODO: option to enable/disable ast dump
     /*printf("Here's the AST(s) we parsed: %p\n", program);
     AST_Print(program, 0);*/
-
-    currentVerbosity = config.stageVerbosities[STAGE_LINEARIZE];
 
     Log(LOG_INFO, "Generating symbol table from AST");
     struct SymbolTable *theTable = walkProgram(program);
@@ -247,8 +224,6 @@ int main(int argc, char **argv)
             InternalError("Unable to open output file %s", outFileName);
         }
     }
-
-    currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
 
     Log(LOG_INFO, "Generating code");
 

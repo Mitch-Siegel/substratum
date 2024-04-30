@@ -5,7 +5,21 @@
 
 #include "ast.h"
 
-enum LogLevel logLevel = LOG_DEBUG;
+enum LogLevel logLevel = LOG_WARNING;
+
+char *logLevelNames[LOG_FATAL + 1] =
+    {
+        "DEBUG",
+        "INFO",
+        "WARNING",
+        "ERROR",
+        "FATAL"};
+
+void setLogLevel(enum LogLevel newLevel)
+{
+    logLevel = newLevel;
+    Log(LOG_INFO, "Set log level to %s", logLevelNames[newLevel]);
+}
 
 void printLogLevel(enum LogLevel level, const char *file, size_t line)
 {

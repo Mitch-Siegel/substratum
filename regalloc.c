@@ -145,10 +145,7 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, size_t mostConcur
         }
     }
 
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printRegisterLifetimes(metadata);
-    }
+    printRegisterLifetimes(metadata);
 }
 
 void freeExpiringRegisters(u8 registers[MACHINE_REGISTER_COUNT], struct Lifetime *occupiedBy[MACHINE_REGISTER_COUNT], size_t index)
@@ -244,10 +241,7 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         }
     }
 
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        Log(LOG_DEBUG, "%zu variables need stack space", needStackSpace->size);
-    }
+    Log(LOG_DEBUG, "%zu variables need stack space", needStackSpace->size);
 
     // simple bubble sort the things that need stack space by their size
     for (size_t i = 0; i < needStackSpace->size; i++)
@@ -495,22 +489,12 @@ void allocateRegisters(struct CodegenMetadata *metadata)
 
     Log(LOG_DEBUG, "assigned registers");
 
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printLifetimes(metadata);
-    }
+    printLifetimes(metadata);
 
     assignStackSpace(metadata);
 
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printStackFootprint(metadata);
-    }
-
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printVariableLocations(metadata);
-    }
+    printStackFootprint(metadata);
+    printVariableLocations(metadata);
 
     for (u8 reg = START_ALLOCATING_FROM; reg < MACHINE_REGISTER_COUNT; reg++)
     {

@@ -13,22 +13,6 @@ enum CompilerErrors
     ERROR_INTERNAL,
 };
 
-#define STAGE_PARSE 0
-#define STAGE_LINEARIZE 1
-#define STAGE_REGALLOC 2
-#define STAGE_CODEGEN 3
-#define STAGE_MAX 4
-
-#define VERBOSITY_SILENT 0
-#define VERBOSITY_MINIMAL 1
-#define VERBOSITY_MAX 2
-struct Config
-{
-    u8 stageVerbosities[STAGE_MAX];
-};
-
-extern u8 currentVerbosity;
-
 struct ParseProgress
 {
     size_t curLine;
