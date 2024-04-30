@@ -2,6 +2,7 @@
 
 #pragma once
 #include "substratum_defs.h"
+#include <stdio.h>
 
 enum token
 {
