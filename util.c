@@ -1,4 +1,5 @@
 #include "util.h"
+#include "log.h"
 
 // given a raw size, find the nearest power-of-two aligned size (number of bits required to store nBytes)
 u8 alignSize(size_t nBytes)
@@ -16,7 +17,7 @@ size_t unalignSize(u8 nBits)
     const u8 bitsInByte = 8;
     if (nBits >= (sizeof(size_t) * bitsInByte))
     {
-        ErrorAndExit(ERROR_INTERNAL, "unalignSize() called with %u bits\n", nBits);
+        InternalError("unalignSize() called with %u bits", nBits);
     }
     return 1 << nBits;
 }
@@ -223,8 +224,7 @@ void *Stack_Pop(struct Stack *stack)
     }
     else
     {
-        printf("Error - attempted to pop from empty stack!\n");
-        exit(1);
+        Log(LOG_FATAL, "Error - attempted to pop from empty stack!");
     }
     return poppedData;
 }
@@ -238,8 +238,7 @@ void *Stack_Peek(struct Stack *stack)
     }
     else
     {
-        printf("Error - attempted to peek empty stack!\n");
-        exit(1);
+        Log(LOG_FATAL, "Error - attempted to peek empty stack!");
     }
     return peekedData;
 }
@@ -373,7 +372,7 @@ void *LinkedList_Delete(struct LinkedList *list, ssize_t (*compareFunction)(void
             return data;
         }
     }
-    ErrorAndExit(ERROR_INTERNAL, "Couldn't delete element from linked list!\n");
+    InternalError("Couldn't delete element from linked list!");
 }
 
 void *LinkedList_Find(struct LinkedList *list, ssize_t (*compareFunction)(void *, void *), void *element)
@@ -392,7 +391,7 @@ void *LinkedList_PopFront(struct LinkedList *list)
 {
     if (list->size == 0)
     {
-        ErrorAndExit(ERROR_INVOCATION, "Unable to pop front from empty linkedlist!\n");
+        Log(LOG_FATAL, "Unable to pop front from empty linkedlist!");
     }
     struct LinkedListNode *popped = list->head;
 
@@ -417,7 +416,7 @@ void *LinkedList_PopBack(struct LinkedList *list)
 {
     if (list->size == 0)
     {
-        ErrorAndExit(ERROR_INVOCATION, "Unable to pop front from empty linkedlist!\n");
+        Log(LOG_FATAL, "Unable to pop front from empty linkedlist!");
     }
     struct LinkedListNode *popped = list->tail;
 
@@ -457,7 +456,7 @@ void Set_Insert(struct Set *set, void *element)
 {
     if (element == NULL)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Attempt to insert null data into set!\n");
+        InternalError("Attempt to insert null data into set!");
     }
 
     if (LinkedList_Find(set->elements, set->compareFunction, element) == NULL)
@@ -474,7 +473,7 @@ void Set_Delete(struct Set *set, void *element)
     }
     else
     {
-        ErrorAndExit(ERROR_INTERNAL, "Attempt to delete non-existent element from set!\n");
+        InternalError("Attempt to delete non-existent element from set!");
     }
 }
 
@@ -509,11 +508,11 @@ struct Set *Set_Union(struct Set *setA, struct Set *setB)
     struct Set *unionedSet = Set_New(setA->compareFunction, setA->dataFreeFunction);
     if (setA->compareFunction != setB->compareFunction)
     {
-        ErrorAndExit(ERROR_CODE, "Call to Set_Union with mismatch in set compare functions between sets to union!\n");
+        Log(LOG_FATAL, "Call to Set_Union with mismatch in set compare functions between sets to union!");
     }
     if (setA->dataFreeFunction != setB->dataFreeFunction)
     {
-        ErrorAndExit(ERROR_CODE, "Call to Set_Union with mismatch in set data free functions between sets to union!\n");
+        Log(LOG_FATAL, "Call to Set_Union with mismatch in set data free functions between sets to union!");
     }
 
     Set_Merge(unionedSet, setA);
@@ -526,11 +525,11 @@ struct Set *Set_Intersection(struct Set *setA, struct Set *setB)
     struct Set *intersectedSet = Set_New(setA->compareFunction, setA->dataFreeFunction);
     if (setA->compareFunction != setB->compareFunction)
     {
-        ErrorAndExit(ERROR_CODE, "Call to Set_Intersection with mismatch in set compare functions between sets to intersect!\n");
+        Log(LOG_FATAL, "Call to Set_Intersection with mismatch in set compare functions between sets to intersect!");
     }
     if (setA->dataFreeFunction != setB->dataFreeFunction)
     {
-        ErrorAndExit(ERROR_CODE, "Call to Set_Intersection with mismatch in set data free functions between sets to intersect!\n");
+        Log(LOG_FATAL, "Call to Set_Intersection with mismatch in set data free functions between sets to intersect!");
     }
 
     for (struct LinkedListNode *elementNode = setA->elements->head; elementNode != NULL; elementNode = elementNode->next)

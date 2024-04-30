@@ -3,3 +3,6 @@ build
 parser.c
 include/parser.h
 sbcc
+
+ast.dot
+symtab*.dot

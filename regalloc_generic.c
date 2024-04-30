@@ -1,5 +1,6 @@
 #include "regalloc_generic.h"
 
+#include "log.h"
 #include "symtab.h"
 #include "tac.h"
 #include "util.h"
@@ -62,7 +63,7 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
         {
             char *expectedTypeName = Type_GetName(&thisLt->type);
             char *typeName = Type_GetName(type);
-            ErrorAndExit(ERROR_INTERNAL, "Error - type mismatch between identically named variables [%s] expected %s, saw %s!\n", name, expectedTypeName, typeName);
+            InternalError("Type mismatch between identically named variables [%s] expected %s, saw %s!", name, expectedTypeName, typeName);
         }
         if (newEnd > thisLt->end)
         {

@@ -2,6 +2,7 @@
 
 #pragma once
 #include "substratum_defs.h"
+#include <stdio.h>
 
 enum token
 {
@@ -125,6 +126,6 @@ struct AST *AST_ConstructAddChild(struct AST *tree, struct AST *newChild);
 
 void AST_Print(struct AST *tree, size_t depth);
 
-void AST_PrintHorizontal(struct AST *tree);
+void AST_Dump(FILE *outFile, struct AST* tree);
 
 void AST_Free(struct AST *tree);

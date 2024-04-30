@@ -1,5 +1,6 @@
 #include "tac.h"
 
+#include "log.h"
 #include "util.h"
 #include <stdio.h>
 
@@ -7,7 +8,7 @@ struct Type *TAC_GetTypeOfOperand(struct TACLine *line, unsigned index)
 {
     if (index > 3)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Bad index %d passed to TAC_GetTypeOfOperand!\n", index);
+        InternalError("Bad index %d passed to TAC_GetTypeOfOperand!", index);
     }
 
     return TACOperand_GetType(&line->operands[index]);
@@ -368,7 +369,7 @@ char *sPrintTACLine(struct TACLine *line)
     char *operandString = sPrintTACOperands(line);
     if (width + strlen(operandString) + 1 > sprintTacLineLength)
     {
-        ErrorAndExit(ERROR_INTERNAL, "sPrintTacLine length limit exceeded!\n");
+        InternalError("sPrintTacLine length limit exceeded!");
     }
     width += sprintf(tacString + width, "\t%s", operandString);
     free(operandString);

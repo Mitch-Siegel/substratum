@@ -1,5 +1,7 @@
 #include "symtab_basicblock.h"
 
+#include "log.h"
+
 struct BasicBlock *BasicBlock_new(ssize_t labelNum)
 {
     struct BasicBlock *wip = malloc(sizeof(struct BasicBlock));
@@ -27,7 +29,7 @@ void BasicBlock_prepend(struct BasicBlock *block, struct TACLine *line)
         struct TACLine *first = block->TACList->head->data;
         if (line->index != first->index)
         {
-            ErrorAndExit(ERROR_INTERNAL, "BasicBlock_prepend called with line index %zu - must be %zu (same as start of block!)!\n", line->index, first->index);
+            InternalError("BasicBlock_prepend called with line index %zu - must be %zu (same as start of block!)!", line->index, first->index);
         }
     }
 

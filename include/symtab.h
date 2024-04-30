@@ -31,6 +31,7 @@ only string names are available and any bad lookups should be caused by internal
 struct SymbolTable *SymbolTable_new(char *name);
 
 void SymbolTable_print(struct SymbolTable *table,
+                       FILE *outFile,
                        char printTAC);
 
 void SymbolTable_collapseScopesRec(struct Scope *scope,

@@ -5,6 +5,7 @@
 #include "ast.h"
 #include "substratum_defs.h"
 #include "type.h"
+#include <stdio.h>
 
 struct BasicBlock;
 struct VariableEntry;
@@ -43,6 +44,7 @@ struct Scope *Scope_new(struct Scope *parentScope,
 void Scope_free(struct Scope *scope);
 
 void Scope_print(struct Scope *scope,
+                 FILE *outFile,
                  size_t depth,
                  char printTAC);
 

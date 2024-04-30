@@ -1,5 +1,6 @@
 #include "linearizer_generic.h"
 
+#include "log.h"
 #include "symtab_variable.h"
 #include "tac.h"
 #include "type.h"
@@ -100,12 +101,12 @@ void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type
         // if we *are* looking at an identifier, print the identifier name and the type name
         if (tree->type == t_identifier)
         {
-            ErrorWithAST(ERROR_CODE, tree, "Can't use dot operator on %s (%s) - not a class!\n", tree->value, typeName);
+            LogTree(LOG_FATAL, tree, "Can't use dot operator on %s (%s) - not a class!", tree->value, typeName);
         }
         // if we are *not* looking at an identifier, just print the type name
         else
         {
-            ErrorWithAST(ERROR_CODE, tree, "Can't use dot operator on %s - not a class!\n", typeName);
+            LogTree(LOG_FATAL, tree, "Can't use dot operator on %s - not a class!", typeName);
         }
     }
 
@@ -115,11 +116,11 @@ void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type
         char *typeName = Type_GetName(type);
         if (tree->type == t_identifier)
         {
-            ErrorWithAST(ERROR_CODE, tree, "Can't use dot operator on indirect variable %s (%s)\n", tree->value, typeName);
+            LogTree(LOG_FATAL, tree, "Can't use dot operator on indirect variable %s (%s)", tree->value, typeName);
         }
         else
         {
-            ErrorWithAST(ERROR_CODE, tree, "Can't use dot operator on indirect type %s\n", typeName);
+            LogTree(LOG_FATAL, tree, "Can't use dot operator on indirect type %s", typeName);
         }
     }
 }
@@ -135,12 +136,12 @@ void checkAccessedClassForArrow(struct AST *tree, struct Scope *scope, struct Ty
         // if we *are* looking at an identifier, print the identifier name and the type name
         if (tree->type == t_identifier)
         {
-            ErrorWithAST(ERROR_CODE, tree, "Can't use arrow operator on %s (type %s) - not a class!\n", tree->value, typeName);
+            LogTree(LOG_FATAL, tree, "Can't use arrow operator on %s (type %s) - not a class!", tree->value, typeName);
         }
         // if we are *not* looking at an identifier, just print the type name
         else
         {
-            ErrorWithAST(ERROR_CODE, tree, "Can't use arrow operator on %s - not a class!\n", typeName);
+            LogTree(LOG_FATAL, tree, "Can't use arrow operator on %s - not a class!", typeName);
         }
     }
 
@@ -150,11 +151,11 @@ void checkAccessedClassForArrow(struct AST *tree, struct Scope *scope, struct Ty
         char *typeName = Type_GetName(type);
         if (tree->type == t_identifier)
         {
-            ErrorWithAST(ERROR_CODE, tree, "Can't use arrow operator on variable %s (type %s) - wrong indirection level!\n", tree->value, typeName);
+            LogTree(LOG_FATAL, tree, "Can't use arrow operator on variable %s (type %s) - wrong indirection level!", tree->value, typeName);
         }
         else
         {
-            ErrorWithAST(ERROR_CODE, tree, "Can't use arrow operator on indirect type %s - wrong indirection level!\n", typeName);
+            LogTree(LOG_FATAL, tree, "Can't use arrow operator on indirect type %s - wrong indirection level!", typeName);
         }
     }
 }
@@ -178,7 +179,7 @@ void convertArrayRefLoadToLea(struct TACLine *arrayRefLine)
         break;
 
     default:
-        ErrorAndExit(ERROR_INTERNAL, "Unexpected TAC operation %s seen in convertArrayRefLoadToLea!\n", getAsmOp(arrayRefLine->operation));
+        InternalError("Unexpected TAC operation %s seen in convertArrayRefLoadToLea!", getAsmOp(arrayRefLine->operation));
         break;
     }
 

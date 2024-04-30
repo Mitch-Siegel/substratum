@@ -8,6 +8,7 @@
 #include "ast.h"
 #include "codegen.h"
 #include "linearizer.h"
+#include "log.h"
 #include "ssa.h"
 #include "substratum_defs.h"
 #include "symtab.h"
@@ -15,8 +16,6 @@
 #include "util.h"
 
 struct Dictionary *parseDict = NULL;
-
-u8 currentVerbosity = 0;
 
 void usage()
 {
@@ -30,8 +29,6 @@ struct Stack *parseProgressStack = NULL;
 struct Stack *parsedAsts = NULL;
 struct LinkedList *includePath = NULL;
 struct LinkedList *inputFiles = NULL;
-
-struct Config config;
 
 void runPreprocessor(char *inFileName)
 {
@@ -63,9 +60,9 @@ void runPreprocessor(char *inFileName)
 
     if (execvp(preprocessorArgv[0], preprocessorArgv) < 0)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Failed to execute preprocessor: %s\n", strerror(errno));
+        InternalError("Failed to execute preprocessor: %s", strerror(errno));
     }
-    ErrorAndExit(ERROR_INTERNAL, "Returned from exec of preprocessor!\n");
+    InternalError("Returned from exec of preprocessor!");
 }
 
 struct AST *parseFile(char *inFileName)
@@ -90,13 +87,13 @@ struct AST *parseFile(char *inFileName)
     int preprocessorPipe[2] = {0};
     if (pipe(preprocessorPipe) < 0)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Unable to make pipe for preprocessor: %s\n", strerror(errno));
+        InternalError("Unable to make pipe for preprocessor: %s", strerror(errno));
     }
 
     pid = fork();
     if (pid == -1)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Couldn't fork to run preprocessor!\n");
+        InternalError("Couldn't fork to run preprocessor!");
     }
     else if (pid == 0)
     {
@@ -112,7 +109,7 @@ struct AST *parseFile(char *inFileName)
         close(preprocessorPipe[0]); // duplicated
         if (waitpid(pid, NULL, 0) != pid)
         {
-            ErrorAndExit(ERROR_INTERNAL, "Error waiting for preprocessor (pid %d): %s", pid, strerror(errno));
+            InternalError("Error waiting for preprocessor (pid %d): %s", pid, strerror(errno));
         }
     }
 
@@ -154,36 +151,21 @@ int main(int argc, char **argv)
 
         case 'v':
         {
-            size_t nVFlags = strlen(optarg);
-            if (nVFlags == 1)
+            int level = atoi(optarg);
+            switch (level)
             {
-                int stageVerbosities = atoi(optarg);
-                if (stageVerbosities < 0 || stageVerbosities > VERBOSITY_MAX)
-                {
-                    printf("Illegal value %d specified for verbosity!\n", stageVerbosities);
-                    usage();
-                    ErrorAndExit(ERROR_INVOCATION, ":(");
-                }
+            case LOG_DEBUG:
+            case LOG_INFO:
+            case LOG_WARNING:
+            case LOG_ERROR:
+            case LOG_FATAL:
+                setLogLevel(level);
+                break;
 
-                for (int i = 0; i < STAGE_MAX; i++)
-                {
-                    config.stageVerbosities[i] = stageVerbosities;
-                }
-            }
-            else if (nVFlags == STAGE_MAX)
-            {
-                for (int i = 0; i < STAGE_MAX; i++)
-                {
-                    char thisVerbosityStr[2] = {'\0', '\0'};
-                    thisVerbosityStr[0] = optarg[i];
-                    config.stageVerbosities[i] = atoi(thisVerbosityStr);
-                }
-            }
-            else
-            {
-                printf("Unexpected number of verbosities (%lu) provided\nExpected either 1 to set all levels, or %d to set each level independently\n", nVFlags, STAGE_MAX);
+            default:
+                Log(LOG_ERROR, "Unexpected log level %d - expected %d-%d\n", level, LOG_DEBUG, LOG_FATAL);
                 usage();
-                ErrorAndExit(ERROR_INVOCATION, ":(");
+                exit(1);
             }
         }
         break;
@@ -195,23 +177,15 @@ int main(int argc, char **argv)
         break;
 
         default:
+            Log(LOG_ERROR, "Invalid argument flag \"%c\"", option);
             usage();
-            ErrorAndExit(ERROR_INVOCATION, ":(");
+            exit(1);
         }
     }
 
-    printf("Running with verbosity: ");
-    for (int i = 0; i < STAGE_MAX; i++)
-    {
-        printf("%d ", config.stageVerbosities[i]);
-    }
-    printf("\n");
-
-    printf("Output will be generated to %s\n\n", outFileName);
+    Log(LOG_INFO, "Output will be generated to %s", outFileName);
 
     parseProgressStack = Stack_New();
-
-    currentVerbosity = config.stageVerbosities[STAGE_PARSE];
 
     const int nParseDictBuckets = 10;
     parseDict = Dictionary_New(nParseDictBuckets);
@@ -219,36 +193,35 @@ int main(int argc, char **argv)
     struct AST *program = parseFile(inFileName);
     LinkedList_Free(includePath, free);
 
-    if (currentVerbosity > VERBOSITY_MINIMAL)
+    // TODO: option to enable/disable ast dump
+    /*printf("Here's the AST(s) we parsed: %p\n", program);
+    AST_Print(program, 0);*/
     {
-        printf("Here's the AST(s) we parsed: %p\n", program);
-        AST_Print(program, 0);
+        FILE *astOutFile = NULL;
+        astOutFile = fopen("ast.dot", "wb");
+        if (astOutFile == NULL)
+        {
+            InternalError("Unable to open output file ast.dot");
+        }
+        AST_Dump(astOutFile, program);
     }
 
-    currentVerbosity = config.stageVerbosities[STAGE_LINEARIZE];
-
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("Generating symbol table from AST");
-    }
+    Log(LOG_INFO, "Generating symbol table from AST");
     struct SymbolTable *theTable = walkProgram(program);
 
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
-        printf("\nSymbol table before scope collapse:\n");
-        SymbolTable_print(theTable, 1);
-        printf("Collapsing scopes\n");
-    }
+    // TODO: option to enable/disable symtab dump
+    /*Log(LOG_DEBUG, "Symbol table before scope collapse:");
+    SymbolTable_print(theTable, stderr, 1);*/
+
+    Log(LOG_INFO, "Collapsing scopes");
 
     SymbolTable_collapseScopes(theTable, parseDict);
 
     // generateSsa(theTable);
 
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("Symbol table after linearization/scope collapse:\n");
-        SymbolTable_print(theTable, 1);
-    }
+    // TODO: option to enable/disable symtab dump
+    /*Log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
+    SymbolTable_print(theTable, stderr, 1);*/
 
     FILE *outFile = stdout;
 
@@ -257,16 +230,11 @@ int main(int argc, char **argv)
         outFile = fopen(outFileName, "wb");
         if (outFile == NULL)
         {
-            ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", outFileName);
+            InternalError("Unable to open output file %s", outFileName);
         }
     }
 
-    currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
-
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("Generating code\n");
-    }
+    Log(LOG_INFO, "Generating code");
 
     {
         char *boilerplateAsm1[] = {

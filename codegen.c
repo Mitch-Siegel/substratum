@@ -1,6 +1,7 @@
 #include "codegen.h"
 
 #include "codegen_generic.h"
+#include "log.h"
 #include "regalloc.h"
 #include "symtab.h"
 
@@ -87,16 +88,16 @@ void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Sco
             struct TACLine *examinedTAC = examinedLine->data;
             if (examinedTAC->operation != tt_asm)
             {
-                ErrorAndExit(ERROR_INTERNAL, "Unexpected TAC type %d (%s) seen in global ASM block!\n",
-                             examinedTAC->operation,
-                             getAsmOp(examinedTAC->operation));
+                InternalError("Unexpected TAC type %d (%s) seen in global ASM block!\n",
+                              examinedTAC->operation,
+                              getAsmOp(examinedTAC->operation));
             }
             fprintf(globalContext->outFile, "%s\n", examinedTAC->operands[0].name.str);
         }
     }
     else
     {
-        ErrorAndExit(ERROR_INTERNAL, "Unexpected basic block index %zu at global scope!\n", globalBlock->labelNum);
+        InternalError("Unexpected basic block index %zu at global scope!", globalBlock->labelNum);
     }
 }
 
@@ -155,7 +156,7 @@ void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct 
             size_t arrayElementSize = getSizeOfArrayElement(globalScope, variable);
             if (arrayElementSize != 1)
             {
-                ErrorAndExit(ERROR_INTERNAL, "Saw array element size of %zu for string literal (expected 1)!\n", arrayElementSize);
+                InternalError("Saw array element size of %zu for string literal (expected 1)!", arrayElementSize);
             }
 
             fprintf(globalContext->outFile, "\t.asciz \"");
@@ -181,7 +182,6 @@ void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct 
         {
             for (size_t variableByte = 0; variableByte < varSize; variableByte++)
             {
-                printf("%c\n", variable->type.initializeTo[variableByte]);
                 fprintf(globalContext->outFile, "\t.byte %d\n", variable->type.initializeTo[variableByte]);
             }
         }
@@ -196,10 +196,7 @@ void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct 
 
 void calleeSaveRegisters(struct CodegenContext *context, struct CodegenMetadata *metadata)
 {
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
-        printf("Callee-saving touched registers\n");
-    }
+    Log(LOG_DEBUG, "Callee-saving touched registers");
 
     // callee-save all registers (FIXME - caller vs callee save ABI?)
     u8 regNumSaved = 0;
@@ -220,10 +217,7 @@ void calleeSaveRegisters(struct CodegenContext *context, struct CodegenMetadata 
 
 void calleeRestoreRegisters(struct CodegenContext *context, struct CodegenMetadata *metadata)
 {
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
-        printf("Callee-restoring touched registers\n");
-    }
+    Log(LOG_DEBUG, "Callee-restoring touched registers");
 
     // callee-save all registers (FIXME - caller vs callee save ABI?)
     u8 regNumRestored = 0;
@@ -244,10 +238,7 @@ void calleeRestoreRegisters(struct CodegenContext *context, struct CodegenMetada
 
 void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metadata)
 {
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
-        printf("Starting prologue\n");
-    }
+    Log(LOG_DEBUG, "Emitting function prologue for %s", metadata->function->name);
 
     // save return address (if necessary) and frame pointer to the stack so they will be persisted across this function
     if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
@@ -277,10 +268,7 @@ void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metada
     // FIXME: cfa offset if no local stack?
     fprintf(context->outFile, "\t.cfi_def_cfa_offset %zu\n", metadata->totalStackSize);
 
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
-        printf("Placing arguments into registers\n");
-    }
+    Log(LOG_DEBUG, "Place arguments into registers");
 
     // move any applicable arguments into registers if we are expecting them not to be spilled
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->head; ltRunner != NULL; ltRunner = ltRunner->next)
@@ -313,6 +301,8 @@ void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metada
 
 void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metadata)
 {
+    Log(LOG_DEBUG, "Emit function epilogue for %s", metadata->function->name);
+
     fprintf(context->outFile, "%s_done:\n", metadata->function->name);
 
     calleeRestoreRegisters(context, metadata);
@@ -357,21 +347,13 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
 extern struct Config config;
 void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
 {
-    currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
     size_t instructionIndex = 0; // index from start of function in terms of number of instructions
     struct CodegenContext context;
     context.outFile = outFile;
     context.instructionIndex = &instructionIndex;
 
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("Generate code for function %s\n", function->name);
-    }
+    Log(LOG_INFO, "Generate code for function %s", function->name);
 
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
-        printf("Emitting function prologue\n");
-    }
     fprintf(outFile, ".align 2\n%s:\n", function->name);
     fprintf(outFile, "\t.loc 1 %d %d\n", function->correspondingTree.sourceLine, function->correspondingTree.sourceCol);
     fprintf(outFile, "\t.cfi_startproc\n");
@@ -383,48 +365,31 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
     metadata.reservedRegisters[1] = -1;
     metadata.reservedRegisters[2] = -1;
     metadata.reservedRegisterCount = 0;
-    currentVerbosity = config.stageVerbosities[STAGE_REGALLOC];
     allocateRegisters(&metadata);
-    currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
 
-    if (currentVerbosity > VERBOSITY_MINIMAL)
+    // TODO: debug symbols for asm functions?
+    if (function->isAsmFun)
     {
-        printf("Need %zu bytes on stack\n", metadata.totalStackSize);
+        Log(LOG_DEBUG, "%s is an asm function", function->name);
     }
 
     emitPrologue(&context, &metadata);
 
-    // TODO: debug symbols for asm functions?
-    if ((currentVerbosity > VERBOSITY_MINIMAL) && (function->isAsmFun))
-    {
-        printf("%s is an asm function\n", function->name);
-    }
-
     if (function->isAsmFun && (function->BasicBlockList->size != 1))
     {
-        ErrorAndExit(ERROR_INTERNAL, "Asm function with %zu basic blocks seen - expected 1!\n", function->BasicBlockList->size);
-    }
-
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
-        printf("Generating code for basic blocks\n");
+        InternalError("Asm function with %zu basic blocks seen - expected 1!", function->BasicBlockList->size);
     }
 
     for (struct LinkedListNode *blockRunner = function->BasicBlockList->head; blockRunner != NULL; blockRunner = blockRunner->next)
     {
         struct BasicBlock *block = blockRunner->data;
+        Log(LOG_DEBUG, "Generating code for basic block %zd", block->labelNum);
         generateCodeForBasicBlock(&context, block, function->mainScope, metadata.allLifetimes, function->name, metadata.reservedRegisters);
-    }
-
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
-        printf("Emitting function epilogue\n");
     }
 
     emitEpilogue(&context, &metadata);
 
     // clean up after ourselves
-
     LinkedList_Free(metadata.allLifetimes, free);
 
     for (size_t tacIndex = 0; tacIndex <= metadata.largestTacIndex; tacIndex++)
@@ -759,8 +724,6 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
         case tt_enddo:
         case tt_phi:
             break;
-
-            // ErrorAndExit(ERROR_INTERNAL, "Unexpected PHI function leftover in codegen!\n");
         }
     }
 }
