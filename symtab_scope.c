@@ -46,19 +46,27 @@ void Scope_free(struct Scope *scope)
         {
             struct VariableEntry *theVariable = examinedEntry->entry;
             struct Type *variableType = &theVariable->type;
-            if (variableType->initializeTo != NULL)
+            if (variableType->basicType == vt_array)
             {
-                if (variableType->arraySize > 0)
+                struct Type typeRunner = *variableType;
+                while (typeRunner.basicType == vt_array)
                 {
-                    for (size_t arrayInitializeIndex = 0; arrayInitializeIndex < variableType->arraySize; arrayInitializeIndex++)
+                    if (typeRunner.array.initializeArrayTo != NULL)
                     {
-                        free(variableType->initializeArrayTo[arrayInitializeIndex]);
+                        for (size_t i = 0; i < typeRunner.array.size; i++)
+                        {
+                            free(typeRunner.array.initializeArrayTo[i]);
+                        }
+                        free(typeRunner.array.initializeArrayTo);
                     }
-                    free(variableType->initializeArrayTo);
+                    typeRunner = *typeRunner.array.type;
                 }
-                else
+            }
+            else
+            {
+                if (variableType->nonArray.initializeTo != NULL)
                 {
-                    free(variableType->initializeTo);
+                    free(variableType->nonArray.initializeTo);
                 }
             }
             free(theVariable);
@@ -131,23 +139,6 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
 
     Scope_insert(parentScope, newScopeName, newScope, e_scope);
     return newScope;
-}
-
-size_t Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, size_t currentOffset)
-{
-    // calculate the number of bytes to which this member needs to be aligned
-    size_t alignBytesForType = unalignSize(getAlignmentOfType(scope, alignedType));
-
-    // compute how many bytes of padding we will need before this member to align it correctly
-    size_t paddingRequired = 0;
-    size_t bytesAfterAlignBoundary = currentOffset % alignBytesForType;
-    if (bytesAfterAlignBoundary)
-    {
-        paddingRequired = alignBytesForType - bytesAfterAlignBoundary;
-    }
-
-    // add the padding to the total size of the class
-    return paddingRequired;
 }
 
 // Scope lookup functions

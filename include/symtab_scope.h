@@ -66,19 +66,6 @@ char Scope_contains(struct Scope *scope,
 struct ScopeMember *Scope_lookup(struct Scope *scope,
                                  char *name);
 
-// gets the integer size (not aligned) of a given type
-size_t getSizeOfType(struct Scope *scope, struct Type *type);
-
-// gets the integer size (not aligned) of a given type, but based on the dereference level as (t->indirectionLevel - 1)
-size_t getSizeOfDereferencedType(struct Scope *scope, struct Type *type);
-
-size_t getSizeOfArrayElement(struct Scope *scope, struct VariableEntry *variable);
-
-// calculate the power of 2 to which a given type needs to be aligned
-u8 getAlignmentOfType(struct Scope *scope, struct Type *type);
-
-// scope linearization functions
-
 // adds an entry in the given scope denoting that the block is from that scope
 void Scope_addBasicBlock(struct Scope *scope,
                          struct BasicBlock *block);

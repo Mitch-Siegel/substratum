@@ -188,7 +188,7 @@ int main(int argc, char **argv)
     parseProgressStack = Stack_New();
 
     const int nParseDictBuckets = 10;
-    parseDict = Dictionary_New(nParseDictBuckets);
+    parseDict = Dictionary_New(nParseDictBuckets, (void *(*)(void *))strdup, hashString, (ssize_t(*)(void *, void *))strcmp, free);
 
     struct AST *program = parseFile(inFileName);
     LinkedList_Free(includePath, free);

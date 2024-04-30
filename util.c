@@ -151,23 +151,28 @@ size_t hashString(void *data)
     return hash;
 }
 
-struct Dictionary *Dictionary_New(size_t nBuckets)
+struct Dictionary *Dictionary_New(size_t nBuckets,
+                                  void *(*duplicateFunction)(void *),
+                                  size_t (*hashFunction)(void *data),
+                                  ssize_t (*compareFunction)(void *dataA, void *dataB),
+                                  void (*dataFreeFunction)(void *))
 {
     struct Dictionary *wip = malloc(sizeof(struct Dictionary));
-    wip->table = HashTable_New(nBuckets, hashString, (ssize_t(*)(void *, void *))strcmp, NULL, free);
+    wip->table = HashTable_New(nBuckets, hashFunction, (ssize_t(*)(void *, void *))compareFunction, NULL, dataFreeFunction);
+    wip->duplicateFunction = duplicateFunction;
     return wip;
 }
 
-char *Dictionary_Insert(struct Dictionary *dict, char *value)
+void *Dictionary_Insert(struct Dictionary *dict, void *value)
 {
-    char *duplicatedString = strdup(value);
-    HashTable_Insert(dict->table, duplicatedString, duplicatedString);
-    return duplicatedString;
+    void *duplicatedValue = dict->duplicateFunction(value);
+    HashTable_Insert(dict->table, duplicatedValue, duplicatedValue);
+    return duplicatedValue;
 }
 
-char *Dictionary_LookupOrInsert(struct Dictionary *dict, char *value)
+void *Dictionary_LookupOrInsert(struct Dictionary *dict, void *value)
 {
-    char *returnedStr = HashTable_Lookup(dict->table, value);
+    void *returnedStr = HashTable_Lookup(dict->table, value);
     if (returnedStr == NULL)
     {
         returnedStr = Dictionary_Insert(dict, value);
