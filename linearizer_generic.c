@@ -85,8 +85,6 @@ struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, 
     return scaleMultiplication;
 }
 
-// check the LHS of any dot operator make sure it is both a class and not indirect
-// special case handling for when tree is an identifier vs a subexpression
 void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type *type)
 {
     // check that we actually refer to a class on the LHS of the dot
@@ -105,53 +103,10 @@ void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type
         }
     }
 
-    // make sure whatever we're applying the dot operator to is actually a class instance, not a class array or class pointer
-    if ((type->pointerLevel > 0) || (type->basicType == vt_array))
+    if(type->pointerLevel > 1)
     {
-        char *typeName = Type_GetName(type);
-        if (tree->type == t_identifier)
-        {
-            LogTree(LOG_FATAL, tree, "Can't use dot operator on indirect variable %s (%s)", tree->value, typeName);
-        }
-        else
-        {
-            LogTree(LOG_FATAL, tree, "Can't use dot operator on indirect type %s", typeName);
-        }
-    }
-}
-
-// check the LHS of any arrow operator, make sure it is only a class pointer and nothing else
-// special case handling for when tree is an identifier vs a subexpression
-void checkAccessedClassForArrow(struct AST *tree, struct Scope *scope, struct Type *type)
-{
-    // check that we actually refer to a class on the LHS of the arrow
-    if (type->basicType != vt_class)
-    {
-        char *typeName = Type_GetName(type);
-        // if we *are* looking at an identifier, print the identifier name and the type name
-        if (tree->type == t_identifier)
-        {
-            LogTree(LOG_FATAL, tree, "Can't use arrow operator on %s (type %s) - not a class!", tree->value, typeName);
-        }
-        // if we are *not* looking at an identifier, just print the type name
-        else
-        {
-            LogTree(LOG_FATAL, tree, "Can't use arrow operator on %s - not a class!", typeName);
-        }
-    }
-
-    // make sure whatever we're applying the arrow operator to is actually a class pointer instance and nothing else
-    if ((type->pointerLevel != 1) || (type->basicType == vt_array))
-    {
-        char *typeName = Type_GetName(type);
-        if (tree->type == t_identifier)
-        {
-            LogTree(LOG_FATAL, tree, "Can't use arrow operator on variable %s (type %s) - wrong indirection level!", tree->value, typeName);
-        }
-        else
-        {
-            LogTree(LOG_FATAL, tree, "Can't use arrow operator on indirect type %s - wrong indirection level!", typeName);
-        }
+        char *tooDeepPointerType = Type_GetName(type);
+        LogTree(LOG_FATAL, tree, "Can't use dot operator on type %s - not a class or class pointer!", tooDeepPointerType);
     }
 }
 

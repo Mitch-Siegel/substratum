@@ -141,7 +141,10 @@ static void mangleBlockContents(struct Scope *scope, struct Dictionary *dict)
                     struct TACLine *thisTAC = TACRunner->data;
                     for (size_t operandIndex = 0; operandIndex < 4; operandIndex++)
                     {
-                        attemptOperandMangle(&thisTAC->operands[operandIndex], scope, dict);
+                        if (getUseOfOperand(thisTAC, operandIndex) != u_unused)
+                        {
+                            attemptOperandMangle(&thisTAC->operands[operandIndex], scope, dict);
+                        }
                     }
                 }
             }
@@ -283,7 +286,7 @@ void Scope_print(struct Scope *scope, FILE *outFile, size_t depth, char printTAC
                 fprintf(outFile, "\t");
             }
             fprintf(outFile, "  - Size: %zu bytes\n", theClass->totalSize);
-            Scope_print(theClass->members, outFile, depth + 1, 0);
+            Scope_print(theClass->members, outFile, depth + 1, printTAC);
         }
         break;
 
@@ -291,7 +294,15 @@ void Scope_print(struct Scope *scope, FILE *outFile, size_t depth, char printTAC
         {
             struct FunctionEntry *theFunction = thisMember->entry;
             char *returnTypeName = Type_GetName(&theFunction->returnType);
-            fprintf(outFile, "> Function %s (returns %s) (defined: %d)\n\t%ld bytes of arguments on stack\n", thisMember->name, returnTypeName, theFunction->isDefined, theFunction->argStackSize);
+            if (theFunction->methodOf != NULL)
+            {
+                fprintf(outFile, "> Method %s.", theFunction->methodOf->name);
+            }
+            else
+            {
+                fprintf(outFile, "> Function ");
+            }
+            fprintf(outFile, "%s (returns %s) (defined: %d)\n\t%ld bytes of arguments on stack\n", thisMember->name, returnTypeName, theFunction->isDefined, theFunction->argStackSize);
             free(returnTypeName);
             Scope_print(theFunction->mainScope, outFile, depth + 1, printTAC);
         }

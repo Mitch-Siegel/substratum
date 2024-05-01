@@ -9,9 +9,15 @@ class Money
 fun PrintMoney(Money *m)
 {
     uart_putc('$');
-    printNum(m->dollars);
+    printNum(m.dollars);
     uart_putc('.');
-    printNum(m->cents);
+    printNum(m.cents);
+}
+
+fun ResetMoney(Money *m)
+{
+    *m.dollars = 0;
+    *m.cents = 0;
 }
 
 fun main()
@@ -19,6 +25,8 @@ fun main()
     Money twelveDollars;
     twelveDollars.dollars = 12;
     twelveDollars.cents = 0;
+    PrintMoney(&twelveDollars);
+    ResetMoney(&twelveDollars);
     PrintMoney(&twelveDollars);
     exit();
 }

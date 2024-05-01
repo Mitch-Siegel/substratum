@@ -66,6 +66,46 @@ struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
     return NULL;
 }
 
+struct FunctionEntry *lookupMethod(struct ClassEntry *class,
+                                   struct AST *name)
+{
+    for (size_t entryIndex = 0; entryIndex < class->members->entries->size; entryIndex++)
+    {
+        struct ScopeMember *examinedEntry = class->members->entries->data[entryIndex];
+        if (!strcmp(examinedEntry->name, name->value))
+        {
+            if (examinedEntry->type != e_function)
+            {
+                LogTree(LOG_FATAL, name, "Attempt to call non-method member %s.%s as method!\n", class->name, name->value);
+            }
+            return examinedEntry->entry;
+        }
+    }
+
+    LogTree(LOG_FATAL, name, "Attempt to call nonexistent method %s.%s\n", class->name, name->value);
+    exit(1);
+}
+
+struct FunctionEntry *lookupMethodByString(struct ClassEntry *class,
+                                           char *name)
+{
+    for (size_t entryIndex = 0; entryIndex < class->members->entries->size; entryIndex++)
+    {
+        struct ScopeMember *examinedEntry = class->members->entries->data[entryIndex];
+        if (!strcmp(examinedEntry->name, name))
+        {
+            if (examinedEntry->type != e_function)
+            {
+                Log(LOG_FATAL, "Attempt to call non-method member %s.%s as method!\n", class->name, name);
+            }
+            return examinedEntry->entry;
+        }
+    }
+
+    Log(LOG_FATAL, "Attempt to call nonexistent method %s.%s\n", class->name, name);
+    exit(1);
+}
+
 struct ClassEntry *lookupClass(struct Scope *scope,
                                struct AST *name)
 {

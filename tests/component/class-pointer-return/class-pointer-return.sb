@@ -9,9 +9,9 @@ class Money
 Money *fun PrintMoney(Money *m)
 {
     uart_putc('$');
-    printNum(m->dollars);
+    printNum(m.dollars);
     uart_putc('.');
-    printNum(m->cents);
+    printNum(m.cents);
     return m;
 }
 
