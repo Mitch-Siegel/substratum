@@ -80,15 +80,20 @@ void HashTable_Free(struct HashTable *table);
 struct Dictionary
 {
     struct HashTable *table;
+    void *(*duplicateFunction)(void *data);
 };
 
 size_t hashString(void *data);
 
-struct Dictionary *Dictionary_New(size_t nBuckets);
+struct Dictionary *Dictionary_New(size_t nBuckets,
+                                  void *(*duplicateFunction)(void *),
+                                  size_t (*hashFunction)(void *data),
+                                  ssize_t (*compareFunction)(void *dataA, void *dataB),
+                                  void (*dataFreeFunction)(void *));
 
-char *Dictionary_Insert(struct Dictionary *dict, char *value);
+void *Dictionary_Insert(struct Dictionary *dict, void *value);
 
-char *Dictionary_LookupOrInsert(struct Dictionary *dict, char *value);
+void *Dictionary_LookupOrInsert(struct Dictionary *dict, void *value);
 
 void Dictionary_Free(struct Dictionary *dict);
 

@@ -3,6 +3,8 @@
 
 #include "substratum_defs.h"
 
+struct Scope;
+
 enum basicTypes
 {
     vt_null, // type information describing no type at all (only results from declaration of functions with no return)
@@ -11,30 +13,62 @@ enum basicTypes
     vt_u16,
     vt_u32,
     vt_u64,
-    vt_class
+    vt_class,
+    vt_array
 };
 
 struct Type
 {
     enum basicTypes basicType;
-    size_t indirectionLevel;
-    size_t arraySize;
+    size_t pointerLevel;
     union
     {
-        char *initializeTo;
-        char **initializeArrayTo;
+        struct
+        {
+            u8 *initializeTo;
+            struct complexType
+            {
+                char *name;
+            } complexType;
+        } nonArray;
+        struct
+        {
+            size_t size;
+            struct Type *type;
+            void **initializeArrayTo;
+        } array;
     };
-    struct classType
-    {
-        char *name;
-    } classType;
 };
 
-int Type_Compare(struct Type *typeA, struct Type *typeB);
+void Type_Init(struct Type *type);
+
+void Type_Free(struct Type *type);
+
+void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *complexTypeName, size_t pointerLevel);
+
+size_t Type_GetIndirectionLevel(struct Type *type);
+
+void Type_DecayArrays(struct Type *type);
+
+ssize_t Type_Compare(struct Type *typeA, struct Type *typeB);
+
+size_t Type_Hash(struct Type *type);
 
 // return 0 if 'a' is the same type as 'b', or if it can implicitly be widened to become equivalent
 int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB);
 
 char *Type_GetName(struct Type *type);
+
+struct Type *Type_Duplicate(struct Type *type);
+
+// gets the byte size (not aligned) of a given type
+size_t Type_GetSize(struct Type *type, struct Scope *scope);
+
+size_t Type_GetSizeWhenDereferenced(struct Type *type, struct Scope *scope);
+
+size_t Type_GetSizeOfArrayElement(struct Type *arrayType, struct Scope *scope);
+
+// calculate the power of 2 to which a given type needs to be aligned
+u8 Type_GetAlignment(struct Type *type, struct Scope *scope);
 
 #endif

@@ -53,11 +53,7 @@ void populateTACOperandAsTemp(struct TACOperand *operandToPopulate, size_t *temp
 void copyTypeDecayArrays(struct Type *dest, struct Type *src)
 {
     *dest = *src;
-    if (dest->arraySize > 0)
-    {
-        dest->arraySize = 0;
-        dest->indirectionLevel++;
-    }
+    Type_DecayArrays(dest);
 }
 
 void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src)
@@ -68,8 +64,7 @@ void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src)
 
 void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *src)
 {
-    copyTypeDecayArrays(&dest->type, &src->type);
-    copyTypeDecayArrays(&dest->castAsType, &src->castAsType);
+    copyTypeDecayArrays(TACOperand_GetType(dest), TACOperand_GetType(src));
 }
 
 extern struct TempList *temps;
@@ -82,7 +77,7 @@ struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, 
     scaleMultiplication->operands[0].permutation = vp_temp;
 
     char scaleVal[sprintedNumberLength];
-    snprintf(scaleVal, sprintedNumberLength - 1, "%zu", getSizeOfDereferencedType(scope, pointerTypeOfToScale));
+    snprintf(scaleVal, sprintedNumberLength - 1, "%zu", Type_GetSizeWhenDereferenced(pointerTypeOfToScale, scope));
     scaleMultiplication->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, scaleVal);
     scaleMultiplication->operands[2].permutation = vp_literal;
     scaleMultiplication->operands[2].type.basicType = vt_u32;
@@ -111,7 +106,7 @@ void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type
     }
 
     // make sure whatever we're applying the dot operator to is actually a class instance, not a class array or class pointer
-    if ((type->indirectionLevel > 0) || (type->arraySize > 0))
+    if ((type->pointerLevel > 0) || (type->basicType == vt_array))
     {
         char *typeName = Type_GetName(type);
         if (tree->type == t_identifier)
@@ -146,7 +141,7 @@ void checkAccessedClassForArrow(struct AST *tree, struct Scope *scope, struct Ty
     }
 
     // make sure whatever we're applying the arrow operator to is actually a class pointer instance and nothing else
-    if ((type->indirectionLevel != 1) || (type->arraySize > 0))
+    if ((type->pointerLevel != 1) || (type->basicType == vt_array))
     {
         char *typeName = Type_GetName(type);
         if (tree->type == t_identifier)
@@ -184,5 +179,5 @@ void convertArrayRefLoadToLea(struct TACLine *arrayRefLine)
     }
 
     // increment indirection level as we just converted from a load to a lea
-    TAC_GetTypeOfOperand(arrayRefLine, 0)->indirectionLevel++;
+    TAC_GetTypeOfOperand(arrayRefLine, 0)->pointerLevel++;
 }

@@ -18,7 +18,6 @@ struct VariableEntry *createVariable(struct Scope *scope,
     newVariable->mustSpill = 0;
     newVariable->name = name->value;
 
-    newVariable->type.initializeTo = NULL;
 
     if (isGlobal)
     {
@@ -51,7 +50,7 @@ struct VariableEntry *createVariable(struct Scope *scope,
             InternalError("Function %s has argument stack size too large (%zd bytes)!", scope->parentFunction->name, scope->parentFunction->argStackSize);
         }
         newVariable->stackOffset = (ssize_t)scope->parentFunction->argStackSize;
-        scope->parentFunction->argStackSize += getSizeOfType(scope, type);
+        scope->parentFunction->argStackSize += Type_GetSize(type, scope);
 
         Scope_insert(scope, name->value, newVariable, e_argument);
     }

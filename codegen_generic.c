@@ -72,7 +72,7 @@ void verifyCodegenPrimitive(struct TACOperand *operand)
     struct Type *realType = TACOperand_GetType(operand);
     if (realType->basicType == vt_class)
     {
-        if ((realType->indirectionLevel == 0) && (realType->arraySize == 0))
+        if (realType->pointerLevel == 0)
         {
             char *typeName = Type_GetName(realType);
             InternalError("Error in verifyCodegenPrimitive: %s is not a primitive type!", typeName);
@@ -181,7 +181,7 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
         char loadWidth = 'X';
         const char *loadSign = "";
 
-        if (relevantLifetime->type.arraySize > 0)
+        if (relevantLifetime->type.basicType == vt_array)
         {
             // if array, treat as pointer
             loadWidth = 'd';
@@ -198,7 +198,7 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
                         relevantLifetime->name,
                         operand->name.str);
 
-        if (relevantLifetime->type.arraySize == 0)
+        if (relevantLifetime->type.basicType != vt_array)
         {
             emitInstruction(correspondingTACLine, context, "\tl%c%s %s, 0(%s) # place %s\n",
                             loadWidth,
@@ -220,7 +220,7 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
         }
 
         const char *usedRegister = registerNames[registerIndex];
-        if (relevantLifetime->type.arraySize > 0)
+        if (relevantLifetime->type.basicType == vt_array)
         {
             if (relevantLifetime->stackLocation >= 0)
             {
@@ -370,44 +370,47 @@ const char *SelectSignForLoad(u8 loadSize, struct Type *loaded)
 char SelectWidthChar(struct Scope *scope, struct TACOperand *dataDest)
 {
     // pointers and arrays (decay implicitly at this stage to pointers) are always full-width
-    if ((TACOperand_GetType(dataDest)->indirectionLevel > 0) || (TACOperand_GetType(dataDest)->arraySize > 0))
+    if (Type_GetIndirectionLevel(TACOperand_GetType(dataDest)) > 0)
     {
         return 'd';
     }
 
-    return SelectWidthCharForSize(getSizeOfType(scope, TACOperand_GetType(dataDest)));
+    return SelectWidthCharForSize(Type_GetSize(TACOperand_GetType(dataDest), scope));
 }
 
 char SelectWidthCharForDereference(struct Scope *scope, struct TACOperand *dataDest)
 {
     struct Type *operandType = TACOperand_GetType(dataDest);
-    if ((operandType->indirectionLevel == 0) &&
-        (operandType->arraySize == 0))
+    if ((operandType->pointerLevel == 0) &&
+        (operandType->basicType != vt_array))
     {
         InternalError("SelectWidthCharForDereference called on non-indirect operand %s!", dataDest->name.str);
     }
     struct Type dereferenced = *operandType;
-    if (dereferenced.indirectionLevel == 0)
+
+    // if not a pointer, we are dereferenceing an array so jump one layer down
+    if (dereferenced.pointerLevel == 0)
     {
-        dereferenced.arraySize = 0;
+        dereferenced = *dereferenced.array.type;
     }
     else
     {
-        dereferenced.indirectionLevel--;
+        // is a pointer, decrement pointer level
+        dereferenced.pointerLevel--;
     }
-    return SelectWidthCharForSize(getSizeOfType(scope, &dereferenced));
+    return SelectWidthCharForSize(Type_GetSize(&dereferenced, scope));
 }
 
 char SelectWidthCharForLifetime(struct Scope *scope, struct Lifetime *lifetime)
 {
     char widthChar = '\0';
-    if (lifetime->type.indirectionLevel > 0)
+    if (lifetime->type.pointerLevel > 0)
     {
         widthChar = 'd';
     }
     else
     {
-        widthChar = SelectWidthCharForSize(getSizeOfType(scope, &lifetime->type));
+        widthChar = SelectWidthCharForSize(Type_GetSize(&lifetime->type, scope));
     }
 
     return widthChar;
@@ -459,7 +462,7 @@ void EmitPushForOperand(struct TACLine *correspondingTACLine,
                         struct TACOperand *dataSource,
                         u8 srcRegister)
 {
-    size_t size = getSizeOfType(scope, TACOperand_GetType(dataSource));
+    size_t size = Type_GetSize(TACOperand_GetType(dataSource), scope);
     switch (size)
     {
     case sizeof(u8):
@@ -494,7 +497,7 @@ void EmitPopForOperand(struct TACLine *correspondingTACLine,
                        struct TACOperand *dataDest,
                        u8 destRegister)
 {
-    size_t size = getSizeOfType(scope, TACOperand_GetType(dataDest));
+    size_t size = Type_GetSize(TACOperand_GetType(dataDest), scope);
     switch (size)
     {
     case sizeof(u8):

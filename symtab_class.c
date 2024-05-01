@@ -36,7 +36,7 @@ void assignOffsetToMemberVariable(struct ClassEntry *class,
     newMemberLocation->variable = variable;
 
     // add the size of the member we just added to the total size of the class
-    class->totalSize += getSizeOfType(class->members, &variable->type);
+    class->totalSize += Type_GetSize(&variable->type, class->members);
 
     Stack_Push(class->memberLocations, newMemberLocation);
 }
@@ -89,15 +89,15 @@ struct ClassEntry *lookupClass(struct Scope *scope,
 struct ClassEntry *lookupClassByType(struct Scope *scope,
                                      struct Type *type)
 {
-    if (type->classType.name == NULL)
+    if (type->basicType != vt_class || type->nonArray.complexType.name == NULL)
     {
-        InternalError("Type with null classType name passed to lookupClassByType!");
+        InternalError("Non-class type or class type with null name passed to lookupClassByType!");
     }
 
-    struct ScopeMember *lookedUp = Scope_lookup(scope, type->classType.name);
+    struct ScopeMember *lookedUp = Scope_lookup(scope, type->nonArray.complexType.name);
     if (lookedUp == NULL)
     {
-        Log(LOG_FATAL, "Use of undeclared class '%s'", type->classType.name);
+        Log(LOG_FATAL, "Use of undeclared class '%s'", type->nonArray.complexType.name);
     }
 
     switch (lookedUp->type)
@@ -106,6 +106,6 @@ struct ClassEntry *lookupClassByType(struct Scope *scope,
         return lookedUp->entry;
 
     default:
-        InternalError("lookupClassByType for %s lookup got a non-class ScopeMember!", type->classType.name);
+        InternalError("lookupClassByType for %s lookup got a non-class ScopeMember!", type->nonArray.complexType.name);
     }
 }
