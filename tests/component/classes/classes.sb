@@ -16,8 +16,19 @@ fun PrintMoney(Money *m)
 
 fun ResetMoney(Money *m)
 {
-    *m.dollars = 0;
-    *m.cents = 0;
+    m.dollars = 0;
+    m.cents = 0;
+}
+
+fun SetMoneyDoublePointer(Money **mp, u8 dollars, u8 cents)
+{
+    (*mp).dollars = dollars;
+    (*mp).cents = cents;
+}
+
+fun SetMoney(Money *m, u8 dollars, u8 cents)
+{
+    SetMoneyDoublePointer(&m, dollars, cents);
 }
 
 fun main()
@@ -27,6 +38,8 @@ fun main()
     twelveDollars.cents = 0;
     PrintMoney(&twelveDollars);
     ResetMoney(&twelveDollars);
+    PrintMoney(&twelveDollars);
+    SetMoney(&twelveDollars, 12, 24);
     PrintMoney(&twelveDollars);
     exit();
 }

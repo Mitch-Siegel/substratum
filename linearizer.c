@@ -1107,22 +1107,24 @@ void walkDotOperatorAssignment(struct AST *tree,
     wipAssignment->operation = tt_store_off;
     switch (class->type)
     {
-
+    
+    // if assigning something like *myClass.member = 123
     case t_dereference:
     {
-        struct TACOperand dummyDereferencedOperand;
-        memset(&dummyDereferencedOperand, 0, sizeof(struct TACOperand));
-        walkSubExpression(class->child, block, scope, TACIndex, tempNum, &dummyDereferencedOperand);
+        // the dereference gets walked normally
+        struct TACOperand *dereferencedOperand = walkDereference(class, block, scope, TACIndex, tempNum);
 
+        // then, we need to check to make sure that the thing we're dereferencing something sane
+        // TODO: implement universal check in walkDereference
         struct Type dummyDecayType;
-        copyTypeDecayArrays(&dummyDecayType, TACOperand_GetType(&dummyDereferencedOperand));
+        copyTypeDecayArrays(&dummyDecayType, TACOperand_GetType(dereferencedOperand));
         if (dummyDecayType.pointerLevel == 0)
         {
-            char *dereferencedTypeName = Type_GetName(TACOperand_GetType(&dummyDereferencedOperand));
+            char *dereferencedTypeName = Type_GetName(TACOperand_GetType(dereferencedOperand));
             LogTree(LOG_FATAL, class, "Use of dereference on non-indirect type %s\n", dereferencedTypeName);
         }
 
-        copyTACOperandDecayArrays(&wipAssignment->operands[0], &dummyDereferencedOperand);
+        copyTACOperandDecayArrays(&wipAssignment->operands[0], dereferencedOperand);
     }
     break;
         LogTree(LOG_FATAL, class, "Use of the dot operator assignment on dereferenced values is not supported\nAssign using object->member instead of (*object).member");
