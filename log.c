@@ -38,7 +38,8 @@ void printLogLevel(enum LogLevel level, const char *file, size_t line)
         printf("[  ERROR] ");
         break;
     case LOG_FATAL:
-        printf("[FATAL @ %s:%zu] ", file, line);
+        // TODO: only log as [ FATAL ] if configured to do so
+        // printf("[ FATAL ]");
         break;
     }
 }
@@ -73,7 +74,11 @@ void LogTreeFunction(const char *file, size_t line, enum LogLevel level, struct 
     va_list args;
     va_start(args, format);
     printLogLevel(level, file, line);
-    printf("%s:%d:%d: ", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+    // TODO: option to print tree even on fatal
+    if (level != LOG_FATAL)
+    {
+        printf("%s:%d:%d: ", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+    }
     vprintf(format, args);
     putc('\n', stdout);
     va_end(args);

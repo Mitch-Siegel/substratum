@@ -135,15 +135,24 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
     Type_SetBasicType(populateTypeTo, basicType, className, scrapePointers(tree->child, &declaredArray));
 
     // if declaring something with the 'any' type, make sure it's only as a pointer (as its intended use is to point to unstructured data)
-    if (populateTypeTo->basicType == vt_any)
+    if (populateTypeTo->basicType == vt_array || populateTypeTo->basicType == vt_any)
     {
-        if (populateTypeTo->pointerLevel == 0)
+        struct Type anyCheckRunner = *populateTypeTo;
+        while (anyCheckRunner.basicType == vt_array)
         {
-            LogTree(LOG_FATAL, tree->child, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)");
+            anyCheckRunner = *anyCheckRunner.array.type;
         }
-        else if (populateTypeTo->basicType == vt_array)
+
+        if ((anyCheckRunner.pointerLevel == 0) && (anyCheckRunner.basicType == vt_any))
         {
-            LogTree(LOG_FATAL, declaredArray, "Use of the type 'any' in arrays is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)");
+            if (populateTypeTo->basicType == vt_array)
+            {
+                LogTree(LOG_FATAL, declaredArray, "Use of the type 'any' in arrays is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as 'any *', 'any **', etc...)");
+            }
+            else
+            {
+                LogTree(LOG_FATAL, tree->child, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as 'any *', 'any **', etc...)");
+            }
         }
     }
 

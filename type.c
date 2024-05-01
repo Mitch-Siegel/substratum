@@ -287,7 +287,7 @@ int Type_CompareAllowImplicitWidening(struct Type *source, struct Type *dest)
     // if we are converting from an array to something
     if (source->basicType == vt_array)
     {
-        // if we haven't already returned by the time we get to here, we know that we are doing an implicit conversion such as `something[123]->something*`
+        // if we haven't already returned by the time we get to here, we know that we are doing an implicit conversion such as 'something[123]->something*'
         // yank the arrayed type out, and decay its pointer manually, then recurse
         struct Type decayedType = *source->array.type;
         decayedType.pointerLevel++;
@@ -383,11 +383,11 @@ size_t Type_GetSize(struct Type *type, struct Scope *scope)
         break;
 
     case vt_any:
-        // triple check that `any` is only ever used as a pointer type a la c's void *
+        // triple check that 'any' is only ever used as a pointer type a la c's void *
         if (type->pointerLevel == 0)
         {
             char *illegalAnyTypeName = Type_GetName(type);
-            InternalError("Illegal `any` type detected - %s\nSomething slipped through earlier sanity checks on use of `any` as `any *` or some other pointer type\n", illegalAnyTypeName);
+            InternalError("Illegal 'any' type detected - %s\nSomething slipped through earlier sanity checks on use of 'any' as 'any *' or some other pointer type\n", illegalAnyTypeName);
         }
         size = sizeof(u8);
         break;
