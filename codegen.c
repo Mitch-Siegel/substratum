@@ -433,6 +433,17 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char
     }
 }
 
+void emitLoc(struct CodegenContext *context, struct TACLine *thisTAC, size_t *lastLineNo)
+{
+    // don't duplicate .loc's for the same line
+    // riscv64-unknown-elf-gdb (or maybe the as/ld) don't enjoy going backwards/staying put in line or column loc
+    if (thisTAC->correspondingTree.sourceLine > *lastLineNo)
+    {
+        fprintf(context->outFile, "\t.loc 1 %d\n", thisTAC->correspondingTree.sourceLine);
+        *lastLineNo = thisTAC->correspondingTree.sourceLine;
+    }
+}
+
 void generateCodeForBasicBlock(struct CodegenContext *context,
                                struct BasicBlock *block,
                                struct Scope *scope,
@@ -446,7 +457,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
         fprintf(context->outFile, "%s_%zu:\n", functionName, block->labelNum);
     }
 
-    u32 lastLineNo = 0;
+    size_t lastLineNo = 0;
     for (struct LinkedListNode *TACRunner = block->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
     {
         struct TACLine *thisTAC = TACRunner->data;
@@ -455,13 +466,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
         fprintf(context->outFile, "#%s\n", printedTAC);
         free(printedTAC);
 
-        // don't duplicate .loc's for the same line
-        // riscv64-unknown-elf-gdb (or maybe the as/ld) don't enjoy going backwards/staying put in line or column loc
-        if (thisTAC->correspondingTree.sourceLine > lastLineNo)
-        {
-            fprintf(context->outFile, "\t.loc 1 %d\n", thisTAC->correspondingTree.sourceLine);
-            lastLineNo = thisTAC->correspondingTree.sourceLine;
-        }
+        emitLoc(context, thisTAC, &lastLineNo);
 
         switch (thisTAC->operation)
         {

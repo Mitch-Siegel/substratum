@@ -55,7 +55,7 @@ ssize_t Type_Compare(struct Type *typeA, struct Type *typeB);
 size_t Type_Hash(struct Type *type);
 
 // return 0 if 'a' is the same type as 'b', or if it can implicitly be widened to become equivalent
-int Type_CompareAllowImplicitWidening(struct Type *typeA, struct Type *typeB);
+int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest);
 
 char *Type_GetName(struct Type *type);
 

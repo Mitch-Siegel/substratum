@@ -36,57 +36,17 @@ void Scope_free(struct Scope *scope)
             break;
 
         case e_function:
-        {
             FunctionEntry_free(examinedEntry->entry);
-        }
-        break;
+            break;
 
         case e_variable:
         case e_argument:
-        {
-            struct VariableEntry *theVariable = examinedEntry->entry;
-            struct Type *variableType = &theVariable->type;
-            if (variableType->basicType == vt_array)
-            {
-                struct Type typeRunner = *variableType;
-                while (typeRunner.basicType == vt_array)
-                {
-                    if (typeRunner.array.initializeArrayTo != NULL)
-                    {
-                        for (size_t i = 0; i < typeRunner.array.size; i++)
-                        {
-                            free(typeRunner.array.initializeArrayTo[i]);
-                        }
-                        free(typeRunner.array.initializeArrayTo);
-                    }
-                    typeRunner = *typeRunner.array.type;
-                }
-            }
-            else
-            {
-                if (variableType->nonArray.initializeTo != NULL)
-                {
-                    free(variableType->nonArray.initializeTo);
-                }
-            }
-            free(theVariable);
-        }
-        break;
+            VariableEntry_free(examinedEntry->entry);
+            break;
 
         case e_class:
-        {
-            struct ClassEntry *theClass = examinedEntry->entry;
-            Scope_free(theClass->members);
-
-            while (theClass->memberLocations->size > 0)
-            {
-                free(Stack_Pop(theClass->memberLocations));
-            }
-
-            Stack_Free(theClass->memberLocations);
-            free(theClass);
-        }
-        break;
+            ClassEntry_free(examinedEntry->entry);
+            break;
 
         case e_basicblock:
             BasicBlock_free(examinedEntry->entry);

@@ -27,6 +27,8 @@ struct VariableEntry *createVariable(struct Scope *scope,
                                      size_t declaredAt,
                                      u8 isArgument);
 
+void VariableEntry_free(struct VariableEntry *variable);
+
 struct VariableEntry *lookupVarByString(struct Scope *scope,
                                         char *name);
 

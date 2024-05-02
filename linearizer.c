@@ -15,9 +15,10 @@
 struct TempList *temps;
 struct Dictionary *typeDict;
 extern struct Dictionary *parseDict;
+const u8 TYPE_DICT_SIZE = 10;
 struct SymbolTable *walkProgram(struct AST *program)
 {
-    typeDict = Dictionary_New(10, (void *(*)(void *))Type_Duplicate, (size_t(*)(void *))Type_Hash, (ssize_t(*)(void *, void *))Type_Compare, (void (*)(void *))Type_Free);
+    typeDict = Dictionary_New(TYPE_DICT_SIZE, (void *(*)(void *))Type_Duplicate, (size_t(*)(void *))Type_Hash, (ssize_t(*)(void *, void *))Type_Compare, (void (*)(void *))Type_Free);
     struct SymbolTable *programTable = SymbolTable_new("Program");
     struct BasicBlock *globalBlock = Scope_lookup(programTable->globalScope, "globalblock")->entry;
     struct BasicBlock *asmBlock = BasicBlock_new(1);
@@ -240,6 +241,95 @@ void walkArgumentDeclaration(struct AST *tree,
     Stack_Push(fun->arguments, declaredArgument);
 }
 
+void verifyFunctionSignatures(struct AST *tree, struct FunctionEntry *existingFunc, struct FunctionEntry *parsedFunc)
+{
+    // nothing to do if no existing function
+    if (existingFunc == NULL)
+    {
+        return;
+    }
+    // check that if a prototype declaration exists, that our parsed declaration matches it exactly
+    u8 mismatch = 0;
+
+    if ((Type_Compare(&parsedFunc->returnType, &existingFunc->returnType)))
+    {
+        mismatch = 1;
+    }
+
+    // ensure we have both the same number of bytes of arguments and same number of arguments
+    if (!mismatch &&
+        (existingFunc->argStackSize == parsedFunc->argStackSize) &&
+        (existingFunc->arguments->size == parsedFunc->arguments->size))
+    {
+        // if we have same number of bytes and same number, ensure everything is exactly the same
+        for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
+        {
+            struct VariableEntry *existingArg = existingFunc->arguments->data[argIndex];
+            struct VariableEntry *parsedArg = parsedFunc->arguments->data[argIndex];
+            // ensure all arguments in order have same name, type, indirection level
+            if ((strcmp(existingArg->name, parsedArg->name) != 0) ||
+                (Type_Compare(&existingArg->type, &parsedArg->type)))
+            {
+                mismatch = 1;
+                break;
+            }
+        }
+    }
+    else
+    {
+        mismatch = 1;
+    }
+
+    if (mismatch)
+    {
+        printf("\nConflicting declarations of function:\n");
+
+        char *existingReturnType = Type_GetName(&existingFunc->returnType);
+        printf("\t%s %s(", existingReturnType, existingFunc->name);
+        free(existingReturnType);
+        for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
+        {
+            struct VariableEntry *existingArg = existingFunc->arguments->data[argIndex];
+
+            char *argType = Type_GetName(&existingArg->type);
+            printf("%s %s", argType, existingArg->name);
+            free(argType);
+
+            if (argIndex < existingFunc->arguments->size - 1)
+            {
+                printf(", ");
+            }
+            else
+            {
+                printf(")");
+            }
+        }
+        char *parsedReturnType = Type_GetName(&parsedFunc->returnType);
+        printf("\n\t%s %s(", parsedReturnType, parsedFunc->name);
+        free(parsedReturnType);
+        for (size_t argIndex = 0; argIndex < parsedFunc->arguments->size; argIndex++)
+        {
+            struct VariableEntry *parsedArg = parsedFunc->arguments->data[argIndex];
+
+            char *argType = Type_GetName(&parsedArg->type);
+            printf("%s %s", argType, parsedArg->name);
+            free(argType);
+
+            if (argIndex < parsedFunc->arguments->size - 1)
+            {
+                printf(", ");
+            }
+            else
+            {
+                printf(")");
+            }
+        }
+        printf("\n");
+
+        LogTree(LOG_FATAL, tree, " ");
+    }
+}
+
 struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
                                               struct Scope *scope)
 {
@@ -330,141 +420,24 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
         parsedFunc->argStackSize++;
     }
 
-    // if we are parsing a declaration which precedes a definition, there may be an existing declaration (prototype)
-    if (existingFunc != NULL)
-    {
-        // check that if a prototype declaration exists, that our parsed declaration matches it exactly
-        u8 mismatch = 0;
+    verifyFunctionSignatures(tree, existingFunc, parsedFunc);
 
-        if ((Type_Compare(&parsedFunc->returnType, &existingFunc->returnType)))
-        {
-            mismatch = 1;
-        }
-
-        // ensure we have both the same number of bytes of arguments and same number of arguments
-        if (!mismatch &&
-            (existingFunc->argStackSize == parsedFunc->argStackSize) &&
-            (existingFunc->arguments->size == parsedFunc->arguments->size))
-        {
-            // if we have same number of bytes and same number, ensure everything is exactly the same
-            for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
-            {
-                struct VariableEntry *existingArg = existingFunc->arguments->data[argIndex];
-                struct VariableEntry *parsedArg = parsedFunc->arguments->data[argIndex];
-                // ensure all arguments in order have same name, type, indirection level
-                if ((strcmp(existingArg->name, parsedArg->name) != 0) ||
-                    (Type_Compare(&existingArg->type, &parsedArg->type)))
-                {
-                    mismatch = 1;
-                    break;
-                }
-            }
-        }
-        else
-        {
-            mismatch = 1;
-        }
-
-        if (mismatch)
-        {
-            printf("\nConflicting declarations of function:\n");
-
-            char *existingReturnType = Type_GetName(&existingFunc->returnType);
-            printf("\t%s %s(", existingReturnType, existingFunc->name);
-            free(existingReturnType);
-            for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
-            {
-                struct VariableEntry *existingArg = existingFunc->arguments->data[argIndex];
-
-                char *argType = Type_GetName(&existingArg->type);
-                printf("%s %s", argType, existingArg->name);
-                free(argType);
-
-                if (argIndex < existingFunc->arguments->size - 1)
-                {
-                    printf(", ");
-                }
-                else
-                {
-                    printf(")");
-                }
-            }
-            char *parsedReturnType = Type_GetName(&parsedFunc->returnType);
-            printf("\n\t%s %s(", parsedReturnType, parsedFunc->name);
-            free(parsedReturnType);
-            for (size_t argIndex = 0; argIndex < parsedFunc->arguments->size; argIndex++)
-            {
-                struct VariableEntry *parsedArg = parsedFunc->arguments->data[argIndex];
-
-                char *argType = Type_GetName(&parsedArg->type);
-                printf("%s %s", argType, parsedArg->name);
-                free(argType);
-
-                if (argIndex < parsedFunc->arguments->size - 1)
-                {
-                    printf(", ");
-                }
-                else
-                {
-                    printf(")");
-                }
-            }
-            printf("\n");
-
-            LogTree(LOG_FATAL, tree, " ");
-        }
-    }
     // free the basic block we used to walk declarations of arguments
     BasicBlock_free(block);
 
     struct AST *definition = argumentRunner;
     if (definition != NULL)
     {
-        struct FunctionEntry *walkedFunction = NULL;
         if (existingFunc != NULL)
         {
             FunctionEntry_free(parsedFunc);
             existingFunc->isDefined = 1;
             walkFunctionDefinition(definition, existingFunc);
-            walkedFunction = existingFunc;
         }
         else
         {
             parsedFunc->isDefined = 1;
             walkFunctionDefinition(definition, parsedFunc);
-            walkedFunction = parsedFunc;
-        }
-
-        for (struct LinkedListNode *runner = walkedFunction->BasicBlockList->head; runner != NULL; runner = runner->next)
-        {
-            struct BasicBlock *checkedBlock = runner->data;
-            u8 firstCheck = 1;
-            size_t prevTacIndex = 0;
-            // iterate TAC lines backwards, because the last line with a duplicate number is actually the problem
-            // (because we should post-increment the index to number recursive linearzations correctly)
-            for (struct LinkedListNode *TACRunner = checkedBlock->TACList->tail; TACRunner != NULL; TACRunner = TACRunner->prev)
-            {
-                struct TACLine *checkedTAC = TACRunner->data;
-                if (!firstCheck)
-                {
-                    if ((checkedTAC->index + 1) != prevTacIndex)
-                    {
-                        printBasicBlock(checkedBlock, 0);
-                        char *printedTACLine = sPrintTACLine(checkedTAC);
-                        InternalError("TAC line allocated at %s:%d doesn't obey ordering - numbering goes from 0x%lx to 0x%lx:\n\t%s",
-                                      checkedTAC->allocFile,
-                                      checkedTAC->allocLine,
-                                      checkedTAC->index,
-                                      prevTacIndex,
-                                      printedTACLine);
-                    }
-                }
-                else
-                {
-                    firstCheck = 0;
-                }
-                prevTacIndex = checkedTAC->index;
-            }
         }
     }
 
@@ -1712,6 +1685,25 @@ void walkFunctionCall(struct AST *tree,
     generateCallTac(tree, calledFunction, block, TACIndex, tempNum, destinationOperand);
 }
 
+struct TACOperand *getAddrOfOperand(struct AST *tree,
+                                    struct BasicBlock *block,
+                                    struct Scope *scope,
+                                    size_t *TACIndex,
+                                    size_t *tempNum,
+                                    struct TACOperand *getAddrOf)
+{
+    struct TACLine *addrOfLine = newTACLine(tt_addrof, tree);
+    addrOfLine->operands[1] = *getAddrOf;
+
+    populateTACOperandAsTemp(&addrOfLine->operands[0], tempNum);
+
+    copyTACOperandTypeDecayArrays(&addrOfLine->operands[0], &addrOfLine->operands[1]);
+    TAC_GetTypeOfOperand(addrOfLine, 0)->pointerLevel++;
+    BasicBlock_append(block, addrOfLine, TACIndex);
+
+    return &addrOfLine->operands[0];
+}
+
 void walkMethodCall(struct AST *tree,
                     struct BasicBlock *block,
                     struct Scope *scope,
@@ -1772,15 +1764,7 @@ void walkMethodCall(struct AST *tree,
     // if class we are calling method on is not indirect, automagically insert an intermediate address-of
     if (TACOperand_GetType(&classOperand)->pointerLevel == 0)
     {
-        struct TACLine *pThisAddrOf = newTACLine(tt_addrof, classTree);
-        pThisAddrOf->operands[1] = classOperand;
-
-        pThisAddrOf->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-        pThisAddrOf->operands[0].permutation = vp_temp;
-        copyTACOperandTypeDecayArrays(&pThisAddrOf->operands[0], &pThisAddrOf->operands[1]);
-        TAC_GetTypeOfOperand(pThisAddrOf, 0)->pointerLevel++;
-        classOperand = pThisAddrOf->operands[0];
-        BasicBlock_append(block, pThisAddrOf, TACIndex);
+        classOperand = *getAddrOfOperand(tree, block, scope, TACIndex, tempNum, &classOperand);
     }
 
     struct TACLine *pThisPush = newTACLine(tt_stack_store, classTree);
@@ -1862,90 +1846,74 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
         populateTACOperandAsTemp(&accessLine->operands[0], tempNum);
 
-        // if we are at the bottom of potentially-nested dot operators,
-        // we need the base address of the object we're accessing the member from
-        if (tree->type == t_dot)
+        // we may need to do some manipulation of the subexpression depending on what exactly we're dotting
+        switch (class->type)
         {
-            // we may need to do some manipulation of the subexpression depending on what exactly we're dotting
-            switch (class->type)
+        case t_dereference:
+        {
+            // let walkDereference do the heavy lifting for us
+            struct TACOperand *dereferencedOperand = walkDereference(class, block, scope, TACIndex, tempNum);
+
+            // make sure we are generally dotting something sane
+            struct Type *accessedType = TACOperand_GetType(dereferencedOperand);
+
+            checkAccessedClassForDot(class, scope, accessedType);
+            // additional check so that if we dereference a class single-pointer we force not putting the dereference there
+            if (accessedType->pointerLevel == 0)
             {
-            case t_dereference:
-            {
-                // let walkDereference do the heavy lifting for us
-                struct TACOperand *dereferencedOperand = walkDereference(class, block, scope, TACIndex, tempNum);
-
-                // make sure we are generally dotting something sane
-                struct Type *accessedType = TACOperand_GetType(dereferencedOperand);
-
-                checkAccessedClassForDot(class, scope, accessedType);
-                // additional check so that if we dereference a class single-pointer we force not putting the dereference there
-                if (accessedType->pointerLevel == 0)
-                {
-                    char *dereferencedTypeName = Type_GetName(accessedType);
-                    LogTree(LOG_FATAL, class, "Use of dereference on single-indirect type %s before dot '(*class).member' is prohibited - just use 'class.member' instead", dereferencedTypeName);
-                }
-
-                copyTACOperandDecayArrays(&accessLine->operands[1], dereferencedOperand);
+                char *dereferencedTypeName = Type_GetName(accessedType);
+                LogTree(LOG_FATAL, class, "Use of dereference on single-indirect type %s before dot '(*class).member' is prohibited - just use 'class.member' instead", dereferencedTypeName);
             }
-            break;
 
-            case t_array_index:
+            copyTACOperandDecayArrays(&accessLine->operands[1], dereferencedOperand);
+        }
+        break;
+
+        case t_array_index:
+        {
+            // let walkArrayRef do the heavy lifting for us
+            struct TACLine *arrayRefToDot = walkArrayRef(class, block, scope, TACIndex, tempNum);
+
+            // before we convert our array ref to an LEA to get the address of the class we're dotting, check to make sure everything is good
+            checkAccessedClassForDot(tree, scope, TAC_GetTypeOfOperand(arrayRefToDot, 0));
+
+            // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
+            convertLoadToLea(arrayRefToDot, &accessLine->operands[1]);
+        }
+        break;
+
+        case t_identifier:
+        {
+            // if we are dotting an identifier, insert an address-of if it is not a pointer already
+            struct VariableEntry *dottedVariable = lookupVar(scope, class);
+
+            if (dottedVariable->type.pointerLevel == 0)
             {
-                // let walkArrayRef do the heavy lifting for us
-                struct TACLine *arrayRefToDot = walkArrayRef(class, block, scope, TACIndex, tempNum);
+                struct TACOperand dottedOperand;
+                memset(&dottedOperand, 0, sizeof(struct TACOperand));
 
-                // before we convert our array ref to an LEA to get the address of the class we're dotting, check to make sure everything is good
-                checkAccessedClassForDot(tree, scope, TAC_GetTypeOfOperand(arrayRefToDot, 0));
+                walkSubExpression(class, block, scope, TACIndex, tempNum, &dottedOperand);
 
-                // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
-                convertLoadToLea(arrayRefToDot, &accessLine->operands[1]);
-            };
-            break;
-
-            case t_identifier:
-            {
-                // if we are dotting an identifier, insert an address-of if it is not a pointer already
-                struct VariableEntry *dottedVariable = lookupVar(scope, class);
-
-                if (dottedVariable->type.pointerLevel == 0)
+                if (dottedOperand.permutation != vp_temp)
                 {
-                    struct TACLine *getAddressForDot = newTACLine(tt_addrof, tree);
-                    populateTACOperandAsTemp(&getAddressForDot->operands[0], tempNum);
-
-                    walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
-
-                    if (getAddressForDot->operands[1].permutation != vp_temp)
-                    {
-                        // while this check is duplicated in the checks immediately following the switch,
-                        // we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
-                        checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
-                    }
-
-                    copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
-                    TAC_GetTypeOfOperand(getAddressForDot, 0)->pointerLevel++;
-
-                    BasicBlock_append(block, getAddressForDot, TACIndex);
-                    copyTACOperandDecayArrays(&accessLine->operands[1], &getAddressForDot->operands[0]);
+                    // while this check is duplicated in the checks immediately following the switch,
+                    // we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
+                    checkAccessedClassForDot(class, scope, TACOperand_GetType(&dottedOperand));
                 }
-                else
-                {
-                    walkSubExpression(class, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
-                }
+
+                struct TACOperand *addrOfDottedVariable = getAddrOfOperand(class, block, scope, TACIndex, tempNum, &dottedOperand);
+                copyTACOperandDecayArrays(&accessLine->operands[1], addrOfDottedVariable);
             }
-            break;
-
-            default:
-                LogTree(LOG_FATAL, class, "Dot operator member access on disallowed tree type %s", getTokenName(class->type));
-                break;
+            else
+            {
+                walkSubExpression(class, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
             }
         }
-        else
-        {
-            walkSubExpression(class, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
+        break;
 
-            // while this check is duplicated in the checks immediately following the switch,
-            // we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
-            copyTACOperandTypeDecayArrays(&accessLine->operands[0], &accessLine->operands[1]);
+        default:
+            LogTree(LOG_FATAL, class, "Dot operator member access on disallowed tree type %s", getTokenName(class->type));
+            break;
         }
 
         accessLine->operands[2].type.basicType = vt_u32;
@@ -2173,6 +2141,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
     {
     // if the array base is an identifier, we can just look it up
     case t_identifier:
+    {
         struct VariableEntry *arrayVariable = lookupVar(scope, arrayBase);
         populateTACOperandFromVariable(&arrayRefTAC->operands[1], arrayVariable);
         arrayBaseType = TAC_GetTypeOfOperand(arrayRefTAC, 1);
@@ -2183,7 +2152,8 @@ struct TACLine *walkArrayRef(struct AST *tree,
         {
             LogTree(LOG_FATAL, arrayBase, "Array reference on non-indirect variable %s %s", Type_GetName(arrayBaseType), arrayBase->value);
         }
-        break;
+    }
+    break;
 
     case t_dot:
     {

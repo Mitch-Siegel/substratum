@@ -22,6 +22,8 @@ struct ClassEntry
 struct ClassEntry *createClass(struct Scope *scope,
                                char *name);
 
+void ClassEntry_free(struct ClassEntry *class);
+
 // given a VariableEntry corresponding to a class member which was just declared
 // generate a ClassMemberOffset with the aligned location of the member within the class
 void assignOffsetToMemberVariable(struct ClassEntry *class,

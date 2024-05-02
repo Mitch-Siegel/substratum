@@ -383,7 +383,7 @@ void freeTAC(struct TACLine *line)
     free(line);
 }
 
-enum TACOperandUse getUseOfOperand(struct TACLine *line, u8 operandIndex)
+enum TACOperandUse getUseOfOperand(struct TACLine *line, u8 operandIndex) // NOLINT (forgive me)
 {
     enum TACOperandUse use = u_unused;
     switch (line->operation)

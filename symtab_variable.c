@@ -18,7 +18,6 @@ struct VariableEntry *createVariable(struct Scope *scope,
     newVariable->mustSpill = 0;
     newVariable->name = name->value;
 
-
     if (isGlobal)
     {
         newVariable->isGlobal = 1;
@@ -60,6 +59,35 @@ struct VariableEntry *createVariable(struct Scope *scope,
     }
 
     return newVariable;
+}
+
+void VariableEntry_free(struct VariableEntry *variable)
+{
+    struct Type *variableType = &variable->type;
+    if (variableType->basicType == vt_array)
+    {
+        struct Type typeRunner = *variableType;
+        while (typeRunner.basicType == vt_array)
+        {
+            if (typeRunner.array.initializeArrayTo != NULL)
+            {
+                for (size_t i = 0; i < typeRunner.array.size; i++)
+                {
+                    free(typeRunner.array.initializeArrayTo[i]);
+                }
+                free(typeRunner.array.initializeArrayTo);
+            }
+            typeRunner = *typeRunner.array.type;
+        }
+    }
+    else
+    {
+        if (variableType->nonArray.initializeTo != NULL)
+        {
+            free(variableType->nonArray.initializeTo);
+        }
+    }
+    free(variable);
 }
 
 struct VariableEntry *lookupVarByString(struct Scope *scope, char *name)
