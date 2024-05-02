@@ -277,7 +277,6 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
             LogTree(LOG_FATAL, tree->child, "Return of array object types (%s) is not supported!\n", arrayTypeName);
         }
 
-
         functionNameTree = returnTypeTree->sibling;
     }
     else
@@ -1107,7 +1106,7 @@ void walkDotOperatorAssignment(struct AST *tree,
     wipAssignment->operation = tt_store_off;
     switch (class->type)
     {
-    
+
     // if assigning something like *myClass.member = 123
     case t_dereference:
     {
@@ -1310,7 +1309,7 @@ void walkAssignment(struct AST *tree,
             populateTACOperandFromVariable(&assignment->operands[0], arrayVariable);
         }
         // if our array is a member of something, make sure we LEA it instead of loading it
-        else if(arrayBase->type == t_dot)
+        else if (arrayBase->type == t_dot)
         {
             struct TACLine *arrayBaseAccessLine = walkMemberAccess(arrayBase, block, scope, TACIndex, tempNum, &assignment->operands[0], 0);
             convertLoadToLea(arrayBaseAccessLine, &assignment->operands[0]);
@@ -1843,7 +1842,7 @@ struct TACLine *generateCallTac(struct AST *callTree,
                                 struct TACOperand *destinationOperand)
 {
     LogTree(LOG_DEBUG, callTree, "generateCallTac");
-    
+
     struct TACLine *call = newTACLine(tt_function_call, callTree);
     call->operands[1].name.str = calledFunction->name;
     BasicBlock_append(block, call, TACIndex);
@@ -2365,6 +2364,14 @@ struct TACLine *walkArrayRef(struct AST *tree,
             LogTree(LOG_FATAL, arrayBase, "Array reference on non-indirect variable %s %s", Type_GetName(arrayBaseType), arrayBase->value);
         }
         break;
+
+    case t_dot:
+    {
+        struct TACLine *arrayBaseAccessLine = walkMemberAccess(arrayBase, block, scope, TACIndex, tempNum, &arrayRefTAC->operands[1], 0);
+        convertLoadToLea(arrayBaseAccessLine, &arrayRefTAC->operands[1]);
+        arrayBaseType = TAC_GetTypeOfOperand(arrayBaseAccessLine, 0);
+    }
+    break;
 
     // otherwise, we need to walk the subexpression to get the array base
     default:
