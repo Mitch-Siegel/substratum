@@ -102,7 +102,7 @@ void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type
         }
     }
 
-    if(type->pointerLevel > 1)
+    if (type->pointerLevel > 1)
     {
         char *tooDeepPointerType = Type_GetName(type);
         LogTree(LOG_FATAL, tree, "Can't use dot operator on type %s - not a class or class pointer!", tooDeepPointerType);
@@ -135,7 +135,7 @@ void convertLoadToLea(struct TACLine *loadLine, struct TACOperand *dest)
     // increment indirection level as we just converted from a load to a lea
     TAC_GetTypeOfOperand(loadLine, 0)->pointerLevel++;
 
-    if(dest != NULL)
+    if (dest != NULL)
     {
         *dest = loadLine->operands[0];
     }

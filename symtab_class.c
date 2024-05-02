@@ -17,6 +17,19 @@ struct ClassEntry *createClass(struct Scope *scope,
     return wipClass;
 }
 
+void ClassEntry_free(struct ClassEntry *class)
+{
+    Scope_free(class->members);
+
+    while (class->memberLocations->size > 0)
+    {
+        free(Stack_Pop(class->memberLocations));
+    }
+
+    Stack_Free(class->memberLocations);
+    free(class);
+}
+
 void assignOffsetToMemberVariable(struct ClassEntry *class,
                                   struct VariableEntry *variable)
 {
