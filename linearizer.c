@@ -85,7 +85,7 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
     LogTree(LOG_DEBUG, tree, "walkTypeName");
     if (tree->type != t_type_name)
     {
-        InternalError("Wrong AST (%s) passed to walkTypeName!\n", getTokenName(tree->type));
+        InternalError("Wrong AST (%s) passed to walkTypeName!", getTokenName(tree->type));
     }
 
     memset(populateTypeTo, 0, sizeof(struct Type));
@@ -274,7 +274,7 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
         else if (returnType.basicType == vt_array)
         {
             char *arrayTypeName = Type_GetName(&returnType);
-            LogTree(LOG_FATAL, tree->child, "Return of array object types (%s) is not supported!\n", arrayTypeName);
+            LogTree(LOG_FATAL, tree->child, "Return of array object types (%s) is not supported!", arrayTypeName);
         }
 
         functionNameTree = returnTypeTree->sibling;
@@ -501,11 +501,11 @@ void walkFunctionDefinition(struct AST *tree,
 void walkMethod(struct AST *tree,
                 struct ClassEntry *class)
 {
-    Log(LOG_DEBUG, "walkMethod: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+    Log(LOG_DEBUG, "walkMethod", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
     if (tree->type != t_fun)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkMethod!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkMethod!", getTokenName(tree->type));
     }
 
     struct FunctionEntry *walkedMethod = walkFunctionDeclaration(tree, class->members);
@@ -525,17 +525,17 @@ void walkMethod(struct AST *tree,
 
 void walkImplementationBlock(struct AST *tree, struct Scope *scope)
 {
-    Log(LOG_DEBUG, "walkImplementation: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+    Log(LOG_DEBUG, "walkImplementation", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
     if (tree->type != t_impl)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkImplementation!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkImplementation!", getTokenName(tree->type));
     }
 
     struct AST *implementedClassTree = tree->child;
     if (implementedClassTree->type != t_identifier)
     {
-        LogTree(LOG_FATAL, implementedClassTree, "Malformed AST seen in walkImplementation!\n");
+        LogTree(LOG_FATAL, implementedClassTree, "Malformed AST seen in walkImplementation!");
     }
 
     struct ClassEntry *implementedClass = lookupClass(scope, implementedClassTree);
@@ -550,7 +550,7 @@ void walkImplementationBlock(struct AST *tree, struct Scope *scope)
             break;
 
         default:
-            LogTree(LOG_FATAL, implementationRunner, "Malformed AST seen %s (%s) in walkImplementation!\n", getTokenName(implementationRunner->type), implementationRunner->value);
+            LogTree(LOG_FATAL, implementationRunner, "Malformed AST seen %s (%s) in walkImplementation!", getTokenName(implementationRunner->type), implementationRunner->value);
         }
         implementationRunner = implementationRunner->sibling;
     }
@@ -1573,7 +1573,7 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
     if (argumentTrees->size != (calledFunction->arguments->size - argumentNumOffset))
     {
         LogTree(LOG_FATAL, lastArgument,
-                "Error in call to function %s - expected %zu arguments, saw %zu!\n",
+                "Error in call to function %s - expected %zu arguments, saw %zu!",
                 calledFunction->name,
                 calledFunction->arguments->size,
                 argumentTrees->size);
@@ -1592,7 +1592,7 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
         if (Type_CompareAllowImplicitWidening(TAC_GetTypeOfOperand(push, 0), &expectedArgument->type))
         {
             LogTree(LOG_FATAL, pushedArgument,
-                    "Error in argument %s passed to function %s!\n\tExpected %s, got %s\n",
+                    "Error in argument %s passed to function %s!\n\tExpected %s, got %s",
                     expectedArgument->name,
                     calledFunction->name,
                     Type_GetName(&expectedArgument->type),
@@ -1612,7 +1612,7 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
             char *convertFromType = Type_GetName(&push->operands[0].type);
             char *convertToType = Type_GetName(&expectedArgument->type);
             LogTree(LOG_FATAL, pushedArgument,
-                    "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s\n",
+                    "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s",
                     expectedArgument->name,
                     calledFunction->name,
                     convertFromType,
@@ -1688,7 +1688,7 @@ void walkFunctionCall(struct AST *tree,
 
     if (tree->type != t_function_call)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkFunctionCall!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkFunctionCall!", getTokenName(tree->type));
     }
 
     scope->parentFunction->callsOtherFunction = 1;
@@ -1723,7 +1723,7 @@ void walkMethodCall(struct AST *tree,
 
     if (tree->type != t_method_call)
     {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkMethodCall!\n", getTokenName(tree->type));
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkMethodCall!", getTokenName(tree->type));
     }
 
     // don't need to track scope->parentFunction->callsOtherFunction as walkFunctionCall will do this on our behalf
@@ -1822,7 +1822,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
     if (rhs->type != t_identifier)
     {
         LogTree(LOG_FATAL, rhs,
-                "Expected identifier on RHS of %s operator, got %s (%s) instead!\n",
+                "Expected identifier on RHS of %s operator, got %s (%s) instead!",
                 getTokenName(tree->type),
                 rhs->value,
                 getTokenName(rhs->type));
@@ -1852,7 +1852,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
         if (member->type != t_identifier)
         {
             LogTree(LOG_FATAL, member,
-                    "Expected identifier on RHS of dot operator, got %s (%s) instead!\n",
+                    "Expected identifier on RHS of dot operator, got %s (%s) instead!",
                     member->value,
                     getTokenName(member->type));
         }
@@ -1958,7 +1958,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
     if (accessedType->basicType != vt_class)
     {
         char *accessedTypeName = Type_GetName(accessedType);
-        LogTree(LOG_FATAL, tree, "Use of dot operator for member access on non-class type %s\n", accessedTypeName);
+        LogTree(LOG_FATAL, tree, "Use of dot operator for member access on non-class type %s", accessedTypeName);
     }
 
     // get the ClassEntry and ClassMemberOffset of what we're accessing within and the member we access
