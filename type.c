@@ -40,7 +40,7 @@ void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *compl
 
     type->basicType = basicType;
     type->pointerLevel = pointerLevel;
-    ;
+
     if (basicType == vt_class)
     {
         type->nonArray.complexType.name = complexTypeName;
@@ -462,7 +462,34 @@ size_t Type_GetSizeOfArrayElement(struct Type *arrayType, struct Scope *scope)
 
 u8 Type_GetAlignment(struct Type *type, struct Scope *scope)
 {
-    return alignSize(Type_GetSize(type, scope));
+    u8 alignment = 0;
+    switch (type->basicType)
+    {
+    case vt_class:
+    {
+        struct ClassEntry *class = lookupClassByType(scope, type);
+        for (size_t memberIndex = 0; memberIndex < class->memberLocations->size; memberIndex++)
+        {
+            struct ClassMemberOffset *offset = class->memberLocations->data[memberIndex];
+            u8 memberAlignment = Type_GetAlignment(&offset->variable->type, scope);
+            if (memberAlignment > alignment)
+            {
+                alignment = memberAlignment;
+            }
+        }
+    }
+    break;
+
+    case vt_array:
+        alignment = alignSize(Type_GetSize(type->array.type, scope));
+        break;
+
+    default:
+        alignment = alignSize(Type_GetSize(type, scope));
+        break;
+    }
+    
+    return alignment;
 }
 
 size_t Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, size_t currentOffset)
