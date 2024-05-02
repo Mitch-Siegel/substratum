@@ -320,7 +320,9 @@ void printLifetimes(struct CodegenMetadata *metadata)
         }
         char *typeName = Type_GetName(&examinedLifetime->type);
 
-        size_t lineLen = 40 + strlen(typeName) + 30 + metadata->largestTacIndex;
+        const size_t LIFETIME_NAME_LEN = 40;
+        const size_t OTHER_LIFETIME_PRINT_LEN = 30;
+        size_t lineLen = LIFETIME_NAME_LEN + strlen(typeName) + OTHER_LIFETIME_PRINT_LEN + metadata->largestTacIndex;
         char *lifetimeLine = malloc(lineLen + 1);
 
         u32 startIndex = snprintf(lifetimeLine, lineLen, "%40s (%10s)(wb:%c)(%3zu-%3zu)", examinedLifetime->name, typeName, wbLocName, examinedLifetime->stackLocation, examinedLifetime->end);
