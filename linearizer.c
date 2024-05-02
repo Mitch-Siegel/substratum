@@ -15,9 +15,10 @@
 struct TempList *temps;
 struct Dictionary *typeDict;
 extern struct Dictionary *parseDict;
+const u8 TYPE_DICT_SIZE = 10;
 struct SymbolTable *walkProgram(struct AST *program)
 {
-    typeDict = Dictionary_New(10, (void *(*)(void *))Type_Duplicate, (size_t(*)(void *))Type_Hash, (ssize_t(*)(void *, void *))Type_Compare, (void (*)(void *))Type_Free);
+    typeDict = Dictionary_New(TYPE_DICT_SIZE, (void *(*)(void *))Type_Duplicate, (size_t(*)(void *))Type_Hash, (ssize_t(*)(void *, void *))Type_Compare, (void (*)(void *))Type_Free);
     struct SymbolTable *programTable = SymbolTable_new("Program");
     struct BasicBlock *globalBlock = Scope_lookup(programTable->globalScope, "globalblock")->entry;
     struct BasicBlock *asmBlock = BasicBlock_new(1);
@@ -2140,6 +2141,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
     {
     // if the array base is an identifier, we can just look it up
     case t_identifier:
+    {
         struct VariableEntry *arrayVariable = lookupVar(scope, arrayBase);
         populateTACOperandFromVariable(&arrayRefTAC->operands[1], arrayVariable);
         arrayBaseType = TAC_GetTypeOfOperand(arrayRefTAC, 1);
@@ -2150,7 +2152,8 @@ struct TACLine *walkArrayRef(struct AST *tree,
         {
             LogTree(LOG_FATAL, arrayBase, "Array reference on non-indirect variable %s %s", Type_GetName(arrayBaseType), arrayBase->value);
         }
-        break;
+    }
+    break;
 
     case t_dot:
     {

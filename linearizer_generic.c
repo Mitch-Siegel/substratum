@@ -67,7 +67,6 @@ void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *s
     copyTypeDecayArrays(TACOperand_GetType(dest), TACOperand_GetType(src));
 }
 
-extern struct TempList *temps;
 extern struct Dictionary *parseDict;
 struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale)
 {
