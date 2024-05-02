@@ -33,7 +33,7 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
             fprintf(outFile, "\t.globl %s\n", generatedFunction->name);
             fprintf(outFile, "\t.type %s, @function\n", generatedFunction->name);
 
-            generateCodeForFunction(outFile, generatedFunction);
+            generateCodeForFunction(outFile, generatedFunction, NULL);
             fprintf(outFile, "\t.size %s, .-%s\n", generatedFunction->name, generatedFunction->name);
         }
         break;
@@ -50,11 +50,36 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
         }
         break;
 
+        case e_class:
+        {
+            generateCodeForClass(&globalContext, thisMember->entry);
+        }
+        break;
+
         default:
             break;
         }
     }
 };
+
+void generateCodeForClass(struct CodegenContext *globalContext, struct ClassEntry *class)
+{
+    for (size_t entryIndex = 0; entryIndex < class->members->entries->size; entryIndex++)
+    {
+        struct ScopeMember *thisMember = class->members->entries->data[entryIndex];
+        switch (thisMember->type)
+        {
+        case e_function:
+        {
+            generateCodeForFunction(globalContext->outFile, thisMember->entry, class->name);
+        }
+        break;
+
+        default:
+            break;
+        }
+    }
+}
 
 void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock)
 {
@@ -340,16 +365,25 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
  *
  */
 extern struct Config config;
-void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
+void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char *methodOfClassName)
 {
+    char *fullFunctionName = function->name;
+    if (methodOfClassName != NULL)
+    {
+        // TODO: member function name mangling/uniqueness
+        fullFunctionName = malloc(strlen(function->name) + strlen(methodOfClassName) + 2);
+        strcpy(fullFunctionName, methodOfClassName);
+        strcat(fullFunctionName, "_");
+        strcat(fullFunctionName, function->name);
+    }
     size_t instructionIndex = 0; // index from start of function in terms of number of instructions
     struct CodegenContext context;
     context.outFile = outFile;
     context.instructionIndex = &instructionIndex;
 
-    Log(LOG_INFO, "Generate code for function %s", function->name);
+    Log(LOG_INFO, "Generate code for function %s", fullFunctionName);
 
-    fprintf(outFile, ".align 2\n%s:\n", function->name);
+    fprintf(outFile, ".align 2\n%s:\n", fullFunctionName);
     fprintf(outFile, "\t.loc 1 %d %d\n", function->correspondingTree.sourceLine, function->correspondingTree.sourceCol);
     fprintf(outFile, "\t.cfi_startproc\n");
 
@@ -379,7 +413,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
     {
         struct BasicBlock *block = blockRunner->data;
         Log(LOG_DEBUG, "Generating code for basic block %zd", block->labelNum);
-        generateCodeForBasicBlock(&context, block, function->mainScope, metadata.allLifetimes, function->name, metadata.reservedRegisters);
+        generateCodeForBasicBlock(&context, block, function->mainScope, metadata.allLifetimes, fullFunctionName, metadata.reservedRegisters);
     }
 
     emitEpilogue(&context, &metadata);
@@ -392,6 +426,11 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function)
         LinkedList_Free(metadata.lifetimeOverlaps[tacIndex], NULL);
     }
     free(metadata.lifetimeOverlaps);
+
+    if (methodOfClassName != NULL)
+    {
+        free(fullFunctionName);
+    }
 }
 
 void generateCodeForBasicBlock(struct CodegenContext *context,
@@ -675,16 +714,37 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
         }
         break;
 
-        case tt_call:
+        case tt_function_call:
         {
-            struct FunctionEntry *called = lookupFunByString(scope, thisTAC->operands[1].name.str);
-            if (called->isDefined)
+            struct FunctionEntry *calledFunction = lookupFunByString(scope, thisTAC->operands[1].name.str);
+            if (calledFunction->isDefined)
             {
                 emitInstruction(thisTAC, context, "\tcall %s\n", thisTAC->operands[1].name.str);
             }
             else
             {
                 emitInstruction(thisTAC, context, "\tcall %s@plt\n", thisTAC->operands[1].name.str);
+            }
+
+            if (thisTAC->operands[0].name.str != NULL)
+            {
+                WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
+            }
+        }
+        break;
+
+        case tt_method_call:
+        {
+            struct ClassEntry *methodOf = lookupClassByType(scope, TAC_GetTypeOfOperand(thisTAC, 2));
+            struct FunctionEntry *calledMethod = lookupMethodByString(methodOf, thisTAC->operands[1].name.str);
+            // TODO: member function name mangling/uniqueness
+            if (calledMethod->isDefined)
+            {
+                emitInstruction(thisTAC, context, "\tcall %s_%s\n", methodOf->name, thisTAC->operands[1].name.str);
+            }
+            else
+            {
+                emitInstruction(thisTAC, context, "\tcall %s_%s@plt\n", methodOf->name, thisTAC->operands[1].name.str);
             }
 
             if (thisTAC->operands[0].name.str != NULL)

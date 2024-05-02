@@ -22,8 +22,11 @@ enum token
     t_u32,
     t_u64,
     t_class,
-    //
+    // class
     t_class_body,
+    t_impl,
+    t_method_call,
+    //
     t_compound_statement,
     //
     // function
@@ -85,7 +88,6 @@ enum token
     t_cast,
     t_comma,
     t_dot,
-    t_arrow,
     t_semicolon,
     t_colon,
     t_left_paren,
