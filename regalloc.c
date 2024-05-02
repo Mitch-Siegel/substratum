@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "codegen_generic.h"
+#include "log.h"
 #include "regalloc_generic.h"
 #include "symtab.h"
 #include "util.h"
@@ -30,13 +31,12 @@ size_t lifetimeHeuristic(struct Lifetime *lifetime)
 
 void printRegisterLifetimes(struct CodegenMetadata *metadata)
 {
-    printf("These lifetimes get a register: ");
+    Log(LOG_DEBUG, "These lifetimes get a register: ");
     for (struct LinkedListNode *runner = metadata->registerLifetimes->head; runner != NULL; runner = runner->next)
     {
         struct Lifetime *getsRegister = runner->data;
-        printf("%s, ", getsRegister->name);
+        Log(LOG_DEBUG, "\t%s", getsRegister->name);
     }
-    printf("\n");
 }
 
 void removeNonContendingLifetimes(struct CodegenMetadata *metadata)
@@ -86,7 +86,7 @@ void spillAtIndex(struct CodegenMetadata *metadata, struct LinkedList *activeLif
 
     if (bestToSpill == NULL)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Couldn't choose lifetime to spill!\n");
+        InternalError("Couldn't choose lifetime to spill!");
     }
 
     // now that it's not in contention for a register, we know it will go on the stack
@@ -145,10 +145,7 @@ void selectRegisterVariables(struct CodegenMetadata *metadata, size_t mostConcur
         }
     }
 
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printRegisterLifetimes(metadata);
-    }
+    printRegisterLifetimes(metadata);
 }
 
 void freeExpiringRegisters(u8 registers[MACHINE_REGISTER_COUNT], struct Lifetime *occupiedBy[MACHINE_REGISTER_COUNT], size_t index)
@@ -160,7 +157,7 @@ void freeExpiringRegisters(u8 registers[MACHINE_REGISTER_COUNT], struct Lifetime
     {
         if (occupiedBy[scannedRegister] != NULL && occupiedBy[scannedRegister]->end <= index)
         {
-            // printf("%s expires at %d\n", occupiedBy[j]->name, i);
+            Log(LOG_DEBUG, "%s expires at %d", occupiedBy[scannedRegister]->name, scannedRegister);
             registers[scannedRegister] = 0;
             occupiedBy[scannedRegister] = NULL;
         }
@@ -169,7 +166,7 @@ void freeExpiringRegisters(u8 registers[MACHINE_REGISTER_COUNT], struct Lifetime
 
 void assignRegisters(struct CodegenMetadata *metadata)
 {
-    // printf("\nassigning registers\n");
+    Log(LOG_INFO, "Assign registers for function %s", metadata->function->name);
     // flag registers in use at any given TAC index so we can easily assign
     u8 registers[MACHINE_REGISTER_COUNT];
     struct Lifetime *occupiedBy[MACHINE_REGISTER_COUNT];
@@ -198,7 +195,7 @@ void assignRegisters(struct CodegenMetadata *metadata)
                 {
                     if (registers[reg] == 0)
                     {
-                        // printf("\tAssign register %d for variable %s\n", k, thisLifetime->name);
+                        Log(LOG_DEBUG, "Assign register %s for variable %s", registerNames[reg], thisLifetime->name);
                         thisLifetime->registerLocation = reg;
                         thisLifetime->inRegister = 1;
                         thisLifetime->onStack = 0;
@@ -219,7 +216,7 @@ void assignRegisters(struct CodegenMetadata *metadata)
                      * 2: something messed up before we got to this function and too many concurrent lifetimes have been allowed to expect a register assignment
                      */
 
-                    ErrorAndExit(ERROR_INTERNAL, "Unable to find register for variable %s!\n", thisLifetime->name);
+                    InternalError("Unable to find register for variable %s!", thisLifetime->name);
                 }
             }
         }
@@ -231,6 +228,7 @@ void assignRegisters(struct CodegenMetadata *metadata)
 
 void assignStackSpace(struct CodegenMetadata *metadata)
 {
+    Log(LOG_INFO, "Assign stack space for function %s", metadata->function->name);
     struct Stack *needStackSpace = Stack_New();
     for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
     {
@@ -243,10 +241,7 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         }
     }
 
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("%zu variables need stack space\n", needStackSpace->size);
-    }
+    Log(LOG_DEBUG, "%zu variables need stack space", needStackSpace->size);
 
     // simple bubble sort the things that need stack space by their size
     for (size_t i = 0; i < needStackSpace->size; i++)
@@ -255,8 +250,8 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         {
             struct Lifetime *thisLifetime = needStackSpace->data[j];
 
-            size_t thisSize = getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
-            size_t compSize = getSizeOfType(metadata->function->mainScope, &(((struct Lifetime *)needStackSpace->data[j + 1])->type));
+            size_t thisSize = Type_GetSize(&thisLifetime->type, metadata->function->mainScope);
+            size_t compSize = Type_GetSize(&(((struct Lifetime *)needStackSpace->data[j + 1])->type), metadata->function->mainScope);
 
             if (thisSize < compSize)
             {
@@ -278,11 +273,11 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         else
         {
             metadata->localStackSize += Scope_ComputePaddingForAlignment(metadata->function->mainScope, &thisLifetime->type, metadata->localStackSize);
-            metadata->localStackSize += getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
+            metadata->localStackSize += Type_GetSize(&thisLifetime->type, metadata->function->mainScope);
             if (metadata->localStackSize > I64_MAX)
             {
                 // TODO: implementation dependent size of size_t
-                ErrorAndExit(ERROR_INTERNAL, "Function %s has arg stack size too large (%zd bytes)!\n", metadata->function->name, metadata->localStackSize);
+                InternalError("Function %s has arg stack size too large (%zd bytes)!", metadata->function->name, metadata->localStackSize);
             }
             thisLifetime->stackLocation = -1 * (ssize_t)metadata->localStackSize;
         }
@@ -293,17 +288,14 @@ void assignStackSpace(struct CodegenMetadata *metadata)
         metadata->localStackSize++;
     }
 
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("Stack slots assigned for spilled/stack variables\n");
-    }
+    Log(LOG_DEBUG, "Stack slots assigned for spilled/stack variables");
 
     Stack_Free(needStackSpace);
 }
 
 void printLifetimes(struct CodegenMetadata *metadata)
 {
-    printf("\nLifetimes for %s\n", metadata->function->name);
+    Log(LOG_DEBUG, "Lifetimes for %s", metadata->function->name);
     for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
     {
         struct Lifetime *examinedLifetime = runner->data;
@@ -327,21 +319,26 @@ void printLifetimes(struct CodegenMetadata *metadata)
             break;
         }
         char *typeName = Type_GetName(&examinedLifetime->type);
-        printf("%40s (%10s)(wb:%c)(%2zu-%2zu): ", examinedLifetime->name, typeName, wbLocName,
-               examinedLifetime->start, examinedLifetime->end);
+
+        size_t lineLen = 40 + strlen(typeName) + 30 + metadata->largestTacIndex;
+        char *lifetimeLine = malloc(lineLen + 1);
+
+        u32 startIndex = snprintf(lifetimeLine, lineLen, "%40s (%10s)(wb:%c)(%3zu-%3zu)", examinedLifetime->name, typeName, wbLocName, examinedLifetime->stackLocation, examinedLifetime->end);
         free(typeName);
         for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
         {
             if (tacIndex >= examinedLifetime->start && tacIndex <= examinedLifetime->end)
             {
-                printf("*");
+                lineLen += sprintf(lifetimeLine + startIndex, "*");
             }
             else
             {
-                printf(" ");
+                lineLen += sprintf(lifetimeLine + startIndex, " ");
             }
         }
-        printf("\n");
+
+        Log(LOG_DEBUG, lifetimeLine);
+        free(lifetimeLine);
     }
 }
 
@@ -384,27 +381,24 @@ void printStackFootprint(struct CodegenMetadata *metadata)
             struct Lifetime *thisLifetime = stackLayout->data[lifetimeIndex];
             if ((!crossedZero) && (thisLifetime->stackLocation < 0))
             {
-                printf("SAVED BP\nSAVED BP\nSAVED BP\nSAVED BP\n");
-                printf("RETURN ADDRESSS\nRETURN ADDRESSS\nRETURN ADDRESSS\nRETURN ADDRESSS\n");
-                printf("---------BASE POINTER POINTS HERE--------\n");
+                for (size_t byteIndex = 0; byteIndex < sizeof(size_t); byteIndex++)
+                {
+                    Log(LOG_DEBUG, "SAVED BP");
+                }
+                for (size_t byteIndex = 0; byteIndex < sizeof(size_t); byteIndex++)
+                {
+                    Log(LOG_DEBUG, "RETURN ADDRESS");
+                }
+                Log(LOG_DEBUG, "---------BASE POINTER POINTS HERE--------");
                 crossedZero = 1;
             }
-            size_t size = getSizeOfType(metadata->function->mainScope, &thisLifetime->type);
-            if (thisLifetime->type.arraySize > 0)
+            size_t size = Type_GetSize(&thisLifetime->type, metadata->function->mainScope);
+            char *typeName = Type_GetName(&thisLifetime->type);
+            for (size_t lineIndex = 0; lineIndex < size; lineIndex++)
             {
-                size_t elementSize = size / thisLifetime->type.arraySize;
-                for (size_t j = 0; j < size; j++)
-                {
-                    printf("%s[%lu]\n", thisLifetime->name, j / elementSize);
-                }
+                Log(LOG_DEBUG, "%s", typeName);
             }
-            else
-            {
-                for (size_t j = 0; j < size; j++)
-                {
-                    printf("%s\n", thisLifetime->name);
-                }
-            }
+            free(typeName);
         }
 
         Stack_Free(stackLayout);
@@ -413,8 +407,8 @@ void printStackFootprint(struct CodegenMetadata *metadata)
 
 void printVariableLocations(struct CodegenMetadata *metadata)
 {
-    printf("Final roundup of variables and where they live:\n");
-    printf("Local stack footprint: %zu bytes\n", metadata->localStackSize);
+    Log(LOG_DEBUG, "Final roundup of variables and where they live:");
+    Log(LOG_DEBUG, "Local stack footprint: %zu bytes", metadata->localStackSize);
     for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
     {
         struct Lifetime *examined = runner->data;
@@ -422,22 +416,22 @@ void printVariableLocations(struct CodegenMetadata *metadata)
         {
             if (examined->onStack)
             {
-                printf("&%-19s: %%r%d\n", examined->name, examined->registerLocation);
+                Log(LOG_DEBUG, "&%-19s: %%r%d", examined->name, examined->registerLocation);
             }
             else
             {
-                printf("%-20s: %%r%d\n", examined->name, examined->registerLocation);
+                Log(LOG_DEBUG, "%-20s: %%r%d", examined->name, examined->registerLocation);
             }
         }
         if (examined->onStack)
         {
             if (examined->stackLocation > 0)
             {
-                printf("%-20s: %%bp+%2zd - %%bp+%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + getSizeOfType(metadata->function->mainScope, &examined->type));
+                Log(LOG_DEBUG, "%-20s: %%bp+%2zd - %%bp+%2zd", examined->name, examined->stackLocation, examined->stackLocation + Type_GetSize(&examined->type, metadata->function->mainScope));
             }
             else
             {
-                printf("%-20s: %%bp%2zd - %%bp%2zd\n", examined->name, examined->stackLocation, examined->stackLocation + getSizeOfType(metadata->function->mainScope, &examined->type));
+                Log(LOG_DEBUG, "%-20s: %%bp%2zd - %%bp%2zd", examined->name, examined->stackLocation, examined->stackLocation + Type_GetSize(&examined->type, metadata->function->mainScope));
             }
         }
     }
@@ -478,34 +472,20 @@ void allocateRegisters(struct CodegenMetadata *metadata)
 
     size_t mostConcurrentLifetimes = generateLifetimeOverlaps(metadata);
 
-    // printf("at most %d concurrent lifetimes\n", mostConcurrentLifetimes);
+    Log(LOG_DEBUG, "at most %d concurrent lifetimes", mostConcurrentLifetimes);
 
     selectRegisterVariables(metadata, mostConcurrentLifetimes);
 
-    // printf("selected which variables get registers\n");
     assignRegisters(metadata);
 
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("assigned registers\n");
-    }
+    Log(LOG_DEBUG, "assigned registers");
 
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printLifetimes(metadata);
-    }
+    printLifetimes(metadata);
 
     assignStackSpace(metadata);
 
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printStackFootprint(metadata);
-    }
-
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printVariableLocations(metadata);
-    }
+    printStackFootprint(metadata);
+    printVariableLocations(metadata);
 
     for (u8 reg = START_ALLOCATING_FROM; reg < MACHINE_REGISTER_COUNT; reg++)
     {

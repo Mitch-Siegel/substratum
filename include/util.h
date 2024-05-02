@@ -13,31 +13,6 @@ enum CompilerErrors
     ERROR_INTERNAL,
 };
 
-#define ErrorAndExit(code, fmt, ...)                           \
-    printf(fmt, ##__VA_ARGS__);                                \
-    printf("Bailing from file %s:%d\n\n", __FILE__, __LINE__); \
-    exit(code)
-
-#define ErrorWithAST(code, astPtr, fmt, ...)                                                \
-    printf("%s:%d:%d:\n", (astPtr)->sourceFile, (astPtr)->sourceLine, (astPtr)->sourceCol); \
-    ErrorAndExit(code, fmt, ##__VA_ARGS__)
-
-#define STAGE_PARSE 0
-#define STAGE_LINEARIZE 1
-#define STAGE_REGALLOC 2
-#define STAGE_CODEGEN 3
-#define STAGE_MAX 4
-
-#define VERBOSITY_SILENT 0
-#define VERBOSITY_MINIMAL 1
-#define VERBOSITY_MAX 2
-struct Config
-{
-    u8 stageVerbosities[STAGE_MAX];
-};
-
-extern u8 currentVerbosity;
-
 struct ParseProgress
 {
     size_t curLine;
@@ -105,15 +80,20 @@ void HashTable_Free(struct HashTable *table);
 struct Dictionary
 {
     struct HashTable *table;
+    void *(*duplicateFunction)(void *data);
 };
 
 size_t hashString(void *data);
 
-struct Dictionary *Dictionary_New(size_t nBuckets);
+struct Dictionary *Dictionary_New(size_t nBuckets,
+                                  void *(*duplicateFunction)(void *),
+                                  size_t (*hashFunction)(void *data),
+                                  ssize_t (*compareFunction)(void *dataA, void *dataB),
+                                  void (*dataFreeFunction)(void *));
 
-char *Dictionary_Insert(struct Dictionary *dict, char *value);
+void *Dictionary_Insert(struct Dictionary *dict, void *value);
 
-char *Dictionary_LookupOrInsert(struct Dictionary *dict, char *value);
+void *Dictionary_LookupOrInsert(struct Dictionary *dict, void *value);
 
 void Dictionary_Free(struct Dictionary *dict);
 

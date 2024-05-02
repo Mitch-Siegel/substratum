@@ -1,5 +1,6 @@
 #include "symtab_class.h"
 
+#include "log.h"
 #include "symtab_scope.h"
 #include "util.h"
 
@@ -29,13 +30,14 @@ void assignOffsetToMemberVariable(struct ClassEntry *class,
     if (class->totalSize > I64_MAX)
     {
         // TODO: implementation dependent size of size_t
-        ErrorAndExit(ERROR_INTERNAL, "Class %s has size too large (%zd bytes)!\n", class->name, class->totalSize);
+        InternalError("Class %s has size too large (%zd bytes)!", class->name, class->totalSize);
     }
     newMemberLocation->offset = (ssize_t) class->totalSize;
     newMemberLocation->variable = variable;
 
     // add the size of the member we just added to the total size of the class
-    class->totalSize += getSizeOfType(class->members, &variable->type);
+    class->totalSize += Type_GetSize(&variable->type, class->members);
+    Log(LOG_DEBUG, "Assign offset %zu to member variable %s of class %s - total class size is now %zu", newMemberLocation->offset, variable->name, class->name, class->totalSize);
 
     Stack_Push(class->memberLocations, newMemberLocation);
 }
@@ -45,11 +47,11 @@ struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
 {
     if (name->type != t_identifier)
     {
-        ErrorWithAST(ERROR_INTERNAL,
-                     name,
-                     "Non-identifier tree %s (%s) passed to Class_lookupOffsetOfMemberVariable!\n",
-                     name->value,
-                     getTokenName(name->type));
+        LogTree(LOG_FATAL,
+                name,
+                "Non-identifier tree %s (%s) passed to Class_lookupOffsetOfMemberVariable!\n",
+                name->value,
+                getTokenName(name->type));
     }
 
     for (size_t memberIndex = 0; memberIndex < class->memberLocations->size; memberIndex++)
@@ -61,7 +63,48 @@ struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
         }
     }
 
-    ErrorWithAST(ERROR_CODE, name, "Use of nonexistent member variable %s in class %s\n", name->value, class->name);
+    LogTree(LOG_FATAL, name, "Use of nonexistent member variable %s in class %s", name->value, class->name);
+    return NULL;
+}
+
+struct FunctionEntry *lookupMethod(struct ClassEntry *class,
+                                   struct AST *name)
+{
+    for (size_t entryIndex = 0; entryIndex < class->members->entries->size; entryIndex++)
+    {
+        struct ScopeMember *examinedEntry = class->members->entries->data[entryIndex];
+        if (!strcmp(examinedEntry->name, name->value))
+        {
+            if (examinedEntry->type != e_function)
+            {
+                LogTree(LOG_FATAL, name, "Attempt to call non-method member %s.%s as method!\n", class->name, name->value);
+            }
+            return examinedEntry->entry;
+        }
+    }
+
+    LogTree(LOG_FATAL, name, "Attempt to call nonexistent method %s.%s\n", class->name, name->value);
+    exit(1);
+}
+
+struct FunctionEntry *lookupMethodByString(struct ClassEntry *class,
+                                           char *name)
+{
+    for (size_t entryIndex = 0; entryIndex < class->members->entries->size; entryIndex++)
+    {
+        struct ScopeMember *examinedEntry = class->members->entries->data[entryIndex];
+        if (!strcmp(examinedEntry->name, name))
+        {
+            if (examinedEntry->type != e_function)
+            {
+                Log(LOG_FATAL, "Attempt to call non-method member %s.%s as method!\n", class->name, name);
+            }
+            return examinedEntry->entry;
+        }
+    }
+
+    Log(LOG_FATAL, "Attempt to call nonexistent method %s.%s\n", class->name, name);
+    exit(1);
 }
 
 struct ClassEntry *lookupClass(struct Scope *scope,
@@ -70,7 +113,7 @@ struct ClassEntry *lookupClass(struct Scope *scope,
     struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
     if (lookedUp == NULL)
     {
-        ErrorWithAST(ERROR_CODE, name, "Use of undeclared class '%s'\n", name->value);
+        LogTree(LOG_FATAL, name, "Use of undeclared class '%s'", name->value);
     }
     switch (lookedUp->type)
     {
@@ -78,22 +121,24 @@ struct ClassEntry *lookupClass(struct Scope *scope,
         return lookedUp->entry;
 
     default:
-        ErrorWithAST(ERROR_INTERNAL, name, "%s is not a class!\n", name->value);
+        LogTree(LOG_FATAL, name, "%s is not a class!", name->value);
     }
+
+    return NULL;
 }
 
 struct ClassEntry *lookupClassByType(struct Scope *scope,
                                      struct Type *type)
 {
-    if (type->classType.name == NULL)
+    if (type->basicType != vt_class || type->nonArray.complexType.name == NULL)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Type with null classType name passed to lookupClassByType!\n");
+        InternalError("Non-class type or class type with null name passed to lookupClassByType!");
     }
 
-    struct ScopeMember *lookedUp = Scope_lookup(scope, type->classType.name);
+    struct ScopeMember *lookedUp = Scope_lookup(scope, type->nonArray.complexType.name);
     if (lookedUp == NULL)
     {
-        ErrorAndExit(ERROR_CODE, "Use of undeclared class '%s'\n", type->classType.name);
+        Log(LOG_FATAL, "Use of undeclared class '%s'", type->nonArray.complexType.name);
     }
 
     switch (lookedUp->type)
@@ -102,6 +147,6 @@ struct ClassEntry *lookupClassByType(struct Scope *scope,
         return lookedUp->entry;
 
     default:
-        ErrorAndExit(ERROR_INTERNAL, "lookupClassByType for %s lookup got a non-class ScopeMember!\n", type->classType.name);
+        InternalError("lookupClassByType for %s lookup got a non-class ScopeMember!", type->nonArray.complexType.name);
     }
 }

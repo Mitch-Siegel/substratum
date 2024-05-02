@@ -1,5 +1,6 @@
 #include "regalloc_generic.h"
 
+#include "log.h"
 #include "symtab.h"
 #include "tac.h"
 #include "util.h"
@@ -25,7 +26,9 @@ struct Lifetime *newLifetime(char *name, struct Type *type, size_t start, u8 isG
     }
     else
     {
-        if (((type->basicType == vt_class) && (type->indirectionLevel == 0)) || (type->arraySize > 0) || mustSpill)
+        if (((type->basicType == vt_class) && (type->pointerLevel == 0)) ||
+            (type->basicType == vt_array) ||
+            mustSpill)
         {
             wip->wbLocation = wb_stack;
         }
@@ -62,7 +65,7 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
         {
             char *expectedTypeName = Type_GetName(&thisLt->type);
             char *typeName = Type_GetName(type);
-            ErrorAndExit(ERROR_INTERNAL, "Error - type mismatch between identically named variables [%s] expected %s, saw %s!\n", name, expectedTypeName, typeName);
+            InternalError("Type mismatch between identically named variables [%s] expected %s, saw %s!", name, expectedTypeName, typeName);
         }
         if (newEnd > thisLt->end)
         {
@@ -71,6 +74,7 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
     }
     else
     {
+        Log(LOG_DEBUG, "Create lifetime starting at %zu for %s: global? %d mustspill? %d", newEnd, name, isGlobal, mustSpill);
         thisLt = newLifetime(name, type, newEnd, isGlobal, mustSpill);
         LinkedList_Append(ltList, thisLt);
     }
@@ -85,6 +89,8 @@ void recordVariableWrite(struct LinkedList *ltList,
                          struct Scope *scope,
                          size_t newEnd)
 {
+    Log(LOG_DEBUG, "Record variable write for %s at index %zu", writtenOperand->name.str, newEnd);
+
     u8 isGlobal = 0;
     u8 mustSpill = 0;
     if (writtenOperand->permutation == vp_standard)
@@ -106,6 +112,8 @@ void recordVariableRead(struct LinkedList *ltList,
                         struct Scope *scope,
                         size_t newEnd)
 {
+    Log(LOG_DEBUG, "Record variable read for %s at index %zu", readOperand->name.str, newEnd);
+
     u8 isGlobal = 0;
     u8 mustSpill = 0;
     if (readOperand->permutation == vp_standard)
@@ -193,7 +201,8 @@ void addArgumentLifetimesForScope(struct LinkedList *lifetimes, struct Scope *sc
         if (thisMember->type == e_argument)
         {
             struct VariableEntry *theArgument = thisMember->entry;
-            struct Lifetime *argLifetime = updateOrInsertLifetime(lifetimes, thisMember->name, &theArgument->type, 0, 0, 0);
+            // arguments can be mustSpill too - if they are used in an address-of it will be required not to ever load them into registers
+            struct Lifetime *argLifetime = updateOrInsertLifetime(lifetimes, thisMember->name, &theArgument->type, 0, 0, theArgument->mustSpill);
             argLifetime->isArgument = 1;
         }
     }

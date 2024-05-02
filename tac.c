@@ -1,5 +1,6 @@
 #include "tac.h"
 
+#include "log.h"
 #include "util.h"
 #include <stdio.h>
 
@@ -7,16 +8,10 @@ struct Type *TAC_GetTypeOfOperand(struct TACLine *line, unsigned index)
 {
     if (index > 3)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Bad index %d passed to TAC_GetTypeOfOperand!\n", index);
+        InternalError("Bad index %d passed to TAC_GetTypeOfOperand!", index);
     }
 
     return TACOperand_GetType(&line->operands[index]);
-}
-
-void TACOperand_SetBasicType(struct TACOperand *operand, enum basicTypes type, int indirectionLevel)
-{
-    operand->type.basicType = type;
-    operand->type.indirectionLevel = indirectionLevel;
 }
 
 char *getAsmOp(enum TACType tacOperation)
@@ -67,8 +62,10 @@ char *getAsmOp(enum TACType tacOperation)
         return "lea (literal offset)";
     case tt_lea_arr:
         return "lea (array indexed)";
-    case tt_call:
-        return "call";
+    case tt_function_call:
+        return "function call";
+    case tt_method_call:
+        return "method call";
     case tt_label:
         return ".";
     case tt_return:
@@ -116,17 +113,8 @@ struct TACLine *newTACLineFunction(enum TACType operation, struct AST *correspon
         wip->operands[operandIndex].ssaNumber = 0;
         wip->operands[operandIndex].permutation = vp_standard;
 
-        wip->operands[operandIndex].type.basicType = vt_null;
-        wip->operands[operandIndex].type.classType.name = NULL;
-        wip->operands[operandIndex].type.indirectionLevel = 0;
-        wip->operands[operandIndex].type.arraySize = 0;
-        wip->operands[operandIndex].type.initializeArrayTo = NULL;
-
-        wip->operands[operandIndex].castAsType.basicType = vt_null;
-        wip->operands[operandIndex].castAsType.classType.name = NULL;
-        wip->operands[operandIndex].castAsType.indirectionLevel = 0;
-        wip->operands[operandIndex].castAsType.arraySize = 0;
-        wip->operands[operandIndex].castAsType.initializeArrayTo = NULL;
+        Type_Init(&wip->operands[operandIndex].type);
+        Type_Init(&wip->operands[operandIndex].castAsType);
     }
     wip->correspondingTree = *correspondingTree;
 
@@ -327,7 +315,7 @@ char *sPrintTACLine(struct TACLine *line)
         width += sprintf(tacString + width, "store %s!%zu at stack offset %ld", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.val);
         break;
 
-    case tt_call:
+    case tt_function_call:
         if (line->operands[0].name.str == NULL)
         {
             width += sprintf(tacString + width, "call %s", line->operands[1].name.str);
@@ -335,6 +323,17 @@ char *sPrintTACLine(struct TACLine *line)
         else
         {
             width += sprintf(tacString + width, "%s!%zu = call %s", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str);
+        }
+        break;
+
+    case tt_method_call:
+        if (line->operands[0].name.str == NULL)
+        {
+            width += sprintf(tacString + width, "call %s.%s", line->operands[2].type.nonArray.complexType.name, line->operands[1].name.str);
+        }
+        else
+        {
+            width += sprintf(tacString + width, "%s!%zu = call %s.%s", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[2].type.nonArray.complexType.name, line->operands[1].name.str);
         }
         break;
 
@@ -368,7 +367,7 @@ char *sPrintTACLine(struct TACLine *line)
     char *operandString = sPrintTACOperands(line);
     if (width + strlen(operandString) + 1 > sprintTacLineLength)
     {
-        ErrorAndExit(ERROR_INTERNAL, "sPrintTacLine length limit exceeded!\n");
+        InternalError("sPrintTacLine length limit exceeded!");
     }
     width += sprintf(tacString + width, "\t%s", operandString);
     free(operandString);
@@ -394,7 +393,8 @@ enum TACOperandUse getUseOfOperand(struct TACLine *line, u8 operandIndex)
     case tt_asm:
         break;
 
-    case tt_call:
+    case tt_function_call:
+    case tt_method_call:
         if ((operandIndex == 0) && (TAC_GetTypeOfOperand(line, 0)->basicType != vt_null))
         {
             use = u_write;

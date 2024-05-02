@@ -21,6 +21,8 @@ char *token_names[t_EOF + 1] = {
     "t_u64",
     "t_class",
     "t_class_body",
+    "t_impl",
+    "t_method_call",
     "t_compound_statement",
     "t_fun",
     "t_return",
@@ -68,7 +70,6 @@ char *token_names[t_EOF + 1] = {
     "t_cast",
     "t_comma",
     "t_dot",
-    "t_arrow",
     "t_semicolon",
     "t_colon",
     "t_left_paren",
@@ -157,6 +158,59 @@ void AST_Print(struct AST *tree, size_t depth)
     {
         AST_Print(tree->child, depth + 1);
     }
+}
+
+void AST_TraverseForDump(FILE *outFile, struct AST *parent, struct AST *tree, size_t depth, struct Stack *ranks)
+{
+    if (ranks->size <= depth)
+    {
+        Stack_Push(ranks, Stack_New());
+    }
+    Stack_Push(ranks->data[depth], tree);
+
+    fprintf(outFile, "%zu[label=\"%s\"]\n", (size_t)tree, strcmp(tree->value, "") ? tree->value : getTokenName(tree->type));
+    if (parent != NULL)
+    {
+        fprintf(outFile, "%zu->%zu\n", (size_t)parent, (size_t)tree);
+    }
+
+    if (tree->sibling != NULL)
+    {
+        AST_TraverseForDump(outFile, parent, tree->sibling, depth, ranks);
+    }
+
+    if (tree->child != NULL)
+    {
+        AST_TraverseForDump(outFile, tree, tree->child, depth + 1, ranks);
+    }
+}
+
+void AST_Dump(FILE *outFile, struct AST *tree)
+{
+    struct Stack *ranks = Stack_New();
+    fprintf(outFile, "digraph ast {\n");
+    fprintf(outFile, "edge[dir=forwrad]\n");
+    AST_TraverseForDump(outFile, NULL, tree, 0, ranks);
+
+    for (size_t rank = 0; rank < ranks->size; rank++)
+    {
+        fprintf(outFile, "{rank = same; ");
+        struct Stack *thisRank = ranks->data[rank];
+        for (size_t nodeIndex = 0; nodeIndex < thisRank->size; nodeIndex++)
+        {
+            struct AST *nodeThisRank = thisRank->data[nodeIndex];
+            fprintf(outFile, "%zu; ", (size_t)nodeThisRank);
+        }
+        fprintf(outFile, "}\n");
+    }
+
+    fprintf(outFile, "}\n");
+
+    while (ranks->size > 0)
+    {
+        Stack_Free(Stack_Pop(ranks));
+    }
+    Stack_Free(ranks);
 }
 
 void AST_Free(struct AST *tree)

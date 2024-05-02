@@ -2,6 +2,8 @@
 #include "codegen_generic.h"
 #include "symtab_scope.h"
 
+#include "log.h"
+
 extern struct Dictionary *parseDict;
 
 struct SymbolTable *SymbolTable_new(char *name)
@@ -17,11 +19,11 @@ struct SymbolTable *SymbolTable_new(char *name)
     return wip;
 }
 
-void SymbolTable_print(struct SymbolTable *table, char printTAC)
+void SymbolTable_print(struct SymbolTable *table, FILE *outFile, char printTAC)
 {
     printf("~~~~~~~~~~~~~\n");
     printf("Symbol Table For %s:\n\n", table->name);
-    Scope_print(table->globalScope, 0, printTAC);
+    Scope_print(table->globalScope, outFile, 0, printTAC);
     printf("~~~~~~~~~~~~~\n\n");
 }
 
@@ -67,7 +69,7 @@ static void collapseRecurseToSubScopes(struct Scope *scope, struct Dictionary *d
         {
             if (depth > 0)
             {
-                ErrorAndExit(ERROR_INTERNAL, "Saw function at depth > 0 when collapsing scopes!\n");
+                InternalError("Saw function at depth > 0 when collapsing scopes!");
             }
             struct FunctionEntry *thisFunction = thisMember->entry;
             SymbolTable_collapseScopesRec(thisFunction->mainScope, dict, 0);
@@ -107,7 +109,7 @@ static void attemptOperandMangle(struct TACOperand *operand, struct Scope *scope
             // it should not be possible to see a global as being declared here
             if (variableToMangle->isGlobal)
             {
-                ErrorAndExit(ERROR_INTERNAL, "Declaration of variable %s at inner scope %s is marked as a global!\n", variableToMangle->name, scope->name);
+                InternalError("Declaration of variable %s at inner scope %s is marked as a global!", variableToMangle->name, scope->name);
             }
             operand->name.str = SymbolTable_mangleName(scope, dict, originalName);
         }
@@ -139,7 +141,10 @@ static void mangleBlockContents(struct Scope *scope, struct Dictionary *dict)
                     struct TACLine *thisTAC = TACRunner->data;
                     for (size_t operandIndex = 0; operandIndex < 4; operandIndex++)
                     {
-                        attemptOperandMangle(&thisTAC->operands[operandIndex], scope, dict);
+                        if (getUseOfOperand(thisTAC, operandIndex) != u_unused)
+                        {
+                            attemptOperandMangle(&thisTAC->operands[operandIndex], scope, dict);
+                        }
                     }
                 }
             }
@@ -228,14 +233,14 @@ void SymbolTable_free(struct SymbolTable *table)
     free(table);
 }
 
-void VariableEntry_Print(struct VariableEntry *variable, size_t depth)
+void VariableEntry_Print(struct VariableEntry *variable, FILE *outFile, size_t depth)
 {
     char *typeName = Type_GetName(&variable->type);
-    printf("%s %s\n", typeName, variable->name);
+    fprintf(outFile, "%s %s\n", typeName, variable->name);
     free(typeName);
 }
 
-void Scope_print(struct Scope *scope, size_t depth, char printTAC)
+void Scope_print(struct Scope *scope, FILE *outFile, size_t depth, char printTAC)
 {
     for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
     {
@@ -245,7 +250,7 @@ void Scope_print(struct Scope *scope, size_t depth, char printTAC)
         {
             for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
             {
-                printf("\t");
+                fprintf(outFile, "\t");
             }
         }
 
@@ -254,34 +259,34 @@ void Scope_print(struct Scope *scope, size_t depth, char printTAC)
         case e_argument:
         {
             struct VariableEntry *theArgument = thisMember->entry;
-            printf("> Argument: ");
-            VariableEntry_Print(theArgument, depth);
+            fprintf(outFile, "> Argument: ");
+            VariableEntry_Print(theArgument, outFile, depth);
             for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
             {
-                printf("\t");
+                fprintf(outFile, "\t");
             }
-            printf("  - Stack offset: %zd\n", theArgument->stackOffset);
+            fprintf(outFile, "  - Stack offset: %zd\n", theArgument->stackOffset);
         }
         break;
 
         case e_variable:
         {
             struct VariableEntry *theVariable = thisMember->entry;
-            printf("> ");
-            VariableEntry_Print(theVariable, depth);
+            fprintf(outFile, "> ");
+            VariableEntry_Print(theVariable, outFile, depth);
         }
         break;
 
         case e_class:
         {
             struct ClassEntry *theClass = thisMember->entry;
-            printf("> Class %s:\n", thisMember->name);
+            fprintf(outFile, "> Class %s:\n", thisMember->name);
             for (size_t j = 0; j < depth; j++)
             {
-                printf("\t");
+                fprintf(outFile, "\t");
             }
-            printf("  - Size: %zu bytes\n", theClass->totalSize);
-            Scope_print(theClass->members, depth + 1, 0);
+            fprintf(outFile, "  - Size: %zu bytes\n", theClass->totalSize);
+            Scope_print(theClass->members, outFile, depth + 1, printTAC);
         }
         break;
 
@@ -289,17 +294,25 @@ void Scope_print(struct Scope *scope, size_t depth, char printTAC)
         {
             struct FunctionEntry *theFunction = thisMember->entry;
             char *returnTypeName = Type_GetName(&theFunction->returnType);
-            printf("> Function %s (returns %s) (defined: %d)\n\t%ld bytes of arguments on stack\n", thisMember->name, returnTypeName, theFunction->isDefined, theFunction->argStackSize);
+            if (theFunction->methodOf != NULL)
+            {
+                fprintf(outFile, "> Method %s.", theFunction->methodOf->name);
+            }
+            else
+            {
+                fprintf(outFile, "> Function ");
+            }
+            fprintf(outFile, "%s (returns %s) (defined: %d)\n\t%ld bytes of arguments on stack\n", thisMember->name, returnTypeName, theFunction->isDefined, theFunction->argStackSize);
             free(returnTypeName);
-            Scope_print(theFunction->mainScope, depth + 1, printTAC);
+            Scope_print(theFunction->mainScope, outFile, depth + 1, printTAC);
         }
         break;
 
         case e_scope:
         {
             struct Scope *theScope = thisMember->entry;
-            printf("> Subscope %s\n", thisMember->name);
-            Scope_print(theScope, depth + 1, printTAC);
+            fprintf(outFile, "> Subscope %s\n", thisMember->name);
+            Scope_print(theScope, outFile, depth + 1, printTAC);
         }
         break;
 
@@ -308,7 +321,7 @@ void Scope_print(struct Scope *scope, size_t depth, char printTAC)
             if (printTAC)
             {
                 struct BasicBlock *thisBlock = thisMember->entry;
-                printf("> Basic Block %zu\n", thisBlock->labelNum);
+                fprintf(outFile, "> Basic Block %zu\n", thisBlock->labelNum);
                 printBasicBlock(thisBlock, depth + 1);
             }
         }

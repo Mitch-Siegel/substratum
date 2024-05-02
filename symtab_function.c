@@ -1,5 +1,6 @@
 #include "symtab_function.h"
 
+#include "log.h"
 #include "util.h"
 #include <stddef.h>
 
@@ -16,6 +17,7 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *n
     newFunction->mainScope->parentFunction = newFunction;
     newFunction->returnType = *returnType;
     newFunction->name = nameTree->value;
+    newFunction->methodOf = NULL;
     newFunction->isDefined = 0;
     newFunction->isAsmFun = 0;
     newFunction->callsOtherFunction = 0;
@@ -35,7 +37,7 @@ struct FunctionEntry *lookupFunByString(struct Scope *scope, char *name)
     struct ScopeMember *lookedUp = Scope_lookup(scope, name);
     if (lookedUp == NULL)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Lookup of undeclared function '%s'\n", name);
+        InternalError("Lookup of undeclared function '%s'", name);
     }
 
     switch (lookedUp->type)
@@ -44,7 +46,7 @@ struct FunctionEntry *lookupFunByString(struct Scope *scope, char *name)
         return lookedUp->entry;
 
     default:
-        ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up function!\n");
+        InternalError("Lookup returned unexpected symbol table entry type when looking up function!");
     }
 }
 
@@ -53,7 +55,7 @@ struct FunctionEntry *lookupFun(struct Scope *scope, struct AST *name)
     struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
     if (lookedUp == NULL)
     {
-        ErrorWithAST(ERROR_CODE, name, "Use of undeclared function '%s'\n", name->value);
+        LogTree(LOG_FATAL, name, "Use of undeclared function '%s'", name->value);
     }
     switch (lookedUp->type)
     {
@@ -61,6 +63,6 @@ struct FunctionEntry *lookupFun(struct Scope *scope, struct AST *name)
         return lookedUp->entry;
 
     default:
-        ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up function!\n");
+        InternalError("Lookup returned unexpected symbol table entry type when looking up function!");
     }
 }

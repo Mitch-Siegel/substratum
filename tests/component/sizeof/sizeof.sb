@@ -1,4 +1,4 @@
-#include "tests-common.sbh"
+#include "tests-common.sb"
 
 fun testSizeofTypes()
 {
@@ -67,7 +67,6 @@ fun testSizeofIdentifiers()
     printHex(sizeof(t));
     uart_putc('\n');
     printHex(sizeof(p));
-    uart_putc('\n');
     uart_putc('\n');
 
 }

@@ -2,6 +2,7 @@
 
 #pragma once
 #include "substratum_defs.h"
+#include <stdio.h>
 
 enum token
 {
@@ -21,8 +22,11 @@ enum token
     t_u32,
     t_u64,
     t_class,
-    //
+    // class
     t_class_body,
+    t_impl,
+    t_method_call,
+    //
     t_compound_statement,
     //
     // function
@@ -84,7 +88,6 @@ enum token
     t_cast,
     t_comma,
     t_dot,
-    t_arrow,
     t_semicolon,
     t_colon,
     t_left_paren,
@@ -125,6 +128,6 @@ struct AST *AST_ConstructAddChild(struct AST *tree, struct AST *newChild);
 
 void AST_Print(struct AST *tree, size_t depth);
 
-void AST_PrintHorizontal(struct AST *tree);
+void AST_Dump(FILE *outFile, struct AST* tree);
 
 void AST_Free(struct AST *tree);

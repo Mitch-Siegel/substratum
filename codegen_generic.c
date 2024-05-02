@@ -1,5 +1,6 @@
 #include "codegen_generic.h"
 
+#include "log.h"
 #include "symtab_scope.h"
 #include "tac.h"
 #include "util.h"
@@ -71,10 +72,10 @@ void verifyCodegenPrimitive(struct TACOperand *operand)
     struct Type *realType = TACOperand_GetType(operand);
     if (realType->basicType == vt_class)
     {
-        if ((realType->indirectionLevel == 0) && (realType->arraySize == 0))
+        if (realType->pointerLevel == 0)
         {
             char *typeName = Type_GetName(realType);
-            ErrorAndExit(ERROR_INTERNAL, "Error in verifyCodegenPrimitive: %s is not a primitive type!\n", typeName);
+            InternalError("Error in verifyCodegenPrimitive: %s is not a primitive type!", typeName);
         }
     }
 }
@@ -90,7 +91,7 @@ void WriteVariable(struct TACLine *correspondingTACLine,
     struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, writtenTo->name.str);
     if (relevantLifetime == NULL)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", writtenTo->name.str);
+        InternalError("Unable to find lifetime for variable %s!", writtenTo->name.str);
     }
 
     switch (relevantLifetime->wbLocation)
@@ -133,7 +134,7 @@ void WriteVariable(struct TACLine *correspondingTACLine,
     break;
 
     case wb_unknown:
-        ErrorAndExit(ERROR_INTERNAL, "Lifetime for %s has unknown writeback location!\n", relevantLifetime->name);
+        InternalError("Lifetime for %s has unknown writeback location!", relevantLifetime->name);
     }
 }
 
@@ -152,7 +153,7 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
     {
         if (registerIndex < 0)
         {
-            ErrorAndExit(ERROR_INTERNAL, "Expected scratch register to place literal in, didn't get one!");
+            InternalError("Expected scratch register to place literal in, didn't get one!");
         }
 
         PlaceLiteralStringInRegister(correspondingTACLine, context, operand->name.str, registerIndex);
@@ -162,7 +163,7 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
     struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand->name.str);
     if (relevantLifetime == NULL)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", operand->name.str);
+        InternalError("Unable to find lifetime for variable %s!", operand->name.str);
     }
 
     switch (relevantLifetime->wbLocation)
@@ -174,13 +175,13 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
     {
         if (registerIndex == -1)
         {
-            ErrorAndExit(ERROR_INTERNAL, "GOT -1 as register index to place operand in!\n");
+            InternalError("GOT -1 as register index to place operand in!");
         }
 
         char loadWidth = 'X';
         const char *loadSign = "";
 
-        if (relevantLifetime->type.arraySize > 0)
+        if (relevantLifetime->type.basicType == vt_array)
         {
             // if array, treat as pointer
             loadWidth = 'd';
@@ -197,7 +198,7 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
                         relevantLifetime->name,
                         operand->name.str);
 
-        if (relevantLifetime->type.arraySize == 0)
+        if (relevantLifetime->type.basicType != vt_array)
         {
             emitInstruction(correspondingTACLine, context, "\tl%c%s %s, 0(%s) # place %s\n",
                             loadWidth,
@@ -215,11 +216,11 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
     {
         if (registerIndex == -1)
         {
-            ErrorAndExit(ERROR_INTERNAL, "GOT -1 as register index to place operand in!\n");
+            InternalError("GOT -1 as register index to place operand in!");
         }
 
         const char *usedRegister = registerNames[registerIndex];
-        if (relevantLifetime->type.arraySize > 0)
+        if (relevantLifetime->type.basicType == vt_array)
         {
             if (relevantLifetime->stackLocation >= 0)
             {
@@ -247,7 +248,7 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
 
     case wb_unknown:
     default:
-        ErrorAndExit(ERROR_INTERNAL, "Lifetime for %s has unknown writeback location!\n", relevantLifetime->name);
+        InternalError("Lifetime for %s has unknown writeback location!", relevantLifetime->name);
     }
 }
 
@@ -259,7 +260,7 @@ u8 pickWriteRegister(struct Scope *scope,
     struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand->name.str);
     if (relevantLifetime == NULL)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", operand->name.str);
+        InternalError("Unable to find lifetime for variable %s!", operand->name.str);
     }
 
     switch (relevantLifetime->wbLocation)
@@ -273,7 +274,7 @@ u8 pickWriteRegister(struct Scope *scope,
 
     case wb_unknown:
     default:
-        ErrorAndExit(ERROR_INTERNAL, "Lifetime for %s has unknown writeback location!\n", relevantLifetime->name);
+        InternalError("Lifetime for %s has unknown writeback location!", relevantLifetime->name);
     }
 }
 
@@ -287,13 +288,13 @@ u8 placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
     struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand->name.str);
     if (relevantLifetime == NULL)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Unable to find lifetime for variable %s!\n", operand->name.str);
+        InternalError("Unable to find lifetime for variable %s!", operand->name.str);
     }
 
     switch (relevantLifetime->wbLocation)
     {
     case wb_register:
-        ErrorAndExit(ERROR_INTERNAL, "placeAddrOfLifetimeInReg called on register lifetime %s!\n", relevantLifetime->name);
+        InternalError("placeAddrOfLifetimeInReg called on register lifetime %s!", relevantLifetime->name);
         break;
 
     case wb_global:
@@ -305,7 +306,7 @@ u8 placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
         break;
 
     case wb_unknown:
-        ErrorAndExit(ERROR_INTERNAL, "placeAddrOfLifetimeInReg called on lifetime with unknown writeback location %s!\n", relevantLifetime->name);
+        InternalError("placeAddrOfLifetimeInReg called on lifetime with unknown writeback location %s!", relevantLifetime->name);
         break;
     }
 
@@ -343,7 +344,7 @@ char SelectWidthCharForSize(u8 size)
         break;
 
     default:
-        ErrorAndExit(ERROR_INTERNAL, "Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, 4, or 8 bytes!");
+        InternalError("Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, 4, or 8 bytes!");
     }
 
     return widthChar;
@@ -362,51 +363,54 @@ const char *SelectSignForLoad(u8 loadSize, struct Type *loaded)
         return "";
 
     default:
-        ErrorAndExit(ERROR_INTERNAL, "Unexpected load size character seen in SelectSignForLoad!\n");
+        InternalError("Unexpected load size character seen in SelectSignForLoad!");
     }
 }
 
 char SelectWidthChar(struct Scope *scope, struct TACOperand *dataDest)
 {
     // pointers and arrays (decay implicitly at this stage to pointers) are always full-width
-    if ((TACOperand_GetType(dataDest)->indirectionLevel > 0) || (TACOperand_GetType(dataDest)->arraySize > 0))
+    if (Type_GetIndirectionLevel(TACOperand_GetType(dataDest)) > 0)
     {
         return 'd';
     }
 
-    return SelectWidthCharForSize(getSizeOfType(scope, TACOperand_GetType(dataDest)));
+    return SelectWidthCharForSize(Type_GetSize(TACOperand_GetType(dataDest), scope));
 }
 
 char SelectWidthCharForDereference(struct Scope *scope, struct TACOperand *dataDest)
 {
     struct Type *operandType = TACOperand_GetType(dataDest);
-    if ((operandType->indirectionLevel == 0) &&
-        (operandType->arraySize == 0))
+    if ((operandType->pointerLevel == 0) &&
+        (operandType->basicType != vt_array))
     {
-        ErrorAndExit(ERROR_INTERNAL, "SelectWidthCharForDereference called on non-indirect operand %s!\n", dataDest->name.str);
+        InternalError("SelectWidthCharForDereference called on non-indirect operand %s!", dataDest->name.str);
     }
     struct Type dereferenced = *operandType;
-    if (dereferenced.indirectionLevel == 0)
+
+    // if not a pointer, we are dereferenceing an array so jump one layer down
+    if (dereferenced.pointerLevel == 0)
     {
-        dereferenced.arraySize = 0;
+        dereferenced = *dereferenced.array.type;
     }
     else
     {
-        dereferenced.indirectionLevel--;
+        // is a pointer, decrement pointer level
+        dereferenced.pointerLevel--;
     }
-    return SelectWidthCharForSize(getSizeOfType(scope, &dereferenced));
+    return SelectWidthCharForSize(Type_GetSize(&dereferenced, scope));
 }
 
 char SelectWidthCharForLifetime(struct Scope *scope, struct Lifetime *lifetime)
 {
     char widthChar = '\0';
-    if (lifetime->type.indirectionLevel > 0)
+    if (lifetime->type.pointerLevel > 0)
     {
         widthChar = 'd';
     }
     else
     {
-        widthChar = SelectWidthCharForSize(getSizeOfType(scope, &lifetime->type));
+        widthChar = SelectWidthCharForSize(Type_GetSize(&lifetime->type, scope));
     }
 
     return widthChar;
@@ -458,7 +462,7 @@ void EmitPushForOperand(struct TACLine *correspondingTACLine,
                         struct TACOperand *dataSource,
                         u8 srcRegister)
 {
-    size_t size = getSizeOfType(scope, TACOperand_GetType(dataSource));
+    size_t size = Type_GetSize(TACOperand_GetType(dataSource), scope);
     switch (size)
     {
     case sizeof(u8):
@@ -471,7 +475,7 @@ void EmitPushForOperand(struct TACLine *correspondingTACLine,
     default:
     {
         char *typeName = Type_GetName(TACOperand_GetType(dataSource));
-        ErrorAndExit(ERROR_INTERNAL, "Unsupported size %zu seen in EmitPushForOperand (for type %s)\n", size, typeName);
+        InternalError("Unsupported size %zu seen in EmitPushForOperand (for type %s)", size, typeName);
     }
     }
 }
@@ -493,7 +497,7 @@ void EmitPopForOperand(struct TACLine *correspondingTACLine,
                        struct TACOperand *dataDest,
                        u8 destRegister)
 {
-    size_t size = getSizeOfType(scope, TACOperand_GetType(dataDest));
+    size_t size = Type_GetSize(TACOperand_GetType(dataDest), scope);
     switch (size)
     {
     case sizeof(u8):
@@ -507,7 +511,7 @@ void EmitPopForOperand(struct TACLine *correspondingTACLine,
     default:
     {
         char *typeName = Type_GetName(TACOperand_GetType(dataDest));
-        ErrorAndExit(ERROR_INTERNAL, "Unsupported size %zu seen in EmitPopForOperand (for type %s)\n", size, typeName);
+        InternalError("Unsupported size %zu seen in EmitPopForOperand (for type %s)", size, typeName);
     }
     }
 }

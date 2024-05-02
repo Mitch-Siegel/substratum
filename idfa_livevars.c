@@ -1,5 +1,6 @@
 #include "idfa_livevars.h"
 
+#include "log.h"
 #include "symtab_basicblock.h"
 #include "util.h"
 
@@ -39,22 +40,16 @@ void liveVars_findGenKills(struct Idfa *idfa)
                     Set_Insert(idfa->facts.kill[blockIndex], &genKillLine->operands[operandIndex]);
                     if (genKillLine->operands[operandIndex].name.str == NULL)
                     {
-                        ErrorAndExit(ERROR_CODE, "NULL OPERAND\n");
+                        InternalError("NULL OPERAND");
                     }
-                    printf("READ: ");
-                    printTACOperand(&genKillLine->operands[operandIndex]);
-                    printf("\n");
                     break;
 
                 case u_write:
                     if (genKillLine->operands[operandIndex].name.str == NULL)
                     {
-                        ErrorAndExit(ERROR_CODE, "NULL OPERAND\n");
+                        InternalError("NULL OPERAND");
                     }
                     Set_Insert(idfa->facts.gen[blockIndex], &genKillLine->operands[operandIndex]);
-                    printf("WRITE: ");
-                    printTACOperand(&genKillLine->operands[operandIndex]);
-                    printf("\n");
 
                     break;
                 }

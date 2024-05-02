@@ -28,6 +28,21 @@ fun testBasicCasting()
     uart_putc('\n');
 }
 
+fun testBasicCasting2()
+{
+    u64 junk = 0xffffffffffffffff;
+    u8 smallValue  = 0xee;
+    u64 junk2 = 0xffffffffffffffff;
+    printHex((u64)smallValue);
+    uart_putc('\n');
+    printHex((u32)smallValue);
+    uart_putc('\n');
+    printHex((u16)smallValue);
+    uart_putc('\n');
+    printHex((u8)smallValue);
+    uart_putc('\n');
+}
+
 fun testCastStoring()
 {
     u64 largerValue = 0xFFFFFFFFFFFFFFFF;
@@ -66,12 +81,12 @@ fun testClassPointerCasting()
     printHex(e.d);
     uart_putc('\n');
 
-    printHex(sp->a);
+    printHex(sp.a);
     uart_putc('\n');
-    printHex(sp->b);
+    printHex(sp.b);
     uart_putc('\n');
 
-    sp->b = 0xffff;
+    sp.b = 0xffff;
     printHex(e.a);
     uart_putc('\n');
     printHex(e.b);
@@ -86,6 +101,8 @@ fun testClassPointerCasting()
 fun main()
 {
     testBasicCasting();
+    uart_putc('\n');
+    testBasicCasting2();
     uart_putc('\n');
     testCastStoring();
     uart_putc('\n');
