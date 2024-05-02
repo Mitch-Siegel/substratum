@@ -11,16 +11,13 @@ impl Stack {
     }
 
     fun Push(Stack *self, u8 value) {
-        // crash here :(
-        // self.data[self.topIndex] doesn't work because self.data is an array
-        (&self.data)[self.topIndex] = value;
+        self.data[self.topIndex] = value;
         self.topIndex += 1;
     }
 
     u8 fun Pop(Stack *self) {
         self.topIndex -= 1;
-        // same issue here as above
-        return (&self.data)[self.topIndex];
+        return self.data[self.topIndex];
     }
 
     u8 fun Size(Stack *self) {
