@@ -1138,10 +1138,7 @@ void walkDotOperatorAssignment(struct AST *tree,
         checkAccessedClassForDot(tree, scope, TAC_GetTypeOfOperand(arrayRefToDot, 0));
 
         // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
-        convertArrayRefLoadToLea(arrayRefToDot);
-
-        // copy the TAC operand containing the address on which we will dot
-        copyTACOperandDecayArrays(&wipAssignment->operands[0], &arrayRefToDot->operands[0]);
+        convertLoadToLea(arrayRefToDot, &wipAssignment->operands[0]);
     }
     break;
 
@@ -1311,6 +1308,13 @@ void walkAssignment(struct AST *tree,
                 LogTree(LOG_FATAL, arrayBase, "Use of non-pointer variable %s as array!", arrayBase->value);
             }
             populateTACOperandFromVariable(&assignment->operands[0], arrayVariable);
+        }
+        // if our array is a member of something, make sure we LEA it instead of loading it
+        else if(arrayBase->type == t_dot)
+        {
+            struct TACLine *arrayBaseAccessLine = walkMemberAccess(arrayBase, block, scope, TACIndex, tempNum, &assignment->operands[0], 0);
+            convertLoadToLea(arrayBaseAccessLine, &assignment->operands[0]);
+            arrayType = TAC_GetTypeOfOperand(arrayBaseAccessLine, 0);
         }
         // otherwise, our array base comes from some sort of subexpression
         else
@@ -2075,10 +2079,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
                 checkAccessedClassForDot(tree, scope, TAC_GetTypeOfOperand(arrayRefToDot, 0));
 
                 // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
-                convertArrayRefLoadToLea(arrayRefToDot);
-
-                // copy the TAC operand containing the address on which we will dot
-                copyTACOperandDecayArrays(&accessLine->operands[1], &arrayRefToDot->operands[0]);
+                convertLoadToLea(arrayRefToDot, &accessLine->operands[1]);
             };
             break;
 
@@ -2501,7 +2502,7 @@ struct TACOperand *walkAddrOf(struct AST *tree,
     {
         // use walkArrayRef to generate the access we need, just the direct accessing load to an lea to calculate the address we would have loaded from
         struct TACLine *arrayRefLine = walkArrayRef(tree->child, block, scope, TACIndex, tempNum);
-        convertArrayRefLoadToLea(arrayRefLine);
+        convertLoadToLea(arrayRefLine, NULL);
 
         // early return, no need for explicit address-of TAC
         freeTAC(addrOfLine);
@@ -2516,11 +2517,7 @@ struct TACOperand *walkAddrOf(struct AST *tree,
         // walkMemberAccess can do everything we need
         // the only thing we have to do is ensure we have an LEA at the end instead of a direct read in the case of the dot operator
         struct TACLine *memberAccessLine = walkMemberAccess(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1], 0);
-
-        memberAccessLine->operation = tt_lea_off;
-        memberAccessLine->operands[0].type.pointerLevel++;
-        memberAccessLine->operands[1].castAsType.pointerLevel++;
-        addrOfLine->operands[0].type.pointerLevel++;
+        convertLoadToLea(memberAccessLine, &addrOfLine->operands[1]);
 
         // free the line created at the top of this function and return early
         freeTAC(addrOfLine);

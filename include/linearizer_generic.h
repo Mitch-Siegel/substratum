@@ -34,7 +34,7 @@ struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, 
 // special case handling for when tree is an identifier vs a subexpression
 void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type *type);
 
-// in the case that we know we just walked an array ref, convert its direct load to an LEA (for cases such as &thing[0] and foo[1].bar)
-void convertArrayRefLoadToLea(struct TACLine *arrayRefLine);
+// in the case that we know we just walked an array ref or member access, convert its direct load to an LEA (for cases such as &thing[0] and foo[1].bar)
+void convertLoadToLea(struct TACLine *loadLine, struct TACOperand *dest);
 
 #endif

@@ -110,18 +110,18 @@ void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type
     }
 }
 
-void convertArrayRefLoadToLea(struct TACLine *arrayRefLine)
+void convertLoadToLea(struct TACLine *loadLine, struct TACOperand *dest)
 {
     // if we have a load instruction, convert it to the corresponding lea instrutcion
     // leave existing lea instructions alone
-    switch (arrayRefLine->operation)
+    switch (loadLine->operation)
     {
     case tt_load_arr:
-        arrayRefLine->operation = tt_lea_arr;
+        loadLine->operation = tt_lea_arr;
         break;
 
     case tt_load_off:
-        arrayRefLine->operation = tt_lea_off;
+        loadLine->operation = tt_lea_off;
         break;
 
     case tt_lea_off:
@@ -129,10 +129,15 @@ void convertArrayRefLoadToLea(struct TACLine *arrayRefLine)
         break;
 
     default:
-        InternalError("Unexpected TAC operation %s seen in convertArrayRefLoadToLea!", getAsmOp(arrayRefLine->operation));
+        InternalError("Unexpected TAC operation %s seen in convertArrayRefLoadToLea!", getAsmOp(loadLine->operation));
         break;
     }
 
     // increment indirection level as we just converted from a load to a lea
-    TAC_GetTypeOfOperand(arrayRefLine, 0)->pointerLevel++;
+    TAC_GetTypeOfOperand(loadLine, 0)->pointerLevel++;
+
+    if(dest != NULL)
+    {
+        *dest = loadLine->operands[0];
+    }
 }
