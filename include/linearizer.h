@@ -33,13 +33,15 @@ void walkArgumentDeclaration(struct AST *tree,
 
 struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
                                               struct Scope *scope,
-                                              struct ClassEntry *methodOf);
+                                              struct ClassEntry *methodOf,
+                                              enum Access accessibility);
 
 void walkFunctionDefinition(struct AST *tree,
                             struct FunctionEntry *fun);
 
 void walkMethod(struct AST *tree,
-                struct ClassEntry *class);
+                struct ClassEntry *class,
+                enum Access accessibility);
 
 void walkImplementationBlock(struct AST *tree, struct Scope *scope);
 

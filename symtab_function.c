@@ -32,6 +32,14 @@ void FunctionEntry_free(struct FunctionEntry *function)
     free(function);
 }
 
+// create a new function accessible within the given scope
+struct FunctionEntry *createFunction(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType, enum Access accessibility)
+{
+    struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, nameTree, returnType);
+    Scope_insert(parentScope, nameTree->value, newFunction, e_function, accessibility);
+    return newFunction;
+}
+
 struct FunctionEntry *lookupFunByString(struct Scope *scope, char *name)
 {
     struct ScopeMember *lookedUp = Scope_lookup(scope, name);

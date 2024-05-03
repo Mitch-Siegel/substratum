@@ -6,21 +6,21 @@ class Stack {
 };
 
 impl Stack {
-    fun Init(self) {
+    public fun Init(self) {
         self.topIndex = 0;
     }
 
-    fun Push(self, u8 value) {
+    public fun Push(self, u8 value) {
         self.data[self.topIndex] = value;
         self.topIndex += 1;
     }
 
-    u8 fun Pop(self) {
+    public u8 fun Pop(self) {
         self.topIndex -= 1;
         return self.data[self.topIndex];
     }
 
-    u8 fun Size(self) {
+    public u8 fun Size(self) {
         return self.topIndex;
     }
 }

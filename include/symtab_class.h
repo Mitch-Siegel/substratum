@@ -34,7 +34,8 @@ struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
                                                struct Scope *scope);
 
 struct FunctionEntry *lookupMethod(struct ClassEntry *class,
-                                   struct AST *name);
+                                   struct AST *name,
+                                   struct Scope *scope);
 
 // TODO: char *name vs AST *name (change to AST *nameTree?)
 struct FunctionEntry *lookupMethodByString(struct ClassEntry *class,

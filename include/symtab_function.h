@@ -5,6 +5,7 @@
 
 #include "ast.h"
 #include "type.h"
+#include "symtab_scope.h"
 
 struct FunctionEntry
 {
@@ -27,7 +28,8 @@ void FunctionEntry_free(struct FunctionEntry *function);
 
 struct FunctionEntry *createFunction(struct Scope *parentScope,
                                      struct AST *nameTree,
-                                     struct Type *returnType);
+                                     struct Type *returnType,
+                                     enum Access accessibility);
 
 struct FunctionEntry *lookupFunByString(struct Scope *scope,
                                         char *name);

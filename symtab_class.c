@@ -58,7 +58,8 @@ void assignOffsetToMemberVariable(struct ClassEntry *class,
 // assuming we know that class has a member with name identical to name->value, make sure we can actually access it
 void checkAccess(struct ClassEntry *class,
                  struct AST *name,
-                 struct Scope *scope)
+                 struct Scope *scope,
+                 char *whatAccessingCalled)
 {
     struct ScopeMember *accessed = Scope_lookup(class->members, name->value);
 
@@ -81,7 +82,7 @@ void checkAccess(struct ClassEntry *class,
 
         if (scope == NULL)
         {
-            LogTree(LOG_FATAL, name, "Member %s of class %s has access specifier private - not accessible from this scope!", name->value, class->name);
+            LogTree(LOG_FATAL, name, "%s %s of class %s has access specifier private - not accessible from this scope!", whatAccessingCalled, name->value, class->name);
         }
         break;
     }
@@ -117,15 +118,18 @@ struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
     }
     else
     {
-        checkAccess(class, name, scope);
+        checkAccess(class, name, scope, "Member");
     }
 
     return returnedMember;
 }
 
 struct FunctionEntry *lookupMethod(struct ClassEntry *class,
-                                   struct AST *name)
+                                   struct AST *name,
+                                   struct Scope *scope)
 {
+    struct FunctionEntry *returnedMethod = NULL;
+
     for (size_t entryIndex = 0; entryIndex < class->members->entries->size; entryIndex++)
     {
         struct ScopeMember *examinedEntry = class->members->entries->data[entryIndex];
@@ -135,12 +139,20 @@ struct FunctionEntry *lookupMethod(struct ClassEntry *class,
             {
                 LogTree(LOG_FATAL, name, "Attempt to call non-method member %s.%s as method!\n", class->name, name->value);
             }
-            return examinedEntry->entry;
+            returnedMethod = examinedEntry->entry;
         }
     }
 
-    LogTree(LOG_FATAL, name, "Attempt to call nonexistent method %s.%s\n", class->name, name->value);
-    exit(1);
+    if(returnedMethod == NULL)
+    {
+        LogTree(LOG_FATAL, name, "Attempt to call nonexistent method %s.%s\n", class->name, name->value);
+    }
+    else
+    {
+        checkAccess(class, name, scope, "Method");
+    }
+
+    return returnedMethod;
 }
 
 struct FunctionEntry *lookupMethodByString(struct ClassEntry *class,

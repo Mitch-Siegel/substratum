@@ -61,7 +61,7 @@ struct SymbolTable *walkProgram(struct AST *program)
             break;
 
         case t_fun:
-            walkFunctionDeclaration(programRunner, programTable->globalScope, NULL);
+            walkFunctionDeclaration(programRunner, programTable->globalScope, NULL, a_public);
             break;
 
         // ignore asm blocks
@@ -334,7 +334,8 @@ void verifyFunctionSignatures(struct AST *tree, struct FunctionEntry *existingFu
 
 struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
                                               struct Scope *scope,
-                                              struct ClassEntry *methodOf)
+                                              struct ClassEntry *methodOf,
+                                              enum Access accessibility)
 {
     LogTree(LOG_DEBUG, tree, "walkFunctionDeclaration");
 
@@ -392,7 +393,7 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
     }
     else
     {
-        parsedFunc = createFunction(scope, functionNameTree, &returnType);
+        parsedFunc = createFunction(scope, functionNameTree, &returnType, accessibility);
         parsedFunc->mainScope->parentScope = scope;
         returnedFunc = parsedFunc;
     }
@@ -490,7 +491,8 @@ void walkFunctionDefinition(struct AST *tree,
 }
 
 void walkMethod(struct AST *tree,
-                struct ClassEntry *class)
+                struct ClassEntry *class,
+                enum Access accessibility)
 {
     Log(LOG_DEBUG, "walkMethod", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
@@ -499,7 +501,7 @@ void walkMethod(struct AST *tree,
         LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkMethod!", getTokenName(tree->type));
     }
 
-    struct FunctionEntry *walkedMethod = walkFunctionDeclaration(tree, class->members, class);
+    struct FunctionEntry *walkedMethod = walkFunctionDeclaration(tree, class->members, class, accessibility);
     if (walkedMethod->arguments->size > 0)
     {
         struct VariableEntry *firstArg = walkedMethod->arguments->data[0];
@@ -537,7 +539,11 @@ void walkImplementationBlock(struct AST *tree, struct Scope *scope)
         switch (implementationRunner->type)
         {
         case t_fun:
-            walkMethod(implementationRunner, implementedClass);
+            walkMethod(implementationRunner, implementedClass, a_private);
+            break;
+
+        case t_public:
+            walkMethod(implementationRunner->child, implementedClass, a_public);
             break;
 
         default:
@@ -1769,7 +1775,7 @@ void walkMethodCall(struct AST *tree,
         // TODO: check arrow vs dot operator against indirection level here?
     }
 
-    struct FunctionEntry *calledFunction = lookupMethod(classCalledOn, callTree->child);
+    struct FunctionEntry *calledFunction = lookupMethod(classCalledOn, callTree->child, scope);
 
     checkFunctionReturnUse(tree, destinationOperand, calledFunction);
 

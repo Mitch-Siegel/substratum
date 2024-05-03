@@ -74,14 +74,6 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
     Stack_Push(scope->entries, wip);
 }
 
-// create a new function accessible within the given scope
-struct FunctionEntry *createFunction(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType)
-{
-    struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, nameTree, returnType);
-    Scope_insert(parentScope, nameTree->value, newFunction, e_function, a_public);
-    return newFunction;
-}
-
 // create and return a child scope of the scope provided as an argument
 struct Scope *Scope_createSubScope(struct Scope *parentScope)
 {
