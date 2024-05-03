@@ -2,17 +2,17 @@
 
 class eights
 {
-    u8 a;
-    u8 b;
-    u8 c;
-    u8 d;
+    public u8 a;
+    public u8 b;
+    public u8 c;
+    public u8 d;
 };
 
 class sixteens
 {
-    u8 a;
-    u16 b;
-    u8 c;
+    public u8 a;
+    public u16 b;
+    public u8 c;
 };
 
 fun testBasicCasting()

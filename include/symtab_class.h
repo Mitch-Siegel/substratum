@@ -30,7 +30,8 @@ void assignOffsetToMemberVariable(struct ClassEntry *class,
                                   struct VariableEntry *variable);
 
 struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
-                                               struct AST *name);
+                                               struct AST *name,
+                                               struct Scope *scope);
 
 struct FunctionEntry *lookupMethod(struct ClassEntry *class,
                                    struct AST *name);

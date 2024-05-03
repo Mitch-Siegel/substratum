@@ -35,12 +35,12 @@ struct SymbolTable *walkProgram(struct AST *program)
         {
         case t_variable_declaration:
             // walkVariableDeclaration sets isGlobal for us by checking if there is no parent scope
-            walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0, 1);
+            walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0, a_public);
             break;
 
         case t_extern:
         {
-            struct VariableEntry *declaredVariable = walkVariableDeclaration(programRunner->child, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0, 1);
+            struct VariableEntry *declaredVariable = walkVariableDeclaration(programRunner->child, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0, a_public);
             declaredVariable->isExtern = 1;
         }
         break;
@@ -238,7 +238,7 @@ void walkArgumentDeclaration(struct AST *tree,
 {
     LogTree(LOG_DEBUG, tree, "walkArgumentDeclaration");
 
-    struct VariableEntry *declaredArgument = walkVariableDeclaration(tree, block, fun->mainScope, TACIndex, tempNum, 1, 1);
+    struct VariableEntry *declaredArgument = walkVariableDeclaration(tree, block, fun->mainScope, TACIndex, tempNum, 1, a_public);
 
     Stack_Push(fun->arguments, declaredArgument);
 }
@@ -582,7 +582,7 @@ void walkClassDeclaration(struct AST *tree,
 
         case t_public:
         {
-            struct VariableEntry *declaredMember = walkVariableDeclaration(classBodyRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0, a_public);
+            struct VariableEntry *declaredMember = walkVariableDeclaration(classBodyRunner->child, block, declaredClass->members, &dummyNum, &dummyNum, 0, a_public);
             assignOffsetToMemberVariable(declaredClass, declaredMember);
         }
         break;
@@ -608,7 +608,7 @@ void walkStatement(struct AST *tree,
     switch (tree->type)
     {
     case t_variable_declaration:
-        walkVariableDeclaration(tree, *blockP, scope, TACIndex, tempNum, 0, 1);
+        walkVariableDeclaration(tree, *blockP, scope, TACIndex, tempNum, 0, a_public);
         break;
 
     case t_extern:
@@ -1106,7 +1106,7 @@ void walkAssignment(struct AST *tree,
     switch (lhs->type)
     {
     case t_variable_declaration:
-        assignedVariable = walkVariableDeclaration(lhs, block, scope, TACIndex, tempNum, 0, 1);
+        assignedVariable = walkVariableDeclaration(lhs, block, scope, TACIndex, tempNum, 0, a_public);
         populateTACOperandFromVariable(&assignment->operands[0], assignedVariable);
         assignment->operands[1] = assignedValue;
 
@@ -1958,7 +1958,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
     // get the ClassEntry and ClassMemberOffset of what we're accessing within and the member we access
     struct ClassEntry *accessedClass = lookupClassByType(scope, accessedType);
-    struct ClassMemberOffset *accessedMember = lookupMemberVariable(accessedClass, rhs);
+    struct ClassMemberOffset *accessedMember = lookupMemberVariable(accessedClass, rhs, scope);
 
     // populate type information (use cast for the first operand as we are treating a class as a pointer to something else with a given offset)
     accessLine->operands[1].castAsType = accessedMember->variable->type;

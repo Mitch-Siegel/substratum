@@ -9,7 +9,7 @@ struct ClassEntry *createClass(struct Scope *scope,
 {
     struct ClassEntry *wipClass = malloc(sizeof(struct ClassEntry));
     wipClass->name = name;
-    wipClass->members = Scope_new(scope, "CLASS", NULL);
+    wipClass->members = Scope_new(scope, name, NULL);
     wipClass->memberLocations = Stack_New();
     wipClass->totalSize = 0;
 
@@ -55,8 +55,41 @@ void assignOffsetToMemberVariable(struct ClassEntry *class,
     Stack_Push(class->memberLocations, newMemberLocation);
 }
 
+// assuming we know that class has a member with name identical to name->value, make sure we can actually access it
+void checkAccess(struct ClassEntry *class,
+                 struct AST *name,
+                 struct Scope *scope)
+{
+    struct ScopeMember *accessed = Scope_lookup(class->members, name->value);
+
+    switch (accessed->accessibility)
+    {
+    // nothing to check if public
+    case a_public:
+        break;
+
+    case a_private:
+        // check if the scope at which we are accessing is a subscope of (or identical to) the class' scope
+        do
+        {
+            if (scope == class->members)
+            {
+                break;
+            }
+            scope = scope->parentScope;
+        } while (scope != NULL);
+
+        if (scope == NULL)
+        {
+            LogTree(LOG_FATAL, name, "Member %s of class %s has access specifier private - not accessible from this scope!", name->value, class->name);
+        }
+        break;
+    }
+}
+
 struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
-                                               struct AST *name)
+                                               struct AST *name,
+                                               struct Scope *scope)
 {
     if (name->type != t_identifier)
     {
@@ -67,17 +100,27 @@ struct ClassMemberOffset *lookupMemberVariable(struct ClassEntry *class,
                 getTokenName(name->type));
     }
 
+    struct ClassMemberOffset *returnedMember = NULL;
     for (size_t memberIndex = 0; memberIndex < class->memberLocations->size; memberIndex++)
     {
         struct ClassMemberOffset *member = class->memberLocations->data[memberIndex];
         if (!strcmp(member->variable->name, name->value))
         {
-            return member;
+            returnedMember = member;
+            break;
         }
     }
 
-    LogTree(LOG_FATAL, name, "Use of nonexistent member variable %s in class %s", name->value, class->name);
-    return NULL;
+    if (returnedMember == NULL)
+    {
+        LogTree(LOG_FATAL, name, "Use of nonexistent member variable %s in class %s", name->value, class->name);
+    }
+    else
+    {
+        checkAccess(class, name, scope);
+    }
+
+    return returnedMember;
 }
 
 struct FunctionEntry *lookupMethod(struct ClassEntry *class,

@@ -4,9 +4,9 @@
 // attempt to read and write values of all possible sizes 
 class AllSizes1
 {
-    u8 first;
-    u16 second;
-    u32 third;
+    public u8 first;
+    public u16 second;
+    public u32 third;
 };
 
 fun TestClass1(u32 write32, u16 write16, u8 write8)
@@ -49,9 +49,9 @@ fun TestClass1(u32 write32, u16 write16, u8 write8)
 
 class AllSizes2
 {
-    u8 first;
-    u32 second;
-    u16 third;
+    public u8 first;
+    public u32 second;
+    public u16 third;
 };
 
 fun TestClass2(u32 write32, u16 write16, u8 write8)
@@ -94,9 +94,9 @@ fun TestClass2(u32 write32, u16 write16, u8 write8)
 
 class AllSizes3
 {
-    u16 first;
-    u8 second;
-    u32 third;
+    public u16 first;
+    public u8 second;
+    public u32 third;
 };
 
 fun TestClass3(u32 write32, u16 write16, u8 write8)
@@ -139,9 +139,9 @@ fun TestClass3(u32 write32, u16 write16, u8 write8)
 
 class AllSizes4
 {
-    u16 first;
-    u32 second;
-    u8 third;
+    public u16 first;
+    public u32 second;
+    public u8 third;
 };
 
 fun TestClass4(u32 write32, u16 write16, u8 write8)
@@ -184,9 +184,9 @@ fun TestClass4(u32 write32, u16 write16, u8 write8)
 
 class AllSizes5
 {
-    u32 first;
-    u8 second;
-    u16 third;
+    public u32 first;
+    public u8 second;
+    public u16 third;
 };
 
 fun TestClass5(u32 write32, u16 write16, u8 write8)
@@ -229,9 +229,9 @@ fun TestClass5(u32 write32, u16 write16, u8 write8)
 
 class AllSizes6
 {
-    u32 first;
-    u16 second;
-    u8 third;
+    public u32 first;
+    public u16 second;
+    public u8 third;
 };
 
 fun TestClass6(u32 write32, u16 write16, u8 write8)
