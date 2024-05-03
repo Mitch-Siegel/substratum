@@ -61,7 +61,7 @@ struct SymbolTable *walkProgram(struct AST *program)
             break;
 
         case t_fun:
-            walkFunctionDeclaration(programRunner, programTable->globalScope);
+            walkFunctionDeclaration(programRunner, programTable->globalScope, NULL);
             break;
 
         // ignore asm blocks
@@ -331,7 +331,8 @@ void verifyFunctionSignatures(struct AST *tree, struct FunctionEntry *existingFu
 }
 
 struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
-                                              struct Scope *scope)
+                                              struct Scope *scope,
+                                              struct ClassEntry *methodOf)
 {
     LogTree(LOG_DEBUG, tree, "walkFunctionDeclaration");
 
@@ -409,6 +410,21 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
         }
         break;
 
+        case t_self:
+        {
+            if (methodOf == NULL)
+            {
+                InternalError("Malformed AST within function declaration - saw self when methodOf == NULL");
+            }
+            struct Type selfType;
+            Type_Init(&selfType);
+            Type_SetBasicType(&selfType, vt_class, methodOf->name, 1);
+            struct VariableEntry *selfArgument = createVariable(parsedFunc->mainScope, argumentRunner, &selfType, 0, 0, 1);
+
+            Stack_Push(parsedFunc->arguments, selfArgument);
+        }
+        break;
+
         default:
             InternalError("Malformed AST within function - expected function name and main scope only!\nMalformed node was of type %s with value [%s]", getTokenName(argumentRunner->type), argumentRunner->value);
         }
@@ -481,7 +497,7 @@ void walkMethod(struct AST *tree,
         LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkMethod!", getTokenName(tree->type));
     }
 
-    struct FunctionEntry *walkedMethod = walkFunctionDeclaration(tree, class->members);
+    struct FunctionEntry *walkedMethod = walkFunctionDeclaration(tree, class->members, class);
     if (walkedMethod->arguments->size > 0)
     {
         struct VariableEntry *firstArg = walkedMethod->arguments->data[0];
@@ -1277,6 +1293,7 @@ void walkSubExpression(struct AST *tree,
     switch (tree->type)
     {
         // variable read
+    case t_self:
     case t_identifier:
     {
         struct VariableEntry *readVariable = lookupVar(scope, tree);
@@ -1882,6 +1899,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
         }
         break;
 
+        case t_self:
         case t_identifier:
         {
             // if we are dotting an identifier, insert an address-of if it is not a pointer already

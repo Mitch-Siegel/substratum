@@ -30,7 +30,8 @@ void walkArgumentDeclaration(struct AST *tree,
                              struct FunctionEntry *fun);
 
 struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
-                                              struct Scope *scope);
+                                              struct Scope *scope,
+                                              struct ClassEntry *methodOf);
 
 void walkFunctionDefinition(struct AST *tree,
                             struct FunctionEntry *fun);
