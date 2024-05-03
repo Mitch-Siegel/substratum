@@ -13,7 +13,7 @@ struct ClassEntry *createClass(struct Scope *scope,
     wipClass->memberLocations = Stack_New();
     wipClass->totalSize = 0;
 
-    Scope_insert(scope, name, wipClass, e_class);
+    Scope_insert(scope, name, wipClass, e_class, a_public);
     return wipClass;
 }
 

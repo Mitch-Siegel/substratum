@@ -14,7 +14,7 @@ struct SymbolTable *SymbolTable_new(char *name)
     struct BasicBlock *globalBlock = BasicBlock_new(0);
 
     // manually insert a basic block for global code so we can give it the custom name of "globalblock"
-    Scope_insert(wip->globalScope, "globalblock", globalBlock, e_basicblock);
+    Scope_insert(wip->globalScope, "globalblock", globalBlock, e_basicblock, a_public);
 
     return wip;
 }
@@ -40,7 +40,7 @@ char *SymbolTable_mangleName(struct Scope *scope, struct Dictionary *dict, char 
 
 void SymbolTable_moveMemberToParentScope(struct Scope *scope, struct ScopeMember *toMove, size_t *indexWithinCurrentScope)
 {
-    Scope_insert(scope->parentScope, toMove->name, toMove->entry, toMove->type);
+    Scope_insert(scope->parentScope, toMove->name, toMove->entry, toMove->type, toMove->accessibility);
     free(scope->entries->data[*indexWithinCurrentScope]);
     for (size_t entryIndex = *indexWithinCurrentScope; entryIndex < scope->entries->size - 1; entryIndex++)
     {
@@ -335,7 +335,7 @@ void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *block)
     const u8 basicBlockNameStrSize = 10; // TODO: manage this better
     char *blockName = malloc(basicBlockNameStrSize);
     sprintf(blockName, "Block%zu", block->labelNum);
-    Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), block, e_basicblock);
+    Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), block, e_basicblock, a_public);
     free(blockName);
 
     if (scope->parentFunction != NULL)

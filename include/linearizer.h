@@ -2,6 +2,7 @@
 #define LINEARIZER_H
 
 #include "substratum_defs.h"
+#include "symtab_scope.h"
 
 struct AST;
 struct SymbolTable;
@@ -21,7 +22,8 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
                                               struct Scope *scope,
                                               const size_t *tacIndex,
                                               const size_t *tempNum,
-                                              char isArgument);
+                                              u8 isArgument,
+                                              enum Access accessibility);
 
 void walkArgumentDeclaration(struct AST *tree,
                              struct BasicBlock *block,

@@ -35,12 +35,12 @@ struct SymbolTable *walkProgram(struct AST *program)
         {
         case t_variable_declaration:
             // walkVariableDeclaration sets isGlobal for us by checking if there is no parent scope
-            walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
+            walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0, 1);
             break;
 
         case t_extern:
         {
-            struct VariableEntry *declaredVariable = walkVariableDeclaration(programRunner->child, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
+            struct VariableEntry *declaredVariable = walkVariableDeclaration(programRunner->child, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0, 1);
             declaredVariable->isExtern = 1;
         }
         break;
@@ -194,7 +194,8 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
                                               struct Scope *scope,
                                               const size_t *TACIndex,
                                               const size_t *tempNum,
-                                              char isArgument)
+                                              u8 isArgument,
+                                              enum Access accessibility)
 {
     LogTree(LOG_DEBUG, tree, "walkVariableDeclaration");
 
@@ -223,7 +224,8 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
                                                             &declaredType,
                                                             (u8)(scope->parentScope == NULL),
                                                             *TACIndex,
-                                                            isArgument);
+                                                            isArgument,
+                                                            accessibility);
 
     return declaredVariable;
 }
@@ -236,7 +238,7 @@ void walkArgumentDeclaration(struct AST *tree,
 {
     LogTree(LOG_DEBUG, tree, "walkArgumentDeclaration");
 
-    struct VariableEntry *declaredArgument = walkVariableDeclaration(tree, block, fun->mainScope, TACIndex, tempNum, 1);
+    struct VariableEntry *declaredArgument = walkVariableDeclaration(tree, block, fun->mainScope, TACIndex, tempNum, 1, 1);
 
     Stack_Push(fun->arguments, declaredArgument);
 }
@@ -419,7 +421,7 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
             struct Type selfType;
             Type_Init(&selfType);
             Type_SetBasicType(&selfType, vt_class, methodOf->name, 1);
-            struct VariableEntry *selfArgument = createVariable(parsedFunc->mainScope, argumentRunner, &selfType, 0, 0, 1);
+            struct VariableEntry *selfArgument = createVariable(parsedFunc->mainScope, argumentRunner, &selfType, 0, 0, 1, a_public);
 
             Stack_Push(parsedFunc->arguments, selfArgument);
         }
@@ -573,7 +575,14 @@ void walkClassDeclaration(struct AST *tree,
         {
         case t_variable_declaration:
         {
-            struct VariableEntry *declaredMember = walkVariableDeclaration(classBodyRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0);
+            struct VariableEntry *declaredMember = walkVariableDeclaration(classBodyRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0, a_private);
+            assignOffsetToMemberVariable(declaredClass, declaredMember);
+        }
+        break;
+
+        case t_public:
+        {
+            struct VariableEntry *declaredMember = walkVariableDeclaration(classBodyRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0, a_public);
             assignOffsetToMemberVariable(declaredClass, declaredMember);
         }
         break;
@@ -599,7 +608,7 @@ void walkStatement(struct AST *tree,
     switch (tree->type)
     {
     case t_variable_declaration:
-        walkVariableDeclaration(tree, *blockP, scope, TACIndex, tempNum, 0);
+        walkVariableDeclaration(tree, *blockP, scope, TACIndex, tempNum, 0, 1);
         break;
 
     case t_extern:
@@ -1097,7 +1106,7 @@ void walkAssignment(struct AST *tree,
     switch (lhs->type)
     {
     case t_variable_declaration:
-        assignedVariable = walkVariableDeclaration(lhs, block, scope, TACIndex, tempNum, 0);
+        assignedVariable = walkVariableDeclaration(lhs, block, scope, TACIndex, tempNum, 0, 1);
         populateTACOperandFromVariable(&assignment->operands[0], assignedVariable);
         assignment->operands[1] = assignedValue;
 
@@ -2492,7 +2501,7 @@ void walkStringLiteral(struct AST *tree,
         stringType.array.type = Dictionary_LookupOrInsert(typeDict, &charType);
         stringType.array.size = stringLength;
 
-        stringLiteralEntry = createVariable(scope, &fakeStringTree, &stringType, 1, 0, 0);
+        stringLiteralEntry = createVariable(scope, &fakeStringTree, &stringType, 1, 0, 0, a_public);
         stringLiteralEntry->isStringLiteral = 1;
 
         struct Type *realStringType = &stringLiteralEntry->type;
