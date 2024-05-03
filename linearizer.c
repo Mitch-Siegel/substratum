@@ -414,7 +414,7 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
         {
             if (methodOf == NULL)
             {
-                InternalError("Malformed AST within function declaration - saw self when methodOf == NULL");
+                LogTree(LOG_FATAL, argumentRunner, "Malformed AST within function declaration - saw self when methodOf == NULL");
             }
             struct Type selfType;
             Type_Init(&selfType);
