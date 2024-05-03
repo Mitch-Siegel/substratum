@@ -59,7 +59,8 @@ implementations_list
     / i:implementation                      { $$ = i; }
 
 implementation
-   <- f:function_definition { $$ = f; }
+   <- m:method_definition   { $$ = m; }
+    / f:function_definition { $$ = f; }
 
 # variable_declaration is valid in all places parameter_declaration is
 # however, parameter_declaration is not valid in all places variable_declaration but not vice-versa
@@ -79,6 +80,18 @@ function_declaration
 function_definition
    <- d:function_declaration _ a:asm_block { $$ = AST_C(d, a); }
     / d:function_declaration _ c:compound_statement { $$ = AST_C(d, c); }
+
+method_parameter_list
+   <- mpl:method_parameter_list _ ',' _ p:parameter_declaration  { $$ = AST_S(mpl, p); }
+    / s:self                                                     { $$ = s; }
+
+method_declaration
+   <- t:type_name _ f:fun _ i:identifier _ '(' _ mpl:method_parameter_list _ ')'  { $$ = AST_C(f, AST_S(AST_S(t, i), mpl)); }
+    / f:fun _ i:identifier _ '(' _ mpl:method_parameter_list _ ')'  { $$ = AST_C(f, AST_S(i, mpl)); }
+
+method_definition
+   <- d:method_declaration _ a:asm_block { $$ = AST_C(d, a); }
+    / d:method_declaration _ c:compound_statement { $$ = AST_C(d, c); }
 
 asm_block
    <- kw_asm _ '{' _ a:asm_block_contents _ '}' { $$ = AST_C(AST_N(auxil, t_asm, "", $0s), a); }
@@ -239,6 +252,7 @@ non_pointer_typename
 
 identifier
    <- !keyword LETTER(LETTER/DIGIT)*  { $$ = AST_N(auxil, t_identifier, $0, $0s); }
+    / s:self                          { $$ = s; }
 
 # integer
 #		<- '0'[xX]X+
@@ -275,6 +289,7 @@ keyword
     / kw_single_and
     / kw_or_op
     / kw_impl
+    / kw_self
 
 kw_fun		   <- 'fun' !(LETTER/DIGIT)
 kw_class       <- 'class' !(LETTER/DIGIT)
@@ -302,6 +317,7 @@ kw_and_op      <- '&&'
 kw_single_and  <- '&' !(kw_single_and)
 kw_or_op       <- '||'
 kw_impl        <- 'impl' !(LETTER/DIGIT)
+kw_self        <- 'self' !(LETTER/DIGIT)
 
 
 fun    <- kw_fun     { $$ = AST_N(auxil, t_fun, $0, $0s); }
@@ -317,6 +333,7 @@ while  <- kw_while   { $$ = AST_N(auxil, t_while, $0, $0s); }
 return <- kw_return  { $$ = AST_N(auxil, t_return, $0, $0s); }
 extern <- kw_extern  { $$ = AST_N(auxil, t_extern, $0, $0s); }
 impl   <- kw_impl    { $$ = AST_N(auxil, t_impl, $0, $0s); }
+self   <- kw_self    { $$ = AST_N(auxil, t_self, $0, $0s); }
 
 dot           <- kw_dot       { $$ = AST_N(auxil, t_dot, $0, $0s); }
 left_op       <- kw_left_op   { $$ = AST_N(auxil, t_lshift, $0, $0s); }

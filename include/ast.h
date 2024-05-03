@@ -25,6 +25,7 @@ enum token
     // class
     t_class_body,
     t_impl,
+    t_self,
     t_method_call,
     //
     t_compound_statement,
