@@ -1,6 +1,6 @@
 #include "tests-common.sb"
 
-class Stack {
+struct Stack {
     u8 topIndex;
     u8[256] data;
 };

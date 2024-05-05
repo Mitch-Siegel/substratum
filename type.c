@@ -503,6 +503,5 @@ size_t Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *aligne
         paddingRequired = alignBytesForType - bytesAfterAlignBoundary;
     }
 
-    // add the padding to the total size of the struct
     return paddingRequired;
 }

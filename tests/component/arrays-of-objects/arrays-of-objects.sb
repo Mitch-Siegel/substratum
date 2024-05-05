@@ -1,6 +1,6 @@
 #include "tests-common.sb"
 
-class Thingamajig
+struct Thingamajig
 {
     public u8 howBig;
     public u64 howFast;

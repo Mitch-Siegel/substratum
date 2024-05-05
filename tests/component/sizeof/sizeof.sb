@@ -34,20 +34,20 @@ fun testSizeofArrays()
     uart_putc('\n');
 }
 
-class twoBytes
+struct twoBytes
 {
     u8 a;
     u8 b;
 };
 
 // TODO: alignment not implemented yet, but will change when it is
-class needsPadding
+struct needsPadding
 {
     u8 a;
     u32 b;
 };
 
-fun testSizeofClasses()
+fun testSizeofStructs()
 {
     printHex(sizeof(twoBytes));
     uart_putc('\n');
@@ -75,7 +75,7 @@ fun main()
 {
     testSizeofTypes();
     testSizeofArrays();
-    testSizeofClasses();
+    testSizeofStructs();
     testSizeofIdentifiers();
     exit();
 }
