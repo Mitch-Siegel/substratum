@@ -14,7 +14,7 @@ struct SymbolTable *SymbolTable_new(char *name)
     struct BasicBlock *globalBlock = BasicBlock_new(0);
 
     // manually insert a basic block for global code so we can give it the custom name of "globalblock"
-    Scope_insert(wip->globalScope, "globalblock", globalBlock, e_basicblock);
+    Scope_insert(wip->globalScope, "globalblock", globalBlock, e_basicblock, a_public);
 
     return wip;
 }
@@ -40,7 +40,7 @@ char *SymbolTable_mangleName(struct Scope *scope, struct Dictionary *dict, char 
 
 void SymbolTable_moveMemberToParentScope(struct Scope *scope, struct ScopeMember *toMove, size_t *indexWithinCurrentScope)
 {
-    Scope_insert(scope->parentScope, toMove->name, toMove->entry, toMove->type);
+    Scope_insert(scope->parentScope, toMove->name, toMove->entry, toMove->type, toMove->accessibility);
     free(scope->entries->data[*indexWithinCurrentScope]);
     for (size_t entryIndex = *indexWithinCurrentScope; entryIndex < scope->entries->size - 1; entryIndex++)
     {
@@ -79,7 +79,7 @@ static void collapseRecurseToSubScopes(struct Scope *scope, struct Dictionary *d
         // skip everything else
         case e_variable:
         case e_argument:
-        case e_class:
+        case e_struct:
         case e_basicblock:
             break;
         }
@@ -153,7 +153,7 @@ static void mangleBlockContents(struct Scope *scope, struct Dictionary *dict)
 
         case e_variable:
         case e_argument:
-        case e_class:
+        case e_struct:
             break;
         }
     }
@@ -277,16 +277,16 @@ void Scope_print(struct Scope *scope, FILE *outFile, size_t depth, char printTAC
         }
         break;
 
-        case e_class:
+        case e_struct:
         {
-            struct ClassEntry *theClass = thisMember->entry;
-            fprintf(outFile, "> Class %s:\n", thisMember->name);
+            struct StructEntry *theStruct = thisMember->entry;
+            fprintf(outFile, "> Struct %s:\n", thisMember->name);
             for (size_t j = 0; j < depth; j++)
             {
                 fprintf(outFile, "\t");
             }
-            fprintf(outFile, "  - Size: %zu bytes\n", theClass->totalSize);
-            Scope_print(theClass->members, outFile, depth + 1, printTAC);
+            fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
+            Scope_print(theStruct->members, outFile, depth + 1, printTAC);
         }
         break;
 
@@ -335,7 +335,7 @@ void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *block)
     const u8 basicBlockNameStrSize = 10; // TODO: manage this better
     char *blockName = malloc(basicBlockNameStrSize);
     sprintf(blockName, "Block%zu", block->labelNum);
-    Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), block, e_basicblock);
+    Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), block, e_basicblock, a_public);
     free(blockName);
 
     if (scope->parentFunction != NULL)

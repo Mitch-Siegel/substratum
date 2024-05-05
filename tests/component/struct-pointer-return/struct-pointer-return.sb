@@ -1,9 +1,9 @@
 #include "tests-common.sb"
 
-class Money
+struct Money
 {
-    u32 dollars;
-    u8 cents;
+    public u32 dollars;
+    public u8 cents;
 };
 
 Money *fun PrintMoney(Money *m)

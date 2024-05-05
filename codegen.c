@@ -50,9 +50,9 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
         }
         break;
 
-        case e_class:
+        case e_struct:
         {
-            generateCodeForClass(&globalContext, thisMember->entry);
+            generateCodeForStruct(&globalContext, thisMember->entry);
         }
         break;
 
@@ -62,16 +62,16 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
     }
 };
 
-void generateCodeForClass(struct CodegenContext *globalContext, struct ClassEntry *class)
+void generateCodeForStruct(struct CodegenContext *globalContext, struct StructEntry *theStruct)
 {
-    for (size_t entryIndex = 0; entryIndex < class->members->entries->size; entryIndex++)
+    for (size_t entryIndex = 0; entryIndex < theStruct->members->entries->size; entryIndex++)
     {
-        struct ScopeMember *thisMember = class->members->entries->data[entryIndex];
+        struct ScopeMember *thisMember = theStruct->members->entries->data[entryIndex];
         switch (thisMember->type)
         {
         case e_function:
         {
-            generateCodeForFunction(globalContext->outFile, thisMember->entry, class->name);
+            generateCodeForFunction(globalContext->outFile, thisMember->entry, theStruct->name);
         }
         break;
 
@@ -365,14 +365,14 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
  *
  */
 extern struct Config config;
-void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char *methodOfClassName)
+void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char *methodOfStructName)
 {
     char *fullFunctionName = function->name;
-    if (methodOfClassName != NULL)
+    if (methodOfStructName != NULL)
     {
         // TODO: member function name mangling/uniqueness
-        fullFunctionName = malloc(strlen(function->name) + strlen(methodOfClassName) + 2);
-        strcpy(fullFunctionName, methodOfClassName);
+        fullFunctionName = malloc(strlen(function->name) + strlen(methodOfStructName) + 2);
+        strcpy(fullFunctionName, methodOfStructName);
         strcat(fullFunctionName, "_");
         strcat(fullFunctionName, function->name);
     }
@@ -427,7 +427,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char
     }
     free(metadata.lifetimeOverlaps);
 
-    if (methodOfClassName != NULL)
+    if (methodOfStructName != NULL)
     {
         free(fullFunctionName);
     }
@@ -740,7 +740,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
         case tt_method_call:
         {
-            struct ClassEntry *methodOf = lookupClassByType(scope, TAC_GetTypeOfOperand(thisTAC, 2));
+            struct StructEntry *methodOf = lookupStructByType(scope, TAC_GetTypeOfOperand(thisTAC, 2));
             struct FunctionEntry *calledMethod = lookupMethodByString(methodOf, thisTAC->operands[1].name.str);
             // TODO: member function name mangling/uniqueness
             if (calledMethod->isDefined)

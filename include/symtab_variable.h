@@ -25,7 +25,8 @@ struct VariableEntry *createVariable(struct Scope *scope,
                                      struct Type *type,
                                      u8 isGlobal,
                                      size_t declaredAt,
-                                     u8 isArgument);
+                                     u8 isArgument,
+                                     enum Access accessibility);
 
 void VariableEntry_free(struct VariableEntry *variable);
 

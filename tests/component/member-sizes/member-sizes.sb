@@ -1,15 +1,15 @@
 #include "tests-common.sb"
 
-// test classes with members of each size in various order
+// test structs with members of each size in various order
 // attempt to read and write values of all possible sizes 
-class AllSizes1
+struct AllSizes1
 {
-    u8 first;
-    u16 second;
-    u32 third;
+    public u8 first;
+    public u16 second;
+    public u32 third;
 };
 
-fun TestClass1(u32 write32, u16 write16, u8 write8)
+fun TestStruct1(u32 write32, u16 write16, u8 write8)
 {
     AllSizes1 a;
     a.first = write32;
@@ -47,14 +47,14 @@ fun TestClass1(u32 write32, u16 write16, u8 write8)
 	uart_putc('\n');
 }
 
-class AllSizes2
+struct AllSizes2
 {
-    u8 first;
-    u32 second;
-    u16 third;
+    public u8 first;
+    public u32 second;
+    public u16 third;
 };
 
-fun TestClass2(u32 write32, u16 write16, u8 write8)
+fun TestStruct2(u32 write32, u16 write16, u8 write8)
 {
     AllSizes2 a;
     a.first = write32;
@@ -92,14 +92,14 @@ fun TestClass2(u32 write32, u16 write16, u8 write8)
 	uart_putc('\n');
 }
 
-class AllSizes3
+struct AllSizes3
 {
-    u16 first;
-    u8 second;
-    u32 third;
+    public u16 first;
+    public u8 second;
+    public u32 third;
 };
 
-fun TestClass3(u32 write32, u16 write16, u8 write8)
+fun TestStruct3(u32 write32, u16 write16, u8 write8)
 {
     AllSizes3 a;
     a.first = write32;
@@ -137,14 +137,14 @@ fun TestClass3(u32 write32, u16 write16, u8 write8)
 	uart_putc('\n');
 }
 
-class AllSizes4
+struct AllSizes4
 {
-    u16 first;
-    u32 second;
-    u8 third;
+    public u16 first;
+    public u32 second;
+    public u8 third;
 };
 
-fun TestClass4(u32 write32, u16 write16, u8 write8)
+fun TestStruct4(u32 write32, u16 write16, u8 write8)
 {
     AllSizes4 a;
     a.first = write32;
@@ -182,14 +182,14 @@ fun TestClass4(u32 write32, u16 write16, u8 write8)
 	uart_putc('\n');
 }
 
-class AllSizes5
+struct AllSizes5
 {
-    u32 first;
-    u8 second;
-    u16 third;
+    public u32 first;
+    public u8 second;
+    public u16 third;
 };
 
-fun TestClass5(u32 write32, u16 write16, u8 write8)
+fun TestStruct5(u32 write32, u16 write16, u8 write8)
 {
     AllSizes5 a;
     a.first = write32;
@@ -227,14 +227,14 @@ fun TestClass5(u32 write32, u16 write16, u8 write8)
 	uart_putc('\n');
 }
 
-class AllSizes6
+struct AllSizes6
 {
-    u32 first;
-    u16 second;
-    u8 third;
+    public u32 first;
+    public u16 second;
+    public u8 third;
 };
 
-fun TestClass6(u32 write32, u16 write16, u8 write8)
+fun TestStruct6(u32 write32, u16 write16, u8 write8)
 {
     AllSizes6 a;
     a.first = write32;
@@ -277,11 +277,11 @@ fun main()
     u16 write16 = 0xEEEE;
     u8 write8 = 0xDD;
 
-    TestClass1(write32, write16, write8);
-    TestClass2(write32, write16, write8);
-    TestClass3(write32, write16, write8);
-    TestClass4(write32, write16, write8);
-    TestClass5(write32, write16, write8);
-    TestClass6(write32, write16, write8);
+    TestStruct1(write32, write16, write8);
+    TestStruct2(write32, write16, write8);
+    TestStruct3(write32, write16, write8);
+    TestStruct4(write32, write16, write8);
+    TestStruct5(write32, write16, write8);
+    TestStruct6(write32, write16, write8);
     exit();
 }

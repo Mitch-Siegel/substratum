@@ -2,13 +2,14 @@
 #define LINEARIZER_H
 
 #include "substratum_defs.h"
+#include "symtab_scope.h"
 
 struct AST;
 struct SymbolTable;
 struct Scope;
 struct Type;
 struct FunctionEntry;
-struct ClassEntry;
+struct StructEntry;
 struct BasicBlock;
 struct TACOperand;
 
@@ -21,7 +22,8 @@ struct VariableEntry *walkVariableDeclaration(struct AST *tree,
                                               struct Scope *scope,
                                               const size_t *tacIndex,
                                               const size_t *tempNum,
-                                              char isArgument);
+                                              u8 isArgument,
+                                              enum Access accessibility);
 
 void walkArgumentDeclaration(struct AST *tree,
                              struct BasicBlock *block,
@@ -30,17 +32,20 @@ void walkArgumentDeclaration(struct AST *tree,
                              struct FunctionEntry *fun);
 
 struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
-                                              struct Scope *scope);
+                                              struct Scope *scope,
+                                              struct StructEntry *methodOf,
+                                              enum Access accessibility);
 
 void walkFunctionDefinition(struct AST *tree,
                             struct FunctionEntry *fun);
 
 void walkMethod(struct AST *tree,
-                struct ClassEntry *class);
+                struct StructEntry *methodOf,
+                enum Access accessibility);
 
 void walkImplementationBlock(struct AST *tree, struct Scope *scope);
 
-void walkClassDeclaration(struct AST *tree,
+void walkStructDeclaration(struct AST *tree,
                           struct BasicBlock *block,
                           struct Scope *scope);
 

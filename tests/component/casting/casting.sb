@@ -1,18 +1,18 @@
 #include "tests-common.sb"
 
-class eights
+struct eights
 {
-    u8 a;
-    u8 b;
-    u8 c;
-    u8 d;
+    public u8 a;
+    public u8 b;
+    public u8 c;
+    public u8 d;
 };
 
-class sixteens
+struct sixteens
 {
-    u8 a;
-    u16 b;
-    u8 c;
+    public u8 a;
+    public u16 b;
+    public u8 c;
 };
 
 fun testBasicCasting()
@@ -62,7 +62,7 @@ fun testCastStoring()
     uart_putc('\n');
 }
 
-fun testClassPointerCasting()
+fun testStructPointerCasting()
 {
     eights e;
 
@@ -106,6 +106,6 @@ fun main()
     uart_putc('\n');
     testCastStoring();
     uart_putc('\n');
-    testClassPointerCasting();
+    testStructPointerCasting();
     exit();
 }

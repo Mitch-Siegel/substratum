@@ -15,16 +15,23 @@ enum ScopeMemberType
     e_variable,
     e_function,
     e_argument,
-    e_class,
+    e_struct,
     e_scope,
     e_basicblock,
+};
+
+enum Access
+{
+    a_public,
+    a_private,
 };
 
 struct ScopeMember
 {
     char *name;
-    enum ScopeMemberType type;
     void *entry;
+    enum ScopeMemberType type;
+    enum Access accessibility;
 };
 
 struct Scope
@@ -51,7 +58,8 @@ void Scope_print(struct Scope *scope,
 void Scope_insert(struct Scope *scope,
                   char *name,
                   void *newEntry,
-                  enum ScopeMemberType type);
+                  enum ScopeMemberType type,
+                  enum Access accessibility);
 
 struct Scope *Scope_createSubScope(struct Scope *scope);
 

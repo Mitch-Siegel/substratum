@@ -21,25 +21,25 @@ void Type_Free(struct Type *type)
 
 void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *complexTypeName, size_t pointerLevel)
 {
-    if (basicType == vt_class)
+    if (basicType == vt_struct)
     {
         if (complexTypeName == NULL)
         {
-            InternalError("Type_SetBasicType called with a null complexTypeName for vt_class!\n");
+            InternalError("Type_SetBasicType called with a null complexTypeName for vt_struct!\n");
         }
     }
     else
     {
         if (complexTypeName != NULL)
         {
-            InternalError("Type_SetBasicType called with a non-null complexTypeName for a non-vt_class type!\n");
+            InternalError("Type_SetBasicType called with a non-null complexTypeName for a non-vt_struct type!\n");
         }
     }
 
     type->basicType = basicType;
     type->pointerLevel = pointerLevel;
 
-    if (basicType == vt_class)
+    if (basicType == vt_struct)
     {
         type->nonArray.complexType.name = complexTypeName;
     }
@@ -126,7 +126,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_array:
                 retVal = cantWiden;
                 break;
-            case vt_class:
+            case vt_struct:
             case vt_any:
             case vt_u8:
             case vt_u16:
@@ -140,7 +140,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             switch (basicTypeB)
             {
             case vt_null:
-            case vt_class:
+            case vt_struct:
             case vt_array:
                 retVal = cantWiden;
                 break;
@@ -158,7 +158,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             {
             case vt_null:
             case vt_u8:
-            case vt_class:
+            case vt_struct:
             case vt_array:
                 retVal = cantWiden;
                 break;
@@ -176,7 +176,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_null:
             case vt_u8:
             case vt_u16:
-            case vt_class:
+            case vt_struct:
             case vt_array:
                 retVal = cantWiden;
                 break;
@@ -195,7 +195,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_u8:
             case vt_u16:
             case vt_u32:
-            case vt_class:
+            case vt_struct:
             case vt_array:
                 retVal = cantWiden;
                 break;
@@ -206,7 +206,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             }
             break;
 
-        case vt_class:
+        case vt_struct:
             switch (basicTypeB)
             {
             case vt_null:
@@ -218,7 +218,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
                 retVal = cantWiden;
                 break;
             case vt_any:
-            case vt_class:
+            case vt_struct:
                 break;
             }
             break;
@@ -232,7 +232,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_u16:
             case vt_u32:
             case vt_u64:
-            case vt_class:
+            case vt_struct:
                 retVal = cantWiden;
                 break;
             case vt_any:
@@ -291,7 +291,7 @@ int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
         decayedType.pointerLevel++;
         retVal = Type_CompareAllowImplicitWidening(&decayedType, dest);
     }
-    else if (src->basicType == vt_class)
+    else if (src->basicType == vt_struct)
     {
         retVal = strcmp(src->nonArray.complexType.name, dest->nonArray.complexType.name);
     }
@@ -330,7 +330,7 @@ char *Type_GetName(struct Type *type)
         len = sprintf(typeName, "u64");
         break;
 
-    case vt_class:
+    case vt_struct:
         len = sprintf(typeName, "%s", type->nonArray.complexType.name);
         break;
 
@@ -406,10 +406,10 @@ size_t Type_GetSize(struct Type *type, struct Scope *scope)
         size = sizeof(u64);
         break;
 
-    case vt_class:
+    case vt_struct:
     {
-        struct ClassEntry *class = lookupClassByType(scope, type);
-        size = class->totalSize;
+        struct StructEntry *theStruct = lookupStructByType(scope, type);
+        size = theStruct->totalSize;
     }
     break;
 
@@ -463,12 +463,12 @@ u8 Type_GetAlignment(struct Type *type, struct Scope *scope)
     u8 alignment = 0;
     switch (type->basicType)
     {
-    case vt_class:
+    case vt_struct:
     {
-        struct ClassEntry *class = lookupClassByType(scope, type);
-        for (size_t memberIndex = 0; memberIndex < class->memberLocations->size; memberIndex++)
+        struct StructEntry *theStruct = lookupStructByType(scope, type);
+        for (size_t memberIndex = 0; memberIndex < theStruct->memberLocations->size; memberIndex++)
         {
-            struct ClassMemberOffset *offset = class->memberLocations->data[memberIndex];
+            struct StructMemberOffset *offset = theStruct->memberLocations->data[memberIndex];
             u8 memberAlignment = Type_GetAlignment(&offset->variable->type, scope);
             if (memberAlignment > alignment)
             {
@@ -503,6 +503,5 @@ size_t Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *aligne
         paddingRequired = alignBytesForType - bytesAfterAlignBoundary;
     }
 
-    // add the padding to the total size of the class
     return paddingRequired;
 }

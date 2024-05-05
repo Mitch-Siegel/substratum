@@ -70,7 +70,7 @@ char *PlaceLiteralStringInRegister(struct TACLine *correspondingTACLine,
 void verifyCodegenPrimitive(struct TACOperand *operand)
 {
     struct Type *realType = TACOperand_GetType(operand);
-    if (realType->basicType == vt_class)
+    if (realType->basicType == vt_struct)
     {
         if (realType->pointerLevel == 0)
         {

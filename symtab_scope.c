@@ -2,7 +2,7 @@
 
 #include "log.h"
 #include "symtab_basicblock.h"
-#include "symtab_class.h"
+#include "symtab_struct.h"
 #include "symtab_function.h"
 #include "symtab_variable.h"
 #include "util.h"
@@ -44,8 +44,8 @@ void Scope_free(struct Scope *scope)
             VariableEntry_free(examinedEntry->entry);
             break;
 
-        case e_class:
-            ClassEntry_free(examinedEntry->entry);
+        case e_struct:
+            StructEntry_free(examinedEntry->entry);
             break;
 
         case e_basicblock:
@@ -60,7 +60,7 @@ void Scope_free(struct Scope *scope)
 }
 
 // insert a member with a given name and pointer to entry, along with info about the entry type
-void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMemberType type)
+void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMemberType type, enum Access accessibility)
 {
     if (Scope_contains(scope, name))
     {
@@ -70,15 +70,8 @@ void Scope_insert(struct Scope *scope, char *name, void *newEntry, enum ScopeMem
     wip->name = name;
     wip->entry = newEntry;
     wip->type = type;
+    wip->accessibility = accessibility;
     Stack_Push(scope->entries, wip);
-}
-
-// create a new function accessible within the given scope
-struct FunctionEntry *createFunction(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType)
-{
-    struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, nameTree, returnType);
-    Scope_insert(parentScope, nameTree->value, newFunction, e_function);
-    return newFunction;
 }
 
 // create and return a child scope of the scope provided as an argument
@@ -97,7 +90,7 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
     struct Scope *newScope = Scope_new(parentScope, newScopeName, parentScope->parentFunction);
     newScope->parentFunction = parentScope->parentFunction;
 
-    Scope_insert(parentScope, newScopeName, newScope, e_scope);
+    Scope_insert(parentScope, newScopeName, newScope, e_scope, a_public);
     return newScope;
 }
 

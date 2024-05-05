@@ -41,7 +41,7 @@ enum TACType
     tt_stack_reserve, // decrement the stack pointer before a series of stack_store ops
     tt_stack_store,   // store a value at a (positive) offset from the stack pointer
     tt_function_call, // call a function
-    tt_method_call,   // call a method of a class
+    tt_method_call,   // call a method of a struct
     tt_label,
     tt_return,
     tt_do,

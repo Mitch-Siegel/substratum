@@ -10,8 +10,14 @@ struct VariableEntry *createVariable(struct Scope *scope,
                                      struct Type *type,
                                      u8 isGlobal,
                                      size_t declaredAt,
-                                     u8 isArgument)
+                                     u8 isArgument,
+                                     enum Access accessibility)
 {
+    if(isArgument && (accessibility != a_public))
+    {
+        InternalError("createVariable called with isArgument == 1 and accessibility != a_public - illegal arguments");
+    }
+
     struct VariableEntry *newVariable = malloc(sizeof(struct VariableEntry));
     newVariable->type = *type;
     newVariable->stackOffset = 0;
@@ -51,11 +57,11 @@ struct VariableEntry *createVariable(struct Scope *scope,
         newVariable->stackOffset = (ssize_t)scope->parentFunction->argStackSize;
         scope->parentFunction->argStackSize += Type_GetSize(type, scope);
 
-        Scope_insert(scope, name->value, newVariable, e_argument);
+        Scope_insert(scope, name->value, newVariable, e_argument, accessibility);
     }
     else
     {
-        Scope_insert(scope, name->value, newVariable, e_variable);
+        Scope_insert(scope, name->value, newVariable, e_variable, accessibility);
     }
 
     return newVariable;

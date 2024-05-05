@@ -9,14 +9,14 @@ struct CodegenContext;
 struct CodegenMetadata;
 struct FunctionEntry;
 struct VariableEntry;
-struct ClassEntry;
+struct StructEntry;
 struct BasicBlock;
 struct Scope;
 struct LinkedList;
 
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile);
 
-void generateCodeForClass(struct CodegenContext *globalContext, struct ClassEntry *class);
+void generateCodeForStruct(struct CodegenContext *globalContext, struct StructEntry *theStruct);
 
 void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct Scope *globalScope, struct VariableEntry *variable);
 
@@ -28,7 +28,7 @@ void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metada
 
 void generateCodeForFunction(FILE *outFile,
                              struct FunctionEntry *function,
-                             char *methodOfClassName); // NULL if not a method, otherwise the name of the class which this function is a method of
+                             char *methodOfStructName); // NULL if not a method, otherwise the name of the struct which this function is a method of
 
 void generateCodeForBasicBlock(struct CodegenContext *context,
                                struct BasicBlock *block,
