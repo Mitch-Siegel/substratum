@@ -461,6 +461,14 @@ size_t Type_GetSizeOfArrayElement(struct Type *arrayType, struct Scope *scope)
 u8 Type_GetAlignment(struct Type *type, struct Scope *scope)
 {
     u8 alignment = 0;
+
+    // early return for pointers (in case of pointer to undeclared struct)
+    if(type->pointerLevel > 0)
+    {
+        alignment = alignSize(sizeof(size_t));
+        return alignment;
+    }
+
     switch (type->basicType)
     {
     case vt_struct:
