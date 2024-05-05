@@ -61,10 +61,14 @@ implementations_list
     / i:implementation                      { $$ = i; }
 
 implementation
-   <- m:method_definition   { $$ = m; }
-    / f:function_definition { $$ = f; }
-    / p:public _ m:method_definition   { $$ = AST_C(p, m); }
-    / p:public _ f:function_definition { $$ = AST_C(p, f); }
+   <- m:method_declaration _ ';'                { $$ = m; }
+    / f:function_declaration _ ';'              { $$ = f; }
+    / p:public _ m:method_declaration _ ';'     { $$ = AST_C(p, m); }
+    / p:public _ f:function_declaration _ ';'   { $$ = AST_C(p, f); }
+    / m:method_definition                       { $$ = m; }
+    / f:function_definition                     { $$ = f; }
+    / p:public _ m:method_definition            { $$ = AST_C(p, m); }
+    / p:public _ f:function_definition          { $$ = AST_C(p, f); }
 
 # variable_declaration is valid in all places parameter_declaration is
 # however, parameter_declaration is not valid in all places variable_declaration but not vice-versa
@@ -118,10 +122,10 @@ method_call
    <- p:postfix_expression _ d:dot _ f:function_call     { $$ = AST_C(AST_N(auxil, t_method_call, "", $0s), AST_C(d, AST_S(p, f))); }
 
 postfix_expression
-   <- m:method_call                                      { $$ = m; }
-    / p:postfix_expression _ '[' _ i:expression _ ']'    { $$ = AST_C(AST_N(auxil, t_array_index, "", $0s), AST_S(p, i)); }
+   <- p:postfix_expression _ '[' _ i:expression _ ']'    { $$ = AST_C(AST_N(auxil, t_array_index, "", $0s), AST_S(p, i)); }
+    / p:postfix_expression _ d:dot _ i:identifier        { $$ = AST_C(d, AST_S(p, i)); }
     / f:function_call                                    { $$ = f; }
-    / p:postfix_expression _ d:dot _ i:identifier          { $$ = AST_C(d, AST_S(p, i)); }
+    / m:method_call                                      { $$ = m; }
     / p:primary_expression                               { $$ = p; }
 
 argument_expression_list

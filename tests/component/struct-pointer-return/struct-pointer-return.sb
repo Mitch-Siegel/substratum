@@ -19,7 +19,10 @@ fun main()
 {
     Money twelveDollars;
     twelveDollars.dollars = 12;
-    twelveDollars.cents = 1;
-    PrintMoney(PrintMoney(&twelveDollars));
+    twelveDollars.cents = 0;
+    PrintMoney(&twelveDollars).cents = 1;
+    printNum(PrintMoney(&twelveDollars).cents);
+    twelveDollars.cents = 0;
+    PrintMoney(&twelveDollars);
     exit();
 }

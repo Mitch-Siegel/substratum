@@ -1914,6 +1914,18 @@ struct TACLine *walkMemberAccess(struct AST *tree,
         }
         break;
 
+        case t_function_call:
+        {
+            walkFunctionCall(structTree, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
+        }
+        break;
+
+        case t_method_call:
+        {
+            walkMethodCall(structTree, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
+        }
+        break;
+
         case t_self:
         case t_identifier:
         {
