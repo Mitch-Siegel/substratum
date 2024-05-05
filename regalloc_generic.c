@@ -26,7 +26,7 @@ struct Lifetime *newLifetime(char *name, struct Type *type, size_t start, u8 isG
     }
     else
     {
-        if (((type->basicType == vt_class) && (type->pointerLevel == 0)) ||
+        if (((type->basicType == vt_struct) && (type->pointerLevel == 0)) ||
             (type->basicType == vt_array) ||
             mustSpill)
         {

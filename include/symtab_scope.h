@@ -15,7 +15,7 @@ enum ScopeMemberType
     e_variable,
     e_function,
     e_argument,
-    e_class,
+    e_struct,
     e_scope,
     e_basicblock,
 };

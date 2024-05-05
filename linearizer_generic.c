@@ -84,28 +84,28 @@ struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, 
     return scaleMultiplication;
 }
 
-void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type *type)
+void checkAccessedStructForDot(struct AST *tree, struct Scope *scope, struct Type *type)
 {
-    // check that we actually refer to a class on the LHS of the dot
-    if (type->basicType != vt_class)
+    // check that we actually refer to a struct on the LHS of the dot
+    if (type->basicType != vt_struct)
     {
         char *typeName = Type_GetName(type);
         // if we *are* looking at an identifier, print the identifier name and the type name
         if (tree->type == t_identifier)
         {
-            LogTree(LOG_FATAL, tree, "Can't use dot operator on %s (%s) - not a class!", tree->value, typeName);
+            LogTree(LOG_FATAL, tree, "Can't use dot operator on %s (%s) - not a struct!", tree->value, typeName);
         }
         // if we are *not* looking at an identifier, just print the type name
         else
         {
-            LogTree(LOG_FATAL, tree, "Can't use dot operator on %s - not a class!", typeName);
+            LogTree(LOG_FATAL, tree, "Can't use dot operator on %s - not a struct!", typeName);
         }
     }
 
     if (type->pointerLevel > 1)
     {
         char *tooDeepPointerType = Type_GetName(type);
-        LogTree(LOG_FATAL, tree, "Can't use dot operator on type %s - not a class or class pointer!", tooDeepPointerType);
+        LogTree(LOG_FATAL, tree, "Can't use dot operator on type %s - not a struct or struct pointer!", tooDeepPointerType);
     }
 }
 

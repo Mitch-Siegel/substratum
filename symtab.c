@@ -79,7 +79,7 @@ static void collapseRecurseToSubScopes(struct Scope *scope, struct Dictionary *d
         // skip everything else
         case e_variable:
         case e_argument:
-        case e_class:
+        case e_struct:
         case e_basicblock:
             break;
         }
@@ -153,7 +153,7 @@ static void mangleBlockContents(struct Scope *scope, struct Dictionary *dict)
 
         case e_variable:
         case e_argument:
-        case e_class:
+        case e_struct:
             break;
         }
     }
@@ -277,16 +277,16 @@ void Scope_print(struct Scope *scope, FILE *outFile, size_t depth, char printTAC
         }
         break;
 
-        case e_class:
+        case e_struct:
         {
-            struct ClassEntry *theClass = thisMember->entry;
-            fprintf(outFile, "> Class %s:\n", thisMember->name);
+            struct StructEntry *theStruct = thisMember->entry;
+            fprintf(outFile, "> Struct %s:\n", thisMember->name);
             for (size_t j = 0; j < depth; j++)
             {
                 fprintf(outFile, "\t");
             }
-            fprintf(outFile, "  - Size: %zu bytes\n", theClass->totalSize);
-            Scope_print(theClass->members, outFile, depth + 1, printTAC);
+            fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
+            Scope_print(theStruct->members, outFile, depth + 1, printTAC);
         }
         break;
 

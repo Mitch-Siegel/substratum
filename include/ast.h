@@ -21,9 +21,9 @@ enum token
     t_u16,
     t_u32,
     t_u64,
-    t_class,
-    // class
-    t_class_body,
+    t_struct,
+    // struct
+    t_struct_body,
     t_impl,
     t_self,
     t_public,

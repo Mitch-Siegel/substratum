@@ -30,9 +30,9 @@ void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *s
 
 struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale);
 
-// check the LHS of any dot operator make sure it is both a class and has an indirection level of at most `
+// check the LHS of any dot operator make sure it is both a struct and has an indirection level of at most `
 // special case handling for when tree is an identifier vs a subexpression
-void checkAccessedClassForDot(struct AST *tree, struct Scope *scope, struct Type *type);
+void checkAccessedStructForDot(struct AST *tree, struct Scope *scope, struct Type *type);
 
 // in the case that we know we just walked an array ref or member access, convert its direct load to an LEA (for cases such as &thing[0] and foo[1].bar)
 void convertLoadToLea(struct TACLine *loadLine, struct TACOperand *dest);

@@ -14,7 +14,7 @@ struct FunctionEntry
     struct Scope *mainScope;
     struct Stack *arguments;     // stack of VariableEntry pointers corresponding by index to arguments
     char *name;                  // duplicate pointer from ScopeMember for ease of use
-    struct ClassEntry *methodOf; // if this function is a method of a class, points to which class
+    struct StructEntry *methodOf; // if this function is a method of a struct, points to which struct
     struct LinkedList *BasicBlockList;
     struct AST correspondingTree;
     u8 isDefined;

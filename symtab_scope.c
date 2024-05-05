@@ -2,7 +2,7 @@
 
 #include "log.h"
 #include "symtab_basicblock.h"
-#include "symtab_class.h"
+#include "symtab_struct.h"
 #include "symtab_function.h"
 #include "symtab_variable.h"
 #include "util.h"
@@ -44,8 +44,8 @@ void Scope_free(struct Scope *scope)
             VariableEntry_free(examinedEntry->entry);
             break;
 
-        case e_class:
-            ClassEntry_free(examinedEntry->entry);
+        case e_struct:
+            StructEntry_free(examinedEntry->entry);
             break;
 
         case e_basicblock:
