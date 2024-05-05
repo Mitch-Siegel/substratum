@@ -247,7 +247,7 @@ int main(int argc, char **argv)
             fprintf(outFile, "%s\n", boilerplateAsm1[asmIndex]);
         }
 
-        fprintf(outFile, "\t.file 0 \"%s\"\n", inFileName);
+        fprintf(outFile, "\t.file 1 \"%s\"\n", inFileName);
 
         char *boilerplateAsm2[] = {
             "\t.attribute unaligned_access, 0",
@@ -258,7 +258,7 @@ int main(int argc, char **argv)
             fprintf(outFile, "%s\n", boilerplateAsm2[asmIndex]);
         }
 
-        fprintf(outFile, "\t.file 1 \"%s\"\n", inFileName);
+        fprintf(outFile, "\t.file 2 \"%s\"\n", inFileName);
     }
     generateCodeForProgram(theTable, outFile);
 
