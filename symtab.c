@@ -202,7 +202,7 @@ static void moveScopeMembersToParentScope(struct Scope *scope, struct Dictionary
         case e_struct:
         {
             struct StructEntry *theStruct = thisMember->entry;
-            moveScopeMembersToParentScope(theStruct->members, dict, depth + 1);
+            moveScopeMembersToParentScope(theStruct->members, dict, 0);
         }
         break;
         }
