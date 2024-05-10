@@ -167,8 +167,15 @@ static void moveScopeMembersToParentScope(struct Scope *scope, struct Dictionary
         switch (thisMember->type)
         {
         case e_scope:
-        case e_function:
+            moveScopeMembersToParentScope(thisMember->entry, dict, depth + 1);
             break;
+
+        case e_function:
+        {
+            struct FunctionEntry *movedFromFunction = thisMember->entry;
+            moveScopeMembersToParentScope(movedFromFunction->mainScope, dict, 0);
+        }
+        break;
 
         case e_basicblock:
         {

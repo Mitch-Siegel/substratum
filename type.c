@@ -293,7 +293,11 @@ int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
     }
     else if (src->basicType == vt_struct)
     {
-        retVal = strcmp(src->nonArray.complexType.name, dest->nonArray.complexType.name);
+        // if struct->struct, special case to compare type names (ignore any, and other types are handled in Type_CompareBasicTypeAllowImplicitWidening)
+        if (dest->basicType == vt_struct)
+        {
+            retVal = strcmp(src->nonArray.complexType.name, dest->nonArray.complexType.name);
+        }
     }
 
     return retVal;
@@ -463,7 +467,7 @@ u8 Type_GetAlignment(struct Type *type, struct Scope *scope)
     u8 alignment = 0;
 
     // early return for pointers (in case of pointer to undeclared struct)
-    if(type->pointerLevel > 0)
+    if (type->pointerLevel > 0)
     {
         alignment = alignSize(sizeof(size_t));
         return alignment;
