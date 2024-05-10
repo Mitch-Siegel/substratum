@@ -30,9 +30,6 @@ void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
                 fprintf(outFile, "\t.globl _start\n_start:\n\tli sp, 0x81000000\n\tcall main\n\tpgm_done:\n\twfi\n\tj pgm_done\n");
             }
 
-            fprintf(outFile, "\t.globl %s\n", generatedFunction->name);
-            fprintf(outFile, "\t.type %s, @function\n", generatedFunction->name);
-
             generateCodeForFunction(outFile, generatedFunction, NULL);
             fprintf(outFile, "\t.size %s, .-%s\n", generatedFunction->name, generatedFunction->name);
         }
@@ -71,7 +68,11 @@ void generateCodeForStruct(struct CodegenContext *globalContext, struct StructEn
         {
         case e_function:
         {
-            generateCodeForFunction(globalContext->outFile, thisMember->entry, theStruct->name);
+            struct FunctionEntry *methodToGenerate = thisMember->entry;
+            if (methodToGenerate->isDefined)
+            {
+                generateCodeForFunction(globalContext->outFile, methodToGenerate, theStruct->name);
+            }
         }
         break;
 
@@ -319,11 +320,11 @@ void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metada
     }
 }
 
-void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metadata)
+void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metadata, char *functionName)
 {
-    Log(LOG_DEBUG, "Emit function epilogue for %s", metadata->function->name);
+    Log(LOG_DEBUG, "Emit function epilogue for %s", functionName);
 
-    fprintf(context->outFile, "%s_done:\n", metadata->function->name);
+    fprintf(context->outFile, "%s_done:\n", functionName);
 
     calleeRestoreRegisters(context, metadata);
 
@@ -375,6 +376,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char
         strcpy(fullFunctionName, methodOfStructName);
         strcat(fullFunctionName, "_");
         strcat(fullFunctionName, function->name);
+        printf("the real name of %s is %s\n", function->name, fullFunctionName);
     }
     size_t instructionIndex = 0; // index from start of function in terms of number of instructions
     struct CodegenContext context;
@@ -382,6 +384,9 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char
     context.instructionIndex = &instructionIndex;
 
     Log(LOG_INFO, "Generate code for function %s", fullFunctionName);
+
+    fprintf(outFile, ".globl %s\n", fullFunctionName);
+    fprintf(outFile, ".type %s, @function\n", fullFunctionName);
 
     fprintf(outFile, ".align 2\n%s:\n", fullFunctionName);
     fprintf(outFile, "\t.loc 1 %d %d\n", function->correspondingTree.sourceLine, function->correspondingTree.sourceCol);
@@ -416,7 +421,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char
         generateCodeForBasicBlock(&context, block, function->mainScope, metadata.allLifetimes, fullFunctionName, metadata.reservedRegisters);
     }
 
-    emitEpilogue(&context, &metadata);
+    emitEpilogue(&context, &metadata, fullFunctionName);
 
     // clean up after ourselves
     LinkedList_Free(metadata.allLifetimes, free);
@@ -776,7 +781,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
                                     registerNames[sourceReg]);
                 }
             }
-            emitInstruction(thisTAC, context, "\tj %s_done\n", scope->parentFunction->name);
+            emitInstruction(thisTAC, context, "\tj %s_done\n", functionName);
         }
         break;
 

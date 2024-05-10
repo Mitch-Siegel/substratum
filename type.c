@@ -258,7 +258,9 @@ int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
     }
 
     // allow implicit conversion from any type of pointer to 'any *' or 'any **', etc
-    if ((src->pointerLevel > 0) && (dest->pointerLevel > 0) && (dest->basicType == vt_any))
+    if (((src->pointerLevel > 0) || (src->basicType == vt_array)) &&
+        (dest->pointerLevel > 0) &&
+        (dest->basicType == vt_any))
     {
         retVal = 0;
     }
@@ -293,7 +295,11 @@ int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
     }
     else if (src->basicType == vt_struct)
     {
-        retVal = strcmp(src->nonArray.complexType.name, dest->nonArray.complexType.name);
+        // if struct->struct, special case to compare type names (ignore any, and other types are handled in Type_CompareBasicTypeAllowImplicitWidening)
+        if (dest->basicType == vt_struct)
+        {
+            retVal = strcmp(src->nonArray.complexType.name, dest->nonArray.complexType.name);
+        }
     }
 
     return retVal;
@@ -346,7 +352,7 @@ char *Type_GetName(struct Type *type)
         InternalError("Unexpected enum basicTypes value %d seen in Type_GetName!", type->basicType);
     }
 
-    int pointerCounter = 0;
+    size_t pointerCounter = 0;
     for (pointerCounter = 0; pointerCounter < type->pointerLevel; pointerCounter++)
     {
         typeName[len + pointerCounter] = '*';
@@ -461,6 +467,14 @@ size_t Type_GetSizeOfArrayElement(struct Type *arrayType, struct Scope *scope)
 u8 Type_GetAlignment(struct Type *type, struct Scope *scope)
 {
     u8 alignment = 0;
+
+    // early return for pointers (in case of pointer to undeclared struct)
+    if (type->pointerLevel > 0)
+    {
+        alignment = alignSize(sizeof(size_t));
+        return alignment;
+    }
+
     switch (type->basicType)
     {
     case vt_struct:

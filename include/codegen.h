@@ -24,7 +24,7 @@ void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Sco
 
 void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metadata);
 
-void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metadata);
+void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metadata, char *functionName);
 
 void generateCodeForFunction(FILE *outFile,
                              struct FunctionEntry *function,

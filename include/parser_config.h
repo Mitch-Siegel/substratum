@@ -44,7 +44,7 @@ void setCurrentFile(char **curFileP, char *fileName);
         {                                                                                                                      \
             printf("-   ");                                                                                                    \
         }                                                                                                                      \
-        printf("PCC @ %s:%d:%2d - %s:%s %lu", auxil->curFile, auxil->curLine, auxil->curCol, dbgEventNames[event], rule, pos); \
+        printf("PCC @ %s:%zu:%2zu - %s:%s %zu", auxil->curFile, auxil->curLine, auxil->curCol, dbgEventNames[event], rule, pos); \
         printf("[");                                                                                                           \
         for (size_t i = 0; i < length; i++)                                                                                    \
         {                                                                                                                      \

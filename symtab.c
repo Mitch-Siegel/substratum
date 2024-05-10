@@ -79,9 +79,16 @@ static void collapseRecurseToSubScopes(struct Scope *scope, struct Dictionary *d
         // skip everything else
         case e_variable:
         case e_argument:
-        case e_struct:
         case e_basicblock:
             break;
+
+        // ... except structs, which need to be recursed into
+        case e_struct:
+        {
+            struct StructEntry *recursedStruct = thisMember->entry;
+            SymbolTable_collapseScopesRec(recursedStruct->members, dict, 0);
+        }
+        break;
         }
     }
 }
@@ -167,8 +174,15 @@ static void moveScopeMembersToParentScope(struct Scope *scope, struct Dictionary
         switch (thisMember->type)
         {
         case e_scope:
-        case e_function:
+            moveScopeMembersToParentScope(thisMember->entry, dict, depth + 1);
             break;
+
+        case e_function:
+        {
+            struct FunctionEntry *movedFromFunction = thisMember->entry;
+            moveScopeMembersToParentScope(movedFromFunction->mainScope, dict, 0);
+        }
+        break;
 
         case e_basicblock:
         {
@@ -199,8 +213,12 @@ static void moveScopeMembersToParentScope(struct Scope *scope, struct Dictionary
         }
         break;
 
-        default:
-            break;
+        case e_struct:
+        {
+            struct StructEntry *theStruct = thisMember->entry;
+            moveScopeMembersToParentScope(theStruct->members, dict, 0);
+        }
+        break;
         }
     }
 }
