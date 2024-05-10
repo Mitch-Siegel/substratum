@@ -554,8 +554,8 @@ void walkImplementationBlock(struct AST *tree, struct Scope *scope)
 }
 
 void walkStructDeclaration(struct AST *tree,
-                          struct BasicBlock *block,
-                          struct Scope *scope)
+                           struct BasicBlock *block,
+                           struct Scope *scope)
 {
     LogTree(LOG_DEBUG, tree, "walkStructDeclaration");
 
@@ -1761,22 +1761,26 @@ void walkMethodCall(struct AST *tree,
     struct TACOperand structOperand;
     memset(&structOperand, 0, sizeof(struct TACOperand));
 
-    if (structTree == t_identifier)
+    switch (structTree->type)
     {
-        structCalledOn = lookupStruct(scope, structTree);
+        // if we have struct.member.method() make sure we convert the struct.member load to an LEA
+    case t_dot:
+    {
+        struct TACLine *memberAccessLine = walkMemberAccess(structTree, block, scope, TACIndex, tempNum, &structOperand, 0);
+        convertLoadToLea(memberAccessLine, &structOperand);
     }
-    else
-    {
+    break;
+
+    default:
         walkSubExpression(structTree, block, scope, TACIndex, tempNum, &structOperand);
         if (TACOperand_GetType(&structOperand)->basicType != vt_struct)
         {
             char *nonStructType = Type_GetName(TACOperand_GetType(&structOperand));
             LogTree(LOG_FATAL, structTree, "Attempt to call method %s on non-struct type %s", callTree->child->value, nonStructType);
         }
-        structCalledOn = lookupStructByType(scope, TACOperand_GetType(&structOperand));
-
-        // TODO: check arrow vs dot operator against indirection level here?
+        break;
     }
+    structCalledOn = lookupStructByType(scope, TACOperand_GetType(&structOperand));
 
     struct FunctionEntry *calledFunction = lookupMethod(structCalledOn, callTree->child, scope);
 
