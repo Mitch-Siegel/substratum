@@ -258,7 +258,9 @@ int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
     }
 
     // allow implicit conversion from any type of pointer to 'any *' or 'any **', etc
-    if ((src->pointerLevel > 0) && (dest->pointerLevel > 0) && (dest->basicType == vt_any))
+    if (((src->pointerLevel > 0) || (src->basicType == vt_array)) &&
+        (dest->pointerLevel > 0) &&
+        (dest->basicType == vt_any))
     {
         retVal = 0;
     }
@@ -350,7 +352,7 @@ char *Type_GetName(struct Type *type)
         InternalError("Unexpected enum basicTypes value %d seen in Type_GetName!", type->basicType);
     }
 
-    int pointerCounter = 0;
+    size_t pointerCounter = 0;
     for (pointerCounter = 0; pointerCounter < type->pointerLevel; pointerCounter++)
     {
         typeName[len + pointerCounter] = '*';

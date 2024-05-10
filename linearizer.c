@@ -1316,7 +1316,10 @@ void walkSubExpression(struct AST *tree,
     }
     break;
 
+    // FIXME: there exists some code path where we can reach this point with garbage in types, resulting in a crash when printing TAC operand types
     case t_constant:
+        Type_Init(&destinationOperand->type);
+        Type_Init(&destinationOperand->castAsType);
         destinationOperand->name.str = tree->value;
         destinationOperand->type.basicType = selectVariableTypeForLiteral(tree->value);
         destinationOperand->permutation = vp_literal;
