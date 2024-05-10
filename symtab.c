@@ -79,9 +79,16 @@ static void collapseRecurseToSubScopes(struct Scope *scope, struct Dictionary *d
         // skip everything else
         case e_variable:
         case e_argument:
-        case e_struct:
         case e_basicblock:
             break;
+
+        // ... except structs, which need to be recursed into
+        case e_struct:
+        {
+            struct StructEntry *recursedStruct = thisMember->entry;
+            SymbolTable_collapseScopesRec(recursedStruct->members, dict, 0);
+        }
+        break;
         }
     }
 }
