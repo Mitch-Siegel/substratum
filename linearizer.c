@@ -1753,6 +1753,8 @@ void walkMethodCall(struct AST *tree,
         LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkMethodCall!", getTokenName(tree->type));
     }
 
+    scope->parentFunction->callsOtherFunction = 1;
+
     // don't need to track scope->parentFunction->callsOtherFunction as walkFunctionCall will do this on our behalf
     struct AST *structTree = tree->child->child;
     struct StructEntry *structCalledOn = NULL;
