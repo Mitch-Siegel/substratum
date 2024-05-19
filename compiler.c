@@ -220,8 +220,8 @@ int main(int argc, char **argv)
     generateSsa(theTable);
 
     // TODO: option to enable/disable symtab dump
-    /*Log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
-    SymbolTable_print(theTable, stderr, 1);*/
+    Log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
+    SymbolTable_print(theTable, stderr, 1);
 
     FILE *outFile = stdout;
 

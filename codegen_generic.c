@@ -88,7 +88,7 @@ void WriteVariable(struct TACLine *correspondingTACLine,
                    u8 sourceRegIndex)
 {
     verifyCodegenPrimitive(writtenTo);
-    struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, writtenTo->name.str);
+    struct Lifetime *relevantLifetime = NULL; // LinkedList_Find(lifetimes, Lifetime_CompareToVariable, writtenTo->name.str);
     if (relevantLifetime == NULL)
     {
         InternalError("Unable to find lifetime for variable %s!", writtenTo->name.str);
@@ -160,7 +160,7 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
         return registerIndex;
     }
 
-    struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand->name.str);
+    struct Lifetime *relevantLifetime = NULL; // LinkedList_Find(lifetimes, Lifetime_CompareToVariable, operand->name.str);
     if (relevantLifetime == NULL)
     {
         InternalError("Unable to find lifetime for variable %s!", operand->name.str);
@@ -257,7 +257,7 @@ u8 pickWriteRegister(struct Scope *scope,
                      struct TACOperand *operand,
                      u8 registerIndex)
 {
-    struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand->name.str);
+    struct Lifetime *relevantLifetime = NULL; // LinkedList_Find(lifetimes, Lifetime_CompareToVariable, operand->name.str);
     if (relevantLifetime == NULL)
     {
         InternalError("Unable to find lifetime for variable %s!", operand->name.str);
@@ -285,7 +285,7 @@ u8 placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
                             struct TACOperand *operand,
                             u8 registerIndex)
 {
-    struct Lifetime *relevantLifetime = LinkedList_Find(lifetimes, compareLifetimes, operand->name.str);
+    struct Lifetime *relevantLifetime = NULL; // LinkedList_Find(lifetimes, Lifetime_CompareToVariable, operand->name.str);
     if (relevantLifetime == NULL)
     {
         InternalError("Unable to find lifetime for variable %s!", operand->name.str);

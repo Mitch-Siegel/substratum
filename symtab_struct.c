@@ -5,7 +5,7 @@
 #include "util.h"
 
 struct StructEntry *createStruct(struct Scope *scope,
-                               char *name)
+                                 char *name)
 {
     struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
     wipStruct->name = name;
@@ -45,7 +45,7 @@ void assignOffsetToMemberVariable(struct StructEntry *memberOf,
         // TODO: implementation dependent size of size_t
         InternalError("Struct %s has size too large (%zd bytes)!", memberOf->name, memberOf->totalSize);
     }
-    newMemberLocation->offset = (ssize_t) memberOf->totalSize;
+    newMemberLocation->offset = (ssize_t)memberOf->totalSize;
     newMemberLocation->variable = variable;
 
     // add the size of the member we just added to the total size of the struct
@@ -89,8 +89,8 @@ void checkAccess(struct StructEntry *theStruct,
 }
 
 struct StructMemberOffset *lookupMemberVariable(struct StructEntry *theStruct,
-                                               struct AST *name,
-                                               struct Scope *scope)
+                                                struct AST *name,
+                                                struct Scope *scope)
 {
     if (name->type != t_identifier)
     {
@@ -143,7 +143,7 @@ struct FunctionEntry *lookupMethod(struct StructEntry *theStruct,
         }
     }
 
-    if(returnedMethod == NULL)
+    if (returnedMethod == NULL)
     {
         LogTree(LOG_FATAL, name, "Attempt to call nonexistent method %s.%s\n", theStruct->name, name->value);
     }
@@ -176,7 +176,7 @@ struct FunctionEntry *lookupMethodByString(struct StructEntry *theStruct,
 }
 
 struct StructEntry *lookupStruct(struct Scope *scope,
-                               struct AST *name)
+                                 struct AST *name)
 {
     struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
     if (lookedUp == NULL)
@@ -196,7 +196,7 @@ struct StructEntry *lookupStruct(struct Scope *scope,
 }
 
 struct StructEntry *lookupStructByType(struct Scope *scope,
-                                     struct Type *type)
+                                       struct Type *type)
 {
     if (type->basicType != vt_struct || type->nonArray.complexType.name == NULL)
     {

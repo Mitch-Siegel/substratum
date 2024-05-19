@@ -84,47 +84,47 @@ void generateCodeForStruct(struct CodegenContext *globalContext, struct StructEn
 
 void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock)
 {
-    // early return if no code to generate
-    if (globalBlock->TACList->size == 0)
-    {
-        return;
-    }
-    // compiled code
-    if (globalBlock->labelNum == 0)
-    {
-        fprintf(globalContext->outFile, ".userstart:\n");
-        struct LinkedList *fakeBlockList = LinkedList_New();
-        LinkedList_Append(fakeBlockList, globalBlock);
+    // // early return if no code to generate
+    // if (globalBlock->TACList->size == 0)
+    // {
+    //     return;
+    // }
+    // // compiled code
+    // if (globalBlock->labelNum == 0)
+    // {
+    //     fprintf(globalContext->outFile, ".userstart:\n");
+    //     struct LinkedList *fakeBlockList = LinkedList_New();
+    //     LinkedList_Append(fakeBlockList, globalBlock);
 
-        struct LinkedList *globalLifetimes = findLifetimes(globalScope, fakeBlockList);
-        LinkedList_Free(fakeBlockList, NULL);
-        // TODO: defines for default reserved registers? This is for global-scoped code... 0 1 and 2 are definitely not right.
-        u8 reserved[3] = {0, 1, 2};
+    //     struct LinkedList *globalLifetimes = findLifetimes(globalScope, fakeBlockList);
+    //     LinkedList_Free(fakeBlockList, NULL);
+    //     // TODO: defines for default reserved registers? This is for global-scoped code... 0 1 and 2 are definitely not right.
+    //     u8 reserved[3] = {0, 1, 2};
 
-        generateCodeForBasicBlock(globalContext, globalBlock, globalScope, globalLifetimes, NULL, reserved);
-        LinkedList_Free(globalLifetimes, free);
-    } // assembly block
-    else if (globalBlock->labelNum == 1)
-    {
+    //     generateCodeForBasicBlock(globalContext, globalBlock, globalScope, globalLifetimes, NULL, reserved);
+    //     LinkedList_Free(globalLifetimes, free);
+    // } // assembly block
+    // else if (globalBlock->labelNum == 1)
+    // {
 
-        fprintf(globalContext->outFile, ".rawasm:\n");
+    //     fprintf(globalContext->outFile, ".rawasm:\n");
 
-        for (struct LinkedListNode *examinedLine = globalBlock->TACList->head; examinedLine != NULL; examinedLine = examinedLine->next)
-        {
-            struct TACLine *examinedTAC = examinedLine->data;
-            if (examinedTAC->operation != tt_asm)
-            {
-                InternalError("Unexpected TAC type %d (%s) seen in global ASM block!\n",
-                              examinedTAC->operation,
-                              getAsmOp(examinedTAC->operation));
-            }
-            fprintf(globalContext->outFile, "%s\n", examinedTAC->operands[0].name.str);
-        }
-    }
-    else
-    {
-        InternalError("Unexpected basic block index %zu at global scope!", globalBlock->labelNum);
-    }
+    //     for (struct LinkedListNode *examinedLine = globalBlock->TACList->head; examinedLine != NULL; examinedLine = examinedLine->next)
+    //     {
+    //         struct TACLine *examinedTAC = examinedLine->data;
+    //         if (examinedTAC->operation != tt_asm)
+    //         {
+    //             InternalError("Unexpected TAC type %d (%s) seen in global ASM block!\n",
+    //                           examinedTAC->operation,
+    //                           getAsmOp(examinedTAC->operation));
+    //         }
+    //         fprintf(globalContext->outFile, "%s\n", examinedTAC->operands[0].name.str);
+    //     }
+    // }
+    // else
+    // {
+    //     InternalError("Unexpected basic block index %zu at global scope!", globalBlock->labelNum);
+    // }
 }
 
 void generateCodeForObject(struct CodegenContext *globalContext, struct Scope *globalScope, struct Type *type)
@@ -292,32 +292,32 @@ void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metada
     Log(LOG_DEBUG, "Place arguments into registers");
 
     // move any applicable arguments into registers if we are expecting them not to be spilled
-    for (struct LinkedListNode *ltRunner = metadata->allLifetimes->head; ltRunner != NULL; ltRunner = ltRunner->next)
-    {
-        struct Lifetime *thisLifetime = ltRunner->data;
+    // for (struct LinkedListNode *ltRunner = metadata->allLifetimes->head; ltRunner != NULL; ltRunner = ltRunner->next)
+    // {
+    //     struct Lifetime *thisLifetime = ltRunner->data;
 
-        // (short-circuit away from looking up temps since they can't be arguments)
-        if (thisLifetime->name[0] != '.')
-        {
-            struct ScopeMember *thisEntry = Scope_lookup(metadata->function->mainScope, thisLifetime->name);
-            // we need to place this variable into its register if:
-            if ((thisEntry != NULL) &&                           // it exists
-                (thisEntry->type == e_argument) &&               // it's an argument
-                (thisLifetime->wbLocation == wb_register) &&     // it lives in a register
-                (thisLifetime->nreads || thisLifetime->nwrites)) // theyre are either read from or written to at all
-            {
-                struct VariableEntry *theArgument = thisEntry->entry;
+    //     // (short-circuit away from looking up temps since they can't be arguments)
+    //     if (thisLifetime->name[0] != '.')
+    //     {
+    //         struct ScopeMember *thisEntry = Scope_lookup(metadata->function->mainScope, thisLifetime->name);
+    //         // we need to place this variable into its register if:
+    //         if ((thisEntry != NULL) &&                           // it exists
+    //             (thisEntry->type == e_argument) &&               // it's an argument
+    //             (thisLifetime->wbLocation == wb_register) &&     // it lives in a register
+    //             (thisLifetime->nreads || thisLifetime->nwrites)) // theyre are either read from or written to at all
+    //         {
+    //             struct VariableEntry *theArgument = thisEntry->entry;
 
-                char loadWidth = SelectWidthCharForLifetime(metadata->function->mainScope, thisLifetime);
-                emitInstruction(NULL, context, "\tl%c%s %s, %d(fp) # place %s\n",
-                                loadWidth,
-                                SelectSignForLoad(loadWidth, &thisLifetime->type),
-                                registerNames[thisLifetime->registerLocation],
-                                theArgument->stackOffset,
-                                thisLifetime->name);
-            }
-        }
-    }
+    //             char loadWidth = SelectWidthCharForLifetime(metadata->function->mainScope, thisLifetime);
+    //             emitInstruction(NULL, context, "\tl%c%s %s, %d(fp) # place %s\n",
+    //                             loadWidth,
+    //                             SelectSignForLoad(loadWidth, &thisLifetime->type),
+    //                             registerNames[thisLifetime->registerLocation],
+    //                             theArgument->stackOffset,
+    //                             thisLifetime->name);
+    //         }
+    //     }
+    // }
 }
 
 void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metadata, char *functionName)
@@ -394,12 +394,18 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char
 
     struct CodegenMetadata metadata;
     memset(&metadata, 0, sizeof(struct CodegenMetadata));
+
+    struct MachineContext machineContext;
+    memset(&machineContext, 0, sizeof(struct MachineContext));
+    machineContext.n_no_save = 3;
+    machineContext.n_callee_saved = 2;
+    machineContext.n_caller_save = 1;
     metadata.function = function;
     metadata.reservedRegisters[0] = -1;
     metadata.reservedRegisters[1] = -1;
     metadata.reservedRegisters[2] = -1;
     metadata.reservedRegisterCount = 0;
-    allocateRegisters(&metadata);
+    allocateRegisters(&metadata, &machineContext);
 
     // TODO: debug symbols for asm functions?
     if (function->isAsmFun)
@@ -418,19 +424,13 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char
     {
         struct BasicBlock *block = blockRunner->data;
         Log(LOG_DEBUG, "Generating code for basic block %zd", block->labelNum);
-        generateCodeForBasicBlock(&context, block, function->mainScope, metadata.allLifetimes, fullFunctionName, metadata.reservedRegisters);
+        // generateCodeForBasicBlock(&context, block, function->mainScope, metadata.allLifetimes, fullFunctionName, metadata.reservedRegisters);
     }
 
     emitEpilogue(&context, &metadata, fullFunctionName);
 
     // clean up after ourselves
-    LinkedList_Free(metadata.allLifetimes, free);
-
-    for (size_t tacIndex = 0; tacIndex <= metadata.largestTacIndex; tacIndex++)
-    {
-        LinkedList_Free(metadata.lifetimeOverlaps[tacIndex], NULL);
-    }
-    free(metadata.lifetimeOverlaps);
+    Set_Free(metadata.allLifetimes);
 
     if (methodOfStructName != NULL)
     {

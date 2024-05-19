@@ -13,7 +13,7 @@ struct VariableEntry *createVariable(struct Scope *scope,
                                      u8 isArgument,
                                      enum Access accessibility)
 {
-    if(isArgument && (accessibility != a_public))
+    if (isArgument && (accessibility != a_public))
     {
         InternalError("createVariable called with isArgument == 1 and accessibility != a_public - illegal arguments");
     }

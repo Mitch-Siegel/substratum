@@ -4,11 +4,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "substratum_defs.h"
 #include "type.h"
 
 struct TACOperand;
 struct TACLine;
 struct LinkedList;
+struct Set;
 struct Scope;
 
 // definitions for what we intend to use as scratch registers when applicable
@@ -71,20 +73,23 @@ struct Lifetime
     enum WritebackLocation wbLocation;
     ssize_t stackLocation;
     unsigned char registerLocation;
-    u8 inRegister, onStack, isArgument;
 };
 
-struct Lifetime *newLifetime(char *name,
-                             struct Type *type,
-                             size_t start,
-                             u8 isGlobal,
-                             u8 mustSpill);
+struct Lifetime *Lifetime_New(char *name,
+                              struct Type *type,
+                              size_t start,
+                              u8 isGlobal,
+                              u8 mustSpill);
 
-ssize_t compareLifetimes(struct Lifetime *compared, char *variable);
+size_t Lifetime_Hash(struct Lifetime *lifetime);
+
+ssize_t Lifetime_Compare(struct Lifetime *lifetimeA, struct Lifetime *lifetimeB);
+
+bool Lifetime_IsLiveAtIndex(struct Lifetime *lifetime, size_t index);
 
 // update the lifetime start/end indices
 // returns pointer to the lifetime corresponding to the passed variable name
-struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
+struct Lifetime *updateOrInsertLifetime(struct Set *ltList,
                                         char *name,
                                         struct Type *type,
                                         size_t newEnd,
@@ -93,19 +98,39 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
-void recordVariableWrite(struct LinkedList *ltList,
+void recordVariableWrite(struct Set *ltList,
                          struct TACOperand *writtenOperand,
                          struct Scope *scope,
                          size_t newEnd);
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
-void recordVariableRead(struct LinkedList *ltList,
+void recordVariableRead(struct Set *ltList,
                         struct TACOperand *readOperand,
                         struct Scope *scope,
                         size_t newEnd);
 
-struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList);
+struct Set *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList);
+
+struct Register
+{
+    struct Lifetime *containedLifetime; // lifetime contained within this register
+    u8 index;                           // numerical index of this register
+};
+
+struct Register *Register_New(u8 index);
+
+bool Register_IsLive(struct Register *reg, size_t index);
+
+struct MachineContext
+{
+    struct Register *no_save;
+    struct Register *callee_save;
+    struct Register *caller_save;
+    u8 n_no_save;
+    u8 n_callee_saved;
+    u8 n_caller_save;
+};
 
 // things more related to codegen than specifically register allocation
 
@@ -113,14 +138,10 @@ struct CodegenMetadata
 {
     struct FunctionEntry *function; // symbol table entry for the function the register allocation data is for
 
-    struct LinkedList *allLifetimes; // every lifetime that exists within this function based on variables and TAC operands
-
-    // array allocated (of size largestTacIndex) for liveness analysis
-    // index i contains a linkedList of all lifetimes active at TAC index i
-    struct LinkedList **lifetimeOverlaps;
+    struct Set *allLifetimes; // every lifetime that exists within this function based on variables and TAC operands
 
     // tracking for lifetimes which live in registers
-    struct LinkedList *registerLifetimes;
+    struct Set *registerLifetimes;
 
     // largest TAC index for any basic block within the function
     size_t largestTacIndex;

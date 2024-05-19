@@ -7,9 +7,9 @@
 #include "util.h"
 
 #include "symtab_basicblock.h"
-#include "symtab_struct.h"
 #include "symtab_function.h"
 #include "symtab_scope.h"
+#include "symtab_struct.h"
 #include "symtab_variable.h"
 
 #pragma once

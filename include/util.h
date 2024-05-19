@@ -68,7 +68,7 @@ void *HashTable_Lookup(struct HashTable *table, void *key);
 
 void HashTable_Insert(struct HashTable *table, void *key, void *value);
 
-void *HashTable_Delete(struct HashTable *table, void *key);
+void HashTable_Delete(struct HashTable *table, void *key);
 
 void HashTable_Free(struct HashTable *table);
 
