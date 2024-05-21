@@ -488,7 +488,11 @@ void Set_Delete(struct Set *set, void *element)
 {
     if (LinkedList_Find(set->elements, set->compareFunction, element) != NULL)
     {
-        LinkedList_Delete(set->elements, set->compareFunction, element);
+        void *dataToFree = LinkedList_Delete(set->elements, set->compareFunction, element);
+        if(set->dataFreeFunction != NULL)
+        {
+            set->dataFreeFunction(dataToFree);
+        }
     }
     else
     {
