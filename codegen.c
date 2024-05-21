@@ -397,15 +397,25 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char
 
     struct MachineContext machineContext;
     memset(&machineContext, 0, sizeof(struct MachineContext));
+    machineContext.n_arguments = 4;
+    machineContext.arguments = malloc(4 * sizeof(struct Register));
+    machineContext.arguments[0] = (struct Register){NULL, a0};
+    machineContext.arguments[1] = (struct Register){NULL, a1};
+    machineContext.arguments[2] = (struct Register){NULL, a2};
+    machineContext.arguments[3] = (struct Register){NULL, a3};
+
     machineContext.n_no_save = 3;
     machineContext.n_callee_saved = 2;
     machineContext.n_caller_save = 1;
+
     metadata.function = function;
     metadata.reservedRegisters[0] = -1;
     metadata.reservedRegisters[1] = -1;
     metadata.reservedRegisters[2] = -1;
     metadata.reservedRegisterCount = 0;
     allocateRegisters(&metadata, &machineContext);
+
+    free(machineContext.arguments);
 
     // TODO: debug symbols for asm functions?
     if (function->isAsmFun)

@@ -124,12 +124,21 @@ bool Register_IsLive(struct Register *reg, size_t index);
 
 struct MachineContext
 {
+    struct Register *arguments;
     struct Register *no_save;
     struct Register *callee_save;
     struct Register *caller_save;
+    u8 n_arguments;
     u8 n_no_save;
     u8 n_callee_saved;
     u8 n_caller_save;
+};
+
+
+struct StackLocation
+{
+    ssize_t basePointerOffset;
+    struct Lifetime *lifetime;
 };
 
 // things more related to codegen than specifically register allocation
@@ -139,6 +148,9 @@ struct CodegenMetadata
     struct FunctionEntry *function; // symbol table entry for the function the register allocation data is for
 
     struct Set *allLifetimes; // every lifetime that exists within this function based on variables and TAC operands
+
+    struct StackLocation *stackLayout;
+    size_t nStackLocations;
 
     // tracking for lifetimes which live in registers
     struct Set *registerLifetimes;

@@ -54,7 +54,6 @@ struct Set **findLifetimeOverlaps(struct Set *lifetimes, size_t largestTACIndex)
             struct Lifetime *examinedLifetime = ltRunner->data;
             if (Lifetime_IsLiveAtIndex(examinedLifetime, overlapIndex))
             {
-                Log(LOG_DEBUG, "%s is live at %zu", examinedLifetime->name, overlapIndex);
                 Set_Insert(lifetimeOverlaps[overlapIndex], examinedLifetime);
             }
         }
@@ -67,17 +66,11 @@ void InterferenceGraph_Insert(struct HashTable *interferenceGraph, struct Lifeti
 {
     // get the interference sets from the graph (or allocate & insert if nonexistent)
     struct Set *interferenceSetA = HashTable_Lookup(interferenceGraph, lifetimeA);
-    // struct Set *interferenceSetB = HashTable_Lookup(interferenceGraph, lifetimeB);
     if (interferenceSetA == NULL)
     {
         interferenceSetA = Set_New((ssize_t(*)(void *, void *))Lifetime_Compare, NULL);
         HashTable_Insert(interferenceGraph, lifetimeA, interferenceSetA);
     }
-    // if (interferenceSetB == NULL)
-    // {
-    //     interferenceSetB = Set_New((ssize_t(*)(void *, void *))Lifetime_Compare, NULL);
-    //     HashTable_Insert(interferenceGraph, lifetimeB, interferenceSetB);
-    // }
 
     // since A and B are live at the same time, insert them in each other's interference sets
     Set_Insert(interferenceSetA, lifetimeB);
@@ -94,16 +87,9 @@ void InterferenceGraph_Remove(struct HashTable *interferenceGraph, struct Lifeti
         for (struct LinkedListNode *entryRunner = bucket->elements->head; entryRunner != NULL; entryRunner = entryRunner->next)
         {
             struct HashTableEntry *entry = entryRunner->data;
-            struct Lifetime *keyLt = entry->key;
-            Log(LOG_INFO, "key: %s", keyLt->name);
             struct Set *valueLtSet = entry->value;
-            for (struct LinkedListNode *valueRunner = valueLtSet->elements->head; valueRunner != NULL; valueRunner = valueRunner->next)
-            {
-                struct Lifetime *valueLt = valueRunner->data;
-                Log(LOG_INFO, "\tvalue:%s", valueLt->name);
-            }
 
-            if(Set_Find(valueLtSet, toRemove) != NULL)
+            if (Set_Find(valueLtSet, toRemove) != NULL)
             {
                 Set_Delete(valueLtSet, toRemove);
             }
@@ -178,26 +164,160 @@ struct Lifetime *RemoveLifetimeWithBestHeuristic(struct Set *lifetimesInContenti
     return bestLifetime;
 }
 
-void spillToMaxRegCount(struct HashTable *interferenceGraph, struct Set *registerContentionLifetimes, size_t maxReg)
+void allocateLocalStackSpace(struct CodegenMetadata *metadata)
 {
-    Log(LOG_INFO, "Lifetimes in contention for a register:");
-    for (struct LinkedListNode *contentionRunner = registerContentionLifetimes->elements->head; contentionRunner != NULL; contentionRunner = contentionRunner->next)
+    struct Stack *stackLifetimes = Stack_New();
+
+    // go over all lifetimes, if they have a stack writeback location we need to deal with them
+    for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
     {
-        struct Lifetime *contentionLt = contentionRunner->data;
-        Log(LOG_INFO, "\tvalue:%s", contentionLt->name);
+        struct Lifetime *examinedLt = ltRunner->data;
+        if (examinedLt->wbLocation == wb_stack)
+        {
+            Stack_Push(stackLifetimes, examinedLt);
+        }
     }
 
-    size_t deg = 0;
-    while ((deg = InterferenceGraph_FindMaxDegree(interferenceGraph)) > maxReg)
+    metadata->nStackLocations = stackLifetimes->size;
+
+    // early return if no stack lifetimes
+    if (stackLifetimes->size == 0)
     {
-        struct Lifetime *toSpill = RemoveLifetimeWithBestHeuristic(registerContentionLifetimes);
-        Log(LOG_DEBUG, "Too many lifetimes - %zu - spill %s", deg, toSpill->name);
-        InterferenceGraph_Remove(interferenceGraph, toSpill);
-        for (size_t i = 0; i < 0xffffff; i++)
-        {
-        }
-        toSpill->wbLocation = wb_stack;
+        Stack_Free(stackLifetimes);
+        return;
     }
+
+    metadata->stackLayout = malloc(metadata->nStackLocations * sizeof(struct StackLocation));
+
+    // bubble sort stack lifetimes by size - early indices in stackLifetimes->data have larger sizes
+    for (size_t indexI = 0; indexI < stackLifetimes->size - 1; indexI++)
+    {
+        for (size_t indexJ = indexI; indexJ < stackLifetimes->size - 1; indexJ++)
+        {
+            struct Lifetime *lifetimeI = stackLifetimes->data[indexI];
+            struct Lifetime *lifetimeJ = stackLifetimes->data[indexJ];
+
+            size_t sizeI = Type_GetSize(&lifetimeI->type, metadata->function->mainScope);
+            size_t sizeJ = Type_GetSize(&lifetimeJ->type, metadata->function->mainScope);
+
+            if (sizeJ > sizeI)
+            {
+                stackLifetimes->data[indexI] = lifetimeJ;
+                stackLifetimes->data[indexJ] = lifetimeI;
+            }
+        }
+    }
+
+    ssize_t localOffset = 0;
+    for (size_t indexI = 0; indexI < stackLifetimes->size - 1; indexI++)
+    {
+        struct Lifetime *printedStackLt = stackLifetimes->data[indexI];
+        localOffset -= Type_GetSize(&printedStackLt->type, metadata->function->mainScope);
+        localOffset -= Scope_ComputePaddingForAlignment(metadata->function->mainScope, &printedStackLt->type, localOffset);
+        Log(LOG_DEBUG, "%3zu @%3zd - %s", Type_GetSize(&printedStackLt->type, metadata->function->mainScope), localOffset, printedStackLt->name);
+    }
+
+    Stack_Free(stackLifetimes);
+}
+
+// return a set of lifetimes which can exist with at most availableRegisters.size simultaneously available, leaving non-selected lifetimes in selectFrom
+struct Set *selectRegisterLifetimes(struct Set *selectFrom, size_t largestTacIndex, struct Set *registerPool)
+{
+    size_t nReg = registerPool->elements->size;
+    struct Set *selected = Set_New(selectFrom->compareFunction, NULL);
+    Set_Merge(selected, selectFrom);
+    Set_Clear(selectFrom);
+
+    struct Set **lifetimeOverlaps = findLifetimeOverlaps(selected, largestTacIndex);
+
+    struct HashTable *interferenceGraph = HashTable_New((selected->elements->size / 10) + 1, (size_t(*)(void *))Lifetime_Hash, (ssize_t(*)(void *, void *))Lifetime_Compare, NULL, (void (*)(void *))Set_Free);
+
+    // for every TAC index
+    for (size_t overlapIndex = 0; overlapIndex <= largestTacIndex; overlapIndex++)
+    {
+        // examine the overlaps at this index
+        struct Set *overlapsAtIndex = lifetimeOverlaps[overlapIndex];
+        for (struct LinkedListNode *overlapRunnerI = overlapsAtIndex->elements->head; overlapRunnerI != NULL; overlapRunnerI = overlapRunnerI->next)
+        {
+            for (struct LinkedListNode *overlapRunnerJ = overlapRunnerI->next; overlapRunnerJ != NULL; overlapRunnerJ = overlapRunnerJ->next)
+            {
+                // lifetimes I and J overlap with each other
+                struct Lifetime *lifetimeI = overlapRunnerI->data;
+                struct Lifetime *lifetimeJ = overlapRunnerJ->data;
+
+                InterferenceGraph_Insert(interferenceGraph, lifetimeI, lifetimeJ);
+            }
+        }
+    }
+
+    // while there are too many lifetimes
+    size_t deg = 0;
+    while ((deg = InterferenceGraph_FindMaxDegree(interferenceGraph)) > nReg)
+    {
+        // grab the one with the best heuristic, remove it, and re-add to selectFrom
+        struct Lifetime *toSpill = RemoveLifetimeWithBestHeuristic(selected);
+        InterferenceGraph_Remove(interferenceGraph, toSpill);
+        Set_Insert(selectFrom, toSpill);
+    }
+
+    struct Stack *availableRegisters = Stack_New();
+    struct Set *liveLifetimes = Set_New((ssize_t(*)(void *, void *))Lifetime_Compare, NULL);
+    for (struct LinkedListNode *regRunner = registerPool->elements->head; regRunner != NULL; regRunner = regRunner->next)
+    {
+        Stack_Push(availableRegisters, regRunner->data);
+    }
+
+    struct Set *needRegisters = Set_Copy(selected);
+
+    // iterate by TAC index
+    for (size_t tacIndex = 0; (tacIndex <= largestTacIndex) && (needRegisters->elements->size > 0); tacIndex++)
+    {
+        // iterate lifetimes which are currently live
+        for (struct LinkedListNode *liveLtRunner = liveLifetimes->elements->head; liveLtRunner != NULL;)
+        {
+            struct LinkedListNode *next = liveLtRunner->next;
+            struct Lifetime *liveLt = liveLtRunner->data;
+
+            // if no longer live at this index, give its register back
+            if (!Lifetime_IsLiveAtIndex(liveLt, tacIndex))
+            {
+                Set_Delete(liveLifetimes, liveLt);
+                Stack_Push(availableRegisters, (void *)(size_t)liveLt->registerLocation);
+            }
+
+            liveLtRunner = next;
+        }
+
+        // iterate lifetimes which need registers
+        for (struct LinkedListNode *newLtRunner = needRegisters->elements->head; newLtRunner != NULL;)
+        {
+            struct LinkedListNode *next = newLtRunner->next;
+            struct Lifetime *examinedLt = newLtRunner->data;
+
+            // if a lifetime becomes live at this index, assign it a register
+            if (Lifetime_IsLiveAtIndex(examinedLt, tacIndex))
+            {
+                Set_Delete(needRegisters, examinedLt);
+                examinedLt->registerLocation = (u8)(size_t)Stack_Pop(availableRegisters);
+                examinedLt->wbLocation = wb_register;
+                Set_Insert(liveLifetimes, examinedLt);
+            }
+
+            newLtRunner = next;
+        }
+    }
+    Stack_Free(availableRegisters);
+    Set_Free(needRegisters);
+    Set_Free(liveLifetimes);
+
+    HashTable_Free(interferenceGraph);
+    for (size_t overlapFreeIndex = 0; overlapFreeIndex <= largestTacIndex; overlapFreeIndex++)
+    {
+        Set_Free(lifetimeOverlaps[overlapFreeIndex]);
+    }
+    free(lifetimeOverlaps);
+
+    return selected;
 }
 
 // really this is "figure out which lifetimes get a register"
@@ -208,6 +328,7 @@ void allocateRegisters(struct CodegenMetadata *metadata, struct MachineContext *
     metadata->largestTacIndex = findMaxTACIndex(metadata->allLifetimes);
 
     struct Set *registerContentionLifetimes = Set_Copy(metadata->allLifetimes);
+    registerContentionLifetimes->dataFreeFunction = NULL;
 
     for (struct LinkedListNode *ltRunner = registerContentionLifetimes->elements->head; ltRunner != NULL;)
     {
@@ -229,37 +350,40 @@ void allocateRegisters(struct CodegenMetadata *metadata, struct MachineContext *
         ltRunner = next;
     }
 
-    struct Set **lifetimeOverlaps = findLifetimeOverlaps(registerContentionLifetimes, metadata->largestTacIndex);
-
-    struct HashTable *interferenceGraph = HashTable_New((registerContentionLifetimes->elements->size / 10) + 1, (size_t(*)(void *))Lifetime_Hash, (ssize_t(*)(void *, void *))Lifetime_Compare, NULL, (void (*)(void *))Set_Free);
-
-    // for every TAC index
-    for (size_t overlapIndex = 0; overlapIndex <= metadata->largestTacIndex; overlapIndex++)
+    struct Set *registerPool = Set_New(ssizet_compare, NULL);
+    for (u8 argRegIndex = 0; argRegIndex < machineContext->n_arguments; argRegIndex++)
     {
-        // examine the overlaps at this index
-        struct Set *overlapsAtIndex = lifetimeOverlaps[overlapIndex];
-        for (struct LinkedListNode *overlapRunnerI = overlapsAtIndex->elements->head; overlapRunnerI != NULL; overlapRunnerI = overlapRunnerI->next)
-        {
-            for (struct LinkedListNode *overlapRunnerJ = overlapRunnerI->next; overlapRunnerJ != NULL; overlapRunnerJ = overlapRunnerJ->next)
-            {
-                // lifetimes I and J overlap with each other
-                struct Lifetime *lifetimeI = overlapRunnerI->data;
-                struct Lifetime *lifetimeJ = overlapRunnerJ->data;
-
-                InterferenceGraph_Insert(interferenceGraph, lifetimeI, lifetimeJ);
-            }
-        }
+        Set_Insert(registerPool, (void *)(size_t)machineContext->arguments[argRegIndex].index);
     }
 
-    size_t maxReg = machineContext->n_no_save + machineContext->n_callee_saved + machineContext->n_caller_save;
-    char *ltLengthString = malloc(metadata->largestTacIndex + 2);
+    Set_Free(selectRegisterLifetimes(registerContentionLifetimes, metadata->largestTacIndex, registerPool));
+    Set_Free(registerPool);
+
+    char *ltLengthString = malloc(metadata->largestTacIndex + 3);
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
     {
+        char location[16];
         struct Lifetime *printedLt = ltRunner->data;
-        i32 len = 0;
-        while (len < printedLt->end)
+        switch (printedLt->wbLocation)
         {
-            if ((len < printedLt->start) || (len >= printedLt->end))
+        case wb_global:
+            sprintf(location, "GLOBAL");
+            break;
+        case wb_register:
+            sprintf(location, "REG:%s", registerNames[printedLt->registerLocation]);
+            break;
+        case wb_stack:
+            sprintf(location, "STK:%zd", printedLt->stackLocation);
+            break;
+        case wb_unknown:
+            sprintf(location, "???????");
+            break;
+        }
+
+        size_t len = 0;
+        while (len <= printedLt->end)
+        {
+            if ((len < printedLt->start) || (len > printedLt->end))
             {
                 len += sprintf(ltLengthString + len, " ");
             }
@@ -269,18 +393,14 @@ void allocateRegisters(struct CodegenMetadata *metadata, struct MachineContext *
             }
         }
 
-        Log(LOG_DEBUG, "Length: %zu - %p", len, printedLt->name);
-
-        Log(LOG_DEBUG, "Lifetime %40s:%s", printedLt->name, ltLengthString);
+        Log(LOG_DEBUG, "%40s:%s:%s", printedLt->name, location, ltLengthString);
     }
-    spillToMaxRegCount(interferenceGraph, registerContentionLifetimes, maxReg);
+    free(ltLengthString);
 
+    Set_Free(registerContentionLifetimes);
 
-    for (size_t overlapFreeIndex = 0; overlapFreeIndex < metadata->largestTacIndex; overlapFreeIndex++)
-    {
-        Set_Free(lifetimeOverlaps[overlapFreeIndex]);
-    }
-    free(lifetimeOverlaps);
+    allocateLocalStackSpace(metadata);
+
     // for (struct LinkedListNode *interferenceRunner = metadata->allLifetimes->elements->head; interferenceRunner != NULL; interferenceRunner = interferenceRunner->next)
     // {
     //     struct Lifetime *currentInterference = interferenceRunner.
