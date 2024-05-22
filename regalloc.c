@@ -281,17 +281,15 @@ void allocateStackSpace(struct CodegenMetadata *metadata)
     Stack_Free(argumentStackLifetimes);
 }
 
-// selectFrom: set of pointers to lifetimes which are in contention for registers
-// registerPool: set of register indices (raw values in void * form) which are available to allocate
-// returns: set of lifetimes which were allocated registers, leaving only lifetimes which were not given registers in selectFrom
-struct Set *selectRegisterLifetimes(struct Scope *scope, struct Set *selectFrom, size_t largestTacIndex, struct Set *registerPool)
+struct Set *preSelectRegisterContentionLifetimes(struct Set *selectFrom, struct Scope *scope)
 {
-    size_t nReg = registerPool->elements->size;
-    struct Set *selected = Set_New(selectFrom->compareFunction, NULL);
-    Set_Merge(selected, selectFrom);
+    // from the start, all lifetimes from which we are selecting are in contention
+    struct Set *contentionLifetimes = Set_New(selectFrom->compareFunction, NULL);
+    Set_Merge(contentionLifetimes, selectFrom);
     Set_Clear(selectFrom);
 
-    for (struct LinkedListNode *ltRunner = selected->elements->head; ltRunner != NULL;)
+    // remove lifetimes which
+    for (struct LinkedListNode *ltRunner = contentionLifetimes->elements->head; ltRunner != NULL;)
     {
         struct LinkedListNode *next = ltRunner->next;
 
@@ -299,18 +297,18 @@ struct Set *selectRegisterLifetimes(struct Scope *scope, struct Set *selectFrom,
 
         switch (examinedLt->wbLocation)
         {
-            // if the lifetime already has a location, just delete it from selected, don't re-add to selectFrom
+            // if the lifetime already has a location, just remove it from contention, don't re-add to selectFrom as there is no more work to do for it
         case wb_global:
         case wb_stack:
         case wb_register:
-            Set_Delete(selected, examinedLt);
+            Set_Delete(contentionLifetimes, examinedLt);
             break;
 
             // if we are potentially going to assign a register to this lifetime, make sure it is small enough to fit in a register
         case wb_unknown:
             if (Type_GetSize(&examinedLt->type, scope) > MACHINE_REGISTER_SIZE_BYTES)
             {
-                Set_Delete(selected, examinedLt);
+                Set_Delete(contentionLifetimes, examinedLt);
                 Set_Insert(selectFrom, examinedLt);
             }
             break;
@@ -319,9 +317,14 @@ struct Set *selectRegisterLifetimes(struct Scope *scope, struct Set *selectFrom,
         ltRunner = next;
     }
 
+    return contentionLifetimes;
+}
+
+struct HashTable *generateInterferenceGraph(struct Set *registerContentionLifetimes, size_t largestTacIndex)
+{
     // calculate overlaps and interference graph
-    struct Set **lifetimeOverlaps = findLifetimeOverlaps(selected, largestTacIndex);
-    struct HashTable *interferenceGraph = HashTable_New((selected->elements->size / 10) + 1, (size_t(*)(void *))Lifetime_Hash, (ssize_t(*)(void *, void *))Lifetime_Compare, NULL, (void (*)(void *))Set_Free);
+    struct Set **lifetimeOverlaps = findLifetimeOverlaps(registerContentionLifetimes, largestTacIndex);
+    struct HashTable *interferenceGraph = HashTable_New((registerContentionLifetimes->elements->size / 10) + 1, (size_t(*)(void *))Lifetime_Hash, (ssize_t(*)(void *, void *))Lifetime_Compare, NULL, (void (*)(void *))Set_Free);
 
     // for every TAC index
     for (size_t overlapIndex = 0; overlapIndex <= largestTacIndex; overlapIndex++)
@@ -341,12 +344,31 @@ struct Set *selectRegisterLifetimes(struct Scope *scope, struct Set *selectFrom,
         }
     }
 
+    for (size_t overlapFreeIndex = 0; overlapFreeIndex <= largestTacIndex; overlapFreeIndex++)
+    {
+        Set_Free(lifetimeOverlaps[overlapFreeIndex]);
+    }
+    free(lifetimeOverlaps);
+
+    return interferenceGraph;
+}
+
+// selectFrom: set of pointers to lifetimes which are in contention for registers
+// registerPool: set of register indices (raw values in void * form) which are available to allocate
+// returns: set of lifetimes which were allocated registers, leaving only lifetimes which were not given registers in selectFrom
+struct Set *selectRegisterLifetimes(struct CodegenMetadata *metadata, struct Set *selectFrom, struct Set *registerPool)
+{
+    struct Set *registerContentionLifetimes = preSelectRegisterContentionLifetimes(selectFrom, metadata->function->mainScope);
+
+    struct HashTable *interferenceGraph = generateInterferenceGraph(registerContentionLifetimes, metadata->largestTacIndex);
+
     // while there are too many lifetimes
+    size_t nReg = registerPool->elements->size;
     size_t deg = 0;
     while ((deg = InterferenceGraph_FindMaxDegree(interferenceGraph)) > nReg)
     {
         // grab the one with the best heuristic, remove it, and re-add to selectFrom
-        struct Lifetime *toSpill = RemoveLifetimeWithBestHeuristic(selected);
+        struct Lifetime *toSpill = RemoveLifetimeWithBestHeuristic(registerContentionLifetimes);
         InterferenceGraph_Remove(interferenceGraph, toSpill);
         Set_Insert(selectFrom, toSpill);
     }
@@ -358,11 +380,11 @@ struct Set *selectRegisterLifetimes(struct Scope *scope, struct Set *selectFrom,
         Stack_Push(availableRegisters, regRunner->data);
     }
 
-    struct Set *needRegisters = Set_Copy(selected);
+    struct Set *needRegisters = Set_Copy(registerContentionLifetimes);
     needRegisters->dataFreeFunction = NULL;
 
     // iterate by TAC index
-    for (size_t tacIndex = 0; (tacIndex <= largestTacIndex) && (needRegisters->elements->size > 0); tacIndex++)
+    for (size_t tacIndex = 0; (tacIndex <= metadata->largestTacIndex) && (needRegisters->elements->size > 0); tacIndex++)
     {
         // iterate lifetimes which are currently live
         for (struct LinkedListNode *liveLtRunner = liveLifetimes->elements->head; liveLtRunner != NULL;)
@@ -394,6 +416,8 @@ struct Set *selectRegisterLifetimes(struct Scope *scope, struct Set *selectFrom,
                 examinedLt->writebackInfo.regLocation = (u8)(size_t)Stack_Pop(availableRegisters);
                 examinedLt->wbLocation = wb_register;
                 Set_Insert(liveLifetimes, examinedLt);
+
+                Set_Insert(metadata->touchedRegisters, metadata->machineContext->allRegisters[examinedLt->writebackInfo.regLocation]);
                 Log(LOG_DEBUG, "Lifetime %s starts at at %zu, consuming register %zu", examinedLt->name, tacIndex, examinedLt->writebackInfo.regLocation);
             }
 
@@ -405,13 +429,8 @@ struct Set *selectRegisterLifetimes(struct Scope *scope, struct Set *selectFrom,
     Set_Free(liveLifetimes);
 
     HashTable_Free(interferenceGraph);
-    for (size_t overlapFreeIndex = 0; overlapFreeIndex <= largestTacIndex; overlapFreeIndex++)
-    {
-        Set_Free(lifetimeOverlaps[overlapFreeIndex]);
-    }
-    free(lifetimeOverlaps);
 
-    return selected;
+    return registerContentionLifetimes;
 }
 
 void allocateArgumentRegisters(struct CodegenMetadata *metadata)
@@ -432,7 +451,7 @@ void allocateArgumentRegisters(struct CodegenMetadata *metadata)
         Set_Insert(argumentRegisterPool, (void *)(size_t)metadata->machineContext->arguments[argRegIndex]->index);
     }
 
-    Set_Free(selectRegisterLifetimes(metadata->function->mainScope, argumentLifetimes, metadata->largestTacIndex, argumentRegisterPool));
+    Set_Free(selectRegisterLifetimes(metadata, argumentLifetimes, argumentRegisterPool));
     Set_Free(argumentRegisterPool);
 
     // any arguments which we couldn't allocate a register for go on the stack
@@ -451,7 +470,7 @@ void allocateGeneralRegisters(struct CodegenMetadata *metadata)
     registerContentionLifetimes->dataFreeFunction = NULL;
 
     struct Set *registerPool = Set_New(ssizet_compare, NULL);
-    for (u8 gpRegIndex = 0; gpRegIndex < metadata->machineContext->n_callee_save; gpRegIndex++)
+    for (u8 gpRegIndex = 0; gpRegIndex < metadata->machineContext->n_caller_save; gpRegIndex++)
     {
         Set_Insert(registerPool, (void *)(size_t)metadata->machineContext->callee_save[gpRegIndex]->index);
     }
@@ -461,7 +480,7 @@ void allocateGeneralRegisters(struct CodegenMetadata *metadata)
         Set_Insert(registerPool, (void *)(size_t)metadata->machineContext->caller_save[gpRegIndex]->index);
     }
 
-    Set_Free(selectRegisterLifetimes(metadata->function->mainScope, registerContentionLifetimes, metadata->largestTacIndex, registerPool));
+    Set_Free(selectRegisterLifetimes(metadata, registerContentionLifetimes, registerPool));
     Set_Free(registerPool);
 
     // any general-purpose lifetimes which we couldn't allocate a register for go on the stack
@@ -480,6 +499,9 @@ void allocateRegisters(struct CodegenMetadata *metadata)
     metadata->allLifetimes = findLifetimes(metadata->function->mainScope, metadata->function->BasicBlockList);
 
     metadata->largestTacIndex = findMaxTACIndex(metadata->allLifetimes);
+    
+    // register pointers are unique and only one should exist for a given register
+    metadata->touchedRegisters = Set_New(ssizet_compare, NULL);
 
     allocateArgumentRegisters(metadata);
     allocateGeneralRegisters(metadata);

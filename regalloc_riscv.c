@@ -129,7 +129,7 @@ struct MachineContext *setupRiscvMachineContext()
 
     const u8 nCalleeSaved = 11;
     context->callee_save = malloc(nCalleeSaved * sizeof(struct Register *));
-    context->n_callee_save = nCalleeSaved;
+    context->n_caller_save = nCalleeSaved;
     for (u8 calleeReg = 0; calleeReg < nCalleeSaved; calleeReg++)
     {
         context->callee_save[calleeReg] = &riscvRegisters[s1 + calleeReg];
@@ -141,6 +141,12 @@ struct MachineContext *setupRiscvMachineContext()
     for (u8 callerReg = 0; callerReg < nCallerSaved; callerReg++)
     {
         context->caller_save[callerReg] = &riscvRegisters[t3 + callerReg];
+    }
+
+    context->allRegisters = malloc(RISCV_REGISTER_COUNT * sizeof(struct Register *));
+    for(u8 regIndex = 0; regIndex < RISCV_REGISTER_COUNT; regIndex++)
+    {
+        context->allRegisters[regIndex] = &riscvRegisters[regIndex];
     }
 
     return context;

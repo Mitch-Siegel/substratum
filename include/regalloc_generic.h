@@ -102,6 +102,7 @@ struct MachineContext
 
     // basic info about the registers
     char **registerNames;
+    struct Register **allRegisters;
     u8 maxReg;
 };
 
@@ -114,6 +115,8 @@ struct CodegenMetadata
     struct FunctionEntry *function; // symbol table entry for the function the register allocation data is for
 
     struct MachineContext *machineContext;
+
+    struct Set *touchedRegisters;
 
     struct Set *allLifetimes; // every lifetime that exists within this function based on variables and TAC operands
 
