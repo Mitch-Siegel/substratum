@@ -3,6 +3,7 @@
 #include "codegen_generic.h"
 #include "log.h"
 #include "regalloc.h"
+#include "regalloc_riscv.h"
 #include "symtab.h"
 
 void generateCodeForProgram(struct SymbolTable *table, FILE *outFile)
@@ -84,47 +85,6 @@ void generateCodeForStruct(struct CodegenContext *globalContext, struct StructEn
 
 void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock)
 {
-    // // early return if no code to generate
-    // if (globalBlock->TACList->size == 0)
-    // {
-    //     return;
-    // }
-    // // compiled code
-    // if (globalBlock->labelNum == 0)
-    // {
-    //     fprintf(globalContext->outFile, ".userstart:\n");
-    //     struct LinkedList *fakeBlockList = LinkedList_New();
-    //     LinkedList_Append(fakeBlockList, globalBlock);
-
-    //     struct LinkedList *globalLifetimes = findLifetimes(globalScope, fakeBlockList);
-    //     LinkedList_Free(fakeBlockList, NULL);
-    //     // TODO: defines for default reserved registers? This is for global-scoped code... 0 1 and 2 are definitely not right.
-    //     u8 reserved[3] = {0, 1, 2};
-
-    //     generateCodeForBasicBlock(globalContext, globalBlock, globalScope, globalLifetimes, NULL, reserved);
-    //     LinkedList_Free(globalLifetimes, free);
-    // } // assembly block
-    // else if (globalBlock->labelNum == 1)
-    // {
-
-    //     fprintf(globalContext->outFile, ".rawasm:\n");
-
-    //     for (struct LinkedListNode *examinedLine = globalBlock->TACList->head; examinedLine != NULL; examinedLine = examinedLine->next)
-    //     {
-    //         struct TACLine *examinedTAC = examinedLine->data;
-    //         if (examinedTAC->operation != tt_asm)
-    //         {
-    //             InternalError("Unexpected TAC type %d (%s) seen in global ASM block!\n",
-    //                           examinedTAC->operation,
-    //                           getAsmOp(examinedTAC->operation));
-    //         }
-    //         fprintf(globalContext->outFile, "%s\n", examinedTAC->operands[0].name.str);
-    //     }
-    // }
-    // else
-    // {
-    //     InternalError("Unexpected basic block index %zu at global scope!", globalBlock->labelNum);
-    // }
 }
 
 void generateCodeForObject(struct CodegenContext *globalContext, struct Scope *globalScope, struct Type *type)
@@ -217,148 +177,24 @@ void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct 
 
 void calleeSaveRegisters(struct CodegenContext *context, struct CodegenMetadata *metadata)
 {
+    // TODO: implement for new register allocator
     Log(LOG_DEBUG, "Callee-saving touched registers");
-
-    // callee-save all registers (FIXME - caller vs callee save ABI?)
-    u8 regNumSaved = 0;
-    for (u8 reg = START_ALLOCATING_FROM; reg < MACHINE_REGISTER_COUNT; reg++)
-    {
-        if (metadata->touchedRegisters[reg] && (reg != RETURN_REGISTER))
-        {
-            // store registers we modify
-            EmitFrameStoreForSize(NULL,
-                                  context,
-                                  reg,
-                                  MACHINE_REGISTER_SIZE_BYTES,
-                                  (-1 * (ssize_t)(metadata->localStackSize + ((regNumSaved + 1) * MACHINE_REGISTER_SIZE_BYTES)))); // (regNumSaved + 1) to account for stack growth downwards
-            regNumSaved++;
-        }
-    }
 }
 
 void calleeRestoreRegisters(struct CodegenContext *context, struct CodegenMetadata *metadata)
 {
+    // TODO: implement for new register allocator
     Log(LOG_DEBUG, "Callee-restoring touched registers");
-
-    // callee-save all registers (FIXME - caller vs callee save ABI?)
-    u8 regNumRestored = 0;
-    for (u8 reg = START_ALLOCATING_FROM; reg < MACHINE_REGISTER_COUNT; reg++)
-    {
-        if (metadata->touchedRegisters[reg] && (reg != RETURN_REGISTER))
-        {
-            // store registers we modify
-            EmitFrameLoadForSize(NULL,
-                                 context,
-                                 reg,
-                                 MACHINE_REGISTER_SIZE_BYTES,
-                                 (-1 * (ssize_t)(metadata->localStackSize + ((regNumRestored + 1) * MACHINE_REGISTER_SIZE_BYTES)))); // (regNumRestored + 1) to account for stack growth downwards
-            regNumRestored++;
-        }
-    }
 }
 
 void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metadata)
 {
-    Log(LOG_DEBUG, "Emitting function prologue for %s", metadata->function->name);
-
-    // save return address (if necessary) and frame pointer to the stack so they will be persisted across this function
-    if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
-    {
-        // TODO: asserts against crazy large stack sizes causing overflow with ssize_t?
-        EmitStackStoreForSize(NULL,
-                              context,
-                              ra,
-                              MACHINE_REGISTER_SIZE_BYTES,
-                              (-1 * (ssize_t)(metadata->localStackSize + metadata->calleeSaveStackSize - ((1) * MACHINE_REGISTER_SIZE_BYTES))));
-    }
-    EmitStackStoreForSize(NULL,
-                          context,
-                          fp,
-                          MACHINE_REGISTER_SIZE_BYTES,
-                          (-1 * (ssize_t)(metadata->localStackSize + metadata->calleeSaveStackSize - ((0) * MACHINE_REGISTER_SIZE_BYTES))));
-
-    emitInstruction(NULL, context, "\tmv %s, %s\n", registerNames[fp], registerNames[sp]); // generate new fp
-
-    if (metadata->totalStackSize)
-    {
-        emitInstruction(NULL, context, "\t# %d bytes locals, %d bytes callee-save\n", metadata->localStackSize, metadata->calleeSaveStackSize);
-        emitInstruction(NULL, context, "\taddi %s, %s, -%d\n", registerNames[sp], registerNames[sp], metadata->totalStackSize);
-        calleeSaveRegisters(context, metadata);
-    }
-
-    // FIXME: cfa offset if no local stack?
-    fprintf(context->outFile, "\t.cfi_def_cfa_offset %zu\n", metadata->totalStackSize);
-
-    Log(LOG_DEBUG, "Place arguments into registers");
-
-    // move any applicable arguments into registers if we are expecting them not to be spilled
-    // for (struct LinkedListNode *ltRunner = metadata->allLifetimes->head; ltRunner != NULL; ltRunner = ltRunner->next)
-    // {
-    //     struct Lifetime *thisLifetime = ltRunner->data;
-
-    //     // (short-circuit away from looking up temps since they can't be arguments)
-    //     if (thisLifetime->name[0] != '.')
-    //     {
-    //         struct ScopeMember *thisEntry = Scope_lookup(metadata->function->mainScope, thisLifetime->name);
-    //         // we need to place this variable into its register if:
-    //         if ((thisEntry != NULL) &&                           // it exists
-    //             (thisEntry->type == e_argument) &&               // it's an argument
-    //             (thisLifetime->wbLocation == wb_register) &&     // it lives in a register
-    //             (thisLifetime->nreads || thisLifetime->nwrites)) // theyre are either read from or written to at all
-    //         {
-    //             struct VariableEntry *theArgument = thisEntry->entry;
-
-    //             char loadWidth = SelectWidthCharForLifetime(metadata->function->mainScope, thisLifetime);
-    //             emitInstruction(NULL, context, "\tl%c%s %s, %d(fp) # place %s\n",
-    //                             loadWidth,
-    //                             SelectSignForLoad(loadWidth, &thisLifetime->type),
-    //                             registerNames[thisLifetime->registerLocation],
-    //                             theArgument->stackOffset,
-    //                             thisLifetime->name);
-    //         }
-    //     }
-    // }
+    // TODO: implement for new register allocator
 }
 
 void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metadata, char *functionName)
 {
-    Log(LOG_DEBUG, "Emit function epilogue for %s", functionName);
-
-    fprintf(context->outFile, "%s_done:\n", functionName);
-
-    calleeRestoreRegisters(context, metadata);
-
-    // load saved return address (if necessary) and saved frame pointer to the stack so they will be persisted across this function
-
-    if (metadata->function->callsOtherFunction || metadata->function->isAsmFun)
-    {
-        EmitFrameLoadForSize(NULL,
-                             context,
-                             ra,
-                             MACHINE_REGISTER_SIZE_BYTES,
-                             (-1 * (ssize_t)(metadata->localStackSize + metadata->calleeSaveStackSize - ((1) * MACHINE_REGISTER_SIZE_BYTES))));
-    }
-
-    EmitFrameLoadForSize(NULL,
-                         context,
-                         fp,
-                         MACHINE_REGISTER_SIZE_BYTES,
-                         (-1 * (ssize_t)(metadata->localStackSize + metadata->calleeSaveStackSize - ((0) * MACHINE_REGISTER_SIZE_BYTES))));
-
-    size_t localAndArgStackSize = metadata->totalStackSize + metadata->function->argStackSize;
-    if (localAndArgStackSize > 0)
-    {
-        emitInstruction(NULL, context, "\t# %d bytes locals, %d bytes callee-save, %d bytes arguments\n", metadata->totalStackSize - (MACHINE_REGISTER_SIZE_BYTES * metadata->nRegistersCalleeSaved), (MACHINE_REGISTER_SIZE_BYTES * metadata->nRegistersCalleeSaved), metadata->function->argStackSize);
-        emitInstruction(NULL, context, "\taddi %s, %s, %d\n", registerNames[sp], registerNames[sp], localAndArgStackSize);
-    }
-    // FIXME: cfa offset if no local stack?
-
-    fprintf(context->outFile, "\t.cfi_def_cfa_offset %zu\n", metadata->totalStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES));
-
-    fprintf(context->outFile, "\t.cfi_def_cfa_offset 0\n");
-    emitInstruction(NULL, context, "\tjalr zero, 0(%s)\n", registerNames[ra]);
-
-    fprintf(context->outFile, "\t.cfi_endproc\n");
+    // TODO: implement for new register allocator
 }
 
 /*
@@ -395,27 +231,11 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char
     struct CodegenMetadata metadata;
     memset(&metadata, 0, sizeof(struct CodegenMetadata));
 
-    struct MachineContext machineContext;
-    memset(&machineContext, 0, sizeof(struct MachineContext));
-    machineContext.n_arguments = 4;
-    machineContext.arguments = malloc(4 * sizeof(struct Register));
-    machineContext.arguments[0] = (struct Register){NULL, a0};
-    machineContext.arguments[1] = (struct Register){NULL, a1};
-    machineContext.arguments[2] = (struct Register){NULL, a2};
-    machineContext.arguments[3] = (struct Register){NULL, a3};
-
-    machineContext.n_no_save = 3;
-    machineContext.n_callee_saved = 2;
-    machineContext.n_caller_save = 1;
-
+    setupMachineContext = setupRiscvMachineContext;
+    
     metadata.function = function;
-    metadata.reservedRegisters[0] = -1;
-    metadata.reservedRegisters[1] = -1;
-    metadata.reservedRegisters[2] = -1;
-    metadata.reservedRegisterCount = 0;
-    allocateRegisters(&metadata, &machineContext);
-
-    free(machineContext.arguments);
+    metadata.machineContext = setupMachineContext();
+    allocateRegisters(&metadata);
 
     // TODO: debug symbols for asm functions?
     if (function->isAsmFun)
@@ -438,6 +258,12 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char
     }
 
     emitEpilogue(&context, &metadata, fullFunctionName);
+
+    free(metadata.machineContext->arguments);
+    free(metadata.machineContext->no_save);
+    free(metadata.machineContext->callee_save);
+    free(metadata.machineContext->caller_save);
+    free(metadata.machineContext);
 
     // clean up after ourselves
     Set_Free(metadata.allLifetimes);
@@ -483,6 +309,7 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
         emitLoc(context, thisTAC, &lastLineNo);
 
+        /*
         switch (thisTAC->operation)
         {
         case tt_asm:
@@ -513,7 +340,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
             u8 op2Reg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[2], reservedRegisters[1]);
             u8 destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 
-            emitInstruction(thisTAC, context, "\t%s %s, %s, %s\n", getAsmOp(thisTAC->operation), registerNames[destReg], registerNames[op1Reg], registerNames[op2Reg]);
+            // FIXME: work with new register allocation
+            // emitInstruction(thisTAC, context, "\t%s %s, %s, %s\n", getAsmOp(thisTAC->operation), registerNames[destReg], registerNames[op1Reg], registerNames[op2Reg]);
             WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], destReg);
         }
         break;
@@ -523,7 +351,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
             u8 op1Reg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[1], reservedRegisters[0]);
             u8 destReg = pickWriteRegister(scope, lifetimes, &thisTAC->operands[0], reservedRegisters[0]);
 
-            emitInstruction(thisTAC, context, "\txori %s, %s, -1\n", registerNames[destReg], registerNames[op1Reg]);
+            // FIXME: work with new register allocation
+            // emitInstruction(thisTAC, context, "\txori %s, %s, -1\n", registerNames[destReg], registerNames[op1Reg]);
             WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], destReg);
         }
         break;
@@ -718,7 +547,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
         case tt_stack_reserve:
         {
-            emitInstruction(thisTAC, context, "\taddi %s, %s, -%d\n", registerNames[sp], registerNames[sp], thisTAC->operands[0].name.val);
+            // FIXME: work with new register allocation
+            // emitInstruction(thisTAC, context, "\taddi %s, %s, -%d\n", registerNames[sp], registerNames[sp], thisTAC->operands[0].name.val);
         }
         break;
 
@@ -748,7 +578,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
             if (thisTAC->operands[0].name.str != NULL)
             {
-                WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
+                // FIXME:
+                // WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
             }
         }
         break;
@@ -769,7 +600,8 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
 
             if (thisTAC->operands[0].name.str != NULL)
             {
-                WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
+                // FIXME: make work with new register allocation
+                // WriteVariable(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
             }
         }
         break;
@@ -782,14 +614,15 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
         {
             if (thisTAC->operands[0].name.str != NULL)
             {
-                u8 sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
+                // FIXME: make work with new register allocation
+                // u8 sourceReg = placeOrFindOperandInRegister(thisTAC, context, scope, lifetimes, &thisTAC->operands[0], RETURN_REGISTER);
 
-                if (sourceReg != RETURN_REGISTER)
-                {
-                    emitInstruction(thisTAC, context, "\tmv %s, %s\n",
-                                    registerNames[RETURN_REGISTER],
-                                    registerNames[sourceReg]);
-                }
+                // if (sourceReg != RETURN_REGISTER)
+                // {
+                //     emitInstruction(thisTAC, context, "\tmv %s, %s\n",
+                //                     registerNames[RETURN_REGISTER],
+                //                     registerNames[sourceReg]);
+                // }
             }
             emitInstruction(thisTAC, context, "\tj %s_done\n", functionName);
         }
@@ -800,5 +633,6 @@ void generateCodeForBasicBlock(struct CodegenContext *context,
         case tt_phi:
             break;
         }
+        */
     }
 }

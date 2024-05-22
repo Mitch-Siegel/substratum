@@ -65,25 +65,25 @@ char SelectWidthCharForLifetime(struct Scope *scope, struct Lifetime *lifetime);
 
 void EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
                            struct CodegenContext *context,
-                           enum riscvRegisters sourceReg,
+                           u8 sourceReg,
                            u8 size,
                            ssize_t offset);
 
 void EmitFrameLoadForSize(struct TACLine *correspondingTACLine,
                           struct CodegenContext *context,
-                          enum riscvRegisters destReg,
+                          u8 destReg,
                           u8 size,
                           ssize_t offset);
 
 void EmitStackStoreForSize(struct TACLine *correspondingTACLine,
                            struct CodegenContext *context,
-                           enum riscvRegisters sourceReg,
+                           u8 sourceReg,
                            u8 size,
                            ssize_t offset);
 
 void EmitStackLoadForSize(struct TACLine *correspondingTACLine,
                           struct CodegenContext *context,
-                          enum riscvRegisters sourceReg,
+                          u8 sourceReg,
                           u8 size,
                           ssize_t offset);
 

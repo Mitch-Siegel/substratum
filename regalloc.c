@@ -220,7 +220,9 @@ void allocateLocalStackSpace(struct CodegenMetadata *metadata)
     Stack_Free(stackLifetimes);
 }
 
-// return a set of lifetimes which can exist with at most availableRegisters.size simultaneously available, leaving non-selected lifetimes in selectFrom
+// selectFrom: set of pointers to lifetimes which are in contention for registers
+// registerPool: set of register indices (raw values in void * form) which are available to allocate
+// returns: set of lifetimes which were allocated registers, leaving only lifetimes which were not given registers in selectFrom
 struct Set *selectRegisterLifetimes(struct Set *selectFrom, size_t largestTacIndex, struct Set *registerPool)
 {
     size_t nReg = registerPool->elements->size;
@@ -321,7 +323,7 @@ struct Set *selectRegisterLifetimes(struct Set *selectFrom, size_t largestTacInd
 }
 
 // really this is "figure out which lifetimes get a register"
-void allocateRegisters(struct CodegenMetadata *metadata, struct MachineContext *machineContext)
+void allocateRegisters(struct CodegenMetadata *metadata)
 {
     metadata->allLifetimes = findLifetimes(metadata->function->mainScope, metadata->function->BasicBlockList);
 
@@ -351,9 +353,9 @@ void allocateRegisters(struct CodegenMetadata *metadata, struct MachineContext *
     }
 
     struct Set *registerPool = Set_New(ssizet_compare, NULL);
-    for (u8 argRegIndex = 0; argRegIndex < machineContext->n_arguments; argRegIndex++)
+    for (u8 argRegIndex = 0; argRegIndex < metadata->machineContext->n_arguments; argRegIndex++)
     {
-        Set_Insert(registerPool, (void *)(size_t)machineContext->arguments[argRegIndex].index);
+        Set_Insert(registerPool, (void *)(size_t)metadata->machineContext->arguments[argRegIndex]->index);
     }
 
     Set_Free(selectRegisterLifetimes(registerContentionLifetimes, metadata->largestTacIndex, registerPool));
@@ -370,7 +372,7 @@ void allocateRegisters(struct CodegenMetadata *metadata, struct MachineContext *
             sprintf(location, "GLOBAL");
             break;
         case wb_register:
-            sprintf(location, "REG:%s", registerNames[printedLt->registerLocation]);
+            sprintf(location, "REG:%s", metadata->machineContext->registerNames[printedLt->registerLocation]);
             break;
         case wb_stack:
             sprintf(location, "STK:%zd", printedLt->stackLocation);

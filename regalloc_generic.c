@@ -6,6 +6,8 @@
 #include "util.h"
 #include <string.h>
 
+struct MachineContext *(*setupMachineContext)() = NULL;
+
 struct Lifetime *Lifetime_New(char *name, struct Type *type, size_t start, u8 isGlobal, u8 mustSpill)
 {
     struct Lifetime *wip = malloc(sizeof(struct Lifetime));
