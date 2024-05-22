@@ -296,17 +296,31 @@ struct Set *selectRegisterLifetimes(struct Scope *scope, struct Set *selectFrom,
         struct LinkedListNode *next = ltRunner->next;
 
         struct Lifetime *examinedLt = ltRunner->data;
-        if (Type_GetSize(&examinedLt->type, scope) > MACHINE_REGISTER_SIZE_BYTES)
+
+        switch (examinedLt->wbLocation)
         {
+            // if the lifetime already has a location, just delete it from selected, don't re-add to selectFrom
+        case wb_global:
+        case wb_stack:
+        case wb_register:
             Set_Delete(selected, examinedLt);
-            Set_Insert(selectFrom, examinedLt);
+            break;
+
+            // if we are potentially going to assign a register to this lifetime, make sure it is small enough to fit in a register
+        case wb_unknown:
+            if (Type_GetSize(&examinedLt->type, scope) > MACHINE_REGISTER_SIZE_BYTES)
+            {
+                Set_Delete(selected, examinedLt);
+                Set_Insert(selectFrom, examinedLt);
+            }
+            break;
         }
 
         ltRunner = next;
     }
 
+    // calculate overlaps and interference graph
     struct Set **lifetimeOverlaps = findLifetimeOverlaps(selected, largestTacIndex);
-
     struct HashTable *interferenceGraph = HashTable_New((selected->elements->size / 10) + 1, (size_t(*)(void *))Lifetime_Hash, (ssize_t(*)(void *, void *))Lifetime_Compare, NULL, (void (*)(void *))Set_Free);
 
     // for every TAC index
@@ -406,11 +420,8 @@ void allocateArgumentRegisters(struct CodegenMetadata *metadata)
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
     {
         struct Lifetime *potentialArgumentLt = ltRunner->data;
-        struct ScopeMember *entryForLifetime = Scope_lookup(metadata->function->mainScope, potentialArgumentLt->name);
-
-        if ((entryForLifetime != NULL) && (entryForLifetime->type == e_argument))
+        if (potentialArgumentLt->isArgument)
         {
-            potentialArgumentLt->isArgument = 1;
             Set_Insert(argumentLifetimes, potentialArgumentLt);
         }
     }
@@ -438,32 +449,6 @@ void allocateGeneralRegisters(struct CodegenMetadata *metadata)
 {
     struct Set *registerContentionLifetimes = Set_Copy(metadata->allLifetimes);
     registerContentionLifetimes->dataFreeFunction = NULL;
-
-    for (struct LinkedListNode *ltRunner = registerContentionLifetimes->elements->head; ltRunner != NULL;)
-    {
-        struct LinkedListNode *next = ltRunner->next;
-        struct Lifetime *examinedLifetime = ltRunner->data;
-
-        switch (examinedLifetime->wbLocation)
-        {
-        case wb_global:
-        case wb_stack:
-        case wb_register:
-            Set_Delete(registerContentionLifetimes, examinedLifetime);
-            break;
-
-        case wb_unknown:
-            // if we have an unknown writeback but the lifetime is for an argument, it would have already been given a register (if possible) by allocateArgumentRegisters
-            // so get rid of it
-            if (examinedLifetime->isArgument)
-            {
-                Set_Delete(registerContentionLifetimes, examinedLifetime);
-            }
-            break;
-        }
-
-        ltRunner = next;
-    }
 
     struct Set *registerPool = Set_New(ssizet_compare, NULL);
     for (u8 gpRegIndex = 0; gpRegIndex < metadata->machineContext->n_callee_save; gpRegIndex++)

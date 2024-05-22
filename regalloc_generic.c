@@ -213,7 +213,7 @@ void addArgumentLifetimesForScope(struct Set *lifetimes, struct Scope *scope)
         {
             struct VariableEntry *theArgument = thisMember->entry;
             // arguments can be mustSpill too - if they are used in an address-of it will be required not to ever load them into registers
-            updateOrInsertLifetime(lifetimes, thisMember->name, &theArgument->type, 0, 0, theArgument->mustSpill);
+            updateOrInsertLifetime(lifetimes, thisMember->name, &theArgument->type, 0, 0, theArgument->mustSpill)->isArgument = 1;
         }
     }
 }
