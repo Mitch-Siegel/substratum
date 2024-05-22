@@ -232,7 +232,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char
     memset(&metadata, 0, sizeof(struct CodegenMetadata));
 
     setupMachineContext = setupRiscvMachineContext;
-    
+
     metadata.function = function;
     metadata.machineContext = setupMachineContext();
     allocateRegisters(&metadata);

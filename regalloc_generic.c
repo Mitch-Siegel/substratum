@@ -15,8 +15,8 @@ struct Lifetime *Lifetime_New(char *name, struct Type *type, size_t start, u8 is
     wip->type = *type;
     wip->start = start;
     wip->end = start;
-    wip->stackLocation = 0;
-    wip->registerLocation = 0;
+    wip->writebackInfo.stackOffset = 0;
+    wip->isArgument = 0;
     wip->nwrites = 0;
     wip->nreads = 0;
     if (isGlobal)
@@ -51,7 +51,7 @@ ssize_t Lifetime_Compare(struct Lifetime *lifetimeA, struct Lifetime *lifetimeB)
 
 bool Lifetime_IsLiveAtIndex(struct Lifetime *lifetime, size_t index)
 {
-    return ((lifetime->start <= index) && (lifetime->end > index));
+    return ((lifetime->start <= index) && (lifetime->end >= index));
 }
 
 // search through the list of existing lifetimes

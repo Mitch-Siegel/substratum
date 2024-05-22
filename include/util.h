@@ -168,7 +168,7 @@ struct Set
 {
     struct LinkedList *elements;
     ssize_t (*compareFunction)(void *elementA, void *elementB);
-    void(*dataFreeFunction)(void *);
+    void (*dataFreeFunction)(void *);
 };
 
 struct Set *Set_New(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction));

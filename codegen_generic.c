@@ -84,7 +84,7 @@ u8 pickWriteRegister(struct Scope *scope,
     switch (relevantLifetime->wbLocation)
     {
     case wb_register:
-        return relevantLifetime->registerLocation;
+        return relevantLifetime->writebackInfo.regLocation;
 
     case wb_stack:
     case wb_global:

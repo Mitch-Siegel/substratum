@@ -164,9 +164,86 @@ struct Lifetime *RemoveLifetimeWithBestHeuristic(struct Set *lifetimesInContenti
     return bestLifetime;
 }
 
-void allocateLocalStackSpace(struct CodegenMetadata *metadata)
+void bubbleSortLifetimesBySize(struct Stack *lifetimeStack, struct Scope *scope)
 {
-    struct Stack *stackLifetimes = Stack_New();
+    // bubble sort stack lifetimes by size - early indices in stackLifetimes->data have larger sizes
+    for (size_t indexI = 0; indexI < lifetimeStack->size - 1; indexI++)
+    {
+        for (size_t indexJ = indexI; indexJ < lifetimeStack->size - 1; indexJ++)
+        {
+            struct Lifetime *lifetimeI = lifetimeStack->data[indexI];
+            struct Lifetime *lifetimeJ = lifetimeStack->data[indexJ];
+
+            size_t sizeI = Type_GetSize(&lifetimeI->type, scope);
+            size_t sizeJ = Type_GetSize(&lifetimeJ->type, scope);
+
+            if (sizeJ > sizeI)
+            {
+                lifetimeStack->data[indexI] = lifetimeJ;
+                lifetimeStack->data[indexJ] = lifetimeI;
+            }
+        }
+    }
+}
+
+void setupLocalStack(struct CodegenMetadata *metadata, struct Stack *localStackLifetimes)
+{
+    if (localStackLifetimes->size == 0)
+    {
+        return;
+    }
+
+    bubbleSortLifetimesBySize(localStackLifetimes, metadata->function->mainScope);
+
+    // TODO: generically handle saving of return address/frame pointer
+    ssize_t localOffset = 0;
+    for (size_t indexI = 0; indexI < localStackLifetimes->size; indexI++)
+    {
+        struct Lifetime *printedStackLt = localStackLifetimes->data[indexI];
+        localOffset -= (ssize_t)Type_GetSize(&printedStackLt->type, metadata->function->mainScope);
+        localOffset -= (ssize_t)Scope_ComputePaddingForAlignment(metadata->function->mainScope, &printedStackLt->type, localOffset);
+        printedStackLt->writebackInfo.stackOffset = localOffset;
+
+        Log(LOG_DEBUG, "Assign stack offset %zd to lifetime %s", printedStackLt->writebackInfo.stackOffset, printedStackLt->name);
+    }
+
+    while (localOffset % STACK_ALIGN_BYTES)
+    {
+        localOffset--;
+    }
+}
+
+void setupArgumentStack(struct CodegenMetadata *metadata, struct Stack *argumentStackLifetimes)
+{
+    if (argumentStackLifetimes->size == 0)
+    {
+        return;
+    }
+
+    bubbleSortLifetimesBySize(argumentStackLifetimes, metadata->function->mainScope);
+
+    // TODO: generically handle saving of return address/frame pointer
+    ssize_t argOffset = 2 * MACHINE_REGISTER_SIZE_BYTES;
+    for (size_t indexI = 0; indexI < argumentStackLifetimes->size; indexI++)
+    {
+        struct Lifetime *printedStackLt = argumentStackLifetimes->data[indexI];
+        argOffset += (ssize_t)Scope_ComputePaddingForAlignment(metadata->function->mainScope, &printedStackLt->type, argOffset);
+        printedStackLt->writebackInfo.stackOffset = argOffset;
+        argOffset += (ssize_t)Type_GetSize(&printedStackLt->type, metadata->function->mainScope);
+
+        Log(LOG_DEBUG, "Assign stack offset %zd to argument lifetime %s", printedStackLt->writebackInfo.stackOffset, printedStackLt->name);
+    }
+
+    while (argOffset % STACK_ALIGN_BYTES)
+    {
+        argOffset++;
+    }
+}
+
+void allocateStackSpace(struct CodegenMetadata *metadata)
+{
+    struct Stack *localStackLifetimes = Stack_New();
+    struct Stack *argumentStackLifetimes = Stack_New();
 
     // go over all lifetimes, if they have a stack writeback location we need to deal with them
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
@@ -174,61 +251,59 @@ void allocateLocalStackSpace(struct CodegenMetadata *metadata)
         struct Lifetime *examinedLt = ltRunner->data;
         if (examinedLt->wbLocation == wb_stack)
         {
-            Stack_Push(stackLifetimes, examinedLt);
-        }
-    }
-
-    metadata->nStackLocations = stackLifetimes->size;
-
-    // early return if no stack lifetimes
-    if (stackLifetimes->size == 0)
-    {
-        Stack_Free(stackLifetimes);
-        return;
-    }
-
-    metadata->stackLayout = malloc(metadata->nStackLocations * sizeof(struct StackLocation));
-
-    // bubble sort stack lifetimes by size - early indices in stackLifetimes->data have larger sizes
-    for (size_t indexI = 0; indexI < stackLifetimes->size - 1; indexI++)
-    {
-        for (size_t indexJ = indexI; indexJ < stackLifetimes->size - 1; indexJ++)
-        {
-            struct Lifetime *lifetimeI = stackLifetimes->data[indexI];
-            struct Lifetime *lifetimeJ = stackLifetimes->data[indexJ];
-
-            size_t sizeI = Type_GetSize(&lifetimeI->type, metadata->function->mainScope);
-            size_t sizeJ = Type_GetSize(&lifetimeJ->type, metadata->function->mainScope);
-
-            if (sizeJ > sizeI)
+            if (examinedLt->isArgument)
             {
-                stackLifetimes->data[indexI] = lifetimeJ;
-                stackLifetimes->data[indexJ] = lifetimeI;
+                Stack_Push(argumentStackLifetimes, examinedLt);
+            }
+            else
+            {
+                Stack_Push(localStackLifetimes, examinedLt);
             }
         }
     }
 
-    ssize_t localOffset = 0;
-    for (size_t indexI = 0; indexI < stackLifetimes->size - 1; indexI++)
+    setupLocalStack(metadata, localStackLifetimes);
+    setupArgumentStack(metadata, argumentStackLifetimes);
+
+    for (size_t localI = 0; localI < localStackLifetimes->size; localI++)
     {
-        struct Lifetime *printedStackLt = stackLifetimes->data[indexI];
-        localOffset -= Type_GetSize(&printedStackLt->type, metadata->function->mainScope);
-        localOffset -= Scope_ComputePaddingForAlignment(metadata->function->mainScope, &printedStackLt->type, localOffset);
-        Log(LOG_DEBUG, "%3zu @%3zd - %s", Type_GetSize(&printedStackLt->type, metadata->function->mainScope), localOffset, printedStackLt->name);
+        struct Lifetime *localLt = localStackLifetimes->data[localStackLifetimes->size - localI - 1];
+        Log(LOG_DEBUG, "BP%zd: %s", localLt->writebackInfo.stackOffset, localLt->name);
     }
 
-    Stack_Free(stackLifetimes);
+    for (size_t argI = 0; argI < argumentStackLifetimes->size; argI++)
+    {
+        struct Lifetime *stackLt = argumentStackLifetimes->data[argI];
+        Log(LOG_DEBUG, "BP+%zd: %s", stackLt->writebackInfo.stackOffset, stackLt->name);
+    }
+
+    Stack_Free(localStackLifetimes);
+    Stack_Free(argumentStackLifetimes);
 }
 
 // selectFrom: set of pointers to lifetimes which are in contention for registers
 // registerPool: set of register indices (raw values in void * form) which are available to allocate
 // returns: set of lifetimes which were allocated registers, leaving only lifetimes which were not given registers in selectFrom
-struct Set *selectRegisterLifetimes(struct Set *selectFrom, size_t largestTacIndex, struct Set *registerPool)
+struct Set *selectRegisterLifetimes(struct Scope *scope, struct Set *selectFrom, size_t largestTacIndex, struct Set *registerPool)
 {
     size_t nReg = registerPool->elements->size;
     struct Set *selected = Set_New(selectFrom->compareFunction, NULL);
     Set_Merge(selected, selectFrom);
     Set_Clear(selectFrom);
+
+    for (struct LinkedListNode *ltRunner = selected->elements->head; ltRunner != NULL;)
+    {
+        struct LinkedListNode *next = ltRunner->next;
+
+        struct Lifetime *examinedLt = ltRunner->data;
+        if (Type_GetSize(&examinedLt->type, scope) > MACHINE_REGISTER_SIZE_BYTES)
+        {
+            Set_Delete(selected, examinedLt);
+            Set_Insert(selectFrom, examinedLt);
+        }
+
+        ltRunner = next;
+    }
 
     struct Set **lifetimeOverlaps = findLifetimeOverlaps(selected, largestTacIndex);
 
@@ -270,6 +345,7 @@ struct Set *selectRegisterLifetimes(struct Set *selectFrom, size_t largestTacInd
     }
 
     struct Set *needRegisters = Set_Copy(selected);
+    needRegisters->dataFreeFunction = NULL;
 
     // iterate by TAC index
     for (size_t tacIndex = 0; (tacIndex <= largestTacIndex) && (needRegisters->elements->size > 0); tacIndex++)
@@ -280,11 +356,12 @@ struct Set *selectRegisterLifetimes(struct Set *selectFrom, size_t largestTacInd
             struct LinkedListNode *next = liveLtRunner->next;
             struct Lifetime *liveLt = liveLtRunner->data;
 
-            // if no longer live at this index, give its register back
-            if (!Lifetime_IsLiveAtIndex(liveLt, tacIndex))
+            // if expiring at this index, give its register back (value can still be read out of the register at tacIndex)
+            if (!Lifetime_IsLiveAtIndex(liveLt, tacIndex + 1))
             {
                 Set_Delete(liveLifetimes, liveLt);
-                Stack_Push(availableRegisters, (void *)(size_t)liveLt->registerLocation);
+                Stack_Push(availableRegisters, (void *)(size_t)liveLt->writebackInfo.regLocation);
+                Log(LOG_DEBUG, "Lifetime %s expires at %zu, freeing register %zu", liveLt->name, tacIndex, liveLt->writebackInfo.regLocation);
             }
 
             liveLtRunner = next;
@@ -300,9 +377,10 @@ struct Set *selectRegisterLifetimes(struct Set *selectFrom, size_t largestTacInd
             if (Lifetime_IsLiveAtIndex(examinedLt, tacIndex))
             {
                 Set_Delete(needRegisters, examinedLt);
-                examinedLt->registerLocation = (u8)(size_t)Stack_Pop(availableRegisters);
+                examinedLt->writebackInfo.regLocation = (u8)(size_t)Stack_Pop(availableRegisters);
                 examinedLt->wbLocation = wb_register;
                 Set_Insert(liveLifetimes, examinedLt);
+                Log(LOG_DEBUG, "Lifetime %s starts at at %zu, consuming register %zu", examinedLt->name, tacIndex, examinedLt->writebackInfo.regLocation);
             }
 
             newLtRunner = next;
@@ -322,13 +400,42 @@ struct Set *selectRegisterLifetimes(struct Set *selectFrom, size_t largestTacInd
     return selected;
 }
 
-// really this is "figure out which lifetimes get a register"
-void allocateRegisters(struct CodegenMetadata *metadata)
+void allocateArgumentRegisters(struct CodegenMetadata *metadata)
 {
-    metadata->allLifetimes = findLifetimes(metadata->function->mainScope, metadata->function->BasicBlockList);
+    struct Set *argumentLifetimes = Set_New(metadata->allLifetimes->compareFunction, NULL);
+    for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
+    {
+        struct Lifetime *potentialArgumentLt = ltRunner->data;
+        struct ScopeMember *entryForLifetime = Scope_lookup(metadata->function->mainScope, potentialArgumentLt->name);
 
-    metadata->largestTacIndex = findMaxTACIndex(metadata->allLifetimes);
+        if ((entryForLifetime != NULL) && (entryForLifetime->type == e_argument))
+        {
+            potentialArgumentLt->isArgument = 1;
+            Set_Insert(argumentLifetimes, potentialArgumentLt);
+        }
+    }
 
+    struct Set *argumentRegisterPool = Set_New(ssizet_compare, NULL);
+    for (u8 argRegIndex = 0; argRegIndex < metadata->machineContext->n_arguments; argRegIndex++)
+    {
+        Set_Insert(argumentRegisterPool, (void *)(size_t)metadata->machineContext->arguments[argRegIndex]->index);
+    }
+
+    Set_Free(selectRegisterLifetimes(metadata->function->mainScope, argumentLifetimes, metadata->largestTacIndex, argumentRegisterPool));
+    Set_Free(argumentRegisterPool);
+
+    // any arguments which we couldn't allocate a register for go on the stack
+    for (struct LinkedListNode *ltRunner = argumentLifetimes->elements->head; ltRunner != NULL;)
+    {
+        struct Lifetime *nonRegisterLifetime = ltRunner->data;
+        nonRegisterLifetime->wbLocation = wb_stack;
+    }
+
+    Set_Free(argumentLifetimes);
+}
+
+void allocateGeneralRegisters(struct CodegenMetadata *metadata)
+{
     struct Set *registerContentionLifetimes = Set_Copy(metadata->allLifetimes);
     registerContentionLifetimes->dataFreeFunction = NULL;
 
@@ -341,11 +448,17 @@ void allocateRegisters(struct CodegenMetadata *metadata)
         {
         case wb_global:
         case wb_stack:
+        case wb_register:
             Set_Delete(registerContentionLifetimes, examinedLifetime);
             break;
 
-        case wb_register:
         case wb_unknown:
+            // if we have an unknown writeback but the lifetime is for an argument, it would have already been given a register (if possible) by allocateArgumentRegisters
+            // so get rid of it
+            if (examinedLifetime->isArgument)
+            {
+                Set_Delete(registerContentionLifetimes, examinedLifetime);
+            }
             break;
         }
 
@@ -353,13 +466,40 @@ void allocateRegisters(struct CodegenMetadata *metadata)
     }
 
     struct Set *registerPool = Set_New(ssizet_compare, NULL);
-    for (u8 argRegIndex = 0; argRegIndex < metadata->machineContext->n_arguments; argRegIndex++)
+    for (u8 gpRegIndex = 0; gpRegIndex < metadata->machineContext->n_callee_save; gpRegIndex++)
     {
-        Set_Insert(registerPool, (void *)(size_t)metadata->machineContext->arguments[argRegIndex]->index);
+        Set_Insert(registerPool, (void *)(size_t)metadata->machineContext->callee_save[gpRegIndex]->index);
     }
 
-    Set_Free(selectRegisterLifetimes(registerContentionLifetimes, metadata->largestTacIndex, registerPool));
+    for (u8 gpRegIndex = 0; gpRegIndex < metadata->machineContext->n_caller_save; gpRegIndex++)
+    {
+        Set_Insert(registerPool, (void *)(size_t)metadata->machineContext->caller_save[gpRegIndex]->index);
+    }
+
+    Set_Free(selectRegisterLifetimes(metadata->function->mainScope, registerContentionLifetimes, metadata->largestTacIndex, registerPool));
     Set_Free(registerPool);
+
+    // any general-purpose lifetimes which we couldn't allocate a register for go on the stack
+    for (struct LinkedListNode *ltRunner = registerContentionLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
+    {
+        struct Lifetime *nonRegisterLifetime = ltRunner->data;
+        nonRegisterLifetime->wbLocation = wb_stack;
+    }
+
+    Set_Free(registerContentionLifetimes);
+}
+
+// really this is "figure out which lifetimes get a register"
+void allocateRegisters(struct CodegenMetadata *metadata)
+{
+    metadata->allLifetimes = findLifetimes(metadata->function->mainScope, metadata->function->BasicBlockList);
+
+    metadata->largestTacIndex = findMaxTACIndex(metadata->allLifetimes);
+
+    allocateArgumentRegisters(metadata);
+    allocateGeneralRegisters(metadata);
+
+    allocateStackSpace(metadata);
 
     char *ltLengthString = malloc(metadata->largestTacIndex + 3);
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
@@ -372,10 +512,10 @@ void allocateRegisters(struct CodegenMetadata *metadata)
             sprintf(location, "GLOBAL");
             break;
         case wb_register:
-            sprintf(location, "REG:%s", metadata->machineContext->registerNames[printedLt->registerLocation]);
+            sprintf(location, "REG:%s", metadata->machineContext->registerNames[printedLt->writebackInfo.regLocation]);
             break;
         case wb_stack:
-            sprintf(location, "STK:%zd", printedLt->stackLocation);
+            sprintf(location, "STK:%zd", printedLt->writebackInfo.stackOffset);
             break;
         case wb_unknown:
             sprintf(location, "???????");
@@ -398,10 +538,6 @@ void allocateRegisters(struct CodegenMetadata *metadata)
         Log(LOG_DEBUG, "%40s:%s:%s", printedLt->name, location, ltLengthString);
     }
     free(ltLengthString);
-
-    Set_Free(registerContentionLifetimes);
-
-    allocateLocalStackSpace(metadata);
 
     // for (struct LinkedListNode *interferenceRunner = metadata->allLifetimes->elements->head; interferenceRunner != NULL; interferenceRunner = interferenceRunner->next)
     // {

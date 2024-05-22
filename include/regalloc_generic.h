@@ -27,8 +27,12 @@ struct Lifetime
     char *name;
     struct Type type;
     enum WritebackLocation wbLocation;
-    ssize_t stackLocation;
-    unsigned char registerLocation;
+    union
+    {
+        ssize_t stackOffset;
+        u8 regLocation;
+    } writebackInfo;
+    u8 isArgument;
 };
 
 struct Lifetime *Lifetime_New(char *name,
@@ -80,29 +84,28 @@ bool Register_IsLive(struct Register *reg, size_t index);
 
 struct MachineContext
 {
+    // specifically required for register allocation - may be a subset of the entire machine register set
     struct Register *returnAddress;
     struct Register *stackPointer;
     struct Register *framePointer;
     struct Register *temps[3];
     struct Register **arguments;
+    u8 n_arguments;
+
+    // all registers (whether or not they fall into the above categories) must have a calling convention defined
     struct Register **no_save;
     struct Register **callee_save;
     struct Register **caller_save;
-    u8 n_arguments;
     u8 n_no_save;
     u8 n_callee_save;
     u8 n_caller_save;
+
+    // basic info about the registers
     char **registerNames;
     u8 maxReg;
 };
 
 extern struct MachineContext *(*setupMachineContext)();
-
-struct StackLocation
-{
-    ssize_t basePointerOffset;
-    struct Lifetime *lifetime;
-};
 
 // things more related to codegen than specifically register allocation
 
@@ -114,11 +117,11 @@ struct CodegenMetadata
 
     struct Set *allLifetimes; // every lifetime that exists within this function based on variables and TAC operands
 
-    struct StackLocation *stackLayout;
-    size_t nStackLocations;
-
     // largest TAC index for any basic block within the function
     size_t largestTacIndex;
+
+    ssize_t argStackSize;
+    ssize_t localStackSize;
 };
 
 // populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i

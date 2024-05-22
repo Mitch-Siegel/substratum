@@ -1,6 +1,5 @@
 #include "regalloc_generic.h"
 
-
 enum riscvRegisters
 {
     zero,

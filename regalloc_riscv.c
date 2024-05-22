@@ -122,38 +122,26 @@ struct MachineContext *setupRiscvMachineContext()
     const u8 numArgumentRegisters = 8;
     context->arguments = malloc(numArgumentRegisters * sizeof(struct Register *));
     context->n_arguments = numArgumentRegisters;
-    context->arguments[0] = &riscvRegisters[a0];
-    context->arguments[1] = &riscvRegisters[a1];
-    context->arguments[2] = &riscvRegisters[a2];
-    context->arguments[3] = &riscvRegisters[a3];
-    context->arguments[4] = &riscvRegisters[a4];
-    context->arguments[5] = &riscvRegisters[a5];
-    context->arguments[6] = &riscvRegisters[a6];
-    context->arguments[7] = &riscvRegisters[a7];
+    for (u8 argReg = 0; argReg < numArgumentRegisters; argReg++)
+    {
+        context->arguments[argReg] = &riscvRegisters[a0 + argReg];
+    }
 
-    const u8 nCalleeSaved = 12;
+    const u8 nCalleeSaved = 11;
     context->callee_save = malloc(nCalleeSaved * sizeof(struct Register *));
     context->n_callee_save = nCalleeSaved;
-    context->callee_save[0] = &riscvRegisters[s1];
-    context->callee_save[1] = &riscvRegisters[s2];
-    context->callee_save[2] = &riscvRegisters[s3];
-    context->callee_save[3] = &riscvRegisters[s4];
-    context->callee_save[4] = &riscvRegisters[s5];
-    context->callee_save[5] = &riscvRegisters[s6];
-    context->callee_save[6] = &riscvRegisters[s7];
-    context->callee_save[8] = &riscvRegisters[s8];
-    context->callee_save[9] = &riscvRegisters[s9];
-    context->callee_save[10] = &riscvRegisters[s10];
-    context->callee_save[11] = &riscvRegisters[s11];
+    for (u8 calleeReg = 0; calleeReg < nCalleeSaved; calleeReg++)
+    {
+        context->callee_save[calleeReg] = &riscvRegisters[s1 + calleeReg];
+    }
 
     const u8 nCallerSaved = 4;
     context->caller_save = malloc(nCallerSaved * sizeof(struct Register *));
     context->n_caller_save = nCallerSaved;
-    context->caller_save[0] = &riscvRegisters[t3];
-    context->caller_save[1] = &riscvRegisters[t4];
-    context->caller_save[2] = &riscvRegisters[t5];
-    context->caller_save[3] = &riscvRegisters[t6];
-
+    for (u8 callerReg = 0; callerReg < nCallerSaved; callerReg++)
+    {
+        context->caller_save[callerReg] = &riscvRegisters[t3 + callerReg];
+    }
 
     return context;
 }
