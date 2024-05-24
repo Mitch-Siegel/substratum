@@ -396,8 +396,8 @@ struct Set *selectRegisterLifetimes(struct CodegenMetadata *metadata, struct Set
             if (!Lifetime_IsLiveAtIndex(liveLt, tacIndex + 1))
             {
                 Set_Delete(liveLifetimes, liveLt);
-                Stack_Push(availableRegisters, (void *)(size_t)liveLt->writebackInfo.regLocation);
-                Log(LOG_DEBUG, "Lifetime %s expires at %zu, freeing register %zu", liveLt->name, tacIndex, liveLt->writebackInfo.regLocation);
+                Stack_Push(availableRegisters, (void *)liveLt->writebackInfo.regLocation);
+                Log(LOG_DEBUG, "Lifetime %s expires at %zu, freeing register %s", liveLt->name, tacIndex, liveLt->writebackInfo.regLocation->name);
             }
 
             liveLtRunner = next;
@@ -413,12 +413,12 @@ struct Set *selectRegisterLifetimes(struct CodegenMetadata *metadata, struct Set
             if (Lifetime_IsLiveAtIndex(examinedLt, tacIndex))
             {
                 Set_Delete(needRegisters, examinedLt);
-                examinedLt->writebackInfo.regLocation = (u8)(size_t)Stack_Pop(availableRegisters);
+                examinedLt->writebackInfo.regLocation = (struct Register *)Stack_Pop(availableRegisters);
                 examinedLt->wbLocation = wb_register;
                 Set_Insert(liveLifetimes, examinedLt);
 
-                Set_Insert(metadata->touchedRegisters, metadata->machineContext->allRegisters[examinedLt->writebackInfo.regLocation]);
-                Log(LOG_DEBUG, "Lifetime %s starts at at %zu, consuming register %zu", examinedLt->name, tacIndex, examinedLt->writebackInfo.regLocation);
+                Set_Insert(metadata->touchedRegisters, examinedLt->writebackInfo.regLocation);
+                Log(LOG_DEBUG, "Lifetime %s starts at at %zu, consuming register %s", examinedLt->name, tacIndex, examinedLt->writebackInfo.regLocation->name);
             }
 
             newLtRunner = next;
@@ -448,7 +448,7 @@ void allocateArgumentRegisters(struct CodegenMetadata *metadata)
     struct Set *argumentRegisterPool = Set_New(ssizet_compare, NULL);
     for (u8 argRegIndex = 0; argRegIndex < metadata->machineContext->n_arguments; argRegIndex++)
     {
-        Set_Insert(argumentRegisterPool, (void *)(size_t)metadata->machineContext->arguments[argRegIndex]->index);
+        Set_Insert(argumentRegisterPool, (void *)metadata->machineContext->arguments[argRegIndex]);
     }
 
     Set_Free(selectRegisterLifetimes(metadata, argumentLifetimes, argumentRegisterPool));
@@ -470,14 +470,17 @@ void allocateGeneralRegisters(struct CodegenMetadata *metadata)
     registerContentionLifetimes->dataFreeFunction = NULL;
 
     struct Set *registerPool = Set_New(ssizet_compare, NULL);
+
+    // the set is traversed head->tail and registers are pushed to a stack to allocate from. put caller-save registers first so they are at the bottom of the stack
     for (u8 gpRegIndex = 0; gpRegIndex < metadata->machineContext->n_caller_save; gpRegIndex++)
     {
-        Set_Insert(registerPool, (void *)(size_t)metadata->machineContext->callee_save[gpRegIndex]->index);
+        Set_Insert(registerPool, (void *)metadata->machineContext->caller_save[gpRegIndex]);
     }
 
-    for (u8 gpRegIndex = 0; gpRegIndex < metadata->machineContext->n_caller_save; gpRegIndex++)
+    // callee_save at the top of the stack so they are allocated from first
+    for (u8 gpRegIndex = 0; gpRegIndex < metadata->machineContext->n_callee_save; gpRegIndex++)
     {
-        Set_Insert(registerPool, (void *)(size_t)metadata->machineContext->caller_save[gpRegIndex]->index);
+        Set_Insert(registerPool, (void *)metadata->machineContext->callee_save[gpRegIndex]);
     }
 
     Set_Free(selectRegisterLifetimes(metadata, registerContentionLifetimes, registerPool));
@@ -499,7 +502,7 @@ void allocateRegisters(struct CodegenMetadata *metadata)
     metadata->allLifetimes = findLifetimes(metadata->function->mainScope, metadata->function->BasicBlockList);
 
     metadata->largestTacIndex = findMaxTACIndex(metadata->allLifetimes);
-    
+
     // register pointers are unique and only one should exist for a given register
     metadata->touchedRegisters = Set_New(ssizet_compare, NULL);
 
@@ -519,7 +522,7 @@ void allocateRegisters(struct CodegenMetadata *metadata)
             sprintf(location, "GLOBAL");
             break;
         case wb_register:
-            sprintf(location, "REG:%s", metadata->machineContext->registerNames[printedLt->writebackInfo.regLocation]);
+            sprintf(location, "REG:%s", printedLt->writebackInfo.regLocation->name);
             break;
         case wb_stack:
             sprintf(location, "STK:%zd", printedLt->writebackInfo.stackOffset);
@@ -545,9 +548,4 @@ void allocateRegisters(struct CodegenMetadata *metadata)
         Log(LOG_DEBUG, "%40s:%s:%s", printedLt->name, location, ltLengthString);
     }
     free(ltLengthString);
-
-    // for (struct LinkedListNode *interferenceRunner = metadata->allLifetimes->elements->head; interferenceRunner != NULL; interferenceRunner = interferenceRunner->next)
-    // {
-    //     struct Lifetime *currentInterference = interferenceRunner.
-    // }
 }

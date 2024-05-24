@@ -30,7 +30,7 @@ struct Lifetime
     union
     {
         ssize_t stackOffset;
-        u8 regLocation;
+        struct Register *regLocation;
     } writebackInfo;
     u8 isArgument;
 };
@@ -76,6 +76,7 @@ struct Register
 {
     struct Lifetime *containedLifetime; // lifetime contained within this register
     u8 index;                           // numerical index of this register
+    char *name;                         // string name of this register (as it appears in asm)
 };
 
 struct Register *Register_New(u8 index);
@@ -101,7 +102,6 @@ struct MachineContext
     u8 n_caller_save;
 
     // basic info about the registers
-    char **registerNames;
     struct Register **allRegisters;
     u8 maxReg;
 };

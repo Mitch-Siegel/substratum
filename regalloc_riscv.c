@@ -2,113 +2,77 @@
 
 #include <string.h>
 
-char *riscvRegisterNames[RISCV_REGISTER_COUNT] = {
-    [zero] "zero",
-    [ra] "ra",
-    [sp] "sp",
-    [gp] "gp",
-    [tp] "tp",
-    [t0] "t0",
-    [t1] "t1",
-    [t2] "t2",
-    [fp] "fp",
-    [s1] "s1",
-    [a0] "a0",
-    [a1] "a1",
-    [a2] "a2",
-    [a3] "a3",
-    [a4] "a4",
-    [a5] "a5",
-    [a6] "a6",
-    [a7] "a7",
-    [s2] "s2",
-    [s3] "s3",
-    [s4] "s4",
-    [s5] "s5",
-    [s6] "s6",
-    [s7] "s7",
-    [s8] "s8",
-    [s9] "s9",
-    [s10] "s10",
-    [s11] "s11",
-    [t3] "t3",
-    [t4] "t4",
-    [t5] "t5",
-    [t6] "t6",
-};
-
 struct Register riscvRegisters[RISCV_REGISTER_COUNT] = {
     [zero]
-    { NULL, zero },
+    { NULL, zero, "zero"},
     [ra]
-    { NULL, ra },
+    { NULL, ra, "ra"},
     [sp]
-    { NULL, sp },
+    { NULL, sp, "sp"},
     [gp]
-    { NULL, gp },
+    { NULL, gp, "gp"},
     [tp]
-    { NULL, tp },
+    { NULL, tp, "tp"},
     [t0]
-    { NULL, t0 },
+    { NULL, t0, "t0"},
     [t1]
-    { NULL, t1 },
+    { NULL, t1, "t1"},
     [t2]
-    { NULL, t2 },
+    { NULL, t2, "t2"},
     [fp]
-    { NULL, fp },
+    { NULL, fp, "fp"},
     [s1]
-    { NULL, s1 },
+    { NULL, s1, "s1"},
     [a0]
-    { NULL, a0 },
+    { NULL, a0, "a0"},
     [a1]
-    { NULL, a1 },
+    { NULL, a1, "a1"},
     [a2]
-    { NULL, a2 },
+    { NULL, a2, "a2"},
     [a3]
-    { NULL, a3 },
+    { NULL, a3, "a3"},
     [a4]
-    { NULL, a4 },
+    { NULL, a4, "a4"},
     [a5]
-    { NULL, a5 },
+    { NULL, a5, "a5"},
     [a6]
-    { NULL, a6 },
+    { NULL, a6, "a6"},
     [a7]
-    { NULL, a7 },
+    { NULL, a7, "a7"},
     [s2]
-    { NULL, s2 },
+    { NULL, s2, "s2"},
     [s3]
-    { NULL, s3 },
+    { NULL, s3, "s3"},
     [s4]
-    { NULL, s4 },
+    { NULL, s4, "s4"},
     [s5]
-    { NULL, s5 },
+    { NULL, s5, "s5"},
     [s6]
-    { NULL, s6 },
+    { NULL, s6, "s6"},
     [s7]
-    { NULL, s7 },
+    { NULL, s7, "s7"},
     [s8]
-    { NULL, s8 },
+    { NULL, s8, "s8"},
     [s9]
-    { NULL, s9 },
+    { NULL, s9, "s9"},
     [s10]
-    { NULL, s10 },
+    { NULL, s10, "s10"},
     [s11]
-    { NULL, s11 },
+    { NULL, s11, "s11"},
     [t3]
-    { NULL, t3 },
+    { NULL, t3, "t3"},
     [t4]
-    { NULL, t4 },
+    { NULL, t4, "t4"},
     [t5]
-    { NULL, t5 },
+    { NULL, t5, "t5"},
     [t6]
-    { NULL, t6 },
+    { NULL, t6, "t6"},
 };
 
 struct MachineContext *setupRiscvMachineContext()
 {
     struct MachineContext *context = malloc(sizeof(struct MachineContext));
     memset(context, 0, sizeof(struct MachineContext));
-    context->registerNames = riscvRegisterNames;
     context->maxReg = RISCV_REGISTER_COUNT;
 
     context->returnAddress = &riscvRegisters[ra];

@@ -43,10 +43,10 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
                                 struct TACOperand *operand,
                                 u8 registerIndex);
 
-u8 pickWriteRegister(struct Scope *scope,
-                     struct LinkedList *lifetimes,
-                     struct TACOperand *operand,
-                     u8 registerIndex);
+struct Register *pickWriteRegister(struct Scope *scope,
+                                   struct LinkedList *lifetimes,
+                                   struct TACOperand *operand,
+                                   struct Register *scratchReg);
 
 u8 placeAddrOfLifetimeInReg(struct TACLine *correspondingTACLine,
                             struct CodegenContext *context,
@@ -65,7 +65,7 @@ char SelectWidthCharForLifetime(struct Scope *scope, struct Lifetime *lifetime);
 
 void EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
                            struct CodegenContext *context,
-                           u8 sourceReg,
+                           struct Register *sourceReg,
                            u8 size,
                            ssize_t offset);
 

@@ -180,19 +180,19 @@ void callerSaveRegisters(struct CodegenContext *context, struct CodegenMetadata 
     Log(LOG_DEBUG, "Caller-saving registers");
     struct Stack *actuallyCallerSaved = Stack_New();
 
-    for(size_t regIndex = 0; regIndex < metadata->machineContext->n_caller_save; regIndex++)
+    for (size_t regIndex = 0; regIndex < metadata->machineContext->n_caller_save; regIndex++)
     {
         struct Register *potentiallyCallerSaved = metadata->machineContext->caller_save[regIndex];
         // only need to actually callee-save registers we touch in this function
-        if(Set_Find(metadata->touchedRegisters, potentiallyCallerSaved) != NULL)
+        if (Set_Find(metadata->touchedRegisters, potentiallyCallerSaved) != NULL)
         {
             Stack_Push(actuallyCallerSaved, potentiallyCallerSaved);
         }
     }
 
-    char *spName = metadata->machineContext->registerNames[metadata->machineContext->stackPointer->index];
+    char *spName = metadata->machineContext->stackPointer->name;
     emitInstruction(NULL, context, "subi %s, %s, %zd", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
-    for(size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
+    for (size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
         struct Register *calleeSaved = metadata->machineContext->callee_save[regIndex];
         EmitStackStoreForSize(NULL, context, calleeSaved->index, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
@@ -207,18 +207,18 @@ void callerRestoreRegisters(struct CodegenContext *context, struct CodegenMetada
     Log(LOG_DEBUG, "Caller-restoring registers");
     struct Stack *actuallyCallerSaved = Stack_New();
 
-    for(size_t regIndex = 0; regIndex < metadata->machineContext->n_caller_save; regIndex++)
+    for (size_t regIndex = 0; regIndex < metadata->machineContext->n_caller_save; regIndex++)
     {
         struct Register *potentiallyCalleeSaved = metadata->machineContext->caller_save[regIndex];
         // only need to actually callee-save registers we touch in this function
-        if(Set_Find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
+        if (Set_Find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
         {
             Stack_Push(actuallyCallerSaved, potentiallyCalleeSaved);
         }
     }
 
-    char *spName = metadata->machineContext->registerNames[metadata->machineContext->stackPointer->index];
-    for(size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
+    char *spName = metadata->machineContext->stackPointer->name;
+    for (size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
         struct Register *calleeSaved = metadata->machineContext->caller_save[regIndex];
         EmitStackLoadForSize(NULL, context, calleeSaved->index, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
@@ -233,19 +233,19 @@ void calleeSaveRegisters(struct CodegenContext *context, struct CodegenMetadata 
     Log(LOG_DEBUG, "Callee-saving registers");
     struct Stack *actuallyCalleeSaved = Stack_New();
 
-    for(size_t regIndex = 0; regIndex < metadata->machineContext->n_caller_save; regIndex++)
+    for (size_t regIndex = 0; regIndex < metadata->machineContext->n_caller_save; regIndex++)
     {
         struct Register *potentiallyCalleeSaved = metadata->machineContext->callee_save[regIndex];
         // only need to actually callee-save registers we touch in this function
-        if(Set_Find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
+        if (Set_Find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
         {
             Stack_Push(actuallyCalleeSaved, potentiallyCalleeSaved);
         }
     }
 
-    char *spName = metadata->machineContext->registerNames[metadata->machineContext->stackPointer->index];
+    char *spName = metadata->machineContext->stackPointer->name;
     emitInstruction(NULL, context, "subi %s, %s, %zd", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCalleeSaved->size);
-    for(size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
+    for (size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
     {
         struct Register *calleeSaved = metadata->machineContext->callee_save[regIndex];
         EmitStackStoreForSize(NULL, context, calleeSaved->index, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
@@ -260,18 +260,18 @@ void calleeRestoreRegisters(struct CodegenContext *context, struct CodegenMetada
     Log(LOG_DEBUG, "Callee-restoring registers");
     struct Stack *actuallyCalleeSaved = Stack_New();
 
-    for(size_t regIndex = 0; regIndex < metadata->machineContext->n_caller_save; regIndex++)
+    for (size_t regIndex = 0; regIndex < metadata->machineContext->n_caller_save; regIndex++)
     {
         struct Register *potentiallyCalleeSaved = metadata->machineContext->callee_save[regIndex];
         // only need to actually callee-save registers we touch in this function
-        if(Set_Find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
+        if (Set_Find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
         {
             Stack_Push(actuallyCalleeSaved, potentiallyCalleeSaved);
         }
     }
 
-    char *spName = metadata->machineContext->registerNames[metadata->machineContext->stackPointer->index];
-    for(size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
+    char *spName = metadata->machineContext->stackPointer->name;
+    for (size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
     {
         struct Register *calleeSaved = metadata->machineContext->callee_save[regIndex];
         EmitStackLoadForSize(NULL, context, calleeSaved->index, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
@@ -360,7 +360,6 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function, char
     free(metadata.machineContext->allRegisters);
     free(metadata.machineContext);
     Set_Free(metadata.touchedRegisters);
-
 
     // clean up after ourselves
     Set_Free(metadata.allLifetimes);

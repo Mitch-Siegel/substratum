@@ -70,10 +70,10 @@ u8 placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
     return 0;
 }
 
-u8 pickWriteRegister(struct Scope *scope,
-                     struct LinkedList *lifetimes,
-                     struct TACOperand *operand,
-                     u8 registerIndex)
+struct Register *pickWriteRegister(struct Scope *scope,
+                                   struct LinkedList *lifetimes,
+                                   struct TACOperand *operand,
+                                   struct Register *scratchReg)
 {
     struct Lifetime *relevantLifetime = NULL; // LinkedList_Find(lifetimes, Lifetime_CompareToVariable, operand->name.str);
     if (relevantLifetime == NULL)
@@ -88,7 +88,7 @@ u8 pickWriteRegister(struct Scope *scope,
 
     case wb_stack:
     case wb_global:
-        return registerIndex;
+        return scratchReg;
 
     case wb_unknown:
     default:
@@ -204,12 +204,12 @@ char SelectWidthCharForLifetime(struct Scope *scope, struct Lifetime *lifetime)
 // emit an instruction to store store 'size' bytes from 'sourceReg' at 'offset' bytes from the frame pointer
 void EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
                            struct CodegenContext *context,
-                           u8 sourceReg,
+                           struct Register *sourceReg,
                            u8 size,
                            ssize_t offset)
 {
     // TODO: reimplement with new register allocation
-    // emitInstruction(correspondingTACLine, context, "\ts%c %s, %d(fp)\n", SelectWidthCharForSize(size), registerNames[sourceReg], offset);
+    emitInstruction(correspondingTACLine, context, "\ts%c %s, %d(fp)\n", SelectWidthCharForSize(size), sourceReg->name, offset);
 }
 
 // emit an instruction to load store 'size' bytes to 'destReg' from 'offset' bytes from the frame pointer
