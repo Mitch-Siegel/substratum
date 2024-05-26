@@ -22,7 +22,13 @@ void emitLoc(struct CodegenState *context, struct TACLine *thisTAC, size_t *last
 
 void verifyCodegenPrimitive(struct TACOperand *operand);
 
-struct Register *selectScratchRegister(struct MachineInfo *info, bool allowOverwrite);
+struct Register *acquireScratchRegister(struct MachineInfo *info);
+
+void releaseScratchRegister(struct MachineInfo *info, struct Register *reg);
+
+void tryReleaseScratchRegister(struct MachineInfo *info, struct Register *reg);
+
+void releaseAllScratchRegisters(struct MachineInfo *info);
 
 void invalidateScratchRegister(struct MachineInfo *info, struct Register *scratchRegister);
 

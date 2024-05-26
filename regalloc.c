@@ -499,12 +499,22 @@ void allocateGeneralRegisters(struct CodegenMetadata *metadata, struct MachineIn
 // really this is "figure out which lifetimes get a register"
 void allocateRegisters(struct CodegenMetadata *metadata, struct MachineInfo *info)
 {
+    // register pointers are unique and only one should exist for a given register
+    metadata->touchedRegisters = Set_New(ssizet_compare, NULL);
+
+
+    // assume we will always touch the stack pointer
+    Set_Insert(metadata->touchedRegisters, info->stackPointer);
+
+    // if we call another function we will touch the frame pointer
+    if(metadata->function->callsOtherFunction)
+    {
+        Set_Insert(metadata->touchedRegisters, info->framePointer);
+    }
+
     metadata->allLifetimes = findLifetimes(metadata->function->mainScope, metadata->function->BasicBlockList);
 
     metadata->largestTacIndex = findMaxTACIndex(metadata->allLifetimes);
-
-    // register pointers are unique and only one should exist for a given register
-    metadata->touchedRegisters = Set_New(ssizet_compare, NULL);
 
     allocateArgumentRegisters(metadata, info);
     allocateGeneralRegisters(metadata, info);

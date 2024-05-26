@@ -5,52 +5,146 @@
 #include "symtab.h"
 #include "tac.h"
 
+char riscv_SelectWidthCharForSize(u8 size)
+{
+    char widthChar = '\0';
+    switch (size)
+    {
+    case sizeof(u8):
+        widthChar = 'b';
+        break;
+
+    case sizeof(u16):
+        widthChar = 'h';
+        break;
+
+    case sizeof(u32):
+        widthChar = 'w';
+        break;
+
+    case sizeof(u64):
+        widthChar = 'd';
+        break;
+
+    default:
+        InternalError("Error in riscv_SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, 4, or 8 bytes!");
+    }
+
+    return widthChar;
+}
+
+const char *riscv_SelectSignForLoad(u8 loadSize, struct Type *loaded)
+{
+    switch (loadSize)
+    {
+    case 'b':
+    case 'h':
+    case 'w':
+        return "u";
+
+    case 'd':
+        return "";
+
+    default:
+        InternalError("Unexpected load size character seen in riscv_SignForLoad!");
+    }
+}
+
+char riscv_SelectWidthChar(struct Scope *scope, struct TACOperand *dataDest)
+{
+    // pointers and arrays (decay implicitly at this stage to pointers) are always full-width
+    if (Type_GetIndirectionLevel(TACOperand_GetType(dataDest)) > 0)
+    {
+        return 'd';
+    }
+
+    return riscv_SelectWidthCharForSize(Type_GetSize(TACOperand_GetType(dataDest), scope));
+}
+
+char riscv_SelectWidthCharForDereference(struct Scope *scope, struct TACOperand *dataDest)
+{
+    struct Type *operandType = TACOperand_GetType(dataDest);
+    if ((operandType->pointerLevel == 0) &&
+        (operandType->basicType != vt_array))
+    {
+        InternalError("riscv_SelectWidthCharForDereference called on non-indirect operand %s!", dataDest->name.str);
+    }
+    struct Type dereferenced = *operandType;
+
+    // if not a pointer, we are dereferenceing an array so jump one layer down
+    if (dereferenced.pointerLevel == 0)
+    {
+        dereferenced = *dereferenced.array.type;
+    }
+    else
+    {
+        // is a pointer, decrement pointer level
+        dereferenced.pointerLevel--;
+    }
+    return riscv_SelectWidthCharForSize(Type_GetSize(&dereferenced, scope));
+}
+
+char riscv_SelectWidthCharForLifetime(struct Scope *scope, struct Lifetime *lifetime)
+{
+    char widthChar = '\0';
+    if (lifetime->type.pointerLevel > 0)
+    {
+        widthChar = 'd';
+    }
+    else
+    {
+        widthChar = riscv_SelectWidthCharForSize(Type_GetSize(&lifetime->type, scope));
+    }
+
+    return widthChar;
+}
+
 // emit an instruction to store store 'size' bytes from 'sourceReg' at 'offset' bytes from the frame pointer
 void riscv_EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
                                  struct CodegenState *state,
-                                 struct MachineInfo *machineInfo,
+                                 struct MachineInfo *info,
                                  struct Register *sourceReg,
                                  u8 size,
                                  ssize_t offset)
 {
     // TODO: reimplement with new register allocation
-    emitInstruction(correspondingTACLine, state, "\ts%c %s, %d(%s)\n", SelectWidthCharForSize(size), sourceReg->name, offset, machineInfo->framePointer->name);
+    emitInstruction(correspondingTACLine, state, "\ts%c %s, %d(%s)\n", riscv_SelectWidthCharForSize(size), sourceReg->name, offset, info->framePointer->name);
 }
 
 // emit an instruction to load store 'size' bytes to 'destReg' from 'offset' bytes from the frame pointer
 void riscv_EmitFrameLoadForSize(struct TACLine *correspondingTACLine,
                                 struct CodegenState *state,
-                                struct MachineInfo *machineInfo,
+                                struct MachineInfo *info,
                                 struct Register *destReg,
                                 u8 size,
                                 ssize_t offset)
 {
     // TODO: reimplement with new register allocation
-    emitInstruction(correspondingTACLine, state, "\tl%c %s, %d(%s)\n", SelectWidthCharForSize(size), destReg->name, offset, machineInfo->framePointer->name);
+    emitInstruction(correspondingTACLine, state, "\tl%c %s, %d(%s)\n", riscv_SelectWidthCharForSize(size), destReg->name, offset, info->framePointer->name);
 }
 
 // emit an instruction to store store 'size' bytes from 'sourceReg' at 'offset' bytes from the stack pointer
 void riscv_EmitStackStoreForSize(struct TACLine *correspondingTACLine,
                                  struct CodegenState *state,
-                                 struct MachineInfo *machineInfo,
+                                 struct MachineInfo *info,
                                  struct Register *sourceReg,
                                  u8 size,
                                  ssize_t offset)
 {
     // TODO: reimplement with new register allocation
-    emitInstruction(correspondingTACLine, state, "\ts%c %s, %d(sp)\n", SelectWidthCharForSize(size), sourceReg->name, offset, machineInfo->stackPointer->name);
+    emitInstruction(correspondingTACLine, state, "\ts%c %s, %d(sp)\n", riscv_SelectWidthCharForSize(size), sourceReg->name, offset, info->stackPointer->name);
 }
 
 // emit an instruction to load store 'size' bytes to 'destReg' from 'offset' bytes from the stack pointer
 void riscv_EmitStackLoadForSize(struct TACLine *correspondingTACLine,
                                 struct CodegenState *state,
-                                struct MachineInfo *machineInfo,
+                                struct MachineInfo *info,
                                 struct Register *destReg,
                                 u8 size,
                                 ssize_t offset)
 {
     // TODO: reimplement with new register allocation
-    emitInstruction(correspondingTACLine, state, "\tl%c %s, %d(sp)\n", SelectWidthCharForSize(size), destReg->name, offset, machineInfo->stackPointer->name);
+    emitInstruction(correspondingTACLine, state, "\tl%c %s, %d(sp)\n", riscv_SelectWidthCharForSize(size), destReg->name, offset, info->stackPointer->name);
 }
 
 void riscv_EmitPushForOperand(struct TACLine *correspondingTACLine,
@@ -83,12 +177,11 @@ void riscv_EmitPushForSize(struct TACLine *correspondingTACLine,
                            u8 size,
                            struct Register *srcRegister)
 {
-    InternalError("riscv_EmitPushForSize not implemented");
     // TODO: reimplement with new register allocation
-    // emitInstruction(correspondingTACLine, state, "\taddi sp, sp, -%d\n", size);
-    // emitInstruction(correspondingTACLine, state, "\ts%c %s, 0(sp)\n",
-    //                 SelectWidthCharForSize(size),
-    //                 registerNames[srcRegister]);
+    emitInstruction(correspondingTACLine, state, "\taddi sp, sp, -%d\n", size);
+    emitInstruction(correspondingTACLine, state, "\ts%c %s, 0(sp)\n",
+                    riscv_SelectWidthCharForSize(size),
+                    srcRegister->name);
 }
 
 void riscv_EmitPopForOperand(struct TACLine *correspondingTACLine,
@@ -124,16 +217,14 @@ void riscv_EmitPopForSize(struct TACLine *correspondingTACLine,
                           u8 size,
                           struct Register *destRegister)
 {
-    InternalError("riscv_EmitPopForSize not implemented");
-    // TODO: reimplement with new register allocation
-    // emitInstruction(correspondingTACLine, state, "\tl%c%s %s, 0(sp)\n",
-    //                 SelectWidthCharForSize(size),
-    //                 (size == MACHINE_REGISTER_SIZE_BYTES) ? "" : "u", // always generate an unsigned load (except for when loading 64 bit values, for which there is no unsigned load)
-    //                 registerNames[destRegister]);
-    // emitInstruction(correspondingTACLine, state, "\taddi sp, sp, %d\n", size);
+    emitInstruction(correspondingTACLine, state, "\tl%c%s %s, 0(sp)\n",
+                    riscv_SelectWidthCharForSize(size),
+                    (size == MACHINE_REGISTER_SIZE_BYTES) ? "" : "u", // always generate an unsigned load (except for when loading 64 bit values, for which there is no unsigned load)
+                    destRegister->name);
+    emitInstruction(correspondingTACLine, state, "\taddi sp, sp, %d\n", size);
 }
 
-void riscv_callerSaveRegisters(struct CodegenState *context, struct CodegenMetadata *metadata, struct MachineInfo *info)
+void riscv_callerSaveRegisters(struct CodegenState *state, struct CodegenMetadata *metadata, struct MachineInfo *info)
 {
     Log(LOG_DEBUG, "Caller-saving registers");
     struct Stack *actuallyCallerSaved = Stack_New();
@@ -149,17 +240,17 @@ void riscv_callerSaveRegisters(struct CodegenState *context, struct CodegenMetad
     }
 
     char *spName = info->stackPointer->name;
-    emitInstruction(NULL, context, "subi %s, %s, %zd", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
+    emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
     for (size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
         struct Register *calleeSaved = info->callee_save[regIndex];
-        riscv_EmitStackStoreForSize(NULL, context, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
+        riscv_EmitStackStoreForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
     }
 
     Stack_Free(actuallyCallerSaved);
 }
 
-void riscv_callerRestoreRegisters(struct CodegenState *context, struct CodegenMetadata *metadata, struct MachineInfo *info)
+void riscv_callerRestoreRegisters(struct CodegenState *state, struct CodegenMetadata *metadata, struct MachineInfo *info)
 {
     // TODO: implement for new register allocator
     Log(LOG_DEBUG, "Caller-restoring registers");
@@ -179,14 +270,14 @@ void riscv_callerRestoreRegisters(struct CodegenState *context, struct CodegenMe
     for (size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
         struct Register *calleeSaved = info->caller_save[regIndex];
-        riscv_EmitStackLoadForSize(NULL, context, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
+        riscv_EmitStackLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
     }
-    emitInstruction(NULL, context, "addi %s, %s, %zd", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
+    emitInstruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
 
     Stack_Free(actuallyCallerSaved);
 }
 
-void riscv_calleeSaveRegisters(struct CodegenState *context, struct CodegenMetadata *metadata, struct MachineInfo *info)
+void riscv_calleeSaveRegisters(struct CodegenState *state, struct CodegenMetadata *metadata, struct MachineInfo *info)
 {
     Log(LOG_DEBUG, "Callee-saving registers");
     struct Stack *actuallyCalleeSaved = Stack_New();
@@ -201,13 +292,16 @@ void riscv_calleeSaveRegisters(struct CodegenState *context, struct CodegenMetad
         }
     }
 
-    char *spName = info->stackPointer->name;
-    emitInstruction(NULL, context, "subi %s, %s, %zd", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCalleeSaved->size);
+    emitInstruction(NULL, state, "\t#Callee-save registers\n");
     for (size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
     {
         struct Register *calleeSaved = info->callee_save[regIndex];
-        riscv_EmitStackStoreForSize(NULL, context, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
+        riscv_EmitFrameStoreForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
     }
+
+    // emit the instruction to actually move the stack pointer after we save the values, as the stack pointer itself may be one of the saved values
+    char *spName = info->stackPointer->name;
+    emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCalleeSaved->size);
 
     Stack_Free(actuallyCalleeSaved);
 }
@@ -228,25 +322,95 @@ void riscv_calleeRestoreRegisters(struct CodegenState *state, struct CodegenMeta
         }
     }
 
-    char *spName = info->stackPointer->name;
+    emitInstruction(NULL, state, "\t#Callee-restore registers\n");
     for (size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
     {
         struct Register *calleeSaved = info->callee_save[regIndex];
-        riscv_EmitStackLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
+        riscv_EmitFrameLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
     }
-    emitInstruction(NULL, state, "addi %s, %s, %zd", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCalleeSaved->size);
+    char *spName = info->stackPointer->name;
+    emitInstruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCalleeSaved->size);
 
     Stack_Free(actuallyCalleeSaved);
 }
 
-void riscv_emitPrologue(struct CodegenState *context, struct CodegenMetadata *metadata, struct MachineInfo *info)
+void riscv_emitPrologue(struct CodegenState *state, struct CodegenMetadata *metadata, struct MachineInfo *info)
 {
+    fprintf(state->outFile, "\t.cfi_startproc\n");
+
+    // save the frame pointer, stack pointer, and return address
+    emitInstruction(NULL, state, "\t#Save fp, sp, return address\n");
+    riscv_EmitPushForSize(NULL, state, MACHINE_REGISTER_SIZE_BYTES, info->framePointer);
+    emitInstruction(NULL, state, "\tmv %s, %s\n", info->framePointer->name, info->stackPointer->name);
+    emitInstruction(NULL, state, "\t.cfi_def_cfa_offset %zd\n", (ssize_t)2 * MACHINE_REGISTER_SIZE_BYTES);
+
+    riscv_calleeSaveRegisters(state, metadata, info);
     // TODO: implement for new register allocator
 }
 
-void riscv_emitEpilogue(struct CodegenState *context, struct CodegenMetadata *metadata, struct MachineInfo *info, char *functionName)
+void riscv_emitEpilogue(struct CodegenState *state, struct CodegenMetadata *metadata, struct MachineInfo *info, char *functionName)
 {
+    emitInstruction(NULL, state, "%s_done:\n", functionName);
+    riscv_calleeRestoreRegisters(state, metadata, info);
+
+    emitInstruction(NULL, state, "\t#Restore fp, sp, return address\n");
+    riscv_EmitPopForSize(NULL, state, MACHINE_REGISTER_SIZE_BYTES, info->framePointer);
+    emitInstruction(NULL, state, "\tmv %s, %s\n", info->stackPointer->name, info->framePointer->name);
+
+    emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, metadata->function->argStackSize);
+
+    emitInstruction(NULL, state, "\tjalr zero, 0(%s)\n", info->returnAddress->name);
+    fprintf(state->outFile, "\t.cfi_endproc\n");
+
     // TODO: implement for new register allocator
+}
+
+// places an operand by name into the specified register, or returns the index of the register containing if it's already in a register
+// does *NOT* guarantee that returned register indices are modifiable in the case where the variable is found in a register
+struct Register *riscv_placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
+                                                    struct CodegenState *state,
+                                                    struct CodegenMetadata *metadata,
+                                                    struct MachineInfo *info,
+                                                    struct TACOperand *operand,
+                                                    struct Register *optionalScratch)
+{
+    struct Register *placedOrFoundIn = NULL;
+
+    switch (operand->permutation)
+    {
+    case vp_standard:
+    case vp_temp:
+    {
+        struct Lifetime dummyLt = {0};
+        dummyLt.name = operand->name.str;
+        struct Lifetime *operandLt = Set_Find(metadata->allLifetimes, &dummyLt);
+        switch (operandLt->wbLocation)
+        {
+        case wb_register:
+            placedOrFoundIn = operandLt->writebackInfo.regLocation;
+            break;
+
+        case wb_stack:
+            riscv_EmitStackLoadForSize(correspondingTACLine, state, info, optionalScratch, Type_GetSize(TACOperand_GetType(operand), metadata->scope), operandLt->writebackInfo.stackOffset);
+            placedOrFoundIn = optionalScratch;
+            break;
+
+        case wb_global:
+            break;
+
+        case wb_unknown:
+            InternalError("Unknown writeback location seen for lifetime %s", operandLt->name);
+            break;
+        }
+    }
+    break;
+
+    case vp_literal:
+        riscv_PlaceLiteralStringInRegister(correspondingTACLine, state, operand->name.str, optionalScratch);
+        placedOrFoundIn = optionalScratch;
+        break;
+    }
+    return placedOrFoundIn;
 }
 
 void riscv_WriteVariable(struct TACLine *correspondingTACLine,
@@ -256,8 +420,6 @@ void riscv_WriteVariable(struct TACLine *correspondingTACLine,
                          struct TACOperand *writtenTo,
                          struct Register *dataSource)
 {
-    // TODO: reimplement with new register allocation
-
     struct Lifetime dummyLifetime;
     memset(&dummyLifetime, 0, sizeof(struct Lifetime));
     dummyLifetime.name = writtenTo->name.str;
@@ -274,8 +436,7 @@ void riscv_WriteVariable(struct TACLine *correspondingTACLine,
         // only need to emit a move if the register locations differ
         if (writtenLifetime->writebackInfo.regLocation->index != dataSource->index)
         {
-            emitInstruction(correspondingTACLine, state, "mv %s %s", writtenLifetime->writebackInfo.regLocation->name, dataSource->name);
-            // TODO: generic way to track register occupancy at machine context level?
+            emitInstruction(correspondingTACLine, state, "mv %s, %s\n", writtenLifetime->writebackInfo.regLocation->name, dataSource->name);
             writtenLifetime->writebackInfo.regLocation->containedLifetime = writtenLifetime;
         }
         break;
@@ -294,16 +455,12 @@ void riscv_WriteVariable(struct TACLine *correspondingTACLine,
     }
 }
 
-char *riscv_PlaceLiteralStringInRegister(struct TACLine *correspondingTACLine,
-                                         struct CodegenState *context,
-                                         char *literalStr,
-                                         u8 destReg)
+void riscv_PlaceLiteralStringInRegister(struct TACLine *correspondingTACLine,
+                                        struct CodegenState *state,
+                                        char *literalStr,
+                                        struct Register *destReg)
 {
-    // TODO: reimplement with new register allocation
-    // char *destRegStr = registerNames[destReg];
-    // emitInstruction(correspondingTACLine, context, "\tli %s, %s # place literal\n", destRegStr, literalStr);
-    // return destRegStr;
-    return NULL;
+    emitInstruction(correspondingTACLine, state, "\tli %s, %s # place literal\n", destReg->name, literalStr);
 }
 
 void riscv_placeAddrOfOperandInReg(struct TACLine *correspondingTACLine,
@@ -324,7 +481,7 @@ void riscv_placeAddrOfOperandInReg(struct TACLine *correspondingTACLine,
         break;
 
     case wb_stack:
-        emitInstruction(correspondingTACLine, state, "addi %s, %s, %zd", destReg->name, info->framePointer->name, lifetime->writebackInfo.stackOffset);
+        emitInstruction(correspondingTACLine, state, "addi %s, %s, %zd\n", destReg->name, info->framePointer->name, lifetime->writebackInfo.stackOffset);
         break;
 
     case wb_global:
@@ -352,6 +509,8 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
     size_t lastLineNo = 0;
     for (struct LinkedListNode *TACRunner = block->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
     {
+        releaseAllScratchRegisters(info);
+
         struct TACLine *thisTAC = TACRunner->data;
 
         char *printedTAC = sPrintTACLine(thisTAC);
@@ -363,14 +522,13 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
         switch (thisTAC->operation)
         {
         case tt_asm:
-            fputs(thisTAC->operands[0].name.str, state->outFile);
-            fputc('\n', state->outFile);
+            emitInstruction(thisTAC, state, "%s\n", thisTAC->operands[0].name.str);
             break;
 
         case tt_assign:
         {
             // only works for primitive types that will fit in registers
-            struct Register *opLocReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[1], selectScratchRegister(info, false));
+            struct Register *opLocReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
             riscv_WriteVariable(thisTAC, state, metadata, info, &thisTAC->operands[0], opLocReg);
         }
         break;
@@ -386,11 +544,15 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
         case tt_lshift:
         case tt_rshift:
         {
-            struct Register *op1Reg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[1], selectScratchRegister(info, false));
-            struct Register *op2Reg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[2], selectScratchRegister(info, false));
-            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], selectScratchRegister(info, true));
+            struct Register *op1Reg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
+            struct Register *op2Reg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[2], acquireScratchRegister(info));
 
-            // FIXME: work with new register allocation
+            // release any scratch registers we may have acquired by placing operands, as our write register may be able to use one of them
+            tryReleaseScratchRegister(info, op1Reg);
+            tryReleaseScratchRegister(info, op2Reg);
+
+            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], acquireScratchRegister(info));
+
             emitInstruction(thisTAC, state, "\t%s %s, %s, %s\n", getAsmOp(thisTAC->operation), destReg->name, op1Reg->name, op2Reg->name);
             riscv_WriteVariable(thisTAC, state, metadata, info, &thisTAC->operands[0], destReg);
         }
@@ -398,8 +560,8 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_bitwise_not:
         {
-            struct Register *op1Reg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[1], selectScratchRegister(info, false));
-            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], selectScratchRegister(info, true));
+            struct Register *op1Reg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
+            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], acquireScratchRegister(info));
 
             // FIXME: work with new register allocation
             emitInstruction(thisTAC, state, "\txori %s, %s, -1\n", destReg->name, op1Reg->name);
@@ -409,13 +571,13 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_load:
         {
-            struct Register *baseReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[1], selectScratchRegister(info, false));
-            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], selectScratchRegister(info, true));
+            struct Register *baseReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
+            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], acquireScratchRegister(info));
 
-            char loadWidth = SelectWidthChar(metadata->scope, &thisTAC->operands[0]);
+            char loadWidth = riscv_SelectWidthChar(metadata->scope, &thisTAC->operands[0]);
             emitInstruction(thisTAC, state, "\tl%c%s %s, 0(%s)\n",
                             loadWidth,
-                            SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 0)),
+                            riscv_SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 0)),
                             destReg->name,
                             baseReg->name);
 
@@ -426,13 +588,13 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
         case tt_load_off:
         {
             // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], selectScratchRegister(info, false));
-            struct Register *baseReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[1], selectScratchRegister(info, true));
+            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], acquireScratchRegister(info));
+            struct Register *baseReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
 
-            char loadWidth = SelectWidthChar(metadata->scope, &thisTAC->operands[0]);
+            char loadWidth = riscv_SelectWidthChar(metadata->scope, &thisTAC->operands[0]);
             emitInstruction(thisTAC, state, "\tl%c%s %s, %d(%s)\n",
                             loadWidth,
-                            SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 0)),
+                            riscv_SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 0)),
                             destReg->name,
                             thisTAC->operands[2].name.val,
                             baseReg->name);
@@ -443,9 +605,8 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_load_arr:
         {
-            struct Register *baseReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[1], selectScratchRegister(info, false));
-            struct Register *offsetReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[2], selectScratchRegister(info, false));
-            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], selectScratchRegister(info, true));
+            struct Register *baseReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
+            struct Register *offsetReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[2], acquireScratchRegister(info));
 
             // TODO: check for shift by 0 and don't shift when applicable
             // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
@@ -460,10 +621,12 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
                             baseReg->name,
                             offsetReg->name);
 
-            char loadWidth = SelectWidthCharForDereference(metadata->scope, &thisTAC->operands[1]);
+            tryReleaseScratchRegister(info, offsetReg);
+            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], acquireScratchRegister(info));
+            char loadWidth = riscv_SelectWidthCharForDereference(metadata->scope, &thisTAC->operands[1]);
             emitInstruction(thisTAC, state, "\tl%c%s %s, 0(%s)\n",
                             loadWidth,
-                            SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 1)),
+                            riscv_SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 1)),
                             destReg->name,
                             baseReg->name);
 
@@ -473,9 +636,9 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_store:
         {
-            struct Register *destAddrReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[0], selectScratchRegister(info, false));
-            struct Register *sourceReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[1], selectScratchRegister(info, false));
-            char storeWidth = SelectWidthCharForDereference(metadata->scope, &thisTAC->operands[0]);
+            struct Register *destAddrReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[0], acquireScratchRegister(info));
+            struct Register *sourceReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
+            char storeWidth = riscv_SelectWidthCharForDereference(metadata->scope, &thisTAC->operands[0]);
 
             emitInstruction(thisTAC, state, "\ts%c %s, 0(%s)\n",
                             storeWidth,
@@ -487,10 +650,10 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
         case tt_store_off:
         {
             // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-            struct Register *baseReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[0], selectScratchRegister(info, false));
-            struct Register *sourceReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[2], selectScratchRegister(info, false));
+            struct Register *baseReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[0], acquireScratchRegister(info));
+            struct Register *sourceReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[2], acquireScratchRegister(info));
             emitInstruction(thisTAC, state, "\ts%c %s, %d(%s)\n",
-                            SelectWidthChar(metadata->scope, &thisTAC->operands[0]),
+                            riscv_SelectWidthChar(metadata->scope, &thisTAC->operands[0]),
                             sourceReg->name,
                             thisTAC->operands[1].name.val,
                             baseReg->name);
@@ -499,8 +662,8 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_store_arr:
         {
-            struct Register *baseReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[0], selectScratchRegister(info, false));
-            struct Register *offsetReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[1], selectScratchRegister(info, false));
+            struct Register *baseReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[0], acquireScratchRegister(info));
+            struct Register *offsetReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
 
             // TODO: check for shift by 0 and don't shift when applicable
             // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
@@ -515,9 +678,10 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
                             baseReg->name,
                             offsetReg->name);
 
-            struct Register *sourceReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[3], selectScratchRegister(info, false));
+            tryReleaseScratchRegister(info, offsetReg);
+            struct Register *sourceReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[3], acquireScratchRegister(info));
             emitInstruction(thisTAC, state, "\ts%c %s, 0(%s)\n",
-                            SelectWidthCharForDereference(metadata->scope, &thisTAC->operands[0]),
+                            riscv_SelectWidthCharForDereference(metadata->scope, &thisTAC->operands[0]),
                             sourceReg->name,
                             baseReg->name);
         }
@@ -525,7 +689,7 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_addrof:
         {
-            struct Register *addrReg = pickWriteRegister(metadata, &thisTAC->operands[0], selectScratchRegister(info, false));
+            struct Register *addrReg = pickWriteRegister(metadata, &thisTAC->operands[0], acquireScratchRegister(info));
             riscv_placeAddrOfOperandInReg(thisTAC, state, metadata, info, &thisTAC->operands[1], addrReg);
             riscv_WriteVariable(thisTAC, state, metadata, info, &thisTAC->operands[0], addrReg);
         }
@@ -534,8 +698,8 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
         case tt_lea_off:
         {
             // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], selectScratchRegister(info, false));
-            struct Register *baseReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[1], selectScratchRegister(info, false));
+            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], acquireScratchRegister(info));
+            struct Register *baseReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
 
             emitInstruction(thisTAC, state, "\taddi %s, %s, %d\n",
                             destReg->name,
@@ -548,8 +712,8 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_lea_arr:
         {
-            struct Register *baseReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[1], selectScratchRegister(info, false));
-            struct Register *offsetReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[2], selectScratchRegister(info, false));
+            struct Register *baseReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
+            struct Register *offsetReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[2], acquireScratchRegister(info));
 
             // TODO: check for shift by 0 and don't shift when applicable
             // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
@@ -558,7 +722,9 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
                             offsetReg->name,
                             thisTAC->operands[3].name.val);
 
-            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], selectScratchRegister(info, true));
+            // release any scratch registers we may have acquired by placing operands, as our write register may be able to use one of them
+            releaseAllScratchRegisters(info);
+            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], acquireScratchRegister(info));
             // add our scaled offset to the base address, put the full address into destReg
             emitInstruction(thisTAC, state, "\tadd %s, %s, %s\n",
                             destReg->name,
@@ -578,8 +744,8 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
         case tt_beqz:
         case tt_bnez:
         {
-            struct Register *operand1register = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[1], selectScratchRegister(info, false));
-            struct Register *operand2register = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[2], selectScratchRegister(info, false));
+            struct Register *operand1register = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
+            struct Register *operand2register = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[2], acquireScratchRegister(info));
             emitInstruction(thisTAC, state, "\t%s %s, %s, %s_%d\n",
                             getAsmOp(thisTAC->operation),
                             operand1register->name,
@@ -597,14 +763,13 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_stack_reserve:
         {
-            // FIXME: work with new register allocation
-            // emitInstruction(thisTAC, state, "\taddi %s, %s, -%d\n", registerNames[sp], registerNames[sp], thisTAC->operands[0].name.val);
+            emitInstruction(thisTAC, state, "\taddi %s, %s, -%d\n", info->stackPointer->name, info->stackPointer->name, thisTAC->operands[0].name.val);
         }
         break;
 
         case tt_stack_store:
         {
-            struct Register *sourceReg = placeOrFindOperandInRegister(thisTAC, state, &thisTAC->operands[0], selectScratchRegister(info, false));
+            struct Register *sourceReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[0], acquireScratchRegister(info));
 
             riscv_EmitStackStoreForSize(thisTAC,
                                         state,
@@ -617,6 +782,8 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_function_call:
         {
+            riscv_callerSaveRegisters(state, metadata, info);
+
             struct FunctionEntry *calledFunction = lookupFunByString(metadata->function->mainScope, thisTAC->operands[1].name.str);
             if (calledFunction->isDefined)
             {
@@ -629,14 +796,17 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
             if (thisTAC->operands[0].name.str != NULL)
             {
-                // FIXME:
-                // riscv_WriteVariable(thisTAC, state, metadata->scope, &thisTAC->operands[0], RETURN_REGISTER);
+                riscv_WriteVariable(thisTAC, state, metadata, info, &thisTAC->operands[0], info->returnValue);
             }
+
+            riscv_callerRestoreRegisters(state, metadata, info);
         }
         break;
 
         case tt_method_call:
         {
+            riscv_callerSaveRegisters(state, metadata, info);
+
             struct StructEntry *methodOf = lookupStructByType(metadata->scope, TAC_GetTypeOfOperand(thisTAC, 2));
             struct FunctionEntry *calledMethod = lookupMethodByString(methodOf, thisTAC->operands[1].name.str);
             // TODO: member function name mangling/uniqueness
@@ -651,9 +821,10 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
             if (thisTAC->operands[0].name.str != NULL)
             {
-                // FIXME: make work with new register allocation
-                // riscv_WriteVariable(thisTAC, state, metadata->scope, &thisTAC->operands[0], RETURN_REGISTER);
+                riscv_WriteVariable(thisTAC, state, metadata, info, &thisTAC->operands[0], info->returnValue);
             }
+
+            riscv_callerRestoreRegisters(state, metadata, info);
         }
         break;
 
@@ -666,14 +837,14 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
             if (thisTAC->operands[0].name.str != NULL)
             {
                 // FIXME: make work with new register allocation
-                // struct Register *sourceReg = placeOrFindOperandInRegister(thisTAC, state, metadata->scope, &thisTAC->operands[0], RETURN_REGISTER);
+                struct Register *sourceReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[0], info->returnValue);
 
-                // if (sourceReg != RETURN_REGISTER)
-                // {
-                //     emitInstruction(thisTAC, state, "\tmv %s, %s\n",
-                //                     registerNames[RETURN_REGISTER],
-                //                     registerNames[sourceReg]);
-                // }
+                if (sourceReg != info->returnValue)
+                {
+                    emitInstruction(thisTAC, state, "\tmv %s, %s\n",
+                                    info->returnValue->name,
+                                    sourceReg->name);
+                }
             }
             emitInstruction(thisTAC, state, "\tj %s_done\n", functionName);
         }

@@ -9,7 +9,8 @@
 void generateCodeForProgram(struct SymbolTable *table,
                             FILE *outFile,
                             void (*emitPrologue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *),
-                            void (*emitEpilogue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, char *))
+                            void (*emitEpilogue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, char *),
+                            void (*generateCodeForBasicBlock)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
     struct CodegenState globalContext;
     size_t globalInstructionIndex = 0;
@@ -29,12 +30,14 @@ void generateCodeForProgram(struct SymbolTable *table,
             {
                 break;
             }
+
+            // TODO: genericize this/sort out baremetal vs executable stuff
             if (!strcmp(generatedFunction->name, "main"))
             {
                 fprintf(outFile, "\t.globl _start\n_start:\n\tli sp, 0x81000000\n\tcall main\n\tpgm_done:\n\twfi\n\tj pgm_done\n");
             }
 
-            generateCodeForFunction(outFile, generatedFunction, NULL, emitPrologue, emitEpilogue);
+            generateCodeForFunction(outFile, generatedFunction, NULL, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
             fprintf(outFile, "\t.size %s, .-%s\n", generatedFunction->name, generatedFunction->name);
         }
         break;
@@ -53,7 +56,7 @@ void generateCodeForProgram(struct SymbolTable *table,
 
         case e_struct:
         {
-            generateCodeForStruct(&globalContext, thisMember->entry, emitPrologue, emitEpilogue);
+            generateCodeForStruct(&globalContext, thisMember->entry, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
         }
         break;
 
@@ -66,7 +69,8 @@ void generateCodeForProgram(struct SymbolTable *table,
 void generateCodeForStruct(struct CodegenState *globalContext,
                            struct StructEntry *theStruct,
                            void (*emitPrologue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *),
-                           void (*emitEpilogue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, char *))
+                           void (*emitEpilogue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, char *),
+                           void (*generateCodeForBasicBlock)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
     for (size_t entryIndex = 0; entryIndex < theStruct->members->entries->size; entryIndex++)
     {
@@ -78,7 +82,7 @@ void generateCodeForStruct(struct CodegenState *globalContext,
             struct FunctionEntry *methodToGenerate = thisMember->entry;
             if (methodToGenerate->isDefined)
             {
-                generateCodeForFunction(globalContext->outFile, methodToGenerate, theStruct->name, emitPrologue, emitEpilogue);
+                generateCodeForFunction(globalContext->outFile, methodToGenerate, theStruct->name, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
             }
         }
         break;
@@ -189,7 +193,8 @@ extern struct Config config;
 void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function,
                              char *methodOfStructName,
                              void (*emitPrologue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *),
-                             void (*emitEpilogue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, char *))
+                             void (*emitEpilogue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, char *),
+                             void (*generateCodeForBasicBlock)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
     char *fullFunctionName = function->name;
     if (methodOfStructName != NULL)
@@ -202,9 +207,9 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function,
         printf("the real name of %s is %s\n", function->name, fullFunctionName);
     }
     size_t instructionIndex = 0; // index from start of function in terms of number of instructions
-    struct CodegenState context;
-    context.outFile = outFile;
-    context.instructionIndex = &instructionIndex;
+    struct CodegenState state;
+    state.outFile = outFile;
+    state.instructionIndex = &instructionIndex;
 
     Log(LOG_INFO, "Generate code for function %s", fullFunctionName);
 
@@ -213,7 +218,6 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function,
 
     fprintf(outFile, ".align 2\n%s:\n", fullFunctionName);
     fprintf(outFile, "\t.loc 1 %d %d\n", function->correspondingTree.sourceLine, function->correspondingTree.sourceCol);
-    fprintf(outFile, "\t.cfi_startproc\n");
 
     struct CodegenMetadata metadata;
     memset(&metadata, 0, sizeof(struct CodegenMetadata));
@@ -232,7 +236,7 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function,
         Log(LOG_DEBUG, "%s is an asm function", function->name);
     }
 
-    emitPrologue(&context, &metadata, info);
+    emitPrologue(&state, &metadata, info);
 
     if (function->isAsmFun && (function->BasicBlockList->size != 1))
     {
@@ -243,17 +247,12 @@ void generateCodeForFunction(FILE *outFile, struct FunctionEntry *function,
     {
         struct BasicBlock *block = blockRunner->data;
         Log(LOG_DEBUG, "Generating code for basic block %zd", block->labelNum);
-        // generateCodeForBasicBlock(&context, block, function->mainScope, metadata.allLifetimes, fullFunctionName, metadata.reservedRegisters);
+        generateCodeForBasicBlock(&state, &metadata, info, block, fullFunctionName);
     }
 
-    emitEpilogue(&context, &metadata, info, fullFunctionName);
+    emitEpilogue(&state, &metadata, info, fullFunctionName);
 
-    free(info->arguments);
-    free(info->no_save);
-    free(info->callee_save);
-    free(info->caller_save);
-    free(info->allRegisters);
-    free(info);
+    MachineInfo_Free(info);
     Set_Free(metadata.touchedRegisters);
 
     // clean up after ourselves

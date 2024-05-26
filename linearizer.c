@@ -78,6 +78,8 @@ struct SymbolTable *walkProgram(struct AST *program)
         programRunner = programRunner->sibling;
     }
 
+    SymbolTable_DecayArrays(programTable);
+
     return programTable;
 }
 

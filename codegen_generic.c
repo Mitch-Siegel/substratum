@@ -45,19 +45,60 @@ void verifyCodegenPrimitive(struct TACOperand *operand)
     }
 }
 
-// TODO: variable number of scratch registers?
-struct Register *selectScratchRegister(struct MachineInfo *context, bool allowOverwrite)
+struct Register *acquireScratchRegister(struct MachineInfo *info)
 {
-    for (u8 scratchIndex = 0; scratchIndex < 3; scratchIndex++)
+    for (u8 scratchIndex = 0; scratchIndex < info->n_temps; scratchIndex++)
     {
-        if ((context->tempsOccupied[scratchIndex] == 0) || allowOverwrite)
+        if (info->tempsOccupied[scratchIndex] == 0)
         {
-            context->tempsOccupied[scratchIndex] = 1;
-            return context->temps[scratchIndex];
+            info->tempsOccupied[scratchIndex] = 1;
+            return info->temps[scratchIndex];
         }
     }
 
     InternalError("Unable to select scratch register");
+}
+
+void releaseScratchRegister(struct MachineInfo *info, struct Register *reg)
+{
+    for (u8 scratchIndex = 0; scratchIndex < info->n_temps; scratchIndex++)
+    {
+        if (info->temps[scratchIndex] == reg)
+        {
+            if (info->tempsOccupied[scratchIndex] != 0)
+            {
+                info->tempsOccupied[scratchIndex] = 0;
+            }
+            else
+            {
+                InternalError("Attempt to release non-held scratch register %s", reg->name);
+            }
+        }
+    }
+
+    InternalError("Attempt to release non-scratch register %s", reg->name);
+}
+
+void releaseAllScratchRegisters(struct MachineInfo *info)
+{
+    for (u8 scratchIndex = 0; scratchIndex < info->n_temps; scratchIndex++)
+    {
+        info->tempsOccupied[scratchIndex] = 0;
+    }
+}
+
+void tryReleaseScratchRegister(struct MachineInfo *info, struct Register *reg)
+{
+    for (u8 scratchIndex = 0; scratchIndex < info->n_temps; scratchIndex++)
+    {
+        if (info->temps[scratchIndex] == reg)
+        {
+            if (info->tempsOccupied[scratchIndex] != 0)
+            {
+                info->tempsOccupied[scratchIndex] = 0;
+            }
+        }
+    }
 }
 
 // TODO: variable number of scratch registers?
@@ -75,22 +116,13 @@ void invalidateScratchRegister(struct MachineInfo *context, struct Register *scr
     InternalError("invalidateScratchRegister called on non-scratch register %s", scratchRegister->name);
 }
 
-// places an operand by name into the specified register, or returns the index of the register containing if it's already in a register
-// does *NOT* guarantee that returned register indices are modifiable in the case where the variable is found in a register
-struct Register *placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
-                                              struct CodegenState *state,
-                                              struct TACOperand *operand,
-                                              struct Register *optionalScratch)
-{
-    // TODO: reimplement with new register allocation
-    return NULL;
-}
-
 struct Register *pickWriteRegister(struct CodegenMetadata *metadata,
                                    struct TACOperand *operand,
                                    struct Register *scratchReg)
 {
-    struct Lifetime *relevantLifetime = Set_Find(metadata->allLifetimes, operand->name.str);
+    struct Lifetime dummyLt = {0};
+    dummyLt.name = operand->name.str;
+    struct Lifetime *relevantLifetime = Set_Find(metadata->allLifetimes, &dummyLt);
     if (relevantLifetime == NULL)
     {
         InternalError("Unable to find lifetime for variable %s!", operand->name.str);
@@ -110,98 +142,4 @@ struct Register *pickWriteRegister(struct CodegenMetadata *metadata,
     }
 
     return NULL;
-}
-
-char SelectWidthCharForSize(u8 size)
-{
-    char widthChar = '\0';
-    switch (size)
-    {
-    case sizeof(u8):
-        widthChar = 'b';
-        break;
-
-    case sizeof(u16):
-        widthChar = 'h';
-        break;
-
-    case sizeof(u32):
-        widthChar = 'w';
-        break;
-
-    case sizeof(u64):
-        widthChar = 'd';
-        break;
-
-    default:
-        InternalError("Error in SelectWidth: Unexpected destination variable size\n\tVariable is not pointer, and is not of size 1, 2, 4, or 8 bytes!");
-    }
-
-    return widthChar;
-}
-
-const char *SelectSignForLoad(u8 loadSize, struct Type *loaded)
-{
-    switch (loadSize)
-    {
-    case 'b':
-    case 'h':
-    case 'w':
-        return "u";
-
-    case 'd':
-        return "";
-
-    default:
-        InternalError("Unexpected load size character seen in SelectSignForLoad!");
-    }
-}
-
-char SelectWidthChar(struct Scope *scope, struct TACOperand *dataDest)
-{
-    // pointers and arrays (decay implicitly at this stage to pointers) are always full-width
-    if (Type_GetIndirectionLevel(TACOperand_GetType(dataDest)) > 0)
-    {
-        return 'd';
-    }
-
-    return SelectWidthCharForSize(Type_GetSize(TACOperand_GetType(dataDest), scope));
-}
-
-char SelectWidthCharForDereference(struct Scope *scope, struct TACOperand *dataDest)
-{
-    struct Type *operandType = TACOperand_GetType(dataDest);
-    if ((operandType->pointerLevel == 0) &&
-        (operandType->basicType != vt_array))
-    {
-        InternalError("SelectWidthCharForDereference called on non-indirect operand %s!", dataDest->name.str);
-    }
-    struct Type dereferenced = *operandType;
-
-    // if not a pointer, we are dereferenceing an array so jump one layer down
-    if (dereferenced.pointerLevel == 0)
-    {
-        dereferenced = *dereferenced.array.type;
-    }
-    else
-    {
-        // is a pointer, decrement pointer level
-        dereferenced.pointerLevel--;
-    }
-    return SelectWidthCharForSize(Type_GetSize(&dereferenced, scope));
-}
-
-char SelectWidthCharForLifetime(struct Scope *scope, struct Lifetime *lifetime)
-{
-    char widthChar = '\0';
-    if (lifetime->type.pointerLevel > 0)
-    {
-        widthChar = 'd';
-    }
-    else
-    {
-        widthChar = SelectWidthCharForSize(Type_GetSize(&lifetime->type, scope));
-    }
-
-    return widthChar;
 }

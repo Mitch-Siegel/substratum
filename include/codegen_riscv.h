@@ -64,6 +64,13 @@ void riscv_emitPrologue(struct CodegenState *context, struct CodegenMetadata *me
 
 void riscv_emitEpilogue(struct CodegenState *context, struct CodegenMetadata *metadata, struct MachineInfo *info, char *functionName);
 
+struct Register *riscv_placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
+                                                    struct CodegenState *state,
+                                                    struct CodegenMetadata *metadata,
+                                                    struct MachineInfo *info,
+                                                    struct TACOperand *operand,
+                                                    struct Register *optionalScratch);
+
 void riscv_WriteVariable(struct TACLine *correspondingTACLine,
                          struct CodegenState *state,
                          struct CodegenMetadata *metadata,
@@ -72,10 +79,10 @@ void riscv_WriteVariable(struct TACLine *correspondingTACLine,
                          struct Register *dataSource);
 
 // place a literal in the register specified by numerical index, return string of register's name for asm
-char *riscv_PlaceLiteralStringInRegister(struct TACLine *correspondingTACLine,
-                                         struct CodegenState *state,
-                                         char *literalStr,
-                                         u8 destReg);
+void riscv_PlaceLiteralStringInRegister(struct TACLine *correspondingTACLine,
+                                        struct CodegenState *state,
+                                        char *literalStr,
+                                        struct Register *destReg);
 
 // places a variable in a register, with no guarantee that it is modifiable, returning the string of the register's name for asm
 struct Register *placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,

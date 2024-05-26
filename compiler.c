@@ -262,7 +262,7 @@ int main(int argc, char **argv)
 
         fprintf(outFile, "\t.file 2 \"%s\"\n", inFileName);
     }
-    generateCodeForProgram(theTable, outFile, riscv_emitPrologue, riscv_emitEpilogue);
+    generateCodeForProgram(theTable, outFile, riscv_emitPrologue, riscv_emitEpilogue, riscv_GenerateCodeForBasicBlock);
 
     SymbolTable_free(theTable);
 

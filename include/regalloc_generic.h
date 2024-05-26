@@ -35,6 +35,15 @@ struct Lifetime
     u8 isArgument;
 };
 
+struct MachineInfo *MachineInfo_New(u8 maxReg,
+                                    u8 n_temps,
+                                    u8 n_arguments,
+                                    u8 n_no_save,
+                                    u8 n_callee_save,
+                                    u8 n_caller_save);
+
+void MachineInfo_Free(struct MachineInfo *info);
+
 struct Lifetime *Lifetime_New(char *name,
                               struct Type *type,
                               size_t start,
@@ -89,10 +98,12 @@ struct MachineInfo
     struct Register *returnAddress;
     struct Register *stackPointer;
     struct Register *framePointer;
-    struct Register *temps[3];
-    u8 tempsOccupied[3];
+    struct Register *returnValue;
+    struct Register **temps;
+    u8 *tempsOccupied;
     struct Register **arguments;
     u8 n_arguments;
+    u8 n_temps;
 
     // all registers (whether or not they fall into the above categories) must have a calling convention defined
     struct Register **no_save;
@@ -114,7 +125,7 @@ extern struct MachineInfo *(*setupMachineInfo)();
 struct CodegenMetadata
 {
     struct FunctionEntry *function; // symbol table entry for the function the register allocation data is for
-    struct Scope *scope; // scope at which we are generating (identical to function->mainScope if in a function)
+    struct Scope *scope;            // scope at which we are generating (identical to function->mainScope if in a function)
 
     struct Set *touchedRegisters;
 
