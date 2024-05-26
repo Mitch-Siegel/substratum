@@ -433,7 +433,7 @@ struct Set *selectRegisterLifetimes(struct CodegenMetadata *metadata, struct Set
     return registerContentionLifetimes;
 }
 
-void allocateArgumentRegisters(struct CodegenMetadata *metadata)
+void allocateArgumentRegisters(struct CodegenMetadata *metadata, struct MachineInfo *machineInfo)
 {
     struct Set *argumentLifetimes = Set_New(metadata->allLifetimes->compareFunction, NULL);
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
@@ -446,9 +446,9 @@ void allocateArgumentRegisters(struct CodegenMetadata *metadata)
     }
 
     struct Set *argumentRegisterPool = Set_New(ssizet_compare, NULL);
-    for (u8 argRegIndex = 0; argRegIndex < metadata->machineContext->n_arguments; argRegIndex++)
+    for (u8 argRegIndex = 0; argRegIndex < machineInfo->n_arguments; argRegIndex++)
     {
-        Set_Insert(argumentRegisterPool, (void *)metadata->machineContext->arguments[argRegIndex]);
+        Set_Insert(argumentRegisterPool, (void *)machineInfo->arguments[argRegIndex]);
     }
 
     Set_Free(selectRegisterLifetimes(metadata, argumentLifetimes, argumentRegisterPool));
@@ -464,7 +464,7 @@ void allocateArgumentRegisters(struct CodegenMetadata *metadata)
     Set_Free(argumentLifetimes);
 }
 
-void allocateGeneralRegisters(struct CodegenMetadata *metadata)
+void allocateGeneralRegisters(struct CodegenMetadata *metadata, struct MachineInfo *machineInfo)
 {
     struct Set *registerContentionLifetimes = Set_Copy(metadata->allLifetimes);
     registerContentionLifetimes->dataFreeFunction = NULL;
@@ -472,15 +472,15 @@ void allocateGeneralRegisters(struct CodegenMetadata *metadata)
     struct Set *registerPool = Set_New(ssizet_compare, NULL);
 
     // the set is traversed head->tail and registers are pushed to a stack to allocate from. put caller-save registers first so they are at the bottom of the stack
-    for (u8 gpRegIndex = 0; gpRegIndex < metadata->machineContext->n_caller_save; gpRegIndex++)
+    for (u8 gpRegIndex = 0; gpRegIndex < machineInfo->n_caller_save; gpRegIndex++)
     {
-        Set_Insert(registerPool, (void *)metadata->machineContext->caller_save[gpRegIndex]);
+        Set_Insert(registerPool, (void *)machineInfo->caller_save[gpRegIndex]);
     }
 
     // callee_save at the top of the stack so they are allocated from first
-    for (u8 gpRegIndex = 0; gpRegIndex < metadata->machineContext->n_callee_save; gpRegIndex++)
+    for (u8 gpRegIndex = 0; gpRegIndex < machineInfo->n_callee_save; gpRegIndex++)
     {
-        Set_Insert(registerPool, (void *)metadata->machineContext->callee_save[gpRegIndex]);
+        Set_Insert(registerPool, (void *)machineInfo->callee_save[gpRegIndex]);
     }
 
     Set_Free(selectRegisterLifetimes(metadata, registerContentionLifetimes, registerPool));
@@ -497,7 +497,7 @@ void allocateGeneralRegisters(struct CodegenMetadata *metadata)
 }
 
 // really this is "figure out which lifetimes get a register"
-void allocateRegisters(struct CodegenMetadata *metadata)
+void allocateRegisters(struct CodegenMetadata *metadata, struct MachineInfo *info)
 {
     metadata->allLifetimes = findLifetimes(metadata->function->mainScope, metadata->function->BasicBlockList);
 
@@ -506,8 +506,8 @@ void allocateRegisters(struct CodegenMetadata *metadata)
     // register pointers are unique and only one should exist for a given register
     metadata->touchedRegisters = Set_New(ssizet_compare, NULL);
 
-    allocateArgumentRegisters(metadata);
-    allocateGeneralRegisters(metadata);
+    allocateArgumentRegisters(metadata, info);
+    allocateGeneralRegisters(metadata, info);
 
     allocateStackSpace(metadata);
 

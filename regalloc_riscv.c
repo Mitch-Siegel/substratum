@@ -69,10 +69,10 @@ struct Register riscvRegisters[RISCV_REGISTER_COUNT] = {
     { NULL, t6, "t6"},
 };
 
-struct MachineContext *setupRiscvMachineContext()
+struct MachineInfo *setupRiscvMachineInfo()
 {
-    struct MachineContext *context = malloc(sizeof(struct MachineContext));
-    memset(context, 0, sizeof(struct MachineContext));
+    struct MachineInfo *context = malloc(sizeof(struct MachineInfo));
+    memset(context, 0, sizeof(struct MachineInfo));
     context->maxReg = RISCV_REGISTER_COUNT;
 
     context->returnAddress = &riscvRegisters[ra];

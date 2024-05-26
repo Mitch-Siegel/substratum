@@ -83,13 +83,14 @@ struct Register *Register_New(u8 index);
 
 bool Register_IsLive(struct Register *reg, size_t index);
 
-struct MachineContext
+struct MachineInfo
 {
     // specifically required for register allocation - may be a subset of the entire machine register set
     struct Register *returnAddress;
     struct Register *stackPointer;
     struct Register *framePointer;
     struct Register *temps[3];
+    u8 tempsOccupied[3];
     struct Register **arguments;
     u8 n_arguments;
 
@@ -106,15 +107,14 @@ struct MachineContext
     u8 maxReg;
 };
 
-extern struct MachineContext *(*setupMachineContext)();
+extern struct MachineInfo *(*setupMachineInfo)();
 
 // things more related to codegen than specifically register allocation
 
 struct CodegenMetadata
 {
     struct FunctionEntry *function; // symbol table entry for the function the register allocation data is for
-
-    struct MachineContext *machineContext;
+    struct Scope *scope; // scope at which we are generating (identical to function->mainScope if in a function)
 
     struct Set *touchedRegisters;
 

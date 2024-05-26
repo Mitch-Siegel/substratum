@@ -5,7 +5,7 @@
 #include "substratum_defs.h"
 
 struct SymbolTable;
-struct CodegenContext;
+struct CodegenState;
 struct CodegenMetadata;
 struct FunctionEntry;
 struct VariableEntry;
@@ -13,28 +13,34 @@ struct StructEntry;
 struct BasicBlock;
 struct Scope;
 struct LinkedList;
+struct CodegenState;
+struct CodegenMetadata;
+struct MachineInfo;
 
-void generateCodeForProgram(struct SymbolTable *table, FILE *outFile);
+void generateCodeForProgram(struct SymbolTable *table,
+                            FILE *outFile,
+                            void (*emitPrologue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *),
+                            void (*emitEpilogue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, char *));
 
-void generateCodeForStruct(struct CodegenContext *globalContext, struct StructEntry *theStruct);
+void generateCodeForStruct(struct CodegenState *globalContext, struct StructEntry *theStruct,
+                           void (*emitPrologue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *),
+                           void (*emitEpilogue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, char *));
 
-void generateCodeForGlobalVariable(struct CodegenContext *globalContext, struct Scope *globalScope, struct VariableEntry *variable);
+void generateCodeForGlobalVariable(struct CodegenState *globalContext, struct Scope *globalScope, struct VariableEntry *variable);
 
-void generateCodeForGlobalBlock(struct CodegenContext *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock);
-
-void emitPrologue(struct CodegenContext *context, struct CodegenMetadata *metadata);
-
-void emitEpilogue(struct CodegenContext *context, struct CodegenMetadata *metadata, char *functionName);
+void generateCodeForGlobalBlock(struct CodegenState *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock);
 
 void generateCodeForFunction(FILE *outFile,
                              struct FunctionEntry *function,
-                             char *methodOfStructName); // NULL if not a method, otherwise the name of the struct which this function is a method of
+                             char *methodOfStructName, // NULL if not a method, otherwise the name of the struct which this function is a method of
+                             void (*emitPrologue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *),
+                             void (*emitEpilogue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, char *));
 
-void generateCodeForBasicBlock(struct CodegenContext *context,
+void generateCodeForBasicBlock(struct CodegenState *context,
+                               struct CodegenMetadata *metadata,
                                struct BasicBlock *block,
                                struct Scope *scope,
                                struct LinkedList *lifetimes,
-                               char *functionName,
-                               u8 reservedRegisters[3]);
+                               char *functionName);
 
 #endif

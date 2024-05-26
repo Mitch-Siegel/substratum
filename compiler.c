@@ -15,6 +15,8 @@
 #include "tac.h"
 #include "util.h"
 
+#include "codegen_riscv.h"
+
 struct Dictionary *parseDict = NULL;
 
 void usage()
@@ -260,7 +262,7 @@ int main(int argc, char **argv)
 
         fprintf(outFile, "\t.file 2 \"%s\"\n", inFileName);
     }
-    generateCodeForProgram(theTable, outFile);
+    generateCodeForProgram(theTable, outFile, riscv_emitPrologue, riscv_emitEpilogue);
 
     SymbolTable_free(theTable);
 
