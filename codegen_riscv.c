@@ -236,14 +236,23 @@ void riscv_callerSaveRegisters(struct CodegenState *state, struct RegallocMetada
         if (Set_Find(metadata->touchedRegisters, potentiallyCallerSaved) != NULL)
         {
             Stack_Push(actuallyCallerSaved, potentiallyCallerSaved);
+            Log(LOG_DEBUG, "%s is used in %s, need to caller-save", potentiallyCallerSaved->name, metadata->function->name);
         }
     }
+
+    if(actuallyCallerSaved->size == 0)
+    {
+        Stack_Free(actuallyCallerSaved);
+        return;
+    }
+
+    emitInstruction(NULL, state, "\t#Caller-save registers\n");
 
     char *spName = info->stackPointer->name;
     emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
     for (size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
-        struct Register *calleeSaved = info->callee_save[regIndex];
+        struct Register *calleeSaved = actuallyCallerSaved->data[regIndex];
         riscv_EmitStackStoreForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
     }
 
@@ -266,10 +275,18 @@ void riscv_callerRestoreRegisters(struct CodegenState *state, struct RegallocMet
         }
     }
 
+    if(actuallyCallerSaved->size == 0)
+    {
+        Stack_Free(actuallyCallerSaved);
+        return;
+    }
+
+    emitInstruction(NULL, state, "\t#Caller-restore registers\n");
+
     char *spName = info->stackPointer->name;
     for (size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
-        struct Register *calleeSaved = info->caller_save[regIndex];
+        struct Register *calleeSaved = actuallyCallerSaved->data[regIndex];
         riscv_EmitStackLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
     }
     emitInstruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
@@ -282,7 +299,7 @@ void riscv_calleeSaveRegisters(struct CodegenState *state, struct RegallocMetada
     Log(LOG_DEBUG, "Callee-saving registers");
     struct Stack *actuallyCalleeSaved = Stack_New();
 
-    for (size_t regIndex = 0; regIndex < info->n_caller_save; regIndex++)
+    for (size_t regIndex = 0; regIndex < info->n_callee_save; regIndex++)
     {
         struct Register *potentiallyCalleeSaved = info->callee_save[regIndex];
         // only need to actually callee-save registers we touch in this function
@@ -301,7 +318,7 @@ void riscv_calleeSaveRegisters(struct CodegenState *state, struct RegallocMetada
     emitInstruction(NULL, state, "\t#Callee-save registers\n");
     for (size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
     {
-        struct Register *calleeSaved = info->callee_save[regIndex];
+        struct Register *calleeSaved = actuallyCalleeSaved->data[regIndex];
         riscv_EmitFrameStoreForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
     }
 
@@ -318,7 +335,7 @@ void riscv_calleeRestoreRegisters(struct CodegenState *state, struct RegallocMet
     Log(LOG_DEBUG, "Callee-restoring registers");
     struct Stack *actuallyCalleeSaved = Stack_New();
 
-    for (size_t regIndex = 0; regIndex < info->n_caller_save; regIndex++)
+    for (size_t regIndex = 0; regIndex < info->n_callee_save; regIndex++)
     {
         struct Register *potentiallyCalleeSaved = info->callee_save[regIndex];
         // only need to actually callee-save registers we touch in this function
@@ -337,7 +354,7 @@ void riscv_calleeRestoreRegisters(struct CodegenState *state, struct RegallocMet
     emitInstruction(NULL, state, "\t#Callee-restore registers\n");
     for (size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
     {
-        struct Register *calleeSaved = info->callee_save[regIndex];
+        struct Register *calleeSaved = actuallyCalleeSaved->data[regIndex];
         riscv_EmitFrameLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
     }
     char *spName = info->stackPointer->name;
@@ -460,7 +477,8 @@ void riscv_WriteVariable(struct TACLine *correspondingTACLine,
         // only need to emit a move if the register locations differ
         if (writtenLifetime->writebackInfo.regLocation->index != dataSource->index)
         {
-            emitInstruction(correspondingTACLine, state, "mv %s, %s\n", writtenLifetime->writebackInfo.regLocation->name, dataSource->name);
+            emitInstruction(correspondingTACLine, state, "\t#write register variable %s\n", writtenLifetime->name);
+            emitInstruction(correspondingTACLine, state, "\tmv %s, %s\n", writtenLifetime->writebackInfo.regLocation->name, dataSource->name);
             writtenLifetime->writebackInfo.regLocation->containedLifetime = writtenLifetime;
         }
         break;
@@ -524,38 +542,57 @@ void riscv_emitArgumentStores(struct CodegenState *state,
                               struct FunctionEntry *calledFunction,
                               struct Stack *argumentOperands)
 {
-    while(argumentOperands->size > 0)
+    struct Register *postCallFramePointer = acquireScratchRegister(info);
+    emitInstruction(NULL, state, "\taddi %s, %s, %zu\n", postCallFramePointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES));
+
+    while (argumentOperands->size > 0)
     {
         struct TACOperand *argOperand = Stack_Pop(argumentOperands);
 
         struct VariableEntry *argument = calledFunction->arguments->data[argumentOperands->size];
-        
+
         struct Lifetime dummyLt = {0};
         dummyLt.name = argument->name;
         struct Lifetime *argLifetime = Set_Find(calledFunction->regalloc.allLifetimes, &dummyLt);
 
-        switch(argLifetime->wbLocation)
+        emitInstruction(NULL, state, "\t#Store argument %s - %s\n", argument->name, argOperand->name.str);
+        switch (argLifetime->wbLocation)
         {
-            case wb_register:
-                struct Register *writtenTo = argLifetime->writebackInfo.regLocation;
-                struct Register *foundIn = riscv_placeOrFindOperandInRegister(NULL, state, metadata, info, argOperand, writtenTo);
-                if(writtenTo != foundIn)
-                {
-                    emitInstruction(NULL, state, "\tmv %s, %s\n", writtenTo->name, foundIn->name);
-                }
-                break;
-
-            case wb_stack:
+        case wb_register:
+            struct Register *writtenTo = argLifetime->writebackInfo.regLocation;
+            struct Register *foundIn = riscv_placeOrFindOperandInRegister(NULL, state, metadata, info, argOperand, writtenTo);
+            if (writtenTo != foundIn)
+            {
+                emitInstruction(NULL, state, "\tmv %s, %s\n", writtenTo->name, foundIn->name);
+            }
+            else
+            {
+                emitInstruction(NULL, state, "\t# already in %s\n", foundIn->name);
+            }
             break;
 
-            case wb_global:
-                InternalError("Lifetime for argument %s has global writeback!", argLifetime->name);
-                break;
+        case wb_stack:
+        {
+            struct Register *scratch = acquireScratchRegister(info);
+            struct Register *writeFrom = riscv_placeOrFindOperandInRegister(NULL, state, metadata, info, argOperand, scratch);
 
-            case wb_unknown:
-                InternalError("Lifetime for argument %s has unknown writeback!", argLifetime->name);
-                break;
+            emitInstruction(NULL, state, "\ts%c %s, %zd(%s)\n",
+                            riscv_SelectWidthCharForLifetime(calledFunction->mainScope, argLifetime),
+                            writeFrom->name,
+                            argLifetime->writebackInfo.stackOffset,
+                            info->framePointer);
 
+            tryReleaseScratchRegister(info, scratch);
+        }
+        break;
+
+        case wb_global:
+            InternalError("Lifetime for argument %s has global writeback!", argLifetime->name);
+            break;
+
+        case wb_unknown:
+            InternalError("Lifetime for argument %s has unknown writeback!", argLifetime->name);
+            break;
         }
     }
 }

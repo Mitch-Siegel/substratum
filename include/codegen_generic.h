@@ -36,14 +36,4 @@ struct Register *pickWriteRegister(struct RegallocMetadata *metadata,
                                    struct TACOperand *operand,
                                    struct Register *scratchReg);
 
-const char *SelectSignForLoad(u8 loadSize, struct Type *loaded);
-
-char SelectWidthCharForSize(u8 size);
-
-char SelectWidthChar(struct Scope *scope, struct TACOperand *dataDest);
-
-char SelectWidthCharForDereference(struct Scope *scope, struct TACOperand *dataDestP);
-
-char SelectWidthCharForLifetime(struct Scope *scope, struct Lifetime *lifetime);
-
 #endif

@@ -499,6 +499,8 @@ void allocateGeneralRegisters(struct RegallocMetadata *metadata, struct MachineI
 // really this is "figure out which lifetimes get a register"
 void allocateRegisters(struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
+    Log(LOG_DEBUG, "Allocate registers for %s", metadata->function->name);
+    
     // register pointers are unique and only one should exist for a given register
     metadata->touchedRegisters = Set_New(ssizet_compare, NULL);
 

@@ -75,7 +75,7 @@ struct MachineInfo *riscv_SetupMachineInfo()
     const u8 nArguments = 8;
     const u8 nNoSave = 0;
     const u8 nCalleeSave = 11;
-    const u8 nCallerSave = 4;
+    const u8 nCallerSave = 12;
     struct MachineInfo *info = MachineInfo_New(RISCV_REGISTER_COUNT, nTemps, nArguments, nNoSave, nCalleeSave, nCallerSave);
 
     info->returnAddress = &riscvRegisters[ra];
@@ -108,10 +108,22 @@ struct MachineInfo *riscv_SetupMachineInfo()
     info->callee_save[calleeReg++] = &riscvRegisters[s10];
     info->callee_save[calleeReg++] = &riscvRegisters[s11];
 
-    for (u8 callerReg = 0; callerReg < nCallerSave; callerReg++)
-    {
-        info->caller_save[callerReg] = &riscvRegisters[t3 + callerReg];
-    }
+    u8 callerReg = 0;
+
+    info->caller_save[callerReg++] = &riscvRegisters[a0];
+    info->caller_save[callerReg++] = &riscvRegisters[a1];
+    info->caller_save[callerReg++] = &riscvRegisters[a2];
+    info->caller_save[callerReg++] = &riscvRegisters[a3];
+    info->caller_save[callerReg++] = &riscvRegisters[a4];
+    info->caller_save[callerReg++] = &riscvRegisters[a5];
+    info->caller_save[callerReg++] = &riscvRegisters[a6];
+    info->caller_save[callerReg++] = &riscvRegisters[a7];
+
+    info->caller_save[callerReg++] = &riscvRegisters[t3];
+    info->caller_save[callerReg++] = &riscvRegisters[t4];
+    info->caller_save[callerReg++] = &riscvRegisters[t5];
+    info->caller_save[callerReg++] = &riscvRegisters[t6];
+    
 
     for (u8 regIndex = 0; regIndex < RISCV_REGISTER_COUNT; regIndex++)
     {
