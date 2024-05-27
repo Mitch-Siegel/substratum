@@ -376,7 +376,7 @@ void Scope_print(struct Scope *scope, FILE *outFile, size_t depth, char printTAC
             {
                 fprintf(outFile, "> Function ");
             }
-            fprintf(outFile, "%s (returns %s) (defined: %d)\n\t%ld bytes of arguments on stack\n", thisMember->name, returnTypeName, theFunction->isDefined, theFunction->argStackSize);
+            fprintf(outFile, "%s (returns %s) (defined: %d)\n", thisMember->name, returnTypeName, theFunction->isDefined);
             free(returnTypeName);
             Scope_print(theFunction->mainScope, outFile, depth + 1, printTAC);
         }

@@ -9,8 +9,8 @@
 struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType)
 {
     struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
+    memset(newFunction, 0, sizeof(struct FunctionEntry));
     newFunction->arguments = Stack_New();
-    newFunction->argStackSize = 0;
     newFunction->mainScope = Scope_new(parentScope, nameTree->value, newFunction);
     newFunction->BasicBlockList = LinkedList_New();
     newFunction->correspondingTree = *nameTree;
@@ -21,6 +21,10 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *n
     newFunction->isDefined = 0;
     newFunction->isAsmFun = 0;
     newFunction->callsOtherFunction = 0;
+
+    newFunction->regalloc.function = newFunction;
+    newFunction->regalloc.scope = newFunction->mainScope;
+
     return newFunction;
 }
 
@@ -29,6 +33,13 @@ void FunctionEntry_free(struct FunctionEntry *function)
     Stack_Free(function->arguments);
     LinkedList_Free(function->BasicBlockList, NULL);
     Scope_free(function->mainScope);
+
+    if(function->regalloc.allLifetimes != NULL)
+    {
+        Set_Free(function->regalloc.allLifetimes);
+        Set_Free(function->regalloc.touchedRegisters);
+    }
+
     free(function);
 }
 

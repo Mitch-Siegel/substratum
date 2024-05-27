@@ -6,7 +6,7 @@
 
 struct SymbolTable;
 struct CodegenState;
-struct CodegenMetadata;
+struct RegallocMetadata;
 struct FunctionEntry;
 struct VariableEntry;
 struct StructEntry;
@@ -14,19 +14,21 @@ struct BasicBlock;
 struct Scope;
 struct LinkedList;
 struct CodegenState;
-struct CodegenMetadata;
+struct RegallocMetadata;
 struct MachineInfo;
 
 void generateCodeForProgram(struct SymbolTable *table,
                             FILE *outFile,
-                            void (*emitPrologue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *),
-                            void (*emitEpilogue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, char *),
-                            void (*generateCodeForBasicBlock)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
+                            struct MachineInfo *info,
+                            void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                            void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                            void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
 
 void generateCodeForStruct(struct CodegenState *globalContext, struct StructEntry *theStruct,
-                           void (*emitPrologue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *),
-                           void (*emitEpilogue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, char *),
-                           void (*generateCodeForBasicBlock)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
+                           struct MachineInfo *info,
+                           void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                           void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                           void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
 
 void generateCodeForGlobalVariable(struct CodegenState *globalContext, struct Scope *globalScope, struct VariableEntry *variable);
 
@@ -34,13 +36,14 @@ void generateCodeForGlobalBlock(struct CodegenState *globalContext, struct Scope
 
 void generateCodeForFunction(FILE *outFile,
                              struct FunctionEntry *function,
+                             struct MachineInfo *info,
                              char *methodOfStructName, // NULL if not a method, otherwise the name of the struct which this function is a method of
-                             void (*emitPrologue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *),
-                             void (*emitEpilogue)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, char *),
-                             void (*generateCodeForBasicBlock)(struct CodegenState *, struct CodegenMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
+                             void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                             void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                             void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
 
 void generateCodeForBasicBlock(struct CodegenState *context,
-                               struct CodegenMetadata *metadata,
+                               struct RegallocMetadata *metadata,
                                struct BasicBlock *block,
                                struct Scope *scope,
                                struct LinkedList *lifetimes,

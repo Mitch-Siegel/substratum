@@ -37,4 +37,4 @@ enum riscvRegisters
     RISCV_REGISTER_COUNT,
 };
 
-struct MachineInfo *setupRiscvMachineInfo();
+struct MachineInfo *riscv_SetupMachineInfo();

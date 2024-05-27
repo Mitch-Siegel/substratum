@@ -92,10 +92,8 @@ char *getAsmOp(enum TACType tacOperation)
         return "bnez";
     case tt_jmp:
         return "jmp";
-    case tt_stack_reserve:
-        return "stack reserve";
-    case tt_stack_store:
-        return "stack store";
+    case tt_arg_store:
+        return "arg store";
     case tt_phi:
         return "phi";
     }
@@ -307,12 +305,8 @@ char *sPrintTACLine(struct TACLine *line)
         width += sprintf(tacString + width, "%s!%zu = %s!%zu", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber);
         break;
 
-    case tt_stack_reserve:
-        width += sprintf(tacString + width, "reserve %ld bytes stack", line->operands[0].name.val);
-        break;
-
-    case tt_stack_store:
-        width += sprintf(tacString + width, "store %s!%zu at stack offset %ld", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.val);
+    case tt_arg_store:
+        width += sprintf(tacString + width, "store argument %s!%zu", line->operands[0].name.str, line->operands[0].ssaNumber);
         break;
 
     case tt_function_call:
@@ -416,7 +410,7 @@ enum TACOperandUse getUseOfOperand(struct TACLine *line, u8 operandIndex) // NOL
 
     // single operand in slot 0
     case tt_return:
-    case tt_stack_store:
+    case tt_arg_store:
         if (operandIndex == 0)
         {
             use = u_read;
@@ -550,7 +544,6 @@ enum TACOperandUse getUseOfOperand(struct TACLine *line, u8 operandIndex) // NOL
 
     case tt_jmp:
     case tt_label:
-    case tt_stack_reserve:
         break;
     }
 

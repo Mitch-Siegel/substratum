@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "ast.h"
+#include "regalloc.h"
 #include "codegen.h"
 #include "linearizer.h"
 #include "log.h"
@@ -15,7 +16,9 @@
 #include "tac.h"
 #include "util.h"
 
+
 #include "codegen_riscv.h"
+#include "regalloc_riscv.h"
 
 struct Dictionary *parseDict = NULL;
 
@@ -262,7 +265,15 @@ int main(int argc, char **argv)
 
         fprintf(outFile, "\t.file 2 \"%s\"\n", inFileName);
     }
-    generateCodeForProgram(theTable, outFile, riscv_emitPrologue, riscv_emitEpilogue, riscv_GenerateCodeForBasicBlock);
+
+    setupMachineInfo = riscv_SetupMachineInfo;
+    struct MachineInfo *info = setupMachineInfo();
+
+    allocateRegistersForProgram(theTable, info);
+
+    generateCodeForProgram(theTable, outFile, info, riscv_emitPrologue, riscv_emitEpilogue, riscv_GenerateCodeForBasicBlock);
+
+    MachineInfo_Free(info);
 
     SymbolTable_free(theTable);
 

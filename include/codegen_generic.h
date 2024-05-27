@@ -32,7 +32,7 @@ void releaseAllScratchRegisters(struct MachineInfo *info);
 
 void invalidateScratchRegister(struct MachineInfo *info, struct Register *scratchRegister);
 
-struct Register *pickWriteRegister(struct CodegenMetadata *metadata,
+struct Register *pickWriteRegister(struct RegallocMetadata *metadata,
                                    struct TACOperand *operand,
                                    struct Register *scratchReg);
 

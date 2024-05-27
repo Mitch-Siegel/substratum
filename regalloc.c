@@ -186,7 +186,7 @@ void bubbleSortLifetimesBySize(struct Stack *lifetimeStack, struct Scope *scope)
     }
 }
 
-void setupLocalStack(struct CodegenMetadata *metadata, struct Stack *localStackLifetimes)
+void setupLocalStack(struct RegallocMetadata *metadata, struct Stack *localStackLifetimes)
 {
     if (localStackLifetimes->size == 0)
     {
@@ -213,7 +213,7 @@ void setupLocalStack(struct CodegenMetadata *metadata, struct Stack *localStackL
     }
 }
 
-void setupArgumentStack(struct CodegenMetadata *metadata, struct Stack *argumentStackLifetimes)
+void setupArgumentStack(struct RegallocMetadata *metadata, struct Stack *argumentStackLifetimes)
 {
     if (argumentStackLifetimes->size == 0)
     {
@@ -222,7 +222,7 @@ void setupArgumentStack(struct CodegenMetadata *metadata, struct Stack *argument
 
     bubbleSortLifetimesBySize(argumentStackLifetimes, metadata->function->mainScope);
 
-    // TODO: generically handle saving of return address/frame pointer
+    // always save frame pointer and return address to stack
     ssize_t argOffset = 2 * MACHINE_REGISTER_SIZE_BYTES;
     for (size_t indexI = 0; indexI < argumentStackLifetimes->size; indexI++)
     {
@@ -240,7 +240,7 @@ void setupArgumentStack(struct CodegenMetadata *metadata, struct Stack *argument
     }
 }
 
-void allocateStackSpace(struct CodegenMetadata *metadata)
+void allocateStackSpace(struct RegallocMetadata *metadata)
 {
     struct Stack *localStackLifetimes = Stack_New();
     struct Stack *argumentStackLifetimes = Stack_New();
@@ -356,7 +356,7 @@ struct HashTable *generateInterferenceGraph(struct Set *registerContentionLifeti
 // selectFrom: set of pointers to lifetimes which are in contention for registers
 // registerPool: set of register indices (raw values in void * form) which are available to allocate
 // returns: set of lifetimes which were allocated registers, leaving only lifetimes which were not given registers in selectFrom
-struct Set *selectRegisterLifetimes(struct CodegenMetadata *metadata, struct Set *selectFrom, struct Set *registerPool)
+struct Set *selectRegisterLifetimes(struct RegallocMetadata *metadata, struct Set *selectFrom, struct Set *registerPool)
 {
     struct Set *registerContentionLifetimes = preSelectRegisterContentionLifetimes(selectFrom, metadata->function->mainScope);
 
@@ -433,7 +433,7 @@ struct Set *selectRegisterLifetimes(struct CodegenMetadata *metadata, struct Set
     return registerContentionLifetimes;
 }
 
-void allocateArgumentRegisters(struct CodegenMetadata *metadata, struct MachineInfo *machineInfo)
+void allocateArgumentRegisters(struct RegallocMetadata *metadata, struct MachineInfo *machineInfo)
 {
     struct Set *argumentLifetimes = Set_New(metadata->allLifetimes->compareFunction, NULL);
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
@@ -464,7 +464,7 @@ void allocateArgumentRegisters(struct CodegenMetadata *metadata, struct MachineI
     Set_Free(argumentLifetimes);
 }
 
-void allocateGeneralRegisters(struct CodegenMetadata *metadata, struct MachineInfo *machineInfo)
+void allocateGeneralRegisters(struct RegallocMetadata *metadata, struct MachineInfo *machineInfo)
 {
     struct Set *registerContentionLifetimes = Set_Copy(metadata->allLifetimes);
     registerContentionLifetimes->dataFreeFunction = NULL;
@@ -497,17 +497,16 @@ void allocateGeneralRegisters(struct CodegenMetadata *metadata, struct MachineIn
 }
 
 // really this is "figure out which lifetimes get a register"
-void allocateRegisters(struct CodegenMetadata *metadata, struct MachineInfo *info)
+void allocateRegisters(struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     // register pointers are unique and only one should exist for a given register
     metadata->touchedRegisters = Set_New(ssizet_compare, NULL);
-
 
     // assume we will always touch the stack pointer
     Set_Insert(metadata->touchedRegisters, info->stackPointer);
 
     // if we call another function we will touch the frame pointer
-    if(metadata->function->callsOtherFunction)
+    if (metadata->function->callsOtherFunction)
     {
         Set_Insert(metadata->touchedRegisters, info->framePointer);
     }
@@ -558,4 +557,48 @@ void allocateRegisters(struct CodegenMetadata *metadata, struct MachineInfo *inf
         Log(LOG_DEBUG, "%40s:%s:%s", printedLt->name, location, ltLengthString);
     }
     free(ltLengthString);
+}
+
+void allocateRegistersForScope(struct Scope *scope, struct MachineInfo *info)
+{
+    for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
+    {
+        struct ScopeMember *thisMember = scope->entries->data[entryIndex];
+
+        switch (thisMember->type)
+        {
+        case e_argument:
+        case e_variable:
+            break;
+
+        case e_struct:
+        {
+            struct StructEntry *thisStruct = thisMember->entry;
+            allocateRegistersForScope(thisStruct->members, info);
+        }
+        break;
+
+        case e_function:
+        {
+            struct FunctionEntry *thisFunction = thisMember->entry;
+            allocateRegisters(&thisFunction->regalloc, info);
+
+        }
+        break;
+
+        case e_scope:
+        {
+            allocateRegistersForScope(thisMember->entry, info);
+        }
+        break;
+
+        case e_basicblock:
+            break;
+        }
+    }
+}
+
+void allocateRegistersForProgram(struct SymbolTable *theTable, struct MachineInfo *info)
+{
+    allocateRegistersForScope(theTable->globalScope, info);
 }

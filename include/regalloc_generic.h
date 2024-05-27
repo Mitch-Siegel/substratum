@@ -122,14 +122,14 @@ extern struct MachineInfo *(*setupMachineInfo)();
 
 // things more related to codegen than specifically register allocation
 
-struct CodegenMetadata
+struct RegallocMetadata
 {
     struct FunctionEntry *function; // symbol table entry for the function the register allocation data is for
     struct Scope *scope;            // scope at which we are generating (identical to function->mainScope if in a function)
 
-    struct Set *touchedRegisters;
+    struct Set *allLifetimes; // every lifetime that exists within this function based on variables and TAC operands (puplated during regalloc)
 
-    struct Set *allLifetimes; // every lifetime that exists within this function based on variables and TAC operands
+    struct Set *touchedRegisters;
 
     // largest TAC index for any basic block within the function
     size_t largestTacIndex;
@@ -140,10 +140,10 @@ struct CodegenMetadata
 
 // populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i
 // then determine which variables should be spilled
-size_t generateLifetimeOverlaps(struct CodegenMetadata *metadata);
+size_t generateLifetimeOverlaps(struct RegallocMetadata *metadata);
 
 // assign registers to variables which have registers
 // assign spill addresses to variables which are spilled
-void assignRegisters(struct CodegenMetadata *metadata);
+void assignRegisters(struct RegallocMetadata *metadata);
 
 #endif

@@ -116,7 +116,7 @@ void invalidateScratchRegister(struct MachineInfo *context, struct Register *scr
     InternalError("invalidateScratchRegister called on non-scratch register %s", scratchRegister->name);
 }
 
-struct Register *pickWriteRegister(struct CodegenMetadata *metadata,
+struct Register *pickWriteRegister(struct RegallocMetadata *metadata,
                                    struct TACOperand *operand,
                                    struct Register *scratchReg)
 {

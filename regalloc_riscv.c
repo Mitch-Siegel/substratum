@@ -69,7 +69,7 @@ struct Register riscvRegisters[RISCV_REGISTER_COUNT] = {
     { NULL, t6, "t6" },
 };
 
-struct MachineInfo *setupRiscvMachineInfo()
+struct MachineInfo *riscv_SetupMachineInfo()
 {
     const u8 nTemps = 3;
     const u8 nArguments = 8;

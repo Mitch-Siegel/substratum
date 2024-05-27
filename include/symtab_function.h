@@ -4,12 +4,12 @@
 #include "substratum_defs.h"
 
 #include "ast.h"
+#include "regalloc_generic.h"
 #include "symtab_scope.h"
 #include "type.h"
 
 struct FunctionEntry
 {
-    size_t argStackSize;
     struct Type returnType;
     struct Scope *mainScope;
     struct Stack *arguments;      // stack of VariableEntry pointers corresponding by index to arguments
@@ -20,6 +20,7 @@ struct FunctionEntry
     u8 isDefined;
     u8 isAsmFun;
     u8 callsOtherFunction; // is it possible this function calls another function? (need to store return address on stack)
+    struct RegallocMetadata regalloc;
 };
 
 struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType);

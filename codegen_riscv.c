@@ -224,7 +224,7 @@ void riscv_EmitPopForSize(struct TACLine *correspondingTACLine,
     emitInstruction(correspondingTACLine, state, "\taddi sp, sp, %d\n", size);
 }
 
-void riscv_callerSaveRegisters(struct CodegenState *state, struct CodegenMetadata *metadata, struct MachineInfo *info)
+void riscv_callerSaveRegisters(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     Log(LOG_DEBUG, "Caller-saving registers");
     struct Stack *actuallyCallerSaved = Stack_New();
@@ -250,7 +250,7 @@ void riscv_callerSaveRegisters(struct CodegenState *state, struct CodegenMetadat
     Stack_Free(actuallyCallerSaved);
 }
 
-void riscv_callerRestoreRegisters(struct CodegenState *state, struct CodegenMetadata *metadata, struct MachineInfo *info)
+void riscv_callerRestoreRegisters(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     // TODO: implement for new register allocator
     Log(LOG_DEBUG, "Caller-restoring registers");
@@ -277,7 +277,7 @@ void riscv_callerRestoreRegisters(struct CodegenState *state, struct CodegenMeta
     Stack_Free(actuallyCallerSaved);
 }
 
-void riscv_calleeSaveRegisters(struct CodegenState *state, struct CodegenMetadata *metadata, struct MachineInfo *info)
+void riscv_calleeSaveRegisters(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     Log(LOG_DEBUG, "Callee-saving registers");
     struct Stack *actuallyCalleeSaved = Stack_New();
@@ -290,6 +290,12 @@ void riscv_calleeSaveRegisters(struct CodegenState *state, struct CodegenMetadat
         {
             Stack_Push(actuallyCalleeSaved, potentiallyCalleeSaved);
         }
+    }
+
+    if (actuallyCalleeSaved->size == 0)
+    {
+        Stack_Free(actuallyCalleeSaved);
+        return;
     }
 
     emitInstruction(NULL, state, "\t#Callee-save registers\n");
@@ -306,7 +312,7 @@ void riscv_calleeSaveRegisters(struct CodegenState *state, struct CodegenMetadat
     Stack_Free(actuallyCalleeSaved);
 }
 
-void riscv_calleeRestoreRegisters(struct CodegenState *state, struct CodegenMetadata *metadata, struct MachineInfo *info)
+void riscv_calleeRestoreRegisters(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     // TODO: implement for new register allocator
     Log(LOG_DEBUG, "Callee-restoring registers");
@@ -322,6 +328,12 @@ void riscv_calleeRestoreRegisters(struct CodegenState *state, struct CodegenMeta
         }
     }
 
+    if (actuallyCalleeSaved->size == 0)
+    {
+        Stack_Free(actuallyCalleeSaved);
+        return;
+    }
+
     emitInstruction(NULL, state, "\t#Callee-restore registers\n");
     for (size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
     {
@@ -334,30 +346,42 @@ void riscv_calleeRestoreRegisters(struct CodegenState *state, struct CodegenMeta
     Stack_Free(actuallyCalleeSaved);
 }
 
-void riscv_emitPrologue(struct CodegenState *state, struct CodegenMetadata *metadata, struct MachineInfo *info)
+void riscv_emitPrologue(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     fprintf(state->outFile, "\t.cfi_startproc\n");
 
     // save the frame pointer, stack pointer, and return address
-    emitInstruction(NULL, state, "\t#Save fp, sp, return address\n");
+    emitInstruction(NULL, state, "\t#Save fp, return address\n");
     riscv_EmitPushForSize(NULL, state, MACHINE_REGISTER_SIZE_BYTES, info->framePointer);
+    riscv_EmitPushForSize(NULL, state, MACHINE_REGISTER_SIZE_BYTES, info->returnAddress);
     emitInstruction(NULL, state, "\tmv %s, %s\n", info->framePointer->name, info->stackPointer->name);
     emitInstruction(NULL, state, "\t.cfi_def_cfa_offset %zd\n", (ssize_t)2 * MACHINE_REGISTER_SIZE_BYTES);
+
+    if (metadata->localStackSize > 0)
+    {
+        emitInstruction(NULL, state, "\taddi %s, %s, -%zu\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
+    }
 
     riscv_calleeSaveRegisters(state, metadata, info);
     // TODO: implement for new register allocator
 }
 
-void riscv_emitEpilogue(struct CodegenState *state, struct CodegenMetadata *metadata, struct MachineInfo *info, char *functionName)
+void riscv_emitEpilogue(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info, char *functionName)
 {
     emitInstruction(NULL, state, "%s_done:\n", functionName);
     riscv_calleeRestoreRegisters(state, metadata, info);
 
-    emitInstruction(NULL, state, "\t#Restore fp, sp, return address\n");
+    if (metadata->localStackSize > 0)
+    {
+        emitInstruction(NULL, state, "\taddi %s, %s, %zu\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
+    }
+
+    emitInstruction(NULL, state, "\t#Restore fp, return address\n");
+    riscv_EmitPopForSize(NULL, state, MACHINE_REGISTER_SIZE_BYTES, info->returnAddress);
     riscv_EmitPopForSize(NULL, state, MACHINE_REGISTER_SIZE_BYTES, info->framePointer);
     emitInstruction(NULL, state, "\tmv %s, %s\n", info->stackPointer->name, info->framePointer->name);
 
-    emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, metadata->function->argStackSize);
+    emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, metadata->argStackSize);
 
     emitInstruction(NULL, state, "\tjalr zero, 0(%s)\n", info->returnAddress->name);
     fprintf(state->outFile, "\t.cfi_endproc\n");
@@ -369,7 +393,7 @@ void riscv_emitEpilogue(struct CodegenState *state, struct CodegenMetadata *meta
 // does *NOT* guarantee that returned register indices are modifiable in the case where the variable is found in a register
 struct Register *riscv_placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
                                                     struct CodegenState *state,
-                                                    struct CodegenMetadata *metadata,
+                                                    struct RegallocMetadata *metadata,
                                                     struct MachineInfo *info,
                                                     struct TACOperand *operand,
                                                     struct Register *optionalScratch)
@@ -415,7 +439,7 @@ struct Register *riscv_placeOrFindOperandInRegister(struct TACLine *correspondin
 
 void riscv_WriteVariable(struct TACLine *correspondingTACLine,
                          struct CodegenState *state,
-                         struct CodegenMetadata *metadata,
+                         struct RegallocMetadata *metadata,
                          struct MachineInfo *info,
                          struct TACOperand *writtenTo,
                          struct Register *dataSource)
@@ -465,7 +489,7 @@ void riscv_PlaceLiteralStringInRegister(struct TACLine *correspondingTACLine,
 
 void riscv_placeAddrOfOperandInReg(struct TACLine *correspondingTACLine,
                                    struct CodegenState *state,
-                                   struct CodegenMetadata *metadata,
+                                   struct RegallocMetadata *metadata,
                                    struct MachineInfo *info,
                                    struct TACOperand *operand,
                                    struct Register *destReg)
@@ -494,8 +518,50 @@ void riscv_placeAddrOfOperandInReg(struct TACLine *correspondingTACLine,
     }
 }
 
+void riscv_emitArgumentStores(struct CodegenState *state,
+                              struct RegallocMetadata *metadata,
+                              struct MachineInfo *info,
+                              struct FunctionEntry *calledFunction,
+                              struct Stack *argumentOperands)
+{
+    while(argumentOperands->size > 0)
+    {
+        struct TACOperand *argOperand = Stack_Pop(argumentOperands);
+
+        struct VariableEntry *argument = calledFunction->arguments->data[argumentOperands->size];
+        
+        struct Lifetime dummyLt = {0};
+        dummyLt.name = argument->name;
+        struct Lifetime *argLifetime = Set_Find(calledFunction->regalloc.allLifetimes, &dummyLt);
+
+        switch(argLifetime->wbLocation)
+        {
+            case wb_register:
+                struct Register *writtenTo = argLifetime->writebackInfo.regLocation;
+                struct Register *foundIn = riscv_placeOrFindOperandInRegister(NULL, state, metadata, info, argOperand, writtenTo);
+                if(writtenTo != foundIn)
+                {
+                    emitInstruction(NULL, state, "\tmv %s, %s\n", writtenTo->name, foundIn->name);
+                }
+                break;
+
+            case wb_stack:
+            break;
+
+            case wb_global:
+                InternalError("Lifetime for argument %s has global writeback!", argLifetime->name);
+                break;
+
+            case wb_unknown:
+                InternalError("Lifetime for argument %s has unknown writeback!", argLifetime->name);
+                break;
+
+        }
+    }
+}
+
 void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
-                                     struct CodegenMetadata *metadata,
+                                     struct RegallocMetadata *metadata,
                                      struct MachineInfo *info,
                                      struct BasicBlock *block,
                                      char *functionName)
@@ -506,6 +572,7 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
         fprintf(state->outFile, "%s_%zu:\n", functionName, block->labelNum);
     }
 
+    struct Stack *functionArguments = Stack_New();
     size_t lastLineNo = 0;
     for (struct LinkedListNode *TACRunner = block->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
     {
@@ -761,22 +828,9 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
         }
         break;
 
-        case tt_stack_reserve:
+        case tt_arg_store:
         {
-            emitInstruction(thisTAC, state, "\taddi %s, %s, -%d\n", info->stackPointer->name, info->stackPointer->name, thisTAC->operands[0].name.val);
-        }
-        break;
-
-        case tt_stack_store:
-        {
-            struct Register *sourceReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[0], acquireScratchRegister(info));
-
-            riscv_EmitStackStoreForSize(thisTAC,
-                                        state,
-                                        info,
-                                        sourceReg,
-                                        Type_GetSize(TAC_GetTypeOfOperand(thisTAC, 0), metadata->scope),
-                                        thisTAC->operands[1].name.val);
+            Stack_Push(functionArguments, &thisTAC->operands[0]);
         }
         break;
 
@@ -785,6 +839,10 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
             riscv_callerSaveRegisters(state, metadata, info);
 
             struct FunctionEntry *calledFunction = lookupFunByString(metadata->function->mainScope, thisTAC->operands[1].name.str);
+
+            riscv_emitArgumentStores(state, metadata, info, calledFunction, functionArguments);
+            functionArguments->size = 0;
+
             if (calledFunction->isDefined)
             {
                 emitInstruction(thisTAC, state, "\tcall %s\n", thisTAC->operands[1].name.str);
@@ -809,6 +867,10 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
             struct StructEntry *methodOf = lookupStructByType(metadata->scope, TAC_GetTypeOfOperand(thisTAC, 2));
             struct FunctionEntry *calledMethod = lookupMethodByString(methodOf, thisTAC->operands[1].name.str);
+
+            riscv_emitArgumentStores(state, metadata, info, calledMethod, functionArguments);
+            functionArguments->size = 0;
+
             // TODO: member function name mangling/uniqueness
             if (calledMethod->isDefined)
             {
@@ -856,4 +918,6 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
             break;
         }
     }
+
+    Stack_Free(functionArguments);
 }

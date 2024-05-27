@@ -5,7 +5,7 @@ struct MachineInfo;
 struct Register;
 struct TACLine;
 struct TACOperand;
-struct CodegenMetadata;
+struct RegallocMetadata;
 struct MachineInfo;
 struct BasicBlock;
 struct Scope;
@@ -60,20 +60,20 @@ void riscv_EmitPopForSize(struct TACLine *correspondingTACLine,
                           u8 size,
                           struct Register *destRegister);
 
-void riscv_emitPrologue(struct CodegenState *context, struct CodegenMetadata *metadata, struct MachineInfo *info);
+void riscv_emitPrologue(struct CodegenState *context, struct RegallocMetadata *metadata, struct MachineInfo *info);
 
-void riscv_emitEpilogue(struct CodegenState *context, struct CodegenMetadata *metadata, struct MachineInfo *info, char *functionName);
+void riscv_emitEpilogue(struct CodegenState *context, struct RegallocMetadata *metadata, struct MachineInfo *info, char *functionName);
 
 struct Register *riscv_placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
                                                     struct CodegenState *state,
-                                                    struct CodegenMetadata *metadata,
+                                                    struct RegallocMetadata *metadata,
                                                     struct MachineInfo *info,
                                                     struct TACOperand *operand,
                                                     struct Register *optionalScratch);
 
 void riscv_WriteVariable(struct TACLine *correspondingTACLine,
                          struct CodegenState *state,
-                         struct CodegenMetadata *metadata,
+                         struct RegallocMetadata *metadata,
                          struct MachineInfo *info,
                          struct TACOperand *writtenTo,
                          struct Register *dataSource);
@@ -92,13 +92,13 @@ struct Register *placeOrFindOperandInRegister(struct TACLine *correspondingTACLi
 
 void riscv_placeAddrOfOperandInReg(struct TACLine *correspondingTACLine,
                                    struct CodegenState *state,
-                                   struct CodegenMetadata *metadata,
+                                   struct RegallocMetadata *metadata,
                                    struct MachineInfo *info,
                                    struct TACOperand *operand,
                                    struct Register *destReg);
 
 void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
-                                     struct CodegenMetadata *metadata,
+                                     struct RegallocMetadata *metadata,
                                      struct MachineInfo *info,
                                      struct BasicBlock *block,
                                      char *functionName);
