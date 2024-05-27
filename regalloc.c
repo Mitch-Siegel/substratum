@@ -223,7 +223,7 @@ void setupArgumentStack(struct RegallocMetadata *metadata, struct Stack *argumen
     bubbleSortLifetimesBySize(argumentStackLifetimes, metadata->function->mainScope);
 
     // always save frame pointer and return address to stack
-    ssize_t argOffset = 2 * MACHINE_REGISTER_SIZE_BYTES;
+    ssize_t argOffset = (ssize_t)2 * MACHINE_REGISTER_SIZE_BYTES;
     for (size_t indexI = 0; indexI < argumentStackLifetimes->size; indexI++)
     {
         struct Lifetime *printedStackLt = argumentStackLifetimes->data[indexI];
@@ -500,7 +500,7 @@ void allocateGeneralRegisters(struct RegallocMetadata *metadata, struct MachineI
 void allocateRegisters(struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     Log(LOG_DEBUG, "Allocate registers for %s", metadata->function->name);
-    
+
     // register pointers are unique and only one should exist for a given register
     metadata->touchedRegisters = Set_New(ssizet_compare, NULL);
 

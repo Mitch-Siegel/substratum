@@ -12,28 +12,28 @@ struct Scope;
 
 void riscv_EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
                                  struct CodegenState *state,
-                                 struct MachineInfo *machineContext,
+                                 struct MachineInfo *info,
                                  struct Register *sourceReg,
                                  u8 size,
                                  ssize_t offset);
 
 void riscv_EmitFrameLoadForSize(struct TACLine *correspondingTACLine,
                                 struct CodegenState *state,
-                                struct MachineInfo *machineContext,
+                                struct MachineInfo *info,
                                 struct Register *destReg,
                                 u8 size,
                                 ssize_t offset);
 
 void riscv_EmitStackStoreForSize(struct TACLine *correspondingTACLine,
                                  struct CodegenState *state,
-                                 struct MachineInfo *machineContext,
+                                 struct MachineInfo *info,
                                  struct Register *sourceReg,
                                  u8 size,
                                  ssize_t offset);
 
 void riscv_EmitStackLoadForSize(struct TACLine *correspondingTACLine,
                                 struct CodegenState *state,
-                                struct MachineInfo *machineContext,
+                                struct MachineInfo *info,
                                 struct Register *destReg,
                                 u8 size,
                                 ssize_t offset);
@@ -60,9 +60,9 @@ void riscv_EmitPopForSize(struct TACLine *correspondingTACLine,
                           u8 size,
                           struct Register *destRegister);
 
-void riscv_emitPrologue(struct CodegenState *context, struct RegallocMetadata *metadata, struct MachineInfo *info);
+void riscv_emitPrologue(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info);
 
-void riscv_emitEpilogue(struct CodegenState *context, struct RegallocMetadata *metadata, struct MachineInfo *info, char *functionName);
+void riscv_emitEpilogue(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info, char *functionName);
 
 struct Register *riscv_placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
                                                     struct CodegenState *state,

@@ -240,7 +240,7 @@ void riscv_callerSaveRegisters(struct CodegenState *state, struct RegallocMetada
         }
     }
 
-    if(actuallyCallerSaved->size == 0)
+    if (actuallyCallerSaved->size == 0)
     {
         Stack_Free(actuallyCallerSaved);
         return;
@@ -275,7 +275,7 @@ void riscv_callerRestoreRegisters(struct CodegenState *state, struct RegallocMet
         }
     }
 
-    if(actuallyCallerSaved->size == 0)
+    if (actuallyCallerSaved->size == 0)
     {
         Stack_Free(actuallyCallerSaved);
         return;
@@ -543,6 +543,7 @@ void riscv_emitArgumentStores(struct CodegenState *state,
                               struct Stack *argumentOperands)
 {
     struct Register *postCallFramePointer = acquireScratchRegister(info);
+    // TODO: constant/define for number of saved registers which aren't caught generally by the calling convention? Or sort out having the calling convention deal with RA/FP storing
     emitInstruction(NULL, state, "\taddi %s, %s, %zu\n", postCallFramePointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES));
 
     while (argumentOperands->size > 0)
@@ -559,6 +560,7 @@ void riscv_emitArgumentStores(struct CodegenState *state,
         switch (argLifetime->wbLocation)
         {
         case wb_register:
+        {
             struct Register *writtenTo = argLifetime->writebackInfo.regLocation;
             struct Register *foundIn = riscv_placeOrFindOperandInRegister(NULL, state, metadata, info, argOperand, writtenTo);
             if (writtenTo != foundIn)
@@ -569,7 +571,8 @@ void riscv_emitArgumentStores(struct CodegenState *state,
             {
                 emitInstruction(NULL, state, "\t# already in %s\n", foundIn->name);
             }
-            break;
+        }
+        break;
 
         case wb_stack:
         {

@@ -7,17 +7,17 @@
 #include <stdarg.h>
 
 void emitInstruction(struct TACLine *correspondingTACLine,
-                     struct CodegenState *context,
+                     struct CodegenState *state,
                      const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-    vfprintf(context->outFile, format, args);
+    vfprintf(state->outFile, format, args);
     va_end(args);
 
     if ((correspondingTACLine != NULL) && (correspondingTACLine->asmIndex == 0))
     {
-        correspondingTACLine->asmIndex = (*(context->instructionIndex))++;
+        correspondingTACLine->asmIndex = (*(state->instructionIndex))++;
     }
 }
 
@@ -102,13 +102,13 @@ void tryReleaseScratchRegister(struct MachineInfo *info, struct Register *reg)
 }
 
 // TODO: variable number of scratch registers?
-void invalidateScratchRegister(struct MachineInfo *context, struct Register *scratchRegister)
+void invalidateScratchRegister(struct MachineInfo *info, struct Register *scratchRegister)
 {
     for (u8 scratchIndex = 0; scratchIndex < 3; scratchIndex++)
     {
-        if (context->temps[scratchIndex] == scratchRegister)
+        if (info->temps[scratchIndex] == scratchRegister)
         {
-            context->tempsOccupied[scratchIndex] = 0;
+            info->tempsOccupied[scratchIndex] = 0;
             return;
         }
     }
