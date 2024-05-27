@@ -584,7 +584,6 @@ void allocateRegistersForScope(struct Scope *scope, struct MachineInfo *info)
         {
             struct FunctionEntry *thisFunction = thisMember->entry;
             allocateRegisters(&thisFunction->regalloc, info);
-
         }
         break;
 

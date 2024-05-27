@@ -34,7 +34,7 @@ void FunctionEntry_free(struct FunctionEntry *function)
     LinkedList_Free(function->BasicBlockList, NULL);
     Scope_free(function->mainScope);
 
-    if(function->regalloc.allLifetimes != NULL)
+    if (function->regalloc.allLifetimes != NULL)
     {
         Set_Free(function->regalloc.allLifetimes);
         Set_Free(function->regalloc.touchedRegisters);

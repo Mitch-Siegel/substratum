@@ -6,16 +6,15 @@
 #include <unistd.h>
 
 #include "ast.h"
-#include "regalloc.h"
 #include "codegen.h"
 #include "linearizer.h"
 #include "log.h"
+#include "regalloc.h"
 #include "ssa.h"
 #include "substratum_defs.h"
 #include "symtab.h"
 #include "tac.h"
 #include "util.h"
-
 
 #include "codegen_riscv.h"
 #include "regalloc_riscv.h"
