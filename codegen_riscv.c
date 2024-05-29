@@ -415,42 +415,64 @@ struct Register *riscv_placeOrFindOperandInRegister(struct TACLine *correspondin
                                                     struct TACOperand *operand,
                                                     struct Register *optionalScratch)
 {
-    struct Register *placedOrFoundIn = NULL;
+    verifyCodegenPrimitive(operand);
 
-    switch (operand->permutation)
+    if (operand->permutation == vp_literal)
     {
-    case vp_standard:
-    case vp_temp:
-    {
-        struct Lifetime dummyLt = {0};
-        dummyLt.name = operand->name.str;
-        struct Lifetime *operandLt = Set_Find(metadata->allLifetimes, &dummyLt);
-        switch (operandLt->wbLocation)
+        if (optionalScratch == NULL)
         {
-        case wb_register:
-            placedOrFoundIn = operandLt->writebackInfo.regLocation;
-            break;
-
-        case wb_stack:
-            riscv_EmitStackLoadForSize(correspondingTACLine, state, info, optionalScratch, Type_GetSize(TACOperand_GetType(operand), metadata->scope), operandLt->writebackInfo.stackOffset);
-            placedOrFoundIn = optionalScratch;
-            break;
-
-        case wb_global:
-            break;
-
-        case wb_unknown:
-            InternalError("Unknown writeback location seen for lifetime %s", operandLt->name);
-            break;
+            InternalError("Expected scratch register to place literal in, didn't get one!");
         }
-    }
-    break;
 
-    case vp_literal:
         riscv_PlaceLiteralStringInRegister(correspondingTACLine, state, operand->name.str, optionalScratch);
-        placedOrFoundIn = optionalScratch;
+        return optionalScratch;
+    }
+
+    struct Register *placedOrFoundIn = NULL;
+    struct Lifetime dummyLt = {0};
+    dummyLt.name = operand->name.str;
+
+    struct Lifetime *operandLt = Set_Find(metadata->allLifetimes, &dummyLt);
+    if (operandLt == NULL)
+    {
+        InternalError("Unable to find lifetime for variable %s!", operand->name.str);
+    }
+
+    switch (operandLt->wbLocation)
+    {
+    case wb_register:
+        placedOrFoundIn = operandLt->writebackInfo.regLocation;
+        break;
+
+    case wb_stack:
+        if (operandLt->type.basicType == vt_array)
+        {
+            if (operandLt->writebackInfo.stackOffset >= 0)
+            {
+                emitInstruction(correspondingTACLine, state, "\taddi %s, fp, %d # place %s\n", optionalScratch->name, operandLt->writebackInfo.stackOffset, operand->name.str);
+            }
+            else
+            {
+                emitInstruction(correspondingTACLine, state, "\taddi %s, fp, -%d # place %s\n", optionalScratch->name, -1 * operandLt->writebackInfo.stackOffset, operand->name.str);
+            }
+            placedOrFoundIn = optionalScratch;
+        }
+        else
+        {
+            riscv_EmitFrameLoadForSize(correspondingTACLine, state, info, optionalScratch, Type_GetSize(TACOperand_GetType(operand), metadata->scope), operandLt->writebackInfo.stackOffset);
+            placedOrFoundIn = optionalScratch;
+        }
+        break;
+
+    case wb_global:
+        InternalError("placeorfindoperand for global not implemented");
+        break;
+
+    case wb_unknown:
+        InternalError("Unknown writeback location seen for lifetime %s", operandLt->name);
         break;
     }
+
     return placedOrFoundIn;
 }
 
@@ -715,10 +737,14 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
             struct Register *baseReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
             struct Register *offsetReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[2], acquireScratchRegister(info));
 
+            // because offsetReg may or may not be modifiable, we will immediately release it if it's a temp, and guarantee that shiftedOffsetReg is a temp that we can modify it to
+            tryReleaseScratchRegister(info, offsetReg);
+            struct Register *shiftedOffsetReg = acquireScratchRegister(info);
+
             // TODO: check for shift by 0 and don't shift when applicable
             // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
             emitInstruction(thisTAC, state, "\tslli %s, %s, %d\n",
-                            offsetReg->name,
+                            shiftedOffsetReg->name,
                             offsetReg->name,
                             thisTAC->operands[3].name.val);
 
@@ -726,9 +752,9 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
             emitInstruction(thisTAC, state, "\tadd %s, %s, %s\n",
                             baseReg->name,
                             baseReg->name,
-                            offsetReg->name);
+                            shiftedOffsetReg->name);
 
-            tryReleaseScratchRegister(info, offsetReg);
+            tryReleaseScratchRegister(info, shiftedOffsetReg);
             struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], acquireScratchRegister(info));
             char loadWidth = riscv_SelectWidthCharForDereference(metadata->scope, &thisTAC->operands[1]);
             emitInstruction(thisTAC, state, "\tl%c%s %s, 0(%s)\n",
@@ -819,13 +845,18 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_lea_arr:
         {
-            struct Register *baseReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
+            struct Register *baseReg = acquireScratchRegister(info);
+            riscv_placeAddrOfOperandInReg(thisTAC, state, metadata, info, &thisTAC->operands[1], baseReg);
             struct Register *offsetReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[2], acquireScratchRegister(info));
+
+            // because offsetReg may or may not be modifiable, we will immediately release it if it's a temp, and guarantee that shiftedOffsetReg is a temp that we can modify it to
+            tryReleaseScratchRegister(info, offsetReg);
+            struct Register *shiftedOffsetReg = acquireScratchRegister(info);
 
             // TODO: check for shift by 0 and don't shift when applicable
             // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
             emitInstruction(thisTAC, state, "\tslli %s, %s, %d\n",
-                            offsetReg->name,
+                            shiftedOffsetReg->name,
                             offsetReg->name,
                             thisTAC->operands[3].name.val);
 
@@ -836,7 +867,7 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
             emitInstruction(thisTAC, state, "\tadd %s, %s, %s\n",
                             destReg->name,
                             baseReg->name,
-                            offsetReg->name);
+                            shiftedOffsetReg->name);
 
             riscv_WriteVariable(thisTAC, state, metadata, info, &thisTAC->operands[0], destReg);
         }
