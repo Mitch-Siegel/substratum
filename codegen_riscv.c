@@ -253,7 +253,7 @@ void riscv_callerSaveRegisters(struct CodegenState *state, struct RegallocMetada
     for (size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
         struct Register *calleeSaved = actuallyCallerSaved->data[regIndex];
-        riscv_EmitStackStoreForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
+        riscv_EmitStackStoreForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (regIndex * MACHINE_REGISTER_SIZE_BYTES));
     }
 
     Stack_Free(actuallyCallerSaved);
@@ -287,7 +287,7 @@ void riscv_callerRestoreRegisters(struct CodegenState *state, struct RegallocMet
     for (size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
         struct Register *calleeSaved = actuallyCallerSaved->data[regIndex];
-        riscv_EmitStackLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
+        riscv_EmitStackLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (regIndex * MACHINE_REGISTER_SIZE_BYTES));
     }
     emitInstruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
 
@@ -396,7 +396,7 @@ void riscv_emitEpilogue(struct CodegenState *state, struct RegallocMetadata *met
     emitInstruction(NULL, state, "\t#Restore fp, return address\n");
     riscv_EmitPopForSize(NULL, state, MACHINE_REGISTER_SIZE_BYTES, info->returnAddress);
     riscv_EmitPopForSize(NULL, state, MACHINE_REGISTER_SIZE_BYTES, info->framePointer);
-    emitInstruction(NULL, state, "\tmv %s, %s\n", info->stackPointer->name, info->framePointer->name);
+    // emitInstruction(NULL, state, "\tmv %s, %s\n", info->stackPointer->name, info->framePointer->name);
 
     emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, metadata->argStackSize);
 
