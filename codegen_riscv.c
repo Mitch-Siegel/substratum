@@ -547,7 +547,21 @@ void riscv_WriteVariable(struct TACLine *correspondingTACLine,
     break;
 
     case wb_global:
-        break;
+    {
+        u8 width = riscv_SelectWidthChar(metadata->scope, writtenTo);
+        struct Register *addrReg = acquireScratchRegister(info);
+
+        emitInstruction(correspondingTACLine, state, "\t# Write (global) variable %s\n", writtenLifetime->name);
+        emitInstruction(correspondingTACLine, state, "\tla %s, %s\n",
+                        addrReg->name,
+                        writtenLifetime->name);
+
+        emitInstruction(correspondingTACLine, state, "\ts%c %s, 0(%s)\n",
+                        width,
+                        dataSource->name,
+                        addrReg->name);
+    }
+    break;
 
     case wb_unknown:
         InternalError("Lifetime for %s has unknown writeback location!", writtenLifetime->name);
