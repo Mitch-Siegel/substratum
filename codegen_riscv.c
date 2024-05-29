@@ -598,7 +598,7 @@ void riscv_placeAddrOfOperandInReg(struct TACLine *correspondingTACLine,
         break;
 
     case wb_global:
-        InternalError("placeAddrOfOperandInReg not supported for globals yet");
+        emitInstruction(correspondingTACLine, state, "\tla %s, %s\n", destReg->name, lifetime->name);
         break;
 
     case wb_unknown:
@@ -615,7 +615,7 @@ void riscv_emitArgumentStores(struct CodegenState *state,
 {
     struct Register *postCallFramePointer = acquireScratchRegister(info);
     // TODO: constant/define for number of saved registers which aren't caught generally by the calling convention? Or sort out having the calling convention deal with RA/FP storing
-    emitInstruction(NULL, state, "\taddi %s, %s, %zu\n", postCallFramePointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES));
+    emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", postCallFramePointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES));
 
     while (argumentOperands->size > 0)
     {
@@ -654,7 +654,7 @@ void riscv_emitArgumentStores(struct CodegenState *state,
                             riscv_SelectWidthCharForLifetime(calledFunction->mainScope, argLifetime),
                             writeFrom->name,
                             argLifetime->writebackInfo.stackOffset,
-                            info->framePointer);
+                            postCallFramePointer->name);
 
             tryReleaseScratchRegister(info, scratch);
         }
@@ -900,7 +900,7 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
         case tt_lea_arr:
         {
             struct Register *baseReg = acquireScratchRegister(info);
-            riscv_placeAddrOfOperandInReg(thisTAC, state, metadata, info, &thisTAC->operands[1], baseReg);
+            riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], baseReg);
             struct Register *offsetReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[2], acquireScratchRegister(info));
 
             // because offsetReg may or may not be modifiable, we will immediately release it if it's a temp, and guarantee that shiftedOffsetReg is a temp that we can modify it to
