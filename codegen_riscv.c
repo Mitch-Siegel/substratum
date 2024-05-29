@@ -783,9 +783,12 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
                             offsetReg->name,
                             thisTAC->operands[3].name.val);
 
+            tryReleaseScratchRegister(info, baseReg);
+            tryReleaseScratchRegister(info, shiftedOffsetReg);
+            struct Register *addrReg = acquireScratchRegister(info);
             // add our scaled offset to the base address, put the full address into selectScratchRegister(info, false)
             emitInstruction(thisTAC, state, "\tadd %s, %s, %s\n",
-                            baseReg->name,
+                            addrReg->name,
                             baseReg->name,
                             shiftedOffsetReg->name);
 
@@ -796,7 +799,7 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
                             loadWidth,
                             riscv_SelectSignForLoad(loadWidth, TAC_GetTypeOfOperand(thisTAC, 1)),
                             destReg->name,
-                            baseReg->name);
+                            addrReg->name);
 
             riscv_WriteVariable(thisTAC, state, metadata, info, &thisTAC->operands[0], destReg);
         }
@@ -840,9 +843,11 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
                             offsetReg->name,
                             thisTAC->operands[2].name.val);
 
+            tryReleaseScratchRegister(info, baseReg);
+            struct Register *addrReg = acquireScratchRegister(info);
             // add our scaled offset to the base address, put the full address into selectScratchRegister(info, false)
             emitInstruction(thisTAC, state, "\tadd %s, %s, %s\n",
-                            baseReg->name,
+                            addrReg->name,
                             baseReg->name,
                             offsetReg->name);
 
@@ -851,7 +856,7 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
             emitInstruction(thisTAC, state, "\ts%c %s, 0(%s)\n",
                             riscv_SelectWidthCharForDereference(metadata->scope, &thisTAC->operands[0]),
                             sourceReg->name,
-                            baseReg->name);
+                            addrReg->name);
         }
         break;
 
