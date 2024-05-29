@@ -465,8 +465,43 @@ struct Register *riscv_placeOrFindOperandInRegister(struct TACLine *correspondin
         break;
 
     case wb_global:
-        InternalError("placeorfindoperand for global not implemented");
-        break;
+    {
+        if (optionalScratch == NULL)
+        {
+            InternalError("Expected scratch register to place global in, didn't get one!");
+        }
+
+        char loadWidth = 'X';
+        const char *loadSign = "";
+
+        if (operandLt->type.basicType == vt_array)
+        {
+            // if array, treat as pointer
+            loadWidth = 'd';
+        }
+        else
+        {
+            loadWidth = riscv_SelectWidthCharForLifetime(metadata->scope, operandLt);
+            loadSign = riscv_SelectSignForLoad(loadWidth, &operandLt->type);
+        }
+
+        placedOrFoundIn = optionalScratch;
+        emitInstruction(correspondingTACLine, state, "\tla %s, %s # place %s\n",
+                        placedOrFoundIn->name,
+                        operandLt->name,
+                        operand->name.str);
+
+        if (operandLt->type.basicType != vt_array)
+        {
+            emitInstruction(correspondingTACLine, state, "\tl%c%s %s, 0(%s) # place %s\n",
+                            loadWidth,
+                            loadSign,
+                            placedOrFoundIn->name,
+                            placedOrFoundIn->name,
+                            operand->name.str);
+        }
+    }
+    break;
 
     case wb_unknown:
         InternalError("Unknown writeback location seen for lifetime %s", operandLt->name);
