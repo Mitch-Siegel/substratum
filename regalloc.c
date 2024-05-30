@@ -189,7 +189,7 @@ void bubbleSortLifetimesBySize(struct Stack *lifetimeStack, struct Scope *scope)
 void setupLocalStack(struct RegallocMetadata *metadata, struct MachineInfo *info, struct Stack *localStackLifetimes)
 {
     // local offset always at least MACHINE_REGISTER_SIZE_BYTES to save frame pointer
-    size_t localOffset = (-1 * MACHINE_REGISTER_SIZE_BYTES);
+    ssize_t localOffset = ((ssize_t)-1 * MACHINE_REGISTER_SIZE_BYTES);
 
     // figure out which callee-saved registers this function touches, and add space for them to the local stack offset
     struct Stack *touchedCalleeSaved = Stack_New();
@@ -200,9 +200,9 @@ void setupLocalStack(struct RegallocMetadata *metadata, struct MachineInfo *info
             Stack_Push(touchedCalleeSaved, info->callee_save[calleeSaveIndex]);
         }
     }
-    localOffset -= (touchedCalleeSaved->size * MACHINE_REGISTER_SIZE_BYTES);
+    localOffset -= ((ssize_t)touchedCalleeSaved->size * MACHINE_REGISTER_SIZE_BYTES);
     Stack_Free(touchedCalleeSaved);
-    
+
     if (localStackLifetimes->size == 0)
     {
         while (localOffset % STACK_ALIGN_BYTES)
@@ -216,9 +216,7 @@ void setupLocalStack(struct RegallocMetadata *metadata, struct MachineInfo *info
 
     bubbleSortLifetimesBySize(localStackLifetimes, metadata->function->mainScope);
 
-
     Log(LOG_DEBUG, "Function locals for %s end at frame pointer offset %zd - %zd through 0 offset from %s are callee-saved registers", metadata->function->name, localOffset, localOffset, info->framePointer->name);
-
 
     for (size_t indexI = 0; indexI < localStackLifetimes->size; indexI++)
     {
@@ -351,7 +349,8 @@ struct HashTable *generateInterferenceGraph(struct Set *registerContentionLifeti
 {
     // calculate overlaps and interference graph
     struct Set **lifetimeOverlaps = findLifetimeOverlaps(registerContentionLifetimes, largestTacIndex);
-    struct HashTable *interferenceGraph = HashTable_New((registerContentionLifetimes->elements->size / 10) + 1, (size_t(*)(void *))Lifetime_Hash, (ssize_t(*)(void *, void *))Lifetime_Compare, NULL, (void (*)(void *))Set_Free);
+    const u8 lifetimeElementDivisor = 10;
+    struct HashTable *interferenceGraph = HashTable_New((registerContentionLifetimes->elements->size / lifetimeElementDivisor) + 1, (size_t(*)(void *))Lifetime_Hash, (ssize_t(*)(void *, void *))Lifetime_Compare, NULL, (void (*)(void *))Set_Free);
 
     // for every TAC index
     for (size_t overlapIndex = 0; overlapIndex <= largestTacIndex; overlapIndex++)
@@ -553,7 +552,8 @@ void allocateRegisters(struct RegallocMetadata *metadata, struct MachineInfo *in
     char *ltLengthString = malloc(metadata->largestTacIndex + 3);
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
     {
-        char location[16];
+        const u8 locStrLen = 16;
+        char location[locStrLen + 1];
         struct Lifetime *printedLt = ltRunner->data;
         switch (printedLt->wbLocation)
         {

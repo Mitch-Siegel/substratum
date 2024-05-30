@@ -124,7 +124,7 @@ struct MachineInfo *riscv_SetupMachineInfo()
     info->caller_save[callerReg++] = &riscvRegisters[t5];
     info->caller_save[callerReg++] = &riscvRegisters[t6];
 
-    for (u8 regIndex = 0; regIndex < RISCV_REGISTER_COUNT; regIndex++)
+    for (i32 regIndex = 0; regIndex < RISCV_REGISTER_COUNT; regIndex++)
     {
         info->allRegisters[regIndex] = &riscvRegisters[regIndex];
     }

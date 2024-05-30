@@ -252,7 +252,7 @@ void riscv_callerSaveRegisters(struct CodegenState *state, struct FunctionEntry 
 
     char *spName = info->stackPointer->name;
     emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
-    for (size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
+    for (ssize_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
         struct Register *calleeSaved = actuallyCallerSaved->data[regIndex];
         riscv_EmitStackStoreForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, regIndex * MACHINE_REGISTER_SIZE_BYTES);
@@ -288,10 +288,10 @@ void riscv_callerRestoreRegisters(struct CodegenState *state, struct FunctionEnt
     emitInstruction(NULL, state, "\t#Caller-restore registers\n");
 
     char *spName = info->stackPointer->name;
-    for (size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
+    for (ssize_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
         struct Register *calleeSaved = actuallyCallerSaved->data[regIndex];
-        riscv_EmitStackLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (regIndex* MACHINE_REGISTER_SIZE_BYTES));
+        riscv_EmitStackLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (regIndex * MACHINE_REGISTER_SIZE_BYTES));
     }
     emitInstruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
 
@@ -320,7 +320,7 @@ void riscv_calleeSaveRegisters(struct CodegenState *state, struct RegallocMetada
     }
 
     emitInstruction(NULL, state, "\t#Callee-save registers\n");
-    for (size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
+    for (ssize_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
     {
         struct Register *calleeSaved = actuallyCalleeSaved->data[regIndex];
         // +2, 1 to account for stack growing downward and 1 to account for saved frame pointer
@@ -353,7 +353,7 @@ void riscv_calleeRestoreRegisters(struct CodegenState *state, struct RegallocMet
     }
 
     emitInstruction(NULL, state, "\t#Callee-restore registers\n");
-    for (size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
+    for (ssize_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
     {
         struct Register *calleeSaved = actuallyCalleeSaved->data[regIndex];
         // +2, 1 to account for stack growing downward and 1 to account for saved frame pointer
@@ -367,7 +367,7 @@ void riscv_emitPrologue(struct CodegenState *state, struct RegallocMetadata *met
 {
     fprintf(state->outFile, "\t.cfi_startproc\n");
     emitInstruction(NULL, state, "\t.cfi_def_cfa_offset %zd\n", (ssize_t)-1 * MACHINE_REGISTER_SIZE_BYTES);
-    riscv_EmitStackStoreForSize(NULL, state, info, info->framePointer, MACHINE_REGISTER_SIZE_BYTES, (-1 * MACHINE_REGISTER_SIZE_BYTES));
+    riscv_EmitStackStoreForSize(NULL, state, info, info->framePointer, MACHINE_REGISTER_SIZE_BYTES, ((ssize_t)-1 * MACHINE_REGISTER_SIZE_BYTES));
     emitInstruction(NULL, state, "\tmv %s, %s\n", info->framePointer->name, info->stackPointer->name);
 
     emitInstruction(NULL, state, "\t#reserve space for locals and callee-saved registers\n");
@@ -385,7 +385,7 @@ void riscv_emitEpilogue(struct CodegenState *state, struct RegallocMetadata *met
 
     emitInstruction(NULL, state, "\taddi %s, %s, %zu\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
 
-    riscv_EmitFrameLoadForSize(NULL, state, info, info->framePointer, MACHINE_REGISTER_SIZE_BYTES, (-1 * MACHINE_REGISTER_SIZE_BYTES));
+    riscv_EmitFrameLoadForSize(NULL, state, info, info->framePointer, MACHINE_REGISTER_SIZE_BYTES, ((ssize_t)-1 * MACHINE_REGISTER_SIZE_BYTES));
 
     emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, metadata->argStackSize);
 
