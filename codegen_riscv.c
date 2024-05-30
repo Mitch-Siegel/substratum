@@ -319,12 +319,9 @@ void riscv_calleeSaveRegisters(struct CodegenState *state, struct RegallocMetada
     for (size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
     {
         struct Register *calleeSaved = actuallyCalleeSaved->data[regIndex];
-        riscv_EmitFrameStoreForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
+        // +2, 1 to account for stack growing downward and 1 to account for saved frame pointer
+        riscv_EmitFrameStoreForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 2) * MACHINE_REGISTER_SIZE_BYTES));
     }
-
-    // emit the instruction to actually move the stack pointer after we save the values, as the stack pointer itself may be one of the saved values
-    char *spName = info->stackPointer->name;
-    emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCalleeSaved->size);
 
     Stack_Free(actuallyCalleeSaved);
 }
@@ -355,10 +352,9 @@ void riscv_calleeRestoreRegisters(struct CodegenState *state, struct RegallocMet
     for (size_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
     {
         struct Register *calleeSaved = actuallyCalleeSaved->data[regIndex];
-        riscv_EmitFrameLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 1) * MACHINE_REGISTER_SIZE_BYTES));
+        // +2, 1 to account for stack growing downward and 1 to account for saved frame pointer
+        riscv_EmitFrameLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 2) * MACHINE_REGISTER_SIZE_BYTES));
     }
-    char *spName = info->stackPointer->name;
-    emitInstruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCalleeSaved->size);
 
     Stack_Free(actuallyCalleeSaved);
 }
@@ -366,20 +362,15 @@ void riscv_calleeRestoreRegisters(struct CodegenState *state, struct RegallocMet
 void riscv_emitPrologue(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     fprintf(state->outFile, "\t.cfi_startproc\n");
-
-    // save the frame pointer, stack pointer, and return address
-    emitInstruction(NULL, state, "\t#Save fp, return address\n");
-    riscv_EmitPushForSize(NULL, state, MACHINE_REGISTER_SIZE_BYTES, info->framePointer);
-    riscv_EmitPushForSize(NULL, state, MACHINE_REGISTER_SIZE_BYTES, info->returnAddress);
+    emitInstruction(NULL, state, "\t.cfi_def_cfa_offset %zd\n", (ssize_t)-1 * MACHINE_REGISTER_SIZE_BYTES);
+    riscv_EmitStackStoreForSize(NULL, state, info, info->framePointer, MACHINE_REGISTER_SIZE_BYTES, (-1 * MACHINE_REGISTER_SIZE_BYTES));
     emitInstruction(NULL, state, "\tmv %s, %s\n", info->framePointer->name, info->stackPointer->name);
-    emitInstruction(NULL, state, "\t.cfi_def_cfa_offset %zd\n", (ssize_t)2 * MACHINE_REGISTER_SIZE_BYTES);
 
-    if (metadata->localStackSize > 0)
-    {
-        emitInstruction(NULL, state, "\taddi %s, %s, -%zu\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
-    }
+    emitInstruction(NULL, state, "\taddi %s, %s, -%zu\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
 
     riscv_calleeSaveRegisters(state, metadata, info);
+
+
     // TODO: implement for new register allocator
 }
 
@@ -388,17 +379,13 @@ void riscv_emitEpilogue(struct CodegenState *state, struct RegallocMetadata *met
     emitInstruction(NULL, state, "%s_done:\n", functionName);
     riscv_calleeRestoreRegisters(state, metadata, info);
 
-    if (metadata->localStackSize > 0)
-    {
-        emitInstruction(NULL, state, "\taddi %s, %s, %zu\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
-    }
+    
+    emitInstruction(NULL, state, "\taddi %s, %s, %zu\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
 
-    emitInstruction(NULL, state, "\t#Restore fp, return address\n");
-    riscv_EmitPopForSize(NULL, state, MACHINE_REGISTER_SIZE_BYTES, info->returnAddress);
-    riscv_EmitPopForSize(NULL, state, MACHINE_REGISTER_SIZE_BYTES, info->framePointer);
-    // emitInstruction(NULL, state, "\tmv %s, %s\n", info->stackPointer->name, info->framePointer->name);
-
+    riscv_EmitFrameLoadForSize(NULL, state, info, info->framePointer, MACHINE_REGISTER_SIZE_BYTES, (-1 * MACHINE_REGISTER_SIZE_BYTES));
+    
     emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, metadata->argStackSize);
+
 
     emitInstruction(NULL, state, "\tjalr zero, 0(%s)\n", info->returnAddress->name);
     fprintf(state->outFile, "\t.cfi_endproc\n");

@@ -186,17 +186,37 @@ void bubbleSortLifetimesBySize(struct Stack *lifetimeStack, struct Scope *scope)
     }
 }
 
-void setupLocalStack(struct RegallocMetadata *metadata, struct Stack *localStackLifetimes)
+void setupLocalStack(struct RegallocMetadata *metadata, struct MachineInfo *info, struct Stack *localStackLifetimes)
 {
+    // local offset always at least MACHINE_REGISTER_SIZE_BYTES to save frame pointer
+    size_t localOffset = (-1 * MACHINE_REGISTER_SIZE_BYTES);
     if (localStackLifetimes->size == 0)
     {
+        while (localOffset % STACK_ALIGN_BYTES)
+        {
+            localOffset--;
+        }
+
+        metadata->localStackSize = -1 * localOffset;
         return;
     }
 
     bubbleSortLifetimesBySize(localStackLifetimes, metadata->function->mainScope);
 
-    // TODO: generically handle saving of return address/frame pointer
-    ssize_t localOffset = 0;
+    struct Stack *touchedCalleeSaved = Stack_New();
+    for (size_t calleeSaveIndex = 0; calleeSaveIndex < info->n_callee_save; calleeSaveIndex++)
+    {
+        if (Set_Find(metadata->touchedRegisters, info->callee_save[calleeSaveIndex]))
+        {
+            Stack_Push(touchedCalleeSaved, info->callee_save[calleeSaveIndex]);
+        }
+    }
+    localOffset -= (touchedCalleeSaved->size * MACHINE_REGISTER_SIZE_BYTES);
+
+    Log(LOG_DEBUG, "Function locals for %s end at frame pointer offset %zd - %zd through 0 offset from %s are callee-saved registers", metadata->function->name, localOffset, localOffset, info->framePointer->name);
+
+    Stack_Free(touchedCalleeSaved);
+
     for (size_t indexI = 0; indexI < localStackLifetimes->size; indexI++)
     {
         struct Lifetime *printedStackLt = localStackLifetimes->data[indexI];
@@ -211,6 +231,8 @@ void setupLocalStack(struct RegallocMetadata *metadata, struct Stack *localStack
     {
         localOffset--;
     }
+
+    metadata->localStackSize = -1 * localOffset;
 }
 
 void setupArgumentStack(struct RegallocMetadata *metadata, struct Stack *argumentStackLifetimes)
@@ -240,7 +262,7 @@ void setupArgumentStack(struct RegallocMetadata *metadata, struct Stack *argumen
     }
 }
 
-void allocateStackSpace(struct RegallocMetadata *metadata)
+void allocateStackSpace(struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     struct Stack *localStackLifetimes = Stack_New();
     struct Stack *argumentStackLifetimes = Stack_New();
@@ -262,7 +284,7 @@ void allocateStackSpace(struct RegallocMetadata *metadata)
         }
     }
 
-    setupLocalStack(metadata, localStackLifetimes);
+    setupLocalStack(metadata, info, localStackLifetimes);
     setupArgumentStack(metadata, argumentStackLifetimes);
 
     for (size_t localI = 0; localI < localStackLifetimes->size; localI++)
@@ -510,6 +532,7 @@ void allocateRegisters(struct RegallocMetadata *metadata, struct MachineInfo *in
     // if we call another function we will touch the frame pointer
     if (metadata->function->callsOtherFunction)
     {
+        Set_Insert(metadata->touchedRegisters, info->returnAddress);
         Set_Insert(metadata->touchedRegisters, info->framePointer);
     }
 
@@ -520,7 +543,7 @@ void allocateRegisters(struct RegallocMetadata *metadata, struct MachineInfo *in
     allocateArgumentRegisters(metadata, info);
     allocateGeneralRegisters(metadata, info);
 
-    allocateStackSpace(metadata);
+    allocateStackSpace(metadata, info);
 
     char *ltLengthString = malloc(metadata->largestTacIndex + 3);
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)

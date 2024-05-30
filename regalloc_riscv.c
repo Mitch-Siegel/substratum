@@ -74,7 +74,7 @@ struct MachineInfo *riscv_SetupMachineInfo()
     const u8 nTemps = 3;
     const u8 nArguments = 8;
     const u8 nNoSave = 0;
-    const u8 nCalleeSave = 11;
+    const u8 nCalleeSave = 12;
     const u8 nCallerSave = 12;
     struct MachineInfo *info = MachineInfo_New(RISCV_REGISTER_COUNT, nTemps, nArguments, nNoSave, nCalleeSave, nCallerSave);
 
@@ -94,7 +94,7 @@ struct MachineInfo *riscv_SetupMachineInfo()
 
     u8 calleeReg = 0;
     // don't actually mark sp and fp as callee-save as they are handled specifically by emitprologue and emitepilogue to get the ordering correct
-    // info->callee_save[calleeReg++] = &riscvRegisters[sp];
+    info->callee_save[calleeReg++] = &riscvRegisters[ra];
     // info->callee_save[calleeReg++] = &riscvRegisters[fp];
     info->callee_save[calleeReg++] = &riscvRegisters[s1];
     info->callee_save[calleeReg++] = &riscvRegisters[s2];
