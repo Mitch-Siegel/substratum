@@ -24,13 +24,9 @@ void verifyCodegenPrimitive(struct TACOperand *operand);
 
 struct Register *acquireScratchRegister(struct MachineInfo *info);
 
-void releaseScratchRegister(struct MachineInfo *info, struct Register *reg);
-
 void tryReleaseScratchRegister(struct MachineInfo *info, struct Register *reg);
 
 void releaseAllScratchRegisters(struct MachineInfo *info);
-
-void invalidateScratchRegister(struct MachineInfo *info, struct Register *scratchRegister);
 
 struct Register *pickWriteRegister(struct RegallocMetadata *metadata,
                                    struct TACOperand *operand,

@@ -42,11 +42,4 @@ void generateCodeForFunction(FILE *outFile,
                              void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
                              void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
 
-void generateCodeForBasicBlock(struct CodegenState *context,
-                               struct RegallocMetadata *metadata,
-                               struct BasicBlock *block,
-                               struct Scope *scope,
-                               struct LinkedList *lifetimes,
-                               char *functionName);
-
 #endif

@@ -59,26 +59,6 @@ struct Register *acquireScratchRegister(struct MachineInfo *info)
     InternalError("Unable to select scratch register");
 }
 
-void releaseScratchRegister(struct MachineInfo *info, struct Register *reg)
-{
-    for (u8 scratchIndex = 0; scratchIndex < info->n_temps; scratchIndex++)
-    {
-        if (info->temps[scratchIndex] == reg)
-        {
-            if (info->tempsOccupied[scratchIndex] != 0)
-            {
-                info->tempsOccupied[scratchIndex] = 0;
-            }
-            else
-            {
-                InternalError("Attempt to release non-held scratch register %s", reg->name);
-            }
-        }
-    }
-
-    InternalError("Attempt to release non-scratch register %s", reg->name);
-}
-
 void releaseAllScratchRegisters(struct MachineInfo *info)
 {
     for (u8 scratchIndex = 0; scratchIndex < info->n_temps; scratchIndex++)
@@ -99,21 +79,6 @@ void tryReleaseScratchRegister(struct MachineInfo *info, struct Register *reg)
             }
         }
     }
-}
-
-// TODO: variable number of scratch registers?
-void invalidateScratchRegister(struct MachineInfo *info, struct Register *scratchRegister)
-{
-    for (u8 scratchIndex = 0; scratchIndex < 3; scratchIndex++)
-    {
-        if (info->temps[scratchIndex] == scratchRegister)
-        {
-            info->tempsOccupied[scratchIndex] = 0;
-            return;
-        }
-    }
-
-    InternalError("invalidateScratchRegister called on non-scratch register %s", scratchRegister->name);
 }
 
 struct Register *pickWriteRegister(struct RegallocMetadata *metadata,

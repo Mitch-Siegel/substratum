@@ -138,12 +138,4 @@ struct RegallocMetadata
     ssize_t localStackSize;
 };
 
-// populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i
-// then determine which variables should be spilled
-size_t generateLifetimeOverlaps(struct RegallocMetadata *metadata);
-
-// assign registers to variables which have registers
-// assign spill addresses to variables which are spilled
-void assignRegisters(struct RegallocMetadata *metadata);
-
 #endif
