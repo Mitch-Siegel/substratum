@@ -190,6 +190,19 @@ void setupLocalStack(struct RegallocMetadata *metadata, struct MachineInfo *info
 {
     // local offset always at least MACHINE_REGISTER_SIZE_BYTES to save frame pointer
     size_t localOffset = (-1 * MACHINE_REGISTER_SIZE_BYTES);
+
+    // figure out which callee-saved registers this function touches, and add space for them to the local stack offset
+    struct Stack *touchedCalleeSaved = Stack_New();
+    for (size_t calleeSaveIndex = 0; calleeSaveIndex < info->n_callee_save; calleeSaveIndex++)
+    {
+        if (Set_Find(metadata->touchedRegisters, info->callee_save[calleeSaveIndex]))
+        {
+            Stack_Push(touchedCalleeSaved, info->callee_save[calleeSaveIndex]);
+        }
+    }
+    localOffset -= (touchedCalleeSaved->size * MACHINE_REGISTER_SIZE_BYTES);
+    Stack_Free(touchedCalleeSaved);
+    
     if (localStackLifetimes->size == 0)
     {
         while (localOffset % STACK_ALIGN_BYTES)
@@ -203,19 +216,9 @@ void setupLocalStack(struct RegallocMetadata *metadata, struct MachineInfo *info
 
     bubbleSortLifetimesBySize(localStackLifetimes, metadata->function->mainScope);
 
-    struct Stack *touchedCalleeSaved = Stack_New();
-    for (size_t calleeSaveIndex = 0; calleeSaveIndex < info->n_callee_save; calleeSaveIndex++)
-    {
-        if (Set_Find(metadata->touchedRegisters, info->callee_save[calleeSaveIndex]))
-        {
-            Stack_Push(touchedCalleeSaved, info->callee_save[calleeSaveIndex]);
-        }
-    }
-    localOffset -= (touchedCalleeSaved->size * MACHINE_REGISTER_SIZE_BYTES);
 
     Log(LOG_DEBUG, "Function locals for %s end at frame pointer offset %zd - %zd through 0 offset from %s are callee-saved registers", metadata->function->name, localOffset, localOffset, info->framePointer->name);
 
-    Stack_Free(touchedCalleeSaved);
 
     for (size_t indexI = 0; indexI < localStackLifetimes->size; indexI++)
     {

@@ -366,6 +366,7 @@ void riscv_emitPrologue(struct CodegenState *state, struct RegallocMetadata *met
     riscv_EmitStackStoreForSize(NULL, state, info, info->framePointer, MACHINE_REGISTER_SIZE_BYTES, (-1 * MACHINE_REGISTER_SIZE_BYTES));
     emitInstruction(NULL, state, "\tmv %s, %s\n", info->framePointer->name, info->stackPointer->name);
 
+    emitInstruction(NULL, state, "\t#reserve space for locals and callee-saved registers\n");
     emitInstruction(NULL, state, "\taddi %s, %s, -%zu\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
 
     riscv_calleeSaveRegisters(state, metadata, info);
