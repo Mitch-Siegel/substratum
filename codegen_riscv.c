@@ -224,8 +224,10 @@ void riscv_EmitPopForSize(struct TACLine *correspondingTACLine,
     emitInstruction(correspondingTACLine, state, "\taddi sp, sp, %d\n", size);
 }
 
-void riscv_callerSaveRegisters(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
+void riscv_callerSaveRegisters(struct CodegenState *state, struct FunctionEntry *calledFunction, struct MachineInfo *info)
 {
+    struct RegallocMetadata *metadata = &calledFunction->regalloc;
+
     Log(LOG_DEBUG, "Caller-saving registers");
     struct Stack *actuallyCallerSaved = Stack_New();
 
@@ -253,14 +255,16 @@ void riscv_callerSaveRegisters(struct CodegenState *state, struct RegallocMetada
     for (size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
         struct Register *calleeSaved = actuallyCallerSaved->data[regIndex];
-        riscv_EmitStackStoreForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (regIndex * MACHINE_REGISTER_SIZE_BYTES));
+        riscv_EmitStackStoreForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, regIndex * MACHINE_REGISTER_SIZE_BYTES);
     }
 
     Stack_Free(actuallyCallerSaved);
 }
 
-void riscv_callerRestoreRegisters(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
+void riscv_callerRestoreRegisters(struct CodegenState *state, struct FunctionEntry *calledFunction, struct MachineInfo *info)
 {
+    struct RegallocMetadata *metadata = &calledFunction->regalloc;
+
     // TODO: implement for new register allocator
     Log(LOG_DEBUG, "Caller-restoring registers");
     struct Stack *actuallyCallerSaved = Stack_New();
@@ -287,7 +291,7 @@ void riscv_callerRestoreRegisters(struct CodegenState *state, struct RegallocMet
     for (size_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
         struct Register *calleeSaved = actuallyCallerSaved->data[regIndex];
-        riscv_EmitStackLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (regIndex * MACHINE_REGISTER_SIZE_BYTES));
+        riscv_EmitStackLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (regIndex* MACHINE_REGISTER_SIZE_BYTES));
     }
     emitInstruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
 
@@ -371,7 +375,6 @@ void riscv_emitPrologue(struct CodegenState *state, struct RegallocMetadata *met
 
     riscv_calleeSaveRegisters(state, metadata, info);
 
-
     // TODO: implement for new register allocator
 }
 
@@ -380,13 +383,11 @@ void riscv_emitEpilogue(struct CodegenState *state, struct RegallocMetadata *met
     emitInstruction(NULL, state, "%s_done:\n", functionName);
     riscv_calleeRestoreRegisters(state, metadata, info);
 
-    
     emitInstruction(NULL, state, "\taddi %s, %s, %zu\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
 
     riscv_EmitFrameLoadForSize(NULL, state, info, info->framePointer, MACHINE_REGISTER_SIZE_BYTES, (-1 * MACHINE_REGISTER_SIZE_BYTES));
-    
-    emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, metadata->argStackSize);
 
+    emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, metadata->argStackSize);
 
     emitInstruction(NULL, state, "\tjalr zero, 0(%s)\n", info->returnAddress->name);
     fprintf(state->outFile, "\t.cfi_endproc\n");
@@ -887,8 +888,7 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_lea_arr:
         {
-            struct Register *baseReg = acquireScratchRegister(info);
-            riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], baseReg);
+            struct Register *baseReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
             struct Register *offsetReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[2], acquireScratchRegister(info));
 
             // because offsetReg may or may not be modifiable, we will immediately release it if it's a temp, and guarantee that shiftedOffsetReg is a temp that we can modify it to
@@ -949,9 +949,9 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_function_call:
         {
-            riscv_callerSaveRegisters(state, metadata, info);
-
             struct FunctionEntry *calledFunction = lookupFunByString(metadata->function->mainScope, thisTAC->operands[1].name.str);
+
+            riscv_callerSaveRegisters(state, calledFunction, info);
 
             riscv_emitArgumentStores(state, metadata, info, calledFunction, functionArguments);
             functionArguments->size = 0;
@@ -970,16 +970,16 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
                 riscv_WriteVariable(thisTAC, state, metadata, info, &thisTAC->operands[0], info->returnValue);
             }
 
-            riscv_callerRestoreRegisters(state, metadata, info);
+            riscv_callerRestoreRegisters(state, calledFunction, info);
         }
         break;
 
         case tt_method_call:
         {
-            riscv_callerSaveRegisters(state, metadata, info);
-
             struct StructEntry *methodOf = lookupStructByType(metadata->scope, TAC_GetTypeOfOperand(thisTAC, 2));
             struct FunctionEntry *calledMethod = lookupMethodByString(methodOf, thisTAC->operands[1].name.str);
+
+            riscv_callerSaveRegisters(state, calledMethod, info);
 
             riscv_emitArgumentStores(state, metadata, info, calledMethod, functionArguments);
             functionArguments->size = 0;
@@ -999,7 +999,7 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
                 riscv_WriteVariable(thisTAC, state, metadata, info, &thisTAC->operands[0], info->returnValue);
             }
 
-            riscv_callerRestoreRegisters(state, metadata, info);
+            riscv_callerRestoreRegisters(state, calledMethod, info);
         }
         break;
 
