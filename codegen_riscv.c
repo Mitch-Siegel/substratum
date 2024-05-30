@@ -583,11 +583,11 @@ void riscv_placeAddrOfOperandInReg(struct TACLine *correspondingTACLine,
         break;
 
     case wb_stack:
-        emitInstruction(correspondingTACLine, state, "addi %s, %s, %zd\n", destReg->name, info->framePointer->name, lifetime->writebackInfo.stackOffset);
+        emitInstruction(correspondingTACLine, state, "\taddi %s, %s, %zd # place address of %s in register\n", destReg->name, info->framePointer->name, lifetime->writebackInfo.stackOffset, lifetime->name);
         break;
 
     case wb_global:
-        emitInstruction(correspondingTACLine, state, "\tla %s, %s\n", destReg->name, lifetime->name);
+        emitInstruction(correspondingTACLine, state, "\tla %s, %s # place address of %s in register\n", destReg->name, lifetime->name, lifetime->name);
         break;
 
     case wb_unknown:
@@ -602,9 +602,7 @@ void riscv_emitArgumentStores(struct CodegenState *state,
                               struct FunctionEntry *calledFunction,
                               struct Stack *argumentOperands)
 {
-    struct Register *postCallFramePointer = acquireScratchRegister(info);
-    // TODO: constant/define for number of saved registers which aren't caught generally by the calling convention? Or sort out having the calling convention deal with RA/FP storing
-    emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", postCallFramePointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize + (2 * MACHINE_REGISTER_SIZE_BYTES));
+    emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize);
 
     while (argumentOperands->size > 0)
     {
@@ -643,7 +641,7 @@ void riscv_emitArgumentStores(struct CodegenState *state,
                             riscv_SelectWidthCharForLifetime(calledFunction->mainScope, argLifetime),
                             writeFrom->name,
                             argLifetime->writebackInfo.stackOffset,
-                            postCallFramePointer->name);
+                            info->stackPointer->name);
 
             tryReleaseScratchRegister(info, scratch);
         }

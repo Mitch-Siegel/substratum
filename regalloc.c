@@ -263,6 +263,8 @@ void setupArgumentStack(struct RegallocMetadata *metadata, struct Stack *argumen
     {
         argOffset++;
     }
+
+    metadata->argStackSize = argOffset;
 }
 
 void allocateStackSpace(struct RegallocMetadata *metadata, struct MachineInfo *info)
