@@ -107,7 +107,6 @@ void riscv_EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
                                  u8 size,
                                  ssize_t offset)
 {
-    // TODO: reimplement with new register allocation
     emitInstruction(correspondingTACLine, state, "\ts%c %s, %d(%s)\n", riscv_SelectWidthCharForSize(size), sourceReg->name, offset, info->framePointer->name);
 }
 
@@ -119,7 +118,6 @@ void riscv_EmitFrameLoadForSize(struct TACLine *correspondingTACLine,
                                 u8 size,
                                 ssize_t offset)
 {
-    // TODO: reimplement with new register allocation
     emitInstruction(correspondingTACLine, state, "\tl%c %s, %d(%s)\n", riscv_SelectWidthCharForSize(size), destReg->name, offset, info->framePointer->name);
 }
 
@@ -131,7 +129,6 @@ void riscv_EmitStackStoreForSize(struct TACLine *correspondingTACLine,
                                  u8 size,
                                  ssize_t offset)
 {
-    // TODO: reimplement with new register allocation
     emitInstruction(correspondingTACLine, state, "\ts%c %s, %d(sp)\n", riscv_SelectWidthCharForSize(size), sourceReg->name, offset, info->stackPointer->name);
 }
 
@@ -143,33 +140,7 @@ void riscv_EmitStackLoadForSize(struct TACLine *correspondingTACLine,
                                 u8 size,
                                 ssize_t offset)
 {
-    // TODO: reimplement with new register allocation
     emitInstruction(correspondingTACLine, state, "\tl%c %s, %d(sp)\n", riscv_SelectWidthCharForSize(size), destReg->name, offset, info->stackPointer->name);
-}
-
-void riscv_EmitPushForOperand(struct TACLine *correspondingTACLine,
-                              struct CodegenState *state,
-                              struct Scope *scope,
-                              struct TACOperand *dataSource,
-                              struct Register *srcRegister)
-{
-    InternalError("riscv_EmitPushForOperand not implemented");
-    // size_t size = Type_GetSize(TACOperand_GetType(dataSource), scope);
-    // switch (size)
-    // {
-    // case sizeof(u8):
-    // case sizeof(u16):
-    // case sizeof(u32):
-    // case sizeof(u64):
-    //     riscv_EmitPushForSize(correspondingTACLine, state, size, srcRegister);
-    //     break;
-
-    // default:
-    // {
-    //     char *typeName = Type_GetName(TACOperand_GetType(dataSource));
-    //     InternalError("Unsupported size %zu seen in riscv_EmitPushForOperand (for type %s)", size, typeName);
-    // }
-    // }
 }
 
 void riscv_EmitPushForSize(struct TACLine *correspondingTACLine,
@@ -177,39 +148,10 @@ void riscv_EmitPushForSize(struct TACLine *correspondingTACLine,
                            u8 size,
                            struct Register *srcRegister)
 {
-    // TODO: reimplement with new register allocation
     emitInstruction(correspondingTACLine, state, "\taddi sp, sp, -%d\n", size);
     emitInstruction(correspondingTACLine, state, "\ts%c %s, 0(sp)\n",
                     riscv_SelectWidthCharForSize(size),
                     srcRegister->name);
-}
-
-void riscv_EmitPopForOperand(struct TACLine *correspondingTACLine,
-                             struct CodegenState *state,
-                             struct Scope *scope,
-                             struct TACOperand *dataDest,
-                             struct Register *destRegister)
-
-{
-    InternalError("riscv_EmitPopForOperand not implemented");
-    // TODO: reimplement with new register allocation
-    // size_t size = Type_GetSize(TACOperand_GetType(dataDest), scope);
-    // switch (size)
-    // {
-    // case sizeof(u8):
-    // case sizeof(u16):
-    // case sizeof(u32):
-    // case sizeof(u64):
-    //     riscv_EmitPopForSize(correspondingTACLine, state, size, destRegister);
-
-    //     break;
-
-    // default:
-    // {
-    //     char *typeName = Type_GetName(TACOperand_GetType(dataDest));
-    //     InternalError("Unsupported size %zu seen in riscv_EmitPopForOperand (for type %s)", size, typeName);
-    // }
-    // }
 }
 
 void riscv_EmitPopForSize(struct TACLine *correspondingTACLine,
@@ -251,7 +193,10 @@ void riscv_callerSaveRegisters(struct CodegenState *state, struct FunctionEntry 
     emitInstruction(NULL, state, "\t#Caller-save registers\n");
 
     char *spName = info->stackPointer->name;
+
+    // TODO: don't emit when 0
     emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
+
     for (ssize_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
     {
         struct Register *calleeSaved = actuallyCallerSaved->data[regIndex];
@@ -265,7 +210,6 @@ void riscv_callerRestoreRegisters(struct CodegenState *state, struct FunctionEnt
 {
     struct RegallocMetadata *metadata = &calledFunction->regalloc;
 
-    // TODO: implement for new register allocator
     Log(LOG_DEBUG, "Caller-restoring registers");
     struct Stack *actuallyCallerSaved = Stack_New();
 
@@ -293,6 +237,8 @@ void riscv_callerRestoreRegisters(struct CodegenState *state, struct FunctionEnt
         struct Register *calleeSaved = actuallyCallerSaved->data[regIndex];
         riscv_EmitStackLoadForSize(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (regIndex * MACHINE_REGISTER_SIZE_BYTES));
     }
+
+    // TODO: don't emit when 0
     emitInstruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
 
     Stack_Free(actuallyCallerSaved);
@@ -332,7 +278,6 @@ void riscv_calleeSaveRegisters(struct CodegenState *state, struct RegallocMetada
 
 void riscv_calleeRestoreRegisters(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
-    // TODO: implement for new register allocator
     Log(LOG_DEBUG, "Callee-restoring registers");
     struct Stack *actuallyCalleeSaved = Stack_New();
 
@@ -374,8 +319,6 @@ void riscv_emitPrologue(struct CodegenState *state, struct RegallocMetadata *met
     emitInstruction(NULL, state, "\taddi %s, %s, -%zu\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
 
     riscv_calleeSaveRegisters(state, metadata, info);
-
-    // TODO: implement for new register allocator
 }
 
 void riscv_emitEpilogue(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info, char *functionName)
@@ -387,12 +330,11 @@ void riscv_emitEpilogue(struct CodegenState *state, struct RegallocMetadata *met
 
     riscv_EmitFrameLoadForSize(NULL, state, info, info->framePointer, MACHINE_REGISTER_SIZE_BYTES, ((ssize_t)-1 * MACHINE_REGISTER_SIZE_BYTES));
 
+    // TODO: don't emit when 0
     emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, metadata->argStackSize);
 
     emitInstruction(NULL, state, "\tjalr zero, 0(%s)\n", info->returnAddress->name);
     fprintf(state->outFile, "\t.cfi_endproc\n");
-
-    // TODO: implement for new register allocator
 }
 
 // places an operand by name into the specified register, or returns the index of the register containing if it's already in a register
@@ -602,6 +544,7 @@ void riscv_emitArgumentStores(struct CodegenState *state,
                               struct FunctionEntry *calledFunction,
                               struct Stack *argumentOperands)
 {
+    // TODO: don't emit when 0
     emitInstruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize);
 
     while (argumentOperands->size > 0)

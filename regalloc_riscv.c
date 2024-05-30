@@ -69,6 +69,7 @@ struct Register riscvRegisters[RISCV_REGISTER_COUNT] = {
     { NULL, t6, "t6" },
 };
 
+// TODO: flip ordering so allocation goes from low indices to high (and fix resulting bugs?)
 struct MachineInfo *riscv_SetupMachineInfo()
 {
     const u8 nTemps = 3;

@@ -20,6 +20,7 @@ size_t Lifetime_Heuristic(struct Lifetime *lifetime)
     heuristic *= lifetime->nwrites;
 
     // TODO: super-prefer to "spill" arguments as they already have a stack address
+    // TODO: tests that demonstrate various spilling characteristics (functions with and without arguments)
 
     return heuristic;
 }

@@ -38,22 +38,10 @@ void riscv_EmitStackLoadForSize(struct TACLine *correspondingTACLine,
                                 u8 size,
                                 ssize_t offset);
 
-void riscv_EmitPushForOperand(struct TACLine *correspondingTACLine,
-                              struct CodegenState *state,
-                              struct Scope *scope,
-                              struct TACOperand *dataSource,
-                              struct Register *srcRegister);
-
 void riscv_EmitPushForSize(struct TACLine *correspondingTACLine,
                            struct CodegenState *state,
                            u8 size,
                            struct Register *srcRegister);
-
-void riscv_EmitPopForOperand(struct TACLine *correspondingTACLine,
-                             struct CodegenState *state,
-                             struct Scope *scope,
-                             struct TACOperand *dataDest,
-                             struct Register *destRegister);
 
 void riscv_EmitPopForSize(struct TACLine *correspondingTACLine,
                           struct CodegenState *state,
