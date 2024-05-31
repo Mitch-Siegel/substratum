@@ -21,5 +21,10 @@ typedef int8_t i8;
 #define I16_MAX INT16_MAX
 #define I8_MAX INT8_MAX
 
-#define MACHINE_REGISTER_SIZE_BYTES ((size_t)8)
+typedef u8 bool;
+
+#define false 0
+#define true 1
+
+#define MACHINE_REGISTER_SIZE_BYTES 8
 #define MACHINE_REGISTER_COUNT 32

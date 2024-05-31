@@ -78,6 +78,8 @@ struct SymbolTable *walkProgram(struct AST *program)
         programRunner = programRunner->sibling;
     }
 
+    SymbolTable_DecayArrays(programTable);
+
     return programTable;
 }
 
@@ -260,7 +262,6 @@ void verifyFunctionSignatures(struct AST *tree, struct FunctionEntry *existingFu
 
     // ensure we have both the same number of bytes of arguments and same number of arguments
     if (!mismatch &&
-        (existingFunc->argStackSize == parsedFunc->argStackSize) &&
         (existingFunc->arguments->size == parsedFunc->arguments->size))
     {
         // if we have same number of bytes and same number, ensure everything is exactly the same
@@ -432,11 +433,6 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
             InternalError("Malformed AST within function - expected function name and main scope only!\nMalformed node was of type %s with value [%s]", getTokenName(argumentRunner->type), argumentRunner->value);
         }
         argumentRunner = argumentRunner->sibling;
-    }
-
-    while (parsedFunc->argStackSize % STACK_ALIGN_BYTES)
-    {
-        parsedFunc->argStackSize++;
     }
 
     verifyFunctionSignatures(tree, existingFunc, parsedFunc);
@@ -1591,7 +1587,7 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
     while (argumentTrees->size > 0)
     {
         struct AST *pushedArgument = Stack_Pop(argumentTrees);
-        struct TACLine *push = newTACLine(tt_stack_store, pushedArgument);
+        struct TACLine *push = newTACLine(tt_arg_store, pushedArgument);
         Stack_Push(argumentPushes, push);
         walkSubExpression(pushedArgument, block, scope, TACIndex, tempNum, &push->operands[0]);
 
@@ -1641,18 +1637,6 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
 void reserveAndStoreStackArgs(struct AST *callTree, struct FunctionEntry *calledFunction, struct Stack *argumentPushes, struct BasicBlock *block, size_t *TACIndex)
 {
     LogTree(LOG_DEBUG, callTree, "reserveAndStoreStackArgs");
-
-    if (calledFunction->arguments->size > 0)
-    {
-        struct TACLine *reserveStackSpaceForCall = newTACLine(tt_stack_reserve, callTree);
-        if (calledFunction->argStackSize > I64_MAX)
-        {
-            // TODO: implementation dependent size of size_t
-            InternalError("Function %s has arg stack size too large (%zd bytes)!", calledFunction->name, calledFunction->argStackSize);
-        }
-        reserveStackSpaceForCall->operands[0].name.val = (ssize_t)calledFunction->argStackSize;
-        BasicBlock_append(block, reserveStackSpaceForCall, TACIndex);
-    }
 
     while (argumentPushes->size > 0)
     {
@@ -1808,7 +1792,7 @@ void walkMethodCall(struct AST *tree,
         structOperand = *getAddrOfOperand(tree, block, scope, TACIndex, tempNum, &structOperand);
     }
 
-    struct TACLine *pThisPush = newTACLine(tt_stack_store, structTree);
+    struct TACLine *pThisPush = newTACLine(tt_arg_store, structTree);
     pThisPush->operands[0] = structOperand;
     pThisPush->operands[1].name.val = 0;
     pThisPush->operands[1].type.basicType = vt_u64;

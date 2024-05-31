@@ -13,7 +13,7 @@ struct VariableEntry *createVariable(struct Scope *scope,
                                      u8 isArgument,
                                      enum Access accessibility)
 {
-    if(isArgument && (accessibility != a_public))
+    if (isArgument && (accessibility != a_public))
     {
         InternalError("createVariable called with isArgument == 1 and accessibility != a_public - illegal arguments");
     }
@@ -45,18 +45,6 @@ struct VariableEntry *createVariable(struct Scope *scope,
     // if we have an argument, it will be trivially spilled because it is passed in on the stack
     if (isArgument)
     {
-        // compute the padding necessary for alignment of this argument
-        scope->parentFunction->argStackSize += Scope_ComputePaddingForAlignment(scope, type, scope->parentFunction->argStackSize);
-
-        // put our argument's offset at the newly-aligned stack size, then add the size of the argument to the argument stack size
-        if (scope->parentFunction->argStackSize > I64_MAX)
-        {
-            // TODO: implementation dependent size of size_t
-            InternalError("Function %s has argument stack size too large (%zd bytes)!", scope->parentFunction->name, scope->parentFunction->argStackSize);
-        }
-        newVariable->stackOffset = (ssize_t)scope->parentFunction->argStackSize;
-        scope->parentFunction->argStackSize += Type_GetSize(type, scope);
-
         Scope_insert(scope, name->value, newVariable, e_argument, accessibility);
     }
     else

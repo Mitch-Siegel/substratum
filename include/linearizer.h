@@ -46,8 +46,8 @@ void walkMethod(struct AST *tree,
 void walkImplementationBlock(struct AST *tree, struct Scope *scope);
 
 void walkStructDeclaration(struct AST *tree,
-                          struct BasicBlock *block,
-                          struct Scope *scope);
+                           struct BasicBlock *block,
+                           struct Scope *scope);
 
 void walkStatement(struct AST *tree,
                    struct BasicBlock **blockP,

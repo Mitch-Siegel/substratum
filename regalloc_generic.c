@@ -6,20 +6,77 @@
 #include "util.h"
 #include <string.h>
 
-struct Lifetime *newLifetime(char *name, struct Type *type, size_t start, u8 isGlobal, u8 mustSpill)
+struct MachineInfo *(*setupMachineInfo)() = NULL;
+
+struct MachineInfo *MachineInfo_New(u8 maxReg,
+                                    u8 n_temps,
+                                    u8 n_arguments,
+                                    u8 n_general_purpose,
+                                    u8 n_no_save,
+                                    u8 n_callee_save,
+                                    u8 n_caller_save)
+{
+    struct MachineInfo *wip = malloc(sizeof(struct MachineInfo));
+    memset(wip, 0, sizeof(struct MachineInfo));
+
+    wip->maxReg = maxReg;
+    wip->allRegisters = malloc(wip->maxReg * sizeof(struct Register *));
+    memset(wip->allRegisters, 0, wip->maxReg * sizeof(struct Register *));
+
+    wip->n_temps = n_temps;
+    wip->temps = malloc(wip->n_temps * sizeof(struct Register *));
+    memset(wip->temps, 0, wip->n_temps * sizeof(struct Register *));
+    wip->tempsOccupied = malloc(wip->n_temps * sizeof(u8));
+    memset(wip->tempsOccupied, 0, wip->n_temps * sizeof(u8));
+
+    wip->n_arguments = n_arguments;
+    wip->arguments = malloc(wip->n_arguments * sizeof(struct Register *));
+    memset(wip->arguments, 0, wip->n_arguments * sizeof(struct Register *));
+
+    wip->n_general_purpose = n_general_purpose;
+    wip->generalPurpose = malloc(wip->n_general_purpose * sizeof(struct Register *));
+    memset(wip->generalPurpose, 0, wip->n_general_purpose * sizeof(struct Register *));
+
+    wip->n_no_save = n_no_save;
+    wip->no_save = malloc(wip->n_no_save * sizeof(struct Register *));
+    memset(wip->no_save, 0, wip->n_no_save * sizeof(struct Register *));
+
+    wip->n_callee_save = n_callee_save;
+    wip->callee_save = malloc(wip->n_callee_save * sizeof(struct Register *));
+    memset(wip->callee_save, 0, wip->n_callee_save * sizeof(struct Register *));
+
+    wip->n_caller_save = n_caller_save;
+    wip->caller_save = malloc(wip->n_caller_save * sizeof(struct Register *));
+    memset(wip->caller_save, 0, wip->n_caller_save * sizeof(struct Register *));
+
+    return wip;
+}
+
+void MachineInfo_Free(struct MachineInfo *info)
+{
+    free(info->allRegisters);
+    free(info->temps);
+    free(info->tempsOccupied);
+    free(info->generalPurpose);
+    free(info->arguments);
+    free(info->no_save);
+    free(info->callee_save);
+    free(info->caller_save);
+
+    free(info);
+}
+
+struct Lifetime *Lifetime_New(char *name, struct Type *type, size_t start, u8 isGlobal, u8 mustSpill)
 {
     struct Lifetime *wip = malloc(sizeof(struct Lifetime));
     wip->name = name;
     wip->type = *type;
     wip->start = start;
     wip->end = start;
-    wip->stackLocation = 0;
-    wip->registerLocation = 0;
-    wip->inRegister = 0;
-    wip->onStack = 1; // by default, everything gets a slot on the stack
+    wip->writebackInfo.stackOffset = 0;
+    wip->isArgument = 0;
     wip->nwrites = 0;
     wip->nreads = 0;
-    wip->isArgument = 0;
     if (isGlobal)
     {
         wip->wbLocation = wb_global;
@@ -40,22 +97,34 @@ struct Lifetime *newLifetime(char *name, struct Type *type, size_t start, u8 isG
     return wip;
 }
 
-ssize_t compareLifetimes(struct Lifetime *compared, char *variable)
+size_t Lifetime_Hash(struct Lifetime *lifetime)
 {
-    return strcmp(compared->name, variable);
+    return hashString(lifetime->name);
+}
+
+ssize_t Lifetime_Compare(struct Lifetime *lifetimeA, struct Lifetime *lifetimeB)
+{
+    return strcmp(lifetimeA->name, lifetimeB->name);
+}
+
+bool Lifetime_IsLiveAtIndex(struct Lifetime *lifetime, size_t index)
+{
+    return ((lifetime->start <= index) && (lifetime->end >= index));
 }
 
 // search through the list of existing lifetimes
 // update the lifetime if it exists, insert if it doesn't
 // returns pointer to the lifetime corresponding to the passed variable name
-struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
+struct Lifetime *updateOrInsertLifetime(struct Set *ltList,
                                         char *name,
                                         struct Type *type,
                                         size_t newEnd,
                                         u8 isGlobal,
                                         u8 mustSpill)
 {
-    struct Lifetime *thisLt = LinkedList_Find(ltList, &compareLifetimes, name);
+    struct Lifetime dummyFind = {0};
+    dummyFind.name = name;
+    struct Lifetime *thisLt = Set_Find(ltList, &dummyFind);
 
     if (thisLt != NULL)
     {
@@ -75,8 +144,8 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
     else
     {
         Log(LOG_DEBUG, "Create lifetime starting at %zu for %s: global? %d mustspill? %d", newEnd, name, isGlobal, mustSpill);
-        thisLt = newLifetime(name, type, newEnd, isGlobal, mustSpill);
-        LinkedList_Append(ltList, thisLt);
+        thisLt = Lifetime_New(name, type, newEnd, isGlobal, mustSpill);
+        Set_Insert(ltList, thisLt);
     }
 
     return thisLt;
@@ -84,7 +153,7 @@ struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
-void recordVariableWrite(struct LinkedList *ltList,
+void recordVariableWrite(struct Set *ltList,
                          struct TACOperand *writtenOperand,
                          struct Scope *scope,
                          size_t newEnd)
@@ -107,7 +176,7 @@ void recordVariableWrite(struct LinkedList *ltList,
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
-void recordVariableRead(struct LinkedList *ltList,
+void recordVariableRead(struct Set *ltList,
                         struct TACOperand *readOperand,
                         struct Scope *scope,
                         size_t newEnd)
@@ -128,7 +197,7 @@ void recordVariableRead(struct LinkedList *ltList,
     updatedLifetime->nreads += 1;
 }
 
-void recordLifetimeWriteForOperand(struct LinkedList *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
+void recordLifetimeWriteForOperand(struct Set *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
 {
     if ((TACOperand_GetType(operand)->basicType != vt_null) && (operand->permutation != vp_literal))
     {
@@ -136,7 +205,7 @@ void recordLifetimeWriteForOperand(struct LinkedList *lifetimes, struct TACOpera
     }
 }
 
-void recordLifetimeReadForOperand(struct LinkedList *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
+void recordLifetimeReadForOperand(struct Set *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
 {
     if ((TACOperand_GetType(operand)->basicType != vt_null) && (operand->permutation != vp_literal))
     {
@@ -144,7 +213,7 @@ void recordLifetimeReadForOperand(struct LinkedList *lifetimes, struct TACOperan
     }
 }
 
-void findLifetimesForTac(struct LinkedList *lifetimes, struct Scope *scope, struct TACLine *line, struct Stack *doDepth)
+void findLifetimesForTac(struct Set *lifetimes, struct Scope *scope, struct TACLine *line, struct Stack *doDepth)
 {
     // handle tt_do/tt_enddo stack and lifetime extension
     switch (line->operation)
@@ -157,7 +226,7 @@ void findLifetimesForTac(struct LinkedList *lifetimes, struct Scope *scope, stru
     {
         size_t extendTo = line->index;
         size_t extendFrom = (size_t)Stack_Pop(doDepth);
-        for (struct LinkedListNode *lifetimeRunner = lifetimes->head; lifetimeRunner != NULL; lifetimeRunner = lifetimeRunner->next)
+        for (struct LinkedListNode *lifetimeRunner = lifetimes->elements->head; lifetimeRunner != NULL; lifetimeRunner = lifetimeRunner->next)
         {
             struct Lifetime *examinedLifetime = lifetimeRunner->data;
             if (examinedLifetime->end >= extendFrom && examinedLifetime->end < extendTo)
@@ -193,7 +262,7 @@ void findLifetimesForTac(struct LinkedList *lifetimes, struct Scope *scope, stru
     }
 }
 
-void addArgumentLifetimesForScope(struct LinkedList *lifetimes, struct Scope *scope)
+void addArgumentLifetimesForScope(struct Set *lifetimes, struct Scope *scope)
 {
     for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
     {
@@ -202,15 +271,14 @@ void addArgumentLifetimesForScope(struct LinkedList *lifetimes, struct Scope *sc
         {
             struct VariableEntry *theArgument = thisMember->entry;
             // arguments can be mustSpill too - if they are used in an address-of it will be required not to ever load them into registers
-            struct Lifetime *argLifetime = updateOrInsertLifetime(lifetimes, thisMember->name, &theArgument->type, 0, 0, theArgument->mustSpill);
-            argLifetime->isArgument = 1;
+            updateOrInsertLifetime(lifetimes, thisMember->name, &theArgument->type, 0, 0, theArgument->mustSpill)->isArgument = 1;
         }
     }
 }
 
-struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList)
+struct Set *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList)
 {
-    struct LinkedList *lifetimes = LinkedList_New();
+    struct Set *lifetimes = Set_New((ssize_t(*)(void *, void *))Lifetime_Compare, free);
 
     addArgumentLifetimesForScope(lifetimes, scope);
 
@@ -234,26 +302,26 @@ struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBl
     return lifetimes;
 }
 
-// populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i
-// then determine which variables should be spilled
-size_t generateLifetimeOverlaps(struct CodegenMetadata *metadata)
+/*
+ *
+ * Register struct
+ *
+ */
+struct Register *Register_New(u8 index)
 {
-    size_t mostConcurrentLifetimes = 0;
+    struct Register *reg = malloc(sizeof(struct Register));
+    reg->containedLifetime = NULL;
+    reg->index = index;
 
-    // populate the array of active lifetimes
-    for (struct LinkedListNode *runner = metadata->allLifetimes->head; runner != NULL; runner = runner->next)
+    return reg;
+}
+
+bool Register_IsLive(struct Register *reg, size_t index)
+{
+    if (reg->containedLifetime == NULL)
     {
-        struct Lifetime *thisLifetime = runner->data;
-
-        for (size_t liveIndex = thisLifetime->start; liveIndex <= thisLifetime->end; liveIndex++)
-        {
-            LinkedList_Append(metadata->lifetimeOverlaps[liveIndex], thisLifetime);
-            if (metadata->lifetimeOverlaps[liveIndex]->size > mostConcurrentLifetimes)
-            {
-                mostConcurrentLifetimes = metadata->lifetimeOverlaps[liveIndex]->size;
-            }
-        }
+        return false;
     }
 
-    return mostConcurrentLifetimes;
+    return Lifetime_IsLiveAtIndex(reg->containedLifetime, index);
 }

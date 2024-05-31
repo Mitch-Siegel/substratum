@@ -120,6 +120,20 @@ void HashTable_Insert(struct HashTable *table, void *key, void *value)
     Set_Insert(bucket, entry);
 }
 
+void HashTable_Delete(struct HashTable *table, void *key)
+{
+    size_t hash = table->hashFunction(key);
+    hash %= table->nBuckets;
+
+    struct HashTableEntry dummyEntry;
+    dummyEntry.key = key;
+    dummyEntry.value = NULL;
+    dummyEntry.compareFunction = table->compareFunction;
+
+    struct Set *bucket = table->buckets[hash];
+    Set_Delete(bucket, &dummyEntry);
+}
+
 void HashTable_Free(struct HashTable *table)
 {
     for (size_t bucketIndex = 0; bucketIndex < table->nBuckets; bucketIndex++)
@@ -474,7 +488,11 @@ void Set_Delete(struct Set *set, void *element)
 {
     if (LinkedList_Find(set->elements, set->compareFunction, element) != NULL)
     {
-        LinkedList_Delete(set->elements, set->compareFunction, element);
+        void *dataToFree = LinkedList_Delete(set->elements, set->compareFunction, element);
+        if (set->dataFreeFunction != NULL)
+        {
+            set->dataFreeFunction(dataToFree);
+        }
     }
     else
     {

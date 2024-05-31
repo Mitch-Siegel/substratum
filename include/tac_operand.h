@@ -32,8 +32,6 @@ enum TACOperandUse
     u_write,
 };
 
-void TACOperand_SetBasicType(struct TACOperand *operand, enum basicTypes type, int indirectionLevel);
-
 void printTACOperand(void *operandData);
 
 ssize_t TACOperand_Compare(void *dataA, void *dataB);

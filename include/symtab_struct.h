@@ -20,7 +20,7 @@ struct StructEntry
 
 // this represents the definition of a struct itself, instantiation falls under variableEntry
 struct StructEntry *createStruct(struct Scope *scope,
-                               char *name);
+                                 char *name);
 
 void StructEntry_free(struct StructEntry *theStruct);
 
@@ -30,8 +30,8 @@ void assignOffsetToMemberVariable(struct StructEntry *memberOf,
                                   struct VariableEntry *variable);
 
 struct StructMemberOffset *lookupMemberVariable(struct StructEntry *theStruct,
-                                               struct AST *name,
-                                               struct Scope *scope);
+                                                struct AST *name,
+                                                struct Scope *scope);
 
 struct FunctionEntry *lookupMethod(struct StructEntry *theStruct,
                                    struct AST *name,
@@ -42,9 +42,9 @@ struct FunctionEntry *lookupMethodByString(struct StructEntry *theStruct,
                                            char *name);
 
 struct StructEntry *lookupStruct(struct Scope *scope,
-                               struct AST *name);
+                                 struct AST *name);
 
 struct StructEntry *lookupStructByType(struct Scope *scope,
-                                     struct Type *type);
+                                       struct Type *type);
 
 #endif

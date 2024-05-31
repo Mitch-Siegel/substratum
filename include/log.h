@@ -20,8 +20,6 @@ void LogFunction(const char *file, size_t line, enum LogLevel level, const char 
 
 void LogTreeFunction(const char *file, size_t line, enum LogLevel level, struct AST *tree, const char *format, ...);
 
-void InternalErrorFunction(const char *file, size_t line, const char *format, ...);
-
 #define Log(level, format, ...) LogFunction(__FILE__, __LINE__, level, format, ##__VA_ARGS__)
 #define LogTree(level, tree, format, ...) LogTreeFunction(__FILE__, __LINE__, level, tree, format, ##__VA_ARGS__)
 #define InternalError(format, ...)                                     \

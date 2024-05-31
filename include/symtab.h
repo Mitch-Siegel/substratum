@@ -7,9 +7,9 @@
 #include "util.h"
 
 #include "symtab_basicblock.h"
-#include "symtab_struct.h"
 #include "symtab_function.h"
 #include "symtab_scope.h"
+#include "symtab_struct.h"
 #include "symtab_variable.h"
 
 #pragma once
@@ -33,6 +33,8 @@ struct SymbolTable *SymbolTable_new(char *name);
 void SymbolTable_print(struct SymbolTable *table,
                        FILE *outFile,
                        char printTAC);
+
+void SymbolTable_DecayArrays(struct SymbolTable *table);
 
 void SymbolTable_collapseScopesRec(struct Scope *scope,
                                    struct Dictionary *dict,

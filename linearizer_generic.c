@@ -136,7 +136,7 @@ void convertLoadToLea(struct TACLine *loadLine, struct TACOperand *dest)
     TAC_GetTypeOfOperand(loadLine, 0)->pointerLevel++;
 
     // in case we are converting struct.member_which_is_struct.a, special case so that both operands guaranteed to have pointer type and thus be primitives for codegen
-    if(loadLine->operands[1].castAsType.basicType == vt_struct)
+    if (loadLine->operands[1].castAsType.basicType == vt_struct)
     {
         loadLine->operands[1].castAsType.pointerLevel++;
     }

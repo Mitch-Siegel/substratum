@@ -9,11 +9,15 @@
 #include "codegen.h"
 #include "linearizer.h"
 #include "log.h"
+#include "regalloc.h"
 #include "ssa.h"
 #include "substratum_defs.h"
 #include "symtab.h"
 #include "tac.h"
 #include "util.h"
+
+#include "codegen_riscv.h"
+#include "regalloc_riscv.h"
 
 struct Dictionary *parseDict = NULL;
 
@@ -220,8 +224,8 @@ int main(int argc, char **argv)
     generateSsa(theTable);
 
     // TODO: option to enable/disable symtab dump
-    /*Log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
-    SymbolTable_print(theTable, stderr, 1);*/
+    Log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
+    SymbolTable_print(theTable, stderr, 1);
 
     FILE *outFile = stdout;
 
@@ -260,7 +264,15 @@ int main(int argc, char **argv)
 
         fprintf(outFile, "\t.file 2 \"%s\"\n", inFileName);
     }
-    generateCodeForProgram(theTable, outFile);
+
+    setupMachineInfo = riscv_SetupMachineInfo;
+    struct MachineInfo *info = setupMachineInfo();
+
+    allocateRegistersForProgram(theTable, info);
+
+    generateCodeForProgram(theTable, outFile, info, riscv_emitPrologue, riscv_emitEpilogue, riscv_GenerateCodeForBasicBlock);
+
+    MachineInfo_Free(info);
 
     SymbolTable_free(theTable);
 

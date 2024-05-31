@@ -68,7 +68,7 @@ void *HashTable_Lookup(struct HashTable *table, void *key);
 
 void HashTable_Insert(struct HashTable *table, void *key, void *value);
 
-void *HashTable_Delete(struct HashTable *table, void *key);
+void HashTable_Delete(struct HashTable *table, void *key);
 
 void HashTable_Free(struct HashTable *table);
 
@@ -168,7 +168,7 @@ struct Set
 {
     struct LinkedList *elements;
     ssize_t (*compareFunction)(void *elementA, void *elementB);
-    void(*dataFreeFunction);
+    void (*dataFreeFunction)(void *);
 };
 
 struct Set *Set_New(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction));

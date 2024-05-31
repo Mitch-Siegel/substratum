@@ -27,6 +27,62 @@ void SymbolTable_print(struct SymbolTable *table, FILE *outFile, char printTAC)
     printf("~~~~~~~~~~~~~\n\n");
 }
 
+void Scope_DecayArrays(struct Scope *scope)
+{
+    for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
+    {
+        struct ScopeMember *thisMember = scope->entries->data[entryIndex];
+        switch (thisMember->type)
+        {
+        case e_scope:
+            Scope_DecayArrays(thisMember->entry);
+            break;
+
+        case e_function:
+        {
+            struct FunctionEntry *decayFunction = thisMember->entry;
+            Scope_DecayArrays(decayFunction->mainScope);
+        }
+        break;
+
+        case e_basicblock:
+        {
+            struct BasicBlock *decayBlock = thisMember->entry;
+            for (struct LinkedListNode *tacRunner = decayBlock->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
+            {
+                struct TACLine *decayLine = tacRunner->data;
+                for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
+                {
+                    if (getUseOfOperand(decayLine, operandIndex) != u_unused)
+                    {
+                        struct Type decayedType = *TACOperand_GetType(&decayLine->operands[operandIndex]);
+                        Type_DecayArrays(&decayedType);
+                        decayLine->operands[operandIndex].castAsType = decayedType;
+                    }
+                }
+            }
+        }
+        break;
+
+        case e_variable:
+        case e_argument:
+            break;
+
+        case e_struct:
+        {
+            struct StructEntry *theStruct = thisMember->entry;
+            Scope_DecayArrays(theStruct->members);
+        }
+        break;
+        }
+    }
+}
+
+void SymbolTable_DecayArrays(struct SymbolTable *table)
+{
+    Scope_DecayArrays(table->globalScope);
+}
+
 char *SymbolTable_mangleName(struct Scope *scope, struct Dictionary *dict, char *toMangle)
 {
     char *scopeName = scope->name;
@@ -320,7 +376,7 @@ void Scope_print(struct Scope *scope, FILE *outFile, size_t depth, char printTAC
             {
                 fprintf(outFile, "> Function ");
             }
-            fprintf(outFile, "%s (returns %s) (defined: %d)\n\t%ld bytes of arguments on stack\n", thisMember->name, returnTypeName, theFunction->isDefined, theFunction->argStackSize);
+            fprintf(outFile, "%s (returns %s) (defined: %d)\n", thisMember->name, returnTypeName, theFunction->isDefined);
             free(returnTypeName);
             Scope_print(theFunction->mainScope, outFile, depth + 1, printTAC);
         }
