@@ -15,6 +15,7 @@
 #include "symtab.h"
 #include "tac.h"
 #include "util.h"
+#include "tokenize.h"
 
 #include "codegen_riscv.h"
 #include "regalloc_riscv.h"
@@ -119,18 +120,29 @@ struct AST *parseFile(char *inFileName)
 
     fileProgress.f = stdin;
 
-    struct AST *parsed = NULL;
-    struct AST *translationUnit = NULL;
-    while (pcc_parse(parseContext, &translationUnit))
+    struct Stack *tokens = tokenize(&fileProgress);
+
+    while(tokens->size > 0)
     {
-        parsed = AST_S(parsed, translationUnit);
+        struct AST *token = Stack_Pop(tokens);
+        Log(LOG_WARNING, "%15s %s", getTokenName(token->type), token->value);
     }
+
+    InternalError("Parsing after tokenization not implemented yet");
+
+    // struct AST *parsed = NULL;
+    // struct AST *translationUnit = NULL;
+    // while (pcc_parse(parseContext, &translationUnit))
+    // {
+    //     parsed = AST_S(parsed, translationUnit);
+    // }
 
     pcc_destroy(parseContext);
 
     LinkedList_Free(fileProgress.charsRemainingPerLine, free);
 
-    return parsed;
+    // return parsed;
+    return NULL;
 }
 
 int main(int argc, char **argv)
