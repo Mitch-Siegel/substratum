@@ -38,6 +38,7 @@ struct Lifetime
 struct MachineInfo *MachineInfo_New(u8 maxReg,
                                     u8 n_temps,
                                     u8 n_arguments,
+                                    u8 n_general_purpose,
                                     u8 n_no_save,
                                     u8 n_callee_save,
                                     u8 n_caller_save);
@@ -102,8 +103,10 @@ struct MachineInfo
     struct Register **temps;
     u8 *tempsOccupied;
     struct Register **arguments;
+    struct Register **generalPurpose;
     u8 n_arguments;
     u8 n_temps;
+    u8 n_general_purpose;
 
     // all registers (whether or not they fall into the above categories) must have a calling convention defined
     struct Register **no_save;

@@ -74,10 +74,11 @@ struct MachineInfo *riscv_SetupMachineInfo()
 {
     const u8 nTemps = 3;
     const u8 nArguments = 8;
+    const u8 nGeneralPurpose = 15;
     const u8 nNoSave = 0;
     const u8 nCalleeSave = 12;
     const u8 nCallerSave = 12;
-    struct MachineInfo *info = MachineInfo_New(RISCV_REGISTER_COUNT, nTemps, nArguments, nNoSave, nCalleeSave, nCallerSave);
+    struct MachineInfo *info = MachineInfo_New(RISCV_REGISTER_COUNT, nTemps, nArguments, nGeneralPurpose, nNoSave, nCalleeSave, nCallerSave);
 
     info->returnAddress = &riscvRegisters[ra];
     info->stackPointer = &riscvRegisters[sp];
@@ -88,42 +89,65 @@ struct MachineInfo *riscv_SetupMachineInfo()
     info->temps[1] = &riscvRegisters[t1];
     info->temps[2] = &riscvRegisters[t2];
 
-    for (u8 argReg = 0; argReg < nArguments; argReg++)
-    {
-        info->arguments[argReg] = &riscvRegisters[a0 + argReg];
-    }
+    u8 argReg = 0;
+    info->arguments[argReg++] = &riscvRegisters[a7];
+    info->arguments[argReg++] = &riscvRegisters[a6];
+    info->arguments[argReg++] = &riscvRegisters[a5];
+    info->arguments[argReg++] = &riscvRegisters[a4];
+    info->arguments[argReg++] = &riscvRegisters[a3];
+    info->arguments[argReg++] = &riscvRegisters[a2];
+    info->arguments[argReg++] = &riscvRegisters[a1];
+    info->arguments[argReg++] = &riscvRegisters[a0];
+
+    u8 gpReg = 0;
+    info->generalPurpose[gpReg++] = &riscvRegisters[t6];
+    info->generalPurpose[gpReg++] = &riscvRegisters[t5];
+    info->generalPurpose[gpReg++] = &riscvRegisters[t4];
+    info->generalPurpose[gpReg++] = &riscvRegisters[t3];
+
+    info->generalPurpose[gpReg++] = &riscvRegisters[s11];
+    info->generalPurpose[gpReg++] = &riscvRegisters[s10];
+    info->generalPurpose[gpReg++] = &riscvRegisters[s9];
+    info->generalPurpose[gpReg++] = &riscvRegisters[s8];
+    info->generalPurpose[gpReg++] = &riscvRegisters[s7];
+    info->generalPurpose[gpReg++] = &riscvRegisters[s6];
+    info->generalPurpose[gpReg++] = &riscvRegisters[s5];
+    info->generalPurpose[gpReg++] = &riscvRegisters[s4];
+    info->generalPurpose[gpReg++] = &riscvRegisters[s3];
+    info->generalPurpose[gpReg++] = &riscvRegisters[s2];
+    info->generalPurpose[gpReg++] = &riscvRegisters[s1];
+
 
     u8 calleeReg = 0;
     // don't actually mark sp and fp as callee-save as they are handled specifically by emitprologue and emitepilogue to get the ordering correct
-    info->callee_save[calleeReg++] = &riscvRegisters[ra];
-    // info->callee_save[calleeReg++] = &riscvRegisters[fp];
-    info->callee_save[calleeReg++] = &riscvRegisters[s1];
-    info->callee_save[calleeReg++] = &riscvRegisters[s2];
-    info->callee_save[calleeReg++] = &riscvRegisters[s3];
-    info->callee_save[calleeReg++] = &riscvRegisters[s4];
-    info->callee_save[calleeReg++] = &riscvRegisters[s5];
-    info->callee_save[calleeReg++] = &riscvRegisters[s6];
-    info->callee_save[calleeReg++] = &riscvRegisters[s7];
-    info->callee_save[calleeReg++] = &riscvRegisters[s8];
-    info->callee_save[calleeReg++] = &riscvRegisters[s9];
-    info->callee_save[calleeReg++] = &riscvRegisters[s10];
     info->callee_save[calleeReg++] = &riscvRegisters[s11];
+    info->callee_save[calleeReg++] = &riscvRegisters[s10];
+    info->callee_save[calleeReg++] = &riscvRegisters[s9];
+    info->callee_save[calleeReg++] = &riscvRegisters[s8];
+    info->callee_save[calleeReg++] = &riscvRegisters[s7];
+    info->callee_save[calleeReg++] = &riscvRegisters[s6];
+    info->callee_save[calleeReg++] = &riscvRegisters[s5];
+    info->callee_save[calleeReg++] = &riscvRegisters[s4];
+    info->callee_save[calleeReg++] = &riscvRegisters[s3];
+    info->callee_save[calleeReg++] = &riscvRegisters[s2];
+    info->callee_save[calleeReg++] = &riscvRegisters[s1];
+    info->callee_save[calleeReg++] = &riscvRegisters[ra];
 
     u8 callerReg = 0;
 
-    info->caller_save[callerReg++] = &riscvRegisters[a0];
-    info->caller_save[callerReg++] = &riscvRegisters[a1];
-    info->caller_save[callerReg++] = &riscvRegisters[a2];
-    info->caller_save[callerReg++] = &riscvRegisters[a3];
-    info->caller_save[callerReg++] = &riscvRegisters[a4];
-    info->caller_save[callerReg++] = &riscvRegisters[a5];
-    info->caller_save[callerReg++] = &riscvRegisters[a6];
     info->caller_save[callerReg++] = &riscvRegisters[a7];
+    info->caller_save[callerReg++] = &riscvRegisters[a6];
+    info->caller_save[callerReg++] = &riscvRegisters[a3];
+    info->caller_save[callerReg++] = &riscvRegisters[a5];
+    info->caller_save[callerReg++] = &riscvRegisters[a4];
+    info->caller_save[callerReg++] = &riscvRegisters[a2];
+    info->caller_save[callerReg++] = &riscvRegisters[a1];
+    info->caller_save[callerReg++] = &riscvRegisters[a0];
 
-    info->caller_save[callerReg++] = &riscvRegisters[t3];
-    info->caller_save[callerReg++] = &riscvRegisters[t4];
-    info->caller_save[callerReg++] = &riscvRegisters[t5];
     info->caller_save[callerReg++] = &riscvRegisters[t6];
+    info->caller_save[callerReg++] = &riscvRegisters[t5];
+    info->caller_save[callerReg++] = &riscvRegisters[t4];
+    info->caller_save[callerReg++] = &riscvRegisters[t3];
 
     for (i32 regIndex = 0; regIndex < RISCV_REGISTER_COUNT; regIndex++)
     {

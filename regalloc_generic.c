@@ -11,6 +11,7 @@ struct MachineInfo *(*setupMachineInfo)() = NULL;
 struct MachineInfo *MachineInfo_New(u8 maxReg,
                                     u8 n_temps,
                                     u8 n_arguments,
+                                    u8 n_general_purpose,
                                     u8 n_no_save,
                                     u8 n_callee_save,
                                     u8 n_caller_save)
@@ -32,6 +33,10 @@ struct MachineInfo *MachineInfo_New(u8 maxReg,
     wip->arguments = malloc(wip->n_arguments * sizeof(struct Register *));
     memset(wip->arguments, 0, wip->n_arguments * sizeof(struct Register *));
 
+    wip->n_general_purpose = n_general_purpose;
+    wip->generalPurpose = malloc(wip->n_general_purpose * sizeof(struct Register *));
+    memset(wip->generalPurpose, 0, wip->n_general_purpose * sizeof(struct Register *));
+
     wip->n_no_save = n_no_save;
     wip->no_save = malloc(wip->n_no_save * sizeof(struct Register *));
     memset(wip->no_save, 0, wip->n_no_save * sizeof(struct Register *));
@@ -52,6 +57,7 @@ void MachineInfo_Free(struct MachineInfo *info)
     free(info->allRegisters);
     free(info->temps);
     free(info->tempsOccupied);
+    free(info->generalPurpose);
     free(info->arguments);
     free(info->no_save);
     free(info->callee_save);
