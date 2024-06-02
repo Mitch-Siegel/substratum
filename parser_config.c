@@ -9,52 +9,71 @@ extern struct Dictionary *parseDict;
 extern struct Stack *parsedAsts;
 extern struct LinkedList *includePath;
 
-void trackCharacter(struct LinkedList *charsPerLine, int trackedChar)
+void printCharsPerLine(struct LinkedList *charsRemaining)
 {
-    if (trackedChar != '\n')
+    for (struct LinkedListNode *runner = charsRemaining->head; runner != NULL; runner = runner->next)
     {
-        if (charsPerLine->size == 0)
-        {
-            size_t *zeroCharLine = malloc(sizeof(size_t));
-            *zeroCharLine = 0;
-            LinkedList_Append(charsPerLine, zeroCharLine);
-        }
-
-        (*(size_t *)charsPerLine->tail->data)++;
+        size_t *charsRem = runner->data;
+        Log(LOG_WARNING, "%zu chars in this line", *charsRem);
     }
-    else
+}
+
+void trackCharacter(struct ParseProgress *auxil, int trackedChar)
+{
+    struct LinkedList *charsPerLine = auxil->charsRemainingPerLine;
+    CHARS_LAST_LINE(auxil)++;
+    if (trackedChar == '\n')
     {
         size_t *newLineChars = malloc(sizeof(size_t));
         *newLineChars = 0;
         LinkedList_Append(charsPerLine, newLineChars);
-    };
+    }
+
 }
 
-void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, size_t charsConsumed, struct LinkedList *charsPerLine, size_t *curLineP, size_t *curColP)
+
+void manageLocation(struct ParseProgress *auxil, char *matchedString, bool isSourceLocation)
 {
-    size_t length = charsConsumed;
-    while (length > 0)
+    while (*matchedString)
     {
-        // if we read EOF and there are no more lines to track source location with, early return
-        if (auxil->eofReceived || (charsPerLine->size == 0))
+        Log(LOG_WARNING, "manage [%c]", *matchedString);
+        if (auxil->charsRemainingPerLine->size == 0)
         {
+            printCharsPerLine(auxil->charsRemainingPerLine);
+            InternalError("bad line/col track at line %zu:%zu - no charsRemainingPerLine", auxil->curLine, auxil->curCol);
             return;
         }
 
-        if ((*(size_t *)charsPerLine->head->data) >= length)
+        if (*matchedString == '\n')
         {
-            (*(size_t *)charsPerLine->head->data) -= length;
-            *curColP += length;
-            length = 0;
+            if (CHARS_THIS_LINE(auxil) != 1)
+            {
+                printCharsPerLine(auxil->charsRemainingPerLine);
+                InternalError("Bad line/col track at line %zu:%zu - saw \\n but %zu chars, %zu lines remaining", auxil->curLine, auxil->curCol, (*(size_t *)auxil->charsRemainingPerLine->head->data), auxil->charsRemainingPerLine->size);
+            }
+            free(LinkedList_PopFront(auxil->charsRemainingPerLine));
+
+            if (isSourceLocation)
+            {
+                auxil->curCol = 1;
+                auxil->curLine++;
+            }
         }
         else
         {
-            size_t *remaningCharsThisLine = LinkedList_PopFront(charsPerLine);
-            length -= *remaningCharsThisLine;
-            free(remaningCharsThisLine);
-            *curColP = 1;
-            (*curLineP)++;
+            if (CHARS_THIS_LINE(auxil) == 0)
+            {
+                printCharsPerLine(auxil->charsRemainingPerLine);
+                InternalError("Bad line/col track at line %zu:%zu - saw %c but %zu chars, %zu lines remaining", auxil->curLine, auxil->curCol, *matchedString, (*(size_t *)auxil->charsRemainingPerLine->head->data), auxil->charsRemainingPerLine->size);
+            }
+            CHARS_THIS_LINE(auxil) -= 1;
+            if (isSourceLocation)
+            {
+                auxil->curCol++;
+            }
         }
+
+        matchedString++;
     }
 }
 
@@ -63,7 +82,31 @@ void parserError(struct ParseProgress *auxil)
     InternalError("Syntax Error between %s:%zu:%zu and %zu", auxil->curFile, auxil->curLine, auxil->curCol, auxil->curLine + auxil->charsRemainingPerLine->size);
 }
 
-void setCurrentFile(char **curFileP, char *fileName)
+void setCurrentFile(struct ParseProgress *auxil, u32 lineNum, char *fileName)
 {
-    *curFileP = Dictionary_LookupOrInsert(parseDict, fileName);
+
+    Log(LOG_WARNING, "set current file to %s:%zu", auxil->curFile, auxil->curLine);
+
+    if((auxil->charsRemainingPerLine->size > 0) || (CHARS_THIS_LINE(auxil) > 0))
+    {
+        printCharsPerLine(auxil->charsRemainingPerLine);
+        InternalError("Bad line/col track at line %s:%zu:%zu - changing file to %s:%zu but %zu chars, %zu lines remaining",
+        auxil->curFile,
+        auxil->curLine,
+        auxil->curCol,
+        fileName,
+        lineNum,
+        (*(size_t *)auxil->charsRemainingPerLine->head->data), auxil->charsRemainingPerLine->size); 
+    }
+
+    auxil->curFile = Dictionary_LookupOrInsert(parseDict, fileName);
+    auxil->curLine = lineNum;
+    auxil->curCol = 1;
+    // while(auxil->charsRemainingPerLine->size > 0)
+    // {
+    // free(LinkedList_PopBack(auxil->charsRemainingPerLine));
+    // }
+    // size_t *charsRem = malloc(sizeof(size_t));
+    // *charsRem = 0;
+    // LinkedList_Append(auxil->charsRemainingPerLine, charsRem);
 }

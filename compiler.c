@@ -15,7 +15,6 @@
 #include "symtab.h"
 #include "tac.h"
 #include "util.h"
-#include "tokenize.h"
 
 #include "codegen_riscv.h"
 #include "regalloc_riscv.h"
@@ -74,15 +73,16 @@ struct AST *parseFile(char *inFileName)
 {
     struct ParseProgress fileProgress;
     memset(&fileProgress, 0, sizeof(struct ParseProgress));
-    fileProgress.curLine = 0;
-    fileProgress.curCol = 0;
-    fileProgress.curLineRaw = 0;
-    fileProgress.curColRaw = 0;
-    fileProgress.curFile = NULL;
+    fileProgress.curLine = 1;
+    fileProgress.curCol = 1;
+    fileProgress.curLineRaw = 1;
+    fileProgress.curColRaw = 1;
+    fileProgress.curFile = Dictionary_LookupOrInsert(parseDict, inFileName);
     fileProgress.charsRemainingPerLine = LinkedList_New();
-    size_t *lineZeroChars = malloc(sizeof(size_t));
-    *lineZeroChars = 0;
-    LinkedList_Append(fileProgress.charsRemainingPerLine, lineZeroChars);
+
+    size_t *firstLineChars = malloc(sizeof(size_t));
+    *firstLineChars = 0;
+    LinkedList_Append(fileProgress.charsRemainingPerLine, firstLineChars);
 
     fileProgress.dict = parseDict;
 
@@ -120,29 +120,18 @@ struct AST *parseFile(char *inFileName)
 
     fileProgress.f = stdin;
 
-    struct Stack *tokens = tokenize(&fileProgress);
-
-    while(tokens->size > 0)
+    struct AST *parsed = NULL;
+    struct AST *translationUnit = NULL;
+    while (pcc_parse(parseContext, &translationUnit))
     {
-        struct AST *token = Stack_Pop(tokens);
-        Log(LOG_WARNING, "%15s %s", getTokenName(token->type), token->value);
+        parsed = AST_S(parsed, translationUnit);
     }
-
-    InternalError("Parsing after tokenization not implemented yet");
-
-    // struct AST *parsed = NULL;
-    // struct AST *translationUnit = NULL;
-    // while (pcc_parse(parseContext, &translationUnit))
-    // {
-    //     parsed = AST_S(parsed, translationUnit);
-    // }
 
     pcc_destroy(parseContext);
 
     LinkedList_Free(fileProgress.charsRemainingPerLine, free);
 
-    // return parsed;
-    return NULL;
+    return parsed;
 }
 
 int main(int argc, char **argv)
