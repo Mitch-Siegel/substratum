@@ -14,31 +14,31 @@ void manageLocation(struct ParseProgress *auxil, char *matchedString, bool isSou
 
 void parserError(struct ParseProgress *auxil);
 
-void setCurrentFile(struct ParseProgress *auxil, u32 lineNum, char *fileName);
+void setCurrentFile(struct ParseProgress *auxil, char *preprocessorLine, u32 lineNum, char *fileName);
 
 #define CHARS_THIS_LINE(auxil) (*(size_t *)((auxil)->charsRemainingPerLine->head->data))
 #define CHARS_LAST_LINE(auxil) (*(size_t *)((auxil)->charsRemainingPerLine->tail->data))
 
-#define PCC_GETCHAR(auxil) ({                                     \
-    int inChar = fgetc((auxil)->f);                               \
-    printf("%c", inChar);                                         \
-    if ((inChar) == EOF)                                          \
-    {                                                             \
-        (auxil)->eofReceived = 1;                                 \
-    }                                                             \
-    else                                                          \
-    {                                                             \
+#define PCC_GETCHAR(auxil) ({            \
+    int inChar = fgetc((auxil)->f);      \
+    printf("%c", inChar);                \
+    if ((inChar) == EOF)                 \
+    {                                    \
+        (auxil)->eofReceived = 1;        \
+    }                                    \
+    else                                 \
+    {                                    \
         trackCharacter(auxil, (inChar)); \
-    }                                                             \
-    (inChar);                                                     \
+    }                                    \
+    (inChar);                            \
 })
 
-/*#define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length) \
-    {                                                             \
-        if (event == PCC_DBG_MATCH)                               \
-        {                                                         \
-            printf("match %s : [%.*s]\n", rule, (int)length, buffer);                           \
-        }                                                         \
+/*#define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length)     \
+    {                                                                 \
+        if (event == PCC_DBG_MATCH)                                   \
+        {                                                             \
+            printf("\nmatch %s : [%.*s]\n", rule, (int)length, buffer); \
+        }                                                             \
     }*/
 
 /*#define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length)                                                              \

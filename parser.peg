@@ -28,11 +28,12 @@ typedef struct AST * ast_p_t;
    char *dbgEventNames[3] = {" eval", "MATCH", "nomatc"};
 }
 
+
 translation_unit
-   <- _ f:function_declaration _ kw_semicolon { $$ = f; }
+   <- _ preprocessor_data
+    / _ f:function_declaration _ kw_semicolon { $$ = f; }
     / _ f:function_definition                 { $$ = f; }
     / _ sl: statement_list                    { $$ = sl; }
-    / preprocessor_data
     / _ eof                                   { $$ = NULL; }
 
 variable_declaration
@@ -453,7 +454,18 @@ _
     / whitespace
 
 preprocessor_data
-   <- '#' space* <DIGIT+> space* <(!space .)+> (!eol .)* _ { printf("$0:%s\n$1:%s\n$2:%s\n", $0, $1, $2); manageNonSourceLocation(auxil, $0); setCurrentFile(auxil, atoi($1), $2); }    # for now, just ignore the preprocessor's line markers
+   <- preprocessor_new_file_with_line
+    / preprocessor_resume_file_with_line
+    / '#' space* '1' space* <(!space .)+> (!eol .)* eol { manageNonSourceLocation(auxil, $0); }    # for now, just ignore the preprocessor's line markers
+    / '#' space* '0' (!eol .)* eol { manageNonSourceLocation(auxil, $0); }    # for now, just ignore the preprocessor's line markers
+    / '#' space* [12] (!eol .)* eol { manageNonSourceLocation(auxil, $0); }    # for now, just ignore the preprocessor's line markers
+
+preprocessor_new_file_with_line
+   <- '#' space* "1" space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { printf("$0:%s\n$1:%s\n$2:%s\n", $0, $1, $2); manageNonSourceLocation(auxil, $0); setCurrentFile(auxil, $0, atoi($2), $1); }    # for now, just ignore the preprocessor's line markers
+
+preprocessor_resume_file_with_line
+   <- '#' space* "2" space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { printf("$0:%s\n$1:%s\n$2:%s\n", $0, $1, $2); manageNonSourceLocation(auxil, $0); setCurrentFile(auxil, $0, atoi($2), $1); }    # for now, just ignore the preprocessor's line markers
+ 
 
 whitespace
    <- space* { manageSourceLocation(auxil, $0); }
