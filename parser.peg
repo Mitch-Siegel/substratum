@@ -108,7 +108,10 @@ asm_block
 
 asm_block_contents
    <- a1:asm_block_contents _ a2:asm_block_contents { $$ = AST_S(a1, a2); }
-    / _ (!eol [^"}"])*eol                           { char *noNlStr = strdup($0); noNlStr[strlen(noNlStr) - 1] = '\0'; $$ = AST_N(auxil, t_asm, noNlStr, $0s); free(noNlStr); }
+    / _ a:asm_line                                 { $$ = a; }
+
+asm_line
+   <- (!eol [^"}"])* { $$ = AST_N(auxil, t_asm, $0, $0s); }
 
 primary_expression
    <- i:identifier             { $$ = i; }
@@ -339,11 +342,9 @@ kw_u32		   <- 'u32' !(LETTER/DIGIT)
 kw_u64		   <- 'u64' !(LETTER/DIGIT)
 kw_sizeof      <- 'sizeof' !(LETTER/DIGIT)
 kw_if		      <- 'if' !(LETTER/DIGIT)
-kw_else		   <- 'else' !(LETTER/DIGIT)
 kw_while       <- 'while' !(LETTER/DIGIT)
 kw_return      <- 'return' !(LETTER/DIGIT)
 kw_extern      <- 'extern' !(LETTER/DIGIT)
-kw_asm         <- 'asm' !(LETTER/DIGIT)
 kw_dot         <- '.' !('.')
 kw_star        <- '*' !('=')
 kw_tilde       <- '~'
@@ -367,6 +368,8 @@ kw_public      <- 'public' !(LETTER/DIGIT)
 # nontree keywords
 kw_semicolon   <- ';' { manageSourceLocation(auxil, $0); }
 kw_comma       <- ',' { manageSourceLocation(auxil, $0); }
+kw_else        <- 'else' !(LETTER/DIGIT) { manageSourceLocation(auxil, $0); }
+kw_asm         <- 'asm' !(LETTER/DIGIT) { manageSourceLocation(auxil, $0); }
 kw_lcurly      <- '{' { manageSourceLocation(auxil, $0); }
 kw_rcurly      <- '}' { manageSourceLocation(auxil, $0); }
 kw_lparen      <- '(' { manageSourceLocation(auxil, $0); }
@@ -456,16 +459,19 @@ _
 preprocessor_data
    <- preprocessor_new_file_with_line
     / preprocessor_resume_file_with_line
-    / '#' space* '1' space* <(!space .)+> (!eol .)* eol { manageNonSourceLocation(auxil, $0); }    # for now, just ignore the preprocessor's line markers
-    / '#' space* '0' (!eol .)* eol { manageNonSourceLocation(auxil, $0); }    # for now, just ignore the preprocessor's line markers
-    / '#' space* [12] (!eol .)* eol { manageNonSourceLocation(auxil, $0); }    # for now, just ignore the preprocessor's line markers
+    / preprocessor_system_header_file_with_line
+    / '#' space* '1' space* <(!space .)+> (!eol .)* eol { manageNonSourceLocation(auxil, $0); }
+    / '#' space* '0' (!eol .)* eol { manageNonSourceLocation(auxil, $0); }
+    / '#' space* [12] (!eol .)* eol { manageNonSourceLocation(auxil, $0); }
 
 preprocessor_new_file_with_line
-   <- '#' space* "1" space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { printf("$0:%s\n$1:%s\n$2:%s\n", $0, $1, $2); manageNonSourceLocation(auxil, $0); setCurrentFile(auxil, $0, atoi($2), $1); }    # for now, just ignore the preprocessor's line markers
+   <- '#' space* '1' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manageNonSourceLocation(auxil, $0); setCurrentFile(auxil, $0, atoi($2), $1); }
 
 preprocessor_resume_file_with_line
-   <- '#' space* "2" space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { printf("$0:%s\n$1:%s\n$2:%s\n", $0, $1, $2); manageNonSourceLocation(auxil, $0); setCurrentFile(auxil, $0, atoi($2), $1); }    # for now, just ignore the preprocessor's line markers
+   <- '#' space* '2' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manageNonSourceLocation(auxil, $0); setCurrentFile(auxil, $0, atoi($2), $1); }
  
+preprocessor_system_header_file_with_line
+   <- '#' space* '3' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manageNonSourceLocation(auxil, $0); setCurrentFile(auxil, $0, atoi($2), $1); }
 
 whitespace
    <- space* { manageSourceLocation(auxil, $0); }

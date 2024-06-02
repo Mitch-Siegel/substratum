@@ -21,7 +21,6 @@ void setCurrentFile(struct ParseProgress *auxil, char *preprocessorLine, u32 lin
 
 #define PCC_GETCHAR(auxil) ({            \
     int inChar = fgetc((auxil)->f);      \
-    printf("%c", inChar);                \
     if ((inChar) == EOF)                 \
     {                                    \
         (auxil)->eofReceived = 1;        \
@@ -32,14 +31,6 @@ void setCurrentFile(struct ParseProgress *auxil, char *preprocessorLine, u32 lin
     }                                    \
     (inChar);                            \
 })
-
-/*#define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length)     \
-    {                                                                 \
-        if (event == PCC_DBG_MATCH)                                   \
-        {                                                             \
-            printf("\nmatch %s : [%.*s]\n", rule, (int)length, buffer); \
-        }                                                             \
-    }*/
 
 /*#define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length)                                                              \
     {                                                                                                                          \
