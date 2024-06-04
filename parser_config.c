@@ -21,16 +21,14 @@ void printCharsPerLine(struct LinkedList *charsRemaining)
 void trackCharacter(struct ParseProgress *auxil, int trackedChar)
 {
     struct LinkedList *charsPerLine = auxil->charsRemainingPerLine;
-    CHARS_LAST_LINE(auxil)++;
+    CHARS_LAST_LINE(auxil) += 1;
     if (trackedChar == '\n')
     {
         size_t *newLineChars = malloc(sizeof(size_t));
         *newLineChars = 0;
         LinkedList_Append(charsPerLine, newLineChars);
     }
-
 }
-
 
 void manageLocation(struct ParseProgress *auxil, char *matchedString, bool isSourceLocation)
 {
@@ -78,7 +76,7 @@ void manageLocation(struct ParseProgress *auxil, char *matchedString, bool isSou
 
 void parserError(struct ParseProgress *auxil)
 {
-    InternalError("Syntax Error between %s:%zu:%zu and %zu", auxil->curFile, auxil->curLine, auxil->curCol, auxil->curLine + auxil->charsRemainingPerLine->size);
+    InternalError("Syntax Error between %s:%zu:%zu and %s:%zu", auxil->curFile, auxil->curLine, auxil->curCol, auxil->curFile, auxil->curLine + auxil->charsRemainingPerLine->size);
 }
 
 void setCurrentFile(struct ParseProgress *auxil, char *preprocessorLine, u32 lineNum, char *fileName)
@@ -86,27 +84,20 @@ void setCurrentFile(struct ParseProgress *auxil, char *preprocessorLine, u32 lin
 
     Log(LOG_DEBUG, "set current file to %s:%zu", auxil->curFile, auxil->curLine);
 
-    if((auxil->charsRemainingPerLine->size > 0) && (CHARS_THIS_LINE(auxil) > 1))
+    if ((auxil->charsRemainingPerLine->size > 0) && (CHARS_THIS_LINE(auxil) > 1))
     {
         printCharsPerLine(auxil->charsRemainingPerLine);
         InternalError("Bad line/col track at line %s:%zu:%zu - changing file to %s:%zu but %zu chars, %zu lines remaining - directive line [%s]\n",
-        auxil->curFile,
-        auxil->curLine,
-        auxil->curCol,
-        fileName,
-        lineNum,
-        (*(size_t *)auxil->charsRemainingPerLine->head->data), auxil->charsRemainingPerLine->size,
-        preprocessorLine); 
+                      auxil->curFile,
+                      auxil->curLine,
+                      auxil->curCol,
+                      fileName,
+                      lineNum,
+                      (*(size_t *)auxil->charsRemainingPerLine->head->data), auxil->charsRemainingPerLine->size,
+                      preprocessorLine);
     }
 
     auxil->curFile = Dictionary_LookupOrInsert(parseDict, fileName);
     auxil->curLine = lineNum;
     auxil->curCol = 1;
-    // while(auxil->charsRemainingPerLine->size > 0)
-    // {
-    // free(LinkedList_PopBack(auxil->charsRemainingPerLine));
-    // }
-    // size_t *charsRem = malloc(sizeof(size_t));
-    // *charsRem = 0;
-    // LinkedList_Append(auxil->charsRemainingPerLine, charsRem);
 }

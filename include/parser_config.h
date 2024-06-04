@@ -32,28 +32,6 @@ void setCurrentFile(struct ParseProgress *auxil, char *preprocessorLine, u32 lin
     (inChar);                            \
 })
 
-/*#define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length)                                                              \
-    {                                                                                                                          \
-        for (size_t i = 0; i < level; i++)                                                                                     \
-        {                                                                                                                      \
-            printf("-   ");                                                                                                    \
-        }                                                                                                                      \
-        printf("PCC @ %s:%zu:%2zu - %s:%s %zu", auxil->curFile, auxil->curLine, auxil->curCol, dbgEventNames[event], rule, pos); \
-        printf("[");                                                                                                           \
-        for (size_t i = 0; i < length; i++)                                                                                    \
-        {                                                                                                                      \
-            if (buffer[i] == '\n')                                                                                             \
-            {                                                                                                                  \
-                printf("\\n");                                                                                                 \
-            }                                                                                                                  \
-            else                                                                                                               \
-            {                                                                                                                  \
-                printf("%c", buffer[i]);                                                                                       \
-            }                                                                                                                  \
-        }                                                                                                                      \
-        printf("]\n");                                                                                                         \
-    }*/
-
 #define PCC_ERROR(auxil)                                                   \
     {                                                                      \
         if ((ctx != NULL) && (ctx->buffer.len > 0))                        \
@@ -90,15 +68,5 @@ void setCurrentFile(struct ParseProgress *auxil, char *preprocessorLine, u32 lin
         manageSourceLocation(auxil, value);                                                                                                           \
         created;                                                                                                                                      \
     })
-
-// #ifndef AST_S
-// #define AST_S(original, newrightmost) ({struct AST *constructed = AST_ConstructAddSibling(original, newrightmost); printf("AST_S@ %s:%d -  %p, %p: %p\n", __FILE__, __LINE__, original, newrightmost, constructed); constructed; })
-// #endif
-// #ifndef AST_C
-// #define AST_C(parent, child) ({struct AST *constructed = AST_ConstructAddChild(parent, child); printf("AST_C@ %s:%d - %p, %p: %p\n", __FILE__, __LINE__, parent, child, constructed); constructed; })
-// #endif
-// #ifndef AST_N
-// #define AST_N(token, value) ({struct AST *created = AST_New(token, Dictionary_LookupOrInsert(auxil->dict, value), auxil->curFile, auxil->curLine, auxil->curCol); printf("AST_N@ %s:%d -  %s, %s: %p\n", __FILE__, __LINE__, getTokenName(token), value, created); created; })
-// #endif
 
 #endif
