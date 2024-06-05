@@ -73,15 +73,16 @@ struct AST *parseFile(char *inFileName)
 {
     struct ParseProgress fileProgress;
     memset(&fileProgress, 0, sizeof(struct ParseProgress));
-    fileProgress.curLine = 0;
-    fileProgress.curCol = 0;
-    fileProgress.curLineRaw = 0;
-    fileProgress.curColRaw = 0;
-    fileProgress.curFile = NULL;
+    fileProgress.curLine = 1;
+    fileProgress.curCol = 1;
+    fileProgress.curLineRaw = 1;
+    fileProgress.curColRaw = 1;
+    fileProgress.curFile = Dictionary_LookupOrInsert(parseDict, inFileName);
     fileProgress.charsRemainingPerLine = LinkedList_New();
-    size_t *lineZeroChars = malloc(sizeof(size_t));
-    *lineZeroChars = 0;
-    LinkedList_Append(fileProgress.charsRemainingPerLine, lineZeroChars);
+
+    size_t *firstLineChars = malloc(sizeof(size_t));
+    *firstLineChars = 0;
+    LinkedList_Append(fileProgress.charsRemainingPerLine, firstLineChars);
 
     fileProgress.dict = parseDict;
 

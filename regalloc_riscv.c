@@ -117,7 +117,6 @@ struct MachineInfo *riscv_SetupMachineInfo()
     info->generalPurpose[gpReg++] = &riscvRegisters[s2];
     info->generalPurpose[gpReg++] = &riscvRegisters[s1];
 
-
     u8 calleeReg = 0;
     // don't actually mark sp and fp as callee-save as they are handled specifically by emitprologue and emitepilogue to get the ordering correct
     info->callee_save[calleeReg++] = &riscvRegisters[s11];

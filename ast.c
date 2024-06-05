@@ -14,7 +14,7 @@ char *token_names[t_EOF + 1] = {
     "t_asm",
     "t_variable_declaration",
     "t_type_name",
-    "t_void",
+    "t_any",
     "t_u8",
     "t_u16",
     "t_u32",

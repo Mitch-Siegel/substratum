@@ -267,9 +267,9 @@ struct Set *preSelectRegisterContentionLifetimes(struct Set *selectFrom, struct 
 size_t findHighestOverlap(struct Set **lifetimeOverlaps, size_t largestTacIndex)
 {
     size_t highesetOverlap = 0;
-    for(size_t tacIndex = 0; tacIndex <= largestTacIndex; tacIndex++)
+    for (size_t tacIndex = 0; tacIndex <= largestTacIndex; tacIndex++)
     {
-        if(lifetimeOverlaps[tacIndex]->elements->size > highesetOverlap)
+        if (lifetimeOverlaps[tacIndex]->elements->size > highesetOverlap)
         {
             highesetOverlap = lifetimeOverlaps[tacIndex]->elements->size;
         }
@@ -280,10 +280,10 @@ size_t findHighestOverlap(struct Set **lifetimeOverlaps, size_t largestTacIndex)
 
 void lifetimeOverlaps_Remove(struct Set **lifetimeOverlaps, size_t largestTacIndex, struct Lifetime *toRemove)
 {
-    for(size_t tacIndex = 0; tacIndex <= largestTacIndex; tacIndex++)
+    for (size_t tacIndex = 0; tacIndex <= largestTacIndex; tacIndex++)
     {
         struct Set *removeFrom = lifetimeOverlaps[tacIndex];
-        if(Set_Find(removeFrom, toRemove) != NULL)
+        if (Set_Find(removeFrom, toRemove) != NULL)
         {
             Set_Delete(removeFrom, toRemove);
         }
@@ -311,7 +311,7 @@ struct Set *selectRegisterLifetimes(struct RegallocMetadata *metadata, struct Se
         Set_Insert(selectFrom, toSpill);
     }
 
-    for(size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
+    for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
     {
         Set_Free(lifetimeOverlaps[tacIndex]);
     }
