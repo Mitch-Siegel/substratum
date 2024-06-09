@@ -631,52 +631,6 @@ void walkStructDeclaration(struct AST *tree,
     }
 }
 
-void generateInternalCopy(struct AST *correspondingTree, struct Scope *scope, struct BasicBlock *block, size_t *TACIndex, size_t *tempNum, struct TACOperand *destAddr, struct TACOperand *sourceAddr)
-{
-    Log(LOG_DEBUG, "generateInternalCopy");
-    if(Type_Compare(TACOperand_GetType(sourceAddr), TACOperand_GetType(destAddr)) || (TACOperand_GetType(sourceAddr)->pointerLevel == 0) || (TACOperand_GetType(destAddr)->pointerLevel == 0))
-    {
-        InternalError("generateInternalCopy called with illegal types (source %s, dest %s)", Type_GetName(TACOperand_GetType(sourceAddr)), Type_GetName(TACOperand_GetType(destAddr)));
-    }
-
-    struct Type copiedType = *TACOperand_GetType(destAddr);
-    copiedType.pointerLevel--;
-
-    struct FunctionEntry *calledFunction = lookupFunByString(scope, "memcpy");
-    if(calledFunction->arguments->size != 3)
-    {
-        InternalError("memcpy prototype wrong");
-    }
-
-    struct Stack *argumentPushes = Stack_New();
-
-    struct TACOperand sizeOperand;
-    Type_Init(&sizeOperand.type);
-    Type_Init(&sizeOperand.castAsType);
-    sizeOperand.type.basicType = vt_u64;
-    sizeOperand.name.val = Type_GetSize(&copiedType, scope);
-    sizeOperand.permutation = vp_literal;
-
-    struct TACOperand *toPush[3] = {destAddr, sourceAddr, &sizeOperand};
-
-    for(u8 argumentIndex = 0; argumentIndex < 3; argumentIndex++)
-    {
-        struct TACLine *operandPush = newTACLine(tt_arg_store, correspondingTree);
-        operandPush->operands[0] = *toPush[argumentIndex];
-        struct VariableEntry *expectedArgument = calledFunction->arguments->data[argumentIndex];
-
-        operandPush->operands[1].type.basicType = vt_u64;
-        operandPush->operands[1].permutation = vp_literal;
-        operandPush->operands[1].name.val = expectedArgument->stackOffset;
-        Stack_Push(argumentPushes, operandPush);
-    }
-    reserveAndStoreStackArgs(correspondingTree, calledFunction, argumentPushes, block, TACIndex);
-
-    Stack_Free(argumentPushes);
-
-    generateCallTac(correspondingTree, calledFunction, block, TACIndex, tempNum, NULL);
-}
-
 void walkReturn(struct AST *tree,
                 struct Scope *scope,
                 struct BasicBlock *block,
@@ -709,12 +663,16 @@ void walkReturn(struct AST *tree,
 
         if ((scope->parentFunction->returnType.basicType == vt_struct) && (scope->parentFunction->returnType.pointerLevel == 0))
         {
-            struct TACOperand *addressCopiedFrom = getAddrOfOperand(tree, block, scope, TACIndex, tempNum, &returnLine->operands[0]);
+            struct TACOperand *copiedFrom = &returnLine->operands[0];
             struct TACOperand addressCopiedTo;
             struct VariableEntry *outStructPointer = lookupVarByString(scope, ".out_struct_pointer");
             populateTACOperandFromVariable(&addressCopiedTo, outStructPointer);
 
-            generateInternalCopy(tree->child, scope, block, TACIndex, tempNum, &addressCopiedTo, addressCopiedFrom);
+            struct TACLine *structReturnWrite = newTACLine(tt_store, tree);
+            structReturnWrite->operands[1] = *copiedFrom;
+            populateTACOperandFromVariable(&structReturnWrite->operands[0], outStructPointer);
+
+            BasicBlock_append(block, structReturnWrite, TACIndex);
         }
     }
 
