@@ -38,6 +38,7 @@ enum basicTypes selectVariableTypeForLiteral(char *literal)
 
 void populateTACOperandFromVariable(struct TACOperand *operandToPopulate, struct VariableEntry *populateFrom)
 {
+    Type_Init(&operandToPopulate->castAsType);
     operandToPopulate->type = populateFrom->type;
     operandToPopulate->name.str = populateFrom->name;
     operandToPopulate->permutation = vp_standard;

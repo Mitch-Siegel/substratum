@@ -16,9 +16,9 @@ void BasicBlock_free(struct BasicBlock *block)
     free(block);
 }
 
-void BasicBlock_append(struct BasicBlock *block, struct TACLine *line, size_t *tempNum)
+void BasicBlock_append(struct BasicBlock *block, struct TACLine *line, size_t *tacIndex)
 {
-    line->index = (*tempNum)++;
+    line->index = (*tacIndex)++;
     LinkedList_Append(block->TACList, line);
 }
 

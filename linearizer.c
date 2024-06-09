@@ -83,6 +83,25 @@ struct SymbolTable *walkProgram(struct AST *program)
     return programTable;
 }
 
+struct TACOperand *getAddrOfOperand(struct AST *tree,
+                                    struct BasicBlock *block,
+                                    struct Scope *scope,
+                                    size_t *TACIndex,
+                                    size_t *tempNum,
+                                    struct TACOperand *getAddrOf)
+{
+    struct TACLine *addrOfLine = newTACLine(tt_addrof, tree);
+    addrOfLine->operands[1] = *getAddrOf;
+
+    populateTACOperandAsTemp(&addrOfLine->operands[0], tempNum);
+
+    copyTACOperandTypeDecayArrays(&addrOfLine->operands[0], &addrOfLine->operands[1]);
+    TAC_GetTypeOfOperand(addrOfLine, 0)->pointerLevel++;
+    BasicBlock_append(block, addrOfLine, TACIndex);
+
+    return &addrOfLine->operands[0];
+}
+
 void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTypeTo)
 {
     LogTree(LOG_DEBUG, tree, "walkTypeName");
@@ -508,11 +527,18 @@ void walkMethod(struct AST *tree,
     struct FunctionEntry *walkedMethod = walkFunctionDeclaration(tree, methodOf->members, methodOf, accessibility);
     if (walkedMethod->arguments->size > 0)
     {
-        struct VariableEntry *firstArg = walkedMethod->arguments->data[0];
+        struct VariableEntry *potentialSelfArg = walkedMethod->arguments->data[0];
 
-        if ((firstArg->type.basicType == vt_struct) && (strcmp(firstArg->type.nonArray.complexType.name, methodOf->name) == 0))
+        // if the first arg to the function is the address of a struct which we are returning
+        // try and see if the second argument is self (if it exists)
+        if (!strcmp(potentialSelfArg->name, ".out_struct_pointer") && (walkedMethod->arguments->size > 1))
         {
-            if (strcmp(firstArg->name, "self") == 0)
+            potentialSelfArg = walkedMethod->arguments->data[1];
+        }
+
+        if ((potentialSelfArg->type.basicType == vt_struct) && (strcmp(potentialSelfArg->type.nonArray.complexType.name, methodOf->name) == 0))
+        {
+            if (strcmp(potentialSelfArg->name, "self") == 0)
             {
                 walkedMethod->methodOf = methodOf;
             }
@@ -605,6 +631,101 @@ void walkStructDeclaration(struct AST *tree,
     }
 }
 
+void generateInternalCopy(struct AST *correspondingTree, struct Scope *scope, struct BasicBlock *block, size_t *TACIndex, size_t *tempNum, struct TACOperand *destAddr, struct TACOperand *sourceAddr)
+{
+    Log(LOG_DEBUG, "generateInternalCopy");
+    if(Type_Compare(TACOperand_GetType(sourceAddr), TACOperand_GetType(destAddr)) || (TACOperand_GetType(sourceAddr)->pointerLevel == 0) || (TACOperand_GetType(destAddr)->pointerLevel == 0))
+    {
+        InternalError("generateInternalCopy called with illegal types (source %s, dest %s)", Type_GetName(TACOperand_GetType(sourceAddr)), Type_GetName(TACOperand_GetType(destAddr)));
+    }
+
+    struct Type copiedType = *TACOperand_GetType(destAddr);
+    copiedType.pointerLevel--;
+
+    struct FunctionEntry *calledFunction = lookupFunByString(scope, "memcpy");
+    if(calledFunction->arguments->size != 3)
+    {
+        InternalError("memcpy prototype wrong");
+    }
+
+    struct Stack *argumentPushes = Stack_New();
+
+    struct TACOperand sizeOperand;
+    Type_Init(&sizeOperand.type);
+    Type_Init(&sizeOperand.castAsType);
+    sizeOperand.type.basicType = vt_u64;
+    sizeOperand.name.val = Type_GetSize(&copiedType, scope);
+    sizeOperand.permutation = vp_literal;
+
+    struct TACOperand *toPush[3] = {destAddr, sourceAddr, &sizeOperand};
+
+    for(u8 argumentIndex = 0; argumentIndex < 3; argumentIndex++)
+    {
+        struct TACLine *operandPush = newTACLine(tt_arg_store, correspondingTree);
+        operandPush->operands[0] = *toPush[argumentIndex];
+        struct VariableEntry *expectedArgument = calledFunction->arguments->data[argumentIndex];
+
+        operandPush->operands[1].type.basicType = vt_u64;
+        operandPush->operands[1].permutation = vp_literal;
+        operandPush->operands[1].name.val = expectedArgument->stackOffset;
+        Stack_Push(argumentPushes, operandPush);
+    }
+    reserveAndStoreStackArgs(correspondingTree, calledFunction, argumentPushes, block, TACIndex);
+
+    Stack_Free(argumentPushes);
+
+    generateCallTac(correspondingTree, calledFunction, block, TACIndex, tempNum, NULL);
+}
+
+void walkReturn(struct AST *tree,
+                struct Scope *scope,
+                struct BasicBlock *block,
+                size_t *TACIndex,
+                size_t *tempNum)
+{
+    if (scope->parentFunction == NULL)
+    {
+        LogTree(LOG_FATAL, tree, "'return' statements are only allowed within functions");
+    }
+
+    // if the program uses a bare return statement in a function which returns a value, error out
+    if ((scope->parentFunction->returnType.basicType != vt_null) && (tree->child == NULL))
+    {
+        LogTree(LOG_FATAL, tree, "No expression after return statement in function %s returning %s", scope->parentFunction->name, Type_GetName(&scope->parentFunction->returnType));
+    }
+
+    struct TACLine *returnLine = newTACLine(tt_return, tree);
+
+    if (tree->child != NULL)
+    {
+        walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &returnLine->operands[0]);
+
+        if (Type_CompareAllowImplicitWidening(TAC_GetTypeOfOperand(returnLine, 0), &scope->parentFunction->returnType))
+        {
+            char *expectedReturnType = Type_GetName(&scope->parentFunction->returnType);
+            char *actualReturnType = Type_GetName(TAC_GetTypeOfOperand(returnLine, 0));
+            LogTree(LOG_FATAL, tree->child, "Returned type %s does not match expected return type of %s", actualReturnType, expectedReturnType);
+        }
+
+        if ((scope->parentFunction->returnType.basicType == vt_struct) && (scope->parentFunction->returnType.pointerLevel == 0))
+        {
+            struct TACOperand *addressCopiedFrom = getAddrOfOperand(tree, block, scope, TACIndex, tempNum, &returnLine->operands[0]);
+            struct TACOperand addressCopiedTo;
+            struct VariableEntry *outStructPointer = lookupVarByString(scope, ".out_struct_pointer");
+            populateTACOperandFromVariable(&addressCopiedTo, outStructPointer);
+
+            generateInternalCopy(tree->child, scope, block, TACIndex, tempNum, &addressCopiedTo, addressCopiedFrom);
+        }
+    }
+
+    BasicBlock_append(block, returnLine, TACIndex);
+
+    if (tree->sibling != NULL)
+    {
+        LogTree(LOG_FATAL, tree->sibling, "Code after return statement is unreachable!");
+    }
+}
+
 void walkStatement(struct AST *tree,
                    struct BasicBlock **blockP,
                    struct Scope *scope,
@@ -681,21 +802,8 @@ void walkStatement(struct AST *tree,
     break;
 
     case t_return:
-    {
-        struct TACLine *returnLine = newTACLine(tt_return, tree);
-        if (tree->child != NULL)
-        {
-            walkSubExpression(tree->child, *blockP, scope, TACIndex, tempNum, &returnLine->operands[0]);
-        }
-
-        BasicBlock_append(*blockP, returnLine, TACIndex);
-
-        if (tree->sibling != NULL)
-        {
-            LogTree(LOG_FATAL, tree->sibling, "Code after return statement is unreachable!");
-        }
-    }
-    break;
+        walkReturn(tree, scope, *blockP, TACIndex, tempNum);
+        break;
 
     case t_asm:
         walkAsmBlock(tree, *blockP, scope, TACIndex, tempNum);
@@ -1560,18 +1668,26 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
                                  struct Scope *scope,
                                  size_t *TACIndex,
                                  size_t *tempNum,
-                                 u8 forMethod) // if walking argument pushes for method, adjust indexing to skip the "self" parameter
+                                 struct TACOperand *destinationOperand)
 {
     Log(LOG_DEBUG, "walkArgumentPushes");
 
     u8 argumentNumOffset = 0;
-    if (forMethod)
+    if (calledFunction->methodOf != NULL)
     {
-        argumentNumOffset = 1;
+        Log(LOG_WARNING, "%s is a method - increment argnumoffset", calledFunction->name);
+
+        argumentNumOffset++;
+    }
+    if ((calledFunction->returnType.basicType == vt_struct) && (calledFunction->returnType.pointerLevel == 0))
+    {
+        Log(LOG_WARNING, "%s is returns a struct - increment argnumoffset", calledFunction->name);
+        argumentNumOffset++;
     }
 
     // save first argument so we can generate meaningful error messages if we mismatch argument count
     struct AST *lastArgument = argumentRunner;
+    struct Stack *argumentPushes = Stack_New();
 
     struct Stack *argumentTrees = Stack_New();
     while (argumentRunner != NULL)
@@ -1581,7 +1697,6 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
         argumentRunner = argumentRunner->sibling;
     }
 
-    struct Stack *argumentPushes = Stack_New();
     if (argumentTrees->size != (calledFunction->arguments->size - argumentNumOffset))
     {
         LogTree(LOG_FATAL, lastArgument,
@@ -1640,6 +1755,49 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
     Stack_Free(argumentTrees);
 
     return argumentPushes;
+}
+
+void handleStructReturn(struct AST *callTree,
+                        struct FunctionEntry *calledFunction,
+                        struct BasicBlock *block,
+                        struct Scope *scope,
+                        size_t *TACIndex,
+                        size_t *tempNum,
+                        struct Stack *argumentPushes,
+                        struct TACOperand *destinationOperand)
+{
+    if (!((calledFunction->returnType.basicType == vt_struct) && (calledFunction->returnType.pointerLevel == 0)))
+    {
+        return;
+    }
+
+    Log(LOG_DEBUG, "handleStructReturn for called function %s", calledFunction->name);
+    Log(LOG_WARNING, "handleStructReturn for called function %s", calledFunction->name);
+
+    struct TACLine *outPointerPush = newTACLine(tt_arg_store, callTree);
+    // if we actually use the return value of the function
+    if (destinationOperand != NULL)
+    {
+        struct TACOperand intermediateReturnObject;
+        populateTACOperandAsTemp(&intermediateReturnObject, tempNum);
+        intermediateReturnObject.type = calledFunction->returnType;
+        Type_Init(&intermediateReturnObject.castAsType);
+
+        *destinationOperand = *(getAddrOfOperand(callTree, block, scope, TACIndex, tempNum, &intermediateReturnObject));
+
+        copyTACOperandDecayArrays(&outPointerPush->operands[0], destinationOperand);
+        Log(LOG_WARNING, "AAAAA");
+    }
+    else
+    {
+        Log(LOG_FATAL, "Unused return value for function %s returning %s", calledFunction->name, Type_GetName(&calledFunction->returnType));
+    }
+    struct VariableEntry *expectedArgument = calledFunction->arguments->data[0];
+    outPointerPush->operands[1].name.val = expectedArgument->stackOffset;
+    outPointerPush->operands[1].type.basicType = vt_u64;
+    outPointerPush->operands[1].permutation = vp_literal;
+
+    Stack_Push(argumentPushes, outPointerPush);
 }
 
 void reserveAndStoreStackArgs(struct AST *callTree, struct FunctionEntry *calledFunction, struct Stack *argumentPushes, struct BasicBlock *block, size_t *TACIndex)
@@ -1703,32 +1861,15 @@ void walkFunctionCall(struct AST *tree,
                                                       scope,
                                                       TACIndex,
                                                       tempNum,
-                                                      0);
+                                                      destinationOperand);
+
+    handleStructReturn(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
 
     reserveAndStoreStackArgs(tree, calledFunction, argumentPushes, block, TACIndex);
 
     Stack_Free(argumentPushes);
 
     generateCallTac(tree, calledFunction, block, TACIndex, tempNum, destinationOperand);
-}
-
-struct TACOperand *getAddrOfOperand(struct AST *tree,
-                                    struct BasicBlock *block,
-                                    struct Scope *scope,
-                                    size_t *TACIndex,
-                                    size_t *tempNum,
-                                    struct TACOperand *getAddrOf)
-{
-    struct TACLine *addrOfLine = newTACLine(tt_addrof, tree);
-    addrOfLine->operands[1] = *getAddrOf;
-
-    populateTACOperandAsTemp(&addrOfLine->operands[0], tempNum);
-
-    copyTACOperandTypeDecayArrays(&addrOfLine->operands[0], &addrOfLine->operands[1]);
-    TAC_GetTypeOfOperand(addrOfLine, 0)->pointerLevel++;
-    BasicBlock_append(block, addrOfLine, TACIndex);
-
-    return &addrOfLine->operands[0];
 }
 
 void walkMethodCall(struct AST *tree,
@@ -1778,6 +1919,8 @@ void walkMethodCall(struct AST *tree,
 
     struct FunctionEntry *calledFunction = lookupMethod(structCalledOn, callTree->child, scope);
 
+    Log(LOG_WARNING, "IN walkMethodCall - %s.%s is method? %d", structCalledOn->name, calledFunction->name, calledFunction->methodOf != NULL);
+
     checkFunctionReturnUse(tree, destinationOperand, calledFunction);
 
     struct Stack *argumentPushes = walkArgumentPushes(tree->child->child->sibling->child->sibling,
@@ -1786,7 +1929,7 @@ void walkMethodCall(struct AST *tree,
                                                       scope,
                                                       TACIndex,
                                                       tempNum,
-                                                      1);
+                                                      destinationOperand);
 
     if (TACOperand_GetType(&structOperand)->basicType == vt_array)
     {
@@ -1807,6 +1950,8 @@ void walkMethodCall(struct AST *tree,
     pThisPush->operands[1].permutation = vp_literal;
 
     Stack_Push(argumentPushes, pThisPush);
+
+    handleStructReturn(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
 
     reserveAndStoreStackArgs(tree, calledFunction, argumentPushes, block, TACIndex);
 

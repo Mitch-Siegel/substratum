@@ -5,6 +5,18 @@ struct Money {
     u8 cents;
 };
 
+fun memcpy(any *dst, any *src, u64 size)
+{
+    u8 *dstB = dst;
+    u8 *srcB = src;
+    u64 idx = 0;
+    while(idx < size)
+    {
+        dstB[idx] = srcB[idx];
+        idx += 1;
+    }
+}
+
 
 impl Money {
     public Money fun Add(self, Money m2) {
@@ -48,7 +60,6 @@ fun main()
     myPaycheck.Print();
 
     Money newBalance = myBalance.Add(myPaycheck);
-    
 
     exit();
 }

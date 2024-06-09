@@ -13,6 +13,21 @@ struct StructEntry;
 struct BasicBlock;
 struct TACOperand;
 
+// TODO: move to linearizer_generic
+void reserveAndStoreStackArgs(struct AST *callTree,
+                              struct FunctionEntry *calledFunction,
+                              struct Stack *argumentPushes,
+                              struct BasicBlock *block,
+                              size_t *TACIndex);
+
+// TODO: move to linearizer_generic
+struct TACLine *generateCallTac(struct AST *callTree,
+                                struct FunctionEntry *calledFunction,
+                                struct BasicBlock *block,
+                                size_t *TACIndex,
+                                size_t *tempNum,
+                                struct TACOperand *destinationOperand);
+
 struct SymbolTable *walkProgram(struct AST *program);
 
 void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTypeTo);
