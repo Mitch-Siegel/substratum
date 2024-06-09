@@ -359,14 +359,8 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
     {
         walkTypeName(returnTypeTree, scope, &returnType);
 
-        // if we are returning a struct, ensure that we're returning some sort of pointer, not a whole object
-        // TODO: testing for error messages, printing of exact types causing the error
-        if ((returnType.basicType == vt_struct) && (returnType.pointerLevel == 0))
-        {
-            // use tree->child to get the original returnTypeTree AST as scrapePointers may have modified it
-            LogTree(LOG_FATAL, tree->child, "Return of struct object types is not supported!");
-        }
-        else if (returnType.basicType == vt_array)
+        // disallow return of arrays
+        if (returnType.basicType == vt_array)
         {
             char *arrayTypeName = Type_GetName(&returnType);
             LogTree(LOG_FATAL, tree->child, "Return of array object types (%s) is not supported!", arrayTypeName);
@@ -397,6 +391,20 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
         parsedFunc = createFunction(scope, functionNameTree, &returnType, accessibility);
         parsedFunc->mainScope->parentScope = scope;
         returnedFunc = parsedFunc;
+    }
+
+    if ((returnType.basicType == vt_struct) && (returnType.pointerLevel == 0))
+    {
+        struct Type outPointerType = returnType;
+        outPointerType.pointerLevel++;
+        struct AST outPointerTree = *tree;
+        outPointerTree.type = t_identifier;
+        outPointerTree.value = ".out_struct_pointer";
+        outPointerTree.child = NULL;
+        outPointerTree.sibling = NULL;
+        struct VariableEntry *outPointerArgument = createVariable(parsedFunc->mainScope, &outPointerTree, &outPointerType, 0, 0, 1, a_public);
+
+        Stack_Push(parsedFunc->arguments, outPointerArgument);
     }
 
     struct AST *argumentRunner = functionNameTree->sibling;
