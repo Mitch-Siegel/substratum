@@ -2,7 +2,7 @@
 
 any *fun funReturningAnyPointer()
 {
-    return 0xabcdefffabcdefff;
+    return (any *)0xabcdefffabcdefff;
 }
 
 fun printAnyPointer(any *a)

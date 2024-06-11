@@ -9,7 +9,7 @@ COVERAGE_DIR = ./coverage/
 SBCC_BUILD_DIR = ../../build
 COMPONENT_TEST_COVERAGE_NAME = "component-test-coverage"
 
-ALL_TESTS_DIRS = $(filter-out $(COMMON_DIR) $(COVERAGE_DIR), $(wildcard ./*/))
+ALL_TESTS_DIRS = $(filter-out $(COMMON_DIR) $(COVERAGE_DIR) ./ .., $(sort $(dir $(wildcard ./*/))))
 ALL_TESTS = $(patsubst ./%/,%,$(ALL_TESTS_DIRS))
 ALL_TESTS_OUTPUTS = $(foreach test,$(ALL_TESTS), $(test)/$(test).output)
 ALL_TESTS_ELFS = $(foreach test,$(ALL_TESTS), $(test)/$(test).elf)

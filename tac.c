@@ -336,7 +336,14 @@ char *sPrintTACLine(struct TACLine *line)
         break;
 
     case tt_return:
-        width += sprintf(tacString + width, "ret %s!%zu", line->operands[0].name.str, line->operands[0].ssaNumber);
+        if(TAC_GetTypeOfOperand(line, 0)->basicType != vt_null)
+        {
+            width += sprintf(tacString + width, "ret %s!%zu", line->operands[0].name.str, line->operands[0].ssaNumber);
+        }
+        else
+        {
+            width += sprintf(tacString + width, "ret");
+        }
         break;
 
     case tt_do:

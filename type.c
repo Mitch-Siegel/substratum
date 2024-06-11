@@ -57,6 +57,18 @@ size_t Type_GetIndirectionLevel(struct Type *type)
     return indirectionLevel;
 }
 
+// decay at most one level of arrays
+void Type_SingleDecay(struct Type *type)
+{
+    if(type->basicType == vt_array)
+    {
+        size_t oldPointerLevel = type->pointerLevel + 1;
+        struct Type liftedOutOfArray = *type->array.type;
+        *type = liftedOutOfArray;
+        type->pointerLevel += oldPointerLevel;
+    }
+}
+
 void Type_DecayArrays(struct Type *type)
 {
     while (type->basicType == vt_array)
@@ -104,6 +116,16 @@ size_t Type_Hash(struct Type *type)
         hash <<= 1;
     }
     return hash;
+}
+
+bool Type_IsObject(struct Type *type)
+{
+    return Type_IsStructObject(type) || ((type->basicType == vt_array) && type->pointerLevel == 0);
+}
+
+bool Type_IsStructObject(struct Type *type)
+{
+    return ((type->basicType == vt_struct) && (type->pointerLevel == 0));
 }
 
 int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum basicTypes basicTypeB)
@@ -251,7 +273,11 @@ int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
 {
     struct Type decayedSourceType = *src;
     Type_DecayArrays(&decayedSourceType);
-    int retVal = Type_CompareBasicTypeAllowImplicitWidening(decayedSourceType.basicType, dest->basicType);
+
+    struct Type decayedDestType = *dest;
+    Type_DecayArrays(&decayedDestType);
+    int retVal = Type_CompareBasicTypeAllowImplicitWidening(decayedSourceType.basicType, decayedDestType.basicType);
+        Log(LOG_WARNING, "frown %s vs %s (%s vs %s)", Type_GetName(src), Type_GetName(dest), Type_GetName(&decayedSourceType), Type_GetName(&decayedDestType));
     if (retVal)
     {
         return retVal;
@@ -289,9 +315,20 @@ int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
     {
         // if we haven't already returned by the time we get to here, we know that we are doing an implicit conversion such as 'something[123]->something*'
         // yank the arrayed type out, and decay its pointer manually, then recurse
-        struct Type decayedType = *src->array.type;
-        decayedType.pointerLevel++;
-        retVal = Type_CompareAllowImplicitWidening(&decayedType, dest);
+        struct Type singleDecayedSourceType = *src;
+        Type_SingleDecay(&singleDecayedSourceType);
+
+        if(dest->basicType == vt_array)
+        {
+            struct Type singleDecayedDestType = *dest;
+            Type_SingleDecay(&singleDecayedDestType);
+            
+            retVal = Type_CompareAllowImplicitWidening(&singleDecayedSourceType, &singleDecayedDestType);
+        }
+        else
+        {
+            retVal = Type_CompareAllowImplicitWidening(&singleDecayedSourceType, dest);
+        }
     }
     else if (src->basicType == vt_struct)
     {
