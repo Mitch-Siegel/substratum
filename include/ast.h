@@ -92,7 +92,7 @@ enum token
     t_comma,
     t_dot,
     t_semicolon,
-    t_colon,
+    t_double_colon,
     t_left_paren,
     t_right_paren,
     t_left_curly,
