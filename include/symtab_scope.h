@@ -38,6 +38,7 @@ struct Scope
 {
     struct Scope *parentScope;
     struct FunctionEntry *parentFunction;
+    struct StructEntry *parentImpl;
     struct Stack *entries;
     u8 subScopeCount;
     char *name; // duplicate pointer from ScopeMember for ease of use
@@ -46,7 +47,8 @@ struct Scope
 // scope functions
 struct Scope *Scope_new(struct Scope *parentScope,
                         char *name,
-                        struct FunctionEntry *parentFunction);
+                        struct FunctionEntry *parentFunction,
+                        struct StructEntry *parentImpl);
 
 void Scope_free(struct Scope *scope);
 

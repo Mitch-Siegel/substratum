@@ -23,13 +23,14 @@ struct FunctionEntry
     struct RegallocMetadata regalloc;
 };
 
-struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType);
+struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType, struct StructEntry *methodOf);
 
 void FunctionEntry_free(struct FunctionEntry *function);
 
 struct FunctionEntry *createFunction(struct Scope *parentScope,
                                      struct AST *nameTree,
                                      struct Type *returnType,
+                                     struct StructEntry *methodOf,
                                      enum Access accessibility);
 
 struct FunctionEntry *lookupFunByString(struct Scope *scope,

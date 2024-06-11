@@ -39,21 +39,20 @@ impl Counter {
 
 fun main()
 {
-    Counter peopleEntering;
-    peopleEntering.Init("Number of people who entered");
+    Counter enteredCount;
+    enteredCount.Init("Number of people who entered");
 
-    peopleEntering.Increment();
-    peopleEntering.Increment();
-    peopleEntering.Increment();
-    peopleEntering.Increment();
+    enteredCount.Increment();
+    enteredCount.Increment();
+    enteredCount.Increment();
+    enteredCount.Increment();
 
-    peopleEntering.Print();
-
-    Counter currentOccupancy = peopleEntering.Duplicate("Current occupancy");
-    currentOccupancy.Dedcrement();
-    currentOccupancy.Dedcrement();
+    Counter currentOccupancy = enteredCount.Duplicate("Current occupancy");
+    currentOccupancy.Decrement();
+    currentOccupancy.Decrement();
+    
+    enteredCount.Print();
     currentOccupancy.Print();
-
 
 
     exit();

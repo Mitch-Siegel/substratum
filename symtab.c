@@ -10,7 +10,7 @@ struct SymbolTable *SymbolTable_new(char *name)
 {
     struct SymbolTable *wip = malloc(sizeof(struct SymbolTable));
     wip->name = name;
-    wip->globalScope = Scope_new(NULL, "Global", NULL);
+    wip->globalScope = Scope_new(NULL, "Global", NULL, NULL);
     struct BasicBlock *globalBlock = BasicBlock_new(0);
 
     // manually insert a basic block for global code so we can give it the custom name of "globalblock"
