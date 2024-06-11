@@ -208,7 +208,7 @@ void generateCodeForFunction(FILE *outFile,
         strcpy(fullFunctionName, methodOfStructName);
         strcat(fullFunctionName, "_");
         strcat(fullFunctionName, function->name);
-        printf("the real name of %s is %s\n", function->name, fullFunctionName);
+        Log(LOG_DEBUG, "the real name of %s is %s", function->name, fullFunctionName);
     }
     size_t instructionIndex = 0; // index from start of function in terms of number of instructions
     struct CodegenState state;

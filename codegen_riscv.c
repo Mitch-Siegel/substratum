@@ -670,7 +670,7 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
         struct TACLine *thisTAC = TACRunner->data;
 
         char *printedTAC = sPrintTACLine(thisTAC);
-        Log(LOG_DEBUG, "Generate code for %s", printedTAC);
+        Log(LOG_DEBUG, "Generate code for %s (alloc %s:%d)", printedTAC, thisTAC->allocFile, thisTAC->allocLine);
         fprintf(state->outFile, "#%s\n", printedTAC);
         free(printedTAC);
 

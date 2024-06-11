@@ -1635,13 +1635,13 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
     u8 argumentNumOffset = 0;
     if (calledFunction->methodOf != NULL)
     {
-        Log(LOG_WARNING, "%s is a method - increment argnumoffset", calledFunction->name);
+        Log(LOG_DEBUG, "%s is a method - increment argnumoffset", calledFunction->name);
 
         argumentNumOffset++;
     }
     if (Type_IsObject(&calledFunction->returnType))
     {
-        Log(LOG_WARNING, "%s is returns an object - increment argnumoffset", calledFunction->name);
+        Log(LOG_DEBUG, "%s is returns an object - increment argnumoffset", calledFunction->name);
         argumentNumOffset++;
     }
 
@@ -1745,9 +1745,10 @@ void handleStructReturn(struct AST *callTree,
         intermediateReturnObject.type = calledFunction->returnType;
         Type_Init(&intermediateReturnObject.castAsType);
 
-        *destinationOperand = *(getAddrOfOperand(callTree, block, scope, TACIndex, tempNum, &intermediateReturnObject));
+        *destinationOperand = intermediateReturnObject;
+        struct TACOperand *addrOfReturnObject = getAddrOfOperand(callTree, block, scope, TACIndex, tempNum, &intermediateReturnObject);
 
-        copyTACOperandDecayArrays(&outPointerPush->operands[0], &intermediateReturnObject);
+        copyTACOperandDecayArrays(&outPointerPush->operands[0], addrOfReturnObject);
     }
     else
     {
@@ -1879,8 +1880,6 @@ void walkMethodCall(struct AST *tree,
     structCalledOn = lookupStructByType(scope, TACOperand_GetType(&structOperand));
 
     struct FunctionEntry *calledFunction = lookupMethod(structCalledOn, callTree->child, scope);
-
-    Log(LOG_WARNING, "IN walkMethodCall - %s.%s is method? %d", structCalledOn->name, calledFunction->name, calledFunction->methodOf != NULL);
 
     checkFunctionReturnUse(tree, destinationOperand, calledFunction);
 
