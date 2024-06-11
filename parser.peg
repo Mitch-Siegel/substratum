@@ -286,6 +286,7 @@ non_pointer_typename
     / t:u16        { $$ = t; }
     / t:u32        { $$ = t; }
     / t:u64        { $$ = t; }
+    / s:cap_self   { $$ = s; }
     / i:identifier { $$ = i; }
 
 identifier
@@ -360,6 +361,7 @@ kw_single_and  <- '&' !(kw_single_and)
 kw_or_op       <- '||'
 kw_impl        <- 'impl' !(LETTER/DIGIT)
 kw_self        <- 'self' !(LETTER/DIGIT)
+kw_cap_self    <- 'Self' !(LETTER/DIGIT)
 kw_public      <- 'public' !(LETTER/DIGIT)
 
 
@@ -393,6 +395,7 @@ return  <- kw_return  { $$ = AST_N(auxil, t_return, $0, $0s); }
 extern  <- kw_extern  { $$ = AST_N(auxil, t_extern, $0, $0s); }
 impl    <- kw_impl    { $$ = AST_N(auxil, t_impl, $0, $0s); }
 self    <- kw_self    { $$ = AST_N(auxil, t_self, $0, $0s); }
+cap_self<- kw_cap_self { $$ = AST_N(auxil, t_cap_self, $0, $0s); }
 public  <- kw_public  { $$ = AST_N(auxil, t_public, $0, $0s); }
 
 dot           <- kw_dot       { $$ = AST_N(auxil, t_dot, $0, $0s); }
