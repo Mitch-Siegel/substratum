@@ -7,7 +7,7 @@
 
 #include <ctype.h>
 
-// pre-refactoring - 2131 lines
+#define OUT_OBJECT_POINTER_NAME "__out_obj_pointer"
 
 /*
  * These functions walk the AST and convert it to three-address code
@@ -412,13 +412,13 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
         returnedFunc = parsedFunc;
     }
 
-    if ((returnType.basicType == vt_struct) && (returnType.pointerLevel == 0))
+    if (Type_IsObject(&returnType))
     {
         struct Type outPointerType = returnType;
         outPointerType.pointerLevel++;
         struct AST outPointerTree = *tree;
         outPointerTree.type = t_identifier;
-        outPointerTree.value = ".out_struct_pointer";
+        outPointerTree.value = OUT_OBJECT_POINTER_NAME;
         outPointerTree.child = NULL;
         outPointerTree.sibling = NULL;
         struct VariableEntry *outPointerArgument = createVariable(parsedFunc->mainScope, &outPointerTree, &outPointerType, 0, 0, 1, a_public);
@@ -531,7 +531,7 @@ void walkMethod(struct AST *tree,
 
         // if the first arg to the function is the address of a struct which we are returning
         // try and see if the second argument is self (if it exists)
-        if (!strcmp(potentialSelfArg->name, ".out_struct_pointer") && (walkedMethod->arguments->size > 1))
+        if (!strcmp(potentialSelfArg->name, OUT_OBJECT_POINTER_NAME) && (walkedMethod->arguments->size > 1))
         {
             potentialSelfArg = walkedMethod->arguments->data[1];
         }
@@ -661,11 +661,11 @@ void walkReturn(struct AST *tree,
             LogTree(LOG_FATAL, tree->child, "Returned type %s does not match expected return type of %s", actualReturnType, expectedReturnType);
         }
 
-        if ((scope->parentFunction->returnType.basicType == vt_struct) && (scope->parentFunction->returnType.pointerLevel == 0))
+        if (Type_IsObject(&scope->parentFunction->returnType))
         {
             struct TACOperand *copiedFrom = &returnLine->operands[0];
             struct TACOperand addressCopiedTo;
-            struct VariableEntry *outStructPointer = lookupVarByString(scope, ".out_struct_pointer");
+            struct VariableEntry *outStructPointer = lookupVarByString(scope, OUT_OBJECT_POINTER_NAME);
             populateTACOperandFromVariable(&addressCopiedTo, outStructPointer);
 
             struct TACLine *structReturnWrite = newTACLine(tt_store, tree);
@@ -673,6 +673,8 @@ void walkReturn(struct AST *tree,
             populateTACOperandFromVariable(&structReturnWrite->operands[0], outStructPointer);
 
             BasicBlock_append(block, structReturnWrite, TACIndex);
+
+            memset(&returnLine->operands[0], 0, sizeof(struct TACOperand));
         }
     }
 
@@ -1546,11 +1548,11 @@ void walkSubExpression(struct AST *tree,
         // set the result's cast as type based on the child of the cast, the type we are casting to
         walkTypeName(tree->child, scope, &expressionResult.castAsType);
 
-        if ((expressionResult.castAsType.basicType == vt_struct) &&
-            (expressionResult.castAsType.pointerLevel == 0))
+        // TODO: allow casting to arrays?
+        if (Type_IsObject(&expressionResult.castAsType))
         {
             char *castToType = Type_GetName(&expressionResult.castAsType);
-            LogTree(LOG_FATAL, tree->child, "Casting to a struct (%s) is not allowed!", castToType);
+            LogTree(LOG_FATAL, tree->child, "Casting to an object (%s) is not allowed!", castToType);
         }
 
         struct Type *castFrom = &expressionResult.type;
@@ -1637,9 +1639,9 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
 
         argumentNumOffset++;
     }
-    if ((calledFunction->returnType.basicType == vt_struct) && (calledFunction->returnType.pointerLevel == 0))
+    if (Type_IsObject(&calledFunction->returnType))
     {
-        Log(LOG_WARNING, "%s is returns a struct - increment argnumoffset", calledFunction->name);
+        Log(LOG_WARNING, "%s is returns an object - increment argnumoffset", calledFunction->name);
         argumentNumOffset++;
     }
 
@@ -1676,6 +1678,8 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
 
         if (Type_CompareAllowImplicitWidening(TAC_GetTypeOfOperand(push, 0), &expectedArgument->type))
         {
+            printTACLine(push);
+            Log(LOG_WARNING, "tacline from %s:%d @ %zu", push->allocFile, push->allocLine, *TACIndex);
             LogTree(LOG_FATAL, pushedArgument,
                     "Error in argument %s passed to function %s!\n\tExpected %s, got %s",
                     expectedArgument->name,
@@ -1724,13 +1728,12 @@ void handleStructReturn(struct AST *callTree,
                         struct Stack *argumentPushes,
                         struct TACOperand *destinationOperand)
 {
-    if (!((calledFunction->returnType.basicType == vt_struct) && (calledFunction->returnType.pointerLevel == 0)))
+    if (!Type_IsObject(&calledFunction->returnType))
     {
         return;
     }
 
     Log(LOG_DEBUG, "handleStructReturn for called function %s", calledFunction->name);
-    Log(LOG_WARNING, "handleStructReturn for called function %s", calledFunction->name);
 
     struct TACLine *outPointerPush = newTACLine(tt_arg_store, callTree);
     // if we actually use the return value of the function
@@ -1738,13 +1741,13 @@ void handleStructReturn(struct AST *callTree,
     {
         struct TACOperand intermediateReturnObject;
         populateTACOperandAsTemp(&intermediateReturnObject, tempNum);
+        LogTree(LOG_DEBUG, callTree, "Call to %s returns struct in %s", calledFunction->name, intermediateReturnObject.name.str);
         intermediateReturnObject.type = calledFunction->returnType;
         Type_Init(&intermediateReturnObject.castAsType);
 
         *destinationOperand = *(getAddrOfOperand(callTree, block, scope, TACIndex, tempNum, &intermediateReturnObject));
 
-        copyTACOperandDecayArrays(&outPointerPush->operands[0], destinationOperand);
-        Log(LOG_WARNING, "AAAAA");
+        copyTACOperandDecayArrays(&outPointerPush->operands[0], &intermediateReturnObject);
     }
     else
     {
@@ -1782,7 +1785,7 @@ struct TACLine *generateCallTac(struct AST *callTree,
     call->operands[1].name.str = calledFunction->name;
     BasicBlock_append(block, call, TACIndex);
 
-    if (destinationOperand != NULL)
+    if ((destinationOperand != NULL) && !Type_IsObject(&calledFunction->returnType))
     {
         call->operands[0].type = calledFunction->returnType;
         populateTACOperandAsTemp(&call->operands[0], tempNum);
@@ -2334,7 +2337,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
     if (arrayIndex->type == t_constant)
     {
         // if referencing an array of structs, implicitly convert to an LEA to avoid copying the entire struct to a temp
-        if ((arrayBaseType->basicType == vt_struct) && (arrayBaseType->pointerLevel == 0))
+        if (Type_IsStructObject(arrayBaseType))
         {
             arrayRefTAC->operation = tt_lea_off;
             arrayRefTAC->operands[0].type.pointerLevel++;
@@ -2355,8 +2358,8 @@ struct TACLine *walkArrayRef(struct AST *tree,
     // otherwise, the index is either a variable or subexpression
     else
     {
-        // if referencing an array of structs, implicitly convert to an LEA to avoid copying the entire struct to a temp
-        if ((arrayBaseType->basicType == vt_struct) && (arrayBaseType->pointerLevel == 0))
+        // if referencing a struct, implicitly convert to an LEA to avoid copying the entire struct to a temp
+        if (Type_IsStructObject(arrayBaseType))
         {
             arrayRefTAC->operation = tt_lea_arr;
             arrayRefTAC->operands[0].type.pointerLevel++;

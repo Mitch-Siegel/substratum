@@ -6,7 +6,10 @@ struct Money {
 };
 
 impl Money {
-    public Money fun Add(self, Money m2) {
+    // TODO: pass m2 by value
+    public Money fun Add(self, Money *m2) {
+        printHex((u64)__out_obj_pointer);
+        uart_putc('\n');
         Money added;
         added.cents = self.cents + m2.cents;
 
@@ -46,7 +49,9 @@ fun main()
     myPaycheck.SetValue(999, 99);
     myPaycheck.Print();
 
-    Money newBalance = myBalance.Add(myPaycheck);
+    Money newBalance = myBalance.Add(&myPaycheck);
+    printHex((u64)&newBalance);
+    newBalance.Print();
 
     exit();
 }

@@ -106,6 +106,16 @@ size_t Type_Hash(struct Type *type)
     return hash;
 }
 
+bool Type_IsObject(struct Type *type)
+{
+    return Type_IsStructObject(type) || ((type->basicType == vt_array) && type->pointerLevel == 0);
+}
+
+bool Type_IsStructObject(struct Type *type)
+{
+    return ((type->basicType == vt_struct) && (type->pointerLevel == 0));
+}
+
 int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum basicTypes basicTypeB)
 {
     int retVal = 0;
