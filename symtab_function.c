@@ -6,18 +6,18 @@
 
 #include "symtab_scope.h"
 
-struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType)
+struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType, struct StructEntry *methodOf)
 {
     struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
     memset(newFunction, 0, sizeof(struct FunctionEntry));
     newFunction->arguments = Stack_New();
-    newFunction->mainScope = Scope_new(parentScope, nameTree->value, newFunction);
+    newFunction->mainScope = Scope_new(parentScope, nameTree->value, newFunction, methodOf);
     newFunction->BasicBlockList = LinkedList_New();
     newFunction->correspondingTree = *nameTree;
     newFunction->mainScope->parentFunction = newFunction;
     newFunction->returnType = *returnType;
     newFunction->name = nameTree->value;
-    newFunction->methodOf = NULL;
+    newFunction->methodOf = methodOf;
     newFunction->isDefined = 0;
     newFunction->isAsmFun = 0;
     newFunction->callsOtherFunction = 0;
@@ -44,9 +44,13 @@ void FunctionEntry_free(struct FunctionEntry *function)
 }
 
 // create a new function accessible within the given scope
-struct FunctionEntry *createFunction(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType, enum Access accessibility)
+struct FunctionEntry *createFunction(struct Scope *parentScope,
+                                     struct AST *nameTree,
+                                     struct Type *returnType,
+                                     struct StructEntry *methodOf,
+                                     enum Access accessibility)
 {
-    struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, nameTree, returnType);
+    struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, nameTree, returnType, methodOf);
     Scope_insert(parentScope, nameTree->value, newFunction, e_function, accessibility);
     return newFunction;
 }

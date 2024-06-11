@@ -9,7 +9,7 @@ struct StructEntry *createStruct(struct Scope *scope,
 {
     struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
     wipStruct->name = name;
-    wipStruct->members = Scope_new(scope, name, NULL);
+    wipStruct->members = Scope_new(scope, name, NULL, wipStruct);
     wipStruct->memberLocations = Stack_New();
     wipStruct->totalSize = 0;
 

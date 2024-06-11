@@ -110,9 +110,9 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
         InternalError("Wrong AST (%s) passed to walkTypeName!", getTokenName(tree->type));
     }
 
-    memset(populateTypeTo, 0, sizeof(struct Type));
+    Type_Init(populateTypeTo);
 
-    struct AST *structNameTree = NULL;
+    struct AST structNameTree = {0};
     enum basicTypes basicType = vt_null;
     char *structName = NULL;
 
@@ -141,16 +141,32 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
     case t_identifier:
         basicType = vt_struct;
 
-        structNameTree = tree->child;
-        if (structNameTree->type != t_identifier)
+        structNameTree = *tree->child;
+        if (structNameTree.type != t_identifier)
         {
             LogTree(ERROR_INTERNAL,
-                    structNameTree,
+                    &structNameTree,
                     "Malformed AST seen in declaration!\nExpected struct name as child of \"struct\", saw %s (%s)!",
-                    structNameTree->value,
-                    getTokenName(structNameTree->type));
+                    structNameTree.value,
+                    getTokenName(structNameTree.type));
         }
-        structName = structNameTree->value;
+        structName = structNameTree.value;
+        break;
+
+    case t_cap_self:
+        basicType = vt_struct;
+        if (scope->parentImpl == NULL)
+        {
+            LogTree(LOG_FATAL, tree->child, "Use of 'Self' outside of impl scope!");
+        }
+        structName = scope->parentImpl->name;
+
+        // construct a fake struct name tree which contains the source location info
+        structNameTree = *tree->child;
+        structNameTree.child = NULL;
+        structNameTree.sibling = NULL;
+        structNameTree.type = t_identifier;
+        structNameTree.value = structName;
         break;
 
     default:
@@ -182,11 +198,12 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
         }
     }
 
+
     // don't allow declaration of variables of undeclared struct or array of undeclared struct (except pointers)
     if ((populateTypeTo->basicType == vt_struct) && (populateTypeTo->pointerLevel == 0))
     {
         // the lookup will bail out if an attempt is made to use an undeclared struct
-        lookupStruct(scope, structNameTree);
+        lookupStruct(scope, &structNameTree);
     }
 
     // if we are declaring an array, set the string with the size as the second operand
@@ -396,12 +413,11 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
     {
         existingFunc = lookedUpFunction->entry;
         returnedFunc = existingFunc;
-        parsedFunc = FunctionEntry_new(scope, functionNameTree, &returnType);
+        parsedFunc = FunctionEntry_new(scope, functionNameTree, &returnType, methodOf);
     }
     else
     {
-        parsedFunc = createFunction(scope, functionNameTree, &returnType, accessibility);
-        parsedFunc->mainScope->parentScope = scope;
+        parsedFunc = createFunction(scope, functionNameTree, &returnType, methodOf, accessibility);
         returnedFunc = parsedFunc;
     }
 
@@ -518,6 +534,8 @@ void walkMethod(struct AST *tree,
     }
 
     struct FunctionEntry *walkedMethod = walkFunctionDeclaration(tree, methodOf->members, methodOf, accessibility);
+    walkedMethod->mainScope->parentImpl = methodOf;
+
     if (walkedMethod->arguments->size > 0)
     {
         struct VariableEntry *potentialSelfArg = walkedMethod->arguments->data[0];
@@ -2078,7 +2096,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
 
     // populate type information (use cast for the first operand as we are treating a struct as a pointer to something else with a given offset)
     accessLine->operands[1].castAsType = accessedMember->variable->type;
-    accessLine->operands[0].type = *TAC_GetTypeOfOperand(accessLine, 1);               // copy type info to the temp we're reading to
+    accessLine->operands[0].type = *TAC_GetTypeOfOperand(accessLine, 1); // copy type info to the temp we're reading to
     *TAC_GetTypeOfOperand(accessLine, 0) = *TAC_GetTypeOfOperand(accessLine, 0);
 
     accessLine->operands[2].name.val += accessedMember->offset;
@@ -2325,7 +2343,7 @@ struct TACLine *walkArrayRef(struct AST *tree,
     populateTACOperandAsTemp(&arrayRefTAC->operands[0], tempNum);
 
     Type_SingleDecay(&arrayRefTAC->operands[0].type);
-    if(arrayRefTAC->operands[0].type.pointerLevel < 1)
+    if (arrayRefTAC->operands[0].type.pointerLevel < 1)
     {
         InternalError("Result of decay on array-referenced type has non-indirect type of %s", Type_GetName(TAC_GetTypeOfOperand(arrayRefTAC, 0)));
     }

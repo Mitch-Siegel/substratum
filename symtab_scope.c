@@ -12,13 +12,14 @@ extern struct Dictionary *parseDict;
  * Scope functions
  *
  */
-struct Scope *Scope_new(struct Scope *parentScope, char *name, struct FunctionEntry *parentFunction)
+struct Scope *Scope_new(struct Scope *parentScope, char *name, struct FunctionEntry *parentFunction, struct StructEntry *parentImpl)
 {
     struct Scope *wip = malloc(sizeof(struct Scope));
     wip->entries = Stack_New();
 
-    wip->parentFunction = parentFunction;
     wip->parentScope = parentScope;
+    wip->parentFunction = parentFunction;
+    wip->parentImpl = parentImpl;
     wip->name = name;
     wip->subScopeCount = 0;
     return wip;
@@ -87,8 +88,7 @@ struct Scope *Scope_createSubScope(struct Scope *parentScope)
     free(helpStr);
     parentScope->subScopeCount++;
 
-    struct Scope *newScope = Scope_new(parentScope, newScopeName, parentScope->parentFunction);
-    newScope->parentFunction = parentScope->parentFunction;
+    struct Scope *newScope = Scope_new(parentScope, newScopeName, parentScope->parentFunction, parentScope->parentImpl);
 
     Scope_insert(parentScope, newScopeName, newScope, e_scope, a_public);
     return newScope;

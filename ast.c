@@ -23,6 +23,7 @@ char *token_names[t_EOF + 1] = {
     "t_struct_body",
     "t_impl",
     "t_self",
+    "t_cap_self",
     "t_public",
     "t_method_call",
     "t_compound_statement",

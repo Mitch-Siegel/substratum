@@ -26,6 +26,7 @@ enum token
     t_struct_body,
     t_impl,
     t_self,
+    t_cap_self,
     t_public,
     t_method_call,
     //

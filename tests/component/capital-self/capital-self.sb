@@ -1,0 +1,59 @@
+#include "tests-common.sb"
+
+struct Counter {
+    u8 *name;
+    u32 count;
+};
+
+impl Counter {
+    public fun Increment(self)
+    {
+        self.count += 1;
+    }
+
+    public fun Decrement(self)
+    {
+        self.count -= 1;
+    }
+
+    public fun Init(self, u8 *name) {
+        self.name = name;
+        self.count = 0;
+    }
+
+    public fun Print(self)
+    {
+        printStr("Counter ");
+        printStr(self.name);
+        printStr(": ");
+        printNum(self.count);
+    }
+
+    public Self fun Duplicate(self, u8 *newName)
+    {
+        Self copied = *self;
+        copied.name = newName;
+        return copied;
+    }
+}
+
+fun main()
+{
+    Counter enteredCount;
+    enteredCount.Init("Number of people who entered");
+
+    enteredCount.Increment();
+    enteredCount.Increment();
+    enteredCount.Increment();
+    enteredCount.Increment();
+
+    Counter currentOccupancy = enteredCount.Duplicate("Current occupancy");
+    currentOccupancy.Decrement();
+    currentOccupancy.Decrement();
+    
+    enteredCount.Print();
+    currentOccupancy.Print();
+
+
+    exit();
+}
