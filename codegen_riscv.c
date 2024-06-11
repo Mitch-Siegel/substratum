@@ -743,17 +743,30 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
 
         case tt_load:
         {
-            struct Register *baseReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
-            struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], acquireScratchRegister(info));
+            struct Lifetime *writtenLt = Lifetime_Find(metadata->allLifetimes, thisTAC->operands[0].name.str);
+            if (Type_IsObject(&writtenLt->type))
+            {
+                struct Register *sourceAddrReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
+                struct Register *destAddrReg = acquireScratchRegister(info);
+                riscv_placeAddrOfOperandInReg(thisTAC, state, metadata, info, &thisTAC->operands[0], destAddrReg);
 
-            char loadWidth = riscv_SelectWidthChar(metadata->scope, &thisTAC->operands[0]);
-            emitInstruction(thisTAC, state, "\tl%c%s %s, 0(%s)\n",
-                            loadWidth,
-                            riscv_SelectSignForLoadChar(loadWidth),
-                            destReg->name,
-                            baseReg->name);
+                struct Register *intermediateReg = acquireScratchRegister(info);
 
-            riscv_WriteVariable(thisTAC, state, metadata, info, &thisTAC->operands[0], destReg);
+                riscv_generateInternalCopy(thisTAC, state, sourceAddrReg, destAddrReg, intermediateReg, Type_GetSize(&writtenLt->type, metadata->scope));
+            }
+            else
+            {
+                struct Register *baseReg = riscv_placeOrFindOperandInRegister(thisTAC, state, metadata, info, &thisTAC->operands[1], acquireScratchRegister(info));
+                struct Register *destReg = pickWriteRegister(metadata, &thisTAC->operands[0], acquireScratchRegister(info));
+                char loadWidth = riscv_SelectWidthChar(metadata->scope, &thisTAC->operands[0]);
+                emitInstruction(thisTAC, state, "\tl%c%s %s, 0(%s)\n",
+                                loadWidth,
+                                riscv_SelectSignForLoadChar(loadWidth),
+                                destReg->name,
+                                baseReg->name);
+
+                riscv_WriteVariable(thisTAC, state, metadata, info, &thisTAC->operands[0], destReg);
+            }
         }
         break;
 
