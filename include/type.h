@@ -48,6 +48,8 @@ void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *compl
 
 size_t Type_GetIndirectionLevel(struct Type *type);
 
+void Type_SingleDecay(struct Type *type);
+
 void Type_DecayArrays(struct Type *type);
 
 ssize_t Type_Compare(struct Type *typeA, struct Type *typeB);

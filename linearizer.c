@@ -95,7 +95,7 @@ struct TACOperand *getAddrOfOperand(struct AST *tree,
 
     populateTACOperandAsTemp(&addrOfLine->operands[0], tempNum);
 
-    copyTACOperandTypeDecayArrays(&addrOfLine->operands[0], &addrOfLine->operands[1]);
+    *TAC_GetTypeOfOperand(addrOfLine, 0) = *TAC_GetTypeOfOperand(addrOfLine, 1);
     TAC_GetTypeOfOperand(addrOfLine, 0)->pointerLevel++;
     BasicBlock_append(block, addrOfLine, TACIndex);
 
@@ -377,13 +377,6 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
     if (returnTypeTree->type == t_type_name)
     {
         walkTypeName(returnTypeTree, scope, &returnType);
-
-        // disallow return of arrays
-        if (returnType.basicType == vt_array)
-        {
-            char *arrayTypeName = Type_GetName(&returnType);
-            LogTree(LOG_FATAL, tree->child, "Return of array object types (%s) is not supported!", arrayTypeName);
-        }
 
         functionNameTree = returnTypeTree->sibling;
     }
@@ -1353,7 +1346,7 @@ struct TACOperand *walkBitwiseNot(struct AST *tree,
     populateTACOperandAsTemp(&bitwiseNotLine->operands[0], tempNum);
 
     walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &bitwiseNotLine->operands[1]);
-    copyTACOperandTypeDecayArrays(&bitwiseNotLine->operands[0], &bitwiseNotLine->operands[1]);
+    *TAC_GetTypeOfOperand(bitwiseNotLine, 0) = *TAC_GetTypeOfOperand(bitwiseNotLine, 1);
 
     struct TACOperand *operandA = &bitwiseNotLine->operands[1];
 
@@ -1678,7 +1671,6 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
 
         if (Type_CompareAllowImplicitWidening(TAC_GetTypeOfOperand(push, 0), &expectedArgument->type))
         {
-            printTACLine(push);
             Log(LOG_WARNING, "tacline from %s:%d @ %zu", push->allocFile, push->allocLine, *TACIndex);
             LogTree(LOG_FATAL, pushedArgument,
                     "Error in argument %s passed to function %s!\n\tExpected %s, got %s",
@@ -2087,7 +2079,7 @@ struct TACLine *walkMemberAccess(struct AST *tree,
     // populate type information (use cast for the first operand as we are treating a struct as a pointer to something else with a given offset)
     accessLine->operands[1].castAsType = accessedMember->variable->type;
     accessLine->operands[0].type = *TAC_GetTypeOfOperand(accessLine, 1);               // copy type info to the temp we're reading to
-    copyTACOperandTypeDecayArrays(&accessLine->operands[0], &accessLine->operands[0]); // decay arrays in-place so we only have pointers instead of arrays
+    *TAC_GetTypeOfOperand(accessLine, 0) = *TAC_GetTypeOfOperand(accessLine, 0);
 
     accessLine->operands[2].name.val += accessedMember->offset;
 
@@ -2172,11 +2164,11 @@ void walkNonPointerArithmetic(struct AST *tree,
 
     if (Type_GetSize(TAC_GetTypeOfOperand(expression, 1), scope) > Type_GetSize(TAC_GetTypeOfOperand(expression, 2), scope))
     {
-        copyTACOperandTypeDecayArrays(&expression->operands[0], &expression->operands[1]);
+        *TAC_GetTypeOfOperand(expression, 0) = *TAC_GetTypeOfOperand(expression, 1);
     }
     else
     {
-        copyTACOperandTypeDecayArrays(&expression->operands[0], &expression->operands[2]);
+        *TAC_GetTypeOfOperand(expression, 0) = *TAC_GetTypeOfOperand(expression, 2);
     }
 }
 
@@ -2251,11 +2243,11 @@ struct TACOperand *walkExpression(struct AST *tree,
         // TODO generate errors for bad pointer arithmetic here
         if (Type_GetSize(TACOperand_GetType(operandA), scope) > Type_GetSize(TACOperand_GetType(operandB), scope))
         {
-            copyTACOperandTypeDecayArrays(&expression->operands[0], operandA);
+            *TAC_GetTypeOfOperand(expression, 0) = *TACOperand_GetType(operandA);
         }
         else
         {
-            copyTACOperandTypeDecayArrays(&expression->operands[0], operandB);
+            *TAC_GetTypeOfOperand(expression, 0) = *TACOperand_GetType(operandB);
         }
     }
     break;
@@ -2331,8 +2323,13 @@ struct TACLine *walkArrayRef(struct AST *tree,
 
     copyTACOperandDecayArrays(&arrayRefTAC->operands[0], &arrayRefTAC->operands[1]);
     populateTACOperandAsTemp(&arrayRefTAC->operands[0], tempNum);
-    arrayRefTAC->operands[0].type.pointerLevel--;
 
+    Type_SingleDecay(&arrayRefTAC->operands[0].type);
+    if(arrayRefTAC->operands[0].type.pointerLevel < 1)
+    {
+        InternalError("Result of decay on array-referenced type has non-indirect type of %s", Type_GetName(TAC_GetTypeOfOperand(arrayRefTAC, 0)));
+    }
+    arrayRefTAC->operands[0].type.pointerLevel--;
     if (arrayIndex->type == t_constant)
     {
         // if referencing an array of structs, implicitly convert to an LEA to avoid copying the entire struct to a temp
@@ -2521,7 +2518,7 @@ void walkPointerArithmetic(struct AST *tree,
 
     walkSubExpression(pointerArithRHS, block, scope, TACIndex, tempNum, &scaleMultiplication->operands[1]);
 
-    copyTACOperandTypeDecayArrays(&scaleMultiplication->operands[0], &scaleMultiplication->operands[1]);
+    *TAC_GetTypeOfOperand(scaleMultiplication, 0) = *TAC_GetTypeOfOperand(scaleMultiplication, 1);
 
     copyTACOperandDecayArrays(&pointerArithmetic->operands[2], &scaleMultiplication->operands[0]);
 
