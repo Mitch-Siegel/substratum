@@ -123,12 +123,16 @@ function_call
    <- i:identifier _ kw_lparen _ kw_rparen                             { $$ = AST_C(AST_N(auxil, t_function_call, "", $0s), i); }
     / i:identifier _ kw_lparen _ a:argument_expression_list kw_rparen  { $$ = AST_C(AST_N(auxil, t_function_call, "", $0s), AST_S(i, a)); }
 
+associated_member_call
+   <- t:type_name _ a:associated_call _ f:function_call { $$ = AST_C(a, AST_S(t, f)); }
+
 method_call
    <- p:postfix_expression _ d:dot _ f:function_call     { $$ = AST_C(AST_N(auxil, t_method_call, "", $0s), AST_C(d, AST_S(p, f))); }
     / s:self _ d:dot _ f:function_call                   { $$ = AST_C(AST_N(auxil, t_method_call, "", $0s), AST_C(d, AST_S(s, f))); }
 
 postfix_expression
-   <- p:postfix_expression _ kw_lbracket _ i:expression _ kw_rbracket    { $$ = AST_C(AST_N(auxil, t_array_index, "", $0s), AST_S(p, i)); }
+   <- a:associated_member_call                           { $$ = a; }
+    / p:postfix_expression _ kw_lbracket _ i:expression _ kw_rbracket    { $$ = AST_C(AST_N(auxil, t_array_index, "", $0s), AST_S(p, i)); }
     / m:method_call                                      { $$ = m; }
     / p:postfix_expression _ d:dot _ i:identifier        { $$ = AST_C(d, AST_S(p, i)); }
     / f:function_call                                    { $$ = f; }
@@ -332,7 +336,9 @@ keyword
     / kw_or_op
     / kw_impl
     / kw_self
+    / kw_cap_self
     / kw_public
+    / kw_associated_call
 
 kw_fun		   <- 'fun' !(LETTER/DIGIT)
 kw_struct      <- 'struct' !(LETTER/DIGIT)
@@ -363,6 +369,7 @@ kw_impl        <- 'impl' !(LETTER/DIGIT)
 kw_self        <- 'self' !(LETTER/DIGIT)
 kw_cap_self    <- 'Self' !(LETTER/DIGIT)
 kw_public      <- 'public' !(LETTER/DIGIT)
+kw_associated_call<- '::'
 
 
 
@@ -381,22 +388,23 @@ kw_rbracket    <- ']' { manageSourceLocation(auxil, $0); }
 
 
 
-fun     <- kw_fun     { $$ = AST_N(auxil, t_fun, $0, $0s); }
-struct  <- kw_struct  { $$ = AST_N(auxil, t_struct, $0, $0s); }
-any     <- kw_any     { $$ = AST_N(auxil, t_any, $0, $0s); }
-u8      <- kw_u8      { $$ = AST_N(auxil, t_u8, $0, $0s); }
-u16     <- kw_u16     { $$ = AST_N(auxil, t_u16, $0, $0s); }
-u32     <- kw_u32     { $$ = AST_N(auxil, t_u32, $0, $0s); }
-u64     <- kw_u64     { $$ = AST_N(auxil, t_u64, $0, $0s); }
-sizeof  <- kw_sizeof  { $$ = AST_N(auxil, t_sizeof, $0, $0s); }
-if      <- kw_if      { $$ = AST_N(auxil, t_if, $0, $0s); }
-while   <- kw_while   { $$ = AST_N(auxil, t_while, $0, $0s); }
-return  <- kw_return  { $$ = AST_N(auxil, t_return, $0, $0s); }
-extern  <- kw_extern  { $$ = AST_N(auxil, t_extern, $0, $0s); }
-impl    <- kw_impl    { $$ = AST_N(auxil, t_impl, $0, $0s); }
-self    <- kw_self    { $$ = AST_N(auxil, t_self, $0, $0s); }
-cap_self<- kw_cap_self { $$ = AST_N(auxil, t_cap_self, $0, $0s); }
-public  <- kw_public  { $$ = AST_N(auxil, t_public, $0, $0s); }
+fun            <- kw_fun     { $$ = AST_N(auxil, t_fun, $0, $0s); }
+struct         <- kw_struct  { $$ = AST_N(auxil, t_struct, $0, $0s); }
+any            <- kw_any     { $$ = AST_N(auxil, t_any, $0, $0s); }
+u8             <- kw_u8      { $$ = AST_N(auxil, t_u8, $0, $0s); }
+u16            <- kw_u16     { $$ = AST_N(auxil, t_u16, $0, $0s); }
+u32            <- kw_u32     { $$ = AST_N(auxil, t_u32, $0, $0s); }
+u64            <- kw_u64     { $$ = AST_N(auxil, t_u64, $0, $0s); }
+sizeof         <- kw_sizeof  { $$ = AST_N(auxil, t_sizeof, $0, $0s); }
+if             <- kw_if      { $$ = AST_N(auxil, t_if, $0, $0s); }
+while          <- kw_while   { $$ = AST_N(auxil, t_while, $0, $0s); }
+return         <- kw_return  { $$ = AST_N(auxil, t_return, $0, $0s); }
+extern         <- kw_extern  { $$ = AST_N(auxil, t_extern, $0, $0s); }
+impl           <- kw_impl    { $$ = AST_N(auxil, t_impl, $0, $0s); }
+self           <- kw_self    { $$ = AST_N(auxil, t_self, $0, $0s); }
+cap_self       <- kw_cap_self { $$ = AST_N(auxil, t_cap_self, $0, $0s); }
+public         <- kw_public  { $$ = AST_N(auxil, t_public, $0, $0s); }
+associated_call<- kw_associated_call { $$ = AST_N(auxil, t_associated_call, $0, $0s); }
 
 dot           <- kw_dot       { $$ = AST_N(auxil, t_dot, $0, $0s); }
 left_op       <- kw_left_op   { $$ = AST_N(auxil, t_lshift, $0, $0s); }

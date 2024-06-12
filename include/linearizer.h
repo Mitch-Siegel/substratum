@@ -144,6 +144,13 @@ void walkMethodCall(struct AST *tree,
                     size_t *tempNum,
                     struct TACOperand *destinationOperand);
 
+void walkAssociatedCall(struct AST *tree,
+                    struct BasicBlock *block,
+                    struct Scope *scope,
+                    size_t *TACIndex,
+                    size_t *tempNum,
+                    struct TACOperand *destinationOperand);
+
 void walkFunctionCall(struct AST *tree,
                       struct BasicBlock *block,
                       struct Scope *scope,

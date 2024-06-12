@@ -3,6 +3,7 @@
 #include "log.h"
 #include "symtab_scope.h"
 #include "util.h"
+#include "symtab_function.h"
 
 struct StructEntry *createStruct(struct Scope *scope,
                                  char *name)
@@ -124,9 +125,9 @@ struct StructMemberOffset *lookupMemberVariable(struct StructEntry *theStruct,
     return returnedMember;
 }
 
-struct FunctionEntry *lookupMethod(struct StructEntry *theStruct,
-                                   struct AST *name,
-                                   struct Scope *scope)
+struct FunctionEntry *looupMethod(struct StructEntry *theStruct,
+                                           struct AST *name,
+                                           struct Scope *scope)
 {
     struct FunctionEntry *returnedMethod = NULL;
 
@@ -153,6 +154,43 @@ struct FunctionEntry *lookupMethod(struct StructEntry *theStruct,
     }
 
     return returnedMethod;
+}
+
+struct FunctionEntry *lookupAssociatedFunction(struct StructEntry *theStruct,
+                                               struct AST *name,
+                                               struct Scope *scope)
+{
+    struct FunctionEntry *returnedAssociated = NULL;
+
+    for (size_t entryIndex = 0; entryIndex < theStruct->members->entries->size; entryIndex++)
+    {
+        struct ScopeMember *examinedEntry = theStruct->members->entries->data[entryIndex];
+        if (!strcmp(examinedEntry->name, name->value))
+        {
+            if (examinedEntry->type != e_function)
+            {
+                LogTree(LOG_FATAL, name, "Attempt to call %s.%s as an associated function!\n", theStruct->name, name->value);
+            }
+            returnedAssociated = examinedEntry->entry;
+
+            if(returnedAssociated->isMethod)
+            {
+                // TODO: function prototype printing
+                LogTree(LOG_FATAL, name, "Attempt to call method %s.%s() as an associated function!\n", theStruct->name, name->value);
+            }
+        }
+    }
+
+    if (returnedAssociated == NULL)
+    {
+        LogTree(LOG_FATAL, name, "Attempt to call nonexistent associated function %s::%s\n", theStruct->name, name->value);
+    }
+    else
+    {
+        checkAccess(theStruct, name, scope, "Associated");
+    }
+
+    return returnedAssociated;
 }
 
 struct FunctionEntry *lookupMethodByString(struct StructEntry *theStruct,

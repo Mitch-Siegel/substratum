@@ -66,6 +66,8 @@ char *getAsmOp(enum TACType tacOperation)
         return "function call";
     case tt_method_call:
         return "method call";
+    case tt_associated_call:
+        return "associated call";
     case tt_label:
         return ".";
     case tt_return:
@@ -331,6 +333,17 @@ char *sPrintTACLine(struct TACLine *line)
         }
         break;
 
+    case tt_associated_call:
+        if (line->operands[0].name.str == NULL)
+        {
+            width += sprintf(tacString + width, "call %s::%s", line->operands[2].type.nonArray.complexType.name, line->operands[1].name.str);
+        }
+        else
+        {
+            width += sprintf(tacString + width, "%s!%zu = call %s::%s", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[2].type.nonArray.complexType.name, line->operands[1].name.str);
+        }
+        break;
+
     case tt_label:
         width += sprintf(tacString + width, "~label %ld:", line->operands[0].name.val);
         break;
@@ -396,6 +409,7 @@ enum TACOperandUse getUseOfOperand(struct TACLine *line, u8 operandIndex) // NOL
 
     case tt_function_call:
     case tt_method_call:
+    case tt_associated_call:
         if ((operandIndex == 0) && (TAC_GetTypeOfOperand(line, 0)->basicType != vt_null))
         {
             use = u_write;
