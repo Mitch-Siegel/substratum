@@ -20,7 +20,9 @@ impl Counter {
     {
         Self created;
         created.name = name;
-        created.count = count;
+        created.count = 0;
+        
+        return created;
     }
 
     public fun Print(self)
@@ -43,7 +45,6 @@ impl Counter {
 fun main()
 {
     Counter enteredCount = Counter::Create("Number of people who entered");
-
     enteredCount.Increment();
     enteredCount.Increment();
     enteredCount.Increment();
@@ -55,7 +56,6 @@ fun main()
     
     enteredCount.Print();
     currentOccupancy.Print();
-
 
     exit();
 }

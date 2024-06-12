@@ -1034,6 +1034,35 @@ void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
         }
         break;
 
+        case tt_associated_call:
+        {
+            struct StructEntry *associatedWith = lookupStructByType(metadata->scope, TAC_GetTypeOfOperand(thisTAC, 2));
+            struct FunctionEntry *calledAssociated = lookupMethodByString(associatedWith, thisTAC->operands[1].name.str);
+
+            riscv_callerSaveRegisters(state, calledAssociated, info);
+
+            riscv_emitArgumentStores(state, metadata, info, calledAssociated, functionArguments);
+            functionArguments->size = 0;
+
+            // TODO: associated function name mangling/uniqueness
+            if (calledAssociated->isDefined)
+            {
+                emitInstruction(thisTAC, state, "\tcall %s_%s\n", associatedWith->name, thisTAC->operands[1].name.str);
+            }
+            else
+            {
+                emitInstruction(thisTAC, state, "\tcall %s_%s@plt\n", associatedWith->name, thisTAC->operands[1].name.str);
+            }
+
+            if ((thisTAC->operands[0].name.str != NULL) && !Type_IsObject(&calledAssociated->returnType))
+            {
+                riscv_WriteVariable(thisTAC, state, metadata, info, &thisTAC->operands[0], info->returnValue);
+            }
+
+            riscv_callerRestoreRegisters(state, calledAssociated, info);
+        }
+        break;
+
         case tt_label:
             fprintf(state->outFile, "\t%s_%ld:\n", functionName, thisTAC->operands[0].name.val);
             break;

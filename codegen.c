@@ -203,7 +203,7 @@ void generateCodeForFunction(FILE *outFile,
     char *fullFunctionName = function->name;
     if (methodOfStructName != NULL)
     {
-        // TODO: member function name mangling/uniqueness
+        // TODO: method/associated function name mangling/uniqueness
         fullFunctionName = malloc(strlen(function->name) + strlen(methodOfStructName) + 2);
         strcpy(fullFunctionName, methodOfStructName);
         strcat(fullFunctionName, "_");

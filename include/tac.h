@@ -41,6 +41,7 @@ enum TACType
     tt_arg_store,     // store a value at a (positive) offset from the stack pointer
     tt_function_call, // call a function
     tt_method_call,   // call a method of a struct
+    tt_associated_call, // call an associated function of a struct
     tt_label,
     tt_return,
     tt_do,

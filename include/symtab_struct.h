@@ -33,9 +33,13 @@ struct StructMemberOffset *lookupMemberVariable(struct StructEntry *theStruct,
                                                 struct AST *name,
                                                 struct Scope *scope);
 
-struct FunctionEntry *lookupMethod(struct StructEntry *theStruct,
-                                   struct AST *name,
-                                   struct Scope *scope);
+struct FunctionEntry *looupMethod(struct StructEntry *theStruct,
+                                  struct AST *name,
+                                  struct Scope *scope);
+
+struct FunctionEntry *lookupAssociatedFunction(struct StructEntry *theStruct,
+                                               struct AST *name,
+                                               struct Scope *scope);
 
 // TODO: char *name vs AST *name (change to AST *nameTree?)
 struct FunctionEntry *lookupMethodByString(struct StructEntry *theStruct,

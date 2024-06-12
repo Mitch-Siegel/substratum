@@ -407,7 +407,7 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
     struct ScopeMember *lookedUpFunction = Scope_lookup(scope, functionNameTree->value);
     struct FunctionEntry *parsedFunc = NULL;
     struct FunctionEntry *existingFunc = NULL;
-    struct FunctionEntry *returnedFunc = NULL;
+    struct FunctionEntry *returnedFunc = NULL;    
 
     if (lookedUpFunction != NULL)
     {
@@ -551,7 +551,7 @@ void walkMethod(struct AST *tree,
         {
             if (strcmp(potentialSelfArg->name, "self") == 0)
             {
-                walkedMethod->methodOf = methodOf;
+                walkedMethod->isMethod = true;
             }
         }
     }
@@ -1488,6 +1488,10 @@ void walkSubExpression(struct AST *tree,
         walkMethodCall(tree, block, scope, TACIndex, tempNum, destinationOperand);
         break;
 
+    case t_associated_call:
+        walkAssociatedCall(tree, block, scope, TACIndex, tempNum, destinationOperand);
+        break;
+
     case t_dot:
     {
         walkMemberAccess(tree, block, scope, TACIndex, tempNum, destinationOperand, 0);
@@ -1644,7 +1648,7 @@ struct Stack *walkArgumentPushes(struct AST *argumentRunner,
     Log(LOG_DEBUG, "walkArgumentPushes");
 
     u8 argumentNumOffset = 0;
-    if (calledFunction->methodOf != NULL)
+    if (calledFunction->isMethod)
     {
         Log(LOG_DEBUG, "%s is a method - increment argnumoffset", calledFunction->name);
 
@@ -1889,7 +1893,7 @@ void walkMethodCall(struct AST *tree,
     }
     structCalledOn = lookupStructByType(scope, TACOperand_GetType(&structOperand));
 
-    struct FunctionEntry *calledFunction = lookupMethod(structCalledOn, callTree->child, scope);
+    struct FunctionEntry *calledFunction = looupMethod(structCalledOn, callTree->child, scope);
 
     checkFunctionReturnUse(tree, destinationOperand, calledFunction);
 
@@ -1932,6 +1936,57 @@ void walkMethodCall(struct AST *tree,
     callLine->operands[2].type.basicType = vt_struct;
     callLine->operands[2].type.nonArray.complexType.name = structCalledOn->name;
 }
+
+void walkAssociatedCall(struct AST *tree,
+                    struct BasicBlock *block,
+                    struct Scope *scope,
+                    size_t *TACIndex,
+                    size_t *tempNum,
+                    struct TACOperand *destinationOperand)
+{
+    LogTree(LOG_DEBUG, tree, "walkAssociatedCall");
+
+    if (tree->type != t_associated_call)
+    {
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to t_associated_call!", getTokenName(tree->type));
+    }
+
+    scope->parentFunction->callsOtherFunction = 1;
+
+    // don't need to track scope->parentFunction->callsOtherFunction as walkFunctionCall will do this on our behalf
+    struct AST *structTypeTree = tree->child->child;
+    struct StructEntry *structCalledOn = NULL;
+    struct AST *callTree = tree->child->sibling;
+
+    if(structTypeTree->type != t_identifier)
+    {
+        InternalError("Malformed AST in walkAssociatedCall - expected identifier on LHS but got %s instead", getTokenName(structTypeTree->type));
+    }
+    structCalledOn = lookupStruct(scope, structTypeTree);
+
+    struct FunctionEntry *calledFunction = lookupAssociatedFunction(structCalledOn, callTree->child, scope);
+
+    checkFunctionReturnUse(tree, destinationOperand, calledFunction);
+
+    struct Stack *argumentPushes = walkArgumentPushes(tree->child->sibling->child->sibling,
+                                                      calledFunction,
+                                                      block,
+                                                      scope,
+                                                      TACIndex,
+                                                      tempNum,
+                                                      destinationOperand);
+    handleStructReturn(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
+
+    reserveAndStoreStackArgs(tree, calledFunction, argumentPushes, block, TACIndex);
+
+    Stack_Free(argumentPushes);
+
+    struct TACLine *callLine = generateCallTac(tree, calledFunction, block, TACIndex, tempNum, destinationOperand);
+    callLine->operation = tt_associated_call;
+    callLine->operands[2].type.basicType = vt_struct;
+    callLine->operands[2].type.nonArray.complexType.name = structCalledOn->name;
+}
+
 
 struct TACLine *walkMemberAccess(struct AST *tree,
                                  struct BasicBlock *block,
