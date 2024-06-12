@@ -118,6 +118,14 @@ void walkIfStatement(struct AST *tree,
                      ssize_t *labelNum,
                      ssize_t controlConvergesToLabel);
 
+void walkForLoop(struct AST *tree,
+                 struct BasicBlock *block,
+                 struct Scope *scope,
+                 size_t *tacIndex,
+                 size_t *tempNum,
+                 ssize_t *labelNum,
+                 ssize_t controlConvergesToLabel);
+
 void walkAssignment(struct AST *tree,
                     struct BasicBlock *block,
                     struct Scope *scope,

@@ -254,19 +254,25 @@ compound_statement
    <- kw_lcurly _ kw_rcurly                     { $$ = AST_N(auxil, t_compound_statement, "", $0s); }
     / kw_lcurly _ sl:statement_list _ kw_rcurly { $$ = AST_C(AST_N(auxil, t_compound_statement, "", $0s), sl); }
 
+expression_statement
+   <- kw_semicolon { $$ = NULL; }
+    / e:expression _ kw_semicolon { $$ = e; }
+    / v:variable_declaration _ a:basic_assignment _ e:expression _ kw_semicolon { $$ = AST_C(a, AST_S(v, e)); }
+
 statement
-   <- c:compound_statement                                                                   { $$ = c; }
-    / s:struct_declaration _ kw_semicolon                                                    { $$ = s; }
-    / i:impl_block                                                                           { $$ = i; }
-    / kw_semicolon                                                                           { $$ = NULL; }
-    / v:variable_declaration_statement                                                       { $$ = v; }
-    / v:variable_declaration _ a:basic_assignment _ e:expression _ kw_semicolon              { $$ = AST_C(a, AST_S(v, e)); }
-    / e:expression _ kw_semicolon                                                            { $$ = e; }
-    / if:if _ kw_lparen _ e:expression _ kw_rparen _ s1:statement _ kw_else _ s2:statement   { $$ = AST_C(if, AST_S(e, AST_S(s1, s2))); }
-    / if:if _ kw_lparen _ e:expression _ kw_rparen _ s:statement                             { $$ = AST_C(if, AST_S(e, s)); }
-    / w:while _ kw_lparen _ e:expression _ kw_rparen _ s:statement                           { $$ = AST_C(w, AST_S(e, s)); }
-    / r:return _ e:expression kw_semicolon                                                   { $$ = AST_C(r, e); }
-    / r:return _ kw_semicolon                                                                { $$ = r; }
+   <- c:compound_statement                                                                                                 { $$ = c; }
+    / s:struct_declaration _ kw_semicolon                                                                                  { $$ = s; }
+    / i:impl_block                                                                                                         { $$ = i; }
+    / e:expression_statement                                                                                               { $$ = e; }
+    / v:variable_declaration_statement                                                                                     { $$ = v; }
+    / e:expression _ kw_semicolon                                                                                          { $$ = e; }
+    / if:if _ kw_lparen _ e:expression _ kw_rparen _ s1:statement _ kw_else _ s2:statement                                 { $$ = AST_C(if, AST_S(e, AST_S(s1, s2))); }
+    / if:if _ kw_lparen _ e:expression _ kw_rparen _ s:statement                                                           { $$ = AST_C(if, AST_S(e, s)); }
+    / w:while _ kw_lparen _ e:expression _ kw_rparen _ s:statement                                                         { $$ = AST_C(w, AST_S(e, s)); }
+    / f:for _ kw_lparen _ e1:expression_statement _ e2:expression_statement _ e3:expression _ kw_rparen _ body:statement   { $$ = AST_C(f, AST_S(AST_S(e1, AST_S(e2, e3)), body)); }
+    / f:for _ kw_lparen _ e1:expression_statement _ e2:expression_statement _ kw_rparen _ body:statement                   { $$ = AST_C(f, AST_S(AST_S(e1, e2), body)); }
+    / r:return _ e:expression kw_semicolon                                                                                 { $$ = AST_C(r, e); }
+    / r:return _ kw_semicolon                                                                                              { $$ = r; }
 
 statement_list
    <- sl:statement_list _ s:statement  { $$ = AST_S(sl, s); }
@@ -319,6 +325,7 @@ keyword
     / kw_if
     / kw_else
     / kw_while
+    / kw_for
     / kw_return
     / kw_asm
     / kw_dot
@@ -350,6 +357,7 @@ kw_u64		   <- 'u64' !(LETTER/DIGIT)
 kw_sizeof      <- 'sizeof' !(LETTER/DIGIT)
 kw_if		      <- 'if' !(LETTER/DIGIT)
 kw_while       <- 'while' !(LETTER/DIGIT)
+kw_for         <- 'for' !(LETTER/DIGIT)
 kw_return      <- 'return' !(LETTER/DIGIT)
 kw_extern      <- 'extern' !(LETTER/DIGIT)
 kw_dot         <- '.' !('.')
@@ -398,6 +406,7 @@ u64            <- kw_u64     { $$ = AST_N(auxil, t_u64, $0, $0s); }
 sizeof         <- kw_sizeof  { $$ = AST_N(auxil, t_sizeof, $0, $0s); }
 if             <- kw_if      { $$ = AST_N(auxil, t_if, $0, $0s); }
 while          <- kw_while   { $$ = AST_N(auxil, t_while, $0, $0s); }
+for            <- kw_for     { $$ = AST_N(auxil, t_for, $0, $0s); }
 return         <- kw_return  { $$ = AST_N(auxil, t_return, $0, $0s); }
 extern         <- kw_extern  { $$ = AST_N(auxil, t_extern, $0, $0s); }
 impl           <- kw_impl    { $$ = AST_N(auxil, t_impl, $0, $0s); }
