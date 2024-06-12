@@ -1200,8 +1200,9 @@ void walkForLoop(struct AST *tree,
     struct AST *forStartExpression = tree->child;
     struct AST *forCondition = tree->child->sibling;
 
-    // TODO: parse empty statements as ';' to avoid this brittle and imcomplete hackery
+    //                       for   e1      e2       e3
     struct AST *forAction = tree->child->sibling->sibling;
+    // if the third expression has no sibling, it isn't actually a third expression but the body (and there is no third expression)
     if (forAction->sibling == NULL)
     {
         forAction = NULL;
@@ -1240,8 +1241,11 @@ void walkForLoop(struct AST *tree,
     struct BasicBlock *forActionBlock = BasicBlock_new(endForLabel);
     Scope_addBasicBlock(forScope, forActionBlock);
 
-    walkStatement(forAction, &forActionBlock, forScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
-    
+    if (forAction != NULL)
+    {
+        walkStatement(forAction, &forActionBlock, forScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+    }
+
     struct TACLine *forLoopJump = newTACLine(tt_jmp, tree);
     forLoopJump->operands[0].name.val = enterForJump->operands[0].name.val;
 

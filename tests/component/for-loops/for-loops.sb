@@ -8,5 +8,13 @@ fun main()
     }
     uart_putc('\n');
 
+    u8 j;
+    for(j = '0'; j <= '9';)
+    {
+        uart_putc(j);
+        j += 2;
+    }
+    uart_putc('\n');
+
     exit();
 }

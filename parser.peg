@@ -270,6 +270,7 @@ statement
     / if:if _ kw_lparen _ e:expression _ kw_rparen _ s:statement                                                           { $$ = AST_C(if, AST_S(e, s)); }
     / w:while _ kw_lparen _ e:expression _ kw_rparen _ s:statement                                                         { $$ = AST_C(w, AST_S(e, s)); }
     / f:for _ kw_lparen _ e1:expression_statement _ e2:expression_statement _ e3:expression _ kw_rparen _ body:statement   { $$ = AST_C(f, AST_S(AST_S(e1, AST_S(e2, e3)), body)); }
+    / f:for _ kw_lparen _ e1:expression_statement _ e2:expression_statement _ kw_rparen _ body:statement                   { $$ = AST_C(f, AST_S(AST_S(e1, e2), body)); }
     / r:return _ e:expression kw_semicolon                                                                                 { $$ = AST_C(r, e); }
     / r:return _ kw_semicolon                                                                                              { $$ = r; }
 
