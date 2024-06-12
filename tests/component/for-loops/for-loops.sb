@@ -2,10 +2,11 @@
 
 fun main()
 {
-    for(u8 i = '0'; i < '0'; i += 1)
+    for(u8 i = '0'; i <= '9'; i += 1)
     {
         uart_putc(i);
     }
     uart_putc('\n');
+
     exit();
 }

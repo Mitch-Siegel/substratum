@@ -198,7 +198,6 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
         }
     }
 
-
     // don't allow declaration of variables of undeclared struct or array of undeclared struct (except pointers)
     if ((populateTypeTo->basicType == vt_struct) && (populateTypeTo->pointerLevel == 0))
     {
@@ -407,7 +406,7 @@ struct FunctionEntry *walkFunctionDeclaration(struct AST *tree,
     struct ScopeMember *lookedUpFunction = Scope_lookup(scope, functionNameTree->value);
     struct FunctionEntry *parsedFunc = NULL;
     struct FunctionEntry *existingFunc = NULL;
-    struct FunctionEntry *returnedFunc = NULL;    
+    struct FunctionEntry *returnedFunc = NULL;
 
     if (lookedUpFunction != NULL)
     {
@@ -749,6 +748,15 @@ void walkStatement(struct AST *tree,
         walkIfStatement(tree, *blockP, scope, TACIndex, tempNum, labelNum, afterIfBlock->labelNum);
         *blockP = afterIfBlock;
         Scope_addBasicBlock(scope, afterIfBlock);
+    }
+    break;
+
+    case t_for:
+    {
+        struct BasicBlock *afterForBlock = BasicBlock_new((*labelNum)++);
+        walkForLoop(tree, *blockP, scope, TACIndex, tempNum, labelNum, afterForBlock->labelNum);
+        *blockP = afterForBlock;
+        Scope_addBasicBlock(scope, afterForBlock);
     }
     break;
 
@@ -1164,6 +1172,82 @@ void walkIfStatement(struct AST *tree,
             walkStatement(ifBody, &ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
         }
     }
+}
+
+void walkForLoop(struct AST *tree,
+                 struct BasicBlock *block,
+                 struct Scope *scope,
+                 size_t *TACIndex,
+                 size_t *tempNum,
+                 ssize_t *labelNum,
+                 ssize_t controlConvergesToLabel)
+{
+    LogTree(LOG_DEBUG, tree, "walkForLoop");
+
+    if (tree->type != t_for)
+    {
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkForLoop!", getTokenName(tree->type));
+    }
+
+    struct Scope *forScope = Scope_createSubScope(scope);
+    struct BasicBlock *beforeForBlock = BasicBlock_new((*labelNum)++);
+    Scope_addBasicBlock(forScope, beforeForBlock);
+
+    struct TACLine *enterForScopeJump = newTACLine(tt_jmp, tree);
+    enterForScopeJump->operands[0].name.val = beforeForBlock->labelNum;
+    BasicBlock_append(block, enterForScopeJump, tempNum);
+
+    struct AST *forStartExpression = tree->child;
+    struct AST *forCondition = tree->child->sibling;
+
+    // TODO: parse empty statements as ';' to avoid this brittle and imcomplete hackery
+    struct AST *forAction = tree->child->sibling->sibling;
+    if (forAction->sibling == NULL)
+    {
+        forAction = NULL;
+    }
+    walkStatement(forStartExpression, &beforeForBlock, forScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+
+    struct TACLine *enterForJump = newTACLine(tt_jmp, tree);
+    enterForJump->operands[0].name.val = *labelNum;
+    BasicBlock_append(beforeForBlock, enterForJump, TACIndex);
+
+    // create a subscope from which we will work
+    struct BasicBlock *forBlock = BasicBlock_new((*labelNum)++);
+
+    struct TACLine *whileDo = newTACLine(tt_do, tree);
+    BasicBlock_append(forBlock, whileDo, TACIndex);
+    Scope_addBasicBlock(forScope, forBlock);
+
+    forBlock = walkConditionCheck(forCondition, forBlock, forScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+
+    ssize_t endForLabel = (*labelNum)++;
+
+    struct AST *forBody = tree->child;
+    while (forBody->sibling != NULL)
+    {
+        forBody = forBody->sibling;
+    }
+    if (forBody->type == t_compound_statement)
+    {
+        walkScope(forBody, forBlock, forScope, TACIndex, tempNum, labelNum, endForLabel);
+    }
+    else
+    {
+        walkStatement(forBody, &forBlock, forScope, TACIndex, tempNum, labelNum, endForLabel);
+    }
+
+    struct BasicBlock *forActionBlock = BasicBlock_new(endForLabel);
+    Scope_addBasicBlock(forScope, forActionBlock);
+
+    walkStatement(forAction, &forActionBlock, forScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+    
+    struct TACLine *forLoopJump = newTACLine(tt_jmp, tree);
+    forLoopJump->operands[0].name.val = enterForJump->operands[0].name.val;
+
+    struct TACLine *forEndDo = newTACLine(tt_enddo, tree);
+    BasicBlock_append(forActionBlock, forLoopJump, TACIndex);
+    BasicBlock_append(forActionBlock, forEndDo, TACIndex);
 }
 
 void walkAssignment(struct AST *tree,
@@ -1938,11 +2022,11 @@ void walkMethodCall(struct AST *tree,
 }
 
 void walkAssociatedCall(struct AST *tree,
-                    struct BasicBlock *block,
-                    struct Scope *scope,
-                    size_t *TACIndex,
-                    size_t *tempNum,
-                    struct TACOperand *destinationOperand)
+                        struct BasicBlock *block,
+                        struct Scope *scope,
+                        size_t *TACIndex,
+                        size_t *tempNum,
+                        struct TACOperand *destinationOperand)
 {
     LogTree(LOG_DEBUG, tree, "walkAssociatedCall");
 
@@ -1958,7 +2042,7 @@ void walkAssociatedCall(struct AST *tree,
     struct StructEntry *structCalledOn = NULL;
     struct AST *callTree = tree->child->sibling;
 
-    if(structTypeTree->type != t_identifier)
+    if (structTypeTree->type != t_identifier)
     {
         InternalError("Malformed AST in walkAssociatedCall - expected identifier on LHS but got %s instead", getTokenName(structTypeTree->type));
     }
@@ -1986,7 +2070,6 @@ void walkAssociatedCall(struct AST *tree,
     callLine->operands[2].type.basicType = vt_struct;
     callLine->operands[2].type.nonArray.complexType.name = structCalledOn->name;
 }
-
 
 struct TACLine *walkMemberAccess(struct AST *tree,
                                  struct BasicBlock *block,
