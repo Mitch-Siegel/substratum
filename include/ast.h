@@ -29,6 +29,7 @@ enum token
     t_cap_self,
     t_public,
     t_method_call,
+    t_struct_initializer,
     //
     t_compound_statement,
     //

@@ -139,8 +139,8 @@ postfix_expression
     / p:primary_expression                               { $$ = p; }
 
 argument_expression_list
-   <- el:argument_expression_list _ kw_comma _ ae:assignment_expression  { $$ = AST_S(el, ae); }
-    / a:assignment_expression                                       { $$ = a; }
+   <- el:argument_expression_list _ kw_comma _ e:expression { $$ = AST_S(el, e); }
+    / e:expression                                          { $$ = e; }
 
 unary_expression
    <- u:unary_operator _ c:cast_expression  { $$ = AST_C(u, c); }
@@ -229,7 +229,10 @@ conditional_expression
 
 assignment_expression
    <- u:unary_expression _ ao:assignment_operator _ ae:assignment_expression  { $$ = AST_C(ao, AST_S(u, ae)); }
-    / c:conditional_expression                                                { $$ = c; }
+    / c:conditional_expression { $$ = c; }
+
+expression
+   <- a:assignment_expression { $$ = a; }
 
 assignment_operator
    <- b:basic_assignment   { $$ = b; }
@@ -247,8 +250,20 @@ assignment_operator
 basic_assignment
    <- '='   { $$ = AST_N(auxil, t_assign, $0, $0s); }
 
-expression
-   <- a:assignment_expression  { $$ = a; }
+member_initializer
+   <- i:identifier _ a:basic_assignment _ e:expression { $$ = AST_C(a, AST_S(i, e)); }
+
+member_initializer_list
+   <- mil:member_initializer_list _ kw_comma _ mi:member_initializer { $$ = AST_S(mil, mi); }
+    / mi:member_initializer                                          { $$ = mi; }
+
+struct_initializer
+   <- kw_lcurly _ mil:member_initializer_list _ kw_rcurly              { $$ = AST_C(AST_N(auxil, t_struct_initializer, "", $0s), mil); }
+    / kw_lcurly _ mil:member_initializer_list _ kw_comma _ kw_rcurly   { $$ = AST_C(AST_N(auxil, t_struct_initializer, "", $0s), mil); }
+
+initializer
+   <- e:expression            { $$ = e; }
+    / si:struct_initializer   { $$ = si; }
 
 compound_statement
    <- kw_lcurly _ kw_rcurly                     { $$ = AST_N(auxil, t_compound_statement, "", $0s); }
@@ -257,7 +272,9 @@ compound_statement
 expression_statement
    <- kw_semicolon { $$ = NULL; }
     / e:expression _ kw_semicolon { $$ = e; }
-    / v:variable_declaration _ a:basic_assignment _ e:expression _ kw_semicolon { $$ = AST_C(a, AST_S(v, e)); }
+    / v:variable_declaration _ a:basic_assignment _ i:initializer _ kw_semicolon    { $$ = AST_C(a, AST_S(v, i)); }
+    / e1:expression _ ao:assignment_operator _ e2:expression _ kw_semicolon     { $$ = AST_C(ao, AST_S(e1, e2)); }
+    / e:expression _ a:basic_assignment _ i:initializer                       { $$ = AST_C(a, AST_S(e, i)); }
 
 statement
    <- c:compound_statement                                                                                                 { $$ = c; }

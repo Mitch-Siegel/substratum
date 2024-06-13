@@ -1,0 +1,19 @@
+#include "tests-common.sb"
+
+struct Money {
+    public u64 dollars;
+    public u8 cents;
+};
+
+fun main()
+{
+    Money myBalance = {dollars = 0, cents = 0};
+
+    Money myPaycheck = {dollars = 999, cents = 99};
+    myPaycheck.Print();
+
+    Money newBalance = myBalance.Add(&myPaycheck);
+    newBalance.Print();
+
+    exit();
+}
