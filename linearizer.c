@@ -1477,97 +1477,8 @@ struct TACOperand *walkBitwiseNot(struct AST *tree,
     return &bitwiseNotLine->operands[0];
 }
 
-void walkStructInitializer(struct AST *tree,
-                           struct BasicBlock *block,
-                           struct Scope *scope,
-                           size_t *TACIndex,
-                           size_t *tempNum,
-                           struct TACOperand *initialized)
+void ensureAllFieldsInitialized(struct AST *tree, size_t initMemberIdx, struct StructEntry *initializedStruct)
 {
-    if (tree->type != t_struct_initializer)
-    {
-        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkStructInitializer!", getTokenName(tree->type));
-    }
-
-    struct Type *initializedType = TACOperand_GetType(initialized);
-    if (!Type_IsStructObject(initializedType) && !((initializedType->basicType == vt_struct) && (initializedType->pointerLevel == 1)))
-    {
-        LogTree(LOG_FATAL, tree, "Cannot use initializer non-struct type %s", Type_GetName(initializedType));
-    }
-
-    if (initializedType->pointerLevel == 0)
-    {
-        initialized = getAddrOfOperand(tree, block, scope, TACIndex, tempNum, initialized);
-    }
-
-    struct StructEntry *initializedStruct = lookupStructByType(scope, initializedType);
-
-    size_t initMemberIdx = 0;
-
-    for (struct AST *initializedRunner = tree->child; initializedRunner != NULL; initializedRunner = initializedRunner->sibling)
-    {
-        // sanity check initializer parse
-        if (initializedRunner->type != t_assign)
-        {
-            InternalError("Malformed AST see inside struct initializer, expected t_assign, got %s", getTokenName(initializedRunner->type));
-        }
-
-        struct AST *initializedMember = initializedRunner->child;
-        struct AST *initializeTo = initializedMember->sibling;
-
-        if (initializedMember->type != t_identifier)
-        {
-            InternalError("Malformed AST for initializer, expected identifier on LHS but got %s", getTokenName(initializedMember->type));
-        }
-
-        // first, attempt to look up the member by tree in order to throw an error in the case of a nonexistent one being referenced
-        struct StructMemberOffset *member = lookupMemberVariable(initializedStruct, initializedMember, scope);
-
-        // next, check the ordering index for the field we are expecting to initialize
-        struct StructMemberOffset *expectedMember = (struct StructMemberOffset *)initializedStruct->memberLocations->data[initMemberIdx];
-        if ((member->offset != expectedMember->offset) || (strcmp(member->variable->name, expectedMember->variable->name)))
-        {
-            Log(LOG_FATAL, "Initializer element %zu of struct %s should be %s, not %s", initMemberIdx + 1, initializedStruct->name, expectedMember->variable->name, member->variable->name);
-        }
-
-        struct TACOperand initializedValue = {0};
-        initializedValue.type = member->variable->type;
-
-        struct TACLine *getAddrOfField = newTACLine(tt_lea_off, initializedRunner);
-        populateTACOperandAsTemp(&getAddrOfField->operands[0], tempNum);
-        getAddrOfField->operands[0].type = member->variable->type;
-        getAddrOfField->operands[0].type.pointerLevel++;
-
-        getAddrOfField->operands[1] = *initialized;
-        getAddrOfField->operands[2].type.basicType = vt_u64;
-        getAddrOfField->operands[2].permutation = vp_literal;
-        getAddrOfField->operands[2].name.val = member->offset;
-        BasicBlock_append(block, getAddrOfField, TACIndex);
-
-        if (initializeTo->type == t_struct_initializer)
-        {
-            initializedValue = getAddrOfField->operands[0];
-            walkStructInitializer(initializeTo, block, scope, TACIndex, tempNum, &initializedValue);
-        }
-        else
-        {
-            walkSubExpression(initializeTo, block, scope, TACIndex, tempNum, &initializedValue);
-
-            if (Type_CompareAllowImplicitWidening(TACOperand_GetType(&initializedValue), &member->variable->type))
-            {
-                LogTree(LOG_FATAL, initializeTo, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, member->variable->name, Type_GetName(TACOperand_GetType(&initializedValue)), Type_GetName(&member->variable->type));
-            }
-            struct TACLine *storeInitializedValue = newTACLine(tt_store, initializedRunner);
-            storeInitializedValue->operands[1] = initializedValue;
-            storeInitializedValue->operands[0] = getAddrOfField->operands[0];
-
-            BasicBlock_append(block, storeInitializedValue, TACIndex);
-            Log(LOG_WARNING, "init %s.%s to %s", initializedType->nonArray.complexType.name, member->variable->name, initializeTo->value);
-        }
-
-        initMemberIdx++;
-    }
-
     // if all fields of the struct are not initialized, this is an error
     if (initMemberIdx < initializedStruct->memberLocations->size)
     {
@@ -1588,7 +1499,12 @@ void walkStructInitializer(struct AST *tree,
                 addlSize += 2;
                 separatorString = ", ";
             }
-            fieldsString = realloc(fieldsString, origLen + addlSize);
+            char *longerFieldsString = realloc(fieldsString, origLen + addlSize);
+            if (longerFieldsString == NULL)
+            {
+                InternalError("Couldn't realloc fieldsString");
+            }
+            fieldsString = longerFieldsString;
 
             sprintf(fieldsString + origLen, "%s %s%s", unInitTypeName, unInitField->variable->name, separatorString);
             free(unInitTypeName);
@@ -1596,8 +1512,107 @@ void walkStructInitializer(struct AST *tree,
             initMemberIdx++;
         }
 
-        LogTree(LOG_FATAL, tree, "Missing initializers for member(s) of %s: %s", Type_GetName(initializedType), fieldsString);
+        LogTree(LOG_FATAL, tree, "Missing initializers for member(s) of %s: %s", initializedStruct->name, fieldsString);
     }
+}
+
+void walkStructInitializer(struct AST *tree,
+                           struct BasicBlock *block,
+                           struct Scope *scope,
+                           size_t *TACIndex,
+                           size_t *tempNum,
+                           struct TACOperand *initialized)
+{
+    if (tree->type != t_struct_initializer)
+    {
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkStructInitializer!", getTokenName(tree->type));
+    }
+
+    struct Type *initializedType = TACOperand_GetType(initialized);
+    // make sure we initialize only a struct or a struct*
+    if (!Type_IsStructObject(initializedType) && !((initializedType->basicType == vt_struct) && (initializedType->pointerLevel == 1)))
+    {
+        LogTree(LOG_FATAL, tree, "Cannot use initializer non-struct type %s", Type_GetName(initializedType));
+    }
+
+    // automagically get the address of whatever we are initializing if it is a regular struct
+    // TODO: test initializing pointers directly? Is this desirable behavior like allowing struct.member for both structs and struct*s or is this nonsense?
+    if (initializedType->pointerLevel == 0)
+    {
+        initialized = getAddrOfOperand(tree, block, scope, TACIndex, tempNum, initialized);
+    }
+
+    struct StructEntry *initializedStruct = lookupStructByType(scope, initializedType);
+    size_t initMemberIdx = 0;
+    for (struct AST *initRunner = tree->child; initRunner != NULL; initRunner = initRunner->sibling)
+    {
+        // sanity check initializer parse
+        if (initRunner->type != t_assign)
+        {
+            InternalError("Malformed AST see inside struct initializer, expected t_assign, with first child as t_identifier, got %s with first child as %s", getTokenName(initRunner->type));
+        }
+
+        struct AST *initMemberTree = initRunner->child;
+        struct AST *initToTree = initMemberTree->sibling;
+
+        if (initMemberTree->type != t_identifier)
+        {
+            InternalError("Malformed AST for initializer, expected identifier on LHS but got %s", getTokenName(initMemberTree->type));
+        }
+
+        // first, attempt to look up the member by tree in order to throw an error in the case of a nonexistent one being referenced
+        struct StructMemberOffset *member = lookupMemberVariable(initializedStruct, initMemberTree, scope);
+
+        // next, check the ordering index for the field we are expecting to initialize
+        struct StructMemberOffset *expectedMember = (struct StructMemberOffset *)initializedStruct->memberLocations->data[initMemberIdx];
+        if ((member->offset != expectedMember->offset) || (strcmp(member->variable->name, expectedMember->variable->name) != 0))
+        {
+            Log(LOG_FATAL, "Initializer element %zu of struct %s should be %s, not %s", initMemberIdx + 1, initializedStruct->name, expectedMember->variable->name, member->variable->name);
+        }
+
+        struct TACOperand initializedValue = {0};
+        initializedValue.type = member->variable->type;
+
+        struct TACLine *getAddrOfField = newTACLine(tt_lea_off, initRunner);
+        populateTACOperandAsTemp(&getAddrOfField->operands[0], tempNum);
+        getAddrOfField->operands[0].type = member->variable->type;
+        getAddrOfField->operands[0].type.pointerLevel++;
+
+        getAddrOfField->operands[1] = *initialized;
+        getAddrOfField->operands[2].type.basicType = vt_u64;
+        getAddrOfField->operands[2].permutation = vp_literal;
+        getAddrOfField->operands[2].name.val = member->offset;
+        BasicBlock_append(block, getAddrOfField, TACIndex);
+
+        if (initToTree->type == t_struct_initializer)
+        {
+            // we are initializing the field directly from its address, recurse
+            initializedValue = getAddrOfField->operands[0];
+            walkStructInitializer(initToTree, block, scope, TACIndex, tempNum, &initializedValue);
+        }
+        else
+        {
+            walkSubExpression(initToTree, block, scope, TACIndex, tempNum, &initializedValue);
+
+            // make sure the subexpression has a sane type to be stored in the field we are initializing
+            if (Type_CompareAllowImplicitWidening(TACOperand_GetType(&initializedValue), &member->variable->type))
+            {
+                LogTree(LOG_FATAL, initToTree, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, member->variable->name, Type_GetName(TACOperand_GetType(&initializedValue)), Type_GetName(&member->variable->type));
+            }
+
+            // direct memory write for the store of this field
+            struct TACLine *storeInitializedValue = newTACLine(tt_store, initRunner);
+            storeInitializedValue->operands[1] = initializedValue;
+            storeInitializedValue->operands[0] = getAddrOfField->operands[0];
+
+            BasicBlock_append(block, storeInitializedValue, TACIndex);
+            Log(LOG_WARNING, "init %s.%s to %s", initializedType->nonArray.complexType.name, member->variable->name, initToTree->value);
+        }
+
+        initMemberIdx++;
+    }
+
+    ensureAllFieldsInitialized(tree, initMemberIdx, initializedStruct);
 }
 
 void walkSubExpression(struct AST *tree,
