@@ -138,6 +138,13 @@ void walkArithmeticAssignment(struct AST *tree,
                               size_t *tacIndex,
                               size_t *tempNum);
 
+void walkStructInitializer(struct AST *tree,
+                           struct BasicBlock *block,
+                           struct Scope *scope,
+                           size_t *TACIndex,
+                           size_t *tempNum,
+                           struct TACOperand *initialized);
+
 void walkSubExpression(struct AST *tree,
                        struct BasicBlock *block,
                        struct Scope *scope,
@@ -153,11 +160,11 @@ void walkMethodCall(struct AST *tree,
                     struct TACOperand *destinationOperand);
 
 void walkAssociatedCall(struct AST *tree,
-                    struct BasicBlock *block,
-                    struct Scope *scope,
-                    size_t *TACIndex,
-                    size_t *tempNum,
-                    struct TACOperand *destinationOperand);
+                        struct BasicBlock *block,
+                        struct Scope *scope,
+                        size_t *TACIndex,
+                        size_t *tempNum,
+                        struct TACOperand *destinationOperand);
 
 void walkFunctionCall(struct AST *tree,
                       struct BasicBlock *block,

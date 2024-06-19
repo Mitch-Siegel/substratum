@@ -277,7 +277,6 @@ int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
     struct Type decayedDestType = *dest;
     Type_DecayArrays(&decayedDestType);
     int retVal = Type_CompareBasicTypeAllowImplicitWidening(decayedSourceType.basicType, decayedDestType.basicType);
-        Log(LOG_WARNING, "frown %s vs %s (%s vs %s)", Type_GetName(src), Type_GetName(dest), Type_GetName(&decayedSourceType), Type_GetName(&decayedDestType));
     if (retVal)
     {
         return retVal;

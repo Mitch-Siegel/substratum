@@ -251,7 +251,8 @@ basic_assignment
    <- '='   { $$ = AST_N(auxil, t_assign, $0, $0s); }
 
 member_initializer
-   <- i:identifier _ a:basic_assignment _ e:expression { $$ = AST_C(a, AST_S(i, e)); }
+   <- i:identifier _ a:basic_assignment _ e:expression   { $$ = AST_C(a, AST_S(i, e)); }
+    / i:identifier _ a:basic_assignment _ in:initializer { $$ = AST_C(a, AST_S(i, in)); }
 
 member_initializer_list
    <- mil:member_initializer_list _ kw_comma _ mi:member_initializer { $$ = AST_S(mil, mi); }
