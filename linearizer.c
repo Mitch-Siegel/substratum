@@ -1495,7 +1495,7 @@ void walkStructInitializer(struct AST *tree,
         LogTree(LOG_FATAL, tree, "Cannot use initializer non-struct type %s", Type_GetName(initializedType));
     }
 
-    if(initializedType->pointerLevel == 0)
+    if (initializedType->pointerLevel == 0)
     {
         initialized = getAddrOfOperand(tree, block, scope, TACIndex, tempNum, initialized);
     }
@@ -1536,7 +1536,7 @@ void walkStructInitializer(struct AST *tree,
         struct TACLine *getAddrOfField = newTACLine(tt_lea_off, initializedRunner);
         populateTACOperandAsTemp(&getAddrOfField->operands[0], tempNum);
         getAddrOfField->operands[0].type = member->variable->type;
-        getAddrOfField->operands[0].type.pointerLevel = 1;
+        getAddrOfField->operands[0].type.pointerLevel++;
 
         getAddrOfField->operands[1] = *initialized;
         getAddrOfField->operands[2].type.basicType = vt_u64;
@@ -1557,12 +1557,12 @@ void walkStructInitializer(struct AST *tree,
             {
                 LogTree(LOG_FATAL, initializeTo, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, member->variable->name, Type_GetName(TACOperand_GetType(&initializedValue)), Type_GetName(&member->variable->type));
             }
-        struct TACLine *storeInitializedValue = newTACLine(tt_store, initializedRunner);
-        storeInitializedValue->operands[1] = initializedValue;
-        storeInitializedValue->operands[0] = getAddrOfField->operands[0];
+            struct TACLine *storeInitializedValue = newTACLine(tt_store, initializedRunner);
+            storeInitializedValue->operands[1] = initializedValue;
+            storeInitializedValue->operands[0] = getAddrOfField->operands[0];
 
-        BasicBlock_append(block, storeInitializedValue, TACIndex);
-        Log(LOG_WARNING, "init %s.%s to %s", initializedType->nonArray.complexType.name, member->variable->name, initializeTo->value);
+            BasicBlock_append(block, storeInitializedValue, TACIndex);
+            Log(LOG_WARNING, "init %s.%s to %s", initializedType->nonArray.complexType.name, member->variable->name, initializeTo->value);
         }
 
         initMemberIdx++;
