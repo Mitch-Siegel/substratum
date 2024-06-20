@@ -1,0 +1,23 @@
+#include "tests-common.sb"
+
+fun matchU8(u8 what)
+{
+    match(what)
+    {
+        1: printStr("one");
+        2:
+        {
+            uart_putc('t');
+            uart_putc('w');
+            uart_putc('o');
+            uart_putc('\n');
+        }
+        _: printNum(what);
+    }
+}
+
+
+fun main()
+{
+
+}
