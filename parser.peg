@@ -483,6 +483,7 @@ escape_character
     / "\\'"
     / "\\\""
 
+# TODO: t_hex_constant
 constant
    <- "0x" [0-9ABCDEFabcdef]+                            { $$ = AST_N(auxil, t_constant, $0, $0s); }
     / DIGIT+                                             { $$ = AST_N(auxil, t_constant, $0, $0s); }

@@ -4,7 +4,7 @@ fun matchU8(u8 what)
 {
     match(what)
     {
-        1: printStr("one");
+        1: printStr("one\n");
         2:
         {
             uart_putc('t');
@@ -12,12 +12,39 @@ fun matchU8(u8 what)
             uart_putc('o');
             uart_putc('\n');
         }
+        _: ;
+    }
+}
+
+fun matchU8WithDefault(u8 what)
+{
+    match(what)
+    {
+        2: printStr("two\n");
+        3: printStr("three\n");
         _: printNum(what);
     }
 }
 
 
+
+
 fun main()
 {
+    u8 i = 0;
+    while(i < 10)
+    {
+        matchU8(i);
+        i += 1;
+    }
+    uart_putc('\n');
 
+    i = 0;
+    while(i < 10)
+    {
+        matchU8WithDefault(i);
+        i += 1;
+    }
+
+    exit();
 }

@@ -760,6 +760,15 @@ void walkStatement(struct AST *tree,
     }
     break;
 
+    case t_match:
+    {
+        struct BasicBlock *afterMatchBlock = BasicBlock_new((*labelNum)++);
+        walkMatchStatement(tree, *blockP, scope, TACIndex, tempNum, labelNum, afterMatchBlock->labelNum);
+        *blockP = afterMatchBlock;
+        Scope_addBasicBlock(scope, afterMatchBlock);
+    }
+    break;
+
     case t_function_call:
         walkFunctionCall(tree, *blockP, scope, TACIndex, tempNum, NULL);
         break;
@@ -1252,6 +1261,194 @@ void walkForLoop(struct AST *tree,
     struct TACLine *forEndDo = newTACLine(tt_enddo, tree);
     BasicBlock_append(forActionBlock, forLoopJump, TACIndex);
     BasicBlock_append(forActionBlock, forEndDo, TACIndex);
+}
+
+size_t walkMatchCaseBlock(struct AST *statement,
+                          struct Scope *scope,
+                          size_t *tacIndex,
+                          size_t *tempNum,
+                          ssize_t *labelNum,
+                          ssize_t controlConvergesToLabel)
+{
+    struct BasicBlock *caseBlock = BasicBlock_new((*labelNum)++);
+    Scope_addBasicBlock(scope, caseBlock);
+    size_t caseEntryLabel = caseBlock->labelNum;
+
+    walkStatement(statement, &caseBlock, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+
+    // make sure every case ends up at the convergence block after the match
+    struct TACLine *exitCaseJump = newTACLine(tt_jmp, statement);
+    exitCaseJump->operands[0].name.val = controlConvergesToLabel;
+    BasicBlock_append(caseBlock, exitCaseJump, tacIndex);
+
+    return caseEntryLabel;
+}
+
+void walkMatchStatement(struct AST *tree,
+                        struct BasicBlock *block,
+                        struct Scope *scope,
+                        size_t *tacIndex,
+                        size_t *tempNum,
+                        ssize_t *labelNum,
+                        ssize_t controlConvergesToLabel)
+{
+    LogTree(LOG_DEBUG, tree, "walkMatchStatement");
+
+    if (tree->type != t_match)
+    {
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkMatchStatement!", getTokenName(tree->type));
+    }
+
+    struct AST *matchedExpression = tree->child;
+
+    struct AST *matchRunner = matchedExpression->sibling;
+
+    struct Set *matchedValues = Set_New(ssizet_compare, NULL);
+
+    struct TACOperand matchedAgainst;
+    walkSubExpression(matchedExpression, block, scope, tacIndex, tempNum, &matchedAgainst);
+    struct Type *matchedType = TACOperand_GetType(&matchedAgainst);
+
+    if (matchedType->pointerLevel == 0)
+    {
+        switch (matchedType->basicType)
+        {
+        case vt_struct:
+        case vt_array:
+            LogTree(LOG_FATAL, matchedExpression, "Matched expression has struct type %s - can't match structs or arrays", Type_GetName(matchedType));
+            break;
+
+        case vt_any:
+        case vt_null:
+            InternalError("Illegal type %s seen from matched expresssion linearization", Type_GetName(matchedType));
+            break;
+
+        case vt_u8:
+        case vt_u16:
+        case vt_u32:
+        case vt_u64:
+            break;
+        }
+    }
+
+    // need a flag because in the event that the underscore case is an empty statement (semicolon) there will be no tree
+    bool haveUnderscoreCase = false;
+    struct AST *underscoreCase = NULL;
+
+    while (matchRunner != NULL)
+    {
+        if ((matchRunner->type != t_constant) && (matchRunner->type != t_char_literal) && (matchRunner->type != t_underscore))
+        {
+            LogTree(LOG_FATAL, matchRunner, "Malformed AST (%s) seen in cases of match statement!", getTokenName(matchRunner->type));
+        }
+
+        if (matchRunner->type == t_underscore)
+        {
+            if (haveUnderscoreCase)
+            {
+                LogTree(LOG_FATAL, matchRunner, "Duplicated underscore case");
+            }
+            haveUnderscoreCase = true;
+            underscoreCase = matchRunner;
+        }
+        else
+        {
+            size_t matchedValue;
+            if (matchRunner->type == t_char_literal)
+            {
+                matchedValue = matchRunner->value[0];
+            }
+
+            else
+            {
+                if (strncmp(matchRunner->value, "0x", 2) == 0)
+                {
+                    matchedValue = parseHexConstant(matchRunner->value);
+                }
+                else
+                {
+                    // TODO: abstract this
+                    matchedValue = atoi(matchRunner->value);
+                }
+            }
+
+            if (Set_Find(matchedValues, (void *)matchedValue) != NULL)
+            {
+                LogTree(LOG_FATAL, matchRunner, "Duplicated match case %s", matchRunner->value);
+            }
+            Set_Insert(matchedValues, (void *)matchedValue);
+
+            struct TACLine *matchJump = newTACLine(tt_beq, matchRunner);
+
+            matchJump->operands[1].type = *TACOperand_GetType(&matchedAgainst);
+            matchJump->operands[1].permutation = vp_literal;
+
+            char printedMatchedValue[sprintedNumberLength];
+            snprintf(printedMatchedValue, sprintedNumberLength - 1, "%zu", matchedValue);
+            matchJump->operands[1].name.str = Dictionary_LookupOrInsert(parseDict, printedMatchedValue);
+
+            matchJump->operands[2] = matchedAgainst;
+
+            BasicBlock_append(block, matchJump, tacIndex);
+
+            matchJump->operands[0].name.val = walkMatchCaseBlock(matchRunner->child, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+        }
+        matchRunner = matchRunner->sibling;
+    }
+
+    if (underscoreCase != NULL)
+    {
+        struct TACLine *underscoreJump = newTACLine(tt_jmp, underscoreCase);
+        if (underscoreCase->child != NULL)
+        {
+            underscoreJump->operands[0].name.val = walkMatchCaseBlock(underscoreCase->child, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+        }
+        else
+        {
+            underscoreJump->operands[0].name.val = controlConvergesToLabel;
+        }
+        BasicBlock_append(block, underscoreJump, tacIndex);
+    }
+    else
+    {
+        size_t stateSpaceSize = 0;
+        switch (matchedType->basicType)
+        {
+        case vt_u8:
+            stateSpaceSize = U8_MAX;
+            break;
+        case vt_u16:
+            stateSpaceSize = U16_MAX;
+            break;
+        case vt_u32:
+            stateSpaceSize = U32_MAX;
+            break;
+        case vt_u64:
+            stateSpaceSize = U64_MAX;
+            break;
+        case vt_any:
+            break;
+        case vt_null:
+            InternalError("vt_null seen as type of matched expression");
+        case vt_struct:
+            InternalError("vt_struct seen as type of matched expression");
+        case vt_array:
+            InternalError("vt_struct seen as type of matched expression");
+        }
+
+        size_t missingCases = (matchedValues->elements->size - 1) - stateSpaceSize;
+
+        if (missingCases > 0)
+        {
+            char *pluralString = "";
+            if (missingCases > 1)
+            {
+                pluralString = "s";
+            }
+            LogTree(LOG_FATAL, tree, "Missing %zu match case%s for type %s", stateSpaceSize - matchedValues->elements->size, pluralString, Type_GetName(matchedType));
+        }
+    }
+    Set_Free(matchedValues);
 }
 
 void walkAssignment(struct AST *tree,

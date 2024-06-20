@@ -34,6 +34,8 @@ size_t unalignSize(u8 nBits);
 // directly compares dataA to dataB
 ssize_t ssizet_compare(void *dataA, void *dataB);
 
+size_t parseHexConstant(char *hexConstant);
+
 /*
  *
  *
