@@ -42,6 +42,8 @@ enum token
     t_while,
     t_for,
     t_match,
+    t_match_arm,
+    t_match_arm_action,
     t_do,
     //
     t_array_index,

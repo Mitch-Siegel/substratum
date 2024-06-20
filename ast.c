@@ -35,6 +35,8 @@ char *token_names[t_EOF + 1] = {
     "t_while",
     "t_for",
     "t_match",
+    "t_match_arm",
+    "t_match_arm_action",
     "t_do",
     "t_array_index",
     "t_function_call",

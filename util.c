@@ -27,6 +27,11 @@ ssize_t ssizet_compare(void *dataA, void *dataB)
     return (ssize_t)dataA - (ssize_t)dataB;
 }
 
+ssize_t sizet_pointer_compare(void *dataA, void *dataB)
+{
+    return (*(size_t *)dataA) - (*(size_t *)dataB);
+}
+
 size_t parseHexConstant(char *hexConstant)
 {
     size_t hexValue = 0;

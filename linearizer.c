@@ -1274,7 +1274,10 @@ size_t walkMatchCaseBlock(struct AST *statement,
     Scope_addBasicBlock(scope, caseBlock);
     size_t caseEntryLabel = caseBlock->labelNum;
 
-    walkStatement(statement, &caseBlock, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+    if(statement != NULL)
+    {
+        walkStatement(statement, &caseBlock, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+    }
 
     // make sure every case ends up at the convergence block after the match
     struct TACLine *exitCaseJump = newTACLine(tt_jmp, statement);
@@ -1303,7 +1306,7 @@ void walkMatchStatement(struct AST *tree,
 
     struct AST *matchRunner = matchedExpression->sibling;
 
-    struct Set *matchedValues = Set_New(ssizet_compare, NULL);
+    struct Set *matchedValues = Set_New(sizet_pointer_compare, free);
 
     struct TACOperand matchedAgainst;
     walkSubExpression(matchedExpression, block, scope, tacIndex, tempNum, &matchedAgainst);
@@ -1333,75 +1336,90 @@ void walkMatchStatement(struct AST *tree,
 
     // need a flag because in the event that the underscore case is an empty statement (semicolon) there will be no tree
     bool haveUnderscoreCase = false;
-    struct AST *underscoreCase = NULL;
+    struct AST *underscoreAction = NULL;
 
     while (matchRunner != NULL)
     {
-        if ((matchRunner->type != t_constant) && (matchRunner->type != t_char_literal) && (matchRunner->type != t_underscore))
+        struct AST *matchArmAction = NULL;
+        if(matchRunner->child->child != NULL)
         {
-            LogTree(LOG_FATAL, matchRunner, "Malformed AST (%s) seen in cases of match statement!", getTokenName(matchRunner->type));
+            matchArmAction = matchRunner->child->child;
         }
 
-        if (matchRunner->type == t_underscore)
+        struct AST *matchedValueRunner = matchRunner->child->sibling;
+
+        while (matchedValueRunner != NULL)
         {
-            if (haveUnderscoreCase)
+            if ((matchedValueRunner->type != t_constant) && (matchedValueRunner->type != t_char_literal) && (matchedValueRunner->type != t_underscore))
             {
-                LogTree(LOG_FATAL, matchRunner, "Duplicated underscore case");
-            }
-            haveUnderscoreCase = true;
-            underscoreCase = matchRunner;
-        }
-        else
-        {
-            size_t matchedValue;
-            if (matchRunner->type == t_char_literal)
-            {
-                matchedValue = matchRunner->value[0];
+                LogTree(LOG_FATAL, matchRunner, "Malformed AST (%s) seen in cases of match statement!", getTokenName(matchedValueRunner->type));
             }
 
+            if (matchedValueRunner->type == t_underscore)
+            {
+                if (haveUnderscoreCase)
+                {
+                    LogTree(LOG_FATAL, matchRunner, "Duplicated underscore case");
+                }
+                haveUnderscoreCase = true;
+                underscoreAction = matchRunner->child;
+            }
             else
             {
-                if (strncmp(matchRunner->value, "0x", 2) == 0)
+                size_t matchedValue;
+                if (matchedValueRunner->type == t_char_literal)
                 {
-                    matchedValue = parseHexConstant(matchRunner->value);
+                    matchedValue = matchedValueRunner->value[0];
                 }
+
                 else
                 {
-                    // TODO: abstract this
-                    matchedValue = atoi(matchRunner->value);
+                    if (strncmp(matchedValueRunner->value, "0x", 2) == 0)
+                    {
+                        matchedValue = parseHexConstant(matchedValueRunner->value);
+                    }
+                    else
+                    {
+                        // TODO: abstract this
+                        matchedValue = atoi(matchedValueRunner->value);
+                    }
                 }
+
+                if (Set_Find(matchedValues, &matchedValue) != NULL)
+                {
+                    LogTree(LOG_FATAL, matchedValueRunner, "Duplicated match case %s", matchedValueRunner->value);
+                }
+
+                size_t *matchedValuePointer = malloc(sizeof(size_t));
+                *matchedValuePointer = matchedValue;
+                Set_Insert(matchedValues, matchedValuePointer);
+
+                struct TACLine *matchJump = newTACLine(tt_beq, matchedValueRunner);
+
+                matchJump->operands[1].type = *TACOperand_GetType(&matchedAgainst);
+                matchJump->operands[1].permutation = vp_literal;
+
+                char printedMatchedValue[sprintedNumberLength];
+                snprintf(printedMatchedValue, sprintedNumberLength - 1, "%zu", matchedValue);
+                matchJump->operands[1].name.str = Dictionary_LookupOrInsert(parseDict, printedMatchedValue);
+
+                matchJump->operands[2] = matchedAgainst;
+
+                BasicBlock_append(block, matchJump, tacIndex);
+
+                matchJump->operands[0].name.val = walkMatchCaseBlock(matchArmAction, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
             }
-
-            if (Set_Find(matchedValues, (void *)matchedValue) != NULL)
-            {
-                LogTree(LOG_FATAL, matchRunner, "Duplicated match case %s", matchRunner->value);
-            }
-            Set_Insert(matchedValues, (void *)matchedValue);
-
-            struct TACLine *matchJump = newTACLine(tt_beq, matchRunner);
-
-            matchJump->operands[1].type = *TACOperand_GetType(&matchedAgainst);
-            matchJump->operands[1].permutation = vp_literal;
-
-            char printedMatchedValue[sprintedNumberLength];
-            snprintf(printedMatchedValue, sprintedNumberLength - 1, "%zu", matchedValue);
-            matchJump->operands[1].name.str = Dictionary_LookupOrInsert(parseDict, printedMatchedValue);
-
-            matchJump->operands[2] = matchedAgainst;
-
-            BasicBlock_append(block, matchJump, tacIndex);
-
-            matchJump->operands[0].name.val = walkMatchCaseBlock(matchRunner->child, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+            matchedValueRunner = matchedValueRunner->sibling;
         }
         matchRunner = matchRunner->sibling;
     }
 
-    if (underscoreCase != NULL)
+    if (underscoreAction != NULL)
     {
-        struct TACLine *underscoreJump = newTACLine(tt_jmp, underscoreCase);
-        if (underscoreCase->child != NULL)
+        struct TACLine *underscoreJump = newTACLine(tt_jmp, underscoreAction);
+        if (underscoreAction->child != NULL)
         {
-            underscoreJump->operands[0].name.val = walkMatchCaseBlock(underscoreCase->child, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+            underscoreJump->operands[0].name.val = walkMatchCaseBlock(underscoreAction->child, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
         }
         else
         {

@@ -285,9 +285,18 @@ match_case_list
     / c:match_case                       { $$ = c; }
 
 match_case
-   <- u:underscore _ kw_colon _ s:statement  { $$ = AST_C(u, s); }
-    / c:constant _ kw_colon _ s:statement    { $$ = AST_C(c, s); }
-    / i:identifier _ kw_colon _ s:statement  { $$ = AST_C(i, s); }
+   <- u:underscore _ kw_colon _ s:statement              { $$ = AST_C(AST_N(auxil, t_match_arm, "", $0s), AST_S(AST_C(AST_N(auxil, t_match_arm_action, "", $0s), s), u)); }
+    / mcl:match_constant_list _ kw_colon _ s:statement   { $$ = AST_C(AST_N(auxil, t_match_arm, "", $0s), AST_S(AST_C(AST_N(auxil, t_match_arm_action, "", $0s), s), mcl)); }
+    / mil:match_identifier_list _ kw_colon _ s:statement { $$ = AST_C(AST_N(auxil, t_match_arm, "", $0s), AST_S(AST_C(AST_N(auxil, t_match_arm_action, "", $0s), s), mil)); }
+
+match_constant_list
+   <- mcl: match_constant_list _ kw_comma _ c:constant   { $$ = AST_S(mcl, c); }
+    / c:constant                                         { $$ = c; }
+
+match_identifier_list
+   <- mil: match_identifier_list _ kw_comma _ i:identifier  { $$ = AST_S(mil, i); }
+    / i:identifier                                          { $$ = i; }
+
 
 statement
    <- c:compound_statement                                                                                                 { $$ = c; }
