@@ -27,6 +27,7 @@ char *token_names[t_EOF + 1] = {
     "t_public",
     "t_method_call",
     "t_struct_initializer",
+    "t_enum",
     "t_compound_statement",
     "t_fun",
     "t_return",

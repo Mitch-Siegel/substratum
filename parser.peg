@@ -54,7 +54,6 @@ struct_member_declaration
    <- v:variable_declaration_statement _              { $$ = v; }
     / p:public _ v:variable_declaration_statement _   { $$ = AST_C(p, v); }
 
-
 impl_block
    <- im:impl _ id: identifier _ kw_lcurly _ il:implementations_list _ kw_rcurly { $$ = AST_C(im, AST_S(id, il)); }
 
@@ -71,6 +70,18 @@ implementation
     / f:function_definition                     { $$ = f; }
     / p:public _ m:method_definition            { $$ = AST_C(p, m); }
     / p:public _ f:function_definition          { $$ = AST_C(p, f); }
+
+enum_declaration
+   <- e:enum _ i:identifier _ kw_lcurly _ m:enum_member_declaration_list _ kw_rcurly { $$ = AST_C(e, AST_S(i, m)); }
+    / e:enum _ i:identifier _ kw_lcurly _ m:enum_member_declaration_list _ kw_comma _ kw_rcurly { $$ = AST_C(e, AST_S(i, m)); }
+
+enum_member_declaration_list
+   <- l:enum_member_declaration_list _ kw_comma _  m:enum_member_declaration { $$ = AST_S(l, m); }
+    / m:enum_member_declaration                                              { $$ = m; }
+
+enum_member_declaration
+   <- i:identifier { $$ = i; }
+
 
 # variable_declaration is valid in all places parameter_declaration is
 # however, parameter_declaration is not valid in all places variable_declaration but not vice-versa
@@ -300,11 +311,12 @@ match_identifier_list
 
 statement
    <- c:compound_statement                                                                                                 { $$ = c; }
-    / s:struct_declaration _ kw_semicolon                                                                                  { $$ = s; }
+    / s:struct_declaration _ kw_semicolon                                                                                  { $$ = s; } # TODO: remove semicolon
+    / e:enum_declaration _ kw_semicolon                                                                                    { $$ = e; } # TODO: remove semicolon
     / i:impl_block                                                                                                         { $$ = i; }
     / e:expression_statement                                                                                               { $$ = e; }
     / v:variable_declaration_statement                                                                                     { $$ = v; }
-    / e:expression _ kw_semicolon                                                                                          { $$ = e; }
+    / e:expression _ kw_semicolon                                                                                          { $$ = e; } # TODO: remove duplicate
     / if:if _ kw_lparen _ e:expression _ kw_rparen _ s1:statement _ kw_else _ s2:statement                                 { $$ = AST_C(if, AST_S(e, AST_S(s1, s2))); }
     / if:if _ kw_lparen _ e:expression _ kw_rparen _ s:statement                                                           { $$ = AST_C(if, AST_S(e, s)); }
     / w:while _ kw_lparen _ e:expression _ kw_rparen _ s:statement                                                         { $$ = AST_C(w, AST_S(e, s)); }
@@ -356,6 +368,7 @@ identifier
 keyword
    <- kw_fun
     / kw_struct
+    / kw_enum
     / kw_any
     / kw_u8
     / kw_u16
@@ -392,6 +405,7 @@ keyword
 
 kw_fun		   <- 'fun' !(LETTER/DIGIT)
 kw_struct      <- 'struct' !(LETTER/DIGIT)
+kw_enum        <- 'enum' !(LETTER/DIGIT)
 kw_any		   <- 'any' !(LETTER/DIGIT)
 kw_u8		      <- 'u8' !(LETTER/DIGIT)
 kw_u16		   <- 'u16' !(LETTER/DIGIT)
@@ -444,6 +458,7 @@ kw_colon       <- ':' !(':')              { manageSourceLocation(auxil, $0); }
 
 fun            <- kw_fun     { $$ = AST_N(auxil, t_fun, $0, $0s); }
 struct         <- kw_struct  { $$ = AST_N(auxil, t_struct, $0, $0s); }
+enum           <- kw_enum    { $$ = AST_N(auxil, t_enum, $0, $0s); }
 any            <- kw_any     { $$ = AST_N(auxil, t_any, $0, $0s); }
 u8             <- kw_u8      { $$ = AST_N(auxil, t_u8, $0, $0s); }
 u16            <- kw_u16     { $$ = AST_N(auxil, t_u16, $0, $0s); }
