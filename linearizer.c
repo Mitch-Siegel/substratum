@@ -46,11 +46,12 @@ struct SymbolTable *walkProgram(struct AST *program)
         break;
 
         case t_struct:
-        {
             walkStructDeclaration(programRunner, globalBlock, programTable->globalScope);
             break;
-        }
-        break;
+
+        case t_enum:
+            walkEnumDeclaration(programRunner, globalBlock, programTable->globalScope);
+            break;
 
         case t_assign:
             walkAssignment(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum);
@@ -638,6 +639,32 @@ void walkStructDeclaration(struct AST *tree,
         }
 
         structBodyRunner = structBodyRunner->sibling;
+    }
+}
+
+void walkEnumDeclaration(struct AST *tree,
+                         struct BasicBlock *block,
+                         struct Scope *scope)
+{
+    LogTree(LOG_DEBUG, tree, "walkEnumDeclaration");
+
+    if (tree->type != t_enum)
+    {
+        LogTree(LOG_FATAL, tree, "Wrong AST (%s) passed to walkEnumDeclaration!", getTokenName(tree->type));
+    }
+
+    struct AST *enumName = tree->child;
+
+    struct EnumEntry *declaredEnum = createEnum(scope, enumName->value);
+
+    for (struct AST *enumRunner = enumName->sibling; enumRunner != NULL; enumRunner = enumRunner->sibling)
+    {
+        if (enumRunner->type != t_identifier)
+        {
+            InternalError("Malformed AST (%s) seen while walking enum element delcarations", getTokenName(enumRunner->type));
+        }
+
+        addEnumMember(declaredEnum, enumRunner);
     }
 }
 
@@ -1274,7 +1301,7 @@ size_t walkMatchCaseBlock(struct AST *statement,
     Scope_addBasicBlock(scope, caseBlock);
     size_t caseEntryLabel = caseBlock->labelNum;
 
-    if(statement != NULL)
+    if (statement != NULL)
     {
         walkStatement(statement, &caseBlock, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
     }
@@ -1330,6 +1357,7 @@ void walkMatchStatement(struct AST *tree,
         case vt_u16:
         case vt_u32:
         case vt_u64:
+        case vt_enum:
             break;
         }
     }
@@ -1341,7 +1369,7 @@ void walkMatchStatement(struct AST *tree,
     while (matchRunner != NULL)
     {
         struct AST *matchArmAction = NULL;
-        if(matchRunner->child->child != NULL)
+        if (matchRunner->child->child != NULL)
         {
             matchArmAction = matchRunner->child->child;
         }
@@ -1444,6 +1472,12 @@ void walkMatchStatement(struct AST *tree,
         case vt_u64:
             stateSpaceSize = U64_MAX;
             break;
+        case vt_enum:
+        {
+            struct EnumEntry *matchedEnum = lookupEnumByType(scope, matchedType);
+            stateSpaceSize = matchedEnum->members->elements->size;
+        }
+        break;
         case vt_any:
             break;
         case vt_null:

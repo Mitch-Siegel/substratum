@@ -64,6 +64,10 @@ void walkStructDeclaration(struct AST *tree,
                            struct BasicBlock *block,
                            struct Scope *scope);
 
+void walkEnumDeclaration(struct AST *tree,
+                         struct BasicBlock *block,
+                         struct Scope *scope);
+
 void walkStatement(struct AST *tree,
                    struct BasicBlock **blockP,
                    struct Scope *scope,

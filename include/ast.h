@@ -30,6 +30,7 @@ enum token
     t_public,
     t_method_call,
     t_struct_initializer,
+    t_enum,
     //
     t_compound_statement,
     //

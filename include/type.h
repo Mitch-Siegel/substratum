@@ -14,6 +14,7 @@ enum basicTypes
     vt_u32,
     vt_u64,
     vt_struct,
+    vt_enum,
     vt_array
 };
 
