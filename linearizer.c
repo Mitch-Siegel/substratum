@@ -1548,19 +1548,20 @@ void walkMatchStatement(struct AST *tree,
         switch (matchedType->basicType)
         {
         case vt_u8:
-            stateSpaceSize = U8_MAX;
+            stateSpaceSize = U8_MAX + 1;
             break;
         case vt_u16:
-            stateSpaceSize = U16_MAX;
+            stateSpaceSize = U16_MAX + 1;
             break;
         case vt_u32:
-            stateSpaceSize = U32_MAX;
+            stateSpaceSize = U32_MAX + 1;
             break;
         case vt_u64:
-            stateSpaceSize = U64_MAX;
+            // realistically there is never a worry about overflow unless someone manually writes every single match case for u64
+            LogTree(LOG_FATAL, tree, "There is no conceivable way you wrote U64_MAX match cases for this match against a u64. Something is broken.");
             break;
         case vt_enum:
-            stateSpaceSize = matchedEnum->members->elements->size - 1;
+            stateSpaceSize = matchedEnum->members->elements->size;
             break;
         case vt_any:
             break;
@@ -1572,7 +1573,7 @@ void walkMatchStatement(struct AST *tree,
             InternalError("vt_struct seen as type of matched expression");
         }
 
-        size_t missingCases = (matchedValues->elements->size - 1) - stateSpaceSize;
+        size_t missingCases = matchedValues->elements->size - stateSpaceSize;
 
         if (missingCases > 0)
         {
