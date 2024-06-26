@@ -4,6 +4,7 @@
 #include "substratum_defs.h"
 struct TACOperand;
 struct VariableEntry;
+struct EnumEntry;
 struct Type;
 struct AST;
 struct Scope;
@@ -16,6 +17,8 @@ enum basicTypes selectVariableTypeForNumber(size_t num);
 enum basicTypes selectVariableTypeForLiteral(char *literal);
 
 void populateTACOperandFromVariable(struct TACOperand *operandToPopulate, struct VariableEntry *populateFrom);
+
+void populateTACOperandFromEnumMember(struct TACOperand *operandToPopulate, struct EnumEntry *theEnum, struct AST *tree);
 
 void populateTACOperandAsTemp(struct TACOperand *operandToPopulate, size_t *tempNum);
 

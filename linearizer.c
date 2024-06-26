@@ -113,9 +113,9 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
 
     Type_Init(populateTypeTo);
 
-    struct AST structNameTree = {0};
+    struct AST complexTypeNameTree = {0};
     enum basicTypes basicType = vt_null;
-    char *structName = NULL;
+    char *complexTypeName = NULL;
 
     switch (tree->child->type)
     {
@@ -140,19 +140,42 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
         break;
 
     case t_identifier:
-        basicType = vt_struct;
+    {
 
-        structNameTree = *tree->child;
-        if (structNameTree.type != t_identifier)
+        complexTypeNameTree = *tree->child;
+        complexTypeName = complexTypeNameTree.value;
+
+        struct ScopeMember *namedType = Scope_lookup(scope, complexTypeName);
+
+        if (namedType == NULL)
+        {
+            LogTree(LOG_FATAL, &complexTypeNameTree, "%s does not name a type", complexTypeName);
+        }
+
+        switch (namedType->type)
+        {
+        case e_struct:
+            basicType = vt_struct;
+            break;
+
+        case e_enum:
+            basicType = vt_enum;
+            break;
+
+        default:
+            LogTree(LOG_FATAL, &complexTypeNameTree, "%s does not name a type", complexTypeName);
+        }
+
+        if (complexTypeNameTree.type != t_identifier)
         {
             LogTree(ERROR_INTERNAL,
-                    &structNameTree,
+                    &complexTypeNameTree,
                     "Malformed AST seen in declaration!\nExpected struct name as child of \"struct\", saw %s (%s)!",
-                    structNameTree.value,
-                    getTokenName(structNameTree.type));
+                    complexTypeNameTree.value,
+                    getTokenName(complexTypeNameTree.type));
         }
-        structName = structNameTree.value;
-        break;
+    }
+    break;
 
     case t_cap_self:
         basicType = vt_struct;
@@ -160,14 +183,14 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
         {
             LogTree(LOG_FATAL, tree->child, "Use of 'Self' outside of impl scope!");
         }
-        structName = scope->parentImpl->name;
+        complexTypeName = scope->parentImpl->name;
 
         // construct a fake struct name tree which contains the source location info
-        structNameTree = *tree->child;
-        structNameTree.child = NULL;
-        structNameTree.sibling = NULL;
-        structNameTree.type = t_identifier;
-        structNameTree.value = structName;
+        complexTypeNameTree = *tree->child;
+        complexTypeNameTree.child = NULL;
+        complexTypeNameTree.sibling = NULL;
+        complexTypeNameTree.type = t_identifier;
+        complexTypeNameTree.value = complexTypeName;
         break;
 
     default:
@@ -175,7 +198,7 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
     }
 
     struct AST *declaredArray = NULL;
-    Type_SetBasicType(populateTypeTo, basicType, structName, scrapePointers(tree->child, &declaredArray));
+    Type_SetBasicType(populateTypeTo, basicType, complexTypeName, scrapePointers(tree->child, &declaredArray));
 
     // if declaring something with the 'any' type, make sure it's only as a pointer (as its intended use is to point to unstructured data)
     if (populateTypeTo->basicType == vt_array || populateTypeTo->basicType == vt_any)
@@ -203,7 +226,7 @@ void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTy
     if ((populateTypeTo->basicType == vt_struct) && (populateTypeTo->pointerLevel == 0))
     {
         // the lookup will bail out if an attempt is made to use an undeclared struct
-        lookupStruct(scope, &structNameTree);
+        lookupStruct(scope, &complexTypeNameTree);
     }
 
     // if we are declaring an array, set the string with the size as the second operand
@@ -1338,6 +1361,11 @@ void walkMatchStatement(struct AST *tree,
     struct TACOperand matchedAgainst;
     walkSubExpression(matchedExpression, block, scope, tacIndex, tempNum, &matchedAgainst);
     struct Type *matchedType = TACOperand_GetType(&matchedAgainst);
+    struct EnumEntry *matchedEnum = NULL;
+    if (matchedType->basicType == vt_enum)
+    {
+        matchedEnum = lookupEnumByType(scope, matchedType);
+    }
 
     if (matchedType->pointerLevel == 0)
     {
@@ -1378,65 +1406,124 @@ void walkMatchStatement(struct AST *tree,
 
         while (matchedValueRunner != NULL)
         {
-            if ((matchedValueRunner->type != t_constant) && (matchedValueRunner->type != t_char_literal) && (matchedValueRunner->type != t_underscore))
+            if (matchedType->basicType == vt_enum)
             {
-                LogTree(LOG_FATAL, matchRunner, "Malformed AST (%s) seen in cases of match statement!", getTokenName(matchedValueRunner->type));
-            }
-
-            if (matchedValueRunner->type == t_underscore)
-            {
-                if (haveUnderscoreCase)
+                switch (matchedValueRunner->type)
                 {
-                    LogTree(LOG_FATAL, matchRunner, "Duplicated underscore case");
-                }
-                haveUnderscoreCase = true;
-                underscoreAction = matchRunner->child;
-            }
-            else
-            {
-                size_t matchedValue;
-                if (matchedValueRunner->type == t_char_literal)
-                {
-                    matchedValue = matchedValueRunner->value[0];
-                }
-
-                else
-                {
-                    if (strncmp(matchedValueRunner->value, "0x", 2) == 0)
+                case t_underscore:
+                    if (haveUnderscoreCase)
                     {
-                        matchedValue = parseHexConstant(matchedValueRunner->value);
+                        LogTree(LOG_FATAL, matchRunner, "Duplicated underscore case");
                     }
+                    haveUnderscoreCase = true;
+                    underscoreAction = matchRunner->child;
+                    break;
+
+                case t_identifier:
+                {
+                    struct EnumMember *matchedMember = lookupEnumMember(matchedEnum, matchedValueRunner);
+
+                    if (Set_Find(matchedValues, &matchedMember->numerical) != NULL)
+                    {
+                        LogTree(LOG_FATAL, matchedValueRunner, "Duplicated match case %s", matchedValueRunner->value);
+                    }
+
+                    size_t *matchedValuePointer = malloc(sizeof(size_t));
+                    *matchedValuePointer = matchedMember->numerical;
+                    Set_Insert(matchedValues, matchedValuePointer);
+
+                    struct TACLine *matchJump = newTACLine(tt_beq, matchedValueRunner);
+
+                    matchJump->operands[1].type = *TACOperand_GetType(&matchedAgainst);
+                    matchJump->operands[1].permutation = vp_literal;
+
+                    char printedMatchedValue[sprintedNumberLength];
+                    snprintf(printedMatchedValue, sprintedNumberLength - 1, "%zu", *matchedValuePointer);
+                    matchJump->operands[1].name.str = Dictionary_LookupOrInsert(parseDict, printedMatchedValue);
+
+                    matchJump->operands[2] = matchedAgainst;
+
+                    BasicBlock_append(block, matchJump, tacIndex);
+
+                    matchJump->operands[0].name.val = walkMatchCaseBlock(matchArmAction, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+                }
+                break;
+
+                default:
+                    LogTree(LOG_FATAL, matchedValueRunner, "Match against %s invalid for match against type %s", matchedValueRunner->value, Type_GetName(matchedType));
+                    break;
+                }
+            }
+            else // not matching against an enum type
+            {
+                switch (matchedValueRunner->type)
+                {
+                case t_underscore:
+                    if (haveUnderscoreCase)
+                    {
+                        LogTree(LOG_FATAL, matchRunner, "Duplicated underscore case");
+                    }
+                    haveUnderscoreCase = true;
+                    underscoreAction = matchRunner->child;
+                    break;
+
+                case t_constant:
+                case t_char_literal:
+                {
+                    size_t matchedValue;
+                    if (matchedValueRunner->type == t_char_literal)
+                    {
+                        matchedValue = matchedValueRunner->value[0];
+                    }
+
                     else
                     {
-                        // TODO: abstract this
-                        matchedValue = atoi(matchedValueRunner->value);
+                        if (strncmp(matchedValueRunner->value, "0x", 2) == 0)
+                        {
+                            matchedValue = parseHexConstant(matchedValueRunner->value);
+                        }
+                        else
+                        {
+                            // TODO: abstract this
+                            matchedValue = atoi(matchedValueRunner->value);
+                        }
                     }
+
+                    if (Set_Find(matchedValues, &matchedValue) != NULL)
+                    {
+                        LogTree(LOG_FATAL, matchedValueRunner, "Duplicated match case %s", matchedValueRunner->value);
+                    }
+
+                    size_t *matchedValuePointer = malloc(sizeof(size_t));
+                    *matchedValuePointer = matchedValue;
+                    Set_Insert(matchedValues, matchedValuePointer);
+
+                    struct TACLine *matchJump = newTACLine(tt_beq, matchedValueRunner);
+
+                    matchJump->operands[1].type = *TACOperand_GetType(&matchedAgainst);
+                    matchJump->operands[1].permutation = vp_literal;
+
+                    char printedMatchedValue[sprintedNumberLength];
+                    snprintf(printedMatchedValue, sprintedNumberLength - 1, "%zu", matchedValue);
+                    matchJump->operands[1].name.str = Dictionary_LookupOrInsert(parseDict, printedMatchedValue);
+
+                    matchJump->operands[2] = matchedAgainst;
+
+                    BasicBlock_append(block, matchJump, tacIndex);
+
+                    matchJump->operands[0].name.val = walkMatchCaseBlock(matchArmAction, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
                 }
+                break;
 
-                if (Set_Find(matchedValues, &matchedValue) != NULL)
-                {
-                    LogTree(LOG_FATAL, matchedValueRunner, "Duplicated match case %s", matchedValueRunner->value);
+                case t_identifier:
+                    LogTree(LOG_FATAL, matchedValueRunner, "Match against identifier %s invalid for match against type %s", matchedValueRunner->value, Type_GetName(matchedType));
+                    break;
+
+                default:
+                    LogTree(LOG_FATAL, matchRunner, "Malformed AST (%s) seen in cases of match statement!", getTokenName(matchedValueRunner->type));
                 }
-
-                size_t *matchedValuePointer = malloc(sizeof(size_t));
-                *matchedValuePointer = matchedValue;
-                Set_Insert(matchedValues, matchedValuePointer);
-
-                struct TACLine *matchJump = newTACLine(tt_beq, matchedValueRunner);
-
-                matchJump->operands[1].type = *TACOperand_GetType(&matchedAgainst);
-                matchJump->operands[1].permutation = vp_literal;
-
-                char printedMatchedValue[sprintedNumberLength];
-                snprintf(printedMatchedValue, sprintedNumberLength - 1, "%zu", matchedValue);
-                matchJump->operands[1].name.str = Dictionary_LookupOrInsert(parseDict, printedMatchedValue);
-
-                matchJump->operands[2] = matchedAgainst;
-
-                BasicBlock_append(block, matchJump, tacIndex);
-
-                matchJump->operands[0].name.val = walkMatchCaseBlock(matchArmAction, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
             }
+
             matchedValueRunner = matchedValueRunner->sibling;
         }
         matchRunner = matchRunner->sibling;
@@ -1473,11 +1560,8 @@ void walkMatchStatement(struct AST *tree,
             stateSpaceSize = U64_MAX;
             break;
         case vt_enum:
-        {
-            struct EnumEntry *matchedEnum = lookupEnumByType(scope, matchedType);
-            stateSpaceSize = matchedEnum->members->elements->size;
-        }
-        break;
+            stateSpaceSize = matchedEnum->members->elements->size - 1;
+            break;
         case vt_any:
             break;
         case vt_null:
@@ -1877,10 +1961,25 @@ void walkSubExpression(struct AST *tree,
     {
         // variable read
     case t_self:
-    case t_identifier:
     {
         struct VariableEntry *readVariable = lookupVar(scope, tree);
         populateTACOperandFromVariable(destinationOperand, readVariable);
+    }
+    break;
+
+    // identifier = variable name or enum member
+    case t_identifier:
+    {
+        struct EnumEntry *possibleEnum = lookupEnumByMemberName(scope, tree->value);
+        if (possibleEnum != NULL)
+        {
+            populateTACOperandFromEnumMember(destinationOperand, possibleEnum, tree);
+        }
+        else
+        {
+            struct VariableEntry *readVariable = lookupVar(scope, tree);
+            populateTACOperandFromVariable(destinationOperand, readVariable);
+        }
     }
     break;
 

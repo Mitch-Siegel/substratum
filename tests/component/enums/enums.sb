@@ -10,10 +10,10 @@ enum Direction {
 fun printDirection(Direction d) {
     match(d)
     {
-        North: PrintStr("North\n");
-        South: PrintStr("South\n");
-        East: PrintStr("East\n");
-        West: PrintStr("West\n");
+        North: printStr("North\n");
+        South: printStr("South\n");
+        East: printStr("East\n");
+        West: printStr("West\n");
     }
 }
 
@@ -28,6 +28,6 @@ fun testBasicEnums()
 
 fun main()
 {
-
+    testBasicEnums();
     exit();
 }

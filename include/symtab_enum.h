@@ -15,6 +15,7 @@ struct EnumMember
 struct EnumEntry
 {
     char *name;
+    struct Scope *parentScope;
     struct Set *members;
 };
 
@@ -34,5 +35,8 @@ struct EnumEntry *lookupEnum(struct Scope *scope,
 
 struct EnumEntry *lookupEnumByType(struct Scope *scope,
                                    struct Type *type);
+
+struct EnumEntry *lookupEnumByMemberName(struct Scope *scope,
+                                         char *name);
 
 #endif

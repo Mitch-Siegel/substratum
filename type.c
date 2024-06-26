@@ -21,7 +21,7 @@ void Type_Free(struct Type *type)
 
 void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *complexTypeName, size_t pointerLevel)
 {
-    if (basicType == vt_struct)
+    if ((basicType == vt_struct) || (basicType == vt_enum))
     {
         if (complexTypeName == NULL)
         {
@@ -39,7 +39,7 @@ void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *compl
     type->basicType = basicType;
     type->pointerLevel = pointerLevel;
 
-    if (basicType == vt_struct)
+    if ((basicType == vt_struct) || (basicType == vt_enum))
     {
         type->nonArray.complexType.name = complexTypeName;
     }

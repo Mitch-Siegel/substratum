@@ -388,6 +388,7 @@ void Scope_print(struct Scope *scope, FILE *outFile, size_t depth, char printTAC
                 fprintf(outFile, "%zu:%s\n", member->numerical, member->name);
             }
         }
+        break;
 
         case e_function:
         {

@@ -15,6 +15,7 @@ struct EnumEntry *createEnum(struct Scope *scope,
 {
     struct EnumEntry *wipEnum = malloc(sizeof(struct EnumEntry));
     wipEnum->name = name;
+    wipEnum->parentScope = scope;
     wipEnum->members = Set_New(EnumMember_Compare, free);
 
     Scope_insert(scope, name, wipEnum, e_enum, a_public);
@@ -33,11 +34,32 @@ struct EnumMember *addEnumMember(struct EnumEntry *theEnum,
 {
     struct EnumMember *newMember = malloc(sizeof(struct EnumMember));
 
+    struct EnumEntry *existingEnumWithMember = lookupEnumByMemberName(theEnum->parentScope, name->value);
+    if (existingEnumWithMember != NULL)
+    {
+        LogTree(LOG_FATAL, name, "Enum %s already has a member named %s", existingEnumWithMember->name, name->value);
+    }
+
     newMember->name = name->value;
     newMember->numerical = theEnum->members->elements->size;
     Set_Insert(theEnum->members, newMember);
 
     return newMember;
+}
+
+struct EnumMember *lookupEnumMember(struct EnumEntry *theEnum,
+                                    struct AST *name)
+{
+    struct EnumMember dummyMember = {0};
+    dummyMember.name = name->value;
+    struct EnumMember *lookedUp = Set_Find(theEnum->members, &dummyMember);
+
+    if (lookedUp == NULL)
+    {
+        LogTree(LOG_FATAL, name, "Use of undeclared member %s in enum %s", name->value, theEnum->name);
+    }
+
+    return lookedUp;
 }
 
 struct EnumEntry *lookupEnum(struct Scope *scope,
@@ -82,4 +104,30 @@ struct EnumEntry *lookupEnumByType(struct Scope *scope,
     default:
         InternalError("lookupEnumByType for %s lookup got a non-struct ScopeMember!", type->nonArray.complexType.name);
     }
+}
+
+struct EnumEntry *lookupEnumByMemberName(struct Scope *scope,
+                                         char *name)
+{
+    struct EnumMember dummyMember = {0};
+    dummyMember.name = name;
+
+    while (scope != NULL)
+    {
+        for (size_t memberIndex = 0; memberIndex < scope->entries->size; memberIndex++)
+        {
+            struct ScopeMember *member = (struct ScopeMember *)scope->entries->data[memberIndex];
+            if (member->type == e_enum)
+            {
+                struct EnumEntry *scannedEnum = member->entry;
+                if (Set_Find(scannedEnum->members, &dummyMember) != NULL)
+                {
+                    return scannedEnum;
+                }
+            }
+        }
+        scope = scope->parentScope;
+    }
+
+    return NULL;
 }
