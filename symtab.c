@@ -74,6 +74,9 @@ void Scope_DecayArrays(struct Scope *scope)
             Scope_DecayArrays(theStruct->members);
         }
         break;
+
+        case e_enum:
+            break;
         }
     }
 }
@@ -145,6 +148,9 @@ static void collapseRecurseToSubScopes(struct Scope *scope, struct Dictionary *d
             SymbolTable_collapseScopesRec(recursedStruct->members, dict, 0);
         }
         break;
+
+        case e_enum:
+            break;
         }
     }
 }
@@ -217,6 +223,7 @@ static void mangleBlockContents(struct Scope *scope, struct Dictionary *dict)
         case e_variable:
         case e_argument:
         case e_struct:
+        case e_enum:
             break;
         }
     }
@@ -275,6 +282,9 @@ static void moveScopeMembersToParentScope(struct Scope *scope, struct Dictionary
             moveScopeMembersToParentScope(theStruct->members, dict, 0);
         }
         break;
+
+        case e_enum:
+            break;
         }
     }
 }
@@ -361,6 +371,22 @@ void Scope_print(struct Scope *scope, FILE *outFile, size_t depth, char printTAC
             }
             fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
             Scope_print(theStruct->members, outFile, depth + 1, printTAC);
+        }
+        break;
+
+        case e_enum:
+        {
+            struct EnumEntry *theEnum = thisMember->entry;
+            fprintf(outFile, "> Enum %s:\n", thisMember->name);
+            for (struct LinkedListNode *enumMemberRunner = theEnum->members->elements->head; enumMemberRunner != NULL; enumMemberRunner = enumMemberRunner->next)
+            {
+                struct EnumMember *member = enumMemberRunner->data;
+                for (size_t j = 0; j < depth; j++)
+                {
+                    fprintf(outFile, "\t");
+                }
+                fprintf(outFile, "%zu:%s\n", member->numerical, member->name);
+            }
         }
         break;
 

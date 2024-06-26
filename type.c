@@ -21,7 +21,7 @@ void Type_Free(struct Type *type)
 
 void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *complexTypeName, size_t pointerLevel)
 {
-    if (basicType == vt_struct)
+    if ((basicType == vt_struct) || (basicType == vt_enum))
     {
         if (complexTypeName == NULL)
         {
@@ -39,7 +39,7 @@ void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *compl
     type->basicType = basicType;
     type->pointerLevel = pointerLevel;
 
-    if (basicType == vt_struct)
+    if ((basicType == vt_struct) || (basicType == vt_enum))
     {
         type->nonArray.complexType.name = complexTypeName;
     }
@@ -60,7 +60,7 @@ size_t Type_GetIndirectionLevel(struct Type *type)
 // decay at most one level of arrays
 void Type_SingleDecay(struct Type *type)
 {
-    if(type->basicType == vt_array)
+    if (type->basicType == vt_array)
     {
         size_t oldPointerLevel = type->pointerLevel + 1;
         struct Type liftedOutOfArray = *type->array.type;
@@ -148,6 +148,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_array:
                 retVal = cantWiden;
                 break;
+            case vt_enum:
             case vt_struct:
             case vt_any:
             case vt_u8:
@@ -162,6 +163,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             switch (basicTypeB)
             {
             case vt_null:
+            case vt_enum:
             case vt_struct:
             case vt_array:
                 retVal = cantWiden;
@@ -180,6 +182,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             {
             case vt_null:
             case vt_u8:
+            case vt_enum:
             case vt_struct:
             case vt_array:
                 retVal = cantWiden;
@@ -198,6 +201,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_null:
             case vt_u8:
             case vt_u16:
+            case vt_enum:
             case vt_struct:
             case vt_array:
                 retVal = cantWiden;
@@ -217,6 +221,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_u8:
             case vt_u16:
             case vt_u32:
+            case vt_enum:
             case vt_struct:
             case vt_array:
                 retVal = cantWiden;
@@ -237,6 +242,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_u32:
             case vt_u64:
             case vt_array:
+            case vt_enum:
                 retVal = cantWiden;
                 break;
             case vt_any:
@@ -244,6 +250,27 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
                 break;
             }
             break;
+
+        case vt_enum:
+        {
+            switch (basicTypeB)
+            {
+            case vt_null:
+            case vt_u8:
+            case vt_u16:
+            case vt_u32:
+            case vt_u64:
+            case vt_struct:
+            case vt_array:
+                retVal = cantWiden;
+                break;
+            case vt_any:
+            case vt_enum:
+                break;
+            }
+            break;
+        }
+        break;
 
         case vt_array:
         {
@@ -254,6 +281,7 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
             case vt_u16:
             case vt_u32:
             case vt_u64:
+            case vt_enum:
             case vt_struct:
                 retVal = cantWiden;
                 break;
@@ -277,7 +305,6 @@ int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
     struct Type decayedDestType = *dest;
     Type_DecayArrays(&decayedDestType);
     int retVal = Type_CompareBasicTypeAllowImplicitWidening(decayedSourceType.basicType, decayedDestType.basicType);
-        Log(LOG_WARNING, "frown %s vs %s (%s vs %s)", Type_GetName(src), Type_GetName(dest), Type_GetName(&decayedSourceType), Type_GetName(&decayedDestType));
     if (retVal)
     {
         return retVal;
@@ -318,11 +345,11 @@ int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
         struct Type singleDecayedSourceType = *src;
         Type_SingleDecay(&singleDecayedSourceType);
 
-        if(dest->basicType == vt_array)
+        if (dest->basicType == vt_array)
         {
             struct Type singleDecayedDestType = *dest;
             Type_SingleDecay(&singleDecayedDestType);
-            
+
             retVal = Type_CompareAllowImplicitWidening(&singleDecayedSourceType, &singleDecayedDestType);
         }
         else
@@ -374,6 +401,10 @@ char *Type_GetName(struct Type *type)
         break;
 
     case vt_struct:
+        len = sprintf(typeName, "%s", type->nonArray.complexType.name);
+        break;
+
+    case vt_enum:
         len = sprintf(typeName, "%s", type->nonArray.complexType.name);
         break;
 
@@ -453,6 +484,12 @@ size_t Type_GetSize(struct Type *type, struct Scope *scope)
     {
         struct StructEntry *theStruct = lookupStructByType(scope, type);
         size = theStruct->totalSize;
+    }
+    break;
+
+    case vt_enum:
+    {
+        size = sizeof(size_t);
     }
     break;
 

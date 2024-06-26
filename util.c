@@ -27,6 +27,72 @@ ssize_t ssizet_compare(void *dataA, void *dataB)
     return (ssize_t)dataA - (ssize_t)dataB;
 }
 
+ssize_t sizet_pointer_compare(void *dataA, void *dataB)
+{
+    return (*(size_t *)dataA) - (*(size_t *)dataB);
+}
+
+size_t parseHexConstant(char *hexConstant)
+{
+    size_t hexValue = 0;
+    if ((strncmp(hexConstant, "0x", 2) != 0) && ((strncmp(hexConstant, "0X", 2) != 0)))
+    {
+        InternalError("Non-hex string %s passed to parseHex", hexConstant);
+    }
+    for (size_t digitIndex = 2; hexConstant[digitIndex] != '\0'; digitIndex++)
+    {
+        hexValue <<= 4;
+
+        switch(hexConstant[digitIndex])
+        {
+            case '0':
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '8':
+            case '9':
+                hexValue += hexConstant[digitIndex] - '0';
+                break;
+
+            case 'a':
+            case 'A':
+                hexValue += 10;
+                break;
+
+            case 'b':
+            case 'B':
+                hexValue += 11;
+                break;
+
+            case 'c':
+            case 'C':
+                hexValue += 12;
+                break;
+
+            case 'd':
+            case 'D':
+                hexValue += 13;
+                break;
+
+            case 'e':
+            case 'E':
+                hexValue += 14;
+                break;
+
+            case 'f':
+            case 'F':
+                hexValue += 15;
+                break;
+        }
+    }
+
+    return hexValue;
+}
+
 /*
  *
  *

@@ -2,6 +2,7 @@
 
 #include "log.h"
 #include "symtab_basicblock.h"
+#include "symtab_enum.h"
 #include "symtab_function.h"
 #include "symtab_struct.h"
 #include "symtab_variable.h"
@@ -47,6 +48,10 @@ void Scope_free(struct Scope *scope)
 
         case e_struct:
             StructEntry_free(examinedEntry->entry);
+            break;
+
+        case e_enum:
+            EnumEntry_free(examinedEntry->entry);
             break;
 
         case e_basicblock:

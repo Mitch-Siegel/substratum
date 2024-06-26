@@ -534,6 +534,7 @@ void allocateRegistersForScope(struct Scope *scope, struct MachineInfo *info)
         break;
 
         case e_basicblock:
+        case e_enum:
             break;
         }
     }

@@ -29,6 +29,8 @@ enum token
     t_cap_self,
     t_public,
     t_method_call,
+    t_struct_initializer,
+    t_enum,
     //
     t_compound_statement,
     //
@@ -40,6 +42,9 @@ enum token
     t_else,
     t_while,
     t_for,
+    t_match,
+    t_match_arm,
+    t_match_arm_action,
     t_do,
     //
     t_array_index,
@@ -92,6 +97,8 @@ enum token
     t_comma,
     t_dot,
     t_semicolon,
+    t_colon,
+    t_underscore,
     t_associated_call,
     t_left_paren,
     t_right_paren,

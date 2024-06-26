@@ -1,0 +1,43 @@
+#include "tests-common.sb"
+
+struct Money {
+    public u64 dollars;
+    public u8 cents;
+};
+
+struct BankAccount {
+    public u8 *accountHolder;
+    public Money balance;
+};
+
+
+impl Money {
+    public fun Print(self) {
+        printNum((u32)self.dollars);
+        uart_putc('.');
+        printNum(self.cents);
+    }
+}
+
+impl BankAccount {
+    public fun Print(self)
+    {
+        printStr(self.accountHolder);
+        printStr("'s account balance:\n");
+        self.balance.Print();
+    }
+}
+
+fun main()
+{
+    Money myBalance = {dollars = 0, cents = 0};
+    Money myPaycheck = {dollars = 13, cents = 33};
+
+    BankAccount myAccount = {accountHolder = "Isaac Investor", balance = {dollars = 999, cents=99}};
+
+    myBalance.Print();
+    myPaycheck.Print();
+    myAccount.Print();
+
+    exit();
+}

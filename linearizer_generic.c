@@ -1,6 +1,7 @@
 #include "linearizer_generic.h"
 
 #include "log.h"
+#include "symtab_enum.h"
 #include "symtab_variable.h"
 #include "tac.h"
 #include "type.h"
@@ -42,6 +43,23 @@ void populateTACOperandFromVariable(struct TACOperand *operandToPopulate, struct
     operandToPopulate->type = populateFrom->type;
     operandToPopulate->name.str = populateFrom->name;
     operandToPopulate->permutation = vp_standard;
+}
+
+extern struct Dictionary *parseDict;
+void populateTACOperandFromEnumMember(struct TACOperand *operandToPopulate, struct EnumEntry *theEnum, struct AST *tree)
+{
+    Type_Init(&operandToPopulate->castAsType);
+    Type_Init(&operandToPopulate->type);
+    operandToPopulate->type.basicType = vt_enum;
+    operandToPopulate->permutation = vp_literal;
+
+    struct EnumMember *member = lookupEnumMember(theEnum, tree);
+
+    operandToPopulate->type.nonArray.complexType.name = theEnum->name;
+
+    char enumAsLiteral[sprintedNumberLength];
+    snprintf(enumAsLiteral, sprintedNumberLength - 1, "%zu", member->numerical);
+    operandToPopulate->name.str = Dictionary_LookupOrInsert(parseDict, enumAsLiteral);
 }
 
 extern struct TempList *temps;
@@ -134,7 +152,7 @@ void convertLoadToLea(struct TACLine *loadLine, struct TACOperand *dest)
     }
 
     // increment indirection level as we just converted from a load to a lea
-    if(TAC_GetTypeOfOperand(loadLine, 0)->basicType != vt_array)
+    if (TAC_GetTypeOfOperand(loadLine, 0)->basicType != vt_array)
     {
         TAC_GetTypeOfOperand(loadLine, 0)->pointerLevel++;
     }

@@ -1,9 +1,9 @@
 #include "symtab_struct.h"
 
 #include "log.h"
+#include "symtab_function.h"
 #include "symtab_scope.h"
 #include "util.h"
-#include "symtab_function.h"
 
 struct StructEntry *createStruct(struct Scope *scope,
                                  char *name)
@@ -126,8 +126,8 @@ struct StructMemberOffset *lookupMemberVariable(struct StructEntry *theStruct,
 }
 
 struct FunctionEntry *looupMethod(struct StructEntry *theStruct,
-                                           struct AST *name,
-                                           struct Scope *scope)
+                                  struct AST *name,
+                                  struct Scope *scope)
 {
     struct FunctionEntry *returnedMethod = NULL;
 
@@ -173,7 +173,7 @@ struct FunctionEntry *lookupAssociatedFunction(struct StructEntry *theStruct,
             }
             returnedAssociated = examinedEntry->entry;
 
-            if(returnedAssociated->isMethod)
+            if (returnedAssociated->isMethod)
             {
                 // TODO: function prototype printing
                 LogTree(LOG_FATAL, name, "Attempt to call method %s.%s() as an associated function!\n", theStruct->name, name->value);
