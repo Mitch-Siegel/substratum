@@ -20,19 +20,19 @@ struct VariableEntry
     u8 isStringLiteral;
 };
 
-struct VariableEntry *createVariable(struct Scope *scope,
+struct VariableEntry *create_variable(struct Scope *scope,
                                      struct AST *name,
                                      struct Type *type,
                                      u8 isGlobal,
                                      size_t declaredAt,
                                      u8 isArgument,
-                                     enum Access accessibility);
+                                     enum ACCESS accessibility);
 
-void VariableEntry_free(struct VariableEntry *variable);
+void variable_entry_free(struct VariableEntry *variable);
 
-struct VariableEntry *lookupVarByString(struct Scope *scope,
+struct VariableEntry *lookup_var_by_string(struct Scope *scope,
                                         char *name);
 
-struct VariableEntry *lookupVar(struct Scope *scope,
+struct VariableEntry *lookup_var(struct Scope *scope,
                                 struct AST *name);
 #endif

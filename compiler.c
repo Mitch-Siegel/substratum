@@ -34,10 +34,10 @@ struct Stack *parsedAsts = NULL;
 struct LinkedList *includePath = NULL;
 struct LinkedList *inputFiles = NULL;
 
-void runPreprocessor(char *inFileName)
+void run_preprocessor(char *inFileName)
 {
-    const u32 basePreprocessorParamCount = 6;
-    char **preprocessorArgv = malloc(((includePath->size * 2) + basePreprocessorParamCount) * sizeof(char *));
+    const u32 BASE_PREPROCESSOR_PARAM_COUNT = 6;
+    char **preprocessorArgv = malloc(((includePath->size * 2) + BASE_PREPROCESSOR_PARAM_COUNT) * sizeof(char *));
     u32 preprocessorArgI = 0;
 
     preprocessorArgv[preprocessorArgI++] = "gcc";
@@ -69,7 +69,7 @@ void runPreprocessor(char *inFileName)
     InternalError("Returned from exec of preprocessor!");
 }
 
-struct AST *parseFile(char *inFileName)
+struct AST *parse_file(char *inFileName)
 {
     struct ParseProgress fileProgress;
     memset(&fileProgress, 0, sizeof(struct ParseProgress));
@@ -77,12 +77,12 @@ struct AST *parseFile(char *inFileName)
     fileProgress.curCol = 1;
     fileProgress.curLineRaw = 1;
     fileProgress.curColRaw = 1;
-    fileProgress.curFile = Dictionary_LookupOrInsert(parseDict, inFileName);
-    fileProgress.charsRemainingPerLine = LinkedList_New();
+    fileProgress.curFile = dictionary_lookup_or_insert(parseDict, inFileName);
+    fileProgress.charsRemainingPerLine = linked_list_new();
 
     size_t *firstLineChars = malloc(sizeof(size_t));
     *firstLineChars = 0;
-    LinkedList_Append(fileProgress.charsRemainingPerLine, firstLineChars);
+    linked_list_append(fileProgress.charsRemainingPerLine, firstLineChars);
 
     fileProgress.dict = parseDict;
 
@@ -105,7 +105,7 @@ struct AST *parseFile(char *inFileName)
         dup2(preprocessorPipe[1], STDOUT_FILENO);
         close(preprocessorPipe[0]); // duplicated
         close(preprocessorPipe[1]); // not needed - we don't read from stdout
-        runPreprocessor(inFileName);
+        run_preprocessor(inFileName);
     }
     else
     {
@@ -124,12 +124,12 @@ struct AST *parseFile(char *inFileName)
     struct AST *translationUnit = NULL;
     while (pcc_parse(parseContext, &translationUnit))
     {
-        parsed = AST_S(parsed, translationUnit);
+        parsed = ast_s(parsed, translationUnit);
     }
 
     pcc_destroy(parseContext);
 
-    LinkedList_Free(fileProgress.charsRemainingPerLine, free);
+    linked_list_free(fileProgress.charsRemainingPerLine, free);
 
     return parsed;
 }
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
     char *inFileName = "stdin";
     char *outFileName = "stdout";
 
-    includePath = LinkedList_New();
+    includePath = linked_list_new();
 
     int option;
     while ((option = getopt(argc, argv, "i:o:O:l:r:c:v:I:")) != EOF)
@@ -164,11 +164,11 @@ int main(int argc, char **argv)
             case LOG_WARNING:
             case LOG_ERROR:
             case LOG_FATAL:
-                setLogLevel(level);
+                set_log_level(level);
                 break;
 
             default:
-                Log(LOG_ERROR, "Unexpected log level %d - expected %d-%d\n", level, LOG_DEBUG, LOG_FATAL);
+                log(LOG_ERROR, "Unexpected log level %d - expected %d-%d\n", level, LOG_DEBUG, LOG_FATAL);
                 usage();
                 exit(1);
             }
@@ -177,26 +177,26 @@ int main(int argc, char **argv)
 
         case 'I':
         {
-            LinkedList_Append(includePath, strdup(optarg));
+            linked_list_append(includePath, strdup(optarg));
         }
         break;
 
         default:
-            Log(LOG_ERROR, "Invalid argument flag \"%c\"", option);
+            log(LOG_ERROR, "Invalid argument flag \"%c\"", option);
             usage();
             exit(1);
         }
     }
 
-    Log(LOG_INFO, "Output will be generated to %s", outFileName);
+    log(LOG_INFO, "Output will be generated to %s", outFileName);
 
-    parseProgressStack = Stack_New();
+    parseProgressStack = stack_new();
 
-    const int nParseDictBuckets = 10;
-    parseDict = Dictionary_New(nParseDictBuckets, (void *(*)(void *))strdup, hashString, (ssize_t(*)(void *, void *))strcmp, free);
+    const int N_PARSE_DICT_BUCKETS = 10;
+    parseDict = dictionary_new(N_PARSE_DICT_BUCKETS, (void *(*)(void *))strdup, hash_string, (ssize_t(*)(void *, void *))strcmp, free);
 
-    struct AST *program = parseFile(inFileName);
-    LinkedList_Free(includePath, free);
+    struct AST *program = parse_file(inFileName);
+    linked_list_free(includePath, free);
 
     // TODO: option to enable/disable ast dump
     /*printf("Here's the AST(s) we parsed: %p\n", program);
@@ -208,25 +208,25 @@ int main(int argc, char **argv)
         {
             InternalError("Unable to open output file ast.dot");
         }
-        AST_Dump(astOutFile, program);
+        ast_dump(astOutFile, program);
     }
 
-    Log(LOG_INFO, "Generating symbol table from AST");
-    struct SymbolTable *theTable = walkProgram(program);
+    log(LOG_INFO, "Generating symbol table from AST");
+    struct SymbolTable *theTable = walk_program(program);
 
     // TODO: option to enable/disable symtab dump
-    /*Log(LOG_DEBUG, "Symbol table before scope collapse:");
+    /*log(LOG_DEBUG, "Symbol table before scope collapse:");
     SymbolTable_print(theTable, stderr, 1);*/
 
-    Log(LOG_INFO, "Collapsing scopes");
+    log(LOG_INFO, "Collapsing scopes");
 
-    SymbolTable_collapseScopes(theTable, parseDict);
+    symbol_table_collapse_scopes(theTable, parseDict);
 
-    generateSsa(theTable);
+    generate_ssa(theTable);
 
     // TODO: option to enable/disable symtab dump
-    Log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
-    SymbolTable_print(theTable, stderr, 1);
+    log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
+    symbol_table_print(theTable, stderr, 1);
 
     FILE *outFile = stdout;
 
@@ -239,7 +239,7 @@ int main(int argc, char **argv)
         }
     }
 
-    Log(LOG_INFO, "Generating code");
+    log(LOG_INFO, "Generating code");
 
     {
         char *boilerplateAsm1[] = {
@@ -266,22 +266,22 @@ int main(int argc, char **argv)
         fprintf(outFile, "\t.file 2 \"%s\"\n", inFileName);
     }
 
-    setupMachineInfo = riscv_SetupMachineInfo;
+    setupMachineInfo = riscv_setup_machine_info;
     struct MachineInfo *info = setupMachineInfo();
 
-    allocateRegistersForProgram(theTable, info);
+    allocate_registers_for_program(theTable, info);
 
-    generateCodeForProgram(theTable, outFile, info, riscv_emitPrologue, riscv_emitEpilogue, riscv_GenerateCodeForBasicBlock);
+    generate_code_for_program(theTable, outFile, info, riscv_emit_prologue, riscv_emit_epilogue, riscv_generate_code_for_basic_block);
 
-    MachineInfo_Free(info);
+    machine_info_free(info);
 
-    SymbolTable_free(theTable);
+    symbol_table_free(theTable);
 
     fclose(outFile);
-    AST_Free(program);
+    ast_free(program);
 
-    // TempList_Free(temps);
-    Dictionary_Free(parseDict);
+    // TempListFree(temps);
+    dictionary_free(parseDict);
 
     return 0;
 }

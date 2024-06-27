@@ -4,17 +4,17 @@
 #include "symtab_basicblock.h"
 #include "util.h"
 
-struct Set *reacingDefs_transfer(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts)
+struct Set *reacing_defs_transfer(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts)
 {
-    struct Set *transferred = Set_New(facts->compareFunction, facts->dataFreeFunction);
+    struct Set *transferred = set_new(facts->compareFunction, facts->dataFreeFunction);
 
     // transfer anything in GEN but not in KILL
     for (struct LinkedListNode *factRunner = idfa->facts.gen[block->labelNum]->elements->head; factRunner != NULL; factRunner = factRunner->next)
     {
         struct TACOperand *examinedFact = factRunner->data;
-        if (Set_Find(idfa->facts.kill[block->labelNum], examinedFact) == NULL)
+        if (set_find(idfa->facts.kill[block->labelNum], examinedFact) == NULL)
         {
-            Set_Insert(transferred, examinedFact);
+            set_insert(transferred, examinedFact);
         }
     }
 
@@ -23,49 +23,49 @@ struct Set *reacingDefs_transfer(struct Idfa *idfa, struct BasicBlock *block, st
     {
         struct TACOperand *examinedFact = factRunner->data;
         // transfer anything not killed
-        if (Set_Find(idfa->facts.kill[block->labelNum], examinedFact) == NULL)
+        if (set_find(idfa->facts.kill[block->labelNum], examinedFact) == NULL)
         {
-            Set_Insert(transferred, examinedFact);
+            set_insert(transferred, examinedFact);
         }
     }
 
     return transferred;
 }
 
-void reacingDefs_findGenKills(struct Idfa *idfa)
+void reacing_defs_find_gen_kills(struct Idfa *idfa)
 {
     for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
     {
         struct BasicBlock *genKillBlock = idfa->context->blocks[blockIndex];
-        struct Set *highestSsas = Set_New(TACOperand_CompareIgnoreSsaNumber, NULL);
+        struct Set *highestSsas = set_new(tac_operand_compare_ignore_ssa_number, NULL);
         for (struct LinkedListNode *tacRunner = genKillBlock->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
         {
             struct TACLine *genKillLine = tacRunner->data;
             for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
             {
-                switch (getUseOfOperand(genKillLine, operandIndex))
+                switch (get_use_of_operand(genKillLine, operandIndex))
                 {
-                case u_unused:
+                case U_UNUSED:
                     break;
 
-                case u_read:
-                    Set_Insert(idfa->facts.kill[blockIndex], &genKillLine->operands[operandIndex]);
+                case U_READ:
+                    set_insert(idfa->facts.kill[blockIndex], &genKillLine->operands[operandIndex]);
                     break;
 
-                case u_write:
+                case U_WRITE:
                 {
-                    struct TACOperand *highestForThisOperand = Set_Find(highestSsas, &genKillLine->operands[operandIndex]);
+                    struct TACOperand *highestForThisOperand = set_find(highestSsas, &genKillLine->operands[operandIndex]);
                     if (highestForThisOperand == NULL)
                     {
-                        Set_Insert(highestSsas, &genKillLine->operands[operandIndex]);
+                        set_insert(highestSsas, &genKillLine->operands[operandIndex]);
                     }
                     else
                     {
                         size_t thisSsaNumber = genKillLine->operands[operandIndex].ssaNumber;
                         if (highestForThisOperand->ssaNumber < thisSsaNumber)
                         {
-                            Set_Delete(highestSsas, &genKillLine->operands[operandIndex]);
-                            Set_Insert(highestSsas, &genKillLine->operands[operandIndex]);
+                            set_delete(highestSsas, &genKillLine->operands[operandIndex]);
+                            set_insert(highestSsas, &genKillLine->operands[operandIndex]);
                         }
                     }
                 }
@@ -76,22 +76,22 @@ void reacingDefs_findGenKills(struct Idfa *idfa)
 
         for (struct LinkedListNode *highestSsaRunner = highestSsas->elements->head; highestSsaRunner != NULL; highestSsaRunner = highestSsaRunner->next)
         {
-            Set_Insert(idfa->facts.gen[blockIndex], highestSsaRunner->data);
+            set_insert(idfa->facts.gen[blockIndex], highestSsaRunner->data);
         }
 
-        Set_Free(highestSsas);
+        set_free(highestSsas);
     }
 }
 
-struct Idfa *analyzeReachingDefs(struct IdfaContext *context)
+struct Idfa *analyze_reaching_defs(struct IdfaContext *context)
 {
-    struct Idfa *reacingDefsIdfa = Idfa_Create(context,
-                                               reacingDefs_transfer,
-                                               reacingDefs_findGenKills,
-                                               d_forwards,
-                                               TACOperand_Compare,
-                                               printTACOperand,
-                                               Set_Union);
+    struct Idfa *reacingDefsIdfa = idfa_create(context,
+                                               reacing_defs_transfer,
+                                               reacing_defs_find_gen_kills,
+                                               D_FORWARDS,
+                                               tac_operand_compare,
+                                               print_tac_operand,
+                                               set_union);
 
     return reacingDefsIdfa;
 }

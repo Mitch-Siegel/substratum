@@ -14,22 +14,22 @@ struct CodegenState
     FILE *outFile;
 };
 
-void emitInstruction(struct TACLine *correspondingTACLine,
+void emit_instruction(struct TACLine *correspondingTACLine,
                      struct CodegenState *state,
                      const char *format, ...);
 
-void emitLoc(struct CodegenState *context, struct TACLine *thisTAC, size_t *lastLineNo);
+void emit_loc(struct CodegenState *context, struct TACLine *thisTAC, size_t *lastLineNo);
 
-void verifyCodegenPrimitive(struct TACOperand *operand);
+void verify_codegen_primitive(struct TACOperand *operand);
 
-struct Register *acquireScratchRegister(struct MachineInfo *info);
+struct Register *acquire_scratch_register(struct MachineInfo *info);
 
-void tryReleaseScratchRegister(struct MachineInfo *info, struct Register *reg);
+void try_release_scratch_register(struct MachineInfo *info, struct Register *reg);
 
-void releaseAllScratchRegisters(struct MachineInfo *info);
+void release_all_scratch_registers(struct MachineInfo *info);
 
-struct Register *pickWriteRegister(struct RegallocMetadata *metadata,
+struct Register *pick_write_register(struct RegallocMetadata *metadata,
                                    struct TACOperand *operand,
-                                   struct Register *scratchReg);
+                                   struct Register *scratch_reg);
 
 #endif

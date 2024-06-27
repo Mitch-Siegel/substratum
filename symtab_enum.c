@@ -5,100 +5,100 @@
 #include "symtab_scope.h"
 #include "util.h"
 
-ssize_t EnumMember_Compare(void *enumMemberA, void *enumMemberB)
+ssize_t enum_member_compare(void *enumMemberA, void *enumMemberB)
 {
     return strcmp(((struct EnumMember *)enumMemberA)->name, ((struct EnumMember *)enumMemberB)->name);
 }
 
-struct EnumEntry *createEnum(struct Scope *scope,
+struct EnumEntry *create_enum(struct Scope *scope,
                              char *name)
 {
     struct EnumEntry *wipEnum = malloc(sizeof(struct EnumEntry));
     wipEnum->name = name;
     wipEnum->parentScope = scope;
-    wipEnum->members = Set_New(EnumMember_Compare, free);
+    wipEnum->members = set_new(enum_member_compare, free);
 
-    Scope_insert(scope, name, wipEnum, e_enum, a_public);
+    scope_insert(scope, name, wipEnum, E_ENUM, A_PUBLIC);
     return wipEnum;
 }
 
-void EnumEntry_free(struct EnumEntry *theEnum)
+void enum_entry_free(struct EnumEntry *the_enum)
 {
-    Set_Free(theEnum->members);
+    set_free(the_enum->members);
 
-    free(theEnum);
+    free(the_enum);
 }
 
-struct EnumMember *addEnumMember(struct EnumEntry *theEnum,
+struct EnumMember *add_enum_member(struct EnumEntry *the_enum,
                                  struct AST *name)
 {
     struct EnumMember *newMember = malloc(sizeof(struct EnumMember));
 
-    struct EnumEntry *existingEnumWithMember = lookupEnumByMemberName(theEnum->parentScope, name->value);
+    struct EnumEntry *existingEnumWithMember = lookup_enum_by_member_name(the_enum->parentScope, name->value);
     if (existingEnumWithMember != NULL)
     {
-        LogTree(LOG_FATAL, name, "Enum %s already has a member named %s", existingEnumWithMember->name, name->value);
+        log_tree(LOG_FATAL, name, "Enum %s already has a member named %s", existingEnumWithMember->name, name->value);
     }
 
     newMember->name = name->value;
-    newMember->numerical = theEnum->members->elements->size;
-    Set_Insert(theEnum->members, newMember);
+    newMember->numerical = the_enum->members->elements->size;
+    set_insert(the_enum->members, newMember);
 
     return newMember;
 }
 
-struct EnumMember *lookupEnumMember(struct EnumEntry *theEnum,
+struct EnumMember *lookup_enum_member(struct EnumEntry *the_enum,
                                     struct AST *name)
 {
     struct EnumMember dummyMember = {0};
     dummyMember.name = name->value;
-    struct EnumMember *lookedUp = Set_Find(theEnum->members, &dummyMember);
+    struct EnumMember *lookedUp = set_find(the_enum->members, &dummyMember);
 
     if (lookedUp == NULL)
     {
-        LogTree(LOG_FATAL, name, "Use of undeclared member %s in enum %s", name->value, theEnum->name);
+        log_tree(LOG_FATAL, name, "Use of undeclared member %s in enum %s", name->value, the_enum->name);
     }
 
     return lookedUp;
 }
 
-struct EnumEntry *lookupEnum(struct Scope *scope,
+struct EnumEntry *lookup_enum(struct Scope *scope,
                              struct AST *name)
 {
-    struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
+    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
     if (lookedUp == NULL)
     {
-        LogTree(LOG_FATAL, name, "Use of undeclared enum '%s'", name->value);
+        log_tree(LOG_FATAL, name, "Use of undeclared enum '%s'", name->value);
     }
     switch (lookedUp->type)
     {
-    case e_enum:
+    case E_ENUM:
         return lookedUp->entry;
 
     default:
-        LogTree(LOG_FATAL, name, "%s is not an enum!", name->value);
+        log_tree(LOG_FATAL, name, "%s is not an enum!", name->value);
     }
 
     return NULL;
 }
 
-struct EnumEntry *lookupEnumByType(struct Scope *scope,
+struct EnumEntry *lookup_enum_by_type(struct Scope *scope,
                                    struct Type *type)
 {
-    if (type->basicType != vt_enum || type->nonArray.complexType.name == NULL)
+    if (type->basicType != VT_ENUM || type->nonArray.complexType.name == NULL)
     {
         InternalError("Non-enum type or enum type with null name passed to lookupEnumByType!");
     }
 
-    struct ScopeMember *lookedUp = Scope_lookup(scope, type->nonArray.complexType.name);
+    struct ScopeMember *lookedUp = scope_lookup(scope, type->nonArray.complexType.name);
     if (lookedUp == NULL)
     {
-        Log(LOG_FATAL, "Use of undeclared enum '%s'", type->nonArray.complexType.name);
+        log(LOG_FATAL, "Use of undeclared enum '%s'", type->nonArray.complexType.name);
     }
 
     switch (lookedUp->type)
     {
-    case e_enum:
+    case E_ENUM:
         return lookedUp->entry;
 
     default:
@@ -106,7 +106,7 @@ struct EnumEntry *lookupEnumByType(struct Scope *scope,
     }
 }
 
-struct EnumEntry *lookupEnumByMemberName(struct Scope *scope,
+struct EnumEntry *lookup_enum_by_member_name(struct Scope *scope,
                                          char *name)
 {
     struct EnumMember dummyMember = {0};
@@ -117,10 +117,10 @@ struct EnumEntry *lookupEnumByMemberName(struct Scope *scope,
         for (size_t memberIndex = 0; memberIndex < scope->entries->size; memberIndex++)
         {
             struct ScopeMember *member = (struct ScopeMember *)scope->entries->data[memberIndex];
-            if (member->type == e_enum)
+            if (member->type == E_ENUM)
             {
                 struct EnumEntry *scannedEnum = member->entry;
-                if (Set_Find(scannedEnum->members, &dummyMember) != NULL)
+                if (set_find(scannedEnum->members, &dummyMember) != NULL)
                 {
                     return scannedEnum;
                 }

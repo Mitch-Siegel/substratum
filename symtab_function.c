@@ -6,13 +6,13 @@
 
 #include "symtab_scope.h"
 
-struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType, struct StructEntry *methodOf)
+struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType, struct StructEntry *methodOf)
 {
     struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
     memset(newFunction, 0, sizeof(struct FunctionEntry));
-    newFunction->arguments = Stack_New();
-    newFunction->mainScope = Scope_new(parentScope, nameTree->value, newFunction, methodOf);
-    newFunction->BasicBlockList = LinkedList_New();
+    newFunction->arguments = stack_new();
+    newFunction->mainScope = scope_new(parentScope, nameTree->value, newFunction, methodOf);
+    newFunction->BasicBlockList = linked_list_new();
     newFunction->correspondingTree = *nameTree;
     newFunction->mainScope->parentFunction = newFunction;
     newFunction->returnType = *returnType;
@@ -28,36 +28,36 @@ struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *n
     return newFunction;
 }
 
-void FunctionEntry_free(struct FunctionEntry *function)
+void function_entry_free(struct FunctionEntry *function)
 {
-    Stack_Free(function->arguments);
-    LinkedList_Free(function->BasicBlockList, NULL);
-    Scope_free(function->mainScope);
+    stack_free(function->arguments);
+    linked_list_free(function->BasicBlockList, NULL);
+    scope_free(function->mainScope);
 
     if (function->regalloc.allLifetimes != NULL)
     {
-        Set_Free(function->regalloc.allLifetimes);
-        Set_Free(function->regalloc.touchedRegisters);
+        set_free(function->regalloc.allLifetimes);
+        set_free(function->regalloc.touchedRegisters);
     }
 
     free(function);
 }
 
 // create a new function accessible within the given scope
-struct FunctionEntry *createFunction(struct Scope *parentScope,
+struct FunctionEntry *create_function(struct Scope *parentScope,
                                      struct AST *nameTree,
                                      struct Type *returnType,
                                      struct StructEntry *methodOf,
-                                     enum Access accessibility)
+                                     enum ACCESS accessibility)
 {
-    struct FunctionEntry *newFunction = FunctionEntry_new(parentScope, nameTree, returnType, methodOf);
-    Scope_insert(parentScope, nameTree->value, newFunction, e_function, accessibility);
+    struct FunctionEntry *newFunction = function_entry_new(parentScope, nameTree, returnType, methodOf);
+    scope_insert(parentScope, nameTree->value, newFunction, E_FUNCTION, accessibility);
     return newFunction;
 }
 
-struct FunctionEntry *lookupFunByString(struct Scope *scope, char *name)
+struct FunctionEntry *lookup_fun_by_string(struct Scope *scope, char *name)
 {
-    struct ScopeMember *lookedUp = Scope_lookup(scope, name);
+    struct ScopeMember *lookedUp = scope_lookup(scope, name);
     if (lookedUp == NULL)
     {
         InternalError("Lookup of undeclared function '%s'", name);
@@ -65,7 +65,7 @@ struct FunctionEntry *lookupFunByString(struct Scope *scope, char *name)
 
     switch (lookedUp->type)
     {
-    case e_function:
+    case E_FUNCTION:
         return lookedUp->entry;
 
     default:
@@ -73,16 +73,16 @@ struct FunctionEntry *lookupFunByString(struct Scope *scope, char *name)
     }
 }
 
-struct FunctionEntry *lookupFun(struct Scope *scope, struct AST *name)
+struct FunctionEntry *lookup_fun(struct Scope *scope, struct AST *name)
 {
-    struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
+    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
     if (lookedUp == NULL)
     {
-        LogTree(LOG_FATAL, name, "Use of undeclared function '%s'", name->value);
+        log_tree(LOG_FATAL, name, "Use of undeclared function '%s'", name->value);
     }
     switch (lookedUp->type)
     {
-    case e_function:
+    case E_FUNCTION:
         return lookedUp->entry;
 
     default:

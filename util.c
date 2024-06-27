@@ -2,7 +2,7 @@
 #include "log.h"
 
 // given a raw size, find the nearest power-of-two aligned size (number of bits required to store nBytes)
-u8 alignSize(size_t nBytes)
+u8 align_size(size_t nBytes)
 {
     u8 powerOfTwo = 0;
     while ((nBytes > (0b1 << powerOfTwo)) > 0)
@@ -12,10 +12,10 @@ u8 alignSize(size_t nBytes)
     return powerOfTwo;
 }
 
-size_t unalignSize(u8 nBits)
+size_t unalign_size(u8 nBits)
 {
-    const u8 bitsInByte = 8;
-    if (nBits >= (sizeof(size_t) * bitsInByte))
+    const u8 BITS_IN_BYTE = 8;
+    if (nBits >= (sizeof(size_t) * BITS_IN_BYTE))
     {
         InternalError("unalignSize() called with %u bits", nBits);
     }
@@ -29,10 +29,11 @@ ssize_t ssizet_compare(void *dataA, void *dataB)
 
 ssize_t sizet_pointer_compare(void *dataA, void *dataB)
 {
-    return (*(size_t *)dataA) - (*(size_t *)dataB);
+    // TODO: are you sure about that
+    return (*(ssize_t *)dataA) - (*(ssize_t *)dataB);
 }
 
-size_t parseHexConstant(char *hexConstant)
+size_t parse_hex_constant(char *hexConstant)
 {
     size_t hexValue = 0;
     if ((strncmp(hexConstant, "0x", 2) != 0) && ((strncmp(hexConstant, "0X", 2) != 0)))
@@ -58,34 +59,26 @@ size_t parseHexConstant(char *hexConstant)
                 hexValue += hexConstant[digitIndex] - '0';
                 break;
 
-            case 'a':
             case 'A':
-                hexValue += 10;
-                break;
-
-            case 'b':
             case 'B':
-                hexValue += 11;
-                break;
-
-            case 'c':
             case 'C':
-                hexValue += 12;
-                break;
-
-            case 'd':
             case 'D':
-                hexValue += 13;
-                break;
-
-            case 'e':
             case 'E':
-                hexValue += 14;
+            case 'F':
+                hexValue += hexConstant[digitIndex] - '7';
                 break;
 
+            case 'a':
+            case 'b':
+            case 'c':
+            case 'd':
+            case 'e':
             case 'f':
-            case 'F':
-                hexValue += 15;
+                hexValue += hexConstant[digitIndex] - 'W';
+                break;
+
+            default:
+                InternalError("Illegal character %c seen in hex constant", hexConstant[digitIndex]);
                 break;
         }
     }
@@ -99,14 +92,14 @@ size_t parseHexConstant(char *hexConstant)
  */
 
 // TODO: just use the raw linkedlist data structure in hashtable
-ssize_t HashTableEntry_Compare(void *dataA, void *dataB)
+ssize_t hash_table_entry_compare(void *dataA, void *dataB)
 {
     struct HashTableEntry *entryA = dataA;
     struct HashTableEntry *entryB = dataB;
     return entryA->compareFunction(entryA->key, entryB->key);
 }
 
-void HashTableEntry_Free(void *entry)
+void hash_table_entry_free(void *entry)
 {
     struct HashTableEntry *toFree = entry;
     if (toFree->keyFreeFunction)
@@ -120,7 +113,7 @@ void HashTableEntry_Free(void *entry)
     free(toFree);
 }
 
-struct HashTableEntry *HashTableEntry_New(void *key,
+struct HashTableEntry *hash_table_entry_new(void *key,
                                           void *value,
                                           ssize_t (*compareFunction)(void *keyA, void *keyB),
                                           void (*keyFreeFunction)(void *key),
@@ -135,7 +128,7 @@ struct HashTableEntry *HashTableEntry_New(void *key,
     return wip;
 }
 
-struct HashTable *HashTable_New(size_t nBuckets,
+struct HashTable *hash_table_new(size_t nBuckets,
                                 size_t (*hashFunction)(void *key),
                                 ssize_t (*compareFunction)(void *keyA, void *keyB),
                                 void (*keyFreeFunction)(void *data),
@@ -151,13 +144,13 @@ struct HashTable *HashTable_New(size_t nBuckets,
 
     for (size_t bucketIndex = 0; bucketIndex < nBuckets; bucketIndex++)
     {
-        wip->buckets[bucketIndex] = Set_New(HashTableEntry_Compare, HashTableEntry_Free);
+        wip->buckets[bucketIndex] = set_new(hash_table_entry_compare, hash_table_entry_free);
     }
 
     return wip;
 }
 
-void *HashTable_Lookup(struct HashTable *table, void *key)
+void *hash_table_lookup(struct HashTable *table, void *key)
 {
     size_t hash = table->hashFunction(key);
     hash %= table->nBuckets;
@@ -168,7 +161,7 @@ void *HashTable_Lookup(struct HashTable *table, void *key)
     dummyEntry.compareFunction = table->compareFunction;
 
     struct Set *bucket = table->buckets[hash];
-    struct HashTableEntry *entryForKey = Set_Find(bucket, &dummyEntry);
+    struct HashTableEntry *entryForKey = set_find(bucket, &dummyEntry);
     if (entryForKey == NULL)
     {
         return NULL;
@@ -176,17 +169,17 @@ void *HashTable_Lookup(struct HashTable *table, void *key)
     return entryForKey->value;
 }
 
-void HashTable_Insert(struct HashTable *table, void *key, void *value)
+void hash_table_insert(struct HashTable *table, void *key, void *value)
 {
     size_t hash = table->hashFunction(key);
     hash %= table->nBuckets;
 
     struct Set *bucket = table->buckets[hash];
-    struct HashTableEntry *entry = HashTableEntry_New(key, value, table->compareFunction, table->keyFreeFunction, table->valueFreeFunction);
-    Set_Insert(bucket, entry);
+    struct HashTableEntry *entry = hash_table_entry_new(key, value, table->compareFunction, table->keyFreeFunction, table->valueFreeFunction);
+    set_insert(bucket, entry);
 }
 
-void HashTable_Delete(struct HashTable *table, void *key)
+void hash_table_delete(struct HashTable *table, void *key)
 {
     size_t hash = table->hashFunction(key);
     hash %= table->nBuckets;
@@ -197,15 +190,15 @@ void HashTable_Delete(struct HashTable *table, void *key)
     dummyEntry.compareFunction = table->compareFunction;
 
     struct Set *bucket = table->buckets[hash];
-    Set_Delete(bucket, &dummyEntry);
+    set_delete(bucket, &dummyEntry);
 }
 
-void HashTable_Free(struct HashTable *table)
+void hash_table_free(struct HashTable *table)
 {
     for (size_t bucketIndex = 0; bucketIndex < table->nBuckets; bucketIndex++)
     {
         struct Set *bucket = table->buckets[bucketIndex];
-        Set_Free(bucket);
+        set_free(bucket);
     }
     free(table->buckets);
     free(table);
@@ -216,53 +209,53 @@ void HashTable_Free(struct HashTable *table)
  * This string hashing algorithm is the djb2 algorithm
  * further information can be found at http://www.cse.yorku.ca/~oz/hash.html
  */
-const unsigned int djb2HashSeed = 5381;
-const unsigned int djb2MultiplcationFactor = 33;
-size_t hashString(void *data)
+const unsigned int DJB2_HASH_SEED = 5381;
+const unsigned int DJB2_MULTIPLCATION_FACTOR = 33;
+size_t hash_string(void *data)
 {
     char *str = data;
-    unsigned int hash = djb2HashSeed;
+    unsigned int hash = DJB2_HASH_SEED;
 
     while (*str)
     {
-        hash = (hash * djb2MultiplcationFactor) + *(str++); /* hash * 33 + c */
+        hash = (hash * DJB2_MULTIPLCATION_FACTOR) + *(str++); /* hash * 33 + c */
     }
 
     return hash;
 }
 
-struct Dictionary *Dictionary_New(size_t nBuckets,
+struct Dictionary *dictionary_new(size_t nBuckets,
                                   void *(*duplicateFunction)(void *),
                                   size_t (*hashFunction)(void *data),
                                   ssize_t (*compareFunction)(void *dataA, void *dataB),
                                   void (*dataFreeFunction)(void *))
 {
     struct Dictionary *wip = malloc(sizeof(struct Dictionary));
-    wip->table = HashTable_New(nBuckets, hashFunction, (ssize_t(*)(void *, void *))compareFunction, NULL, dataFreeFunction);
+    wip->table = hash_table_new(nBuckets, hashFunction, (ssize_t(*)(void *, void *))compareFunction, NULL, dataFreeFunction);
     wip->duplicateFunction = duplicateFunction;
     return wip;
 }
 
-void *Dictionary_Insert(struct Dictionary *dict, void *value)
+void *dictionary_insert(struct Dictionary *dict, void *value)
 {
     void *duplicatedValue = dict->duplicateFunction(value);
-    HashTable_Insert(dict->table, duplicatedValue, duplicatedValue);
+    hash_table_insert(dict->table, duplicatedValue, duplicatedValue);
     return duplicatedValue;
 }
 
-void *Dictionary_LookupOrInsert(struct Dictionary *dict, void *value)
+void *dictionary_lookup_or_insert(struct Dictionary *dict, void *value)
 {
-    void *returnedStr = HashTable_Lookup(dict->table, value);
+    void *returnedStr = hash_table_lookup(dict->table, value);
     if (returnedStr == NULL)
     {
-        returnedStr = Dictionary_Insert(dict, value);
+        returnedStr = dictionary_insert(dict, value);
     }
     return returnedStr;
 }
 
-void Dictionary_Free(struct Dictionary *dict)
+void dictionary_free(struct Dictionary *dict)
 {
-    HashTable_Free(dict->table);
+    hash_table_free(dict->table);
     free(dict);
 }
 
@@ -271,7 +264,7 @@ void Dictionary_Free(struct Dictionary *dict)
  *
  */
 
-struct Stack *Stack_New()
+struct Stack *stack_new()
 {
     struct Stack *wip = malloc(sizeof(struct Stack));
     wip->data = malloc(STACK_DEFAULT_ALLOCATION * sizeof(void *));
@@ -280,13 +273,13 @@ struct Stack *Stack_New()
     return wip;
 }
 
-void Stack_Free(struct Stack *stack)
+void stack_free(struct Stack *stack)
 {
     free(stack->data);
     free(stack);
 }
 
-void Stack_Push(struct Stack *stack, void *data)
+void stack_push(struct Stack *stack, void *data)
 {
     if (stack->size >= stack->allocated)
     {
@@ -300,7 +293,7 @@ void Stack_Push(struct Stack *stack, void *data)
     stack->data[stack->size++] = data;
 }
 
-void *Stack_Pop(struct Stack *stack)
+void *stack_pop(struct Stack *stack)
 {
     void *poppedData = NULL;
     if (stack->size > 0)
@@ -309,12 +302,12 @@ void *Stack_Pop(struct Stack *stack)
     }
     else
     {
-        Log(LOG_FATAL, "Error - attempted to pop from empty stack!");
+        log(LOG_FATAL, "Error - attempted to pop from empty stack!");
     }
     return poppedData;
 }
 
-void *Stack_Peek(struct Stack *stack)
+void *stack_peek(struct Stack *stack)
 {
     void *peekedData = NULL;
     if (stack->size > 0)
@@ -323,7 +316,7 @@ void *Stack_Peek(struct Stack *stack)
     }
     else
     {
-        Log(LOG_FATAL, "Error - attempted to peek empty stack!");
+        log(LOG_FATAL, "Error - attempted to peek empty stack!");
     }
     return peekedData;
 }
@@ -333,7 +326,7 @@ void *Stack_Peek(struct Stack *stack)
  *
  */
 
-struct LinkedList *LinkedList_New()
+struct LinkedList *linked_list_new()
 {
     struct LinkedList *wip = malloc(sizeof(struct LinkedList));
     wip->head = NULL;
@@ -342,7 +335,7 @@ struct LinkedList *LinkedList_New()
     return wip;
 }
 
-void LinkedList_Free(struct LinkedList *list, void (*dataFreeFunction)(void *))
+void linked_list_free(struct LinkedList *list, void (*dataFreeFunction)(void *))
 {
     struct LinkedListNode *runner = list->head;
     while (runner != NULL)
@@ -358,7 +351,7 @@ void LinkedList_Free(struct LinkedList *list, void (*dataFreeFunction)(void *))
     free(list);
 }
 
-void LinkedList_Append(struct LinkedList *list, void *element)
+void linked_list_append(struct LinkedList *list, void *element)
 {
     if (element == NULL)
     {
@@ -385,7 +378,7 @@ void LinkedList_Append(struct LinkedList *list, void *element)
     list->size++;
 }
 
-void LinkedList_Prepend(struct LinkedList *list, void *element)
+void linked_list_prepend(struct LinkedList *list, void *element)
 {
     if (element == NULL)
     {
@@ -411,15 +404,15 @@ void LinkedList_Prepend(struct LinkedList *list, void *element)
     list->size++;
 }
 
-void LinkedList_Join(struct LinkedList *before, struct LinkedList *after)
+void linked_list_join(struct LinkedList *before, struct LinkedList *after)
 {
     for (struct LinkedListNode *runner = after->head; runner != NULL; runner = runner->next)
     {
-        LinkedList_Append(before, runner->data);
+        linked_list_append(before, runner->data);
     }
 }
 
-void *LinkedList_Delete(struct LinkedList *list, ssize_t (*compareFunction)(void *, void *), void *element)
+void *linked_list_delete(struct LinkedList *list, ssize_t (*compareFunction)(void *, void *), void *element)
 {
     for (struct LinkedListNode *runner = list->head; runner != NULL; runner = runner->next)
     {
@@ -460,7 +453,7 @@ void *LinkedList_Delete(struct LinkedList *list, ssize_t (*compareFunction)(void
     InternalError("Couldn't delete element from linked list!");
 }
 
-void *LinkedList_Find(struct LinkedList *list, ssize_t (*compareFunction)(void *, void *), void *element)
+void *linked_list_find(struct LinkedList *list, ssize_t (*compareFunction)(void *, void *), void *element)
 {
     for (struct LinkedListNode *runner = list->head; runner != NULL; runner = runner->next)
     {
@@ -472,11 +465,11 @@ void *LinkedList_Find(struct LinkedList *list, ssize_t (*compareFunction)(void *
     return NULL;
 }
 
-void *LinkedList_PopFront(struct LinkedList *list)
+void *linked_list_pop_front(struct LinkedList *list)
 {
     if (list->size == 0)
     {
-        Log(LOG_FATAL, "Unable to pop front from empty linkedlist!");
+        log(LOG_FATAL, "Unable to pop front from empty linkedlist!");
     }
     struct LinkedListNode *popped = list->head;
 
@@ -497,11 +490,11 @@ void *LinkedList_PopFront(struct LinkedList *list)
     return poppedData;
 }
 
-void *LinkedList_PopBack(struct LinkedList *list)
+void *linked_list_pop_back(struct LinkedList *list)
 {
     if (list->size == 0)
     {
-        Log(LOG_FATAL, "Unable to pop front from empty linkedlist!");
+        log(LOG_FATAL, "Unable to pop front from empty linkedlist!");
     }
     struct LinkedListNode *popped = list->tail;
 
@@ -528,33 +521,33 @@ void *LinkedList_PopBack(struct LinkedList *list)
  * Set data structure
  */
 
-struct Set *Set_New(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction))
+struct Set *set_new(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction))
 {
     struct Set *wip = malloc(sizeof(struct Set));
-    wip->elements = LinkedList_New();
+    wip->elements = linked_list_new();
     wip->compareFunction = compareFunction;
     wip->dataFreeFunction = dataFreeFunction;
     return wip;
 }
 
-void Set_Insert(struct Set *set, void *element)
+void set_insert(struct Set *set, void *element)
 {
     if (element == NULL)
     {
         InternalError("Attempt to insert null data into set!");
     }
 
-    if (LinkedList_Find(set->elements, set->compareFunction, element) == NULL)
+    if (linked_list_find(set->elements, set->compareFunction, element) == NULL)
     {
-        LinkedList_Append(set->elements, element);
+        linked_list_append(set->elements, element);
     }
 }
 
-void Set_Delete(struct Set *set, void *element)
+void set_delete(struct Set *set, void *element)
 {
-    if (LinkedList_Find(set->elements, set->compareFunction, element) != NULL)
+    if (linked_list_find(set->elements, set->compareFunction, element) != NULL)
     {
-        void *dataToFree = LinkedList_Delete(set->elements, set->compareFunction, element);
+        void *dataToFree = linked_list_delete(set->elements, set->compareFunction, element);
         if (set->dataFreeFunction != NULL)
         {
             set->dataFreeFunction(dataToFree);
@@ -566,75 +559,75 @@ void Set_Delete(struct Set *set, void *element)
     }
 }
 
-void *Set_Find(struct Set *set, void *element)
+void *set_find(struct Set *set, void *element)
 {
-    return LinkedList_Find(set->elements, set->compareFunction, element);
+    return linked_list_find(set->elements, set->compareFunction, element);
 }
 
-void Set_Clear(struct Set *toClear)
+void set_clear(struct Set *toClear)
 {
-    LinkedList_Free(toClear->elements, toClear->dataFreeFunction);
-    toClear->elements = LinkedList_New();
+    linked_list_free(toClear->elements, toClear->dataFreeFunction);
+    toClear->elements = linked_list_new();
 }
 
-void Set_Merge(struct Set *into, struct Set *from)
+void set_merge(struct Set *into, struct Set *from)
 {
     for (struct LinkedListNode *runner = from->elements->head; runner != NULL; runner = runner->next)
     {
-        Set_Insert(into, runner->data);
+        set_insert(into, runner->data);
     }
 }
 
-struct Set *Set_Copy(struct Set *set)
+struct Set *set_copy(struct Set *set)
 {
-    struct Set *copied = Set_New(set->compareFunction, set->dataFreeFunction);
-    Set_Merge(copied, set);
+    struct Set *copied = set_new(set->compareFunction, set->dataFreeFunction);
+    set_merge(copied, set);
     return copied;
 }
 
-struct Set *Set_Union(struct Set *setA, struct Set *setB)
+struct Set *set_union(struct Set *setA, struct Set *setB)
 {
-    struct Set *unionedSet = Set_New(setA->compareFunction, setA->dataFreeFunction);
+    struct Set *unionedSet = set_new(setA->compareFunction, setA->dataFreeFunction);
     if (setA->compareFunction != setB->compareFunction)
     {
-        Log(LOG_FATAL, "Call to Set_Union with mismatch in set compare functions between sets to union!");
+        log(LOG_FATAL, "Call to SetUnion with mismatch in set compare functions between sets to union!");
     }
     if (setA->dataFreeFunction != setB->dataFreeFunction)
     {
-        Log(LOG_FATAL, "Call to Set_Union with mismatch in set data free functions between sets to union!");
+        log(LOG_FATAL, "Call to SetUnion with mismatch in set data free functions between sets to union!");
     }
 
-    Set_Merge(unionedSet, setA);
-    Set_Merge(unionedSet, setB);
+    set_merge(unionedSet, setA);
+    set_merge(unionedSet, setB);
     return unionedSet;
 }
 
-struct Set *Set_Intersection(struct Set *setA, struct Set *setB)
+struct Set *set_intersection(struct Set *setA, struct Set *setB)
 {
-    struct Set *intersectedSet = Set_New(setA->compareFunction, setA->dataFreeFunction);
+    struct Set *intersectedSet = set_new(setA->compareFunction, setA->dataFreeFunction);
     if (setA->compareFunction != setB->compareFunction)
     {
-        Log(LOG_FATAL, "Call to Set_Intersection with mismatch in set compare functions between sets to intersect!");
+        log(LOG_FATAL, "Call to SetIntersection with mismatch in set compare functions between sets to intersect!");
     }
     if (setA->dataFreeFunction != setB->dataFreeFunction)
     {
-        Log(LOG_FATAL, "Call to Set_Intersection with mismatch in set data free functions between sets to intersect!");
+        log(LOG_FATAL, "Call to SetIntersection with mismatch in set data free functions between sets to intersect!");
     }
 
     for (struct LinkedListNode *elementNode = setA->elements->head; elementNode != NULL; elementNode = elementNode->next)
     {
-        if (Set_Find(setB, elementNode->data) != NULL)
+        if (set_find(setB, elementNode->data) != NULL)
         {
-            Set_Insert(intersectedSet, elementNode->data);
+            set_insert(intersectedSet, elementNode->data);
         }
     }
 
     return intersectedSet;
 }
 
-void Set_Free(struct Set *set)
+void set_free(struct Set *set)
 {
-    LinkedList_Free(set->elements, set->dataFreeFunction);
+    linked_list_free(set->elements, set->dataFreeFunction);
     free(set);
 }
 
@@ -645,32 +638,32 @@ void Set_Free(struct Set *set)
  *
  */
 
-const unsigned int tempListSprintfLength = 6;
-char *TempList_Get(struct TempList *tempList, size_t tempNum)
+const unsigned int TEMP_LIST_SPRINTF_LENGTH = 6;
+char *temp_list_get(struct TempList *tempList, size_t tempNum)
 {
     while (tempNum >= tempList->temps->size)
     {
-        char *thisTemp = malloc(tempListSprintfLength * sizeof(char));
+        char *thisTemp = malloc(TEMP_LIST_SPRINTF_LENGTH * sizeof(char));
         sprintf(thisTemp, ".t%zu", tempList->temps->size);
-        Stack_Push(tempList->temps, thisTemp);
+        stack_push(tempList->temps, thisTemp);
     }
 
     return tempList->temps->data[tempNum];
 }
 
-struct TempList *TempList_New()
+struct TempList *temp_list_new()
 {
     struct TempList *wip = malloc(sizeof(struct TempList));
-    wip->temps = Stack_New();
+    wip->temps = stack_new();
     return wip;
 }
 
-void TempList_Free(struct TempList *toFree)
+void temp_list_free(struct TempList *toFree)
 {
     for (size_t tempIndex = 0; tempIndex < toFree->temps->size; tempIndex++)
     {
         free(toFree->temps->data[tempIndex]);
     }
-    Stack_Free(toFree->temps);
+    stack_free(toFree->temps);
     free(toFree);
 }

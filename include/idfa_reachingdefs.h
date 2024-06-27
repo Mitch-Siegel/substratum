@@ -3,6 +3,6 @@
 
 #include "idfa.h"
 
-struct Idfa *analyzeReachingDefs(struct IdfaContext *context);
+struct Idfa *analyze_reaching_defs(struct IdfaContext *context);
 
 #endif

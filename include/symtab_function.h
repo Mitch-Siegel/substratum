@@ -24,20 +24,20 @@ struct FunctionEntry
     struct RegallocMetadata regalloc;
 };
 
-struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType, struct StructEntry *methodOf);
+struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType, struct StructEntry *methodOf);
 
-void FunctionEntry_free(struct FunctionEntry *function);
+void function_entry_free(struct FunctionEntry *function);
 
-struct FunctionEntry *createFunction(struct Scope *parentScope,
+struct FunctionEntry *create_function(struct Scope *parentScope,
                                      struct AST *nameTree,
                                      struct Type *returnType,
                                      struct StructEntry *methodOf,
-                                     enum Access accessibility);
+                                     enum ACCESS accessibility);
 
-struct FunctionEntry *lookupFunByString(struct Scope *scope,
+struct FunctionEntry *lookup_fun_by_string(struct Scope *scope,
                                         char *name);
 
-struct FunctionEntry *lookupFun(struct Scope *scope,
+struct FunctionEntry *lookup_fun(struct Scope *scope,
                                 struct AST *name);
 
 #endif

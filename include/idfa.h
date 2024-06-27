@@ -13,15 +13,15 @@ struct IdfaContext
     struct Set **predecessors;
 };
 
-enum IdfaAnalysisDirection
+enum IDFA_ANALYSIS_DIRECTION
 {
-    d_forwards,
-    d_backwards,
+    D_FORWARDS,
+    D_BACKWARDS,
 };
 
-struct IdfaContext *IdfaContext_Create(struct LinkedList *blocks);
+struct IdfaContext *idfa_context_create(struct LinkedList *blocks);
 
-void IdfaContext_Free(struct IdfaContext *context);
+void idfa_context_free(struct IdfaContext *context);
 
 struct IdfaFacts
 {
@@ -35,37 +35,37 @@ struct Idfa
 {
     struct IdfaContext *context;
 
-    ssize_t (*compareFacts)(void *factA, void *factB);
-    void (*printFact)(void *factData);
+    ssize_t (*compare_facts)(void *fact_a, void *fact_b);
+    void (*print_fact)(void *fact_data);
     struct IdfaFacts facts;
-    enum IdfaAnalysisDirection direction;
+    enum IDFA_ANALYSIS_DIRECTION direction;
 
     // pointer to function returning a struct Set
-    struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts);
+    struct Set *(*f_transfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts);
     // pointer to function to find the gen and kill set for all basic blocks
-    void (*findGenKills)(struct Idfa *idfa);
+    void (*find_gen_kills)(struct Idfa *idfa);
     // pionter to function taking 2 sets and returning a new set with the meet of them (union or intersection)
-    struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB);
+    struct Set *(*f_meet)(struct Set *facts_a, struct Set *facts_b);
 };
 
-struct Idfa *Idfa_Create(struct IdfaContext *context,
-                         struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts), // transfer function
-                         void (*findGenKills)(struct Idfa *idfa),                                                  // findGenKills function
-                         enum IdfaAnalysisDirection direction,                                                     // direction which data flows in the analysis
-                         ssize_t (*compareFacts)(void *factA, void *factB),                                        // compare function for facts in the domain of the analysis
-                         void (*printFact)(void *factData),                                                        // print function for facts in the domain of the analysis
-                         struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB));                            // set operation used to collect data from predecessor/successor blocks
+struct Idfa *idfa_create(struct IdfaContext *context,
+                         struct Set *(*f_transfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts), // transfer function
+                         void (*find_gen_kills)(struct Idfa *idfa),                                                  // findGenKills function
+                         enum IDFA_ANALYSIS_DIRECTION direction,                                                     // direction which data flows in the analysis
+                         ssize_t (*compare_facts)(void *fact_a, void *fact_b),                                        // compare function for facts in the domain of the analysis
+                         void (*print_fact)(void *fact_data),                                                        // print function for facts in the domain of the analysis
+                         struct Set *(*f_meet)(struct Set *facts_a, struct Set *facts_b));                            // set operation used to collect data from predecessor/successor blocks
 
-void Idfa_printFacts(struct Idfa *idfa);
+void idfa_print_facts(struct Idfa *idfa);
 
-void Idfa_AnalyzeForwards(struct Idfa *idfa);
+void idfa_analyze_forwards(struct Idfa *idfa);
 
-void Idfa_AnalyzeBackwards(struct Idfa *idfa);
+void idfa_analyze_backwards(struct Idfa *idfa);
 
-void Idfa_Analyze(struct Idfa *idfa);
+void idfa_analyze(struct Idfa *idfa);
 
-void Idfa_Redo(struct Idfa *idfa);
+void idfa_redo(struct Idfa *idfa);
 
-void Idfa_Free(struct Idfa *idfa);
+void idfa_free(struct Idfa *idfa);
 
 #endif

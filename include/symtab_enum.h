@@ -9,7 +9,7 @@ struct Type;
 struct EnumMember
 {
     char *name;
-    ssize_t numerical;
+    size_t numerical;
 };
 
 struct EnumEntry
@@ -19,24 +19,24 @@ struct EnumEntry
     struct Set *members;
 };
 
-struct EnumEntry *createEnum(struct Scope *scope,
+struct EnumEntry *create_enum(struct Scope *scope,
                              char *name);
 
-void EnumEntry_free(struct EnumEntry *theEnum);
+void enum_entry_free(struct EnumEntry *the_enum);
 
-struct EnumMember *addEnumMember(struct EnumEntry *theEnum,
+struct EnumMember *add_enum_member(struct EnumEntry *the_enum,
                                  struct AST *name);
 
-struct EnumMember *lookupEnumMember(struct EnumEntry *theEnum,
+struct EnumMember *lookup_enum_member(struct EnumEntry *the_enum,
                                     struct AST *name);
 
-struct EnumEntry *lookupEnum(struct Scope *scope,
+struct EnumEntry *lookup_enum(struct Scope *scope,
                              struct AST *name);
 
-struct EnumEntry *lookupEnumByType(struct Scope *scope,
+struct EnumEntry *lookup_enum_by_type(struct Scope *scope,
                                    struct Type *type);
 
-struct EnumEntry *lookupEnumByMemberName(struct Scope *scope,
+struct EnumEntry *lookup_enum_by_member_name(struct Scope *scope,
                                          char *name);
 
 #endif

@@ -9,7 +9,7 @@
 #include "util.h"
 
 // return the heuristic for how good a given lifetime is to spill - lower is better
-size_t Lifetime_Heuristic(struct Lifetime *lifetime)
+size_t lifetime_heuristic(struct Lifetime *lifetime)
 {
     // const size_t argumentSpillHeuristicMultiplier = 10;
     // base heuristic is lifetime length
@@ -25,7 +25,7 @@ size_t Lifetime_Heuristic(struct Lifetime *lifetime)
     return heuristic;
 }
 
-size_t findMaxTACIndex(struct Set *lifetimes)
+size_t find_max_tac_index(struct Set *lifetimes)
 {
     size_t maxIndex = 0;
     for (struct LinkedListNode *ltRunner = lifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
@@ -40,12 +40,12 @@ size_t findMaxTACIndex(struct Set *lifetimes)
     return maxIndex;
 }
 
-struct Set **findLifetimeOverlaps(struct Set *lifetimes, size_t largestTACIndex)
+struct Set **find_lifetime_overlaps(struct Set *lifetimes, size_t largestTACIndex)
 {
     struct Set **lifetimeOverlaps = malloc((largestTACIndex + 1) * sizeof(struct Set *));
-    for (size_t TACIndex = 0; TACIndex <= largestTACIndex; TACIndex++)
+    for (size_t tacIndex = 0; tacIndex <= largestTACIndex; tacIndex++)
     {
-        lifetimeOverlaps[TACIndex] = Set_New((ssize_t(*)(void *, void *))Lifetime_Compare, NULL);
+        lifetimeOverlaps[tacIndex] = set_new((ssize_t(*)(void *, void *))lifetime_compare, NULL);
     }
 
     for (size_t overlapIndex = 0; overlapIndex <= largestTACIndex; overlapIndex++)
@@ -53,9 +53,9 @@ struct Set **findLifetimeOverlaps(struct Set *lifetimes, size_t largestTACIndex)
         for (struct LinkedListNode *ltRunner = lifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
         {
             struct Lifetime *examinedLifetime = ltRunner->data;
-            if (Lifetime_IsLiveAtIndex(examinedLifetime, overlapIndex))
+            if (lifetime_is_live_at_index(examinedLifetime, overlapIndex))
             {
-                Set_Insert(lifetimeOverlaps[overlapIndex], examinedLifetime);
+                set_insert(lifetimeOverlaps[overlapIndex], examinedLifetime);
             }
         }
     }
@@ -63,7 +63,7 @@ struct Set **findLifetimeOverlaps(struct Set *lifetimes, size_t largestTACIndex)
     return lifetimeOverlaps;
 }
 
-struct Lifetime *RemoveLifetimeWithBestHeuristic(struct Set *lifetimesInContention)
+struct Lifetime *remove_lifetime_with_best_heuristic(struct Set *lifetimesInContention)
 {
     size_t bestHeuristic = 0;
     struct Lifetime *bestLifetime = NULL;
@@ -71,7 +71,7 @@ struct Lifetime *RemoveLifetimeWithBestHeuristic(struct Set *lifetimesInContenti
     for (struct LinkedListNode *ltRunner = lifetimesInContention->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
     {
         struct Lifetime *examinedLt = ltRunner->data;
-        size_t examinedHeuristic = Lifetime_Heuristic(examinedLt);
+        size_t examinedHeuristic = lifetime_heuristic(examinedLt);
         if (examinedHeuristic > bestHeuristic)
         {
             bestHeuristic = examinedHeuristic;
@@ -79,11 +79,11 @@ struct Lifetime *RemoveLifetimeWithBestHeuristic(struct Set *lifetimesInContenti
         }
     }
 
-    Set_Delete(lifetimesInContention, bestLifetime);
+    set_delete(lifetimesInContention, bestLifetime);
     return bestLifetime;
 }
 
-void bubbleSortLifetimesBySize(struct Stack *lifetimeStack, struct Scope *scope)
+void bubble_sort_lifetimes_by_size(struct Stack *lifetimeStack, struct Scope *scope)
 {
     // bubble sort stack lifetimes by size - early indices in stackLifetimes->data have larger sizes
     for (size_t indexI = 0; indexI < lifetimeStack->size - 1; indexI++)
@@ -93,8 +93,8 @@ void bubbleSortLifetimesBySize(struct Stack *lifetimeStack, struct Scope *scope)
             struct Lifetime *lifetimeI = lifetimeStack->data[indexI];
             struct Lifetime *lifetimeJ = lifetimeStack->data[indexJ];
 
-            size_t sizeI = Type_GetSize(&lifetimeI->type, scope);
-            size_t sizeJ = Type_GetSize(&lifetimeJ->type, scope);
+            size_t sizeI = type_get_size(&lifetimeI->type, scope);
+            size_t sizeJ = type_get_size(&lifetimeJ->type, scope);
 
             if (sizeJ > sizeI)
             {
@@ -105,22 +105,22 @@ void bubbleSortLifetimesBySize(struct Stack *lifetimeStack, struct Scope *scope)
     }
 }
 
-void setupLocalStack(struct RegallocMetadata *metadata, struct MachineInfo *info, struct Stack *localStackLifetimes)
+void setup_local_stack(struct RegallocMetadata *metadata, struct MachineInfo *info, struct Stack *localStackLifetimes)
 {
     // local offset always at least MACHINE_REGISTER_SIZE_BYTES to save frame pointer
     ssize_t localOffset = ((ssize_t)-1 * MACHINE_REGISTER_SIZE_BYTES);
 
     // figure out which callee-saved registers this function touches, and add space for them to the local stack offset
-    struct Stack *touchedCalleeSaved = Stack_New();
+    struct Stack *touchedCalleeSaved = stack_new();
     for (size_t calleeSaveIndex = 0; calleeSaveIndex < info->n_callee_save; calleeSaveIndex++)
     {
-        if (Set_Find(metadata->touchedRegisters, info->callee_save[calleeSaveIndex]))
+        if (set_find(metadata->touchedRegisters, info->callee_save[calleeSaveIndex]))
         {
-            Stack_Push(touchedCalleeSaved, info->callee_save[calleeSaveIndex]);
+            stack_push(touchedCalleeSaved, info->callee_save[calleeSaveIndex]);
         }
     }
     localOffset -= ((ssize_t)touchedCalleeSaved->size * MACHINE_REGISTER_SIZE_BYTES);
-    Stack_Free(touchedCalleeSaved);
+    stack_free(touchedCalleeSaved);
 
     if (localStackLifetimes->size == 0)
     {
@@ -133,18 +133,18 @@ void setupLocalStack(struct RegallocMetadata *metadata, struct MachineInfo *info
         return;
     }
 
-    bubbleSortLifetimesBySize(localStackLifetimes, metadata->function->mainScope);
+    bubble_sort_lifetimes_by_size(localStackLifetimes, metadata->function->mainScope);
 
-    Log(LOG_DEBUG, "Function locals for %s end at frame pointer offset %zd - %zd through 0 offset from %s are callee-saved registers", metadata->function->name, localOffset, localOffset, info->framePointer->name);
+    log(LOG_DEBUG, "Function locals for %s end at frame pointer offset %zd - %zd through 0 offset from %s are callee-saved registers", metadata->function->name, localOffset, localOffset, info->framePointer->name);
 
     for (size_t indexI = 0; indexI < localStackLifetimes->size; indexI++)
     {
         struct Lifetime *printedStackLt = localStackLifetimes->data[indexI];
-        localOffset -= (ssize_t)Type_GetSize(&printedStackLt->type, metadata->function->mainScope);
-        localOffset -= (ssize_t)Scope_ComputePaddingForAlignment(metadata->function->mainScope, &printedStackLt->type, localOffset);
+        localOffset -= (ssize_t)type_get_size(&printedStackLt->type, metadata->function->mainScope);
+        localOffset -= (ssize_t)scope_compute_padding_for_alignment(metadata->function->mainScope, &printedStackLt->type, localOffset);
         printedStackLt->writebackInfo.stackOffset = localOffset;
 
-        Log(LOG_DEBUG, "Assign stack offset %zd to lifetime %s", printedStackLt->writebackInfo.stackOffset, printedStackLt->name);
+        log(LOG_DEBUG, "Assign stack offset %zd to lifetime %s", printedStackLt->writebackInfo.stackOffset, printedStackLt->name);
     }
 
     while (localOffset % STACK_ALIGN_BYTES)
@@ -155,25 +155,25 @@ void setupLocalStack(struct RegallocMetadata *metadata, struct MachineInfo *info
     metadata->localStackSize = -1 * localOffset;
 }
 
-void setupArgumentStack(struct RegallocMetadata *metadata, struct Stack *argumentStackLifetimes)
+void setup_argument_stack(struct RegallocMetadata *metadata, struct Stack *argumentStackLifetimes)
 {
     if (argumentStackLifetimes->size == 0)
     {
         return;
     }
 
-    bubbleSortLifetimesBySize(argumentStackLifetimes, metadata->function->mainScope);
+    bubble_sort_lifetimes_by_size(argumentStackLifetimes, metadata->function->mainScope);
 
     // always save frame pointer and return address to stack
     ssize_t argOffset = (ssize_t)2 * MACHINE_REGISTER_SIZE_BYTES;
     for (size_t indexI = 0; indexI < argumentStackLifetimes->size; indexI++)
     {
         struct Lifetime *printedStackLt = argumentStackLifetimes->data[indexI];
-        argOffset += (ssize_t)Scope_ComputePaddingForAlignment(metadata->function->mainScope, &printedStackLt->type, argOffset);
+        argOffset += (ssize_t)scope_compute_padding_for_alignment(metadata->function->mainScope, &printedStackLt->type, argOffset);
         printedStackLt->writebackInfo.stackOffset = argOffset;
-        argOffset += (ssize_t)Type_GetSize(&printedStackLt->type, metadata->function->mainScope);
+        argOffset += (ssize_t)type_get_size(&printedStackLt->type, metadata->function->mainScope);
 
-        Log(LOG_DEBUG, "Assign stack offset %zd to argument lifetime %s", printedStackLt->writebackInfo.stackOffset, printedStackLt->name);
+        log(LOG_DEBUG, "Assign stack offset %zd to argument lifetime %s", printedStackLt->writebackInfo.stackOffset, printedStackLt->name);
     }
 
     while (argOffset % STACK_ALIGN_BYTES)
@@ -184,53 +184,53 @@ void setupArgumentStack(struct RegallocMetadata *metadata, struct Stack *argumen
     metadata->argStackSize = argOffset;
 }
 
-void allocateStackSpace(struct RegallocMetadata *metadata, struct MachineInfo *info)
+void allocate_stack_space(struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
-    struct Stack *localStackLifetimes = Stack_New();
-    struct Stack *argumentStackLifetimes = Stack_New();
+    struct Stack *localStackLifetimes = stack_new();
+    struct Stack *argumentStackLifetimes = stack_new();
 
     // go over all lifetimes, if they have a stack writeback location we need to deal with them
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
     {
         struct Lifetime *examinedLt = ltRunner->data;
-        if (examinedLt->wbLocation == wb_stack)
+        if (examinedLt->wbLocation == WB_STACK)
         {
             if (examinedLt->isArgument)
             {
-                Stack_Push(argumentStackLifetimes, examinedLt);
+                stack_push(argumentStackLifetimes, examinedLt);
             }
             else
             {
-                Stack_Push(localStackLifetimes, examinedLt);
+                stack_push(localStackLifetimes, examinedLt);
             }
         }
     }
 
-    setupLocalStack(metadata, info, localStackLifetimes);
-    setupArgumentStack(metadata, argumentStackLifetimes);
+    setup_local_stack(metadata, info, localStackLifetimes);
+    setup_argument_stack(metadata, argumentStackLifetimes);
 
     for (size_t localI = 0; localI < localStackLifetimes->size; localI++)
     {
         struct Lifetime *localLt = localStackLifetimes->data[localStackLifetimes->size - localI - 1];
-        Log(LOG_DEBUG, "BP%zd: %s", localLt->writebackInfo.stackOffset, localLt->name);
+        log(LOG_DEBUG, "BP%zd: %s", localLt->writebackInfo.stackOffset, localLt->name);
     }
 
     for (size_t argI = 0; argI < argumentStackLifetimes->size; argI++)
     {
         struct Lifetime *stackLt = argumentStackLifetimes->data[argI];
-        Log(LOG_DEBUG, "BP+%zd: %s", stackLt->writebackInfo.stackOffset, stackLt->name);
+        log(LOG_DEBUG, "BP+%zd: %s", stackLt->writebackInfo.stackOffset, stackLt->name);
     }
 
-    Stack_Free(localStackLifetimes);
-    Stack_Free(argumentStackLifetimes);
+    stack_free(localStackLifetimes);
+    stack_free(argumentStackLifetimes);
 }
 
-struct Set *preSelectRegisterContentionLifetimes(struct Set *selectFrom, struct Scope *scope)
+struct Set *pre_select_register_contention_lifetimes(struct Set *selectFrom, struct Scope *scope)
 {
     // from the start, all lifetimes from which we are selecting are in contention
-    struct Set *contentionLifetimes = Set_New(selectFrom->compareFunction, NULL);
-    Set_Merge(contentionLifetimes, selectFrom);
-    Set_Clear(selectFrom);
+    struct Set *contentionLifetimes = set_new(selectFrom->compareFunction, NULL);
+    set_merge(contentionLifetimes, selectFrom);
+    set_clear(selectFrom);
 
     // remove lifetimes which
     for (struct LinkedListNode *ltRunner = contentionLifetimes->elements->head; ltRunner != NULL;)
@@ -242,18 +242,18 @@ struct Set *preSelectRegisterContentionLifetimes(struct Set *selectFrom, struct 
         switch (examinedLt->wbLocation)
         {
             // if the lifetime already has a location, just remove it from contention, don't re-add to selectFrom as there is no more work to do for it
-        case wb_global:
-        case wb_stack:
-        case wb_register:
-            Set_Delete(contentionLifetimes, examinedLt);
+        case WB_GLOBAL:
+        case WB_STACK:
+        case WB_REGISTER:
+            set_delete(contentionLifetimes, examinedLt);
             break;
 
             // if we are potentially going to assign a register to this lifetime, make sure it is small enough to fit in a register
-        case wb_unknown:
-            if (Type_GetSize(&examinedLt->type, scope) > MACHINE_REGISTER_SIZE_BYTES)
+        case WB_UNKNOWN:
+            if (type_get_size(&examinedLt->type, scope) > MACHINE_REGISTER_SIZE_BYTES)
             {
-                Set_Delete(contentionLifetimes, examinedLt);
-                Set_Insert(selectFrom, examinedLt);
+                set_delete(contentionLifetimes, examinedLt);
+                set_insert(selectFrom, examinedLt);
             }
             break;
         }
@@ -264,28 +264,28 @@ struct Set *preSelectRegisterContentionLifetimes(struct Set *selectFrom, struct 
     return contentionLifetimes;
 }
 
-size_t findHighestOverlap(struct Set **lifetimeOverlaps, size_t largestTacIndex)
+size_t find_highest_overlap(struct Set **lifetimeOverlaps, size_t largestTacIndex)
 {
-    size_t highesetOverlap = 0;
+    size_t highestOverlap = 0;
     for (size_t tacIndex = 0; tacIndex <= largestTacIndex; tacIndex++)
     {
-        if (lifetimeOverlaps[tacIndex]->elements->size > highesetOverlap)
+        if (lifetimeOverlaps[tacIndex]->elements->size > highestOverlap)
         {
-            highesetOverlap = lifetimeOverlaps[tacIndex]->elements->size;
+            highestOverlap = lifetimeOverlaps[tacIndex]->elements->size;
         }
     }
 
-    return highesetOverlap;
+    return highestOverlap;
 }
 
-void lifetimeOverlaps_Remove(struct Set **lifetimeOverlaps, size_t largestTacIndex, struct Lifetime *toRemove)
+void lifetime_overlaps_remove(struct Set **lifetimeOverlaps, size_t largestTacIndex, struct Lifetime *toRemove)
 {
     for (size_t tacIndex = 0; tacIndex <= largestTacIndex; tacIndex++)
     {
         struct Set *removeFrom = lifetimeOverlaps[tacIndex];
-        if (Set_Find(removeFrom, toRemove) != NULL)
+        if (set_find(removeFrom, toRemove) != NULL)
         {
-            Set_Delete(removeFrom, toRemove);
+            set_delete(removeFrom, toRemove);
         }
     }
 }
@@ -293,38 +293,38 @@ void lifetimeOverlaps_Remove(struct Set **lifetimeOverlaps, size_t largestTacInd
 // selectFrom: set of pointers to lifetimes which are in contention for registers
 // registerPool: set of register indices (raw values in void * form) which are available to allocate
 // returns: set of lifetimes which were allocated registers, leaving only lifetimes which were not given registers in selectFrom
-struct Set *selectRegisterLifetimes(struct RegallocMetadata *metadata, struct Set *selectFrom, struct Set *registerPool)
+struct Set *select_register_lifetimes(struct RegallocMetadata *metadata, struct Set *selectFrom, struct Set *registerPool)
 {
-    struct Set *registerContentionLifetimes = preSelectRegisterContentionLifetimes(selectFrom, metadata->function->mainScope);
+    struct Set *registerContentionLifetimes = pre_select_register_contention_lifetimes(selectFrom, metadata->function->mainScope);
 
-    struct Set **lifetimeOverlaps = findLifetimeOverlaps(registerContentionLifetimes, metadata->largestTacIndex);
+    struct Set **lifetimeOverlaps = find_lifetime_overlaps(registerContentionLifetimes, metadata->largestTacIndex);
 
     // while there are too many lifetimes
     size_t nReg = registerPool->elements->size;
     size_t deg = 0;
-    while ((deg = findHighestOverlap(lifetimeOverlaps, metadata->largestTacIndex)) > nReg)
+    while ((deg = find_highest_overlap(lifetimeOverlaps, metadata->largestTacIndex)) > nReg)
     {
         // grab the one with the best heuristic, remove it, and re-add to selectFrom
-        struct Lifetime *toSpill = RemoveLifetimeWithBestHeuristic(registerContentionLifetimes);
-        Log(LOG_DEBUG, "Spill %s because max number of livetimes %zu exceeds number of available registers %zu", toSpill->name, deg, nReg);
-        lifetimeOverlaps_Remove(lifetimeOverlaps, metadata->largestTacIndex, toSpill);
-        Set_Insert(selectFrom, toSpill);
+        struct Lifetime *toSpill = remove_lifetime_with_best_heuristic(registerContentionLifetimes);
+        log(LOG_DEBUG, "Spill %s because max number of livetimes %zu exceeds number of available registers %zu", toSpill->name, deg, nReg);
+        lifetime_overlaps_remove(lifetimeOverlaps, metadata->largestTacIndex, toSpill);
+        set_insert(selectFrom, toSpill);
     }
 
     for (size_t tacIndex = 0; tacIndex <= metadata->largestTacIndex; tacIndex++)
     {
-        Set_Free(lifetimeOverlaps[tacIndex]);
+        set_free(lifetimeOverlaps[tacIndex]);
     }
     free(lifetimeOverlaps);
 
-    struct Stack *availableRegisters = Stack_New();
-    struct Set *liveLifetimes = Set_New((ssize_t(*)(void *, void *))Lifetime_Compare, NULL);
+    struct Stack *availableRegisters = stack_new();
+    struct Set *liveLifetimes = set_new((ssize_t(*)(void *, void *))lifetime_compare, NULL);
     for (struct LinkedListNode *regRunner = registerPool->elements->head; regRunner != NULL; regRunner = regRunner->next)
     {
-        Stack_Push(availableRegisters, regRunner->data);
+        stack_push(availableRegisters, regRunner->data);
     }
 
-    struct Set *needRegisters = Set_Copy(registerContentionLifetimes);
+    struct Set *needRegisters = set_copy(registerContentionLifetimes);
     needRegisters->dataFreeFunction = NULL;
 
     // iterate by TAC index
@@ -337,11 +337,11 @@ struct Set *selectRegisterLifetimes(struct RegallocMetadata *metadata, struct Se
             struct Lifetime *liveLt = liveLtRunner->data;
 
             // if expiring at this index, give its register back (value can still be read out of the register at tacIndex)
-            if (!Lifetime_IsLiveAtIndex(liveLt, tacIndex + 1))
+            if (!lifetime_is_live_at_index(liveLt, tacIndex + 1))
             {
-                Set_Delete(liveLifetimes, liveLt);
-                Stack_Push(availableRegisters, (void *)liveLt->writebackInfo.regLocation);
-                Log(LOG_DEBUG, "Lifetime %s expires at %zu, freeing register %s", liveLt->name, tacIndex, liveLt->writebackInfo.regLocation->name);
+                set_delete(liveLifetimes, liveLt);
+                stack_push(availableRegisters, (void *)liveLt->writebackInfo.regLocation);
+                log(LOG_DEBUG, "Lifetime %s expires at %zu, freeing register %s", liveLt->name, tacIndex, liveLt->writebackInfo.regLocation->name);
             }
 
             liveLtRunner = next;
@@ -354,131 +354,131 @@ struct Set *selectRegisterLifetimes(struct RegallocMetadata *metadata, struct Se
             struct Lifetime *examinedLt = newLtRunner->data;
 
             // if a lifetime becomes live at this index, assign it a register
-            if (Lifetime_IsLiveAtIndex(examinedLt, tacIndex))
+            if (lifetime_is_live_at_index(examinedLt, tacIndex))
             {
-                Set_Delete(needRegisters, examinedLt);
-                examinedLt->writebackInfo.regLocation = (struct Register *)Stack_Pop(availableRegisters);
-                examinedLt->wbLocation = wb_register;
-                Set_Insert(liveLifetimes, examinedLt);
+                set_delete(needRegisters, examinedLt);
+                examinedLt->writebackInfo.regLocation = (struct Register *)stack_pop(availableRegisters);
+                examinedLt->wbLocation = WB_REGISTER;
+                set_insert(liveLifetimes, examinedLt);
 
-                Set_Insert(metadata->touchedRegisters, examinedLt->writebackInfo.regLocation);
-                Log(LOG_DEBUG, "Lifetime %s starts at at %zu, consuming register %s", examinedLt->name, tacIndex, examinedLt->writebackInfo.regLocation->name);
+                set_insert(metadata->touchedRegisters, examinedLt->writebackInfo.regLocation);
+                log(LOG_DEBUG, "Lifetime %s starts at at %zu, consuming register %s", examinedLt->name, tacIndex, examinedLt->writebackInfo.regLocation->name);
             }
 
             newLtRunner = next;
         }
     }
-    Stack_Free(availableRegisters);
-    Set_Free(needRegisters);
-    Set_Free(liveLifetimes);
+    stack_free(availableRegisters);
+    set_free(needRegisters);
+    set_free(liveLifetimes);
 
     return registerContentionLifetimes;
 }
 
-void allocateArgumentRegisters(struct RegallocMetadata *metadata, struct MachineInfo *machineInfo)
+void allocate_argument_registers(struct RegallocMetadata *metadata, struct MachineInfo *machineInfo)
 {
-    struct Set *argumentLifetimes = Set_New(metadata->allLifetimes->compareFunction, NULL);
+    struct Set *argumentLifetimes = set_new(metadata->allLifetimes->compareFunction, NULL);
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
     {
         struct Lifetime *potentialArgumentLt = ltRunner->data;
         if (potentialArgumentLt->isArgument)
         {
-            Set_Insert(argumentLifetimes, potentialArgumentLt);
+            set_insert(argumentLifetimes, potentialArgumentLt);
         }
     }
 
-    struct Set *argumentRegisterPool = Set_New(ssizet_compare, NULL);
+    struct Set *argumentRegisterPool = set_new(ssizet_compare, NULL);
     for (u8 argRegIndex = 0; argRegIndex < machineInfo->n_arguments; argRegIndex++)
     {
-        Set_Insert(argumentRegisterPool, (void *)machineInfo->arguments[argRegIndex]);
+        set_insert(argumentRegisterPool, (void *)machineInfo->arguments[argRegIndex]);
     }
 
-    Set_Free(selectRegisterLifetimes(metadata, argumentLifetimes, argumentRegisterPool));
-    Set_Free(argumentRegisterPool);
+    set_free(select_register_lifetimes(metadata, argumentLifetimes, argumentRegisterPool));
+    set_free(argumentRegisterPool);
 
     // any arguments which we couldn't allocate a register for go on the stack
     for (struct LinkedListNode *ltRunner = argumentLifetimes->elements->head; ltRunner != NULL;)
     {
         struct Lifetime *nonRegisterLifetime = ltRunner->data;
-        nonRegisterLifetime->wbLocation = wb_stack;
+        nonRegisterLifetime->wbLocation = WB_STACK;
     }
 
-    Set_Free(argumentLifetimes);
+    set_free(argumentLifetimes);
 }
 
-void allocateGeneralRegisters(struct RegallocMetadata *metadata, struct MachineInfo *machineInfo)
+void allocate_general_registers(struct RegallocMetadata *metadata, struct MachineInfo *machineInfo)
 {
-    struct Set *registerContentionLifetimes = Set_Copy(metadata->allLifetimes);
+    struct Set *registerContentionLifetimes = set_copy(metadata->allLifetimes);
     registerContentionLifetimes->dataFreeFunction = NULL;
 
-    struct Set *registerPool = Set_New(ssizet_compare, NULL);
+    struct Set *registerPool = set_new(ssizet_compare, NULL);
 
     // the set is traversed head->tail and registers are pushed to a stack to allocate from, account for this when adding to the generalPurpose array
     for (u8 gpRegIndex = 0; gpRegIndex < machineInfo->n_general_purpose; gpRegIndex++)
     {
-        Log(LOG_DEBUG, "%s is a gp reg to allocate", machineInfo->generalPurpose[gpRegIndex]->name);
-        Set_Insert(registerPool, (void *)machineInfo->generalPurpose[gpRegIndex]);
+        log(LOG_DEBUG, "%s is a gp reg to allocate", machineInfo->generalPurpose[gpRegIndex]->name);
+        set_insert(registerPool, (void *)machineInfo->generalPurpose[gpRegIndex]);
     }
 
-    Set_Free(selectRegisterLifetimes(metadata, registerContentionLifetimes, registerPool));
-    Set_Free(registerPool);
+    set_free(select_register_lifetimes(metadata, registerContentionLifetimes, registerPool));
+    set_free(registerPool);
 
     // any general-purpose lifetimes which we couldn't allocate a register for go on the stack
     for (struct LinkedListNode *ltRunner = registerContentionLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
     {
         struct Lifetime *nonRegisterLifetime = ltRunner->data;
-        Log(LOG_DEBUG, "Lifetime %s wasn't assigned a register - give it a stack writeback", nonRegisterLifetime->name);
-        nonRegisterLifetime->wbLocation = wb_stack;
+        log(LOG_DEBUG, "Lifetime %s wasn't assigned a register - give it a stack writeback", nonRegisterLifetime->name);
+        nonRegisterLifetime->wbLocation = WB_STACK;
     }
 
-    Set_Free(registerContentionLifetimes);
+    set_free(registerContentionLifetimes);
 }
 
 // really this is "figure out which lifetimes get a register"
-void allocateRegisters(struct RegallocMetadata *metadata, struct MachineInfo *info)
+void allocate_registers(struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
-    Log(LOG_DEBUG, "Allocate registers for %s", metadata->function->name);
+    log(LOG_DEBUG, "Allocate registers for %s", metadata->function->name);
 
     // register pointers are unique and only one should exist for a given register
-    metadata->touchedRegisters = Set_New(ssizet_compare, NULL);
+    metadata->touchedRegisters = set_new(ssizet_compare, NULL);
 
     // assume we will always touch the stack pointer
-    Set_Insert(metadata->touchedRegisters, info->stackPointer);
+    set_insert(metadata->touchedRegisters, info->stackPointer);
 
     // if we call another function we will touch the frame pointer
     if (metadata->function->callsOtherFunction)
     {
-        Set_Insert(metadata->touchedRegisters, info->returnAddress);
-        Set_Insert(metadata->touchedRegisters, info->framePointer);
+        set_insert(metadata->touchedRegisters, info->returnAddress);
+        set_insert(metadata->touchedRegisters, info->framePointer);
     }
 
-    metadata->allLifetimes = findLifetimes(metadata->function->mainScope, metadata->function->BasicBlockList);
+    metadata->allLifetimes = find_lifetimes(metadata->function->mainScope, metadata->function->BasicBlockList);
 
-    metadata->largestTacIndex = findMaxTACIndex(metadata->allLifetimes);
+    metadata->largestTacIndex = find_max_tac_index(metadata->allLifetimes);
 
-    allocateArgumentRegisters(metadata, info);
-    allocateGeneralRegisters(metadata, info);
+    allocate_argument_registers(metadata, info);
+    allocate_general_registers(metadata, info);
 
-    allocateStackSpace(metadata, info);
+    allocate_stack_space(metadata, info);
 
     char *ltLengthString = malloc(metadata->largestTacIndex + 3);
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
     {
-        const u8 locStrLen = 16;
-        char location[locStrLen + 1];
+        const u8 LOC_STR_LEN = 16;
+        char location[LOC_STR_LEN + 1];
         struct Lifetime *printedLt = ltRunner->data;
         switch (printedLt->wbLocation)
         {
-        case wb_global:
+        case WB_GLOBAL:
             sprintf(location, "GLOBAL");
             break;
-        case wb_register:
+        case WB_REGISTER:
             sprintf(location, "REG:%s", printedLt->writebackInfo.regLocation->name);
             break;
-        case wb_stack:
+        case WB_STACK:
             sprintf(location, "STK:%zd", printedLt->writebackInfo.stackOffset);
             break;
-        case wb_unknown:
+        case WB_UNKNOWN:
             sprintf(location, "???????");
             break;
         }
@@ -496,12 +496,12 @@ void allocateRegisters(struct RegallocMetadata *metadata, struct MachineInfo *in
             }
         }
 
-        Log(LOG_DEBUG, "%40s:%s:%s", printedLt->name, location, ltLengthString);
+        log(LOG_DEBUG, "%40s:%s:%s", printedLt->name, location, ltLengthString);
     }
     free(ltLengthString);
 }
 
-void allocateRegistersForScope(struct Scope *scope, struct MachineInfo *info)
+void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)
 {
     for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
     {
@@ -509,38 +509,38 @@ void allocateRegistersForScope(struct Scope *scope, struct MachineInfo *info)
 
         switch (thisMember->type)
         {
-        case e_argument:
-        case e_variable:
+        case E_ARGUMENT:
+        case E_VARIABLE:
             break;
 
-        case e_struct:
+        case E_STRUCT:
         {
             struct StructEntry *thisStruct = thisMember->entry;
-            allocateRegistersForScope(thisStruct->members, info);
+            allocate_registers_for_scope(thisStruct->members, info);
         }
         break;
 
-        case e_function:
+        case E_FUNCTION:
         {
             struct FunctionEntry *thisFunction = thisMember->entry;
-            allocateRegisters(&thisFunction->regalloc, info);
+            allocate_registers(&thisFunction->regalloc, info);
         }
         break;
 
-        case e_scope:
+        case E_SCOPE:
         {
-            allocateRegistersForScope(thisMember->entry, info);
+            allocate_registers_for_scope(thisMember->entry, info);
         }
         break;
 
-        case e_basicblock:
-        case e_enum:
+        case E_BASICBLOCK:
+        case E_ENUM:
             break;
         }
     }
 }
 
-void allocateRegistersForProgram(struct SymbolTable *theTable, struct MachineInfo *info)
+void allocate_registers_for_program(struct SymbolTable *theTable, struct MachineInfo *info)
 {
-    allocateRegistersForScope(theTable->globalScope, info);
+    allocate_registers_for_scope(theTable->globalScope, info);
 }

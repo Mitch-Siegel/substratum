@@ -2,27 +2,27 @@
 
 #include "log.h"
 
-struct BasicBlock *BasicBlock_new(ssize_t labelNum)
+struct BasicBlock *basic_block_new(ssize_t labelNum)
 {
     struct BasicBlock *wip = malloc(sizeof(struct BasicBlock));
-    wip->TACList = LinkedList_New();
+    wip->TACList = linked_list_new();
     wip->labelNum = labelNum;
     return wip;
 }
 
-void BasicBlock_free(struct BasicBlock *block)
+void basic_block_free(struct BasicBlock *block)
 {
-    LinkedList_Free(block->TACList, freeTAC);
+    linked_list_free(block->TACList, free_tac);
     free(block);
 }
 
-void BasicBlock_append(struct BasicBlock *block, struct TACLine *line, size_t *tacIndex)
+void basic_block_append(struct BasicBlock *block, struct TACLine *line, size_t *tacIndex)
 {
     line->index = (*tacIndex)++;
-    LinkedList_Append(block->TACList, line);
+    linked_list_append(block->TACList, line);
 }
 
-void BasicBlock_prepend(struct BasicBlock *block, struct TACLine *line)
+void basic_block_prepend(struct BasicBlock *block, struct TACLine *line)
 {
     if (block->TACList->size > 0)
     {
@@ -33,10 +33,10 @@ void BasicBlock_prepend(struct BasicBlock *block, struct TACLine *line)
         }
     }
 
-    LinkedList_Prepend(block->TACList, line);
+    linked_list_prepend(block->TACList, line);
 }
 
-void printBasicBlock(struct BasicBlock *block, size_t indentLevel)
+void print_basic_block(struct BasicBlock *block, size_t indentLevel)
 {
     for (size_t indentPrint = 0; indentPrint < indentLevel; indentPrint++)
     {
@@ -53,7 +53,7 @@ void printBasicBlock(struct BasicBlock *block, size_t indentLevel)
 
         if (runner->data != NULL)
         {
-            printTACLine(this);
+            print_tac_line(this);
             printf("\n");
         }
     }

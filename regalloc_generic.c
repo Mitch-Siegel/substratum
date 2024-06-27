@@ -8,7 +8,7 @@
 
 struct MachineInfo *(*setupMachineInfo)() = NULL;
 
-struct MachineInfo *MachineInfo_New(u8 maxReg,
+struct MachineInfo *machine_info_new(u8 maxReg,
                                     u8 n_temps,
                                     u8 n_arguments,
                                     u8 n_general_purpose,
@@ -52,7 +52,7 @@ struct MachineInfo *MachineInfo_New(u8 maxReg,
     return wip;
 }
 
-void MachineInfo_Free(struct MachineInfo *info)
+void machine_info_free(struct MachineInfo *info)
 {
     free(info->allRegisters);
     free(info->temps);
@@ -66,7 +66,7 @@ void MachineInfo_Free(struct MachineInfo *info)
     free(info);
 }
 
-struct Lifetime *Lifetime_New(char *name, struct Type *type, size_t start, u8 isGlobal, u8 mustSpill)
+struct Lifetime *lifetime_new(char *name, struct Type *type, size_t start, u8 isGlobal, u8 mustSpill)
 {
     struct Lifetime *wip = malloc(sizeof(struct Lifetime));
     wip->name = name;
@@ -79,35 +79,35 @@ struct Lifetime *Lifetime_New(char *name, struct Type *type, size_t start, u8 is
     wip->nreads = 0;
     if (isGlobal)
     {
-        wip->wbLocation = wb_global;
+        wip->wbLocation = WB_GLOBAL;
     }
     else
     {
-        if (((type->basicType == vt_struct) && (type->pointerLevel == 0)) ||
-            (type->basicType == vt_array) ||
+        if (((type->basicType == VT_STRUCT) && (type->pointerLevel == 0)) ||
+            (type->basicType == VT_ARRAY) ||
             mustSpill)
         {
-            wip->wbLocation = wb_stack;
+            wip->wbLocation = WB_STACK;
         }
         else
         {
-            wip->wbLocation = wb_unknown;
+            wip->wbLocation = WB_UNKNOWN;
         }
     }
     return wip;
 }
 
-size_t Lifetime_Hash(struct Lifetime *lifetime)
+size_t lifetime_hash(struct Lifetime *lifetime)
 {
-    return hashString(lifetime->name);
+    return hash_string(lifetime->name);
 }
 
-ssize_t Lifetime_Compare(struct Lifetime *lifetimeA, struct Lifetime *lifetimeB)
+ssize_t lifetime_compare(struct Lifetime *lifetimeA, struct Lifetime *lifetimeB)
 {
     return strcmp(lifetimeA->name, lifetimeB->name);
 }
 
-bool Lifetime_IsLiveAtIndex(struct Lifetime *lifetime, size_t index)
+bool lifetime_is_live_at_index(struct Lifetime *lifetime, size_t index)
 {
     return ((lifetime->start <= index) && (lifetime->end >= index));
 }
@@ -115,7 +115,7 @@ bool Lifetime_IsLiveAtIndex(struct Lifetime *lifetime, size_t index)
 // search through the list of existing lifetimes
 // update the lifetime if it exists, insert if it doesn't
 // returns pointer to the lifetime corresponding to the passed variable name
-struct Lifetime *updateOrInsertLifetime(struct Set *ltList,
+struct Lifetime *update_or_insert_lifetime(struct Set *ltList,
                                         char *name,
                                         struct Type *type,
                                         size_t newEnd,
@@ -124,17 +124,17 @@ struct Lifetime *updateOrInsertLifetime(struct Set *ltList,
 {
     struct Lifetime dummyFind = {0};
     dummyFind.name = name;
-    struct Lifetime *thisLt = Set_Find(ltList, &dummyFind);
+    struct Lifetime *thisLt = set_find(ltList, &dummyFind);
 
     if (thisLt != NULL)
     {
         // this should never fire with well-formed TAC
         // may be helpful when adding/troubleshooting new TAC generation
-        if (Type_Compare(&thisLt->type, type))
+        if (type_compare(&thisLt->type, type))
         {
-            char *expectedTypeName = Type_GetName(&thisLt->type);
-            char *typeName = Type_GetName(type);
-            InternalError("Type mismatch between identically named variables [%s] expected %s, saw %s!", name, expectedTypeName, typeName);
+            char *expectedTypename = type_get_name(&thisLt->type);
+            char *typename = type_get_name(type);
+            InternalError("Type mismatch between identically named variables [%s] expected %s, saw %s!", name, expectedTypename, typename);
         }
         if (newEnd > thisLt->end)
         {
@@ -143,9 +143,9 @@ struct Lifetime *updateOrInsertLifetime(struct Set *ltList,
     }
     else
     {
-        Log(LOG_DEBUG, "Create lifetime starting at %zu for %s: global? %d mustspill? %d", newEnd, name, isGlobal, mustSpill);
-        thisLt = Lifetime_New(name, type, newEnd, isGlobal, mustSpill);
-        Set_Insert(ltList, thisLt);
+        log(LOG_DEBUG, "Create lifetime starting at %zu for %s: global? %d mustspill? %d", newEnd, name, isGlobal, mustSpill);
+        thisLt = lifetime_new(name, type, newEnd, isGlobal, mustSpill);
+        set_insert(ltList, thisLt);
     }
 
     return thisLt;
@@ -153,79 +153,79 @@ struct Lifetime *updateOrInsertLifetime(struct Set *ltList,
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
-void recordVariableWrite(struct Set *ltList,
+void record_variable_write(struct Set *ltList,
                          struct TACOperand *writtenOperand,
                          struct Scope *scope,
                          size_t newEnd)
 {
-    Log(LOG_DEBUG, "Record variable write for %s at index %zu", writtenOperand->name.str, newEnd);
+    log(LOG_DEBUG, "Record variable write for %s at index %zu", writtenOperand->name.str, newEnd);
 
     u8 isGlobal = 0;
     u8 mustSpill = 0;
-    if (writtenOperand->permutation == vp_standard)
+    if (writtenOperand->permutation == VP_STANDARD)
     {
-        struct VariableEntry *recordedVariable = lookupVarByString(scope, writtenOperand->name.str);
+        struct VariableEntry *recordedVariable = lookup_var_by_string(scope, writtenOperand->name.str);
         isGlobal = recordedVariable->isGlobal;
         mustSpill = recordedVariable->mustSpill;
     }
 
     // always use ->type as we don't care what it's cast as to determine its lifetime
-    struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, writtenOperand->name.str, &(writtenOperand->type), newEnd, isGlobal, mustSpill);
+    struct Lifetime *updatedLifetime = update_or_insert_lifetime(ltList, writtenOperand->name.str, &(writtenOperand->type), newEnd, isGlobal, mustSpill);
     updatedLifetime->nwrites += 1;
 }
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
-void recordVariableRead(struct Set *ltList,
+void record_variable_read(struct Set *ltList,
                         struct TACOperand *readOperand,
                         struct Scope *scope,
                         size_t newEnd)
 {
-    Log(LOG_DEBUG, "Record variable read for %s at index %zu", readOperand->name.str, newEnd);
+    log(LOG_DEBUG, "Record variable read for %s at index %zu", readOperand->name.str, newEnd);
 
     u8 isGlobal = 0;
     u8 mustSpill = 0;
-    if (readOperand->permutation == vp_standard)
+    if (readOperand->permutation == VP_STANDARD)
     {
-        struct VariableEntry *recordedVariable = lookupVarByString(scope, readOperand->name.str);
+        struct VariableEntry *recordedVariable = lookup_var_by_string(scope, readOperand->name.str);
         isGlobal = recordedVariable->isGlobal;
         mustSpill = recordedVariable->mustSpill;
     }
 
     // always use ->type as we don't care what it's cast as to determine its lifetime
-    struct Lifetime *updatedLifetime = updateOrInsertLifetime(ltList, readOperand->name.str, &(readOperand->type), newEnd, isGlobal, mustSpill);
+    struct Lifetime *updatedLifetime = update_or_insert_lifetime(ltList, readOperand->name.str, &(readOperand->type), newEnd, isGlobal, mustSpill);
     updatedLifetime->nreads += 1;
 }
 
-void recordLifetimeWriteForOperand(struct Set *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
+void record_lifetime_write_for_operand(struct Set *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
 {
-    if ((TACOperand_GetType(operand)->basicType != vt_null) && (operand->permutation != vp_literal))
+    if ((tac_operand_get_type(operand)->basicType != VT_NULL) && (operand->permutation != VP_LITERAL))
     {
-        recordVariableWrite(lifetimes, operand, scope, tacIndex);
+        record_variable_write(lifetimes, operand, scope, tacIndex);
     }
 }
 
-void recordLifetimeReadForOperand(struct Set *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
+void record_lifetime_read_for_operand(struct Set *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
 {
-    if ((TACOperand_GetType(operand)->basicType != vt_null) && (operand->permutation != vp_literal))
+    if ((tac_operand_get_type(operand)->basicType != VT_NULL) && (operand->permutation != VP_LITERAL))
     {
-        recordVariableRead(lifetimes, operand, scope, tacIndex);
+        record_variable_read(lifetimes, operand, scope, tacIndex);
     }
 }
 
-void findLifetimesForTac(struct Set *lifetimes, struct Scope *scope, struct TACLine *line, struct Stack *doDepth)
+void find_lifetimes_for_tac(struct Set *lifetimes, struct Scope *scope, struct TACLine *line, struct Stack *doDepth)
 {
     // handle tt_do/tt_enddo stack and lifetime extension
     switch (line->operation)
     {
-    case tt_do:
-        Stack_Push(doDepth, (void *)(long int)line->index);
+    case TT_DO:
+        stack_push(doDepth, (void *)(long int)line->index);
         break;
 
-    case tt_enddo:
+    case TT_ENDDO:
     {
         size_t extendTo = line->index;
-        size_t extendFrom = (size_t)Stack_Pop(doDepth);
+        size_t extendFrom = (size_t)stack_pop(doDepth);
         for (struct LinkedListNode *lifetimeRunner = lifetimes->elements->head; lifetimeRunner != NULL; lifetimeRunner = lifetimeRunner->next)
         {
             struct Lifetime *examinedLifetime = lifetimeRunner->data;
@@ -246,58 +246,58 @@ void findLifetimesForTac(struct Set *lifetimes, struct Scope *scope, struct TACL
 
     for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
     {
-        switch (getUseOfOperand(line, operandIndex))
+        switch (get_use_of_operand(line, operandIndex))
         {
-        case u_unused:
+        case U_UNUSED:
             break;
 
-        case u_read:
-            recordLifetimeReadForOperand(lifetimes, &line->operands[operandIndex], scope, line->index);
+        case U_READ:
+            record_lifetime_read_for_operand(lifetimes, &line->operands[operandIndex], scope, line->index);
             break;
 
-        case u_write:
-            recordLifetimeWriteForOperand(lifetimes, &line->operands[operandIndex], scope, line->index);
+        case U_WRITE:
+            record_lifetime_write_for_operand(lifetimes, &line->operands[operandIndex], scope, line->index);
             break;
         }
     }
 }
 
-void addArgumentLifetimesForScope(struct Set *lifetimes, struct Scope *scope)
+void add_argument_lifetimes_for_scope(struct Set *lifetimes, struct Scope *scope)
 {
     for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
     {
         struct ScopeMember *thisMember = scope->entries->data[entryIndex];
-        if (thisMember->type == e_argument)
+        if (thisMember->type == E_ARGUMENT)
         {
             struct VariableEntry *theArgument = thisMember->entry;
             // arguments can be mustSpill too - if they are used in an address-of it will be required not to ever load them into registers
-            updateOrInsertLifetime(lifetimes, thisMember->name, &theArgument->type, 0, 0, theArgument->mustSpill)->isArgument = 1;
+            update_or_insert_lifetime(lifetimes, thisMember->name, &theArgument->type, 0, 0, theArgument->mustSpill)->isArgument = 1;
         }
     }
 }
 
-struct Set *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList)
+struct Set *find_lifetimes(struct Scope *scope, struct LinkedList *basicBlockList)
 {
-    struct Set *lifetimes = Set_New((ssize_t(*)(void *, void *))Lifetime_Compare, free);
+    struct Set *lifetimes = set_new((ssize_t(*)(void *, void *))lifetime_compare, free);
 
-    addArgumentLifetimesForScope(lifetimes, scope);
+    add_argument_lifetimes_for_scope(lifetimes, scope);
 
     struct LinkedListNode *blockRunner = basicBlockList->head;
-    struct Stack *doDepth = Stack_New();
+    struct Stack *doDepth = stack_new();
     while (blockRunner != NULL)
     {
         struct BasicBlock *thisBlock = blockRunner->data;
-        struct LinkedListNode *TACRunner = thisBlock->TACList->head;
-        while (TACRunner != NULL)
+        struct LinkedListNode *tacRunner = thisBlock->TACList->head;
+        while (tacRunner != NULL)
         {
-            struct TACLine *thisLine = TACRunner->data;
-            findLifetimesForTac(lifetimes, scope, thisLine, doDepth);
-            TACRunner = TACRunner->next;
+            struct TACLine *thisLine = tacRunner->data;
+            find_lifetimes_for_tac(lifetimes, scope, thisLine, doDepth);
+            tacRunner = tacRunner->next;
         }
         blockRunner = blockRunner->next;
     }
 
-    Stack_Free(doDepth);
+    stack_free(doDepth);
 
     return lifetimes;
 }
@@ -307,7 +307,7 @@ struct Set *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList
  * Register struct
  *
  */
-struct Register *Register_New(u8 index)
+struct Register *register_new(u8 index)
 {
     struct Register *reg = malloc(sizeof(struct Register));
     reg->containedLifetime = NULL;
@@ -316,12 +316,12 @@ struct Register *Register_New(u8 index)
     return reg;
 }
 
-bool Register_IsLive(struct Register *reg, size_t index)
+bool register_is_live(struct Register *reg, size_t index)
 {
     if (reg->containedLifetime == NULL)
     {
         return false;
     }
 
-    return Lifetime_IsLiveAtIndex(reg->containedLifetime, index);
+    return lifetime_is_live_at_index(reg->containedLifetime, index);
 }

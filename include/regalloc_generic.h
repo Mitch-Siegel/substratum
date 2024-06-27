@@ -13,12 +13,12 @@ struct LinkedList;
 struct Set;
 struct Scope;
 
-enum WritebackLocation
+enum WRITEBACK_LOCATION
 {
-    wb_register,
-    wb_stack,
-    wb_global,
-    wb_unknown,
+    WB_REGISTER,
+    WB_STACK,
+    WB_GLOBAL,
+    WB_UNKNOWN,
 };
 
 struct Lifetime
@@ -26,7 +26,7 @@ struct Lifetime
     size_t start, end, nwrites, nreads;
     char *name;
     struct Type type;
-    enum WritebackLocation wbLocation;
+    enum WRITEBACK_LOCATION wbLocation;
     union
     {
         ssize_t stackOffset;
@@ -35,7 +35,7 @@ struct Lifetime
     u8 isArgument;
 };
 
-struct MachineInfo *MachineInfo_New(u8 maxReg,
+struct MachineInfo *machine_info_new(u8 maxReg,
                                     u8 n_temps,
                                     u8 n_arguments,
                                     u8 n_general_purpose,
@@ -43,23 +43,23 @@ struct MachineInfo *MachineInfo_New(u8 maxReg,
                                     u8 n_callee_save,
                                     u8 n_caller_save);
 
-void MachineInfo_Free(struct MachineInfo *info);
+void machine_info_free(struct MachineInfo *info);
 
-struct Lifetime *Lifetime_New(char *name,
+struct Lifetime *lifetime_new(char *name,
                               struct Type *type,
                               size_t start,
                               u8 isGlobal,
                               u8 mustSpill);
 
-size_t Lifetime_Hash(struct Lifetime *lifetime);
+size_t lifetime_hash(struct Lifetime *lifetime);
 
-ssize_t Lifetime_Compare(struct Lifetime *lifetimeA, struct Lifetime *lifetimeB);
+ssize_t lifetime_compare(struct Lifetime *lifetimeA, struct Lifetime *lifetimeB);
 
-bool Lifetime_IsLiveAtIndex(struct Lifetime *lifetime, size_t index);
+bool lifetime_is_live_at_index(struct Lifetime *lifetime, size_t index);
 
 // update the lifetime start/end indices
 // returns pointer to the lifetime corresponding to the passed variable name
-struct Lifetime *updateOrInsertLifetime(struct Set *ltList,
+struct Lifetime *update_or_insert_lifetime(struct Set *ltList,
                                         char *name,
                                         struct Type *type,
                                         size_t newEnd,
@@ -68,19 +68,19 @@ struct Lifetime *updateOrInsertLifetime(struct Set *ltList,
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
-void recordVariableWrite(struct Set *ltList,
+void record_variable_write(struct Set *ltList,
                          struct TACOperand *writtenOperand,
                          struct Scope *scope,
                          size_t newEnd);
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
-void recordVariableRead(struct Set *ltList,
+void record_variable_read(struct Set *ltList,
                         struct TACOperand *readOperand,
                         struct Scope *scope,
                         size_t newEnd);
 
-struct Set *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList);
+struct Set *find_lifetimes(struct Scope *scope, struct LinkedList *basicBlockList);
 
 struct Register
 {
@@ -89,9 +89,9 @@ struct Register
     char *name;                         // string name of this register (as it appears in asm)
 };
 
-struct Register *Register_New(u8 index);
+struct Register *register_new(u8 index);
 
-bool Register_IsLive(struct Register *reg, size_t index);
+bool register_is_live(struct Register *reg, size_t index);
 
 struct MachineInfo
 {

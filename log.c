@@ -5,7 +5,7 @@
 
 #include "ast.h"
 
-enum LogLevel logLevel = LOG_WARNING;
+enum LOG_LEVEL logLevel = LOG_WARNING;
 
 char *logLevelNames[LOG_FATAL + 1] =
     {
@@ -15,13 +15,13 @@ char *logLevelNames[LOG_FATAL + 1] =
         "ERROR",
         "FATAL"};
 
-void setLogLevel(enum LogLevel newLevel)
+void set_log_level(enum LOG_LEVEL newLevel)
 {
     logLevel = newLevel;
-    Log(LOG_INFO, "Set log level to %s", logLevelNames[newLevel]);
+    log(LOG_INFO, "Set log level to %s", logLevelNames[newLevel]);
 }
 
-void printLogLevel(enum LogLevel level, const char *file, size_t line)
+void print_log_level(enum LOG_LEVEL level, const char *file, size_t line)
 {
     switch (level)
     {
@@ -44,7 +44,7 @@ void printLogLevel(enum LogLevel level, const char *file, size_t line)
     }
 }
 
-void LogFunction(const char *file, size_t line, enum LogLevel level, const char *format, ...)
+void log_function(const char *file, size_t line, enum LOG_LEVEL level, const char *format, ...)
 {
     if (level < logLevel)
     {
@@ -53,7 +53,7 @@ void LogFunction(const char *file, size_t line, enum LogLevel level, const char 
 
     va_list args;
     va_start(args, format);
-    printLogLevel(level, file, line);
+    print_log_level(level, file, line);
     vprintf(format, args);
     putc('\n', stdout);
     va_end(args);
@@ -64,7 +64,7 @@ void LogFunction(const char *file, size_t line, enum LogLevel level, const char 
     }
 }
 
-void LogTreeFunction(const char *file, size_t line, enum LogLevel level, struct AST *tree, const char *format, ...)
+void log_tree_function(const char *file, size_t line, enum LOG_LEVEL level, struct AST *tree, const char *format, ...)
 {
     if (level < logLevel)
     {
@@ -73,12 +73,9 @@ void LogTreeFunction(const char *file, size_t line, enum LogLevel level, struct 
 
     va_list args;
     va_start(args, format);
-    printLogLevel(level, file, line);
+    print_log_level(level, file, line);
     // TODO: option to print tree even on fatal
-    if (level != LOG_FATAL)
-    {
-        printf("%s:%d:%d: ", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    printf("%s:%d:%d: ", tree->sourceFile, tree->sourceLine, tree->sourceCol);
     vprintf(format, args);
     putc('\n', stdout);
     va_end(args);

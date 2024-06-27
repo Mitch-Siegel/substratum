@@ -5,15 +5,15 @@
 #include "util.h"
 
 // create a variable within the given scope
-struct VariableEntry *createVariable(struct Scope *scope,
+struct VariableEntry *create_variable(struct Scope *scope,
                                      struct AST *name,
                                      struct Type *type,
                                      u8 isGlobal,
                                      size_t declaredAt,
                                      u8 isArgument,
-                                     enum Access accessibility)
+                                     enum ACCESS accessibility)
 {
-    if (isArgument && (accessibility != a_public))
+    if (isArgument && (accessibility != A_PUBLIC))
     {
         InternalError("createVariable called with isArgument == 1 and accessibility != a_public - illegal arguments");
     }
@@ -37,31 +37,31 @@ struct VariableEntry *createVariable(struct Scope *scope,
     newVariable->isExtern = 0;
     newVariable->isStringLiteral = 0;
 
-    if (Scope_contains(scope, name->value))
+    if (scope_contains(scope, name->value))
     {
-        LogTree(LOG_FATAL, name, "Redifinition of symbol %s!", name->value);
+        log_tree(LOG_FATAL, name, "Redifinition of symbol %s!", name->value);
     }
 
     // if we have an argument, it will be trivially spilled because it is passed in on the stack
     if (isArgument)
     {
-        Scope_insert(scope, name->value, newVariable, e_argument, accessibility);
+        scope_insert(scope, name->value, newVariable, E_ARGUMENT, accessibility);
     }
     else
     {
-        Scope_insert(scope, name->value, newVariable, e_variable, accessibility);
+        scope_insert(scope, name->value, newVariable, E_VARIABLE, accessibility);
     }
 
     return newVariable;
 }
 
-void VariableEntry_free(struct VariableEntry *variable)
+void variable_entry_free(struct VariableEntry *variable)
 {
     struct Type *variableType = &variable->type;
-    if (variableType->basicType == vt_array)
+    if (variableType->basicType == VT_ARRAY)
     {
         struct Type typeRunner = *variableType;
-        while (typeRunner.basicType == vt_array)
+        while (typeRunner.basicType == VT_ARRAY)
         {
             if (typeRunner.array.initializeArrayTo != NULL)
             {
@@ -84,9 +84,9 @@ void VariableEntry_free(struct VariableEntry *variable)
     free(variable);
 }
 
-struct VariableEntry *lookupVarByString(struct Scope *scope, char *name)
+struct VariableEntry *lookup_var_by_string(struct Scope *scope, char *name)
 {
-    struct ScopeMember *lookedUp = Scope_lookup(scope, name);
+    struct ScopeMember *lookedUp = scope_lookup(scope, name);
     if (lookedUp == NULL)
     {
         InternalError("Lookup of variable [%s] by string name failed!", name);
@@ -94,8 +94,8 @@ struct VariableEntry *lookupVarByString(struct Scope *scope, char *name)
 
     switch (lookedUp->type)
     {
-    case e_argument:
-    case e_variable:
+    case E_ARGUMENT:
+    case E_VARIABLE:
         return lookedUp->entry;
 
     default:
@@ -103,18 +103,18 @@ struct VariableEntry *lookupVarByString(struct Scope *scope, char *name)
     }
 }
 
-struct VariableEntry *lookupVar(struct Scope *scope, struct AST *name)
+struct VariableEntry *lookup_var(struct Scope *scope, struct AST *name)
 {
-    struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
+    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
     if (lookedUp == NULL)
     {
-        LogTree(LOG_FATAL, name, "Use of undeclared variable '%s'", name->value);
+        log_tree(LOG_FATAL, name, "Use of undeclared variable '%s'", name->value);
     }
 
     switch (lookedUp->type)
     {
-    case e_argument:
-    case e_variable:
+    case E_ARGUMENT:
+    case E_VARIABLE:
         return lookedUp->entry;
 
     default:

@@ -5,16 +5,16 @@
 struct LinkedList;
 struct ParseProgress;
 
-void trackCharacter(struct ParseProgress *auxil, int trackedCharacter);
+void track_character(struct ParseProgress *auxil, int trackedCharacter);
 
-void manageLocation(struct ParseProgress *auxil, char *matchedString, bool isSourceLocation);
+void manage_location(struct ParseProgress *auxil, char *matchedString, bool isSourceLocation);
 
-#define manageSourceLocation(auxil, matchedString) manageLocation(auxil, matchedString, true)
-#define manageNonSourceLocation(auxil, matchedString) manageLocation(auxil, matchedString, false)
+#define manage_source_location(auxil, matchedString) manage_location(auxil, matchedString, true)
+#define manage_non_source_location(auxil, matchedString) manage_location(auxil, matchedString, false)
 
-void parserError(struct ParseProgress *auxil);
+void parser_error(struct ParseProgress *auxil);
 
-void setCurrentFile(struct ParseProgress *auxil, char *preprocessorLine, u32 lineNum, char *fileName);
+void set_current_file(struct ParseProgress *auxil, char *preprocessorLine, u32 lineNum, char *fileName);
 
 #define CHARS_THIS_LINE(auxil) (*(size_t *)((auxil)->charsRemainingPerLine->head->data))
 #define CHARS_LAST_LINE(auxil) (*(size_t *)((auxil)->charsRemainingPerLine->tail->data))
@@ -27,7 +27,7 @@ void setCurrentFile(struct ParseProgress *auxil, char *preprocessorLine, u32 lin
     }                                    \
     else                                 \
     {                                    \
-        trackCharacter(auxil, (inChar)); \
+        track_character(auxil, (inChar)); \
     }                                    \
     (inChar);                            \
 })
@@ -57,16 +57,16 @@ void setCurrentFile(struct ParseProgress *auxil, char *preprocessorLine, u32 lin
             }                                                              \
             fputc('\n', stderr);                                           \
         }                                                                  \
-        parserError(auxil);                                                \
+        parser_error(auxil);                                                \
     }
 
-#define AST_S(original, newrightmost) AST_ConstructAddSibling(original, newrightmost)
-#define AST_C(parent, child) AST_ConstructAddChild(parent, child)
-#define AST_N(auxil, token, value, location)                                                                                                          \
-    ({                                                                                                                                                \
-        struct AST *created = AST_New(token, Dictionary_LookupOrInsert((auxil)->dict, (value)), (auxil)->curFile, (auxil)->curLine, (auxil)->curCol); \
-        manageSourceLocation(auxil, value);                                                                                                           \
-        created;                                                                                                                                      \
+#define ast_s(original, newrightmost) ast_construct_add_sibling(original, newrightmost)
+#define ast_c(parent, child) ast_construct_add_child(parent, child)
+#define ast_n(auxil, token, value, location)                                                                                                            \
+    ({                                                                                                                                                  \
+        struct AST *created = ast_new(token, dictionary_lookup_or_insert((auxil)->dict, (value)), (auxil)->curFile, (auxil)->curLine, (auxil)->curCol); \
+        manage_source_location(auxil, value);                                                                                                           \
+        created;                                                                                                                                        \
     })
 
 #endif
