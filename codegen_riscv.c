@@ -1007,8 +1007,8 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
 
         case TT_METHOD_CALL:
         {
-            struct StructEntry *methodOf = lookup_struct_by_type(metadata->scope, tac_get_type_of_operand(thisTac, 2));
-            struct FunctionEntry *calledMethod = lookup_method_by_string(methodOf, thisTac->operands[1].name.str);
+            struct StructEntry *methodOf = scope_lookup_struct_by_type(metadata->scope, tac_get_type_of_operand(thisTac, 2));
+            struct FunctionEntry *calledMethod = struct_lookup_method_by_string(methodOf, thisTac->operands[1].name.str);
 
             riscv_caller_save_registers(state, calledMethod, info);
 
@@ -1036,8 +1036,8 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
 
         case TT_ASSOCIATED_CALL:
         {
-            struct StructEntry *associatedWith = lookup_struct_by_type(metadata->scope, tac_get_type_of_operand(thisTac, 2));
-            struct FunctionEntry *calledAssociated = lookup_method_by_string(associatedWith, thisTac->operands[1].name.str);
+            struct StructEntry *associatedWith = scope_lookup_struct_by_type(metadata->scope, tac_get_type_of_operand(thisTac, 2));
+            struct FunctionEntry *calledAssociated = struct_lookup_method_by_string(associatedWith, thisTac->operands[1].name.str);
 
             riscv_caller_save_registers(state, calledAssociated, info);
 

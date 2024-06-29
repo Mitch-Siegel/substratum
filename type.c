@@ -128,6 +128,8 @@ bool type_is_struct_object(struct Type *type)
     return ((type->basicType == VT_STRUCT) && (type->pointerLevel == 0));
 }
 
+
+// NOLINTBEGIN(readability-function-cognitive-complexity)
 int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA, enum BASIC_TYPES basicTypeB)
 {
     int retVal = 0;
@@ -296,6 +298,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
     }
     return retVal;
 }
+// NOLINTEND(readability-function-cognitive-complexity)
 
 int type_compare_allow_implicit_widening(struct Type *src, struct Type *dest)
 {
@@ -479,7 +482,7 @@ size_t type_get_size(struct Type *type, struct Scope *scope)
 
     case VT_STRUCT:
     {
-        struct StructEntry *theStruct = lookup_struct_by_type(scope, type);
+        struct StructEntry *theStruct = scope_lookup_struct_by_type(scope, type);
         size = theStruct->totalSize;
     }
     break;
@@ -550,7 +553,7 @@ u8 type_get_alignment(struct Type *type, struct Scope *scope)
     {
     case VT_STRUCT:
     {
-        struct StructEntry *theStruct = lookup_struct_by_type(scope, type);
+        struct StructEntry *theStruct = scope_lookup_struct_by_type(scope, type);
         for (size_t memberIndex = 0; memberIndex < theStruct->memberLocations->size; memberIndex++)
         {
             struct StructMemberOffset *offset = theStruct->memberLocations->data[memberIndex];

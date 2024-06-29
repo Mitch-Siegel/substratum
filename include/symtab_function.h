@@ -33,11 +33,4 @@ struct FunctionEntry *create_function(struct Scope *parentScope,
                                      struct Type *returnType,
                                      struct StructEntry *methodOf,
                                      enum ACCESS accessibility);
-
-struct FunctionEntry *lookup_fun_by_string(struct Scope *scope,
-                                        char *name);
-
-struct FunctionEntry *lookup_fun(struct Scope *scope,
-                                struct AST *name);
-
 #endif

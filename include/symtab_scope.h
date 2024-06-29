@@ -56,7 +56,7 @@ void scope_free(struct Scope *scope);
 void scope_print(struct Scope *scope,
                  FILE *outFile,
                  size_t depth,
-                 char printTAC);
+                 bool printTac);
 
 void scope_insert(struct Scope *scope,
                   char *name,
@@ -79,6 +79,33 @@ struct ScopeMember *scope_lookup(struct Scope *scope,
 
 // adds an entry in the given scope denoting that the block is from that scope
 void scope_add_basic_block(struct Scope *scope,
-                         struct BasicBlock *block);
+                           struct BasicBlock *block);
+
+struct VariableEntry *scope_lookup_var_by_string(struct Scope *scope,
+                                                 char *name);
+
+struct VariableEntry *scope_lookup_var(struct Scope *scope,
+                                       struct AST *name);
+
+struct FunctionEntry *lookup_fun_by_string(struct Scope *scope,
+                                           char *name);
+
+struct FunctionEntry *scope_lookup_fun(struct Scope *scope,
+                                 struct AST *name);
+
+struct StructEntry *scope_lookup_struct(struct Scope *scope,
+                                        struct AST *name);
+
+struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
+                                                struct Type *type);
+
+struct EnumEntry *scope_lookup_enum(struct Scope *scope,
+                                    struct AST *name);
+
+struct EnumEntry *scope_lookup_enum_by_type(struct Scope *scope,
+                                            struct Type *type);
+
+struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
+                                                   char *name);
 
 #endif

@@ -33,7 +33,7 @@ struct SymbolTable *symbol_table_new(char *name);
 
 void symbol_table_print(struct SymbolTable *table,
                        FILE *outFile,
-                       char printTAC);
+                       bool printTac);
 
 void symbol_table_decay_arrays(struct SymbolTable *table);
 

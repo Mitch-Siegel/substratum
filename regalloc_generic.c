@@ -164,7 +164,7 @@ void record_variable_write(struct Set *ltList,
     u8 mustSpill = 0;
     if (writtenOperand->permutation == VP_STANDARD)
     {
-        struct VariableEntry *recordedVariable = lookup_var_by_string(scope, writtenOperand->name.str);
+        struct VariableEntry *recordedVariable = scope_lookup_var_by_string(scope, writtenOperand->name.str);
         isGlobal = recordedVariable->isGlobal;
         mustSpill = recordedVariable->mustSpill;
     }
@@ -187,7 +187,7 @@ void record_variable_read(struct Set *ltList,
     u8 mustSpill = 0;
     if (readOperand->permutation == VP_STANDARD)
     {
-        struct VariableEntry *recordedVariable = lookup_var_by_string(scope, readOperand->name.str);
+        struct VariableEntry *recordedVariable = scope_lookup_var_by_string(scope, readOperand->name.str);
         isGlobal = recordedVariable->isGlobal;
         mustSpill = recordedVariable->mustSpill;
     }

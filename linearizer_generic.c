@@ -53,7 +53,7 @@ void populate_tac_operand_from_enum_member(struct TACOperand *operandToPopulate,
     operandToPopulate->type.basicType = VT_ENUM;
     operandToPopulate->permutation = VP_LITERAL;
 
-    struct EnumMember *member = lookup_enum_member(theEnum, tree);
+    struct EnumMember *member = enum_lookup_member(theEnum, tree);
 
     operandToPopulate->type.nonArray.complexType.name = theEnum->name;
 

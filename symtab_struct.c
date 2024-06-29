@@ -6,7 +6,7 @@
 #include "util.h"
 
 struct StructEntry *create_struct(struct Scope *scope,
-                                 char *name)
+                                  char *name)
 {
     struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
     wipStruct->name = name;
@@ -31,8 +31,8 @@ void struct_entry_free(struct StructEntry *theStruct)
     free(theStruct);
 }
 
-void assign_offset_to_member_variable(struct StructEntry *memberOf,
-                                  struct VariableEntry *variable)
+void struct_assign_offset_to_member_variable(struct StructEntry *memberOf,
+                                             struct VariableEntry *variable)
 {
 
     struct StructMemberOffset *newMemberLocation = malloc(sizeof(struct StructMemberOffset));
@@ -57,10 +57,10 @@ void assign_offset_to_member_variable(struct StructEntry *memberOf,
 }
 
 // assuming we know that struct has a member with name identical to name->value, make sure we can actually access it
-void check_access(struct StructEntry *theStruct,
-                 struct AST *name,
-                 struct Scope *scope,
-                 char *whatAccessingCalled)
+void struct_check_access(struct StructEntry *theStruct,
+                         struct AST *name,
+                         struct Scope *scope,
+                         char *whatAccessingCalled)
 {
     struct ScopeMember *accessed = scope_lookup(theStruct->members, name->value);
 
@@ -89,17 +89,17 @@ void check_access(struct StructEntry *theStruct,
     }
 }
 
-struct StructMemberOffset *lookup_member_variable(struct StructEntry *theStruct,
-                                                struct AST *name,
-                                                struct Scope *scope)
+struct StructMemberOffset *struct_lookup_member_variable(struct StructEntry *theStruct,
+                                                         struct AST *name,
+                                                         struct Scope *scope)
 {
     if (name->type != T_IDENTIFIER)
     {
         log_tree(LOG_FATAL,
-                name,
-                "Non-identifier tree %s (%s) passed to Struct_lookupOffsetOfMemberVariable!\n",
-                name->value,
-                get_token_name(name->type));
+                 name,
+                 "Non-identifier tree %s (%s) passed to Struct_lookupOffsetOfMemberVariable!\n",
+                 name->value,
+                 get_token_name(name->type));
     }
 
     struct StructMemberOffset *returnedMember = NULL;
@@ -119,15 +119,15 @@ struct StructMemberOffset *lookup_member_variable(struct StructEntry *theStruct,
     }
     else
     {
-        check_access(theStruct, name, scope, "Member");
+        struct_check_access(theStruct, name, scope, "Member");
     }
 
     return returnedMember;
 }
 
-struct FunctionEntry *looup_method(struct StructEntry *theStruct,
-                                  struct AST *name,
-                                  struct Scope *scope)
+struct FunctionEntry *struct_looup_method(struct StructEntry *theStruct,
+                                          struct AST *name,
+                                          struct Scope *scope)
 {
     struct FunctionEntry *returnedMethod = NULL;
 
@@ -150,15 +150,15 @@ struct FunctionEntry *looup_method(struct StructEntry *theStruct,
     }
     else
     {
-        check_access(theStruct, name, scope, "Method");
+        struct_check_access(theStruct, name, scope, "Method");
     }
 
     return returnedMethod;
 }
 
-struct FunctionEntry *lookup_associated_function(struct StructEntry *theStruct,
-                                               struct AST *name,
-                                               struct Scope *scope)
+struct FunctionEntry *struct_lookup_associated_function(struct StructEntry *theStruct,
+                                                        struct AST *name,
+                                                        struct Scope *scope)
 {
     struct FunctionEntry *returnedAssociated = NULL;
 
@@ -187,14 +187,14 @@ struct FunctionEntry *lookup_associated_function(struct StructEntry *theStruct,
     }
     else
     {
-        check_access(theStruct, name, scope, "Associated");
+        struct_check_access(theStruct, name, scope, "Associated");
     }
 
     return returnedAssociated;
 }
 
-struct FunctionEntry *lookup_method_by_string(struct StructEntry *theStruct,
-                                           char *name)
+struct FunctionEntry *struct_lookup_method_by_string(struct StructEntry *theStruct,
+                                                     char *name)
 {
     for (size_t entryIndex = 0; entryIndex < theStruct->members->entries->size; entryIndex++)
     {
@@ -211,48 +211,4 @@ struct FunctionEntry *lookup_method_by_string(struct StructEntry *theStruct,
 
     log(LOG_FATAL, "Attempt to call nonexistent method %s.%s\n", theStruct->name, name);
     exit(1);
-}
-
-struct StructEntry *lookup_struct(struct Scope *scope,
-                                 struct AST *name)
-{
-    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
-    if (lookedUp == NULL)
-    {
-        log_tree(LOG_FATAL, name, "Use of undeclared struct '%s'", name->value);
-    }
-    switch (lookedUp->type)
-    {
-    case E_STRUCT:
-        return lookedUp->entry;
-
-    default:
-        log_tree(LOG_FATAL, name, "%s is not a struct!", name->value);
-    }
-
-    return NULL;
-}
-
-struct StructEntry *lookup_struct_by_type(struct Scope *scope,
-                                       struct Type *type)
-{
-    if (type->basicType != VT_STRUCT || type->nonArray.complexType.name == NULL)
-    {
-        InternalError("Non-struct type or struct type with null name passed to lookupStructByType!");
-    }
-
-    struct ScopeMember *lookedUp = scope_lookup(scope, type->nonArray.complexType.name);
-    if (lookedUp == NULL)
-    {
-        log(LOG_FATAL, "Use of undeclared struct '%s'", type->nonArray.complexType.name);
-    }
-
-    switch (lookedUp->type)
-    {
-    case E_STRUCT:
-        return lookedUp->entry;
-
-    default:
-        InternalError("lookupStructByType for %s lookup got a non-struct ScopeMember!", type->nonArray.complexType.name);
-    }
 }

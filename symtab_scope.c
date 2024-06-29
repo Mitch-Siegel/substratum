@@ -131,3 +131,190 @@ struct ScopeMember *scope_lookup(struct Scope *scope, char *name)
     }
     return NULL;
 }
+
+struct VariableEntry *scope_lookup_var_by_string(struct Scope *scope, char *name)
+{
+    struct ScopeMember *lookedUp = scope_lookup(scope, name);
+    if (lookedUp == NULL)
+    {
+        InternalError("Lookup of variable [%s] by string name failed!", name);
+    }
+
+    switch (lookedUp->type)
+    {
+    case E_ARGUMENT:
+    case E_VARIABLE:
+        return lookedUp->entry;
+
+    default:
+        InternalError("Lookup returned unexpected symbol table entry type when looking up variable [%s]!", name);
+    }
+}
+
+struct VariableEntry *scope_lookup_var(struct Scope *scope, struct AST *name)
+{
+    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
+    if (lookedUp == NULL)
+    {
+        log_tree(LOG_FATAL, name, "Use of undeclared variable '%s'", name->value);
+    }
+
+    switch (lookedUp->type)
+    {
+    case E_ARGUMENT:
+    case E_VARIABLE:
+        return lookedUp->entry;
+
+    default:
+        InternalError("Lookup returned unexpected symbol table entry type when looking up variable [%s]!", name->value);
+    }
+}
+
+struct FunctionEntry *lookup_fun_by_string(struct Scope *scope, char *name)
+{
+    struct ScopeMember *lookedUp = scope_lookup(scope, name);
+    if (lookedUp == NULL)
+    {
+        InternalError("Lookup of undeclared function '%s'", name);
+    }
+
+    switch (lookedUp->type)
+    {
+    case E_FUNCTION:
+        return lookedUp->entry;
+
+    default:
+        InternalError("Lookup returned unexpected symbol table entry type when looking up function!");
+    }
+}
+
+struct FunctionEntry *scope_lookup_fun(struct Scope *scope, struct AST *name)
+{
+    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
+    if (lookedUp == NULL)
+    {
+        log_tree(LOG_FATAL, name, "Use of undeclared function '%s'", name->value);
+    }
+    switch (lookedUp->type)
+    {
+    case E_FUNCTION:
+        return lookedUp->entry;
+
+    default:
+        InternalError("Lookup returned unexpected symbol table entry type when looking up function!");
+    }
+}
+
+struct StructEntry *scope_lookup_struct(struct Scope *scope,
+                                        struct AST *name)
+{
+    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
+    if (lookedUp == NULL)
+    {
+        log_tree(LOG_FATAL, name, "Use of undeclared struct '%s'", name->value);
+    }
+    switch (lookedUp->type)
+    {
+    case E_STRUCT:
+        return lookedUp->entry;
+
+    default:
+        log_tree(LOG_FATAL, name, "%s is not a struct!", name->value);
+    }
+
+    return NULL;
+}
+
+struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
+                                                struct Type *type)
+{
+    if (type->basicType != VT_STRUCT || type->nonArray.complexType.name == NULL)
+    {
+        InternalError("Non-struct type or struct type with null name passed to lookupStructByType!");
+    }
+
+    struct ScopeMember *lookedUp = scope_lookup(scope, type->nonArray.complexType.name);
+    if (lookedUp == NULL)
+    {
+        log(LOG_FATAL, "Use of undeclared struct '%s'", type->nonArray.complexType.name);
+    }
+
+    switch (lookedUp->type)
+    {
+    case E_STRUCT:
+        return lookedUp->entry;
+
+    default:
+        InternalError("lookupStructByType for %s lookup got a non-struct ScopeMember!", type->nonArray.complexType.name);
+    }
+}
+
+struct EnumEntry *scope_lookup_enum(struct Scope *scope,
+                                    struct AST *name)
+{
+    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
+    if (lookedUp == NULL)
+    {
+        log_tree(LOG_FATAL, name, "Use of undeclared enum '%s'", name->value);
+    }
+    switch (lookedUp->type)
+    {
+    case E_ENUM:
+        return lookedUp->entry;
+
+    default:
+        log_tree(LOG_FATAL, name, "%s is not an enum!", name->value);
+    }
+
+    return NULL;
+}
+
+struct EnumEntry *scope_lookup_enum_by_type(struct Scope *scope,
+                                            struct Type *type)
+{
+    if (type->basicType != VT_ENUM || type->nonArray.complexType.name == NULL)
+    {
+        InternalError("Non-enum type or enum type with null name passed to lookupEnumByType!");
+    }
+
+    struct ScopeMember *lookedUp = scope_lookup(scope, type->nonArray.complexType.name);
+    if (lookedUp == NULL)
+    {
+        log(LOG_FATAL, "Use of undeclared enum '%s'", type->nonArray.complexType.name);
+    }
+
+    switch (lookedUp->type)
+    {
+    case E_ENUM:
+        return lookedUp->entry;
+
+    default:
+        InternalError("lookupEnumByType for %s lookup got a non-struct ScopeMember!", type->nonArray.complexType.name);
+    }
+}
+
+struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
+                                                   char *name)
+{
+    struct EnumMember dummyMember = {0};
+    dummyMember.name = name;
+
+    while (scope != NULL)
+    {
+        for (size_t memberIndex = 0; memberIndex < scope->entries->size; memberIndex++)
+        {
+            struct ScopeMember *member = (struct ScopeMember *)scope->entries->data[memberIndex];
+            if (member->type == E_ENUM)
+            {
+                struct EnumEntry *scannedEnum = member->entry;
+                if (set_find(scannedEnum->members, &dummyMember) != NULL)
+                {
+                    return scannedEnum;
+                }
+            }
+        }
+        scope = scope->parentScope;
+    }
+
+    return NULL;
+}

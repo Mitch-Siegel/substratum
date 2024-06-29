@@ -19,11 +19,11 @@ struct SymbolTable *symbol_table_new(char *name)
     return wip;
 }
 
-void symbol_table_print(struct SymbolTable *table, FILE *outFile, char printTAC)
+void symbol_table_print(struct SymbolTable *table, FILE *outFile, bool printTac)
 {
     printf("~~~~~~~~~~~~~\n");
     printf("Symbol Table For %s:\n\n", table->name);
-    scope_print(table->globalScope, outFile, 0, printTAC);
+    scope_print(table->globalScope, outFile, 0, printTac);
     printf("~~~~~~~~~~~~~\n\n");
 }
 
@@ -170,7 +170,7 @@ static void attempt_operand_mangle(struct TACOperand *operand, struct Scope *sco
         }
 
         // if the declaration for the variable is owned by this scope, ensure that we actually get a variable or argument
-        struct VariableEntry *variableToMangle = lookup_var_by_string(scope, originalName);
+        struct VariableEntry *variableToMangle = scope_lookup_var_by_string(scope, originalName);
 
         // only mangle things which are not string literals
         if (variableToMangle->isStringLiteral == 0)
@@ -324,109 +324,113 @@ void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t 
     free(typeName);
 }
 
-void scope_print(struct Scope *scope, FILE *outFile, size_t depth, char printTAC)
+void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth, FILE *outFile)
 {
-    for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
+    if (toPrint->type != E_BASICBLOCK || printTac)
     {
-        struct ScopeMember *thisMember = scope->entries->data[entryIndex];
-
-        if (thisMember->type != E_BASICBLOCK || printTAC)
+        for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
         {
-            for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
-            {
-                fprintf(outFile, "\t");
-            }
+            fprintf(outFile, "\t");
         }
+    }
 
-        switch (thisMember->type)
+    switch (toPrint->type)
+    {
+    case E_ARGUMENT:
+    {
+        struct VariableEntry *theArgument = toPrint->entry;
+        fprintf(outFile, "> Argument: ");
+        variable_entry_print(theArgument, outFile, depth);
+        for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
         {
-        case E_ARGUMENT:
-        {
-            struct VariableEntry *theArgument = thisMember->entry;
-            fprintf(outFile, "> Argument: ");
-            variable_entry_print(theArgument, outFile, depth);
-            for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
-            {
-                fprintf(outFile, "\t");
-            }
-            fprintf(outFile, "  - Stack offset: %zd\n", theArgument->stackOffset);
+            fprintf(outFile, "\t");
         }
-        break;
+        fprintf(outFile, "  - Stack offset: %zd\n", theArgument->stackOffset);
+    }
+    break;
 
-        case E_VARIABLE:
+    case E_VARIABLE:
+    {
+        struct VariableEntry *theVariable = toPrint->entry;
+        fprintf(outFile, "> ");
+        variable_entry_print(theVariable, outFile, depth);
+    }
+    break;
+
+    case E_STRUCT:
+    {
+        struct StructEntry *theStruct = toPrint->entry;
+        fprintf(outFile, "> Struct %s:\n", toPrint->name);
+        for (size_t j = 0; j < depth; j++)
         {
-            struct VariableEntry *theVariable = thisMember->entry;
-            fprintf(outFile, "> ");
-            variable_entry_print(theVariable, outFile, depth);
+            fprintf(outFile, "\t");
         }
-        break;
+        fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
+        scope_print(theStruct->members, outFile, depth + 1, printTac);
+    }
+    break;
 
-        case E_STRUCT:
+    case E_ENUM:
+    {
+        struct EnumEntry *theEnum = toPrint->entry;
+        fprintf(outFile, "> Enum %s:\n", toPrint->name);
+        for (struct LinkedListNode *enumMemberRunner = theEnum->members->elements->head; enumMemberRunner != NULL; enumMemberRunner = enumMemberRunner->next)
         {
-            struct StructEntry *theStruct = thisMember->entry;
-            fprintf(outFile, "> Struct %s:\n", thisMember->name);
+            struct EnumMember *member = enumMemberRunner->data;
             for (size_t j = 0; j < depth; j++)
             {
                 fprintf(outFile, "\t");
             }
-            fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
-            scope_print(theStruct->members, outFile, depth + 1, printTAC);
+            fprintf(outFile, "%zu:%s\n", member->numerical, member->name);
         }
-        break;
+    }
+    break;
 
-        case E_ENUM:
+    case E_FUNCTION:
+    {
+        struct FunctionEntry *theFunction = toPrint->entry;
+        char *returnTypeName = type_get_name(&theFunction->returnType);
+        if (theFunction->methodOf != NULL)
         {
-            struct EnumEntry *theEnum = thisMember->entry;
-            fprintf(outFile, "> Enum %s:\n", thisMember->name);
-            for (struct LinkedListNode *enumMemberRunner = theEnum->members->elements->head; enumMemberRunner != NULL; enumMemberRunner = enumMemberRunner->next)
-            {
-                struct EnumMember *member = enumMemberRunner->data;
-                for (size_t j = 0; j < depth; j++)
-                {
-                    fprintf(outFile, "\t");
-                }
-                fprintf(outFile, "%zu:%s\n", member->numerical, member->name);
-            }
+            fprintf(outFile, "> Method %s.", theFunction->methodOf->name);
         }
-        break;
+        else
+        {
+            fprintf(outFile, "> Function ");
+        }
+        fprintf(outFile, "%s (returns %s) (defined: %d)\n", toPrint->name, returnTypeName, theFunction->isDefined);
+        free(returnTypeName);
+        scope_print(theFunction->mainScope, outFile, depth + 1, printTac);
+    }
+    break;
 
-        case E_FUNCTION:
-        {
-            struct FunctionEntry *theFunction = thisMember->entry;
-            char *returnTypeName = type_get_name(&theFunction->returnType);
-            if (theFunction->methodOf != NULL)
-            {
-                fprintf(outFile, "> Method %s.", theFunction->methodOf->name);
-            }
-            else
-            {
-                fprintf(outFile, "> Function ");
-            }
-            fprintf(outFile, "%s (returns %s) (defined: %d)\n", thisMember->name, returnTypeName, theFunction->isDefined);
-            free(returnTypeName);
-            scope_print(theFunction->mainScope, outFile, depth + 1, printTAC);
-        }
-        break;
+    case E_SCOPE:
+    {
+        struct Scope *theScope = toPrint->entry;
+        fprintf(outFile, "> Subscope %s\n", toPrint->name);
+        scope_print(theScope, outFile, depth + 1, printTac);
+    }
+    break;
 
-        case E_SCOPE:
+    case E_BASICBLOCK:
+    {
+        if (printTac)
         {
-            struct Scope *theScope = thisMember->entry;
-            fprintf(outFile, "> Subscope %s\n", thisMember->name);
-            scope_print(theScope, outFile, depth + 1, printTAC);
+            struct BasicBlock *thisBlock = toPrint->entry;
+            fprintf(outFile, "> Basic Block %zu\n", thisBlock->labelNum);
+            print_basic_block(thisBlock, depth + 1);
         }
-        break;
+    }
+    break;
+    }
+}
 
-        case E_BASICBLOCK:
-        {
-            if (printTAC)
-            {
-                struct BasicBlock *thisBlock = thisMember->entry;
-                fprintf(outFile, "> Basic Block %zu\n", thisBlock->labelNum);
-                print_basic_block(thisBlock, depth + 1);
-            }
-        }
-        break;
-        }
+void scope_print(struct Scope *scope, FILE *outFile, size_t depth, bool printTac)
+{
+    for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
+    {
+        struct ScopeMember *thisMember = scope->entries->data[entryIndex];
+        scope_print_member(thisMember, printTac, depth + 1, outFile);
     }
 }
 

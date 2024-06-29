@@ -54,38 +54,3 @@ struct FunctionEntry *create_function(struct Scope *parentScope,
     scope_insert(parentScope, nameTree->value, newFunction, E_FUNCTION, accessibility);
     return newFunction;
 }
-
-struct FunctionEntry *lookup_fun_by_string(struct Scope *scope, char *name)
-{
-    struct ScopeMember *lookedUp = scope_lookup(scope, name);
-    if (lookedUp == NULL)
-    {
-        InternalError("Lookup of undeclared function '%s'", name);
-    }
-
-    switch (lookedUp->type)
-    {
-    case E_FUNCTION:
-        return lookedUp->entry;
-
-    default:
-        InternalError("Lookup returned unexpected symbol table entry type when looking up function!");
-    }
-}
-
-struct FunctionEntry *lookup_fun(struct Scope *scope, struct AST *name)
-{
-    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
-    if (lookedUp == NULL)
-    {
-        log_tree(LOG_FATAL, name, "Use of undeclared function '%s'", name->value);
-    }
-    switch (lookedUp->type)
-    {
-    case E_FUNCTION:
-        return lookedUp->entry;
-
-    default:
-        InternalError("Lookup returned unexpected symbol table entry type when looking up function!");
-    }
-}
