@@ -1404,7 +1404,7 @@ void walk_enum_match_arm(struct AST *matchedValueTree,
             log_tree(LOG_FATAL, matchedValueTree, "Duplicated underscore case");
         }
         *haveUnderscoreCase = true;
-        *underscoreAction = matchedValueTree->child;
+        *underscoreAction = actionTree;
         break;
 
     case T_IDENTIFIER:
@@ -1466,7 +1466,7 @@ void walk_non_enum_match_arm(struct AST *matchedValueTree,
             log_tree(LOG_FATAL, matchedValueTree, "Duplicated underscore case");
         }
         *haveUnderscoreCase = true;
-        *underscoreAction = matchedValueTree->child;
+        *underscoreAction = actionTree;
         break;
 
     case T_CONSTANT:
@@ -1513,7 +1513,7 @@ void walk_non_enum_match_arm(struct AST *matchedValueTree,
 
         basic_block_append(block, matchJump, tacIndex);
 
-        matchJump->operands[0].name.val = walk_match_case_block(matchedValueTree, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+        matchJump->operands[0].name.val = walk_match_case_block(actionTree, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
     }
     break;
 
@@ -1593,6 +1593,7 @@ void walk_match_statement(struct AST *tree,
             matchArmAction = matchRunner->child->child;
         }
 
+        // TODO: only linearize each match arm action once instead of in each call to walk_*_match_arm
         struct AST *matchedValueRunner = matchRunner->child->sibling;
 
         // for each case matched
@@ -1638,15 +1639,18 @@ void walk_match_statement(struct AST *tree,
     }
 
     // if there is a catch-all underscore, fall through to its block at the very end of all our comparisons
-    if (underscoreAction != NULL)
+    if (haveUnderscoreCase)
     {
-        struct TACLine *underscoreJump = new_tac_line(TT_JMP, underscoreAction);
-        if (underscoreAction->child != NULL)
+        struct TACLine *underscoreJump = NULL;
+        if (underscoreAction != NULL)
         {
-            underscoreJump->operands[0].name.val = walk_match_case_block(underscoreAction->child, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+            underscoreJump = new_tac_line(TT_JMP, underscoreAction);
+            // TODO: 
+            underscoreJump->operands[0].name.val = walk_match_case_block(underscoreAction, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
         }
         else
         {
+            underscoreJump = new_tac_line(TT_JMP, tree);
             underscoreJump->operands[0].name.val = controlConvergesToLabel;
         }
         basic_block_append(block, underscoreJump, tacIndex);
