@@ -103,6 +103,31 @@ struct TACOperand *get_addr_of_operand(struct AST *tree,
     return &addrOfLine->operands[0];
 }
 
+void check_any_type_use(struct Type *type, struct AST *typeTree)
+{
+    // if declaring something with the 'any' type, make sure it's only as a pointer (as its intended use is to point to unstructured data)
+    if (type->basicType == VT_ARRAY || type->basicType == VT_ANY)
+    {
+        struct Type anyCheckRunner = *type;
+        while (anyCheckRunner.basicType == VT_ARRAY)
+        {
+            anyCheckRunner = *anyCheckRunner.array.type;
+        }
+
+        if ((anyCheckRunner.pointerLevel == 0) && (anyCheckRunner.basicType == VT_ANY))
+        {
+            if (type->basicType == VT_ARRAY)
+            {
+                log_tree(LOG_FATAL, typeTree, "Use of the type 'any' in arrays is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as 'any *', 'any **', etc...)");
+            }
+            else
+            {
+                log_tree(LOG_FATAL, typeTree, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as 'any *', 'any **', etc...)");
+            }
+        }
+    }
+}
+
 void walk_type_name(struct AST *tree, struct Scope *scope, struct Type *populateTypeTo)
 {
     log_tree(LOG_DEBUG, tree, "WalkTypeName");
@@ -141,7 +166,6 @@ void walk_type_name(struct AST *tree, struct Scope *scope, struct Type *populate
 
     case T_IDENTIFIER:
     {
-
         complexTypeNameTree = *tree->child;
         complexTypeName = complexTypeNameTree.value;
 
@@ -200,27 +224,7 @@ void walk_type_name(struct AST *tree, struct Scope *scope, struct Type *populate
     struct AST *declaredArray = NULL;
     type_set_basic_type(populateTypeTo, basicType, complexTypeName, scrape_pointers(tree->child, &declaredArray));
 
-    // if declaring something with the 'any' type, make sure it's only as a pointer (as its intended use is to point to unstructured data)
-    if (populateTypeTo->basicType == VT_ARRAY || populateTypeTo->basicType == VT_ANY)
-    {
-        struct Type anyCheckRunner = *populateTypeTo;
-        while (anyCheckRunner.basicType == VT_ARRAY)
-        {
-            anyCheckRunner = *anyCheckRunner.array.type;
-        }
-
-        if ((anyCheckRunner.pointerLevel == 0) && (anyCheckRunner.basicType == VT_ANY))
-        {
-            if (populateTypeTo->basicType == VT_ARRAY)
-            {
-                log_tree(LOG_FATAL, declaredArray, "Use of the type 'any' in arrays is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as 'any *', 'any **', etc...)");
-            }
-            else
-            {
-                log_tree(LOG_FATAL, tree->child, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as 'any *', 'any **', etc...)");
-            }
-        }
-    }
+    check_any_type_use(populateTypeTo, tree->child);
 
     // don't allow declaration of variables of undeclared struct or array of undeclared struct (except pointers)
     if ((populateTypeTo->basicType == VT_STRUCT) && (populateTypeTo->pointerLevel == 0))
@@ -1645,7 +1649,7 @@ void walk_match_statement(struct AST *tree,
         if (underscoreAction != NULL)
         {
             underscoreJump = new_tac_line(TT_JMP, underscoreAction);
-            // TODO: 
+            // TODO:
             underscoreJump->operands[0].name.val = walk_match_case_block(underscoreAction, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
         }
         else
