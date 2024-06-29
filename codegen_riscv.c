@@ -101,68 +101,68 @@ char riscv_select_width_char_for_lifetime(struct Scope *scope, struct Lifetime *
 
 // emit an instruction to store store 'size' bytes from 'sourceReg' at 'offset' bytes from the frame pointer
 void riscv_emit_frame_store_for_size(struct TACLine *correspondingTACLine,
-                                 struct CodegenState *state,
-                                 struct MachineInfo *info,
-                                 struct Register *sourceReg,
-                                 u8 size,
-                                 ssize_t offset)
+                                     struct CodegenState *state,
+                                     struct MachineInfo *info,
+                                     struct Register *sourceReg,
+                                     u8 size,
+                                     ssize_t offset)
 {
     emit_instruction(correspondingTACLine, state, "\ts%c %s, %d(%s)\n", riscv_select_width_char_for_size(size), sourceReg->name, offset, info->framePointer->name);
 }
 
 // emit an instruction to load store 'size' bytes to 'destReg' from 'offset' bytes from the frame pointer
 void riscv_emit_frame_load_for_size(struct TACLine *correspondingTACLine,
-                                struct CodegenState *state,
-                                struct MachineInfo *info,
-                                struct Register *destReg,
-                                u8 size,
-                                ssize_t offset)
+                                    struct CodegenState *state,
+                                    struct MachineInfo *info,
+                                    struct Register *destReg,
+                                    u8 size,
+                                    ssize_t offset)
 {
     emit_instruction(correspondingTACLine, state, "\tl%c %s, %d(%s)\n", riscv_select_width_char_for_size(size), destReg->name, offset, info->framePointer->name);
 }
 
 // emit an instruction to store store 'size' bytes from 'sourceReg' at 'offset' bytes from the stack pointer
 void riscv_emit_stack_store_for_size(struct TACLine *correspondingTACLine,
-                                 struct CodegenState *state,
-                                 struct MachineInfo *info,
-                                 struct Register *sourceReg,
-                                 u8 size,
-                                 ssize_t offset)
+                                     struct CodegenState *state,
+                                     struct MachineInfo *info,
+                                     struct Register *sourceReg,
+                                     u8 size,
+                                     ssize_t offset)
 {
     emit_instruction(correspondingTACLine, state, "\ts%c %s, %d(sp)\n", riscv_select_width_char_for_size(size), sourceReg->name, offset, info->stackPointer->name);
 }
 
 // emit an instruction to load store 'size' bytes to 'destReg' from 'offset' bytes from the stack pointer
 void riscv_emit_stack_load_for_size(struct TACLine *correspondingTACLine,
-                                struct CodegenState *state,
-                                struct MachineInfo *info,
-                                struct Register *destReg,
-                                u8 size,
-                                ssize_t offset)
+                                    struct CodegenState *state,
+                                    struct MachineInfo *info,
+                                    struct Register *destReg,
+                                    u8 size,
+                                    ssize_t offset)
 {
     emit_instruction(correspondingTACLine, state, "\tl%c %s, %d(sp)\n", riscv_select_width_char_for_size(size), destReg->name, offset, info->stackPointer->name);
 }
 
 void riscv_emit_push_for_size(struct TACLine *correspondingTACLine,
-                           struct CodegenState *state,
-                           u8 size,
-                           struct Register *srcRegister)
+                              struct CodegenState *state,
+                              u8 size,
+                              struct Register *srcRegister)
 {
     emit_instruction(correspondingTACLine, state, "\taddi sp, sp, -%d\n", size);
     emit_instruction(correspondingTACLine, state, "\ts%c %s, 0(sp)\n",
-                    riscv_select_width_char_for_size(size),
-                    srcRegister->name);
+                     riscv_select_width_char_for_size(size),
+                     srcRegister->name);
 }
 
 void riscv_emit_pop_for_size(struct TACLine *correspondingTACLine,
-                          struct CodegenState *state,
-                          u8 size,
-                          struct Register *destRegister)
+                             struct CodegenState *state,
+                             u8 size,
+                             struct Register *destRegister)
 {
     emit_instruction(correspondingTACLine, state, "\tl%c%s %s, 0(sp)\n",
-                    riscv_select_width_char_for_size(size),
-                    (size == MACHINE_REGISTER_SIZE_BYTES) ? "" : "u", // always generate an unsigned load (except for when loading 64 bit values, for which there is no unsigned load)
-                    destRegister->name);
+                     riscv_select_width_char_for_size(size),
+                     (size == MACHINE_REGISTER_SIZE_BYTES) ? "" : "u", // always generate an unsigned load (except for when loading 64 bit values, for which there is no unsigned load)
+                     destRegister->name);
     emit_instruction(correspondingTACLine, state, "\taddi sp, sp, %d\n", size);
 }
 
@@ -340,23 +340,23 @@ void riscv_emit_epilogue(struct CodegenState *state, struct RegallocMetadata *me
 // places an operand by name into the specified register, or returns the index of the register containing if it's already in a register
 // does *NOT* guarantee that returned register indices are modifiable in the case where the variable is found in a register
 struct Register *riscv_place_or_find_operand_in_register(struct TACLine *correspondingTACLine,
-                                                    struct CodegenState *state,
-                                                    struct RegallocMetadata *metadata,
-                                                    struct MachineInfo *info,
-                                                    struct TACOperand *operand,
-                                                    struct Register *optional_scratch)
+                                                         struct CodegenState *state,
+                                                         struct RegallocMetadata *metadata,
+                                                         struct MachineInfo *info,
+                                                         struct TACOperand *operand,
+                                                         struct Register *optionalScratch)
 {
     verify_codegen_primitive(operand);
 
     if (operand->permutation == VP_LITERAL)
     {
-        if (optional_scratch == NULL)
+        if (optionalScratch == NULL)
         {
             InternalError("Expected scratch register to place literal in, didn't get one!");
         }
 
-        riscv_place_literal_string_in_register(correspondingTACLine, state, operand->name.str, optional_scratch);
-        return optional_scratch;
+        riscv_place_literal_string_in_register(correspondingTACLine, state, operand->name.str, optionalScratch);
+        return optionalScratch;
     }
 
     struct Register *placedOrFoundIn = NULL;
@@ -380,24 +380,24 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
         {
             if (operandLt->writebackInfo.stackOffset >= 0)
             {
-                emit_instruction(correspondingTACLine, state, "\taddi %s, fp, %d # place %s\n", optional_scratch->name, operandLt->writebackInfo.stackOffset, operand->name.str);
+                emit_instruction(correspondingTACLine, state, "\taddi %s, fp, %d # place %s\n", optionalScratch->name, operandLt->writebackInfo.stackOffset, operand->name.str);
             }
             else
             {
-                emit_instruction(correspondingTACLine, state, "\taddi %s, fp, -%d # place %s\n", optional_scratch->name, -1 * operandLt->writebackInfo.stackOffset, operand->name.str);
+                emit_instruction(correspondingTACLine, state, "\taddi %s, fp, -%d # place %s\n", optionalScratch->name, -1 * operandLt->writebackInfo.stackOffset, operand->name.str);
             }
-            placedOrFoundIn = optional_scratch;
+            placedOrFoundIn = optionalScratch;
         }
         else
         {
-            riscv_emit_frame_load_for_size(correspondingTACLine, state, info, optional_scratch, type_get_size(tac_operand_get_type(operand), metadata->scope), operandLt->writebackInfo.stackOffset);
-            placedOrFoundIn = optional_scratch;
+            riscv_emit_frame_load_for_size(correspondingTACLine, state, info, optionalScratch, type_get_size(tac_operand_get_type(operand), metadata->scope), operandLt->writebackInfo.stackOffset);
+            placedOrFoundIn = optionalScratch;
         }
         break;
 
     case WB_GLOBAL:
     {
-        if (optional_scratch == NULL)
+        if (optionalScratch == NULL)
         {
             InternalError("Expected scratch register to place global in, didn't get one!");
         }
@@ -416,20 +416,20 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
             loadSign = riscv_select_sign_for_load_char(loadWidth);
         }
 
-        placedOrFoundIn = optional_scratch;
+        placedOrFoundIn = optionalScratch;
         emit_instruction(correspondingTACLine, state, "\tla %s, %s # place %s\n",
-                        placedOrFoundIn->name,
-                        operandLt->name,
-                        operand->name.str);
+                         placedOrFoundIn->name,
+                         operandLt->name,
+                         operand->name.str);
 
         if (operandLt->type.basicType != VT_ARRAY)
         {
             emit_instruction(correspondingTACLine, state, "\tl%c%s %s, 0(%s) # place %s\n",
-                            loadWidth,
-                            loadSign,
-                            placedOrFoundIn->name,
-                            placedOrFoundIn->name,
-                            operand->name.str);
+                             loadWidth,
+                             loadSign,
+                             placedOrFoundIn->name,
+                             placedOrFoundIn->name,
+                             operand->name.str);
         }
     }
     break;
@@ -443,11 +443,11 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
 }
 
 void riscv_write_variable(struct TACLine *correspondingTACLine,
-                         struct CodegenState *state,
-                         struct RegallocMetadata *metadata,
-                         struct MachineInfo *info,
-                         struct TACOperand *writtenTo,
-                         struct Register *dataSource)
+                          struct CodegenState *state,
+                          struct RegallocMetadata *metadata,
+                          struct MachineInfo *info,
+                          struct TACOperand *writtenTo,
+                          struct Register *dataSource)
 {
     verify_codegen_primitive(writtenTo);
 
@@ -486,13 +486,13 @@ void riscv_write_variable(struct TACLine *correspondingTACLine,
 
         emit_instruction(correspondingTACLine, state, "\t# Write (global) variable %s\n", writtenLifetime->name);
         emit_instruction(correspondingTACLine, state, "\tla %s, %s\n",
-                        addrReg->name,
-                        writtenLifetime->name);
+                         addrReg->name,
+                         writtenLifetime->name);
 
         emit_instruction(correspondingTACLine, state, "\ts%c %s, 0(%s)\n",
-                        width,
-                        dataSource->name,
-                        addrReg->name);
+                         width,
+                         dataSource->name,
+                         addrReg->name);
     }
     break;
 
@@ -502,19 +502,19 @@ void riscv_write_variable(struct TACLine *correspondingTACLine,
 }
 
 void riscv_place_literal_string_in_register(struct TACLine *correspondingTACLine,
-                                        struct CodegenState *state,
-                                        char *literalStr,
-                                        struct Register *destReg)
+                                            struct CodegenState *state,
+                                            char *literalStr,
+                                            struct Register *destReg)
 {
     emit_instruction(correspondingTACLine, state, "\tli %s, %s # place literal\n", destReg->name, literalStr);
 }
 
 void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
-                                   struct CodegenState *state,
-                                   struct RegallocMetadata *metadata,
-                                   struct MachineInfo *info,
-                                   struct TACOperand *operand,
-                                   struct Register *destReg)
+                                        struct CodegenState *state,
+                                        struct RegallocMetadata *metadata,
+                                        struct MachineInfo *info,
+                                        struct TACOperand *operand,
+                                        struct Register *destReg)
 {
     struct Lifetime dummyLt = {0};
     dummyLt.name = operand->name.str;
@@ -541,10 +541,10 @@ void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
 }
 
 void riscv_emit_argument_stores(struct CodegenState *state,
-                              struct RegallocMetadata *metadata,
-                              struct MachineInfo *info,
-                              struct FunctionEntry *calledFunction,
-                              struct Stack *argumentOperands)
+                                struct RegallocMetadata *metadata,
+                                struct MachineInfo *info,
+                                struct FunctionEntry *calledFunction,
+                                struct Stack *argumentOperands)
 {
     log(LOG_DEBUG, "Emit argument stores for call to %s", calledFunction->name);
     // TODO: don't emit when 0
@@ -585,10 +585,10 @@ void riscv_emit_argument_stores(struct CodegenState *state,
             struct Register *writeFrom = riscv_place_or_find_operand_in_register(NULL, state, metadata, info, argOperand, scratch);
 
             emit_instruction(NULL, state, "\ts%c %s, %zd(%s)\n",
-                            riscv_select_width_char_for_lifetime(calledFunction->mainScope, argLifetime),
-                            writeFrom->name,
-                            argLifetime->writebackInfo.stackOffset,
-                            info->stackPointer->name);
+                             riscv_select_width_char_for_lifetime(calledFunction->mainScope, argLifetime),
+                             writeFrom->name,
+                             argLifetime->writebackInfo.stackOffset,
+                             info->stackPointer->name);
 
             try_release_scratch_register(info, scratch);
         }
@@ -606,11 +606,11 @@ void riscv_emit_argument_stores(struct CodegenState *state,
 }
 
 void riscv_generate_internal_copy(struct TACLine *correspondingTACLine,
-                                struct CodegenState *state,
-                                struct Register *sourceAddrReg,
-                                struct Register *destAddrReg,
-                                struct Register *intermediateReg,
-                                size_t moveSize)
+                                  struct CodegenState *state,
+                                  struct Register *sourceAddrReg,
+                                  struct Register *destAddrReg,
+                                  struct Register *intermediateReg,
+                                  size_t moveSize)
 {
     size_t offset = 0;
     while (offset < moveSize)
@@ -627,17 +627,17 @@ void riscv_generate_internal_copy(struct TACLine *correspondingTACLine,
 
         char widthChar = riscv_select_width_char_for_size(byteDiff);
         emit_instruction(correspondingTACLine, state, "\tl%c%s %s, %zu(%s)\n",
-                        widthChar,
-                        riscv_select_sign_for_load_char(widthChar),
-                        intermediateReg->name,
-                        offset,
-                        sourceAddrReg->name);
+                         widthChar,
+                         riscv_select_sign_for_load_char(widthChar),
+                         intermediateReg->name,
+                         offset,
+                         sourceAddrReg->name);
 
         emit_instruction(correspondingTACLine, state, "\ts%c %s, %zu(%s)\n",
-                        widthChar,
-                        intermediateReg->name,
-                        offset,
-                        destAddrReg->name);
+                         widthChar,
+                         intermediateReg->name,
+                         offset,
+                         destAddrReg->name);
         offset += byteDiff;
     }
 }
@@ -649,11 +649,438 @@ void *lifetime_find(struct Set *allLifetimes, char *name)
     return set_find(allLifetimes, &dummy);
 }
 
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+void riscv_generate_code_for_tac(struct CodegenState *state,
+                                 struct RegallocMetadata *metadata,
+                                 struct MachineInfo *info,
+                                 struct TACLine *generate,
+                                 char *functionName,
+                                 struct Stack *calledFunctionArguments)
+{
+    switch (generate->operation)
+    {
+    case TT_ASM:
+        emit_instruction(generate, state, "%s\n", generate->operands[0].name.str);
+        break;
+
+    case TT_ASSIGN:
+    {
+        struct Lifetime *writtenLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.str);
+        if (type_is_object(&writtenLt->type))
+        {
+            struct Register *sourceAddrReg = acquire_scratch_register(info);
+            riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[1], sourceAddrReg);
+            struct Register *destAddrReg = acquire_scratch_register(info);
+            riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[0], destAddrReg);
+
+            struct Register *intermediateReg = acquire_scratch_register(info);
+
+            riscv_generate_internal_copy(generate, state, sourceAddrReg, destAddrReg, intermediateReg, type_get_size(&writtenLt->type, metadata->scope));
+        }
+        else
+        {
+            // only works for primitive types that will fit in registers
+            struct Register *opLocReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+            riscv_write_variable(generate, state, metadata, info, &generate->operands[0], opLocReg);
+        }
+    }
+    break;
+
+    case TT_ADD:
+    case TT_SUBTRACT:
+    case TT_MUL:
+    case TT_DIV:
+    case TT_MODULO:
+    case TT_BITWISE_AND:
+    case TT_BITWISE_OR:
+    case TT_BITWISE_XOR:
+    case TT_LSHIFT:
+    case TT_RSHIFT:
+    {
+        struct Register *op1Reg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+        struct Register *op2Reg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
+
+        // release any scratch registers we may have acquired by placing operands, as our write register may be able to use one of them
+        try_release_scratch_register(info, op1Reg);
+        try_release_scratch_register(info, op2Reg);
+
+        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
+
+        emit_instruction(generate, state, "\t%s %s, %s, %s\n", get_asm_op(generate->operation), destReg->name, op1Reg->name, op2Reg->name);
+        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
+    }
+    break;
+
+    case TT_BITWISE_NOT:
+    {
+        struct Register *op1Reg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
+
+        // FIXME: work with new register allocation
+        emit_instruction(generate, state, "\txori %s, %s, -1\n", destReg->name, op1Reg->name);
+        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
+    }
+    break;
+
+    case TT_LOAD:
+    {
+        struct Lifetime *writtenLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.str);
+        if (type_is_object(&writtenLt->type))
+        {
+            struct Register *sourceAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+            struct Register *destAddrReg = acquire_scratch_register(info);
+            riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[0], destAddrReg);
+
+            struct Register *intermediateReg = acquire_scratch_register(info);
+
+            riscv_generate_internal_copy(generate, state, sourceAddrReg, destAddrReg, intermediateReg, type_get_size(&writtenLt->type, metadata->scope));
+        }
+        else
+        {
+            struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+            struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
+            char loadWidth = riscv_select_width_char(metadata->scope, &generate->operands[0]);
+            emit_instruction(generate, state, "\tl%c%s %s, 0(%s)\n",
+                             loadWidth,
+                             riscv_select_sign_for_load_char(loadWidth),
+                             destReg->name,
+                             baseReg->name);
+
+            riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
+        }
+    }
+    break;
+
+    case TT_LOAD_OFF:
+    {
+        // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
+        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
+        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+
+        char loadWidth = riscv_select_width_char(metadata->scope, &generate->operands[0]);
+        emit_instruction(generate, state, "\tl%c%s %s, %d(%s)\n",
+                         loadWidth,
+                         riscv_select_sign_for_load_char(loadWidth),
+                         destReg->name,
+                         generate->operands[2].name.val,
+                         baseReg->name);
+
+        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
+    }
+    break;
+
+    case TT_LOAD_ARR:
+    {
+        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+        struct Register *offsetReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
+
+        // because offsetReg may or may not be modifiable, we will immediately release it if it's a temp, and guarantee that shiftedOffsetReg is a temp that we can modify it to
+        try_release_scratch_register(info, offsetReg);
+        struct Register *shiftedOffsetReg = acquire_scratch_register(info);
+
+        // TODO: check for shift by 0 and don't shift when applicable
+        // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
+        emit_instruction(generate, state, "\tslli %s, %s, %d\n",
+                         shiftedOffsetReg->name,
+                         offsetReg->name,
+                         generate->operands[3].name.val);
+
+        try_release_scratch_register(info, baseReg);
+        try_release_scratch_register(info, shiftedOffsetReg);
+        struct Register *addrReg = acquire_scratch_register(info);
+        // add our scaled offset to the base address, put the full address into selectScratchRegister(info, false)
+        emit_instruction(generate, state, "\tadd %s, %s, %s\n",
+                         addrReg->name,
+                         baseReg->name,
+                         shiftedOffsetReg->name);
+
+        try_release_scratch_register(info, shiftedOffsetReg);
+        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
+        char loadWidth = riscv_select_width_char_for_dereference(metadata->scope, &generate->operands[1]);
+        emit_instruction(generate, state, "\tl%c%s %s, 0(%s)\n",
+                         loadWidth,
+                         riscv_select_sign_for_load_char(loadWidth),
+                         destReg->name,
+                         addrReg->name);
+
+        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
+    }
+    break;
+
+    case TT_STORE:
+    {
+        struct Type *srcType = tac_get_type_of_operand(generate, 1);
+        size_t moveSize = type_get_size(srcType, metadata->scope);
+        struct Register *destAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], acquire_scratch_register(info));
+        if (moveSize > sizeof(size_t))
+        {
+            struct Register *sourceAddrReg = acquire_scratch_register(info);
+            riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[1], sourceAddrReg);
+            struct Register *intermediateReg = acquire_scratch_register(info);
+
+            riscv_generate_internal_copy(generate, state, sourceAddrReg, destAddrReg, intermediateReg, moveSize);
+        }
+        else
+        {
+            struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+            char storeWidth = riscv_select_width_char_for_dereference(metadata->scope, &generate->operands[0]);
+
+            emit_instruction(generate, state, "\ts%c %s, 0(%s)\n",
+                             storeWidth,
+                             sourceReg->name,
+                             destAddrReg->name);
+        }
+    }
+    break;
+
+    case TT_STORE_OFF:
+    {
+        // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
+        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], acquire_scratch_register(info));
+        struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
+        emit_instruction(generate, state, "\ts%c %s, %d(%s)\n",
+                         riscv_select_width_char(metadata->scope, &generate->operands[0]),
+                         sourceReg->name,
+                         generate->operands[1].name.val,
+                         baseReg->name);
+    }
+    break;
+
+    case TT_STORE_ARR:
+    {
+        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], acquire_scratch_register(info));
+        struct Register *offsetReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+
+        // TODO: check for shift by 0 and don't shift when applicable
+        // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
+        emit_instruction(generate, state, "\tslli %s, %s, %d\n",
+                         offsetReg->name,
+                         offsetReg->name,
+                         generate->operands[2].name.val);
+
+        try_release_scratch_register(info, baseReg);
+        struct Register *addrReg = acquire_scratch_register(info);
+        // add our scaled offset to the base address, put the full address into selectScratchRegister(info, false)
+        emit_instruction(generate, state, "\tadd %s, %s, %s\n",
+                         addrReg->name,
+                         baseReg->name,
+                         offsetReg->name);
+
+        try_release_scratch_register(info, offsetReg);
+        struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[3], acquire_scratch_register(info));
+        emit_instruction(generate, state, "\ts%c %s, 0(%s)\n",
+                         riscv_select_width_char_for_dereference(metadata->scope, &generate->operands[0]),
+                         sourceReg->name,
+                         addrReg->name);
+    }
+    break;
+
+    case TT_ADDROF:
+    {
+        struct Register *addrReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[1], addrReg);
+        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], addrReg);
+    }
+    break;
+
+    case TT_LEA_OFF:
+    {
+        // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
+        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
+        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+
+        emit_instruction(generate, state, "\taddi %s, %s, %d\n",
+                         destReg->name,
+                         baseReg->name,
+                         generate->operands[2].name.val);
+
+        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
+    }
+    break;
+
+    case TT_LEA_ARR:
+    {
+        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+        struct Register *offsetReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
+
+        // because offsetReg may or may not be modifiable, we will immediately release it if it's a temp, and guarantee that shiftedOffsetReg is a temp that we can modify it to
+        try_release_scratch_register(info, offsetReg);
+        struct Register *shiftedOffsetReg = acquire_scratch_register(info);
+
+        // TODO: check for shift by 0 and don't shift when applicable
+        // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
+        emit_instruction(generate, state, "\tslli %s, %s, %d\n",
+                         shiftedOffsetReg->name,
+                         offsetReg->name,
+                         generate->operands[3].name.val);
+
+        // release any scratch registers we may have acquired by placing operands, as our write register may be able to use one of them
+        release_all_scratch_registers(info);
+        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
+        // add our scaled offset to the base address, put the full address into destReg
+        emit_instruction(generate, state, "\tadd %s, %s, %s\n",
+                         destReg->name,
+                         baseReg->name,
+                         shiftedOffsetReg->name);
+
+        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
+    }
+    break;
+
+    case TT_BEQ:
+    case TT_BNE:
+    case TT_BGEU:
+    case TT_BLTU:
+    case TT_BGTU:
+    case TT_BLEU:
+    case TT_BEQZ:
+    case TT_BNEZ:
+    {
+        struct Register *operand1register = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+        struct Register *operand2register = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
+        emit_instruction(generate, state, "\t%s %s, %s, %s_%d\n",
+                         get_asm_op(generate->operation),
+                         operand1register->name,
+                         operand2register->name,
+                         functionName,
+                         generate->operands[0].name.val);
+    }
+    break;
+
+    case TT_JMP:
+    {
+        emit_instruction(generate, state, "\tj %s_%d\n", functionName, generate->operands[0].name.val);
+    }
+    break;
+
+    case TT_ARG_STORE:
+    {
+        stack_push(calledFunctionArguments, &generate->operands[0]);
+    }
+    break;
+
+    case TT_FUNCTION_CALL:
+    {
+        struct FunctionEntry *calledFunction = lookup_fun_by_string(metadata->function->mainScope, generate->operands[1].name.str);
+
+        riscv_caller_save_registers(state, calledFunction, info);
+
+        riscv_emit_argument_stores(state, metadata, info, calledFunction, calledFunctionArguments);
+        calledFunctionArguments->size = 0;
+
+        if (calledFunction->isDefined)
+        {
+            emit_instruction(generate, state, "\tcall %s\n", generate->operands[1].name.str);
+        }
+        else
+        {
+            emit_instruction(generate, state, "\tcall %s@plt\n", generate->operands[1].name.str);
+        }
+
+        if ((generate->operands[0].name.str != NULL) && !type_is_object(&calledFunction->returnType))
+        {
+            riscv_write_variable(generate, state, metadata, info, &generate->operands[0], info->returnValue);
+        }
+
+        riscv_caller_restore_registers(state, calledFunction, info);
+    }
+    break;
+
+    case TT_METHOD_CALL:
+    {
+        struct StructEntry *methodOf = scope_lookup_struct_by_type(metadata->scope, tac_get_type_of_operand(generate, 2));
+        struct FunctionEntry *calledMethod = struct_lookup_method_by_string(methodOf, generate->operands[1].name.str);
+
+        riscv_caller_save_registers(state, calledMethod, info);
+
+        riscv_emit_argument_stores(state, metadata, info, calledMethod, calledFunctionArguments);
+        calledFunctionArguments->size = 0;
+
+        // TODO: member function name mangling/uniqueness
+        if (calledMethod->isDefined)
+        {
+            emit_instruction(generate, state, "\tcall %s_%s\n", methodOf->name, generate->operands[1].name.str);
+        }
+        else
+        {
+            emit_instruction(generate, state, "\tcall %s_%s@plt\n", methodOf->name, generate->operands[1].name.str);
+        }
+
+        if ((generate->operands[0].name.str != NULL) && !type_is_object(&calledMethod->returnType))
+        {
+            riscv_write_variable(generate, state, metadata, info, &generate->operands[0], info->returnValue);
+        }
+
+        riscv_caller_restore_registers(state, calledMethod, info);
+    }
+    break;
+
+    case TT_ASSOCIATED_CALL:
+    {
+        struct StructEntry *associatedWith = scope_lookup_struct_by_type(metadata->scope, tac_get_type_of_operand(generate, 2));
+        struct FunctionEntry *calledAssociated = struct_lookup_method_by_string(associatedWith, generate->operands[1].name.str);
+
+        riscv_caller_save_registers(state, calledAssociated, info);
+
+        riscv_emit_argument_stores(state, metadata, info, calledAssociated, calledFunctionArguments);
+        calledFunctionArguments->size = 0;
+
+        // TODO: associated function name mangling/uniqueness
+        if (calledAssociated->isDefined)
+        {
+            emit_instruction(generate, state, "\tcall %s_%s\n", associatedWith->name, generate->operands[1].name.str);
+        }
+        else
+        {
+            emit_instruction(generate, state, "\tcall %s_%s@plt\n", associatedWith->name, generate->operands[1].name.str);
+        }
+
+        if ((generate->operands[0].name.str != NULL) && !type_is_object(&calledAssociated->returnType))
+        {
+            riscv_write_variable(generate, state, metadata, info, &generate->operands[0], info->returnValue);
+        }
+
+        riscv_caller_restore_registers(state, calledAssociated, info);
+    }
+    break;
+
+    case TT_LABEL:
+        fprintf(state->outFile, "\t%s_%ld:\n", functionName, generate->operands[0].name.val);
+        break;
+
+    case TT_RETURN:
+    {
+        if (generate->operands[0].name.str != NULL)
+        {
+            if (!(type_is_object(&metadata->function->returnType)))
+            {
+                struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], info->returnValue);
+
+                if (sourceReg != info->returnValue)
+                {
+                    emit_instruction(generate, state, "\tmv %s, %s\n",
+                                     info->returnValue->name,
+                                     sourceReg->name);
+                }
+            }
+        }
+        emit_instruction(generate, state, "\tj %s_done\n", functionName);
+    }
+    break;
+
+    case TT_DO:
+    case TT_ENDDO:
+    case TT_PHI:
+        break;
+    }
+}
+// NOLINTEND(readability-function-cognitive-complexity)
+
 void riscv_generate_code_for_basic_block(struct CodegenState *state,
-                                     struct RegallocMetadata *metadata,
-                                     struct MachineInfo *info,
-                                     struct BasicBlock *block,
-                                     char *functionName)
+                                         struct RegallocMetadata *metadata,
+                                         struct MachineInfo *info,
+                                         struct BasicBlock *block,
+                                         char *functionName)
 {
     // we may pass null if we are generating the code to initialize global variables
     if (functionName != NULL)
@@ -661,7 +1088,7 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
         fprintf(state->outFile, "%s_%zu:\n", functionName, block->labelNum);
     }
 
-    struct Stack *functionArguments = stack_new();
+    struct Stack *calledFunctionArguments = stack_new();
     size_t lastLineNo = 0;
     for (struct LinkedListNode *tacRunner = block->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
     {
@@ -675,424 +1102,8 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
         free(printedTac);
 
         emit_loc(state, thisTac, &lastLineNo);
-
-        switch (thisTac->operation)
-        {
-        case TT_ASM:
-            emit_instruction(thisTac, state, "%s\n", thisTac->operands[0].name.str);
-            break;
-
-        case TT_ASSIGN:
-        {
-            struct Lifetime *writtenLt = lifetime_find(metadata->allLifetimes, thisTac->operands[0].name.str);
-            if (type_is_object(&writtenLt->type))
-            {
-                struct Register *sourceAddrReg = acquire_scratch_register(info);
-                riscv_place_addr_of_operand_in_reg(thisTac, state, metadata, info, &thisTac->operands[1], sourceAddrReg);
-                struct Register *destAddrReg = acquire_scratch_register(info);
-                riscv_place_addr_of_operand_in_reg(thisTac, state, metadata, info, &thisTac->operands[0], destAddrReg);
-
-                struct Register *intermediateReg = acquire_scratch_register(info);
-
-                riscv_generate_internal_copy(thisTac, state, sourceAddrReg, destAddrReg, intermediateReg, type_get_size(&writtenLt->type, metadata->scope));
-            }
-            else
-            {
-                // only works for primitive types that will fit in registers
-                struct Register *opLocReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[1], acquire_scratch_register(info));
-                riscv_write_variable(thisTac, state, metadata, info, &thisTac->operands[0], opLocReg);
-            }
-        }
-        break;
-
-        case TT_ADD:
-        case TT_SUBTRACT:
-        case TT_MUL:
-        case TT_DIV:
-        case TT_MODULO:
-        case TT_BITWISE_AND:
-        case TT_BITWISE_OR:
-        case TT_BITWISE_XOR:
-        case TT_LSHIFT:
-        case TT_RSHIFT:
-        {
-            struct Register *op1Reg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[1], acquire_scratch_register(info));
-            struct Register *op2Reg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[2], acquire_scratch_register(info));
-
-            // release any scratch registers we may have acquired by placing operands, as our write register may be able to use one of them
-            try_release_scratch_register(info, op1Reg);
-            try_release_scratch_register(info, op2Reg);
-
-            struct Register *destReg = pick_write_register(metadata, &thisTac->operands[0], acquire_scratch_register(info));
-
-            emit_instruction(thisTac, state, "\t%s %s, %s, %s\n", get_asm_op(thisTac->operation), destReg->name, op1Reg->name, op2Reg->name);
-            riscv_write_variable(thisTac, state, metadata, info, &thisTac->operands[0], destReg);
-        }
-        break;
-
-        case TT_BITWISE_NOT:
-        {
-            struct Register *op1Reg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[1], acquire_scratch_register(info));
-            struct Register *destReg = pick_write_register(metadata, &thisTac->operands[0], acquire_scratch_register(info));
-
-            // FIXME: work with new register allocation
-            emit_instruction(thisTac, state, "\txori %s, %s, -1\n", destReg->name, op1Reg->name);
-            riscv_write_variable(thisTac, state, metadata, info, &thisTac->operands[0], destReg);
-        }
-        break;
-
-        case TT_LOAD:
-        {
-            struct Lifetime *writtenLt = lifetime_find(metadata->allLifetimes, thisTac->operands[0].name.str);
-            if (type_is_object(&writtenLt->type))
-            {
-                struct Register *sourceAddrReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[1], acquire_scratch_register(info));
-                struct Register *destAddrReg = acquire_scratch_register(info);
-                riscv_place_addr_of_operand_in_reg(thisTac, state, metadata, info, &thisTac->operands[0], destAddrReg);
-
-                struct Register *intermediateReg = acquire_scratch_register(info);
-
-                riscv_generate_internal_copy(thisTac, state, sourceAddrReg, destAddrReg, intermediateReg, type_get_size(&writtenLt->type, metadata->scope));
-            }
-            else
-            {
-                struct Register *baseReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[1], acquire_scratch_register(info));
-                struct Register *destReg = pick_write_register(metadata, &thisTac->operands[0], acquire_scratch_register(info));
-                char loadWidth = riscv_select_width_char(metadata->scope, &thisTac->operands[0]);
-                emit_instruction(thisTac, state, "\tl%c%s %s, 0(%s)\n",
-                                loadWidth,
-                                riscv_select_sign_for_load_char(loadWidth),
-                                destReg->name,
-                                baseReg->name);
-
-                riscv_write_variable(thisTac, state, metadata, info, &thisTac->operands[0], destReg);
-            }
-        }
-        break;
-
-        case TT_LOAD_OFF:
-        {
-            // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-            struct Register *destReg = pick_write_register(metadata, &thisTac->operands[0], acquire_scratch_register(info));
-            struct Register *baseReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[1], acquire_scratch_register(info));
-
-            char loadWidth = riscv_select_width_char(metadata->scope, &thisTac->operands[0]);
-            emit_instruction(thisTac, state, "\tl%c%s %s, %d(%s)\n",
-                            loadWidth,
-                            riscv_select_sign_for_load_char(loadWidth),
-                            destReg->name,
-                            thisTac->operands[2].name.val,
-                            baseReg->name);
-
-            riscv_write_variable(thisTac, state, metadata, info, &thisTac->operands[0], destReg);
-        }
-        break;
-
-        case TT_LOAD_ARR:
-        {
-            struct Register *baseReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[1], acquire_scratch_register(info));
-            struct Register *offsetReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[2], acquire_scratch_register(info));
-
-            // because offsetReg may or may not be modifiable, we will immediately release it if it's a temp, and guarantee that shiftedOffsetReg is a temp that we can modify it to
-            try_release_scratch_register(info, offsetReg);
-            struct Register *shiftedOffsetReg = acquire_scratch_register(info);
-
-            // TODO: check for shift by 0 and don't shift when applicable
-            // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
-            emit_instruction(thisTac, state, "\tslli %s, %s, %d\n",
-                            shiftedOffsetReg->name,
-                            offsetReg->name,
-                            thisTac->operands[3].name.val);
-
-            try_release_scratch_register(info, baseReg);
-            try_release_scratch_register(info, shiftedOffsetReg);
-            struct Register *addrReg = acquire_scratch_register(info);
-            // add our scaled offset to the base address, put the full address into selectScratchRegister(info, false)
-            emit_instruction(thisTac, state, "\tadd %s, %s, %s\n",
-                            addrReg->name,
-                            baseReg->name,
-                            shiftedOffsetReg->name);
-
-            try_release_scratch_register(info, shiftedOffsetReg);
-            struct Register *destReg = pick_write_register(metadata, &thisTac->operands[0], acquire_scratch_register(info));
-            char loadWidth = riscv_select_width_char_for_dereference(metadata->scope, &thisTac->operands[1]);
-            emit_instruction(thisTac, state, "\tl%c%s %s, 0(%s)\n",
-                            loadWidth,
-                            riscv_select_sign_for_load_char(loadWidth),
-                            destReg->name,
-                            addrReg->name);
-
-            riscv_write_variable(thisTac, state, metadata, info, &thisTac->operands[0], destReg);
-        }
-        break;
-
-        case TT_STORE:
-        {
-            struct Type *srcType = tac_get_type_of_operand(thisTac, 1);
-            size_t moveSize = type_get_size(srcType, metadata->scope);
-            struct Register *destAddrReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[0], acquire_scratch_register(info));
-            if (moveSize > sizeof(size_t))
-            {
-                struct Register *sourceAddrReg = acquire_scratch_register(info);
-                riscv_place_addr_of_operand_in_reg(thisTac, state, metadata, info, &thisTac->operands[1], sourceAddrReg);
-                struct Register *intermediateReg = acquire_scratch_register(info);
-
-                riscv_generate_internal_copy(thisTac, state, sourceAddrReg, destAddrReg, intermediateReg, moveSize);
-            }
-            else
-            {
-                struct Register *sourceReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[1], acquire_scratch_register(info));
-                char storeWidth = riscv_select_width_char_for_dereference(metadata->scope, &thisTac->operands[0]);
-
-                emit_instruction(thisTac, state, "\ts%c %s, 0(%s)\n",
-                                storeWidth,
-                                sourceReg->name,
-                                destAddrReg->name);
-            }
-        }
-        break;
-
-        case TT_STORE_OFF:
-        {
-            // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-            struct Register *baseReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[0], acquire_scratch_register(info));
-            struct Register *sourceReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[2], acquire_scratch_register(info));
-            emit_instruction(thisTac, state, "\ts%c %s, %d(%s)\n",
-                            riscv_select_width_char(metadata->scope, &thisTac->operands[0]),
-                            sourceReg->name,
-                            thisTac->operands[1].name.val,
-                            baseReg->name);
-        }
-        break;
-
-        case TT_STORE_ARR:
-        {
-            struct Register *baseReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[0], acquire_scratch_register(info));
-            struct Register *offsetReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[1], acquire_scratch_register(info));
-
-            // TODO: check for shift by 0 and don't shift when applicable
-            // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
-            emit_instruction(thisTac, state, "\tslli %s, %s, %d\n",
-                            offsetReg->name,
-                            offsetReg->name,
-                            thisTac->operands[2].name.val);
-
-            try_release_scratch_register(info, baseReg);
-            struct Register *addrReg = acquire_scratch_register(info);
-            // add our scaled offset to the base address, put the full address into selectScratchRegister(info, false)
-            emit_instruction(thisTac, state, "\tadd %s, %s, %s\n",
-                            addrReg->name,
-                            baseReg->name,
-                            offsetReg->name);
-
-            try_release_scratch_register(info, offsetReg);
-            struct Register *sourceReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[3], acquire_scratch_register(info));
-            emit_instruction(thisTac, state, "\ts%c %s, 0(%s)\n",
-                            riscv_select_width_char_for_dereference(metadata->scope, &thisTac->operands[0]),
-                            sourceReg->name,
-                            addrReg->name);
-        }
-        break;
-
-        case TT_ADDROF:
-        {
-            struct Register *addrReg = pick_write_register(metadata, &thisTac->operands[0], acquire_scratch_register(info));
-            riscv_place_addr_of_operand_in_reg(thisTac, state, metadata, info, &thisTac->operands[1], addrReg);
-            riscv_write_variable(thisTac, state, metadata, info, &thisTac->operands[0], addrReg);
-        }
-        break;
-
-        case TT_LEA_OFF:
-        {
-            // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-            struct Register *destReg = pick_write_register(metadata, &thisTac->operands[0], acquire_scratch_register(info));
-            struct Register *baseReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[1], acquire_scratch_register(info));
-
-            emit_instruction(thisTac, state, "\taddi %s, %s, %d\n",
-                            destReg->name,
-                            baseReg->name,
-                            thisTac->operands[2].name.val);
-
-            riscv_write_variable(thisTac, state, metadata, info, &thisTac->operands[0], destReg);
-        }
-        break;
-
-        case TT_LEA_ARR:
-        {
-            struct Register *baseReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[1], acquire_scratch_register(info));
-            struct Register *offsetReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[2], acquire_scratch_register(info));
-
-            // because offsetReg may or may not be modifiable, we will immediately release it if it's a temp, and guarantee that shiftedOffsetReg is a temp that we can modify it to
-            try_release_scratch_register(info, offsetReg);
-            struct Register *shiftedOffsetReg = acquire_scratch_register(info);
-
-            // TODO: check for shift by 0 and don't shift when applicable
-            // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
-            emit_instruction(thisTac, state, "\tslli %s, %s, %d\n",
-                            shiftedOffsetReg->name,
-                            offsetReg->name,
-                            thisTac->operands[3].name.val);
-
-            // release any scratch registers we may have acquired by placing operands, as our write register may be able to use one of them
-            release_all_scratch_registers(info);
-            struct Register *destReg = pick_write_register(metadata, &thisTac->operands[0], acquire_scratch_register(info));
-            // add our scaled offset to the base address, put the full address into destReg
-            emit_instruction(thisTac, state, "\tadd %s, %s, %s\n",
-                            destReg->name,
-                            baseReg->name,
-                            shiftedOffsetReg->name);
-
-            riscv_write_variable(thisTac, state, metadata, info, &thisTac->operands[0], destReg);
-        }
-        break;
-
-        case TT_BEQ:
-        case TT_BNE:
-        case TT_BGEU:
-        case TT_BLTU:
-        case TT_BGTU:
-        case TT_BLEU:
-        case TT_BEQZ:
-        case TT_BNEZ:
-        {
-            struct Register *operand1register = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[1], acquire_scratch_register(info));
-            struct Register *operand2register = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[2], acquire_scratch_register(info));
-            emit_instruction(thisTac, state, "\t%s %s, %s, %s_%d\n",
-                            get_asm_op(thisTac->operation),
-                            operand1register->name,
-                            operand2register->name,
-                            functionName,
-                            thisTac->operands[0].name.val);
-        }
-        break;
-
-        case TT_JMP:
-        {
-            emit_instruction(thisTac, state, "\tj %s_%d\n", functionName, thisTac->operands[0].name.val);
-        }
-        break;
-
-        case TT_ARG_STORE:
-        {
-            stack_push(functionArguments, &thisTac->operands[0]);
-        }
-        break;
-
-        case TT_FUNCTION_CALL:
-        {
-            struct FunctionEntry *calledFunction = lookup_fun_by_string(metadata->function->mainScope, thisTac->operands[1].name.str);
-
-            riscv_caller_save_registers(state, calledFunction, info);
-
-            riscv_emit_argument_stores(state, metadata, info, calledFunction, functionArguments);
-            functionArguments->size = 0;
-
-            if (calledFunction->isDefined)
-            {
-                emit_instruction(thisTac, state, "\tcall %s\n", thisTac->operands[1].name.str);
-            }
-            else
-            {
-                emit_instruction(thisTac, state, "\tcall %s@plt\n", thisTac->operands[1].name.str);
-            }
-
-            if ((thisTac->operands[0].name.str != NULL) && !type_is_object(&calledFunction->returnType))
-            {
-                riscv_write_variable(thisTac, state, metadata, info, &thisTac->operands[0], info->returnValue);
-            }
-
-            riscv_caller_restore_registers(state, calledFunction, info);
-        }
-        break;
-
-        case TT_METHOD_CALL:
-        {
-            struct StructEntry *methodOf = scope_lookup_struct_by_type(metadata->scope, tac_get_type_of_operand(thisTac, 2));
-            struct FunctionEntry *calledMethod = struct_lookup_method_by_string(methodOf, thisTac->operands[1].name.str);
-
-            riscv_caller_save_registers(state, calledMethod, info);
-
-            riscv_emit_argument_stores(state, metadata, info, calledMethod, functionArguments);
-            functionArguments->size = 0;
-
-            // TODO: member function name mangling/uniqueness
-            if (calledMethod->isDefined)
-            {
-                emit_instruction(thisTac, state, "\tcall %s_%s\n", methodOf->name, thisTac->operands[1].name.str);
-            }
-            else
-            {
-                emit_instruction(thisTac, state, "\tcall %s_%s@plt\n", methodOf->name, thisTac->operands[1].name.str);
-            }
-
-            if ((thisTac->operands[0].name.str != NULL) && !type_is_object(&calledMethod->returnType))
-            {
-                riscv_write_variable(thisTac, state, metadata, info, &thisTac->operands[0], info->returnValue);
-            }
-
-            riscv_caller_restore_registers(state, calledMethod, info);
-        }
-        break;
-
-        case TT_ASSOCIATED_CALL:
-        {
-            struct StructEntry *associatedWith = scope_lookup_struct_by_type(metadata->scope, tac_get_type_of_operand(thisTac, 2));
-            struct FunctionEntry *calledAssociated = struct_lookup_method_by_string(associatedWith, thisTac->operands[1].name.str);
-
-            riscv_caller_save_registers(state, calledAssociated, info);
-
-            riscv_emit_argument_stores(state, metadata, info, calledAssociated, functionArguments);
-            functionArguments->size = 0;
-
-            // TODO: associated function name mangling/uniqueness
-            if (calledAssociated->isDefined)
-            {
-                emit_instruction(thisTac, state, "\tcall %s_%s\n", associatedWith->name, thisTac->operands[1].name.str);
-            }
-            else
-            {
-                emit_instruction(thisTac, state, "\tcall %s_%s@plt\n", associatedWith->name, thisTac->operands[1].name.str);
-            }
-
-            if ((thisTac->operands[0].name.str != NULL) && !type_is_object(&calledAssociated->returnType))
-            {
-                riscv_write_variable(thisTac, state, metadata, info, &thisTac->operands[0], info->returnValue);
-            }
-
-            riscv_caller_restore_registers(state, calledAssociated, info);
-        }
-        break;
-
-        case TT_LABEL:
-            fprintf(state->outFile, "\t%s_%ld:\n", functionName, thisTac->operands[0].name.val);
-            break;
-
-        case TT_RETURN:
-        {
-            if (thisTac->operands[0].name.str != NULL)
-            {
-                if (!(type_is_object(&metadata->function->returnType)))
-                {
-                    struct Register *sourceReg = riscv_place_or_find_operand_in_register(thisTac, state, metadata, info, &thisTac->operands[0], info->returnValue);
-
-                    if (sourceReg != info->returnValue)
-                    {
-                        emit_instruction(thisTac, state, "\tmv %s, %s\n",
-                                        info->returnValue->name,
-                                        sourceReg->name);
-                    }
-                }
-            }
-            emit_instruction(thisTac, state, "\tj %s_done\n", functionName);
-        }
-        break;
-
-        case TT_DO:
-        case TT_ENDDO:
-        case TT_PHI:
-            break;
-        }
+        riscv_generate_code_for_tac(state, metadata, info, thisTac, functionName, calledFunctionArguments);
     }
 
-    stack_free(functionArguments);
+    stack_free(calledFunctionArguments);
 }

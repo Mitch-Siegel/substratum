@@ -30,6 +30,6 @@ void release_all_scratch_registers(struct MachineInfo *info);
 
 struct Register *pick_write_register(struct RegallocMetadata *metadata,
                                    struct TACOperand *operand,
-                                   struct Register *scratch_reg);
+                                   struct Register *scratchReg);
 
 #endif
