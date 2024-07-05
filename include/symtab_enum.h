@@ -9,8 +9,10 @@ struct Type;
 struct EnumMember
 {
     char *name;
-    ssize_t numerical;
+    size_t numerical;
 };
+
+ssize_t enum_member_compare(void *enumMemberA, void *enumMemberB);
 
 struct EnumEntry
 {
@@ -19,24 +21,12 @@ struct EnumEntry
     struct Set *members;
 };
 
-struct EnumEntry *createEnum(struct Scope *scope,
-                             char *name);
+void enum_entry_free(struct EnumEntry *the_enum);
 
-void EnumEntry_free(struct EnumEntry *theEnum);
+struct EnumMember *enum_add_member(struct EnumEntry *the_enum,
+                                 struct Ast *name);
 
-struct EnumMember *addEnumMember(struct EnumEntry *theEnum,
-                                 struct AST *name);
-
-struct EnumMember *lookupEnumMember(struct EnumEntry *theEnum,
-                                    struct AST *name);
-
-struct EnumEntry *lookupEnum(struct Scope *scope,
-                             struct AST *name);
-
-struct EnumEntry *lookupEnumByType(struct Scope *scope,
-                                   struct Type *type);
-
-struct EnumEntry *lookupEnumByMemberName(struct Scope *scope,
-                                         char *name);
+struct EnumMember *enum_lookup_member(struct EnumEntry *the_enum,
+                                    struct Ast *name);
 
 #endif

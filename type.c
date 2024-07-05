@@ -9,58 +9,58 @@
 #include "log.h"
 #include "util.h"
 
-void Type_Init(struct Type *type)
+void type_init(struct Type *type)
 {
     memset(type, 0, sizeof(struct Type));
 }
 
-void Type_Free(struct Type *type)
+void type_free(struct Type *type)
 {
     free(type);
 }
 
-void Type_SetBasicType(struct Type *type, enum basicTypes basicType, char *complexTypeName, size_t pointerLevel)
+void type_set_basic_type(struct Type *type, enum BASIC_TYPES basicType, char *complexTypeName, size_t pointerLevel)
 {
-    if ((basicType == vt_struct) || (basicType == vt_enum))
+    if ((basicType == VT_STRUCT) || (basicType == VT_ENUM))
     {
         if (complexTypeName == NULL)
         {
-            InternalError("Type_SetBasicType called with a null complexTypeName for vt_struct!\n");
+            InternalError("Type_SetBasicType called with a null complexTypeName for VT_STRUCT!\n");
         }
     }
     else
     {
         if (complexTypeName != NULL)
         {
-            InternalError("Type_SetBasicType called with a non-null complexTypeName for a non-vt_struct type!\n");
+            InternalError("Type_SetBasicType called with a non-null complexTypeName for a non-VT_STRUCT type!\n");
         }
     }
 
     type->basicType = basicType;
     type->pointerLevel = pointerLevel;
 
-    if ((basicType == vt_struct) || (basicType == vt_enum))
+    if ((basicType == VT_STRUCT) || (basicType == VT_ENUM))
     {
         type->nonArray.complexType.name = complexTypeName;
     }
 }
 
-size_t Type_GetIndirectionLevel(struct Type *type)
+size_t type_get_indirection_level(struct Type *type)
 {
     size_t indirectionLevel = type->pointerLevel;
-    if (type->basicType == vt_array)
+    if (type->basicType == VT_ARRAY)
     {
         indirectionLevel++;
-        indirectionLevel += Type_GetIndirectionLevel(type->array.type);
+        indirectionLevel += type_get_indirection_level(type->array.type);
     }
 
     return indirectionLevel;
 }
 
 // decay at most one level of arrays
-void Type_SingleDecay(struct Type *type)
+void type_single_decay(struct Type *type)
 {
-    if (type->basicType == vt_array)
+    if (type->basicType == VT_ARRAY)
     {
         size_t oldPointerLevel = type->pointerLevel + 1;
         struct Type liftedOutOfArray = *type->array.type;
@@ -69,9 +69,9 @@ void Type_SingleDecay(struct Type *type)
     }
 }
 
-void Type_DecayArrays(struct Type *type)
+void type_decay_arrays(struct Type *type)
 {
-    while (type->basicType == vt_array)
+    while (type->basicType == VT_ARRAY)
     {
         size_t oldPointerLevel = type->pointerLevel + 1;
         struct Type liftedOutOfArray = *type->array.type;
@@ -80,14 +80,20 @@ void Type_DecayArrays(struct Type *type)
     }
 }
 
-ssize_t Type_Compare(struct Type *typeA, struct Type *typeB)
+void type_copy_decay_arrays(struct Type *dest, struct Type *src)
+{
+    *dest = *src;
+    type_decay_arrays(dest);
+}
+
+ssize_t type_compare(struct Type *typeA, struct Type *typeB)
 {
     if (typeA->basicType != typeB->basicType)
     {
         return 1;
     }
 
-    if (typeA->basicType == vt_array)
+    if (typeA->basicType == VT_ARRAY)
     {
         if (typeA->array.size > typeB->array.size)
         {
@@ -101,13 +107,13 @@ ssize_t Type_Compare(struct Type *typeA, struct Type *typeB)
 
         // TODO: compare initializeArrayTo values?
 
-        return Type_Compare(typeA->array.type, typeB->array.type);
+        return type_compare(typeA->array.type, typeB->array.type);
     }
 
     return 0;
 }
 
-size_t Type_Hash(struct Type *type)
+size_t type_hash(struct Type *type)
 {
     size_t hash = 0;
     for (size_t byteIndex = 0; byteIndex < sizeof(struct Type); byteIndex++)
@@ -118,175 +124,176 @@ size_t Type_Hash(struct Type *type)
     return hash;
 }
 
-bool Type_IsObject(struct Type *type)
+bool type_is_object(struct Type *type)
 {
-    return Type_IsStructObject(type) || ((type->basicType == vt_array) && type->pointerLevel == 0);
+    return type_is_struct_object(type) || ((type->basicType == VT_ARRAY) && type->pointerLevel == 0);
 }
 
-bool Type_IsStructObject(struct Type *type)
+bool type_is_struct_object(struct Type *type)
 {
-    return ((type->basicType == vt_struct) && (type->pointerLevel == 0));
+    return ((type->basicType == VT_STRUCT) && (type->pointerLevel == 0));
 }
 
-int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum basicTypes basicTypeB)
+// NOLINTBEGIN(readability-function-cognitive-complexity)
+int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA, enum BASIC_TYPES basicTypeB)
 {
     int retVal = 0;
-    const int cantWiden = 1;
+    const int CANT_WIDEN = 1;
 
     if (basicTypeA != basicTypeB)
     {
         switch (basicTypeA)
         {
-        case vt_null:
-            retVal = cantWiden;
+        case VT_NULL:
+            retVal = CANT_WIDEN;
             break;
 
-        case vt_any:
+        case VT_ANY:
             switch (basicTypeB)
             {
-            case vt_null:
-            case vt_array:
-                retVal = cantWiden;
+            case VT_NULL:
+            case VT_ARRAY:
+                retVal = CANT_WIDEN;
                 break;
-            case vt_enum:
-            case vt_struct:
-            case vt_any:
-            case vt_u8:
-            case vt_u16:
-            case vt_u32:
-            case vt_u64:
+            case VT_ENUM:
+            case VT_STRUCT:
+            case VT_ANY:
+            case VT_U8:
+            case VT_U16:
+            case VT_U32:
+            case VT_U64:
                 break;
             }
             break;
 
-        case vt_u8:
+        case VT_U8:
             switch (basicTypeB)
             {
-            case vt_null:
-            case vt_enum:
-            case vt_struct:
-            case vt_array:
-                retVal = cantWiden;
+            case VT_NULL:
+            case VT_ENUM:
+            case VT_STRUCT:
+            case VT_ARRAY:
+                retVal = CANT_WIDEN;
                 break;
-            case vt_any:
-            case vt_u8:
-            case vt_u16:
-            case vt_u32:
-            case vt_u64:
+            case VT_ANY:
+            case VT_U8:
+            case VT_U16:
+            case VT_U32:
+            case VT_U64:
                 break;
             }
             break;
 
-        case vt_u16:
+        case VT_U16:
             switch (basicTypeB)
             {
-            case vt_null:
-            case vt_u8:
-            case vt_enum:
-            case vt_struct:
-            case vt_array:
-                retVal = cantWiden;
+            case VT_NULL:
+            case VT_U8:
+            case VT_ENUM:
+            case VT_STRUCT:
+            case VT_ARRAY:
+                retVal = CANT_WIDEN;
                 break;
-            case vt_any:
-            case vt_u16:
-            case vt_u32:
-            case vt_u64:
+            case VT_ANY:
+            case VT_U16:
+            case VT_U32:
+            case VT_U64:
                 break;
             }
             break;
 
-        case vt_u32:
+        case VT_U32:
             switch (basicTypeB)
             {
-            case vt_null:
-            case vt_u8:
-            case vt_u16:
-            case vt_enum:
-            case vt_struct:
-            case vt_array:
-                retVal = cantWiden;
+            case VT_NULL:
+            case VT_U8:
+            case VT_U16:
+            case VT_ENUM:
+            case VT_STRUCT:
+            case VT_ARRAY:
+                retVal = CANT_WIDEN;
                 break;
 
-            case vt_any:
-            case vt_u32:
-            case vt_u64:
+            case VT_ANY:
+            case VT_U32:
+            case VT_U64:
                 break;
             }
             break;
 
-        case vt_u64:
+        case VT_U64:
             switch (basicTypeB)
             {
-            case vt_null:
-            case vt_u8:
-            case vt_u16:
-            case vt_u32:
-            case vt_enum:
-            case vt_struct:
-            case vt_array:
-                retVal = cantWiden;
+            case VT_NULL:
+            case VT_U8:
+            case VT_U16:
+            case VT_U32:
+            case VT_ENUM:
+            case VT_STRUCT:
+            case VT_ARRAY:
+                retVal = CANT_WIDEN;
                 break;
 
-            case vt_any:
-            case vt_u64:
+            case VT_ANY:
+            case VT_U64:
                 break;
             }
             break;
 
-        case vt_struct:
+        case VT_STRUCT:
             switch (basicTypeB)
             {
-            case vt_null:
-            case vt_u8:
-            case vt_u16:
-            case vt_u32:
-            case vt_u64:
-            case vt_array:
-            case vt_enum:
-                retVal = cantWiden;
+            case VT_NULL:
+            case VT_U8:
+            case VT_U16:
+            case VT_U32:
+            case VT_U64:
+            case VT_ARRAY:
+            case VT_ENUM:
+                retVal = CANT_WIDEN;
                 break;
-            case vt_any:
-            case vt_struct:
+            case VT_ANY:
+            case VT_STRUCT:
                 break;
             }
             break;
 
-        case vt_enum:
+        case VT_ENUM:
         {
             switch (basicTypeB)
             {
-            case vt_null:
-            case vt_u8:
-            case vt_u16:
-            case vt_u32:
-            case vt_u64:
-            case vt_struct:
-            case vt_array:
-                retVal = cantWiden;
+            case VT_NULL:
+            case VT_U8:
+            case VT_U16:
+            case VT_U32:
+            case VT_U64:
+            case VT_STRUCT:
+            case VT_ARRAY:
+                retVal = CANT_WIDEN;
                 break;
-            case vt_any:
-            case vt_enum:
+            case VT_ANY:
+            case VT_ENUM:
                 break;
             }
             break;
         }
         break;
 
-        case vt_array:
+        case VT_ARRAY:
         {
             switch (basicTypeB)
             {
-            case vt_null:
-            case vt_u8:
-            case vt_u16:
-            case vt_u32:
-            case vt_u64:
-            case vt_enum:
-            case vt_struct:
-                retVal = cantWiden;
+            case VT_NULL:
+            case VT_U8:
+            case VT_U16:
+            case VT_U32:
+            case VT_U64:
+            case VT_ENUM:
+            case VT_STRUCT:
+                retVal = CANT_WIDEN;
                 break;
-            case vt_any:
-            case vt_array:
+            case VT_ANY:
+            case VT_ARRAY:
                 break;
             }
             break;
@@ -296,30 +303,31 @@ int Type_CompareBasicTypeAllowImplicitWidening(enum basicTypes basicTypeA, enum 
     }
     return retVal;
 }
+// NOLINTEND(readability-function-cognitive-complexity)
 
-int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
+int type_compare_allow_implicit_widening(struct Type *src, struct Type *dest)
 {
     struct Type decayedSourceType = *src;
-    Type_DecayArrays(&decayedSourceType);
+    type_decay_arrays(&decayedSourceType);
 
     struct Type decayedDestType = *dest;
-    Type_DecayArrays(&decayedDestType);
-    int retVal = Type_CompareBasicTypeAllowImplicitWidening(decayedSourceType.basicType, decayedDestType.basicType);
+    type_decay_arrays(&decayedDestType);
+    int retVal = type_compare_basic_type_allow_implicit_widening(decayedSourceType.basicType, decayedDestType.basicType);
     if (retVal)
     {
         return retVal;
     }
 
     // allow implicit conversion from any type of pointer to 'any *' or 'any **', etc
-    if (((src->pointerLevel > 0) || (src->basicType == vt_array)) &&
+    if (((src->pointerLevel > 0) || (src->basicType == VT_ARRAY)) &&
         (dest->pointerLevel > 0) &&
-        (dest->basicType == vt_any))
+        (dest->basicType == VT_ANY))
     {
         retVal = 0;
     }
     else if (src->pointerLevel != dest->pointerLevel)
     {
-        if (!((src->basicType == vt_array) && (dest->basicType == src->array.type->basicType) && (dest->pointerLevel == (src->array.type->pointerLevel + 1))))
+        if (!((src->basicType == VT_ARRAY) && (dest->basicType == src->array.type->basicType) && (dest->pointerLevel == (src->array.type->pointerLevel + 1))))
         {
             if (src->pointerLevel > dest->pointerLevel)
             {
@@ -338,29 +346,29 @@ int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
     }
 
     // if we are converting from an array to something
-    if (src->basicType == vt_array)
+    if (src->basicType == VT_ARRAY)
     {
         // if we haven't already returned by the time we get to here, we know that we are doing an implicit conversion such as 'something[123]->something*'
         // yank the arrayed type out, and decay its pointer manually, then recurse
         struct Type singleDecayedSourceType = *src;
-        Type_SingleDecay(&singleDecayedSourceType);
+        type_single_decay(&singleDecayedSourceType);
 
-        if (dest->basicType == vt_array)
+        if (dest->basicType == VT_ARRAY)
         {
             struct Type singleDecayedDestType = *dest;
-            Type_SingleDecay(&singleDecayedDestType);
+            type_single_decay(&singleDecayedDestType);
 
-            retVal = Type_CompareAllowImplicitWidening(&singleDecayedSourceType, &singleDecayedDestType);
+            retVal = type_compare_allow_implicit_widening(&singleDecayedSourceType, &singleDecayedDestType);
         }
         else
         {
-            retVal = Type_CompareAllowImplicitWidening(&singleDecayedSourceType, dest);
+            retVal = type_compare_allow_implicit_widening(&singleDecayedSourceType, dest);
         }
     }
-    else if (src->basicType == vt_struct)
+    else if (src->basicType == VT_STRUCT)
     {
         // if struct->struct, special case to compare type names (ignore any, and other types are handled in Type_CompareBasicTypeAllowImplicitWidening)
-        if (dest->basicType == vt_struct)
+        if (dest->basicType == VT_STRUCT)
         {
             retVal = strcmp(src->nonArray.complexType.name, dest->nonArray.complexType.name);
         }
@@ -369,55 +377,52 @@ int Type_CompareAllowImplicitWidening(struct Type *src, struct Type *dest)
     return retVal;
 }
 
-char *Type_GetName(struct Type *type)
+char *type_get_name(struct Type *type)
 {
-    const u32 sprintTypeNameLength = 1024;
-    char *typeName = malloc(sprintTypeNameLength * sizeof(char));
+    const u32 SPRINT_TYPE_NAME_LENGTH = 1024;
+    char *typeName = malloc(SPRINT_TYPE_NAME_LENGTH * sizeof(char));
     int len = 0;
     switch (type->basicType)
     {
-    case vt_null:
+    case VT_NULL:
         len = sprintf(typeName, "NOTYPE");
         break;
 
-    case vt_any:
+    case VT_ANY:
         len = sprintf(typeName, "any");
         break;
 
-    case vt_u8:
+    case VT_U8:
         len = sprintf(typeName, "u8");
         break;
 
-    case vt_u16:
+    case VT_U16:
         len = sprintf(typeName, "u16");
         break;
 
-    case vt_u32:
+    case VT_U32:
         len = sprintf(typeName, "u32");
         break;
 
-    case vt_u64:
+    case VT_U64:
         len = sprintf(typeName, "u64");
         break;
 
-    case vt_struct:
+    case VT_STRUCT:
+    case VT_ENUM:
         len = sprintf(typeName, "%s", type->nonArray.complexType.name);
         break;
 
-    case vt_enum:
-        len = sprintf(typeName, "%s", type->nonArray.complexType.name);
-        break;
-
-    case vt_array:
+    case VT_ARRAY:
     {
-        char *arrayTypeName = Type_GetName(type->array.type);
+        char *arrayTypeName = type_get_name(type->array.type);
         len = sprintf(typeName, "%s[%zu]", arrayTypeName, type->array.size);
         free(arrayTypeName);
     }
     break;
 
     default:
-        InternalError("Unexpected enum basicTypes value %d seen in Type_GetName!", type->basicType);
+        InternalError("Unexpected enum BASIC_TYPES value %d seen in Type_GetName!", type->basicType);
     }
 
     size_t pointerCounter = 0;
@@ -431,14 +436,14 @@ char *Type_GetName(struct Type *type)
     return typeName;
 }
 
-struct Type *Type_Duplicate(struct Type *type)
+struct Type *type_duplicate(struct Type *type)
 {
     struct Type *dup = malloc(sizeof(struct Type));
     memcpy(dup, type, sizeof(struct Type));
     return dup;
 }
 
-size_t Type_GetSize(struct Type *type, struct Scope *scope)
+size_t type_get_size(struct Type *type, struct Scope *scope)
 {
     size_t size = 0;
 
@@ -450,59 +455,59 @@ size_t Type_GetSize(struct Type *type, struct Scope *scope)
 
     switch (type->basicType)
     {
-    case vt_null:
-        InternalError("Type_GetSize called with basic type of vt_null!\n");
+    case VT_NULL:
+        InternalError("Type_GetSize called with basic type of VT_NULL!\n");
         break;
 
-    case vt_any:
+    case VT_ANY:
         // triple check that 'any' is only ever used as a pointer type a la c's void *
         if (type->pointerLevel == 0)
         {
-            char *illegalAnyTypeName = Type_GetName(type);
+            char *illegalAnyTypeName = type_get_name(type);
             InternalError("Illegal 'any' type detected - %s\nSomething slipped through earlier sanity checks on use of 'any' as 'any *' or some other pointer type\n", illegalAnyTypeName);
         }
         size = sizeof(u8);
         break;
 
-    case vt_u8:
+    case VT_U8:
         size = sizeof(u8);
         break;
 
-    case vt_u16:
+    case VT_U16:
         size = sizeof(u16);
         break;
 
-    case vt_u32:
+    case VT_U32:
         size = sizeof(u32);
         break;
 
-    case vt_u64:
+    case VT_U64:
         size = sizeof(u64);
         break;
 
-    case vt_struct:
+    case VT_STRUCT:
     {
-        struct StructEntry *theStruct = lookupStructByType(scope, type);
+        struct StructEntry *theStruct = scope_lookup_struct_by_type(scope, type);
         size = theStruct->totalSize;
     }
     break;
 
-    case vt_enum:
+    case VT_ENUM:
     {
         size = sizeof(size_t);
     }
     break;
 
-    case vt_array:
+    case VT_ARRAY:
     {
         struct Type typeRunner = *type;
         size = 1;
-        while (typeRunner.basicType == vt_array)
+        while (typeRunner.basicType == VT_ARRAY)
         {
             size *= typeRunner.array.size;
             typeRunner = *typeRunner.array.type;
         }
-        size *= Type_GetSize(&typeRunner, scope);
+        size *= type_get_size(&typeRunner, scope);
     }
     break;
     }
@@ -510,54 +515,54 @@ size_t Type_GetSize(struct Type *type, struct Scope *scope)
     return size;
 }
 
-size_t Type_GetSizeWhenDereferenced(struct Type *type, struct Scope *scope)
+size_t type_get_size_when_dereferenced(struct Type *type, struct Scope *scope)
 {
     if (type->pointerLevel == 0)
     {
-        InternalError("Type_GetSizeWhenDereferenced called with non-pointer type %s!\n", Type_GetName(type));
+        InternalError("Type_GetSizeWhenDereferenced called with non-pointer type %s!\n", type_get_name(type));
     }
     struct Type dereferenced = *type;
     dereferenced.pointerLevel--;
-    return Type_GetSize(&dereferenced, scope);
+    return type_get_size(&dereferenced, scope);
 }
 
-size_t Type_GetSizeOfArrayElement(struct Type *arrayType, struct Scope *scope)
+size_t type_get_size_of_array_element(struct Type *arrayType, struct Scope *scope)
 {
-    if (arrayType->basicType == vt_array)
+    if (arrayType->basicType == VT_ARRAY)
     {
         struct Type element = *arrayType->array.type;
-        return Type_GetSize(&element, scope);
+        return type_get_size(&element, scope);
     }
     if (arrayType->pointerLevel > 0)
     {
         struct Type element = *arrayType;
         element.pointerLevel--;
-        return Type_GetSize(&element, scope);
+        return type_get_size(&element, scope);
     }
 
-    InternalError("Type_GetSizeOfArrayElement called with non-array and non-pointer type %s!\n", Type_GetName(arrayType));
+    InternalError("Type_GetSizeOfArrayElement called with non-array and non-pointer type %s!\n", type_get_name(arrayType));
 }
 
-u8 Type_GetAlignment(struct Type *type, struct Scope *scope)
+u8 type_get_alignment(struct Type *type, struct Scope *scope)
 {
     u8 alignment = 0;
 
     // early return for pointers (in case of pointer to undeclared struct)
     if (type->pointerLevel > 0)
     {
-        alignment = alignSize(sizeof(size_t));
+        alignment = align_size(sizeof(size_t));
         return alignment;
     }
 
     switch (type->basicType)
     {
-    case vt_struct:
+    case VT_STRUCT:
     {
-        struct StructEntry *theStruct = lookupStructByType(scope, type);
+        struct StructEntry *theStruct = scope_lookup_struct_by_type(scope, type);
         for (size_t memberIndex = 0; memberIndex < theStruct->memberLocations->size; memberIndex++)
         {
             struct StructMemberOffset *offset = theStruct->memberLocations->data[memberIndex];
-            u8 memberAlignment = Type_GetAlignment(&offset->variable->type, scope);
+            u8 memberAlignment = type_get_alignment(&offset->variable->type, scope);
             if (memberAlignment > alignment)
             {
                 alignment = memberAlignment;
@@ -566,22 +571,22 @@ u8 Type_GetAlignment(struct Type *type, struct Scope *scope)
     }
     break;
 
-    case vt_array:
-        alignment = alignSize(Type_GetSize(type->array.type, scope));
+    case VT_ARRAY:
+        alignment = align_size(type_get_size(type->array.type, scope));
         break;
 
     default:
-        alignment = alignSize(Type_GetSize(type, scope));
+        alignment = align_size(type_get_size(type, scope));
         break;
     }
 
     return alignment;
 }
 
-size_t Scope_ComputePaddingForAlignment(struct Scope *scope, struct Type *alignedType, size_t currentOffset)
+size_t scope_compute_padding_for_alignment(struct Scope *scope, struct Type *alignedType, size_t currentOffset)
 {
     // calculate the number of bytes to which this member needs to be aligned
-    size_t alignBytesForType = unalignSize(Type_GetAlignment(alignedType, scope));
+    size_t alignBytesForType = unalign_size(type_get_alignment(alignedType, scope));
 
     // compute how many bytes of padding we will need before this member to align it correctly
     size_t paddingRequired = 0;

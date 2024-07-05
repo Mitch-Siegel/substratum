@@ -6,7 +6,7 @@
 #include "regalloc_riscv.h"
 #include "symtab.h"
 
-void generateCodeForProgram(struct SymbolTable *table,
+void generate_code_for_program(struct SymbolTable *table,
                             FILE *outFile,
                             struct MachineInfo *info,
                             void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
@@ -24,7 +24,7 @@ void generateCodeForProgram(struct SymbolTable *table,
         struct ScopeMember *thisMember = table->globalScope->entries->data[entryIndex];
         switch (thisMember->type)
         {
-        case e_function:
+        case E_FUNCTION:
         {
             struct FunctionEntry *generatedFunction = thisMember->entry;
             if (!generatedFunction->isDefined)
@@ -38,26 +38,26 @@ void generateCodeForProgram(struct SymbolTable *table,
                 fprintf(outFile, "\t.globl _start\n_start:\n\tli sp, 0x81000000\n\tcall main\n\tpgm_done:\n\twfi\n\tj pgm_done\n");
             }
 
-            generateCodeForFunction(outFile, generatedFunction, info, NULL, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+            generate_code_for_function(outFile, generatedFunction, info, NULL, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
             fprintf(outFile, "\t.size %s, .-%s\n", generatedFunction->name, generatedFunction->name);
         }
         break;
 
-        case e_basicblock:
+        case E_BASICBLOCK:
         {
-            generateCodeForGlobalBlock(&globalContext, table->globalScope, thisMember->entry);
+            generate_code_for_global_block(&globalContext, table->globalScope, thisMember->entry);
         }
         break;
 
-        case e_variable:
+        case E_VARIABLE:
         {
-            generateCodeForGlobalVariable(&globalContext, table->globalScope, thisMember->entry);
+            generate_code_for_global_variable(&globalContext, table->globalScope, thisMember->entry);
         }
         break;
 
-        case e_struct:
+        case E_STRUCT:
         {
-            generateCodeForStruct(&globalContext, thisMember->entry, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+            generate_code_for_struct(&globalContext, thisMember->entry, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
         }
         break;
 
@@ -67,7 +67,7 @@ void generateCodeForProgram(struct SymbolTable *table,
     }
 };
 
-void generateCodeForStruct(struct CodegenState *globalContext,
+void generate_code_for_struct(struct CodegenState *globalContext,
                            struct StructEntry *theStruct,
                            struct MachineInfo *info,
                            void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
@@ -79,12 +79,12 @@ void generateCodeForStruct(struct CodegenState *globalContext,
         struct ScopeMember *thisMember = theStruct->members->entries->data[entryIndex];
         switch (thisMember->type)
         {
-        case e_function:
+        case E_FUNCTION:
         {
             struct FunctionEntry *methodToGenerate = thisMember->entry;
             if (methodToGenerate->isDefined)
             {
-                generateCodeForFunction(globalContext->outFile, methodToGenerate, info, theStruct->name, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+                generate_code_for_function(globalContext->outFile, methodToGenerate, info, theStruct->name, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
             }
         }
         break;
@@ -95,14 +95,14 @@ void generateCodeForStruct(struct CodegenState *globalContext,
     }
 }
 
-void generateCodeForGlobalBlock(struct CodegenState *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock)
+void generate_code_for_global_block(struct CodegenState *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock)
 {
 }
 
-void generateCodeForObject(struct CodegenState *globalContext, struct Scope *globalScope, struct Type *type)
+void generate_code_for_object(struct CodegenState *globalContext, struct Scope *globalScope, struct Type *type)
 {
     // how to handle multidimensional arrays with intiializeArrayTo at each level? Nested labels for nested elements?
-    if (type->basicType == vt_array)
+    if (type->basicType == VT_ARRAY)
     {
         InternalError("generateCodeForObject called with array type - not supported yet!\n");
     }
@@ -110,7 +110,7 @@ void generateCodeForObject(struct CodegenState *globalContext, struct Scope *glo
     {
         if (type->nonArray.initializeTo != NULL)
         {
-            size_t objectSize = Type_GetSize(type, globalScope);
+            size_t objectSize = type_get_size(type, globalScope);
             for (size_t byteIndex = 0; byteIndex < objectSize; byteIndex++)
             {
                 fprintf(globalContext->outFile, "\t.byte %d\n", (type->nonArray.initializeTo)[byteIndex]);
@@ -118,12 +118,12 @@ void generateCodeForObject(struct CodegenState *globalContext, struct Scope *glo
         }
         else
         {
-            fprintf(globalContext->outFile, "\t.zero %zu\n", Type_GetSize(type, globalScope));
+            fprintf(globalContext->outFile, "\t.zero %zu\n", type_get_size(type, globalScope));
         }
     }
 }
 
-void generateCodeForGlobalVariable(struct CodegenState *globalContext, struct Scope *globalScope, struct VariableEntry *variable)
+void generate_code_for_global_variable(struct CodegenState *globalContext, struct Scope *globalScope, struct VariableEntry *variable)
 {
     // early return if the variable is declared as extern, don't emit any code for it
     if (variable->isExtern)
@@ -132,9 +132,9 @@ void generateCodeForGlobalVariable(struct CodegenState *globalContext, struct Sc
     }
 
     char *varName = variable->name;
-    size_t varSize = Type_GetSize(&variable->type, globalScope);
+    size_t varSize = type_get_size(&variable->type, globalScope);
 
-    if (variable->type.basicType == vt_array)
+    if (variable->type.basicType == VT_ARRAY)
     {
         // string literals go in rodata
         if ((variable->type.array.initializeArrayTo != NULL) && (variable->isStringLiteral))
@@ -150,7 +150,7 @@ void generateCodeForGlobalVariable(struct CodegenState *globalContext, struct Sc
 
     fprintf(globalContext->outFile, "\t.globl %s\n", varName);
 
-    u8 alignBits = Type_GetAlignment(&variable->type, globalScope);
+    u8 alignBits = type_get_alignment(&variable->type, globalScope);
     if (alignBits > 0)
     {
         fprintf(globalContext->outFile, ".align %d\n", alignBits);
@@ -160,7 +160,7 @@ void generateCodeForGlobalVariable(struct CodegenState *globalContext, struct Sc
     fprintf(globalContext->outFile, "\t.size \t%s, %zu\n", varName, varSize);
     fprintf(globalContext->outFile, "%s:\n", varName);
 
-    if (variable->type.basicType == vt_array)
+    if (variable->type.basicType == VT_ARRAY)
     {
         if (variable->type.array.initializeArrayTo != NULL)
         {
@@ -175,13 +175,13 @@ void generateCodeForGlobalVariable(struct CodegenState *globalContext, struct Sc
             }
             else
             {
-                generateCodeForObject(globalContext, globalScope, &variable->type);
+                generate_code_for_object(globalContext, globalScope, &variable->type);
             }
         }
     }
     else
     {
-        generateCodeForObject(globalContext, globalScope, &variable->type);
+        generate_code_for_object(globalContext, globalScope, &variable->type);
     }
 
     fprintf(globalContext->outFile, ".section .text\n");
@@ -192,7 +192,7 @@ void generateCodeForGlobalVariable(struct CodegenState *globalContext, struct Sc
  *
  */
 extern struct Config config;
-void generateCodeForFunction(FILE *outFile,
+void generate_code_for_function(FILE *outFile,
                              struct FunctionEntry *function,
                              struct MachineInfo *info,
                              char *methodOfStructName,
@@ -208,14 +208,14 @@ void generateCodeForFunction(FILE *outFile,
         strcpy(fullFunctionName, methodOfStructName);
         strcat(fullFunctionName, "_");
         strcat(fullFunctionName, function->name);
-        Log(LOG_DEBUG, "the real name of %s is %s", function->name, fullFunctionName);
+        log(LOG_DEBUG, "the real name of %s is %s", function->name, fullFunctionName);
     }
     size_t instructionIndex = 0; // index from start of function in terms of number of instructions
     struct CodegenState state;
     state.outFile = outFile;
     state.instructionIndex = &instructionIndex;
 
-    Log(LOG_INFO, "Generate code for function %s", fullFunctionName);
+    log(LOG_INFO, "Generate code for function %s", fullFunctionName);
 
     fprintf(outFile, ".globl %s\n", fullFunctionName);
     fprintf(outFile, ".type %s, @function\n", fullFunctionName);
@@ -226,7 +226,7 @@ void generateCodeForFunction(FILE *outFile,
     // TODO: debug symbols for asm functions?
     if (function->isAsmFun)
     {
-        Log(LOG_DEBUG, "%s is an asm function", function->name);
+        log(LOG_DEBUG, "%s is an asm function", function->name);
     }
 
     emitPrologue(&state, &function->regalloc, info);
@@ -239,7 +239,7 @@ void generateCodeForFunction(FILE *outFile,
     for (struct LinkedListNode *blockRunner = function->BasicBlockList->head; blockRunner != NULL; blockRunner = blockRunner->next)
     {
         struct BasicBlock *block = blockRunner->data;
-        Log(LOG_DEBUG, "Generating code for basic block %zd", block->labelNum);
+        log(LOG_DEBUG, "Generating code for basic block %zd", block->labelNum);
         generateCodeForBasicBlock(&state, &function->regalloc, info, block, fullFunctionName);
     }
 

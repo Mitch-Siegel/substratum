@@ -8,10 +8,10 @@ struct MachineInfo;
 struct SymbolTable;
 
 // return the heuristic for how good a given lifetime is to spill - higher is better
-size_t Lifetime_Heuristic(struct Lifetime *lifetime);
+size_t lifetime_heuristic(struct Lifetime *lifetime);
 
-void allocateRegisters(struct RegallocMetadata *metadata, struct MachineInfo *info);
+void allocate_registers(struct RegallocMetadata *metadata, struct MachineInfo *info);
 
-void allocateRegistersForProgram(struct SymbolTable *theTable, struct MachineInfo *info);
+void allocate_registers_for_program(struct SymbolTable *theTable, struct MachineInfo *info);
 
 #endif

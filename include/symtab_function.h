@@ -16,7 +16,7 @@ struct FunctionEntry
     char *name;                   // duplicate pointer from ScopeMember for ease of use
     struct StructEntry *methodOf; // if this function is a member of a struct, points to which struct
     struct LinkedList *BasicBlockList;
-    struct AST correspondingTree;
+    struct Ast correspondingTree;
     u8 isDefined;
     u8 isAsmFun;
     u8 callsOtherFunction; // is it possible this function calls another function? (need to store return address on stack)
@@ -24,20 +24,9 @@ struct FunctionEntry
     struct RegallocMetadata regalloc;
 };
 
-struct FunctionEntry *FunctionEntry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType, struct StructEntry *methodOf);
+struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct Type *returnType, struct StructEntry *methodOf);
 
-void FunctionEntry_free(struct FunctionEntry *function);
+void function_entry_free(struct FunctionEntry *function);
 
-struct FunctionEntry *createFunction(struct Scope *parentScope,
-                                     struct AST *nameTree,
-                                     struct Type *returnType,
-                                     struct StructEntry *methodOf,
-                                     enum Access accessibility);
-
-struct FunctionEntry *lookupFunByString(struct Scope *scope,
-                                        char *name);
-
-struct FunctionEntry *lookupFun(struct Scope *scope,
-                                struct AST *name);
 
 #endif

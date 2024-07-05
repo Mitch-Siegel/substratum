@@ -3,32 +3,32 @@
 #include "symtab_basicblock.h"
 #include "util.h"
 
-struct Set **generateSuccessors(struct BasicBlock **blocks, size_t nBlocks)
+struct Set **generate_successors(struct BasicBlock **blocks, size_t nBlocks)
 {
     struct Set **blockSuccessors = malloc(nBlocks * sizeof(struct LinkedList *));
 
     for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
     {
         // block pointers will be unique, so we can directly compare them
-        blockSuccessors[blockIndex] = Set_New(ssizet_compare, NULL);
+        blockSuccessors[blockIndex] = set_new(ssizet_compare, NULL);
 
         struct Set *thisblockSuccessors = blockSuccessors[blockIndex];
 
         for (struct LinkedListNode *tacRunner = blocks[blockIndex]->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
         {
-            struct TACLine *thisTAC = tacRunner->data;
-            switch (thisTAC->operation)
+            struct TACLine *thisTac = tacRunner->data;
+            switch (thisTac->operation)
             {
-            case tt_beq:
-            case tt_bne:
-            case tt_bgeu:
-            case tt_bltu:
-            case tt_bgtu:
-            case tt_bleu:
-            case tt_beqz:
-            case tt_bnez:
-            case tt_jmp:
-                Set_Insert(thisblockSuccessors, blocks[thisTAC->operands[0].name.val]);
+            case TT_BEQ:
+            case TT_BNE:
+            case TT_BGEU:
+            case TT_BLTU:
+            case TT_BGTU:
+            case TT_BLEU:
+            case TT_BEQZ:
+            case TT_BNEZ:
+            case TT_JMP:
+                set_insert(thisblockSuccessors, blocks[thisTac->operands[0].name.val]);
                 break;
 
             default:
@@ -40,14 +40,14 @@ struct Set **generateSuccessors(struct BasicBlock **blocks, size_t nBlocks)
     return blockSuccessors;
 }
 
-struct Set **generatePredecessors(struct BasicBlock **blocks, struct Set **successors, size_t nBlocks)
+struct Set **generate_predecessors(struct BasicBlock **blocks, struct Set **successors, size_t nBlocks)
 {
     struct Set **blockPredecessors = malloc(nBlocks * sizeof(struct LinkedList *));
 
     for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
     {
         // block pointers will always be unique, so we can directly compare them
-        blockPredecessors[blockIndex] = Set_New(ssizet_compare, NULL);
+        blockPredecessors[blockIndex] = set_new(ssizet_compare, NULL);
     }
 
     for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
@@ -55,14 +55,14 @@ struct Set **generatePredecessors(struct BasicBlock **blocks, struct Set **succe
         for (struct LinkedListNode *successorRunner = successors[blockIndex]->elements->head; successorRunner != NULL; successorRunner = successorRunner->next)
         {
             struct BasicBlock *successor = successorRunner->data;
-            Set_Insert(blockPredecessors[successor->labelNum], blocks[blockIndex]);
+            set_insert(blockPredecessors[successor->labelNum], blocks[blockIndex]);
         }
     }
 
     return blockPredecessors;
 }
 
-struct IdfaContext *IdfaContext_Create(struct LinkedList *blocks)
+struct IdfaContext *idfa_context_create(struct LinkedList *blocks)
 {
     struct IdfaContext *wip = malloc(sizeof(struct IdfaContext));
     wip->nBlocks = blocks->size;
@@ -78,40 +78,40 @@ struct IdfaContext *IdfaContext_Create(struct LinkedList *blocks)
         wip->blocks[thisBlock->labelNum] = thisBlock;
     }
 
-    wip->successors = generateSuccessors(wip->blocks, wip->nBlocks);
-    wip->predecessors = generatePredecessors(wip->blocks, wip->successors, wip->nBlocks);
+    wip->successors = generate_successors(wip->blocks, wip->nBlocks);
+    wip->predecessors = generate_predecessors(wip->blocks, wip->successors, wip->nBlocks);
 
     return wip;
 }
 
-void IdfaContext_Free(struct IdfaContext *context)
+void idfa_context_free(struct IdfaContext *context)
 {
     free(context->blocks);
     for (size_t blockIndex = 0; blockIndex < context->nBlocks; blockIndex++)
     {
-        Set_Free(context->successors[blockIndex]);
-        Set_Free(context->predecessors[blockIndex]);
+        set_free(context->successors[blockIndex]);
+        set_free(context->predecessors[blockIndex]);
     }
     free(context->successors);
     free(context->predecessors);
     free(context);
 }
 
-struct Idfa *Idfa_Create(struct IdfaContext *context,
+struct Idfa *idfa_create(struct IdfaContext *context,
                          struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts),
                          void (*findGenKills)(struct Idfa *idfa),
-                         enum IdfaAnalysisDirection direction,
+                         enum IDFA_ANALYSIS_DIRECTION direction,
                          ssize_t (*compareFacts)(void *factA, void *factB),
                          void (*printFact)(void *factData),
                          struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB))
 {
     struct Idfa *wip = malloc(sizeof(struct Idfa));
     wip->context = context;
-    wip->compareFacts = compareFacts;
-    wip->printFact = printFact;
-    wip->fTransfer = fTransfer;
-    wip->findGenKills = findGenKills;
-    wip->fMeet = fMeet;
+    wip->compare_facts = compareFacts;
+    wip->print_fact = printFact;
+    wip->f_transfer = fTransfer;
+    wip->find_gen_kills = findGenKills;
+    wip->f_meet = fMeet;
     wip->direction = direction;
 
     wip->facts.in = malloc(wip->context->nBlocks * sizeof(struct Set *));
@@ -121,18 +121,18 @@ struct Idfa *Idfa_Create(struct IdfaContext *context,
 
     for (size_t i = 0; i < wip->context->nBlocks; i++)
     {
-        wip->facts.in[i] = Set_New(wip->compareFacts, NULL);
-        wip->facts.out[i] = Set_New(wip->compareFacts, NULL);
-        wip->facts.gen[i] = Set_New(wip->compareFacts, NULL);
-        wip->facts.kill[i] = Set_New(wip->compareFacts, NULL);
+        wip->facts.in[i] = set_new(wip->compare_facts, NULL);
+        wip->facts.out[i] = set_new(wip->compare_facts, NULL);
+        wip->facts.gen[i] = set_new(wip->compare_facts, NULL);
+        wip->facts.kill[i] = set_new(wip->compare_facts, NULL);
     }
 
-    Idfa_Analyze(wip);
+    idfa_analyze(wip);
 
     return wip;
 }
 
-void Idfa_printFactsForBlock(struct Idfa *idfa, size_t blockIndex)
+void idfa_print_facts_for_block(struct Idfa *idfa, size_t blockIndex)
 {
     printf("Block %zu facts:\n", blockIndex);
 
@@ -140,7 +140,7 @@ void Idfa_printFactsForBlock(struct Idfa *idfa, size_t blockIndex)
     for (struct LinkedListNode *factRunner = idfa->facts.gen[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
     {
         printf("[");
-        idfa->printFact(factRunner->data);
+        idfa->print_fact(factRunner->data);
         printf("] ");
     }
 
@@ -148,7 +148,7 @@ void Idfa_printFactsForBlock(struct Idfa *idfa, size_t blockIndex)
     for (struct LinkedListNode *factRunner = idfa->facts.kill[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
     {
         printf("[");
-        idfa->printFact(factRunner->data);
+        idfa->print_fact(factRunner->data);
         printf("] ");
     }
 
@@ -156,7 +156,7 @@ void Idfa_printFactsForBlock(struct Idfa *idfa, size_t blockIndex)
     for (struct LinkedListNode *factRunner = idfa->facts.in[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
     {
         printf("[");
-        idfa->printFact(factRunner->data);
+        idfa->print_fact(factRunner->data);
         printf("] ");
     }
 
@@ -164,23 +164,23 @@ void Idfa_printFactsForBlock(struct Idfa *idfa, size_t blockIndex)
     for (struct LinkedListNode *factRunner = idfa->facts.out[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
     {
         printf("[");
-        idfa->printFact(factRunner->data);
+        idfa->print_fact(factRunner->data);
         printf("] ");
     }
     printf("\n\n");
 }
 
-void Idfa_printFacts(struct Idfa *idfa)
+void idfa_print_facts(struct Idfa *idfa)
 {
     for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
     {
-        Idfa_printFactsForBlock(idfa, blockIndex);
+        idfa_print_facts_for_block(idfa, blockIndex);
     }
 }
 
-void Idfa_AnalyzeForwards(struct Idfa *idfa)
+void idfa_analyze_forwards(struct Idfa *idfa)
 {
-    idfa->findGenKills(idfa);
+    idfa->find_gen_kills(idfa);
     size_t iteration = 0;
     size_t nChangedOutputs = 0;
     do
@@ -204,29 +204,29 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
 
                 if (newInFacts == NULL)
                 {
-                    newInFacts = Set_Copy(predOuts);
+                    newInFacts = set_copy(predOuts);
                 }
                 else
                 {
-                    struct Set *metInFacts = idfa->fMeet(newInFacts, predOuts);
-                    Set_Free(newInFacts);
+                    struct Set *metInFacts = idfa->f_meet(newInFacts, predOuts);
+                    set_free(newInFacts);
                     newInFacts = metInFacts;
                 }
             }
             if (newInFacts == NULL)
             {
-                newInFacts = Set_New(oldInFacts->compareFunction, oldInFacts->dataFreeFunction);
+                newInFacts = set_new(oldInFacts->compareFunction, oldInFacts->dataFreeFunction);
             }
-            Set_Free(oldInFacts);
+            set_free(oldInFacts);
             idfa->facts.in[blockIndex] = newInFacts;
 
-            struct Set *transferred = idfa->fTransfer(idfa, idfa->context->blocks[blockIndex], newInFacts);
+            struct Set *transferred = idfa->f_transfer(idfa, idfa->context->blocks[blockIndex], newInFacts);
             if (transferred->elements->size != idfa->facts.out[blockIndex]->elements->size)
             {
                 nChangedOutputs++;
             }
 
-            Set_Free(idfa->facts.out[blockIndex]);
+            set_free(idfa->facts.out[blockIndex]);
             idfa->facts.out[blockIndex] = transferred;
         }
 
@@ -234,52 +234,52 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
     } while (nChangedOutputs > 0);
 }
 
-void Idfa_AnalyzeBackwards(struct Idfa *idfa)
+void idfa_analyze_backwards(struct Idfa *idfa)
 {
     InternalError("Backwards dataflow analysis not implemented");
 }
 
-void Idfa_Analyze(struct Idfa *idfa)
+void idfa_analyze(struct Idfa *idfa)
 {
     switch (idfa->direction)
     {
-    case d_forwards:
-        Idfa_AnalyzeForwards(idfa);
+    case D_FORWARDS:
+        idfa_analyze_forwards(idfa);
         break;
 
-    case d_backwards:
-        Idfa_AnalyzeBackwards(idfa);
+    case D_BACKWARDS:
+        idfa_analyze_backwards(idfa);
         break;
     }
 }
 
-void Idfa_Redo(struct Idfa *idfa)
+void idfa_redo(struct Idfa *idfa)
 {
     for (size_t i = 0; i < idfa->context->nBlocks; i++)
     {
-        Set_Free(idfa->facts.in[i]);
-        idfa->facts.in[i] = Set_New(idfa->compareFacts, NULL);
+        set_free(idfa->facts.in[i]);
+        idfa->facts.in[i] = set_new(idfa->compare_facts, NULL);
 
-        Set_Free(idfa->facts.out[i]);
-        idfa->facts.out[i] = Set_New(idfa->compareFacts, NULL);
+        set_free(idfa->facts.out[i]);
+        idfa->facts.out[i] = set_new(idfa->compare_facts, NULL);
 
-        Set_Free(idfa->facts.gen[i]);
-        idfa->facts.gen[i] = Set_New(idfa->compareFacts, NULL);
+        set_free(idfa->facts.gen[i]);
+        idfa->facts.gen[i] = set_new(idfa->compare_facts, NULL);
 
-        Set_Free(idfa->facts.kill[i]);
-        idfa->facts.kill[i] = Set_New(idfa->compareFacts, NULL);
+        set_free(idfa->facts.kill[i]);
+        idfa->facts.kill[i] = set_new(idfa->compare_facts, NULL);
     }
-    Idfa_Analyze(idfa);
+    idfa_analyze(idfa);
 }
 
-void Idfa_Free(struct Idfa *idfa)
+void idfa_free(struct Idfa *idfa)
 {
     for (size_t i = 0; i < idfa->context->nBlocks; i++)
     {
-        Set_Free(idfa->facts.in[i]);
-        Set_Free(idfa->facts.out[i]);
-        Set_Free(idfa->facts.gen[i]);
-        Set_Free(idfa->facts.kill[i]);
+        set_free(idfa->facts.in[i]);
+        set_free(idfa->facts.out[i]);
+        set_free(idfa->facts.gen[i]);
+        set_free(idfa->facts.kill[i]);
     }
 
     free(idfa->facts.in);

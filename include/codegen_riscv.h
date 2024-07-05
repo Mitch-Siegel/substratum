@@ -10,56 +10,56 @@ struct MachineInfo;
 struct BasicBlock;
 struct Scope;
 
-void riscv_EmitFrameStoreForSize(struct TACLine *correspondingTACLine,
+void riscv_emit_frame_store_for_size(struct TACLine *correspondingTACLine,
                                  struct CodegenState *state,
                                  struct MachineInfo *info,
                                  struct Register *sourceReg,
                                  u8 size,
                                  ssize_t offset);
 
-void riscv_EmitFrameLoadForSize(struct TACLine *correspondingTACLine,
+void riscv_emit_frame_load_for_size(struct TACLine *correspondingTACLine,
                                 struct CodegenState *state,
                                 struct MachineInfo *info,
                                 struct Register *destReg,
                                 u8 size,
                                 ssize_t offset);
 
-void riscv_EmitStackStoreForSize(struct TACLine *correspondingTACLine,
+void riscv_emit_stack_store_for_size(struct TACLine *correspondingTACLine,
                                  struct CodegenState *state,
                                  struct MachineInfo *info,
                                  struct Register *sourceReg,
                                  u8 size,
                                  ssize_t offset);
 
-void riscv_EmitStackLoadForSize(struct TACLine *correspondingTACLine,
+void riscv_emit_stack_load_for_size(struct TACLine *correspondingTACLine,
                                 struct CodegenState *state,
                                 struct MachineInfo *info,
                                 struct Register *destReg,
                                 u8 size,
                                 ssize_t offset);
 
-void riscv_EmitPushForSize(struct TACLine *correspondingTACLine,
+void riscv_emit_push_for_size(struct TACLine *correspondingTACLine,
                            struct CodegenState *state,
                            u8 size,
                            struct Register *srcRegister);
 
-void riscv_EmitPopForSize(struct TACLine *correspondingTACLine,
+void riscv_emit_pop_for_size(struct TACLine *correspondingTACLine,
                           struct CodegenState *state,
                           u8 size,
                           struct Register *destRegister);
 
-void riscv_emitPrologue(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info);
+void riscv_emit_prologue(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info);
 
-void riscv_emitEpilogue(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info, char *functionName);
+void riscv_emit_epilogue(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info, char *functionName);
 
-struct Register *riscv_placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
+struct Register *riscv_place_or_find_operand_in_register(struct TACLine *correspondingTACLine,
                                                     struct CodegenState *state,
                                                     struct RegallocMetadata *metadata,
                                                     struct MachineInfo *info,
                                                     struct TACOperand *operand,
                                                     struct Register *optionalScratch);
 
-void riscv_WriteVariable(struct TACLine *correspondingTACLine,
+void riscv_write_variable(struct TACLine *correspondingTACLine,
                          struct CodegenState *state,
                          struct RegallocMetadata *metadata,
                          struct MachineInfo *info,
@@ -67,25 +67,19 @@ void riscv_WriteVariable(struct TACLine *correspondingTACLine,
                          struct Register *dataSource);
 
 // place a literal in the register specified by numerical index, return string of register's name for asm
-void riscv_PlaceLiteralStringInRegister(struct TACLine *correspondingTACLine,
+void riscv_place_literal_string_in_register(struct TACLine *correspondingTACLine,
                                         struct CodegenState *state,
                                         char *literalStr,
                                         struct Register *destReg);
 
-// places a variable in a register, with no guarantee that it is modifiable, returning the string of the register's name for asm
-struct Register *placeOrFindOperandInRegister(struct TACLine *correspondingTACLine,
-                                              struct CodegenState *state,
-                                              struct TACOperand *operand,
-                                              struct Register *optionalScratch);
-
-void riscv_placeAddrOfOperandInReg(struct TACLine *correspondingTACLine,
+void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
                                    struct CodegenState *state,
                                    struct RegallocMetadata *metadata,
                                    struct MachineInfo *info,
                                    struct TACOperand *operand,
                                    struct Register *destReg);
 
-void riscv_GenerateCodeForBasicBlock(struct CodegenState *state,
+void riscv_generate_code_for_basic_block(struct CodegenState *state,
                                      struct RegallocMetadata *metadata,
                                      struct MachineInfo *info,
                                      struct BasicBlock *block,

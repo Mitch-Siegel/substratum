@@ -3,11 +3,15 @@
 
 #include "type.h"
 
-enum variablePermutations
+struct VariableEntry;
+struct EnumEntry;
+struct Ast;
+
+enum VARIABLE_PERMUTATIONS
 {
-    vp_standard,
-    vp_temp,
-    vp_literal,
+    VP_STANDARD,
+    VP_TEMP,
+    VP_LITERAL,
 };
 
 struct TACOperand
@@ -21,21 +25,35 @@ struct TACOperand
     size_t ssaNumber;
     struct Type type;
     struct Type castAsType;
-    enum variablePermutations permutation; // enum of permutation (standard/temp/literal)
+    enum VARIABLE_PERMUTATIONS permutation; // enum of permutation (standard/temp/literal)
 };
 
 // Enum denoting how a particular TAC operand is used
-enum TACOperandUse
+enum TAC_OPERAND_USE
 {
-    u_unused,
-    u_read,
-    u_write,
+    U_UNUSED,
+    U_READ,
+    U_WRITE,
 };
 
-void printTACOperand(void *operandData);
+void tac_operand_print(void *operandData);
 
-ssize_t TACOperand_Compare(void *dataA, void *dataB);
+struct Type *tac_operand_get_type(struct TACOperand *operand);
 
-ssize_t TACOperand_CompareIgnoreSsaNumber(void *dataA, void *dataB);
+ssize_t tac_operand_compare(void *dataA, void *dataB);
+
+ssize_t tac_operand_compare_ignore_ssa_number(void *dataA, void *dataB);
+
+void tac_operand_populate_from_variable(struct TACOperand *operandToPopulate, struct VariableEntry *populateFrom);
+
+void tac_operand_populate_from_enum_member(struct TACOperand *operandToPopulate, struct EnumEntry *theEnum, struct Ast *tree);
+
+void tac_operand_populate_as_temp(struct TACOperand *operandToPopulate, size_t *tempNum);
+
+// copy over the entire TACOperand, all fields are changed
+void tac_operand_copy_decay_arrays(struct TACOperand *dest, struct TACOperand *src);
+
+// copy over only the type and castAsType fields, decaying array sizes to simple pointer types
+void tac_operand_copy_type_decay_arrays(struct TACOperand *dest, struct TACOperand *src);
 
 #endif

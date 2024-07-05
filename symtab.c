@@ -6,46 +6,46 @@
 
 extern struct Dictionary *parseDict;
 
-struct SymbolTable *SymbolTable_new(char *name)
+struct SymbolTable *symbol_table_new(char *name)
 {
     struct SymbolTable *wip = malloc(sizeof(struct SymbolTable));
     wip->name = name;
-    wip->globalScope = Scope_new(NULL, "Global", NULL, NULL);
-    struct BasicBlock *globalBlock = BasicBlock_new(0);
+    wip->globalScope = scope_new(NULL, "Global", NULL, NULL);
+    struct BasicBlock *globalBlock = basic_block_new(0);
 
     // manually insert a basic block for global code so we can give it the custom name of "globalblock"
-    Scope_insert(wip->globalScope, "globalblock", globalBlock, e_basicblock, a_public);
+    scope_insert(wip->globalScope, "globalblock", globalBlock, E_BASICBLOCK, A_PUBLIC);
 
     return wip;
 }
 
-void SymbolTable_print(struct SymbolTable *table, FILE *outFile, char printTAC)
+void symbol_table_print(struct SymbolTable *table, FILE *outFile, bool printTac)
 {
     printf("~~~~~~~~~~~~~\n");
     printf("Symbol Table For %s:\n\n", table->name);
-    Scope_print(table->globalScope, outFile, 0, printTAC);
+    scope_print(table->globalScope, outFile, 0, printTac);
     printf("~~~~~~~~~~~~~\n\n");
 }
 
-void Scope_DecayArrays(struct Scope *scope)
+void scope_decay_arrays(struct Scope *scope)
 {
     for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
     {
         struct ScopeMember *thisMember = scope->entries->data[entryIndex];
         switch (thisMember->type)
         {
-        case e_scope:
-            Scope_DecayArrays(thisMember->entry);
+        case E_SCOPE:
+            scope_decay_arrays(thisMember->entry);
             break;
 
-        case e_function:
+        case E_FUNCTION:
         {
             struct FunctionEntry *decayFunction = thisMember->entry;
-            Scope_DecayArrays(decayFunction->mainScope);
+            scope_decay_arrays(decayFunction->mainScope);
         }
         break;
 
-        case e_basicblock:
+        case E_BASICBLOCK:
         {
             struct BasicBlock *decayBlock = thisMember->entry;
             for (struct LinkedListNode *tacRunner = decayBlock->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
@@ -53,10 +53,10 @@ void Scope_DecayArrays(struct Scope *scope)
                 struct TACLine *decayLine = tacRunner->data;
                 for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
                 {
-                    if (getUseOfOperand(decayLine, operandIndex) != u_unused)
+                    if (get_use_of_operand(decayLine, operandIndex) != U_UNUSED)
                     {
-                        struct Type decayedType = *TACOperand_GetType(&decayLine->operands[operandIndex]);
-                        Type_DecayArrays(&decayedType);
+                        struct Type decayedType = *tac_operand_get_type(&decayLine->operands[operandIndex]);
+                        type_decay_arrays(&decayedType);
                         decayLine->operands[operandIndex].castAsType = decayedType;
                     }
                 }
@@ -64,42 +64,42 @@ void Scope_DecayArrays(struct Scope *scope)
         }
         break;
 
-        case e_variable:
-        case e_argument:
+        case E_VARIABLE:
+        case E_ARGUMENT:
             break;
 
-        case e_struct:
+        case E_STRUCT:
         {
             struct StructEntry *theStruct = thisMember->entry;
-            Scope_DecayArrays(theStruct->members);
+            scope_decay_arrays(theStruct->members);
         }
         break;
 
-        case e_enum:
+        case E_ENUM:
             break;
         }
     }
 }
 
-void SymbolTable_DecayArrays(struct SymbolTable *table)
+void symbol_table_decay_arrays(struct SymbolTable *table)
 {
-    Scope_DecayArrays(table->globalScope);
+    scope_decay_arrays(table->globalScope);
 }
 
-char *SymbolTable_mangleName(struct Scope *scope, struct Dictionary *dict, char *toMangle)
+char *symbol_table_mangle_name(struct Scope *scope, struct Dictionary *dict, char *toMangle)
 {
     char *scopeName = scope->name;
 
     char *mangledName = malloc(strlen(toMangle) + strlen(scopeName) + 2);
     sprintf(mangledName, "%s.%s", scopeName, toMangle);
-    char *newName = Dictionary_LookupOrInsert(dict, mangledName);
+    char *newName = dictionary_lookup_or_insert(dict, mangledName);
     free(mangledName);
     return newName;
 }
 
-void SymbolTable_moveMemberToParentScope(struct Scope *scope, struct ScopeMember *toMove, size_t *indexWithinCurrentScope)
+void symbol_table_move_member_to_parent_scope(struct Scope *scope, struct ScopeMember *toMove, size_t *indexWithinCurrentScope)
 {
-    Scope_insert(scope->parentScope, toMove->name, toMove->entry, toMove->type, toMove->accessibility);
+    scope_insert(scope->parentScope, toMove->name, toMove->entry, toMove->type, toMove->accessibility);
     free(scope->entries->data[*indexWithinCurrentScope]);
     for (size_t entryIndex = *indexWithinCurrentScope; entryIndex < scope->entries->size - 1; entryIndex++)
     {
@@ -111,66 +111,66 @@ void SymbolTable_moveMemberToParentScope(struct Scope *scope, struct ScopeMember
     (*indexWithinCurrentScope)--;
 }
 
-static void collapseRecurseToSubScopes(struct Scope *scope, struct Dictionary *dict, size_t depth)
+static void collapse_recurse_to_sub_scopes(struct Scope *scope, struct Dictionary *dict, size_t depth)
 {
     for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
     {
         struct ScopeMember *thisMember = scope->entries->data[entryIndex];
         switch (thisMember->type)
         {
-        case e_scope: // recurse to subscopes
+        case E_SCOPE: // recurse to subscopes
         {
-            SymbolTable_collapseScopesRec(thisMember->entry, dict, depth + 1);
+            symbol_table_collapse_scopes_rec(thisMember->entry, dict, depth + 1);
         }
         break;
 
-        case e_function: // recurse to functions
+        case E_FUNCTION: // recurse to functions
         {
             if (depth > 0)
             {
                 InternalError("Saw function at depth > 0 when collapsing scopes!");
             }
             struct FunctionEntry *thisFunction = thisMember->entry;
-            SymbolTable_collapseScopesRec(thisFunction->mainScope, dict, 0);
+            symbol_table_collapse_scopes_rec(thisFunction->mainScope, dict, 0);
         }
         break;
 
         // skip everything else
-        case e_variable:
-        case e_argument:
-        case e_basicblock:
+        case E_VARIABLE:
+        case E_ARGUMENT:
+        case E_BASICBLOCK:
             break;
 
         // ... except structs, which need to be recursed into
-        case e_struct:
+        case E_STRUCT:
         {
             struct StructEntry *recursedStruct = thisMember->entry;
-            SymbolTable_collapseScopesRec(recursedStruct->members, dict, 0);
+            symbol_table_collapse_scopes_rec(recursedStruct->members, dict, 0);
         }
         break;
 
-        case e_enum:
+        case E_ENUM:
             break;
         }
     }
 }
 
-static void attemptOperandMangle(struct TACOperand *operand, struct Scope *scope, struct Dictionary *dict)
+static void attempt_operand_mangle(struct TACOperand *operand, struct Scope *scope, struct Dictionary *dict)
 {
     // check only TAC operands that both exist and refer to a named variable from the source code (ignore temps etc)
-    if ((operand->type.basicType != vt_null) &&
-        (operand->permutation == vp_standard))
+    if ((operand->type.basicType != VT_NULL) &&
+        (operand->permutation == VP_STANDARD))
     {
         char *originalName = operand->name.str;
 
         // bail out early if the variable is not declared within this scope, as we will not need to mangle it
-        if (!Scope_contains(scope, originalName))
+        if (!scope_contains(scope, originalName))
         {
             return;
         }
 
         // if the declaration for the variable is owned by this scope, ensure that we actually get a variable or argument
-        struct VariableEntry *variableToMangle = lookupVarByString(scope, originalName);
+        struct VariableEntry *variableToMangle = scope_lookup_var_by_string(scope, originalName);
 
         // only mangle things which are not string literals
         if (variableToMangle->isStringLiteral == 0)
@@ -180,13 +180,13 @@ static void attemptOperandMangle(struct TACOperand *operand, struct Scope *scope
             {
                 InternalError("Declaration of variable %s at inner scope %s is marked as a global!", variableToMangle->name, scope->name);
             }
-            operand->name.str = SymbolTable_mangleName(scope, dict, originalName);
+            operand->name.str = symbol_table_mangle_name(scope, dict, originalName);
         }
     }
 }
 
 // iterate all TAC lines for all basic blocks within scope, mangling their operands if necessary
-static void mangleBlockContents(struct Scope *scope, struct Dictionary *dict)
+static void mangle_block_contents(struct Scope *scope, struct Dictionary *dict)
 {
     // second pass: rename basic block operands relevant to the current scope
     for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
@@ -194,25 +194,25 @@ static void mangleBlockContents(struct Scope *scope, struct Dictionary *dict)
         struct ScopeMember *thisMember = scope->entries->data[entryIndex];
         switch (thisMember->type)
         {
-        case e_scope:
-        case e_function:
+        case E_SCOPE:
+        case E_FUNCTION:
             break;
 
-        case e_basicblock:
+        case E_BASICBLOCK:
         {
             // rename TAC lines if we are within a function
             if (scope->parentFunction != NULL)
             {
                 // go through all TAC lines in this block
                 struct BasicBlock *thisBlock = thisMember->entry;
-                for (struct LinkedListNode *TACRunner = thisBlock->TACList->head; TACRunner != NULL; TACRunner = TACRunner->next)
+                for (struct LinkedListNode *tacRunner = thisBlock->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
                 {
-                    struct TACLine *thisTAC = TACRunner->data;
+                    struct TACLine *thisTac = tacRunner->data;
                     for (size_t operandIndex = 0; operandIndex < 4; operandIndex++)
                     {
-                        if (getUseOfOperand(thisTAC, operandIndex) != u_unused)
+                        if (get_use_of_operand(thisTac, operandIndex) != U_UNUSED)
                         {
-                            attemptOperandMangle(&thisTAC->operands[operandIndex], scope, dict);
+                            attempt_operand_mangle(&thisTac->operands[operandIndex], scope, dict);
                         }
                     }
                 }
@@ -220,44 +220,44 @@ static void mangleBlockContents(struct Scope *scope, struct Dictionary *dict)
         }
         break;
 
-        case e_variable:
-        case e_argument:
-        case e_struct:
-        case e_enum:
+        case E_VARIABLE:
+        case E_ARGUMENT:
+        case E_STRUCT:
+        case E_ENUM:
             break;
         }
     }
 }
 
-static void moveScopeMembersToParentScope(struct Scope *scope, struct Dictionary *dict, size_t depth)
+static void move_scope_members_to_parent_scope(struct Scope *scope, struct Dictionary *dict, size_t depth)
 {
     for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
     {
         struct ScopeMember *thisMember = scope->entries->data[entryIndex];
         switch (thisMember->type)
         {
-        case e_scope:
-            moveScopeMembersToParentScope(thisMember->entry, dict, depth + 1);
+        case E_SCOPE:
+            move_scope_members_to_parent_scope(thisMember->entry, dict, depth + 1);
             break;
 
-        case e_function:
+        case E_FUNCTION:
         {
             struct FunctionEntry *movedFromFunction = thisMember->entry;
-            moveScopeMembersToParentScope(movedFromFunction->mainScope, dict, 0);
+            move_scope_members_to_parent_scope(movedFromFunction->mainScope, dict, 0);
         }
         break;
 
-        case e_basicblock:
+        case E_BASICBLOCK:
         {
             if (depth > 0 && scope->parentScope != NULL)
             {
-                SymbolTable_moveMemberToParentScope(scope, thisMember, &entryIndex);
+                symbol_table_move_member_to_parent_scope(scope, thisMember, &entryIndex);
             }
         }
         break;
 
-        case e_variable:
-        case e_argument:
+        case E_VARIABLE:
+        case E_ARGUMENT:
         {
             if (scope->parentScope != NULL)
             {
@@ -268,179 +268,183 @@ static void moveScopeMembersToParentScope(struct Scope *scope, struct Dictionary
                     // mangle all non-global names (want to mangle everything except for string literal names)
                     if (!variableToMove->isGlobal)
                     {
-                        thisMember->name = SymbolTable_mangleName(scope, dict, thisMember->name);
+                        thisMember->name = symbol_table_mangle_name(scope, dict, thisMember->name);
                     }
-                    SymbolTable_moveMemberToParentScope(scope, thisMember, &entryIndex);
+                    symbol_table_move_member_to_parent_scope(scope, thisMember, &entryIndex);
                 }
             }
         }
         break;
 
-        case e_struct:
+        case E_STRUCT:
         {
             struct StructEntry *theStruct = thisMember->entry;
-            moveScopeMembersToParentScope(theStruct->members, dict, 0);
+            move_scope_members_to_parent_scope(theStruct->members, dict, 0);
         }
         break;
 
-        case e_enum:
+        case E_ENUM:
             break;
         }
     }
 }
 
-void SymbolTable_collapseScopesRec(struct Scope *scope, struct Dictionary *dict, size_t depth)
+void symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *dict, size_t depth)
 {
     // first pass: recurse depth-first so everything we do at this call depth will be 100% correct
-    collapseRecurseToSubScopes(scope, dict, depth);
+    collapse_recurse_to_sub_scopes(scope, dict, depth);
 
     // only rename basic block operands if depth > 0
     // we only want to alter variable names for variables whose names we will mangle as a result of a scope collapse
     if (depth > 0)
     {
-        mangleBlockContents(scope, dict);
+        mangle_block_contents(scope, dict);
     }
 
     // third pass: move nested members to parent scope based on mangled names
     // also moves globals outwards
-    moveScopeMembersToParentScope(scope, dict, depth);
+    move_scope_members_to_parent_scope(scope, dict, depth);
 }
 
-void SymbolTable_collapseScopes(struct SymbolTable *table, struct Dictionary *dict)
+void symbol_table_collapse_scopes(struct SymbolTable *table, struct Dictionary *dict)
 {
-    SymbolTable_collapseScopesRec(table->globalScope, parseDict, 0);
+    symbol_table_collapse_scopes_rec(table->globalScope, parseDict, 0);
 }
 
-void SymbolTable_free(struct SymbolTable *table)
+void symbol_table_free(struct SymbolTable *table)
 {
-    Scope_free(table->globalScope);
+    scope_free(table->globalScope);
     free(table);
 }
 
-void VariableEntry_Print(struct VariableEntry *variable, FILE *outFile, size_t depth)
+void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t depth)
 {
-    char *typeName = Type_GetName(&variable->type);
+    char *typeName = type_get_name(&variable->type);
     fprintf(outFile, "%s %s\n", typeName, variable->name);
     free(typeName);
 }
 
-void Scope_print(struct Scope *scope, FILE *outFile, size_t depth, char printTAC)
+void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth, FILE *outFile)
 {
-    for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
+    if (toPrint->type != E_BASICBLOCK || printTac)
     {
-        struct ScopeMember *thisMember = scope->entries->data[entryIndex];
-
-        if (thisMember->type != e_basicblock || printTAC)
+        for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
         {
-            for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
-            {
-                fprintf(outFile, "\t");
-            }
+            fprintf(outFile, "\t");
         }
+    }
 
-        switch (thisMember->type)
+    switch (toPrint->type)
+    {
+    case E_ARGUMENT:
+    {
+        struct VariableEntry *theArgument = toPrint->entry;
+        fprintf(outFile, "> Argument: ");
+        variable_entry_print(theArgument, outFile, depth);
+        for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
         {
-        case e_argument:
-        {
-            struct VariableEntry *theArgument = thisMember->entry;
-            fprintf(outFile, "> Argument: ");
-            VariableEntry_Print(theArgument, outFile, depth);
-            for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
-            {
-                fprintf(outFile, "\t");
-            }
-            fprintf(outFile, "  - Stack offset: %zd\n", theArgument->stackOffset);
+            fprintf(outFile, "\t");
         }
-        break;
+        fprintf(outFile, "  - Stack offset: %zd\n", theArgument->stackOffset);
+    }
+    break;
 
-        case e_variable:
+    case E_VARIABLE:
+    {
+        struct VariableEntry *theVariable = toPrint->entry;
+        fprintf(outFile, "> ");
+        variable_entry_print(theVariable, outFile, depth);
+    }
+    break;
+
+    case E_STRUCT:
+    {
+        struct StructEntry *theStruct = toPrint->entry;
+        fprintf(outFile, "> Struct %s:\n", toPrint->name);
+        for (size_t j = 0; j < depth; j++)
         {
-            struct VariableEntry *theVariable = thisMember->entry;
-            fprintf(outFile, "> ");
-            VariableEntry_Print(theVariable, outFile, depth);
+            fprintf(outFile, "\t");
         }
-        break;
+        fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
+        scope_print(theStruct->members, outFile, depth + 1, printTac);
+    }
+    break;
 
-        case e_struct:
+    case E_ENUM:
+    {
+        struct EnumEntry *theEnum = toPrint->entry;
+        fprintf(outFile, "> Enum %s:\n", toPrint->name);
+        for (struct LinkedListNode *enumMemberRunner = theEnum->members->elements->head; enumMemberRunner != NULL; enumMemberRunner = enumMemberRunner->next)
         {
-            struct StructEntry *theStruct = thisMember->entry;
-            fprintf(outFile, "> Struct %s:\n", thisMember->name);
+            struct EnumMember *member = enumMemberRunner->data;
             for (size_t j = 0; j < depth; j++)
             {
                 fprintf(outFile, "\t");
             }
-            fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
-            Scope_print(theStruct->members, outFile, depth + 1, printTAC);
+            fprintf(outFile, "%zu:%s\n", member->numerical, member->name);
         }
-        break;
+    }
+    break;
 
-        case e_enum:
+    case E_FUNCTION:
+    {
+        struct FunctionEntry *theFunction = toPrint->entry;
+        char *returnTypeName = type_get_name(&theFunction->returnType);
+        if (theFunction->methodOf != NULL)
         {
-            struct EnumEntry *theEnum = thisMember->entry;
-            fprintf(outFile, "> Enum %s:\n", thisMember->name);
-            for (struct LinkedListNode *enumMemberRunner = theEnum->members->elements->head; enumMemberRunner != NULL; enumMemberRunner = enumMemberRunner->next)
-            {
-                struct EnumMember *member = enumMemberRunner->data;
-                for (size_t j = 0; j < depth; j++)
-                {
-                    fprintf(outFile, "\t");
-                }
-                fprintf(outFile, "%zu:%s\n", member->numerical, member->name);
-            }
+            fprintf(outFile, "> Method %s.", theFunction->methodOf->name);
         }
-        break;
+        else
+        {
+            fprintf(outFile, "> Function ");
+        }
+        fprintf(outFile, "%s (returns %s) (defined: %d)\n", toPrint->name, returnTypeName, theFunction->isDefined);
+        free(returnTypeName);
+        scope_print(theFunction->mainScope, outFile, depth + 1, printTac);
+    }
+    break;
 
-        case e_function:
-        {
-            struct FunctionEntry *theFunction = thisMember->entry;
-            char *returnTypeName = Type_GetName(&theFunction->returnType);
-            if (theFunction->methodOf != NULL)
-            {
-                fprintf(outFile, "> Method %s.", theFunction->methodOf->name);
-            }
-            else
-            {
-                fprintf(outFile, "> Function ");
-            }
-            fprintf(outFile, "%s (returns %s) (defined: %d)\n", thisMember->name, returnTypeName, theFunction->isDefined);
-            free(returnTypeName);
-            Scope_print(theFunction->mainScope, outFile, depth + 1, printTAC);
-        }
-        break;
+    case E_SCOPE:
+    {
+        struct Scope *theScope = toPrint->entry;
+        fprintf(outFile, "> Subscope %s\n", toPrint->name);
+        scope_print(theScope, outFile, depth + 1, printTac);
+    }
+    break;
 
-        case e_scope:
+    case E_BASICBLOCK:
+    {
+        if (printTac)
         {
-            struct Scope *theScope = thisMember->entry;
-            fprintf(outFile, "> Subscope %s\n", thisMember->name);
-            Scope_print(theScope, outFile, depth + 1, printTAC);
+            struct BasicBlock *thisBlock = toPrint->entry;
+            fprintf(outFile, "> Basic Block %zu\n", thisBlock->labelNum);
+            print_basic_block(thisBlock, depth + 1);
         }
-        break;
-
-        case e_basicblock:
-        {
-            if (printTAC)
-            {
-                struct BasicBlock *thisBlock = thisMember->entry;
-                fprintf(outFile, "> Basic Block %zu\n", thisBlock->labelNum);
-                printBasicBlock(thisBlock, depth + 1);
-            }
-        }
-        break;
-        }
+    }
+    break;
     }
 }
 
-void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *block)
+void scope_print(struct Scope *scope, FILE *outFile, size_t depth, bool printTac)
 {
-    const u8 basicBlockNameStrSize = 10; // TODO: manage this better
-    char *blockName = malloc(basicBlockNameStrSize);
+    for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
+    {
+        struct ScopeMember *thisMember = scope->entries->data[entryIndex];
+        scope_print_member(thisMember, printTac, depth + 1, outFile);
+    }
+}
+
+void scope_add_basic_block(struct Scope *scope, struct BasicBlock *block)
+{
+    const u8 BASIC_BLOCK_NAME_STR_SIZE = 10; // TODO: manage this better
+    char *blockName = malloc(BASIC_BLOCK_NAME_STR_SIZE);
     sprintf(blockName, "Block%zu", block->labelNum);
-    Scope_insert(scope, Dictionary_LookupOrInsert(parseDict, blockName), block, e_basicblock, a_public);
+    scope_insert(scope, dictionary_lookup_or_insert(parseDict, blockName), block, E_BASICBLOCK, A_PUBLIC);
     free(blockName);
 
     if (scope->parentFunction != NULL)
     {
-        LinkedList_Append(scope->parentFunction->BasicBlockList, block);
+        linked_list_append(scope->parentFunction->BasicBlockList, block);
     }
 }
 
@@ -449,17 +453,17 @@ void Scope_addBasicBlock(struct Scope *scope, struct BasicBlock *block)
  */
 
 // scrape down a chain of adjacent sibling star tokens, expecting something at the bottom
-size_t scrapePointers(struct AST *pointerAST, struct AST **resultDestination)
+size_t scrape_pointers(struct Ast *pointerAst, struct Ast **resultDestination)
 {
     size_t dereferenceDepth = 0;
-    pointerAST = pointerAST->sibling;
+    pointerAst = pointerAst->sibling;
 
-    while ((pointerAST != NULL) && (pointerAST->type == t_dereference))
+    while ((pointerAst != NULL) && (pointerAst->type == T_DEREFERENCE))
     {
         dereferenceDepth++;
-        pointerAST = pointerAST->sibling;
+        pointerAst = pointerAst->sibling;
     }
 
-    *resultDestination = pointerAST;
+    *resultDestination = pointerAst;
     return dereferenceDepth;
 }

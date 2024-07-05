@@ -29,25 +29,25 @@ only string names are available and any bad lookups should be caused by internal
  */
 
 // symbol table functions
-struct SymbolTable *SymbolTable_new(char *name);
+struct SymbolTable *symbol_table_new(char *name);
 
-void SymbolTable_print(struct SymbolTable *table,
+void symbol_table_print(struct SymbolTable *table,
                        FILE *outFile,
-                       char printTAC);
+                       bool printTac);
 
-void SymbolTable_DecayArrays(struct SymbolTable *table);
+void symbol_table_decay_arrays(struct SymbolTable *table);
 
-void SymbolTable_collapseScopesRec(struct Scope *scope,
+void symbol_table_collapse_scopes_rec(struct Scope *scope,
                                    struct Dictionary *dict,
                                    size_t depth);
 
-void SymbolTable_collapseScopes(struct SymbolTable *table,
+void symbol_table_collapse_scopes(struct SymbolTable *table,
                                 struct Dictionary *dict);
 
-void SymbolTable_free(struct SymbolTable *table);
+void symbol_table_free(struct SymbolTable *table);
 
 // AST walk functions
 
 // scrape down a chain of nested child star tokens, expecting something at the bottom
-size_t scrapePointers(struct AST *pointerAST,
-                      struct AST **resultDestination);
+size_t scrape_pointers(struct Ast *pointerAst,
+                      struct Ast **resultDestination);

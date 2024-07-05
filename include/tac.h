@@ -5,48 +5,48 @@
 #include "tac_operand.h"
 #include "type.h"
 
-enum TACType
+enum TAC_TYPE
 {
-    tt_asm,
-    tt_assign,
-    tt_add,
-    tt_subtract,
-    tt_mul,
-    tt_div,
-    tt_modulo,
-    tt_bitwise_and,
-    tt_bitwise_or,
-    tt_bitwise_xor,
-    tt_bitwise_not,
-    tt_lshift,
-    tt_rshift,
-    tt_load,
-    tt_load_off,
-    tt_load_arr,
-    tt_store,
-    tt_store_off,
-    tt_store_arr,
-    tt_addrof,
-    tt_lea_off,
-    tt_lea_arr,
-    tt_beq,  // branch equal
-    tt_bne,  // branch not equal
-    tt_bgeu, // branch greater than or equal unsigned
-    tt_bltu, // branch less than unsigned
-    tt_bgtu, // branch greater than unsigned
-    tt_bleu, // branch less than or equal unsigned
-    tt_beqz, // branch equal zero
-    tt_bnez, // branch not equal zero
-    tt_jmp,
-    tt_arg_store,     // store a value at a (positive) offset from the stack pointer
-    tt_function_call, // call a function
-    tt_method_call,   // call a method of a struct
-    tt_associated_call, // call an associated function of a struct
-    tt_label,
-    tt_return,
-    tt_do,
-    tt_enddo,
-    tt_phi,
+    TT_ASM,
+    TT_ASSIGN,
+    TT_ADD,
+    TT_SUBTRACT,
+    TT_MUL,
+    TT_DIV,
+    TT_MODULO,
+    TT_BITWISE_AND,
+    TT_BITWISE_OR,
+    TT_BITWISE_XOR,
+    TT_BITWISE_NOT,
+    TT_LSHIFT,
+    TT_RSHIFT,
+    TT_LOAD,
+    TT_LOAD_OFF,
+    TT_LOAD_ARR,
+    TT_STORE,
+    TT_STORE_OFF,
+    TT_STORE_ARR,
+    TT_ADDROF,
+    TT_LEA_OFF,
+    TT_LEA_ARR,
+    TT_BEQ,  // branch equal
+    TT_BNE,  // branch not equal
+    TT_BGEU, // branch greater than or equal unsigned
+    TT_BLTU, // branch less than unsigned
+    TT_BGTU, // branch greater than unsigned
+    TT_BLEU, // branch less than or equal unsigned
+    TT_BEQZ, // branch equal zero
+    TT_BNEZ, // branch not equal zero
+    TT_JMP,
+    TT_ARG_STORE,     // store a value at a (positive) offset from the stack pointer
+    TT_FUNCTION_CALL, // call a function
+    TT_METHOD_CALL,   // call a method of a struct
+    TT_ASSOCIATED_CALL, // call an associated function of a struct
+    TT_LABEL,
+    TT_RETURN,
+    TT_DO,
+    TT_ENDDO,
+    TT_PHI,
 };
 
 struct TACLine
@@ -55,9 +55,9 @@ struct TACLine
     int allocLine;
     // store the actual tree because some trees are manually generated and do not exist in the true parse tree
     // such as the += operator (a += b is transformed into a tree corresponding to a = a + b)
-    struct AST correspondingTree;
+    struct Ast correspondingTree;
     struct TACOperand operands[4];
-    enum TACType operation;
+    enum TAC_TYPE operation;
     // numerical index relative to other TAC lines
     size_t index;
     // numerical index in terms of emitted instructions (from function entry point, populated during code generation)
@@ -65,22 +65,21 @@ struct TACLine
     u8 reorderable;
 };
 
-struct Type *TACOperand_GetType(struct TACOperand *operand);
 
-struct Type *TAC_GetTypeOfOperand(struct TACLine *line, unsigned index);
+struct Type *tac_get_type_of_operand(struct TACLine *line, unsigned index);
 
-char *getAsmOp(enum TACType tacOperation);
+char *get_asm_op(enum TAC_TYPE tacOperation);
 
-void printTACLine(struct TACLine *line);
+void print_tac_line(struct TACLine *line);
 
-char *sPrintTACLine(struct TACLine *line);
+char *sprint_tac_line(struct TACLine *line);
 
-struct TACLine *newTACLineFunction(enum TACType operation, struct AST *correspondingTree, char *file, int line);
-#define newTACLine(operation, correspondingTree) newTACLineFunction((operation), (correspondingTree), __FILE__, __LINE__)
+struct TACLine *new_tac_line_function(enum TAC_TYPE operation, struct Ast *correspondingTree, char *file, int line);
+#define new_tac_line(operation, correspondingTree) new_tac_line_function((operation), (correspondingTree), __FILE__, __LINE__)
 
-void freeTAC(struct TACLine *line);
+void free_tac(struct TACLine *line);
 
-enum TACOperandUse getUseOfOperand(struct TACLine *line, u8 operandIndex);
+enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex);
 
 struct LinearizationResult
 {
