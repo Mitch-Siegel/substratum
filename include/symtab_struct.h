@@ -18,10 +18,6 @@ struct StructEntry
     size_t totalSize;
 };
 
-// this represents the definition of a struct itself, instantiation falls under variableEntry
-struct StructEntry *create_struct(struct Scope *scope,
-                                 char *name);
-
 void struct_entry_free(struct StructEntry *theStruct);
 
 // given a VariableEntry corresponding to a struct member which was just declared
@@ -30,15 +26,15 @@ void struct_assign_offset_to_member_variable(struct StructEntry *memberOf,
                                   struct VariableEntry *variable);
 
 struct StructMemberOffset *struct_lookup_member_variable(struct StructEntry *theStruct,
-                                                struct AST *name,
+                                                struct Ast *name,
                                                 struct Scope *scope);
 
 struct FunctionEntry *struct_looup_method(struct StructEntry *theStruct,
-                                  struct AST *name,
+                                  struct Ast *name,
                                   struct Scope *scope);
 
 struct FunctionEntry *struct_lookup_associated_function(struct StructEntry *theStruct,
-                                               struct AST *name,
+                                               struct Ast *name,
                                                struct Scope *scope);
 
 // TODO: char *name vs AST *name (change to AST *nameTree?)

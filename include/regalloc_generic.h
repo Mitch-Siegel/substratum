@@ -35,15 +35,7 @@ struct Lifetime
     u8 isArgument;
 };
 
-struct MachineInfo *machine_info_new(u8 maxReg,
-                                    u8 n_temps,
-                                    u8 n_arguments,
-                                    u8 n_general_purpose,
-                                    u8 n_no_save,
-                                    u8 n_callee_save,
-                                    u8 n_caller_save);
-
-void machine_info_free(struct MachineInfo *info);
+void *lifetime_find(struct Set *allLifetimes, char *lifetimeName);
 
 struct Lifetime *lifetime_new(char *name,
                               struct Type *type,
@@ -122,6 +114,16 @@ struct MachineInfo
 };
 
 extern struct MachineInfo *(*setupMachineInfo)();
+
+struct MachineInfo *machine_info_new(u8 maxReg,
+                                    u8 n_temps,
+                                    u8 n_arguments,
+                                    u8 n_general_purpose,
+                                    u8 n_no_save,
+                                    u8 n_callee_save,
+                                    u8 n_caller_save);
+
+void machine_info_free(struct MachineInfo *info);
 
 // things more related to codegen than specifically register allocation
 

@@ -642,13 +642,6 @@ void riscv_generate_internal_copy(struct TACLine *correspondingTACLine,
     }
 }
 
-void *lifetime_find(struct Set *allLifetimes, char *name)
-{
-    struct Lifetime dummy = {0};
-    dummy.name = name;
-    return set_find(allLifetimes, &dummy);
-}
-
 // NOLINTBEGIN(readability-function-cognitive-complexity)
 void riscv_generate_code_for_tac(struct CodegenState *state,
                                  struct RegallocMetadata *metadata,

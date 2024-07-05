@@ -12,6 +12,8 @@ struct EnumMember
     size_t numerical;
 };
 
+ssize_t enum_member_compare(void *enumMemberA, void *enumMemberB);
+
 struct EnumEntry
 {
     char *name;
@@ -19,15 +21,12 @@ struct EnumEntry
     struct Set *members;
 };
 
-struct EnumEntry *create_enum(struct Scope *scope,
-                             char *name);
-
 void enum_entry_free(struct EnumEntry *the_enum);
 
 struct EnumMember *enum_add_member(struct EnumEntry *the_enum,
-                                 struct AST *name);
+                                 struct Ast *name);
 
 struct EnumMember *enum_lookup_member(struct EnumEntry *the_enum,
-                                    struct AST *name);
+                                    struct Ast *name);
 
 #endif

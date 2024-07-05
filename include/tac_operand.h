@@ -3,6 +3,10 @@
 
 #include "type.h"
 
+struct VariableEntry;
+struct EnumEntry;
+struct Ast;
+
 enum VARIABLE_PERMUTATIONS
 {
     VP_STANDARD,
@@ -32,10 +36,24 @@ enum TAC_OPERAND_USE
     U_WRITE,
 };
 
-void print_tac_operand(void *operandData);
+void tac_operand_print(void *operandData);
+
+struct Type *tac_operand_get_type(struct TACOperand *operand);
 
 ssize_t tac_operand_compare(void *dataA, void *dataB);
 
 ssize_t tac_operand_compare_ignore_ssa_number(void *dataA, void *dataB);
+
+void tac_operand_populate_from_variable(struct TACOperand *operandToPopulate, struct VariableEntry *populateFrom);
+
+void tac_operand_populate_from_enum_member(struct TACOperand *operandToPopulate, struct EnumEntry *theEnum, struct Ast *tree);
+
+void tac_operand_populate_as_temp(struct TACOperand *operandToPopulate, size_t *tempNum);
+
+// copy over the entire TACOperand, all fields are changed
+void tac_operand_copy_decay_arrays(struct TACOperand *dest, struct TACOperand *src);
+
+// copy over only the type and castAsType fields, decaying array sizes to simple pointer types
+void tac_operand_copy_type_decay_arrays(struct TACOperand *dest, struct TACOperand *src);
 
 #endif

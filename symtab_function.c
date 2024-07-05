@@ -6,7 +6,7 @@
 
 #include "symtab_scope.h"
 
-struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct AST *nameTree, struct Type *returnType, struct StructEntry *methodOf)
+struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct Type *returnType, struct StructEntry *methodOf)
 {
     struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
     memset(newFunction, 0, sizeof(struct FunctionEntry));
@@ -41,16 +41,4 @@ void function_entry_free(struct FunctionEntry *function)
     }
 
     free(function);
-}
-
-// create a new function accessible within the given scope
-struct FunctionEntry *create_function(struct Scope *parentScope,
-                                     struct AST *nameTree,
-                                     struct Type *returnType,
-                                     struct StructEntry *methodOf,
-                                     enum ACCESS accessibility)
-{
-    struct FunctionEntry *newFunction = function_entry_new(parentScope, nameTree, returnType, methodOf);
-    scope_insert(parentScope, nameTree->value, newFunction, E_FUNCTION, accessibility);
-    return newFunction;
 }

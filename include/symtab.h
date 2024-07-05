@@ -49,5 +49,5 @@ void symbol_table_free(struct SymbolTable *table);
 // AST walk functions
 
 // scrape down a chain of nested child star tokens, expecting something at the bottom
-size_t scrape_pointers(struct AST *pointerAST,
-                      struct AST **resultDestination);
+size_t scrape_pointers(struct Ast *pointerAst,
+                      struct Ast **resultDestination);

@@ -64,7 +64,7 @@ void log_function(const char *file, size_t line, enum LOG_LEVEL level, const cha
     }
 }
 
-void log_tree_function(const char *file, size_t line, enum LOG_LEVEL level, struct AST *tree, const char *format, ...)
+void log_tree_function(const char *file, size_t line, enum LOG_LEVEL level, struct Ast *tree, const char *format, ...)
 {
     if (level < logLevel)
     {

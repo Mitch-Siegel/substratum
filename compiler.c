@@ -69,7 +69,7 @@ void run_preprocessor(char *inFileName)
     InternalError("Returned from exec of preprocessor!");
 }
 
-struct AST *parse_file(char *inFileName)
+struct Ast *parse_file(char *inFileName)
 {
     struct ParseProgress fileProgress;
     memset(&fileProgress, 0, sizeof(struct ParseProgress));
@@ -120,8 +120,8 @@ struct AST *parse_file(char *inFileName)
 
     fileProgress.f = stdin;
 
-    struct AST *parsed = NULL;
-    struct AST *translationUnit = NULL;
+    struct Ast *parsed = NULL;
+    struct Ast *translationUnit = NULL;
     while (pcc_parse(parseContext, &translationUnit))
     {
         parsed = ast_s(parsed, translationUnit);
@@ -195,12 +195,10 @@ int main(int argc, char **argv)
     const int N_PARSE_DICT_BUCKETS = 10;
     parseDict = dictionary_new(N_PARSE_DICT_BUCKETS, (void *(*)(void *))strdup, hash_string, (ssize_t(*)(void *, void *))strcmp, free);
 
-    struct AST *program = parse_file(inFileName);
+    struct Ast *program = parse_file(inFileName);
     linked_list_free(includePath, free);
 
     // TODO: option to enable/disable ast dump
-    /*printf("Here's the AST(s) we parsed: %p\n", program);
-    AST_Print(program, 0);*/
     {
         FILE *astOutFile = NULL;
         astOutFile = fopen("ast.dot", "wb");

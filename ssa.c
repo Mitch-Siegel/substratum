@@ -137,8 +137,8 @@ struct PhiContext
 
 void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
 {
-    struct AST fakePhiTree;
-    memset(&fakePhiTree, 0, sizeof(struct AST));
+    struct Ast fakePhiTree;
+    memset(&fakePhiTree, 0, sizeof(struct Ast));
 
     struct PhiContext *context = data;
 

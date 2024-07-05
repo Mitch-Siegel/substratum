@@ -55,7 +55,7 @@ struct TACLine
     int allocLine;
     // store the actual tree because some trees are manually generated and do not exist in the true parse tree
     // such as the += operator (a += b is transformed into a tree corresponding to a = a + b)
-    struct AST correspondingTree;
+    struct Ast correspondingTree;
     struct TACOperand operands[4];
     enum TAC_TYPE operation;
     // numerical index relative to other TAC lines
@@ -65,7 +65,6 @@ struct TACLine
     u8 reorderable;
 };
 
-struct Type *tac_operand_get_type(struct TACOperand *operand);
 
 struct Type *tac_get_type_of_operand(struct TACLine *line, unsigned index);
 
@@ -75,7 +74,7 @@ void print_tac_line(struct TACLine *line);
 
 char *sprint_tac_line(struct TACLine *line);
 
-struct TACLine *new_tac_line_function(enum TAC_TYPE operation, struct AST *correspondingTree, char *file, int line);
+struct TACLine *new_tac_line_function(enum TAC_TYPE operation, struct Ast *correspondingTree, char *file, int line);
 #define new_tac_line(operation, correspondingTree) new_tac_line_function((operation), (correspondingTree), __FILE__, __LINE__)
 
 void free_tac(struct TACLine *line);

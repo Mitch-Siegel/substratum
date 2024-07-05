@@ -53,6 +53,9 @@ void type_single_decay(struct Type *type);
 
 void type_decay_arrays(struct Type *type);
 
+// copy a type, turning any array size > 0 into an increment of indirectionlevel
+void type_copy_decay_arrays(struct Type *dest, struct Type *src);
+
 ssize_t type_compare(struct Type *typeA, struct Type *typeB);
 
 size_t type_hash(struct Type *type);

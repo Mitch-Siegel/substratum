@@ -72,12 +72,6 @@ void riscv_place_literal_string_in_register(struct TACLine *correspondingTACLine
                                         char *literalStr,
                                         struct Register *destReg);
 
-// places a variable in a register, with no guarantee that it is modifiable, returning the string of the register's name for asm
-struct Register *place_or_find_operand_in_register(struct TACLine *correspondingTACLine,
-                                              struct CodegenState *state,
-                                              struct TACOperand *operand,
-                                              struct Register *optionalScratch);
-
 void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
                                    struct CodegenState *state,
                                    struct RegallocMetadata *metadata,

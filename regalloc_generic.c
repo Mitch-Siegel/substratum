@@ -6,64 +6,11 @@
 #include "util.h"
 #include <string.h>
 
-struct MachineInfo *(*setupMachineInfo)() = NULL;
-
-struct MachineInfo *machine_info_new(u8 maxReg,
-                                    u8 n_temps,
-                                    u8 n_arguments,
-                                    u8 n_general_purpose,
-                                    u8 n_no_save,
-                                    u8 n_callee_save,
-                                    u8 n_caller_save)
+void *lifetime_find(struct Set *allLifetimes, char *lifetimeName)
 {
-    struct MachineInfo *wip = malloc(sizeof(struct MachineInfo));
-    memset(wip, 0, sizeof(struct MachineInfo));
-
-    wip->maxReg = maxReg;
-    wip->allRegisters = malloc(wip->maxReg * sizeof(struct Register *));
-    memset(wip->allRegisters, 0, wip->maxReg * sizeof(struct Register *));
-
-    wip->n_temps = n_temps;
-    wip->temps = malloc(wip->n_temps * sizeof(struct Register *));
-    memset(wip->temps, 0, wip->n_temps * sizeof(struct Register *));
-    wip->tempsOccupied = malloc(wip->n_temps * sizeof(u8));
-    memset(wip->tempsOccupied, 0, wip->n_temps * sizeof(u8));
-
-    wip->n_arguments = n_arguments;
-    wip->arguments = malloc(wip->n_arguments * sizeof(struct Register *));
-    memset(wip->arguments, 0, wip->n_arguments * sizeof(struct Register *));
-
-    wip->n_general_purpose = n_general_purpose;
-    wip->generalPurpose = malloc(wip->n_general_purpose * sizeof(struct Register *));
-    memset(wip->generalPurpose, 0, wip->n_general_purpose * sizeof(struct Register *));
-
-    wip->n_no_save = n_no_save;
-    wip->no_save = malloc(wip->n_no_save * sizeof(struct Register *));
-    memset(wip->no_save, 0, wip->n_no_save * sizeof(struct Register *));
-
-    wip->n_callee_save = n_callee_save;
-    wip->callee_save = malloc(wip->n_callee_save * sizeof(struct Register *));
-    memset(wip->callee_save, 0, wip->n_callee_save * sizeof(struct Register *));
-
-    wip->n_caller_save = n_caller_save;
-    wip->caller_save = malloc(wip->n_caller_save * sizeof(struct Register *));
-    memset(wip->caller_save, 0, wip->n_caller_save * sizeof(struct Register *));
-
-    return wip;
-}
-
-void machine_info_free(struct MachineInfo *info)
-{
-    free(info->allRegisters);
-    free(info->temps);
-    free(info->tempsOccupied);
-    free(info->generalPurpose);
-    free(info->arguments);
-    free(info->no_save);
-    free(info->callee_save);
-    free(info->caller_save);
-
-    free(info);
+    struct Lifetime dummy = {0};
+    dummy.name = lifetimeName;
+    return set_find(allLifetimes, &dummy);
 }
 
 struct Lifetime *lifetime_new(char *name, struct Type *type, size_t start, u8 isGlobal, u8 mustSpill)
@@ -116,11 +63,11 @@ bool lifetime_is_live_at_index(struct Lifetime *lifetime, size_t index)
 // update the lifetime if it exists, insert if it doesn't
 // returns pointer to the lifetime corresponding to the passed variable name
 struct Lifetime *update_or_insert_lifetime(struct Set *ltList,
-                                        char *name,
-                                        struct Type *type,
-                                        size_t newEnd,
-                                        u8 isGlobal,
-                                        u8 mustSpill)
+                                           char *name,
+                                           struct Type *type,
+                                           size_t newEnd,
+                                           u8 isGlobal,
+                                           u8 mustSpill)
 {
     struct Lifetime dummyFind = {0};
     dummyFind.name = name;
@@ -154,9 +101,9 @@ struct Lifetime *update_or_insert_lifetime(struct Set *ltList,
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
 void record_variable_write(struct Set *ltList,
-                         struct TACOperand *writtenOperand,
-                         struct Scope *scope,
-                         size_t newEnd)
+                           struct TACOperand *writtenOperand,
+                           struct Scope *scope,
+                           size_t newEnd)
 {
     log(LOG_DEBUG, "Record variable write for %s at index %zu", writtenOperand->name.str, newEnd);
 
@@ -177,9 +124,9 @@ void record_variable_write(struct Set *ltList,
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
 void record_variable_read(struct Set *ltList,
-                        struct TACOperand *readOperand,
-                        struct Scope *scope,
-                        size_t newEnd)
+                          struct TACOperand *readOperand,
+                          struct Scope *scope,
+                          size_t newEnd)
 {
     log(LOG_DEBUG, "Record variable read for %s at index %zu", readOperand->name.str, newEnd);
 
@@ -324,4 +271,64 @@ bool register_is_live(struct Register *reg, size_t index)
     }
 
     return lifetime_is_live_at_index(reg->containedLifetime, index);
+}
+
+struct MachineInfo *(*setupMachineInfo)() = NULL;
+
+struct MachineInfo *machine_info_new(u8 maxReg,
+                                     u8 n_temps,
+                                     u8 n_arguments,
+                                     u8 n_general_purpose,
+                                     u8 n_no_save,
+                                     u8 n_callee_save,
+                                     u8 n_caller_save)
+{
+    struct MachineInfo *wip = malloc(sizeof(struct MachineInfo));
+    memset(wip, 0, sizeof(struct MachineInfo));
+
+    wip->maxReg = maxReg;
+    wip->allRegisters = malloc(wip->maxReg * sizeof(struct Register *));
+    memset(wip->allRegisters, 0, wip->maxReg * sizeof(struct Register *));
+
+    wip->n_temps = n_temps;
+    wip->temps = malloc(wip->n_temps * sizeof(struct Register *));
+    memset(wip->temps, 0, wip->n_temps * sizeof(struct Register *));
+    wip->tempsOccupied = malloc(wip->n_temps * sizeof(u8));
+    memset(wip->tempsOccupied, 0, wip->n_temps * sizeof(u8));
+
+    wip->n_arguments = n_arguments;
+    wip->arguments = malloc(wip->n_arguments * sizeof(struct Register *));
+    memset(wip->arguments, 0, wip->n_arguments * sizeof(struct Register *));
+
+    wip->n_general_purpose = n_general_purpose;
+    wip->generalPurpose = malloc(wip->n_general_purpose * sizeof(struct Register *));
+    memset(wip->generalPurpose, 0, wip->n_general_purpose * sizeof(struct Register *));
+
+    wip->n_no_save = n_no_save;
+    wip->no_save = malloc(wip->n_no_save * sizeof(struct Register *));
+    memset(wip->no_save, 0, wip->n_no_save * sizeof(struct Register *));
+
+    wip->n_callee_save = n_callee_save;
+    wip->callee_save = malloc(wip->n_callee_save * sizeof(struct Register *));
+    memset(wip->callee_save, 0, wip->n_callee_save * sizeof(struct Register *));
+
+    wip->n_caller_save = n_caller_save;
+    wip->caller_save = malloc(wip->n_caller_save * sizeof(struct Register *));
+    memset(wip->caller_save, 0, wip->n_caller_save * sizeof(struct Register *));
+
+    return wip;
+}
+
+void machine_info_free(struct MachineInfo *info)
+{
+    free(info->allRegisters);
+    free(info->temps);
+    free(info->tempsOccupied);
+    free(info->generalPurpose);
+    free(info->arguments);
+    free(info->no_save);
+    free(info->callee_save);
+    free(info->caller_save);
+
+    free(info);
 }

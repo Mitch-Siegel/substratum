@@ -80,6 +80,12 @@ void type_decay_arrays(struct Type *type)
     }
 }
 
+void type_copy_decay_arrays(struct Type *dest, struct Type *src)
+{
+    *dest = *src;
+    type_decay_arrays(dest);
+}
+
 ssize_t type_compare(struct Type *typeA, struct Type *typeB)
 {
     if (typeA->basicType != typeB->basicType)
@@ -127,7 +133,6 @@ bool type_is_struct_object(struct Type *type)
 {
     return ((type->basicType == VT_STRUCT) && (type->pointerLevel == 0));
 }
-
 
 // NOLINTBEGIN(readability-function-cognitive-complexity)
 int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA, enum BASIC_TYPES basicTypeB)

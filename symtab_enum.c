@@ -10,18 +10,6 @@ ssize_t enum_member_compare(void *enumMemberA, void *enumMemberB)
     return strcmp(((struct EnumMember *)enumMemberA)->name, ((struct EnumMember *)enumMemberB)->name);
 }
 
-struct EnumEntry *create_enum(struct Scope *scope,
-                              char *name)
-{
-    struct EnumEntry *wipEnum = malloc(sizeof(struct EnumEntry));
-    wipEnum->name = name;
-    wipEnum->parentScope = scope;
-    wipEnum->members = set_new(enum_member_compare, free);
-
-    scope_insert(scope, name, wipEnum, E_ENUM, A_PUBLIC);
-    return wipEnum;
-}
-
 void enum_entry_free(struct EnumEntry *the_enum)
 {
     set_free(the_enum->members);
@@ -30,7 +18,7 @@ void enum_entry_free(struct EnumEntry *the_enum)
 }
 
 struct EnumMember *enum_add_member(struct EnumEntry *the_enum,
-                                   struct AST *name)
+                                   struct Ast *name)
 {
     struct EnumMember *newMember = malloc(sizeof(struct EnumMember));
 
@@ -48,7 +36,7 @@ struct EnumMember *enum_add_member(struct EnumEntry *the_enum,
 }
 
 struct EnumMember *enum_lookup_member(struct EnumEntry *the_enum,
-                                      struct AST *name)
+                                      struct Ast *name)
 {
     struct EnumMember dummyMember = {0};
     dummyMember.name = name->value;

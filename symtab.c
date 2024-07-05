@@ -453,17 +453,17 @@ void scope_add_basic_block(struct Scope *scope, struct BasicBlock *block)
  */
 
 // scrape down a chain of adjacent sibling star tokens, expecting something at the bottom
-size_t scrape_pointers(struct AST *pointerAST, struct AST **resultDestination)
+size_t scrape_pointers(struct Ast *pointerAst, struct Ast **resultDestination)
 {
     size_t dereferenceDepth = 0;
-    pointerAST = pointerAST->sibling;
+    pointerAst = pointerAst->sibling;
 
-    while ((pointerAST != NULL) && (pointerAST->type == T_DEREFERENCE))
+    while ((pointerAst != NULL) && (pointerAst->type == T_DEREFERENCE))
     {
         dereferenceDepth++;
-        pointerAST = pointerAST->sibling;
+        pointerAst = pointerAst->sibling;
     }
 
-    *resultDestination = pointerAST;
+    *resultDestination = pointerAst;
     return dereferenceDepth;
 }

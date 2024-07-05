@@ -21,7 +21,7 @@
 #include "util.h"
 #include "ast.h"
 #include "parser_config.h"
-typedef struct AST * ast_p_t;
+typedef struct Ast * ast_p_t;
 }
 
 %source {

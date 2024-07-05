@@ -4,14 +4,12 @@
 #include "symtab_function.h"
 #include "util.h"
 
-// create a variable within the given scope
-struct VariableEntry *create_variable(struct Scope *scope,
-                                     struct AST *name,
-                                     struct Type *type,
-                                     u8 isGlobal,
-                                     size_t declaredAt,
-                                     u8 isArgument,
-                                     enum ACCESS accessibility)
+// TODO: examine isGlobal - can it be related to scope->parentscope instead?
+struct VariableEntry *variable_entry_new(char *name,
+                                         struct Type *type,
+                                         bool isGlobal,
+                                         bool isArgument,
+                                         enum ACCESS accessibility)
 {
     if (isArgument && (accessibility != A_PUBLIC))
     {
@@ -22,7 +20,7 @@ struct VariableEntry *create_variable(struct Scope *scope,
     newVariable->type = *type;
     newVariable->stackOffset = 0;
     newVariable->mustSpill = 0;
-    newVariable->name = name->value;
+    newVariable->name = name;
 
     if (isGlobal)
     {
@@ -36,21 +34,6 @@ struct VariableEntry *create_variable(struct Scope *scope,
     // don't take these as arguments as they will only ever be set for specific declarations
     newVariable->isExtern = 0;
     newVariable->isStringLiteral = 0;
-
-    if (scope_contains(scope, name->value))
-    {
-        log_tree(LOG_FATAL, name, "Redifinition of symbol %s!", name->value);
-    }
-
-    // if we have an argument, it will be trivially spilled because it is passed in on the stack
-    if (isArgument)
-    {
-        scope_insert(scope, name->value, newVariable, E_ARGUMENT, accessibility);
-    }
-    else
-    {
-        scope_insert(scope, name->value, newVariable, E_VARIABLE, accessibility);
-    }
 
     return newVariable;
 }

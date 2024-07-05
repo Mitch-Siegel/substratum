@@ -93,14 +93,14 @@ char *tokenNames[T_EOF + 1] = {
     "t_EOF",
 };
 
-char *get_token_name(enum TOKEN type)
+char *token_get_name(enum TOKEN type)
 {
     return tokenNames[type];
 }
 
-struct AST *ast_new(enum TOKEN type, char *value, char *curFile, u32 curLine, u32 curCol)
+struct Ast *ast_new(enum TOKEN type, char *value, char *curFile, u32 curLine, u32 curCol)
 {
-    struct AST *wip = malloc(sizeof(struct AST));
+    struct Ast *wip = malloc(sizeof(struct Ast));
     wip->child = NULL;
     wip->sibling = NULL;
     wip->type = type;
@@ -111,9 +111,9 @@ struct AST *ast_new(enum TOKEN type, char *value, char *curFile, u32 curLine, u3
     return wip;
 }
 
-void ast_insert_sibling(struct AST *tree, struct AST *newSibling)
+void ast_insert_sibling(struct Ast *tree, struct Ast *newSibling)
 {
-    struct AST *runner = tree;
+    struct Ast *runner = tree;
     while (runner->sibling != NULL)
     {
         runner = runner->sibling;
@@ -122,7 +122,7 @@ void ast_insert_sibling(struct AST *tree, struct AST *newSibling)
     runner->sibling = newSibling;
 }
 
-void ast_insert_child(struct AST *tree, struct AST *newChild)
+void ast_insert_child(struct Ast *tree, struct Ast *newChild)
 {
     if (tree->child == NULL)
     {
@@ -134,7 +134,7 @@ void ast_insert_child(struct AST *tree, struct AST *newChild)
     }
 }
 
-struct AST *ast_construct_add_sibling(struct AST *tree, struct AST *newSibling)
+struct Ast *ast_construct_add_sibling(struct Ast *tree, struct Ast *newSibling)
 {
     if (tree == NULL)
     {
@@ -145,13 +145,13 @@ struct AST *ast_construct_add_sibling(struct AST *tree, struct AST *newSibling)
     return tree;
 }
 
-struct AST *ast_construct_add_child(struct AST *tree, struct AST *newChild)
+struct Ast *ast_construct_add_child(struct Ast *tree, struct Ast *newChild)
 {
     ast_insert_child(tree, newChild);
     return tree;
 }
 
-void ast_print(struct AST *tree, size_t depth)
+void ast_print(struct Ast *tree, size_t depth)
 {
     if (tree->sibling != NULL)
     {
@@ -163,14 +163,14 @@ void ast_print(struct AST *tree, size_t depth)
         printf("\t");
     }
 
-    printf("%d:%d - %s:%s\n", tree->sourceLine, tree->sourceCol, get_token_name(tree->type), tree->value);
+    printf("%d:%d - %s:%s\n", tree->sourceLine, tree->sourceCol, token_get_name(tree->type), tree->value);
     if (tree->child != NULL)
     {
         ast_print(tree->child, depth + 1);
     }
 }
 
-void ast_traverse_for_dump(FILE *outFile, struct AST *parent, struct AST *tree, size_t depth, struct Stack *ranks)
+void ast_traverse_for_dump(FILE *outFile, struct Ast *parent, struct Ast *tree, size_t depth, struct Stack *ranks)
 {
     if (ranks->size <= depth)
     {
@@ -178,7 +178,7 @@ void ast_traverse_for_dump(FILE *outFile, struct AST *parent, struct AST *tree, 
     }
     stack_push(ranks->data[depth], tree);
 
-    fprintf(outFile, "%zu[label=\"%s\"]\n", (size_t)tree, strcmp(tree->value, "") ? tree->value : get_token_name(tree->type));
+    fprintf(outFile, "%zu[label=\"%s\"]\n", (size_t)tree, strcmp(tree->value, "") ? tree->value : token_get_name(tree->type));
     if (parent != NULL)
     {
         fprintf(outFile, "%zu->%zu\n", (size_t)parent, (size_t)tree);
@@ -195,7 +195,7 @@ void ast_traverse_for_dump(FILE *outFile, struct AST *parent, struct AST *tree, 
     }
 }
 
-void ast_dump(FILE *outFile, struct AST *tree)
+void ast_dump(FILE *outFile, struct Ast *tree)
 {
     struct Stack *ranks = stack_new();
     fprintf(outFile, "digraph ast {\n");
@@ -208,7 +208,7 @@ void ast_dump(FILE *outFile, struct AST *tree)
         struct Stack *thisRank = ranks->data[rank];
         for (size_t nodeIndex = 0; nodeIndex < thisRank->size; nodeIndex++)
         {
-            struct AST *nodeThisRank = thisRank->data[nodeIndex];
+            struct Ast *nodeThisRank = thisRank->data[nodeIndex];
             fprintf(outFile, "%zu; ", (size_t)nodeThisRank);
         }
         fprintf(outFile, "}\n");
@@ -223,16 +223,16 @@ void ast_dump(FILE *outFile, struct AST *tree)
     stack_free(ranks);
 }
 
-void ast_free(struct AST *tree)
+void ast_free(struct Ast *tree)
 {
-    struct AST *runner = tree;
+    struct Ast *runner = tree;
     while (runner != NULL)
     {
         if (runner->child != NULL)
         {
             ast_free(runner->child);
         }
-        struct AST *old = runner;
+        struct Ast *old = runner;
         runner = runner->sibling;
         free(old);
     }

@@ -64,7 +64,7 @@ void set_current_file(struct ParseProgress *auxil, char *preprocessorLine, u32 l
 #define ast_c(parent, child) ast_construct_add_child(parent, child)
 #define ast_n(auxil, token, value, location)                                                                                                            \
     ({                                                                                                                                                  \
-        struct AST *created = ast_new(token, dictionary_lookup_or_insert((auxil)->dict, (value)), (auxil)->curFile, (auxil)->curLine, (auxil)->curCol); \
+        struct Ast *created = ast_new(token, dictionary_lookup_or_insert((auxil)->dict, (value)), (auxil)->curFile, (auxil)->curLine, (auxil)->curCol); \
         manage_source_location(auxil, value);                                                                                                           \
         created;                                                                                                                                        \
     })

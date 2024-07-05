@@ -37,57 +37,11 @@ enum BASIC_TYPES select_variable_type_for_literal(char *literal)
     return select_variable_type_for_number(literalAsNumber);
 }
 
-void populate_tac_operand_from_variable(struct TACOperand *operandToPopulate, struct VariableEntry *populateFrom)
-{
-    type_init(&operandToPopulate->castAsType);
-    operandToPopulate->type = populateFrom->type;
-    operandToPopulate->name.str = populateFrom->name;
-    operandToPopulate->permutation = VP_STANDARD;
-}
-
 extern struct Dictionary *parseDict;
-void populate_tac_operand_from_enum_member(struct TACOperand *operandToPopulate, struct EnumEntry *theEnum, struct AST *tree)
-{
-    type_init(&operandToPopulate->castAsType);
-    type_init(&operandToPopulate->type);
-    operandToPopulate->type.basicType = VT_ENUM;
-    operandToPopulate->permutation = VP_LITERAL;
-
-    struct EnumMember *member = enum_lookup_member(theEnum, tree);
-
-    operandToPopulate->type.nonArray.complexType.name = theEnum->name;
-
-    char enumAsLiteral[sprintedNumberLength];
-    snprintf(enumAsLiteral, sprintedNumberLength - 1, "%zu", member->numerical);
-    operandToPopulate->name.str = dictionary_lookup_or_insert(parseDict, enumAsLiteral);
-}
 
 extern struct TempList *temps;
-void populate_tac_operand_as_temp(struct TACOperand *operandToPopulate, size_t *tempNum)
-{
-    operandToPopulate->name.str = temp_list_get(temps, (*tempNum)++);
-    operandToPopulate->permutation = VP_TEMP;
-}
 
-void copy_type_decay_arrays(struct Type *dest, struct Type *src)
-{
-    *dest = *src;
-    type_decay_arrays(dest);
-}
-
-void copy_tac_operand_decay_arrays(struct TACOperand *dest, struct TACOperand *src)
-{
-    *dest = *src;
-    copy_tac_operand_type_decay_arrays(dest, src);
-}
-
-void copy_tac_operand_type_decay_arrays(struct TACOperand *dest, struct TACOperand *src)
-{
-    copy_type_decay_arrays(tac_operand_get_type(dest), tac_operand_get_type(src));
-}
-
-
-struct TACLine *set_up_scale_multiplication(struct AST *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale)
+struct TACLine *set_up_scale_multiplication(struct Ast *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale)
 {
     struct TACLine *scaleMultiplication = new_tac_line(TT_MUL, tree);
 
@@ -103,7 +57,7 @@ struct TACLine *set_up_scale_multiplication(struct AST *tree, struct Scope *scop
     return scaleMultiplication;
 }
 
-void check_accessed_struct_for_dot(struct AST *tree, struct Scope *scope, struct Type *type)
+void check_accessed_struct_for_dot(struct Ast *tree, struct Scope *scope, struct Type *type)
 {
     // check that we actually refer to a struct on the LHS of the dot
     if (type->basicType != VT_STRUCT)

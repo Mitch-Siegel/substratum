@@ -14,19 +14,17 @@ struct VariableEntry
     // if this variable has the address-of operator used on it or is a global variable
     // we need to denote that it *must* live in memory so it isn't lost
     // and can have an address
-    u8 mustSpill;
-    u8 isGlobal;
-    u8 isExtern;
-    u8 isStringLiteral;
+    bool mustSpill;
+    bool isGlobal;
+    bool isExtern;
+    bool isStringLiteral;
 };
 
-struct VariableEntry *create_variable(struct Scope *scope,
-                                      struct AST *name,
-                                      struct Type *type,
-                                      u8 isGlobal,
-                                      size_t declaredAt,
-                                      u8 isArgument,
-                                      enum ACCESS accessibility);
+struct VariableEntry *variable_entry_new(char *name,
+                                         struct Type *type,
+                                         bool isGlobal,
+                                         bool isArgument,
+                                         enum ACCESS accessibility);
 
 void variable_entry_free(struct VariableEntry *variable);
 #endif

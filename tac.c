@@ -102,7 +102,7 @@ char *get_asm_op(enum TAC_TYPE tacOperation)
     return "";
 }
 
-struct TACLine *new_tac_line_function(enum TAC_TYPE operation, struct AST *correspondingTree, char *file, int line)
+struct TACLine *new_tac_line_function(enum TAC_TYPE operation, struct Ast *correspondingTree, char *file, int line)
 {
     struct TACLine *wip = malloc(sizeof(struct TACLine));
     wip->allocFile = file;

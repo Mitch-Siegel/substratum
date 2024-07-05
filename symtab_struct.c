@@ -5,18 +5,6 @@
 #include "symtab_scope.h"
 #include "util.h"
 
-struct StructEntry *create_struct(struct Scope *scope,
-                                  char *name)
-{
-    struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
-    wipStruct->name = name;
-    wipStruct->members = scope_new(scope, name, NULL, wipStruct);
-    wipStruct->memberLocations = stack_new();
-    wipStruct->totalSize = 0;
-
-    scope_insert(scope, name, wipStruct, E_STRUCT, A_PUBLIC);
-    return wipStruct;
-}
 
 void struct_entry_free(struct StructEntry *theStruct)
 {
@@ -58,7 +46,7 @@ void struct_assign_offset_to_member_variable(struct StructEntry *memberOf,
 
 // assuming we know that struct has a member with name identical to name->value, make sure we can actually access it
 void struct_check_access(struct StructEntry *theStruct,
-                         struct AST *name,
+                         struct Ast *name,
                          struct Scope *scope,
                          char *whatAccessingCalled)
 {
@@ -90,7 +78,7 @@ void struct_check_access(struct StructEntry *theStruct,
 }
 
 struct StructMemberOffset *struct_lookup_member_variable(struct StructEntry *theStruct,
-                                                         struct AST *name,
+                                                         struct Ast *name,
                                                          struct Scope *scope)
 {
     if (name->type != T_IDENTIFIER)
@@ -99,7 +87,7 @@ struct StructMemberOffset *struct_lookup_member_variable(struct StructEntry *the
                  name,
                  "Non-identifier tree %s (%s) passed to Struct_lookupOffsetOfMemberVariable!\n",
                  name->value,
-                 get_token_name(name->type));
+                 token_get_name(name->type));
     }
 
     struct StructMemberOffset *returnedMember = NULL;
@@ -126,7 +114,7 @@ struct StructMemberOffset *struct_lookup_member_variable(struct StructEntry *the
 }
 
 struct FunctionEntry *struct_looup_method(struct StructEntry *theStruct,
-                                          struct AST *name,
+                                          struct Ast *name,
                                           struct Scope *scope)
 {
     struct FunctionEntry *returnedMethod = NULL;
@@ -157,7 +145,7 @@ struct FunctionEntry *struct_looup_method(struct StructEntry *theStruct,
 }
 
 struct FunctionEntry *struct_lookup_associated_function(struct StructEntry *theStruct,
-                                                        struct AST *name,
+                                                        struct Ast *name,
                                                         struct Scope *scope)
 {
     struct FunctionEntry *returnedAssociated = NULL;

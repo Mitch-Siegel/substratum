@@ -111,14 +111,14 @@ enum TOKEN
     T_EOF,
 };
 
-char *get_token_name(enum TOKEN type);
+char *token_get_name(enum TOKEN type);
 
-struct AST
+struct Ast
 {
     char *value;
     enum TOKEN type;
-    struct AST *child;
-    struct AST *sibling;
+    struct Ast *child;
+    struct Ast *sibling;
     u32 sourceLine;
     u32 sourceCol;
     char *sourceFile;
@@ -126,18 +126,18 @@ struct AST
 
 // instantiate a new AST with given type and value
 // the sourceLine and sourceCol fields will be automatically populated
-struct AST *ast_new(enum TOKEN type, char *value, char *curFile, u32 curLine, u32 curCol);
+struct Ast *ast_new(enum TOKEN type, char *value, char *curFile, u32 curLine, u32 curCol);
 
-void ast_insert_sibling(struct AST *tree, struct AST *newSibling);
+void ast_insert_sibling(struct Ast *tree, struct Ast *newSibling);
 
-void ast_insert_child(struct AST *tree, struct AST *newChild);
+void ast_insert_child(struct Ast *tree, struct Ast *newChild);
 
-struct AST *ast_construct_add_sibling(struct AST *tree, struct AST *newSibling);
+struct Ast *ast_construct_add_sibling(struct Ast *tree, struct Ast *newSibling);
 
-struct AST *ast_construct_add_child(struct AST *tree, struct AST *newChild);
+struct Ast *ast_construct_add_child(struct Ast *tree, struct Ast *newChild);
 
-void ast_print(struct AST *tree, size_t depth);
+void ast_print(struct Ast *tree, size_t depth);
 
-void ast_dump(FILE *outFile, struct AST *tree);
+void ast_dump(FILE *outFile, struct Ast *tree);
 
-void ast_free(struct AST *tree);
+void ast_free(struct Ast *tree);
