@@ -20,6 +20,7 @@ struct EnumEntry
     char *name;
     struct Scope *parentScope;
     struct Set *members;
+    size_t unionSize; // size of the largest type contained within the union represented by this enum
 };
 
 void enum_entry_free(struct EnumEntry *the_enum);
