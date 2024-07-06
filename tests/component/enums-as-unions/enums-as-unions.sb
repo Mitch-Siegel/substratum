@@ -1,0 +1,37 @@
+#include "tests-common.sb"
+
+struct Vec3
+{
+    u64 x;
+    u64 y;
+    u64 z;
+};
+
+enum Instruction {
+    SetSize: Vec3,
+    Scale: u64,
+    Translate: Vec3,
+};
+
+fun printInstruction(Instruction i) {
+    match(i)
+    {
+        SetSize: printStr("SetSize\n");
+        Scale: printStr("Scale\n");
+        Translate: printStr("Translate\n");
+    }
+}
+
+
+fun testInstructions()
+{
+    printInstruction(SetSize);
+    printInstruction(Scale);
+    printInstruction(Translate);
+}
+
+fun main()
+{
+    testInstructions();
+    exit();
+}

@@ -124,7 +124,7 @@ struct Ast *parse_file(char *inFileName)
     struct Ast *translationUnit = NULL;
     while (pcc_parse(parseContext, &translationUnit))
     {
-        parsed = ast_s(parsed, translationUnit);
+        parsed = AST_S(parsed, translationUnit);
     }
 
     pcc_destroy(parseContext);
