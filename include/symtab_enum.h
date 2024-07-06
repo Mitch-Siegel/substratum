@@ -2,13 +2,14 @@
 #define SYMTAB_ENUM_H
 
 #include "ast.h"
+#include "type.h"
 
 struct Scope;
-struct Type;
 
 struct EnumMember
 {
     char *name;
+    struct Type type;
     size_t numerical;
 };
 
@@ -24,7 +25,8 @@ struct EnumEntry
 void enum_entry_free(struct EnumEntry *the_enum);
 
 struct EnumMember *enum_add_member(struct EnumEntry *the_enum,
-                                 struct Ast *name);
+                                 struct Ast *memberName,
+                                 struct Type *memberType);
 
 struct EnumMember *enum_lookup_member(struct EnumEntry *the_enum,
                                     struct Ast *name);

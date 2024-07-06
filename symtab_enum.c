@@ -18,18 +18,21 @@ void enum_entry_free(struct EnumEntry *the_enum)
 }
 
 struct EnumMember *enum_add_member(struct EnumEntry *the_enum,
-                                   struct Ast *name)
+                                   struct Ast *memberName,
+                                   struct Type *memberType)
 {
     struct EnumMember *newMember = malloc(sizeof(struct EnumMember));
 
-    struct EnumEntry *existingEnumWithMember = scope_lookup_enum_by_member_name(the_enum->parentScope, name->value);
+    struct EnumEntry *existingEnumWithMember = scope_lookup_enum_by_member_name(the_enum->parentScope, memberName->value);
     if (existingEnumWithMember != NULL)
     {
-        log_tree(LOG_FATAL, name, "Enum %s already has a member named %s", existingEnumWithMember->name, name->value);
+        log_tree(LOG_FATAL, memberName, "Enum %s already has a member named %s", existingEnumWithMember->name, memberName->value);
     }
 
-    newMember->name = name->value;
+    newMember->name = memberName->value;
     newMember->numerical = the_enum->members->elements->size;
+    newMember->type = *memberType;
+
     set_insert(the_enum->members, newMember);
 
     return newMember;

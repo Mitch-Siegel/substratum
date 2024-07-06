@@ -2,23 +2,61 @@
 
 struct Vec3
 {
-    u64 x;
-    u64 y;
-    u64 z;
+    public u32 x;
+    public u32 y;
+    public u32 z;
 };
 
 enum Instruction {
     SetSize: Vec3,
-    Scale: u64,
+    ScaleUp: u32,
+    ScaleDown: u32, 
     Translate: Vec3,
+    Print,
 };
+
+struct State{
+    Vec3 size;
+    Vec3 pos;
+};
+
+impl State {
+    public fun DoInstruction(self, Instruction instructionToDo)
+    {
+        match(instructionToDo)
+        {
+            SetSize(size): 
+                {
+                    self.size.x = size.x;
+                    self.size.y = size.y;
+                    self.size.z = size.z;
+                }
+            ScaleUp(factor): 
+                {
+                    self.size.x *= factor;
+                    self.size.y *= factor;
+                    self.size.z *= factor;
+                }
+            ScaleDown(factor): 
+                {
+                    self.size.x *= factor;
+                    self.size.y *= factor;
+                    self.size.z *= factor;
+                }
+            Translate: printStr("Translate!\n");
+            Print: printStr("Print!\n");
+        }
+    }
+}
 
 fun printInstruction(Instruction i) {
     match(i)
     {
         SetSize: printStr("SetSize\n");
-        Scale: printStr("Scale\n");
+        ScaleUp: printStr("Scale Up\n");
+        ScaleDown: printStr("Scale Down\n");
         Translate: printStr("Translate\n");
+        Print: printStr("Print\n");
     }
 }
 
@@ -26,8 +64,10 @@ fun printInstruction(Instruction i) {
 fun testInstructions()
 {
     printInstruction(SetSize);
-    printInstruction(Scale);
+    printInstruction(ScaleUp);
+    printInstruction(ScaleDown);
     printInstruction(Translate);
+    printInstruction(Print);
 }
 
 fun main()

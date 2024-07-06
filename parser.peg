@@ -297,9 +297,10 @@ match_case_list
     / c:match_case                       { $$ = c; }
 
 match_case
-   <- u:underscore _ kw_colon _ s:statement              { $$ = AST_C(AST_N(auxil, T_MATCH_ARM, "", $0s), AST_S(AST_C(AST_N(auxil, T_MATCH_ARM_ACTION, "", $0s), s), u)); }
-    / mcl:match_constant_list _ kw_colon _ s:statement   { $$ = AST_C(AST_N(auxil, T_MATCH_ARM, "", $0s), AST_S(AST_C(AST_N(auxil, T_MATCH_ARM_ACTION, "", $0s), s), mcl)); }
-    / mil:match_identifier_list _ kw_colon _ s:statement { $$ = AST_C(AST_N(auxil, T_MATCH_ARM, "", $0s), AST_S(AST_C(AST_N(auxil, T_MATCH_ARM_ACTION, "", $0s), s), mil)); }
+   <- u:underscore _ kw_colon _ s:statement                    { $$ = AST_C(AST_N(auxil, T_MATCH_ARM, "", $0s), AST_S(AST_C(AST_N(auxil, T_MATCH_ARM_ACTION, "", $0s), s), u)); }
+    / mi:match_identifier_with_type _ kw_colon _ s:statement   { $$ = AST_C(AST_N(auxil, T_MATCH_ARM, "", $0s), AST_S(AST_C(AST_N(auxil, T_MATCH_ARM_ACTION, "", $0s), s), mi)); }
+    / mcl:match_constant_list _ kw_colon _ s:statement         { $$ = AST_C(AST_N(auxil, T_MATCH_ARM, "", $0s), AST_S(AST_C(AST_N(auxil, T_MATCH_ARM_ACTION, "", $0s), s), mcl)); }
+    / mil:match_identifier_list _ kw_colon _ s:statement       { $$ = AST_C(AST_N(auxil, T_MATCH_ARM, "", $0s), AST_S(AST_C(AST_N(auxil, T_MATCH_ARM_ACTION, "", $0s), s), mil)); }
 
 match_constant_list
    <- mcl: match_constant_list _ kw_comma _ c:constant   { $$ = AST_S(mcl, c); }
@@ -309,6 +310,8 @@ match_identifier_list
    <- mil: match_identifier_list _ kw_comma _ i:identifier  { $$ = AST_S(mil, i); }
     / i:identifier                                          { $$ = i; }
 
+match_identifier_with_type
+   <- i1:identifier _ kw_lparen _ i2:identifier _ kw_rparen { $$ = AST_C(i1, i2); }
 
 statement
    <- c:compound_statement                                                                                                 { $$ = c; }
