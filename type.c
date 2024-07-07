@@ -126,12 +126,19 @@ size_t type_hash(struct Type *type)
 
 bool type_is_object(struct Type *type)
 {
-    return type_is_struct_object(type) || ((type->basicType == VT_ARRAY) && type->pointerLevel == 0);
+    return type_is_struct_object(type) ||
+           type_is_enum_object(type) ||
+           ((type->basicType == VT_ARRAY) && type->pointerLevel == 0);
 }
 
 bool type_is_struct_object(struct Type *type)
 {
     return ((type->basicType == VT_STRUCT) && (type->pointerLevel == 0));
+}
+
+bool type_is_enum_object(struct Type *type)
+{
+    return ((type->basicType == VT_ENUM) && (type->pointerLevel == 0));
 }
 
 // NOLINTBEGIN(readability-function-cognitive-complexity)
@@ -495,6 +502,8 @@ size_t type_get_size(struct Type *type, struct Scope *scope)
     case VT_ENUM:
     {
         size = sizeof(size_t);
+        struct EnumEntry *theEnum = scope_lookup_enum_by_type(scope, type);
+        size += theEnum->unionSize;
     }
     break;
 

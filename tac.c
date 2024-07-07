@@ -187,7 +187,7 @@ ssize_t s_print_arithmetic_operation(char *tacString, ssize_t width, char *opera
 
 char *sprint_tac_line(struct TACLine *line)
 {
-    const u32 SPRINT_TAC_LINE_LENGTH = 128;
+    const u32 SPRINT_TAC_LINE_LENGTH = 256;
     char *tacString = malloc(SPRINT_TAC_LINE_LENGTH * sizeof(char));
     ssize_t width = sprintf(tacString, "%2lx:", line->index);
     switch (line->operation)

@@ -376,7 +376,7 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
         break;
 
     case WB_STACK:
-        if (operandLt->type.basicType == VT_ARRAY)
+        if (type_is_object(&operand->type))
         {
             if (operandLt->writebackInfo.stackOffset >= 0)
             {
@@ -516,10 +516,7 @@ void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
                                         struct TACOperand *operand,
                                         struct Register *destReg)
 {
-    struct Lifetime dummyLt = {0};
-    dummyLt.name = operand->name.str;
-
-    struct Lifetime *lifetime = set_find(metadata->allLifetimes, &dummyLt);
+    struct Lifetime *lifetime = lifetime_find(metadata->allLifetimes, operand->name.str);
     switch (lifetime->wbLocation)
     {
     case WB_REGISTER:
@@ -537,71 +534,6 @@ void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
     case WB_UNKNOWN:
         InternalError("Lifetime for %s has unknown writeback location!", lifetime->name);
         break;
-    }
-}
-
-void riscv_emit_argument_stores(struct CodegenState *state,
-                                struct RegallocMetadata *metadata,
-                                struct MachineInfo *info,
-                                struct FunctionEntry *calledFunction,
-                                struct Stack *argumentOperands)
-{
-    log(LOG_DEBUG, "Emit argument stores for call to %s", calledFunction->name);
-    // TODO: don't emit when 0
-    emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize);
-
-    while (argumentOperands->size > 0)
-    {
-        struct TACOperand *argOperand = stack_pop(argumentOperands);
-
-        struct VariableEntry *argument = calledFunction->arguments->data[argumentOperands->size];
-
-        struct Lifetime dummyLt = {0};
-        dummyLt.name = argument->name;
-        struct Lifetime *argLifetime = set_find(calledFunction->regalloc.allLifetimes, &dummyLt);
-
-        log(LOG_DEBUG, "Store argument %s - %s", argument->name, argOperand->name.str);
-        emit_instruction(NULL, state, "\t#Store argument %s - %s\n", argument->name, argOperand->name.str);
-        switch (argLifetime->wbLocation)
-        {
-        case WB_REGISTER:
-        {
-            struct Register *writtenTo = argLifetime->writebackInfo.regLocation;
-            struct Register *foundIn = riscv_place_or_find_operand_in_register(NULL, state, metadata, info, argOperand, writtenTo);
-            if (writtenTo != foundIn)
-            {
-                emit_instruction(NULL, state, "\tmv %s, %s\n", writtenTo->name, foundIn->name);
-            }
-            else
-            {
-                emit_instruction(NULL, state, "\t# already in %s\n", foundIn->name);
-            }
-        }
-        break;
-
-        case WB_STACK:
-        {
-            struct Register *scratch = acquire_scratch_register(info);
-            struct Register *writeFrom = riscv_place_or_find_operand_in_register(NULL, state, metadata, info, argOperand, scratch);
-
-            emit_instruction(NULL, state, "\ts%c %s, %zd(%s)\n",
-                             riscv_select_width_char_for_lifetime(calledFunction->mainScope, argLifetime),
-                             writeFrom->name,
-                             argLifetime->writebackInfo.stackOffset,
-                             info->stackPointer->name);
-
-            try_release_scratch_register(info, scratch);
-        }
-        break;
-
-        case WB_GLOBAL:
-            InternalError("Lifetime for argument %s has global writeback!", argLifetime->name);
-            break;
-
-        case WB_UNKNOWN:
-            InternalError("Lifetime for argument %s has unknown writeback!", argLifetime->name);
-            break;
-        }
     }
 }
 
@@ -639,6 +571,83 @@ void riscv_generate_internal_copy(struct TACLine *correspondingTACLine,
                          offset,
                          destAddrReg->name);
         offset += byteDiff;
+    }
+}
+
+void riscv_emit_argument_stores(struct CodegenState *state,
+                                struct RegallocMetadata *metadata,
+                                struct MachineInfo *info,
+                                struct FunctionEntry *calledFunction,
+                                struct Stack *argumentOperands)
+{
+    log(LOG_DEBUG, "Emit argument stores for call to %s", calledFunction->name);
+    // TODO: don't emit when 0
+    emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize);
+
+    while (argumentOperands->size > 0)
+    {
+        struct TACOperand *argOperand = stack_pop(argumentOperands);
+
+        struct VariableEntry *argument = calledFunction->arguments->data[argumentOperands->size];
+
+        struct Lifetime *argLifetime = lifetime_find(calledFunction->regalloc.allLifetimes, argument->name);
+
+        log(LOG_DEBUG, "Store argument %s - %s", argument->name, argOperand->name.str);
+        emit_instruction(NULL, state, "\t#Store argument %s - %s\n", argument->name, argOperand->name.str);
+        switch (argLifetime->wbLocation)
+        {
+        case WB_REGISTER:
+        {
+            struct Register *writtenTo = argLifetime->writebackInfo.regLocation;
+            struct Register *foundIn = riscv_place_or_find_operand_in_register(NULL, state, metadata, info, argOperand, writtenTo);
+            if (writtenTo != foundIn)
+            {
+                emit_instruction(NULL, state, "\tmv %s, %s\n", writtenTo->name, foundIn->name);
+            }
+            else
+            {
+                emit_instruction(NULL, state, "\t# already in %s\n", foundIn->name);
+            }
+        }
+        break;
+
+        case WB_STACK:
+        {
+            struct Register *scratch = acquire_scratch_register(info);
+            if (type_is_object(tac_operand_get_type(argOperand)))
+            {
+                struct Register *sourceAddrReg = acquire_scratch_register(info);
+                riscv_place_addr_of_operand_in_reg(NULL, state, metadata, info, argOperand, sourceAddrReg);
+
+                struct Register *destAddrReg = acquire_scratch_register(info);
+                emit_instruction(NULL, state, "\t#compute pointer to stack argument %s to store %s\n", argument->name, argLifetime->name);
+                emit_instruction(NULL, state, "\taddi %s, %s, %zd\n", destAddrReg->name, info->stackPointer->name, argLifetime->writebackInfo.stackOffset);
+
+                riscv_generate_internal_copy(NULL, state, sourceAddrReg, destAddrReg, scratch, type_get_size(tac_operand_get_type(argOperand), metadata->scope));
+            }
+            else
+            {
+                struct Register *writeFrom = riscv_place_or_find_operand_in_register(NULL, state, metadata, info, argOperand, scratch);
+
+                emit_instruction(NULL, state, "\ts%c %s, %zd(%s)\n",
+                                 riscv_select_width_char_for_lifetime(calledFunction->mainScope, argLifetime),
+                                 writeFrom->name,
+                                 argLifetime->writebackInfo.stackOffset,
+                                 info->stackPointer->name);
+            }
+
+            try_release_scratch_register(info, scratch);
+        }
+        break;
+
+        case WB_GLOBAL:
+            InternalError("Lifetime for argument %s has global writeback!", argLifetime->name);
+            break;
+
+        case WB_UNKNOWN:
+            InternalError("Lifetime for argument %s has unknown writeback!", argLifetime->name);
+            break;
+        }
     }
 }
 

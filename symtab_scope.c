@@ -170,6 +170,7 @@ struct EnumEntry *scope_create_enum(struct Scope *scope,
     wipEnum->name = name;
     wipEnum->parentScope = scope;
     wipEnum->members = set_new(enum_member_compare, free);
+    wipEnum->unionSize = 0;
 
     scope_insert(scope, name, wipEnum, E_ENUM, A_PUBLIC);
     return wipEnum;

@@ -10,41 +10,53 @@ ssize_t enum_member_compare(void *enumMemberA, void *enumMemberB)
     return strcmp(((struct EnumMember *)enumMemberA)->name, ((struct EnumMember *)enumMemberB)->name);
 }
 
-void enum_entry_free(struct EnumEntry *the_enum)
+void enum_entry_free(struct EnumEntry *theEnum)
 {
-    set_free(the_enum->members);
+    set_free(theEnum->members);
 
-    free(the_enum);
+    free(theEnum);
 }
 
-struct EnumMember *enum_add_member(struct EnumEntry *the_enum,
-                                   struct Ast *name)
+struct EnumMember *enum_add_member(struct EnumEntry *theEnum,
+                                   struct Ast *memberName,
+                                   struct Type *memberType)
 {
     struct EnumMember *newMember = malloc(sizeof(struct EnumMember));
 
-    struct EnumEntry *existingEnumWithMember = scope_lookup_enum_by_member_name(the_enum->parentScope, name->value);
+    struct EnumEntry *existingEnumWithMember = scope_lookup_enum_by_member_name(theEnum->parentScope, memberName->value);
     if (existingEnumWithMember != NULL)
     {
-        log_tree(LOG_FATAL, name, "Enum %s already has a member named %s", existingEnumWithMember->name, name->value);
+        log_tree(LOG_FATAL, memberName, "Enum %s already has a member named %s", existingEnumWithMember->name, memberName->value);
     }
 
-    newMember->name = name->value;
-    newMember->numerical = the_enum->members->elements->size;
-    set_insert(the_enum->members, newMember);
+    newMember->name = memberName->value;
+    newMember->numerical = theEnum->members->elements->size;
+    
+    newMember->type = *memberType;
+    if(memberType->basicType != VT_NULL)
+    {
+        size_t memberSize = type_get_size(memberType, theEnum->parentScope);
+        if(memberSize > theEnum->unionSize)
+        {
+            theEnum->unionSize = memberSize;
+        }
+    }
+
+    set_insert(theEnum->members, newMember);
 
     return newMember;
 }
 
-struct EnumMember *enum_lookup_member(struct EnumEntry *the_enum,
+struct EnumMember *enum_lookup_member(struct EnumEntry *theEnum,
                                       struct Ast *name)
 {
     struct EnumMember dummyMember = {0};
     dummyMember.name = name->value;
-    struct EnumMember *lookedUp = set_find(the_enum->members, &dummyMember);
+    struct EnumMember *lookedUp = set_find(theEnum->members, &dummyMember);
 
     if (lookedUp == NULL)
     {
-        log_tree(LOG_FATAL, name, "Use of undeclared member %s in enum %s", name->value, the_enum->name);
+        log_tree(LOG_FATAL, name, "Use of undeclared member %s in enum %s", name->value, theEnum->name);
     }
 
     return lookedUp;

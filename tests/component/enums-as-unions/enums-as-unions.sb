@@ -1,0 +1,108 @@
+#include "tests-common.sb"
+
+struct Vec3
+{
+    public u32 x;
+    public u32 y;
+    public u32 z;
+};
+
+enum Instruction {
+    SetSize: Vec3,
+    ScaleUp: u32,
+    ScaleDown: u32, 
+    Translate: Vec3,
+    Print,
+};
+
+struct State{
+    Vec3 size;
+    Vec3 pos;
+};
+
+impl State {
+    fun Print(self);
+
+    public fun Init(self)
+    {
+        self.size.x = 1;
+        self.size.y = 1;
+        self.size.z = 1;
+        self.pos.x = 0;
+        self.pos.y = 0;
+        self.pos.z = 0;
+    }
+
+    public fun DoInstruction(self, Instruction instructionToDo)
+    {
+        match(instructionToDo)
+        {
+            SetSize(size): 
+                {
+                    self.size.x = size.x;
+                    self.size.y = size.y;
+                    self.size.z = size.z;
+                }
+            ScaleUp(factor): 
+                {
+                    self.size.x *= factor;
+                    self.size.y *= factor;
+                    self.size.z *= factor;
+                }
+            ScaleDown(factor): 
+                {
+                    self.size.x /= factor;
+                    self.size.y /= factor;
+                    self.size.z /= factor;
+                }
+            Translate(vec): 
+                {
+                    self.pos.x += vec.x;
+                    self.pos.y += vec.y;
+                    self.pos.z += vec.z;
+                }
+            Print: { self.Print(); }
+        }
+    }
+
+    fun Print(self)
+    {
+        printStr("Position:\n");
+        printNum(self.pos.x);
+        printNum(self.pos.y);
+        printNum(self.pos.z);
+        printStr("Dimensions:\n");
+        printNum(self.size.x);
+        printNum(self.size.y);
+        printNum(self.size.z);
+        uart_putc('\n');
+    }
+}
+
+fun testInstructions()
+{
+    State s;
+    s.Init();
+    Instruction i = Translate[[{x = 1, y = 2, z = 3}]];
+    Instruction printInstr = Print;
+    s.DoInstruction(i);
+    s.DoInstruction(printInstr);
+
+    i = ScaleUp[[40]];
+    s.DoInstruction(i);
+    s.DoInstruction(printInstr);
+
+    i = Translate[[{x = 15, y = 0, z = 11}]];
+    s.DoInstruction(i);
+    s.DoInstruction(printInstr);
+
+    i = ScaleDown[[10]];
+    s.DoInstruction(i);
+    s.DoInstruction(printInstr);
+}
+
+fun main()
+{
+    testInstructions();
+    exit();
+}

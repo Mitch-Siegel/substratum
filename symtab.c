@@ -373,7 +373,7 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
     case E_ENUM:
     {
         struct EnumEntry *theEnum = toPrint->entry;
-        fprintf(outFile, "> Enum %s:\n", toPrint->name);
+        fprintf(outFile, "> Enum %s - data union size of %zu bytes:\n", toPrint->name, theEnum->unionSize);
         for (struct LinkedListNode *enumMemberRunner = theEnum->members->elements->head; enumMemberRunner != NULL; enumMemberRunner = enumMemberRunner->next)
         {
             struct EnumMember *member = enumMemberRunner->data;
@@ -381,7 +381,9 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
             {
                 fprintf(outFile, "\t");
             }
-            fprintf(outFile, "%zu:%s\n", member->numerical, member->name);
+            char *memberTypeName = type_get_name(&member->type);
+            fprintf(outFile, "%zu:%s (%s)\n", member->numerical, member->name, memberTypeName);
+            free(memberTypeName);
         }
     }
     break;
