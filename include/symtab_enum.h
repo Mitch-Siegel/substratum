@@ -23,13 +23,13 @@ struct EnumEntry
     size_t unionSize; // size of the largest type contained within the union represented by this enum
 };
 
-void enum_entry_free(struct EnumEntry *the_enum);
+void enum_entry_free(struct EnumEntry *theEnum);
 
-struct EnumMember *enum_add_member(struct EnumEntry *the_enum,
+struct EnumMember *enum_add_member(struct EnumEntry *theEnum,
                                  struct Ast *memberName,
                                  struct Type *memberType);
 
-struct EnumMember *enum_lookup_member(struct EnumEntry *the_enum,
+struct EnumMember *enum_lookup_member(struct EnumEntry *theEnum,
                                     struct Ast *name);
 
 #endif

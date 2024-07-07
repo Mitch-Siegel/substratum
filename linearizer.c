@@ -1450,6 +1450,9 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
         matchJump->operands[1].name.str = dictionary_lookup_or_insert(parseDict, printedMatchedValue);
 
         matchJump->operands[2] = *matchedAgainst;
+        // treat the enum as a size_t as the numerical value of what member we're looking at resides at the first part of the enum
+        matchJump->operands[2].castAsType.basicType = VT_U64; // TODO: size_t definition?
+        matchJump->operands[2].castAsType.pointerLevel = 0;
 
         basic_block_append(block, matchJump, tacIndex);
 
@@ -1457,11 +1460,13 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
 
         struct BasicBlock *caseBlock = basic_block_new((*labelNum)++);
 
+        // if we are mapping the type tagged as this enum/union member to an identifier
         if (matchedValueTree->child != NULL)
         {
             struct Ast *matchedDataName = matchedValueTree->child;
             log(LOG_WARNING, "Matched data is named %s", matchedDataName->value);
 
+            // make sure we actually expect to map to some type for this member
             if (matchedMember->type.basicType == VT_NULL)
             {
                 log_tree(LOG_FATAL, matchedDataName, "Attempt to map data in enum %s member %s to identifier %s, but member %s has no associated data", matchedEnum->name,
@@ -1473,16 +1478,29 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
             armScope = scope_create_sub_scope(scope);
             struct VariableEntry *dataVariable = scope_create_variable(armScope, matchedDataName, &matchedMember->type, false, A_PUBLIC);
 
-            struct TACLine *dataExtractionLine = new_tac_line(TT_ASSIGN, matchedDataName);
+            struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(matchedDataName, block, scope, tacIndex, tempNum, matchedAgainst);
+            struct TACLine *compAddrOfEnumData = new_tac_line(TT_ADD, matchedDataName);
+            compAddrOfEnumData->operands[1] = *addrOfMatchedAgainst;
+
+            // the actual data of the enum is at base + sizeof(size_t), so compute that address
+            char sprintedNumber[sprintedNumberLength];
+            snprintf(sprintedNumber, sprintedNumberLength - 1, "%zu", sizeof(size_t));
+            compAddrOfEnumData->operands[2].name.str = dictionary_lookup_or_insert(parseDict, sprintedNumber);
+            compAddrOfEnumData->operands[2].type.basicType = select_variable_type_for_literal(sprintedNumber);
+            compAddrOfEnumData->operands[2].permutation = VP_LITERAL;
+            tac_operand_populate_as_temp(&compAddrOfEnumData->operands[0], tempNum);
+            compAddrOfEnumData->operands[0].type = *tac_get_type_of_operand(compAddrOfEnumData, 1);
+            basic_block_append(block, compAddrOfEnumData, tacIndex);
+
+            // then, do the actual load from the computed address to the temporary
+            struct TACLine *dataExtractionLine = new_tac_line(TT_LOAD, matchedDataName);
             tac_operand_populate_from_variable(&dataExtractionLine->operands[0], dataVariable);
-            dataExtractionLine->operands[1] = *matchedAgainst;
-            dataExtractionLine->operands[1].castAsType.basicType = VT_ENUM;
-            dataExtractionLine->operands[1].castAsType.pointerLevel = 0;
-            dataExtractionLine->operands[1].castAsType.nonArray.complexType.name = matchedEnum->name;
+            dataExtractionLine->operands[1] = compAddrOfEnumData->operands[0];
+            dataExtractionLine->operands[1].castAsType = matchedMember->type;
+            dataExtractionLine->operands[1].castAsType.pointerLevel++;
 
             basic_block_append(caseBlock, dataExtractionLine, tacIndex);
         }
-
         scope_add_basic_block(armScope, caseBlock);
         matchJump->operands[0].name.val = walk_match_case_block(actionTree, caseBlock, armScope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
     }
@@ -1602,6 +1620,7 @@ void walk_match_statement(struct Ast *tree,
 
     struct TACOperand matchedAgainst = {0};
     walk_sub_expression(matchedExpression, block, scope, tacIndex, tempNum, &matchedAgainst);
+
     struct Type *matchedType = tac_operand_get_type(&matchedAgainst);
     struct EnumEntry *matchedEnum = NULL;
     if (matchedType->basicType == VT_ENUM)
@@ -2077,6 +2096,105 @@ void walk_struct_initializer(struct Ast *tree,
     ensure_all_fields_initialized(tree, initMemberIdx, initializedStruct);
 }
 
+void walk_enum_subexpression(struct Ast *tree,
+                             struct BasicBlock *block,
+                             struct Scope *scope,
+                             size_t *TACIndex,
+                             size_t *tempNum,
+                             struct TACOperand *destinationOperand,
+                             struct EnumEntry *fromEnum)
+{
+    type_init(&destinationOperand->castAsType);
+    type_init(&destinationOperand->type);
+    // we're going to have a temp
+    tac_operand_populate_as_temp(destinationOperand, tempNum);
+    destinationOperand->type.basicType = VT_ENUM;
+    destinationOperand->type.nonArray.complexType.name = fromEnum->name;
+
+    struct EnumMember *member = enum_lookup_member(fromEnum, tree);
+
+    // we will manipulate based on the address of the enum
+    struct TACOperand *destAddr = get_addr_of_operand(tree, block, scope, TACIndex, tempNum, destinationOperand);
+
+    // the first sizeof(size_t) bytes of this enum are the numerical index of the member with which we are dealing
+    struct TACLine *writeEnumNumericalLine = new_tac_line(TT_STORE, tree);
+    writeEnumNumericalLine->operands[0] = *destAddr;
+    char sprintNumStr[sprintedNumberLength];
+    snprintf(sprintNumStr, sprintedNumberLength - 1, "%zu", member->numerical);
+    writeEnumNumericalLine->operands[1].name.str = dictionary_lookup_or_insert(parseDict, sprintNumStr);
+    writeEnumNumericalLine->operands[1].type.basicType = VT_U64; // TODO: define for size_t
+    writeEnumNumericalLine->operands[1].permutation = VP_LITERAL;
+
+    // treat our enum dest addr as actually a pointer to the numerical index of what member it is
+    writeEnumNumericalLine->operands[0].castAsType = *tac_get_type_of_operand(writeEnumNumericalLine, 1);
+    writeEnumNumericalLine->operands[0].castAsType.pointerLevel++;
+    basic_block_append(block, writeEnumNumericalLine, TACIndex);
+
+    // if there is some sort of initializer for the data tagged to this enum member
+    if (tree->child != NULL)
+    {
+        // make sure that the enum member actually expects data
+        if (member->type.basicType == VT_NULL)
+        {
+            log_tree(LOG_FATAL, tree->child, "Attempt to populate data of enum %s member %s, which expects no data", fromEnum->name, member->name);
+        }
+
+        // compute the address where the actual data lives in this enum object (base address + sizeof(size_t))
+        struct TACLine *enumDataAddrCompLine = new_tac_line(TT_ADD, tree->child);
+        tac_operand_populate_as_temp(&enumDataAddrCompLine->operands[0], tempNum);
+        enumDataAddrCompLine->operands[0].type = *tac_operand_get_type(destAddr);
+
+        enumDataAddrCompLine->operands[1] = *destAddr;
+
+        enumDataAddrCompLine->operands[2].permutation = VP_LITERAL;
+        char sprintNumStr[sprintedNumberLength];
+        snprintf(sprintNumStr, sprintedNumberLength - 1, "%zu", sizeof(size_t));
+        enumDataAddrCompLine->operands[2].name.str = dictionary_lookup_or_insert(parseDict, sprintNumStr);
+        enumDataAddrCompLine->operands[2].type.basicType = select_variable_type_for_literal(sprintNumStr);
+        basic_block_append(block, enumDataAddrCompLine, TACIndex);
+
+        // we will need an intermediate operand which will actually store the data before it is written to the true enum location
+        struct TACOperand enumData = {0};
+        enumData.type = member->type;
+
+        switch (tree->child->type)
+        {
+        case T_STRUCT_INITIALIZER:
+            tac_operand_populate_as_temp(&enumData, tempNum);
+            walk_struct_initializer(tree->child, block, scope, TACIndex, tempNum, &enumData);
+            break;
+
+        default:
+            walk_sub_expression(tree->child, block, scope, TACIndex, tempNum, &enumData);
+        }
+
+        if (type_compare_allow_implicit_widening(tac_operand_get_type(&enumData), &member->type))
+        {
+            log_tree(LOG_FATAL, tree->child, "Invalid assignment of data from enum %s member %s (expect type %s) to type %s",
+                     fromEnum->name,
+                     member->name,
+                     type_get_name(&member->type),
+                     type_get_name(tac_operand_get_type(&enumData)));
+        }
+
+        struct TACLine *enumDataAssignLine = new_tac_line(TT_STORE, tree->child);
+        enumDataAssignLine->operands[0] = enumDataAddrCompLine->operands[0];
+        enumDataAssignLine->operands[0].castAsType = member->type;
+        enumDataAssignLine->operands[0].castAsType.pointerLevel = 22;
+        enumDataAssignLine->operands[1] = enumData;
+
+        basic_block_append(block, enumDataAssignLine, TACIndex);
+    }
+    else // no data tagged to this enum member
+    {
+        // make sure that the enum member doesn't expect any data, error otherwise
+        if (member->type.basicType != VT_NULL)
+        {
+            log_tree(LOG_FATAL, tree, "Unpopulated data of enum %s member %s, which expects data of type %s", fromEnum->name, member->name, type_get_name(&member->type));
+        }
+    }
+}
+
 void walk_sub_expression(struct Ast *tree,
                          struct BasicBlock *block,
                          struct Scope *scope,
@@ -2102,7 +2220,7 @@ void walk_sub_expression(struct Ast *tree,
         struct EnumEntry *possibleEnum = scope_lookup_enum_by_member_name(scope, tree->value);
         if (possibleEnum != NULL)
         {
-            tac_operand_populate_from_enum_member(destinationOperand, possibleEnum, tree);
+            walk_enum_subexpression(tree, block, scope, TACIndex, tempNum, destinationOperand, possibleEnum);
         }
         else
         {

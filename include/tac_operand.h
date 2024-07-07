@@ -46,8 +46,6 @@ ssize_t tac_operand_compare_ignore_ssa_number(void *dataA, void *dataB);
 
 void tac_operand_populate_from_variable(struct TACOperand *operandToPopulate, struct VariableEntry *populateFrom);
 
-void tac_operand_populate_from_enum_member(struct TACOperand *operandToPopulate, struct EnumEntry *theEnum, struct Ast *tree);
-
 void tac_operand_populate_as_temp(struct TACOperand *operandToPopulate, size_t *tempNum);
 
 // copy over the entire TACOperand, all fields are changed

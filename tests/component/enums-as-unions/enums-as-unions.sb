@@ -49,25 +49,35 @@ impl State {
     }
 }
 
-fun printInstruction(Instruction i) {
-    match(i)
+fun printInstruction(Instruction toPrint) {
+    match(toPrint)
     {
-        SetSize: printStr("SetSize\n");
-        ScaleUp: printStr("Scale Up\n");
+        SetSize(sz): {
+            printStr("SetSize\n");
+            printNum(sz.x);
+            uart_putc('\n');
+            printNum(sz.y);
+            uart_putc('\n');
+            printNum(sz.z);
+            uart_putc('\n');
+            }
+        ScaleUp(scale): {printStr("Scale Up\n"); printNum(scale); }
         ScaleDown: printStr("Scale Down\n");
         Translate: printStr("Translate\n");
         Print: printStr("Print\n");
     }
 }
 
-
 fun testInstructions()
 {
-    printInstruction(SetSize);
-    printInstruction(ScaleUp);
-    printInstruction(ScaleDown);
-    printInstruction(Translate);
-    printInstruction(Print);
+    State s;
+    //Instruction i = SetSize({x = 1, y = 2, z = 3});
+    Instruction i = ScaleUp(1234);
+    printInstruction(i);
+    //printInstruction(ScaleUp);
+    //printInstruction(ScaleDown);
+    //printInstruction(Translate);
+    //printInstruction(Print);
 }
 
 fun main()

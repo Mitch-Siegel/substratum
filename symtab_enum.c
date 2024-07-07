@@ -10,11 +10,11 @@ ssize_t enum_member_compare(void *enumMemberA, void *enumMemberB)
     return strcmp(((struct EnumMember *)enumMemberA)->name, ((struct EnumMember *)enumMemberB)->name);
 }
 
-void enum_entry_free(struct EnumEntry *the_enum)
+void enum_entry_free(struct EnumEntry *theEnum)
 {
-    set_free(the_enum->members);
+    set_free(theEnum->members);
 
-    free(the_enum);
+    free(theEnum);
 }
 
 struct EnumMember *enum_add_member(struct EnumEntry *theEnum,

@@ -95,22 +95,6 @@ void tac_operand_populate_from_variable(struct TACOperand *operandToPopulate, st
     operandToPopulate->permutation = VP_STANDARD;
 }
 
-void tac_operand_populate_from_enum_member(struct TACOperand *operandToPopulate, struct EnumEntry *theEnum, struct Ast *tree)
-{
-    type_init(&operandToPopulate->castAsType);
-    type_init(&operandToPopulate->type);
-    operandToPopulate->type.basicType = VT_ENUM;
-    operandToPopulate->permutation = VP_LITERAL;
-
-    struct EnumMember *member = enum_lookup_member(theEnum, tree);
-
-    operandToPopulate->type.nonArray.complexType.name = theEnum->name;
-
-    char enumAsLiteral[sprintedNumberLength];
-    snprintf(enumAsLiteral, sprintedNumberLength - 1, "%zu", member->numerical);
-    operandToPopulate->name.str = dictionary_lookup_or_insert(parseDict, enumAsLiteral);
-}
-
 void tac_operand_populate_as_temp(struct TACOperand *operandToPopulate, size_t *tempNum)
 {
     operandToPopulate->name.str = temp_list_get(temps, (*tempNum)++);

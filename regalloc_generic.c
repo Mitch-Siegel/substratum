@@ -30,9 +30,7 @@ struct Lifetime *lifetime_new(char *name, struct Type *type, size_t start, u8 is
     }
     else
     {
-        if (((type->basicType == VT_STRUCT) && (type->pointerLevel == 0)) ||
-            (type->basicType == VT_ARRAY) ||
-            mustSpill)
+        if (type_is_object(type) || mustSpill)
         {
             wip->wbLocation = WB_STACK;
         }

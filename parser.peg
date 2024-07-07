@@ -274,9 +274,13 @@ struct_initializer
    <- kw_lcurly _ mil:member_initializer_list _ kw_rcurly              { $$ = AST_C(AST_N(auxil, T_STRUCT_INITIALIZER, "", $0s), mil); }
     / kw_lcurly _ mil:member_initializer_list _ kw_comma _ kw_rcurly   { $$ = AST_C(AST_N(auxil, T_STRUCT_INITIALIZER, "", $0s), mil); }
 
+enum_initializer
+   <- i:identifier _ kw_lparen _ e:initializer _ kw_rparen { $$ = AST_C(i, e); }
+
 initializer
-   <- e:expression            { $$ = e; }
-    / si:struct_initializer   { $$ = si; }
+   <- si:struct_initializer   { $$ = si; }
+    / ei:enum_initializer     { $$ = ei; }
+    / e:expression            { $$ = e; }
 
 compound_statement
    <- kw_lcurly _ kw_rcurly                     { $$ = AST_N(auxil, T_COMPOUND_STATEMENT, "", $0s); }
