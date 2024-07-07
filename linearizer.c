@@ -1411,7 +1411,8 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
                          struct Ast *actionTree,
                          bool *haveUnderscoreCase,
                          struct Ast **underscoreAction,
-                         struct TACOperand *matchedAgainst,
+                         struct TACOperand *matchedAgainstEnum,
+                         struct TACOperand *matchedAgainstNumerical,
                          struct EnumEntry *matchedEnum,
                          struct Set *matchedValues)
 {
@@ -1442,14 +1443,14 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
 
         struct TACLine *matchJump = new_tac_line(TT_BEQ, matchedValueTree);
 
-        matchJump->operands[1].type = *tac_operand_get_type(matchedAgainst);
+        matchJump->operands[1].type = *tac_operand_get_type(matchedAgainstNumerical);
         matchJump->operands[1].permutation = VP_LITERAL;
 
         char printedMatchedValue[sprintedNumberLength];
         snprintf(printedMatchedValue, sprintedNumberLength - 1, "%zu", *matchedValuePointer);
         matchJump->operands[1].name.str = dictionary_lookup_or_insert(parseDict, printedMatchedValue);
 
-        matchJump->operands[2] = *matchedAgainst;
+        matchJump->operands[2] = *matchedAgainstNumerical;
         // treat the enum as a size_t as the numerical value of what member we're looking at resides at the first part of the enum
         matchJump->operands[2].castAsType.basicType = VT_U64; // TODO: size_t definition?
         matchJump->operands[2].castAsType.pointerLevel = 0;
@@ -1478,7 +1479,7 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
             armScope = scope_create_sub_scope(scope);
             struct VariableEntry *dataVariable = scope_create_variable(armScope, matchedDataName, &matchedMember->type, false, A_PUBLIC);
 
-            struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(matchedDataName, block, scope, tacIndex, tempNum, matchedAgainst);
+            struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(matchedDataName, caseBlock, scope, tacIndex, tempNum, matchedAgainstEnum);
             struct TACLine *compAddrOfEnumData = new_tac_line(TT_ADD, matchedDataName);
             compAddrOfEnumData->operands[1] = *addrOfMatchedAgainst;
 
@@ -1490,7 +1491,7 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
             compAddrOfEnumData->operands[2].permutation = VP_LITERAL;
             tac_operand_populate_as_temp(&compAddrOfEnumData->operands[0], tempNum);
             compAddrOfEnumData->operands[0].type = *tac_get_type_of_operand(compAddrOfEnumData, 1);
-            basic_block_append(block, compAddrOfEnumData, tacIndex);
+            basic_block_append(caseBlock, compAddrOfEnumData, tacIndex);
 
             // then, do the actual load from the computed address to the temporary
             struct TACLine *dataExtractionLine = new_tac_line(TT_LOAD, matchedDataName);
@@ -1522,7 +1523,8 @@ void walk_non_enum_match_arm(struct Ast *matchedValueTree,
                              struct Ast *actionTree,
                              bool *haveUnderscoreCase,
                              struct Ast **underscoreAction,
-                             struct TACOperand *matchedAgainst,
+                             struct TACOperand *matchedAgainstEnum,
+                             struct TACOperand *matchedAgainstNumerical,
                              struct Type *matchedType,
                              struct Set *matchedValues)
 {
@@ -1571,14 +1573,14 @@ void walk_non_enum_match_arm(struct Ast *matchedValueTree,
 
         struct TACLine *matchJump = new_tac_line(TT_BEQ, matchedValueTree);
 
-        matchJump->operands[1].type = *tac_operand_get_type(matchedAgainst);
+        matchJump->operands[1].type = *tac_operand_get_type(matchedAgainstNumerical);
         matchJump->operands[1].permutation = VP_LITERAL;
 
         char printedMatchedValue[sprintedNumberLength];
         snprintf(printedMatchedValue, sprintedNumberLength - 1, "%zu", matchedValue);
         matchJump->operands[1].name.str = dictionary_lookup_or_insert(parseDict, printedMatchedValue);
 
-        matchJump->operands[2] = *matchedAgainst;
+        matchJump->operands[2] = *matchedAgainstNumerical;
 
         basic_block_append(block, matchJump, tacIndex);
 
@@ -1620,6 +1622,18 @@ void walk_match_statement(struct Ast *tree,
 
     struct TACOperand matchedAgainst = {0};
     walk_sub_expression(matchedExpression, block, scope, tacIndex, tempNum, &matchedAgainst);
+
+    struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(tree, block, scope, tacIndex, tempNum, &matchedAgainst);
+    addrOfMatchedAgainst->castAsType.basicType = VT_U64; // TODO: size_t define
+    addrOfMatchedAgainst->castAsType.pointerLevel = 1;
+
+    struct TACLine *loadMatchedAgainst = new_tac_line(TT_LOAD, tree);
+    loadMatchedAgainst->operands[1] = *addrOfMatchedAgainst;
+    loadMatchedAgainst->operands[0] = *addrOfMatchedAgainst;
+    tac_operand_populate_as_temp(&loadMatchedAgainst->operands[0], tempNum);
+    tac_get_type_of_operand(loadMatchedAgainst, 0)->pointerLevel = 0;
+    struct TACOperand* matchedAgainstNumerical = &loadMatchedAgainst->operands[0];
+    basic_block_append(block, loadMatchedAgainst, tacIndex);
 
     struct Type *matchedType = tac_operand_get_type(&matchedAgainst);
     struct EnumEntry *matchedEnum = NULL;
@@ -1685,6 +1699,7 @@ void walk_match_statement(struct Ast *tree,
                                     &haveUnderscoreCase,
                                     &underscoreAction,
                                     &matchedAgainst,
+                                    matchedAgainstNumerical,
                                     matchedEnum,
                                     matchedValues);
             }
@@ -1701,6 +1716,7 @@ void walk_match_statement(struct Ast *tree,
                                         &haveUnderscoreCase,
                                         &underscoreAction,
                                         &matchedAgainst,
+                                        matchedAgainstNumerical,
                                         matchedType,
                                         matchedValues);
             }
@@ -2180,7 +2196,7 @@ void walk_enum_subexpression(struct Ast *tree,
         struct TACLine *enumDataAssignLine = new_tac_line(TT_STORE, tree->child);
         enumDataAssignLine->operands[0] = enumDataAddrCompLine->operands[0];
         enumDataAssignLine->operands[0].castAsType = member->type;
-        enumDataAssignLine->operands[0].castAsType.pointerLevel = 22;
+        enumDataAssignLine->operands[0].castAsType.pointerLevel++;
         enumDataAssignLine->operands[1] = enumData;
 
         basic_block_append(block, enumDataAssignLine, TACIndex);

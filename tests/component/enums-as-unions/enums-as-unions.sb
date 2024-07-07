@@ -55,11 +55,8 @@ fun printInstruction(Instruction toPrint) {
         SetSize(sz): {
             printStr("SetSize\n");
             printNum(sz.x);
-            uart_putc('\n');
             printNum(sz.y);
-            uart_putc('\n');
             printNum(sz.z);
-            uart_putc('\n');
             }
         ScaleUp(scale): {printStr("Scale Up\n"); printNum(scale); }
         ScaleDown: printStr("Scale Down\n");
