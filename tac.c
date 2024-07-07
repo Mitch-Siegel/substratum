@@ -62,6 +62,12 @@ char *get_asm_op(enum TAC_TYPE tacOperation)
         return "lea (literal offset)";
     case TT_LEA_ARR:
         return "lea (array indexed)";
+    case TT_FIELD_LOAD:
+        return "struct field load";
+    case TT_FIELD_LEA:
+        return "struct field load pointer";
+    case TT_FIELD_STORE:
+        return "struct field store";
     case TT_FUNCTION_CALL:
         return "function call";
     case TT_METHOD_CALL:
@@ -280,6 +286,18 @@ char *sprint_tac_line(struct TACLine *line)
     case TT_LEA_ARR:
         // operands: dest base offset scale
         width += sprintf(tacString + width, "%s!%zu = &(%s!%zu + %s!%zu*2^%ld)", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber, line->operands[2].name.str, line->operands[2].ssaNumber, line->operands[3].name.val);
+        break;
+
+    case TT_FIELD_LOAD:
+        width += sprintf(tacString + width, "%s!%zu = %s!%zu.%s", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber, line->operands[2].name.str);
+        break;
+
+    case TT_FIELD_LEA:
+        width += sprintf(tacString + width, "%s!%zu = &(%s!%zu.%s)", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber, line->operands[2].name.str);
+        break;
+
+    case TT_FIELD_STORE:
+        width += sprintf(tacString + width, "%s!%zu.%s = %s!%zu", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[2].name.str, line->operands[2].ssaNumber);
         break;
 
     case TT_BEQ:
@@ -529,6 +547,39 @@ enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex) /
             use = U_WRITE;
         }
         else if ((operandIndex == 1) || (operandIndex == 2))
+        {
+            use = U_READ;
+        }
+        break;
+
+    case TT_FIELD_LOAD:
+        if (operandIndex == 0)
+        {
+            use = U_WRITE;
+        }
+        else if (operandIndex == 1)
+        {
+            use = U_READ;
+        }
+        break;
+
+    case TT_FIELD_LEA:
+        if (operandIndex == 0)
+        {
+            use = U_WRITE;
+        }
+        else if (operandIndex == 1)
+        {
+            use = U_READ;
+        }
+        break;
+
+    case TT_FIELD_STORE:
+        if (operandIndex == 0)
+        {
+            use = U_WRITE;
+        }
+        else if (operandIndex == 1)
         {
             use = U_READ;
         }

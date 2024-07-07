@@ -929,6 +929,12 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     }
     break;
 
+    case TT_FIELD_LOAD:
+    case TT_FIELD_LEA:
+    case TT_FIELD_STORE:
+        InternalError("Codegen for %s not implemented yet!", get_asm_op(generate->operation));
+        break;
+
     case TT_BEQ:
     case TT_BNE:
     case TT_BGEU:
