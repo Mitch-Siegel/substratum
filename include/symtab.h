@@ -32,17 +32,17 @@ only string names are available and any bad lookups should be caused by internal
 struct SymbolTable *symbol_table_new(char *name);
 
 void symbol_table_print(struct SymbolTable *table,
-                       FILE *outFile,
-                       bool printTac);
+                        FILE *outFile,
+                        bool printTac);
 
 void symbol_table_decay_arrays(struct SymbolTable *table);
 
 void symbol_table_collapse_scopes_rec(struct Scope *scope,
-                                   struct Dictionary *dict,
-                                   size_t depth);
+                                      struct Dictionary *dict,
+                                      size_t depth);
 
 void symbol_table_collapse_scopes(struct SymbolTable *table,
-                                struct Dictionary *dict);
+                                  struct Dictionary *dict);
 
 void symbol_table_free(struct SymbolTable *table);
 
@@ -50,4 +50,4 @@ void symbol_table_free(struct SymbolTable *table);
 
 // scrape down a chain of nested child star tokens, expecting something at the bottom
 size_t scrape_pointers(struct Ast *pointerAst,
-                      struct Ast **resultDestination);
+                       struct Ast **resultDestination);

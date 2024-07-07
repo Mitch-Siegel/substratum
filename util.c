@@ -44,42 +44,42 @@ size_t parse_hex_constant(char *hexConstant)
     {
         hexValue <<= 4;
 
-        switch(hexConstant[digitIndex])
+        switch (hexConstant[digitIndex])
         {
-            case '0':
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':
-                hexValue += hexConstant[digitIndex] - '0';
-                break;
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            hexValue += hexConstant[digitIndex] - '0';
+            break;
 
-            case 'A':
-            case 'B':
-            case 'C':
-            case 'D':
-            case 'E':
-            case 'F':
-                hexValue += hexConstant[digitIndex] - '7';
-                break;
+        case 'A':
+        case 'B':
+        case 'C':
+        case 'D':
+        case 'E':
+        case 'F':
+            hexValue += hexConstant[digitIndex] - '7';
+            break;
 
-            case 'a':
-            case 'b':
-            case 'c':
-            case 'd':
-            case 'e':
-            case 'f':
-                hexValue += hexConstant[digitIndex] - 'W';
-                break;
+        case 'a':
+        case 'b':
+        case 'c':
+        case 'd':
+        case 'e':
+        case 'f':
+            hexValue += hexConstant[digitIndex] - 'W';
+            break;
 
-            default:
-                InternalError("Illegal character %c seen in hex constant", hexConstant[digitIndex]);
-                break;
+        default:
+            InternalError("Illegal character %c seen in hex constant", hexConstant[digitIndex]);
+            break;
         }
     }
 
@@ -114,10 +114,10 @@ void hash_table_entry_free(void *entry)
 }
 
 struct HashTableEntry *hash_table_entry_new(void *key,
-                                          void *value,
-                                          ssize_t (*compareFunction)(void *keyA, void *keyB),
-                                          void (*keyFreeFunction)(void *key),
-                                          void (*valueFreeFunction)(void *value))
+                                            void *value,
+                                            ssize_t (*compareFunction)(void *keyA, void *keyB),
+                                            void (*keyFreeFunction)(void *key),
+                                            void (*valueFreeFunction)(void *value))
 {
     struct HashTableEntry *wip = malloc(sizeof(struct HashTableEntry));
     wip->key = key;
@@ -129,10 +129,10 @@ struct HashTableEntry *hash_table_entry_new(void *key,
 }
 
 struct HashTable *hash_table_new(size_t nBuckets,
-                                size_t (*hashFunction)(void *key),
-                                ssize_t (*compareFunction)(void *keyA, void *keyB),
-                                void (*keyFreeFunction)(void *data),
-                                void (*valueFreeFunction)(void *data))
+                                 size_t (*hashFunction)(void *key),
+                                 ssize_t (*compareFunction)(void *keyA, void *keyB),
+                                 void (*keyFreeFunction)(void *data),
+                                 void (*valueFreeFunction)(void *data))
 {
     struct HashTable *wip = malloc(sizeof(struct HashTable));
     wip->nBuckets = nBuckets;

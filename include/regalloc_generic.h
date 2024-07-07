@@ -52,25 +52,25 @@ bool lifetime_is_live_at_index(struct Lifetime *lifetime, size_t index);
 // update the lifetime start/end indices
 // returns pointer to the lifetime corresponding to the passed variable name
 struct Lifetime *update_or_insert_lifetime(struct Set *ltList,
-                                        char *name,
-                                        struct Type *type,
-                                        size_t newEnd,
-                                        u8 isGlobal,
-                                        u8 mustSpill);
+                                           char *name,
+                                           struct Type *type,
+                                           size_t newEnd,
+                                           u8 isGlobal,
+                                           u8 mustSpill);
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
 void record_variable_write(struct Set *ltList,
-                         struct TACOperand *writtenOperand,
-                         struct Scope *scope,
-                         size_t newEnd);
+                           struct TACOperand *writtenOperand,
+                           struct Scope *scope,
+                           size_t newEnd);
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
 void record_variable_read(struct Set *ltList,
-                        struct TACOperand *readOperand,
-                        struct Scope *scope,
-                        size_t newEnd);
+                          struct TACOperand *readOperand,
+                          struct Scope *scope,
+                          size_t newEnd);
 
 struct Set *find_lifetimes(struct Scope *scope, struct LinkedList *basicBlockList);
 
@@ -116,12 +116,12 @@ struct MachineInfo
 extern struct MachineInfo *(*setupMachineInfo)();
 
 struct MachineInfo *machine_info_new(u8 maxReg,
-                                    u8 n_temps,
-                                    u8 n_arguments,
-                                    u8 n_general_purpose,
-                                    u8 n_no_save,
-                                    u8 n_callee_save,
-                                    u8 n_caller_save);
+                                     u8 n_temps,
+                                     u8 n_arguments,
+                                     u8 n_general_purpose,
+                                     u8 n_no_save,
+                                     u8 n_callee_save,
+                                     u8 n_caller_save);
 
 void machine_info_free(struct MachineInfo *info);
 

@@ -1648,12 +1648,12 @@ void walk_match_statement(struct Ast *tree,
 
     struct Type *matchedType = tac_operand_get_type(&matchedAgainst);
 
-    if(matchedType->pointerLevel > 0)
+    if (matchedType->pointerLevel > 0)
     {
         log_tree(LOG_FATAL, tree, "Match against pointer type (%s) forbidden!", type_get_name(matchedType));
     }
 
-     if(type_is_struct_object(matchedType))
+    if (type_is_struct_object(matchedType))
     {
         log_tree(LOG_FATAL, tree, "Match against struct type (%s) forbidden!", type_get_name(matchedType));
     }

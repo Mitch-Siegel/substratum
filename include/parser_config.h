@@ -19,17 +19,17 @@ void set_current_file(struct ParseProgress *auxil, char *preprocessorLine, u32 l
 #define CHARS_THIS_LINE(auxil) (*(size_t *)((auxil)->charsRemainingPerLine->head->data))
 #define CHARS_LAST_LINE(auxil) (*(size_t *)((auxil)->charsRemainingPerLine->tail->data))
 
-#define PCC_GETCHAR(auxil) ({            \
-    int inChar = fgetc((auxil)->f);      \
-    if ((inChar) == EOF)                 \
-    {                                    \
-        (auxil)->eofReceived = 1;        \
-    }                                    \
-    else                                 \
-    {                                    \
+#define PCC_GETCHAR(auxil) ({             \
+    int inChar = fgetc((auxil)->f);       \
+    if ((inChar) == EOF)                  \
+    {                                     \
+        (auxil)->eofReceived = 1;         \
+    }                                     \
+    else                                  \
+    {                                     \
         track_character(auxil, (inChar)); \
-    }                                    \
-    (inChar);                            \
+    }                                     \
+    (inChar);                             \
 })
 
 #define PCC_ERROR(auxil)                                                   \
@@ -57,7 +57,7 @@ void set_current_file(struct ParseProgress *auxil, char *preprocessorLine, u32 l
             }                                                              \
             fputc('\n', stderr);                                           \
         }                                                                  \
-        parser_error(auxil);                                                \
+        parser_error(auxil);                                               \
     }
 
 #define AST_S(original, newrightmost) ast_construct_add_sibling(original, newrightmost)

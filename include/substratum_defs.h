@@ -30,4 +30,3 @@ typedef u8 bool;
 #define MACHINE_REGISTER_COUNT 32
 
 #define sprintedNumberLength 32
-

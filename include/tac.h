@@ -38,9 +38,9 @@ enum TAC_TYPE
     TT_BEQZ, // branch equal zero
     TT_BNEZ, // branch not equal zero
     TT_JMP,
-    TT_ARG_STORE,     // store a value at a (positive) offset from the stack pointer
-    TT_FUNCTION_CALL, // call a function
-    TT_METHOD_CALL,   // call a method of a struct
+    TT_ARG_STORE,       // store a value at a (positive) offset from the stack pointer
+    TT_FUNCTION_CALL,   // call a function
+    TT_METHOD_CALL,     // call a method of a struct
     TT_ASSOCIATED_CALL, // call an associated function of a struct
     TT_LABEL,
     TT_RETURN,
@@ -64,7 +64,6 @@ struct TACLine
     size_t asmIndex;
     u8 reorderable;
 };
-
 
 struct Type *tac_get_type_of_operand(struct TACLine *line, unsigned index);
 

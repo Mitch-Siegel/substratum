@@ -22,7 +22,7 @@ void log_tree_function(const char *file, size_t line, enum LOG_LEVEL level, stru
 
 #define log(level, format, ...) log_function(__FILE__, __LINE__, level, format, ##__VA_ARGS__)
 #define log_tree(level, tree, format, ...) log_tree_function(__FILE__, __LINE__, level, tree, format, ##__VA_ARGS__)
-#define InternalError(format, ...)                                     \
+#define InternalError(format, ...)                                      \
     log_function(__FILE__, __LINE__, LOG_FATAL, format, ##__VA_ARGS__); \
     exit(1)
 

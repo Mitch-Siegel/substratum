@@ -63,10 +63,10 @@ struct HashTable
 };
 
 struct HashTable *hash_table_new(size_t nBuckets,
-                                size_t (*hashFunction)(void *key),
-                                ssize_t (*compareFunction)(void *keyA, void *keyB),
-                                void (*keyFreeFunction)(void *data),
-                                void (*valueFreeFunction)(void *data));
+                                 size_t (*hashFunction)(void *key),
+                                 ssize_t (*compareFunction)(void *keyA, void *keyB),
+                                 void (*keyFreeFunction)(void *data),
+                                 void (*valueFreeFunction)(void *data));
 
 void *hash_table_lookup(struct HashTable *table, void *key);
 

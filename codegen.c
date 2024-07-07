@@ -7,11 +7,11 @@
 #include "symtab.h"
 
 void generate_code_for_program(struct SymbolTable *table,
-                            FILE *outFile,
-                            struct MachineInfo *info,
-                            void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
-                            void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
-                            void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
+                               FILE *outFile,
+                               struct MachineInfo *info,
+                               void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                               void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                               void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
     struct CodegenState globalContext;
     size_t globalInstructionIndex = 0;
@@ -68,11 +68,11 @@ void generate_code_for_program(struct SymbolTable *table,
 };
 
 void generate_code_for_struct(struct CodegenState *globalContext,
-                           struct StructEntry *theStruct,
-                           struct MachineInfo *info,
-                           void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
-                           void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
-                           void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
+                              struct StructEntry *theStruct,
+                              struct MachineInfo *info,
+                              void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                              void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                              void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
     for (size_t entryIndex = 0; entryIndex < theStruct->members->entries->size; entryIndex++)
     {
@@ -193,12 +193,12 @@ void generate_code_for_global_variable(struct CodegenState *globalContext, struc
  */
 extern struct Config config;
 void generate_code_for_function(FILE *outFile,
-                             struct FunctionEntry *function,
-                             struct MachineInfo *info,
-                             char *methodOfStructName,
-                             void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
-                             void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
-                             void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
+                                struct FunctionEntry *function,
+                                struct MachineInfo *info,
+                                char *methodOfStructName,
+                                void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                                void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                                void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
     char *fullFunctionName = function->name;
     if (methodOfStructName != NULL)

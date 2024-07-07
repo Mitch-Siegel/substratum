@@ -31,12 +31,12 @@ struct EnumMember *enum_add_member(struct EnumEntry *theEnum,
 
     newMember->name = memberName->value;
     newMember->numerical = theEnum->members->elements->size;
-    
+
     newMember->type = *memberType;
-    if(memberType->basicType != VT_NULL)
+    if (memberType->basicType != VT_NULL)
     {
         size_t memberSize = type_get_size(memberType, theEnum->parentScope);
-        if(memberSize > theEnum->unionSize)
+        if (memberSize > theEnum->unionSize)
         {
             theEnum->unionSize = memberSize;
         }

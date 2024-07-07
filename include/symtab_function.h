@@ -20,13 +20,12 @@ struct FunctionEntry
     u8 isDefined;
     u8 isAsmFun;
     u8 callsOtherFunction; // is it possible this function calls another function? (need to store return address on stack)
-    u8 isMethod; // if memberOf != null and this is true, the function is a method (takes a 'self' parameter)
+    u8 isMethod;           // if memberOf != null and this is true, the function is a method (takes a 'self' parameter)
     struct RegallocMetadata regalloc;
 };
 
 struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct Type *returnType, struct StructEntry *methodOf);
 
 void function_entry_free(struct FunctionEntry *function);
-
 
 #endif

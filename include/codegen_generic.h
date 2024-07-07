@@ -15,8 +15,8 @@ struct CodegenState
 };
 
 void emit_instruction(struct TACLine *correspondingTACLine,
-                     struct CodegenState *state,
-                     const char *format, ...);
+                      struct CodegenState *state,
+                      const char *format, ...);
 
 void emit_loc(struct CodegenState *context, struct TACLine *thisTAC, size_t *lastLineNo);
 
@@ -29,7 +29,7 @@ void try_release_scratch_register(struct MachineInfo *info, struct Register *reg
 void release_all_scratch_registers(struct MachineInfo *info);
 
 struct Register *pick_write_register(struct RegallocMetadata *metadata,
-                                   struct TACOperand *operand,
-                                   struct Register *scratchReg);
+                                     struct TACOperand *operand,
+                                     struct Register *scratchReg);
 
 #endif

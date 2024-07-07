@@ -5,7 +5,6 @@
 #include "symtab_scope.h"
 #include "util.h"
 
-
 void struct_entry_free(struct StructEntry *theStruct)
 {
     scope_free(theStruct->members);

@@ -349,7 +349,7 @@ char *sprint_tac_line(struct TACLine *line)
         break;
 
     case TT_RETURN:
-        if(tac_get_type_of_operand(line, 0)->basicType != VT_NULL)
+        if (tac_get_type_of_operand(line, 0)->basicType != VT_NULL)
         {
             width += sprintf(tacString + width, "ret %s!%zu", line->operands[0].name.str, line->operands[0].ssaNumber);
         }

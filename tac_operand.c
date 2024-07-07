@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "symtab_variable.h"
 #include "symtab_enum.h"
+#include "symtab_variable.h"
 #include "util.h"
 
 struct Type *tac_operand_get_type(struct TACOperand *operand)

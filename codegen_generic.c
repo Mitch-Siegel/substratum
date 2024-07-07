@@ -7,8 +7,8 @@
 #include <stdarg.h>
 
 void emit_instruction(struct TACLine *correspondingTACLine,
-                     struct CodegenState *state,
-                     const char *format, ...)
+                      struct CodegenState *state,
+                      const char *format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -82,8 +82,8 @@ void try_release_scratch_register(struct MachineInfo *info, struct Register *reg
 }
 
 struct Register *pick_write_register(struct RegallocMetadata *metadata,
-                                   struct TACOperand *operand,
-                                   struct Register *scratchReg)
+                                     struct TACOperand *operand,
+                                     struct Register *scratchReg)
 {
     struct Lifetime dummyLt = {0};
     dummyLt.name = operand->name.str;
