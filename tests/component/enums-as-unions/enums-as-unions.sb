@@ -21,6 +21,18 @@ struct State{
 };
 
 impl State {
+    fun Print(self);
+
+    public fun Init(self)
+    {
+        self.size.x = 1;
+        self.size.y = 1;
+        self.size.z = 1;
+        self.pos.x = 0;
+        self.pos.y = 0;
+        self.pos.z = 0;
+    }
+
     public fun DoInstruction(self, Instruction instructionToDo)
     {
         match(instructionToDo)
@@ -39,42 +51,54 @@ impl State {
                 }
             ScaleDown(factor): 
                 {
-                    self.size.x *= factor;
-                    self.size.y *= factor;
-                    self.size.z *= factor;
+                    self.size.x /= factor;
+                    self.size.y /= factor;
+                    self.size.z /= factor;
                 }
-            Translate: printStr("Translate!\n");
-            Print: printStr("Print!\n");
+            Translate(vec): 
+                {
+                    self.pos.x += vec.x;
+                    self.pos.y += vec.y;
+                    self.pos.z += vec.z;
+                }
+            Print: { self.Print(); }
         }
     }
-}
 
-fun printInstruction(Instruction toPrint) {
-    match(toPrint)
+    fun Print(self)
     {
-        SetSize(sz): {
-            printStr("SetSize\n");
-            printNum(sz.x);
-            printNum(sz.y);
-            printNum(sz.z);
-            }
-        ScaleUp(scale): {printStr("Scale Up\n"); printNum(scale); }
-        ScaleDown: printStr("Scale Down\n");
-        Translate: printStr("Translate\n");
-        Print: printStr("Print\n");
+        printStr("Position:\n");
+        printNum(self.pos.x);
+        printNum(self.pos.y);
+        printNum(self.pos.z);
+        printStr("Dimensions:\n");
+        printNum(self.size.x);
+        printNum(self.size.y);
+        printNum(self.size.z);
+        uart_putc('\n');
     }
 }
 
 fun testInstructions()
 {
     State s;
-    //Instruction i = SetSize({x = 1, y = 2, z = 3});
-    Instruction i = ScaleUp(1234);
-    printInstruction(i);
-    //printInstruction(ScaleUp);
-    //printInstruction(ScaleDown);
-    //printInstruction(Translate);
-    //printInstruction(Print);
+    s.Init();
+    Instruction i = Translate[[{x = 1, y = 2, z = 3}]];
+    Instruction printInstr = Print;
+    s.DoInstruction(i);
+    s.DoInstruction(printInstr);
+
+    i = ScaleUp[[40]];
+    s.DoInstruction(i);
+    s.DoInstruction(printInstr);
+
+    i = Translate[[{x = 15, y = 0, z = 11}]];
+    s.DoInstruction(i);
+    s.DoInstruction(printInstr);
+
+    i = ScaleDown[[10]];
+    s.DoInstruction(i);
+    s.DoInstruction(printInstr);
 }
 
 fun main()

@@ -275,7 +275,7 @@ struct_initializer
     / kw_lcurly _ mil:member_initializer_list _ kw_comma _ kw_rcurly   { $$ = AST_C(AST_N(auxil, T_STRUCT_INITIALIZER, "", $0s), mil); }
 
 enum_initializer
-   <- i:identifier _ kw_lparen _ e:initializer _ kw_rparen { $$ = AST_C(i, e); }
+   <- i:identifier _ kw_lbracket kw_lbracket _ e:initializer _ kw_rbracket kw_rbracket { $$ = AST_C(i, e); }
 
 initializer
    <- si:struct_initializer   { $$ = si; }
@@ -289,9 +289,10 @@ compound_statement
 expression_statement
    <- kw_semicolon { $$ = NULL; }
     / e:expression _ kw_semicolon { $$ = e; }
-    / v:variable_declaration _ a:basic_assignment _ i:initializer _ kw_semicolon    { $$ = AST_C(a, AST_S(v, i)); }
-    / e1:expression _ ao:assignment_operator _ e2:expression _ kw_semicolon     { $$ = AST_C(ao, AST_S(e1, e2)); }
-    / e:expression _ a:basic_assignment _ i:initializer                       { $$ = AST_C(a, AST_S(e, i)); }
+    / v:variable_declaration _ a:basic_assignment _ i:initializer _ kw_semicolon { $$ = AST_C(a, AST_S(v, i)); }
+    / e1:expression _ ao:assignment_operator _ e2:expression _ kw_semicolon      { $$ = AST_C(ao, AST_S(e1, e2)); }
+    / e:expression _ a:basic_assignment _ i:initializer _ kw_semicolon           { $$ = AST_C(a, AST_S(e, i)); }
+    / p:primary_expression _ a:basic_assignment _ i:initializer _ kw_semicolon           { $$ = AST_C(a, AST_S(p, i)); }
 
 match_body
    <- kw_lcurly _ ml:match_case_list _ kw_rcurly { $$ = ml; }
