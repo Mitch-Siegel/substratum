@@ -127,13 +127,18 @@ size_t type_hash(struct Type *type)
 bool type_is_object(struct Type *type)
 {
     return type_is_struct_object(type) ||
-           ((type->basicType == VT_ARRAY) && type->pointerLevel == 0) ||
-           ((type->basicType == VT_ENUM) && type->pointerLevel == 0);
+           type_is_enum_object(type) ||
+           ((type->basicType == VT_ARRAY) && type->pointerLevel == 0);
 }
 
 bool type_is_struct_object(struct Type *type)
 {
     return ((type->basicType == VT_STRUCT) && (type->pointerLevel == 0));
+}
+
+bool type_is_enum_object(struct Type *type)
+{
+    return ((type->basicType == VT_ENUM) && (type->pointerLevel == 0));
 }
 
 // NOLINTBEGIN(readability-function-cognitive-complexity)

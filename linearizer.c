@@ -1623,17 +1623,28 @@ void walk_match_statement(struct Ast *tree,
     struct TACOperand matchedAgainst = {0};
     walk_sub_expression(matchedExpression, block, scope, tacIndex, tempNum, &matchedAgainst);
 
-    struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(tree, block, scope, tacIndex, tempNum, &matchedAgainst);
-    addrOfMatchedAgainst->castAsType.basicType = VT_U64; // TODO: size_t define
-    addrOfMatchedAgainst->castAsType.pointerLevel = 1;
+    struct TACOperand matchedAgainstNumerical;
+    // if matching against an enum, we need to do some manipulation to extract the actual numerical value associated with the enum
+    if (type_is_enum_object(tac_operand_get_type(&matchedAgainst)))
+    {
+        struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(tree, block, scope, tacIndex, tempNum, &matchedAgainst);
+        addrOfMatchedAgainst->castAsType.basicType = VT_U64; // TODO: size_t define
+        addrOfMatchedAgainst->castAsType.pointerLevel = 1;
 
-    struct TACLine *loadMatchedAgainst = new_tac_line(TT_LOAD, tree);
-    loadMatchedAgainst->operands[1] = *addrOfMatchedAgainst;
-    loadMatchedAgainst->operands[0] = *addrOfMatchedAgainst;
-    tac_operand_populate_as_temp(&loadMatchedAgainst->operands[0], tempNum);
-    tac_get_type_of_operand(loadMatchedAgainst, 0)->pointerLevel = 0;
-    struct TACOperand* matchedAgainstNumerical = &loadMatchedAgainst->operands[0];
-    basic_block_append(block, loadMatchedAgainst, tacIndex);
+        struct TACLine *loadMatchedAgainst = new_tac_line(TT_LOAD, tree);
+        loadMatchedAgainst->operands[1] = *addrOfMatchedAgainst;
+        loadMatchedAgainst->operands[0] = *addrOfMatchedAgainst;
+        tac_operand_populate_as_temp(&loadMatchedAgainst->operands[0], tempNum);
+        tac_get_type_of_operand(loadMatchedAgainst, 0)->pointerLevel = 0;
+        matchedAgainstNumerical = loadMatchedAgainst->operands[0];
+        basic_block_append(block, loadMatchedAgainst, tacIndex);
+    }
+    else // not matching against an enum, so just cast to a size_t
+    {
+        matchedAgainstNumerical = matchedAgainst;
+        matchedAgainstNumerical.castAsType.basicType = VT_U64; // TODO: size_t define
+        matchedAgainstNumerical.castAsType.pointerLevel = 0;
+    }
 
     struct Type *matchedType = tac_operand_get_type(&matchedAgainst);
     struct EnumEntry *matchedEnum = NULL;
@@ -1699,7 +1710,7 @@ void walk_match_statement(struct Ast *tree,
                                     &haveUnderscoreCase,
                                     &underscoreAction,
                                     &matchedAgainst,
-                                    matchedAgainstNumerical,
+                                    &matchedAgainstNumerical,
                                     matchedEnum,
                                     matchedValues);
             }
@@ -1716,7 +1727,7 @@ void walk_match_statement(struct Ast *tree,
                                         &haveUnderscoreCase,
                                         &underscoreAction,
                                         &matchedAgainst,
-                                        matchedAgainstNumerical,
+                                        &matchedAgainstNumerical,
                                         matchedType,
                                         matchedValues);
             }

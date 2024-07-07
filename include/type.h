@@ -64,6 +64,8 @@ bool type_is_object(struct Type *type);
 
 bool type_is_struct_object(struct Type *type);
 
+bool type_is_enum_object(struct Type *type);
+
 // return 0 if 'a' is the same type as 'b', or if it can implicitly be widened to become equivalent
 int type_compare_allow_implicit_widening(struct Type *src, struct Type *dest);
 
