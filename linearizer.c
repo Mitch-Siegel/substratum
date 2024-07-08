@@ -658,15 +658,15 @@ void walk_struct_declaration(struct Ast *tree,
         {
         case T_VARIABLE_DECLARATION:
         {
-            struct VariableEntry *declaredMember = walk_variable_declaration(structBodyRunner, block, declaredStruct->members, &dummyNum, &dummyNum, 0, A_PRIVATE);
-            struct_assign_offset_to_member_variable(declaredStruct, declaredMember);
+            struct VariableEntry *declaredField = walk_variable_declaration(structBodyRunner, block, declaredStruct->members, &dummyNum, &dummyNum, 0, A_PRIVATE);
+            struct_assign_offset_to_field(declaredStruct, declaredField);
         }
         break;
 
         case T_PUBLIC:
         {
-            struct VariableEntry *declaredMember = walk_variable_declaration(structBodyRunner->child, block, declaredStruct->members, &dummyNum, &dummyNum, 0, A_PUBLIC);
-            struct_assign_offset_to_member_variable(declaredStruct, declaredMember);
+            struct VariableEntry *declaredField = walk_variable_declaration(structBodyRunner->child, block, declaredStruct->members, &dummyNum, &dummyNum, 0, A_PUBLIC);
+            struct_assign_offset_to_field(declaredStruct, declaredField);
         }
         break;
 
@@ -1854,11 +1854,12 @@ void walk_assignment(struct Ast *tree,
 
     case T_DOT:
     {
-        assignment->operation = TT_STORE;
-        struct TACLine *memberAccessLine = walk_member_access(lhs, block, scope, TACIndex, tempNum, &assignment->operands[0], 0);
-        convert_load_to_lea(memberAccessLine, &assignment->operands[0]);
-
-        assignment->operands[1] = assignedValue;
+        assignment->operation = TT_FIELD_STORE;
+        walk_sub_expression(lhs->child, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+        struct StructEntry *writtenStruct = scope_lookup_struct_by_type(scope, tac_get_type_of_operand(assignment, 0));
+        struct StructField *writtenField = struct_lookup_field(writtenStruct, lhs->child->sibling, scope);
+        assignment->operands[1].name.str = writtenField->variable->name;
+        assignment->operands[2] = assignedValue;
     }
     break;
 
@@ -1996,24 +1997,24 @@ struct TACOperand *walk_bitwise_not(struct Ast *tree,
     return &bitwiseNotLine->operands[0];
 }
 
-void ensure_all_fields_initialized(struct Ast *tree, size_t initMemberIdx, struct StructEntry *initializedStruct)
+void ensure_all_fields_initialized(struct Ast *tree, size_t initFieldIdx, struct StructEntry *initializedStruct)
 {
     // if all fields of the struct are not initialized, this is an error
-    if (initMemberIdx < initializedStruct->memberLocations->size)
+    if (initFieldIdx < initializedStruct->fieldLocations->size)
     {
         char *fieldsString = malloc(1);
         fieldsString[0] = '\0';
 
         // go through the remaining fields, construct a string with the type and name of all missing fields
-        while (initMemberIdx < initializedStruct->memberLocations->size)
+        while (initFieldIdx < initializedStruct->fieldLocations->size)
         {
-            struct StructMemberOffset *unInitField = (struct StructMemberOffset *)initializedStruct->memberLocations->data[initMemberIdx];
+            struct StructField *unInitField = (struct StructField *)initializedStruct->fieldLocations->data[initFieldIdx];
 
             char *unInitTypeName = type_get_name(&unInitField->variable->type);
             size_t origLen = strlen(fieldsString);
             size_t addlSize = strlen(unInitTypeName) + strlen(unInitField->variable->name) + 2;
             char *separatorString = "";
-            if (initMemberIdx + 1 < initializedStruct->memberLocations->size)
+            if (initFieldIdx + 1 < initializedStruct->fieldLocations->size)
             {
                 addlSize += 2;
                 separatorString = ", ";
@@ -2028,10 +2029,10 @@ void ensure_all_fields_initialized(struct Ast *tree, size_t initMemberIdx, struc
             sprintf(fieldsString + origLen, "%s %s%s", unInitTypeName, unInitField->variable->name, separatorString);
             free(unInitTypeName);
 
-            initMemberIdx++;
+            initFieldIdx++;
         }
 
-        log_tree(LOG_FATAL, tree, "Missing initializers for member(s) of %s: %s", initializedStruct->name, fieldsString);
+        log_tree(LOG_FATAL, tree, "Missing initializers for fields(s) of %s: %s", initializedStruct->name, fieldsString);
     }
 }
 
@@ -2055,14 +2056,14 @@ void walk_struct_initializer(struct Ast *tree,
     }
 
     // automagically get the address of whatever we are initializing if it is a regular struct
-    // TODO: test initializing pointers directly? Is this desirable behavior like allowing struct.member for both structs and struct*s or is this nonsense?
+    // TODO: test initializing pointers directly? Is this desirable behavior like allowing struct.field for both structs and struct*s or is this nonsense?
     if (initializedType->pointerLevel == 0)
     {
         initialized = get_addr_of_operand(tree, block, scope, TACIndex, tempNum, initialized);
     }
 
     struct StructEntry *initializedStruct = scope_lookup_struct_by_type(scope, initializedType);
-    size_t initMemberIdx = 0;
+    size_t initFieldIdx = 0;
     for (struct Ast *initRunner = tree->child; initRunner != NULL; initRunner = initRunner->sibling)
     {
         // sanity check initializer parse
@@ -2071,36 +2072,36 @@ void walk_struct_initializer(struct Ast *tree,
             InternalError("Malformed AST see inside struct initializer, expected T_ASSIGN, with first child as T_IDENTIFIER, got %s with first child as %s", token_get_name(initRunner->type));
         }
 
-        struct Ast *initMemberTree = initRunner->child;
-        struct Ast *initToTree = initMemberTree->sibling;
+        struct Ast *initFieldTree = initRunner->child;
+        struct Ast *initToTree = initFieldTree->sibling;
 
-        if (initMemberTree->type != T_IDENTIFIER)
+        if (initFieldTree->type != T_IDENTIFIER)
         {
-            InternalError("Malformed AST for initializer, expected identifier on LHS but got %s", token_get_name(initMemberTree->type));
+            InternalError("Malformed AST for initializer, expected identifier on LHS but got %s", token_get_name(initFieldTree->type));
         }
 
-        // first, attempt to look up the member by tree in order to throw an error in the case of a nonexistent one being referenced
-        struct StructMemberOffset *member = struct_lookup_member_variable(initializedStruct, initMemberTree, scope);
+        // first, attempt to look up the field by tree in order to throw an error in the case of a nonexistent one being referenced
+        struct StructField *initializedField = struct_lookup_field(initializedStruct, initFieldTree, scope);
 
         // next, check the ordering index for the field we are expecting to initialize
-        struct StructMemberOffset *expectedMember = (struct StructMemberOffset *)initializedStruct->memberLocations->data[initMemberIdx];
-        if ((member->offset != expectedMember->offset) || (strcmp(member->variable->name, expectedMember->variable->name) != 0))
+        struct StructField *expectedField = (struct StructField *)initializedStruct->fieldLocations->data[initFieldIdx];
+        if ((initializedField->offset != expectedField->offset) || (strcmp(initializedField->variable->name, expectedField->variable->name) != 0))
         {
-            log(LOG_FATAL, "Initializer element %zu of struct %s should be %s, not %s", initMemberIdx + 1, initializedStruct->name, expectedMember->variable->name, member->variable->name);
+            log(LOG_FATAL, "Initializer element %zu of struct %s should be %s, not %s", initFieldIdx + 1, initializedStruct->name, expectedField->variable->name, initializedField->variable->name);
         }
 
         struct TACOperand initializedValue = {0};
-        initializedValue.type = member->variable->type;
+        initializedValue.type = initializedField->variable->type;
 
         struct TACLine *getAddrOfField = new_tac_line(TT_LEA_OFF, initRunner);
         tac_operand_populate_as_temp(&getAddrOfField->operands[0], tempNum);
-        getAddrOfField->operands[0].type = member->variable->type;
+        getAddrOfField->operands[0].type = initializedField->variable->type;
         getAddrOfField->operands[0].type.pointerLevel++;
 
         getAddrOfField->operands[1] = *initialized;
         getAddrOfField->operands[2].type.basicType = VT_U64;
         getAddrOfField->operands[2].permutation = VP_LITERAL;
-        getAddrOfField->operands[2].name.val = member->offset;
+        getAddrOfField->operands[2].name.val = initializedField->offset;
         basic_block_append(block, getAddrOfField, TACIndex);
 
         if (initToTree->type == T_STRUCT_INITIALIZER)
@@ -2114,9 +2115,9 @@ void walk_struct_initializer(struct Ast *tree,
             walk_sub_expression(initToTree, block, scope, TACIndex, tempNum, &initializedValue);
 
             // make sure the subexpression has a sane type to be stored in the field we are initializing
-            if (type_compare_allow_implicit_widening(tac_operand_get_type(&initializedValue), &member->variable->type))
+            if (type_compare_allow_implicit_widening(tac_operand_get_type(&initializedValue), &initializedField->variable->type))
             {
-                log_tree(LOG_FATAL, initToTree, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, member->variable->name, type_get_name(tac_operand_get_type(&initializedValue)), type_get_name(&member->variable->type));
+                log_tree(LOG_FATAL, initToTree, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, initializedField->variable->name, type_get_name(tac_operand_get_type(&initializedValue)), type_get_name(&initializedField->variable->type));
             }
 
             // direct memory write for the store of this field
@@ -2125,13 +2126,13 @@ void walk_struct_initializer(struct Ast *tree,
             storeInitializedValue->operands[0] = getAddrOfField->operands[0];
 
             basic_block_append(block, storeInitializedValue, TACIndex);
-            log(LOG_WARNING, "init %s.%s to %s", initializedType->nonArray.complexType.name, member->variable->name, initToTree->value);
+            log(LOG_WARNING, "init %s.%s to %s", initializedType->nonArray.complexType.name, initializedField->variable->name, initToTree->value);
         }
 
-        initMemberIdx++;
+        initFieldIdx++;
     }
 
-    ensure_all_fields_initialized(tree, initMemberIdx, initializedStruct);
+    ensure_all_fields_initialized(tree, initFieldIdx, initializedStruct);
 }
 
 void walk_enum_subexpression(struct Ast *tree,
@@ -2363,7 +2364,7 @@ void walk_sub_expression(struct Ast *tree,
 
     case T_DOT:
     {
-        walk_member_access(tree, block, scope, TACIndex, tempNum, destinationOperand, 0);
+        walk_field_access(tree, block, scope, TACIndex, tempNum, destinationOperand, 0);
     }
     break;
 
@@ -2742,11 +2743,11 @@ void walk_method_call(struct Ast *tree,
 
     switch (structTree->type)
     {
-        // if we have struct.member.method() make sure we convert the struct.member load to an LEA
+        // if we have struct.field.method() make sure we convert the struct.field load to an LEA
     case T_DOT:
     {
-        struct TACLine *memberAccessLine = walk_member_access(structTree, block, scope, TACIndex, tempNum, &structOperand, 0);
-        convert_load_to_lea(memberAccessLine, &structOperand);
+        struct TACLine *fieldAccessLine = walk_field_access(structTree, block, scope, TACIndex, tempNum, &structOperand, 0);
+        convert_field_load_to_lea(fieldAccessLine, &structOperand);
     }
     break;
 
@@ -2855,24 +2856,25 @@ void walk_associated_call(struct Ast *tree,
     callLine->operands[2].type.nonArray.complexType.name = structCalledOn->name;
 }
 
-struct TACLine *walk_member_access(struct Ast *tree,
-                                   struct BasicBlock *block,
-                                   struct Scope *scope,
-                                   size_t *TACIndex,
-                                   size_t *tempNum,
-                                   struct TACOperand *srcDestOperand,
-                                   size_t depth)
+struct TACLine *walk_field_access(struct Ast *tree,
+                                  struct BasicBlock *block,
+                                  struct Scope *scope,
+                                  size_t *TACIndex,
+                                  size_t *tempNum,
+                                  struct TACOperand *destinationOperand,
+                                  size_t depth)
 {
-    log_tree(LOG_DEBUG, tree, "walk_member_access");
+    log_tree(LOG_DEBUG, tree, "walk_field_access");
 
     if (tree->type != T_DOT)
     {
-        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_member_access!", token_get_name(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_field_access!", token_get_name(tree->type));
     }
 
     struct Ast *lhs = tree->child;
     struct Ast *rhs = lhs->sibling;
 
+    // must always have [lhs].[rhs] where lhs is some subexpression which resolves to a struct and rhs is the identifier for the struct field
     if (rhs->type != T_IDENTIFIER)
     {
         log_tree(LOG_FATAL, rhs,
@@ -2883,36 +2885,36 @@ struct TACLine *walk_member_access(struct Ast *tree,
     }
 
     struct TACLine *accessLine = NULL;
-
     switch (lhs->type)
     {
-    // in the case that we are dot-ing a LHS which is a dot, walk_member_access will generate the TAC line for the *read* which gets us the address to dot on
+    // in the case that we are dot-ing a LHS which is a dot, walk_field_access will generate the TAC line for the *read* which gets us the address to dot on
     case T_DOT:
-        accessLine = walk_member_access(lhs, block, scope, TACIndex, tempNum, srcDestOperand, depth + 1);
+        accessLine = walk_field_access(lhs, block, scope, TACIndex, tempNum, destinationOperand, depth + 1);
         break;
 
     // for all other cases, we can  populate the LHS using walk_sub_expression as it is just a more basic read
+    // TODO: refactor out this double switch with redundant structTree - is the same as lhs
     default:
     {
         // the LHS of the dot is the struct instance being accessed
         struct Ast *structTree = tree->child;
-        // the RHS is what member we are accessing
-        struct Ast *member = tree->child->sibling;
+        // the RHS is what field we are accessing
+        struct Ast *fieldTree = tree->child->sibling;
 
         // TODO: check more deeply what's being dotted? Shortlist: dereference, array index, identifier, maybe some pointer arithmetic?
-        //		 	- things like (myObjectPointer & 0xFFFFFFF0)->member are obviously wrong, so probably should disallow
-        // prevent silly things like (&a)->b
+        //		 	- things like (myObjectPointer & 0xFFFFFFF0).field are obviously wrong, so probably should disallow
+        // prevent silly things like (&a).b
 
-        if (member->type != T_IDENTIFIER)
+        if (fieldTree->type != T_IDENTIFIER)
         {
-            log_tree(LOG_FATAL, member,
+            log_tree(LOG_FATAL, fieldTree,
                      "Expected identifier on RHS of dot operator, got %s (%s) instead!",
-                     member->value,
-                     token_get_name(member->type));
+                     fieldTree->value,
+                     token_get_name(fieldTree->type));
         }
 
         // our access line is a completely new TAC line, which is a load operation with an offset, storing the load result to a temp
-        accessLine = new_tac_line(TT_LOAD_OFF, tree);
+        accessLine = new_tac_line(TT_FIELD_LOAD, tree);
 
         tac_operand_populate_as_temp(&accessLine->operands[0], tempNum);
 
@@ -2928,11 +2930,13 @@ struct TACLine *walk_member_access(struct Ast *tree,
             struct Type *accessedType = tac_operand_get_type(dereferencedOperand);
 
             check_accessed_struct_for_dot(structTree, scope, accessedType);
+
             // additional check so that if we dereference a struct single-pointer we force not putting the dereference there
+            // effectively, ban things like a = (*object).field where object is a Struct *
             if (accessedType->pointerLevel == 0)
             {
                 char *dereferencedTypeName = type_get_name(accessedType);
-                log_tree(LOG_FATAL, structTree, "Use of dereference on single-indirect type %s before dot '(*struct).member' is prohibited - just use 'struct.member' instead", dereferencedTypeName);
+                log_tree(LOG_FATAL, structTree, "Use of dereference on single-indirect type %s before dot '(*struct).field' is prohibited - just use 'struct.field' instead", dereferencedTypeName);
             }
 
             tac_operand_copy_decay_arrays(&accessLine->operands[1], dereferencedOperand);
@@ -2979,7 +2983,7 @@ struct TACLine *walk_member_access(struct Ast *tree,
                 if (dottedOperand.permutation != VP_TEMP)
                 {
                     // while this check is duplicated in the checks immediately following the switch,
-                    // we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
+                    // we may be able to print more verbose error info if we are directly accessing a struct identifier, so do it here.
                     check_accessed_struct_for_dot(structTree, scope, tac_operand_get_type(&dottedOperand));
                 }
 
@@ -2994,7 +2998,7 @@ struct TACLine *walk_member_access(struct Ast *tree,
         break;
 
         default:
-            log_tree(LOG_FATAL, structTree, "Dot operator member access on disallowed tree type %s", token_get_name(structTree->type));
+            log_tree(LOG_FATAL, structTree, "Dot operator field access on disallowed tree type %s", token_get_name(structTree->type));
             break;
         }
 
@@ -3008,24 +3012,26 @@ struct TACLine *walk_member_access(struct Ast *tree,
     if (accessedType->basicType != VT_STRUCT)
     {
         char *accessedTypeName = type_get_name(accessedType);
-        log_tree(LOG_FATAL, tree, "Use of dot operator for member access on non-struct type %s", accessedTypeName);
+        log_tree(LOG_FATAL, tree, "Use of dot operator for field access on non-struct type %s", accessedTypeName);
     }
 
-    // get the StructEntry and StructMemberOffset of what we're accessing within and the member we access
+    // get the StructEntry and StructField of what we're accessing within and the field we access
     struct StructEntry *accessedStruct = scope_lookup_struct_by_type(scope, accessedType);
-    struct StructMemberOffset *accessedMember = struct_lookup_member_variable(accessedStruct, rhs, scope);
+    struct StructField *accessedField = struct_lookup_field(accessedStruct, rhs, scope);
 
     // populate type information (use cast for the first operand as we are treating a struct as a pointer to something else with a given offset)
-    accessLine->operands[1].castAsType = accessedMember->variable->type;
-    accessLine->operands[0].type = *tac_get_type_of_operand(accessLine, 1); // copy type info to the temp we're reading to
-    *tac_get_type_of_operand(accessLine, 0) = *tac_get_type_of_operand(accessLine, 0);
+    accessLine->operands[0].type = accessedField->variable->type; // copy type info to the temp we're reading to
 
-    accessLine->operands[2].name.val += accessedMember->offset;
+    accessLine->operands[2].name.str = accessedField->variable->name;
 
     if (depth == 0)
     {
         basic_block_append(block, accessLine, TACIndex);
-        *srcDestOperand = accessLine->operands[0];
+        *destinationOperand = accessLine->operands[0];
+    }
+    else
+    {
+        convert_field_load_to_lea(accessLine, destinationOperand);
     }
 
     return accessLine;
@@ -3239,8 +3245,8 @@ struct TACLine *walk_array_ref(struct Ast *tree,
 
     case T_DOT:
     {
-        struct TACLine *arrayBaseAccessLine = walk_member_access(arrayBase, block, scope, TACIndex, tempNum, &arrayRefTac->operands[1], 0);
-        convert_load_to_lea(arrayBaseAccessLine, &arrayRefTac->operands[1]);
+        struct TACLine *arrayBaseAccessLine = walk_field_access(arrayBase, block, scope, TACIndex, tempNum, &arrayRefTac->operands[1], 0);
+        convert_field_load_to_lea(arrayBaseAccessLine, &arrayRefTac->operands[1]);
         arrayBaseType = tac_get_type_of_operand(arrayBaseAccessLine, 0);
     }
     break;
@@ -3387,7 +3393,6 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
         // use walk_array_ref to generate the access we need, just the direct accessing load to an lea to calculate the address we would have loaded from
         struct TACLine *arrayRefLine = walk_array_ref(tree->child, block, scope, TACIndex, tempNum);
         convert_load_to_lea(arrayRefLine, NULL);
-
         // early return, no need for explicit address-of TAC
         free_tac(addrOfLine);
         addrOfLine = NULL;
@@ -3398,14 +3403,13 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
 
     case T_DOT:
     {
-        // walk_member_access can do everything we need
+        // walk_field_access can do everything we need
         // the only thing we have to do is ensure we have an LEA at the end instead of a direct read in the case of the dot operator
-        struct TACLine *memberAccessLine = walk_member_access(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1], 0);
-        convert_load_to_lea(memberAccessLine, &addrOfLine->operands[1]);
-
+        struct TACLine *fieldAccessLine = walk_field_access(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1], 0);
+        convert_field_load_to_lea(fieldAccessLine, &addrOfLine->operands[1]);
         // free the line created at the top of this function and return early
         free_tac(addrOfLine);
-        return &memberAccessLine->operands[0];
+        return &fieldAccessLine->operands[0];
     }
     break;
 

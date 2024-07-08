@@ -9,20 +9,20 @@ void struct_entry_free(struct StructEntry *theStruct)
 {
     scope_free(theStruct->members);
 
-    while (theStruct->memberLocations->size > 0)
+    while (theStruct->fieldLocations->size > 0)
     {
-        free(stack_pop(theStruct->memberLocations));
+        free(stack_pop(theStruct->fieldLocations));
     }
 
-    stack_free(theStruct->memberLocations);
+    stack_free(theStruct->fieldLocations);
     free(theStruct);
 }
 
-void struct_assign_offset_to_member_variable(struct StructEntry *memberOf,
-                                             struct VariableEntry *variable)
+void struct_assign_offset_to_field(struct StructEntry *memberOf,
+                                   struct VariableEntry *variable)
 {
 
-    struct StructMemberOffset *newMemberLocation = malloc(sizeof(struct StructMemberOffset));
+    struct StructField *newMemberLocation = malloc(sizeof(struct StructField));
 
     // add the padding to the total size of the struct
     memberOf->totalSize += scope_compute_padding_for_alignment(memberOf->members, &variable->type, memberOf->totalSize);
@@ -40,7 +40,7 @@ void struct_assign_offset_to_member_variable(struct StructEntry *memberOf,
     memberOf->totalSize += type_get_size(&variable->type, memberOf->members);
     log(LOG_DEBUG, "Assign offset %zu to member variable %s of struct %s - total struct size is now %zu", newMemberLocation->offset, variable->name, memberOf->name, memberOf->totalSize);
 
-    stack_push(memberOf->memberLocations, newMemberLocation);
+    stack_push(memberOf->fieldLocations, newMemberLocation);
 }
 
 // assuming we know that struct has a member with name identical to name->value, make sure we can actually access it
@@ -76,9 +76,9 @@ void struct_check_access(struct StructEntry *theStruct,
     }
 }
 
-struct StructMemberOffset *struct_lookup_member_variable(struct StructEntry *theStruct,
-                                                         struct Ast *name,
-                                                         struct Scope *scope)
+struct StructField *struct_lookup_field(struct StructEntry *theStruct,
+                                        struct Ast *name,
+                                        struct Scope *scope)
 {
     if (name->type != T_IDENTIFIER)
     {
@@ -89,10 +89,10 @@ struct StructMemberOffset *struct_lookup_member_variable(struct StructEntry *the
                  token_get_name(name->type));
     }
 
-    struct StructMemberOffset *returnedMember = NULL;
-    for (size_t memberIndex = 0; memberIndex < theStruct->memberLocations->size; memberIndex++)
+    struct StructField *returnedMember = NULL;
+    for (size_t memberIndex = 0; memberIndex < theStruct->fieldLocations->size; memberIndex++)
     {
-        struct StructMemberOffset *member = theStruct->memberLocations->data[memberIndex];
+        struct StructField *member = theStruct->fieldLocations->data[memberIndex];
         if (!strcmp(member->variable->name, name->value))
         {
             returnedMember = member;
