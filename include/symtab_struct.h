@@ -26,8 +26,12 @@ void struct_assign_offset_to_field(struct StructEntry *memberOf,
                                    struct VariableEntry *variable);
 
 struct StructField *struct_lookup_field(struct StructEntry *theStruct,
-                                        struct Ast *name,
+                                        struct Ast *nameTree,
                                         struct Scope *scope);
+
+struct StructField *struct_lookup_field_by_name(struct StructEntry *theStruct,
+                                                char *name,
+                                                struct Scope *scope);
 
 struct FunctionEntry *struct_looup_method(struct StructEntry *theStruct,
                                           struct Ast *name,
