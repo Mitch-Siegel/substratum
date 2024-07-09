@@ -2885,127 +2885,109 @@ struct TACLine *walk_field_access(struct Ast *tree,
     }
 
     struct TACLine *accessLine = NULL;
+    // the LHS of the dot is the struct instance being accessed
+    // the RHS is what field we are accessing
+    struct Ast *fieldTree = tree->child->sibling;
+
+    if (fieldTree->type != T_IDENTIFIER)
+    {
+        log_tree(LOG_FATAL, fieldTree,
+                 "Expected identifier on RHS of dot operator, got %s (%s) instead!",
+                 fieldTree->value,
+                 token_get_name(fieldTree->type));
+    }
+
+    // our access line is a completely new TAC line, which is a load operation with an offset, storing the load result to a temp
+    accessLine = new_tac_line(TT_FIELD_LOAD, tree);
+
+    tac_operand_populate_as_temp(&accessLine->operands[0], tempNum);
+
+    // we may need to do some manipulation of the subexpression depending on what exactly we're dotting
     switch (lhs->type)
     {
-    // in the case that we are dot-ing a LHS which is a dot, walk_field_access will generate the TAC line for the *read* which gets us the address to dot on
-    case T_DOT:
-        accessLine = walk_field_access(lhs, block, scope, TACIndex, tempNum, destinationOperand, depth + 1);
-        break;
-
-    // for all other cases, we can  populate the LHS using walk_sub_expression as it is just a more basic read
-    // TODO: refactor out this double switch with redundant structTree - is the same as lhs
-    default:
+    case T_DEREFERENCE:
     {
-        // the LHS of the dot is the struct instance being accessed
-        struct Ast *structTree = tree->child;
-        // the RHS is what field we are accessing
-        struct Ast *fieldTree = tree->child->sibling;
+        // let walk_dereference do the heavy lifting for us
+        struct TACOperand *dereferencedOperand = walk_dereference(lhs, block, scope, TACIndex, tempNum);
 
-        // TODO: check more deeply what's being dotted? Shortlist: dereference, array index, identifier, maybe some pointer arithmetic?
-        //		 	- things like (myObjectPointer & 0xFFFFFFF0).field are obviously wrong, so probably should disallow
-        // prevent silly things like (&a).b
+        // make sure we are generally dotting something sane
+        struct Type *accessedType = tac_operand_get_type(dereferencedOperand);
 
-        if (fieldTree->type != T_IDENTIFIER)
+        check_accessed_struct_for_dot(lhs, scope, accessedType);
+
+        // additional check so that if we dereference a struct single-pointer we force not putting the dereference there
+        // effectively, ban things like a = (*object).field where object is a Struct *
+        if (accessedType->pointerLevel == 0)
         {
-            log_tree(LOG_FATAL, fieldTree,
-                     "Expected identifier on RHS of dot operator, got %s (%s) instead!",
-                     fieldTree->value,
-                     token_get_name(fieldTree->type));
+            char *dereferencedTypeName = type_get_name(accessedType);
+            log_tree(LOG_FATAL, lhs, "Use of dereference on single-indirect type %s before dot '(*struct).field' is prohibited - just use 'struct.field' instead", dereferencedTypeName);
         }
 
-        // our access line is a completely new TAC line, which is a load operation with an offset, storing the load result to a temp
-        accessLine = new_tac_line(TT_FIELD_LOAD, tree);
-
-        tac_operand_populate_as_temp(&accessLine->operands[0], tempNum);
-
-        // we may need to do some manipulation of the subexpression depending on what exactly we're dotting
-        switch (structTree->type)
-        {
-        case T_DEREFERENCE:
-        {
-            // let walk_dereference do the heavy lifting for us
-            struct TACOperand *dereferencedOperand = walk_dereference(structTree, block, scope, TACIndex, tempNum);
-
-            // make sure we are generally dotting something sane
-            struct Type *accessedType = tac_operand_get_type(dereferencedOperand);
-
-            check_accessed_struct_for_dot(structTree, scope, accessedType);
-
-            // additional check so that if we dereference a struct single-pointer we force not putting the dereference there
-            // effectively, ban things like a = (*object).field where object is a Struct *
-            if (accessedType->pointerLevel == 0)
-            {
-                char *dereferencedTypeName = type_get_name(accessedType);
-                log_tree(LOG_FATAL, structTree, "Use of dereference on single-indirect type %s before dot '(*struct).field' is prohibited - just use 'struct.field' instead", dereferencedTypeName);
-            }
-
-            tac_operand_copy_decay_arrays(&accessLine->operands[1], dereferencedOperand);
-        }
-        break;
-
-        case T_ARRAY_INDEX:
-        {
-            // let walk_array_ref do the heavy lifting for us
-            struct TACLine *arrayRefToDot = walk_array_ref(structTree, block, scope, TACIndex, tempNum);
-
-            // before we convert our array ref to an LEA to get the address of the struct we're dotting, check to make sure everything is good
-            check_accessed_struct_for_dot(tree, scope, tac_get_type_of_operand(arrayRefToDot, 0));
-
-            // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
-            convert_load_to_lea(arrayRefToDot, &accessLine->operands[1]);
-        }
-        break;
-
-        case T_FUNCTION_CALL:
-        {
-            walk_function_call(structTree, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
-        }
-        break;
-
-        case T_METHOD_CALL:
-        {
-            walk_method_call(structTree, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
-        }
-        break;
-
-        case T_SELF:
-        case T_IDENTIFIER:
-        {
-            // if we are dotting an identifier, insert an address-of if it is not a pointer already
-            struct VariableEntry *dottedVariable = scope_lookup_var(scope, structTree);
-
-            if (dottedVariable->type.pointerLevel == 0)
-            {
-                struct TACOperand dottedOperand = {0};
-
-                walk_sub_expression(structTree, block, scope, TACIndex, tempNum, &dottedOperand);
-
-                if (dottedOperand.permutation != VP_TEMP)
-                {
-                    // while this check is duplicated in the checks immediately following the switch,
-                    // we may be able to print more verbose error info if we are directly accessing a struct identifier, so do it here.
-                    check_accessed_struct_for_dot(structTree, scope, tac_operand_get_type(&dottedOperand));
-                }
-
-                struct TACOperand *addrOfDottedVariable = get_addr_of_operand(structTree, block, scope, TACIndex, tempNum, &dottedOperand);
-                tac_operand_copy_decay_arrays(&accessLine->operands[1], addrOfDottedVariable);
-            }
-            else
-            {
-                walk_sub_expression(structTree, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
-            }
-        }
-        break;
-
-        default:
-            log_tree(LOG_FATAL, structTree, "Dot operator field access on disallowed tree type %s", token_get_name(structTree->type));
-            break;
-        }
-
-        accessLine->operands[2].type.basicType = VT_U32;
-        accessLine->operands[2].permutation = VP_LITERAL;
+        tac_operand_copy_decay_arrays(&accessLine->operands[1], dereferencedOperand);
     }
     break;
+
+    case T_ARRAY_INDEX:
+    {
+        // let walk_array_ref do the heavy lifting for us
+        struct TACLine *arrayRefToDot = walk_array_ref(lhs, block, scope, TACIndex, tempNum);
+
+        // before we convert our array ref to an LEA to get the address of the struct we're dotting, check to make sure everything is good
+        check_accessed_struct_for_dot(tree, scope, tac_get_type_of_operand(arrayRefToDot, 0));
+
+        // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
+        convert_load_to_lea(arrayRefToDot, &accessLine->operands[1]);
+    }
+    break;
+
+    case T_FUNCTION_CALL:
+    {
+        walk_function_call(lhs, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
+    }
+    break;
+
+    case T_METHOD_CALL:
+    {
+        walk_method_call(lhs, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
+    }
+    break;
+
+    case T_SELF:
+    case T_IDENTIFIER:
+    {
+        // if we are dotting an identifier, insert an address-of if it is not a pointer already
+        struct VariableEntry *dottedVariable = scope_lookup_var(scope, lhs);
+
+        if (dottedVariable->type.pointerLevel == 0)
+        {
+            struct TACOperand dottedOperand = {0};
+
+            walk_sub_expression(lhs, block, scope, TACIndex, tempNum, &dottedOperand);
+
+            if (dottedOperand.permutation != VP_TEMP)
+            {
+                // while this check is duplicated in the checks immediately following the switch,
+                // we may be able to print more verbose error info if we are directly accessing a struct identifier, so do it here.
+                check_accessed_struct_for_dot(lhs, scope, tac_operand_get_type(&dottedOperand));
+            }
+
+            struct TACOperand *addrOfDottedVariable = get_addr_of_operand(lhs, block, scope, TACIndex, tempNum, &dottedOperand);
+            tac_operand_copy_decay_arrays(&accessLine->operands[1], addrOfDottedVariable);
+        }
+        else
+        {
+            walk_sub_expression(lhs, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
+        }
+    }
+    break;
+
+    case T_DOT:
+        walk_sub_expression(lhs, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
+        break;
+
+    default:
+        log_tree(LOG_FATAL, lhs, "Dot operator field access on disallowed tree type %s", token_get_name(lhs->type));
+        break;
     }
 
     struct Type *accessedType = tac_get_type_of_operand(accessLine, 1);
