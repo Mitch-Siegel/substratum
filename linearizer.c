@@ -3277,8 +3277,11 @@ struct TACLine *walk_array_ref(struct Ast *tree,
     arrayRefTac->operands[0].type.pointerLevel--;
     if (arrayIndex->type == T_CONSTANT)
     {
+        struct Type arrayMemberType = *arrayBaseType;
+        type_decay_arrays(&arrayMemberType);
+        arrayMemberType.pointerLevel--;
         // if referencing an array of structs, implicitly convert to an LEA to avoid copying the entire struct to a temp
-        if (type_is_struct_object(arrayBaseType))
+        if (type_is_struct_object(&arrayMemberType))
         {
             arrayRefTac->operation = TT_LEA_OFF;
             arrayRefTac->operands[0].type.pointerLevel++;
