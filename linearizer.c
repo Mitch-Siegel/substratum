@@ -1855,7 +1855,16 @@ void walk_assignment(struct Ast *tree,
     case T_DOT:
     {
         assignment->operation = TT_FIELD_STORE;
-        walk_sub_expression(lhs->child, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+        if (lhs->child->type == T_DOT)
+        {
+            struct TACLine *dotRead = walk_field_access(lhs->child, block, scope, TACIndex, tempNum, &assignment->operands[0], 0);
+            convert_field_load_to_lea(dotRead, &assignment->operands[0]);
+        }
+        else
+        {
+            walk_sub_expression(lhs->child, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+        }
+        // TODO: more verbose error handling if the lhs->child subexpression is not a struct, or has wrong pointer level
         struct StructEntry *writtenStruct = scope_lookup_struct_by_type(scope, tac_get_type_of_operand(assignment, 0));
         struct StructField *writtenField = struct_lookup_field(writtenStruct, lhs->child->sibling, scope);
         assignment->operands[1].name.str = writtenField->variable->name;
@@ -2982,8 +2991,11 @@ struct TACLine *walk_field_access(struct Ast *tree,
     break;
 
     case T_DOT:
-        walk_sub_expression(lhs, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
-        break;
+    {
+        struct TACLine *recursiveFieldAccess = walk_field_access(lhs, block, scope, TACIndex, tempNum, &accessLine->operands[1], 0);
+        convert_field_load_to_lea(recursiveFieldAccess, &accessLine->operands[1]);
+    }
+    break;
 
     default:
         log_tree(LOG_FATAL, lhs, "Dot operator field access on disallowed tree type %s", token_get_name(lhs->type));

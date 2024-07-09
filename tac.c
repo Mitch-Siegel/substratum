@@ -554,12 +554,22 @@ enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex) /
 
     case TT_FIELD_LOAD:
     case TT_FIELD_LEA:
-    case TT_FIELD_STORE:
         if (operandIndex == 0)
         {
             use = U_WRITE;
         }
         else if (operandIndex == 1)
+        {
+            use = U_READ;
+        }
+        break;
+
+    case TT_FIELD_STORE:
+        if (operandIndex == 0)
+        {
+            use = U_WRITE;
+        }
+        else if (operandIndex == 2)
         {
             use = U_READ;
         }

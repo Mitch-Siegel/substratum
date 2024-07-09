@@ -684,9 +684,9 @@ void riscv_emit_struct_field_load(struct TACLine *generate, struct CodegenState 
         structBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], structBaseAddrReg);
     }
 
-    struct Register *loadedTo = acquire_scratch_register(info);
     if (!type_is_object(&loadedField->variable->type))
     {
+        struct Register *loadedTo = acquire_scratch_register(info);
         char loadChar = riscv_select_width_char_for_size(type_get_size(&loadedField->variable->type, metadata->scope));
         emit_instruction(generate, state, "\tl%c%s %s, %zd(%s)\n",
                          loadChar,
@@ -694,13 +694,14 @@ void riscv_emit_struct_field_load(struct TACLine *generate, struct CodegenState 
                          loadedTo->name,
                          loadedField->offset,
                          structBaseAddrReg->name);
+        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], loadedTo);
     }
     else
     {
-        InternalError("Codegen for struct field load of object-type struct fields not yet implemented!");
+        struct Register *destAddrReg = acquire_scratch_register(info);
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[0], destAddrReg);
+        riscv_generate_internal_copy(generate, state, structBaseAddrReg, destAddrReg, acquire_scratch_register(info), type_get_size(&loadedField->variable->type, metadata->scope));
     }
-
-    riscv_write_variable(generate, state, metadata, info, &generate->operands[0], loadedTo);
 }
 
 void riscv_emit_struct_field_lea(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
@@ -736,20 +737,13 @@ void riscv_emit_struct_field_lea(struct TACLine *generate, struct CodegenState *
         structBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], structBaseAddrReg);
     }
 
-    struct Register *loadedTo = acquire_scratch_register(info);
-    if (!type_is_object(&loadedField->variable->type))
-    {
-        emit_instruction(generate, state, "\taddi %s, %s, %zd\n",
-                         loadedTo->name,
-                         structBaseAddrReg->name,
-                         loadedField->offset);
-    }
-    else
-    {
-        InternalError("Codegen for struct field LEA of object-type struct fields not yet implemented!");
-    }
+    struct Register *computedAddressReg = acquire_scratch_register(info);
+    emit_instruction(generate, state, "\taddi %s, %s, %zd\n",
+                     computedAddressReg->name,
+                     structBaseAddrReg->name,
+                     loadedField->offset);
 
-    riscv_write_variable(generate, state, metadata, info, &generate->operands[0], structBaseAddrReg);
+    riscv_write_variable(generate, state, metadata, info, &generate->operands[0], computedAddressReg);
 }
 
 void riscv_emit_struct_field_store(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
@@ -798,8 +792,6 @@ void riscv_emit_struct_field_store(struct TACLine *generate, struct CodegenState
     {
         InternalError("Codegen for struct field store of object-type struct fields not yet implemented!");
     }
-
-    // riscv_write_variable(generate, state, metadata, info, &generate->operands[0], scratchReg);
 }
 
 // NOLINTBEGIN(readability-function-cognitive-complexity)
@@ -1086,6 +1078,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
     case TT_FIELD_LEA:
         riscv_emit_struct_field_lea(generate, state, metadata, info);
+        break;
 
     case TT_FIELD_STORE:
         riscv_emit_struct_field_store(generate, state, metadata, info);
