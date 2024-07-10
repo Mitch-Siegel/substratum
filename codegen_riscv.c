@@ -681,25 +681,28 @@ void riscv_emit_array_load(struct TACLine *generate, struct CodegenState *state,
     type_single_decay(&arrayOfType);
     arrayOfType.pointerLevel--;
     struct Type *loadedType = tac_get_type_of_operand(generate, 0); // the type of the thing actually being loaded (for load size)
-    struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
-    struct Register *scaledIndexReg = acquire_scratch_register(info);
 
+    struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
+    try_release_scratch_register(info, arrayIndexReg);
+    struct Register *scaledIndexReg = acquire_scratch_register(info);
     emit_instruction(generate, state, "\tslli %s, %s, %zu\n", scaledIndexReg->name, arrayIndexReg->name, type_get_alignment(&arrayOfType, metadata->scope));
 
     // TODO: this really supports array index operations on arrays and array single pointers. Ensure that array single pointers are []'d correctly (linearization issue? if an issue at all)
-    struct Register *arrayBaseAddrReg = acquire_scratch_register(info);
+    struct Register *arrayBaseAddrReg = NULL;
     if (type_is_struct_object(&loadedFromLt->type))
     {
+        arrayBaseAddrReg = acquire_scratch_register(info);
         riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[1], arrayBaseAddrReg);
     }
     else
     {
-        arrayBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], arrayBaseAddrReg);
+        arrayBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
     }
 
-    struct Register *computedAddressRegister = scaledIndexReg;
-    emit_instruction(generate, state, "\tadd %s, %s, %s\n", computedAddressRegister->name, arrayBaseAddrReg->name, scaledIndexReg->name);
     try_release_scratch_register(info, arrayBaseAddrReg);
+    try_release_scratch_register(info, scaledIndexReg);
+    struct Register *computedAddressRegister = acquire_scratch_register(info);
+    emit_instruction(generate, state, "\tadd %s, %s, %s\n", computedAddressRegister->name, arrayBaseAddrReg->name, scaledIndexReg->name);
 
     if (!type_is_object(loadedType))
     {
@@ -747,9 +750,11 @@ void riscv_emit_array_lea(struct TACLine *generate, struct CodegenState *state, 
 
     struct VariableEntry *loadedFromArray = scope_lookup_var_by_string(metadata->scope, generate->operands[1].name.str);
     struct Type *arrayOfType = loadedFromArray->type.array.type; // what the original type of the array is (for offset computation)
-    struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
-    struct Register *scaledIndexReg = acquire_scratch_register(info);
 
+
+    struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
+    try_release_scratch_register(info, arrayIndexReg);
+    struct Register *scaledIndexReg = acquire_scratch_register(info);
     emit_instruction(generate, state, "\tslli %s, %s, %zu\n", scaledIndexReg->name, arrayIndexReg->name, type_get_alignment(arrayOfType, metadata->scope));
 
     // TODO: this really supports array index operations on arrays and array single pointers. Ensure that array single pointers are []'d correctly (linearization issue? if an issue at all)
@@ -764,9 +769,10 @@ void riscv_emit_array_lea(struct TACLine *generate, struct CodegenState *state, 
         arrayBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
     }
 
-    struct Register *computedAddressRegister = scaledIndexReg;
-    emit_instruction(generate, state, "\tadd %s, %s, %s\n", computedAddressRegister->name, arrayBaseAddrReg->name, scaledIndexReg->name);
     try_release_scratch_register(info, arrayBaseAddrReg);
+    try_release_scratch_register(info, scaledIndexReg);
+    struct Register *computedAddressRegister = acquire_scratch_register(info);
+    emit_instruction(generate, state, "\tadd %s, %s, %s\n", computedAddressRegister->name, arrayBaseAddrReg->name, scaledIndexReg->name);
 
     riscv_write_variable(generate, state, metadata, info, &generate->operands[0], computedAddressRegister);
 }
@@ -799,9 +805,10 @@ void riscv_emit_array_store(struct TACLine *generate, struct CodegenState *state
     struct VariableEntry *storedToArray = scope_lookup_var_by_string(metadata->scope, generate->operands[0].name.str);
     struct Type *arrayOfType = storedToArray->type.array.type;      // what the original type of the array is (for offset computation)
     struct Type *storedType = tac_get_type_of_operand(generate, 2); // the type of the thing actually being loaded (for load size)
-    struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
-    struct Register *scaledIndexReg = acquire_scratch_register(info);
 
+    struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
+    try_release_scratch_register(info, arrayIndexReg);
+    struct Register *scaledIndexReg = acquire_scratch_register(info);
     emit_instruction(generate, state, "\tslli %s, %s, %zu\n", scaledIndexReg->name, arrayIndexReg->name, type_get_alignment(arrayOfType, metadata->scope));
 
     // TODO: this really supports array index operations on arrays and array single pointers. Ensure that array single pointers are []'d correctly (linearization issue? if an issue at all)
