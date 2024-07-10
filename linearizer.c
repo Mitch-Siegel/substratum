@@ -3259,52 +3259,17 @@ struct TACLine *walk_array_read(struct Ast *tree,
     break;
     }
 
-    tac_operand_copy_decay_arrays(&arrayRefTac->operands[0], &arrayRefTac->operands[1]);
+    arrayRefTac->operands[0] = arrayRefTac->operands[1];
     tac_operand_populate_as_temp(&arrayRefTac->operands[0], tempNum);
+    type_single_decay(tac_get_type_of_operand(arrayRefTac, 0));
 
-    type_single_decay(&arrayRefTac->operands[0].type);
     if (arrayRefTac->operands[0].type.pointerLevel < 1)
     {
         InternalError("Result of decay on array-referenced type has non-indirect type of %s", type_get_name(tac_get_type_of_operand(arrayRefTac, 0)));
     }
     arrayRefTac->operands[0].type.pointerLevel--;
-    if (arrayIndex->type == T_CONSTANT)
-    {
-        struct Type arrayMemberType = *arrayBaseType;
-        type_decay_arrays(&arrayMemberType);
-        arrayMemberType.pointerLevel--;
-        // if referencing an array of structs, implicitly convert to an LEA to avoid copying the entire struct to a temp
-        if (type_is_struct_object(&arrayMemberType))
-        {
-            arrayRefTac->operation = TT_ARRAY_LEA;
-            arrayRefTac->operands[0].type.pointerLevel++;
-        }
 
-        // TODO: abstract this
-        int indexSize = atoi(arrayIndex->value);
-        indexSize *= 1 << align_size(type_get_size_of_array_element(arrayBaseType, scope));
-
-        arrayRefTac->operands[2].name.val = indexSize;
-        arrayRefTac->operands[2].permutation = VP_LITERAL;
-        arrayRefTac->operands[2].type.basicType = select_variable_type_for_number(arrayRefTac->operands[2].name.val);
-    }
-    // otherwise, the index is either a variable or subexpression
-    else
-    {
-        // if referencing a struct, implicitly convert to an LEA to avoid copying the entire struct to a temp
-        if (type_is_struct_object(arrayBaseType))
-        {
-            arrayRefTac->operation = TT_ARRAY_LEA;
-            arrayRefTac->operands[0].type.pointerLevel++;
-        }
-        // set the scale for the array access
-
-        arrayRefTac->operands[3].name.val = align_size(type_get_size_of_array_element(arrayBaseType, scope));
-        arrayRefTac->operands[3].permutation = VP_LITERAL;
-        arrayRefTac->operands[3].type.basicType = select_variable_type_for_number(arrayRefTac->operands[3].name.val);
-
-        walk_sub_expression(arrayIndex, block, scope, TACIndex, tempNum, &arrayRefTac->operands[2]);
-    }
+    walk_sub_expression(arrayIndex, block, scope, TACIndex, tempNum, &arrayRefTac->operands[2]);
 
     basic_block_append(block, arrayRefTac, TACIndex);
     return arrayRefTac;
