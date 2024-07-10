@@ -3240,8 +3240,9 @@ struct TACLine *walk_array_ref(struct Ast *tree,
     case T_DOT:
     {
         struct TACLine *arrayBaseAccessLine = walk_field_access(arrayBase, block, scope, TACIndex, tempNum, &arrayRefTac->operands[1], 0);
-        convert_field_load_to_lea(arrayBaseAccessLine, &arrayRefTac->operands[1]);
+        convert_field_load_to_lea(arrayBaseAccessLine, &arrayBaseAccessLine->operands[0]);
         arrayBaseType = tac_get_type_of_operand(arrayBaseAccessLine, 0);
+        arrayBaseType->pointerLevel = 1;
     }
     break;
 
