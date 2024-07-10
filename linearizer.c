@@ -1845,8 +1845,8 @@ void walk_assignment(struct Ast *tree,
     case T_ARRAY_INDEX:
     {
         assignment->operation = TT_STORE;
-        struct TACLine *arrayAccessLine = walk_array_ref(lhs, block, scope, TACIndex, tempNum);
-        convert_load_to_lea(arrayAccessLine, &assignment->operands[0]);
+        struct TACLine *arrayAccessLine = walk_array_read(lhs, block, scope, TACIndex, tempNum);
+        convert_array_load_to_lea(arrayAccessLine, &assignment->operands[0]);
 
         assignment->operands[1] = assignedValue;
     }
@@ -2102,15 +2102,13 @@ void walk_struct_initializer(struct Ast *tree,
         struct TACOperand initializedValue = {0};
         initializedValue.type = initializedField->variable->type;
 
-        struct TACLine *getAddrOfField = new_tac_line(TT_LEA_OFF, initRunner);
+        struct TACLine *getAddrOfField = new_tac_line(TT_FIELD_LEA, initRunner);
         tac_operand_populate_as_temp(&getAddrOfField->operands[0], tempNum);
         getAddrOfField->operands[0].type = initializedField->variable->type;
         getAddrOfField->operands[0].type.pointerLevel++;
 
         getAddrOfField->operands[1] = *initialized;
-        getAddrOfField->operands[2].type.basicType = VT_U64;
-        getAddrOfField->operands[2].permutation = VP_LITERAL;
-        getAddrOfField->operands[2].name.val = initializedField->offset;
+        getAddrOfField->operands[2].name.str = initializedField->variable->name;
         basic_block_append(block, getAddrOfField, TACIndex);
 
         if (initToTree->type == T_STRUCT_INITIALIZER)
@@ -2406,7 +2404,7 @@ void walk_sub_expression(struct Ast *tree,
     // array reference
     case T_ARRAY_INDEX:
     {
-        struct TACLine *arrayRefLine = walk_array_ref(tree, block, scope, TACIndex, tempNum);
+        struct TACLine *arrayRefLine = walk_array_read(tree, block, scope, TACIndex, tempNum);
         *destinationOperand = arrayRefLine->operands[0];
     }
     break;
@@ -2938,14 +2936,14 @@ struct TACLine *walk_field_access(struct Ast *tree,
 
     case T_ARRAY_INDEX:
     {
-        // let walk_array_ref do the heavy lifting for us
-        struct TACLine *arrayRefToDot = walk_array_ref(lhs, block, scope, TACIndex, tempNum);
+        // let walk_array_read do the heavy lifting for us
+        struct TACLine *arrayRefToDot = walk_array_read(lhs, block, scope, TACIndex, tempNum);
 
         // before we convert our array ref to an LEA to get the address of the struct we're dotting, check to make sure everything is good
         check_accessed_struct_for_dot(tree, scope, tac_get_type_of_operand(arrayRefToDot, 0));
 
         // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
-        convert_load_to_lea(arrayRefToDot, &accessLine->operands[1]);
+        convert_array_load_to_lea(arrayRefToDot, &accessLine->operands[1]);
     }
     break;
 
@@ -3200,23 +3198,23 @@ struct TACOperand *walk_expression(struct Ast *tree,
     return &expression->operands[0];
 }
 
-struct TACLine *walk_array_ref(struct Ast *tree,
-                               struct BasicBlock *block,
-                               struct Scope *scope,
-                               size_t *TACIndex,
-                               size_t *tempNum)
+struct TACLine *walk_array_read(struct Ast *tree,
+                                struct BasicBlock *block,
+                                struct Scope *scope,
+                                size_t *TACIndex,
+                                size_t *tempNum)
 {
-    log_tree(LOG_DEBUG, tree, "walk_array_ref");
+    log_tree(LOG_DEBUG, tree, "walk_array_read");
 
     if (tree->type != T_ARRAY_INDEX)
     {
-        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_array_ref!", token_get_name(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_array_read!", token_get_name(tree->type));
     }
 
     struct Ast *arrayBase = tree->child;
     struct Ast *arrayIndex = tree->child->sibling;
 
-    struct TACLine *arrayRefTac = new_tac_line(TT_LOAD_ARR, tree);
+    struct TACLine *arrayRefTac = new_tac_line(TT_ARRAY_LOAD, tree);
     struct Type *arrayBaseType = NULL;
 
     switch (arrayBase->type)
@@ -3278,12 +3276,8 @@ struct TACLine *walk_array_ref(struct Ast *tree,
         // if referencing an array of structs, implicitly convert to an LEA to avoid copying the entire struct to a temp
         if (type_is_struct_object(&arrayMemberType))
         {
-            arrayRefTac->operation = TT_LEA_OFF;
+            arrayRefTac->operation = TT_ARRAY_LEA;
             arrayRefTac->operands[0].type.pointerLevel++;
-        }
-        else
-        {
-            arrayRefTac->operation = TT_LOAD_OFF;
         }
 
         // TODO: abstract this
@@ -3300,7 +3294,7 @@ struct TACLine *walk_array_ref(struct Ast *tree,
         // if referencing a struct, implicitly convert to an LEA to avoid copying the entire struct to a temp
         if (type_is_struct_object(arrayBaseType))
         {
-            arrayRefTac->operation = TT_LEA_ARR;
+            arrayRefTac->operation = TT_ARRAY_LEA;
             arrayRefTac->operands[0].type.pointerLevel++;
         }
         // set the scale for the array access
@@ -3388,9 +3382,9 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
 
     case T_ARRAY_INDEX:
     {
-        // use walk_array_ref to generate the access we need, just the direct accessing load to an lea to calculate the address we would have loaded from
-        struct TACLine *arrayRefLine = walk_array_ref(tree->child, block, scope, TACIndex, tempNum);
-        convert_load_to_lea(arrayRefLine, NULL);
+        // use walk_array_access to generate the access we need, just the direct accessing load to an lea to calculate the address we would have loaded from
+        struct TACLine *arrayRefLine = walk_array_read(tree->child, block, scope, TACIndex, tempNum);
+        convert_array_load_to_lea(arrayRefLine, NULL);
         // early return, no need for explicit address-of TAC
         free_tac(addrOfLine);
         addrOfLine = NULL;

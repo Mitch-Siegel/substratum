@@ -82,26 +82,21 @@ void check_accessed_struct_for_dot(struct Ast *tree, struct Scope *scope, struct
     }
 }
 
-void convert_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
+void convert_array_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
 {
     // if we have a load instruction, convert it to the corresponding lea instrutcion
     // leave existing lea instructions alone
     switch (loadLine->operation)
     {
-    case TT_LOAD_ARR:
-        loadLine->operation = TT_LEA_ARR;
+    case TT_ARRAY_LOAD:
+        loadLine->operation = TT_ARRAY_LEA;
         break;
 
-    case TT_LOAD_OFF:
-        loadLine->operation = TT_LEA_OFF;
-        break;
-
-    case TT_LEA_OFF:
-    case TT_LEA_ARR:
+    case TT_ARRAY_LEA:
         break;
 
     default:
-        InternalError("Unexpected TAC operation %s seen in convert_load_to_lea!", get_asm_op(loadLine->operation));
+        InternalError("Unexpected TAC operation %s seen in convert_array_load_to_lea!", get_asm_op(loadLine->operation));
         break;
     }
 

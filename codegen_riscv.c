@@ -896,62 +896,6 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     }
     break;
 
-    case TT_LOAD_OFF:
-    {
-        // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
-        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
-
-        char loadWidth = riscv_select_width_char(metadata->scope, &generate->operands[0]);
-        emit_instruction(generate, state, "\tl%c%s %s, %d(%s)\n",
-                         loadWidth,
-                         riscv_select_sign_for_load_char(loadWidth),
-                         destReg->name,
-                         generate->operands[2].name.val,
-                         baseReg->name);
-
-        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
-    }
-    break;
-
-    case TT_LOAD_ARR:
-    {
-        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
-        struct Register *offsetReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
-
-        // because offsetReg may or may not be modifiable, we will immediately release it if it's a temp, and guarantee that shiftedOffsetReg is a temp that we can modify it to
-        try_release_scratch_register(info, offsetReg);
-        struct Register *shiftedOffsetReg = acquire_scratch_register(info);
-
-        // TODO: check for shift by 0 and don't shift when applicable
-        // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
-        emit_instruction(generate, state, "\tslli %s, %s, %d\n",
-                         shiftedOffsetReg->name,
-                         offsetReg->name,
-                         generate->operands[3].name.val);
-
-        try_release_scratch_register(info, baseReg);
-        try_release_scratch_register(info, shiftedOffsetReg);
-        struct Register *addrReg = acquire_scratch_register(info);
-        // add our scaled offset to the base address, put the full address into selectScratchRegister(info, false)
-        emit_instruction(generate, state, "\tadd %s, %s, %s\n",
-                         addrReg->name,
-                         baseReg->name,
-                         shiftedOffsetReg->name);
-
-        try_release_scratch_register(info, shiftedOffsetReg);
-        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
-        char loadWidth = riscv_select_width_char_for_dereference(metadata->scope, &generate->operands[1]);
-        emit_instruction(generate, state, "\tl%c%s %s, 0(%s)\n",
-                         loadWidth,
-                         riscv_select_sign_for_load_char(loadWidth),
-                         destReg->name,
-                         addrReg->name);
-
-        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
-    }
-    break;
-
     case TT_STORE:
     {
         struct Type *srcType = tac_get_type_of_operand(generate, 1);
@@ -978,48 +922,6 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     }
     break;
 
-    case TT_STORE_OFF:
-    {
-        // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], acquire_scratch_register(info));
-        struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
-        emit_instruction(generate, state, "\ts%c %s, %d(%s)\n",
-                         riscv_select_width_char(metadata->scope, &generate->operands[0]),
-                         sourceReg->name,
-                         generate->operands[1].name.val,
-                         baseReg->name);
-    }
-    break;
-
-    case TT_STORE_ARR:
-    {
-        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], acquire_scratch_register(info));
-        struct Register *offsetReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
-
-        // TODO: check for shift by 0 and don't shift when applicable
-        // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
-        emit_instruction(generate, state, "\tslli %s, %s, %d\n",
-                         offsetReg->name,
-                         offsetReg->name,
-                         generate->operands[2].name.val);
-
-        try_release_scratch_register(info, baseReg);
-        struct Register *addrReg = acquire_scratch_register(info);
-        // add our scaled offset to the base address, put the full address into selectScratchRegister(info, false)
-        emit_instruction(generate, state, "\tadd %s, %s, %s\n",
-                         addrReg->name,
-                         baseReg->name,
-                         offsetReg->name);
-
-        try_release_scratch_register(info, offsetReg);
-        struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[3], acquire_scratch_register(info));
-        emit_instruction(generate, state, "\ts%c %s, 0(%s)\n",
-                         riscv_select_width_char_for_dereference(metadata->scope, &generate->operands[0]),
-                         sourceReg->name,
-                         addrReg->name);
-    }
-    break;
-
     case TT_ADDROF:
     {
         struct Register *addrReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
@@ -1028,49 +930,11 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     }
     break;
 
-    case TT_LEA_OFF:
-    {
-        // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
-        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
-
-        emit_instruction(generate, state, "\taddi %s, %s, %d\n",
-                         destReg->name,
-                         baseReg->name,
-                         generate->operands[2].name.val);
-
-        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
-    }
-    break;
-
-    case TT_LEA_ARR:
-    {
-        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
-        struct Register *offsetReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
-
-        // because offsetReg may or may not be modifiable, we will immediately release it if it's a temp, and guarantee that shiftedOffsetReg is a temp that we can modify it to
-        try_release_scratch_register(info, offsetReg);
-        struct Register *shiftedOffsetReg = acquire_scratch_register(info);
-
-        // TODO: check for shift by 0 and don't shift when applicable
-        // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
-        emit_instruction(generate, state, "\tslli %s, %s, %d\n",
-                         shiftedOffsetReg->name,
-                         offsetReg->name,
-                         generate->operands[3].name.val);
-
-        // release any scratch registers we may have acquired by placing operands, as our write register may be able to use one of them
-        release_all_scratch_registers(info);
-        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
-        // add our scaled offset to the base address, put the full address into destReg
-        emit_instruction(generate, state, "\tadd %s, %s, %s\n",
-                         destReg->name,
-                         baseReg->name,
-                         shiftedOffsetReg->name);
-
-        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
-    }
-    break;
+    case TT_ARRAY_LOAD:
+    case TT_ARRAY_LEA:
+    case TT_ARRAY_STORE:
+        InternalError("Codegen for %s not implemented yet!", get_asm_op(generate->operation));
+        break;
 
     case TT_FIELD_LOAD:
         riscv_emit_struct_field_load(generate, state, metadata, info);
