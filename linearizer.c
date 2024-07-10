@@ -79,8 +79,6 @@ struct SymbolTable *walk_program(struct Ast *program)
         programRunner = programRunner->sibling;
     }
 
-    symbol_table_decay_arrays(programTable);
-
     return programTable;
 }
 
@@ -2578,11 +2576,8 @@ struct Stack *walk_argument_pushes(struct Ast *argumentRunner,
                      type_get_name(tac_get_type_of_operand(push, 0)));
         }
 
-        struct TACOperand decayed = {0};
-        tac_operand_copy_decay_arrays(&decayed, &push->operands[0]);
-
         // allow us to automatically widen
-        if (type_get_size(tac_operand_get_type(&decayed), scope) <= type_get_size(&expectedArgument->type, scope))
+        if (type_get_size(tac_operand_get_type(&push->operands[0]), scope) <= type_get_size(&expectedArgument->type, scope))
         {
             push->operands[0].castAsType = expectedArgument->type;
         }
@@ -2638,7 +2633,7 @@ void handle_struct_return(struct Ast *callTree,
         *destinationOperand = intermediateReturnObject;
         struct TACOperand *addrOfReturnObject = get_addr_of_operand(callTree, block, scope, TACIndex, tempNum, &intermediateReturnObject);
 
-        tac_operand_copy_decay_arrays(&outPointerPush->operands[0], addrOfReturnObject);
+        outPointerPush->operands[0] = *addrOfReturnObject;
     }
     else
     {
@@ -2929,7 +2924,7 @@ struct TACLine *walk_field_access(struct Ast *tree,
             log_tree(LOG_FATAL, lhs, "Use of dereference on single-indirect type %s before dot '(*struct).field' is prohibited - just use 'struct.field' instead", dereferencedTypeName);
         }
 
-        tac_operand_copy_decay_arrays(&accessLine->operands[1], dereferencedOperand);
+        accessLine->operands[1] = *dereferencedOperand;
     }
     break;
 
@@ -2977,8 +2972,7 @@ struct TACLine *walk_field_access(struct Ast *tree,
                 check_accessed_struct_for_dot(lhs, scope, tac_operand_get_type(&dottedOperand));
             }
 
-            struct TACOperand *addrOfDottedVariable = get_addr_of_operand(lhs, block, scope, TACIndex, tempNum, &dottedOperand);
-            tac_operand_copy_decay_arrays(&accessLine->operands[1], addrOfDottedVariable);
+            accessLine->operands[1] = *get_addr_of_operand(lhs, block, scope, TACIndex, tempNum, &dottedOperand);
         }
         else
         {
@@ -3152,14 +3146,14 @@ struct TACOperand *walk_expression(struct Ast *tree,
 
         walk_sub_expression(tree->child, block, scope, TACIndex, tempNum, &expression->operands[1]);
 
-        // TODO: also scale arithmetic on array types
+        // TODO: explicitly disallow arithmetic on array types?
         if (tac_get_type_of_operand(expression, 1)->pointerLevel > 0)
         {
             struct TACLine *scaleMultiply = set_up_scale_multiplication(tree, scope, TACIndex, tempNum, tac_get_type_of_operand(expression, 1));
             walk_sub_expression(tree->child->sibling, block, scope, TACIndex, tempNum, &scaleMultiply->operands[1]);
 
             scaleMultiply->operands[0].type = scaleMultiply->operands[1].type;
-            tac_operand_copy_decay_arrays(&expression->operands[2], &scaleMultiply->operands[0]);
+            expression->operands[2] = scaleMultiply->operands[0];
 
             basic_block_append(block, scaleMultiply, TACIndex);
         }
@@ -3239,7 +3233,7 @@ struct TACLine *walk_array_read(struct Ast *tree,
         struct TACLine *arrayBaseAccessLine = walk_field_access(arrayBase, block, scope, TACIndex, tempNum, &arrayRefTac->operands[1], 0);
         convert_field_load_to_lea(arrayBaseAccessLine, &arrayBaseAccessLine->operands[0]);
         arrayBaseType = tac_get_type_of_operand(arrayBaseAccessLine, 0);
-        arrayBaseType->pointerLevel = 1;
+        arrayBaseType->pointerLevel = 1; // TODO: should this be += 1?
     }
     break;
 
@@ -3260,12 +3254,13 @@ struct TACLine *walk_array_read(struct Ast *tree,
 
     arrayRefTac->operands[0] = arrayRefTac->operands[1];
     tac_operand_populate_as_temp(&arrayRefTac->operands[0], tempNum);
-    type_single_decay(tac_get_type_of_operand(arrayRefTac, 0));
 
-    if (arrayRefTac->operands[0].type.pointerLevel < 1)
+    if ((!type_is_array_object(arrayBaseType)) && (arrayBaseType->pointerLevel == 0))
     {
-        InternalError("Result of decay on array-referenced type has non-indirect type of %s", type_get_name(tac_get_type_of_operand(arrayRefTac, 0)));
+        InternalError("Array-referenced type has non-indirect type of %s", type_get_name(tac_get_type_of_operand(arrayRefTac, 0)));
     }
+
+    type_single_decay(tac_get_type_of_operand(arrayRefTac, 0));
     arrayRefTac->operands[0].type.pointerLevel--;
 
     walk_sub_expression(arrayIndex, block, scope, TACIndex, tempNum, &arrayRefTac->operands[2]);
@@ -3303,7 +3298,17 @@ struct TACOperand *walk_dereference(struct Ast *tree,
         break;
     }
 
-    tac_operand_copy_decay_arrays(&dereference->operands[0], &dereference->operands[1]);
+    struct Type *dereferencedType = tac_get_type_of_operand(dereference, 1);
+    if (type_is_array_object(dereferencedType))
+    {
+        log_tree(LOG_FATAL, tree, "Dereferencing array of type %s is not allowed!", type_get_name(dereferencedType));
+    }
+    else if (dereferencedType->pointerLevel == 0)
+    {
+        log_tree(LOG_FATAL, tree, "Dereference on non-pointer type %s is not allowed!", type_get_name(dereferencedType));
+    }
+
+    dereference->operands[0] = dereference->operands[1];
     tac_get_type_of_operand(dereference, 0)->pointerLevel--;
     tac_operand_populate_as_temp(&dereference->operands[0], tempNum);
 
@@ -3406,8 +3411,8 @@ void walk_pointer_arithmetic(struct Ast *tree,
 
     walk_sub_expression(pointerArithLhs, block, scope, TACIndex, tempNum, &pointerArithmetic->operands[1]);
 
+    pointerArithmetic->operands[0] = pointerArithmetic->operands[1];
     tac_operand_populate_as_temp(&pointerArithmetic->operands[0], tempNum);
-    tac_operand_copy_decay_arrays(&pointerArithmetic->operands[0], &pointerArithmetic->operands[1]);
 
     struct TACLine *scaleMultiplication = set_up_scale_multiplication(pointerArithRhs,
                                                                       scope,
@@ -3419,7 +3424,7 @@ void walk_pointer_arithmetic(struct Ast *tree,
 
     *tac_get_type_of_operand(scaleMultiplication, 0) = *tac_get_type_of_operand(scaleMultiplication, 1);
 
-    tac_operand_copy_decay_arrays(&pointerArithmetic->operands[2], &scaleMultiplication->operands[0]);
+    pointerArithmetic->operands[2] = scaleMultiplication->operands[0];
 
     basic_block_append(block, scaleMultiplication, TACIndex);
     basic_block_append(block, pointerArithmetic, TACIndex);
