@@ -568,9 +568,9 @@ u8 type_get_alignment(struct Type *type, struct Scope *scope)
     case VT_STRUCT:
     {
         struct StructEntry *theStruct = scope_lookup_struct_by_type(scope, type);
-        for (size_t memberIndex = 0; memberIndex < theStruct->memberLocations->size; memberIndex++)
+        for (size_t memberIndex = 0; memberIndex < theStruct->fieldLocations->size; memberIndex++)
         {
-            struct StructMemberOffset *offset = theStruct->memberLocations->data[memberIndex];
+            struct StructField *offset = theStruct->fieldLocations->data[memberIndex];
             u8 memberAlignment = type_get_alignment(&offset->variable->type, scope);
             if (memberAlignment > alignment)
             {

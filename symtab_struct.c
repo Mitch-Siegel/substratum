@@ -9,20 +9,20 @@ void struct_entry_free(struct StructEntry *theStruct)
 {
     scope_free(theStruct->members);
 
-    while (theStruct->memberLocations->size > 0)
+    while (theStruct->fieldLocations->size > 0)
     {
-        free(stack_pop(theStruct->memberLocations));
+        free(stack_pop(theStruct->fieldLocations));
     }
 
-    stack_free(theStruct->memberLocations);
+    stack_free(theStruct->fieldLocations);
     free(theStruct);
 }
 
-void struct_assign_offset_to_member_variable(struct StructEntry *memberOf,
-                                             struct VariableEntry *variable)
+void struct_assign_offset_to_field(struct StructEntry *memberOf,
+                                   struct VariableEntry *variable)
 {
 
-    struct StructMemberOffset *newMemberLocation = malloc(sizeof(struct StructMemberOffset));
+    struct StructField *newMemberLocation = malloc(sizeof(struct StructField));
 
     // add the padding to the total size of the struct
     memberOf->totalSize += scope_compute_padding_for_alignment(memberOf->members, &variable->type, memberOf->totalSize);
@@ -40,16 +40,16 @@ void struct_assign_offset_to_member_variable(struct StructEntry *memberOf,
     memberOf->totalSize += type_get_size(&variable->type, memberOf->members);
     log(LOG_DEBUG, "Assign offset %zu to member variable %s of struct %s - total struct size is now %zu", newMemberLocation->offset, variable->name, memberOf->name, memberOf->totalSize);
 
-    stack_push(memberOf->memberLocations, newMemberLocation);
+    stack_push(memberOf->fieldLocations, newMemberLocation);
 }
 
 // assuming we know that struct has a member with name identical to name->value, make sure we can actually access it
 void struct_check_access(struct StructEntry *theStruct,
-                         struct Ast *name,
+                         struct Ast *nameTree,
                          struct Scope *scope,
                          char *whatAccessingCalled)
 {
-    struct ScopeMember *accessed = scope_lookup(theStruct->members, name->value);
+    struct ScopeMember *accessed = scope_lookup(theStruct->members, nameTree->value);
 
     switch (accessed->accessibility)
     {
@@ -70,30 +70,63 @@ void struct_check_access(struct StructEntry *theStruct,
 
         if (scope == NULL)
         {
-            log_tree(LOG_FATAL, name, "%s %s of struct %s has access specifier private - not accessible from this scope!", whatAccessingCalled, name->value, theStruct->name);
+            log_tree(LOG_FATAL, nameTree, "%s %s of struct %s has access specifier private - not accessible from this scope!", whatAccessingCalled, nameTree->value, theStruct->name);
         }
         break;
     }
 }
 
-struct StructMemberOffset *struct_lookup_member_variable(struct StructEntry *theStruct,
-                                                         struct Ast *name,
-                                                         struct Scope *scope)
+// assuming we know that struct has a member with name identical to name, make sure we can actually access it
+void struct_check_access_by_name(struct StructEntry *theStruct,
+                                 char *name,
+                                 struct Scope *scope,
+                                 char *whatAccessingCalled)
 {
-    if (name->type != T_IDENTIFIER)
+    struct ScopeMember *accessed = scope_lookup(theStruct->members, name);
+
+    switch (accessed->accessibility)
+    {
+    // nothing to check if public
+    case A_PUBLIC:
+        break;
+
+    case A_PRIVATE:
+        // check if the scope at which we are accessing is a subscope of (or identical to) the struct's scope
+        do
+        {
+            if (scope == theStruct->members)
+            {
+                break;
+            }
+            scope = scope->parentScope;
+        } while (scope != NULL);
+
+        if (scope == NULL)
+        {
+            log(LOG_FATAL, "%s %s of struct %s has access specifier private - not accessible from this scope!", whatAccessingCalled, name, theStruct->name);
+        }
+        break;
+    }
+}
+
+struct StructField *struct_lookup_field(struct StructEntry *theStruct,
+                                        struct Ast *nameTree,
+                                        struct Scope *scope)
+{
+    if (nameTree->type != T_IDENTIFIER)
     {
         log_tree(LOG_FATAL,
-                 name,
+                 nameTree,
                  "Non-identifier tree %s (%s) passed to Struct_lookupOffsetOfMemberVariable!\n",
-                 name->value,
-                 token_get_name(name->type));
+                 nameTree->value,
+                 token_get_name(nameTree->type));
     }
 
-    struct StructMemberOffset *returnedMember = NULL;
-    for (size_t memberIndex = 0; memberIndex < theStruct->memberLocations->size; memberIndex++)
+    struct StructField *returnedMember = NULL;
+    for (size_t memberIndex = 0; memberIndex < theStruct->fieldLocations->size; memberIndex++)
     {
-        struct StructMemberOffset *member = theStruct->memberLocations->data[memberIndex];
-        if (!strcmp(member->variable->name, name->value))
+        struct StructField *member = theStruct->fieldLocations->data[memberIndex];
+        if (!strcmp(member->variable->name, nameTree->value))
         {
             returnedMember = member;
             break;
@@ -102,11 +135,38 @@ struct StructMemberOffset *struct_lookup_member_variable(struct StructEntry *the
 
     if (returnedMember == NULL)
     {
-        log_tree(LOG_FATAL, name, "Use of nonexistent member variable %s in struct %s", name->value, theStruct->name);
+        log_tree(LOG_FATAL, nameTree, "Use of nonexistent member variable %s in struct %s", nameTree->value, theStruct->name);
     }
     else
     {
-        struct_check_access(theStruct, name, scope, "Member");
+        struct_check_access(theStruct, nameTree, scope, "Member");
+    }
+
+    return returnedMember;
+}
+
+struct StructField *struct_lookup_field_by_name(struct StructEntry *theStruct,
+                                                char *name,
+                                                struct Scope *scope)
+{
+    struct StructField *returnedMember = NULL;
+    for (size_t memberIndex = 0; memberIndex < theStruct->fieldLocations->size; memberIndex++)
+    {
+        struct StructField *member = theStruct->fieldLocations->data[memberIndex];
+        if (!strcmp(member->variable->name, name))
+        {
+            returnedMember = member;
+            break;
+        }
+    }
+
+    if (returnedMember == NULL)
+    {
+        log(LOG_FATAL, "Use of nonexistent member variable %s in struct %s", name, theStruct->name);
+    }
+    else
+    {
+        struct_check_access_by_name(theStruct, name, scope, "Member");
     }
 
     return returnedMember;

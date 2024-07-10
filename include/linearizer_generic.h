@@ -20,7 +20,10 @@ struct TACLine *set_up_scale_multiplication(struct Ast *tree, struct Scope *scop
 // special case handling for when tree is an identifier vs a subexpression
 void check_accessed_struct_for_dot(struct Ast *tree, struct Scope *scope, struct Type *type);
 
-// in the case that we know we just walked an array ref or member access, convert its direct load to an LEA (for cases such as &thing[0] and foo[1].bar)
+// in the case that we know we just walked an array ref, convert its direct load to an LEA (for cases such as &thing[0] and foo[1].bar)
 void convert_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest);
+
+// in the case that we know we just walked a struct field load, but we know we actually want a pointer to the data
+void convert_field_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest);
 
 #endif

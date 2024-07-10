@@ -185,13 +185,13 @@ void walk_function_call(struct Ast *tree,
                         size_t *tempNum,
                         struct TACOperand *destinationOperand);
 
-struct TACLine *walk_member_access(struct Ast *tree,
-                                   struct BasicBlock *block,
-                                   struct Scope *scope,
-                                   size_t *tacIndex,
-                                   size_t *tempNum,
-                                   struct TACOperand *srcDestOperand,
-                                   size_t depth);
+struct TACLine *walk_field_access(struct Ast *tree,
+                                  struct BasicBlock *block,
+                                  struct Scope *scope,
+                                  size_t *tacIndex,
+                                  size_t *tempNum,
+                                  struct TACOperand *destinationOperand,
+                                  size_t depth);
 
 void walk_non_pointer_arithmetic(struct Ast *tree,
                                  struct BasicBlock *block,

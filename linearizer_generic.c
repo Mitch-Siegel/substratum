@@ -101,7 +101,7 @@ void convert_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
         break;
 
     default:
-        InternalError("Unexpected TAC operation %s seen in convertArrayRefLoadToLea!", get_asm_op(loadLine->operation));
+        InternalError("Unexpected TAC operation %s seen in convert_load_to_lea!", get_asm_op(loadLine->operation));
         break;
     }
 
@@ -114,6 +114,38 @@ void convert_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
     else
     {
         type_single_decay(loaded);
+    }
+
+    // in case we are converting struct.member_which_is_struct.a, special case so that both operands guaranteed to have pointer type and thus be primitives for codegen
+    if (loadLine->operands[1].castAsType.basicType == VT_STRUCT)
+    {
+        loadLine->operands[1].castAsType.pointerLevel++;
+    }
+
+    if (dest != NULL)
+    {
+        *dest = loadLine->operands[0];
+    }
+}
+
+void convert_field_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
+{
+    // if we have a load instruction, convert it to the corresponding lea instrutcion
+    // leave existing lea instructions alone
+    struct Type *loaded = tac_get_type_of_operand(loadLine, 0);
+    switch (loadLine->operation)
+    {
+    case TT_FIELD_LOAD:
+        loadLine->operation = TT_FIELD_LEA;
+        loaded->pointerLevel++;
+        break;
+
+    case TT_FIELD_LEA:
+        break;
+
+    default:
+        InternalError("Unexpected TAC operation %s seen in convert_field_load_to_lea!", get_asm_op(loadLine->operation));
+        break;
     }
 
     // in case we are converting struct.member_which_is_struct.a, special case so that both operands guaranteed to have pointer type and thus be primitives for codegen

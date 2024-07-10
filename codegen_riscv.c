@@ -651,6 +651,149 @@ void riscv_emit_argument_stores(struct CodegenState *state,
     }
 }
 
+void riscv_emit_struct_field_load(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
+{
+    struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.str);
+    switch (loadedFromLt->wbLocation)
+    {
+    case WB_STACK:
+    case WB_GLOBAL:
+        break;
+
+    case WB_REGISTER:
+        if (type_is_struct_object(&loadedFromLt->type))
+        {
+            InternalError("Codegen for struct field load for struct with WB_REGISTER not implemented");
+        }
+        break;
+
+    case WB_UNKNOWN:
+        InternalError("Unknown writeback location for lifetime %s (%s)", loadedFromLt->name, type_get_name(&loadedFromLt->type));
+    }
+
+    struct StructEntry *loadedFromStruct = scope_lookup_struct_by_type(metadata->scope, &loadedFromLt->type);
+    struct StructField *loadedField = struct_lookup_field_by_name(loadedFromStruct, generate->operands[2].name.str, metadata->scope);
+
+    struct Register *structBaseAddrReg = acquire_scratch_register(info);
+    if (type_is_struct_object(&loadedFromLt->type))
+    {
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[1], structBaseAddrReg);
+    }
+    else
+    {
+        structBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], structBaseAddrReg);
+    }
+
+    if (!type_is_object(&loadedField->variable->type))
+    {
+        struct Register *loadedTo = acquire_scratch_register(info);
+        char loadChar = riscv_select_width_char_for_size(type_get_size(&loadedField->variable->type, metadata->scope));
+        emit_instruction(generate, state, "\tl%c%s %s, %zd(%s)\n",
+                         loadChar,
+                         riscv_select_sign_for_load_char(loadChar),
+                         loadedTo->name,
+                         loadedField->offset,
+                         structBaseAddrReg->name);
+        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], loadedTo);
+    }
+    else
+    {
+        struct Register *destAddrReg = acquire_scratch_register(info);
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[0], destAddrReg);
+        riscv_generate_internal_copy(generate, state, structBaseAddrReg, destAddrReg, acquire_scratch_register(info), type_get_size(&loadedField->variable->type, metadata->scope));
+    }
+}
+
+void riscv_emit_struct_field_lea(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
+{
+    struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.str);
+    switch (loadedFromLt->wbLocation)
+    {
+    case WB_STACK:
+    case WB_GLOBAL:
+        break;
+
+    case WB_REGISTER:
+        if (type_is_struct_object(&loadedFromLt->type))
+        {
+            InternalError("Codegen for struct field lea for struct with WB_REGISTER not implemented");
+        }
+        break;
+
+    case WB_UNKNOWN:
+        InternalError("Unknown writeback location for lifetime %s (%s)", loadedFromLt->name, type_get_name(&loadedFromLt->type));
+    }
+
+    struct StructEntry *loadedFromStruct = scope_lookup_struct_by_type(metadata->scope, &loadedFromLt->type);
+    struct StructField *loadedField = struct_lookup_field_by_name(loadedFromStruct, generate->operands[2].name.str, metadata->scope);
+
+    struct Register *structBaseAddrReg = acquire_scratch_register(info);
+    if (type_is_struct_object(&loadedFromLt->type))
+    {
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[1], structBaseAddrReg);
+    }
+    else
+    {
+        structBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], structBaseAddrReg);
+    }
+
+    struct Register *computedAddressReg = acquire_scratch_register(info);
+    emit_instruction(generate, state, "\taddi %s, %s, %zd\n",
+                     computedAddressReg->name,
+                     structBaseAddrReg->name,
+                     loadedField->offset);
+
+    riscv_write_variable(generate, state, metadata, info, &generate->operands[0], computedAddressReg);
+}
+
+void riscv_emit_struct_field_store(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
+{
+    struct Lifetime *storedToLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.str);
+    switch (storedToLt->wbLocation)
+    {
+    case WB_STACK:
+    case WB_GLOBAL:
+        break;
+
+    case WB_REGISTER:
+        if (type_is_struct_object(&storedToLt->type))
+        {
+            InternalError("Codegen for struct field store for struct with WB_REGISTER not implemented");
+        }
+        break;
+
+    case WB_UNKNOWN:
+        InternalError("Unknown writeback location for lifetime %s (%s)", storedToLt->name, type_get_name(&storedToLt->type));
+    }
+
+    struct StructEntry *storedFromStruct = scope_lookup_struct_by_type(metadata->scope, &storedToLt->type);
+    struct StructField *storedField = struct_lookup_field_by_name(storedFromStruct, generate->operands[1].name.str, metadata->scope);
+
+    struct Register *structBaseAddrReg = acquire_scratch_register(info);
+    if (type_is_struct_object(&storedToLt->type))
+    {
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[0], structBaseAddrReg);
+    }
+    else
+    {
+        structBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], structBaseAddrReg);
+    }
+
+    if (!type_is_object(&storedField->variable->type))
+    {
+        struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
+        emit_instruction(generate, state, "\ts%c %s, %zd(%s)#:(\n",
+                         riscv_select_width_char_for_size(type_get_size(&storedField->variable->type, metadata->scope)),
+                         sourceReg->name,
+                         storedField->offset,
+                         structBaseAddrReg->name);
+    }
+    else
+    {
+        InternalError("Codegen for struct field store of object-type struct fields not yet implemented!");
+    }
+}
+
 // NOLINTBEGIN(readability-function-cognitive-complexity)
 void riscv_generate_code_for_tac(struct CodegenState *state,
                                  struct RegallocMetadata *metadata,
@@ -928,6 +1071,18 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
     }
     break;
+
+    case TT_FIELD_LOAD:
+        riscv_emit_struct_field_load(generate, state, metadata, info);
+        break;
+
+    case TT_FIELD_LEA:
+        riscv_emit_struct_field_lea(generate, state, metadata, info);
+        break;
+
+    case TT_FIELD_STORE:
+        riscv_emit_struct_field_store(generate, state, metadata, info);
+        break;
 
     case TT_BEQ:
     case TT_BNE:

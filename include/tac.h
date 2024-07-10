@@ -29,14 +29,17 @@ enum TAC_TYPE
     TT_ADDROF,
     TT_LEA_OFF,
     TT_LEA_ARR,
-    TT_BEQ,  // branch equal
-    TT_BNE,  // branch not equal
-    TT_BGEU, // branch greater than or equal unsigned
-    TT_BLTU, // branch less than unsigned
-    TT_BGTU, // branch greater than unsigned
-    TT_BLEU, // branch less than or equal unsigned
-    TT_BEQZ, // branch equal zero
-    TT_BNEZ, // branch not equal zero
+    TT_FIELD_LOAD,  // load a field of a struct
+    TT_FIELD_LEA,   // load a pointer to a field of a struct
+    TT_FIELD_STORE, // store a field of a struct
+    TT_BEQ,         // branch equal
+    TT_BNE,         // branch not equal
+    TT_BGEU,        // branch greater than or equal unsigned
+    TT_BLTU,        // branch less than unsigned
+    TT_BGTU,        // branch greater than unsigned
+    TT_BLEU,        // branch less than or equal unsigned
+    TT_BEQZ,        // branch equal zero
+    TT_BNEZ,        // branch not equal zero
     TT_JMP,
     TT_ARG_STORE,       // store a value at a (positive) offset from the stack pointer
     TT_FUNCTION_CALL,   // call a function
