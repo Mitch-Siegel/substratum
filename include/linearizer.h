@@ -206,11 +206,11 @@ struct TACOperand *walk_expression(struct Ast *tree,
                                    size_t *tacIndex,
                                    size_t *tempNum);
 
-struct TACLine *walk_array_ref(struct Ast *tree,
-                               struct BasicBlock *block,
-                               struct Scope *scope,
-                               size_t *tacIndex,
-                               size_t *tempNum);
+struct TACLine *walk_array_read(struct Ast *tree,
+                                struct BasicBlock *block,
+                                struct Scope *scope,
+                                size_t *tacIndex,
+                                size_t *tempNum);
 
 struct TACOperand *walk_dereference(struct Ast *tree,
                                     struct BasicBlock *block,

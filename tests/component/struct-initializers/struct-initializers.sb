@@ -23,7 +23,7 @@ impl BankAccount {
     public fun Print(self)
     {
         printStr(self.accountHolder);
-        printStr("'s account balance:\n");
+        printStr((u8 *)"'s account balance:\n");
         self.balance.Print();
     }
 }
@@ -33,7 +33,7 @@ fun main()
     Money myBalance = {dollars = 0, cents = 0};
     Money myPaycheck = {dollars = 13, cents = 33};
 
-    BankAccount myAccount = {accountHolder = "Isaac Investor", balance = {dollars = 999, cents=99}};
+    BankAccount myAccount = {accountHolder = (u8 *)"Isaac Investor", balance = {dollars = 999, cents=99}};
 
     myBalance.Print();
     myPaycheck.Print();
