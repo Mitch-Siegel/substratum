@@ -651,26 +651,6 @@ void riscv_emit_argument_stores(struct CodegenState *state,
     }
 }
 
-size_t calculate_shift(size_t size, size_t align_bits)
-{
-    if (size == 1)
-    {
-        return 0;
-    }
-
-    // Calculate the alignment mask
-    size_t align_mask = (2 << align_bits) - 1;
-
-    // Calculate the shift required
-    int shift = 0;
-    while ((1 << shift) < size || ((1 << shift) & align_mask))
-    {
-        shift++;
-    }
-
-    return shift;
-}
-
 void riscv_emit_array_load(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     if (generate->operation != TT_ARRAY_LOAD)
@@ -697,16 +677,13 @@ void riscv_emit_array_load(struct TACLine *generate, struct CodegenState *state,
     }
 
     struct VariableEntry *loadedFromArray = scope_lookup_var_by_string(metadata->scope, generate->operands[1].name.str);
-    struct Type arrayOfType = loadedFromArray->type; // what the original type of the array is (for offset computation)
-    type_single_decay(&arrayOfType);
-    arrayOfType.pointerLevel--;
     struct Type *loadedType = tac_get_type_of_operand(generate, 0); // the type of the thing actually being loaded (for load size)
 
     struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
-    try_release_scratch_register(info, arrayIndexReg);
     struct Register *scaledIndexReg = acquire_scratch_register(info);
-    emit_instruction(generate, state, "\tslli %s, %s, %zu\n", scaledIndexReg->name, arrayIndexReg->name,
-                     calculate_shift(type_get_size(&arrayOfType, metadata->scope), type_get_alignment(&arrayOfType, metadata->scope)));
+    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(&loadedFromArray->type, metadata->scope));
+    emit_instruction(generate, state, "\tmul %s, %s, %s\n", scaledIndexReg->name, arrayIndexReg->name, scaledIndexReg->name);
+    try_release_scratch_register(info, arrayIndexReg);
 
     // TODO: this really supports array index operations on arrays and array single pointers. Ensure that array single pointers are []'d correctly (linearization issue? if an issue at all)
     struct Register *arrayBaseAddrReg = NULL;
@@ -770,15 +747,12 @@ void riscv_emit_array_lea(struct TACLine *generate, struct CodegenState *state, 
     }
 
     struct VariableEntry *loadedFromArray = scope_lookup_var_by_string(metadata->scope, generate->operands[1].name.str);
-    struct Type arrayOfType = loadedFromArray->type; // what the original type of the array is (for offset computation)
-    type_single_decay(&arrayOfType);
-    arrayOfType.pointerLevel--;
 
     struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
-    try_release_scratch_register(info, arrayIndexReg);
     struct Register *scaledIndexReg = acquire_scratch_register(info);
-    emit_instruction(generate, state, "\tslli %s, %s, %zu\n", scaledIndexReg->name, arrayIndexReg->name,
-                     calculate_shift(type_get_size(&arrayOfType, metadata->scope), type_get_alignment(&arrayOfType, metadata->scope)));
+    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(&loadedFromArray->type, metadata->scope));
+    emit_instruction(generate, state, "\tmul %s, %s, %s\n", scaledIndexReg->name, arrayIndexReg->name, scaledIndexReg->name);
+    try_release_scratch_register(info, arrayIndexReg);
 
     // TODO: this really supports array index operations on arrays and array single pointers. Ensure that array single pointers are []'d correctly (linearization issue? if an issue at all)
     struct Register *arrayBaseAddrReg = NULL;
@@ -832,10 +806,10 @@ void riscv_emit_array_store(struct TACLine *generate, struct CodegenState *state
     struct Type *storedType = tac_get_type_of_operand(generate, 2); // the type of the thing actually being loaded (for load size)
 
     struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
-    try_release_scratch_register(info, arrayIndexReg);
     struct Register *scaledIndexReg = acquire_scratch_register(info);
-    emit_instruction(generate, state, "\tslli %s, %s, %zu\n", scaledIndexReg->name, arrayIndexReg->name,
-                     calculate_shift(type_get_size(&arrayOfType, metadata->scope), type_get_alignment(&arrayOfType, metadata->scope)));
+    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(&storedToArray->type, metadata->scope));
+    emit_instruction(generate, state, "\tmul %s, %s, %s\n", scaledIndexReg->name, arrayIndexReg->name, scaledIndexReg->name);
+    try_release_scratch_register(info, arrayIndexReg);
 
     // TODO: this really supports array index operations on arrays and array single pointers. Ensure that array single pointers are []'d correctly (linearization issue? if an issue at all)
     struct Register *arrayBaseAddrReg = NULL;
