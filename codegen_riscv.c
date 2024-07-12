@@ -337,7 +337,20 @@ void riscv_emit_epilogue(struct CodegenState *state, struct RegallocMetadata *me
     fprintf(state->outFile, "\t.cfi_endproc\n");
 }
 
-// places an operand by name into the specified register, or returns the index of the register containing if it's already in a register
+struct Register *register_use_optional_scratch_or_acquire(struct MachineInfo *info, struct Register *optionalScratch)
+{
+    struct Register *used = optionalScratch;
+    if (used == NULL)
+    {
+        used = acquire_scratch_register(info);
+    }
+
+    return used;
+}
+
+// Returns the index of the register containing operand if it's has a register writeback location
+// If not a register writeback location, and optionalScratch is non-null, it will place the operand in optionalScratch
+// if optionalScratch is null, a new scratch register will be acquired and the operand will be placed there
 // does *NOT* guarantee that returned register indices are modifiable in the case where the variable is found in a register
 struct Register *riscv_place_or_find_operand_in_register(struct TACLine *correspondingTACLine,
                                                          struct CodegenState *state,
@@ -348,27 +361,15 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
 {
     verify_codegen_primitive(operand);
 
-    if ((operand->permutation == VP_LITERAL_STR) || (operand->permutation == VP_LITERAL_VAL))
+    struct Register *placedOrFoundIn = NULL;
+    if (operand->permutation == VP_LITERAL)
     {
-        if (optionalScratch == NULL)
-        {
-            InternalError("Expected scratch register to place literal in, didn't get one!");
-        }
-
-        if (operand->permutation == VP_LITERAL_STR)
-        {
-            riscv_place_literal_string_in_register(correspondingTACLine, state, operand->name.str, optionalScratch);
-        }
-        else
-        {
-            riscv_place_literal_value_in_register(correspondingTACLine, state, operand->name.val, optionalScratch);
-        }
-        return optionalScratch;
+        placedOrFoundIn = register_use_optional_scratch_or_acquire(info, optionalScratch);
+        riscv_place_literal_string_in_register(correspondingTACLine, state, operand->name.str, placedOrFoundIn);
+        return placedOrFoundIn;
     }
 
-    struct Register *placedOrFoundIn = NULL;
-
-    struct Lifetime *operandLt = lifetime_find(metadata->allLifetimes, operand->name.variable->name);
+    struct Lifetime *operandLt = lifetime_find(metadata->allLifetimes, operand->name.str);
     if (operandLt == NULL)
     {
         InternalError("Unable to find lifetime for variable %s!", operand->name.variable->name);
@@ -381,32 +382,26 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
         break;
 
     case WB_STACK:
-        if (type_is_object(tac_operand_get_type(operand)))
+        placedOrFoundIn = register_use_optional_scratch_or_acquire(info, optionalScratch);
+        if (type_is_object(&operand->type))
         {
             if (operandLt->writebackInfo.stackOffset >= 0)
             {
-                emit_instruction(correspondingTACLine, state, "\taddi %s, fp, %d # place %s\n", optionalScratch->name, operandLt->writebackInfo.stackOffset, operand->name.str);
+                emit_instruction(correspondingTACLine, state, "\taddi %s, fp, %d # place %s\n", placedOrFoundIn->name, operandLt->writebackInfo.stackOffset, operand->name.str);
             }
             else
             {
-                emit_instruction(correspondingTACLine, state, "\taddi %s, fp, -%d # place %s\n", optionalScratch->name, -1 * operandLt->writebackInfo.stackOffset, operand->name.str);
+                emit_instruction(correspondingTACLine, state, "\taddi %s, fp, -%d # place %s\n", placedOrFoundIn->name, -1 * operandLt->writebackInfo.stackOffset, operand->name.str);
             }
-            placedOrFoundIn = optionalScratch;
         }
         else
         {
-            riscv_emit_frame_load_for_size(correspondingTACLine, state, info, optionalScratch, type_get_size(tac_operand_get_type(operand), metadata->scope), operandLt->writebackInfo.stackOffset);
-            placedOrFoundIn = optionalScratch;
+            riscv_emit_frame_load_for_size(correspondingTACLine, state, info, placedOrFoundIn, type_get_size(tac_operand_get_type(operand), metadata->scope), operandLt->writebackInfo.stackOffset);
         }
         break;
 
     case WB_GLOBAL:
     {
-        if (optionalScratch == NULL)
-        {
-            InternalError("Expected scratch register to place global in, didn't get one!");
-        }
-
         char loadWidth = 'X';
         const char *loadSign = "";
 
@@ -421,7 +416,7 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
             loadSign = riscv_select_sign_for_load_char(loadWidth);
         }
 
-        placedOrFoundIn = optionalScratch;
+        placedOrFoundIn = register_use_optional_scratch_or_acquire(info, optionalScratch);
         emit_instruction(correspondingTACLine, state, "\tla %s, %s # place %s\n",
                          placedOrFoundIn->name,
                          operandLt->name,
@@ -669,8 +664,204 @@ void riscv_emit_argument_stores(struct CodegenState *state,
     }
 }
 
+void riscv_emit_array_load(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
+{
+    if (generate->operation != TT_ARRAY_LOAD)
+    {
+        InternalError("Incorrect TAC type %s passed to riscv_emit_array_load", get_asm_op(generate->operation));
+    }
+
+    struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.str);
+    switch (loadedFromLt->wbLocation)
+    {
+    case WB_STACK:
+    case WB_GLOBAL:
+        break;
+
+    case WB_REGISTER:
+        if (type_is_struct_object(&loadedFromLt->type))
+        {
+            InternalError("Codegen for array load for array with WB_REGISTER not implemented");
+        }
+        break;
+
+    case WB_UNKNOWN:
+        InternalError("Unknown writeback location for lifetime %s (%s)", loadedFromLt->name, type_get_name(&loadedFromLt->type));
+    }
+
+    struct Type *loadedFromArrayType = tac_get_type_of_operand(generate, 1);
+    struct Type *loadedType = tac_get_type_of_operand(generate, 0); // the type of the thing actually being loaded (for load size)
+
+    struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
+    struct Register *scaledIndexReg = acquire_scratch_register(info);
+    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(loadedFromArrayType, metadata->scope));
+    emit_instruction(generate, state, "\tmul %s, %s, %s\n", scaledIndexReg->name, arrayIndexReg->name, scaledIndexReg->name);
+    try_release_scratch_register(info, arrayIndexReg);
+
+    // TODO: this really supports array index operations on arrays and array single pointers. Ensure that array single pointers are []'d correctly (linearization issue? if an issue at all)
+    struct Register *arrayBaseAddrReg = NULL;
+    if (type_is_struct_object(&loadedFromLt->type))
+    {
+        arrayBaseAddrReg = acquire_scratch_register(info);
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[1], arrayBaseAddrReg);
+    }
+    else
+    {
+        arrayBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
+    }
+
+    try_release_scratch_register(info, arrayBaseAddrReg);
+    try_release_scratch_register(info, scaledIndexReg);
+    struct Register *computedAddressRegister = acquire_scratch_register(info);
+    emit_instruction(generate, state, "\tadd %s, %s, %s\n", computedAddressRegister->name, arrayBaseAddrReg->name, scaledIndexReg->name);
+
+    if (!type_is_object(loadedType))
+    {
+        struct Register *loadedTo = acquire_scratch_register(info);
+        char loadChar = riscv_select_width_char_for_size(type_get_size(loadedType, metadata->scope));
+        emit_instruction(generate, state, "\tl%c%s %s, 0(%s)\n",
+                         loadChar,
+                         riscv_select_sign_for_load_char(loadChar),
+                         loadedTo->name,
+                         computedAddressRegister->name);
+        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], loadedTo);
+    }
+    else
+    {
+        struct Register *destAddrReg = acquire_scratch_register(info);
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[0], destAddrReg);
+        riscv_generate_internal_copy(generate, state, computedAddressRegister, destAddrReg, acquire_scratch_register(info), type_get_size(loadedType, metadata->scope));
+    }
+}
+
+void riscv_emit_array_lea(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
+{
+    if (generate->operation != TT_ARRAY_LEA)
+    {
+        InternalError("Incorrect TAC type %s passed to riscv_emit_array_lea", get_asm_op(generate->operation));
+    }
+
+    struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.str);
+    switch (loadedFromLt->wbLocation)
+    {
+    case WB_STACK:
+    case WB_GLOBAL:
+        break;
+
+    case WB_REGISTER:
+        if (type_is_struct_object(&loadedFromLt->type))
+        {
+            InternalError("Codegen for array load for array with WB_REGISTER not implemented");
+        }
+        break;
+
+    case WB_UNKNOWN:
+        InternalError("Unknown writeback location for lifetime %s (%s)", loadedFromLt->name, type_get_name(&loadedFromLt->type));
+    }
+
+    struct Type *loadedFromArrayType = tac_get_type_of_operand(generate, 1);
+
+    struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
+    struct Register *scaledIndexReg = acquire_scratch_register(info);
+    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(loadedFromArrayType, metadata->scope));
+    emit_instruction(generate, state, "\tmul %s, %s, %s\n", scaledIndexReg->name, arrayIndexReg->name, scaledIndexReg->name);
+    try_release_scratch_register(info, arrayIndexReg);
+
+    // TODO: this really supports array index operations on arrays and array single pointers. Ensure that array single pointers are []'d correctly (linearization issue? if an issue at all)
+    struct Register *arrayBaseAddrReg = NULL;
+    if (type_is_struct_object(&loadedFromLt->type))
+    {
+        arrayBaseAddrReg = acquire_scratch_register(info);
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[1], arrayBaseAddrReg);
+    }
+    else
+    {
+        arrayBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
+    }
+
+    try_release_scratch_register(info, arrayBaseAddrReg);
+    try_release_scratch_register(info, scaledIndexReg);
+    struct Register *computedAddressRegister = acquire_scratch_register(info);
+    emit_instruction(generate, state, "\tadd %s, %s, %s\n", computedAddressRegister->name, arrayBaseAddrReg->name, scaledIndexReg->name);
+
+    riscv_write_variable(generate, state, metadata, info, &generate->operands[0], computedAddressRegister);
+}
+
+void riscv_emit_array_store(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
+{
+    if (generate->operation != TT_ARRAY_STORE)
+    {
+        InternalError("Incorrect TAC type %s passed to riscv_emit_array_store", get_asm_op(generate->operation));
+    }
+
+    struct Lifetime *storedToLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.str);
+    switch (storedToLt->wbLocation)
+    {
+    case WB_STACK:
+    case WB_GLOBAL:
+        break;
+
+    case WB_REGISTER:
+        if (type_is_struct_object(&storedToLt->type))
+        {
+            InternalError("Codegen for array load for array with WB_REGISTER not implemented");
+        }
+        break;
+
+    case WB_UNKNOWN:
+        InternalError("Unknown writeback location for lifetime %s (%s)", storedToLt->name, type_get_name(&storedToLt->type));
+    }
+
+    struct Type *storedToArrayType = tac_get_type_of_operand(generate, 0); // what the original type of the array is (for offset computation)
+    struct Type *storedType = tac_get_type_of_operand(generate, 2);        // the type of the thing actually being loaded (for load size)
+
+    struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
+    struct Register *scaledIndexReg = acquire_scratch_register(info);
+    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(storedToArrayType, metadata->scope));
+    emit_instruction(generate, state, "\tmul %s, %s, %s\n", scaledIndexReg->name, arrayIndexReg->name, scaledIndexReg->name);
+    try_release_scratch_register(info, arrayIndexReg);
+
+    // TODO: this really supports array index operations on arrays and array single pointers. Ensure that array single pointers are []'d correctly (linearization issue? if an issue at all)
+    struct Register *arrayBaseAddrReg = NULL;
+    if (type_is_struct_object(&storedToLt->type))
+    {
+        arrayBaseAddrReg = acquire_scratch_register(info);
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[0], arrayBaseAddrReg);
+    }
+    else
+    {
+        arrayBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], NULL);
+    }
+
+    try_release_scratch_register(info, scaledIndexReg);
+    try_release_scratch_register(info, arrayBaseAddrReg);
+    struct Register *computedAddressRegister = acquire_scratch_register(info);
+    emit_instruction(generate, state, "\tadd %s, %s, %s\n", computedAddressRegister->name, arrayBaseAddrReg->name, scaledIndexReg->name);
+
+    if (!type_is_object(storedType))
+    {
+        struct Register *storedFrom = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
+        char storeChar = riscv_select_width_char_for_size(type_get_size(storedType, metadata->scope));
+        emit_instruction(generate, state, "\ts%c %s, 0(%s)\n",
+                         storeChar,
+                         storedFrom->name,
+                         computedAddressRegister->name);
+    }
+    else
+    {
+        struct Register *sourceAddrReg = acquire_scratch_register(info);
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[2], sourceAddrReg);
+        riscv_generate_internal_copy(generate, state, sourceAddrReg, computedAddressRegister, acquire_scratch_register(info), type_get_size(storedType, metadata->scope));
+    }
+}
+
 void riscv_emit_struct_field_load(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
+    if (generate->operation != TT_FIELD_LOAD)
+    {
+        InternalError("Incorrect TAC type %s passed to riscv_emit_struct_field_load", get_asm_op(generate->operation));
+    }
+
     struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.str);
     switch (loadedFromLt->wbLocation)
     {
@@ -692,14 +883,15 @@ void riscv_emit_struct_field_load(struct TACLine *generate, struct CodegenState 
     struct StructEntry *loadedFromStruct = scope_lookup_struct_by_type(metadata->scope, &loadedFromLt->type);
     struct StructField *loadedField = struct_lookup_field_by_name(loadedFromStruct, generate->operands[2].name.str, metadata->scope);
 
-    struct Register *structBaseAddrReg = acquire_scratch_register(info);
+    struct Register *structBaseAddrReg = NULL;
     if (type_is_struct_object(&loadedFromLt->type))
     {
+        structBaseAddrReg = acquire_scratch_register(info);
         riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[1], structBaseAddrReg);
     }
     else
     {
-        structBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], structBaseAddrReg);
+        structBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
     }
 
     if (!type_is_object(&loadedField->variable->type))
@@ -724,6 +916,11 @@ void riscv_emit_struct_field_load(struct TACLine *generate, struct CodegenState 
 
 void riscv_emit_struct_field_lea(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
+    if (generate->operation != TT_FIELD_LEA)
+    {
+        InternalError("Incorrect TAC type %s passed to riscv_emit_struct_field_lea", get_asm_op(generate->operation));
+    }
+
     struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.str);
     switch (loadedFromLt->wbLocation)
     {
@@ -745,14 +942,15 @@ void riscv_emit_struct_field_lea(struct TACLine *generate, struct CodegenState *
     struct StructEntry *loadedFromStruct = scope_lookup_struct_by_type(metadata->scope, &loadedFromLt->type);
     struct StructField *loadedField = struct_lookup_field_by_name(loadedFromStruct, generate->operands[2].name.str, metadata->scope);
 
-    struct Register *structBaseAddrReg = acquire_scratch_register(info);
+    struct Register *structBaseAddrReg = NULL;
     if (type_is_struct_object(&loadedFromLt->type))
     {
+        structBaseAddrReg = acquire_scratch_register(info);
         riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[1], structBaseAddrReg);
     }
     else
     {
-        structBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], structBaseAddrReg);
+        structBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
     }
 
     struct Register *computedAddressReg = acquire_scratch_register(info);
@@ -766,6 +964,11 @@ void riscv_emit_struct_field_lea(struct TACLine *generate, struct CodegenState *
 
 void riscv_emit_struct_field_store(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
+    if (generate->operation != TT_FIELD_STORE)
+    {
+        InternalError("Incorrect TAC type %s passed to riscv_emit_struct_field_store", get_asm_op(generate->operation));
+    }
+
     struct Lifetime *storedToLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.str);
     switch (storedToLt->wbLocation)
     {
@@ -787,19 +990,20 @@ void riscv_emit_struct_field_store(struct TACLine *generate, struct CodegenState
     struct StructEntry *storedFromStruct = scope_lookup_struct_by_type(metadata->scope, &storedToLt->type);
     struct StructField *storedField = struct_lookup_field_by_name(storedFromStruct, generate->operands[1].name.str, metadata->scope);
 
-    struct Register *structBaseAddrReg = acquire_scratch_register(info);
+    struct Register *structBaseAddrReg = NULL;
     if (type_is_struct_object(&storedToLt->type))
     {
+        structBaseAddrReg = acquire_scratch_register(info);
         riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[0], structBaseAddrReg);
     }
     else
     {
-        structBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], structBaseAddrReg);
+        structBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], NULL);
     }
 
     if (!type_is_object(&storedField->variable->type))
     {
-        struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
+        struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
         emit_instruction(generate, state, "\ts%c %s, %zd(%s)#:(\n",
                          riscv_select_width_char_for_size(type_get_size(&storedField->variable->type, metadata->scope)),
                          sourceReg->name,
@@ -843,7 +1047,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         else
         {
             // only works for primitive types that will fit in registers
-            struct Register *opLocReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+            struct Register *opLocReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
             riscv_write_variable(generate, state, metadata, info, &generate->operands[0], opLocReg);
         }
     }
@@ -860,8 +1064,8 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     case TT_LSHIFT:
     case TT_RSHIFT:
     {
-        struct Register *op1Reg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
-        struct Register *op2Reg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
+        struct Register *op1Reg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
+        struct Register *op2Reg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
 
         // release any scratch registers we may have acquired by placing operands, as our write register may be able to use one of them
         try_release_scratch_register(info, op1Reg);
@@ -876,7 +1080,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
     case TT_BITWISE_NOT:
     {
-        struct Register *op1Reg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+        struct Register *op1Reg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
         struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
 
         // FIXME: work with new register allocation
@@ -890,7 +1094,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         struct Lifetime *writtenLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.str);
         if (type_is_object(&writtenLt->type))
         {
-            struct Register *sourceAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+            struct Register *sourceAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
             struct Register *destAddrReg = acquire_scratch_register(info);
             riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[0], destAddrReg);
 
@@ -900,7 +1104,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         }
         else
         {
-            struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+            struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
             struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
             char loadWidth = riscv_select_width_char(metadata->scope, &generate->operands[0]);
             emit_instruction(generate, state, "\tl%c%s %s, 0(%s)\n",
@@ -914,67 +1118,11 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     }
     break;
 
-    case TT_LOAD_OFF:
-    {
-        // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
-        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
-
-        char loadWidth = riscv_select_width_char(metadata->scope, &generate->operands[0]);
-        emit_instruction(generate, state, "\tl%c%s %s, %d(%s)\n",
-                         loadWidth,
-                         riscv_select_sign_for_load_char(loadWidth),
-                         destReg->name,
-                         generate->operands[2].name.val,
-                         baseReg->name);
-
-        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
-    }
-    break;
-
-    case TT_LOAD_ARR:
-    {
-        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
-        struct Register *offsetReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
-
-        // because offsetReg may or may not be modifiable, we will immediately release it if it's a temp, and guarantee that shiftedOffsetReg is a temp that we can modify it to
-        try_release_scratch_register(info, offsetReg);
-        struct Register *shiftedOffsetReg = acquire_scratch_register(info);
-
-        // TODO: check for shift by 0 and don't shift when applicable
-        // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
-        emit_instruction(generate, state, "\tslli %s, %s, %d\n",
-                         shiftedOffsetReg->name,
-                         offsetReg->name,
-                         generate->operands[3].name.val);
-
-        try_release_scratch_register(info, baseReg);
-        try_release_scratch_register(info, shiftedOffsetReg);
-        struct Register *addrReg = acquire_scratch_register(info);
-        // add our scaled offset to the base address, put the full address into selectScratchRegister(info, false)
-        emit_instruction(generate, state, "\tadd %s, %s, %s\n",
-                         addrReg->name,
-                         baseReg->name,
-                         shiftedOffsetReg->name);
-
-        try_release_scratch_register(info, shiftedOffsetReg);
-        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
-        char loadWidth = riscv_select_width_char_for_dereference(metadata->scope, &generate->operands[1]);
-        emit_instruction(generate, state, "\tl%c%s %s, 0(%s)\n",
-                         loadWidth,
-                         riscv_select_sign_for_load_char(loadWidth),
-                         destReg->name,
-                         addrReg->name);
-
-        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
-    }
-    break;
-
     case TT_STORE:
     {
         struct Type *srcType = tac_get_type_of_operand(generate, 1);
         size_t moveSize = type_get_size(srcType, metadata->scope);
-        struct Register *destAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], acquire_scratch_register(info));
+        struct Register *destAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], NULL);
         if (moveSize > sizeof(size_t))
         {
             struct Register *sourceAddrReg = acquire_scratch_register(info);
@@ -985,7 +1133,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         }
         else
         {
-            struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+            struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
             char storeWidth = riscv_select_width_char_for_dereference(metadata->scope, &generate->operands[0]);
 
             emit_instruction(generate, state, "\ts%c %s, 0(%s)\n",
@@ -993,48 +1141,6 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
                              sourceReg->name,
                              destAddrReg->name);
         }
-    }
-    break;
-
-    case TT_STORE_OFF:
-    {
-        // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], acquire_scratch_register(info));
-        struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
-        emit_instruction(generate, state, "\ts%c %s, %d(%s)\n",
-                         riscv_select_width_char(metadata->scope, &generate->operands[0]),
-                         sourceReg->name,
-                         generate->operands[1].name.val,
-                         baseReg->name);
-    }
-    break;
-
-    case TT_STORE_ARR:
-    {
-        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[0], acquire_scratch_register(info));
-        struct Register *offsetReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
-
-        // TODO: check for shift by 0 and don't shift when applicable
-        // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
-        emit_instruction(generate, state, "\tslli %s, %s, %d\n",
-                         offsetReg->name,
-                         offsetReg->name,
-                         generate->operands[2].name.val);
-
-        try_release_scratch_register(info, baseReg);
-        struct Register *addrReg = acquire_scratch_register(info);
-        // add our scaled offset to the base address, put the full address into selectScratchRegister(info, false)
-        emit_instruction(generate, state, "\tadd %s, %s, %s\n",
-                         addrReg->name,
-                         baseReg->name,
-                         offsetReg->name);
-
-        try_release_scratch_register(info, offsetReg);
-        struct Register *sourceReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[3], acquire_scratch_register(info));
-        emit_instruction(generate, state, "\ts%c %s, 0(%s)\n",
-                         riscv_select_width_char_for_dereference(metadata->scope, &generate->operands[0]),
-                         sourceReg->name,
-                         addrReg->name);
     }
     break;
 
@@ -1046,49 +1152,17 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     }
     break;
 
-    case TT_LEA_OFF:
-    {
-        // TODO: need to switch for when immediate values exceed the 12-bit size permitted in immediate instructions
-        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
-        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
+    case TT_ARRAY_LOAD:
+        riscv_emit_array_load(generate, state, metadata, info);
+        break;
 
-        emit_instruction(generate, state, "\taddi %s, %s, %d\n",
-                         destReg->name,
-                         baseReg->name,
-                         generate->operands[2].name.val);
+    case TT_ARRAY_LEA:
+        riscv_emit_array_lea(generate, state, metadata, info);
+        break;
 
-        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
-    }
-    break;
-
-    case TT_LEA_ARR:
-    {
-        struct Register *baseReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
-        struct Register *offsetReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
-
-        // because offsetReg may or may not be modifiable, we will immediately release it if it's a temp, and guarantee that shiftedOffsetReg is a temp that we can modify it to
-        try_release_scratch_register(info, offsetReg);
-        struct Register *shiftedOffsetReg = acquire_scratch_register(info);
-
-        // TODO: check for shift by 0 and don't shift when applicable
-        // perform a left shift by however many bits necessary to scale our value, place the result in selectScratchRegister(info, false)
-        emit_instruction(generate, state, "\tslli %s, %s, %d\n",
-                         shiftedOffsetReg->name,
-                         offsetReg->name,
-                         generate->operands[3].name.val);
-
-        // release any scratch registers we may have acquired by placing operands, as our write register may be able to use one of them
-        release_all_scratch_registers(info);
-        struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
-        // add our scaled offset to the base address, put the full address into destReg
-        emit_instruction(generate, state, "\tadd %s, %s, %s\n",
-                         destReg->name,
-                         baseReg->name,
-                         shiftedOffsetReg->name);
-
-        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
-    }
-    break;
+    case TT_ARRAY_STORE:
+        riscv_emit_array_store(generate, state, metadata, info);
+        break;
 
     case TT_FIELD_LOAD:
         riscv_emit_struct_field_load(generate, state, metadata, info);
@@ -1111,8 +1185,8 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     case TT_BEQZ:
     case TT_BNEZ:
     {
-        struct Register *operand1register = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], acquire_scratch_register(info));
-        struct Register *operand2register = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], acquire_scratch_register(info));
+        struct Register *operand1register = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
+        struct Register *operand2register = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
         emit_instruction(generate, state, "\t%s %s, %s, %s_%d\n",
                          get_asm_op(generate->operation),
                          operand1register->name,

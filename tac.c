@@ -46,22 +46,16 @@ char *get_asm_op(enum TAC_TYPE tacOperation)
         return "srl";
     case TT_LOAD:
         return "load";
-    case TT_LOAD_OFF:
-        return "load (literal offset)";
-    case TT_LOAD_ARR:
-        return "load (array indexed)";
     case TT_STORE:
         return "store";
-    case TT_STORE_OFF:
-        return "store (literal offset)";
-    case TT_STORE_ARR:
-        return "store (array indexed)";
     case TT_ADDROF:
         return "address-of";
-    case TT_LEA_OFF:
-        return "lea (literal offset)";
-    case TT_LEA_ARR:
-        return "lea (array indexed)";
+    case TT_ARRAY_LOAD:
+        return "array load";
+    case TT_ARRAY_LEA:
+        return "array load pointer";
+    case TT_ARRAY_STORE:
+        return "array store";
     case TT_FIELD_LOAD:
         return "struct field load";
     case TT_FIELD_LEA:
@@ -253,42 +247,27 @@ char *sprint_tac_line(struct TACLine *line)
         width += sprintf(tacString + width, "%s!%zu = *%s!%zu", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber);
         break;
 
-    case TT_LOAD_OFF:
-        // operands: dest base offset
-        width += sprintf(tacString + width, "%s!%zu = (%s!%zu + %ld)", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber, line->operands[2].name.val);
-        break;
-
-    case TT_LOAD_ARR:
-        // operands: dest base offset scale
-        width += sprintf(tacString + width, "%s!%zu = (%s!%zu + %s!%zu*2^%ld)", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber, line->operands[2].name.str, line->operands[2].ssaNumber, line->operands[3].name.val);
-        break;
-
     case TT_STORE:
         width += sprintf(tacString + width, "*%s!%zu = %s!%zu", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber);
-        break;
-
-    case TT_STORE_OFF:
-        // operands: base offset source
-        width += sprintf(tacString + width, "(%s!%zu + %ld) = %s!%zu", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.val, line->operands[2].name.str, line->operands[2].ssaNumber);
-        break;
-
-    case TT_STORE_ARR:
-        // operands base offset scale source
-        width += sprintf(tacString + width, "(%s!%zu + %s!%zu*2^%ld) = %s!%zu", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber, line->operands[2].name.val, line->operands[3].name.str, line->operands[3].ssaNumber);
         break;
 
     case TT_ADDROF:
         width += sprintf(tacString + width, "%s!%zu = &%s!%zu", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber);
         break;
 
-    case TT_LEA_OFF:
-        // operands: dest base offset
-        width += sprintf(tacString + width, "%s!%zu = &(%s!%zu + %ld)", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber, line->operands[2].name.val);
+    case TT_ARRAY_LOAD:
+        // operands: dest base index
+        width += sprintf(tacString + width, "%s!%zu = %s!%zu[%s!%zu]", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber, line->operands[2].name.str, line->operands[2].ssaNumber);
         break;
 
-    case TT_LEA_ARR:
-        // operands: dest base offset scale
-        width += sprintf(tacString + width, "%s!%zu = &(%s!%zu + %s!%zu*2^%ld)", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber, line->operands[2].name.str, line->operands[2].ssaNumber, line->operands[3].name.val);
+    case TT_ARRAY_LEA:
+        // operands: dest base index
+        width += sprintf(tacString + width, "%s!%zu = &%s!%zu[%s!%zu]", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber, line->operands[2].name.str, line->operands[2].ssaNumber);
+        break;
+
+    case TT_ARRAY_STORE:
+        // operands: dest index source
+        width += sprintf(tacString + width, "%s!%zu[%s!%zu] = %s!%zu", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[1].name.str, line->operands[1].ssaNumber, line->operands[2].name.str, line->operands[2].ssaNumber);
         break;
 
     case TT_FIELD_LOAD:
@@ -482,23 +461,11 @@ enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex) /
 
     // loading writes the destination, while reading from the pointer
     case TT_LOAD:
-    case TT_LOAD_OFF: // load_off uses a literal for operands[2]
         if (operandIndex == 0)
         {
             use = U_WRITE;
         }
         else if (operandIndex == 1)
-        {
-            use = U_READ;
-        }
-        break;
-
-    case TT_LOAD_ARR:
-        if (operandIndex == 0)
-        {
-            use = U_WRITE;
-        }
-        else if ((operandIndex == 1) || (operandIndex == 2))
         {
             use = U_READ;
         }
@@ -512,20 +479,6 @@ enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex) /
         }
         break;
 
-    case TT_STORE_OFF:
-        if ((operandIndex == 0) || (operandIndex == 2))
-        {
-            use = U_READ;
-        }
-        break;
-
-    case TT_STORE_ARR:
-        if ((operandIndex == 0) || (operandIndex == 1) || (operandIndex == 3))
-        {
-            use = U_READ;
-        }
-        break;
-
     case TT_ADDROF:
         if ((operandIndex == 0) || (operandIndex == 1))
         {
@@ -533,18 +486,9 @@ enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex) /
         }
         break;
 
-    case TT_LEA_OFF:
-        if (operandIndex == 0)
-        {
-            use = U_WRITE;
-        }
-        else if (operandIndex == 1)
-        {
-            use = U_READ;
-        }
-        break;
-
-    case TT_LEA_ARR:
+    case TT_ARRAY_LOAD:
+    case TT_ARRAY_LEA:
+    case TT_ARRAY_STORE:
         if (operandIndex == 0)
         {
             use = U_WRITE;

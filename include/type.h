@@ -62,6 +62,8 @@ size_t type_hash(struct Type *type);
 
 bool type_is_object(struct Type *type);
 
+bool type_is_array_object(struct Type *type);
+
 bool type_is_struct_object(struct Type *type);
 
 bool type_is_enum_object(struct Type *type);

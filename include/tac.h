@@ -21,14 +21,11 @@ enum TAC_TYPE
     TT_LSHIFT,
     TT_RSHIFT,
     TT_LOAD,
-    TT_LOAD_OFF,
-    TT_LOAD_ARR,
     TT_STORE,
-    TT_STORE_OFF,
-    TT_STORE_ARR,
     TT_ADDROF,
-    TT_LEA_OFF,
-    TT_LEA_ARR,
+    TT_ARRAY_LOAD,  // load an array element
+    TT_ARRAY_LEA,   // load a pointer to an array element
+    TT_ARRAY_STORE, // store an array element
     TT_FIELD_LOAD,  // load a field of a struct
     TT_FIELD_LEA,   // load a pointer to a field of a struct
     TT_FIELD_STORE, // store a field of a struct

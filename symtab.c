@@ -83,7 +83,7 @@ void scope_decay_arrays(struct Scope *scope)
 
 void symbol_table_decay_arrays(struct SymbolTable *table)
 {
-    scope_decay_arrays(table->globalScope);
+    // scope_decay_arrays(table->globalScope);
 }
 
 char *symbol_table_mangle_name(struct Scope *scope, struct Dictionary *dict, char *toMangle)

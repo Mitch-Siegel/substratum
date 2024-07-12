@@ -80,39 +80,27 @@ void check_accessed_struct_for_dot(struct Ast *tree, struct Scope *scope, struct
     }
 }
 
-void convert_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
+void convert_array_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
 {
     // if we have a load instruction, convert it to the corresponding lea instrutcion
     // leave existing lea instructions alone
     switch (loadLine->operation)
     {
-    case TT_LOAD_ARR:
-        loadLine->operation = TT_LEA_ARR;
+    case TT_ARRAY_LOAD:
+        loadLine->operation = TT_ARRAY_LEA;
         break;
 
-    case TT_LOAD_OFF:
-        loadLine->operation = TT_LEA_OFF;
-        break;
-
-    case TT_LEA_OFF:
-    case TT_LEA_ARR:
+    case TT_ARRAY_LEA:
         break;
 
     default:
-        InternalError("Unexpected TAC operation %s seen in convert_load_to_lea!", get_asm_op(loadLine->operation));
+        InternalError("Unexpected TAC operation %s seen in convert_array_load_to_lea!", get_asm_op(loadLine->operation));
         break;
     }
 
     struct Type *loaded = tac_get_type_of_operand(loadLine, 0);
     // increment indirection level as we just converted from a load to a lea
-    if (loaded->basicType != VT_ARRAY)
-    {
-        loaded->pointerLevel++;
-    }
-    else
-    {
-        type_single_decay(loaded);
-    }
+    loaded->pointerLevel++;
 
     // in case we are converting struct.member_which_is_struct.a, special case so that both operands guaranteed to have pointer type and thus be primitives for codegen
     if (loadLine->operands[1].castAsType.basicType == VT_STRUCT)
