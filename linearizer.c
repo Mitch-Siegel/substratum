@@ -2403,6 +2403,10 @@ void walk_sub_expression(struct Ast *tree,
     {
         struct TACLine *arrayRefLine = walk_array_read(tree, block, scope, TACIndex, tempNum);
         *destinationOperand = arrayRefLine->operands[0];
+        if (type_is_object(tac_get_type_of_operand(arrayRefLine, 0)))
+        {
+            convert_array_load_to_lea(arrayRefLine, destinationOperand);
+        }
     }
     break;
 
