@@ -642,7 +642,9 @@ void riscv_emit_argument_stores(struct CodegenState *state,
         struct Lifetime *argLifetime = lifetime_find(calledFunction->regalloc.allLifetimes, argument->name);
 
         log(LOG_DEBUG, "Store argument %s - %s", argument->name, argOperand->name.str);
-        emit_instruction(NULL, state, "\t#Store argument %s - %s\n", argument->name, argOperand->name.str);
+        char *printedOperand = tac_operand_sprint(argOperand);
+        emit_instruction(NULL, state, "\t#Store argument %s\n", printedOperand);
+        free(printedOperand);
         switch (argLifetime->wbLocation)
         {
         case WB_REGISTER:

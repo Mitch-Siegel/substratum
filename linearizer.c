@@ -3226,6 +3226,8 @@ struct TACLine *walk_array_read(struct Ast *tree,
     struct TACLine *arrayRefTac = new_tac_line(TT_ARRAY_LOAD, tree);
     struct Type *arrayBaseType = NULL;
 
+    bool subtractLeaLevel = false;
+
     switch (arrayBase->type)
     {
     // if the array base is an identifier, we can just look it up
@@ -3244,12 +3246,12 @@ struct TACLine *walk_array_read(struct Ast *tree,
     }
     break;
 
+    // FIXME: multidimensional array accesses will break in the same way that struct.arrayField[123] did before specifically checking
     case T_DOT:
     {
         struct TACLine *arrayBaseAccessLine = walk_field_access(arrayBase, block, scope, TACIndex, tempNum, &arrayRefTac->operands[1], 0);
-        convert_field_load_to_lea(arrayBaseAccessLine, &arrayBaseAccessLine->operands[0]);
+        subtractLeaLevel = convert_field_load_to_lea(arrayBaseAccessLine, &arrayBaseAccessLine->operands[0]);
         arrayBaseType = tac_get_type_of_operand(arrayBaseAccessLine, 0);
-        arrayBaseType->pointerLevel = 1; // TODO: should this be += 1?
     }
     break;
 
@@ -3274,6 +3276,12 @@ struct TACLine *walk_array_read(struct Ast *tree,
     {
         InternalError("Array-referenced type has non-indirect type of %s", type_get_name(tac_get_type_of_operand(arrayRefTac, 0)));
     }
+
+    if (subtractLeaLevel)
+    {
+        arrayMemberType.pointerLevel--;
+    }
+
     if (arrayMemberType.pointerLevel == 0)
     {
         type_single_decay(&arrayMemberType);
@@ -3370,7 +3378,7 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
 
     case T_ARRAY_INDEX:
     {
-        // use walk_array_access to generate the access we need, just the direct accessing load to an lea to calculate the address we would have loaded from
+        // use walk_array_read to generate the access we need, just the direct accessing load to an lea to calculate the address we would have loaded from
         struct TACLine *arrayRefLine = walk_array_read(tree->child, block, scope, TACIndex, tempNum);
         convert_array_load_to_lea(arrayRefLine, NULL);
         // early return, no need for explicit address-of TAC
