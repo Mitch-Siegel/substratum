@@ -14,7 +14,7 @@ struct Type *tac_get_type_of_operand(struct TACLine *line, unsigned index)
     return tac_operand_get_type(&line->operands[index]);
 }
 
-char *get_asm_op(enum TAC_TYPE tacOperation)
+char *tac_operation_get_name(enum TAC_TYPE tacOperation)
 {
     switch (tacOperation)
     {
@@ -215,7 +215,7 @@ char *sprint_tac_line(struct TACLine *line)
     case TT_LSHIFT:
     case TT_RSHIFT:
     case TT_BITWISE_NOT:
-        width += sprintf(tacString + width, "%s = %s %s %s", operand0Str, get_asm_op(line->operation), operand1Str, operand2Str);
+        width += sprintf(tacString + width, "%s = %s %s %s", operand0Str, operand1Str, tac_operation_get_name(line->operation), operand2Str);
         break;
 
     case TT_LOAD:
@@ -266,14 +266,14 @@ char *sprint_tac_line(struct TACLine *line)
     case TT_BEQZ:
     case TT_BNEZ:
         width += sprintf(tacString + width, "%s %s, %s, basicblock %ld",
-                         get_asm_op(line->operation),
+                         tac_operation_get_name(line->operation),
                          operand1Str,
                          operand2Str,
                          line->operands[0].name.val);
         break;
 
     case TT_JMP:
-        width += sprintf(tacString + width, "%s basicblock %ld", get_asm_op(line->operation), line->operands[0].name.val);
+        width += sprintf(tacString + width, "%s basicblock %ld", tac_operation_get_name(line->operation), line->operands[0].name.val);
         break;
 
     case TT_ASSIGN:
@@ -344,6 +344,10 @@ char *sprint_tac_line(struct TACLine *line)
         width += sprintf(tacString + width, "%s = phi(%s, %s)", operand0Str, operand1Str, operand2Str);
         break;
     }
+
+    free(operand0Str);
+    free(operand1Str);
+    free(operand2Str);
 
     const u32 SPRINT_TAC_LINE_ALIGN_WIDTH = 40;
     while (width < SPRINT_TAC_LINE_ALIGN_WIDTH)

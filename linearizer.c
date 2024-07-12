@@ -2474,22 +2474,27 @@ void walk_sub_expression(struct Ast *tree,
 
             // construct the bit pattern we will use in order to properly mask off the extra bits (TODO: will not hold for unsigned types)
             // TODO: rectify to use VP_LITERAL_VAL
-            castBitManipulation->operands[2].permutation = VP_LITERAL_STR;
-            castBitManipulation->operands[2].castAsType.basicType = VT_U32;
+            castBitManipulation->operands[2].permutation = VP_LITERAL_VAL;
+            castBitManipulation->operands[2].castAsType.basicType = VT_U64; // TODO: define for size_t type
 
-            char literalAndValue[sprintedNumberLength];
-            // manually generate a string with an 'F' hex digit for each 4 bits in the mask
-            sprintf(literalAndValue, "0x");
-            const u8 BITS_PER_BYTE = 8; // TODO: move to substratum_defs?
-            size_t maskBitWidth = (BITS_PER_BYTE * type_get_size(tac_get_type_of_operand(castBitManipulation, 1), scope));
-            size_t maskBit = 0;
-            for (maskBit = 0; maskBit < maskBitWidth; maskBit += 4)
+            size_t castToWidth = type_get_size(&castTo, scope);
+            switch (castToWidth)
             {
-                literalAndValue[2 + (maskBit / 4)] = 'F';
-                literalAndValue[3 + (maskBit / 4)] = '\0';
+            case sizeof(u8):
+                castBitManipulation->operands[2].name.val = U8_MAX;
+                break;
+            case sizeof(u16):
+                castBitManipulation->operands[2].name.val = U16_MAX;
+                break;
+            case sizeof(u32):
+                castBitManipulation->operands[2].name.val = U32_MAX;
+                break;
+            case sizeof(u64):
+                castBitManipulation->operands[2].name.val = U64_MAX;
+                break;
+            default:
+                InternalError("Type case to size not equal to any integral type size (%zu)!", castToWidth);
             }
-
-            castBitManipulation->operands[2].name.str = dictionary_lookup_or_insert(parseDict, literalAndValue);
 
             // destination of our bit manipulation is a temporary variable with the type to which we are casting
             tac_operand_populate_as_temp(scope, &castBitManipulation->operands[0], tempNum, tac_get_type_of_operand(castBitManipulation, 1));
@@ -3156,9 +3161,13 @@ struct TACOperand *walk_expression(struct Ast *tree,
         // TODO: explicitly disallow arithmetic on array types?
         if (tac_get_type_of_operand(expression, 1)->pointerLevel > 0)
         {
-            struct TACLine *scaleMultiply = set_up_scale_multiplication(tree, scope, TACIndex, tempNum, tac_get_type_of_operand(expression, 1));
-            walk_sub_expression(tree->child->sibling, block, scope, TACIndex, tempNum, &scaleMultiply->operands[1]);
+            struct TACOperand offset;
 
+            walk_sub_expression(tree->child->sibling, block, scope, TACIndex, tempNum, &offset);
+            struct TACLine *scaleMultiply = set_up_scale_multiplication(tree, scope, TACIndex, tempNum, tac_get_type_of_operand(expression, 1), tac_operand_get_type(&offset));
+            scaleMultiply->operands[1] = offset;
+
+            tac_operand_populate_as_temp(scope, &scaleMultiply->operands[0], tempNum, tac_operand_get_type(&offset));
             expression->operands[2] = scaleMultiply->operands[0];
 
             basic_block_append(block, scaleMultiply, TACIndex);
@@ -3268,8 +3277,8 @@ struct TACLine *walk_array_read(struct Ast *tree,
     if (arrayMemberType.pointerLevel == 0)
     {
         type_single_decay(&arrayMemberType);
-        arrayMemberType.pointerLevel--;
     }
+    arrayMemberType.pointerLevel--;
     tac_operand_populate_as_temp(scope, &arrayRefTac->operands[0], tempNum, &arrayMemberType);
 
     walk_sub_expression(arrayIndex, block, scope, TACIndex, tempNum, &arrayRefTac->operands[2]);
@@ -3427,11 +3436,10 @@ void walk_pointer_arithmetic(struct Ast *tree,
                                                                       scope,
                                                                       TACIndex,
                                                                       tempNum,
+                                                                      tac_get_type_of_operand(pointerArithmetic, 1),
                                                                       tac_get_type_of_operand(pointerArithmetic, 1));
-
     walk_sub_expression(pointerArithRhs, block, scope, TACIndex, tempNum, &scaleMultiplication->operands[1]);
-
-    *tac_get_type_of_operand(scaleMultiplication, 0) = *tac_get_type_of_operand(scaleMultiplication, 1);
+    tac_operand_populate_as_temp(scope, &pointerArithmetic->operands[0], tempNum, tac_get_type_of_operand(pointerArithmetic, 1));
 
     pointerArithmetic->operands[2] = scaleMultiplication->operands[0];
 

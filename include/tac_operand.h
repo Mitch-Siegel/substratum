@@ -20,6 +20,7 @@ struct TACOperand
 {
     union nameUnion // name of variable as char*, or literal value as int
     {
+        // TODO: come up with a better naming scheme than this...
         struct VariableEntry *variable;
         char *str;
         size_t val;

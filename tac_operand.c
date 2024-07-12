@@ -75,7 +75,7 @@ char *tac_operand_sprint(void *operandData)
         break;
 
     case VP_LITERAL_VAL:
-        operandLen += sprintf(operandStr + operandLen, "%zu", operand->name.val);
+        operandLen += sprintf(operandStr + operandLen, "0x%lx", operand->name.val);
         break;
 
     case VP_UNUSED:

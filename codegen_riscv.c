@@ -5,6 +5,35 @@
 #include "symtab.h"
 #include "tac.h"
 
+char *riscv_get_asm_op(enum TAC_TYPE operation)
+{
+    switch (operation)
+    {
+    case TT_ADD:
+        return "add";
+    case TT_SUBTRACT:
+        return "sub";
+    case TT_MUL:
+        return "mul";
+    case TT_DIV:
+        return "div";
+    case TT_MODULO:
+        return "rem";
+    case TT_BITWISE_AND:
+        return "and";
+    case TT_BITWISE_OR:
+        return "or";
+    case TT_BITWISE_XOR:
+        return "xor";
+    case TT_LSHIFT:
+        return "sll";
+    case TT_RSHIFT:
+        return "srl";
+    default:
+        InternalError("Lookup for non asm instruction tac type %s in riscv_get_asm_op", tac_operation_get_name(operation));
+    }
+}
+
 char riscv_select_width_char_for_size(u8 size)
 {
     char widthChar = '\0';
@@ -376,7 +405,7 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
         return placedOrFoundIn;
     }
 
-    struct Lifetime *operandLt = lifetime_find(metadata->allLifetimes, operand->name.str);
+    struct Lifetime *operandLt = lifetime_find(metadata->allLifetimes, operand->name.variable->name);
     if (operandLt == NULL)
     {
         InternalError("Unable to find lifetime for variable %s!", operand->name.variable->name);
@@ -526,7 +555,7 @@ void riscv_place_literal_value_in_register(struct TACLine *correspondingTACLine,
                                            size_t literalVal,
                                            struct Register *destReg)
 {
-    emit_instruction(correspondingTACLine, state, "\tli %s, %lx # place literal\n", destReg->name, literalVal);
+    emit_instruction(correspondingTACLine, state, "\tli %s, 0x%lx # place literal\n", destReg->name, literalVal);
 }
 
 void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
@@ -536,7 +565,7 @@ void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
                                         struct TACOperand *operand,
                                         struct Register *destReg)
 {
-    struct Lifetime *lifetime = lifetime_find(metadata->allLifetimes, operand->name.str);
+    struct Lifetime *lifetime = lifetime_find(metadata->allLifetimes, operand->name.variable->name);
     switch (lifetime->wbLocation)
     {
     case WB_REGISTER:
@@ -675,10 +704,10 @@ void riscv_emit_array_load(struct TACLine *generate, struct CodegenState *state,
 {
     if (generate->operation != TT_ARRAY_LOAD)
     {
-        InternalError("Incorrect TAC type %s passed to riscv_emit_array_load", get_asm_op(generate->operation));
+        InternalError("Incorrect TAC type %s passed to riscv_emit_array_load", tac_operation_get_name(generate->operation));
     }
 
-    struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.str);
+    struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.variable->name);
     switch (loadedFromLt->wbLocation)
     {
     case WB_STACK:
@@ -745,10 +774,10 @@ void riscv_emit_array_lea(struct TACLine *generate, struct CodegenState *state, 
 {
     if (generate->operation != TT_ARRAY_LEA)
     {
-        InternalError("Incorrect TAC type %s passed to riscv_emit_array_lea", get_asm_op(generate->operation));
+        InternalError("Incorrect TAC type %s passed to riscv_emit_array_lea", tac_operation_get_name(generate->operation));
     }
 
-    struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.str);
+    struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.variable->name);
     switch (loadedFromLt->wbLocation)
     {
     case WB_STACK:
@@ -798,10 +827,10 @@ void riscv_emit_array_store(struct TACLine *generate, struct CodegenState *state
 {
     if (generate->operation != TT_ARRAY_STORE)
     {
-        InternalError("Incorrect TAC type %s passed to riscv_emit_array_store", get_asm_op(generate->operation));
+        InternalError("Incorrect TAC type %s passed to riscv_emit_array_store", tac_operation_get_name(generate->operation));
     }
 
-    struct Lifetime *storedToLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.str);
+    struct Lifetime *storedToLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.variable->name);
     switch (storedToLt->wbLocation)
     {
     case WB_STACK:
@@ -866,10 +895,10 @@ void riscv_emit_struct_field_load(struct TACLine *generate, struct CodegenState 
 {
     if (generate->operation != TT_FIELD_LOAD)
     {
-        InternalError("Incorrect TAC type %s passed to riscv_emit_struct_field_load", get_asm_op(generate->operation));
+        InternalError("Incorrect TAC type %s passed to riscv_emit_struct_field_load", tac_operation_get_name(generate->operation));
     }
 
-    struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.str);
+    struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.variable->name);
     switch (loadedFromLt->wbLocation)
     {
     case WB_STACK:
@@ -925,10 +954,10 @@ void riscv_emit_struct_field_lea(struct TACLine *generate, struct CodegenState *
 {
     if (generate->operation != TT_FIELD_LEA)
     {
-        InternalError("Incorrect TAC type %s passed to riscv_emit_struct_field_lea", get_asm_op(generate->operation));
+        InternalError("Incorrect TAC type %s passed to riscv_emit_struct_field_lea", tac_operation_get_name(generate->operation));
     }
 
-    struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.str);
+    struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, generate->operands[1].name.variable->name);
     switch (loadedFromLt->wbLocation)
     {
     case WB_STACK:
@@ -973,10 +1002,10 @@ void riscv_emit_struct_field_store(struct TACLine *generate, struct CodegenState
 {
     if (generate->operation != TT_FIELD_STORE)
     {
-        InternalError("Incorrect TAC type %s passed to riscv_emit_struct_field_store", get_asm_op(generate->operation));
+        InternalError("Incorrect TAC type %s passed to riscv_emit_struct_field_store", tac_operation_get_name(generate->operation));
     }
 
-    struct Lifetime *storedToLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.str);
+    struct Lifetime *storedToLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.variable->name);
     switch (storedToLt->wbLocation)
     {
     case WB_STACK:
@@ -1080,7 +1109,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
         struct Register *destReg = pick_write_register(metadata, &generate->operands[0], acquire_scratch_register(info));
 
-        emit_instruction(generate, state, "\t%s %s, %s, %s\n", get_asm_op(generate->operation), destReg->name, op1Reg->name, op2Reg->name);
+        emit_instruction(generate, state, "\t%s %s, %s, %s\n", riscv_get_asm_op(generate->operation), destReg->name, op1Reg->name, op2Reg->name);
         riscv_write_variable(generate, state, metadata, info, &generate->operands[0], destReg);
     }
     break;
@@ -1098,7 +1127,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
     case TT_LOAD:
     {
-        struct Lifetime *writtenLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.str);
+        struct Lifetime *writtenLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.variable->name);
         if (type_is_object(&writtenLt->type))
         {
             struct Register *sourceAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
@@ -1195,7 +1224,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         struct Register *operand1register = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
         struct Register *operand2register = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
         emit_instruction(generate, state, "\t%s %s, %s, %s_%d\n",
-                         get_asm_op(generate->operation),
+                         tac_operation_get_name(generate->operation),
                          operand1register->name,
                          operand2register->name,
                          functionName,

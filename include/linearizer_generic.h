@@ -14,7 +14,12 @@ enum BASIC_TYPES select_variable_type_for_number(size_t num);
 
 enum BASIC_TYPES select_variable_type_for_literal(char *literal);
 
-struct TACLine *set_up_scale_multiplication(struct Ast *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale);
+struct TACLine *set_up_scale_multiplication(struct Ast *tree,
+                                            struct Scope *scope,
+                                            const size_t *TACIndex,
+                                            size_t *tempNum,
+                                            struct Type *pointerTypeOfToScale,
+                                            struct Type *offsetType);
 
 // check the LHS of any dot operator make sure it is both a struct and has an indirection level of at most `
 // special case handling for when tree is an identifier vs a subexpression

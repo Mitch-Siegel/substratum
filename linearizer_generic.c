@@ -41,11 +41,16 @@ extern struct Dictionary *parseDict;
 
 extern struct TempList *temps;
 
-struct TACLine *set_up_scale_multiplication(struct Ast *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale)
+struct TACLine *set_up_scale_multiplication(struct Ast *tree,
+                                            struct Scope *scope,
+                                            const size_t *TACIndex,
+                                            size_t *tempNum,
+                                            struct Type *pointerTypeOfToScale,
+                                            struct Type *offsetType)
 {
     struct TACLine *scaleMultiplication = new_tac_line(TT_MUL, tree);
 
-    tac_operand_populate_as_temp(scope, &scaleMultiplication->operands[0], tempNum, pointerTypeOfToScale);
+    tac_operand_populate_as_temp(scope, &scaleMultiplication->operands[0], tempNum, offsetType);
 
     size_t scaleVal = type_get_size_when_dereferenced(pointerTypeOfToScale, scope);
     scaleMultiplication->operands[2].name.val = scaleVal;
@@ -94,7 +99,7 @@ void convert_array_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest
         break;
 
     default:
-        InternalError("Unexpected TAC operation %s seen in convert_array_load_to_lea!", get_asm_op(loadLine->operation));
+        InternalError("Unexpected TAC operation %s seen in convert_array_load_to_lea!", tac_operation_get_name(loadLine->operation));
         break;
     }
 
@@ -130,7 +135,7 @@ void convert_field_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest
         break;
 
     default:
-        InternalError("Unexpected TAC operation %s seen in convert_field_load_to_lea!", get_asm_op(loadLine->operation));
+        InternalError("Unexpected TAC operation %s seen in convert_field_load_to_lea!", tac_operation_get_name(loadLine->operation));
         break;
     }
 

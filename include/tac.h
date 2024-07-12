@@ -69,7 +69,7 @@ struct TACLine
 
 struct Type *tac_get_type_of_operand(struct TACLine *line, unsigned index);
 
-char *get_asm_op(enum TAC_TYPE tacOperation);
+char *tac_operation_get_name(enum TAC_TYPE tacOperation);
 
 void print_tac_line(struct TACLine *line);
 
