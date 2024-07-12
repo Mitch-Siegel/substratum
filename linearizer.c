@@ -2115,9 +2115,9 @@ void walk_struct_initializer(struct Ast *tree,
         struct TACOperand initializedValue = {0};
 
         struct TACLine *getAddrOfField = new_tac_line(TT_FIELD_LEA, initRunner);
-        tac_operand_populate_as_temp(&getAddrOfField->operands[0], tempNum);
-        getAddrOfField->operands[0].type = initializedField->variable->type;
-        getAddrOfField->operands[0].type.pointerLevel++;
+        struct Type fieldAddrType = initializedField->variable->type;
+        fieldAddrType.pointerLevel++;
+        tac_operand_populate_as_temp(scope, &getAddrOfField->operands[0], tempNum, &fieldAddrType);
 
         getAddrOfField->operands[1] = *initialized;
         getAddrOfField->operands[2].name.str = initializedField->variable->name;
@@ -3159,7 +3159,6 @@ struct TACOperand *walk_expression(struct Ast *tree,
             struct TACLine *scaleMultiply = set_up_scale_multiplication(tree, scope, TACIndex, tempNum, tac_get_type_of_operand(expression, 1));
             walk_sub_expression(tree->child->sibling, block, scope, TACIndex, tempNum, &scaleMultiply->operands[1]);
 
-            scaleMultiply->operands[0].type = scaleMultiply->operands[1].type;
             expression->operands[2] = scaleMultiply->operands[0];
 
             basic_block_append(block, scaleMultiply, TACIndex);
@@ -3260,16 +3259,18 @@ struct TACLine *walk_array_read(struct Ast *tree,
     break;
     }
 
-    arrayRefTac->operands[0] = arrayRefTac->operands[1];
-    tac_operand_populate_as_temp(&arrayRefTac->operands[0], tempNum);
+    struct Type arrayMemberType = *tac_get_type_of_operand(arrayRefTac, 1);
 
     if ((!type_is_array_object(arrayBaseType)) && (arrayBaseType->pointerLevel == 0))
     {
         InternalError("Array-referenced type has non-indirect type of %s", type_get_name(tac_get_type_of_operand(arrayRefTac, 0)));
     }
-
-    type_single_decay(tac_get_type_of_operand(arrayRefTac, 0));
-    arrayRefTac->operands[0].type.pointerLevel--;
+    if (arrayMemberType.pointerLevel == 0)
+    {
+        type_single_decay(&arrayMemberType);
+        arrayMemberType.pointerLevel--;
+    }
+    tac_operand_populate_as_temp(scope, &arrayRefTac->operands[0], tempNum, &arrayMemberType);
 
     walk_sub_expression(arrayIndex, block, scope, TACIndex, tempNum, &arrayRefTac->operands[2]);
 
@@ -3318,9 +3319,9 @@ struct TACOperand *walk_dereference(struct Ast *tree,
         log_tree(LOG_FATAL, tree, "Dereference on non-pointer type %s is not allowed!", type_get_name(dereferencedType));
     }
 
-    dereference->operands[0] = dereference->operands[1];
-    tac_get_type_of_operand(dereference, 0)->pointerLevel--;
-    tac_operand_populate_as_temp(&dereference->operands[0], tempNum);
+    struct Type typeAfterDereference = *tac_get_type_of_operand(dereference, 1);
+    typeAfterDereference.pointerLevel--;
+    tac_operand_populate_as_temp(scope, &dereference->operands[0], tempNum, &typeAfterDereference);
 
     basic_block_append(block, dereference, TACIndex);
 
@@ -3420,8 +3421,7 @@ void walk_pointer_arithmetic(struct Ast *tree,
 
     walk_sub_expression(pointerArithLhs, block, scope, TACIndex, tempNum, &pointerArithmetic->operands[1]);
 
-    pointerArithmetic->operands[0] = pointerArithmetic->operands[1];
-    tac_operand_populate_as_temp(&pointerArithmetic->operands[0], tempNum);
+    tac_operand_populate_as_temp(scope, &pointerArithmetic->operands[0], tempNum, tac_get_type_of_operand(pointerArithmetic, 1));
 
     struct TACLine *scaleMultiplication = set_up_scale_multiplication(pointerArithRhs,
                                                                       scope,

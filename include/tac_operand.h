@@ -22,7 +22,7 @@ struct TACOperand
     {
         struct VariableEntry *variable;
         char *str;
-        ssize_t val;
+        size_t val;
     } name;
 
     size_t ssaNumber;

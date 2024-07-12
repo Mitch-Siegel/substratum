@@ -362,10 +362,17 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
     verify_codegen_primitive(operand);
 
     struct Register *placedOrFoundIn = NULL;
-    if (operand->permutation == VP_LITERAL)
+    if (operand->permutation == VP_LITERAL_STR)
     {
         placedOrFoundIn = register_use_optional_scratch_or_acquire(info, optionalScratch);
         riscv_place_literal_string_in_register(correspondingTACLine, state, operand->name.str, placedOrFoundIn);
+        return placedOrFoundIn;
+    }
+
+    if (operand->permutation == VP_LITERAL_VAL)
+    {
+        placedOrFoundIn = register_use_optional_scratch_or_acquire(info, optionalScratch);
+        riscv_place_literal_value_in_register(correspondingTACLine, state, operand->name.val, placedOrFoundIn);
         return placedOrFoundIn;
     }
 
@@ -383,7 +390,7 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
 
     case WB_STACK:
         placedOrFoundIn = register_use_optional_scratch_or_acquire(info, optionalScratch);
-        if (type_is_object(&operand->type))
+        if (type_is_object(tac_operand_get_type(operand)))
         {
             if (operandLt->writebackInfo.stackOffset >= 0)
             {
