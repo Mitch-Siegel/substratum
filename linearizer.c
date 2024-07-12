@@ -1843,7 +1843,27 @@ void walk_assignment(struct Ast *tree,
     case T_ARRAY_INDEX:
     {
         assignment->operation = TT_ARRAY_STORE;
-        walk_sub_expression(lhs->child, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+        switch (lhs->child->type)
+        {
+        case T_DOT:
+        {
+            struct TACLine *arrayFieldAccess = walk_field_access(lhs->child, block, scope, TACIndex, tempNum, &assignment->operands[0], 0);
+            convert_field_load_to_lea(arrayFieldAccess, &assignment->operands[0]);
+        }
+        break;
+
+        case T_ARRAY_INDEX:
+        {
+            struct TACLine *arrayArrayAccess = walk_array_read(lhs->child, block, scope, TACIndex, tempNum);
+            convert_array_load_to_lea(arrayArrayAccess, &assignment->operands[0]);
+        }
+        break;
+
+        default:
+        {
+            walk_sub_expression(lhs->child, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+        }
+        }
         walk_sub_expression(lhs->child->sibling, block, scope, TACIndex, tempNum, &assignment->operands[1]);
         assignment->operands[2] = assignedValue;
     }

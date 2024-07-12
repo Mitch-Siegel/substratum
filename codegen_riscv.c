@@ -800,7 +800,7 @@ void riscv_emit_array_store(struct TACLine *generate, struct CodegenState *state
     }
 
     struct Type *storedToArrayType = tac_get_type_of_operand(generate, 0); // what the original type of the array is (for offset computation)
-    struct Type *storedType = tac_get_type_of_operand(generate, 2); // the type of the thing actually being loaded (for load size)
+    struct Type *storedType = tac_get_type_of_operand(generate, 2);        // the type of the thing actually being loaded (for load size)
 
     struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
     struct Register *scaledIndexReg = acquire_scratch_register(info);
