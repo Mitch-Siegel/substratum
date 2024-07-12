@@ -676,12 +676,12 @@ void riscv_emit_array_load(struct TACLine *generate, struct CodegenState *state,
         InternalError("Unknown writeback location for lifetime %s (%s)", loadedFromLt->name, type_get_name(&loadedFromLt->type));
     }
 
-    struct VariableEntry *loadedFromArray = scope_lookup_var_by_string(metadata->scope, generate->operands[1].name.str);
+    struct Type *loadedFromArrayType = tac_get_type_of_operand(generate, 1);
     struct Type *loadedType = tac_get_type_of_operand(generate, 0); // the type of the thing actually being loaded (for load size)
 
     struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
     struct Register *scaledIndexReg = acquire_scratch_register(info);
-    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(&loadedFromArray->type, metadata->scope));
+    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(loadedFromArrayType, metadata->scope));
     emit_instruction(generate, state, "\tmul %s, %s, %s\n", scaledIndexReg->name, arrayIndexReg->name, scaledIndexReg->name);
     try_release_scratch_register(info, arrayIndexReg);
 
@@ -746,11 +746,11 @@ void riscv_emit_array_lea(struct TACLine *generate, struct CodegenState *state, 
         InternalError("Unknown writeback location for lifetime %s (%s)", loadedFromLt->name, type_get_name(&loadedFromLt->type));
     }
 
-    struct VariableEntry *loadedFromArray = scope_lookup_var_by_string(metadata->scope, generate->operands[1].name.str);
+    struct Type *loadedFromArrayType = tac_get_type_of_operand(generate, 1);
 
     struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[2], NULL);
     struct Register *scaledIndexReg = acquire_scratch_register(info);
-    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(&loadedFromArray->type, metadata->scope));
+    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(loadedFromArrayType, metadata->scope));
     emit_instruction(generate, state, "\tmul %s, %s, %s\n", scaledIndexReg->name, arrayIndexReg->name, scaledIndexReg->name);
     try_release_scratch_register(info, arrayIndexReg);
 
@@ -799,15 +799,12 @@ void riscv_emit_array_store(struct TACLine *generate, struct CodegenState *state
         InternalError("Unknown writeback location for lifetime %s (%s)", storedToLt->name, type_get_name(&storedToLt->type));
     }
 
-    struct VariableEntry *storedToArray = scope_lookup_var_by_string(metadata->scope, generate->operands[0].name.str);
-    struct Type arrayOfType = storedToArray->type; // what the original type of the array is (for offset computation)
-    type_single_decay(&arrayOfType);
-    arrayOfType.pointerLevel--;
+    struct Type *storedToArrayType = tac_get_type_of_operand(generate, 0); // what the original type of the array is (for offset computation)
     struct Type *storedType = tac_get_type_of_operand(generate, 2); // the type of the thing actually being loaded (for load size)
 
     struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], NULL);
     struct Register *scaledIndexReg = acquire_scratch_register(info);
-    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(&storedToArray->type, metadata->scope));
+    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(storedToArrayType, metadata->scope));
     emit_instruction(generate, state, "\tmul %s, %s, %s\n", scaledIndexReg->name, arrayIndexReg->name, scaledIndexReg->name);
     try_release_scratch_register(info, arrayIndexReg);
 
