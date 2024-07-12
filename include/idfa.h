@@ -35,17 +35,17 @@ struct Idfa
 {
     struct IdfaContext *context;
 
-    ssize_t (*compare_facts)(void *fact_a, void *fact_b);
-    void (*print_fact)(void *fact_data);
+    ssize_t (*compare_facts)(void *factA, void *factB);
+    char *(*sprintFact)(void *factData);
     struct IdfaFacts facts;
     enum IDFA_ANALYSIS_DIRECTION direction;
 
     // pointer to function returning a struct Set
-    struct Set *(*f_transfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts);
+    struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts);
     // pointer to function to find the gen and kill set for all basic blocks
-    void (*find_gen_kills)(struct Idfa *idfa);
+    void (*findGenKills)(struct Idfa *idfa);
     // pionter to function taking 2 sets and returning a new set with the meet of them (union or intersection)
-    struct Set *(*f_meet)(struct Set *facts_a, struct Set *facts_b);
+    struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB);
 };
 
 struct Idfa *idfa_create(struct IdfaContext *context,
@@ -53,7 +53,7 @@ struct Idfa *idfa_create(struct IdfaContext *context,
                          void (*findGenKills)(struct Idfa *idfa),                                                  // findGenKills function
                          enum IDFA_ANALYSIS_DIRECTION direction,                                                   // direction which data flows in the analysis
                          ssize_t (*compareFacts)(void *factA, void *factB),                                        // compare function for facts in the domain of the analysis
-                         void (*printFact)(void *factData),                                                        // print function for facts in the domain of the analysis
+                         char *(*sprintFact)(void *factData),                                                      // print function for facts in the domain of the analysis, returning a string of the printed data
                          struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB));                            // set operation used to collect data from predecessor/successor blocks
 
 void idfa_print_facts(struct Idfa *idfa);

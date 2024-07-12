@@ -55,20 +55,34 @@ struct Type *tac_operand_get_non_cast_type(struct TACOperand *operand)
     return nonCastType;
 }
 
-void tac_operand_print(void *operandData)
+const u8 TAC_OPERAND_NAME_LEN = 128;
+char *tac_operand_sprint(void *operandData)
 {
     struct TACOperand *operand = operandData;
-    char *typeName = type_get_name(tac_operand_get_non_cast_type(operand));
-    printf("%s", typeName);
-    if (operand->castAsType.basicType != VT_NULL)
 
+    char *operandStr = malloc(TAC_OPERAND_NAME_LEN);
+    ssize_t operandLen = 0;
+
+    switch (operand->permutation)
     {
-        char *castAsTypeName = type_get_name(&operand->castAsType);
-        printf("(%s)", castAsTypeName);
-        free(castAsTypeName);
+    case VP_STANDARD:
+    case VP_TEMP:
+        operandLen += sprintf(operandStr + operandLen, "%s", operand->name.variable->name);
+        break;
+
+    case VP_LITERAL_STR:
+        operandLen += sprintf(operandStr + operandLen, "%s", operand->name.str);
+        break;
+
+    case VP_LITERAL_VAL:
+        operandLen += sprintf(operandStr + operandLen, "%zu", operand->name.val);
+        break;
+
+    case VP_UNUSED:
+        operandLen += sprintf(operandStr + operandLen, "UNUSED");
+        break;
     }
-    printf(" %s_%zu", operand->name.str, operand->ssaNumber);
-    free(typeName);
+    return operandStr;
 }
 
 ssize_t tac_operand_compare_ignore_ssa_number(void *dataA, void *dataB)

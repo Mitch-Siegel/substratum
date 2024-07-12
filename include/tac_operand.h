@@ -38,7 +38,7 @@ enum TAC_OPERAND_USE
     U_WRITE,
 };
 
-void tac_operand_print(void *operandData);
+char *tac_operand_sprint(void *operandData);
 
 struct Type *tac_operand_get_type(struct TACOperand *operand);
 

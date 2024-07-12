@@ -102,16 +102,16 @@ struct Idfa *idfa_create(struct IdfaContext *context,
                          void (*findGenKills)(struct Idfa *idfa),
                          enum IDFA_ANALYSIS_DIRECTION direction,
                          ssize_t (*compareFacts)(void *factA, void *factB),
-                         void (*printFact)(void *factData),
+                         char *(*sprintFact)(void *factData),
                          struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB))
 {
     struct Idfa *wip = malloc(sizeof(struct Idfa));
     wip->context = context;
     wip->compare_facts = compareFacts;
-    wip->print_fact = printFact;
-    wip->f_transfer = fTransfer;
-    wip->find_gen_kills = findGenKills;
-    wip->f_meet = fMeet;
+    wip->sprintFact = sprintFact;
+    wip->fTransfer = fTransfer;
+    wip->findGenKills = findGenKills;
+    wip->fMeet = fMeet;
     wip->direction = direction;
 
     wip->facts.in = malloc(wip->context->nBlocks * sizeof(struct Set *));
@@ -132,7 +132,7 @@ struct Idfa *idfa_create(struct IdfaContext *context,
     return wip;
 }
 
-void idfa_print_facts_for_block(struct Idfa *idfa, size_t blockIndex)
+void idfa_sprint_facts_for_block(struct Idfa *idfa, size_t blockIndex)
 {
     printf("Block %zu facts:\n", blockIndex);
 
@@ -140,7 +140,7 @@ void idfa_print_facts_for_block(struct Idfa *idfa, size_t blockIndex)
     for (struct LinkedListNode *factRunner = idfa->facts.gen[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
     {
         printf("[");
-        idfa->print_fact(factRunner->data);
+        idfa->sprintFact(factRunner->data);
         printf("] ");
     }
 
@@ -148,7 +148,7 @@ void idfa_print_facts_for_block(struct Idfa *idfa, size_t blockIndex)
     for (struct LinkedListNode *factRunner = idfa->facts.kill[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
     {
         printf("[");
-        idfa->print_fact(factRunner->data);
+        idfa->sprintFact(factRunner->data);
         printf("] ");
     }
 
@@ -156,7 +156,7 @@ void idfa_print_facts_for_block(struct Idfa *idfa, size_t blockIndex)
     for (struct LinkedListNode *factRunner = idfa->facts.in[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
     {
         printf("[");
-        idfa->print_fact(factRunner->data);
+        idfa->sprintFact(factRunner->data);
         printf("] ");
     }
 
@@ -164,23 +164,23 @@ void idfa_print_facts_for_block(struct Idfa *idfa, size_t blockIndex)
     for (struct LinkedListNode *factRunner = idfa->facts.out[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
     {
         printf("[");
-        idfa->print_fact(factRunner->data);
+        idfa->sprintFact(factRunner->data);
         printf("] ");
     }
     printf("\n\n");
 }
 
-void idfa_print_facts(struct Idfa *idfa)
+void idfa_sprint_facts(struct Idfa *idfa)
 {
     for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
     {
-        idfa_print_facts_for_block(idfa, blockIndex);
+        idfa_sprint_facts_for_block(idfa, blockIndex);
     }
 }
 
 void idfa_analyze_forwards(struct Idfa *idfa)
 {
-    idfa->find_gen_kills(idfa);
+    idfa->findGenKills(idfa);
     size_t iteration = 0;
     size_t nChangedOutputs = 0;
     do
@@ -208,7 +208,7 @@ void idfa_analyze_forwards(struct Idfa *idfa)
                 }
                 else
                 {
-                    struct Set *metInFacts = idfa->f_meet(newInFacts, predOuts);
+                    struct Set *metInFacts = idfa->fMeet(newInFacts, predOuts);
                     set_free(newInFacts);
                     newInFacts = metInFacts;
                 }
@@ -220,7 +220,7 @@ void idfa_analyze_forwards(struct Idfa *idfa)
             set_free(oldInFacts);
             idfa->facts.in[blockIndex] = newInFacts;
 
-            struct Set *transferred = idfa->f_transfer(idfa, idfa->context->blocks[blockIndex], newInFacts);
+            struct Set *transferred = idfa->fTransfer(idfa, idfa->context->blocks[blockIndex], newInFacts);
             if (transferred->elements->size != idfa->facts.out[blockIndex]->elements->size)
             {
                 nChangedOutputs++;

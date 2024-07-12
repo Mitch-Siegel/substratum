@@ -5,6 +5,8 @@
 #include "tac_operand.h"
 #include "type.h"
 
+#define N_TAC_OPERANDS_IN_LINE 3
+
 enum TAC_TYPE
 {
     TT_ASM,
@@ -56,7 +58,7 @@ struct TACLine
     // store the actual tree because some trees are manually generated and do not exist in the true parse tree
     // such as the += operator (a += b is transformed into a tree corresponding to a = a + b)
     struct Ast correspondingTree;
-    struct TACOperand operands[4];
+    struct TACOperand operands[N_TAC_OPERANDS_IN_LINE];
     enum TAC_TYPE operation;
     // numerical index relative to other TAC lines
     size_t index;
