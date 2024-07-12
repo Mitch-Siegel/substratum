@@ -117,9 +117,8 @@ struct TACLine *new_tac_line_function(enum TAC_TYPE operation, struct Ast *corre
     {
         wip->operands[operandIndex].name.str = NULL;
         wip->operands[operandIndex].ssaNumber = 0;
-        wip->operands[operandIndex].permutation = VP_STANDARD;
+        wip->operands[operandIndex].permutation = VP_UNUSED;
 
-        type_init(&wip->operands[operandIndex].type);
         type_init(&wip->operands[operandIndex].castAsType);
     }
     wip->correspondingTree = *correspondingTree;
@@ -148,7 +147,7 @@ char *s_print_tac_operands(struct TACLine *line)
 
     for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
     {
-        if (line->operands[operandIndex].type.basicType != VT_NULL)
+        if (line->operands[operandIndex].permutation != VP_UNUSED)
         {
             width += sprintf(operandString + width, "[");
             switch (line->operands[operandIndex].permutation)
@@ -161,12 +160,16 @@ char *s_print_tac_operands(struct TACLine *line)
                 width += sprintf(operandString + width, "T");
                 break;
 
-            case VP_LITERAL:
+            case VP_LITERAL_STR:
+            case VP_LITERAL_VAL:
                 width += sprintf(operandString + width, "L");
+                break;
+
+            case VP_UNUSED:
                 break;
             }
 
-            char *typeName = type_get_name(&line->operands[operandIndex].type);
+            char *typeName = type_get_name(tac_operand_get_non_cast_type(&line->operands[operandIndex]));
             width += sprintf(operandString + width, " %s", typeName);
             free(typeName);
             if (line->operands[operandIndex].castAsType.basicType != VT_NULL)
@@ -343,22 +346,22 @@ char *sprint_tac_line(struct TACLine *line)
     case TT_METHOD_CALL:
         if (line->operands[0].name.str == NULL)
         {
-            width += sprintf(tacString + width, "call %s.%s", line->operands[2].type.nonArray.complexType.name, line->operands[1].name.str);
+            width += sprintf(tacString + width, "call %s.%s", line->operands[2].castAsType.nonArray.complexType.name, line->operands[1].name.str);
         }
         else
         {
-            width += sprintf(tacString + width, "%s!%zu = call %s.%s", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[2].type.nonArray.complexType.name, line->operands[1].name.str);
+            width += sprintf(tacString + width, "%s!%zu = call %s.%s", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[2].castAsType.nonArray.complexType.name, line->operands[1].name.str);
         }
         break;
 
     case TT_ASSOCIATED_CALL:
         if (line->operands[0].name.str == NULL)
         {
-            width += sprintf(tacString + width, "call %s::%s", line->operands[2].type.nonArray.complexType.name, line->operands[1].name.str);
+            width += sprintf(tacString + width, "call %s::%s", line->operands[2].castAsType.nonArray.complexType.name, line->operands[1].name.str);
         }
         else
         {
-            width += sprintf(tacString + width, "%s!%zu = call %s::%s", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[2].type.nonArray.complexType.name, line->operands[1].name.str);
+            width += sprintf(tacString + width, "%s!%zu = call %s::%s", line->operands[0].name.str, line->operands[0].ssaNumber, line->operands[2].castAsType.nonArray.complexType.name, line->operands[1].name.str);
         }
         break;
 

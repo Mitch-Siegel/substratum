@@ -73,10 +73,16 @@ struct VariableEntry *scope_create_argument(struct Scope *scope,
                                             enum ACCESS accessibility);
 
 struct VariableEntry *scope_create_variable(struct Scope *scope,
-                                            struct Ast *name,
+                                            struct Ast *nameTree,
                                             struct Type *type,
                                             bool isGlobal,
                                             enum ACCESS accessibility);
+
+struct VariableEntry *scope_create_variable_by_name(struct Scope *scope,
+                                                    char *name,
+                                                    struct Type *type,
+                                                    bool isGlobal,
+                                                    enum ACCESS accessibility);
 
 struct FunctionEntry *scope_create_function(struct Scope *parentScope,
                                             struct Ast *nameTree,

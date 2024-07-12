@@ -9,21 +9,23 @@ struct Ast;
 
 enum VARIABLE_PERMUTATIONS
 {
+    VP_UNUSED,
     VP_STANDARD,
     VP_TEMP,
-    VP_LITERAL,
+    VP_LITERAL_STR,
+    VP_LITERAL_VAL,
 };
 
 struct TACOperand
 {
     union nameUnion // name of variable as char*, or literal value as int
     {
+        struct VariableEntry *variable;
         char *str;
         ssize_t val;
     } name;
 
     size_t ssaNumber;
-    struct Type type;
     struct Type castAsType;
     enum VARIABLE_PERMUTATIONS permutation; // enum of permutation (standard/temp/literal)
 };
@@ -40,13 +42,15 @@ void tac_operand_print(void *operandData);
 
 struct Type *tac_operand_get_type(struct TACOperand *operand);
 
+struct Type *tac_operand_get_non_cast_type(struct TACOperand *operand);
+
 ssize_t tac_operand_compare(void *dataA, void *dataB);
 
 ssize_t tac_operand_compare_ignore_ssa_number(void *dataA, void *dataB);
 
 void tac_operand_populate_from_variable(struct TACOperand *operandToPopulate, struct VariableEntry *populateFrom);
 
-void tac_operand_populate_as_temp(struct TACOperand *operandToPopulate, size_t *tempNum);
+void tac_operand_populate_as_temp(struct Scope *scope, struct TACOperand *operandToPopulate, size_t *tempNum, struct Type *type);
 
 // copy over the entire TACOperand, all fields are changed
 void tac_operand_copy_decay_arrays(struct TACOperand *dest, struct TACOperand *src);

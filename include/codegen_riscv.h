@@ -72,6 +72,11 @@ void riscv_place_literal_string_in_register(struct TACLine *correspondingTACLine
                                             char *literalStr,
                                             struct Register *destReg);
 
+void riscv_place_literal_value_in_register(struct TACLine *correspondingTACLine,
+                                           struct CodegenState *state,
+                                           size_t literalVal,
+                                           struct Register *destReg);
+
 void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
                                         struct CodegenState *state,
                                         struct RegallocMetadata *metadata,

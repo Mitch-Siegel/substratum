@@ -85,12 +85,10 @@ struct Register *pick_write_register(struct RegallocMetadata *metadata,
                                      struct TACOperand *operand,
                                      struct Register *scratchReg)
 {
-    struct Lifetime dummyLt = {0};
-    dummyLt.name = operand->name.str;
-    struct Lifetime *relevantLifetime = set_find(metadata->allLifetimes, &dummyLt);
+    struct Lifetime *relevantLifetime = lifetime_find(metadata->allLifetimes, operand->name.variable->name);
     if (relevantLifetime == NULL)
     {
-        InternalError("Unable to find lifetime for variable %s!", operand->name.str);
+        InternalError("Unable to find lifetime for variable %s!", operand->name.variable->name);
     }
 
     switch (relevantLifetime->wbLocation)

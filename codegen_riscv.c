@@ -348,25 +348,30 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
 {
     verify_codegen_primitive(operand);
 
-    if (operand->permutation == VP_LITERAL)
+    if ((operand->permutation == VP_LITERAL_STR) || (operand->permutation == VP_LITERAL_VAL))
     {
         if (optionalScratch == NULL)
         {
             InternalError("Expected scratch register to place literal in, didn't get one!");
         }
 
-        riscv_place_literal_string_in_register(correspondingTACLine, state, operand->name.str, optionalScratch);
+        if (operand->permutation == VP_LITERAL_STR)
+        {
+            riscv_place_literal_string_in_register(correspondingTACLine, state, operand->name.str, optionalScratch);
+        }
+        else
+        {
+            riscv_place_literal_value_in_register(correspondingTACLine, state, operand->name.val, optionalScratch);
+        }
         return optionalScratch;
     }
 
     struct Register *placedOrFoundIn = NULL;
-    struct Lifetime dummyLt = {0};
-    dummyLt.name = operand->name.str;
 
-    struct Lifetime *operandLt = set_find(metadata->allLifetimes, &dummyLt);
+    struct Lifetime *operandLt = lifetime_find(metadata->allLifetimes, operand->name.variable->name);
     if (operandLt == NULL)
     {
-        InternalError("Unable to find lifetime for variable %s!", operand->name.str);
+        InternalError("Unable to find lifetime for variable %s!", operand->name.variable->name);
     }
 
     switch (operandLt->wbLocation)
@@ -376,7 +381,7 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
         break;
 
     case WB_STACK:
-        if (type_is_object(&operand->type))
+        if (type_is_object(tac_operand_get_type(operand)))
         {
             if (operandLt->writebackInfo.stackOffset >= 0)
             {
@@ -450,15 +455,20 @@ void riscv_write_variable(struct TACLine *correspondingTACLine,
                           struct Register *dataSource)
 {
     verify_codegen_primitive(writtenTo);
+    switch (writtenTo->permutation)
+    {
+    case VP_STANDARD:
+    case VP_TEMP:
+        break;
 
-    struct Lifetime dummyLifetime;
-    memset(&dummyLifetime, 0, sizeof(struct Lifetime));
-    dummyLifetime.name = writtenTo->name.str;
+    default:
+        InternalError("TAC Operand with non standard/temp permutation passed to riscv_write_variable!");
+    }
 
-    struct Lifetime *writtenLifetime = set_find(metadata->allLifetimes, &dummyLifetime);
+    struct Lifetime *writtenLifetime = lifetime_find(metadata->allLifetimes, writtenTo->name.variable->name);
     if (writtenLifetime == NULL)
     {
-        InternalError("No lifetime found for %s", dummyLifetime.name);
+        InternalError("No lifetime found for %s", writtenTo->name.variable->name);
     }
 
     switch (writtenLifetime->wbLocation)
@@ -507,6 +517,14 @@ void riscv_place_literal_string_in_register(struct TACLine *correspondingTACLine
                                             struct Register *destReg)
 {
     emit_instruction(correspondingTACLine, state, "\tli %s, %s # place literal\n", destReg->name, literalStr);
+}
+
+void riscv_place_literal_value_in_register(struct TACLine *correspondingTACLine,
+                                           struct CodegenState *state,
+                                           size_t literalVal,
+                                           struct Register *destReg)
+{
+    emit_instruction(correspondingTACLine, state, "\tli %s, %lx # place literal\n", destReg->name, literalVal);
 }
 
 void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
@@ -810,7 +828,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
     case TT_ASSIGN:
     {
-        struct Lifetime *writtenLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.str);
+        struct Lifetime *writtenLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.variable->name);
         if (type_is_object(&writtenLt->type))
         {
             struct Register *sourceAddrReg = acquire_scratch_register(info);
