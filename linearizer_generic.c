@@ -41,18 +41,21 @@ extern struct Dictionary *parseDict;
 
 extern struct TempList *temps;
 
-struct TACLine *set_up_scale_multiplication(struct Ast *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale)
+struct TACLine *set_up_scale_multiplication(struct Ast *tree,
+                                            struct Scope *scope,
+                                            const size_t *TACIndex,
+                                            size_t *tempNum,
+                                            struct Type *pointerTypeOfToScale,
+                                            struct Type *offsetType)
 {
     struct TACLine *scaleMultiplication = new_tac_line(TT_MUL, tree);
 
-    scaleMultiplication->operands[0].name.str = temp_list_get(temps, (*tempNum)++);
-    scaleMultiplication->operands[0].permutation = VP_TEMP;
+    tac_operand_populate_as_temp(scope, &scaleMultiplication->operands[0], tempNum, offsetType);
 
-    char scaleVal[sprintedNumberLength];
-    snprintf(scaleVal, sprintedNumberLength - 1, "%zu", type_get_size_when_dereferenced(pointerTypeOfToScale, scope));
-    scaleMultiplication->operands[2].name.str = dictionary_lookup_or_insert(parseDict, scaleVal);
-    scaleMultiplication->operands[2].permutation = VP_LITERAL;
-    scaleMultiplication->operands[2].type.basicType = VT_U32;
+    size_t scaleVal = type_get_size_when_dereferenced(pointerTypeOfToScale, scope);
+    scaleMultiplication->operands[2].name.val = scaleVal;
+    scaleMultiplication->operands[2].permutation = VP_LITERAL_VAL;
+    scaleMultiplication->operands[2].castAsType.basicType = select_variable_type_for_number(scaleVal);
 
     return scaleMultiplication;
 }
@@ -82,27 +85,29 @@ void check_accessed_struct_for_dot(struct Ast *tree, struct Scope *scope, struct
     }
 }
 
-void convert_array_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
+bool convert_array_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
 {
+    bool changed = false;
+    struct Type *loaded = tac_get_type_of_operand(loadLine, 0);
     // if we have a load instruction, convert it to the corresponding lea instrutcion
     // leave existing lea instructions alone
     switch (loadLine->operation)
     {
     case TT_ARRAY_LOAD:
         loadLine->operation = TT_ARRAY_LEA;
+        // increment indirection level as we just converted from a load to a lea
+        // if pointing into a variable (such as in the case of temporaries), will update the type of the temp itself
+        loaded->pointerLevel++;
+        changed = true;
         break;
 
     case TT_ARRAY_LEA:
         break;
 
     default:
-        InternalError("Unexpected TAC operation %s seen in convert_array_load_to_lea!", get_asm_op(loadLine->operation));
+        InternalError("Unexpected TAC operation %s seen in convert_array_load_to_lea!", tac_operation_get_name(loadLine->operation));
         break;
     }
-
-    struct Type *loaded = tac_get_type_of_operand(loadLine, 0);
-    // increment indirection level as we just converted from a load to a lea
-    loaded->pointerLevel++;
 
     // in case we are converting struct.member_which_is_struct.a, special case so that both operands guaranteed to have pointer type and thus be primitives for codegen
     if (loadLine->operands[1].castAsType.basicType == VT_STRUCT)
@@ -114,10 +119,13 @@ void convert_array_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest
     {
         *dest = loadLine->operands[0];
     }
+
+    return changed;
 }
 
-void convert_field_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
+bool convert_field_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
 {
+    bool changed = false;
     // if we have a load instruction, convert it to the corresponding lea instrutcion
     // leave existing lea instructions alone
     struct Type *loaded = tac_get_type_of_operand(loadLine, 0);
@@ -126,13 +134,14 @@ void convert_field_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest
     case TT_FIELD_LOAD:
         loadLine->operation = TT_FIELD_LEA;
         loaded->pointerLevel++;
+        changed = true;
         break;
 
     case TT_FIELD_LEA:
         break;
 
     default:
-        InternalError("Unexpected TAC operation %s seen in convert_field_load_to_lea!", get_asm_op(loadLine->operation));
+        InternalError("Unexpected TAC operation %s seen in convert_field_load_to_lea!", tac_operation_get_name(loadLine->operation));
         break;
     }
 
@@ -146,4 +155,6 @@ void convert_field_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest
     {
         *dest = loadLine->operands[0];
     }
+
+    return changed;
 }

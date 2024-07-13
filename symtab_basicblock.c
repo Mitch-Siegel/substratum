@@ -20,6 +20,9 @@ void basic_block_append(struct BasicBlock *block, struct TACLine *line, size_t *
 {
     line->index = (*tacIndex)++;
     linked_list_append(block->TACList, line);
+    char *sprintedAddedLine = sprint_tac_line(line);
+    log(LOG_DEBUG, "Append TAC %s", sprintedAddedLine);
+    free(sprintedAddedLine);
 }
 
 void basic_block_prepend(struct BasicBlock *block, struct TACLine *line)

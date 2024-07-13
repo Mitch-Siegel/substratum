@@ -158,7 +158,7 @@ static void collapse_recurse_to_sub_scopes(struct Scope *scope, struct Dictionar
 static void attempt_operand_mangle(struct TACOperand *operand, struct Scope *scope, struct Dictionary *dict)
 {
     // check only TAC operands that both exist and refer to a named variable from the source code (ignore temps etc)
-    if ((operand->type.basicType != VT_NULL) &&
+    if ((tac_operand_get_type(operand)->basicType != VT_NULL) &&
         (operand->permutation == VP_STANDARD))
     {
         char *originalName = operand->name.str;

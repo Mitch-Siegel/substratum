@@ -10,28 +10,79 @@
 
 struct Type *tac_operand_get_type(struct TACOperand *operand)
 {
-    if (operand->castAsType.basicType != VT_NULL)
+    if ((operand->permutation == VP_UNUSED) || (operand->castAsType.basicType != VT_NULL))
     {
         return &operand->castAsType;
     }
 
-    return &operand->type;
+    struct Type *gottenType = NULL;
+
+    switch (operand->permutation)
+    {
+    case VP_STANDARD:
+    case VP_TEMP:
+        gottenType = &operand->name.variable->type;
+        break;
+
+    case VP_LITERAL_STR:
+    case VP_LITERAL_VAL:
+    case VP_UNUSED:
+        gottenType = &operand->castAsType;
+        break;
+    }
+
+    return gottenType;
 }
 
-void tac_operand_print(void *operandData)
+struct Type *tac_operand_get_non_cast_type(struct TACOperand *operand)
+{
+    struct Type *nonCastType = NULL;
+
+    switch (operand->permutation)
+    {
+    case VP_STANDARD:
+    case VP_TEMP:
+        nonCastType = &operand->name.variable->type;
+        break;
+
+    case VP_LITERAL_STR:
+    case VP_LITERAL_VAL:
+    case VP_UNUSED:
+        nonCastType = &operand->castAsType;
+        break;
+    }
+
+    return nonCastType;
+}
+
+const u8 TAC_OPERAND_NAME_LEN = 128;
+char *tac_operand_sprint(void *operandData)
 {
     struct TACOperand *operand = operandData;
-    char *typeName = type_get_name(&operand->type);
-    printf("%s", typeName);
-    if (operand->castAsType.basicType != VT_NULL)
 
+    char *operandStr = malloc(TAC_OPERAND_NAME_LEN);
+    ssize_t operandLen = 0;
+
+    switch (operand->permutation)
     {
-        char *castAsTypeName = type_get_name(&operand->castAsType);
-        printf("(%s)", castAsTypeName);
-        free(castAsTypeName);
+    case VP_STANDARD:
+    case VP_TEMP:
+        operandLen += sprintf(operandStr + operandLen, "%s", operand->name.variable->name);
+        break;
+
+    case VP_LITERAL_STR:
+        operandLen += sprintf(operandStr + operandLen, "%s", operand->name.str);
+        break;
+
+    case VP_LITERAL_VAL:
+        operandLen += sprintf(operandStr + operandLen, "0x%lx", operand->name.val);
+        break;
+
+    case VP_UNUSED:
+        operandLen += sprintf(operandStr + operandLen, "UNUSED");
+        break;
     }
-    printf(" %s_%zu", operand->name.str, operand->ssaNumber);
-    free(typeName);
+    return operandStr;
 }
 
 ssize_t tac_operand_compare_ignore_ssa_number(void *dataA, void *dataB)
@@ -39,7 +90,7 @@ ssize_t tac_operand_compare_ignore_ssa_number(void *dataA, void *dataB)
     struct TACOperand *operandA = dataA;
     struct TACOperand *operandB = dataB;
 
-    ssize_t result = type_compare(&operandA->type, &operandB->type);
+    ssize_t result = type_compare(tac_operand_get_non_cast_type(operandA), tac_operand_get_non_cast_type(operandB));
 
     if (result)
     {
@@ -53,7 +104,8 @@ ssize_t tac_operand_compare_ignore_ssa_number(void *dataA, void *dataB)
         return result;
     }
 
-    if ((operandA->permutation != VP_LITERAL && (operandB->permutation != VP_LITERAL)))
+    if (((operandA->permutation != VP_LITERAL_STR) && (operandA->permutation != VP_LITERAL_VAL)) &&
+        ((operandB->permutation != VP_LITERAL_STR) && (operandB->permutation != VP_LITERAL_VAL)))
     {
         result = strcmp(operandA->name.str, operandB->name.str);
         if (result)
@@ -90,15 +142,16 @@ extern struct TempList *temps;
 void tac_operand_populate_from_variable(struct TACOperand *operandToPopulate, struct VariableEntry *populateFrom)
 {
     type_init(&operandToPopulate->castAsType);
-    operandToPopulate->type = populateFrom->type;
-    operandToPopulate->name.str = populateFrom->name;
+    operandToPopulate->name.variable = populateFrom;
     operandToPopulate->permutation = VP_STANDARD;
 }
 
-void tac_operand_populate_as_temp(struct TACOperand *operandToPopulate, size_t *tempNum)
+void tac_operand_populate_as_temp(struct Scope *scope, struct TACOperand *operandToPopulate, size_t *tempNum, struct Type *type)
 {
-    operandToPopulate->name.str = temp_list_get(temps, (*tempNum)++);
+    char *tempName = temp_list_get(temps, (*tempNum)++);
+    struct VariableEntry *tempVariable = scope_create_variable_by_name(scope, dictionary_lookup_or_insert(parseDict, tempName), type, false, A_PUBLIC);
     operandToPopulate->permutation = VP_TEMP;
+    operandToPopulate->name.variable = tempVariable;
 }
 
 void tac_operand_copy_decay_arrays(struct TACOperand *dest, struct TACOperand *src)

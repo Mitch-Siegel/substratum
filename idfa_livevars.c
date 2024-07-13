@@ -65,7 +65,7 @@ struct Idfa *analyze_live_vars(struct IdfaContext *context)
                                             live_vars_find_gen_kills,
                                             D_FORWARDS,
                                             tac_operand_compare,
-                                            tac_operand_print,
+                                            tac_operand_sprint,
                                             set_union);
 
     return liveVarsIdfa;

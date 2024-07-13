@@ -67,10 +67,7 @@ struct Lifetime *update_or_insert_lifetime(struct Set *ltList,
                                            u8 isGlobal,
                                            u8 mustSpill)
 {
-    struct Lifetime dummyFind = {0};
-    dummyFind.name = name;
-    struct Lifetime *thisLt = set_find(ltList, &dummyFind);
-
+    struct Lifetime *thisLt = lifetime_find(ltList, name);
     if (thisLt != NULL)
     {
         // this should never fire with well-formed TAC
@@ -88,7 +85,9 @@ struct Lifetime *update_or_insert_lifetime(struct Set *ltList,
     }
     else
     {
-        log(LOG_DEBUG, "Create lifetime starting at %zu for %s: global? %d mustspill? %d", newEnd, name, isGlobal, mustSpill);
+        char *typeName = type_get_name(type);
+        log(LOG_DEBUG, "Create lifetime starting at %zu for %s %s: global? %d mustspill? %d", newEnd, typeName, name, isGlobal, mustSpill);
+        free(typeName);
         thisLt = lifetime_new(name, type, newEnd, isGlobal, mustSpill);
         set_insert(ltList, thisLt);
     }
@@ -103,19 +102,16 @@ void record_variable_write(struct Set *ltList,
                            struct Scope *scope,
                            size_t newEnd)
 {
-    log(LOG_DEBUG, "Record variable write for %s at index %zu", writtenOperand->name.str, newEnd);
+    log(LOG_DEBUG, "Record variable write for %s at index %zu", writtenOperand->name.variable->name, newEnd);
 
     u8 isGlobal = 0;
     u8 mustSpill = 0;
-    if (writtenOperand->permutation == VP_STANDARD)
-    {
-        struct VariableEntry *recordedVariable = scope_lookup_var_by_string(scope, writtenOperand->name.str);
-        isGlobal = recordedVariable->isGlobal;
-        mustSpill = recordedVariable->mustSpill;
-    }
+    struct VariableEntry *recordedVariable = writtenOperand->name.variable;
+    isGlobal = recordedVariable->isGlobal;
+    mustSpill = recordedVariable->mustSpill;
 
     // always use ->type as we don't care what it's cast as to determine its lifetime
-    struct Lifetime *updatedLifetime = update_or_insert_lifetime(ltList, writtenOperand->name.str, &(writtenOperand->type), newEnd, isGlobal, mustSpill);
+    struct Lifetime *updatedLifetime = update_or_insert_lifetime(ltList, recordedVariable->name, tac_operand_get_non_cast_type(writtenOperand), newEnd, isGlobal, mustSpill);
     updatedLifetime->nwrites += 1;
 }
 
@@ -126,25 +122,25 @@ void record_variable_read(struct Set *ltList,
                           struct Scope *scope,
                           size_t newEnd)
 {
-    log(LOG_DEBUG, "Record variable read for %s at index %zu", readOperand->name.str, newEnd);
+    log(LOG_DEBUG, "Record variable read for %s at index %zu", readOperand->name.variable->name, newEnd);
 
     u8 isGlobal = 0;
     u8 mustSpill = 0;
-    if (readOperand->permutation == VP_STANDARD)
-    {
-        struct VariableEntry *recordedVariable = scope_lookup_var_by_string(scope, readOperand->name.str);
-        isGlobal = recordedVariable->isGlobal;
-        mustSpill = recordedVariable->mustSpill;
-    }
+
+    struct VariableEntry *recordedVariable = readOperand->name.variable;
+    isGlobal = recordedVariable->isGlobal;
+    mustSpill = recordedVariable->mustSpill;
 
     // always use ->type as we don't care what it's cast as to determine its lifetime
-    struct Lifetime *updatedLifetime = update_or_insert_lifetime(ltList, readOperand->name.str, &(readOperand->type), newEnd, isGlobal, mustSpill);
+    struct Lifetime *updatedLifetime = update_or_insert_lifetime(ltList, recordedVariable->name, tac_operand_get_non_cast_type(readOperand), newEnd, isGlobal, mustSpill);
     updatedLifetime->nreads += 1;
 }
 
 void record_lifetime_write_for_operand(struct Set *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
 {
-    if ((tac_operand_get_type(operand)->basicType != VT_NULL) && (operand->permutation != VP_LITERAL))
+    if ((tac_operand_get_type(operand)->basicType != VT_NULL) &&
+        (operand->permutation != VP_LITERAL_STR) &&
+        (operand->permutation != VP_LITERAL_VAL))
     {
         record_variable_write(lifetimes, operand, scope, tacIndex);
     }
@@ -152,7 +148,9 @@ void record_lifetime_write_for_operand(struct Set *lifetimes, struct TACOperand 
 
 void record_lifetime_read_for_operand(struct Set *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
 {
-    if ((tac_operand_get_type(operand)->basicType != VT_NULL) && (operand->permutation != VP_LITERAL))
+    if ((tac_operand_get_type(operand)->basicType != VT_NULL) &&
+        (operand->permutation != VP_LITERAL_STR) &&
+        (operand->permutation != VP_LITERAL_VAL))
     {
         record_variable_read(lifetimes, operand, scope, tacIndex);
     }
@@ -189,7 +187,7 @@ void find_lifetimes_for_tac(struct Set *lifetimes, struct Scope *scope, struct T
         break;
     }
 
-    for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
+    for (u8 operandIndex = 0; operandIndex < N_TAC_OPERANDS_IN_LINE; operandIndex++)
     {
         switch (get_use_of_operand(line, operandIndex))
         {

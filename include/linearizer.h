@@ -24,6 +24,7 @@ void reserve_and_store_stack_args(struct Ast *callTree,
 struct TACLine *generate_call_tac(struct Ast *callTree,
                                   struct FunctionEntry *calledFunction,
                                   struct BasicBlock *block,
+                                  struct Scope *scope,
                                   size_t *TACIndex,
                                   size_t *tempNum,
                                   struct TACOperand *destinationOperand);
@@ -155,7 +156,8 @@ void walk_struct_initializer(struct Ast *tree,
                              struct Scope *scope,
                              size_t *TACIndex,
                              size_t *tempNum,
-                             struct TACOperand *initialized);
+                             struct TACOperand *initialized,
+                             struct Type *initializedType);
 
 void walk_sub_expression(struct Ast *tree,
                          struct BasicBlock *block,

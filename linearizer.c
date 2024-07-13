@@ -90,9 +90,14 @@ struct TACOperand *get_addr_of_operand(struct Ast *tree,
                                        struct TACOperand *getAddrOf)
 {
     struct TACLine *addrOfLine = new_tac_line(TT_ADDROF, tree);
+
+    getAddrOf->name.variable->mustSpill = true;
     addrOfLine->operands[1] = *getAddrOf;
 
-    tac_operand_populate_as_temp(&addrOfLine->operands[0], tempNum);
+    struct Type typeOfAddress = *tac_operand_get_type(getAddrOf);
+    typeOfAddress.pointerLevel++;
+
+    tac_operand_populate_as_temp(scope, &addrOfLine->operands[0], tempNum, &typeOfAddress);
 
     *tac_get_type_of_operand(addrOfLine, 0) = *tac_get_type_of_operand(addrOfLine, 1);
     tac_get_type_of_operand(addrOfLine, 0)->pointerLevel++;
@@ -1098,9 +1103,9 @@ struct BasicBlock *walk_condition_check(struct Ast *tree,
         condFalseJump->operation = TT_BEQ;
         walk_sub_expression(tree, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
 
-        condFalseJump->operands[2].type.basicType = VT_U8;
-        condFalseJump->operands[2].permutation = VP_LITERAL;
-        condFalseJump->operands[2].name.str = "0";
+        condFalseJump->operands[2].castAsType.basicType = VT_U8;
+        condFalseJump->operands[2].permutation = VP_LITERAL_VAL;
+        condFalseJump->operands[2].name.str = 0;
     }
     break;
 
@@ -1441,12 +1446,9 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
 
         struct TACLine *matchJump = new_tac_line(TT_BEQ, matchedValueTree);
 
-        matchJump->operands[1].type = *tac_operand_get_type(matchedAgainstNumerical);
-        matchJump->operands[1].permutation = VP_LITERAL;
-
-        char printedMatchedValue[sprintedNumberLength];
-        snprintf(printedMatchedValue, sprintedNumberLength - 1, "%zu", *matchedValuePointer);
-        matchJump->operands[1].name.str = dictionary_lookup_or_insert(parseDict, printedMatchedValue);
+        matchJump->operands[1].name.val = *matchedValuePointer;
+        matchJump->operands[1].castAsType = *tac_operand_get_type(matchedAgainstNumerical);
+        matchJump->operands[1].permutation = VP_LITERAL_VAL;
 
         matchJump->operands[2] = *matchedAgainstNumerical;
         // treat the enum as a size_t as the numerical value of what member we're looking at resides at the first part of the enum
@@ -1482,13 +1484,11 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
             compAddrOfEnumData->operands[1] = *addrOfMatchedAgainst;
 
             // the actual data of the enum is at base + sizeof(size_t), so compute that address
-            char sprintedNumber[sprintedNumberLength];
-            snprintf(sprintedNumber, sprintedNumberLength - 1, "%zu", sizeof(size_t));
-            compAddrOfEnumData->operands[2].name.str = dictionary_lookup_or_insert(parseDict, sprintedNumber);
-            compAddrOfEnumData->operands[2].type.basicType = select_variable_type_for_literal(sprintedNumber);
-            compAddrOfEnumData->operands[2].permutation = VP_LITERAL;
-            tac_operand_populate_as_temp(&compAddrOfEnumData->operands[0], tempNum);
-            compAddrOfEnumData->operands[0].type = *tac_get_type_of_operand(compAddrOfEnumData, 1);
+            compAddrOfEnumData->operands[2].name.val = sizeof(size_t);
+            compAddrOfEnumData->operands[2].permutation = VP_LITERAL_VAL;
+            compAddrOfEnumData->operands[2].castAsType.basicType = select_variable_type_for_number(sizeof(size_t));
+
+            tac_operand_populate_as_temp(scope, &compAddrOfEnumData->operands[0], tempNum, tac_get_type_of_operand(compAddrOfEnumData, 1));
             basic_block_append(caseBlock, compAddrOfEnumData, tacIndex);
 
             // then, do the actual load from the computed address to the temporary
@@ -1571,12 +1571,9 @@ void walk_non_enum_match_arm(struct Ast *matchedValueTree,
 
         struct TACLine *matchJump = new_tac_line(TT_BEQ, matchedValueTree);
 
-        matchJump->operands[1].type = *tac_operand_get_type(matchedAgainstNumerical);
-        matchJump->operands[1].permutation = VP_LITERAL;
-
-        char printedMatchedValue[sprintedNumberLength];
-        snprintf(printedMatchedValue, sprintedNumberLength - 1, "%zu", matchedValue);
-        matchJump->operands[1].name.str = dictionary_lookup_or_insert(parseDict, printedMatchedValue);
+        matchJump->operands[1].permutation = VP_LITERAL_VAL;
+        matchJump->operands[1].name.val = matchedValue;
+        matchJump->operands[1].castAsType = *tac_operand_get_type(matchedAgainstNumerical);
 
         matchJump->operands[2] = *matchedAgainstNumerical;
 
@@ -1632,8 +1629,10 @@ void walk_match_statement(struct Ast *tree,
         struct TACLine *loadMatchedAgainst = new_tac_line(TT_LOAD, tree);
         loadMatchedAgainst->operands[1] = *addrOfMatchedAgainst;
         loadMatchedAgainst->operands[0] = *addrOfMatchedAgainst;
-        tac_operand_populate_as_temp(&loadMatchedAgainst->operands[0], tempNum);
-        tac_get_type_of_operand(loadMatchedAgainst, 0)->pointerLevel = 0;
+
+        struct Type matchedAgainstType = *tac_get_type_of_operand(loadMatchedAgainst, 0);
+        matchedAgainstType.pointerLevel--;
+        tac_operand_populate_as_temp(scope, &loadMatchedAgainst->operands[0], tempNum, &matchedAgainstType);
         matchedAgainstNumerical = loadMatchedAgainst->operands[0];
         basic_block_append(block, loadMatchedAgainst, tacIndex);
     }
@@ -1896,7 +1895,7 @@ void walk_assignment(struct Ast *tree,
 
     if (rhs->type == T_STRUCT_INITIALIZER)
     {
-        walk_struct_initializer(rhs, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+        walk_struct_initializer(rhs, block, scope, TACIndex, tempNum, &assignment->operands[0], tac_get_type_of_operand(assignment, 0));
         free(assignment);
         assignment = NULL;
     }
@@ -2005,15 +2004,14 @@ struct TACOperand *walk_bitwise_not(struct Ast *tree,
     // generically set to TT_ADD, we will actually set the operation within switch cases
     struct TACLine *bitwiseNotLine = new_tac_line(TT_BITWISE_NOT, tree);
 
-    tac_operand_populate_as_temp(&bitwiseNotLine->operands[0], tempNum);
-
     walk_sub_expression(tree->child, block, scope, TACIndex, tempNum, &bitwiseNotLine->operands[1]);
-    *tac_get_type_of_operand(bitwiseNotLine, 0) = *tac_get_type_of_operand(bitwiseNotLine, 1);
+    tac_operand_populate_as_temp(scope, &bitwiseNotLine->operands[0], tempNum, tac_get_type_of_operand(bitwiseNotLine, 1));
 
     struct TACOperand *operandA = &bitwiseNotLine->operands[1];
+    struct Type *operandAType = tac_operand_get_type(operandA);
 
     // TODO: consistent bitwise arithmetic checking, print type name
-    if ((operandA->type.pointerLevel > 0) || (operandA->type.basicType == VT_ARRAY))
+    if ((operandAType->pointerLevel > 0) || (operandAType->basicType == VT_ARRAY))
     {
         log_tree(LOG_FATAL, tree, "Bitwise arithmetic on pointers is not allowed!");
     }
@@ -2067,14 +2065,14 @@ void walk_struct_initializer(struct Ast *tree,
                              struct Scope *scope,
                              size_t *TACIndex,
                              size_t *tempNum,
-                             struct TACOperand *initialized)
+                             struct TACOperand *initialized,
+                             struct Type *initializedType)
 {
     if (tree->type != T_STRUCT_INITIALIZER)
     {
         log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_struct_initializer!", token_get_name(tree->type));
     }
 
-    struct Type *initializedType = tac_operand_get_type(initialized);
     // make sure we initialize only a struct or a struct*
     if (!type_is_struct_object(initializedType) && !((initializedType->basicType == VT_STRUCT) && (initializedType->pointerLevel == 1)))
     {
@@ -2083,7 +2081,7 @@ void walk_struct_initializer(struct Ast *tree,
 
     // automagically get the address of whatever we are initializing if it is a regular struct
     // TODO: test initializing pointers directly? Is this desirable behavior like allowing struct.field for both structs and struct*s or is this nonsense?
-    if (initializedType->pointerLevel == 0)
+    if (type_is_object(initializedType))
     {
         initialized = get_addr_of_operand(tree, block, scope, TACIndex, tempNum, initialized);
     }
@@ -2117,41 +2115,29 @@ void walk_struct_initializer(struct Ast *tree,
         }
 
         struct TACOperand initializedValue = {0};
-        initializedValue.type = initializedField->variable->type;
 
-        struct TACLine *getAddrOfField = new_tac_line(TT_FIELD_LEA, initRunner);
-        tac_operand_populate_as_temp(&getAddrOfField->operands[0], tempNum);
-        getAddrOfField->operands[0].type = initializedField->variable->type;
-        getAddrOfField->operands[0].type.pointerLevel++;
-
-        getAddrOfField->operands[1] = *initialized;
-        getAddrOfField->operands[2].name.str = initializedField->variable->name;
-        basic_block_append(block, getAddrOfField, TACIndex);
+        struct TACLine *fieldStore = new_tac_line(TT_FIELD_STORE, initRunner);
+        fieldStore->operands[0] = *initialized;
+        fieldStore->operands[1].name.str = initializedField->variable->name;
 
         if (initToTree->type == T_STRUCT_INITIALIZER)
         {
             // we are initializing the field directly from its address, recurse
-            initializedValue = getAddrOfField->operands[0];
-            walk_struct_initializer(initToTree, block, scope, TACIndex, tempNum, &initializedValue);
+            tac_operand_populate_as_temp(scope, &fieldStore->operands[2], tempNum, &initializedField->variable->type);
+            walk_struct_initializer(initToTree, block, scope, TACIndex, tempNum, &fieldStore->operands[2], &initializedField->variable->type);
         }
         else
         {
-            walk_sub_expression(initToTree, block, scope, TACIndex, tempNum, &initializedValue);
+            walk_sub_expression(initToTree, block, scope, TACIndex, tempNum, &fieldStore->operands[2]);
 
             // make sure the subexpression has a sane type to be stored in the field we are initializing
-            if (type_compare_allow_implicit_widening(tac_operand_get_type(&initializedValue), &initializedField->variable->type))
+            if (type_compare_allow_implicit_widening(tac_get_type_of_operand(fieldStore, 2), &initializedField->variable->type))
             {
                 log_tree(LOG_FATAL, initToTree, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, initializedField->variable->name, type_get_name(tac_operand_get_type(&initializedValue)), type_get_name(&initializedField->variable->type));
             }
-
-            // direct memory write for the store of this field
-            struct TACLine *storeInitializedValue = new_tac_line(TT_STORE, initRunner);
-            storeInitializedValue->operands[1] = initializedValue;
-            storeInitializedValue->operands[0] = getAddrOfField->operands[0];
-
-            basic_block_append(block, storeInitializedValue, TACIndex);
-            log(LOG_WARNING, "init %s.%s to %s", initializedType->nonArray.complexType.name, initializedField->variable->name, initToTree->value);
         }
+        log(LOG_WARNING, "init %s.%s to %s", initializedType->nonArray.complexType.name, initializedField->variable->name, initToTree->value);
+        basic_block_append(block, fieldStore, TACIndex);
 
         initFieldIdx++;
     }
@@ -2168,11 +2154,13 @@ void walk_enum_subexpression(struct Ast *tree,
                              struct EnumEntry *fromEnum)
 {
     type_init(&destinationOperand->castAsType);
-    type_init(&destinationOperand->type);
     // we're going to have a temp
-    tac_operand_populate_as_temp(destinationOperand, tempNum);
-    destinationOperand->type.basicType = VT_ENUM;
-    destinationOperand->type.nonArray.complexType.name = fromEnum->name;
+    struct Type enumType;
+    type_init(&enumType);
+    enumType.basicType = VT_ENUM;
+    enumType.nonArray.complexType.name = fromEnum->name;
+
+    tac_operand_populate_as_temp(scope, destinationOperand, tempNum, &enumType);
 
     struct EnumMember *member = enum_lookup_member(fromEnum, tree);
 
@@ -2182,11 +2170,10 @@ void walk_enum_subexpression(struct Ast *tree,
     // the first sizeof(size_t) bytes of this enum are the numerical index of the member with which we are dealing
     struct TACLine *writeEnumNumericalLine = new_tac_line(TT_STORE, tree);
     writeEnumNumericalLine->operands[0] = *destAddr;
-    char sprintNumStr[sprintedNumberLength];
-    snprintf(sprintNumStr, sprintedNumberLength - 1, "%zu", member->numerical);
-    writeEnumNumericalLine->operands[1].name.str = dictionary_lookup_or_insert(parseDict, sprintNumStr);
-    writeEnumNumericalLine->operands[1].type.basicType = VT_U64; // TODO: define for size_t
-    writeEnumNumericalLine->operands[1].permutation = VP_LITERAL;
+
+    writeEnumNumericalLine->operands[1].name.val = member->numerical;
+    writeEnumNumericalLine->operands[1].castAsType.basicType = select_variable_type_for_number(member->numerical); // TODO: define for size_t
+    writeEnumNumericalLine->operands[1].permutation = VP_LITERAL_VAL;
 
     // treat our enum dest addr as actually a pointer to the numerical index of what member it is
     writeEnumNumericalLine->operands[0].castAsType = *tac_get_type_of_operand(writeEnumNumericalLine, 1);
@@ -2204,27 +2191,23 @@ void walk_enum_subexpression(struct Ast *tree,
 
         // compute the address where the actual data lives in this enum object (base address + sizeof(size_t))
         struct TACLine *enumDataAddrCompLine = new_tac_line(TT_ADD, tree->child);
-        tac_operand_populate_as_temp(&enumDataAddrCompLine->operands[0], tempNum);
-        enumDataAddrCompLine->operands[0].type = *tac_operand_get_type(destAddr);
+        tac_operand_populate_as_temp(scope, &enumDataAddrCompLine->operands[0], tempNum, tac_operand_get_type(destAddr));
 
         enumDataAddrCompLine->operands[1] = *destAddr;
 
-        enumDataAddrCompLine->operands[2].permutation = VP_LITERAL;
-        char sprintNumStr[sprintedNumberLength];
-        snprintf(sprintNumStr, sprintedNumberLength - 1, "%zu", sizeof(size_t));
-        enumDataAddrCompLine->operands[2].name.str = dictionary_lookup_or_insert(parseDict, sprintNumStr);
-        enumDataAddrCompLine->operands[2].type.basicType = select_variable_type_for_literal(sprintNumStr);
+        enumDataAddrCompLine->operands[2].permutation = VP_LITERAL_VAL;
+        enumDataAddrCompLine->operands[2].name.val = sizeof(size_t);
+        enumDataAddrCompLine->operands[2].castAsType.basicType = select_variable_type_for_number(sizeof(size_t));
         basic_block_append(block, enumDataAddrCompLine, TACIndex);
 
         // we will need an intermediate operand which will actually store the data before it is written to the true enum location
         struct TACOperand enumData = {0};
-        enumData.type = member->type;
 
         switch (tree->child->type)
         {
         case T_STRUCT_INITIALIZER:
-            tac_operand_populate_as_temp(&enumData, tempNum);
-            walk_struct_initializer(tree->child, block, scope, TACIndex, tempNum, &enumData);
+            tac_operand_populate_as_temp(scope, &enumData, tempNum, &member->type);
+            walk_struct_initializer(tree->child, block, scope, TACIndex, tempNum, &enumData, &member->type);
             break;
 
         default:
@@ -2295,11 +2278,10 @@ void walk_sub_expression(struct Ast *tree,
 
     // FIXME: there exists some code path where we can reach this point with garbage in types, resulting in a crash when printing TAC operand types
     case T_CONSTANT:
-        type_init(&destinationOperand->type);
         type_init(&destinationOperand->castAsType);
         destinationOperand->name.str = tree->value;
-        destinationOperand->type.basicType = select_variable_type_for_literal(tree->value);
-        destinationOperand->permutation = VP_LITERAL;
+        destinationOperand->castAsType.basicType = select_variable_type_for_literal(tree->value);
+        destinationOperand->permutation = VP_LITERAL_STR;
         break;
 
     case T_CHAR_LITERAL:
@@ -2365,8 +2347,8 @@ void walk_sub_expression(struct Ast *tree,
         }
 
         destinationOperand->name.str = dictionary_lookup_or_insert(parseDict, literalAsNumber);
-        destinationOperand->type.basicType = VT_U8;
-        destinationOperand->permutation = VP_LITERAL;
+        destinationOperand->castAsType.basicType = VT_U8;
+        destinationOperand->permutation = VP_LITERAL_STR;
     }
     break;
 
@@ -2458,8 +2440,11 @@ void walk_sub_expression(struct Ast *tree,
 
         // Walk the right child of the cast, the subexpression we are casting
         walk_sub_expression(tree->child->sibling, block, scope, TACIndex, tempNum, &expressionResult);
+
+        struct Type castTo;
+        type_init(&castTo);
         // set the result's cast as type based on the child of the cast, the type we are casting to
-        walk_type_name(tree->child, scope, &expressionResult.castAsType);
+        walk_type_name(tree->child, scope, &castTo);
 
         // TODO: allow casting to arrays?
         if (type_is_object(&expressionResult.castAsType))
@@ -2468,11 +2453,10 @@ void walk_sub_expression(struct Ast *tree,
             log_tree(LOG_FATAL, tree->child, "Casting to an object (%s) is not allowed!", castToType);
         }
 
-        struct Type *castFrom = &expressionResult.type;
-        struct Type *castTo = &expressionResult.castAsType;
+        struct Type *castFrom = tac_operand_get_non_cast_type(&expressionResult);
 
         // If necessary, lop bits off the big end of the value with an explicit bitwise and operation, storing to an intermediate temp
-        if (type_compare_allow_implicit_widening(castFrom, castTo) && (castTo->pointerLevel == 0))
+        if (type_compare_allow_implicit_widening(castFrom, &castTo) && (castTo.pointerLevel == 0))
         {
             struct TACLine *castBitManipulation = new_tac_line(TT_BITWISE_AND, tree);
 
@@ -2480,35 +2464,42 @@ void walk_sub_expression(struct Ast *tree,
             castBitManipulation->operands[1] = expressionResult;
 
             // construct the bit pattern we will use in order to properly mask off the extra bits (TODO: will not hold for unsigned types)
-            castBitManipulation->operands[2].permutation = VP_LITERAL;
-            castBitManipulation->operands[2].type.basicType = VT_U32;
+            // TODO: rectify to use VP_LITERAL_VAL
+            castBitManipulation->operands[2].permutation = VP_LITERAL_VAL;
+            castBitManipulation->operands[2].castAsType.basicType = VT_U64; // TODO: define for size_t type
 
-            char literalAndValue[sprintedNumberLength];
-            // manually generate a string with an 'F' hex digit for each 4 bits in the mask
-            sprintf(literalAndValue, "0x");
-            const u8 BITS_PER_BYTE = 8; // TODO: move to substratum_defs?
-            size_t maskBitWidth = (BITS_PER_BYTE * type_get_size(tac_get_type_of_operand(castBitManipulation, 1), scope));
-            size_t maskBit = 0;
-            for (maskBit = 0; maskBit < maskBitWidth; maskBit += 4)
+            size_t castToWidth = type_get_size(&castTo, scope);
+            switch (castToWidth)
             {
-                literalAndValue[2 + (maskBit / 4)] = 'F';
-                literalAndValue[3 + (maskBit / 4)] = '\0';
+            case sizeof(u8):
+                castBitManipulation->operands[2].name.val = U8_MAX;
+                break;
+            case sizeof(u16):
+                castBitManipulation->operands[2].name.val = U16_MAX;
+                break;
+            case sizeof(u32):
+                castBitManipulation->operands[2].name.val = U32_MAX;
+                break;
+            case sizeof(u64):
+                castBitManipulation->operands[2].name.val = U64_MAX;
+                break;
+            default:
+                InternalError("Type case to size not equal to any integral type size (%zu)!", castToWidth);
             }
 
-            castBitManipulation->operands[2].name.str = dictionary_lookup_or_insert(parseDict, literalAndValue);
-
             // destination of our bit manipulation is a temporary variable with the type to which we are casting
-            tac_operand_populate_as_temp(&castBitManipulation->operands[0], tempNum);
-            castBitManipulation->operands[0].type = *tac_get_type_of_operand(castBitManipulation, 1);
+            tac_operand_populate_as_temp(scope, &castBitManipulation->operands[0], tempNum, tac_get_type_of_operand(castBitManipulation, 1));
 
             // attach our bit manipulation operation to the end of the basic block
             basic_block_append(block, castBitManipulation, TACIndex);
             // set the destination operation of this subexpression to read the manipulated value we just wrote
+            castBitManipulation->operands[0].castAsType = castTo;
             *destinationOperand = castBitManipulation->operands[0];
         }
         else
         {
             // no bit manipulation required, simply set the destination operand to the result of the casted subexpression (with cast as type set by us)
+            expressionResult.castAsType = castTo;
             *destinationOperand = expressionResult;
         }
     }
@@ -2607,7 +2598,7 @@ struct Stack *walk_argument_pushes(struct Ast *argumentRunner,
         }
         else
         {
-            char *convertFromType = type_get_name(&push->operands[0].type);
+            char *convertFromType = type_get_name(tac_get_type_of_operand(push, 0));
             char *convertToType = type_get_name(&expectedArgument->type);
             log_tree(LOG_FATAL, pushedArgument,
                      "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s",
@@ -2618,8 +2609,8 @@ struct Stack *walk_argument_pushes(struct Ast *argumentRunner,
         }
 
         push->operands[1].name.val = expectedArgument->stackOffset;
-        push->operands[1].type.basicType = VT_U64;
-        push->operands[1].permutation = VP_LITERAL;
+        push->operands[1].castAsType.basicType = select_variable_type_for_number(expectedArgument->stackOffset);
+        push->operands[1].permutation = VP_LITERAL_VAL;
 
         argIndex--;
     }
@@ -2649,10 +2640,8 @@ void handle_struct_return(struct Ast *callTree,
     if (destinationOperand != NULL)
     {
         struct TACOperand intermediateReturnObject = {0};
-        tac_operand_populate_as_temp(&intermediateReturnObject, tempNum);
+        tac_operand_populate_as_temp(scope, &intermediateReturnObject, tempNum, &calledFunction->returnType);
         log_tree(LOG_DEBUG, callTree, "Call to %s returns struct in %s", calledFunction->name, intermediateReturnObject.name.str);
-        intermediateReturnObject.type = calledFunction->returnType;
-        type_init(&intermediateReturnObject.castAsType);
 
         *destinationOperand = intermediateReturnObject;
         struct TACOperand *addrOfReturnObject = get_addr_of_operand(callTree, block, scope, TACIndex, tempNum, &intermediateReturnObject);
@@ -2665,8 +2654,8 @@ void handle_struct_return(struct Ast *callTree,
     }
     struct VariableEntry *expectedArgument = calledFunction->arguments->data[0];
     outPointerPush->operands[1].name.val = expectedArgument->stackOffset;
-    outPointerPush->operands[1].type.basicType = VT_U64;
-    outPointerPush->operands[1].permutation = VP_LITERAL;
+    outPointerPush->operands[1].castAsType.basicType = select_variable_type_for_number(expectedArgument->stackOffset);
+    outPointerPush->operands[1].permutation = VP_LITERAL_VAL;
 
     stack_push(argumentPushes, outPointerPush);
 }
@@ -2685,6 +2674,7 @@ void reserve_and_store_stack_args(struct Ast *callTree, struct FunctionEntry *ca
 struct TACLine *generate_call_tac(struct Ast *callTree,
                                   struct FunctionEntry *calledFunction,
                                   struct BasicBlock *block,
+                                  struct Scope *scope,
                                   size_t *TACIndex,
                                   size_t *tempNum,
                                   struct TACOperand *destinationOperand)
@@ -2692,13 +2682,15 @@ struct TACLine *generate_call_tac(struct Ast *callTree,
     log_tree(LOG_DEBUG, callTree, "generateCallTac");
 
     struct TACLine *call = new_tac_line(TT_FUNCTION_CALL, callTree);
+    call->operands[0].permutation = VP_LITERAL_VAL;
+
     call->operands[1].name.str = calledFunction->name;
+    call->operands[1].permutation = VP_LITERAL_STR;
     basic_block_append(block, call, TACIndex);
 
     if ((destinationOperand != NULL) && !type_is_object(&calledFunction->returnType))
     {
-        call->operands[0].type = calledFunction->returnType;
-        tac_operand_populate_as_temp(&call->operands[0], tempNum);
+        tac_operand_populate_as_temp(scope, &call->operands[0], tempNum, &calledFunction->returnType);
 
         *destinationOperand = call->operands[0];
     }
@@ -2740,7 +2732,7 @@ void walk_function_call(struct Ast *tree,
 
     stack_free(argumentPushes);
 
-    generate_call_tac(tree, calledFunction, block, TACIndex, tempNum, destinationOperand);
+    generate_call_tac(tree, calledFunction, block, scope, TACIndex, tempNum, destinationOperand);
 }
 
 void walk_method_call(struct Ast *tree,
@@ -2814,8 +2806,8 @@ void walk_method_call(struct Ast *tree,
     struct TACLine *pThisPush = new_tac_line(TT_ARG_STORE, structTree);
     pThisPush->operands[0] = structOperand;
     pThisPush->operands[1].name.val = 0;
-    pThisPush->operands[1].type.basicType = VT_U64;
-    pThisPush->operands[1].permutation = VP_LITERAL;
+    pThisPush->operands[1].castAsType.basicType = select_variable_type_for_number(0);
+    pThisPush->operands[1].permutation = VP_LITERAL_VAL;
 
     stack_push(argumentPushes, pThisPush);
 
@@ -2825,10 +2817,10 @@ void walk_method_call(struct Ast *tree,
 
     stack_free(argumentPushes);
 
-    struct TACLine *callLine = generate_call_tac(tree, calledFunction, block, TACIndex, tempNum, destinationOperand);
+    struct TACLine *callLine = generate_call_tac(tree, calledFunction, block, scope, TACIndex, tempNum, destinationOperand);
     callLine->operation = TT_METHOD_CALL;
-    callLine->operands[2].type.basicType = VT_STRUCT;
-    callLine->operands[2].type.nonArray.complexType.name = structCalledOn->name;
+    callLine->operands[2].castAsType.basicType = VT_STRUCT;
+    callLine->operands[2].castAsType.nonArray.complexType.name = structCalledOn->name;
 }
 
 void walk_associated_call(struct Ast *tree,
@@ -2875,10 +2867,10 @@ void walk_associated_call(struct Ast *tree,
 
     stack_free(argumentPushes);
 
-    struct TACLine *callLine = generate_call_tac(tree, calledFunction, block, TACIndex, tempNum, destinationOperand);
+    struct TACLine *callLine = generate_call_tac(tree, calledFunction, block, scope, TACIndex, tempNum, destinationOperand);
     callLine->operation = TT_ASSOCIATED_CALL;
-    callLine->operands[2].type.basicType = VT_STRUCT;
-    callLine->operands[2].type.nonArray.complexType.name = structCalledOn->name;
+    callLine->operands[2].castAsType.basicType = VT_STRUCT;
+    callLine->operands[2].castAsType.nonArray.complexType.name = structCalledOn->name;
 }
 
 struct TACLine *walk_field_access(struct Ast *tree,
@@ -2924,8 +2916,6 @@ struct TACLine *walk_field_access(struct Ast *tree,
 
     // our access line is a completely new TAC line, which is a load operation with an offset, storing the load result to a temp
     accessLine = new_tac_line(TT_FIELD_LOAD, tree);
-
-    tac_operand_populate_as_temp(&accessLine->operands[0], tempNum);
 
     // we may need to do some manipulation of the subexpression depending on what exactly we're dotting
     switch (lhs->type)
@@ -3029,7 +3019,7 @@ struct TACLine *walk_field_access(struct Ast *tree,
     struct StructField *accessedField = struct_lookup_field(accessedStruct, rhs, scope);
 
     // populate type information (use cast for the first operand as we are treating a struct as a pointer to something else with a given offset)
-    accessLine->operands[0].type = accessedField->variable->type; // copy type info to the temp we're reading to
+    tac_operand_populate_as_temp(scope, &accessLine->operands[0], tempNum, &accessedField->variable->type);
 
     accessLine->operands[2].name.str = accessedField->variable->name;
 
@@ -3115,15 +3105,6 @@ void walk_non_pointer_arithmetic(struct Ast *tree,
             log_tree(LOG_FATAL, tree->child, "Arithmetic operation attempted on type %s, %s is only allowed on non-indirect types", typeName, tree->value);
         }
     }
-
-    if (type_get_size(tac_get_type_of_operand(expression, 1), scope) > type_get_size(tac_get_type_of_operand(expression, 2), scope))
-    {
-        *tac_get_type_of_operand(expression, 0) = *tac_get_type_of_operand(expression, 1);
-    }
-    else
-    {
-        *tac_get_type_of_operand(expression, 0) = *tac_get_type_of_operand(expression, 2);
-    }
 }
 
 struct TACOperand *walk_expression(struct Ast *tree,
@@ -3136,8 +3117,6 @@ struct TACOperand *walk_expression(struct Ast *tree,
 
     // generically set to TT_ADD, we will actually set the operation within switch cases
     struct TACLine *expression = new_tac_line(TT_SUBTRACT, tree);
-
-    tac_operand_populate_as_temp(&expression->operands[0], tempNum);
 
     u8 fallingThrough = 0;
 
@@ -3173,10 +3152,13 @@ struct TACOperand *walk_expression(struct Ast *tree,
         // TODO: explicitly disallow arithmetic on array types?
         if (tac_get_type_of_operand(expression, 1)->pointerLevel > 0)
         {
-            struct TACLine *scaleMultiply = set_up_scale_multiplication(tree, scope, TACIndex, tempNum, tac_get_type_of_operand(expression, 1));
-            walk_sub_expression(tree->child->sibling, block, scope, TACIndex, tempNum, &scaleMultiply->operands[1]);
+            struct TACOperand offset;
 
-            scaleMultiply->operands[0].type = scaleMultiply->operands[1].type;
+            walk_sub_expression(tree->child->sibling, block, scope, TACIndex, tempNum, &offset);
+            struct TACLine *scaleMultiply = set_up_scale_multiplication(tree, scope, TACIndex, tempNum, tac_get_type_of_operand(expression, 1), tac_operand_get_type(&offset));
+            scaleMultiply->operands[1] = offset;
+
+            tac_operand_populate_as_temp(scope, &scaleMultiply->operands[0], tempNum, tac_operand_get_type(&offset));
             expression->operands[2] = scaleMultiply->operands[0];
 
             basic_block_append(block, scaleMultiply, TACIndex);
@@ -3187,27 +3169,28 @@ struct TACOperand *walk_expression(struct Ast *tree,
         }
 
         // TODO: generate errors for array types
-        struct TACOperand *operandA = &expression->operands[1];
-        struct TACOperand *operandB = &expression->operands[2];
-        if ((operandA->type.pointerLevel > 0) && (operandB->type.pointerLevel > 0))
-        {
-            log_tree(LOG_FATAL, tree, "Arithmetic between 2 pointers is not allowed!");
-        }
-
-        // TODO generate errors for bad pointer arithmetic here
-        if (type_get_size(tac_operand_get_type(operandA), scope) > type_get_size(tac_operand_get_type(operandB), scope))
-        {
-            *tac_get_type_of_operand(expression, 0) = *tac_operand_get_type(operandA);
-        }
-        else
-        {
-            *tac_get_type_of_operand(expression, 0) = *tac_operand_get_type(operandB);
-        }
     }
     break;
 
     default:
         log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_expression!", token_get_name(tree->type));
+    }
+
+    struct Type *operandAType = tac_get_type_of_operand(expression, 1);
+    struct Type *operandBType = tac_get_type_of_operand(expression, 2);
+    if ((operandAType->pointerLevel > 0) && (operandBType->pointerLevel > 0))
+    {
+        log_tree(LOG_FATAL, tree, "Arithmetic between 2 pointers is not allowed!");
+    }
+
+    // TODO generate errors for bad pointer arithmetic here
+    if (type_get_size(operandAType, scope) > type_get_size(operandBType, scope))
+    {
+        tac_operand_populate_as_temp(scope, &expression->operands[0], tempNum, operandAType);
+    }
+    else
+    {
+        tac_operand_populate_as_temp(scope, &expression->operands[0], tempNum, operandBType);
     }
 
     basic_block_append(block, expression, TACIndex);
@@ -3234,6 +3217,8 @@ struct TACLine *walk_array_read(struct Ast *tree,
     struct TACLine *arrayRefTac = new_tac_line(TT_ARRAY_LOAD, tree);
     struct Type *arrayBaseType = NULL;
 
+    bool subtractLeaLevel = false;
+
     switch (arrayBase->type)
     {
     // if the array base is an identifier, we can just look it up
@@ -3252,12 +3237,12 @@ struct TACLine *walk_array_read(struct Ast *tree,
     }
     break;
 
+    // FIXME: multidimensional array accesses will break in the same way that struct.arrayField[123] did before specifically checking
     case T_DOT:
     {
         struct TACLine *arrayBaseAccessLine = walk_field_access(arrayBase, block, scope, TACIndex, tempNum, &arrayRefTac->operands[1], 0);
-        convert_field_load_to_lea(arrayBaseAccessLine, &arrayBaseAccessLine->operands[0]);
+        subtractLeaLevel = convert_field_load_to_lea(arrayBaseAccessLine, &arrayBaseAccessLine->operands[0]);
         arrayBaseType = tac_get_type_of_operand(arrayBaseAccessLine, 0);
-        arrayBaseType->pointerLevel = 1; // TODO: should this be += 1?
     }
     break;
 
@@ -3276,18 +3261,28 @@ struct TACLine *walk_array_read(struct Ast *tree,
     break;
     }
 
-    arrayRefTac->operands[0] = arrayRefTac->operands[1];
-    tac_operand_populate_as_temp(&arrayRefTac->operands[0], tempNum);
+    struct Type arrayMemberType = *tac_get_type_of_operand(arrayRefTac, 1);
 
     if ((!type_is_array_object(arrayBaseType)) && (arrayBaseType->pointerLevel == 0))
     {
         InternalError("Array-referenced type has non-indirect type of %s", type_get_name(tac_get_type_of_operand(arrayRefTac, 0)));
     }
 
-    type_single_decay(tac_get_type_of_operand(arrayRefTac, 0));
-    arrayRefTac->operands[0].type.pointerLevel--;
+    if (subtractLeaLevel)
+    {
+        arrayMemberType.pointerLevel--;
+    }
+
+    if (arrayMemberType.pointerLevel == 0)
+    {
+        type_single_decay(&arrayMemberType);
+    }
+    arrayMemberType.pointerLevel--;
+    tac_operand_populate_as_temp(scope, &arrayRefTac->operands[0], tempNum, &arrayMemberType);
 
     walk_sub_expression(arrayIndex, block, scope, TACIndex, tempNum, &arrayRefTac->operands[2]);
+
+    tac_operand_populate_as_temp(scope, &arrayRefTac->operands[0], tempNum, &arrayMemberType);
 
     basic_block_append(block, arrayRefTac, TACIndex);
     return arrayRefTac;
@@ -3332,9 +3327,9 @@ struct TACOperand *walk_dereference(struct Ast *tree,
         log_tree(LOG_FATAL, tree, "Dereference on non-pointer type %s is not allowed!", type_get_name(dereferencedType));
     }
 
-    dereference->operands[0] = dereference->operands[1];
-    tac_get_type_of_operand(dereference, 0)->pointerLevel--;
-    tac_operand_populate_as_temp(&dereference->operands[0], tempNum);
+    struct Type typeAfterDereference = *tac_get_type_of_operand(dereference, 1);
+    typeAfterDereference.pointerLevel--;
+    tac_operand_populate_as_temp(scope, &dereference->operands[0], tempNum, &typeAfterDereference);
 
     basic_block_append(block, dereference, TACIndex);
 
@@ -3356,11 +3351,10 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
 
     // TODO: helper function for getting address of
     struct TACLine *addrOfLine = new_tac_line(TT_ADDROF, tree);
-    tac_operand_populate_as_temp(&addrOfLine->operands[0], tempNum);
 
     switch (tree->child->type)
     {
-    // look up the variable entry and ensure that we will spill it to the stack since we take its address
+    // look up the variable entry for what address is taken of to generate verbose errors if it doesn't exist
     case T_IDENTIFIER:
     {
         struct VariableEntry *addrTakenOf = scope_lookup_var(scope, tree->child);
@@ -3368,20 +3362,19 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
         {
             log_tree(LOG_FATAL, tree->child, "Can't take address of local array %s!", addrTakenOf->name);
         }
-        addrTakenOf->mustSpill = 1;
         walk_sub_expression(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1]);
     }
     break;
 
     case T_ARRAY_INDEX:
     {
-        // use walk_array_access to generate the access we need, just the direct accessing load to an lea to calculate the address we would have loaded from
+        // use walk_array_read to generate the access we need, just the direct accessing load to an lea to calculate the address we would have loaded from
         struct TACLine *arrayRefLine = walk_array_read(tree->child, block, scope, TACIndex, tempNum);
         convert_array_load_to_lea(arrayRefLine, NULL);
         // early return, no need for explicit address-of TAC
         free_tac(addrOfLine);
         addrOfLine = NULL;
-
+        arrayRefLine->operands[1].name.variable->mustSpill = true;
         return &arrayRefLine->operands[0];
     }
     break;
@@ -3394,6 +3387,8 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
         convert_field_load_to_lea(fieldAccessLine, &addrOfLine->operands[1]);
         // free the line created at the top of this function and return early
         free_tac(addrOfLine);
+
+        fieldAccessLine->operands[1].name.variable->mustSpill = true;
         return &fieldAccessLine->operands[0];
     }
     break;
@@ -3402,9 +3397,11 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
         log_tree(LOG_FATAL, tree, "Address of operator is not supported for non-identifiers! Saw %s", token_get_name(tree->child->type));
     }
 
-    addrOfLine->operands[0].type = *tac_get_type_of_operand(addrOfLine, 1);
-    addrOfLine->operands[0].type.pointerLevel++;
+    addrOfLine->operands[1].name.variable->mustSpill = 1;
 
+    struct Type typeOfAddress = *tac_get_type_of_operand(addrOfLine, 1);
+    typeOfAddress.pointerLevel++;
+    tac_operand_populate_as_temp(scope, &addrOfLine->operands[0], tempNum, &typeOfAddress);
     basic_block_append(block, addrOfLine, TACIndex);
 
     return &addrOfLine->operands[0];
@@ -3435,18 +3432,16 @@ void walk_pointer_arithmetic(struct Ast *tree,
 
     walk_sub_expression(pointerArithLhs, block, scope, TACIndex, tempNum, &pointerArithmetic->operands[1]);
 
-    pointerArithmetic->operands[0] = pointerArithmetic->operands[1];
-    tac_operand_populate_as_temp(&pointerArithmetic->operands[0], tempNum);
+    tac_operand_populate_as_temp(scope, &pointerArithmetic->operands[0], tempNum, tac_get_type_of_operand(pointerArithmetic, 1));
 
     struct TACLine *scaleMultiplication = set_up_scale_multiplication(pointerArithRhs,
                                                                       scope,
                                                                       TACIndex,
                                                                       tempNum,
+                                                                      tac_get_type_of_operand(pointerArithmetic, 1),
                                                                       tac_get_type_of_operand(pointerArithmetic, 1));
-
     walk_sub_expression(pointerArithRhs, block, scope, TACIndex, tempNum, &scaleMultiplication->operands[1]);
-
-    *tac_get_type_of_operand(scaleMultiplication, 0) = *tac_get_type_of_operand(scaleMultiplication, 1);
+    tac_operand_populate_as_temp(scope, &pointerArithmetic->operands[0], tempNum, tac_get_type_of_operand(pointerArithmetic, 1));
 
     pointerArithmetic->operands[2] = scaleMultiplication->operands[0];
 
@@ -3568,8 +3563,6 @@ void walk_string_literal(struct Ast *tree,
 
     free(stringValue);
     tac_operand_populate_from_variable(destinationOperand, stringLiteralEntry);
-    destinationOperand->name.str = stringName;
-    destinationOperand->type = stringLiteralEntry->type;
 }
 
 void walk_sizeof(struct Ast *tree,
@@ -3624,9 +3617,7 @@ void walk_sizeof(struct Ast *tree,
         log_tree(LOG_FATAL, tree, "sizeof is only supported on type names and identifiers!");
     }
 
-    char sizeString[sprintedNumberLength];
-    snprintf(sizeString, sprintedNumberLength - 1, "%zu", sizeInBytes);
-    destinationOperand->type.basicType = VT_U8;
-    destinationOperand->permutation = VP_LITERAL;
-    destinationOperand->name.str = dictionary_lookup_or_insert(parseDict, sizeString);
+    destinationOperand->castAsType.basicType = VT_U8; // TODO: calc size
+    destinationOperand->permutation = VP_LITERAL_VAL;
+    destinationOperand->name.val = sizeInBytes;
 }

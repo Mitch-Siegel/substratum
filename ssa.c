@@ -347,9 +347,9 @@ void rename_read_tac_operands_in_block(struct BasicBlock *block, void *data)
 
             // for operands we write, track that we wrote them within this block so their definitions can supersede any SSA variables live in to this block
             case U_WRITE:
-                if (thisOperand->permutation == VP_LITERAL)
+                if ((thisOperand->permutation == VP_LITERAL_STR) || (thisOperand->permutation == VP_LITERAL_VAL))
                 {
-                    InternalError("Written operand with permutation VP_LITERAL seen in renameReadTacOperands!");
+                    InternalError("Written operand with permutation VP_LITERAL_STR or VP_LITERAL_VAL seen in renameReadTacOperands!");
                 }
                 if (set_find(ssaLivesFromThisBlock, thisOperand) != NULL)
                 {

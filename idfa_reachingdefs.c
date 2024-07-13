@@ -90,7 +90,7 @@ struct Idfa *analyze_reaching_defs(struct IdfaContext *context)
                                                reacing_defs_find_gen_kills,
                                                D_FORWARDS,
                                                tac_operand_compare,
-                                               tac_operand_print,
+                                               tac_operand_sprint,
                                                set_union);
 
     return reacingDefsIdfa;

@@ -101,20 +101,34 @@ struct Scope *scope_create_sub_scope(struct Scope *parent_scope)
 
 // create a variable within the given scope
 struct VariableEntry *scope_create_variable(struct Scope *scope,
-                                            struct Ast *name,
+                                            struct Ast *nameTree,
                                             struct Type *type,
                                             bool isGlobal,
                                             enum ACCESS accessibility)
 {
-
-    struct VariableEntry *newVariable = variable_entry_new(name->value, type, isGlobal, false, accessibility);
-
-    if (scope_contains(scope, name->value))
+    if (scope_contains(scope, nameTree->value))
     {
-        log_tree(LOG_FATAL, name, "Redifinition of symbol %s!", name->value);
+        log_tree(LOG_FATAL, nameTree, "Redifinition of symbol %s!", nameTree->value);
     }
 
-    scope_insert(scope, name->value, newVariable, E_VARIABLE, accessibility);
+    return scope_create_variable_by_name(scope, nameTree->value, type, isGlobal, accessibility);
+}
+
+// create a variable within the given scope
+struct VariableEntry *scope_create_variable_by_name(struct Scope *scope,
+                                                    char *name,
+                                                    struct Type *type,
+                                                    bool isGlobal,
+                                                    enum ACCESS accessibility)
+{
+    if (scope_contains(scope, name))
+    {
+        InternalError("Redifinition of symbol %s!", name);
+    }
+
+    struct VariableEntry *newVariable = variable_entry_new(name, type, isGlobal, false, accessibility);
+
+    scope_insert(scope, name, newVariable, E_VARIABLE, accessibility);
 
     return newVariable;
 }
