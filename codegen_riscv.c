@@ -1050,7 +1050,14 @@ void riscv_emit_struct_field_store(struct TACLine *generate, struct CodegenState
     }
     else
     {
-        InternalError("Codegen for struct field store of object-type struct fields not yet implemented!");
+        struct Register *sourceAddrReg = acquire_scratch_register(info);
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands[2], sourceAddrReg);
+        try_release_scratch_register(info, structBaseAddrReg);
+        struct Register *fieldAddrReg = acquire_scratch_register(info);
+        emit_instruction(generate, state, "\taddi %s, %s, %zu\n", fieldAddrReg->name, structBaseAddrReg->name, storedField->offset);
+        struct Register *scratchReg = acquire_scratch_register(info);
+
+        riscv_generate_internal_copy(generate, state, sourceAddrReg, fieldAddrReg, scratchReg, type_get_size(tac_get_type_of_operand(generate, 2), metadata->scope));
     }
 }
 

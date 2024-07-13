@@ -90,6 +90,8 @@ struct TACOperand *get_addr_of_operand(struct Ast *tree,
                                        struct TACOperand *getAddrOf)
 {
     struct TACLine *addrOfLine = new_tac_line(TT_ADDROF, tree);
+
+    getAddrOf->name.variable->mustSpill = true;
     addrOfLine->operands[1] = *getAddrOf;
 
     struct Type typeOfAddress = *tac_operand_get_type(getAddrOf);
@@ -2079,7 +2081,7 @@ void walk_struct_initializer(struct Ast *tree,
 
     // automagically get the address of whatever we are initializing if it is a regular struct
     // TODO: test initializing pointers directly? Is this desirable behavior like allowing struct.field for both structs and struct*s or is this nonsense?
-    if (initializedType->pointerLevel == 0)
+    if (type_is_object(initializedType))
     {
         initialized = get_addr_of_operand(tree, block, scope, TACIndex, tempNum, initialized);
     }
@@ -2114,39 +2116,28 @@ void walk_struct_initializer(struct Ast *tree,
 
         struct TACOperand initializedValue = {0};
 
-        struct TACLine *getAddrOfField = new_tac_line(TT_FIELD_LEA, initRunner);
-        struct Type fieldAddrType = initializedField->variable->type;
-        fieldAddrType.pointerLevel++;
-        tac_operand_populate_as_temp(scope, &getAddrOfField->operands[0], tempNum, &fieldAddrType);
-
-        getAddrOfField->operands[1] = *initialized;
-        getAddrOfField->operands[2].name.str = initializedField->variable->name;
-        basic_block_append(block, getAddrOfField, TACIndex);
+        struct TACLine *fieldStore = new_tac_line(TT_FIELD_STORE, initRunner);
+        fieldStore->operands[0] = *initialized;
+        fieldStore->operands[1].name.str = initializedField->variable->name;
 
         if (initToTree->type == T_STRUCT_INITIALIZER)
         {
             // we are initializing the field directly from its address, recurse
-            initializedValue = getAddrOfField->operands[0];
-            walk_struct_initializer(initToTree, block, scope, TACIndex, tempNum, &initializedValue, &initializedField->variable->type);
+            tac_operand_populate_as_temp(scope, &fieldStore->operands[2], tempNum, &initializedField->variable->type);
+            walk_struct_initializer(initToTree, block, scope, TACIndex, tempNum, &fieldStore->operands[2], &initializedField->variable->type);
         }
         else
         {
-            walk_sub_expression(initToTree, block, scope, TACIndex, tempNum, &initializedValue);
+            walk_sub_expression(initToTree, block, scope, TACIndex, tempNum, &fieldStore->operands[2]);
 
             // make sure the subexpression has a sane type to be stored in the field we are initializing
-            if (type_compare_allow_implicit_widening(tac_operand_get_type(&initializedValue), &initializedField->variable->type))
+            if (type_compare_allow_implicit_widening(tac_get_type_of_operand(fieldStore, 2), &initializedField->variable->type))
             {
                 log_tree(LOG_FATAL, initToTree, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, initializedField->variable->name, type_get_name(tac_operand_get_type(&initializedValue)), type_get_name(&initializedField->variable->type));
             }
-
-            // direct memory write for the store of this field
-            struct TACLine *storeInitializedValue = new_tac_line(TT_STORE, initRunner);
-            storeInitializedValue->operands[1] = initializedValue;
-            storeInitializedValue->operands[0] = getAddrOfField->operands[0];
-
-            basic_block_append(block, storeInitializedValue, TACIndex);
-            log(LOG_WARNING, "init %s.%s to %s", initializedType->nonArray.complexType.name, initializedField->variable->name, initToTree->value);
         }
+        log(LOG_WARNING, "init %s.%s to %s", initializedType->nonArray.complexType.name, initializedField->variable->name, initToTree->value);
+        basic_block_append(block, fieldStore, TACIndex);
 
         initFieldIdx++;
     }
@@ -3363,7 +3354,7 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
 
     switch (tree->child->type)
     {
-    // look up the variable entry and ensure that we will spill it to the stack since we take its address
+    // look up the variable entry for what address is taken of to generate verbose errors if it doesn't exist
     case T_IDENTIFIER:
     {
         struct VariableEntry *addrTakenOf = scope_lookup_var(scope, tree->child);
@@ -3371,7 +3362,6 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
         {
             log_tree(LOG_FATAL, tree->child, "Can't take address of local array %s!", addrTakenOf->name);
         }
-        addrTakenOf->mustSpill = 1;
         walk_sub_expression(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1]);
     }
     break;
@@ -3384,7 +3374,7 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
         // early return, no need for explicit address-of TAC
         free_tac(addrOfLine);
         addrOfLine = NULL;
-
+        arrayRefLine->operands[1].name.variable->mustSpill = true;
         return &arrayRefLine->operands[0];
     }
     break;
@@ -3397,6 +3387,8 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
         convert_field_load_to_lea(fieldAccessLine, &addrOfLine->operands[1]);
         // free the line created at the top of this function and return early
         free_tac(addrOfLine);
+
+        fieldAccessLine->operands[1].name.variable->mustSpill = true;
         return &fieldAccessLine->operands[0];
     }
     break;
@@ -3404,6 +3396,8 @@ struct TACOperand *walk_addr_of(struct Ast *tree,
     default:
         log_tree(LOG_FATAL, tree, "Address of operator is not supported for non-identifiers! Saw %s", token_get_name(tree->child->type));
     }
+
+    addrOfLine->operands[1].name.variable->mustSpill = 1;
 
     struct Type typeOfAddress = *tac_get_type_of_operand(addrOfLine, 1);
     typeOfAddress.pointerLevel++;
