@@ -10,7 +10,7 @@ struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *
 {
     struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
     memset(newFunction, 0, sizeof(struct FunctionEntry));
-    newFunction->arguments = stack_new();
+    newFunction->arguments = old_stack_new();
     newFunction->mainScope = scope_new(parentScope, nameTree->value, newFunction, methodOf);
     newFunction->BasicBlockList = linked_list_new();
     newFunction->correspondingTree = *nameTree;
@@ -30,7 +30,7 @@ struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *
 
 void function_entry_free(struct FunctionEntry *function)
 {
-    stack_free(function->arguments);
+    old_stack_free(function->arguments);
     linked_list_free(function->BasicBlockList, NULL);
     scope_free(function->mainScope);
 

@@ -116,15 +116,15 @@ struct Stack
     size_t allocated;
 };
 
-struct Stack *stack_new();
+struct Stack *old_stack_new();
 
-void stack_free(struct Stack *stack);
+void old_stack_free(struct Stack *stack);
 
-void stack_push(struct Stack *stack, void *data);
+void old_stack_push(struct Stack *stack, void *data);
 
-void *stack_pop(struct Stack *stack);
+void *old_stack_pop(struct Stack *stack);
 
-void *stack_peek(struct Stack *stack);
+void *old_stack_peek(struct Stack *stack);
 
 /*
  * Unordered List data structure

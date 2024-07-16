@@ -264,7 +264,7 @@ void dictionary_free(struct Dictionary *dict)
  *
  */
 
-struct Stack *stack_new()
+struct Stack *old_stack_new()
 {
     struct Stack *wip = malloc(sizeof(struct Stack));
     wip->data = malloc(STACK_DEFAULT_ALLOCATION * sizeof(void *));
@@ -273,13 +273,13 @@ struct Stack *stack_new()
     return wip;
 }
 
-void stack_free(struct Stack *stack)
+void old_stack_free(struct Stack *stack)
 {
     free(stack->data);
     free(stack);
 }
 
-void stack_push(struct Stack *stack, void *data)
+void old_stack_push(struct Stack *stack, void *data)
 {
     if (stack->size >= stack->allocated)
     {
@@ -293,7 +293,7 @@ void stack_push(struct Stack *stack, void *data)
     stack->data[stack->size++] = data;
 }
 
-void *stack_pop(struct Stack *stack)
+void *old_stack_pop(struct Stack *stack)
 {
     void *poppedData = NULL;
     if (stack->size > 0)
@@ -307,7 +307,7 @@ void *stack_pop(struct Stack *stack)
     return poppedData;
 }
 
-void *stack_peek(struct Stack *stack)
+void *old_stack_peek(struct Stack *stack)
 {
     void *peekedData = NULL;
     if (stack->size > 0)
@@ -645,7 +645,7 @@ char *temp_list_get(struct TempList *tempList, size_t tempNum)
     {
         char *thisTemp = malloc(TEMP_LIST_SPRINTF_LENGTH * sizeof(char));
         sprintf(thisTemp, ".t%zu", tempList->temps->size);
-        stack_push(tempList->temps, thisTemp);
+        old_stack_push(tempList->temps, thisTemp);
     }
 
     return tempList->temps->data[tempNum];
@@ -654,7 +654,7 @@ char *temp_list_get(struct TempList *tempList, size_t tempNum)
 struct TempList *temp_list_new()
 {
     struct TempList *wip = malloc(sizeof(struct TempList));
-    wip->temps = stack_new();
+    wip->temps = old_stack_new();
     return wip;
 }
 
@@ -664,6 +664,6 @@ void temp_list_free(struct TempList *toFree)
     {
         free(toFree->temps->data[tempIndex]);
     }
-    stack_free(toFree->temps);
+    old_stack_free(toFree->temps);
     free(toFree);
 }

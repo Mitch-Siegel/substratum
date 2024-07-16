@@ -8,6 +8,9 @@
 #include "symtab.h"
 #include "util.h"
 
+#include "mbcl/list.h"
+#include "mbcl/stack.h"
+
 // return the heuristic for how good a given lifetime is to spill - lower is better
 size_t lifetime_heuristic(struct Lifetime *lifetime)
 {
@@ -83,35 +86,13 @@ struct Lifetime *remove_lifetime_with_best_heuristic(struct Set *lifetimesInCont
     return bestLifetime;
 }
 
-void bubble_sort_lifetimes_by_size(struct Stack *lifetimeStack, struct Scope *scope)
-{
-    // bubble sort stack lifetimes by size - early indices in stackLifetimes->data have larger sizes
-    for (size_t indexI = 0; indexI < lifetimeStack->size - 1; indexI++)
-    {
-        for (size_t indexJ = indexI; indexJ < lifetimeStack->size - 1; indexJ++)
-        {
-            struct Lifetime *lifetimeI = lifetimeStack->data[indexI];
-            struct Lifetime *lifetimeJ = lifetimeStack->data[indexJ];
-
-            size_t sizeI = type_get_size(&lifetimeI->type, scope);
-            size_t sizeJ = type_get_size(&lifetimeJ->type, scope);
-
-            if (sizeJ > sizeI)
-            {
-                lifetimeStack->data[indexI] = lifetimeJ;
-                lifetimeStack->data[indexJ] = lifetimeI;
-            }
-        }
-    }
-}
-
-void setup_local_stack(struct RegallocMetadata *metadata, struct MachineInfo *info, struct Stack *localStackLifetimes)
+void setup_local_stack(struct RegallocMetadata *metadata, struct MachineInfo *info, List *localStackLifetimes)
 {
     // local offset always at least MACHINE_REGISTER_SIZE_BYTES to save frame pointer
     ssize_t localOffset = ((ssize_t)-1 * MACHINE_REGISTER_SIZE_BYTES);
 
     // figure out which callee-saved registers this function touches, and add space for them to the local stack offset
-    struct Stack *touchedCalleeSaved = stack_new();
+    Stack *touchedCalleeSaved = stack_new(NULL);
     for (size_t calleeSaveIndex = 0; calleeSaveIndex < info->n_callee_save; calleeSaveIndex++)
     {
         if (set_find(metadata->touchedRegisters, info->callee_save[calleeSaveIndex]))
@@ -133,19 +114,19 @@ void setup_local_stack(struct RegallocMetadata *metadata, struct MachineInfo *in
         return;
     }
 
-    bubble_sort_lifetimes_by_size(localStackLifetimes, metadata->function->mainScope);
-
     log(LOG_DEBUG, "Function locals for %s end at frame pointer offset %zd - %zd through 0 offset from %s are callee-saved registers", metadata->function->name, localOffset, localOffset, info->framePointer->name);
 
-    for (size_t indexI = 0; indexI < localStackLifetimes->size; indexI++)
+    Iterator *localIterator = NULL;
+    for (localIterator = list_begin(localStackLifetimes); iterator_valid(localIterator); iterator_next(localIterator))
     {
-        struct Lifetime *printedStackLt = localStackLifetimes->data[indexI];
+        struct Lifetime *printedStackLt = iterator_get(localIterator);
         localOffset -= (ssize_t)type_get_size(&printedStackLt->type, metadata->function->mainScope);
         localOffset -= (ssize_t)scope_compute_padding_for_alignment(metadata->function->mainScope, &printedStackLt->type, localOffset);
         printedStackLt->writebackInfo.stackOffset = localOffset;
 
         log(LOG_DEBUG, "Assign stack offset %zd to lifetime %s", printedStackLt->writebackInfo.stackOffset, printedStackLt->name);
     }
+    iterator_free(localIterator);
 
     while (localOffset % STACK_ALIGN_BYTES)
     {
@@ -155,26 +136,26 @@ void setup_local_stack(struct RegallocMetadata *metadata, struct MachineInfo *in
     metadata->localStackSize = -1 * localOffset;
 }
 
-void setup_argument_stack(struct RegallocMetadata *metadata, struct Stack *argumentStackLifetimes)
+void setup_argument_stack(struct RegallocMetadata *metadata, List *argumentStackLifetimes)
 {
     if (argumentStackLifetimes->size == 0)
     {
         return;
     }
 
-    bubble_sort_lifetimes_by_size(argumentStackLifetimes, metadata->function->mainScope);
-
     // always save frame pointer and return address to stack
     ssize_t argOffset = (ssize_t)2 * MACHINE_REGISTER_SIZE_BYTES;
-    for (size_t indexI = 0; indexI < argumentStackLifetimes->size; indexI++)
+    Iterator *argIterator = NULL;
+    for (argIterator = list_begin(argumentStackLifetimes); iterator_valid(argIterator); iterator_next(argIterator))
     {
-        struct Lifetime *printedStackLt = argumentStackLifetimes->data[indexI];
+        struct Lifetime *printedStackLt = iterator_get(argIterator);
         argOffset += (ssize_t)scope_compute_padding_for_alignment(metadata->function->mainScope, &printedStackLt->type, argOffset);
         printedStackLt->writebackInfo.stackOffset = argOffset;
         argOffset += (ssize_t)type_get_size(&printedStackLt->type, metadata->function->mainScope);
 
         log(LOG_DEBUG, "Assign stack offset %zd to argument lifetime %s", printedStackLt->writebackInfo.stackOffset, printedStackLt->name);
     }
+    iterator_free(argIterator);
 
     while (argOffset % STACK_ALIGN_BYTES)
     {
@@ -184,10 +165,30 @@ void setup_argument_stack(struct RegallocMetadata *metadata, struct Stack *argum
     metadata->argStackSize = argOffset;
 }
 
-void allocate_stack_space(struct RegallocMetadata *metadata, struct MachineInfo *info)
+struct LifetimePlusSize
 {
-    struct Stack *localStackLifetimes = stack_new();
-    struct Stack *argumentStackLifetimes = stack_new();
+    struct Lifetime *lt;
+    size_t size;
+};
+
+struct LifetimePlusSize *package_lifetime_and_size(struct Lifetime *lt, size_t size)
+{
+    struct LifetimePlusSize *lts = malloc(sizeof(struct LifetimePlusSize));
+    lts->lt = lt;
+    lts->size = size;
+    return lts;
+}
+
+static ssize_t lifetime_plus_size_compare(void *dataA, void *dataB)
+{
+    struct LifetimePlusSize *ltA = dataA;
+    struct LifetimePlusSize *ltB = dataB;
+    return (ssize_t)ltA->size - (ssize_t)ltB->size;
+}
+
+List *get_sorted_stack_lifetimes(struct RegallocMetadata *metadata)
+{
+    List *lifetimesPlusSizes = list_new(free, lifetime_plus_size_compare);
 
     // go over all lifetimes, if they have a stack writeback location we need to deal with them
     for (struct LinkedListNode *ltRunner = metadata->allLifetimes->elements->head; ltRunner != NULL; ltRunner = ltRunner->next)
@@ -195,34 +196,59 @@ void allocate_stack_space(struct RegallocMetadata *metadata, struct MachineInfo 
         struct Lifetime *examinedLt = ltRunner->data;
         if (examinedLt->wbLocation == WB_STACK)
         {
-            if (examinedLt->isArgument)
-            {
-                stack_push(argumentStackLifetimes, examinedLt);
-            }
-            else
-            {
-                stack_push(localStackLifetimes, examinedLt);
-            }
+            list_append(lifetimesPlusSizes, package_lifetime_and_size(examinedLt, type_get_size(&examinedLt->type, metadata->scope)));
         }
     }
+
+    list_sort(lifetimesPlusSizes);
+
+    return lifetimesPlusSizes;
+}
+
+void allocate_stack_space(struct RegallocMetadata *metadata, struct MachineInfo *info)
+{
+    List *sortedStackLifetimes = get_sorted_stack_lifetimes(metadata);
+
+    List *localStackLifetimes = list_new(NULL, NULL);
+    List *argumentStackLifetimes = list_new(NULL, NULL);
+    Iterator *lifetimeIterator = list_begin(sortedStackLifetimes);
+    while (iterator_valid(lifetimeIterator))
+    {
+        struct LifetimePlusSize *lts = iterator_get(lifetimeIterator);
+        if (lts->lt->isArgument)
+        {
+            list_append(argumentStackLifetimes, lts->lt);
+        }
+        else
+        {
+            list_append(localStackLifetimes, lts->lt);
+        }
+
+        iterator_next(lifetimeIterator);
+    }
+    iterator_free(lifetimeIterator);
+    list_free(sortedStackLifetimes);
 
     setup_local_stack(metadata, info, localStackLifetimes);
     setup_argument_stack(metadata, argumentStackLifetimes);
 
-    for (size_t localI = 0; localI < localStackLifetimes->size; localI++)
+    Iterator *printIterator = NULL;
+    for (printIterator = list_begin(localStackLifetimes); iterator_valid(printIterator); iterator_next(printIterator))
     {
-        struct Lifetime *localLt = localStackLifetimes->data[localStackLifetimes->size - localI - 1];
+        struct Lifetime *localLt = iterator_get(printIterator);
         log(LOG_DEBUG, "BP%zd: %s", localLt->writebackInfo.stackOffset, localLt->name);
     }
+    iterator_free(printIterator);
 
-    for (size_t argI = 0; argI < argumentStackLifetimes->size; argI++)
+    for (printIterator = list_begin(argumentStackLifetimes); iterator_valid(printIterator); iterator_next(printIterator))
     {
-        struct Lifetime *stackLt = argumentStackLifetimes->data[argI];
-        log(LOG_DEBUG, "BP+%zd: %s", stackLt->writebackInfo.stackOffset, stackLt->name);
+        struct Lifetime *argLt = iterator_get(printIterator);
+        log(LOG_DEBUG, "BP+%zd: %s", argLt->writebackInfo.stackOffset, argLt->name);
     }
+    iterator_free(printIterator);
 
-    stack_free(localStackLifetimes);
-    stack_free(argumentStackLifetimes);
+    list_free(localStackLifetimes);
+    list_free(argumentStackLifetimes);
 }
 
 struct Set *pre_select_register_contention_lifetimes(struct Set *selectFrom, struct Scope *scope)
@@ -317,7 +343,7 @@ struct Set *select_register_lifetimes(struct RegallocMetadata *metadata, struct 
     }
     free(lifetimeOverlaps);
 
-    struct Stack *availableRegisters = stack_new();
+    Stack *availableRegisters = stack_new(NULL);
     struct Set *liveLifetimes = set_new((ssize_t(*)(void *, void *))lifetime_compare, NULL);
     for (struct LinkedListNode *regRunner = registerPool->elements->head; regRunner != NULL; regRunner = regRunner->next)
     {

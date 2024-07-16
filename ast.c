@@ -174,9 +174,9 @@ void ast_traverse_for_dump(FILE *outFile, struct Ast *parent, struct Ast *tree, 
 {
     if (ranks->size <= depth)
     {
-        stack_push(ranks, stack_new());
+        old_stack_push(ranks, old_stack_new());
     }
-    stack_push(ranks->data[depth], tree);
+    old_stack_push(ranks->data[depth], tree);
 
     fprintf(outFile, "%zu[label=\"%s\"]\n", (size_t)tree, strcmp(tree->value, "") ? tree->value : token_get_name(tree->type));
     if (parent != NULL)
@@ -197,7 +197,7 @@ void ast_traverse_for_dump(FILE *outFile, struct Ast *parent, struct Ast *tree, 
 
 void ast_dump(FILE *outFile, struct Ast *tree)
 {
-    struct Stack *ranks = stack_new();
+    struct Stack *ranks = old_stack_new();
     fprintf(outFile, "digraph ast {\n");
     fprintf(outFile, "edge[dir=forwrad]\n");
     ast_traverse_for_dump(outFile, NULL, tree, 0, ranks);
@@ -218,9 +218,9 @@ void ast_dump(FILE *outFile, struct Ast *tree)
 
     while (ranks->size > 0)
     {
-        stack_free(stack_pop(ranks));
+        old_stack_free(old_stack_pop(ranks));
     }
-    stack_free(ranks);
+    old_stack_free(ranks);
 }
 
 void ast_free(struct Ast *tree)

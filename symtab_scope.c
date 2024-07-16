@@ -16,7 +16,7 @@ extern struct Dictionary *parseDict;
 struct Scope *scope_new(struct Scope *parentScope, char *name, struct FunctionEntry *parentFunction, struct StructEntry *parentImpl)
 {
     struct Scope *wip = malloc(sizeof(struct Scope));
-    wip->entries = stack_new();
+    wip->entries = old_stack_new();
 
     wip->parentScope = parentScope;
     wip->parentFunction = parentFunction;
@@ -61,7 +61,7 @@ void scope_free(struct Scope *scope)
 
         free(examinedEntry);
     }
-    stack_free(scope->entries);
+    old_stack_free(scope->entries);
     free(scope);
 }
 
@@ -77,7 +77,7 @@ void scope_insert(struct Scope *scope, char *name, void *newEntry, enum SCOPE_ME
     wip->entry = newEntry;
     wip->type = type;
     wip->accessibility = accessibility;
-    stack_push(scope->entries, wip);
+    old_stack_push(scope->entries, wip);
 }
 
 // create and return a child scope of the scope provided as an argument
@@ -170,7 +170,7 @@ struct StructEntry *scope_create_struct(struct Scope *scope,
     struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
     wipStruct->name = name;
     wipStruct->members = scope_new(scope, name, NULL, wipStruct);
-    wipStruct->fieldLocations = stack_new();
+    wipStruct->fieldLocations = old_stack_new();
     wipStruct->totalSize = 0;
 
     scope_insert(scope, name, wipStruct, E_STRUCT, A_PUBLIC);

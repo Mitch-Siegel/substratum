@@ -11,10 +11,10 @@ void struct_entry_free(struct StructEntry *theStruct)
 
     while (theStruct->fieldLocations->size > 0)
     {
-        free(stack_pop(theStruct->fieldLocations));
+        free(old_stack_pop(theStruct->fieldLocations));
     }
 
-    stack_free(theStruct->fieldLocations);
+    old_stack_free(theStruct->fieldLocations);
     free(theStruct);
 }
 
@@ -40,7 +40,7 @@ void struct_assign_offset_to_field(struct StructEntry *memberOf,
     memberOf->totalSize += type_get_size(&variable->type, memberOf->members);
     log(LOG_DEBUG, "Assign offset %zu to member variable %s of struct %s - total struct size is now %zu", newMemberLocation->offset, variable->name, memberOf->name, memberOf->totalSize);
 
-    stack_push(memberOf->fieldLocations, newMemberLocation);
+    old_stack_push(memberOf->fieldLocations, newMemberLocation);
 }
 
 // assuming we know that struct has a member with name identical to name->value, make sure we can actually access it

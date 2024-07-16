@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 
     log(LOG_INFO, "Output will be generated to %s", outFileName);
 
-    parseProgressStack = stack_new();
+    parseProgressStack = old_stack_new();
 
     const int N_PARSE_DICT_BUCKETS = 10;
     parseDict = dictionary_new(N_PARSE_DICT_BUCKETS, (void *(*)(void *))strdup, hash_string, (ssize_t(*)(void *, void *))strcmp, free);

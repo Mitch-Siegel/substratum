@@ -162,13 +162,13 @@ void find_lifetimes_for_tac(struct Set *lifetimes, struct Scope *scope, struct T
     switch (line->operation)
     {
     case TT_DO:
-        stack_push(doDepth, (void *)(long int)line->index);
+        old_stack_push(doDepth, (void *)(long int)line->index);
         break;
 
     case TT_ENDDO:
     {
         size_t extendTo = line->index;
-        size_t extendFrom = (size_t)stack_pop(doDepth);
+        size_t extendFrom = (size_t)old_stack_pop(doDepth);
         for (struct LinkedListNode *lifetimeRunner = lifetimes->elements->head; lifetimeRunner != NULL; lifetimeRunner = lifetimeRunner->next)
         {
             struct Lifetime *examinedLifetime = lifetimeRunner->data;
@@ -226,7 +226,7 @@ struct Set *find_lifetimes(struct Scope *scope, struct LinkedList *basicBlockLis
     add_argument_lifetimes_for_scope(lifetimes, scope);
 
     struct LinkedListNode *blockRunner = basicBlockList->head;
-    struct Stack *doDepth = stack_new();
+    struct Stack *doDepth = old_stack_new();
     while (blockRunner != NULL)
     {
         struct BasicBlock *thisBlock = blockRunner->data;
@@ -240,7 +240,7 @@ struct Set *find_lifetimes(struct Scope *scope, struct LinkedList *basicBlockLis
         blockRunner = blockRunner->next;
     }
 
-    stack_free(doDepth);
+    old_stack_free(doDepth);
 
     return lifetimes;
 }

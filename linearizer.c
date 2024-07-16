@@ -317,7 +317,7 @@ void walk_argument_declaration(struct Ast *tree,
 
     struct VariableEntry *declaredArgument = walk_variable_declaration(tree, block, fun->mainScope, TACIndex, tempNum, 1, A_PUBLIC);
 
-    stack_push(fun->arguments, declaredArgument);
+    old_stack_push(fun->arguments, declaredArgument);
 }
 
 void verify_function_signatures(struct Ast *tree, struct FunctionEntry *existingFunc, struct FunctionEntry *parsedFunc)
@@ -471,7 +471,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
         outPointerTree.sibling = NULL;
         struct VariableEntry *outPointerArgument = scope_create_argument(parsedFunc->mainScope, &outPointerTree, &outPointerType, A_PUBLIC);
 
-        stack_push(parsedFunc->arguments, outPointerArgument);
+        old_stack_push(parsedFunc->arguments, outPointerArgument);
     }
 
     struct Ast *argumentRunner = functionNameTree->sibling;
@@ -500,7 +500,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
             type_set_basic_type(&selfType, VT_STRUCT, methodOf->name, 1);
             struct VariableEntry *selfArgument = scope_create_argument(parsedFunc->mainScope, argumentRunner, &selfType, A_PUBLIC);
 
-            stack_push(parsedFunc->arguments, selfArgument);
+            old_stack_push(parsedFunc->arguments, selfArgument);
         }
         break;
 
@@ -2551,12 +2551,12 @@ struct Stack *walk_argument_pushes(struct Ast *argumentRunner,
 
     // save first argument so we can generate meaningful error messages if we mismatch argument count
     struct Ast *lastArgument = argumentRunner;
-    struct Stack *argumentPushes = stack_new();
+    struct Stack *argumentPushes = old_stack_new();
 
-    struct Stack *argumentTrees = stack_new();
+    struct Stack *argumentTrees = old_stack_new();
     while (argumentRunner != NULL)
     {
-        stack_push(argumentTrees, argumentRunner);
+        old_stack_push(argumentTrees, argumentRunner);
         lastArgument = argumentRunner;
         argumentRunner = argumentRunner->sibling;
     }
@@ -2573,9 +2573,9 @@ struct Stack *walk_argument_pushes(struct Ast *argumentRunner,
     size_t argIndex = calledFunction->arguments->size - 1;
     while (argumentTrees->size > 0)
     {
-        struct Ast *pushedArgument = stack_pop(argumentTrees);
+        struct Ast *pushedArgument = old_stack_pop(argumentTrees);
         struct TACLine *push = new_tac_line(TT_ARG_STORE, pushedArgument);
-        stack_push(argumentPushes, push);
+        old_stack_push(argumentPushes, push);
         walk_sub_expression(pushedArgument, block, scope, TACIndex, tempNum, &push->operands[0]);
 
         struct VariableEntry *expectedArgument = calledFunction->arguments->data[argIndex];
@@ -2614,7 +2614,7 @@ struct Stack *walk_argument_pushes(struct Ast *argumentRunner,
 
         argIndex--;
     }
-    stack_free(argumentTrees);
+    old_stack_free(argumentTrees);
 
     return argumentPushes;
 }
@@ -2657,7 +2657,7 @@ void handle_struct_return(struct Ast *callTree,
     outPointerPush->operands[1].castAsType.basicType = select_variable_type_for_number(expectedArgument->stackOffset);
     outPointerPush->operands[1].permutation = VP_LITERAL_VAL;
 
-    stack_push(argumentPushes, outPointerPush);
+    old_stack_push(argumentPushes, outPointerPush);
 }
 
 void reserve_and_store_stack_args(struct Ast *callTree, struct FunctionEntry *calledFunction, struct Stack *argumentPushes, struct BasicBlock *block, size_t *TACIndex)
@@ -2666,7 +2666,7 @@ void reserve_and_store_stack_args(struct Ast *callTree, struct FunctionEntry *ca
 
     while (argumentPushes->size > 0)
     {
-        struct TACLine *push = stack_pop(argumentPushes);
+        struct TACLine *push = old_stack_pop(argumentPushes);
         basic_block_append(block, push, TACIndex);
     }
 }
@@ -2730,7 +2730,7 @@ void walk_function_call(struct Ast *tree,
 
     reserve_and_store_stack_args(tree, calledFunction, argumentPushes, block, TACIndex);
 
-    stack_free(argumentPushes);
+    old_stack_free(argumentPushes);
 
     generate_call_tac(tree, calledFunction, block, scope, TACIndex, tempNum, destinationOperand);
 }
@@ -2809,13 +2809,13 @@ void walk_method_call(struct Ast *tree,
     pThisPush->operands[1].castAsType.basicType = select_variable_type_for_number(0);
     pThisPush->operands[1].permutation = VP_LITERAL_VAL;
 
-    stack_push(argumentPushes, pThisPush);
+    old_stack_push(argumentPushes, pThisPush);
 
     handle_struct_return(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
 
     reserve_and_store_stack_args(tree, calledFunction, argumentPushes, block, TACIndex);
 
-    stack_free(argumentPushes);
+    old_stack_free(argumentPushes);
 
     struct TACLine *callLine = generate_call_tac(tree, calledFunction, block, scope, TACIndex, tempNum, destinationOperand);
     callLine->operation = TT_METHOD_CALL;
@@ -2865,7 +2865,7 @@ void walk_associated_call(struct Ast *tree,
 
     reserve_and_store_stack_args(tree, calledFunction, argumentPushes, block, TACIndex);
 
-    stack_free(argumentPushes);
+    old_stack_free(argumentPushes);
 
     struct TACLine *callLine = generate_call_tac(tree, calledFunction, block, scope, TACIndex, tempNum, destinationOperand);
     callLine->operation = TT_ASSOCIATED_CALL;
