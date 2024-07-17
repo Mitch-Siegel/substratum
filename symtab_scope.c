@@ -12,7 +12,15 @@ extern struct Dictionary *parseDict;
 
 ssize_t scope_member_compare(struct ScopeMember *memberA, struct ScopeMember *memberB)
 {
-    return strcmp(memberA->name, memberB->name);
+    if (memberA->type == memberB->type)
+    {
+        printf("compare [%s] to [%s]\n", memberA->name, memberB->name);
+        return strcmp(memberA->name, memberB->name);
+    }
+    else
+    {
+        return memberA->type - memberB->type;
+    }
 }
 
 void scope_member_free(struct ScopeMember *member)

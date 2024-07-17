@@ -96,13 +96,13 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
     iterator_free(moveHereIterator);
     set_free(moveToThisScope);
 
-    Iterator *removeFromHereIterator = NULL;
-    for (removeFromHereIterator = set_begin(removeFromThisScope); iterator_valid(removeFromHereIterator); iterator_next(removeFromHereIterator))
-    {
-        struct ScopeMember *removedMember = iterator_get(removeFromHereIterator);
-        set_remove(scope->entries, removedMember);
-    }
-    iterator_free(removeFromHereIterator);
+    // Iterator *removeFromHereIterator = NULL;
+    // for (removeFromHereIterator = set_begin(removeFromThisScope); iterator_valid(removeFromHereIterator); iterator_next(removeFromHereIterator))
+    // {
+    //     struct ScopeMember *removedMember = iterator_get(removeFromHereIterator);
+    //     set_remove(scope->entries, removedMember);
+    // }
+    // iterator_free(removeFromHereIterator);
     set_free(removeFromThisScope);
 
     Set *moveOutOfThisScope = set_new(NULL, scope->entries->compareData);
@@ -130,19 +130,7 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
         {
             if (scope->parentScope != NULL)
             {
-                struct VariableEntry *variableToMove = thisMember->entry;
-                // we will only ever do anything if we are depth >0 or need to kick a global variable up a scope
-                if ((depth > 0) || (variableToMove->isGlobal))
-                {
-                    // TODO: actually mangle names
-                    // mangle all non-global names (want to mangle everything except for string literal names)
-                    // if (!variableToMove->isGlobal)
-                    // {
-                    //     thisMember->name = symbol_table_mangle_name(scope, dict, thisMember->name);
-                    //     variableToMove->name = thisMember->name;
-                    // }
-                    set_insert(moveOutOfThisScope, thisMember);
-                }
+                set_insert(moveOutOfThisScope, thisMember);
             }
         }
         break;
@@ -153,15 +141,28 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
         }
     }
     iterator_free(memberIterator);
-
-    memberIterator = NULL;
     MBCL_DATA_FREE_FUNCTION oldFree = scope->entries->freeData;
     scope->entries->freeData = NULL;
+
     for (memberIterator = set_begin(moveOutOfThisScope); iterator_valid(memberIterator); iterator_next(memberIterator))
     {
-        struct ScopeMember *removedEntry = iterator_get(memberIterator);
-        printf("remove %s from %s\n", removedEntry->name, scope->name);
-        set_remove(scope->entries, removedEntry);
+        struct ScopeMember *moved = iterator_get(memberIterator);
+        printf("DOES %s HAVE %s: %d?\n", scope->name, moved->name, scope_contains(scope, moved->name));
+        scope_print(scope, stdout, 1, false);
+        printf("\n");
+        set_remove(scope->entries, moved);
+        // TODO: actually mangle names
+        // mangle all non-global names (want to mangle everything except for string literal names)
+        if ((moved->type == E_VARIABLE) || (moved->type == E_ARGUMENT))
+        {
+            struct VariableEntry *variableToMove = moved->entry;
+            // we will only ever do anything if we are depth >0 or need to kick a global variable up a scope
+            if ((depth > 0) && (!variableToMove->isGlobal))
+            {
+                moved->name = symbol_table_mangle_name(scope, dict, moved->name);
+                variableToMove->name = moved->name;
+            }
+        }
     }
     iterator_free(memberIterator);
     scope->entries->freeData = oldFree;
