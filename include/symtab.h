@@ -35,9 +35,7 @@ void symbol_table_print(struct SymbolTable *table,
                         FILE *outFile,
                         bool printTac);
 
-void symbol_table_decay_arrays(struct SymbolTable *table);
-
-void symbol_table_collapse_scopes_rec(struct Scope *scope,
+Set *symbol_table_collapse_scopes_rec(struct Scope *scope,
                                       struct Dictionary *dict,
                                       size_t depth);
 

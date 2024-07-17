@@ -46,13 +46,13 @@ void print_control_flows_as_dot(struct Idfa *idfa, char *functionName, FILE *out
 
 struct TACOperand *ssa_operand_lookup_or_insert(struct Set *ssaOperands, struct TACOperand *originalOperand)
 {
-    struct TACOperand *foundOperand = set_find(ssaOperands, originalOperand);
+    struct TACOperand *foundOperand = old_set_find(ssaOperands, originalOperand);
     if (foundOperand == NULL)
     {
         struct TACOperand *newOperand = malloc(sizeof(struct TACOperand));
         memcpy(newOperand, originalOperand, sizeof(struct TACOperand));
         newOperand->ssaNumber = 0;
-        set_insert(ssaOperands, newOperand);
+        old_set_insert(ssaOperands, newOperand);
         return newOperand;
     }
     return foundOperand;
@@ -72,9 +72,9 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
 
     // block 0 is always the entry of the function, so as long as we start with it we will be fine
     linked_list_append(blocksToTraverse, context->blocks[0]);
-    struct Set *visited = set_new(ssizet_compare, NULL);
+    struct Set *visited = old_set_new(ssizet_compare, NULL);
 
-    struct Set *stronglyConnectedComponent = set_new(ssizet_compare, NULL);
+    struct Set *stronglyConnectedComponent = old_set_new(ssizet_compare, NULL);
 
     while (blocksToTraverse->size > 0)
     {
@@ -87,7 +87,7 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
         {
             struct BasicBlock *predecessorBlock = predRunner->data;
 
-            if (set_find(visited, predecessorBlock) == NULL)
+            if (old_set_find(visited, predecessorBlock) == NULL)
             {
                 sawAllPredecessors = 0;
                 break;
@@ -100,7 +100,7 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
             // if the strongly connected component is the entire blocksToTraverseList, forcibly override to visit this block next loop
             if (stronglyConnectedComponent->elements->size != blocksToTraverse->size)
             {
-                set_insert(stronglyConnectedComponent, thisBlock);
+                old_set_insert(stronglyConnectedComponent, thisBlock);
                 linked_list_append(blocksToTraverse, thisBlock);
                 continue;
             }
@@ -109,15 +109,15 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
 
         // if we successfully visited a block, we may have satisfied a predecessor requirement to visit some other block
         // thus, we should always clear the strongly connected component whenever we visit
-        set_clear(stronglyConnectedComponent);
+        old_set_clear(stronglyConnectedComponent);
 
         // mark this block as visited
-        set_insert(visited, thisBlock);
+        old_set_insert(visited, thisBlock);
 
         for (struct LinkedListNode *successorRunner = context->successors[thisBlock->labelNum]->elements->head; successorRunner != NULL; successorRunner = successorRunner->next)
         {
             struct BasicBlock *successorBlock = successorRunner->data;
-            if (set_find(visited, successorBlock) == NULL)
+            if (old_set_find(visited, successorBlock) == NULL)
             {
                 linked_list_append(blocksToTraverse, successorBlock);
             }
@@ -125,8 +125,8 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
     }
 
     linked_list_free(blocksToTraverse, NULL);
-    set_free(visited);
-    set_free(stronglyConnectedComponent);
+    old_set_free(visited);
+    old_set_free(stronglyConnectedComponent);
 }
 
 struct PhiContext
@@ -150,7 +150,7 @@ void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
         blockEntryTacIndex = ((struct TACLine *)block->TACList->head->data)->index;
     }
     // hash table to map from TAC operand -> count of number of predecessor blocks the variable is live out from
-    struct HashTable *phiVars = hash_table_new(1, hash_tac_operand, tac_operand_compare_ignore_ssa_number, NULL, (void (*)(void *))set_free);
+    struct HashTable *phiVars = hash_table_new(1, hash_tac_operand, tac_operand_compare_ignore_ssa_number, NULL, (void (*)(void *))old_set_free);
     // iterate all predecessor blocks
     for (struct LinkedListNode *predecessorRunner = reachingDefs->context->predecessors[block->labelNum]->elements->head; predecessorRunner != NULL; predecessorRunner = predecessorRunner->next)
     {
@@ -163,11 +163,11 @@ void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
             struct Set *ssasLiveOut = hash_table_lookup(phiVars, liveOut);
             if (ssasLiveOut == NULL)
             {
-                ssasLiveOut = set_new(tac_operand_compare, NULL);
+                ssasLiveOut = old_set_new(tac_operand_compare, NULL);
                 hash_table_insert(phiVars, liveOut, ssasLiveOut);
             }
 
-            set_insert(ssasLiveOut, liveOut);
+            old_set_insert(ssasLiveOut, liveOut);
         }
     }
 
@@ -197,7 +197,7 @@ void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
                 newPhi->operands[2] = *liveIn;
                 basic_block_prepend(block, newPhi);
 
-                set_insert(inboundSsasToPhi, &newPhi->operands[0]);
+                old_set_insert(inboundSsasToPhi, &newPhi->operands[0]);
             }
         }
     }
@@ -242,7 +242,7 @@ void rename_written_tac_operands_for_block(struct BasicBlock *block, void *data)
 // go over all TAC operands which are assigned to and give them unique SSA numbers
 struct Set *rename_written_tac_operands(struct IdfaContext *context)
 {
-    struct Set *ssaOperandNumbers = set_new(tac_operand_compare_ignore_ssa_number, free);
+    struct Set *ssaOperandNumbers = old_set_new(tac_operand_compare_ignore_ssa_number, free);
 
     traverse_blocks_hierarchically(context, rename_written_tac_operands_for_block, ssaOperandNumbers);
 
@@ -251,20 +251,20 @@ struct Set *rename_written_tac_operands(struct IdfaContext *context)
 
 struct Set *find_highest_ssa_live_ins(struct Idfa *liveVars, size_t blockIndex)
 {
-    struct Set *highestSsaLiveIns = set_new(tac_operand_compare_ignore_ssa_number, NULL);
+    struct Set *highestSsaLiveIns = old_set_new(tac_operand_compare_ignore_ssa_number, NULL);
 
     for (struct LinkedListNode *liveInRunner = liveVars->facts.in[blockIndex]->elements->head; liveInRunner != NULL; liveInRunner = liveInRunner->next)
     {
         struct TACOperand *thisLiveIn = liveInRunner->data;
-        struct TACOperand *highestLiveIn = set_find(highestSsaLiveIns, thisLiveIn);
+        struct TACOperand *highestLiveIn = old_set_find(highestSsaLiveIns, thisLiveIn);
         if (highestLiveIn == NULL)
         {
-            set_insert(highestSsaLiveIns, thisLiveIn);
+            old_set_insert(highestSsaLiveIns, thisLiveIn);
         }
         else if (highestLiveIn->ssaNumber < thisLiveIn->ssaNumber)
         {
-            set_delete(highestSsaLiveIns, highestLiveIn);
-            set_insert(highestSsaLiveIns, thisLiveIn);
+            old_set_delete(highestSsaLiveIns, highestLiveIn);
+            old_set_insert(highestSsaLiveIns, thisLiveIn);
         }
     }
 
@@ -274,16 +274,16 @@ struct Set *find_highest_ssa_live_ins(struct Idfa *liveVars, size_t blockIndex)
 // find all SSA variables live in to block blockIndex based on tacOperand
 struct Set *find_unused_ssa_reaching_defs(struct Idfa *reachingDefs, size_t blockIndex, struct TACOperand *operand)
 {
-    struct Set *matchingOperands = set_new(tac_operand_compare, NULL);
+    struct Set *matchingOperands = old_set_new(tac_operand_compare, NULL);
     for (struct LinkedListNode *reachingDefRunner = reachingDefs->facts.in[blockIndex]->elements->head; reachingDefRunner != NULL; reachingDefRunner = reachingDefRunner->next)
     {
         struct TACOperand *reachingDef = reachingDefRunner->data;
         if (tac_operand_compare_ignore_ssa_number(operand, reachingDef) == 0)
         {
             // only include operands which are not killed in the block
-            if (set_find(reachingDefs->facts.kill[blockIndex], reachingDef) == NULL)
+            if (old_set_find(reachingDefs->facts.kill[blockIndex], reachingDef) == NULL)
             {
-                set_insert(matchingOperands, reachingDef);
+                old_set_insert(matchingOperands, reachingDef);
             }
         }
     }
@@ -294,11 +294,11 @@ struct TACOperand *lookup_most_recent_ssa_assignment(struct Set *highestSsaLiveI
 {
     struct TACOperand *mostRecentAssignment = NULL;
     // first, attempt to find an assignment from within the current block
-    struct TACOperand *assignmentInBlock = set_find(assignmentsThisBlock, originalOperand);
+    struct TACOperand *assignmentInBlock = old_set_find(assignmentsThisBlock, originalOperand);
     if (assignmentInBlock == NULL)
     {
         // no assignment within the block, so search from the set of live SSA's coming in to the block
-        mostRecentAssignment = set_find(highestSsaLiveIns, originalOperand);
+        mostRecentAssignment = old_set_find(highestSsaLiveIns, originalOperand);
     }
     else
     {
@@ -314,7 +314,7 @@ void rename_read_tac_operands_in_block(struct BasicBlock *block, void *data)
     // the highest SSA numbers that live in to this basic block
     struct Set *highestSsaLiveIns = find_highest_ssa_live_ins(liveVars, block->labelNum);
     // any SSA operands which are assigned to within the block
-    struct Set *ssaLivesFromThisBlock = set_new(tac_operand_compare_ignore_ssa_number, NULL);
+    struct Set *ssaLivesFromThisBlock = old_set_new(tac_operand_compare_ignore_ssa_number, NULL);
 
     // iterate all TAC in the block
     struct BasicBlock *thisBlock = liveVars->context->blocks[block->labelNum];
@@ -351,18 +351,18 @@ void rename_read_tac_operands_in_block(struct BasicBlock *block, void *data)
                 {
                     InternalError("Written operand with permutation VP_LITERAL_STR or VP_LITERAL_VAL seen in renameReadTacOperands!");
                 }
-                if (set_find(ssaLivesFromThisBlock, thisOperand) != NULL)
+                if (old_set_find(ssaLivesFromThisBlock, thisOperand) != NULL)
                 {
-                    set_delete(ssaLivesFromThisBlock, thisOperand);
+                    old_set_delete(ssaLivesFromThisBlock, thisOperand);
                 }
-                set_insert(ssaLivesFromThisBlock, thisOperand);
+                old_set_insert(ssaLivesFromThisBlock, thisOperand);
                 break;
             }
         }
     }
 
-    set_free(highestSsaLiveIns);
-    set_free(ssaLivesFromThisBlock);
+    old_set_free(highestSsaLiveIns);
+    old_set_free(ssaLivesFromThisBlock);
 }
 
 void rename_read_tac_operands(struct Idfa *liveVars)
@@ -417,7 +417,7 @@ void generate_ssa_for_function(struct FunctionEntry *function)
     struct Idfa *reachingDefs = analyze_reaching_defs(context);
     insert_phi_functions(reachingDefs, ssaNumbers);
 
-    set_free(ssaNumbers);
+    old_set_free(ssaNumbers);
     idfa_redo(reachingDefs);
 
     rename_read_tac_operands(reachingDefs);
@@ -432,9 +432,10 @@ void generate_ssa(struct SymbolTable *theTable)
 {
     log(LOG_INFO, "Generate ssa for %s", theTable->name);
 
-    for (size_t entryIndex = 0; entryIndex < theTable->globalScope->entries->size; entryIndex++)
+    Iterator *entryIterator = NULL;
+    for (entryIterator = set_begin(theTable->globalScope->entries); iterator_valid(entryIterator); iterator_next(entryIterator))
     {
-        struct ScopeMember *thisMember = theTable->globalScope->entries->data[entryIndex];
+        struct ScopeMember *thisMember = iterator_get(entryIterator);
         switch (thisMember->type)
         {
         case E_FUNCTION:

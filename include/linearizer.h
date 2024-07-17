@@ -4,6 +4,8 @@
 #include "substratum_defs.h"
 #include "symtab_scope.h"
 
+#include "mbcl/deque.h"
+
 struct Ast;
 struct SymbolTable;
 struct Scope;
@@ -16,7 +18,7 @@ struct TACOperand;
 // TODO: move to linearizer_generic
 void reserve_and_store_stack_args(struct Ast *callTree,
                                   struct FunctionEntry *calledFunction,
-                                  struct Stack *argumentPushes,
+                                  Deque *argumentPushes,
                                   struct BasicBlock *block,
                                   size_t *TACIndex);
 

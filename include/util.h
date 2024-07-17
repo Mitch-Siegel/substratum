@@ -4,6 +4,8 @@
 
 #include "substratum_defs.h"
 
+#include "mbcl/array.h"
+
 #pragma once
 
 enum COMPILER_ERRORS
@@ -102,31 +104,6 @@ void *dictionary_lookup_or_insert(struct Dictionary *dict, void *value);
 void dictionary_free(struct Dictionary *dict);
 
 /*
- * Stack data structure
- *
- */
-
-#define STACK_DEFAULT_ALLOCATION 20
-#define STACK_SCALE_FACTOR 2
-
-struct Stack
-{
-    void **data;
-    size_t size;
-    size_t allocated;
-};
-
-struct Stack *old_stack_new();
-
-void old_stack_free(struct Stack *stack);
-
-void old_stack_push(struct Stack *stack, void *data);
-
-void *old_stack_pop(struct Stack *stack);
-
-void *old_stack_peek(struct Stack *stack);
-
-/*
  * Unordered List data structure
  *
  */
@@ -175,27 +152,27 @@ struct Set
     void (*dataFreeFunction)(void *);
 };
 
-struct Set *set_new(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction));
+struct Set *old_set_new(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction));
 
-void set_insert(struct Set *set, void *element);
+void old_set_insert(struct Set *set, void *element);
 
-void set_delete(struct Set *set, void *element);
+void old_set_delete(struct Set *set, void *element);
 
-void *set_find(struct Set *set, void *element);
+void *old_set_find(struct Set *set, void *element);
 
-void set_clear(struct Set *toClear);
+void old_set_clear(struct Set *toClear);
 
-void set_merge(struct Set *into, struct Set *from);
+void old_set_merge(struct Set *into, struct Set *from);
 
-struct Set *set_copy(struct Set *set);
+struct Set *old_set_copy(struct Set *set);
 
 // given two input sets, construct and return a third set containing data from the union of the two
-struct Set *set_union(struct Set *setA, struct Set *setB);
+struct Set *old_set_union(struct Set *setA, struct Set *setB);
 
 // given two input sets, construct and return a third set containing data from the intersection of the two
-struct Set *set_intersection(struct Set *setA, struct Set *setB);
+struct Set *old_set_intersection(struct Set *setA, struct Set *setB);
 
-void set_free(struct Set *set);
+void old_set_free(struct Set *set);
 
 /*
  * TempList is a struct containing string names for TAC temps by number (eg t0, t1, t2, etc...)
@@ -205,7 +182,7 @@ void set_free(struct Set *set);
 
 struct TempList
 {
-    struct Stack *temps;
+    Array temps;
 };
 
 // get the string for a given temp num

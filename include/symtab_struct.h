@@ -4,17 +4,21 @@
 #include "ast.h"
 #include "symtab_variable.h"
 
+#include "mbcl/stack.h"
+
 struct StructField
 {
     struct VariableEntry *variable;
     ssize_t offset;
 };
 
+void struct_field_free(struct StructField *toFree);
+
 struct StructEntry
 {
     char *name;
     struct Scope *members;
-    struct Stack *fieldLocations;
+    Stack *fieldLocations;
     size_t totalSize;
 };
 

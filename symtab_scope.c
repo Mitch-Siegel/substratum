@@ -9,6 +9,44 @@
 #include "util.h"
 
 extern struct Dictionary *parseDict;
+
+ssize_t scope_member_compare(struct ScopeMember *memberA, struct ScopeMember *memberB)
+{
+    return strcmp(memberA->name, memberB->name);
+}
+
+void scope_member_free(struct ScopeMember *member)
+{
+    switch (member->type)
+    {
+    case E_SCOPE:
+        scope_free(member->entry);
+        break;
+
+    case E_FUNCTION:
+        function_entry_free(member->entry);
+        break;
+
+    case E_VARIABLE:
+    case E_ARGUMENT:
+        variable_entry_free(member->entry);
+        break;
+
+    case E_STRUCT:
+        struct_entry_free(member->entry);
+        break;
+
+    case E_ENUM:
+        enum_entry_free(member->entry);
+        break;
+
+    case E_BASICBLOCK:
+        basic_block_free(member->entry);
+        break;
+    }
+    free(member);
+}
+
 /*
  * Scope functions
  *
@@ -16,7 +54,7 @@ extern struct Dictionary *parseDict;
 struct Scope *scope_new(struct Scope *parentScope, char *name, struct FunctionEntry *parentFunction, struct StructEntry *parentImpl)
 {
     struct Scope *wip = malloc(sizeof(struct Scope));
-    wip->entries = old_stack_new();
+    wip->entries = set_new((void (*)(void *))scope_member_free, (ssize_t(*)(void *, void *))scope_member_compare);
 
     wip->parentScope = parentScope;
     wip->parentFunction = parentFunction;
@@ -28,56 +66,24 @@ struct Scope *scope_new(struct Scope *parentScope, char *name, struct FunctionEn
 
 void scope_free(struct Scope *scope)
 {
-    for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
-    {
-        struct ScopeMember *examinedEntry = scope->entries->data[entryIndex];
-        switch (examinedEntry->type)
-        {
-        case E_SCOPE:
-            scope_free(examinedEntry->entry);
-            break;
-
-        case E_FUNCTION:
-            function_entry_free(examinedEntry->entry);
-            break;
-
-        case E_VARIABLE:
-        case E_ARGUMENT:
-            variable_entry_free(examinedEntry->entry);
-            break;
-
-        case E_STRUCT:
-            struct_entry_free(examinedEntry->entry);
-            break;
-
-        case E_ENUM:
-            enum_entry_free(examinedEntry->entry);
-            break;
-
-        case E_BASICBLOCK:
-            basic_block_free(examinedEntry->entry);
-            break;
-        }
-
-        free(examinedEntry);
-    }
-    old_stack_free(scope->entries);
+    set_free(scope->entries);
     free(scope);
 }
 
 // insert a member with a given name and pointer to entry, along with info about the entry type
 void scope_insert(struct Scope *scope, char *name, void *newEntry, enum SCOPE_MEMBER_TYPE type, enum ACCESS accessibility)
 {
+    printf("insert %s in %s\n", name, scope->name);
     if (scope_contains(scope, name))
     {
         InternalError("Error defining symbol [%s] - name already exists!", name);
     }
-    struct ScopeMember *wip = malloc(sizeof(struct ScopeMember));
-    wip->name = name;
-    wip->entry = newEntry;
-    wip->type = type;
-    wip->accessibility = accessibility;
-    old_stack_push(scope->entries, wip);
+    struct ScopeMember *wipMember = malloc(sizeof(struct ScopeMember));
+    wipMember->name = name;
+    wipMember->entry = newEntry;
+    wipMember->type = type;
+    wipMember->accessibility = accessibility;
+    set_insert(scope->entries, wipMember);
 }
 
 // create and return a child scope of the scope provided as an argument
@@ -170,7 +176,7 @@ struct StructEntry *scope_create_struct(struct Scope *scope,
     struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
     wipStruct->name = name;
     wipStruct->members = scope_new(scope, name, NULL, wipStruct);
-    wipStruct->fieldLocations = old_stack_new();
+    wipStruct->fieldLocations = stack_new(free);
     wipStruct->totalSize = 0;
 
     scope_insert(scope, name, wipStruct, E_STRUCT, A_PUBLIC);
@@ -183,7 +189,7 @@ struct EnumEntry *scope_create_enum(struct Scope *scope,
     struct EnumEntry *wipEnum = malloc(sizeof(struct EnumEntry));
     wipEnum->name = name;
     wipEnum->parentScope = scope;
-    wipEnum->members = set_new(enum_member_compare, free);
+    wipEnum->members = set_new(free, (ssize_t(*)(void *, void *))enum_member_compare);
     wipEnum->unionSize = 0;
 
     scope_insert(scope, name, wipEnum, E_ENUM, A_PUBLIC);
@@ -193,14 +199,36 @@ struct EnumEntry *scope_create_enum(struct Scope *scope,
 
 char scope_contains(struct Scope *scope, char *name)
 {
-    for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
+    Iterator *memberIterator = NULL;
+    for (memberIterator = set_begin(scope->entries); iterator_valid(memberIterator); iterator_next(memberIterator))
     {
-        if (!strcmp(name, ((struct ScopeMember *)scope->entries->data[entryIndex])->name))
+        struct ScopeMember *comparedMember = iterator_get(memberIterator);
+        if (!strcmp(name, comparedMember->name))
         {
+            iterator_free(memberIterator);
             return 1;
         }
     }
+    iterator_free(memberIterator);
+
     return 0;
+}
+
+struct ScopeMember *scope_lookup_no_parent(struct Scope *scope, char *name)
+{
+    Iterator *memberIterator = NULL;
+    for (memberIterator = set_begin(scope->entries); iterator_valid(memberIterator); iterator_next(memberIterator))
+    {
+        struct ScopeMember *examinedEntry = iterator_get(memberIterator);
+        if (!strcmp(examinedEntry->name, name))
+        {
+            iterator_free(memberIterator);
+            return examinedEntry;
+        }
+    }
+
+    iterator_free(memberIterator);
+    return NULL;
 }
 
 // if a member with the given name exists in this scope or any of its parents, return it
@@ -209,13 +237,10 @@ struct ScopeMember *scope_lookup(struct Scope *scope, char *name)
 {
     while (scope != NULL)
     {
-        for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
+        struct ScopeMember *foundThisScope = scope_lookup_no_parent(scope, name);
+        if (foundThisScope != NULL)
         {
-            struct ScopeMember *examinedEntry = scope->entries->data[entryIndex];
-            if (!strcmp(examinedEntry->name, name))
-            {
-                return examinedEntry;
-            }
+            return foundThisScope;
         }
         scope = scope->parentScope;
     }
@@ -391,18 +416,21 @@ struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
 
     while (scope != NULL)
     {
-        for (size_t memberIndex = 0; memberIndex < scope->entries->size; memberIndex++)
+        Iterator *memberIterator = NULL;
+        for (memberIterator = set_begin(scope->entries); iterator_valid(memberIterator); iterator_next(memberIterator))
         {
-            struct ScopeMember *member = (struct ScopeMember *)scope->entries->data[memberIndex];
+            struct ScopeMember *member = iterator_get(memberIterator);
             if (member->type == E_ENUM)
             {
                 struct EnumEntry *scannedEnum = member->entry;
                 if (set_find(scannedEnum->members, &dummyMember) != NULL)
                 {
+                    iterator_free(memberIterator);
                     return scannedEnum;
                 }
             }
         }
+        iterator_free(memberIterator);
         scope = scope->parentScope;
     }
 

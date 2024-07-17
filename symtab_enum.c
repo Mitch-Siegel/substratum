@@ -13,7 +13,6 @@ ssize_t enum_member_compare(void *enumMemberA, void *enumMemberB)
 void enum_entry_free(struct EnumEntry *theEnum)
 {
     set_free(theEnum->members);
-
     free(theEnum);
 }
 
@@ -30,7 +29,7 @@ struct EnumMember *enum_add_member(struct EnumEntry *theEnum,
     }
 
     newMember->name = memberName->value;
-    newMember->numerical = theEnum->members->elements->size;
+    newMember->numerical = theEnum->members->size;
 
     newMember->type = *memberType;
     if (memberType->basicType != VT_NULL)

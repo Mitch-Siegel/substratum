@@ -19,9 +19,10 @@ void generate_code_for_program(struct SymbolTable *table,
     globalContext.outFile = outFile;
 
     // fprintf(outFile, "\t.text\n");
-    for (size_t entryIndex = 0; entryIndex < table->globalScope->entries->size; entryIndex++)
+    Iterator *entryIterator = NULL;
+    for (entryIterator = set_begin(table->globalScope->entries); iterator_valid(entryIterator); iterator_next(entryIterator))
     {
-        struct ScopeMember *thisMember = table->globalScope->entries->data[entryIndex];
+        struct ScopeMember *thisMember = iterator_get(entryIterator);
         switch (thisMember->type)
         {
         case E_FUNCTION:
@@ -65,6 +66,7 @@ void generate_code_for_program(struct SymbolTable *table,
             break;
         }
     }
+    iterator_free(entryIterator);
 };
 
 void generate_code_for_struct(struct CodegenState *globalContext,
@@ -74,9 +76,10 @@ void generate_code_for_struct(struct CodegenState *globalContext,
                               void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
                               void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
-    for (size_t entryIndex = 0; entryIndex < theStruct->members->entries->size; entryIndex++)
+    Iterator *entryIterator = NULL;
+    for (entryIterator = set_begin(theStruct->members->entries); iterator_valid(entryIterator); iterator_next(entryIterator))
     {
-        struct ScopeMember *thisMember = theStruct->members->entries->data[entryIndex];
+        struct ScopeMember *thisMember = iterator_get(entryIterator);
         switch (thisMember->type)
         {
         case E_FUNCTION:
@@ -93,6 +96,7 @@ void generate_code_for_struct(struct CodegenState *globalContext,
             break;
         }
     }
+    iterator_free(entryIterator);
 }
 
 void generate_code_for_global_block(struct CodegenState *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock)

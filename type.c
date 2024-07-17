@@ -573,15 +573,17 @@ u8 type_get_alignment(struct Type *type, struct Scope *scope)
     case VT_STRUCT:
     {
         struct StructEntry *theStruct = scope_lookup_struct_by_type(scope, type);
-        for (size_t memberIndex = 0; memberIndex < theStruct->fieldLocations->size; memberIndex++)
+        Iterator *memberIterator = NULL;
+        for (memberIterator = stack_bottom(theStruct->fieldLocations); iterator_valid(memberIterator); iterator_next(memberIterator))
         {
-            struct StructField *offset = theStruct->fieldLocations->data[memberIndex];
+            struct StructField *offset = iterator_get(memberIterator);
             u8 memberAlignment = type_get_alignment(&offset->variable->type, scope);
             if (memberAlignment > alignment)
             {
                 alignment = memberAlignment;
             }
         }
+        iterator_free(memberIterator);
     }
     break;
 

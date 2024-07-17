@@ -6,15 +6,15 @@
 
 struct Set *live_vars_transfer(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts)
 {
-    struct Set *transferred = set_copy(idfa->facts.gen[block->labelNum]);
+    struct Set *transferred = old_set_copy(idfa->facts.gen[block->labelNum]);
 
     for (struct LinkedListNode *factRunner = facts->elements->head; factRunner != NULL; factRunner = factRunner->next)
     {
         struct TACOperand *examinedFact = factRunner->data;
         // transfer anything not killed
-        if (set_find(idfa->facts.kill[block->labelNum], examinedFact) == NULL)
+        if (old_set_find(idfa->facts.kill[block->labelNum], examinedFact) == NULL)
         {
-            set_insert(transferred, examinedFact);
+            old_set_insert(transferred, examinedFact);
         }
     }
 
@@ -37,7 +37,7 @@ void live_vars_find_gen_kills(struct Idfa *idfa)
                     break;
 
                 case U_READ:
-                    set_insert(idfa->facts.kill[blockIndex], &genKillLine->operands[operandIndex]);
+                    old_set_insert(idfa->facts.kill[blockIndex], &genKillLine->operands[operandIndex]);
                     if (genKillLine->operands[operandIndex].name.str == NULL)
                     {
                         InternalError("NULL OPERAND");
@@ -49,7 +49,7 @@ void live_vars_find_gen_kills(struct Idfa *idfa)
                     {
                         InternalError("NULL OPERAND");
                     }
-                    set_insert(idfa->facts.gen[blockIndex], &genKillLine->operands[operandIndex]);
+                    old_set_insert(idfa->facts.gen[blockIndex], &genKillLine->operands[operandIndex]);
 
                     break;
                 }
@@ -66,7 +66,7 @@ struct Idfa *analyze_live_vars(struct IdfaContext *context)
                                             D_FORWARDS,
                                             tac_operand_compare,
                                             tac_operand_sprint,
-                                            set_union);
+                                            old_set_union);
 
     return liveVarsIdfa;
 }

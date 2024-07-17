@@ -8,11 +8,13 @@
 #include "symtab_scope.h"
 #include "type.h"
 
+#include "mbcl/deque.h"
+
 struct FunctionEntry
 {
     struct Type returnType;
     struct Scope *mainScope;
-    struct Stack *arguments;      // stack of VariableEntry pointers corresponding by index to arguments
+    Deque *arguments;             // stack of VariableEntry pointers corresponding by index to arguments
     char *name;                   // duplicate pointer from ScopeMember for ease of use
     struct StructEntry *methodOf; // if this function is a member of a struct, points to which struct
     struct LinkedList *BasicBlockList;

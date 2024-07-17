@@ -85,6 +85,8 @@ struct Register *register_new(u8 index);
 
 bool register_is_live(struct Register *reg, size_t index);
 
+ssize_t register_compare(void *dataA, void *dataB);
+
 struct MachineInfo
 {
     // specifically required for register allocation - may be a subset of the entire machine register set

@@ -29,8 +29,8 @@ void usage()
     printf("\n");
 }
 
-struct Stack *parseProgressStack = NULL;
-struct Stack *parsedAsts = NULL;
+Stack *parseProgressStack = NULL;
+Stack *parsedAsts = NULL;
 struct LinkedList *includePath = NULL;
 struct LinkedList *inputFiles = NULL;
 
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 
     log(LOG_INFO, "Output will be generated to %s", outFileName);
 
-    parseProgressStack = old_stack_new();
+    parseProgressStack = stack_new(NULL);
 
     const int N_PARSE_DICT_BUCKETS = 10;
     parseDict = dictionary_new(N_PARSE_DICT_BUCKETS, (void *(*)(void *))strdup, hash_string, (ssize_t(*)(void *, void *))strcmp, free);
@@ -216,6 +216,7 @@ int main(int argc, char **argv)
     /*log(LOG_DEBUG, "Symbol table before scope collapse:");
     SymbolTable_print(theTable, stderr, 1);*/
 
+
     log(LOG_INFO, "Collapsing scopes");
 
     symbol_table_collapse_scopes(theTable, parseDict);
@@ -224,7 +225,7 @@ int main(int argc, char **argv)
 
     // TODO: option to enable/disable symtab dump
     log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
-    symbol_table_print(theTable, stderr, 1);
+    symbol_table_print(theTable, stderr, 0);
 
     FILE *outFile = stdout;
 

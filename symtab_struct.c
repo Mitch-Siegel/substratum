@@ -8,13 +8,7 @@
 void struct_entry_free(struct StructEntry *theStruct)
 {
     scope_free(theStruct->members);
-
-    while (theStruct->fieldLocations->size > 0)
-    {
-        free(old_stack_pop(theStruct->fieldLocations));
-    }
-
-    old_stack_free(theStruct->fieldLocations);
+    stack_free(theStruct->fieldLocations);
     free(theStruct);
 }
 
@@ -40,7 +34,7 @@ void struct_assign_offset_to_field(struct StructEntry *memberOf,
     memberOf->totalSize += type_get_size(&variable->type, memberOf->members);
     log(LOG_DEBUG, "Assign offset %zu to member variable %s of struct %s - total struct size is now %zu", newMemberLocation->offset, variable->name, memberOf->name, memberOf->totalSize);
 
-    old_stack_push(memberOf->fieldLocations, newMemberLocation);
+    stack_push(memberOf->fieldLocations, newMemberLocation);
 }
 
 // assuming we know that struct has a member with name identical to name->value, make sure we can actually access it
@@ -122,18 +116,20 @@ struct StructField *struct_lookup_field(struct StructEntry *theStruct,
                  token_get_name(nameTree->type));
     }
 
-    struct StructField *returnedMember = NULL;
-    for (size_t memberIndex = 0; memberIndex < theStruct->fieldLocations->size; memberIndex++)
+    struct StructField *returnedField = NULL;
+    Iterator *fieldIterator = NULL;
+    for (fieldIterator = stack_bottom(theStruct->fieldLocations); iterator_valid(fieldIterator); iterator_next(fieldIterator))
     {
-        struct StructField *member = theStruct->fieldLocations->data[memberIndex];
-        if (!strcmp(member->variable->name, nameTree->value))
+        struct StructField *field = iterator_get(fieldIterator);
+        if (!strcmp(field->variable->name, nameTree->value))
         {
-            returnedMember = member;
+            returnedField = field;
             break;
         }
     }
+    iterator_free(fieldIterator);
 
-    if (returnedMember == NULL)
+    if (returnedField == NULL)
     {
         log_tree(LOG_FATAL, nameTree, "Use of nonexistent member variable %s in struct %s", nameTree->value, theStruct->name);
     }
@@ -142,25 +138,27 @@ struct StructField *struct_lookup_field(struct StructEntry *theStruct,
         struct_check_access(theStruct, nameTree, scope, "Member");
     }
 
-    return returnedMember;
+    return returnedField;
 }
 
 struct StructField *struct_lookup_field_by_name(struct StructEntry *theStruct,
                                                 char *name,
                                                 struct Scope *scope)
 {
-    struct StructField *returnedMember = NULL;
-    for (size_t memberIndex = 0; memberIndex < theStruct->fieldLocations->size; memberIndex++)
+    struct StructField *returnedField = NULL;
+    Iterator *fieldIterator = NULL;
+    for (fieldIterator = stack_bottom(theStruct->fieldLocations); iterator_valid(fieldIterator); iterator_next(fieldIterator))
     {
-        struct StructField *member = theStruct->fieldLocations->data[memberIndex];
-        if (!strcmp(member->variable->name, name))
+        struct StructField *field = iterator_get(fieldIterator);
+        if (!strcmp(field->variable->name, name))
         {
-            returnedMember = member;
+            returnedField = field;
             break;
         }
     }
+    iterator_free(fieldIterator);
 
-    if (returnedMember == NULL)
+    if (returnedField == NULL)
     {
         log(LOG_FATAL, "Use of nonexistent member variable %s in struct %s", name, theStruct->name);
     }
@@ -169,7 +167,7 @@ struct StructField *struct_lookup_field_by_name(struct StructEntry *theStruct,
         struct_check_access_by_name(theStruct, name, scope, "Member");
     }
 
-    return returnedMember;
+    return returnedField;
 }
 
 struct FunctionEntry *struct_looup_method(struct StructEntry *theStruct,
@@ -178,26 +176,25 @@ struct FunctionEntry *struct_looup_method(struct StructEntry *theStruct,
 {
     struct FunctionEntry *returnedMethod = NULL;
 
-    for (size_t entryIndex = 0; entryIndex < theStruct->members->entries->size; entryIndex++)
-    {
-        struct ScopeMember *examinedEntry = theStruct->members->entries->data[entryIndex];
-        if (!strcmp(examinedEntry->name, name->value))
-        {
-            if (examinedEntry->type != E_FUNCTION)
-            {
-                log_tree(LOG_FATAL, name, "Attempt to call non-method member %s.%s as method!\n", theStruct->name, name->value);
-            }
-            returnedMethod = examinedEntry->entry;
-        }
-    }
+    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name->value);
 
-    if (returnedMethod == NULL)
+    if (lookedUpEntry == NULL)
     {
         log_tree(LOG_FATAL, name, "Attempt to call nonexistent method %s.%s\n", theStruct->name, name->value);
     }
-    else
+
+    if (lookedUpEntry->type != E_FUNCTION)
     {
-        struct_check_access(theStruct, name, scope, "Method");
+        log_tree(LOG_FATAL, name, "Attempt to call non-method member %s.%s as method!\n", theStruct->name, name->value);
+    }
+
+    returnedMethod = lookedUpEntry->entry;
+
+    struct_check_access(theStruct, name, scope, "Method");
+
+    if (!returnedMethod->isMethod)
+    {
+        log_tree(LOG_FATAL, name, "Attempt to call non-member associated function %s::%s as a method!\n", theStruct->name, name->value);
     }
 
     return returnedMethod;
@@ -207,55 +204,55 @@ struct FunctionEntry *struct_lookup_associated_function(struct StructEntry *theS
                                                         struct Ast *name,
                                                         struct Scope *scope)
 {
-    struct FunctionEntry *returnedAssociated = NULL;
+    struct FunctionEntry *returendAssociated = NULL;
 
-    for (size_t entryIndex = 0; entryIndex < theStruct->members->entries->size; entryIndex++)
-    {
-        struct ScopeMember *examinedEntry = theStruct->members->entries->data[entryIndex];
-        if (!strcmp(examinedEntry->name, name->value))
-        {
-            if (examinedEntry->type != E_FUNCTION)
-            {
-                log_tree(LOG_FATAL, name, "Attempt to call %s.%s as an associated function!\n", theStruct->name, name->value);
-            }
-            returnedAssociated = examinedEntry->entry;
+    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name->value);
 
-            if (returnedAssociated->isMethod)
-            {
-                // TODO: function prototype printing
-                log_tree(LOG_FATAL, name, "Attempt to call method %s.%s() as an associated function!\n", theStruct->name, name->value);
-            }
-        }
-    }
-
-    if (returnedAssociated == NULL)
+    if (lookedUpEntry == NULL)
     {
         log_tree(LOG_FATAL, name, "Attempt to call nonexistent associated function %s::%s\n", theStruct->name, name->value);
     }
-    else
+
+    if (lookedUpEntry->type != E_FUNCTION)
     {
-        struct_check_access(theStruct, name, scope, "Associated");
+        log_tree(LOG_FATAL, name, "Attempt to call non-function member %s.%s as an associated function!\n", theStruct->name, name->value);
     }
 
-    return returnedAssociated;
+    returendAssociated = lookedUpEntry->entry;
+
+    struct_check_access(theStruct, name, scope, "Associated function");
+
+    if (returendAssociated->isMethod)
+    {
+        log_tree(LOG_FATAL, name, "Attempt to call method %s.%s as an associated function!\n", theStruct->name, name->value);
+    }
+
+    return returendAssociated;
 }
 
 struct FunctionEntry *struct_lookup_method_by_string(struct StructEntry *theStruct,
                                                      char *name)
 {
-    for (size_t entryIndex = 0; entryIndex < theStruct->members->entries->size; entryIndex++)
+    struct FunctionEntry *returnedMethod = NULL;
+
+    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name);
+
+    if (lookedUpEntry == NULL)
     {
-        struct ScopeMember *examinedEntry = theStruct->members->entries->data[entryIndex];
-        if (!strcmp(examinedEntry->name, name))
-        {
-            if (examinedEntry->type != E_FUNCTION)
-            {
-                log(LOG_FATAL, "Attempt to call non-method member %s.%s as method!\n", theStruct->name, name);
-            }
-            return examinedEntry->entry;
-        }
+        InternalError("Attempt to call nonexistent method %s.%s\n", theStruct->name, name);
     }
 
-    log(LOG_FATAL, "Attempt to call nonexistent method %s.%s\n", theStruct->name, name);
-    exit(1);
+    if (lookedUpEntry->type != E_FUNCTION)
+    {
+        InternalError("Attempt to call non-method member %s.%s as method!\n", theStruct->name, name);
+    }
+
+    returnedMethod = lookedUpEntry->entry;
+
+    if (!returnedMethod->isMethod)
+    {
+        InternalError("Attempt to call non-member associated function %s::%s as a method!\n", theStruct->name, name);
+    }
+
+    return returnedMethod;
 }

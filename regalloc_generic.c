@@ -10,7 +10,7 @@ void *lifetime_find(struct Set *allLifetimes, char *lifetimeName)
 {
     struct Lifetime dummy = {0};
     dummy.name = lifetimeName;
-    return set_find(allLifetimes, &dummy);
+    return old_set_find(allLifetimes, &dummy);
 }
 
 struct Lifetime *lifetime_new(char *name, struct Type *type, size_t start, u8 isGlobal, u8 mustSpill)
@@ -89,7 +89,7 @@ struct Lifetime *update_or_insert_lifetime(struct Set *ltList,
         log(LOG_DEBUG, "Create lifetime starting at %zu for %s %s: global? %d mustspill? %d", newEnd, typeName, name, isGlobal, mustSpill);
         free(typeName);
         thisLt = lifetime_new(name, type, newEnd, isGlobal, mustSpill);
-        set_insert(ltList, thisLt);
+        old_set_insert(ltList, thisLt);
     }
 
     return thisLt;
@@ -156,19 +156,19 @@ void record_lifetime_read_for_operand(struct Set *lifetimes, struct TACOperand *
     }
 }
 
-void find_lifetimes_for_tac(struct Set *lifetimes, struct Scope *scope, struct TACLine *line, struct Stack *doDepth)
+void find_lifetimes_for_tac(struct Set *lifetimes, struct Scope *scope, struct TACLine *line, Stack *doDepth)
 {
     // handle tt_do/tt_enddo stack and lifetime extension
     switch (line->operation)
     {
     case TT_DO:
-        old_stack_push(doDepth, (void *)(long int)line->index);
+        stack_push(doDepth, (void *)(long int)line->index);
         break;
 
     case TT_ENDDO:
     {
         size_t extendTo = line->index;
-        size_t extendFrom = (size_t)old_stack_pop(doDepth);
+        size_t extendFrom = (size_t)stack_pop(doDepth);
         for (struct LinkedListNode *lifetimeRunner = lifetimes->elements->head; lifetimeRunner != NULL; lifetimeRunner = lifetimeRunner->next)
         {
             struct Lifetime *examinedLifetime = lifetimeRunner->data;
@@ -207,9 +207,10 @@ void find_lifetimes_for_tac(struct Set *lifetimes, struct Scope *scope, struct T
 
 void add_argument_lifetimes_for_scope(struct Set *lifetimes, struct Scope *scope)
 {
-    for (size_t entryIndex = 0; entryIndex < scope->entries->size; entryIndex++)
+    Iterator *entryIterator = NULL;
+    for (entryIterator = set_begin(scope->entries); iterator_valid(entryIterator); iterator_next(entryIterator))
     {
-        struct ScopeMember *thisMember = scope->entries->data[entryIndex];
+        struct ScopeMember *thisMember = iterator_get(entryIterator);
         if (thisMember->type == E_ARGUMENT)
         {
             struct VariableEntry *theArgument = thisMember->entry;
@@ -221,12 +222,12 @@ void add_argument_lifetimes_for_scope(struct Set *lifetimes, struct Scope *scope
 
 struct Set *find_lifetimes(struct Scope *scope, struct LinkedList *basicBlockList)
 {
-    struct Set *lifetimes = set_new((ssize_t(*)(void *, void *))lifetime_compare, free);
+    struct Set *lifetimes = old_set_new((ssize_t(*)(void *, void *))lifetime_compare, free);
 
     add_argument_lifetimes_for_scope(lifetimes, scope);
 
     struct LinkedListNode *blockRunner = basicBlockList->head;
-    struct Stack *doDepth = old_stack_new();
+    Stack *doDepth = stack_new(NULL);
     while (blockRunner != NULL)
     {
         struct BasicBlock *thisBlock = blockRunner->data;
@@ -240,7 +241,7 @@ struct Set *find_lifetimes(struct Scope *scope, struct LinkedList *basicBlockLis
         blockRunner = blockRunner->next;
     }
 
-    old_stack_free(doDepth);
+    stack_free(doDepth);
 
     return lifetimes;
 }
@@ -267,6 +268,13 @@ bool register_is_live(struct Register *reg, size_t index)
     }
 
     return lifetime_is_live_at_index(reg->containedLifetime, index);
+}
+
+ssize_t register_compare(void *dataA, void *dataB)
+{
+    struct Register *registerA = dataA;
+    struct Register *registerb = dataB;
+    return registerA->index - registerb->index;
 }
 
 struct MachineInfo *(*setupMachineInfo)() = NULL;
