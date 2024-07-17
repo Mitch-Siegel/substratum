@@ -4,9 +4,11 @@
 #include "tac.h"
 #include "util.h"
 
+#include "mbcl/list.h"
+
 struct BasicBlock
 {
-    struct LinkedList *TACList;
+    List *TACList;
     ssize_t labelNum; // ssize_t because some linearization functions take a label number < 0 as a signal to structure control flow
 };
 

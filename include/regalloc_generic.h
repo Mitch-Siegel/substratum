@@ -7,10 +7,12 @@
 #include "substratum_defs.h"
 #include "type.h"
 
+#include "mbcl/list.h"
+#include "mbcl/set.h"
+
 struct TACOperand;
 struct TACLine;
 struct LinkedList;
-struct Set;
 struct Scope;
 
 enum WRITEBACK_LOCATION
@@ -35,7 +37,7 @@ struct Lifetime
     u8 isArgument;
 };
 
-void *lifetime_find(struct Set *allLifetimes, char *lifetimeName);
+void *lifetime_find(Set *allLifetimes, char *lifetimeName);
 
 struct Lifetime *lifetime_new(char *name,
                               struct Type *type,
@@ -51,7 +53,7 @@ bool lifetime_is_live_at_index(struct Lifetime *lifetime, size_t index);
 
 // update the lifetime start/end indices
 // returns pointer to the lifetime corresponding to the passed variable name
-struct Lifetime *update_or_insert_lifetime(struct Set *ltList,
+struct Lifetime *update_or_insert_lifetime(Set *lifetimes,
                                            char *name,
                                            struct Type *type,
                                            size_t newEnd,
@@ -60,19 +62,19 @@ struct Lifetime *update_or_insert_lifetime(struct Set *ltList,
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
-void record_variable_write(struct Set *ltList,
+void record_variable_write(Set *lifetimes,
                            struct TACOperand *writtenOperand,
                            struct Scope *scope,
                            size_t newEnd);
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
-void record_variable_read(struct Set *ltList,
+void record_variable_read(Set *lifetimes,
                           struct TACOperand *readOperand,
                           struct Scope *scope,
                           size_t newEnd);
 
-struct Set *find_lifetimes(struct Scope *scope, struct LinkedList *basicBlockList);
+Set *find_lifetimes(struct Scope *scope, List *basicBlockList);
 
 struct Register
 {
@@ -134,9 +136,9 @@ struct RegallocMetadata
     struct FunctionEntry *function; // symbol table entry for the function the register allocation data is for
     struct Scope *scope;            // scope at which we are generating (identical to function->mainScope if in a function)
 
-    struct Set *allLifetimes; // every lifetime that exists within this function based on variables and TAC operands (puplated during regalloc)
+    Set *allLifetimes; // every lifetime that exists within this function based on variables and TAC operands (puplated during regalloc)
 
-    struct Set *touchedRegisters;
+    Set *touchedRegisters;
 
     // largest TAC index for any basic block within the function
     size_t largestTacIndex;

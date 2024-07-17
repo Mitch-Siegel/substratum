@@ -5,6 +5,7 @@
 #include "substratum_defs.h"
 
 #include "mbcl/array.h"
+#include "mbcl/list.h"
 
 #pragma once
 
@@ -24,7 +25,7 @@ struct ParseProgress
     size_t curColRaw;
     FILE *f;
     struct Dictionary *dict;
-    struct LinkedList *charsRemainingPerLine;
+    List *charsRemainingPerLine;
     size_t lastMatchLocation; // location of last parser match relative to pcc buffer
     char eofReceived;
 };
@@ -107,72 +108,6 @@ void dictionary_free(struct Dictionary *dict);
  * Unordered List data structure
  *
  */
-
-struct LinkedListNode
-{
-    struct LinkedListNode *next;
-    struct LinkedListNode *prev;
-    void *data;
-};
-
-struct LinkedList
-{
-    struct LinkedListNode *head;
-    struct LinkedListNode *tail;
-    size_t size;
-};
-
-struct LinkedList *linked_list_new();
-
-void linked_list_free(struct LinkedList *list, void (*dataFreeFunction)());
-
-void linked_list_append(struct LinkedList *list, void *element);
-
-void linked_list_prepend(struct LinkedList *list, void *element);
-
-// join all elements of list 'after' after those of list 'before' in list 'before'
-void linked_list_join(struct LinkedList *before, struct LinkedList *after);
-
-void *linked_list_delete(struct LinkedList *list, ssize_t (*compareFunction)(), void *element);
-
-void *linked_list_find(struct LinkedList *list, ssize_t (*compareFunction)(), void *element);
-
-void *linked_list_pop_front(struct LinkedList *list);
-
-void *linked_list_pop_back(struct LinkedList *list);
-
-/*
- * Set data structure
- */
-
-struct Set
-{
-    struct LinkedList *elements;
-    ssize_t (*compareFunction)(void *elementA, void *elementB);
-    void (*dataFreeFunction)(void *);
-};
-
-struct Set *old_set_new(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction));
-
-void old_set_insert(struct Set *set, void *element);
-
-void old_set_delete(struct Set *set, void *element);
-
-void *old_set_find(struct Set *set, void *element);
-
-void old_set_clear(struct Set *toClear);
-
-void old_set_merge(struct Set *into, struct Set *from);
-
-struct Set *old_set_copy(struct Set *set);
-
-// given two input sets, construct and return a third set containing data from the union of the two
-struct Set *old_set_union(struct Set *setA, struct Set *setB);
-
-// given two input sets, construct and return a third set containing data from the intersection of the two
-struct Set *old_set_intersection(struct Set *setA, struct Set *setB);
-
-void old_set_free(struct Set *set);
 
 /*
  * TempList is a struct containing string names for TAC temps by number (eg t0, t1, t2, etc...)

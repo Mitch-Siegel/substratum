@@ -240,9 +240,10 @@ void generate_code_for_function(FILE *outFile,
         InternalError("Asm function with %zu basic blocks seen - expected 1!", function->BasicBlockList->size);
     }
 
-    for (struct LinkedListNode *blockRunner = function->BasicBlockList->head; blockRunner != NULL; blockRunner = blockRunner->next)
+    Iterator *blockRunner = NULL;
+    for (blockRunner = list_begin(function->BasicBlockList); iterator_valid(blockRunner); iterator_next(blockRunner))
     {
-        struct BasicBlock *block = blockRunner->data;
+        struct BasicBlock *block = iterator_get(blockRunner);
         log(LOG_DEBUG, "Generating code for basic block %zd", block->labelNum);
         generateCodeForBasicBlock(&state, &function->regalloc, info, block, fullFunctionName);
     }

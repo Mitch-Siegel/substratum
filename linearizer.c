@@ -1365,7 +1365,7 @@ ssize_t walk_match_case_block(struct Ast *statement,
     return caseEntryLabel;
 }
 
-void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct EnumEntry *matchedEnum, struct Set *matchedValues)
+void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct EnumEntry *matchedEnum, Set *matchedValues)
 {
     size_t stateSpaceSize = 0;
     switch (matchedType->basicType)
@@ -1396,7 +1396,7 @@ void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct E
         InternalError("VT_STRUCT seen as type of matched expression");
     }
 
-    size_t missingCases = matchedValues->elements->size - stateSpaceSize;
+    size_t missingCases = matchedValues->size - stateSpaceSize;
 
     if (missingCases > 0)
     {
@@ -1405,7 +1405,7 @@ void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct E
         {
             pluralString = "s";
         }
-        log_tree(LOG_FATAL, matchTree, "Missing %zu match case%s for type %s", stateSpaceSize - matchedValues->elements->size, pluralString, type_get_name(matchedType));
+        log_tree(LOG_FATAL, matchTree, "Missing %zu match case%s for type %s", stateSpaceSize - matchedValues->size, pluralString, type_get_name(matchedType));
     }
 }
 
@@ -1422,7 +1422,7 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
                          struct TACOperand *matchedAgainstEnum,
                          struct TACOperand *matchedAgainstNumerical,
                          struct EnumEntry *matchedEnum,
-                         struct Set *matchedValues)
+                         Set *matchedValues)
 {
     // only allow underscore or identifier trees
     switch (matchedValueTree->type)
@@ -1440,14 +1440,14 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
     {
         struct EnumMember *matchedMember = enum_lookup_member(matchedEnum, matchedValueTree);
 
-        if (old_set_find(matchedValues, &matchedMember->numerical) != NULL)
+        if (set_find(matchedValues, &matchedMember->numerical) != NULL)
         {
             log_tree(LOG_FATAL, matchedValueTree, "Duplicated match case %s", matchedValueTree->value);
         }
 
         size_t *matchedValuePointer = malloc(sizeof(size_t));
         *matchedValuePointer = matchedMember->numerical;
-        old_set_insert(matchedValues, matchedValuePointer);
+        set_insert(matchedValues, matchedValuePointer);
 
         struct TACLine *matchJump = new_tac_line(TT_BEQ, matchedValueTree);
 
@@ -1529,7 +1529,7 @@ void walk_non_enum_match_arm(struct Ast *matchedValueTree,
                              struct TACOperand *matchedAgainstEnum,
                              struct TACOperand *matchedAgainstNumerical,
                              struct Type *matchedType,
-                             struct Set *matchedValues)
+                             Set *matchedValues)
 {
     // only allow underscore or constant trees
     switch (matchedValueTree->type)
@@ -1565,14 +1565,14 @@ void walk_non_enum_match_arm(struct Ast *matchedValueTree,
             }
         }
 
-        if (old_set_find(matchedValues, &matchedValue) != NULL)
+        if (set_find(matchedValues, &matchedValue) != NULL)
         {
             log_tree(LOG_FATAL, matchedValueTree, "Duplicated match case %s", matchedValueTree->value);
         }
 
         size_t *matchedValuePointer = malloc(sizeof(size_t));
         *matchedValuePointer = matchedValue;
-        old_set_insert(matchedValues, matchedValuePointer);
+        set_insert(matchedValues, matchedValuePointer);
 
         struct TACLine *matchJump = new_tac_line(TT_BEQ, matchedValueTree);
 
@@ -1618,7 +1618,7 @@ void walk_match_statement(struct Ast *tree,
 
     struct Ast *matchRunner = matchedExpression->sibling;
 
-    struct Set *matchedValues = old_set_new(sizet_pointer_compare, free);
+    Set *matchedValues = set_new(free, sizet_pointer_compare);
 
     struct TACOperand matchedAgainst = {0};
     walk_sub_expression(matchedExpression, block, scope, tacIndex, tempNum, &matchedAgainst);
@@ -1773,7 +1773,7 @@ void walk_match_statement(struct Ast *tree,
     {
         check_match_cases(tree, matchedType, matchedEnum, matchedValues);
     }
-    old_set_free(matchedValues);
+    set_free(matchedValues);
 }
 
 void walk_assignment(struct Ast *tree,

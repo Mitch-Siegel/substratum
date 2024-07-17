@@ -6,7 +6,7 @@
 #include "util.h"
 #include <string.h>
 
-void *lifetime_find(struct Set *allLifetimes, char *lifetimeName)
+void *lifetime_find(Set *allLifetimes, char *lifetimeName)
 {
     struct Lifetime dummy = {0};
     dummy.name = lifetimeName;
@@ -60,7 +60,7 @@ bool lifetime_is_live_at_index(struct Lifetime *lifetime, size_t index)
 // search through the list of existing lifetimes
 // update the lifetime if it exists, insert if it doesn't
 // returns pointer to the lifetime corresponding to the passed variable name
-struct Lifetime *update_or_insert_lifetime(struct Set *ltList,
+struct Lifetime *update_or_insert_lifetime(Set *ltList,
                                            char *name,
                                            struct Type *type,
                                            size_t newEnd,
@@ -97,7 +97,7 @@ struct Lifetime *update_or_insert_lifetime(struct Set *ltList,
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
-void record_variable_write(struct Set *ltList,
+void record_variable_write(Set *ltList,
                            struct TACOperand *writtenOperand,
                            struct Scope *scope,
                            size_t newEnd)
@@ -117,7 +117,7 @@ void record_variable_write(struct Set *ltList,
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
-void record_variable_read(struct Set *ltList,
+void record_variable_read(Set *ltList,
                           struct TACOperand *readOperand,
                           struct Scope *scope,
                           size_t newEnd)
@@ -136,7 +136,7 @@ void record_variable_read(struct Set *ltList,
     updatedLifetime->nreads += 1;
 }
 
-void record_lifetime_write_for_operand(struct Set *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
+void record_lifetime_write_for_operand(Set *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
 {
     if ((tac_operand_get_type(operand)->basicType != VT_NULL) &&
         (operand->permutation != VP_LITERAL_STR) &&
@@ -146,7 +146,7 @@ void record_lifetime_write_for_operand(struct Set *lifetimes, struct TACOperand 
     }
 }
 
-void record_lifetime_read_for_operand(struct Set *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
+void record_lifetime_read_for_operand(Set *lifetimes, struct TACOperand *operand, struct Scope *scope, size_t tacIndex)
 {
     if ((tac_operand_get_type(operand)->basicType != VT_NULL) &&
         (operand->permutation != VP_LITERAL_STR) &&
@@ -156,7 +156,7 @@ void record_lifetime_read_for_operand(struct Set *lifetimes, struct TACOperand *
     }
 }
 
-void find_lifetimes_for_tac(struct Set *lifetimes, struct Scope *scope, struct TACLine *line, Stack *doDepth)
+void find_lifetimes_for_tac(Set *lifetimes, struct Scope *scope, struct TACLine *line, Stack *doDepth)
 {
     // handle tt_do/tt_enddo stack and lifetime extension
     switch (line->operation)
@@ -205,7 +205,7 @@ void find_lifetimes_for_tac(struct Set *lifetimes, struct Scope *scope, struct T
     }
 }
 
-void add_argument_lifetimes_for_scope(struct Set *lifetimes, struct Scope *scope)
+void add_argument_lifetimes_for_scope(Set *lifetimes, struct Scope *scope)
 {
     Iterator *entryIterator = NULL;
     for (entryIterator = set_begin(scope->entries); iterator_valid(entryIterator); iterator_next(entryIterator))
@@ -221,9 +221,9 @@ void add_argument_lifetimes_for_scope(struct Set *lifetimes, struct Scope *scope
     iterator_free(entryIterator);
 }
 
-struct Set *find_lifetimes(struct Scope *scope, struct LinkedList *basicBlockList)
+Set *find_lifetimes(struct Scope *scope, struct LinkedList *basicBlockList)
 {
-    struct Set *lifetimes = old_set_new((ssize_t(*)(void *, void *))lifetime_compare, free);
+    Set *lifetimes = old_set_new((ssize_t(*)(void *, void *))lifetime_compare, free);
 
     add_argument_lifetimes_for_scope(lifetimes, scope);
 

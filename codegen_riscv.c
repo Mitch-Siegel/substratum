@@ -206,7 +206,7 @@ Set *get_touched_caller_save_registers(struct RegallocMetadata *metadata, struct
     {
         struct Register *potentiallyCallerSaved = info->caller_save[regIndex];
         // only need to actually callee-save registers we touch in this function
-        if (old_set_find(metadata->touchedRegisters, potentiallyCallerSaved) != NULL)
+        if (set_find(metadata->touchedRegisters, potentiallyCallerSaved) != NULL)
         {
             set_insert(actuallyCallerSaved, potentiallyCallerSaved);
             log(LOG_DEBUG, "%s is used in %s, need to caller-save", potentiallyCallerSaved->name, metadata->function->name);
@@ -287,7 +287,7 @@ Set *get_touched_callee_save_registers(struct RegallocMetadata *metadata, struct
     {
         struct Register *potentiallyCalleeSaved = info->callee_save[regIndex];
         // only need to actually callee-save registers we touch in this function
-        if (old_set_find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
+        if (set_find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
         {
             set_insert(actuallyCalleeSaved, potentiallyCalleeSaved);
             log(LOG_DEBUG, "%s is used in %s, need to callee-save", potentiallyCalleeSaved->name, metadata->function->name);
@@ -1400,11 +1400,12 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
 
     Stack *calledFunctionArguments = stack_new(NULL);
     size_t lastLineNo = 0;
-    for (struct LinkedListNode *tacRunner = block->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
+    Iterator *tacRunner = NULL;
+    for (tacRunner = list_begin(block->TACList); iterator_valid(tacRunner); iterator_next(tacRunner))
     {
         release_all_scratch_registers(info);
 
-        struct TACLine *thisTac = tacRunner->data;
+        struct TACLine *thisTac = iterator_get(tacRunner);
 
         char *printedTac = sprint_tac_line(thisTac);
         log(LOG_DEBUG, "Generate code for %s (alloc %s:%d)", printedTac, thisTac->allocFile, thisTac->allocLine);
