@@ -87,21 +87,23 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
     iterator_free(memberIterator);
 
     Iterator *moveHereIterator = NULL;
-    for(moveHereIterator = set_begin(moveToThisScope); iterator_valid(moveHereIterator); iterator_next(moveHereIterator))
+    for (moveHereIterator = set_begin(moveToThisScope); iterator_valid(moveHereIterator); iterator_next(moveHereIterator))
     {
         struct ScopeMember *thisMember = iterator_get(moveHereIterator);
         printf("move %s out of subscope into %s\n", thisMember->name, scope->name);
         set_insert(scope->entries, iterator_get(moveHereIterator));
     }
     iterator_free(moveHereIterator);
+    set_free(moveToThisScope);
 
-     Iterator *removeFromHereIterator = NULL;
-    for(removeFromHereIterator = set_begin(removeFromThisScope); iterator_valid(removeFromHereIterator); iterator_next(removeFromHereIterator))
+    Iterator *removeFromHereIterator = NULL;
+    for (removeFromHereIterator = set_begin(removeFromThisScope); iterator_valid(removeFromHereIterator); iterator_next(removeFromHereIterator))
     {
         struct ScopeMember *removedMember = iterator_get(removeFromHereIterator);
         set_remove(scope->entries, removedMember);
     }
     iterator_free(removeFromHereIterator);
+    set_free(removeFromThisScope);
 
     Set *moveOutOfThisScope = set_new(NULL, scope->entries->compareData);
     // perform all recursive operations first
@@ -153,6 +155,7 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
     iterator_free(memberIterator);
 
     memberIterator = NULL;
+    MBCL_DATA_FREE_FUNCTION oldFree = scope->entries->freeData;
     scope->entries->freeData = NULL;
     for (memberIterator = set_begin(moveOutOfThisScope); iterator_valid(memberIterator); iterator_next(memberIterator))
     {
@@ -160,13 +163,20 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
         printf("remove %s from %s\n", removedEntry->name, scope->name);
         set_remove(scope->entries, removedEntry);
     }
+    iterator_free(memberIterator);
+    scope->entries->freeData = oldFree;
 
     return moveOutOfThisScope;
 }
 
 void symbol_table_collapse_scopes(struct SymbolTable *table, struct Dictionary *dict)
 {
-    symbol_table_collapse_scopes_rec(table->globalScope, parseDict, 0);
+    Set *topLevelMoved = symbol_table_collapse_scopes_rec(table->globalScope, parseDict, 0);
+    if (topLevelMoved->size > 0)
+    {
+        InternalError("Saw %zu elements to be moved up from global scope", topLevelMoved->size);
+    }
+    set_free(topLevelMoved);
 }
 
 void symbol_table_free(struct SymbolTable *table)
@@ -294,6 +304,7 @@ void scope_print(struct Scope *scope, FILE *outFile, size_t depth, bool printTac
         struct ScopeMember *thisMember = iterator_get(memberIterator);
         scope_print_member(thisMember, printTac, depth + 1, outFile);
     }
+    iterator_free(memberIterator);
 }
 
 void scope_add_basic_block(struct Scope *scope, struct BasicBlock *block)

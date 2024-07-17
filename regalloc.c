@@ -565,6 +565,7 @@ void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)
             break;
         }
     }
+    iterator_free(entryIterator);
 }
 
 void allocate_registers_for_program(struct SymbolTable *theTable, struct MachineInfo *info)

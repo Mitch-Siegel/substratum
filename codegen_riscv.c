@@ -243,6 +243,7 @@ void riscv_caller_save_registers(struct CodegenState *state, struct RegallocMeta
         riscv_emit_stack_store_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, saveIndex * MACHINE_REGISTER_SIZE_BYTES);
         saveIndex++;
     }
+    iterator_free(callerSaveIterator);
 
     set_free(actuallyCallerSaved);
 }
@@ -270,6 +271,7 @@ void riscv_caller_restore_registers(struct CodegenState *state, struct RegallocM
         riscv_emit_stack_load_for_size(NULL, state, info, callerSaved, MACHINE_REGISTER_SIZE_BYTES, (saveIndex * MACHINE_REGISTER_SIZE_BYTES));
         saveIndex++;
     }
+    iterator_free(callerSaveIterator);
 
     // TODO: don't emit when 0
     emit_instruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
@@ -316,6 +318,7 @@ void riscv_callee_save_registers(struct CodegenState *state, struct RegallocMeta
         riscv_emit_frame_store_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (saveIndex + 2) * MACHINE_REGISTER_SIZE_BYTES));
         saveIndex++;
     }
+    iterator_free(calleeSaveIterator);
 
     set_free(actuallyCalleeSaved);
 }
@@ -342,6 +345,7 @@ void riscv_callee_restore_registers(struct CodegenState *state, struct RegallocM
         riscv_emit_frame_load_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (saveIndex + 2) * MACHINE_REGISTER_SIZE_BYTES));
         saveIndex++;
     }
+    iterator_free(calleeSaveIterator);
 
     set_free(actuallyCalleeSaved);
 }
@@ -711,6 +715,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
             break;
         }
     }
+    iterator_free(argumentIterator);
 }
 
 void riscv_emit_array_load(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)

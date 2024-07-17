@@ -446,4 +446,5 @@ void generate_ssa(struct SymbolTable *theTable)
             break;
         }
     }
+    iterator_free(entryIterator);
 }

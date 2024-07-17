@@ -218,6 +218,7 @@ void add_argument_lifetimes_for_scope(struct Set *lifetimes, struct Scope *scope
             update_or_insert_lifetime(lifetimes, thisMember->name, &theArgument->type, 0, 0, theArgument->mustSpill)->isArgument = 1;
         }
     }
+    iterator_free(entryIterator);
 }
 
 struct Set *find_lifetimes(struct Scope *scope, struct LinkedList *basicBlockList)

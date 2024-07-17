@@ -216,7 +216,6 @@ int main(int argc, char **argv)
     /*log(LOG_DEBUG, "Symbol table before scope collapse:");
     SymbolTable_print(theTable, stderr, 1);*/
 
-
     log(LOG_INFO, "Collapsing scopes");
 
     symbol_table_collapse_scopes(theTable, parseDict);
