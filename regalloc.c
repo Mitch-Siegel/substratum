@@ -319,7 +319,7 @@ Set *pre_select_register_contention_lifetimes(Set *selectFrom, struct Scope *sco
 size_t find_highest_overlap(Array *lifetimeOverlaps)
 {
     size_t highestOverlap = 0;
-    for (size_t tacIndex = 0; tacIndex <= lifetimeOverlaps->size; tacIndex++)
+    for (size_t tacIndex = 0; tacIndex < lifetimeOverlaps->size; tacIndex++)
     {
         size_t thisOverlap = ((Set *)array_at(lifetimeOverlaps, tacIndex))->size;
         if (thisOverlap > highestOverlap)
@@ -333,7 +333,7 @@ size_t find_highest_overlap(Array *lifetimeOverlaps)
 
 void lifetime_overlaps_remove(Array *lifetimeOverlaps, struct Lifetime *toRemove)
 {
-    for (size_t tacIndex = 0; tacIndex <= lifetimeOverlaps->size; tacIndex++)
+    for (size_t tacIndex = 0; tacIndex < lifetimeOverlaps->size; tacIndex++)
     {
         Set *removeFrom = array_at(lifetimeOverlaps, tacIndex);
         if (set_find(removeFrom, toRemove) != NULL)

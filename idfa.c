@@ -16,7 +16,7 @@ Array *generate_successors(Array *blocks)
         array_emplace(blockSuccessors, blockIndex, thisblockSuccessors);
 
         Iterator *tacRunner = NULL;
-        for (tacRunner = list_begin(array_at(blocks, blockIndex)); iterator_valid(tacRunner); iterator_next(tacRunner))
+        for (tacRunner = list_begin(((struct BasicBlock *)array_at(blocks, blockIndex))->TACList); iterator_valid(tacRunner); iterator_next(tacRunner))
         {
             struct TACLine *thisTac = iterator_get(tacRunner);
             switch (thisTac->operation)
@@ -71,6 +71,7 @@ struct IdfaContext *idfa_context_create(List *blocks)
 {
     struct IdfaContext *wip = malloc(sizeof(struct IdfaContext));
     size_t nBlocks = blocks->size;
+    wip->nBlocks = nBlocks;
     wip->blocks = array_new(NULL, nBlocks);
 
     Iterator *blockRunner = NULL;

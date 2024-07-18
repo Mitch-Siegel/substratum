@@ -43,7 +43,7 @@ void struct_check_access(struct StructEntry *theStruct,
                          struct Scope *scope,
                          char *whatAccessingCalled)
 {
-    struct ScopeMember *accessed = scope_lookup(theStruct->members, nameTree->value);
+    struct ScopeMember *accessed = scope_lookup(theStruct->members, nameTree->value, E_VARIABLE);
 
     switch (accessed->accessibility)
     {
@@ -70,13 +70,13 @@ void struct_check_access(struct StructEntry *theStruct,
     }
 }
 
-// assuming we know that struct has a member with name identical to name, make sure we can actually access it
+// assuming we know that struct has a field with name identical to name, make sure we can actually access it
 void struct_check_access_by_name(struct StructEntry *theStruct,
                                  char *name,
                                  struct Scope *scope,
                                  char *whatAccessingCalled)
 {
-    struct ScopeMember *accessed = scope_lookup(theStruct->members, name);
+    struct ScopeMember *accessed = scope_lookup(theStruct->members, name, E_VARIABLE);
 
     switch (accessed->accessibility)
     {
@@ -176,7 +176,7 @@ struct FunctionEntry *struct_looup_method(struct StructEntry *theStruct,
 {
     struct FunctionEntry *returnedMethod = NULL;
 
-    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name->value);
+    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name->value, E_FUNCTION);
 
     if (lookedUpEntry == NULL)
     {
@@ -206,7 +206,7 @@ struct FunctionEntry *struct_lookup_associated_function(struct StructEntry *theS
 {
     struct FunctionEntry *returendAssociated = NULL;
 
-    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name->value);
+    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name->value, E_FUNCTION);
 
     if (lookedUpEntry == NULL)
     {
@@ -235,7 +235,7 @@ struct FunctionEntry *struct_lookup_method_by_string(struct StructEntry *theStru
 {
     struct FunctionEntry *returnedMethod = NULL;
 
-    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name);
+    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name, E_FUNCTION);
 
     if (lookedUpEntry == NULL)
     {

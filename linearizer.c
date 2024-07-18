@@ -20,7 +20,7 @@ struct SymbolTable *walk_program(struct Ast *program)
 {
     typeDict = dictionary_new(TYPE_DICT_SIZE, (void *(*)(void *))type_duplicate, (size_t(*)(void *))type_hash, (ssize_t(*)(void *, void *))type_compare, (void (*)(void *))type_free);
     struct SymbolTable *programTable = symbol_table_new("Program");
-    struct BasicBlock *globalBlock = scope_lookup(programTable->globalScope, "globalblock")->entry;
+    struct BasicBlock *globalBlock = scope_lookup(programTable->globalScope, "globalblock", E_BASICBLOCK)->entry;
     struct BasicBlock *asmBlock = basic_block_new(1);
     scope_add_basic_block(programTable->globalScope, asmBlock);
     temps = temp_list_new();
@@ -172,25 +172,22 @@ void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populate
         complexTypeNameTree = *tree->child;
         complexTypeName = complexTypeNameTree.value;
 
-        struct ScopeMember *namedType = scope_lookup(scope, complexTypeName);
-
-        if (namedType == NULL)
+        struct ScopeMember *namedType = scope_lookup(scope, complexTypeName, E_STRUCT);
+        if (namedType != NULL)
         {
-            log_tree(LOG_FATAL, &complexTypeNameTree, "%s does not name a type", complexTypeName);
-        }
-
-        switch (namedType->type)
-        {
-        case E_STRUCT:
             basicType = VT_STRUCT;
-            break;
-
-        case E_ENUM:
-            basicType = VT_ENUM;
-            break;
-
-        default:
-            log_tree(LOG_FATAL, &complexTypeNameTree, "%s does not name a type", complexTypeName);
+        }
+        else
+        {
+            namedType = scope_lookup(scope, complexTypeName, E_ENUM);
+            if (namedType != NULL)
+            {
+                basicType = VT_ENUM;
+            }
+            else
+            {
+                log_tree(LOG_FATAL, &complexTypeNameTree, "%s does not name a type", complexTypeName);
+            }
         }
 
         if (complexTypeNameTree.type != T_IDENTIFIER)
@@ -448,7 +445,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
     }
 
     // child is the lparen, function name is the child of the lparen
-    struct ScopeMember *lookedUpFunction = scope_lookup(scope, functionNameTree->value);
+    struct ScopeMember *lookedUpFunction = scope_lookup(scope, functionNameTree->value, E_FUNCTION);
     struct FunctionEntry *parsedFunc = NULL;
     struct FunctionEntry *existingFunc = NULL;
     struct FunctionEntry *returnedFunc = NULL;
@@ -3533,7 +3530,7 @@ void walk_string_literal(struct Ast *tree,
     }
 
     struct VariableEntry *stringLiteralEntry = NULL;
-    struct ScopeMember *existingMember = scope_lookup(scope, stringName);
+    struct ScopeMember *existingMember = scope_lookup(scope, stringName, E_VARIABLE);
 
     // if we already have a string literal for this thing, nothing else to do
     if (existingMember == NULL)
@@ -3592,22 +3589,27 @@ void walk_sizeof(struct Ast *tree,
     case T_IDENTIFIER:
     {
         // do a generic scope lookup on the identifier
-        struct ScopeMember *lookedUpIdentifier = scope_lookup(scope, tree->child->value);
+        struct VariableEntry *lookedUpIdentifier = scope_lookup_var_by_string(scope, tree->child->value);
 
         // if it looks up nothing, or it's a variable
-        if ((lookedUpIdentifier == NULL) || (lookedUpIdentifier->type == E_VARIABLE))
+        if (lookedUpIdentifier != NULL)
         {
-            // scope_lookup_var is not redundant as it will give us a 'use of undeclared' error in the case where we looked up nothing
-            struct VariableEntry *getSizeof = scope_lookup_var(scope, tree->child);
-
-            sizeInBytes = type_get_size(&getSizeof->type, scope);
+            sizeInBytes = type_get_size(&lookedUpIdentifier->type, scope);
         }
         // we looked something up but it's not a variable
         else
         {
-            struct StructEntry *getSizeof = scope_lookup_struct(scope, tree->child);
 
-            sizeInBytes = getSizeof->totalSize;
+            struct ScopeMember *lookedUpStruct = scope_lookup(scope, tree->child->value, E_STRUCT);
+            if (lookedUpIdentifier != NULL)
+            {
+                struct StructEntry *getSizeof = lookedUpStruct->entry;
+                sizeInBytes = getSizeof->totalSize;
+            }
+            else
+            {
+                log_tree(LOG_FATAL, tree->child, "No declaration or type name matches identifier %s\n", tree->child->value);
+            }
         }
     }
     break;

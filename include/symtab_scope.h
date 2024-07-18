@@ -106,16 +106,19 @@ size_t scope_compute_padding_for_alignment(struct Scope *scope, struct Type *ali
 //
 // scope lookup functions
 //
-char scope_contains(struct Scope *scope,
-                    char *name);
+bool scope_contains(struct Scope *scope,
+                    char *name,
+                    enum SCOPE_MEMBER_TYPE type);
 
 // look up 'name' within 'scope', returning NULL if not found exactly within scope
-struct ScopeMember *scope_lookup_no_parent(struct Scope *scope, char *name);
+struct ScopeMember *scope_lookup_no_parent(struct Scope *scope, char *name,
+                                           enum SCOPE_MEMBER_TYPE type);
 
 // look up 'name' within 'scope', scooting to scope->parentScope each time it is not found in scope
 // only returning NULL when not found in any superscope of the original argument
 struct ScopeMember *scope_lookup(struct Scope *scope,
-                                 char *name);
+                                 char *name,
+                                 enum SCOPE_MEMBER_TYPE type);
 
 // adds an entry in the given scope denoting that the block is from that scope
 void scope_add_basic_block(struct Scope *scope,

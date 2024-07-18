@@ -19,7 +19,7 @@ ssize_t scope_member_compare(struct ScopeMember *memberA, struct ScopeMember *me
     }
     else
     {
-        return memberA->type - memberB->type;
+        return (ssize_t)memberA->type - (ssize_t)memberB->type;
     }
 }
 
@@ -82,7 +82,7 @@ void scope_free(struct Scope *scope)
 void scope_insert(struct Scope *scope, char *name, void *newEntry, enum SCOPE_MEMBER_TYPE type, enum ACCESS accessibility)
 {
     printf("insert %s in %s\n", name, scope->name);
-    if (scope_contains(scope, name))
+    if (scope_contains(scope, name, type))
     {
         InternalError("Error defining symbol [%s] - name already exists!", name);
     }
@@ -120,7 +120,7 @@ struct VariableEntry *scope_create_variable(struct Scope *scope,
                                             bool isGlobal,
                                             enum ACCESS accessibility)
 {
-    if (scope_contains(scope, nameTree->value))
+    if (scope_contains(scope, nameTree->value, E_VARIABLE) || scope_contains(scope, nameTree->value, E_ARGUMENT))
     {
         log_tree(LOG_FATAL, nameTree, "Redifinition of symbol %s!", nameTree->value);
     }
@@ -135,7 +135,7 @@ struct VariableEntry *scope_create_variable_by_name(struct Scope *scope,
                                                     bool isGlobal,
                                                     enum ACCESS accessibility)
 {
-    if (scope_contains(scope, name))
+    if (scope_contains(scope, name, E_VARIABLE) || scope_contains(scope, name, E_ARGUMENT))
     {
         InternalError("Redifinition of symbol %s!", name);
     }
@@ -156,7 +156,7 @@ struct VariableEntry *scope_create_argument(struct Scope *scope,
 
     struct VariableEntry *newArgument = variable_entry_new(name->value, type, false, true, accessibility);
 
-    if (scope_contains(scope, name->value))
+    if (scope_contains(scope, name->value, E_VARIABLE) || scope_contains(scope, name->value, E_ARGUMENT))
     {
         log_tree(LOG_FATAL, name, "Redifinition of symbol %s!", name->value);
     }
@@ -205,47 +205,29 @@ struct EnumEntry *scope_create_enum(struct Scope *scope,
 }
 // Scope lookup functions
 
-char scope_contains(struct Scope *scope, char *name)
+bool scope_contains(struct Scope *scope, char *name, enum SCOPE_MEMBER_TYPE type)
 {
-    Iterator *memberIterator = NULL;
-    for (memberIterator = set_begin(scope->entries); iterator_valid(memberIterator); iterator_next(memberIterator))
-    {
-        struct ScopeMember *comparedMember = iterator_get(memberIterator);
-        if (!strcmp(name, comparedMember->name))
-        {
-            iterator_free(memberIterator);
-            return 1;
-        }
-    }
-    iterator_free(memberIterator);
-
-    return 0;
+    struct ScopeMember dummyMember = {0};
+    dummyMember.name = name;
+    dummyMember.type = type;
+    return (set_find(scope->entries, &dummyMember) != NULL);
 }
 
-struct ScopeMember *scope_lookup_no_parent(struct Scope *scope, char *name)
+struct ScopeMember *scope_lookup_no_parent(struct Scope *scope, char *name, enum SCOPE_MEMBER_TYPE type)
 {
-    Iterator *memberIterator = NULL;
-    for (memberIterator = set_begin(scope->entries); iterator_valid(memberIterator); iterator_next(memberIterator))
-    {
-        struct ScopeMember *examinedEntry = iterator_get(memberIterator);
-        if (!strcmp(examinedEntry->name, name))
-        {
-            iterator_free(memberIterator);
-            return examinedEntry;
-        }
-    }
-
-    iterator_free(memberIterator);
-    return NULL;
+    struct ScopeMember dummyMember = {0};
+    dummyMember.name = name;
+    dummyMember.type = type;
+    return set_find(scope->entries, &dummyMember);
 }
 
 // if a member with the given name exists in this scope or any of its parents, return it
 // also looks up entries from deeper scopes, but only as their mangled names specify
-struct ScopeMember *scope_lookup(struct Scope *scope, char *name)
+struct ScopeMember *scope_lookup(struct Scope *scope, char *name, enum SCOPE_MEMBER_TYPE type)
 {
     while (scope != NULL)
     {
-        struct ScopeMember *foundThisScope = scope_lookup_no_parent(scope, name);
+        struct ScopeMember *foundThisScope = scope_lookup_no_parent(scope, name, type);
         if (foundThisScope != NULL)
         {
             return foundThisScope;
@@ -257,11 +239,15 @@ struct ScopeMember *scope_lookup(struct Scope *scope, char *name)
 
 struct VariableEntry *scope_lookup_var_by_string(struct Scope *scope, char *name)
 {
-    struct ScopeMember *lookedUp = scope_lookup(scope, name);
-    if (lookedUp == NULL)
+    struct ScopeMember *lookedUpVar = scope_lookup(scope, name, E_VARIABLE);
+    struct ScopeMember *lookedUpArg = scope_lookup(scope, name, E_ARGUMENT);
+    printf("Variable %s: %d Argument %s: %d\n", name, lookedUpVar != NULL, name, lookedUpArg != NULL);
+    if ((lookedUpVar == NULL) && (lookedUpArg == NULL))
     {
-        InternalError("Lookup of variable [%s] by string name failed!", name);
+        return NULL;
     }
+
+    struct ScopeMember *lookedUp = (lookedUpVar != NULL) ? lookedUpVar : lookedUpArg;
 
     switch (lookedUp->type)
     {
@@ -272,30 +258,24 @@ struct VariableEntry *scope_lookup_var_by_string(struct Scope *scope, char *name
     default:
         InternalError("Lookup returned unexpected symbol table entry type when looking up variable [%s]!", name);
     }
+
+    return NULL;
 }
 
 struct VariableEntry *scope_lookup_var(struct Scope *scope, struct Ast *name)
 {
-    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
+    struct VariableEntry *lookedUp = scope_lookup_var_by_string(scope, name->value);
     if (lookedUp == NULL)
     {
         log_tree(LOG_FATAL, name, "Use of undeclared variable '%s'", name->value);
     }
 
-    switch (lookedUp->type)
-    {
-    case E_ARGUMENT:
-    case E_VARIABLE:
-        return lookedUp->entry;
-
-    default:
-        InternalError("Lookup returned unexpected symbol table entry type when looking up variable [%s]!", name->value);
-    }
+    return lookedUp;
 }
 
 struct FunctionEntry *lookup_fun_by_string(struct Scope *scope, char *name)
 {
-    struct ScopeMember *lookedUp = scope_lookup(scope, name);
+    struct ScopeMember *lookedUp = scope_lookup(scope, name, E_FUNCTION);
     if (lookedUp == NULL)
     {
         InternalError("Lookup of undeclared function '%s'", name);
@@ -313,7 +293,7 @@ struct FunctionEntry *lookup_fun_by_string(struct Scope *scope, char *name)
 
 struct FunctionEntry *scope_lookup_fun(struct Scope *scope, struct Ast *name)
 {
-    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
+    struct ScopeMember *lookedUp = scope_lookup(scope, name->value, E_FUNCTION);
     if (lookedUp == NULL)
     {
         log_tree(LOG_FATAL, name, "Use of undeclared function '%s'", name->value);
@@ -331,7 +311,7 @@ struct FunctionEntry *scope_lookup_fun(struct Scope *scope, struct Ast *name)
 struct StructEntry *scope_lookup_struct(struct Scope *scope,
                                         struct Ast *name)
 {
-    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
+    struct ScopeMember *lookedUp = scope_lookup(scope, name->value, E_STRUCT);
     if (lookedUp == NULL)
     {
         log_tree(LOG_FATAL, name, "Use of undeclared struct '%s'", name->value);
@@ -356,7 +336,7 @@ struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
         InternalError("Non-struct type or struct type with null name passed to lookupStructByType!");
     }
 
-    struct ScopeMember *lookedUp = scope_lookup(scope, type->nonArray.complexType.name);
+    struct ScopeMember *lookedUp = scope_lookup(scope, type->nonArray.complexType.name, E_STRUCT);
     if (lookedUp == NULL)
     {
         log(LOG_FATAL, "Use of undeclared struct '%s'", type->nonArray.complexType.name);
@@ -375,7 +355,7 @@ struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
 struct EnumEntry *scope_lookup_enum(struct Scope *scope,
                                     struct Ast *name)
 {
-    struct ScopeMember *lookedUp = scope_lookup(scope, name->value);
+    struct ScopeMember *lookedUp = scope_lookup(scope, name->value, E_ENUM);
     if (lookedUp == NULL)
     {
         log_tree(LOG_FATAL, name, "Use of undeclared enum '%s'", name->value);
@@ -400,7 +380,7 @@ struct EnumEntry *scope_lookup_enum_by_type(struct Scope *scope,
         InternalError("Non-enum type or enum type with null name passed to lookupEnumByType!");
     }
 
-    struct ScopeMember *lookedUp = scope_lookup(scope, type->nonArray.complexType.name);
+    struct ScopeMember *lookedUp = scope_lookup(scope, type->nonArray.complexType.name, E_ENUM);
     if (lookedUp == NULL)
     {
         log(LOG_FATAL, "Use of undeclared enum '%s'", type->nonArray.complexType.name);
