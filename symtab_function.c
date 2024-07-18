@@ -12,7 +12,7 @@ struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *
     memset(newFunction, 0, sizeof(struct FunctionEntry));
     newFunction->arguments = deque_new(NULL);
     newFunction->mainScope = scope_new(parentScope, nameTree->value, newFunction, methodOf);
-    newFunction->BasicBlockList = linked_list_new();
+    newFunction->BasicBlockList = list_new(NULL, NULL);
     newFunction->correspondingTree = *nameTree;
     newFunction->mainScope->parentFunction = newFunction;
     newFunction->returnType = *returnType;
@@ -31,13 +31,13 @@ struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *
 void function_entry_free(struct FunctionEntry *function)
 {
     deque_free(function->arguments);
-    linked_list_free(function->BasicBlockList, NULL);
+    list_free(function->BasicBlockList);
     scope_free(function->mainScope);
 
     if (function->regalloc.allLifetimes != NULL)
     {
-        old_set_free(function->regalloc.allLifetimes);
-        old_set_free(function->regalloc.touchedRegisters);
+        set_free(function->regalloc.allLifetimes);
+        set_free(function->regalloc.touchedRegisters);
     }
 
     free(function);

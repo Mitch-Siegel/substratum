@@ -57,8 +57,7 @@ struct HashTableEntry
 
 struct HashTable
 {
-    struct Set **buckets;
-    size_t nBuckets;
+    Array buckets;
     size_t (*hashFunction)(void *key);
     ssize_t (*compareFunction)(void *keyA, void *keyB);
     void (*keyFreeFunction)(void *data);

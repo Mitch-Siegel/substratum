@@ -318,7 +318,7 @@ void scope_add_basic_block(struct Scope *scope, struct BasicBlock *block)
 
     if (scope->parentFunction != NULL)
     {
-        linked_list_append(scope->parentFunction->BasicBlockList, block);
+        list_append(scope->parentFunction->BasicBlockList, block);
     }
 }
 

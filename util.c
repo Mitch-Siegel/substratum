@@ -91,6 +91,8 @@ size_t parse_hex_constant(char *hexConstant)
  *
  */
 
+#include "mbcl/set.h"
+
 // TODO: just use the raw linkedlist data structure in hashtable
 ssize_t hash_table_entry_compare(void *dataA, void *dataB)
 {
@@ -135,8 +137,8 @@ struct HashTable *hash_table_new(size_t nBuckets,
                                  void (*valueFreeFunction)(void *data))
 {
     struct HashTable *wip = malloc(sizeof(struct HashTable));
-    wip->nBuckets = nBuckets;
-    wip->buckets = malloc(nBuckets * sizeof(struct Set *));
+    // TODO: set_free
+    array_init(&wip->buckets, NULL, nBuckets);
     wip->hashFunction = hashFunction;
     wip->compareFunction = compareFunction;
     wip->keyFreeFunction = keyFreeFunction;
@@ -144,7 +146,7 @@ struct HashTable *hash_table_new(size_t nBuckets,
 
     for (size_t bucketIndex = 0; bucketIndex < nBuckets; bucketIndex++)
     {
-        wip->buckets[bucketIndex] = old_set_new(hash_table_entry_compare, hash_table_entry_free);
+        array_emplace(&wip->buckets, bucketIndex, set_new(hash_table_entry_free, hash_table_entry_compare));
     }
 
     return wip;
@@ -153,15 +155,15 @@ struct HashTable *hash_table_new(size_t nBuckets,
 void *hash_table_lookup(struct HashTable *table, void *key)
 {
     size_t hash = table->hashFunction(key);
-    hash %= table->nBuckets;
+    hash %= table->buckets.size;
 
     struct HashTableEntry dummyEntry;
     dummyEntry.key = key;
     dummyEntry.value = NULL;
     dummyEntry.compareFunction = table->compareFunction;
 
-    struct Set *bucket = table->buckets[hash];
-    struct HashTableEntry *entryForKey = old_set_find(bucket, &dummyEntry);
+    Set *bucket = array_at(&table->buckets, hash);
+    struct HashTableEntry *entryForKey = set_find(bucket, &dummyEntry);
     if (entryForKey == NULL)
     {
         return NULL;
@@ -172,35 +174,30 @@ void *hash_table_lookup(struct HashTable *table, void *key)
 void hash_table_insert(struct HashTable *table, void *key, void *value)
 {
     size_t hash = table->hashFunction(key);
-    hash %= table->nBuckets;
+    hash %= table->buckets.size;
 
-    struct Set *bucket = table->buckets[hash];
+    Set *bucket = array_at(&table->buckets, hash);
     struct HashTableEntry *entry = hash_table_entry_new(key, value, table->compareFunction, table->keyFreeFunction, table->valueFreeFunction);
-    old_set_insert(bucket, entry);
+    set_insert(bucket, entry);
 }
 
 void hash_table_delete(struct HashTable *table, void *key)
 {
     size_t hash = table->hashFunction(key);
-    hash %= table->nBuckets;
+    hash %= table->buckets.size;
 
     struct HashTableEntry dummyEntry;
     dummyEntry.key = key;
     dummyEntry.value = NULL;
     dummyEntry.compareFunction = table->compareFunction;
 
-    struct Set *bucket = table->buckets[hash];
-    old_set_delete(bucket, &dummyEntry);
+    Set *bucket = array_at(&table->buckets, hash);
+    set_remove(bucket, &dummyEntry);
 }
 
 void hash_table_free(struct HashTable *table)
 {
-    for (size_t bucketIndex = 0; bucketIndex < table->nBuckets; bucketIndex++)
-    {
-        struct Set *bucket = table->buckets[bucketIndex];
-        old_set_free(bucket);
-    }
-    free(table->buckets);
+    array_deinit(&table->buckets);
     free(table);
 }
 
@@ -257,316 +254,6 @@ void dictionary_free(struct Dictionary *dict)
 {
     hash_table_free(dict->table);
     free(dict);
-}
-
-/*
- * LINKED LIST FUNCTIONS
- *
- */
-
-struct LinkedList *linked_list_new()
-{
-    struct LinkedList *wip = malloc(sizeof(struct LinkedList));
-    wip->head = NULL;
-    wip->tail = NULL;
-    wip->size = 0;
-    return wip;
-}
-
-void linked_list_free(struct LinkedList *list, void (*dataFreeFunction)(void *))
-{
-    struct LinkedListNode *runner = list->head;
-    while (runner != NULL)
-    {
-        if (dataFreeFunction != NULL)
-        {
-            dataFreeFunction(runner->data);
-        }
-        struct LinkedListNode *old = runner;
-        runner = runner->next;
-        free(old);
-    }
-    free(list);
-}
-
-void linked_list_append(struct LinkedList *list, void *element)
-{
-    if (element == NULL)
-    {
-        perror("Attempt to append data with null pointer into LinkedList!");
-        exit(1);
-    }
-
-    struct LinkedListNode *newNode = malloc(sizeof(struct LinkedListNode));
-    newNode->data = element;
-    if (list->size == 0)
-    {
-        newNode->next = NULL;
-        newNode->prev = NULL;
-        list->head = newNode;
-        list->tail = newNode;
-    }
-    else
-    {
-        list->tail->next = newNode;
-        newNode->prev = list->tail;
-        newNode->next = NULL;
-        list->tail = newNode;
-    }
-    list->size++;
-}
-
-void linked_list_prepend(struct LinkedList *list, void *element)
-{
-    if (element == NULL)
-    {
-        perror("Attempt to prepend data with null pointer into LinkedList!");
-        exit(1);
-    }
-
-    struct LinkedListNode *newNode = malloc(sizeof(struct LinkedListNode));
-    newNode->data = element;
-    if (list->size == 0)
-    {
-        newNode->next = NULL;
-        newNode->prev = NULL;
-        list->head = newNode;
-        list->tail = newNode;
-    }
-    else
-    {
-        list->head->prev = newNode;
-        newNode->next = list->head;
-        list->head = newNode;
-    }
-    list->size++;
-}
-
-void linked_list_join(struct LinkedList *before, struct LinkedList *after)
-{
-    for (struct LinkedListNode *runner = after->head; runner != NULL; runner = runner->next)
-    {
-        linked_list_append(before, runner->data);
-    }
-}
-
-void *linked_list_delete(struct LinkedList *list, ssize_t (*compareFunction)(void *, void *), void *element)
-{
-    for (struct LinkedListNode *runner = list->head; runner != NULL; runner = runner->next)
-    {
-        if (!compareFunction(runner->data, element))
-        {
-            if (list->size > 1)
-            {
-                if (runner == list->head)
-                {
-                    list->head = runner->next;
-                    runner->next->prev = NULL;
-                }
-                else
-                {
-                    if (runner == list->tail)
-                    {
-                        list->tail = runner->prev;
-                        runner->prev->next = NULL;
-                    }
-                    else
-                    {
-                        runner->prev->next = runner->next;
-                        runner->next->prev = runner->prev;
-                    }
-                }
-            }
-            else
-            {
-                list->head = NULL;
-                list->tail = NULL;
-            }
-            void *data = runner->data;
-            free(runner);
-            list->size--;
-            return data;
-        }
-    }
-    InternalError("Couldn't delete element from linked list!");
-}
-
-void *linked_list_find(struct LinkedList *list, ssize_t (*compareFunction)(void *, void *), void *element)
-{
-    for (struct LinkedListNode *runner = list->head; runner != NULL; runner = runner->next)
-    {
-        if (!compareFunction(runner->data, element))
-        {
-            return runner->data;
-        }
-    }
-    return NULL;
-}
-
-void *linked_list_pop_front(struct LinkedList *list)
-{
-    if (list->size == 0)
-    {
-        log(LOG_FATAL, "Unable to pop front from empty linkedlist!");
-    }
-    struct LinkedListNode *popped = list->head;
-
-    list->head = list->head->next;
-    if (list->head != NULL)
-    {
-        list->head->prev = NULL;
-    }
-    else
-    {
-        list->tail = NULL;
-    }
-    list->size--;
-
-    void *poppedData = popped->data;
-    free(popped);
-
-    return poppedData;
-}
-
-void *linked_list_pop_back(struct LinkedList *list)
-{
-    if (list->size == 0)
-    {
-        log(LOG_FATAL, "Unable to pop front from empty linkedlist!");
-    }
-    struct LinkedListNode *popped = list->tail;
-
-    list->size--;
-
-    if (list->size)
-    {
-        list->tail = list->tail->prev;
-    }
-    else
-    {
-        list->tail = NULL;
-        ;
-        list->head = NULL;
-    }
-
-    void *poppedData = popped->data;
-    free(popped);
-
-    return poppedData;
-}
-
-/*
- * Set data structure
- */
-
-struct Set *old_set_new(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction))
-{
-    struct Set *wip = malloc(sizeof(struct Set));
-    wip->elements = linked_list_new();
-    wip->compareFunction = compareFunction;
-    wip->dataFreeFunction = dataFreeFunction;
-    return wip;
-}
-
-void old_set_insert(struct Set *set, void *element)
-{
-    if (element == NULL)
-    {
-        InternalError("Attempt to insert null data into set!");
-    }
-
-    if (linked_list_find(set->elements, set->compareFunction, element) == NULL)
-    {
-        linked_list_append(set->elements, element);
-    }
-}
-
-void old_set_delete(struct Set *set, void *element)
-{
-    if (linked_list_find(set->elements, set->compareFunction, element) != NULL)
-    {
-        void *dataToFree = linked_list_delete(set->elements, set->compareFunction, element);
-        if (set->dataFreeFunction != NULL)
-        {
-            set->dataFreeFunction(dataToFree);
-        }
-    }
-    else
-    {
-        InternalError("Attempt to delete non-existent element from set!");
-    }
-}
-
-void *old_set_find(struct Set *set, void *element)
-{
-    return linked_list_find(set->elements, set->compareFunction, element);
-}
-
-void old_set_clear(struct Set *toClear)
-{
-    linked_list_free(toClear->elements, toClear->dataFreeFunction);
-    toClear->elements = linked_list_new();
-}
-
-void old_set_merge(struct Set *into, struct Set *from)
-{
-    for (struct LinkedListNode *runner = from->elements->head; runner != NULL; runner = runner->next)
-    {
-        old_set_insert(into, runner->data);
-    }
-}
-
-struct Set *old_set_copy(struct Set *set)
-{
-    struct Set *copied = old_set_new(set->compareFunction, set->dataFreeFunction);
-    old_set_merge(copied, set);
-    return copied;
-}
-
-struct Set *old_set_union(struct Set *setA, struct Set *setB)
-{
-    struct Set *unionedSet = old_set_new(setA->compareFunction, setA->dataFreeFunction);
-    if (setA->compareFunction != setB->compareFunction)
-    {
-        log(LOG_FATAL, "Call to SetUnion with mismatch in set compare functions between sets to union!");
-    }
-    if (setA->dataFreeFunction != setB->dataFreeFunction)
-    {
-        log(LOG_FATAL, "Call to SetUnion with mismatch in set data free functions between sets to union!");
-    }
-
-    old_set_merge(unionedSet, setA);
-    old_set_merge(unionedSet, setB);
-    return unionedSet;
-}
-
-struct Set *old_set_intersection(struct Set *setA, struct Set *setB)
-{
-    struct Set *intersectedSet = old_set_new(setA->compareFunction, setA->dataFreeFunction);
-    if (setA->compareFunction != setB->compareFunction)
-    {
-        log(LOG_FATAL, "Call to SetIntersection with mismatch in set compare functions between sets to intersect!");
-    }
-    if (setA->dataFreeFunction != setB->dataFreeFunction)
-    {
-        log(LOG_FATAL, "Call to SetIntersection with mismatch in set data free functions between sets to intersect!");
-    }
-
-    for (struct LinkedListNode *elementNode = setA->elements->head; elementNode != NULL; elementNode = elementNode->next)
-    {
-        if (old_set_find(setB, elementNode->data) != NULL)
-        {
-            old_set_insert(intersectedSet, elementNode->data);
-        }
-    }
-
-    return intersectedSet;
-}
-
-void old_set_free(struct Set *set)
-{
-    linked_list_free(set->elements, set->dataFreeFunction);
-    free(set);
 }
 
 /*

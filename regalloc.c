@@ -11,6 +11,23 @@
 #include "mbcl/list.h"
 #include "mbcl/stack.h"
 
+#undef set_copy
+
+Set *set_copy_fun(Set *set)
+{
+    Set *copied = set_new(NULL, set->compareData);
+    Iterator *setI = set_begin(set);
+    while (iterator_valid(setI))
+    {
+        set_insert(copied, iterator_get(setI));
+        iterator_next(setI);
+    }
+    iterator_free(setI);
+    return copied;
+}
+
+#define set_copy(set) set_copy_fun(set)
+
 // return the heuristic for how good a given lifetime is to spill - lower is better
 size_t lifetime_heuristic(struct Lifetime *lifetime)
 {
@@ -262,6 +279,7 @@ void allocate_stack_space(struct RegallocMetadata *metadata, struct MachineInfo 
 Set *pre_select_register_contention_lifetimes(Set *selectFrom, struct Scope *scope)
 {
     // from the start, all lifetimes from which we are selecting are in contention
+
     Set *intermediate = set_copy(selectFrom);
     set_clear(selectFrom);
 

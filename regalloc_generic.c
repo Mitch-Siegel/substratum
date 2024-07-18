@@ -10,7 +10,7 @@ void *lifetime_find(Set *allLifetimes, char *lifetimeName)
 {
     struct Lifetime dummy = {0};
     dummy.name = lifetimeName;
-    return old_set_find(allLifetimes, &dummy);
+    return set_find(allLifetimes, &dummy);
 }
 
 struct Lifetime *lifetime_new(char *name, struct Type *type, size_t start, u8 isGlobal, u8 mustSpill)
@@ -89,7 +89,7 @@ struct Lifetime *update_or_insert_lifetime(Set *ltList,
         log(LOG_DEBUG, "Create lifetime starting at %zu for %s %s: global? %d mustspill? %d", newEnd, typeName, name, isGlobal, mustSpill);
         free(typeName);
         thisLt = lifetime_new(name, type, newEnd, isGlobal, mustSpill);
-        old_set_insert(ltList, thisLt);
+        set_insert(ltList, thisLt);
     }
 
     return thisLt;
@@ -169,9 +169,11 @@ void find_lifetimes_for_tac(Set *lifetimes, struct Scope *scope, struct TACLine 
     {
         size_t extendTo = line->index;
         size_t extendFrom = (size_t)stack_pop(doDepth);
-        for (struct LinkedListNode *lifetimeRunner = lifetimes->elements->head; lifetimeRunner != NULL; lifetimeRunner = lifetimeRunner->next)
+
+        Iterator *lifetimeRunner = NULL;
+        for (lifetimeRunner = set_begin(lifetimes); iterator_valid(lifetimeRunner); iterator_next(lifetimeRunner))
         {
-            struct Lifetime *examinedLifetime = lifetimeRunner->data;
+            struct Lifetime *examinedLifetime = iterator_get(lifetimeRunner);
             if (examinedLifetime->end >= extendFrom && examinedLifetime->end < extendTo)
             {
                 if (examinedLifetime->name[0] != '.')
@@ -180,6 +182,7 @@ void find_lifetimes_for_tac(Set *lifetimes, struct Scope *scope, struct TACLine 
                 }
             }
         }
+        iterator_free(lifetimeRunner);
     }
     break;
 
@@ -221,26 +224,26 @@ void add_argument_lifetimes_for_scope(Set *lifetimes, struct Scope *scope)
     iterator_free(entryIterator);
 }
 
-Set *find_lifetimes(struct Scope *scope, struct LinkedList *basicBlockList)
+Set *find_lifetimes(struct Scope *scope, List *basicBlockList)
 {
-    Set *lifetimes = old_set_new((ssize_t(*)(void *, void *))lifetime_compare, free);
+    Set *lifetimes = set_new(free, (ssize_t(*)(void *, void *))lifetime_compare);
 
     add_argument_lifetimes_for_scope(lifetimes, scope);
 
-    struct LinkedListNode *blockRunner = basicBlockList->head;
     Stack *doDepth = stack_new(NULL);
-    while (blockRunner != NULL)
+    Iterator *blockRunner = NULL;
+    for (blockRunner = list_begin(basicBlockList); iterator_valid(blockRunner); iterator_next(blockRunner))
     {
-        struct BasicBlock *thisBlock = blockRunner->data;
-        struct LinkedListNode *tacRunner = thisBlock->TACList->head;
-        while (tacRunner != NULL)
+        struct BasicBlock *thisBlock = iterator_get(blockRunner);
+        Iterator *tacRunner = NULL;
+        for (tacRunner = list_begin(thisBlock->TACList); iterator_valid(tacRunner); iterator_next(tacRunner))
         {
-            struct TACLine *thisLine = tacRunner->data;
+            struct TACLine *thisLine = iterator_get(tacRunner);
             find_lifetimes_for_tac(lifetimes, scope, thisLine, doDepth);
-            tacRunner = tacRunner->next;
         }
-        blockRunner = blockRunner->next;
+        iterator_free(tacRunner);
     }
+    iterator_free(blockRunner);
 
     stack_free(doDepth);
 
