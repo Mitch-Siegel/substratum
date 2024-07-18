@@ -235,7 +235,7 @@ void riscv_caller_save_registers(struct CodegenState *state, struct RegallocMeta
     // TODO: don't emit when 0
     emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
 
-    size_t saveIndex = 0;
+    ssize_t saveIndex = 0;
     Iterator *callerSaveIterator = NULL;
     for (callerSaveIterator = set_begin(actuallyCallerSaved); iterator_valid(callerSaveIterator); iterator_next(callerSaveIterator))
     {
@@ -263,7 +263,7 @@ void riscv_caller_restore_registers(struct CodegenState *state, struct RegallocM
     emit_instruction(NULL, state, "\t#Caller-restore registers\n");
 
     char *spName = info->stackPointer->name;
-    size_t saveIndex = 0;
+    ssize_t saveIndex = 0;
     Iterator *callerSaveIterator = NULL;
     for (callerSaveIterator = set_begin(actuallyCallerSaved); iterator_valid(callerSaveIterator); iterator_next(callerSaveIterator))
     {
@@ -310,7 +310,7 @@ void riscv_callee_save_registers(struct CodegenState *state, struct RegallocMeta
 
     emit_instruction(NULL, state, "\t#Callee-save registers\n");
 
-    size_t saveIndex = 0;
+    ssize_t saveIndex = 0;
     Iterator *calleeSaveIterator = NULL;
     for (calleeSaveIterator = set_begin(actuallyCalleeSaved); iterator_valid(calleeSaveIterator); iterator_next(calleeSaveIterator))
     {
@@ -336,7 +336,7 @@ void riscv_callee_restore_registers(struct CodegenState *state, struct RegallocM
 
     emit_instruction(NULL, state, "\t#Callee-restore registers\n");
 
-    size_t saveIndex = 0;
+    ssize_t saveIndex = 0;
     Iterator *calleeSaveIterator = NULL;
     for (calleeSaveIterator = set_begin(actuallyCalleeSaved); iterator_valid(calleeSaveIterator); iterator_next(calleeSaveIterator))
     {

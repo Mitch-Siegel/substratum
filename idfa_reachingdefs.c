@@ -4,8 +4,23 @@
 #include "symtab_basicblock.h"
 #include "util.h"
 
+char *sprint_idfa_operand(void *data)
+{
+    struct TACOperand *operand = data;
+    char *sprinted = tac_operand_sprint(operand);
+    char *typename = type_get_name(tac_operand_get_non_cast_type(operand));
+    char *castTypeName = type_get_name(&operand->castAsType);
+    char *returned = malloc(strlen(sprinted) + strlen(typename) + strlen(castTypeName) + 20);
+    sprintf(returned, "%s(%s) %s %zu", typename, castTypeName, sprinted, operand->ssaNumber);
+    free(typename);
+    free(castTypeName);
+    free(sprinted);
+    return returned;
+}
+
 Set *reacing_defs_transfer(struct Idfa *idfa, struct BasicBlock *block, Set *facts)
 {
+    printf("ENTRY TO TRANSFER\n");
     Set *transferred = set_new(facts->freeData, facts->compareData);
 
     // transfer anything in GEN but not in KILL
@@ -15,7 +30,10 @@ Set *reacing_defs_transfer(struct Idfa *idfa, struct BasicBlock *block, Set *fac
         struct TACOperand *examinedFact = iterator_get(factRunner);
         if (set_find(array_at(idfa->facts.kill, block->labelNum), examinedFact) == NULL)
         {
-            set_insert(transferred, examinedFact);
+            if (set_try_insert(transferred, examinedFact))
+            {
+                printf("yes transfer %s\n", sprint_idfa_operand(examinedFact));
+            }
         }
     }
     iterator_free(factRunner);
@@ -28,9 +46,14 @@ Set *reacing_defs_transfer(struct Idfa *idfa, struct BasicBlock *block, Set *fac
         // transfer anything not killed
         if (set_find(array_at(idfa->facts.kill, block->labelNum), examinedFact) == NULL)
         {
-            set_insert(transferred, examinedFact);
+            if (set_try_insert(transferred, examinedFact))
+            {
+                printf("yes transfer %s\n", sprint_idfa_operand(examinedFact));
+            }
         }
     }
+
+    set_verify(transferred);
 
     return transferred;
 }
@@ -53,7 +76,7 @@ void reacing_defs_find_gen_kills(struct Idfa *idfa)
                     break;
 
                 case U_READ:
-                    set_insert(array_at(idfa->facts.kill, blockIndex), &genKillLine->operands[operandIndex]);
+                    set_try_insert(array_at(idfa->facts.kill, blockIndex), &genKillLine->operands[operandIndex]);
                     break;
 
                 case U_WRITE:
@@ -97,7 +120,7 @@ struct Idfa *analyze_reaching_defs(struct IdfaContext *context)
                                                reacing_defs_find_gen_kills,
                                                D_FORWARDS,
                                                tac_operand_compare,
-                                               tac_operand_sprint,
+                                               sprint_idfa_operand,
                                                set_union);
 
     return reacingDefsIdfa;

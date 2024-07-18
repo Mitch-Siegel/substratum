@@ -40,9 +40,8 @@ char *symbol_table_mangle_name(struct Scope *scope, struct Dictionary *dict, cha
     return newName;
 }
 
-Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *dict, size_t depth)
+void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, size_t depth)
 {
-    log(LOG_WARNING, "collapse scopes recursive for scope %s @ depth %zu\n", scope->name, depth);
     Set *moveToThisScope = set_new(NULL, scope->entries->compareData);
     Set *removeFromThisScope = set_new(NULL, scope->entries->compareData);
     Iterator *memberIterator = NULL;
@@ -84,6 +83,7 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
             break;
         }
     }
+    log(LOG_WARNING, "Move %zu elements up to scope %s from subscopes", moveToThisScope->size, scope->name);
     iterator_free(memberIterator);
 
     Iterator *moveHereIterator = NULL;
@@ -104,7 +104,15 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
     }
     iterator_free(removeFromHereIterator);
     set_free(removeFromThisScope);
+}
 
+Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *dict, size_t depth)
+{
+    log(LOG_WARNING, "collapse scopes recursive for scope %s @ depth %zu\n", scope->name, depth);
+
+    scope_lift_from_sub_scopes(scope, dict, depth);
+
+    Iterator *memberIterator = NULL;
     Stack *moveOutOfThisScope = stack_new(NULL);
     // perform all recursive operations first
     for (memberIterator = set_begin(scope->entries); iterator_valid(memberIterator); iterator_next(memberIterator))
@@ -149,9 +157,6 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
     while (moveOutOfThisScope->size > 0)
     {
         struct ScopeMember *moved = stack_pop(moveOutOfThisScope);
-        printf("DOES %s HAVE %s: %d?\n", scope->name, moved->name, scope_contains(scope, moved->name, moved->type));
-        scope_print(scope, stdout, 1, false);
-        printf("\n");
         set_remove(scope->entries, moved);
         // TODO: actually mangle names
         // mangle all non-global names (want to mangle everything except for string literal names)

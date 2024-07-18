@@ -194,10 +194,10 @@ struct LifetimePlusSize
     size_t size;
 };
 
-struct LifetimePlusSize *package_lifetime_and_size(struct Lifetime *lt, size_t size)
+struct LifetimePlusSize *package_lifetime_and_size(struct Lifetime *lifetime, size_t size)
 {
     struct LifetimePlusSize *lts = malloc(sizeof(struct LifetimePlusSize));
-    lts->lt = lt;
+    lts->lt = lifetime;
     lts->size = size;
     return lts;
 }
@@ -312,7 +312,7 @@ Set *pre_select_register_contention_lifetimes(Set *selectFrom, struct Scope *sco
             break;
         }
     }
-
+    iterator_free(ltRunner);
     return selectedLifetimes;
 }
 

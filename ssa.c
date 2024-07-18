@@ -116,8 +116,8 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
         // thus, we should always clear the strongly connected component whenever we visit
         set_clear(stronglyConnectedComponent);
 
-        // mark this block as visited
-        set_insert(visited, thisBlock);
+        // mark this block as visited if it hasn't been already
+        set_try_insert(visited, thisBlock);
 
         Iterator *successorRunner = NULL;
         for (successorRunner = set_begin(array_at(context->successors, thisBlock->labelNum)); iterator_valid(successorRunner); iterator_next(successorRunner))
@@ -176,7 +176,7 @@ void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
                 hash_table_insert(phiVars, liveOut, ssasLiveOut);
             }
 
-            set_insert(ssasLiveOut, liveOut);
+            set_try_insert(ssasLiveOut, liveOut);
         }
         iterator_free(liveVarRunner);
     }

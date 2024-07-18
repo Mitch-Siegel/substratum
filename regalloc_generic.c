@@ -60,14 +60,14 @@ bool lifetime_is_live_at_index(struct Lifetime *lifetime, size_t index)
 // search through the list of existing lifetimes
 // update the lifetime if it exists, insert if it doesn't
 // returns pointer to the lifetime corresponding to the passed variable name
-struct Lifetime *update_or_insert_lifetime(Set *ltList,
+struct Lifetime *update_or_insert_lifetime(Set *lifetimes,
                                            char *name,
                                            struct Type *type,
                                            size_t newEnd,
                                            u8 isGlobal,
                                            u8 mustSpill)
 {
-    struct Lifetime *thisLt = lifetime_find(ltList, name);
+    struct Lifetime *thisLt = lifetime_find(lifetimes, name);
     if (thisLt != NULL)
     {
         // this should never fire with well-formed TAC
@@ -89,7 +89,7 @@ struct Lifetime *update_or_insert_lifetime(Set *ltList,
         log(LOG_DEBUG, "Create lifetime starting at %zu for %s %s: global? %d mustspill? %d", newEnd, typeName, name, isGlobal, mustSpill);
         free(typeName);
         thisLt = lifetime_new(name, type, newEnd, isGlobal, mustSpill);
-        set_insert(ltList, thisLt);
+        set_insert(lifetimes, thisLt);
     }
 
     return thisLt;
@@ -97,7 +97,7 @@ struct Lifetime *update_or_insert_lifetime(Set *ltList,
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
-void record_variable_write(Set *ltList,
+void record_variable_write(Set *lifetimes,
                            struct TACOperand *writtenOperand,
                            struct Scope *scope,
                            size_t newEnd)
@@ -111,13 +111,13 @@ void record_variable_write(Set *ltList,
     mustSpill = recordedVariable->mustSpill;
 
     // always use ->type as we don't care what it's cast as to determine its lifetime
-    struct Lifetime *updatedLifetime = update_or_insert_lifetime(ltList, recordedVariable->name, tac_operand_get_non_cast_type(writtenOperand), newEnd, isGlobal, mustSpill);
+    struct Lifetime *updatedLifetime = update_or_insert_lifetime(lifetimes, recordedVariable->name, tac_operand_get_non_cast_type(writtenOperand), newEnd, isGlobal, mustSpill);
     updatedLifetime->nwrites += 1;
 }
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
-void record_variable_read(Set *ltList,
+void record_variable_read(Set *lifetimes,
                           struct TACOperand *readOperand,
                           struct Scope *scope,
                           size_t newEnd)
@@ -132,7 +132,7 @@ void record_variable_read(Set *ltList,
     mustSpill = recordedVariable->mustSpill;
 
     // always use ->type as we don't care what it's cast as to determine its lifetime
-    struct Lifetime *updatedLifetime = update_or_insert_lifetime(ltList, recordedVariable->name, tac_operand_get_non_cast_type(readOperand), newEnd, isGlobal, mustSpill);
+    struct Lifetime *updatedLifetime = update_or_insert_lifetime(lifetimes, recordedVariable->name, tac_operand_get_non_cast_type(readOperand), newEnd, isGlobal, mustSpill);
     updatedLifetime->nreads += 1;
 }
 

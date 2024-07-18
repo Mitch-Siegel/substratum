@@ -138,7 +138,7 @@ struct HashTable *hash_table_new(size_t nBuckets,
 {
     struct HashTable *wip = malloc(sizeof(struct HashTable));
     // TODO: set_free
-    array_init(&wip->buckets, NULL, nBuckets);
+    array_init(&wip->buckets, (void (*)(void *))set_free, nBuckets);
     wip->hashFunction = hashFunction;
     wip->compareFunction = compareFunction;
     wip->keyFreeFunction = keyFreeFunction;
