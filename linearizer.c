@@ -578,7 +578,7 @@ void walk_method(struct Ast *tree,
 
     if (walkedMethod->arguments->size > 0)
     {
-        struct VariableEntry *potentialSelfArg = walkedMethod->arguments->data[0];
+        struct VariableEntry *potentialSelfArg = deque_at(walkedMethod->arguments, 0);
 
         // if the first arg to the function is the address of a struct which we are returning
         // try and see if the second argument is self (if it exists)

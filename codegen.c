@@ -240,6 +240,15 @@ void generate_code_for_function(FILE *outFile,
         InternalError("Asm function with %zu basic blocks seen - expected 1!", function->BasicBlockList->size);
     }
 
+    Iterator *argIterator = NULL;
+    for(argIterator = deque_front(function->arguments); iterator_gettable(argIterator); iterator_next(argIterator))
+    {
+        struct VariableEntry *examinedArgument = iterator_get(argIterator);
+        struct Lifetime *argLifetime = lifetime_find(function->regalloc.allLifetimes, examinedArgument->name);
+        argLifetime->writebackInfo.regLocation->containedLifetime = argLifetime;
+    }
+    iterator_free(argIterator);
+
     Iterator *blockRunner = NULL;
     for (blockRunner = list_begin(function->BasicBlockList); iterator_gettable(blockRunner); iterator_next(blockRunner))
     {

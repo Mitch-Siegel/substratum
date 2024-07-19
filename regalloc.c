@@ -388,7 +388,7 @@ Set *select_register_lifetimes(struct RegallocMetadata *metadata, Set *selectFro
             if (!lifetime_is_live_at_index(liveLt, tacIndex + 1))
             {
                 set_remove(liveLifetimes, liveLt);
-                stack_push(registerPool, (void *)liveLt->writebackInfo.regLocation);
+                stack_push(registerPool, liveLt->writebackInfo.regLocation);
                 log(LOG_DEBUG, "Lifetime %s expires at %zu, freeing register %s", liveLt->name, tacIndex, liveLt->writebackInfo.regLocation->name);
             }
         }
