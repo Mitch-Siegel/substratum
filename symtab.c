@@ -45,7 +45,7 @@ void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, si
     Set *moveToThisScope = set_new(NULL, scope->entries->compareData);
     Set *removeFromThisScope = set_new(NULL, scope->entries->compareData);
     Iterator *memberIterator = NULL;
-    for (memberIterator = set_begin(scope->entries); iterator_valid(memberIterator); iterator_next(memberIterator))
+    for (memberIterator = set_begin(scope->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
     {
         struct ScopeMember *thisMember = iterator_get(memberIterator);
         switch (thisMember->type)
@@ -87,7 +87,7 @@ void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, si
     iterator_free(memberIterator);
 
     Iterator *moveHereIterator = NULL;
-    for (moveHereIterator = set_begin(moveToThisScope); iterator_valid(moveHereIterator); iterator_next(moveHereIterator))
+    for (moveHereIterator = set_begin(moveToThisScope); iterator_gettable(moveHereIterator); iterator_next(moveHereIterator))
     {
         struct ScopeMember *thisMember = iterator_get(moveHereIterator);
         printf("move %s out of subscope into %s\n", thisMember->name, scope->name);
@@ -97,7 +97,7 @@ void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, si
     set_free(moveToThisScope);
 
     Iterator *removeFromHereIterator = NULL;
-    for (removeFromHereIterator = set_begin(removeFromThisScope); iterator_valid(removeFromHereIterator); iterator_next(removeFromHereIterator))
+    for (removeFromHereIterator = set_begin(removeFromThisScope); iterator_gettable(removeFromHereIterator); iterator_next(removeFromHereIterator))
     {
         struct ScopeMember *removedMember = iterator_get(removeFromHereIterator);
         set_remove(scope->entries, removedMember);
@@ -115,7 +115,7 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
     Iterator *memberIterator = NULL;
     Stack *moveOutOfThisScope = stack_new(NULL);
     // perform all recursive operations first
-    for (memberIterator = set_begin(scope->entries); iterator_valid(memberIterator); iterator_next(memberIterator))
+    for (memberIterator = set_begin(scope->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
     {
         struct ScopeMember *thisMember = iterator_get(memberIterator);
         switch (thisMember->type)
@@ -252,7 +252,7 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         struct EnumEntry *theEnum = toPrint->entry;
         fprintf(outFile, "> Enum %s - data union size of %zu bytes:\n", toPrint->name, theEnum->unionSize);
         Iterator *enumMemberIterator = NULL;
-        for (enumMemberIterator = set_begin(theEnum->members); iterator_valid(enumMemberIterator); iterator_next(enumMemberIterator))
+        for (enumMemberIterator = set_begin(theEnum->members); iterator_gettable(enumMemberIterator); iterator_next(enumMemberIterator))
         {
             struct EnumMember *member = iterator_get(enumMemberIterator);
             for (size_t j = 0; j < depth; j++)
@@ -308,7 +308,7 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
 void scope_print(struct Scope *scope, FILE *outFile, size_t depth, bool printTac)
 {
     Iterator *memberIterator = NULL;
-    for (memberIterator = set_begin(scope->entries); iterator_valid(memberIterator); iterator_next(memberIterator))
+    for (memberIterator = set_begin(scope->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
     {
         struct ScopeMember *thisMember = iterator_get(memberIterator);
         scope_print_member(thisMember, printTac, depth + 1, outFile);

@@ -16,7 +16,7 @@ Array *generate_successors(Array *blocks)
         array_emplace(blockSuccessors, blockIndex, thisblockSuccessors);
 
         Iterator *tacRunner = NULL;
-        for (tacRunner = list_begin(((struct BasicBlock *)array_at(blocks, blockIndex))->TACList); iterator_valid(tacRunner); iterator_next(tacRunner))
+        for (tacRunner = list_begin(((struct BasicBlock *)array_at(blocks, blockIndex))->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
         {
             struct TACLine *thisTac = iterator_get(tacRunner);
             switch (thisTac->operation)
@@ -56,7 +56,7 @@ Array *generate_predecessors(Array *blocks, Array *successors)
     for (size_t blockIndex = 0; blockIndex < blocks->size; blockIndex++)
     {
         Iterator *successorRunner = NULL;
-        for (successorRunner = set_begin(array_at(successors, blockIndex)); iterator_valid(successorRunner); iterator_next(successorRunner))
+        for (successorRunner = set_begin(array_at(successors, blockIndex)); iterator_gettable(successorRunner); iterator_next(successorRunner))
         {
             struct BasicBlock *successor = iterator_get(successorRunner);
             set_insert(array_at(blockPredecessors, successor->labelNum), array_at(blocks, blockIndex));
@@ -75,7 +75,7 @@ struct IdfaContext *idfa_context_create(List *blocks)
     wip->blocks = array_new(NULL, nBlocks);
 
     Iterator *blockRunner = NULL;
-    for (blockRunner = list_begin(blocks); iterator_valid(blockRunner); iterator_next(blockRunner))
+    for (blockRunner = list_begin(blocks); iterator_gettable(blockRunner); iterator_next(blockRunner))
     {
         struct BasicBlock *thisBlock = iterator_get(blockRunner);
         if (thisBlock->labelNum >= nBlocks)
@@ -109,7 +109,7 @@ struct Idfa *idfa_create(struct IdfaContext *context,
 {
     struct Idfa *wip = malloc(sizeof(struct Idfa));
     wip->context = context;
-    wip->compare_facts = compareFacts;
+    wip->compareFacts = compareFacts;
     wip->sprintFact = sprintFact;
     wip->fTransfer = fTransfer;
     wip->findGenKills = findGenKills;
@@ -124,10 +124,10 @@ struct Idfa *idfa_create(struct IdfaContext *context,
 
     for (size_t i = 0; i < wip->context->nBlocks; i++)
     {
-        array_emplace(wip->facts.in, i, set_new(NULL, wip->compare_facts));
-        array_emplace(wip->facts.out, i, set_new(NULL, wip->compare_facts));
-        array_emplace(wip->facts.gen, i, set_new(NULL, wip->compare_facts));
-        array_emplace(wip->facts.kill, i, set_new(NULL, wip->compare_facts));
+        array_emplace(wip->facts.in, i, set_new(NULL, wip->compareFacts));
+        array_emplace(wip->facts.out, i, set_new(NULL, wip->compareFacts));
+        array_emplace(wip->facts.gen, i, set_new(NULL, wip->compareFacts));
+        array_emplace(wip->facts.kill, i, set_new(NULL, wip->compareFacts));
     }
 
     idfa_analyze(wip);
@@ -141,7 +141,7 @@ void idfa_print_facts_for_block(struct Idfa *idfa, size_t blockIndex)
 
     printf("\tGen: ");
     Iterator *factRunner = NULL;
-    for (factRunner = set_begin(array_at(idfa->facts.gen, blockIndex)); iterator_valid(factRunner); iterator_next(factRunner))
+    for (factRunner = set_begin(array_at(idfa->facts.gen, blockIndex)); iterator_gettable(factRunner); iterator_next(factRunner))
     {
         char *sprintedFact = idfa->sprintFact(iterator_get(factRunner));
         printf("[%s] ", sprintedFact);
@@ -151,7 +151,7 @@ void idfa_print_facts_for_block(struct Idfa *idfa, size_t blockIndex)
     factRunner = NULL;
 
     printf("\n\tKill: ");
-    for (factRunner = set_begin(array_at(idfa->facts.kill, blockIndex)); iterator_valid(factRunner); iterator_next(factRunner))
+    for (factRunner = set_begin(array_at(idfa->facts.kill, blockIndex)); iterator_gettable(factRunner); iterator_next(factRunner))
     {
         char *sprintedFact = idfa->sprintFact(iterator_get(factRunner));
         printf("[%s] ", sprintedFact);
@@ -161,7 +161,7 @@ void idfa_print_facts_for_block(struct Idfa *idfa, size_t blockIndex)
     factRunner = NULL;
 
     printf("\n\tIn: ");
-    for (factRunner = set_begin(array_at(idfa->facts.in, blockIndex)); iterator_valid(factRunner); iterator_next(factRunner))
+    for (factRunner = set_begin(array_at(idfa->facts.in, blockIndex)); iterator_gettable(factRunner); iterator_next(factRunner))
     {
         char *sprintedFact = idfa->sprintFact(iterator_get(factRunner));
         printf("[%s] ", sprintedFact);
@@ -171,7 +171,7 @@ void idfa_print_facts_for_block(struct Idfa *idfa, size_t blockIndex)
     factRunner = NULL;
 
     printf("\n\tOut: ");
-    for (factRunner = set_begin(array_at(idfa->facts.out, blockIndex)); iterator_valid(factRunner); iterator_next(factRunner))
+    for (factRunner = set_begin(array_at(idfa->facts.out, blockIndex)); iterator_gettable(factRunner); iterator_next(factRunner))
     {
         char *sprintedFact = idfa->sprintFact(iterator_get(factRunner));
         printf("[%s] ", sprintedFact);
@@ -210,7 +210,7 @@ void idfa_analyze_forwards(struct Idfa *idfa)
             // re-generate our "in" facts from the union of the "out" facts of all predecessors
             Set *newInFacts = NULL;
             Iterator *predecessorRunner = NULL;
-            for (predecessorRunner = set_begin(array_at(idfa->context->predecessors, blockIndex)); iterator_valid(predecessorRunner); iterator_next(predecessorRunner))
+            for (predecessorRunner = set_begin(array_at(idfa->context->predecessors, blockIndex)); iterator_gettable(predecessorRunner); iterator_next(predecessorRunner))
             {
                 struct BasicBlock *predecessor = iterator_get(predecessorRunner);
                 Set *predOuts = array_at(idfa->facts.out, predecessor->labelNum);
@@ -284,16 +284,16 @@ void idfa_redo(struct Idfa *idfa)
     for (size_t i = 0; i < idfa->context->nBlocks; i++)
     {
         set_free(array_at(idfa->facts.in, i));
-        array_emplace(idfa->facts.in, i, set_new(NULL, idfa->compare_facts));
+        array_emplace(idfa->facts.in, i, set_new(NULL, idfa->compareFacts));
 
         set_free(array_at(idfa->facts.out, i));
-        array_emplace(idfa->facts.out, i, set_new(NULL, idfa->compare_facts));
+        array_emplace(idfa->facts.out, i, set_new(NULL, idfa->compareFacts));
 
         set_free(array_at(idfa->facts.gen, i));
-        array_emplace(idfa->facts.gen, i, set_new(NULL, idfa->compare_facts));
+        array_emplace(idfa->facts.gen, i, set_new(NULL, idfa->compareFacts));
 
         set_free(array_at(idfa->facts.kill, i));
-        array_emplace(idfa->facts.kill, i, set_new(NULL, idfa->compare_facts));
+        array_emplace(idfa->facts.kill, i, set_new(NULL, idfa->compareFacts));
     }
     idfa_analyze(idfa);
 }

@@ -48,7 +48,7 @@ void print_basic_block(struct BasicBlock *block, size_t indentLevel)
     printf("BASIC BLOCK %zu\n", block->labelNum);
 
     Iterator *tacRunner = NULL;
-    for (tacRunner = list_begin(block->TACList); iterator_valid(tacRunner); iterator_next(tacRunner))
+    for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
     {
         struct TACLine *thisLine = iterator_get(tacRunner);
         for (size_t indentPrint = 0; indentPrint < indentLevel; indentPrint++)

@@ -20,7 +20,7 @@ void generate_code_for_program(struct SymbolTable *table,
 
     // fprintf(outFile, "\t.text\n");
     Iterator *entryIterator = NULL;
-    for (entryIterator = set_begin(table->globalScope->entries); iterator_valid(entryIterator); iterator_next(entryIterator))
+    for (entryIterator = set_begin(table->globalScope->entries); iterator_gettable(entryIterator); iterator_next(entryIterator))
     {
         struct ScopeMember *thisMember = iterator_get(entryIterator);
         switch (thisMember->type)
@@ -77,7 +77,7 @@ void generate_code_for_struct(struct CodegenState *globalContext,
                               void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
     Iterator *entryIterator = NULL;
-    for (entryIterator = set_begin(theStruct->members->entries); iterator_valid(entryIterator); iterator_next(entryIterator))
+    for (entryIterator = set_begin(theStruct->members->entries); iterator_gettable(entryIterator); iterator_next(entryIterator))
     {
         struct ScopeMember *thisMember = iterator_get(entryIterator);
         switch (thisMember->type)
@@ -241,7 +241,7 @@ void generate_code_for_function(FILE *outFile,
     }
 
     Iterator *blockRunner = NULL;
-    for (blockRunner = list_begin(function->BasicBlockList); iterator_valid(blockRunner); iterator_next(blockRunner))
+    for (blockRunner = list_begin(function->BasicBlockList); iterator_gettable(blockRunner); iterator_next(blockRunner))
     {
         struct BasicBlock *block = iterator_get(blockRunner);
         log(LOG_DEBUG, "Generating code for basic block %zd", block->labelNum);

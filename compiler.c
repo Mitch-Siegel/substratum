@@ -55,7 +55,7 @@ void run_preprocessor(char *inFileName)
     }
 
     Iterator *includePathRunner = NULL;
-    for (includePathRunner = list_begin(includePath); iterator_valid(includePathRunner); iterator_next(includePathRunner))
+    for (includePathRunner = list_begin(includePath); iterator_gettable(includePathRunner); iterator_next(includePathRunner))
     {
         preprocessorArgv[preprocessorArgI++] = "-I";
         preprocessorArgv[preprocessorArgI++] = iterator_get(includePathRunner);

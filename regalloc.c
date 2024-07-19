@@ -17,7 +17,7 @@ Set *set_copy_fun(Set *set)
 {
     Set *copied = set_new(NULL, set->compareData);
     Iterator *setI = set_begin(set);
-    while (iterator_valid(setI))
+    while (iterator_gettable(setI))
     {
         set_insert(copied, iterator_get(setI));
         iterator_next(setI);
@@ -49,7 +49,7 @@ size_t find_max_tac_index(Set *lifetimes)
 {
     size_t maxIndex = 0;
     Iterator *ltRunner = NULL;
-    for (ltRunner = set_begin(lifetimes); iterator_valid(ltRunner); iterator_next(ltRunner))
+    for (ltRunner = set_begin(lifetimes); iterator_gettable(ltRunner); iterator_next(ltRunner))
     {
         struct Lifetime *examinedLifetime = iterator_get(ltRunner);
         if (examinedLifetime->end > maxIndex)
@@ -74,7 +74,7 @@ Array *find_lifetime_overlaps(Set *lifetimes, size_t largestTACIndex)
     for (size_t overlapIndex = 0; overlapIndex <= largestTACIndex; overlapIndex++)
     {
         Iterator *ltRunner = NULL;
-        for (ltRunner = set_begin(lifetimes); iterator_valid(ltRunner); iterator_next(ltRunner))
+        for (ltRunner = set_begin(lifetimes); iterator_gettable(ltRunner); iterator_next(ltRunner))
         {
             struct Lifetime *examinedLifetime = iterator_get(ltRunner);
             if (lifetime_is_live_at_index(examinedLifetime, overlapIndex))
@@ -93,7 +93,7 @@ struct Lifetime *remove_lifetime_with_best_heuristic(Set *lifetimesInContention)
     struct Lifetime *bestLifetime = NULL;
 
     Iterator *ltRunner = NULL;
-    for (ltRunner = set_begin(lifetimesInContention); iterator_valid(ltRunner); iterator_next(ltRunner))
+    for (ltRunner = set_begin(lifetimesInContention); iterator_gettable(ltRunner); iterator_next(ltRunner))
     {
         struct Lifetime *examinedLt = iterator_get(ltRunner);
         size_t examinedHeuristic = lifetime_heuristic(examinedLt);
@@ -140,7 +140,7 @@ void setup_local_stack(struct RegallocMetadata *metadata, struct MachineInfo *in
     log(LOG_DEBUG, "Function locals for %s end at frame pointer offset %zd - %zd through 0 offset from %s are callee-saved registers", metadata->function->name, localOffset, localOffset, info->framePointer->name);
 
     Iterator *localIterator = NULL;
-    for (localIterator = list_begin(localStackLifetimes); iterator_valid(localIterator); iterator_next(localIterator))
+    for (localIterator = list_begin(localStackLifetimes); iterator_gettable(localIterator); iterator_next(localIterator))
     {
         struct Lifetime *printedStackLt = iterator_get(localIterator);
         localOffset -= (ssize_t)type_get_size(&printedStackLt->type, metadata->function->mainScope);
@@ -169,7 +169,7 @@ void setup_argument_stack(struct RegallocMetadata *metadata, List *argumentStack
     // always save frame pointer and return address to stack
     ssize_t argOffset = (ssize_t)2 * MACHINE_REGISTER_SIZE_BYTES;
     Iterator *argIterator = NULL;
-    for (argIterator = list_begin(argumentStackLifetimes); iterator_valid(argIterator); iterator_next(argIterator))
+    for (argIterator = list_begin(argumentStackLifetimes); iterator_gettable(argIterator); iterator_next(argIterator))
     {
         struct Lifetime *printedStackLt = iterator_get(argIterator);
         argOffset += (ssize_t)scope_compute_padding_for_alignment(metadata->function->mainScope, &printedStackLt->type, argOffset);
@@ -215,7 +215,7 @@ List *get_sorted_stack_lifetimes(struct RegallocMetadata *metadata)
 
     // go over all lifetimes, if they have a stack writeback location we need to deal with them
     Iterator *ltRunner = NULL;
-    for (ltRunner = set_begin(metadata->allLifetimes); iterator_valid(ltRunner); iterator_next(ltRunner))
+    for (ltRunner = set_begin(metadata->allLifetimes); iterator_gettable(ltRunner); iterator_next(ltRunner))
     {
         struct Lifetime *examinedLt = iterator_get(ltRunner);
         if (examinedLt->wbLocation == WB_STACK)
@@ -237,7 +237,7 @@ void allocate_stack_space(struct RegallocMetadata *metadata, struct MachineInfo 
     List *localStackLifetimes = list_new(NULL, NULL);
     List *argumentStackLifetimes = list_new(NULL, NULL);
     Iterator *lifetimeIterator = list_begin(sortedStackLifetimes);
-    while (iterator_valid(lifetimeIterator))
+    while (iterator_gettable(lifetimeIterator))
     {
         struct LifetimePlusSize *lts = iterator_get(lifetimeIterator);
         if (lts->lt->isArgument)
@@ -258,14 +258,14 @@ void allocate_stack_space(struct RegallocMetadata *metadata, struct MachineInfo 
     setup_argument_stack(metadata, argumentStackLifetimes);
 
     Iterator *printIterator = NULL;
-    for (printIterator = list_begin(localStackLifetimes); iterator_valid(printIterator); iterator_next(printIterator))
+    for (printIterator = list_begin(localStackLifetimes); iterator_gettable(printIterator); iterator_next(printIterator))
     {
         struct Lifetime *localLt = iterator_get(printIterator);
         log(LOG_DEBUG, "BP%zd: %s", localLt->writebackInfo.stackOffset, localLt->name);
     }
     iterator_free(printIterator);
 
-    for (printIterator = list_begin(argumentStackLifetimes); iterator_valid(printIterator); iterator_next(printIterator))
+    for (printIterator = list_begin(argumentStackLifetimes); iterator_gettable(printIterator); iterator_next(printIterator))
     {
         struct Lifetime *argLt = iterator_get(printIterator);
         log(LOG_DEBUG, "BP+%zd: %s", argLt->writebackInfo.stackOffset, argLt->name);
@@ -287,7 +287,7 @@ Set *pre_select_register_contention_lifetimes(Set *selectFrom, struct Scope *sco
 
     // remove lifetimes which
     Iterator *ltRunner = NULL;
-    for (ltRunner = set_begin(intermediate); iterator_valid(ltRunner); iterator_next(ltRunner))
+    for (ltRunner = set_begin(intermediate); iterator_gettable(ltRunner); iterator_next(ltRunner))
     {
         struct Lifetime *examinedLt = iterator_get(ltRunner);
 
@@ -370,7 +370,7 @@ Set *select_register_lifetimes(struct RegallocMetadata *metadata, Set *selectFro
     Set *liveLifetimes = set_new(NULL, (ssize_t(*)(void *, void *))lifetime_compare);
 
     Iterator *regRunner = NULL;
-    for (regRunner = set_begin(registerPool); iterator_valid(regRunner); iterator_next(regRunner))
+    for (regRunner = set_begin(registerPool); iterator_gettable(regRunner); iterator_next(regRunner))
     {
         stack_push(availableRegisters, iterator_get(regRunner));
     }
@@ -384,7 +384,7 @@ Set *select_register_lifetimes(struct RegallocMetadata *metadata, Set *selectFro
         // iterate lifetimes which are currently live
         Set *previouslyLive = set_copy(liveLifetimes);
         Iterator *liveLtRunner = NULL;
-        for (liveLtRunner = set_begin(previouslyLive); iterator_valid(liveLtRunner); iterator_next(liveLtRunner))
+        for (liveLtRunner = set_begin(previouslyLive); iterator_gettable(liveLtRunner); iterator_next(liveLtRunner))
         {
             struct Lifetime *liveLt = iterator_get(liveLtRunner);
 
@@ -402,7 +402,7 @@ Set *select_register_lifetimes(struct RegallocMetadata *metadata, Set *selectFro
         // iterate lifetimes which need registers
         Iterator *newLtRunner = NULL;
         Set *previouslyNeedRegisters = set_copy(needRegisters);
-        for (newLtRunner = set_begin(previouslyNeedRegisters); iterator_valid(newLtRunner); iterator_next(newLtRunner))
+        for (newLtRunner = set_begin(previouslyNeedRegisters); iterator_gettable(newLtRunner); iterator_next(newLtRunner))
         {
             struct Lifetime *examinedLt = iterator_get(newLtRunner);
 
@@ -433,7 +433,7 @@ void allocate_argument_registers(struct RegallocMetadata *metadata, struct Machi
     Set *argumentLifetimes = set_new(NULL, metadata->allLifetimes->compareData);
 
     Iterator *ltRunner = NULL;
-    for (ltRunner = set_begin(metadata->allLifetimes); iterator_valid(ltRunner); iterator_next(ltRunner))
+    for (ltRunner = set_begin(metadata->allLifetimes); iterator_gettable(ltRunner); iterator_next(ltRunner))
     {
         struct Lifetime *potentialArgumentLt = iterator_get(ltRunner);
         if (potentialArgumentLt->isArgument)
@@ -454,7 +454,7 @@ void allocate_argument_registers(struct RegallocMetadata *metadata, struct Machi
     set_free(argumentRegisterPool);
 
     // any arguments which we couldn't allocate a register for go on the stack
-    for (ltRunner = set_begin(argumentLifetimes); iterator_valid(ltRunner); iterator_next(ltRunner))
+    for (ltRunner = set_begin(argumentLifetimes); iterator_gettable(ltRunner); iterator_next(ltRunner))
     {
         struct Lifetime *nonRegisterLifetime = iterator_get(ltRunner);
         nonRegisterLifetime->wbLocation = WB_STACK;
@@ -483,7 +483,7 @@ void allocate_general_registers(struct RegallocMetadata *metadata, struct Machin
 
     // any general-purpose lifetimes which we couldn't allocate a register for go on the stack
     Iterator *ltRunner = NULL;
-    for (ltRunner = set_begin(registerContentionLifetimes); iterator_valid(ltRunner); iterator_next(ltRunner))
+    for (ltRunner = set_begin(registerContentionLifetimes); iterator_gettable(ltRunner); iterator_next(ltRunner))
     {
         struct Lifetime *nonRegisterLifetime = iterator_get(ltRunner);
         log(LOG_DEBUG, "Lifetime %s wasn't assigned a register - give it a stack writeback", nonRegisterLifetime->name);
@@ -523,7 +523,7 @@ void allocate_registers(struct RegallocMetadata *metadata, struct MachineInfo *i
 
     char *ltLengthString = malloc(metadata->largestTacIndex + 3);
     Iterator *ltRunner = NULL;
-    for (ltRunner = set_begin(metadata->allLifetimes); iterator_valid(ltRunner); iterator_next(ltRunner))
+    for (ltRunner = set_begin(metadata->allLifetimes); iterator_gettable(ltRunner); iterator_next(ltRunner))
     {
         const u8 LOC_STR_LEN = 16;
         char location[LOC_STR_LEN + 1];
@@ -566,7 +566,7 @@ void allocate_registers(struct RegallocMetadata *metadata, struct MachineInfo *i
 void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)
 {
     Iterator *entryIterator = NULL;
-    for (entryIterator = set_begin(scope->entries); iterator_valid(entryIterator); iterator_next(entryIterator))
+    for (entryIterator = set_begin(scope->entries); iterator_gettable(entryIterator); iterator_next(entryIterator))
     {
         struct ScopeMember *thisMember = iterator_get(entryIterator);
 

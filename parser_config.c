@@ -15,7 +15,7 @@ extern List *includePath;
 void print_chars_per_line(List *charsRemaining)
 {
     Iterator *charRunner = NULL;
-    for (charRunner = list_begin(charsRemaining); iterator_valid(charRunner); iterator_next(charRunner))
+    for (charRunner = list_begin(charsRemaining); iterator_gettable(charRunner); iterator_next(charRunner))
     {
         size_t *charsRem = iterator_get(charRunner);
         log(LOG_WARNING, "%zu chars in this line", *charsRem);

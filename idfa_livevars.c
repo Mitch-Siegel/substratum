@@ -9,7 +9,7 @@ Set *live_vars_transfer(struct Idfa *idfa, struct BasicBlock *block, Set *facts)
     Set *transferred = set_copy(array_at(idfa->facts.gen, block->labelNum));
 
     Iterator *factRunner = NULL;
-    for (factRunner = set_begin(facts); iterator_valid(factRunner); iterator_next(factRunner))
+    for (factRunner = set_begin(facts); iterator_gettable(factRunner); iterator_next(factRunner))
     {
         struct TACOperand *examinedFact = iterator_get(factRunner);
         // transfer anything not killed
@@ -28,7 +28,7 @@ void live_vars_find_gen_kills(struct Idfa *idfa)
     {
         struct BasicBlock *genKillBlock = array_at(idfa->context->blocks, blockIndex);
         Iterator *tacRunner = NULL;
-        for (tacRunner = list_begin(genKillBlock->TACList); iterator_valid(tacRunner); iterator_next(tacRunner))
+        for (tacRunner = list_begin(genKillBlock->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
         {
             struct TACLine *genKillLine = iterator_get(tacRunner);
             for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)

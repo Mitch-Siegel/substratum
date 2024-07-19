@@ -406,7 +406,7 @@ struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
     while (scope != NULL)
     {
         Iterator *memberIterator = NULL;
-        for (memberIterator = set_begin(scope->entries); iterator_valid(memberIterator); iterator_next(memberIterator))
+        for (memberIterator = set_begin(scope->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
         {
             struct ScopeMember *member = iterator_get(memberIterator);
             if (member->type == E_ENUM)

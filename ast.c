@@ -206,12 +206,12 @@ void ast_dump(FILE *outFile, struct Ast *tree)
     ast_traverse_for_dump(outFile, NULL, tree, 0, ranks);
 
     Iterator *rankIterator = NULL;
-    for (rankIterator = stack_bottom(ranks); iterator_valid(rankIterator); iterator_next(rankIterator))
+    for (rankIterator = stack_bottom(ranks); iterator_gettable(rankIterator); iterator_next(rankIterator))
     {
         fprintf(outFile, "{rank = same; ");
         Stack *thisRank = iterator_get(rankIterator);
         Iterator *nodeIterator = NULL;
-        for (nodeIterator = stack_bottom(thisRank); iterator_valid(nodeIterator); iterator_next(nodeIterator))
+        for (nodeIterator = stack_bottom(thisRank); iterator_gettable(nodeIterator); iterator_next(nodeIterator))
         {
             struct Ast *nodeThisRank = iterator_get(nodeIterator);
             fprintf(outFile, "%zu; ", (size_t)nodeThisRank);

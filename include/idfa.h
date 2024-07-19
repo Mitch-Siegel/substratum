@@ -41,7 +41,7 @@ struct Idfa
 {
     struct IdfaContext *context;
 
-    ssize_t (*compare_facts)(void *factA, void *factB);
+    ssize_t (*compareFacts)(void *factA, void *factB);
     char *(*sprintFact)(void *factData);
     struct IdfaFacts facts;
     enum IDFA_ANALYSIS_DIRECTION direction;

@@ -25,7 +25,7 @@ Set *reacing_defs_transfer(struct Idfa *idfa, struct BasicBlock *block, Set *fac
 
     // transfer anything in GEN but not in KILL
     Iterator *factRunner = NULL;
-    for (factRunner = set_begin(array_at(idfa->facts.gen, block->labelNum)); iterator_valid(factRunner); iterator_next(factRunner))
+    for (factRunner = set_begin(array_at(idfa->facts.gen, block->labelNum)); iterator_gettable(factRunner); iterator_next(factRunner))
     {
         struct TACOperand *examinedFact = iterator_get(factRunner);
         if (set_find(array_at(idfa->facts.kill, block->labelNum), examinedFact) == NULL)
@@ -40,7 +40,7 @@ Set *reacing_defs_transfer(struct Idfa *idfa, struct BasicBlock *block, Set *fac
     factRunner = NULL;
 
     // transfer anything we get in not in KILL
-    for (factRunner = set_begin(facts); iterator_valid(factRunner); iterator_next(factRunner))
+    for (factRunner = set_begin(facts); iterator_gettable(factRunner); iterator_next(factRunner))
     {
         struct TACOperand *examinedFact = iterator_get(factRunner);
         // transfer anything not killed
@@ -52,6 +52,8 @@ Set *reacing_defs_transfer(struct Idfa *idfa, struct BasicBlock *block, Set *fac
             }
         }
     }
+    iterator_free(factRunner);
+    factRunner = NULL;
 
     set_verify(transferred);
 
@@ -65,22 +67,37 @@ void reacing_defs_find_gen_kills(struct Idfa *idfa)
         struct BasicBlock *genKillBlock = array_at(idfa->context->blocks, blockIndex);
         Set *highestSsas = set_new(NULL, tac_operand_compare_ignore_ssa_number);
         Iterator *tacRunner = NULL;
-        for (tacRunner = list_begin(genKillBlock->TACList); iterator_valid(tacRunner); iterator_next(tacRunner))
+        Set *killedThisBlock = array_at(idfa->facts.kill, blockIndex);
+        // killedThisBlock = set_new(NULL, killedThisBlock->compareData);
+        printf("we in block %zu - size of killedThisBlock is %zu\n", blockIndex, killedThisBlock->size);
+        idfa_print_facts(idfa);
+        for (tacRunner = list_begin(genKillBlock->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
         {
             struct TACLine *genKillLine = iterator_get(tacRunner);
+            char *line = sprint_tac_line(genKillLine);
+            printf("%s\n", line);
+            free(line);
             for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
             {
+                printf("operand %d:", operandIndex);
                 switch (get_use_of_operand(genKillLine, operandIndex))
                 {
                 case U_UNUSED:
+                    printf("UNUSED\n");
                     break;
 
                 case U_READ:
-                    set_try_insert(array_at(idfa->facts.kill, blockIndex), &genKillLine->operands[operandIndex]);
+                {
+                    printf("U_READ\n");
+
+                    printf("Try to insert %s as killed\n", sprint_idfa_operand(&genKillLine->operands[operandIndex]));
+                    set_try_insert(killedThisBlock, &genKillLine->operands[operandIndex]);
+                }
                     break;
 
                 case U_WRITE:
                 {
+                    printf("U_WRITE\n");
                     struct TACOperand *highestForThisOperand = set_find(highestSsas, &genKillLine->operands[operandIndex]);
                     if (highestForThisOperand == NULL)
                     {
@@ -91,6 +108,7 @@ void reacing_defs_find_gen_kills(struct Idfa *idfa)
                         size_t thisSsaNumber = genKillLine->operands[operandIndex].ssaNumber;
                         if (highestForThisOperand->ssaNumber < thisSsaNumber)
                         {
+                            printf("swap for new highest number %zu\n", thisSsaNumber);
                             set_remove(highestSsas, &genKillLine->operands[operandIndex]);
                             set_insert(highestSsas, &genKillLine->operands[operandIndex]);
                         }
@@ -103,7 +121,7 @@ void reacing_defs_find_gen_kills(struct Idfa *idfa)
         iterator_free(tacRunner);
 
         Iterator *highestSsaRunner = NULL;
-        for (highestSsaRunner = set_begin(highestSsas); iterator_valid(highestSsaRunner); iterator_next(highestSsaRunner))
+        for (highestSsaRunner = set_begin(highestSsas); iterator_gettable(highestSsaRunner); iterator_next(highestSsaRunner))
         {
             set_insert(array_at(idfa->facts.gen, blockIndex), iterator_get(highestSsaRunner));
         }

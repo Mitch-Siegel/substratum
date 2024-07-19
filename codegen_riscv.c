@@ -237,7 +237,7 @@ void riscv_caller_save_registers(struct CodegenState *state, struct RegallocMeta
 
     ssize_t saveIndex = 0;
     Iterator *callerSaveIterator = NULL;
-    for (callerSaveIterator = set_begin(actuallyCallerSaved); iterator_valid(callerSaveIterator); iterator_next(callerSaveIterator))
+    for (callerSaveIterator = set_begin(actuallyCallerSaved); iterator_gettable(callerSaveIterator); iterator_next(callerSaveIterator))
     {
         struct Register *calleeSaved = iterator_get(callerSaveIterator);
         riscv_emit_stack_store_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, saveIndex * MACHINE_REGISTER_SIZE_BYTES);
@@ -265,7 +265,7 @@ void riscv_caller_restore_registers(struct CodegenState *state, struct RegallocM
     char *spName = info->stackPointer->name;
     ssize_t saveIndex = 0;
     Iterator *callerSaveIterator = NULL;
-    for (callerSaveIterator = set_begin(actuallyCallerSaved); iterator_valid(callerSaveIterator); iterator_next(callerSaveIterator))
+    for (callerSaveIterator = set_begin(actuallyCallerSaved); iterator_gettable(callerSaveIterator); iterator_next(callerSaveIterator))
     {
         struct Register *callerSaved = iterator_get(callerSaveIterator);
         riscv_emit_stack_load_for_size(NULL, state, info, callerSaved, MACHINE_REGISTER_SIZE_BYTES, (saveIndex * MACHINE_REGISTER_SIZE_BYTES));
@@ -312,7 +312,7 @@ void riscv_callee_save_registers(struct CodegenState *state, struct RegallocMeta
 
     ssize_t saveIndex = 0;
     Iterator *calleeSaveIterator = NULL;
-    for (calleeSaveIterator = set_begin(actuallyCalleeSaved); iterator_valid(calleeSaveIterator); iterator_next(calleeSaveIterator))
+    for (calleeSaveIterator = set_begin(actuallyCalleeSaved); iterator_gettable(calleeSaveIterator); iterator_next(calleeSaveIterator))
     {
         struct Register *calleeSaved = iterator_get(calleeSaveIterator);
         riscv_emit_frame_store_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (saveIndex + 2) * MACHINE_REGISTER_SIZE_BYTES));
@@ -338,7 +338,7 @@ void riscv_callee_restore_registers(struct CodegenState *state, struct RegallocM
 
     ssize_t saveIndex = 0;
     Iterator *calleeSaveIterator = NULL;
-    for (calleeSaveIterator = set_begin(actuallyCalleeSaved); iterator_valid(calleeSaveIterator); iterator_next(calleeSaveIterator))
+    for (calleeSaveIterator = set_begin(actuallyCalleeSaved); iterator_gettable(calleeSaveIterator); iterator_next(calleeSaveIterator))
     {
         struct Register *calleeSaved = iterator_get(calleeSaveIterator);
         // +2, 1 to account for stack growing downward and 1 to account for saved frame pointer
@@ -1401,7 +1401,7 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
     Stack *calledFunctionArguments = stack_new(NULL);
     size_t lastLineNo = 0;
     Iterator *tacRunner = NULL;
-    for (tacRunner = list_begin(block->TACList); iterator_valid(tacRunner); iterator_next(tacRunner))
+    for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
     {
         release_all_scratch_registers(info);
 

@@ -171,7 +171,7 @@ void find_lifetimes_for_tac(Set *lifetimes, struct Scope *scope, struct TACLine 
         size_t extendFrom = (size_t)stack_pop(doDepth);
 
         Iterator *lifetimeRunner = NULL;
-        for (lifetimeRunner = set_begin(lifetimes); iterator_valid(lifetimeRunner); iterator_next(lifetimeRunner))
+        for (lifetimeRunner = set_begin(lifetimes); iterator_gettable(lifetimeRunner); iterator_next(lifetimeRunner))
         {
             struct Lifetime *examinedLifetime = iterator_get(lifetimeRunner);
             if (examinedLifetime->end >= extendFrom && examinedLifetime->end < extendTo)
@@ -211,7 +211,7 @@ void find_lifetimes_for_tac(Set *lifetimes, struct Scope *scope, struct TACLine 
 void add_argument_lifetimes_for_scope(Set *lifetimes, struct Scope *scope)
 {
     Iterator *entryIterator = NULL;
-    for (entryIterator = set_begin(scope->entries); iterator_valid(entryIterator); iterator_next(entryIterator))
+    for (entryIterator = set_begin(scope->entries); iterator_gettable(entryIterator); iterator_next(entryIterator))
     {
         struct ScopeMember *thisMember = iterator_get(entryIterator);
         if (thisMember->type == E_ARGUMENT)
@@ -232,11 +232,11 @@ Set *find_lifetimes(struct Scope *scope, List *basicBlockList)
 
     Stack *doDepth = stack_new(NULL);
     Iterator *blockRunner = NULL;
-    for (blockRunner = list_begin(basicBlockList); iterator_valid(blockRunner); iterator_next(blockRunner))
+    for (blockRunner = list_begin(basicBlockList); iterator_gettable(blockRunner); iterator_next(blockRunner))
     {
         struct BasicBlock *thisBlock = iterator_get(blockRunner);
         Iterator *tacRunner = NULL;
-        for (tacRunner = list_begin(thisBlock->TACList); iterator_valid(tacRunner); iterator_next(tacRunner))
+        for (tacRunner = list_begin(thisBlock->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
         {
             struct TACLine *thisLine = iterator_get(tacRunner);
             find_lifetimes_for_tac(lifetimes, scope, thisLine, doDepth);

@@ -114,6 +114,7 @@ ssize_t tac_operand_compare_ignore_ssa_number(void *dataA, void *dataB)
     case VP_STANDARD:
     case VP_TEMP:
         result = strcmp(operandA->name.variable->name, operandB->name.variable->name);
+        printf("compare [%s] to [%s]: %zu\n", operandA->name.variable->name, operandB->name.variable->name, result);
         break;
 
     case VP_LITERAL_STR:
