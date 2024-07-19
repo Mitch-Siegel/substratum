@@ -8,7 +8,7 @@
 // returns an array of sets - index i in the array is a set containing the blocks which are successors of block i
 Array *generate_successors(Array *blocks)
 {
-    Array *blockSuccessors = array_new(NULL, blocks->size);
+    Array *blockSuccessors = array_new((MBCL_DATA_FREE_FUNCTION)set_free, blocks->size);
     for (size_t blockIndex = 0; blockIndex < blocks->size; blockIndex++)
     {
         // block pointers will be unique, so we can directly compare them
@@ -45,7 +45,7 @@ Array *generate_successors(Array *blocks)
 
 Array *generate_predecessors(Array *blocks, Array *successors)
 {
-    Array *blockPredecessors = array_new(NULL, blocks->size);
+    Array *blockPredecessors = array_new((MBCL_DATA_FREE_FUNCTION)set_free, blocks->size);
 
     for (size_t blockIndex = 0; blockIndex < blocks->size; blockIndex++)
     {
@@ -67,9 +67,10 @@ Array *generate_predecessors(Array *blocks, Array *successors)
     return blockPredecessors;
 }
 
-struct IdfaContext *idfa_context_create(List *blocks)
+struct IdfaContext *idfa_context_create(char *name, List *blocks)
 {
     struct IdfaContext *wip = malloc(sizeof(struct IdfaContext));
+    wip->name = name;
     size_t nBlocks = blocks->size;
     wip->nBlocks = nBlocks;
     wip->blocks = array_new(NULL, nBlocks);
@@ -84,6 +85,7 @@ struct IdfaContext *idfa_context_create(List *blocks)
         }
         array_emplace(wip->blocks, thisBlock->labelNum, thisBlock);
     }
+    iterator_free(blockRunner);
 
     wip->successors = generate_successors(wip->blocks);
     wip->predecessors = generate_predecessors(wip->blocks, wip->successors);
@@ -233,6 +235,8 @@ void idfa_analyze_forwards(struct Idfa *idfa)
                     newInFacts = metInFacts;
                 }
             }
+            iterator_free(predecessorRunner);
+
             if (newInFacts == NULL)
             {
                 newInFacts = set_new(oldInFacts->freeData, oldInFacts->compareData);

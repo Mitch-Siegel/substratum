@@ -30,10 +30,7 @@ Set *reacing_defs_transfer(struct Idfa *idfa, struct BasicBlock *block, Set *fac
         struct TACOperand *examinedFact = iterator_get(factRunner);
         if (set_find(array_at(idfa->facts.kill, block->labelNum), examinedFact) == NULL)
         {
-            if (set_try_insert(transferred, examinedFact))
-            {
-                printf("yes transfer %s\n", sprint_idfa_operand(examinedFact));
-            }
+            set_try_insert(transferred, examinedFact);
         }
     }
     iterator_free(factRunner);
@@ -46,10 +43,7 @@ Set *reacing_defs_transfer(struct Idfa *idfa, struct BasicBlock *block, Set *fac
         // transfer anything not killed
         if (set_find(array_at(idfa->facts.kill, block->labelNum), examinedFact) == NULL)
         {
-            if (set_try_insert(transferred, examinedFact))
-            {
-                printf("yes transfer %s\n", sprint_idfa_operand(examinedFact));
-            }
+            set_try_insert(transferred, examinedFact);
         }
     }
     iterator_free(factRunner);
@@ -69,35 +63,24 @@ void reacing_defs_find_gen_kills(struct Idfa *idfa)
         Iterator *tacRunner = NULL;
         Set *killedThisBlock = array_at(idfa->facts.kill, blockIndex);
         // killedThisBlock = set_new(NULL, killedThisBlock->compareData);
-        printf("we in block %zu - size of killedThisBlock is %zu\n", blockIndex, killedThisBlock->size);
-        idfa_print_facts(idfa);
         for (tacRunner = list_begin(genKillBlock->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
         {
             struct TACLine *genKillLine = iterator_get(tacRunner);
-            char *line = sprint_tac_line(genKillLine);
-            printf("%s\n", line);
-            free(line);
             for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
             {
-                printf("operand %d:", operandIndex);
                 switch (get_use_of_operand(genKillLine, operandIndex))
                 {
                 case U_UNUSED:
-                    printf("UNUSED\n");
                     break;
 
                 case U_READ:
                 {
-                    printf("U_READ\n");
-
-                    printf("Try to insert %s as killed\n", sprint_idfa_operand(&genKillLine->operands[operandIndex]));
                     set_try_insert(killedThisBlock, &genKillLine->operands[operandIndex]);
                 }
-                    break;
+                break;
 
                 case U_WRITE:
                 {
-                    printf("U_WRITE\n");
                     struct TACOperand *highestForThisOperand = set_find(highestSsas, &genKillLine->operands[operandIndex]);
                     if (highestForThisOperand == NULL)
                     {
@@ -108,7 +91,6 @@ void reacing_defs_find_gen_kills(struct Idfa *idfa)
                         size_t thisSsaNumber = genKillLine->operands[operandIndex].ssaNumber;
                         if (highestForThisOperand->ssaNumber < thisSsaNumber)
                         {
-                            printf("swap for new highest number %zu\n", thisSsaNumber);
                             set_remove(highestSsas, &genKillLine->operands[operandIndex]);
                             set_insert(highestSsas, &genKillLine->operands[operandIndex]);
                         }

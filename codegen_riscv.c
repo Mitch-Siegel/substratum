@@ -1415,6 +1415,6 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
         emit_loc(state, thisTac, &lastLineNo);
         riscv_generate_code_for_tac(state, metadata, info, thisTac, functionName, calledFunctionArguments);
     }
-
+    iterator_free(tacRunner);
     stack_free(calledFunctionArguments);
 }

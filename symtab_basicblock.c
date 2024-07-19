@@ -5,7 +5,7 @@
 struct BasicBlock *basic_block_new(ssize_t labelNum)
 {
     struct BasicBlock *wip = malloc(sizeof(struct BasicBlock));
-    wip->TACList = list_new(NULL, NULL);
+    wip->TACList = list_new((void (*)(void *))free_tac, NULL);
     wip->labelNum = labelNum;
     return wip;
 }

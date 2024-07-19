@@ -247,6 +247,7 @@ void generate_code_for_function(FILE *outFile,
         log(LOG_DEBUG, "Generating code for basic block %zd", block->labelNum);
         generateCodeForBasicBlock(&state, &function->regalloc, info, block, fullFunctionName);
     }
+    iterator_free(blockRunner);
 
     emitEpilogue(&state, &function->regalloc, info, fullFunctionName);
 

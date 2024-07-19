@@ -10,6 +10,7 @@ struct BasicBlock;
 
 struct IdfaContext
 {
+    char *name;
     size_t nBlocks; // number of basic blocks
     Array *blocks;  // array of pointers to basic blocks, indexed by block label number
     // indexed by block label number - successors[i] contains the Set of blocks which blocks[i] sends control flow directly to
@@ -24,7 +25,7 @@ enum IDFA_ANALYSIS_DIRECTION
     D_BACKWARDS,
 };
 
-struct IdfaContext *idfa_context_create(List *blocks);
+struct IdfaContext *idfa_context_create(char *name, List *blocks);
 
 void idfa_context_free(struct IdfaContext *context);
 

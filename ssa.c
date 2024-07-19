@@ -100,6 +100,7 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
                 break;
             }
         }
+        iterator_free(predRunner);
 
         // if we have not yet visited all predecessors of this block, put it back on the list to be traversed later
         if (!sawAllPredecessors)
@@ -130,6 +131,7 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
                 list_append(blocksToTraverse, successorBlock);
             }
         }
+        iterator_free(successorRunner);
     }
 
     list_free(blocksToTraverse);
@@ -196,12 +198,11 @@ void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
         Deque *inboundSsasToPhi = deque_new(NULL);
 
         Iterator *inboundSsaIterator = NULL;
-        for(inboundSsaIterator = set_begin(inboundSsasSet); iterator_gettable(inboundSsaIterator); iterator_next(inboundSsaIterator))
+        for (inboundSsaIterator = set_begin(inboundSsasSet); iterator_gettable(inboundSsaIterator); iterator_next(inboundSsaIterator))
         {
             deque_push_back(inboundSsasToPhi, iterator_get(inboundSsaIterator));
         }
         iterator_free(inboundSsaIterator);
-
 
         // for any variables which are live out of more than one predecessor block
         if (inboundSsasToPhi->size > 1)
@@ -226,8 +227,9 @@ void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
                 deque_push_back(inboundSsasToPhi, &newPhi->operands[0]);
             }
         }
+        deque_free(inboundSsasToPhi);
     }
-
+    iterator_free(phiVarRunner);
     hash_table_free(phiVars);
 
     idfa_redo(reachingDefs);
@@ -443,7 +445,8 @@ void do_fun_checks(struct IdfaContext *context)
 
 void generate_ssa_for_function(struct FunctionEntry *function)
 {
-    struct IdfaContext *context = idfa_context_create(function->BasicBlockList);
+    log(LOG_DEBUG, "Generate ssa for function %s", function->name);
+    struct IdfaContext *context = idfa_context_create(function->name, function->BasicBlockList);
 
     List *ssaNumbers = rename_written_tac_operands(context);
 

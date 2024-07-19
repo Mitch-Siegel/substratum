@@ -57,6 +57,7 @@ size_t find_max_tac_index(Set *lifetimes)
             maxIndex = examinedLifetime->end;
         }
     }
+    iterator_free(ltRunner);
 
     return maxIndex;
 }
@@ -82,6 +83,7 @@ Array *find_lifetime_overlaps(Set *lifetimes, size_t largestTACIndex)
                 set_insert(array_at(lifetimeOverlaps, overlapIndex), examinedLifetime);
             }
         }
+        iterator_free(ltRunner);
     }
 
     return lifetimeOverlaps;
@@ -313,6 +315,7 @@ Set *pre_select_register_contention_lifetimes(Set *selectFrom, struct Scope *sco
         }
     }
     iterator_free(ltRunner);
+    set_free(intermediate);
     return selectedLifetimes;
 }
 
@@ -374,6 +377,7 @@ Set *select_register_lifetimes(struct RegallocMetadata *metadata, Set *selectFro
     {
         stack_push(availableRegisters, iterator_get(regRunner));
     }
+    iterator_free(regRunner);
 
     Set *needRegisters = set_copy(registerContentionLifetimes);
     needRegisters->freeData = NULL;
