@@ -136,7 +136,9 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
         case E_VARIABLE:
         case E_ARGUMENT:
         {
-            if (scope->parentScope != NULL)
+            struct VariableEntry *variableToMove = thisMember->entry;
+
+            if (((depth > 0) || variableToMove->isGlobal) && scope->parentScope != NULL)
             {
                 stack_push(moveOutOfThisScope, thisMember);
             }
