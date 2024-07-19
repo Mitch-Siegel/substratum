@@ -18,7 +18,7 @@ extern struct Dictionary *parseDict;
 const u8 TYPE_DICT_SIZE = 10;
 struct SymbolTable *walk_program(struct Ast *program)
 {
-    typeDict = dictionary_new((void (*)(void *))type_free, (ssize_t (*)(void *, void *))type_compare, (size_t (*)(void *))type_hash, 100, (void *(*)(void *))type_duplicate);
+    typeDict = dictionary_new((void (*)(void *))type_free, (ssize_t(*)(void *, void *))type_compare, (size_t(*)(void *))type_hash, 100, (void *(*)(void *))type_duplicate);
     struct SymbolTable *programTable = symbol_table_new("Program");
     struct BasicBlock *globalBlock = scope_lookup(programTable->globalScope, "globalblock", E_BASICBLOCK)->entry;
     struct BasicBlock *asmBlock = basic_block_new(1);
