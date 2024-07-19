@@ -236,7 +236,7 @@ void riscv_caller_save_registers(struct CodegenState *state, struct RegallocMeta
     emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
 
     ssize_t saveIndex = 0;
-    while(actuallyCallerSaved->size > 0)
+    while (actuallyCallerSaved->size > 0)
     {
         struct Register *calleeSaved = stack_pop(actuallyCallerSaved);
         riscv_emit_stack_store_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, saveIndex * MACHINE_REGISTER_SIZE_BYTES);
@@ -331,7 +331,7 @@ void riscv_callee_restore_registers(struct CodegenState *state, struct RegallocM
     emit_instruction(NULL, state, "\t#Callee-restore %zu registers\n", actuallyCalleeSaved->size);
 
     ssize_t saveIndex = 0;
-    while(actuallyCalleeSaved->size > 0)
+    while (actuallyCalleeSaved->size > 0)
     {
         struct Register *calleeSaved = stack_pop(actuallyCalleeSaved);
         // +2, 1 to account for stack growing downward and 1 to account for saved frame pointer
@@ -639,6 +639,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
     emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize);
 
     Iterator *argumentIterator = deque_front(calledFunction->arguments);
+    size_t stompedArgRegIdx = 0;
     // problem: when function a() calls function b(), if we are copying one of a's arguments to one of b's arguments it is possible that we will try to load one of a's arguments from a register which has been overwritten with one of b's arguments already.
     while (argumentOperands->size > 0)
     {
@@ -658,6 +659,30 @@ void riscv_emit_argument_stores(struct CodegenState *state,
         case WB_REGISTER:
         {
             struct Register *writtenTo = argLifetime->writebackInfo.regLocation;
+
+            switch (argOperand->permutation)
+            {
+            case VP_STANDARD:
+            case VP_TEMP:
+            {
+                struct Lifetime *storedArgumentLifetime = lifetime_find(metadata->allLifetimes, argOperand->name.variable->name);
+                for (size_t argRegIdx = 0; argRegIdx <= stompedArgRegIdx; argRegIdx++)
+                {
+                    if (array_at(&info->arguments, argRegIdx) == storedArgumentLifetime->writebackInfo.regLocation)
+                    {
+                        InternalError("When attempting to store argument %s for call to %s - the value we want to store is contained in %s, an argument register we've already overwritten with one of %s's arguments",
+                                      argLifetime->name, calledFunction->name, storedArgumentLifetime->writebackInfo.regLocation->name, calledFunction->name);
+                    }
+                }
+            }
+            break;
+
+            case VP_LITERAL_STR:
+            case VP_LITERAL_VAL:
+            case VP_UNUSED:
+                break;
+            }
+
             struct Register *foundIn = riscv_place_or_find_operand_in_register(NULL, state, metadata, info, argOperand, writtenTo);
             if (writtenTo != foundIn)
             {
@@ -694,6 +719,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
                                  argLifetime->writebackInfo.stackOffset,
                                  info->stackPointer->name);
             }
+            stompedArgRegIdx++;
 
             try_release_scratch_register(info, scratch);
         }
