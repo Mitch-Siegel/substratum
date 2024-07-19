@@ -5,6 +5,7 @@
 #include "substratum_defs.h"
 
 #include "mbcl/array.h"
+#include "mbcl/hash_table.h"
 #include "mbcl/list.h"
 
 #pragma once
@@ -46,38 +47,6 @@ size_t parse_hex_constant(char *hexConstant);
  *
  */
 
-struct HashTableEntry
-{
-    void *key;
-    void *value;
-    ssize_t (*compareFunction)(void *keyA, void *keyB);
-    void (*keyFreeFunction)(void *key);
-    void (*valueFreeFunction)(void *value);
-};
-
-struct HashTable
-{
-    Array buckets;
-    size_t (*hashFunction)(void *key);
-    ssize_t (*compareFunction)(void *keyA, void *keyB);
-    void (*keyFreeFunction)(void *data);
-    void (*valueFreeFunction)(void *data);
-};
-
-struct HashTable *hash_table_new(size_t nBuckets,
-                                 size_t (*hashFunction)(void *key),
-                                 ssize_t (*compareFunction)(void *keyA, void *keyB),
-                                 void (*keyFreeFunction)(void *data),
-                                 void (*valueFreeFunction)(void *data));
-
-void *hash_table_lookup(struct HashTable *table, void *key);
-
-void hash_table_insert(struct HashTable *table, void *key, void *value);
-
-void hash_table_delete(struct HashTable *table, void *key);
-
-void hash_table_free(struct HashTable *table);
-
 /*
  * Dictionary for tracking strings
  * Economizes heap space by only storing strings once each
@@ -85,17 +54,17 @@ void hash_table_free(struct HashTable *table);
  */
 struct Dictionary
 {
-    struct HashTable *table;
     void *(*duplicateFunction)(void *data);
+    HashTable *table;
 };
 
 size_t hash_string(void *data);
 
-struct Dictionary *dictionary_new(size_t nBuckets,
-                                  void *(*duplicateFunction)(void *),
-                                  size_t (*hashFunction)(void *data),
-                                  ssize_t (*compareFunction)(void *dataA, void *dataB),
-                                  void (*dataFreeFunction)(void *));
+struct Dictionary *dictionary_new(MBCL_DATA_FREE_FUNCTION freeData,
+                                  MBCL_DATA_COMPARE_FUNCTION compareKey,
+                                  size_t (*hashData)(void *data),
+                                  size_t nBuckets,
+                                  void *(*duplicateFunction)(void *));
 
 void *dictionary_insert(struct Dictionary *dict, void *value);
 

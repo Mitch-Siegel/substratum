@@ -194,8 +194,9 @@ int main(int argc, char **argv)
 
     parseProgressStack = stack_new(NULL);
 
-    const int N_PARSE_DICT_BUCKETS = 10;
-    parseDict = dictionary_new(N_PARSE_DICT_BUCKETS, (void *(*)(void *))strdup, hash_string, (ssize_t(*)(void *, void *))strcmp, free);
+    const int N_PARSE_DICT_BUCKETS = 1;
+    // parseDict = dictionary_new(N_PARSE_DICT_BUCKETS, (void *(*)(void *))strdup, hash_string, (ssize_t(*)(void *, void *))strcmp, free);
+    parseDict = dictionary_new(free, (ssize_t(*)(void *, void *))strcmp, hash_string, N_PARSE_DICT_BUCKETS, (void *(*)(void *))strdup);
 
     struct Ast *program = parse_file(inFileName);
     list_free(includePath);

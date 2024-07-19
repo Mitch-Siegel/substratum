@@ -91,121 +91,13 @@ size_t parse_hex_constant(char *hexConstant)
  *
  */
 
-#include "mbcl/set.h"
-
-// TODO: just use the raw linkedlist data structure in hashtable
-ssize_t hash_table_entry_compare(void *dataA, void *dataB)
-{
-    struct HashTableEntry *entryA = dataA;
-    struct HashTableEntry *entryB = dataB;
-    return entryA->compareFunction(entryA->key, entryB->key);
-}
-
-void hash_table_entry_free(void *entry)
-{
-    struct HashTableEntry *toFree = entry;
-    if (toFree->keyFreeFunction)
-    {
-        toFree->keyFreeFunction(toFree->key);
-    }
-    if (toFree->valueFreeFunction)
-    {
-        toFree->valueFreeFunction(toFree->value);
-    }
-    free(toFree);
-}
-
-struct HashTableEntry *hash_table_entry_new(void *key,
-                                            void *value,
-                                            ssize_t (*compareFunction)(void *keyA, void *keyB),
-                                            void (*keyFreeFunction)(void *key),
-                                            void (*valueFreeFunction)(void *value))
-{
-    struct HashTableEntry *wip = malloc(sizeof(struct HashTableEntry));
-    wip->key = key;
-    wip->value = value;
-    wip->compareFunction = compareFunction;
-    wip->keyFreeFunction = keyFreeFunction;
-    wip->valueFreeFunction = valueFreeFunction;
-    return wip;
-}
-
-struct HashTable *hash_table_new(size_t nBuckets,
-                                 size_t (*hashFunction)(void *key),
-                                 ssize_t (*compareFunction)(void *keyA, void *keyB),
-                                 void (*keyFreeFunction)(void *data),
-                                 void (*valueFreeFunction)(void *data))
-{
-    struct HashTable *wip = malloc(sizeof(struct HashTable));
-    // TODO: set_free
-    array_init(&wip->buckets, (void (*)(void *))set_free, nBuckets);
-    wip->hashFunction = hashFunction;
-    wip->compareFunction = compareFunction;
-    wip->keyFreeFunction = keyFreeFunction;
-    wip->valueFreeFunction = valueFreeFunction;
-
-    for (size_t bucketIndex = 0; bucketIndex < nBuckets; bucketIndex++)
-    {
-        array_emplace(&wip->buckets, bucketIndex, set_new(hash_table_entry_free, hash_table_entry_compare));
-    }
-
-    return wip;
-}
-
-void *hash_table_lookup(struct HashTable *table, void *key)
-{
-    size_t hash = table->hashFunction(key);
-    hash %= table->buckets.size;
-
-    struct HashTableEntry dummyEntry;
-    dummyEntry.key = key;
-    dummyEntry.value = NULL;
-    dummyEntry.compareFunction = table->compareFunction;
-
-    Set *bucket = array_at(&table->buckets, hash);
-    struct HashTableEntry *entryForKey = set_find(bucket, &dummyEntry);
-    if (entryForKey == NULL)
-    {
-        return NULL;
-    }
-    return entryForKey->value;
-}
-
-void hash_table_insert(struct HashTable *table, void *key, void *value)
-{
-    size_t hash = table->hashFunction(key);
-    hash %= table->buckets.size;
-
-    Set *bucket = array_at(&table->buckets, hash);
-    struct HashTableEntry *entry = hash_table_entry_new(key, value, table->compareFunction, table->keyFreeFunction, table->valueFreeFunction);
-    set_insert(bucket, entry);
-}
-
-void hash_table_delete(struct HashTable *table, void *key)
-{
-    size_t hash = table->hashFunction(key);
-    hash %= table->buckets.size;
-
-    struct HashTableEntry dummyEntry;
-    dummyEntry.key = key;
-    dummyEntry.value = NULL;
-    dummyEntry.compareFunction = table->compareFunction;
-
-    Set *bucket = array_at(&table->buckets, hash);
-    set_remove(bucket, &dummyEntry);
-}
-
-void hash_table_free(struct HashTable *table)
-{
-    array_deinit(&table->buckets);
-    free(table);
-}
-
 /*
  * DICTIONARY FUNCTIONS
  * This string hashing algorithm is the djb2 algorithm
  * further information can be found at http://www.cse.yorku.ca/~oz/hash.html
  */
+
+#include "mbcl/hash_table.h"
 const unsigned int DJB2_HASH_SEED = 5381;
 const unsigned int DJB2_MULTIPLCATION_FACTOR = 33;
 size_t hash_string(void *data)
@@ -221,14 +113,14 @@ size_t hash_string(void *data)
     return hash;
 }
 
-struct Dictionary *dictionary_new(size_t nBuckets,
-                                  void *(*duplicateFunction)(void *),
-                                  size_t (*hashFunction)(void *data),
-                                  ssize_t (*compareFunction)(void *dataA, void *dataB),
-                                  void (*dataFreeFunction)(void *))
+struct Dictionary *dictionary_new(MBCL_DATA_FREE_FUNCTION freeData,
+                                  MBCL_DATA_COMPARE_FUNCTION compareKey,
+                                  size_t (*hashData)(void *data),
+                                  size_t nBuckets,
+                                  void *(*duplicateFunction)(void *))
 {
     struct Dictionary *wip = malloc(sizeof(struct Dictionary));
-    wip->table = hash_table_new(nBuckets, hashFunction, (ssize_t(*)(void *, void *))compareFunction, NULL, dataFreeFunction);
+    wip->table = hash_table_new(NULL, freeData, compareKey, hashData, nBuckets);
     wip->duplicateFunction = duplicateFunction;
     return wip;
 }
@@ -242,11 +134,13 @@ void *dictionary_insert(struct Dictionary *dict, void *value)
 
 void *dictionary_lookup_or_insert(struct Dictionary *dict, void *value)
 {
-    void *returnedStr = hash_table_lookup(dict->table, value);
+    void *returnedStr = hash_table_find(dict->table, value);
     if (returnedStr == NULL)
     {
+        printf("couldn't look up %s, need to insert\n", (char *)value);
         returnedStr = dictionary_insert(dict, value);
     }
+    printf("found %s\n", (char *)value);
     return returnedStr;
 }
 

@@ -18,7 +18,7 @@ extern struct Dictionary *parseDict;
 const u8 TYPE_DICT_SIZE = 10;
 struct SymbolTable *walk_program(struct Ast *program)
 {
-    typeDict = dictionary_new(TYPE_DICT_SIZE, (void *(*)(void *))type_duplicate, (size_t(*)(void *))type_hash, (ssize_t(*)(void *, void *))type_compare, (void (*)(void *))type_free);
+    typeDict = dictionary_new((void (*)(void *))type_free, (ssize_t (*)(void *, void *))type_compare, (size_t (*)(void *))type_hash, 100, (void *(*)(void *))type_duplicate);
     struct SymbolTable *programTable = symbol_table_new("Program");
     struct BasicBlock *globalBlock = scope_lookup(programTable->globalScope, "globalblock", E_BASICBLOCK)->entry;
     struct BasicBlock *asmBlock = basic_block_new(1);
@@ -339,10 +339,8 @@ void verify_function_signatures(struct Ast *tree, struct FunctionEntry *existing
         // if we have same number of bytes and same number, ensure everything is exactly the same
         for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
         {
-            // TODO: deque iterate?
-            struct VariableEntry *existingArg = existingFunc->arguments->data[existingFunc->arguments->startIdx]; // array_at(existingFunc->arguments, argIndex);
-            struct VariableEntry *parsedArg = parsedFunc->arguments->data[parsedFunc->arguments->startIdx];
-            ; // array_at(parsedFunc->arguments, argIndex);
+            struct VariableEntry *existingArg = deque_at(existingFunc->arguments, argIndex);
+            struct VariableEntry *parsedArg = deque_at(parsedFunc->arguments, argIndex);
             // ensure all arguments in order have same name, type, indirection level
             if ((strcmp(existingArg->name, parsedArg->name) != 0) ||
                 (type_compare(&existingArg->type, &parsedArg->type)))
@@ -354,6 +352,7 @@ void verify_function_signatures(struct Ast *tree, struct FunctionEntry *existing
     }
     else
     {
+        log(LOG_DEBUG, "Mismatch in number of arguments between parsed function %s and existing function %s", parsedFunc->name, existingFunc->name);
         mismatch = 1;
     }
 
@@ -362,49 +361,49 @@ void verify_function_signatures(struct Ast *tree, struct FunctionEntry *existing
         printf("\nConflicting declarations of function:\n");
 
         // TODO: print correctly with deque
-        // char *existingReturnType = type_get_name(&existingFunc->returnType);
-        // printf("\t%s %s(", existingReturnType, existingFunc->name);
-        // free(existingReturnType);
-        // for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
-        // {
-        //     struct VariableEntry *existingArg = array_at(existingFunc->arguments, argIndex);
+        char *existingReturnType = type_get_name(&existingFunc->returnType);
+        printf("\t%s %s(", existingReturnType, existingFunc->name);
+        free(existingReturnType);
+        for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
+        {
+            struct VariableEntry *existingArg = deque_at(existingFunc->arguments, argIndex);
 
-        //     char *argType = type_get_name(&existingArg->type);
-        //     printf("%s %s", argType, existingArg->name);
-        //     free(argType);
+            char *argType = type_get_name(&existingArg->type);
+            printf("%s %s", argType, existingArg->name);
+            free(argType);
 
-        //     if (argIndex < existingFunc->arguments->size - 1)
-        //     {
-        //         printf(", ");
-        //     }
-        //     else
-        //     {
-        //         printf(")");
-        //     }
-        // }
+            if (argIndex < existingFunc->arguments->size - 1)
+            {
+                printf(", ");
+            }
+            else
+            {
+                printf(")");
+            }
+        }
 
-        // char *parsedReturnType = type_get_name(&parsedFunc->returnType);
-        // printf("\n\t%s %s(", parsedReturnType, parsedFunc->name);
-        // free(parsedReturnType);
-        // for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
-        // {
-        //     struct VariableEntry *parsedArg = array_at(parsedFunc->arguments, argIndex);
+        char *parsedReturnType = type_get_name(&parsedFunc->returnType);
+        printf("\n\t%s %s(", parsedReturnType, parsedFunc->name);
+        free(parsedReturnType);
+        for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
+        {
+            struct VariableEntry *parsedArg = deque_at(parsedFunc->arguments, argIndex);
 
-        //     char *argType = type_get_name(&parsedArg->type);
-        //     printf("%s %s", argType, parsedArg->name);
-        //     free(argType);
+            char *argType = type_get_name(&parsedArg->type);
+            printf("%s %s", argType, parsedArg->name);
+            free(argType);
 
-        //     // TODO: iterator_has_next();
-        //     if (argIndex < existingFunc->arguments->size - 1)
-        //     {
-        //         printf(", ");
-        //     }
-        //     else
-        //     {
-        //         printf(")");
-        //     }
-        // }
-        // printf("\n");
+            // TODO: iterator_has_next();
+            if (argIndex < existingFunc->arguments->size - 1)
+            {
+                printf(", ");
+            }
+            else
+            {
+                printf(")");
+            }
+        }
+        printf("\n");
 
         log_tree(LOG_FATAL, tree, " ");
     }

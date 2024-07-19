@@ -5,6 +5,8 @@
 #include "idfa_reachingdefs.h"
 #include "log.h"
 
+#include "mbcl/hash_table.h"
+
 // TODO: implement TAC tt_declare for arguments so that we can ssa subsequent reassignments to them correctly
 
 size_t hash_tac_operand(void *operand)
@@ -157,7 +159,8 @@ void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
     // }
 
     // hash table to map from TAC operand -> count of number of predecessor blocks the variable is live out from
-    struct HashTable *phiVars = hash_table_new(1, hash_tac_operand, tac_operand_compare_ignore_ssa_number, NULL, (void (*)(void *))set_free);
+    // struct HashTable *phiVars = hash_table_new(1, hash_tac_operand, tac_operand_compare_ignore_ssa_number, NULL, (void (*)(void *))set_free);
+    HashTable *phiVars = hash_table_new(NULL, (void (*)(void *))set_free, tac_operand_compare_ignore_ssa_number, hash_tac_operand, block->TACList->size);
     // iterate all predecessor blocks
     Iterator *predecessorRunner = NULL;
     for (predecessorRunner = set_begin(array_at(reachingDefs->context->predecessors, block->labelNum)); iterator_valid(predecessorRunner); iterator_next(predecessorRunner))
@@ -169,7 +172,7 @@ void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
         {
             struct TACOperand *liveOut = iterator_get(liveVarRunner);
 
-            Set *ssasLiveOut = hash_table_lookup(phiVars, liveOut);
+            Set *ssasLiveOut = hash_table_find(phiVars, liveOut);
             if (ssasLiveOut == NULL)
             {
                 ssasLiveOut = set_new(NULL, tac_operand_compare);

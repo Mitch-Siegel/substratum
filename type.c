@@ -95,18 +95,12 @@ ssize_t type_compare(struct Type *typeA, struct Type *typeB)
 
     if (typeA->basicType == VT_ARRAY)
     {
-        if (typeA->array.size > typeB->array.size)
+        if (typeA->array.size != typeB->array.size)
         {
-            return 1;
-        }
-
-        if (typeB->array.size > typeA->array.size)
-        {
-            return -1;
+            return (ssize_t)typeA->array.size - (ssize_t)typeB->array.size;
         }
 
         // TODO: compare initializeArrayTo values?
-
         return type_compare(typeA->array.type, typeB->array.type);
     }
 
