@@ -244,7 +244,6 @@ void generate_code_for_function(FILE *outFile,
     for (blockRunner = list_begin(function->BasicBlockList); iterator_gettable(blockRunner); iterator_next(blockRunner))
     {
         struct BasicBlock *block = iterator_get(blockRunner);
-        log(LOG_DEBUG, "Generating code for basic block %zd", block->labelNum);
         generateCodeForBasicBlock(&state, &function->regalloc, info, block, fullFunctionName);
     }
     iterator_free(blockRunner);

@@ -118,11 +118,11 @@ void setup_local_stack(struct RegallocMetadata *metadata, struct MachineInfo *in
 
     // figure out which callee-saved registers this function touches, and add space for them to the local stack offset
     Stack *touchedCalleeSaved = stack_new(NULL);
-    for (size_t calleeSaveIndex = 0; calleeSaveIndex < info->n_callee_save; calleeSaveIndex++)
+    for (size_t calleeSaveIndex = 0; calleeSaveIndex < info->callee_save.size; calleeSaveIndex++)
     {
-        if (set_find(metadata->touchedRegisters, info->callee_save[calleeSaveIndex]))
+        if (set_find(metadata->touchedRegisters, array_at(&info->callee_save, calleeSaveIndex)))
         {
-            stack_push(touchedCalleeSaved, info->callee_save[calleeSaveIndex]);
+            stack_push(touchedCalleeSaved, array_at(&info->callee_save, calleeSaveIndex));
         }
     }
     localOffset -= ((ssize_t)touchedCalleeSaved->size * MACHINE_REGISTER_SIZE_BYTES);
@@ -347,9 +347,9 @@ void lifetime_overlaps_remove(Array *lifetimeOverlaps, struct Lifetime *toRemove
 }
 
 // selectFrom: set of pointers to lifetimes which are in contention for registers
-// registerPool: set of register indices (raw values in void * form) which are available to allocate
+// registerPool: stack of registers (raw values in void * form) which are available to allocate
 // returns: set of lifetimes which were allocated registers, leaving only lifetimes which were not given registers in selectFrom
-Set *select_register_lifetimes(struct RegallocMetadata *metadata, Set *selectFrom, Set *registerPool)
+Set *select_register_lifetimes(struct RegallocMetadata *metadata, Set *selectFrom, Stack *registerPool)
 {
     Set *registerContentionLifetimes = pre_select_register_contention_lifetimes(selectFrom, metadata->function->mainScope);
 
@@ -369,15 +369,7 @@ Set *select_register_lifetimes(struct RegallocMetadata *metadata, Set *selectFro
 
     array_free(lifetimeOverlaps);
 
-    Stack *availableRegisters = stack_new(NULL);
     Set *liveLifetimes = set_new(NULL, (ssize_t(*)(void *, void *))lifetime_compare);
-
-    Iterator *regRunner = NULL;
-    for (regRunner = set_begin(registerPool); iterator_gettable(regRunner); iterator_next(regRunner))
-    {
-        stack_push(availableRegisters, iterator_get(regRunner));
-    }
-    iterator_free(regRunner);
 
     Set *needRegisters = set_copy(registerContentionLifetimes);
     needRegisters->freeData = NULL;
@@ -396,7 +388,7 @@ Set *select_register_lifetimes(struct RegallocMetadata *metadata, Set *selectFro
             if (!lifetime_is_live_at_index(liveLt, tacIndex + 1))
             {
                 set_remove(liveLifetimes, liveLt);
-                stack_push(availableRegisters, (void *)liveLt->writebackInfo.regLocation);
+                stack_push(registerPool, (void *)liveLt->writebackInfo.regLocation);
                 log(LOG_DEBUG, "Lifetime %s expires at %zu, freeing register %s", liveLt->name, tacIndex, liveLt->writebackInfo.regLocation->name);
             }
         }
@@ -414,18 +406,17 @@ Set *select_register_lifetimes(struct RegallocMetadata *metadata, Set *selectFro
             if (lifetime_is_live_at_index(examinedLt, tacIndex))
             {
                 set_remove(needRegisters, examinedLt);
-                examinedLt->writebackInfo.regLocation = (struct Register *)stack_pop(availableRegisters);
+                examinedLt->writebackInfo.regLocation = (struct Register *)stack_pop(registerPool);
                 examinedLt->wbLocation = WB_REGISTER;
                 set_insert(liveLifetimes, examinedLt);
 
-                set_insert(metadata->touchedRegisters, examinedLt->writebackInfo.regLocation);
+                set_try_insert(metadata->touchedRegisters, examinedLt->writebackInfo.regLocation);
                 log(LOG_DEBUG, "Lifetime %s starts at at %zu, consuming register %s", examinedLt->name, tacIndex, examinedLt->writebackInfo.regLocation->name);
             }
         }
         set_free(previouslyNeedRegisters);
         iterator_free(newLtRunner);
     }
-    stack_free(availableRegisters);
     set_free(needRegisters);
     set_free(liveLifetimes);
 
@@ -448,14 +439,18 @@ void allocate_argument_registers(struct RegallocMetadata *metadata, struct Machi
     iterator_free(ltRunner);
     ltRunner = NULL;
 
-    Set *argumentRegisterPool = set_new(NULL, ssizet_compare);
-    for (u8 argRegIndex = 0; argRegIndex < machineInfo->n_arguments; argRegIndex++)
+    Stack *argumentRegisterPool = stack_new(NULL);
+
+    Iterator *argRegI = NULL;
+    // the set is traversed backwards and registers are pushed to a stack to allocate from, account for this when adding to the corresponding machineInfo register array
+    for (argRegI = array_end(&machineInfo->arguments); iterator_gettable(argRegI); iterator_prev(argRegI))
     {
-        set_insert(argumentRegisterPool, (void *)machineInfo->arguments[argRegIndex]);
+        stack_push(argumentRegisterPool, iterator_get(argRegI));
     }
+    iterator_free(argRegI);
 
     set_free(select_register_lifetimes(metadata, argumentLifetimes, argumentRegisterPool));
-    set_free(argumentRegisterPool);
+    stack_free(argumentRegisterPool);
 
     // any arguments which we couldn't allocate a register for go on the stack
     for (ltRunner = set_begin(argumentLifetimes); iterator_gettable(ltRunner); iterator_next(ltRunner))
@@ -473,17 +468,20 @@ void allocate_general_registers(struct RegallocMetadata *metadata, struct Machin
     Set *registerContentionLifetimes = set_copy(metadata->allLifetimes);
     registerContentionLifetimes->freeData = NULL;
 
-    Set *registerPool = set_new(NULL, ssizet_compare);
+    Stack *registerPool = stack_new(NULL);
 
-    // the set is traversed head->tail and registers are pushed to a stack to allocate from, account for this when adding to the generalPurpose array
-    for (u8 gpRegIndex = 0; gpRegIndex < machineInfo->n_general_purpose; gpRegIndex++)
+    Iterator *gpRegI = NULL;
+    // the set is traversed backwards and registers are pushed to a stack to allocate from, account for this when adding to the corresponding machineInfo register array
+    for (gpRegI = array_end(&machineInfo->generalPurpose); iterator_gettable(gpRegI); iterator_prev(gpRegI))
     {
-        log(LOG_DEBUG, "%s is a gp reg to allocate", machineInfo->generalPurpose[gpRegIndex]->name);
-        set_insert(registerPool, (void *)machineInfo->generalPurpose[gpRegIndex]);
+        struct Register *gpReg = iterator_get(gpRegI);
+        log(LOG_DEBUG, "%s is a gp reg to allocate", gpReg);
+        stack_push(registerPool, gpReg);
     }
+    iterator_free(gpRegI);
 
     set_free(select_register_lifetimes(metadata, registerContentionLifetimes, registerPool));
-    set_free(registerPool);
+    stack_free(registerPool);
 
     // any general-purpose lifetimes which we couldn't allocate a register for go on the stack
     Iterator *ltRunner = NULL;
@@ -501,10 +499,10 @@ void allocate_general_registers(struct RegallocMetadata *metadata, struct Machin
 // really this is "figure out which lifetimes get a register"
 void allocate_registers(struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
-    log(LOG_DEBUG, "Allocate registers for %s", metadata->function->name);
+    log(LOG_INFO, "Allocate registers for %s", metadata->function->name);
 
     // register pointers are unique and only one should exist for a given register
-    metadata->touchedRegisters = set_new(NULL, ssizet_compare);
+    metadata->touchedRegisters = set_new(NULL, register_compare);
 
     // assume we will always touch the stack pointer
     set_insert(metadata->touchedRegisters, info->stackPointer);
@@ -561,7 +559,7 @@ void allocate_registers(struct RegallocMetadata *metadata, struct MachineInfo *i
             }
         }
 
-        log(LOG_DEBUG, "%40s:%s:%s", printedLt->name, location, ltLengthString);
+        log(LOG_INFO, "%40s:%s:%s", printedLt->name, location, ltLengthString);
     }
     iterator_free(ltRunner);
     free(ltLengthString);

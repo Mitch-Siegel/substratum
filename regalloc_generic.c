@@ -294,49 +294,34 @@ struct MachineInfo *machine_info_new(u8 maxReg,
     struct MachineInfo *wip = malloc(sizeof(struct MachineInfo));
     memset(wip, 0, sizeof(struct MachineInfo));
 
-    wip->maxReg = maxReg;
-    wip->allRegisters = malloc(wip->maxReg * sizeof(struct Register *));
-    memset(wip->allRegisters, 0, wip->maxReg * sizeof(struct Register *));
+    array_init(&wip->allRegisters, NULL, maxReg);
 
-    wip->n_temps = n_temps;
-    wip->temps = malloc(wip->n_temps * sizeof(struct Register *));
-    memset(wip->temps, 0, wip->n_temps * sizeof(struct Register *));
-    wip->tempsOccupied = malloc(wip->n_temps * sizeof(u8));
-    memset(wip->tempsOccupied, 0, wip->n_temps * sizeof(u8));
+    array_init(&wip->temps, NULL, n_temps);
+    array_init(&wip->tempsOccupied, NULL, n_temps);
 
-    wip->n_arguments = n_arguments;
-    wip->arguments = malloc(wip->n_arguments * sizeof(struct Register *));
-    memset(wip->arguments, 0, wip->n_arguments * sizeof(struct Register *));
+    array_init(&wip->arguments, NULL, n_arguments);
 
-    wip->n_general_purpose = n_general_purpose;
-    wip->generalPurpose = malloc(wip->n_general_purpose * sizeof(struct Register *));
-    memset(wip->generalPurpose, 0, wip->n_general_purpose * sizeof(struct Register *));
+    array_init(&wip->generalPurpose, NULL, n_general_purpose);
 
-    wip->n_no_save = n_no_save;
-    wip->no_save = malloc(wip->n_no_save * sizeof(struct Register *));
-    memset(wip->no_save, 0, wip->n_no_save * sizeof(struct Register *));
+    array_init(&wip->no_save, NULL, n_no_save);
 
-    wip->n_callee_save = n_callee_save;
-    wip->callee_save = malloc(wip->n_callee_save * sizeof(struct Register *));
-    memset(wip->callee_save, 0, wip->n_callee_save * sizeof(struct Register *));
+    array_init(&wip->callee_save, NULL, n_callee_save);
 
-    wip->n_caller_save = n_caller_save;
-    wip->caller_save = malloc(wip->n_caller_save * sizeof(struct Register *));
-    memset(wip->caller_save, 0, wip->n_caller_save * sizeof(struct Register *));
+    array_init(&wip->caller_save, NULL, n_caller_save);
 
     return wip;
 }
 
 void machine_info_free(struct MachineInfo *info)
 {
-    free(info->allRegisters);
-    free(info->temps);
-    free(info->tempsOccupied);
-    free(info->generalPurpose);
-    free(info->arguments);
-    free(info->no_save);
-    free(info->callee_save);
-    free(info->caller_save);
+    array_deinit(&info->allRegisters);
+    array_deinit(&info->temps);
+    array_deinit(&info->tempsOccupied);
+    array_deinit(&info->generalPurpose);
+    array_deinit(&info->arguments);
+    array_deinit(&info->no_save);
+    array_deinit(&info->callee_save);
+    array_deinit(&info->caller_save);
 
     free(info);
 }

@@ -42,8 +42,10 @@ char *symbol_table_mangle_name(struct Scope *scope, struct Dictionary *dict, cha
 
 void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, size_t depth)
 {
+    log(LOG_WARNING, "%*s%zu lifting subscopes/functions/structs from within scope %s", depth * 4, "", depth, scope->name);
+
     Set *moveToThisScope = set_new(NULL, scope->entries->compareData);
-    Set *removeFromThisScope = set_new(NULL, scope->entries->compareData);
+    Set *deletedSubScopes = set_new(NULL, scope->entries->compareData);
     Iterator *memberIterator = NULL;
     for (memberIterator = set_begin(scope->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
     {
@@ -53,7 +55,7 @@ void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, si
         case E_SCOPE: // recurse to subscopes
         {
             moveToThisScope = set_union_destructive(moveToThisScope, symbol_table_collapse_scopes_rec(thisMember->entry, dict, depth + 1));
-            set_insert(removeFromThisScope, thisMember);
+            set_insert(deletedSubScopes, thisMember);
         }
         break;
 
@@ -83,32 +85,34 @@ void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, si
             break;
         }
     }
-    log(LOG_WARNING, "Move %zu elements up to scope %s from subscopes", moveToThisScope->size, scope->name);
     iterator_free(memberIterator);
 
     Iterator *moveHereIterator = NULL;
     for (moveHereIterator = set_begin(moveToThisScope); iterator_gettable(moveHereIterator); iterator_next(moveHereIterator))
     {
-        struct ScopeMember *thisMember = iterator_get(moveHereIterator);
-        printf("move %s out of subscope into %s\n", thisMember->name, scope->name);
-        set_insert(scope->entries, iterator_get(moveHereIterator));
+        struct ScopeMember *toMoveHere = iterator_get(moveHereIterator);
+        log(LOG_WARNING, "%*s%zu Move member %s to this scope", depth * 4, "", depth, toMoveHere->name);
+        set_insert(scope->entries, toMoveHere);
     }
     iterator_free(moveHereIterator);
     set_free(moveToThisScope);
 
     Iterator *removeFromHereIterator = NULL;
-    for (removeFromHereIterator = set_begin(removeFromThisScope); iterator_gettable(removeFromHereIterator); iterator_next(removeFromHereIterator))
+    for (removeFromHereIterator = set_begin(deletedSubScopes); iterator_gettable(removeFromHereIterator); iterator_next(removeFromHereIterator))
     {
         struct ScopeMember *removedMember = iterator_get(removeFromHereIterator);
+        log(LOG_WARNING, "%*s%zu Subscope %s is no longer needed - delete it", depth * 4, "", depth, removedMember->name);
         set_remove(scope->entries, removedMember);
     }
     iterator_free(removeFromHereIterator);
-    set_free(removeFromThisScope);
+    set_free(deletedSubScopes);
+
+    log(LOG_WARNING, "%*s%zu DONE lifting subscopes/functions/structs from within scope %s", depth * 4, "", depth, scope->name);
 }
 
 Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *dict, size_t depth)
 {
-    log(LOG_WARNING, "collapse scopes recursive for scope %s @ depth %zu\n", scope->name, depth);
+    log(LOG_WARNING, "%*s%zu Collapsing scopes recursively for scope %s", depth * 4, "", depth, scope->name);
 
     scope_lift_from_sub_scopes(scope, dict, depth);
 
@@ -126,7 +130,7 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
 
         case E_BASICBLOCK:
         {
-            if (depth > 0 && scope->parentScope != NULL)
+            if ((depth > 0) && (scope->parentScope != NULL))
             {
                 stack_push(moveOutOfThisScope, thisMember);
             }
@@ -150,6 +154,8 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
             break;
         }
     }
+
+    log(LOG_WARNING, "%*s%zu Moving %zu elements out of scope", depth * 4, "", depth, moveOutOfThisScope->size);
     iterator_free(memberIterator);
     MBCL_DATA_FREE_FUNCTION oldFree = scope->entries->freeData;
     scope->entries->freeData = NULL;
@@ -159,6 +165,7 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
     while (moveOutOfThisScope->size > 0)
     {
         struct ScopeMember *moved = stack_pop(moveOutOfThisScope);
+        log(LOG_WARNING, "%*s%zu moving %s", depth * 4, "", depth, moved->name);
         set_remove(scope->entries, moved);
         // TODO: actually mangle names
         // mangle all non-global names (want to mangle everything except for string literal names)
@@ -177,6 +184,7 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
     scope->entries->freeData = oldFree;
     stack_free(moveOutOfThisScope);
 
+    log(LOG_WARNING, "%*s%zu DONE collapsing scopes recursively for scope %s", depth * 4, "", depth, scope->name);
     return renamedAndMoved;
 }
 
@@ -205,12 +213,9 @@ void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t 
 
 void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth, FILE *outFile)
 {
-    if (toPrint->type != E_BASICBLOCK || printTac)
+    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
     {
-        for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
-        {
-            fprintf(outFile, "\t");
-        }
+        fprintf(outFile, "\t");
     }
 
     switch (toPrint->type)
@@ -296,10 +301,10 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
 
     case E_BASICBLOCK:
     {
+        struct BasicBlock *thisBlock = toPrint->entry;
+        fprintf(outFile, "> Basic Block %zu - %zu TAC lines\n", thisBlock->labelNum, thisBlock->TACList->size);
         if (printTac)
         {
-            struct BasicBlock *thisBlock = toPrint->entry;
-            fprintf(outFile, "> Basic Block %zu\n", thisBlock->labelNum);
             print_basic_block(thisBlock, depth + 1);
         }
     }

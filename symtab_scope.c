@@ -82,7 +82,6 @@ void scope_free(struct Scope *scope)
 // insert a member with a given name and pointer to entry, along with info about the entry type
 void scope_insert(struct Scope *scope, char *name, void *newEntry, enum SCOPE_MEMBER_TYPE type, enum ACCESS accessibility)
 {
-    printf("insert %s in %s\n", name, scope->name);
     if (scope_contains(scope, name, type))
     {
         InternalError("Error defining symbol [%s] - name already exists!", name);
@@ -242,7 +241,6 @@ struct VariableEntry *scope_lookup_var_by_string(struct Scope *scope, char *name
 {
     struct ScopeMember *lookedUpVar = scope_lookup(scope, name, E_VARIABLE);
     struct ScopeMember *lookedUpArg = scope_lookup(scope, name, E_ARGUMENT);
-    printf("Variable %s: %d Argument %s: %d\n", name, lookedUpVar != NULL, name, lookedUpArg != NULL);
     if ((lookedUpVar == NULL) && (lookedUpArg == NULL))
     {
         return NULL;

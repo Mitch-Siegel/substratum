@@ -9,6 +9,7 @@
 
 #include "mbcl/list.h"
 #include "mbcl/set.h"
+#include "mbcl/array.h"
 
 struct TACOperand;
 struct TACLine;
@@ -96,25 +97,18 @@ struct MachineInfo
     struct Register *stackPointer;
     struct Register *framePointer;
     struct Register *returnValue;
-    struct Register **temps;
-    u8 *tempsOccupied;
-    struct Register **arguments;
-    struct Register **generalPurpose;
-    u8 n_arguments;
-    u8 n_temps;
-    u8 n_general_purpose;
+    Array temps;
+    Array tempsOccupied;
+    Array arguments;
+    Array generalPurpose;
 
     // all registers (whether or not they fall into the above categories) must have a calling convention defined
-    struct Register **no_save;
-    struct Register **callee_save;
-    struct Register **caller_save;
-    u8 n_no_save;
-    u8 n_callee_save;
-    u8 n_caller_save;
+    Array no_save;
+    Array callee_save;
+    Array caller_save;
 
     // basic info about the registers
-    struct Register **allRegisters;
-    u8 maxReg;
+    Array allRegisters;
 };
 
 extern struct MachineInfo *(*setupMachineInfo)();

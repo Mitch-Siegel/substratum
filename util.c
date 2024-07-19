@@ -137,10 +137,8 @@ void *dictionary_lookup_or_insert(struct Dictionary *dict, void *value)
     void *returnedStr = hash_table_find(dict->table, value);
     if (returnedStr == NULL)
     {
-        printf("couldn't look up %s, need to insert\n", (char *)value);
         returnedStr = dictionary_insert(dict, value);
     }
-    printf("found %s\n", (char *)value);
     return returnedStr;
 }
 
@@ -170,7 +168,6 @@ char *temp_list_get(struct TempList *tempList, size_t tempNum)
         {
             char *thisTemp = malloc(TEMP_LIST_SPRINTF_LENGTH * sizeof(char));
             sprintf(thisTemp, ".t%zu", generateFrom);
-            printf("emplace %s at %zu\n", thisTemp, generateFrom);
             array_emplace(&tempList->temps, generateFrom, thisTemp);
             generateFrom++;
         }

@@ -198,17 +198,17 @@ void riscv_emit_pop_for_size(struct TACLine *correspondingTACLine,
     emit_instruction(correspondingTACLine, state, "\taddi sp, sp, %d\n", size);
 }
 
-Set *get_touched_caller_save_registers(struct RegallocMetadata *metadata, struct MachineInfo *info)
+Stack *get_touched_caller_save_registers(struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
-    Set *actuallyCallerSaved = set_new(NULL, register_compare);
+    Stack *actuallyCallerSaved = stack_new(NULL);
 
-    for (size_t regIndex = 0; regIndex < info->n_caller_save; regIndex++)
+    for (size_t regIndex = 0; regIndex < info->caller_save.size; regIndex++)
     {
-        struct Register *potentiallyCallerSaved = info->caller_save[regIndex];
+        struct Register *potentiallyCallerSaved = array_at(&info->caller_save, regIndex);
         // only need to actually callee-save registers we touch in this function
         if (set_find(metadata->touchedRegisters, potentiallyCallerSaved) != NULL)
         {
-            set_insert(actuallyCallerSaved, potentiallyCallerSaved);
+            stack_push(actuallyCallerSaved, potentiallyCallerSaved);
             log(LOG_DEBUG, "%s is used in %s, need to caller-save", potentiallyCallerSaved->name, metadata->function->name);
         }
     }
@@ -220,15 +220,15 @@ void riscv_caller_save_registers(struct CodegenState *state, struct RegallocMeta
 {
     log(LOG_DEBUG, "Caller-saving registers");
 
-    Set *actuallyCallerSaved = get_touched_caller_save_registers(regalloc, info);
+    Stack *actuallyCallerSaved = get_touched_caller_save_registers(regalloc, info);
 
     if (actuallyCallerSaved->size == 0)
     {
-        set_free(actuallyCallerSaved);
+        stack_free(actuallyCallerSaved);
         return;
     }
 
-    emit_instruction(NULL, state, "\t#Caller-save registers\n");
+    emit_instruction(NULL, state, "\t#Caller-save %zu registers\n", actuallyCallerSaved->size);
 
     char *spName = info->stackPointer->name;
 
@@ -236,27 +236,25 @@ void riscv_caller_save_registers(struct CodegenState *state, struct RegallocMeta
     emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
 
     ssize_t saveIndex = 0;
-    Iterator *callerSaveIterator = NULL;
-    for (callerSaveIterator = set_begin(actuallyCallerSaved); iterator_gettable(callerSaveIterator); iterator_next(callerSaveIterator))
+    while(actuallyCallerSaved->size > 0)
     {
-        struct Register *calleeSaved = iterator_get(callerSaveIterator);
+        struct Register *calleeSaved = stack_pop(actuallyCallerSaved);
         riscv_emit_stack_store_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, saveIndex * MACHINE_REGISTER_SIZE_BYTES);
         saveIndex++;
     }
-    iterator_free(callerSaveIterator);
 
-    set_free(actuallyCallerSaved);
+    stack_free(actuallyCallerSaved);
 }
 
 void riscv_caller_restore_registers(struct CodegenState *state, struct RegallocMetadata *regalloc, struct MachineInfo *info)
 {
     log(LOG_DEBUG, "Caller-restoring registers");
 
-    Set *actuallyCallerSaved = get_touched_caller_save_registers(regalloc, info);
+    Stack *actuallyCallerSaved = get_touched_caller_save_registers(regalloc, info);
 
     if (actuallyCallerSaved->size == 0)
     {
-        set_free(actuallyCallerSaved);
+        stack_free(actuallyCallerSaved);
         return;
     }
 
@@ -264,32 +262,30 @@ void riscv_caller_restore_registers(struct CodegenState *state, struct RegallocM
 
     char *spName = info->stackPointer->name;
     ssize_t saveIndex = 0;
-    Iterator *callerSaveIterator = NULL;
-    for (callerSaveIterator = set_begin(actuallyCallerSaved); iterator_gettable(callerSaveIterator); iterator_next(callerSaveIterator))
+    while (actuallyCallerSaved->size > 0)
     {
-        struct Register *callerSaved = iterator_get(callerSaveIterator);
+        struct Register *callerSaved = stack_pop(actuallyCallerSaved);
         riscv_emit_stack_load_for_size(NULL, state, info, callerSaved, MACHINE_REGISTER_SIZE_BYTES, (saveIndex * MACHINE_REGISTER_SIZE_BYTES));
         saveIndex++;
     }
-    iterator_free(callerSaveIterator);
 
     // TODO: don't emit when 0
     emit_instruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
 
-    set_free(actuallyCallerSaved);
+    stack_free(actuallyCallerSaved);
 }
 
-Set *get_touched_callee_save_registers(struct RegallocMetadata *metadata, struct MachineInfo *info)
+Stack *get_touched_callee_save_registers(struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
-    Set *actuallyCalleeSaved = set_new(NULL, register_compare);
+    Stack *actuallyCalleeSaved = stack_new(NULL);
 
-    for (size_t regIndex = 0; regIndex < info->n_callee_save; regIndex++)
+    for (size_t regIndex = 0; regIndex < info->callee_save.size; regIndex++)
     {
-        struct Register *potentiallyCalleeSaved = info->callee_save[regIndex];
+        struct Register *potentiallyCalleeSaved = array_at(&info->callee_save, regIndex);
         // only need to actually callee-save registers we touch in this function
         if (set_find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
         {
-            set_insert(actuallyCalleeSaved, potentiallyCalleeSaved);
+            stack_push(actuallyCalleeSaved, potentiallyCalleeSaved);
             log(LOG_DEBUG, "%s is used in %s, need to callee-save", potentiallyCalleeSaved->name, metadata->function->name);
         }
     }
@@ -300,54 +296,50 @@ Set *get_touched_callee_save_registers(struct RegallocMetadata *metadata, struct
 void riscv_callee_save_registers(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     log(LOG_DEBUG, "Callee-saving registers");
-    Set *actuallyCalleeSaved = get_touched_callee_save_registers(metadata, info);
+    Stack *actuallyCalleeSaved = get_touched_callee_save_registers(metadata, info);
 
     if (actuallyCalleeSaved->size == 0)
     {
-        set_free(actuallyCalleeSaved);
+        stack_free(actuallyCalleeSaved);
         return;
     }
 
-    emit_instruction(NULL, state, "\t#Callee-save registers\n");
+    emit_instruction(NULL, state, "\t#Callee-save %zu registers\n", actuallyCalleeSaved->size);
 
     ssize_t saveIndex = 0;
-    Iterator *calleeSaveIterator = NULL;
-    for (calleeSaveIterator = set_begin(actuallyCalleeSaved); iterator_gettable(calleeSaveIterator); iterator_next(calleeSaveIterator))
+    while (actuallyCalleeSaved->size > 0)
     {
-        struct Register *calleeSaved = iterator_get(calleeSaveIterator);
+        struct Register *calleeSaved = stack_pop(actuallyCalleeSaved);
         riscv_emit_frame_store_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (saveIndex + 2) * MACHINE_REGISTER_SIZE_BYTES));
         saveIndex++;
     }
-    iterator_free(calleeSaveIterator);
 
-    set_free(actuallyCalleeSaved);
+    stack_free(actuallyCalleeSaved);
 }
 
 void riscv_callee_restore_registers(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     log(LOG_DEBUG, "Callee-restoring registers");
-    Set *actuallyCalleeSaved = get_touched_callee_save_registers(metadata, info);
+    Stack *actuallyCalleeSaved = get_touched_callee_save_registers(metadata, info);
 
     if (actuallyCalleeSaved->size == 0)
     {
-        set_free(actuallyCalleeSaved);
+        stack_free(actuallyCalleeSaved);
         return;
     }
 
-    emit_instruction(NULL, state, "\t#Callee-restore registers\n");
+    emit_instruction(NULL, state, "\t#Callee-restore %zu registers\n", actuallyCalleeSaved->size);
 
     ssize_t saveIndex = 0;
-    Iterator *calleeSaveIterator = NULL;
-    for (calleeSaveIterator = set_begin(actuallyCalleeSaved); iterator_gettable(calleeSaveIterator); iterator_next(calleeSaveIterator))
+    while(actuallyCalleeSaved->size > 0)
     {
-        struct Register *calleeSaved = iterator_get(calleeSaveIterator);
+        struct Register *calleeSaved = stack_pop(actuallyCalleeSaved);
         // +2, 1 to account for stack growing downward and 1 to account for saved frame pointer
         riscv_emit_frame_load_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (saveIndex + 2) * MACHINE_REGISTER_SIZE_BYTES));
         saveIndex++;
     }
-    iterator_free(calleeSaveIterator);
 
-    set_free(actuallyCalleeSaved);
+    stack_free(actuallyCalleeSaved);
 }
 
 void riscv_emit_prologue(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
@@ -647,6 +639,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
     emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize);
 
     Iterator *argumentIterator = deque_front(calledFunction->arguments);
+    // problem: when function a() calls function b(), if we are copying one of a's arguments to one of b's arguments it is possible that we will try to load one of a's arguments from a register which has been overwritten with one of b's arguments already.
     while (argumentOperands->size > 0)
     {
         struct TACOperand *argOperand = stack_pop(argumentOperands);
@@ -658,7 +651,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
 
         log(LOG_DEBUG, "Store argument %s - %s", argument->name, argOperand->name.str);
         char *printedOperand = tac_operand_sprint(argOperand);
-        emit_instruction(NULL, state, "\t#Store argument %s\n", printedOperand);
+        emit_instruction(NULL, state, "\t#Store argument %s - %s\n", argument->name, printedOperand);
         free(printedOperand);
         switch (argLifetime->wbLocation)
         {
@@ -1392,6 +1385,7 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
                                          struct BasicBlock *block,
                                          char *functionName)
 {
+    log(LOG_DEBUG, "Generate code for basic block %s", block->labelNum);
     // we may pass null if we are generating the code to initialize global variables
     if (functionName != NULL)
     {

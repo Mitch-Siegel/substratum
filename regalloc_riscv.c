@@ -85,72 +85,72 @@ struct MachineInfo *riscv_setup_machine_info()
     info->framePointer = &riscvRegisters[FP];
     info->returnValue = &riscvRegisters[A0];
 
-    info->temps[0] = &riscvRegisters[T0];
-    info->temps[1] = &riscvRegisters[T1];
-    info->temps[2] = &riscvRegisters[T2];
+    array_emplace(&info->temps, 0, &riscvRegisters[T0]);
+    array_emplace(&info->temps, 1, &riscvRegisters[T1]);
+    array_emplace(&info->temps, 2, &riscvRegisters[T2]);
 
     u8 argReg = 0;
-    info->arguments[argReg++] = &riscvRegisters[A7];
-    info->arguments[argReg++] = &riscvRegisters[A6];
-    info->arguments[argReg++] = &riscvRegisters[A5];
-    info->arguments[argReg++] = &riscvRegisters[A4];
-    info->arguments[argReg++] = &riscvRegisters[A3];
-    info->arguments[argReg++] = &riscvRegisters[A2];
-    info->arguments[argReg++] = &riscvRegisters[A1];
-    info->arguments[argReg++] = &riscvRegisters[A0];
+    array_emplace(&info->arguments, argReg++, &riscvRegisters[A0]);
+    array_emplace(&info->arguments, argReg++, &riscvRegisters[A1]);
+    array_emplace(&info->arguments, argReg++, &riscvRegisters[A2]);
+    array_emplace(&info->arguments, argReg++, &riscvRegisters[A3]);
+    array_emplace(&info->arguments, argReg++, &riscvRegisters[A4]);
+    array_emplace(&info->arguments, argReg++, &riscvRegisters[A5]);
+    array_emplace(&info->arguments, argReg++, &riscvRegisters[A6]);
+    array_emplace(&info->arguments, argReg++, &riscvRegisters[A7]);
 
     u8 gpReg = 0;
-    info->generalPurpose[gpReg++] = &riscvRegisters[T6];
-    info->generalPurpose[gpReg++] = &riscvRegisters[T5];
-    info->generalPurpose[gpReg++] = &riscvRegisters[T4];
-    info->generalPurpose[gpReg++] = &riscvRegisters[T3];
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[S1]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[S2]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[S3]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[S4]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[S5]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[S6]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[S7]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[S8]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[S9]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[S10]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[S11]);
 
-    info->generalPurpose[gpReg++] = &riscvRegisters[S11];
-    info->generalPurpose[gpReg++] = &riscvRegisters[S10];
-    info->generalPurpose[gpReg++] = &riscvRegisters[S9];
-    info->generalPurpose[gpReg++] = &riscvRegisters[S8];
-    info->generalPurpose[gpReg++] = &riscvRegisters[S7];
-    info->generalPurpose[gpReg++] = &riscvRegisters[S6];
-    info->generalPurpose[gpReg++] = &riscvRegisters[S5];
-    info->generalPurpose[gpReg++] = &riscvRegisters[S4];
-    info->generalPurpose[gpReg++] = &riscvRegisters[S3];
-    info->generalPurpose[gpReg++] = &riscvRegisters[S2];
-    info->generalPurpose[gpReg++] = &riscvRegisters[S1];
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[T3]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[T4]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[T5]);
+    array_emplace(&info->generalPurpose, gpReg++, &riscvRegisters[T6]);
 
     u8 calleeReg = 0;
     // don't actually mark sp and fp as callee-save as they are handled specifically by emitprologue and emitepilogue to get the ordering correct
-    info->callee_save[calleeReg++] = &riscvRegisters[S11];
-    info->callee_save[calleeReg++] = &riscvRegisters[S10];
-    info->callee_save[calleeReg++] = &riscvRegisters[S9];
-    info->callee_save[calleeReg++] = &riscvRegisters[S8];
-    info->callee_save[calleeReg++] = &riscvRegisters[S7];
-    info->callee_save[calleeReg++] = &riscvRegisters[S6];
-    info->callee_save[calleeReg++] = &riscvRegisters[S5];
-    info->callee_save[calleeReg++] = &riscvRegisters[S4];
-    info->callee_save[calleeReg++] = &riscvRegisters[S3];
-    info->callee_save[calleeReg++] = &riscvRegisters[S2];
-    info->callee_save[calleeReg++] = &riscvRegisters[S1];
-    info->callee_save[calleeReg++] = &riscvRegisters[RA];
+    array_emplace(&info->callee_save, calleeReg++, &riscvRegisters[S1]);
+    array_emplace(&info->callee_save, calleeReg++, &riscvRegisters[S2]);
+    array_emplace(&info->callee_save, calleeReg++, &riscvRegisters[S3]);
+    array_emplace(&info->callee_save, calleeReg++, &riscvRegisters[S4]);
+    array_emplace(&info->callee_save, calleeReg++, &riscvRegisters[S5]);
+    array_emplace(&info->callee_save, calleeReg++, &riscvRegisters[S6]);
+    array_emplace(&info->callee_save, calleeReg++, &riscvRegisters[S7]);
+    array_emplace(&info->callee_save, calleeReg++, &riscvRegisters[S8]);
+    array_emplace(&info->callee_save, calleeReg++, &riscvRegisters[S9]);
+    array_emplace(&info->callee_save, calleeReg++, &riscvRegisters[S10]);
+    array_emplace(&info->callee_save, calleeReg++, &riscvRegisters[S11]);
+    array_emplace(&info->callee_save, calleeReg++, &riscvRegisters[RA]);
 
     u8 callerReg = 0;
 
-    info->caller_save[callerReg++] = &riscvRegisters[A7];
-    info->caller_save[callerReg++] = &riscvRegisters[A6];
-    info->caller_save[callerReg++] = &riscvRegisters[A3];
-    info->caller_save[callerReg++] = &riscvRegisters[A5];
-    info->caller_save[callerReg++] = &riscvRegisters[A4];
-    info->caller_save[callerReg++] = &riscvRegisters[A2];
-    info->caller_save[callerReg++] = &riscvRegisters[A1];
-    info->caller_save[callerReg++] = &riscvRegisters[A0];
+    array_emplace(&info->caller_save, callerReg++, &riscvRegisters[A0]);
+    array_emplace(&info->caller_save, callerReg++, &riscvRegisters[A1]);
+    array_emplace(&info->caller_save, callerReg++, &riscvRegisters[A2]);
+    array_emplace(&info->caller_save, callerReg++, &riscvRegisters[A4]);
+    array_emplace(&info->caller_save, callerReg++, &riscvRegisters[A5]);
+    array_emplace(&info->caller_save, callerReg++, &riscvRegisters[A3]);
+    array_emplace(&info->caller_save, callerReg++, &riscvRegisters[A6]);
+    array_emplace(&info->caller_save, callerReg++, &riscvRegisters[A7]);
 
-    info->caller_save[callerReg++] = &riscvRegisters[T6];
-    info->caller_save[callerReg++] = &riscvRegisters[T5];
-    info->caller_save[callerReg++] = &riscvRegisters[T4];
-    info->caller_save[callerReg++] = &riscvRegisters[T3];
+    array_emplace(&info->caller_save, callerReg++, &riscvRegisters[T3]);
+    array_emplace(&info->caller_save, callerReg++, &riscvRegisters[T4]);
+    array_emplace(&info->caller_save, callerReg++, &riscvRegisters[T5]);
+    array_emplace(&info->caller_save, callerReg++, &riscvRegisters[T6]);
 
     for (i32 regIndex = 0; regIndex < RISCV_REGISTER_COUNT; regIndex++)
     {
-        info->allRegisters[regIndex] = &riscvRegisters[regIndex];
+        array_emplace(&info->allRegisters, regIndex, &riscvRegisters[regIndex]);
     }
 
     return info;
