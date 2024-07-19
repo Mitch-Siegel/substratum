@@ -7,9 +7,9 @@
 #include "substratum_defs.h"
 #include "type.h"
 
+#include "mbcl/array.h"
 #include "mbcl/list.h"
 #include "mbcl/set.h"
-#include "mbcl/array.h"
 
 struct TACOperand;
 struct TACLine;

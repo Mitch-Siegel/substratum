@@ -247,7 +247,6 @@ Set *riscv_caller_save_registers(struct CodegenState *state, struct RegallocMeta
         struct Lifetime *stompedLifetime = callerSaved->containedLifetime;
         if ((stompedLifetime != NULL) && (stompedLifetime->isArgument))
         {
-            printf("%s is an argument we need to caller-save\n", stompedLifetime->name);
             struct Lifetime *dummyLifetime = malloc(sizeof(struct Lifetime));
             *dummyLifetime = *stompedLifetime;
             dummyLifetime->wbLocation = WB_STACK;
@@ -656,7 +655,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
     // TODO: don't emit when 0
     emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize);
 
-    Iterator *argumentIterator = deque_front(calledFunction->arguments);
+    Iterator *argumentIterator = deque_rear(calledFunction->arguments);
     size_t stompedArgRegIdx = 0;
     // problem: when function a() calls function b(), if we are copying one of a's arguments to one of b's arguments it is possible that we will try to load one of a's arguments from a register which has been overwritten with one of b's arguments already.
     while (argumentOperands->size > 0)
@@ -664,7 +663,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
         struct TACOperand *argOperand = stack_pop(argumentOperands);
 
         struct VariableEntry *argument = iterator_get(argumentIterator);
-        iterator_next(argumentIterator);
+        iterator_prev(argumentIterator);
 
         struct Lifetime *argLifetime = lifetime_find(calledFunction->regalloc.allLifetimes, argument->name);
 
@@ -687,7 +686,6 @@ void riscv_emit_argument_stores(struct CodegenState *state,
                 struct Lifetime *callerSavedDummyLifetime = lifetime_find(callerSavedArgLifetimes, argOperand->name.variable->name);
                 if (callerSavedDummyLifetime != NULL)
                 {
-                    printf("found that bih %s\n", callerSavedDummyLifetime->name);
                     placedOrFoundIn = acquire_scratch_register(info);
                     riscv_emit_stack_load_for_size(NULL, state, info, placedOrFoundIn, type_get_size(tac_operand_get_type(argOperand), metadata->scope), callerSavedDummyLifetime->writebackInfo.stackOffset);
                 }
@@ -696,12 +694,12 @@ void riscv_emit_argument_stores(struct CodegenState *state,
                     placedOrFoundIn = riscv_place_or_find_operand_in_register(NULL, state, metadata, info, argOperand, writtenTo);
                 }
 
-                for (size_t argRegIdx = 0; argRegIdx <= stompedArgRegIdx; argRegIdx++)
+                for (size_t argRegIdx = 0; argRegIdx < stompedArgRegIdx; argRegIdx++)
                 {
                     if (array_at(&info->arguments, argRegIdx) == placedOrFoundIn)
                     {
                         Iterator *dummyLtI = set_begin(callerSavedArgLifetimes);
-                        while(iterator_gettable(dummyLtI))
+                        while (iterator_gettable(dummyLtI))
                         {
                             struct Lifetime *dummyLt = iterator_get(dummyLtI);
                             printf("%s in da dummy zone\n", dummyLt->name);
@@ -1479,16 +1477,15 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
         riscv_generate_code_for_tac(state, metadata, info, thisTac, functionName, calledFunctionArguments);
 
         Iterator *regIterator = NULL;
-        for(regIterator = array_begin(&info->allRegisters); iterator_gettable(regIterator); iterator_next(regIterator))
+        for (regIterator = array_begin(&info->allRegisters); iterator_gettable(regIterator); iterator_next(regIterator))
         {
             struct Register *examinedRegister = iterator_get(regIterator);
-            if((examinedRegister->containedLifetime != NULL) && !(lifetime_is_live_at_index(examinedRegister->containedLifetime, thisTac->index + 1)))
+            if ((examinedRegister->containedLifetime != NULL) && !(lifetime_is_live_at_index(examinedRegister->containedLifetime, thisTac->index)))
             {
                 examinedRegister->containedLifetime = NULL;
             }
         }
         iterator_free(regIterator);
-
     }
     iterator_free(tacRunner);
     stack_free(calledFunctionArguments);

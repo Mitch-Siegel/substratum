@@ -241,7 +241,7 @@ void generate_code_for_function(FILE *outFile,
     }
 
     Iterator *argIterator = NULL;
-    for(argIterator = deque_front(function->arguments); iterator_gettable(argIterator); iterator_next(argIterator))
+    for (argIterator = deque_front(function->arguments); iterator_gettable(argIterator); iterator_next(argIterator))
     {
         struct VariableEntry *examinedArgument = iterator_get(argIterator);
         struct Lifetime *argLifetime = lifetime_find(function->regalloc.allLifetimes, examinedArgument->name);

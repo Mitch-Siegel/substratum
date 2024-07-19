@@ -2573,6 +2573,14 @@ Deque *walk_argument_pushes(struct Ast *argumentRunner,
     }
 
     Iterator *calledFunctionArgumentIterator = deque_front(calledFunction->arguments);
+
+    // account for offsetting the number of arguments for self and out pointers
+    while (argumentNumOffset > 0)
+    {
+        iterator_next(calledFunctionArgumentIterator);
+        argumentNumOffset--;
+    }
+
     while (argumentTrees->size > 0)
     {
         struct Ast *pushedArgument = deque_pop_front(argumentTrees);

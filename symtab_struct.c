@@ -44,7 +44,7 @@ void struct_check_access(struct StructEntry *theStruct,
                          char *whatAccessingCalled)
 {
     struct ScopeMember *accessed = scope_lookup(theStruct->members, nameTree->value, E_VARIABLE);
-    if(accessed == NULL)
+    if (accessed == NULL)
     {
         accessed = scope_lookup(theStruct->members, nameTree->value, E_FUNCTION);
     }
