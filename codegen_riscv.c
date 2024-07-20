@@ -644,6 +644,7 @@ void riscv_generate_internal_copy(struct TACLine *correspondingTACLine,
     }
 }
 
+// NOLINTBEGIN(readability-function-cognitive-complexity)
 void riscv_emit_argument_stores(struct CodegenState *state,
                                 struct RegallocMetadata *metadata,
                                 struct MachineInfo *info,
@@ -770,6 +771,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
     }
     iterator_free(argumentIterator);
 }
+// NOLINTEND(readability-function-cognitive-complexity)
 
 void riscv_emit_array_load(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {

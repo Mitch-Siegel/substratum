@@ -4,13 +4,14 @@
 #include "symtab_basicblock.h"
 #include "util.h"
 
+const size_t SIZE_T_PRINT_LENGTH = 20;
 char *sprint_idfa_operand(void *data)
 {
     struct TACOperand *operand = data;
     char *sprinted = tac_operand_sprint(operand);
     char *typename = type_get_name(tac_operand_get_non_cast_type(operand));
     char *castTypeName = type_get_name(&operand->castAsType);
-    char *returned = malloc(strlen(sprinted) + strlen(typename) + strlen(castTypeName) + 20);
+    char *returned = malloc(strlen(sprinted) + strlen(typename) + strlen(castTypeName) + SIZE_T_PRINT_LENGTH);
     sprintf(returned, "%s(%s) %s %zu", typename, castTypeName, sprinted, operand->ssaNumber);
     free(typename);
     free(castTypeName);

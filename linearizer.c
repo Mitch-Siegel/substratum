@@ -15,10 +15,10 @@
 struct TempList *temps;
 struct Dictionary *typeDict;
 extern struct Dictionary *parseDict;
-const u8 TYPE_DICT_SIZE = 10;
+const u8 TYPE_DICT_SIZE = 100;
 struct SymbolTable *walk_program(struct Ast *program)
 {
-    typeDict = dictionary_new((void (*)(void *))type_free, (ssize_t(*)(void *, void *))type_compare, (size_t(*)(void *))type_hash, 100, (void *(*)(void *))type_duplicate);
+    typeDict = dictionary_new((void (*)(void *))type_free, (ssize_t(*)(void *, void *))type_compare, (size_t(*)(void *))type_hash, TYPE_DICT_SIZE, (void *(*)(void *))type_duplicate);
     struct SymbolTable *programTable = symbol_table_new("Program");
     struct BasicBlock *globalBlock = scope_lookup(programTable->globalScope, "globalblock", E_BASICBLOCK)->entry;
     struct BasicBlock *asmBlock = basic_block_new(1);
@@ -409,6 +409,28 @@ void verify_function_signatures(struct Ast *tree, struct FunctionEntry *existing
     }
 }
 
+void insert_self_method_argument(struct FunctionEntry *function, struct VariableEntry *selfArgument)
+{
+    if (function->arguments->size > 0)
+    {
+        struct VariableEntry *firstArgument = deque_at(function->arguments, 0);
+        if (strcmp(firstArgument->name, OUT_OBJECT_POINTER_NAME) == 0)
+        {
+            struct VariableEntry *outObjPtr = deque_pop_front(function->arguments);
+            deque_push_front(function->arguments, selfArgument);
+            deque_push_front(function->arguments, outObjPtr);
+        }
+        else
+        {
+            deque_push_front(function->arguments, selfArgument);
+        }
+    }
+    else
+    {
+        deque_push_front(function->arguments, selfArgument);
+    }
+}
+
 struct FunctionEntry *walk_function_declaration(struct Ast *tree,
                                                 struct Scope *scope,
                                                 struct StructEntry *methodOf,
@@ -501,24 +523,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
             type_set_basic_type(&selfType, VT_STRUCT, methodOf->name, 1);
             struct VariableEntry *selfArgument = scope_create_argument(parsedFunc->mainScope, argumentRunner, &selfType, A_PUBLIC);
 
-            if (parsedFunc->arguments->size > 0)
-            {
-                struct VariableEntry *firstArgument = deque_at(parsedFunc->arguments, 0);
-                if (strcmp(firstArgument->name, OUT_OBJECT_POINTER_NAME) == 0)
-                {
-                    struct VariableEntry *outObjPtr = deque_pop_front(parsedFunc->arguments);
-                    deque_push_front(parsedFunc->arguments, selfArgument);
-                    deque_push_front(parsedFunc->arguments, outObjPtr);
-                }
-                else
-                {
-                    deque_push_front(parsedFunc->arguments, selfArgument);
-                }
-            }
-            else
-            {
-                deque_push_front(parsedFunc->arguments, selfArgument);
-            }
+            insert_self_method_argument(parsedFunc, selfArgument);
         }
         break;
 

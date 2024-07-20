@@ -47,7 +47,7 @@ void verify_codegen_primitive(struct TACOperand *operand)
 
 struct Register *acquire_scratch_register(struct MachineInfo *info)
 {
-    for (u8 scratchIndex = 0; scratchIndex < info->temps.size; scratchIndex++)
+    for (size_t scratchIndex = 0; scratchIndex < info->temps.size; scratchIndex++)
     {
         if (array_at(&info->tempsOccupied, scratchIndex) == NULL)
         {
@@ -62,7 +62,7 @@ struct Register *acquire_scratch_register(struct MachineInfo *info)
 
 void release_all_scratch_registers(struct MachineInfo *info)
 {
-    for (u8 scratchIndex = 0; scratchIndex < info->temps.size; scratchIndex++)
+    for (size_t scratchIndex = 0; scratchIndex < info->temps.size; scratchIndex++)
     {
         array_emplace(&info->tempsOccupied, scratchIndex, NULL);
     }
@@ -70,7 +70,7 @@ void release_all_scratch_registers(struct MachineInfo *info)
 
 void try_release_scratch_register(struct MachineInfo *info, struct Register *reg)
 {
-    for (u8 scratchIndex = 0; scratchIndex < info->temps.size; scratchIndex++)
+    for (size_t scratchIndex = 0; scratchIndex < info->temps.size; scratchIndex++)
     {
         if (array_at(&info->temps, scratchIndex) == reg)
         {
