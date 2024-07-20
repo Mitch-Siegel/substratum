@@ -49,4 +49,7 @@ struct FunctionEntry *struct_lookup_associated_function(struct StructEntry *theS
 struct FunctionEntry *struct_lookup_method_by_string(struct StructEntry *theStruct,
                                                      char *name);
 
+struct FunctionEntry *struct_lookup_associated_function_by_string(struct StructEntry *theStruct,
+                                                                  char *name);
+
 #endif

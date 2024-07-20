@@ -2051,7 +2051,7 @@ void ensure_all_fields_initialized(struct Ast *tree, size_t initFieldIdx, struct
         // go through the remaining fields, construct a string with the type and name of all missing fields
         while (initFieldIdx < initializedStruct->fieldLocations->size)
         {
-            struct StructField *unInitField = (struct StructField *)initializedStruct->fieldLocations->container.data[initFieldIdx];
+            struct StructField *unInitField = (struct StructField *)initializedStruct->fieldLocations->data[initFieldIdx];
 
             char *unInitTypeName = type_get_name(&unInitField->variable->type);
             size_t origLen = strlen(fieldsString);
@@ -2127,7 +2127,7 @@ void walk_struct_initializer(struct Ast *tree,
         struct StructField *initializedField = struct_lookup_field(initializedStruct, initFieldTree, scope);
 
         // next, check the ordering index for the field we are expecting to initialize
-        struct StructField *expectedField = (struct StructField *)initializedStruct->fieldLocations->container.data[initFieldIdx];
+        struct StructField *expectedField = (struct StructField *)initializedStruct->fieldLocations->data[initFieldIdx];
         if ((initializedField->offset != expectedField->offset) || (strcmp(initializedField->variable->name, expectedField->variable->name) != 0))
         {
             log(LOG_FATAL, "Initializer element %zu of struct %s should be %s, not %s", initFieldIdx + 1, initializedStruct->name, expectedField->variable->name, initializedField->variable->name);
@@ -2680,7 +2680,7 @@ void handle_struct_return(struct Ast *callTree,
     {
         log(LOG_FATAL, "Unused return value for function %s returning %s", calledFunction->name, type_get_name(&calledFunction->returnType));
     }
-    struct VariableEntry *expectedArgument = calledFunction->arguments->data[0];
+    struct VariableEntry *expectedArgument = deque_at(calledFunction->arguments, 0);
     outPointerPush->operands[1].name.val = expectedArgument->stackOffset;
     outPointerPush->operands[1].castAsType.basicType = select_variable_type_for_number(expectedArgument->stackOffset);
     outPointerPush->operands[1].permutation = VP_LITERAL_VAL;
@@ -3625,7 +3625,7 @@ void walk_sizeof(struct Ast *tree,
         {
 
             struct ScopeMember *lookedUpStruct = scope_lookup(scope, tree->child->value, E_STRUCT);
-            if (lookedUpIdentifier != NULL)
+            if (lookedUpStruct != NULL)
             {
                 struct StructEntry *getSizeof = lookedUpStruct->entry;
                 sizeInBytes = getSizeof->totalSize;

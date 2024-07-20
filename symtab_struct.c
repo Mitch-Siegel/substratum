@@ -205,30 +205,30 @@ struct FunctionEntry *struct_looup_method(struct StructEntry *theStruct,
 }
 
 struct FunctionEntry *struct_lookup_associated_function(struct StructEntry *theStruct,
-                                                        struct Ast *name,
+                                                        struct Ast *nameTree,
                                                         struct Scope *scope)
 {
     struct FunctionEntry *returendAssociated = NULL;
 
-    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name->value, E_FUNCTION);
+    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, nameTree->value, E_FUNCTION);
 
     if (lookedUpEntry == NULL)
     {
-        log_tree(LOG_FATAL, name, "Attempt to call nonexistent associated function %s::%s\n", theStruct->name, name->value);
+        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent associated function %s::%s\n", theStruct->name, nameTree->value);
     }
 
     if (lookedUpEntry->type != E_FUNCTION)
     {
-        log_tree(LOG_FATAL, name, "Attempt to call non-function member %s.%s as an associated function!\n", theStruct->name, name->value);
+        log_tree(LOG_FATAL, nameTree, "Attempt to call non-function member %s.%s as an associated function!\n", theStruct->name, nameTree->value);
     }
 
     returendAssociated = lookedUpEntry->entry;
 
-    struct_check_access(theStruct, name, scope, "Associated function");
+    struct_check_access(theStruct, nameTree, scope, "Associated function");
 
     if (returendAssociated->isMethod)
     {
-        log_tree(LOG_FATAL, name, "Attempt to call method %s.%s as an associated function!\n", theStruct->name, name->value);
+        log_tree(LOG_FATAL, nameTree, "Attempt to call method %s.%s as an associated function!\n", theStruct->name, nameTree->value);
     }
 
     return returendAssociated;
@@ -259,4 +259,31 @@ struct FunctionEntry *struct_lookup_method_by_string(struct StructEntry *theStru
     }
 
     return returnedMethod;
+}
+
+struct FunctionEntry *struct_lookup_associated_function_by_string(struct StructEntry *theStruct,
+                                                                  char *name)
+{
+    struct FunctionEntry *returendAssociated = NULL;
+
+    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name, E_FUNCTION);
+
+    if (lookedUpEntry == NULL)
+    {
+        log(LOG_FATAL, "Attempt to call nonexistent associated function %s::%s\n", theStruct->name, name);
+    }
+
+    if (lookedUpEntry->type != E_FUNCTION)
+    {
+        log(LOG_FATAL, "Attempt to call non-function member %s.%s as an associated function!\n", theStruct->name, name);
+    }
+
+    returendAssociated = lookedUpEntry->entry;
+
+    if (returendAssociated->isMethod)
+    {
+        log(LOG_FATAL, "Attempt to call method %s.%s as an associated function!\n", theStruct->name, name);
+    }
+
+    return returendAssociated;
 }

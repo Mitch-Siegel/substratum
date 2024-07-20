@@ -1385,7 +1385,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     case TT_ASSOCIATED_CALL:
     {
         struct StructEntry *associatedWith = scope_lookup_struct_by_type(metadata->scope, tac_get_type_of_operand(generate, 2));
-        struct FunctionEntry *calledAssociated = struct_lookup_method_by_string(associatedWith, generate->operands[1].name.str);
+        struct FunctionEntry *calledAssociated = struct_lookup_associated_function_by_string(associatedWith, generate->operands[1].name.str);
 
         Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &calledAssociated->regalloc, info);
 

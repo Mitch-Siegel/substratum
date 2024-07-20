@@ -270,6 +270,7 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
             fprintf(outFile, "%zu:%s (%s)\n", member->numerical, member->name, memberTypeName);
             free(memberTypeName);
         }
+        iterator_free(enumMemberIterator);
     }
     break;
 
