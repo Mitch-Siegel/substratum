@@ -4,17 +4,21 @@
 #include "ast.h"
 #include "symtab_variable.h"
 
+#include "mbcl/stack.h"
+
 struct StructField
 {
     struct VariableEntry *variable;
     ssize_t offset;
 };
 
+void struct_field_free(struct StructField *toFree);
+
 struct StructEntry
 {
     char *name;
     struct Scope *members;
-    struct Stack *fieldLocations;
+    Stack *fieldLocations;
     size_t totalSize;
 };
 
@@ -44,5 +48,8 @@ struct FunctionEntry *struct_lookup_associated_function(struct StructEntry *theS
 // TODO: char *name vs AST *name (change to AST *nameTree?)
 struct FunctionEntry *struct_lookup_method_by_string(struct StructEntry *theStruct,
                                                      char *name);
+
+struct FunctionEntry *struct_lookup_associated_function_by_string(struct StructEntry *theStruct,
+                                                                  char *name);
 
 #endif

@@ -10,9 +10,9 @@ struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *
 {
     struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
     memset(newFunction, 0, sizeof(struct FunctionEntry));
-    newFunction->arguments = stack_new();
+    newFunction->arguments = deque_new(NULL);
     newFunction->mainScope = scope_new(parentScope, nameTree->value, newFunction, methodOf);
-    newFunction->BasicBlockList = linked_list_new();
+    newFunction->BasicBlockList = list_new(NULL, NULL);
     newFunction->correspondingTree = *nameTree;
     newFunction->mainScope->parentFunction = newFunction;
     newFunction->returnType = *returnType;
@@ -30,8 +30,8 @@ struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *
 
 void function_entry_free(struct FunctionEntry *function)
 {
-    stack_free(function->arguments);
-    linked_list_free(function->BasicBlockList, NULL);
+    deque_free(function->arguments);
+    list_free(function->BasicBlockList);
     scope_free(function->mainScope);
 
     if (function->regalloc.allLifetimes != NULL)

@@ -1,5 +1,7 @@
 #include "substratum_defs.h"
 
+#include "mbcl/set.h"
+
 struct CodegenState;
 struct MachineInfo;
 struct Register;

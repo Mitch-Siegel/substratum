@@ -5,6 +5,9 @@
 #include "symtab.h"
 #include "tac.h"
 
+#include "mbcl/set.h"
+#include "mbcl/stack.h"
+
 char *riscv_get_asm_op(enum TAC_TYPE operation)
 {
     switch (operation)
@@ -195,16 +198,13 @@ void riscv_emit_pop_for_size(struct TACLine *correspondingTACLine,
     emit_instruction(correspondingTACLine, state, "\taddi sp, sp, %d\n", size);
 }
 
-void riscv_caller_save_registers(struct CodegenState *state, struct FunctionEntry *calledFunction, struct MachineInfo *info)
+Stack *get_touched_caller_save_registers(struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
-    struct RegallocMetadata *metadata = &calledFunction->regalloc;
+    Stack *actuallyCallerSaved = stack_new(NULL);
 
-    log(LOG_DEBUG, "Caller-saving registers");
-    struct Stack *actuallyCallerSaved = stack_new();
-
-    for (size_t regIndex = 0; regIndex < info->n_caller_save; regIndex++)
+    for (size_t regIndex = 0; regIndex < info->caller_save.size; regIndex++)
     {
-        struct Register *potentiallyCallerSaved = info->caller_save[regIndex];
+        struct Register *potentiallyCallerSaved = array_at(&info->caller_save, regIndex);
         // only need to actually callee-save registers we touch in this function
         if (set_find(metadata->touchedRegisters, potentiallyCallerSaved) != NULL)
         {
@@ -213,44 +213,60 @@ void riscv_caller_save_registers(struct CodegenState *state, struct FunctionEntr
         }
     }
 
+    return actuallyCallerSaved;
+}
+
+// returns a set of lifetimes for all of the function's arguments which were callee-saved to somewhere on the stack
+// this set should be searched before regalloc->allLifetimes so that variables which lived in argument registers but have been stomped can still be read
+// this comes in to play when function a() calls function b(), but we want to pass one of a's arguments to b by reading a register which already has been overwritten with one of b's arguments
+Set *riscv_caller_save_registers(struct CodegenState *state, struct RegallocMetadata *regalloc, struct MachineInfo *info)
+{
+    Set *stompedArgLifetimeLocations = set_new(free, (MBCL_DATA_COMPARE_FUNCTION)lifetime_compare);
+    log(LOG_DEBUG, "Caller-saving registers");
+
+    Stack *actuallyCallerSaved = get_touched_caller_save_registers(regalloc, info);
+
     if (actuallyCallerSaved->size == 0)
     {
         stack_free(actuallyCallerSaved);
-        return;
+        return stompedArgLifetimeLocations;
     }
 
-    emit_instruction(NULL, state, "\t#Caller-save registers\n");
+    emit_instruction(NULL, state, "\t#Caller-save %zu registers\n", actuallyCallerSaved->size);
 
     char *spName = info->stackPointer->name;
 
     // TODO: don't emit when 0
     emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
 
-    for (ssize_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
+    ssize_t saveIndex = 0;
+    while (actuallyCallerSaved->size > 0)
     {
-        struct Register *calleeSaved = actuallyCallerSaved->data[regIndex];
-        riscv_emit_stack_store_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, regIndex * MACHINE_REGISTER_SIZE_BYTES);
+        struct Register *callerSaved = stack_pop(actuallyCallerSaved);
+        riscv_emit_stack_store_for_size(NULL, state, info, callerSaved, MACHINE_REGISTER_SIZE_BYTES, saveIndex * MACHINE_REGISTER_SIZE_BYTES);
+        struct Lifetime *stompedLifetime = callerSaved->containedLifetime;
+        if ((stompedLifetime != NULL) && (stompedLifetime->isArgument))
+        {
+            struct Lifetime *dummyLifetime = malloc(sizeof(struct Lifetime));
+            *dummyLifetime = *stompedLifetime;
+            dummyLifetime->wbLocation = WB_STACK;
+            dummyLifetime->writebackInfo.stackOffset = saveIndex * MACHINE_REGISTER_SIZE_BYTES;
+            set_insert(stompedArgLifetimeLocations, dummyLifetime);
+        }
+
+        saveIndex++;
     }
 
     stack_free(actuallyCallerSaved);
+
+    return stompedArgLifetimeLocations;
 }
 
-void riscv_caller_restore_registers(struct CodegenState *state, struct FunctionEntry *calledFunction, struct MachineInfo *info)
+void riscv_caller_restore_registers(struct CodegenState *state, struct RegallocMetadata *regalloc, struct MachineInfo *info)
 {
-    struct RegallocMetadata *metadata = &calledFunction->regalloc;
-
     log(LOG_DEBUG, "Caller-restoring registers");
-    struct Stack *actuallyCallerSaved = stack_new();
 
-    for (size_t regIndex = 0; regIndex < info->n_caller_save; regIndex++)
-    {
-        struct Register *potentiallyCalleeSaved = info->caller_save[regIndex];
-        // only need to actually callee-save registers we touch in this function
-        if (set_find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
-        {
-            stack_push(actuallyCallerSaved, potentiallyCalleeSaved);
-        }
-    }
+    Stack *actuallyCallerSaved = get_touched_caller_save_registers(regalloc, info);
 
     if (actuallyCallerSaved->size == 0)
     {
@@ -261,32 +277,42 @@ void riscv_caller_restore_registers(struct CodegenState *state, struct FunctionE
     emit_instruction(NULL, state, "\t#Caller-restore registers\n");
 
     char *spName = info->stackPointer->name;
-    for (ssize_t regIndex = 0; regIndex < actuallyCallerSaved->size; regIndex++)
+    ssize_t saveIndex = 0;
+    while (actuallyCallerSaved->size > 0)
     {
-        struct Register *calleeSaved = actuallyCallerSaved->data[regIndex];
-        riscv_emit_stack_load_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (regIndex * MACHINE_REGISTER_SIZE_BYTES));
+        struct Register *callerSaved = stack_pop(actuallyCallerSaved);
+        riscv_emit_stack_load_for_size(NULL, state, info, callerSaved, MACHINE_REGISTER_SIZE_BYTES, (saveIndex * MACHINE_REGISTER_SIZE_BYTES));
+        saveIndex++;
     }
 
     // TODO: don't emit when 0
-    emit_instruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
+    emit_instruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * saveIndex);
 
     stack_free(actuallyCallerSaved);
+}
+
+Stack *get_touched_callee_save_registers(struct RegallocMetadata *metadata, struct MachineInfo *info)
+{
+    Stack *actuallyCalleeSaved = stack_new(NULL);
+
+    for (size_t regIndex = 0; regIndex < info->callee_save.size; regIndex++)
+    {
+        struct Register *potentiallyCalleeSaved = array_at(&info->callee_save, regIndex);
+        // only need to actually callee-save registers we touch in this function
+        if (set_find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
+        {
+            stack_push(actuallyCalleeSaved, potentiallyCalleeSaved);
+            log(LOG_DEBUG, "%s is used in %s, need to callee-save", potentiallyCalleeSaved->name, metadata->function->name);
+        }
+    }
+
+    return actuallyCalleeSaved;
 }
 
 void riscv_callee_save_registers(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     log(LOG_DEBUG, "Callee-saving registers");
-    struct Stack *actuallyCalleeSaved = stack_new();
-
-    for (size_t regIndex = 0; regIndex < info->n_callee_save; regIndex++)
-    {
-        struct Register *potentiallyCalleeSaved = info->callee_save[regIndex];
-        // only need to actually callee-save registers we touch in this function
-        if (set_find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
-        {
-            stack_push(actuallyCalleeSaved, potentiallyCalleeSaved);
-        }
-    }
+    Stack *actuallyCalleeSaved = get_touched_callee_save_registers(metadata, info);
 
     if (actuallyCalleeSaved->size == 0)
     {
@@ -294,12 +320,14 @@ void riscv_callee_save_registers(struct CodegenState *state, struct RegallocMeta
         return;
     }
 
-    emit_instruction(NULL, state, "\t#Callee-save registers\n");
-    for (ssize_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
+    emit_instruction(NULL, state, "\t#Callee-save %zu registers\n", actuallyCalleeSaved->size);
+
+    ssize_t saveIndex = 0;
+    while (actuallyCalleeSaved->size > 0)
     {
-        struct Register *calleeSaved = actuallyCalleeSaved->data[regIndex];
-        // +2, 1 to account for stack growing downward and 1 to account for saved frame pointer
-        riscv_emit_frame_store_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 2) * MACHINE_REGISTER_SIZE_BYTES));
+        struct Register *calleeSaved = stack_pop(actuallyCalleeSaved);
+        riscv_emit_frame_store_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (saveIndex + 2) * MACHINE_REGISTER_SIZE_BYTES));
+        saveIndex++;
     }
 
     stack_free(actuallyCalleeSaved);
@@ -308,17 +336,7 @@ void riscv_callee_save_registers(struct CodegenState *state, struct RegallocMeta
 void riscv_callee_restore_registers(struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
     log(LOG_DEBUG, "Callee-restoring registers");
-    struct Stack *actuallyCalleeSaved = stack_new();
-
-    for (size_t regIndex = 0; regIndex < info->n_callee_save; regIndex++)
-    {
-        struct Register *potentiallyCalleeSaved = info->callee_save[regIndex];
-        // only need to actually callee-save registers we touch in this function
-        if (set_find(metadata->touchedRegisters, potentiallyCalleeSaved) != NULL)
-        {
-            stack_push(actuallyCalleeSaved, potentiallyCalleeSaved);
-        }
-    }
+    Stack *actuallyCalleeSaved = get_touched_callee_save_registers(metadata, info);
 
     if (actuallyCalleeSaved->size == 0)
     {
@@ -326,12 +344,15 @@ void riscv_callee_restore_registers(struct CodegenState *state, struct RegallocM
         return;
     }
 
-    emit_instruction(NULL, state, "\t#Callee-restore registers\n");
-    for (ssize_t regIndex = 0; regIndex < actuallyCalleeSaved->size; regIndex++)
+    emit_instruction(NULL, state, "\t#Callee-restore %zu registers\n", actuallyCalleeSaved->size);
+
+    ssize_t saveIndex = 0;
+    while (actuallyCalleeSaved->size > 0)
     {
-        struct Register *calleeSaved = actuallyCalleeSaved->data[regIndex];
+        struct Register *calleeSaved = stack_pop(actuallyCalleeSaved);
         // +2, 1 to account for stack growing downward and 1 to account for saved frame pointer
-        riscv_emit_frame_load_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (regIndex + 2) * MACHINE_REGISTER_SIZE_BYTES));
+        riscv_emit_frame_load_for_size(NULL, state, info, calleeSaved, MACHINE_REGISTER_SIZE_BYTES, (-1 * (saveIndex + 2) * MACHINE_REGISTER_SIZE_BYTES));
+        saveIndex++;
     }
 
     stack_free(actuallyCalleeSaved);
@@ -623,41 +644,88 @@ void riscv_generate_internal_copy(struct TACLine *correspondingTACLine,
     }
 }
 
+// NOLINTBEGIN(readability-function-cognitive-complexity)
 void riscv_emit_argument_stores(struct CodegenState *state,
                                 struct RegallocMetadata *metadata,
                                 struct MachineInfo *info,
                                 struct FunctionEntry *calledFunction,
-                                struct Stack *argumentOperands)
+                                Stack *argumentOperands,
+                                Set *callerSavedArgLifetimes)
 {
     log(LOG_DEBUG, "Emit argument stores for call to %s", calledFunction->name);
     // TODO: don't emit when 0
     emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize);
 
+    Iterator *argumentIterator = deque_rear(calledFunction->arguments);
+    size_t stompedArgRegIdx = 0;
+    // problem: when function a() calls function b(), if we are copying one of a's arguments to one of b's arguments it is possible that we will try to load one of a's arguments from a register which has been overwritten with one of b's arguments already.
     while (argumentOperands->size > 0)
     {
         struct TACOperand *argOperand = stack_pop(argumentOperands);
 
-        struct VariableEntry *argument = calledFunction->arguments->data[argumentOperands->size];
+        struct VariableEntry *argument = iterator_get(argumentIterator);
+
+        if (type_compare_allow_implicit_widening(tac_operand_get_type(argOperand), &argument->type))
+        {
+            InternalError("Type mismatch during internal argument store handling for argument %s of function %s", argument->name, calledFunction->name);
+        }
+
+        iterator_prev(argumentIterator);
 
         struct Lifetime *argLifetime = lifetime_find(calledFunction->regalloc.allLifetimes, argument->name);
 
         log(LOG_DEBUG, "Store argument %s - %s", argument->name, argOperand->name.str);
         char *printedOperand = tac_operand_sprint(argOperand);
-        emit_instruction(NULL, state, "\t#Store argument %s\n", printedOperand);
+        emit_instruction(NULL, state, "\t#Store argument %s - %s\n", argument->name, printedOperand);
         free(printedOperand);
         switch (argLifetime->wbLocation)
         {
         case WB_REGISTER:
         {
             struct Register *writtenTo = argLifetime->writebackInfo.regLocation;
-            struct Register *foundIn = riscv_place_or_find_operand_in_register(NULL, state, metadata, info, argOperand, writtenTo);
-            if (writtenTo != foundIn)
+
+            struct Register *placedOrFoundIn = NULL;
+            switch (argOperand->permutation)
             {
-                emit_instruction(NULL, state, "\tmv %s, %s\n", writtenTo->name, foundIn->name);
+            case VP_STANDARD:
+            case VP_TEMP:
+            {
+                struct Lifetime *callerSavedDummyLifetime = lifetime_find(callerSavedArgLifetimes, argOperand->name.variable->name);
+                if (callerSavedDummyLifetime != NULL)
+                {
+                    placedOrFoundIn = acquire_scratch_register(info);
+                    riscv_emit_stack_load_for_size(NULL, state, info, placedOrFoundIn, type_get_size(tac_operand_get_type(argOperand), metadata->scope), callerSavedDummyLifetime->writebackInfo.stackOffset);
+                }
+                else
+                {
+                    placedOrFoundIn = riscv_place_or_find_operand_in_register(NULL, state, metadata, info, argOperand, writtenTo);
+                }
+
+                for (size_t argRegIdx = 0; argRegIdx < stompedArgRegIdx; argRegIdx++)
+                {
+                    if (array_at(&info->arguments, argRegIdx) == placedOrFoundIn)
+                    {
+                        InternalError("When attempting to store argument %s for call to %s - the value we want to read from (%s) is contained in %s, an argument register we've already overwritten with one of %s's arguments",
+                                      argLifetime->name, calledFunction->name, argOperand->name.variable->name, placedOrFoundIn->name, calledFunction->name);
+                    }
+                }
+            }
+            break;
+
+            case VP_LITERAL_STR:
+            case VP_LITERAL_VAL:
+            case VP_UNUSED:
+                placedOrFoundIn = riscv_place_or_find_operand_in_register(NULL, state, metadata, info, argOperand, writtenTo);
+                break;
+            }
+
+            if (writtenTo != placedOrFoundIn)
+            {
+                emit_instruction(NULL, state, "\tmv %s, %s\n", writtenTo->name, placedOrFoundIn->name);
             }
             else
             {
-                emit_instruction(NULL, state, "\t# already in %s\n", foundIn->name);
+                emit_instruction(NULL, state, "\t# already in %s\n", placedOrFoundIn->name);
             }
         }
         break;
@@ -686,6 +754,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
                                  argLifetime->writebackInfo.stackOffset,
                                  info->stackPointer->name);
             }
+            stompedArgRegIdx++;
 
             try_release_scratch_register(info, scratch);
         }
@@ -700,7 +769,9 @@ void riscv_emit_argument_stores(struct CodegenState *state,
             break;
         }
     }
+    iterator_free(argumentIterator);
 }
+// NOLINTEND(readability-function-cognitive-complexity)
 
 void riscv_emit_array_load(struct TACLine *generate, struct CodegenState *state, struct RegallocMetadata *metadata, struct MachineInfo *info)
 {
@@ -1067,7 +1138,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
                                  struct MachineInfo *info,
                                  struct TACLine *generate,
                                  char *functionName,
-                                 struct Stack *calledFunctionArguments)
+                                 Stack *calledFunctionArguments)
 {
     switch (generate->operation)
     {
@@ -1257,9 +1328,11 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     {
         struct FunctionEntry *calledFunction = lookup_fun_by_string(metadata->function->mainScope, generate->operands[1].name.str);
 
-        riscv_caller_save_registers(state, calledFunction, info);
+        Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &calledFunction->regalloc, info);
 
-        riscv_emit_argument_stores(state, metadata, info, calledFunction, calledFunctionArguments);
+        riscv_emit_argument_stores(state, metadata, info, calledFunction, calledFunctionArguments, callerSavedArgLifetimes);
+        set_free(callerSavedArgLifetimes);
+
         calledFunctionArguments->size = 0;
 
         if (calledFunction->isDefined)
@@ -1276,7 +1349,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
             riscv_write_variable(generate, state, metadata, info, &generate->operands[0], info->returnValue);
         }
 
-        riscv_caller_restore_registers(state, calledFunction, info);
+        riscv_caller_restore_registers(state, &calledFunction->regalloc, info);
     }
     break;
 
@@ -1285,9 +1358,11 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         struct StructEntry *methodOf = scope_lookup_struct_by_type(metadata->scope, tac_get_type_of_operand(generate, 2));
         struct FunctionEntry *calledMethod = struct_lookup_method_by_string(methodOf, generate->operands[1].name.str);
 
-        riscv_caller_save_registers(state, calledMethod, info);
+        Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &calledMethod->regalloc, info);
 
-        riscv_emit_argument_stores(state, metadata, info, calledMethod, calledFunctionArguments);
+        riscv_emit_argument_stores(state, metadata, info, calledMethod, calledFunctionArguments, callerSavedArgLifetimes);
+        set_free(callerSavedArgLifetimes);
+
         calledFunctionArguments->size = 0;
 
         // TODO: member function name mangling/uniqueness
@@ -1305,18 +1380,20 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
             riscv_write_variable(generate, state, metadata, info, &generate->operands[0], info->returnValue);
         }
 
-        riscv_caller_restore_registers(state, calledMethod, info);
+        riscv_caller_restore_registers(state, &calledMethod->regalloc, info);
     }
     break;
 
     case TT_ASSOCIATED_CALL:
     {
         struct StructEntry *associatedWith = scope_lookup_struct_by_type(metadata->scope, tac_get_type_of_operand(generate, 2));
-        struct FunctionEntry *calledAssociated = struct_lookup_method_by_string(associatedWith, generate->operands[1].name.str);
+        struct FunctionEntry *calledAssociated = struct_lookup_associated_function_by_string(associatedWith, generate->operands[1].name.str);
 
-        riscv_caller_save_registers(state, calledAssociated, info);
+        Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &calledAssociated->regalloc, info);
 
-        riscv_emit_argument_stores(state, metadata, info, calledAssociated, calledFunctionArguments);
+        riscv_emit_argument_stores(state, metadata, info, calledAssociated, calledFunctionArguments, callerSavedArgLifetimes);
+        set_free(callerSavedArgLifetimes);
+
         calledFunctionArguments->size = 0;
 
         // TODO: associated function name mangling/uniqueness
@@ -1334,7 +1411,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
             riscv_write_variable(generate, state, metadata, info, &generate->operands[0], info->returnValue);
         }
 
-        riscv_caller_restore_registers(state, calledAssociated, info);
+        riscv_caller_restore_registers(state, &calledAssociated->regalloc, info);
     }
     break;
 
@@ -1376,19 +1453,21 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
                                          struct BasicBlock *block,
                                          char *functionName)
 {
+    log(LOG_DEBUG, "Generate code for basic block %zu", block->labelNum);
     // we may pass null if we are generating the code to initialize global variables
     if (functionName != NULL)
     {
         fprintf(state->outFile, "%s_%zu:\n", functionName, block->labelNum);
     }
 
-    struct Stack *calledFunctionArguments = stack_new();
+    Stack *calledFunctionArguments = stack_new(NULL);
     size_t lastLineNo = 0;
-    for (struct LinkedListNode *tacRunner = block->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
+    Iterator *tacRunner = NULL;
+    for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
     {
         release_all_scratch_registers(info);
 
-        struct TACLine *thisTac = tacRunner->data;
+        struct TACLine *thisTac = iterator_get(tacRunner);
 
         char *printedTac = sprint_tac_line(thisTac);
         log(LOG_DEBUG, "Generate code for %s (alloc %s:%d)", printedTac, thisTac->allocFile, thisTac->allocLine);
@@ -1397,7 +1476,18 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
 
         emit_loc(state, thisTac, &lastLineNo);
         riscv_generate_code_for_tac(state, metadata, info, thisTac, functionName, calledFunctionArguments);
-    }
 
+        Iterator *regIterator = NULL;
+        for (regIterator = array_begin(&info->allRegisters); iterator_gettable(regIterator); iterator_next(regIterator))
+        {
+            struct Register *examinedRegister = iterator_get(regIterator);
+            if ((examinedRegister->containedLifetime != NULL) && !(lifetime_is_live_at_index(examinedRegister->containedLifetime, thisTac->index)))
+            {
+                examinedRegister->containedLifetime = NULL;
+            }
+        }
+        iterator_free(regIterator);
+    }
+    iterator_free(tacRunner);
     stack_free(calledFunctionArguments);
 }

@@ -4,6 +4,8 @@
 #include "ast.h"
 #include "type.h"
 
+#include "mbcl/set.h"
+
 struct Scope;
 
 struct EnumMember
@@ -19,7 +21,7 @@ struct EnumEntry
 {
     char *name;
     struct Scope *parentScope;
-    struct Set *members;
+    Set *members;
     size_t unionSize; // size of the largest type contained within the union represented by this enum
 };
 

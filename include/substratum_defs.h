@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -20,8 +21,6 @@ typedef int8_t i8;
 #define I32_MAX INT32_MAX
 #define I16_MAX INT16_MAX
 #define I8_MAX INT8_MAX
-
-typedef u8 bool;
 
 #define false 0
 #define true 1

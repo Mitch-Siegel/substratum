@@ -5,6 +5,8 @@
 #include "idfa_reachingdefs.h"
 #include "log.h"
 
+#include "mbcl/hash_table.h"
+
 // TODO: implement TAC tt_declare for arguments so that we can ssa subsequent reassignments to them correctly
 
 size_t hash_tac_operand(void *operand)
@@ -21,38 +23,42 @@ size_t hash_tac_operand(void *operand)
 void print_control_flows_as_dot(struct Idfa *idfa, char *functionName, FILE *outFile)
 {
     fprintf(outFile, "digraph %s{\nedge[dir=forward]\nnode[shape=plaintext,style=filled]\n", functionName);
-    for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
+    for (size_t blockIndex = 0; blockIndex < idfa->context->blocks->size; blockIndex++)
     {
-        for (struct LinkedListNode *flowRunner = idfa->context->successors[blockIndex]->elements->head; flowRunner != NULL; flowRunner = flowRunner->next)
+        Iterator *flowRunner = NULL;
+        for (flowRunner = set_begin(array_at(idfa->context->successors, blockIndex)); iterator_gettable(flowRunner); iterator_next(flowRunner))
         {
-            struct BasicBlock *destinationBlock = flowRunner->data;
+            struct BasicBlock *destinationBlock = iterator_get(flowRunner);
             fprintf(outFile, "%s_%zu:s->%s_%zu:n\n", functionName, blockIndex, functionName, destinationBlock->labelNum);
         }
+        iterator_free(flowRunner);
 
-        struct BasicBlock *thisBlock = idfa->context->blocks[blockIndex];
+        struct BasicBlock *thisBlock = array_at(idfa->context->blocks, blockIndex);
         fprintf(outFile, "%s_%zu[label=<%s_%zu<BR />\n", functionName, thisBlock->labelNum, functionName, thisBlock->labelNum);
 
-        for (struct LinkedListNode *tacRunner = thisBlock->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
+        Iterator *tacRunner = NULL;
+        for (tacRunner = list_begin(thisBlock->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
         {
-            char *tacString = sprint_tac_line(tacRunner->data);
+            char *tacString = sprint_tac_line(iterator_get(tacRunner));
             fprintf(outFile, "%s<BR />\n", tacString);
             free(tacString);
         }
+        iterator_free(tacRunner);
         fprintf(outFile, ">]\n");
     }
 
     fprintf(outFile, "}\n\n\n");
 }
 
-struct TACOperand *ssa_operand_lookup_or_insert(struct Set *ssaOperands, struct TACOperand *originalOperand)
+struct TACOperand *ssa_operand_lookup_or_insert(List *ssaOperands, struct TACOperand *originalOperand)
 {
-    struct TACOperand *foundOperand = set_find(ssaOperands, originalOperand);
+    struct TACOperand *foundOperand = list_find(ssaOperands, originalOperand);
     if (foundOperand == NULL)
     {
         struct TACOperand *newOperand = malloc(sizeof(struct TACOperand));
         memcpy(newOperand, originalOperand, sizeof(struct TACOperand));
         newOperand->ssaNumber = 0;
-        set_insert(ssaOperands, newOperand);
+        list_append(ssaOperands, newOperand);
         return newOperand;
     }
     return foundOperand;
@@ -68,24 +74,25 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
         return;
     }
 
-    struct LinkedList *blocksToTraverse = linked_list_new();
+    List *blocksToTraverse = list_new(NULL, NULL);
 
     // block 0 is always the entry of the function, so as long as we start with it we will be fine
-    linked_list_append(blocksToTraverse, context->blocks[0]);
-    struct Set *visited = set_new(ssizet_compare, NULL);
+    list_append(blocksToTraverse, array_at(context->blocks, 0));
+    Set *visited = set_new(NULL, ssizet_compare);
 
-    struct Set *stronglyConnectedComponent = set_new(ssizet_compare, NULL);
+    Set *stronglyConnectedComponent = set_new(NULL, ssizet_compare);
 
     while (blocksToTraverse->size > 0)
     {
         // grab the block at the front of the queue
-        struct BasicBlock *thisBlock = linked_list_pop_front(blocksToTraverse);
+        struct BasicBlock *thisBlock = list_pop_front(blocksToTraverse);
 
         // figure out if we have visited all predecessors of this block
         u8 sawAllPredecessors = 1;
-        for (struct LinkedListNode *predRunner = context->predecessors[thisBlock->labelNum]->elements->head; predRunner != NULL; predRunner = predRunner->next)
+        Iterator *predRunner = NULL;
+        for (predRunner = set_begin(array_at(context->predecessors, thisBlock->labelNum)); iterator_gettable(predRunner); iterator_next(predRunner))
         {
-            struct BasicBlock *predecessorBlock = predRunner->data;
+            struct BasicBlock *predecessorBlock = iterator_get(predRunner);
 
             if (set_find(visited, predecessorBlock) == NULL)
             {
@@ -93,15 +100,16 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
                 break;
             }
         }
+        iterator_free(predRunner);
 
         // if we have not yet visited all predecessors of this block, put it back on the list to be traversed later
         if (!sawAllPredecessors)
         {
             // if the strongly connected component is the entire blocksToTraverseList, forcibly override to visit this block next loop
-            if (stronglyConnectedComponent->elements->size != blocksToTraverse->size)
+            if (stronglyConnectedComponent->size != blocksToTraverse->size)
             {
                 set_insert(stronglyConnectedComponent, thisBlock);
-                linked_list_append(blocksToTraverse, thisBlock);
+                list_append(blocksToTraverse, thisBlock);
                 continue;
             }
         }
@@ -111,20 +119,22 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
         // thus, we should always clear the strongly connected component whenever we visit
         set_clear(stronglyConnectedComponent);
 
-        // mark this block as visited
-        set_insert(visited, thisBlock);
+        // mark this block as visited if it hasn't been already
+        set_try_insert(visited, thisBlock);
 
-        for (struct LinkedListNode *successorRunner = context->successors[thisBlock->labelNum]->elements->head; successorRunner != NULL; successorRunner = successorRunner->next)
+        Iterator *successorRunner = NULL;
+        for (successorRunner = set_begin(array_at(context->successors, thisBlock->labelNum)); iterator_gettable(successorRunner); iterator_next(successorRunner))
         {
-            struct BasicBlock *successorBlock = successorRunner->data;
+            struct BasicBlock *successorBlock = iterator_get(successorRunner);
             if (set_find(visited, successorBlock) == NULL)
             {
-                linked_list_append(blocksToTraverse, successorBlock);
+                list_append(blocksToTraverse, successorBlock);
             }
         }
+        iterator_free(successorRunner);
     }
 
-    linked_list_free(blocksToTraverse, NULL);
+    list_free(blocksToTraverse);
     set_free(visited);
     set_free(stronglyConnectedComponent);
 }
@@ -132,7 +142,7 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
 struct PhiContext
 {
     struct Idfa *reachingDefs;
-    struct Set *ssaNumbers;
+    List *ssaNumbers;
 };
 
 void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
@@ -149,41 +159,58 @@ void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
     {
         blockEntryTacIndex = ((struct TACLine *)block->TACList->head->data)->index;
     }
-    // hash table to map from TAC operand -> count of number of predecessor blocks the variable is live out from
-    struct HashTable *phiVars = hash_table_new(1, hash_tac_operand, tac_operand_compare_ignore_ssa_number, NULL, (void (*)(void *))set_free);
-    // iterate all predecessor blocks
-    for (struct LinkedListNode *predecessorRunner = reachingDefs->context->predecessors[block->labelNum]->elements->head; predecessorRunner != NULL; predecessorRunner = predecessorRunner->next)
-    {
-        struct BasicBlock *predecessorBlock = predecessorRunner->data;
-        // iterate all live vars out facts from the predecessor
-        for (struct LinkedListNode *liveVarRunner = reachingDefs->facts.out[predecessorBlock->labelNum]->elements->head; liveVarRunner != NULL; liveVarRunner = liveVarRunner->next)
-        {
-            struct TACOperand *liveOut = liveVarRunner->data;
 
-            struct Set *ssasLiveOut = hash_table_lookup(phiVars, liveOut);
+    // hash table to map from TAC operand -> count of number of predecessor blocks the variable is live out from
+    // struct HashTable *phiVars = hash_table_new(1, hash_tac_operand, tac_operand_compare_ignore_ssa_number, NULL, (void (*)(void *))set_free);
+    HashTable *phiVars = hash_table_new(NULL, (void (*)(void *))set_free, tac_operand_compare_ignore_ssa_number, hash_tac_operand, block->TACList->size + 1);
+    // iterate all predecessor blocks
+    Iterator *predecessorRunner = NULL;
+    for (predecessorRunner = set_begin(array_at(reachingDefs->context->predecessors, block->labelNum)); iterator_gettable(predecessorRunner); iterator_next(predecessorRunner))
+    {
+        struct BasicBlock *predecessorBlock = iterator_get(predecessorRunner);
+        // iterate all live vars out facts from the predecessor
+        Iterator *liveVarRunner = NULL;
+        for (liveVarRunner = set_begin(array_at(reachingDefs->facts.out, predecessorBlock->labelNum)); iterator_gettable(liveVarRunner); iterator_next(liveVarRunner))
+        {
+            struct TACOperand *liveOut = iterator_get(liveVarRunner);
+
+            Set *ssasLiveOut = hash_table_find(phiVars, liveOut);
             if (ssasLiveOut == NULL)
             {
-                ssasLiveOut = set_new(tac_operand_compare, NULL);
+                ssasLiveOut = set_new(NULL, tac_operand_compare);
                 hash_table_insert(phiVars, liveOut, ssasLiveOut);
             }
 
-            set_insert(ssasLiveOut, liveOut);
+            set_try_insert(ssasLiveOut, liveOut);
         }
+        iterator_free(liveVarRunner);
     }
+    iterator_free(predecessorRunner);
 
+    // TODO: implement hash table stuff
     // iterate all entries in the hash table we created in the loop above
-    for (struct LinkedListNode *phiVarRunner = phiVars->buckets[0]->elements->head; phiVarRunner != NULL; phiVarRunner = phiVarRunner->next)
+    Iterator *phiVarRunner = NULL;
+    for (phiVarRunner = hash_table_begin(phiVars); iterator_gettable(phiVarRunner); iterator_next(phiVarRunner))
     {
-        struct HashTableEntry *phiVarEntry = phiVarRunner->data;
-        struct Set *inboundSsasToPhi = phiVarEntry->value;
+        HashTableEntry *phiVarEntry = iterator_get(phiVarRunner);
+        struct TACOperand *phiVar = phiVarEntry->key;
+        Set *inboundSsasSet = phiVarEntry->value;
+        Deque *inboundSsasToPhi = deque_new(NULL);
+
+        Iterator *inboundSsaIterator = NULL;
+        for (inboundSsaIterator = set_begin(inboundSsasSet); iterator_gettable(inboundSsaIterator); iterator_next(inboundSsaIterator))
+        {
+            deque_push_back(inboundSsasToPhi, iterator_get(inboundSsaIterator));
+        }
+        iterator_free(inboundSsaIterator);
+
         // for any variables which are live out of more than one predecessor block
-        if (inboundSsasToPhi->elements->size > 1)
+        if (inboundSsasToPhi->size > 1)
         {
             // predecrement so we can insert exactly the right number of phis
-            struct TACOperand *phiVar = phiVarEntry->key;
 
             // insert a phi for each occurrence (- 1 because the first phi can take 2 unique operands instead of one new operand and the output of a previous phi)
-            while (inboundSsasToPhi->elements->size > 1)
+            while (inboundSsasToPhi->size > 1)
             {
                 struct TACLine *newPhi = new_tac_line(TT_PHI, &fakePhiTree);
                 newPhi->index = blockEntryTacIndex;
@@ -191,23 +218,24 @@ void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
                 newPhi->operands[0] = *assignedSsa;
                 assignedSsa->ssaNumber++;
 
-                struct TACOperand *liveIn = linked_list_pop_front(inboundSsasToPhi->elements);
+                struct TACOperand *liveIn = deque_pop_front(inboundSsasToPhi);
                 newPhi->operands[1] = *liveIn;
-                liveIn = linked_list_pop_front(inboundSsasToPhi->elements);
+                liveIn = deque_pop_front(inboundSsasToPhi);
                 newPhi->operands[2] = *liveIn;
                 basic_block_prepend(block, newPhi);
 
-                set_insert(inboundSsasToPhi, &newPhi->operands[0]);
+                deque_push_back(inboundSsasToPhi, &newPhi->operands[0]);
             }
         }
+        deque_free(inboundSsasToPhi);
     }
-
+    iterator_free(phiVarRunner);
     hash_table_free(phiVars);
 
     idfa_redo(reachingDefs);
 }
 
-void insert_phi_functions(struct Idfa *reachingDefs, struct Set *ssaNumbers)
+void insert_phi_functions(struct Idfa *reachingDefs, List *ssaNumbers)
 {
     struct PhiContext context = {reachingDefs, ssaNumbers};
     traverse_blocks_hierarchically(reachingDefs->context, insert_phi_functions_for_block, &context);
@@ -217,12 +245,13 @@ void insert_phi_functions(struct Idfa *reachingDefs, struct Set *ssaNumbers)
 void rename_written_tac_operands_for_block(struct BasicBlock *block, void *data)
 {
     // set of all operands which are ever written in the IdfaContext
-    struct Set *ssaOperands = data;
+    List *ssaOperands = data;
 
     // iterate all TAC in the block
-    for (struct LinkedListNode *tacRunner = block->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
+    Iterator *tacRunner = NULL;
+    for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
     {
-        struct TACLine *thisTac = tacRunner->data;
+        struct TACLine *thisTac = iterator_get(tacRunner);
         // iterate all operands in the TAC
         for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
         {
@@ -237,25 +266,27 @@ void rename_written_tac_operands_for_block(struct BasicBlock *block, void *data)
             }
         }
     }
+    iterator_free(tacRunner);
 }
 
 // go over all TAC operands which are assigned to and give them unique SSA numbers
-struct Set *rename_written_tac_operands(struct IdfaContext *context)
+List *rename_written_tac_operands(struct IdfaContext *context)
 {
-    struct Set *ssaOperandNumbers = set_new(tac_operand_compare_ignore_ssa_number, free);
+    List *ssaOperandNumbers = list_new(free, tac_operand_compare_ignore_ssa_number);
 
     traverse_blocks_hierarchically(context, rename_written_tac_operands_for_block, ssaOperandNumbers);
 
     return ssaOperandNumbers;
 }
 
-struct Set *find_highest_ssa_live_ins(struct Idfa *liveVars, size_t blockIndex)
+Set *find_highest_ssa_live_ins(struct Idfa *liveVars, size_t blockIndex)
 {
-    struct Set *highestSsaLiveIns = set_new(tac_operand_compare_ignore_ssa_number, NULL);
+    Set *highestSsaLiveIns = set_new(NULL, tac_operand_compare_ignore_ssa_number);
 
-    for (struct LinkedListNode *liveInRunner = liveVars->facts.in[blockIndex]->elements->head; liveInRunner != NULL; liveInRunner = liveInRunner->next)
+    Iterator *liveInRunner = NULL;
+    for (liveInRunner = set_begin(array_at(liveVars->facts.in, blockIndex)); iterator_gettable(liveInRunner); iterator_next(liveInRunner))
     {
-        struct TACOperand *thisLiveIn = liveInRunner->data;
+        struct TACOperand *thisLiveIn = iterator_get(liveInRunner);
         struct TACOperand *highestLiveIn = set_find(highestSsaLiveIns, thisLiveIn);
         if (highestLiveIn == NULL)
         {
@@ -263,25 +294,28 @@ struct Set *find_highest_ssa_live_ins(struct Idfa *liveVars, size_t blockIndex)
         }
         else if (highestLiveIn->ssaNumber < thisLiveIn->ssaNumber)
         {
-            set_delete(highestSsaLiveIns, highestLiveIn);
+            set_remove(highestSsaLiveIns, highestLiveIn);
             set_insert(highestSsaLiveIns, thisLiveIn);
         }
     }
+    iterator_free(liveInRunner);
 
     return highestSsaLiveIns;
 }
 
 // find all SSA variables live in to block blockIndex based on tacOperand
-struct Set *find_unused_ssa_reaching_defs(struct Idfa *reachingDefs, size_t blockIndex, struct TACOperand *operand)
+Set *find_unused_ssa_reaching_defs(struct Idfa *reachingDefs, size_t blockIndex, struct TACOperand *operand)
 {
-    struct Set *matchingOperands = set_new(tac_operand_compare, NULL);
-    for (struct LinkedListNode *reachingDefRunner = reachingDefs->facts.in[blockIndex]->elements->head; reachingDefRunner != NULL; reachingDefRunner = reachingDefRunner->next)
+    Set *matchingOperands = set_new(NULL, tac_operand_compare);
+
+    Iterator *reachingDefRunner = NULL;
+    for (reachingDefRunner = set_begin(array_at(reachingDefs->facts.in, blockIndex)); iterator_gettable(reachingDefRunner); iterator_next(reachingDefRunner))
     {
-        struct TACOperand *reachingDef = reachingDefRunner->data;
+        struct TACOperand *reachingDef = iterator_get(reachingDefRunner);
         if (tac_operand_compare_ignore_ssa_number(operand, reachingDef) == 0)
         {
             // only include operands which are not killed in the block
-            if (set_find(reachingDefs->facts.kill[blockIndex], reachingDef) == NULL)
+            if (set_find(array_at(reachingDefs->facts.kill, blockIndex), reachingDef) == NULL)
             {
                 set_insert(matchingOperands, reachingDef);
             }
@@ -290,7 +324,7 @@ struct Set *find_unused_ssa_reaching_defs(struct Idfa *reachingDefs, size_t bloc
     return matchingOperands;
 }
 
-struct TACOperand *lookup_most_recent_ssa_assignment(struct Set *highestSsaLiveIns, struct Set *assignmentsThisBlock, struct TACOperand *originalOperand)
+struct TACOperand *lookup_most_recent_ssa_assignment(Set *highestSsaLiveIns, Set *assignmentsThisBlock, struct TACOperand *originalOperand)
 {
     struct TACOperand *mostRecentAssignment = NULL;
     // first, attempt to find an assignment from within the current block
@@ -312,15 +346,15 @@ void rename_read_tac_operands_in_block(struct BasicBlock *block, void *data)
     struct Idfa *liveVars = data;
 
     // the highest SSA numbers that live in to this basic block
-    struct Set *highestSsaLiveIns = find_highest_ssa_live_ins(liveVars, block->labelNum);
+    Set *highestSsaLiveIns = find_highest_ssa_live_ins(liveVars, block->labelNum);
     // any SSA operands which are assigned to within the block
-    struct Set *ssaLivesFromThisBlock = set_new(tac_operand_compare_ignore_ssa_number, NULL);
+    Set *ssaLivesFromThisBlock = set_new(NULL, tac_operand_compare_ignore_ssa_number);
 
     // iterate all TAC in the block
-    struct BasicBlock *thisBlock = liveVars->context->blocks[block->labelNum];
-    for (struct LinkedListNode *tacRunner = thisBlock->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
+    Iterator *tacRunner = NULL;
+    for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
     {
-        struct TACLine *thisTac = tacRunner->data;
+        struct TACLine *thisTac = iterator_get(tacRunner);
 
         // iterate all operands
         for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
@@ -353,13 +387,14 @@ void rename_read_tac_operands_in_block(struct BasicBlock *block, void *data)
                 }
                 if (set_find(ssaLivesFromThisBlock, thisOperand) != NULL)
                 {
-                    set_delete(ssaLivesFromThisBlock, thisOperand);
+                    set_remove(ssaLivesFromThisBlock, thisOperand);
                 }
                 set_insert(ssaLivesFromThisBlock, thisOperand);
                 break;
             }
         }
     }
+    iterator_free(tacRunner);
 
     set_free(highestSsaLiveIns);
     set_free(ssaLivesFromThisBlock);
@@ -393,7 +428,7 @@ void do_fun_checks(struct IdfaContext *context)
 
     log(LOG_WARNING, "Potentially unused variables: \t");
 
-    struct Set *reachingOut = reachingDefs->facts.out[lastBlock->labelNum];
+    Set *reachingOut = reachingDefs->facts.out[lastBlock->labelNum];
     for (struct LinkedListNode *runner = reachingOut->elements->head; runner != NULL; runner = runner->next)
     {
         struct TACOperand *liveOutOperand = runner->data;
@@ -410,14 +445,15 @@ void do_fun_checks(struct IdfaContext *context)
 
 void generate_ssa_for_function(struct FunctionEntry *function)
 {
-    struct IdfaContext *context = idfa_context_create(function->BasicBlockList);
+    log(LOG_DEBUG, "Generate ssa for function %s", function->name);
+    struct IdfaContext *context = idfa_context_create(function->name, function->BasicBlockList);
 
-    struct Set *ssaNumbers = rename_written_tac_operands(context);
+    List *ssaNumbers = rename_written_tac_operands(context);
 
     struct Idfa *reachingDefs = analyze_reaching_defs(context);
     insert_phi_functions(reachingDefs, ssaNumbers);
 
-    set_free(ssaNumbers);
+    list_free(ssaNumbers);
     idfa_redo(reachingDefs);
 
     rename_read_tac_operands(reachingDefs);
@@ -432,9 +468,10 @@ void generate_ssa(struct SymbolTable *theTable)
 {
     log(LOG_INFO, "Generate ssa for %s", theTable->name);
 
-    for (size_t entryIndex = 0; entryIndex < theTable->globalScope->entries->size; entryIndex++)
+    Iterator *entryIterator = NULL;
+    for (entryIterator = set_begin(theTable->globalScope->entries); iterator_gettable(entryIterator); iterator_next(entryIterator))
     {
-        struct ScopeMember *thisMember = theTable->globalScope->entries->data[entryIndex];
+        struct ScopeMember *thisMember = iterator_get(entryIterator);
         switch (thisMember->type)
         {
         case E_FUNCTION:
@@ -445,4 +482,5 @@ void generate_ssa(struct SymbolTable *theTable)
             break;
         }
     }
+    iterator_free(entryIterator);
 }

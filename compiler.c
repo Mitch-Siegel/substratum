@@ -29,10 +29,10 @@ void usage()
     printf("\n");
 }
 
-struct Stack *parseProgressStack = NULL;
-struct Stack *parsedAsts = NULL;
-struct LinkedList *includePath = NULL;
-struct LinkedList *inputFiles = NULL;
+Stack *parseProgressStack = NULL;
+Stack *parsedAsts = NULL;
+List *includePath = NULL;
+List *inputFiles = NULL;
 
 void run_preprocessor(char *inFileName)
 {
@@ -54,11 +54,13 @@ void run_preprocessor(char *inFileName)
         preprocessorArgv[preprocessorArgI++] = "- ";
     }
 
-    for (struct LinkedListNode *includePathRunner = includePath->head; includePathRunner != NULL; includePathRunner = includePathRunner->next)
+    Iterator *includePathRunner = NULL;
+    for (includePathRunner = list_begin(includePath); iterator_gettable(includePathRunner); iterator_next(includePathRunner))
     {
         preprocessorArgv[preprocessorArgI++] = "-I";
-        preprocessorArgv[preprocessorArgI++] = includePathRunner->data;
+        preprocessorArgv[preprocessorArgI++] = iterator_get(includePathRunner);
     }
+    iterator_free(includePathRunner);
 
     preprocessorArgv[preprocessorArgI++] = NULL;
 
@@ -78,11 +80,11 @@ struct Ast *parse_file(char *inFileName)
     fileProgress.curLineRaw = 1;
     fileProgress.curColRaw = 1;
     fileProgress.curFile = dictionary_lookup_or_insert(parseDict, inFileName);
-    fileProgress.charsRemainingPerLine = linked_list_new();
+    fileProgress.charsRemainingPerLine = list_new(free, NULL);
 
     size_t *firstLineChars = malloc(sizeof(size_t));
     *firstLineChars = 0;
-    linked_list_append(fileProgress.charsRemainingPerLine, firstLineChars);
+    list_append(fileProgress.charsRemainingPerLine, firstLineChars);
 
     fileProgress.dict = parseDict;
 
@@ -129,7 +131,7 @@ struct Ast *parse_file(char *inFileName)
 
     pcc_destroy(parseContext);
 
-    linked_list_free(fileProgress.charsRemainingPerLine, free);
+    list_free(fileProgress.charsRemainingPerLine);
 
     return parsed;
 }
@@ -139,7 +141,7 @@ int main(int argc, char **argv)
     char *inFileName = "stdin";
     char *outFileName = "stdout";
 
-    includePath = linked_list_new();
+    includePath = list_new(free, NULL);
 
     int option;
     while ((option = getopt(argc, argv, "i:o:O:l:r:c:v:I:")) != EOF)
@@ -177,7 +179,7 @@ int main(int argc, char **argv)
 
         case 'I':
         {
-            linked_list_append(includePath, strdup(optarg));
+            list_append(includePath, strdup(optarg));
         }
         break;
 
@@ -190,13 +192,14 @@ int main(int argc, char **argv)
 
     log(LOG_INFO, "Output will be generated to %s", outFileName);
 
-    parseProgressStack = stack_new();
+    parseProgressStack = stack_new(NULL);
 
-    const int N_PARSE_DICT_BUCKETS = 10;
-    parseDict = dictionary_new(N_PARSE_DICT_BUCKETS, (void *(*)(void *))strdup, hash_string, (ssize_t(*)(void *, void *))strcmp, free);
+    const int N_PARSE_DICT_BUCKETS = 1;
+    // parseDict = dictionary_new(N_PARSE_DICT_BUCKETS, (void *(*)(void *))strdup, hash_string, (ssize_t(*)(void *, void *))strcmp, free);
+    parseDict = dictionary_new(free, (ssize_t(*)(void *, void *))strcmp, hash_string, N_PARSE_DICT_BUCKETS, (void *(*)(void *))strdup);
 
     struct Ast *program = parse_file(inFileName);
-    linked_list_free(includePath, free);
+    list_free(includePath);
 
     // TODO: option to enable/disable ast dump
     {
@@ -216,11 +219,14 @@ int main(int argc, char **argv)
     /*log(LOG_DEBUG, "Symbol table before scope collapse:");
     SymbolTable_print(theTable, stderr, 1);*/
 
+    log(LOG_DEBUG, "Symbol table before linearization/scope collapse:");
+    symbol_table_print(theTable, stderr, 0);
+
     log(LOG_INFO, "Collapsing scopes");
 
     symbol_table_collapse_scopes(theTable, parseDict);
 
-    generate_ssa(theTable);
+    // generate_ssa(theTable);
 
     // TODO: option to enable/disable symtab dump
     log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");

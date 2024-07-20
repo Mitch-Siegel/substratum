@@ -4,6 +4,10 @@
 
 #include "substratum_defs.h"
 
+#include "mbcl/array.h"
+#include "mbcl/hash_table.h"
+#include "mbcl/list.h"
+
 #pragma once
 
 enum COMPILER_ERRORS
@@ -22,7 +26,7 @@ struct ParseProgress
     size_t curColRaw;
     FILE *f;
     struct Dictionary *dict;
-    struct LinkedList *charsRemainingPerLine;
+    List *charsRemainingPerLine;
     size_t lastMatchLocation; // location of last parser match relative to pcc buffer
     char eofReceived;
 };
@@ -43,39 +47,6 @@ size_t parse_hex_constant(char *hexConstant);
  *
  */
 
-struct HashTableEntry
-{
-    void *key;
-    void *value;
-    ssize_t (*compareFunction)(void *keyA, void *keyB);
-    void (*keyFreeFunction)(void *key);
-    void (*valueFreeFunction)(void *value);
-};
-
-struct HashTable
-{
-    struct Set **buckets;
-    size_t nBuckets;
-    size_t (*hashFunction)(void *key);
-    ssize_t (*compareFunction)(void *keyA, void *keyB);
-    void (*keyFreeFunction)(void *data);
-    void (*valueFreeFunction)(void *data);
-};
-
-struct HashTable *hash_table_new(size_t nBuckets,
-                                 size_t (*hashFunction)(void *key),
-                                 ssize_t (*compareFunction)(void *keyA, void *keyB),
-                                 void (*keyFreeFunction)(void *data),
-                                 void (*valueFreeFunction)(void *data));
-
-void *hash_table_lookup(struct HashTable *table, void *key);
-
-void hash_table_insert(struct HashTable *table, void *key, void *value);
-
-void hash_table_delete(struct HashTable *table, void *key);
-
-void hash_table_free(struct HashTable *table);
-
 /*
  * Dictionary for tracking strings
  * Economizes heap space by only storing strings once each
@@ -83,17 +54,17 @@ void hash_table_free(struct HashTable *table);
  */
 struct Dictionary
 {
-    struct HashTable *table;
     void *(*duplicateFunction)(void *data);
+    HashTable *table;
 };
 
 size_t hash_string(void *data);
 
-struct Dictionary *dictionary_new(size_t nBuckets,
-                                  void *(*duplicateFunction)(void *),
-                                  size_t (*hashFunction)(void *data),
-                                  ssize_t (*compareFunction)(void *dataA, void *dataB),
-                                  void (*dataFreeFunction)(void *));
+struct Dictionary *dictionary_new(MBCL_DATA_FREE_FUNCTION freeData,
+                                  MBCL_DATA_COMPARE_FUNCTION compareKey,
+                                  size_t (*hashData)(void *data),
+                                  size_t nBuckets,
+                                  void *(*duplicateFunction)(void *));
 
 void *dictionary_insert(struct Dictionary *dict, void *value);
 
@@ -102,100 +73,9 @@ void *dictionary_lookup_or_insert(struct Dictionary *dict, void *value);
 void dictionary_free(struct Dictionary *dict);
 
 /*
- * Stack data structure
- *
- */
-
-#define STACK_DEFAULT_ALLOCATION 20
-#define STACK_SCALE_FACTOR 2
-
-struct Stack
-{
-    void **data;
-    size_t size;
-    size_t allocated;
-};
-
-struct Stack *stack_new();
-
-void stack_free(struct Stack *stack);
-
-void stack_push(struct Stack *stack, void *data);
-
-void *stack_pop(struct Stack *stack);
-
-void *stack_peek(struct Stack *stack);
-
-/*
  * Unordered List data structure
  *
  */
-
-struct LinkedListNode
-{
-    struct LinkedListNode *next;
-    struct LinkedListNode *prev;
-    void *data;
-};
-
-struct LinkedList
-{
-    struct LinkedListNode *head;
-    struct LinkedListNode *tail;
-    size_t size;
-};
-
-struct LinkedList *linked_list_new();
-
-void linked_list_free(struct LinkedList *list, void (*dataFreeFunction)());
-
-void linked_list_append(struct LinkedList *list, void *element);
-
-void linked_list_prepend(struct LinkedList *list, void *element);
-
-// join all elements of list 'after' after those of list 'before' in list 'before'
-void linked_list_join(struct LinkedList *before, struct LinkedList *after);
-
-void *linked_list_delete(struct LinkedList *list, ssize_t (*compareFunction)(), void *element);
-
-void *linked_list_find(struct LinkedList *list, ssize_t (*compareFunction)(), void *element);
-
-void *linked_list_pop_front(struct LinkedList *list);
-
-void *linked_list_pop_back(struct LinkedList *list);
-
-/*
- * Set data structure
- */
-
-struct Set
-{
-    struct LinkedList *elements;
-    ssize_t (*compareFunction)(void *elementA, void *elementB);
-    void (*dataFreeFunction)(void *);
-};
-
-struct Set *set_new(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction));
-
-void set_insert(struct Set *set, void *element);
-
-void set_delete(struct Set *set, void *element);
-
-void *set_find(struct Set *set, void *element);
-
-void set_clear(struct Set *toClear);
-
-void set_merge(struct Set *into, struct Set *from);
-
-struct Set *set_copy(struct Set *set);
-
-// given two input sets, construct and return a third set containing data from the union of the two
-struct Set *set_union(struct Set *setA, struct Set *setB);
-
-// given two input sets, construct and return a third set containing data from the intersection of the two
-struct Set *set_intersection(struct Set *setA, struct Set *setB);
-
-void set_free(struct Set *set);
 
 /*
  * TempList is a struct containing string names for TAC temps by number (eg t0, t1, t2, etc...)
@@ -205,7 +85,7 @@ void set_free(struct Set *set);
 
 struct TempList
 {
-    struct Stack *temps;
+    Array temps;
 };
 
 // get the string for a given temp num

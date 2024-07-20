@@ -5,21 +5,21 @@
 struct BasicBlock *basic_block_new(ssize_t labelNum)
 {
     struct BasicBlock *wip = malloc(sizeof(struct BasicBlock));
-    wip->TACList = linked_list_new();
+    wip->TACList = list_new((void (*)(void *))free_tac, NULL);
     wip->labelNum = labelNum;
     return wip;
 }
 
 void basic_block_free(struct BasicBlock *block)
 {
-    linked_list_free(block->TACList, free_tac);
+    list_free(block->TACList);
     free(block);
 }
 
 void basic_block_append(struct BasicBlock *block, struct TACLine *line, size_t *tacIndex)
 {
     line->index = (*tacIndex)++;
-    linked_list_append(block->TACList, line);
+    list_append(block->TACList, line);
     char *sprintedAddedLine = sprint_tac_line(line);
     log(LOG_DEBUG, "Append TAC %s", sprintedAddedLine);
     free(sprintedAddedLine);
@@ -36,7 +36,7 @@ void basic_block_prepend(struct BasicBlock *block, struct TACLine *line)
         }
     }
 
-    linked_list_prepend(block->TACList, line);
+    list_prepend(block->TACList, line);
 }
 
 void print_basic_block(struct BasicBlock *block, size_t indentLevel)
@@ -46,19 +46,19 @@ void print_basic_block(struct BasicBlock *block, size_t indentLevel)
         printf("\t");
     }
     printf("BASIC BLOCK %zu\n", block->labelNum);
-    for (struct LinkedListNode *runner = block->TACList->head; runner != NULL; runner = runner->next)
+
+    Iterator *tacRunner = NULL;
+    for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
     {
-        struct TACLine *this = runner->data;
+        struct TACLine *thisLine = iterator_get(tacRunner);
         for (size_t indentPrint = 0; indentPrint < indentLevel; indentPrint++)
         {
             printf("\t");
         }
 
-        if (runner->data != NULL)
-        {
-            print_tac_line(this);
-            printf("\n");
-        }
+        print_tac_line(thisLine);
+        printf("\n");
     }
+    iterator_free(tacRunner);
     printf("\n");
 }

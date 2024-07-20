@@ -5,28 +5,32 @@
 #include "parser.h"
 #include "util.h"
 
-extern struct Dictionary *parseDict;
-extern struct Stack *parsedAsts;
-extern struct LinkedList *includePath;
+#include "mbcl/list.h"
+#include "mbcl/stack.h"
 
-void print_chars_per_line(struct LinkedList *charsRemaining)
+extern struct Dictionary *parseDict;
+extern Stack *parsedAsts;
+extern List *includePath;
+
+void print_chars_per_line(List *charsRemaining)
 {
-    for (struct LinkedListNode *runner = charsRemaining->head; runner != NULL; runner = runner->next)
+    Iterator *charRunner = NULL;
+    for (charRunner = list_begin(charsRemaining); iterator_gettable(charRunner); iterator_next(charRunner))
     {
-        size_t *charsRem = runner->data;
+        size_t *charsRem = iterator_get(charRunner);
         log(LOG_WARNING, "%zu chars in this line", *charsRem);
     }
 }
 
 void track_character(struct ParseProgress *auxil, int trackedChar)
 {
-    struct LinkedList *charsPerLine = auxil->charsRemainingPerLine;
+    List *charsPerLine = auxil->charsRemainingPerLine;
     CHARS_LAST_LINE(auxil) += 1;
     if (trackedChar == '\n')
     {
         size_t *newLineChars = malloc(sizeof(size_t));
         *newLineChars = 0;
-        linked_list_append(charsPerLine, newLineChars);
+        list_append(charsPerLine, newLineChars);
     }
 }
 
@@ -48,7 +52,7 @@ void manage_location(struct ParseProgress *auxil, char *matchedString, bool isSo
                 print_chars_per_line(auxil->charsRemainingPerLine);
                 InternalError("Bad line/col track at %s:%zu:%zu - saw \\n but %zu chars, %zu lines remaining", auxil->curFile, auxil->curLine, auxil->curCol, (*(size_t *)auxil->charsRemainingPerLine->head->data), auxil->charsRemainingPerLine->size);
             }
-            free(linked_list_pop_front(auxil->charsRemainingPerLine));
+            free(list_pop_front(auxil->charsRemainingPerLine));
 
             if (isSourceLocation)
             {

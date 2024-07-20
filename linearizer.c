@@ -15,12 +15,12 @@
 struct TempList *temps;
 struct Dictionary *typeDict;
 extern struct Dictionary *parseDict;
-const u8 TYPE_DICT_SIZE = 10;
+const u8 TYPE_DICT_SIZE = 100;
 struct SymbolTable *walk_program(struct Ast *program)
 {
-    typeDict = dictionary_new(TYPE_DICT_SIZE, (void *(*)(void *))type_duplicate, (size_t(*)(void *))type_hash, (ssize_t(*)(void *, void *))type_compare, (void (*)(void *))type_free);
+    typeDict = dictionary_new((void (*)(void *))type_free, (ssize_t(*)(void *, void *))type_compare, (size_t(*)(void *))type_hash, TYPE_DICT_SIZE, (void *(*)(void *))type_duplicate);
     struct SymbolTable *programTable = symbol_table_new("Program");
-    struct BasicBlock *globalBlock = scope_lookup(programTable->globalScope, "globalblock")->entry;
+    struct BasicBlock *globalBlock = scope_lookup(programTable->globalScope, "globalblock", E_BASICBLOCK)->entry;
     struct BasicBlock *asmBlock = basic_block_new(1);
     scope_add_basic_block(programTable->globalScope, asmBlock);
     temps = temp_list_new();
@@ -172,25 +172,22 @@ void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populate
         complexTypeNameTree = *tree->child;
         complexTypeName = complexTypeNameTree.value;
 
-        struct ScopeMember *namedType = scope_lookup(scope, complexTypeName);
-
-        if (namedType == NULL)
+        struct ScopeMember *namedType = scope_lookup(scope, complexTypeName, E_STRUCT);
+        if (namedType != NULL)
         {
-            log_tree(LOG_FATAL, &complexTypeNameTree, "%s does not name a type", complexTypeName);
-        }
-
-        switch (namedType->type)
-        {
-        case E_STRUCT:
             basicType = VT_STRUCT;
-            break;
-
-        case E_ENUM:
-            basicType = VT_ENUM;
-            break;
-
-        default:
-            log_tree(LOG_FATAL, &complexTypeNameTree, "%s does not name a type", complexTypeName);
+        }
+        else
+        {
+            namedType = scope_lookup(scope, complexTypeName, E_ENUM);
+            if (namedType != NULL)
+            {
+                basicType = VT_ENUM;
+            }
+            else
+            {
+                log_tree(LOG_FATAL, &complexTypeNameTree, "%s does not name a type", complexTypeName);
+            }
         }
 
         if (complexTypeNameTree.type != T_IDENTIFIER)
@@ -317,7 +314,7 @@ void walk_argument_declaration(struct Ast *tree,
 
     struct VariableEntry *declaredArgument = walk_variable_declaration(tree, block, fun->mainScope, TACIndex, tempNum, 1, A_PUBLIC);
 
-    stack_push(fun->arguments, declaredArgument);
+    deque_push_back(fun->arguments, declaredArgument);
 }
 
 void verify_function_signatures(struct Ast *tree, struct FunctionEntry *existingFunc, struct FunctionEntry *parsedFunc)
@@ -342,8 +339,8 @@ void verify_function_signatures(struct Ast *tree, struct FunctionEntry *existing
         // if we have same number of bytes and same number, ensure everything is exactly the same
         for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
         {
-            struct VariableEntry *existingArg = existingFunc->arguments->data[argIndex];
-            struct VariableEntry *parsedArg = parsedFunc->arguments->data[argIndex];
+            struct VariableEntry *existingArg = deque_at(existingFunc->arguments, argIndex);
+            struct VariableEntry *parsedArg = deque_at(parsedFunc->arguments, argIndex);
             // ensure all arguments in order have same name, type, indirection level
             if ((strcmp(existingArg->name, parsedArg->name) != 0) ||
                 (type_compare(&existingArg->type, &parsedArg->type)))
@@ -355,6 +352,7 @@ void verify_function_signatures(struct Ast *tree, struct FunctionEntry *existing
     }
     else
     {
+        log(LOG_DEBUG, "Mismatch in number of arguments between parsed function %s and existing function %s", parsedFunc->name, existingFunc->name);
         mismatch = 1;
     }
 
@@ -362,12 +360,13 @@ void verify_function_signatures(struct Ast *tree, struct FunctionEntry *existing
     {
         printf("\nConflicting declarations of function:\n");
 
+        // TODO: print correctly with deque
         char *existingReturnType = type_get_name(&existingFunc->returnType);
         printf("\t%s %s(", existingReturnType, existingFunc->name);
         free(existingReturnType);
         for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
         {
-            struct VariableEntry *existingArg = existingFunc->arguments->data[argIndex];
+            struct VariableEntry *existingArg = deque_at(existingFunc->arguments, argIndex);
 
             char *argType = type_get_name(&existingArg->type);
             printf("%s %s", argType, existingArg->name);
@@ -382,18 +381,20 @@ void verify_function_signatures(struct Ast *tree, struct FunctionEntry *existing
                 printf(")");
             }
         }
+
         char *parsedReturnType = type_get_name(&parsedFunc->returnType);
         printf("\n\t%s %s(", parsedReturnType, parsedFunc->name);
         free(parsedReturnType);
-        for (size_t argIndex = 0; argIndex < parsedFunc->arguments->size; argIndex++)
+        for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
         {
-            struct VariableEntry *parsedArg = parsedFunc->arguments->data[argIndex];
+            struct VariableEntry *parsedArg = deque_at(parsedFunc->arguments, argIndex);
 
             char *argType = type_get_name(&parsedArg->type);
             printf("%s %s", argType, parsedArg->name);
             free(argType);
 
-            if (argIndex < parsedFunc->arguments->size - 1)
+            // TODO: iterator_has_next();
+            if (argIndex < existingFunc->arguments->size - 1)
             {
                 printf(", ");
             }
@@ -405,6 +406,28 @@ void verify_function_signatures(struct Ast *tree, struct FunctionEntry *existing
         printf("\n");
 
         log_tree(LOG_FATAL, tree, " ");
+    }
+}
+
+void insert_self_method_argument(struct FunctionEntry *function, struct VariableEntry *selfArgument)
+{
+    if (function->arguments->size > 0)
+    {
+        struct VariableEntry *firstArgument = deque_at(function->arguments, 0);
+        if (strcmp(firstArgument->name, OUT_OBJECT_POINTER_NAME) == 0)
+        {
+            struct VariableEntry *outObjPtr = deque_pop_front(function->arguments);
+            deque_push_front(function->arguments, selfArgument);
+            deque_push_front(function->arguments, outObjPtr);
+        }
+        else
+        {
+            deque_push_front(function->arguments, selfArgument);
+        }
+    }
+    else
+    {
+        deque_push_front(function->arguments, selfArgument);
     }
 }
 
@@ -443,7 +466,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
     }
 
     // child is the lparen, function name is the child of the lparen
-    struct ScopeMember *lookedUpFunction = scope_lookup(scope, functionNameTree->value);
+    struct ScopeMember *lookedUpFunction = scope_lookup(scope, functionNameTree->value, E_FUNCTION);
     struct FunctionEntry *parsedFunc = NULL;
     struct FunctionEntry *existingFunc = NULL;
     struct FunctionEntry *returnedFunc = NULL;
@@ -471,7 +494,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
         outPointerTree.sibling = NULL;
         struct VariableEntry *outPointerArgument = scope_create_argument(parsedFunc->mainScope, &outPointerTree, &outPointerType, A_PUBLIC);
 
-        stack_push(parsedFunc->arguments, outPointerArgument);
+        deque_push_front(parsedFunc->arguments, outPointerArgument);
     }
 
     struct Ast *argumentRunner = functionNameTree->sibling;
@@ -500,7 +523,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
             type_set_basic_type(&selfType, VT_STRUCT, methodOf->name, 1);
             struct VariableEntry *selfArgument = scope_create_argument(parsedFunc->mainScope, argumentRunner, &selfType, A_PUBLIC);
 
-            stack_push(parsedFunc->arguments, selfArgument);
+            insert_self_method_argument(parsedFunc, selfArgument);
         }
         break;
 
@@ -577,7 +600,7 @@ void walk_method(struct Ast *tree,
 
     if (walkedMethod->arguments->size > 0)
     {
-        struct VariableEntry *potentialSelfArg = walkedMethod->arguments->data[0];
+        struct VariableEntry *potentialSelfArg = deque_at(walkedMethod->arguments, 0);
 
         // if the first arg to the function is the address of a struct which we are returning
         // try and see if the second argument is self (if it exists)
@@ -1360,7 +1383,7 @@ ssize_t walk_match_case_block(struct Ast *statement,
     return caseEntryLabel;
 }
 
-void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct EnumEntry *matchedEnum, struct Set *matchedValues)
+void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct EnumEntry *matchedEnum, Set *matchedValues)
 {
     size_t stateSpaceSize = 0;
     switch (matchedType->basicType)
@@ -1379,7 +1402,7 @@ void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct E
         log_tree(LOG_FATAL, matchTree, "There is no conceivable way you wrote U64_MAX match cases for this match against a u64. Something is broken.");
         break;
     case VT_ENUM:
-        stateSpaceSize = matchedEnum->members->elements->size;
+        stateSpaceSize = matchedEnum->members->size;
         break;
     case VT_ANY:
         break;
@@ -1391,7 +1414,7 @@ void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct E
         InternalError("VT_STRUCT seen as type of matched expression");
     }
 
-    size_t missingCases = matchedValues->elements->size - stateSpaceSize;
+    size_t missingCases = matchedValues->size - stateSpaceSize;
 
     if (missingCases > 0)
     {
@@ -1400,7 +1423,7 @@ void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct E
         {
             pluralString = "s";
         }
-        log_tree(LOG_FATAL, matchTree, "Missing %zu match case%s for type %s", stateSpaceSize - matchedValues->elements->size, pluralString, type_get_name(matchedType));
+        log_tree(LOG_FATAL, matchTree, "Missing %zu match case%s for type %s", stateSpaceSize - matchedValues->size, pluralString, type_get_name(matchedType));
     }
 }
 
@@ -1417,7 +1440,7 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
                          struct TACOperand *matchedAgainstEnum,
                          struct TACOperand *matchedAgainstNumerical,
                          struct EnumEntry *matchedEnum,
-                         struct Set *matchedValues)
+                         Set *matchedValues)
 {
     // only allow underscore or identifier trees
     switch (matchedValueTree->type)
@@ -1524,7 +1547,7 @@ void walk_non_enum_match_arm(struct Ast *matchedValueTree,
                              struct TACOperand *matchedAgainstEnum,
                              struct TACOperand *matchedAgainstNumerical,
                              struct Type *matchedType,
-                             struct Set *matchedValues)
+                             Set *matchedValues)
 {
     // only allow underscore or constant trees
     switch (matchedValueTree->type)
@@ -1613,7 +1636,7 @@ void walk_match_statement(struct Ast *tree,
 
     struct Ast *matchRunner = matchedExpression->sibling;
 
-    struct Set *matchedValues = set_new(sizet_pointer_compare, free);
+    Set *matchedValues = set_new(free, sizet_pointer_compare);
 
     struct TACOperand matchedAgainst = {0};
     walk_sub_expression(matchedExpression, block, scope, tacIndex, tempNum, &matchedAgainst);
@@ -2023,6 +2046,7 @@ struct TACOperand *walk_bitwise_not(struct Ast *tree,
 
 void ensure_all_fields_initialized(struct Ast *tree, size_t initFieldIdx, struct StructEntry *initializedStruct)
 {
+    // TODO: fix direct data access of stack
     // if all fields of the struct are not initialized, this is an error
     if (initFieldIdx < initializedStruct->fieldLocations->size)
     {
@@ -2526,13 +2550,13 @@ void check_function_return_use(struct Ast *tree,
     }
 }
 
-struct Stack *walk_argument_pushes(struct Ast *argumentRunner,
-                                   struct FunctionEntry *calledFunction,
-                                   struct BasicBlock *block,
-                                   struct Scope *scope,
-                                   size_t *TACIndex,
-                                   size_t *tempNum,
-                                   struct TACOperand *destinationOperand)
+Deque *walk_argument_pushes(struct Ast *argumentRunner,
+                            struct FunctionEntry *calledFunction,
+                            struct BasicBlock *block,
+                            struct Scope *scope,
+                            size_t *TACIndex,
+                            size_t *tempNum,
+                            struct TACOperand *destinationOperand)
 {
     log(LOG_DEBUG, "WalkArgumentPushes");
 
@@ -2551,12 +2575,12 @@ struct Stack *walk_argument_pushes(struct Ast *argumentRunner,
 
     // save first argument so we can generate meaningful error messages if we mismatch argument count
     struct Ast *lastArgument = argumentRunner;
-    struct Stack *argumentPushes = stack_new();
+    Deque *argumentPushes = deque_new(NULL);
 
-    struct Stack *argumentTrees = stack_new();
+    Deque *argumentTrees = deque_new(NULL);
     while (argumentRunner != NULL)
     {
-        stack_push(argumentTrees, argumentRunner);
+        deque_push_back(argumentTrees, argumentRunner);
         lastArgument = argumentRunner;
         argumentRunner = argumentRunner->sibling;
     }
@@ -2570,15 +2594,24 @@ struct Stack *walk_argument_pushes(struct Ast *argumentRunner,
                  argumentTrees->size);
     }
 
-    size_t argIndex = calledFunction->arguments->size - 1;
+    Iterator *calledFunctionArgumentIterator = deque_front(calledFunction->arguments);
+
+    // account for offsetting the number of arguments for self and out pointers
+    while (argumentNumOffset > 0)
+    {
+        iterator_next(calledFunctionArgumentIterator);
+        argumentNumOffset--;
+    }
+
     while (argumentTrees->size > 0)
     {
-        struct Ast *pushedArgument = stack_pop(argumentTrees);
+        struct Ast *pushedArgument = deque_pop_front(argumentTrees);
         struct TACLine *push = new_tac_line(TT_ARG_STORE, pushedArgument);
-        stack_push(argumentPushes, push);
+        deque_push_back(argumentPushes, push);
         walk_sub_expression(pushedArgument, block, scope, TACIndex, tempNum, &push->operands[0]);
 
-        struct VariableEntry *expectedArgument = calledFunction->arguments->data[argIndex];
+        struct VariableEntry *expectedArgument = iterator_get(calledFunctionArgumentIterator);
+        iterator_next(calledFunctionArgumentIterator);
 
         if (type_compare_allow_implicit_widening(tac_get_type_of_operand(push, 0), &expectedArgument->type))
         {
@@ -2611,10 +2644,10 @@ struct Stack *walk_argument_pushes(struct Ast *argumentRunner,
         push->operands[1].name.val = expectedArgument->stackOffset;
         push->operands[1].castAsType.basicType = select_variable_type_for_number(expectedArgument->stackOffset);
         push->operands[1].permutation = VP_LITERAL_VAL;
-
-        argIndex--;
     }
-    stack_free(argumentTrees);
+    iterator_free(calledFunctionArgumentIterator);
+
+    deque_free(argumentTrees);
 
     return argumentPushes;
 }
@@ -2625,7 +2658,7 @@ void handle_struct_return(struct Ast *callTree,
                           struct Scope *scope,
                           size_t *TACIndex,
                           size_t *tempNum,
-                          struct Stack *argumentPushes,
+                          Deque *argumentPushes,
                           struct TACOperand *destinationOperand)
 {
     if (!type_is_object(&calledFunction->returnType))
@@ -2652,21 +2685,21 @@ void handle_struct_return(struct Ast *callTree,
     {
         log(LOG_FATAL, "Unused return value for function %s returning %s", calledFunction->name, type_get_name(&calledFunction->returnType));
     }
-    struct VariableEntry *expectedArgument = calledFunction->arguments->data[0];
+    struct VariableEntry *expectedArgument = deque_at(calledFunction->arguments, 0);
     outPointerPush->operands[1].name.val = expectedArgument->stackOffset;
     outPointerPush->operands[1].castAsType.basicType = select_variable_type_for_number(expectedArgument->stackOffset);
     outPointerPush->operands[1].permutation = VP_LITERAL_VAL;
 
-    stack_push(argumentPushes, outPointerPush);
+    deque_push_front(argumentPushes, outPointerPush);
 }
 
-void reserve_and_store_stack_args(struct Ast *callTree, struct FunctionEntry *calledFunction, struct Stack *argumentPushes, struct BasicBlock *block, size_t *TACIndex)
+void reserve_and_store_stack_args(struct Ast *callTree, struct FunctionEntry *calledFunction, Deque *argumentPushes, struct BasicBlock *block, size_t *TACIndex)
 {
     log_tree(LOG_DEBUG, callTree, "reserveAndStoreStackArgs");
 
     while (argumentPushes->size > 0)
     {
-        struct TACLine *push = stack_pop(argumentPushes);
+        struct TACLine *push = deque_pop_front(argumentPushes);
         basic_block_append(block, push, TACIndex);
     }
 }
@@ -2718,19 +2751,19 @@ void walk_function_call(struct Ast *tree,
 
     check_function_return_use(tree, destinationOperand, calledFunction);
 
-    struct Stack *argumentPushes = walk_argument_pushes(tree->child->sibling,
-                                                        calledFunction,
-                                                        block,
-                                                        scope,
-                                                        TACIndex,
-                                                        tempNum,
-                                                        destinationOperand);
+    Deque *argumentPushes = walk_argument_pushes(tree->child->sibling,
+                                                 calledFunction,
+                                                 block,
+                                                 scope,
+                                                 TACIndex,
+                                                 tempNum,
+                                                 destinationOperand);
 
     handle_struct_return(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
 
     reserve_and_store_stack_args(tree, calledFunction, argumentPushes, block, TACIndex);
 
-    stack_free(argumentPushes);
+    deque_free(argumentPushes);
 
     generate_call_tac(tree, calledFunction, block, scope, TACIndex, tempNum, destinationOperand);
 }
@@ -2783,13 +2816,13 @@ void walk_method_call(struct Ast *tree,
 
     check_function_return_use(tree, destinationOperand, calledFunction);
 
-    struct Stack *argumentPushes = walk_argument_pushes(tree->child->child->sibling->child->sibling,
-                                                        calledFunction,
-                                                        block,
-                                                        scope,
-                                                        TACIndex,
-                                                        tempNum,
-                                                        destinationOperand);
+    Deque *argumentPushes = walk_argument_pushes(tree->child->child->sibling->child->sibling,
+                                                 calledFunction,
+                                                 block,
+                                                 scope,
+                                                 TACIndex,
+                                                 tempNum,
+                                                 destinationOperand);
 
     if (tac_operand_get_type(&structOperand)->basicType == VT_ARRAY)
     {
@@ -2809,13 +2842,13 @@ void walk_method_call(struct Ast *tree,
     pThisPush->operands[1].castAsType.basicType = select_variable_type_for_number(0);
     pThisPush->operands[1].permutation = VP_LITERAL_VAL;
 
-    stack_push(argumentPushes, pThisPush);
+    deque_push_front(argumentPushes, pThisPush);
 
     handle_struct_return(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
 
     reserve_and_store_stack_args(tree, calledFunction, argumentPushes, block, TACIndex);
 
-    stack_free(argumentPushes);
+    deque_free(argumentPushes);
 
     struct TACLine *callLine = generate_call_tac(tree, calledFunction, block, scope, TACIndex, tempNum, destinationOperand);
     callLine->operation = TT_METHOD_CALL;
@@ -2854,18 +2887,18 @@ void walk_associated_call(struct Ast *tree,
 
     check_function_return_use(tree, destinationOperand, calledFunction);
 
-    struct Stack *argumentPushes = walk_argument_pushes(tree->child->sibling->child->sibling,
-                                                        calledFunction,
-                                                        block,
-                                                        scope,
-                                                        TACIndex,
-                                                        tempNum,
-                                                        destinationOperand);
+    Deque *argumentPushes = walk_argument_pushes(tree->child->sibling->child->sibling,
+                                                 calledFunction,
+                                                 block,
+                                                 scope,
+                                                 TACIndex,
+                                                 tempNum,
+                                                 destinationOperand);
     handle_struct_return(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
 
     reserve_and_store_stack_args(tree, calledFunction, argumentPushes, block, TACIndex);
 
-    stack_free(argumentPushes);
+    deque_free(argumentPushes);
 
     struct TACLine *callLine = generate_call_tac(tree, calledFunction, block, scope, TACIndex, tempNum, destinationOperand);
     callLine->operation = TT_ASSOCIATED_CALL;
@@ -3526,7 +3559,7 @@ void walk_string_literal(struct Ast *tree,
     }
 
     struct VariableEntry *stringLiteralEntry = NULL;
-    struct ScopeMember *existingMember = scope_lookup(scope, stringName);
+    struct ScopeMember *existingMember = scope_lookup(scope, stringName, E_VARIABLE);
 
     // if we already have a string literal for this thing, nothing else to do
     if (existingMember == NULL)
@@ -3585,22 +3618,27 @@ void walk_sizeof(struct Ast *tree,
     case T_IDENTIFIER:
     {
         // do a generic scope lookup on the identifier
-        struct ScopeMember *lookedUpIdentifier = scope_lookup(scope, tree->child->value);
+        struct VariableEntry *lookedUpIdentifier = scope_lookup_var_by_string(scope, tree->child->value);
 
         // if it looks up nothing, or it's a variable
-        if ((lookedUpIdentifier == NULL) || (lookedUpIdentifier->type == E_VARIABLE))
+        if (lookedUpIdentifier != NULL)
         {
-            // scope_lookup_var is not redundant as it will give us a 'use of undeclared' error in the case where we looked up nothing
-            struct VariableEntry *getSizeof = scope_lookup_var(scope, tree->child);
-
-            sizeInBytes = type_get_size(&getSizeof->type, scope);
+            sizeInBytes = type_get_size(&lookedUpIdentifier->type, scope);
         }
         // we looked something up but it's not a variable
         else
         {
-            struct StructEntry *getSizeof = scope_lookup_struct(scope, tree->child);
 
-            sizeInBytes = getSizeof->totalSize;
+            struct ScopeMember *lookedUpStruct = scope_lookup(scope, tree->child->value, E_STRUCT);
+            if (lookedUpStruct != NULL)
+            {
+                struct StructEntry *getSizeof = lookedUpStruct->entry;
+                sizeInBytes = getSizeof->totalSize;
+            }
+            else
+            {
+                log_tree(LOG_FATAL, tree->child, "No declaration or type name matches identifier %s\n", tree->child->value);
+            }
         }
     }
     break;

@@ -4,6 +4,8 @@
 #include "ast.h"
 #include "util.h"
 
+#include "mbcl/stack.h"
+
 char *tokenNames[T_EOF + 1] = {
     "t_identifier",
     "t_constant",
@@ -170,13 +172,14 @@ void ast_print(struct Ast *tree, size_t depth)
     }
 }
 
-void ast_traverse_for_dump(FILE *outFile, struct Ast *parent, struct Ast *tree, size_t depth, struct Stack *ranks)
+void ast_traverse_for_dump(FILE *outFile, struct Ast *parent, struct Ast *tree, size_t depth, Stack *ranks)
 {
     if (ranks->size <= depth)
     {
-        stack_push(ranks, stack_new());
+        stack_push(ranks, stack_new(NULL));
     }
-    stack_push(ranks->data[depth], tree);
+    Stack *currentRank = stack_peek(ranks);
+    stack_push(currentRank, tree);
 
     fprintf(outFile, "%zu[label=\"%s\"]\n", (size_t)tree, strcmp(tree->value, "") ? tree->value : token_get_name(tree->type));
     if (parent != NULL)
@@ -197,29 +200,29 @@ void ast_traverse_for_dump(FILE *outFile, struct Ast *parent, struct Ast *tree, 
 
 void ast_dump(FILE *outFile, struct Ast *tree)
 {
-    struct Stack *ranks = stack_new();
+    Stack *ranks = stack_new((void (*)(void *))stack_free);
     fprintf(outFile, "digraph ast {\n");
     fprintf(outFile, "edge[dir=forwrad]\n");
     ast_traverse_for_dump(outFile, NULL, tree, 0, ranks);
 
-    for (size_t rank = 0; rank < ranks->size; rank++)
+    Iterator *rankIterator = NULL;
+    for (rankIterator = stack_bottom(ranks); iterator_gettable(rankIterator); iterator_next(rankIterator))
     {
         fprintf(outFile, "{rank = same; ");
-        struct Stack *thisRank = ranks->data[rank];
-        for (size_t nodeIndex = 0; nodeIndex < thisRank->size; nodeIndex++)
+        Stack *thisRank = iterator_get(rankIterator);
+        Iterator *nodeIterator = NULL;
+        for (nodeIterator = stack_bottom(thisRank); iterator_gettable(nodeIterator); iterator_next(nodeIterator))
         {
-            struct Ast *nodeThisRank = thisRank->data[nodeIndex];
+            struct Ast *nodeThisRank = iterator_get(nodeIterator);
             fprintf(outFile, "%zu; ", (size_t)nodeThisRank);
         }
         fprintf(outFile, "}\n");
+        iterator_free(nodeIterator);
     }
+    iterator_free(rankIterator);
 
     fprintf(outFile, "}\n");
 
-    while (ranks->size > 0)
-    {
-        stack_free(stack_pop(ranks));
-    }
     stack_free(ranks);
 }
 

@@ -47,12 +47,13 @@ void verify_codegen_primitive(struct TACOperand *operand)
 
 struct Register *acquire_scratch_register(struct MachineInfo *info)
 {
-    for (u8 scratchIndex = 0; scratchIndex < info->n_temps; scratchIndex++)
+    for (size_t scratchIndex = 0; scratchIndex < info->temps.size; scratchIndex++)
     {
-        if (info->tempsOccupied[scratchIndex] == 0)
+        if (array_at(&info->tempsOccupied, scratchIndex) == NULL)
         {
-            info->tempsOccupied[scratchIndex] = 1;
-            return info->temps[scratchIndex];
+            struct Register *tempReg = array_at(&info->temps, scratchIndex);
+            array_emplace(&info->tempsOccupied, scratchIndex, tempReg);
+            return tempReg;
         }
     }
 
@@ -61,21 +62,21 @@ struct Register *acquire_scratch_register(struct MachineInfo *info)
 
 void release_all_scratch_registers(struct MachineInfo *info)
 {
-    for (u8 scratchIndex = 0; scratchIndex < info->n_temps; scratchIndex++)
+    for (size_t scratchIndex = 0; scratchIndex < info->temps.size; scratchIndex++)
     {
-        info->tempsOccupied[scratchIndex] = 0;
+        array_emplace(&info->tempsOccupied, scratchIndex, NULL);
     }
 }
 
 void try_release_scratch_register(struct MachineInfo *info, struct Register *reg)
 {
-    for (u8 scratchIndex = 0; scratchIndex < info->n_temps; scratchIndex++)
+    for (size_t scratchIndex = 0; scratchIndex < info->temps.size; scratchIndex++)
     {
-        if (info->temps[scratchIndex] == reg)
+        if (array_at(&info->temps, scratchIndex) == reg)
         {
-            if (info->tempsOccupied[scratchIndex] != 0)
+            if (array_at(&info->tempsOccupied, scratchIndex) == reg)
             {
-                info->tempsOccupied[scratchIndex] = 0;
+                array_emplace(&info->tempsOccupied, scratchIndex, NULL);
             }
         }
     }

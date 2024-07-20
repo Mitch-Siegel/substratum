@@ -104,21 +104,32 @@ ssize_t tac_operand_compare_ignore_ssa_number(void *dataA, void *dataB)
         return result;
     }
 
-    if (((operandA->permutation != VP_LITERAL_STR) && (operandA->permutation != VP_LITERAL_VAL)) &&
-        ((operandB->permutation != VP_LITERAL_STR) && (operandB->permutation != VP_LITERAL_VAL)))
+    if (operandA->permutation != operandB->permutation)
     {
-        result = strcmp(operandA->name.str, operandB->name.str);
-        if (result)
-        {
-            return result;
-        }
-    }
-    else if (operandA->permutation != operandB->permutation)
-    {
-        return 1;
+        return (ssize_t)operandA->permutation - (ssize_t)operandB->permutation;
     }
 
-    return 0;
+    switch (operandA->permutation)
+    {
+    case VP_STANDARD:
+    case VP_TEMP:
+        result = strcmp(operandA->name.variable->name, operandB->name.variable->name);
+        break;
+
+    case VP_LITERAL_STR:
+        result = strcmp(operandA->name.str, operandB->name.str);
+        break;
+
+    case VP_LITERAL_VAL:
+        result = (ssize_t)operandA->name.val - (ssize_t)operandB->name.val;
+        break;
+
+    case VP_UNUSED:
+        result = 0;
+        break;
+    }
+
+    return result;
 }
 
 ssize_t tac_operand_compare(void *dataA, void *dataB)
