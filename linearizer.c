@@ -501,7 +501,24 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
             type_set_basic_type(&selfType, VT_STRUCT, methodOf->name, 1);
             struct VariableEntry *selfArgument = scope_create_argument(parsedFunc->mainScope, argumentRunner, &selfType, A_PUBLIC);
 
-            deque_push_front(parsedFunc->arguments, selfArgument);
+            if (parsedFunc->arguments->size > 0)
+            {
+                struct VariableEntry *firstArgument = deque_at(parsedFunc->arguments, 0);
+                if (strcmp(firstArgument->name, OUT_OBJECT_POINTER_NAME) == 0)
+                {
+                    struct VariableEntry *outObjPtr = deque_pop_front(parsedFunc->arguments);
+                    deque_push_front(parsedFunc->arguments, selfArgument);
+                    deque_push_front(parsedFunc->arguments, outObjPtr);
+                }
+                else
+                {
+                    deque_push_front(parsedFunc->arguments, selfArgument);
+                }
+            }
+            else
+            {
+                deque_push_front(parsedFunc->arguments, selfArgument);
+            }
         }
         break;
 

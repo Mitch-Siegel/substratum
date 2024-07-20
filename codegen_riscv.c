@@ -1451,7 +1451,7 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
                                          struct BasicBlock *block,
                                          char *functionName)
 {
-    log(LOG_DEBUG, "Generate code for basic block %s", block->labelNum);
+    log(LOG_DEBUG, "Generate code for basic block %zu", block->labelNum);
     // we may pass null if we are generating the code to initialize global variables
     if (functionName != NULL)
     {
