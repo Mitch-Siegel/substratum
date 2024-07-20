@@ -286,7 +286,7 @@ void riscv_caller_restore_registers(struct CodegenState *state, struct RegallocM
     }
 
     // TODO: don't emit when 0
-    emit_instruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
+    emit_instruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * saveIndex);
 
     stack_free(actuallyCallerSaved);
 }
@@ -663,6 +663,12 @@ void riscv_emit_argument_stores(struct CodegenState *state,
         struct TACOperand *argOperand = stack_pop(argumentOperands);
 
         struct VariableEntry *argument = iterator_get(argumentIterator);
+
+        if (type_compare_allow_implicit_widening(tac_operand_get_type(argOperand), &argument->type))
+        {
+            InternalError("Type mismatch during internal argument store handling for argument %s of function %s", argument->name, calledFunction->name);
+        }
+
         iterator_prev(argumentIterator);
 
         struct Lifetime *argLifetime = lifetime_find(calledFunction->regalloc.allLifetimes, argument->name);
@@ -698,13 +704,6 @@ void riscv_emit_argument_stores(struct CodegenState *state,
                 {
                     if (array_at(&info->arguments, argRegIdx) == placedOrFoundIn)
                     {
-                        Iterator *dummyLtI = set_begin(callerSavedArgLifetimes);
-                        while (iterator_gettable(dummyLtI))
-                        {
-                            struct Lifetime *dummyLt = iterator_get(dummyLtI);
-                            printf("%s in da dummy zone\n", dummyLt->name);
-                            iterator_next(dummyLtI);
-                        }
                         InternalError("When attempting to store argument %s for call to %s - the value we want to read from (%s) is contained in %s, an argument register we've already overwritten with one of %s's arguments",
                                       argLifetime->name, calledFunction->name, argOperand->name.variable->name, placedOrFoundIn->name, calledFunction->name);
                     }

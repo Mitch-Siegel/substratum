@@ -245,7 +245,10 @@ void generate_code_for_function(FILE *outFile,
     {
         struct VariableEntry *examinedArgument = iterator_get(argIterator);
         struct Lifetime *argLifetime = lifetime_find(function->regalloc.allLifetimes, examinedArgument->name);
-        argLifetime->writebackInfo.regLocation->containedLifetime = argLifetime;
+        if (argLifetime->wbLocation == WB_REGISTER)
+        {
+            argLifetime->writebackInfo.regLocation->containedLifetime = argLifetime;
+        }
     }
     iterator_free(argIterator);
 
