@@ -3500,14 +3500,35 @@ void walk_asm_block(struct Ast *tree,
     struct Ast *asmRunner = tree->child;
     while (asmRunner != NULL)
     {
-        if (asmRunner->type != T_ASM)
+        struct TACLine *asmLine = NULL;
+        switch (asmRunner->type)
         {
+        case T_ASM:
+        {
+            asmLine = new_tac_line(TT_ASM, asmRunner);
+            asmLine->operands[0].name.str = asmRunner->value;
+        }
+        break;
+
+        case T_ASM_READVAR:
+        {
+            asmLine = new_tac_line(TT_ASM_LOAD, asmRunner);
+            walk_sub_expression(asmRunner->child->sibling, block, scope, TACIndex, tempNum, &asmLine->operands[1]);
+            asmLine->operands[0].name.str = asmRunner->child->value;
+        }
+        break;
+
+        case T_ASM_WRITEVAR:
+        {
+            asmLine = new_tac_line(TT_ASM_STORE, asmRunner);
+            tac_operand_populate_from_variable(&asmLine->operands[0], scope_lookup_var(scope, asmRunner->child));
+            asmLine->operands[1].name.str = asmRunner->child->sibling->value;
+        }
+        break;
+
+        default:
             log_tree(LOG_FATAL, tree, "Non-asm seen as contents of ASM block!");
         }
-
-        struct TACLine *asmLine = new_tac_line(TT_ASM, asmRunner);
-        asmLine->operands[0].name.str = asmRunner->value;
-
         basic_block_append(block, asmLine, TACIndex);
 
         asmRunner = asmRunner->sibling;

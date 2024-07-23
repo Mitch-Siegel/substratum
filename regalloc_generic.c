@@ -325,3 +325,17 @@ void machine_info_free(struct MachineInfo *info)
 
     free(info);
 }
+
+struct Register *find_register_by_name(struct MachineInfo *info, char *name)
+{
+    for (size_t regIndex = 0; regIndex < info->allRegisters.size; regIndex++)
+    {
+        struct Register *regAtIdx = array_at(&info->allRegisters, regIndex);
+        if (strcmp(regAtIdx->name, name) == 0)
+        {
+            return regAtIdx;
+        }
+    }
+
+    return NULL;
+}

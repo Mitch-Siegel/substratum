@@ -123,6 +123,8 @@ struct MachineInfo *machine_info_new(u8 maxReg,
 
 void machine_info_free(struct MachineInfo *info);
 
+struct Register *find_register_by_name(struct MachineInfo *info, char *name);
+
 // things more related to codegen than specifically register allocation
 
 struct RegallocMetadata
