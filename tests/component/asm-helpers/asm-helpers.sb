@@ -1,0 +1,17 @@
+#include "tests-common.sb"
+
+u8 fun Increment(u8 toIncrement) asm
+{
+    a0 = readvar(toIncrement)
+    addi a0, a0, 1
+}
+
+Thingamajig[4] myThings;
+
+fun main()
+{
+    u8 a = 12;
+    printNum(a);
+    a = Increment(a);
+    printNum(a);
+}

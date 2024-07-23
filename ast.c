@@ -14,6 +14,8 @@ char *tokenNames[T_EOF + 1] = {
     "t_extern",
     "t_sizeof",
     "t_asm",
+    "t_asm_readvar",
+    "t_asm_writevar",
     "t_variable_declaration",
     "t_type_name",
     "t_any",
