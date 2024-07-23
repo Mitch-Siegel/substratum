@@ -124,12 +124,12 @@ asm_block_contents
     / _ a:asm_line                                  { $$ = a; }
 
 asm_variable_manipulation
-   <- r:identifier _ kw_eq_op _ asm_kw_readvar _ kw_lparen _ e:expression _ kw_rparen { $$ = AST_C(AST_N(auxil, T_ASM_READVAR, "", $0s), AST_S(r, e)); }
-    / i:identifier _ kw_eq_op _ asm_kw_writevar _ kw_lparen _ r:identifier _ kw_rparen { $$ = AST_C(AST_N(auxil, T_ASM_WRITEVAR, "", $0s), AST_S(i, r)); }
+   <- r:identifier _ b:basic_assignment _ asm_kw_readvar _ kw_lparen _ e:expression _ kw_rparen { ast_free(b); $$ = AST_C(AST_N(auxil, T_ASM_READVAR, "", $0s), AST_S(r, e)); }
+    / i:identifier _ b:basic_assignment _ asm_kw_writevar _ kw_lparen _ r:identifier _ kw_rparen { ast_free(b); $$ = AST_C(AST_N(auxil, T_ASM_WRITEVAR, "", $0s), AST_S(i, r)); }
 
 asm_kw_readvar
    <- "readvar" { manage_source_location(auxil, $0); }
-   
+
 asm_kw_writevar
    <- "readvar" { manage_source_location(auxil, $0); }
 

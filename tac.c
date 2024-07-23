@@ -20,6 +20,10 @@ char *tac_operation_get_name(enum TAC_TYPE tacOperation)
     {
     case TT_ASM:
         return "tac-asm";
+    case TT_ASM_LOAD:
+        return "tac-asm-load";
+    case TT_ASM_STORE:
+        return "tac-asm-store";
     case TT_ASSIGN:
         return "tac-assign";
     case TT_ADD:
@@ -204,6 +208,14 @@ char *sprint_tac_line(struct TACLine *line)
         width += sprintf(tacString + width, "ASM:%s", line->operands[0].name.str);
         break;
 
+    case TT_ASM_LOAD:
+        width += sprintf(tacString + width, "ASM:%s = %s", line->operands[0].name.str, operand1Str);
+        break;
+
+    case TT_ASM_STORE:
+        width += sprintf(tacString + width, "ASM:%s = %s", operand0Str, line->operands[1].name.str);
+        break;
+
     case TT_ADD:
     case TT_SUBTRACT:
     case TT_MUL:
@@ -382,6 +394,20 @@ enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex) /
     case TT_DO:
     case TT_ENDDO:
     case TT_ASM:
+        break;
+
+    case TT_ASM_LOAD:
+        if (operandIndex == 1)
+        {
+            use = U_READ;
+        }
+        break;
+
+    case TT_ASM_STORE:
+        if (operandIndex == 0)
+        {
+            use = U_WRITE;
+        }
         break;
 
     case TT_FUNCTION_CALL:
