@@ -33,10 +33,10 @@ void generate_code_for_program(struct SymbolTable *table,
                 break;
             }
 
-            // TODO: genericize this/sort out baremetal vs executable stuff
+            // TODO: don't provide _start ourselves, call exit() when done. crt0.s??
             if (!strcmp(generatedFunction->name, "main"))
             {
-                fprintf(outFile, "\t.globl _start\n_start:\n\tli sp, 0x81000000\n\tcall main\n\tpgm_done:\n\twfi\n\tj pgm_done\n");
+                fprintf(outFile, "\t.globl _start\n_start:\n\tcall main\n\tpgm_done:\n\twfi\n\tj pgm_done\n");
             }
 
             generate_code_for_function(outFile, generatedFunction, info, NULL, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
