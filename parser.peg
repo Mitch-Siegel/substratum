@@ -131,7 +131,7 @@ asm_kw_readvar
    <- "readvar" { manage_source_location(auxil, $0); }
 
 asm_kw_writevar
-   <- "readvar" { manage_source_location(auxil, $0); }
+   <- "writevar" { manage_source_location(auxil, $0); }
 
 asm_line
    <- (!eol [^"}"])* { $$ = AST_N(auxil, T_ASM, $0, $0s); }
@@ -345,6 +345,7 @@ statement
     / m:match _ kw_lparen _ e:expression _ kw_rparen _ b:match_body                                                        { $$ = AST_C(m, AST_S(e, b)); }
     / r:return _ e:expression kw_semicolon                                                                                 { $$ = AST_C(r, e); }
     / r:return _ kw_semicolon                                                                                              { $$ = r; }
+    / a:asm_block                                                                                                          { $$ = a; }
 
 statement_list
    <- sl:statement_list _ s:statement  { $$ = AST_S(sl, s); }

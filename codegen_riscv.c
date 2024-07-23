@@ -1162,7 +1162,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
         struct Register *placedOrFoundIn = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], loadedTo);
 
-        if(register_compare(placedOrFoundIn, loadedTo))
+        if (register_compare(placedOrFoundIn, loadedTo))
         {
             emit_instruction(generate, state, "\tmv %s, %s\n", loadedTo->name, placedOrFoundIn->name);
         }

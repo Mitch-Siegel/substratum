@@ -3524,12 +3524,12 @@ void walk_asm_block(struct Ast *tree,
             tac_operand_populate_from_variable(&asmLine->operands[0], scope_lookup_var(scope, asmRunner->child));
             asmLine->operands[1].name.str = asmRunner->child->sibling->value;
         }
+        break;
 
         default:
             log_tree(LOG_FATAL, tree, "Non-asm seen as contents of ASM block!");
         }
-            basic_block_append(block, asmLine, TACIndex);
-
+        basic_block_append(block, asmLine, TACIndex);
 
         asmRunner = asmRunner->sibling;
     }
