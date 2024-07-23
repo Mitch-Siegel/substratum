@@ -1146,6 +1146,47 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         emit_instruction(generate, state, "%s\n", generate->operands[0].name.str);
         break;
 
+    case TT_ASM_LOAD:
+    {
+        struct Register *loadedTo = find_register_by_name(info, generate->operands[0].name.str);
+        if (loadedTo == NULL)
+        {
+            log_tree(LOG_FATAL, &generate->correspondingTree, "%s does not name a valid register", generate->operands[0].name.str);
+        }
+
+        size_t loadSize = type_get_size(tac_get_type_of_operand(generate, 1), metadata->scope);
+        if (loadSize > sizeof(size_t))
+        {
+            log_tree(LOG_FATAL, &generate->correspondingTree, "Loaded variable has size %zu, which is larger than sizeof(size_t) (%zu)", loadSize, sizeof(size_t));
+        }
+
+        struct Register *placedOrFoundIn = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands[1], loadedTo);
+
+        if(register_compare(placedOrFoundIn, loadedTo))
+        {
+            emit_instruction(generate, state, "\tmv %s, %s\n", loadedTo->name, placedOrFoundIn->name);
+        }
+    }
+    break;
+
+    case TT_ASM_STORE:
+    {
+        struct Register *storedFrom = find_register_by_name(info, generate->operands[1].name.str);
+        if (storedFrom == NULL)
+        {
+            log_tree(LOG_FATAL, &generate->correspondingTree, "%s does not name a valid register", generate->operands[1].name.str);
+        }
+
+        size_t storeSize = type_get_size(tac_get_type_of_operand(generate, 0), metadata->scope);
+        if (storeSize > sizeof(size_t))
+        {
+            log_tree(LOG_FATAL, &generate->correspondingTree, "Stored variable has size %zu, which is larger than sizeof(size_t) (%zu)", storeSize, sizeof(size_t));
+        }
+
+        riscv_write_variable(generate, state, metadata, info, &generate->operands[0], storedFrom);
+    }
+    break;
+
     case TT_ASSIGN:
     {
         struct Lifetime *writtenLt = lifetime_find(metadata->allLifetimes, generate->operands[0].name.variable->name);
