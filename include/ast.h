@@ -13,6 +13,8 @@ enum TOKEN
     T_EXTERN,
     T_SIZEOF,
     T_ASM,
+    T_ASM_READVAR,
+    T_ASM_WRITEVAR,
     // types
     T_VARIABLE_DECLARATION,
     T_TYPE_NAME,

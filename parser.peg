@@ -120,7 +120,18 @@ asm_block
 
 asm_block_contents
    <- a1:asm_block_contents _ a2:asm_block_contents { $$ = AST_S(a1, a2); }
-    / _ a:asm_line                                 { $$ = a; }
+    / _ v:asm_variable_manipulation                 { $$ = v; }
+    / _ a:asm_line                                  { $$ = a; }
+
+asm_variable_manipulation
+   <- r:identifier _ b:basic_assignment _ asm_kw_readvar _ kw_lparen _ e:expression _ kw_rparen { ast_free(b); $$ = AST_C(AST_N(auxil, T_ASM_READVAR, "", $0s), AST_S(r, e)); }
+    / i:identifier _ b:basic_assignment _ asm_kw_writevar _ kw_lparen _ r:identifier _ kw_rparen { ast_free(b); $$ = AST_C(AST_N(auxil, T_ASM_WRITEVAR, "", $0s), AST_S(i, r)); }
+
+asm_kw_readvar
+   <- "readvar" { manage_source_location(auxil, $0); }
+
+asm_kw_writevar
+   <- "writevar" { manage_source_location(auxil, $0); }
 
 asm_line
    <- (!eol [^"}"])* { $$ = AST_N(auxil, T_ASM, $0, $0s); }
@@ -334,6 +345,7 @@ statement
     / m:match _ kw_lparen _ e:expression _ kw_rparen _ b:match_body                                                        { $$ = AST_C(m, AST_S(e, b)); }
     / r:return _ e:expression kw_semicolon                                                                                 { $$ = AST_C(r, e); }
     / r:return _ kw_semicolon                                                                                              { $$ = r; }
+    / a:asm_block                                                                                                          { $$ = a; }
 
 statement_list
    <- sl:statement_list _ s:statement  { $$ = AST_S(sl, s); }

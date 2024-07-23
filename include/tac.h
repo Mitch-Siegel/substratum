@@ -10,6 +10,8 @@
 enum TAC_TYPE
 {
     TT_ASM,
+    TT_ASM_LOAD,
+    TT_ASM_STORE,
     TT_ASSIGN,
     TT_ADD,
     TT_SUBTRACT,
