@@ -7,10 +7,10 @@ fun matchU8(u8 what)
         1: printStr("one\n");
         2:
         {
-            uart_putc('t');
-            uart_putc('w');
-            uart_putc('o');
-            uart_putc('\n');
+            putc('t');
+            putc('w');
+            putc('o');
+            putc('\n');
         }
         _: ;
     }
@@ -22,7 +22,7 @@ fun matchU8WithDefault(u8 what)
     {
         2: printStr("two\n");
         3: printStr("three\n");
-        _: printNum(what);
+        _: printNum(what, 1);
     }
 }
 
@@ -30,8 +30,8 @@ fun matchU8WithMultiple(u8 what)
 {
     match(what)
     {
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9: {uart_putc('0' + what); uart_putc('\n');}
-        _: printNum(what);
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9: {putc('0' + what); putc('\n');}
+        _: printNum(what, 1);
     }
 }
 
@@ -46,7 +46,7 @@ fun main()
         matchU8(i);
         i += 1;
     }
-    uart_putc('\n');
+    putc('\n');
 
     i = 0;
     while(i < 10)
@@ -54,7 +54,7 @@ fun main()
         matchU8WithDefault(i);
         i += 1;
     }
-    uart_putc('\n');
+    putc('\n');
 
     i = 0;
     while(i < 20)

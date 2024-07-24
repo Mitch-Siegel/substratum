@@ -3,22 +3,22 @@
 fun main()
 {
     u32 value = 0x1234;
-    printNum(value);
+    printNum(value, 1);
     value = 0x4D2;
-    printNum(value);
+    printNum(value, 1);
     value = 0x4d2;
-    printNum(value);
+    printNum(value, 1);
     value = 0xabcdef;
-    printNum(value);
+    printNum(value, 1);
 	value = 0xABCDEF;
-    printNum(value);
+    printNum(value, 1);
 	value = 0x1abcdef;
-    printNum(value);
+    printNum(value, 1);
 	value = 0x1ABCDEF;
-    printNum(value);
+    printNum(value, 1);
 	value = 0xabcdef1;
-    printNum(value);
+    printNum(value, 1);
 	value = 0xABCDEF1;
-    printNum(value);
+    printNum(value, 1);
     exit();
 }

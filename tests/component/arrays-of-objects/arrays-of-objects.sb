@@ -12,8 +12,7 @@ fun main()
 {
     myThings[3].howBig = 1234;
     myThings[2].howFast = 0xEEEEEEEEFFFFFFFF;
-    printHex(myThings[2].howFast);
-    uart_putc('\n');
-    printNum(myThings[3].howBig);
+    printHex(myThings[2].howFast, 1);
+    printNum(myThings[3].howBig, 1);
     exit();
 }

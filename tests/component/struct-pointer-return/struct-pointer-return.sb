@@ -8,10 +8,10 @@ struct Money
 
 Money *fun PrintMoney(Money *m)
 {
-    uart_putc('$');
-    printNum(m.dollars);
-    uart_putc('.');
-    printNum(m.cents);
+    putc('$');
+    printNum(m.dollars, 0);
+    putc('.');
+    printNum(m.cents, 1);
     return m;
 }
 
@@ -21,7 +21,7 @@ fun main()
     twelveDollars.dollars = 12;
     twelveDollars.cents = 0;
     PrintMoney(&twelveDollars).cents = 1;
-    printNum(PrintMoney(&twelveDollars).cents);
+    printNum(PrintMoney(&twelveDollars).cents, 1);
     twelveDollars.cents = 0;
     PrintMoney(&twelveDollars);
     exit();

@@ -8,12 +8,12 @@ fun main()
     printStr((u8 *)"\tThis string should be indented by one tab\n");
     printStr((u8 *)"This string should have a double quote after the colon:\"\n");
     printStr((u8 *)"This string should have a single quote after the colon:\'"); // no newline here
-    uart_putc('\n'); // newline
-    uart_putc('\t');
-    uart_putc('!'); // ! indented
-    uart_putc('a'); // 'a' replaced with 'A'
-    uart_putc('\b');
-    uart_putc('A');
-    uart_putc('\n');
+    putc('\n'); // newline
+    putc('\t');
+    putc('!'); // ! indented
+    putc('a'); // 'a' replaced with 'A'
+    putc('\b');
+    putc('A');
+    putc('\n');
     exit();
 }
