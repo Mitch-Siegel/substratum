@@ -376,12 +376,12 @@ void riscv_emit_epilogue(struct CodegenState *state, struct RegallocMetadata *me
     emit_instruction(NULL, state, "%s_done:\n", functionName);
     riscv_callee_restore_registers(state, metadata, info);
 
-    emit_instruction(NULL, state, "\taddi %s, %s, %zu\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
+    emit_instruction(NULL, state, "\taddi %s, %s, %zu # free up local stack\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
 
     riscv_emit_frame_load_for_size(NULL, state, info, info->framePointer, MACHINE_REGISTER_SIZE_BYTES, ((ssize_t)-1 * MACHINE_REGISTER_SIZE_BYTES));
 
     // TODO: don't emit when 0
-    emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, metadata->argStackSize);
+    emit_instruction(NULL, state, "\taddi %s, %s, %zd # free up argument stack\n", info->stackPointer->name, info->stackPointer->name, metadata->argStackSize);
 
     emit_instruction(NULL, state, "\tjalr zero, 0(%s)\n", info->returnAddress->name);
     fprintf(state->outFile, "\t.cfi_endproc\n");
