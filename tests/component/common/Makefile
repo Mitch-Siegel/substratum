@@ -43,8 +43,7 @@ programs: $(TEST_NAME).output
 	$(LD) -T ../link.lds -o $@ $^
 
 %.output: %.txt %.elf always
-	$(eval ENTRY_POINT=$(shell riscv64-unknown-elf-readelf --file-header $(word 2,$^) | grep "Entry point address" | grep -Eo "0x[0-9abcdef]+"))
-	$(eval $(shell qemu-system-riscv64 -machine virt -nographic -bios $(word 2,$^) -device loader,addr=$(ENTRY_POINT),cpu-num=0>$@))
+	$(eval $(shell qemu-riscv64 $(word 2,$^) >$@))
 	@DIFF_OUTPUT=$$(diff $@ $<); \
 	if [ $$? -ne 0 ]; then \
 		echo "Test '$(TEST_NAME)' failed"; \

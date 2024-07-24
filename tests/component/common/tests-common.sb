@@ -1,31 +1,93 @@
+#include "linux.sbh"
 #include "tests-common.sbh"
 
-fun uart_putc(u8 c) asm
+fun linux_write(u32 fd, u8 *buf, u64 count) asm
 {
-	addi sp, sp, -16
-	sb a0, 0(sp)
-	li a7, 64
-	li a0, 1
-	mv a1, sp
-	li a2, 1
+	addi sp, sp, -288
+	sd ra, 40(sp)
+	sd sp, 48(sp)
+	sd gp, 56(sp)
+	sd tp, 64(sp)
+	sd t0, 72(sp)
+	sd t1, 80(sp)
+	sd t2, 88(sp)
+	sd s0, 96(sp)
+	sd s1, 104(sp)
+	sd a1, 120(sp)
+	sd a2, 128(sp)
+	sd a3, 136(sp)
+	sd a4, 144(sp)
+	sd a5, 152(sp)
+	sd a6, 160(sp)
+	sd a7, 168(sp)
+	sd s2, 176(sp)
+	sd s3, 184(sp)
+	sd s4, 192(sp)
+	sd s5, 200(sp)
+	sd s6, 208(sp)
+	sd s7, 216(sp)
+	sd s8, 224(sp)
+	sd s9, 232(sp)
+	sd s10, 240(sp)
+	sd s11, 248(sp)
+	sd t3, 256(sp)
+	sd t4, 264(sp)
+	sd t5, 272(sp)
+	sd t6, 280(sp)
+
+	t0 = readvar(fd)
+	t1 = readvar(buf)
+	t2 = readvar(count)
+
+	li a7, LINUX_RISCV_WRITE
+	mv a0, t0
+	mv a1, t1
+	mv a2, t2
 	ecall
-	addi sp, sp, 16
+
+	ld ra, 40(sp)
+	ld sp, 48(sp)
+	ld gp, 56(sp)
+	ld tp, 64(sp)
+	ld t0, 72(sp)
+	ld t1, 80(sp)
+	ld t2, 88(sp)
+	ld s0, 96(sp)
+	ld s1, 104(sp)
+	ld a1, 120(sp)
+	ld a2, 128(sp)
+	ld a3, 136(sp)
+	ld a4, 144(sp)
+	ld a5, 152(sp)
+	ld a6, 160(sp)
+	ld a7, 168(sp)
+	ld s2, 176(sp)
+	ld s3, 184(sp)
+	ld s4, 192(sp)
+	ld s5, 200(sp)
+	ld s6, 208(sp)
+	ld s7, 216(sp)
+	ld s8, 224(sp)
+	ld s9, 232(sp)
+	ld s10, 240(sp)
+	ld s11, 248(sp)
+	ld t3, 256(sp)
+	ld t4, 264(sp)
+	ld t5, 272(sp)
+	ld t6, 280(sp)
+	addi sp, sp, 288
 }
 
-u32 fun mod(u32 a, u32 b)
+fun putc(u8 c) 
 {
-	while(a >= b)
-	{
-		a -= b;
-	}
-	return a;
+	linux_write(1, &c, 1);
 }
 
-fun printNum(u32 value)
+fun printNum(u64 value, u8 newline)
 {
-	u8[10] chars;
+	u8[21] chars;
 	u8 nChars = 0;
-	u32 vc = value;
+	u64 vc = value;
 	if(value == 0)
 	{
 		chars[0] = '0';
@@ -34,46 +96,55 @@ fun printNum(u32 value)
 
 	while(value > 0)
 	{
-		u8 rv = mod(value, 10);
+		u8 rv = value % 10;
 		chars[nChars] = rv + '0';
-		value = value / 10;
-		nChars = nChars + 1;
+		value /= 10;
+		nChars += 1;
 		chars[nChars] = 0;
 	}
 	
 	while(nChars > 0)
 	{
-		uart_putc(chars[nChars - 1]);
+		putc(chars[nChars - 1]);
 		nChars -= 1;
 	}
-	uart_putc(10);
+
+	if(newline)
+	{
+		putc('\n');
+	}
 }
 
-fun printHex(u64 value)
+fun printHex(u64 value, u8 newline)
 {
-	uart_putc('0');
-	uart_putc('x');
+	putc('0');
+	putc('x');
 	u8 i = 0;
 	while(i < 8)
 	{
-		u8 thisByte = (value >> ((7 - i) * 8)) & 255;
+		u8 thisByte = (value >> ((7 - i) * 8)) & 0xff;
 		u8 j = 0;
 		while(j < 2)
 		{
-			u8 thisNibble = (thisByte >> ((1 - j) * 4)) & 15;
+			u8 thisNibble = (thisByte >> ((1 - j) * 4)) & 0xf;
 			if(thisNibble < 10)
 			{
-				uart_putc('0' + thisNibble);
+				putc('0' + thisNibble);
 			}
 			else
 			{
-				uart_putc('A' + (thisNibble- 10));
+				putc('A' + (thisNibble- 10));
 			}
 			j = j + 1;
 		}
 
 
 		i = i + 1;
+	}
+
+	if(newline)
+	{
+		putc('\n');
 	}
 }
 
@@ -82,7 +153,7 @@ u32 fun printStr(u8 *str)
 	u32 idx = 0;
 	while(str[idx] != 0)
 	{
-		uart_putc(str[idx]);
+		putc(str[idx]);
 		idx = idx + 1;
 	}
 	return idx;
