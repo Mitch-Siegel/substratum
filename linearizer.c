@@ -269,7 +269,7 @@ struct VariableEntry *walk_variable_declaration(struct Ast *tree,
         log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_variable_declaration!", token_get_name(tree->type));
     }
 
-    struct Type declaredType;
+    struct Type declaredType = {0};
 
     /* 'struct' trees' children are the struct name
      * other variables' children are the pointer or variable name
