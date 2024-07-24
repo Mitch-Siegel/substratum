@@ -36,7 +36,7 @@ void generate_code_for_program(struct SymbolTable *table,
             // TODO: don't provide _start ourselves, call exit() when done. crt0.s??
             if (!strcmp(generatedFunction->name, "main"))
             {
-                fprintf(outFile, "\t.globl _start\n_start:\n\tcall main\n\tpgm_done:\n\twfi\n\tj pgm_done\n");
+                fprintf(outFile, ".align 2\n\t.globl _start\n_start:\n\tcall main\n\tpgm_done:\n\twfi\n\tj pgm_done\n");
             }
 
             generate_code_for_function(outFile, generatedFunction, info, NULL, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
@@ -144,11 +144,23 @@ void generate_code_for_string_literal(struct CodegenState *globalContext, struct
         InternalError("generateCodeForStringLiteral called with non-string-literal variable!\n");
     }
 
+    // .section        .data
+    //     .globl Counter_
+    //     .type   Counter_, @object
+    //     .size   Counter_, 8
+
+    fprintf(globalContext->outFile, ".section\t.rodata\n");
+    fprintf(globalContext->outFile, "\t.globl %s\n", variable->name);
+    fprintf(globalContext->outFile, "\t.type %s, @object\n", variable->name);
+    fprintf(globalContext->outFile, "\t.size %s, %zu\n", variable->name, type_get_size(&variable->type, globalScope));
+
     size_t stringLength = variable->type.array.size;
+    fprintf(globalContext->outFile, "%s:\n\t.asciz \"", variable->name);
     for (size_t charIndex = 0; charIndex < stringLength; charIndex++)
     {
-        fprintf(globalContext->outFile, "\t.asciz %d\n", ((char *)variable->type.array.initializeArrayTo[charIndex])[0]);
+        fprintf(globalContext->outFile, "%c", ((char *)(variable->type.array.initializeArrayTo[charIndex]))[0]);
     }
+    fprintf(globalContext->outFile, "\"\n");
 }
 
 void generate_code_for_initialized_global_array(struct CodegenState *globalContext, struct VariableEntry *variable, struct Scope *globalScope)
