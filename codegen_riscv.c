@@ -1526,7 +1526,7 @@ void riscv_generate_code_for_basic_block(struct CodegenState *state,
         for (regIterator = array_begin(&info->allRegisters); iterator_gettable(regIterator); iterator_next(regIterator))
         {
             struct Register *examinedRegister = iterator_get(regIterator);
-            if ((examinedRegister->containedLifetime != NULL) && !(lifetime_is_live_at_index(examinedRegister->containedLifetime, thisTac->index + 1)))
+            if ((examinedRegister->containedLifetime != NULL) && !(lifetime_is_live_after_index(examinedRegister->containedLifetime, thisTac->index)))
             {
                 examinedRegister->containedLifetime = NULL;
             }

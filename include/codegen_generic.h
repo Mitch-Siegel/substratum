@@ -6,8 +6,6 @@
 #define STACK_ALIGN_BYTES ((size_t)16)
 #define MAX_ASM_LINE_SIZE ((size_t)256)
 
-extern char *registerNames[MACHINE_REGISTER_COUNT];
-
 struct CodegenState
 {
     size_t *instructionIndex;
