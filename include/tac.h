@@ -5,6 +5,8 @@
 #include "tac_operand.h"
 #include "type.h"
 
+#include <mbcl/stack.h>
+
 #define N_TAC_OPERANDS_IN_LINE 3
 
 enum TAC_TYPE
@@ -53,6 +55,167 @@ enum TAC_TYPE
     TT_PHI,
 };
 
+// TT_ASM
+struct TacAsm
+{
+    char *asmString;
+};
+
+// TT_ASM_LOAD
+struct TacAsmLoad
+{
+    char *destRegisterName;
+    struct TACOperand sourceOperand;
+};
+
+// TT_ASM_STORE
+struct TacAsmStore
+{
+    struct TACOperand destinationOperand;
+    char *sourceRegisterName;
+};
+
+// TT_ASSIGN
+struct TacAssign
+{
+    struct TACOperand destination;
+    struct TACOperand source;
+};
+
+// TT_ADD,
+// TT_SUBTRACT,
+// TT_MUL,
+// TT_DIV,
+// TT_MODULO,
+// TT_BITWISE_AND,
+// TT_BITWISE_OR,
+// TT_BITWISE_XOR,
+// TT_BITWISE_NOT,
+// TT_LSHIFT,
+// TT_RSHIFT,
+struct TacArithmetic
+{
+    struct TACOperand destination;
+    struct TACOperand sourceA;
+    struct TACOperand sourceB;
+};
+
+// TT_LOAD,
+struct TacLoad
+{
+    struct TACOperand address;
+    struct TACOperand destination;
+};
+
+// TT_STORE,
+struct TacStore
+{
+    struct TACOperand source;
+    struct TACOperand address;
+};
+
+// TT_ADDROF,
+struct TacAddrof
+{
+    struct TACOperand destination;
+    struct TACOperand source;
+};
+
+// TT_ARRAY_LOAD,  // load an array element
+// TT_ARRAY_LEA,   // load a pointer to an array element
+struct TacArrayLoad
+{
+    struct TACOperand destination;
+    struct TACOperand array;
+    struct TACOperand index;
+};
+
+// TT_ARRAY_STORE, // store an array element
+struct TacArrayStore
+{
+    struct TACOperand array;
+    struct TACOperand index;
+    struct TACOperand source;
+};
+// TT_FIELD_LOAD,  // load a field of a struct
+// TT_FIELD_LEA,   // load a pointer to a field of a struct
+struct TacFieldLoad
+{
+    struct TACOperand destination;
+    struct TACOperand source;
+    char *fieldName;
+};
+// TT_FIELD_STORE, // store a field of a struct
+struct TacFieldStore
+{
+    struct TACOperand source;
+    struct TACOperand destination;
+    char *fieldName;
+};
+// TT_BEQ,         // branch equal
+// TT_BNE,         // branch not equal
+// TT_BGEU,        // branch greater than or equal unsigned
+// TT_BLTU,        // branch less than unsigned
+// TT_BGTU,        // branch greater than unsigned
+// TT_BLEU,        // branch less than or equal unsigned
+// TT_BEQZ,        // branch equal zero
+// TT_BNEZ,        // branch not equal zero
+struct TacConditionalBranch
+{
+    struct TACOperand sourceA;
+    struct TACOperand sourceB;
+    char *label;
+};
+
+// TT_JMP,
+struct TacJump
+{
+    char *label;
+};
+
+// TT_ARG_STORE,       // store a value at a (positive) offset from the stack pointer
+// TT_FUNCTION_CALL,   // call a function
+struct TacFunctionCall
+{
+    struct TACOperand destination;
+    char *functionName;
+    Stack *arguments;
+};
+// TT_METHOD_CALL,     // call a method of a struct
+struct TacMethodCall
+{
+    struct TACOperand destination;
+    struct TACOperand source;
+    char *methodName;
+    Stack *arguments;
+};
+// TT_ASSOCIATED_CALL, // call an associated function of a struct
+struct TacAssociatedCall
+{
+    struct TACOperand destination;
+    char *structName;
+    char *functionName;
+    Stack *arguments;
+};
+// TT_LABEL,
+struct TacLabel
+{
+    char *label;
+};
+// TT_RETURN,
+struct TacReturn
+{
+    struct TACOperand source;
+};
+// TT_DO,
+// TT_ENDDO,
+// TT_PHI,
+struct TacPhi
+{
+    struct TACOperand destination;
+    Stack *sources;
+};
+
 struct TACLine
 {
     char *allocFile;
@@ -60,7 +223,29 @@ struct TACLine
     // store the actual tree because some trees are manually generated and do not exist in the true parse tree
     // such as the += operator (a += b is transformed into a tree corresponding to a = a + b)
     struct Ast correspondingTree;
-    struct TACOperand operands[N_TAC_OPERANDS_IN_LINE];
+    union
+    {
+        struct TacAsm asm_;
+        struct TacAsmLoad load;
+        struct TacAsmStore store;
+        struct TacAssign assign;
+        struct TacArithmetic arithmetic;
+        struct TacLoad load;
+        struct TacStore store;
+        struct TacAddrof addrof;
+        struct TacArrayLoad arrayLoad;
+        struct TacArrayStore arrayStore;
+        struct TacFieldLoad fieldLoad;
+        struct TacFieldStore fieldStore;
+        struct TacConditionalBranch conditionalBranch;
+        struct TacJump jump;
+        struct TacFunctionCall functionCall;
+        struct TacMethodCall methodCall;
+        struct TacAssociatedCall associatedCall;
+        struct TacLabel label;
+        struct TacReturn return_;
+        struct TacPhi phi;
+    } operands;
     enum TAC_TYPE operation;
     // numerical index relative to other TAC lines
     size_t index;
