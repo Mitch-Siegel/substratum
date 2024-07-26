@@ -114,7 +114,7 @@ struct TacStore
 };
 
 // TT_ADDROF,
-struct TacAddrof
+struct TacAddrOf
 {
     struct TACOperand destination;
     struct TACOperand source;
@@ -231,7 +231,7 @@ struct TACLine
         struct TacArithmetic arithmetic;
         struct TacLoad load;
         struct TacStore store;
-        struct TacAddrof addrof;
+        struct TacAddrOf addrof;
         struct TacArrayLoad arrayLoad;
         struct TacArrayStore arrayStore;
         struct TacFieldLoad fieldLoad;
