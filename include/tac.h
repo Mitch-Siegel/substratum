@@ -5,7 +5,7 @@
 #include "tac_operand.h"
 #include "type.h"
 
-#include <mbcl/stack.h>
+#include <mbcl/deque.h>
 
 #define N_TAC_OPERANDS_IN_LINE 3
 
@@ -44,7 +44,6 @@ enum TAC_TYPE
     TT_BEQZ,        // branch equal zero
     TT_BNEZ,        // branch not equal zero
     TT_JMP,
-    TT_ARG_STORE,       // store a value at a (positive) offset from the stack pointer
     TT_FUNCTION_CALL,   // call a function
     TT_METHOD_CALL,     // call a method of a struct
     TT_ASSOCIATED_CALL, // call an associated function of a struct
@@ -164,48 +163,48 @@ struct TacConditionalBranch
 {
     struct TACOperand sourceA;
     struct TACOperand sourceB;
-    char *label;
+    size_t label;
 };
 
 // TT_JMP,
 struct TacJump
 {
-    char *label;
+    size_t label;
 };
 
 // TT_ARG_STORE,       // store a value at a (positive) offset from the stack pointer
 // TT_FUNCTION_CALL,   // call a function
 struct TacFunctionCall
 {
-    struct TACOperand destination;
+    struct TACOperand returnValue;
     char *functionName;
-    Stack *arguments;
+    Deque *arguments;
 };
 // TT_METHOD_CALL,     // call a method of a struct
 struct TacMethodCall
 {
-    struct TACOperand destination;
-    struct TACOperand source;
+    struct TACOperand returnValue;
+    struct TACOperand calledOn;
     char *methodName;
-    Stack *arguments;
+    Deque *arguments;
 };
 // TT_ASSOCIATED_CALL, // call an associated function of a struct
 struct TacAssociatedCall
 {
-    struct TACOperand destination;
+    struct TACOperand returnValue;
     char *structName;
     char *functionName;
-    Stack *arguments;
+    Deque *arguments;
 };
 // TT_LABEL,
 struct TacLabel
 {
-    char *label;
+    ssize_t labelNumber;
 };
 // TT_RETURN,
 struct TacReturn
 {
-    struct TACOperand source;
+    struct TACOperand returnValue;
 };
 // TT_DO,
 // TT_ENDDO,
@@ -213,7 +212,7 @@ struct TacReturn
 struct TacPhi
 {
     struct TACOperand destination;
-    Stack *sources;
+    Deque *sources;
 };
 
 struct TACLine
@@ -226,8 +225,8 @@ struct TACLine
     union
     {
         struct TacAsm asm_;
-        struct TacAsmLoad load;
-        struct TacAsmStore store;
+        struct TacAsmLoad asmLoad;
+        struct TacAsmStore asmStore;
         struct TacAssign assign;
         struct TacArithmetic arithmetic;
         struct TacLoad load;
@@ -253,8 +252,6 @@ struct TACLine
     size_t asmIndex;
     u8 reorderable;
 };
-
-struct Type *tac_get_type_of_operand(struct TACLine *line, unsigned index);
 
 char *tac_operation_get_name(enum TAC_TYPE tacOperation);
 

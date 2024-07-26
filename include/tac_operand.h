@@ -3,6 +3,8 @@
 
 #include "type.h"
 
+#include <mbcl/deque.h>
+
 struct VariableEntry;
 struct EnumEntry;
 struct Ast;
@@ -32,11 +34,10 @@ struct TACOperand
 };
 
 // Enum denoting how a particular TAC operand is used
-enum TAC_OPERAND_USE
+struct OperandUsages
 {
-    U_UNUSED,
-    U_READ,
-    U_WRITE,
+    Deque *read;
+    Deque *written;
 };
 
 char *tac_operand_sprint(void *operandData);

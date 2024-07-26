@@ -4,16 +4,6 @@
 #include "util.h"
 #include <stdio.h>
 
-struct Type *tac_get_type_of_operand(struct TACLine *line, unsigned index)
-{
-    if (index > 3)
-    {
-        InternalError("Bad index %d passed to TacGetTypeOfOperand!", index);
-    }
-
-    return tac_operand_get_type(&line->operands[index]);
-}
-
 char *tac_operation_get_name(enum TAC_TYPE tacOperation)
 {
     switch (tacOperation)
@@ -98,8 +88,6 @@ char *tac_operation_get_name(enum TAC_TYPE tacOperation)
         return "bnez";
     case TT_JMP:
         return "jmp";
-    case TT_ARG_STORE:
-        return "arg store";
     case TT_PHI:
         return "phi";
     }
@@ -109,16 +97,9 @@ char *tac_operation_get_name(enum TAC_TYPE tacOperation)
 struct TACLine *new_tac_line_function(enum TAC_TYPE operation, struct Ast *correspondingTree, char *file, int line)
 {
     struct TACLine *wip = malloc(sizeof(struct TACLine));
+    memset(wip, 0, sizeof(struct TACLine));
     wip->allocFile = file;
     wip->allocLine = line;
-    for (u8 operandIndex = 0; operandIndex < N_TAC_OPERANDS_IN_LINE; operandIndex++)
-    {
-        wip->operands[operandIndex].name.str = NULL;
-        wip->operands[operandIndex].ssaNumber = 0;
-        wip->operands[operandIndex].permutation = VP_UNUSED;
-
-        type_init(&wip->operands[operandIndex].castAsType);
-    }
     wip->correspondingTree = *correspondingTree;
 
     wip->operation = operation;
@@ -137,59 +118,71 @@ void print_tac_line(struct TACLine *line)
 }
 
 const u8 TAC_OPERAND_TYPE_MIN_WIDTH = 10;
-char *sprint_tac_operand_types(struct TACLine *line)
+char *sprint_tac_operand_type(struct TACOperand *operand)
 {
     const u32 SPRINT_TAC_OPERAND_LENGTH = 128;
     ssize_t width = 0;
 
     char *operandString = malloc(SPRINT_TAC_OPERAND_LENGTH * sizeof(char));
+    operandString[0] = '\0';
 
-    for (u8 operandIndex = 0; operandIndex < N_TAC_OPERANDS_IN_LINE; operandIndex++)
+    if (operand->permutation != VP_UNUSED)
     {
-        if (line->operands[operandIndex].permutation != VP_UNUSED)
+        width += sprintf(operandString + width, "[");
+        switch (operand->permutation)
         {
-            width += sprintf(operandString + width, "[");
-            switch (line->operands[operandIndex].permutation)
-            {
-            case VP_STANDARD:
-                width += sprintf(operandString + width, " ");
-                break;
-
-            case VP_TEMP:
-                width += sprintf(operandString + width, "T");
-                break;
-
-            case VP_LITERAL_STR:
-            case VP_LITERAL_VAL:
-                width += sprintf(operandString + width, "L");
-                break;
-
-            case VP_UNUSED:
-                break;
-            }
-
-            char *typeName = type_get_name(tac_operand_get_non_cast_type(&line->operands[operandIndex]));
-            width += sprintf(operandString + width, " %s", typeName);
-            free(typeName);
-            if (line->operands[operandIndex].castAsType.basicType != VT_NULL)
-            {
-                char *castAsTypeName = type_get_name(&line->operands[operandIndex].castAsType);
-                width += sprintf(operandString + width, "(%s)", castAsTypeName);
-                free(castAsTypeName);
-            }
-            width += sprintf(operandString + width, "]");
-        }
-        else
-        {
-            width += sprintf(operandString + width, "   -   ");
-        }
-        while ((width / (operandIndex + 1)) < TAC_OPERAND_TYPE_MIN_WIDTH)
-        {
+        case VP_STANDARD:
             width += sprintf(operandString + width, " ");
+            break;
+
+        case VP_TEMP:
+            width += sprintf(operandString + width, "T");
+            break;
+
+        case VP_LITERAL_STR:
+        case VP_LITERAL_VAL:
+            width += sprintf(operandString + width, "L");
+            break;
+
+        case VP_UNUSED:
+            break;
         }
+
+        char *typeName = type_get_name(tac_operand_get_non_cast_type(operand));
+        width += sprintf(operandString + width, " %s", typeName);
+        free(typeName);
+        if (operand->castAsType.basicType != VT_NULL)
+        {
+            char *castAsTypeName = type_get_name(&operand->castAsType);
+            width += sprintf(operandString + width, "(%s)", castAsTypeName);
+            free(castAsTypeName);
+        }
+        width += sprintf(operandString + width, "]");
+    }
+    else
+    {
+        width += sprintf(operandString + width, "   -   ");
     }
 
     return operandString;
+}
+
+ssize_t sprint_function_arguments(char *destStr, ssize_t width, Deque *arguments)
+{
+    width += sprintf(destStr + width, "(");
+    Iterator *argIterator = deque_front(arguments);
+    while (iterator_gettable(argIterator))
+    {
+        struct TACOperand *argOperand = iterator_get(argIterator);
+        iterator_next(argIterator);
+        char *argStr = tac_operand_sprint(argOperand);
+        width += sprintf(destStr + width, "%s%s", argStr, iterator_gettable(argIterator) ? ", " : "");
+        free(argStr);
+    }
+    iterator_free(argIterator);
+    width += sprintf(destStr + width, ")");
+
+    return width;
 }
 
 char *sprint_tac_line(struct TACLine *line)
@@ -198,23 +191,43 @@ char *sprint_tac_line(struct TACLine *line)
     char *tacString = malloc(SPRINT_TAC_LINE_LENGTH * sizeof(char));
     ssize_t width = sprintf(tacString, "%2lx:", line->index);
 
-    char *operand0Str = tac_operand_sprint(&line->operands[0]);
-    char *operand1Str = tac_operand_sprint(&line->operands[1]);
-    char *operand2Str = tac_operand_sprint(&line->operands[2]);
+    // char *operand0Str = tac_operand_sprint(&line->operands[0]);
+    // char *operand1Str = tac_operand_sprint(&line->operands[1]);
+    // char *operand2Str = tac_operand_sprint(&line->operands[2]);
 
     switch (line->operation)
     {
     case TT_ASM:
-        width += sprintf(tacString + width, "ASM:%s", line->operands[0].name.str);
-        break;
+    {
+        width += sprintf(tacString + width, "ASM:%s", line->operands.asm_.asmString);
+    }
+    break;
 
     case TT_ASM_LOAD:
-        width += sprintf(tacString + width, "ASM:%s = %s", line->operands[0].name.str, operand1Str);
-        break;
+    {
+        char *sourceStr = tac_operand_sprint(&line->operands.asmLoad.sourceOperand);
+        width += sprintf(tacString + width, "ASM:%s = %s", line->operands.asmLoad.destRegisterName, sourceStr);
+        free(sourceStr);
+    }
+    break;
 
     case TT_ASM_STORE:
-        width += sprintf(tacString + width, "ASM:%s = %s", operand0Str, line->operands[1].name.str);
-        break;
+    {
+        char *destStr = tac_operand_sprint(&line->operands.asmStore.destinationOperand);
+        width += sprintf(tacString + width, "ASM:%s = %s", destStr, line->operands.asmStore.sourceRegisterName);
+        free(destStr);
+    }
+    break;
+
+    case TT_ASSIGN:
+    {
+        char *sourceStr = tac_operand_sprint(&line->operands.assign.source);
+        char *destStr = tac_operand_sprint(&line->operands.assign.destination);
+        width += sprintf(tacString + width, "%s = %s", destStr, sourceStr);
+        free(sourceStr);
+        free(destStr);
+    }
+    break;
 
     case TT_ADD:
     case TT_SUBTRACT:
@@ -227,47 +240,102 @@ char *sprint_tac_line(struct TACLine *line)
     case TT_LSHIFT:
     case TT_RSHIFT:
     case TT_BITWISE_NOT:
-        width += sprintf(tacString + width, "%s = %s %s %s", operand0Str, operand1Str, tac_operation_get_name(line->operation), operand2Str);
-        break;
+    {
+        char *destStr = tac_operand_sprint(&line->operands.arithmetic.destination);
+        char *sourceAStr = tac_operand_sprint(&line->operands.arithmetic.sourceA);
+        char *sourceBStr = tac_operand_sprint(&line->operands.arithmetic.sourceB);
+        width += sprintf(tacString + width, "%s = %s %s %s", destStr, sourceAStr, tac_operation_get_name(line->operation), sourceBStr);
+        free(destStr);
+        free(sourceAStr);
+        free(sourceBStr);
+    }
+    break;
 
     case TT_LOAD:
-        width += sprintf(tacString + width, "%s = *%s", operand0Str, operand1Str);
-        break;
+    {
+        char *addressStr = tac_operand_sprint(&line->operands.load.address);
+        char *destinationStr = tac_operand_sprint(&line->operands.load.destination);
+        width += sprintf(tacString + width, "%s = *%s", destinationStr, addressStr);
+        free(addressStr);
+        free(destinationStr);
+    }
+    break;
 
     case TT_STORE:
-        width += sprintf(tacString + width, "*%s = %s", operand0Str, operand1Str);
-        break;
+    {
+        char *addressStr = tac_operand_sprint(&line->operands.store.address);
+        char *sourceStr = tac_operand_sprint(&line->operands.store.source);
+        width += sprintf(tacString + width, "*%s = %s", addressStr, sourceStr);
+        free(addressStr);
+        free(sourceStr);
+    }
+    break;
 
     case TT_ADDROF:
-        width += sprintf(tacString + width, "%s = &%s", operand0Str, operand1Str);
-        break;
+    {
+        char *sourceStr = tac_operand_sprint(&line->operands.addrof.destination);
+        char *destinationStr = tac_operand_sprint(&line->operands.addrof.destination);
+        width += sprintf(tacString + width, "%s = &%s", destinationStr, sourceStr);
+        free(sourceStr);
+        free(destinationStr);
+    }
+    break;
 
     case TT_ARRAY_LOAD:
-        // operands: dest base index
-        width += sprintf(tacString + width, "%s = %s[%s]", operand0Str, operand1Str, operand2Str);
-        break;
-
     case TT_ARRAY_LEA:
-        // operands: dest base index
-        width += sprintf(tacString + width, "%s = &%s[%s]", operand0Str, operand1Str, operand2Str);
-        break;
+    {
+        char *destinationStr = tac_operand_sprint(&line->operands.arrayLoad.destination);
+        char *arrayStr = tac_operand_sprint(&line->operands.arrayLoad.array);
+        char *indexStr = tac_operand_sprint(&line->operands.arrayLoad.index);
+        char *addrOfStr = NULL;
+        if (line->operation == TT_ARRAY_LEA)
+        {
+            addrOfStr = "&";
+        }
+        width += sprintf(tacString + width, "%s = %s%s[%s]", destinationStr, addrOfStr, arrayStr, indexStr);
+        free(destinationStr);
+        free(arrayStr);
+        free(indexStr);
+    }
+    break;
 
     case TT_ARRAY_STORE:
-        // operands: dest index source
-        width += sprintf(tacString + width, "%s[%s] = %s", operand0Str, operand1Str, operand2Str);
-        break;
+    {
+        char *arrayStr = tac_operand_sprint(&line->operands.arrayStore.array);
+        char *indexStr = tac_operand_sprint(&line->operands.arrayStore.index);
+        char *sourceStr = tac_operand_sprint(&line->operands.arrayStore.source);
+        width += sprintf(tacString + width, "%s[%s] = %s", arrayStr, indexStr, sourceStr);
+        free(arrayStr);
+        free(indexStr);
+        free(sourceStr);
+    }
+    break;
 
     case TT_FIELD_LOAD:
-        width += sprintf(tacString + width, "%s = %s.%s", operand0Str, operand1Str, line->operands[2].name.str);
-        break;
-
     case TT_FIELD_LEA:
-        width += sprintf(tacString + width, "%s = &(%s.%s)", operand0Str, operand1Str, line->operands[2].name.str);
-        break;
+    {
+        char *destinationStr = tac_operand_sprint(&line->operands.fieldLoad.destination);
+        char *sourceStr = tac_operand_sprint(&line->operands.fieldLoad.source);
+        char *addrOfStr = NULL;
+        if (line->operation == TT_FIELD_LEA)
+        {
+            addrOfStr = "&";
+        }
+        width += sprintf(tacString + width, "%s = %s%s.%s", destinationStr, addrOfStr, sourceStr, line->operands.fieldLoad.fieldName);
+        free(destinationStr);
+        free(sourceStr);
+    }
+    break;
 
     case TT_FIELD_STORE:
-        width += sprintf(tacString + width, "%s.%s = %s", operand0Str, line->operands[1].name.str, operand2Str);
-        break;
+    {
+        char *destinationStr = tac_operand_sprint(&line->operands.fieldLoad.destination);
+        char *sourceStr = tac_operand_sprint(&line->operands.fieldLoad.source);
+        width += sprintf(tacString + width, "%s.%s = %s", destinationStr, line->operands.fieldLoad.fieldName, sourceStr);
+        free(destinationStr);
+        free(sourceStr);
+    }
+    break;
 
     case TT_BEQ:
     case TT_BNE:
@@ -277,72 +345,82 @@ char *sprint_tac_line(struct TACLine *line)
     case TT_BLEU:
     case TT_BEQZ:
     case TT_BNEZ:
+    {
+        char *sourceAStr = tac_operand_sprint(&line->operands.conditionalBranch.sourceA);
+        char *sourceBStr = tac_operand_sprint(&line->operands.conditionalBranch.sourceB);
         width += sprintf(tacString + width, "%s %s, %s, basicblock %ld",
                          tac_operation_get_name(line->operation),
-                         operand1Str,
-                         operand2Str,
-                         line->operands[0].name.val);
-        break;
+                         sourceAStr,
+                         sourceBStr,
+                         line->operands.conditionalBranch.label);
+    }
+    break;
 
     case TT_JMP:
-        width += sprintf(tacString + width, "%s basicblock %ld", tac_operation_get_name(line->operation), line->operands[0].name.val);
-        break;
-
-    case TT_ASSIGN:
-        width += sprintf(tacString + width, "%s = %s", operand0Str, operand1Str);
-        break;
-
-    case TT_ARG_STORE:
-        width += sprintf(tacString + width, "store argument %s", operand0Str);
-        break;
+    {
+        width += sprintf(tacString + width, "%s basicblock %ld", tac_operation_get_name(line->operation), line->operands.jump.label);
+    }
+    break;
 
     case TT_FUNCTION_CALL:
-        if (line->operands[0].name.str == NULL)
+    {
+        if (tac_operand_get_type(&line->operands.functionCall.returnValue)->basicType != VT_NULL)
         {
-            width += sprintf(tacString + width, "call %s", line->operands[1].name.str);
+            char *returnValueStr = tac_operand_sprint(&line->operands.functionCall.returnValue);
+            width += sprintf(tacString + width, "%s = ", returnValueStr);
+            free(returnValueStr);
         }
-        else
-        {
-            width += sprintf(tacString + width, "%s = call %s", operand0Str, line->operands[1].name.str);
-        }
-        break;
+        width += sprintf(tacString + width, "call %s", line->operands.functionCall.functionName);
+        width = sprint_function_arguments(tacString, width, line->operands.functionCall.arguments);
+    }
+    break;
 
     case TT_METHOD_CALL:
-        if (line->operands[0].name.str == NULL)
+    {
+        if (tac_operand_get_type(&line->operands.methodCall.returnValue)->basicType != VT_NULL)
         {
-            width += sprintf(tacString + width, "call %s.%s", line->operands[2].castAsType.nonArray.complexType.name, line->operands[1].name.str);
+            char *returnValueStr = tac_operand_sprint(&line->operands.methodCall.returnValue);
+            width += sprintf(tacString + width, "%s = ", returnValueStr);
+            free(returnValueStr);
         }
-        else
-        {
-            width += sprintf(tacString + width, "%s = call %s.%s", operand0Str, line->operands[2].castAsType.nonArray.complexType.name, line->operands[1].name.str);
-        }
-        break;
+        char *calledOnStr = tac_operand_sprint(&line->operands.methodCall.calledOn);
+        width += sprintf(tacString + width, "call %s.%s", calledOnStr, line->operands.methodCall.methodName);
+        free(calledOnStr);
+        width = sprint_function_arguments(tacString, width, line->operands.methodCall.arguments);
+    }
+    break;
 
     case TT_ASSOCIATED_CALL:
-        if (line->operands[0].name.str == NULL)
+    {
+        if (tac_operand_get_type(&line->operands.associatedCall.returnValue)->basicType != VT_NULL)
         {
-            width += sprintf(tacString + width, "call %s::%s", line->operands[2].castAsType.nonArray.complexType.name, line->operands[1].name.str);
+            char *returnValueStr = tac_operand_sprint(&line->operands.associatedCall.returnValue);
+            width += sprintf(tacString + width, "%s = ", returnValueStr);
+            free(returnValueStr);
         }
-        else
-        {
-            width += sprintf(tacString + width, "%s = call %s::%s", operand0Str, line->operands[2].castAsType.nonArray.complexType.name, line->operands[1].name.str);
-        }
-        break;
+        width += sprintf(tacString + width, "call %s::%s", line->operands.associatedCall.structName, line->operands.associatedCall.functionName);
+        width = sprint_function_arguments(tacString, width, line->operands.associatedCall.arguments);
+    }
+    break;
 
+    // TODO: remove?
     case TT_LABEL:
-        width += sprintf(tacString + width, "~label %ld:", line->operands[0].name.val);
-        break;
+    {
+        width += sprintf(tacString + width, "~label %ld:", line->operands.label.labelNumber);
+    }
+    break;
 
     case TT_RETURN:
-        if (tac_get_type_of_operand(line, 0)->basicType != VT_NULL)
+    {
+        width += sprintf(tacString + width, "return");
+        if (tac_operand_get_type(&line->operands.return_.returnValue)->basicType != VT_NULL)
         {
-            width += sprintf(tacString + width, "ret %s", operand0Str);
+            char *returnValueStr = tac_operand_sprint(&line->operands.associatedCall.returnValue);
+            width += sprintf(tacString + width, " %s", returnValueStr);
+            free(returnValueStr);
         }
-        else
-        {
-            width += sprintf(tacString + width, "ret");
-        }
-        break;
+    }
+    break;
 
     case TT_DO:
         width += sprintf(tacString + width, "do");
@@ -353,13 +431,13 @@ char *sprint_tac_line(struct TACLine *line)
         break;
 
     case TT_PHI:
-        width += sprintf(tacString + width, "%s = phi(%s, %s)", operand0Str, operand1Str, operand2Str);
-        break;
+    {
+        char *destStr = tac_operand_sprint(&line->operands.phi.destination);
+        width += sprintf(tacString + width, "%s = phi", destStr);
+        sprint_function_arguments(tacString, width, line->operands.phi.sources);
     }
-
-    free(operand0Str);
-    free(operand1Str);
-    free(operand2Str);
+    break;
+    }
 
     const u32 SPRINT_TAC_LINE_ALIGN_WIDTH = 40;
     while (width < SPRINT_TAC_LINE_ALIGN_WIDTH)
@@ -367,13 +445,14 @@ char *sprint_tac_line(struct TACLine *line)
         width += sprintf(tacString + width, " ");
     }
 
-    char *operandString = sprint_tac_operand_types(line);
-    if (width + strlen(operandString) + 1 > SPRINT_TAC_LINE_LENGTH)
-    {
-        InternalError("sPrinTTACLINE length limit exceeded!");
-    }
-    width += sprintf(tacString + width, "\t%s", operandString);
-    free(operandString);
+    // TODO: print operand types in switch cases
+    // char *operandString = sprint_tac_operand_types(line);
+    // if (width + strlen(operandString) + 1 > SPRINT_TAC_LINE_LENGTH)
+    // {
+    //     InternalError("sPrinTTACLINE length limit exceeded!");
+    // }
+    // width += sprintf(tacString + width, "\t%s", operandString);
+    // free(operandString);
 
     char *trimmedString = malloc(width + 1);
     sprintf(trimmedString, "%s", tacString);
@@ -386,9 +465,12 @@ void free_tac(struct TACLine *line)
     free(line);
 }
 
-enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex) // NOLINT (forgive me)
+struct OperandUsages get_operand_usages(struct TACLine *line) // NOLINT (forgive me)
 {
-    enum TAC_OPERAND_USE use = U_UNUSED;
+    struct OperandUsages usages = {0};
+    usages.read = deque_new(NULL);
+    usages.written = deque_new(NULL);
+
     switch (line->operation)
     {
     case TT_DO:
@@ -397,47 +479,45 @@ enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex) /
         break;
 
     case TT_ASM_LOAD:
-        if (operandIndex == 1)
-        {
-            use = U_READ;
-        }
+        deque_push_back(usages.read, &line->operands.asmLoad.sourceOperand);
         break;
 
     case TT_ASM_STORE:
-        if (operandIndex == 0)
-        {
-            use = U_WRITE;
-        }
+        deque_push_back(usages.written, &line->operands.asmStore.destinationOperand);
         break;
 
     case TT_FUNCTION_CALL:
-    case TT_METHOD_CALL:
-    case TT_ASSOCIATED_CALL:
-        if ((operandIndex == 0) && (tac_get_type_of_operand(line, 0)->basicType != VT_NULL))
+        if ((tac_operand_get_type(&line->operands.functionCall.returnValue)->basicType != VT_NULL))
         {
-            use = U_WRITE;
+            deque_push_back(usages.written, &line->operands.functionCall.returnValue);
+        }
+        break;
+
+    case TT_METHOD_CALL:
+        if ((tac_operand_get_type(&line->operands.methodCall.returnValue)->basicType != VT_NULL))
+        {
+            deque_push_back(usages.written, &line->operands.methodCall.returnValue);
+        }
+        deque_push_back(usages.read, &line->operands.methodCall.calledOn);
+        break;
+
+    case TT_ASSOCIATED_CALL:
+        if ((tac_operand_get_type(&line->operands.associatedCall.returnValue)->basicType != VT_NULL))
+        {
+            deque_push_back(usages.written, &line->operands.associatedCall.returnValue);
         }
         break;
 
     case TT_ASSIGN:
-    {
-        if (operandIndex == 0)
-        {
-            use = U_WRITE;
-        }
-        else if (operandIndex == 1)
-        {
-            use = U_READ;
-        }
-    }
-    break;
+        deque_push_back(usages.written, &line->operands.assign.destination);
+        deque_push_back(usages.read, &line->operands.assign.source);
+        break;
 
     // single operand in slot 0
     case TT_RETURN:
-    case TT_ARG_STORE:
-        if (operandIndex == 0)
+        if ((tac_operand_get_type(&line->operands.return_.returnValue)->basicType != VT_NULL))
         {
-            use = U_READ;
+            deque_push_back(usages.written, &line->operands.return_.returnValue);
         }
         break;
 
@@ -452,77 +532,51 @@ enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex) /
     case TT_BITWISE_NOT:
     case TT_LSHIFT:
     case TT_RSHIFT:
-        if (operandIndex == 0)
-        {
-            use = U_WRITE;
-        }
-        else if ((operandIndex == 1) || (operandIndex == 2))
-        {
-            use = U_READ;
-        }
+        deque_push_back(usages.written, &line->operands.arithmetic.destination);
+        deque_push_back(usages.written, &line->operands.arithmetic.sourceA);
+        deque_push_back(usages.written, &line->operands.arithmetic.sourceB);
         break;
 
     // loading writes the destination, while reading from the pointer
     case TT_LOAD:
-        if (operandIndex == 0)
-        {
-            use = U_WRITE;
-        }
-        else if (operandIndex == 1)
-        {
-            use = U_READ;
-        }
+        deque_push_back(usages.written, &line->operands.load.destination);
+        deque_push_back(usages.read, &line->operands.load.address);
         break;
 
-    // storing actually reads the variable containing the pionter to the location which the data is wriTTEN
+    // storing actually reads the variable containing the pionter to the location which the data is written
     case TT_STORE:
-        if ((operandIndex == 0) || (operandIndex == 1))
-        {
-            use = U_READ;
-        }
+        deque_push_back(usages.read, &line->operands.store.address);
+        deque_push_back(usages.read, &line->operands.store.source);
         break;
 
     case TT_ADDROF:
-        if ((operandIndex == 0) || (operandIndex == 1))
-        {
-            use = U_WRITE;
-        }
+        deque_push_back(usages.written, &line->operands.addrof.destination);
+        deque_push_back(usages.read, &line->operands.addrof.source);
         break;
 
     case TT_ARRAY_LOAD:
     case TT_ARRAY_LEA:
+        deque_push_back(usages.written, &line->operands.arrayLoad.destination);
+        deque_push_back(usages.read, &line->operands.arrayLoad.array);
+        deque_push_back(usages.read, &line->operands.arrayLoad.index);
+        break;
+        break;
+
     case TT_ARRAY_STORE:
-        if (operandIndex == 0)
-        {
-            use = U_WRITE;
-        }
-        else if ((operandIndex == 1) || (operandIndex == 2))
-        {
-            use = U_READ;
-        }
+        deque_push_back(usages.read, &line->operands.arrayStore.array);
+        deque_push_back(usages.read, &line->operands.arrayStore.index);
+        deque_push_back(usages.read, &line->operands.arrayStore.source);
         break;
 
     case TT_FIELD_LOAD:
     case TT_FIELD_LEA:
-        if (operandIndex == 0)
-        {
-            use = U_WRITE;
-        }
-        else if (operandIndex == 1)
-        {
-            use = U_READ;
-        }
+        deque_push_back(usages.written, &line->operands.fieldLoad.destination);
+        deque_push_back(usages.read, &line->operands.fieldLoad.source);
         break;
 
     case TT_FIELD_STORE:
-        if (operandIndex == 0)
-        {
-            use = U_WRITE;
-        }
-        else if (operandIndex == 2)
-        {
-            use = U_READ;
-        }
+        deque_push_back(usages.written, &line->operands.fieldLoad.destination);
+        deque_push_back(usages.read, &line->operands.fieldLoad.source);
         break;
 
     case TT_BEQ:
@@ -533,24 +587,21 @@ enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex) /
     case TT_BLEU:
     case TT_BEQZ:
     case TT_BNEZ:
-    {
-        if ((operandIndex == 1) || (operandIndex == 2))
-        {
-            use = U_READ;
-        }
-    }
-    break;
+        deque_push_back(usages.read, &line->operands.conditionalBranch.sourceA);
+        deque_push_back(usages.read, &line->operands.conditionalBranch.sourceB);
+        break;
 
     case TT_PHI:
     {
-        if (operandIndex == 0)
+        deque_push_back(usages.written, &line->operands.phi.destination);
+        Iterator *sourceIterator = NULL;
+        for (sourceIterator = deque_front(line->operands.phi.sources); iterator_gettable(sourceIterator);)
         {
-            use = U_WRITE;
+            struct TACOperand *source = iterator_get(sourceIterator);
+            deque_push_back(usages.read, source);
+            iterator_next(sourceIterator);
         }
-        else if ((operandIndex == 1) || (operandIndex == 2))
-        {
-            use = U_READ;
-        }
+        iterator_free(sourceIterator);
     }
     break;
 
@@ -559,5 +610,5 @@ enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex) /
         break;
     }
 
-    return use;
+    return usages;
 }
