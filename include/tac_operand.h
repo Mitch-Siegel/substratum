@@ -33,13 +33,6 @@ struct TACOperand
     enum VARIABLE_PERMUTATIONS permutation; // enum of permutation (standard/temp/literal)
 };
 
-// Enum denoting how a particular TAC operand is used
-struct OperandUsages
-{
-    Deque *read;
-    Deque *written;
-};
-
 char *tac_operand_sprint(void *operandData);
 
 struct Type *tac_operand_get_type(struct TACOperand *operand);

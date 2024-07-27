@@ -468,8 +468,8 @@ void free_tac(struct TACLine *line)
 struct OperandUsages get_operand_usages(struct TACLine *line) // NOLINT (forgive me)
 {
     struct OperandUsages usages = {0};
-    usages.read = deque_new(NULL);
-    usages.written = deque_new(NULL);
+    usages.reads = deque_new(NULL);
+    usages.writes = deque_new(NULL);
 
     switch (line->operation)
     {
@@ -479,45 +479,45 @@ struct OperandUsages get_operand_usages(struct TACLine *line) // NOLINT (forgive
         break;
 
     case TT_ASM_LOAD:
-        deque_push_back(usages.read, &line->operands.asmLoad.sourceOperand);
+        deque_push_back(usages.reads, &line->operands.asmLoad.sourceOperand);
         break;
 
     case TT_ASM_STORE:
-        deque_push_back(usages.written, &line->operands.asmStore.destinationOperand);
+        deque_push_back(usages.writes, &line->operands.asmStore.destinationOperand);
         break;
 
     case TT_FUNCTION_CALL:
         if ((tac_operand_get_type(&line->operands.functionCall.returnValue)->basicType != VT_NULL))
         {
-            deque_push_back(usages.written, &line->operands.functionCall.returnValue);
+            deque_push_back(usages.writes, &line->operands.functionCall.returnValue);
         }
         break;
 
     case TT_METHOD_CALL:
         if ((tac_operand_get_type(&line->operands.methodCall.returnValue)->basicType != VT_NULL))
         {
-            deque_push_back(usages.written, &line->operands.methodCall.returnValue);
+            deque_push_back(usages.writes, &line->operands.methodCall.returnValue);
         }
-        deque_push_back(usages.read, &line->operands.methodCall.calledOn);
+        deque_push_back(usages.reads, &line->operands.methodCall.calledOn);
         break;
 
     case TT_ASSOCIATED_CALL:
         if ((tac_operand_get_type(&line->operands.associatedCall.returnValue)->basicType != VT_NULL))
         {
-            deque_push_back(usages.written, &line->operands.associatedCall.returnValue);
+            deque_push_back(usages.writes, &line->operands.associatedCall.returnValue);
         }
         break;
 
     case TT_ASSIGN:
-        deque_push_back(usages.written, &line->operands.assign.destination);
-        deque_push_back(usages.read, &line->operands.assign.source);
+        deque_push_back(usages.writes, &line->operands.assign.destination);
+        deque_push_back(usages.reads, &line->operands.assign.source);
         break;
 
     // single operand in slot 0
     case TT_RETURN:
         if ((tac_operand_get_type(&line->operands.return_.returnValue)->basicType != VT_NULL))
         {
-            deque_push_back(usages.written, &line->operands.return_.returnValue);
+            deque_push_back(usages.writes, &line->operands.return_.returnValue);
         }
         break;
 
@@ -532,51 +532,51 @@ struct OperandUsages get_operand_usages(struct TACLine *line) // NOLINT (forgive
     case TT_BITWISE_NOT:
     case TT_LSHIFT:
     case TT_RSHIFT:
-        deque_push_back(usages.written, &line->operands.arithmetic.destination);
-        deque_push_back(usages.written, &line->operands.arithmetic.sourceA);
-        deque_push_back(usages.written, &line->operands.arithmetic.sourceB);
+        deque_push_back(usages.writes, &line->operands.arithmetic.destination);
+        deque_push_back(usages.writes, &line->operands.arithmetic.sourceA);
+        deque_push_back(usages.writes, &line->operands.arithmetic.sourceB);
         break;
 
     // loading writes the destination, while reading from the pointer
     case TT_LOAD:
-        deque_push_back(usages.written, &line->operands.load.destination);
-        deque_push_back(usages.read, &line->operands.load.address);
+        deque_push_back(usages.writes, &line->operands.load.destination);
+        deque_push_back(usages.reads, &line->operands.load.address);
         break;
 
     // storing actually reads the variable containing the pionter to the location which the data is written
     case TT_STORE:
-        deque_push_back(usages.read, &line->operands.store.address);
-        deque_push_back(usages.read, &line->operands.store.source);
+        deque_push_back(usages.reads, &line->operands.store.address);
+        deque_push_back(usages.reads, &line->operands.store.source);
         break;
 
     case TT_ADDROF:
-        deque_push_back(usages.written, &line->operands.addrof.destination);
-        deque_push_back(usages.read, &line->operands.addrof.source);
+        deque_push_back(usages.writes, &line->operands.addrof.destination);
+        deque_push_back(usages.reads, &line->operands.addrof.source);
         break;
 
     case TT_ARRAY_LOAD:
     case TT_ARRAY_LEA:
-        deque_push_back(usages.written, &line->operands.arrayLoad.destination);
-        deque_push_back(usages.read, &line->operands.arrayLoad.array);
-        deque_push_back(usages.read, &line->operands.arrayLoad.index);
+        deque_push_back(usages.writes, &line->operands.arrayLoad.destination);
+        deque_push_back(usages.reads, &line->operands.arrayLoad.array);
+        deque_push_back(usages.reads, &line->operands.arrayLoad.index);
         break;
         break;
 
     case TT_ARRAY_STORE:
-        deque_push_back(usages.read, &line->operands.arrayStore.array);
-        deque_push_back(usages.read, &line->operands.arrayStore.index);
-        deque_push_back(usages.read, &line->operands.arrayStore.source);
+        deque_push_back(usages.reads, &line->operands.arrayStore.array);
+        deque_push_back(usages.reads, &line->operands.arrayStore.index);
+        deque_push_back(usages.reads, &line->operands.arrayStore.source);
         break;
 
     case TT_FIELD_LOAD:
     case TT_FIELD_LEA:
-        deque_push_back(usages.written, &line->operands.fieldLoad.destination);
-        deque_push_back(usages.read, &line->operands.fieldLoad.source);
+        deque_push_back(usages.writes, &line->operands.fieldLoad.destination);
+        deque_push_back(usages.reads, &line->operands.fieldLoad.source);
         break;
 
     case TT_FIELD_STORE:
-        deque_push_back(usages.written, &line->operands.fieldLoad.destination);
-        deque_push_back(usages.read, &line->operands.fieldLoad.source);
+        deque_push_back(usages.writes, &line->operands.fieldLoad.destination);
+        deque_push_back(usages.reads, &line->operands.fieldLoad.source);
         break;
 
     case TT_BEQ:
@@ -587,18 +587,18 @@ struct OperandUsages get_operand_usages(struct TACLine *line) // NOLINT (forgive
     case TT_BLEU:
     case TT_BEQZ:
     case TT_BNEZ:
-        deque_push_back(usages.read, &line->operands.conditionalBranch.sourceA);
-        deque_push_back(usages.read, &line->operands.conditionalBranch.sourceB);
+        deque_push_back(usages.reads, &line->operands.conditionalBranch.sourceA);
+        deque_push_back(usages.reads, &line->operands.conditionalBranch.sourceB);
         break;
 
     case TT_PHI:
     {
-        deque_push_back(usages.written, &line->operands.phi.destination);
+        deque_push_back(usages.writes, &line->operands.phi.destination);
         Iterator *sourceIterator = NULL;
         for (sourceIterator = deque_front(line->operands.phi.sources); iterator_gettable(sourceIterator);)
         {
             struct TACOperand *source = iterator_get(sourceIterator);
-            deque_push_back(usages.read, source);
+            deque_push_back(usages.reads, source);
             iterator_next(sourceIterator);
         }
         iterator_free(sourceIterator);

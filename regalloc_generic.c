@@ -6,11 +6,21 @@
 #include "util.h"
 #include <string.h>
 
-void *lifetime_find(Set *allLifetimes, char *lifetimeName)
+struct Lifetime *lifetime_find_by_name(Set *allLifetimes, char *lifetimeName)
 {
     struct Lifetime dummy = {0};
     dummy.name = lifetimeName;
     return set_find(allLifetimes, &dummy);
+}
+
+struct Lifetime *lifetime_find(Set *allLifetimes, struct TACOperand *operand)
+{
+    if (operand->permutation == VP_LITERAL_STR || operand->permutation == VP_LITERAL_VAL)
+    {
+        return NULL;
+    }
+
+    return lifetime_find_by_name(allLifetimes, operand->name.variable->name);
 }
 
 struct Lifetime *lifetime_new(char *name, struct Type *type, size_t start, u8 isGlobal, u8 mustSpill)
@@ -67,7 +77,7 @@ struct Lifetime *update_or_insert_lifetime(Set *lifetimes,
                                            u8 isGlobal,
                                            u8 mustSpill)
 {
-    struct Lifetime *thisLt = lifetime_find(lifetimes, name);
+    struct Lifetime *thisLt = lifetime_find_by_name(lifetimes, name);
     if (thisLt != NULL)
     {
         // this should never fire with well-formed TAC
@@ -190,21 +200,17 @@ void find_lifetimes_for_tac(Set *lifetimes, struct Scope *scope, struct TACLine 
         break;
     }
 
-    for (u8 operandIndex = 0; operandIndex < N_TAC_OPERANDS_IN_LINE; operandIndex++)
+    struct OperandUsages lineUsages = get_operand_usages(line);
+    while (lineUsages.reads->size > 0)
     {
-        switch (get_use_of_operand(line, operandIndex))
-        {
-        case U_UNUSED:
-            break;
+        struct TACOperand *readOperand = deque_pop_front(lineUsages.reads);
+        record_lifetime_read_for_operand(lifetimes, readOperand, scope, line->index);
+    }
 
-        case U_READ:
-            record_lifetime_read_for_operand(lifetimes, &line->operands[operandIndex], scope, line->index);
-            break;
-
-        case U_WRITE:
-            record_lifetime_write_for_operand(lifetimes, &line->operands[operandIndex], scope, line->index);
-            break;
-        }
+    while (lineUsages.writes->size > 0)
+    {
+        struct TACOperand *writeOperand = deque_pop_front(lineUsages.writes);
+        record_lifetime_write_for_operand(lifetimes, writeOperand, scope, line->index);
     }
 }
 

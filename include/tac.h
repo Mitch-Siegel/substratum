@@ -264,7 +264,14 @@ struct TACLine *new_tac_line_function(enum TAC_TYPE operation, struct Ast *corre
 
 void free_tac(struct TACLine *line);
 
-enum TAC_OPERAND_USE get_use_of_operand(struct TACLine *line, u8 operandIndex);
+// Enum denoting how a particular TAC operand is used
+struct OperandUsages
+{
+    Deque *reads;
+    Deque *writes;
+};
+
+struct OperandUsages get_operand_usages(struct TACLine *line);
 
 struct LinearizationResult
 {

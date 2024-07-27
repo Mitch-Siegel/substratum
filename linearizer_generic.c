@@ -50,12 +50,12 @@ struct TACLine *set_up_scale_multiplication(struct Ast *tree,
 {
     struct TACLine *scaleMultiplication = new_tac_line(TT_MUL, tree);
 
-    tac_operand_populate_as_temp(scope, &scaleMultiplication->operands[0], tempNum, offsetType);
+    tac_operand_populate_as_temp(scope, &scaleMultiplication->operands.arithmetic.destination, tempNum, offsetType);
 
     size_t scaleVal = type_get_size_when_dereferenced(pointerTypeOfToScale, scope);
-    scaleMultiplication->operands[2].name.val = scaleVal;
-    scaleMultiplication->operands[2].permutation = VP_LITERAL_VAL;
-    scaleMultiplication->operands[2].castAsType.basicType = select_variable_type_for_number(scaleVal);
+    scaleMultiplication->operands.arithmetic.sourceB.name.val = scaleVal;
+    scaleMultiplication->operands.arithmetic.sourceB.permutation = VP_LITERAL_VAL;
+    scaleMultiplication->operands.arithmetic.sourceB.castAsType.basicType = select_variable_type_for_number(scaleVal);
 
     return scaleMultiplication;
 }
@@ -88,7 +88,7 @@ void check_accessed_struct_for_dot(struct Ast *tree, struct Scope *scope, struct
 bool convert_array_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
 {
     bool changed = false;
-    struct Type *loaded = tac_get_type_of_operand(loadLine, 0);
+    struct Type *loaded = tac_operand_get_type(&loadLine->operands.arrayLoad.destination);
     // if we have a load instruction, convert it to the corresponding lea instrutcion
     // leave existing lea instructions alone
     switch (loadLine->operation)
@@ -110,14 +110,14 @@ bool convert_array_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest
     }
 
     // in case we are converting struct.member_which_is_struct.a, special case so that both operands guaranteed to have pointer type and thus be primitives for codegen
-    if (loadLine->operands[1].castAsType.basicType == VT_STRUCT)
+    if (loadLine->operands.arrayLoad.array.castAsType.basicType == VT_STRUCT)
     {
-        loadLine->operands[1].castAsType.pointerLevel++;
+        loadLine->operands.arrayLoad.array.castAsType.pointerLevel++;
     }
 
     if (dest != NULL)
     {
-        *dest = loadLine->operands[0];
+        *dest = loadLine->operands.arrayLoad.destination;
     }
 
     return changed;
@@ -128,7 +128,7 @@ bool convert_field_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest
     bool changed = false;
     // if we have a load instruction, convert it to the corresponding lea instrutcion
     // leave existing lea instructions alone
-    struct Type *loaded = tac_get_type_of_operand(loadLine, 0);
+    struct Type *loaded = tac_operand_get_type(&loadLine->operands.fieldLoad.destination);
     switch (loadLine->operation)
     {
     case TT_FIELD_LOAD:
@@ -146,14 +146,14 @@ bool convert_field_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest
     }
 
     // in case we are converting struct.member_which_is_struct.a, special case so that both operands guaranteed to have pointer type and thus be primitives for codegen
-    if (loadLine->operands[1].castAsType.basicType == VT_STRUCT)
+    if (loadLine->operands.fieldLoad.source.castAsType.basicType == VT_STRUCT)
     {
-        loadLine->operands[1].castAsType.pointerLevel++;
+        loadLine->operands.fieldLoad.source.castAsType.pointerLevel++;
     }
 
     if (dest != NULL)
     {
-        *dest = loadLine->operands[0];
+        *dest = loadLine->operands.fieldLoad.destination;
     }
 
     return changed;
