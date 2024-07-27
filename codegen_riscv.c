@@ -649,28 +649,30 @@ void riscv_emit_argument_stores(struct CodegenState *state,
                                 struct RegallocMetadata *metadata,
                                 struct MachineInfo *info,
                                 struct FunctionEntry *calledFunction,
-                                Stack *argumentOperands,
+                                Deque *argumentOperands,
                                 Set *callerSavedArgLifetimes)
 {
     log(LOG_DEBUG, "Emit argument stores for call to %s", calledFunction->name);
     // TODO: don't emit when 0
     emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize);
 
-    Iterator *argumentIterator = deque_rear(calledFunction->arguments);
     size_t stompedArgRegIdx = 0;
     // problem: when function a() calls function b(), if we are copying one of a's arguments to one of b's arguments it is possible that we will try to load one of a's arguments from a register which has been overwritten with one of b's arguments already.
-    while (argumentOperands->size > 0)
-    {
-        struct TACOperand *argOperand = stack_pop(argumentOperands);
 
-        struct VariableEntry *argument = iterator_get(argumentIterator);
+    if (argumentOperands->size != calledFunction->arguments->size)
+    {
+        InternalError("Argument count mismatch during internal argument store handling for function %s", calledFunction->name);
+    }
+
+    for (size_t argIndex = 0; argIndex < argumentOperands->size; argIndex++)
+    {
+        struct TACOperand *argOperand = deque_at(argumentOperands, argIndex);
+        struct VariableEntry *argument = deque_at(calledFunction->arguments, argIndex);
 
         if (type_compare_allow_implicit_widening(tac_operand_get_type(argOperand), &argument->type))
         {
             InternalError("Type mismatch during internal argument store handling for argument %s of function %s", argument->name, calledFunction->name);
         }
-
-        iterator_prev(argumentIterator);
 
         struct Lifetime *argLifetime = lifetime_find_by_name(calledFunction->regalloc.allLifetimes, argument->name);
 
@@ -769,7 +771,6 @@ void riscv_emit_argument_stores(struct CodegenState *state,
             break;
         }
     }
-    iterator_free(argumentIterator);
 }
 // NOLINTEND(readability-function-cognitive-complexity)
 
@@ -1371,10 +1372,8 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
         Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &calledFunction->regalloc, info);
 
-        riscv_emit_argument_stores(state, metadata, info, calledFunction, calledFunctionArguments, callerSavedArgLifetimes);
+        riscv_emit_argument_stores(state, metadata, info, calledFunction, generate->operands.functionCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
-
-        calledFunctionArguments->size = 0;
 
         if (calledFunction->isDefined)
         {
@@ -1401,10 +1400,8 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
         Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &calledMethod->regalloc, info);
 
-        riscv_emit_argument_stores(state, metadata, info, calledMethod, calledFunctionArguments, callerSavedArgLifetimes);
+        riscv_emit_argument_stores(state, metadata, info, calledMethod, generate->operands.methodCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
-
-        calledFunctionArguments->size = 0;
 
         // TODO: member function name mangling/uniqueness
         if (calledMethod->isDefined)
@@ -1433,10 +1430,8 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
         Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &calledAssociated->regalloc, info);
 
-        riscv_emit_argument_stores(state, metadata, info, calledAssociated, calledFunctionArguments, callerSavedArgLifetimes);
+        riscv_emit_argument_stores(state, metadata, info, calledAssociated, generate->operands.associatedCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
-
-        calledFunctionArguments->size = 0;
 
         // TODO: associated function name mangling/uniqueness
         if (calledAssociated->isDefined)
