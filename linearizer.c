@@ -1911,7 +1911,7 @@ void walk_assignment(struct Ast *tree,
             walk_sub_expression(lhs->child, block, scope, TACIndex, tempNum, &assignment->operands.fieldStore.destination);
         }
         // TODO: more verbose error handling if the lhs->child subexpression is not a struct, or has wrong pointer level
-        struct StructEntry *writtenStruct = scope_lookup_struct_by_type(scope, tac_operand_get_type(&assignment->operands.assign.destination));
+        struct StructEntry *writtenStruct = scope_lookup_struct_by_type(scope, tac_operand_get_type(&assignment->operands.fieldStore.destination));
         struct StructField *writtenField = struct_lookup_field(writtenStruct, lhs->child->sibling, scope);
         assignment->operands.fieldStore.fieldName = writtenField->variable->name;
         assignment->operands.fieldStore.source = assignedValue;
