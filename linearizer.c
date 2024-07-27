@@ -2387,16 +2387,22 @@ void walk_sub_expression(struct Ast *tree,
         break;
 
     case T_FUNCTION_CALL:
+    {
         walk_function_call(tree, block, scope, TACIndex, tempNum, destinationOperand);
-        break;
+    }
+    break;
 
     case T_METHOD_CALL:
+    {
         walk_method_call(tree, block, scope, TACIndex, tempNum, destinationOperand);
-        break;
+    }
+    break;
 
     case T_ASSOCIATED_CALL:
+    {
         walk_associated_call(tree, block, scope, TACIndex, tempNum, destinationOperand);
-        break;
+    }
+    break;
 
     case T_DOT:
     {
@@ -2655,7 +2661,8 @@ Deque *walk_argument_pushes(struct Ast *argumentRunner,
     return argumentPushes;
 }
 
-void handle_struct_return(struct Ast *callTree,
+// returns true if the function returns a struct and the return value has been handled, false otherwise
+bool handle_struct_return(struct Ast *callTree,
                           struct FunctionEntry *calledFunction,
                           struct BasicBlock *block,
                           struct Scope *scope,
@@ -2666,7 +2673,7 @@ void handle_struct_return(struct Ast *callTree,
 {
     if (!type_is_object(&calledFunction->returnType))
     {
-        return;
+        return false;
     }
 
     log(LOG_DEBUG, "handleStructReturn for called function %s", calledFunction->name);
@@ -2691,17 +2698,8 @@ void handle_struct_return(struct Ast *callTree,
         log(LOG_FATAL, "Unused return value for function %s returning %s", calledFunction->name, type_get_name(&calledFunction->returnType));
     }
     deque_push_front(argumentPushes, outPointerArg);
-}
 
-void reserve_and_store_stack_args(struct Ast *callTree, struct FunctionEntry *calledFunction, Deque *argumentPushes, struct BasicBlock *block, size_t *TACIndex)
-{
-    log_tree(LOG_DEBUG, callTree, "reserveAndStoreStackArgs");
-
-    while (argumentPushes->size > 0)
-    {
-        struct TACLine *push = deque_pop_front(argumentPushes);
-        basic_block_append(block, push, TACIndex);
-    }
+    return true;
 }
 
 void walk_function_call(struct Ast *tree,
@@ -2732,12 +2730,14 @@ void walk_function_call(struct Ast *tree,
                                                  tempNum,
                                                  destinationOperand);
 
-    handle_struct_return(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
-
-    reserve_and_store_stack_args(tree, calledFunction, argumentPushes, block, TACIndex);
+    bool haveStructReturn = handle_struct_return(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
 
     struct TACLine *callLine = new_tac_line(TT_FUNCTION_CALL, tree);
-    callLine->operands.functionCall.returnValue = *destinationOperand;
+    if (!haveStructReturn && (destinationOperand != NULL))
+    {
+        tac_operand_populate_as_temp(scope, destinationOperand, tempNum, &calledFunction->returnType);
+        callLine->operands.functionCall.returnValue = *destinationOperand;
+    }
     callLine->operands.functionCall.functionName = calledFunction->name;
     callLine->operands.functionCall.arguments = argumentPushes;
     basic_block_append(block, callLine, TACIndex);
@@ -2813,14 +2813,14 @@ void walk_method_call(struct Ast *tree,
 
     deque_push_front(argumentPushes, structOperand);
 
-    handle_struct_return(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
-
-    reserve_and_store_stack_args(tree, calledFunction, argumentPushes, block, TACIndex);
-
-    deque_free(argumentPushes);
+    bool haveStructReturn = handle_struct_return(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
 
     struct TACLine *callLine = new_tac_line(TT_METHOD_CALL, tree);
-    callLine->operands.methodCall.returnValue = *destinationOperand;
+    if (!haveStructReturn && (destinationOperand != NULL))
+    {
+        tac_operand_populate_as_temp(scope, destinationOperand, tempNum, &calledFunction->returnType);
+        callLine->operands.methodCall.returnValue = *destinationOperand;
+    }
     callLine->operands.methodCall.calledOn = *structOperand;
     callLine->operands.methodCall.methodName = calledFunction->name;
     callLine->operands.methodCall.arguments = argumentPushes;
@@ -2864,14 +2864,14 @@ void walk_associated_call(struct Ast *tree,
                                                  TACIndex,
                                                  tempNum,
                                                  destinationOperand);
-    handle_struct_return(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
-
-    reserve_and_store_stack_args(tree, calledFunction, argumentPushes, block, TACIndex);
-
-    deque_free(argumentPushes);
+    bool haveStructReturn = handle_struct_return(tree, calledFunction, block, scope, TACIndex, tempNum, argumentPushes, destinationOperand);
 
     struct TACLine *callLine = new_tac_line(TT_ASSOCIATED_CALL, tree);
-    callLine->operands.associatedCall.returnValue = *destinationOperand;
+    if (!haveStructReturn && (destinationOperand != NULL))
+    {
+        tac_operand_populate_as_temp(scope, destinationOperand, tempNum, &calledFunction->returnType);
+        callLine->operands.associatedCall.returnValue = *destinationOperand;
+    }
     callLine->operands.associatedCall.functionName = calledFunction->name;
     callLine->operands.associatedCall.structName = structCalledOn->name;
     callLine->operands.associatedCall.arguments = argumentPushes;

@@ -353,6 +353,8 @@ char *sprint_tac_line(struct TACLine *line)
                          sourceAStr,
                          sourceBStr,
                          line->operands.conditionalBranch.label);
+        free(sourceAStr);
+        free(sourceBStr);
     }
     break;
 
@@ -462,6 +464,92 @@ char *sprint_tac_line(struct TACLine *line)
 
 void free_tac(struct TACLine *line)
 {
+    switch (line->operation)
+    {
+    case TT_PHI:
+    {
+        while (line->operands.phi.sources->size > 0)
+        {
+            struct TACOperand *source = deque_pop_front(line->operands.phi.sources);
+            free(source);
+        }
+        deque_free(line->operands.phi.sources);
+    }
+    break;
+
+    case TT_FUNCTION_CALL:
+    {
+        while (line->operands.functionCall.arguments->size > 0)
+        {
+            struct TACOperand *argument = deque_pop_front(line->operands.functionCall.arguments);
+            free(argument);
+        }
+        deque_free(line->operands.functionCall.arguments);
+    }
+    break;
+
+    case TT_METHOD_CALL:
+    {
+        while (line->operands.methodCall.arguments->size > 0)
+        {
+            struct TACOperand *argument = deque_pop_front(line->operands.methodCall.arguments);
+            free(argument);
+        }
+        deque_free(line->operands.methodCall.arguments);
+    }
+    break;
+
+    case TT_ASSOCIATED_CALL:
+    {
+        while (line->operands.associatedCall.arguments->size > 0)
+        {
+            struct TACOperand *argument = deque_pop_front(line->operands.associatedCall.arguments);
+            free(argument);
+        }
+        deque_free(line->operands.associatedCall.arguments);
+    }
+    break;
+
+    case TT_ASM:
+    case TT_ASM_LOAD:
+    case TT_ASM_STORE:
+    case TT_ASSIGN:
+    case TT_ADD:
+    case TT_SUBTRACT:
+    case TT_MUL:
+    case TT_DIV:
+    case TT_MODULO:
+    case TT_BITWISE_AND:
+    case TT_BITWISE_OR:
+    case TT_BITWISE_XOR:
+    case TT_BITWISE_NOT:
+    case TT_LSHIFT:
+    case TT_RSHIFT:
+    case TT_LOAD:
+    case TT_STORE:
+    case TT_ADDROF:
+    case TT_ARRAY_LOAD:
+    case TT_ARRAY_LEA:
+    case TT_ARRAY_STORE:
+    case TT_FIELD_LOAD:
+    case TT_FIELD_LEA:
+    case TT_FIELD_STORE:
+    case TT_BEQ:
+    case TT_BNE:
+    case TT_BGEU:
+    case TT_BLTU:
+    case TT_BGTU:
+    case TT_BLEU:
+    case TT_BEQZ:
+    case TT_BNEZ:
+    case TT_JMP:
+    case TT_LABEL:
+    case TT_RETURN:
+    case TT_DO:
+    case TT_ENDDO:
+        break;
+    }
+
     free(line);
 }
 

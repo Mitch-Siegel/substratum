@@ -212,6 +212,9 @@ void find_lifetimes_for_tac(Set *lifetimes, struct Scope *scope, struct TACLine 
         struct TACOperand *writeOperand = deque_pop_front(lineUsages.writes);
         record_lifetime_write_for_operand(lifetimes, writeOperand, scope, line->index);
     }
+
+    deque_free(lineUsages.reads);
+    deque_free(lineUsages.writes);
 }
 
 void add_argument_lifetimes_for_scope(Set *lifetimes, struct Scope *scope)
