@@ -1311,7 +1311,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     case TT_ADDROF:
     {
         struct Register *addrReg = pick_write_register(metadata, &generate->operands.addrof.source, acquire_scratch_register(info));
-        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands.addrof.destination, addrReg);
+        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands.addrof.source, addrReg);
         riscv_write_variable(generate, state, metadata, info, &generate->operands.addrof.destination, addrReg);
     }
     break;

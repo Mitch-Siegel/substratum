@@ -2824,6 +2824,8 @@ void walk_method_call(struct Ast *tree,
     callLine->operands.methodCall.calledOn = *structOperand;
     callLine->operands.methodCall.methodName = calledFunction->name;
     callLine->operands.methodCall.arguments = argumentPushes;
+
+    basic_block_append(block, callLine, TACIndex);
 }
 
 void walk_associated_call(struct Ast *tree,
@@ -2875,6 +2877,8 @@ void walk_associated_call(struct Ast *tree,
     callLine->operands.associatedCall.functionName = calledFunction->name;
     callLine->operands.associatedCall.structName = structCalledOn->name;
     callLine->operands.associatedCall.arguments = argumentPushes;
+
+    basic_block_append(block, callLine, TACIndex);
 }
 
 struct TACLine *walk_field_access(struct Ast *tree,

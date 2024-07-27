@@ -287,7 +287,7 @@ char *sprint_tac_line(struct TACLine *line)
         char *destinationStr = tac_operand_sprint(&line->operands.arrayLoad.destination);
         char *arrayStr = tac_operand_sprint(&line->operands.arrayLoad.array);
         char *indexStr = tac_operand_sprint(&line->operands.arrayLoad.index);
-        char *addrOfStr = NULL;
+        char *addrOfStr = "";
         if (line->operation == TT_ARRAY_LEA)
         {
             addrOfStr = "&";
@@ -316,7 +316,7 @@ char *sprint_tac_line(struct TACLine *line)
     {
         char *destinationStr = tac_operand_sprint(&line->operands.fieldLoad.destination);
         char *sourceStr = tac_operand_sprint(&line->operands.fieldLoad.source);
-        char *addrOfStr = NULL;
+        char *addrOfStr = "";
         if (line->operation == TT_FIELD_LEA)
         {
             addrOfStr = "&";
@@ -579,12 +579,22 @@ struct OperandUsages get_operand_usages(struct TACLine *line) // NOLINT (forgive
         {
             deque_push_back(usages.writes, &line->operands.functionCall.returnValue);
         }
+        for (size_t argIdx = 0; argIdx < line->operands.functionCall.arguments->size; argIdx++)
+        {
+            struct TACOperand *argument = deque_at(line->operands.functionCall.arguments, argIdx);
+            deque_push_back(usages.reads, argument);
+        }
         break;
 
     case TT_METHOD_CALL:
         if ((tac_operand_get_type(&line->operands.methodCall.returnValue)->basicType != VT_NULL))
         {
             deque_push_back(usages.writes, &line->operands.methodCall.returnValue);
+        }
+        for (size_t argIdx = 0; argIdx < line->operands.methodCall.arguments->size; argIdx++)
+        {
+            struct TACOperand *argument = deque_at(line->operands.methodCall.arguments, argIdx);
+            deque_push_back(usages.reads, argument);
         }
         deque_push_back(usages.reads, &line->operands.methodCall.calledOn);
         break;
@@ -593,6 +603,11 @@ struct OperandUsages get_operand_usages(struct TACLine *line) // NOLINT (forgive
         if ((tac_operand_get_type(&line->operands.associatedCall.returnValue)->basicType != VT_NULL))
         {
             deque_push_back(usages.writes, &line->operands.associatedCall.returnValue);
+        }
+        for (size_t argIdx = 0; argIdx < line->operands.associatedCall.arguments->size; argIdx++)
+        {
+            struct TACOperand *argument = deque_at(line->operands.associatedCall.arguments, argIdx);
+            deque_push_back(usages.reads, argument);
         }
         break;
 
