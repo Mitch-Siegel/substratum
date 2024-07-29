@@ -1530,7 +1530,7 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
             basic_block_append(caseBlock, dataExtractionLine, tacIndex);
         }
         scope_add_basic_block(armScope, caseBlock);
-        matchJump->operands.jump.label = walk_match_case_block(actionTree, caseBlock, armScope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+        matchJump->operands.conditionalBranch.label = walk_match_case_block(actionTree, caseBlock, armScope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
     }
     break;
 
@@ -1611,7 +1611,7 @@ void walk_non_enum_match_arm(struct Ast *matchedValueTree,
 
         struct BasicBlock *caseBlock = basic_block_new((*labelNum)++);
         scope_add_basic_block(scope, caseBlock);
-        matchJump->operands.jump.label = walk_match_case_block(actionTree, caseBlock, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+        matchJump->operands.conditionalBranch.label = walk_match_case_block(actionTree, caseBlock, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
     }
     break;
 
