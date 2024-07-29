@@ -1815,7 +1815,7 @@ void walk_match_statement(struct Ast *tree,
     }
 
     struct TACLine *matchDoneJump = new_tac_line(TT_JMP, tree);
-    matchDoneJump->operands[0].name.val = controlConvergesToLabel;
+    matchDoneJump->operands.jump.label = controlConvergesToLabel;
     basic_block_append(block, matchDoneJump, tacIndex);
 
     // reconcile tac index, remember that we may have had more branching operations than tac lines in any given match arm so the actual tacIndex itself may be the max

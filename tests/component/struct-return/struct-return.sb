@@ -29,6 +29,7 @@ impl Money {
 
     public fun Print(self)
     {
+        putc('$');
         printNum((u32)self.dollars, 0);
         putc('.');
         printNum(self.cents, 1);
