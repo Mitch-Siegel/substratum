@@ -1232,65 +1232,49 @@ void walk_if_statement(struct Ast *tree,
         log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_if_statement!", token_get_name(tree->type));
     }
 
-    // if we have an else block
-    if (tree->child->sibling->sibling != NULL)
+    struct Scope *ifScope = scope_create_sub_scope(scope);
+    struct BasicBlock *ifBlock = basic_block_new((*labelNum)++);
+    scope_add_basic_block(ifScope, ifBlock);
+
+    struct TACLine *enterIfJump = new_tac_line(TT_JMP, tree);
+    enterIfJump->operands.jump.label = ifBlock->labelNum;
+
+    size_t falseJumpLabelNum = controlConvergesToLabel;
+    struct Ast *elseTree = tree->child->sibling->sibling;
+    if (elseTree != NULL)
     {
-        ssize_t elseLabel = (*labelNum)++;
-        block = walk_condition_check(tree->child, block, scope, TACIndex, tempNum, labelNum, elseLabel);
-
-        struct Scope *ifScope = scope_create_sub_scope(scope);
-        struct BasicBlock *ifBlock = basic_block_new((*labelNum)++);
-        scope_add_basic_block(ifScope, ifBlock);
-
-        struct TACLine *enterIfJump = new_tac_line(TT_JMP, tree);
-        enterIfJump->operands.jump.label = ifBlock->labelNum;
-        basic_block_append(block, enterIfJump, TACIndex);
-
-        struct Ast *ifBody = tree->child->sibling;
-        if (ifBody->type == T_COMPOUND_STATEMENT)
-        {
-            walk_scope(ifBody, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
-        }
-        else
-        {
-            walk_statement(ifBody, &ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
-        }
-
-        struct Scope *elseScope = scope_create_sub_scope(scope);
-        struct BasicBlock *elseBlock = basic_block_new(elseLabel);
-        scope_add_basic_block(elseScope, elseBlock);
-
-        struct Ast *elseBody = tree->child->sibling->sibling;
-        if (elseBody->type == T_COMPOUND_STATEMENT)
-        {
-            walk_scope(elseBody, elseBlock, elseScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
-        }
-        else
-        {
-            walk_statement(elseBody, &elseBlock, elseScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
-        }
+        falseJumpLabelNum = (*labelNum)++;
     }
-    // no else block
+
+    block = walk_condition_check(tree->child, block, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
+
+    basic_block_append(block, enterIfJump, TACIndex);
+
+    struct Ast *ifBody = tree->child->sibling;
+    if (ifBody->type == T_COMPOUND_STATEMENT)
+    {
+        walk_scope(ifBody, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+    }
     else
     {
-        block = walk_condition_check(tree->child, block, scope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+        walk_statement(ifBody, &ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+    }
 
-        struct Scope *ifScope = scope_create_sub_scope(scope);
-        struct BasicBlock *ifBlock = basic_block_new((*labelNum)++);
-        scope_add_basic_block(ifScope, ifBlock);
+    // if we have an else block
+    if (elseTree != NULL)
+    {
+        struct Scope *elseScope = scope_create_sub_scope(scope);
+        struct BasicBlock *elseBlock = basic_block_new(falseJumpLabelNum);
 
-        struct TACLine *enterIfJump = new_tac_line(TT_JMP, tree);
-        enterIfJump->operands.jump.label = ifBlock->labelNum;
-        basic_block_append(block, enterIfJump, TACIndex);
+        scope_add_basic_block(elseScope, elseBlock);
 
-        struct Ast *ifBody = tree->child->sibling;
-        if (ifBody->type == T_COMPOUND_STATEMENT)
+        if (elseTree->type == T_COMPOUND_STATEMENT)
         {
-            walk_scope(ifBody, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+            walk_scope(elseTree, elseBlock, elseScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
         }
         else
         {
-            walk_statement(ifBody, &ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+            walk_statement(elseTree, &elseBlock, elseScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
         }
     }
 }
