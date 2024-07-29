@@ -30,7 +30,7 @@ Array *generate_successors(Array *blocks)
             case TT_BEQZ:
             case TT_BNEZ:
             case TT_JMP:
-                set_insert(thisblockSuccessors, array_at(blocks, thisTac->operands[0].name.val));
+                set_insert(thisblockSuccessors, array_at(blocks, thisTac->operands.conditionalBranch.label));
                 break;
 
             default:

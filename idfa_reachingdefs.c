@@ -67,37 +67,31 @@ void reacing_defs_find_gen_kills(struct Idfa *idfa)
         for (tacRunner = list_begin(genKillBlock->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
         {
             struct TACLine *genKillLine = iterator_get(tacRunner);
-            for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
+
+            struct OperandUsages genKillLineUsages = get_operand_usages(genKillLine);
+
+            while (genKillLineUsages.reads->size > 0)
             {
-                switch (get_use_of_operand(genKillLine, operandIndex))
-                {
-                case U_UNUSED:
-                    break;
+                struct TACOperand *readOperand = deque_pop_front(genKillLineUsages.reads);
+                set_insert(killedThisBlock, readOperand);
+            }
 
-                case U_READ:
+            while (genKillLineUsages.writes->size > 0)
+            {
+                struct TACOperand *writtenOperand = deque_pop_front(genKillLineUsages.writes);
+                struct TACOperand *highestForThisOperand = set_find(highestSsas, writtenOperand);
+                if (highestForThisOperand == NULL)
                 {
-                    set_try_insert(killedThisBlock, &genKillLine->operands[operandIndex]);
+                    set_insert(highestSsas, writtenOperand);
                 }
-                break;
-
-                case U_WRITE:
+                else
                 {
-                    struct TACOperand *highestForThisOperand = set_find(highestSsas, &genKillLine->operands[operandIndex]);
-                    if (highestForThisOperand == NULL)
+                    size_t thisSsaNumber = writtenOperand->ssaNumber;
+                    if (highestForThisOperand->ssaNumber < thisSsaNumber)
                     {
-                        set_insert(highestSsas, &genKillLine->operands[operandIndex]);
+                        set_remove(highestSsas, writtenOperand);
+                        set_insert(highestSsas, writtenOperand);
                     }
-                    else
-                    {
-                        size_t thisSsaNumber = genKillLine->operands[operandIndex].ssaNumber;
-                        if (highestForThisOperand->ssaNumber < thisSsaNumber)
-                        {
-                            set_remove(highestSsas, &genKillLine->operands[operandIndex]);
-                            set_insert(highestSsas, &genKillLine->operands[operandIndex]);
-                        }
-                    }
-                }
-                break;
                 }
             }
         }

@@ -31,31 +31,22 @@ void live_vars_find_gen_kills(struct Idfa *idfa)
         for (tacRunner = list_begin(genKillBlock->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
         {
             struct TACLine *genKillLine = iterator_get(tacRunner);
-            for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
+            struct OperandUsages genKillLineUsages = get_operand_usages(genKillLine);
+
+            while (genKillLineUsages.reads->size > 0)
             {
-                switch (get_use_of_operand(genKillLine, operandIndex))
-                {
-                case U_UNUSED:
-                    break;
-
-                case U_READ:
-                    set_insert(array_at(idfa->facts.kill, blockIndex), &genKillLine->operands[operandIndex]);
-                    if (genKillLine->operands[operandIndex].name.str == NULL)
-                    {
-                        InternalError("NULL OPERAND");
-                    }
-                    break;
-
-                case U_WRITE:
-                    if (genKillLine->operands[operandIndex].name.str == NULL)
-                    {
-                        InternalError("NULL OPERAND");
-                    }
-                    set_insert(array_at(idfa->facts.gen, blockIndex), &genKillLine->operands[operandIndex]);
-
-                    break;
-                }
+                struct TACOperand *readOperand = deque_pop_front(genKillLineUsages.reads);
+                set_insert(array_at(idfa->facts.kill, blockIndex), readOperand);
             }
+
+            while (genKillLineUsages.writes->size > 0)
+            {
+                struct TACOperand *writeOperand = deque_pop_front(genKillLineUsages.writes);
+                set_insert(array_at(idfa->facts.gen, blockIndex), writeOperand);
+            }
+
+            deque_free(genKillLineUsages.reads);
+            deque_free(genKillLineUsages.writes);
         }
     }
 }

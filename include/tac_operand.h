@@ -3,6 +3,8 @@
 
 #include "type.h"
 
+#include <mbcl/deque.h>
+
 struct VariableEntry;
 struct EnumEntry;
 struct Ast;
@@ -29,14 +31,6 @@ struct TACOperand
     size_t ssaNumber;
     struct Type castAsType;
     enum VARIABLE_PERMUTATIONS permutation; // enum of permutation (standard/temp/literal)
-};
-
-// Enum denoting how a particular TAC operand is used
-enum TAC_OPERAND_USE
-{
-    U_UNUSED,
-    U_READ,
-    U_WRITE,
 };
 
 char *tac_operand_sprint(void *operandData);
