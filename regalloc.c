@@ -385,7 +385,7 @@ Set *select_register_lifetimes(struct RegallocMetadata *metadata, Set *selectFro
             struct Lifetime *liveLt = iterator_get(liveLtRunner);
 
             // if expiring at this index, give its register back (value can still be read out of the register at tacIndex)
-            if (!lifetime_is_live_at_index(liveLt, tacIndex + 1))
+            if (!lifetime_is_live_after_index(liveLt, tacIndex))
             {
                 set_remove(liveLifetimes, liveLt);
                 stack_push(registerPool, liveLt->writebackInfo.regLocation);

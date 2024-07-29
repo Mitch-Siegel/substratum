@@ -29,9 +29,9 @@ impl Money {
 
     public fun Print(self)
     {
-        printNum((u32)self.dollars);
-        uart_putc('.');
-        printNum(self.cents);
+        printNum((u32)self.dollars, 0);
+        putc('.');
+        printNum(self.cents, 1);
     }
 };
 

@@ -219,8 +219,8 @@ int main(int argc, char **argv)
     /*log(LOG_DEBUG, "Symbol table before scope collapse:");
     SymbolTable_print(theTable, stderr, 1);*/
 
-    log(LOG_DEBUG, "Symbol table before linearization/scope collapse:");
-    symbol_table_print(theTable, stderr, 0);
+    // log(LOG_DEBUG, "Symbol table before linearization/scope collapse:");
+    // symbol_table_print(theTable, stderr, 0);
 
     log(LOG_INFO, "Collapsing scopes");
 
@@ -229,8 +229,8 @@ int main(int argc, char **argv)
     // generate_ssa(theTable);
 
     // TODO: option to enable/disable symtab dump
-    log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
-    symbol_table_print(theTable, stderr, 1);
+    // log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
+    // symbol_table_print(theTable, stderr, 0);
 
     FILE *outFile = stdout;
 

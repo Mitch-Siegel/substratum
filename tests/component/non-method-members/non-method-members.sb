@@ -30,7 +30,7 @@ impl Counter {
         printStr("Counter ");
         printStr(self.name);
         printStr(": ");
-        printNum(self.count);
+        printNum(self.count, 1);
     }
 
     public Self fun Duplicate(self, u8 *newName)

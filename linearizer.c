@@ -10,6 +10,12 @@
 #define OUT_OBJECT_POINTER_NAME "__out_obj_pointer"
 
 /*
+ TODO: fix TAC index tracking across branches and loops,
+ such that for a given branch or loop, the TAC index immediately after is the maximum of the TAC indices of all branches and loops,
+ and that each parallel branch has parallel TAC indices
+ */
+
+/*
  * These functions Walk the AST and convert it to three-address code
  */
 struct TempList *temps;
@@ -272,7 +278,7 @@ struct VariableEntry *walk_variable_declaration(struct Ast *tree,
         log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_variable_declaration!", token_get_name(tree->type));
     }
 
-    struct Type declaredType;
+    struct Type declaredType = {0};
 
     /* 'struct' trees' children are the struct name
      * other variables' children are the pointer or variable name
@@ -578,6 +584,8 @@ void walk_function_definition(struct Ast *tree,
 
     if (tree->type == T_COMPOUND_STATEMENT)
     {
+        // TODO: fix controlConvergesTo scheme
+        // currently, control always ends jumping to a label for an empty block directly above the function_done label - this sucks.
         walk_scope(tree, block, fun->mainScope, &tacIndex, &tempNum, &labelNum, -1);
     }
     else
@@ -1648,6 +1656,8 @@ void walk_match_statement(struct Ast *tree,
     struct TACOperand matchedAgainst = {0};
     walk_sub_expression(matchedExpression, block, scope, tacIndex, tempNum, &matchedAgainst);
 
+    size_t maxExitTacIndex = *tacIndex;
+
     struct TACOperand matchedAgainstNumerical;
     // if matching against an enum, we need to do some manipulation to extract the actual numerical value associated with the enum
     if (type_is_enum_object(tac_operand_get_type(&matchedAgainst)))
@@ -1734,13 +1744,15 @@ void walk_match_statement(struct Ast *tree,
         // for each case matched
         while (matchedValueRunner != NULL)
         {
+            (*tacIndex) += 1;
+            size_t armTacIndex = *tacIndex;
             // if we are matching against an enum
             if (matchedType->basicType == VT_ENUM)
             {
                 walk_enum_match_arm(matchedValueRunner,
                                     block,
                                     scope,
-                                    tacIndex,
+                                    &armTacIndex,
                                     tempNum,
                                     labelNum,
                                     controlConvergesToLabel,
@@ -1757,7 +1769,7 @@ void walk_match_statement(struct Ast *tree,
                 walk_non_enum_match_arm(matchedValueRunner,
                                         block,
                                         scope,
-                                        tacIndex,
+                                        &armTacIndex,
                                         tempNum,
                                         labelNum,
                                         controlConvergesToLabel,
@@ -1770,6 +1782,7 @@ void walk_match_statement(struct Ast *tree,
                                         matchedValues);
             }
 
+            maxExitTacIndex = MAX(maxExitTacIndex, armTacIndex);
             matchedValueRunner = matchedValueRunner->sibling;
         }
         matchRunner = matchRunner->sibling;
@@ -1784,7 +1797,9 @@ void walk_match_statement(struct Ast *tree,
             underscoreJump = new_tac_line(TT_JMP, underscoreAction);
             struct BasicBlock *caseBlock = basic_block_new((*labelNum)++);
             scope_add_basic_block(scope, caseBlock);
-            underscoreJump->operands.jump.label = walk_match_case_block(underscoreAction, caseBlock, scope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+            size_t underscoreTacIndex = (*tacIndex + 1);
+            underscoreJump->operands.jump.label = walk_match_case_block(underscoreAction, caseBlock, scope, &underscoreTacIndex, tempNum, labelNum, controlConvergesToLabel);
+            maxExitTacIndex = MAX(maxExitTacIndex, underscoreTacIndex);
         }
         else
         {
@@ -1798,6 +1813,14 @@ void walk_match_statement(struct Ast *tree,
     {
         check_match_cases(tree, matchedType, matchedEnum, matchedValues);
     }
+
+    struct TACLine *matchDoneJump = new_tac_line(TT_JMP, tree);
+    matchDoneJump->operands[0].name.val = controlConvergesToLabel;
+    basic_block_append(block, matchDoneJump, tacIndex);
+
+    // reconcile tac index, remember that we may have had more branching operations than tac lines in any given match arm so the actual tacIndex itself may be the max
+    *tacIndex = MAX(*tacIndex, maxExitTacIndex);
+
     set_free(matchedValues);
 }
 

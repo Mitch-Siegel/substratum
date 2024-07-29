@@ -8,16 +8,14 @@ any *fun funReturningAnyPointer()
 fun printAnyPointer(any *a)
 {
     u64 asNumber = a;
-    printHex(asNumber);
+    printHex(asNumber, 1);
 }
 
 fun main()
 {
     any *hereBeDragons = funReturningAnyPointer();
     u32 dragons = hereBeDragons;
-    printHex(dragons);
-    uart_putc('\n');
+    printHex(dragons, 1);
     printAnyPointer(hereBeDragons);
-    uart_putc('\n');
     exit();
 }

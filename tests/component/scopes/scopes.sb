@@ -49,11 +49,11 @@ fun testScopedShadowing()
     u8 i = 123;
     {
         u8 i = 0;
-        uart_putc('0' + i);
+        putc('0' + i);
         i = i + 1;
-        uart_putc('0' + i);
+        putc('0' + i);
     }
-    uart_putc(10);
+    putc(10);
 }
 
 u8 fun returnByScope(u8 input)
@@ -77,17 +77,17 @@ fun testScopedLifetimes()
     u8 i = 0;
     while(i < 10)
     {
-        uart_putc('0' + i);
-        uart_putc(':');
+        putc('0' + i);
+        putc(':');
         u8 result = returnByScope(i);
         while(result >= 'a')
         {
-            uart_putc(result);
+            putc(result);
             result = result - 1;
         }
         i = i + 1;
     }
-    uart_putc(10);
+    putc(10);
 }
 
 fun main()
@@ -95,10 +95,10 @@ fun main()
     u8 i = 0;
     while(i < 5)
     {
-        uart_putc('0' + testIfScope(i));
-        uart_putc('0' + testIfElseScope(i));
-        uart_putc('0' + testWhileScope(i));
-        uart_putc(10);
+        putc('0' + testIfScope(i));
+        putc('0' + testIfElseScope(i));
+        putc('0' + testWhileScope(i));
+        putc(10);
         i = i + 1;
     }
     

@@ -1,7 +1,7 @@
 #include "tests-common.sb"
 
 fun doIt() {
-    uart_putc('a');
+    putc('a');
 }
 
 

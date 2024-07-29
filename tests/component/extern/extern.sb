@@ -6,8 +6,8 @@ extern u8 abc;
 fun main()
 {
     setValue(123);
-    printNum(abc);
+    printNum(abc, 1);
     setValue(234);
-    printNum(abc);
+    printNum(abc, 1);
     exit();
 }

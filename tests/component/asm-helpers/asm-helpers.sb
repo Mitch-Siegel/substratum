@@ -2,7 +2,7 @@
 
 u8 fun printPointer(u8 *toPrint)
 {
-    printNum(*toPrint);
+    printNum(*toPrint, 1);
 }
 
 u8 fun Increment(u8 toIncrement) asm {
@@ -13,9 +13,9 @@ u8 fun Increment(u8 toIncrement) asm {
 fun testAsmReadWrite()
 {
     u8 a = 12;
-    printNum(a);
+    printNum(a, 1);
     a = Increment(a);
-    printNum(a);
+    printNum(a, 1);
 
     asm {
         t0 = readvar(a)
@@ -23,7 +23,7 @@ fun testAsmReadWrite()
         a = writevar(t0)
     }
 
-    printNum(a);
+    printNum(a, 1);
 }
 
 fun testSpilledAsmReadWrite()

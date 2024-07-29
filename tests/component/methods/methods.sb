@@ -38,7 +38,7 @@ fun main() {
 
     while(testStack.Size() > 0)
     {
-        printNum(testStack.Pop());
+        printNum(testStack.Pop(), 1);
     }
 
     exit();

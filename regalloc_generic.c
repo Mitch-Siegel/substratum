@@ -62,9 +62,16 @@ ssize_t lifetime_compare(struct Lifetime *lifetimeA, struct Lifetime *lifetimeB)
     return strcmp(lifetimeA->name, lifetimeB->name);
 }
 
+// whether or not the lifetime is live at the given index
 bool lifetime_is_live_at_index(struct Lifetime *lifetime, size_t index)
 {
     return ((lifetime->start <= index) && (lifetime->end >= index));
+}
+
+// whether or not the lifetime is live after the end the given index
+bool lifetime_is_live_after_index(struct Lifetime *lifetime, size_t index)
+{
+    return (lifetime->start <= index) && (lifetime->end > index);
 }
 
 // search through the list of existing lifetimes

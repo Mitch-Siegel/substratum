@@ -68,14 +68,14 @@ impl State {
     fun Print(self)
     {
         printStr((u8 *)"Position:\n");
-        printNum(self.pos.x);
-        printNum(self.pos.y);
-        printNum(self.pos.z);
+        printNum(self.pos.x, 1);
+        printNum(self.pos.y, 1);
+        printNum(self.pos.z, 1);
         printStr((u8 *)"Dimensions:\n");
-        printNum(self.size.x);
-        printNum(self.size.y);
-        printNum(self.size.z);
-        uart_putc('\n');
+        printNum(self.size.x, 1);
+        printNum(self.size.y, 1);
+        printNum(self.size.z, 1);
+        putc('\n');
     }
 }
 

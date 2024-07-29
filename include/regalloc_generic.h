@@ -54,6 +54,8 @@ ssize_t lifetime_compare(struct Lifetime *lifetimeA, struct Lifetime *lifetimeB)
 
 bool lifetime_is_live_at_index(struct Lifetime *lifetime, size_t index);
 
+bool lifetime_is_live_after_index(struct Lifetime *lifetime, size_t index);
+
 // update the lifetime start/end indices
 // returns pointer to the lifetime corresponding to the passed variable name
 struct Lifetime *update_or_insert_lifetime(Set *lifetimes,
