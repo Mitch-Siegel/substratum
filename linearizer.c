@@ -1239,7 +1239,7 @@ void walk_if_statement(struct Ast *tree,
     struct TACLine *enterIfJump = new_tac_line(TT_JMP, tree);
     enterIfJump->operands.jump.label = ifBlock->labelNum;
 
-    size_t falseJumpLabelNum = controlConvergesToLabel;
+    ssize_t falseJumpLabelNum = controlConvergesToLabel;
     struct Ast *elseTree = tree->child->sibling->sibling;
     if (elseTree != NULL)
     {
