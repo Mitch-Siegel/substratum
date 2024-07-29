@@ -704,11 +704,13 @@ void riscv_emit_argument_stores(struct CodegenState *state,
                     placedOrFoundIn = riscv_place_or_find_operand_in_register(NULL, state, metadata, info, argOperand, destinationArgRegister);
                 }
 
-                struct Register *attemptedStompedAccess = set_find(stompedArgRegs, placedOrFoundIn);
-                if (attemptedStompedAccess != NULL)
+                for (size_t argRegIdx = 0; argRegIdx < stompedArgRegIdx; argRegIdx++)
                 {
-                    InternalError("When attempting to store argument %s for call to %s - the value we want to read from (%s) is contained in %s, an argument register we've already overwritten with one of %s's arguments",
-                                  argLifetime->name, calledFunction->name, argOperand->name.variable->name, placedOrFoundIn->name, calledFunction->name);
+                    if (array_at(&info->arguments, argRegIdx) == placedOrFoundIn)
+                    {
+                        InternalError("When attempting to store argument %s for call to %s - the value we want to read from (%s) is contained in %s, an argument register we've already overwritten with one of %s's arguments",
+                                      argLifetime->name, calledFunction->name, argOperand->name.variable->name, placedOrFoundIn->name, calledFunction->name);
+                    }
                 }
             }
             break;
@@ -729,8 +731,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
                 emit_instruction(NULL, state, "\t# already in %s\n", placedOrFoundIn->name);
             }
         }
-            set_insert(stompedArgRegs, argLifetime->writebackInfo.regLocation);
-            break;
+        break;
 
         case WB_STACK:
         {
