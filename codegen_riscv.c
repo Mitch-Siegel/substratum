@@ -782,6 +782,12 @@ struct Register *riscv_place_addr_of_array_element_in_register(struct TACLine *g
                                                                struct TACOperand *arrayOperand,
                                                                struct TACOperand *indexOperand)
 {
+    char *printedArrayOperand = tac_operand_sprint(arrayOperand);
+    char *printedIndexOperand = tac_operand_sprint(indexOperand);
+    emit_instruction(generate, state, "\t# place address of %s[%s] in register\n", printedArrayOperand, printedIndexOperand);
+    free(printedArrayOperand);
+    free(printedIndexOperand);
+
     struct Lifetime *loadedFromLt = lifetime_find(metadata->allLifetimes, arrayOperand);
     switch (loadedFromLt->wbLocation)
     {
@@ -880,49 +886,9 @@ void riscv_emit_array_store(struct TACLine *generate, struct CodegenState *state
     }
 
     struct TacArrayStore *arrayStoreOperands = &generate->operands.arrayStore;
-    struct Lifetime *storedToArrayLt = lifetime_find(metadata->allLifetimes, &arrayStoreOperands->array);
-    switch (storedToArrayLt->wbLocation)
-    {
-    case WB_STACK:
-    case WB_GLOBAL:
-        break;
+    struct Register *elementAddrReg = riscv_place_addr_of_array_element_in_register(generate, state, metadata, info, &arrayStoreOperands->array, &arrayStoreOperands->index);
 
-    case WB_REGISTER:
-        if (type_is_struct_object(&storedToArrayLt->type))
-        {
-            InternalError("Codegen for array load for array with WB_REGISTER not implemented");
-        }
-        break;
-
-    case WB_UNKNOWN:
-        InternalError("Unknown writeback location for lifetime %s (%s)", storedToArrayLt->name, type_get_name(&storedToArrayLt->type));
-    }
-
-    struct Type *storedToArrayType = tac_operand_get_type(&arrayStoreOperands->array); // what the original type of the array is (for offset computation)
-    struct Type *storedType = tac_operand_get_type(&arrayStoreOperands->source);       // the type of the thing actually being loaded (for load size)
-
-    struct Register *arrayIndexReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &arrayStoreOperands->index, NULL);
-    struct Register *scaledIndexReg = acquire_scratch_register(info);
-    emit_instruction(generate, state, "\tli %s, %zu\n", scaledIndexReg->name, type_get_size_of_array_element(storedToArrayType, metadata->scope));
-    emit_instruction(generate, state, "\tmul %s, %s, %s\n", scaledIndexReg->name, arrayIndexReg->name, scaledIndexReg->name);
-    try_release_scratch_register(info, arrayIndexReg);
-
-    // TODO: this really supports array index operations on arrays and array single pointers. Ensure that array single pointers are []'d correctly (linearization issue? if an issue at all)
-    struct Register *arrayBaseAddrReg = NULL;
-    if (type_is_struct_object(&storedToArrayLt->type))
-    {
-        arrayBaseAddrReg = acquire_scratch_register(info);
-        riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &arrayStoreOperands->array, arrayBaseAddrReg);
-    }
-    else
-    {
-        arrayBaseAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &arrayStoreOperands->array, NULL);
-    }
-
-    try_release_scratch_register(info, scaledIndexReg);
-    try_release_scratch_register(info, arrayBaseAddrReg);
-    struct Register *computedAddressRegister = acquire_scratch_register(info);
-    emit_instruction(generate, state, "\tadd %s, %s, %s\n", computedAddressRegister->name, arrayBaseAddrReg->name, scaledIndexReg->name);
+    struct Type *storedType = tac_operand_get_type(&arrayStoreOperands->source); // the type of the thing actually being loaded (for load size)
 
     if (!type_is_object(storedType))
     {
@@ -931,13 +897,13 @@ void riscv_emit_array_store(struct TACLine *generate, struct CodegenState *state
         emit_instruction(generate, state, "\ts%c %s, 0(%s)\n",
                          storeChar,
                          storedFrom->name,
-                         computedAddressRegister->name);
+                         elementAddrReg->name);
     }
     else
     {
         struct Register *sourceAddrReg = acquire_scratch_register(info);
         riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &arrayStoreOperands->source, sourceAddrReg);
-        riscv_generate_internal_copy(generate, state, sourceAddrReg, computedAddressRegister, acquire_scratch_register(info), type_get_size(storedType, metadata->scope));
+        riscv_generate_internal_copy(generate, state, sourceAddrReg, elementAddrReg, acquire_scratch_register(info), type_get_size(storedType, metadata->scope));
     }
 }
 
