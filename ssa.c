@@ -209,23 +209,13 @@ void insert_phi_functions_for_block(struct BasicBlock *block, void *data)
         {
             // predecrement so we can insert exactly the right number of phis
 
-            // insert a phi for each occurrence (- 1 because the first phi can take 2 unique operands instead of one new operand and the output of a previous phi)
-            while (inboundSsasToPhi->size > 1)
-            {
-                struct TACLine *newPhi = new_tac_line(TT_PHI, &fakePhiTree);
-                newPhi->index = blockEntryTacIndex;
-                struct TACOperand *assignedSsa = ssa_operand_lookup_or_insert(context->ssaNumbers, phiVar);
-                newPhi->operands[0] = *assignedSsa;
-                assignedSsa->ssaNumber++;
+            struct TACLine *newPhi = new_tac_line(TT_PHI, &fakePhiTree);
+            newPhi->index = blockEntryTacIndex;
+            struct TACOperand *assignedSsa = ssa_operand_lookup_or_insert(context->ssaNumbers, phiVar);
+            newPhi->operands.phi.destination = *assignedSsa;
+            assignedSsa->ssaNumber++;
 
-                struct TACOperand *liveIn = deque_pop_front(inboundSsasToPhi);
-                newPhi->operands[1] = *liveIn;
-                liveIn = deque_pop_front(inboundSsasToPhi);
-                newPhi->operands[2] = *liveIn;
-                basic_block_prepend(block, newPhi);
-
-                deque_push_back(inboundSsasToPhi, &newPhi->operands[0]);
-            }
+            newPhi->operands.phi.sources = inboundSsasToPhi;
         }
         deque_free(inboundSsasToPhi);
     }
@@ -252,18 +242,16 @@ void rename_written_tac_operands_for_block(struct BasicBlock *block, void *data)
     for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
     {
         struct TACLine *thisTac = iterator_get(tacRunner);
-        // iterate all operands in the TAC
-        for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
-        {
-            // written operands are the only ones which need to be assigned an SSA number at this point
-            if (get_use_of_operand(thisTac, operandIndex) == U_WRITE)
-            {
-                struct TACOperand *thisOperand = &thisTac->operands[operandIndex];
 
-                // assign a unique SSA number to the operand
-                struct TACOperand *ssaOperand = ssa_operand_lookup_or_insert(ssaOperands, thisOperand);
-                thisOperand->ssaNumber = ssaOperand->ssaNumber++;
-            }
+        struct OperandUsages renameUsages = get_operand_usages(thisTac);
+
+        while (renameUsages.writes->size > 0)
+        {
+            struct TACOperand *thisOperand = deque_pop_front(renameUsages.writes);
+
+            // assign a unique SSA number to the operand
+            struct TACOperand *ssaOperand = ssa_operand_lookup_or_insert(ssaOperands, thisOperand);
+            thisOperand->ssaNumber = ssaOperand->ssaNumber++;
         }
     }
     iterator_free(tacRunner);
@@ -356,42 +344,30 @@ void rename_read_tac_operands_in_block(struct BasicBlock *block, void *data)
     {
         struct TACLine *thisTac = iterator_get(tacRunner);
 
-        // iterate all operands
-        for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
+        struct OperandUsages renameUsages = get_operand_usages(thisTac);
+
+        while (renameUsages.reads->size > 0)
         {
-            struct TACOperand *thisOperand = &thisTac->operands[operandIndex];
-            switch (get_use_of_operand(thisTac, operandIndex))
+            struct TACOperand *readOperand = deque_pop_front(renameUsages.reads);
+            struct TACOperand *mostRecentAssignment = lookup_most_recent_ssa_assignment(highestSsaLiveIns, ssaLivesFromThisBlock, readOperand);
+            if (mostRecentAssignment != NULL)
             {
-            case U_UNUSED:
-                break;
-
-            // for operands we read, set their SSA number to the relevant SSA number if possible
-            case U_READ:
-                // don't modify SSA numbers if it is being read by a phi function
-                if (thisTac->operation == TT_PHI)
-                {
-                    break;
-                }
-                struct TACOperand *mostRecentAssignment = lookup_most_recent_ssa_assignment(highestSsaLiveIns, ssaLivesFromThisBlock, thisOperand);
-                if (mostRecentAssignment != NULL)
-                {
-                    thisOperand->ssaNumber = mostRecentAssignment->ssaNumber;
-                }
-                break;
-
-            // for operands we write, track that we wrote them within this block so their definitions can supersede any SSA variables live in to this block
-            case U_WRITE:
-                if ((thisOperand->permutation == VP_LITERAL_STR) || (thisOperand->permutation == VP_LITERAL_VAL))
-                {
-                    InternalError("Written operand with permutation VP_LITERAL_STR or VP_LITERAL_VAL seen in renameReadTacOperands!");
-                }
-                if (set_find(ssaLivesFromThisBlock, thisOperand) != NULL)
-                {
-                    set_remove(ssaLivesFromThisBlock, thisOperand);
-                }
-                set_insert(ssaLivesFromThisBlock, thisOperand);
-                break;
+                readOperand->ssaNumber = mostRecentAssignment->ssaNumber;
             }
+        }
+
+        while (renameUsages.writes->size > 0)
+        {
+            struct TACOperand *writtenOperand = deque_pop_front(renameUsages.writes);
+            if ((writtenOperand->permutation == VP_LITERAL_STR) || (writtenOperand->permutation == VP_LITERAL_VAL))
+            {
+                InternalError("Written operand with permutation VP_LITERAL_STR or VP_LITERAL_VAL seen in renameReadTacOperands!");
+            }
+            if (set_find(ssaLivesFromThisBlock, writtenOperand) != NULL)
+            {
+                set_remove(ssaLivesFromThisBlock, writtenOperand);
+            }
+            set_insert(ssaLivesFromThisBlock, writtenOperand);
         }
     }
     iterator_free(tacRunner);

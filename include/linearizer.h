@@ -22,15 +22,6 @@ void reserve_and_store_stack_args(struct Ast *callTree,
                                   struct BasicBlock *block,
                                   size_t *TACIndex);
 
-// TODO: move to linearizer_generic
-struct TACLine *generate_call_tac(struct Ast *callTree,
-                                  struct FunctionEntry *calledFunction,
-                                  struct BasicBlock *block,
-                                  struct Scope *scope,
-                                  size_t *TACIndex,
-                                  size_t *tempNum,
-                                  struct TACOperand *destinationOperand);
-
 struct SymbolTable *walk_program(struct Ast *program);
 
 void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populateTypeTo);

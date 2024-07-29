@@ -128,22 +128,25 @@ struct VariableEntry *scope_lookup_var_by_string(struct Scope *scope,
                                                  char *name);
 
 struct VariableEntry *scope_lookup_var(struct Scope *scope,
-                                       struct Ast *name);
+                                       struct Ast *nameTree);
 
 struct FunctionEntry *lookup_fun_by_string(struct Scope *scope,
                                            char *name);
 
 struct FunctionEntry *scope_lookup_fun(struct Scope *scope,
-                                       struct Ast *name);
+                                       struct Ast *nameTree);
 
 struct StructEntry *scope_lookup_struct(struct Scope *scope,
-                                        struct Ast *name);
+                                        struct Ast *nameTree);
 
 struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
                                                 struct Type *type);
 
+struct StructEntry *scope_lookup_struct_by_name(struct Scope *scope,
+                                                char *name);
+
 struct EnumEntry *scope_lookup_enum(struct Scope *scope,
-                                    struct Ast *name);
+                                    struct Ast *nameTree);
 
 struct EnumEntry *scope_lookup_enum_by_type(struct Scope *scope,
                                             struct Type *type);

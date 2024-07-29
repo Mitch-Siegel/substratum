@@ -38,7 +38,9 @@ struct Lifetime
     u8 isArgument;
 };
 
-void *lifetime_find(Set *allLifetimes, char *lifetimeName);
+struct Lifetime *lifetime_find_by_name(Set *allLifetimes, char *lifetimeName);
+
+struct Lifetime *lifetime_find(Set *allLifetimes, struct TACOperand *operand);
 
 struct Lifetime *lifetime_new(char *name,
                               struct Type *type,

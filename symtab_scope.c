@@ -261,12 +261,12 @@ struct VariableEntry *scope_lookup_var_by_string(struct Scope *scope, char *name
     return NULL;
 }
 
-struct VariableEntry *scope_lookup_var(struct Scope *scope, struct Ast *name)
+struct VariableEntry *scope_lookup_var(struct Scope *scope, struct Ast *nameTree)
 {
-    struct VariableEntry *lookedUp = scope_lookup_var_by_string(scope, name->value);
+    struct VariableEntry *lookedUp = scope_lookup_var_by_string(scope, nameTree->value);
     if (lookedUp == NULL)
     {
-        log_tree(LOG_FATAL, name, "Use of undeclared variable '%s'", name->value);
+        log_tree(LOG_FATAL, nameTree, "Use of undeclared variable '%s'", nameTree->value);
     }
 
     return lookedUp;
@@ -290,12 +290,12 @@ struct FunctionEntry *lookup_fun_by_string(struct Scope *scope, char *name)
     }
 }
 
-struct FunctionEntry *scope_lookup_fun(struct Scope *scope, struct Ast *name)
+struct FunctionEntry *scope_lookup_fun(struct Scope *scope, struct Ast *nameTree)
 {
-    struct ScopeMember *lookedUp = scope_lookup(scope, name->value, E_FUNCTION);
+    struct ScopeMember *lookedUp = scope_lookup(scope, nameTree->value, E_FUNCTION);
     if (lookedUp == NULL)
     {
-        log_tree(LOG_FATAL, name, "Use of undeclared function '%s'", name->value);
+        log_tree(LOG_FATAL, nameTree, "Use of undeclared function '%s'", nameTree->value);
     }
     switch (lookedUp->type)
     {
@@ -308,12 +308,12 @@ struct FunctionEntry *scope_lookup_fun(struct Scope *scope, struct Ast *name)
 }
 
 struct StructEntry *scope_lookup_struct(struct Scope *scope,
-                                        struct Ast *name)
+                                        struct Ast *nameTree)
 {
-    struct ScopeMember *lookedUp = scope_lookup(scope, name->value, E_STRUCT);
+    struct ScopeMember *lookedUp = scope_lookup(scope, nameTree->value, E_STRUCT);
     if (lookedUp == NULL)
     {
-        log_tree(LOG_FATAL, name, "Use of undeclared struct '%s'", name->value);
+        log_tree(LOG_FATAL, nameTree, "Use of undeclared struct '%s'", nameTree->value);
     }
     switch (lookedUp->type)
     {
@@ -321,7 +321,7 @@ struct StructEntry *scope_lookup_struct(struct Scope *scope,
         return lookedUp->entry;
 
     default:
-        log_tree(LOG_FATAL, name, "%s is not a struct!", name->value);
+        log_tree(LOG_FATAL, nameTree, "%s is not a struct!", nameTree->value);
     }
 
     return NULL;
@@ -338,7 +338,7 @@ struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
     struct ScopeMember *lookedUp = scope_lookup(scope, type->nonArray.complexType.name, E_STRUCT);
     if (lookedUp == NULL)
     {
-        log(LOG_FATAL, "Use of undeclared struct '%s'", type->nonArray.complexType.name);
+        InternalError("Use of undeclared struct '%s'", type->nonArray.complexType.name);
     }
 
     switch (lookedUp->type)
@@ -351,13 +351,33 @@ struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
     }
 }
 
-struct EnumEntry *scope_lookup_enum(struct Scope *scope,
-                                    struct Ast *name)
+struct StructEntry *scope_lookup_struct_by_name(struct Scope *scope,
+                                                char *name)
 {
-    struct ScopeMember *lookedUp = scope_lookup(scope, name->value, E_ENUM);
+    struct ScopeMember *lookedUp = scope_lookup(scope, name, E_STRUCT);
     if (lookedUp == NULL)
     {
-        log_tree(LOG_FATAL, name, "Use of undeclared enum '%s'", name->value);
+        InternalError("Use of undeclared struct '%s'", name);
+    }
+
+    switch (lookedUp->type)
+    {
+    case E_STRUCT:
+        return lookedUp->entry;
+
+    default:
+        InternalError("lookupStructByType for %s lookup got a non-struct ScopeMember!", name);
+    }
+    return NULL;
+}
+
+struct EnumEntry *scope_lookup_enum(struct Scope *scope,
+                                    struct Ast *nameTree)
+{
+    struct ScopeMember *lookedUp = scope_lookup(scope, nameTree->value, E_ENUM);
+    if (lookedUp == NULL)
+    {
+        log_tree(LOG_FATAL, nameTree, "Use of undeclared enum '%s'", nameTree->value);
     }
     switch (lookedUp->type)
     {
@@ -365,7 +385,7 @@ struct EnumEntry *scope_lookup_enum(struct Scope *scope,
         return lookedUp->entry;
 
     default:
-        log_tree(LOG_FATAL, name, "%s is not an enum!", name->value);
+        log_tree(LOG_FATAL, nameTree, "%s is not an enum!", nameTree->value);
     }
 
     return NULL;
