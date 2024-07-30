@@ -1232,6 +1232,8 @@ void walk_if_statement(struct Ast *tree,
         log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_if_statement!", token_get_name(tree->type));
     }
 
+    size_t maxExitTACIndex = *tacIndex;
+
     struct Scope *ifScope = scope_create_sub_scope(scope);
     struct BasicBlock *ifBlock = basic_block_new((*labelNum)++);
     scope_add_basic_block(ifScope, ifBlock);
@@ -1248,17 +1250,21 @@ void walk_if_statement(struct Ast *tree,
 
     block = walk_condition_check(tree->child, block, scope, tacIndex, tempNum, labelNum, falseJumpLabelNum);
 
+    size_t ifTACIndex = *tacIndex;
+
     basic_block_append(block, enterIfJump, tacIndex);
 
     struct Ast *ifBody = tree->child->sibling;
     if (ifBody->type == T_COMPOUND_STATEMENT)
     {
-        walk_scope(ifBody, ifBlock, ifScope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+        walk_scope(ifBody, ifBlock, ifScope, &ifTACIndex, tempNum, labelNum, controlConvergesToLabel);
     }
     else
     {
-        walk_statement(ifBody, &ifBlock, ifScope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+        walk_statement(ifBody, &ifBlock, ifScope, &ifTACIndex, tempNum, labelNum, controlConvergesToLabel);
     }
+
+    maxExitTACIndex = MAX(maxExitTACIndex, ifTACIndex);
 
     // if we have an else block
     if (elseTree != NULL)
@@ -1266,17 +1272,23 @@ void walk_if_statement(struct Ast *tree,
         struct Scope *elseScope = scope_create_sub_scope(scope);
         struct BasicBlock *elseBlock = basic_block_new(falseJumpLabelNum);
 
+        size_t elseTACIndex = *tacIndex;
+
         scope_add_basic_block(elseScope, elseBlock);
 
         if (elseTree->type == T_COMPOUND_STATEMENT)
         {
-            walk_scope(elseTree, elseBlock, elseScope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+            walk_scope(elseTree, elseBlock, elseScope, &elseTACIndex, tempNum, labelNum, controlConvergesToLabel);
         }
         else
         {
-            walk_statement(elseTree, &elseBlock, elseScope, tacIndex, tempNum, labelNum, controlConvergesToLabel);
+            walk_statement(elseTree, &elseBlock, elseScope, &elseTACIndex, tempNum, labelNum, controlConvergesToLabel);
         }
+
+        maxExitTACIndex = MAX(maxExitTACIndex, elseTACIndex);
     }
+
+    *tacIndex = MAX(*tacIndex, maxExitTACIndex);
 }
 
 void walk_for_loop(struct Ast *tree,
