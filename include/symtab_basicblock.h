@@ -7,6 +7,8 @@
 #include "mbcl/list.h"
 #include "mbcl/set.h"
 
+#define FUNCTION_EXIT_BLOCK_LABEL ((ssize_t)0)
+
 struct BasicBlock
 {
     List *TACList;

@@ -4,6 +4,8 @@
 #include "util.h"
 #include <stdio.h>
 
+#include "symtab_basicblock.h"
+
 char *tac_operation_get_name(enum TAC_TYPE tacOperation)
 {
     switch (tacOperation)
@@ -501,7 +503,7 @@ ssize_t tac_get_jump_target(struct TACLine *line)
         target = line->operands.jump.label;
         break;
     case TT_RETURN:
-        target = -1;
+        target = FUNCTION_EXIT_BLOCK_LABEL;
         break;
     default:
         break;

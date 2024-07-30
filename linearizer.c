@@ -578,21 +578,28 @@ void walk_function_definition(struct Ast *tree,
 
     size_t tacIndex = 0;
     size_t tempNum = 0;
-    ssize_t labelNum = 1;
-    struct BasicBlock *block = basic_block_new(0);
-    scope_add_basic_block(fun->mainScope, block);
+    ssize_t labelNum = FUNCTION_EXIT_BLOCK_LABEL + 1;
+    struct BasicBlock *exitBlock = basic_block_new(FUNCTION_EXIT_BLOCK_LABEL);
 
+    struct BasicBlock *entryBlock = basic_block_new(labelNum);
+    labelNum++;
+
+    scope_add_basic_block(fun->mainScope, entryBlock);
     if (tree->type == T_COMPOUND_STATEMENT)
     {
         // TODO: fix controlConvergesTo scheme
         // currently, control always ends jumping to a label for an empty block directly above the function_done label - this sucks.
-        walk_scope(tree, block, fun->mainScope, &tacIndex, &tempNum, &labelNum, -1);
+        walk_scope(tree, entryBlock, fun->mainScope, &tacIndex, &tempNum, &labelNum, exitBlock->labelNum);
     }
     else
     {
         fun->isAsmFun = 1;
-        walk_asm_block(tree, block, fun->mainScope, &tacIndex, &tempNum);
+        walk_asm_block(tree, entryBlock, fun->mainScope, &tacIndex, &tempNum);
+        struct TACLine *jumpToExit = new_tac_line(TT_JMP, tree);
+        jumpToExit->operands.jump.label = FUNCTION_EXIT_BLOCK_LABEL;
+        basic_block_append(entryBlock, jumpToExit, &tacIndex);
     }
+    scope_add_basic_block(fun->mainScope, exitBlock);
 }
 
 void walk_method(struct Ast *tree,
@@ -935,7 +942,7 @@ void walk_scope(struct Ast *tree,
         scopeRunner = scopeRunner->sibling;
     }
 
-    if (controlConvergesToLabel > 0)
+    if (controlConvergesToLabel >= 0)
     {
         struct TACLine *controlConvergeJmp = new_tac_line(TT_JMP, tree);
         struct TacJump *jumpOperands = &controlConvergeJmp->operands.jump;

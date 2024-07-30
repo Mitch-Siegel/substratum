@@ -49,14 +49,27 @@ void function_entry_print_cfg(struct FunctionEntry *function, FILE *outFile)
     fprintf(outFile, "digraph %s_cfg {\n", function->name);
     fprintf(outFile, "node [shape=record];\n");
     fprintf(outFile, "entry [label=\"entry\"];\n");
-    fprintf(outFile, "-1 [label=\"exit\"];\n");
+    fprintf(outFile, "%zu [label=\"exit\"];\n", (ssize_t)FUNCTION_EXIT_BLOCK_LABEL);
 
-    fprintf(outFile, "entry -> 0;\n");
+    if (function->BasicBlockList->size == 0)
+    {
+        fprintf(outFile, "entry -> %zd;\n", FUNCTION_EXIT_BLOCK_LABEL);
+        fprintf(outFile, "%zd -> %zd;\n", FUNCTION_EXIT_BLOCK_LABEL, FUNCTION_EXIT_BLOCK_LABEL);
+        return;
+    }
+    else
+    {
+        fprintf(outFile, "entry -> %zd;\n", ((ssize_t)1));
+    }
 
     Iterator *blockIter = NULL;
     for (blockIter = list_begin(function->BasicBlockList); iterator_gettable(blockIter); iterator_next(blockIter))
     {
         struct BasicBlock *block = iterator_get(blockIter);
+        if (block->labelNum == FUNCTION_EXIT_BLOCK_LABEL)
+        {
+            continue;
+        }
         fprintf(outFile, "%zd [label=\"bb_%zd\"]", block->labelNum, block->labelNum);
         Iterator *successorIter = NULL;
         for (successorIter = set_begin(block->successors); iterator_gettable(successorIter); iterator_next(successorIter))
