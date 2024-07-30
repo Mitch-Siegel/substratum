@@ -35,8 +35,11 @@ u8 align_size(size_t nBytes);
 
 size_t unalign_size(u8 nBits);
 
-// directly compares dataA to dataB
+// compares dataA and dataB as the values held by ssize_t pointers
 ssize_t ssizet_compare(void *dataA, void *dataB);
+
+// directly compares the pointers dataA and dataB
+ssize_t pointer_compare(void *dataA, void *dataB);
 
 ssize_t sizet_pointer_compare(void *dataA, void *dataB);
 

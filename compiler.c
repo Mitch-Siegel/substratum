@@ -232,6 +232,8 @@ int main(int argc, char **argv)
     // log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
     // symbol_table_print(theTable, stderr, 0);
 
+    symbol_table_print_cfgs(theTable, "control-flows");
+
     FILE *outFile = stdout;
 
     if (strcmp(outFileName, "stdout") != 0)

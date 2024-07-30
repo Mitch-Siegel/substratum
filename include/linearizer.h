@@ -20,7 +20,7 @@ void reserve_and_store_stack_args(struct Ast *callTree,
                                   struct FunctionEntry *calledFunction,
                                   Deque *argumentPushes,
                                   struct BasicBlock *block,
-                                  size_t *TACIndex);
+                                  size_t *tacIndex);
 
 struct SymbolTable *walk_program(struct Ast *program);
 
@@ -147,7 +147,7 @@ void walk_arithmetic_assignment(struct Ast *tree,
 void walk_struct_initializer(struct Ast *tree,
                              struct BasicBlock *block,
                              struct Scope *scope,
-                             size_t *TACIndex,
+                             size_t *tacIndex,
                              size_t *tempNum,
                              struct TACOperand *initialized,
                              struct Type *initializedType);
@@ -162,14 +162,14 @@ void walk_sub_expression(struct Ast *tree,
 void walk_method_call(struct Ast *tree,
                       struct BasicBlock *block,
                       struct Scope *scope,
-                      size_t *TACIndex,
+                      size_t *tacIndex,
                       size_t *tempNum,
                       struct TACOperand *destinationOperand);
 
 void walk_associated_call(struct Ast *tree,
                           struct BasicBlock *block,
                           struct Scope *scope,
-                          size_t *TACIndex,
+                          size_t *tacIndex,
                           size_t *tempNum,
                           struct TACOperand *destinationOperand);
 
@@ -191,7 +191,7 @@ struct TACLine *walk_field_access(struct Ast *tree,
 void walk_non_pointer_arithmetic(struct Ast *tree,
                                  struct BasicBlock *block,
                                  struct Scope *scope,
-                                 size_t *TACIndex,
+                                 size_t *tacIndex,
                                  size_t *tempNum,
                                  struct TACLine *expression);
 

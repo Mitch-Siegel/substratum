@@ -5,19 +5,38 @@
 struct BasicBlock *basic_block_new(ssize_t labelNum)
 {
     struct BasicBlock *wip = malloc(sizeof(struct BasicBlock));
+    wip->successors = set_new(free, ssizet_compare);
     wip->TACList = list_new((void (*)(void *))free_tac, NULL);
     wip->labelNum = labelNum;
     return wip;
 }
 
+void basic_block_add_successor(struct BasicBlock *block, ssize_t successor)
+{
+    ssize_t *successorPtr = malloc(sizeof(ssize_t));
+    *successorPtr = successor;
+    if (!set_try_insert(block->successors, successorPtr))
+    {
+        free(successorPtr);
+    }
+}
+
 void basic_block_free(struct BasicBlock *block)
 {
+    set_free(block->successors);
     list_free(block->TACList);
     free(block);
 }
 
 void basic_block_append(struct BasicBlock *block, struct TACLine *line, size_t *tacIndex)
 {
+    if (tac_line_is_jump(line))
+    {
+        ssize_t branchTarget = tac_get_jump_target(line);
+        log(LOG_DEBUG, "Adding branch target %zd to block %zd", branchTarget, block->labelNum);
+        basic_block_add_successor(block, branchTarget);
+    }
+
     line->index = (*tacIndex)++;
     list_append(block->TACList, line);
     char *sprintedAddedLine = sprint_tac_line(line);
@@ -34,6 +53,13 @@ void basic_block_prepend(struct BasicBlock *block, struct TACLine *line)
         {
             InternalError("BasicBlock_prepend called with line index %zu - must be %zu (same as start of block!)!", line->index, first->index);
         }
+    }
+
+    if (tac_line_is_jump(line))
+    {
+        ssize_t branchTarget = tac_get_jump_target(line);
+        log(LOG_DEBUG, "Adding branch target %zd to block %zd", branchTarget, block->labelNum);
+        basic_block_add_successor(block, branchTarget);
     }
 
     list_prepend(block->TACList, line);

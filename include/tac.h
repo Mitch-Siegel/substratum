@@ -262,6 +262,10 @@ char *sprint_tac_line(struct TACLine *line);
 struct TACLine *new_tac_line_function(enum TAC_TYPE operation, struct Ast *correspondingTree, char *file, int line);
 #define new_tac_line(operation, correspondingTree) new_tac_line_function((operation), (correspondingTree), __FILE__, __LINE__)
 
+bool tac_line_is_jump(struct TACLine *line);
+
+ssize_t tac_get_jump_target(struct TACLine *line);
+
 void free_tac(struct TACLine *line);
 
 // Enum denoting how a particular TAC operand is used

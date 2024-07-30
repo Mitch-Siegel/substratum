@@ -78,9 +78,9 @@ void traverse_blocks_hierarchically(struct IdfaContext *context, void (*operatio
 
     // block 0 is always the entry of the function, so as long as we start with it we will be fine
     list_append(blocksToTraverse, array_at(context->blocks, 0));
-    Set *visited = set_new(NULL, ssizet_compare);
+    Set *visited = set_new(NULL, pointer_compare);
 
-    Set *stronglyConnectedComponent = set_new(NULL, ssizet_compare);
+    Set *stronglyConnectedComponent = set_new(NULL, pointer_compare);
 
     while (blocksToTraverse->size > 0)
     {

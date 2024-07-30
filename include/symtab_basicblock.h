@@ -5,14 +5,20 @@
 #include "util.h"
 
 #include "mbcl/list.h"
+#include "mbcl/set.h"
+
+#define FUNCTION_EXIT_BLOCK_LABEL ((ssize_t)0)
 
 struct BasicBlock
 {
     List *TACList;
+    Set *successors;  // set of ssize_t labels of blocks with control flow pointing from this block
     ssize_t labelNum; // ssize_t because some linearization functions take a label number < 0 as a signal to structure control flow
 };
 
 struct BasicBlock *basic_block_new(ssize_t labelNum);
+
+void basic_block_add_successor(struct BasicBlock *block, ssize_t successor);
 
 void basic_block_free(struct BasicBlock *block);
 

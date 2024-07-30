@@ -12,32 +12,18 @@ Array *generate_successors(Array *blocks)
     for (size_t blockIndex = 0; blockIndex < blocks->size; blockIndex++)
     {
         // block pointers will be unique, so we can directly compare them
-        Set *thisblockSuccessors = set_new(NULL, ssizet_compare);
+        Set *thisblockSuccessors = set_new(NULL, pointer_compare);
         array_emplace(blockSuccessors, blockIndex, thisblockSuccessors);
 
-        Iterator *tacRunner = NULL;
-        for (tacRunner = list_begin(((struct BasicBlock *)array_at(blocks, blockIndex))->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
-        {
-            struct TACLine *thisTac = iterator_get(tacRunner);
-            switch (thisTac->operation)
-            {
-            case TT_BEQ:
-            case TT_BNE:
-            case TT_BGEU:
-            case TT_BLTU:
-            case TT_BGTU:
-            case TT_BLEU:
-            case TT_BEQZ:
-            case TT_BNEZ:
-            case TT_JMP:
-                set_insert(thisblockSuccessors, array_at(blocks, thisTac->operands.conditionalBranch.label));
-                break;
+        struct BasicBlock *thisBlock = array_at(blocks, blockIndex);
 
-            default:
-                break;
-            }
+        Iterator *successorRunner = NULL;
+        for (successorRunner = set_begin(thisBlock->successors); iterator_gettable(successorRunner); iterator_next(successorRunner))
+        {
+            ssize_t *successorLabel = iterator_get(successorRunner);
+            set_insert(thisblockSuccessors, array_at(blocks, *successorLabel));
         }
-        iterator_free(tacRunner);
+        iterator_free(successorRunner);
     }
 
     return blockSuccessors;
@@ -50,7 +36,7 @@ Array *generate_predecessors(Array *blocks, Array *successors)
     for (size_t blockIndex = 0; blockIndex < blocks->size; blockIndex++)
     {
         // block pointers will always be unique, so we can directly compare them
-        array_emplace(blockPredecessors, blockIndex, set_new(NULL, ssizet_compare));
+        array_emplace(blockPredecessors, blockIndex, set_new(NULL, pointer_compare));
     }
 
     for (size_t blockIndex = 0; blockIndex < blocks->size; blockIndex++)

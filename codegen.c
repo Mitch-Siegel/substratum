@@ -287,9 +287,9 @@ void generate_code_for_function(FILE *outFile,
 
     emitPrologue(&state, &function->regalloc, info);
 
-    if (function->isAsmFun && (function->BasicBlockList->size != 1))
+    if (function->isAsmFun && (function->BasicBlockList->size != 2))
     {
-        InternalError("Asm function with %zu basic blocks seen - expected 1!", function->BasicBlockList->size);
+        InternalError("Asm function with %zu basic blocks seen - expected 2!", function->BasicBlockList->size);
     }
 
     Iterator *argIterator = NULL;

@@ -24,6 +24,11 @@ size_t unalign_size(u8 nBits)
 
 ssize_t ssizet_compare(void *dataA, void *dataB)
 {
+    return *(ssize_t *)dataA - *(ssize_t *)dataB;
+}
+
+ssize_t pointer_compare(void *dataA, void *dataB)
+{
     return (ssize_t)dataA - (ssize_t)dataB;
 }
 
