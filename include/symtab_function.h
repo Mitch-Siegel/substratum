@@ -31,4 +31,6 @@ struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *
 
 void function_entry_free(struct FunctionEntry *function);
 
+void function_entry_print_cfg(struct FunctionEntry *function, FILE *outFile);
+
 #endif

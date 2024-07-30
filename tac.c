@@ -462,6 +462,54 @@ char *sprint_tac_line(struct TACLine *line)
     return trimmedString;
 }
 
+bool tac_line_is_jump(struct TACLine *line)
+{
+    switch (line->operation)
+    {
+    case TT_BEQ:
+    case TT_BNE:
+    case TT_BGEU:
+    case TT_BLTU:
+    case TT_BGTU:
+    case TT_BLEU:
+    case TT_BEQZ:
+    case TT_BNEZ:
+    case TT_JMP:
+    case TT_RETURN:
+        return true;
+    default:
+        return false;
+    }
+}
+
+ssize_t tac_get_jump_target(struct TACLine *line)
+{
+    ssize_t target = -1;
+    switch (line->operation)
+    {
+    case TT_BEQ:
+    case TT_BNE:
+    case TT_BGEU:
+    case TT_BLTU:
+    case TT_BGTU:
+    case TT_BLEU:
+    case TT_BEQZ:
+    case TT_BNEZ:
+        target = line->operands.conditionalBranch.label;
+        break;
+    case TT_JMP:
+        target = line->operands.jump.label;
+        break;
+    case TT_RETURN:
+        target = -1;
+        break;
+    default:
+        break;
+    }
+
+    return target;
+}
+
 void free_tac(struct TACLine *line)
 {
     switch (line->operation)

@@ -1,5 +1,8 @@
-#include "symtab.h"
+#include <errno.h>
+#include <sys/stat.h>
+
 #include "codegen_generic.h"
+#include "symtab.h"
 #include "symtab_scope.h"
 
 #include "log.h"
@@ -27,6 +30,70 @@ void symbol_table_print(struct SymbolTable *table, FILE *outFile, bool printTac)
     printf("Symbol Table For %s:\n\n", table->name);
     scope_print(table->globalScope, outFile, 0, printTac);
     printf("~~~~~~~~~~~~~\n\n");
+}
+
+void scope_print_cfgs(struct Scope *scope, char *outDir)
+{
+    // check if the directory exists
+    struct stat st = {0};
+    if (stat(outDir, &st) == -1)
+    {
+        if (mkdir(outDir, 0777) == -1)
+        {
+            InternalError("Couldn't create cfg directory %s: %s", outDir, strerror(errno));
+        }
+    }
+    Iterator *memberIterator = NULL;
+    for (memberIterator = set_begin(scope->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
+    {
+        struct ScopeMember *thisMember = iterator_get(memberIterator);
+
+        switch (thisMember->type)
+        {
+        case E_FUNCTION:
+        {
+            struct FunctionEntry *thisFunction = thisMember->entry;
+            char *cfgFileName = malloc(strlen(outDir) + strlen(thisFunction->name) + 7);
+            sprintf(cfgFileName, "%s/%s.dot", outDir, thisFunction->name);
+            FILE *cfgFile = fopen(cfgFileName, "w");
+            if (cfgFile == NULL)
+            {
+                InternalError("Couldn't open cfg file %s: %s", cfgFileName, strerror(errno));
+            }
+            function_entry_print_cfg(thisFunction, cfgFile);
+            fclose(cfgFile);
+            free(cfgFileName);
+        }
+        break;
+
+        case E_SCOPE:
+        {
+            struct Scope *thisScope = thisMember->entry;
+            scope_print_cfgs(thisScope, outDir);
+        }
+        break;
+
+        case E_STRUCT:
+        {
+            struct StructEntry *thisStruct = thisMember->entry;
+            char *structCfgDirName = malloc(strlen(outDir) + strlen(thisStruct->name) + 3);
+
+            sprintf(structCfgDirName, "%s/%s", outDir, thisStruct->name);
+            scope_print_cfgs(thisStruct->members, structCfgDirName);
+            free(structCfgDirName);
+        }
+        break;
+
+        default:
+            break;
+        }
+    }
+    iterator_free(memberIterator);
+}
+
+void symbol_table_print_cfgs(struct SymbolTable *table, char *outDir)
+{
+    scope_print_cfgs(table->globalScope, outDir);
 }
 
 char *symbol_table_mangle_name(struct Scope *scope, struct Dictionary *dict, char *toMangle)
