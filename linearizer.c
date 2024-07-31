@@ -758,14 +758,14 @@ void walk_struct_declaration(struct Ast *tree,
         case T_VARIABLE_DECLARATION:
         {
             struct VariableEntry *declaredField = walk_variable_declaration(structBodyRunner, block, declaredStruct->members, &dummyNum, &dummyNum, 0, A_PRIVATE);
-            struct_assign_offset_to_field(declaredStruct, declaredField);
+            struct_add_field(declaredStruct, declaredField);
         }
         break;
 
         case T_PUBLIC:
         {
             struct VariableEntry *declaredField = walk_variable_declaration(structBodyRunner->child, block, declaredStruct->members, &dummyNum, &dummyNum, 0, A_PUBLIC);
-            struct_assign_offset_to_field(declaredStruct, declaredField);
+            struct_add_field(declaredStruct, declaredField);
         }
         break;
 
@@ -774,6 +774,11 @@ void walk_struct_declaration(struct Ast *tree,
         }
 
         structBodyRunner = structBodyRunner->sibling;
+    }
+
+    if(declaredStruct->genericParameters->size == 0)
+    {
+        struct_assign_offsets_to_fields(declaredStruct);
     }
 }
 

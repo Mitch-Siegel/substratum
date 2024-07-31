@@ -13,29 +13,39 @@ void struct_entry_free(struct StructEntry *theStruct)
     free(theStruct);
 }
 
-void struct_assign_offset_to_field(struct StructEntry *memberOf,
-                                   struct VariableEntry *variable)
+void struct_add_field(struct StructEntry *memberOf,
+                      struct VariableEntry *variable)
 {
 
     struct StructField *newMemberLocation = malloc(sizeof(struct StructField));
 
-    // add the padding to the total size of the struct
-    memberOf->totalSize += scope_compute_padding_for_alignment(memberOf->members, &variable->type, memberOf->totalSize);
-
-    // place the new member at the (now aligned) current max size of the struct
-    if (memberOf->totalSize > I64_MAX)
-    {
-        // TODO: implementation dependent size of size_t
-        InternalError("Struct %s has size too large (%zd bytes)!", memberOf->name, memberOf->totalSize);
-    }
-    newMemberLocation->offset = (ssize_t)memberOf->totalSize;
+    newMemberLocation->offset = -1;
     newMemberLocation->variable = variable;
 
-    // add the size of the member we just added to the total size of the struct
-    memberOf->totalSize += type_get_size(&variable->type, memberOf->members);
-    log(LOG_DEBUG, "Assign offset %zu to member variable %s of struct %s - total struct size is now %zu", newMemberLocation->offset, variable->name, memberOf->name, memberOf->totalSize);
-
     stack_push(memberOf->fieldLocations, newMemberLocation);
+}
+
+void struct_assign_offsets_to_fields(struct StructEntry *theStruct)
+{
+    Iterator *fieldIter = NULL;
+    for (fieldIter = stack_bottom(theStruct->fieldLocations); iterator_gettable(fieldIter); iterator_next(fieldIter))
+    {
+        struct StructField *handledField = iterator_get(fieldIter);
+        // add the padding to the total size of the struct
+        theStruct->totalSize += scope_compute_padding_for_alignment(theStruct->members, &handledField->variable->type, theStruct->totalSize);
+
+        // place the new member at the (now aligned) current max size of the struct
+        if (theStruct->totalSize > I64_MAX)
+        {
+            // TODO: implementation dependent size of size_t
+            InternalError("Struct %s has size too large (%zd bytes)!", theStruct->name, theStruct->totalSize);
+        }
+        handledField->offset = (ssize_t)theStruct->totalSize;
+
+        // add the size of the member we just added to the total size of the struct
+        theStruct->totalSize += type_get_size(&handledField->variable->type, theStruct->members);
+        log(LOG_DEBUG, "Assign offset %zu to member variable %s of struct %s - total struct size is now %zu", handledField->offset, handledField->variable->name, theStruct->name, theStruct->totalSize);
+    }
 }
 
 // assuming we know that struct has a member with name identical to name->value, make sure we can actually access it
@@ -136,11 +146,11 @@ struct StructField *struct_lookup_field(struct StructEntry *theStruct,
 
     if (returnedField == NULL)
     {
-        log_tree(LOG_FATAL, nameTree, "Use of nonexistent member variable %s in struct %s", nameTree->value, theStruct->name);
+        log_tree(LOG_FATAL, nameTree, "Use of nonexistent field \"%s\" in struct %s", nameTree->value, theStruct->name);
     }
     else
     {
-        struct_check_access(theStruct, nameTree, scope, "Member");
+        struct_check_access(theStruct, nameTree, scope, "Field");
     }
 
     return returnedField;

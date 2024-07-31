@@ -4,8 +4,8 @@
 #include "ast.h"
 #include "symtab_variable.h"
 
-#include "mbcl/stack.h"
 #include "mbcl/list.h"
+#include "mbcl/stack.h"
 
 struct StructField
 {
@@ -28,8 +28,10 @@ void struct_entry_free(struct StructEntry *theStruct);
 
 // given a VariableEntry corresponding to a struct member which was just declared
 // generate a StructField with the aligned location of the member within the struct
-void struct_assign_offset_to_field(struct StructEntry *memberOf,
-                                   struct VariableEntry *variable);
+void struct_add_field(struct StructEntry *memberOf,
+                      struct VariableEntry *variable);
+
+void struct_assign_offsets_to_fields(struct StructEntry *theStruct);
 
 struct StructField *struct_lookup_field(struct StructEntry *theStruct,
                                         struct Ast *nameTree,

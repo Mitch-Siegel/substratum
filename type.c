@@ -443,7 +443,7 @@ char *type_get_name(struct Type *type)
 
     case VT_GENERIC_PARAM:
     {
-        len = sprintf(typeName, "genericParam(\"%s\")", type->nonArray.complexType.name);
+        len = sprintf(typeName, "\"%s\"", type->nonArray.complexType.name);
     }
     break;
 

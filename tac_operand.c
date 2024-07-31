@@ -69,16 +69,16 @@ char *tac_operand_sprint(void *operandData)
         operandLen += sprintf(operandStr + operandLen, "%s", nonCastTypeName);
         free(nonCastTypeName);
 
-        if((operand->permutation == VP_STANDARD) || (operand->permutation == VP_TEMP))
+        if ((operand->permutation == VP_STANDARD) || (operand->permutation == VP_TEMP))
         {
-            if(operand->castAsType.basicType != VT_NULL)
+            if (operand->castAsType.basicType != VT_NULL)
             {
                 char *castTypeName = type_get_name(&operand->castAsType);
                 operandLen += sprintf(operandStr + operandLen, "(%s)", castTypeName);
                 free(castTypeName);
             }
         }
-        operandLen += sprintf(operandStr + operandLen, " " );
+        operandLen += sprintf(operandStr + operandLen, " ");
     }
 
     switch (operand->permutation)
