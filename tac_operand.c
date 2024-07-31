@@ -63,6 +63,24 @@ char *tac_operand_sprint(void *operandData)
     char *operandStr = malloc(TAC_OPERAND_NAME_LEN);
     ssize_t operandLen = 0;
 
+    if (operand->permutation != VP_UNUSED)
+    {
+        char *nonCastTypeName = type_get_name(tac_operand_get_non_cast_type(operand));
+        operandLen += sprintf(operandStr + operandLen, "%s", nonCastTypeName);
+        free(nonCastTypeName);
+
+        if((operand->permutation == VP_STANDARD) || (operand->permutation == VP_TEMP))
+        {
+            if(operand->castAsType.basicType != VT_NULL)
+            {
+                char *castTypeName = type_get_name(&operand->castAsType);
+                operandLen += sprintf(operandStr + operandLen, "(%s)", castTypeName);
+                free(castTypeName);
+            }
+        }
+        operandLen += sprintf(operandStr + operandLen, " " );
+    }
+
     switch (operand->permutation)
     {
     case VP_STANDARD:

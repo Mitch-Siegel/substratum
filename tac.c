@@ -331,8 +331,8 @@ char *sprint_tac_line(struct TACLine *line)
 
     case TT_FIELD_STORE:
     {
-        char *destinationStr = tac_operand_sprint(&line->operands.fieldLoad.destination);
-        char *sourceStr = tac_operand_sprint(&line->operands.fieldLoad.source);
+        char *destinationStr = tac_operand_sprint(&line->operands.fieldStore.destination);
+        char *sourceStr = tac_operand_sprint(&line->operands.fieldStore.source);
         width += sprintf(tacString + width, "%s.%s = %s", destinationStr, line->operands.fieldLoad.fieldName, sourceStr);
         free(destinationStr);
         free(sourceStr);

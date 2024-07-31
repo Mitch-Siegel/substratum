@@ -1,5 +1,18 @@
 #include "tests-common.sb"
 
+struct Stack::<T> {
+    T[256] data;
+    u8 size;
+}
+
+impl Stack {
+    public T fun Push(self, T toPush)
+    {
+        self.data[self.size] = toPush;
+        self.size += 1;
+    }
+}
+
 fun main()
 {
     exit();

@@ -441,6 +441,12 @@ char *type_get_name(struct Type *type)
     }
     break;
 
+    case VT_GENERIC_PARAM:
+    {
+        len = sprintf(typeName, "genericParam(\"%s\")", type->nonArray.complexType.name);
+    }
+    break;
+
     default:
         InternalError("Unexpected enum BASIC_TYPES value %d seen in Type_GetName!", type->basicType);
     }
