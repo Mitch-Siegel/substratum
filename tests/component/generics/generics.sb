@@ -1,0 +1,11 @@
+#include "tests-common.sb"
+
+struct Stack::<T> {
+    T[10] data;
+    u8 size;
+};
+
+fun main()
+{
+    exit();
+}

@@ -4,7 +4,7 @@ struct Money
 {
     public u32 dollars;
     public u8 cents;
-};
+}
 
 fun PrintMoney(Money *m)
 {

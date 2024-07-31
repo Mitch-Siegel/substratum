@@ -5,5 +5,6 @@
 *.cov
 *.gcda
 */coverage/*
+*.dot
 
 aggregate-coverage-report

@@ -3,7 +3,7 @@
 struct Counter {
     u8 *name;
     u32 count;
-};
+}
 
 impl Counter {
     public fun Increment(self)

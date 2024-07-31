@@ -7,7 +7,7 @@ struct AllSizes1
     public u8 first;
     public u16 second;
     public u32 third;
-};
+}
 
 fun TestStruct1(u32 write32, u16 write16, u8 write8)
 {
@@ -43,7 +43,7 @@ struct AllSizes2
     public u8 first;
     public u32 second;
     public u16 third;
-};
+}
 
 fun TestStruct2(u32 write32, u16 write16, u8 write8)
 {
@@ -79,7 +79,7 @@ struct AllSizes3
     public u16 first;
     public u8 second;
     public u32 third;
-};
+}
 
 fun TestStruct3(u32 write32, u16 write16, u8 write8)
 {
@@ -115,7 +115,7 @@ struct AllSizes4
     public u16 first;
     public u32 second;
     public u8 third;
-};
+}
 
 fun TestStruct4(u32 write32, u16 write16, u8 write8)
 {
@@ -151,7 +151,7 @@ struct AllSizes5
     public u32 first;
     public u8 second;
     public u16 third;
-};
+}
 
 fun TestStruct5(u32 write32, u16 write16, u8 write8)
 {
@@ -187,7 +187,7 @@ struct AllSizes6
     public u32 first;
     public u16 second;
     public u8 third;
-};
+}
 
 fun TestStruct6(u32 write32, u16 write16, u8 write8)
 {

@@ -43,8 +43,15 @@ variable_declaration_statement
    <- e:extern _ v:variable_declaration { $$ = AST_C(e, v); } 
     / v:variable_declaration _ kw_semicolon      { $$ = v; }
 
+generic_parameters
+   <- kw_double_colon _ kw_l_generic _ il:identifier_list _ kw_r_generic   { $$ = AST_C(AST_N(auxil, T_GENERIC_PARAMETERS, "", $0s), il); }
+
+identifier_list
+   <- il:identifier_list _ kw_comma _ i:identifier { $$ = AST_S(il, i); }
+    / i:identifier { $$ = i; }
+
 struct_declaration
-   <- s:struct _ i:identifier _ kw_lcurly _ m:struct_member_declaration_list _ kw_rcurly { $$ = AST_C(s, AST_S(i, AST_C(AST_N(auxil, T_STRUCT_BODY, "", $0s), m))); }
+   <- s:struct _ t:non_pointer_typename _ kw_lcurly _ m:struct_member_declaration_list _ kw_rcurly { $$ = AST_C(s, AST_S(t, AST_C(AST_N(auxil, T_STRUCT_BODY, "", $0s), m))); }
 
 struct_member_declaration_list
    <- l:struct_member_declaration_list _ m:struct_member_declaration _ { $$ = AST_S(l, m); }
@@ -55,7 +62,7 @@ struct_member_declaration
     / p:public _ v:variable_declaration_statement _   { $$ = AST_C(p, v); }
 
 impl_block
-   <- im:impl _ id: identifier _ kw_lcurly _ il:implementations_list _ kw_rcurly { $$ = AST_C(im, AST_S(id, il)); }
+   <- im:impl _ t:non_pointer_typename _ kw_lcurly _ il:implementations_list _ kw_rcurly { $$ = AST_C(im, AST_S(t, il)); }
 
 implementations_list
    <- il:implementations_list _ i:implementation  { $$ = AST_S(il, i); }
@@ -331,8 +338,8 @@ match_identifier_with_type
 
 statement
    <- c:compound_statement                                                                                                 { $$ = c; }
-    / s:struct_declaration _ kw_semicolon                                                                                  { $$ = s; } # TODO: remove semicolon
-    / e:enum_declaration _ kw_semicolon                                                                                    { $$ = e; } # TODO: remove semicolon
+    / s:struct_declaration                                                                                                 { $$ = s; }
+    / e:enum_declaration                                                                                                   { $$ = e; }
     / i:impl_block                                                                                                         { $$ = i; }
     / e:expression_statement                                                                                               { $$ = e; }
     / v:variable_declaration_statement                                                                                     { $$ = v; }
@@ -364,13 +371,14 @@ dereference
    <- '*' { $$ = AST_N(auxil, T_DEREFERENCE, $0, $0s); }
 
 non_pointer_typename
-   <- t:any       { $$ = t; }
-    / t:u8         { $$ = t; }
-    / t:u16        { $$ = t; }
-    / t:u32        { $$ = t; }
-    / t:u64        { $$ = t; }
-    / s:cap_self   { $$ = s; }
-    / i:identifier { $$ = i; }
+   <- t:any                                  { $$ = t; }
+    / t:u8                                   { $$ = t; }
+    / t:u16                                  { $$ = t; }
+    / t:u32                                  { $$ = t; }
+    / t:u64                                  { $$ = t; }
+    / s:cap_self                             { $$ = s; }
+    / i:identifier _ gp:generic_parameters   { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_C(i, gp)); }
+    / i:identifier                           { $$ = i; }
 
 identifier
    <- !keyword LETTER(LETTER/DIGIT)*  { $$ = AST_N(auxil, T_IDENTIFIER, $0, $0s); }
@@ -420,7 +428,7 @@ keyword
     / kw_self
     / kw_cap_self
     / kw_public
-    / kw_associated_call
+    / kw_double_colon
     / kw_colon
     / kw_underscore
 
@@ -456,7 +464,6 @@ kw_impl        <- 'impl' !(LETTER/DIGIT)
 kw_self        <- 'self' !(LETTER/DIGIT)
 kw_cap_self    <- 'Self' !(LETTER/DIGIT)
 kw_public      <- 'public' !(LETTER/DIGIT)
-kw_associated_call<- '::'
 kw_underscore  <- '_' !(LETTER/DIGIT)
 
 
@@ -474,7 +481,9 @@ kw_rparen      <- ')'                     { manage_source_location(auxil, $0); }
 kw_lbracket    <- '['                     { manage_source_location(auxil, $0); }
 kw_rbracket    <- ']'                     { manage_source_location(auxil, $0); }
 kw_colon       <- ':' !(':')              { manage_source_location(auxil, $0); }
-
+kw_double_colon<- '::'                    { manage_source_location(auxil, $0); }
+kw_l_generic   <- '<'                     { manage_source_location(auxil, $0); }
+kw_r_generic   <- '>'                     { manage_source_location(auxil, $0); }
 
 
 fun            <- kw_fun     { $$ = AST_N(auxil, T_FUN, $0, $0s); }
@@ -496,7 +505,7 @@ impl           <- kw_impl    { $$ = AST_N(auxil, T_IMPL, $0, $0s); }
 self           <- kw_self    { $$ = AST_N(auxil, T_SELF, $0, $0s); }
 cap_self       <- kw_cap_self { $$ = AST_N(auxil, T_CAP_SELF, $0, $0s); }
 public         <- kw_public  { $$ = AST_N(auxil, T_PUBLIC, $0, $0s); }
-associated_call<- kw_associated_call { $$ = AST_N(auxil, T_ASSOCIATED_CALL, $0, $0s); }
+associated_call<- kw_double_colon { $$ = AST_N(auxil, T_ASSOCIATED_CALL, "", $0s); }
 underscore     <- kw_underscore { $$ = AST_N(auxil, T_UNDERSCORE, $0, $0s); }
 
 dot           <- kw_dot       { $$ = AST_N(auxil, T_DOT, $0, $0s); }
