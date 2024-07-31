@@ -32,10 +32,14 @@ coverage-report: coverage
 	genhtml $(COVERAGE_DIR)/$(COMPONENT_TEST_COVERAGE_NAME).info -o $(COVERAGE_DIR)/$(COMPONENT_TEST_COVERAGE_NAME)-report
 
 $(ALL_TESTS_ELFS):
+	$(info "Test $@")
 	$(MAKE) -C $(subst /,,$(dir $@)) $(subst /,,$(dir $@)).elf
+	$(info "")
 
 $(ALL_TESTS_OUTPUTS):
+	$(info "$@")
 	$(MAKE) -C $(subst /,,$(dir $@)) $(subst /,,$(dir $@)).output
+	$(info )
 
 info:
 	$(info "ALL_TESTS_DIRS: $(ALL_TESTS_DIRS)")

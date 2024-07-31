@@ -1504,7 +1504,6 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
         if (matchedValueTree->child != NULL)
         {
             struct Ast *matchedDataName = matchedValueTree->child;
-            log(LOG_WARNING, "Matched data is named %s", matchedDataName->value);
 
             // make sure we actually expect to map to some type for this member
             if (matchedMember->type.basicType == VT_NULL)
@@ -2192,7 +2191,7 @@ void walk_struct_initializer(struct Ast *tree,
                 log_tree(LOG_FATAL, initToTree, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, initializedField->variable->name, type_get_name(tac_operand_get_type(&initializedValue)), type_get_name(&initializedField->variable->type));
             }
         }
-        log(LOG_WARNING, "init %s.%s to %s", initializedType->nonArray.complexType.name, initializedField->variable->name, initToTree->value);
+        log(LOG_DEBUG, "init %s.%s to %s", initializedType->nonArray.complexType.name, initializedField->variable->name, initToTree->value);
         basic_block_append(block, fieldStore, tacIndex);
 
         initFieldIdx++;

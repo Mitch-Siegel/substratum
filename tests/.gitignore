@@ -7,3 +7,5 @@
 */coverage/*
 
 aggregate-coverage-report
+
+*.dot

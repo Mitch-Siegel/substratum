@@ -15,7 +15,7 @@ ASMS = $(patsubst %.sb,%.S,$(SRCS))
 OBJS = $(patsubst %.sb,%.o,$(SRCS))
 
 # don't automatically remove .elf files
-.SECONDARY: $(TEST_NAME).elf $(ASMS)
+.SECONDARY: $(TEST_NAME).elf $(TEST_NAME).o $(ASMS)
 
 .DEFAULT_GOAL = $(TEST_NAME).output
 
@@ -26,13 +26,18 @@ always:
 programs: $(TEST_NAME).output
 
 %.S: %.sb
+ifndef NO-COVERAGE
 	rm -f $(SBCC_BUILD_DIR)/*.gcda
-	$(eval COV_DEST_DIR = $(COVERAGE_BASE_DIR)/$(basename $@))
-	mkdir -p $(COV_DEST_DIR)
+endif
 	$(SBCC) -i $^ -o $(basename $@).S -I $(COMMON_DIR) -I $(shell dirname $@)
-	@mkdir -p $(COV_DEST_DIR)
-	cp $(SBCC_BUILD_DIR)/*.gcda $(COV_DEST_DIR)
+ifdef NO-COVERAGE
+		@echo "Coverage disabled"
+else
+		@$(eval COV_DEST_DIR = $(COVERAGE_BASE_DIR)/$(basename $@))
+		@mkdir -p $(COV_DEST_DIR)
+		@cp $(SBCC_BUILD_DIR)/*.gcda $(COV_DEST_DIR)
 	@geninfo --build-directory $(SBCC_BUILD_DIR) $(COV_DEST_DIR) -o $(COV_DEST_DIR)/$(basename $@).cov
+endif
 
 
 # all test object files must have one and only one substratum source file
@@ -65,5 +70,4 @@ clean:
 	@rm -f *.elf
 	@rm -f *.output
 	@rm -rf coverage
-
 
