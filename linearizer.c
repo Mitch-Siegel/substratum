@@ -140,6 +140,80 @@ void check_any_type_use(struct Type *type, struct Ast *typeTree)
     }
 }
 
+struct Type walk_non_pointer_type_name(struct Scope *scope,
+                                       struct Ast *tree)
+{
+    struct Type wipType = {0};
+    type_init(&wipType);
+    switch (tree->type)
+    {
+    case T_ANY:
+        wipType.basicType = VT_ANY;
+        break;
+
+    case T_U8:
+        wipType.basicType = VT_U8;
+        break;
+
+    case T_U16:
+        wipType.basicType = VT_U16;
+        break;
+
+    case T_U32:
+        wipType.basicType = VT_U32;
+        break;
+
+    case T_U64:
+        wipType.basicType = VT_U64;
+        break;
+
+    case T_IDENTIFIER:
+    {
+        while (scope != NULL)
+        {
+            struct ScopeMember *lookedUp = scope_lookup_no_parent(scope, tree->value, E_STRUCT);
+            if (lookedUp != NULL)
+            {
+                wipType.basicType = VT_STRUCT;
+                wipType.nonArray.complexType.name = lookedUp->name;
+                break;
+            }
+
+            lookedUp = scope_lookup_no_parent(scope, tree->value, E_ENUM);
+            if (lookedUp != NULL)
+            {
+                wipType.basicType = VT_ENUM;
+                wipType.nonArray.complexType.name = lookedUp->name;
+                return wipType;
+            }
+            scope = scope->parentScope;
+        }
+
+        if (wipType.basicType == VT_NULL)
+        {
+            log_tree(LOG_FATAL, tree, "%s does not name a type!", tree->value);
+        }
+    }
+    break;
+
+    case T_CAP_SELF:
+        wipType.basicType = VT_STRUCT;
+        if (scope->parentImpl == NULL)
+        {
+            log_tree(LOG_FATAL, tree->child, "Use of 'Self' outside of impl scope!");
+        }
+        wipType.nonArray.complexType.name = scope->parentImpl->name;
+
+        // construct a fake struct name tree which contains the source location info
+        break;
+
+    default:
+        log_tree(LOG_FATAL, tree, "Malformed AST seen in declaration!");
+    }
+
+    return wipType;
+}
+
 void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populateTypeTo)
 {
     log_tree(LOG_DEBUG, tree, "WalkTypeName");
@@ -150,97 +224,12 @@ void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populate
 
     type_init(populateTypeTo);
 
-    struct Ast complexTypeNameTree = {0};
-    enum BASIC_TYPES basicType = VT_NULL;
-    char *complexTypeName = NULL;
-
-    switch (tree->child->type)
-    {
-    case T_ANY:
-        basicType = VT_ANY;
-        break;
-
-    case T_U8:
-        basicType = VT_U8;
-        break;
-
-    case T_U16:
-        basicType = VT_U16;
-        break;
-
-    case T_U32:
-        basicType = VT_U32;
-        break;
-
-    case T_U64:
-        basicType = VT_U64;
-        break;
-
-    case T_IDENTIFIER:
-    {
-        complexTypeNameTree = *tree->child;
-        complexTypeName = complexTypeNameTree.value;
-
-        struct ScopeMember *namedType = scope_lookup(scope, complexTypeName, E_STRUCT);
-        if (namedType != NULL)
-        {
-            basicType = VT_STRUCT;
-        }
-        else
-        {
-            namedType = scope_lookup(scope, complexTypeName, E_ENUM);
-            if (namedType != NULL)
-            {
-                basicType = VT_ENUM;
-            }
-            else
-            {
-                log_tree(LOG_FATAL, &complexTypeNameTree, "%s does not name a type", complexTypeName);
-            }
-        }
-
-        if (complexTypeNameTree.type != T_IDENTIFIER)
-        {
-            log_tree(ERROR_INTERNAL,
-                     &complexTypeNameTree,
-                     "Malformed AST seen in declaration!\nExpected struct name as child of \"struct\", saw %s (%s)!",
-                     complexTypeNameTree.value,
-                     token_get_name(complexTypeNameTree.type));
-        }
-    }
-    break;
-
-    case T_CAP_SELF:
-        basicType = VT_STRUCT;
-        if (scope->parentImpl == NULL)
-        {
-            log_tree(LOG_FATAL, tree->child, "Use of 'Self' outside of impl scope!");
-        }
-        complexTypeName = scope->parentImpl->name;
-
-        // construct a fake struct name tree which contains the source location info
-        complexTypeNameTree = *tree->child;
-        complexTypeNameTree.child = NULL;
-        complexTypeNameTree.sibling = NULL;
-        complexTypeNameTree.type = T_IDENTIFIER;
-        complexTypeNameTree.value = complexTypeName;
-        break;
-
-    default:
-        log_tree(LOG_FATAL, tree, "Malformed AST seen in declaration!");
-    }
+    *populateTypeTo = walk_non_pointer_type_name(scope, tree->child);
 
     struct Ast *declaredArray = NULL;
-    type_set_basic_type(populateTypeTo, basicType, complexTypeName, scrape_pointers(tree->child, &declaredArray));
+    populateTypeTo->pointerLevel = scrape_pointers(tree->child, &declaredArray);
 
     check_any_type_use(populateTypeTo, tree->child);
-
-    // don't allow declaration of variables of undeclared struct or array of undeclared struct (except pointers)
-    if ((populateTypeTo->basicType == VT_STRUCT) && (populateTypeTo->pointerLevel == 0))
-    {
-        // the lookup will bail out if an attempt is made to use an undeclared struct
-        scope_lookup_struct(scope, &complexTypeNameTree);
-    }
 
     // if we are declaring an array, set the string with the size as the second operand
     if (declaredArray != NULL)
