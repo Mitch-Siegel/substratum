@@ -19,6 +19,8 @@
 #include "codegen_riscv.h"
 #include "regalloc_riscv.h"
 
+#include <mbcl/stack.h>
+
 struct Dictionary *parseDict = NULL;
 
 void usage()

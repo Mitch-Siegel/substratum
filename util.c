@@ -160,7 +160,7 @@ void dictionary_free(struct Dictionary *dict)
  *
  */
 
-const size_t TEMP_LIST_SPRINTF_LENGTH = 6;
+const size_t TEMP_LIST_SPRINTF_LENGTH = 23;
 const size_t TEMP_GENERATE_MULTIPLE = 5;
 char *temp_list_get(struct TempList *tempList, size_t tempNum)
 {

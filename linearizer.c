@@ -2087,7 +2087,7 @@ void ensure_all_fields_initialized(struct Ast *tree, size_t initFieldIdx, struct
         // go through the remaining fields, construct a string with the type and name of all missing fields
         while (initFieldIdx < initializedStruct->fieldLocations->size)
         {
-            struct StructField *unInitField = (struct StructField *)initializedStruct->fieldLocations->data[initFieldIdx];
+            struct StructField *unInitField = deque_at(initializedStruct->fieldLocations, initFieldIdx);
 
             char *unInitTypeName = type_get_name(&unInitField->variable->type);
             size_t origLen = strlen(fieldsString);

@@ -4,7 +4,7 @@
 #include "ast.h"
 #include "symtab_variable.h"
 
-#include "mbcl/stack.h"
+#include "mbcl/deque.h"
 
 struct StructField
 {
@@ -18,7 +18,7 @@ struct StructEntry
 {
     char *name;
     struct Scope *members;
-    Stack *fieldLocations;
+    Deque *fieldLocations;
     size_t totalSize;
 };
 

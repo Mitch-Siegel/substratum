@@ -4,6 +4,7 @@
 #include "codegen_generic.h"
 #include "symtab.h"
 #include "symtab_scope.h"
+#include <mbcl/stack.h>
 
 #include "log.h"
 

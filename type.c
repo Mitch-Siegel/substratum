@@ -568,7 +568,7 @@ u8 type_get_alignment(struct Type *type, struct Scope *scope)
     {
         struct StructEntry *theStruct = scope_lookup_struct_by_type(scope, type);
         Iterator *memberIterator = NULL;
-        for (memberIterator = stack_bottom(theStruct->fieldLocations); iterator_gettable(memberIterator); iterator_next(memberIterator))
+        for (memberIterator = deque_front(theStruct->fieldLocations); iterator_gettable(memberIterator); iterator_next(memberIterator))
         {
             struct StructField *offset = iterator_get(memberIterator);
             u8 memberAlignment = type_get_alignment(&offset->variable->type, scope);

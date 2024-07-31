@@ -184,7 +184,7 @@ struct StructEntry *scope_create_struct(struct Scope *scope,
     struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
     wipStruct->name = name;
     wipStruct->members = scope_new(scope, name, NULL, wipStruct);
-    wipStruct->fieldLocations = stack_new(free);
+    wipStruct->fieldLocations = deque_new(free);
     wipStruct->totalSize = 0;
 
     scope_insert(scope, name, wipStruct, E_STRUCT, A_PUBLIC);

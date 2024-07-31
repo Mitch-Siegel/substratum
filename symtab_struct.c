@@ -8,7 +8,7 @@
 void struct_entry_free(struct StructEntry *theStruct)
 {
     scope_free(theStruct->members);
-    stack_free(theStruct->fieldLocations);
+    deque_free(theStruct->fieldLocations);
     free(theStruct);
 }
 
@@ -34,7 +34,7 @@ void struct_assign_offset_to_field(struct StructEntry *memberOf,
     memberOf->totalSize += type_get_size(&variable->type, memberOf->members);
     log(LOG_DEBUG, "Assign offset %zu to member variable %s of struct %s - total struct size is now %zu", newMemberLocation->offset, variable->name, memberOf->name, memberOf->totalSize);
 
-    stack_push(memberOf->fieldLocations, newMemberLocation);
+    deque_push_back(memberOf->fieldLocations, newMemberLocation);
 }
 
 // assuming we know that struct has a member with name identical to name->value, make sure we can actually access it
@@ -122,7 +122,7 @@ struct StructField *struct_lookup_field(struct StructEntry *theStruct,
 
     struct StructField *returnedField = NULL;
     Iterator *fieldIterator = NULL;
-    for (fieldIterator = stack_bottom(theStruct->fieldLocations); iterator_gettable(fieldIterator); iterator_next(fieldIterator))
+    for (fieldIterator = deque_front(theStruct->fieldLocations); iterator_gettable(fieldIterator); iterator_next(fieldIterator))
     {
         struct StructField *field = iterator_get(fieldIterator);
         if (!strcmp(field->variable->name, nameTree->value))
@@ -151,7 +151,7 @@ struct StructField *struct_lookup_field_by_name(struct StructEntry *theStruct,
 {
     struct StructField *returnedField = NULL;
     Iterator *fieldIterator = NULL;
-    for (fieldIterator = stack_bottom(theStruct->fieldLocations); iterator_gettable(fieldIterator); iterator_next(fieldIterator))
+    for (fieldIterator = deque_front(theStruct->fieldLocations); iterator_gettable(fieldIterator); iterator_next(fieldIterator))
     {
         struct StructField *field = iterator_get(fieldIterator);
         if (!strcmp(field->variable->name, name))
