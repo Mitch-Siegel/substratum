@@ -15,7 +15,8 @@ enum BASIC_TYPES
     VT_U64,
     VT_STRUCT,
     VT_ENUM,
-    VT_ARRAY
+    VT_ARRAY,
+    VT_GENERIC_PARAM,
 };
 
 struct Type

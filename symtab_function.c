@@ -7,7 +7,7 @@
 #include "symtab_basicblock.h"
 #include "symtab_scope.h"
 
-struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct Type *returnType, struct StructEntry *methodOf)
+struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct StructEntry *methodOf)
 {
     struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
     memset(newFunction, 0, sizeof(struct FunctionEntry));
@@ -16,7 +16,7 @@ struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *
     newFunction->BasicBlockList = list_new(NULL, NULL);
     newFunction->correspondingTree = *nameTree;
     newFunction->mainScope->parentFunction = newFunction;
-    newFunction->returnType = *returnType;
+    type_init(&newFunction->returnType);
     newFunction->name = nameTree->value;
     newFunction->methodOf = methodOf;
     newFunction->isDefined = 0;

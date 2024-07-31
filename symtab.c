@@ -310,7 +310,25 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
     case E_STRUCT:
     {
         struct StructEntry *theStruct = toPrint->entry;
-        fprintf(outFile, "> Struct %s:\n", toPrint->name);
+        fprintf(outFile, "> Struct %s", toPrint->name);
+        if (theStruct->genericParameters->size > 0)
+        {
+            fprintf(outFile, "<");
+            Iterator *genericParamIterator = list_begin(theStruct->genericParameters);
+            while (iterator_gettable(genericParamIterator))
+            {
+                char *thisParam = iterator_get(genericParamIterator);
+                fprintf(outFile, "%s", thisParam);
+                iterator_next(genericParamIterator);
+                if (iterator_gettable(genericParamIterator))
+                {
+                    fprintf(outFile, ", ");
+                }
+            }
+            iterator_free(genericParamIterator);
+            fprintf(outFile, ">");
+        }
+
         for (size_t j = 0; j < depth; j++)
         {
             fprintf(outFile, "\t");

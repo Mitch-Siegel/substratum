@@ -5,6 +5,7 @@
 #include "symtab_variable.h"
 
 #include "mbcl/stack.h"
+#include "mbcl/list.h"
 
 struct StructField
 {
@@ -17,6 +18,7 @@ void struct_field_free(struct StructField *toFree);
 struct StructEntry
 {
     char *name;
+    List *genericParameters;
     struct Scope *members;
     Stack *fieldLocations;
     size_t totalSize;

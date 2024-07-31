@@ -377,7 +377,7 @@ non_pointer_typename
     / t:u32                                  { $$ = t; }
     / t:u64                                  { $$ = t; }
     / s:cap_self                             { $$ = s; }
-    / i:identifier _ gp:generic_parameters   { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_C(i, gp)); }
+    / i:identifier _ gp:generic_parameters   { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(i, gp)); }
     / i:identifier                           { $$ = i; }
 
 identifier

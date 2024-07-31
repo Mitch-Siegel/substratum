@@ -27,7 +27,7 @@ struct FunctionEntry
     struct RegallocMetadata regalloc;
 };
 
-struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct Type *returnType, struct StructEntry *methodOf);
+struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct StructEntry *methodOf);
 
 void function_entry_free(struct FunctionEntry *function);
 

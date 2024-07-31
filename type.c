@@ -159,6 +159,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             {
             case VT_NULL:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
                 retVal = CANT_WIDEN;
                 break;
             case VT_ENUM:
@@ -179,6 +180,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_ENUM:
             case VT_STRUCT:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
                 retVal = CANT_WIDEN;
                 break;
             case VT_ANY:
@@ -198,6 +200,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_ENUM:
             case VT_STRUCT:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
                 retVal = CANT_WIDEN;
                 break;
             case VT_ANY:
@@ -217,6 +220,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_ENUM:
             case VT_STRUCT:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
                 retVal = CANT_WIDEN;
                 break;
 
@@ -237,6 +241,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_ENUM:
             case VT_STRUCT:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
                 retVal = CANT_WIDEN;
                 break;
 
@@ -255,6 +260,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_U32:
             case VT_U64:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
             case VT_ENUM:
                 retVal = CANT_WIDEN;
                 break;
@@ -275,6 +281,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_U64:
             case VT_STRUCT:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
                 retVal = CANT_WIDEN;
                 break;
             case VT_ANY:
@@ -294,6 +301,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_U16:
             case VT_U32:
             case VT_U64:
+            case VT_GENERIC_PARAM:
             case VT_ENUM:
             case VT_STRUCT:
                 retVal = CANT_WIDEN;
@@ -303,6 +311,12 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
                 break;
             }
             break;
+        }
+        break;
+
+        case VT_GENERIC_PARAM:
+        {
+            retVal = CANT_WIDEN;
         }
         break;
         }
@@ -518,6 +532,10 @@ size_t type_get_size(struct Type *type, struct Scope *scope)
         size *= type_get_size(&typeRunner, scope);
     }
     break;
+
+    case VT_GENERIC_PARAM:
+        InternalError("Type_GetSize called with basic type of VT_GENERIC_PARAM!\n");
+        break;
     }
 
     return size;

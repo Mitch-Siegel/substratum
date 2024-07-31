@@ -67,7 +67,7 @@ struct Scope *scope_new(struct Scope *parentScope, char *name, struct FunctionEn
 
     wip->parentScope = parentScope;
     wip->parentFunction = parentFunction;
-    wip->parentImpl = parentImpl;
+    wip->parentStruct = parentImpl;
     wip->name = name;
     wip->subScopeCount = 0;
     return wip;
@@ -107,7 +107,7 @@ struct Scope *scope_create_sub_scope(struct Scope *parent_scope)
     free(helpStr);
     parent_scope->subScopeCount++;
 
-    struct Scope *newScope = scope_new(parent_scope, newScopeName, parent_scope->parentFunction, parent_scope->parentImpl);
+    struct Scope *newScope = scope_new(parent_scope, newScopeName, parent_scope->parentFunction, parent_scope->parentStruct);
 
     scope_insert(parent_scope, newScopeName, newScope, E_SCOPE, A_PUBLIC);
     return newScope;
@@ -173,7 +173,8 @@ struct FunctionEntry *scope_create_function(struct Scope *parentScope,
                                             struct StructEntry *methodOf,
                                             enum ACCESS accessibility)
 {
-    struct FunctionEntry *newFunction = function_entry_new(parentScope, nameTree, returnType, methodOf);
+    struct FunctionEntry *newFunction = function_entry_new(parentScope, nameTree, methodOf);
+    newFunction->returnType = *returnType;
     scope_insert(parentScope, nameTree->value, newFunction, E_FUNCTION, accessibility);
     return newFunction;
 }
@@ -183,6 +184,7 @@ struct StructEntry *scope_create_struct(struct Scope *scope,
 {
     struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
     wipStruct->name = name;
+    wipStruct->genericParameters = list_new(NULL, (ssize_t (*)(void *, void *))strcmp);
     wipStruct->members = scope_new(scope, name, NULL, wipStruct);
     wipStruct->fieldLocations = stack_new(free);
     wipStruct->totalSize = 0;
@@ -191,6 +193,7 @@ struct StructEntry *scope_create_struct(struct Scope *scope,
     return wipStruct;
 }
 
+// TODO: enum_entry_new()
 struct EnumEntry *scope_create_enum(struct Scope *scope,
                                     char *name)
 {
@@ -203,6 +206,7 @@ struct EnumEntry *scope_create_enum(struct Scope *scope,
     scope_insert(scope, name, wipEnum, E_ENUM, A_PUBLIC);
     return wipEnum;
 }
+
 // Scope lookup functions
 
 bool scope_contains(struct Scope *scope, char *name, enum SCOPE_MEMBER_TYPE type)

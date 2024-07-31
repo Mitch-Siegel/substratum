@@ -41,7 +41,7 @@ struct Scope
 {
     struct Scope *parentScope;
     struct FunctionEntry *parentFunction;
-    struct StructEntry *parentImpl;
+    struct StructEntry *parentStruct;
     Set *entries;
     u8 subScopeCount;
     char *name; // duplicate pointer from ScopeMember for ease of use
@@ -153,5 +153,8 @@ struct EnumEntry *scope_lookup_enum_by_type(struct Scope *scope,
 
 struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
                                                    char *name);
+
+void scope_create_generic_parameter(struct Scope *scope,
+                                    struct Ast *name);
 
 #endif

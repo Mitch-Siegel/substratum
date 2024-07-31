@@ -171,6 +171,29 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
     {
         while (scope != NULL)
         {
+            if (scope->parentStruct != NULL)
+            {
+                if (scope == scope->parentStruct->members)
+                {
+                    if (list_find(scope->parentStruct->genericParameters, tree->value) != NULL)
+                    {
+                        wipType.basicType = VT_GENERIC_PARAM;
+                        wipType.nonArray.complexType.name = tree->value;
+                        return wipType;
+                    }
+                }
+            }
+
+            // if (scope->parentFunction != NULL)
+            // {
+            //     if (set_find(scope->parentFunction->genericParameters, tree->value) != NULL)
+            //     {
+            //         wipType.basicType = VT_GENERIC_PARAM;
+            //         wipType.nonArray.complexType.name = tree->value;
+            //         return wipType;
+            //     }
+            // }
+
             struct ScopeMember *lookedUp = scope_lookup_no_parent(scope, tree->value, E_STRUCT);
             if (lookedUp != NULL)
             {
@@ -198,11 +221,11 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
 
     case T_CAP_SELF:
         wipType.basicType = VT_STRUCT;
-        if (scope->parentImpl == NULL)
+        if ((scope->parentStruct == NULL) || (scope->parentFunction == NULL))
         {
-            log_tree(LOG_FATAL, tree->child, "Use of 'Self' outside of impl scope!");
+            log_tree(LOG_FATAL, tree, "Use of 'Self' outside of impl scope!");
         }
-        wipType.nonArray.complexType.name = scope->parentImpl->name;
+        wipType.nonArray.complexType.name = scope->parentStruct->name;
 
         // construct a fake struct name tree which contains the source location info
         break;
@@ -429,6 +452,34 @@ void insert_self_method_argument(struct FunctionEntry *function, struct Variable
     }
 }
 
+void walk_generic_parameter_declarations(struct Ast *tree, List *genericParameters)
+{
+    log_tree(LOG_DEBUG, tree, "walk_function_declaration");
+
+    if (tree->type != T_GENERIC_PARAMETERS)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic_parameter_declarations!", token_get_name(tree->type));
+    }
+
+    struct Ast *genericRunner = tree->child;
+    while (genericRunner != NULL)
+    {
+        if (genericRunner->type != T_IDENTIFIER)
+        {
+            log_tree(LOG_FATAL, genericRunner, "Malformed AST seen in WalkGenericParameterDeclarations!");
+        }
+
+        if (list_find(genericParameters, genericRunner->value) != NULL)
+        {
+            log_tree(LOG_FATAL, genericRunner, "Redifinition of generic parameter %s!", genericRunner->value);
+        }
+
+        list_append(genericParameters, genericRunner->value);
+
+        genericRunner = genericRunner->sibling;
+    }
+}
+
 struct FunctionEntry *walk_function_declaration(struct Ast *tree,
                                                 struct Scope *scope,
                                                 struct StructEntry *methodOf,
@@ -450,22 +501,24 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
 
     struct Ast *functionNameTree = NULL;
 
+    struct FunctionEntry *parsedFunc = NULL;
     // if the function returns something, its return type will be the first child of the 'fun' token
     if (returnTypeTree->type == T_TYPE_NAME)
     {
-        walk_type_name(returnTypeTree, scope, &returnType);
-
         functionNameTree = returnTypeTree->sibling;
+        parsedFunc = function_entry_new(scope, functionNameTree, methodOf);
+
+        walk_type_name(returnTypeTree, parsedFunc->mainScope, &parsedFunc->returnType);
     }
     else
     {
         // there actually is no return type tree, we just go directly to argument declarations
         functionNameTree = returnTypeTree;
+        parsedFunc = function_entry_new(scope, functionNameTree, methodOf);
     }
 
     // child is the lparen, function name is the child of the lparen
     struct ScopeMember *lookedUpFunction = scope_lookup(scope, functionNameTree->value, E_FUNCTION);
-    struct FunctionEntry *parsedFunc = NULL;
     struct FunctionEntry *existingFunc = NULL;
     struct FunctionEntry *returnedFunc = NULL;
 
@@ -473,11 +526,10 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
     {
         existingFunc = lookedUpFunction->entry;
         returnedFunc = existingFunc;
-        parsedFunc = function_entry_new(scope, functionNameTree, &returnType, methodOf);
     }
     else
     {
-        parsedFunc = scope_create_function(scope, functionNameTree, &returnType, methodOf, accessibility);
+        scope_insert(scope, functionNameTree->value, parsedFunc, E_FUNCTION, accessibility);
         returnedFunc = parsedFunc;
     }
 
@@ -603,7 +655,7 @@ void walk_method(struct Ast *tree,
     }
 
     struct FunctionEntry *walkedMethod = walk_function_declaration(tree, methodOf->members, methodOf, accessibility);
-    walkedMethod->mainScope->parentImpl = methodOf;
+    walkedMethod->mainScope->parentStruct = methodOf;
 
     if (walkedMethod->arguments->size > 0)
     {
@@ -675,7 +727,21 @@ void walk_struct_declaration(struct Ast *tree,
     }
     size_t dummyNum = 0;
 
-    struct StructEntry *declaredStruct = scope_create_struct(scope, tree->child->value);
+    struct StructEntry *declaredStruct = NULL;
+    switch (tree->child->type)
+    {
+    case T_IDENTIFIER:
+        declaredStruct = scope_create_struct(scope, tree->child->value);
+        break;
+
+    case T_GENERIC:
+        declaredStruct = scope_create_struct(scope, tree->child->child->value);
+        walk_generic_parameter_declarations(tree->child->child->sibling, declaredStruct->genericParameters);
+        break;
+
+    default:
+        log_tree(LOG_FATAL, tree->child, "Malformed AST seen in walk_struct_declaration!");
+    }
 
     struct Ast *structBody = tree->child->sibling;
 
@@ -1419,6 +1485,8 @@ void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct E
         InternalError("VT_STRUCT seen as type of matched expression");
     case VT_ARRAY:
         InternalError("VT_STRUCT seen as type of matched expression");
+    case VT_GENERIC_PARAM:
+        InternalError("VT_GENERIC_PARAM seen as type of matched expression");
     }
 
     size_t missingCases = matchedValues->size - stateSpaceSize;
@@ -1704,6 +1772,7 @@ void walk_match_statement(struct Ast *tree,
 
         case VT_ANY:
         case VT_NULL:
+        case VT_GENERIC_PARAM:
             InternalError("Illegal type %s seen from matched expresssion linearization", type_get_name(matchedType));
             break;
 
