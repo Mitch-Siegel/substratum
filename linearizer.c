@@ -502,9 +502,6 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
     struct Ast *returnTypeTree = tree->child;
 
     // functions return nothing in the default case
-    struct Type returnType;
-    memset(&returnType, 0, sizeof(struct Type));
-
     struct Ast *functionNameTree = NULL;
 
     struct FunctionEntry *parsedFunc = NULL;
@@ -539,9 +536,9 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
         returnedFunc = parsedFunc;
     }
 
-    if (type_is_object(&returnType))
+    if (type_is_object(&parsedFunc->returnType))
     {
-        struct Type outPointerType = returnType;
+        struct Type outPointerType = parsedFunc->returnType;
         outPointerType.pointerLevel++;
         struct Ast outPointerTree = *tree;
         outPointerTree.type = T_IDENTIFIER;
@@ -549,7 +546,6 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
         outPointerTree.child = NULL;
         outPointerTree.sibling = NULL;
         struct VariableEntry *outPointerArgument = scope_create_argument(parsedFunc->mainScope, &outPointerTree, &outPointerType, A_PUBLIC);
-
         deque_push_front(parsedFunc->arguments, outPointerArgument);
     }
 
@@ -779,6 +775,67 @@ struct StructEntry *walk_struct_declaration(struct Ast *tree,
     return declaredStruct;
 }
 
+char *sprint_generic_params(List *params)
+{
+    char *str = NULL;
+    size_t len = 1;
+    Iterator *paramIter = NULL;
+    for (paramIter = list_begin(params); iterator_gettable(paramIter); iterator_next(paramIter))
+    {
+        char *param = iterator_get(paramIter);
+        len += strlen(param);
+        if (str == NULL)
+        {
+            str = strdup(param);
+        }
+        else
+        {
+            len += 2;
+            str = realloc(str, len);
+            strlcat(str, ", ", len);
+            strlcat(str, param, len);
+        }
+    }
+    iterator_free(paramIter);
+
+    return str;
+}
+
+void compare_generic_params(struct Ast *genericParamsTree, List *actualParams, List *expectedParams, char *genericType, char *genericName)
+{
+    Iterator *actualIter = list_begin(actualParams);
+    Iterator *expectedIter = list_begin(expectedParams);
+    bool mismatch = false;
+    while (iterator_gettable(actualIter) && iterator_gettable(expectedIter))
+    {
+        char *actualParam = iterator_get(actualIter);
+        char *expectedParam = iterator_get(expectedIter);
+        if (strcmp(actualParam, expectedParam) != 0)
+        {
+            mismatch = true;
+            break;
+        }
+
+        iterator_next(actualIter);
+        iterator_next(expectedIter);
+    }
+
+    if (iterator_gettable(actualIter) || iterator_gettable(expectedIter))
+    {
+        mismatch = true;
+    }
+
+    iterator_free(actualIter);
+    iterator_free(expectedIter);
+
+    if (mismatch)
+    {
+        char *actualStr = sprint_generic_params(actualParams);
+        char *expectedStr = sprint_generic_params(expectedParams);
+        log_tree(LOG_FATAL, genericParamsTree, "Mismatch between generic parameters for %s %s!\nExpected: %s<%s>\n  Actual: %s<%s>", genericType, genericName, genericName, expectedStr, genericName, actualStr);
+    }
+}
+
 void walk_generic(struct Ast *tree,
                   struct Scope *scope)
 {
@@ -803,8 +860,20 @@ void walk_generic(struct Ast *tree,
     break;
 
     case T_IMPL:
-        InternalError("generic impls not yet supported");
-        break;
+    {
+        struct Ast *implementedStructTree = genericThing->child;
+        if (implementedStructTree->type != T_IDENTIFIER)
+        {
+            log_tree(LOG_FATAL, implementedStructTree, "Malformed AST seen in WalkImplementation!");
+        }
+
+        struct StructEntry *implementedStruct = scope_lookup_struct(scope, implementedStructTree);
+
+        compare_generic_params(genericParamsTree, genericParams, implementedStruct->genericParameters, "struct", implementedStruct->name);
+    
+        walk_implementation_block(genericThing, implementedStruct->members);
+    }
+    break;
 
     default:
         log_tree(LOG_FATAL, genericThing, "Malformed AST (%s) seen as thing being genericized under T_GENERIC!", token_get_name(genericThing->type));

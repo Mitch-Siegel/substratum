@@ -66,7 +66,11 @@ struct_member_declaration
     / p:public _ v:variable_declaration_statement _   { $$ = AST_C(p, v); }
 
 impl_block
-   <- im:impl _ i:identifier _ kw_lcurly _ il:implementations_list _ kw_rcurly { $$ = AST_C(im, AST_S(i, il)); }
+   <- i:impl _ gp:generic_parameters _ c:impl_contents { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(gp, AST_C(i, c))); }
+    / i:impl _ c:impl_contents { $$ = AST_C(i, c); }
+
+impl_contents
+   <- i:identifier _ kw_lcurly _ il:implementations_list _ kw_rcurly { $$ = AST_S(i, il); }
 
 implementations_list
    <- il:implementations_list _ i:implementation  { $$ = AST_S(il, i); }

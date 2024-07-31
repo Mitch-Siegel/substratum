@@ -5,6 +5,26 @@ struct<T> Stack {
     u8 size;
 }
 
+impl<T> Stack {
+    public Self fun New()
+    {
+        Self created;
+        created.size = 0;
+        return created;
+    }
+
+    public fun Push(self, T toPush)
+    {
+        self.data[self.size] = toPush;
+        self.size += 1;
+    }
+
+    public T fun Pop(self)
+    {
+        self.size -= 1;
+        return self.data[self.size];
+    }
+}
 
 fun main()
 {

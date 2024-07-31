@@ -7,8 +7,8 @@
 #include "type.h"
 #include <stdio.h>
 
-#include "mbcl/set.h"
 #include "mbcl/list.h"
+#include "mbcl/set.h"
 
 struct BasicBlock;
 struct VariableEntry;
