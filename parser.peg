@@ -44,25 +44,29 @@ variable_declaration_statement
     / v:variable_declaration _ kw_semicolon      { $$ = v; }
 
 generic_parameters
-   <- kw_double_colon _ kw_l_generic _ il:identifier_list _ kw_r_generic   { $$ = AST_C(AST_N(auxil, T_GENERIC_PARAMETERS, "", $0s), il); }
+   <- kw_l_generic _ il:identifier_list _ kw_r_generic   { $$ = AST_C(AST_N(auxil, T_GENERIC_PARAMETERS, "", $0s), il); }
 
 identifier_list
    <- il:identifier_list _ kw_comma _ i:identifier { $$ = AST_S(il, i); }
     / i:identifier { $$ = i; }
 
 struct_declaration
-   <- s:struct _ t:non_pointer_typename _ kw_lcurly _ m:struct_member_declaration_list _ kw_rcurly { $$ = AST_C(s, AST_S(t, AST_C(AST_N(auxil, T_STRUCT_BODY, "", $0s), m))); }
+   <- s:struct _ ng:non_generic_struct_ident_declaration { $$ = AST_C(s, ng); }
+    / s:struct _ gp:generic_parameters _ ng:non_generic_struct_ident_declaration { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(gp, AST_C(s, ng))); }
+
+non_generic_struct_ident_declaration
+   <- i:identifier _ kw_lcurly _ m:struct_member_declaration_list _ kw_rcurly { $$ = AST_S(i, AST_C(AST_N(auxil, T_STRUCT_BODY, "", $0s), m)); }
 
 struct_member_declaration_list
    <- l:struct_member_declaration_list _ m:struct_member_declaration _ { $$ = AST_S(l, m); }
-    / m:struct_member_declaration                                   _ { $$ = m; }
+    / m:struct_member_declaration                                      { $$ = m; }
 
 struct_member_declaration
    <- v:variable_declaration_statement _              { $$ = v; }
     / p:public _ v:variable_declaration_statement _   { $$ = AST_C(p, v); }
 
 impl_block
-   <- im:impl _ t:non_pointer_typename _ kw_lcurly _ il:implementations_list _ kw_rcurly { $$ = AST_C(im, AST_S(t, il)); }
+   <- im:impl _ i:identifier _ kw_lcurly _ il:implementations_list _ kw_rcurly { $$ = AST_C(im, AST_S(i, il)); }
 
 implementations_list
    <- il:implementations_list _ i:implementation  { $$ = AST_S(il, i); }

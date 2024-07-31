@@ -9,7 +9,10 @@ void struct_entry_free(struct StructEntry *theStruct)
 {
     scope_free(theStruct->members);
     stack_free(theStruct->fieldLocations);
-    list_free(theStruct->genericParameters);
+    if (theStruct->genericParameters != NULL)
+    {
+        list_free(theStruct->genericParameters);
+    }
     free(theStruct);
 }
 

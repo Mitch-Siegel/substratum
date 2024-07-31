@@ -41,18 +41,18 @@ struct SymbolTable *walk_program(struct Ast *program)
         {
         case T_VARIABLE_DECLARATION:
             // walk_variable_declaration sets isGlobal for us by checking if there is no parent scope
-            walk_variable_declaration(programRunner, globalBlock, programTable->globalScope, &globalTacIndex, &globalTempNum, 0, A_PUBLIC);
+            walk_variable_declaration(programRunner, programTable->globalScope, &globalTacIndex, &globalTempNum, 0, A_PUBLIC);
             break;
 
         case T_EXTERN:
         {
-            struct VariableEntry *declaredVariable = walk_variable_declaration(programRunner->child, globalBlock, programTable->globalScope, &globalTacIndex, &globalTempNum, 0, A_PUBLIC);
+            struct VariableEntry *declaredVariable = walk_variable_declaration(programRunner->child, programTable->globalScope, &globalTacIndex, &globalTempNum, 0, A_PUBLIC);
             declaredVariable->isExtern = 1;
         }
         break;
 
         case T_STRUCT:
-            walk_struct_declaration(programRunner, globalBlock, programTable->globalScope);
+            walk_struct_declaration(programRunner, programTable->globalScope, NULL);
             break;
 
         case T_ENUM:
@@ -69,6 +69,10 @@ struct SymbolTable *walk_program(struct Ast *program)
 
         case T_FUN:
             walk_function_declaration(programRunner, programTable->globalScope, NULL, A_PUBLIC);
+            break;
+
+        case T_GENERIC:
+            walk_generic(programRunner, programTable->globalScope);
             break;
 
         // ignore asm blocks
@@ -276,7 +280,6 @@ void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populate
 }
 
 struct VariableEntry *walk_variable_declaration(struct Ast *tree,
-                                                struct BasicBlock *block,
                                                 struct Scope *scope,
                                                 const size_t *tacIndex,
                                                 const size_t *tempNum,
@@ -326,14 +329,13 @@ struct VariableEntry *walk_variable_declaration(struct Ast *tree,
 }
 
 void walk_argument_declaration(struct Ast *tree,
-                               struct BasicBlock *block,
                                size_t *tacIndex,
                                size_t *tempNum,
                                struct FunctionEntry *fun)
 {
     log_tree(LOG_DEBUG, tree, "WalkArgumentDeclaration");
 
-    struct VariableEntry *declaredArgument = walk_variable_declaration(tree, block, fun->mainScope, tacIndex, tempNum, 1, A_PUBLIC);
+    struct VariableEntry *declaredArgument = walk_variable_declaration(tree, fun->mainScope, tacIndex, tempNum, 1, A_PUBLIC);
 
     deque_push_back(fun->arguments, declaredArgument);
 }
@@ -452,21 +454,23 @@ void insert_self_method_argument(struct FunctionEntry *function, struct Variable
     }
 }
 
-void walk_generic_parameter_declarations(struct Ast *tree, List *genericParameters)
+List *walk_generic_parameters(struct Ast *tree)
 {
-    log_tree(LOG_DEBUG, tree, "walk_function_declaration");
+    log_tree(LOG_DEBUG, tree, "walk_generic_parameters");
 
     if (tree->type != T_GENERIC_PARAMETERS)
     {
-        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic_parameter_declarations!", token_get_name(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic_parameters!", token_get_name(tree->type));
     }
+
+    List *genericParameters = list_new(NULL, (ssize_t(*)(void *, void *))strcmp);
 
     struct Ast *genericRunner = tree->child;
     while (genericRunner != NULL)
     {
         if (genericRunner->type != T_IDENTIFIER)
         {
-            log_tree(LOG_FATAL, genericRunner, "Malformed AST seen in WalkGenericParameterDeclarations!");
+            log_tree(LOG_FATAL, genericRunner, "Malformed AST seen in walk_generic_parameters!");
         }
 
         if (list_find(genericParameters, genericRunner->value) != NULL)
@@ -478,6 +482,8 @@ void walk_generic_parameter_declarations(struct Ast *tree, List *genericParamete
 
         genericRunner = genericRunner->sibling;
     }
+
+    return genericParameters;
 }
 
 struct FunctionEntry *walk_function_declaration(struct Ast *tree,
@@ -558,7 +564,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
         // looking at argument declarations
         case T_VARIABLE_DECLARATION:
         {
-            walk_argument_declaration(argumentRunner, block, &tacIndex, &tempNum, parsedFunc);
+            walk_argument_declaration(argumentRunner, &tacIndex, &tempNum, parsedFunc);
         }
         break;
 
@@ -715,9 +721,9 @@ void walk_implementation_block(struct Ast *tree, struct Scope *scope)
     }
 }
 
-void walk_struct_declaration(struct Ast *tree,
-                             struct BasicBlock *block,
-                             struct Scope *scope)
+struct StructEntry *walk_struct_declaration(struct Ast *tree,
+                                            struct Scope *scope,
+                                            List *genericParams)
 {
     log_tree(LOG_DEBUG, tree, "walk_struct_declaration");
 
@@ -728,19 +734,13 @@ void walk_struct_declaration(struct Ast *tree,
     size_t dummyNum = 0;
 
     struct StructEntry *declaredStruct = NULL;
-    switch (tree->child->type)
+    if (tree->child->type == T_IDENTIFIER)
     {
-    case T_IDENTIFIER:
-        declaredStruct = scope_create_struct(scope, tree->child->value);
-        break;
-
-    case T_GENERIC:
-        declaredStruct = scope_create_struct(scope, tree->child->child->value);
-        walk_generic_parameter_declarations(tree->child->child->sibling, declaredStruct->genericParameters);
-        break;
-
-    default:
-        log_tree(LOG_FATAL, tree->child, "Malformed AST seen in walk_struct_declaration!");
+        declaredStruct = scope_create_struct(scope, tree->child->value, genericParams);
+    }
+    else
+    {
+        log_tree(LOG_FATAL, tree->child, "Malformed AST (%s) seen in walk_struct_declaration!", token_get_name(tree->child->type));
     }
 
     struct Ast *structBody = tree->child->sibling;
@@ -757,14 +757,14 @@ void walk_struct_declaration(struct Ast *tree,
         {
         case T_VARIABLE_DECLARATION:
         {
-            struct VariableEntry *declaredField = walk_variable_declaration(structBodyRunner, block, declaredStruct->members, &dummyNum, &dummyNum, 0, A_PRIVATE);
+            struct VariableEntry *declaredField = walk_variable_declaration(structBodyRunner, declaredStruct->members, &dummyNum, &dummyNum, 0, A_PRIVATE);
             struct_add_field(declaredStruct, declaredField);
         }
         break;
 
         case T_PUBLIC:
         {
-            struct VariableEntry *declaredField = walk_variable_declaration(structBodyRunner->child, block, declaredStruct->members, &dummyNum, &dummyNum, 0, A_PUBLIC);
+            struct VariableEntry *declaredField = walk_variable_declaration(structBodyRunner->child, declaredStruct->members, &dummyNum, &dummyNum, 0, A_PUBLIC);
             struct_add_field(declaredStruct, declaredField);
         }
         break;
@@ -776,9 +776,38 @@ void walk_struct_declaration(struct Ast *tree,
         structBodyRunner = structBodyRunner->sibling;
     }
 
-    if(declaredStruct->genericParameters->size == 0)
+    return declaredStruct;
+}
+
+void walk_generic(struct Ast *tree,
+                  struct Scope *scope)
+{
+    log_tree(LOG_DEBUG, tree, "walk_generic");
+
+    if (tree->type != T_GENERIC)
     {
-        struct_assign_offsets_to_fields(declaredStruct);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic!", token_get_name(tree->type));
+    }
+
+    struct Ast *genericThing = tree->child->sibling;
+    struct Ast *genericParamsTree = tree->child;
+
+    List *genericParams = walk_generic_parameters(genericParamsTree);
+
+    switch (genericThing->type)
+    {
+    case T_STRUCT:
+    {
+        walk_struct_declaration(genericThing, scope, genericParams);
+    }
+    break;
+
+    case T_IMPL:
+        InternalError("generic impls not yet supported");
+        break;
+
+    default:
+        log_tree(LOG_FATAL, genericThing, "Malformed AST (%s) seen as thing being genericized under T_GENERIC!", token_get_name(genericThing->type));
     }
 }
 
@@ -887,7 +916,7 @@ void walk_statement(struct Ast *tree,
     switch (tree->type)
     {
     case T_VARIABLE_DECLARATION:
-        walk_variable_declaration(tree, *blockP, scope, tacIndex, tempNum, 0, A_PUBLIC);
+        walk_variable_declaration(tree, scope, tacIndex, tempNum, 0, A_PUBLIC);
         break;
 
     case T_EXTERN:
@@ -1921,7 +1950,7 @@ void walk_assignment(struct Ast *tree,
     switch (lhs->type)
     {
     case T_VARIABLE_DECLARATION:
-        assignedVariable = walk_variable_declaration(lhs, block, scope, tacIndex, tempNum, 0, A_PUBLIC);
+        assignedVariable = walk_variable_declaration(lhs, scope, tacIndex, tempNum, 0, A_PUBLIC);
         tac_operand_populate_from_variable(&assignment->operands.assign.destination, assignedVariable);
         assignment->operands.assign.source = assignedValue;
 

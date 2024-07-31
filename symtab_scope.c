@@ -180,11 +180,12 @@ struct FunctionEntry *scope_create_function(struct Scope *parentScope,
 }
 
 struct StructEntry *scope_create_struct(struct Scope *scope,
-                                        char *name)
+                                        char *name,
+                                        List *genericParams)
 {
     struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
     wipStruct->name = name;
-    wipStruct->genericParameters = list_new(NULL, (ssize_t(*)(void *, void *))strcmp);
+    wipStruct->genericParameters = genericParams;
     wipStruct->members = scope_new(scope, name, NULL, wipStruct);
     wipStruct->fieldLocations = stack_new(free);
     wipStruct->totalSize = 0;
