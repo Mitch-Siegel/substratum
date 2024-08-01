@@ -454,13 +454,13 @@ void insert_self_method_argument(struct FunctionEntry *function, struct Variable
     }
 }
 
-List *walk_generic_parameters(struct Ast *tree)
+List *walk_generic_parameter_names(struct Ast *tree)
 {
-    log_tree(LOG_DEBUG, tree, "walk_generic_parameters");
+    log_tree(LOG_DEBUG, tree, "walk_generic_parameter_names");
 
-    if (tree->type != T_GENERIC_PARAMETERS)
+    if (tree->type != T_GENERIC_PARAMETER_NAMES)
     {
-        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic_parameters!", token_get_name(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic_parameter_names!", token_get_name(tree->type));
     }
 
     List *genericParameters = list_new(NULL, (ssize_t(*)(void *, void *))strcmp);
@@ -470,7 +470,7 @@ List *walk_generic_parameters(struct Ast *tree)
     {
         if (genericRunner->type != T_IDENTIFIER)
         {
-            log_tree(LOG_FATAL, genericRunner, "Malformed AST seen in walk_generic_parameters!");
+            log_tree(LOG_FATAL, genericRunner, "Malformed AST seen in walk_generic_parameter_names!");
         }
 
         if (list_find(genericParameters, genericRunner->value) != NULL)
@@ -849,7 +849,7 @@ void walk_generic(struct Ast *tree,
     struct Ast *genericThing = tree->child->sibling;
     struct Ast *genericParamsTree = tree->child;
 
-    List *genericParams = walk_generic_parameters(genericParamsTree);
+    List *genericParams = walk_generic_parameter_names(genericParamsTree);
 
     switch (genericThing->type)
     {
@@ -870,7 +870,7 @@ void walk_generic(struct Ast *tree,
         struct StructEntry *implementedStruct = scope_lookup_struct(scope, implementedStructTree);
 
         compare_generic_params(genericParamsTree, genericParams, implementedStruct->genericParameters, "struct", implementedStruct->name);
-    
+
         walk_implementation_block(genericThing, implementedStruct->members);
     }
     break;

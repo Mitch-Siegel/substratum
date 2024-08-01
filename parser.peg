@@ -43,16 +43,23 @@ variable_declaration_statement
    <- e:extern _ v:variable_declaration { $$ = AST_C(e, v); } 
     / v:variable_declaration _ kw_semicolon      { $$ = v; }
 
+generic_parameter_names
+   <- kw_l_generic _ il:identifier_list _ kw_r_generic   { $$ = AST_C(AST_N(auxil, T_GENERIC_PARAMETER_NAMES, "", $0s), il); }
+
 generic_parameters
-   <- kw_l_generic _ il:identifier_list _ kw_r_generic   { $$ = AST_C(AST_N(auxil, T_GENERIC_PARAMETERS, "", $0s), il); }
+   <- kw_double_colon kw_l_generic _ tl:type_name_list _ kw_r_generic { $$ = AST_C(AST_N(auxil, T_GENERIC_PARAMETERS, "", $0s), tl); }
 
 identifier_list
    <- il:identifier_list _ kw_comma _ i:identifier { $$ = AST_S(il, i); }
     / i:identifier { $$ = i; }
 
+type_name_list
+   <- tl:type_name_list _ kw_comma _ t:type_name { $$ = AST_S(tl, t); }
+    / t:type_name { $$ = t; }
+
 struct_declaration
    <- s:struct _ ng:non_generic_struct_ident_declaration { $$ = AST_C(s, ng); }
-    / s:struct _ gp:generic_parameters _ ng:non_generic_struct_ident_declaration { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(gp, AST_C(s, ng))); }
+    / s:struct _ gpn:generic_parameter_names _ ng:non_generic_struct_ident_declaration { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(gpn, AST_C(s, ng))); }
 
 non_generic_struct_ident_declaration
    <- i:identifier _ kw_lcurly _ m:struct_member_declaration_list _ kw_rcurly { $$ = AST_S(i, AST_C(AST_N(auxil, T_STRUCT_BODY, "", $0s), m)); }
@@ -66,7 +73,7 @@ struct_member_declaration
     / p:public _ v:variable_declaration_statement _   { $$ = AST_C(p, v); }
 
 impl_block
-   <- i:impl _ gp:generic_parameters _ c:impl_contents { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(gp, AST_C(i, c))); }
+   <- i:impl _ gpn:generic_parameter_names _ c:impl_contents { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(gpn, AST_C(i, c))); }
     / i:impl _ c:impl_contents { $$ = AST_C(i, c); }
 
 impl_contents
@@ -379,14 +386,14 @@ dereference
    <- '*' { $$ = AST_N(auxil, T_DEREFERENCE, $0, $0s); }
 
 non_pointer_typename
-   <- t:any                                  { $$ = t; }
-    / t:u8                                   { $$ = t; }
-    / t:u16                                  { $$ = t; }
-    / t:u32                                  { $$ = t; }
-    / t:u64                                  { $$ = t; }
-    / s:cap_self                             { $$ = s; }
-    / i:identifier _ gp:generic_parameters   { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(i, gp)); }
-    / i:identifier                           { $$ = i; }
+   <- t:any                                     { $$ = t; }
+    / t:u8                                      { $$ = t; }
+    / t:u16                                     { $$ = t; }
+    / t:u32                                     { $$ = t; }
+    / t:u64                                     { $$ = t; }
+    / s:cap_self                                { $$ = s; }
+    / i:identifier _ gp:generic_parameters      { $$ = AST_C(AST_N(auxil, T_GENERIC_INSTANCE, "", $0s), AST_S(i, gp)); }
+    / i:identifier                              { $$ = i; }
 
 identifier
    <- !keyword LETTER(LETTER/DIGIT)*  { $$ = AST_N(auxil, T_IDENTIFIER, $0, $0s); }
