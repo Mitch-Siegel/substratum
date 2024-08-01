@@ -28,5 +28,7 @@ impl<T> Stack {
 
 fun main()
 {
+    Stack::<u8> numberStack = Stack::<u8>::New();
+    
     exit();
 }

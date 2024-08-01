@@ -301,3 +301,19 @@ struct FunctionEntry *struct_lookup_associated_function_by_string(struct StructE
 
     return returendAssociated;
 }
+
+struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntry *theStruct, List *paramsList)
+{
+    if (theStruct->genericParameters == NULL)
+    {
+        InternalError("struct_get_or_create_generic_instantiation called on non-generic struct %s", theStruct->name);
+    }
+
+    if (theStruct->genericParameters->size != paramsList->size)
+    {
+        char *expectedParams = sprint_generic_param_names(theStruct->genericParameters);
+        InternalError("generic struct %s<%s> (%zu parameter names) instantiated with %zu params", theStruct->name, expectedParams, theStruct->genericParameters->size, paramsList->size);
+    }
+
+    return NULL;
+}

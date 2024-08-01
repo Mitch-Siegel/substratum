@@ -99,3 +99,5 @@ struct TempList *temp_list_new();
 
 // free the templist
 void temp_list_free(struct TempList *toFree);
+
+char *sprint_generic_param_names(List *params);

@@ -188,16 +188,6 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
                 }
             }
 
-            // if (scope->parentFunction != NULL)
-            // {
-            //     if (set_find(scope->parentFunction->genericParameters, tree->value) != NULL)
-            //     {
-            //         wipType.basicType = VT_GENERIC_PARAM;
-            //         wipType.nonArray.complexType.name = tree->value;
-            //         return wipType;
-            //     }
-            // }
-
             struct ScopeMember *lookedUp = scope_lookup_no_parent(scope, tree->value, E_STRUCT);
             if (lookedUp != NULL)
             {
@@ -775,32 +765,6 @@ struct StructEntry *walk_struct_declaration(struct Ast *tree,
     return declaredStruct;
 }
 
-char *sprint_generic_params(List *params)
-{
-    char *str = NULL;
-    size_t len = 1;
-    Iterator *paramIter = NULL;
-    for (paramIter = list_begin(params); iterator_gettable(paramIter); iterator_next(paramIter))
-    {
-        char *param = iterator_get(paramIter);
-        len += strlen(param);
-        if (str == NULL)
-        {
-            str = strdup(param);
-        }
-        else
-        {
-            len += 2;
-            str = realloc(str, len);
-            strlcat(str, ", ", len);
-            strlcat(str, param, len);
-        }
-    }
-    iterator_free(paramIter);
-
-    return str;
-}
-
 void compare_generic_params(struct Ast *genericParamsTree, List *actualParams, List *expectedParams, char *genericType, char *genericName)
 {
     Iterator *actualIter = list_begin(actualParams);
@@ -830,8 +794,8 @@ void compare_generic_params(struct Ast *genericParamsTree, List *actualParams, L
 
     if (mismatch)
     {
-        char *actualStr = sprint_generic_params(actualParams);
-        char *expectedStr = sprint_generic_params(expectedParams);
+        char *actualStr = sprint_generic_param_names(actualParams);
+        char *expectedStr = sprint_generic_param_names(expectedParams);
         log_tree(LOG_FATAL, genericParamsTree, "Mismatch between generic parameters for %s %s!\nExpected: %s<%s>\n  Actual: %s<%s>", genericType, genericName, genericName, expectedStr, genericName, actualStr);
     }
 }
@@ -3015,6 +2979,58 @@ void walk_method_call(struct Ast *tree,
     basic_block_append(block, callLine, tacIndex);
 }
 
+List *walk_generic_parameters(struct Ast *tree, struct Scope *scope)
+{
+    log_tree(LOG_DEBUG, tree, "walk_generic_parameters");
+
+    if (tree->type != T_GENERIC_PARAMETERS)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic_parameters!", token_get_name(tree->type));
+    }
+
+    List *paramsList = list_new((void (*)(void *))type_free, NULL);
+
+    struct Ast *paramRunner = tree->child;
+    while (paramRunner != NULL)
+    {
+        struct Type *param = malloc(sizeof(struct Type));
+        type_init(param);
+        walk_type_name(paramRunner, scope, param);
+        list_append(paramsList, param);
+
+        paramRunner = paramRunner->sibling;
+    }
+
+    return paramsList;
+}
+
+struct StructEntry *walk_struct_name_or_generic_instantiation(struct Scope *scope, struct Ast *tree)
+{
+    log_tree(LOG_DEBUG, tree, "walk_struct_name_or_generic_instantiation");
+
+    struct StructEntry *returnedStruct = NULL;
+    switch (tree->type)
+    {
+    case T_IDENTIFIER:
+        returnedStruct = scope_lookup_struct(scope, tree);
+        break;
+
+    case T_GENERIC_INSTANCE:
+    {
+        struct Ast *structNameTree = tree->child;
+        List *genericParams = walk_generic_parameters(tree->child->sibling, scope);
+        struct StructEntry *baseGenericStruct = scope_lookup_struct(scope, structNameTree);
+        returnedStruct = struct_get_or_create_generic_instantiation(baseGenericStruct, genericParams);
+    }
+    break;
+
+    default:
+        log_tree(LOG_FATAL, tree, "Malformed AST (%s) seen in walk_struct_name_or_generic_instantiation!", token_get_name(tree->type));
+    }
+
+    return returnedStruct;
+}
+
 void walk_associated_call(struct Ast *tree,
                           struct BasicBlock *block,
                           struct Scope *scope,
@@ -3026,7 +3042,7 @@ void walk_associated_call(struct Ast *tree,
 
     if (tree->type != T_ASSOCIATED_CALL)
     {
-        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to T_ASSOCIATED_CALL!", token_get_name(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_associated_call!", token_get_name(tree->type));
     }
 
     scope->parentFunction->callsOtherFunction = 1;
@@ -3036,11 +3052,8 @@ void walk_associated_call(struct Ast *tree,
     struct StructEntry *structCalledOn = NULL;
     struct Ast *callTree = tree->child->sibling;
 
-    if (structTypeTree->type != T_IDENTIFIER)
-    {
-        InternalError("Malformed AST in walk_associated_call - expected identifier on LHS but got %s instead", token_get_name(structTypeTree->type));
-    }
-    structCalledOn = scope_lookup_struct(scope, structTypeTree);
+    structCalledOn = walk_struct_name_or_generic_instantiation(scope, structTypeTree);
+    // structCalledOn = scope_lookup_struct(scope, structTypeTree);
 
     struct FunctionEntry *calledFunction = struct_lookup_associated_function(structCalledOn, callTree->child, scope);
 
