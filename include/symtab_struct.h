@@ -6,6 +6,7 @@
 
 #include "mbcl/list.h"
 #include "mbcl/stack.h"
+#include "mbcl/hash_table.h"
 
 struct StructField
 {
@@ -19,6 +20,7 @@ struct StructEntry
 {
     char *name;
     List *genericParameters;
+    HashTable *genericInstantiations;
     struct Scope *members;
     Stack *fieldLocations;
     size_t totalSize;

@@ -3053,7 +3053,6 @@ void walk_associated_call(struct Ast *tree,
     struct Ast *callTree = tree->child->sibling;
 
     structCalledOn = walk_struct_name_or_generic_instantiation(scope, structTypeTree);
-    // structCalledOn = scope_lookup_struct(scope, structTypeTree);
 
     struct FunctionEntry *calledFunction = struct_lookup_associated_function(structCalledOn, callTree->child, scope);
 

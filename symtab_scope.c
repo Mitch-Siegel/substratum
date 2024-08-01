@@ -179,6 +179,50 @@ struct FunctionEntry *scope_create_function(struct Scope *parentScope,
     return newFunction;
 }
 
+ssize_t compare_generic_params_lists(void *paramsListDataA, void *paramsListDataB)
+{
+    List *paramsListA = paramsListDataA;
+    List *paramsListB = paramsListDataB;
+
+    if (paramsListA->size != paramsListB->size)
+    {
+        return (ssize_t)paramsListA->size - (ssize_t)paramsListB->size;
+    }
+
+    Iterator *paramIterA = list_begin(paramsListA);
+    Iterator *paramIterB = list_begin(paramsListB);
+    while (iterator_gettable(paramIterA) && iterator_gettable(paramIterB))
+    {
+        struct Type *paramTypeA = iterator_get(paramIterA);
+        struct Type *paramTypeB = iterator_get(paramIterB);
+
+        ssize_t cmpVal = type_compare(paramTypeA, paramTypeB);
+        if (cmpVal != 0)
+        {
+            return cmpVal;
+        }
+
+        iterator_next(paramIterA);
+        iterator_next(paramIterB);
+    }
+
+    return 0;
+}
+
+size_t hash_generic_params_list(void *paramsListData)
+{
+    List *paramsList = paramsListData;
+    ssize_t hash = 0;
+    Iterator *paramIter = NULL;
+    for (paramIter = list_begin(paramsList); iterator_gettable(paramIter); iterator_next(paramIter))
+    {
+        hash <<= 1;
+        hash ^= type_hash(iterator_get(paramIter)) + 1;
+    }
+
+    return hash;
+}
+
 struct StructEntry *scope_create_struct(struct Scope *scope,
                                         char *name,
                                         List *genericParams)
@@ -186,6 +230,15 @@ struct StructEntry *scope_create_struct(struct Scope *scope,
     struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
     wipStruct->name = name;
     wipStruct->genericParameters = genericParams;
+    if (genericParams != NULL)
+    {
+        wipStruct->genericInstantiations = hash_table_new((void (*)(void *))list_free, (void (*)(void *))struct_entry_free, compare_generic_params_lists, hash_generic_params_list, 100);
+    }
+    else
+    {
+        wipStruct->genericInstantiations = NULL;
+    }
+
     wipStruct->members = scope_new(scope, name, NULL, wipStruct);
     wipStruct->fieldLocations = stack_new(free);
     wipStruct->totalSize = 0;

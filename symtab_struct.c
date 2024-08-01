@@ -302,6 +302,34 @@ struct FunctionEntry *struct_lookup_associated_function_by_string(struct StructE
     return returendAssociated;
 }
 
+char *sprint_params(List *params)
+{
+    char *str = NULL;
+    size_t len = 1;
+    Iterator *paramIter = NULL;
+    for (paramIter = list_begin(params); iterator_gettable(paramIter); iterator_next(paramIter))
+    {
+        struct Type *param = iterator_get(paramIter);
+        char *paramStr = type_get_name(param);
+        len += strlen(paramStr);
+        if (str == NULL)
+        {
+            str = paramStr;
+        }
+        else
+        {
+            len += 2;
+            str = realloc(str, len);
+            strlcat(str, ", ", len);
+            strlcat(str, paramStr, len);
+            free(paramStr);
+        }
+    }
+    iterator_free(paramIter);
+
+    return str;
+}
+
 struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntry *theStruct, List *paramsList)
 {
     if (theStruct->genericParameters == NULL)
@@ -315,5 +343,16 @@ struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntr
         InternalError("generic struct %s<%s> (%zu parameter names) instantiated with %zu params", theStruct->name, expectedParams, theStruct->genericParameters->size, paramsList->size);
     }
 
-    return NULL;
+    struct StructEntry *instance = hash_table_find(theStruct->genericInstantiations, paramsList);
+
+    if(instance == NULL)
+    {
+        char *paramStr = sprint_params(paramsList);
+        log(LOG_DEBUG, "No instance of %s<%s> exists - creating", theStruct->name, paramStr);
+        free(paramStr);
+
+        
+    }
+
+    return instance;
 }
