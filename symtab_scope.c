@@ -179,70 +179,11 @@ struct FunctionEntry *scope_create_function(struct Scope *parentScope,
     return newFunction;
 }
 
-ssize_t compare_generic_params_lists(void *paramsListDataA, void *paramsListDataB)
-{
-    List *paramsListA = paramsListDataA;
-    List *paramsListB = paramsListDataB;
-
-    if (paramsListA->size != paramsListB->size)
-    {
-        return (ssize_t)paramsListA->size - (ssize_t)paramsListB->size;
-    }
-
-    Iterator *paramIterA = list_begin(paramsListA);
-    Iterator *paramIterB = list_begin(paramsListB);
-    while (iterator_gettable(paramIterA) && iterator_gettable(paramIterB))
-    {
-        struct Type *paramTypeA = iterator_get(paramIterA);
-        struct Type *paramTypeB = iterator_get(paramIterB);
-
-        ssize_t cmpVal = type_compare(paramTypeA, paramTypeB);
-        if (cmpVal != 0)
-        {
-            return cmpVal;
-        }
-
-        iterator_next(paramIterA);
-        iterator_next(paramIterB);
-    }
-
-    return 0;
-}
-
-size_t hash_generic_params_list(void *paramsListData)
-{
-    List *paramsList = paramsListData;
-    ssize_t hash = 0;
-    Iterator *paramIter = NULL;
-    for (paramIter = list_begin(paramsList); iterator_gettable(paramIter); iterator_next(paramIter))
-    {
-        hash <<= 1;
-        hash ^= type_hash(iterator_get(paramIter)) + 1;
-    }
-
-    return hash;
-}
-
 struct StructEntry *scope_create_struct(struct Scope *scope,
                                         char *name,
                                         List *genericParams)
 {
-    struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
-    wipStruct->name = name;
-    wipStruct->genericParameters = genericParams;
-    if (genericParams != NULL)
-    {
-        wipStruct->genericInstantiations = hash_table_new((void (*)(void *))list_free, (void (*)(void *))struct_entry_free, compare_generic_params_lists, hash_generic_params_list, 100);
-    }
-    else
-    {
-        wipStruct->genericInstantiations = NULL;
-    }
-
-    wipStruct->members = scope_new(scope, name, NULL, wipStruct);
-    wipStruct->fieldLocations = stack_new(free);
-    wipStruct->totalSize = 0;
-
+    struct StructEntry *wipStruct = struct_entry_new(scope, name, genericParams);
     scope_insert(scope, name, wipStruct, E_STRUCT, A_PUBLIC);
     return wipStruct;
 }
@@ -500,4 +441,215 @@ struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
     }
 
     return NULL;
+}
+
+struct BasicBlock *scope_lookup_block_by_number(struct Scope *scope, size_t label)
+{
+    char blockName[32];
+    sprintf(blockName, "Block%zu", label);
+    struct ScopeMember *blockMember = scope_lookup(scope, blockName, E_BASICBLOCK);
+    if (blockMember == NULL)
+    {
+        return NULL;
+    }
+    return blockMember->entry;
+}
+
+// TODO: better param names than toClone and cloneTo. seriously.
+struct FunctionEntry *function_entry_clone(struct FunctionEntry *toClone, struct Scope *cloneTo)
+{
+    log(LOG_DEBUG, "function_entry_clone: %s", toClone->name);
+    struct FunctionEntry *cloned = function_entry_new(cloneTo, &toClone->correspondingTree, cloneTo->parentStruct);
+    cloned->returnType = toClone->returnType;
+    cloned->callsOtherFunction = toClone->callsOtherFunction;
+    cloned->isAsmFun = toClone->isAsmFun;
+    cloned->isDefined = toClone->isDefined;
+    cloned->isMethod = toClone->isMethod;
+
+    scope_clone_to(cloned->mainScope, toClone->mainScope);
+
+    log(LOG_DEBUG, "initialize arguments list for clone of function %s", toClone->name);
+    Iterator *argIter = NULL;
+    for (argIter = deque_front(toClone->arguments); iterator_gettable(argIter); iterator_next(argIter))
+    {
+        struct VariableEntry *oldArg = iterator_get(argIter);
+        struct VariableEntry *newArg = scope_lookup_var_by_string(cloned->mainScope, oldArg->name);
+        if (newArg == NULL)
+        {
+            InternalError("Couldn't find expected argument %s when cloning function %s", oldArg->name, toClone->name);
+        }
+        log(LOG_DEBUG, "%s", newArg->name);
+        deque_push_back(cloned->arguments, newArg);
+    }
+    iterator_free(argIter);
+
+    log(LOG_DEBUG, "initialize basic block list for clone of function %s", toClone->name);
+    Iterator *blockIter = NULL;
+    for (blockIter = list_begin(toClone->BasicBlockList); iterator_gettable(blockIter); iterator_next(blockIter))
+    {
+        struct BasicBlock *oldBlock = iterator_get(blockIter);
+        struct BasicBlock *newBlock = scope_lookup_block_by_number(cloned->mainScope, oldBlock->labelNum);
+        if (newBlock == NULL)
+        {
+            InternalError("Couldn't find expected basic block %zu when cloning function %s", oldBlock->labelNum, toClone->name);
+        }
+        log(LOG_DEBUG, "%zu", newBlock->labelNum);
+
+        list_append(cloned->BasicBlockList, newBlock);
+    }
+    iterator_free(blockIter);
+
+    return cloned;
+}
+
+struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *clonedTo)
+{
+    struct BasicBlock *clone = basic_block_new(toClone->labelNum);
+
+    Iterator *tacRunner = NULL;
+    for (tacRunner = list_begin(toClone->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
+    {
+        struct TACLine *lineToClone = iterator_get(tacRunner);
+
+        // TODO: tac_line_duplicate
+        struct TACLine *clonedLine = new_tac_line(lineToClone->operation, &lineToClone->correspondingTree);
+        memcpy(clonedLine, lineToClone, sizeof(struct TACLine));
+        clonedLine->allocFile = __FILE__;
+        clonedLine->allocLine = __LINE__;
+
+        struct OperandUsages operandUsages = get_operand_usages(clonedLine);
+        while (operandUsages.reads->size > 0)
+        {
+            struct TACOperand *readOperand = deque_pop_front(operandUsages.reads);
+            switch (readOperand->permutation)
+            {
+            case VP_STANDARD:
+            case VP_TEMP:
+                readOperand->name.variable = scope_lookup_var_by_string(clonedTo, readOperand->name.variable->name);
+                break;
+
+            default:
+                break;
+            }
+        }
+
+        while (operandUsages.writes->size > 0)
+        {
+            struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
+            switch (writtenOperand->permutation)
+            {
+            case VP_STANDARD:
+            case VP_TEMP:
+                writtenOperand->name.variable = scope_lookup_var_by_string(clonedTo, writtenOperand->name.variable->name);
+                break;
+
+            default:
+                break;
+            }
+        }
+
+        size_t tacIndex = lineToClone->index;
+        basic_block_append(clone, clonedLine, &tacIndex);
+    }
+
+    return clone;
+}
+
+void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
+{
+    log(LOG_DEBUG, "scope_clone_to %s<-%s", clonedTo->name, toClone->name);
+    Iterator *memberIterator = NULL;
+    for (memberIterator = set_begin(toClone->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
+    {
+        struct ScopeMember *memberToClone = iterator_get(memberIterator);
+        void *entry = NULL;
+        switch (memberToClone->type)
+        {
+        case E_VARIABLE:
+        {
+            struct VariableEntry *variableToClone = memberToClone->entry;
+            entry = variable_entry_new(variableToClone->name, &variableToClone->type, variableToClone->isGlobal, false, memberToClone->accessibility);
+        }
+        break;
+
+        case E_ARGUMENT:
+        {
+            struct VariableEntry *argumentToClone = memberToClone->entry;
+            entry = variable_entry_new(argumentToClone->name, &argumentToClone->type, argumentToClone->isGlobal, true, memberToClone->accessibility);
+        }
+        break;
+
+        case E_SCOPE:
+        {
+            struct Scope *clonedScope = memberToClone->entry;
+            entry = scope_new(clonedTo, clonedScope->name, clonedTo->parentFunction, clonedTo->parentStruct);
+            scope_clone_to(entry, clonedScope);
+        }
+        break;
+
+        case E_BASICBLOCK:
+        case E_FUNCTION:
+        case E_STRUCT:
+        case E_ENUM:
+            break;
+        }
+
+        if (entry != NULL)
+        {
+            scope_insert(clonedTo, memberToClone->name, entry, memberToClone->type, memberToClone->accessibility);
+        }
+    }
+    iterator_free(memberIterator);
+
+    scope_print(clonedTo, stderr, 0, 1);
+
+    for (memberIterator = set_begin(toClone->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
+    {
+        struct ScopeMember *memberToClone = iterator_get(memberIterator);
+        void *entry = NULL;
+        switch (memberToClone->type)
+        {
+        case E_FUNCTION:
+        {
+            struct FunctionEntry *clonedFunction = memberToClone->entry;
+            entry = function_entry_clone(clonedFunction, clonedTo);
+        }
+        break;
+
+        case E_STRUCT:
+            InternalError("scope_clone on structs not yet implemented!");
+            break;
+
+        case E_ENUM:
+            InternalError("scope_clone on enums not yet implemented!");
+
+            break;
+
+        case E_BASICBLOCK:
+        {
+            struct BasicBlock *clonedBlock = memberToClone->entry;
+            entry = basic_block_clone(clonedBlock, clonedTo);
+        }
+        break;
+
+        case E_VARIABLE:
+        case E_ARGUMENT:
+        case E_SCOPE:
+            break;
+        }
+
+        if (entry != NULL)
+        {
+            scope_insert(clonedTo, memberToClone->name, entry, memberToClone->type, memberToClone->accessibility);
+        }
+    }
+
+    // case E_FUNCTION:
+    // case E_STRUCT:
+    // case E_ENUM:
+
+    // {
+    //
+    // }
+    // break;
 }

@@ -413,8 +413,9 @@ void scope_add_basic_block(struct Scope *scope, struct BasicBlock *block)
     const u8 BASIC_BLOCK_NAME_STR_SIZE = 10; // TODO: manage this better
     char *blockName = malloc(BASIC_BLOCK_NAME_STR_SIZE);
     sprintf(blockName, "Block%zu", block->labelNum);
-    scope_insert(scope, dictionary_lookup_or_insert(parseDict, blockName), block, E_BASICBLOCK, A_PUBLIC);
+    char *dictBlockName = dictionary_lookup_or_insert(parseDict, blockName);
     free(blockName);
+    scope_insert(scope, dictBlockName, block, E_BASICBLOCK, A_PUBLIC);
 
     if (scope->parentFunction != NULL)
     {

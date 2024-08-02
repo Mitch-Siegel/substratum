@@ -5,6 +5,73 @@
 #include "symtab_scope.h"
 #include "util.h"
 
+ssize_t compare_generic_params_lists(void *paramsListDataA, void *paramsListDataB)
+{
+    List *paramsListA = paramsListDataA;
+    List *paramsListB = paramsListDataB;
+
+    if (paramsListA->size != paramsListB->size)
+    {
+        return (ssize_t)paramsListA->size - (ssize_t)paramsListB->size;
+    }
+
+    Iterator *paramIterA = list_begin(paramsListA);
+    Iterator *paramIterB = list_begin(paramsListB);
+    while (iterator_gettable(paramIterA) && iterator_gettable(paramIterB))
+    {
+        struct Type *paramTypeA = iterator_get(paramIterA);
+        struct Type *paramTypeB = iterator_get(paramIterB);
+
+        ssize_t cmpVal = type_compare(paramTypeA, paramTypeB);
+        if (cmpVal != 0)
+        {
+            return cmpVal;
+        }
+
+        iterator_next(paramIterA);
+        iterator_next(paramIterB);
+    }
+
+    return 0;
+}
+
+size_t hash_generic_params_list(void *paramsListData)
+{
+    List *paramsList = paramsListData;
+    ssize_t hash = 0;
+    Iterator *paramIter = NULL;
+    for (paramIter = list_begin(paramsList); iterator_gettable(paramIter); iterator_next(paramIter))
+    {
+        hash <<= 1;
+        hash ^= type_hash(iterator_get(paramIter)) + 1;
+    }
+
+    return hash;
+}
+
+struct StructEntry *struct_entry_new(struct Scope *parentScope,
+                                     char *name,
+                                     List *genericParams)
+{
+    struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
+    wipStruct->name = name;
+    wipStruct->genericParameters = genericParams;
+    if (genericParams != NULL)
+    {
+        wipStruct->genericInstantiations = hash_table_new((void (*)(void *))list_free, (void (*)(void *))struct_entry_free, compare_generic_params_lists, hash_generic_params_list, 100);
+    }
+    else
+    {
+        wipStruct->genericInstantiations = NULL;
+    }
+
+    wipStruct->members = scope_new(parentScope, name, NULL, wipStruct);
+    wipStruct->fieldLocations = stack_new(free);
+    wipStruct->totalSize = 0;
+
+    return wipStruct;
+}
+
 void struct_entry_free(struct StructEntry *theStruct)
 {
     scope_free(theStruct->members);
@@ -14,6 +81,23 @@ void struct_entry_free(struct StructEntry *theStruct)
         list_free(theStruct->genericParameters);
     }
     free(theStruct);
+}
+
+struct StructEntry *struct_entry_clone(struct StructEntry *toClone, char *name)
+{
+    List *duplicateGenericParams = list_new((void (*)(void *))type_free, NULL);
+    Iterator *paramIter = NULL;
+    for (paramIter = list_begin(toClone->genericParameters); iterator_gettable(paramIter); iterator_next(paramIter))
+    {
+        list_append(duplicateGenericParams, strdup(iterator_get(paramIter)));
+    }
+    struct StructEntry *cloned = struct_entry_new(toClone->members->parentScope, name, duplicateGenericParams);
+
+    scope_clone_to(cloned->members, toClone->members);
+
+    scope_print(cloned->members, stderr, 0, 1);
+
+    return cloned;
 }
 
 void struct_add_field(struct StructEntry *memberOf,
@@ -345,13 +429,21 @@ struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntr
 
     struct StructEntry *instance = hash_table_find(theStruct->genericInstantiations, paramsList);
 
-    if(instance == NULL)
+    if (instance == NULL)
     {
         char *paramStr = sprint_params(paramsList);
         log(LOG_DEBUG, "No instance of %s<%s> exists - creating", theStruct->name, paramStr);
-        free(paramStr);
 
-        
+        size_t instanceNameLen = strlen(theStruct->name) + strlen(paramStr) + 2;
+        char *instanceName = malloc(instanceNameLen);
+        instanceName[0] = '\0';
+        strlcat(instanceName, theStruct->name, instanceNameLen);
+        strlcat(instanceName, "_", instanceNameLen);
+        strlcat(instanceName, paramStr, instanceNameLen);
+
+        log(LOG_WARNING, "Instance name %s", instanceName);
+
+        instance = struct_entry_clone(theStruct, instanceName);
     }
 
     return instance;

@@ -4,17 +4,15 @@
 #include "ast.h"
 #include "symtab_variable.h"
 
+#include "mbcl/hash_table.h"
 #include "mbcl/list.h"
 #include "mbcl/stack.h"
-#include "mbcl/hash_table.h"
 
 struct StructField
 {
     struct VariableEntry *variable;
     ssize_t offset;
 };
-
-void struct_field_free(struct StructField *toFree);
 
 struct StructEntry
 {
@@ -26,7 +24,13 @@ struct StructEntry
     size_t totalSize;
 };
 
+struct StructEntry *struct_entry_new(struct Scope *parentScope,
+                                     char *name,
+                                     List *genericParams);
+
 void struct_entry_free(struct StructEntry *theStruct);
+
+struct StructEntry *struct_entry_clone(struct StructEntry *toClone, char *name);
 
 // given a VariableEntry corresponding to a struct member which was just declared
 // generate a StructField with the aligned location of the member within the struct

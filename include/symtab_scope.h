@@ -156,7 +156,6 @@ struct EnumEntry *scope_lookup_enum_by_type(struct Scope *scope,
 struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
                                                    char *name);
 
-void scope_create_generic_parameter(struct Scope *scope,
-                                    struct Ast *name);
+void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone);
 
 #endif
