@@ -444,7 +444,38 @@ struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntr
         log(LOG_WARNING, "Instance name %s", instanceName);
 
         instance = struct_entry_clone(theStruct, instanceName);
+
+        struct_resolve_generics(instance, paramsList);
     }
 
     return instance;
+}
+
+void struct_resolve_generics(struct StructEntry *theStruct, List *params)
+{
+    HashTable *paramsMap = hash_table_new(NULL, NULL, (ssize_t(*)(void *, void *))strcmp, hash_string, params->size);
+
+    Iterator *paramNameIter = list_begin(theStruct->genericParameters);
+    Iterator *paramTypeIter = list_begin(params);
+    while (iterator_gettable(paramNameIter) && iterator_gettable(paramTypeIter))
+    {
+        char *paramName = iterator_get(paramNameIter);
+        struct Type *paramType = iterator_get(paramTypeIter);
+
+        char *paramTypeName = type_get_name(paramType);
+        log(LOG_DEBUG, "Map \"%s\"->%s for resolution of generic %s", paramName, paramTypeName, theStruct->name);
+        free(paramTypeName);
+
+        hash_table_insert(paramsMap, paramName, paramType);
+
+        iterator_next(paramNameIter);
+        iterator_next(paramTypeIter);
+    }
+
+    if (iterator_gettable(paramNameIter) != iterator_gettable(paramTypeIter))
+    {
+        InternalError("Iteration error when generating mapping from param names to param types for generic resolution of %s", theStruct->name);
+    }
+    iterator_free(paramNameIter);
+    iterator_free(paramTypeIter);
 }

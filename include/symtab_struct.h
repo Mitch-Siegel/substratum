@@ -61,5 +61,9 @@ struct FunctionEntry *struct_lookup_method_by_string(struct StructEntry *theStru
 
 struct FunctionEntry *struct_lookup_associated_function_by_string(struct StructEntry *theStruct,
                                                                   char *name);
+
 struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntry *theStruct, List *paramsList);
+
+void struct_resolve_generics(struct StructEntry *theStruct, List *params);
+
 #endif
