@@ -653,3 +653,96 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
     // }
     // break;
 }
+
+void try_resolve_generic_for_type(struct Type *type, HashTable *paramsMap)
+{
+    char *typeName = type_get_name(type);
+    free(typeName);
+
+    if (type->basicType == VT_GENERIC_PARAM)
+    {
+        struct Type *resolvedToType = hash_table_find(paramsMap, type->nonArray.complexType.name);
+        if (resolvedToType == NULL)
+        {
+            InternalError("Couldn't resolve actual type for generic parameter of name %s", type_get_name(type));
+        }
+        *type = *resolvedToType;
+    }
+    else if (type->basicType == VT_ARRAY)
+    {
+        try_resolve_generic_for_type(type->array.type, paramsMap);
+    }
+}
+
+void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap)
+{
+    Iterator *tacRunner = NULL;
+    for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
+    {
+        struct TACLine *resolvedLine = iterator_get(tacRunner);
+        struct OperandUsages operandUsages = get_operand_usages(resolvedLine);
+        while (operandUsages.reads->size > 0)
+        {
+            struct TACOperand *readOperand = deque_pop_front(operandUsages.reads);
+            try_resolve_generic_for_type(&readOperand->castAsType, paramsMap);
+        }
+
+        while (operandUsages.writes->size > 0)
+        {
+            struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
+            try_resolve_generic_for_type(&writtenOperand->castAsType, paramsMap);
+        }
+    }
+}
+
+void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap)
+{
+    Iterator *memberIterator = NULL;
+    for (memberIterator = set_begin(scope->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
+    {
+        struct ScopeMember *memberToResolve = iterator_get(memberIterator);
+        switch (memberToResolve->type)
+        {
+        case E_VARIABLE:
+        case E_ARGUMENT:
+        {
+            struct VariableEntry *resolved = memberToResolve->entry;
+            try_resolve_generic_for_type(&resolved->type, paramsMap);
+        }
+        break;
+
+        case E_FUNCTION:
+        {
+            struct FunctionEntry *resolved = memberToResolve->entry;
+            try_resolve_generic_for_type(&resolved->returnType, paramsMap);
+            scope_resolve_generics(resolved->mainScope, paramsMap);
+        }
+        break;
+
+        case E_STRUCT:
+        {
+            InternalError("Recursive generic resolution for sub-structs not implemented yet!");
+        }
+        break;
+
+        case E_ENUM:
+        {
+            InternalError("Recursive generic resolution for sub-enums not implemented yet!");
+        }
+        break;
+
+        case E_SCOPE:
+        {
+            scope_resolve_generics(memberToResolve->entry, paramsMap);
+        }
+        break;
+
+        case E_BASICBLOCK:
+        {
+            struct BasicBlock *resolvedBlock = memberToResolve->entry;
+            basic_block_resolve_generics(resolvedBlock, paramsMap);
+        }
+        break;
+        }
+    }
+}

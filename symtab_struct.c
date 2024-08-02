@@ -441,11 +441,11 @@ struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntr
         strlcat(instanceName, "_", instanceNameLen);
         strlcat(instanceName, paramStr, instanceNameLen);
 
-        log(LOG_WARNING, "Instance name %s", instanceName);
-
         instance = struct_entry_clone(theStruct, instanceName);
 
         struct_resolve_generics(instance, paramsList);
+
+        hash_table_insert(theStruct->genericInstantiations, paramsList, instance);
     }
 
     return instance;
@@ -478,4 +478,6 @@ void struct_resolve_generics(struct StructEntry *theStruct, List *params)
     }
     iterator_free(paramNameIter);
     iterator_free(paramTypeIter);
+
+    scope_resolve_generics(theStruct->members, paramsMap);
 }

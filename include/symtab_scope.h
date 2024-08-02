@@ -7,6 +7,7 @@
 #include "type.h"
 #include <stdio.h>
 
+#include "mbcl/hash_table.h"
 #include "mbcl/list.h"
 #include "mbcl/set.h"
 
@@ -157,5 +158,7 @@ struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
                                                    char *name);
 
 void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone);
+
+void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap);
 
 #endif
