@@ -214,18 +214,26 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
     break;
 
     case T_CAP_SELF:
+    {
         wipType.basicType = VT_STRUCT;
         if ((scope->parentStruct == NULL) || (scope->parentFunction == NULL))
         {
             log_tree(LOG_FATAL, tree, "Use of 'Self' outside of impl scope!");
         }
         wipType.nonArray.complexType.name = scope->parentStruct->name;
+    }
+    break;
 
-        // construct a fake struct name tree which contains the source location info
-        break;
+    case T_GENERIC_INSTANCE:
+    {
+        struct StructEntry *instance = walk_struct_name_or_generic_instantiation(scope, tree);
+        wipType.basicType = VT_STRUCT;
+        wipType.nonArray.complexType.name = instance->name;
+    }
+    break;
 
     default:
-        log_tree(LOG_FATAL, tree, "Malformed AST seen in declaration!");
+        log_tree(LOG_FATAL, tree, "Malformed AST (%s) seen in walk_non_pointer_type_name!", token_get_name(tree->type));
     }
 
     return wipType;
@@ -292,7 +300,7 @@ struct VariableEntry *walk_variable_declaration(struct Ast *tree,
 
     if (tree->child->type != T_TYPE_NAME)
     {
-        log_tree(LOG_FATAL, tree->child, "Malformed AST seen in declaration!");
+        log_tree(LOG_FATAL, tree->child, "Malformed AST (%s) seen in declaration!", token_get_name(tree->child->type));
     }
 
     walk_type_name(tree->child, scope, &declaredType);

@@ -167,6 +167,8 @@ void walk_method_call(struct Ast *tree,
                       size_t *tempNum,
                       struct TACOperand *destinationOperand);
 
+struct StructEntry *walk_struct_name_or_generic_instantiation(struct Scope *scope, struct Ast *tree);
+
 void walk_associated_call(struct Ast *tree,
                           struct BasicBlock *block,
                           struct Scope *scope,
