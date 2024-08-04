@@ -25,12 +25,16 @@ ssize_t compare_generic_params_lists(void *paramsListDataA, void *paramsListData
         ssize_t cmpVal = type_compare(paramTypeA, paramTypeB);
         if (cmpVal != 0)
         {
+            iterator_free(paramIterA);
+            iterator_free(paramIterB);
             return cmpVal;
         }
 
         iterator_next(paramIterA);
         iterator_next(paramIterB);
     }
+    iterator_free(paramIterA);
+    iterator_free(paramIterB);
 
     return 0;
 }
@@ -45,6 +49,7 @@ size_t hash_generic_params_list(void *paramsListData)
         hash <<= 1;
         hash ^= type_hash(iterator_get(paramIter)) + 1;
     }
+    iterator_free(paramIter);
 
     return hash;
 }
@@ -80,6 +85,12 @@ void struct_entry_free(struct StructEntry *theStruct)
     {
         list_free(theStruct->genericParameters);
     }
+
+    if (theStruct->genericInstantiations != NULL)
+    {
+        hash_table_free(theStruct->genericInstantiations);
+    }
+
     free(theStruct);
 }
 
@@ -91,6 +102,8 @@ struct StructEntry *struct_entry_clone(struct StructEntry *toClone, char *name)
     {
         list_append(duplicateGenericParams, strdup(iterator_get(paramIter)));
     }
+    iterator_free(paramIter);
+
     struct StructEntry *cloned = struct_entry_new(toClone->members->parentScope, name, duplicateGenericParams);
 
     scope_clone_to(cloned->members, toClone->members);
@@ -404,8 +417,8 @@ char *sprint_params(List *params)
         {
             len += 2;
             str = realloc(str, len);
-            strlcat(str, ", ", len);
-            strlcat(str, paramStr, len);
+            strncat(str, ", ", len);
+            strncat(str, paramStr, len);
             free(paramStr);
         }
     }
@@ -414,6 +427,7 @@ char *sprint_params(List *params)
     return str;
 }
 
+extern struct Dictionary *parseDict;
 struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntry *theStruct, List *paramsList)
 {
     if (theStruct->genericParameters == NULL)
@@ -437,15 +451,23 @@ struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntr
         size_t instanceNameLen = strlen(theStruct->name) + strlen(paramStr) + 2;
         char *instanceName = malloc(instanceNameLen);
         instanceName[0] = '\0';
-        strlcat(instanceName, theStruct->name, instanceNameLen);
-        strlcat(instanceName, "_", instanceNameLen);
-        strlcat(instanceName, paramStr, instanceNameLen);
+        strncat(instanceName, theStruct->name, instanceNameLen);
+        strncat(instanceName, "_", instanceNameLen);
+        strncat(instanceName, paramStr, instanceNameLen);
+        free(paramStr);
 
-        instance = struct_entry_clone(theStruct, instanceName);
+        char *dictInstanceName = dictionary_lookup_or_insert(parseDict, instanceName);
+        free(instanceName);
+
+        instance = struct_entry_clone(theStruct, dictInstanceName);
 
         struct_resolve_generics(instance, paramsList);
 
         hash_table_insert(theStruct->genericInstantiations, paramsList, instance);
+    }
+    else
+    {
+        list_free(paramsList);
     }
 
     return instance;
@@ -480,4 +502,5 @@ void struct_resolve_generics(struct StructEntry *theStruct, List *params)
     iterator_free(paramTypeIter);
 
     scope_resolve_generics(theStruct->members, paramsMap);
+    hash_table_free(paramsMap);
 }

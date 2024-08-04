@@ -211,8 +211,8 @@ char *sprint_generic_param_names(List *paramNames)
         {
             len += 2;
             str = realloc(str, len);
-            strlcat(str, ", ", len);
-            strlcat(str, paramName, len);
+            strncat(str, ", ", len);
+            strncat(str, paramName, len);
         }
     }
     iterator_free(nameIter);

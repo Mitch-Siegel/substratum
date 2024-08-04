@@ -547,10 +547,13 @@ struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *c
                 break;
             }
         }
+        deque_free(operandUsages.reads);
+        deque_free(operandUsages.writes);
 
         size_t tacIndex = lineToClone->index;
         basic_block_append(clone, clonedLine, &tacIndex);
     }
+    iterator_free(tacRunner);
 
     return clone;
 }
@@ -643,7 +646,7 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
             scope_insert(clonedTo, memberToClone->name, entry, memberToClone->type, memberToClone->accessibility);
         }
     }
-
+    iterator_free(memberIterator);
     // case E_FUNCTION:
     // case E_STRUCT:
     // case E_ENUM:
@@ -692,7 +695,11 @@ void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap
             struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
             try_resolve_generic_for_type(&writtenOperand->castAsType, paramsMap);
         }
+
+        deque_free(operandUsages.reads);
+        deque_free(operandUsages.writes);
     }
+    iterator_free(tacRunner);
 }
 
 void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap)
@@ -745,4 +752,5 @@ void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap)
         break;
         }
     }
+    iterator_free(memberIterator);
 }
