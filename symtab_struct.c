@@ -124,12 +124,10 @@ void struct_add_field(struct StructEntry *memberOf,
 
 void scope_resolve_capital_self(struct Scope *scope, struct StructEntry *theStruct)
 {
-    printf("RESOLVE CAPITAL SELF FOR SCOPE %s\n", scope->name);
     Iterator *entryIter = NULL;
     for (entryIter = set_begin(scope->entries); iterator_gettable(entryIter); iterator_next(entryIter))
     {
         struct ScopeMember *member = iterator_get(entryIter);
-        printf("RESOLVE CAPITAL SELF FOR %s\n", member->name);
 
         switch (member->type)
         {
@@ -143,7 +141,6 @@ void scope_resolve_capital_self(struct Scope *scope, struct StructEntry *theStru
 
         case E_FUNCTION:
         {
-            printf("RECURSE INTO FUNCTION %s\n", member->name);
             struct FunctionEntry *function = member->entry;
             type_try_resolve_vt_self(&function->returnType, theStruct);
             scope_resolve_capital_self(function->mainScope, theStruct);
@@ -204,6 +201,7 @@ void struct_assign_offsets_to_fields(struct StructEntry *theStruct)
         theStruct->totalSize += type_get_size(&handledField->variable->type, theStruct->members);
         log(LOG_DEBUG, "Assign offset %zu to member variable %s of struct %s - total struct size is now %zu", handledField->offset, handledField->variable->name, theStruct->name, theStruct->totalSize);
     }
+    iterator_free(fieldIter);
 }
 
 // assuming we know that struct has a member with name identical to name->value, make sure we can actually access it
@@ -486,15 +484,12 @@ struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntr
         free(paramStr);
 
         instance = struct_entry_clone_generic_base_as_instance(theStruct, theStruct->name);
+        instance->generic.instance.parameters = paramsList;
 
-        struct_resolve_generics(theStruct, instance, paramsList);
         struct_resolve_capital_self(instance);
+        struct_resolve_generics(theStruct, instance, paramsList);
 
         hash_table_insert(theStruct->generic.base.instances, paramsList, instance);
-    }
-    else
-    {
-        list_free(paramsList);
     }
 
     return instance;

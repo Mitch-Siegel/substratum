@@ -372,7 +372,7 @@ struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
         {
             if (type->nonArray.complexType.genericParams != NULL)
             {
-                InternalError("Generic struct type %s used with generic parameters!", type->nonArray.complexType.name);
+                lookedUpStruct = struct_get_or_create_generic_instantiation(lookedUpStruct, type->nonArray.complexType.genericParams);
             }
             return lookedUpStruct;
         }

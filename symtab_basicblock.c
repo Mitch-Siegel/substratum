@@ -113,4 +113,5 @@ void basic_block_resolve_capital_self(struct BasicBlock *block, struct StructEnt
         deque_free(operandUsages.reads);
         deque_free(operandUsages.writes);
     }
+    iterator_free(blockIter);
 }
