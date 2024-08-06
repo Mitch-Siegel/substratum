@@ -637,8 +637,6 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
     }
     iterator_free(memberIterator);
 
-    scope_print(clonedTo, stderr, 0, 1);
-
     for (memberIterator = set_begin(toClone->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
     {
         struct ScopeMember *memberToClone = iterator_get(memberIterator);
@@ -786,4 +784,7 @@ void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap)
         }
     }
     iterator_free(memberIterator);
+
+    printf("resolved generics:\n");
+    scope_print(scope, stdout, 0, false);
 }

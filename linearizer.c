@@ -3035,10 +3035,13 @@ struct StructEntry *walk_struct_name_or_generic_instantiation(struct Scope *scop
 
     case T_GENERIC_INSTANCE:
     {
+
+        printf("is that a generic instance? %s\n", tree->child->value);
         struct Ast *structNameTree = tree->child;
         List *genericParams = walk_generic_parameters(tree->child->sibling, scope);
         struct StructEntry *baseGenericStruct = scope_lookup_struct(scope, structNameTree);
         returnedStruct = struct_get_or_create_generic_instantiation(baseGenericStruct, genericParams);
+        printf("yup thats an instance: %s\n", returnedStruct->name);
     }
     break;
 
@@ -3067,12 +3070,21 @@ void walk_associated_call(struct Ast *tree,
 
     // don't need to track scope->parentFunction->callsOtherFunction as walk_function_call will do this on our behalf
     struct Ast *structTypeTree = tree->child->child;
-    struct StructEntry *structCalledOn = NULL;
+    struct StructEntry *structAssociatedWith = NULL;
     struct Ast *callTree = tree->child->sibling;
 
-    structCalledOn = walk_struct_name_or_generic_instantiation(scope, structTypeTree);
+    structAssociatedWith = walk_struct_name_or_generic_instantiation(scope, structTypeTree);
 
-    struct FunctionEntry *calledFunction = struct_lookup_associated_function(structCalledOn, callTree->child, scope);
+    ast_print(structTypeTree, 4);
+
+    char *paramsStr = NULL;
+    if (structAssociatedWith->generic.instance.parameters != NULL)
+    {
+        paramsStr = sprint_generic_params(structAssociatedWith->generic.instance.parameters);
+    }
+    printf("structCalledOn: %s (<%s>\n", structAssociatedWith->name, paramsStr);
+
+    struct FunctionEntry *calledFunction = struct_lookup_associated_function(structAssociatedWith, callTree->child, scope);
 
     check_function_return_use(tree, destinationOperand, calledFunction);
 
@@ -3092,7 +3104,14 @@ void walk_associated_call(struct Ast *tree,
         callLine->operands.associatedCall.returnValue = *destinationOperand;
     }
     callLine->operands.associatedCall.functionName = calledFunction->name;
-    callLine->operands.associatedCall.structName = structCalledOn->name;
+
+    type_init(&callLine->operands.associatedCall.associatedWith);
+    callLine->operands.associatedCall.associatedWith.nonArray.complexType.name = structAssociatedWith->name;
+    if (structAssociatedWith->genericType == G_INSTANCE)
+    {
+        callLine->operands.associatedCall.associatedWith.nonArray.complexType.genericParams = structAssociatedWith->generic.instance.parameters;
+    }
+
     callLine->operands.associatedCall.arguments = argumentPushes;
 
     basic_block_append(block, callLine, tacIndex);

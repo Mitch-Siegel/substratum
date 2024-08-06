@@ -106,8 +106,6 @@ struct StructEntry *struct_entry_clone_generic_base_as_instance(struct StructEnt
 
     scope_clone_to(cloned->members, toClone->members);
 
-    scope_print(cloned->members, stderr, 0, 1);
-
     return cloned;
 }
 

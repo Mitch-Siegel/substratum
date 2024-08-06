@@ -192,7 +192,7 @@ struct TacMethodCall
 struct TacAssociatedCall
 {
     struct TACOperand returnValue;
-    char *structName;
+    struct Type associatedWith;
     char *functionName;
     Deque *arguments;
 };
