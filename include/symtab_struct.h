@@ -83,7 +83,7 @@ struct FunctionEntry *struct_lookup_associated_function_by_string(struct StructE
 
 struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntry *theStruct, List *paramsList);
 
-void struct_resolve_generics(struct StructEntry *genericBase, struct StructEntry *instance, List *params);
+void struct_resolve_generics(List *paramNames, struct StructEntry *instance, List *params);
 
 char *sprint_generic_param_names(List *params);
 

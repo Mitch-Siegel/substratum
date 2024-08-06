@@ -275,7 +275,15 @@ void struct_check_access_by_name(struct StructEntry *theStruct,
 
         if (scope == NULL)
         {
-            log(LOG_FATAL, "%s %s of struct %s has access specifier private - not accessible from this scope!", whatAccessingCalled, name, theStruct->name);
+            if (theStruct->genericType == G_INSTANCE)
+            {
+                char *params = sprint_generic_params(theStruct->generic.instance.parameters);
+                log(LOG_FATAL, "%s %s of struct %s<%s> has access specifier private - not accessible from this scope!", whatAccessingCalled, name, params, theStruct->name);
+            }
+            else
+            {
+                log(LOG_FATAL, "%s %s of struct %s has access specifier private - not accessible from this scope!", whatAccessingCalled, name, theStruct->name);
+            }
         }
         break;
     }
@@ -491,11 +499,17 @@ struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntr
         free(paramStr);
 
         instance = struct_entry_clone_generic_base_as_instance(theStruct, theStruct->name);
+
+        printf("CLONED INSTANCE:\n");
+        scope_print(instance->members, stdout, 0, 1);
         instance->generic.instance.parameters = paramsList;
 
         struct_resolve_capital_self(instance);
-        struct_resolve_generics(theStruct, instance, paramsList);
+        struct_resolve_generics(theStruct->generic.base.paramNames, instance, paramsList);
         struct_assign_offsets_to_fields(instance);
+
+        printf("AFTER RESOLUTION:\n");
+        scope_print(instance->members, stdout, 0, 1);
 
         hash_table_insert(theStruct->generic.base.instances, paramsList, instance);
     }
@@ -503,13 +517,8 @@ struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntr
     return instance;
 }
 
-void struct_resolve_generics(struct StructEntry *genericBase, struct StructEntry *instance, List *params)
+void struct_resolve_generics(List *paramNames, struct StructEntry *instance, List *params)
 {
-    if (genericBase->genericType != G_BASE)
-    {
-        InternalError("struct_resolve_generics called with non-base generic struct %s", genericBase->name);
-    }
-
     if (instance->genericType != G_INSTANCE)
     {
         InternalError("struct_resolve_generics called with non-instance struct %s", instance->name);
@@ -517,7 +526,7 @@ void struct_resolve_generics(struct StructEntry *genericBase, struct StructEntry
 
     HashTable *paramsMap = hash_table_new(NULL, NULL, (ssize_t(*)(void *, void *))strcmp, hash_string, params->size);
 
-    Iterator *paramNameIter = list_begin(genericBase->generic.base.paramNames);
+    Iterator *paramNameIter = list_begin(paramNames);
     Iterator *paramTypeIter = list_begin(params);
     while (iterator_gettable(paramNameIter) && iterator_gettable(paramTypeIter))
     {

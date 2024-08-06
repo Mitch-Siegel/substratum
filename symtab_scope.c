@@ -503,7 +503,7 @@ struct FunctionEntry *function_entry_clone(struct FunctionEntry *toClone, struct
 {
     log(LOG_DEBUG, "function_entry_clone: %s", toClone->name);
     struct FunctionEntry *cloned = function_entry_new(cloneTo, &toClone->correspondingTree, cloneTo->parentStruct);
-    cloned->returnType = toClone->returnType;
+    cloned->returnType = type_duplicate_non_pointer(&toClone->returnType);
     cloned->callsOtherFunction = toClone->callsOtherFunction;
     cloned->isAsmFun = toClone->isAsmFun;
     cloned->isDefined = toClone->isDefined;
@@ -614,14 +614,16 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
         case E_VARIABLE:
         {
             struct VariableEntry *variableToClone = memberToClone->entry;
-            entry = variable_entry_new(variableToClone->name, &variableToClone->type, variableToClone->isGlobal, false, memberToClone->accessibility);
+            struct Type dupType = type_duplicate_non_pointer(&variableToClone->type);
+            entry = variable_entry_new(variableToClone->name, &dupType, variableToClone->isGlobal, false, memberToClone->accessibility);
         }
         break;
 
         case E_ARGUMENT:
         {
             struct VariableEntry *argumentToClone = memberToClone->entry;
-            entry = variable_entry_new(argumentToClone->name, &argumentToClone->type, argumentToClone->isGlobal, true, memberToClone->accessibility);
+            struct Type dupType = type_duplicate_non_pointer(&argumentToClone->type);
+            entry = variable_entry_new(argumentToClone->name, &dupType, argumentToClone->isGlobal, true, memberToClone->accessibility);
         }
         break;
 
@@ -666,7 +668,6 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
 
         case E_ENUM:
             InternalError("scope_clone on enums not yet implemented!");
-
             break;
 
         case E_BASICBLOCK:
@@ -794,7 +795,4 @@ void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap)
         }
     }
     iterator_free(memberIterator);
-
-    printf("resolved generics:\n");
-    scope_print(scope, stdout, 0, false);
 }

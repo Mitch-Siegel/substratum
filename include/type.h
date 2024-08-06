@@ -81,6 +81,8 @@ char *type_get_name(struct Type *type);
 
 struct Type *type_duplicate(struct Type *type);
 
+struct Type type_duplicate_non_pointer(struct Type *type);
+
 // gets the byte size (not aligned) of a given type
 size_t type_get_size(struct Type *type, struct Scope *scope);
 

@@ -486,6 +486,9 @@ char *type_get_name(struct Type *type)
         typeName[len + pointerCounter] = '*';
         len += sprintf(typeName + len, "*");
     }
+
+    len += sprintf(typeName + len, "[%p]", type);
+
     typeName[len + pointerCounter] = '\0';
 
     return typeName;
@@ -495,6 +498,21 @@ struct Type *type_duplicate(struct Type *type)
 {
     struct Type *dup = malloc(sizeof(struct Type));
     memcpy(dup, type, sizeof(struct Type));
+    if (type->basicType == VT_ARRAY)
+    {
+        dup->array.type = type_duplicate(type->array.type);
+    }
+    return dup;
+}
+
+struct Type type_duplicate_non_pointer(struct Type *type)
+{
+    struct Type dup;
+    memcpy(&dup, type, sizeof(struct Type));
+    if (type->basicType == VT_ARRAY)
+    {
+        dup.array.type = type_duplicate(type->array.type);
+    }
     return dup;
 }
 

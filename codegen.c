@@ -79,9 +79,21 @@ void generate_code_for_struct(struct CodegenState *globalContext,
 
     switch (theStruct->genericType)
     {
-    case G_NONE:
     case G_INSTANCE:
+    case G_NONE:
     {
+
+        if (theStruct->genericType == G_NONE)
+        {
+            log(LOG_DEBUG, "Generating code for struct %s", theStruct->name);
+        }
+        else
+        {
+            char *params = sprint_generic_params(theStruct->generic.instance.parameters);
+            log(LOG_DEBUG, "Generating code for struct %s<%s>", theStruct->name, params);
+            free(params);
+        }
+
         Iterator *entryIterator = NULL;
         for (entryIterator = set_begin(theStruct->members->entries); iterator_gettable(entryIterator); iterator_next(entryIterator))
         {

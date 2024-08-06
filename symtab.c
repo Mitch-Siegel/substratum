@@ -277,12 +277,57 @@ void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t 
     free(typeName);
 }
 
+void struct_entry_print(struct StructEntry *theStruct, bool printTac, size_t depth, FILE *outFile)
+{
+    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
+    {
+        fprintf(outFile, "\t");
+    }
+
+    fprintf(outFile, "> Struct %s", theStruct->name);
+    if (theStruct->genericType == G_BASE)
+    {
+        char *paramNames = sprint_generic_param_names(theStruct->generic.base.paramNames);
+        fprintf(outFile, "<%s> (Generic Base)\n", paramNames);
+        free(paramNames);
+    }
+    else if (theStruct->genericType == G_INSTANCE)
+    {
+        char *paramTypes = sprint_generic_params(theStruct->generic.instance.parameters);
+        fprintf(outFile, "<%s> (Generic Instance)", paramTypes);
+        free(paramTypes);
+    }
+
+    if (theStruct->genericType != G_BASE)
+    {
+        for (size_t j = 0; j < depth; j++)
+        {
+            fprintf(outFile, "\t");
+        }
+        fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
+    }
+    scope_print(theStruct->members, outFile, depth + 1, printTac);
+
+    if (theStruct->genericType == G_BASE)
+    {
+        Iterator *instanceIter = NULL;
+        for (instanceIter = hash_table_begin(theStruct->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
+        {
+            HashTableEntry *instanceEntry = iterator_get(instanceIter);
+            struct StructEntry *instance = instanceEntry->value;
+            struct_entry_print(instance, printTac, depth + 1, outFile);
+        }
+    }
+}
+
 void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth, FILE *outFile)
 {
     for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
     {
         fprintf(outFile, "\t");
     }
+
+    fprintf(outFile, "[%p]", toPrint->entry);
 
     switch (toPrint->accessibility)
     {
@@ -321,26 +366,7 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
     case E_STRUCT:
     {
         struct StructEntry *theStruct = toPrint->entry;
-        fprintf(outFile, "> Struct %s", toPrint->name);
-        if (theStruct->genericType == G_BASE)
-        {
-            char *paramNames = sprint_generic_param_names(theStruct->generic.base.paramNames);
-            fprintf(outFile, "<%s> (Generic Base)\n", paramNames);
-            free(paramNames);
-        }
-        else if (theStruct->genericType == G_INSTANCE)
-        {
-            char *paramTypes = sprint_generic_params(theStruct->generic.instance.parameters);
-            fprintf(outFile, "<%s> (Generic Instance)", paramTypes);
-            free(paramTypes);
-        }
-
-        for (size_t j = 0; j < depth; j++)
-        {
-            fprintf(outFile, "\t");
-        }
-        fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
-        scope_print(theStruct->members, outFile, depth + 1, printTac);
+        struct_entry_print(theStruct, printTac, depth, outFile);
     }
     break;
 
