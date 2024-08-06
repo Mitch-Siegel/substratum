@@ -284,6 +284,17 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         fprintf(outFile, "\t");
     }
 
+    switch (toPrint->accessibility)
+    {
+    case A_PRIVATE:
+        fprintf(outFile, "Private ");
+        break;
+
+    case A_PUBLIC:
+        fprintf(outFile, "Public  ");
+        break;
+    }
+
     switch (toPrint->type)
     {
     case E_ARGUMENT:

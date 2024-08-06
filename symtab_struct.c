@@ -107,6 +107,13 @@ struct StructEntry *struct_entry_clone_generic_base_as_instance(struct StructEnt
 
     scope_clone_to(cloned->members, toClone->members);
 
+    Iterator *fieldIter = NULL;
+    for (fieldIter = stack_bottom(toClone->fieldLocations); iterator_gettable(fieldIter); iterator_next(fieldIter))
+    {
+        struct StructField *field = iterator_get(fieldIter);
+        struct_add_field(cloned, scope_lookup_var_by_string(cloned->members, field->variable->name));
+    }
+
     return cloned;
 }
 
@@ -331,11 +338,11 @@ struct StructField *struct_lookup_field_by_name(struct StructEntry *theStruct,
 
     if (returnedField == NULL)
     {
-        log(LOG_FATAL, "Use of nonexistent member variable %s in struct %s", name, theStruct->name);
+        log(LOG_FATAL, "Use of nonexistent field %s in struct %s", name, theStruct->name);
     }
     else
     {
-        struct_check_access_by_name(theStruct, name, scope, "Member");
+        struct_check_access_by_name(theStruct, name, scope, "Field");
     }
 
     return returnedField;
@@ -488,6 +495,7 @@ struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntr
 
         struct_resolve_capital_self(instance);
         struct_resolve_generics(theStruct, instance, paramsList);
+        struct_assign_offsets_to_fields(instance);
 
         hash_table_insert(theStruct->generic.base.instances, paramsList, instance);
     }
