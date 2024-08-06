@@ -9,6 +9,8 @@
 
 #define FUNCTION_EXIT_BLOCK_LABEL ((ssize_t)0)
 
+struct StructEntry;
+
 struct BasicBlock
 {
     List *TACList;
@@ -27,5 +29,7 @@ void basic_block_append(struct BasicBlock *block, struct TACLine *line, size_t *
 void basic_block_prepend(struct BasicBlock *block, struct TACLine *line);
 
 void print_basic_block(struct BasicBlock *block, size_t indentLevel);
+
+void basic_block_resolve_capital_self(struct BasicBlock *block, struct StructEntry *theStruct);
 
 #endif

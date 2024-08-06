@@ -337,6 +337,16 @@ struct StructEntry *scope_lookup_struct(struct Scope *scope,
 struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
                                                 struct Type *type)
 {
+    if (type->basicType == VT_SELF)
+    {
+        if (scope->parentStruct == NULL)
+        {
+            InternalError("Use of 'Self' outside of struct context!");
+        }
+
+        return scope->parentStruct;
+    }
+
     if (type->basicType != VT_STRUCT || type->nonArray.complexType.name == NULL)
     {
         InternalError("Non-struct type or struct type with null name passed to lookupStructByType!");

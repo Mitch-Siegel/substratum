@@ -212,12 +212,11 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
 
     case T_CAP_SELF:
     {
-        wipType.basicType = VT_STRUCT;
+        wipType.basicType = VT_SELF;
         if ((scope->parentStruct == NULL) || (scope->parentFunction == NULL))
         {
             log_tree(LOG_FATAL, tree, "Use of 'Self' outside of impl scope!");
         }
-        wipType.nonArray.complexType.name = scope->parentStruct->name;
     }
     break;
 
@@ -716,6 +715,12 @@ void walk_implementation_block(struct Ast *tree, struct Scope *scope)
         }
         implementationRunner = implementationRunner->sibling;
     }
+
+    if (implementedStruct->genericType != G_BASE)
+    {
+        log(LOG_DEBUG, "Resolving capital 'Self' and assigning offsets to fields for non-generic-base struct %s at end of implementation block", implementedStruct->name);
+        struct_resolve_capital_self(implementedStruct);
+    }
 }
 
 struct StructEntry *walk_struct_declaration(struct Ast *tree,
@@ -778,6 +783,13 @@ struct StructEntry *walk_struct_declaration(struct Ast *tree,
         }
 
         structBodyRunner = structBodyRunner->sibling;
+    }
+
+    if (declaredStruct->genericType != G_BASE)
+    {
+        log(LOG_DEBUG, "Resolving capital 'Self' and assigning offsets to fields for non-generic-base struct %s ", declaredStruct->name);
+        struct_resolve_capital_self(declaredStruct);
+        struct_assign_offsets_to_fields(declaredStruct);
     }
 
     return declaredStruct;
@@ -1572,6 +1584,8 @@ void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct E
         InternalError("VT_STRUCT seen as type of matched expression");
     case VT_GENERIC_PARAM:
         InternalError("VT_GENERIC_PARAM seen as type of matched expression");
+    case VT_SELF:
+        InternalError("VT_SELF seen as type of matched expression");
     }
 
     size_t missingCases = matchedValues->size - stateSpaceSize;
@@ -1858,6 +1872,7 @@ void walk_match_statement(struct Ast *tree,
         case VT_ANY:
         case VT_NULL:
         case VT_GENERIC_PARAM:
+        case VT_SELF:
             InternalError("Illegal type %s seen from matched expresssion linearization", type_get_name(matchedType));
             break;
 
@@ -3106,6 +3121,7 @@ void walk_associated_call(struct Ast *tree,
     callLine->operands.associatedCall.functionName = calledFunction->name;
 
     type_init(&callLine->operands.associatedCall.associatedWith);
+    callLine->operands.associatedCall.associatedWith.basicType = VT_STRUCT;
     callLine->operands.associatedCall.associatedWith.nonArray.complexType.name = structAssociatedWith->name;
     if (structAssociatedWith->genericType == G_INSTANCE)
     {

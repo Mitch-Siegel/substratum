@@ -1,6 +1,7 @@
 #include "symtab_struct.h"
 
 #include "log.h"
+#include "symtab_basicblock.h"
 #include "symtab_function.h"
 #include "symtab_scope.h"
 #include "util.h"
@@ -119,6 +120,67 @@ void struct_add_field(struct StructEntry *memberOf,
     newMemberLocation->variable = variable;
 
     stack_push(memberOf->fieldLocations, newMemberLocation);
+}
+
+void scope_resolve_capital_self(struct Scope *scope, struct StructEntry *theStruct)
+{
+    printf("RESOLVE CAPITAL SELF FOR SCOPE %s\n", scope->name);
+    Iterator *entryIter = NULL;
+    for (entryIter = set_begin(scope->entries); iterator_gettable(entryIter); iterator_next(entryIter))
+    {
+        struct ScopeMember *member = iterator_get(entryIter);
+        printf("RESOLVE CAPITAL SELF FOR %s\n", member->name);
+
+        switch (member->type)
+        {
+        case E_VARIABLE:
+        case E_ARGUMENT:
+        {
+            struct VariableEntry *variable = member->entry;
+            type_try_resolve_vt_self(&variable->type, theStruct);
+        }
+        break;
+
+        case E_FUNCTION:
+        {
+            printf("RECURSE INTO FUNCTION %s\n", member->name);
+            struct FunctionEntry *function = member->entry;
+            type_try_resolve_vt_self(&function->returnType, theStruct);
+            scope_resolve_capital_self(function->mainScope, theStruct);
+        }
+        break;
+
+        case E_STRUCT:
+        {
+            struct StructEntry *theStruct = member->entry;
+            struct_resolve_capital_self(theStruct);
+        }
+        break;
+
+        case E_ENUM:
+            break;
+
+        case E_SCOPE:
+        {
+            struct Scope *subScope = member->entry;
+            scope_resolve_capital_self(subScope, theStruct);
+        }
+        break;
+
+        case E_BASICBLOCK:
+        {
+            basic_block_resolve_capital_self(member->entry, theStruct);
+        }
+        break;
+        }
+    }
+    iterator_free(entryIter);
+}
+
+void struct_resolve_capital_self(struct StructEntry *theStruct)
+{
+    log(LOG_DEBUG, "Resolving capital self for struct %s", theStruct->name);
+    scope_resolve_capital_self(theStruct->members, theStruct);
 }
 
 void struct_assign_offsets_to_fields(struct StructEntry *theStruct)
@@ -426,6 +488,7 @@ struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntr
         instance = struct_entry_clone_generic_base_as_instance(theStruct, theStruct->name);
 
         struct_resolve_generics(theStruct, instance, paramsList);
+        struct_resolve_capital_self(instance);
 
         hash_table_insert(theStruct->generic.base.instances, paramsList, instance);
     }

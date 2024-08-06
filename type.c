@@ -132,7 +132,7 @@ bool type_is_array_object(struct Type *type)
 
 bool type_is_struct_object(struct Type *type)
 {
-    return ((type->basicType == VT_STRUCT) && (type->pointerLevel == 0));
+    return ((type->basicType == VT_STRUCT) && (type->pointerLevel == 0)) || (type->basicType == VT_SELF);
 }
 
 bool type_is_enum_object(struct Type *type)
@@ -160,6 +160,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_NULL:
             case VT_ARRAY:
             case VT_GENERIC_PARAM:
+            case VT_SELF:
                 retVal = CANT_WIDEN;
                 break;
             case VT_ENUM:
@@ -181,6 +182,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_STRUCT:
             case VT_ARRAY:
             case VT_GENERIC_PARAM:
+            case VT_SELF:
                 retVal = CANT_WIDEN;
                 break;
             case VT_ANY:
@@ -201,6 +203,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_STRUCT:
             case VT_ARRAY:
             case VT_GENERIC_PARAM:
+            case VT_SELF:
                 retVal = CANT_WIDEN;
                 break;
             case VT_ANY:
@@ -221,6 +224,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_STRUCT:
             case VT_ARRAY:
             case VT_GENERIC_PARAM:
+            case VT_SELF:
                 retVal = CANT_WIDEN;
                 break;
 
@@ -242,6 +246,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_STRUCT:
             case VT_ARRAY:
             case VT_GENERIC_PARAM:
+            case VT_SELF:
                 retVal = CANT_WIDEN;
                 break;
 
@@ -261,6 +266,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_U64:
             case VT_ARRAY:
             case VT_GENERIC_PARAM:
+            case VT_SELF:
             case VT_ENUM:
                 retVal = CANT_WIDEN;
                 break;
@@ -282,6 +288,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_STRUCT:
             case VT_ARRAY:
             case VT_GENERIC_PARAM:
+            case VT_SELF:
                 retVal = CANT_WIDEN;
                 break;
             case VT_ANY:
@@ -302,6 +309,7 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_U32:
             case VT_U64:
             case VT_GENERIC_PARAM:
+            case VT_SELF:
             case VT_ENUM:
             case VT_STRUCT:
                 retVal = CANT_WIDEN;
@@ -315,6 +323,12 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
         break;
 
         case VT_GENERIC_PARAM:
+        {
+            retVal = CANT_WIDEN;
+        }
+        break;
+
+        case VT_SELF:
         {
             retVal = CANT_WIDEN;
         }
@@ -456,6 +470,12 @@ char *type_get_name(struct Type *type)
     }
     break;
 
+    case VT_SELF:
+    {
+        len = sprintf(typeName, "Self");
+    }
+    break;
+
     default:
         InternalError("Unexpected enum BASIC_TYPES value %d seen in Type_GetName!", type->basicType);
     }
@@ -547,6 +567,10 @@ size_t type_get_size(struct Type *type, struct Scope *scope)
         size *= type_get_size(&typeRunner, scope);
     }
     break;
+
+    case VT_SELF:
+        InternalError("Type_GetSize called with basic type of VT_SELF!\n");
+        break;
 
     case VT_GENERIC_PARAM:
         InternalError("Type_GetSize called with basic type of VT_GENERIC_PARAM!\n");
@@ -640,4 +664,21 @@ size_t scope_compute_padding_for_alignment(struct Scope *scope, struct Type *ali
     }
 
     return paddingRequired;
+}
+
+void type_try_resolve_vt_self(struct Type *type, struct StructEntry *theStruct)
+{
+    if (type->basicType == VT_SELF)
+    {
+        type->basicType = VT_STRUCT;
+        type->nonArray.complexType.name = theStruct->name;
+        if (theStruct->genericType == G_INSTANCE)
+        {
+            type->nonArray.complexType.genericParams = theStruct->generic.instance.parameters;
+        }
+        else
+        {
+            type->nonArray.complexType.genericParams = NULL;
+        }
+    }
 }

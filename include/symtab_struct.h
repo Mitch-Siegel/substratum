@@ -89,4 +89,6 @@ char *sprint_generic_param_names(List *params);
 
 char *sprint_generic_params(List *paramNames);
 
+void struct_resolve_capital_self(struct StructEntry *theStruct);
+
 #endif

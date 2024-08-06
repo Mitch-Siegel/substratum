@@ -6,6 +6,7 @@
 #include <mbcl/list.h>
 
 struct Scope;
+struct StructEntry;
 
 enum BASIC_TYPES
 {
@@ -19,6 +20,7 @@ enum BASIC_TYPES
     VT_ENUM,
     VT_ARRAY,
     VT_GENERIC_PARAM,
+    VT_SELF,
 };
 
 struct Type
@@ -88,5 +90,7 @@ size_t type_get_size_of_array_element(struct Type *arrayType, struct Scope *scop
 
 // calculate the power of 2 to which a given type needs to be aligned
 u8 type_get_alignment(struct Type *type, struct Scope *scope);
+
+void type_try_resolve_vt_self(struct Type *type, struct StructEntry *theStruct);
 
 #endif
