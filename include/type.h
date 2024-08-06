@@ -3,6 +3,8 @@
 
 #include "substratum_defs.h"
 
+#include <mbcl/list.h>
+
 struct Scope;
 
 enum BASIC_TYPES
@@ -31,6 +33,7 @@ struct Type
             struct complexType
             {
                 char *name;
+                List *genericParams; // if this is a struct which is a generic type, this will be a list of pointers to Types of the params
             } complexType;
         } nonArray;
         struct

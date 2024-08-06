@@ -180,10 +180,18 @@ struct FunctionEntry *scope_create_function(struct Scope *parentScope,
 }
 
 struct StructEntry *scope_create_struct(struct Scope *scope,
-                                        char *name,
-                                        List *genericParams)
+                                        char *name)
 {
-    struct StructEntry *wipStruct = struct_entry_new(scope, name, genericParams);
+    struct StructEntry *wipStruct = struct_entry_new(scope, name, G_NONE, NULL);
+    scope_insert(scope, name, wipStruct, E_STRUCT, A_PUBLIC);
+    return wipStruct;
+}
+
+struct StructEntry *scope_create_generic_base_struct(struct Scope *scope,
+                                                     char *name,
+                                                     List *paramNames)
+{
+    struct StructEntry *wipStruct = struct_entry_new(scope, name, G_BASE, paramNames);
     scope_insert(scope, name, wipStruct, E_STRUCT, A_PUBLIC);
     return wipStruct;
 }
@@ -343,7 +351,32 @@ struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
     switch (lookedUp->type)
     {
     case E_STRUCT:
-        return lookedUp->entry;
+    {
+        struct StructEntry *lookedUpStruct = lookedUp->entry;
+        switch (lookedUpStruct->genericType)
+        {
+        case G_NONE:
+            return lookedUpStruct;
+
+        case G_BASE:
+        {
+            if (type->nonArray.complexType.genericParams != NULL)
+            {
+                InternalError("Generic struct type %s used with generic parameters!", type->nonArray.complexType.name);
+            }
+            return lookedUpStruct;
+        }
+        break;
+
+        case G_INSTANCE:
+            if (type->nonArray.complexType.genericParams != NULL)
+            {
+                InternalError("Non-generic struct type %s used with generic parameters!", type->nonArray.complexType.name);
+            }
+            struct StructEntry *instantiatedStruct = struct_get_or_create_generic_instantiation(lookedUpStruct, type->nonArray.complexType.genericParams);
+            return instantiatedStruct;
+        }
+    }
 
     default:
         InternalError("lookupStructByType for %s lookup got a non-struct ScopeMember!", type->nonArray.complexType.name);

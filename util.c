@@ -193,29 +193,3 @@ void temp_list_free(struct TempList *toFree)
     array_deinit(&toFree->temps);
     free(toFree);
 }
-
-char *sprint_generic_param_names(List *paramNames)
-{
-    char *str = NULL;
-    size_t len = 1;
-    Iterator *nameIter = NULL;
-    for (nameIter = list_begin(paramNames); iterator_gettable(nameIter); iterator_next(nameIter))
-    {
-        char *paramName = iterator_get(nameIter);
-        len += strlen(paramName);
-        if (str == NULL)
-        {
-            str = strdup(paramName);
-        }
-        else
-        {
-            len += 2;
-            str = realloc(str, len);
-            strncat(str, ", ", len);
-            strncat(str, paramName, len);
-        }
-    }
-    iterator_free(nameIter);
-
-    return str;
-}

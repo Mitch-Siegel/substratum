@@ -175,17 +175,14 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
     {
         while (scope != NULL)
         {
-            if (scope->parentStruct != NULL)
+            if ((scope->parentStruct != NULL) &&
+                (scope == scope->parentStruct->members) &&
+                (scope->parentStruct->genericType == G_BASE) &&
+                (list_find(scope->parentStruct->generic.base.paramNames, tree->value) != NULL))
             {
-                if (scope == scope->parentStruct->members)
-                {
-                    if (list_find(scope->parentStruct->genericParameters, tree->value) != NULL)
-                    {
-                        wipType.basicType = VT_GENERIC_PARAM;
-                        wipType.nonArray.complexType.name = tree->value;
-                        return wipType;
-                    }
-                }
+                wipType.basicType = VT_GENERIC_PARAM;
+                wipType.nonArray.complexType.name = tree->value;
+                return wipType;
             }
 
             struct ScopeMember *lookedUp = scope_lookup_no_parent(scope, tree->value, E_STRUCT);
@@ -227,8 +224,14 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
     case T_GENERIC_INSTANCE:
     {
         struct StructEntry *instance = walk_struct_name_or_generic_instantiation(scope, tree);
+        if (instance->genericType != G_INSTANCE)
+        {
+            log_tree(LOG_FATAL, tree, "walk_struct_name_or_generic_instantiation returned non-generic-instance struct %s!", instance->name);
+        }
+
         wipType.basicType = VT_STRUCT;
         wipType.nonArray.complexType.name = instance->name;
+        wipType.nonArray.complexType.genericParams = instance->generic.instance.parameters;
     }
     break;
 
@@ -461,7 +464,7 @@ List *walk_generic_parameter_names(struct Ast *tree)
         log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic_parameter_names!", token_get_name(tree->type));
     }
 
-    List *genericParameters = list_new(NULL, (ssize_t(*)(void *, void *))strcmp);
+    List *parameters = list_new(NULL, (ssize_t(*)(void *, void *))strcmp);
 
     struct Ast *genericRunner = tree->child;
     while (genericRunner != NULL)
@@ -471,17 +474,17 @@ List *walk_generic_parameter_names(struct Ast *tree)
             log_tree(LOG_FATAL, genericRunner, "Malformed AST seen in walk_generic_parameter_names!");
         }
 
-        if (list_find(genericParameters, genericRunner->value) != NULL)
+        if (list_find(parameters, genericRunner->value) != NULL)
         {
             log_tree(LOG_FATAL, genericRunner, "Redifinition of generic parameter %s!", genericRunner->value);
         }
 
-        list_append(genericParameters, genericRunner->value);
+        list_append(parameters, genericRunner->value);
 
         genericRunner = genericRunner->sibling;
     }
 
-    return genericParameters;
+    return parameters;
 }
 
 struct FunctionEntry *walk_function_declaration(struct Ast *tree,
@@ -730,7 +733,14 @@ struct StructEntry *walk_struct_declaration(struct Ast *tree,
     struct StructEntry *declaredStruct = NULL;
     if (tree->child->type == T_IDENTIFIER)
     {
-        declaredStruct = scope_create_struct(scope, tree->child->value, genericParams);
+        if (genericParams != NULL)
+        {
+            declaredStruct = scope_create_generic_base_struct(scope, tree->child->value, genericParams);
+        }
+        else
+        {
+            declaredStruct = scope_create_struct(scope, tree->child->value);
+        }
     }
     else
     {
@@ -841,7 +851,7 @@ void walk_generic(struct Ast *tree,
 
         struct StructEntry *implementedStruct = scope_lookup_struct(scope, implementedStructTree);
 
-        compare_generic_params(genericParamsTree, genericParams, implementedStruct->genericParameters, "struct", implementedStruct->name);
+        compare_generic_params(genericParamsTree, genericParams, implementedStruct->generic.instance.parameters, "struct", implementedStruct->name);
 
         walk_implementation_block(genericThing, implementedStruct->members);
     }

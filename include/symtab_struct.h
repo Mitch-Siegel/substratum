@@ -14,11 +14,29 @@ struct StructField
     ssize_t offset;
 };
 
+enum StructGenericType
+{
+    G_NONE,     // not a generic type
+    G_BASE,     // a generic type which is a base type (contains code and variables with VT_GENERIC_PARAM type)
+    G_INSTANCE, // a generic type which is an instance of a base type (VT_GENERIC_PARAM types resolved to actual types)
+};
+
 struct StructEntry
 {
     char *name;
-    List *genericParameters;
-    HashTable *genericInstantiations;
+    enum StructGenericType genericType;
+    union
+    {
+        struct
+        {
+            List *paramNames;     // list of string names of generic parameters
+            HashTable *instances; // hash table mapping from list of generic parameters (types) to specific instances
+        } base;
+        struct
+        {
+            List *parameters; // list of types which are the actual types of the generic parameters
+        } instance;
+    } generic;
     struct Scope *members;
     Stack *fieldLocations;
     size_t totalSize;
@@ -26,7 +44,8 @@ struct StructEntry
 
 struct StructEntry *struct_entry_new(struct Scope *parentScope,
                                      char *name,
-                                     List *genericParams);
+                                     enum StructGenericType genericType,
+                                     List *genericParamNames);
 
 void struct_entry_free(struct StructEntry *theStruct);
 
@@ -64,6 +83,10 @@ struct FunctionEntry *struct_lookup_associated_function_by_string(struct StructE
 
 struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntry *theStruct, List *paramsList);
 
-void struct_resolve_generics(struct StructEntry *theStruct, List *params);
+void struct_resolve_generics(struct StructEntry *genericBase, struct StructEntry *instance, List *params);
+
+char *sprint_generic_param_names(List *params);
+
+char *sprint_generic_params(List *paramNames);
 
 #endif

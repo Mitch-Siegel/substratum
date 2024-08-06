@@ -429,6 +429,15 @@ char *type_get_name(struct Type *type)
         break;
 
     case VT_STRUCT:
+        len = sprintf(typeName, "%s", type->nonArray.complexType.name);
+        if (type->nonArray.complexType.genericParams != NULL)
+        {
+            char *genericParamNames = sprint_generic_params(type->nonArray.complexType.genericParams);
+            len += sprintf(typeName + len, "<%s>", genericParamNames);
+            free(genericParamNames);
+        }
+        break;
+
     case VT_ENUM:
         len = sprintf(typeName, "%s", type->nonArray.complexType.name);
         break;

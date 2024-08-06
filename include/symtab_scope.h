@@ -96,8 +96,11 @@ struct FunctionEntry *scope_create_function(struct Scope *parentScope,
 
 // this represents the definition of a struct itself, instantiation falls under variableEntry
 struct StructEntry *scope_create_struct(struct Scope *scope,
-                                        char *name,
-                                        List *genericParams);
+                                        char *name);
+
+struct StructEntry *scope_create_generic_base_struct(struct Scope *scope,
+                                                     char *name,
+                                                     List *paramNames);
 
 struct EnumEntry *scope_create_enum(struct Scope *scope,
                                     char *name);

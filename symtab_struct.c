@@ -56,18 +56,23 @@ size_t hash_generic_params_list(void *paramsListData)
 
 struct StructEntry *struct_entry_new(struct Scope *parentScope,
                                      char *name,
-                                     List *genericParams)
+                                     enum StructGenericType genericType,
+                                     List *genericParamNames)
 {
     struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
     wipStruct->name = name;
-    wipStruct->genericParameters = genericParams;
-    if (genericParams != NULL)
+
+    if ((genericParamNames != NULL) && (genericType != G_BASE))
     {
-        wipStruct->genericInstantiations = hash_table_new((void (*)(void *))list_free, (void (*)(void *))struct_entry_free, compare_generic_params_lists, hash_generic_params_list, 100);
+        InternalError("Generic struct %s has parameters but is not enumerated to be a G_BASE", name);
     }
-    else
+
+    wipStruct->genericType = genericType;
+    wipStruct->generic.base.paramNames = genericParamNames;
+
+    if (genericType == G_BASE)
     {
-        wipStruct->genericInstantiations = NULL;
+        wipStruct->generic.base.instances = hash_table_new((void (*)(void *))list_free, (void (*)(void *))struct_entry_free, compare_generic_params_lists, hash_generic_params_list, 100);
     }
 
     wipStruct->members = scope_new(parentScope, name, NULL, wipStruct);
@@ -81,30 +86,23 @@ void struct_entry_free(struct StructEntry *theStruct)
 {
     scope_free(theStruct->members);
     stack_free(theStruct->fieldLocations);
-    if (theStruct->genericParameters != NULL)
-    {
-        list_free(theStruct->genericParameters);
-    }
 
-    if (theStruct->genericInstantiations != NULL)
+    if (theStruct->genericType == G_BASE)
     {
-        hash_table_free(theStruct->genericInstantiations);
+        list_free(theStruct->generic.base.paramNames);
+        hash_table_free(theStruct->generic.base.instances);
     }
-
     free(theStruct);
 }
 
-struct StructEntry *struct_entry_clone(struct StructEntry *toClone, char *name)
+struct StructEntry *struct_entry_clone_generic_base_as_instance(struct StructEntry *toClone, char *name)
 {
-    List *duplicateGenericParams = list_new((void (*)(void *))type_free, NULL);
-    Iterator *paramIter = NULL;
-    for (paramIter = list_begin(toClone->genericParameters); iterator_gettable(paramIter); iterator_next(paramIter))
+    if (toClone->genericType != G_BASE)
     {
-        list_append(duplicateGenericParams, strdup(iterator_get(paramIter)));
+        InternalError("Attempt to clone non-base generic struct %s for instance creation", toClone->name);
     }
-    iterator_free(paramIter);
 
-    struct StructEntry *cloned = struct_entry_new(toClone->members->parentScope, name, duplicateGenericParams);
+    struct StructEntry *cloned = struct_entry_new(toClone->members->parentScope, name, G_INSTANCE, NULL);
 
     scope_clone_to(cloned->members, toClone->members);
 
@@ -399,7 +397,117 @@ struct FunctionEntry *struct_lookup_associated_function_by_string(struct StructE
     return returendAssociated;
 }
 
-char *sprint_params(List *params)
+extern struct Dictionary *parseDict;
+struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntry *theStruct, List *paramsList)
+{
+    if (theStruct->genericType != G_BASE)
+    {
+        InternalError("struct_get_or_create_generic_instantiation called on non-generic-base struct %s", theStruct->name);
+    }
+
+    if (paramsList == NULL)
+    {
+        InternalError("struct_get_or_create_generic_instantiation called with NULL paramsList");
+    }
+
+    if (theStruct->generic.base.paramNames->size != paramsList->size)
+    {
+        List *expectedParams = theStruct->generic.base.paramNames;
+        char *expectedParamsStr = sprint_generic_param_names(expectedParams);
+        InternalError("generic struct %s<%s> (%zu parameter names) instantiated with %zu params", theStruct->name, expectedParamsStr, expectedParams->size, paramsList->size);
+    }
+
+    struct StructEntry *instance = hash_table_find(theStruct->generic.base.instances, paramsList);
+
+    if (instance == NULL)
+    {
+        char *paramStr = sprint_generic_params(paramsList);
+        log(LOG_DEBUG, "No instance of %s<%s> exists - creating", theStruct->name, paramStr);
+        free(paramStr);
+
+        instance = struct_entry_clone_generic_base_as_instance(theStruct, theStruct->name);
+
+        struct_resolve_generics(theStruct, instance, paramsList);
+
+        hash_table_insert(theStruct->generic.base.instances, paramsList, instance);
+    }
+    else
+    {
+        list_free(paramsList);
+    }
+
+    return instance;
+}
+
+void struct_resolve_generics(struct StructEntry *genericBase, struct StructEntry *instance, List *params)
+{
+    if (genericBase->genericType != G_BASE)
+    {
+        InternalError("struct_resolve_generics called with non-base generic struct %s", genericBase->name);
+    }
+
+    if (instance->genericType != G_INSTANCE)
+    {
+        InternalError("struct_resolve_generics called with non-instance struct %s", instance->name);
+    }
+
+    HashTable *paramsMap = hash_table_new(NULL, NULL, (ssize_t(*)(void *, void *))strcmp, hash_string, params->size);
+
+    Iterator *paramNameIter = list_begin(genericBase->generic.base.paramNames);
+    Iterator *paramTypeIter = list_begin(params);
+    while (iterator_gettable(paramNameIter) && iterator_gettable(paramTypeIter))
+    {
+        char *paramName = iterator_get(paramNameIter);
+        struct Type *paramType = iterator_get(paramTypeIter);
+
+        char *paramTypeName = type_get_name(paramType);
+        log(LOG_DEBUG, "Map \"%s\"->%s for resolution of generic %s", paramName, paramTypeName, instance->name);
+        free(paramTypeName);
+
+        hash_table_insert(paramsMap, paramName, paramType);
+
+        iterator_next(paramNameIter);
+        iterator_next(paramTypeIter);
+    }
+
+    if (iterator_gettable(paramNameIter) != iterator_gettable(paramTypeIter))
+    {
+        InternalError("Iteration error when generating mapping from param names to param types for generic resolution of %s", instance->name);
+    }
+    iterator_free(paramNameIter);
+    iterator_free(paramTypeIter);
+
+    scope_resolve_generics(instance->members, paramsMap);
+    hash_table_free(paramsMap);
+}
+
+char *sprint_generic_param_names(List *paramNames)
+{
+    char *str = NULL;
+    size_t len = 1;
+    Iterator *nameIter = NULL;
+    for (nameIter = list_begin(paramNames); iterator_gettable(nameIter); iterator_next(nameIter))
+    {
+        char *paramName = iterator_get(nameIter);
+        len += strlen(paramName);
+        if (str == NULL)
+        {
+            str = strdup(paramName);
+        }
+        else
+        {
+            len += 2;
+            str = realloc(str, len);
+            strncat(str, ", ", len);
+            strncat(str, paramName, len);
+        }
+    }
+    iterator_free(nameIter);
+
+    return str;
+}
+
+char *sprint_generic_params(List *params)
 {
     char *str = NULL;
     size_t len = 1;
@@ -425,82 +533,4 @@ char *sprint_params(List *params)
     iterator_free(paramIter);
 
     return str;
-}
-
-extern struct Dictionary *parseDict;
-struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntry *theStruct, List *paramsList)
-{
-    if (theStruct->genericParameters == NULL)
-    {
-        InternalError("struct_get_or_create_generic_instantiation called on non-generic struct %s", theStruct->name);
-    }
-
-    if (theStruct->genericParameters->size != paramsList->size)
-    {
-        char *expectedParams = sprint_generic_param_names(theStruct->genericParameters);
-        InternalError("generic struct %s<%s> (%zu parameter names) instantiated with %zu params", theStruct->name, expectedParams, theStruct->genericParameters->size, paramsList->size);
-    }
-
-    struct StructEntry *instance = hash_table_find(theStruct->genericInstantiations, paramsList);
-
-    if (instance == NULL)
-    {
-        char *paramStr = sprint_params(paramsList);
-        log(LOG_DEBUG, "No instance of %s<%s> exists - creating", theStruct->name, paramStr);
-
-        size_t instanceNameLen = strlen(theStruct->name) + strlen(paramStr) + 2;
-        char *instanceName = malloc(instanceNameLen);
-        instanceName[0] = '\0';
-        strncat(instanceName, theStruct->name, instanceNameLen);
-        strncat(instanceName, "_", instanceNameLen);
-        strncat(instanceName, paramStr, instanceNameLen);
-        free(paramStr);
-
-        char *dictInstanceName = dictionary_lookup_or_insert(parseDict, instanceName);
-        free(instanceName);
-
-        instance = struct_entry_clone(theStruct, dictInstanceName);
-
-        struct_resolve_generics(instance, paramsList);
-
-        hash_table_insert(theStruct->genericInstantiations, paramsList, instance);
-    }
-    else
-    {
-        list_free(paramsList);
-    }
-
-    return instance;
-}
-
-void struct_resolve_generics(struct StructEntry *theStruct, List *params)
-{
-    HashTable *paramsMap = hash_table_new(NULL, NULL, (ssize_t(*)(void *, void *))strcmp, hash_string, params->size);
-
-    Iterator *paramNameIter = list_begin(theStruct->genericParameters);
-    Iterator *paramTypeIter = list_begin(params);
-    while (iterator_gettable(paramNameIter) && iterator_gettable(paramTypeIter))
-    {
-        char *paramName = iterator_get(paramNameIter);
-        struct Type *paramType = iterator_get(paramTypeIter);
-
-        char *paramTypeName = type_get_name(paramType);
-        log(LOG_DEBUG, "Map \"%s\"->%s for resolution of generic %s", paramName, paramTypeName, theStruct->name);
-        free(paramTypeName);
-
-        hash_table_insert(paramsMap, paramName, paramType);
-
-        iterator_next(paramNameIter);
-        iterator_next(paramTypeIter);
-    }
-
-    if (iterator_gettable(paramNameIter) != iterator_gettable(paramTypeIter))
-    {
-        InternalError("Iteration error when generating mapping from param names to param types for generic resolution of %s", theStruct->name);
-    }
-    iterator_free(paramNameIter);
-    iterator_free(paramTypeIter);
-
-    scope_resolve_generics(theStruct->members, paramsMap);
-    hash_table_free(paramsMap);
 }

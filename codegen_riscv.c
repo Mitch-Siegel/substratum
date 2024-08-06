@@ -1362,6 +1362,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     }
     break;
 
+    // TODO: fix associated calls with generic instances
     case TT_ASSOCIATED_CALL:
     {
         struct StructEntry *associatedWith = scope_lookup_struct_by_name(metadata->scope, generate->operands.associatedCall.structName);

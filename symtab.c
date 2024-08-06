@@ -311,22 +311,17 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
     {
         struct StructEntry *theStruct = toPrint->entry;
         fprintf(outFile, "> Struct %s", toPrint->name);
-        if (theStruct->genericParameters->size > 0)
+        if (theStruct->genericType == G_BASE)
         {
-            fprintf(outFile, "<");
-            Iterator *genericParamIterator = list_begin(theStruct->genericParameters);
-            while (iterator_gettable(genericParamIterator))
-            {
-                char *thisParam = iterator_get(genericParamIterator);
-                fprintf(outFile, "%s", thisParam);
-                iterator_next(genericParamIterator);
-                if (iterator_gettable(genericParamIterator))
-                {
-                    fprintf(outFile, ", ");
-                }
-            }
-            iterator_free(genericParamIterator);
-            fprintf(outFile, ">");
+            char *paramNames = sprint_generic_param_names(theStruct->generic.base.paramNames);
+            fprintf(outFile, "<%s> (Generic Base)\n", paramNames);
+            free(paramNames);
+        }
+        else if (theStruct->genericType == G_INSTANCE)
+        {
+            char *paramTypes = sprint_generic_params(theStruct->generic.instance.parameters);
+            fprintf(outFile, "<%s> (Generic Instance)", paramTypes);
+            free(paramTypes);
         }
 
         for (size_t j = 0; j < depth; j++)
