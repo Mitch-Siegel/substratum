@@ -105,7 +105,9 @@ void generate_code_for_struct(struct CodegenState *globalContext,
                 struct FunctionEntry *methodToGenerate = thisMember->entry;
                 if (methodToGenerate->isDefined)
                 {
-                    generate_code_for_function(globalContext->outFile, methodToGenerate, info, theStruct->name, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+                    char *structName = struct_name(theStruct);
+                    generate_code_for_function(globalContext->outFile, methodToGenerate, info, structName, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+                    free(structName);
                 }
             }
             break;

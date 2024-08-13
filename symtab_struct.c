@@ -510,16 +510,11 @@ struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntr
 
         instance = struct_entry_clone_generic_base_as_instance(theStruct, theStruct->name);
 
-        printf("CLONED INSTANCE:\n");
-        scope_print(instance->members, stdout, 0, 1);
         instance->generic.instance.parameters = paramsList;
 
         struct_resolve_capital_self(instance);
         struct_resolve_generics(theStruct->generic.base.paramNames, instance, paramsList);
         struct_assign_offsets_to_fields(instance);
-
-        printf("AFTER RESOLUTION:\n");
-        scope_print(instance->members, stdout, 0, 1);
 
         hash_table_insert(theStruct->generic.base.instances, paramsList, instance);
     }
@@ -616,4 +611,19 @@ char *sprint_generic_params(List *params)
     iterator_free(paramIter);
 
     return str;
+}
+
+char *struct_name(struct StructEntry *theStruct)
+{
+    char *fullName = strdup(theStruct->name);
+    if (theStruct->genericType == G_INSTANCE)
+    {
+        char *params = sprint_generic_params(theStruct->generic.instance.parameters);
+        fullName = realloc(fullName, strlen(fullName) + strlen(params) + 2);
+        strcat(fullName, "_");
+        strcat(fullName, params);
+        free(params);
+    }
+
+    return fullName;
 }

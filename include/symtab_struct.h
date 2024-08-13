@@ -91,4 +91,6 @@ char *sprint_generic_params(List *paramNames);
 
 void struct_resolve_capital_self(struct StructEntry *theStruct);
 
+char *struct_name(struct StructEntry *theStruct);
+
 #endif
