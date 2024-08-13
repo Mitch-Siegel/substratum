@@ -487,8 +487,6 @@ char *type_get_name(struct Type *type)
         len += sprintf(typeName + len, "*");
     }
 
-    len += sprintf(typeName + len, "[%p]", type);
-
     typeName[len + pointerCounter] = '\0';
 
     return typeName;

@@ -127,6 +127,7 @@ void generate_code_for_struct(struct CodegenState *globalContext,
             struct StructEntry *thisInstance = instanceEntry->value;
             generate_code_for_struct(globalContext, thisInstance, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
         }
+        iterator_free(instanceIter);
     }
     }
 }

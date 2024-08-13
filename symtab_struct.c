@@ -113,6 +113,7 @@ struct StructEntry *struct_entry_clone_generic_base_as_instance(struct StructEnt
         struct StructField *field = iterator_get(fieldIter);
         struct_add_field(cloned, scope_lookup_var_by_string(cloned->members, field->variable->name));
     }
+    iterator_free(fieldIter);
 
     return cloned;
 }

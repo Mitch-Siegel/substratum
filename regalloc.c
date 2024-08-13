@@ -584,6 +584,7 @@ void allocate_registers_for_struct(struct StructEntry *theStruct, struct Machine
             struct StructEntry *thisInstance = instanceEntry->value;
             allocate_registers_for_struct(thisInstance, info);
         }
+        iterator_free(instanceIter);
     }
     break;
 

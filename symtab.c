@@ -317,6 +317,7 @@ void struct_entry_print(struct StructEntry *theStruct, bool printTac, size_t dep
             struct StructEntry *instance = instanceEntry->value;
             struct_entry_print(instance, printTac, depth + 1, outFile);
         }
+        iterator_free(instanceIter);
     }
 }
 
@@ -326,8 +327,6 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
     {
         fprintf(outFile, "\t");
     }
-
-    fprintf(outFile, "[%p]", toPrint->entry);
 
     switch (toPrint->accessibility)
     {
