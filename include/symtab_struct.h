@@ -14,7 +14,7 @@ struct StructField
     ssize_t offset;
 };
 
-enum StructGenericType
+enum STRUCT_GENERIC_TYPE
 {
     G_NONE,     // not a generic type
     G_BASE,     // a generic type which is a base type (contains code and variables with VT_GENERIC_PARAM type)
@@ -24,7 +24,7 @@ enum StructGenericType
 struct StructEntry
 {
     char *name;
-    enum StructGenericType genericType;
+    enum STRUCT_GENERIC_TYPE genericType;
     union
     {
         struct
@@ -44,7 +44,7 @@ struct StructEntry
 
 struct StructEntry *struct_entry_new(struct Scope *parentScope,
                                      char *name,
-                                     enum StructGenericType genericType,
+                                     enum STRUCT_GENERIC_TYPE genericType,
                                      List *genericParamNames);
 
 void struct_entry_free(struct StructEntry *theStruct);
@@ -85,9 +85,9 @@ struct StructEntry *struct_get_or_create_generic_instantiation(struct StructEntr
 
 void struct_resolve_generics(List *paramNames, struct StructEntry *instance, List *params);
 
-char *sprint_generic_param_names(List *params);
+char *sprint_generic_param_names(List *paramNames);
 
-char *sprint_generic_params(List *paramNames);
+char *sprint_generic_params(List *params);
 
 void struct_resolve_capital_self(struct StructEntry *theStruct);
 

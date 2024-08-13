@@ -57,7 +57,7 @@ size_t hash_generic_params_list(void *paramsListData)
 
 struct StructEntry *struct_entry_new(struct Scope *parentScope,
                                      char *name,
-                                     enum StructGenericType genericType,
+                                     enum STRUCT_GENERIC_TYPE genericType,
                                      List *genericParamNames)
 {
     struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));

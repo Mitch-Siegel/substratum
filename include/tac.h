@@ -163,13 +163,13 @@ struct TacConditionalBranch
 {
     struct TACOperand sourceA;
     struct TACOperand sourceB;
-    size_t label;
+    ssize_t label;
 };
 
 // TT_JMP,
 struct TacJump
 {
-    size_t label;
+    ssize_t label;
 };
 
 // TT_ARG_STORE,       // store a value at a (positive) offset from the stack pointer
