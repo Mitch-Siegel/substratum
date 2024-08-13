@@ -866,6 +866,7 @@ void walk_generic(struct Ast *tree,
         compare_generic_params(genericParamsTree, genericParams, implementedStruct->generic.instance.parameters, "struct", implementedStruct->name);
 
         walk_implementation_block(genericThing, implementedStruct->members);
+        list_free(genericParams);
     }
     break;
 

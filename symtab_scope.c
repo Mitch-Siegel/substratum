@@ -590,6 +590,7 @@ struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *c
                 break;
             }
         }
+
         deque_free(operandUsages.reads);
         deque_free(operandUsages.writes);
 
@@ -699,7 +700,7 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
     // break;
 }
 
-void try_resolve_generic_for_type(struct Type *type, HashTable *paramsMap)
+void try_resolve_generic_for_type(struct Type *type, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
 {
     char *typeName = type_get_name(type);
     free(typeName);
@@ -715,11 +716,15 @@ void try_resolve_generic_for_type(struct Type *type, HashTable *paramsMap)
     }
     else if (type->basicType == VT_ARRAY)
     {
-        try_resolve_generic_for_type(type->array.type, paramsMap);
+        try_resolve_generic_for_type(type->array.type, paramsMap, resolvedStructName, resolvedParams);
+    }
+    else if ((type->basicType == VT_STRUCT) && (!strcmp(type->nonArray.complexType.name, resolvedStructName)))
+    {
+        type->nonArray.complexType.genericParams = resolvedParams;
     }
 }
 
-void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap)
+void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
 {
     Iterator *tacRunner = NULL;
     for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
@@ -729,13 +734,13 @@ void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap
         while (operandUsages.reads->size > 0)
         {
             struct TACOperand *readOperand = deque_pop_front(operandUsages.reads);
-            try_resolve_generic_for_type(&readOperand->castAsType, paramsMap);
+            try_resolve_generic_for_type(&readOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
         }
 
         while (operandUsages.writes->size > 0)
         {
             struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
-            try_resolve_generic_for_type(&writtenOperand->castAsType, paramsMap);
+            try_resolve_generic_for_type(&writtenOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
         }
 
         deque_free(operandUsages.reads);
@@ -744,7 +749,7 @@ void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap
     iterator_free(tacRunner);
 }
 
-void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap)
+void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
 {
     Iterator *memberIterator = NULL;
     for (memberIterator = set_begin(scope->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
@@ -756,15 +761,15 @@ void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap)
         case E_ARGUMENT:
         {
             struct VariableEntry *resolved = memberToResolve->entry;
-            try_resolve_generic_for_type(&resolved->type, paramsMap);
+            try_resolve_generic_for_type(&resolved->type, paramsMap, resolvedStructName, resolvedParams);
         }
         break;
 
         case E_FUNCTION:
         {
             struct FunctionEntry *resolved = memberToResolve->entry;
-            try_resolve_generic_for_type(&resolved->returnType, paramsMap);
-            scope_resolve_generics(resolved->mainScope, paramsMap);
+            try_resolve_generic_for_type(&resolved->returnType, paramsMap, resolvedStructName, resolvedParams);
+            scope_resolve_generics(resolved->mainScope, paramsMap, resolvedStructName, resolvedParams);
         }
         break;
 
@@ -782,14 +787,14 @@ void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap)
 
         case E_SCOPE:
         {
-            scope_resolve_generics(memberToResolve->entry, paramsMap);
+            scope_resolve_generics(memberToResolve->entry, paramsMap, resolvedStructName, resolvedParams);
         }
         break;
 
         case E_BASICBLOCK:
         {
             struct BasicBlock *resolvedBlock = memberToResolve->entry;
-            basic_block_resolve_generics(resolvedBlock, paramsMap);
+            basic_block_resolve_generics(resolvedBlock, paramsMap, resolvedStructName, resolvedParams);
         }
         break;
         }

@@ -88,10 +88,16 @@ void struct_entry_free(struct StructEntry *theStruct)
     scope_free(theStruct->members);
     stack_free(theStruct->fieldLocations);
 
-    if (theStruct->genericType == G_BASE)
+    switch (theStruct->genericType)
     {
+    case G_BASE:
         list_free(theStruct->generic.base.paramNames);
         hash_table_free(theStruct->generic.base.instances);
+        break;
+
+    case G_INSTANCE:
+    case G_NONE:
+        break;
     }
     free(theStruct);
 }
@@ -264,17 +270,19 @@ void struct_check_access_by_name(struct StructEntry *theStruct,
         break;
 
     case A_PRIVATE:
+    {
+        struct Scope *checkedScope = scope;
         // check if the scope at which we are accessing is a subscope of (or identical to) the struct's scope
         do
         {
-            if (scope == theStruct->members)
+            if (checkedScope == theStruct->members)
             {
                 break;
             }
-            scope = scope->parentScope;
-        } while (scope != NULL);
+            checkedScope = checkedScope->parentScope;
+        } while (checkedScope != NULL);
 
-        if (scope == NULL)
+        if (checkedScope == NULL)
         {
             if (theStruct->genericType == G_INSTANCE)
             {
@@ -287,6 +295,7 @@ void struct_check_access_by_name(struct StructEntry *theStruct,
             }
         }
         break;
+    }
     }
 }
 
@@ -551,7 +560,7 @@ void struct_resolve_generics(List *paramNames, struct StructEntry *instance, Lis
     iterator_free(paramNameIter);
     iterator_free(paramTypeIter);
 
-    scope_resolve_generics(instance->members, paramsMap);
+    scope_resolve_generics(instance->members, paramsMap, instance->name, params);
     hash_table_free(paramsMap);
 }
 

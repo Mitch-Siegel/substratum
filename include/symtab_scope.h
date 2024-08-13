@@ -162,6 +162,6 @@ struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
 
 void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone);
 
-void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap);
+void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams);
 
 #endif
