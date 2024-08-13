@@ -14,8 +14,32 @@ void type_init(struct Type *type)
     memset(type, 0, sizeof(struct Type));
 }
 
+void type_deinit(struct Type *type)
+{
+    if (type->basicType == VT_ARRAY)
+    {
+        if (type->array.initializeArrayTo != NULL)
+        {
+            for (size_t i = 0; i < type->array.size; i++)
+            {
+                free(type->array.initializeArrayTo[i]);
+            }
+            free(type->array.initializeArrayTo);
+        }
+        type_free(type->array.type);
+    }
+    else
+    {
+        if (type->nonArray.initializeTo != NULL)
+        {
+            free(type->nonArray.initializeTo);
+        }
+    }
+}
+
 void type_free(struct Type *type)
 {
+    type_deinit(type);
     free(type);
 }
 
@@ -486,6 +510,8 @@ char *type_get_name(struct Type *type)
         typeName[len + pointerCounter] = '*';
         len += sprintf(typeName + len, "*");
     }
+
+    len += sprintf(typeName + len, " %p", type);
 
     typeName[len + pointerCounter] = '\0';
 

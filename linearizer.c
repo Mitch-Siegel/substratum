@@ -19,12 +19,10 @@
  * These functions Walk the AST and convert it to three-address code
  */
 struct TempList *temps;
-struct Dictionary *typeDict;
 extern struct Dictionary *parseDict;
 const u8 TYPE_DICT_SIZE = 100;
 struct SymbolTable *walk_program(struct Ast *program)
 {
-    typeDict = dictionary_new((void (*)(void *))type_free, (ssize_t(*)(void *, void *))type_compare, (size_t(*)(void *))type_hash, TYPE_DICT_SIZE, (void *(*)(void *))type_duplicate);
     struct SymbolTable *programTable = symbol_table_new("Program");
     struct BasicBlock *globalBlock = scope_lookup(programTable->globalScope, "globalblock", E_BASICBLOCK)->entry;
     struct BasicBlock *asmBlock = basic_block_new(1);
@@ -106,7 +104,7 @@ struct TACOperand *get_addr_of_operand(struct Ast *tree,
     struct TacAddrOf *operands = &addrOfLine->operands.addrof;
     operands->source = *getAddrOf;
 
-    struct Type typeOfAddress = *tac_operand_get_type(getAddrOf);
+    struct Type typeOfAddress = type_duplicate_non_pointer(tac_operand_get_type(getAddrOf));
     typeOfAddress.pointerLevel++;
 
     tac_operand_populate_as_temp(scope, &operands->destination, tempNum, &typeOfAddress);
@@ -269,7 +267,7 @@ void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populate
         // TODO: abstract this
         int declaredArraySize = atoi(arraySizeString);
 
-        struct Type *arrayedType = dictionary_lookup_or_insert(typeDict, populateTypeTo);
+        struct Type *arrayedType = type_duplicate(populateTypeTo);
 
         // TODO: multidimensional array declarations
         populateTypeTo->basicType = VT_ARRAY;
@@ -304,6 +302,8 @@ struct VariableEntry *walk_variable_declaration(struct Ast *tree,
     {
         log_tree(LOG_FATAL, tree->child, "Malformed AST (%s) seen in declaration!", token_get_name(tree->child->type));
     }
+
+    printf("type addr %p\n", &declaredType);
 
     walk_type_name(tree->child, scope, &declaredType);
 
@@ -538,7 +538,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
 
     if (type_is_object(&parsedFunc->returnType))
     {
-        struct Type outPointerType = parsedFunc->returnType;
+        struct Type outPointerType = type_duplicate_non_pointer(&parsedFunc->returnType);
         outPointerType.pointerLevel++;
         struct Ast outPointerTree = *tree;
         outPointerTree.type = T_IDENTIFIER;
@@ -1829,7 +1829,7 @@ void walk_match_statement(struct Ast *tree,
 
         loadMatchedAgainst->operands.load.address = *addrOfMatchedAgainst;
 
-        struct Type matchedAgainstType = *tac_operand_get_type(addrOfMatchedAgainst);
+        struct Type matchedAgainstType = type_duplicate_non_pointer(tac_operand_get_type(addrOfMatchedAgainst));
         matchedAgainstType.pointerLevel--;
         tac_operand_populate_as_temp(scope, &loadMatchedAgainst->operands.load.destination, tempNum, &matchedAgainstType);
         matchedAgainstNumerical = loadMatchedAgainst->operands.load.destination;
@@ -3826,7 +3826,7 @@ void walk_string_literal(struct Ast *tree,
         struct Type charType;
         type_init(&charType);
         charType.basicType = VT_U8;
-        stringType.array.type = dictionary_lookup_or_insert(typeDict, &charType);
+        stringType.array.type = type_duplicate(&charType);
         stringType.array.size = stringLength;
 
         stringLiteralEntry = scope_create_variable(scope, &fakeStringTree, &stringType, true, A_PUBLIC);
@@ -3900,6 +3900,7 @@ void walk_sizeof(struct Ast *tree,
         walk_type_name(tree->child, scope, &getSizeof);
 
         sizeInBytes = type_get_size(&getSizeof, scope);
+        type_deinit(&getSizeof);
     }
     break;
     default:

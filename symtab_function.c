@@ -34,6 +34,7 @@ void function_entry_free(struct FunctionEntry *function)
     deque_free(function->arguments);
     list_free(function->BasicBlockList);
     scope_free(function->mainScope);
+    type_deinit(&function->returnType);
 
     if (function->regalloc.allLifetimes != NULL)
     {

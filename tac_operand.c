@@ -177,8 +177,9 @@ void tac_operand_populate_from_variable(struct TACOperand *operandToPopulate, st
 
 void tac_operand_populate_as_temp(struct Scope *scope, struct TACOperand *operandToPopulate, size_t *tempNum, struct Type *type)
 {
+    struct Type tempType = type_duplicate_non_pointer(type);
     char *tempName = temp_list_get(temps, (*tempNum)++);
-    struct VariableEntry *tempVariable = scope_create_variable_by_name(scope, dictionary_lookup_or_insert(parseDict, tempName), type, false, A_PUBLIC);
+    struct VariableEntry *tempVariable = scope_create_variable_by_name(scope, dictionary_lookup_or_insert(parseDict, tempName), &tempType, false, A_PUBLIC);
     operandToPopulate->permutation = VP_TEMP;
     operandToPopulate->name.variable = tempVariable;
 }

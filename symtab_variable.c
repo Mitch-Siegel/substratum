@@ -40,29 +40,6 @@ struct VariableEntry *variable_entry_new(char *name,
 
 void variable_entry_free(struct VariableEntry *variable)
 {
-    struct Type *variableType = &variable->type;
-    if (variableType->basicType == VT_ARRAY)
-    {
-        struct Type typeRunner = *variableType;
-        while (typeRunner.basicType == VT_ARRAY)
-        {
-            if (typeRunner.array.initializeArrayTo != NULL)
-            {
-                for (size_t i = 0; i < typeRunner.array.size; i++)
-                {
-                    free(typeRunner.array.initializeArrayTo[i]);
-                }
-                free(typeRunner.array.initializeArrayTo);
-            }
-            typeRunner = *typeRunner.array.type;
-        }
-    }
-    else
-    {
-        if (variableType->nonArray.initializeTo != NULL)
-        {
-            free(variableType->nonArray.initializeTo);
-        }
-    }
+    type_deinit(&variable->type);
     free(variable);
 }
