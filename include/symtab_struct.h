@@ -7,6 +7,7 @@
 #include "mbcl/hash_table.h"
 #include "mbcl/list.h"
 #include "mbcl/stack.h"
+#include "mbcl/deque.h"
 
 struct StructField
 {
@@ -38,7 +39,7 @@ struct StructEntry
         } instance;
     } generic;
     struct Scope *members;
-    Stack *fieldLocations;
+    Deque *fieldLocations;
     size_t totalSize;
 };
 

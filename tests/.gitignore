@@ -8,3 +8,5 @@
 *.dot
 
 aggregate-coverage-report
+
+*.dot

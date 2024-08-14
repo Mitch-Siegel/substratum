@@ -4,6 +4,7 @@
 #include "symtab.h"
 #include "tac.h"
 #include "util.h"
+#include <mbcl/stack.h>
 #include <string.h>
 
 struct Lifetime *lifetime_find_by_name(Set *allLifetimes, char *lifetimeName)

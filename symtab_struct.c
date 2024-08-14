@@ -133,7 +133,7 @@ void struct_add_field(struct StructEntry *memberOf,
     newMemberLocation->offset = -1;
     newMemberLocation->variable = variable;
 
-    stack_push(memberOf->fieldLocations, newMemberLocation);
+    deque_push_back(memberOf->fieldLocations, newMemberLocation);
 }
 
 void scope_resolve_capital_self(struct Scope *scope, struct StructEntry *theStruct)
@@ -314,7 +314,7 @@ struct StructField *struct_lookup_field(struct StructEntry *theStruct,
 
     struct StructField *returnedField = NULL;
     Iterator *fieldIterator = NULL;
-    for (fieldIterator = stack_bottom(theStruct->fieldLocations); iterator_gettable(fieldIterator); iterator_next(fieldIterator))
+    for (fieldIterator = deque_front(theStruct->fieldLocations); iterator_gettable(fieldIterator); iterator_next(fieldIterator))
     {
         struct StructField *field = iterator_get(fieldIterator);
         if (!strcmp(field->variable->name, nameTree->value))
@@ -343,7 +343,7 @@ struct StructField *struct_lookup_field_by_name(struct StructEntry *theStruct,
 {
     struct StructField *returnedField = NULL;
     Iterator *fieldIterator = NULL;
-    for (fieldIterator = stack_bottom(theStruct->fieldLocations); iterator_gettable(fieldIterator); iterator_next(fieldIterator))
+    for (fieldIterator = deque_front(theStruct->fieldLocations); iterator_gettable(fieldIterator); iterator_next(fieldIterator))
     {
         struct StructField *field = iterator_get(fieldIterator);
         if (!strcmp(field->variable->name, name))
