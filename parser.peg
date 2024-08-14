@@ -86,15 +86,17 @@ trait_impl
     / p:public _ f:function_declaration _ kw_semicolon   { $$ = AST_C(p, f); }
 
 impl_block
-   <- i:impl _ gpn:generic_parameter_names _ c:impl_contents { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(gpn, AST_C(i, c))); }
-    / i:impl _ c:impl_contents { $$ = AST_C(i, c); }
+   <- i:impl _ gpn:generic_parameter_names _ t:type_name _ c:impl_contents { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(gpn, AST_C(i, AST_S(t, c)))); }
+    / i:impl _ t:type_name _ c:impl_contents { $$ = AST_C(i, AST_S(t, c)); }
+    / i:impl _ gpn:generic_parameter_names _ id:identifier _ f:for _ t:type_name _ c:impl_contents { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(gpn, AST_C(i, AST_S(AST_C(f, AST_S(id, t)), c)))); }
+    / i:impl _ id:identifier _ f:for _ t:type_name _ c:impl_contents { $$ = AST_C(i, AST_S(AST_C(f, AST_S(id, t)), c)); }
 
 impl_contents
-   <- i:identifier _ kw_lcurly _ il:implementations_list _ kw_rcurly { $$ = AST_S(i, il); }
+   <- kw_lcurly _ il:implementations_list _ kw_rcurly { $$ = il; }
 
 implementations_list
    <- il:implementations_list _ i:implementation  { $$ = AST_S(il, i); }
-    / i:implementation                      { $$ = i; }
+    / i:implementation                            { $$ = i; }
 
 implementation
    <- m:method_declaration _ kw_semicolon                { $$ = m; }

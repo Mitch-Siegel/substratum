@@ -687,15 +687,23 @@ void walk_implementation_block(struct Ast *tree, struct Scope *scope)
         log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to WalkImplementation!", token_get_name(tree->type));
     }
 
-    struct Ast *implementedStructTree = tree->child;
-    if (implementedStructTree->type != T_IDENTIFIER)
+    struct Ast *implementedTypeTree = tree->child;
+    if (implementedTypeTree->type != T_TYPE_NAME)
     {
-        log_tree(LOG_FATAL, implementedStructTree, "Malformed AST seen in WalkImplementation!");
+        log_tree(LOG_FATAL, implementedTypeTree, "Malformed AST seen in WalkImplementation!");
     }
 
-    struct StructEntry *implementedStruct = scope_lookup_struct(scope, implementedStructTree);
+    struct Type implementedType = {0};
+    walk_type_name(implementedTypeTree, scope, &implementedType);
 
-    struct Ast *implementationRunner = implementedStructTree->sibling;
+    if ((implementedType.basicType != VT_STRUCT) || (implementedType.pointerLevel != 0))
+    {
+        log_tree(LOG_FATAL, implementedTypeTree, "Implementation block for type %s not supported yet!", type_get_name(&implementedType));
+    }
+
+    struct StructEntry *implementedStruct = scope_lookup_struct_by_name(scope, implementedType.nonArray.complexType.name);
+
+    struct Ast *implementationRunner = implementedTypeTree->sibling;
     while (implementationRunner != NULL)
     {
         switch (implementationRunner->type)
@@ -853,13 +861,21 @@ void walk_generic(struct Ast *tree,
 
     case T_IMPL:
     {
-        struct Ast *implementedStructTree = genericThing->child;
-        if (implementedStructTree->type != T_IDENTIFIER)
+        struct Ast *implementedTypeTree = genericThing->child;
+        if (implementedTypeTree->type != T_TYPE_NAME)
         {
-            log_tree(LOG_FATAL, implementedStructTree, "Malformed AST seen in WalkImplementation!");
+            log_tree(LOG_FATAL, implementedTypeTree, "Malformed AST seen in WalkImplementation!");
         }
 
-        struct StructEntry *implementedStruct = scope_lookup_struct(scope, implementedStructTree);
+        struct Type implementedType = {0};
+        walk_type_name(implementedTypeTree, scope, &implementedType);
+
+        if ((implementedType.basicType != VT_STRUCT) || (implementedType.pointerLevel != 0))
+        {
+            log_tree(LOG_FATAL, implementedTypeTree, "Implementation block for type %s not supported yet!", type_get_name(&implementedType));
+        }
+
+        struct StructEntry *implementedStruct = scope_lookup_struct_by_name(scope, implementedType.nonArray.complexType.name);
 
         compare_generic_params(genericParamsTree, genericParams, implementedStruct->generic.instance.parameters, "struct", implementedStruct->name);
 
