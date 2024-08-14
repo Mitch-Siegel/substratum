@@ -77,7 +77,7 @@ struct StructEntry *struct_entry_new(struct Scope *parentScope,
     }
 
     wipStruct->members = scope_new(parentScope, name, NULL, wipStruct);
-    wipStruct->fieldLocations = stack_new(free);
+    wipStruct->fieldLocations = deque_new(free);
     wipStruct->totalSize = 0;
 
     return wipStruct;
@@ -86,7 +86,7 @@ struct StructEntry *struct_entry_new(struct Scope *parentScope,
 void struct_entry_free(struct StructEntry *theStruct)
 {
     scope_free(theStruct->members);
-    stack_free(theStruct->fieldLocations);
+    deque_free(theStruct->fieldLocations);
 
     switch (theStruct->genericType)
     {
@@ -114,7 +114,7 @@ struct StructEntry *struct_entry_clone_generic_base_as_instance(struct StructEnt
     scope_clone_to(cloned->members, toClone->members);
 
     Iterator *fieldIter = NULL;
-    for (fieldIter = stack_bottom(toClone->fieldLocations); iterator_gettable(fieldIter); iterator_next(fieldIter))
+    for (fieldIter = deque_front(toClone->fieldLocations); iterator_gettable(fieldIter); iterator_next(fieldIter))
     {
         struct StructField *field = iterator_get(fieldIter);
         struct_add_field(cloned, scope_lookup_var_by_string(cloned->members, field->variable->name));
@@ -197,7 +197,7 @@ void struct_resolve_capital_self(struct StructEntry *theStruct)
 void struct_assign_offsets_to_fields(struct StructEntry *theStruct)
 {
     Iterator *fieldIter = NULL;
-    for (fieldIter = stack_bottom(theStruct->fieldLocations); iterator_gettable(fieldIter); iterator_next(fieldIter))
+    for (fieldIter = deque_front(theStruct->fieldLocations); iterator_gettable(fieldIter); iterator_next(fieldIter))
     {
         struct StructField *handledField = iterator_get(fieldIter);
         // add the padding to the total size of the struct

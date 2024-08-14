@@ -2320,7 +2320,7 @@ void walk_struct_initializer(struct Ast *tree,
         struct StructField *initializedField = struct_lookup_field(initializedStruct, initFieldTree, scope);
 
         // next, check the ordering index for the field we are expecting to initialize
-        struct StructField *expectedField = (struct StructField *)initializedStruct->fieldLocations->data[initFieldIdx];
+        struct StructField *expectedField = deque_at(initializedStruct->fieldLocations, initFieldIdx);
         if ((initializedField->offset != expectedField->offset) || (strcmp(initializedField->variable->name, expectedField->variable->name) != 0))
         {
             log(LOG_FATAL, "Initializer element %zu of struct %s should be %s, not %s", initFieldIdx + 1, initializedStruct->name, expectedField->variable->name, initializedField->variable->name);
@@ -3084,15 +3084,6 @@ void walk_associated_call(struct Ast *tree,
     struct Ast *callTree = tree->child->sibling;
 
     structAssociatedWith = walk_struct_name_or_generic_instantiation(scope, structTypeTree);
-
-    ast_print(structTypeTree, 4);
-
-    char *paramsStr = NULL;
-    if (structAssociatedWith->generic.instance.parameters != NULL)
-    {
-        paramsStr = sprint_generic_params(structAssociatedWith->generic.instance.parameters);
-    }
-    printf("structCalledOn: %s (<%s>\n", structAssociatedWith->name, paramsStr);
 
     struct FunctionEntry *calledFunction = struct_lookup_associated_function(structAssociatedWith, callTree->child, scope);
 

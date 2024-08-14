@@ -4,10 +4,10 @@
 #include "ast.h"
 #include "symtab_variable.h"
 
+#include "mbcl/deque.h"
 #include "mbcl/hash_table.h"
 #include "mbcl/list.h"
 #include "mbcl/stack.h"
-#include "mbcl/deque.h"
 
 struct StructField
 {
