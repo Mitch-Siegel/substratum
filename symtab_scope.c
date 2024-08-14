@@ -67,7 +67,7 @@ struct Scope *scope_new(struct Scope *parentScope, char *name, struct FunctionEn
 
     wip->parentScope = parentScope;
     wip->parentFunction = parentFunction;
-    wip->parentImpl = parentImpl;
+    wip->parentStruct = parentImpl;
     wip->name = name;
     wip->subScopeCount = 0;
     return wip;
@@ -107,7 +107,7 @@ struct Scope *scope_create_sub_scope(struct Scope *parent_scope)
     free(helpStr);
     parent_scope->subScopeCount++;
 
-    struct Scope *newScope = scope_new(parent_scope, newScopeName, parent_scope->parentFunction, parent_scope->parentImpl);
+    struct Scope *newScope = scope_new(parent_scope, newScopeName, parent_scope->parentFunction, parent_scope->parentStruct);
 
     scope_insert(parent_scope, newScopeName, newScope, E_SCOPE, A_PUBLIC);
     return newScope;
@@ -173,7 +173,8 @@ struct FunctionEntry *scope_create_function(struct Scope *parentScope,
                                             struct StructEntry *methodOf,
                                             enum ACCESS accessibility)
 {
-    struct FunctionEntry *newFunction = function_entry_new(parentScope, nameTree, returnType, methodOf);
+    struct FunctionEntry *newFunction = function_entry_new(parentScope, nameTree, methodOf);
+    newFunction->returnType = *returnType;
     scope_insert(parentScope, nameTree->value, newFunction, E_FUNCTION, accessibility);
     return newFunction;
 }
@@ -181,16 +182,21 @@ struct FunctionEntry *scope_create_function(struct Scope *parentScope,
 struct StructEntry *scope_create_struct(struct Scope *scope,
                                         char *name)
 {
-    struct StructEntry *wipStruct = malloc(sizeof(struct StructEntry));
-    wipStruct->name = name;
-    wipStruct->members = scope_new(scope, name, NULL, wipStruct);
-    wipStruct->fieldLocations = deque_new(free);
-    wipStruct->totalSize = 0;
-
+    struct StructEntry *wipStruct = struct_entry_new(scope, name, G_NONE, NULL);
     scope_insert(scope, name, wipStruct, E_STRUCT, A_PUBLIC);
     return wipStruct;
 }
 
+struct StructEntry *scope_create_generic_base_struct(struct Scope *scope,
+                                                     char *name,
+                                                     List *paramNames)
+{
+    struct StructEntry *wipStruct = struct_entry_new(scope, name, G_BASE, paramNames);
+    scope_insert(scope, name, wipStruct, E_STRUCT, A_PUBLIC);
+    return wipStruct;
+}
+
+// TODO: enum_entry_new()
 struct EnumEntry *scope_create_enum(struct Scope *scope,
                                     char *name)
 {
@@ -203,6 +209,7 @@ struct EnumEntry *scope_create_enum(struct Scope *scope,
     scope_insert(scope, name, wipEnum, E_ENUM, A_PUBLIC);
     return wipEnum;
 }
+
 // Scope lookup functions
 
 bool scope_contains(struct Scope *scope, char *name, enum SCOPE_MEMBER_TYPE type)
@@ -330,6 +337,16 @@ struct StructEntry *scope_lookup_struct(struct Scope *scope,
 struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
                                                 struct Type *type)
 {
+    if (type->basicType == VT_SELF)
+    {
+        if (scope->parentStruct == NULL)
+        {
+            InternalError("Use of 'Self' outside of struct context!");
+        }
+
+        return scope->parentStruct;
+    }
+
     if (type->basicType != VT_STRUCT || type->nonArray.complexType.name == NULL)
     {
         InternalError("Non-struct type or struct type with null name passed to lookupStructByType!");
@@ -344,7 +361,32 @@ struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
     switch (lookedUp->type)
     {
     case E_STRUCT:
-        return lookedUp->entry;
+    {
+        struct StructEntry *lookedUpStruct = lookedUp->entry;
+        switch (lookedUpStruct->genericType)
+        {
+        case G_NONE:
+            return lookedUpStruct;
+
+        case G_BASE:
+        {
+            if (type->nonArray.complexType.genericParams != NULL)
+            {
+                lookedUpStruct = struct_get_or_create_generic_instantiation(lookedUpStruct, type->nonArray.complexType.genericParams);
+            }
+            return lookedUpStruct;
+        }
+        break;
+
+        case G_INSTANCE:
+            if (type->nonArray.complexType.genericParams != NULL)
+            {
+                InternalError("Non-generic struct type %s used with generic parameters!", type->nonArray.complexType.name);
+            }
+            struct StructEntry *instantiatedStruct = struct_get_or_create_generic_instantiation(lookedUpStruct, type->nonArray.complexType.genericParams);
+            return instantiatedStruct;
+        }
+    }
 
     default:
         InternalError("lookupStructByType for %s lookup got a non-struct ScopeMember!", type->nonArray.complexType.name);
@@ -442,4 +484,320 @@ struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
     }
 
     return NULL;
+}
+
+struct BasicBlock *scope_lookup_block_by_number(struct Scope *scope, size_t label)
+{
+    char blockName[32];
+    sprintf(blockName, "Block%zu", label);
+    struct ScopeMember *blockMember = scope_lookup(scope, blockName, E_BASICBLOCK);
+    if (blockMember == NULL)
+    {
+        return NULL;
+    }
+    return blockMember->entry;
+}
+
+// TODO: better param names than toClone and cloneTo. seriously.
+struct FunctionEntry *function_entry_clone(struct FunctionEntry *toClone, struct Scope *cloneTo)
+{
+    log(LOG_DEBUG, "function_entry_clone: %s", toClone->name);
+    struct FunctionEntry *cloned = function_entry_new(cloneTo, &toClone->correspondingTree, cloneTo->parentStruct);
+    cloned->returnType = type_duplicate_non_pointer(&toClone->returnType);
+    cloned->callsOtherFunction = toClone->callsOtherFunction;
+    cloned->isAsmFun = toClone->isAsmFun;
+    cloned->isDefined = toClone->isDefined;
+    cloned->isMethod = toClone->isMethod;
+
+    scope_clone_to(cloned->mainScope, toClone->mainScope);
+
+    log(LOG_DEBUG, "initialize arguments list for clone of function %s", toClone->name);
+    Iterator *argIter = NULL;
+    for (argIter = deque_front(toClone->arguments); iterator_gettable(argIter); iterator_next(argIter))
+    {
+        struct VariableEntry *oldArg = iterator_get(argIter);
+        struct VariableEntry *newArg = scope_lookup_var_by_string(cloned->mainScope, oldArg->name);
+        if (newArg == NULL)
+        {
+            InternalError("Couldn't find expected argument %s when cloning function %s", oldArg->name, toClone->name);
+        }
+        log(LOG_DEBUG, "%s", newArg->name);
+        deque_push_back(cloned->arguments, newArg);
+    }
+    iterator_free(argIter);
+
+    log(LOG_DEBUG, "initialize basic block list for clone of function %s", toClone->name);
+    Iterator *blockIter = NULL;
+    for (blockIter = list_begin(toClone->BasicBlockList); iterator_gettable(blockIter); iterator_next(blockIter))
+    {
+        struct BasicBlock *oldBlock = iterator_get(blockIter);
+        struct BasicBlock *newBlock = scope_lookup_block_by_number(cloned->mainScope, oldBlock->labelNum);
+        if (newBlock == NULL)
+        {
+            InternalError("Couldn't find expected basic block %zu when cloning function %s", oldBlock->labelNum, toClone->name);
+        }
+        log(LOG_DEBUG, "%zu", newBlock->labelNum);
+
+        list_append(cloned->BasicBlockList, newBlock);
+    }
+    iterator_free(blockIter);
+
+    return cloned;
+}
+
+struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *clonedTo)
+{
+    struct BasicBlock *clone = basic_block_new(toClone->labelNum);
+
+    Iterator *tacRunner = NULL;
+    for (tacRunner = list_begin(toClone->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
+    {
+        struct TACLine *lineToClone = iterator_get(tacRunner);
+
+        // TODO: tac_line_duplicate
+        struct TACLine *clonedLine = new_tac_line(lineToClone->operation, &lineToClone->correspondingTree);
+        memcpy(clonedLine, lineToClone, sizeof(struct TACLine));
+        clonedLine->allocFile = __FILE__;
+        clonedLine->allocLine = __LINE__;
+
+        struct OperandUsages operandUsages = get_operand_usages(clonedLine);
+        while (operandUsages.reads->size > 0)
+        {
+            struct TACOperand *readOperand = deque_pop_front(operandUsages.reads);
+            switch (readOperand->permutation)
+            {
+            case VP_STANDARD:
+            case VP_TEMP:
+                readOperand->name.variable = scope_lookup_var_by_string(clonedTo, readOperand->name.variable->name);
+                break;
+
+            default:
+                break;
+            }
+        }
+
+        while (operandUsages.writes->size > 0)
+        {
+            struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
+            switch (writtenOperand->permutation)
+            {
+            case VP_STANDARD:
+            case VP_TEMP:
+                writtenOperand->name.variable = scope_lookup_var_by_string(clonedTo, writtenOperand->name.variable->name);
+                break;
+
+            default:
+                break;
+            }
+        }
+
+        deque_free(operandUsages.reads);
+        deque_free(operandUsages.writes);
+
+        size_t tacIndex = lineToClone->index;
+        basic_block_append(clone, clonedLine, &tacIndex);
+    }
+    iterator_free(tacRunner);
+
+    return clone;
+}
+
+void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
+{
+    log(LOG_DEBUG, "scope_clone_to %s<-%s", clonedTo->name, toClone->name);
+    Iterator *memberIterator = NULL;
+    for (memberIterator = set_begin(toClone->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
+    {
+        struct ScopeMember *memberToClone = iterator_get(memberIterator);
+        void *entry = NULL;
+        switch (memberToClone->type)
+        {
+        case E_VARIABLE:
+        {
+            struct VariableEntry *variableToClone = memberToClone->entry;
+            struct Type dupType = type_duplicate_non_pointer(&variableToClone->type);
+            entry = variable_entry_new(variableToClone->name, &dupType, variableToClone->isGlobal, false, memberToClone->accessibility);
+        }
+        break;
+
+        case E_ARGUMENT:
+        {
+            struct VariableEntry *argumentToClone = memberToClone->entry;
+            struct Type dupType = type_duplicate_non_pointer(&argumentToClone->type);
+            entry = variable_entry_new(argumentToClone->name, &dupType, argumentToClone->isGlobal, true, memberToClone->accessibility);
+        }
+        break;
+
+        case E_SCOPE:
+        {
+            struct Scope *clonedScope = memberToClone->entry;
+            entry = scope_new(clonedTo, clonedScope->name, clonedTo->parentFunction, clonedTo->parentStruct);
+            scope_clone_to(entry, clonedScope);
+        }
+        break;
+
+        case E_BASICBLOCK:
+        case E_FUNCTION:
+        case E_STRUCT:
+        case E_ENUM:
+            break;
+        }
+
+        if (entry != NULL)
+        {
+            scope_insert(clonedTo, memberToClone->name, entry, memberToClone->type, memberToClone->accessibility);
+        }
+    }
+    iterator_free(memberIterator);
+
+    for (memberIterator = set_begin(toClone->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
+    {
+        struct ScopeMember *memberToClone = iterator_get(memberIterator);
+        void *entry = NULL;
+        switch (memberToClone->type)
+        {
+        case E_FUNCTION:
+        {
+            struct FunctionEntry *clonedFunction = memberToClone->entry;
+            entry = function_entry_clone(clonedFunction, clonedTo);
+        }
+        break;
+
+        case E_STRUCT:
+            InternalError("scope_clone on structs not yet implemented!");
+            break;
+
+        case E_ENUM:
+            InternalError("scope_clone on enums not yet implemented!");
+            break;
+
+        case E_BASICBLOCK:
+        {
+            struct BasicBlock *clonedBlock = memberToClone->entry;
+            entry = basic_block_clone(clonedBlock, clonedTo);
+        }
+        break;
+
+        case E_VARIABLE:
+        case E_ARGUMENT:
+        case E_SCOPE:
+            break;
+        }
+
+        if (entry != NULL)
+        {
+            scope_insert(clonedTo, memberToClone->name, entry, memberToClone->type, memberToClone->accessibility);
+        }
+    }
+    iterator_free(memberIterator);
+    // case E_FUNCTION:
+    // case E_STRUCT:
+    // case E_ENUM:
+
+    // {
+    //
+    // }
+    // break;
+}
+
+void try_resolve_generic_for_type(struct Type *type, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
+{
+    char *typeName = type_get_name(type);
+    free(typeName);
+
+    if (type->basicType == VT_GENERIC_PARAM)
+    {
+        struct Type *resolvedToType = hash_table_find(paramsMap, type->nonArray.complexType.name);
+        if (resolvedToType == NULL)
+        {
+            InternalError("Couldn't resolve actual type for generic parameter of name %s", type_get_name(type));
+        }
+        *type = *resolvedToType;
+    }
+    else if (type->basicType == VT_ARRAY)
+    {
+        try_resolve_generic_for_type(type->array.type, paramsMap, resolvedStructName, resolvedParams);
+    }
+    else if ((type->basicType == VT_STRUCT) && (!strcmp(type->nonArray.complexType.name, resolvedStructName)))
+    {
+        type->nonArray.complexType.genericParams = resolvedParams;
+    }
+}
+
+void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
+{
+    Iterator *tacRunner = NULL;
+    for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
+    {
+        struct TACLine *resolvedLine = iterator_get(tacRunner);
+        struct OperandUsages operandUsages = get_operand_usages(resolvedLine);
+        while (operandUsages.reads->size > 0)
+        {
+            struct TACOperand *readOperand = deque_pop_front(operandUsages.reads);
+            try_resolve_generic_for_type(&readOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
+        }
+
+        while (operandUsages.writes->size > 0)
+        {
+            struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
+            try_resolve_generic_for_type(&writtenOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
+        }
+
+        deque_free(operandUsages.reads);
+        deque_free(operandUsages.writes);
+    }
+    iterator_free(tacRunner);
+}
+
+void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
+{
+    Iterator *memberIterator = NULL;
+    for (memberIterator = set_begin(scope->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
+    {
+        struct ScopeMember *memberToResolve = iterator_get(memberIterator);
+        switch (memberToResolve->type)
+        {
+        case E_VARIABLE:
+        case E_ARGUMENT:
+        {
+            struct VariableEntry *resolved = memberToResolve->entry;
+            try_resolve_generic_for_type(&resolved->type, paramsMap, resolvedStructName, resolvedParams);
+        }
+        break;
+
+        case E_FUNCTION:
+        {
+            struct FunctionEntry *resolved = memberToResolve->entry;
+            try_resolve_generic_for_type(&resolved->returnType, paramsMap, resolvedStructName, resolvedParams);
+            scope_resolve_generics(resolved->mainScope, paramsMap, resolvedStructName, resolvedParams);
+        }
+        break;
+
+        case E_STRUCT:
+        {
+            InternalError("Recursive generic resolution for sub-structs not implemented yet!");
+        }
+        break;
+
+        case E_ENUM:
+        {
+            InternalError("Recursive generic resolution for sub-enums not implemented yet!");
+        }
+        break;
+
+        case E_SCOPE:
+        {
+            scope_resolve_generics(memberToResolve->entry, paramsMap, resolvedStructName, resolvedParams);
+        }
+        break;
+
+        case E_BASICBLOCK:
+        {
+            struct BasicBlock *resolvedBlock = memberToResolve->entry;
+            basic_block_resolve_generics(resolvedBlock, paramsMap, resolvedStructName, resolvedParams);
+        }
+        break;
+        }
+    }
+    iterator_free(memberIterator);
 }

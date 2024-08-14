@@ -5,7 +5,7 @@ struct Vec3
     public u32 x;
     public u32 y;
     public u32 z;
-};
+}
 
 enum Instruction {
     SetSize: Vec3,
@@ -13,12 +13,12 @@ enum Instruction {
     ScaleDown: u32, 
     Translate: Vec3,
     Print,
-};
+}
 
 struct State{
     Vec3 size;
     Vec3 pos;
-};
+}
 
 impl State {
     fun Print(self);

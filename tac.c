@@ -331,8 +331,8 @@ char *sprint_tac_line(struct TACLine *line)
 
     case TT_FIELD_STORE:
     {
-        char *destinationStr = tac_operand_sprint(&line->operands.fieldLoad.destination);
-        char *sourceStr = tac_operand_sprint(&line->operands.fieldLoad.source);
+        char *destinationStr = tac_operand_sprint(&line->operands.fieldStore.destination);
+        char *sourceStr = tac_operand_sprint(&line->operands.fieldStore.source);
         width += sprintf(tacString + width, "%s.%s = %s", destinationStr, line->operands.fieldLoad.fieldName, sourceStr);
         free(destinationStr);
         free(sourceStr);
@@ -402,7 +402,9 @@ char *sprint_tac_line(struct TACLine *line)
             width += sprintf(tacString + width, "%s = ", returnValueStr);
             free(returnValueStr);
         }
-        width += sprintf(tacString + width, "call %s::%s", line->operands.associatedCall.structName, line->operands.associatedCall.functionName);
+        char *structName = type_get_name(&line->operands.associatedCall.associatedWith);
+        width += sprintf(tacString + width, "call %s::%s", structName, line->operands.associatedCall.functionName);
+        free(structName);
         width = sprint_function_arguments(tacString, width, line->operands.associatedCall.arguments);
     }
     break;

@@ -76,27 +76,62 @@ void generate_code_for_struct(struct CodegenState *globalContext,
                               void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
                               void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
-    Iterator *entryIterator = NULL;
-    for (entryIterator = set_begin(theStruct->members->entries); iterator_gettable(entryIterator); iterator_next(entryIterator))
+
+    switch (theStruct->genericType)
     {
-        struct ScopeMember *thisMember = iterator_get(entryIterator);
-        switch (thisMember->type)
+    case G_INSTANCE:
+    case G_NONE:
+    {
+
+        if (theStruct->genericType == G_NONE)
         {
-        case E_FUNCTION:
+            log(LOG_DEBUG, "Generating code for struct %s", theStruct->name);
+        }
+        else
         {
-            struct FunctionEntry *methodToGenerate = thisMember->entry;
-            if (methodToGenerate->isDefined)
+            char *params = sprint_generic_params(theStruct->generic.instance.parameters);
+            log(LOG_DEBUG, "Generating code for struct %s<%s>", theStruct->name, params);
+            free(params);
+        }
+
+        Iterator *entryIterator = NULL;
+        for (entryIterator = set_begin(theStruct->members->entries); iterator_gettable(entryIterator); iterator_next(entryIterator))
+        {
+            struct ScopeMember *thisMember = iterator_get(entryIterator);
+            switch (thisMember->type)
             {
-                generate_code_for_function(globalContext->outFile, methodToGenerate, info, theStruct->name, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+            case E_FUNCTION:
+            {
+                struct FunctionEntry *methodToGenerate = thisMember->entry;
+                if (methodToGenerate->isDefined)
+                {
+                    char *structName = struct_name(theStruct);
+                    generate_code_for_function(globalContext->outFile, methodToGenerate, info, structName, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+                    free(structName);
+                }
+            }
+            break;
+
+            default:
+                break;
             }
         }
-        break;
-
-        default:
-            break;
-        }
+        iterator_free(entryIterator);
     }
-    iterator_free(entryIterator);
+    break;
+
+    case G_BASE:
+    {
+        Iterator *instanceIter = NULL;
+        for (instanceIter = hash_table_begin(theStruct->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
+        {
+            HashTableEntry *instanceEntry = iterator_get(instanceIter);
+            struct StructEntry *thisInstance = instanceEntry->value;
+            generate_code_for_struct(globalContext, thisInstance, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+        }
+        iterator_free(instanceIter);
+    }
+    }
 }
 
 void generate_code_for_global_block(struct CodegenState *globalContext, struct Scope *globalScope, struct BasicBlock *globalBlock)

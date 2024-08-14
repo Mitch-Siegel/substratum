@@ -26,14 +26,14 @@ struct twoBytes
 {
     u8 a;
     u8 b;
-};
+}
 
 // TODO: alignment not implemented yet, but will change when it is
 struct needsPadding
 {
     u8 a;
     u32 b;
-};
+}
 
 fun testSizeofStructs()
 {

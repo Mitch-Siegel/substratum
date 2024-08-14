@@ -63,6 +63,24 @@ char *tac_operand_sprint(void *operandData)
     char *operandStr = malloc(TAC_OPERAND_NAME_LEN);
     ssize_t operandLen = 0;
 
+    if (operand->permutation != VP_UNUSED)
+    {
+        char *nonCastTypeName = type_get_name(tac_operand_get_non_cast_type(operand));
+        operandLen += sprintf(operandStr + operandLen, "%s", nonCastTypeName);
+        free(nonCastTypeName);
+
+        if ((operand->permutation == VP_STANDARD) || (operand->permutation == VP_TEMP))
+        {
+            if (operand->castAsType.basicType != VT_NULL)
+            {
+                char *castTypeName = type_get_name(&operand->castAsType);
+                operandLen += sprintf(operandStr + operandLen, "(%s)", castTypeName);
+                free(castTypeName);
+            }
+        }
+        operandLen += sprintf(operandStr + operandLen, " ");
+    }
+
     switch (operand->permutation)
     {
     case VP_STANDARD:
@@ -159,8 +177,9 @@ void tac_operand_populate_from_variable(struct TACOperand *operandToPopulate, st
 
 void tac_operand_populate_as_temp(struct Scope *scope, struct TACOperand *operandToPopulate, size_t *tempNum, struct Type *type)
 {
+    struct Type tempType = type_duplicate_non_pointer(type);
     char *tempName = temp_list_get(temps, (*tempNum)++);
-    struct VariableEntry *tempVariable = scope_create_variable_by_name(scope, dictionary_lookup_or_insert(parseDict, tempName), type, false, A_PUBLIC);
+    struct VariableEntry *tempVariable = scope_create_variable_by_name(scope, dictionary_lookup_or_insert(parseDict, tempName), &tempType, false, A_PUBLIC);
     operandToPopulate->permutation = VP_TEMP;
     operandToPopulate->name.variable = tempVariable;
 }

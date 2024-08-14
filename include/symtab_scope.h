@@ -7,6 +7,8 @@
 #include "type.h"
 #include <stdio.h>
 
+#include "mbcl/hash_table.h"
+#include "mbcl/list.h"
 #include "mbcl/set.h"
 
 struct BasicBlock;
@@ -41,7 +43,7 @@ struct Scope
 {
     struct Scope *parentScope;
     struct FunctionEntry *parentFunction;
-    struct StructEntry *parentImpl;
+    struct StructEntry *parentStruct;
     Set *entries;
     u8 subScopeCount;
     char *name; // duplicate pointer from ScopeMember for ease of use
@@ -95,6 +97,10 @@ struct FunctionEntry *scope_create_function(struct Scope *parentScope,
 // this represents the definition of a struct itself, instantiation falls under variableEntry
 struct StructEntry *scope_create_struct(struct Scope *scope,
                                         char *name);
+
+struct StructEntry *scope_create_generic_base_struct(struct Scope *scope,
+                                                     char *name,
+                                                     List *paramNames);
 
 struct EnumEntry *scope_create_enum(struct Scope *scope,
                                     char *name);
@@ -153,5 +159,9 @@ struct EnumEntry *scope_lookup_enum_by_type(struct Scope *scope,
 
 struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
                                                    char *name);
+
+void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone);
+
+void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams);
 
 #endif

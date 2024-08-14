@@ -5,7 +5,7 @@ enum Direction {
     South,
     East,
     West,
-};
+}
 
 fun printDirection(Direction d) {
     match(d)

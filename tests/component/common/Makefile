@@ -33,10 +33,10 @@ endif
 ifdef NO-COVERAGE
 		@echo "Coverage disabled"
 else
-		@$(eval COV_DEST_DIR = $(COVERAGE_BASE_DIR)/$(basename $@))
+		$(eval COV_DEST_DIR = $(COVERAGE_BASE_DIR)/$(basename $@))
 		@mkdir -p $(COV_DEST_DIR)
-		@cp $(SBCC_BUILD_DIR)/*.gcda $(COV_DEST_DIR)
-	@geninfo --build-directory $(SBCC_BUILD_DIR) $(COV_DEST_DIR) -o $(COV_DEST_DIR)/$(basename $@).cov
+		cp $(SBCC_BUILD_DIR)/*.gcda $(COV_DEST_DIR)
+	  @geninfo --build-directory $(SBCC_BUILD_DIR) $(COV_DEST_DIR) -o $(COV_DEST_DIR)/$(basename $@).cov
 endif
 
 

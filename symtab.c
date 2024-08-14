@@ -278,11 +278,66 @@ void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t 
     free(typeName);
 }
 
+void struct_entry_print(struct StructEntry *theStruct, bool printTac, size_t depth, FILE *outFile)
+{
+    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
+    {
+        fprintf(outFile, "\t");
+    }
+
+    fprintf(outFile, "> Struct %s", theStruct->name);
+    if (theStruct->genericType == G_BASE)
+    {
+        char *paramNames = sprint_generic_param_names(theStruct->generic.base.paramNames);
+        fprintf(outFile, "<%s> (Generic Base)\n", paramNames);
+        free(paramNames);
+    }
+    else if (theStruct->genericType == G_INSTANCE)
+    {
+        char *paramTypes = sprint_generic_params(theStruct->generic.instance.parameters);
+        fprintf(outFile, "<%s> (Generic Instance)", paramTypes);
+        free(paramTypes);
+    }
+
+    if (theStruct->genericType != G_BASE)
+    {
+        for (size_t j = 0; j < depth; j++)
+        {
+            fprintf(outFile, "\t");
+        }
+        fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
+    }
+    scope_print(theStruct->members, outFile, depth + 1, printTac);
+
+    if (theStruct->genericType == G_BASE)
+    {
+        Iterator *instanceIter = NULL;
+        for (instanceIter = hash_table_begin(theStruct->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
+        {
+            HashTableEntry *instanceEntry = iterator_get(instanceIter);
+            struct StructEntry *instance = instanceEntry->value;
+            struct_entry_print(instance, printTac, depth + 1, outFile);
+        }
+        iterator_free(instanceIter);
+    }
+}
+
 void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth, FILE *outFile)
 {
     for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
     {
         fprintf(outFile, "\t");
+    }
+
+    switch (toPrint->accessibility)
+    {
+    case A_PRIVATE:
+        fprintf(outFile, "Private ");
+        break;
+
+    case A_PUBLIC:
+        fprintf(outFile, "Public  ");
+        break;
     }
 
     switch (toPrint->type)
@@ -311,13 +366,7 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
     case E_STRUCT:
     {
         struct StructEntry *theStruct = toPrint->entry;
-        fprintf(outFile, "> Struct %s:\n", toPrint->name);
-        for (size_t j = 0; j < depth; j++)
-        {
-            fprintf(outFile, "\t");
-        }
-        fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
-        scope_print(theStruct->members, outFile, depth + 1, printTac);
+        struct_entry_print(theStruct, printTac, depth, outFile);
     }
     break;
 
@@ -396,8 +445,9 @@ void scope_add_basic_block(struct Scope *scope, struct BasicBlock *block)
     const u8 BASIC_BLOCK_NAME_STR_SIZE = 10; // TODO: manage this better
     char *blockName = malloc(BASIC_BLOCK_NAME_STR_SIZE);
     sprintf(blockName, "Block%zu", block->labelNum);
-    scope_insert(scope, dictionary_lookup_or_insert(parseDict, blockName), block, E_BASICBLOCK, A_PUBLIC);
+    char *dictBlockName = dictionary_lookup_or_insert(parseDict, blockName);
     free(blockName);
+    scope_insert(scope, dictBlockName, block, E_BASICBLOCK, A_PUBLIC);
 
     if (scope->parentFunction != NULL)
     {

@@ -3,12 +3,12 @@
 struct Money {
     public u64 dollars;
     public u8 cents;
-};
+}
 
 struct BankAccount {
     public u8 *accountHolder;
     public Money balance;
-};
+}
 
 
 impl Money {

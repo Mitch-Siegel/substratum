@@ -27,7 +27,6 @@ struct SymbolTable *walk_program(struct Ast *program);
 void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populateTypeTo);
 
 struct VariableEntry *walk_variable_declaration(struct Ast *tree,
-                                                struct BasicBlock *block,
                                                 struct Scope *scope,
                                                 const size_t *tacIndex,
                                                 const size_t *tempNum,
@@ -35,7 +34,6 @@ struct VariableEntry *walk_variable_declaration(struct Ast *tree,
                                                 enum ACCESS accessibility);
 
 void walk_argument_declaration(struct Ast *tree,
-                               struct BasicBlock *block,
                                size_t *tacIndex,
                                size_t *tempNum,
                                struct FunctionEntry *fun);
@@ -54,9 +52,12 @@ void walk_method(struct Ast *tree,
 
 void walk_implementation_block(struct Ast *tree, struct Scope *scope);
 
-void walk_struct_declaration(struct Ast *tree,
-                             struct BasicBlock *block,
-                             struct Scope *scope);
+struct StructEntry *walk_struct_declaration(struct Ast *tree,
+                                            struct Scope *scope,
+                                            List *genericParams);
+
+void walk_generic(struct Ast *tree,
+                  struct Scope *scope);
 
 void walk_enum_declaration(struct Ast *tree,
                            struct BasicBlock *block,
@@ -165,6 +166,8 @@ void walk_method_call(struct Ast *tree,
                       size_t *tacIndex,
                       size_t *tempNum,
                       struct TACOperand *destinationOperand);
+
+struct StructEntry *walk_struct_name_or_generic_instantiation(struct Scope *scope, struct Ast *tree);
 
 void walk_associated_call(struct Ast *tree,
                           struct BasicBlock *block,

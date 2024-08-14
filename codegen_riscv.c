@@ -1342,16 +1342,19 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         riscv_emit_argument_stores(state, metadata, info, calledMethod, generate->operands.methodCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
 
+        char *fullStructName = struct_name(methodOf);
+
         // TODO: member function name mangling/uniqueness
         if (calledMethod->isDefined)
         {
             // TODO: something better than %s_%s
-            emit_instruction(generate, state, "\tcall %s_%s\n", methodOf->name, generate->operands.methodCall.methodName);
+            emit_instruction(generate, state, "\tcall %s_%s\n", fullStructName, generate->operands.methodCall.methodName);
         }
         else
         {
-            emit_instruction(generate, state, "\tcall %s_%s@plt\n", methodOf->name, generate->operands.methodCall.methodName);
+            emit_instruction(generate, state, "\tcall %s_%s@plt\n", fullStructName, generate->operands.methodCall.methodName);
         }
+        free(fullStructName);
 
         if ((generate->operands.methodCall.returnValue.permutation != VP_UNUSED) && !type_is_object(&calledMethod->returnType))
         {
@@ -1362,9 +1365,10 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     }
     break;
 
+    // TODO: fix associated calls with generic instances
     case TT_ASSOCIATED_CALL:
     {
-        struct StructEntry *associatedWith = scope_lookup_struct_by_name(metadata->scope, generate->operands.associatedCall.structName);
+        struct StructEntry *associatedWith = scope_lookup_struct_by_type(metadata->scope, &generate->operands.associatedCall.associatedWith);
         struct FunctionEntry *calledAssociated = struct_lookup_associated_function_by_string(associatedWith, generate->operands.associatedCall.functionName);
 
         Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &metadata->function->regalloc, info);
@@ -1372,15 +1376,18 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         riscv_emit_argument_stores(state, metadata, info, calledAssociated, generate->operands.associatedCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
 
+        char *fullStructName = struct_name(associatedWith);
+
         // TODO: associated function name mangling/uniqueness
         if (calledAssociated->isDefined)
         {
-            emit_instruction(generate, state, "\tcall %s_%s\n", associatedWith->name, generate->operands.associatedCall.functionName);
+            emit_instruction(generate, state, "\tcall %s_%s\n", fullStructName, generate->operands.associatedCall.functionName);
         }
         else
         {
-            emit_instruction(generate, state, "\tcall %s_%s@plt\n", associatedWith->name, generate->operands.associatedCall.functionName);
+            emit_instruction(generate, state, "\tcall %s_%s@plt\n", fullStructName, generate->operands.associatedCall.functionName);
         }
+        free(fullStructName);
 
         if ((generate->operands.associatedCall.returnValue.permutation != VP_UNUSED) && !type_is_object(&calledAssociated->returnType))
         {

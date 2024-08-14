@@ -1,4 +1,5 @@
 #include "symtab_basicblock.h"
+#include "symtab_struct.h"
 
 #include "log.h"
 
@@ -87,4 +88,30 @@ void print_basic_block(struct BasicBlock *block, size_t indentLevel)
     }
     iterator_free(tacRunner);
     printf("\n");
+}
+
+void basic_block_resolve_capital_self(struct BasicBlock *block, struct StructEntry *theStruct)
+{
+    Iterator *blockIter = NULL;
+    for (blockIter = list_begin(block->TACList); iterator_gettable(blockIter); iterator_next(blockIter))
+    {
+        struct TACLine *line = iterator_get(blockIter);
+
+        struct OperandUsages operandUsages = get_operand_usages(line);
+        while (operandUsages.reads->size > 0)
+        {
+            struct TACOperand *readOperand = deque_pop_front(operandUsages.reads);
+            type_try_resolve_vt_self(&readOperand->castAsType, theStruct);
+        }
+
+        while (operandUsages.writes->size > 0)
+        {
+            struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
+            type_try_resolve_vt_self(&writtenOperand->castAsType, theStruct);
+        }
+
+        deque_free(operandUsages.reads);
+        deque_free(operandUsages.writes);
+    }
+    iterator_free(blockIter);
 }
