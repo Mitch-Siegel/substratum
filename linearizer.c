@@ -3052,6 +3052,10 @@ struct StructEntry *walk_struct_name_or_generic_instantiation(struct Scope *scop
         List *genericParams = walk_generic_parameters(tree->child->sibling, scope);
         struct StructEntry *baseGenericStruct = scope_lookup_struct(scope, structNameTree);
         returnedStruct = struct_get_or_create_generic_instantiation(baseGenericStruct, genericParams);
+        if (returnedStruct->generic.instance.parameters != genericParams)
+        {
+            list_free(genericParams);
+        }
     }
     break;
 
