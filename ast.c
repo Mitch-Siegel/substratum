@@ -24,6 +24,7 @@ char *tokenNames[T_EOF + 1] = {
     "t_u32",
     "t_u64",
     "t_struct",
+    "t_trait",
     "t_generic",
     "t_generic_parameter_names",
     "t_generic_paraemters",
