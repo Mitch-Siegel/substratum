@@ -681,10 +681,11 @@ void walk_method(struct Ast *tree,
         // try and see if the second argument is self (if it exists)
         if (!strcmp(potentialSelfArg->name, OUT_OBJECT_POINTER_NAME) && (walkedMethod->arguments->size > 1))
         {
-            potentialSelfArg = walkedMethod->arguments->data[1];
+            potentialSelfArg = deque_at(walkedMethod->arguments, 1);
         }
 
-        if ((potentialSelfArg->type.basicType == VT_STRUCT) && (strcmp(potentialSelfArg->type.nonArray.complexType.name, methodOf->name) == 0))
+        if ((potentialSelfArg->type.basicType == VT_SELF) ||
+            ((potentialSelfArg->type.basicType == VT_STRUCT) && (strcmp(potentialSelfArg->type.nonArray.complexType.name, methodOf->name) == 0)))
         {
             if (strcmp(potentialSelfArg->name, "self") == 0)
             {
@@ -3120,13 +3121,16 @@ void walk_method_call(struct Ast *tree,
     break;
 
     default:
+    {
         walk_sub_expression(structTree, block, scope, tacIndex, tempNum, structOperand);
-        if (tac_operand_get_type(structOperand)->basicType != VT_STRUCT)
+        struct Type *structType = tac_operand_get_type(structOperand);
+        if ((structType->basicType != VT_STRUCT) && (structType->basicType != VT_SELF))
         {
             char *nonStructType = type_get_name(tac_operand_get_type(structOperand));
             log_tree(LOG_FATAL, structTree, "Attempt to call method %s on non-struct type %s", callTree->child->value, nonStructType);
         }
-        break;
+    }
+    break;
     }
     structCalledOn = scope_lookup_struct_by_type(scope, tac_operand_get_type(structOperand));
 
