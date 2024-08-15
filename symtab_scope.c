@@ -5,6 +5,7 @@
 #include "symtab_enum.h"
 #include "symtab_function.h"
 #include "symtab_struct.h"
+#include "symtab_trait.h"
 #include "symtab_variable.h"
 #include "util.h"
 
@@ -51,6 +52,10 @@ void scope_member_free(struct ScopeMember *member)
 
     case E_BASICBLOCK:
         basic_block_free(member->entry);
+        break;
+
+    case E_TRAIT:
+        trait_free(member->entry);
         break;
     }
     free(member);
@@ -208,6 +213,14 @@ struct EnumEntry *scope_create_enum(struct Scope *scope,
 
     scope_insert(scope, name, wipEnum, E_ENUM, A_PUBLIC);
     return wipEnum;
+}
+
+struct TraitEntry *scope_create_trait(struct Scope *scope,
+                                      char *name)
+{
+    struct TraitEntry *newTrait = trait_new(name, scope);
+    scope_insert(scope, name, newTrait, E_TRAIT, A_PUBLIC);
+    return newTrait;
 }
 
 // Scope lookup functions
@@ -486,6 +499,24 @@ struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
     return NULL;
 }
 
+struct TraitEntry *scope_lookup_trait(struct Scope *scope, char *name)
+{
+    struct ScopeMember *lookedUp = scope_lookup(scope, name, E_TRAIT);
+    if (lookedUp == NULL)
+    {
+        InternalError("Use of undeclared trait '%s'", name);
+    }
+
+    switch (lookedUp->type)
+    {
+    case E_TRAIT:
+        return lookedUp->entry;
+
+    default:
+        InternalError("lookupTrait for %s lookup got a non-trait ScopeMember!", name);
+    }
+}
+
 struct BasicBlock *scope_lookup_block_by_number(struct Scope *scope, size_t label)
 {
     char blockName[32];
@@ -640,6 +671,7 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
         case E_FUNCTION:
         case E_STRUCT:
         case E_ENUM:
+        case E_TRAIT:
             break;
         }
 
@@ -681,6 +713,7 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
         case E_VARIABLE:
         case E_ARGUMENT:
         case E_SCOPE:
+        case E_TRAIT:
             break;
         }
 
@@ -795,6 +828,12 @@ void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap, char *res
         {
             struct BasicBlock *resolvedBlock = memberToResolve->entry;
             basic_block_resolve_generics(resolvedBlock, paramsMap, resolvedStructName, resolvedParams);
+        }
+        break;
+
+        case E_TRAIT:
+        {
+            InternalError("Recursive generic resolution for sub-traits not implemented yet!");
         }
         break;
         }

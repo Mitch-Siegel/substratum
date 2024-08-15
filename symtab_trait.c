@@ -1,0 +1,34 @@
+#include "symtab_trait.h"
+#include "symtab_function.h"
+#include "symtab_scope.h"
+
+struct TraitEntry *trait_new(char *name, struct Scope *parentScope)
+{
+    struct TraitEntry *newTrait = malloc(sizeof(struct TraitEntry));
+    newTrait->name = name;
+    newTrait->functions = set_new((void (*)(void *))function_entry_free, function_entry_compare);
+    return newTrait;
+}
+
+void trait_free(struct TraitEntry *trait)
+{
+    set_free(trait->functions);
+    free(trait);
+}
+
+void trait_entry_print(struct TraitEntry *trait, size_t depth, FILE *outFile)
+{
+    Iterator *funIter = NULL;
+    for (funIter = set_begin(trait->functions); iterator_gettable(funIter); iterator_next(funIter))
+    {
+        struct FunctionEntry *function = iterator_get(funIter);
+        for (size_t i = 0; i < depth; i++)
+        {
+            fprintf(outFile, "\t");
+        }
+        char *signature = sprint_function_signature(function);
+        fprintf(outFile, "%s\n", signature);
+        free(signature);
+    }
+    iterator_free(funIter);
+}

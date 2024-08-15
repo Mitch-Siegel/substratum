@@ -183,6 +183,9 @@ void scope_resolve_capital_self(struct Scope *scope, struct StructEntry *theStru
             basic_block_resolve_capital_self(member->entry, theStruct);
         }
         break;
+
+        case E_TRAIT:
+            break;
         }
     }
     iterator_free(entryIter);

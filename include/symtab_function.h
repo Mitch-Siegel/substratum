@@ -33,4 +33,8 @@ void function_entry_free(struct FunctionEntry *function);
 
 void function_entry_print_cfg(struct FunctionEntry *function, FILE *outFile);
 
+char *sprint_function_signature(struct FunctionEntry *function);
+
+ssize_t function_entry_compare(void *dataA, void *dataB);
+
 #endif

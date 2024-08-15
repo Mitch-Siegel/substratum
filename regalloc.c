@@ -629,6 +629,7 @@ void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)
 
         case E_BASICBLOCK:
         case E_ENUM:
+        case E_TRAIT:
             break;
         }
     }

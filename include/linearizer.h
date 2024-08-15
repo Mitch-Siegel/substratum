@@ -41,7 +41,8 @@ void walk_argument_declaration(struct Ast *tree,
 struct FunctionEntry *walk_function_declaration(struct Ast *tree,
                                                 struct Scope *scope,
                                                 struct StructEntry *methodOf,
-                                                enum ACCESS accessibility);
+                                                enum ACCESS accessibility,
+                                                bool forTrait);
 
 void walk_function_definition(struct Ast *tree,
                               struct FunctionEntry *fun);
@@ -58,6 +59,8 @@ struct StructEntry *walk_struct_declaration(struct Ast *tree,
 
 void walk_generic(struct Ast *tree,
                   struct Scope *scope);
+
+void walk_trait_declaration(struct Ast *tree, struct Scope *scope);
 
 void walk_enum_declaration(struct Ast *tree,
                            struct BasicBlock *block,

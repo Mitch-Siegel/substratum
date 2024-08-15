@@ -150,6 +150,7 @@ void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, si
         case E_ARGUMENT:
         case E_BASICBLOCK:
         case E_ENUM:
+        case E_TRAIT:
             break;
         }
     }
@@ -218,6 +219,7 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
 
         case E_STRUCT:
         case E_ENUM:
+        case E_TRAIT:
             break;
         }
     }
@@ -393,7 +395,6 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
     case E_FUNCTION:
     {
         struct FunctionEntry *theFunction = toPrint->entry;
-        char *returnTypeName = type_get_name(&theFunction->returnType);
         if (theFunction->methodOf != NULL)
         {
             fprintf(outFile, "> Method %s.", theFunction->methodOf->name);
@@ -402,8 +403,9 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         {
             fprintf(outFile, "> Function ");
         }
-        fprintf(outFile, "%s (returns %s) (defined: %d)\n", toPrint->name, returnTypeName, theFunction->isDefined);
-        free(returnTypeName);
+        char *signature = sprint_function_signature(theFunction);
+        fprintf(outFile, "%s (defined: %d)\n", signature, theFunction->isDefined);
+        free(signature);
         scope_print(theFunction->mainScope, outFile, depth + 1, printTac);
     }
     break;
@@ -424,6 +426,14 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         {
             print_basic_block(thisBlock, depth + 1);
         }
+    }
+    break;
+
+    case E_TRAIT:
+    {
+        struct TraitEntry *theTrait = toPrint->entry;
+        fprintf(outFile, "> Trait %s\n", theTrait->name);
+        trait_entry_print(theTrait, depth + 1, outFile);
     }
     break;
     }
