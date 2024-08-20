@@ -10,6 +10,17 @@ ssize_t enum_member_compare(void *enumMemberA, void *enumMemberB)
     return strcmp(((struct EnumMember *)enumMemberA)->name, ((struct EnumMember *)enumMemberB)->name);
 }
 
+struct EnumEntry *enum_entry_new(char *name, struct Scope *parentScope)
+{
+    struct EnumEntry *wipEnum = malloc(sizeof(struct EnumEntry));
+    wipEnum->name = name;
+    wipEnum->parentScope = parentScope;
+    wipEnum->members = set_new(free, (ssize_t(*)(void *, void *))enum_member_compare);
+    wipEnum->unionSize = 0;
+
+    return wipEnum;
+}
+
 void enum_entry_free(struct EnumEntry *theEnum)
 {
     set_free(theEnum->members);

@@ -19,9 +19,8 @@ enum SCOPE_MEMBER_TYPE
     E_VARIABLE,
     E_FUNCTION,
     E_ARGUMENT,
-    E_STRUCT,
     E_TRAIT,
-    E_ENUM,
+    E_TYPE,
     E_SCOPE,
     E_BASICBLOCK,
 };
@@ -163,8 +162,6 @@ struct EnumEntry *scope_lookup_enum_by_type(struct Scope *scope,
 
 struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
                                                    char *name);
-
-struct TraitEntry *scope_lookup_trait(struct Scope *scope, char *name);
 
 void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone);
 

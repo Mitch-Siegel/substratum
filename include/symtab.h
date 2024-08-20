@@ -12,6 +12,7 @@
 #include "symtab_scope.h"
 #include "symtab_struct.h"
 #include "symtab_trait.h"
+#include "symtab_type.h"
 #include "symtab_variable.h"
 
 #pragma once

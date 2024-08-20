@@ -1,7 +1,6 @@
 #include "linearizer.h"
 #include "codegen_generic.h"
 #include "linearizer_generic.h"
-
 #include "log.h"
 #include "symtab.h"
 
@@ -187,21 +186,14 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
                 return wipType;
             }
 
-            struct ScopeMember *lookedUp = scope_lookup_no_parent(scope, tree->value, E_STRUCT);
+            struct ScopeMember *lookedUp = scope_lookup_no_parent(scope, tree->value, E_TYPE);
             if (lookedUp != NULL)
             {
-                wipType.basicType = VT_STRUCT;
-                wipType.nonArray.complexType.name = lookedUp->name;
+                struct TypeEntry *lookedUpType = lookedUp->entry;
+                wipType = lookedUpType->type;
                 break;
             }
 
-            lookedUp = scope_lookup_no_parent(scope, tree->value, E_ENUM);
-            if (lookedUp != NULL)
-            {
-                wipType.basicType = VT_ENUM;
-                wipType.nonArray.complexType.name = lookedUp->name;
-                return wipType;
-            }
             scope = scope->parentScope;
         }
 
@@ -782,7 +774,7 @@ void walk_trait_impl(struct Ast *tree, struct Scope *scope)
     walk_type_name(implementedTypeTree, scope, &implementedType);
     struct StructEntry *implementedForStruct = scope_lookup_struct_by_type(scope, &implementedType);
 
-    // struct TraitEntry *implementedTrait = scope_lookup_trait(scope, traitNameTree->value);
+    // struct Trait *implementedTrait = scope_lookup_trait(scope, traitNameTree->value);
 
     // Iterator *traitMethodIter = set_begin(implementedTrait->functions);
 
@@ -992,7 +984,7 @@ void walk_generic(struct Ast *tree,
 
 void walk_trait_declaration(struct Ast *tree, struct Scope *scope)
 {
-    log_tree(LOG_DEBUG, tree, "walk_enum_declaration");
+    log_tree(LOG_DEBUG, tree, "walk_trait_declaration");
 
     if (tree->type != T_TRAIT)
     {
@@ -4037,15 +4029,36 @@ void walk_sizeof(struct Ast *tree,
         // we looked something up but it's not a variable
         else
         {
-
-            struct ScopeMember *lookedUpStruct = scope_lookup(scope, tree->child->value, E_STRUCT);
-            if (lookedUpStruct != NULL)
+            struct ScopeMember *lookedUp = scope_lookup(scope, tree->child->value, E_TYPE);
+            if (lookedUp != NULL)
             {
-                struct StructEntry *getSizeof = lookedUpStruct->entry;
-                sizeInBytes = getSizeof->totalSize;
+                struct TypeEntry *lookedUpType = lookedUp->entry;
+                switch (lookedUpType->permutation)
+                {
+                case TP_PRIMITIVE:
+                    InternalError("String lookup of type %s returned primitive type %s", tree->child->value, lookedUpType->name);
+                    break;
+
+                case TP_STRUCT:
+                {
+                    // TODO: getter with sanity check against field locations?
+                    struct StructEntry *structType = lookedUpType->data.asStruct;
+                    sizeInBytes = structType->totalSize;
+                }
+                break;
+
+                case TP_ENUM:
+                {
+                    // TODO: getter/check to ensure type includes both union size and numerical enumerator size
+                    struct EnumEntry *enumType = lookedUpType->data.asEnum;
+                    sizeInBytes = enumType->unionSize;
+                }
+                break;
+                }
             }
             else
             {
+                // TODO: "does not name a type" error
                 log_tree(LOG_FATAL, tree->child, "No declaration or type name matches identifier %s\n", tree->child->value);
             }
         }

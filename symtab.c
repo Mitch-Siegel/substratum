@@ -74,8 +74,9 @@ void scope_print_cfgs(struct Scope *scope, char *outDir)
         }
         break;
 
-        case E_STRUCT:
+        case E_TYPE:
         {
+            InternalError("scope_print_cfgs for E_TYPE entry not supported");
             struct StructEntry *thisStruct = thisMember->entry;
             char *structCfgDirName = malloc(strlen(outDir) + strlen(thisStruct->name) + 3);
 
@@ -138,10 +139,15 @@ void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, si
         }
         break;
 
-        case E_STRUCT:
+        case E_TYPE:
         {
-            struct StructEntry *recursedStruct = thisMember->entry;
-            moveToThisScope = set_union_destructive(moveToThisScope, symbol_table_collapse_scopes_rec(recursedStruct->members, dict, 0));
+            struct TypeEntry *recursedType = thisMember->entry;
+            Iterator *implIter = NULL;
+            for (implIter = set_begin(recursedType->implemented); iterator_gettable(implIter); iterator_next(implIter))
+            {
+                struct FunctionEntry *implementedFunction = iterator_get(implIter);
+                moveToThisScope = set_union_destructive(moveToThisScope, symbol_table_collapse_scopes_rec(implementedFunction->mainScope, dict, 0));
+            }
         }
         break;
 
@@ -149,7 +155,6 @@ void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, si
         case E_VARIABLE:
         case E_ARGUMENT:
         case E_BASICBLOCK:
-        case E_ENUM:
         case E_TRAIT:
             break;
         }
@@ -217,8 +222,7 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
         }
         break;
 
-        case E_STRUCT:
-        case E_ENUM:
+        case E_TYPE:
         case E_TRAIT:
             break;
         }
@@ -365,31 +369,42 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
     }
     break;
 
-    case E_STRUCT:
+    case E_TYPE:
     {
-        struct StructEntry *theStruct = toPrint->entry;
-        struct_entry_print(theStruct, printTac, depth, outFile);
-    }
-    break;
-
-    case E_ENUM:
-    {
-        struct EnumEntry *theEnum = toPrint->entry;
-        fprintf(outFile, "> Enum %s - data union size of %zu bytes:\n", toPrint->name, theEnum->unionSize);
-        Iterator *enumMemberIterator = NULL;
-        for (enumMemberIterator = set_begin(theEnum->members); iterator_gettable(enumMemberIterator); iterator_next(enumMemberIterator))
+        struct TypeEntry *theType = toPrint->entry;
+        switch (theType->permutation)
         {
-            struct EnumMember *member = iterator_get(enumMemberIterator);
-            for (size_t j = 0; j < depth; j++)
+        case TP_PRIMITIVE:
+            printf("> Primitive type %s\n", theType->name);
+            break;
+
+        case TP_STRUCT:
+            printf("> Struct type %s\n", theType->name);
+            struct_entry_print(theType->data.asStruct, printTac, depth + 1, outFile);
+            break;
+
+        case TP_ENUM:
+        {
+            // TODO: enum_entry_print
+            printf(">Enum type %s\n", theType->name);
+            Iterator *enumMemberIterator = NULL;
+            for (enumMemberIterator = set_begin(theType->data.asEnum->members); iterator_gettable(enumMemberIterator); iterator_next(enumMemberIterator))
             {
-                fprintf(outFile, "\t");
+                struct EnumMember *member = iterator_get(enumMemberIterator);
+                for (size_t j = 0; j < depth; j++)
+                {
+                    fprintf(outFile, "\t");
+                }
+                char *memberTypeName = type_get_name(&member->type);
+                fprintf(outFile, "%zu:%s (%s)\n", member->numerical, member->name, memberTypeName);
+                free(memberTypeName);
             }
-            char *memberTypeName = type_get_name(&member->type);
-            fprintf(outFile, "%zu:%s (%s)\n", member->numerical, member->name, memberTypeName);
-            free(memberTypeName);
+            iterator_free(enumMemberIterator);
         }
-        iterator_free(enumMemberIterator);
+        break;
+        }
     }
+
     break;
 
     case E_FUNCTION:

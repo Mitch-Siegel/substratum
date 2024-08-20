@@ -56,9 +56,9 @@ void generate_code_for_program(struct SymbolTable *table,
         }
         break;
 
-        case E_STRUCT:
+        case E_TYPE:
         {
-            generate_code_for_struct(&globalContext, thisMember->entry, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+            generate_code_for_type(&globalContext, thisMember->entry, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
         }
         break;
 
@@ -68,6 +68,16 @@ void generate_code_for_program(struct SymbolTable *table,
     }
     iterator_free(entryIterator);
 };
+
+void generate_code_for_type(struct CodegenState *globalContext,
+                            struct TypeEntry *theType,
+                            struct MachineInfo *info,
+                            void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                            void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                            void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
+{
+    InternalError("generate_code_for_type not implemented yet");
+}
 
 void generate_code_for_struct(struct CodegenState *globalContext,
                               struct StructEntry *theStruct,

@@ -16,6 +16,7 @@ struct LinkedList;
 struct CodegenState;
 struct RegallocMetadata;
 struct MachineInfo;
+struct TypeEntry;
 
 void generate_code_for_program(struct SymbolTable *table,
                                FILE *outFile,
@@ -23,6 +24,13 @@ void generate_code_for_program(struct SymbolTable *table,
                                void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
                                void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
                                void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
+
+void generate_code_for_type(struct CodegenState *globalContext,
+                            struct TypeEntry *theType,
+                            struct MachineInfo *info,
+                            void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                            void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                            void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
 
 void generate_code_for_struct(struct CodegenState *globalContext, struct StructEntry *theStruct,
                               struct MachineInfo *info,

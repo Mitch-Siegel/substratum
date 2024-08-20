@@ -1,6 +1,7 @@
 #include "symtab_trait.h"
 #include "symtab_function.h"
 #include "symtab_scope.h"
+#include <string.h>
 
 struct TraitEntry *trait_new(char *name, struct Scope *parentScope)
 {
@@ -31,4 +32,11 @@ void trait_entry_print(struct TraitEntry *trait, size_t depth, FILE *outFile)
         free(signature);
     }
     iterator_free(funIter);
+}
+
+ssize_t trait_entry_compare(void *traitDataA, void *traitDataB)
+{
+    struct TraitEntry *traitA = traitDataA;
+    struct TraitEntry *traitB = traitDataB;
+    return strcmp(traitA->name, traitB->name);
 }

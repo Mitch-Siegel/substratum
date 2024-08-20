@@ -4,6 +4,7 @@
 #include "symtab_basicblock.h"
 #include "symtab_function.h"
 #include "symtab_scope.h"
+#include "symtab_type.h"
 #include "util.h"
 
 ssize_t compare_generic_params_lists(void *paramsListDataA, void *paramsListDataB)
@@ -136,6 +137,11 @@ void struct_add_field(struct StructEntry *memberOf,
     deque_push_back(memberOf->fieldLocations, newMemberLocation);
 }
 
+void type_entry_resolve_capital_self(struct TypeEntry *entry)
+{
+    InternalError("type_entry_resolve_capital_self not implemented yet");
+}
+
 void scope_resolve_capital_self(struct Scope *scope, struct StructEntry *theStruct)
 {
     Iterator *entryIter = NULL;
@@ -161,15 +167,12 @@ void scope_resolve_capital_self(struct Scope *scope, struct StructEntry *theStru
         }
         break;
 
-        case E_STRUCT:
+        case E_TYPE:
         {
-            struct StructEntry *theStruct = member->entry;
-            struct_resolve_capital_self(theStruct);
+            struct TypeEntry *theType = member->entry;
+            type_entry_resolve_capital_self(theType);
         }
         break;
-
-        case E_ENUM:
-            break;
 
         case E_SCOPE:
         {

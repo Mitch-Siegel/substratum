@@ -567,6 +567,8 @@ void allocate_registers(struct RegallocMetadata *metadata, struct MachineInfo *i
 
 void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info);
 
+void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info);
+
 void allocate_registers_for_struct(struct StructEntry *theStruct, struct MachineInfo *info)
 {
     switch (theStruct->genericType)
@@ -594,6 +596,11 @@ void allocate_registers_for_struct(struct StructEntry *theStruct, struct Machine
     }
 }
 
+void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info)
+{
+    InternalError("allocate_registers_for_type not yet implemented");
+}
+
 void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)
 {
     Iterator *entryIterator = NULL;
@@ -607,10 +614,10 @@ void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)
         case E_VARIABLE:
             break;
 
-        case E_STRUCT:
+        case E_TYPE:
         {
-            struct StructEntry *thisStruct = thisMember->entry;
-            allocate_registers_for_struct(thisStruct, info);
+            struct TypeEntry *thisType = thisMember->entry;
+            allocate_registers_for_type(thisType, info);
         }
         break;
 
@@ -628,7 +635,6 @@ void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)
         break;
 
         case E_BASICBLOCK:
-        case E_ENUM:
         case E_TRAIT:
             break;
         }

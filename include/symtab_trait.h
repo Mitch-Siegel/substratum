@@ -15,4 +15,6 @@ void trait_free(struct TraitEntry *trait);
 
 void trait_entry_print(struct TraitEntry *trait, size_t depth, FILE *outFile);
 
+ssize_t trait_entry_compare(void *traitDataA, void *traitDataB);
+
 #endif
