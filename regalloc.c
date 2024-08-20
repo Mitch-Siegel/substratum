@@ -598,7 +598,13 @@ void allocate_registers_for_struct(struct StructEntry *theStruct, struct Machine
 
 void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info)
 {
-    InternalError("allocate_registers_for_type not yet implemented");
+    Iterator *implementedIter = NULL;
+    for (implementedIter = set_begin(theType->implemented); iterator_gettable(implementedIter); iterator_next(implementedIter))
+    {
+        struct FunctionEntry *implemented = iterator_get(implementedIter);
+        allocate_registers(&implemented->regalloc, info);
+    }
+    iterator_free(implementedIter);
 }
 
 void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)

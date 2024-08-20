@@ -76,13 +76,27 @@ void scope_print_cfgs(struct Scope *scope, char *outDir)
 
         case E_TYPE:
         {
-            InternalError("scope_print_cfgs for E_TYPE entry not supported");
-            struct StructEntry *thisStruct = thisMember->entry;
-            char *structCfgDirName = malloc(strlen(outDir) + strlen(thisStruct->name) + 3);
+            struct TypeEntry *thisType = thisMember->entry;
+            char *typeCfgDirName = malloc(strlen(outDir) + strlen(thisType->name) + 3);
 
-            sprintf(structCfgDirName, "%s/%s", outDir, thisStruct->name);
-            scope_print_cfgs(thisStruct->members, structCfgDirName);
-            free(structCfgDirName);
+            sprintf(typeCfgDirName, "%s/%s", outDir, thisType->name);
+            Iterator *implementedIter = NULL;
+            for (implementedIter = set_begin(thisType->implemented); iterator_gettable(implementedIter); iterator_next(implementedIter))
+            {
+                struct FunctionEntry *implementedFunction = iterator_get(implementedIter);
+                char *cfgFileName = malloc(strlen(typeCfgDirName) + strlen(implementedFunction->name) + 7);
+                sprintf(cfgFileName, "%s_%s.dot", typeCfgDirName, implementedFunction->name);
+                FILE *cfgFile = fopen(cfgFileName, "w");
+                if (cfgFile == NULL)
+                {
+                    InternalError("Couldn't open cfg file %s: %s", cfgFileName, strerror(errno));
+                }
+                function_entry_print_cfg(implementedFunction, cfgFile);
+                fclose(cfgFile);
+                free(cfgFileName);
+            }
+            iterator_free(implementedIter);
+            free(typeCfgDirName);
         }
         break;
 
@@ -148,6 +162,7 @@ void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, si
                 struct FunctionEntry *implementedFunction = iterator_get(implIter);
                 moveToThisScope = set_union_destructive(moveToThisScope, symbol_table_collapse_scopes_rec(implementedFunction->mainScope, dict, 0));
             }
+            iterator_free(implIter);
         }
         break;
 

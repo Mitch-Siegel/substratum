@@ -45,6 +45,7 @@ void scope_member_free(struct ScopeMember *member)
 
     case E_TYPE:
         type_entry_free(member->entry);
+        break;
 
     case E_BASICBLOCK:
         basic_block_free(member->entry);

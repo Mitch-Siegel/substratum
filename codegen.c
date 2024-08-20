@@ -76,7 +76,16 @@ void generate_code_for_type(struct CodegenState *globalContext,
                             void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
                             void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
-    InternalError("generate_code_for_type not implemented yet");
+    Iterator *implementedIter = NULL;
+    for (implementedIter = set_begin(theType->implemented); iterator_gettable(implementedIter); iterator_next(implementedIter))
+    {
+        struct FunctionEntry *implementedFunction = iterator_get(implementedIter);
+        if (implementedFunction->isDefined)
+        {
+            generate_code_for_function(globalContext->outFile, implementedFunction, info, theType->name, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+        }
+    }
+    iterator_free(implementedIter);
 }
 
 void generate_code_for_struct(struct CodegenState *globalContext,

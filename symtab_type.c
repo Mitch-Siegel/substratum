@@ -16,6 +16,8 @@ struct TypeEntry *type_entry_new(enum TYPE_PERMUTATION permutation, struct Type 
     wipType->implemented = set_new((void (*)(void *))function_entry_free, function_entry_compare);
     wipType->implementedByName = hash_table_new(free, NULL, (ssize_t(*)(void *, void *))strcmp, hash_string, 10);
 
+    wipType->name = type_get_name(&type);
+
     return wipType;
 }
 
@@ -30,22 +32,22 @@ struct TypeEntry *type_entry_new_primitive(enum BASIC_TYPES basicType)
 
 struct TypeEntry *type_entry_new_struct(char *name, struct Scope *parentScope, enum STRUCT_GENERIC_TYPE genericType, List *genericParamNames)
 {
-    struct Type primitiveType = {0};
-    type_init(&primitiveType);
-    type_set_basic_type(&primitiveType, VT_STRUCT, name, 0);
-    struct TypeEntry *wipPrimitive = type_entry_new(TP_ENUM, primitiveType);
-    wipPrimitive->data.asStruct = struct_entry_new(parentScope, name, genericType, genericParamNames);
-    return wipPrimitive;
+    struct Type structType = {0};
+    type_init(&structType);
+    type_set_basic_type(&structType, VT_STRUCT, name, 0);
+    struct TypeEntry *wipStruct = type_entry_new(TP_STRUCT, structType);
+    wipStruct->data.asStruct = struct_entry_new(parentScope, name, genericType, genericParamNames);
+    return wipStruct;
 }
 
 struct TypeEntry *type_entry_new_enum(char *name, struct Scope *parentScope)
 {
-    struct Type primitiveType = {0};
-    type_init(&primitiveType);
-    type_set_basic_type(&primitiveType, VT_ENUM, name, 0);
-    struct TypeEntry *wipPrimitive = type_entry_new(TP_ENUM, primitiveType);
-    wipPrimitive->data.asEnum = enum_entry_new(name, parentScope);
-    return wipPrimitive;
+    struct Type enumType = {0};
+    type_init(&enumType);
+    type_set_basic_type(&enumType, VT_ENUM, name, 0);
+    struct TypeEntry *wipEnum = type_entry_new(TP_ENUM, enumType);
+    wipEnum->data.asEnum = enum_entry_new(name, parentScope);
+    return wipEnum;
 }
 
 void type_entry_free(struct TypeEntry *entry)
@@ -53,6 +55,7 @@ void type_entry_free(struct TypeEntry *entry)
     set_free(entry->traits);
     set_free(entry->implemented);
     hash_table_free(entry->implementedByName);
+    free(entry->name);
 
     switch (entry->permutation)
     {
