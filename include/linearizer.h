@@ -11,7 +11,7 @@ struct SymbolTable;
 struct Scope;
 struct Type;
 struct FunctionEntry;
-struct StructEntry;
+struct StructDesc;
 struct BasicBlock;
 struct TACOperand;
 
@@ -40,7 +40,7 @@ void walk_argument_declaration(struct Ast *tree,
 
 struct FunctionEntry *walk_function_declaration(struct Ast *tree,
                                                 struct Scope *scope,
-                                                struct StructEntry *methodOf,
+                                                struct TypeEntry *implementedFor,
                                                 enum ACCESS accessibility,
                                                 bool forTrait);
 
@@ -48,14 +48,14 @@ void walk_function_definition(struct Ast *tree,
                               struct FunctionEntry *fun);
 
 void walk_method(struct Ast *tree,
-                 struct StructEntry *methodOf,
+                 struct TypeEntry *implementedFor,
                  enum ACCESS accessibility);
 
 void walk_implementation_block(struct Ast *tree, struct Scope *scope);
 
-struct StructEntry *walk_struct_declaration(struct Ast *tree,
-                                            struct Scope *scope,
-                                            List *genericParams);
+struct StructDesc *walk_struct_declaration(struct Ast *tree,
+                                           struct Scope *scope,
+                                           List *genericParams);
 
 void walk_generic(struct Ast *tree,
                   struct Scope *scope);
@@ -170,7 +170,7 @@ void walk_method_call(struct Ast *tree,
                       size_t *tempNum,
                       struct TACOperand *destinationOperand);
 
-struct StructEntry *walk_struct_name_or_generic_instantiation(struct Scope *scope, struct Ast *tree);
+struct TypeEntry *walk_type_name_or_generic_instantiation(struct Scope *scope, struct Ast *tree);
 
 void walk_associated_call(struct Ast *tree,
                           struct BasicBlock *block,

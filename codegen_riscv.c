@@ -933,7 +933,7 @@ void riscv_emit_struct_field_load(struct TACLine *generate, struct CodegenState 
         InternalError("Unknown writeback location for lifetime %s (%s)", loadedFromLt->name, type_get_name(&loadedFromLt->type));
     }
 
-    struct StructEntry *loadedFromStruct = scope_lookup_struct_by_type(metadata->scope, &loadedFromLt->type);
+    struct StructDesc *loadedFromStruct = scope_lookup_struct_by_type(metadata->scope, &loadedFromLt->type);
     struct StructField *loadedField = struct_lookup_field_by_name(loadedFromStruct, fieldLoadOperands->fieldName, metadata->scope);
 
     struct Register *structBaseAddrReg = NULL;
@@ -993,7 +993,7 @@ void riscv_emit_struct_field_lea(struct TACLine *generate, struct CodegenState *
         InternalError("Unknown writeback location for lifetime %s (%s)", loadedFromLt->name, type_get_name(&loadedFromLt->type));
     }
 
-    struct StructEntry *loadedFromStruct = scope_lookup_struct_by_type(metadata->scope, &loadedFromLt->type);
+    struct StructDesc *loadedFromStruct = scope_lookup_struct_by_type(metadata->scope, &loadedFromLt->type);
     struct StructField *loadedField = struct_lookup_field_by_name(loadedFromStruct, fieldLeaOperands->fieldName, metadata->scope);
 
     struct Register *structBaseAddrReg = NULL;
@@ -1042,7 +1042,7 @@ void riscv_emit_struct_field_store(struct TACLine *generate, struct CodegenState
         InternalError("Unknown writeback location for lifetime %s (%s)", storedToLt->name, type_get_name(&storedToLt->type));
     }
 
-    struct StructEntry *storedFromStruct = scope_lookup_struct_by_type(metadata->scope, &storedToLt->type);
+    struct StructDesc *storedFromStruct = scope_lookup_struct_by_type(metadata->scope, &storedToLt->type);
     struct StructField *storedField = struct_lookup_field_by_name(storedFromStruct, fieldStoreOperands->fieldName, metadata->scope);
 
     struct Register *structBaseAddrReg = NULL;
@@ -1334,15 +1334,15 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
     case TT_METHOD_CALL:
     {
-        struct StructEntry *methodOf = scope_lookup_struct_by_type(metadata->scope, tac_operand_get_type(&generate->operands.methodCall.calledOn));
-        struct FunctionEntry *calledMethod = struct_lookup_method_by_string(methodOf, generate->operands.methodCall.methodName);
+        struct StructDesc *implementedFor = scope_lookup_struct_by_type(metadata->scope, tac_operand_get_type(&generate->operands.methodCall.calledOn));
+        struct FunctionEntry *calledMethod = struct_lookup_method_by_string(implementedFor, generate->operands.methodCall.methodName);
 
         Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &metadata->function->regalloc, info);
 
         riscv_emit_argument_stores(state, metadata, info, calledMethod, generate->operands.methodCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
 
-        char *fullStructName = struct_name(methodOf);
+        char *fullStructName = implementedFor->name;
 
         // TODO: member function name mangling/uniqueness
         if (calledMethod->isDefined)
@@ -1368,7 +1368,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     // TODO: fix associated calls with generic instances
     case TT_ASSOCIATED_CALL:
     {
-        struct StructEntry *associatedWith = scope_lookup_struct_by_type(metadata->scope, &generate->operands.associatedCall.associatedWith);
+        struct StructDesc *associatedWith = scope_lookup_struct_by_type(metadata->scope, &generate->operands.associatedCall.associatedWith);
         struct FunctionEntry *calledAssociated = struct_lookup_associated_function_by_string(associatedWith, generate->operands.associatedCall.functionName);
 
         Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &metadata->function->regalloc, info);
@@ -1376,7 +1376,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         riscv_emit_argument_stores(state, metadata, info, calledAssociated, generate->operands.associatedCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
 
-        char *fullStructName = struct_name(associatedWith);
+        char *fullStructName = associatedWith->name;
 
         // TODO: associated function name mangling/uniqueness
         if (calledAssociated->isDefined)

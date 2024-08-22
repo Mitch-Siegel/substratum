@@ -6,7 +6,8 @@
 #include <mbcl/list.h>
 
 struct Scope;
-struct StructEntry;
+struct StructDesc;
+struct TypeEntry;
 
 enum BASIC_TYPES
 {
@@ -95,6 +96,6 @@ size_t type_get_size_of_array_element(struct Type *arrayType, struct Scope *scop
 // calculate the power of 2 to which a given type needs to be aligned
 u8 type_get_alignment(struct Type *type, struct Scope *scope);
 
-void type_try_resolve_vt_self(struct Type *type, struct StructEntry *theStruct);
+void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry);
 
 #endif

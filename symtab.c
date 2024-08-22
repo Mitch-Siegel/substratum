@@ -299,50 +299,6 @@ void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t 
     free(typeName);
 }
 
-void struct_entry_print(struct StructEntry *theStruct, bool printTac, size_t depth, FILE *outFile)
-{
-    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
-    {
-        fprintf(outFile, "\t");
-    }
-
-    fprintf(outFile, "> Struct %s", theStruct->name);
-    if (theStruct->genericType == G_BASE)
-    {
-        char *paramNames = sprint_generic_param_names(theStruct->generic.base.paramNames);
-        fprintf(outFile, "<%s> (Generic Base)\n", paramNames);
-        free(paramNames);
-    }
-    else if (theStruct->genericType == G_INSTANCE)
-    {
-        char *paramTypes = sprint_generic_params(theStruct->generic.instance.parameters);
-        fprintf(outFile, "<%s> (Generic Instance)", paramTypes);
-        free(paramTypes);
-    }
-
-    if (theStruct->genericType != G_BASE)
-    {
-        for (size_t j = 0; j < depth; j++)
-        {
-            fprintf(outFile, "\t");
-        }
-        fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
-    }
-    scope_print(theStruct->members, outFile, depth + 1, printTac);
-
-    if (theStruct->genericType == G_BASE)
-    {
-        Iterator *instanceIter = NULL;
-        for (instanceIter = hash_table_begin(theStruct->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
-        {
-            HashTableEntry *instanceEntry = iterator_get(instanceIter);
-            struct StructEntry *instance = instanceEntry->value;
-            struct_entry_print(instance, printTac, depth + 1, outFile);
-        }
-        iterator_free(instanceIter);
-    }
-}
-
 void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth, FILE *outFile)
 {
     for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
@@ -387,37 +343,7 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
     case E_TYPE:
     {
         struct TypeEntry *theType = toPrint->entry;
-        switch (theType->permutation)
-        {
-        case TP_PRIMITIVE:
-            printf("> Primitive type %s\n", theType->name);
-            break;
-
-        case TP_STRUCT:
-            printf("> Struct type %s\n", theType->name);
-            struct_entry_print(theType->data.asStruct, printTac, depth + 1, outFile);
-            break;
-
-        case TP_ENUM:
-        {
-            // TODO: enum_entry_print
-            printf(">Enum type %s\n", theType->name);
-            Iterator *enumMemberIterator = NULL;
-            for (enumMemberIterator = set_begin(theType->data.asEnum->members); iterator_gettable(enumMemberIterator); iterator_next(enumMemberIterator))
-            {
-                struct EnumMember *member = iterator_get(enumMemberIterator);
-                for (size_t j = 0; j < depth; j++)
-                {
-                    fprintf(outFile, "\t");
-                }
-                char *memberTypeName = type_get_name(&member->type);
-                fprintf(outFile, "%zu:%s (%s)\n", member->numerical, member->name, memberTypeName);
-                free(memberTypeName);
-            }
-            iterator_free(enumMemberIterator);
-        }
-        break;
-        }
+        type_entry_print(theType, printTac, depth + 1, outFile);
     }
 
     break;
@@ -425,9 +351,9 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
     case E_FUNCTION:
     {
         struct FunctionEntry *theFunction = toPrint->entry;
-        if (theFunction->methodOf != NULL)
+        if (theFunction->implementedFor != NULL)
         {
-            fprintf(outFile, "> Method %s.", theFunction->methodOf->name);
+            fprintf(outFile, "> Method %s.", theFunction->implementedFor->name);
         }
         else
         {
@@ -436,7 +362,7 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         char *signature = sprint_function_signature(theFunction);
         fprintf(outFile, "%s (defined: %d)\n", signature, theFunction->isDefined);
         free(signature);
-        scope_print(theFunction->mainScope, outFile, depth + 1, printTac);
+        function_entry_print(theFunction, printTac, depth + 1, outFile);
     }
     break;
 

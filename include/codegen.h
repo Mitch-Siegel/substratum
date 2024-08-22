@@ -9,7 +9,7 @@ struct CodegenState;
 struct RegallocMetadata;
 struct FunctionEntry;
 struct VariableEntry;
-struct StructEntry;
+struct StructDesc;
 struct BasicBlock;
 struct Scope;
 struct LinkedList;
@@ -32,7 +32,7 @@ void generate_code_for_type(struct CodegenState *globalContext,
                             void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
                             void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
 
-void generate_code_for_struct(struct CodegenState *globalContext, struct StructEntry *theStruct,
+void generate_code_for_struct(struct CodegenState *globalContext, struct StructDesc *theStruct,
                               struct MachineInfo *info,
                               void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
                               void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),

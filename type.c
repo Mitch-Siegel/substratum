@@ -582,7 +582,7 @@ size_t type_get_size(struct Type *type, struct Scope *scope)
 
     case VT_STRUCT:
     {
-        struct StructEntry *theStruct = scope_lookup_struct_by_type(scope, type);
+        struct StructDesc *theStruct = scope_lookup_struct_by_type(scope, type);
         size = theStruct->totalSize;
     }
     break;
@@ -590,7 +590,7 @@ size_t type_get_size(struct Type *type, struct Scope *scope)
     case VT_ENUM:
     {
         size = sizeof(size_t);
-        struct EnumEntry *theEnum = scope_lookup_enum_by_type(scope, type);
+        struct EnumDesc *theEnum = scope_lookup_enum_by_type(scope, type);
         size += theEnum->unionSize;
     }
     break;
@@ -663,7 +663,7 @@ u8 type_get_alignment(struct Type *type, struct Scope *scope)
     {
     case VT_STRUCT:
     {
-        struct StructEntry *theStruct = scope_lookup_struct_by_type(scope, type);
+        struct StructDesc *theStruct = scope_lookup_struct_by_type(scope, type);
         Iterator *memberIterator = NULL;
         for (memberIterator = deque_front(theStruct->fieldLocations); iterator_gettable(memberIterator); iterator_next(memberIterator))
         {
@@ -706,15 +706,15 @@ size_t scope_compute_padding_for_alignment(struct Scope *scope, struct Type *ali
     return paddingRequired;
 }
 
-void type_try_resolve_vt_self(struct Type *type, struct StructEntry *theStruct)
+void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
 {
     if (type->basicType == VT_SELF)
     {
         type->basicType = VT_STRUCT;
-        type->nonArray.complexType.name = theStruct->name;
-        if (theStruct->genericType == G_INSTANCE)
+        type->nonArray.complexType.name = typeEntry->name;
+        if (typeEntry->genericType == G_INSTANCE)
         {
-            type->nonArray.complexType.genericParams = theStruct->generic.instance.parameters;
+            type->nonArray.complexType.genericParams = typeEntry->generic.instance.parameters;
         }
         else
         {

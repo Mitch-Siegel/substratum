@@ -4,7 +4,7 @@
 #include "substratum_defs.h"
 struct TACOperand;
 struct VariableEntry;
-struct EnumEntry;
+struct EnumDesc;
 struct Type;
 struct Ast;
 struct Scope;

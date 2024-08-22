@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "symtab_enum.h"
+#include "enum_desc.h"
 #include "symtab_variable.h"
 #include "util.h"
 

@@ -1,7 +1,7 @@
 #include "linearizer_generic.h"
 
+#include "enum_desc.h"
 #include "log.h"
-#include "symtab_enum.h"
 #include "symtab_variable.h"
 #include "tac.h"
 #include "type.h"

@@ -43,7 +43,7 @@ struct Scope
 {
     struct Scope *parentScope;
     struct FunctionEntry *parentFunction;
-    struct StructEntry *parentStruct;
+    struct TypeEntry *implementedFor;
     Set *entries;
     u8 subScopeCount;
     char *name; // duplicate pointer from ScopeMember for ease of use
@@ -53,7 +53,7 @@ struct Scope
 struct Scope *scope_new(struct Scope *parentScope,
                         char *name,
                         struct FunctionEntry *parentFunction,
-                        struct StructEntry *parentImpl);
+                        struct TypeEntry *parentImpl);
 
 void scope_free(struct Scope *scope);
 
@@ -91,19 +91,19 @@ struct VariableEntry *scope_create_variable_by_name(struct Scope *scope,
 struct FunctionEntry *scope_create_function(struct Scope *parentScope,
                                             struct Ast *nameTree,
                                             struct Type *returnType,
-                                            struct StructEntry *methodOf,
+                                            struct TypeEntry *implementedFor,
                                             enum ACCESS accessibility);
 
 // this represents the definition of a struct itself, instantiation falls under variableEntry
-struct StructEntry *scope_create_struct(struct Scope *scope,
-                                        char *name);
+struct TypeEntry *scope_create_struct(struct Scope *scope,
+                                      char *name);
 
-struct StructEntry *scope_create_generic_base_struct(struct Scope *scope,
-                                                     char *name,
-                                                     List *paramNames);
+struct TypeEntry *scope_create_generic_base_struct(struct Scope *scope,
+                                                   char *name,
+                                                   List *paramNames);
 
-struct EnumEntry *scope_create_enum(struct Scope *scope,
-                                    char *name);
+struct EnumDesc *scope_create_enum(struct Scope *scope,
+                                   char *name);
 
 // given a scope, a type, and a current integer byte offset
 /// compute and return how many bytes of padding is necessary to create the first offset at which the type would be aligned if stored
@@ -145,23 +145,27 @@ struct FunctionEntry *lookup_fun_by_string(struct Scope *scope,
 struct FunctionEntry *scope_lookup_fun(struct Scope *scope,
                                        struct Ast *nameTree);
 
-struct StructEntry *scope_lookup_struct(struct Scope *scope,
-                                        struct Ast *nameTree);
+struct StructDesc *scope_lookup_struct(struct Scope *scope,
+                                       struct Ast *nameTree);
 
-struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
-                                                struct Type *type);
+struct StructDesc *scope_lookup_struct_by_type(struct Scope *scope,
+                                               struct Type *type);
 
-struct StructEntry *scope_lookup_struct_by_name(struct Scope *scope,
-                                                char *name);
+struct StructDesc *scope_lookup_struct_by_name(struct Scope *scope,
+                                               char *name);
 
-struct EnumEntry *scope_lookup_enum(struct Scope *scope,
-                                    struct Ast *nameTree);
+struct EnumDesc *scope_lookup_enum(struct Scope *scope,
+                                   struct Ast *nameTree);
 
-struct EnumEntry *scope_lookup_enum_by_type(struct Scope *scope,
-                                            struct Type *type);
+struct EnumDesc *scope_lookup_enum_by_type(struct Scope *scope,
+                                           struct Type *type);
 
-struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
-                                                   char *name);
+struct EnumDesc *scope_lookup_enum_by_member_name(struct Scope *scope,
+                                                  char *name);
+
+struct TypeEntry *scope_lookup_struct_by_name_tree(struct Scope *scope, struct Ast *nameTree);
+
+struct TypeEntry *scope_lookup_type(struct Scope *scope, struct Type *type);
 
 void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone);
 

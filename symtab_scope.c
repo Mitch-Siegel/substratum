@@ -1,10 +1,10 @@
 #include "symtab_scope.h"
 
+#include "enum_desc.h"
 #include "log.h"
+#include "struct_desc.h"
 #include "symtab_basicblock.h"
-#include "symtab_enum.h"
 #include "symtab_function.h"
-#include "symtab_struct.h"
 #include "symtab_trait.h"
 #include "symtab_type.h"
 #include "symtab_variable.h"
@@ -62,14 +62,14 @@ void scope_member_free(struct ScopeMember *member)
  * Scope functions
  *
  */
-struct Scope *scope_new(struct Scope *parentScope, char *name, struct FunctionEntry *parentFunction, struct StructEntry *parentImpl)
+struct Scope *scope_new(struct Scope *parentScope, char *name, struct FunctionEntry *parentFunction, struct TypeEntry *implOf)
 {
     struct Scope *wip = malloc(sizeof(struct Scope));
     wip->entries = set_new((void (*)(void *))scope_member_free, (ssize_t(*)(void *, void *))scope_member_compare);
 
     wip->parentScope = parentScope;
     wip->parentFunction = parentFunction;
-    wip->parentStruct = parentImpl;
+    wip->implementedFor = implOf;
     wip->name = name;
     wip->subScopeCount = 0;
     return wip;
@@ -109,7 +109,7 @@ struct Scope *scope_create_sub_scope(struct Scope *parent_scope)
     free(helpStr);
     parent_scope->subScopeCount++;
 
-    struct Scope *newScope = scope_new(parent_scope, newScopeName, parent_scope->parentFunction, parent_scope->parentStruct);
+    struct Scope *newScope = scope_new(parent_scope, newScopeName, parent_scope->parentFunction, parent_scope->implementedFor);
 
     scope_insert(parent_scope, newScopeName, newScope, E_SCOPE, A_PUBLIC);
     return newScope;
@@ -172,39 +172,38 @@ struct VariableEntry *scope_create_argument(struct Scope *scope,
 struct FunctionEntry *scope_create_function(struct Scope *parentScope,
                                             struct Ast *nameTree,
                                             struct Type *returnType,
-                                            struct StructEntry *methodOf,
+                                            struct TypeEntry *implementedFor,
                                             enum ACCESS accessibility)
 {
-    struct FunctionEntry *newFunction = function_entry_new(parentScope, nameTree, methodOf);
+    struct FunctionEntry *newFunction = function_entry_new(parentScope, nameTree, implementedFor);
     newFunction->returnType = *returnType;
     scope_insert(parentScope, nameTree->value, newFunction, E_FUNCTION, accessibility);
     return newFunction;
 }
 
-struct StructEntry *scope_create_struct(struct Scope *scope,
-                                        char *name)
+struct TypeEntry *scope_create_struct(struct Scope *scope,
+                                      char *name)
 {
     struct TypeEntry *wipType = type_entry_new_struct(name, scope, G_NONE, NULL);
     scope_insert(scope, name, wipType, E_TYPE, A_PUBLIC);
-    struct StructEntry *wipStruct = wipType->data.asStruct;
-    return wipStruct;
+    return wipType;
 }
 
-struct StructEntry *scope_create_generic_base_struct(struct Scope *scope,
-                                                     char *name,
-                                                     List *paramNames)
+struct TypeEntry *scope_create_generic_base_struct(struct Scope *scope,
+                                                   char *name,
+                                                   List *paramNames)
 {
     struct TypeEntry *wipType = type_entry_new_struct(name, scope, G_BASE, paramNames);
     scope_insert(scope, name, wipType, E_TYPE, A_PUBLIC);
 
-    return wipType->data.asStruct;
+    return wipType;
 }
 
-// TODO: enum_entry_new()
-struct EnumEntry *scope_create_enum(struct Scope *scope,
-                                    char *name)
+// TODO: enum_desc_new()
+struct EnumDesc *scope_create_enum(struct Scope *scope,
+                                   char *name)
 {
-    struct TypeEntry *wipType = type_entry_new_enum(name, scope);
+    struct TypeEntry *wipType = type_entry_new_enum(name, scope, G_NONE, NULL);
     scope_insert(scope, name, wipType, E_TYPE, A_PUBLIC);
 
     return wipType->data.asEnum;
@@ -322,8 +321,8 @@ struct FunctionEntry *scope_lookup_fun(struct Scope *scope, struct Ast *nameTree
     }
 }
 
-struct StructEntry *scope_lookup_struct(struct Scope *scope,
-                                        struct Ast *nameTree)
+struct StructDesc *scope_lookup_struct(struct Scope *scope,
+                                       struct Ast *nameTree)
 {
     struct ScopeMember *lookedUp = scope_lookup(scope, nameTree->value, E_TYPE);
     if (lookedUp == NULL)
@@ -356,17 +355,22 @@ struct StructEntry *scope_lookup_struct(struct Scope *scope,
     return NULL;
 }
 
-struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
-                                                struct Type *type)
+struct StructDesc *scope_lookup_struct_by_type(struct Scope *scope,
+                                               struct Type *type)
 {
     if (type->basicType == VT_SELF)
     {
-        if (scope->parentStruct == NULL)
+        if (scope->implementedFor == NULL)
         {
             InternalError("Use of 'Self' outside of struct context!");
         }
 
-        return scope->parentStruct;
+        if (scope->implementedFor->permutation != TP_STRUCT)
+        {
+            InternalError("Non-struct type %s of current scope->implementedFor seen in scope_lookup_struct_by_type!", scope->implementedFor->name);
+        }
+
+        return scope->implementedFor->data.asStruct;
     }
 
     if (type->basicType != VT_STRUCT || type->nonArray.complexType.name == NULL)
@@ -374,37 +378,46 @@ struct StructEntry *scope_lookup_struct_by_type(struct Scope *scope,
         InternalError("Non-struct type or struct type with null name passed to lookupStructByType!");
     }
 
-    struct StructEntry *lookedUpStruct = scope_lookup_struct_by_name(scope, type->nonArray.complexType.name);
+    struct TypeEntry *lookedUpType = scope_lookup_type(scope, type);
+    if (lookedUpType == NULL)
+    {
+        InternalError("Use of undeclared struct '%s'", type->nonArray.complexType.name);
+    }
 
-    switch (lookedUpStruct->genericType)
+    if (lookedUpType->permutation != TP_STRUCT)
+    {
+        InternalError("Use of non-struct type '%s'", type->nonArray.complexType.name);
+    }
+
+    struct StructDesc *lookedUpStruct = lookedUpType->data.asStruct;
+
+    switch (lookedUpType->genericType)
     {
     case G_NONE:
-        return lookedUpStruct;
+        break;
 
     case G_BASE:
     {
         if (type->nonArray.complexType.genericParams != NULL)
         {
-            lookedUpStruct = struct_get_or_create_generic_instantiation(lookedUpStruct, type->nonArray.complexType.genericParams);
+            lookedUpType = type_entry_get_or_create_generic_instantiation(lookedUpType, type->nonArray.complexType.genericParams);
+            lookedUpStruct = lookedUpType->data.asStruct;
         }
-        return lookedUpStruct;
     }
     break;
 
     case G_INSTANCE:
         if (type->nonArray.complexType.genericParams != NULL)
         {
-            InternalError("Non-generic struct type %s used with generic parameters!", type->nonArray.complexType.name);
+            InternalError("Struct type %s which is already a generic instance used with generic parameters!", type->nonArray.complexType.name);
         }
-        struct StructEntry *instantiatedStruct = struct_get_or_create_generic_instantiation(lookedUpStruct, type->nonArray.complexType.genericParams);
-        return instantiatedStruct;
     }
 
-    return NULL;
+    return lookedUpStruct;
 }
 
-struct StructEntry *scope_lookup_struct_by_name(struct Scope *scope,
-                                                char *name)
+struct StructDesc *scope_lookup_struct_by_name(struct Scope *scope,
+                                               char *name)
 {
     struct ScopeMember *lookedUp = scope_lookup(scope, name, E_TYPE);
     if (lookedUp == NULL)
@@ -431,8 +444,8 @@ struct StructEntry *scope_lookup_struct_by_name(struct Scope *scope,
     return NULL;
 }
 
-struct EnumEntry *scope_lookup_enum(struct Scope *scope,
-                                    struct Ast *nameTree)
+struct EnumDesc *scope_lookup_enum(struct Scope *scope,
+                                   struct Ast *nameTree)
 {
     struct ScopeMember *lookedUp = scope_lookup(scope, nameTree->value, E_TYPE);
     if (lookedUp == NULL)
@@ -459,8 +472,8 @@ struct EnumEntry *scope_lookup_enum(struct Scope *scope,
     return NULL;
 }
 
-struct EnumEntry *scope_lookup_enum_by_type(struct Scope *scope,
-                                            struct Type *type)
+struct EnumDesc *scope_lookup_enum_by_type(struct Scope *scope,
+                                           struct Type *type)
 {
     if (type->basicType != VT_ENUM || type->nonArray.complexType.name == NULL)
     {
@@ -490,8 +503,8 @@ struct EnumEntry *scope_lookup_enum_by_type(struct Scope *scope,
     return NULL;
 }
 
-struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
-                                                   char *name)
+struct EnumDesc *scope_lookup_enum_by_member_name(struct Scope *scope,
+                                                  char *name)
 {
     struct EnumMember dummyMember = {0};
     dummyMember.name = name;
@@ -507,7 +520,7 @@ struct EnumEntry *scope_lookup_enum_by_member_name(struct Scope *scope,
                 struct TypeEntry *memberType = member->entry;
                 if (memberType->permutation == TP_ENUM)
                 {
-                    struct EnumEntry *scannedEnum = memberType->data.asEnum;
+                    struct EnumDesc *scannedEnum = memberType->data.asEnum;
                     if (set_find(scannedEnum->members, &dummyMember) != NULL)
                     {
                         iterator_free(memberIterator);
@@ -557,7 +570,7 @@ struct BasicBlock *scope_lookup_block_by_number(struct Scope *scope, size_t labe
 struct FunctionEntry *function_entry_clone(struct FunctionEntry *toClone, struct Scope *cloneTo)
 {
     log(LOG_DEBUG, "function_entry_clone: %s", toClone->name);
-    struct FunctionEntry *cloned = function_entry_new(cloneTo, &toClone->correspondingTree, cloneTo->parentStruct);
+    struct FunctionEntry *cloned = function_entry_new(cloneTo, &toClone->correspondingTree, cloneTo->implementedFor);
     cloned->returnType = type_duplicate_non_pointer(&toClone->returnType);
     cloned->callsOtherFunction = toClone->callsOtherFunction;
     cloned->isAsmFun = toClone->isAsmFun;
@@ -686,7 +699,7 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
         case E_SCOPE:
         {
             struct Scope *clonedScope = memberToClone->entry;
-            entry = scope_new(clonedTo, clonedScope->name, clonedTo->parentFunction, clonedTo->parentStruct);
+            entry = scope_new(clonedTo, clonedScope->name, clonedTo->parentFunction, clonedTo->implementedFor);
             scope_clone_to(entry, clonedScope);
         }
         break;
@@ -851,4 +864,95 @@ void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap, char *res
         }
     }
     iterator_free(memberIterator);
+}
+
+struct TypeEntry *scope_lookup_type_by_name(struct Scope *scope, char *name)
+{
+    struct ScopeMember *lookedUp = scope_lookup(scope, name, E_TYPE);
+    if (lookedUp == NULL)
+    {
+        InternalError("Use of undeclared type '%s'", name);
+    }
+
+    switch (lookedUp->type)
+    {
+    case E_TYPE:
+        return lookedUp->entry;
+
+    default:
+        InternalError("scope_lookup_type_by_name for %s lookup got a non-type ScopeMember!", name);
+    }
+}
+
+struct TypeEntry *scope_lookup_struct_by_name_tree(struct Scope *scope, struct Ast *nameTree)
+{
+    struct ScopeMember *lookedUp = scope_lookup(scope, nameTree->value, E_TYPE);
+    if (lookedUp == NULL)
+    {
+        log_tree(LOG_FATAL, nameTree, "Use of undeclared type '%s'", nameTree->value);
+    }
+
+    struct TypeEntry *lookedUpType = NULL;
+
+    switch (lookedUp->type)
+    {
+    case E_TYPE:
+        lookedUpType = lookedUp->entry;
+
+    default:
+        log_tree(LOG_FATAL, nameTree, "scope_lookup_type_by_name for %s lookup got a non-type ScopeMember!", nameTree->value);
+    }
+
+    return lookedUpType;
+}
+
+struct TypeEntry *scope_lookup_type(struct Scope *scope, struct Type *type)
+{
+    if ((type->basicType == VT_NULL) || (type->basicType == VT_GENERIC_PARAM) || type->pointerLevel > 0)
+    {
+        InternalError("Invalid type %s passed to scope_lookup_type", type_get_name(type));
+    }
+
+    struct TypeEntry *lookedUp = NULL;
+
+    switch (type->basicType)
+    {
+    case VT_NULL:
+        InternalError("saw VT_NULL in scope_lookup_type!");
+        break;
+
+    case VT_GENERIC_PARAM:
+        InternalError("saw VT_GENERIC_PARAM in scope_lookup_type!");
+        break;
+
+    case VT_U8:
+    case VT_U16:
+    case VT_U32:
+    case VT_U64:
+    case VT_ANY:
+    case VT_ARRAY:
+        InternalError("scope_lookup_type for primitives not yet implemented!");
+        return NULL;
+
+    case VT_STRUCT:
+    case VT_ENUM:
+    {
+        struct ScopeMember *lookedUpEntry = scope_lookup(scope, type->nonArray.complexType.name, E_TYPE);
+        if (lookedUpEntry == NULL)
+        {
+            InternalError("Use of undeclared type '%s'", type->nonArray.complexType.name);
+        }
+        lookedUp = lookedUpEntry->entry;
+    }
+    break;
+
+    case VT_SELF:
+        if (scope->implementedFor == NULL)
+        {
+            InternalError("Use of 'Self' outside of struct context!");
+        }
+        lookedUp = scope->implementedFor;
+    }
+
+    return lookedUp;
 }

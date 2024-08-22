@@ -6,7 +6,7 @@
 #include <mbcl/deque.h>
 
 struct VariableEntry;
-struct EnumEntry;
+struct EnumDesc;
 struct Ast;
 
 enum VARIABLE_PERMUTATIONS

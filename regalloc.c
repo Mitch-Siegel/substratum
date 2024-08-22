@@ -569,33 +569,6 @@ void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)
 
 void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info);
 
-void allocate_registers_for_struct(struct StructEntry *theStruct, struct MachineInfo *info)
-{
-    switch (theStruct->genericType)
-    {
-    case G_NONE:
-        allocate_registers_for_scope(theStruct->members, info);
-        break;
-
-    case G_BASE:
-    {
-        Iterator *instanceIter = NULL;
-        for (instanceIter = hash_table_begin(theStruct->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
-        {
-            HashTableEntry *instanceEntry = iterator_get(instanceIter);
-            struct StructEntry *thisInstance = instanceEntry->value;
-            allocate_registers_for_struct(thisInstance, info);
-        }
-        iterator_free(instanceIter);
-    }
-    break;
-
-    case G_INSTANCE:
-        allocate_registers_for_scope(theStruct->members, info);
-        break;
-    }
-}
-
 void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info)
 {
     Iterator *implementedIter = NULL;

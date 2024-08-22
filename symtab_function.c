@@ -8,18 +8,18 @@
 #include "symtab_scope.h"
 #include "symtab_variable.h"
 
-struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct StructEntry *methodOf)
+struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct TypeEntry *implementedFor)
 {
     struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
     memset(newFunction, 0, sizeof(struct FunctionEntry));
     newFunction->arguments = deque_new(NULL);
-    newFunction->mainScope = scope_new(parentScope, nameTree->value, newFunction, methodOf);
+    newFunction->mainScope = scope_new(parentScope, nameTree->value, newFunction, implementedFor);
     newFunction->BasicBlockList = list_new(NULL, NULL);
     newFunction->correspondingTree = *nameTree;
     newFunction->mainScope->parentFunction = newFunction;
     type_init(&newFunction->returnType);
     newFunction->name = nameTree->value;
-    newFunction->methodOf = methodOf;
+    newFunction->implementedFor = implementedFor;
     newFunction->isDefined = 0;
     newFunction->isAsmFun = 0;
     newFunction->callsOtherFunction = 0;
@@ -228,4 +228,9 @@ ssize_t function_entry_compare(void *dataA, void *dataB)
     }
 
     return diff;
+}
+
+void function_entry_print(struct FunctionEntry *function, bool printTac, size_t depth, FILE *outFile)
+{
+    scope_print(function->mainScope, outFile, depth, printTac);
 }
