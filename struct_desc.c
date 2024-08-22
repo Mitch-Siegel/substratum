@@ -121,7 +121,6 @@ void type_entry_resolve_capital_self(struct TypeEntry *typeEntry)
 
     case TP_STRUCT:
         // type_entry_resolve_generics(typeEntry, typeEntry->generic.base.paramNames, typeEntry->generic.base.paramNames);
-        scope_resolve_capital_self(typeEntry->parentScope, typeEntry);
         struct_assign_offsets_to_fields(typeEntry->data.asStruct);
         break;
 

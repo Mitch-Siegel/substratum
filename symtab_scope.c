@@ -416,6 +416,13 @@ struct StructDesc *scope_lookup_struct_by_type(struct Scope *scope,
     return lookedUpStruct;
 }
 
+struct StructDesc *scope_lookup_struct_by_type_or_pointer(struct Scope *scope, struct Type *type)
+{
+    struct Type typeToLookup = *type;
+    typeToLookup.pointerLevel = 0;
+    return scope_lookup_struct_by_type(scope, &typeToLookup);
+}
+
 struct StructDesc *scope_lookup_struct_by_name(struct Scope *scope,
                                                char *name)
 {

@@ -42,7 +42,7 @@ struct TypeEntry
     HashTable *implementedByName;
 };
 
-struct TypeEntry *type_entry_new_primitive(enum BASIC_TYPES basicType);
+struct TypeEntry *type_entry_new_primitive(struct Scope *parentScope, enum BASIC_TYPES basicType);
 
 struct TypeEntry *type_entry_new_struct(char *name, struct Scope *parentScope, enum GENERIC_TYPE genericType, List *genericParamNames);
 

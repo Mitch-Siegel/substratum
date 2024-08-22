@@ -55,13 +55,15 @@ size_t hash_generic_params_list(void *paramsListData)
     return hash;
 }
 
-struct TypeEntry *type_entry_new(enum TYPE_PERMUTATION permutation,
+struct TypeEntry *type_entry_new(struct Scope *parentScope,
+                                 enum TYPE_PERMUTATION permutation,
                                  struct Type type,
                                  enum GENERIC_TYPE genericType,
                                  List *genericParamNames)
 {
     struct TypeEntry *wipType = malloc(sizeof(struct TypeEntry));
     memset(wipType, 0, sizeof(struct TypeEntry));
+    wipType->parentScope = parentScope;
     wipType->permutation = permutation;
     wipType->type = type;
     wipType->traits = set_new(NULL, trait_entry_compare);
@@ -86,12 +88,12 @@ struct TypeEntry *type_entry_new(enum TYPE_PERMUTATION permutation,
     return wipType;
 }
 
-struct TypeEntry *type_entry_new_primitive(enum BASIC_TYPES basicType)
+struct TypeEntry *type_entry_new_primitive(struct Scope *parentScope, enum BASIC_TYPES basicType)
 {
     struct Type primitiveType = {0};
     type_init(&primitiveType);
     type_set_basic_type(&primitiveType, basicType, NULL, 0);
-    struct TypeEntry *wipPrimitive = type_entry_new(TP_PRIMITIVE, primitiveType, G_NONE, NULL);
+    struct TypeEntry *wipPrimitive = type_entry_new(parentScope, TP_PRIMITIVE, primitiveType, G_NONE, NULL);
     return wipPrimitive;
 }
 
@@ -100,7 +102,7 @@ struct TypeEntry *type_entry_new_struct(char *name, struct Scope *parentScope, e
     struct Type structType = {0};
     type_init(&structType);
     type_set_basic_type(&structType, VT_STRUCT, name, 0);
-    struct TypeEntry *wipStruct = type_entry_new(TP_STRUCT, structType, genericType, genericParamNames);
+    struct TypeEntry *wipStruct = type_entry_new(parentScope, TP_STRUCT, structType, genericType, genericParamNames);
     wipStruct->data.asStruct = struct_desc_new(parentScope, name);
     return wipStruct;
 }
@@ -110,7 +112,7 @@ struct TypeEntry *type_entry_new_enum(char *name, struct Scope *parentScope, enu
     struct Type enumType = {0};
     type_init(&enumType);
     type_set_basic_type(&enumType, VT_ENUM, name, 0);
-    struct TypeEntry *wipEnum = type_entry_new(TP_ENUM, enumType, genericType, genericParamNames);
+    struct TypeEntry *wipEnum = type_entry_new(parentScope, TP_ENUM, enumType, genericType, genericParamNames);
     wipEnum->data.asEnum = enum_desc_new(name, parentScope);
     return wipEnum;
 }
