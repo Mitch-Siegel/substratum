@@ -77,9 +77,15 @@ void generate_code_for_type(struct CodegenState *globalContext,
                             void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
     Iterator *implementedIter = NULL;
-    for (implementedIter = set_begin(theType->implemented); iterator_gettable(implementedIter); iterator_next(implementedIter))
+    for (implementedIter = set_begin(theType->implemented->entries); iterator_gettable(implementedIter); iterator_next(implementedIter))
     {
-        struct FunctionEntry *implementedFunction = iterator_get(implementedIter);
+
+        struct ScopeMember *entry = iterator_get(implementedIter);
+        if (entry->type != E_FUNCTION)
+        {
+            InternalError("Type implemented entry is not a function!\n");
+        }
+        struct FunctionEntry *implementedFunction = entry->entry;
         if (implementedFunction->isDefined)
         {
             generate_code_for_function(globalContext->outFile, implementedFunction, info, theType->name, emitPrologue, emitEpilogue, generateCodeForBasicBlock);

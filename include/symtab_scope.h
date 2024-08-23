@@ -68,6 +68,8 @@ void scope_insert(struct Scope *scope,
                   enum SCOPE_MEMBER_TYPE type,
                   enum ACCESS accessibility);
 
+void scope_check_access();
+
 struct Scope *scope_create_sub_scope(struct Scope *scope);
 
 // create an argument within the given scope

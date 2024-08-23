@@ -127,14 +127,7 @@ void type_entry_resolve_capital_self(struct TypeEntry *typeEntry)
     case TP_ENUM:
         break;
     }
-    Iterator *implIter = NULL;
-    for (implIter = set_begin(typeEntry->implemented); iterator_gettable(implIter); iterator_next(implIter))
-    {
-        struct FunctionEntry *implemented = iterator_get(implIter);
-        type_try_resolve_vt_self(&implemented->returnType, typeEntry);
-        scope_resolve_capital_self(implemented->mainScope, typeEntry);
-    }
-    iterator_free(implIter);
+    scope_resolve_capital_self(typeEntry->implemented, typeEntry);
 }
 
 void struct_assign_offsets_to_fields(struct StructDesc *theStruct)
@@ -161,17 +154,37 @@ void struct_assign_offsets_to_fields(struct StructDesc *theStruct)
     iterator_free(fieldIter);
 }
 
-// assuming we know that struct has a member with name identical to name->value, make sure we can actually access it
-void struct_check_access(struct StructDesc *theStruct,
-                         struct Ast *nameTree,
-                         struct Scope *scope,
-                         char *whatAccessingCalled)
+ssize_t struct_desc_compare(struct StructDesc *a, struct StructDesc *b)
 {
-    struct ScopeMember *accessed = scope_lookup(theStruct->members, nameTree->value, E_VARIABLE);
-    if (accessed == NULL)
+    ssize_t diff = strcmp(a->name, b->name);
+    if (diff != 0)
     {
-        accessed = scope_lookup(theStruct->members, nameTree->value, E_FUNCTION);
+        return diff;
     }
+
+    diff = a->fieldLocations->size - b->fieldLocations->size;
+    return diff;
+}
+
+// assuming we know that struct has a member with name identical to name->value, make sure we can actually access it
+void struct_check_field_access(struct StructDesc *theStruct,
+                               struct Ast *nameTree,
+                               struct Scope *accessedFromScope,
+                               char *whatAccessingCalled)
+{
+    // if the scope from which we are accessing:
+    // 1. is a function scope
+    // 2. the function is implemented for the struct
+    // 3. the struct is the same as the one we are accessing
+    // always allow access because private access is allowed
+    if ((accessedFromScope->parentFunction->implementedFor != NULL) &&
+        (accessedFromScope->parentFunction->implementedFor->permutation == TP_STRUCT) &&
+        (struct_desc_compare(theStruct, accessedFromScope->parentFunction->implementedFor->data.asStruct) == 0))
+    {
+        return;
+    }
+
+    struct ScopeMember *accessed = scope_lookup(theStruct->members, nameTree->value, E_VARIABLE);
 
     switch (accessed->accessibility)
     {
@@ -183,14 +196,14 @@ void struct_check_access(struct StructDesc *theStruct,
         // check if the scope at which we are accessing is a subscope of (or identical to) the struct's scope
         do
         {
-            if (scope == theStruct->members)
+            if (accessedFromScope == theStruct->members)
             {
                 break;
             }
-            scope = scope->parentScope;
-        } while (scope != NULL);
+            accessedFromScope = accessedFromScope->parentScope;
+        } while (accessedFromScope != NULL);
 
-        if (scope == NULL)
+        if (accessedFromScope == NULL)
         {
             log_tree(LOG_FATAL, nameTree, "%s %s of struct %s has access specifier private - not accessible from this scope!", whatAccessingCalled, nameTree->value, theStruct->name);
         }
@@ -266,7 +279,7 @@ struct StructField *struct_lookup_field(struct StructDesc *theStruct,
     }
     else
     {
-        struct_check_access(theStruct, nameTree, scope, "Field");
+        struct_check_field_access(theStruct, nameTree, scope, "Field");
     }
 
     return returnedField;
@@ -299,90 +312,6 @@ struct StructField *struct_lookup_field_by_name(struct StructDesc *theStruct,
     }
 
     return returnedField;
-}
-
-struct FunctionEntry *struct_looup_method(struct StructDesc *theStruct,
-                                          struct Ast *name,
-                                          struct Scope *scope)
-{
-    struct FunctionEntry *returnedMethod = NULL;
-
-    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name->value, E_FUNCTION);
-
-    if (lookedUpEntry == NULL)
-    {
-        log_tree(LOG_FATAL, name, "Attempt to call nonexistent method %s.%s\n", theStruct->name, name->value);
-    }
-
-    if (lookedUpEntry->type != E_FUNCTION)
-    {
-        log_tree(LOG_FATAL, name, "Attempt to call non-method member %s.%s as method!\n", theStruct->name, name->value);
-    }
-
-    returnedMethod = lookedUpEntry->entry;
-
-    struct_check_access(theStruct, name, scope, "Method");
-
-    if (!returnedMethod->isMethod)
-    {
-        log_tree(LOG_FATAL, name, "Attempt to call non-member associated function %s::%s as a method!\n", theStruct->name, name->value);
-    }
-
-    return returnedMethod;
-}
-
-struct FunctionEntry *struct_lookup_method_by_string(struct StructDesc *theStruct,
-                                                     char *name)
-{
-    struct FunctionEntry *returnedMethod = NULL;
-
-    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name, E_FUNCTION);
-
-    if (lookedUpEntry == NULL)
-    {
-        InternalError("Attempt to call nonexistent method %s.%s\n", theStruct->name, name);
-    }
-
-    if (lookedUpEntry->type != E_FUNCTION)
-    {
-        InternalError("Attempt to call non-method member %s.%s as method!\n", theStruct->name, name);
-    }
-
-    returnedMethod = lookedUpEntry->entry;
-
-    if (!returnedMethod->isMethod)
-    {
-        InternalError("Attempt to call non-member associated function %s::%s as a method!\n", theStruct->name, name);
-    }
-
-    return returnedMethod;
-}
-
-struct FunctionEntry *struct_lookup_associated_function_by_string(struct StructDesc *theStruct,
-                                                                  char *name)
-{
-    struct FunctionEntry *returendAssociated = NULL;
-
-    struct ScopeMember *lookedUpEntry = scope_lookup_no_parent(theStruct->members, name, E_FUNCTION);
-
-    if (lookedUpEntry == NULL)
-    {
-        log(LOG_FATAL, "Attempt to call nonexistent associated function %s::%s\n", theStruct->name, name);
-    }
-
-    if (lookedUpEntry->type != E_FUNCTION)
-    {
-        log(LOG_FATAL, "Attempt to call non-function member %s.%s as an associated function!\n", theStruct->name, name);
-    }
-
-    returendAssociated = lookedUpEntry->entry;
-
-    if (returendAssociated->isMethod)
-    {
-        log(LOG_FATAL, "Attempt to call method %s.%s as an associated function!\n", theStruct->name, name);
-    }
-
-    return returendAssociated;
 }
 
 void struct_desc_print(struct StructDesc *theStruct, size_t depth, FILE *outFile)

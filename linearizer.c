@@ -482,7 +482,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
                                                 struct Scope *scope,
                                                 struct TypeEntry *implementedFor,
                                                 enum ACCESS accessibility,
-                                                bool forTrait)
+                                                bool forImpl)
 {
     log_tree(LOG_DEBUG, tree, "walk_function_declaration");
 
@@ -525,7 +525,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
     }
     else
     {
-        if (!forTrait)
+        if (!forImpl)
         {
             scope_insert(scope, functionNameTree->value, parsedFunc, E_FUNCTION, accessibility);
         }
@@ -562,9 +562,9 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
 
         case T_SELF:
         {
-            if ((implementedFor == NULL) && !forTrait)
+            if ((implementedFor == NULL) && !forImpl)
             {
-                log_tree(LOG_FATAL, argumentRunner, "Malformed AST within function declaration - saw self when (implementedFor == NULL) && (forTrait == false)");
+                log_tree(LOG_FATAL, argumentRunner, "Malformed AST within function declaration - saw self when (implementedFor == NULL) && (forImpl == false)");
             }
             struct Type selfType;
             type_init(&selfType);
@@ -581,7 +581,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
         argumentRunner = argumentRunner->sibling;
     }
 
-    if (!forTrait && (existingFunc != NULL))
+    if (!forImpl && (existingFunc != NULL))
     {
         if (function_entry_compare(existingFunc, parsedFunc))
         {
@@ -660,8 +660,8 @@ void walk_method(struct Ast *tree,
         log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_method!", token_get_name(tree->type));
     }
 
-    struct FunctionEntry *walkedMethod = walk_function_declaration(tree, implementedFor->parentScope, implementedFor, accessibility, false);
-    walkedMethod->mainScope->implementedFor = implementedFor;
+    struct FunctionEntry *walkedMethod = walk_function_declaration(tree, implementedFor->parentScope, implementedFor, accessibility, true);
+    type_entry_add_implemented(implementedFor, walkedMethod, accessibility);
 
     if (walkedMethod->arguments->size > 0)
     {
@@ -3099,7 +3099,6 @@ void walk_method_call(struct Ast *tree,
 
     // don't need to track scope->parentFunction->callsOtherFunction as walk_function_call will do this on our behalf
     struct Ast *structTree = tree->child->child;
-    struct StructDesc *structCalledOn = NULL;
     struct Ast *callTree = tree->child->child->sibling;
 
     struct TACOperand *structOperand = malloc(sizeof(struct TACOperand));
@@ -3126,9 +3125,8 @@ void walk_method_call(struct Ast *tree,
     }
     break;
     }
-    structCalledOn = scope_lookup_struct_by_type(scope, tac_operand_get_type(structOperand));
 
-    struct FunctionEntry *calledFunction = struct_looup_method(structCalledOn, callTree->child, scope);
+    struct FunctionEntry *calledFunction = type_entry_lookup_implemented(scope_lookup_type(scope, tac_operand_get_type(structOperand)), scope, callTree->child);
 
     check_function_return_use(tree, destinationOperand, calledFunction);
 

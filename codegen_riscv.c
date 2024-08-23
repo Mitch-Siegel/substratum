@@ -1334,15 +1334,19 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
     case TT_METHOD_CALL:
     {
-        struct StructDesc *implementedFor = scope_lookup_struct_by_type_or_pointer(metadata->scope, tac_operand_get_type(&generate->operands.methodCall.calledOn));
-        struct FunctionEntry *calledMethod = struct_lookup_method_by_string(implementedFor, generate->operands.methodCall.methodName);
+        struct TypeEntry *calledOnType = scope_lookup_type(metadata->scope, tac_operand_get_type(&generate->operands.methodCall.calledOn));
+
+        struct Ast dummyAst = generate->correspondingTree;
+        dummyAst.value = generate->operands.methodCall.methodName;
+
+        struct FunctionEntry *calledMethod = type_entry_lookup_method(calledOnType, &dummyAst, metadata->scope);
 
         Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &metadata->function->regalloc, info);
 
         riscv_emit_argument_stores(state, metadata, info, calledMethod, generate->operands.methodCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
 
-        char *fullStructName = implementedFor->name;
+        char *fullStructName = calledOnType->name;
 
         // TODO: member function name mangling/uniqueness
         if (calledMethod->isDefined)
@@ -1368,8 +1372,12 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     // TODO: fix associated calls with generic instances
     case TT_ASSOCIATED_CALL:
     {
-        struct StructDesc *associatedWith = scope_lookup_struct_by_type_or_pointer(metadata->scope, &generate->operands.associatedCall.associatedWith);
-        struct FunctionEntry *calledAssociated = struct_lookup_associated_function_by_string(associatedWith, generate->operands.associatedCall.functionName);
+        struct TypeEntry *associatedWith = scope_lookup_type(metadata->scope, &generate->operands.associatedCall.associatedWith);
+        struct Ast dummyAst = {0};
+        dummyAst = generate->correspondingTree;
+        dummyAst.value = generate->operands.associatedCall.functionName;
+
+        struct FunctionEntry *calledAssociated = type_entry_lookup_associated_function(associatedWith, &dummyAst, metadata->scope);
 
         Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &metadata->function->regalloc, info);
 

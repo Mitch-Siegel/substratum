@@ -67,10 +67,10 @@ struct TypeEntry *type_entry_new(struct Scope *parentScope,
     wipType->permutation = permutation;
     wipType->type = type;
     wipType->traits = set_new(NULL, trait_entry_compare);
-    wipType->implemented = set_new((void (*)(void *))function_entry_free, function_entry_compare);
     wipType->implementedByName = hash_table_new(free, NULL, (ssize_t(*)(void *, void *))strcmp, hash_string, 10);
 
     wipType->name = type_get_name(&type);
+    wipType->implemented = scope_new(parentScope, wipType->name, NULL, NULL);
 
     if ((genericParamNames != NULL) && (genericType != G_BASE))
     {
@@ -120,7 +120,7 @@ struct TypeEntry *type_entry_new_enum(char *name, struct Scope *parentScope, enu
 void type_entry_free(struct TypeEntry *entry)
 {
     set_free(entry->traits);
-    set_free(entry->implemented);
+    scope_free(entry->implemented);
     hash_table_free(entry->implementedByName);
     free(entry->name);
 
@@ -153,15 +153,65 @@ void type_entry_free(struct TypeEntry *entry)
     free(entry);
 }
 
-void type_entry_add_implemented(struct TypeEntry *entry, struct FunctionEntry *implemented)
+void type_entry_check_implemented_access(struct TypeEntry *theType,
+                                         struct Ast *nameTree,
+                                         struct Scope *accessedFromScope,
+                                         char *whatAccessingCalled)
 {
-    char *signature = sprint_function_signature(implemented);
-    if (set_find(entry->implemented, implemented) != NULL)
+    // if the scope from which we are accessing:
+    // 1. is a function scope
+    // 2. the function is implemented for the struct
+    // 3. the struct is the same as the one we are accessing
+    // always allow access because private access is allowed
+    if ((accessedFromScope->parentFunction->implementedFor != NULL) &&
+        (accessedFromScope->parentFunction->implementedFor->permutation == TP_STRUCT) &&
+        (type_compare(&theType->type, &accessedFromScope->parentFunction->implementedFor->type) == 0))
     {
-        InternalError("Type %s already implements %s!", entry->name, signature);
+        return;
     }
-    set_insert(entry->implemented, implemented);
-    hash_table_insert(entry->implementedByName, signature, implemented);
+
+    struct ScopeMember *accessed = scope_lookup(theType->implemented, nameTree->value, E_FUNCTION);
+    if (accessed == NULL)
+    {
+        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent %s %s of type %s", whatAccessingCalled, nameTree->value, theType->name);
+    }
+
+    switch (accessed->accessibility)
+    {
+    // nothing to check if public
+    case A_PUBLIC:
+        break;
+
+    case A_PRIVATE:
+        // check if the scope at which we are accessing is a subscope of (or identical to) the struct's scope
+        do
+        {
+            if (accessedFromScope->parentScope == theType->parentScope)
+            {
+                break;
+            }
+            accessedFromScope = accessedFromScope->parentScope;
+        } while (accessedFromScope->parentScope != NULL);
+
+        if (accessedFromScope == NULL)
+        {
+            log_tree(LOG_FATAL, nameTree, "%s %s of %s has access specifier private - not accessible from this scope!", whatAccessingCalled, nameTree->value, theType->name);
+        }
+        break;
+    }
+}
+
+void type_entry_add_implemented(struct TypeEntry *entry, struct FunctionEntry *implemented, enum ACCESS accessibility)
+{
+    struct ScopeMember *existing = scope_lookup(entry->implemented, implemented->name, E_FUNCTION);
+    if (existing != NULL)
+    {
+        char *signature = sprint_function_signature(implemented);
+        InternalError("Type %s already implements %s!", entry->name, signature);
+        function_entry_print(implemented, false, 0, stderr);
+    }
+
+    scope_insert(entry->parentScope, implemented->name, implemented, E_FUNCTION, accessibility);
 }
 
 void type_entry_add_trait(struct TypeEntry *entry, struct TraitEntry *trait)
@@ -177,9 +227,19 @@ struct TraitEntry *type_entry_lookup_trait(struct TypeEntry *typeEntry, char *na
     return set_find(typeEntry->traits, &dummyTrait);
 }
 
-struct FunctionEntry *type_entry_lookup_implemented_by_name(struct TypeEntry *typeEntry, char *name)
+struct FunctionEntry *type_entry_lookup_implemented(struct TypeEntry *typeEntry, struct Scope *scope, struct Ast *nameTree)
 {
-    return hash_table_find(typeEntry->implementedByName, name);
+    struct ScopeMember *implementedMember = scope_lookup(typeEntry->implemented, nameTree->value, E_FUNCTION);
+    if (implementedMember == NULL)
+    {
+        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent implemented function %s %s of type %s", nameTree->value, typeEntry->name);
+    }
+
+    struct FunctionEntry *implementedFunction = implementedMember->entry;
+
+    type_entry_check_implemented_access(typeEntry, nameTree, scope, "Implemented function");
+
+    return implementedFunction;
 }
 
 struct TypeEntry *struct_type_entry_clone_generic_base_as_instance(struct TypeEntry *toClone, char *name)
@@ -244,29 +304,52 @@ void type_resolve_capital_self(struct TypeEntry *theType)
     InternalError("type_resolve_capital_self not yet implemented");
 }
 
-struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *type,
-                                                            struct Ast *nameTree,
-                                                            struct Scope *scope)
+struct FunctionEntry *type_entry_lookup_method(struct TypeEntry *typeEntry,
+                                               struct Ast *nameTree,
+                                               struct Scope *scope)
 {
-    struct FunctionEntry *returendAssociated = NULL;
+    struct FunctionEntry *returnedMethod = NULL;
 
-    HashTableEntry *lookedUp = hash_table_find(type->implementedByName, nameTree->value);
+    HashTableEntry *lookedUp = hash_table_find(typeEntry->implementedByName, nameTree->value);
     struct FunctionEntry *associatedFunction = lookedUp->value;
 
     if (associatedFunction == NULL)
     {
-        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent associated function %s::%s\n", type->name, nameTree->value);
+        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent method %s.%s\n", typeEntry->name, nameTree->value);
     }
 
-    // TODO: handle access specifiers for implemented functions
-    // struct_check_access(type, nameTree, scope, "Associated function");
+    type_entry_check_implemented_access(typeEntry, nameTree, scope, "Method");
 
-    if (returendAssociated->isMethod)
+    if (returnedMethod->isMethod)
     {
-        log_tree(LOG_FATAL, nameTree, "Attempt to call method %s.%s as an associated function!\n", type->name, nameTree->value);
+        log_tree(LOG_FATAL, nameTree, "Attempt to call associated function %s::%s as an method!\n", typeEntry->name, nameTree->value);
     }
 
-    return returendAssociated;
+    return returnedMethod;
+}
+
+struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *typeEntry,
+                                                            struct Ast *nameTree,
+                                                            struct Scope *scope)
+{
+    struct FunctionEntry *returnedAssociated = NULL;
+
+    HashTableEntry *lookedUp = hash_table_find(typeEntry->implementedByName, nameTree->value);
+    struct FunctionEntry *associatedFunction = lookedUp->value;
+
+    if (associatedFunction == NULL)
+    {
+        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent associated function %s::%s\n", typeEntry->name, nameTree->value);
+    }
+
+    type_entry_check_implemented_access(typeEntry, nameTree, scope, "Associated function");
+
+    if (returnedAssociated->isMethod)
+    {
+        log_tree(LOG_FATAL, nameTree, "Attempt to call method %s.%s as an associated function!\n", typeEntry->name, nameTree->value);
+    }
+
+    return returnedAssociated;
 }
 
 void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, List *paramTypes)
@@ -492,18 +575,7 @@ void type_entry_print(struct TypeEntry *theType, bool printTac, size_t depth, FI
     {
         fprintf(outFile, "\t");
     }
-    fprintf(outFile, "%zu implemented functions:\n", theType->implemented->size);
+    fprintf(outFile, "%zu implemented functions:\n", theType->implemented->entries->size);
 
-    Iterator *funcIter = NULL;
-    for (funcIter = set_begin(theType->implemented); iterator_gettable(funcIter); iterator_next(funcIter))
-    {
-        struct FunctionEntry *func = iterator_get(funcIter);
-        for (size_t depthPrint = 0; depthPrint < depth + 1; depthPrint++)
-        {
-            fprintf(outFile, "\t");
-        }
-        fprintf(outFile, "Function %s\n", sprint_function_signature(func));
-        function_entry_print(func, printTac, depth + 2, outFile);
-    }
-    iterator_free(funcIter);
+    scope_print(theType->implemented, outFile, depth + 1, printTac);
 }

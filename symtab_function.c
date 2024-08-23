@@ -232,5 +232,12 @@ ssize_t function_entry_compare(void *dataA, void *dataB)
 
 void function_entry_print(struct FunctionEntry *function, bool printTac, size_t depth, FILE *outFile)
 {
+    for (size_t i = 0; i < depth; i++)
+    {
+        fprintf(outFile, "  ");
+    }
+    char *signature = sprint_function_signature(function);
+    fprintf(outFile, "%s (defined: %d)\n", signature, function->isDefined);
+    free(signature);
     scope_print(function->mainScope, outFile, depth, printTac);
 }

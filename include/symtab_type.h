@@ -38,7 +38,7 @@ struct TypeEntry
     } generic;
     struct Scope *parentScope;
     Set *traits;
-    Set *implemented;
+    struct Scope *implemented;
     HashTable *implementedByName;
 };
 
@@ -50,15 +50,24 @@ struct TypeEntry *type_entry_new_enum(char *name, struct Scope *parentScope, enu
 
 void type_entry_free(struct TypeEntry *entry);
 
-void type_entry_add_implemented(struct TypeEntry *entry, struct FunctionEntry *implemented);
+void type_entry_check_implemented_access(struct TypeEntry *theType,
+                                         struct Ast *nameTree,
+                                         struct Scope *accessedFromScope,
+                                         char *whatAccessingCalled);
+
+void type_entry_add_implemented(struct TypeEntry *entry, struct FunctionEntry *implemented, enum ACCESS accessibility);
 
 struct TraitEntry *type_entry_lookup_trait(struct TypeEntry *typeEntry, char *name);
 
-struct FunctionEntry *type_entry_lookup_implemented_by_name(struct TypeEntry *typeEntry, char *name);
+struct FunctionEntry *type_entry_lookup_implemented(struct TypeEntry *typeEntry, struct Scope *scope, struct Ast *nameTree);
 
 void type_entry_resolve_capital_self(struct TypeEntry *theType);
 
-struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *theStruct,
+struct FunctionEntry *type_entry_lookup_method(struct TypeEntry *typeEntry,
+                                               struct Ast *nameTree,
+                                               struct Scope *scope);
+
+struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *typeEntry,
                                                             struct Ast *nameTree,
                                                             struct Scope *scope);
 

@@ -572,10 +572,19 @@ void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *
 void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info)
 {
     Iterator *implementedIter = NULL;
-    for (implementedIter = set_begin(theType->implemented); iterator_gettable(implementedIter); iterator_next(implementedIter))
+    for (implementedIter = set_begin(theType->implemented->entries); iterator_gettable(implementedIter); iterator_next(implementedIter))
     {
-        struct FunctionEntry *implemented = iterator_get(implementedIter);
-        allocate_registers(&implemented->regalloc, info);
+
+        struct ScopeMember *entry = iterator_get(implementedIter);
+        if (entry->type != E_FUNCTION)
+        {
+            InternalError("Type implemented entry is not a function!\n");
+        }
+        struct FunctionEntry *implementedFunction = entry->entry;
+        if (implementedFunction->isDefined)
+        {
+            allocate_registers(&implementedFunction->regalloc, info);
+        }
     }
     iterator_free(implementedIter);
 }

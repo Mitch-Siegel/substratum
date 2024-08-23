@@ -81,9 +81,10 @@ void scope_print_cfgs(struct Scope *scope, char *outDir)
 
             sprintf(typeCfgDirName, "%s/%s", outDir, thisType->name);
             Iterator *implementedIter = NULL;
-            for (implementedIter = set_begin(thisType->implemented); iterator_gettable(implementedIter); iterator_next(implementedIter))
+            for (implementedIter = hash_table_begin(thisType->implementedByName); iterator_gettable(implementedIter); iterator_next(implementedIter))
             {
-                struct FunctionEntry *implementedFunction = iterator_get(implementedIter);
+                HashTableEntry *thisEntry = iterator_get(implementedIter);
+                struct FunctionEntry *implementedFunction = thisEntry->value;
                 char *cfgFileName = malloc(strlen(typeCfgDirName) + strlen(implementedFunction->name) + 7);
                 sprintf(cfgFileName, "%s_%s.dot", typeCfgDirName, implementedFunction->name);
                 FILE *cfgFile = fopen(cfgFileName, "w");
@@ -156,13 +157,7 @@ void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, si
         case E_TYPE:
         {
             struct TypeEntry *recursedType = thisMember->entry;
-            Iterator *implIter = NULL;
-            for (implIter = set_begin(recursedType->implemented); iterator_gettable(implIter); iterator_next(implIter))
-            {
-                struct FunctionEntry *implementedFunction = iterator_get(implIter);
-                moveToThisScope = set_union_destructive(moveToThisScope, symbol_table_collapse_scopes_rec(implementedFunction->mainScope, dict, 0));
-            }
-            iterator_free(implIter);
+            moveToThisScope = set_union_destructive(moveToThisScope, symbol_table_collapse_scopes_rec(recursedType->implemented, dict, 0));
         }
         break;
 
@@ -294,9 +289,27 @@ void symbol_table_free(struct SymbolTable *table)
 
 void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t depth)
 {
+    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
+    {
+        fprintf(outFile, "\t");
+    }
     char *typeName = type_get_name(&variable->type);
     fprintf(outFile, "%s %s\n", typeName, variable->name);
     free(typeName);
+}
+
+void print_accessibility(enum ACCESS accessibility, FILE *outFile)
+{
+    switch (accessibility)
+    {
+    case A_PRIVATE:
+        fprintf(outFile, " - Private");
+        break;
+
+    case A_PUBLIC:
+        fprintf(outFile, " - Public");
+        break;
+    }
 }
 
 void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth, FILE *outFile)
@@ -306,46 +319,43 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         fprintf(outFile, "\t");
     }
 
-    switch (toPrint->accessibility)
-    {
-    case A_PRIVATE:
-        fprintf(outFile, "Private ");
-        break;
-
-    case A_PUBLIC:
-        fprintf(outFile, "Public  ");
-        break;
-    }
-
     switch (toPrint->type)
     {
     case E_ARGUMENT:
     {
         struct VariableEntry *theArgument = toPrint->entry;
-        fprintf(outFile, "> Argument: ");
-        variable_entry_print(theArgument, outFile, depth);
-        for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
+        fprintf(outFile, "> Argument: %s", toPrint->name);
+        print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, "\n");
+
+        variable_entry_print(theArgument, outFile, depth + 1);
+        for (size_t depthPrint = 0; depthPrint < depth + 1; depthPrint++)
         {
             fprintf(outFile, "\t");
         }
-        fprintf(outFile, "  - Stack offset: %zd\n", theArgument->stackOffset);
+        fprintf(outFile, "Stack offset: %zd\n", theArgument->stackOffset);
     }
     break;
 
     case E_VARIABLE:
     {
         struct VariableEntry *theVariable = toPrint->entry;
-        fprintf(outFile, "> ");
-        variable_entry_print(theVariable, outFile, depth);
+        fprintf(outFile, "> Variable %s", toPrint->name);
+        print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, "\n");
+
+        variable_entry_print(theVariable, outFile, depth + 1);
     }
     break;
 
     case E_TYPE:
     {
         struct TypeEntry *theType = toPrint->entry;
+        fprintf(outFile, "> Type %s\n", toPrint->name);
+        print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, "\n");
         type_entry_print(theType, printTac, depth + 1, outFile);
     }
-
     break;
 
     case E_FUNCTION:
@@ -359,9 +369,9 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         {
             fprintf(outFile, "> Function ");
         }
-        char *signature = sprint_function_signature(theFunction);
-        fprintf(outFile, "%s (defined: %d)\n", signature, theFunction->isDefined);
-        free(signature);
+        fprintf(outFile, "%s", toPrint->name);
+        print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, "\n");
         function_entry_print(theFunction, printTac, depth + 1, outFile);
     }
     break;
