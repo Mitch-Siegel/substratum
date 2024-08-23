@@ -68,7 +68,7 @@ struct TypeEntry *type_entry_new(struct Scope *parentScope,
     wipType->permutation = permutation;
     wipType->type = type;
     wipType->traits = set_new(NULL, trait_entry_compare);
-    wipType->implementedByName = hash_table_new(free, NULL, (ssize_t(*)(void *, void *))strcmp, hash_string, 10);
+    wipType->implementedByName = hash_table_new(NULL, NULL, (ssize_t(*)(void *, void *))strcmp, hash_string, 10);
 
     wipType->name = type_get_name(&type);
     char *typeImplementedScopeName = malloc(strlen(wipType->name) + 13);

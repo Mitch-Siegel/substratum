@@ -203,9 +203,21 @@ void struct_check_field_access(struct StructDesc *theStruct,
 // assuming we know that struct has a field with name identical to name, make sure we can actually access it
 void struct_check_access_by_name(struct StructDesc *theStruct,
                                  char *name,
-                                 struct Scope *scope,
+                                 struct Scope *accessedFromScope,
                                  char *whatAccessingCalled)
 {
+    // if the scope from which we are accessing:
+    // 1. is a function scope
+    // 2. the function is implemented for the struct
+    // 3. the struct is the same as the one we are accessing
+    // always allow access because private access is allowed
+    if ((accessedFromScope->parentFunction->implementedFor != NULL) &&
+        (accessedFromScope->parentFunction->implementedFor->permutation == TP_STRUCT) &&
+        (struct_desc_compare(theStruct, accessedFromScope->parentFunction->implementedFor->data.asStruct) == 0))
+    {
+        return;
+    }
+
     struct ScopeMember *accessed = scope_lookup(theStruct->members, name, E_VARIABLE);
 
     switch (accessed->accessibility)
@@ -216,7 +228,7 @@ void struct_check_access_by_name(struct StructDesc *theStruct,
 
     case A_PRIVATE:
     {
-        struct Scope *checkedScope = scope;
+        struct Scope *checkedScope = accessedFromScope;
         // check if the scope at which we are accessing is a subscope of (or identical to) the struct's scope
         do
         {
