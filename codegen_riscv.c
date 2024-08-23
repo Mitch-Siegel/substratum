@@ -1334,7 +1334,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
     case TT_METHOD_CALL:
     {
-        struct TypeEntry *calledOnType = scope_lookup_type(metadata->scope, tac_operand_get_type(&generate->operands.methodCall.calledOn));
+        struct TypeEntry *calledOnType = scope_lookup_type_remove_pointer(metadata->scope, tac_operand_get_type(&generate->operands.methodCall.calledOn));
 
         struct Ast dummyAst = generate->correspondingTree;
         dummyAst.value = generate->operands.methodCall.methodName;
@@ -1358,7 +1358,6 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         {
             emit_instruction(generate, state, "\tcall %s_%s@plt\n", fullStructName, generate->operands.methodCall.methodName);
         }
-        free(fullStructName);
 
         if ((generate->operands.methodCall.returnValue.permutation != VP_UNUSED) && !type_is_object(&calledMethod->returnType))
         {

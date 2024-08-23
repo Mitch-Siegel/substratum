@@ -55,6 +55,7 @@ size_t hash_generic_params_list(void *paramsListData)
     return hash;
 }
 
+extern struct Dictionary *parseDict;
 struct TypeEntry *type_entry_new(struct Scope *parentScope,
                                  enum TYPE_PERMUTATION permutation,
                                  struct Type type,
@@ -70,7 +71,10 @@ struct TypeEntry *type_entry_new(struct Scope *parentScope,
     wipType->implementedByName = hash_table_new(free, NULL, (ssize_t(*)(void *, void *))strcmp, hash_string, 10);
 
     wipType->name = type_get_name(&type);
-    wipType->implemented = scope_new(parentScope, wipType->name, NULL, NULL);
+    char *typeImplementedScopeName = malloc(strlen(wipType->name) + 13);
+    sprintf(typeImplementedScopeName, "%s_implemented", wipType->name);
+    wipType->implemented = scope_new(parentScope, dictionary_lookup_or_insert(parseDict, typeImplementedScopeName), NULL, NULL);
+    free(typeImplementedScopeName);
 
     if ((genericParamNames != NULL) && (genericType != G_BASE))
     {
@@ -211,7 +215,8 @@ void type_entry_add_implemented(struct TypeEntry *entry, struct FunctionEntry *i
         function_entry_print(implemented, false, 0, stderr);
     }
 
-    scope_insert(entry->parentScope, implemented->name, implemented, E_FUNCTION, accessibility);
+    scope_insert(entry->implemented, implemented->name, implemented, E_FUNCTION, accessibility);
+    hash_table_insert(entry->implementedByName, implemented->name, implemented);
 }
 
 void type_entry_add_trait(struct TypeEntry *entry, struct TraitEntry *trait)
@@ -308,24 +313,20 @@ struct FunctionEntry *type_entry_lookup_method(struct TypeEntry *typeEntry,
                                                struct Ast *nameTree,
                                                struct Scope *scope)
 {
-    struct FunctionEntry *returnedMethod = NULL;
-
-    HashTableEntry *lookedUp = hash_table_find(typeEntry->implementedByName, nameTree->value);
-    struct FunctionEntry *associatedFunction = lookedUp->value;
-
-    if (associatedFunction == NULL)
+    struct FunctionEntry *method = hash_table_find(typeEntry->implementedByName, nameTree->value);
+    if (method == NULL)
     {
         log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent method %s.%s\n", typeEntry->name, nameTree->value);
     }
 
     type_entry_check_implemented_access(typeEntry, nameTree, scope, "Method");
 
-    if (returnedMethod->isMethod)
+    if (!method->isMethod)
     {
         log_tree(LOG_FATAL, nameTree, "Attempt to call associated function %s::%s as an method!\n", typeEntry->name, nameTree->value);
     }
 
-    return returnedMethod;
+    return method;
 }
 
 struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *typeEntry,

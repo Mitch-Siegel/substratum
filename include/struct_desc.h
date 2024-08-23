@@ -52,17 +52,6 @@ struct StructField *struct_lookup_field_by_name(struct StructDesc *theStruct,
                                                 char *name,
                                                 struct Scope *scope);
 
-struct FunctionEntry *struct_looup_method(struct StructDesc *theStruct,
-                                          struct Ast *name,
-                                          struct Scope *scope);
-
-// TODO: char *name vs AST *name (change to AST *nameTree?)
-struct FunctionEntry *struct_lookup_method_by_string(struct StructDesc *theStruct,
-                                                     char *name);
-
-struct FunctionEntry *struct_lookup_associated_function_by_string(struct StructDesc *theStruct,
-                                                                  char *name);
-
 char *struct_name(struct StructDesc *theStruct);
 
 void struct_desc_print(struct StructDesc *theStruct, size_t depth, FILE *outFile);

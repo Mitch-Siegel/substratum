@@ -963,3 +963,10 @@ struct TypeEntry *scope_lookup_type(struct Scope *scope, struct Type *type)
 
     return lookedUp;
 }
+
+struct TypeEntry *scope_lookup_type_remove_pointer(struct Scope *scope, struct Type *type)
+{
+    struct Type typeToLookup = *type;
+    typeToLookup.pointerLevel = 0;
+    return scope_lookup_type(scope, &typeToLookup);
+}

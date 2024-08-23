@@ -61,6 +61,7 @@ void struct_add_field(struct StructDesc *memberOf,
 
 void scope_resolve_capital_self(struct Scope *scope, struct TypeEntry *theType)
 {
+    log(LOG_DEBUG, "Resolving capital self for scope %s", scope->name);
     Iterator *entryIter = NULL;
     for (entryIter = set_begin(scope->entries); iterator_gettable(entryIter); iterator_next(entryIter))
     {
@@ -78,6 +79,7 @@ void scope_resolve_capital_self(struct Scope *scope, struct TypeEntry *theType)
 
         case E_FUNCTION:
         {
+            log(LOG_DEBUG, "Resolving capital self for function %s", member->name);
             struct FunctionEntry *function = member->entry;
             type_try_resolve_vt_self(&function->returnType, theType);
             scope_resolve_capital_self(function->mainScope, theType);
@@ -114,19 +116,6 @@ void scope_resolve_capital_self(struct Scope *scope, struct TypeEntry *theType)
 void type_entry_resolve_capital_self(struct TypeEntry *typeEntry)
 {
     log(LOG_DEBUG, "Resolving capital self for type %s", typeEntry->name);
-    switch (typeEntry->permutation)
-    {
-    case TP_PRIMITIVE:
-        break;
-
-    case TP_STRUCT:
-        // type_entry_resolve_generics(typeEntry, typeEntry->generic.base.paramNames, typeEntry->generic.base.paramNames);
-        struct_assign_offsets_to_fields(typeEntry->data.asStruct);
-        break;
-
-    case TP_ENUM:
-        break;
-    }
     scope_resolve_capital_self(typeEntry->implemented, typeEntry);
 }
 

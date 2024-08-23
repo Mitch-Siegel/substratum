@@ -171,6 +171,8 @@ struct TypeEntry *scope_lookup_struct_by_name_tree(struct Scope *scope, struct A
 
 struct TypeEntry *scope_lookup_type(struct Scope *scope, struct Type *type);
 
+struct TypeEntry *scope_lookup_type_remove_pointer(struct Scope *scope, struct Type *type);
+
 void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone);
 
 void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams);
