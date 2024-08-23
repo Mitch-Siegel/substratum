@@ -248,7 +248,7 @@ struct TypeEntry *struct_type_entry_clone_generic_base_as_instance(struct TypeEn
 
     struct StructDesc *clonedStruct = struct_desc_clone(toClone->data.asStruct, name);
 
-    struct TypeEntry *clonedTypeEntry = type_entry_new_struct(name, toClone->parentScope, G_INSTANCE, toClone->generic.base.paramNames);
+    struct TypeEntry *clonedTypeEntry = type_entry_new_struct(name, toClone->parentScope, G_INSTANCE, NULL);
     clonedTypeEntry->data.asStruct = clonedStruct;
 
     return clonedTypeEntry;

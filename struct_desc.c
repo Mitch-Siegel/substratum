@@ -38,7 +38,7 @@ struct StructDesc *struct_desc_clone(struct StructDesc *toClone, char *name)
         struct StructField *field = iterator_get(fieldIter);
 
         // TODO: rework accessibility to just be sets for public/private members instead of the hokey "structs have scopes" thing
-        struct ScopeMember *accessed = scope_lookup(cloned->members, field->variable->name, E_VARIABLE);
+        struct ScopeMember *accessed = scope_lookup(toClone->members, field->variable->name, E_VARIABLE);
 
         struct_add_field(cloned, variable_entry_new(field->variable->name, &field->variable->type, field->variable->isGlobal, false, accessed->accessibility));
     }

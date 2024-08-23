@@ -966,7 +966,7 @@ void walk_generic(struct Ast *tree,
         struct TypeEntry *implementedTypeEntry = scope_lookup_type(scope, &implementedType);
         compare_generic_params(genericParamsTree, genericParams, implementedTypeEntry->generic.instance.parameters, "struct", implementedTypeEntry->name);
 
-        struct Ast *implementationRunner = genericThing->child;
+        struct Ast *implementationRunner = genericThing->child->sibling;
         while (implementationRunner != NULL)
         {
             walk_implementation(implementationRunner, implementedTypeEntry);

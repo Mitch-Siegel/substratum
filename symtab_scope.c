@@ -913,6 +913,7 @@ struct TypeEntry *scope_lookup_struct_by_name_tree(struct Scope *scope, struct A
     {
     case E_TYPE:
         lookedUpType = lookedUp->entry;
+        break;
 
     default:
         log_tree(LOG_FATAL, nameTree, "scope_lookup_type_by_name for %s lookup got a non-type ScopeMember!", nameTree->value);
