@@ -525,10 +525,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
     }
     else
     {
-        if (!forImpl)
-        {
-            scope_insert(scope, functionNameTree->value, parsedFunc, E_FUNCTION, accessibility);
-        }
+        scope_insert(scope, functionNameTree->value, parsedFunc, E_FUNCTION, accessibility);
         returnedFunc = parsedFunc;
     }
 
@@ -581,7 +578,7 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
         argumentRunner = argumentRunner->sibling;
     }
 
-    if (!forImpl && (existingFunc != NULL))
+    if (existingFunc != NULL)
     {
         if (function_entry_compare(existingFunc, parsedFunc))
         {
@@ -660,7 +657,7 @@ void walk_method(struct Ast *tree,
         log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_method!", token_get_name(tree->type));
     }
 
-    struct FunctionEntry *walkedMethod = walk_function_declaration(tree, implementedFor->parentScope, implementedFor, accessibility, true);
+    struct FunctionEntry *walkedMethod = walk_function_declaration(tree, implementedFor->implemented, implementedFor, accessibility, true);
     type_entry_add_implemented(implementedFor, walkedMethod, accessibility);
 
     if (walkedMethod->arguments->size > 0)
@@ -3101,32 +3098,32 @@ void walk_method_call(struct Ast *tree,
     struct Ast *structTree = tree->child->child;
     struct Ast *callTree = tree->child->child->sibling;
 
-    struct TACOperand *structOperand = malloc(sizeof(struct TACOperand));
+    struct TACOperand *calledOnOperand = malloc(sizeof(struct TACOperand));
 
     switch (structTree->type)
     {
         // if we have struct.field.method() make sure we convert the struct.field load to an LEA
     case T_DOT:
     {
-        struct TACLine *fieldAccessLine = walk_field_access(structTree, block, scope, tacIndex, tempNum, structOperand, 0);
-        convert_field_load_to_lea(fieldAccessLine, structOperand);
+        struct TACLine *fieldAccessLine = walk_field_access(structTree, block, scope, tacIndex, tempNum, calledOnOperand, 0);
+        convert_field_load_to_lea(fieldAccessLine, calledOnOperand);
     }
     break;
 
     default:
     {
-        walk_sub_expression(structTree, block, scope, tacIndex, tempNum, structOperand);
-        struct Type *structType = tac_operand_get_type(structOperand);
+        walk_sub_expression(structTree, block, scope, tacIndex, tempNum, calledOnOperand);
+        struct Type *structType = tac_operand_get_type(calledOnOperand);
         if ((structType->basicType != VT_STRUCT) && (structType->basicType != VT_SELF))
         {
-            char *nonStructType = type_get_name(tac_operand_get_type(structOperand));
+            char *nonStructType = type_get_name(tac_operand_get_type(calledOnOperand));
             log_tree(LOG_FATAL, structTree, "Attempt to call method %s on non-struct type %s", callTree->child->value, nonStructType);
         }
     }
     break;
     }
 
-    struct FunctionEntry *calledFunction = type_entry_lookup_implemented(scope_lookup_type(scope, tac_operand_get_type(structOperand)), scope, callTree->child);
+    struct FunctionEntry *calledFunction = type_entry_lookup_implemented(scope_lookup_type_remove_pointer(scope, tac_operand_get_type(calledOnOperand)), scope, callTree->child);
 
     check_function_return_use(tree, destinationOperand, calledFunction);
 
@@ -3138,19 +3135,19 @@ void walk_method_call(struct Ast *tree,
                                                  tempNum,
                                                  destinationOperand);
 
-    if (tac_operand_get_type(structOperand)->basicType == VT_ARRAY)
+    if (tac_operand_get_type(calledOnOperand)->basicType == VT_ARRAY)
     {
-        char *nonDottableType = type_get_name(tac_operand_get_type(structOperand));
+        char *nonDottableType = type_get_name(tac_operand_get_type(calledOnOperand));
         log_tree(LOG_FATAL, callTree, "Attempt to call method %s on non-dottable type %s", calledFunction->name, nonDottableType);
     }
 
     // if struct we are calling method on is not indirect, automagically insert an intermediate address-of
-    if (tac_operand_get_type(structOperand)->pointerLevel == 0)
+    if (tac_operand_get_type(calledOnOperand)->pointerLevel == 0)
     {
-        *structOperand = *get_addr_of_operand(tree, block, scope, tacIndex, tempNum, structOperand);
+        *calledOnOperand = *get_addr_of_operand(tree, block, scope, tacIndex, tempNum, calledOnOperand);
     }
 
-    deque_push_front(argumentPushes, structOperand);
+    deque_push_front(argumentPushes, calledOnOperand);
 
     bool haveStructReturn = handle_struct_return(tree, calledFunction, block, scope, tacIndex, tempNum, argumentPushes, destinationOperand);
 
@@ -3160,7 +3157,7 @@ void walk_method_call(struct Ast *tree,
         tac_operand_populate_as_temp(scope, destinationOperand, tempNum, &calledFunction->returnType);
         callLine->operands.methodCall.returnValue = *destinationOperand;
     }
-    callLine->operands.methodCall.calledOn = *structOperand;
+    callLine->operands.methodCall.calledOn = *calledOnOperand;
     callLine->operands.methodCall.methodName = calledFunction->name;
     callLine->operands.methodCall.arguments = argumentPushes;
 

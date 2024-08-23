@@ -207,15 +207,6 @@ void type_entry_check_implemented_access(struct TypeEntry *theType,
 
 void type_entry_add_implemented(struct TypeEntry *entry, struct FunctionEntry *implemented, enum ACCESS accessibility)
 {
-    struct ScopeMember *existing = scope_lookup(entry->implemented, implemented->name, E_FUNCTION);
-    if (existing != NULL)
-    {
-        char *signature = sprint_function_signature(implemented);
-        InternalError("Type %s already implements %s!", entry->name, signature);
-        function_entry_print(implemented, false, 0, stderr);
-    }
-
-    scope_insert(entry->implemented, implemented->name, implemented, E_FUNCTION, accessibility);
     hash_table_insert(entry->implementedByName, implemented->name, implemented);
 }
 
@@ -237,7 +228,7 @@ struct FunctionEntry *type_entry_lookup_implemented(struct TypeEntry *typeEntry,
     struct ScopeMember *implementedMember = scope_lookup(typeEntry->implemented, nameTree->value, E_FUNCTION);
     if (implementedMember == NULL)
     {
-        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent implemented function %s %s of type %s", nameTree->value, typeEntry->name);
+        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent implemented function %s of type %s", nameTree->value, typeEntry->name);
     }
 
     struct FunctionEntry *implementedFunction = implementedMember->entry;

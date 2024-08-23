@@ -68,7 +68,9 @@ void scope_insert(struct Scope *scope,
                   enum SCOPE_MEMBER_TYPE type,
                   enum ACCESS accessibility);
 
-void scope_check_access();
+void scope_remove(struct Scope *scope,
+                  char *name,
+                  enum SCOPE_MEMBER_TYPE type);
 
 struct Scope *scope_create_sub_scope(struct Scope *scope);
 

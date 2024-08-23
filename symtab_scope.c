@@ -96,6 +96,14 @@ void scope_insert(struct Scope *scope, char *name, void *newEntry, enum SCOPE_ME
     set_insert(scope->entries, wipMember);
 }
 
+void scope_remove(struct Scope *scope, char *name, enum SCOPE_MEMBER_TYPE type)
+{
+    struct ScopeMember dummyMember = {0};
+    dummyMember.name = name;
+    dummyMember.type = type;
+    set_remove(scope->entries, &dummyMember);
+}
+
 // create and return a child scope of the scope provided as an argument
 struct Scope *scope_create_sub_scope(struct Scope *parent_scope)
 {
