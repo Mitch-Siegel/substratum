@@ -47,9 +47,9 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
 void walk_function_definition(struct Ast *tree,
                               struct FunctionEntry *fun);
 
-void walk_method(struct Ast *tree,
-                 struct TypeEntry *implementedFor,
-                 enum ACCESS accessibility);
+void walk_implemented_function(struct Ast *tree,
+                               struct TypeEntry *implementedFor,
+                               enum ACCESS accessibility);
 
 void walk_implementation_block(struct Ast *tree, struct Scope *scope);
 

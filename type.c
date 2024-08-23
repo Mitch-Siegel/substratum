@@ -708,6 +708,11 @@ size_t scope_compute_padding_for_alignment(struct Scope *scope, struct Type *ali
 
 void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
 {
+    if (typeEntry->genericType == G_BASE)
+    {
+        InternalError("type_try_resolve_vt_self called with a type entry which is a generic base type!");
+    }
+
     if (type->basicType == VT_SELF)
     {
         type->basicType = VT_STRUCT;

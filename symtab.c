@@ -351,7 +351,7 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
     case E_TYPE:
     {
         struct TypeEntry *theType = toPrint->entry;
-        fprintf(outFile, "> Type %s\n", toPrint->name);
+        fprintf(outFile, "> Type %s ", toPrint->name);
         print_accessibility(toPrint->accessibility, outFile);
         fprintf(outFile, "\n");
         type_entry_print(theType, printTac, depth + 1, outFile);

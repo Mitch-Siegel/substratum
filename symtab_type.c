@@ -239,6 +239,30 @@ struct FunctionEntry *type_entry_lookup_implemented(struct TypeEntry *typeEntry,
     return implementedFunction;
 }
 
+void try_resolve_generic_for_type(struct Type *type, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
+{
+    char *typeName = type_get_name(type);
+    free(typeName);
+
+    if (type->basicType == VT_GENERIC_PARAM)
+    {
+        struct Type *resolvedToType = hash_table_find(paramsMap, type->nonArray.complexType.name);
+        if (resolvedToType == NULL)
+        {
+            InternalError("Couldn't resolve actual type for generic parameter of name %s", type_get_name(type));
+        }
+        *type = *resolvedToType;
+    }
+    else if (type->basicType == VT_ARRAY)
+    {
+        try_resolve_generic_for_type(type->array.type, paramsMap, resolvedStructName, resolvedParams);
+    }
+    else if ((type->basicType == VT_STRUCT) && (!strcmp(type->nonArray.complexType.name, resolvedStructName)))
+    {
+        type->nonArray.complexType.genericParams = resolvedParams;
+    }
+}
+
 struct TypeEntry *struct_type_entry_clone_generic_base_as_instance(struct TypeEntry *toClone, char *name)
 {
     if ((toClone->genericType != G_BASE) || (toClone->permutation != TP_STRUCT))
@@ -250,6 +274,17 @@ struct TypeEntry *struct_type_entry_clone_generic_base_as_instance(struct TypeEn
 
     struct TypeEntry *clonedTypeEntry = type_entry_new_struct(name, toClone->parentScope, G_INSTANCE, NULL);
     clonedTypeEntry->data.asStruct = clonedStruct;
+
+    scope_clone_to(clonedTypeEntry->implemented, toClone->implemented);
+
+    Iterator *implementedIter = NULL;
+    for (implementedIter = hash_table_begin(toClone->implementedByName); iterator_gettable(implementedIter); iterator_next(implementedIter))
+    {
+        HashTableEntry *implementedEntry = iterator_get(implementedIter);
+        struct ScopeMember *implementedMember = implementedEntry->value;
+        type_entry_add_implemented(clonedTypeEntry, scope_lookup(clonedTypeEntry->implemented, implementedEntry->key, E_FUNCTION)->entry, implementedMember->accessibility);
+    }
+    iterator_free(implementedIter);
 
     return clonedTypeEntry;
 }
@@ -265,6 +300,16 @@ struct TypeEntry *enum_type_entry_clone_generic_base_as_instance(struct TypeEntr
 
     struct TypeEntry *clonedTypeEntry = type_entry_new_enum(name, toClone->parentScope, G_INSTANCE, toClone->generic.base.paramNames);
     clonedTypeEntry->data.asEnum = clonedEnum;
+
+    scope_clone_to(clonedTypeEntry->implemented, toClone->implemented);
+    Iterator *implementedIter = NULL;
+    for (implementedIter = hash_table_begin(toClone->implementedByName); iterator_gettable(implementedIter); iterator_next(implementedIter))
+    {
+        HashTableEntry *implementedEntry = iterator_get(implementedIter);
+        struct ScopeMember *implementedMember = implementedEntry->value;
+        type_entry_add_implemented(clonedTypeEntry, scope_lookup(clonedTypeEntry->implemented, implementedEntry->key, E_FUNCTION)->entry, implementedMember->accessibility);
+    }
+    iterator_free(implementedIter);
 
     return clonedTypeEntry;
 }
@@ -325,10 +370,7 @@ struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *ty
                                                             struct Ast *nameTree,
                                                             struct Scope *scope)
 {
-    struct FunctionEntry *returnedAssociated = NULL;
-
-    HashTableEntry *lookedUp = hash_table_find(typeEntry->implementedByName, nameTree->value);
-    struct FunctionEntry *associatedFunction = lookedUp->value;
+    struct FunctionEntry *associatedFunction = hash_table_find(typeEntry->implementedByName, nameTree->value);
 
     if (associatedFunction == NULL)
     {
@@ -337,12 +379,12 @@ struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *ty
 
     type_entry_check_implemented_access(typeEntry, nameTree, scope, "Associated function");
 
-    if (returnedAssociated->isMethod)
+    if (associatedFunction->isMethod)
     {
         log_tree(LOG_FATAL, nameTree, "Attempt to call method %s.%s as an associated function!\n", typeEntry->name, nameTree->value);
     }
 
-    return returnedAssociated;
+    return associatedFunction;
 }
 
 void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, List *paramTypes)
@@ -391,7 +433,11 @@ void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, L
         break;
     }
 
+    scope_resolve_generics(instance->implemented, paramsMap, instance->name, paramTypes);
+
     hash_table_free(paramsMap);
+
+    type_entry_resolve_capital_self(instance);
 }
 
 extern struct Dictionary *parseDict;
@@ -503,32 +549,47 @@ void type_entry_print(struct TypeEntry *theType, bool printTac, size_t depth, FI
         }
         fprintf(outFile, "  - Size: %zu bytes\n", type_get_size(&theType->type, theType->parentScope));
     }
+
+    for (size_t j = 0; j < depth; j++)
+    {
+        fprintf(outFile, "\t");
+    }
     switch (theType->permutation)
     {
     case TP_PRIMITIVE:
-        fprintf(outFile, "Primitive type %s\n", theType->name);
+        fprintf(outFile, "Primitive type %s", theType->name);
         break;
 
     case TP_STRUCT:
-        fprintf(outFile, "Struct type %s\n", theType->name);
+        fprintf(outFile, "Struct type %s", theType->name);
         break;
 
     case TP_ENUM:
-        fprintf(outFile, "Enum type %s\n", theType->name);
+        fprintf(outFile, "Enum type %s", theType->name);
         break;
     }
 
-    if (theType->genericType == G_BASE)
+    switch (theType->genericType)
+    {
+    case G_NONE:
+        fprintf(outFile, "\n");
+        break;
+
+    case G_BASE:
     {
         char *paramNames = sprint_generic_param_names(theType->generic.base.paramNames);
         fprintf(outFile, "<%s> (Generic Base)\n", paramNames);
         free(paramNames);
     }
-    else if (theType->genericType == G_INSTANCE)
+    break;
+
+    case G_INSTANCE:
     {
         char *paramTypes = sprint_generic_params(theType->generic.instance.parameters);
-        fprintf(outFile, "<%s> (Generic Instance)", paramTypes);
+        fprintf(outFile, "<%s> (Generic Instance)\n", paramTypes);
         free(paramTypes);
+    }
+    break;
     }
 
     switch (theType->permutation)
@@ -538,11 +599,11 @@ void type_entry_print(struct TypeEntry *theType, bool printTac, size_t depth, FI
         break;
 
     case TP_STRUCT:
-        struct_desc_print(theType->data.asStruct, depth, outFile);
+        struct_desc_print(theType->data.asStruct, depth + 1, outFile);
         break;
 
     case TP_ENUM:
-        enum_desc_print(theType->data.asEnum, depth, outFile);
+        enum_desc_print(theType->data.asEnum, depth + 1, outFile);
         break;
     }
 
@@ -571,4 +632,21 @@ void type_entry_print(struct TypeEntry *theType, bool printTac, size_t depth, FI
     fprintf(outFile, "%zu implemented functions:\n", theType->implemented->entries->size);
 
     scope_print(theType->implemented, outFile, depth + 1, printTac);
+
+    if (theType->genericType == G_BASE)
+    {
+        for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
+        {
+            fprintf(outFile, "\t");
+        }
+        fprintf(outFile, "%zu instances\n", theType->generic.base.instances->size);
+        Iterator *instanceIter = NULL;
+        for (instanceIter = hash_table_begin(theType->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
+        {
+            HashTableEntry *instanceEntry = iterator_get(instanceIter);
+            struct TypeEntry *instance = instanceEntry->value;
+            type_entry_print(instance, false, depth + 2, outFile);
+        }
+        iterator_free(instanceIter);
+    }
 }

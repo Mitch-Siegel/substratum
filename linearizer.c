@@ -646,15 +646,15 @@ void walk_function_definition(struct Ast *tree,
     scope_add_basic_block(fun->mainScope, exitBlock);
 }
 
-void walk_method(struct Ast *tree,
-                 struct TypeEntry *implementedFor,
-                 enum ACCESS accessibility)
+void walk_implemented_function(struct Ast *tree,
+                               struct TypeEntry *implementedFor,
+                               enum ACCESS accessibility)
 {
-    log(LOG_DEBUG, "walk_method", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+    log(LOG_DEBUG, "walk_implemented_function", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
     if (tree->type != T_FUN)
     {
-        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_method!", token_get_name(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_implemented_function!", token_get_name(tree->type));
     }
 
     struct FunctionEntry *walkedMethod = walk_function_declaration(tree, implementedFor->implemented, implementedFor, accessibility, true);
@@ -687,11 +687,11 @@ void walk_implementation(struct Ast *tree, struct TypeEntry *implementedFor)
     switch (tree->type)
     {
     case T_FUN:
-        walk_method(tree, implementedFor, A_PRIVATE);
+        walk_implemented_function(tree, implementedFor, A_PRIVATE);
         break;
 
     case T_PUBLIC:
-        walk_method(tree->child, implementedFor, A_PUBLIC);
+        walk_implemented_function(tree->child, implementedFor, A_PUBLIC);
         break;
 
     default:
@@ -776,11 +776,11 @@ void walk_trait_impl(struct Ast *tree, struct Scope *scope)
         switch (traitBodyRunner->type)
         {
         case T_FUN:
-            walk_method(traitBodyRunner, implementedFor, A_PUBLIC);
+            walk_implemented_function(traitBodyRunner, implementedFor, A_PUBLIC);
             break;
 
         case T_PUBLIC:
-            walk_method(traitBodyRunner->child, implementedFor, A_PUBLIC);
+            walk_implemented_function(traitBodyRunner->child, implementedFor, A_PUBLIC);
             break;
 
         default:

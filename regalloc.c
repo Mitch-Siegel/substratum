@@ -569,12 +569,11 @@ void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)
 
 void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info);
 
-void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info)
+void allocate_registers_for_type_non_generic(struct TypeEntry *theType, struct MachineInfo *info)
 {
     Iterator *implementedIter = NULL;
     for (implementedIter = set_begin(theType->implemented->entries); iterator_gettable(implementedIter); iterator_next(implementedIter))
     {
-
         struct ScopeMember *entry = iterator_get(implementedIter);
         if (entry->type != E_FUNCTION)
         {
@@ -587,6 +586,41 @@ void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *
         }
     }
     iterator_free(implementedIter);
+}
+
+void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info)
+{
+    switch (theType->genericType)
+    {
+    case G_NONE:
+        log(LOG_WARNING, "Allocate registers for type %s", theType->name);
+        allocate_registers_for_type_non_generic(theType, info);
+        break;
+
+    case G_BASE:
+    {
+        log(LOG_WARNING, "Allocate registers for type %s (generic base)", theType->name);
+        Iterator *instanceIter = NULL;
+        for (instanceIter = hash_table_begin(theType->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
+        {
+            HashTableEntry *instanceEntry = iterator_get(instanceIter);
+            struct TypeEntry *thisInstance = instanceEntry->value;
+            allocate_registers_for_type(thisInstance, info);
+        }
+        iterator_free(instanceIter);
+    }
+    break;
+
+    case G_INSTANCE:
+    {
+        char *paramTypeNames = sprint_generic_params(theType->generic.instance.parameters);
+        log(LOG_WARNING, "Allocate registers for type %s::<%s>", theType->name, paramTypeNames);
+        free(paramTypeNames);
+
+        allocate_registers_for_type_non_generic(theType, info);
+    }
+    break;
+    }
 }
 
 void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)

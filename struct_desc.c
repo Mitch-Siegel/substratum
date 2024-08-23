@@ -332,5 +332,11 @@ void struct_desc_print(struct StructDesc *theStruct, size_t depth, FILE *outFile
 
 void struct_desc_resolve_generics(struct StructDesc *theStruct, HashTable *paramsMap, char *name, List *params)
 {
-    InternalError("struct_desc_resolve_generics not implemnted yet!");
+    Iterator *fieldIter = NULL;
+    for (fieldIter = deque_front(theStruct->fieldLocations); iterator_gettable(fieldIter); iterator_next(fieldIter))
+    {
+        struct StructField *field = iterator_get(fieldIter);
+        try_resolve_generic_for_type(&field->variable->type, paramsMap, name, params);
+    }
+    iterator_free(fieldIter);
 }

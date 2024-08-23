@@ -672,7 +672,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
 
         if (type_compare_allow_implicit_widening(tac_operand_get_type(argOperand), &argument->type))
         {
-            InternalError("Type mismatch during internal argument store handling for argument %s of function %s", argument->name, calledFunction->name);
+            InternalError("Type mismatch during internal argument store handling for argument %s of function %s\nExpected type %s, got type %s", argument->name, calledFunction->name, type_get_name(tac_operand_get_type(argOperand)), type_get_name(&calledFunction->returnType));
         }
 
         struct Lifetime *argLifetime = lifetime_find_by_name(calledFunction->regalloc.allLifetimes, argument->name);

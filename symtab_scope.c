@@ -591,6 +591,7 @@ struct FunctionEntry *function_entry_clone(struct FunctionEntry *toClone, struct
     cloned->isAsmFun = toClone->isAsmFun;
     cloned->isDefined = toClone->isDefined;
     cloned->isMethod = toClone->isMethod;
+    cloned->implementedFor = cloneTo->implementedFor;
 
     scope_clone_to(cloned->mainScope, toClone->mainScope);
 
@@ -714,7 +715,9 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
         case E_SCOPE:
         {
             struct Scope *clonedScope = memberToClone->entry;
-            entry = scope_new(clonedTo, clonedScope->name, clonedTo->parentFunction, clonedTo->implementedFor);
+            struct Scope *clonedSubScope = scope_new(clonedTo, clonedScope->name, clonedTo->parentFunction, clonedTo->implementedFor);
+            clonedSubScope->implementedFor = clonedScope->implementedFor;
+            entry = clonedSubScope;
             scope_clone_to(entry, clonedScope);
         }
         break;
@@ -777,30 +780,6 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
     //
     // }
     // break;
-}
-
-void try_resolve_generic_for_type(struct Type *type, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
-{
-    char *typeName = type_get_name(type);
-    free(typeName);
-
-    if (type->basicType == VT_GENERIC_PARAM)
-    {
-        struct Type *resolvedToType = hash_table_find(paramsMap, type->nonArray.complexType.name);
-        if (resolvedToType == NULL)
-        {
-            InternalError("Couldn't resolve actual type for generic parameter of name %s", type_get_name(type));
-        }
-        *type = *resolvedToType;
-    }
-    else if (type->basicType == VT_ARRAY)
-    {
-        try_resolve_generic_for_type(type->array.type, paramsMap, resolvedStructName, resolvedParams);
-    }
-    else if ((type->basicType == VT_STRUCT) && (!strcmp(type->nonArray.complexType.name, resolvedStructName)))
-    {
-        type->nonArray.complexType.genericParams = resolvedParams;
-    }
 }
 
 void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)

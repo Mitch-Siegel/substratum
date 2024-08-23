@@ -150,6 +150,8 @@ char *sprint_function_signature(struct FunctionEntry *function)
     if (function->returnType.basicType != VT_NULL)
     {
         funcName = type_get_name(&function->returnType);
+        funcName = realloc(funcName, strlen(funcName) + 2);
+        strcat(funcName, " ");
     }
     else
     {
