@@ -73,7 +73,7 @@ struct TypeEntry *type_entry_new(struct Scope *parentScope,
     wipType->name = type_get_name(&type);
     char *typeImplementedScopeName = malloc(strlen(wipType->name) + 13);
     sprintf(typeImplementedScopeName, "%s_implemented", wipType->name);
-    wipType->implemented = scope_new(parentScope, dictionary_lookup_or_insert(parseDict, typeImplementedScopeName), NULL, NULL);
+    wipType->implemented = scope_new(parentScope, dictionary_lookup_or_insert(parseDict, typeImplementedScopeName), NULL, wipType);
     free(typeImplementedScopeName);
 
     if ((genericParamNames != NULL) && (genericType != G_BASE))
@@ -108,6 +108,7 @@ struct TypeEntry *type_entry_new_struct(char *name, struct Scope *parentScope, e
     type_set_basic_type(&structType, VT_STRUCT, name, 0);
     struct TypeEntry *wipStruct = type_entry_new(parentScope, TP_STRUCT, structType, genericType, genericParamNames);
     wipStruct->data.asStruct = struct_desc_new(parentScope, name);
+    wipStruct->data.asStruct->members->implementedFor = wipStruct; // TODO: directly reference this in the struct_desc_new function?
     return wipStruct;
 }
 

@@ -177,7 +177,7 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
         while (scope != NULL)
         {
             if ((scope->implementedFor != NULL) &&
-                (scope->parentScope != scope->implementedFor->parentScope) &&
+                (scope->parentScope == scope->implementedFor->parentScope) &&
                 (scope->implementedFor->genericType == G_BASE) &&
                 (list_find(scope->implementedFor->generic.base.paramNames, tree->value) != NULL))
             {
