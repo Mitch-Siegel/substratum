@@ -1372,8 +1372,6 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     case TT_ASSOCIATED_CALL:
     {
         struct TypeEntry *associatedWith = scope_lookup_type(metadata->scope, &generate->operands.associatedCall.associatedWith);
-        printf("TT_ASSOCIATED_CALL with %s:%d\n", type_entry_name(associatedWith), associatedWith->genericType);
-        type_entry_print(associatedWith, 0, 0, stderr);
         struct Ast dummyAst = {0};
         dummyAst = generate->correspondingTree;
         dummyAst.value = generate->operands.associatedCall.functionName;

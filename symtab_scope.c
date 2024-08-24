@@ -439,6 +439,9 @@ struct StructDesc *scope_lookup_struct_by_type(struct Scope *scope,
                               sprint_generic_params(lookedUpType->generic.instance.parameters),
                               sprint_generic_params(type->nonArray.complexType.genericParams));
             }
+
+            iterator_free(expectedIter);
+            iterator_free(actualIter);
         }
     }
 

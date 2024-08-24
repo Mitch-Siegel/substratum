@@ -86,7 +86,7 @@ struct TypeEntry *type_entry_new(struct Scope *parentScope,
 
     if (genericType == G_BASE)
     {
-        wipType->generic.base.instances = hash_table_new((void (*)(void *))list_free, (void (*)(void *))struct_desc_free, compare_generic_params_lists, hash_generic_params_list, 100);
+        wipType->generic.base.instances = hash_table_new((void (*)(void *))list_free, (void (*)(void *))type_entry_free, compare_generic_params_lists, hash_generic_params_list, 100);
     }
 
     return wipType;
@@ -278,6 +278,7 @@ struct TypeEntry *struct_type_entry_clone_generic_base_as_instance(struct TypeEn
     struct StructDesc *clonedStruct = struct_desc_clone(toClone->data.asStruct, name);
 
     struct TypeEntry *clonedTypeEntry = type_entry_new_struct(name, toClone->parentScope, G_INSTANCE, NULL);
+    struct_desc_free(clonedTypeEntry->data.asStruct);
     clonedTypeEntry->data.asStruct = clonedStruct;
 
     scope_clone_to(clonedTypeEntry->implemented, toClone->implemented, clonedTypeEntry);
@@ -304,6 +305,7 @@ struct TypeEntry *enum_type_entry_clone_generic_base_as_instance(struct TypeEntr
     struct EnumDesc *clonedEnum = enum_desc_clone(toClone->data.asEnum, name);
 
     struct TypeEntry *clonedTypeEntry = type_entry_new_enum(name, toClone->parentScope, G_INSTANCE, toClone->generic.base.paramNames);
+    enum_desc_free(clonedTypeEntry->data.asEnum);
     clonedTypeEntry->data.asEnum = clonedEnum;
 
     scope_clone_to(clonedTypeEntry->implemented, toClone->implemented, clonedTypeEntry);
@@ -370,13 +372,6 @@ struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *ty
                                                             struct Ast *nameTree,
                                                             struct Scope *scope)
 {
-    printf("type_entry_lookup_associated_function %s", typeEntry->baseName);
-    if (typeEntry->genericType == G_INSTANCE)
-    {
-        printf("<%s>", sprint_generic_params(typeEntry->generic.instance.parameters));
-    }
-    printf("\n");
-
     struct FunctionEntry *associatedFunction = hash_table_find(typeEntry->implementedByName, nameTree->value);
 
     if (associatedFunction == NULL)

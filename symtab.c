@@ -373,7 +373,6 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         }
         fprintf(outFile, "%s", toPrint->name);
         print_accessibility(toPrint->accessibility, outFile);
-        fprintf(outFile, " implemented for: %p (%s)", theFunction->implementedFor, type_entry_name(theFunction->implementedFor));
         fprintf(outFile, "\n");
         function_entry_print(theFunction, printTac, depth + 1, outFile);
     }

@@ -40,7 +40,10 @@ struct StructDesc *struct_desc_clone(struct StructDesc *toClone, char *name)
         // TODO: rework accessibility to just be sets for public/private members instead of the hokey "structs have scopes" thing
         struct ScopeMember *accessed = scope_lookup(toClone->members, field->variable->name, E_VARIABLE);
 
-        struct_add_field(cloned, variable_entry_new(field->variable->name, &field->variable->type, field->variable->isGlobal, false, accessed->accessibility));
+        struct Type dupVarType = type_duplicate_non_pointer(&field->variable->type);
+        struct VariableEntry *clonedVariable = variable_entry_new(field->variable->name, &dupVarType, field->variable->isGlobal, false, accessed->accessibility);
+        scope_insert(cloned->members, clonedVariable->name, clonedVariable, E_VARIABLE, accessed->accessibility);
+        struct_add_field(cloned, clonedVariable);
     }
     iterator_free(fieldIter);
 
@@ -342,4 +345,6 @@ void struct_desc_resolve_generics(struct StructDesc *theStruct, HashTable *param
         try_resolve_generic_for_type(&field->variable->type, paramsMap, name, params);
     }
     iterator_free(fieldIter);
+
+    struct_assign_offsets_to_fields(theStruct);
 }
