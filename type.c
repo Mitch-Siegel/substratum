@@ -478,6 +478,12 @@ char *type_get_name(struct Type *type)
 
     case VT_ENUM:
         len = sprintf(typeName, "%s", type->nonArray.complexType.name);
+        if (type->nonArray.complexType.genericParams != NULL)
+        {
+            char *paramTypes = sprint_generic_params(type->nonArray.complexType.genericParams);
+            len += sprintf(typeName + len, "%s", paramTypes);
+            free(paramTypes);
+        }
         break;
 
     case VT_ARRAY:
@@ -716,7 +722,7 @@ void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
     if (type->basicType == VT_SELF)
     {
         type->basicType = VT_STRUCT;
-        type->nonArray.complexType.name = typeEntry->name;
+        type->nonArray.complexType.name = typeEntry->baseName;
         if (typeEntry->genericType == G_INSTANCE)
         {
             type->nonArray.complexType.genericParams = typeEntry->generic.instance.parameters;

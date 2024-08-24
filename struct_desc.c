@@ -13,7 +13,7 @@ struct StructDesc *struct_desc_new(struct Scope *parentScope,
     struct StructDesc *wipStruct = malloc(sizeof(struct StructDesc));
     wipStruct->name = name;
 
-    wipStruct->members = scope_new(parentScope, name, NULL, NULL);
+    wipStruct->members = scope_new(parentScope, name, NULL);
     wipStruct->fieldLocations = deque_new(free);
     wipStruct->totalSize = 0;
 
@@ -115,7 +115,10 @@ void scope_resolve_capital_self(struct Scope *scope, struct TypeEntry *theType)
 
 void type_entry_resolve_capital_self(struct TypeEntry *typeEntry)
 {
-    log(LOG_DEBUG, "Resolving capital self for type %s", typeEntry->name);
+    char *typeName = type_entry_name(typeEntry);
+    log(LOG_DEBUG, "Resolving capital self for type %s", typeName);
+    free(typeName);
+
     scope_resolve_capital_self(typeEntry->implemented, typeEntry);
 }
 

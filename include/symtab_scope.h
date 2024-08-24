@@ -43,7 +43,6 @@ struct Scope
 {
     struct Scope *parentScope;
     struct FunctionEntry *parentFunction;
-    struct TypeEntry *implementedFor;
     Set *entries;
     u8 subScopeCount;
     char *name; // duplicate pointer from ScopeMember for ease of use
@@ -52,8 +51,7 @@ struct Scope
 // scope functions
 struct Scope *scope_new(struct Scope *parentScope,
                         char *name,
-                        struct FunctionEntry *parentFunction,
-                        struct TypeEntry *parentImpl);
+                        struct FunctionEntry *parentFunction);
 
 void scope_free(struct Scope *scope);
 
@@ -175,7 +173,7 @@ struct TypeEntry *scope_lookup_type(struct Scope *scope, struct Type *type);
 
 struct TypeEntry *scope_lookup_type_remove_pointer(struct Scope *scope, struct Type *type);
 
-void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone);
+void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone, struct TypeEntry *newImplementedFor);
 
 void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams);
 

@@ -16,7 +16,7 @@ struct SymbolTable *symbol_table_new(char *name)
 {
     struct SymbolTable *wip = malloc(sizeof(struct SymbolTable));
     wip->name = name;
-    wip->globalScope = scope_new(NULL, "Global", NULL, NULL);
+    wip->globalScope = scope_new(NULL, "Global", NULL);
     struct BasicBlock *globalBlock = basic_block_new(0);
 
     // manually insert a basic block for global code so we can give it the custom name of "globalblock"
@@ -77,9 +77,9 @@ void scope_print_cfgs(struct Scope *scope, char *outDir)
         case E_TYPE:
         {
             struct TypeEntry *thisType = thisMember->entry;
-            char *typeCfgDirName = malloc(strlen(outDir) + strlen(thisType->name) + 3);
+            char *typeCfgDirName = malloc(strlen(outDir) + strlen(thisType->baseName) + 3);
 
-            sprintf(typeCfgDirName, "%s/%s", outDir, thisType->name);
+            sprintf(typeCfgDirName, "%s/%s", outDir, thisType->baseName);
             Iterator *implementedIter = NULL;
             for (implementedIter = hash_table_begin(thisType->implementedByName); iterator_gettable(implementedIter); iterator_next(implementedIter))
             {
@@ -319,6 +319,8 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         fprintf(outFile, "\t");
     }
 
+    fprintf(outFile, "%p:", toPrint);
+
     switch (toPrint->type)
     {
     case E_ARGUMENT:
@@ -363,7 +365,7 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         struct FunctionEntry *theFunction = toPrint->entry;
         if (theFunction->implementedFor != NULL)
         {
-            fprintf(outFile, "> Method %s.", theFunction->implementedFor->name);
+            fprintf(outFile, "> Method %s.", theFunction->implementedFor->baseName);
         }
         else
         {
@@ -371,6 +373,7 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         }
         fprintf(outFile, "%s", toPrint->name);
         print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, " implemented for: %p (%s)", theFunction->implementedFor, type_entry_name(theFunction->implementedFor));
         fprintf(outFile, "\n");
         function_entry_print(theFunction, printTac, depth + 1, outFile);
     }

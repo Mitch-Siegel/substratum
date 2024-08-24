@@ -62,14 +62,13 @@ void scope_member_free(struct ScopeMember *member)
  * Scope functions
  *
  */
-struct Scope *scope_new(struct Scope *parentScope, char *name, struct FunctionEntry *parentFunction, struct TypeEntry *implOf)
+struct Scope *scope_new(struct Scope *parentScope, char *name, struct FunctionEntry *parentFunction)
 {
     struct Scope *wip = malloc(sizeof(struct Scope));
     wip->entries = set_new((void (*)(void *))scope_member_free, (ssize_t(*)(void *, void *))scope_member_compare);
 
     wip->parentScope = parentScope;
     wip->parentFunction = parentFunction;
-    wip->implementedFor = implOf;
     wip->name = name;
     wip->subScopeCount = 0;
     return wip;
@@ -117,7 +116,7 @@ struct Scope *scope_create_sub_scope(struct Scope *parent_scope)
     free(helpStr);
     parent_scope->subScopeCount++;
 
-    struct Scope *newScope = scope_new(parent_scope, newScopeName, parent_scope->parentFunction, parent_scope->implementedFor);
+    struct Scope *newScope = scope_new(parent_scope, newScopeName, parent_scope->parentFunction);
 
     scope_insert(parent_scope, newScopeName, newScope, E_SCOPE, A_PUBLIC);
     return newScope;
@@ -368,17 +367,17 @@ struct StructDesc *scope_lookup_struct_by_type(struct Scope *scope,
 {
     if (type->basicType == VT_SELF)
     {
-        if (scope->implementedFor == NULL)
+        if ((scope->parentFunction == NULL) || (scope->parentFunction->implementedFor == NULL))
         {
-            InternalError("Use of 'Self' outside of struct context!");
+            InternalError("Use of 'Self' outside of impl context!");
         }
 
-        if (scope->implementedFor->permutation != TP_STRUCT)
+        if (scope->parentFunction->implementedFor->permutation != TP_STRUCT)
         {
-            InternalError("Non-struct type %s of current scope->implementedFor seen in scope_lookup_struct_by_type!", scope->implementedFor->name);
+            InternalError("Non-struct type %s of current scope->implementedFor seen in scope_lookup_struct_by_type!", type_entry_name(scope->parentFunction->implementedFor));
         }
 
-        return scope->implementedFor->data.asStruct;
+        return scope->parentFunction->implementedFor->data.asStruct;
     }
 
     if (type->basicType != VT_STRUCT || type->nonArray.complexType.name == NULL)
@@ -417,7 +416,29 @@ struct StructDesc *scope_lookup_struct_by_type(struct Scope *scope,
     case G_INSTANCE:
         if (type->nonArray.complexType.genericParams != NULL)
         {
-            InternalError("Struct type %s which is already a generic instance used with generic parameters!", type->nonArray.complexType.name);
+
+            Iterator *expectedIter = list_begin(lookedUpType->generic.instance.parameters);
+            Iterator *actualIter = list_begin(type->nonArray.complexType.genericParams);
+            bool paramMismatch = false;
+            while (iterator_gettable(expectedIter) && iterator_gettable(actualIter))
+            {
+                struct Type *expectedParam = iterator_get(expectedIter);
+                struct Type *actualParam = iterator_get(actualIter);
+                if (type_compare(expectedParam, actualParam))
+                {
+                    paramMismatch = true;
+                }
+
+                iterator_next(expectedIter);
+                iterator_next(actualIter);
+            }
+
+            if (paramMismatch || iterator_gettable(expectedIter) || iterator_gettable(actualIter))
+            {
+                InternalError("Mismatch in generic params for type %s - saw %s, expected %s", type_get_name(type),
+                              sprint_generic_params(lookedUpType->generic.instance.parameters),
+                              sprint_generic_params(type->nonArray.complexType.genericParams));
+            }
         }
     }
 
@@ -582,18 +603,17 @@ struct BasicBlock *scope_lookup_block_by_number(struct Scope *scope, size_t labe
 }
 
 // TODO: better param names than toClone and cloneTo. seriously.
-struct FunctionEntry *function_entry_clone(struct FunctionEntry *toClone, struct Scope *cloneTo)
+struct FunctionEntry *function_entry_clone(struct FunctionEntry *toClone, struct Scope *cloneTo, struct TypeEntry *newImplementedFor)
 {
     log(LOG_DEBUG, "function_entry_clone: %s", toClone->name);
-    struct FunctionEntry *cloned = function_entry_new(cloneTo, &toClone->correspondingTree, cloneTo->implementedFor);
+    struct FunctionEntry *cloned = function_entry_new(cloneTo, &toClone->correspondingTree, newImplementedFor);
     cloned->returnType = type_duplicate_non_pointer(&toClone->returnType);
     cloned->callsOtherFunction = toClone->callsOtherFunction;
     cloned->isAsmFun = toClone->isAsmFun;
     cloned->isDefined = toClone->isDefined;
     cloned->isMethod = toClone->isMethod;
-    cloned->implementedFor = cloneTo->implementedFor;
 
-    scope_clone_to(cloned->mainScope, toClone->mainScope);
+    scope_clone_to(cloned->mainScope, toClone->mainScope, newImplementedFor);
 
     log(LOG_DEBUG, "initialize arguments list for clone of function %s", toClone->name);
     Iterator *argIter = NULL;
@@ -678,6 +698,11 @@ struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *c
         deque_free(operandUsages.reads);
         deque_free(operandUsages.writes);
 
+        if (clonedLine->operation == TT_ASSOCIATED_CALL)
+        {
+            clonedLine->operands.associatedCall.associatedWith = clonedTo->parentFunction->implementedFor->type;
+        }
+
         size_t tacIndex = lineToClone->index;
         basic_block_append(clone, clonedLine, &tacIndex);
     }
@@ -686,7 +711,7 @@ struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *c
     return clone;
 }
 
-void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
+void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone, struct TypeEntry *newImplementedFor)
 {
     log(LOG_DEBUG, "scope_clone_to %s<-%s", clonedTo->name, toClone->name);
     Iterator *memberIterator = NULL;
@@ -715,10 +740,9 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
         case E_SCOPE:
         {
             struct Scope *clonedScope = memberToClone->entry;
-            struct Scope *clonedSubScope = scope_new(clonedTo, clonedScope->name, clonedTo->parentFunction, clonedTo->implementedFor);
-            clonedSubScope->implementedFor = clonedScope->implementedFor;
+            struct Scope *clonedSubScope = scope_new(clonedTo, clonedScope->name, clonedTo->parentFunction);
             entry = clonedSubScope;
-            scope_clone_to(entry, clonedScope);
+            scope_clone_to(entry, clonedScope, newImplementedFor);
         }
         break;
 
@@ -745,7 +769,7 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone)
         case E_FUNCTION:
         {
             struct FunctionEntry *clonedFunction = memberToClone->entry;
-            entry = function_entry_clone(clonedFunction, clonedTo);
+            entry = function_entry_clone(clonedFunction, clonedTo, newImplementedFor);
         }
         break;
 
@@ -938,15 +962,35 @@ struct TypeEntry *scope_lookup_type(struct Scope *scope, struct Type *type)
             InternalError("Use of undeclared type '%s'", type->nonArray.complexType.name);
         }
         lookedUp = lookedUpEntry->entry;
+
+        if ((type->nonArray.complexType.genericParams != NULL))
+        {
+            switch (lookedUp->genericType)
+            {
+            case G_BASE:
+            {
+                lookedUp = type_entry_get_or_create_generic_instantiation(lookedUp, type->nonArray.complexType.genericParams);
+            }
+            break;
+
+            case G_INSTANCE:
+                InternalError("Complex type with generic params %s return non-generic type", sprint_generic_params(type->nonArray.complexType.genericParams));
+                break;
+
+            case G_NONE:
+                InternalError("Complex type with generic params %s return non-generic type", sprint_generic_params(type->nonArray.complexType.genericParams));
+                break;
+            }
+        }
     }
     break;
 
     case VT_SELF:
-        if (scope->implementedFor == NULL)
+        if ((scope->parentFunction == NULL) || (scope->parentFunction->implementedFor == NULL))
         {
-            InternalError("Use of 'Self' outside of struct context!");
+            InternalError("Use of 'Self' outside of impl context!");
         }
-        lookedUp = scope->implementedFor;
+        lookedUp = scope->parentFunction->implementedFor;
     }
 
     return lookedUp;

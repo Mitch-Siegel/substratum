@@ -1346,7 +1346,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         riscv_emit_argument_stores(state, metadata, info, calledMethod, generate->operands.methodCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
 
-        char *fullStructName = calledOnType->name;
+        char *fullStructName = calledOnType->baseName;
 
         // TODO: member function name mangling/uniqueness
         if (calledMethod->isDefined)
@@ -1372,6 +1372,8 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     case TT_ASSOCIATED_CALL:
     {
         struct TypeEntry *associatedWith = scope_lookup_type(metadata->scope, &generate->operands.associatedCall.associatedWith);
+        printf("TT_ASSOCIATED_CALL with %s:%d\n", type_entry_name(associatedWith), associatedWith->genericType);
+        type_entry_print(associatedWith, 0, 0, stderr);
         struct Ast dummyAst = {0};
         dummyAst = generate->correspondingTree;
         dummyAst.value = generate->operands.associatedCall.functionName;
@@ -1383,7 +1385,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         riscv_emit_argument_stores(state, metadata, info, calledAssociated, generate->operands.associatedCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
 
-        char *fullStructName = associatedWith->name;
+        char *fullStructName = associatedWith->baseName;
 
         // TODO: associated function name mangling/uniqueness
         if (calledAssociated->isDefined)
@@ -1394,7 +1396,6 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         {
             emit_instruction(generate, state, "\tcall %s_%s@plt\n", fullStructName, generate->operands.associatedCall.functionName);
         }
-        free(fullStructName);
 
         if ((generate->operands.associatedCall.returnValue.permutation != VP_UNUSED) && !type_is_object(&calledAssociated->returnType))
         {

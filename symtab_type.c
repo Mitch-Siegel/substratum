@@ -70,10 +70,10 @@ struct TypeEntry *type_entry_new(struct Scope *parentScope,
     wipType->traits = set_new(NULL, trait_entry_compare);
     wipType->implementedByName = hash_table_new(NULL, NULL, (ssize_t(*)(void *, void *))strcmp, hash_string, 10);
 
-    wipType->name = type_get_name(&type);
-    char *typeImplementedScopeName = malloc(strlen(wipType->name) + 13);
-    sprintf(typeImplementedScopeName, "%s_implemented", wipType->name);
-    wipType->implemented = scope_new(parentScope, dictionary_lookup_or_insert(parseDict, typeImplementedScopeName), NULL, wipType);
+    wipType->baseName = type_get_name(&type);
+    char *typeImplementedScopeName = malloc(strlen(wipType->baseName) + 13);
+    sprintf(typeImplementedScopeName, "%s_implemented", wipType->baseName);
+    wipType->implemented = scope_new(parentScope, dictionary_lookup_or_insert(parseDict, typeImplementedScopeName), NULL);
     free(typeImplementedScopeName);
 
     if ((genericParamNames != NULL) && (genericType != G_BASE))
@@ -108,7 +108,6 @@ struct TypeEntry *type_entry_new_struct(char *name, struct Scope *parentScope, e
     type_set_basic_type(&structType, VT_STRUCT, name, 0);
     struct TypeEntry *wipStruct = type_entry_new(parentScope, TP_STRUCT, structType, genericType, genericParamNames);
     wipStruct->data.asStruct = struct_desc_new(parentScope, name);
-    wipStruct->data.asStruct->members->implementedFor = wipStruct; // TODO: directly reference this in the struct_desc_new function?
     return wipStruct;
 }
 
@@ -127,7 +126,7 @@ void type_entry_free(struct TypeEntry *entry)
     set_free(entry->traits);
     scope_free(entry->implemented);
     hash_table_free(entry->implementedByName);
-    free(entry->name);
+    free(entry->baseName);
 
     switch (entry->permutation)
     {
@@ -158,6 +157,12 @@ void type_entry_free(struct TypeEntry *entry)
     free(entry);
 }
 
+char *type_entry_name(struct TypeEntry *entry)
+{
+    char *name = type_get_name(&entry->type);
+    return name;
+}
+
 void type_entry_check_implemented_access(struct TypeEntry *theType,
                                          struct Ast *nameTree,
                                          struct Scope *accessedFromScope,
@@ -178,7 +183,7 @@ void type_entry_check_implemented_access(struct TypeEntry *theType,
     struct ScopeMember *accessed = scope_lookup(theType->implemented, nameTree->value, E_FUNCTION);
     if (accessed == NULL)
     {
-        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent %s %s of type %s", whatAccessingCalled, nameTree->value, theType->name);
+        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent %s %s of type %s", whatAccessingCalled, nameTree->value, theType->baseName);
     }
 
     switch (accessed->accessibility)
@@ -200,7 +205,7 @@ void type_entry_check_implemented_access(struct TypeEntry *theType,
 
         if (accessedFromScope == NULL)
         {
-            log_tree(LOG_FATAL, nameTree, "%s %s of %s has access specifier private - not accessible from this scope!", whatAccessingCalled, nameTree->value, theType->name);
+            log_tree(LOG_FATAL, nameTree, "%s %s of %s has access specifier private - not accessible from this scope!", whatAccessingCalled, nameTree->value, theType->baseName);
         }
         break;
     }
@@ -229,7 +234,7 @@ struct FunctionEntry *type_entry_lookup_implemented(struct TypeEntry *typeEntry,
     struct ScopeMember *implementedMember = scope_lookup(typeEntry->implemented, nameTree->value, E_FUNCTION);
     if (implementedMember == NULL)
     {
-        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent implemented function %s of type %s", nameTree->value, typeEntry->name);
+        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent implemented function %s of type %s", nameTree->value, typeEntry->baseName);
     }
 
     struct FunctionEntry *implementedFunction = implementedMember->entry;
@@ -267,7 +272,7 @@ struct TypeEntry *struct_type_entry_clone_generic_base_as_instance(struct TypeEn
 {
     if ((toClone->genericType != G_BASE) || (toClone->permutation != TP_STRUCT))
     {
-        InternalError("Attempt to clone non-base or non-struct %s for struct instance creation", toClone->name);
+        InternalError("Attempt to clone non-base or non-struct %s for struct instance creation", toClone->baseName);
     }
 
     struct StructDesc *clonedStruct = struct_desc_clone(toClone->data.asStruct, name);
@@ -275,7 +280,7 @@ struct TypeEntry *struct_type_entry_clone_generic_base_as_instance(struct TypeEn
     struct TypeEntry *clonedTypeEntry = type_entry_new_struct(name, toClone->parentScope, G_INSTANCE, NULL);
     clonedTypeEntry->data.asStruct = clonedStruct;
 
-    scope_clone_to(clonedTypeEntry->implemented, toClone->implemented);
+    scope_clone_to(clonedTypeEntry->implemented, toClone->implemented, clonedTypeEntry);
 
     Iterator *implementedIter = NULL;
     for (implementedIter = hash_table_begin(toClone->implementedByName); iterator_gettable(implementedIter); iterator_next(implementedIter))
@@ -293,7 +298,7 @@ struct TypeEntry *enum_type_entry_clone_generic_base_as_instance(struct TypeEntr
 {
     if ((toClone->genericType != G_BASE) || (toClone->permutation != TP_ENUM))
     {
-        InternalError("Attempt to clone non-base or non-enum %s for enum instance creation", toClone->name);
+        InternalError("Attempt to clone non-base or non-enum %s for enum instance creation", toClone->baseName);
     }
 
     struct EnumDesc *clonedEnum = enum_desc_clone(toClone->data.asEnum, name);
@@ -301,7 +306,7 @@ struct TypeEntry *enum_type_entry_clone_generic_base_as_instance(struct TypeEntr
     struct TypeEntry *clonedTypeEntry = type_entry_new_enum(name, toClone->parentScope, G_INSTANCE, toClone->generic.base.paramNames);
     clonedTypeEntry->data.asEnum = clonedEnum;
 
-    scope_clone_to(clonedTypeEntry->implemented, toClone->implemented);
+    scope_clone_to(clonedTypeEntry->implemented, toClone->implemented, clonedTypeEntry);
     Iterator *implementedIter = NULL;
     for (implementedIter = hash_table_begin(toClone->implementedByName); iterator_gettable(implementedIter); iterator_next(implementedIter))
     {
@@ -318,7 +323,7 @@ struct TypeEntry *type_entry_clone_generic_base_as_instance(struct TypeEntry *to
 {
     if (toClone->genericType != G_BASE)
     {
-        InternalError("Attempt to clone non-base generic struct %s for instance creation", toClone->name);
+        InternalError("Attempt to clone non-base generic struct %s for instance creation", toClone->baseName);
     }
 
     struct TypeEntry *clonedTypeEntry = NULL;
@@ -326,7 +331,7 @@ struct TypeEntry *type_entry_clone_generic_base_as_instance(struct TypeEntry *to
     switch (toClone->permutation)
     {
     case TP_PRIMITIVE:
-        InternalError("Attempt to clone primitive type %s as generic instance", toClone->name);
+        InternalError("Attempt to clone primitive type %s as generic instance", toClone->baseName);
         break;
 
     case TP_STRUCT:
@@ -341,11 +346,6 @@ struct TypeEntry *type_entry_clone_generic_base_as_instance(struct TypeEntry *to
     return clonedTypeEntry;
 }
 
-void type_resolve_capital_self(struct TypeEntry *theType)
-{
-    InternalError("type_resolve_capital_self not yet implemented");
-}
-
 struct FunctionEntry *type_entry_lookup_method(struct TypeEntry *typeEntry,
                                                struct Ast *nameTree,
                                                struct Scope *scope)
@@ -353,14 +353,14 @@ struct FunctionEntry *type_entry_lookup_method(struct TypeEntry *typeEntry,
     struct FunctionEntry *method = hash_table_find(typeEntry->implementedByName, nameTree->value);
     if (method == NULL)
     {
-        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent method %s.%s\n", typeEntry->name, nameTree->value);
+        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent method %s.%s\n", typeEntry->baseName, nameTree->value);
     }
 
     type_entry_check_implemented_access(typeEntry, nameTree, scope, "Method");
 
     if (!method->isMethod)
     {
-        log_tree(LOG_FATAL, nameTree, "Attempt to call associated function %s::%s as an method!\n", typeEntry->name, nameTree->value);
+        log_tree(LOG_FATAL, nameTree, "Attempt to call associated function %s::%s as an method!\n", typeEntry->baseName, nameTree->value);
     }
 
     return method;
@@ -370,18 +370,25 @@ struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *ty
                                                             struct Ast *nameTree,
                                                             struct Scope *scope)
 {
+    printf("type_entry_lookup_associated_function %s", typeEntry->baseName);
+    if (typeEntry->genericType == G_INSTANCE)
+    {
+        printf("<%s>", sprint_generic_params(typeEntry->generic.instance.parameters));
+    }
+    printf("\n");
+
     struct FunctionEntry *associatedFunction = hash_table_find(typeEntry->implementedByName, nameTree->value);
 
     if (associatedFunction == NULL)
     {
-        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent associated function %s::%s\n", typeEntry->name, nameTree->value);
+        log_tree(LOG_FATAL, nameTree, "Attempt to call nonexistent associated function %s::%s\n", typeEntry->baseName, nameTree->value);
     }
 
     type_entry_check_implemented_access(typeEntry, nameTree, scope, "Associated function");
 
     if (associatedFunction->isMethod)
     {
-        log_tree(LOG_FATAL, nameTree, "Attempt to call method %s.%s as an associated function!\n", typeEntry->name, nameTree->value);
+        log_tree(LOG_FATAL, nameTree, "Attempt to call method %s.%s as an associated function!\n", typeEntry->baseName, nameTree->value);
     }
 
     return associatedFunction;
@@ -391,7 +398,7 @@ void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, L
 {
     if (instance->genericType != G_INSTANCE)
     {
-        InternalError("type_entry_resolve_generics called with non-instance type %s", instance->name);
+        InternalError("type_entry_resolve_generics called with non-instance type %s", instance->baseName);
     }
 
     HashTable *paramsMap = hash_table_new(NULL, NULL, (ssize_t(*)(void *, void *))strcmp, hash_string, paramTypes->size);
@@ -404,7 +411,7 @@ void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, L
         struct Type *paramType = iterator_get(paramTypeIter);
 
         char *paramTypeName = type_get_name(paramType);
-        log(LOG_DEBUG, "Map \"%s\"->%s for resolution of generic %s", paramName, paramTypeName, instance->name);
+        log(LOG_DEBUG, "Map \"%s\"->%s for resolution of generic %s", paramName, paramTypeName, instance->baseName);
         free(paramTypeName);
 
         hash_table_insert(paramsMap, paramName, paramType);
@@ -415,7 +422,7 @@ void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, L
 
     if (iterator_gettable(paramNameIter) != iterator_gettable(paramTypeIter))
     {
-        InternalError("Iteration error when generating mapping from param names to param types for generic resolution of %s", instance->name);
+        InternalError("Iteration error when generating mapping from param names to param types for generic resolution of %s", instance->baseName);
     }
     iterator_free(paramNameIter);
     iterator_free(paramTypeIter);
@@ -423,17 +430,17 @@ void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, L
     switch (instance->permutation)
     {
     case TP_PRIMITIVE:
-        InternalError("Attempt to resolve generics on primitive type %s", instance->name);
+        InternalError("Attempt to resolve generics on primitive type %s", instance->baseName);
         break;
     case TP_STRUCT:
-        struct_desc_resolve_generics(instance->data.asStruct, paramsMap, instance->name, paramTypes);
+        struct_desc_resolve_generics(instance->data.asStruct, paramsMap, instance->baseName, paramTypes);
         break;
     case TP_ENUM:
-        enum_desc_resolve_generics(instance->data.asEnum, paramsMap, instance->name, paramTypes);
+        enum_desc_resolve_generics(instance->data.asEnum, paramsMap, instance->baseName, paramTypes);
         break;
     }
 
-    scope_resolve_generics(instance->implemented, paramsMap, instance->name, paramTypes);
+    scope_resolve_generics(instance->implemented, paramsMap, instance->baseName, paramTypes);
 
     hash_table_free(paramsMap);
 
@@ -445,7 +452,7 @@ struct TypeEntry *type_entry_get_or_create_generic_instantiation(struct TypeEntr
 {
     if (theType->genericType != G_BASE)
     {
-        InternalError("type_entry_get_or_create_generic_instantiation called on non-generic-base type %s", theType->name);
+        InternalError("type_entry_get_or_create_generic_instantiation called on non-generic-base type %s", theType->baseName);
     }
 
     if (paramsList == NULL)
@@ -457,7 +464,7 @@ struct TypeEntry *type_entry_get_or_create_generic_instantiation(struct TypeEntr
     {
         List *expectedParams = theType->generic.base.paramNames;
         char *expectedParamsStr = sprint_generic_param_names(expectedParams);
-        InternalError("generic struct %s<%s> (%zu parameter names) instantiated with %zu params", theType->name, expectedParamsStr, expectedParams->size, paramsList->size);
+        InternalError("generic struct %s<%s> (%zu parameter names) instantiated with %zu params", theType->baseName, expectedParamsStr, expectedParams->size, paramsList->size);
     }
 
     struct TypeEntry *instance = hash_table_find(theType->generic.base.instances, paramsList);
@@ -465,14 +472,17 @@ struct TypeEntry *type_entry_get_or_create_generic_instantiation(struct TypeEntr
     if (instance == NULL)
     {
         char *paramStr = sprint_generic_params(paramsList);
-        log(LOG_DEBUG, "No instance of %s<%s> exists - creating", theType->name, paramStr);
+        log(LOG_DEBUG, "No instance of %s<%s> exists - creating", theType->baseName, paramStr);
         free(paramStr);
 
-        instance = type_entry_clone_generic_base_as_instance(theType, theType->name);
+        instance = type_entry_clone_generic_base_as_instance(theType, theType->baseName);
 
         instance->generic.instance.parameters = paramsList;
+        instance->type.nonArray.complexType.genericParams = paramsList;
 
         type_entry_resolve_generics(instance, theType->generic.base.paramNames, paramsList);
+
+        // type_entry_resolve_capital_self(instance);
 
         hash_table_insert(theType->generic.base.instances, paramsList, instance);
     }
@@ -557,15 +567,15 @@ void type_entry_print(struct TypeEntry *theType, bool printTac, size_t depth, FI
     switch (theType->permutation)
     {
     case TP_PRIMITIVE:
-        fprintf(outFile, "Primitive type %s", theType->name);
+        fprintf(outFile, "Primitive type %s", theType->baseName);
         break;
 
     case TP_STRUCT:
-        fprintf(outFile, "Struct type %s", theType->name);
+        fprintf(outFile, "Struct type %s", theType->baseName);
         break;
 
     case TP_ENUM:
-        fprintf(outFile, "Enum type %s", theType->name);
+        fprintf(outFile, "Enum type %s", theType->baseName);
         break;
     }
 
@@ -595,7 +605,7 @@ void type_entry_print(struct TypeEntry *theType, bool printTac, size_t depth, FI
     switch (theType->permutation)
     {
     case TP_PRIMITIVE:
-        fprintf(outFile, "Primitive type %s\n", theType->name);
+        fprintf(outFile, "Primitive type %s\n", theType->baseName);
         break;
 
     case TP_STRUCT:

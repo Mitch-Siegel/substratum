@@ -69,12 +69,12 @@ void generate_code_for_program(struct SymbolTable *table,
     iterator_free(entryIterator);
 };
 
-void generate_code_for_type(struct CodegenState *globalContext,
-                            struct TypeEntry *theType,
-                            struct MachineInfo *info,
-                            void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
-                            void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
-                            void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
+void generate_code_for_type_non_generic(struct CodegenState *globalContext,
+                                        struct TypeEntry *theType,
+                                        struct MachineInfo *info,
+                                        void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                                        void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                                        void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
     Iterator *implementedIter = NULL;
     for (implementedIter = set_begin(theType->implemented->entries); iterator_gettable(implementedIter); iterator_next(implementedIter))
@@ -88,10 +88,46 @@ void generate_code_for_type(struct CodegenState *globalContext,
         struct FunctionEntry *implementedFunction = entry->entry;
         if (implementedFunction->isDefined)
         {
-            generate_code_for_function(globalContext->outFile, implementedFunction, info, theType->name, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+            generate_code_for_function(globalContext->outFile, implementedFunction, info, theType->baseName, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
         }
     }
     iterator_free(implementedIter);
+}
+
+void generate_code_for_type(struct CodegenState *globalContext,
+                            struct TypeEntry *theType,
+                            struct MachineInfo *info,
+                            void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                            void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                            void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
+{
+    char *typeName = type_entry_name(theType);
+    log(LOG_WARNING, "Allocate registers for type %s", typeName);
+    free(typeName);
+
+    switch (theType->genericType)
+    {
+    case G_NONE:
+        generate_code_for_type_non_generic(globalContext, theType, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+        break;
+
+    case G_BASE:
+    {
+        Iterator *instanceIter = NULL;
+        for (instanceIter = hash_table_begin(theType->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
+        {
+            HashTableEntry *instanceEntry = iterator_get(instanceIter);
+            struct TypeEntry *thisInstance = instanceEntry->value;
+            generate_code_for_type_non_generic(globalContext, thisInstance, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+        }
+        iterator_free(instanceIter);
+    }
+    break;
+
+    case G_INSTANCE:
+        generate_code_for_type_non_generic(globalContext, theType, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+        break;
+    }
 }
 
 void generate_code_for_struct(struct CodegenState *globalContext,

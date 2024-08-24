@@ -222,7 +222,7 @@ int main(int argc, char **argv)
     SymbolTable_print(theTable, stderr, 1);*/
 
     // log(LOG_DEBUG, "Symbol table before linearization/scope collapse:");
-    symbol_table_print(theTable, stderr, 0);
+    // symbol_table_print(theTable, stderr, 0);
 
     log(LOG_INFO, "Collapsing scopes");
 

@@ -590,16 +590,18 @@ void allocate_registers_for_type_non_generic(struct TypeEntry *theType, struct M
 
 void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info)
 {
+    char *typeName = type_entry_name(theType);
+    log(LOG_WARNING, "Allocate registers for type %s", typeName);
+    free(typeName);
+
     switch (theType->genericType)
     {
     case G_NONE:
-        log(LOG_WARNING, "Allocate registers for type %s", theType->name);
         allocate_registers_for_type_non_generic(theType, info);
         break;
 
     case G_BASE:
     {
-        log(LOG_WARNING, "Allocate registers for type %s (generic base)", theType->name);
         Iterator *instanceIter = NULL;
         for (instanceIter = hash_table_begin(theType->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
         {
@@ -612,14 +614,8 @@ void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *
     break;
 
     case G_INSTANCE:
-    {
-        char *paramTypeNames = sprint_generic_params(theType->generic.instance.parameters);
-        log(LOG_WARNING, "Allocate registers for type %s::<%s>", theType->name, paramTypeNames);
-        free(paramTypeNames);
-
         allocate_registers_for_type_non_generic(theType, info);
-    }
-    break;
+        break;
     }
 }
 

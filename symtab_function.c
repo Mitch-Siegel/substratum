@@ -13,7 +13,7 @@ struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *
     struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
     memset(newFunction, 0, sizeof(struct FunctionEntry));
     newFunction->arguments = deque_new(NULL);
-    newFunction->mainScope = scope_new(parentScope, nameTree->value, newFunction, implementedFor);
+    newFunction->mainScope = scope_new(parentScope, nameTree->value, newFunction);
     newFunction->BasicBlockList = list_new(NULL, NULL);
     newFunction->correspondingTree = *nameTree;
     newFunction->mainScope->parentFunction = newFunction;

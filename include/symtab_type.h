@@ -15,7 +15,7 @@ enum TYPE_PERMUTATION
 
 struct TypeEntry
 {
-    char *name;
+    char *baseName;
     enum TYPE_PERMUTATION permutation;
     struct Type type;
     union
@@ -49,6 +49,8 @@ struct TypeEntry *type_entry_new_struct(char *name, struct Scope *parentScope, e
 struct TypeEntry *type_entry_new_enum(char *name, struct Scope *parentScope, enum GENERIC_TYPE genericType, List *genericParamNames);
 
 void type_entry_free(struct TypeEntry *entry);
+
+char *type_entry_name(struct TypeEntry *entry);
 
 void type_entry_check_implemented_access(struct TypeEntry *theType,
                                          struct Ast *nameTree,
