@@ -591,7 +591,7 @@ void allocate_registers_for_type_non_generic(struct TypeEntry *theType, struct M
 void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info)
 {
     char *typeName = type_entry_name(theType);
-    log(LOG_WARNING, "Allocate registers for type %s", typeName);
+    log(LOG_DEBUG, "Allocate registers for type %s", typeName);
     free(typeName);
 
     switch (theType->genericType)

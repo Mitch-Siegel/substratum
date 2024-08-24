@@ -177,14 +177,6 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
     {
         while (scope != NULL)
         {
-            printf("(scope->parentFunction != NULL): %d\n", (scope->parentFunction != NULL));
-            if ((scope->parentFunction != NULL))
-            {
-                printf("(scope->parentFunction->implementedFor != NULL): %d\n", (scope->parentFunction->implementedFor != NULL));
-                printf("(scope->parentScope == scope->parentFunction->implementedFor->parentScope): %d\n", (scope->parentScope == scope->parentFunction->implementedFor->parentScope));
-                printf("(scope->parentFunction->implementedFor->genericType == G_BASE): %d\n", (scope->parentFunction->implementedFor->genericType == G_BASE));
-            }
-
             if (fieldOf == NULL)
             {
 
@@ -324,7 +316,14 @@ struct VariableEntry *walk_variable_declaration(struct Ast *tree,
         log_tree(LOG_FATAL, tree->child, "Malformed AST (%s) seen in declaration!", token_get_name(tree->child->type));
     }
 
-    walk_type_name(tree->child, scope, &declaredType, scope->parentFunction->implementedFor);
+    if (scope->parentFunction == NULL)
+    {
+        walk_type_name(tree->child, scope, &declaredType, NULL);
+    }
+    else
+    {
+        walk_type_name(tree->child, scope, &declaredType, scope->parentFunction->implementedFor);
+    }
 
     struct VariableEntry *declaredVariable = NULL;
 

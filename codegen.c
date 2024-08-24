@@ -102,7 +102,7 @@ void generate_code_for_type(struct CodegenState *globalContext,
                             void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
     char *typeName = type_entry_name(theType);
-    log(LOG_WARNING, "Allocate registers for type %s", typeName);
+    log(LOG_DEBUG, "Generate code for type %s", typeName);
     free(typeName);
 
     switch (theType->genericType)
