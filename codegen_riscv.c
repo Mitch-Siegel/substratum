@@ -672,7 +672,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
 
         if (type_compare_allow_implicit_widening(tac_operand_get_type(argOperand), &argument->type))
         {
-            InternalError("Type mismatch during internal argument store handling for argument %s of function %s", argument->name, calledFunction->name);
+            InternalError("Type mismatch during internal argument store handling for argument %s of function %s\nExpected type %s, got type %s", argument->name, calledFunction->name, type_get_name(tac_operand_get_type(argOperand)), type_get_name(&calledFunction->returnType));
         }
 
         struct Lifetime *argLifetime = lifetime_find_by_name(calledFunction->regalloc.allLifetimes, argument->name);
@@ -933,7 +933,7 @@ void riscv_emit_struct_field_load(struct TACLine *generate, struct CodegenState 
         InternalError("Unknown writeback location for lifetime %s (%s)", loadedFromLt->name, type_get_name(&loadedFromLt->type));
     }
 
-    struct StructEntry *loadedFromStruct = scope_lookup_struct_by_type(metadata->scope, &loadedFromLt->type);
+    struct StructDesc *loadedFromStruct = scope_lookup_struct_by_type_or_pointer(metadata->scope, &loadedFromLt->type);
     struct StructField *loadedField = struct_lookup_field_by_name(loadedFromStruct, fieldLoadOperands->fieldName, metadata->scope);
 
     struct Register *structBaseAddrReg = NULL;
@@ -993,7 +993,7 @@ void riscv_emit_struct_field_lea(struct TACLine *generate, struct CodegenState *
         InternalError("Unknown writeback location for lifetime %s (%s)", loadedFromLt->name, type_get_name(&loadedFromLt->type));
     }
 
-    struct StructEntry *loadedFromStruct = scope_lookup_struct_by_type(metadata->scope, &loadedFromLt->type);
+    struct StructDesc *loadedFromStruct = scope_lookup_struct_by_type_or_pointer(metadata->scope, &loadedFromLt->type);
     struct StructField *loadedField = struct_lookup_field_by_name(loadedFromStruct, fieldLeaOperands->fieldName, metadata->scope);
 
     struct Register *structBaseAddrReg = NULL;
@@ -1042,7 +1042,7 @@ void riscv_emit_struct_field_store(struct TACLine *generate, struct CodegenState
         InternalError("Unknown writeback location for lifetime %s (%s)", storedToLt->name, type_get_name(&storedToLt->type));
     }
 
-    struct StructEntry *storedFromStruct = scope_lookup_struct_by_type(metadata->scope, &storedToLt->type);
+    struct StructDesc *storedFromStruct = scope_lookup_struct_by_type_or_pointer(metadata->scope, &storedToLt->type);
     struct StructField *storedField = struct_lookup_field_by_name(storedFromStruct, fieldStoreOperands->fieldName, metadata->scope);
 
     struct Register *structBaseAddrReg = NULL;
@@ -1334,15 +1334,19 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
 
     case TT_METHOD_CALL:
     {
-        struct StructEntry *methodOf = scope_lookup_struct_by_type(metadata->scope, tac_operand_get_type(&generate->operands.methodCall.calledOn));
-        struct FunctionEntry *calledMethod = struct_lookup_method_by_string(methodOf, generate->operands.methodCall.methodName);
+        struct TypeEntry *calledOnType = scope_lookup_type_remove_pointer(metadata->scope, tac_operand_get_type(&generate->operands.methodCall.calledOn));
+
+        struct Ast dummyAst = generate->correspondingTree;
+        dummyAst.value = generate->operands.methodCall.methodName;
+
+        struct FunctionEntry *calledMethod = type_entry_lookup_method(calledOnType, &dummyAst, metadata->scope);
 
         Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &metadata->function->regalloc, info);
 
         riscv_emit_argument_stores(state, metadata, info, calledMethod, generate->operands.methodCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
 
-        char *fullStructName = struct_name(methodOf);
+        char *fullStructName = calledOnType->baseName;
 
         // TODO: member function name mangling/uniqueness
         if (calledMethod->isDefined)
@@ -1354,7 +1358,6 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         {
             emit_instruction(generate, state, "\tcall %s_%s@plt\n", fullStructName, generate->operands.methodCall.methodName);
         }
-        free(fullStructName);
 
         if ((generate->operands.methodCall.returnValue.permutation != VP_UNUSED) && !type_is_object(&calledMethod->returnType))
         {
@@ -1368,15 +1371,19 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
     // TODO: fix associated calls with generic instances
     case TT_ASSOCIATED_CALL:
     {
-        struct StructEntry *associatedWith = scope_lookup_struct_by_type(metadata->scope, &generate->operands.associatedCall.associatedWith);
-        struct FunctionEntry *calledAssociated = struct_lookup_associated_function_by_string(associatedWith, generate->operands.associatedCall.functionName);
+        struct TypeEntry *associatedWith = scope_lookup_type(metadata->scope, &generate->operands.associatedCall.associatedWith);
+        struct Ast dummyAst = {0};
+        dummyAst = generate->correspondingTree;
+        dummyAst.value = generate->operands.associatedCall.functionName;
+
+        struct FunctionEntry *calledAssociated = type_entry_lookup_associated_function(associatedWith, &dummyAst, metadata->scope);
 
         Set *callerSavedArgLifetimes = riscv_caller_save_registers(state, &metadata->function->regalloc, info);
 
         riscv_emit_argument_stores(state, metadata, info, calledAssociated, generate->operands.associatedCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
 
-        char *fullStructName = struct_name(associatedWith);
+        char *fullStructName = associatedWith->baseName;
 
         // TODO: associated function name mangling/uniqueness
         if (calledAssociated->isDefined)
@@ -1387,7 +1394,6 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         {
             emit_instruction(generate, state, "\tcall %s_%s@plt\n", fullStructName, generate->operands.associatedCall.functionName);
         }
-        free(fullStructName);
 
         if ((generate->operands.associatedCall.returnValue.permutation != VP_UNUSED) && !type_is_object(&calledAssociated->returnType))
         {

@@ -24,6 +24,7 @@ enum TOKEN
     T_U32,
     T_U64,
     T_STRUCT,
+    T_TRAIT,
     // generics
     T_GENERIC,
     T_GENERIC_PARAMETER_NAMES,

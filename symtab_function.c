@@ -6,19 +6,20 @@
 
 #include "symtab_basicblock.h"
 #include "symtab_scope.h"
+#include "symtab_variable.h"
 
-struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct StructEntry *methodOf)
+struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct TypeEntry *implementedFor)
 {
     struct FunctionEntry *newFunction = malloc(sizeof(struct FunctionEntry));
     memset(newFunction, 0, sizeof(struct FunctionEntry));
     newFunction->arguments = deque_new(NULL);
-    newFunction->mainScope = scope_new(parentScope, nameTree->value, newFunction, methodOf);
+    newFunction->mainScope = scope_new(parentScope, nameTree->value, newFunction);
     newFunction->BasicBlockList = list_new(NULL, NULL);
     newFunction->correspondingTree = *nameTree;
     newFunction->mainScope->parentFunction = newFunction;
     type_init(&newFunction->returnType);
     newFunction->name = nameTree->value;
-    newFunction->methodOf = methodOf;
+    newFunction->implementedFor = implementedFor;
     newFunction->isDefined = 0;
     newFunction->isAsmFun = 0;
     newFunction->callsOtherFunction = 0;
@@ -141,4 +142,104 @@ void function_entry_print_cfg(struct FunctionEntry *function, FILE *outFile)
     iterator_free(blockIter);
 
     fprintf(outFile, "}\n");
+}
+
+char *sprint_function_signature(struct FunctionEntry *function)
+{
+    char *funcName = NULL;
+    if (function->returnType.basicType != VT_NULL)
+    {
+        funcName = type_get_name(&function->returnType);
+        funcName = realloc(funcName, strlen(funcName) + 2);
+        strcat(funcName, " ");
+    }
+    else
+    {
+        funcName = strdup("");
+    }
+
+    funcName = realloc(funcName, strlen(funcName) + strlen(function->name) + 2);
+    strcat(funcName, function->name);
+    strcat(funcName, "(");
+
+    for (size_t argIndex = 0; argIndex < function->arguments->size; argIndex++)
+    {
+        if (argIndex > 0)
+        {
+            funcName = realloc(funcName, strlen(funcName) + 3);
+            strcat(funcName, ", ");
+        }
+
+        struct VariableEntry *argument = deque_at(function->arguments, argIndex);
+        char *argType = type_get_name(&argument->type);
+
+        funcName = realloc(funcName, strlen(funcName) + strlen(argType) + strlen(argument->name) + 3);
+        strcat(funcName, argType);
+        strcat(funcName, " ");
+        strcat(funcName, argument->name);
+        free(argType);
+    }
+    funcName = realloc(funcName, strlen(funcName) + 2);
+    strcat(funcName, ")");
+
+    return funcName;
+}
+
+ssize_t function_entry_compare(void *dataA, void *dataB)
+{
+    struct FunctionEntry *funcA = dataA;
+    struct FunctionEntry *funcB = dataB;
+
+    ssize_t diff = strcmp(funcA->name, funcB->name);
+    if (diff != 0)
+    {
+        return diff;
+    }
+
+    // check that if a prototype declaration exists, that our parsed declaration matches it exactly
+    diff = type_compare(&funcA->returnType, &funcB->returnType);
+    if (diff != 0)
+    {
+        return diff;
+    }
+
+    // ensure we have both the same number of bytes of arguments and same number of arguments
+    if (funcA->arguments->size == funcB->arguments->size)
+    {
+        // if we have same number of bytes and same number, ensure everything is exactly the same
+        for (size_t argIndex = 0; argIndex < funcA->arguments->size; argIndex++)
+        {
+            struct VariableEntry *existingArg = deque_at(funcA->arguments, argIndex);
+            struct VariableEntry *parsedArg = deque_at(funcB->arguments, argIndex);
+            // ensure all arguments in order have same name, type, indirection level
+            diff = strcmp(existingArg->name, parsedArg->name);
+            if (!diff)
+            {
+                diff = type_compare(&existingArg->type, &parsedArg->type);
+            }
+
+            if (diff)
+            {
+                break;
+            }
+        }
+    }
+    else
+    {
+        diff = funcA->arguments->size - funcB->arguments->size;
+    }
+
+    return diff;
+}
+
+void function_entry_print(struct FunctionEntry *function, bool printTac, size_t depth, FILE *outFile)
+{
+    for (size_t i = 0; i < depth; i++)
+    {
+        fprintf(outFile, "  ");
+    }
+    char *signature = sprint_function_signature(function);
+    fprintf(outFile, "%s (defined: %d)\n", signature, function->isDefined);
+    free(signature);
+    scope_print(function->mainScope, outFile, depth, printTac);
 }

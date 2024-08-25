@@ -1,5 +1,5 @@
 #include "symtab_basicblock.h"
-#include "symtab_struct.h"
+#include "struct_desc.h"
 
 #include "log.h"
 
@@ -90,7 +90,7 @@ void print_basic_block(struct BasicBlock *block, size_t indentLevel)
     printf("\n");
 }
 
-void basic_block_resolve_capital_self(struct BasicBlock *block, struct StructEntry *theStruct)
+void basic_block_resolve_capital_self(struct BasicBlock *block, struct TypeEntry *typeEntry)
 {
     Iterator *blockIter = NULL;
     for (blockIter = list_begin(block->TACList); iterator_gettable(blockIter); iterator_next(blockIter))
@@ -101,13 +101,13 @@ void basic_block_resolve_capital_self(struct BasicBlock *block, struct StructEnt
         while (operandUsages.reads->size > 0)
         {
             struct TACOperand *readOperand = deque_pop_front(operandUsages.reads);
-            type_try_resolve_vt_self(&readOperand->castAsType, theStruct);
+            type_try_resolve_vt_self(&readOperand->castAsType, typeEntry);
         }
 
         while (operandUsages.writes->size > 0)
         {
             struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
-            type_try_resolve_vt_self(&writtenOperand->castAsType, theStruct);
+            type_try_resolve_vt_self(&writtenOperand->castAsType, typeEntry);
         }
 
         deque_free(operandUsages.reads);

@@ -1,0 +1,29 @@
+#include "tests-common.sb"
+
+trait Printable
+{
+    public fun print(self);
+}
+
+struct Money
+{
+    public u32 dollars;
+    public u8 cents;
+}
+
+impl Printable for Money {
+    public fun print(self)
+    {
+        putc('$');
+        printNum(self.dollars, 0);
+        putc('.');
+        printNum(self.cents, 1);
+    }
+}
+
+fun main() {
+    Money m = {dollars = 456, cents = 123};
+    m.print();
+
+    exit();
+}

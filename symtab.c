@@ -16,7 +16,7 @@ struct SymbolTable *symbol_table_new(char *name)
 {
     struct SymbolTable *wip = malloc(sizeof(struct SymbolTable));
     wip->name = name;
-    wip->globalScope = scope_new(NULL, "Global", NULL, NULL);
+    wip->globalScope = scope_new(NULL, "Global", NULL);
     struct BasicBlock *globalBlock = basic_block_new(0);
 
     // manually insert a basic block for global code so we can give it the custom name of "globalblock"
@@ -74,14 +74,30 @@ void scope_print_cfgs(struct Scope *scope, char *outDir)
         }
         break;
 
-        case E_STRUCT:
+        case E_TYPE:
         {
-            struct StructEntry *thisStruct = thisMember->entry;
-            char *structCfgDirName = malloc(strlen(outDir) + strlen(thisStruct->name) + 3);
+            struct TypeEntry *thisType = thisMember->entry;
+            char *typeCfgDirName = malloc(strlen(outDir) + strlen(thisType->baseName) + 3);
 
-            sprintf(structCfgDirName, "%s/%s", outDir, thisStruct->name);
-            scope_print_cfgs(thisStruct->members, structCfgDirName);
-            free(structCfgDirName);
+            sprintf(typeCfgDirName, "%s/%s", outDir, thisType->baseName);
+            Iterator *implementedIter = NULL;
+            for (implementedIter = hash_table_begin(thisType->implementedByName); iterator_gettable(implementedIter); iterator_next(implementedIter))
+            {
+                HashTableEntry *thisEntry = iterator_get(implementedIter);
+                struct FunctionEntry *implementedFunction = thisEntry->value;
+                char *cfgFileName = malloc(strlen(typeCfgDirName) + strlen(implementedFunction->name) + 7);
+                sprintf(cfgFileName, "%s_%s.dot", typeCfgDirName, implementedFunction->name);
+                FILE *cfgFile = fopen(cfgFileName, "w");
+                if (cfgFile == NULL)
+                {
+                    InternalError("Couldn't open cfg file %s: %s", cfgFileName, strerror(errno));
+                }
+                function_entry_print_cfg(implementedFunction, cfgFile);
+                fclose(cfgFile);
+                free(cfgFileName);
+            }
+            iterator_free(implementedIter);
+            free(typeCfgDirName);
         }
         break;
 
@@ -138,10 +154,10 @@ void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, si
         }
         break;
 
-        case E_STRUCT:
+        case E_TYPE:
         {
-            struct StructEntry *recursedStruct = thisMember->entry;
-            moveToThisScope = set_union_destructive(moveToThisScope, symbol_table_collapse_scopes_rec(recursedStruct->members, dict, 0));
+            struct TypeEntry *recursedType = thisMember->entry;
+            moveToThisScope = set_union_destructive(moveToThisScope, symbol_table_collapse_scopes_rec(recursedType->implemented, dict, 0));
         }
         break;
 
@@ -149,7 +165,7 @@ void scope_lift_from_sub_scopes(struct Scope *scope, struct Dictionary *dict, si
         case E_VARIABLE:
         case E_ARGUMENT:
         case E_BASICBLOCK:
-        case E_ENUM:
+        case E_TRAIT:
             break;
         }
     }
@@ -216,8 +232,8 @@ Set *symbol_table_collapse_scopes_rec(struct Scope *scope, struct Dictionary *di
         }
         break;
 
-        case E_STRUCT:
-        case E_ENUM:
+        case E_TYPE:
+        case E_TRAIT:
             break;
         }
     }
@@ -273,52 +289,26 @@ void symbol_table_free(struct SymbolTable *table)
 
 void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t depth)
 {
+    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
+    {
+        fprintf(outFile, "\t");
+    }
     char *typeName = type_get_name(&variable->type);
     fprintf(outFile, "%s %s\n", typeName, variable->name);
     free(typeName);
 }
 
-void struct_entry_print(struct StructEntry *theStruct, bool printTac, size_t depth, FILE *outFile)
+void print_accessibility(enum ACCESS accessibility, FILE *outFile)
 {
-    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
+    switch (accessibility)
     {
-        fprintf(outFile, "\t");
-    }
+    case A_PRIVATE:
+        fprintf(outFile, " - Private");
+        break;
 
-    fprintf(outFile, "> Struct %s", theStruct->name);
-    if (theStruct->genericType == G_BASE)
-    {
-        char *paramNames = sprint_generic_param_names(theStruct->generic.base.paramNames);
-        fprintf(outFile, "<%s> (Generic Base)\n", paramNames);
-        free(paramNames);
-    }
-    else if (theStruct->genericType == G_INSTANCE)
-    {
-        char *paramTypes = sprint_generic_params(theStruct->generic.instance.parameters);
-        fprintf(outFile, "<%s> (Generic Instance)", paramTypes);
-        free(paramTypes);
-    }
-
-    if (theStruct->genericType != G_BASE)
-    {
-        for (size_t j = 0; j < depth; j++)
-        {
-            fprintf(outFile, "\t");
-        }
-        fprintf(outFile, "  - Size: %zu bytes\n", theStruct->totalSize);
-    }
-    scope_print(theStruct->members, outFile, depth + 1, printTac);
-
-    if (theStruct->genericType == G_BASE)
-    {
-        Iterator *instanceIter = NULL;
-        for (instanceIter = hash_table_begin(theStruct->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
-        {
-            HashTableEntry *instanceEntry = iterator_get(instanceIter);
-            struct StructEntry *instance = instanceEntry->value;
-            struct_entry_print(instance, printTac, depth + 1, outFile);
-        }
-        iterator_free(instanceIter);
+    case A_PUBLIC:
+        fprintf(outFile, " - Public");
+        break;
     }
 }
 
@@ -329,82 +319,62 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         fprintf(outFile, "\t");
     }
 
-    switch (toPrint->accessibility)
-    {
-    case A_PRIVATE:
-        fprintf(outFile, "Private ");
-        break;
-
-    case A_PUBLIC:
-        fprintf(outFile, "Public  ");
-        break;
-    }
+    fprintf(outFile, "%p:", toPrint);
 
     switch (toPrint->type)
     {
     case E_ARGUMENT:
     {
         struct VariableEntry *theArgument = toPrint->entry;
-        fprintf(outFile, "> Argument: ");
-        variable_entry_print(theArgument, outFile, depth);
-        for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
+        fprintf(outFile, "> Argument: %s", toPrint->name);
+        print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, "\n");
+
+        variable_entry_print(theArgument, outFile, depth + 1);
+        for (size_t depthPrint = 0; depthPrint < depth + 1; depthPrint++)
         {
             fprintf(outFile, "\t");
         }
-        fprintf(outFile, "  - Stack offset: %zd\n", theArgument->stackOffset);
+        fprintf(outFile, "Stack offset: %zd\n", theArgument->stackOffset);
     }
     break;
 
     case E_VARIABLE:
     {
         struct VariableEntry *theVariable = toPrint->entry;
-        fprintf(outFile, "> ");
-        variable_entry_print(theVariable, outFile, depth);
+        fprintf(outFile, "> Variable %s", toPrint->name);
+        print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, "\n");
+
+        variable_entry_print(theVariable, outFile, depth + 1);
     }
     break;
 
-    case E_STRUCT:
+    case E_TYPE:
     {
-        struct StructEntry *theStruct = toPrint->entry;
-        struct_entry_print(theStruct, printTac, depth, outFile);
-    }
-    break;
-
-    case E_ENUM:
-    {
-        struct EnumEntry *theEnum = toPrint->entry;
-        fprintf(outFile, "> Enum %s - data union size of %zu bytes:\n", toPrint->name, theEnum->unionSize);
-        Iterator *enumMemberIterator = NULL;
-        for (enumMemberIterator = set_begin(theEnum->members); iterator_gettable(enumMemberIterator); iterator_next(enumMemberIterator))
-        {
-            struct EnumMember *member = iterator_get(enumMemberIterator);
-            for (size_t j = 0; j < depth; j++)
-            {
-                fprintf(outFile, "\t");
-            }
-            char *memberTypeName = type_get_name(&member->type);
-            fprintf(outFile, "%zu:%s (%s)\n", member->numerical, member->name, memberTypeName);
-            free(memberTypeName);
-        }
-        iterator_free(enumMemberIterator);
+        struct TypeEntry *theType = toPrint->entry;
+        fprintf(outFile, "> Type %s ", toPrint->name);
+        print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, "\n");
+        type_entry_print(theType, printTac, depth + 1, outFile);
     }
     break;
 
     case E_FUNCTION:
     {
         struct FunctionEntry *theFunction = toPrint->entry;
-        char *returnTypeName = type_get_name(&theFunction->returnType);
-        if (theFunction->methodOf != NULL)
+        if (theFunction->implementedFor != NULL)
         {
-            fprintf(outFile, "> Method %s.", theFunction->methodOf->name);
+            fprintf(outFile, "> Method %s.", theFunction->implementedFor->baseName);
         }
         else
         {
             fprintf(outFile, "> Function ");
         }
-        fprintf(outFile, "%s (returns %s) (defined: %d)\n", toPrint->name, returnTypeName, theFunction->isDefined);
-        free(returnTypeName);
-        scope_print(theFunction->mainScope, outFile, depth + 1, printTac);
+        fprintf(outFile, "%s", toPrint->name);
+        print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, "\n");
+        function_entry_print(theFunction, printTac, depth + 1, outFile);
     }
     break;
 
@@ -424,6 +394,14 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
         {
             print_basic_block(thisBlock, depth + 1);
         }
+    }
+    break;
+
+    case E_TRAIT:
+    {
+        struct TraitEntry *theTrait = toPrint->entry;
+        fprintf(outFile, "> Trait %s\n", theTrait->name);
+        trait_entry_print(theTrait, depth + 1, outFile);
     }
     break;
     }

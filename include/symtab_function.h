@@ -11,13 +11,14 @@
 #include "mbcl/deque.h"
 #include "mbcl/list.h"
 
+// TODO: associate AST with function entry for line/col traceablility in error messages
 struct FunctionEntry
 {
     struct Type returnType;
     struct Scope *mainScope;
-    Deque *arguments;             // stack of VariableEntry pointers corresponding by index to arguments
-    char *name;                   // duplicate pointer from ScopeMember for ease of use
-    struct StructEntry *methodOf; // if this function is a member of a struct, points to which struct
+    Deque *arguments;                 // stack of VariableEntry pointers corresponding by index to arguments
+    char *name;                       // duplicate pointer from ScopeMember for ease of use
+    struct TypeEntry *implementedFor; // if this function is part of an implementation for a type, points to which type
     List *BasicBlockList;
     struct Ast correspondingTree;
     u8 isDefined;
@@ -27,10 +28,16 @@ struct FunctionEntry
     struct RegallocMetadata regalloc;
 };
 
-struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct StructEntry *methodOf);
+struct FunctionEntry *function_entry_new(struct Scope *parentScope, struct Ast *nameTree, struct TypeEntry *implementedFor);
 
 void function_entry_free(struct FunctionEntry *function);
 
 void function_entry_print_cfg(struct FunctionEntry *function, FILE *outFile);
+
+char *sprint_function_signature(struct FunctionEntry *function);
+
+ssize_t function_entry_compare(void *dataA, void *dataB);
+
+void function_entry_print(struct FunctionEntry *function, bool printTac, size_t depth, FILE *outFile);
 
 #endif
