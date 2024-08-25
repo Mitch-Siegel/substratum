@@ -1,7 +1,6 @@
 #include "linearizer.h"
 #include "codegen_generic.h"
 #include "linearizer_generic.h"
-
 #include "log.h"
 #include "symtab.h"
 
@@ -19,12 +18,10 @@
  * These functions Walk the AST and convert it to three-address code
  */
 struct TempList *temps;
-struct Dictionary *typeDict;
 extern struct Dictionary *parseDict;
 const u8 TYPE_DICT_SIZE = 100;
 struct SymbolTable *walk_program(struct Ast *program)
 {
-    typeDict = dictionary_new((void (*)(void *))type_free, (ssize_t(*)(void *, void *))type_compare, (size_t(*)(void *))type_hash, TYPE_DICT_SIZE, (void *(*)(void *))type_duplicate);
     struct SymbolTable *programTable = symbol_table_new("Program");
     struct BasicBlock *globalBlock = scope_lookup(programTable->globalScope, "globalblock", E_BASICBLOCK)->entry;
     struct BasicBlock *asmBlock = basic_block_new(1);
@@ -41,18 +38,18 @@ struct SymbolTable *walk_program(struct Ast *program)
         {
         case T_VARIABLE_DECLARATION:
             // walk_variable_declaration sets isGlobal for us by checking if there is no parent scope
-            walk_variable_declaration(programRunner, globalBlock, programTable->globalScope, &globalTacIndex, &globalTempNum, 0, A_PUBLIC);
+            walk_variable_declaration(programRunner, programTable->globalScope, &globalTacIndex, &globalTempNum, false);
             break;
 
         case T_EXTERN:
         {
-            struct VariableEntry *declaredVariable = walk_variable_declaration(programRunner->child, globalBlock, programTable->globalScope, &globalTacIndex, &globalTempNum, 0, A_PUBLIC);
+            struct VariableEntry *declaredVariable = walk_variable_declaration(programRunner->child, programTable->globalScope, &globalTacIndex, &globalTempNum, false);
             declaredVariable->isExtern = 1;
         }
         break;
 
         case T_STRUCT:
-            walk_struct_declaration(programRunner, globalBlock, programTable->globalScope);
+            walk_struct_declaration(programRunner, programTable->globalScope, NULL);
             break;
 
         case T_ENUM:
@@ -68,12 +65,20 @@ struct SymbolTable *walk_program(struct Ast *program)
             break;
 
         case T_FUN:
-            walk_function_declaration(programRunner, programTable->globalScope, NULL, A_PUBLIC);
+            walk_function_declaration(programRunner, programTable->globalScope, NULL, A_PUBLIC, false);
+            break;
+
+        case T_GENERIC:
+            walk_generic(programRunner, programTable->globalScope);
             break;
 
         // ignore asm blocks
         case T_ASM:
             walk_asm_block(programRunner, asmBlock, programTable->globalScope, &globalTacIndex, &globalTempNum);
+            break;
+
+        case T_TRAIT:
+            walk_trait_declaration(programRunner, programTable->globalScope);
             break;
 
         default:
@@ -102,7 +107,7 @@ struct TACOperand *get_addr_of_operand(struct Ast *tree,
     struct TacAddrOf *operands = &addrOfLine->operands.addrof;
     operands->source = *getAddrOf;
 
-    struct Type typeOfAddress = *tac_operand_get_type(getAddrOf);
+    struct Type typeOfAddress = type_duplicate_non_pointer(tac_operand_get_type(getAddrOf));
     typeOfAddress.pointerLevel++;
 
     tac_operand_populate_as_temp(scope, &operands->destination, tempNum, &typeOfAddress);
@@ -140,7 +145,115 @@ void check_any_type_use(struct Type *type, struct Ast *typeTree)
     }
 }
 
-void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populateTypeTo)
+struct Type walk_non_pointer_type_name(struct Scope *scope,
+                                       struct Ast *tree,
+                                       struct TypeEntry *fieldOf)
+{
+    struct Type wipType = {0};
+    type_init(&wipType);
+    switch (tree->type)
+    {
+    case T_ANY:
+        wipType.basicType = VT_ANY;
+        break;
+
+    case T_U8:
+        wipType.basicType = VT_U8;
+        break;
+
+    case T_U16:
+        wipType.basicType = VT_U16;
+        break;
+
+    case T_U32:
+        wipType.basicType = VT_U32;
+        break;
+
+    case T_U64:
+        wipType.basicType = VT_U64;
+        break;
+
+    case T_IDENTIFIER:
+    {
+        while (scope != NULL)
+        {
+            if (fieldOf == NULL)
+            {
+
+                if ((scope->parentFunction != NULL) &&
+                    (scope->parentFunction->implementedFor != NULL) &&
+                    (scope->parentScope == scope->parentFunction->implementedFor->parentScope) &&
+                    (scope->parentFunction->implementedFor->genericType == G_BASE) &&
+                    (list_find(scope->parentFunction->implementedFor->generic.base.paramNames, tree->value) != NULL))
+                {
+                    wipType.basicType = VT_GENERIC_PARAM;
+                    wipType.nonArray.complexType.name = tree->value;
+                    return wipType;
+                }
+            }
+            else
+            {
+                if (fieldOf->genericType == G_BASE)
+                {
+                    if (list_find(fieldOf->generic.base.paramNames, tree->value) != NULL)
+                    {
+                        wipType.basicType = VT_GENERIC_PARAM;
+                        wipType.nonArray.complexType.name = tree->value;
+                        return wipType;
+                    }
+                }
+            }
+
+            struct ScopeMember *lookedUp = scope_lookup_no_parent(scope, tree->value, E_TYPE);
+            if (lookedUp != NULL)
+            {
+                struct TypeEntry *lookedUpType = lookedUp->entry;
+                wipType = lookedUpType->type;
+                break;
+            }
+
+            scope = scope->parentScope;
+        }
+
+        if (wipType.basicType == VT_NULL)
+        {
+            log_tree(LOG_FATAL, tree, "%s does not name a type!", tree->value);
+        }
+    }
+    break;
+
+    case T_CAP_SELF:
+    {
+        wipType.basicType = VT_SELF;
+        if ((scope->parentFunction == NULL) || (scope->parentFunction->implementedFor == NULL))
+        {
+            log_tree(LOG_FATAL, tree, "Use of 'Self' outside of impl scope!");
+        }
+    }
+    break;
+
+    case T_GENERIC_INSTANCE:
+    {
+        struct TypeEntry *instance = walk_type_name_or_generic_instantiation(scope, tree);
+        if (instance->genericType != G_INSTANCE)
+        {
+            log_tree(LOG_FATAL, tree, "walk_type_name_or_generic_instantiation returned non-generic-instance %s!", instance->baseName);
+        }
+
+        wipType = instance->type;
+    }
+    break;
+
+    default:
+        log_tree(LOG_FATAL, tree, "Malformed AST (%s) seen in walk_non_pointer_type_name!", token_get_name(tree->type));
+    }
+
+    return wipType;
+}
+
+void walk_type_name(struct Ast *tree, struct Scope *scope,
+                    struct Type *populateTypeTo,
+                    struct TypeEntry *fieldOf)
 {
     log_tree(LOG_DEBUG, tree, "WalkTypeName");
     if (tree->type != T_TYPE_NAME)
@@ -150,97 +263,12 @@ void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populate
 
     type_init(populateTypeTo);
 
-    struct Ast complexTypeNameTree = {0};
-    enum BASIC_TYPES basicType = VT_NULL;
-    char *complexTypeName = NULL;
-
-    switch (tree->child->type)
-    {
-    case T_ANY:
-        basicType = VT_ANY;
-        break;
-
-    case T_U8:
-        basicType = VT_U8;
-        break;
-
-    case T_U16:
-        basicType = VT_U16;
-        break;
-
-    case T_U32:
-        basicType = VT_U32;
-        break;
-
-    case T_U64:
-        basicType = VT_U64;
-        break;
-
-    case T_IDENTIFIER:
-    {
-        complexTypeNameTree = *tree->child;
-        complexTypeName = complexTypeNameTree.value;
-
-        struct ScopeMember *namedType = scope_lookup(scope, complexTypeName, E_STRUCT);
-        if (namedType != NULL)
-        {
-            basicType = VT_STRUCT;
-        }
-        else
-        {
-            namedType = scope_lookup(scope, complexTypeName, E_ENUM);
-            if (namedType != NULL)
-            {
-                basicType = VT_ENUM;
-            }
-            else
-            {
-                log_tree(LOG_FATAL, &complexTypeNameTree, "%s does not name a type", complexTypeName);
-            }
-        }
-
-        if (complexTypeNameTree.type != T_IDENTIFIER)
-        {
-            log_tree(ERROR_INTERNAL,
-                     &complexTypeNameTree,
-                     "Malformed AST seen in declaration!\nExpected struct name as child of \"struct\", saw %s (%s)!",
-                     complexTypeNameTree.value,
-                     token_get_name(complexTypeNameTree.type));
-        }
-    }
-    break;
-
-    case T_CAP_SELF:
-        basicType = VT_STRUCT;
-        if (scope->parentImpl == NULL)
-        {
-            log_tree(LOG_FATAL, tree->child, "Use of 'Self' outside of impl scope!");
-        }
-        complexTypeName = scope->parentImpl->name;
-
-        // construct a fake struct name tree which contains the source location info
-        complexTypeNameTree = *tree->child;
-        complexTypeNameTree.child = NULL;
-        complexTypeNameTree.sibling = NULL;
-        complexTypeNameTree.type = T_IDENTIFIER;
-        complexTypeNameTree.value = complexTypeName;
-        break;
-
-    default:
-        log_tree(LOG_FATAL, tree, "Malformed AST seen in declaration!");
-    }
+    *populateTypeTo = walk_non_pointer_type_name(scope, tree->child, fieldOf);
 
     struct Ast *declaredArray = NULL;
-    type_set_basic_type(populateTypeTo, basicType, complexTypeName, scrape_pointers(tree->child, &declaredArray));
+    populateTypeTo->pointerLevel = scrape_pointers(tree->child, &declaredArray);
 
     check_any_type_use(populateTypeTo, tree->child);
-
-    // don't allow declaration of variables of undeclared struct or array of undeclared struct (except pointers)
-    if ((populateTypeTo->basicType == VT_STRUCT) && (populateTypeTo->pointerLevel == 0))
-    {
-        // the lookup will bail out if an attempt is made to use an undeclared struct
-        scope_lookup_struct(scope, &complexTypeNameTree);
-    }
 
     // if we are declaring an array, set the string with the size as the second operand
     if (declaredArray != NULL)
@@ -253,7 +281,7 @@ void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populate
         // TODO: abstract this
         int declaredArraySize = atoi(arraySizeString);
 
-        struct Type *arrayedType = dictionary_lookup_or_insert(typeDict, populateTypeTo);
+        struct Type *arrayedType = type_duplicate(populateTypeTo);
 
         // TODO: multidimensional array declarations
         populateTypeTo->basicType = VT_ARRAY;
@@ -264,12 +292,10 @@ void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populate
 }
 
 struct VariableEntry *walk_variable_declaration(struct Ast *tree,
-                                                struct BasicBlock *block,
                                                 struct Scope *scope,
                                                 const size_t *tacIndex,
                                                 const size_t *tempNum,
-                                                u8 isArgument,
-                                                enum ACCESS accessibility)
+                                                u8 isArgument)
 {
     log_tree(LOG_DEBUG, tree, "walk_variable_declaration");
 
@@ -287,10 +313,17 @@ struct VariableEntry *walk_variable_declaration(struct Ast *tree,
 
     if (tree->child->type != T_TYPE_NAME)
     {
-        log_tree(LOG_FATAL, tree->child, "Malformed AST seen in declaration!");
+        log_tree(LOG_FATAL, tree->child, "Malformed AST (%s) seen in declaration!", token_get_name(tree->child->type));
     }
 
-    walk_type_name(tree->child, scope, &declaredType);
+    if (scope->parentFunction == NULL)
+    {
+        walk_type_name(tree->child, scope, &declaredType, NULL);
+    }
+    else
+    {
+        walk_type_name(tree->child, scope, &declaredType, scope->parentFunction->implementedFor);
+    }
 
     struct VariableEntry *declaredVariable = NULL;
 
@@ -298,7 +331,7 @@ struct VariableEntry *walk_variable_declaration(struct Ast *tree,
     {
         declaredVariable = scope_create_argument(scope, tree->child->sibling,
                                                  &declaredType,
-                                                 accessibility);
+                                                 A_PUBLIC);
     }
     else
     {
@@ -307,21 +340,60 @@ struct VariableEntry *walk_variable_declaration(struct Ast *tree,
                                                  tree->child->sibling,
                                                  &declaredType,
                                                  (scope->parentScope == NULL),
-                                                 accessibility);
+                                                 A_PUBLIC);
     }
 
     return declaredVariable;
 }
 
+struct VariableEntry *walk_field_declaration(struct Ast *tree,
+                                             struct Scope *scope,
+                                             const size_t *tacIndex,
+                                             const size_t *tempNum,
+                                             enum ACCESS accessibility,
+                                             struct TypeEntry *fieldOf)
+{
+    log_tree(LOG_DEBUG, tree, "walk_variable_declaration");
+
+    if (tree->type != T_VARIABLE_DECLARATION)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_variable_declaration!", token_get_name(tree->type));
+    }
+
+    struct Type declaredType = {0};
+
+    /* 'struct' trees' children are the struct name
+     * other variables' children are the pointer or variable name
+     * so we need to start at tree->child for non-struct or tree->child->sibling for structs
+     */
+
+    if (tree->child->type != T_TYPE_NAME)
+    {
+        log_tree(LOG_FATAL, tree->child, "Malformed AST (%s) seen in declaration!", token_get_name(tree->child->type));
+    }
+
+    walk_type_name(tree->child, scope, &declaredType, fieldOf);
+
+    struct VariableEntry *declaredVariable = NULL;
+
+    // automatically set as a global if there is no parent scope (declaring at the outermost scope)
+    declaredVariable = scope_create_variable(scope,
+                                             tree->child->sibling,
+                                             &declaredType,
+                                             (scope->parentScope == NULL),
+                                             accessibility);
+
+    return declaredVariable;
+}
+
 void walk_argument_declaration(struct Ast *tree,
-                               struct BasicBlock *block,
                                size_t *tacIndex,
                                size_t *tempNum,
                                struct FunctionEntry *fun)
 {
     log_tree(LOG_DEBUG, tree, "WalkArgumentDeclaration");
 
-    struct VariableEntry *declaredArgument = walk_variable_declaration(tree, block, fun->mainScope, tacIndex, tempNum, 1, A_PUBLIC);
+    struct VariableEntry *declaredArgument = walk_variable_declaration(tree, fun->mainScope, tacIndex, tempNum, true);
 
     deque_push_back(fun->arguments, declaredArgument);
 }
@@ -440,10 +512,43 @@ void insert_self_method_argument(struct FunctionEntry *function, struct Variable
     }
 }
 
+List *walk_generic_parameter_names(struct Ast *tree)
+{
+    log_tree(LOG_DEBUG, tree, "walk_generic_parameter_names");
+
+    if (tree->type != T_GENERIC_PARAMETER_NAMES)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic_parameter_names!", token_get_name(tree->type));
+    }
+
+    List *parameters = list_new(NULL, (ssize_t(*)(void *, void *))strcmp);
+
+    struct Ast *genericRunner = tree->child;
+    while (genericRunner != NULL)
+    {
+        if (genericRunner->type != T_IDENTIFIER)
+        {
+            log_tree(LOG_FATAL, genericRunner, "Malformed AST seen in walk_generic_parameter_names!");
+        }
+
+        if (list_find(parameters, genericRunner->value) != NULL)
+        {
+            log_tree(LOG_FATAL, genericRunner, "Redifinition of generic parameter %s!", genericRunner->value);
+        }
+
+        list_append(parameters, genericRunner->value);
+
+        genericRunner = genericRunner->sibling;
+    }
+
+    return parameters;
+}
+
 struct FunctionEntry *walk_function_declaration(struct Ast *tree,
                                                 struct Scope *scope,
-                                                struct StructEntry *methodOf,
-                                                enum ACCESS accessibility)
+                                                struct TypeEntry *implementedFor,
+                                                enum ACCESS accessibility,
+                                                bool forTrait)
 {
     log_tree(LOG_DEBUG, tree, "walk_function_declaration");
 
@@ -456,27 +561,26 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
     struct Ast *returnTypeTree = tree->child;
 
     // functions return nothing in the default case
-    struct Type returnType;
-    memset(&returnType, 0, sizeof(struct Type));
-
     struct Ast *functionNameTree = NULL;
 
+    struct FunctionEntry *parsedFunc = NULL;
     // if the function returns something, its return type will be the first child of the 'fun' token
     if (returnTypeTree->type == T_TYPE_NAME)
     {
-        walk_type_name(returnTypeTree, scope, &returnType);
-
         functionNameTree = returnTypeTree->sibling;
+        parsedFunc = function_entry_new(scope, functionNameTree, implementedFor);
+
+        walk_type_name(returnTypeTree, parsedFunc->mainScope, &parsedFunc->returnType, implementedFor);
     }
     else
     {
         // there actually is no return type tree, we just go directly to argument declarations
         functionNameTree = returnTypeTree;
+        parsedFunc = function_entry_new(scope, functionNameTree, implementedFor);
     }
 
     // child is the lparen, function name is the child of the lparen
     struct ScopeMember *lookedUpFunction = scope_lookup(scope, functionNameTree->value, E_FUNCTION);
-    struct FunctionEntry *parsedFunc = NULL;
     struct FunctionEntry *existingFunc = NULL;
     struct FunctionEntry *returnedFunc = NULL;
 
@@ -484,17 +588,19 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
     {
         existingFunc = lookedUpFunction->entry;
         returnedFunc = existingFunc;
-        parsedFunc = function_entry_new(scope, functionNameTree, &returnType, methodOf);
     }
     else
     {
-        parsedFunc = scope_create_function(scope, functionNameTree, &returnType, methodOf, accessibility);
+        if (!forTrait)
+        {
+            scope_insert(scope, functionNameTree->value, parsedFunc, E_FUNCTION, accessibility);
+        }
         returnedFunc = parsedFunc;
     }
 
-    if (type_is_object(&returnType))
+    if (type_is_object(&parsedFunc->returnType))
     {
-        struct Type outPointerType = returnType;
+        struct Type outPointerType = type_duplicate_non_pointer(&parsedFunc->returnType);
         outPointerType.pointerLevel++;
         struct Ast outPointerTree = *tree;
         outPointerTree.type = T_IDENTIFIER;
@@ -502,7 +608,6 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
         outPointerTree.child = NULL;
         outPointerTree.sibling = NULL;
         struct VariableEntry *outPointerArgument = scope_create_argument(parsedFunc->mainScope, &outPointerTree, &outPointerType, A_PUBLIC);
-
         deque_push_front(parsedFunc->arguments, outPointerArgument);
     }
 
@@ -517,19 +622,19 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
         // looking at argument declarations
         case T_VARIABLE_DECLARATION:
         {
-            walk_argument_declaration(argumentRunner, block, &tacIndex, &tempNum, parsedFunc);
+            walk_argument_declaration(argumentRunner, &tacIndex, &tempNum, parsedFunc);
         }
         break;
 
         case T_SELF:
         {
-            if (methodOf == NULL)
+            if ((implementedFor == NULL) && !forTrait)
             {
-                log_tree(LOG_FATAL, argumentRunner, "Malformed AST within function declaration - saw self when methodOf == NULL");
+                log_tree(LOG_FATAL, argumentRunner, "Malformed AST within function declaration - saw self when (implementedFor == NULL) && (forTrait == false)");
             }
             struct Type selfType;
             type_init(&selfType);
-            type_set_basic_type(&selfType, VT_STRUCT, methodOf->name, 1);
+            type_set_basic_type(&selfType, VT_SELF, NULL, 1);
             struct VariableEntry *selfArgument = scope_create_argument(parsedFunc->mainScope, argumentRunner, &selfType, A_PUBLIC);
 
             insert_self_method_argument(parsedFunc, selfArgument);
@@ -542,7 +647,15 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
         argumentRunner = argumentRunner->sibling;
     }
 
-    verify_function_signatures(tree, existingFunc, parsedFunc);
+    if (existingFunc != NULL)
+    {
+        if (function_entry_compare(existingFunc, parsedFunc))
+        {
+            char *existingSignature = sprint_function_signature(existingFunc);
+            char *parsedSignature = sprint_function_signature(parsedFunc);
+            log_tree(LOG_FATAL, tree, "Conflicting declarations of function %s\nExisting: %s\n  Parsed: %s!", parsedFunc->name, existingSignature, parsedSignature);
+        }
+    }
 
     // free the basic block we used to Walk declarations of arguments
     basic_block_free(block);
@@ -602,19 +715,19 @@ void walk_function_definition(struct Ast *tree,
     scope_add_basic_block(fun->mainScope, exitBlock);
 }
 
-void walk_method(struct Ast *tree,
-                 struct StructEntry *methodOf,
-                 enum ACCESS accessibility)
+struct FunctionEntry *walk_implemented_function(struct Ast *tree,
+                                                struct TypeEntry *implementedFor,
+                                                enum ACCESS accessibility)
 {
-    log(LOG_DEBUG, "walk_method", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+    log(LOG_DEBUG, "walk_implemented_function", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
     if (tree->type != T_FUN)
     {
-        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_method!", token_get_name(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_implemented_function!", token_get_name(tree->type));
     }
 
-    struct FunctionEntry *walkedMethod = walk_function_declaration(tree, methodOf->members, methodOf, accessibility);
-    walkedMethod->mainScope->parentImpl = methodOf;
+    struct FunctionEntry *walkedMethod = walk_function_declaration(tree, implementedFor->implemented, implementedFor, accessibility, false);
+    type_entry_add_implemented(implementedFor, walkedMethod, accessibility);
 
     if (walkedMethod->arguments->size > 0)
     {
@@ -624,10 +737,11 @@ void walk_method(struct Ast *tree,
         // try and see if the second argument is self (if it exists)
         if (!strcmp(potentialSelfArg->name, OUT_OBJECT_POINTER_NAME) && (walkedMethod->arguments->size > 1))
         {
-            potentialSelfArg = walkedMethod->arguments->data[1];
+            potentialSelfArg = deque_at(walkedMethod->arguments, 1);
         }
 
-        if ((potentialSelfArg->type.basicType == VT_STRUCT) && (strcmp(potentialSelfArg->type.nonArray.complexType.name, methodOf->name) == 0))
+        if ((potentialSelfArg->type.basicType == VT_SELF) ||
+            ((potentialSelfArg->type.basicType == VT_STRUCT) && (strcmp(potentialSelfArg->type.nonArray.complexType.name, implementedFor->baseName) == 0)))
         {
             if (strcmp(potentialSelfArg->name, "self") == 0)
             {
@@ -635,48 +749,158 @@ void walk_method(struct Ast *tree,
             }
         }
     }
+
+    return walkedMethod;
+}
+
+void walk_implementation(struct Ast *tree, struct TypeEntry *implementedFor)
+{
+    switch (tree->type)
+    {
+    case T_FUN:
+        walk_implemented_function(tree, implementedFor, A_PRIVATE);
+        break;
+
+    case T_PUBLIC:
+        walk_implemented_function(tree->child, implementedFor, A_PUBLIC);
+        break;
+
+    default:
+        log_tree(LOG_FATAL, tree, "Malformed AST seen %s (%s) in walk_implementation!", token_get_name(tree->type), tree->value);
+    }
+}
+
+void walk_basic_impl(struct Ast *tree, struct Scope *scope)
+{
+    log(LOG_DEBUG, "walk_basic_impl", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+
+    if (tree->type != T_IMPL)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_basic_impl!", token_get_name(tree->type));
+    }
+
+    struct Ast *implementedTypeTree = tree->child;
+    if (implementedTypeTree->type != T_TYPE_NAME)
+    {
+        log_tree(LOG_FATAL, implementedTypeTree, "Malformed AST seen in walk_basic_impl!");
+    }
+
+    struct Type implementedType = {0};
+    walk_type_name(implementedTypeTree, scope, &implementedType, NULL);
+
+    if ((implementedType.basicType != VT_STRUCT) || (implementedType.pointerLevel != 0))
+    {
+        log_tree(LOG_FATAL, implementedTypeTree, "Implementation block for type %s not supported yet!", type_get_name(&implementedType));
+    }
+
+    struct TypeEntry *implementedFor = scope_lookup_type(scope, &implementedType);
+
+    struct Ast *implementationRunner = implementedTypeTree->sibling;
+    while (implementationRunner != NULL)
+    {
+        walk_implementation(implementationRunner, implementedFor);
+        implementationRunner = implementationRunner->sibling;
+    }
+
+    if (implementedFor->genericType != G_BASE)
+    {
+        log(LOG_DEBUG, "Resolving capital 'Self' and assigning offsets to fields for non-generic-base %s at end of implementation block", implementedFor->baseName);
+        type_entry_resolve_capital_self(implementedFor);
+    }
+}
+
+void walk_trait_impl(struct Ast *tree, struct Scope *scope)
+{
+    log(LOG_DEBUG, "walk_trait_impl", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+
+    if (tree->type != T_IMPL)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_trait_impl!", token_get_name(tree->type));
+    }
+
+    struct Ast *traitForTree = tree->child;
+    if (traitForTree->type != T_FOR)
+    {
+        log_tree(LOG_FATAL, traitForTree, "Malformed AST seen in walk_trait_impl!");
+    }
+
+    struct Ast *traitNameTree = traitForTree->child;
+    if (traitNameTree->type != T_IDENTIFIER)
+    {
+        log_tree(LOG_FATAL, traitNameTree, "Malformed AST seen in walk_trait_impl!");
+    }
+    struct TraitEntry *implementedTrait = scope_lookup_trait(scope, traitNameTree);
+
+    struct Ast *implementedTypeTree = traitForTree->child->sibling;
+    if (implementedTypeTree->type != T_TYPE_NAME)
+    {
+        log_tree(LOG_FATAL, implementedTypeTree, "Malformed AST seen in walk_trait_impl!");
+    }
+
+    struct Type implementedType = {0};
+    walk_type_name(implementedTypeTree, scope, &implementedType, NULL);
+
+    struct TypeEntry *implementedFor = scope_lookup_type(scope, &implementedType);
+
+    Set *implementedPrivate = set_new(NULL, function_entry_compare);
+    Set *implementedPublic = set_new(NULL, function_entry_compare);
+
+    struct Ast *traitBodyRunner = traitForTree->sibling;
+    while (traitBodyRunner != NULL)
+    {
+        switch (traitBodyRunner->type)
+        {
+        case T_FUN:
+            set_insert(implementedPrivate, walk_implemented_function(traitBodyRunner, implementedFor, A_PUBLIC));
+            break;
+
+        case T_PUBLIC:
+            set_insert(implementedPublic, walk_implemented_function(traitBodyRunner->child, implementedFor, A_PUBLIC));
+            break;
+
+        default:
+            log_tree(LOG_FATAL, traitBodyRunner, "Malformed AST seen in walk_trait_impl!");
+        }
+        traitBodyRunner = traitBodyRunner->sibling;
+    }
+
+    // important to do this before resolution of capital 'Self' this relies on function_entry_compare and any VT_SELF still being pre-resolution
+    type_entry_verify_trait(tree, implementedFor, implementedTrait, implementedPrivate, implementedPublic);
+
+    if (implementedFor->genericType != G_BASE)
+    {
+        log(LOG_DEBUG, "Resolving capital 'Self' for %s at end of trait implementation block", implementedFor->baseName);
+        type_entry_resolve_capital_self(implementedFor);
+    }
 }
 
 void walk_implementation_block(struct Ast *tree, struct Scope *scope)
 {
-    log(LOG_DEBUG, "WalkImplementation", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+    log(LOG_DEBUG, "walk_implementation_block", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
     if (tree->type != T_IMPL)
     {
-        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to WalkImplementation!", token_get_name(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_implementation_block!", token_get_name(tree->type));
     }
 
-    struct Ast *implementedStructTree = tree->child;
-    if (implementedStructTree->type != T_IDENTIFIER)
+    switch (tree->child->type)
     {
-        log_tree(LOG_FATAL, implementedStructTree, "Malformed AST seen in WalkImplementation!");
-    }
+    case T_TYPE_NAME:
+        walk_basic_impl(tree, scope);
+        break;
 
-    struct StructEntry *implementedStruct = scope_lookup_struct(scope, implementedStructTree);
+    case T_FOR:
+        walk_trait_impl(tree, scope);
+        break;
 
-    struct Ast *implementationRunner = implementedStructTree->sibling;
-    while (implementationRunner != NULL)
-    {
-        switch (implementationRunner->type)
-        {
-        case T_FUN:
-            walk_method(implementationRunner, implementedStruct, A_PRIVATE);
-            break;
-
-        case T_PUBLIC:
-            walk_method(implementationRunner->child, implementedStruct, A_PUBLIC);
-            break;
-
-        default:
-            log_tree(LOG_FATAL, implementationRunner, "Malformed AST seen %s (%s) in WalkImplementation!", token_get_name(implementationRunner->type), implementationRunner->value);
-        }
-        implementationRunner = implementationRunner->sibling;
+    default:
+        log_tree(LOG_FATAL, tree->child, "Malformed AST seen in walk_implementation_block!");
     }
 }
 
-void walk_struct_declaration(struct Ast *tree,
-                             struct BasicBlock *block,
-                             struct Scope *scope)
+struct StructDesc *walk_struct_declaration(struct Ast *tree,
+                                           struct Scope *scope,
+                                           List *genericParams)
 {
     log_tree(LOG_DEBUG, tree, "walk_struct_declaration");
 
@@ -686,7 +910,25 @@ void walk_struct_declaration(struct Ast *tree,
     }
     size_t dummyNum = 0;
 
-    struct StructEntry *declaredStruct = scope_create_struct(scope, tree->child->value);
+    struct TypeEntry *declaredType = NULL;
+    struct StructDesc *declaredStruct = NULL;
+    if (tree->child->type == T_IDENTIFIER)
+    {
+        if (genericParams != NULL)
+        {
+            declaredType = scope_create_generic_base_struct(scope, tree->child->value, genericParams);
+        }
+        else
+        {
+            declaredType = scope_create_struct(scope, tree->child->value);
+        }
+    }
+    else
+    {
+        log_tree(LOG_FATAL, tree->child, "Malformed AST (%s) seen in walk_struct_declaration!", token_get_name(tree->child->type));
+    }
+
+    declaredStruct = declaredType->data.asStruct;
 
     struct Ast *structBody = tree->child->sibling;
 
@@ -702,15 +944,15 @@ void walk_struct_declaration(struct Ast *tree,
         {
         case T_VARIABLE_DECLARATION:
         {
-            struct VariableEntry *declaredField = walk_variable_declaration(structBodyRunner, block, declaredStruct->members, &dummyNum, &dummyNum, 0, A_PRIVATE);
-            struct_assign_offset_to_field(declaredStruct, declaredField);
+            struct VariableEntry *declaredField = walk_field_declaration(structBodyRunner, declaredStruct->members, &dummyNum, &dummyNum, A_PRIVATE, declaredType);
+            struct_add_field(declaredStruct, declaredField);
         }
         break;
 
         case T_PUBLIC:
         {
-            struct VariableEntry *declaredField = walk_variable_declaration(structBodyRunner->child, block, declaredStruct->members, &dummyNum, &dummyNum, 0, A_PUBLIC);
-            struct_assign_offset_to_field(declaredStruct, declaredField);
+            struct VariableEntry *declaredField = walk_field_declaration(structBodyRunner->child, declaredStruct->members, &dummyNum, &dummyNum, A_PUBLIC, declaredType);
+            struct_add_field(declaredStruct, declaredField);
         }
         break;
 
@@ -719,6 +961,163 @@ void walk_struct_declaration(struct Ast *tree,
         }
 
         structBodyRunner = structBodyRunner->sibling;
+    }
+
+    if (declaredType->genericType != G_BASE)
+    {
+        log(LOG_DEBUG, "Resolving capital 'Self' and assigning offsets to fields for non-generic-base struct %s ", declaredStruct->name);
+        type_entry_resolve_capital_self(declaredType);
+        struct_assign_offsets_to_fields(declaredStruct);
+    }
+
+    return declaredStruct;
+}
+
+void compare_generic_params(struct Ast *genericParamsTree, List *actualParams, List *expectedParams, char *genericType, char *genericName)
+{
+    Iterator *actualIter = list_begin(actualParams);
+    Iterator *expectedIter = list_begin(expectedParams);
+    bool mismatch = false;
+    while (iterator_gettable(actualIter) && iterator_gettable(expectedIter))
+    {
+        char *actualParam = iterator_get(actualIter);
+        char *expectedParam = iterator_get(expectedIter);
+        if (strcmp(actualParam, expectedParam) != 0)
+        {
+            mismatch = true;
+            break;
+        }
+
+        iterator_next(actualIter);
+        iterator_next(expectedIter);
+    }
+
+    if (iterator_gettable(actualIter) || iterator_gettable(expectedIter))
+    {
+        mismatch = true;
+    }
+
+    iterator_free(actualIter);
+    iterator_free(expectedIter);
+
+    if (mismatch)
+    {
+        char *actualStr = sprint_generic_param_names(actualParams);
+        char *expectedStr = sprint_generic_param_names(expectedParams);
+        log_tree(LOG_FATAL, genericParamsTree, "Mismatch between generic parameters for %s %s!\nExpected: %s<%s>\n  Actual: %s<%s>", genericType, genericName, genericName, expectedStr, genericName, actualStr);
+    }
+}
+
+void walk_generic(struct Ast *tree,
+                  struct Scope *scope)
+{
+    log_tree(LOG_DEBUG, tree, "walk_generic");
+
+    if (tree->type != T_GENERIC)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic!", token_get_name(tree->type));
+    }
+
+    struct Ast *genericThing = tree->child->sibling;
+    struct Ast *genericParamsTree = tree->child;
+
+    List *genericParams = walk_generic_parameter_names(genericParamsTree);
+
+    switch (genericThing->type)
+    {
+    case T_STRUCT:
+    {
+        walk_struct_declaration(genericThing, scope, genericParams);
+    }
+    break;
+
+    case T_IMPL:
+    {
+        struct Ast *implementedTypeTree = genericThing->child;
+        if (implementedTypeTree->type != T_TYPE_NAME)
+        {
+            log_tree(LOG_FATAL, implementedTypeTree, "Malformed AST seen in WalkImplementation!");
+        }
+
+        struct Type implementedType = {0};
+        walk_type_name(implementedTypeTree, scope, &implementedType, NULL);
+
+        if ((implementedType.basicType != VT_STRUCT) || (implementedType.pointerLevel != 0))
+        {
+            log_tree(LOG_FATAL, implementedTypeTree, "Implementation block for type %s not supported yet!", type_get_name(&implementedType));
+        }
+
+        struct TypeEntry *implementedTypeEntry = scope_lookup_type(scope, &implementedType);
+        compare_generic_params(genericParamsTree, genericParams, implementedTypeEntry->generic.instance.parameters, "struct", implementedTypeEntry->baseName);
+
+        struct Ast *implementationRunner = genericThing->child->sibling;
+        while (implementationRunner != NULL)
+        {
+            walk_implementation(implementationRunner, implementedTypeEntry);
+            implementationRunner = implementationRunner->sibling;
+        }
+        list_free(genericParams);
+    }
+    break;
+
+    default:
+        log_tree(LOG_FATAL, genericThing, "Malformed AST (%s) seen as thing being genericized under T_GENERIC!", token_get_name(genericThing->type));
+    }
+}
+
+void walk_trait_declaration(struct Ast *tree, struct Scope *scope)
+{
+    log_tree(LOG_DEBUG, tree, "walk_trait_declaration");
+
+    if (tree->type != T_TRAIT)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_trait_declaration!", token_get_name(tree->type));
+    }
+
+    struct Ast *traitName = tree->child;
+    struct Ast *traitBodyRunner = traitName->sibling;
+
+    struct TraitEntry *declaredTrait = scope_create_trait(scope, traitName->value);
+
+    while (traitBodyRunner != NULL)
+    {
+        struct FunctionEntry *implemented = NULL;
+
+        bool isPublic = false;
+        switch (traitBodyRunner->type)
+        {
+        case T_FUN:
+            implemented = walk_function_declaration(traitBodyRunner, NULL, NULL, A_PRIVATE, true);
+            break;
+
+        case T_PUBLIC:
+            isPublic = true;
+            if (traitBodyRunner->child->type != T_FUN)
+            {
+                log_tree(LOG_FATAL, traitBodyRunner, "Malformed AST (%s) seen in trait body!", token_get_name(traitBodyRunner->child->type));
+            }
+            implemented = walk_function_declaration(traitBodyRunner->child, NULL, NULL, A_PUBLIC, true);
+            break;
+
+        default:
+            log_tree(LOG_FATAL, traitBodyRunner, "Malformed AST (%s) seen in trait body!", token_get_name(traitBodyRunner->type));
+        }
+
+        if (implemented->isDefined)
+        {
+            log_tree(LOG_FATAL, traitBodyRunner, "Trait declaration of %s must be a prototype only!", implemented->name);
+        }
+
+        if (isPublic)
+        {
+            set_insert(declaredTrait->public, implemented);
+        }
+        else
+        {
+            set_insert(declaredTrait->private, implemented);
+        }
+
+        traitBodyRunner = traitBodyRunner->sibling;
     }
 }
 
@@ -735,7 +1134,7 @@ void walk_enum_declaration(struct Ast *tree,
 
     struct Ast *enumName = tree->child;
 
-    struct EnumEntry *declaredEnum = scope_create_enum(scope, enumName->value);
+    struct EnumDesc *declaredEnum = scope_create_enum(scope, enumName->value);
 
     for (struct Ast *enumRunner = enumName->sibling; enumRunner != NULL; enumRunner = enumRunner->sibling)
     {
@@ -749,7 +1148,7 @@ void walk_enum_declaration(struct Ast *tree,
 
         if (enumRunner->child != NULL)
         {
-            walk_type_name(enumRunner->child, scope, &memberType);
+            walk_type_name(enumRunner->child, scope, &memberType, NULL);
         }
 
         enum_add_member(declaredEnum, enumRunner, &memberType);
@@ -827,7 +1226,7 @@ void walk_statement(struct Ast *tree,
     switch (tree->type)
     {
     case T_VARIABLE_DECLARATION:
-        walk_variable_declaration(tree, *blockP, scope, tacIndex, tempNum, 0, A_PUBLIC);
+        walk_variable_declaration(tree, scope, tacIndex, tempNum, false);
         break;
 
     case T_EXTERN:
@@ -1401,7 +1800,7 @@ ssize_t walk_match_case_block(struct Ast *statement,
     return caseEntryLabel;
 }
 
-void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct EnumEntry *matchedEnum, Set *matchedValues)
+void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct EnumDesc *matchedEnum, Set *matchedValues)
 {
     size_t stateSpaceSize = 0;
     switch (matchedType->basicType)
@@ -1430,6 +1829,10 @@ void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct E
         InternalError("VT_STRUCT seen as type of matched expression");
     case VT_ARRAY:
         InternalError("VT_STRUCT seen as type of matched expression");
+    case VT_GENERIC_PARAM:
+        InternalError("VT_GENERIC_PARAM seen as type of matched expression");
+    case VT_SELF:
+        InternalError("VT_SELF seen as type of matched expression");
     }
 
     size_t missingCases = matchedValues->size - stateSpaceSize;
@@ -1457,7 +1860,7 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
                          struct Ast **underscoreAction,
                          struct TACOperand *matchedAgainstEnum,
                          struct TACOperand *matchedAgainstNumerical,
-                         struct EnumEntry *matchedEnum,
+                         struct EnumDesc *matchedEnum,
                          Set *matchedValues)
 {
     // only allow underscore or identifier trees
@@ -1672,7 +2075,7 @@ void walk_match_statement(struct Ast *tree,
 
         loadMatchedAgainst->operands.load.address = *addrOfMatchedAgainst;
 
-        struct Type matchedAgainstType = *tac_operand_get_type(addrOfMatchedAgainst);
+        struct Type matchedAgainstType = type_duplicate_non_pointer(tac_operand_get_type(addrOfMatchedAgainst));
         matchedAgainstType.pointerLevel--;
         tac_operand_populate_as_temp(scope, &loadMatchedAgainst->operands.load.destination, tempNum, &matchedAgainstType);
         matchedAgainstNumerical = loadMatchedAgainst->operands.load.destination;
@@ -1697,7 +2100,7 @@ void walk_match_statement(struct Ast *tree,
         log_tree(LOG_FATAL, tree, "Match against struct type (%s) forbidden!", type_get_name(matchedType));
     }
 
-    struct EnumEntry *matchedEnum = NULL;
+    struct EnumDesc *matchedEnum = NULL;
     if (matchedType->basicType == VT_ENUM)
     {
         matchedEnum = scope_lookup_enum_by_type(scope, matchedType);
@@ -1714,6 +2117,8 @@ void walk_match_statement(struct Ast *tree,
 
         case VT_ANY:
         case VT_NULL:
+        case VT_GENERIC_PARAM:
+        case VT_SELF:
             InternalError("Illegal type %s seen from matched expresssion linearization", type_get_name(matchedType));
             break;
 
@@ -1857,7 +2262,7 @@ void walk_assignment(struct Ast *tree,
     switch (lhs->type)
     {
     case T_VARIABLE_DECLARATION:
-        assignedVariable = walk_variable_declaration(lhs, block, scope, tacIndex, tempNum, 0, A_PUBLIC);
+        assignedVariable = walk_variable_declaration(lhs, scope, tacIndex, tempNum, 0);
         tac_operand_populate_from_variable(&assignment->operands.assign.destination, assignedVariable);
         assignment->operands.assign.source = assignedValue;
 
@@ -1936,7 +2341,7 @@ void walk_assignment(struct Ast *tree,
             walk_sub_expression(lhs->child, block, scope, tacIndex, tempNum, &assignment->operands.fieldStore.destination);
         }
         // TODO: more verbose error handling if the lhs->child subexpression is not a struct, or has wrong pointer level
-        struct StructEntry *writtenStruct = scope_lookup_struct_by_type(scope, tac_operand_get_type(&assignment->operands.fieldStore.destination));
+        struct StructDesc *writtenStruct = scope_lookup_struct_by_type_or_pointer(scope, tac_operand_get_type(&assignment->operands.fieldStore.destination));
         struct StructField *writtenField = struct_lookup_field(writtenStruct, lhs->child->sibling, scope);
         assignment->operands.fieldStore.fieldName = writtenField->variable->name;
         assignment->operands.fieldStore.source = assignedValue;
@@ -2075,7 +2480,7 @@ struct TACOperand *walk_bitwise_not(struct Ast *tree,
     return &bitwiseNotLine->operands.arithmetic.destination;
 }
 
-void ensure_all_fields_initialized(struct Ast *tree, size_t initFieldIdx, struct StructEntry *initializedStruct)
+void ensure_all_fields_initialized(struct Ast *tree, size_t initFieldIdx, struct StructDesc *initializedStruct)
 {
     // TODO: fix direct data access of stack
     // if all fields of the struct are not initialized, this is an error
@@ -2141,7 +2546,7 @@ void walk_struct_initializer(struct Ast *tree,
         initialized = get_addr_of_operand(tree, block, scope, tacIndex, tempNum, initialized);
     }
 
-    struct StructEntry *initializedStruct = scope_lookup_struct_by_type(scope, initializedType);
+    struct StructDesc *initializedStruct = scope_lookup_struct_by_type(scope, initializedType);
     size_t initFieldIdx = 0;
     for (struct Ast *initRunner = tree->child; initRunner != NULL; initRunner = initRunner->sibling)
     {
@@ -2163,7 +2568,7 @@ void walk_struct_initializer(struct Ast *tree,
         struct StructField *initializedField = struct_lookup_field(initializedStruct, initFieldTree, scope);
 
         // next, check the ordering index for the field we are expecting to initialize
-        struct StructField *expectedField = (struct StructField *)initializedStruct->fieldLocations->data[initFieldIdx];
+        struct StructField *expectedField = deque_at(initializedStruct->fieldLocations, initFieldIdx);
         if ((initializedField->offset != expectedField->offset) || (strcmp(initializedField->variable->name, expectedField->variable->name) != 0))
         {
             log(LOG_FATAL, "Initializer element %zu of struct %s should be %s, not %s", initFieldIdx + 1, initializedStruct->name, expectedField->variable->name, initializedField->variable->name);
@@ -2191,7 +2596,6 @@ void walk_struct_initializer(struct Ast *tree,
                 log_tree(LOG_FATAL, initToTree, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, initializedField->variable->name, type_get_name(tac_operand_get_type(&initializedValue)), type_get_name(&initializedField->variable->type));
             }
         }
-        log(LOG_DEBUG, "init %s.%s to %s", initializedType->nonArray.complexType.name, initializedField->variable->name, initToTree->value);
         basic_block_append(block, fieldStore, tacIndex);
 
         initFieldIdx++;
@@ -2206,7 +2610,7 @@ void walk_enum_subexpression(struct Ast *tree,
                              size_t *tacIndex,
                              size_t *tempNum,
                              struct TACOperand *destinationOperand,
-                             struct EnumEntry *fromEnum)
+                             struct EnumDesc *fromEnum)
 {
     type_init(&destinationOperand->castAsType);
     // we're going to have a temp
@@ -2318,7 +2722,7 @@ void walk_sub_expression(struct Ast *tree,
     // identifier = variable name or enum member
     case T_IDENTIFIER:
     {
-        struct EnumEntry *possibleEnum = scope_lookup_enum_by_member_name(scope, tree->value);
+        struct EnumDesc *possibleEnum = scope_lookup_enum_by_member_name(scope, tree->value);
         if (possibleEnum != NULL)
         {
             walk_enum_subexpression(tree, block, scope, tacIndex, tempNum, destinationOperand, possibleEnum);
@@ -2505,7 +2909,7 @@ void walk_sub_expression(struct Ast *tree,
         struct Type castTo;
         type_init(&castTo);
         // set the result's cast as type based on the child of the cast, the type we are casting to
-        walk_type_name(tree->child, scope, &castTo);
+        walk_type_name(tree->child, scope, &castTo, NULL);
 
         // TODO: allow casting to arrays?
         if (type_is_object(&expressionResult.castAsType))
@@ -2786,33 +3190,34 @@ void walk_method_call(struct Ast *tree,
 
     // don't need to track scope->parentFunction->callsOtherFunction as walk_function_call will do this on our behalf
     struct Ast *structTree = tree->child->child;
-    struct StructEntry *structCalledOn = NULL;
     struct Ast *callTree = tree->child->child->sibling;
 
-    struct TACOperand *structOperand = malloc(sizeof(struct TACOperand));
+    struct TACOperand *calledOnOperand = malloc(sizeof(struct TACOperand));
 
     switch (structTree->type)
     {
         // if we have struct.field.method() make sure we convert the struct.field load to an LEA
     case T_DOT:
     {
-        struct TACLine *fieldAccessLine = walk_field_access(structTree, block, scope, tacIndex, tempNum, structOperand, 0);
-        convert_field_load_to_lea(fieldAccessLine, structOperand);
+        struct TACLine *fieldAccessLine = walk_field_access(structTree, block, scope, tacIndex, tempNum, calledOnOperand, 0);
+        convert_field_load_to_lea(fieldAccessLine, calledOnOperand);
     }
     break;
 
     default:
-        walk_sub_expression(structTree, block, scope, tacIndex, tempNum, structOperand);
-        if (tac_operand_get_type(structOperand)->basicType != VT_STRUCT)
+    {
+        walk_sub_expression(structTree, block, scope, tacIndex, tempNum, calledOnOperand);
+        struct Type *structType = tac_operand_get_type(calledOnOperand);
+        if ((structType->basicType != VT_STRUCT) && (structType->basicType != VT_SELF))
         {
-            char *nonStructType = type_get_name(tac_operand_get_type(structOperand));
+            char *nonStructType = type_get_name(tac_operand_get_type(calledOnOperand));
             log_tree(LOG_FATAL, structTree, "Attempt to call method %s on non-struct type %s", callTree->child->value, nonStructType);
         }
-        break;
     }
-    structCalledOn = scope_lookup_struct_by_type(scope, tac_operand_get_type(structOperand));
+    break;
+    }
 
-    struct FunctionEntry *calledFunction = struct_looup_method(structCalledOn, callTree->child, scope);
+    struct FunctionEntry *calledFunction = type_entry_lookup_implemented(scope_lookup_type_remove_pointer(scope, tac_operand_get_type(calledOnOperand)), scope, callTree->child);
 
     check_function_return_use(tree, destinationOperand, calledFunction);
 
@@ -2824,19 +3229,19 @@ void walk_method_call(struct Ast *tree,
                                                  tempNum,
                                                  destinationOperand);
 
-    if (tac_operand_get_type(structOperand)->basicType == VT_ARRAY)
+    if (tac_operand_get_type(calledOnOperand)->basicType == VT_ARRAY)
     {
-        char *nonDottableType = type_get_name(tac_operand_get_type(structOperand));
+        char *nonDottableType = type_get_name(tac_operand_get_type(calledOnOperand));
         log_tree(LOG_FATAL, callTree, "Attempt to call method %s on non-dottable type %s", calledFunction->name, nonDottableType);
     }
 
     // if struct we are calling method on is not indirect, automagically insert an intermediate address-of
-    if (tac_operand_get_type(structOperand)->pointerLevel == 0)
+    if (tac_operand_get_type(calledOnOperand)->pointerLevel == 0)
     {
-        *structOperand = *get_addr_of_operand(tree, block, scope, tacIndex, tempNum, structOperand);
+        *calledOnOperand = *get_addr_of_operand(tree, block, scope, tacIndex, tempNum, calledOnOperand);
     }
 
-    deque_push_front(argumentPushes, structOperand);
+    deque_push_front(argumentPushes, calledOnOperand);
 
     bool haveStructReturn = handle_struct_return(tree, calledFunction, block, scope, tacIndex, tempNum, argumentPushes, destinationOperand);
 
@@ -2846,11 +3251,68 @@ void walk_method_call(struct Ast *tree,
         tac_operand_populate_as_temp(scope, destinationOperand, tempNum, &calledFunction->returnType);
         callLine->operands.methodCall.returnValue = *destinationOperand;
     }
-    callLine->operands.methodCall.calledOn = *structOperand;
+    callLine->operands.methodCall.calledOn = *calledOnOperand;
     callLine->operands.methodCall.methodName = calledFunction->name;
     callLine->operands.methodCall.arguments = argumentPushes;
 
     basic_block_append(block, callLine, tacIndex);
+}
+
+List *walk_generic_parameters(struct Ast *tree, struct Scope *scope)
+{
+    log_tree(LOG_DEBUG, tree, "walk_generic_parameters");
+
+    if (tree->type != T_GENERIC_PARAMETERS)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic_parameters!", token_get_name(tree->type));
+    }
+
+    List *paramsList = list_new((void (*)(void *))type_free, NULL);
+
+    struct Ast *paramRunner = tree->child;
+    while (paramRunner != NULL)
+    {
+        struct Type *param = malloc(sizeof(struct Type));
+        type_init(param);
+        walk_type_name(paramRunner, scope, param, NULL);
+        list_append(paramsList, param);
+
+        paramRunner = paramRunner->sibling;
+    }
+
+    return paramsList;
+}
+
+struct TypeEntry *walk_type_name_or_generic_instantiation(struct Scope *scope, struct Ast *tree)
+{
+    log_tree(LOG_DEBUG, tree, "walk_type_name_or_generic_instantiation");
+
+    struct TypeEntry *returnedType = NULL;
+    switch (tree->type)
+    {
+    case T_IDENTIFIER:
+        returnedType = scope_lookup_struct_by_name_tree(scope, tree);
+        break;
+
+    case T_GENERIC_INSTANCE:
+    {
+
+        struct Ast *structNameTree = tree->child;
+        List *genericParams = walk_generic_parameters(tree->child->sibling, scope);
+        struct TypeEntry *baseGenericType = scope_lookup_struct_by_name_tree(scope, structNameTree);
+        returnedType = type_entry_get_or_create_generic_instantiation(baseGenericType, genericParams);
+        if (returnedType->generic.instance.parameters != genericParams)
+        {
+            list_free(genericParams);
+        }
+    }
+    break;
+
+    default:
+        log_tree(LOG_FATAL, tree, "Malformed AST (%s) seen in walk_type_name_or_generic_instantiation!", token_get_name(tree->type));
+    }
+
+    return returnedType;
 }
 
 void walk_associated_call(struct Ast *tree,
@@ -2864,23 +3326,19 @@ void walk_associated_call(struct Ast *tree,
 
     if (tree->type != T_ASSOCIATED_CALL)
     {
-        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to T_ASSOCIATED_CALL!", token_get_name(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_associated_call!", token_get_name(tree->type));
     }
 
     scope->parentFunction->callsOtherFunction = 1;
 
     // don't need to track scope->parentFunction->callsOtherFunction as walk_function_call will do this on our behalf
     struct Ast *structTypeTree = tree->child->child;
-    struct StructEntry *structCalledOn = NULL;
+    struct TypeEntry *associatedWith = NULL;
     struct Ast *callTree = tree->child->sibling;
 
-    if (structTypeTree->type != T_IDENTIFIER)
-    {
-        InternalError("Malformed AST in walk_associated_call - expected identifier on LHS but got %s instead", token_get_name(structTypeTree->type));
-    }
-    structCalledOn = scope_lookup_struct(scope, structTypeTree);
+    associatedWith = walk_type_name_or_generic_instantiation(scope, structTypeTree);
 
-    struct FunctionEntry *calledFunction = struct_lookup_associated_function(structCalledOn, callTree->child, scope);
+    struct FunctionEntry *calledFunction = type_entry_lookup_associated_function(associatedWith, callTree->child, scope);
 
     check_function_return_use(tree, destinationOperand, calledFunction);
 
@@ -2900,7 +3358,15 @@ void walk_associated_call(struct Ast *tree,
         callLine->operands.associatedCall.returnValue = *destinationOperand;
     }
     callLine->operands.associatedCall.functionName = calledFunction->name;
-    callLine->operands.associatedCall.structName = structCalledOn->name;
+
+    type_init(&callLine->operands.associatedCall.associatedWith);
+    callLine->operands.associatedCall.associatedWith.basicType = VT_STRUCT;
+    callLine->operands.associatedCall.associatedWith.nonArray.complexType.name = associatedWith->baseName;
+    if (associatedWith->genericType == G_INSTANCE)
+    {
+        callLine->operands.associatedCall.associatedWith.nonArray.complexType.genericParams = associatedWith->generic.instance.parameters;
+    }
+
     callLine->operands.associatedCall.arguments = argumentPushes;
 
     basic_block_append(block, callLine, tacIndex);
@@ -3041,14 +3507,14 @@ struct TACLine *walk_field_access(struct Ast *tree,
     }
 
     struct Type *accessedType = tac_operand_get_type(&accessLine->operands.fieldLoad.source);
-    if (accessedType->basicType != VT_STRUCT)
+    if ((accessedType->basicType != VT_STRUCT) && (accessedType->basicType != VT_SELF))
     {
         char *accessedTypeName = type_get_name(accessedType);
         log_tree(LOG_FATAL, tree, "Use of dot operator for field access on non-struct type %s", accessedTypeName);
     }
 
-    // get the StructEntry and StructField of what we're accessing within and the field we access
-    struct StructEntry *accessedStruct = scope_lookup_struct_by_type(scope, accessedType);
+    // get the StructDesc and StructField of what we're accessing within and the field we access
+    struct StructDesc *accessedStruct = scope_lookup_struct_by_type_or_pointer(scope, accessedType);
     struct StructField *accessedField = struct_lookup_field(accessedStruct, rhs, scope);
 
     // populate type information (use cast for the first operand as we are treating a struct as a pointer to something else with a given offset)
@@ -3601,7 +4067,7 @@ void walk_string_literal(struct Ast *tree,
         struct Type charType;
         type_init(&charType);
         charType.basicType = VT_U8;
-        stringType.array.type = dictionary_lookup_or_insert(typeDict, &charType);
+        stringType.array.type = type_duplicate(&charType);
         stringType.array.size = stringLength;
 
         stringLiteralEntry = scope_create_variable(scope, &fakeStringTree, &stringType, true, A_PUBLIC);
@@ -3654,15 +4120,36 @@ void walk_sizeof(struct Ast *tree,
         // we looked something up but it's not a variable
         else
         {
-
-            struct ScopeMember *lookedUpStruct = scope_lookup(scope, tree->child->value, E_STRUCT);
-            if (lookedUpStruct != NULL)
+            struct ScopeMember *lookedUp = scope_lookup(scope, tree->child->value, E_TYPE);
+            if (lookedUp != NULL)
             {
-                struct StructEntry *getSizeof = lookedUpStruct->entry;
-                sizeInBytes = getSizeof->totalSize;
+                struct TypeEntry *lookedUpType = lookedUp->entry;
+                switch (lookedUpType->permutation)
+                {
+                case TP_PRIMITIVE:
+                    InternalError("String lookup of type %s returned primitive type %s", tree->child->value, lookedUpType->baseName);
+                    break;
+
+                case TP_STRUCT:
+                {
+                    // TODO: getter with sanity check against field locations?
+                    struct StructDesc *structType = lookedUpType->data.asStruct;
+                    sizeInBytes = structType->totalSize;
+                }
+                break;
+
+                case TP_ENUM:
+                {
+                    // TODO: getter/check to ensure type includes both union size and numerical enumerator size
+                    struct EnumDesc *enumType = lookedUpType->data.asEnum;
+                    sizeInBytes = enumType->unionSize;
+                }
+                break;
+                }
             }
             else
             {
+                // TODO: "does not name a type" error
                 log_tree(LOG_FATAL, tree->child, "No declaration or type name matches identifier %s\n", tree->child->value);
             }
         }
@@ -3672,9 +4159,10 @@ void walk_sizeof(struct Ast *tree,
     case T_TYPE_NAME:
     {
         struct Type getSizeof;
-        walk_type_name(tree->child, scope, &getSizeof);
+        walk_type_name(tree->child, scope, &getSizeof, NULL);
 
         sizeInBytes = type_get_size(&getSizeof, scope);
+        type_deinit(&getSizeof);
     }
     break;
     default:

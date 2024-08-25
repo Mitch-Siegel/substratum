@@ -14,8 +14,32 @@ void type_init(struct Type *type)
     memset(type, 0, sizeof(struct Type));
 }
 
+void type_deinit(struct Type *type)
+{
+    if (type->basicType == VT_ARRAY)
+    {
+        if (type->array.initializeArrayTo != NULL)
+        {
+            for (size_t i = 0; i < type->array.size; i++)
+            {
+                free(type->array.initializeArrayTo[i]);
+            }
+            free(type->array.initializeArrayTo);
+        }
+        type_free(type->array.type);
+    }
+    else
+    {
+        if (type->nonArray.initializeTo != NULL)
+        {
+            free(type->nonArray.initializeTo);
+        }
+    }
+}
+
 void type_free(struct Type *type)
 {
+    type_deinit(type);
     free(type);
 }
 
@@ -132,7 +156,7 @@ bool type_is_array_object(struct Type *type)
 
 bool type_is_struct_object(struct Type *type)
 {
-    return ((type->basicType == VT_STRUCT) && (type->pointerLevel == 0));
+    return ((type->basicType == VT_STRUCT) && (type->pointerLevel == 0)) || (type->basicType == VT_SELF);
 }
 
 bool type_is_enum_object(struct Type *type)
@@ -159,6 +183,8 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             {
             case VT_NULL:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
+            case VT_SELF:
                 retVal = CANT_WIDEN;
                 break;
             case VT_ENUM:
@@ -179,6 +205,8 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_ENUM:
             case VT_STRUCT:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
+            case VT_SELF:
                 retVal = CANT_WIDEN;
                 break;
             case VT_ANY:
@@ -198,6 +226,8 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_ENUM:
             case VT_STRUCT:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
+            case VT_SELF:
                 retVal = CANT_WIDEN;
                 break;
             case VT_ANY:
@@ -217,6 +247,8 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_ENUM:
             case VT_STRUCT:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
+            case VT_SELF:
                 retVal = CANT_WIDEN;
                 break;
 
@@ -237,6 +269,8 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_ENUM:
             case VT_STRUCT:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
+            case VT_SELF:
                 retVal = CANT_WIDEN;
                 break;
 
@@ -255,6 +289,8 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_U32:
             case VT_U64:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
+            case VT_SELF:
             case VT_ENUM:
                 retVal = CANT_WIDEN;
                 break;
@@ -275,6 +311,8 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_U64:
             case VT_STRUCT:
             case VT_ARRAY:
+            case VT_GENERIC_PARAM:
+            case VT_SELF:
                 retVal = CANT_WIDEN;
                 break;
             case VT_ANY:
@@ -294,6 +332,8 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
             case VT_U16:
             case VT_U32:
             case VT_U64:
+            case VT_GENERIC_PARAM:
+            case VT_SELF:
             case VT_ENUM:
             case VT_STRUCT:
                 retVal = CANT_WIDEN;
@@ -303,6 +343,18 @@ int type_compare_basic_type_allow_implicit_widening(enum BASIC_TYPES basicTypeA,
                 break;
             }
             break;
+        }
+        break;
+
+        case VT_GENERIC_PARAM:
+        {
+            retVal = CANT_WIDEN;
+        }
+        break;
+
+        case VT_SELF:
+        {
+            retVal = CANT_WIDEN;
         }
         break;
         }
@@ -415,8 +467,23 @@ char *type_get_name(struct Type *type)
         break;
 
     case VT_STRUCT:
+        len = sprintf(typeName, "%s", type->nonArray.complexType.name);
+        if (type->nonArray.complexType.genericParams != NULL)
+        {
+            char *genericParamNames = sprint_generic_params(type->nonArray.complexType.genericParams);
+            len += sprintf(typeName + len, "<%s>", genericParamNames);
+            free(genericParamNames);
+        }
+        break;
+
     case VT_ENUM:
         len = sprintf(typeName, "%s", type->nonArray.complexType.name);
+        if (type->nonArray.complexType.genericParams != NULL)
+        {
+            char *paramTypes = sprint_generic_params(type->nonArray.complexType.genericParams);
+            len += sprintf(typeName + len, "%s", paramTypes);
+            free(paramTypes);
+        }
         break;
 
     case VT_ARRAY:
@@ -424,6 +491,18 @@ char *type_get_name(struct Type *type)
         char *arrayTypeName = type_get_name(type->array.type);
         len = sprintf(typeName, "%s[%zu]", arrayTypeName, type->array.size);
         free(arrayTypeName);
+    }
+    break;
+
+    case VT_GENERIC_PARAM:
+    {
+        len = sprintf(typeName, "\"%s\"", type->nonArray.complexType.name);
+    }
+    break;
+
+    case VT_SELF:
+    {
+        len = sprintf(typeName, "Self");
     }
     break;
 
@@ -437,6 +516,7 @@ char *type_get_name(struct Type *type)
         typeName[len + pointerCounter] = '*';
         len += sprintf(typeName + len, "*");
     }
+
     typeName[len + pointerCounter] = '\0';
 
     return typeName;
@@ -446,6 +526,21 @@ struct Type *type_duplicate(struct Type *type)
 {
     struct Type *dup = malloc(sizeof(struct Type));
     memcpy(dup, type, sizeof(struct Type));
+    if (type->basicType == VT_ARRAY)
+    {
+        dup->array.type = type_duplicate(type->array.type);
+    }
+    return dup;
+}
+
+struct Type type_duplicate_non_pointer(struct Type *type)
+{
+    struct Type dup;
+    memcpy(&dup, type, sizeof(struct Type));
+    if (type->basicType == VT_ARRAY)
+    {
+        dup.array.type = type_duplicate(type->array.type);
+    }
     return dup;
 }
 
@@ -493,7 +588,7 @@ size_t type_get_size(struct Type *type, struct Scope *scope)
 
     case VT_STRUCT:
     {
-        struct StructEntry *theStruct = scope_lookup_struct_by_type(scope, type);
+        struct StructDesc *theStruct = scope_lookup_struct_by_type(scope, type);
         size = theStruct->totalSize;
     }
     break;
@@ -501,7 +596,7 @@ size_t type_get_size(struct Type *type, struct Scope *scope)
     case VT_ENUM:
     {
         size = sizeof(size_t);
-        struct EnumEntry *theEnum = scope_lookup_enum_by_type(scope, type);
+        struct EnumDesc *theEnum = scope_lookup_enum_by_type(scope, type);
         size += theEnum->unionSize;
     }
     break;
@@ -518,6 +613,14 @@ size_t type_get_size(struct Type *type, struct Scope *scope)
         size *= type_get_size(&typeRunner, scope);
     }
     break;
+
+    case VT_SELF:
+        InternalError("Type_GetSize called with basic type of VT_SELF!\n");
+        break;
+
+    case VT_GENERIC_PARAM:
+        InternalError("Type_GetSize called with basic type of VT_GENERIC_PARAM!\n");
+        break;
     }
 
     return size;
@@ -566,7 +669,7 @@ u8 type_get_alignment(struct Type *type, struct Scope *scope)
     {
     case VT_STRUCT:
     {
-        struct StructEntry *theStruct = scope_lookup_struct_by_type(scope, type);
+        struct StructDesc *theStruct = scope_lookup_struct_by_type(scope, type);
         Iterator *memberIterator = NULL;
         for (memberIterator = deque_front(theStruct->fieldLocations); iterator_gettable(memberIterator); iterator_next(memberIterator))
         {
@@ -607,4 +710,26 @@ size_t scope_compute_padding_for_alignment(struct Scope *scope, struct Type *ali
     }
 
     return paddingRequired;
+}
+
+void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
+{
+    if (typeEntry->genericType == G_BASE)
+    {
+        InternalError("type_try_resolve_vt_self called with a type entry which is a generic base type!");
+    }
+
+    if (type->basicType == VT_SELF)
+    {
+        type->basicType = VT_STRUCT;
+        type->nonArray.complexType.name = typeEntry->baseName;
+        if (typeEntry->genericType == G_INSTANCE)
+        {
+            type->nonArray.complexType.genericParams = typeEntry->generic.instance.parameters;
+        }
+        else
+        {
+            type->nonArray.complexType.genericParams = NULL;
+        }
+    }
 }

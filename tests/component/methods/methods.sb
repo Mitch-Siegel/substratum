@@ -3,7 +3,7 @@
 struct Stack {
     u8 topIndex;
     u8[256] data;
-};
+}
 
 impl Stack {
     public fun Init(self) {

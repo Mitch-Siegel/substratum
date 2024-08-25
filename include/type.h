@@ -3,7 +3,11 @@
 
 #include "substratum_defs.h"
 
+#include <mbcl/list.h>
+
 struct Scope;
+struct StructDesc;
+struct TypeEntry;
 
 enum BASIC_TYPES
 {
@@ -15,7 +19,9 @@ enum BASIC_TYPES
     VT_U64,
     VT_STRUCT,
     VT_ENUM,
-    VT_ARRAY
+    VT_ARRAY,
+    VT_GENERIC_PARAM,
+    VT_SELF,
 };
 
 struct Type
@@ -30,6 +36,7 @@ struct Type
             struct complexType
             {
                 char *name;
+                List *genericParams; // if this is a struct which is a generic type, this will be a list of pointers to Types of the params
             } complexType;
         } nonArray;
         struct
@@ -42,6 +49,8 @@ struct Type
 };
 
 void type_init(struct Type *type);
+
+void type_deinit(struct Type *type);
 
 void type_free(struct Type *type);
 
@@ -75,6 +84,8 @@ char *type_get_name(struct Type *type);
 
 struct Type *type_duplicate(struct Type *type);
 
+struct Type type_duplicate_non_pointer(struct Type *type);
+
 // gets the byte size (not aligned) of a given type
 size_t type_get_size(struct Type *type, struct Scope *scope);
 
@@ -84,5 +95,7 @@ size_t type_get_size_of_array_element(struct Type *arrayType, struct Scope *scop
 
 // calculate the power of 2 to which a given type needs to be aligned
 u8 type_get_alignment(struct Type *type, struct Scope *scope);
+
+void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry);
 
 #endif

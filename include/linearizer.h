@@ -11,7 +11,7 @@ struct SymbolTable;
 struct Scope;
 struct Type;
 struct FunctionEntry;
-struct StructEntry;
+struct StructDesc;
 struct BasicBlock;
 struct TACOperand;
 
@@ -24,39 +24,51 @@ void reserve_and_store_stack_args(struct Ast *callTree,
 
 struct SymbolTable *walk_program(struct Ast *program);
 
-void walk_type_name(struct Ast *tree, struct Scope *scope, struct Type *populateTypeTo);
+void walk_type_name(struct Ast *tree, struct Scope *scope,
+                    struct Type *populateTypeTo,
+                    struct TypeEntry *fieldOf);
 
 struct VariableEntry *walk_variable_declaration(struct Ast *tree,
-                                                struct BasicBlock *block,
                                                 struct Scope *scope,
                                                 const size_t *tacIndex,
                                                 const size_t *tempNum,
-                                                u8 isArgument,
-                                                enum ACCESS accessibility);
+                                                u8 isArgument);
+
+struct VariableEntry *walk_field_declaration(struct Ast *tree,
+                                             struct Scope *scope,
+                                             const size_t *tacIndex,
+                                             const size_t *tempNum,
+                                             enum ACCESS accessibility,
+                                             struct TypeEntry *fieldOf);
 
 void walk_argument_declaration(struct Ast *tree,
-                               struct BasicBlock *block,
                                size_t *tacIndex,
                                size_t *tempNum,
                                struct FunctionEntry *fun);
 
 struct FunctionEntry *walk_function_declaration(struct Ast *tree,
                                                 struct Scope *scope,
-                                                struct StructEntry *methodOf,
-                                                enum ACCESS accessibility);
+                                                struct TypeEntry *implementedFor,
+                                                enum ACCESS accessibility,
+                                                bool forTrait);
 
 void walk_function_definition(struct Ast *tree,
                               struct FunctionEntry *fun);
 
-void walk_method(struct Ast *tree,
-                 struct StructEntry *methodOf,
-                 enum ACCESS accessibility);
+struct FunctionEntry *walk_implemented_function(struct Ast *tree,
+                                                struct TypeEntry *implementedFor,
+                                                enum ACCESS accessibility);
 
 void walk_implementation_block(struct Ast *tree, struct Scope *scope);
 
-void walk_struct_declaration(struct Ast *tree,
-                             struct BasicBlock *block,
-                             struct Scope *scope);
+struct StructDesc *walk_struct_declaration(struct Ast *tree,
+                                           struct Scope *scope,
+                                           List *genericParams);
+
+void walk_generic(struct Ast *tree,
+                  struct Scope *scope);
+
+void walk_trait_declaration(struct Ast *tree, struct Scope *scope);
 
 void walk_enum_declaration(struct Ast *tree,
                            struct BasicBlock *block,
@@ -165,6 +177,9 @@ void walk_method_call(struct Ast *tree,
                       size_t *tacIndex,
                       size_t *tempNum,
                       struct TACOperand *destinationOperand);
+
+struct TypeEntry *walk_type_name_or_generic_instantiation(struct Scope *scope,
+                                                          struct Ast *tree);
 
 void walk_associated_call(struct Ast *tree,
                           struct BasicBlock *block,

@@ -56,9 +56,9 @@ void generate_code_for_program(struct SymbolTable *table,
         }
         break;
 
-        case E_STRUCT:
+        case E_TYPE:
         {
-            generate_code_for_struct(&globalContext, thisMember->entry, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+            generate_code_for_type(&globalContext, thisMember->entry, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
         }
         break;
 
@@ -69,13 +69,77 @@ void generate_code_for_program(struct SymbolTable *table,
     iterator_free(entryIterator);
 };
 
+void generate_code_for_type_non_generic(struct CodegenState *globalContext,
+                                        struct TypeEntry *theType,
+                                        struct MachineInfo *info,
+                                        void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                                        void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                                        void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
+{
+    Iterator *implementedIter = NULL;
+    for (implementedIter = set_begin(theType->implemented->entries); iterator_gettable(implementedIter); iterator_next(implementedIter))
+    {
+
+        struct ScopeMember *entry = iterator_get(implementedIter);
+        if (entry->type != E_FUNCTION)
+        {
+            InternalError("Type implemented entry is not a function!\n");
+        }
+        struct FunctionEntry *implementedFunction = entry->entry;
+        if (implementedFunction->isDefined)
+        {
+            generate_code_for_function(globalContext->outFile, implementedFunction, info, theType->baseName, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+        }
+    }
+    iterator_free(implementedIter);
+}
+
+void generate_code_for_type(struct CodegenState *globalContext,
+                            struct TypeEntry *theType,
+                            struct MachineInfo *info,
+                            void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                            void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                            void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
+{
+    char *typeName = type_entry_name(theType);
+    log(LOG_DEBUG, "Generate code for type %s", typeName);
+    free(typeName);
+
+    switch (theType->genericType)
+    {
+    case G_NONE:
+        generate_code_for_type_non_generic(globalContext, theType, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+        break;
+
+    case G_BASE:
+    {
+        Iterator *instanceIter = NULL;
+        for (instanceIter = hash_table_begin(theType->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
+        {
+            HashTableEntry *instanceEntry = iterator_get(instanceIter);
+            struct TypeEntry *thisInstance = instanceEntry->value;
+            generate_code_for_type_non_generic(globalContext, thisInstance, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+        }
+        iterator_free(instanceIter);
+    }
+    break;
+
+    case G_INSTANCE:
+        generate_code_for_type_non_generic(globalContext, theType, info, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+        break;
+    }
+}
+
 void generate_code_for_struct(struct CodegenState *globalContext,
-                              struct StructEntry *theStruct,
+                              struct StructDesc *theStruct,
                               struct MachineInfo *info,
                               void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
                               void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
                               void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
 {
+
+    log(LOG_DEBUG, "Generating code for struct %s", theStruct->name);
+
     Iterator *entryIterator = NULL;
     for (entryIterator = set_begin(theStruct->members->entries); iterator_gettable(entryIterator); iterator_next(entryIterator))
     {
@@ -87,7 +151,9 @@ void generate_code_for_struct(struct CodegenState *globalContext,
             struct FunctionEntry *methodToGenerate = thisMember->entry;
             if (methodToGenerate->isDefined)
             {
-                generate_code_for_function(globalContext->outFile, methodToGenerate, info, theStruct->name, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+                char *structName = theStruct->name;
+                generate_code_for_function(globalContext->outFile, methodToGenerate, info, structName, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+                free(structName);
             }
         }
         break;

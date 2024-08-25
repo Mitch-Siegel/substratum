@@ -9,13 +9,14 @@ struct CodegenState;
 struct RegallocMetadata;
 struct FunctionEntry;
 struct VariableEntry;
-struct StructEntry;
+struct StructDesc;
 struct BasicBlock;
 struct Scope;
 struct LinkedList;
 struct CodegenState;
 struct RegallocMetadata;
 struct MachineInfo;
+struct TypeEntry;
 
 void generate_code_for_program(struct SymbolTable *table,
                                FILE *outFile,
@@ -24,7 +25,14 @@ void generate_code_for_program(struct SymbolTable *table,
                                void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
                                void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
 
-void generate_code_for_struct(struct CodegenState *globalContext, struct StructEntry *theStruct,
+void generate_code_for_type(struct CodegenState *globalContext,
+                            struct TypeEntry *theType,
+                            struct MachineInfo *info,
+                            void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
+                            void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
+                            void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
+
+void generate_code_for_struct(struct CodegenState *globalContext, struct StructDesc *theStruct,
                               struct MachineInfo *info,
                               void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
                               void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),

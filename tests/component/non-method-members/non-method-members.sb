@@ -3,7 +3,7 @@
 struct Counter {
     u8 *name;
     u32 count;
-};
+}
 
 impl Counter {
     public fun Increment(self)
@@ -39,7 +39,6 @@ impl Counter {
         copied.name = newName;
         return copied;
     }
-
 }
 
 fun main()

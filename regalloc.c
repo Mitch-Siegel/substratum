@@ -565,6 +565,60 @@ void allocate_registers(struct RegallocMetadata *metadata, struct MachineInfo *i
     free(ltLengthString);
 }
 
+void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info);
+
+void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info);
+
+void allocate_registers_for_type_non_generic(struct TypeEntry *theType, struct MachineInfo *info)
+{
+    Iterator *implementedIter = NULL;
+    for (implementedIter = set_begin(theType->implemented->entries); iterator_gettable(implementedIter); iterator_next(implementedIter))
+    {
+        struct ScopeMember *entry = iterator_get(implementedIter);
+        if (entry->type != E_FUNCTION)
+        {
+            InternalError("Type implemented entry is not a function!\n");
+        }
+        struct FunctionEntry *implementedFunction = entry->entry;
+        if (implementedFunction->isDefined)
+        {
+            allocate_registers(&implementedFunction->regalloc, info);
+        }
+    }
+    iterator_free(implementedIter);
+}
+
+void allocate_registers_for_type(struct TypeEntry *theType, struct MachineInfo *info)
+{
+    char *typeName = type_entry_name(theType);
+    log(LOG_DEBUG, "Allocate registers for type %s", typeName);
+    free(typeName);
+
+    switch (theType->genericType)
+    {
+    case G_NONE:
+        allocate_registers_for_type_non_generic(theType, info);
+        break;
+
+    case G_BASE:
+    {
+        Iterator *instanceIter = NULL;
+        for (instanceIter = hash_table_begin(theType->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
+        {
+            HashTableEntry *instanceEntry = iterator_get(instanceIter);
+            struct TypeEntry *thisInstance = instanceEntry->value;
+            allocate_registers_for_type(thisInstance, info);
+        }
+        iterator_free(instanceIter);
+    }
+    break;
+
+    case G_INSTANCE:
+        allocate_registers_for_type_non_generic(theType, info);
+        break;
+    }
+}
+
 void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)
 {
     Iterator *entryIterator = NULL;
@@ -578,10 +632,10 @@ void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)
         case E_VARIABLE:
             break;
 
-        case E_STRUCT:
+        case E_TYPE:
         {
-            struct StructEntry *thisStruct = thisMember->entry;
-            allocate_registers_for_scope(thisStruct->members, info);
+            struct TypeEntry *thisType = thisMember->entry;
+            allocate_registers_for_type(thisType, info);
         }
         break;
 
@@ -599,7 +653,7 @@ void allocate_registers_for_scope(struct Scope *scope, struct MachineInfo *info)
         break;
 
         case E_BASICBLOCK:
-        case E_ENUM:
+        case E_TRAIT:
             break;
         }
     }
