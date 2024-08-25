@@ -1,0 +1,21 @@
+#include "option.sbh"
+#include "panic.sbh"
+
+
+fun unwrap_failed() {
+
+}
+
+impl<T> Option {
+    public u8 fun is_some(self)
+    {
+        match self {
+            Some(val): val,
+            None: unwrap_failed(),
+        }
+    }
+    
+    public u8 fun is_none(self);
+
+    public T unwrap(self);
+}

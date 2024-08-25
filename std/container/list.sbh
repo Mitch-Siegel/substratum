@@ -1,0 +1,10 @@
+
+struct<T> ListNode {
+
+}
+
+struct<T> List {
+    u64 size;
+    Option::<Ptr::<ListNode::<T>>> head;
+    Option::<Ptr::<ListNode::<T>>> tail;
+}

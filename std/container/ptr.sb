@@ -1,0 +1,28 @@
+#include <pointer.sbh>
+
+impl<T> Ptr {
+    public Self fun from_address(T *addr)
+    {
+        return Ptr::<T>{data = addr};
+    }    
+
+    public fun write_bytes(self, T toWrite)
+    {
+        *self.data = toWrite;
+    }
+    
+    public T fun read_bytes(self)
+    {
+        return *self.data;
+    }
+
+    public fun copy(Self src, Self dst, u64 count)
+    {
+        while(count > 0)
+        {
+            dst.write_bytes(src.read_bytes);
+            src.data += 1;
+            dst.data += 1;
+        }
+    }
+}

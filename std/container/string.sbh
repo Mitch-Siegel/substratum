@@ -1,0 +1,18 @@
+#include "container_base.sbh"
+
+struct String
+{
+    Ptr::<u8> bytes;
+    u64 len;
+}
+
+impl String {
+    public Self fun from_c_str(u8 *c_str);
+}
+
+impl ContainerBase for Vector;
+
+impl Clone for String;
+
+impl Clone for String;
+

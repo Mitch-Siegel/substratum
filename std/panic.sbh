@@ -1,0 +1,2 @@
+
+fun panic(u8 *reason);

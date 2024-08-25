@@ -1,0 +1,15 @@
+
+
+enum<T> Option {
+    Some(T),
+    None
+}
+
+impl<T> Option {
+    public u8 fun is_some(self);
+    
+    public u8 fun is_none(self);
+
+    
+
+}

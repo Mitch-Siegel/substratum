@@ -1,0 +1,39 @@
+#include <string.sbh>
+#include <alloc.sbh>
+#include <ptr.sbh>
+
+u64 fun c_strlen(u8 *str)
+{
+    u64 index = 0;
+    while(str[index] != 0)
+    {
+        index += 1;
+    }
+    return index;
+}
+
+impl String {
+    public Self fun from_c_str(u8 *c_str)
+    {
+        u64 len = c_strlen(c_str);
+        u8 *ownedData = Mem::alloc(len);
+        return String {bytes = Ptr::<u8>::from_address(ownedData), len = len};
+    }
+}
+
+impl ContainerBase for String {
+    public u64 fun size(self)
+    {
+        return self.len;
+    }
+}
+
+impl Clone for String {
+    public Self fun clone(self)
+    {
+        u8 *dupData = Mem::alloc(self.len);
+        Ptr::<u8> dupDataPtr = Ptr::<u8>::from_address(dupData);
+        Ptr::<u8>::copy(self.bytes, dupDataPtr, self.len);
+        return String {bytes = dupDataPtr, len = self.len};
+    }
+}

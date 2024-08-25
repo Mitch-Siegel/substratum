@@ -1,0 +1,6 @@
+#include "fdio.sbh"
+
+fun panic(u8 *reason)
+{
+    fd_write(STDERR_FILENO, reason, )
+}

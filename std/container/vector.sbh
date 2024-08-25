@@ -1,0 +1,19 @@
+#include <container_base.sbh>
+#include <pointer.sbh>
+#include <option.sbh>
+
+struct<T> Vector {
+    Option<Ptr<T>> data;
+    u64 size; // TODO: usize
+    u64 capacity;
+}
+
+impl<T> Vector {
+    public Self fun new();
+
+    public fun push(self, T value);
+
+    public T fun pop(self);
+}
+
+impl<T> ContainerBase for Vector;

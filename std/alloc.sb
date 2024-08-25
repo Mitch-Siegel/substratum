@@ -1,0 +1,29 @@
+#include <alloc.sbh>
+#include <assert.sbh>
+// TODO: extern functions don't work?
+//extern u8 *fun malloc(u64 size);
+//extern u8 *fun free(u8 *ptr);
+u8 *fun malloc(u64 size);
+u8 *fun free(u8 *ptr);
+
+impl Mem {
+    u8 *fun alloc(u64 size)
+    {
+        u8 *ptr = malloc(size);
+        assert(ptr != NULL);
+        return ptr;
+    }
+
+    u8 *fun realloc(u8 *ptr, u64 size)
+    {
+        u8 *new = realloc(ptr, size);
+        assert(new != NULL);
+        return new;
+    }
+
+    fun dealloc(any *ptr)
+    {
+        assert(ptr != NULL);
+        free(ptr);
+    }
+}

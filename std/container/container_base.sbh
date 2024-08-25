@@ -1,0 +1,4 @@
+
+trait ContainerBase {
+    public u64 fun size();
+}

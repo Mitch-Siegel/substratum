@@ -1,0 +1,14 @@
+
+struct Ptr<T> {
+    T *data;
+}
+
+impl<T> Ptr {
+    public Self fun from_address(T *addr);
+    
+    public fun write_bytes(self, T toWrite);
+    
+    public T fun read_bytes(self);
+
+    public fun copy(Self src, Self dst, u64 count);
+}

@@ -1,0 +1,12 @@
+
+struct Mem{
+    u8 as;
+}
+
+impl Mem {
+    u8 *fun alloc(u64 size);
+
+    u8 *fun realloc(u8 *ptr, u64 size);
+
+    fun dealloc(any *ptr);
+}

@@ -1,0 +1,53 @@
+
+#include <assert.sbh>
+#include <alloc.sbh>
+
+impl<T> Vector {
+    public Self fun new() {
+        return Vector::<T> {
+            data = Option<Ptr::<T>>::None,
+            size = 0,
+            capacity = 1,
+        }
+    }
+
+    fun resize(self, u64 new_capacity) {
+        assert(new_capacity >= self.capacity);
+
+        match(self.data)
+        {
+            Some(data): {
+                T *newData = Mem::realloc(self.data.unwrap(), new_capacity * sizeof(T));
+                self.data = Option<Ptr::<T>>::Some(Ptr::<T>::from_address(newData));
+                },
+            None: {
+                T *newData = Mem::realloc(self.data, new_capacity * sizeof(T));
+                self.data = Option<Ptr::<T>>::Some(Ptr::<T>::from_address(newData));
+                }
+        }
+
+        self.capacity = new_capacity;
+    }
+
+    public fun push(self, T value) {
+        if (self.data.is_none() || (self.size == self.capacity)) {
+            self.resize(self.capacity + 1);
+        }
+
+        self.data[self.size] = value;
+        self.size += 1;
+    }
+
+    public T fun pop(self) {
+        assert(self.size > 0);
+
+        self.size -= 1;
+        return self.data[self.size];
+    }
+}
+
+impl<T> ContainerBase for Vector {
+    public u64 fun size() {
+        return self.size;
+    }
+}
