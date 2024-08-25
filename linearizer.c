@@ -591,7 +591,10 @@ struct FunctionEntry *walk_function_declaration(struct Ast *tree,
     }
     else
     {
-        scope_insert(scope, functionNameTree->value, parsedFunc, E_FUNCTION, accessibility);
+        if (!forTrait)
+        {
+            scope_insert(scope, functionNameTree->value, parsedFunc, E_FUNCTION, accessibility);
+        }
         returnedFunc = parsedFunc;
     }
 
@@ -854,6 +857,12 @@ void walk_trait_impl(struct Ast *tree, struct Scope *scope)
         }
         traitBodyRunner = traitBodyRunner->sibling;
     }
+
+    if (implementedFor->genericType != G_BASE)
+    {
+        log(LOG_DEBUG, "Resolving capital 'Self' for %s at end of trait implementation block", implementedFor->baseName);
+        type_entry_resolve_capital_self(implementedFor);
+    }
 }
 
 void walk_implementation_block(struct Ast *tree, struct Scope *scope)
@@ -1064,6 +1073,8 @@ void walk_trait_declaration(struct Ast *tree, struct Scope *scope)
     while (traitBodyRunner != NULL)
     {
         struct FunctionEntry *implemented = NULL;
+
+        bool isPublic = false;
         switch (traitBodyRunner->type)
         {
         case T_FUN:
@@ -1071,6 +1082,7 @@ void walk_trait_declaration(struct Ast *tree, struct Scope *scope)
             break;
 
         case T_PUBLIC:
+            isPublic = true;
             if (traitBodyRunner->child->type != T_FUN)
             {
                 log_tree(LOG_FATAL, traitBodyRunner, "Malformed AST (%s) seen in trait body!", token_get_name(traitBodyRunner->child->type));
@@ -1087,7 +1099,14 @@ void walk_trait_declaration(struct Ast *tree, struct Scope *scope)
             log_tree(LOG_FATAL, traitBodyRunner, "Trait declaration of %s must be a prototype only!", implemented->name);
         }
 
-        set_insert(declaredTrait->functions, implemented);
+        if (isPublic)
+        {
+            set_insert(declaredTrait->public, implemented);
+        }
+        else
+        {
+            set_insert(declaredTrait->private, implemented);
+        }
 
         traitBodyRunner = traitBodyRunner->sibling;
     }

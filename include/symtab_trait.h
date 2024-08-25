@@ -6,7 +6,8 @@
 struct TraitEntry
 {
     char *name;
-    Set *functions;
+    Set *public;
+    Set *private;
 };
 
 struct TraitEntry *trait_new(char *name, struct Scope *parentScope);
