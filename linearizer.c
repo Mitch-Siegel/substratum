@@ -715,9 +715,9 @@ void walk_function_definition(struct Ast *tree,
     scope_add_basic_block(fun->mainScope, exitBlock);
 }
 
-void walk_implemented_function(struct Ast *tree,
-                               struct TypeEntry *implementedFor,
-                               enum ACCESS accessibility)
+struct FunctionEntry *walk_implemented_function(struct Ast *tree,
+                                                struct TypeEntry *implementedFor,
+                                                enum ACCESS accessibility)
 {
     log(LOG_DEBUG, "walk_implemented_function", tree->sourceFile, tree->sourceLine, tree->sourceCol);
 
@@ -749,6 +749,8 @@ void walk_implemented_function(struct Ast *tree,
             }
         }
     }
+
+    return walkedMethod;
 }
 
 void walk_implementation(struct Ast *tree, struct TypeEntry *implementedFor)
@@ -827,6 +829,7 @@ void walk_trait_impl(struct Ast *tree, struct Scope *scope)
     {
         log_tree(LOG_FATAL, traitNameTree, "Malformed AST seen in walk_trait_impl!");
     }
+    struct TraitEntry *implementedTrait = scope_lookup_trait(scope, traitNameTree);
 
     struct Ast *implementedTypeTree = traitForTree->child->sibling;
     if (implementedTypeTree->type != T_TYPE_NAME)
@@ -839,17 +842,20 @@ void walk_trait_impl(struct Ast *tree, struct Scope *scope)
 
     struct TypeEntry *implementedFor = scope_lookup_type(scope, &implementedType);
 
+    Set *implementedPrivate = set_new(NULL, function_entry_compare);
+    Set *implementedPublic = set_new(NULL, function_entry_compare);
+
     struct Ast *traitBodyRunner = traitForTree->sibling;
     while (traitBodyRunner != NULL)
     {
         switch (traitBodyRunner->type)
         {
         case T_FUN:
-            walk_implemented_function(traitBodyRunner, implementedFor, A_PUBLIC);
+            set_insert(implementedPrivate, walk_implemented_function(traitBodyRunner, implementedFor, A_PUBLIC));
             break;
 
         case T_PUBLIC:
-            walk_implemented_function(traitBodyRunner->child, implementedFor, A_PUBLIC);
+            set_insert(implementedPublic, walk_implemented_function(traitBodyRunner->child, implementedFor, A_PUBLIC));
             break;
 
         default:
@@ -857,6 +863,9 @@ void walk_trait_impl(struct Ast *tree, struct Scope *scope)
         }
         traitBodyRunner = traitBodyRunner->sibling;
     }
+
+    // important to do this before resolution of capital 'Self' this relies on function_entry_compare and any VT_SELF still being pre-resolution
+    type_entry_verify_trait(tree, implementedFor, implementedTrait, implementedPrivate, implementedPublic);
 
     if (implementedFor->genericType != G_BASE)
     {

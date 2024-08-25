@@ -485,6 +485,147 @@ struct TypeEntry *type_entry_get_or_create_generic_instantiation(struct TypeEntr
     return instance;
 }
 
+bool type_entry_verify_trait_impl(struct Ast *implTree,
+                                  struct FunctionEntry *expected,
+                                  struct FunctionEntry *actual,
+                                  struct TraitEntry *implementedTrait,
+                                  struct TypeEntry *implementedFor,
+                                  enum ACCESS accessibility,
+                                  enum ACCESS expectedAccessibility)
+{
+    bool incorrect = false;
+    if (accessibility != expectedAccessibility)
+    {
+        incorrect = true;
+        switch (expectedAccessibility)
+        {
+        case A_PRIVATE:
+        {
+            log_tree(LOG_WARNING, implTree, "Function %s of trait %s is public in implementation for type %s", expected->name, implementedTrait->name, implementedFor->baseName);
+        }
+        break;
+        case A_PUBLIC:
+        {
+            log_tree(LOG_WARNING, implTree, "Public function %s of trait %s is not public in implementation for type %s", expected->name, implementedTrait->name, implementedFor->baseName);
+        }
+        break;
+        }
+    }
+    else if (function_entry_compare(expected, actual) != 0)
+    {
+        incorrect = true;
+        log_tree(LOG_WARNING, implTree, "Signature of function %s in implementation of trait %s for type %s doesn't match expected signature (%s)",
+                 sprint_function_signature(actual), implementedTrait->name, implementedFor->baseName, sprint_function_signature(expected));
+    }
+
+    return incorrect;
+}
+
+void type_entry_verify_trait(struct Ast *implTree,
+                             struct TypeEntry *implementedFor,
+                             struct TraitEntry *implementedTrait,
+                             Set *implementedPrivate,
+                             Set *implementedPublic)
+{
+    Set *unImplementedPrivate = set_new(NULL, function_entry_compare);
+    Set *unImplementedPublic = set_new(NULL, function_entry_compare);
+
+    Iterator *expectedIter = NULL;
+    bool incorrect = false;
+
+    for (expectedIter = set_begin(implementedTrait->private); iterator_gettable(expectedIter); iterator_next(expectedIter))
+    {
+        struct FunctionEntry *expected = iterator_get(expectedIter);
+        struct ScopeMember *actualEntry = scope_lookup(implementedFor->implemented, expected->name, E_FUNCTION);
+        if (actualEntry == NULL)
+        {
+            set_insert(unImplementedPublic, expected);
+        }
+        else
+        {
+            set_remove(implementedPrivate, actualEntry->entry);
+            incorrect |= type_entry_verify_trait_impl(implTree, expected, actualEntry->entry, implementedTrait, implementedFor, actualEntry->accessibility, A_PRIVATE);
+        }
+    }
+    iterator_free(expectedIter);
+
+    for (expectedIter = set_begin(implementedTrait->public); iterator_gettable(expectedIter); iterator_next(expectedIter))
+    {
+        struct FunctionEntry *expected = iterator_get(expectedIter);
+        struct ScopeMember *actualEntry = scope_lookup(implementedFor->implemented, expected->name, E_FUNCTION);
+        if (actualEntry == NULL)
+        {
+            set_insert(unImplementedPublic, expected);
+        }
+        else
+        {
+            set_remove(implementedPublic, actualEntry->entry);
+            incorrect |= type_entry_verify_trait_impl(implTree, expected, actualEntry->entry, implementedTrait, implementedFor, actualEntry->accessibility, A_PUBLIC);
+        }
+    }
+    iterator_free(expectedIter);
+
+    if (incorrect)
+    {
+        log_tree(LOG_FATAL, implTree, "Trait %s not correctly implemented for type %s\n", implementedTrait->name, implementedFor->baseName);
+    }
+
+    if ((unImplementedPrivate->size > 0) || (unImplementedPublic->size > 0))
+    {
+        Iterator *unImplementedIter = NULL;
+        for (unImplementedIter = set_begin(unImplementedPrivate); iterator_gettable(unImplementedIter); iterator_next(unImplementedIter))
+        {
+            struct FunctionEntry *unImplemented = iterator_get(unImplementedIter);
+            log_tree(LOG_WARNING, implTree, "%s not implemented for trait %s", unImplemented->name, implementedTrait->name);
+        }
+        iterator_free(unImplementedIter);
+        for (unImplementedIter = set_begin(unImplementedPublic); iterator_gettable(unImplementedIter); iterator_next(unImplementedIter))
+        {
+            struct FunctionEntry *unImplemented = iterator_get(unImplementedIter);
+            log_tree(LOG_WARNING, implTree, "public %s not implemented for trait %s", unImplemented->name, implementedTrait->name);
+        }
+
+        log_tree(LOG_FATAL, implTree, "Trait %s not fully implemented for type %s\n", implementedTrait->name, implementedFor->baseName);
+    }
+
+    // check for public functions implemented that are not part of the trait - this is an error
+    // it makes sense that trait implementations may require extra private functions,
+    // but exposing additional public functions should be disallowed to avoid confusion
+    if (implementedPublic->size > 0)
+    {
+        char *extraPublicSignatures = NULL;
+
+        Iterator *extraIter = NULL;
+        for (extraIter = set_begin(implementedPublic); iterator_gettable(extraIter); iterator_next(extraIter))
+        {
+            struct FunctionEntry *extraPublic = iterator_get(extraIter);
+            char *extraSignature = sprint_function_signature(extraPublic);
+            if (extraPublicSignatures == NULL)
+            {
+                extraPublicSignatures = malloc(strlen(extraSignature) + strlen("public ") + 3);
+                strcpy(extraPublicSignatures, "public ");
+                strcat(extraPublicSignatures, extraSignature);
+            }
+            else
+            {
+                extraPublicSignatures = realloc(extraPublicSignatures, strlen(extraPublicSignatures) + strlen(extraSignature) + strlen("public ") + 3);
+                strcat(extraPublicSignatures, "\n");
+                strcat(extraPublicSignatures, "public ");
+                strcat(extraPublicSignatures, extraSignature);
+            }
+        }
+
+        log_tree(LOG_FATAL, implTree, "Implementation of trait %s for %s includes %zu public functions not part of trait:\n%s",
+                 implementedTrait->name, implementedFor->baseName, implementedPublic->size, extraPublicSignatures);
+    }
+
+    set_free(implementedPrivate);
+    set_free(implementedPublic);
+
+    set_free(unImplementedPrivate);
+    set_free(unImplementedPublic);
+}
+
 char *sprint_generic_param_names(List *paramNames)
 {
     char *str = NULL;

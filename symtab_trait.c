@@ -34,7 +34,7 @@ void trait_entry_print(struct TraitEntry *trait, size_t depth, FILE *outFile)
         free(signature);
     }
     iterator_free(funIter);
-    for(funIter = set_begin(trait->private); iterator_gettable(funIter); iterator_next(funIter))
+    for (funIter = set_begin(trait->private); iterator_gettable(funIter); iterator_next(funIter))
     {
         struct FunctionEntry *function = iterator_get(funIter);
         for (size_t i = 0; i < depth; i++)

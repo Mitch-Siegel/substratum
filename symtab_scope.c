@@ -575,24 +575,6 @@ struct EnumDesc *scope_lookup_enum_by_member_name(struct Scope *scope,
     return NULL;
 }
 
-struct TraitEntry *scope_lookup_trait(struct Scope *scope, char *name)
-{
-    struct ScopeMember *lookedUp = scope_lookup(scope, name, E_TRAIT);
-    if (lookedUp == NULL)
-    {
-        InternalError("Use of undeclared trait '%s'", name);
-    }
-
-    switch (lookedUp->type)
-    {
-    case E_TRAIT:
-        return lookedUp->entry;
-
-    default:
-        InternalError("lookupTrait for %s lookup got a non-trait ScopeMember!", name);
-    }
-}
-
 struct BasicBlock *scope_lookup_block_by_number(struct Scope *scope, size_t label)
 {
     char blockName[32];
@@ -1004,4 +986,24 @@ struct TypeEntry *scope_lookup_type_remove_pointer(struct Scope *scope, struct T
     struct Type typeToLookup = *type;
     typeToLookup.pointerLevel = 0;
     return scope_lookup_type(scope, &typeToLookup);
+}
+
+struct TraitEntry *scope_lookup_trait(struct Scope *scope, struct Ast *nameTree)
+{
+    struct ScopeMember *lookedUp = scope_lookup(scope, nameTree->value, E_TRAIT);
+    if (lookedUp == NULL)
+    {
+        log_tree(LOG_FATAL, nameTree, "Use of undeclared trait '%s'", nameTree->value);
+    }
+
+    switch (lookedUp->type)
+    {
+    case E_TRAIT:
+        return lookedUp->entry;
+
+    default:
+        log_tree(LOG_FATAL, nameTree, "scope_lookup_trait for %s lookup got a non-trait ScopeMember!", nameTree->value);
+    }
+
+    return NULL;
 }

@@ -11,6 +11,7 @@
 #include "mbcl/deque.h"
 #include "mbcl/list.h"
 
+// TODO: associate AST with function entry for line/col traceablility in error messages
 struct FunctionEntry
 {
     struct Type returnType;

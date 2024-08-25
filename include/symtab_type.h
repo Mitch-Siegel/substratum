@@ -79,6 +79,12 @@ void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, L
 
 struct TypeEntry *type_entry_get_or_create_generic_instantiation(struct TypeEntry *baseType, List *paramsList);
 
+void type_entry_verify_trait(struct Ast *implTree,
+                             struct TypeEntry *implementedFor,
+                             struct TraitEntry *implementedTrait,
+                             Set *implementedPrivate,
+                             Set *implementedPublic);
+
 char *sprint_generic_param_names(List *paramNames);
 
 char *sprint_generic_params(List *params);
