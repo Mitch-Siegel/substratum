@@ -43,3 +43,14 @@ void variable_entry_free(struct VariableEntry *variable)
     type_deinit(&variable->type);
     free(variable);
 }
+
+void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t depth)
+{
+    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
+    {
+        fprintf(outFile, "\t");
+    }
+    char *typeName = type_get_name(&variable->type);
+    fprintf(outFile, "%s %s\n", typeName, variable->name);
+    free(typeName);
+}

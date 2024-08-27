@@ -80,6 +80,516 @@ void scope_free(struct Scope *scope)
     free(scope);
 }
 
+void print_accessibility(enum ACCESS accessibility, FILE *outFile)
+{
+    switch (accessibility)
+    {
+    case A_PRIVATE:
+        fprintf(outFile, " - Private");
+        break;
+
+    case A_PUBLIC:
+        fprintf(outFile, " - Public");
+        break;
+    }
+}
+
+void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth, FILE *outFile)
+{
+    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
+    {
+        fprintf(outFile, "\t");
+    }
+
+    fprintf(outFile, "%p:", toPrint);
+
+    switch (toPrint->type)
+    {
+    case E_ARGUMENT:
+    {
+        struct VariableEntry *theArgument = toPrint->entry;
+        fprintf(outFile, "> Argument: %s", toPrint->name);
+        print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, "\n");
+
+        variable_entry_print(theArgument, outFile, depth + 1);
+        for (size_t depthPrint = 0; depthPrint < depth + 1; depthPrint++)
+        {
+            fprintf(outFile, "\t");
+        }
+        fprintf(outFile, "Stack offset: %zd\n", theArgument->stackOffset);
+    }
+    break;
+
+    case E_VARIABLE:
+    {
+        struct VariableEntry *theVariable = toPrint->entry;
+        fprintf(outFile, "> Variable %s", toPrint->name);
+        print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, "\n");
+
+        variable_entry_print(theVariable, outFile, depth + 1);
+    }
+    break;
+
+    case E_TYPE:
+    {
+        struct TypeEntry *theType = toPrint->entry;
+        fprintf(outFile, "> Type %s ", toPrint->name);
+        print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, "\n");
+        type_entry_print(theType, printTac, depth + 1, outFile);
+    }
+    break;
+
+    case E_FUNCTION:
+    {
+        struct FunctionEntry *theFunction = toPrint->entry;
+        if (theFunction->implementedFor != NULL)
+        {
+            fprintf(outFile, "> Method %s.", theFunction->implementedFor->baseName);
+        }
+        else
+        {
+            fprintf(outFile, "> Function ");
+        }
+        fprintf(outFile, "%s", toPrint->name);
+        print_accessibility(toPrint->accessibility, outFile);
+        fprintf(outFile, "\n");
+        function_entry_print(theFunction, printTac, depth + 1, outFile);
+    }
+    break;
+
+    case E_SCOPE:
+    {
+        struct Scope *theScope = toPrint->entry;
+        fprintf(outFile, "> Subscope %s\n", toPrint->name);
+        scope_print(theScope, outFile, depth + 1, printTac);
+    }
+    break;
+
+    case E_BASICBLOCK:
+    {
+        struct BasicBlock *thisBlock = toPrint->entry;
+        fprintf(outFile, "> Basic Block %zu - %zu TAC lines\n", thisBlock->labelNum, thisBlock->TACList->size);
+        if (printTac)
+        {
+            print_basic_block(thisBlock, depth + 1);
+        }
+    }
+    break;
+
+    case E_TRAIT:
+    {
+        struct TraitEntry *theTrait = toPrint->entry;
+        fprintf(outFile, "> Trait %s\n", theTrait->name);
+        trait_entry_print(theTrait, depth + 1, outFile);
+    }
+    break;
+    }
+}
+
+void scope_print(struct Scope *scope, FILE *outFile, size_t depth, bool printTac)
+{
+    Iterator *memberIterator = NULL;
+    for (memberIterator = set_begin(scope->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
+    {
+        struct ScopeMember *thisMember = iterator_get(memberIterator);
+        scope_print_member(thisMember, printTac, depth + 1, outFile);
+    }
+    iterator_free(memberIterator);
+}
+
+// get all members of a given type from a scope, returning them in a stack with the first members on top
+Stack *scope_get_all_members_of_type(struct Scope *scope, enum SCOPE_MEMBER_TYPE type)
+{
+    Stack *result = stack_new(NULL);
+    Iterator *entryIter = NULL;
+    for (entryIter = set_begin(scope->entries); iterator_gettable(entryIter); iterator_next(entryIter))
+    {
+        struct ScopeMember *thisMember = iterator_get(entryIter);
+        if (thisMember->type == type)
+        {
+            stack_push(result, thisMember->entry);
+        }
+    }
+    iterator_free(entryIter);
+    return result;
+}
+
+void dump_indent(FILE *outFile, size_t depth)
+{
+    for (size_t i = 0; i < depth; i++)
+    {
+        fprintf(outFile, "    ");
+    }
+}
+
+void dump_start_row(FILE *outFile, size_t depth, char *port)
+{
+    dump_indent(outFile, depth);
+    if (port != NULL)
+    {
+        fprintf(outFile, "<tr> <td port=\"%s\">", port);
+    }
+    else
+    {
+        fprintf(outFile, "<tr> <td>");
+    }
+}
+
+void dump_end_row(FILE *outFile, size_t depth)
+{
+    dump_indent(outFile, depth);
+    fprintf(outFile, "</td> </tr>\n");
+}
+
+void dump_start_table(FILE *outFile, char *tableName, size_t *depth)
+{
+    fprintf(outFile, "<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"4\">\n");
+    (*depth)++;
+    dump_indent(outFile, *depth);
+    fprintf(outFile, "<tr> <td><b>%s</b></td> </tr>\n", tableName);
+}
+
+void dump_end_table(FILE *outFile, size_t *depth)
+{
+    (*depth)--;
+    dump_indent(outFile, *depth);
+    fprintf(outFile, "</table>\n");
+}
+
+char *dump_get_full_scope_name(struct Scope *scope)
+{
+    if (scope->parentScope == NULL)
+    {
+        return strdup(scope->name);
+    }
+    char *parentName = dump_get_full_scope_name(scope->parentScope);
+    char *result = malloc(strlen(parentName) + strlen(scope->name) + 2);
+    ssize_t len = sprintf(result, "%s", parentName);
+    ssize_t idx = 0;
+    while (scope->name[idx] != '\0')
+    {
+        switch (scope->name[idx])
+        {
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            result[len + idx] = 'a' + (scope->name[idx] - '0');
+            break;
+
+        default:
+            result[len + idx] = scope->name[idx];
+        }
+        result[len + idx + 1] = '\0';
+        idx++;
+    }
+    free(parentName);
+    return result;
+}
+
+void scope_dump_arguments_dot(FILE *outFile, struct Scope *scope, size_t depth)
+{
+    Stack *argsToDump = scope_get_all_members_of_type(scope, E_ARGUMENT);
+    if (argsToDump->size == 0)
+    {
+        log(LOG_DEBUG, "No arguments to dump in scope %s", scope->name);
+        stack_free(argsToDump);
+        return;
+    }
+    log(LOG_DEBUG, "Dumping arguments in scope %s", scope->name);
+
+    dump_start_row(outFile, depth, NULL);
+    dump_start_table(outFile, "Arguments", &depth);
+
+    while (argsToDump->size > 0)
+    {
+        struct VariableEntry *dumped = stack_pop(argsToDump);
+        dump_start_row(outFile, depth, NULL);
+
+        char *typeName = type_get_name(&dumped->type);
+        fprintf(outFile, "%s %s", typeName, dumped->name);
+        free(typeName);
+        dump_end_row(outFile, depth);
+    }
+    stack_free(argsToDump);
+
+    dump_end_table(outFile, &depth);
+    dump_end_row(outFile, depth);
+}
+
+void scope_dump_variables_dot(FILE *outFile, struct Scope *scope, size_t depth)
+{
+    Stack *varsToDump = scope_get_all_members_of_type(scope, E_VARIABLE);
+    if (varsToDump->size == 0)
+    {
+        log(LOG_DEBUG, "No variables to dump in scope %s", scope->name);
+        stack_free(varsToDump);
+        return;
+    }
+    log(LOG_DEBUG, "Dumping variables in scope %s", scope->name);
+
+    dump_start_row(outFile, depth, NULL);
+    dump_start_table(outFile, "Variables", &depth);
+
+    while (varsToDump->size > 0)
+    {
+        struct VariableEntry *dumped = stack_pop(varsToDump);
+
+        dump_start_row(outFile, depth, NULL);
+        char *typeName = type_get_name(&dumped->type);
+        fprintf(outFile, "%s %s", typeName, dumped->name);
+        free(typeName);
+        dump_end_row(outFile, depth);
+    }
+    dump_end_table(outFile, &depth);
+    dump_end_row(outFile, depth);
+
+    stack_free(varsToDump);
+}
+
+void scope_dump_types_dot(FILE *outFile, struct Scope *scope, size_t depth)
+{
+    Stack *typesToDump = scope_get_all_members_of_type(scope, E_TYPE);
+    if (typesToDump->size == 0)
+    {
+        log(LOG_DEBUG, "No types to dump in scope %s", scope->name);
+        stack_free(typesToDump);
+        return;
+    }
+    log(LOG_DEBUG, "Dumping types in scope %s", scope->name);
+
+    dump_start_row(outFile, depth, NULL);
+    dump_start_table(outFile, "Types", &depth);
+
+    while (typesToDump->size > 0)
+    {
+        struct TypeEntry *dumped = stack_pop(typesToDump);
+        dump_start_row(outFile, depth, dumped->baseName);
+        switch (dumped->permutation)
+        {
+        case TP_PRIMITIVE:
+            fprintf(outFile, "Primitive type %s", dumped->baseName);
+            break;
+
+        case TP_STRUCT:
+            fprintf(outFile, "Struct %s", dumped->baseName);
+            break;
+
+        case TP_ENUM:
+            fprintf(outFile, "Enum %s", dumped->baseName);
+            break;
+        }
+        dump_end_row(outFile, depth);
+    }
+
+    dump_end_table(outFile, &depth);
+    dump_end_row(outFile, depth);
+
+    stack_free(typesToDump);
+}
+
+void scope_dump_traits_dot(FILE *outFile, struct Scope *scope, size_t depth)
+{
+    Stack *traitsToDump = scope_get_all_members_of_type(scope, E_TRAIT);
+    if (traitsToDump->size == 0)
+    {
+        log(LOG_DEBUG, "No traits to dump in scope %s", scope->name);
+        stack_free(traitsToDump);
+        return;
+    }
+    log(LOG_DEBUG, "Dumping traits in scope %s", scope->name);
+
+    dump_start_row(outFile, depth, NULL);
+    dump_start_table(outFile, "Traits", &depth);
+
+    while (traitsToDump->size > 0)
+    {
+        struct TraitEntry *dumped = stack_pop(traitsToDump);
+        dump_start_row(outFile, depth, dumped->name);
+        fprintf(outFile, "Trait %s", dumped->name);
+        dump_end_row(outFile, depth);
+    }
+
+    dump_end_table(outFile, &depth);
+    dump_end_row(outFile, depth);
+
+    stack_free(traitsToDump);
+}
+
+void scope_dump_functions_dot(FILE *outFile, struct Scope *scope, size_t depth)
+{
+    Stack *functionsToDump = scope_get_all_members_of_type(scope, E_FUNCTION);
+    if (functionsToDump->size == 0)
+    {
+        log(LOG_DEBUG, "No functions to dump in scope %s", scope->name);
+        stack_free(functionsToDump);
+        return;
+    }
+    log(LOG_DEBUG, "Dumping functions in scope %s", scope->name);
+
+    dump_start_row(outFile, depth, NULL);
+    dump_start_table(outFile, "Functions", &depth);
+    while (functionsToDump->size > 0)
+    {
+        struct FunctionEntry *dumped = stack_pop(functionsToDump);
+        dump_start_row(outFile, depth, dumped->name);
+        if (dumped->returnType.basicType != VT_NULL)
+        {
+            char *signature = sprint_function_signature(dumped);
+            fprintf(outFile, "Function %s (defined? %d)", signature, dumped->isDefined);
+            free(signature);
+        }
+        else
+        {
+            fprintf(outFile, "Function %s (no return) (defined: %d)", dumped->name, dumped->isDefined);
+        }
+    }
+    dump_end_table(outFile, &depth);
+    dump_end_row(outFile, depth);
+
+    stack_free(functionsToDump);
+}
+
+void scope_dump_basicblocks_dot(FILE *outFile, struct Scope *scope, size_t depth, bool printTac)
+{
+    Stack *blocksToDump = scope_get_all_members_of_type(scope, E_BASICBLOCK);
+
+    if (blocksToDump->size == 0)
+    {
+        log(LOG_DEBUG, "No basic blocks to dump in scope %s", scope->name);
+        stack_free(blocksToDump);
+        return;
+    }
+    log(LOG_DEBUG, "Dumping basic blocks in scope %s", scope->name);
+
+    while (blocksToDump->size > 0)
+    {
+        struct BasicBlock *dumped = stack_pop(blocksToDump);
+        if (printTac)
+        {
+            char blockName[33];
+            sprintf(blockName, "Basic Block %zu", dumped->labelNum);
+            dump_start_table(outFile, blockName, &depth);
+            Iterator *tacIter = list_begin(dumped->TACList);
+            while (iterator_gettable(tacIter))
+            {
+                struct TACLine *thisTac = iterator_get(tacIter);
+                dump_start_row(outFile, depth, NULL);
+                char *tacString = sprint_tac_line(thisTac);
+                fprintf(outFile, "%s", tacString);
+                free(tacString);
+                dump_end_row(outFile, depth);
+                iterator_next(tacIter);
+            }
+            iterator_free(tacIter);
+        }
+        else
+        {
+            dump_start_row(outFile, depth, NULL);
+            fprintf(outFile, "Basic Block %zu", dumped->labelNum);
+            dump_end_row(outFile, depth);
+        }
+    }
+
+    stack_free(blocksToDump);
+}
+
+void scope_dump_subscopes_dot(FILE *outFile, struct Scope *scope, size_t depth, bool printTac)
+{
+    Stack *scopesToDump = scope_get_all_members_of_type(scope, E_SCOPE);
+    if (scopesToDump->size == 0)
+    {
+        log(LOG_DEBUG, "No subscopes to dump in scope %s", scope->name);
+        stack_free(scopesToDump);
+        return;
+    }
+    log(LOG_DEBUG, "Dumping subscopes in scope %s", scope->name);
+
+    while (scopesToDump->size > 0)
+    {
+        struct Scope *dumped = stack_pop(scopesToDump);
+        scope_dump_dot(outFile, dumped, depth + 1, printTac);
+    }
+
+    stack_free(scopesToDump);
+}
+
+void scope_dump_dot(FILE *outFile, struct Scope *scope, size_t depth, bool printTAC)
+{
+    log(LOG_DEBUG, "Dumping scope %s", scope->name);
+    dump_indent(outFile, depth);
+    char *fullScopeName = dump_get_full_scope_name(scope);
+    fprintf(outFile, "%s [\n", fullScopeName);
+    free(fullScopeName);
+    dump_indent(outFile, depth);
+    fprintf(outFile, "shape=plain\n");
+    dump_indent(outFile, depth);
+    fprintf(outFile, "label=<");
+
+    dump_start_table(outFile, scope->name, &depth);
+
+    scope_dump_arguments_dot(outFile, scope, depth);
+    scope_dump_variables_dot(outFile, scope, depth);
+    scope_dump_types_dot(outFile, scope, depth);
+    scope_dump_traits_dot(outFile, scope, depth);
+    scope_dump_functions_dot(outFile, scope, depth);
+    scope_dump_basicblocks_dot(outFile, scope, depth, printTAC);
+    // scope_dump_subscopes_dot(outFile, scope, depth, printTAC);
+
+    dump_end_table(outFile, &depth);
+
+    dump_indent(outFile, depth);
+    fprintf(outFile, ">]\n");
+
+    Iterator *entryIter = NULL;
+    for (entryIter = set_begin(scope->entries); iterator_gettable(entryIter); iterator_next(entryIter))
+    {
+        struct ScopeMember *thisMember = iterator_get(entryIter);
+        switch (thisMember->type)
+        {
+        case E_SCOPE:
+            dump_indent(outFile, depth);
+            char *fromScopeName = dump_get_full_scope_name(scope);
+            char *toScopeName = dump_get_full_scope_name(thisMember->entry);
+            fprintf(outFile, "%s->%s\n", fromScopeName, toScopeName);
+            free(fromScopeName);
+            free(toScopeName);
+            scope_dump_dot(outFile, thisMember->entry, depth + 1, printTAC);
+            break;
+
+        case E_FUNCTION:
+        {
+            struct FunctionEntry *thisFunction = thisMember->entry;
+            scope_dump_dot(outFile, thisFunction->mainScope, depth + 1, printTAC);
+            dump_indent(outFile, depth);
+            char *fromScopeName = dump_get_full_scope_name(scope);
+            char *toScopeName = dump_get_full_scope_name(thisFunction->mainScope);
+            fprintf(outFile, "%s->%s\n", fromScopeName, toScopeName);
+            free(fromScopeName);
+            free(toScopeName);
+        }
+        break;
+
+        case E_BASICBLOCK:
+        case E_VARIABLE:
+        case E_ARGUMENT:
+        case E_TYPE:
+        case E_TRAIT:
+            break;
+        }
+    }
+    iterator_free(entryIter);
+}
+
 // insert a member with a given name and pointer to entry, along with info about the entry type
 void scope_insert(struct Scope *scope, char *name, void *newEntry, enum SCOPE_MEMBER_TYPE type, enum ACCESS accessibility)
 {
@@ -256,6 +766,21 @@ struct ScopeMember *scope_lookup(struct Scope *scope, char *name, enum SCOPE_MEM
         scope = scope->parentScope;
     }
     return NULL;
+}
+
+void scope_add_basic_block(struct Scope *scope, struct BasicBlock *block)
+{
+    const u8 BASIC_BLOCK_NAME_STR_SIZE = 10; // TODO: manage this better
+    char *blockName = malloc(BASIC_BLOCK_NAME_STR_SIZE);
+    sprintf(blockName, "Block%zu", block->labelNum);
+    char *dictBlockName = dictionary_lookup_or_insert(parseDict, blockName);
+    free(blockName);
+    scope_insert(scope, dictBlockName, block, E_BASICBLOCK, A_PUBLIC);
+
+    if (scope->parentFunction != NULL)
+    {
+        list_append(scope->parentFunction->BasicBlockList, block);
+    }
 }
 
 struct VariableEntry *scope_lookup_var_by_string(struct Scope *scope, char *name)

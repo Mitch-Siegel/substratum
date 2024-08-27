@@ -37,6 +37,10 @@ void symbol_table_print(struct SymbolTable *table,
                         FILE *outFile,
                         bool printTac);
 
+void symbol_table_dump_dot(FILE *outFile,
+                           struct SymbolTable *table,
+                           bool printTAC);
+
 void symbol_table_print_cfgs(struct SymbolTable *table, char *outDir);
 
 Set *symbol_table_collapse_scopes_rec(struct Scope *scope,

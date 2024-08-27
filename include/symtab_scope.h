@@ -60,6 +60,11 @@ void scope_print(struct Scope *scope,
                  size_t depth,
                  bool printTac);
 
+void scope_dump_dot(FILE *outFile,
+                    struct Scope *scope,
+                    size_t depth,
+                    bool printTAC);
+
 void scope_insert(struct Scope *scope,
                   char *name,
                   void *newEntry,
