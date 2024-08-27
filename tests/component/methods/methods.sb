@@ -15,12 +15,12 @@ impl Stack {
         self.topIndex += 1;
     }
 
-    public u8 fun Pop(self) {
+    public fun Pop(self) -> u8{
         self.topIndex -= 1;
         return self.data[self.topIndex];
     }
 
-    public u8 fun Size(self) {
+    public fun Size(self) -> u8 {
         return self.topIndex;
     }
 }

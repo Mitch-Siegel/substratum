@@ -1,11 +1,11 @@
 #include "tests-common.sb"
 
-u8 fun printPointer(u8 *toPrint)
+fun printPointer(u8 *toPrint) -> u8
 {
     printNum(*toPrint, 1);
 }
 
-u8 fun Increment(u8 toIncrement) asm {
+fun Increment(u8 toIncrement) -> u8 asm {
     a0 = readvar(toIncrement)
     addi a0, a0, 1
 }

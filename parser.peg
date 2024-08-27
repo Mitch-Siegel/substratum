@@ -131,10 +131,10 @@ parameter_list
     / p:parameter_declaration                            { $$ = p; }
 
 function_declaration
-   <- t:type_name _ f:fun _ i:identifier _ kw_lparen _ kw_rparen                     { $$ = AST_C(f, AST_S(t, i)); }
-    / t:type_name _ f:fun _ i:identifier _ kw_lparen _ p:parameter_list _ kw_rparen  { $$ = AST_C(f, AST_S(AST_S(t, i), p)); }
-    / f:fun _ i:identifier _ kw_lparen _ kw_rparen                     { $$ = AST_C(f, i); }
-    / f:fun _ i:identifier _ kw_lparen _ p:parameter_list _ kw_rparen  { $$ = AST_C(f, AST_S(i, p)); }
+   <- f:fun _ i:identifier _ kw_lparen _ kw_rparen _ kw_arrow _ t:type_name                     { $$ = AST_C(f, AST_S(t, i)); }
+    / f:fun _ i:identifier _ kw_lparen _ p:parameter_list _ kw_rparen _ kw_arrow _ t:type_name  { $$ = AST_C(f, AST_S(AST_S(t, i), p)); }
+    / f:fun _ i:identifier _ kw_lparen _ kw_rparen                                              { $$ = AST_C(f, i); }
+    / f:fun _ i:identifier _ kw_lparen _ p:parameter_list _ kw_rparen                           { $$ = AST_C(f, AST_S(i, p)); }
 
 function_definition
    <- d:function_declaration _ a:asm_block { $$ = AST_C(d, a); }
@@ -145,7 +145,7 @@ method_parameter_list
     / s:self                                                     { $$ = s; }
 
 method_declaration
-   <- t:type_name _ f:fun _ i:identifier _ kw_lparen _ mpl:method_parameter_list _ kw_rparen  { $$ = AST_C(f, AST_S(AST_S(t, i), mpl)); }
+   <- f:fun _ i:identifier _ kw_lparen _ mpl:method_parameter_list _ kw_rparen _ kw_arrow _ t:type_name { $$ = AST_C(f, AST_S(AST_S(t, i), mpl)); }
     / f:fun _ i:identifier _ kw_lparen _ mpl:method_parameter_list _ kw_rparen  { $$ = AST_C(f, AST_S(i, mpl)); }
 
 method_definition
@@ -501,6 +501,7 @@ kw_trait       <- 'trait' !(LETTER/DIGIT)
 
 
 # nontree keywords
+kw_arrow       <- '->'                    { manage_source_location(auxil, $0); }
 kw_semicolon   <- ';'                     { manage_source_location(auxil, $0); }
 kw_comma       <- ','                     { manage_source_location(auxil, $0); }
 kw_else        <- 'else' !(LETTER/DIGIT)  { manage_source_location(auxil, $0); }
