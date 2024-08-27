@@ -340,6 +340,7 @@ struct StructDesc *scope_lookup_struct(struct Scope *scope,
     switch (lookedUp->type)
     {
     case E_TYPE:
+    {
         struct TypeEntry *lookedUpType = lookedUp->entry;
         switch (lookedUpType->permutation)
         {
@@ -354,6 +355,8 @@ struct StructDesc *scope_lookup_struct(struct Scope *scope,
             log_tree(LOG_FATAL, nameTree, "%s is an enum type, not a struct!", nameTree->value);
             break;
         }
+    }
+    break;
 
     default:
         log_tree(LOG_FATAL, nameTree, "%s is not a struct!", nameTree->value);
