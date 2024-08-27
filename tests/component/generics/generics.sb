@@ -6,7 +6,7 @@ struct<T> Stack {
 }
 
 impl<T> Stack {
-    public Self fun New()
+    public fun New() -> Self
     {
         Self created;
         created.size = 0;
@@ -19,7 +19,7 @@ impl<T> Stack {
         self.size += 1;
     }
 
-    public T fun Pop(self)
+    public fun Pop(self) -> T
     {
         self.size -= 1;
         return self.data[self.size];

@@ -1,6 +1,6 @@
 #include "tests-common.sb"
 
-any *fun funReturningAnyPointer()
+fun funReturningAnyPointer() -> any *
 {
     return (any *)0xabcdefffabcdefff;
 }

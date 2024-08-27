@@ -1,6 +1,6 @@
 #include "tests-common.sb"
 
-u8 fun testIfScope(u8 a)
+fun testIfScope(u8 a) -> u8
 {
     if((a / 2) == ((a + 1) / 2))
     {
@@ -11,7 +11,7 @@ u8 fun testIfScope(u8 a)
     return noIfResult;
 }
 
-u8 fun testIfElseScope(u8 a)
+fun testIfElseScope(u8 a) -> u8
 {
     u8 result = 9;
     if((a / 2) == ((a + 1) / 2))
@@ -27,7 +27,7 @@ u8 fun testIfElseScope(u8 a)
     return result;
 }
 
-u8 fun testWhileScope(u8 a)
+fun testWhileScope(u8 a) -> u8
 {
     u8 result = 0;
     u8 counter1 = 0;
@@ -56,7 +56,7 @@ fun testScopedShadowing()
     putc(10);
 }
 
-u8 fun returnByScope(u8 input)
+fun returnByScope(u8 input) -> u8
 {
     u8 retVal = 'A';
     if((input / 2 ) == ((input - 1) / 2))

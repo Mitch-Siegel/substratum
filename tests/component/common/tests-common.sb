@@ -151,7 +151,7 @@ fun printHex(u64 value, u8 newline)
 	}
 }
 
-u32 fun printStr(u8 *str)
+fun printStr(u8 *str) -> u32
 {
 	u32 idx = 0;
 	while(str[idx] != 0)

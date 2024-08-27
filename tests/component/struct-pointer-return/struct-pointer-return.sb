@@ -6,7 +6,7 @@ struct Money
     public u8 cents;
 };
 
-Money *fun PrintMoney(Money *m)
+fun PrintMoney(Money *m) -> Money *
 {
     putc('$');
     printNum(m.dollars, 0);

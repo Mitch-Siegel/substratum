@@ -16,7 +16,7 @@ impl Counter {
         self.count -= 1;
     }
 
-    public Self fun Create(u8 *name)
+    public fun Create(u8 *name) -> Self
     {
         Self created;
         created.name = name;
@@ -33,7 +33,7 @@ impl Counter {
         printNum(self.count, 1);
     }
 
-    public Self fun Duplicate(self, u8 *newName)
+    public fun Duplicate(self, u8 *newName) -> Self
     {
         Self copied = *self;
         copied.name = newName;
