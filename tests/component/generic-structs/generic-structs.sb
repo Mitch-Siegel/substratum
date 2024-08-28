@@ -1,0 +1,54 @@
+#include "tests-common.sb"
+
+struct<T> Stack {
+    T[256] data;
+    u8 size;
+}
+
+impl<T> Stack {
+    public fun New() -> Self
+    {
+        Self created;
+        created.size = 0;
+        return created;
+    }
+
+    public fun Push(self, T toPush)
+    {
+        self.data[self.size] = toPush;
+        self.size += 1;
+    }
+
+    public fun Pop(self) -> T
+    {
+        self.size -= 1;
+        return self.data[self.size];
+    }
+
+    public fun Size(self) -> u8
+    {
+        return self.size;
+    }
+}
+
+fun main()
+{
+    Stack::<u8> numberStack = Stack::<u8>::New();
+    for(u8 i = 2; i < 10; i += 2)
+    {
+        numberStack.Push(i);
+    }
+
+    while(numberStack.Size() > 0)
+    {
+        printNum(numberStack.Pop(), 0);
+    }
+    putc('\n');
+
+    // TODO: adequately mangle names for generic instance method code generation
+    /*
+    Stack::<u32> bigNumberStack = Stack::<u8>::New();
+    */
+    
+    exit();
+}
