@@ -42,13 +42,23 @@ fun main()
     while(numberStack.Size() > 0)
     {
         printNum(numberStack.Pop(), 0);
+        putc(' ');
     }
     putc('\n');
 
     // TODO: adequately mangle names for generic instance method code generation
-    /*
     Stack::<u32> bigNumberStack = Stack::<u8>::New();
-    */
+    for(u8 i = 2; i < 10; i += 2)
+    {
+        bigNumberStack.Push(i * 100);
+    }
+    while(bigNumberStack.Size() > 0)
+    {
+        printNum(bigNumberStack.Pop(), 0);
+        putc(' ');
+    }
+    putc('\n');
+
     
     exit();
 }

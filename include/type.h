@@ -82,6 +82,8 @@ int type_compare_allow_implicit_widening(struct Type *src, struct Type *dest);
 
 char *type_get_name(struct Type *type);
 
+char *type_get_mangled_name(struct Type *type);
+
 struct Type *type_duplicate(struct Type *type);
 
 struct Type type_duplicate_non_pointer(struct Type *type);

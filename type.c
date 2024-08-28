@@ -480,9 +480,9 @@ char *type_get_name(struct Type *type)
         len = sprintf(typeName, "%s", type->nonArray.complexType.name);
         if (type->nonArray.complexType.genericParams != NULL)
         {
-            char *paramTypes = sprint_generic_params(type->nonArray.complexType.genericParams);
-            len += sprintf(typeName + len, "%s", paramTypes);
-            free(paramTypes);
+            char *genericParamNames = sprint_generic_params(type->nonArray.complexType.genericParams);
+            len += sprintf(typeName + len, "<%s>", genericParamNames);
+            free(genericParamNames);
         }
         break;
 
@@ -520,6 +520,40 @@ char *type_get_name(struct Type *type)
     typeName[len + pointerCounter] = '\0';
 
     return typeName;
+}
+
+char *type_get_mangled_name(struct Type *type)
+{
+    char *mangledName = NULL;
+    if (type->basicType == VT_STRUCT || type->basicType == VT_ENUM)
+    {
+        if (type->nonArray.complexType.genericParams != NULL)
+        {
+            mangledName = strdup(type->nonArray.complexType.name);
+            Iterator *paramIter = NULL;
+            for (paramIter = list_begin(type->nonArray.complexType.genericParams); iterator_gettable(paramIter); iterator_next(paramIter))
+            {
+                struct Type *paramType = iterator_get(paramIter);
+                char *paramMangledName = type_get_mangled_name(paramType);
+                size_t len = strlen(mangledName) + strlen(paramMangledName) + 1;
+                char *newMangledName = malloc(len * sizeof(char));
+                sprintf(newMangledName, "%s%s", mangledName, paramMangledName);
+                free(mangledName);
+                mangledName = newMangledName;
+                free(paramMangledName);
+            }
+            iterator_free(paramIter);
+        }
+        else
+        {
+            mangledName = type_get_name(type);
+        }
+    }
+    else
+    {
+        mangledName = type_get_name(type);
+    }
+    return mangledName;
 }
 
 struct Type *type_duplicate(struct Type *type)

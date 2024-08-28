@@ -88,7 +88,9 @@ void generate_code_for_type_non_generic(struct CodegenState *globalContext,
         struct FunctionEntry *implementedFunction = entry->entry;
         if (implementedFunction->isDefined)
         {
-            generate_code_for_function(globalContext->outFile, implementedFunction, info, theType->baseName, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+            char *mangledName = type_get_mangled_name(&theType->type);
+            generate_code_for_function(globalContext->outFile, implementedFunction, info, mangledName, emitPrologue, emitEpilogue, generateCodeForBasicBlock);
+            free(mangledName);
         }
     }
     iterator_free(implementedIter);
