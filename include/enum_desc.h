@@ -39,6 +39,8 @@ struct EnumMember *enum_lookup_member(struct EnumDesc *theEnum,
 
 struct EnumDesc *enum_desc_clone(struct EnumDesc *toClone, char *name);
 
+void enum_desc_calculate_union_size(struct EnumDesc *theEnum);
+
 // TODO: rename all these "depth" arguments to "indent"?
 void enum_desc_print(struct EnumDesc *theEnum, size_t depth, FILE *outFile);
 

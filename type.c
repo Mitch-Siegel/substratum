@@ -746,6 +746,30 @@ size_t scope_compute_padding_for_alignment(struct Scope *scope, struct Type *ali
     return paddingRequired;
 }
 
+void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
+{
+    char *typeName = type_get_name(type);
+    free(typeName);
+
+    if (type->basicType == VT_GENERIC_PARAM)
+    {
+        struct Type *resolvedToType = hash_table_find(paramsMap, type->nonArray.complexType.name);
+        if (resolvedToType == NULL)
+        {
+            InternalError("Couldn't resolve actual type for generic parameter of name %s", type_get_name(type));
+        }
+        *type = *resolvedToType;
+    }
+    else if (type->basicType == VT_ARRAY)
+    {
+        type_try_resolve_generic(type->array.type, paramsMap, resolvedStructName, resolvedParams);
+    }
+    else if ((type->basicType == VT_STRUCT) && (!strcmp(type->nonArray.complexType.name, resolvedStructName)))
+    {
+        type->nonArray.complexType.genericParams = resolvedParams;
+    }
+}
+
 void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
 {
     if (typeEntry->genericType == G_BASE)

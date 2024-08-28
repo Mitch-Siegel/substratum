@@ -109,8 +109,12 @@ implementation
     / p:public _ f:function_definition          { $$ = AST_C(p, f); }
 
 enum_declaration
-   <- e:enum _ i:identifier _ kw_lcurly _ m:enum_member_declaration_list _ kw_rcurly { $$ = AST_C(e, AST_S(i, m)); }
-    / e:enum _ i:identifier _ kw_lcurly _ m:enum_member_declaration_list _ kw_comma _ kw_rcurly { $$ = AST_C(e, AST_S(i, m)); }
+   <- e:enum _ ng:non_generic_enum_ident_declaration { $$ = AST_C(e, ng); }
+    / e:enum _ gpn:generic_parameter_names _ ng:non_generic_enum_ident_declaration { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(gpn, AST_C(e, ng))); }
+
+non_generic_enum_ident_declaration
+   <- i:identifier _ kw_lcurly _ m:enum_member_declaration_list _ kw_rcurly { $$ = AST_S(i, m); }
+    / i:identifier _ kw_lcurly _ m:enum_member_declaration_list _ kw_comma _ kw_rcurly { $$ = AST_S(i, m); }
 
 enum_member_declaration_list
    <- l:enum_member_declaration_list _ kw_comma _  m:enum_member_declaration { $$ = AST_S(l, m); }

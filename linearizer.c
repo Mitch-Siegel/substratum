@@ -53,7 +53,7 @@ struct SymbolTable *walk_program(struct Ast *program)
             break;
 
         case T_ENUM:
-            walk_enum_declaration(programRunner, globalBlock, programTable->globalScope);
+            walk_enum_declaration(programRunner, globalBlock, programTable->globalScope, NULL);
             break;
 
         case T_ASSIGN:
@@ -353,11 +353,11 @@ struct VariableEntry *walk_field_declaration(struct Ast *tree,
                                              enum ACCESS accessibility,
                                              struct TypeEntry *fieldOf)
 {
-    log_tree(LOG_DEBUG, tree, "walk_variable_declaration");
+    log_tree(LOG_DEBUG, tree, "walk_field_declaration");
 
     if (tree->type != T_VARIABLE_DECLARATION)
     {
-        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_variable_declaration!", token_get_name(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_field_declaration!", token_get_name(tree->type));
     }
 
     struct Type declaredType = {0};
@@ -788,7 +788,7 @@ void walk_basic_impl(struct Ast *tree, struct Scope *scope)
     struct Type implementedType = {0};
     walk_type_name(implementedTypeTree, scope, &implementedType, NULL);
 
-    if ((implementedType.basicType != VT_STRUCT) || (implementedType.pointerLevel != 0))
+    if (((implementedType.basicType != VT_STRUCT) && (implementedType.basicType != VT_ENUM)) || (implementedType.pointerLevel != 0))
     {
         log_tree(LOG_FATAL, implementedTypeTree, "Implementation block for type %s not supported yet!", type_get_name(&implementedType));
     }
@@ -804,7 +804,7 @@ void walk_basic_impl(struct Ast *tree, struct Scope *scope)
 
     if (implementedFor->genericType != G_BASE)
     {
-        log(LOG_DEBUG, "Resolving capital 'Self' and assigning offsets to fields for non-generic-base %s at end of implementation block", implementedFor->baseName);
+        log(LOG_DEBUG, "Resolving capital 'Self' for non-generic-base %s at end of implementation block", implementedFor->baseName);
         type_entry_resolve_capital_self(implementedFor);
     }
 }
@@ -1031,6 +1031,12 @@ void walk_generic(struct Ast *tree,
     }
     break;
 
+    case T_ENUM:
+    {
+        walk_enum_declaration(genericThing, NULL, scope, genericParams);
+    }
+    break;
+
     case T_IMPL:
     {
         struct Ast *implementedTypeTree = genericThing->child;
@@ -1042,7 +1048,7 @@ void walk_generic(struct Ast *tree,
         struct Type implementedType = {0};
         walk_type_name(implementedTypeTree, scope, &implementedType, NULL);
 
-        if ((implementedType.basicType != VT_STRUCT) || (implementedType.pointerLevel != 0))
+        if (((implementedType.basicType != VT_STRUCT) && (implementedType.basicType != VT_ENUM)) || (implementedType.pointerLevel != 0))
         {
             log_tree(LOG_FATAL, implementedTypeTree, "Implementation block for type %s not supported yet!", type_get_name(&implementedType));
         }
@@ -1123,7 +1129,8 @@ void walk_trait_declaration(struct Ast *tree, struct Scope *scope)
 
 void walk_enum_declaration(struct Ast *tree,
                            struct BasicBlock *block,
-                           struct Scope *scope)
+                           struct Scope *scope,
+                           List *genericParams)
 {
     log_tree(LOG_DEBUG, tree, "walk_enum_declaration");
 
@@ -1134,7 +1141,18 @@ void walk_enum_declaration(struct Ast *tree,
 
     struct Ast *enumName = tree->child;
 
-    struct EnumDesc *declaredEnum = scope_create_enum(scope, enumName->value);
+    struct TypeEntry *declaredType = NULL;
+    struct EnumDesc *declaredEnum = NULL;
+
+    if (genericParams != NULL)
+    {
+        declaredType = scope_create_generic_base_enum(scope, enumName->value, genericParams);
+    }
+    else
+    {
+        declaredType = scope_create_enum(scope, enumName->value);
+    }
+    declaredEnum = declaredType->data.asEnum;
 
     for (struct Ast *enumRunner = enumName->sibling; enumRunner != NULL; enumRunner = enumRunner->sibling)
     {
@@ -1148,10 +1166,17 @@ void walk_enum_declaration(struct Ast *tree,
 
         if (enumRunner->child != NULL)
         {
-            walk_type_name(enumRunner->child, scope, &memberType, NULL);
+            walk_type_name(enumRunner->child, scope, &memberType, declaredType);
         }
 
         enum_add_member(declaredEnum, enumRunner, &memberType);
+    }
+
+    if (declaredType->genericType != G_BASE)
+    {
+        log(LOG_DEBUG, "Resolving capital 'Self' and calculating union size to fields for non-generic-base enum %s ", declaredEnum->name);
+        type_entry_resolve_capital_self(declaredType);
+        enum_desc_calculate_union_size(declaredEnum);
     }
 }
 

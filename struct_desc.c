@@ -342,7 +342,7 @@ void struct_desc_resolve_generics(struct StructDesc *theStruct, HashTable *param
     for (fieldIter = deque_front(theStruct->fieldLocations); iterator_gettable(fieldIter); iterator_next(fieldIter))
     {
         struct StructField *field = iterator_get(fieldIter);
-        try_resolve_generic_for_type(&field->variable->type, paramsMap, name, params);
+        type_try_resolve_generic(&field->variable->type, paramsMap, name, params);
     }
     iterator_free(fieldIter);
 

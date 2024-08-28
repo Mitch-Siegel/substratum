@@ -72,7 +72,8 @@ void walk_trait_declaration(struct Ast *tree, struct Scope *scope);
 
 void walk_enum_declaration(struct Ast *tree,
                            struct BasicBlock *block,
-                           struct Scope *scope);
+                           struct Scope *scope,
+                           List *genericParams);
 
 void walk_statement(struct Ast *tree,
                     struct BasicBlock **blockP,

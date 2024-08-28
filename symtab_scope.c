@@ -717,13 +717,23 @@ struct TypeEntry *scope_create_generic_base_struct(struct Scope *scope,
 }
 
 // TODO: enum_desc_new()
-struct EnumDesc *scope_create_enum(struct Scope *scope,
-                                   char *name)
+struct TypeEntry *scope_create_enum(struct Scope *scope,
+                                    char *name)
 {
     struct TypeEntry *wipType = type_entry_new_enum(name, scope, G_NONE, NULL);
     scope_insert(scope, name, wipType, E_TYPE, A_PUBLIC);
 
-    return wipType->data.asEnum;
+    return wipType;
+}
+
+struct TypeEntry *scope_create_generic_base_enum(struct Scope *scope,
+                                                 char *name,
+                                                 List *paramNames)
+{
+    struct TypeEntry *wipType = type_entry_new_enum(name, scope, G_BASE, paramNames);
+    scope_insert(scope, name, wipType, E_TYPE, A_PUBLIC);
+
+    return wipType;
 }
 
 struct TraitEntry *scope_create_trait(struct Scope *scope,
@@ -1329,13 +1339,13 @@ void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap
         while (operandUsages.reads->size > 0)
         {
             struct TACOperand *readOperand = deque_pop_front(operandUsages.reads);
-            try_resolve_generic_for_type(&readOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
+            type_try_resolve_generic(&readOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
         }
 
         while (operandUsages.writes->size > 0)
         {
             struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
-            try_resolve_generic_for_type(&writtenOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
+            type_try_resolve_generic(&writtenOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
         }
 
         deque_free(operandUsages.reads);
@@ -1356,14 +1366,14 @@ void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap, char *res
         case E_ARGUMENT:
         {
             struct VariableEntry *resolved = memberToResolve->entry;
-            try_resolve_generic_for_type(&resolved->type, paramsMap, resolvedStructName, resolvedParams);
+            type_try_resolve_generic(&resolved->type, paramsMap, resolvedStructName, resolvedParams);
         }
         break;
 
         case E_FUNCTION:
         {
             struct FunctionEntry *resolved = memberToResolve->entry;
-            try_resolve_generic_for_type(&resolved->returnType, paramsMap, resolvedStructName, resolvedParams);
+            type_try_resolve_generic(&resolved->returnType, paramsMap, resolvedStructName, resolvedParams);
             scope_resolve_generics(resolved->mainScope, paramsMap, resolvedStructName, resolvedParams);
         }
         break;

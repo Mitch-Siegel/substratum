@@ -35,14 +35,6 @@ struct EnumMember *enum_add_member_by_name(struct EnumDesc *theEnum,
     newMember->name = memberName;
     newMember->numerical = theEnum->members->size;
     newMember->type = *memberType;
-    if (memberType->basicType != VT_NULL)
-    {
-        size_t memberSize = type_get_size(memberType, theEnum->parentScope);
-        if (memberSize > theEnum->unionSize)
-        {
-            theEnum->unionSize = memberSize;
-        }
-    }
 
     set_insert(theEnum->members, newMember);
 
@@ -95,6 +87,24 @@ struct EnumDesc *enum_desc_clone(struct EnumDesc *toClone, char *name)
     return newEnum;
 }
 
+void enum_desc_calculate_union_size(struct EnumDesc *theEnum)
+{
+    size_t maxUnionSize = 0;
+    Iterator *memberIter = NULL;
+    for (memberIter = set_begin(theEnum->members); iterator_gettable(memberIter); iterator_next(memberIter))
+    {
+        struct EnumMember *member = iterator_get(memberIter);
+        size_t memberSize = type_get_size(&member->type, theEnum->parentScope);
+        if (memberSize > maxUnionSize)
+        {
+            maxUnionSize = memberSize;
+        }
+    }
+    iterator_free(memberIter);
+
+    theEnum->unionSize = maxUnionSize;
+}
+
 void enum_desc_print(struct EnumDesc *theEnum, size_t depth, FILE *outFile)
 {
     Iterator *memberIter = NULL;
@@ -114,5 +124,11 @@ void enum_desc_print(struct EnumDesc *theEnum, size_t depth, FILE *outFile)
 
 void enum_desc_resolve_generics(struct EnumDesc *theEnum, HashTable *paramsMap, char *name, List *params)
 {
-    InternalError("enum_desc_resolve_generics not implemnted yet!");
+    Iterator *memberIter = NULL;
+    for (memberIter = set_begin(theEnum->members); iterator_gettable(memberIter); iterator_next(memberIter))
+    {
+        struct EnumMember *member = iterator_get(memberIter);
+        type_try_resolve_generic(&member->type, paramsMap, name, params);
+    }
+    iterator_free(memberIter);
 }

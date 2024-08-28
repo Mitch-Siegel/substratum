@@ -78,7 +78,7 @@ struct TypeEntry *type_entry_new(struct Scope *parentScope,
 
     if ((genericParamNames != NULL) && (genericType != G_BASE))
     {
-        InternalError("Generic struct %s has parameters but is not enumerated to be a G_BASE", type_get_name(&type));
+        InternalError("Generic %s has parameters but is not enumerated to be a G_BASE", type_get_name(&type));
     }
 
     wipType->genericType = genericType;
@@ -244,30 +244,6 @@ struct FunctionEntry *type_entry_lookup_implemented(struct TypeEntry *typeEntry,
     return implementedFunction;
 }
 
-void try_resolve_generic_for_type(struct Type *type, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
-{
-    char *typeName = type_get_name(type);
-    free(typeName);
-
-    if (type->basicType == VT_GENERIC_PARAM)
-    {
-        struct Type *resolvedToType = hash_table_find(paramsMap, type->nonArray.complexType.name);
-        if (resolvedToType == NULL)
-        {
-            InternalError("Couldn't resolve actual type for generic parameter of name %s", type_get_name(type));
-        }
-        *type = *resolvedToType;
-    }
-    else if (type->basicType == VT_ARRAY)
-    {
-        try_resolve_generic_for_type(type->array.type, paramsMap, resolvedStructName, resolvedParams);
-    }
-    else if ((type->basicType == VT_STRUCT) && (!strcmp(type->nonArray.complexType.name, resolvedStructName)))
-    {
-        type->nonArray.complexType.genericParams = resolvedParams;
-    }
-}
-
 struct TypeEntry *struct_type_entry_clone_generic_base_as_instance(struct TypeEntry *toClone, char *name)
 {
     if ((toClone->genericType != G_BASE) || (toClone->permutation != TP_STRUCT))
@@ -304,7 +280,7 @@ struct TypeEntry *enum_type_entry_clone_generic_base_as_instance(struct TypeEntr
 
     struct EnumDesc *clonedEnum = enum_desc_clone(toClone->data.asEnum, name);
 
-    struct TypeEntry *clonedTypeEntry = type_entry_new_enum(name, toClone->parentScope, G_INSTANCE, toClone->generic.base.paramNames);
+    struct TypeEntry *clonedTypeEntry = type_entry_new_enum(name, toClone->parentScope, G_INSTANCE, NULL);
     enum_desc_free(clonedTypeEntry->data.asEnum);
     clonedTypeEntry->data.asEnum = clonedEnum;
 
