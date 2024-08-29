@@ -162,8 +162,7 @@ void walk_initializer(struct Ast *tree,
                       struct Scope *scope,
                       size_t *tacIndex,
                       size_t *tempNum,
-                      struct TACOperand *initialized,
-                      struct Type *initializedType);
+                      struct TACOperand *initialized);
 
 void walk_sub_expression(struct Ast *tree,
                          struct BasicBlock *block,

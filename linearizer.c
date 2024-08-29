@@ -6,8 +6,6 @@
 
 #include <ctype.h>
 
-#define OUT_OBJECT_POINTER_NAME "__out_obj_pointer"
-
 /*
  TODO: fix TAC index tracking across branches and loops,
  such that for a given branch or loop, the TAC index immediately after is the maximum of the TAC indices of all branches and loops,
@@ -2381,7 +2379,7 @@ void walk_assignment(struct Ast *tree,
 
     if (rhs->type == T_INITIALIZER)
     {
-        walk_initializer(rhs, block, scope, tacIndex, tempNum, &assignment->operands.assign.destination, tac_operand_get_type(&assignment->operands.assign.destination));
+        walk_initializer(rhs, block, scope, tacIndex, tempNum, &assignment->operands.assign.destination);
         free(assignment);
         assignment = NULL;
     }
@@ -2592,7 +2590,7 @@ void walk_struct_initializer(struct Ast *tree,
         {
             // we are initializing the field directly from its address, recurse
             tac_operand_populate_as_temp(scope, &fieldStore->operands.fieldStore.source, tempNum, &initializedField->variable->type);
-            walk_initializer(initToTree, block, scope, tacIndex, tempNum, &fieldStore->operands.fieldStore.source, &initializedField->variable->type);
+            walk_initializer(initToTree, block, scope, tacIndex, tempNum, &fieldStore->operands.fieldStore.source);
         }
         else
         {
@@ -2625,9 +2623,12 @@ void walk_enum_initializer(struct Ast *tree,
     struct EnumDesc *fromEnum = enumTypeEntry->data.asEnum;
 
     type_init(&initializedOperand->castAsType);
-    // we're going to have a temp
 
-    tac_operand_populate_as_temp(scope, initializedOperand, tempNum, enumType);
+    // we're going to have a temp
+    if (tac_operand_get_type(initializedOperand)->basicType == VT_NULL)
+    {
+        tac_operand_populate_as_temp(scope, initializedOperand, tempNum, enumType);
+    }
 
     struct TACOperand *destAddr = initializedOperand;
     if (tac_operand_get_type(initializedOperand)->pointerLevel == 0)
@@ -2715,31 +2716,64 @@ void walk_initializer(struct Ast *tree,
                       struct Scope *scope,
                       size_t *tacIndex,
                       size_t *tempNum,
-                      struct TACOperand *initialized,
-                      struct Type *initializedType)
+                      struct TACOperand *initialized)
 {
     if (tree->type != T_INITIALIZER)
     {
         log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_initializer!", token_get_name(tree->type));
     }
 
-    // make sure we initialize only a struct/enum or a *
-    if ((initializedType->basicType != VT_NULL) &&
-        !type_is_struct_object(initializedType) && !((initializedType->basicType == VT_STRUCT) && (initializedType->pointerLevel == 1)) &&
-        !type_is_enum_object(initializedType) && !((initializedType->basicType == VT_ENUM) && (initializedType->pointerLevel == 1)))
+    struct Ast *initializedTypeNameTree = tree->child;
+    struct Type initializedType = {0};
+
+    struct TypeEntry *implFor = NULL;
+    if (scope->parentFunction != NULL)
     {
-        log_tree(LOG_FATAL, tree, "Cannot use initializer type %s which is neither a struct or an enum", type_get_name(initializedType));
+        implFor = scope->parentFunction->implementedFor;
+    }
+
+    walk_type_name(initializedTypeNameTree, scope, &initializedType, implFor);
+    struct TypeEntry *initializedTypeEntry = scope_lookup_type(scope, &initializedType);
+
+    
+
+    // make sure we initialize only a struct/enum or a * if we already know the type of what we should be initializing
+    if (tac_operand_get_type(initialized)->basicType != VT_NULL)
+    {
+        struct Type *intendedType = type_duplicate(tac_operand_get_type(initialized));
+        if (intendedType->basicType == VT_SELF)
+        {
+            intendedType->basicType = initializedTypeEntry->type.basicType;
+            intendedType->nonArray.complexType.name = initializedTypeEntry->baseName;
+            if (initializedTypeEntry->genericType == G_INSTANCE)
+            {
+                intendedType->nonArray.complexType.genericParams = initializedTypeEntry->generic.instance.parameters;
+            }
+        }
+
+        if (!type_is_struct_object(intendedType) && !((intendedType->basicType == VT_STRUCT) && (intendedType->pointerLevel == 1)) &&
+            !type_is_enum_object(intendedType) && !((intendedType->basicType == VT_ENUM) && (intendedType->pointerLevel == 1)))
+        {
+            log_tree(LOG_FATAL, tree, "Cannot use initializer type %s which is neither a struct or an enum", type_get_name(intendedType));
+        }
+
+        if (type_compare(&initializedTypeEntry->type, intendedType) != 0)
+        {
+            log_tree(LOG_FATAL, tree, "Initializer type for struct %s does not match declared type %s", type_get_name(&initializedTypeEntry->type), type_get_name(intendedType));
+        }
+        type_free(intendedType);
+    }
+    else
+    {
+        tac_operand_populate_as_temp(scope, initialized, tempNum, &initializedTypeEntry->type);
     }
 
     // automagically get the address of whatever we are initializing if it is a regular struct
     // TODO: test initializing pointers directly? Is this desirable behavior like allowing struct.field for both structs and struct*s or is this nonsense?
-    if (type_is_object(initializedType))
+    if (type_is_object(tac_operand_get_type(initialized)))
     {
         initialized = get_addr_of_operand(tree, block, scope, tacIndex, tempNum, initialized);
     }
-
-    struct TypeEntry *initializedTypeEntry = scope_lookup_type(scope, initializedType);
-    struct Ast *initializedTypeNameTree = tree->child;
 
     switch (initializedTypeEntry->permutation)
     {
@@ -2749,19 +2783,13 @@ void walk_initializer(struct Ast *tree,
     case TP_STRUCT:
     {
         struct Ast *memberInitializers = tree->child->sibling;
-        struct Type rhsInitializedType = {0};
-        walk_type_name(initializedTypeNameTree, scope, &rhsInitializedType, NULL);
-        if (type_compare(&rhsInitializedType, initializedType) != 0)
-        {
-            log_tree(LOG_FATAL, tree, "Initializer type for struct %s does not match declared type %s", type_get_name(&rhsInitializedType), type_get_name(initializedType));
-        }
-        walk_struct_initializer(memberInitializers, block, scope, tacIndex, tempNum, initialized, initializedType, initializedTypeEntry->data.asStruct);
+        walk_struct_initializer(memberInitializers, block, scope, tacIndex, tempNum, initialized, &initializedType, initializedTypeEntry->data.asStruct);
     }
     break;
 
     case TP_ENUM:
     {
-        if (initializedTypeNameTree->child->type != T_IDENTIFIER)
+        if ((initializedTypeNameTree->child->type != T_IDENTIFIER) && (initializedTypeNameTree->child->type != T_CAP_SELF))
         {
             log_tree(LOG_FATAL, initializedTypeNameTree, "Expected identifier for enum type name, got %s", token_get_name(initializedTypeNameTree->child->type));
         }
@@ -3043,7 +3071,7 @@ void walk_sub_expression(struct Ast *tree,
         break;
 
     case T_INITIALIZER:
-        walk_initializer(tree, block, scope, tacIndex, tempNum, destinationOperand, tac_operand_get_type(destinationOperand));
+        walk_initializer(tree, block, scope, tacIndex, tempNum, destinationOperand);
         break;
 
     default:

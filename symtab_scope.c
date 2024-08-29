@@ -931,7 +931,7 @@ struct StructDesc *scope_lookup_struct_by_type(struct Scope *scope,
 
     if (lookedUpType->permutation != TP_STRUCT)
     {
-        InternalError("Use of non-struct type '%s'", type->nonArray.complexType.name);
+        InternalError("Use of non-struct type '%s' in scope_lookup_struct_by_type", type->nonArray.complexType.name);
     }
 
     struct StructDesc *lookedUpStruct = lookedUpType->data.asStruct;
@@ -1074,6 +1074,15 @@ struct EnumDesc *scope_lookup_enum_by_type(struct Scope *scope,
         InternalError("%s names a struct type, not a struct", type->nonArray.complexType.name);
 
     case TP_ENUM:
+    {
+        if (lookedUpType->genericType == G_BASE)
+        {
+            if (type->nonArray.complexType.genericParams != NULL)
+            {
+                lookedUpType = type_entry_get_or_create_generic_instantiation(lookedUpType, type->nonArray.complexType.genericParams);
+            }
+        }
+    }
         return lookedUpType->data.asEnum;
     }
 
@@ -1366,7 +1375,7 @@ void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap, char *res
         case E_ARGUMENT:
         {
             struct VariableEntry *resolved = memberToResolve->entry;
-            type_try_resolve_generic(&resolved->type, paramsMap, resolvedStructName, resolvedParams);
+            variable_entry_try_resolve_generic(resolved, paramsMap, resolvedStructName, resolvedParams);
         }
         break;
 

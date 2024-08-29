@@ -275,7 +275,7 @@ char *sprint_tac_line(struct TACLine *line)
 
     case TT_ADDROF:
     {
-        char *sourceStr = tac_operand_sprint(&line->operands.addrof.destination);
+        char *sourceStr = tac_operand_sprint(&line->operands.addrof.source);
         char *destinationStr = tac_operand_sprint(&line->operands.addrof.destination);
         width += sprintf(tacString + width, "%s = &%s", destinationStr, sourceStr);
         free(sourceStr);

@@ -751,6 +751,7 @@ void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *res
     char *typeName = type_get_name(type);
     free(typeName);
 
+    size_t oldPtrLevel = type->pointerLevel;
     if (type->basicType == VT_GENERIC_PARAM)
     {
         struct Type *resolvedToType = hash_table_find(paramsMap, type->nonArray.complexType.name);
@@ -768,6 +769,7 @@ void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *res
     {
         type->nonArray.complexType.genericParams = resolvedParams;
     }
+    type->pointerLevel += oldPtrLevel;
 }
 
 void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
@@ -779,7 +781,7 @@ void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
 
     if (type->basicType == VT_SELF)
     {
-        type->basicType = VT_STRUCT;
+        type->basicType = typeEntry->type.basicType;
         type->nonArray.complexType.name = typeEntry->baseName;
         if (typeEntry->genericType == G_INSTANCE)
         {
