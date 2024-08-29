@@ -8,7 +8,7 @@ enum<T> Option {
 impl<T> Option {
     public fun From(T from) -> Self 
     {
-        Self created = Some[[from]];
+        Self created = Self::Some{from};
         return created;
     }
 }
@@ -17,11 +17,11 @@ fun printOptionOfNumber(Option::<u8> opt)
 {
     match(opt)
     {
-        Option<u8>::Some(value):
+        Some(value):
         {
             printNum(value, 1);
         }
-        Option::<u8>::None:
+        None:
         {
             printStr("None");
         }
@@ -29,5 +29,7 @@ fun printOptionOfNumber(Option::<u8> opt)
 }
 
 fun main() {
+    Option::<u8> toPrint = Option::<u8>::From(123);
+    printOptionOfNumber(toPrint);
     exit();
 }
