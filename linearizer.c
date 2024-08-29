@@ -1169,6 +1169,7 @@ void walk_enum_declaration(struct Ast *tree,
             walk_type_name(enumRunner->child, scope, &memberType, declaredType);
         }
 
+        log(LOG_DEBUG, "Adding enum member %s to enum %s", enumRunner->value, declaredEnum->name);
         enum_add_member(declaredEnum, enumRunner, &memberType);
     }
 
@@ -2278,7 +2279,7 @@ void walk_assignment(struct Ast *tree,
     struct TACOperand assignedValue = {0};
 
     // if we have anything but an initializer on the RHS, Walk it as a subexpression and save for later
-    if (rhs->type != T_STRUCT_INITIALIZER)
+    if (rhs->type != T_INITIALIZER)
     {
         walk_sub_expression(rhs, block, scope, tacIndex, tempNum, &assignedValue);
     }
@@ -2378,9 +2379,9 @@ void walk_assignment(struct Ast *tree,
         break;
     }
 
-    if (rhs->type == T_STRUCT_INITIALIZER)
+    if (rhs->type == T_INITIALIZER)
     {
-        walk_struct_initializer(rhs, block, scope, tacIndex, tempNum, &assignment->operands.assign.destination, tac_operand_get_type(&assignment->operands.assign.destination));
+        walk_initializer(rhs, block, scope, tacIndex, tempNum, &assignment->operands.assign.destination, tac_operand_get_type(&assignment->operands.assign.destination));
         free(assignment);
         assignment = NULL;
     }
@@ -2550,35 +2551,17 @@ void walk_struct_initializer(struct Ast *tree,
                              struct Scope *scope,
                              size_t *tacIndex,
                              size_t *tempNum,
-                             struct TACOperand *initialized,
-                             struct Type *initializedType)
+                             struct TACOperand *initializedOperand,
+                             struct Type *initializedType,
+                             struct StructDesc *initializedStruct)
 {
-    if (tree->type != T_STRUCT_INITIALIZER)
-    {
-        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_struct_initializer!", token_get_name(tree->type));
-    }
-
-    // make sure we initialize only a struct or a struct*
-    if (!type_is_struct_object(initializedType) && !((initializedType->basicType == VT_STRUCT) && (initializedType->pointerLevel == 1)))
-    {
-        log_tree(LOG_FATAL, tree, "Cannot use initializer non-struct type %s", type_get_name(initializedType));
-    }
-
-    // automagically get the address of whatever we are initializing if it is a regular struct
-    // TODO: test initializing pointers directly? Is this desirable behavior like allowing struct.field for both structs and struct*s or is this nonsense?
-    if (type_is_object(initializedType))
-    {
-        initialized = get_addr_of_operand(tree, block, scope, tacIndex, tempNum, initialized);
-    }
-
-    struct StructDesc *initializedStruct = scope_lookup_struct_by_type(scope, initializedType);
     size_t initFieldIdx = 0;
-    for (struct Ast *initRunner = tree->child; initRunner != NULL; initRunner = initRunner->sibling)
+    for (struct Ast *initRunner = tree; initRunner != NULL; initRunner = initRunner->sibling)
     {
         // sanity check initializer parse
         if (initRunner->type != T_ASSIGN)
         {
-            InternalError("Malformed AST see inside struct initializer, expected T_ASSIGN, with first child as T_IDENTIFIER, got %s with first child as %s", token_get_name(initRunner->type));
+            InternalError("Malformed AST seen inside struct initializer, expected T_ASSIGN, with first child as T_IDENTIFIER, got %s with first child as %s", token_get_name(initRunner->type));
         }
 
         struct Ast *initFieldTree = initRunner->child;
@@ -2602,14 +2585,14 @@ void walk_struct_initializer(struct Ast *tree,
         struct TACOperand initializedValue = {0};
 
         struct TACLine *fieldStore = new_tac_line(TT_FIELD_STORE, initRunner);
-        fieldStore->operands.fieldStore.destination = *initialized;
+        fieldStore->operands.fieldStore.destination = *initializedOperand;
         fieldStore->operands.fieldStore.fieldName = initializedField->variable->name;
 
-        if (initToTree->type == T_STRUCT_INITIALIZER)
+        if (initToTree->type == T_INITIALIZER)
         {
             // we are initializing the field directly from its address, recurse
             tac_operand_populate_as_temp(scope, &fieldStore->operands.fieldStore.source, tempNum, &initializedField->variable->type);
-            walk_struct_initializer(initToTree, block, scope, tacIndex, tempNum, &fieldStore->operands.fieldStore.source, &initializedField->variable->type);
+            walk_initializer(initToTree, block, scope, tacIndex, tempNum, &fieldStore->operands.fieldStore.source, &initializedField->variable->type);
         }
         else
         {
@@ -2625,38 +2608,40 @@ void walk_struct_initializer(struct Ast *tree,
 
         initFieldIdx++;
     }
-
     ensure_all_fields_initialized(tree, initFieldIdx, initializedStruct);
 }
 
-void walk_enum_subexpression(struct Ast *tree,
-                             struct BasicBlock *block,
-                             struct Scope *scope,
-                             size_t *tacIndex,
-                             size_t *tempNum,
-                             struct TACOperand *destinationOperand,
-                             struct EnumDesc *fromEnum)
+void walk_enum_initializer(struct Ast *tree,
+                           struct Ast *initializerTree,
+                           struct BasicBlock *block,
+                           struct Scope *scope,
+                           size_t *tacIndex,
+                           size_t *tempNum,
+                           struct TACOperand *initializedOperand,
+                           struct EnumMember *fromMember)
 {
-    type_init(&destinationOperand->castAsType);
+    struct Type *enumType = tac_operand_get_type(initializedOperand);
+    struct TypeEntry *enumTypeEntry = scope_lookup_type_remove_pointer(scope, enumType);
+    struct EnumDesc *fromEnum = enumTypeEntry->data.asEnum;
+
+    type_init(&initializedOperand->castAsType);
     // we're going to have a temp
-    struct Type enumType;
-    type_init(&enumType);
-    enumType.basicType = VT_ENUM;
-    enumType.nonArray.complexType.name = fromEnum->name;
 
-    tac_operand_populate_as_temp(scope, destinationOperand, tempNum, &enumType);
+    tac_operand_populate_as_temp(scope, initializedOperand, tempNum, enumType);
 
-    struct EnumMember *member = enum_lookup_member(fromEnum, tree);
-
-    // we will manipulate based on the address of the enum
-    struct TACOperand *destAddr = get_addr_of_operand(tree, block, scope, tacIndex, tempNum, destinationOperand);
+    struct TACOperand *destAddr = initializedOperand;
+    if (tac_operand_get_type(initializedOperand)->pointerLevel == 0)
+    {
+        // we will manipulate based on the address of the enum
+        destAddr = get_addr_of_operand(initializerTree, block, scope, tacIndex, tempNum, initializedOperand);
+    }
 
     // the first sizeof(size_t) bytes of this enum are the numerical index of the member with which we are dealing
-    struct TACLine *writeEnumNumericalLine = new_tac_line(TT_STORE, tree);
+    struct TACLine *writeEnumNumericalLine = new_tac_line(TT_STORE, initializerTree);
     writeEnumNumericalLine->operands.store.address = *destAddr;
 
-    writeEnumNumericalLine->operands.store.source.name.val = member->numerical;
-    writeEnumNumericalLine->operands.store.source.castAsType.basicType = select_variable_type_for_number(member->numerical); // TODO: define for size_t
+    writeEnumNumericalLine->operands.store.source.name.val = fromMember->numerical;
+    writeEnumNumericalLine->operands.store.source.castAsType.basicType = select_variable_type_for_number(fromMember->numerical); // TODO: define for size_t
     writeEnumNumericalLine->operands.store.source.permutation = VP_LITERAL_VAL;
 
     // treat our enum dest addr as actually a pointer to the numerical index of what member it is
@@ -2665,63 +2650,128 @@ void walk_enum_subexpression(struct Ast *tree,
     basic_block_append(block, writeEnumNumericalLine, tacIndex);
 
     // if there is some sort of initializer for the data tagged to this enum member
-    if (tree->child != NULL)
+    if (tree != NULL)
     {
         // make sure that the enum member actually expects data
-        if (member->type.basicType == VT_NULL)
+        if (fromMember->type.basicType == VT_NULL)
         {
-            log_tree(LOG_FATAL, tree->child, "Attempt to populate data of enum %s member %s, which expects no data", fromEnum->name, member->name);
+            log_tree(LOG_FATAL, initializerTree, "Attempt to populate data of enum %s member %s, which expects no data", fromEnum->name, fromMember->name);
         }
 
         // compute the address where the actual data lives in this enum object (base address + sizeof(size_t))
-        struct TACLine *enumDataAddrCompLine = new_tac_line(TT_ADD, tree->child);
-        tac_operand_populate_as_temp(scope, &enumDataAddrCompLine->operands.arithmetic.destination, tempNum, tac_operand_get_type(destAddr));
+        struct TACLine *enumDataAddrCompLine = new_tac_line(TT_ADD, initializerTree);
+
+        struct Type pointerToFromMemberType = fromMember->type;
+        pointerToFromMemberType.pointerLevel++;
+        tac_operand_populate_as_temp(scope, &enumDataAddrCompLine->operands.arithmetic.destination, tempNum, &pointerToFromMemberType);
 
         enumDataAddrCompLine->operands.arithmetic.sourceA = *destAddr;
 
         enumDataAddrCompLine->operands.arithmetic.sourceB.permutation = VP_LITERAL_VAL;
         enumDataAddrCompLine->operands.arithmetic.sourceB.name.val = sizeof(size_t);
         enumDataAddrCompLine->operands.arithmetic.sourceB.castAsType.basicType = select_variable_type_for_number(sizeof(size_t));
+
         basic_block_append(block, enumDataAddrCompLine, tacIndex);
 
-        // we will need an intermediate operand which will actually store the data before it is written to the true enum location
-        struct TACOperand enumData = {0};
-
-        switch (tree->child->type)
+        if (type_is_struct_object(&fromMember->type))
         {
-        case T_STRUCT_INITIALIZER:
-            tac_operand_populate_as_temp(scope, &enumData, tempNum, &member->type);
-            walk_struct_initializer(tree->child, block, scope, tacIndex, tempNum, &enumData, &member->type);
-            break;
-
-        default:
-            walk_sub_expression(tree->child, block, scope, tacIndex, tempNum, &enumData);
+            // log_tree(LOG_FATAL, tree->child, "Cannot initialize struct object %s in enum %s member %s", type_get_name(&fromMember->type), fromEnum->name, fromMember->name);
+            struct StructDesc *fromStruct = scope_lookup_struct_by_type(scope, &fromMember->type);
+            walk_struct_initializer(tree, block, scope, tacIndex, tempNum, &enumDataAddrCompLine->operands.arithmetic.destination, &fromMember->type, fromStruct);
         }
-
-        if (type_compare_allow_implicit_widening(tac_operand_get_type(&enumData), &member->type))
+        else
         {
-            log_tree(LOG_FATAL, tree->child, "Invalid assignment of data from enum %s member %s (expect type %s) to type %s",
-                     fromEnum->name,
-                     member->name,
-                     type_get_name(&member->type),
-                     type_get_name(tac_operand_get_type(&enumData)));
+            struct TACLine *enumDataAssignLine = new_tac_line(TT_STORE, tree);
+            enumDataAssignLine->operands.store.address = enumDataAddrCompLine->operands.arithmetic.destination;
+            enumDataAssignLine->operands.store.address.castAsType = fromMember->type;
+            enumDataAssignLine->operands.store.address.castAsType.pointerLevel++;
+
+            walk_sub_expression(tree, block, scope, tacIndex, tempNum, &enumDataAssignLine->operands.store.source);
+            struct Type *subExprDataType = tac_operand_get_type(&enumDataAssignLine->operands.store.source);
+
+            if (type_compare_allow_implicit_widening(subExprDataType, &fromMember->type))
+            {
+                log_tree(LOG_FATAL, tree, "Invalid assignment of data from enum %s member %s (expect type %s) to type %s",
+                         fromEnum->name,
+                         fromMember->name,
+                         type_get_name(&fromMember->type),
+                         type_get_name(subExprDataType));
+            }
+            basic_block_append(block, enumDataAssignLine, tacIndex);
         }
-
-        struct TACLine *enumDataAssignLine = new_tac_line(TT_STORE, tree->child);
-        enumDataAssignLine->operands.store.address = enumDataAddrCompLine->operands.arithmetic.destination;
-        enumDataAssignLine->operands.store.address.castAsType = member->type;
-        enumDataAssignLine->operands.store.address.castAsType.pointerLevel++;
-        enumDataAssignLine->operands.store.source = enumData;
-
-        basic_block_append(block, enumDataAssignLine, tacIndex);
     }
     else // no data tagged to this enum member
     {
         // make sure that the enum member doesn't expect any data, error otherwise
-        if (member->type.basicType != VT_NULL)
+        if (fromMember->type.basicType != VT_NULL)
         {
-            log_tree(LOG_FATAL, tree, "Unpopulated data of enum %s member %s, which expects data of type %s", fromEnum->name, member->name, type_get_name(&member->type));
+            log_tree(LOG_FATAL, initializerTree, "Unpopulated data of enum %s member %s, which expects data of type %s", fromEnum->name, fromMember->name, type_get_name(&fromMember->type));
         }
+    }
+}
+
+void walk_initializer(struct Ast *tree,
+                      struct BasicBlock *block,
+                      struct Scope *scope,
+                      size_t *tacIndex,
+                      size_t *tempNum,
+                      struct TACOperand *initialized,
+                      struct Type *initializedType)
+{
+    if (tree->type != T_INITIALIZER)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_initializer!", token_get_name(tree->type));
+    }
+
+    // make sure we initialize only a struct/enum or a *
+    if ((initializedType->basicType != VT_NULL) &&
+        !type_is_struct_object(initializedType) && !((initializedType->basicType == VT_STRUCT) && (initializedType->pointerLevel == 1)) &&
+        !type_is_enum_object(initializedType) && !((initializedType->basicType == VT_ENUM) && (initializedType->pointerLevel == 1)))
+    {
+        log_tree(LOG_FATAL, tree, "Cannot use initializer type %s which is neither a struct or an enum", type_get_name(initializedType));
+    }
+
+    // automagically get the address of whatever we are initializing if it is a regular struct
+    // TODO: test initializing pointers directly? Is this desirable behavior like allowing struct.field for both structs and struct*s or is this nonsense?
+    if (type_is_object(initializedType))
+    {
+        initialized = get_addr_of_operand(tree, block, scope, tacIndex, tempNum, initialized);
+    }
+
+    struct TypeEntry *initializedTypeEntry = scope_lookup_type(scope, initializedType);
+    struct Ast *initializedTypeNameTree = tree->child;
+
+    switch (initializedTypeEntry->permutation)
+    {
+    case TP_PRIMITIVE:
+        log_tree(LOG_FATAL, tree, "Cannot initialize a primitive type");
+
+    case TP_STRUCT:
+    {
+        struct Ast *memberInitializers = tree->child->sibling;
+        struct Type rhsInitializedType = {0};
+        walk_type_name(initializedTypeNameTree, scope, &rhsInitializedType, NULL);
+        if (type_compare(&rhsInitializedType, initializedType) != 0)
+        {
+            log_tree(LOG_FATAL, tree, "Initializer type for struct %s does not match declared type %s", type_get_name(&rhsInitializedType), type_get_name(initializedType));
+        }
+        walk_struct_initializer(memberInitializers, block, scope, tacIndex, tempNum, initialized, initializedType, initializedTypeEntry->data.asStruct);
+    }
+    break;
+
+    case TP_ENUM:
+    {
+        if (initializedTypeNameTree->child->type != T_IDENTIFIER)
+        {
+            log_tree(LOG_FATAL, initializedTypeNameTree, "Expected identifier for enum type name, got %s", token_get_name(initializedTypeNameTree->child->type));
+        }
+        struct Ast *initializedMemberTree = initializedTypeNameTree->sibling;
+        struct Ast *memberInitializers = initializedMemberTree->sibling;
+        struct EnumMember *initializedMember = enum_lookup_member(initializedTypeEntry->data.asEnum, initializedMemberTree);
+
+        walk_enum_initializer(memberInitializers, tree, block, scope, tacIndex, tempNum, initialized, initializedMember);
+    }
+    break;
     }
 }
 
@@ -2744,19 +2794,11 @@ void walk_sub_expression(struct Ast *tree,
     }
     break;
 
-    // identifier = variable name or enum member
+    // identifier = variable name
     case T_IDENTIFIER:
     {
-        struct EnumDesc *possibleEnum = scope_lookup_enum_by_member_name(scope, tree->value);
-        if (possibleEnum != NULL)
-        {
-            walk_enum_subexpression(tree, block, scope, tacIndex, tempNum, destinationOperand, possibleEnum);
-        }
-        else
-        {
-            struct VariableEntry *readVariable = scope_lookup_var(scope, tree);
-            tac_operand_populate_from_variable(destinationOperand, readVariable);
-        }
+        struct VariableEntry *readVariable = scope_lookup_var(scope, tree);
+        tac_operand_populate_from_variable(destinationOperand, readVariable);
     }
     break;
 
@@ -2998,6 +3040,10 @@ void walk_sub_expression(struct Ast *tree,
 
     case T_SIZEOF:
         walk_sizeof(tree, block, scope, destinationOperand);
+        break;
+
+    case T_INITIALIZER:
+        walk_initializer(tree, block, scope, tacIndex, tempNum, destinationOperand, tac_operand_get_type(destinationOperand));
         break;
 
     default:

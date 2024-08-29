@@ -17,7 +17,7 @@ fun printOptionOfNumber(Option::<u8> opt)
 {
     match(opt)
     {
-        Option::<u8>::Some(value):
+        Option<u8>::Some(value):
         {
             printNum(value, 1);
         }

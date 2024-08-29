@@ -94,10 +94,14 @@ void enum_desc_calculate_union_size(struct EnumDesc *theEnum)
     for (memberIter = set_begin(theEnum->members); iterator_gettable(memberIter); iterator_next(memberIter))
     {
         struct EnumMember *member = iterator_get(memberIter);
-        size_t memberSize = type_get_size(&member->type, theEnum->parentScope);
-        if (memberSize > maxUnionSize)
+
+        if (member->type.basicType != VT_NULL)
         {
-            maxUnionSize = memberSize;
+            size_t memberSize = type_get_size(&member->type, theEnum->parentScope);
+            if (memberSize > maxUnionSize)
+            {
+                maxUnionSize = memberSize;
+            }
         }
     }
     iterator_free(memberIter);
