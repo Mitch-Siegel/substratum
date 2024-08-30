@@ -2255,6 +2255,16 @@ void walk_match_statement(struct Ast *tree,
     set_free(matchedValues);
 }
 
+void check_assignment_operand_types(struct Ast *tree,
+                                    struct Type *sourceType,
+                                    struct Type *destType)
+{
+    if (type_compare_allow_implicit_widening(sourceType, destType))
+    {
+        log_tree(LOG_FATAL, tree, "Assignment from type %s to type %s is not allowed!", type_get_name(sourceType), type_get_name(destType));
+    }
+}
+
 void walk_assignment(struct Ast *tree,
                      struct BasicBlock *block,
                      struct Scope *scope,
@@ -2377,11 +2387,75 @@ void walk_assignment(struct Ast *tree,
         break;
     }
 
+    switch (assignment->operation)
+    {
+    case TT_ASSIGN:
+        if (rhs->type == T_INITIALIZER)
+        {
+            walk_initializer(rhs, block, scope, tacIndex, tempNum, &assignment->operands.assign.destination);
+            free(assignment);
+            assignment = NULL;
+        }
+        else
+        {
+            check_assignment_operand_types(tree,
+                                           tac_operand_get_type(&assignment->operands.assign.source),
+                                           tac_operand_get_type(&assignment->operands.assign.destination));
+        }
+        break;
+
+    case TT_STORE:
+        if (rhs->type == T_INITIALIZER)
+        {
+            walk_initializer(rhs, block, scope, tacIndex, tempNum, &assignment->operands.store.source);
+            free(assignment);
+            assignment = NULL;
+        }
+        else
+        {
+            check_assignment_operand_types(tree,
+                                           tac_operand_get_type(&assignment->operands.store.source),
+                                           tac_operand_get_type(&assignment->operands.store.address));
+        }
+        break;
+
+    case TT_ARRAY_STORE:
+        if (rhs->type == T_INITIALIZER)
+        {
+            walk_initializer(rhs, block, scope, tacIndex, tempNum, &assignment->operands.arrayStore.source);
+            free(assignment);
+            assignment = NULL;
+        }
+        else
+        {
+            check_assignment_operand_types(tree,
+                                           tac_operand_get_type(&assignment->operands.arrayStore.source),
+                                           tac_operand_get_type(&assignment->operands.arrayStore.array));
+        }
+        break;
+
+    case TT_FIELD_STORE:
+        if (rhs->type == T_INITIALIZER)
+        {
+            walk_initializer(rhs, block, scope, tacIndex, tempNum, &assignment->operands.fieldStore.source);
+            free(assignment);
+            assignment = NULL;
+        }
+        else
+        {
+            struct StructDesc *writtenStruct = scope_lookup_struct_by_type_or_pointer(scope, tac_operand_get_type(&assignment->operands.fieldStore.destination));
+            struct StructField *writtenField = struct_lookup_field(writtenStruct, lhs->child->sibling, scope);
+            check_assignment_operand_types(tree,
+                                           tac_operand_get_type(&assignment->operands.fieldStore.source),
+                                           &writtenField->variable->type);
+        }
+        break;
+
+    default:
+        log_tree(LOG_FATAL, tree, "Unexpected assignment operation (%s) seen in walk_assignment!", tac_operation_get_name(assignment->operation));
+    }
     if (rhs->type == T_INITIALIZER)
     {
-        walk_initializer(rhs, block, scope, tacIndex, tempNum, &assignment->operands.assign.destination);
-        free(assignment);
-        assignment = NULL;
     }
 
     if (assignment != NULL)
