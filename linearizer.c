@@ -2428,9 +2428,17 @@ void walk_assignment(struct Ast *tree,
         }
         else
         {
+            // if more deeply nested levels of linearization gave us a pointer to an array, this is valid in the TAC
+            // but the assignment type check will fail, so we need to strip down a pointer level from the array type
+            struct Type arrayType = type_duplicate_non_pointer(tac_operand_get_type(&assignment->operands.arrayStore.array));
+            if (arrayType.pointerLevel > 0)
+            {
+                arrayType.pointerLevel--;
+            }
             check_assignment_operand_types(tree,
                                            tac_operand_get_type(&assignment->operands.arrayStore.source),
-                                           tac_operand_get_type(&assignment->operands.arrayStore.array));
+                                           &arrayType);
+            type_deinit(&arrayType);
         }
         break;
 
@@ -2453,9 +2461,6 @@ void walk_assignment(struct Ast *tree,
 
     default:
         log_tree(LOG_FATAL, tree, "Unexpected assignment operation (%s) seen in walk_assignment!", tac_operation_get_name(assignment->operation));
-    }
-    if (rhs->type == T_INITIALIZER)
-    {
     }
 
     if (assignment != NULL)

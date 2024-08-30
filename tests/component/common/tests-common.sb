@@ -99,7 +99,7 @@ fun printNum(u64 value, u8 newline)
 
 	while(value > 0)
 	{
-		u8 rv = value % 10;
+		u8 rv = (u8)(value % 10);
 		chars[nChars] = rv + '0';
 		value /= 10;
 		nChars += 1;
@@ -125,7 +125,7 @@ fun printHex(u64 value, u8 newline)
 	u8 i = 0;
 	while(i < 8)
 	{
-		u8 thisByte = (value >> ((7 - i) * 8)) & 0xff;
+		u8 thisByte = (u8)(value >> ((7 - i) * 8)) & 0xff;
 		u8 j = 0;
 		while(j < 2)
 		{
