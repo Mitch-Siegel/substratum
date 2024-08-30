@@ -58,7 +58,8 @@ void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t 
 void variable_entry_try_resolve_generic(struct VariableEntry *variable, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
 {
     type_try_resolve_generic(&variable->type, paramsMap, resolvedStructName, resolvedParams);
-    if(strcmp(variable->name, OUT_OBJECT_POINTER_NAME) == 0)
+    if ((strcmp(variable->name, OUT_OBJECT_POINTER_NAME) == 0) ||
+        (strcmp(variable->name, "self") == 0))
     {
         variable->type.pointerLevel = 1;
     }

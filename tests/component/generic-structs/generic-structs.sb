@@ -46,8 +46,8 @@ fun main()
     }
     putc('\n');
 
-    // TODO: adequately mangle names for generic instance method code generation
-    Stack::<u32> bigNumberStack = Stack::<u8>::New();
+    // TODO: compare generic instantiations - this line was Stack::<u32> bigNumberStack = Stack::<u8>::New(); and it worked?
+    Stack::<u32> bigNumberStack = Stack::<u32>::New();
     for(u8 i = 2; i < 10; i += 2)
     {
         bigNumberStack.Push(i * 100);

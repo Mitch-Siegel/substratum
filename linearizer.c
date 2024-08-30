@@ -2735,8 +2735,6 @@ void walk_initializer(struct Ast *tree,
     walk_type_name(initializedTypeNameTree, scope, &initializedType, implFor);
     struct TypeEntry *initializedTypeEntry = scope_lookup_type(scope, &initializedType);
 
-    
-
     // make sure we initialize only a struct/enum or a * if we already know the type of what we should be initializing
     if (tac_operand_get_type(initialized)->basicType != VT_NULL)
     {

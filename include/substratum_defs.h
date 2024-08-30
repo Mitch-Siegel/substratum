@@ -33,4 +33,3 @@ typedef int8_t i8;
 #define sprintedNumberLength 32
 
 #define OUT_OBJECT_POINTER_NAME "__out_obj_pointer"
-
