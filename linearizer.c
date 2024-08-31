@@ -2413,9 +2413,20 @@ void walk_assignment(struct Ast *tree,
         }
         else
         {
+            struct Type ptrType = type_duplicate_non_pointer(tac_operand_get_type(&assignment->operands.store.address));
+            if (ptrType.pointerLevel > 0)
+            {
+                ptrType.pointerLevel--;
+            }
+            else
+            {
+                log_tree(LOG_FATAL, tree, "Non-pointer type %s seen in lhs of store operation!", type_get_name(&ptrType));
+            }
+
             check_assignment_operand_types(tree,
                                            tac_operand_get_type(&assignment->operands.store.source),
-                                           tac_operand_get_type(&assignment->operands.store.address));
+                                           &ptrType);
+            type_deinit(&ptrType);
         }
         break;
 
