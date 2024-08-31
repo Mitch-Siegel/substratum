@@ -1122,13 +1122,24 @@ struct EnumDesc *scope_lookup_enum_by_member_name(struct Scope *scope,
     return NULL;
 }
 
-struct BasicBlock *scope_lookup_block_by_number(struct Scope *scope, size_t label)
+struct BasicBlock *scope_lookup_block_by_number_in_subscopes(struct Scope *scope, size_t label)
 {
     char blockName[32];
     sprintf(blockName, "Block%zu", label);
     struct ScopeMember *blockMember = scope_lookup(scope, blockName, E_BASICBLOCK);
     if (blockMember == NULL)
     {
+        Stack *subscopes = scope_get_all_members_of_type(scope, E_SCOPE);
+        while (subscopes->size > 0)
+        {
+            struct Scope *subscope = stack_pop(subscopes);
+            struct BasicBlock *block = scope_lookup_block_by_number_in_subscopes(subscope, label);
+            if (block != NULL)
+            {
+                stack_free(subscopes);
+                return block;
+            }
+        }
         return NULL;
     }
     return blockMember->entry;
@@ -1167,7 +1178,7 @@ struct FunctionEntry *function_entry_clone(struct FunctionEntry *toClone, struct
     for (blockIter = list_begin(toClone->BasicBlockList); iterator_gettable(blockIter); iterator_next(blockIter))
     {
         struct BasicBlock *oldBlock = iterator_get(blockIter);
-        struct BasicBlock *newBlock = scope_lookup_block_by_number(cloned->mainScope, oldBlock->labelNum);
+        struct BasicBlock *newBlock = scope_lookup_block_by_number_in_subscopes(cloned->mainScope, oldBlock->labelNum);
         if (newBlock == NULL)
         {
             InternalError("Couldn't find expected basic block %zu when cloning function %s", oldBlock->labelNum, toClone->name);
