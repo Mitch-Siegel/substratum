@@ -4310,10 +4310,8 @@ void walk_sizeof(struct Ast *tree,
         }
         else
         {
-            struct Type dummyType = {0};
-            type_set_basic_type(&dummyType, VT_STRUCT, tree->child->value, 0);
-            struct TypeEntry *lookedUpType = scope_lookup_type(scope, &dummyType);
-            operands->type = type_duplicate_non_pointer(&lookedUpType->type);
+            struct Type identifierType = walk_non_pointer_type_name(scope, tree->child, scope->parentFunction->implementedFor);
+            operands->type = identifierType;
         }
     }
     break;
