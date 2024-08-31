@@ -43,13 +43,13 @@ impl Counter {
 
 fun main()
 {
-    Counter enteredCount = Counter::Create((u8 *)"Number of people who entered");
+    Counter enteredCount = Counter::Create("Number of people who entered" as u8 *);
     enteredCount.Increment();
     enteredCount.Increment();
     enteredCount.Increment();
     enteredCount.Increment();
 
-    Counter currentOccupancy = enteredCount.Duplicate((u8 *)"Current occupancy");
+    Counter currentOccupancy = enteredCount.Duplicate("Current occupancy" as u8 *);
     currentOccupancy.Decrement();
     currentOccupancy.Decrement();
     
