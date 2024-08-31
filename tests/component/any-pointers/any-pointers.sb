@@ -7,14 +7,14 @@ fun funReturningAnyPointer() -> any *
 
 fun printAnyPointer(any *a)
 {
-    u64 asNumber = a;
+    u64 asNumber = (u64)a;
     printHex(asNumber, 1);
 }
 
 fun main()
 {
     any *hereBeDragons = funReturningAnyPointer();
-    u32 dragons = hereBeDragons;
+    u64 dragons = (u64)hereBeDragons;
     printHex(dragons, 1);
     printAnyPointer(hereBeDragons);
     exit();

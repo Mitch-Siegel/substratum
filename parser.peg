@@ -109,8 +109,12 @@ implementation
     / p:public _ f:function_definition          { $$ = AST_C(p, f); }
 
 enum_declaration
-   <- e:enum _ i:identifier _ kw_lcurly _ m:enum_member_declaration_list _ kw_rcurly { $$ = AST_C(e, AST_S(i, m)); }
-    / e:enum _ i:identifier _ kw_lcurly _ m:enum_member_declaration_list _ kw_comma _ kw_rcurly { $$ = AST_C(e, AST_S(i, m)); }
+   <- e:enum _ ng:non_generic_enum_ident_declaration { $$ = AST_C(e, ng); }
+    / e:enum _ gpn:generic_parameter_names _ ng:non_generic_enum_ident_declaration { $$ = AST_C(AST_N(auxil, T_GENERIC, "", $0s), AST_S(gpn, AST_C(e, ng))); }
+
+non_generic_enum_ident_declaration
+   <- i:identifier _ kw_lcurly _ m:enum_member_declaration_list _ kw_rcurly            { $$ = AST_S(i, m); }
+    / i:identifier _ kw_lcurly _ m:enum_member_declaration_list _ kw_comma _ kw_rcurly { $$ = AST_S(i, m); }
 
 enum_member_declaration_list
    <- l:enum_member_declaration_list _ kw_comma _  m:enum_member_declaration { $$ = AST_S(l, m); }
@@ -292,11 +296,28 @@ assignment_expression
     / c:conditional_expression { $$ = c; }
 
 expression
-   <- a:assignment_expression { $$ = a; }
+   <- i:initializer           { $$ = i; }
+    / a:assignment_expression { $$ = a; }
+
+initializer
+   <- t:type_name _ kw_lcurly _ mil:member_initializer_list _ kw_rcurly             { $$ = AST_C(AST_N(auxil, T_INITIALIZER, "", $0s), AST_S(t, mil)); }
+    / t:type_name _ kw_lcurly _ mil:member_initializer_list _ kw_comma _ kw_rcurly  { $$ = AST_C(AST_N(auxil, T_INITIALIZER, "", $0s), AST_S(t, mil)); }
+    / ei:enum_initializer                                                           { $$ = ei; }
+
+enum_initializer 
+   <- t:type_name _ kw_double_colon _ i:identifier _ kw_lcurly _ mil:member_initializer_list _ kw_rcurly             { $$ = AST_C(AST_N(auxil, T_INITIALIZER, "", $0s), AST_S(t, AST_S(i, mil))); }
+    / t:type_name _ kw_double_colon _ i:identifier _ kw_lcurly _ e:expression _ kw_rcurly                            { $$ = AST_C(AST_N(auxil, T_INITIALIZER, "", $0s), AST_S(t, AST_S(i, e))); }
+    / t:type_name _ kw_double_colon _ i:identifier _ kw_lcurly _ kw_rcurly                                           { $$ = AST_C(AST_N(auxil, T_INITIALIZER, "", $0s), AST_S(t, i)); }
+
+member_initializer_list
+   <- mil:member_initializer_list _ kw_comma _ mi:member_initializer { $$ = AST_S(mil, mi); }
+    / mi:member_initializer                                          { $$ = mi; }
+
+member_initializer
+   <- i:identifier _ a:basic_assignment _ e:expression   { $$ = AST_C(a, AST_S(i, e)); }
 
 assignment_operator
-   <- b:basic_assignment   { $$ = b; }
-    / '+='                 { $$ = AST_N(auxil, T_PLUS_EQUALS, $0, $0s); }
+   <- '+='                 { $$ = AST_N(auxil, T_PLUS_EQUALS, $0, $0s); }
     / '-='                 { $$ = AST_N(auxil, T_MINUS_EQUALS, $0, $0s); }
     / '*='                 { $$ = AST_N(auxil, T_TIMES_EQUALS, $0, $0s); }
     / '/='                 { $$ = AST_N(auxil, T_DIVIDE_EQUALS, $0, $0s); }
@@ -310,26 +331,6 @@ assignment_operator
 basic_assignment
    <- '='   { $$ = AST_N(auxil, T_ASSIGN, $0, $0s); }
 
-member_initializer
-   <- i:identifier _ a:basic_assignment _ e:expression   { $$ = AST_C(a, AST_S(i, e)); }
-    / i:identifier _ a:basic_assignment _ in:initializer { $$ = AST_C(a, AST_S(i, in)); }
-
-member_initializer_list
-   <- mil:member_initializer_list _ kw_comma _ mi:member_initializer { $$ = AST_S(mil, mi); }
-    / mi:member_initializer                                          { $$ = mi; }
-
-struct_initializer
-   <- kw_lcurly _ mil:member_initializer_list _ kw_rcurly              { $$ = AST_C(AST_N(auxil, T_STRUCT_INITIALIZER, "", $0s), mil); }
-    / kw_lcurly _ mil:member_initializer_list _ kw_comma _ kw_rcurly   { $$ = AST_C(AST_N(auxil, T_STRUCT_INITIALIZER, "", $0s), mil); }
-
-enum_initializer
-   <- i:identifier _ kw_lbracket kw_lbracket _ e:initializer _ kw_rbracket kw_rbracket { $$ = AST_C(i, e); }
-
-initializer
-   <- si:struct_initializer   { $$ = si; }
-    / ei:enum_initializer     { $$ = ei; }
-    / e:expression            { $$ = e; }
-
 compound_statement
    <- kw_lcurly _ kw_rcurly                     { $$ = AST_N(auxil, T_COMPOUND_STATEMENT, "", $0s); }
     / kw_lcurly _ sl:statement_list _ kw_rcurly { $$ = AST_C(AST_N(auxil, T_COMPOUND_STATEMENT, "", $0s), sl); }
@@ -337,10 +338,10 @@ compound_statement
 expression_statement
    <- kw_semicolon { $$ = NULL; }
     / e:expression _ kw_semicolon { $$ = e; }
-    / v:variable_declaration _ a:basic_assignment _ i:initializer _ kw_semicolon { $$ = AST_C(a, AST_S(v, i)); }
+    / v:variable_declaration _ a:basic_assignment _ e:expression _ kw_semicolon { $$ = AST_C(a, AST_S(v, e)); }
     / e1:expression _ ao:assignment_operator _ e2:expression _ kw_semicolon      { $$ = AST_C(ao, AST_S(e1, e2)); }
-    / e:expression _ a:basic_assignment _ i:initializer _ kw_semicolon           { $$ = AST_C(a, AST_S(e, i)); }
-    / p:primary_expression _ a:basic_assignment _ i:initializer _ kw_semicolon           { $$ = AST_C(a, AST_S(p, i)); }
+    / e1:expression _ a:basic_assignment _ e2:expression _ kw_semicolon           { $$ = AST_C(a, AST_S(e1, e2)); }
+    / p:primary_expression _ a:basic_assignment _ e:expression _ kw_semicolon           { $$ = AST_C(a, AST_S(p, e)); }
 
 match_body
    <- kw_lcurly _ ml:match_case_list _ kw_rcurly { $$ = ml; }

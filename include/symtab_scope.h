@@ -109,8 +109,12 @@ struct TypeEntry *scope_create_generic_base_struct(struct Scope *scope,
                                                    char *name,
                                                    List *paramNames);
 
-struct EnumDesc *scope_create_enum(struct Scope *scope,
-                                   char *name);
+struct TypeEntry *scope_create_enum(struct Scope *scope,
+                                    char *name);
+
+struct TypeEntry *scope_create_generic_base_enum(struct Scope *scope,
+                                                 char *name,
+                                                 List *paramNames);
 
 // given a scope, a type, and a current integer byte offset
 /// compute and return how many bytes of padding is necessary to create the first offset at which the type would be aligned if stored

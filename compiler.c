@@ -239,7 +239,7 @@ int main(int argc, char **argv)
 
     // TODO: option to enable/disable symtab dump
     // log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
-    // symbol_table_print(theTable, stderr, 0);
+    // symbol_table_print(theTable, stderr, 1);
 
     symbol_table_print_cfgs(theTable, "control-flows");
 

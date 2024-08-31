@@ -72,7 +72,8 @@ void walk_trait_declaration(struct Ast *tree, struct Scope *scope);
 
 void walk_enum_declaration(struct Ast *tree,
                            struct BasicBlock *block,
-                           struct Scope *scope);
+                           struct Scope *scope,
+                           List *genericParams);
 
 void walk_statement(struct Ast *tree,
                     struct BasicBlock **blockP,
@@ -156,13 +157,12 @@ void walk_arithmetic_assignment(struct Ast *tree,
                                 size_t *tacIndex,
                                 size_t *tempNum);
 
-void walk_struct_initializer(struct Ast *tree,
-                             struct BasicBlock *block,
-                             struct Scope *scope,
-                             size_t *tacIndex,
-                             size_t *tempNum,
-                             struct TACOperand *initialized,
-                             struct Type *initializedType);
+void walk_initializer(struct Ast *tree,
+                      struct BasicBlock *block,
+                      struct Scope *scope,
+                      size_t *tacIndex,
+                      size_t *tempNum,
+                      struct TACOperand *initialized);
 
 void walk_sub_expression(struct Ast *tree,
                          struct BasicBlock *block,
