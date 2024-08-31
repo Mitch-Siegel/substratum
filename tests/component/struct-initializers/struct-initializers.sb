@@ -13,7 +13,7 @@ struct BankAccount {
 
 impl Money {
     public fun Print(self) {
-        printNum((u32)self.dollars, 1);
+        printNum(self.dollars as u32, 1);
         putc('.');
         printNum(self.cents, 1);
     }
@@ -23,17 +23,17 @@ impl BankAccount {
     public fun Print(self)
     {
         printStr(self.accountHolder);
-        printStr((u8 *)"'s account balance:\n");
+        printStr("'s account balance:\n" as u8 *);
         self.balance.Print();
     }
 }
 
 fun main()
 {
-    Money myBalance = {dollars = 0, cents = 0};
-    Money myPaycheck = {dollars = 13, cents = 33};
+    Money myBalance = Money {dollars = 0, cents = 0};
+    Money myPaycheck = Money {dollars = 13, cents = 33};
 
-    BankAccount myAccount = {accountHolder = (u8 *)"Isaac Investor", balance = {dollars = 999, cents=99}};
+    BankAccount myAccount = BankAccount {accountHolder = "Isaac Investor" as u8 *, balance = Money {dollars = 999, cents=99}};
 
     myBalance.Print();
     myPaycheck.Print();

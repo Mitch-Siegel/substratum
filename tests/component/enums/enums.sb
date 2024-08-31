@@ -20,10 +20,10 @@ fun printDirection(Direction d) {
 
 fun testBasicEnums()
 {
-    printDirection(North);
-    printDirection(East);
-    printDirection(South);
-    printDirection(West);
+    printDirection(Direction::North{});
+    printDirection(Direction::East{});
+    printDirection(Direction::South{});
+    printDirection(Direction::West{});
 }
 
 fun main()

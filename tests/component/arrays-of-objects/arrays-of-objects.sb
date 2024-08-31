@@ -10,7 +10,7 @@ Thingamajig[4] myThings;
 
 fun main()
 {
-    myThings[3].howBig = 1234;
+    myThings[3].howBig = 1234 as u8;
     myThings[2].howFast = 0xEEEEEEEEFFFFFFFF;
     printHex(myThings[2].howFast, 1);
     printNum(myThings[3].howBig, 1);

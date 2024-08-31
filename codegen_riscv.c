@@ -234,10 +234,7 @@ Set *riscv_caller_save_registers(struct CodegenState *state, struct RegallocMeta
 
     emit_instruction(NULL, state, "\t#Caller-save %zu registers\n", actuallyCallerSaved->size);
 
-    char *spName = info->stackPointer->name;
-
-    // TODO: don't emit when 0
-    emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
+    riscv_emit_immediate_add(NULL, state, info, info->stackPointer, info->stackPointer, -1 * MACHINE_REGISTER_SIZE_BYTES * actuallyCallerSaved->size);
 
     ssize_t saveIndex = 0;
     while (actuallyCallerSaved->size > 0)
@@ -277,7 +274,6 @@ void riscv_caller_restore_registers(struct CodegenState *state, struct RegallocM
 
     emit_instruction(NULL, state, "\t#Caller-restore registers\n");
 
-    char *spName = info->stackPointer->name;
     ssize_t saveIndex = 0;
     while (actuallyCallerSaved->size > 0)
     {
@@ -286,8 +282,7 @@ void riscv_caller_restore_registers(struct CodegenState *state, struct RegallocM
         saveIndex++;
     }
 
-    // TODO: don't emit when 0
-    emit_instruction(NULL, state, "\taddi %s, %s, %zd\n", spName, spName, MACHINE_REGISTER_SIZE_BYTES * saveIndex);
+    riscv_emit_immediate_add(NULL, state, info, info->stackPointer, info->stackPointer, MACHINE_REGISTER_SIZE_BYTES * saveIndex);
 
     stack_free(actuallyCallerSaved);
 }
@@ -367,7 +362,7 @@ void riscv_emit_prologue(struct CodegenState *state, struct RegallocMetadata *me
     emit_instruction(NULL, state, "\tmv %s, %s\n", info->framePointer->name, info->stackPointer->name);
 
     emit_instruction(NULL, state, "\t#reserve space for locals and callee-saved registers\n");
-    emit_instruction(NULL, state, "\taddi %s, %s, -%zu\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
+    riscv_emit_immediate_add(NULL, state, info, info->stackPointer, info->stackPointer, -1 * metadata->localStackSize);
 
     riscv_callee_save_registers(state, metadata, info);
 }
@@ -377,12 +372,13 @@ void riscv_emit_epilogue(struct CodegenState *state, struct RegallocMetadata *me
     emit_instruction(NULL, state, "%s_done:\n", functionName);
     riscv_callee_restore_registers(state, metadata, info);
 
-    emit_instruction(NULL, state, "\taddi %s, %s, %zu # free up local stack\n", info->stackPointer->name, info->stackPointer->name, metadata->localStackSize);
+    emit_instruction(NULL, state, "\t#free up stack space for locals and callee-saved registers\n");
+    riscv_emit_immediate_add(NULL, state, info, info->stackPointer, info->stackPointer, metadata->localStackSize);
 
     riscv_emit_frame_load_for_size(NULL, state, info, info->framePointer, MACHINE_REGISTER_SIZE_BYTES, ((ssize_t)-1 * MACHINE_REGISTER_SIZE_BYTES));
 
-    // TODO: don't emit when 0
-    emit_instruction(NULL, state, "\taddi %s, %s, %zd # free up argument stack\n", info->stackPointer->name, info->stackPointer->name, metadata->argStackSize);
+    emit_instruction(NULL, state, "\t# free up argument stack\n");
+    riscv_emit_immediate_add(NULL, state, info, info->stackPointer, info->stackPointer, metadata->argStackSize);
 
     emit_instruction(NULL, state, "\tjalr zero, 0(%s)\n", info->returnAddress->name);
     fprintf(state->outFile, "\t.cfi_endproc\n");
@@ -443,14 +439,8 @@ struct Register *riscv_place_or_find_operand_in_register(struct TACLine *corresp
         placedOrFoundIn = register_use_optional_scratch_or_acquire(info, optionalScratch);
         if (type_is_object(tac_operand_get_type(operand)))
         {
-            if (operandLt->writebackInfo.stackOffset >= 0)
-            {
-                emit_instruction(correspondingTACLine, state, "\taddi %s, fp, %d # place %s\n", placedOrFoundIn->name, operandLt->writebackInfo.stackOffset, operand->name.str);
-            }
-            else
-            {
-                emit_instruction(correspondingTACLine, state, "\taddi %s, fp, -%d # place %s\n", placedOrFoundIn->name, -1 * operandLt->writebackInfo.stackOffset, operand->name.str);
-            }
+            emit_instruction(correspondingTACLine, state, "\t# place %s\n", operand->name.str);
+            riscv_emit_immediate_add(correspondingTACLine, state, info, placedOrFoundIn, info->framePointer, operandLt->writebackInfo.stackOffset);
         }
         else
         {
@@ -580,6 +570,26 @@ void riscv_place_literal_value_in_register(struct TACLine *correspondingTACLine,
     emit_instruction(correspondingTACLine, state, "\tli %s, 0x%lx # place literal\n", destReg->name, literalVal);
 }
 
+void riscv_emit_immediate_add(struct TACLine *correspondingTACLine,
+                              struct CodegenState *state,
+                              struct MachineInfo *info,
+                              struct Register *destReg,
+                              struct Register *sourceReg,
+                              ssize_t added)
+{
+    if ((added >= RISCV_IMMEDIATE_MIN) && (added <= RISCV_IMMEDIATE_MAX))
+    {
+        emit_instruction(correspondingTACLine, state, "\taddi %s, %s, %zd\n", destReg->name, sourceReg->name, added);
+    }
+    else
+    {
+        struct Register *immediateReg = acquire_scratch_register(info);
+        emit_instruction(correspondingTACLine, state, "\tli %s, %zd\n", immediateReg->name, added);
+        emit_instruction(correspondingTACLine, state, "\tadd %s, %s, %s\n", destReg->name, sourceReg->name, immediateReg->name);
+        try_release_scratch_register(info, immediateReg);
+    }
+}
+
 void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
                                         struct CodegenState *state,
                                         struct RegallocMetadata *metadata,
@@ -595,7 +605,9 @@ void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
         break;
 
     case WB_STACK:
-        emit_instruction(correspondingTACLine, state, "\taddi %s, %s, %zd # place address of %s in register\n", destReg->name, info->framePointer->name, lifetime->writebackInfo.stackOffset, lifetime->name);
+
+        emit_instruction(correspondingTACLine, state, "# place address of %s in register\n", lifetime->name);
+        riscv_emit_immediate_add(correspondingTACLine, state, info, destReg, info->framePointer, lifetime->writebackInfo.stackOffset);
         break;
 
     case WB_GLOBAL:
@@ -655,7 +667,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
 {
     log(LOG_DEBUG, "Emit argument stores for call to %s", calledFunction->name);
     // TODO: don't emit when 0
-    emit_instruction(NULL, state, "\taddi %s, %s, -%zd\n", info->stackPointer->name, info->stackPointer->name, calledFunction->regalloc.argStackSize);
+    riscv_emit_immediate_add(NULL, state, info, info->stackPointer, info->stackPointer, -1 * calledFunction->regalloc.argStackSize);
 
     size_t stompedArgRegIdx = 0;
     // problem: when function a() calls function b(), if we are copying one of a's arguments to one of b's arguments it is possible that we will try to load one of a's arguments from a register which has been overwritten with one of b's arguments already.
@@ -672,7 +684,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
 
         if (type_compare_allow_implicit_widening(tac_operand_get_type(argOperand), &argument->type))
         {
-            InternalError("Type mismatch during internal argument store handling for argument %s of function %s\nExpected type %s, got type %s", argument->name, calledFunction->name, type_get_name(tac_operand_get_type(argOperand)), type_get_name(&calledFunction->returnType));
+            InternalError("Type mismatch during internal argument store handling for argument %s of function %s\nExpected type %s, got type %s", argument->name, calledFunction->name, type_get_name(tac_operand_get_type(argOperand)), type_get_name(&argument->type));
         }
 
         struct Lifetime *argLifetime = lifetime_find_by_name(calledFunction->regalloc.allLifetimes, argument->name);
@@ -743,7 +755,7 @@ void riscv_emit_argument_stores(struct CodegenState *state,
 
                 struct Register *destAddrReg = acquire_scratch_register(info);
                 emit_instruction(NULL, state, "\t#compute pointer to stack argument %s to store %s\n", argument->name, argLifetime->name);
-                emit_instruction(NULL, state, "\taddi %s, %s, %zd\n", destAddrReg->name, info->stackPointer->name, argLifetime->writebackInfo.stackOffset);
+                riscv_emit_immediate_add(NULL, state, info, destAddrReg, info->stackPointer, argLifetime->writebackInfo.stackOffset);
 
                 riscv_generate_internal_copy(NULL, state, sourceAddrReg, destAddrReg, scratch, type_get_size(tac_operand_get_type(argOperand), metadata->scope));
             }
@@ -1008,10 +1020,7 @@ void riscv_emit_struct_field_lea(struct TACLine *generate, struct CodegenState *
     }
 
     struct Register *computedAddressReg = acquire_scratch_register(info);
-    emit_instruction(generate, state, "\taddi %s, %s, %zd\n",
-                     computedAddressReg->name,
-                     structBaseAddrReg->name,
-                     loadedField->offset);
+    riscv_emit_immediate_add(generate, state, info, computedAddressReg, structBaseAddrReg, loadedField->offset);
 
     riscv_write_variable(generate, state, metadata, info, &fieldLeaOperands->destination, computedAddressReg);
 }
@@ -1070,10 +1079,11 @@ void riscv_emit_struct_field_store(struct TACLine *generate, struct CodegenState
         struct Register *sourceAddrReg = acquire_scratch_register(info);
         riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &fieldStoreOperands->source, sourceAddrReg);
         try_release_scratch_register(info, structBaseAddrReg);
-        struct Register *fieldAddrReg = acquire_scratch_register(info);
-        emit_instruction(generate, state, "\taddi %s, %s, %zu\n", fieldAddrReg->name, structBaseAddrReg->name, storedField->offset);
-        struct Register *scratchReg = acquire_scratch_register(info);
 
+        struct Register *fieldAddrReg = acquire_scratch_register(info);
+        riscv_emit_immediate_add(generate, state, info, fieldAddrReg, structBaseAddrReg, storedField->offset);
+
+        struct Register *scratchReg = acquire_scratch_register(info);
         riscv_generate_internal_copy(generate, state, sourceAddrReg, fieldAddrReg, scratchReg, type_get_size(tac_operand_get_type(&fieldStoreOperands->source), metadata->scope));
     }
 }
@@ -1346,7 +1356,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         riscv_emit_argument_stores(state, metadata, info, calledMethod, generate->operands.methodCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
 
-        char *fullStructName = calledOnType->baseName;
+        char *fullStructName = type_get_mangled_name(&calledOnType->type);
 
         // TODO: member function name mangling/uniqueness
         if (calledMethod->isDefined)
@@ -1358,6 +1368,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         {
             emit_instruction(generate, state, "\tcall %s_%s@plt\n", fullStructName, generate->operands.methodCall.methodName);
         }
+        free(fullStructName);
 
         if ((generate->operands.methodCall.returnValue.permutation != VP_UNUSED) && !type_is_object(&calledMethod->returnType))
         {
@@ -1383,7 +1394,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         riscv_emit_argument_stores(state, metadata, info, calledAssociated, generate->operands.associatedCall.arguments, callerSavedArgLifetimes);
         set_free(callerSavedArgLifetimes);
 
-        char *fullStructName = associatedWith->baseName;
+        char *fullStructName = type_get_mangled_name(&associatedWith->type);
 
         // TODO: associated function name mangling/uniqueness
         if (calledAssociated->isDefined)
@@ -1394,6 +1405,7 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         {
             emit_instruction(generate, state, "\tcall %s_%s@plt\n", fullStructName, generate->operands.associatedCall.functionName);
         }
+        free(fullStructName);
 
         if ((generate->operands.associatedCall.returnValue.permutation != VP_UNUSED) && !type_is_object(&calledAssociated->returnType))
         {

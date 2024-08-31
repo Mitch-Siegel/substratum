@@ -67,11 +67,11 @@ impl State {
 
     fun Print(self)
     {
-        printStr((u8 *)"Position:\n");
+        printStr("Position:\n" as u8 *);
         printNum(self.pos.x, 1);
         printNum(self.pos.y, 1);
         printNum(self.pos.z, 1);
-        printStr((u8 *)"Dimensions:\n");
+        printStr("Dimensions:\n" as u8 *);
         printNum(self.size.x, 1);
         printNum(self.size.y, 1);
         printNum(self.size.z, 1);
@@ -83,20 +83,20 @@ fun testInstructions()
 {
     State s;
     s.Init();
-    Instruction i = Translate[[{x = 1, y = 2, z = 3}]];
-    Instruction printInstr = Print;
+    Instruction i = Instruction::Translate { x = 1, y = 2, z = 3};
+    Instruction printInstr = Instruction::Print{};
     s.DoInstruction(i);
     s.DoInstruction(printInstr);
 
-    i = ScaleUp[[40]];
+    i = Instruction::ScaleUp{40};
     s.DoInstruction(i);
     s.DoInstruction(printInstr);
 
-    i = Translate[[{x = 15, y = 0, z = 11}]];
+    i = Instruction::Translate{x = 15, y = 0, z = 11};
     s.DoInstruction(i);
     s.DoInstruction(printInstr);
 
-    i = ScaleDown[[10]];
+    i = Instruction::ScaleDown{10};
     s.DoInstruction(i);
     s.DoInstruction(printInstr);
 }

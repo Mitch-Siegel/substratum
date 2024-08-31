@@ -7,7 +7,7 @@ struct Money {
 
 impl Money {
     // TODO: pass m2 by value
-    public Money fun Add(self, Money *m2) {
+    public fun Add(self, Money *m2) -> Money{
         Money added;
         added.cents = self.cents + m2.cents;
 
@@ -30,7 +30,7 @@ impl Money {
     public fun Print(self)
     {
         putc('$');
-        printNum((u32)self.dollars, 0);
+        printNum(self.dollars as u32, 0);
         putc('.');
         printNum(self.cents, 1);
     }

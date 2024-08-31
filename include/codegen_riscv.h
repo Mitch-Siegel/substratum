@@ -12,6 +12,9 @@ struct MachineInfo;
 struct BasicBlock;
 struct Scope;
 
+#define RISCV_IMMEDIATE_MAX ((ssize_t)2047)
+#define RISCV_IMMEDIATE_MIN ((ssize_t)-2048)
+
 void riscv_emit_frame_store_for_size(struct TACLine *correspondingTACLine,
                                      struct CodegenState *state,
                                      struct MachineInfo *info,
@@ -78,6 +81,13 @@ void riscv_place_literal_value_in_register(struct TACLine *correspondingTACLine,
                                            struct CodegenState *state,
                                            size_t literalVal,
                                            struct Register *destReg);
+
+void riscv_emit_immediate_add(struct TACLine *correspondingTACLine,
+                              struct CodegenState *state,
+                              struct MachineInfo *info,
+                              struct Register *destReg,
+                              struct Register *sourceReg,
+                              ssize_t added);
 
 void riscv_place_addr_of_operand_in_reg(struct TACLine *correspondingTACLine,
                                         struct CodegenState *state,

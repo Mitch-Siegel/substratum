@@ -22,7 +22,7 @@ impl Printable for Money {
 }
 
 fun main() {
-    Money m = {dollars = 456, cents = 123};
+    Money m = Money {dollars = 456, cents = 123};
     m.print();
 
     exit();

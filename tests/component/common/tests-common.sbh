@@ -3,6 +3,6 @@ fun printNum(u64 value, u8 newline);
 
 fun printHex(u64 value, u8 newline);
 
-u32 fun printStr(u8 *str);
+fun printStr(u8 *str) -> u32;
 
 fun exit();

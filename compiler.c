@@ -218,21 +218,28 @@ int main(int argc, char **argv)
     struct SymbolTable *theTable = walk_program(program);
 
     // TODO: option to enable/disable symtab dump
-    /*log(LOG_DEBUG, "Symbol table before scope collapse:");
-    SymbolTable_print(theTable, stderr, 1);*/
-
     // log(LOG_DEBUG, "Symbol table before linearization/scope collapse:");
     // symbol_table_print(theTable, stderr, 0);
 
-    log(LOG_INFO, "Collapsing scopes");
+    // TODO: option to enable/disable symtab dump
+    {
+        FILE *symtabOutFile = NULL;
+        symtabOutFile = fopen("symtab.dot", "wb");
+        if (symtabOutFile == NULL)
+        {
+            InternalError("Unable to open output file symtab.dot");
+        }
+        symbol_table_dump_dot(symtabOutFile, theTable, false);
+    }
 
+    log(LOG_INFO, "Collapsing scopes");
     symbol_table_collapse_scopes(theTable, parseDict);
 
     // generate_ssa(theTable);
 
     // TODO: option to enable/disable symtab dump
     // log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
-    // symbol_table_print(theTable, stderr, 0);
+    // symbol_table_print(theTable, stderr, 1);
 
     symbol_table_print_cfgs(theTable, "control-flows");
 

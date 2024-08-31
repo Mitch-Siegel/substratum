@@ -1,0 +1,35 @@
+#include "tests-common.sb"
+
+enum<T> Option {
+    Some: T,
+    None
+}
+
+impl<T> Option {
+    public fun From(T from) -> Self 
+    {
+        Self created = Self::Some{from};
+        return created;
+    }
+}
+
+fun printOptionOfNumber(Option::<u8> opt)
+{
+    match(opt)
+    {
+        Some(value):
+        {
+            printNum(value, 1);
+        }
+        None:
+        {
+            printStr("None");
+        }
+    }
+}
+
+fun main() {
+    Option::<u8> toPrint = Option::<u8>::From(123);
+    printOptionOfNumber(toPrint);
+    exit();
+}

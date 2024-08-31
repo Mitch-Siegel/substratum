@@ -27,4 +27,9 @@ struct VariableEntry *variable_entry_new(char *name,
                                          enum ACCESS accessibility);
 
 void variable_entry_free(struct VariableEntry *variable);
+
+void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t depth);
+
+void variable_entry_try_resolve_generic(struct VariableEntry *variable, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams);
+
 #endif

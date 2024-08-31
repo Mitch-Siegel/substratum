@@ -29,7 +29,7 @@ impl Counter {
         printNum(self.count, 1);
     }
 
-    public Self fun Duplicate(self, u8 *newName)
+    public fun Duplicate(self, u8 *newName) -> Self
     {
         Self copied = *self;
         copied.name = newName;
@@ -40,14 +40,14 @@ impl Counter {
 fun main()
 {
     Counter enteredCount;
-    enteredCount.Init((u8 *)"Number of people who entered");
+    enteredCount.Init("Number of people who entered" as u8 *);
 
     enteredCount.Increment();
     enteredCount.Increment();
     enteredCount.Increment();
     enteredCount.Increment();
 
-    Counter currentOccupancy = enteredCount.Duplicate((u8 *)"Current occupancy");
+    Counter currentOccupancy = enteredCount.Duplicate("Current occupancy" as u8 *);
     currentOccupancy.Decrement();
     currentOccupancy.Decrement();
     

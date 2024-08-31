@@ -480,9 +480,9 @@ char *type_get_name(struct Type *type)
         len = sprintf(typeName, "%s", type->nonArray.complexType.name);
         if (type->nonArray.complexType.genericParams != NULL)
         {
-            char *paramTypes = sprint_generic_params(type->nonArray.complexType.genericParams);
-            len += sprintf(typeName + len, "%s", paramTypes);
-            free(paramTypes);
+            char *genericParamNames = sprint_generic_params(type->nonArray.complexType.genericParams);
+            len += sprintf(typeName + len, "<%s>", genericParamNames);
+            free(genericParamNames);
         }
         break;
 
@@ -520,6 +520,40 @@ char *type_get_name(struct Type *type)
     typeName[len + pointerCounter] = '\0';
 
     return typeName;
+}
+
+char *type_get_mangled_name(struct Type *type)
+{
+    char *mangledName = NULL;
+    if (type->basicType == VT_STRUCT || type->basicType == VT_ENUM)
+    {
+        if (type->nonArray.complexType.genericParams != NULL)
+        {
+            mangledName = strdup(type->nonArray.complexType.name);
+            Iterator *paramIter = NULL;
+            for (paramIter = list_begin(type->nonArray.complexType.genericParams); iterator_gettable(paramIter); iterator_next(paramIter))
+            {
+                struct Type *paramType = iterator_get(paramIter);
+                char *paramMangledName = type_get_mangled_name(paramType);
+                size_t len = strlen(mangledName) + strlen(paramMangledName) + 1;
+                char *newMangledName = malloc(len * sizeof(char));
+                sprintf(newMangledName, "%s%s", mangledName, paramMangledName);
+                free(mangledName);
+                mangledName = newMangledName;
+                free(paramMangledName);
+            }
+            iterator_free(paramIter);
+        }
+        else
+        {
+            mangledName = type_get_name(type);
+        }
+    }
+    else
+    {
+        mangledName = type_get_name(type);
+    }
+    return mangledName;
 }
 
 struct Type *type_duplicate(struct Type *type)
@@ -712,6 +746,32 @@ size_t scope_compute_padding_for_alignment(struct Scope *scope, struct Type *ali
     return paddingRequired;
 }
 
+void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
+{
+    char *typeName = type_get_name(type);
+    free(typeName);
+
+    size_t oldPtrLevel = type->pointerLevel;
+    if (type->basicType == VT_GENERIC_PARAM)
+    {
+        struct Type *resolvedToType = hash_table_find(paramsMap, type->nonArray.complexType.name);
+        if (resolvedToType == NULL)
+        {
+            InternalError("Couldn't resolve actual type for generic parameter of name %s", type_get_name(type));
+        }
+        *type = *resolvedToType;
+    }
+    else if (type->basicType == VT_ARRAY)
+    {
+        type_try_resolve_generic(type->array.type, paramsMap, resolvedStructName, resolvedParams);
+    }
+    else if ((type->basicType == VT_STRUCT) && (!strcmp(type->nonArray.complexType.name, resolvedStructName)))
+    {
+        type->nonArray.complexType.genericParams = resolvedParams;
+    }
+    type->pointerLevel += oldPtrLevel;
+}
+
 void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
 {
     if (typeEntry->genericType == G_BASE)
@@ -721,7 +781,7 @@ void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
 
     if (type->basicType == VT_SELF)
     {
-        type->basicType = VT_STRUCT;
+        type->basicType = typeEntry->type.basicType;
         type->nonArray.complexType.name = typeEntry->baseName;
         if (typeEntry->genericType == G_INSTANCE)
         {

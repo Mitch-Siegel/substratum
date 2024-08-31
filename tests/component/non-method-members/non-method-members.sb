@@ -16,7 +16,7 @@ impl Counter {
         self.count -= 1;
     }
 
-    public Self fun Create(u8 *name)
+    public fun Create(u8 *name) -> Self
     {
         Self created;
         created.name = name;
@@ -33,7 +33,7 @@ impl Counter {
         printNum(self.count, 1);
     }
 
-    public Self fun Duplicate(self, u8 *newName)
+    public fun Duplicate(self, u8 *newName) -> Self
     {
         Self copied = *self;
         copied.name = newName;
@@ -43,13 +43,13 @@ impl Counter {
 
 fun main()
 {
-    Counter enteredCount = Counter::Create((u8 *)"Number of people who entered");
+    Counter enteredCount = Counter::Create("Number of people who entered" as u8 *);
     enteredCount.Increment();
     enteredCount.Increment();
     enteredCount.Increment();
     enteredCount.Increment();
 
-    Counter currentOccupancy = enteredCount.Duplicate((u8 *)"Current occupancy");
+    Counter currentOccupancy = enteredCount.Duplicate("Current occupancy" as u8 *);
     currentOccupancy.Decrement();
     currentOccupancy.Decrement();
     

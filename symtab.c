@@ -33,6 +33,15 @@ void symbol_table_print(struct SymbolTable *table, FILE *outFile, bool printTac)
     printf("~~~~~~~~~~~~~\n\n");
 }
 
+void symbol_table_dump_dot(FILE *outFile,
+                           struct SymbolTable *table,
+                           bool printTAC)
+{
+    fprintf(outFile, "digraph Symbol_Table {\n");
+    scope_dump_dot(outFile, table->globalScope, 0, printTAC);
+    fprintf(outFile, "}\n");
+}
+
 void scope_print_cfgs(struct Scope *scope, char *outDir)
 {
     // check if the directory exists
@@ -285,152 +294,6 @@ void symbol_table_free(struct SymbolTable *table)
 {
     scope_free(table->globalScope);
     free(table);
-}
-
-void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t depth)
-{
-    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
-    {
-        fprintf(outFile, "\t");
-    }
-    char *typeName = type_get_name(&variable->type);
-    fprintf(outFile, "%s %s\n", typeName, variable->name);
-    free(typeName);
-}
-
-void print_accessibility(enum ACCESS accessibility, FILE *outFile)
-{
-    switch (accessibility)
-    {
-    case A_PRIVATE:
-        fprintf(outFile, " - Private");
-        break;
-
-    case A_PUBLIC:
-        fprintf(outFile, " - Public");
-        break;
-    }
-}
-
-void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth, FILE *outFile)
-{
-    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
-    {
-        fprintf(outFile, "\t");
-    }
-
-    fprintf(outFile, "%p:", toPrint);
-
-    switch (toPrint->type)
-    {
-    case E_ARGUMENT:
-    {
-        struct VariableEntry *theArgument = toPrint->entry;
-        fprintf(outFile, "> Argument: %s", toPrint->name);
-        print_accessibility(toPrint->accessibility, outFile);
-        fprintf(outFile, "\n");
-
-        variable_entry_print(theArgument, outFile, depth + 1);
-        for (size_t depthPrint = 0; depthPrint < depth + 1; depthPrint++)
-        {
-            fprintf(outFile, "\t");
-        }
-        fprintf(outFile, "Stack offset: %zd\n", theArgument->stackOffset);
-    }
-    break;
-
-    case E_VARIABLE:
-    {
-        struct VariableEntry *theVariable = toPrint->entry;
-        fprintf(outFile, "> Variable %s", toPrint->name);
-        print_accessibility(toPrint->accessibility, outFile);
-        fprintf(outFile, "\n");
-
-        variable_entry_print(theVariable, outFile, depth + 1);
-    }
-    break;
-
-    case E_TYPE:
-    {
-        struct TypeEntry *theType = toPrint->entry;
-        fprintf(outFile, "> Type %s ", toPrint->name);
-        print_accessibility(toPrint->accessibility, outFile);
-        fprintf(outFile, "\n");
-        type_entry_print(theType, printTac, depth + 1, outFile);
-    }
-    break;
-
-    case E_FUNCTION:
-    {
-        struct FunctionEntry *theFunction = toPrint->entry;
-        if (theFunction->implementedFor != NULL)
-        {
-            fprintf(outFile, "> Method %s.", theFunction->implementedFor->baseName);
-        }
-        else
-        {
-            fprintf(outFile, "> Function ");
-        }
-        fprintf(outFile, "%s", toPrint->name);
-        print_accessibility(toPrint->accessibility, outFile);
-        fprintf(outFile, "\n");
-        function_entry_print(theFunction, printTac, depth + 1, outFile);
-    }
-    break;
-
-    case E_SCOPE:
-    {
-        struct Scope *theScope = toPrint->entry;
-        fprintf(outFile, "> Subscope %s\n", toPrint->name);
-        scope_print(theScope, outFile, depth + 1, printTac);
-    }
-    break;
-
-    case E_BASICBLOCK:
-    {
-        struct BasicBlock *thisBlock = toPrint->entry;
-        fprintf(outFile, "> Basic Block %zu - %zu TAC lines\n", thisBlock->labelNum, thisBlock->TACList->size);
-        if (printTac)
-        {
-            print_basic_block(thisBlock, depth + 1);
-        }
-    }
-    break;
-
-    case E_TRAIT:
-    {
-        struct TraitEntry *theTrait = toPrint->entry;
-        fprintf(outFile, "> Trait %s\n", theTrait->name);
-        trait_entry_print(theTrait, depth + 1, outFile);
-    }
-    break;
-    }
-}
-
-void scope_print(struct Scope *scope, FILE *outFile, size_t depth, bool printTac)
-{
-    Iterator *memberIterator = NULL;
-    for (memberIterator = set_begin(scope->entries); iterator_gettable(memberIterator); iterator_next(memberIterator))
-    {
-        struct ScopeMember *thisMember = iterator_get(memberIterator);
-        scope_print_member(thisMember, printTac, depth + 1, outFile);
-    }
-    iterator_free(memberIterator);
-}
-
-void scope_add_basic_block(struct Scope *scope, struct BasicBlock *block)
-{
-    const u8 BASIC_BLOCK_NAME_STR_SIZE = 10; // TODO: manage this better
-    char *blockName = malloc(BASIC_BLOCK_NAME_STR_SIZE);
-    sprintf(blockName, "Block%zu", block->labelNum);
-    char *dictBlockName = dictionary_lookup_or_insert(parseDict, blockName);
-    free(blockName);
-    scope_insert(scope, dictBlockName, block, E_BASICBLOCK, A_PUBLIC);
-
-    if (scope->parentFunction != NULL)
-    {
-        list_append(scope->parentFunction->BasicBlockList, block);
-    }
 }
 
 /*

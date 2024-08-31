@@ -43,3 +43,24 @@ void variable_entry_free(struct VariableEntry *variable)
     type_deinit(&variable->type);
     free(variable);
 }
+
+void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t depth)
+{
+    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
+    {
+        fprintf(outFile, "\t");
+    }
+    char *typeName = type_get_name(&variable->type);
+    fprintf(outFile, "%s %s\n", typeName, variable->name);
+    free(typeName);
+}
+
+void variable_entry_try_resolve_generic(struct VariableEntry *variable, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
+{
+    type_try_resolve_generic(&variable->type, paramsMap, resolvedStructName, resolvedParams);
+    if ((strcmp(variable->name, OUT_OBJECT_POINTER_NAME) == 0) ||
+        (strcmp(variable->name, "self") == 0))
+    {
+        variable->type.pointerLevel = 1;
+    }
+}

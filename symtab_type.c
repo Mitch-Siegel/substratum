@@ -78,7 +78,7 @@ struct TypeEntry *type_entry_new(struct Scope *parentScope,
 
     if ((genericParamNames != NULL) && (genericType != G_BASE))
     {
-        InternalError("Generic struct %s has parameters but is not enumerated to be a G_BASE", type_get_name(&type));
+        InternalError("Generic %s has parameters but is not enumerated to be a G_BASE", type_get_name(&type));
     }
 
     wipType->genericType = genericType;
@@ -244,30 +244,6 @@ struct FunctionEntry *type_entry_lookup_implemented(struct TypeEntry *typeEntry,
     return implementedFunction;
 }
 
-void try_resolve_generic_for_type(struct Type *type, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
-{
-    char *typeName = type_get_name(type);
-    free(typeName);
-
-    if (type->basicType == VT_GENERIC_PARAM)
-    {
-        struct Type *resolvedToType = hash_table_find(paramsMap, type->nonArray.complexType.name);
-        if (resolvedToType == NULL)
-        {
-            InternalError("Couldn't resolve actual type for generic parameter of name %s", type_get_name(type));
-        }
-        *type = *resolvedToType;
-    }
-    else if (type->basicType == VT_ARRAY)
-    {
-        try_resolve_generic_for_type(type->array.type, paramsMap, resolvedStructName, resolvedParams);
-    }
-    else if ((type->basicType == VT_STRUCT) && (!strcmp(type->nonArray.complexType.name, resolvedStructName)))
-    {
-        type->nonArray.complexType.genericParams = resolvedParams;
-    }
-}
-
 struct TypeEntry *struct_type_entry_clone_generic_base_as_instance(struct TypeEntry *toClone, char *name)
 {
     if ((toClone->genericType != G_BASE) || (toClone->permutation != TP_STRUCT))
@@ -304,7 +280,7 @@ struct TypeEntry *enum_type_entry_clone_generic_base_as_instance(struct TypeEntr
 
     struct EnumDesc *clonedEnum = enum_desc_clone(toClone->data.asEnum, name);
 
-    struct TypeEntry *clonedTypeEntry = type_entry_new_enum(name, toClone->parentScope, G_INSTANCE, toClone->generic.base.paramNames);
+    struct TypeEntry *clonedTypeEntry = type_entry_new_enum(name, toClone->parentScope, G_INSTANCE, NULL);
     enum_desc_free(clonedTypeEntry->data.asEnum);
     clonedTypeEntry->data.asEnum = clonedEnum;
 
@@ -442,12 +418,11 @@ void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, L
     type_entry_resolve_capital_self(instance);
 }
 
-extern struct Dictionary *parseDict;
-struct TypeEntry *type_entry_get_or_create_generic_instantiation(struct TypeEntry *theType, List *paramsList)
+struct TypeEntry *type_entry_get_or_create_generic_instantiation(struct TypeEntry *baseType, List *paramsList)
 {
-    if (theType->genericType != G_BASE)
+    if (baseType->genericType != G_BASE)
     {
-        InternalError("type_entry_get_or_create_generic_instantiation called on non-generic-base type %s", theType->baseName);
+        InternalError("type_entry_get_or_create_generic_instantiation called on non-generic-base type %s", baseType->baseName);
     }
 
     if (paramsList == NULL)
@@ -455,31 +430,31 @@ struct TypeEntry *type_entry_get_or_create_generic_instantiation(struct TypeEntr
         InternalError("type_entry_get_or_create_generic_instantiation called with NULL paramsList");
     }
 
-    if (theType->generic.base.paramNames->size != paramsList->size)
+    if (baseType->generic.base.paramNames->size != paramsList->size)
     {
-        List *expectedParams = theType->generic.base.paramNames;
+        List *expectedParams = baseType->generic.base.paramNames;
         char *expectedParamsStr = sprint_generic_param_names(expectedParams);
-        InternalError("generic struct %s<%s> (%zu parameter names) instantiated with %zu params", theType->baseName, expectedParamsStr, expectedParams->size, paramsList->size);
+        InternalError("generic struct %s<%s> (%zu parameter names) instantiated with %zu params", baseType->baseName, expectedParamsStr, expectedParams->size, paramsList->size);
     }
 
-    struct TypeEntry *instance = hash_table_find(theType->generic.base.instances, paramsList);
+    struct TypeEntry *instance = hash_table_find(baseType->generic.base.instances, paramsList);
 
     if (instance == NULL)
     {
         char *paramStr = sprint_generic_params(paramsList);
-        log(LOG_DEBUG, "No instance of %s<%s> exists - creating", theType->baseName, paramStr);
+        log(LOG_DEBUG, "No instance of %s<%s> exists - creating", baseType->baseName, paramStr);
         free(paramStr);
 
-        instance = type_entry_clone_generic_base_as_instance(theType, theType->baseName);
+        instance = type_entry_clone_generic_base_as_instance(baseType, baseType->baseName);
 
         instance->generic.instance.parameters = paramsList;
         instance->type.nonArray.complexType.genericParams = paramsList;
 
-        type_entry_resolve_generics(instance, theType->generic.base.paramNames, paramsList);
+        type_entry_resolve_generics(instance, baseType->generic.base.paramNames, paramsList);
 
         // type_entry_resolve_capital_self(instance);
 
-        hash_table_insert(theType->generic.base.instances, paramsList, instance);
+        hash_table_insert(baseType->generic.base.instances, paramsList, instance);
     }
 
     return instance;

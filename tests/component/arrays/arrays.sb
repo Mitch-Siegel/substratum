@@ -31,7 +31,7 @@ fun testu16Array()
         array[i] = 65535;
         array[i] = 256 + i;
         u16 readBack = array[i];
-        u8 toPrint = readBack;
+        u8 toPrint = readBack as u8;
         if((readBack != (256 + i)))
         {
             putc('!');
@@ -54,7 +54,7 @@ fun testu32Array()
         array[i] = 4294967295;
         array[i] = 65536 + i;
         u32 readBack = array[i];
-        u8 toPrint = readBack;
+        u8 toPrint = readBack as u8;
         if(readBack != 65536 + i)
         {
             putc('!');
