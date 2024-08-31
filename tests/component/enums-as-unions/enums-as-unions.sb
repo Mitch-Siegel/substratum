@@ -67,11 +67,11 @@ impl State {
 
     fun Print(self)
     {
-        printStr((u8 *)"Position:\n");
+        printStr("Position:\n" as u8 *);
         printNum(self.pos.x, 1);
         printNum(self.pos.y, 1);
         printNum(self.pos.z, 1);
-        printStr((u8 *)"Dimensions:\n");
+        printStr("Dimensions:\n" as u8 *);
         printNum(self.size.x, 1);
         printNum(self.size.y, 1);
         printNum(self.size.z, 1);

@@ -219,7 +219,7 @@ unary_operator
     / '!' !('=')    { $$ = AST_N(auxil, T_LOGICAL_NOT, $0, $0s); }
 
 cast_expression
-   <- kw_lparen _ t:type_name _ kw_rparen _ c:cast_expression  { $$ = AST_C(AST_N(auxil, T_CAST, "", $0s), AST_S(t, c)); }
+   <- c:cast_expression _ a:kw_as _ t:type_name  { $$ = AST_C(AST_N(auxil, T_CAST, "", $0s), AST_S(t, c)); }
     / u:unary_expression                           { $$ = u; }
 
 multiplicative_expression
@@ -502,6 +502,7 @@ kw_trait       <- 'trait' !(LETTER/DIGIT)
 
 
 # nontree keywords
+kw_as          <- 'as' !(LETTER/DIGIT)    { manage_source_location(auxil, $0); }
 kw_arrow       <- '->'                    { manage_source_location(auxil, $0); }
 kw_semicolon   <- ';'                     { manage_source_location(auxil, $0); }
 kw_comma       <- ','                     { manage_source_location(auxil, $0); }

@@ -2,13 +2,13 @@
 
 fun printDuplicateStrings()
 {
-    u8 *string = (u8 *)"the quick brown fox jumps over the lazy dog";
+    u8 *string = "the quick brown fox jumps over the lazy dog" as u8 *;
     printStr(string);
     putc('\n');
-    string = (u8 *)"some other string with wacky characters: !@#$%^&*()_+[;]";
+    string = "some other string with wacky characters: !@#$%^&*()_+[;]" as u8 *;
     printStr(string);
     putc('\n');
-    string = (u8 *)"the quick brown fox jumps over the lazy dog";
+    string = "the quick brown fox jumps over the lazy dog" as u8 *;
     printStr(string);
     putc('\n');
 }
@@ -40,7 +40,7 @@ fun printIsEven(u8 number)
 
 fun main()
 {
-    printStr((u8 *)"Hello, world!");
+    printStr("Hello, world!" as u8 *);
     putc('\n');
     printDuplicateStrings();
     u8 i = 0;
