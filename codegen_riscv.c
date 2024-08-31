@@ -1289,6 +1289,14 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         riscv_emit_struct_field_store(generate, state, metadata, info);
         break;
 
+    case TT_SIZEOF:
+    {
+        struct Register *destReg = pick_write_register(metadata, &generate->operands.sizeof_.destination, acquire_scratch_register(info));
+        emit_instruction(generate, state, "\tli %s, %zu\n", destReg->name, type_get_size(&generate->operands.sizeof_.type, metadata->scope));
+        riscv_write_variable(generate, state, metadata, info, &generate->operands.sizeof_.destination, destReg);
+    }
+    break;
+
     case TT_BEQ:
     case TT_BNE:
     case TT_BGEU:

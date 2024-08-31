@@ -255,6 +255,8 @@ void walk_string_literal(struct Ast *tree,
 void walk_sizeof(struct Ast *tree,
                  struct BasicBlock *block,
                  struct Scope *scope,
+                 size_t *tacIndex,
+                 size_t *tempNum,
                  struct TACOperand *destinationOperand);
 
 #endif

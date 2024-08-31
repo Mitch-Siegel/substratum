@@ -35,6 +35,7 @@ enum TAC_TYPE
     TT_FIELD_LOAD,  // load a field of a struct
     TT_FIELD_LEA,   // load a pointer to a field of a struct
     TT_FIELD_STORE, // store a field of a struct
+    TT_SIZEOF,      // get the size of a type
     TT_BEQ,         // branch equal
     TT_BNE,         // branch not equal
     TT_BGEU,        // branch greater than or equal unsigned
@@ -151,6 +152,13 @@ struct TacFieldStore
     struct TACOperand destination;
     char *fieldName;
 };
+
+struct TacSizeof
+{
+    struct TACOperand destination;
+    struct Type type;
+};
+
 // TT_BEQ,         // branch equal
 // TT_BNE,         // branch not equal
 // TT_BGEU,        // branch greater than or equal unsigned
@@ -236,6 +244,7 @@ struct TACLine
         struct TacArrayStore arrayStore;
         struct TacFieldLoad fieldLoad;
         struct TacFieldStore fieldStore;
+        struct TacSizeof sizeof_;
         struct TacConditionalBranch conditionalBranch;
         struct TacJump jump;
         struct TacFunctionCall functionCall;

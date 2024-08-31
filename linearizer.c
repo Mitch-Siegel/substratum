@@ -3155,7 +3155,7 @@ void walk_sub_expression(struct Ast *tree,
     break;
 
     case T_SIZEOF:
-        walk_sizeof(tree, block, scope, destinationOperand);
+        walk_sizeof(tree, block, scope, tacIndex, tempNum, destinationOperand);
         break;
 
     case T_INITIALIZER:
@@ -4280,6 +4280,8 @@ void walk_string_literal(struct Ast *tree,
 void walk_sizeof(struct Ast *tree,
                  struct BasicBlock *block,
                  struct Scope *scope,
+                 size_t *tacIndex,
+                 size_t *tempNum,
                  struct TACOperand *destinationOperand)
 {
     log_tree(LOG_DEBUG, tree, "walk_sizeof");
@@ -4289,7 +4291,11 @@ void walk_sizeof(struct Ast *tree,
         log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_sizeof!", token_get_name(tree->type));
     }
 
-    size_t sizeInBytes = 0;
+    struct TACLine *sizeofLine = new_tac_line(TT_SIZEOF, tree);
+    struct TacSizeof *operands = &sizeofLine->operands.sizeof_;
+    struct Type sizeType = {0};
+    type_set_basic_type(&sizeType, VT_U64, NULL, 0);
+    tac_operand_populate_as_temp(scope, &operands->destination, tempNum, &sizeType);
 
     switch (tree->child->type)
     {
@@ -4297,66 +4303,31 @@ void walk_sizeof(struct Ast *tree,
     case T_IDENTIFIER:
     {
         // do a generic scope lookup on the identifier
-        struct VariableEntry *lookedUpIdentifier = scope_lookup_var_by_string(scope, tree->child->value);
-
-        // if it looks up nothing, or it's a variable
-        if (lookedUpIdentifier != NULL)
+        struct VariableEntry *lookedUpVariable = scope_lookup_var_by_string(scope, tree->child->value);
+        if (lookedUpVariable != NULL)
         {
-            sizeInBytes = type_get_size(&lookedUpIdentifier->type, scope);
+            operands->type = type_duplicate_non_pointer(&lookedUpVariable->type);
         }
-        // we looked something up but it's not a variable
         else
         {
-            struct ScopeMember *lookedUp = scope_lookup(scope, tree->child->value, E_TYPE);
-            if (lookedUp != NULL)
-            {
-                struct TypeEntry *lookedUpType = lookedUp->entry;
-                switch (lookedUpType->permutation)
-                {
-                case TP_PRIMITIVE:
-                    InternalError("String lookup of type %s returned primitive type %s", tree->child->value, lookedUpType->baseName);
-                    break;
-
-                case TP_STRUCT:
-                {
-                    // TODO: getter with sanity check against field locations?
-                    struct StructDesc *structType = lookedUpType->data.asStruct;
-                    sizeInBytes = structType->totalSize;
-                }
-                break;
-
-                case TP_ENUM:
-                {
-                    // TODO: getter/check to ensure type includes both union size and numerical enumerator size
-                    struct EnumDesc *enumType = lookedUpType->data.asEnum;
-                    sizeInBytes = enumType->unionSize;
-                }
-                break;
-                }
-            }
-            else
-            {
-                // TODO: "does not name a type" error
-                log_tree(LOG_FATAL, tree->child, "No declaration or type name matches identifier %s\n", tree->child->value);
-            }
+            struct Type dummyType = {0};
+            type_set_basic_type(&dummyType, VT_STRUCT, tree->child->value, 0);
+            struct TypeEntry *lookedUpType = scope_lookup_type(scope, &dummyType);
+            operands->type = type_duplicate_non_pointer(&lookedUpType->type);
         }
     }
     break;
 
     case T_TYPE_NAME:
     {
-        struct Type getSizeof;
-        walk_type_name(tree->child, scope, &getSizeof, NULL);
-
-        sizeInBytes = type_get_size(&getSizeof, scope);
-        type_deinit(&getSizeof);
+        walk_type_name(tree->child, scope, &operands->type, NULL);
     }
     break;
+
     default:
         log_tree(LOG_FATAL, tree, "sizeof is only supported on type names and identifiers!");
     }
 
-    destinationOperand->castAsType.basicType = VT_U8; // TODO: calc size
-    destinationOperand->permutation = VP_LITERAL_VAL;
-    destinationOperand->name.val = sizeInBytes;
+    basic_block_append(block, sizeofLine, tacIndex);
+    *destinationOperand = operands->destination;
 }
