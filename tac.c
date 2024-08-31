@@ -349,6 +349,7 @@ char *sprint_tac_line(struct TACLine *line)
         free(typeStr);
         free(destinationStr);
     }
+    break;
 
     case TT_BEQ:
     case TT_BNE:

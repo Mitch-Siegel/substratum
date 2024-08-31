@@ -110,8 +110,43 @@ void basic_block_resolve_capital_self(struct BasicBlock *block, struct TypeEntry
             type_try_resolve_vt_self(&writtenOperand->castAsType, typeEntry);
         }
 
+        if (line->operation == TT_SIZEOF)
+        {
+            type_try_resolve_vt_self(&line->operands.sizeof_.type, typeEntry);
+        }
+
         deque_free(operandUsages.reads);
         deque_free(operandUsages.writes);
     }
     iterator_free(blockIter);
+}
+
+void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
+{
+    Iterator *tacRunner = NULL;
+    for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
+    {
+        struct TACLine *resolvedLine = iterator_get(tacRunner);
+        struct OperandUsages operandUsages = get_operand_usages(resolvedLine);
+        while (operandUsages.reads->size > 0)
+        {
+            struct TACOperand *readOperand = deque_pop_front(operandUsages.reads);
+            type_try_resolve_generic(&readOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
+        }
+
+        while (operandUsages.writes->size > 0)
+        {
+            struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
+            type_try_resolve_generic(&writtenOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
+        }
+
+        if (resolvedLine->operation == TT_SIZEOF)
+        {
+            type_try_resolve_generic(&resolvedLine->operands.sizeof_.type, paramsMap, resolvedStructName, resolvedParams);
+        }
+
+        deque_free(operandUsages.reads);
+        deque_free(operandUsages.writes);
+    }
+    iterator_free(tacRunner);
 }
