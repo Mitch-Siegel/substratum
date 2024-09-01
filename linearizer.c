@@ -1035,29 +1035,36 @@ void walk_generic(struct Ast *tree,
     case T_IMPL:
     {
         struct Ast *implementedTypeTree = genericThing->child;
-        if (implementedTypeTree->type != T_TYPE_NAME)
+        if ((implementedTypeTree->type != T_TYPE_NAME) && (implementedTypeTree->type != T_FOR))
         {
-            log_tree(LOG_FATAL, implementedTypeTree, "Malformed AST seen in WalkImplementation!");
+            log_tree(LOG_FATAL, implementedTypeTree, "Malformed AST seen in walk_generic!");
         }
 
-        struct Type implementedType = {0};
-        walk_type_name(implementedTypeTree, scope, &implementedType, NULL);
-
-        if (((implementedType.basicType != VT_STRUCT) && (implementedType.basicType != VT_ENUM)) || (implementedType.pointerLevel != 0))
+        if(implementedTypeTree->type == T_FOR)
         {
-            log_tree(LOG_FATAL, implementedTypeTree, "Implementation block for type %s not supported yet!", type_get_name(&implementedType));
+            walk_trait_impl(genericThing, scope);
         }
-
-        struct TypeEntry *implementedTypeEntry = scope_lookup_type(scope, &implementedType);
-        compare_generic_param_names(genericParamsTree, genericParams, implementedTypeEntry->generic.instance.parameters, "struct", implementedTypeEntry->baseName);
-
-        struct Ast *implementationRunner = genericThing->child->sibling;
-        while (implementationRunner != NULL)
+        else
         {
-            walk_implementation(implementationRunner, implementedTypeEntry);
-            implementationRunner = implementationRunner->sibling;
+            struct Type implementedType = {0};
+            walk_type_name(implementedTypeTree, scope, &implementedType, NULL);
+
+            if (((implementedType.basicType != VT_STRUCT) && (implementedType.basicType != VT_ENUM)) || (implementedType.pointerLevel != 0))
+            {
+                log_tree(LOG_FATAL, implementedTypeTree, "Implementation block for type %s not supported yet!", type_get_name(&implementedType));
+            }
+
+            struct TypeEntry *implementedTypeEntry = scope_lookup_type(scope, &implementedType);
+            compare_generic_param_names(genericParamsTree, genericParams, implementedTypeEntry->generic.instance.parameters, "struct", implementedTypeEntry->baseName);
+
+            struct Ast *implementationRunner = genericThing->child->sibling;
+            while (implementationRunner != NULL)
+            {
+                walk_implementation(implementationRunner, implementedTypeEntry);
+                implementationRunner = implementationRunner->sibling;
+            }
+            list_free(genericParams);
         }
-        list_free(genericParams);
     }
     break;
 
@@ -3829,7 +3836,7 @@ struct TACOperand *walk_expression(struct Ast *tree,
             struct TACOperand offset;
 
             walk_sub_expression(tree->child->sibling, block, scope, tacIndex, tempNum, &offset);
-            struct TACLine *scaleMultiply = set_up_scale_multiplication(tree, scope, tacIndex, tempNum, tac_operand_get_type(&expression->operands.arithmetic.sourceA), tac_operand_get_type(&offset));
+            struct TACLine *scaleMultiply = set_up_scale_multiplication(tree, block, scope, tacIndex, tempNum, tac_operand_get_type(&expression->operands.arithmetic.sourceA), tac_operand_get_type(&offset));
             scaleMultiply->operands.arithmetic.sourceA = offset;
 
             tac_operand_populate_as_temp(scope, &scaleMultiply->operands.arithmetic.destination, tempNum, tac_operand_get_type(&offset));
@@ -3858,7 +3865,7 @@ struct TACOperand *walk_expression(struct Ast *tree,
     }
 
     // TODO generate errors for bad pointer arithmetic here
-    if (type_get_size(operandAType, scope) > type_get_size(operandBType, scope))
+    if ((type_get_size(operandAType, scope) > type_get_size(operandBType, scope)) || (operandAType->pointerLevel > 0))
     {
         tac_operand_populate_as_temp(scope, &expression->operands.arithmetic.destination, tempNum, operandAType);
     }
@@ -4110,6 +4117,7 @@ void walk_pointer_arithmetic(struct Ast *tree,
     tac_operand_populate_as_temp(scope, &pointerArithmetic->operands.arithmetic.destination, tempNum, pointerArithLhsType);
 
     struct TACLine *scaleMultiplication = set_up_scale_multiplication(pointerArithRhs,
+                                                                      block,
                                                                       scope,
                                                                       tacIndex,
                                                                       tempNum,

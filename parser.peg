@@ -613,7 +613,7 @@ preprocessor_data
     / preprocessor_system_header_file_with_line
     / '#' space* '1' space* <(!space .)+> (!eol .)* eol { manage_non_source_location(auxil, $0); }
     / '#' space* '0' (!eol .)* eol { manage_non_source_location(auxil, $0); }
-    / '#' space* [12] (!eol .)* eol { manage_non_source_location(auxil, $0); }
+    / '#' space* [124] (!eol .)* eol { manage_non_source_location(auxil, $0); }
 
 preprocessor_new_file_with_line
    <- '#' space* '1' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($2), $1); }
