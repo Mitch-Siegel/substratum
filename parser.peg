@@ -63,6 +63,7 @@ struct_declaration
 
 non_generic_struct_ident_declaration
    <- i:identifier _ kw_lcurly _ m:struct_member_declaration_list _ kw_rcurly { $$ = AST_S(i, AST_C(AST_N(auxil, T_STRUCT_BODY, "", $0s), m)); }
+    / i:identifier _ kw_lcurly _ kw_rcurly { $$ = AST_S(i, AST_N(auxil, T_STRUCT_BODY, "", $0s)); }
 
 struct_member_declaration_list
    <- l:struct_member_declaration_list _ m:struct_member_declaration _ { $$ = AST_S(l, m); }
