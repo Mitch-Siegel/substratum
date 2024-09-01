@@ -135,4 +135,6 @@ void enum_desc_resolve_generics(struct EnumDesc *theEnum, HashTable *paramsMap, 
         type_try_resolve_generic(&member->type, paramsMap, name, params);
     }
     iterator_free(memberIter);
+
+    enum_desc_calculate_union_size(theEnum);
 }

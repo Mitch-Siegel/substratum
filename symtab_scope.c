@@ -1192,6 +1192,22 @@ struct FunctionEntry *function_entry_clone(struct FunctionEntry *toClone, struct
     return cloned;
 }
 
+Deque *clone_function_arguments(Deque *toClone)
+{
+    Deque *cloned = deque_new(NULL);
+    Iterator *argIter = NULL;
+    for (argIter = deque_front(toClone); iterator_gettable(argIter); iterator_next(argIter))
+    {
+        struct TACOperand *oldArg = iterator_get(argIter);
+        struct TACOperand *newArg = malloc(sizeof(struct TACOperand));
+        memcpy(newArg, oldArg, sizeof(struct TACOperand));
+        deque_push_back(cloned, newArg);
+    }
+    iterator_free(argIter);
+
+    return cloned;
+}
+
 struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *clonedTo)
 {
     struct BasicBlock *clone = basic_block_new(toClone->labelNum);
@@ -1206,6 +1222,31 @@ struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *c
         memcpy(clonedLine, lineToClone, sizeof(struct TACLine));
         clonedLine->allocFile = __FILE__;
         clonedLine->allocLine = __LINE__;
+
+        switch (clonedLine->operation)
+        {
+        case TT_FUNCTION_CALL:
+        {
+            clonedLine->operands.functionCall.arguments = clone_function_arguments(lineToClone->operands.functionCall.arguments);
+        }
+        break;
+
+        case TT_METHOD_CALL:
+        {
+            clonedLine->operands.methodCall.arguments = clone_function_arguments(lineToClone->operands.methodCall.arguments);
+        }
+        break;
+
+        case TT_ASSOCIATED_CALL:
+        {
+            clonedLine->operands.associatedCall.associatedWith = clonedTo->parentFunction->implementedFor->type;
+            clonedLine->operands.associatedCall.arguments = clone_function_arguments(lineToClone->operands.associatedCall.arguments);
+        }
+        break;
+
+        default:
+            break;
+        }
 
         struct OperandUsages operandUsages = get_operand_usages(clonedLine);
         while (operandUsages.reads->size > 0)
@@ -1240,11 +1281,6 @@ struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *c
 
         deque_free(operandUsages.reads);
         deque_free(operandUsages.writes);
-
-        if (clonedLine->operation == TT_ASSOCIATED_CALL)
-        {
-            clonedLine->operands.associatedCall.associatedWith = clonedTo->parentFunction->implementedFor->type;
-        }
 
         size_t tacIndex = lineToClone->index;
         basic_block_append(clone, clonedLine, &tacIndex);

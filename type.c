@@ -146,7 +146,8 @@ bool type_is_object(struct Type *type)
 {
     return type_is_array_object(type) ||
            type_is_struct_object(type) ||
-           type_is_enum_object(type);
+           type_is_enum_object(type) ||
+           ((type->basicType == VT_SELF) && (type->pointerLevel == 0));
 }
 
 bool type_is_array_object(struct Type *type)
@@ -760,6 +761,7 @@ void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *res
             InternalError("Couldn't resolve actual type for generic parameter of name %s", type_get_name(type));
         }
         *type = *resolvedToType;
+        type->pointerLevel += oldPtrLevel;
     }
     else if (type->basicType == VT_ARRAY)
     {
@@ -769,7 +771,6 @@ void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *res
     {
         type->nonArray.complexType.genericParams = resolvedParams;
     }
-    type->pointerLevel += oldPtrLevel;
 }
 
 void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)

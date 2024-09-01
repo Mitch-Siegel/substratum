@@ -2712,20 +2712,7 @@ void walk_enum_initializer(struct Ast *tree,
     struct TypeEntry *enumTypeEntry = scope_lookup_type_remove_pointer(scope, enumType);
     struct EnumDesc *fromEnum = enumTypeEntry->data.asEnum;
 
-    type_init(&initializedOperand->castAsType);
-
-    // we're going to have a temp
-    if (tac_operand_get_type(initializedOperand)->basicType == VT_NULL)
-    {
-        tac_operand_populate_as_temp(scope, initializedOperand, tempNum, enumType);
-    }
-
     struct TACOperand *destAddr = initializedOperand;
-    if (tac_operand_get_type(initializedOperand)->pointerLevel == 0)
-    {
-        // we will manipulate based on the address of the enum
-        destAddr = get_addr_of_operand(initializerTree, block, scope, tacIndex, tempNum, initializedOperand);
-    }
 
     // the first sizeof(size_t) bytes of this enum are the numerical index of the member with which we are dealing
     struct TACLine *writeEnumNumericalLine = new_tac_line(TT_STORE, initializerTree);

@@ -1236,8 +1236,9 @@ void riscv_generate_code_for_tac(struct CodegenState *state,
         struct Type *srcType = tac_operand_get_type(&generate->operands.store.source);
         size_t moveSize = type_get_size(srcType, metadata->scope);
         struct Register *destAddrReg = riscv_place_or_find_operand_in_register(generate, state, metadata, info, &generate->operands.store.address, NULL);
-        if (moveSize > sizeof(size_t))
+        if (moveSize > sizeof(size_t) || type_is_object(srcType))
         {
+            emit_instruction(generate, state, "\t#move %s to %s (size %zu)\n", generate->operands.store.source.name.variable->name, generate->operands.store.address.name.variable->name, moveSize);
             struct Register *sourceAddrReg = acquire_scratch_register(info);
             riscv_place_addr_of_operand_in_reg(generate, state, metadata, info, &generate->operands.store.source, sourceAddrReg);
             struct Register *intermediateReg = acquire_scratch_register(info);

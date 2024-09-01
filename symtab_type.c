@@ -292,6 +292,7 @@ struct TypeEntry *enum_type_entry_clone_generic_base_as_instance(struct TypeEntr
         struct ScopeMember *implementedMember = implementedEntry->value;
         type_entry_add_implemented(clonedTypeEntry, scope_lookup(clonedTypeEntry->implemented, implementedEntry->key, E_FUNCTION)->entry, implementedMember->accessibility);
     }
+
     iterator_free(implementedIter);
 
     return clonedTypeEntry;
@@ -766,7 +767,7 @@ void type_entry_print(struct TypeEntry *theType, bool printTac, size_t depth, FI
         {
             HashTableEntry *instanceEntry = iterator_get(instanceIter);
             struct TypeEntry *instance = instanceEntry->value;
-            type_entry_print(instance, false, depth + 2, outFile);
+            type_entry_print(instance, printTac, depth + 2, outFile);
         }
         iterator_free(instanceIter);
     }
