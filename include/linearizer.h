@@ -28,6 +28,8 @@ void walk_type_name(struct Ast *tree, struct Scope *scope,
                     struct Type *populateTypeTo,
                     struct TypeEntry *fieldOf);
 
+void walk_extern(struct Ast *tree, struct Scope *scope, size_t *tacIndex, size_t *tempNum);
+
 struct VariableEntry *walk_variable_declaration(struct Ast *tree,
                                                 struct Scope *scope,
                                                 const size_t *tacIndex,

@@ -31,10 +31,11 @@ typedef struct Ast * ast_p_t;
 
 translation_unit
    <- _ preprocessor_data
-    / _ f:function_declaration _ kw_semicolon { $$ = f; }
-    / _ f:function_definition                 { $$ = f; }
-    / _ sl: statement_list                    { $$ = sl; }
-    / _ eof                                   { $$ = NULL; }
+    / _ e:extern _ f:function_declaration _ kw_semicolon { $$ = AST_C(e, f); }
+    / _ f:function_declaration _ kw_semicolon            { $$ = f; }
+    / _ f:function_definition                            { $$ = f; }
+    / _ sl: statement_list                               { $$ = sl; }
+    / _ eof                                              { $$ = NULL; }
 
 variable_declaration
    <- t:type_name _ i:identifier { $$ = AST_C(AST_N(auxil, T_VARIABLE_DECLARATION, "", $0s), AST_S(t, i)); }

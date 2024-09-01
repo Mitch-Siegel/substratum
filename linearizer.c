@@ -41,8 +41,7 @@ struct SymbolTable *walk_program(struct Ast *program)
 
         case T_EXTERN:
         {
-            struct VariableEntry *declaredVariable = walk_variable_declaration(programRunner->child, programTable->globalScope, &globalTacIndex, &globalTempNum, false);
-            declaredVariable->isExtern = 1;
+            walk_extern(programRunner, programTable->globalScope, &globalTacIndex, &globalTempNum);
         }
         break;
 
@@ -141,6 +140,39 @@ void check_any_type_use(struct Type *type, struct Ast *typeTree)
             }
         }
     }
+}
+
+void walk_extern(struct Ast *tree, struct Scope *scope, size_t *tacIndex, size_t *tempNum)
+{
+    log_tree(LOG_DEBUG, tree, "walk_extern");
+    if (tree->type != T_EXTERN)
+    {
+        InternalError("Wrong AST (%s) passed to walk_extern!", token_get_name(tree->type));
+    }
+
+    switch(tree->child->type)
+    {
+        case T_VARIABLE_DECLARATION:
+        {
+            struct VariableEntry *declaredVariable = walk_variable_declaration(tree->child, scope, tacIndex, tempNum, false);
+            declaredVariable->isExtern = 1;
+        }
+        break;
+
+        case T_FUN:
+        {
+            struct FunctionEntry *externFun = walk_function_declaration(tree->child, scope, NULL, A_PUBLIC, false);
+            if(externFun->isDefined)
+            {
+                log_tree(LOG_FATAL, tree, "Function %s is declared as extern but has definition!");
+            }
+        }
+        break;
+
+        default:
+            log_tree(LOG_FATAL, tree, "Malformed AST (%s) seen in walk_extern", token_get_name(tree->child->type));
+    }
+
 }
 
 struct Type walk_non_pointer_type_name(struct Scope *scope,
@@ -253,10 +285,10 @@ void walk_type_name(struct Ast *tree, struct Scope *scope,
                     struct Type *populateTypeTo,
                     struct TypeEntry *fieldOf)
 {
-    log_tree(LOG_DEBUG, tree, "WalkTypeName");
+    log_tree(LOG_DEBUG, tree, "walk_type_name");
     if (tree->type != T_TYPE_NAME)
     {
-        InternalError("Wrong AST (%s) passed to WalkTypeName!", token_get_name(tree->type));
+        InternalError("Wrong AST (%s) passed to walk_type_name!", token_get_name(tree->type));
     }
 
     type_init(populateTypeTo);
