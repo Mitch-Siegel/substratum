@@ -971,41 +971,6 @@ struct StructDesc *walk_struct_declaration(struct Ast *tree,
     return declaredStruct;
 }
 
-void compare_generic_params(struct Ast *genericParamsTree, List *actualParams, List *expectedParams, char *genericType, char *genericName)
-{
-    Iterator *actualIter = list_begin(actualParams);
-    Iterator *expectedIter = list_begin(expectedParams);
-    bool mismatch = false;
-    while (iterator_gettable(actualIter) && iterator_gettable(expectedIter))
-    {
-        char *actualParam = iterator_get(actualIter);
-        char *expectedParam = iterator_get(expectedIter);
-        if (strcmp(actualParam, expectedParam) != 0)
-        {
-            mismatch = true;
-            break;
-        }
-
-        iterator_next(actualIter);
-        iterator_next(expectedIter);
-    }
-
-    if (iterator_gettable(actualIter) || iterator_gettable(expectedIter))
-    {
-        mismatch = true;
-    }
-
-    iterator_free(actualIter);
-    iterator_free(expectedIter);
-
-    if (mismatch)
-    {
-        char *actualStr = sprint_generic_param_names(actualParams);
-        char *expectedStr = sprint_generic_param_names(expectedParams);
-        log_tree(LOG_FATAL, genericParamsTree, "Mismatch between generic parameters for %s %s!\nExpected: %s<%s>\n  Actual: %s<%s>", genericType, genericName, genericName, expectedStr, genericName, actualStr);
-    }
-}
-
 void walk_generic(struct Ast *tree,
                   struct Scope *scope)
 {
@@ -1052,7 +1017,7 @@ void walk_generic(struct Ast *tree,
         }
 
         struct TypeEntry *implementedTypeEntry = scope_lookup_type(scope, &implementedType);
-        compare_generic_params(genericParamsTree, genericParams, implementedTypeEntry->generic.instance.parameters, "struct", implementedTypeEntry->baseName);
+        compare_generic_param_names(genericParamsTree, genericParams, implementedTypeEntry->generic.instance.parameters, "struct", implementedTypeEntry->baseName);
 
         struct Ast *implementationRunner = genericThing->child->sibling;
         while (implementationRunner != NULL)
