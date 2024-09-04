@@ -615,27 +615,36 @@ preprocessor_data
     / preprocessor_system_header_file_with_line
     / preprocessor_extern_c_block_with_line
     / preprocessor_set_line
+    / preprocessor_set_line_in_file
+    / preprocessor_set_line_in_file_with_flags
 
 preprocessor_zero_line
    <- '#' space* '0' (!eol .)* eol { manage_non_source_location(auxil, $0); }
 
 preprocessor_new_file
-   <- '#' space* '1' space* <(!space .)+> eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, 0, $1); }
+   <- '# 1' space* <(!space .)+> eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, 0, $1); }
 
 preprocessor_new_file_with_line
-   <- '#' space* '1' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($2), $1); }
+   <- '# 1' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($2), $1); }
 
 preprocessor_resume_file_with_line
-   <- '#' space* '2' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($2), $1); }
+   <- '# 2' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($2), $1); }
  
 preprocessor_system_header_file_with_line
-   <- '#' space* '3' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($2), $1); }
+   <- '# 3' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($2), $1); }
 
 preprocessor_extern_c_block_with_line
-   <- '#' space* '4' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($2), $1); }
+   <- '# 4' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($2), $1); }
 
 preprocessor_set_line
-   <- '#' space* <DIGIT+> space* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($1), auxil->curFile); }
+   <- '# ' <DIGIT+> space* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($1), auxil->curFile); }
+
+preprocessor_set_line_in_file
+   <- '# ' <DIGIT+> space* <(!space .)+> eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($1), $2); }
+
+# currently, do nothing with the other flags   vvvvvvvvvvvvvv matched generically in that capture group
+preprocessor_set_line_in_file_with_flags
+   <- '# ' <DIGIT+> space* <(!space .)+> space* <(!space .)+> eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($1), $2); }
 
 whitespace
    <- space* { manage_source_location(auxil, $0); }
