@@ -1,0 +1,28 @@
+#include "string.sbh"
+
+#include "alloc.sbh"
+
+impl String
+{
+    public fun len(self) -> u64
+    {
+        return self.len;
+    }
+
+    public fun from_ascii(u8 *ascii) -> Self
+    {
+        u64 len = 0;
+        while(ascii[len] != 0)
+        {
+            len += 1;
+        }
+        len += 1;
+
+        String created = String {bytes = Ptr::<u8>::from_address(Mem::alloc(len), len = len)};
+        return created;
+    }
+
+    public fun append(self, String other);
+
+    public fun raw(self) -> Ptr::<u8>;
+}

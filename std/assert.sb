@@ -1,0 +1,5 @@
+
+fun __assert_fail(u8 *file, u32 line, u8 *condition)
+{
+    // TODO: abort
+}

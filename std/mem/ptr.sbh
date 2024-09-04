@@ -1,3 +1,5 @@
+#ifndef _STDSB_PTR_SBH_
+#define _STDSB_PTR_SBH_
 
 struct<T> Ptr
 {
@@ -35,3 +37,5 @@ impl<T> Ptr{
         }
     }
 }
+
+#endif
