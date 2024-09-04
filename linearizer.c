@@ -1846,6 +1846,7 @@ void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct E
         log_tree(LOG_FATAL, matchTree, "There is no conceivable way you wrote U64_MAX match cases for this match against a u64. Something is broken.");
         break;
     case VT_ENUM:
+    case VT_SELF:
         stateSpaceSize = matchedEnum->members->size;
         break;
     case VT_ANY:
@@ -1858,7 +1859,6 @@ void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct E
         InternalError("VT_STRUCT seen as type of matched expression");
     case VT_GENERIC_PARAM:
         InternalError("VT_GENERIC_PARAM seen as type of matched expression");
-    case VT_SELF:
         InternalError("VT_SELF seen as type of matched expression");
     }
 
@@ -2124,13 +2124,23 @@ void walk_match_statement(struct Ast *tree,
 
     if (type_is_struct_object(matchedType))
     {
-        log_tree(LOG_FATAL, tree, "Match against struct type (%s) forbidden!", type_get_name(matchedType));
+        // not in an impl block
+        if ((scope->parentFunction->implementedFor == NULL) ||
+            // AND not matching a t_self when the type for which we are implementing is an enum
+            ((matchedType->basicType == VT_SELF) && (scope->parentFunction->implementedFor->permutation != TP_ENUM)))
+        {
+            log_tree(LOG_FATAL, tree, "Match against struct type (%s) forbidden!", type_get_name(matchedType));
+        }
     }
 
     struct EnumDesc *matchedEnum = NULL;
     if (matchedType->basicType == VT_ENUM)
     {
         matchedEnum = scope_lookup_enum_by_type(scope, matchedType);
+    }
+    else if (matchedType->basicType == VT_SELF)
+    {
+        matchedEnum = scope->parentFunction->implementedFor->data.asEnum;
     }
 
     if (matchedType->pointerLevel == 0)
@@ -2145,7 +2155,6 @@ void walk_match_statement(struct Ast *tree,
         case VT_ANY:
         case VT_NULL:
         case VT_GENERIC_PARAM:
-        case VT_SELF:
             InternalError("Illegal type %s seen from matched expresssion linearization", type_get_name(matchedType));
             break;
 
@@ -2154,6 +2163,7 @@ void walk_match_statement(struct Ast *tree,
         case VT_U32:
         case VT_U64:
         case VT_ENUM:
+        case VT_SELF:
             break;
         }
     }
@@ -2181,7 +2191,7 @@ void walk_match_statement(struct Ast *tree,
             (*tacIndex) += 1;
             size_t armTacIndex = *tacIndex;
             // if we are matching against an enum
-            if (matchedType->basicType == VT_ENUM)
+            if ((matchedType->basicType == VT_ENUM) || (matchedType->basicType == VT_SELF))
             {
                 walk_enum_match_arm(matchedValueRunner,
                                     block,
