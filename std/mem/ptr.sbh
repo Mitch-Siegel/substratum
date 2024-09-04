@@ -1,4 +1,8 @@
-#include "ptr.sbh"
+
+struct<T> Ptr
+{
+    T *data;
+}
 
 impl<T> Ptr{
     public fun from_address(T *addr) -> Self

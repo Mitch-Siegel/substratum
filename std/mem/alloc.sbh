@@ -1,0 +1,12 @@
+
+struct Mem
+{
+
+}
+
+impl Mem
+{
+    public fun alloc(u64 size) -> u8 *;
+
+    public fun dealloc(u8 *ptr);
+}
