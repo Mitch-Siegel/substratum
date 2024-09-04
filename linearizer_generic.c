@@ -2,8 +2,8 @@
 
 #include "enum_desc.h"
 #include "log.h"
-#include "symtab_variable.h"
 #include "symtab_basicblock.h"
+#include "symtab_variable.h"
 #include "tac.h"
 #include "type.h"
 #include "util.h"
@@ -58,7 +58,6 @@ struct TACOperand *get_sizeof_type(struct Ast *tree,
     basic_block_append(block, sizeofLine, tacIndex);
     return &operands->destination;
 }
-
 
 struct TACLine *set_up_scale_multiplication(struct Ast *tree,
                                             struct BasicBlock *block,

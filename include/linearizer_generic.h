@@ -16,11 +16,11 @@ enum BASIC_TYPES select_variable_type_for_number(size_t num);
 enum BASIC_TYPES select_variable_type_for_literal(char *literal);
 
 struct TACOperand *get_sizeof_type(struct Ast *tree,
-                                        struct BasicBlock *block,
-                                        struct Scope *scope,
-                                        size_t *tacIndex,
-                                        size_t *tempNum,
-                                        struct Type *getSizeof);
+                                   struct BasicBlock *block,
+                                   struct Scope *scope,
+                                   size_t *tacIndex,
+                                   size_t *tempNum,
+                                   struct Type *getSizeof);
 
 struct TACLine *set_up_scale_multiplication(struct Ast *tree,
                                             struct BasicBlock *block,

@@ -608,12 +608,19 @@ _
     / whitespace
 
 preprocessor_data
-   <- preprocessor_new_file_with_line
+   <- preprocessor_zero_line
+    / preprocessor_new_file
+    / preprocessor_new_file_with_line
     / preprocessor_resume_file_with_line
     / preprocessor_system_header_file_with_line
-    / '#' space* '1' space* <(!space .)+> (!eol .)* eol { manage_non_source_location(auxil, $0); }
-    / '#' space* '0' (!eol .)* eol { manage_non_source_location(auxil, $0); }
-    / '#' space* [124] (!eol .)* eol { manage_non_source_location(auxil, $0); }
+    / preprocessor_extern_c_block_with_line
+    / preprocessor_set_line
+
+preprocessor_zero_line
+   <- '#' space* '0' (!eol .)* eol { manage_non_source_location(auxil, $0); }
+
+preprocessor_new_file
+   <- '#' space* '1' space* <(!space .)+> eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, 0, $1); }
 
 preprocessor_new_file_with_line
    <- '#' space* '1' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($2), $1); }
@@ -623,6 +630,12 @@ preprocessor_resume_file_with_line
  
 preprocessor_system_header_file_with_line
    <- '#' space* '3' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($2), $1); }
+
+preprocessor_extern_c_block_with_line
+   <- '#' space* '4' space* <(!space .)+> space* <DIGIT+> (!eol .)* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($2), $1); }
+
+preprocessor_set_line
+   <- '#' space* <DIGIT+> space* eol { manage_non_source_location(auxil, $0); set_current_file(auxil, $0, atoi($1), auxil->curFile); }
 
 whitespace
    <- space* { manage_source_location(auxil, $0); }

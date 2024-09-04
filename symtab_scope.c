@@ -654,14 +654,22 @@ struct VariableEntry *scope_create_variable_by_name(struct Scope *scope,
                                                     bool isGlobal,
                                                     enum ACCESS accessibility)
 {
-    if (scope_contains(scope, name, E_VARIABLE) || scope_contains(scope, name, E_ARGUMENT))
+    struct Scope *actuallyInsertedIn = scope;
+    if (isGlobal)
     {
-        InternalError("Redifinition of symbol %s!", name);
+        while (actuallyInsertedIn->parentScope != NULL)
+        {
+            if (scope_contains(actuallyInsertedIn, name, E_VARIABLE) || scope_contains(actuallyInsertedIn, name, E_ARGUMENT))
+            {
+                InternalError("Redifinition of symbol %s!", name);
+            }
+            actuallyInsertedIn = actuallyInsertedIn->parentScope;
+        }
     }
 
     struct VariableEntry *newVariable = variable_entry_new(name, type, isGlobal, false, accessibility);
 
-    scope_insert(scope, name, newVariable, E_VARIABLE, accessibility);
+    scope_insert(actuallyInsertedIn, name, newVariable, E_VARIABLE, accessibility);
 
     return newVariable;
 }

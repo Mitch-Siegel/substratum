@@ -150,29 +150,28 @@ void walk_extern(struct Ast *tree, struct Scope *scope, size_t *tacIndex, size_t
         InternalError("Wrong AST (%s) passed to walk_extern!", token_get_name(tree->type));
     }
 
-    switch(tree->child->type)
+    switch (tree->child->type)
     {
-        case T_VARIABLE_DECLARATION:
-        {
-            struct VariableEntry *declaredVariable = walk_variable_declaration(tree->child, scope, tacIndex, tempNum, false);
-            declaredVariable->isExtern = 1;
-        }
-        break;
-
-        case T_FUN:
-        {
-            struct FunctionEntry *externFun = walk_function_declaration(tree->child, scope, NULL, A_PUBLIC, false);
-            if(externFun->isDefined)
-            {
-                log_tree(LOG_FATAL, tree, "Function %s is declared as extern but has definition!");
-            }
-        }
-        break;
-
-        default:
-            log_tree(LOG_FATAL, tree, "Malformed AST (%s) seen in walk_extern", token_get_name(tree->child->type));
+    case T_VARIABLE_DECLARATION:
+    {
+        struct VariableEntry *declaredVariable = walk_variable_declaration(tree->child, scope, tacIndex, tempNum, false);
+        declaredVariable->isExtern = 1;
     }
+    break;
 
+    case T_FUN:
+    {
+        struct FunctionEntry *externFun = walk_function_declaration(tree->child, scope, NULL, A_PUBLIC, false);
+        if (externFun->isDefined)
+        {
+            log_tree(LOG_FATAL, tree, "Function %s is declared as extern but has definition!");
+        }
+    }
+    break;
+
+    default:
+        log_tree(LOG_FATAL, tree, "Malformed AST (%s) seen in walk_extern", token_get_name(tree->child->type));
+    }
 }
 
 struct Type walk_non_pointer_type_name(struct Scope *scope,
@@ -1040,7 +1039,7 @@ void walk_generic(struct Ast *tree,
             log_tree(LOG_FATAL, implementedTypeTree, "Malformed AST seen in walk_generic!");
         }
 
-        if(implementedTypeTree->type == T_FOR)
+        if (implementedTypeTree->type == T_FOR)
         {
             walk_trait_impl(genericThing, scope);
         }
@@ -4199,7 +4198,7 @@ void walk_string_literal(struct Ast *tree,
 
     // it inserts underscores in place of spaces and other modifications to turn the literal into a name that the symtab can use
     // but first, it copies the string exactly as-is so it knows what the string object should be initialized to
-    char *stringName = tree->value;
+    char *stringName = strdup(tree->value);
     char *stringValue = strdup(stringName);
     size_t stringLength = strlen(stringName);
 
@@ -4235,13 +4234,17 @@ void walk_string_literal(struct Ast *tree,
     // if we already have a string literal for this thing, nothing else to do
     if (existingMember == NULL)
     {
+        char *origStringName = stringName;
+        stringName = dictionary_lookup_or_insert(parseDict, stringName);
+        free(origStringName);
+
         struct Ast fakeStringTree;
         fakeStringTree.value = stringName;
         fakeStringTree.sourceFile = tree->sourceFile;
         fakeStringTree.sourceLine = tree->sourceLine;
         fakeStringTree.sourceCol = tree->sourceCol;
 
-        struct Type stringType;
+        struct Type stringType = {0};
         type_set_basic_type(&stringType, VT_ARRAY, NULL, 0);
         struct Type charType;
         type_init(&charType);
@@ -4250,18 +4253,24 @@ void walk_string_literal(struct Ast *tree,
         stringType.array.size = stringLength;
 
         stringLiteralEntry = scope_create_variable(scope, &fakeStringTree, &stringType, true, A_PUBLIC);
-        stringLiteralEntry->isStringLiteral = 1;
+        stringLiteralEntry->isStringLiteral = true;
 
         struct Type *realStringType = &stringLiteralEntry->type;
+        if (realStringType->array.initializeArrayTo != NULL)
+        {
+            InternalError("String literal already initialized!");
+        }
         realStringType->array.initializeArrayTo = malloc(stringLength * sizeof(char *));
+        char **strArray = (char **)realStringType->array.initializeArrayTo;
         for (size_t charIndex = 0; charIndex < stringLength; charIndex++)
         {
-            realStringType->array.initializeArrayTo[charIndex] = malloc(sizeof(char));
-            *(char *)realStringType->array.initializeArrayTo[charIndex] = stringValue[charIndex];
+            strArray[charIndex] = malloc(sizeof(char));
+            *strArray[charIndex] = stringValue[charIndex];
         }
     }
     else
     {
+        free(stringName);
         stringLiteralEntry = existingMember->entry;
     }
 

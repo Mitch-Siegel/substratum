@@ -85,8 +85,7 @@ void parser_error(struct ParseProgress *auxil)
 
 void set_current_file(struct ParseProgress *auxil, char *preprocessorLine, u32 lineNum, char *fileName)
 {
-
-    log(LOG_DEBUG, "set current file to %s:%zu", auxil->curFile, auxil->curLine);
+    log(LOG_DEBUG, "set current file to %s:%u", fileName, lineNum);
 
     if ((auxil->charsRemainingPerLine->size > 0) && (CHARS_THIS_LINE(auxil) > 1))
     {
