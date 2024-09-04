@@ -11,7 +11,15 @@ impl<T> Option {
         Self created = Self::Some{from};
         return created;
     }
+
+    public fun None() -> Self
+    {
+        Self created = Self::None{};
+        return created;
+    }
 }
+
+
 
 fun printOptionOfNumber(Option::<u8> opt)
 {
@@ -23,13 +31,19 @@ fun printOptionOfNumber(Option::<u8> opt)
         }
         None:
         {
-            printStr("None");
+            printStr("None\n");
         }
     }
 }
 
 fun main() {
     Option::<u8> toPrint = Option::<u8>::From(123);
+    printOptionOfNumber(toPrint);
+
+    toPrint = Option::<u8>::None();
+    printOptionOfNumber(toPrint);
+
+    toPrint = Option::<u8>::From(210);
     printOptionOfNumber(toPrint);
     exit();
 }
