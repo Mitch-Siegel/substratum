@@ -21,6 +21,7 @@ struct FunctionEntry
     struct TypeEntry *implementedFor; // if this function is part of an implementation for a type, points to which type
     List *BasicBlockList;
     struct Ast correspondingTree;
+    size_t tempNum;
     u8 isDefined;
     u8 isAsmFun;
     u8 callsOtherFunction; // is it possible this function calls another function? (need to store return address on stack)

@@ -5,6 +5,8 @@
 #include <string.h>
 
 #include "enum_desc.h"
+#include "log.h"
+#include "symtab_function.h"
 #include "symtab_variable.h"
 #include "util.h"
 
@@ -175,10 +177,14 @@ void tac_operand_populate_from_variable(struct TACOperand *operandToPopulate, st
     operandToPopulate->permutation = VP_STANDARD;
 }
 
-void tac_operand_populate_as_temp(struct Scope *scope, struct TACOperand *operandToPopulate, size_t *tempNum, struct Type *type)
+void tac_operand_populate_as_temp(struct Scope *scope, struct TACOperand *operandToPopulate, struct Type *type)
 {
     struct Type tempType = type_duplicate_non_pointer(type);
-    char *tempName = temp_list_get(temps, (*tempNum)++);
+    if (scope->parentFunction == NULL)
+    {
+        InternalError("Attempt to create a temporary variable outside of a function scope\n");
+    }
+    char *tempName = temp_list_get(temps, (scope->parentFunction->tempNum)++);
     struct VariableEntry *tempVariable = scope_create_variable_by_name(scope, dictionary_lookup_or_insert(parseDict, tempName), &tempType, false, A_PUBLIC);
     operandToPopulate->permutation = VP_TEMP;
     operandToPopulate->name.variable = tempVariable;

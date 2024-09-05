@@ -1,10 +1,10 @@
 #include "drop.h"
 
+#include "linearizer_generic.h"
 #include "log.h"
 #include "regalloc_generic.h"
 #include "substratum_defs.h"
 #include "symtab.h"
-#include "linearizer_generic.h"
 
 void add_drops_to_basic_block(struct BasicBlock *block, struct RegallocMetadata *regalloc)
 {
@@ -72,22 +72,38 @@ void add_drops_to_scope(struct Scope *scope, struct RegallocMetadata *regalloc)
     }
     iterator_free(memberIter);
 
-    Set *visitedBlocks = set_new(NULL, basic_block_compare);
-    while (latestBlockInScope->successors->size > 0)
+    if (latestBlockInScope != NULL)
     {
-        Iterator *succIter = NULL;
-        for (succIter = set_begin(latestBlockInScope->successors); iterator_gettable(succIter); iterator_next(succIter))
+        Set *visitedBlocks = set_new(NULL, basic_block_compare);
+        while (latestBlockInScope->successors->size > 0)
         {
-            struct BasicBlock *succ = iterator_get(succIter);
-            if (set_find(visitedBlocks, succ))
+            Iterator *succIter = NULL;
+            for (succIter = set_begin(latestBlockInScope->successors); iterator_gettable(succIter); iterator_next(succIter))
             {
-                continue;
+                struct BasicBlock *succ = iterator_get(succIter);
+                if (set_find(visitedBlocks, succ))
+                {
+                    continue;
+                }
+                latestBlockInScope = succ;
             }
-            latestBlockInScope = succ;
+            iterator_free(succIter);
         }
-        iterator_free(succIter);
+
+        set_free(visitedBlocks);
     }
-    set_free(visitedBlocks);
+    else
+    {
+        if (drops->size > 0)
+        {
+            InternalError("Drops in scope %s but no basic block", scope->name);
+        }
+        else
+        {
+            deque_free(drops);
+            return;
+        }
+    }
 
     printf("%zu is latest in scope %s\n", latestBlockInScope->labelNum, scope->name);
 
@@ -111,18 +127,19 @@ void add_drops_to_scope(struct Scope *scope, struct RegallocMetadata *regalloc)
     while (drops->size > 0)
     {
         struct VariableEntry *drop = deque_pop_front(drops);
-        struct Ast dummyDropTree = {0};
-        dummyDropTree.sourceFile = "intrinsic";
-        struct TACLine *dropLine = new_tac_line(TT_METHOD_CALL, &dummyDropTree);
-        dropLine->operands.methodCall.methodName = "drop";
-        dropLine->operands.methodCall.arguments = deque_new(NULL);
-        struct TACOperand *dropArg = malloc(sizeof(struct TACOperand));
+        (void)drop;
+        // struct Ast dummyDropTree = {0};
+        // dummyDropTree.sourceFile = "intrinsic";
+        // struct TACLine *dropLine = new_tac_line(TT_METHOD_CALL, &dummyDropTree);
+        // dropLine->operands.methodCall.methodName = "drop";
+        // dropLine->operands.methodCall.arguments = deque_new(NULL);
+        // struct TACOperand *dropArg = malloc(sizeof(struct TACOperand));
 
-        tac_operand_populate_from_variable(dropArg, drop);
-        deque_push_back(dropLine->operands.methodCall.arguments, dropArg);
+        // tac_operand_populate_from_variable(dropArg, drop);
+        // deque_push_back(dropLine->operands.methodCall.arguments, dropArg);
 
-        tac_operand_populate_from_variable(&dropLine->operands.methodCall.calledOn, drop);
-        basic_block_append(latestBlockInScope, dropLine, &maxIndex);
+        // tac_operand_populate_from_variable(&dropLine->operands.methodCall.calledOn, drop);
+        // basic_block_append(latestBlockInScope, dropLine, &maxIndex);
     }
 
     if (blockExitJump != NULL)
