@@ -880,7 +880,7 @@ void walk_trait_impl(struct Ast *tree, struct Scope *scope)
         switch (traitBodyRunner->type)
         {
         case T_FUN:
-            set_insert(implementedPrivate, walk_implemented_function(traitBodyRunner, implementedFor, A_PUBLIC));
+            set_insert(implementedPrivate, walk_implemented_function(traitBodyRunner, implementedFor, A_PRIVATE));
             break;
 
         case T_PUBLIC:
@@ -895,6 +895,7 @@ void walk_trait_impl(struct Ast *tree, struct Scope *scope)
 
     // important to do this before resolution of capital 'Self' this relies on function_entry_compare and any VT_SELF still being pre-resolution
     type_entry_verify_trait(tree, implementedFor, implementedTrait, implementedPrivate, implementedPublic);
+    type_entry_add_trait(implementedFor, implementedTrait);
 
     if (implementedFor->genericType != G_BASE)
     {

@@ -59,6 +59,8 @@ void type_entry_check_implemented_access(struct TypeEntry *theType,
 
 void type_entry_add_implemented(struct TypeEntry *entry, struct FunctionEntry *implemented, enum ACCESS accessibility);
 
+void type_entry_add_trait(struct TypeEntry *entry, struct TraitEntry *trait);
+
 struct TraitEntry *type_entry_lookup_trait(struct TypeEntry *typeEntry, char *name);
 
 struct FunctionEntry *type_entry_lookup_implemented(struct TypeEntry *typeEntry, struct Scope *scope, struct Ast *nameTree);

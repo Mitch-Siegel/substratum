@@ -1,0 +1,29 @@
+#include "tests-common.sb"
+
+struct Droppable
+{
+    u64 number;
+}
+
+impl Droppable
+{
+    public fun from_number(u64 number) -> Droppable
+    {
+        return Droppable {number = number};
+    }
+}
+
+impl Drop for Droppable
+{
+    fun drop(self)
+    {
+        printStr("Dropping droppable with number " as u8 *);
+        printNum(self.number, 1);
+    }
+}
+
+fun main()
+{
+    Droppable d = Droppable::from_number(1);
+    Droppable d2 = Droppable::from_number(2);
+}

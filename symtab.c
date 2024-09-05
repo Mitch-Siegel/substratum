@@ -12,6 +12,32 @@ extern struct Dictionary *parseDict;
 
 void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth, FILE *outFile);
 
+void intrinsic_trait_create_drop(struct Scope *scope)
+{
+    struct TraitEntry *dropTrait = scope_create_trait(scope, "Drop");
+    struct Ast dropFunctionDummyTree = {0};
+
+    dropFunctionDummyTree.type = T_IDENTIFIER;
+    dropFunctionDummyTree.value = "drop";
+    dropFunctionDummyTree.sourceFile = "intrinsic";
+
+    struct FunctionEntry *dropFunction = function_entry_new(NULL, &dropFunctionDummyTree, NULL);
+
+    struct Type selfArgType = {0};
+    type_set_basic_type(&selfArgType, VT_SELF, NULL, 1);
+
+    struct VariableEntry *selfArgEntry = variable_entry_new("self", &selfArgType, false, true, A_PUBLIC);
+    scope_insert(dropFunction->mainScope, "self", selfArgEntry, E_ARGUMENT, A_PUBLIC);
+    deque_push_back(dropFunction->arguments, selfArgEntry);
+
+    trait_add_private_function(dropTrait, dropFunction);
+}
+
+void symbol_table_set_up_intrinsic_traits(struct SymbolTable *table)
+{
+    intrinsic_trait_create_drop(table->globalScope);
+}
+
 struct SymbolTable *symbol_table_new(char *name)
 {
     struct SymbolTable *wip = malloc(sizeof(struct SymbolTable));
@@ -21,6 +47,8 @@ struct SymbolTable *symbol_table_new(char *name)
 
     // manually insert a basic block for global code so we can give it the custom name of "globalblock"
     scope_insert(wip->globalScope, "globalblock", globalBlock, E_BASICBLOCK, A_PUBLIC);
+
+    symbol_table_set_up_intrinsic_traits(wip);
 
     return wip;
 }

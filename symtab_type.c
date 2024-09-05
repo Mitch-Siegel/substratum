@@ -218,7 +218,6 @@ void type_entry_add_implemented(struct TypeEntry *entry, struct FunctionEntry *i
 
 void type_entry_add_trait(struct TypeEntry *entry, struct TraitEntry *trait)
 {
-    // TODO: sanity check that all trait functions are implemented?
     set_insert(entry->traits, trait);
 }
 
@@ -473,19 +472,21 @@ bool type_entry_verify_trait_impl(struct Ast *implTree,
     if (accessibility != expectedAccessibility)
     {
         incorrect = true;
+        char *signature = sprint_function_signature(actual);
         switch (expectedAccessibility)
         {
         case A_PRIVATE:
         {
-            log_tree(LOG_WARNING, implTree, "Function %s of trait %s is public in implementation for type %s", expected->name, implementedTrait->name, implementedFor->baseName);
+            log_tree(LOG_WARNING, implTree, "Function %s of trait %s is public in implementation for type %s", signature, implementedTrait->name, implementedFor->baseName);
         }
         break;
         case A_PUBLIC:
         {
-            log_tree(LOG_WARNING, implTree, "Public function %s of trait %s is not public in implementation for type %s", expected->name, implementedTrait->name, implementedFor->baseName);
+            log_tree(LOG_WARNING, implTree, "Public function %s of trait %s is not public in implementation for type %s", signature, implementedTrait->name, implementedFor->baseName);
         }
         break;
         }
+        free(signature);
     }
     else if (function_entry_compare(expected, actual) != 0)
     {
