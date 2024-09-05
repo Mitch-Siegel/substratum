@@ -1117,11 +1117,11 @@ void walk_trait_declaration(struct Ast *tree, struct Scope *scope)
 
         if (isPublic)
         {
-            set_insert(declaredTrait->public, implemented);
+            trait_add_public_function(declaredTrait, implemented);
         }
         else
         {
-            set_insert(declaredTrait->private, implemented);
+            trait_add_private_function(declaredTrait, implemented);
         }
 
         traitBodyRunner = traitBodyRunner->sibling;

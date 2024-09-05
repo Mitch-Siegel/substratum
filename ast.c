@@ -182,6 +182,11 @@ void ast_print(struct Ast *tree, size_t depth)
 
 void ast_traverse_for_dump(FILE *outFile, struct Ast *parent, struct Ast *tree, size_t depth, Stack *ranks)
 {
+    if (tree == NULL)
+    {
+        return;
+    }
+    
     if (ranks->size <= depth)
     {
         stack_push(ranks, stack_new(NULL));
