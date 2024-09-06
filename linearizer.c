@@ -89,32 +89,6 @@ struct SymbolTable *walk_program(struct Ast *program)
     return programTable;
 }
 
-struct TACOperand *get_addr_of_operand(struct Ast *tree,
-                                       struct BasicBlock *block,
-                                       struct Scope *scope,
-                                       size_t *tacIndex,
-                                       struct TACOperand *getAddrOf)
-{
-    struct TACLine *addrOfLine = new_tac_line(TT_ADDROF, tree);
-
-    getAddrOf->name.variable->mustSpill = true;
-    addrOfLine->operands.addrof.source = *getAddrOf;
-    struct TacAddrOf *operands = &addrOfLine->operands.addrof;
-    operands->source = *getAddrOf;
-
-    struct Type typeOfAddress = type_duplicate_non_pointer(tac_operand_get_type(getAddrOf));
-    typeOfAddress.pointerLevel++;
-
-    tac_operand_populate_as_temp(scope, &operands->destination, &typeOfAddress);
-
-    *tac_operand_get_type(&operands->destination) = *tac_operand_get_type(&operands->source);
-
-    tac_operand_get_type(&operands->destination)->pointerLevel++;
-    basic_block_append(block, addrOfLine, tacIndex);
-
-    return &operands->destination;
-}
-
 void check_any_type_use(struct Type *type, struct Ast *typeTree)
 {
     // if declaring something with the 'any' type, make sure it's only as a pointer (as its intended use is to point to unstructured data)

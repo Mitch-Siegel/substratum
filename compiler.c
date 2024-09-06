@@ -291,7 +291,7 @@ int main(int argc, char **argv)
 
     allocate_registers_for_program(theTable, info);
 
-    symbol_table_print(theTable, stderr, true);
+    // symbol_table_print(theTable, stderr, true);
 
     generate_code_for_program(theTable, outFile, info, riscv_emit_prologue, riscv_emit_epilogue, riscv_generate_code_for_basic_block);
 

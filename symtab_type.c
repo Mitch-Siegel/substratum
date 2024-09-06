@@ -365,6 +365,15 @@ struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *ty
     return associatedFunction;
 }
 
+void type_entry_resolve_capital_self(struct TypeEntry *typeEntry)
+{
+    char *typeName = type_entry_name(typeEntry);
+    log(LOG_DEBUG, "Resolving capital self for type %s", typeName);
+    free(typeName);
+
+    scope_resolve_capital_self(typeEntry->implemented, typeEntry);
+}
+
 void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, List *paramTypes)
 {
     if (instance->genericType != G_INSTANCE)
@@ -520,6 +529,11 @@ void type_entry_verify_trait(struct Ast *implTree,
         }
         else
         {
+            if (set_find(implementedPrivate, actualEntry->entry) == NULL)
+            {
+                char *signature = sprint_function_signature(expected);
+                log_tree(LOG_WARNING, implTree, "Private function %s of trait %s is not private in implementation for type %s", signature, implementedTrait->name, implementedFor->baseName);
+            }
             set_remove(implementedPrivate, actualEntry->entry);
             incorrect |= type_entry_verify_trait_impl(implTree, expected, actualEntry->entry, implementedTrait, implementedFor, actualEntry->accessibility, A_PRIVATE);
         }
@@ -536,6 +550,11 @@ void type_entry_verify_trait(struct Ast *implTree,
         }
         else
         {
+            if (set_find(implementedPublic, actualEntry->entry) == NULL)
+            {
+                char *signature = sprint_function_signature(expected);
+                log_tree(LOG_WARNING, implTree, "Public function %s of trait %s is not public in implementation for type %s", signature, implementedTrait->name, implementedFor->baseName);
+            }
             set_remove(implementedPublic, actualEntry->entry);
             incorrect |= type_entry_verify_trait_impl(implTree, expected, actualEntry->entry, implementedTrait, implementedFor, actualEntry->accessibility, A_PUBLIC);
         }

@@ -21,6 +21,12 @@ struct TACOperand *get_sizeof_type(struct Ast *tree,
                                    size_t *tacIndex,
                                    struct Type *getSizeof);
 
+struct TACOperand *get_addr_of_operand(struct Ast *tree,
+                                       struct BasicBlock *block,
+                                       struct Scope *scope,
+                                       size_t *tacIndex,
+                                       struct TACOperand *getAddrOf);
+
 struct TACLine *set_up_scale_multiplication(struct Ast *tree,
                                             struct BasicBlock *block,
                                             struct Scope *scope,

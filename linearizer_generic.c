@@ -58,6 +58,32 @@ struct TACOperand *get_sizeof_type(struct Ast *tree,
     return &operands->destination;
 }
 
+struct TACOperand *get_addr_of_operand(struct Ast *tree,
+                                       struct BasicBlock *block,
+                                       struct Scope *scope,
+                                       size_t *tacIndex,
+                                       struct TACOperand *getAddrOf)
+{
+    struct TACLine *addrOfLine = new_tac_line(TT_ADDROF, tree);
+
+    getAddrOf->name.variable->mustSpill = true;
+    addrOfLine->operands.addrof.source = *getAddrOf;
+    struct TacAddrOf *operands = &addrOfLine->operands.addrof;
+    operands->source = *getAddrOf;
+
+    struct Type typeOfAddress = type_duplicate_non_pointer(tac_operand_get_type(getAddrOf));
+    typeOfAddress.pointerLevel++;
+
+    tac_operand_populate_as_temp(scope, &operands->destination, &typeOfAddress);
+
+    *tac_operand_get_type(&operands->destination) = *tac_operand_get_type(&operands->source);
+
+    tac_operand_get_type(&operands->destination)->pointerLevel++;
+    basic_block_append(block, addrOfLine, tacIndex);
+
+    return &operands->destination;
+}
+
 struct TACLine *set_up_scale_multiplication(struct Ast *tree,
                                             struct BasicBlock *block,
                                             struct Scope *scope,

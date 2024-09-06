@@ -6,6 +6,7 @@
 #include "symtab_scope.h"
 #include <mbcl/stack.h>
 
+#include "drop.h"
 #include "log.h"
 
 extern struct Dictionary *parseDict;
@@ -14,23 +15,9 @@ void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth
 
 void intrinsic_trait_create_drop(struct Scope *scope)
 {
-    struct TraitEntry *dropTrait = scope_create_trait(scope, "Drop");
-    struct Ast dropFunctionDummyTree = {0};
+    struct TraitEntry *dropTrait = scope_create_trait(scope, DROP_TRAIT_NAME);
 
-    dropFunctionDummyTree.type = T_IDENTIFIER;
-    dropFunctionDummyTree.value = "drop";
-    dropFunctionDummyTree.sourceFile = "intrinsic";
-
-    struct FunctionEntry *dropFunction = function_entry_new(NULL, &dropFunctionDummyTree, NULL);
-
-    struct Type selfArgType = {0};
-    type_set_basic_type(&selfArgType, VT_SELF, NULL, 1);
-
-    struct VariableEntry *selfArgEntry = variable_entry_new("self", &selfArgType, false, true, A_PUBLIC);
-    scope_insert(dropFunction->mainScope, "self", selfArgEntry, E_ARGUMENT, A_PUBLIC);
-    deque_push_back(dropFunction->arguments, selfArgEntry);
-
-    trait_add_private_function(dropTrait, dropFunction);
+    trait_add_private_function(dropTrait, drop_create_function_prototype(scope));
 }
 
 void symbol_table_set_up_intrinsic_traits(struct SymbolTable *table)

@@ -73,6 +73,8 @@ struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *ty
                                                             struct Ast *nameTree,
                                                             struct Scope *scope);
 
+void type_entry_resolve_capital_self(struct TypeEntry *typeEntry);
+
 void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, List *paramTypes);
 
 struct TypeEntry *type_entry_get_or_create_generic_instantiation(struct TypeEntry *baseType, List *paramsList);
@@ -86,8 +88,6 @@ void type_entry_verify_trait(struct Ast *implTree,
 char *sprint_generic_param_names(List *paramNames);
 
 char *sprint_generic_params(List *params);
-
-void type_entry_resolve_capital_self(struct TypeEntry *typeEntry);
 
 void type_entry_print(struct TypeEntry *theType, bool printTac, size_t depth, FILE *outFile);
 

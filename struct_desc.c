@@ -62,69 +62,6 @@ void struct_add_field(struct StructDesc *memberOf,
     deque_push_back(memberOf->fieldLocations, newMemberLocation);
 }
 
-void scope_resolve_capital_self(struct Scope *scope, struct TypeEntry *theType)
-{
-    log(LOG_DEBUG, "Resolving capital self for scope %s", scope->name);
-    Iterator *entryIter = NULL;
-    for (entryIter = set_begin(scope->entries); iterator_gettable(entryIter); iterator_next(entryIter))
-    {
-        struct ScopeMember *member = iterator_get(entryIter);
-
-        switch (member->type)
-        {
-        case E_VARIABLE:
-        case E_ARGUMENT:
-        {
-            struct VariableEntry *variable = member->entry;
-            type_try_resolve_vt_self(&variable->type, theType);
-        }
-        break;
-
-        case E_FUNCTION:
-        {
-            log(LOG_DEBUG, "Resolving capital self for function %s", member->name);
-            struct FunctionEntry *function = member->entry;
-            type_try_resolve_vt_self(&function->returnType, theType);
-            scope_resolve_capital_self(function->mainScope, theType);
-        }
-        break;
-
-        case E_TYPE:
-        {
-            struct TypeEntry *theType = member->entry;
-            type_entry_resolve_capital_self(theType);
-        }
-        break;
-
-        case E_SCOPE:
-        {
-            struct Scope *subScope = member->entry;
-            scope_resolve_capital_self(subScope, theType);
-        }
-        break;
-
-        case E_BASICBLOCK:
-        {
-            basic_block_resolve_capital_self(member->entry, theType);
-        }
-        break;
-
-        case E_TRAIT:
-            break;
-        }
-    }
-    iterator_free(entryIter);
-}
-
-void type_entry_resolve_capital_self(struct TypeEntry *typeEntry)
-{
-    char *typeName = type_entry_name(typeEntry);
-    log(LOG_DEBUG, "Resolving capital self for type %s", typeName);
-    free(typeName);
-
-    scope_resolve_capital_self(typeEntry->implemented, typeEntry);
-}
-
 void struct_assign_offsets_to_fields(struct StructDesc *theStruct)
 {
     Iterator *fieldIter = NULL;
