@@ -173,16 +173,37 @@ void add_drops_to_function(struct FunctionEntry *function)
     add_drops_to_scope(function->mainScope, &function->regalloc);
 }
 
+struct TACLine *generate_subdrop_tac(struct TACOperand *dropArg, struct Type *droppedType)
+{
+    struct Ast dummyDropTree = {0};
+    dummyDropTree.sourceFile = "intrinsic";
+
+    struct TACLine *subDropLine = new_tac_line(TT_METHOD_CALL, &dummyDropTree);
+    subDropLine->operands.methodCall.methodName = DROP_TRAIT_FUNCTION_NAME;
+    subDropLine->operands.methodCall.arguments = deque_new(NULL);
+
+    struct TACOperand *dropArgCopy = malloc(sizeof(struct TACOperand));
+    *dropArgCopy = *dropArg;
+
+    // cheesy sort of hack to get later calls to tac_operand_get_type() on this operand to return the correct type
+    subDropLine->operands.methodCall.calledOn.permutation = VP_LITERAL_VAL;
+    subDropLine->operands.methodCall.calledOn.castAsType = *droppedType;
+
+    deque_push_back(subDropLine->operands.methodCall.arguments, dropArgCopy);
+
+    return subDropLine;
+}
+
 void implement_default_drop_for_struct(struct StructDesc *theStruct, struct FunctionEntry *dropFunction)
 {
-    struct BasicBlock *dropBlock = basic_block_new(0);
+    struct BasicBlock *dropBlock = basic_block_new(FUNCTION_EXIT_BLOCK_LABEL + 1);
     scope_add_basic_block(dropFunction->mainScope, dropBlock);
     size_t dropTacIndex = 0;
 
+    // iterate over all fields in the struct, and if a field is a struct/enum type, drop it
     for (size_t fieldIdx = 0; fieldIdx < theStruct->fieldLocations->size; fieldIdx++)
     {
         struct StructField *field = deque_at(theStruct->fieldLocations, fieldIdx);
-        // if a given field is a struct/enum type, work must be done to drop it as well
         if (type_is_struct_object(&field->variable->type) || type_is_enum_object(&field->variable->type))
         {
             struct Ast dummyDropTree = {0};
@@ -190,11 +211,9 @@ void implement_default_drop_for_struct(struct StructDesc *theStruct, struct Func
 
             dropFunction->callsOtherFunction = true;
 
-            struct TACLine *subDropLine = new_tac_line(TT_METHOD_CALL, &dummyDropTree);
-            subDropLine->operands.methodCall.methodName = DROP_TRAIT_FUNCTION_NAME;
-            subDropLine->operands.methodCall.arguments = deque_new(NULL);
-            struct TACOperand *dropArg = malloc(sizeof(struct TACOperand));
+            // create a drop call for the field
 
+            // lea the field, pass as argument to subdrop
             struct TACLine *fieldLeaLine = new_tac_line(TT_FIELD_LEA, &dummyDropTree);
             struct Type pointerType = type_duplicate_non_pointer(&field->variable->type);
             pointerType.pointerLevel++;
@@ -203,20 +222,110 @@ void implement_default_drop_for_struct(struct StructDesc *theStruct, struct Func
             fieldLeaLine->operands.fieldLoad.fieldName = field->variable->name;
             basic_block_append(dropBlock, fieldLeaLine, &dropTacIndex);
 
-            *dropArg = fieldLeaLine->operands.fieldLoad.destination;
-            deque_push_back(subDropLine->operands.methodCall.arguments, dropArg);
-
-            tac_operand_populate_from_variable(&subDropLine->operands.methodCall.calledOn, field->variable);
-            basic_block_append(dropBlock, subDropLine, &dropTacIndex);
+            basic_block_append(dropBlock, generate_subdrop_tac(&fieldLeaLine->operands.fieldLoad.destination, &field->variable->type), &dropTacIndex);
         }
     }
 
-    print_basic_block(dropBlock, 0);
     dropFunction->isDefined = true;
+}
+
+void enum_default_drop_add_match_and_drop_for_member(struct FunctionEntry *dropFunction,
+                                                     struct TACOperand *matchedAgainstNumerical,
+                                                     struct EnumMember *member,
+                                                     struct BasicBlock *dropMatchBlock,
+                                                     size_t *dropTacIndex,
+                                                     struct BasicBlock *afterMatchBlock,
+                                                     ssize_t *labelNum)
+{
+    struct Ast dummyDropTree = {0};
+    dummyDropTree.sourceFile = "intrinsic";
+
+    struct BasicBlock *dropCaseBlock = basic_block_new((*labelNum)++);
+    scope_add_basic_block(dropFunction->mainScope, dropCaseBlock);
+
+    // set up the beq to match this member
+    struct TACLine *matchJump = new_tac_line(TT_BEQ, &dummyDropTree);
+
+    matchJump->operands.conditionalBranch.sourceA.name.val = member->numerical;
+    matchJump->operands.conditionalBranch.sourceA.castAsType = *tac_operand_get_type(matchedAgainstNumerical);
+    matchJump->operands.conditionalBranch.sourceA.permutation = VP_LITERAL_VAL;
+
+    matchJump->operands.conditionalBranch.sourceB = *matchedAgainstNumerical;
+    matchJump->operands.conditionalBranch.sourceB.castAsType.basicType = VT_U64; // TODO: size_t definition?
+
+    matchJump->operands.conditionalBranch.label = dropCaseBlock->labelNum;
+    basic_block_append(dropMatchBlock, matchJump, dropTacIndex);
+
+    size_t branchTacIndex = *dropTacIndex;
+
+    struct TACLine *compAddrOfEnumData = new_tac_line(TT_ADD, &dummyDropTree);
+    tac_operand_populate_from_variable(&compAddrOfEnumData->operands.arithmetic.sourceA, scope_lookup_var_by_string(dropFunction->mainScope, "self"));
+    compAddrOfEnumData->operands.arithmetic.sourceB.name.val = sizeof(size_t);
+    compAddrOfEnumData->operands.arithmetic.sourceB.permutation = VP_LITERAL_VAL;
+    compAddrOfEnumData->operands.arithmetic.sourceB.castAsType.basicType = select_variable_type_for_number(sizeof(size_t));
+
+    struct Type memberPointerType = type_duplicate_non_pointer(&member->type);
+    memberPointerType.pointerLevel++;
+
+    tac_operand_populate_as_temp(dropFunction->mainScope, &compAddrOfEnumData->operands.arithmetic.destination, &memberPointerType);
+    struct TACOperand *enumDataPtr = &compAddrOfEnumData->operands.arithmetic.destination;
+    basic_block_append(dropCaseBlock, compAddrOfEnumData, &branchTacIndex);
+
+    basic_block_append(dropCaseBlock, generate_subdrop_tac(enumDataPtr, &member->type), &branchTacIndex);
+
+    struct TACLine *jumpToAfterMatch = new_tac_line(TT_JMP, &dummyDropTree);
+    jumpToAfterMatch->operands.jump.label = afterMatchBlock->labelNum;
+    basic_block_append(dropCaseBlock, jumpToAfterMatch, &branchTacIndex);
 }
 
 void implement_default_drop_for_enum(struct EnumDesc *theEnum, struct FunctionEntry *dropFunction)
 {
+    struct Ast dummyDropTree = {0};
+    dummyDropTree.sourceFile = "intrinsic";
+
+    struct BasicBlock *dropAfterMatchBlock = basic_block_new(FUNCTION_EXIT_BLOCK_LABEL);
+
+    ssize_t labelNum = FUNCTION_EXIT_BLOCK_LABEL + 1;
+    struct BasicBlock *dropMatchBlock = basic_block_new(labelNum++);
+
+    scope_add_basic_block(dropFunction->mainScope, dropMatchBlock);
+    size_t dropTacIndex = 0;
+
+    struct TACLine *loadMatchedAgainst = new_tac_line(TT_LOAD, &dummyDropTree);
+
+    tac_operand_populate_from_variable(&loadMatchedAgainst->operands.load.address, scope_lookup_var_by_string(dropFunction->mainScope, "self"));
+
+    struct Type numericalType = {0};
+    type_set_basic_type(&numericalType, VT_U64, NULL, 0);
+    tac_operand_populate_as_temp(dropFunction->mainScope, &loadMatchedAgainst->operands.load.destination, &numericalType);
+    struct TACOperand *matchedAgainstNumerical = &loadMatchedAgainst->operands.load.destination;
+    basic_block_append(dropMatchBlock, loadMatchedAgainst, &dropTacIndex);
+
+    Iterator *memberIter = NULL;
+    for (memberIter = set_begin(theEnum->members); iterator_gettable(memberIter); iterator_next(memberIter))
+    {
+        struct EnumMember *checkedMember = iterator_get(memberIter);
+        if (type_is_struct_object(&checkedMember->type) || type_is_enum_object(&checkedMember->type))
+        {
+            enum_default_drop_add_match_and_drop_for_member(dropFunction,
+                                                            matchedAgainstNumerical,
+                                                            checkedMember,
+                                                            dropMatchBlock,
+                                                            &dropTacIndex,
+                                                            dropAfterMatchBlock,
+                                                            &labelNum);
+        }
+    }
+
+    struct TACLine *nonMatchJump = new_tac_line(TT_JMP, &dummyDropTree);
+    nonMatchJump->operands.jump.label = dropAfterMatchBlock->labelNum;
+    basic_block_append(dropMatchBlock, nonMatchJump, &dropTacIndex);
+
+    iterator_free(memberIter);
+
+    scope_add_basic_block(dropFunction->mainScope, dropAfterMatchBlock);
+
+    dropFunction->isDefined = true;
 }
 
 void implement_default_drop_for_type(struct TypeEntry *type, struct Scope *scope)
@@ -257,10 +366,7 @@ void implement_default_drop_for_type(struct TypeEntry *type, struct Scope *scope
     Set *implementedPublic = set_new(NULL, function_entry_compare);
     set_insert(implementedPrivate, dropFunction);
 
-    function_entry_print(dropFunction, true, 0, stderr);
-
     type_entry_verify_trait(&dummyDropTraitTree, type, dropTrait, implementedPrivate, implementedPublic);
-
     type_entry_resolve_capital_self(type);
 }
 
