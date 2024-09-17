@@ -328,7 +328,7 @@ void implement_default_drop_for_enum(struct EnumDesc *theEnum, struct FunctionEn
     dropFunction->isDefined = true;
 }
 
-void implement_default_drop_for_type(struct TypeEntry *type, struct Scope *scope)
+void implement_default_drop_for_non_generic_type(struct TypeEntry *type, struct Scope *scope)
 {
     // if the type already implements Drop, nothing to do
     struct TraitEntry *dropTrait = type_entry_lookup_trait(type, DROP_TRAIT_NAME);
@@ -346,17 +346,27 @@ void implement_default_drop_for_type(struct TypeEntry *type, struct Scope *scope
     scope_insert(type->implemented, DROP_TRAIT_FUNCTION_NAME, dropFunction, E_FUNCTION, A_PRIVATE);
     dropFunction->implementedFor = type;
 
-    switch (type->permutation)
+    switch (type->genericType)
     {
-    case TP_PRIMITIVE:
+    case G_NONE:
+    case G_INSTANCE:
+        switch (type->permutation)
+        {
+        case TP_PRIMITIVE:
+            break;
+
+        case TP_STRUCT:
+            implement_default_drop_for_struct(type->data.asStruct, dropFunction);
+            break;
+
+        case TP_ENUM:
+            implement_default_drop_for_enum(type->data.asEnum, dropFunction);
+            break;
+        }
         break;
 
-    case TP_STRUCT:
-        implement_default_drop_for_struct(type->data.asStruct, dropFunction);
-        break;
-
-    case TP_ENUM:
-        implement_default_drop_for_enum(type->data.asEnum, dropFunction);
+    case G_BASE:
+        InternalError("Generic base type %s seen in implement_default_drop_for_non_generic_type", type_entry_name(type));
         break;
     }
 
@@ -367,7 +377,44 @@ void implement_default_drop_for_type(struct TypeEntry *type, struct Scope *scope
     set_insert(implementedPrivate, dropFunction);
 
     type_entry_verify_trait(&dummyDropTraitTree, type, dropTrait, implementedPrivate, implementedPublic);
-    type_entry_resolve_capital_self(type);
+
+    switch (type->genericType)
+    {
+    case G_NONE:
+        type_entry_resolve_capital_self(type);
+        break;
+
+    case G_BASE:
+        InternalError("Generic base type %s seen in implement_default_drop_for_non_generic_type", type_entry_name(type));
+        break;
+
+    case G_INSTANCE:
+        type_entry_resolve_capital_self(type);
+        break;
+    }
+}
+
+void implement_default_drop_for_type(struct TypeEntry *type, struct Scope *scope)
+{
+    switch (type->genericType)
+    {
+    case G_NONE:
+    case G_INSTANCE:
+        implement_default_drop_for_non_generic_type(type, scope);
+        break;
+
+    case G_BASE:
+    {
+        Iterator *instanceIter = NULL;
+        for (instanceIter = hash_table_begin(type->generic.base.instances); iterator_gettable(instanceIter); iterator_next(instanceIter))
+        {
+            HashTableEntry *instanceEntry = iterator_get(instanceIter);
+            implement_default_drop_for_non_generic_type(instanceEntry->value, scope);
+        }
+        iterator_free(instanceIter);
+    }
+    break;
+    }
 }
 
 void implement_default_drops_for_scope(struct Scope *scope)
