@@ -51,6 +51,8 @@ ssize_t basic_block_compare(void *a, void *b)
 
 void add_drops_to_scope(struct Scope *scope, struct RegallocMetadata *regalloc)
 {
+    log(LOG_DEBUG, "Adding drops to scope %s", scope->name);
+
     struct BasicBlock *latestBlockInScope = NULL;
 
     Iterator *memberIter = NULL;
@@ -142,34 +144,42 @@ void add_drops_to_scope(struct Scope *scope, struct RegallocMetadata *regalloc)
         }
     }
 
-    while (drops->size > 0)
+    // don't add drops to the global scope - realistically this is a leak for anything that happens at the global scope
+    // however, a true .ctors/.dtors implementation would be required to fix all the issues with globals and that's not on the table to get drops working.
+    if ((scope->parentScope != NULL) && (strcmp(scope->name, "Global")))
     {
-        struct VariableEntry *drop = deque_pop_front(drops);
 
-        struct Ast dummyDropTree = {0};
-        dummyDropTree.sourceFile = "intrinsic";
-        struct TACLine *dropLine = new_tac_line(TT_METHOD_CALL, &dummyDropTree);
-        dropLine->operands.methodCall.methodName = DROP_TRAIT_FUNCTION_NAME;
-        dropLine->operands.methodCall.arguments = deque_new(NULL);
-        struct TACOperand *dropArg = malloc(sizeof(struct TACOperand));
+        while (drops->size > 0)
+        {
+            struct VariableEntry *drop = deque_pop_front(drops);
 
-        tac_operand_populate_from_variable(dropArg, drop);
-        *dropArg = *get_addr_of_operand(&dummyDropTree, latestBlockInScope, scope, &maxIndex, dropArg);
-        deque_push_back(dropLine->operands.methodCall.arguments, dropArg);
+            struct Ast dummyDropTree = {0};
+            dummyDropTree.sourceFile = "intrinsic";
+            struct TACLine *dropLine = new_tac_line(TT_METHOD_CALL, &dummyDropTree);
+            dropLine->operands.methodCall.methodName = DROP_TRAIT_FUNCTION_NAME;
+            dropLine->operands.methodCall.arguments = deque_new(NULL);
+            struct TACOperand *dropArg = malloc(sizeof(struct TACOperand));
 
-        tac_operand_populate_from_variable(&dropLine->operands.methodCall.calledOn, drop);
-        basic_block_append(latestBlockInScope, dropLine, &maxIndex);
+            tac_operand_populate_from_variable(dropArg, drop);
+            *dropArg = *get_addr_of_operand(&dummyDropTree, latestBlockInScope, scope, &maxIndex, dropArg);
+            deque_push_back(dropLine->operands.methodCall.arguments, dropArg);
+
+            tac_operand_populate_from_variable(&dropLine->operands.methodCall.calledOn, drop);
+            basic_block_append(latestBlockInScope, dropLine, &maxIndex);
+        }
+
+        if (blockExitJump != NULL)
+        {
+            basic_block_append(latestBlockInScope, blockExitJump, &maxIndex);
+        }
     }
 
-    if (blockExitJump != NULL)
-    {
-        basic_block_append(latestBlockInScope, blockExitJump, &maxIndex);
-    }
     deque_free(drops);
 }
 
 void add_drops_to_function(struct FunctionEntry *function)
 {
+    log(LOG_DEBUG, "Adding drops to function %s", function->name);
     add_drops_to_scope(function->mainScope, &function->regalloc);
 }
 
