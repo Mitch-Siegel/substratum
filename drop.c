@@ -179,6 +179,10 @@ void add_drops_to_scope(struct Scope *scope, struct RegallocMetadata *regalloc)
 
 void add_drops_to_function(struct FunctionEntry *function)
 {
+    if(!function->isDefined)
+    {
+        return;
+    }
     log(LOG_DEBUG, "Adding drops to function %s", function->name);
     add_drops_to_scope(function->mainScope, &function->regalloc);
 }
