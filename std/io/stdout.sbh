@@ -1,0 +1,16 @@
+#ifndef _STDSB_STDOUT_SBH_
+#define _STDSB_STDOUT_SBH_
+
+#include <string.sbh>
+
+struct Stdout
+{}
+
+impl Stdout
+{
+    public fun print_str(String toPrint);
+
+    public fun print_hex(u64 toPrint);
+}
+
+#endif

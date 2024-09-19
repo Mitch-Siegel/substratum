@@ -36,6 +36,11 @@ impl<T> Ptr{
             }
         }
     }
+
+    public fun raw(self) -> T *
+    {
+        return self.data;
+    }
 }
 
 #endif
