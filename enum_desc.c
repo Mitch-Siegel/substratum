@@ -75,12 +75,16 @@ struct EnumDesc *enum_desc_clone(struct EnumDesc *toClone, char *name)
 {
     struct EnumDesc *newEnum = enum_desc_new(name, toClone->parentScope);
 
-    struct EnumMember *member;
     Iterator *memberIter = NULL;
     for (memberIter = set_begin(toClone->members); iterator_gettable(memberIter); iterator_next(memberIter))
     {
-        member = iterator_get(memberIter);
-        enum_add_member_by_name(newEnum, member->name, &member->type);
+        struct EnumMember *member = iterator_get(memberIter);
+        struct EnumMember *newMember = malloc(sizeof(struct EnumMember));
+        newMember->name = member->name;
+        newMember->numerical = member->numerical;
+        newMember->type = member->type;
+
+        set_insert(newEnum->members, newMember);
     }
     iterator_free(memberIter);
 
@@ -135,4 +139,6 @@ void enum_desc_resolve_generics(struct EnumDesc *theEnum, HashTable *paramsMap, 
         type_try_resolve_generic(&member->type, paramsMap, name, params);
     }
     iterator_free(memberIter);
+
+    enum_desc_calculate_union_size(theEnum);
 }

@@ -654,14 +654,22 @@ struct VariableEntry *scope_create_variable_by_name(struct Scope *scope,
                                                     bool isGlobal,
                                                     enum ACCESS accessibility)
 {
-    if (scope_contains(scope, name, E_VARIABLE) || scope_contains(scope, name, E_ARGUMENT))
+    struct Scope *actuallyInsertedIn = scope;
+    if (isGlobal)
     {
-        InternalError("Redifinition of symbol %s!", name);
+        while (actuallyInsertedIn->parentScope != NULL)
+        {
+            if (scope_contains(actuallyInsertedIn, name, E_VARIABLE) || scope_contains(actuallyInsertedIn, name, E_ARGUMENT))
+            {
+                InternalError("Redifinition of symbol %s!", name);
+            }
+            actuallyInsertedIn = actuallyInsertedIn->parentScope;
+        }
     }
 
     struct VariableEntry *newVariable = variable_entry_new(name, type, isGlobal, false, accessibility);
 
-    scope_insert(scope, name, newVariable, E_VARIABLE, accessibility);
+    scope_insert(actuallyInsertedIn, name, newVariable, E_VARIABLE, accessibility);
 
     return newVariable;
 }
@@ -1122,13 +1130,24 @@ struct EnumDesc *scope_lookup_enum_by_member_name(struct Scope *scope,
     return NULL;
 }
 
-struct BasicBlock *scope_lookup_block_by_number(struct Scope *scope, size_t label)
+struct BasicBlock *scope_lookup_block_by_number_in_subscopes(struct Scope *scope, size_t label)
 {
     char blockName[32];
     sprintf(blockName, "Block%zu", label);
     struct ScopeMember *blockMember = scope_lookup(scope, blockName, E_BASICBLOCK);
     if (blockMember == NULL)
     {
+        Stack *subscopes = scope_get_all_members_of_type(scope, E_SCOPE);
+        while (subscopes->size > 0)
+        {
+            struct Scope *subscope = stack_pop(subscopes);
+            struct BasicBlock *block = scope_lookup_block_by_number_in_subscopes(subscope, label);
+            if (block != NULL)
+            {
+                stack_free(subscopes);
+                return block;
+            }
+        }
         return NULL;
     }
     return blockMember->entry;
@@ -1167,7 +1186,7 @@ struct FunctionEntry *function_entry_clone(struct FunctionEntry *toClone, struct
     for (blockIter = list_begin(toClone->BasicBlockList); iterator_gettable(blockIter); iterator_next(blockIter))
     {
         struct BasicBlock *oldBlock = iterator_get(blockIter);
-        struct BasicBlock *newBlock = scope_lookup_block_by_number(cloned->mainScope, oldBlock->labelNum);
+        struct BasicBlock *newBlock = scope_lookup_block_by_number_in_subscopes(cloned->mainScope, oldBlock->labelNum);
         if (newBlock == NULL)
         {
             InternalError("Couldn't find expected basic block %zu when cloning function %s", oldBlock->labelNum, toClone->name);
@@ -1177,6 +1196,22 @@ struct FunctionEntry *function_entry_clone(struct FunctionEntry *toClone, struct
         list_append(cloned->BasicBlockList, newBlock);
     }
     iterator_free(blockIter);
+
+    return cloned;
+}
+
+Deque *clone_function_arguments(Deque *toClone)
+{
+    Deque *cloned = deque_new(NULL);
+    Iterator *argIter = NULL;
+    for (argIter = deque_front(toClone); iterator_gettable(argIter); iterator_next(argIter))
+    {
+        struct TACOperand *oldArg = iterator_get(argIter);
+        struct TACOperand *newArg = malloc(sizeof(struct TACOperand));
+        memcpy(newArg, oldArg, sizeof(struct TACOperand));
+        deque_push_back(cloned, newArg);
+    }
+    iterator_free(argIter);
 
     return cloned;
 }
@@ -1195,6 +1230,31 @@ struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *c
         memcpy(clonedLine, lineToClone, sizeof(struct TACLine));
         clonedLine->allocFile = __FILE__;
         clonedLine->allocLine = __LINE__;
+
+        switch (clonedLine->operation)
+        {
+        case TT_FUNCTION_CALL:
+        {
+            clonedLine->operands.functionCall.arguments = clone_function_arguments(lineToClone->operands.functionCall.arguments);
+        }
+        break;
+
+        case TT_METHOD_CALL:
+        {
+            clonedLine->operands.methodCall.arguments = clone_function_arguments(lineToClone->operands.methodCall.arguments);
+        }
+        break;
+
+        case TT_ASSOCIATED_CALL:
+        {
+            clonedLine->operands.associatedCall.associatedWith = clonedTo->parentFunction->implementedFor->type;
+            clonedLine->operands.associatedCall.arguments = clone_function_arguments(lineToClone->operands.associatedCall.arguments);
+        }
+        break;
+
+        default:
+            break;
+        }
 
         struct OperandUsages operandUsages = get_operand_usages(clonedLine);
         while (operandUsages.reads->size > 0)
@@ -1229,11 +1289,6 @@ struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *c
 
         deque_free(operandUsages.reads);
         deque_free(operandUsages.writes);
-
-        if (clonedLine->operation == TT_ASSOCIATED_CALL)
-        {
-            clonedLine->operands.associatedCall.associatedWith = clonedTo->parentFunction->implementedFor->type;
-        }
 
         size_t tacIndex = lineToClone->index;
         basic_block_append(clone, clonedLine, &tacIndex);
@@ -1336,31 +1391,6 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone, struct TypeEn
     //
     // }
     // break;
-}
-
-void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
-{
-    Iterator *tacRunner = NULL;
-    for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
-    {
-        struct TACLine *resolvedLine = iterator_get(tacRunner);
-        struct OperandUsages operandUsages = get_operand_usages(resolvedLine);
-        while (operandUsages.reads->size > 0)
-        {
-            struct TACOperand *readOperand = deque_pop_front(operandUsages.reads);
-            type_try_resolve_generic(&readOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
-        }
-
-        while (operandUsages.writes->size > 0)
-        {
-            struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
-            type_try_resolve_generic(&writtenOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
-        }
-
-        deque_free(operandUsages.reads);
-        deque_free(operandUsages.writes);
-    }
-    iterator_free(tacRunner);
 }
 
 void scope_resolve_generics(struct Scope *scope, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
@@ -1553,4 +1583,58 @@ struct TraitEntry *scope_lookup_trait(struct Scope *scope, struct Ast *nameTree)
     }
 
     return NULL;
+}
+
+void scope_resolve_capital_self(struct Scope *scope, struct TypeEntry *theType)
+{
+    log(LOG_DEBUG, "Resolving capital self for scope %s", scope->name);
+    Iterator *entryIter = NULL;
+    for (entryIter = set_begin(scope->entries); iterator_gettable(entryIter); iterator_next(entryIter))
+    {
+        struct ScopeMember *member = iterator_get(entryIter);
+
+        switch (member->type)
+        {
+        case E_VARIABLE:
+        case E_ARGUMENT:
+        {
+            struct VariableEntry *variable = member->entry;
+            type_try_resolve_vt_self(&variable->type, theType);
+        }
+        break;
+
+        case E_FUNCTION:
+        {
+            log(LOG_DEBUG, "Resolving capital self for function %s", member->name);
+            struct FunctionEntry *function = member->entry;
+            type_try_resolve_vt_self(&function->returnType, theType);
+            scope_resolve_capital_self(function->mainScope, theType);
+        }
+        break;
+
+        case E_TYPE:
+        {
+            struct TypeEntry *theType = member->entry;
+            type_entry_resolve_capital_self(theType);
+        }
+        break;
+
+        case E_SCOPE:
+        {
+            struct Scope *subScope = member->entry;
+            scope_resolve_capital_self(subScope, theType);
+        }
+        break;
+
+        case E_BASICBLOCK:
+        {
+            basic_block_resolve_capital_self(member->entry, theType);
+        }
+        break;
+
+        case E_TRAIT:
+            break;
+        }
+    }
+    iterator_free(entryIter);
 }

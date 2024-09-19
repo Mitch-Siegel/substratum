@@ -2,6 +2,7 @@
 
 #include "enum_desc.h"
 #include "log.h"
+#include "symtab_basicblock.h"
 #include "symtab_variable.h"
 #include "tac.h"
 #include "type.h"
@@ -41,21 +42,63 @@ extern struct Dictionary *parseDict;
 
 extern struct TempList *temps;
 
+struct TACOperand *get_sizeof_type(struct Ast *tree,
+                                   struct BasicBlock *block,
+                                   struct Scope *scope,
+                                   size_t *tacIndex,
+                                   struct Type *getSizeof)
+{
+    struct TACLine *sizeofLine = new_tac_line(TT_SIZEOF, tree);
+    struct TacSizeof *operands = &sizeofLine->operands.sizeof_;
+    struct Type sizeType = {0};
+    type_set_basic_type(&sizeType, VT_U64, NULL, 0);
+    tac_operand_populate_as_temp(scope, &operands->destination, &sizeType);
+    operands->type = type_duplicate_non_pointer(getSizeof);
+    basic_block_append(block, sizeofLine, tacIndex);
+    return &operands->destination;
+}
+
+struct TACOperand *get_addr_of_operand(struct Ast *tree,
+                                       struct BasicBlock *block,
+                                       struct Scope *scope,
+                                       size_t *tacIndex,
+                                       struct TACOperand *getAddrOf)
+{
+    struct TACLine *addrOfLine = new_tac_line(TT_ADDROF, tree);
+
+    getAddrOf->name.variable->mustSpill = true;
+    addrOfLine->operands.addrof.source = *getAddrOf;
+    struct TacAddrOf *operands = &addrOfLine->operands.addrof;
+    operands->source = *getAddrOf;
+
+    struct Type typeOfAddress = type_duplicate_non_pointer(tac_operand_get_type(getAddrOf));
+    typeOfAddress.pointerLevel++;
+
+    tac_operand_populate_as_temp(scope, &operands->destination, &typeOfAddress);
+
+    *tac_operand_get_type(&operands->destination) = *tac_operand_get_type(&operands->source);
+
+    tac_operand_get_type(&operands->destination)->pointerLevel++;
+    basic_block_append(block, addrOfLine, tacIndex);
+
+    return &operands->destination;
+}
+
 struct TACLine *set_up_scale_multiplication(struct Ast *tree,
+                                            struct BasicBlock *block,
                                             struct Scope *scope,
-                                            const size_t *TACIndex,
-                                            size_t *tempNum,
+                                            size_t *TACIndex,
                                             struct Type *pointerTypeOfToScale,
                                             struct Type *offsetType)
 {
     struct TACLine *scaleMultiplication = new_tac_line(TT_MUL, tree);
 
-    tac_operand_populate_as_temp(scope, &scaleMultiplication->operands.arithmetic.destination, tempNum, offsetType);
+    tac_operand_populate_as_temp(scope, &scaleMultiplication->operands.arithmetic.destination, offsetType);
 
-    size_t scaleVal = type_get_size_when_dereferenced(pointerTypeOfToScale, scope);
-    scaleMultiplication->operands.arithmetic.sourceB.name.val = scaleVal;
-    scaleMultiplication->operands.arithmetic.sourceB.permutation = VP_LITERAL_VAL;
-    scaleMultiplication->operands.arithmetic.sourceB.castAsType.basicType = select_variable_type_for_number(scaleVal);
+    struct Type dereferencedType = type_duplicate_non_pointer(pointerTypeOfToScale);
+    dereferencedType.pointerLevel--;
+    scaleMultiplication->operands.arithmetic.sourceB = *get_sizeof_type(tree, block, scope, TACIndex, &dereferencedType);
+    type_deinit(&dereferencedType);
 
     return scaleMultiplication;
 }

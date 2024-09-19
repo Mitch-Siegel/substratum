@@ -32,4 +32,6 @@ void print_basic_block(struct BasicBlock *block, size_t indentLevel);
 
 void basic_block_resolve_capital_self(struct BasicBlock *block, struct TypeEntry *typeEntry);
 
+void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams);
+
 #endif

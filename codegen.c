@@ -36,7 +36,7 @@ void generate_code_for_program(struct SymbolTable *table,
             // TODO: don't provide _start ourselves, call exit() when done. crt0.s??
             if (!strcmp(generatedFunction->name, "main"))
             {
-                fprintf(outFile, ".align 2\n\t.globl _start\n_start:\n\tcall main\n\tpgm_done:\n\twfi\n\tj pgm_done\n");
+                fprintf(outFile, ".align 2\n\t.globl _start\n_start:\n\tcall main\n\tpgm_done:\n\tli a0, 0\n\tcall exit\n");
             }
 
             generate_code_for_function(outFile, generatedFunction, info, NULL, emitPrologue, emitEpilogue, generateCodeForBasicBlock);

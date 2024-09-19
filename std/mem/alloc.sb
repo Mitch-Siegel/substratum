@@ -1,0 +1,35 @@
+#include "alloc.sbh"
+
+#include "assert.sbh"
+
+extern fun malloc(u64 size) -> u8 *;
+
+extern fun free(u8 *ptr);
+
+#define C_NULL 0
+
+impl Mem
+{
+    fun checked_malloc(u64 size) -> u8 *
+    {
+        u8 *ptr = malloc(size);
+        nassert(ptr == C_NULL);
+        return ptr;
+    }
+
+    fun checked_free(u8 *ptr)
+    {
+        nassert(ptr == C_NULL);
+        free(ptr);
+    }
+
+    public fun alloc(u64 size) -> u8 *
+    {
+        return checked_malloc(size);
+    }
+
+    public fun dealloc(u8 *ptr)
+    {
+        checked_free(ptr);
+    }
+}

@@ -218,7 +218,6 @@ void type_entry_add_implemented(struct TypeEntry *entry, struct FunctionEntry *i
 
 void type_entry_add_trait(struct TypeEntry *entry, struct TraitEntry *trait)
 {
-    // TODO: sanity check that all trait functions are implemented?
     set_insert(entry->traits, trait);
 }
 
@@ -292,6 +291,7 @@ struct TypeEntry *enum_type_entry_clone_generic_base_as_instance(struct TypeEntr
         struct ScopeMember *implementedMember = implementedEntry->value;
         type_entry_add_implemented(clonedTypeEntry, scope_lookup(clonedTypeEntry->implemented, implementedEntry->key, E_FUNCTION)->entry, implementedMember->accessibility);
     }
+
     iterator_free(implementedIter);
 
     return clonedTypeEntry;
@@ -363,6 +363,15 @@ struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *ty
     }
 
     return associatedFunction;
+}
+
+void type_entry_resolve_capital_self(struct TypeEntry *typeEntry)
+{
+    char *typeName = type_entry_name(typeEntry);
+    log(LOG_DEBUG, "Resolving capital self for type %s", typeName);
+    free(typeName);
+
+    scope_resolve_capital_self(typeEntry->implemented, typeEntry);
 }
 
 void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, List *paramTypes)
@@ -472,19 +481,21 @@ bool type_entry_verify_trait_impl(struct Ast *implTree,
     if (accessibility != expectedAccessibility)
     {
         incorrect = true;
+        char *signature = sprint_function_signature(actual);
         switch (expectedAccessibility)
         {
         case A_PRIVATE:
         {
-            log_tree(LOG_WARNING, implTree, "Function %s of trait %s is public in implementation for type %s", expected->name, implementedTrait->name, implementedFor->baseName);
+            log_tree(LOG_WARNING, implTree, "Function %s of trait %s is public in implementation for type %s", signature, implementedTrait->name, implementedFor->baseName);
         }
         break;
         case A_PUBLIC:
         {
-            log_tree(LOG_WARNING, implTree, "Public function %s of trait %s is not public in implementation for type %s", expected->name, implementedTrait->name, implementedFor->baseName);
+            log_tree(LOG_WARNING, implTree, "Public function %s of trait %s is not public in implementation for type %s", signature, implementedTrait->name, implementedFor->baseName);
         }
         break;
         }
+        free(signature);
     }
     else if (function_entry_compare(expected, actual) != 0)
     {
@@ -518,6 +529,11 @@ void type_entry_verify_trait(struct Ast *implTree,
         }
         else
         {
+            if (set_find(implementedPrivate, actualEntry->entry) == NULL)
+            {
+                char *signature = sprint_function_signature(expected);
+                log_tree(LOG_WARNING, implTree, "Private function %s of trait %s is not private in implementation for type %s", signature, implementedTrait->name, implementedFor->baseName);
+            }
             set_remove(implementedPrivate, actualEntry->entry);
             incorrect |= type_entry_verify_trait_impl(implTree, expected, actualEntry->entry, implementedTrait, implementedFor, actualEntry->accessibility, A_PRIVATE);
         }
@@ -534,6 +550,11 @@ void type_entry_verify_trait(struct Ast *implTree,
         }
         else
         {
+            if (set_find(implementedPublic, actualEntry->entry) == NULL)
+            {
+                char *signature = sprint_function_signature(expected);
+                log_tree(LOG_WARNING, implTree, "Public function %s of trait %s is not public in implementation for type %s", signature, implementedTrait->name, implementedFor->baseName);
+            }
             set_remove(implementedPublic, actualEntry->entry);
             incorrect |= type_entry_verify_trait_impl(implTree, expected, actualEntry->entry, implementedTrait, implementedFor, actualEntry->accessibility, A_PUBLIC);
         }
@@ -766,7 +787,7 @@ void type_entry_print(struct TypeEntry *theType, bool printTac, size_t depth, FI
         {
             HashTableEntry *instanceEntry = iterator_get(instanceIter);
             struct TypeEntry *instance = instanceEntry->value;
-            type_entry_print(instance, false, depth + 2, outFile);
+            type_entry_print(instance, printTac, depth + 2, outFile);
         }
         iterator_free(instanceIter);
     }

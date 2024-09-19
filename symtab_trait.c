@@ -48,6 +48,16 @@ void trait_entry_print(struct TraitEntry *trait, size_t depth, FILE *outFile)
     iterator_free(funIter);
 }
 
+void trait_add_public_function(struct TraitEntry *trait, struct FunctionEntry *function)
+{
+    set_insert(trait->public, function);
+}
+
+void trait_add_private_function(struct TraitEntry *trait, struct FunctionEntry *function)
+{
+    set_insert(trait->private, function);
+}
+
 ssize_t trait_entry_compare(void *traitDataA, void *traitDataB)
 {
     struct TraitEntry *traitA = traitDataA;

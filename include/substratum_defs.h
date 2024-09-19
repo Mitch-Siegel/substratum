@@ -26,6 +26,7 @@ typedef int8_t i8;
 #define true 1
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 // TODO: replace this with sizeof(size_t): effectively XLEN
 #define MACHINE_REGISTER_SIZE_BYTES 8

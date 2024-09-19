@@ -72,6 +72,8 @@ char *tac_operation_get_name(enum TAC_TYPE tacOperation)
         return "do";
     case TT_ENDDO:
         return "end do";
+    case TT_SIZEOF:
+        return "sizeof";
     case TT_BEQ:
         return "beq";
     case TT_BNE:
@@ -339,6 +341,16 @@ char *sprint_tac_line(struct TACLine *line)
     }
     break;
 
+    case TT_SIZEOF:
+    {
+        char *destinationStr = tac_operand_sprint(&line->operands.sizeof_.destination);
+        char *typeStr = type_get_name(&line->operands.sizeof_.type);
+        width += sprintf(tacString + width, "%s = sizeof(%s)", destinationStr, typeStr);
+        free(typeStr);
+        free(destinationStr);
+    }
+    break;
+
     case TT_BEQ:
     case TT_BNE:
     case TT_BGEU:
@@ -562,6 +574,12 @@ void free_tac(struct TACLine *line)
     }
     break;
 
+    case TT_SIZEOF:
+    {
+        type_deinit(&line->operands.sizeof_.type);
+    }
+    break;
+
     case TT_ASM:
     case TT_ASM_LOAD:
     case TT_ASM_STORE:
@@ -732,6 +750,10 @@ struct OperandUsages get_operand_usages(struct TACLine *line) // NOLINT (forgive
     case TT_FIELD_STORE:
         deque_push_back(usages.writes, &line->operands.fieldLoad.destination);
         deque_push_back(usages.reads, &line->operands.fieldLoad.source);
+        break;
+
+    case TT_SIZEOF:
+        deque_push_back(usages.writes, &line->operands.sizeof_.destination);
         break;
 
     case TT_BEQ:

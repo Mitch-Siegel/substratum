@@ -1,0 +1,6 @@
+#include "panic.sbh"
+
+fun panic(u8 *message)
+{
+    // TODO: panic
+}

@@ -146,7 +146,8 @@ bool type_is_object(struct Type *type)
 {
     return type_is_array_object(type) ||
            type_is_struct_object(type) ||
-           type_is_enum_object(type);
+           type_is_enum_object(type) ||
+           ((type->basicType == VT_SELF) && (type->pointerLevel == 0));
 }
 
 bool type_is_array_object(struct Type *type)
@@ -423,12 +424,21 @@ int type_compare_allow_implicit_widening(struct Type *src, struct Type *dest)
             retVal = type_compare_allow_implicit_widening(&singleDecayedSourceType, dest);
         }
     }
-    else if (src->basicType == VT_STRUCT)
+    else if ((src->basicType == VT_STRUCT) || (src->basicType == VT_ENUM))
     {
-        // if struct->struct, special case to compare type names (ignore any, and other types are handled in Type_CompareBasicTypeAllowImplicitWidening)
-        if (dest->basicType == VT_STRUCT)
+        retVal = strcmp(src->nonArray.complexType.name, dest->nonArray.complexType.name);
+        if (retVal)
         {
-            retVal = strcmp(src->nonArray.complexType.name, dest->nonArray.complexType.name);
+            return retVal;
+        }
+
+        if ((dest->nonArray.complexType.genericParams != NULL) && (src->nonArray.complexType.genericParams != NULL))
+        {
+            retVal = compare_generic_params(src->nonArray.complexType.genericParams, dest->nonArray.complexType.genericParams);
+        }
+        else
+        {
+            retVal = (dest->nonArray.complexType.genericParams != NULL) - (src->nonArray.complexType.genericParams != NULL);
         }
     }
 
@@ -760,6 +770,7 @@ void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *res
             InternalError("Couldn't resolve actual type for generic parameter of name %s", type_get_name(type));
         }
         *type = *resolvedToType;
+        type->pointerLevel += oldPtrLevel;
     }
     else if (type->basicType == VT_ARRAY)
     {
@@ -769,7 +780,6 @@ void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *res
     {
         type->nonArray.complexType.genericParams = resolvedParams;
     }
-    type->pointerLevel += oldPtrLevel;
 }
 
 void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
@@ -792,4 +802,73 @@ void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
             type->nonArray.complexType.genericParams = NULL;
         }
     }
+}
+
+void compare_generic_param_names(struct Ast *genericParamsTree, List *actualParamNames, List *expectedParamNames, char *genericType, char *genericName)
+{
+    Iterator *actualIter = list_begin(actualParamNames);
+    Iterator *expectedIter = list_begin(expectedParamNames);
+    bool mismatch = false;
+    while (iterator_gettable(actualIter) && iterator_gettable(expectedIter))
+    {
+        char *actualName = iterator_get(actualIter);
+        char *expectedName = iterator_get(expectedIter);
+        if (strcmp(actualName, expectedName) != 0)
+        {
+            mismatch = true;
+            break;
+        }
+
+        iterator_next(actualIter);
+        iterator_next(expectedIter);
+    }
+
+    if (iterator_gettable(actualIter) || iterator_gettable(expectedIter))
+    {
+        mismatch = true;
+    }
+
+    iterator_free(actualIter);
+    iterator_free(expectedIter);
+
+    if (mismatch)
+    {
+        char *actualStr = sprint_generic_param_names(actualParamNames);
+        char *expectedStr = sprint_generic_param_names(expectedParamNames);
+        if (genericParamsTree != NULL)
+        {
+            log_tree(LOG_FATAL, genericParamsTree, "Mismatch between generic parameters for %s %s!\nExpected: %s<%s>\n  Actual: %s<%s>", genericType, genericName, genericName, expectedStr, genericName, actualStr);
+        }
+        else
+        {
+            log(LOG_FATAL, "Mismatch between generic parameters for %s %s!\nExpected: %s<%s>\n  Actual: %s<%s>", genericType, genericName, genericName, expectedStr, genericName, actualStr);
+        }
+    }
+}
+
+ssize_t compare_generic_params(List *actualParams, List *expectedParams)
+{
+    Iterator *actualIter = list_begin(actualParams);
+    Iterator *expectedIter = list_begin(expectedParams);
+    ssize_t diff = 0;
+    while (iterator_gettable(actualIter) && iterator_gettable(expectedIter))
+    {
+        struct Type *actualParam = iterator_get(actualIter);
+        struct Type *expectedParam = iterator_get(expectedIter);
+        diff = type_compare(actualParam, expectedParam);
+        if (diff)
+        {
+            iterator_free(actualIter);
+            iterator_free(expectedIter);
+            return diff;
+        }
+
+        iterator_next(actualIter);
+        iterator_next(expectedIter);
+    }
+
+    diff = iterator_gettable(actualIter) - iterator_gettable(expectedIter);
+    iterator_free(actualIter);
+    iterator_free(expectedIter);
+    return diff;
 }

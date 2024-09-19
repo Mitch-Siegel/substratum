@@ -46,8 +46,7 @@ fun main()
     }
     putc('\n');
 
-    // TODO: compare generic instantiations - this line was Stack::<u32> bigNumberStack = Stack::<u8>::New(); and it worked?
-    Stack::<u32> bigNumberStack = Stack::<u8>::New();
+    Stack::<u32> bigNumberStack = Stack::<u32>::New();
     for(u8 i = 2; i < 10; i += 2)
     {
         bigNumberStack.Push(i * 100);

@@ -28,22 +28,21 @@ void walk_type_name(struct Ast *tree, struct Scope *scope,
                     struct Type *populateTypeTo,
                     struct TypeEntry *fieldOf);
 
+void walk_extern(struct Ast *tree, struct Scope *scope, size_t *tacIndex);
+
 struct VariableEntry *walk_variable_declaration(struct Ast *tree,
                                                 struct Scope *scope,
                                                 const size_t *tacIndex,
-                                                const size_t *tempNum,
-                                                u8 isArgument);
+                                                const u8 isArgument);
 
 struct VariableEntry *walk_field_declaration(struct Ast *tree,
                                              struct Scope *scope,
                                              const size_t *tacIndex,
-                                             const size_t *tempNum,
-                                             enum ACCESS accessibility,
+                                             const enum ACCESS accessibility,
                                              struct TypeEntry *fieldOf);
 
 void walk_argument_declaration(struct Ast *tree,
                                size_t *tacIndex,
-                               size_t *tempNum,
                                struct FunctionEntry *fun);
 
 struct FunctionEntry *walk_function_declaration(struct Ast *tree,
@@ -79,7 +78,6 @@ void walk_statement(struct Ast *tree,
                     struct BasicBlock **blockP,
                     struct Scope *scope,
                     size_t *tacIndex,
-                    size_t *tempNum,
                     ssize_t *labelNum,
                     ssize_t controlConvergesToLabel);
 
@@ -87,7 +85,6 @@ void walk_scope(struct Ast *tree,
                 struct BasicBlock *block,
                 struct Scope *scope,
                 size_t *tacIndex,
-                size_t *tempNum,
                 ssize_t *labelNum,
                 ssize_t controlConvergesToLabel);
 
@@ -98,7 +95,6 @@ struct BasicBlock *walk_logical_operator(struct Ast *tree,
                                          struct BasicBlock *block,
                                          struct Scope *scope,
                                          size_t *tacIndex,
-                                         size_t *tempNum,
                                          ssize_t *labelNum,
                                          ssize_t falseJumpLabelNum);
 
@@ -109,7 +105,6 @@ struct BasicBlock *walk_condition_check(struct Ast *tree,
                                         struct BasicBlock *block,
                                         struct Scope *scope,
                                         size_t *tacIndex,
-                                        size_t *tempNum,
                                         ssize_t *labelNum,
                                         ssize_t falseJumpLabelNum);
 
@@ -117,7 +112,6 @@ void walk_while_loop(struct Ast *tree,
                      struct BasicBlock *block,
                      struct Scope *scope,
                      size_t *tacIndex,
-                     size_t *tempNum,
                      ssize_t *labelNum,
                      ssize_t controlConvergesToLabel);
 
@@ -125,7 +119,6 @@ void walk_if_statement(struct Ast *tree,
                        struct BasicBlock *block,
                        struct Scope *scope,
                        size_t *tacIndex,
-                       size_t *tempNum,
                        ssize_t *labelNum,
                        ssize_t controlConvergesToLabel);
 
@@ -133,7 +126,6 @@ void walk_for_loop(struct Ast *tree,
                    struct BasicBlock *block,
                    struct Scope *scope,
                    size_t *tacIndex,
-                   size_t *tempNum,
                    ssize_t *labelNum,
                    ssize_t controlConvergesToLabel);
 
@@ -141,41 +133,35 @@ void walk_match_statement(struct Ast *tree,
                           struct BasicBlock *block,
                           struct Scope *scope,
                           size_t *tacIndex,
-                          size_t *tempNum,
                           ssize_t *labelNum,
                           ssize_t controlConvergesToLabel);
 
 void walk_assignment(struct Ast *tree,
                      struct BasicBlock *block,
                      struct Scope *scope,
-                     size_t *tacIndex,
-                     size_t *tempNum);
+                     size_t *tacIndex);
 
 void walk_arithmetic_assignment(struct Ast *tree,
                                 struct BasicBlock *block,
                                 struct Scope *scope,
-                                size_t *tacIndex,
-                                size_t *tempNum);
+                                size_t *tacIndex);
 
 void walk_initializer(struct Ast *tree,
                       struct BasicBlock *block,
                       struct Scope *scope,
                       size_t *tacIndex,
-                      size_t *tempNum,
                       struct TACOperand *initialized);
 
 void walk_sub_expression(struct Ast *tree,
                          struct BasicBlock *block,
                          struct Scope *scope,
                          size_t *tacIndex,
-                         size_t *tempNum,
                          struct TACOperand *destinationOperand);
 
 void walk_method_call(struct Ast *tree,
                       struct BasicBlock *block,
                       struct Scope *scope,
                       size_t *tacIndex,
-                      size_t *tempNum,
                       struct TACOperand *destinationOperand);
 
 struct TypeEntry *walk_type_name_or_generic_instantiation(struct Scope *scope,
@@ -185,21 +171,18 @@ void walk_associated_call(struct Ast *tree,
                           struct BasicBlock *block,
                           struct Scope *scope,
                           size_t *tacIndex,
-                          size_t *tempNum,
                           struct TACOperand *destinationOperand);
 
 void walk_function_call(struct Ast *tree,
                         struct BasicBlock *block,
                         struct Scope *scope,
                         size_t *tacIndex,
-                        size_t *tempNum,
                         struct TACOperand *destinationOperand);
 
 struct TACLine *walk_field_access(struct Ast *tree,
                                   struct BasicBlock *block,
                                   struct Scope *scope,
                                   size_t *tacIndex,
-                                  size_t *tempNum,
                                   struct TACOperand *destinationOperand,
                                   size_t depth);
 
@@ -207,45 +190,38 @@ void walk_non_pointer_arithmetic(struct Ast *tree,
                                  struct BasicBlock *block,
                                  struct Scope *scope,
                                  size_t *tacIndex,
-                                 size_t *tempNum,
                                  struct TACLine *expression);
 
 struct TACOperand *walk_expression(struct Ast *tree,
                                    struct BasicBlock *block,
                                    struct Scope *scope,
-                                   size_t *tacIndex,
-                                   size_t *tempNum);
+                                   size_t *tacIndex);
 
 struct TACLine *walk_array_read(struct Ast *tree,
                                 struct BasicBlock *block,
                                 struct Scope *scope,
-                                size_t *tacIndex,
-                                size_t *tempNum);
+                                size_t *tacIndex);
 
 struct TACOperand *walk_dereference(struct Ast *tree,
                                     struct BasicBlock *block,
                                     struct Scope *scope,
-                                    size_t *tacIndex,
-                                    size_t *tempNum);
+                                    size_t *tacIndex);
 
 struct TACOperand *walk_addr_of(struct Ast *tree,
                                 struct BasicBlock *block,
                                 struct Scope *scope,
-                                size_t *tacIndex,
-                                size_t *tempNum);
+                                size_t *tacIndex);
 
 void walk_pointer_arithmetic(struct Ast *tree,
                              struct BasicBlock *block,
                              struct Scope *scope,
                              size_t *tacIndex,
-                             size_t *tempNum,
                              struct TACOperand *destinationOperand);
 
 void walk_asm_block(struct Ast *tree,
                     struct BasicBlock *block,
                     struct Scope *scope,
-                    size_t *tacIndex,
-                    size_t *tempNum);
+                    size_t *tacIndex);
 
 void walk_string_literal(struct Ast *tree,
                          struct BasicBlock *block,
@@ -255,6 +231,7 @@ void walk_string_literal(struct Ast *tree,
 void walk_sizeof(struct Ast *tree,
                  struct BasicBlock *block,
                  struct Scope *scope,
+                 size_t *tacIndex,
                  struct TACOperand *destinationOperand);
 
 #endif
