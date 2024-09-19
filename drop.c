@@ -179,7 +179,7 @@ void add_drops_to_scope(struct Scope *scope, struct RegallocMetadata *regalloc)
 
 void add_drops_to_function(struct FunctionEntry *function)
 {
-    if(!function->isDefined)
+    if (!function->isDefined)
     {
         return;
     }
