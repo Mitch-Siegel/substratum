@@ -580,10 +580,7 @@ void allocate_registers_for_type_non_generic(struct TypeEntry *theType, struct M
             InternalError("Type implemented entry is not a function!\n");
         }
         struct FunctionEntry *implementedFunction = entry->entry;
-        if (implementedFunction->isDefined)
-        {
-            allocate_registers(&implementedFunction->regalloc, info);
-        }
+        allocate_registers(&implementedFunction->regalloc, info);
     }
     iterator_free(implementedIter);
 }
