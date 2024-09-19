@@ -223,6 +223,11 @@ struct TacPhi
     Deque *sources;
 };
 
+struct TacDrop
+{
+    struct TACOperand operand;
+};
+
 struct TACLine
 {
     char *allocFile;
@@ -253,6 +258,7 @@ struct TACLine
         struct TacLabel label;
         struct TacReturn return_;
         struct TacPhi phi;
+        struct TacDrop drop;
     } operands;
     enum TAC_TYPE operation;
     // numerical index relative to other TAC lines

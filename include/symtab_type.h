@@ -59,6 +59,8 @@ void type_entry_check_implemented_access(struct TypeEntry *theType,
 
 void type_entry_add_implemented(struct TypeEntry *entry, struct FunctionEntry *implemented, enum ACCESS accessibility);
 
+void type_entry_add_trait(struct TypeEntry *entry, struct TraitEntry *trait);
+
 struct TraitEntry *type_entry_lookup_trait(struct TypeEntry *typeEntry, char *name);
 
 struct FunctionEntry *type_entry_lookup_implemented(struct TypeEntry *typeEntry, struct Scope *scope, struct Ast *nameTree);
@@ -70,6 +72,8 @@ struct FunctionEntry *type_entry_lookup_method(struct TypeEntry *typeEntry,
 struct FunctionEntry *type_entry_lookup_associated_function(struct TypeEntry *typeEntry,
                                                             struct Ast *nameTree,
                                                             struct Scope *scope);
+
+void type_entry_resolve_capital_self(struct TypeEntry *typeEntry);
 
 void type_entry_resolve_generics(struct TypeEntry *instance, List *paramNames, List *paramTypes);
 
@@ -84,8 +88,6 @@ void type_entry_verify_trait(struct Ast *implTree,
 char *sprint_generic_param_names(List *paramNames);
 
 char *sprint_generic_params(List *params);
-
-void type_entry_resolve_capital_self(struct TypeEntry *typeEntry);
 
 void type_entry_print(struct TypeEntry *theType, bool printTac, size_t depth, FILE *outFile);
 

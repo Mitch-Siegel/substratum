@@ -6,11 +6,24 @@
 #include "symtab_scope.h"
 #include <mbcl/stack.h>
 
+#include "drop.h"
 #include "log.h"
 
 extern struct Dictionary *parseDict;
 
 void scope_print_member(struct ScopeMember *toPrint, bool printTac, size_t depth, FILE *outFile);
+
+void intrinsic_trait_create_drop(struct Scope *scope)
+{
+    struct TraitEntry *dropTrait = scope_create_trait(scope, DROP_TRAIT_NAME);
+
+    trait_add_private_function(dropTrait, drop_create_function_prototype(scope));
+}
+
+void symbol_table_set_up_intrinsic_traits(struct SymbolTable *table)
+{
+    intrinsic_trait_create_drop(table->globalScope);
+}
 
 struct SymbolTable *symbol_table_new(char *name)
 {
@@ -21,6 +34,8 @@ struct SymbolTable *symbol_table_new(char *name)
 
     // manually insert a basic block for global code so we can give it the custom name of "globalblock"
     scope_insert(wip->globalScope, "globalblock", globalBlock, E_BASICBLOCK, A_PUBLIC);
+
+    symbol_table_set_up_intrinsic_traits(wip);
 
     return wip;
 }

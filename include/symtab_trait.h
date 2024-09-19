@@ -16,6 +16,10 @@ void trait_free(struct TraitEntry *trait);
 
 void trait_entry_print(struct TraitEntry *trait, size_t depth, FILE *outFile);
 
+void trait_add_public_function(struct TraitEntry *trait, struct FunctionEntry *function);
+
+void trait_add_private_function(struct TraitEntry *trait, struct FunctionEntry *function);
+
 ssize_t trait_entry_compare(void *traitDataA, void *traitDataB);
 
 #endif
