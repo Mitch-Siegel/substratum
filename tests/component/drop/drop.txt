@@ -1,0 +1,7 @@
+Droppable with number 1
+Droppable with number 2
+DefaultDroppable with important data 6
+	Droppable with number 99
+Dropping droppable with number 1
+Dropping droppable with number 2
+Dropping droppable with number 99

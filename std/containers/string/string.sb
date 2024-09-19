@@ -24,5 +24,5 @@ impl String
 
     public fun append(self, String other);
 
-    public fun raw(self) -> Ptr::<u8>;
+    public fun contents(self) -> Ptr::<u8>;
 }

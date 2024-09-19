@@ -1287,6 +1287,10 @@ void walk_statement(struct Ast *tree,
         walk_method_call(tree, *blockP, scope, tacIndex, NULL);
         break;
 
+    case T_ASSOCIATED_CALL:
+        walk_associated_call(tree, *blockP, scope, tacIndex, NULL);
+        break;
+
     // subscope
     case T_COMPOUND_STATEMENT:
     {
