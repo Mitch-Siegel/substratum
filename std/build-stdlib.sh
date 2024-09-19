@@ -8,13 +8,13 @@ if [ $(basename $CWD) != "std" ]; then
     exit 1
 fi
 
-DIRS=". containers/string mem"
+DIRS=". containers/string mem io"
 INCLUDE_PATHS=""
 for DIR in $DIRS; do
     INCLUDE_PATHS="$INCLUDE_PATHS -I $CWD/$DIR"
 done
 
-FILES="mem/alloc.sb assert.sb option.sbh"
+FILES="mem/alloc.sb assert.sb option.sbh io/file.sb"
 COMPILE_FILES=""
 for FILE in $FILES; do
     COMPILE_FILES="$COMPILE_FILES -i $CWD/$FILE"
