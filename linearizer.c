@@ -1909,7 +1909,7 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
             armScope = scope_create_sub_scope(scope);
             struct VariableEntry *dataVariable = scope_create_variable(armScope, matchedDataName, &matchedMember->type, false, A_PUBLIC);
 
-            struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(matchedDataName, caseBlock, scope, tacIndex, matchedAgainstEnum);
+            struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(matchedDataName, caseBlock, armScope, tacIndex, matchedAgainstEnum);
             struct TACLine *compAddrOfEnumData = new_tac_line(TT_ADD, matchedDataName);
             compAddrOfEnumData->operands.arithmetic.sourceA = *addrOfMatchedAgainst;
 
@@ -1918,7 +1918,7 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
             compAddrOfEnumData->operands.arithmetic.sourceB.permutation = VP_LITERAL_VAL;
             compAddrOfEnumData->operands.arithmetic.sourceB.castAsType.basicType = select_variable_type_for_number(sizeof(size_t));
 
-            tac_operand_populate_as_temp(scope, &compAddrOfEnumData->operands.arithmetic.destination, tac_operand_get_type(&compAddrOfEnumData->operands.arithmetic.sourceA));
+            tac_operand_populate_as_temp(armScope, &compAddrOfEnumData->operands.arithmetic.destination, tac_operand_get_type(&compAddrOfEnumData->operands.arithmetic.sourceA));
             basic_block_append(caseBlock, compAddrOfEnumData, tacIndex);
 
             // then, do the actual load from the computed address to the temporary

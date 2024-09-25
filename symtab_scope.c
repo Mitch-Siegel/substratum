@@ -1264,8 +1264,15 @@ struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *c
             {
             case VP_STANDARD:
             case VP_TEMP:
-                readOperand->name.variable = scope_lookup_var_by_string(clonedTo, readOperand->name.variable->name);
-                break;
+            {
+                struct VariableEntry *actualReadVar = scope_lookup_var_by_string(clonedTo, readOperand->name.variable->name);
+                if (actualReadVar == NULL)
+                {
+                    InternalError("Couldn't find read variable %s when cloning basic block %zu", readOperand->name.variable->name, toClone->labelNum);
+                }
+                readOperand->name.variable = actualReadVar;
+            }
+            break;
 
             default:
                 break;
@@ -1279,8 +1286,15 @@ struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *c
             {
             case VP_STANDARD:
             case VP_TEMP:
-                writtenOperand->name.variable = scope_lookup_var_by_string(clonedTo, writtenOperand->name.variable->name);
-                break;
+            {
+                struct VariableEntry *actualWrittenVar = scope_lookup_var_by_string(clonedTo, writtenOperand->name.variable->name);
+                if (actualWrittenVar == NULL)
+                {
+                    InternalError("Couldn't find read variable %s when cloning basic block %zu", writtenOperand->name.variable->name, toClone->labelNum);
+                }
+                writtenOperand->name.variable = actualWrittenVar;
+            }
+            break;
 
             default:
                 break;
@@ -1325,14 +1339,6 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone, struct TypeEn
         break;
 
         case E_SCOPE:
-        {
-            struct Scope *clonedScope = memberToClone->entry;
-            struct Scope *clonedSubScope = scope_new(clonedTo, clonedScope->name, clonedTo->parentFunction);
-            entry = clonedSubScope;
-            scope_clone_to(entry, clonedScope, newImplementedFor);
-        }
-        break;
-
         case E_BASICBLOCK:
         case E_FUNCTION:
         case E_TYPE:
@@ -1370,9 +1376,17 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone, struct TypeEn
         }
         break;
 
+        case E_SCOPE:
+        {
+            struct Scope *clonedScope = memberToClone->entry;
+            struct Scope *clonedSubScope = scope_new(clonedTo, clonedScope->name, clonedTo->parentFunction);
+            entry = clonedSubScope;
+            scope_clone_to(entry, clonedScope, newImplementedFor);
+        }
+        break;
+
         case E_VARIABLE:
         case E_ARGUMENT:
-        case E_SCOPE:
         case E_TRAIT:
             break;
         }
