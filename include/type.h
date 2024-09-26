@@ -10,6 +10,7 @@ struct Scope;
 struct StructDesc;
 struct TypeEntry;
 struct Ast;
+struct FunctionEntry;
 
 enum BASIC_TYPES
 {
@@ -69,6 +70,12 @@ void type_copy_decay_arrays(struct Type *dest, struct Type *src);
 
 ssize_t type_compare(struct Type *typeA, struct Type *typeB);
 
+// Compares with handling for automatic attempt to resolve VT_SELF and re-copmare on failure of direct comparison
+ssize_t type_compare_allow_self(struct Type *typeA,
+                                struct FunctionEntry *functionA,
+                                struct Type *typeB,
+                                struct FunctionEntry *functionB);
+
 size_t type_hash(struct Type *type);
 
 bool type_is_object(struct Type *type);
@@ -101,6 +108,8 @@ size_t type_get_size_of_array_element(struct Type *arrayType, struct Scope *scop
 u8 type_get_alignment(struct Type *type, struct Scope *scope);
 
 void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams);
+
+void type_try_resolve_vt_self_unchecked(struct Type *type, struct TypeEntry *typeEntry);
 
 void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry);
 
