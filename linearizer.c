@@ -180,10 +180,9 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
         {
             if (fieldOf == NULL)
             {
-
                 if ((scope->parentFunction != NULL) &&
                     (scope->parentFunction->implementedFor != NULL) &&
-                    (scope->parentScope == scope->parentFunction->implementedFor->parentScope) &&
+                    (scope == scope->parentFunction->mainScope) &&
                     (scope->parentFunction->implementedFor->genericType == G_BASE) &&
                     (list_find(scope->parentFunction->implementedFor->generic.base.paramNames, tree->value) != NULL))
                 {
