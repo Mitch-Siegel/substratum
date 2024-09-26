@@ -234,7 +234,7 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
 
     case T_GENERIC_INSTANCE:
     {
-        struct TypeEntry *instance = walk_type_name_or_generic_instantiation(scope, tree);
+        struct TypeEntry *instance = walk_type_name_or_generic_instantiation(scope, tree, fieldOf);
         if (instance->genericType != G_INSTANCE)
         {
             log_tree(LOG_FATAL, tree, "walk_type_name_or_generic_instantiation returned non-generic-instance %s!", instance->baseName);
@@ -2654,8 +2654,6 @@ void walk_struct_initializer(struct Ast *tree,
             log(LOG_FATAL, "Initializer element %zu of struct %s should be %s, not %s", initFieldIdx + 1, initializedStruct->name, expectedField->variable->name, initializedField->variable->name);
         }
 
-        struct TACOperand initializedValue = {0};
-
         struct TACLine *fieldStore = new_tac_line(TT_FIELD_STORE, initRunner);
         fieldStore->operands.fieldStore.destination = *initializedOperand;
         fieldStore->operands.fieldStore.fieldName = initializedField->variable->name;
@@ -2673,7 +2671,7 @@ void walk_struct_initializer(struct Ast *tree,
             // make sure the subexpression has a sane type to be stored in the field we are initializing
             if (type_compare_allow_implicit_widening(tac_operand_get_type(&fieldStore->operands.fieldStore.source), &initializedField->variable->type))
             {
-                log_tree(LOG_FATAL, initToTree, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, initializedField->variable->name, type_get_name(tac_operand_get_type(&initializedValue)), type_get_name(&initializedField->variable->type));
+                log_tree(LOG_FATAL, initToTree, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, initializedField->variable->name, type_get_name(tac_operand_get_type(&fieldStore->operands.fieldStore.source)), type_get_name(&initializedField->variable->type));
             }
         }
         basic_block_append(block, fieldStore, tacIndex);
@@ -3407,7 +3405,7 @@ void walk_method_call(struct Ast *tree,
     basic_block_append(block, callLine, tacIndex);
 }
 
-List *walk_generic_parameters(struct Ast *tree, struct Scope *scope)
+List *walk_generic_parameters(struct Ast *tree, struct Scope *scope, struct TypeEntry *fieldOf)
 {
     log_tree(LOG_DEBUG, tree, "walk_generic_parameters");
 
@@ -3423,7 +3421,7 @@ List *walk_generic_parameters(struct Ast *tree, struct Scope *scope)
     {
         struct Type *param = malloc(sizeof(struct Type));
         type_init(param);
-        walk_type_name(paramRunner, scope, param, NULL);
+        walk_type_name(paramRunner, scope, param, fieldOf);
         list_append(paramsList, param);
 
         paramRunner = paramRunner->sibling;
@@ -3432,7 +3430,7 @@ List *walk_generic_parameters(struct Ast *tree, struct Scope *scope)
     return paramsList;
 }
 
-struct TypeEntry *walk_type_name_or_generic_instantiation(struct Scope *scope, struct Ast *tree)
+struct TypeEntry *walk_type_name_or_generic_instantiation(struct Scope *scope, struct Ast *tree, struct TypeEntry *fieldOf)
 {
     log_tree(LOG_DEBUG, tree, "walk_type_name_or_generic_instantiation");
 
@@ -3445,9 +3443,8 @@ struct TypeEntry *walk_type_name_or_generic_instantiation(struct Scope *scope, s
 
     case T_GENERIC_INSTANCE:
     {
-
         struct Ast *structNameTree = tree->child;
-        List *genericParams = walk_generic_parameters(tree->child->sibling, scope);
+        List *genericParams = walk_generic_parameters(tree->child->sibling, scope, fieldOf);
         struct TypeEntry *baseGenericType = scope_lookup_struct_by_name_tree(scope, structNameTree);
         returnedType = type_entry_get_or_create_generic_instantiation(baseGenericType, genericParams);
         if (returnedType->generic.instance.parameters != genericParams)
@@ -3484,7 +3481,7 @@ void walk_associated_call(struct Ast *tree,
     struct TypeEntry *associatedWith = NULL;
     struct Ast *callTree = tree->child->sibling;
 
-    associatedWith = walk_type_name_or_generic_instantiation(scope, structTypeTree);
+    associatedWith = walk_type_name_or_generic_instantiation(scope, structTypeTree, NULL);
 
     struct FunctionEntry *calledFunction = type_entry_lookup_associated_function(associatedWith, callTree->child, scope);
 
