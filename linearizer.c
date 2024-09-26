@@ -1172,7 +1172,8 @@ void walk_return(struct Ast *tree,
     {
         walk_sub_expression(tree->child, block, scope, tacIndex, &returnOperands->returnValue);
 
-        if (type_compare_allow_implicit_widening(tac_operand_get_type(&returnLine->operands.return_.returnValue), &scope->parentFunction->returnType))
+        if (type_compare_allow_implicit_widening(tac_operand_get_type(&returnLine->operands.return_.returnValue), &scope->parentFunction->returnType) &&
+            type_compare_allow_self(tac_operand_get_type(&returnLine->operands.return_.returnValue), scope->parentFunction, &scope->parentFunction->returnType, scope->parentFunction))
         {
             char *expectedReturnType = type_get_name(&scope->parentFunction->returnType);
             char *actualReturnType = type_get_name(tac_operand_get_type(&returnLine->operands.return_.returnValue));
@@ -2651,7 +2652,7 @@ void walk_struct_initializer(struct Ast *tree,
         struct StructField *expectedField = deque_at(initializedStruct->fieldLocations, initFieldIdx);
         if ((initializedField->offset != expectedField->offset) || (strcmp(initializedField->variable->name, expectedField->variable->name) != 0))
         {
-            log(LOG_FATAL, "Initializer element %zu of struct %s should be %s, not %s", initFieldIdx + 1, initializedStruct->name, expectedField->variable->name, initializedField->variable->name);
+            log_tree(LOG_FATAL, initRunner, "Initializer element %zu of struct %s should be %s, not %s", initFieldIdx + 1, initializedStruct->name, expectedField->variable->name, initializedField->variable->name);
         }
 
         struct TACLine *fieldStore = new_tac_line(TT_FIELD_STORE, initRunner);

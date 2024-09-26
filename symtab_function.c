@@ -185,40 +185,6 @@ char *sprint_function_signature(struct FunctionEntry *function)
     return funcName;
 }
 
-// speical logic to compare types for functions, with handling for VT_SELF
-ssize_t type_compare_for_function(struct Type *typeA,
-                                  struct FunctionEntry *functionA,
-                                  struct Type *typeB,
-                                  struct FunctionEntry *functionB)
-{
-    // start off with a normal type compare
-    ssize_t diff = type_compare(typeA, typeB);
-
-    // if they appear to be different, resolve VT_SELF and try again
-    if (diff)
-    {
-        struct Type resolvedTypeA = type_duplicate_non_pointer(typeA);
-        struct Type resolvedTypeB = type_duplicate_non_pointer(typeB);
-
-        if (functionA->implementedFor != NULL)
-        {
-            type_try_resolve_vt_self(&resolvedTypeA, functionA->implementedFor);
-        }
-
-        if (functionB->implementedFor != NULL)
-        {
-            type_try_resolve_vt_self(&resolvedTypeB, functionB->implementedFor);
-        }
-
-        diff = type_compare(&resolvedTypeA, &resolvedTypeB);
-
-        type_deinit(&resolvedTypeA);
-        type_deinit(&resolvedTypeB);
-    }
-
-    return diff;
-}
-
 ssize_t function_entry_compare(void *dataA, void *dataB)
 {
     struct FunctionEntry *funcA = dataA;
@@ -231,7 +197,7 @@ ssize_t function_entry_compare(void *dataA, void *dataB)
     }
 
     // check that if a prototype declaration exists, that our parsed declaration matches it exactly
-    diff = type_compare_for_function(&funcA->returnType, funcA, &funcB->returnType, funcB);
+    diff = type_compare_allow_self(&funcA->returnType, funcA, &funcB->returnType, funcB);
     if (diff != 0)
     {
         return diff;
@@ -249,7 +215,7 @@ ssize_t function_entry_compare(void *dataA, void *dataB)
             diff = strcmp(argA->name, argB->name);
             if (!diff)
             {
-                diff = type_compare_for_function(&argA->type, funcA, &argB->type, funcB);
+                diff = type_compare_allow_self(&argA->type, funcA, &argB->type, funcB);
             }
 
             if (diff)
