@@ -1779,7 +1779,26 @@ ssize_t walk_match_case_block(struct Ast *statement,
 
     if (statement != NULL)
     {
-        walk_statement(statement, &caseBlock, scope, tacIndex, labelNum, controlConvergesToLabel);
+        switch (statement->type)
+        {
+            // don't need to actually do a walk_scope to create our own new scope
+            // it will have been created for us in the caller
+        case T_COMPOUND_STATEMENT:
+        {
+            struct Ast *caseStatementRunner = statement->child;
+            while (caseStatementRunner != NULL)
+            {
+                walk_statement(caseStatementRunner, &caseBlock, scope, tacIndex, labelNum, controlConvergesToLabel);
+                caseStatementRunner = caseStatementRunner->sibling;
+            }
+        }
+        break;
+
+        default:
+        {
+            walk_statement(statement, &caseBlock, scope, tacIndex, labelNum, controlConvergesToLabel);
+        }
+        }
     }
 
     // make sure every case ends up at the convergence block after the match
@@ -1888,7 +1907,7 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
 
         basic_block_append(block, matchJump, tacIndex);
 
-        struct Scope *armScope = scope;
+        struct Scope *armScope = scope_create_sub_scope(scope);
 
         struct BasicBlock *caseBlock = basic_block_new((*labelNum)++);
 
@@ -1906,7 +1925,6 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
                          matchedMember->name);
             }
 
-            armScope = scope_create_sub_scope(scope);
             struct VariableEntry *dataVariable = scope_create_variable(armScope, matchedDataName, &matchedMember->type, false, A_PUBLIC);
 
             struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(matchedDataName, caseBlock, armScope, tacIndex, matchedAgainstEnum);
