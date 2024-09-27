@@ -3219,21 +3219,24 @@ Deque *walk_argument_pushes(struct Ast *argumentRunner,
                      type_get_name(tac_operand_get_type(argOperand)));
         }
 
-        // allow us to automatically widen
-        if (type_get_size(tac_operand_get_type(argOperand), scope) <= type_get_size(&expectedArgument->type, scope))
+        if (!((tac_operand_get_type(argOperand)->basicType == VT_GENERIC_PARAM) || (expectedArgument->type.basicType == VT_GENERIC_PARAM)))
         {
-            argOperand->castAsType = expectedArgument->type;
-        }
-        else
-        {
-            char *convertFromType = type_get_name(tac_operand_get_type(argOperand));
-            char *convertToType = type_get_name(&expectedArgument->type);
-            log_tree(LOG_FATAL, pushedArgument,
-                     "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s",
-                     expectedArgument->name,
-                     calledFunction->name,
-                     convertFromType,
-                     convertToType);
+            // allow us to automatically widen if neither are generic params
+            if (type_get_size(tac_operand_get_type(argOperand), scope) <= type_get_size(&expectedArgument->type, scope))
+            {
+                argOperand->castAsType = expectedArgument->type;
+            }
+            else
+            {
+                char *convertFromType = type_get_name(tac_operand_get_type(argOperand));
+                char *convertToType = type_get_name(&expectedArgument->type);
+                log_tree(LOG_FATAL, pushedArgument,
+                         "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s",
+                         expectedArgument->name,
+                         calledFunction->name,
+                         convertFromType,
+                         convertToType);
+            }
         }
     }
     iterator_free(calledFunctionArgumentIterator);
@@ -3447,13 +3450,34 @@ struct TypeEntry *walk_type_name_or_generic_instantiation(struct Scope *scope, s
         struct Ast *structNameTree = tree->child;
         List *genericParams = walk_generic_parameters(tree->child->sibling, scope, fieldOf);
         struct TypeEntry *baseGenericType = scope_lookup_struct_by_name_tree(scope, structNameTree);
-        returnedType = type_entry_get_or_create_generic_instantiation(baseGenericType, genericParams);
-        if (returnedType->generic.instance.parameters != genericParams)
+
+        switch (baseGenericType->genericType)
         {
-            list_free(genericParams);
+        case G_NONE:
+        {
+            char *paramsStr = sprint_generic_params(genericParams);
+            char *typeName = type_get_name(&baseGenericType->type);
+            log_tree(LOG_FATAL, tree, "Attempt to instantiate generic %s<%s> of non-generic type %s", baseGenericType->baseName, paramsStr, typeName);
         }
+        break;
+
+        case G_BASE:
+            returnedType = type_entry_get_or_create_generic_instantiation(baseGenericType, genericParams);
+
+            if (returnedType->generic.instance.parameters != genericParams)
+            {
+                list_free(genericParams);
+            }
+            break;
+
+        case G_INSTANCE:
+            char *paramsStr = sprint_generic_params(genericParams);
+            char *typeName = type_get_name(&baseGenericType->type);
+            log_tree(LOG_FATAL, tree, "Attempt to instantiate generic %s<%s> of generic instance type %s", baseGenericType->baseName, paramsStr, typeName);
+            break;
+        }
+        break;
     }
-    break;
 
     default:
         log_tree(LOG_FATAL, tree, "Malformed AST (%s) seen in walk_type_name_or_generic_instantiation!", token_get_name(tree->type));
