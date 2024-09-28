@@ -3270,6 +3270,9 @@ bool handle_struct_return(struct Ast *callTree,
     {
         struct TACOperand intermediateReturnObject = {0};
         tac_operand_populate_as_temp(scope, &intermediateReturnObject, &calledFunction->returnType);
+
+        // attempt to immediately resolve any VT_SELF returns so that they register as the correct type in the calling scope
+        type_try_resolve_vt_self(tac_operand_get_type(&intermediateReturnObject), calledFunction->implementedFor);
         log_tree(LOG_DEBUG, callTree, "Call to %s returns struct in %s", calledFunction->name, intermediateReturnObject.name.str);
 
         *destinationOperand = intermediateReturnObject;
@@ -3317,6 +3320,7 @@ void walk_function_call(struct Ast *tree,
     struct TACLine *callLine = new_tac_line(TT_FUNCTION_CALL, tree);
     if (!haveStructReturn && (destinationOperand != NULL))
     {
+        // blindly populate the temp return value destination operand
         tac_operand_populate_as_temp(scope, destinationOperand, &calledFunction->returnType);
         callLine->operands.functionCall.returnValue = *destinationOperand;
     }
@@ -3399,7 +3403,10 @@ void walk_method_call(struct Ast *tree,
     struct TACLine *callLine = new_tac_line(TT_METHOD_CALL, tree);
     if (!haveStructReturn && (destinationOperand != NULL))
     {
+        // blindly populate the temp return value destination operand
         tac_operand_populate_as_temp(scope, destinationOperand, &calledFunction->returnType);
+        // attempt to immediately resolve any VT_SELF returns so that they register as the correct type in the calling scope
+        type_try_resolve_vt_self(tac_operand_get_type(destinationOperand), calledFunction->implementedFor);
         callLine->operands.methodCall.returnValue = *destinationOperand;
     }
     callLine->operands.methodCall.calledOn = *calledOnOperand;
@@ -3523,7 +3530,10 @@ void walk_associated_call(struct Ast *tree,
     struct TACLine *callLine = new_tac_line(TT_ASSOCIATED_CALL, tree);
     if (!haveStructReturn && (destinationOperand != NULL))
     {
+        // blindly populate the temp return value destination operand
         tac_operand_populate_as_temp(scope, destinationOperand, &calledFunction->returnType);
+        // attempt to immediately resolve any VT_SELF returns so that they register as the correct type in the calling scope
+        type_try_resolve_vt_self(tac_operand_get_type(destinationOperand), associatedWith);
         callLine->operands.associatedCall.returnValue = *destinationOperand;
     }
     callLine->operands.associatedCall.functionName = calledFunction->name;
