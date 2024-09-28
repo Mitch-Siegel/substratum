@@ -790,6 +790,29 @@ size_t scope_compute_padding_for_alignment(struct Scope *scope, struct Type *ali
     return paddingRequired;
 }
 
+// returns true if a type is a generic parameter
+// recurses through generic parameters if the type is a generic instance, also returns true if any instance parameters are generic parameters as well
+bool type_is_generic(struct Type *type)
+{
+    bool isGeneric = false;
+    if ((type_is_struct_object(type) || type_is_enum_object(type)) && type->nonArray.complexType.genericParams)
+    {
+        Iterator *paramIter = NULL;
+        for (paramIter = list_begin(type->nonArray.complexType.genericParams); iterator_gettable(paramIter); iterator_next(paramIter))
+        {
+            struct Type *paramType = iterator_get(paramIter);
+            isGeneric |= type_is_generic(paramType);
+        }
+        iterator_free(paramIter);
+    }
+    else if (type->basicType == VT_GENERIC_PARAM)
+    {
+        isGeneric = true;
+    }
+
+    return isGeneric;
+}
+
 void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
 {
     char *typeName = type_get_name(type);
@@ -810,7 +833,7 @@ void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *res
     {
         type_try_resolve_generic(type->array.type, paramsMap, resolvedStructName, resolvedParams);
     }
-    else if ((type->basicType == VT_STRUCT) && (!strcmp(type->nonArray.complexType.name, resolvedStructName)))
+    else if (((type->basicType == VT_STRUCT) || (type->basicType == VT_ENUM)) && (!strcmp(type->nonArray.complexType.name, resolvedStructName)))
     {
         type->nonArray.complexType.genericParams = resolvedParams;
     }

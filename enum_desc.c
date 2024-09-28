@@ -136,7 +136,13 @@ void enum_desc_resolve_generics(struct EnumDesc *theEnum, HashTable *paramsMap, 
     for (memberIter = set_begin(theEnum->members); iterator_gettable(memberIter); iterator_next(memberIter))
     {
         struct EnumMember *member = iterator_get(memberIter);
+        char *oldTypeName = type_get_name(&member->type);
         type_try_resolve_generic(&member->type, paramsMap, name, params);
+        char *newTypeName = type_get_name(&member->type);
+        log(LOG_DEBUG, "Attempting to resolve member %s::%s: old type %s, new type %s", theEnum->name, member->name, oldTypeName, newTypeName);
+
+        free(oldTypeName);
+        free(newTypeName);
     }
     iterator_free(memberIter);
 
