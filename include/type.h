@@ -107,6 +107,8 @@ size_t type_get_size_of_array_element(struct Type *arrayType, struct Scope *scop
 // calculate the power of 2 to which a given type needs to be aligned
 u8 type_get_alignment(struct Type *type, struct Scope *scope);
 
+bool type_is_generic(struct Type *type);
+
 void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams);
 
 void type_try_resolve_vt_self_unchecked(struct Type *type, struct TypeEntry *typeEntry);
