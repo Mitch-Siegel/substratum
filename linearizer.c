@@ -2845,15 +2845,36 @@ void walk_initializer(struct Ast *tree,
 
     case TP_ENUM:
     {
-        if ((initializedTypeNameTree->child->type != T_IDENTIFIER) && (initializedTypeNameTree->child->type != T_CAP_SELF))
-        {
-            log_tree(LOG_FATAL, initializedTypeNameTree, "Expected identifier for enum type name, got %s", token_get_name(initializedTypeNameTree->child->type));
-        }
         struct Ast *initializedMemberTree = initializedTypeNameTree->sibling;
         struct Ast *memberInitializers = initializedMemberTree->sibling;
-        struct EnumMember *initializedMember = enum_lookup_member(initializedTypeEntry->data.asEnum, initializedMemberTree);
+        switch (initializedTypeNameTree->child->type)
+        {
+        case T_IDENTIFIER:
+        case T_CAP_SELF:
+        {
+            struct EnumMember *initializedMember = enum_lookup_member(initializedTypeEntry->data.asEnum, initializedMemberTree);
 
-        walk_enum_initializer(memberInitializers, tree, block, scope, tacIndex, initialized, initializedMember);
+            walk_enum_initializer(memberInitializers, tree, block, scope, tacIndex, initialized, initializedMember);
+        }
+        break;
+
+        case T_GENERIC_INSTANCE:
+        {
+            struct TypeEntry *rhsType = walk_type_name_or_generic_instantiation(scope, initializedTypeNameTree->child, NULL);
+
+            if (type_entry_compare(initializedTypeEntry, rhsType))
+            {
+                log_tree(LOG_FATAL, initializedTypeNameTree, "Initialized type %s doesn't match expected type %s", type_entry_name(initializedTypeEntry), type_entry_name(rhsType));
+            }
+
+            struct EnumMember *initializedMember = enum_lookup_member(initializedTypeEntry->data.asEnum, initializedMemberTree);
+            walk_enum_initializer(memberInitializers, tree, block, scope, tacIndex, initialized, initializedMember);
+        }
+        break;
+
+        default:
+            log_tree(LOG_FATAL, initializedTypeNameTree, "Expected identifier for enum type name, got %s", token_get_name(initializedTypeNameTree->child->type));
+        }
     }
     break;
     }

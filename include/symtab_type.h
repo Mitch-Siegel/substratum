@@ -50,6 +50,8 @@ struct TypeEntry *type_entry_new_enum(char *name, struct Scope *parentScope, enu
 
 void type_entry_free(struct TypeEntry *entry);
 
+ssize_t type_entry_compare(struct TypeEntry *entryA, struct TypeEntry *entryB);
+
 char *type_entry_name(struct TypeEntry *entry);
 
 void type_entry_check_implemented_access(struct TypeEntry *theType,

@@ -157,6 +157,24 @@ void type_entry_free(struct TypeEntry *entry)
     free(entry);
 }
 
+ssize_t type_entry_compare(struct TypeEntry *entryA, struct TypeEntry *entryB)
+{
+    ssize_t diff = 0;
+    diff = strcmp(entryA->baseName, entryB->baseName);
+    if (diff)
+    {
+        return diff;
+    }
+
+    diff = entryA->permutation - entryB->permutation;
+    if (diff)
+    {
+        return diff;
+    }
+
+    return type_compare(&entryA->type, &entryB->type);
+}
+
 char *type_entry_name(struct TypeEntry *entry)
 {
     char *name = type_get_name(&entry->type);
