@@ -1,0 +1,73 @@
+#ifndef _STDSB_RC_SBH_
+#define _STDSB_RC_SBH_
+
+struct<T> RcInternal
+{
+    usize refCount;
+    T data;
+}
+
+struct<T> Rc
+{
+    Ptr::<RcInternal::<T>> ptr;
+}
+
+impl<T> Rc
+{
+    public fun new(T value) -> Self
+    {
+        Layout layout = TypeLayout::<RcInternal::<T>>::new();
+        Ptr::<RcInternal::<T>> allocated = mem::alloc(layout);
+        allocated.write(RcInternal::<T> {refCount = 0, data = T});
+        return Rc::<T> { ptr = allocated };
+    }
+
+    fun is_unique(this) -> u8
+    {
+        if(this.ptr.refCount == 1)
+        {
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
+    public fun get_mut(self) -> Option::<Ptr::<T>>
+    {
+        if(self.is_unique())
+        {
+            return Option::<Ptr::<T>>::Some(Ptr::<T>::from_address(&self.ptr.raw().data));
+        }
+        else
+        {
+            return Option::<Ptr::<T>>::None;
+        }
+    }
+
+
+}
+
+impl<T> Clone for Rc
+{
+    public fun clone(self) -> Self
+    {
+        Rc::<T> cloned = *self;
+        *self.ptr.refCount += 1;
+    }
+}
+
+impl<T> Drop for Rc
+{
+    public fun drop(self)
+    {
+        *self.ptr.refCount -= 1;
+        if(self.ptr.refCount == 0)
+        {
+            mem::dealloc(self.ptr.raw());
+        }
+    }
+}
+
+#endif

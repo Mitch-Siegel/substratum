@@ -18,7 +18,9 @@ impl String
         }
         len += 1;
 
-        String created = String {bytes = Ptr::<u8>::from_address(Mem::alloc(len), len = len)};
+        Layout layout = TypeLayout::<u8>::array(len);
+
+        String created = String {bytes = Ptr::<u8>::from_address(Mem::alloc(layout)), len = len};
         return created;
     }
 

@@ -18,7 +18,7 @@ fun linux_open(u8 *pathname, u32 mode) -> u32 asm
 	sd t2, 48(sp)
 	sd s0, 56(sp)
 	sd s1, 64(sp)
-	; sd a0, 72(sp) - we will return a value
+    // sd a0, 72(sp) - we will return a value
 	sd a1, 88(sp)
 	sd a2, 96(sp)
 	sd a3, 104(sp)
@@ -58,7 +58,7 @@ fun linux_open(u8 *pathname, u32 mode) -> u32 asm
 	ld t2, 48(sp)
 	ld s0, 56(sp)
 	ld s1, 64(sp)
-	; ld a0, 72(sp) - we will return a value
+	// ld a0, 72(sp) - we will return a value
 	ld a1, 88(sp)
 	ld a2, 96(sp)
 	ld a3, 104(sp)

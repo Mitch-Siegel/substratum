@@ -23,13 +23,13 @@ impl Mem
         free(ptr);
     }
 
-    public fun alloc(u64 size) -> u8 *
+    public fun alloc(Layout layout) -> u8 *
     {
-        return checked_malloc(size);
+        return Mem::checked_malloc(layout.size());
     }
 
     public fun dealloc(u8 *ptr)
     {
-        checked_free(ptr);
+        Mem::checked_free(ptr);
     }
 }
