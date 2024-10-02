@@ -1,0 +1,8 @@
+#include <proc.sbh>
+#include <file.sbh>
+
+fun main()
+{
+    File input = File::open_rdonly(String::from_ascii("./fileio.sb" as u8*));
+    exit(1);
+}

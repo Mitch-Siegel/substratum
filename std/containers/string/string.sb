@@ -26,5 +26,8 @@ impl String
 
     public fun append(self, String other);
 
-    public fun contents(self) -> Ptr::<u8>;
+    public fun contents(self) -> Ptr::<u8>
+    {
+        return self.bytes;
+    }
 }

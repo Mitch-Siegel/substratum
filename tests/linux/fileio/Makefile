@@ -1,10 +1,14 @@
-SBROOT = ..
+SBROOT = ../../..
 SBCC = $(SBROOT)/sbcc
 AS = riscv64-unknown-linux-gnu-as
-AR = riscv64-unknown-linux-gnu-ar
 LD = riscv64-unknown-linux-gnu-ld
-AR_ARGS = rcs
-RISCV_ARGS = -march=rv64g
+LD_ARGS = -static --sysroot=/opt/riscv/sysroot 
+LD_ARGS += --allow-multiple-definition -m elf64lriscv
+LD_LIBC_STUFF = -L/opt/riscv/sysroot/usr/lib /opt/riscv/sysroot/usr/lib/libc.a
+LD_LIBC_STUFF += -L/opt/riscv/lib/gcc/riscv64-unknown-linux-gnu/13.2.0/ /opt/riscv/lib/gcc/riscv64-unknown-linux-gnu/13.2.0/libgcc.a
+LD_LIBC_STUFF += /opt/riscv/lib/gcc/riscv64-unknown-linux-gnu/13.2.0/libgcc_eh.a
+LD_CRT_FILES = /opt/riscv/sysroot/usr/lib/crt1.o
+RISCV_ARGS = -march=rv64g 
 sh=zsh
 
 STD_DIR = $(SBROOT)/std
@@ -16,20 +20,27 @@ STD_SUBDIRS = $(shell find $(STD_DIR) -type d)
 STD_SUBDIRS := $(filter-out $(STD_DIR)/control-flows,$(STD_SUBDIRS))
 STD_INCLUDES = $(foreach dir,$(STD_SUBDIRS),-I $(dir))
 
-SRCS = $(shell find . -type f -name "*.sb")
+SRCS = $(wildcard ./*.sb)
 ASMS = $(patsubst %.sb,%.S,$(SRCS))
-OBJS = $(patsubst %.sb,%.o,$(SRCS))
+OBJS = $(patsubst %.sb,%.o,$(SRCS)) $(SBROOT)/std/stdsb.a
 
-programs: stdsb.a
+programs: fileio
 
-stdsb.a: $(OBJS)
-	$(AR) $(AR_ARGS) $@ $^
+.default: fileio
+
+.PHONY: run debug
+
+$(SBROOT)/std/stdsb.o:
+	make -C $(SBROOT)/std
 
 # don't automatically remove .elf files
-.SECONDARY: *.elf *.S *.o
+.SECONDARY: *.elf *.S
+
+
+fileio: $(OBJS)
+	$(LD) $(LD_ARGS) -o $@ $^ $(LD_CRT_FILES) $(LD_LIBC_STUFF)
 
 %.S: %.sb
-	@echo "Building $(basename $@).S"
 ifndef NO-COVERAGE
 	rm -f $(SBCC_BUILD_DIR)/*.gcda
 endif
@@ -46,8 +57,13 @@ endif
 
 # all test object files must have one and only one substratum source file
 %.o: %.S
-	@echo "Building $@"
 	$(AS) $(RISCV_ARGS) --gdwarf-5 -r -o $@ $(basename $@).S
+
+run: fileio
+	$(eval $(shell qemu-riscv64 $(word 1,$^) >$@))
+
+debug: fileio
+	qemu-riscv64 -g 1234 $(word 1,$^)
 
 info:
 	$(info "SRCS = $(SRCS)")
@@ -57,8 +73,8 @@ info:
 	$(info "STD_INCLUDES = $(STD_INCLUDES)")
 
 clean:
-	@rm -rf *.S
-	@rm -rf *.o
+	@rm -f *.S
+	@rm -f *.o
 	@rm -f *.elf
 	@rm -f *.output
 	@rm -rf coverage
