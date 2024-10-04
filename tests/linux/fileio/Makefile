@@ -34,7 +34,7 @@ $(SBROOT)/std/stdsb.o:
 	make -C $(SBROOT)/std
 
 # don't automatically remove .elf files
-.SECONDARY: *.elf *.S
+.SECONDARY: *.elf fileio.S
 
 
 fileio: $(OBJS)

@@ -1,8 +1,9 @@
 #include <proc.sbh>
 #include <file.sbh>
-
+#include <stdout.sbh>
 fun main()
 {
-    File input = File::open_rdonly(String::from_ascii("./fileio.sb" as u8*));
-    exit(1);
+    Stdout::print_hex(1234);
+    Stdout::print_str(String::from_ascii("What The Shit!" as u8*));
+    exit(123);
 }

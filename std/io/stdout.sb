@@ -1,82 +1,11 @@
 #include <stdout.sbh>
+#include <linux_io.sbh>
 
-fun linux_write(u32 fd, u8 *buf, u64 count) asm
+#define STDOUT_FILENO 0
+
+fun putc(u32 filedes, u8 c) -> u32
 {
-	addi sp, sp, -256
-	sd ra, 0(sp)
-	sd sp, 8(sp)
-	sd gp, 16(sp)
-	sd tp, 24(sp)
-	sd t0, 32(sp)
-	sd t1, 40(sp)
-	sd t2, 48(sp)
-	sd s0, 56(sp)
-	sd s1, 64(sp)
-	sd a0, 72(sp)
-	sd a1, 88(sp)
-	sd a2, 96(sp)
-	sd a3, 104(sp)
-	sd a4, 112(sp)
-	sd a5, 120(sp)
-	sd a6, 128(sp)
-	sd a7, 136(sp)
-	sd s2, 144(sp)
-	sd s3, 152(sp)
-	sd s4, 160(sp)
-	sd s5, 168(sp)
-	sd s6, 176(sp)
-	sd s7, 184(sp)
-	sd s8, 192(sp)
-	sd s9, 200(sp)
-	sd s10, 208(sp)
-	sd s11, 216(sp)
-	sd t3, 224(sp)
-	sd t4, 232(sp)
-	sd t5, 240(sp)
-	sd t6, 248(sp)
-
-	t0 = readvar(fd)
-	t1 = readvar(buf)
-	t2 = readvar(count)
-
-	li a7, LINUX_RISCV_WRITE
-	mv a0, t0
-	mv a1, t1
-	mv a2, t2
-	ecall
-
-	ld ra, 0(sp)
-	ld sp, 8(sp)
-	ld gp, 16(sp)
-	ld tp, 24(sp)
-	ld t0, 32(sp)
-	ld t1, 40(sp)
-	ld t2, 48(sp)
-	ld s0, 56(sp)
-	ld s1, 64(sp)
-	ld a0, 72(sp)
-	ld a1, 88(sp)
-	ld a2, 96(sp)
-	ld a3, 104(sp)
-	ld a4, 112(sp)
-	ld a5, 120(sp)
-	ld a6, 128(sp)
-	ld a7, 136(sp)
-	ld s2, 144(sp)
-	ld s3, 152(sp)
-	ld s4, 160(sp)
-	ld s5, 168(sp)
-	ld s6, 176(sp)
-	ld s7, 184(sp)
-	ld s8, 192(sp)
-	ld s9, 200(sp)
-	ld s10, 208(sp)
-	ld s11, 216(sp)
-	ld t3, 224(sp)
-	ld t4, 232(sp)
-	ld t5, 240(sp)
-	ld t6, 248(sp)
-	addi sp, sp, 256
+	return linux_write(filedes, &c, 1);
 }
 
 impl Stdout
@@ -88,6 +17,29 @@ impl Stdout
 
     public fun print_hex(u64 toPrint)
     {
+		putc(STDOUT_FILENO, '0');
+		putc(STDOUT_FILENO, 'x');
+		u8 i = 0;
+		while(i < 8)
+		{
+			u8 thisByte = ((toPrint >> ((7 - i) * 8)) & 0xff) as u8;
+			u8 j = 0;
+			while(j < 2)
+			{
+				u8 thisNibble = (thisByte >> ((1 - j) * 4)) & 0xf;
+				if(thisNibble < 10)
+				{
+					putc(STDOUT_FILENO, '0' + thisNibble);
+				}
+				else
+				{
+					putc(STDOUT_FILENO, 'A' + (thisNibble- 10));
+				}
+				j = j + 1;
+			}
 
-    }
+
+			i = i + 1;
+		}
+	}
 }

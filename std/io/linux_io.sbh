@@ -1,0 +1,17 @@
+#ifndef _STDSB_LINUX_IO_SBH_
+#define _STDSB_LINUX_IO_SBH_
+
+#define LINUX_O_RDONLY  00
+#define LINUX_O_WRONLY  01
+#define LINUX_O_RDWR    02
+#define LINUX_RISCV_FSOPEN 430
+#define LINUX_RISCV_READ 63
+#define LINUX_RISCV_WRITE 64
+
+fun linux_open(u8 *pathname, u32 mode) -> u32;
+
+fun linux_read(u32 fd, u8 *buffer, u64 count) -> u32;
+
+fun linux_write(u32 fd, u8 *buf, u64 count) -> u32;
+
+#endif

@@ -3,8 +3,6 @@
 
 #include <string.sbh>
 
-#define LINUX_RISCV_WRITE 11
-
 struct Stdout
 {}
 
