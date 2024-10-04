@@ -26,11 +26,11 @@ always:
 programs: $(TEST_NAME).output
 
 %.S: %.sb
-ifndef NO-COVERAGE
+ifdef COVERAGE
 	rm -f $(SBCC_BUILD_DIR)/*.gcda
 endif
-	$(SBCC) -i $^ -o $(basename $@).S -I $(COMMON_DIR) -I $(shell dirname $@)
-ifdef NO-COVERAGE
+	$(SBCC) -i $^ -o $(basename $@).S -I $(COMMON_DIR) -I $(shell dirname $@) -s
+ifndef COVERAGE
 		@echo "Coverage disabled"
 else
 		$(eval COV_DEST_DIR = $(COVERAGE_BASE_DIR)/$(basename $@))

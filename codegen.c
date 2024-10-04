@@ -11,7 +11,8 @@ void generate_code_for_program(struct SymbolTable *table,
                                struct MachineInfo *info,
                                void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
                                void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
-                               void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *))
+                               void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *),
+                               bool emitStart)
 {
     struct CodegenState globalContext;
     size_t globalInstructionIndex = 0;
@@ -34,7 +35,7 @@ void generate_code_for_program(struct SymbolTable *table,
             }
 
             // TODO: don't provide _start ourselves, call exit() when done. crt0.s??
-            if (!strcmp(generatedFunction->name, "main"))
+            if (emitStart && !strcmp(generatedFunction->name, "main"))
             {
                 fprintf(outFile, ".align 2\n\t.globl _start\n_start:\n\tcall main\n\tpgm_done:\n\tli a0, 0\n\tcall exit\n");
             }

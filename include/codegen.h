@@ -23,7 +23,8 @@ void generate_code_for_program(struct SymbolTable *table,
                                struct MachineInfo *info,
                                void (*emitPrologue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *),
                                void (*emitEpilogue)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, char *),
-                               void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *));
+                               void (*generateCodeForBasicBlock)(struct CodegenState *, struct RegallocMetadata *, struct MachineInfo *, struct BasicBlock *, char *),
+                               bool emitStart);
 
 void generate_code_for_type(struct CodegenState *globalContext,
                             struct TypeEntry *theType,

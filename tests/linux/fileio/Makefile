@@ -41,11 +41,11 @@ fileio: $(OBJS)
 	$(LD) $(LD_ARGS) -o $@ $^ $(LD_CRT_FILES) $(LD_LIBC_STUFF)
 
 %.S: %.sb
-ifndef NO-COVERAGE
+ifdef COVERAGE
 	rm -f $(SBCC_BUILD_DIR)/*.gcda
 endif
 	$(SBCC) $(STD_INCLUDES) -i $^ -o $(basename $@).S -I $(COMMON_DIR) -I $(shell dirname $@)
-ifdef NO-COVERAGE
+ifndef COVERAGE
 		@echo "Coverage disabled"
 else
 		$(eval COV_DEST_DIR = $(COVERAGE_BASE_DIR)/$(basename $@))
