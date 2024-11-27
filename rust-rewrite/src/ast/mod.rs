@@ -79,12 +79,16 @@ impl Display for CompoundStatementTree {
 
 pub enum Statement {
     VariableDeclaration(VariableDeclarationTree),
+    Assignment(AssignmentTree),
 }
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::VariableDeclaration(variable_declaration) => {
                 write!(f, "{}", variable_declaration)
+            }
+            Self::Assignment(assignment) => {
+                write!(f, "{}", assignment)
             }
         }
     }
@@ -108,6 +112,64 @@ pub struct VariableDeclarationTree {
 impl Display for VariableDeclarationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", self.typename, self.name)
+    }
+}
+
+pub struct AssignmentTree {
+    pub loc: SourceLoc,
+    pub identifier: String,
+    pub value: ExpressionTree,
+}
+impl Display for AssignmentTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} = {}", self.identifier, self.value)
+    }
+}
+
+pub struct ArithmeticDualOperands {
+    pub e1: Box<ExpressionTree>,
+    pub e2: Box<ExpressionTree>,
+}
+
+pub enum ArithmeticOperation {
+    Add(ArithmeticDualOperands),
+    Subtract(ArithmeticDualOperands),
+    Multiply(ArithmeticDualOperands),
+    Divide(ArithmeticDualOperands),
+}
+impl Display for ArithmeticOperation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Add(operands) => write!(f, "({} + {})", operands.e1, operands.e2),
+            Self::Subtract(operands) => write!(f, "({} - {})", operands.e1, operands.e2),
+            Self::Multiply(operands) => write!(f, "({} * {})", operands.e1, operands.e2),
+            Self::Divide(operands) => write!(f, "({} / {})", operands.e1, operands.e2),
+        }
+    }
+}
+
+pub enum Expression {
+    Identifier(String),
+    Constant(usize),
+    Arithmetic(ArithmeticOperation),
+}
+impl Display for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Identifier(identifier) => write!(f, "{}", identifier),
+            Self::Constant(constant) => write!(f, "{}", constant),
+            Self::Arithmetic(operation) => write!(f, "{}", operation),
+        }
+    }
+}
+
+pub struct ExpressionTree {
+    pub loc: SourceLoc,
+    pub expression: Expression,
+}
+impl Display for ExpressionTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.expression)
     }
 }
 

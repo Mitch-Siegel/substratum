@@ -18,6 +18,11 @@ pub enum Token {
     U16,
     U32,
     U64,
+    Plus,
+    Minus,
+    Star,
+    FSlash,
+    Assign,
     Fun,
     LParen,
     RParen,
@@ -25,6 +30,7 @@ pub enum Token {
     LCurly,
     RCurly,
     Comma,
+    Semicolon,
     Identifier(String),
     UnsignedDecimalConstant(usize),
     Eof,
@@ -37,6 +43,11 @@ impl PartialEq for Token {
             (Token::U16, Token::U16) => true,
             (Token::U32, Token::U32) => true,
             (Token::U64, Token::U32) => true,
+            (Token::Plus, Token::Plus) => true,
+            (Token::Minus, Token::Minus) => true,
+            (Token::Star, Token::Star) => true,
+            (Token::FSlash, Token::FSlash) => true,
+            (Token::Assign, Token::Assign) => true,
             (Token::Fun, Token::Fun) => true,
             (Token::LParen, Token::LParen) => true,
             (Token::RParen, Token::RParen) => true,
@@ -44,6 +55,7 @@ impl PartialEq for Token {
             (Token::LCurly, Token::LCurly) => true,
             (Token::RCurly, Token::RCurly) => true,
             (Token::Comma, Token::Comma) => true,
+            (Token::Semicolon, Token::Semicolon) => true,
             (Token::Identifier(_a), Token::Identifier(_b)) => true,
             (Token::UnsignedDecimalConstant(_a), Token::UnsignedDecimalConstant(_b)) => true,
             (Token::Eof, Token::Eof) => true,
@@ -59,6 +71,11 @@ impl Display for Token {
             Self::U16 => write!(f, "u16"),
             Self::U32 => write!(f, "u32"),
             Self::U64 => write!(f, "u64"),
+            Self::Plus => write!(f, "+"),
+            Self::Minus => write!(f, "-"),
+            Self::Star => write!(f, "*"),
+            Self::FSlash => write!(f, "/"),
+            Self::Assign => write!(f, "="),
             Self::Fun => write!(f, "fun"),
             Self::LParen => write!(f, "("),
             Self::RParen => write!(f, ")"),
@@ -66,6 +83,7 @@ impl Display for Token {
             Self::LCurly => write!(f, "{{"),
             Self::RCurly => write!(f, "}}"),
             Self::Comma => write!(f, ","),
+            Self::Semicolon => write!(f, ";"),
             Self::Identifier(string) => write!(f, "Identifier({})", string),
             Self::UnsignedDecimalConstant(constant) => {
                 write!(f, "UnsignedDecimalConstant({})", constant)
@@ -177,6 +195,10 @@ where
                     self.advance_char();
                     Token::RParen
                 }
+                '+' => {
+                    self.advance_char();
+                    Token::Plus
+                }
                 '-' => {
                     self.advance_char();
                     if let Some(second_char) = self.peek_char() {
@@ -185,21 +207,31 @@ where
                                 self.advance_char();
                                 Token::Arrow
                             }
-                            _ => {
-                                self.invalid_char(second_char);
-                                Token::Eof
-                            }
+                            _ => Token::Minus,
                         }
                     } else {
-                        {
-                            self.invalid_char(char);
-                            Token::Eof
-                        }
+                        Token::Minus
                     }
+                }
+                '*' => {
+                    self.advance_char();
+                    Token::Star
+                }
+                '/' => {
+                    self.advance_char();
+                    Token::FSlash
+                }
+                '=' => {
+                    self.advance_char();
+                    Token::Assign
                 }
                 ',' => {
                     self.advance_char();
                     Token::Comma
+                }
+                ';' => {
+                    self.advance_char();
+                    Token::Semicolon
                 }
                 '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                     let mut constant_string = String::new();
