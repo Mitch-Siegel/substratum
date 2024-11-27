@@ -1,5 +1,6 @@
 mod symtab;
 mod types;
+pub mod ir;
 
 use crate::ast::*;
 pub use symtab::*;

@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::lexer::*;
+use crate::midend::ir::BinaryOperations;
 
 pub struct Parser<I>
 where
@@ -8,15 +9,8 @@ where
     lexer: Lexer<I>,
 }
 
-enum OperatorPrecedences {
-    Add,
-    Subtract,
-    Multiply,
-    Divide,
-}
-
-impl OperatorPrecedences {
-    pub fn get(&self) -> usize {
+impl BinaryOperations {
+    pub fn get_precedence(&self) -> usize {
         match self {
             Self::Add => 1,
             Self::Subtract => 1,
@@ -25,15 +19,15 @@ impl OperatorPrecedences {
         }
     }
 
-    pub fn of_token(token: &Token) -> usize {
+    pub fn precedence_of_token(token: &Token) -> usize {
         match token {
-            Token::Plus => Self::Add.get(),
-            Token::Minus => Self::Subtract.get(),
-            Token::Star => Self::Multiply.get(),
-            Token::FSlash => Self::Divide.get(),
+            Token::Plus => Self::Add.get_precedence(),
+            Token::Minus => Self::Subtract.get_precedence(),
+            Token::Star => Self::Multiply.get_precedence(),
+            Token::FSlash => Self::Divide.get_precedence(),
             _ => {
                 panic!(
-                    "Invalid token {} passed to OperatorPrecedences::of_token()",
+                    "Invalid token {} passed to BinaryOperations::precedence_of_token",
                     token
                 );
             }
@@ -189,7 +183,7 @@ where
     fn token_is_operator_of_at_least_precedence(token: &Token, precedence: usize) -> bool {
         match token {
             Token::Plus | Token::Minus | Token::Star | Token::FSlash => {
-                OperatorPrecedences::of_token(&token) >= precedence
+                BinaryOperations::precedence_of_token(&token) >= precedence
             }
             _ => false,
         }
@@ -208,11 +202,11 @@ where
 
             while Self::token_is_operator_of_at_least_precedence(
                 &self.peek_token(),
-                OperatorPrecedences::of_token(&operation),
+                BinaryOperations::precedence_of_token(&operation),
             ) {
                 rhs = self.parse_expression_min_precedence(
                     rhs,
-                    OperatorPrecedences::of_token(&operation),
+                    BinaryOperations::precedence_of_token(&operation),
                 );
             }
 
