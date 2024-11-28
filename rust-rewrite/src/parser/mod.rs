@@ -12,19 +12,19 @@ where
 impl BinaryOperations {
     pub fn get_precedence(&self) -> usize {
         match self {
-            Self::Add => 1,
-            Self::Subtract => 1,
-            Self::Multiply => 2,
-            Self::Divide => 2,
+            Self::Add(_) => 1,
+            Self::Subtract(_) => 1,
+            Self::Multiply(_) => 2,
+            Self::Divide(_) => 2,
         }
     }
 
     pub fn precedence_of_token(token: &Token) -> usize {
         match token {
-            Token::Plus => Self::Add.get_precedence(),
-            Token::Minus => Self::Subtract.get_precedence(),
-            Token::Star => Self::Multiply.get_precedence(),
-            Token::FSlash => Self::Divide.get_precedence(),
+            Token::Plus => 1,
+            Token::Minus => 1,
+            Token::Star => 2,
+            Token::FSlash => 2,
             _ => {
                 panic!(
                     "Invalid token {} passed to BinaryOperations::precedence_of_token",
@@ -165,7 +165,7 @@ where
                     }
                     Token::UnsignedDecimalConstant(value) => {
                         self.next_token();
-                        Expression::Constant(value)
+                        Expression::UnsignedDecimalConstant(value)
                     }
                     Token::LParen => {
                         self.expect_token(Token::LParen);
@@ -217,10 +217,10 @@ where
             expr = ExpressionTree {
                 loc: start_loc,
                 expression: Expression::Arithmetic(match operation {
-                    Token::Plus => ArithmeticOperation::Add(operands),
-                    Token::Minus => ArithmeticOperation::Subtract(operands),
-                    Token::Star => ArithmeticOperation::Multiply(operands),
-                    Token::FSlash => ArithmeticOperation::Divide(operands),
+                    Token::Plus => ArithmeticOperationTree::Add(operands),
+                    Token::Minus => ArithmeticOperationTree::Subtract(operands),
+                    Token::Star => ArithmeticOperationTree::Multiply(operands),
+                    Token::FSlash => ArithmeticOperationTree::Divide(operands),
                     _ => self.unexpected_token(),
                 }),
             };

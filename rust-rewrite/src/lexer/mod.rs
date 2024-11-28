@@ -1,9 +1,15 @@
 use std::{char, fmt::Display};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct SourceLoc {
     line: usize,
     col: usize,
+}
+
+impl SourceLoc {
+    pub fn none() -> Self {
+        SourceLoc {line: 0, col: 0}
+    }
 }
 
 impl Display for SourceLoc {

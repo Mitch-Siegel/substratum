@@ -1,6 +1,8 @@
 use crate::midend::types::Type;
 use std::collections::HashMap;
 
+use super::ir::ControlFlow;
+
 #[derive(Debug)]
 pub struct Variable {
     name: String,
@@ -38,6 +40,7 @@ pub struct Function {
     arguments: HashMap<String, Variable>,
     argument_order: Vec<String>,
     main_scope: Option<Scope>, // None if not defined
+    control_flow: ControlFlow,
 }
 
 impl Function {
@@ -57,6 +60,7 @@ impl Function {
             },
             argument_order: args_order,
             main_scope,
+            control_flow: ControlFlow::new()
         }
     }
 
@@ -65,6 +69,10 @@ impl Function {
             Some(t) => panic!("Function {} is already defined!", self.name),
             None => self.main_scope.replace(definition_scope),
         };
+    }
+
+    pub fn control_flow(&mut self) -> &mut ControlFlow {
+        &mut self.control_flow
     }
 }
 

@@ -131,13 +131,13 @@ pub struct ArithmeticDualOperands {
     pub e2: Box<ExpressionTree>,
 }
 
-pub enum ArithmeticOperation {
+pub enum ArithmeticOperationTree {
     Add(ArithmeticDualOperands),
     Subtract(ArithmeticDualOperands),
     Multiply(ArithmeticDualOperands),
     Divide(ArithmeticDualOperands),
 }
-impl Display for ArithmeticOperation {
+impl Display for ArithmeticOperationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Add(operands) => write!(f, "({} + {})", operands.e1, operands.e2),
@@ -150,14 +150,14 @@ impl Display for ArithmeticOperation {
 
 pub enum Expression {
     Identifier(String),
-    Constant(usize),
-    Arithmetic(ArithmeticOperation),
+    UnsignedDecimalConstant(usize),
+    Arithmetic(ArithmeticOperationTree),
 }
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Identifier(identifier) => write!(f, "{}", identifier),
-            Self::Constant(constant) => write!(f, "{}", constant),
+            Self::UnsignedDecimalConstant(constant) => write!(f, "{}", constant),
             Self::Arithmetic(operation) => write!(f, "{}", operation),
         }
     }
