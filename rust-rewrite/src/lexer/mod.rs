@@ -1,6 +1,7 @@
 use std::{char, fmt::Display};
+use serde::Serialize;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize)]
 pub struct SourceLoc {
     line: usize,
     col: usize,

@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use crate::lexer::SourceLoc;
+use serde::Serialize;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub enum IROperand {
     Variable(String),
     Temporary(String),
@@ -24,7 +25,7 @@ impl IROperand {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum BinaryOperations {
     Add(BinaryArithmeticOperands),
     Subtract(BinaryArithmeticOperands),
@@ -66,13 +67,13 @@ impl BinaryOperations {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct SourceDestOperands {
     destination: IROperand,
     source: IROperand,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct DualSourceOperands {
     pub a: IROperand,
     pub b: IROperand,
@@ -84,7 +85,7 @@ impl DualSourceOperands {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct BinaryArithmeticOperands {
     pub destination: IROperand,
     pub sources: DualSourceOperands,
@@ -99,7 +100,7 @@ impl BinaryArithmeticOperands {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum JumpCondition {
     Unconditional,
     Eq(DualSourceOperands),
@@ -110,20 +111,20 @@ pub enum JumpCondition {
     LE(DualSourceOperands),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct JumpOperands {
     pub destination_block: usize,
     pub condition: JumpCondition,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum IROperations {
     Assignment(SourceDestOperands),
     BinaryOperation(BinaryOperations),
     Jump(JumpOperands),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct IR {
     loc: SourceLoc,
     operation: IROperations,
@@ -158,7 +159,7 @@ impl IR {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct BasicBlock {
     label: usize,
     statements: Vec<IR>,
@@ -186,7 +187,7 @@ impl BasicBlock {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ControlFlow {
     // indexed by numerical block number
     blocks: Vec<BasicBlock>,

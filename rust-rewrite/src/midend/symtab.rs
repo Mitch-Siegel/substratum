@@ -1,9 +1,12 @@
 use crate::midend::types::Type;
 use std::collections::HashMap;
-
 use super::ir::ControlFlow;
 
-#[derive(Debug)]
+use serde::Serialize;
+use serde_json::Result;
+
+
+#[derive(Debug, Serialize)]
 pub struct Variable {
     name: String,
     type_: Type,
@@ -15,7 +18,7 @@ impl Variable {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Scope {
     variables: HashMap<String, Variable>,
     subscopes: Vec<Scope>,
@@ -34,7 +37,7 @@ impl Scope {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Function {
     name: String,
     arguments: HashMap<String, Variable>,
@@ -76,7 +79,7 @@ impl Function {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct SymbolTable {
     global_scope: Scope,
     functions: HashMap<String, Function>,
