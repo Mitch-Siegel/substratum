@@ -4,25 +4,18 @@ mod types;
 
 use crate::{ast::*, lexer::SourceLoc};
 use ir::*;
-use serde::Serialize;
 pub use symtab::*;
 use types::*;
 
 struct WalkContext {
     control_flow: Option<ControlFlow>,
-    current_block: usize,
-    control_convergence_block: usize,
     scopes: Vec<Scope>,
 }
 
 impl WalkContext {
-    pub fn new(mut control_flow: ControlFlow) -> WalkContext {
-        let current_block = control_flow.new_block();
-        let control_convergence_block = control_flow.new_block();
+    fn new(control_flow: ControlFlow) -> WalkContext {
         WalkContext {
             control_flow: Some(control_flow),
-            current_block,
-            control_convergence_block,
             scopes: Vec::new(),
         }
     }
@@ -31,26 +24,16 @@ impl WalkContext {
         self.control_flow
             .as_mut()
             .expect("WalkContext::append_ir expects valid control flow")
-            .append_to_block(self.current_block, statement);
+            .append_statement_to_current_block(statement);
     }
 
     pub fn converge_control(&mut self) {
-        let end_block_jump = IR::new_jump(
-            SourceLoc::none(),
-            self.control_convergence_block,
-            JumpCondition::Unconditional,
+        self.control_flow = Some(
+            self.control_flow
+                .take()
+                .expect("WalkContext::converge_control expects valid control flow")
+                .converge_control(self.scope()),
         );
-        self.append_ir(end_block_jump);
-        self.current_block = self.control_convergence_block;
-        self.control_convergence_block = self
-            .control_flow
-            .as_mut()
-            .expect("WalkContext::converge_control expects valid control flow")
-            .new_block();
-    }
-
-    pub fn current_block_label(&self) -> usize {
-        self.current_block
     }
 
     pub fn next_temp(&mut self, type_: Type) -> IROperand {
@@ -115,6 +98,26 @@ impl WalkContext {
         }
         None
     }
+
+    pub fn lookup_basic_block_mut(&mut self, label: usize) -> Option<&mut BasicBlock> {
+        for scope in (&mut self.scopes).into_iter().rev().by_ref() {
+            match scope.lookup_basic_block_mut(label) {
+                Some(block) => return Some(block),
+                None => {}
+            }
+        }
+        None
+    }
+
+    pub fn lookup_basic_block(&self, label: usize) -> Option<&BasicBlock> {
+        for scope in (&self.scopes).into_iter().rev().by_ref() {
+            match scope.lookup_basic_block(label) {
+                Some(block) => return Some(block),
+                None => {}
+            }
+        }
+        None
+    }
 }
 
 pub trait TableWalk {
@@ -130,7 +133,7 @@ impl TableWalk for TranslationUnitTree {
         match self.contents {
             TranslationUnit::FunctionDeclaration(tree) => {
                 let declared_function = tree.walk();
-                symbol_table.InsertFunctionPrototype(declared_function);
+                symbol_table.insert_function_prototype(declared_function);
             }
             TranslationUnit::FunctionDefinition(tree) => {
                 let mut declared_prototype = tree.prototype.walk();
@@ -140,7 +143,7 @@ impl TableWalk for TranslationUnitTree {
                 tree.body.walk(&mut context);
                 let argument_scope = context.pop_last_scope();
 
-                symbol_table.InsertFunction(Function::new(
+                symbol_table.insert_function(Function::new(
                     declared_prototype,
                     argument_scope,
                     context.take_control_flow(),

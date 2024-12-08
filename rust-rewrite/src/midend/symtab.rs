@@ -1,9 +1,8 @@
-use super::ir::ControlFlow;
+use super::ir::{self, BasicBlock, ControlFlow};
 use crate::midend::types::Type;
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 use serde::Serialize;
-use serde_json::Result;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Variable {
@@ -25,6 +24,7 @@ impl Variable {
 pub struct Scope {
     variables: HashMap<String, Variable>,
     subscopes: Vec<Scope>,
+    basic_blocks: HashMap<usize, BasicBlock>,
 }
 
 impl Scope {
@@ -32,6 +32,7 @@ impl Scope {
         Scope {
             variables: HashMap::new(),
             subscopes: Vec::new(),
+            basic_blocks: HashMap::new(),
         }
     }
 
@@ -45,6 +46,18 @@ impl Scope {
 
     pub fn insert_subscope(&mut self, subscope: Scope) {
         self.subscopes.push(subscope);
+    }
+
+    pub fn insert_basic_block(&mut self, block: BasicBlock) {
+        self.basic_blocks.insert(block.label(), block);
+    }
+
+    pub fn lookup_basic_block(&self, label: usize) -> Option<&BasicBlock> {
+        self.basic_blocks.get(&label)
+    }
+
+    pub fn lookup_basic_block_mut(&mut self, label: usize) -> Option<&mut BasicBlock> {
+        self.basic_blocks.get_mut(&label)
     }
 }
 
@@ -96,8 +109,22 @@ impl Function {
         self.prototype.name.clone()
     }
 
-    pub fn control_flow(&mut self) -> &mut ControlFlow {
-        &mut self.control_flow
+    pub fn prototype(&self) -> &FunctionPrototype {
+        &self.prototype
+    }
+
+    pub fn control_flow(&self) -> &ControlFlow {
+        &self.control_flow
+    }
+
+    pub fn get_basic_block(&self, label: usize) -> &BasicBlock {
+        self.scope.lookup_basic_block(label).expect(
+            format!(
+                "Function::lookup_basic_block for nonexistent block {}",
+                label
+            )
+            .as_str(),
+        )
     }
 }
 
@@ -120,21 +147,38 @@ impl SymbolTable {
             functions: HashMap::new(),
         }
     }
+
+    pub fn print_ir(&self) {
+        for function in self.functions.values() {
+            match function {
+                FunctionOrPrototype::Function(f) => {
+                    println!("{}", serde_json::to_string_pretty(f.prototype()).unwrap());
+                    let cf = f.control_flow();
+                    for block_idx in 0..cf.block_count() {
+                        let bb = f.get_basic_block(block_idx);
+                        println!("Block {}:", block_idx);
+                        println!("{}", serde_json::to_string_pretty(&bb).unwrap());
+                    }
+                }
+                FunctionOrPrototype::Prototype(p) => {}
+            }
+        }
+    }
 }
 
 pub trait InsertFunction {
-    fn InsertFunction(&mut self, function: Function);
+    fn insert_function(&mut self, function: Function);
 }
 
 impl InsertFunction for SymbolTable {
-    fn InsertFunction(&mut self, function: Function) {
+    fn insert_function(&mut self, function: Function) {
         self.functions
             .insert(function.name(), FunctionOrPrototype::Function(function));
     }
 }
 
 impl SymbolTable {
-    pub fn InsertFunctionPrototype(&mut self, prototype: FunctionPrototype) {
+    pub fn insert_function_prototype(&mut self, prototype: FunctionPrototype) {
         self.functions.insert(
             prototype.name.clone(),
             FunctionOrPrototype::Prototype(prototype),

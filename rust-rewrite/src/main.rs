@@ -3,8 +3,6 @@ mod lexer;
 mod midend;
 mod parser;
 
-use serde::Serialize;
-
 use crate::lexer::Lexer;
 use crate::midend::SymbolTable;
 use crate::midend::TableWalk;
@@ -25,5 +23,6 @@ fn main() {
         translation_unit.walk(&mut symtab);
     }
 
-    println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
+    // println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
+    symtab.print_ir();
 }
