@@ -4,6 +4,9 @@ use std::collections::HashSet;
 use crate::lexer::SourceLoc;
 use serde::Serialize;
 
+use super::Type;
+use super::WalkContext;
+
 #[derive(Clone, Debug, Serialize)]
 pub enum IROperand {
     Variable(String),
@@ -22,6 +25,31 @@ impl IROperand {
 
     pub fn new_as_unsigned_decimal_constant(constant: usize) -> Self {
         IROperand::UnsignedDecimalConstant(constant)
+    }
+
+    pub fn type_(&self, context: &WalkContext) -> Type {
+        match self {
+            IROperand::Variable(name) => context
+                .lookup_variable_by_name(name)
+                .expect(format!("Use of undeclared variable {}", name).as_str())
+                .type_(),
+            IROperand::Temporary(name) => context
+                .lookup_variable_by_name(name)
+                .expect(format!("Use of undeclared variable {}", name).as_str())
+                .type_()
+                .clone(),
+            IROperand::UnsignedDecimalConstant(value) => {
+                if *value > (u32::MAX as usize) {
+                    Type::new_u64(0)
+                } else if *value > (u16::MAX as usize) {
+                    Type::new_u32(0)
+                } else if *value > (u8::MAX as usize) {
+                    Type::new_u16(0)
+                } else {
+                    Type::new_u8(0)
+                }
+            }
+        }
     }
 }
 
@@ -193,6 +221,8 @@ pub struct ControlFlow {
     blocks: Vec<BasicBlock>,
     // mapping from source block to set of destination blocks
     branches: HashMap<usize, HashSet<usize>>,
+    // index of number of temporary variables used in this control flow (across all blocks)
+    temp_num: usize,
 }
 
 impl ControlFlow {
@@ -200,6 +230,7 @@ impl ControlFlow {
         ControlFlow {
             blocks: Vec::new(),
             branches: HashMap::new(),
+            temp_num: 0,
         }
     }
 
@@ -210,5 +241,11 @@ impl ControlFlow {
 
     pub fn append_to_block(&mut self, label: usize, statement: IR) {
         self.blocks[label].append_statement(statement);
+    }
+
+    pub fn next_temp(&mut self) -> String {
+        let temp_name = String::from(".T") + &self.temp_num.to_string();
+        self.temp_num += 1;
+        temp_name
     }
 }

@@ -1,5 +1,5 @@
-use std::{char, fmt::Display};
 use serde::Serialize;
+use std::{char, fmt::Display};
 
 #[derive(Copy, Clone, Debug, Serialize)]
 pub struct SourceLoc {
@@ -9,7 +9,7 @@ pub struct SourceLoc {
 
 impl SourceLoc {
     pub fn none() -> Self {
-        SourceLoc {line: 0, col: 0}
+        SourceLoc { line: 0, col: 0 }
     }
 }
 

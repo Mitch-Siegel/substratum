@@ -1,12 +1,11 @@
+use super::ir::ControlFlow;
 use crate::midend::types::Type;
 use std::collections::HashMap;
-use super::ir::ControlFlow;
 
 use serde::Serialize;
 use serde_json::Result;
 
-
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Variable {
     name: String,
     type_: Type,
@@ -15,6 +14,10 @@ pub struct Variable {
 impl Variable {
     pub fn new(name: String, type_: Type) -> Self {
         Variable { name, type_ }
+    }
+
+    pub fn type_(&self) -> Type {
+        self.type_
     }
 }
 
@@ -35,43 +38,62 @@ impl Scope {
     pub fn insert_variable(&mut self, variable: Variable) {
         self.variables.insert(variable.name.clone(), variable);
     }
+
+    pub fn lookup_variable_by_name(&self, name: &str) -> Option<&Variable> {
+        self.variables.get(name)
+    }
+
+    pub fn insert_subscope(&mut self, subscope: Scope) {
+        self.subscopes.push(subscope);
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct FunctionPrototype {
+    name: String,
+    arguments: Vec<Variable>,
+    return_type: Option<Type>,
+}
+
+impl FunctionPrototype {
+    pub fn new(name: String, arguments: Vec<Variable>, return_type: Option<Type>) -> Self {
+        FunctionPrototype {
+            name,
+            arguments,
+            return_type,
+        }
+    }
+
+    pub fn create_argument_scope(&mut self) -> Scope {
+        let mut arg_names: Vec<String> = Vec::new();
+        let mut argument_scope = Scope::new();
+        for arg in &self.arguments {
+            arg_names.push(arg.name.clone());
+            argument_scope.insert_variable(arg.clone());
+        }
+
+        argument_scope
+    }
 }
 
 #[derive(Debug, Serialize)]
 pub struct Function {
-    name: String,
-    arguments: HashMap<String, Variable>,
-    argument_order: Vec<String>,
-    main_scope: Option<Scope>, // None if not defined
+    prototype: FunctionPrototype,
+    scope: Scope,
     control_flow: ControlFlow,
 }
 
 impl Function {
-    pub fn new(name: String, arguments: Vec<Variable>, main_scope: Option<Scope>) -> Self {
-        let mut args_order: Vec<String> = Vec::new();
-        for arg in &arguments {
-            args_order.push(arg.name.clone());
-        }
+    pub fn new(prototype: FunctionPrototype, scope: Scope, control_flow: ControlFlow) -> Self {
         Function {
-            name,
-            arguments: {
-                let mut args_map: HashMap<String, Variable> = HashMap::new();
-                for arg in arguments {
-                    args_map.insert(arg.name.clone(), arg);
-                }
-                args_map
-            },
-            argument_order: args_order,
-            main_scope,
-            control_flow: ControlFlow::new()
+            prototype,
+            scope,
+            control_flow,
         }
     }
 
-    pub fn add_definition(&mut self, definition_scope: Scope) {
-        match &self.main_scope {
-            Some(t) => panic!("Function {} is already defined!", self.name),
-            None => self.main_scope.replace(definition_scope),
-        };
+    pub fn name(&self) -> String {
+        self.prototype.name.clone()
     }
 
     pub fn control_flow(&mut self) -> &mut ControlFlow {
@@ -80,9 +102,15 @@ impl Function {
 }
 
 #[derive(Debug, Serialize)]
+enum FunctionOrPrototype {
+    Function(Function),
+    Prototype(FunctionPrototype),
+}
+
+#[derive(Debug, Serialize)]
 pub struct SymbolTable {
     global_scope: Scope,
-    functions: HashMap<String, Function>,
+    functions: HashMap<String, FunctionOrPrototype>,
 }
 
 impl SymbolTable {
@@ -100,6 +128,16 @@ pub trait InsertFunction {
 
 impl InsertFunction for SymbolTable {
     fn InsertFunction(&mut self, function: Function) {
-        self.functions.insert(function.name.clone(), function);
+        self.functions
+            .insert(function.name(), FunctionOrPrototype::Function(function));
+    }
+}
+
+impl SymbolTable {
+    pub fn InsertFunctionPrototype(&mut self, prototype: FunctionPrototype) {
+        self.functions.insert(
+            prototype.name.clone(),
+            FunctionOrPrototype::Prototype(prototype),
+        );
     }
 }

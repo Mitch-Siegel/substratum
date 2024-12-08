@@ -24,6 +24,6 @@ fn main() {
     for translation_unit in program {
         translation_unit.walk(&mut symtab);
     }
-    
+
     println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
 }

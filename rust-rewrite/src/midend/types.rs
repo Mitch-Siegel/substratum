@@ -1,11 +1,11 @@
 use serde::Serialize;
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct BasicTypeInfo {
     pointer_level: usize,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub enum Type {
     U8(BasicTypeInfo),
     U16(BasicTypeInfo),
