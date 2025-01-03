@@ -112,7 +112,7 @@ impl TableWalk for TranslationUnitTree {
             }
             TranslationUnit::FunctionDefinition(tree) => {
                 let mut declared_prototype = tree.prototype.walk();
-                let mut context = WalkContext::new(ControlFlow::new());
+                let mut context = WalkContext::new(ControlFlow::new_starter());
                 context.push_scope(declared_prototype.create_argument_scope());
 
                 tree.body.walk(&mut context);

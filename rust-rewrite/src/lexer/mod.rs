@@ -29,8 +29,16 @@ pub enum Token {
     Minus,
     Star,
     FSlash,
+    GThan,
+    GThanE,
+    LThan,
+    LThanE,
+    Equals,
+    NotEquals,
     Assign,
     Fun,
+    If,
+    Else,
     LParen,
     RParen,
     Arrow,
@@ -82,8 +90,16 @@ impl Display for Token {
             Self::Minus => write!(f, "-"),
             Self::Star => write!(f, "*"),
             Self::FSlash => write!(f, "/"),
+            Self::GThan => write!(f, ">"),
+            Self::GThanE => write!(f, ">="),
+            Self::LThan => write!(f, "<"),
+            Self::LThanE => write!(f, "<="),
+            Self::Equals => write!(f, "=="),
+            Self::NotEquals => write!(f, "!="),
             Self::Assign => write!(f, "="),
             Self::Fun => write!(f, "fun"),
+            Self::If => write!(f, "if"),
+            Self::Else => write!(f, "else"),
             Self::LParen => write!(f, "("),
             Self::RParen => write!(f, ")"),
             Self::Arrow => write!(f, "->"),
@@ -164,6 +180,8 @@ where
             "u32" => Token::U32,
             "u64" => Token::U64,
             "fun" => Token::Fun,
+            "if" => Token::If,
+            "else" => Token::Else,
             _ => Token::Identifier(identifier),
         }
     }
@@ -176,6 +194,25 @@ where
         SourceLoc {
             line: self.cur_line,
             col: self.cur_col,
+        }
+    }
+
+    fn match_next_char_for_token_or(
+        &mut self,
+        expected: char,
+        tok_true: Token,
+        tok_false: Token,
+    ) -> Token {
+        match self.peek_char() {
+            None => tok_false,
+            Some(char) => {
+                if char == expected {
+                    self.advance_char();
+                    tok_true
+                } else {
+                    tok_false
+                }
+            }
         }
     }
 
@@ -208,17 +245,7 @@ where
                 }
                 '-' => {
                     self.advance_char();
-                    if let Some(second_char) = self.peek_char() {
-                        match second_char {
-                            '>' => {
-                                self.advance_char();
-                                Token::Arrow
-                            }
-                            _ => Token::Minus,
-                        }
-                    } else {
-                        Token::Minus
-                    }
+                    self.match_next_char_for_token_or('>', Token::Arrow, Token::Minus)
                 }
                 '*' => {
                     self.advance_char();
@@ -228,9 +255,32 @@ where
                     self.advance_char();
                     Token::FSlash
                 }
+                '>' => {
+                    self.advance_char();
+                    self.match_next_char_for_token_or('=', Token::GThanE, Token::GThan)
+                }
+                '<' => {
+                    self.advance_char();
+                    self.match_next_char_for_token_or('=', Token::LThanE, Token::LThan)
+                }
+                '!' => match self.peek_char() {
+                    None => {
+                        self.invalid_char('!');
+                        Token::Eof
+                    }
+                    Some(char) => {
+                        if char == '=' {
+                            self.advance_char();
+                            Token::NotEquals
+                        } else {
+                            self.invalid_char('!');
+                            Token::Eof
+                        }
+                    }
+                },
                 '=' => {
                     self.advance_char();
-                    Token::Assign
+                    self.match_next_char_for_token_or('=', Token::Equals, Token::Assign)
                 }
                 ',' => {
                     self.advance_char();

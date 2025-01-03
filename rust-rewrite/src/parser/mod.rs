@@ -101,7 +101,7 @@ where
                 loc: function_declaration.loc,
                 contents: TranslationUnit::FunctionDefinition(FunctionDefinitionTree {
                     prototype: function_declaration,
-                    body: self.parse_compoound_statement(),
+                    body: self.parse_compound_statement(),
                 }),
             },
             _ => TranslationUnitTree {
@@ -111,7 +111,7 @@ where
         }
     }
 
-    pub fn parse_compoound_statement(&mut self) -> CompoundStatementTree {
+    pub fn parse_compound_statement(&mut self) -> CompoundStatementTree {
         let start_loc = self.current_loc();
         self.expect_token(Token::LCurly);
         let mut statements: Vec<StatementTree> = Vec::new();
