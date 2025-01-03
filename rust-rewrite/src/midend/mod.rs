@@ -1,8 +1,10 @@
+mod control_flow;
 pub mod ir;
 mod symtab;
 mod types;
 
 use crate::{ast::*, lexer::SourceLoc};
+use control_flow::ControlFlow;
 use ir::*;
 pub use symtab::*;
 use types::*;
@@ -28,12 +30,10 @@ impl WalkContext {
     }
 
     pub fn converge_control(&mut self) {
-        self.control_flow = Some(
-            self.control_flow
-                .take()
-                .expect("WalkContext::converge_control expects valid control flow")
-                .converge_control(self.scope()),
-        );
+        self.control_flow
+            .take()
+            .expect("WalkContext::converge_control expects valid control flow")
+            .converge_control();
     }
 
     pub fn next_temp(&mut self, type_: Type) -> IROperand {
@@ -86,33 +86,8 @@ impl WalkContext {
 
     pub fn lookup_variable_by_name(&self, name: &str) -> Option<&Variable> {
         for scope in (&self.scopes).into_iter().rev().by_ref() {
-            println!(
-                "Look for variable {} in scope {}",
-                name,
-                serde_json::to_string_pretty(scope).unwrap()
-            );
             match scope.lookup_variable_by_name(name) {
                 Some(variable) => return Some(variable),
-                None => {}
-            }
-        }
-        None
-    }
-
-    pub fn lookup_basic_block_mut(&mut self, label: usize) -> Option<&mut BasicBlock> {
-        for scope in (&mut self.scopes).into_iter().rev().by_ref() {
-            match scope.lookup_basic_block_mut(label) {
-                Some(block) => return Some(block),
-                None => {}
-            }
-        }
-        None
-    }
-
-    pub fn lookup_basic_block(&self, label: usize) -> Option<&BasicBlock> {
-        for scope in (&self.scopes).into_iter().rev().by_ref() {
-            match scope.lookup_basic_block(label) {
-                Some(block) => return Some(block),
                 None => {}
             }
         }
