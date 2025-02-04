@@ -196,6 +196,55 @@ impl ArithmeticOperationTree {
     }
 }
 
+impl ComparisonOperationTree {
+    pub fn walk(self, loc: SourceLoc, context: &mut WalkContext) -> IROperand {
+        let (temp_dest, op) = match self {
+            ComparisonOperationTree::LThan(operands) => {
+                let lhs = operands.e1.walk(context);
+                let rhs = operands.e2.walk(context);
+                let dest = context.next_temp(lhs.type_(context));
+                (dest.clone(), BinaryOperations::new_lthan(dest, lhs, rhs))
+            }
+            ComparisonOperationTree::GThan(operands) => {
+                let lhs = operands.e1.walk(context);
+                let rhs = operands.e2.walk(context);
+                let dest = context.next_temp(lhs.type_(context));
+                (dest.clone(), BinaryOperations::new_gthan(dest, lhs, rhs))
+            }
+            ComparisonOperationTree::LThanE(operands) => {
+                let lhs = operands.e1.walk(context);
+                let rhs = operands.e2.walk(context);
+                let dest = context.next_temp(lhs.type_(context));
+                (dest.clone(), BinaryOperations::new_lthan_e(dest, lhs, rhs))
+            }
+            ComparisonOperationTree::GThanE(operands) => {
+                let lhs = operands.e1.walk(context);
+                let rhs = operands.e2.walk(context);
+                let dest = context.next_temp(lhs.type_(context));
+                (dest.clone(), BinaryOperations::new_gthan_e(dest, lhs, rhs))
+            }
+            ComparisonOperationTree::Equals(operands) => {
+                let lhs = operands.e1.walk(context);
+                let rhs = operands.e2.walk(context);
+                let dest = context.next_temp(lhs.type_(context));
+                (dest.clone(), BinaryOperations::new_equals(dest, lhs, rhs))
+            }
+            ComparisonOperationTree::NotEquals(operands) => {
+                let lhs = operands.e1.walk(context);
+                let rhs = operands.e2.walk(context);
+                let dest = context.next_temp(lhs.type_(context));
+                (
+                    dest.clone(),
+                    BinaryOperations::new_not_equals(dest, lhs, rhs),
+                )
+            }
+        };
+        let operation = IR::new_binary_op(loc, op);
+        context.append_ir(operation);
+        temp_dest
+    }
+}
+
 impl ExpressionTree {
     pub fn walk(self, context: &mut WalkContext) -> IROperand {
         match self.expression {
@@ -205,6 +254,9 @@ impl ExpressionTree {
             }
             Expression::Arithmetic(arithmetic_operation) => {
                 arithmetic_operation.walk(self.loc, context)
+            }
+            Expression::Comparison(comparison_operation) => {
+                comparison_operation.walk(self.loc, context)
             }
         }
     }
@@ -226,6 +278,7 @@ impl StatementTree {
         match self.statement {
             Statement::VariableDeclaration(tree) => context.scope().insert_variable(tree.walk()),
             Statement::Assignment(tree) => tree.walk(context),
+            Statement::IfStatement(tree) => {}
         }
     }
 }

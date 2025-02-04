@@ -60,6 +60,12 @@ pub enum BinaryOperations {
     Subtract(BinaryArithmeticOperands),
     Multiply(BinaryArithmeticOperands),
     Divide(BinaryArithmeticOperands),
+    LThan(BinaryArithmeticOperands),
+    GThan(BinaryArithmeticOperands),
+    LThanE(BinaryArithmeticOperands),
+    GThanE(BinaryArithmeticOperands),
+    Equals(BinaryArithmeticOperands),
+    NotEquals(BinaryArithmeticOperands),
 }
 
 impl BinaryOperations {
@@ -89,6 +95,58 @@ impl BinaryOperations {
 
     pub fn new_divide(destination: IROperand, source_a: IROperand, source_b: IROperand) -> Self {
         BinaryOperations::Divide(BinaryArithmeticOperands::from(
+            destination,
+            source_a,
+            source_b,
+        ))
+    }
+
+    pub fn new_lthan(destination: IROperand, source_a: IROperand, source_b: IROperand) -> Self {
+        BinaryOperations::LThan(BinaryArithmeticOperands::from(
+            destination,
+            source_a,
+            source_b,
+        ))
+    }
+
+    pub fn new_gthan(destination: IROperand, source_a: IROperand, source_b: IROperand) -> Self {
+        BinaryOperations::GThan(BinaryArithmeticOperands::from(
+            destination,
+            source_a,
+            source_b,
+        ))
+    }
+
+    pub fn new_lthan_e(destination: IROperand, source_a: IROperand, source_b: IROperand) -> Self {
+        BinaryOperations::LThanE(BinaryArithmeticOperands::from(
+            destination,
+            source_a,
+            source_b,
+        ))
+    }
+
+    pub fn new_gthan_e(destination: IROperand, source_a: IROperand, source_b: IROperand) -> Self {
+        BinaryOperations::GThanE(BinaryArithmeticOperands::from(
+            destination,
+            source_a,
+            source_b,
+        ))
+    }
+
+    pub fn new_equals(destination: IROperand, source_a: IROperand, source_b: IROperand) -> Self {
+        BinaryOperations::Equals(BinaryArithmeticOperands::from(
+            destination,
+            source_a,
+            source_b,
+        ))
+    }
+
+    pub fn new_not_equals(
+        destination: IROperand,
+        source_a: IROperand,
+        source_b: IROperand,
+    ) -> Self {
+        BinaryOperations::NotEquals(BinaryArithmeticOperands::from(
             destination,
             source_a,
             source_b,

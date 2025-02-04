@@ -77,10 +77,31 @@ impl Display for CompoundStatementTree {
     }
 }
 
+pub struct IfStatementTree {
+    pub loc: SourceLoc,
+    pub condition: ExpressionTree,
+    pub true_block: CompoundStatementTree,
+    pub false_block: Option<CompoundStatementTree>,
+}
+impl Display for IfStatementTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.false_block {
+            Some(false_block) => write!(
+                f,
+                "if {}\n\t{{{}}} else {{{}}}",
+                self.condition, self.true_block, false_block
+            ),
+            None => write!(f, "if {}\n\t{{{}}}", self.condition, self.true_block),
+        }
+    }
+}
+
 pub enum Statement {
     VariableDeclaration(VariableDeclarationTree),
     Assignment(AssignmentTree),
+    IfStatement(IfStatementTree),
 }
+
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -89,6 +110,9 @@ impl Display for Statement {
             }
             Self::Assignment(assignment) => {
                 write!(f, "{}", assignment)
+            }
+            Self::IfStatement(if_statement) => {
+                write!(f, "{}", if_statement)
             }
         }
     }
@@ -148,10 +172,32 @@ impl Display for ArithmeticOperationTree {
     }
 }
 
+pub enum ComparisonOperationTree {
+    LThan(ArithmeticDualOperands),
+    GThan(ArithmeticDualOperands),
+    LThanE(ArithmeticDualOperands),
+    GThanE(ArithmeticDualOperands),
+    Equals(ArithmeticDualOperands),
+    NotEquals(ArithmeticDualOperands),
+}
+impl Display for ComparisonOperationTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::LThan(operands) => write!(f, "({} < {})", operands.e1, operands.e2),
+            Self::GThan(operands) => write!(f, "({} > {})", operands.e1, operands.e2),
+            Self::LThanE(operands) => write!(f, "({} <= {})", operands.e1, operands.e2),
+            Self::GThanE(operands) => write!(f, "({} >= {})", operands.e1, operands.e2),
+            Self::Equals(operands) => write!(f, "({} == {})", operands.e1, operands.e2),
+            Self::NotEquals(operands) => write!(f, "({} != {})", operands.e1, operands.e2),
+        }
+    }
+}
+
 pub enum Expression {
     Identifier(String),
     UnsignedDecimalConstant(usize),
     Arithmetic(ArithmeticOperationTree),
+    Comparison(ComparisonOperationTree),
 }
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -159,6 +205,7 @@ impl Display for Expression {
             Self::Identifier(identifier) => write!(f, "{}", identifier),
             Self::UnsignedDecimalConstant(constant) => write!(f, "{}", constant),
             Self::Arithmetic(operation) => write!(f, "{}", operation),
+            Self::Comparison(operation) => write!(f, "{}", operation),
         }
     }
 }

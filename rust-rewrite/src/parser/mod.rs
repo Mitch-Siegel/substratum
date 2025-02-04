@@ -16,6 +16,12 @@ impl BinaryOperations {
             Self::Subtract(_) => 1,
             Self::Multiply(_) => 2,
             Self::Divide(_) => 2,
+            Self::LThan(_) => 3,
+            Self::GThan(_) => 3,
+            Self::LThanE(_) => 3,
+            Self::GThanE(_) => 3,
+            Self::Equals(_) => 4,
+            Self::NotEquals(_) => 4,
         }
     }
 
@@ -25,6 +31,12 @@ impl BinaryOperations {
             Token::Minus => 1,
             Token::Star => 2,
             Token::FSlash => 2,
+            Token::LThan => 3,
+            Token::GThan => 3,
+            Token::LThanE => 3,
+            Token::GThanE => 3,
+            Token::Equals => 4,
+            Token::NotEquals => 4,
             _ => {
                 panic!(
                     "Invalid token {} passed to BinaryOperations::precedence_of_token",
@@ -136,11 +148,35 @@ where
                     Statement::VariableDeclaration(self.parse_variable_declaration())
                 }
                 Token::Identifier(_) => Statement::Assignment(self.parse_assignment()),
+                Token::If => Statement::IfStatement(self.parse_if_statement()),
                 _ => self.unexpected_token(),
             },
         };
         self.expect_token(Token::Semicolon);
         statement_tree
+    }
+
+    pub fn parse_if_statement(&mut self) -> IfStatementTree {
+        let start_loc = self.current_loc();
+        self.expect_token(Token::If);
+        self.expect_token(Token::LParen);
+        let expr: ExpressionTree = self.parse_expression();
+        self.expect_token(Token::RParen);
+        let true_block = self.parse_compound_statement();
+        let false_block = match self.peek_token() {
+            Token::Else => {
+                self.expect_token(Token::Else);
+                Some(self.parse_compound_statement())
+            }
+            _ => None,
+        };
+
+        IfStatementTree {
+            loc: start_loc,
+            condition: expr,
+            true_block: true_block,
+            false_block: false_block,
+        }
     }
 
     pub fn parse_assignment(&mut self) -> AssignmentTree {
@@ -182,9 +218,16 @@ where
 
     fn token_is_operator_of_at_least_precedence(token: &Token, precedence: usize) -> bool {
         match token {
-            Token::Plus | Token::Minus | Token::Star | Token::FSlash => {
-                BinaryOperations::precedence_of_token(&token) >= precedence
-            }
+            Token::Plus
+            | Token::Minus
+            | Token::Star
+            | Token::FSlash
+            | Token::LThan
+            | Token::GThan
+            | Token::LThanE
+            | Token::GThanE
+            | Token::Equals
+            | Token::NotEquals => BinaryOperations::precedence_of_token(&token) >= precedence,
             _ => false,
         }
     }
@@ -216,13 +259,37 @@ where
             };
             expr = ExpressionTree {
                 loc: start_loc,
-                expression: Expression::Arithmetic(match operation {
-                    Token::Plus => ArithmeticOperationTree::Add(operands),
-                    Token::Minus => ArithmeticOperationTree::Subtract(operands),
-                    Token::Star => ArithmeticOperationTree::Multiply(operands),
-                    Token::FSlash => ArithmeticOperationTree::Divide(operands),
+                expression: match operation {
+                    Token::Plus => Expression::Arithmetic(ArithmeticOperationTree::Add(operands)),
+                    Token::Minus => {
+                        Expression::Arithmetic(ArithmeticOperationTree::Subtract(operands))
+                    }
+                    Token::Star => {
+                        Expression::Arithmetic(ArithmeticOperationTree::Multiply(operands))
+                    }
+                    Token::FSlash => {
+                        Expression::Arithmetic(ArithmeticOperationTree::Divide(operands))
+                    }
+                    Token::LThan => {
+                        Expression::Comparison(ComparisonOperationTree::LThan(operands))
+                    }
+                    Token::GThan => {
+                        Expression::Comparison(ComparisonOperationTree::GThan(operands))
+                    }
+                    Token::LThanE => {
+                        Expression::Comparison(ComparisonOperationTree::LThanE(operands))
+                    }
+                    Token::GThanE => {
+                        Expression::Comparison(ComparisonOperationTree::GThanE(operands))
+                    }
+                    Token::Equals => {
+                        Expression::Comparison(ComparisonOperationTree::Equals(operands))
+                    }
+                    Token::NotEquals => {
+                        Expression::Comparison(ComparisonOperationTree::NotEquals(operands))
+                    }
                     _ => self.unexpected_token(),
-                }),
+                },
             };
         }
         expr
@@ -234,6 +301,12 @@ where
             Token::Plus | Token::Minus | Token::Star | Token::FSlash => {
                 self.parse_expression_min_precedence(lhs, 0)
             }
+            Token::GThan
+            | Token::GThanE
+            | Token::LThan
+            | Token::LThanE
+            | Token::Equals
+            | Token::NotEquals => self.parse_expression_min_precedence(lhs, 0),
             _ => lhs,
         }
     }
@@ -396,5 +469,17 @@ mod tests {
             parse_and_print_expression("3 + 4 * 2 / (1 - 5)"),
             "(3 + (4 * (2 / (1 - 5))))"
         );
+    }
+
+    #[test]
+    fn parse_if_statement() {
+        let mut p = parser_from_string("if(a > b) {a = a + b;}");
+        println!("{}", p.parse_if_statement());
+    }
+
+    #[test]
+    fn parse_if_else_statement() {
+        let mut p = parser_from_string("if(a > b) {a = a + b;} else {b = b + a;}");
+        println!("{}", p.parse_if_statement());
     }
 }
