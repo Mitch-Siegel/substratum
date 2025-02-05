@@ -1,18 +1,11 @@
-use std::{
-    cmp::max,
-    collections::{HashMap},
-    usize,
-};
-
-use crate::lexer::SourceLoc;
-
 use super::ir::*;
-
+use crate::lexer::SourceLoc;
 use serde::Serialize;
+use std::{cmp::max, collections::HashMap, usize};
 
 /*
     A ControlFlow represents the notion of ownership over BasicBlocks. At the end of linearization of a section of code,
-    all relevant basic blocks will be owned by a single control flow. During linearization control flows can branch 
+    all relevant basic blocks will be owned by a single control flow. During linearization control flows can branch
     correspondingly with actual branches in the code, as they are linarized. Each branch gets its own control flow,
     which owns only the blocks relevant to the contents of branch. When the linearization of each branch is complete,
     its control flow is merged back to the one from which it was branched. The original brancher then takes ownership
@@ -105,7 +98,7 @@ impl ControlFlow {
     pub fn print_ir(&self) {
         for (_, block) in &self.blocks {
             println!("Block {}:", block.label());
-            println!("{}", serde_json::to_string_pretty(&block).unwrap());
+            println!("{}", block);
         }
     }
 
@@ -134,5 +127,9 @@ impl ControlFlow {
         self.append_statement_to_current_block(end_block_jump);
 
         self.current_block = converge_to;
+    }
+
+    pub fn blocks(&self) -> &HashMap<usize, BasicBlock> {
+        &self.blocks
     }
 }

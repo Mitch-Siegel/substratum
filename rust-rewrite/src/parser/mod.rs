@@ -145,14 +145,19 @@ where
             loc: self.current_loc(),
             statement: match self.peek_token() {
                 Token::U8 | Token::U16 | Token::U32 | Token::U64 => {
-                    Statement::VariableDeclaration(self.parse_variable_declaration())
-                }
-                Token::Identifier(_) => Statement::Assignment(self.parse_assignment()),
+                    let variable_declaration = self.parse_variable_declaration();
+                    self.expect_token(Token::Semicolon);
+                    Statement::VariableDeclaration(variable_declaration)
+                },
+                Token::Identifier(_) => {
+                    let assignment = self.parse_assignment();
+                    self.expect_token(Token::Semicolon);
+                    Statement::Assignment(assignment)
+                },
                 Token::If => Statement::IfStatement(self.parse_if_statement()),
                 _ => self.unexpected_token(),
             },
         };
-        self.expect_token(Token::Semicolon);
         statement_tree
     }
 

@@ -1,10 +1,9 @@
-use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fmt::Display;
 
 use crate::lexer::SourceLoc;
 use serde::Serialize;
 
-use super::Scope;
 use super::Type;
 use super::WalkContext;
 
@@ -152,6 +151,21 @@ impl BinaryOperations {
             source_b,
         ))
     }
+
+    pub fn raw_operands(&self) -> &BinaryArithmeticOperands {
+        match self {
+            Self::Add(ops)
+            | Self::Subtract(ops)
+            | Self::Multiply(ops)
+            | Self::Divide(ops)
+            | Self::LThan(ops)
+            | Self::GThan(ops)
+            | Self::LThanE(ops)
+            | Self::GThanE(ops)
+            | Self::Equals(ops)
+            | Self::NotEquals(ops) => ops,
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -217,6 +231,12 @@ pub struct IR {
     operation: IROperations,
 }
 
+impl Display for IR {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "@{} {:?}", self.loc.to_string(), self.operation)
+    }
+}
+
 impl IR {
     pub fn new_assignment(loc: SourceLoc, destination: IROperand, source: IROperand) -> Self {
         IR {
@@ -244,6 +264,35 @@ impl IR {
             }),
         }
     }
+
+    pub fn read_operands(&self) -> Vec<&IROperand> {
+        let mut operands: Vec<&IROperand> = Vec::new();
+        match &self.operation {
+            IROperations::Assignment(source_dest) => operands.push(&source_dest.source),
+            IROperations::BinaryOperation(operation) => {
+                let arithmetic_operands = operation.raw_operands();
+                operands.push(&arithmetic_operands.sources.a);
+                operands.push(&arithmetic_operands.sources.b);
+            }
+            IROperations::Jump(_) => {},
+        }
+
+        operands
+    }
+
+    pub fn write_operands(&self) -> Vec<&IROperand> {
+        let mut operands: Vec<&IROperand> = Vec::new();
+        match &self.operation {
+            IROperations::Assignment(source_dest) => operands.push(&source_dest.destination),
+            IROperations::BinaryOperation(operation) => {
+                let arithmetic_operands = operation.raw_operands();
+                operands.push(&arithmetic_operands.destination);
+            }
+            IROperations::Jump(_) => {},
+        }
+
+        operands
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -251,6 +300,28 @@ pub struct BasicBlock {
     label: usize,
     statements: Vec<IR>,
     targets: HashSet<usize>,
+}
+
+impl Display for BasicBlock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Basic Block {}", self.label)?;
+        write!(f, "\tTargets: [")?;
+        let mut first_target = true;
+        for target in &self.targets {
+            if !first_target {
+                write!(f, ", ")?;
+            } else {
+                first_target = false;
+            }
+            write!(f, "{}", target)?;
+        }
+        writeln!(f, "]")?;
+
+        for statement in &self.statements {
+            writeln!(f, "\t{}", statement)?;
+        }
+        std::fmt::Result::Ok(())
+    }
 }
 
 impl BasicBlock {
@@ -275,5 +346,9 @@ impl BasicBlock {
 
     pub fn label(&self) -> usize {
         self.label
+    }
+
+    pub fn statements(&self) -> &Vec<IR> {
+        &self.statements
     }
 }

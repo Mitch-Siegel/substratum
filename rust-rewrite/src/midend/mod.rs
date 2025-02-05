@@ -1,7 +1,8 @@
-mod control_flow;
+
+pub mod control_flow;
 pub mod ir;
-mod symtab;
-mod types;
+pub mod symtab;
+pub mod types;
 
 use crate::{ast::*, lexer::SourceLoc};
 use control_flow::ControlFlow;

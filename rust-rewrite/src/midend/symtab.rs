@@ -3,12 +3,19 @@ use crate::midend::types::Type;
 use std::collections::HashMap;
 
 use serde::Serialize;
+use std::fmt::Display;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Variable {
     name: String,
     mangled_name: Option<String>,
     type_: Type,
+}
+
+impl Display for Variable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.type_, self.name)
+    }
 }
 
 impl Variable {
@@ -91,6 +98,27 @@ pub struct FunctionPrototype {
     return_type: Option<Type>,
 }
 
+impl Display for FunctionPrototype {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut arguments_string = String::new();
+        for argument in &self.arguments {
+            if arguments_string.len() > 0 {
+                arguments_string = format!("{}, {}", arguments_string, argument);
+            } else {
+                arguments_string = format!("{}", argument);
+            }
+        }
+        match self.return_type {
+            Some(return_type) => write!(
+                f,
+                "fun {}({}) -> {}",
+                self.name, arguments_string, return_type
+            ),
+            None => write!(f, "fun {}({})", self.name, arguments_string),
+        }
+    }
+}
+
 impl FunctionPrototype {
     pub fn new(name: String, arguments: Vec<Variable>, return_type: Option<Type>) -> Self {
         FunctionPrototype {
@@ -139,10 +167,14 @@ impl Function {
     pub fn control_flow(&self) -> &ControlFlow {
         &self.control_flow
     }
+
+    pub fn scope(&self) -> &Scope {
+        &self.scope
+    }
 }
 
 #[derive(Debug, Serialize)]
-enum FunctionOrPrototype {
+pub enum FunctionOrPrototype {
     Function(Function),
     Prototype(FunctionPrototype),
 }
@@ -165,12 +197,17 @@ impl SymbolTable {
         for function in self.functions.values() {
             match function {
                 FunctionOrPrototype::Function(f) => {
-                    println!("{}", serde_json::to_string_pretty(f.prototype()).unwrap());
+                    println!("{}", f.prototype());
                     f.control_flow().print_ir();
                 }
                 FunctionOrPrototype::Prototype(p) => {}
             }
         }
+    }
+
+    pub fn functions(self) -> HashMap<String, FunctionOrPrototype>
+    {
+        self.functions
     }
 }
 
