@@ -1,7 +1,7 @@
 mod ast;
+mod backend;
 mod lexer;
 mod midend;
-mod backend;
 mod parser;
 
 use backend::generate_code;
@@ -39,6 +39,4 @@ fn main() {
     symtab.print_ir();
 
     generate_code(symtab);
-
-    
 }

@@ -158,7 +158,7 @@ impl LifetimeSet {
     pub fn from_control_flow(control_flow: &ControlFlow) -> Self {
         let mut lifetimes = Self::new();
 
-        for block in control_flow.blocks().values() {
+        for block in control_flow.blocks() {
             for index in 0..block.statements().len() {
                 let ir = &block.statements()[index];
                 let current_point = ProgramPoint::new(block.label(), index);

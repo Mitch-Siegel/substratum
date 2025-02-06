@@ -14,89 +14,31 @@ use std::{cmp::max, collections::HashMap, usize};
 
 #[derive(Debug, Serialize)]
 pub struct ControlFlow {
-    blocks: HashMap<usize, BasicBlock>,
-    next_block_label: usize,
+    blocks: Vec<BasicBlock>,
     current_block: usize,
-    control_convergences: Vec<usize>,
     // index of number of temporary variables used in this control flow (across all blocks)
     temp_num: usize,
-    // whether or not this control flow has been used to generate another CF which branches from it
-    // in the case that it is, linearization must be completed on that CF
-    // and it must be merged back to this one before this linearization to this one can continue
-    is_branched: bool,
 }
 
 impl ControlFlow {
-    pub fn new_starter() -> Self {
-        let mut blocks = HashMap::<usize, BasicBlock>::new();
-        blocks.insert(0, BasicBlock::new(0));
-        blocks.insert(1, BasicBlock::new(1));
+    pub fn new() -> Self {
         ControlFlow {
-            blocks: blocks,
-            next_block_label: 2,
+            blocks: Vec::new(),
             current_block: 0,
-            control_convergences: vec![1],
             temp_num: 0,
-            is_branched: false,
         }
-    }
-
-    pub fn branch(&mut self) -> Self {
-        if self.is_branched {
-            panic!("ControlFlow.branch() called while already branched");
-        }
-
-        // create the set for blocks owned by the branch
-        let mut branch_blocks = HashMap::<usize, BasicBlock>::new();
-
-        let branched_to_label = self.next_block_label;
-        self.next_block_label += 1;
-        branch_blocks.insert(self.next_block_label, BasicBlock::new(branched_to_label));
-
-        self.is_branched = true;
-
-        ControlFlow {
-            blocks: branch_blocks,
-            next_block_label: self.next_block_label,
-            current_block: branched_to_label,
-            control_convergences: vec![*self
-                .control_convergences
-                .last()
-                .expect("Control flow branch expects control to converge to")],
-            temp_num: self.temp_num,
-            is_branched: false,
-        }
-    }
-
-    // merge a control flow branched from this one back to this one
-    // other flow must have control fully converged
-    // takes ownership of the other control flow and moves all its blocks to self
-    pub fn merge(mut self, other: Self) {
-        if !self.is_branched {
-            panic!("ControlFlow.merge() called while not branched");
-        }
-
-        if other.control_convergences.len() > 0 {
-            panic!("ControlFlow.merge(other) called with other not converged");
-        }
-
-        for (label, block) in other.blocks {
-            if self.blocks.insert(label, block).is_some() {
-                panic!(
-                    "Duplicate basic block {} found during control flow merge",
-                    label
-                );
-            }
-        }
-
-        self.next_block_label = max(self.next_block_label, other.next_block_label);
-        self.temp_num = max(self.temp_num, other.temp_num);
-
-        self.is_branched = false;
     }
 
     pub fn print_ir(&self) {
-        for (_, block) in &self.blocks {
+        // print!("CFG: digraph{{");
+        // for block in &self.blocks {
+        //     for target in block.targets() {
+        //         print!("{}->{}; ", block.label(), target);
+        //     }
+        // }
+        // println!("}}");
+
+        for block in &self.blocks {
             println!("Block {}:", block.label());
             println!("{}", block);
         }
@@ -108,28 +50,29 @@ impl ControlFlow {
         temp_name
     }
 
+    pub fn set_current_block(&mut self, label: usize) {
+        assert!(label < self.blocks.len());
+        self.current_block = label;
+    }
+
+    pub fn current_block(&self) -> usize {
+        self.current_block
+    }
+
+    pub fn next_block(&mut self) -> &mut BasicBlock {
+        self.blocks.push(BasicBlock::new(self.blocks.len()));
+        self.blocks.last_mut().unwrap()
+    }
+
     pub fn append_statement_to_current_block(&mut self, statement: IR) {
-        self.blocks
-            .get_mut(&self.current_block)
-            .expect("Control flow's current blocks is not valid")
-            .append_statement(statement);
+        self.blocks[self.current_block].append_statement(statement);
     }
 
-    pub fn converge_control(&mut self) {
-        let converge_to = self
-            .control_convergences
-            .pop()
-            .expect("Need at least 1 label to converge control flow to");
-
-        let end_block_jump =
-            IR::new_jump(SourceLoc::none(), converge_to, JumpCondition::Unconditional);
-
-        self.append_statement_to_current_block(end_block_jump);
-
-        self.current_block = converge_to;
+    pub fn append_statement_to_block(&mut self, statement: IR, block: usize) {
+        self.blocks[block].append_statement(statement);
     }
 
-    pub fn blocks(&self) -> &HashMap<usize, BasicBlock> {
+    pub fn blocks(&self) -> &Vec<BasicBlock> {
         &self.blocks
     }
 }

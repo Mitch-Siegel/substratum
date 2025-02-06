@@ -205,8 +205,7 @@ impl SymbolTable {
         }
     }
 
-    pub fn functions(self) -> HashMap<String, FunctionOrPrototype>
-    {
+    pub fn functions(self) -> HashMap<String, FunctionOrPrototype> {
         self.functions
     }
 }

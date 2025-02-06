@@ -351,4 +351,9 @@ impl BasicBlock {
     pub fn statements(&self) -> &Vec<IR> {
         &self.statements
     }
+
+    pub fn targets(&self) -> &HashSet<usize> {
+        &self.targets
+    }
+
 }
