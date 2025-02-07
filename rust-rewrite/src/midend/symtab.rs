@@ -168,6 +168,10 @@ impl Function {
         &self.control_flow
     }
 
+    pub fn control_flow_mut(&mut self) -> &mut ControlFlow {
+        &mut self.control_flow
+    }
+
     pub fn scope(&self) -> &Scope {
         &self.scope
     }
@@ -193,6 +197,17 @@ impl SymbolTable {
         }
     }
 
+    pub fn assign_program_points(&mut self) {
+        for function in self.functions.values_mut() {
+            match function {
+                FunctionOrPrototype::Function(f) => {
+                    f.control_flow_mut().assign_program_points();
+                }
+                FunctionOrPrototype::Prototype(_) => {}
+            }
+        }
+    }
+
     pub fn print_ir(&self) {
         for function in self.functions.values() {
             match function {
@@ -200,7 +215,7 @@ impl SymbolTable {
                     println!("{}", f.prototype());
                     f.control_flow().print_ir();
                 }
-                FunctionOrPrototype::Prototype(p) => {}
+                FunctionOrPrototype::Prototype(_) => {}
             }
         }
     }

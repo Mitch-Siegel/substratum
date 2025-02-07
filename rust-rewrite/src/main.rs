@@ -19,7 +19,11 @@ fn main() {
             u64 result;
             result = 0;
             if (n > 0) {
-                result = n;
+                if(n == 0) {
+                    result = 0;
+                } else {
+                 result = 1;
+                }
             } else {
                 result = (n - 1) - (n - 2);
             }
@@ -37,6 +41,8 @@ fn main() {
 
     // println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
     symtab.print_ir();
+
+    symtab.assign_program_points();
 
     generate_code(symtab);
 }

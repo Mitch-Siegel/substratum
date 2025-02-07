@@ -4,6 +4,7 @@ use std::fmt::Display;
 use crate::lexer::SourceLoc;
 use serde::Serialize;
 
+use super::program_point::ProgramPoint;
 use super::Type;
 use super::WalkContext;
 
@@ -12,6 +13,16 @@ pub enum IROperand {
     Variable(String),
     Temporary(String),
     UnsignedDecimalConstant(usize),
+}
+
+impl Display for IROperand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Variable(name) => {write!(f, "[V {}]", name)}
+            Self::Temporary(name) => {write!(f, "[T {}]", name)}
+            Self::UnsignedDecimalConstant(value) => {write!(f, "[C {}]", value)}
+        }
+    }
 }
 
 impl IROperand {
@@ -65,6 +76,82 @@ pub enum BinaryOperations {
     GThanE(BinaryArithmeticOperands),
     Equals(BinaryArithmeticOperands),
     NotEquals(BinaryArithmeticOperands),
+}
+impl Display for BinaryOperations {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Add(operands) => {
+                write!(
+                    f,
+                    "{} = {} + {}",
+                    operands.destination, operands.sources.a, operands.sources.b
+                )
+            }
+            Self::Subtract(operands) => {
+                write!(
+                    f,
+                    "{} = {} - {}",
+                    operands.destination, operands.sources.a, operands.sources.b
+                )
+            }
+            Self::Multiply(operands) => {
+                write!(
+                    f,
+                    "{} = {} * {}",
+                    operands.destination, operands.sources.a, operands.sources.b
+                )
+            }
+            Self::Divide(operands) => {
+                write!(
+                    f,
+                    "{} = {} / {}",
+                    operands.destination, operands.sources.a, operands.sources.b
+                )
+            }
+            Self::LThan(operands) => {
+                write!(
+                    f,
+                    "{} = {} < {}",
+                    operands.destination, operands.sources.a, operands.sources.b
+                )
+            }
+            Self::GThan(operands) => {
+                write!(
+                    f,
+                    "{} = {} > {}",
+                    operands.destination, operands.sources.a, operands.sources.b
+                )
+            }
+            Self::LThanE(operands) => {
+                write!(
+                    f,
+                    "{} = {} <= {}",
+                    operands.destination, operands.sources.a, operands.sources.b
+                )
+            }
+            Self::GThanE(operands) => {
+                write!(
+                    f,
+                    "{} = {} >= {}",
+                    operands.destination, operands.sources.a, operands.sources.b
+                )
+            }
+            Self::Equals(operands) => {
+                write!(
+                    f,
+                    "{} = {} == {}",
+                    operands.destination, operands.sources.a, operands.sources.b
+                )
+            }
+            Self::NotEquals(operands) => {
+                write!(
+                    f,
+                    "{} = {} != {}",
+                    operands.destination, operands.sources.a, operands.sources.b
+                )
+            }
+        }
+    }
 }
 
 impl BinaryOperations {
@@ -211,6 +298,33 @@ pub enum JumpCondition {
     GE(DualSourceOperands),
     LE(DualSourceOperands),
 }
+impl Display for JumpCondition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unconditional => {
+                write!(f, "jmp")
+            }
+            Self::Eq(operands) => {
+                write!(f, "jeq({}, {})", operands.a, operands.b)
+            }
+            Self::NE(operands) => {
+                write!(f, "jne({}, {})", operands.a, operands.b)
+            }
+            Self::L(operands) => {
+                write!(f, "jl({}, {})", operands.a, operands.b)
+            }
+            Self::G(operands) => {
+                write!(f, "jg({}, {})", operands.a, operands.b)
+            }
+            Self::LE(operands) => {
+                write!(f, "jle({}, {})", operands.a, operands.b)
+            }
+            Self::GE(operands) => {
+                write!(f, "jge({}, {})", operands.a, operands.b)
+            }
+        }
+    }
+}
 
 #[derive(Debug, Serialize)]
 pub struct JumpOperands {
@@ -218,51 +332,77 @@ pub struct JumpOperands {
     pub condition: JumpCondition,
 }
 
+impl Display for JumpOperands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.condition, self.destination_block)
+    }
+}
 #[derive(Debug, Serialize)]
 pub enum IROperations {
     Assignment(SourceDestOperands),
     BinaryOperation(BinaryOperations),
     Jump(JumpOperands),
 }
+impl Display for IROperations {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match (self) {
+            Self::Assignment(assignment) => {
+                write!(f, "{} = {}", assignment.destination, assignment.source)
+            }
+            Self::BinaryOperation(binary_operation) => {
+                write!(f, "{}", binary_operation)
+            }
+            Self::Jump(jump) => {
+                write!(f, "{}", jump)
+            }
+        }
+    }
+}
 
 #[derive(Debug, Serialize)]
 pub struct IR {
     loc: SourceLoc,
+    program_point: ProgramPoint,
     operation: IROperations,
 }
 
 impl Display for IR {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "@{} {:?}", self.loc.to_string(), self.operation)
+        write!(f, "{}@{} {}", self.program_point, self.loc.to_string(), self.operation)
     }
 }
 
 impl IR {
-    pub fn new_assignment(loc: SourceLoc, destination: IROperand, source: IROperand) -> Self {
+    fn new(loc: SourceLoc, operation: IROperations) -> Self {
         IR {
             loc: loc,
-            operation: IROperations::Assignment(SourceDestOperands {
+            program_point: ProgramPoint::default(),
+            operation: operation,
+        }
+    }
+
+    pub fn new_assignment(loc: SourceLoc, destination: IROperand, source: IROperand) -> Self {
+        Self::new(
+            loc,
+            IROperations::Assignment(SourceDestOperands {
                 destination,
                 source,
             }),
-        }
+        )
     }
 
     pub fn new_binary_op(loc: SourceLoc, op: BinaryOperations) -> Self {
-        IR {
-            loc,
-            operation: IROperations::BinaryOperation(op),
-        }
+        Self::new(loc, IROperations::BinaryOperation(op))
     }
 
     pub fn new_jump(loc: SourceLoc, destination_block: usize, condition: JumpCondition) -> Self {
-        IR {
+        Self::new(
             loc,
-            operation: IROperations::Jump(JumpOperands {
+            IROperations::Jump(JumpOperands {
                 destination_block,
                 condition,
             }),
-        }
+        )
     }
 
     pub fn read_operands(&self) -> Vec<&IROperand> {
@@ -274,7 +414,7 @@ impl IR {
                 operands.push(&arithmetic_operands.sources.a);
                 operands.push(&arithmetic_operands.sources.b);
             }
-            IROperations::Jump(_) => {},
+            IROperations::Jump(_) => {}
         }
 
         operands
@@ -288,10 +428,18 @@ impl IR {
                 let arithmetic_operands = operation.raw_operands();
                 operands.push(&arithmetic_operands.destination);
             }
-            IROperations::Jump(_) => {},
+            IROperations::Jump(_) => {}
         }
 
         operands
+    }
+
+    pub fn assign_depth(&mut self, depth: usize) {
+        self.program_point.depth = depth;
+    }
+
+    pub fn assign_index(&mut self, index: usize) {
+        self.program_point.index = index;
     }
 }
 
@@ -305,20 +453,8 @@ pub struct BasicBlock {
 impl Display for BasicBlock {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Basic Block {}", self.label)?;
-        write!(f, "\tTargets: [")?;
-        let mut first_target = true;
-        for target in &self.targets {
-            if !first_target {
-                write!(f, ", ")?;
-            } else {
-                first_target = false;
-            }
-            write!(f, "{}", target)?;
-        }
-        writeln!(f, "]")?;
-
         for statement in &self.statements {
-            writeln!(f, "\t{}", statement)?;
+            writeln!(f, "{}", statement)?;
         }
         std::fmt::Result::Ok(())
     }
@@ -333,7 +469,7 @@ impl BasicBlock {
         }
     }
 
-    pub fn append_statement(&mut self, statement: IR) {
+    pub fn append_statement(&mut self, mut statement: IR) {
         match &statement.operation {
             IROperations::Jump(operands) => {
                 self.targets.insert(operands.destination_block);
@@ -341,6 +477,7 @@ impl BasicBlock {
             _ => {}
         }
 
+        statement.assign_index(self.statements.len());
         self.statements.push(statement);
     }
 
@@ -356,4 +493,9 @@ impl BasicBlock {
         &self.targets
     }
 
+    pub fn assign_depth(&mut self, depth: usize) {
+        for statement in &mut self.statements {
+            statement.assign_depth(depth);
+        }
+    }
 }
