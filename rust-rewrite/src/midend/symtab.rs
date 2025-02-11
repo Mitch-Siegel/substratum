@@ -1,4 +1,4 @@
-use super::control_flow::ControlFlow;
+use super::{control_flow::ControlFlow, idfa::reaching_defs::ReachingDefs};
 use crate::midend::types::Type;
 use std::collections::HashMap;
 
@@ -202,6 +202,9 @@ impl SymbolTable {
             match function {
                 FunctionOrPrototype::Function(f) => {
                     f.control_flow_mut().assign_program_points();
+                    let mut reaching_defs = ReachingDefs::new(f.control_flow());
+                    reaching_defs.analyze();
+                    reaching_defs.print();
                 }
                 FunctionOrPrototype::Prototype(_) => {}
             }

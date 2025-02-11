@@ -18,9 +18,15 @@ pub enum IROperand {
 impl Display for IROperand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Variable(name) => {write!(f, "[V {}]", name)}
-            Self::Temporary(name) => {write!(f, "[T {}]", name)}
-            Self::UnsignedDecimalConstant(value) => {write!(f, "[C {}]", value)}
+            Self::Variable(name) => {
+                write!(f, "[V {}]", name)
+            }
+            Self::Temporary(name) => {
+                write!(f, "[T {}]", name)
+            }
+            Self::UnsignedDecimalConstant(value) => {
+                write!(f, "[C {}]", value)
+            }
         }
     }
 }
@@ -345,7 +351,7 @@ pub enum IROperations {
 }
 impl Display for IROperations {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match (self) {
+        match self {
             Self::Assignment(assignment) => {
                 write!(f, "{} = {}", assignment.destination, assignment.source)
             }
@@ -361,14 +367,20 @@ impl Display for IROperations {
 
 #[derive(Debug, Serialize)]
 pub struct IR {
-    loc: SourceLoc,
-    program_point: ProgramPoint,
-    operation: IROperations,
+    pub loc: SourceLoc,
+    pub program_point: ProgramPoint,
+    pub operation: IROperations,
 }
 
 impl Display for IR {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}@{} {}", self.program_point, self.loc.to_string(), self.operation)
+        write!(
+            f,
+            "{}@{} {}",
+            self.program_point,
+            self.loc.to_string(),
+            self.operation
+        )
     }
 }
 
@@ -405,6 +417,10 @@ impl IR {
         )
     }
 
+    pub fn program_point(&self) -> &ProgramPoint {
+        &self.program_point
+    }
+
     pub fn read_operands(&self) -> Vec<&IROperand> {
         let mut operands: Vec<&IROperand> = Vec::new();
         match &self.operation {
@@ -414,7 +430,33 @@ impl IR {
                 operands.push(&arithmetic_operands.sources.a);
                 operands.push(&arithmetic_operands.sources.b);
             }
-            IROperations::Jump(_) => {}
+            IROperations::Jump(jump_operands) => match &jump_operands.condition {
+                JumpCondition::Unconditional => {}
+                JumpCondition::Eq(condition_operands) => {
+                    operands.push(&condition_operands.a);
+                    operands.push(&condition_operands.b);
+                }
+                JumpCondition::NE(condition_operands) => {
+                    operands.push(&condition_operands.a);
+                    operands.push(&condition_operands.b);
+                }
+                JumpCondition::G(condition_operands) => {
+                    operands.push(&condition_operands.a);
+                    operands.push(&condition_operands.b);
+                }
+                JumpCondition::L(condition_operands) => {
+                    operands.push(&condition_operands.a);
+                    operands.push(&condition_operands.b);
+                }
+                JumpCondition::GE(condition_operands) => {
+                    operands.push(&condition_operands.a);
+                    operands.push(&condition_operands.b);
+                }
+                JumpCondition::LE(condition_operands) => {
+                    operands.push(&condition_operands.a);
+                    operands.push(&condition_operands.b);
+                }
+            },
         }
 
         operands
@@ -433,21 +475,12 @@ impl IR {
 
         operands
     }
-
-    pub fn assign_depth(&mut self, depth: usize) {
-        self.program_point.depth = depth;
-    }
-
-    pub fn assign_index(&mut self, index: usize) {
-        self.program_point.index = index;
-    }
 }
 
 #[derive(Debug, Serialize)]
 pub struct BasicBlock {
     label: usize,
     statements: Vec<IR>,
-    targets: HashSet<usize>,
 }
 
 impl Display for BasicBlock {
@@ -465,19 +498,11 @@ impl BasicBlock {
         BasicBlock {
             label,
             statements: Vec::new(),
-            targets: HashSet::new(),
         }
     }
 
     pub fn append_statement(&mut self, mut statement: IR) {
-        match &statement.operation {
-            IROperations::Jump(operands) => {
-                self.targets.insert(operands.destination_block);
-            }
-            _ => {}
-        }
-
-        statement.assign_index(self.statements.len());
+        statement.program_point.index = self.statements.len();
         self.statements.push(statement);
     }
 
@@ -489,13 +514,9 @@ impl BasicBlock {
         &self.statements
     }
 
-    pub fn targets(&self) -> &HashSet<usize> {
-        &self.targets
-    }
-
     pub fn assign_depth(&mut self, depth: usize) {
         for statement in &mut self.statements {
-            statement.assign_depth(depth);
+            statement.program_point.depth = depth;
         }
     }
 }

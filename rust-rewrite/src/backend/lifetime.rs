@@ -94,7 +94,7 @@ impl Ord for Lifetime {
 }
 
 pub struct LifetimeSet {
-    lifetimes: HashMap<String, Lifetime>,
+    pub lifetimes: HashMap<String, Lifetime>,
 }
 
 impl LifetimeSet {
@@ -107,16 +107,15 @@ impl LifetimeSet {
     pub fn from_control_flow(control_flow: &ControlFlow) -> Self {
         let mut lifetimes = Self::new();
 
-        for block in control_flow.blocks() {
+        for block in &control_flow.blocks {
             for index in 0..block.statements().len() {
                 let ir = &block.statements()[index];
-                let current_point = ProgramPoint::new(block.label(), index);
                 for read_operand in ir.read_operands() {
-                    lifetimes.record_read_at_point(read_operand, &current_point);
+                    lifetimes.record_read_at_point(read_operand, ir.program_point());
                 }
     
                 for write_operand in ir.write_operands() {
-                    lifetimes.record_write_at_point(write_operand, &current_point);
+                    lifetimes.record_write_at_point(write_operand, ir.program_point());
                 }
             }
         }
@@ -157,9 +156,53 @@ impl LifetimeSet {
         }
     }
 
+    pub fn values(&self) -> std::collections::hash_map::Values<'_, std::string::String, Lifetime> {
+        self.lifetimes.values()
+    }
+
     pub fn print_numerical(&self) {
         for lifetime in self.lifetimes.values() {
             println!("{:>20}: [{}-{}]", lifetime.name, lifetime.start, lifetime.end);
+        }
+    }
+
+    pub fn print_graphical(&self) {
+        let mut largest_indices_per_depth = Vec::<usize>::new();
+        for lifetime in self.lifetimes.values() {
+            while lifetime.end.depth >= largest_indices_per_depth.len()
+            {
+                largest_indices_per_depth.push(0);
+            }
+
+            let start_depth = lifetime.start.depth;
+            let end_depth = lifetime.end.depth;
+            
+            largest_indices_per_depth[start_depth] = usize::max(largest_indices_per_depth[start_depth], lifetime.start.index);
+            largest_indices_per_depth[end_depth] = usize::max(largest_indices_per_depth[end_depth], lifetime.end.index);
+        }
+
+        for lifetime in self.lifetimes.values() {
+            print!("{:>20}: [{}-{}]", lifetime.name, lifetime.start, lifetime.end);
+            for depth in 0..lifetime.start.depth {
+                for _index in 0..largest_indices_per_depth[depth] {
+                    print!(" ");
+                }
+            }
+
+            for depth in lifetime.start.depth..=lifetime.end.depth {
+                for index in 0..largest_indices_per_depth[depth] {
+                    let current_point = ProgramPoint::new(depth, index);
+                    if lifetime.live_at(&current_point) {
+                        print!("*");
+                    }
+                    else {
+                        print!(" ");
+                    }
+                }
+            }
+            println!();
+
+
         }
     }
 }

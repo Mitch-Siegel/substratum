@@ -3,10 +3,10 @@ use std::cmp::Ordering;
 
 use serde::Serialize;
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Serialize, Hash)]
 pub struct ProgramPoint {
-    pub depth: usize,
-    pub index: usize,
+    pub depth: usize, // depth in the BFS traversal of control flow
+    pub index: usize, // index within a basic block
 }
 
 impl PartialOrd for ProgramPoint {

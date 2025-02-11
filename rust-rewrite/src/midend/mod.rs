@@ -3,6 +3,7 @@ pub mod ir;
 pub mod symtab;
 pub mod types;
 pub mod program_point;
+mod idfa;
 
 use crate::{ast::*, lexer::SourceLoc};
 use control_flow::ControlFlow;
