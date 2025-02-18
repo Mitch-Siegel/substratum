@@ -1,9 +1,10 @@
+pub mod basic_block;
 pub mod control_flow;
+mod idfa;
 pub mod ir;
+pub mod program_point;
 pub mod symtab;
 pub mod types;
-pub mod program_point;
-mod idfa;
 
 use crate::{ast::*, lexer::SourceLoc};
 use control_flow::ControlFlow;
@@ -33,7 +34,9 @@ impl WalkContext {
 
     pub fn take_control_flow(mut self) -> ControlFlow {
         match self.convergence_points.last() {
-            Some(1) => {self.finish_branch_and_finalize_convergence();}
+            Some(1) => {
+                self.finish_branch_and_finalize_convergence();
+            }
             _ => {}
         }
 
@@ -74,7 +77,11 @@ impl WalkContext {
         self.create_convergence_point();
     }
 
-    pub fn create_branch(&mut self, loc: SourceLoc, condition: JumpCondition) {
+    pub fn create_branch(
+        &mut self,
+        loc: SourceLoc,
+        condition: ir::operands::JumpCondition<String>,
+    ) {
         assert!(self.branch_points.len() > 0);
         assert!(self.convergence_points.len() > 0);
         assert!(*self.branch_points.last().unwrap() == self.control_flow.current_block());
@@ -107,8 +114,11 @@ impl WalkContext {
             converge_to
         );
 
-        let convergence_jump =
-            IR::new_jump(SourceLoc::none(), converge_to, JumpCondition::Unconditional);
+        let convergence_jump = IR::new_jump(
+            SourceLoc::none(),
+            converge_to,
+            ir::operands::JumpCondition::<String>::Unconditional,
+        );
         self.append_to_current_block(convergence_jump);
 
         self.control_flow.set_current_block(
@@ -132,19 +142,22 @@ impl WalkContext {
             converge_to
         );
 
-        let convergence_jump =
-            IR::new_jump(SourceLoc::none(), converge_to, JumpCondition::Unconditional);
+        let convergence_jump = IR::new_jump(
+            SourceLoc::none(),
+            converge_to,
+            ir::operands::JumpCondition::<String>::Unconditional,
+        );
 
         self.append_to_current_block(convergence_jump);
 
         self.control_flow.set_current_block(converge_to);
     }
 
-    pub fn next_temp(&mut self, type_: Type) -> IROperand {
+    pub fn next_temp(&mut self, type_: Type) -> ir::operands::BasicOperand {
         let temp_name = self.control_flow.next_temp();
         self.scope()
             .insert_variable(Variable::new(temp_name.clone(), type_));
-        IROperand::new_as_temporary(temp_name)
+        ir::BasicOperand::new_as_temporary(temp_name)
     }
 
     pub fn push_scope(&mut self, scope: Scope) {
@@ -256,31 +269,43 @@ impl FunctionDeclarationTree {
 }
 
 impl ArithmeticOperationTree {
-    pub fn walk(self, loc: SourceLoc, context: &mut WalkContext) -> IROperand {
+    pub fn walk(self, loc: SourceLoc, context: &mut WalkContext) -> ir::operands::BasicOperand {
         let (temp_dest, op) = match self {
             ArithmeticOperationTree::Add(operands) => {
                 let lhs = operands.e1.walk(context);
                 let rhs = operands.e2.walk(context);
                 let dest = context.next_temp(lhs.type_(context));
-                (dest.clone(), BinaryOperations::new_add(dest, lhs, rhs))
+                (
+                    dest.clone(),
+                    ir::operations::BinaryOperations::new_add(dest, lhs, rhs),
+                )
             }
             ArithmeticOperationTree::Subtract(operands) => {
                 let lhs = operands.e1.walk(context);
                 let rhs = operands.e2.walk(context);
                 let dest = context.next_temp(lhs.type_(context));
-                (dest.clone(), BinaryOperations::new_divide(dest, lhs, rhs))
+                (
+                    dest.clone(),
+                    ir::operations::BinaryOperations::new_divide(dest, lhs, rhs),
+                )
             }
             ArithmeticOperationTree::Multiply(operands) => {
                 let lhs = operands.e1.walk(context);
                 let rhs = operands.e2.walk(context);
                 let dest = context.next_temp(lhs.type_(context));
-                (dest.clone(), BinaryOperations::new_multiply(dest, lhs, rhs))
+                (
+                    dest.clone(),
+                    ir::operations::BinaryOperations::new_multiply(dest, lhs, rhs),
+                )
             }
             ArithmeticOperationTree::Divide(operands) => {
                 let lhs = operands.e1.walk(context);
                 let rhs = operands.e2.walk(context);
                 let dest = context.next_temp(lhs.type_(context));
-                (dest.clone(), BinaryOperations::new_divide(dest, lhs, rhs))
+                (
+                    dest.clone(),
+                    ir::operations::BinaryOperations::new_divide(dest, lhs, rhs),
+                )
             }
         };
 
@@ -291,37 +316,52 @@ impl ArithmeticOperationTree {
 }
 
 impl ComparisonOperationTree {
-    pub fn walk(self, loc: SourceLoc, context: &mut WalkContext) -> IROperand {
+    pub fn walk(self, loc: SourceLoc, context: &mut WalkContext) -> ir::operands::BasicOperand {
         let (temp_dest, op) = match self {
             ComparisonOperationTree::LThan(operands) => {
                 let lhs = operands.e1.walk(context);
                 let rhs = operands.e2.walk(context);
                 let dest = context.next_temp(lhs.type_(context));
-                (dest.clone(), BinaryOperations::new_lthan(dest, lhs, rhs))
+                (
+                    dest.clone(),
+                    ir::operations::BinaryOperations::new_lthan(dest, lhs, rhs),
+                )
             }
             ComparisonOperationTree::GThan(operands) => {
                 let lhs = operands.e1.walk(context);
                 let rhs = operands.e2.walk(context);
                 let dest = context.next_temp(lhs.type_(context));
-                (dest.clone(), BinaryOperations::new_gthan(dest, lhs, rhs))
+                (
+                    dest.clone(),
+                    ir::operations::BinaryOperations::new_gthan(dest, lhs, rhs),
+                )
             }
             ComparisonOperationTree::LThanE(operands) => {
                 let lhs = operands.e1.walk(context);
                 let rhs = operands.e2.walk(context);
                 let dest = context.next_temp(lhs.type_(context));
-                (dest.clone(), BinaryOperations::new_lthan_e(dest, lhs, rhs))
+                (
+                    dest.clone(),
+                    ir::operations::BinaryOperations::new_lthan_e(dest, lhs, rhs),
+                )
             }
             ComparisonOperationTree::GThanE(operands) => {
                 let lhs = operands.e1.walk(context);
                 let rhs = operands.e2.walk(context);
                 let dest = context.next_temp(lhs.type_(context));
-                (dest.clone(), BinaryOperations::new_gthan_e(dest, lhs, rhs))
+                (
+                    dest.clone(),
+                    ir::operations::BinaryOperations::new_gthan_e(dest, lhs, rhs),
+                )
             }
             ComparisonOperationTree::Equals(operands) => {
                 let lhs = operands.e1.walk(context);
                 let rhs = operands.e2.walk(context);
                 let dest = context.next_temp(lhs.type_(context));
-                (dest.clone(), BinaryOperations::new_equals(dest, lhs, rhs))
+                (
+                    dest.clone(),
+                    ir::operations::BinaryOperations::new_equals(dest, lhs, rhs),
+                )
             }
             ComparisonOperationTree::NotEquals(operands) => {
                 let lhs = operands.e1.walk(context);
@@ -329,7 +369,7 @@ impl ComparisonOperationTree {
                 let dest = context.next_temp(lhs.type_(context));
                 (
                     dest.clone(),
-                    BinaryOperations::new_not_equals(dest, lhs, rhs),
+                    ir::operations::BinaryOperations::new_not_equals(dest, lhs, rhs),
                 )
             }
         };
@@ -340,11 +380,11 @@ impl ComparisonOperationTree {
 }
 
 impl ExpressionTree {
-    pub fn walk(self, context: &mut WalkContext) -> IROperand {
+    pub fn walk(self, context: &mut WalkContext) -> ir::operands::BasicOperand {
         match self.expression {
-            Expression::Identifier(ident) => IROperand::new_as_variable(ident),
+            Expression::Identifier(ident) => ir::operands::BasicOperand::new_as_variable(ident),
             Expression::UnsignedDecimalConstant(constant) => {
-                IROperand::new_as_unsigned_decimal_constant(constant)
+                ir::operands::BasicOperand::new_as_unsigned_decimal_constant(constant)
             }
             Expression::Arithmetic(arithmetic_operation) => {
                 arithmetic_operation.walk(self.loc, context)
@@ -360,7 +400,7 @@ impl AssignmentTree {
     pub fn walk(self, context: &mut WalkContext) {
         let assignment_ir = IR::new_assignment(
             self.loc,
-            IROperand::new_as_variable(self.identifier),
+            ir::operands::BasicOperand::new_as_variable(self.identifier),
             self.value.walk(context),
         );
         context.append_to_current_block(assignment_ir);
@@ -371,10 +411,11 @@ impl IfStatementTree {
     fn walk(self, context: &mut WalkContext) {
         // TODO: optimize condition walk to use different jumps
         let condition_result = self.condition.walk(context);
-        let if_condition = JumpCondition::NE(DualSourceOperands::from(
-            condition_result,
-            IROperand::new_as_unsigned_decimal_constant(0),
-        ));
+        let if_condition =
+            ir::operands::JumpCondition::<String>::NE(ir::operands::DualSourceOperands::from(
+                condition_result,
+                BasicOperand::new_as_unsigned_decimal_constant(0),
+            ));
 
         context.create_branching_point_with_convergence();
         context.create_branch(self.true_block.loc, if_condition);
@@ -383,7 +424,7 @@ impl IfStatementTree {
 
         match self.false_block {
             Some(false_block) => {
-                context.create_branch(false_block.loc, JumpCondition::Unconditional);
+                context.create_branch(false_block.loc, ir::operands::JumpCondition::Unconditional);
                 false_block.walk(context);
             }
             None => {}

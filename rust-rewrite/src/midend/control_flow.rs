@@ -1,4 +1,7 @@
-use super::ir::*;
+use super::{
+    basic_block::BasicBlock,
+    ir::{self, *},
+};
 use crate::lexer::SourceLoc;
 use serde::Serialize;
 use std::{
@@ -57,9 +60,9 @@ impl ControlFlow {
         self.blocks.last_mut().unwrap()
     }
 
-    pub fn append_statement_to_current_block(&mut self, statement: IR) {
+    pub fn append_statement_to_current_block(&mut self, statement: ir::IR) {
         match &statement.operation {
-            IROperations::Jump(operands) => {
+            ir::BasicOperations::Jump(operands) => {
                 let target_block = operands.destination_block;
                 while self.predecessors.len() <= target_block {
                     self.predecessors.push(HashSet::<usize>::new());

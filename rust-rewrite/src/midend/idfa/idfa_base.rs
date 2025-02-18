@@ -27,11 +27,17 @@ impl<T> BlockFacts<T> {
 }
 
 #[derive(Clone, PartialEq)]
-pub struct IdfaFacts<T> {
+pub struct IdfaFacts<T>
+where
+    T: PartialEq,
+{
     facts: Vec<BlockFacts<T>>,
 }
 
-impl<T> IdfaFacts<T> {
+impl<T> IdfaFacts<T>
+where
+    T: PartialEq,
+{
     pub fn new(n_blocks: usize) -> Self {
         let mut facts = Vec::<BlockFacts<T>>::new();
 
@@ -50,13 +56,19 @@ impl<T> IdfaFacts<T> {
     }
 }
 
-pub trait IdfaImplementor<'a, T> {
+pub trait IdfaImplementor<'a, T>
+where
+    T: PartialEq,
+{
     fn f_transfer(facts: &mut BlockFacts<T>, to_transfer: BTreeSet<T>) -> BTreeSet<T>;
     fn f_find_gen_kills(control_flow: &'a ControlFlow, facts: &mut IdfaFacts<T>);
     fn f_meet(a: BTreeSet<T>, b: &BTreeSet<T>) -> BTreeSet<T>;
 }
 
-pub struct Idfa<'a, T> {
+pub struct Idfa<'a, T>
+where
+    T: PartialEq,
+{
     pub control_flow: &'a ControlFlow,
     direction: IdfaAnalysisDirection,
     last_facts: IdfaFacts<T>,

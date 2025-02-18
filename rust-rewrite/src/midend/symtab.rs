@@ -198,17 +198,18 @@ impl SymbolTable {
     }
 
     pub fn assign_program_points(&mut self) {
-        for function in self.functions.values_mut() {
-            match function {
-                FunctionOrPrototype::Function(f) => {
-                    f.control_flow_mut().assign_program_points();
-                    let mut reaching_defs = ReachingDefs::new(f.control_flow());
-                    reaching_defs.analyze();
-                    reaching_defs.print();
-                }
-                FunctionOrPrototype::Prototype(_) => {}
-            }
-        }
+        // TODO: re-enable this when SSA implemented
+        // for function in self.functions.values_mut() {
+        //     match function {
+        //         FunctionOrPrototype::Function(f) => {
+        //             f.control_flow_mut().assign_program_points();
+        //             let mut reaching_defs = ReachingDefs::new(f.control_flow());
+        //             reaching_defs.analyze();
+        //             reaching_defs.print();
+        //         }
+        //         FunctionOrPrototype::Prototype(_) => {}
+        //     }
+        // }
     }
 
     pub fn print_ir(&self) {

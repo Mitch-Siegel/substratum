@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, collections::HashMap, fmt};
 
-use crate::midend::{control_flow::ControlFlow, ir::IROperand, program_point::ProgramPoint};
+use crate::midend::{control_flow::ControlFlow, program_point::ProgramPoint};
 
 #[derive(Clone)]
 pub struct Lifetime {
@@ -103,57 +103,58 @@ impl LifetimeSet {
         }
     }
 
-    pub fn from_control_flow(control_flow: &ControlFlow) -> Self {
-        let mut lifetimes = Self::new();
+    // TODO: re-enable when SSA implemented
+    // pub fn from_control_flow(control_flow: &ControlFlow) -> Self {
+    //     let mut lifetimes = Self::new();
 
-        for block in &control_flow.blocks {
-            for index in 0..block.statements().len() {
-                let ir = &block.statements()[index];
-                for read_operand in ir.read_operands() {
-                    lifetimes.record_read_at_point(read_operand, ir.program_point());
-                }
+    //     for block in &control_flow.blocks {
+    //         for index in 0..block.statements().len() {
+    //             let ir = &block.statements()[index];
+    //             for read_operand in ir.read_operands() {
+    //                 lifetimes.record_read_at_point(read_operand, ir.program_point());
+    //             }
 
-                for write_operand in ir.write_operands() {
-                    lifetimes.record_write_at_point(write_operand, ir.program_point());
-                }
-            }
-        }
+    //             for write_operand in ir.write_operands() {
+    //                 lifetimes.record_write_at_point(write_operand, ir.program_point());
+    //             }
+    //         }
+    //     }
 
-        lifetimes
-    }
+    //     lifetimes
+    // }
 
-    fn lookup_or_create_lifetime_by_name(&mut self, name: &String) -> &mut Lifetime {
-        if !self.lifetimes.contains_key(name) {
-            self.lifetimes
-                .insert(name.clone(), Lifetime::new(name.clone()));
-        }
+    // fn lookup_or_create_lifetime_by_name(&mut self, name: &String) -> &mut Lifetime {
+    //     if !self.lifetimes.contains_key(name) {
+    //         self.lifetimes
+    //             .insert(name.clone(), Lifetime::new(name.clone()));
+    //     }
 
-        self.lifetimes.get_mut(name).unwrap()
-    }
+    //     self.lifetimes.get_mut(name).unwrap()
+    // }
 
-    pub fn record_read_at_point(&mut self, operand: &IROperand, at_point: &ProgramPoint) {
-        match &operand {
-            IROperand::Temporary(temp) => self
-                .lookup_or_create_lifetime_by_name(temp)
-                .record_read(at_point),
-            IROperand::Variable(var) => self
-                .lookup_or_create_lifetime_by_name(var)
-                .record_read(at_point),
-            IROperand::UnsignedDecimalConstant(_) => {}
-        }
-    }
+    // pub fn record_read_at_point(&mut self, operand: &ir::SsaOperand, at_point: &ProgramPoint) {
+    //     match &operand {
+    //         ir::GenericOperand::<T>::::Temporary(temp) => self
+    //             .lookup_or_create_lifetime_by_name(&temp.to_string())
+    //             .record_read(at_point),
+    //         IROperand::Variable(var) => self
+    //             .lookup_or_create_lifetime_by_name(&var.to_string())
+    //             .record_read(at_point),
+    //         IROperand::UnsignedDecimalConstant(_) => {}
+    //     }
+    // }
 
-    pub fn record_write_at_point(&mut self, operand: &IROperand, at_point: &ProgramPoint) {
-        match &operand {
-            IROperand::Temporary(temp) => self
-                .lookup_or_create_lifetime_by_name(temp)
-                .record_write(at_point),
-            IROperand::Variable(var) => self
-                .lookup_or_create_lifetime_by_name(var)
-                .record_write(at_point),
-            IROperand::UnsignedDecimalConstant(_) => {}
-        }
-    }
+    // pub fn record_write_at_point(&mut self, operand: &ir::SsaOperand, at_point: &ProgramPoint) {
+    //     match &operand {
+    //         IROperand::Temporary(temp) => self
+    //             .lookup_or_create_lifetime_by_name(&temp.to_string())
+    //             .record_write(at_point),
+    //         IROperand::Variable(var) => self
+    //             .lookup_or_create_lifetime_by_name(&var.to_string())
+    //             .record_write(at_point),
+    //         IROperand::UnsignedDecimalConstant(_) => {}
+    //     }
+    // }
 
     pub fn values(&self) -> std::collections::hash_map::Values<'_, std::string::String, Lifetime> {
         self.lifetimes.values()

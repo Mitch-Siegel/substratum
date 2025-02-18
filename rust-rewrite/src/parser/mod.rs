@@ -1,6 +1,6 @@
 use crate::ast::*;
 use crate::lexer::*;
-use crate::midend::ir::BinaryOperations;
+use crate::midend::ir;
 
 pub struct Parser<I>
 where
@@ -9,7 +9,10 @@ where
     lexer: Lexer<I>,
 }
 
-impl BinaryOperations {
+impl<T> ir::operations::BinaryOperations<T>
+where
+    T: std::fmt::Display,
+{
     pub fn get_precedence(&self) -> usize {
         match self {
             Self::Add(_) => 1,
@@ -148,12 +151,12 @@ where
                     let variable_declaration = self.parse_variable_declaration();
                     self.expect_token(Token::Semicolon);
                     Statement::VariableDeclaration(variable_declaration)
-                },
+                }
                 Token::Identifier(_) => {
                     let assignment = self.parse_assignment();
                     self.expect_token(Token::Semicolon);
                     Statement::Assignment(assignment)
-                },
+                }
                 Token::If => Statement::IfStatement(self.parse_if_statement()),
                 _ => self.unexpected_token(),
             },
@@ -232,7 +235,10 @@ where
             | Token::LThanE
             | Token::GThanE
             | Token::Equals
-            | Token::NotEquals => BinaryOperations::precedence_of_token(&token) >= precedence,
+            | Token::NotEquals => {
+                ir::operations::BinaryOperations::<String>::precedence_of_token(&token)
+                    >= precedence
+            }
             _ => false,
         }
     }
@@ -250,11 +256,11 @@ where
 
             while Self::token_is_operator_of_at_least_precedence(
                 &self.peek_token(),
-                BinaryOperations::precedence_of_token(&operation),
+                ir::operations::BinaryOperations::<String>::precedence_of_token(&operation),
             ) {
                 rhs = self.parse_expression_min_precedence(
                     rhs,
-                    BinaryOperations::precedence_of_token(&operation),
+                    ir::operations::BinaryOperations::<String>::precedence_of_token(&operation),
                 );
             }
 

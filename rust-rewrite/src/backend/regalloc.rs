@@ -61,11 +61,8 @@ impl RegallocMetadata {
 
     // once overlaps have been found, figure out which overlaps are actually conflicts
     // lifetimes which live only within the same set of depths as others may not actually conflict
-    fn find_conflicts(&mut self,) {
-        for (point, names) in &self.overlaps {
-
-        }
-
+    fn find_conflicts(&mut self) {
+        for (point, names) in &self.overlaps {}
     }
 
     pub fn new(lifetime_set: LifetimeSet, max_indices_by_depth: &Vec<usize>) -> Self {
@@ -84,7 +81,7 @@ impl RegallocMetadata {
 
 pub fn allocate_registers(scope: &Scope, control_flow: &ControlFlow) {
     println!("Allocate registers for scope");
-    let lifetimes = LifetimeSet::from_control_flow(control_flow);
+    // let lifetimes = LifetimeSet::from_control_flow(control_flow);
 
     // let max_indices_by_depth = find_max_indices_by_depth(control_flow);
 

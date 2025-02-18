@@ -1,14 +1,7 @@
 mod lifetime;
 mod regalloc;
 
-use std::collections::{BTreeMap, HashMap, HashSet};
-
-use lifetime::LifetimeSet;
-
-use crate::midend::control_flow::*;
-use crate::midend::program_point::ProgramPoint;
 use crate::midend::*;
-
 
 pub fn generate_code_for_function(function: Function) {
     println!("generate code for {}", function.prototype());
