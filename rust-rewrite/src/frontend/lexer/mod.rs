@@ -1,135 +1,9 @@
-use serde::{Serialize, Deserialize};
-use std::{char, fmt::Display};
+use token::Token;
 
-#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct SourceLoc {
-    line: usize,
-    col: usize,
-}
+use super::sourceloc::SourceLoc;
 
-impl SourceLoc {
-    pub fn none() -> Self {
-        SourceLoc { line: 0, col: 0 }
-    }
+pub mod token;
 
-    pub fn new(line: usize, col: usize) -> Self {
-        SourceLoc { line, col }
-    }
-}
-
-impl Display for SourceLoc {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}", self.line, self.col)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum Token {
-    U8,
-    U16,
-    U32,
-    U64,
-    Plus,
-    Minus,
-    Star,
-    FSlash,
-    LThan,
-    GThan,
-    LThanE,
-    GThanE,
-    Equals,
-    NotEquals,
-    Assign,
-    Fun,
-    If,
-    Else,
-    While,
-    LParen,
-    RParen,
-    Arrow,
-    LCurly,
-    RCurly,
-    Comma,
-    Semicolon,
-    Identifier(String),
-    UnsignedDecimalConstant(usize),
-    Eof,
-}
-
-impl PartialEq for Token {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Token::U8, Token::U8) => true,
-            (Token::U16, Token::U16) => true,
-            (Token::U32, Token::U32) => true,
-            (Token::U64, Token::U32) => true,
-            (Token::Plus, Token::Plus) => true,
-            (Token::Minus, Token::Minus) => true,
-            (Token::Star, Token::Star) => true,
-            (Token::FSlash, Token::FSlash) => true,
-            (Token::LThan, Token::LThan) => true,
-            (Token::GThan, Token::GThan) => true,
-            (Token::LThanE, Token::LThanE) => true,
-            (Token::GThanE, Token::GThanE) => true,
-            (Token::Equals, Token::Equals) => true,
-            (Token::NotEquals, Token::NotEquals) => true,
-            (Token::Assign, Token::Assign) => true,
-            (Token::Fun, Token::Fun) => true,
-            (Token::If, Token::If) => true,
-            (Token::Else, Token::Else) => true,
-            (Token::While, Token::While) => true,
-            (Token::LParen, Token::LParen) => true,
-            (Token::RParen, Token::RParen) => true,
-            (Token::Arrow, Token::Arrow) => true,
-            (Token::LCurly, Token::LCurly) => true,
-            (Token::RCurly, Token::RCurly) => true,
-            (Token::Comma, Token::Comma) => true,
-            (Token::Semicolon, Token::Semicolon) => true,
-            (Token::Identifier(_a), Token::Identifier(_b)) => true,
-            (Token::UnsignedDecimalConstant(_a), Token::UnsignedDecimalConstant(_b)) => true,
-            (Token::Eof, Token::Eof) => true,
-            _ => false,
-        }
-    }
-}
-
-impl Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::U8 => write!(f, "u8"),
-            Self::U16 => write!(f, "u16"),
-            Self::U32 => write!(f, "u32"),
-            Self::U64 => write!(f, "u64"),
-            Self::Plus => write!(f, "+"),
-            Self::Minus => write!(f, "-"),
-            Self::Star => write!(f, "*"),
-            Self::FSlash => write!(f, "/"),
-            Self::GThan => write!(f, ">"),
-            Self::GThanE => write!(f, ">="),
-            Self::LThan => write!(f, "<"),
-            Self::LThanE => write!(f, "<="),
-            Self::Equals => write!(f, "=="),
-            Self::NotEquals => write!(f, "!="),
-            Self::Assign => write!(f, "="),
-            Self::Fun => write!(f, "fun"),
-            Self::If => write!(f, "if"),
-            Self::Else => write!(f, "else"),
-            Self::While => write!(f, "while"),
-            Self::LParen => write!(f, "("),
-            Self::RParen => write!(f, ")"),
-            Self::Arrow => write!(f, "->"),
-            Self::LCurly => write!(f, "{{"),
-            Self::RCurly => write!(f, "}}"),
-            Self::Comma => write!(f, ","),
-            Self::Semicolon => write!(f, ";"),
-            Self::Identifier(string) => write!(f, "Identifier({})", string),
-            Self::UnsignedDecimalConstant(constant) => {
-                write!(f, "UnsignedDecimalConstant({})", constant)
-            }
-            Self::Eof => write!(f, "EOF"),
-        }
-    }
-}
 pub struct Lexer<I>
 where
     I: Iterator<Item = char>,
@@ -207,10 +81,7 @@ where
     }
 
     pub fn current_loc(&self) -> SourceLoc {
-        SourceLoc {
-            line: self.cur_line,
-            col: self.cur_col,
-        }
+        SourceLoc::new(self.cur_line, self.cur_col)
     }
 
     fn match_next_char_for_token_or(

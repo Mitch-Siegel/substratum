@@ -1,4 +1,4 @@
-use crate::lexer::SourceLoc;
+use crate::frontend::sourceloc::SourceLoc;
 use std::fmt::Display;
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]

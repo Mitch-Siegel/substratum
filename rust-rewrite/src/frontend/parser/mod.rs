@@ -1,8 +1,8 @@
-use crate::ast::*;
-use crate::lexer::*;
+mod tests;
+
 use crate::midend::ir;
 
-mod tests;
+use super::{ast::*, lexer::{token::Token, *}, sourceloc::SourceLoc};
 
 pub struct Parser<I>
 where

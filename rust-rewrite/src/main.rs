@@ -1,15 +1,10 @@
-mod ast;
+mod frontend;
 mod backend;
-mod lexer;
 mod midend;
-mod parser;
 
 use backend::generate_code;
-
-use crate::lexer::Lexer;
-use crate::midend::SymbolTable;
-use crate::midend::TableWalk;
-use crate::parser::Parser;
+use frontend::{lexer::Lexer, parser::Parser};
+use midend::TableWalk;
 
 fn main() {
     println!("Hello, world!");
@@ -31,10 +26,11 @@ fn main() {
     );
     let mut parser = Parser::new(Lexer::new(parsed.chars()));
     let program = parser.parse();
+
     for t in &program {
         println!("{}", t);
     }
-    let mut symtab = SymbolTable::new();
+    let mut symtab = midend::SymbolTable::new();
     for translation_unit in program {
         translation_unit.walk(&mut symtab);
     }

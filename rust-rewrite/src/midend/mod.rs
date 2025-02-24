@@ -6,11 +6,12 @@ pub mod program_point;
 pub mod symtab;
 pub mod types;
 
-use crate::{ast::*, lexer::SourceLoc};
 use control_flow::ControlFlow;
 use ir::*;
 pub use symtab::*;
 use types::*;
+
+use crate::frontend::{ast::*, sourceloc::*};
 
 struct WalkContext {
     control_flow: ControlFlow,

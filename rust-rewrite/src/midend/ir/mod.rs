@@ -3,7 +3,7 @@ pub mod operations;
 
 use std::fmt::Display;
 
-use crate::lexer::SourceLoc;
+use crate::frontend::sourceloc::SourceLoc;
 use crate::midend::ir;
 use operands::*;
 use operations::*;

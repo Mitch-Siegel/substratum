@@ -1,11 +1,6 @@
-use crate::ast::*;
-use crate::lexer::SourceLoc;
-#[cfg(test)]
-use crate::lexer::Token;
-use crate::midend::ir::operands::DualSourceOperands;
-use crate::Lexer;
-use crate::Parser;
 use std::str::Chars;
+use super::Parser;
+use crate::frontend::lexer::{token::Token, *};
 
 fn parser_from_string(input: &str) -> Parser<Chars<'_>> {
     Parser::new(Lexer::new(input.chars()))
