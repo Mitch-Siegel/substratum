@@ -1,7 +1,7 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use std::{char, fmt::Display};
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SourceLoc {
     line: usize,
     col: usize,
@@ -10,6 +10,10 @@ pub struct SourceLoc {
 impl SourceLoc {
     pub fn none() -> Self {
         SourceLoc { line: 0, col: 0 }
+    }
+
+    pub fn new(line: usize, col: usize) -> Self {
+        SourceLoc { line, col }
     }
 }
 
@@ -39,6 +43,7 @@ pub enum Token {
     Fun,
     If,
     Else,
+    While,
     LParen,
     RParen,
     Arrow,
@@ -72,6 +77,7 @@ impl PartialEq for Token {
             (Token::Fun, Token::Fun) => true,
             (Token::If, Token::If) => true,
             (Token::Else, Token::Else) => true,
+            (Token::While, Token::While) => true,
             (Token::LParen, Token::LParen) => true,
             (Token::RParen, Token::RParen) => true,
             (Token::Arrow, Token::Arrow) => true,
@@ -108,6 +114,7 @@ impl Display for Token {
             Self::Fun => write!(f, "fun"),
             Self::If => write!(f, "if"),
             Self::Else => write!(f, "else"),
+            Self::While => write!(f, "while"),
             Self::LParen => write!(f, "("),
             Self::RParen => write!(f, ")"),
             Self::Arrow => write!(f, "->"),
@@ -190,6 +197,7 @@ where
             "fun" => Token::Fun,
             "if" => Token::If,
             "else" => Token::Else,
+            "while" => Token::While,
             _ => Token::Identifier(identifier),
         }
     }

@@ -1,4 +1,4 @@
-use super::{control_flow::ControlFlow, idfa::reaching_defs::ReachingDefs};
+use super::{control_flow::ControlFlow};
 use crate::midend::types::Type;
 use std::collections::HashMap;
 

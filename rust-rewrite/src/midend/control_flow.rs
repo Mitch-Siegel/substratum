@@ -2,10 +2,8 @@ use super::{
     basic_block::BasicBlock,
     ir::{self, *},
 };
-use crate::lexer::SourceLoc;
 use serde::Serialize;
 use std::{
-    cmp::max,
     collections::{HashMap, HashSet, VecDeque},
     usize,
 };

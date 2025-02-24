@@ -1,6 +1,6 @@
 use std::{cmp::Ordering, collections::HashMap, fmt};
 
-use crate::midend::{control_flow::ControlFlow, program_point::ProgramPoint};
+use crate::midend::{program_point::ProgramPoint};
 
 #[derive(Clone)]
 pub struct Lifetime {

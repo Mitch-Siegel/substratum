@@ -2,6 +2,8 @@ use crate::ast::*;
 use crate::lexer::*;
 use crate::midend::ir;
 
+mod tests;
+
 pub struct Parser<I>
 where
     I: Iterator<Item = char>,
@@ -102,14 +104,14 @@ where
         translation_units
     }
 
-    pub fn parse_translation_unit(&mut self) -> TranslationUnitTree {
+    fn parse_translation_unit(&mut self) -> TranslationUnitTree {
         match self.peek_token() {
             Token::Fun => self.parse_function_declaration_or_definition(),
             _ => self.unexpected_token::<TranslationUnitTree>(),
         }
     }
 
-    pub fn parse_function_declaration_or_definition(&mut self) -> TranslationUnitTree {
+    fn parse_function_declaration_or_definition(&mut self) -> TranslationUnitTree {
         let function_declaration = self.parse_function_prototype();
         match self.peek_token() {
             Token::LCurly => TranslationUnitTree {
@@ -126,7 +128,7 @@ where
         }
     }
 
-    pub fn parse_compound_statement(&mut self) -> CompoundStatementTree {
+    fn parse_compound_statement(&mut self) -> CompoundStatementTree {
         let start_loc = self.current_loc();
         self.expect_token(Token::LCurly);
         let mut statements: Vec<StatementTree> = Vec::new();
@@ -143,7 +145,7 @@ where
         }
     }
 
-    pub fn parse_statement(&mut self) -> StatementTree {
+    fn parse_statement(&mut self) -> StatementTree {
         let statement_tree = StatementTree {
             loc: self.current_loc(),
             statement: match self.peek_token() {
@@ -164,12 +166,14 @@ where
         statement_tree
     }
 
-    pub fn parse_if_statement(&mut self) -> IfStatementTree {
+    fn parse_if_statement(&mut self) -> IfStatementTree {
         let start_loc = self.current_loc();
         self.expect_token(Token::If);
+
         self.expect_token(Token::LParen);
-        let expr: ExpressionTree = self.parse_expression();
+        let condition: ExpressionTree = self.parse_expression();
         self.expect_token(Token::RParen);
+
         let true_block = self.parse_compound_statement();
         let false_block = match self.peek_token() {
             Token::Else => {
@@ -181,13 +185,30 @@ where
 
         IfStatementTree {
             loc: start_loc,
-            condition: expr,
-            true_block: true_block,
-            false_block: false_block,
+            condition,
+            true_block,
+            false_block,
         }
     }
 
-    pub fn parse_assignment(&mut self) -> AssignmentTree {
+    fn parse_while_loop(&mut self) -> WhileLoopTree {
+        let start_loc = self.current_loc();
+        self.expect_token(Token::While);
+
+        self.expect_token(Token::LParen);
+        let condition = self.parse_expression();
+        self.expect_token(Token::RParen);
+
+        let body = self.parse_compound_statement();
+
+        WhileLoopTree {
+            loc: start_loc,
+            condition,
+            body,
+        }
+    }
+
+    fn parse_assignment(&mut self) -> AssignmentTree {
         let start_loc = self.current_loc();
         let lhs = self.parse_identifier();
         self.expect_token(Token::Assign);
@@ -198,7 +219,7 @@ where
         }
     }
 
-    pub fn parse_primary_expression(&mut self) -> ExpressionTree {
+    fn parse_primary_expression(&mut self) -> ExpressionTree {
         ExpressionTree {
             loc: self.current_loc(),
             expression: {
@@ -243,7 +264,7 @@ where
         }
     }
 
-    pub fn parse_expression_min_precedence(
+    fn parse_expression_min_precedence(
         &mut self,
         lhs: ExpressionTree,
         min_precedence: usize,
@@ -399,98 +420,5 @@ where
             Token::Identifier(value) => value,
             _ => self.unexpected_token::<String>(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Lexer;
-    use crate::Parser;
-    use std::str::Chars;
-
-    fn parser_from_string(input: &str) -> Parser<Chars<'_>> {
-        Parser::new(Lexer::new(input.chars()))
-    }
-
-    fn parse_and_print_expression(input: &str) -> String {
-        let mut parser = parser_from_string(input);
-        let expr_string = parser.parse_expression().to_string();
-        parser.expect_token(super::Token::Eof);
-        expr_string
-    }
-
-    #[test]
-    fn parse_basic_expression() {
-        assert_eq!(
-            parse_and_print_expression("123 + 456 + 789"),
-            "(123 + (456 + 789))"
-        );
-    }
-
-    #[test]
-    fn parse_addition_and_multiplication() {
-        assert_eq!(
-            parse_and_print_expression("123 + 456 * 789"),
-            "(123 + (456 * 789))"
-        );
-    }
-
-    #[test]
-    fn parse_parentheses_override_precedence() {
-        assert_eq!(
-            parse_and_print_expression("(123 + 456) * 789"),
-            "((123 + 456) * 789)"
-        );
-    }
-
-    #[test]
-    fn parse_mixed_operations() {
-        assert_eq!(
-            parse_and_print_expression("1 + 2 * 3 - 4 / 5"),
-            "(1 + ((2 * 3) - (4 / 5)))"
-        );
-    }
-
-    #[test]
-    fn parse_nested_parentheses() {
-        assert_eq!(
-            parse_and_print_expression("((1 + 2) * (3 - 4)) / 5"),
-            "(((1 + 2) * (3 - 4)) / 5)"
-        );
-    }
-
-    #[test]
-    fn parse_single_number() {
-        assert_eq!(parse_and_print_expression("42"), "42");
-    }
-
-    #[test]
-    fn parse_single_number_parenthesized() {
-        assert_eq!(parse_and_print_expression("(42)"), "42");
-    }
-
-    #[test]
-    fn parse_multiple_additions() {
-        assert_eq!(parse_and_print_expression("1 + 2 + 3"), "(1 + (2 + 3))");
-    }
-
-    #[test]
-    fn parse_complex_expression() {
-        assert_eq!(
-            parse_and_print_expression("3 + 4 * 2 / (1 - 5)"),
-            "(3 + (4 * (2 / (1 - 5))))"
-        );
-    }
-
-    #[test]
-    fn parse_if_statement() {
-        let mut p = parser_from_string("if(a > b) {a = a + b;}");
-        println!("{}", p.parse_if_statement());
-    }
-
-    #[test]
-    fn parse_if_else_statement() {
-        let mut p = parser_from_string("if(a > b) {a = a + b;} else {b = b + a;}");
-        println!("{}", p.parse_if_statement());
     }
 }

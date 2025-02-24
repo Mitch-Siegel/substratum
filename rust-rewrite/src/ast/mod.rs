@@ -1,6 +1,7 @@
 use crate::lexer::SourceLoc;
 use std::fmt::Display;
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum TranslationUnit {
     FunctionDeclaration(FunctionDeclarationTree),
     FunctionDefinition(FunctionDefinitionTree),
@@ -19,6 +20,7 @@ impl Display for TranslationUnit {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TranslationUnitTree {
     pub loc: SourceLoc,
     pub contents: TranslationUnit,
@@ -29,6 +31,7 @@ impl Display for TranslationUnitTree {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDeclarationTree {
     pub loc: SourceLoc,
     pub name: String,
@@ -53,6 +56,7 @@ impl Display for FunctionDeclarationTree {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDefinitionTree {
     pub prototype: FunctionDeclarationTree,
     pub body: CompoundStatementTree,
@@ -63,6 +67,7 @@ impl Display for FunctionDefinitionTree {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CompoundStatementTree {
     pub loc: SourceLoc,
     pub statements: Vec<StatementTree>,
@@ -77,6 +82,7 @@ impl Display for CompoundStatementTree {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct IfStatementTree {
     pub loc: SourceLoc,
     pub condition: ExpressionTree,
@@ -96,6 +102,19 @@ impl Display for IfStatementTree {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct WhileLoopTree {
+    pub loc: SourceLoc,
+    pub condition: ExpressionTree,
+    pub body: CompoundStatementTree
+}
+impl Display for WhileLoopTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "while ({}) {}", self.condition, self.body)
+    }
+}
+
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Statement {
     VariableDeclaration(VariableDeclarationTree),
     Assignment(AssignmentTree),
@@ -118,6 +137,7 @@ impl Display for Statement {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StatementTree {
     pub loc: SourceLoc,
     pub statement: Statement,
@@ -128,6 +148,7 @@ impl Display for StatementTree {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct VariableDeclarationTree {
     pub loc: SourceLoc,
     pub name: String,
@@ -139,6 +160,7 @@ impl Display for VariableDeclarationTree {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct AssignmentTree {
     pub loc: SourceLoc,
     pub identifier: String,
@@ -150,11 +172,13 @@ impl Display for AssignmentTree {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ArithmeticDualOperands {
     pub e1: Box<ExpressionTree>,
     pub e2: Box<ExpressionTree>,
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ArithmeticOperationTree {
     Add(ArithmeticDualOperands),
     Subtract(ArithmeticDualOperands),
@@ -172,6 +196,7 @@ impl Display for ArithmeticOperationTree {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ComparisonOperationTree {
     LThan(ArithmeticDualOperands),
     GThan(ArithmeticDualOperands),
@@ -193,6 +218,7 @@ impl Display for ComparisonOperationTree {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Expression {
     Identifier(String),
     UnsignedDecimalConstant(usize),
@@ -210,6 +236,7 @@ impl Display for Expression {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ExpressionTree {
     pub loc: SourceLoc,
     pub expression: Expression,
@@ -220,6 +247,7 @@ impl Display for ExpressionTree {
     }
 }
 
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TypenameTree {
     pub loc: SourceLoc,
     pub name: String,
