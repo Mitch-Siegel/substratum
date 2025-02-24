@@ -2,7 +2,11 @@ mod tests;
 
 use crate::midend::ir;
 
-use super::{ast::*, lexer::{token::Token, *}, sourceloc::SourceLoc};
+use super::{
+    ast::*,
+    lexer::{token::Token, *},
+    sourceloc::SourceLoc,
+};
 
 pub struct Parser<I>
 where
@@ -72,7 +76,7 @@ where
     }
 
     fn expect_token(&mut self, t: Token) -> Token {
-        if self.peek_token().eq(&t) {
+        if matches!(self.peek_token(), t) {
             self.next_token()
         } else {
             panic!(

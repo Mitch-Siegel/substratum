@@ -2,6 +2,8 @@ use token::Token;
 
 use super::sourceloc::SourceLoc;
 
+mod integration_tests;
+mod tests;
 pub mod token;
 
 pub struct Lexer<I>
@@ -39,14 +41,18 @@ where
         panic!("Invalid character '{}' at {}", char, self.current_loc());
     }
 
-    pub fn new(input: I) -> Self {
-        let mut created = Lexer {
+    fn from_iterator(iterator: I) -> Self {
+        Self {
             cur_line: 1,
             cur_col: 1,
             current_char: None,
             current_token: None,
-            input: input,
-        };
+            input: iterator,
+        }
+    }
+
+    pub fn new(input: I) -> Self {
+        let mut created = Self::from_iterator(input);
         created.advance_char();
         created.next();
         return created;
@@ -150,21 +156,24 @@ where
                     self.advance_char();
                     self.match_next_char_for_token_or('=', Token::LThanE, Token::LThan)
                 }
-                '!' => match self.peek_char() {
-                    None => {
-                        self.invalid_char('!');
-                        Token::Eof
-                    }
-                    Some(char) => {
-                        if char == '=' {
-                            self.advance_char();
-                            Token::NotEquals
-                        } else {
+                '!' => {
+                    self.advance_char();
+                    match self.peek_char() {
+                        None => {
                             self.invalid_char('!');
                             Token::Eof
                         }
+                        Some(char) => {
+                            if char == '=' {
+                                self.advance_char();
+                                Token::NotEquals
+                            } else {
+                                self.invalid_char('!');
+                                Token::Eof
+                            }
+                        }
                     }
-                },
+                }
                 '=' => {
                     self.advance_char();
                     self.match_next_char_for_token_or('=', Token::Equals, Token::Assign)
@@ -222,57 +231,5 @@ where
         }
 
         tokens
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn assert_single_tokenization(input_str: &str, expected_token: Token) {
-        println!(
-            "Assert single tokenization against {} == {}",
-            input_str, expected_token
-        );
-        let result = Lexer::new(String::from(input_str).chars()).lex_all();
-        assert_eq!(result, vec! {expected_token, Token::Eof});
-    }
-
-    #[test]
-    fn tokenize_l_curly() {
-        assert_single_tokenization("{", Token::LCurly);
-    }
-
-    #[test]
-    fn tokenize_r_curly() {
-        assert_single_tokenization("}", Token::RCurly);
-    }
-
-    #[test]
-    fn tokenize_identifier() {
-        assert_single_tokenization("abc", Token::Identifier(String::from("abc")));
-        assert_single_tokenization("abc123", Token::Identifier(String::from("abc123")));
-        assert_single_tokenization("abc123def", Token::Identifier(String::from("abc123def")));
-        assert_single_tokenization(
-            "unsignedOrSomething_123",
-            Token::Identifier(String::from("unsignedOrSomething_123")),
-        );
-        assert_single_tokenization(
-            "u16_named_fred",
-            Token::Identifier(String::from("u16_named_fred")),
-        );
-    }
-
-    #[test]
-    fn tokenize_unsigned_decimal_constant() {
-        assert_single_tokenization("123", Token::UnsignedDecimalConstant(123));
-        assert_single_tokenization(
-            &usize::MAX.to_string(),
-            Token::UnsignedDecimalConstant(usize::MAX),
-        );
-        assert_single_tokenization(
-            &usize::MIN.to_string(),
-            Token::UnsignedDecimalConstant(usize::MIN),
-        );
     }
 }

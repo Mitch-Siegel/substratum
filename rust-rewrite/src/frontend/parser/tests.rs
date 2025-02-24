@@ -1,6 +1,6 @@
-use std::str::Chars;
 use super::Parser;
 use crate::frontend::lexer::{token::Token, *};
+use std::str::Chars;
 
 fn parser_from_string(input: &str) -> Parser<Chars<'_>> {
     Parser::new(Lexer::new(input.chars()))

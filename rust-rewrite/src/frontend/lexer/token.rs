@@ -39,7 +39,7 @@ impl PartialEq for Token {
             (Token::U8, Token::U8) => true,
             (Token::U16, Token::U16) => true,
             (Token::U32, Token::U32) => true,
-            (Token::U64, Token::U32) => true,
+            (Token::U64, Token::U64) => true,
             (Token::Plus, Token::Plus) => true,
             (Token::Minus, Token::Minus) => true,
             (Token::Star, Token::Star) => true,
@@ -62,13 +62,15 @@ impl PartialEq for Token {
             (Token::RCurly, Token::RCurly) => true,
             (Token::Comma, Token::Comma) => true,
             (Token::Semicolon, Token::Semicolon) => true,
-            (Token::Identifier(_a), Token::Identifier(_b)) => true,
-            (Token::UnsignedDecimalConstant(_a), Token::UnsignedDecimalConstant(_b)) => true,
+            (Token::Identifier(a), Token::Identifier(b)) => a == b,
+            (Token::UnsignedDecimalConstant(a), Token::UnsignedDecimalConstant(b)) => a == b,
             (Token::Eof, Token::Eof) => true,
             _ => false,
         }
     }
 }
+
+impl Eq for Token {}
 
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
