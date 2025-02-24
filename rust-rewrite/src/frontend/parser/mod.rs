@@ -164,6 +164,7 @@ where
                     Statement::Assignment(assignment)
                 }
                 Token::If => Statement::IfStatement(self.parse_if_statement()),
+                Token::While => Statement::WhileLoop(self.parse_while_loop()),
                 _ => self.unexpected_token(),
             },
         };

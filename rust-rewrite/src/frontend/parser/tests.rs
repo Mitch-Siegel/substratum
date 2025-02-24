@@ -1,11 +1,16 @@
 use super::Parser;
-use crate::frontend::lexer::{token::Token, *};
+use crate::frontend::{
+    ast::TypenameTree,
+    lexer::{token::Token, *},
+    sourceloc::SourceLoc,
+};
 use std::str::Chars;
 
 fn parser_from_string(input: &str) -> Parser<Chars<'_>> {
     Parser::new(Lexer::new(input.chars()))
 }
 
+/// Expressions
 fn parse_and_print_expression(input: &str) -> String {
     let mut parser = parser_from_string(input);
     let expr_string = parser.parse_expression().to_string();
@@ -74,6 +79,19 @@ fn complex_arithmetic_expression() {
         parse_and_print_expression("3 + 4 * 2 / (1 - 5)"),
         "(3 + (4 * (2 / (1 - 5))))"
     );
+}
+
+/// variable declarations
+fn parse_and_print_variable_declaration(input: &str) -> String {
+    let mut parser = parser_from_string(input);
+    let expr_string = parser.parse_variable_declaration().to_string();
+    parser.expect_token(Token::Eof);
+    expr_string
+}
+
+#[test]
+fn u8_declaration() {
+    assert_eq!(parse_and_print_variable_declaration("u8 abc;"), "u8 abc");
 }
 
 #[test]

@@ -154,11 +154,58 @@ impl WalkContext {
         self.control_flow.set_current_block(converge_to);
     }
 
+    pub fn create_loop(
+        &mut self,
+        loc: SourceLoc,
+        condition: ExpressionTree,
+        body: CompoundStatementTree,
+    ) {
+        let loop_top = self.next_block(loc);
+        let after_loop = self.control_flow.next_block().label();
+        self.control_flow.set_current_block(loop_top);
+
+        // FUTURE: optimize condition handling to use different jumps
+        let condition_result = condition.walk(self);
+        let loop_false_condition =
+            ir::operands::JumpCondition::<String>::Eq(ir::operands::DualSourceOperands::from(
+                condition_result,
+                BasicOperand::new_as_unsigned_decimal_constant(0),
+            ));
+
+        let loop_false_jump = IR::new_jump(loc, after_loop, loop_false_condition);
+        self.append_to_current_block(loop_false_jump);
+
+        body.walk(self);
+        let looping_jump = IR::new_jump(
+            loc,
+            loop_top,
+            ir::operands::JumpCondition::<String>::Unconditional,
+        );
+        self.append_to_current_block(looping_jump);
+
+        self.control_flow.set_current_block(after_loop);
+    }
+
     pub fn next_temp(&mut self, type_: Type) -> ir::operands::BasicOperand {
         let temp_name = self.control_flow.next_temp();
         self.scope()
             .insert_variable(Variable::new(temp_name.clone(), type_));
         ir::BasicOperand::new_as_temporary(temp_name)
+    }
+
+    // finishes the current block, adds a jump to a new block, and sets that new block as the current
+    pub fn next_block(&mut self, loc: SourceLoc) -> usize {
+        let new_label = self.control_flow.next_block().label();
+
+        let exit_jump = IR::new_jump(
+            loc,
+            new_label,
+            ir::operands::JumpCondition::<String>::Unconditional,
+        );
+        self.append_to_current_block(exit_jump);
+
+        self.control_flow.set_current_block(new_label);
+        new_label
     }
 
     pub fn push_scope(&mut self, scope: Scope) {
@@ -410,7 +457,7 @@ impl AssignmentTree {
 
 impl IfStatementTree {
     fn walk(self, context: &mut WalkContext) {
-        // TODO: optimize condition walk to use different jumps
+        // FUTURE: optimize condition walk to use different jumps
         let condition_result = self.condition.walk(context);
         let if_condition =
             ir::operands::JumpCondition::<String>::NE(ir::operands::DualSourceOperands::from(
@@ -434,12 +481,19 @@ impl IfStatementTree {
     }
 }
 
+impl WhileLoopTree {
+    fn walk(self, context: &mut WalkContext) {
+        context.create_loop(self.loc, self.condition, self.body);
+    }
+}
+
 impl StatementTree {
     fn walk(self, context: &mut WalkContext) {
         match self.statement {
             Statement::VariableDeclaration(tree) => context.scope().insert_variable(tree.walk()),
             Statement::Assignment(tree) => tree.walk(context),
             Statement::IfStatement(tree) => tree.walk(context),
+            Statement::WhileLoop(tree) => tree.walk(context),
         }
     }
 }

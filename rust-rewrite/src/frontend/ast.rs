@@ -106,7 +106,7 @@ impl Display for IfStatementTree {
 pub struct WhileLoopTree {
     pub loc: SourceLoc,
     pub condition: ExpressionTree,
-    pub body: CompoundStatementTree
+    pub body: CompoundStatementTree,
 }
 impl Display for WhileLoopTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -119,6 +119,7 @@ pub enum Statement {
     VariableDeclaration(VariableDeclarationTree),
     Assignment(AssignmentTree),
     IfStatement(IfStatementTree),
+    WhileLoop(WhileLoopTree),
 }
 
 impl Display for Statement {
@@ -132,6 +133,9 @@ impl Display for Statement {
             }
             Self::IfStatement(if_statement) => {
                 write!(f, "{}", if_statement)
+            }
+            Self::WhileLoop(while_loop) => {
+                write!(f, "{}", while_loop)
             }
         }
     }

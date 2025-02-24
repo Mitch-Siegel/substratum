@@ -1,29 +1,39 @@
-mod frontend;
 mod backend;
+mod frontend;
 mod midend;
 
 use backend::generate_code;
 use frontend::{lexer::Lexer, parser::Parser};
 use midend::TableWalk;
 
+const FIB_FUN: &str = "fun fib(u8 n) -> u64
+{
+    u64 result;
+    result = 0;
+    if (n > 0) {
+        if(n == 0) {
+            result = 0;
+        } else {
+         result = 1;
+        }
+    } else {
+        result = (n - 1) - (n - 2);
+    }
+}";
+
+const WHILE_LOOP: &str = "fun down_to_zero(u16 input)
+{
+    input = input;
+    while(input > 0) {
+        input = input - 1;
+    }
+
+    input = input + 1;
+}";
+
 fn main() {
     println!("Hello, world!");
-    // let parsed = String::from("fun function(u8 abc, u32 def){u8 abc;u32 def;abc = 1;abc = def;def = 123 + abc}");
-    let parsed = String::from(
-        "fun fib(u8 n) -> u64 {
-            u64 result;
-            result = 0;
-            if (n > 0) {
-                if(n == 0) {
-                    result = 0;
-                } else {
-                 result = 1;
-                }
-            } else {
-                result = (n - 1) - (n - 2);
-            }
-        }",
-    );
+    let parsed = String::from(WHILE_LOOP);
     let mut parser = Parser::new(Lexer::new(parsed.chars()));
     let program = parser.parse();
 
