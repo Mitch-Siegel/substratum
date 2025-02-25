@@ -58,7 +58,7 @@ impl ControlFlow {
         self.blocks.last_mut().unwrap()
     }
 
-    pub fn append_statement_to_current_block(&mut self, statement: ir::IR) {
+    pub fn append_statement_to_current_block(&mut self, statement: ir::IrLine) {
         match &statement.operation {
             ir::BasicOperations::Jump(operands) => {
                 let target_block = operands.destination_block;
@@ -79,7 +79,7 @@ impl ControlFlow {
         self.blocks[self.current_block].append_statement(statement);
     }
 
-    pub fn append_statement_to_block(&mut self, statement: IR, block: usize) {
+    pub fn append_statement_to_block(&mut self, statement: IrLine, block: usize) {
         self.blocks[block].append_statement(statement);
     }
 

@@ -4,7 +4,6 @@ mod midend;
 
 use backend::generate_code;
 use frontend::{lexer::Lexer, parser::Parser};
-use midend::TableWalk;
 
 const FIB_FUN: &str = "fun fib(u8 n) -> u64
 {
@@ -40,10 +39,8 @@ fn main() {
     for t in &program {
         println!("{}", t);
     }
-    let mut symtab = midend::SymbolTable::new();
-    for translation_unit in program {
-        translation_unit.walk(&mut symtab);
-    }
+
+    let mut symtab = midend::symbol_table_from_program(program);
 
     // println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
     symtab.print_ir();

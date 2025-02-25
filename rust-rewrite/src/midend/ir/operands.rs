@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use serde::Serialize;
 
-use crate::midend::{types::Type, WalkContext};
+use crate::midend::{linearizer, types::Type};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct SsaName {
@@ -66,7 +66,7 @@ impl BasicOperand {
         IROperand::UnsignedDecimalConstant(constant)
     }
 
-    pub fn type_(&self, context: &WalkContext) -> Type {
+    pub fn type_(&self, context: &linearizer::walkcontext::WalkContext) -> Type {
         match self {
             IROperand::Variable(name) => context
                 .lookup_variable_by_name(name)

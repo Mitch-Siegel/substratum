@@ -2,12 +2,12 @@ use std::fmt::Display;
 
 use serde::Serialize;
 
-use super::ir::IR;
+use super::ir::IrLine;
 
 #[derive(Debug, Serialize)]
 pub struct BasicBlock {
     label: usize,
-    statements: Vec<IR>,
+    statements: Vec<IrLine>,
 }
 
 impl Display for BasicBlock {
@@ -28,7 +28,7 @@ impl BasicBlock {
         }
     }
 
-    pub fn append_statement(&mut self, mut statement: IR) {
+    pub fn append_statement(&mut self, mut statement: IrLine) {
         statement.program_point.index = self.statements.len();
         self.statements.push(statement);
     }
@@ -37,7 +37,7 @@ impl BasicBlock {
         self.label
     }
 
-    pub fn statements(&self) -> &Vec<IR> {
+    pub fn statements(&self) -> &Vec<IrLine> {
         &self.statements
     }
 

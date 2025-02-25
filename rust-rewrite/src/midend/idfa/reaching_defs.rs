@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::midend::{control_flow::ControlFlow};
+use crate::midend::control_flow::ControlFlow;
 
 use super::idfa_base::{BlockFacts, Idfa, IdfaAnalysisDirection, IdfaFacts, IdfaImplementor};
 

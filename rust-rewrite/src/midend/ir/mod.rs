@@ -16,7 +16,7 @@ pub use operands::SsaOperand;
 use super::program_point::ProgramPoint;
 
 #[derive(Debug, Serialize)]
-pub struct IRLine<T>
+pub struct IrBase<T>
 where
     T: std::fmt::Display,
 {
@@ -25,7 +25,7 @@ where
     pub operation: IROperations<T>,
 }
 
-impl<T> Display for IRLine<T>
+impl<T> Display for IrBase<T>
 where
     T: std::fmt::Display,
 {
@@ -40,18 +40,18 @@ where
     }
 }
 
-pub type IR = IRLine<String>;
-pub type Ssa = IRLine<SsaOperand>;
+pub type IrLine = IrBase<String>;
+pub type SsaLine = IrBase<SsaOperand>;
 
 pub type BasicOperations = IROperations<String>;
 pub type SsaOperations = IROperations<SsaOperand>;
 
-impl<T> IRLine<T>
+impl<T> IrBase<T>
 where
     T: std::fmt::Display,
 {
     fn new(loc: SourceLoc, operation: IROperations<T>) -> Self {
-        IRLine::<T> {
+        IrBase::<T> {
             loc: loc,
             program_point: ProgramPoint::default(),
             operation: operation,

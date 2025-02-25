@@ -1,4 +1,4 @@
-use super::{control_flow::ControlFlow};
+use super::control_flow::ControlFlow;
 use crate::midend::types::Type;
 use std::collections::HashMap;
 
@@ -227,20 +227,12 @@ impl SymbolTable {
     pub fn functions(self) -> HashMap<String, FunctionOrPrototype> {
         self.functions
     }
-}
 
-pub trait InsertFunction {
-    fn insert_function(&mut self, function: Function);
-}
-
-impl InsertFunction for SymbolTable {
-    fn insert_function(&mut self, function: Function) {
+    pub fn insert_function(&mut self, function: Function) {
         self.functions
             .insert(function.name(), FunctionOrPrototype::Function(function));
     }
-}
 
-impl SymbolTable {
     pub fn insert_function_prototype(&mut self, prototype: FunctionPrototype) {
         self.functions.insert(
             prototype.name.clone(),

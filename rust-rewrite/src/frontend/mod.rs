@@ -1,5 +1,4 @@
-pub mod sourceloc;
-pub mod lexer;
 pub mod ast;
+pub mod lexer;
 pub mod parser;
-
+pub mod sourceloc;

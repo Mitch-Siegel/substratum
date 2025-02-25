@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::midend::{control_flow::ControlFlow, program_point::ProgramPoint, Scope};
+use crate::midend::{control_flow::ControlFlow, program_point::ProgramPoint, symtab};
 
 use super::lifetime::{Lifetime, LifetimeSet};
 
@@ -79,7 +79,7 @@ impl RegallocMetadata {
     }
 }
 
-pub fn allocate_registers(scope: &Scope, control_flow: &ControlFlow) {
+pub fn allocate_registers(scope: &symtab::Scope, control_flow: &ControlFlow) {
     println!("Allocate registers for scope");
     // let lifetimes = LifetimeSet::from_control_flow(control_flow);
 
