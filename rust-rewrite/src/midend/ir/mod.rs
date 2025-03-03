@@ -12,8 +12,8 @@ use serde::Serialize;
 
 pub use control_flow::ControlFlow;
 pub use operands::BasicOperand;
-pub use operands::GenericOperand;
 pub use operands::SsaOperand;
+pub use operations::Operations;
 
 use super::program_point::ProgramPoint;
 
@@ -43,10 +43,10 @@ where
 }
 
 pub type IrLine = IrBase<String>;
-pub type SsaLine = IrBase<SsaOperand>;
+pub type SsaLine = IrBase<SsaName>;
 
 pub type BasicOperations = Operations<String>;
-pub type SsaOperations = Operations<SsaOperand>;
+pub type SsaOperations = Operations<SsaName>;
 
 pub type BasicBlock<T> = Vec<IrBase<T>>;
 pub type NonSsaBlock = Vec<IrLine>;
@@ -148,6 +148,20 @@ where
             Operations::BinaryOperation(operation) => {
                 let arithmetic_operands = operation.raw_operands();
                 operands.push(&arithmetic_operands.destination);
+            }
+            Operations::Jump(_) => {}
+        }
+
+        operands
+    }
+
+    pub fn write_operands_mut(&mut self) -> Vec<&mut ir::operands::GenericOperand<T>> {
+        let mut operands: Vec<&mut ir::operands::GenericOperand<T>> = Vec::new();
+        match &mut self.operation {
+            Operations::Assignment(source_dest) => operands.push(&mut source_dest.destination),
+            Operations::BinaryOperation(operation) => {
+                let arithmetic_operands = operation.raw_operands_mut();
+                operands.push(&mut arithmetic_operands.destination);
             }
             Operations::Jump(_) => {}
         }

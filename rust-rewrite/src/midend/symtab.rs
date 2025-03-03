@@ -143,9 +143,9 @@ impl FunctionPrototype {
 
 #[derive(Debug, Serialize)]
 pub struct Function {
-    prototype: FunctionPrototype,
-    scope: Scope,
-    control_flow: ir::ControlFlow,
+    pub prototype: FunctionPrototype,
+    pub scope: Scope,
+    pub control_flow: ir::ControlFlow,
 }
 
 impl Function {
@@ -160,22 +160,6 @@ impl Function {
     pub fn name(&self) -> String {
         self.prototype.name.clone()
     }
-
-    pub fn prototype(&self) -> &FunctionPrototype {
-        &self.prototype
-    }
-
-    pub fn control_flow(&self) -> &ir::ControlFlow {
-        &self.control_flow
-    }
-
-    pub fn control_flow_mut(&mut self) -> &mut ir::ControlFlow {
-        &mut self.control_flow
-    }
-
-    pub fn scope(&self) -> &Scope {
-        &self.scope
-    }
 }
 
 #[derive(Debug, Serialize)]
@@ -186,8 +170,8 @@ pub enum FunctionOrPrototype {
 
 #[derive(Debug, Serialize)]
 pub struct SymbolTable {
-    global_scope: Scope,
-    functions: HashMap<String, FunctionOrPrototype>,
+    pub global_scope: Scope,
+    pub functions: HashMap<String, FunctionOrPrototype>,
 }
 
 impl SymbolTable {
@@ -217,16 +201,12 @@ impl SymbolTable {
         for function in self.functions.values() {
             match function {
                 FunctionOrPrototype::Function(f) => {
-                    println!("{}", f.prototype());
-                    f.control_flow();
+                    println!("{}", f.prototype);
+                    &f.control_flow;
                 }
                 FunctionOrPrototype::Prototype(_) => {}
             }
         }
-    }
-
-    pub fn functions(self) -> HashMap<String, FunctionOrPrototype> {
-        self.functions
     }
 
     pub fn insert_function(&mut self, function: Function) {

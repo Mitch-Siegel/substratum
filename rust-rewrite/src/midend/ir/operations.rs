@@ -239,6 +239,21 @@ where
             | Self::NotEquals(ops) => ops,
         }
     }
+
+    pub fn raw_operands_mut(&mut self) -> &mut BinaryArithmeticOperands<T> {
+        match self {
+            Self::Add(ops)
+            | Self::Subtract(ops)
+            | Self::Multiply(ops)
+            | Self::Divide(ops)
+            | Self::LThan(ops)
+            | Self::GThan(ops)
+            | Self::LThanE(ops)
+            | Self::GThanE(ops)
+            | Self::Equals(ops)
+            | Self::NotEquals(ops) => ops,
+        }
+    }
 }
 
 /// ## Jump

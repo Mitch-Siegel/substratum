@@ -2,7 +2,10 @@ use std::fmt::Display;
 
 use serde::Serialize;
 
-use crate::midend::{linearizer, types::Type};
+use crate::{
+    frontend::sourceloc::SourceLoc,
+    midend::{linearizer, symtab::Variable, types::Type},
+};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct SsaName {
@@ -15,6 +18,13 @@ impl Display for SsaName {
     }
 }
 impl SsaName {
+    pub fn from_string(base_name: String) -> Self {
+        Self {
+            base_name,
+            ssa_number: 0,
+        }
+    }
+
     pub fn to_string(&self) -> String {
         format!("{}.{}", self.base_name, self.ssa_number)
     }
@@ -52,6 +62,15 @@ where
 pub type GenericOperand<T> = Operand<T>;
 pub type BasicOperand = Operand<String>;
 pub type SsaOperand = Operand<SsaName>;
+impl BasicOperand {
+    pub fn to_ssa(self) -> SsaOperand {
+        match self {
+            Operand::Variable(name) => SsaOperand::Variable(SsaName::from_string(name)),
+            Operand::Temporary(name) => SsaOperand::Temporary(SsaName::from_string(name)),
+            Operand::UnsignedDecimalConstant(value) => SsaOperand::UnsignedDecimalConstant(value),
+        }
+    }
+}
 
 impl BasicOperand {
     pub fn new_as_variable(identifier: String) -> Self {
@@ -92,6 +111,18 @@ impl BasicOperand {
     }
 }
 
+impl SsaOperand {
+    pub fn assign_ssa_number(&mut self, number: usize) {
+        match self {
+            Operand::Variable(variable) => variable.ssa_number = number,
+            Operand::Temporary(temporary) => temporary.ssa_number = number,
+            Operand::UnsignedDecimalConstant(_) => {
+                panic!("assign_ssa_number called on Operand::UnsignedDecimalConstant")
+            }
+        }
+    }
+}
+
 /*
  groupings of operands
 */
@@ -111,6 +142,15 @@ where
 {
     pub fn from(a: Operand<T>, b: Operand<T>) -> Self {
         DualSourceOperands { a, b }
+    }
+}
+
+impl DualSourceOperands<String> {
+    pub fn to_ssa(self) -> DualSourceOperands<SsaName> {
+        DualSourceOperands::<SsaName> {
+            a: self.a.to_ssa(),
+            b: self.b.to_ssa(),
+        }
     }
 }
 
@@ -157,6 +197,7 @@ where
     GE(DualSourceOperands<T>),
     LE(DualSourceOperands<T>),
 }
+
 impl<T> Display for JumpCondition<T>
 where
     T: std::fmt::Display,
@@ -183,6 +224,32 @@ where
             }
             Self::GE(operands) => {
                 write!(f, "jge({}, {})", operands.a, operands.b)
+            }
+        }
+    }
+}
+
+impl JumpCondition<String> {
+    pub fn to_ssa(self) -> JumpCondition<SsaName> {
+        match self {
+            JumpCondition::Unconditional => JumpCondition::Unconditional,
+            JumpCondition::Eq(dual_source_operands) => {
+                JumpCondition::Eq(dual_source_operands.to_ssa())
+            }
+            JumpCondition::NE(dual_source_operands) => {
+                JumpCondition::NE(dual_source_operands.to_ssa())
+            }
+            JumpCondition::G(dual_source_operands) => {
+                JumpCondition::G(dual_source_operands.to_ssa())
+            }
+            JumpCondition::L(dual_source_operands) => {
+                JumpCondition::L(dual_source_operands.to_ssa())
+            }
+            JumpCondition::GE(dual_source_operands) => {
+                JumpCondition::GE(dual_source_operands.to_ssa())
+            }
+            JumpCondition::LE(dual_source_operands) => {
+                JumpCondition::LE(dual_source_operands.to_ssa())
             }
         }
     }

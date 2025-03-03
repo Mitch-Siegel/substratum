@@ -82,6 +82,7 @@ impl RegallocMetadata {
 
 pub fn allocate_registers(scope: &symtab::Scope, control_flow: &ControlFlow) {
     println!("Allocate registers for scope");
+
     // let lifetimes = LifetimeSet::from_control_flow(control_flow);
 
     // let max_indices_by_depth = find_max_indices_by_depth(control_flow);
