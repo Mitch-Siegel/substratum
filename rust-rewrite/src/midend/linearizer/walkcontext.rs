@@ -69,11 +69,7 @@ impl WalkContext {
         self.create_convergence_point();
     }
 
-    pub fn create_branch(
-        &mut self,
-        loc: SourceLoc,
-        condition: ir::operands::JumpCondition<String>,
-    ) {
+    pub fn create_branch(&mut self, loc: SourceLoc, condition: ir::JumpCondition) {
         assert!(self.branch_points.len() > 0);
         assert!(self.convergence_points.len() > 0);
         assert!(*self.branch_points.last().unwrap() == self.control_flow.current_block());
@@ -109,7 +105,7 @@ impl WalkContext {
         let convergence_jump = ir::IrLine::new_jump(
             SourceLoc::none(),
             converge_to,
-            ir::operands::JumpCondition::<String>::Unconditional,
+            ir::JumpCondition::Unconditional,
         );
         self.append_to_current_block(convergence_jump);
 
@@ -137,7 +133,7 @@ impl WalkContext {
         let convergence_jump = ir::IrLine::new_jump(
             SourceLoc::none(),
             converge_to,
-            ir::operands::JumpCondition::<String>::Unconditional,
+            ir::JumpCondition::Unconditional,
         );
 
         self.append_to_current_block(convergence_jump);
@@ -157,42 +153,34 @@ impl WalkContext {
 
         // FUTURE: optimize condition handling to use different jumps
         let condition_result = condition.walk(loc, self);
-        let loop_false_condition =
-            ir::operands::JumpCondition::<String>::Eq(ir::operands::DualSourceOperands::from(
-                condition_result,
-                ir::BasicOperand::new_as_unsigned_decimal_constant(0),
-            ));
+        let loop_false_condition = ir::JumpCondition::Eq(ir::operands::DualSourceOperands::from(
+            condition_result,
+            ir::Operand::new_as_unsigned_decimal_constant(0),
+        ));
 
         let loop_false_jump = ir::IrLine::new_jump(loc, after_loop, loop_false_condition);
         self.append_to_current_block(loop_false_jump);
 
         body.walk(self);
-        let looping_jump = ir::IrLine::new_jump(
-            loc,
-            loop_top,
-            ir::operands::JumpCondition::<String>::Unconditional,
-        );
+        let looping_jump = ir::IrLine::new_jump(loc, loop_top, ir::JumpCondition::Unconditional);
         self.append_to_current_block(looping_jump);
 
         self.control_flow.set_current_block(after_loop);
     }
 
-    pub fn next_temp(&mut self, type_: Type) -> ir::operands::BasicOperand {
+    pub fn next_temp(&mut self, type_: Type) -> ir::Operand {
         let temp_name = self.control_flow.next_temp();
         self.scope()
             .insert_variable(symtab::Variable::new(temp_name.clone(), type_));
-        ir::BasicOperand::new_as_temporary(temp_name)
+        ir::Operand::new_as_temporary(temp_name)
     }
 
     // finishes the current block, adds a jump to a new block, and sets that new block as the current
     pub fn next_block(&mut self, loc: SourceLoc) -> usize {
         let new_label = self.control_flow.next_block();
 
-        let exit_jump = ir::IrLine::new_jump(
-            loc,
-            new_label,
-            ir::operands::JumpCondition::<String>::Unconditional,
-        );
+        let exit_jump =
+            ir::IrLine::new_jump(loc, new_label, ir::operands::JumpCondition::Unconditional);
         self.append_to_current_block(exit_jump);
 
         self.control_flow.set_current_block(new_label);

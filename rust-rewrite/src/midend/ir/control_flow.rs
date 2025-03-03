@@ -1,4 +1,4 @@
-use super::ir::*;
+use super::ir;
 use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -16,8 +16,8 @@ use std::{
 
 #[derive(Debug, Serialize)]
 pub enum CfgBlocks {
-    Basic(Vec<ir::NonSsaBlock>),
-    Ssa(Vec<ir::SsaBlock>),
+    Basic(Vec<ir::BasicBlock>),
+    Ssa(Vec<ir::BasicBlock>),
 }
 
 impl CfgBlocks {
@@ -47,28 +47,28 @@ pub struct ControlFlow {
 }
 
 impl CfgBlocks {
-    pub fn as_basic(&self) -> &Vec<ir::NonSsaBlock> {
+    pub fn as_basic(&self) -> &Vec<ir::BasicBlock> {
         match self {
             Self::Basic(basic) => basic,
             Self::Ssa(_) => panic!("Cfg::as_basic called with Ssa type"),
         }
     }
 
-    pub fn as_basic_mut(&mut self) -> &mut Vec<ir::NonSsaBlock> {
+    pub fn as_basic_mut(&mut self) -> &mut Vec<ir::BasicBlock> {
         match self {
             Self::Basic(basic) => basic,
             Self::Ssa(_) => panic!("Cfg::as_basic called with Ssa type"),
         }
     }
 
-    pub fn as_ssa(&self) -> &Vec<ir::SsaBlock> {
+    pub fn as_ssa(&self) -> &Vec<ir::BasicBlock> {
         match self {
             Self::Basic(_) => panic!("Cfg::as_ssa called with Basic type"),
             Self::Ssa(ssa) => ssa,
         }
     }
 
-    pub fn as_ssa_mut(&mut self) -> &mut Vec<ir::SsaBlock> {
+    pub fn as_ssa_mut(&mut self) -> &mut Vec<ir::BasicBlock> {
         match self {
             Self::Basic(_) => panic!("Cfg::as_ssa called with Basic type"),
             Self::Ssa(ssa) => ssa,
@@ -82,6 +82,20 @@ impl ControlFlow {
             blocks: CfgBlocks::Basic(Vec::new()),
             successors: Vec::<HashSet<usize>>::new(),
             predecessors: Vec::<HashSet<usize>>::new(),
+            current_block: 0,
+            temp_num: 0,
+        }
+    }
+
+    pub fn new_ssa(
+        cfg: Vec<ir::BasicBlock>,
+        successors: Vec<HashSet<usize>>,
+        predecessors: Vec<HashSet<usize>>,
+    ) -> Self {
+        ControlFlow {
+            blocks: CfgBlocks::Ssa(cfg),
+            successors,
+            predecessors,
             current_block: 0,
             temp_num: 0,
         }
@@ -186,26 +200,15 @@ struct ControlFlowBfs<'a> {
 }
 
 impl<'a> ControlFlowBfs<'a> {
-    pub fn map_basic<MetadataType>(
+    pub fn map<MetadataType>(
         control_flow: &'a ControlFlow,
-        operation: fn(&ir::NonSsaBlock, &mut MetadataType),
+        operation: fn(&ir::BasicBlock, &mut MetadataType),
         metadata: &mut MetadataType,
     ) where
         MetadataType: std::fmt::Display,
     {
         let mut bfs = Self::new(control_flow);
         bfs.visit_all_basic(operation, metadata);
-    }
-
-    pub fn map_ssa<MetadataType>(
-        control_flow: &'a ControlFlow,
-        operation: fn(&ir::SsaBlock, &mut MetadataType),
-        metadata: &mut MetadataType,
-    ) where
-        MetadataType: std::fmt::Display,
-    {
-        let mut bfs = Self::new(control_flow);
-        bfs.visit_all_ssa(operation, metadata);
     }
 
     fn new(control_flow: &'a ControlFlow) -> Self {
@@ -219,7 +222,7 @@ impl<'a> ControlFlowBfs<'a> {
 
     fn visit_all_basic<MetadataType>(
         &mut self,
-        on_visit: fn(&Vec<IrLine>, &mut MetadataType),
+        on_visit: fn(&ir::BasicBlock, &mut MetadataType),
         metadata: &mut MetadataType,
     ) {
         self.queue.push_back(0);
@@ -252,7 +255,7 @@ impl<'a> ControlFlowBfs<'a> {
 
     fn visit_all_ssa<MetadataType>(
         &mut self,
-        on_visit: fn(&Vec<SsaLine>, &mut MetadataType),
+        on_visit: fn(&ir::BasicBlock, &mut MetadataType),
         metadata: &mut MetadataType,
     ) {
         self.queue.push_back(0);
@@ -330,23 +333,13 @@ impl<'a> ControlFlowBfs<'a> {
 }
 
 impl ControlFlow {
-    pub fn map_over_basic_blocks_by_bfs<MetadataType>(
+    pub fn map_over_blocks_by_bfs<MetadataType>(
         &self,
-        operation: fn(&ir::NonSsaBlock, &mut MetadataType),
+        operation: fn(&ir::BasicBlock, &mut MetadataType),
         metadata: &mut MetadataType,
     ) where
         MetadataType: std::fmt::Display,
     {
-        ControlFlowBfs::map_basic(self, operation, metadata)
-    }
-
-    pub fn map_over_ssa_blocks_by_bfs<MetadataType>(
-        &self,
-        operation: fn(&ir::SsaBlock, &mut MetadataType),
-        metadata: &mut MetadataType,
-    ) where
-        MetadataType: std::fmt::Display,
-    {
-        ControlFlowBfs::map_ssa(self, operation, metadata)
+        ControlFlowBfs::map(self, operation, metadata)
     }
 }

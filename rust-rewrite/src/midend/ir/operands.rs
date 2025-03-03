@@ -8,42 +8,41 @@ use crate::{
 };
 
 #[derive(Clone, Debug, Serialize)]
-pub struct SsaName {
+pub struct NamedOperand {
     base_name: String,
-    ssa_number: usize,
+    ssa_number: Option<usize>,
 }
-impl Display for SsaName {
+impl Display for NamedOperand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_string())
     }
 }
-impl SsaName {
-    pub fn from_string(base_name: String) -> Self {
+impl NamedOperand {
+    pub fn new_basic(base_name: String) -> Self {
         Self {
             base_name,
-            ssa_number: 0,
+            ssa_number: None,
         }
     }
 
-    pub fn to_string(&self) -> String {
-        format!("{}.{}", self.base_name, self.ssa_number)
+    pub fn name(&self) -> String {
+        match self.ssa_number {
+            Some(number) => {
+                format!("{}.{}", self.base_name, number)
+            }
+            None => self.base_name.clone(),
+        }
     }
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub enum Operand<T>
-where
-    T: std::fmt::Display,
-{
-    Variable(T),
-    Temporary(T),
+pub enum Operand {
+    Variable(NamedOperand),
+    Temporary(NamedOperand),
     UnsignedDecimalConstant(usize),
 }
 
-impl<T> Display for Operand<T>
-where
-    T: std::fmt::Display,
-{
+impl Display for Operand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Variable(name) => {
@@ -59,26 +58,13 @@ where
     }
 }
 
-pub type GenericOperand<T> = Operand<T>;
-pub type BasicOperand = Operand<String>;
-pub type SsaOperand = Operand<SsaName>;
-impl BasicOperand {
-    pub fn to_ssa(self) -> SsaOperand {
-        match self {
-            Operand::Variable(name) => SsaOperand::Variable(SsaName::from_string(name)),
-            Operand::Temporary(name) => SsaOperand::Temporary(SsaName::from_string(name)),
-            Operand::UnsignedDecimalConstant(value) => SsaOperand::UnsignedDecimalConstant(value),
-        }
-    }
-}
-
-impl BasicOperand {
+impl Operand {
     pub fn new_as_variable(identifier: String) -> Self {
-        Operand::Variable(identifier)
+        Operand::Variable(NamedOperand::new_basic(identifier))
     }
 
     pub fn new_as_temporary(identifier: String) -> Self {
-        Operand::Temporary(identifier)
+        Operand::Temporary(NamedOperand::new_basic(identifier))
     }
 
     pub fn new_as_unsigned_decimal_constant(constant: usize) -> Self {
@@ -87,13 +73,13 @@ impl BasicOperand {
 
     pub fn type_(&self, context: &linearizer::walkcontext::WalkContext) -> Type {
         match self {
-            Operand::Variable(name) => context
-                .lookup_variable_by_name(name)
-                .expect(format!("Use of undeclared variable {}", name).as_str())
+            Operand::Variable(operand) => context
+                .lookup_variable_by_name(&operand.name())
+                .expect(format!("Use of undeclared variable {}", operand.name()).as_str())
                 .type_(),
-            Operand::Temporary(name) => context
-                .lookup_variable_by_name(name)
-                .expect(format!("Use of undeclared variable {}", name).as_str())
+            Operand::Temporary(operand) => context
+                .lookup_variable_by_name(&operand.name())
+                .expect(format!("Use of undeclared variable {}", operand.name()).as_str())
                 .type_()
                 .clone(),
             Operand::UnsignedDecimalConstant(value) => {
@@ -111,63 +97,30 @@ impl BasicOperand {
     }
 }
 
-impl SsaOperand {
-    pub fn assign_ssa_number(&mut self, number: usize) {
-        match self {
-            Operand::Variable(variable) => variable.ssa_number = number,
-            Operand::Temporary(temporary) => temporary.ssa_number = number,
-            Operand::UnsignedDecimalConstant(_) => {
-                panic!("assign_ssa_number called on Operand::UnsignedDecimalConstant")
-            }
-        }
-    }
-}
-
 /*
  groupings of operands
 */
 
 #[derive(Debug, Serialize)]
-pub struct DualSourceOperands<T>
-where
-    T: std::fmt::Display,
-{
-    pub a: Operand<T>,
-    pub b: Operand<T>,
+pub struct DualSourceOperands {
+    pub a: Operand,
+    pub b: Operand,
 }
 
-impl<T> DualSourceOperands<T>
-where
-    T: std::fmt::Display,
-{
-    pub fn from(a: Operand<T>, b: Operand<T>) -> Self {
+impl DualSourceOperands {
+    pub fn from(a: Operand, b: Operand) -> Self {
         DualSourceOperands { a, b }
     }
 }
 
-impl DualSourceOperands<String> {
-    pub fn to_ssa(self) -> DualSourceOperands<SsaName> {
-        DualSourceOperands::<SsaName> {
-            a: self.a.to_ssa(),
-            b: self.b.to_ssa(),
-        }
-    }
-}
-
 #[derive(Debug, Serialize)]
-pub struct BinaryArithmeticOperands<T>
-where
-    T: std::fmt::Display,
-{
-    pub destination: Operand<T>,
-    pub sources: DualSourceOperands<T>,
+pub struct BinaryArithmeticOperands {
+    pub destination: Operand,
+    pub sources: DualSourceOperands,
 }
 
-impl<T> BinaryArithmeticOperands<T>
-where
-    T: std::fmt::Display,
-{
-    pub fn from(destination: Operand<T>, source_a: Operand<T>, source_b: Operand<T>) -> Self {
+impl BinaryArithmeticOperands {
+    pub fn from(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
         BinaryArithmeticOperands {
             destination,
             sources: DualSourceOperands::from(source_a, source_b),
@@ -176,32 +129,23 @@ where
 }
 
 #[derive(Debug, Serialize)]
-pub struct SourceDestOperands<T>
-where
-    T: std::fmt::Display,
-{
-    pub destination: Operand<T>,
-    pub source: Operand<T>,
+pub struct SourceDestOperands {
+    pub destination: Operand,
+    pub source: Operand,
 }
 
 #[derive(Debug, Serialize)]
-pub enum JumpCondition<T>
-where
-    T: std::fmt::Display,
-{
+pub enum JumpCondition {
     Unconditional,
-    Eq(DualSourceOperands<T>),
-    NE(DualSourceOperands<T>),
-    G(DualSourceOperands<T>),
-    L(DualSourceOperands<T>),
-    GE(DualSourceOperands<T>),
-    LE(DualSourceOperands<T>),
+    Eq(DualSourceOperands),
+    NE(DualSourceOperands),
+    G(DualSourceOperands),
+    L(DualSourceOperands),
+    GE(DualSourceOperands),
+    LE(DualSourceOperands),
 }
 
-impl<T> Display for JumpCondition<T>
-where
-    T: std::fmt::Display,
-{
+impl Display for JumpCondition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Unconditional => {
@@ -224,32 +168,6 @@ where
             }
             Self::GE(operands) => {
                 write!(f, "jge({}, {})", operands.a, operands.b)
-            }
-        }
-    }
-}
-
-impl JumpCondition<String> {
-    pub fn to_ssa(self) -> JumpCondition<SsaName> {
-        match self {
-            JumpCondition::Unconditional => JumpCondition::Unconditional,
-            JumpCondition::Eq(dual_source_operands) => {
-                JumpCondition::Eq(dual_source_operands.to_ssa())
-            }
-            JumpCondition::NE(dual_source_operands) => {
-                JumpCondition::NE(dual_source_operands.to_ssa())
-            }
-            JumpCondition::G(dual_source_operands) => {
-                JumpCondition::G(dual_source_operands.to_ssa())
-            }
-            JumpCondition::L(dual_source_operands) => {
-                JumpCondition::L(dual_source_operands.to_ssa())
-            }
-            JumpCondition::GE(dual_source_operands) => {
-                JumpCondition::GE(dual_source_operands.to_ssa())
-            }
-            JumpCondition::LE(dual_source_operands) => {
-                JumpCondition::LE(dual_source_operands.to_ssa())
             }
         }
     }

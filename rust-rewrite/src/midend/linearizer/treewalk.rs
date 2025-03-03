@@ -22,7 +22,7 @@ pub trait ContextWalk {
 }
 
 pub trait OperandWalk {
-    fn walk(self, loc: SourceLoc, context: &mut WalkContext) -> ir::BasicOperand;
+    fn walk(self, loc: SourceLoc, context: &mut WalkContext) -> ir::Operand;
 }
 
 impl TableWalk for TranslationUnitTree {
@@ -84,7 +84,7 @@ impl ReturnWalk<symtab::FunctionPrototype> for FunctionDeclarationTree {
 }
 
 impl OperandWalk for ArithmeticOperationTree {
-    fn walk(self, loc: SourceLoc, context: &mut WalkContext) -> ir::operands::BasicOperand {
+    fn walk(self, loc: SourceLoc, context: &mut WalkContext) -> ir::Operand {
         let (temp_dest, op) = match self {
             ArithmeticOperationTree::Add(operands) => {
                 let lhs = operands.e1.walk(loc, context);
@@ -131,7 +131,7 @@ impl OperandWalk for ArithmeticOperationTree {
 }
 
 impl OperandWalk for ComparisonOperationTree {
-    fn walk(self, loc: SourceLoc, context: &mut WalkContext) -> ir::operands::BasicOperand {
+    fn walk(self, loc: SourceLoc, context: &mut WalkContext) -> ir::Operand {
         let (temp_dest, op) = match self {
             ComparisonOperationTree::LThan(operands) => {
                 let lhs = operands.e1.walk(loc, context);
@@ -195,11 +195,11 @@ impl OperandWalk for ComparisonOperationTree {
 }
 
 impl OperandWalk for ExpressionTree {
-    fn walk(self, _loc: SourceLoc, context: &mut WalkContext) -> ir::operands::BasicOperand {
+    fn walk(self, _loc: SourceLoc, context: &mut WalkContext) -> ir::Operand {
         match self.expression {
-            Expression::Identifier(ident) => ir::operands::BasicOperand::new_as_variable(ident),
+            Expression::Identifier(ident) => ir::Operand::new_as_variable(ident),
             Expression::UnsignedDecimalConstant(constant) => {
-                ir::operands::BasicOperand::new_as_unsigned_decimal_constant(constant)
+                ir::Operand::new_as_unsigned_decimal_constant(constant)
             }
             Expression::Arithmetic(arithmetic_operation) => {
                 arithmetic_operation.walk(self.loc, context)
@@ -215,7 +215,7 @@ impl ContextWalk for AssignmentTree {
     fn walk(self, context: &mut WalkContext) {
         let assignment_ir = IrLine::new_assignment(
             self.loc,
-            ir::operands::BasicOperand::new_as_variable(self.identifier),
+            ir::Operand::new_as_variable(self.identifier),
             self.value.walk(self.loc, context),
         );
         context.append_to_current_block(assignment_ir);
@@ -226,11 +226,10 @@ impl ContextWalk for IfStatementTree {
     fn walk(self, context: &mut WalkContext) {
         // FUTURE: optimize condition walk to use different jumps
         let condition_result = self.condition.walk(self.loc, context);
-        let if_condition =
-            ir::operands::JumpCondition::<String>::NE(ir::operands::DualSourceOperands::from(
-                condition_result,
-                ir::BasicOperand::new_as_unsigned_decimal_constant(0),
-            ));
+        let if_condition = ir::JumpCondition::NE(ir::operands::DualSourceOperands::from(
+            condition_result,
+            ir::Operand::new_as_unsigned_decimal_constant(0),
+        ));
 
         context.create_branching_point_with_convergence();
         context.create_branch(self.true_block.loc, if_condition);

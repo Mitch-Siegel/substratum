@@ -5,26 +5,20 @@ use super::operands::{self, *};
 
 /// ## Binary Operations
 #[derive(Debug, Serialize)]
-pub enum BinaryOperations<T>
-where
-    T: std::fmt::Display,
-{
-    Add(BinaryArithmeticOperands<T>),
-    Subtract(BinaryArithmeticOperands<T>),
-    Multiply(BinaryArithmeticOperands<T>),
-    Divide(BinaryArithmeticOperands<T>),
-    LThan(BinaryArithmeticOperands<T>),
-    GThan(BinaryArithmeticOperands<T>),
-    LThanE(BinaryArithmeticOperands<T>),
-    GThanE(BinaryArithmeticOperands<T>),
-    Equals(BinaryArithmeticOperands<T>),
-    NotEquals(BinaryArithmeticOperands<T>),
+pub enum BinaryOperations {
+    Add(BinaryArithmeticOperands),
+    Subtract(BinaryArithmeticOperands),
+    Multiply(BinaryArithmeticOperands),
+    Divide(BinaryArithmeticOperands),
+    LThan(BinaryArithmeticOperands),
+    GThan(BinaryArithmeticOperands),
+    LThanE(BinaryArithmeticOperands),
+    GThanE(BinaryArithmeticOperands),
+    Equals(BinaryArithmeticOperands),
+    NotEquals(BinaryArithmeticOperands),
 }
 
-impl<T> Display for BinaryOperations<T>
-where
-    T: std::fmt::Display,
-{
+impl Display for BinaryOperations {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Add(operands) => {
@@ -101,15 +95,8 @@ where
     }
 }
 
-impl<T> BinaryOperations<T>
-where
-    T: std::fmt::Display,
-{
-    pub fn new_add(
-        destination: operands::GenericOperand<T>,
-        source_a: operands::GenericOperand<T>,
-        source_b: operands::GenericOperand<T>,
-    ) -> Self {
+impl BinaryOperations {
+    pub fn new_add(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
         BinaryOperations::Add(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -117,11 +104,7 @@ where
         ))
     }
 
-    pub fn new_subtract(
-        destination: operands::GenericOperand<T>,
-        source_a: operands::GenericOperand<T>,
-        source_b: operands::GenericOperand<T>,
-    ) -> Self {
+    pub fn new_subtract(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
         BinaryOperations::Subtract(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -129,11 +112,7 @@ where
         ))
     }
 
-    pub fn new_multiply(
-        destination: operands::GenericOperand<T>,
-        source_a: operands::GenericOperand<T>,
-        source_b: operands::GenericOperand<T>,
-    ) -> Self {
+    pub fn new_multiply(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
         BinaryOperations::Multiply(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -141,11 +120,7 @@ where
         ))
     }
 
-    pub fn new_divide(
-        destination: operands::GenericOperand<T>,
-        source_a: operands::GenericOperand<T>,
-        source_b: operands::GenericOperand<T>,
-    ) -> Self {
+    pub fn new_divide(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
         BinaryOperations::Divide(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -153,11 +128,7 @@ where
         ))
     }
 
-    pub fn new_lthan(
-        destination: operands::GenericOperand<T>,
-        source_a: operands::GenericOperand<T>,
-        source_b: operands::GenericOperand<T>,
-    ) -> Self {
+    pub fn new_lthan(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
         BinaryOperations::LThan(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -165,11 +136,7 @@ where
         ))
     }
 
-    pub fn new_gthan(
-        destination: operands::GenericOperand<T>,
-        source_a: operands::GenericOperand<T>,
-        source_b: operands::GenericOperand<T>,
-    ) -> Self {
+    pub fn new_gthan(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
         BinaryOperations::GThan(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -177,11 +144,7 @@ where
         ))
     }
 
-    pub fn new_lthan_e(
-        destination: operands::GenericOperand<T>,
-        source_a: operands::GenericOperand<T>,
-        source_b: operands::GenericOperand<T>,
-    ) -> Self {
+    pub fn new_lthan_e(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
         BinaryOperations::LThanE(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -189,11 +152,7 @@ where
         ))
     }
 
-    pub fn new_gthan_e(
-        destination: operands::GenericOperand<T>,
-        source_a: operands::GenericOperand<T>,
-        source_b: operands::GenericOperand<T>,
-    ) -> Self {
+    pub fn new_gthan_e(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
         BinaryOperations::GThanE(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -201,11 +160,7 @@ where
         ))
     }
 
-    pub fn new_equals(
-        destination: operands::GenericOperand<T>,
-        source_a: operands::GenericOperand<T>,
-        source_b: operands::GenericOperand<T>,
-    ) -> Self {
+    pub fn new_equals(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
         BinaryOperations::Equals(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -213,11 +168,7 @@ where
         ))
     }
 
-    pub fn new_not_equals(
-        destination: operands::GenericOperand<T>,
-        source_a: operands::GenericOperand<T>,
-        source_b: operands::GenericOperand<T>,
-    ) -> Self {
+    pub fn new_not_equals(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
         BinaryOperations::NotEquals(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -225,7 +176,7 @@ where
         ))
     }
 
-    pub fn raw_operands(&self) -> &BinaryArithmeticOperands<T> {
+    pub fn raw_operands(&self) -> &BinaryArithmeticOperands {
         match self {
             Self::Add(ops)
             | Self::Subtract(ops)
@@ -240,7 +191,7 @@ where
         }
     }
 
-    pub fn raw_operands_mut(&mut self) -> &mut BinaryArithmeticOperands<T> {
+    pub fn raw_operands_mut(&mut self) -> &mut BinaryArithmeticOperands {
         match self {
             Self::Add(ops)
             | Self::Subtract(ops)
@@ -258,18 +209,12 @@ where
 
 /// ## Jump
 #[derive(Debug, Serialize)]
-pub struct JumpOperation<T>
-where
-    T: std::fmt::Display,
-{
+pub struct JumpOperation {
     pub destination_block: usize,
-    pub condition: JumpCondition<T>,
+    pub condition: JumpCondition,
 }
 
-impl<T> Display for JumpOperation<T>
-where
-    T: std::fmt::Display,
-{
+impl Display for JumpOperation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", self.condition, self.destination_block)
     }
@@ -277,19 +222,13 @@ where
 
 /// ## Enum of all operations
 #[derive(Debug, Serialize)]
-pub enum Operations<T>
-where
-    T: std::fmt::Display,
-{
-    Assignment(SourceDestOperands<T>),
-    BinaryOperation(BinaryOperations<T>),
-    Jump(JumpOperation<T>),
+pub enum Operations {
+    Assignment(SourceDestOperands),
+    BinaryOperation(BinaryOperations),
+    Jump(JumpOperation),
 }
 
-impl<T> Display for Operations<T>
-where
-    T: std::fmt::Display,
-{
+impl Display for Operations {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Assignment(assignment) => {

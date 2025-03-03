@@ -6,31 +6,22 @@ use std::fmt::Display;
 
 use crate::frontend::sourceloc::SourceLoc;
 use crate::midend::ir;
-use operands::*;
-use operations::*;
 use serde::Serialize;
 
 pub use control_flow::ControlFlow;
-pub use operands::BasicOperand;
-pub use operands::SsaOperand;
-pub use operations::Operations;
+pub use operands::*;
+pub use operations::*;
 
 use super::program_point::ProgramPoint;
 
 #[derive(Debug, Serialize)]
-pub struct IrBase<T>
-where
-    T: std::fmt::Display,
-{
+pub struct IrLine {
     pub loc: SourceLoc,
     pub program_point: ProgramPoint,
-    pub operation: Operations<T>,
+    pub operation: Operations,
 }
 
-impl<T> Display for IrBase<T>
-where
-    T: std::fmt::Display,
-{
+impl Display for IrLine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -42,54 +33,39 @@ where
     }
 }
 
-pub type IrLine = IrBase<String>;
-pub type SsaLine = IrBase<SsaName>;
+pub type BasicBlock = Vec<IrLine>;
 
-pub type BasicOperations = Operations<String>;
-pub type SsaOperations = Operations<SsaName>;
-
-pub type BasicBlock<T> = Vec<IrBase<T>>;
-pub type NonSsaBlock = Vec<IrLine>;
-pub type SsaBlock = Vec<SsaLine>;
-
-impl<T> IrBase<T>
-where
-    T: std::fmt::Display,
-{
-    fn new(loc: SourceLoc, operation: Operations<T>) -> Self {
-        IrBase::<T> {
+impl IrLine {
+    fn new(loc: SourceLoc, operation: Operations) -> Self {
+        IrLine {
             loc: loc,
             program_point: ProgramPoint::default(),
             operation: operation,
         }
     }
 
-    pub fn new_assignment(
-        loc: SourceLoc,
-        destination: ir::operands::GenericOperand<T>,
-        source: ir::operands::GenericOperand<T>,
-    ) -> Self {
+    pub fn new_assignment(loc: SourceLoc, destination: Operand, source: Operand) -> Self {
         Self::new(
             loc,
-            Operations::Assignment(SourceDestOperands::<T> {
+            Operations::Assignment(SourceDestOperands {
                 destination,
                 source,
             }),
         )
     }
 
-    pub fn new_binary_op(loc: SourceLoc, op: BinaryOperations<T>) -> Self {
+    pub fn new_binary_op(loc: SourceLoc, op: BinaryOperations) -> Self {
         Self::new(loc, Operations::BinaryOperation(op))
     }
 
     pub fn new_jump(
         loc: SourceLoc,
         destination_block: usize,
-        condition: ir::operands::JumpCondition<T>,
+        condition: operands::JumpCondition,
     ) -> Self {
         Self::new(
             loc,
-            ir::Operations::<T>::Jump(ir::operations::JumpOperation {
+            Operations::Jump(operations::JumpOperation {
                 destination_block,
                 condition,
             }),
@@ -100,8 +76,8 @@ where
         &self.program_point
     }
 
-    pub fn read_operands(&self) -> Vec<&ir::operands::GenericOperand<T>> {
-        let mut operands: Vec<&ir::operands::GenericOperand<T>> = Vec::new();
+    pub fn read_operands(&self) -> Vec<&Operand> {
+        let mut operands: Vec<&Operand> = Vec::new();
         match &self.operation {
             Operations::Assignment(source_dest) => operands.push(&source_dest.source),
             Operations::BinaryOperation(operation) => {
@@ -141,8 +117,8 @@ where
         operands
     }
 
-    pub fn write_operands(&self) -> Vec<&ir::operands::GenericOperand<T>> {
-        let mut operands: Vec<&ir::operands::GenericOperand<T>> = Vec::new();
+    pub fn write_operands(&self) -> Vec<&Operand> {
+        let mut operands: Vec<&Operand> = Vec::new();
         match &self.operation {
             Operations::Assignment(source_dest) => operands.push(&source_dest.destination),
             Operations::BinaryOperation(operation) => {
@@ -155,8 +131,8 @@ where
         operands
     }
 
-    pub fn write_operands_mut(&mut self) -> Vec<&mut ir::operands::GenericOperand<T>> {
-        let mut operands: Vec<&mut ir::operands::GenericOperand<T>> = Vec::new();
+    pub fn write_operands_mut(&mut self) -> Vec<&mut Operand> {
+        let mut operands: Vec<&mut Operand> = Vec::new();
         match &mut self.operation {
             Operations::Assignment(source_dest) => operands.push(&mut source_dest.destination),
             Operations::BinaryOperation(operation) => {

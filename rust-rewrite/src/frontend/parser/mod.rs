@@ -15,10 +15,7 @@ where
     lexer: Lexer<I>,
 }
 
-impl<T> ir::operations::BinaryOperations<T>
-where
-    T: std::fmt::Display,
-{
+impl ir::BinaryOperations {
     pub fn get_precedence(&self) -> usize {
         match self {
             Self::Add(_) => 1,
@@ -261,10 +258,7 @@ where
             | Token::LThanE
             | Token::GThanE
             | Token::Equals
-            | Token::NotEquals => {
-                ir::operations::BinaryOperations::<String>::precedence_of_token(&token)
-                    >= precedence
-            }
+            | Token::NotEquals => ir::BinaryOperations::precedence_of_token(&token) >= precedence,
             _ => false,
         }
     }
@@ -282,11 +276,11 @@ where
 
             while Self::token_is_operator_of_at_least_precedence(
                 &self.peek_token(),
-                ir::operations::BinaryOperations::<String>::precedence_of_token(&operation),
+                ir::BinaryOperations::precedence_of_token(&operation),
             ) {
                 rhs = self.parse_expression_min_precedence(
                     rhs,
-                    ir::operations::BinaryOperations::<String>::precedence_of_token(&operation),
+                    ir::BinaryOperations::precedence_of_token(&operation),
                 );
             }
 
