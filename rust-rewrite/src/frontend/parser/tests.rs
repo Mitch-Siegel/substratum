@@ -1,9 +1,5 @@
 use super::Parser;
-use crate::frontend::{
-    ast::TypenameTree,
-    lexer::{token::Token, *},
-    sourceloc::SourceLoc,
-};
+use crate::frontend::lexer::{token::Token, *};
 use std::str::Chars;
 
 fn parser_from_string(input: &str) -> Parser<Chars<'_>> {

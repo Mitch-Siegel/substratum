@@ -1,3 +1,4 @@
+pub mod control_flow;
 pub mod operands;
 pub mod operations;
 
@@ -9,6 +10,7 @@ use operands::*;
 use operations::*;
 use serde::Serialize;
 
+pub use control_flow::ControlFlow;
 pub use operands::BasicOperand;
 pub use operands::GenericOperand;
 pub use operands::SsaOperand;
@@ -22,7 +24,7 @@ where
 {
     pub loc: SourceLoc,
     pub program_point: ProgramPoint,
-    pub operation: IROperations<T>,
+    pub operation: Operations<T>,
 }
 
 impl<T> Display for IrBase<T>
@@ -43,14 +45,18 @@ where
 pub type IrLine = IrBase<String>;
 pub type SsaLine = IrBase<SsaOperand>;
 
-pub type BasicOperations = IROperations<String>;
-pub type SsaOperations = IROperations<SsaOperand>;
+pub type BasicOperations = Operations<String>;
+pub type SsaOperations = Operations<SsaOperand>;
+
+pub type BasicBlock<T> = Vec<IrBase<T>>;
+pub type NonSsaBlock = Vec<IrLine>;
+pub type SsaBlock = Vec<SsaLine>;
 
 impl<T> IrBase<T>
 where
     T: std::fmt::Display,
 {
-    fn new(loc: SourceLoc, operation: IROperations<T>) -> Self {
+    fn new(loc: SourceLoc, operation: Operations<T>) -> Self {
         IrBase::<T> {
             loc: loc,
             program_point: ProgramPoint::default(),
@@ -65,7 +71,7 @@ where
     ) -> Self {
         Self::new(
             loc,
-            IROperations::Assignment(SourceDestOperands::<T> {
+            Operations::Assignment(SourceDestOperands::<T> {
                 destination,
                 source,
             }),
@@ -73,7 +79,7 @@ where
     }
 
     pub fn new_binary_op(loc: SourceLoc, op: BinaryOperations<T>) -> Self {
-        Self::new(loc, IROperations::BinaryOperation(op))
+        Self::new(loc, Operations::BinaryOperation(op))
     }
 
     pub fn new_jump(
@@ -83,7 +89,7 @@ where
     ) -> Self {
         Self::new(
             loc,
-            ir::IROperations::<T>::Jump(ir::operations::JumpOperation {
+            ir::Operations::<T>::Jump(ir::operations::JumpOperation {
                 destination_block,
                 condition,
             }),
@@ -97,13 +103,13 @@ where
     pub fn read_operands(&self) -> Vec<&ir::operands::GenericOperand<T>> {
         let mut operands: Vec<&ir::operands::GenericOperand<T>> = Vec::new();
         match &self.operation {
-            IROperations::Assignment(source_dest) => operands.push(&source_dest.source),
-            IROperations::BinaryOperation(operation) => {
+            Operations::Assignment(source_dest) => operands.push(&source_dest.source),
+            Operations::BinaryOperation(operation) => {
                 let arithmetic_operands = operation.raw_operands();
                 operands.push(&arithmetic_operands.sources.a);
                 operands.push(&arithmetic_operands.sources.b);
             }
-            IROperations::Jump(jump_operands) => match &jump_operands.condition {
+            Operations::Jump(jump_operands) => match &jump_operands.condition {
                 JumpCondition::Unconditional => {}
                 JumpCondition::Eq(condition_operands) => {
                     operands.push(&condition_operands.a);
@@ -138,12 +144,12 @@ where
     pub fn write_operands(&self) -> Vec<&ir::operands::GenericOperand<T>> {
         let mut operands: Vec<&ir::operands::GenericOperand<T>> = Vec::new();
         match &self.operation {
-            IROperations::Assignment(source_dest) => operands.push(&source_dest.destination),
-            IROperations::BinaryOperation(operation) => {
+            Operations::Assignment(source_dest) => operands.push(&source_dest.destination),
+            Operations::BinaryOperation(operation) => {
                 let arithmetic_operands = operation.raw_operands();
                 operands.push(&arithmetic_operands.destination);
             }
-            IROperations::Jump(_) => {}
+            Operations::Jump(_) => {}
         }
 
         operands

@@ -262,7 +262,7 @@ where
 
 /// ## Enum of all operations
 #[derive(Debug, Serialize)]
-pub enum IROperations<T>
+pub enum Operations<T>
 where
     T: std::fmt::Display,
 {
@@ -271,7 +271,7 @@ where
     Jump(JumpOperation<T>),
 }
 
-impl<T> Display for IROperations<T>
+impl<T> Display for Operations<T>
 where
     T: std::fmt::Display,
 {

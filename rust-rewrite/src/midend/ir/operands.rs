@@ -21,7 +21,7 @@ impl SsaName {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub enum IROperand<T>
+pub enum Operand<T>
 where
     T: std::fmt::Display,
 {
@@ -30,7 +30,7 @@ where
     UnsignedDecimalConstant(usize),
 }
 
-impl<T> Display for IROperand<T>
+impl<T> Display for Operand<T>
 where
     T: std::fmt::Display,
 {
@@ -49,35 +49,35 @@ where
     }
 }
 
-pub type GenericOperand<T> = IROperand<T>;
-pub type BasicOperand = IROperand<String>;
-pub type SsaOperand = IROperand<SsaName>;
+pub type GenericOperand<T> = Operand<T>;
+pub type BasicOperand = Operand<String>;
+pub type SsaOperand = Operand<SsaName>;
 
 impl BasicOperand {
     pub fn new_as_variable(identifier: String) -> Self {
-        IROperand::Variable(identifier)
+        Operand::Variable(identifier)
     }
 
     pub fn new_as_temporary(identifier: String) -> Self {
-        IROperand::Temporary(identifier)
+        Operand::Temporary(identifier)
     }
 
     pub fn new_as_unsigned_decimal_constant(constant: usize) -> Self {
-        IROperand::UnsignedDecimalConstant(constant)
+        Operand::UnsignedDecimalConstant(constant)
     }
 
     pub fn type_(&self, context: &linearizer::walkcontext::WalkContext) -> Type {
         match self {
-            IROperand::Variable(name) => context
+            Operand::Variable(name) => context
                 .lookup_variable_by_name(name)
                 .expect(format!("Use of undeclared variable {}", name).as_str())
                 .type_(),
-            IROperand::Temporary(name) => context
+            Operand::Temporary(name) => context
                 .lookup_variable_by_name(name)
                 .expect(format!("Use of undeclared variable {}", name).as_str())
                 .type_()
                 .clone(),
-            IROperand::UnsignedDecimalConstant(value) => {
+            Operand::UnsignedDecimalConstant(value) => {
                 if *value > (u32::MAX as usize) {
                     Type::new_u64(0)
                 } else if *value > (u16::MAX as usize) {
@@ -101,15 +101,15 @@ pub struct DualSourceOperands<T>
 where
     T: std::fmt::Display,
 {
-    pub a: IROperand<T>,
-    pub b: IROperand<T>,
+    pub a: Operand<T>,
+    pub b: Operand<T>,
 }
 
 impl<T> DualSourceOperands<T>
 where
     T: std::fmt::Display,
 {
-    pub fn from(a: IROperand<T>, b: IROperand<T>) -> Self {
+    pub fn from(a: Operand<T>, b: Operand<T>) -> Self {
         DualSourceOperands { a, b }
     }
 }
@@ -119,7 +119,7 @@ pub struct BinaryArithmeticOperands<T>
 where
     T: std::fmt::Display,
 {
-    pub destination: IROperand<T>,
+    pub destination: Operand<T>,
     pub sources: DualSourceOperands<T>,
 }
 
@@ -127,7 +127,7 @@ impl<T> BinaryArithmeticOperands<T>
 where
     T: std::fmt::Display,
 {
-    pub fn from(destination: IROperand<T>, source_a: IROperand<T>, source_b: IROperand<T>) -> Self {
+    pub fn from(destination: Operand<T>, source_a: Operand<T>, source_b: Operand<T>) -> Self {
         BinaryArithmeticOperands {
             destination,
             sources: DualSourceOperands::from(source_a, source_b),
@@ -140,8 +140,8 @@ pub struct SourceDestOperands<T>
 where
     T: std::fmt::Display,
 {
-    pub destination: IROperand<T>,
-    pub source: IROperand<T>,
+    pub destination: Operand<T>,
+    pub source: Operand<T>,
 }
 
 #[derive(Debug, Serialize)]

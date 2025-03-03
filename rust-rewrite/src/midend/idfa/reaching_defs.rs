@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::midend::control_flow::ControlFlow;
+use crate::midend::ir;
 
 use super::idfa_base::{BlockFacts, Idfa, IdfaAnalysisDirection, IdfaFacts, IdfaImplementor};
 
@@ -41,14 +41,10 @@ where
         transferred
     }
 
-    fn f_find_gen_kills(
-        control_flow: &'a crate::midend::control_flow::ControlFlow,
-        facts: &mut IdfaFacts<T>,
-    ) {
-        for block in &control_flow.blocks {
-            let label = block.label();
-
-            let mut block_facts = facts.for_label_mut(label);
+    fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, _facts: &mut IdfaFacts<T>) {
+        for _label in control_flow.labels() {
+            unimplemented!();
+            // let mut block_facts = facts.for_label_mut(label);
 
             // TODO: re-enable once SSA implemented
             // for statement in block.statements() {
@@ -100,7 +96,7 @@ where
     T: Clone,
     T: Ord,
 {
-    pub fn new(control_flow: &'a ControlFlow) -> Self {
+    pub fn new(control_flow: &'a ir::ControlFlow) -> Self {
         Self {
             idfa: Idfa::<'a, T>::new(
                 control_flow,
@@ -117,7 +113,7 @@ where
     }
 
     pub fn print(&self) {
-        for label in 0..self.idfa.control_flow.blocks.len() {
+        for label in 0..self.idfa.control_flow.n_blocks() {
             let facts = self.idfa.facts.for_label(label);
             println!("{}:", label);
 

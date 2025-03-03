@@ -2,12 +2,11 @@ use symtab::SymbolTable;
 
 use crate::frontend;
 
-pub mod basic_block;
-pub mod control_flow;
 mod idfa;
 pub mod ir;
 pub mod linearizer;
 pub mod program_point;
+mod ssa_gen;
 pub mod symtab;
 pub mod types;
 

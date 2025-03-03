@@ -1,12 +1,12 @@
 use crate::{
     frontend::{ast, sourceloc::SourceLoc},
-    midend::{control_flow::ControlFlow, ir, symtab, types::Type},
+    midend::{ir, symtab, types::Type},
 };
 
 use super::treewalk::*;
 
 pub struct WalkContext {
-    control_flow: ControlFlow,
+    control_flow: ir::ControlFlow,
     branch_points: Vec<usize>,
     convergence_points: Vec<usize>,
     scopes: Vec<symtab::Scope>,
@@ -14,7 +14,7 @@ pub struct WalkContext {
 
 impl WalkContext {
     pub fn new() -> WalkContext {
-        let mut starter_flow = ControlFlow::new();
+        let mut starter_flow = ir::ControlFlow::new();
         starter_flow.next_block();
         starter_flow.next_block();
         WalkContext {
@@ -25,7 +25,7 @@ impl WalkContext {
         }
     }
 
-    pub fn take_control_flow(mut self) -> ControlFlow {
+    pub fn take_control_flow(mut self) -> ir::ControlFlow {
         match self.convergence_points.last() {
             Some(1) => {
                 self.finish_branch_and_finalize_convergence();
@@ -57,8 +57,7 @@ impl WalkContext {
     }
 
     fn create_convergence_point(&mut self) {
-        self.convergence_points
-            .push(self.control_flow.next_block().label());
+        self.convergence_points.push(self.control_flow.next_block());
         println!(
             "Create branching point to {}",
             self.convergence_points.last().unwrap()
@@ -79,7 +78,7 @@ impl WalkContext {
         assert!(self.convergence_points.len() > 0);
         assert!(*self.branch_points.last().unwrap() == self.control_flow.current_block());
 
-        let branch_target = self.control_flow.next_block().label();
+        let branch_target = self.control_flow.next_block();
 
         println!(
             "Create branch from {}->{}",
@@ -153,7 +152,7 @@ impl WalkContext {
         body: ast::CompoundStatementTree,
     ) {
         let loop_top = self.next_block(loc);
-        let after_loop = self.control_flow.next_block().label();
+        let after_loop = self.control_flow.next_block();
         self.control_flow.set_current_block(loop_top);
 
         // FUTURE: optimize condition handling to use different jumps
@@ -187,7 +186,7 @@ impl WalkContext {
 
     // finishes the current block, adds a jump to a new block, and sets that new block as the current
     pub fn next_block(&mut self, loc: SourceLoc) -> usize {
-        let new_label = self.control_flow.next_block().label();
+        let new_label = self.control_flow.next_block();
 
         let exit_jump = ir::IrLine::new_jump(
             loc,

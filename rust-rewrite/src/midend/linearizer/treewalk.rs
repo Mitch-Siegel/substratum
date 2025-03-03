@@ -195,7 +195,7 @@ impl OperandWalk for ComparisonOperationTree {
 }
 
 impl OperandWalk for ExpressionTree {
-    fn walk(self, loc: SourceLoc, context: &mut WalkContext) -> ir::operands::BasicOperand {
+    fn walk(self, _loc: SourceLoc, context: &mut WalkContext) -> ir::operands::BasicOperand {
         match self.expression {
             Expression::Identifier(ident) => ir::operands::BasicOperand::new_as_variable(ident),
             Expression::UnsignedDecimalConstant(constant) => {

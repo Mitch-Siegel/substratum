@@ -1,9 +1,10 @@
-use super::control_flow::ControlFlow;
 use crate::midend::types::Type;
 use std::collections::HashMap;
 
 use serde::Serialize;
 use std::fmt::Display;
+
+use super::ir;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Variable {
@@ -144,11 +145,11 @@ impl FunctionPrototype {
 pub struct Function {
     prototype: FunctionPrototype,
     scope: Scope,
-    control_flow: ControlFlow,
+    control_flow: ir::ControlFlow,
 }
 
 impl Function {
-    pub fn new(prototype: FunctionPrototype, scope: Scope, control_flow: ControlFlow) -> Self {
+    pub fn new(prototype: FunctionPrototype, scope: Scope, control_flow: ir::ControlFlow) -> Self {
         Function {
             prototype,
             scope,
@@ -164,11 +165,11 @@ impl Function {
         &self.prototype
     }
 
-    pub fn control_flow(&self) -> &ControlFlow {
+    pub fn control_flow(&self) -> &ir::ControlFlow {
         &self.control_flow
     }
 
-    pub fn control_flow_mut(&mut self) -> &mut ControlFlow {
+    pub fn control_flow_mut(&mut self) -> &mut ir::ControlFlow {
         &mut self.control_flow
     }
 
@@ -217,7 +218,7 @@ impl SymbolTable {
             match function {
                 FunctionOrPrototype::Function(f) => {
                     println!("{}", f.prototype());
-                    f.control_flow().print_ir();
+                    f.control_flow();
                 }
                 FunctionOrPrototype::Prototype(_) => {}
             }

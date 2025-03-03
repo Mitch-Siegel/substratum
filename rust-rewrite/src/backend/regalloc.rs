@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use crate::midend::{control_flow::ControlFlow, program_point::ProgramPoint, symtab};
+use crate::midend::{ir::ControlFlow, program_point::ProgramPoint, symtab};
 
 use super::lifetime::{Lifetime, LifetimeSet};
 
@@ -13,21 +13,22 @@ struct RegallocMetadata {
 fn find_max_indices_by_depth(control_flow: &ControlFlow) -> Vec<usize> {
     let mut max_indices_per_depth = Vec::<usize>::new();
 
-    for block in &control_flow.blocks {
-        for ir_line in block.statements() {
-            let depth = ir_line.program_point().depth;
-            while depth >= max_indices_per_depth.len() {
-                max_indices_per_depth.push(0);
-            }
+    todo!("reimplement with new controlflow data structure");
+    // for block in &control_flow.blocks {
+    //     for ir_line in block.statements() {
+    //         let depth = ir_line.program_point().depth;
+    //         while depth >= max_indices_per_depth.len() {
+    //             max_indices_per_depth.push(0);
+    //         }
 
-            max_indices_per_depth[depth] =
-                usize::max(max_indices_per_depth[depth], ir_line.program_point().index);
-        }
-    }
+    //         max_indices_per_depth[depth] =
+    //             usize::max(max_indices_per_depth[depth], ir_line.program_point().index);
+    //     }
+    // }
 
-    for depth in 0..max_indices_per_depth.len() {
-        println!("{}:{}", depth, max_indices_per_depth[depth])
-    }
+    // for depth in 0..max_indices_per_depth.len() {
+    //     println!("{}:{}", depth, max_indices_per_depth[depth])
+    // }
 
     max_indices_per_depth
 }
@@ -62,7 +63,7 @@ impl RegallocMetadata {
     // once overlaps have been found, figure out which overlaps are actually conflicts
     // lifetimes which live only within the same set of depths as others may not actually conflict
     fn find_conflicts(&mut self) {
-        for (point, names) in &self.overlaps {}
+        unimplemented!();
     }
 
     pub fn new(lifetime_set: LifetimeSet, max_indices_by_depth: &Vec<usize>) -> Self {
