@@ -1,6 +1,6 @@
 use treewalk::TableWalk;
 
-use crate::frontend::{ast::TranslationUnitTree, *};
+use crate::frontend::ast::TranslationUnitTree;
 
 use super::symtab::SymbolTable;
 

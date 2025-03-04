@@ -1,12 +1,14 @@
 use std::{collections::HashMap, fmt::Display};
 
 use super::{
+    idfa,
     ir::{self, control_flow},
     symtab::{Function, FunctionOrPrototype, SymbolTable},
 };
 
 struct SsaWriteConversionMetadata {
     variables: HashMap<String, usize>,
+    reaching_defs: idfa::Facts<ir::Operand>,
 }
 
 impl Display for SsaWriteConversionMetadata {
@@ -22,9 +24,10 @@ impl Display for SsaWriteConversionMetadata {
 }
 
 impl SsaWriteConversionMetadata {
-    pub fn new() -> Self {
+    pub fn new(facts: idfa::reaching_defs::Facts) -> Self {
         Self {
             variables: HashMap::new(),
+            reaching_defs: facts,
         }
     }
 
@@ -44,7 +47,10 @@ fn convert_block_writes_to_ssa(
 }
 
 fn convert_flow_to_ssa(control_flow: &mut ir::ControlFlow) {
-    let mut write_conversion_metadata = SsaWriteConversionMetadata::new();
+    let mut reaching_defs = idfa::ReachingDefs::new(control_flow);
+    reaching_defs.analyze();
+
+    let mut write_conversion_metadata = SsaWriteConversionMetadata::new(reaching_defs.take_facts());
 
     control_flow
         .map_over_blocks_mut_by_bfs(convert_block_writes_to_ssa, &mut write_conversion_metadata);

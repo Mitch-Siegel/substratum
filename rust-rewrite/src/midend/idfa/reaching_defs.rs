@@ -2,23 +2,20 @@ use std::collections::BTreeSet;
 
 use crate::midend::ir;
 
-use super::idfa_base::{BlockFacts, Idfa, IdfaAnalysisDirection, IdfaFacts, IdfaImplementor};
+use super::idfa_base;
+use super::idfa_base::IdfaImplementor;
 
-pub struct ReachingDefs<'a, T>
-where
-    T: PartialOrd,
-{
-    idfa: Idfa<'a, T>,
+pub type Fact = ir::Operand;
+pub type BlockFacts = idfa_base::BlockFacts<Fact>;
+pub type Facts = idfa_base::Facts<Fact>;
+
+pub struct ReachingDefs<'a> {
+    idfa: idfa_base::Idfa<'a, ir::Operand>,
 }
 
-impl<'a, T> IdfaImplementor<'a, T> for ReachingDefs<'a, T>
-where
-    T: std::cmp::Ord,
-    T: Clone,
-    T: std::fmt::Display,
-{
-    fn f_transfer(facts: &mut BlockFacts<T>, to_transfer: BTreeSet<T>) -> BTreeSet<T> {
-        let mut transferred = BTreeSet::<T>::new();
+impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
+    fn f_transfer(facts: &mut BlockFacts, to_transfer: BTreeSet<Fact>) -> BTreeSet<Fact> {
+        let mut transferred = BTreeSet::<Fact>::new();
 
         for gen_fact in &facts.gen_facts {
             if !facts.kill_facts.contains(gen_fact) {
@@ -41,7 +38,7 @@ where
         transferred
     }
 
-    fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, _facts: &mut IdfaFacts<T>) {
+    fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, _facts: &mut Facts) {
         for _label in control_flow.labels() {
             unimplemented!();
             // let mut block_facts = facts.for_label_mut(label);
@@ -78,9 +75,9 @@ where
     }
 
     fn f_meet(
-        mut a: std::collections::BTreeSet<T>,
-        b: &std::collections::BTreeSet<T>,
-    ) -> std::collections::BTreeSet<T> {
+        mut a: std::collections::BTreeSet<ir::Operand>,
+        b: &std::collections::BTreeSet<ir::Operand>,
+    ) -> std::collections::BTreeSet<ir::Operand> {
         for fact in b {
             a.insert((*fact).clone());
         }
@@ -89,18 +86,14 @@ where
     }
 }
 
-impl<'a, T> ReachingDefs<'a, T>
+impl<'a> ReachingDefs<'a>
 // TODO: supertrait?
-where
-    T: std::fmt::Display,
-    T: Clone,
-    T: Ord,
 {
     pub fn new(control_flow: &'a ir::ControlFlow) -> Self {
         Self {
-            idfa: Idfa::<'a, T>::new(
+            idfa: idfa_base::Idfa::<'a, Fact>::new(
                 control_flow,
-                IdfaAnalysisDirection::Forward,
+                idfa_base::IdfaAnalysisDirection::Forward,
                 Self::f_find_gen_kills,
                 Self::f_meet,
                 Self::f_transfer,
@@ -110,6 +103,10 @@ where
 
     pub fn analyze(&mut self) {
         self.idfa.analyze();
+    }
+
+    pub fn take_facts(self) -> Facts {
+        self.idfa.facts
     }
 
     pub fn print(&self) {

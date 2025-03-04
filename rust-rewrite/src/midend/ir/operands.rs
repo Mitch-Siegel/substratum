@@ -2,16 +2,44 @@ use std::fmt::Display;
 
 use serde::Serialize;
 
-use crate::{
-    frontend::sourceloc::SourceLoc,
-    midend::{linearizer, symtab::Variable, types::Type},
-};
+use crate::midend::{linearizer, types::Type};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct NamedOperand {
     base_name: String,
     ssa_number: Option<usize>,
 }
+
+impl PartialEq for NamedOperand {
+    fn eq(&self, other: &Self) -> bool {
+        self.base_name == other.base_name && self.ssa_number == other.ssa_number
+    }
+}
+
+impl Eq for NamedOperand {}
+
+impl PartialOrd for NamedOperand {
+    fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
+        Some(
+            self.base_name
+                .cmp(&other.base_name)
+                .then(match self.ssa_number {
+                    Some(self_ssa_number) => match other.ssa_number {
+                        Some(other_ssa_number) => self_ssa_number.cmp(&other_ssa_number),
+                        None => std::cmp::Ordering::Greater,
+                    },
+                    None => std::cmp::Ordering::Less,
+                }),
+        )
+    }
+}
+
+impl Ord for NamedOperand {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.partial_cmp(other).unwrap()
+    }
+}
+
 impl Display for NamedOperand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_string())
@@ -54,6 +82,76 @@ impl Display for Operand {
             Self::UnsignedDecimalConstant(value) => {
                 write!(f, "[C {}]", value)
             }
+        }
+    }
+}
+
+impl PartialEq for Operand {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Variable(var_1), Self::Variable(var_2)) => var_1 == var_2,
+            (Self::Temporary(temp_1), Self::Temporary(temp_2)) => temp_1 == temp_2,
+            (
+                Self::UnsignedDecimalConstant(unsigned_decimal_constant_1),
+                Self::UnsignedDecimalConstant(unsigned_decimal_constant_2),
+            ) => unsigned_decimal_constant_1 == unsigned_decimal_constant_2,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Operand {}
+
+impl PartialOrd for Operand {
+    fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
+        match (self, other) {
+            (Operand::Variable(var_self), Operand::Variable(var_other)) => {
+                Some(var_self.cmp(var_other))
+            }
+            (Operand::Temporary(temp_self), Operand::Temporary(temp_other)) => {
+                Some(temp_self.cmp(temp_other))
+            }
+            (
+                Operand::UnsignedDecimalConstant(value_self),
+                Operand::UnsignedDecimalConstant(value_other),
+            ) => Some(value_self.cmp(value_other)),
+            (_, _) => None,
+        }
+    }
+}
+
+impl Ord for Operand {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let partial_result = self.partial_cmp(other);
+
+        match partial_result {
+            Some(ordering) => ordering,
+            None => match (self, other) {
+                (Operand::Variable(var_self), Operand::Temporary(temp_other)) => {
+                    var_self.cmp(temp_other)
+                }
+                (Operand::Variable(_), Operand::UnsignedDecimalConstant(_)) => {
+                    std::cmp::Ordering::Greater
+                }
+                (Operand::Temporary(var_self), Operand::Variable(temp_other)) => {
+                    var_self.cmp(temp_other)
+                }
+                (Operand::Temporary(_), Operand::UnsignedDecimalConstant(_)) => {
+                    std::cmp::Ordering::Greater
+                }
+                (Operand::UnsignedDecimalConstant(_), Operand::Variable(_)) => {
+                    std::cmp::Ordering::Less
+                }
+                (Operand::UnsignedDecimalConstant(_), Operand::Temporary(_)) => {
+                    std::cmp::Ordering::Less
+                }
+
+                (Operand::Variable(_), Operand::Variable(_))
+                | (Operand::Temporary(_), Operand::Temporary(_))
+                | (Operand::UnsignedDecimalConstant(_), Operand::UnsignedDecimalConstant(_)) => {
+                    panic!("Non-covered case in Operand::cmp")
+                }
+            },
         }
     }
 }

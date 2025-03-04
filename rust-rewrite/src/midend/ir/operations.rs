@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::fmt::Display;
 
-use super::operands::{self, *};
+use super::operands::*;
 
 /// ## Binary Operations
 #[derive(Debug, Serialize)]

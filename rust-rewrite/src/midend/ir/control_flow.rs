@@ -55,7 +55,7 @@ impl ControlFlow {
     }
 
     pub fn next_block(&mut self) -> usize {
-        self.blocks.push(ir::BasicBlock::new());
+        self.blocks.push(ir::BasicBlock::new(self.blocks.len()));
         self.blocks.len() - 1
     }
 
@@ -81,7 +81,7 @@ impl ControlFlow {
             _ => {}
         }
 
-        self.blocks[block].push(statement);
+        self.blocks[block].append_statement(statement);
     }
 
     pub fn assign_program_points(&mut self) {
@@ -134,9 +134,7 @@ impl<'a> ControlFlowBfs<'a> {
         control_flow: &'a mut ControlFlow,
         operation: fn(&mut ir::BasicBlock, &mut MetadataType),
         metadata: &mut MetadataType,
-    ) where
-        MetadataType: std::fmt::Display,
-    {
+    ) {
         let mut bfs = Self::new(control_flow);
         bfs.visit_all(operation, metadata);
     }
@@ -234,9 +232,7 @@ impl ControlFlow {
         &mut self,
         operation: fn(&mut ir::BasicBlock, &mut MetadataType),
         metadata: &mut MetadataType,
-    ) where
-        MetadataType: std::fmt::Display,
-    {
+    ) {
         ControlFlowBfs::map(self, operation, metadata)
     }
 }

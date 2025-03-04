@@ -33,7 +33,28 @@ impl Display for IrLine {
     }
 }
 
-pub type BasicBlock = Vec<IrLine>;
+#[derive(Debug, Serialize)]
+pub struct BasicBlock {
+    label: usize,
+    statements: Vec<ir::IrLine>,
+}
+
+impl BasicBlock {
+    pub fn new(label: usize) -> Self {
+        BasicBlock {
+            statements: Vec::new(),
+            label: label,
+        }
+    }
+
+    pub fn append_statement(&mut self, statement: ir::IrLine) {
+        self.statements.push(statement);
+    }
+
+    pub fn label(&self) -> usize {
+        self.label
+    }
+}
 
 impl IrLine {
     fn new(loc: SourceLoc, operation: Operations) -> Self {

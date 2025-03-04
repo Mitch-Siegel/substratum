@@ -1,13 +1,17 @@
-use std::collections::BTreeSet;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Display,
+};
 
-use crate::midend::ir;
+use crate::midend::{idfa, ir};
 
+#[derive(Debug)]
 pub enum IdfaAnalysisDirection {
     Forward,
     Backward,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BlockFacts<T> {
     pub in_facts: BTreeSet<T>,
     pub out_facts: BTreeSet<T>,
@@ -26,15 +30,15 @@ impl<T> BlockFacts<T> {
     }
 }
 
-#[derive(Clone, PartialEq)]
-pub struct IdfaFacts<T>
+#[derive(Debug, Clone, PartialEq)]
+pub struct Facts<T>
 where
     T: PartialEq,
 {
     facts: Vec<BlockFacts<T>>,
 }
 
-impl<T> IdfaFacts<T>
+impl<T> Facts<T>
 where
     T: PartialEq,
 {
@@ -54,6 +58,28 @@ where
     pub fn for_label_mut(&mut self, label: usize) -> &mut BlockFacts<T> {
         self.facts.get_mut(label).unwrap()
     }
+
+    pub fn into_map(self) -> BTreeMap<usize, BlockFacts<T>> {
+        let mut return_map = BTreeMap::<usize, BlockFacts<T>>::new();
+
+        for (label, block_facts) in self.facts.into_iter().enumerate() {
+            return_map.insert(label, block_facts);
+        }
+
+        return_map
+    }
+
+    pub fn from_map(map: BTreeMap<usize, BlockFacts<T>>) -> Self {
+        let mut constructed = Self {
+            facts: Vec::<BlockFacts<T>>::new(),
+        };
+
+        for (_label, block_facts) in map {
+            constructed.facts.push(block_facts);
+        }
+
+        constructed
+    }
 }
 
 pub trait IdfaImplementor<'a, T>
@@ -61,26 +87,27 @@ where
     T: PartialEq,
 {
     fn f_transfer(facts: &mut BlockFacts<T>, to_transfer: BTreeSet<T>) -> BTreeSet<T>;
-    fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut IdfaFacts<T>);
+    fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut Facts<T>);
     fn f_meet(a: BTreeSet<T>, b: &BTreeSet<T>) -> BTreeSet<T>;
 }
 
+#[derive(Debug)]
 pub struct Idfa<'a, T>
 where
     T: PartialEq,
 {
     pub control_flow: &'a ir::ControlFlow,
     direction: IdfaAnalysisDirection,
-    last_facts: IdfaFacts<T>,
-    pub facts: IdfaFacts<T>,
-    f_find_gen_kills: fn(control_flow: &'a ir::ControlFlow, facts: &mut IdfaFacts<T>),
+    last_facts: Facts<T>,
+    pub facts: Facts<T>,
+    f_find_gen_kills: fn(control_flow: &'a ir::ControlFlow, facts: &mut Facts<T>),
     f_meet: fn(a: BTreeSet<T>, b: &BTreeSet<T>) -> BTreeSet<T>,
     f_transfer: fn(facts: &mut BlockFacts<T>, to_transfer: BTreeSet<T>) -> BTreeSet<T>,
 }
 
 impl<'a, T> Idfa<'a, T>
 where
-    IdfaFacts<T>: PartialEq,
+    Facts<T>: PartialEq,
     T: Clone,
     T: Ord,
 {
@@ -92,6 +119,20 @@ where
         self.facts == self.last_facts
     }
 
+    fn analyze_block_forwards(block: &mut ir::BasicBlock, idfa: &mut Idfa<T>) {
+        let label = block.label();
+        let mut new_in_facts = BTreeSet::<T>::new();
+
+        for predecessor in &idfa.control_flow.predecessors[block.label()] {
+            new_in_facts =
+                (idfa.f_meet)(new_in_facts, &idfa.facts.for_label(*predecessor).out_facts);
+        }
+
+        idfa.facts.for_label_mut(label).in_facts = new_in_facts.clone();
+        let transferred = (idfa.f_transfer)(idfa.facts.for_label_mut(label), new_in_facts);
+        idfa.facts.for_label_mut(label).out_facts = transferred;
+    }
+
     fn analyze_forward(&mut self) {
         let mut first_iteration = true;
         while !self.reached_fixpoint() || first_iteration {
@@ -100,21 +141,10 @@ where
 
             todo!("convert this to use map_blocks() etc...");
 
-            // for block in &self.control_flow.blocks {
-            //     let label = block.label();
+            let transfer_closure = |block: ir::BasicBlock| {};
 
-            //     let mut new_in_facts = BTreeSet::<T>::new();
-
-            //     for predecessor in &self.control_flow.predecessors[block.label()] {
-            //         new_in_facts =
-            //             (self.f_meet)(new_in_facts, &self.facts.for_label(*predecessor).out_facts);
-            //     }
-
-            //     self.facts.for_label_mut(label).in_facts = new_in_facts.clone();
-            //     let transferred =
-            //         (self.f_transfer)(&mut self.facts.for_label_mut(label), new_in_facts);
-            //     self.facts.for_label_mut(label).out_facts = transferred;
-            // }
+            self.control_flow
+                .map_over_blocks_mut_by_bfs(Self::analyze_block_forwards, &mut self);
         }
     }
 
@@ -142,15 +172,15 @@ where
     pub fn new(
         control_flow: &'a ir::ControlFlow,
         direction: IdfaAnalysisDirection,
-        f_find_gen_kills: fn(control_flow: &'a ir::ControlFlow, facts: &mut IdfaFacts<T>),
+        f_find_gen_kills: fn(control_flow: &'a ir::ControlFlow, facts: &mut Facts<T>),
         f_meet: fn(a: BTreeSet<T>, b: &BTreeSet<T>) -> BTreeSet<T>,
         f_transfer: fn(facts: &mut BlockFacts<T>, to_transfer: BTreeSet<T>) -> BTreeSet<T>,
     ) -> Self {
         Self {
             control_flow,
             direction,
-            last_facts: IdfaFacts::<T>::new(control_flow.blocks.len()),
-            facts: IdfaFacts::<T>::new(control_flow.blocks.len()),
+            last_facts: Facts::<T>::new(control_flow.blocks.len()),
+            facts: Facts::<T>::new(control_flow.blocks.len()),
             f_find_gen_kills,
             f_meet,
             f_transfer,
