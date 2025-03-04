@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 use super::{
     ir::{self, control_flow},
@@ -7,6 +7,18 @@ use super::{
 
 struct SsaWriteConversionMetadata {
     variables: HashMap<String, usize>,
+}
+
+impl Display for SsaWriteConversionMetadata {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut result: std::fmt::Result = write!(f, "Variables: {{");
+
+        for (variable, ssa_number) in &self.variables {
+            result = result.and(writeln!(f, "{}:{}", variable, ssa_number));
+        }
+
+        result
+    }
 }
 
 impl SsaWriteConversionMetadata {
@@ -25,8 +37,17 @@ impl SsaWriteConversionMetadata {
     }
 }
 
+fn convert_block_writes_to_ssa(
+    block: &mut ir::BasicBlock,
+    metadata: &mut SsaWriteConversionMetadata,
+) {
+}
+
 fn convert_flow_to_ssa(control_flow: &mut ir::ControlFlow) {
     let mut write_conversion_metadata = SsaWriteConversionMetadata::new();
+
+    control_flow
+        .map_over_blocks_mut_by_bfs(convert_block_writes_to_ssa, &mut write_conversion_metadata);
 }
 
 fn convert_function_to_ssa(f: &mut FunctionOrPrototype) {

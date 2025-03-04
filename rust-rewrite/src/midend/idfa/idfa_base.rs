@@ -149,8 +149,8 @@ where
         Self {
             control_flow,
             direction,
-            last_facts: IdfaFacts::<T>::new(control_flow.n_blocks()),
-            facts: IdfaFacts::<T>::new(control_flow.n_blocks()),
+            last_facts: IdfaFacts::<T>::new(control_flow.blocks.len()),
+            facts: IdfaFacts::<T>::new(control_flow.blocks.len()),
             f_find_gen_kills,
             f_meet,
             f_transfer,

@@ -113,7 +113,7 @@ where
     }
 
     pub fn print(&self) {
-        for label in 0..self.idfa.control_flow.n_blocks() {
+        for label in 0..self.idfa.control_flow.blocks.len() {
             let facts = self.idfa.facts.for_label(label);
             println!("{}:", label);
 

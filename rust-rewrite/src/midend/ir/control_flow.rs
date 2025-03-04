@@ -15,30 +15,8 @@ use std::{
 */
 
 #[derive(Debug, Serialize)]
-pub enum CfgBlocks {
-    Basic(Vec<ir::BasicBlock>),
-    Ssa(Vec<ir::BasicBlock>),
-}
-
-impl CfgBlocks {
-    pub fn block_count(&self) -> usize {
-        match self {
-            Self::Basic(blocks) => blocks.len(),
-            Self::Ssa(blocks) => blocks.len(),
-        }
-    }
-
-    pub fn push_new(&mut self) {
-        match self {
-            Self::Basic(blocks) => blocks.push(Vec::new()),
-            Self::Ssa(blocks) => blocks.push(Vec::new()),
-        }
-    }
-}
-
-#[derive(Debug, Serialize)]
 pub struct ControlFlow {
-    pub blocks: CfgBlocks,
+    pub blocks: Vec<ir::BasicBlock>,
     pub successors: Vec<HashSet<usize>>,
     pub predecessors: Vec<HashSet<usize>>,
     current_block: usize,
@@ -46,40 +24,10 @@ pub struct ControlFlow {
     temp_num: usize,
 }
 
-impl CfgBlocks {
-    pub fn as_basic(&self) -> &Vec<ir::BasicBlock> {
-        match self {
-            Self::Basic(basic) => basic,
-            Self::Ssa(_) => panic!("Cfg::as_basic called with Ssa type"),
-        }
-    }
-
-    pub fn as_basic_mut(&mut self) -> &mut Vec<ir::BasicBlock> {
-        match self {
-            Self::Basic(basic) => basic,
-            Self::Ssa(_) => panic!("Cfg::as_basic called with Ssa type"),
-        }
-    }
-
-    pub fn as_ssa(&self) -> &Vec<ir::BasicBlock> {
-        match self {
-            Self::Basic(_) => panic!("Cfg::as_ssa called with Basic type"),
-            Self::Ssa(ssa) => ssa,
-        }
-    }
-
-    pub fn as_ssa_mut(&mut self) -> &mut Vec<ir::BasicBlock> {
-        match self {
-            Self::Basic(_) => panic!("Cfg::as_ssa called with Basic type"),
-            Self::Ssa(ssa) => ssa,
-        }
-    }
-}
-
 impl ControlFlow {
     pub fn new() -> Self {
         ControlFlow {
-            blocks: CfgBlocks::Basic(Vec::new()),
+            blocks: Vec::new(),
             successors: Vec::<HashSet<usize>>::new(),
             predecessors: Vec::<HashSet<usize>>::new(),
             current_block: 0,
@@ -87,26 +35,8 @@ impl ControlFlow {
         }
     }
 
-    pub fn new_ssa(
-        cfg: Vec<ir::BasicBlock>,
-        successors: Vec<HashSet<usize>>,
-        predecessors: Vec<HashSet<usize>>,
-    ) -> Self {
-        ControlFlow {
-            blocks: CfgBlocks::Ssa(cfg),
-            successors,
-            predecessors,
-            current_block: 0,
-            temp_num: 0,
-        }
-    }
-
     pub fn labels(&self) -> std::ops::Range<usize> {
-        0..self.blocks.block_count()
-    }
-
-    pub fn n_blocks(&self) -> usize {
-        self.blocks.block_count()
+        0..self.blocks.len()
     }
 
     pub fn next_temp(&mut self) -> String {
@@ -116,7 +46,7 @@ impl ControlFlow {
     }
 
     pub fn set_current_block(&mut self, label: usize) {
-        assert!(label < self.blocks.block_count());
+        assert!(label < self.blocks.len());
         self.current_block = label;
     }
 
@@ -125,8 +55,8 @@ impl ControlFlow {
     }
 
     pub fn next_block(&mut self) -> usize {
-        self.blocks.push_new();
-        self.blocks.block_count() - 1
+        self.blocks.push(ir::BasicBlock::new());
+        self.blocks.len() - 1
     }
 
     pub fn append_statement_to_current_block(&mut self, statement: ir::IrLine) {
@@ -151,7 +81,7 @@ impl ControlFlow {
             _ => {}
         }
 
-        self.blocks.as_basic_mut()[block].push(statement);
+        self.blocks[block].push(statement);
     }
 
     pub fn assign_program_points(&mut self) {
@@ -165,7 +95,7 @@ impl ControlFlow {
             // print!("{}[label=\"{}\\l\"]; ", label, self.block_to_string(*label));
         }
 
-        for label in 0..self.blocks.block_count() {
+        for label in 0..self.blocks.len() {
             for successor in self.successors.get(label).unwrap() {
                 print!("{}->{}; ", label, successor)
             }
@@ -193,7 +123,7 @@ impl ControlFlow {
 }
 
 struct ControlFlowBfs<'a> {
-    pub control_flow: &'a ControlFlow,
+    pub control_flow: &'a mut ControlFlow,
     pub visited: HashSet<usize>,
     pub queue: VecDeque<usize>,
     pub next_queue: VecDeque<usize>,
@@ -201,17 +131,17 @@ struct ControlFlowBfs<'a> {
 
 impl<'a> ControlFlowBfs<'a> {
     pub fn map<MetadataType>(
-        control_flow: &'a ControlFlow,
-        operation: fn(&ir::BasicBlock, &mut MetadataType),
+        control_flow: &'a mut ControlFlow,
+        operation: fn(&mut ir::BasicBlock, &mut MetadataType),
         metadata: &mut MetadataType,
     ) where
         MetadataType: std::fmt::Display,
     {
         let mut bfs = Self::new(control_flow);
-        bfs.visit_all_basic(operation, metadata);
+        bfs.visit_all(operation, metadata);
     }
 
-    fn new(control_flow: &'a ControlFlow) -> Self {
+    fn new(control_flow: &'a mut ControlFlow) -> Self {
         Self {
             control_flow: control_flow,
             visited: HashSet::<usize>::new(),
@@ -220,9 +150,9 @@ impl<'a> ControlFlowBfs<'a> {
         }
     }
 
-    fn visit_all_basic<MetadataType>(
+    fn visit_all<MetadataType>(
         &mut self,
-        on_visit: fn(&ir::BasicBlock, &mut MetadataType),
+        on_visit: fn(&mut ir::BasicBlock, &mut MetadataType),
         metadata: &mut MetadataType,
     ) {
         self.queue.push_back(0);
@@ -235,40 +165,7 @@ impl<'a> ControlFlowBfs<'a> {
                     if !self.is_visited(label) {
                         // ensure all the predecessors visited before visiting
                         if self.visited_all_predecessors(*label) {
-                            on_visit(&self.control_flow.blocks.as_basic()[*label], metadata);
-
-                            self.add_successors_to_next(label);
-                            self.mark_visited(label);
-                        } else {
-                            // if we haven't visited all predecessors, can't visit the block now
-                            self.next_queue.push_back(*label);
-                        }
-                    }
-                }
-                None => {
-                    // all done at this depth, swap the 'next' queue to be our current
-                    self.swap_to_next_queue();
-                }
-            }
-        }
-    }
-
-    fn visit_all_ssa<MetadataType>(
-        &mut self,
-        on_visit: fn(&ir::BasicBlock, &mut MetadataType),
-        metadata: &mut MetadataType,
-    ) {
-        self.queue.push_back(0);
-
-        // go until done
-        while (self.queue.len() > 0) || (self.next_queue.len() > 0) {
-            match &self.queue.pop_front() {
-                Some(label) => {
-                    // only visit once
-                    if !self.is_visited(label) {
-                        // ensure all the predecessors visited before visiting
-                        if self.visited_all_predecessors(*label) {
-                            on_visit(&self.control_flow.blocks.as_ssa()[*label], metadata);
+                            on_visit(&mut self.control_flow.blocks[*label], metadata);
 
                             self.add_successors_to_next(label);
                             self.mark_visited(label);
@@ -333,9 +230,9 @@ impl<'a> ControlFlowBfs<'a> {
 }
 
 impl ControlFlow {
-    pub fn map_over_blocks_by_bfs<MetadataType>(
-        &self,
-        operation: fn(&ir::BasicBlock, &mut MetadataType),
+    pub fn map_over_blocks_mut_by_bfs<MetadataType>(
+        &mut self,
+        operation: fn(&mut ir::BasicBlock, &mut MetadataType),
         metadata: &mut MetadataType,
     ) where
         MetadataType: std::fmt::Display,
