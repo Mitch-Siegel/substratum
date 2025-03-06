@@ -6,13 +6,13 @@ use crate::midend::{linearizer, types::Type};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct NamedOperand {
-    base_name: String,
-    ssa_number: Option<usize>,
+    pub base_name: String,
+    pub ssa_number: Option<usize>,
 }
 
 impl PartialEq for NamedOperand {
     fn eq(&self, other: &Self) -> bool {
-        self.base_name == other.base_name && self.ssa_number == other.ssa_number
+        (self.base_name == other.base_name) && (self.ssa_number == other.ssa_number)
     }
 }
 
@@ -28,7 +28,10 @@ impl PartialOrd for NamedOperand {
                         Some(other_ssa_number) => self_ssa_number.cmp(&other_ssa_number),
                         None => std::cmp::Ordering::Greater,
                     },
-                    None => std::cmp::Ordering::Less,
+                    None => match other.ssa_number {
+                        Some(_) => std::cmp::Ordering::Less,
+                        None => std::cmp::Ordering::Equal,
+                    },
                 }),
         )
     }
@@ -42,7 +45,12 @@ impl Ord for NamedOperand {
 
 impl Display for NamedOperand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string())
+        match self.ssa_number {
+            Some(number) => {
+                write!(f, "{}.{}", self.base_name, number)
+            }
+            None => write!(f, "{}", self.base_name),
+        }
     }
 }
 impl NamedOperand {
@@ -199,7 +207,7 @@ impl Operand {
  groupings of operands
 */
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct DualSourceOperands {
     pub a: Operand,
     pub b: Operand,
@@ -211,7 +219,7 @@ impl DualSourceOperands {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct BinaryArithmeticOperands {
     pub destination: Operand,
     pub sources: DualSourceOperands,
@@ -226,13 +234,13 @@ impl BinaryArithmeticOperands {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct SourceDestOperands {
     pub destination: Operand,
     pub source: Operand,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub enum JumpCondition {
     Unconditional,
     Eq(DualSourceOperands),

@@ -123,13 +123,6 @@ impl WalkContext {
         );
         assert!(self.branch_points.pop().is_some());
 
-        println!(
-            "Finish branch and finalize convergence (converge from {}->{} - current block now {})",
-            self.control_flow.current_block(),
-            converge_to,
-            converge_to
-        );
-
         let convergence_jump = ir::IrLine::new_jump(
             SourceLoc::none(),
             converge_to,

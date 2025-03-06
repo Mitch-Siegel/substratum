@@ -90,11 +90,16 @@ impl ControlFlow {
         unimplemented!();
     }
 
-    pub fn to_graphviz(&self, depths: &HashMap<usize, usize>) {
+    pub fn to_graphviz(&self) {
         print!("digraph {{fontname=\"consolas\"; node[shape=box; fontname=\"consolas\"; nojustify=true]; splines=ortho;");
-        for (label, _depth) in depths {
-            todo!("reimplement with new cfgblocks data structure");
-            // print!("{}[label=\"{}\\l\"]; ", label, self.block_to_string(*label));
+        for block in &self.blocks {
+            let mut block_string = String::from(format!("Block {}\n", block.label()));
+            for statement in block.statements() {
+                let stmt_str = &String::from(format!("{}\n", statement)).replace("\"", "\\\"");
+                block_string += stmt_str;
+            }
+
+            println!("{}[label=\"{}\\l\"]; ", block.label(), block_string);
         }
 
         for label in 0..self.blocks.len() {
@@ -103,39 +108,22 @@ impl ControlFlow {
             }
         }
 
-        let mut depth_vec = Vec::<HashSet<usize>>::new();
-        for (block, depth) in depths {
-            while depth_vec.len() <= *depth {
-                depth_vec.push(HashSet::<usize>::new());
-            }
-
-            depth_vec[*depth].insert(*block);
-        }
-
-        for rank in depth_vec {
-            print!("{{rank=same; ");
-            for block in rank {
-                print!("{};", block);
-            }
-            println!("}}");
-        }
-
         println!("}}");
     }
 }
 
-enum ControlFlowBfsMutability<'a> {
+enum ControlFlowRpoMutability<'a> {
     Immutable(&'a ControlFlow),
     Mutable(&'a mut ControlFlow),
 }
 
-struct ControlFlowBfs {
-    pub visited: HashSet<usize>,
-    pub queue: VecDeque<usize>,
-    pub next_queue: VecDeque<usize>,
+struct ControlFlowRpo {
+    pub seen: HashSet<usize>,
+    pub dfs_stack: VecDeque<usize>,
+    pub postorder_stack: VecDeque<usize>,
 }
 
-impl ControlFlowBfs {
+impl ControlFlowRpo {
     pub fn map<MetadataType>(
         control_flow: &ControlFlow,
         operation: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
@@ -156,9 +144,9 @@ impl ControlFlowBfs {
 
     fn new() -> Self {
         Self {
-            visited: HashSet::<usize>::new(),
-            queue: VecDeque::<usize>::new(),
-            next_queue: VecDeque::<usize>::new(),
+            seen: HashSet::<usize>::new(),
+            dfs_stack: VecDeque::<usize>::new(),
+            postorder_stack: VecDeque::<usize>::new(),
         }
     }
 
@@ -168,29 +156,31 @@ impl ControlFlowBfs {
         on_visit: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
         mut metadata: Box<MetadataType>,
     ) -> Box<MetadataType> {
-        self.queue.push_back(0);
+        self.dfs_stack.push_back(0);
 
         // go until done
-        while (self.queue.len() > 0) || (self.next_queue.len() > 0) {
-            match &self.queue.pop_front() {
+        while self.dfs_stack.len() > 0 {
+            match &self.dfs_stack.pop_back() {
                 Some(label) => {
                     // only visit once
-                    if !self.is_visited(label) {
-                        // ensure all the predecessors visited before visiting
-                        if self.visited_all_predecessors(control_flow, *label) {
-                            metadata = on_visit(&control_flow.blocks[*label], metadata);
+                    if !self.was_seen(label) {
+                        self.mark_seen(label);
 
-                            self.add_successors_to_next(control_flow, label);
-                            self.mark_visited(label);
-                        } else {
-                            // if we haven't visited all predecessors, can't visit the block now
-                            self.next_queue.push_back(*label);
-                        }
+                        self.postorder_stack.push_back(*label);
+                        self.push_all_successors(*label, control_flow);
                     }
                 }
+                None => {}
+            }
+        }
+
+        loop {
+            match self.postorder_stack.pop_back() {
+                Some(block_label) => {
+                    metadata = on_visit(&control_flow.blocks[block_label], metadata)
+                }
                 None => {
-                    // all done at this depth, swap the 'next' queue to be our current
-                    self.swap_to_next_queue(control_flow);
+                    break;
                 }
             }
         }
@@ -204,29 +194,31 @@ impl ControlFlowBfs {
         on_visit: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
         mut metadata: Box<MetadataType>,
     ) -> Box<MetadataType> {
-        self.queue.push_back(0);
+        self.dfs_stack.push_back(0);
 
         // go until done
-        while (self.queue.len() > 0) || (self.next_queue.len() > 0) {
-            match &self.queue.pop_front() {
+        while self.dfs_stack.len() > 0 {
+            match &self.dfs_stack.pop_back() {
                 Some(label) => {
                     // only visit once
-                    if !self.is_visited(label) {
-                        // ensure all the predecessors visited before visiting
-                        if self.visited_all_predecessors(control_flow, *label) {
-                            metadata = on_visit(&mut control_flow.blocks[*label], metadata);
+                    if !self.was_seen(label) {
+                        self.mark_seen(label);
 
-                            self.add_successors_to_next(control_flow, label);
-                            self.mark_visited(label);
-                        } else {
-                            // if we haven't visited all predecessors, can't visit the block now
-                            self.next_queue.push_back(*label);
-                        }
+                        self.postorder_stack.push_back(*label);
+                        self.push_all_successors(*label, control_flow);
                     }
                 }
+                None => {}
+            }
+        }
+
+        loop {
+            match self.postorder_stack.pop_back() {
+                Some(block_label) => {
+                    metadata = on_visit(&mut control_flow.blocks[block_label], metadata)
+                }
                 None => {
-                    // all done at this depth, swap the 'next' queue to be our current
-                    self.swap_to_next_queue(control_flow);
+                    break;
                 }
             }
         }
@@ -234,50 +226,18 @@ impl ControlFlowBfs {
         metadata
     }
 
-    fn is_visited(&self, block_label: &usize) -> bool {
-        self.visited.contains(block_label)
+    fn was_seen(&self, block_label: &usize) -> bool {
+        self.seen.contains(block_label)
     }
 
-    fn visited_all_predecessors(&self, control_flow: &ControlFlow, block_label: usize) -> bool {
-        let mut visited_all_predecessors = true;
-        for p in &control_flow.predecessors[block_label] {
-            if !self.is_visited(p) {
-                visited_all_predecessors = false;
-                break;
-            }
-        }
-
-        visited_all_predecessors
-    }
-
-    fn mark_visited(&mut self, block_label: &usize) {
-        self.visited.insert(*block_label);
-    }
-
-    fn add_successors_to_next(&mut self, control_flow: &ControlFlow, block_label: &usize) {
-        for successor in &control_flow.successors[*block_label] {
-            self.next_queue.push_back(*successor);
+    fn push_all_successors(&mut self, block_label: usize, control_flow: &ControlFlow) {
+        for s in &control_flow.successors[block_label] {
+            self.dfs_stack.push_back(*s);
         }
     }
 
-    fn swap_to_next_queue(&mut self, control_flow: &ControlFlow) {
-        assert!(self.queue.len() == 0); // verify current queue actually empty
-
-        // copy and clear the 'next' queue
-        let potential_next = self.next_queue.clone();
-        self.next_queue.clear();
-
-        println!("swapping {} from potential next", potential_next.len());
-        // it is possible that a node in the 'next' queue is still unvisitable
-        // that is - it was bumped to the 'next' queue, the current queue was finished, and all predecessors of it are still not visited
-        // in this case, we need to re-bump that node to the 'next' queue when swapping queues
-        for block in potential_next {
-            if self.visited_all_predecessors(control_flow, block) {
-                self.queue.push_back(block);
-            } else {
-                self.next_queue.push_back(block);
-            }
-        }
+    fn mark_seen(&mut self, block_label: &usize) {
+        self.seen.insert(*block_label);
     }
 }
 
@@ -291,7 +251,7 @@ impl ControlFlow {
         MetadataType: Debug,
     {
         let boxed_metadata = Box::from(metadata);
-        *ControlFlowBfs::map_mut(self, operation, boxed_metadata)
+        *ControlFlowRpo::map_mut(self, operation, boxed_metadata)
     }
 
     pub fn map_over_blocks_by_bfs<MetadataType>(
@@ -303,6 +263,6 @@ impl ControlFlow {
         MetadataType: Debug,
     {
         let boxed_metadata = Box::from(metadata);
-        *ControlFlowBfs::map(self, operation, boxed_metadata)
+        *ControlFlowRpo::map(self, operation, boxed_metadata)
     }
 }

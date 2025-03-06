@@ -47,6 +47,13 @@ impl Variable {
         };
     }
 
+    pub fn name(&self) -> String {
+        match &self.mangled_name {
+            Some(mangled_name) => mangled_name.clone(),
+            None => self.name.clone(),
+        }
+    }
+
     pub fn type_(&self) -> Type {
         self.type_
     }
@@ -94,9 +101,9 @@ impl Scope {
 
 #[derive(Debug, Serialize)]
 pub struct FunctionPrototype {
-    name: String,
-    arguments: Vec<Variable>,
-    return_type: Option<Type>,
+    pub name: String,
+    pub arguments: Vec<Variable>,
+    pub return_type: Option<Type>,
 }
 
 impl Display for FunctionPrototype {

@@ -33,14 +33,14 @@ impl<T> BlockFacts<T> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Facts<T>
 where
-    T: PartialEq,
+    T: Display + PartialEq,
 {
     facts: Vec<BlockFacts<T>>,
 }
 
 impl<T> Facts<T>
 where
-    T: PartialEq,
+    T: Display + PartialEq,
 {
     pub fn new(n_blocks: usize) -> Self {
         let mut facts = Vec::<BlockFacts<T>>::new();
@@ -84,7 +84,7 @@ where
 
 pub trait IdfaImplementor<'a, T>
 where
-    T: PartialEq,
+    T: Display + PartialEq,
 {
     fn f_transfer(facts: &mut BlockFacts<T>, to_transfer: BTreeSet<T>) -> BTreeSet<T>;
     fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut Facts<T>);
@@ -94,7 +94,7 @@ where
 #[derive(Debug)]
 pub struct Idfa<'a, T>
 where
-    T: PartialEq,
+    T: Display + PartialEq,
 {
     pub control_flow: &'a ir::ControlFlow,
     direction: IdfaAnalysisDirection,
@@ -108,7 +108,7 @@ where
 impl<'a, T> Idfa<'a, T>
 where
     Facts<T>: PartialEq,
-    T: std::fmt::Debug + Clone + Ord,
+    T: std::fmt::Debug + Display + Clone + Ord,
 {
     fn store_facts_as_last(&mut self) {
         self.last_facts = self.facts.clone();
@@ -122,7 +122,6 @@ where
         block: &ir::BasicBlock,
         idfa: Box<&'b mut Idfa<'a, T>>,
     ) -> Box<&'b mut Idfa<'a, T>> {
-        println!("analyze block {} forwards", block.label());
         let label = block.label();
         let mut new_in_facts = BTreeSet::<T>::new();
 
@@ -131,12 +130,10 @@ where
                 (idfa.f_meet)(new_in_facts, &idfa.facts.for_label(*predecessor).out_facts);
         }
 
-        println!("\ttime to transfer!");
         idfa.facts.for_label_mut(label).in_facts = new_in_facts.clone();
         let transferred = (idfa.f_transfer)(idfa.facts.for_label_mut(label), new_in_facts);
         idfa.facts.for_label_mut(label).out_facts = transferred;
 
-        println!("returning");
         idfa
     }
 
@@ -146,7 +143,6 @@ where
             first_iteration = false;
             self.store_facts_as_last();
 
-            println!("analyze forward");
             self.control_flow
                 .map_over_blocks_by_bfs::<&mut Idfa<T>>(Self::analyze_block_forwards, self);
         }

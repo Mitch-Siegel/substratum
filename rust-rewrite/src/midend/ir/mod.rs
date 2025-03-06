@@ -14,7 +14,7 @@ pub use operations::*;
 
 use super::program_point::ProgramPoint;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct IrLine {
     pub loc: SourceLoc,
     pub program_point: ProgramPoint,
@@ -39,6 +39,15 @@ pub struct BasicBlock {
     statements: Vec<ir::IrLine>,
 }
 
+impl Clone for BasicBlock {
+    fn clone(&self) -> Self {
+        Self {
+            label: self.label.clone(),
+            statements: self.statements.clone(),
+        }
+    }
+}
+
 impl BasicBlock {
     pub fn new(label: usize) -> Self {
         BasicBlock {
@@ -57,6 +66,10 @@ impl BasicBlock {
 
     pub fn statements(&self) -> &Vec<ir::IrLine> {
         &self.statements
+    }
+
+    pub fn statements_mut(&mut self) -> &mut Vec<ir::IrLine> {
+        &mut self.statements
     }
 }
 
@@ -135,6 +148,48 @@ impl IrLine {
                 JumpCondition::LE(condition_operands) => {
                     operands.push(&condition_operands.a);
                     operands.push(&condition_operands.b);
+                }
+            },
+        }
+
+        operands
+    }
+
+    pub fn read_operands_mut(&mut self) -> Vec<&mut Operand> {
+        let mut operands: Vec<&mut Operand> = Vec::new();
+        match &mut self.operation {
+            Operations::Assignment(source_dest) => operands.push(&mut source_dest.source),
+            Operations::BinaryOperation(operation) => {
+                let arithmetic_operands: &mut BinaryArithmeticOperands =
+                    operation.raw_operands_mut();
+                operands.push(&mut arithmetic_operands.sources.a);
+                operands.push(&mut arithmetic_operands.sources.b);
+            }
+            Operations::Jump(jump_operands) => match &mut jump_operands.condition {
+                JumpCondition::Unconditional => {}
+                JumpCondition::Eq(condition_operands) => {
+                    operands.push(&mut condition_operands.a);
+                    operands.push(&mut condition_operands.b);
+                }
+                JumpCondition::NE(condition_operands) => {
+                    operands.push(&mut condition_operands.a);
+                    operands.push(&mut condition_operands.b);
+                }
+                JumpCondition::G(condition_operands) => {
+                    operands.push(&mut condition_operands.a);
+                    operands.push(&mut condition_operands.b);
+                }
+                JumpCondition::L(condition_operands) => {
+                    operands.push(&mut condition_operands.a);
+                    operands.push(&mut condition_operands.b);
+                }
+                JumpCondition::GE(condition_operands) => {
+                    operands.push(&mut condition_operands.a);
+                    operands.push(&mut condition_operands.b);
+                }
+                JumpCondition::LE(condition_operands) => {
+                    operands.push(&mut condition_operands.a);
+                    operands.push(&mut condition_operands.b);
                 }
             },
         }

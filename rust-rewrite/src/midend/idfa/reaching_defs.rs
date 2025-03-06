@@ -39,6 +39,9 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
     }
 
     fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut Facts) {
+        //TODO: need to be able to possibly act on function arguments for gen/kill
+        // e.g. reaching defs on function arguments
+
         for label in control_flow.labels() {
             let mut block_facts = facts.for_label_mut(label);
 
@@ -107,6 +110,14 @@ impl<'a> ReachingDefs<'a>
 
     pub fn take_facts(self) -> Facts {
         self.idfa.facts
+    }
+
+    pub fn facts(&self) -> &Facts {
+        &self.idfa.facts
+    }
+
+    pub fn facts_mut(&mut self) -> &mut Facts {
+        &mut self.idfa.facts
     }
 
     pub fn print(&self) {

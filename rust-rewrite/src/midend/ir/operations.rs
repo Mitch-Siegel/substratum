@@ -4,7 +4,7 @@ use std::fmt::Display;
 use super::operands::*;
 
 /// ## Binary Operations
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub enum BinaryOperations {
     Add(BinaryArithmeticOperands),
     Subtract(BinaryArithmeticOperands),
@@ -208,7 +208,7 @@ impl BinaryOperations {
 }
 
 /// ## Jump
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct JumpOperation {
     pub destination_block: usize,
     pub condition: JumpCondition,
@@ -221,7 +221,7 @@ impl Display for JumpOperation {
 }
 
 /// ## Enum of all operations
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub enum Operations {
     Assignment(SourceDestOperands),
     BinaryOperation(BinaryOperations),
