@@ -6,9 +6,10 @@ use super::{
     symtab::{Function, FunctionOrPrototype, SymbolTable},
 };
 
+#[derive(Debug)]
 struct SsaWriteConversionMetadata {
     variables: HashMap<String, usize>,
-    reaching_defs: idfa::Facts<ir::Operand>,
+    reaching_defs: idfa::reaching_defs::Facts,
 }
 
 impl Display for SsaWriteConversionMetadata {
@@ -42,18 +43,20 @@ impl SsaWriteConversionMetadata {
 
 fn convert_block_writes_to_ssa(
     block: &mut ir::BasicBlock,
-    metadata: &mut SsaWriteConversionMetadata,
-) {
+    metadata: Box<SsaWriteConversionMetadata>,
+) -> Box<SsaWriteConversionMetadata> {
+    println!("Convert block {} writes to ssa", block.label());
+    metadata
 }
 
 fn convert_flow_to_ssa(control_flow: &mut ir::ControlFlow) {
     let mut reaching_defs = idfa::ReachingDefs::new(control_flow);
+    println!("convert flow to ssa");
     reaching_defs.analyze();
 
     let mut write_conversion_metadata = SsaWriteConversionMetadata::new(reaching_defs.take_facts());
 
-    control_flow
-        .map_over_blocks_mut_by_bfs(convert_block_writes_to_ssa, &mut write_conversion_metadata);
+    control_flow.map_over_blocks_mut_by_bfs(convert_block_writes_to_ssa, write_conversion_metadata);
 }
 
 fn convert_function_to_ssa(f: &mut FunctionOrPrototype) {
@@ -64,7 +67,11 @@ fn convert_function_to_ssa(f: &mut FunctionOrPrototype) {
 }
 
 pub fn convert_functions_to_ssa(functions: &mut HashMap<String, FunctionOrPrototype>) {
-    functions
-        .iter_mut()
-        .map(|(function_name, function)| convert_function_to_ssa(function));
+    println!("convert functions to ssa: {} to do", functions.len());
+
+    for (function_name, function) in functions {
+        println!("{}", function_name);
+        convert_function_to_ssa(function)
+    }
+    println!("done converting functions to ssa");
 }

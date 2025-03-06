@@ -2,6 +2,8 @@ use super::ir;
 use serde::Serialize;
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    fmt::Debug,
+    ops::Deref,
     usize,
 };
 
@@ -122,26 +124,38 @@ impl ControlFlow {
     }
 }
 
-struct ControlFlowBfs<'a> {
-    pub control_flow: &'a mut ControlFlow,
+enum ControlFlowBfsMutability<'a> {
+    Immutable(&'a ControlFlow),
+    Mutable(&'a mut ControlFlow),
+}
+
+struct ControlFlowBfs {
     pub visited: HashSet<usize>,
     pub queue: VecDeque<usize>,
     pub next_queue: VecDeque<usize>,
 }
 
-impl<'a> ControlFlowBfs<'a> {
+impl ControlFlowBfs {
     pub fn map<MetadataType>(
-        control_flow: &'a mut ControlFlow,
-        operation: fn(&mut ir::BasicBlock, &mut MetadataType),
-        metadata: &mut MetadataType,
-    ) {
-        let mut bfs = Self::new(control_flow);
-        bfs.visit_all(operation, metadata);
+        control_flow: &ControlFlow,
+        operation: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
+        mut metadata: Box<MetadataType>,
+    ) -> Box<MetadataType> {
+        let mut bfs = Self::new();
+        bfs.visit_all(control_flow, operation, metadata)
     }
 
-    fn new(control_flow: &'a mut ControlFlow) -> Self {
+    pub fn map_mut<MetadataType>(
+        control_flow: &mut ControlFlow,
+        operation: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
+        mut metadata: Box<MetadataType>,
+    ) -> Box<MetadataType> {
+        let mut bfs = Self::new();
+        bfs.visit_all_mut(control_flow, operation, metadata)
+    }
+
+    fn new() -> Self {
         Self {
-            control_flow: control_flow,
             visited: HashSet::<usize>::new(),
             queue: VecDeque::<usize>::new(),
             next_queue: VecDeque::<usize>::new(),
@@ -150,9 +164,10 @@ impl<'a> ControlFlowBfs<'a> {
 
     fn visit_all<MetadataType>(
         &mut self,
-        on_visit: fn(&mut ir::BasicBlock, &mut MetadataType),
-        metadata: &mut MetadataType,
-    ) {
+        control_flow: &ControlFlow,
+        on_visit: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
+        mut metadata: Box<MetadataType>,
+    ) -> Box<MetadataType> {
         self.queue.push_back(0);
 
         // go until done
@@ -162,10 +177,10 @@ impl<'a> ControlFlowBfs<'a> {
                     // only visit once
                     if !self.is_visited(label) {
                         // ensure all the predecessors visited before visiting
-                        if self.visited_all_predecessors(*label) {
-                            on_visit(&mut self.control_flow.blocks[*label], metadata);
+                        if self.visited_all_predecessors(control_flow, *label) {
+                            metadata = on_visit(&control_flow.blocks[*label], metadata);
 
-                            self.add_successors_to_next(label);
+                            self.add_successors_to_next(control_flow, label);
                             self.mark_visited(label);
                         } else {
                             // if we haven't visited all predecessors, can't visit the block now
@@ -175,19 +190,57 @@ impl<'a> ControlFlowBfs<'a> {
                 }
                 None => {
                     // all done at this depth, swap the 'next' queue to be our current
-                    self.swap_to_next_queue();
+                    self.swap_to_next_queue(control_flow);
                 }
             }
         }
+
+        metadata
+    }
+
+    fn visit_all_mut<MetadataType>(
+        &mut self,
+        control_flow: &mut ControlFlow,
+        on_visit: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
+        mut metadata: Box<MetadataType>,
+    ) -> Box<MetadataType> {
+        self.queue.push_back(0);
+
+        // go until done
+        while (self.queue.len() > 0) || (self.next_queue.len() > 0) {
+            match &self.queue.pop_front() {
+                Some(label) => {
+                    // only visit once
+                    if !self.is_visited(label) {
+                        // ensure all the predecessors visited before visiting
+                        if self.visited_all_predecessors(control_flow, *label) {
+                            metadata = on_visit(&mut control_flow.blocks[*label], metadata);
+
+                            self.add_successors_to_next(control_flow, label);
+                            self.mark_visited(label);
+                        } else {
+                            // if we haven't visited all predecessors, can't visit the block now
+                            self.next_queue.push_back(*label);
+                        }
+                    }
+                }
+                None => {
+                    // all done at this depth, swap the 'next' queue to be our current
+                    self.swap_to_next_queue(control_flow);
+                }
+            }
+        }
+
+        metadata
     }
 
     fn is_visited(&self, block_label: &usize) -> bool {
         self.visited.contains(block_label)
     }
 
-    fn visited_all_predecessors(&self, block_label: usize) -> bool {
+    fn visited_all_predecessors(&self, control_flow: &ControlFlow, block_label: usize) -> bool {
         let mut visited_all_predecessors = true;
-        for p in &self.control_flow.predecessors[block_label] {
+        for p in &control_flow.predecessors[block_label] {
             if !self.is_visited(p) {
                 visited_all_predecessors = false;
                 break;
@@ -201,27 +254,28 @@ impl<'a> ControlFlowBfs<'a> {
         self.visited.insert(*block_label);
     }
 
-    fn add_successors_to_next(&mut self, block_label: &usize) {
-        for successor in &self.control_flow.successors[*block_label] {
+    fn add_successors_to_next(&mut self, control_flow: &ControlFlow, block_label: &usize) {
+        for successor in &control_flow.successors[*block_label] {
             self.next_queue.push_back(*successor);
         }
     }
 
-    fn swap_to_next_queue(&mut self) {
+    fn swap_to_next_queue(&mut self, control_flow: &ControlFlow) {
         assert!(self.queue.len() == 0); // verify current queue actually empty
 
         // copy and clear the 'next' queue
         let potential_next = self.next_queue.clone();
         self.next_queue.clear();
 
+        println!("swapping {} from potential next", potential_next.len());
         // it is possible that a node in the 'next' queue is still unvisitable
         // that is - it was bumped to the 'next' queue, the current queue was finished, and all predecessors of it are still not visited
         // in this case, we need to re-bump that node to the 'next' queue when swapping queues
-        for potential_next in potential_next {
-            if self.visited_all_predecessors(potential_next) {
-                self.queue.push_back(potential_next);
+        for block in potential_next {
+            if self.visited_all_predecessors(control_flow, block) {
+                self.queue.push_back(block);
             } else {
-                self.next_queue.push_back(potential_next);
+                self.next_queue.push_back(block);
             }
         }
     }
@@ -230,9 +284,25 @@ impl<'a> ControlFlowBfs<'a> {
 impl ControlFlow {
     pub fn map_over_blocks_mut_by_bfs<MetadataType>(
         &mut self,
-        operation: fn(&mut ir::BasicBlock, &mut MetadataType),
-        metadata: &mut MetadataType,
-    ) {
-        ControlFlowBfs::map(self, operation, metadata)
+        operation: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
+        metadata: MetadataType,
+    ) -> MetadataType
+    where
+        MetadataType: Debug,
+    {
+        let boxed_metadata = Box::from(metadata);
+        *ControlFlowBfs::map_mut(self, operation, boxed_metadata)
+    }
+
+    pub fn map_over_blocks_by_bfs<MetadataType>(
+        &self,
+        operation: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
+        metadata: MetadataType,
+    ) -> MetadataType
+    where
+        MetadataType: Debug,
+    {
+        let boxed_metadata = Box::from(metadata);
+        *ControlFlowBfs::map(self, operation, boxed_metadata)
     }
 }

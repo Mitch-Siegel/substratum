@@ -5,12 +5,12 @@ use crate::midend::ir;
 use super::idfa_base;
 use super::idfa_base::IdfaImplementor;
 
-pub type Fact = ir::Operand;
+pub type Fact = ir::NamedOperand;
 pub type BlockFacts = idfa_base::BlockFacts<Fact>;
 pub type Facts = idfa_base::Facts<Fact>;
 
 pub struct ReachingDefs<'a> {
-    idfa: idfa_base::Idfa<'a, ir::Operand>,
+    idfa: idfa_base::Idfa<'a, Fact>,
 }
 
 impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
@@ -38,46 +38,46 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
         transferred
     }
 
-    fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, _facts: &mut Facts) {
-        for _label in control_flow.labels() {
-            unimplemented!();
-            // let mut block_facts = facts.for_label_mut(label);
+    fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut Facts) {
+        for label in control_flow.labels() {
+            let mut block_facts = facts.for_label_mut(label);
 
-            // TODO: re-enable once SSA implemented
-            // for statement in block.statements() {
-            //     for read in statement.read_operands() {
-            //         match read {
-            //             ir::GenericOperand::<T>::Variable(name) => {
-            //                 block_facts.kill_facts.insert(name.clone());
-            //             }
-            //             ir::GenericOperand::<T>::Temporary(name) => {
-            //                 block_facts.kill_facts.insert(name.clone());
-            //             }
-            //             ir::GenericOperand::<T>::UnsignedDecimalConstant(_) => {}
-            //         }
-            //     }
-            // }
+            let block = &control_flow.blocks[label];
 
-            // for statement in block.statements() {
-            //     for write in statement.write_operands() {
-            //         match write {
-            //             ir::GenericOperand::<T>::Variable(name) => {
-            //                 block_facts.gen_facts.insert(name.clone());
-            //             }
-            //             ir::GenericOperand::<T>::Temporary(name) => {
-            //                 block_facts.gen_facts.insert(name.clone());
-            //             }
-            //             IROperand::UnsignedDecimalConstant(_) => {}
-            //         }
-            //     }
-            // }
+            for statement in block.statements() {
+                for read in statement.read_operands() {
+                    match read {
+                        ir::Operand::Variable(name) => {
+                            block_facts.kill_facts.insert(name.clone());
+                        }
+                        ir::Operand::Temporary(name) => {
+                            block_facts.kill_facts.insert(name.clone());
+                        }
+                        ir::Operand::UnsignedDecimalConstant(_) => {}
+                    }
+                }
+            }
+
+            for statement in block.statements() {
+                for write in statement.write_operands() {
+                    match write {
+                        ir::Operand::Variable(name) => {
+                            block_facts.gen_facts.insert(name.clone());
+                        }
+                        ir::Operand::Temporary(name) => {
+                            block_facts.gen_facts.insert(name.clone());
+                        }
+                        ir::Operand::UnsignedDecimalConstant(_) => {}
+                    }
+                }
+            }
         }
     }
 
     fn f_meet(
-        mut a: std::collections::BTreeSet<ir::Operand>,
-        b: &std::collections::BTreeSet<ir::Operand>,
-    ) -> std::collections::BTreeSet<ir::Operand> {
+        mut a: std::collections::BTreeSet<Fact>,
+        b: &std::collections::BTreeSet<Fact>,
+    ) -> std::collections::BTreeSet<Fact> {
         for fact in b {
             a.insert((*fact).clone());
         }

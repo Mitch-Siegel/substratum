@@ -54,6 +54,10 @@ impl BasicBlock {
     pub fn label(&self) -> usize {
         self.label
     }
+
+    pub fn statements(&self) -> &Vec<ir::IrLine> {
+        &self.statements
+    }
 }
 
 impl IrLine {
