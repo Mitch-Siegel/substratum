@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     fmt::Display,
     fs::read,
 };
@@ -77,6 +77,7 @@ fn convert_block_writes_to_ssa(
 
 struct SsaReadConversionMetadata {
     reaching_defs_facts: idfa::reaching_defs::Facts,
+    extra_kills_by_block: HashMap<usize, BTreeSet<ir::NamedOperand>>,
     modified_blocks: HashMap<usize, ir::BasicBlock>,
     n_changed_reads: usize,
 }
@@ -94,9 +95,15 @@ impl SsaReadConversionMetadata {
         let mut analysis = idfa::ReachingDefs::new(control_flow);
         analysis.analyze();
 
+        let mut extra_kills_by_block = HashMap::<usize, BTreeSet<ir::NamedOperand>>::new();
+        for block_label in 0..control_flow.blocks.len() {
+            extra_kills_by_block.insert(block_label, BTreeSet::new());
+        }
+
         Self {
             reaching_defs_facts: analysis.take_facts(),
-            modified_blocks: HashMap::<usize, ir::BasicBlock>::new(),
+            extra_kills_by_block,
+            modified_blocks: HashMap::new(),
             n_changed_reads: 0,
         }
     }
@@ -108,7 +115,13 @@ impl SsaReadConversionMetadata {
     ) -> Option<usize> {
         let mut highest_ssa_number = None;
         for out_fact in &self.reaching_defs_facts.for_label(block_label).out_facts {
-            if out_fact.base_name == name.base_name {
+            if (out_fact.base_name == name.base_name)
+                && (!self
+                    .extra_kills_by_block
+                    .get(&block_label)
+                    .unwrap()
+                    .contains(out_fact))
+            {
                 highest_ssa_number = Some(highest_ssa_number.unwrap_or(0).max(
                     out_fact.ssa_number.expect(&format!(
                         "Variable {} doesn't have ssa number to read",
@@ -128,17 +141,38 @@ impl SsaReadConversionMetadata {
         let number = self.get_read_number_for_variable(name, block_label);
         if number.is_some() {
             let number = number.unwrap();
-            match &mut name.ssa_number {
+            let new_name = ir::NamedOperand {
+                base_name: name.base_name.clone(),
+                ssa_number: Some(number),
+            };
+            let replace_result = match &mut name.ssa_number {
                 Some(old_number) => {
-                    if number > *old_number {
+                    if (number > *old_number)
+                        && (!self.extra_kills_by_block[&block_label].contains(&new_name))
+                    {
                         *old_number = number;
-                        self.n_changed_reads += 1;
+                        true
+                    } else {
+                        false
                     }
                 }
                 None => {
                     name.ssa_number.replace(number);
-                    self.n_changed_reads += 1;
+                    true
                 }
+            };
+
+            if replace_result {
+                self.n_changed_reads += 1;
+
+                println!("Extra kill of {}", new_name);
+                self.extra_kills_by_block
+                    .get_mut(&block_label)
+                    .expect(&format!(
+                        "No extra_kills_by_block set for label {}",
+                        block_label
+                    ))
+                    .insert(new_name);
             }
         }
     }

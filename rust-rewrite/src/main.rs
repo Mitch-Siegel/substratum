@@ -63,9 +63,24 @@ fun while_with_nested_branch() {
 }
 ";
 
+const SSA_EXAMPLE: &str = "
+fun while_with_nested_branch() {
+    u8 a; u16 b; u32 c;
+
+    a = 0;
+    b = 1;
+    c = 2;
+    
+    a = b + c;
+    b = a + c;
+    c = c + 1;
+    c = c + 1;
+    c = c + 1;
+}";
+
 fn main() {
     println!("Hello, world!");
-    let parsed = String::from(WHILE_LOOP_WITH_NESTED_BRANCH_NO_ARGS);
+    let parsed = String::from(SSA_EXAMPLE);
     let mut parser = Parser::new(Lexer::new(parsed.chars()));
     let program = parser.parse();
 
