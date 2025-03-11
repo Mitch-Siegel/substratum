@@ -5,7 +5,8 @@ use std::{
 };
 
 use super::{
-    idfa, ir, symtab::{Function, FunctionOrPrototype, SymbolTable}
+    idfa, ir,
+    symtab::{Function, FunctionOrPrototype, SymbolTable},
 };
 
 #[derive(Debug)]
@@ -186,7 +187,12 @@ impl SsaReadConversionMetadata {
     }
 }
 
-fn add_block_arguments<'a>(
+struct SsaBlockArgsMetadata {
+    live_vars_facts: idfa::live_vars::Facts,
+    modified_blocks: HashMap<usize, ir::BasicBlock>,
+}
+
+fn add_block_arguments(
     block: &ir::BasicBlock,
     mut metadata: Box<SsaReadConversionMetadata>,
 ) -> Box<SsaReadConversionMetadata> {
@@ -195,15 +201,34 @@ fn add_block_arguments<'a>(
     let mut new_block = block.clone();
 
     for statement in block.statements() {
-        match &statement.operation {
+        let mut new_statement = statement.clone();
+        match &mut new_statement.operation {
             ir::Operations::Jump(jump) => {
-                let jump_with_args = jump.clone();
-                
+                for liveout in &metadata.reaching_defs_facts.for_label(label).out_facts {
+                    let mut non_ssa = liveout.clone();
+                    non_ssa.ssa_number = None;
 
+                    let replace = match jump.block_args.get(&non_ssa) {
+                        Some(existing) => {
+                            existing
+                                .ssa_number
+                                .expect("Block argument must have SSA number")
+                                < liveout
+                                    .ssa_number
+                                    .expect("Liveout written variable must have SSA number")
+                        }
+                        None => true,
+                    };
 
-            },
-            _ => { new_block.append_statement(statement.clone());},
+                    if replace {
+                        println!("{}:{}", non_ssa, liveout);
+                        jump.block_args.insert(non_ssa, liveout.clone());
+                    }
+                }
+            }
+            _ => {}
         }
+        new_block.append_statement(new_statement);
     }
 
     metadata.add_modified_block(new_block);
@@ -247,7 +272,13 @@ fn convert_function_to_ssa(function: &mut Function) {
         .control_flow
         .map_over_blocks_mut_by_bfs(convert_block_writes_to_ssa, write_conversion_metadata);
 
-    function.control_flow.map_over_blocks_mut_by_bfs(add_block_arguments, SsaReadConversionMetadata::new(&function.control_flow))
+    let block_arg_metadata = function.control_flow.map_over_blocks_by_bfs(
+        add_block_arguments,
+        SsaReadConversionMetadata::new(&function.control_flow),
+    );
+    for (label, block) in block_arg_metadata.modified_blocks {
+        function.control_flow.blocks[label] = block;
+    }
 
     let mut loop_count = 0;
     loop {

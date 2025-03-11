@@ -59,9 +59,6 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
                         ir::Operand::UnsignedDecimalConstant(_) => {}
                     }
                 }
-            }
-
-            for statement in block.statements() {
                 for write in statement.write_operands() {
                     match write {
                         ir::Operand::Variable(name) => {
