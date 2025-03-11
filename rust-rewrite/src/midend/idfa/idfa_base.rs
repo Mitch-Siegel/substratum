@@ -58,28 +58,6 @@ where
     pub fn for_label_mut(&mut self, label: usize) -> &mut BlockFacts<T> {
         self.facts.get_mut(label).unwrap()
     }
-
-    pub fn into_map(self) -> BTreeMap<usize, BlockFacts<T>> {
-        let mut return_map = BTreeMap::<usize, BlockFacts<T>>::new();
-
-        for (label, block_facts) in self.facts.into_iter().enumerate() {
-            return_map.insert(label, block_facts);
-        }
-
-        return_map
-    }
-
-    pub fn from_map(map: BTreeMap<usize, BlockFacts<T>>) -> Self {
-        let mut constructed = Self {
-            facts: Vec::<BlockFacts<T>>::new(),
-        };
-
-        for (_label, block_facts) in map {
-            constructed.facts.push(block_facts);
-        }
-
-        constructed
-    }
 }
 
 pub trait IdfaImplementor<'a, T>

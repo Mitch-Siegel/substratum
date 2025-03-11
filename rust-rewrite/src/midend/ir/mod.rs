@@ -2,6 +2,7 @@ pub mod control_flow;
 pub mod operands;
 pub mod operations;
 
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fmt::Display;
 
 use crate::frontend::sourceloc::SourceLoc;
@@ -25,10 +26,9 @@ impl Display for IrLine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}@{} {}",
-            self.program_point,
-            self.loc.to_string(),
-            self.operation
+            "{} @ {}",
+            self.operation,
+            self.loc.to_string()
         )
     }
 }
@@ -37,6 +37,7 @@ impl Display for IrLine {
 pub struct BasicBlock {
     label: usize,
     statements: Vec<ir::IrLine>,
+    arguments: HashSet<ir::Operand>,
 }
 
 impl Clone for BasicBlock {
@@ -44,6 +45,7 @@ impl Clone for BasicBlock {
         Self {
             label: self.label.clone(),
             statements: self.statements.clone(),
+            arguments: HashSet::new(),
         }
     }
 }
@@ -53,10 +55,14 @@ impl BasicBlock {
         BasicBlock {
             statements: Vec::new(),
             label: label,
+            arguments: HashSet::new(),
         }
     }
 
     pub fn append_statement(&mut self, statement: ir::IrLine) {
+        for read_operand in statement.read_operands() {
+            self.arguments.insert(read_operand.clone());
+        }
         self.statements.push(statement);
     }
 
@@ -105,6 +111,7 @@ impl IrLine {
             loc,
             Operations::Jump(operations::JumpOperation {
                 destination_block,
+                block_args: HashMap::new(),
                 condition,
             }),
         )

@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::midend::{linearizer, types::Type};
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Hash)]
 pub struct NamedOperand {
     pub base_name: String,
     pub ssa_number: Option<usize>,
@@ -71,7 +71,7 @@ impl NamedOperand {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, Hash)]
 pub enum Operand {
     Variable(NamedOperand),
     Temporary(NamedOperand),

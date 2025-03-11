@@ -101,7 +101,7 @@ impl OperandWalk for ArithmeticOperationTree {
                 let dest = context.next_temp(lhs.type_(context));
                 (
                     dest.clone(),
-                    ir::operations::BinaryOperations::new_divide(dest, lhs, rhs),
+                    ir::operations::BinaryOperations::new_subtract(dest, lhs, rhs),
                 )
             }
             ArithmeticOperationTree::Multiply(operands) => {

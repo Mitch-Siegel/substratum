@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use super::operands::*;
 
@@ -211,6 +211,7 @@ impl BinaryOperations {
 #[derive(Debug, Serialize, Clone)]
 pub struct JumpOperation {
     pub destination_block: usize,
+    pub block_args: HashMap<Operand, Operand>,
     pub condition: JumpCondition,
 }
 

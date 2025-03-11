@@ -5,9 +5,7 @@ use std::{
 };
 
 use super::{
-    idfa,
-    ir::{self, control_flow},
-    symtab::{Function, FunctionOrPrototype, SymbolTable},
+    idfa, ir, symtab::{Function, FunctionOrPrototype, SymbolTable}
 };
 
 #[derive(Debug)]
@@ -188,6 +186,31 @@ impl SsaReadConversionMetadata {
     }
 }
 
+fn add_block_arguments<'a>(
+    block: &ir::BasicBlock,
+    mut metadata: Box<SsaReadConversionMetadata>,
+) -> Box<SsaReadConversionMetadata> {
+    let label = block.label();
+
+    let mut new_block = block.clone();
+
+    for statement in block.statements() {
+        match &statement.operation {
+            ir::Operations::Jump(jump) => {
+                let jump_with_args = jump.clone();
+                
+
+
+            },
+            _ => { new_block.append_statement(statement.clone());},
+        }
+    }
+
+    metadata.add_modified_block(new_block);
+
+    metadata
+}
+
 fn convert_block_reads_to_ssa<'a>(
     block: &ir::BasicBlock,
     mut metadata: Box<SsaReadConversionMetadata>,
@@ -219,12 +242,25 @@ fn convert_function_to_ssa(function: &mut Function) {
     for argument in &function.prototype.arguments {
         write_conversion_metadata.next_number_for_string(argument.name());
     }
+
     function
         .control_flow
         .map_over_blocks_mut_by_bfs(convert_block_writes_to_ssa, write_conversion_metadata);
 
+    function.control_flow.map_over_blocks_mut_by_bfs(add_block_arguments, SsaReadConversionMetadata::new(&function.control_flow))
+
     let mut loop_count = 0;
     loop {
+        let mut reaching_defs = idfa::ReachingDefs::new(&function.control_flow);
+        reaching_defs.analyze();
+        for block in &function.control_flow.blocks {
+            print!("{}:", block.label());
+            for fact in &reaching_defs.facts().for_label(block.label()).in_facts {
+                print!("{} ", fact);
+            }
+            println!();
+        }
+
         let read_conversion_metadata = function.control_flow.map_over_blocks_by_bfs(
             convert_block_reads_to_ssa,
             SsaReadConversionMetadata::new(&function.control_flow),
@@ -239,7 +275,6 @@ fn convert_function_to_ssa(function: &mut Function) {
 
         loop_count += 1;
     }
-
     function.control_flow.to_graphviz();
 }
 

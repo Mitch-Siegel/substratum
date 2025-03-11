@@ -53,11 +53,10 @@ fun while_with_nested_branch() {
     c = 2;
     while (a < b) {
         u8 counter;
-        counter = 0;
         if (c > 22) {
-            counter = counter + 1;
+            a = a + b;
         } else {
-            counter = counter - 1;
+            b = b - 1;
         }
     }
 }
@@ -80,7 +79,7 @@ fun while_with_nested_branch() {
 
 fn main() {
     println!("Hello, world!");
-    let parsed = String::from(SSA_EXAMPLE);
+    let parsed = String::from(WHILE_LOOP_WITH_NESTED_BRANCH_NO_ARGS);
     let mut parser = Parser::new(Lexer::new(parsed.chars()));
     let program = parser.parse();
 
