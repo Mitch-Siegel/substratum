@@ -67,6 +67,11 @@ where
     fn f_transfer(facts: &mut BlockFacts<T>, to_transfer: BTreeSet<T>) -> BTreeSet<T>;
     fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut Facts<T>);
     fn f_meet(a: BTreeSet<T>, b: &BTreeSet<T>) -> BTreeSet<T>;
+    fn new(control_flow: &'a ir::ControlFlow) -> Self;
+    fn reanalyze(&mut self);
+    fn take_facts(self) -> Facts<T>;
+    fn facts(&self) -> &Facts<T>;
+    fn facts_mut(&mut self) -> &mut Facts<T>;
 }
 
 #[derive(Debug)]
@@ -154,7 +159,7 @@ where
         f_meet: fn(a: BTreeSet<T>, b: &BTreeSet<T>) -> BTreeSet<T>,
         f_transfer: fn(facts: &mut BlockFacts<T>, to_transfer: BTreeSet<T>) -> BTreeSet<T>,
     ) -> Self {
-        Self {
+        let mut idfa = Self {
             control_flow,
             direction,
             last_facts: Facts::<T>::new(control_flow.blocks.len()),
@@ -162,6 +167,10 @@ where
             f_find_gen_kills,
             f_meet,
             f_transfer,
-        }
+        };
+
+        idfa.analyze();
+
+        idfa
     }
 }

@@ -5,7 +5,8 @@ use std::{
 };
 
 use super::{
-    idfa, ir,
+    idfa::{self, reaching_defs::IdfaImplementor},
+    ir,
     symtab::{Function, FunctionOrPrototype, SymbolTable},
 };
 
@@ -74,10 +75,37 @@ fn convert_block_writes_to_ssa(
     metadata
 }
 
+#[derive(Debug)]
+struct ModifiedBlocks {
+    blocks: HashMap<usize, ir::BasicBlock>,
+}
+
+impl ModifiedBlocks {
+    pub fn new() -> Self {
+        ModifiedBlocks {
+            blocks: HashMap::new(),
+        }
+    }
+
+    pub fn add_block(&mut self, block: ir::BasicBlock) {
+        let label = block.label();
+        if self.blocks.insert(label, block).is_some() {
+            panic!(
+                "Block {} already modified in this pass of SSA read conversion",
+                label
+            );
+        }
+    }
+
+    pub fn take(self) -> HashMap<usize, ir::BasicBlock> {
+        self.blocks
+    }
+}
+
 struct SsaReadConversionMetadata {
     reaching_defs_facts: idfa::reaching_defs::Facts,
     extra_kills_by_block: HashMap<usize, BTreeSet<ir::NamedOperand>>,
-    modified_blocks: HashMap<usize, ir::BasicBlock>,
+    pub modified_blocks: ModifiedBlocks,
     n_changed_reads: usize,
 }
 
@@ -91,8 +119,7 @@ impl<'a> std::fmt::Debug for SsaReadConversionMetadata {
 
 impl SsaReadConversionMetadata {
     pub fn new(control_flow: &ir::ControlFlow) -> Self {
-        let mut analysis = idfa::ReachingDefs::new(control_flow);
-        analysis.analyze();
+        let analysis = idfa::ReachingDefs::new(control_flow);
 
         let mut extra_kills_by_block = HashMap::<usize, BTreeSet<ir::NamedOperand>>::new();
         for block_label in 0..control_flow.blocks.len() {
@@ -102,7 +129,7 @@ impl SsaReadConversionMetadata {
         Self {
             reaching_defs_facts: analysis.take_facts(),
             extra_kills_by_block,
-            modified_blocks: HashMap::new(),
+            modified_blocks: ModifiedBlocks::new(),
             n_changed_reads: 0,
         }
     }
@@ -175,27 +202,41 @@ impl SsaReadConversionMetadata {
             }
         }
     }
+}
 
-    pub fn add_modified_block(&mut self, block: ir::BasicBlock) {
-        let label = block.label();
-        if self.modified_blocks.insert(label, block).is_some() {
-            panic!(
-                "Block {} already modified in this pass of SSA read conversion",
-                label
-            );
+#[derive(Debug)]
+struct SsaBlockArgsMetadata {
+    live_vars_facts: idfa::live_vars::Facts,
+    block_args: HashMap<usize, HashSet<ir::NamedOperand>>,
+    modified_blocks: ModifiedBlocks,
+}
+
+impl SsaBlockArgsMetadata {
+    pub fn new(control_flow: &ir::ControlFlow) -> Self {
+        let analysis = idfa::LiveVars::new(control_flow);
+
+        let mut extra_kills_by_block = HashMap::<usize, BTreeSet<ir::NamedOperand>>::new();
+        for block_label in 0..control_flow.blocks.len() {
+            extra_kills_by_block.insert(block_label, BTreeSet::new());
+        }
+
+        let mut block_args = HashMap::<usize, HashSet<ir::NamedOperand>>::new();
+        for block in &control_flow.blocks {
+            block_args.insert(block.label(), block.arguments().clone());
+        }
+
+        Self {
+            live_vars_facts: analysis.take_facts(),
+            modified_blocks: ModifiedBlocks::new(),
+            block_args,
         }
     }
 }
 
-struct SsaBlockArgsMetadata {
-    live_vars_facts: idfa::live_vars::Facts,
-    modified_blocks: HashMap<usize, ir::BasicBlock>,
-}
-
 fn add_block_arguments(
     block: &ir::BasicBlock,
-    mut metadata: Box<SsaReadConversionMetadata>,
-) -> Box<SsaReadConversionMetadata> {
+    mut metadata: Box<SsaBlockArgsMetadata>,
+) -> Box<SsaBlockArgsMetadata> {
     let label = block.label();
 
     let mut new_block = block.clone();
@@ -204,7 +245,13 @@ fn add_block_arguments(
         let mut new_statement = statement.clone();
         match &mut new_statement.operation {
             ir::Operations::Jump(jump) => {
-                for liveout in &metadata.reaching_defs_facts.for_label(label).out_facts {
+                let destination = &jump.destination_block;
+                let target_args = metadata
+                    .block_args
+                    .get(destination)
+                    .expect(&format!("No block args found for block {}", destination));
+
+                for liveout in &metadata.live_vars_facts.for_label(label).out_facts {
                     let mut non_ssa = liveout.clone();
                     non_ssa.ssa_number = None;
 
@@ -217,7 +264,7 @@ fn add_block_arguments(
                                     .ssa_number
                                     .expect("Liveout written variable must have SSA number")
                         }
-                        None => true,
+                        None => target_args.contains(&non_ssa),
                     };
 
                     if replace {
@@ -231,7 +278,7 @@ fn add_block_arguments(
         new_block.append_statement(new_statement);
     }
 
-    metadata.add_modified_block(new_block);
+    metadata.modified_blocks.add_block(new_block);
 
     metadata
 }
@@ -257,7 +304,7 @@ fn convert_block_reads_to_ssa<'a>(
             }
         }
     }
-    metadata.add_modified_block(new_block);
+    metadata.modified_blocks.add_block(new_block);
 
     metadata
 }
@@ -274,16 +321,17 @@ fn convert_function_to_ssa(function: &mut Function) {
 
     let block_arg_metadata = function.control_flow.map_over_blocks_by_bfs(
         add_block_arguments,
-        SsaReadConversionMetadata::new(&function.control_flow),
+        SsaBlockArgsMetadata::new(&function.control_flow),
     );
-    for (label, block) in block_arg_metadata.modified_blocks {
+
+    for (label, block) in block_arg_metadata.modified_blocks.take() {
         function.control_flow.blocks[label] = block;
     }
 
     let mut loop_count = 0;
     loop {
         let mut reaching_defs = idfa::ReachingDefs::new(&function.control_flow);
-        reaching_defs.analyze();
+
         for block in &function.control_flow.blocks {
             print!("{}:", block.label());
             for fact in &reaching_defs.facts().for_label(block.label()).in_facts {
@@ -299,7 +347,7 @@ fn convert_function_to_ssa(function: &mut Function) {
         if read_conversion_metadata.n_changed_reads == 0 {
             break;
         } else {
-            for (label, block) in read_conversion_metadata.modified_blocks {
+            for (label, block) in read_conversion_metadata.modified_blocks.take() {
                 function.control_flow.blocks[label] = block;
             }
         };

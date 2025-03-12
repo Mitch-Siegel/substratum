@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use crate::midend::ir;
 
 use super::idfa_base;
-use super::idfa_base::IdfaImplementor;
+pub use super::idfa_base::IdfaImplementor;
 
 pub type Fact = ir::NamedOperand;
 pub type BlockFacts = idfa_base::BlockFacts<Fact>;
@@ -84,12 +84,8 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
 
         a
     }
-}
 
-impl<'a> ReachingDefs<'a>
-// TODO: supertrait?
-{
-    pub fn new(control_flow: &'a ir::ControlFlow) -> Self {
+    fn new(control_flow: &'a ir::ControlFlow) -> Self {
         Self {
             idfa: idfa_base::Idfa::<'a, Fact>::new(
                 control_flow,
@@ -101,22 +97,26 @@ impl<'a> ReachingDefs<'a>
         }
     }
 
-    pub fn analyze(&mut self) {
+    fn reanalyze(&mut self) {
         self.idfa.analyze();
     }
 
-    pub fn take_facts(self) -> Facts {
+    fn take_facts(self) -> Facts {
         self.idfa.facts
     }
 
-    pub fn facts(&self) -> &Facts {
+    fn facts(&self) -> &Facts {
         &self.idfa.facts
     }
 
-    pub fn facts_mut(&mut self) -> &mut Facts {
+    fn facts_mut(&mut self) -> &mut Facts {
         &mut self.idfa.facts
     }
+}
 
+impl<'a> ReachingDefs<'a>
+// TODO: supertrait?
+{
     pub fn print(&self) {
         for label in 0..self.idfa.control_flow.blocks.len() {
             let facts = self.idfa.facts.for_label(label);

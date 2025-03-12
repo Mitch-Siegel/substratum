@@ -68,4 +68,32 @@ impl<'a> IdfaImplementor<'a, Fact> for LiveVars<'a> {
 
         a
     }
+
+    fn new(control_flow: &'a ir::ControlFlow) -> Self {
+        Self {
+            idfa: idfa_base::Idfa::new(
+                control_flow,
+                idfa_base::IdfaAnalysisDirection::Forward,
+                Self::f_find_gen_kills,
+                Self::f_meet,
+                Self::f_transfer,
+            ),
+        }
+    }
+
+    fn reanalyze(&mut self) {
+        self.idfa.analyze();
+    }
+
+    fn take_facts(self) -> Facts {
+        self.idfa.facts
+    }
+
+    fn facts(&self) -> &Facts {
+        &self.idfa.facts
+    }
+
+    fn facts_mut(&mut self) -> &mut Facts {
+        &mut self.idfa.facts
+    }
 }

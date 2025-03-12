@@ -32,7 +32,7 @@ impl Display for IrLine {
 pub struct BasicBlock {
     label: usize,
     statements: Vec<ir::IrLine>,
-    arguments: HashSet<ir::Operand>,
+    arguments: HashSet<ir::NamedOperand>,
 }
 
 impl Clone for BasicBlock {
@@ -56,7 +56,15 @@ impl BasicBlock {
 
     pub fn append_statement(&mut self, statement: ir::IrLine) {
         for read_operand in statement.read_operands() {
-            self.arguments.insert(read_operand.clone());
+            match read_operand {
+                Operand::Variable(named_operand) => {
+                    self.arguments.insert(named_operand.clone());
+                }
+                Operand::Temporary(named_operand) => {
+                    self.arguments.insert(named_operand.clone());
+                }
+                Operand::UnsignedDecimalConstant(_) => {}
+            };
         }
         self.statements.push(statement);
     }
@@ -71,6 +79,10 @@ impl BasicBlock {
 
     pub fn statements_mut(&mut self) -> &mut Vec<ir::IrLine> {
         &mut self.statements
+    }
+
+    pub fn arguments(&self) -> &HashSet<ir::NamedOperand> {
+        &self.arguments
     }
 }
 
