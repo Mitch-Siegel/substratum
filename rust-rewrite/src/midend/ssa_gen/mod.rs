@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use add_block_args::add_block_arguments;
 use convert_reads::convert_reads_to_ssa;
@@ -8,7 +8,10 @@ mod add_block_args;
 mod convert_reads;
 mod convert_writes;
 
-use super::symtab::{Function, FunctionOrPrototype};
+use super::{
+    ir,
+    symtab::{Function, FunctionOrPrototype},
+};
 
 fn convert_function_to_ssa(function: &mut Function) {
     add_block_arguments(function);
@@ -23,6 +26,36 @@ pub fn convert_functions_to_ssa(functions: &mut HashMap<String, FunctionOrProtot
         match function {
             FunctionOrPrototype::Prototype(_) => {}
             FunctionOrPrototype::Function(function) => convert_function_to_ssa(function),
+        };
+    }
+}
+
+fn remove_ssa_from_function(function: &mut Function) {
+    for block in &mut function.control_flow.blocks {
+        let old_arguments = block.arguments.clone();
+        block.arguments.clear();
+        block.arguments = BTreeSet::<ir::OperandName>::new();
+        for arg in old_arguments {
+            block.arguments.insert(arg.into_non_ssa());
+        }
+        for statement in block.statements_mut() {
+            for read in statement.read_operand_names_mut() {
+                read.ssa_number = None;
+            }
+
+            for write in statement.write_operand_names_mut() {
+                write.ssa_number = None;
+            }
+        }
+    }
+    function.control_flow.to_graphviz();
+}
+
+pub fn remove_ssa_from_functions(functions: &mut HashMap<String, FunctionOrPrototype>) {
+    for (_, function) in functions {
+        match function {
+            FunctionOrPrototype::Prototype(_) => {}
+            FunctionOrPrototype::Function(function) => remove_ssa_from_function(function),
         };
     }
 }

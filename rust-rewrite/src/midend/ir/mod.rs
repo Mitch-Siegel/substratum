@@ -206,7 +206,7 @@ impl IrLine {
         operand_names
     }
 
-    pub fn write_operands_mut(&mut self) -> Vec<&mut OperandName> {
+    pub fn write_operand_names_mut(&mut self) -> Vec<&mut OperandName> {
         let mut operands: Vec<&mut OperandName> = Vec::new();
         match &mut self.operation {
             Operations::Assignment(source_dest) => {
