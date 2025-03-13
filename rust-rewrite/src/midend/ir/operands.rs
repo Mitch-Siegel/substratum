@@ -5,20 +5,20 @@ use serde::Serialize;
 use crate::midend::{linearizer, types::Type};
 
 #[derive(Clone, Debug, Serialize, Hash)]
-pub struct NamedOperand {
+pub struct OperandName {
     pub base_name: String,
     pub ssa_number: Option<usize>,
 }
 
-impl PartialEq for NamedOperand {
+impl PartialEq for OperandName {
     fn eq(&self, other: &Self) -> bool {
         (self.base_name == other.base_name) && (self.ssa_number == other.ssa_number)
     }
 }
 
-impl Eq for NamedOperand {}
+impl Eq for OperandName {}
 
-impl PartialOrd for NamedOperand {
+impl PartialOrd for OperandName {
     fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
         Some(
             self.base_name
@@ -37,13 +37,13 @@ impl PartialOrd for NamedOperand {
     }
 }
 
-impl Ord for NamedOperand {
+impl Ord for OperandName {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).unwrap()
     }
 }
 
-impl Display for NamedOperand {
+impl Display for OperandName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.ssa_number {
             Some(number) => {
@@ -53,7 +53,8 @@ impl Display for NamedOperand {
         }
     }
 }
-impl NamedOperand {
+
+impl OperandName {
     pub fn new_basic(base_name: String) -> Self {
         Self {
             base_name,
@@ -69,12 +70,17 @@ impl NamedOperand {
             None => self.base_name.clone(),
         }
     }
+
+    pub fn into_non_ssa(mut self) -> Self {
+        self.ssa_number = None;
+        self
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Hash)]
 pub enum Operand {
-    Variable(NamedOperand),
-    Temporary(NamedOperand),
+    Variable(OperandName),
+    Temporary(OperandName),
     UnsignedDecimalConstant(usize),
 }
 
@@ -82,13 +88,16 @@ impl Display for Operand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Variable(name) => {
-                write!(f, "[V {}]", name)
+                // write!(f, "[V {}]", name)
+                write!(f, "{}", name)
             }
             Self::Temporary(name) => {
-                write!(f, "[T {}]", name)
+                // write!(f, "[T {}]", name)
+                write!(f, "{}", name)
             }
             Self::UnsignedDecimalConstant(value) => {
-                write!(f, "[C {}]", value)
+                // write!(f, "[C {}]", value)
+                write!(f, "{}", value)
             }
         }
     }
@@ -166,11 +175,11 @@ impl Ord for Operand {
 
 impl Operand {
     pub fn new_as_variable(identifier: String) -> Self {
-        Operand::Variable(NamedOperand::new_basic(identifier))
+        Operand::Variable(OperandName::new_basic(identifier))
     }
 
     pub fn new_as_temporary(identifier: String) -> Self {
-        Operand::Temporary(NamedOperand::new_basic(identifier))
+        Operand::Temporary(OperandName::new_basic(identifier))
     }
 
     pub fn new_as_unsigned_decimal_constant(constant: usize) -> Self {
@@ -199,6 +208,22 @@ impl Operand {
                     Type::new_u8(0)
                 }
             }
+        }
+    }
+
+    pub fn get_name(&self) -> Option<&OperandName> {
+        match self {
+            Operand::Variable(operand_name) => Some(operand_name),
+            Operand::Temporary(operand_name) => Some(operand_name),
+            Operand::UnsignedDecimalConstant(_) => None,
+        }
+    }
+
+    pub fn get_name_mut(&mut self) -> Option<&mut OperandName> {
+        match self {
+            Operand::Variable(operand_name) => Some(operand_name),
+            Operand::Temporary(operand_name) => Some(operand_name),
+            Operand::UnsignedDecimalConstant(_) => None,
         }
     }
 }

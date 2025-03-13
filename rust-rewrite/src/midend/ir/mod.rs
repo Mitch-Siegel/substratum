@@ -24,7 +24,7 @@ pub struct IrLine {
 
 impl Display for IrLine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} @ {}", self.operation, self.loc.to_string())
+        write!(f, "{}", self.operation)
     }
 }
 
@@ -32,7 +32,7 @@ impl Display for IrLine {
 pub struct BasicBlock {
     label: usize,
     statements: Vec<ir::IrLine>,
-    arguments: HashSet<ir::NamedOperand>,
+    pub arguments: BTreeSet<ir::OperandName>,
 }
 
 impl Clone for BasicBlock {
@@ -40,7 +40,7 @@ impl Clone for BasicBlock {
         Self {
             label: self.label.clone(),
             statements: self.statements.clone(),
-            arguments: HashSet::new(),
+            arguments: BTreeSet::new(),
         }
     }
 }
@@ -50,22 +50,11 @@ impl BasicBlock {
         BasicBlock {
             statements: Vec::new(),
             label: label,
-            arguments: HashSet::new(),
+            arguments: BTreeSet::new(),
         }
     }
 
     pub fn append_statement(&mut self, statement: ir::IrLine) {
-        for read_operand in statement.read_operands() {
-            match read_operand {
-                Operand::Variable(named_operand) => {
-                    self.arguments.insert(named_operand.clone());
-                }
-                Operand::Temporary(named_operand) => {
-                    self.arguments.insert(named_operand.clone());
-                }
-                Operand::UnsignedDecimalConstant(_) => {}
-            };
-        }
         self.statements.push(statement);
     }
 
@@ -81,8 +70,12 @@ impl BasicBlock {
         &mut self.statements
     }
 
-    pub fn arguments(&self) -> &HashSet<ir::NamedOperand> {
+    pub fn arguments(&self) -> &BTreeSet<ir::OperandName> {
         &self.arguments
+    }
+
+    pub fn arguments_mut(&mut self) -> &mut BTreeSet<ir::OperandName> {
+        &mut self.arguments
     }
 }
 
@@ -128,110 +121,112 @@ impl IrLine {
         &self.program_point
     }
 
-    pub fn read_operands(&self) -> Vec<&Operand> {
-        let mut operands: Vec<&Operand> = Vec::new();
+    pub fn read_operand_names(&self) -> Vec<&OperandName> {
+        let mut operand_names: Vec<&OperandName> = Vec::new();
         match &self.operation {
-            Operations::Assignment(source_dest) => operands.push(&source_dest.source),
+            Operations::Assignment(source_dest) => match &source_dest.source.get_name() {
+                Some(name) => operand_names.push(name),
+                None => {}
+            },
             Operations::BinaryOperation(operation) => {
-                let arithmetic_operands = operation.raw_operands();
-                operands.push(&arithmetic_operands.sources.a);
-                operands.push(&arithmetic_operands.sources.b);
+                let sources = &operation.raw_operands().sources;
+                match sources.a.get_name() {
+                    Some(name) => operand_names.push(name),
+                    None => {}
+                }
+                match sources.b.get_name() {
+                    Some(name) => operand_names.push(name),
+                    None => {}
+                }
             }
             Operations::Jump(jump_operands) => match &jump_operands.condition {
                 JumpCondition::Unconditional => {}
-                JumpCondition::Eq(condition_operands) => {
-                    operands.push(&condition_operands.a);
-                    operands.push(&condition_operands.b);
-                }
-                JumpCondition::NE(condition_operands) => {
-                    operands.push(&condition_operands.a);
-                    operands.push(&condition_operands.b);
-                }
-                JumpCondition::G(condition_operands) => {
-                    operands.push(&condition_operands.a);
-                    operands.push(&condition_operands.b);
-                }
-                JumpCondition::L(condition_operands) => {
-                    operands.push(&condition_operands.a);
-                    operands.push(&condition_operands.b);
-                }
-                JumpCondition::GE(condition_operands) => {
-                    operands.push(&condition_operands.a);
-                    operands.push(&condition_operands.b);
-                }
-                JumpCondition::LE(condition_operands) => {
-                    operands.push(&condition_operands.a);
-                    operands.push(&condition_operands.b);
+                JumpCondition::Eq(condition_operands)
+                | JumpCondition::NE(condition_operands)
+                | JumpCondition::G(condition_operands)
+                | JumpCondition::L(condition_operands)
+                | JumpCondition::GE(condition_operands)
+                | JumpCondition::LE(condition_operands) => {
+                    match condition_operands.a.get_name() {
+                        Some(name) => operand_names.push(name),
+                        None => {}
+                    }
+                    match condition_operands.b.get_name() {
+                        Some(name) => operand_names.push(name),
+                        None => {}
+                    }
                 }
             },
         }
-
-        operands
+        operand_names
     }
 
-    pub fn read_operands_mut(&mut self) -> Vec<&mut Operand> {
-        let mut operands: Vec<&mut Operand> = Vec::new();
+    pub fn read_operand_names_mut(&mut self) -> Vec<&mut OperandName> {
+        let mut operand_names: Vec<&mut OperandName> = Vec::new();
         match &mut self.operation {
-            Operations::Assignment(source_dest) => operands.push(&mut source_dest.source),
+            Operations::Assignment(source_dest) => match source_dest.source.get_name_mut() {
+                Some(name) => operand_names.push(name),
+                None => {}
+            },
             Operations::BinaryOperation(operation) => {
-                let arithmetic_operands: &mut BinaryArithmeticOperands =
-                    operation.raw_operands_mut();
-                operands.push(&mut arithmetic_operands.sources.a);
-                operands.push(&mut arithmetic_operands.sources.b);
+                let sources = &mut operation.raw_operands_mut().sources;
+                match sources.a.get_name_mut() {
+                    Some(name) => operand_names.push(name),
+                    None => {}
+                }
+                match sources.b.get_name_mut() {
+                    Some(name) => operand_names.push(name),
+                    None => {}
+                }
             }
             Operations::Jump(jump_operands) => match &mut jump_operands.condition {
                 JumpCondition::Unconditional => {}
-                JumpCondition::Eq(condition_operands) => {
-                    operands.push(&mut condition_operands.a);
-                    operands.push(&mut condition_operands.b);
-                }
-                JumpCondition::NE(condition_operands) => {
-                    operands.push(&mut condition_operands.a);
-                    operands.push(&mut condition_operands.b);
-                }
-                JumpCondition::G(condition_operands) => {
-                    operands.push(&mut condition_operands.a);
-                    operands.push(&mut condition_operands.b);
-                }
-                JumpCondition::L(condition_operands) => {
-                    operands.push(&mut condition_operands.a);
-                    operands.push(&mut condition_operands.b);
-                }
-                JumpCondition::GE(condition_operands) => {
-                    operands.push(&mut condition_operands.a);
-                    operands.push(&mut condition_operands.b);
-                }
-                JumpCondition::LE(condition_operands) => {
-                    operands.push(&mut condition_operands.a);
-                    operands.push(&mut condition_operands.b);
+                JumpCondition::Eq(condition_operands)
+                | JumpCondition::NE(condition_operands)
+                | JumpCondition::G(condition_operands)
+                | JumpCondition::L(condition_operands)
+                | JumpCondition::GE(condition_operands)
+                | JumpCondition::LE(condition_operands) => {
+                    match condition_operands.a.get_name_mut() {
+                        Some(name) => operand_names.push(name),
+                        None => {}
+                    }
+                    match condition_operands.b.get_name_mut() {
+                        Some(name) => operand_names.push(name),
+                        None => {}
+                    }
                 }
             },
         }
 
-        operands
+        operand_names
     }
 
-    pub fn write_operands(&self) -> Vec<&Operand> {
-        let mut operands: Vec<&Operand> = Vec::new();
+    pub fn write_operand_names(&self) -> Vec<&OperandName> {
+        let mut operand_names: Vec<&OperandName> = Vec::new();
         match &self.operation {
-            Operations::Assignment(source_dest) => operands.push(&source_dest.destination),
+            Operations::Assignment(source_dest) => {
+                operand_names.push(&source_dest.destination.get_name().unwrap())
+            }
             Operations::BinaryOperation(operation) => {
                 let arithmetic_operands = operation.raw_operands();
-                operands.push(&arithmetic_operands.destination);
+                operand_names.push(&arithmetic_operands.destination.get_name().unwrap());
             }
             Operations::Jump(_) => {}
         }
 
-        operands
+        operand_names
     }
 
-    pub fn write_operands_mut(&mut self) -> Vec<&mut Operand> {
-        let mut operands: Vec<&mut Operand> = Vec::new();
+    pub fn write_operands_mut(&mut self) -> Vec<&mut OperandName> {
+        let mut operands: Vec<&mut OperandName> = Vec::new();
         match &mut self.operation {
-            Operations::Assignment(source_dest) => operands.push(&mut source_dest.destination),
+            Operations::Assignment(source_dest) => {
+                operands.push(source_dest.destination.get_name_mut().unwrap())
+            }
             Operations::BinaryOperation(operation) => {
                 let arithmetic_operands = operation.raw_operands_mut();
-                operands.push(&mut arithmetic_operands.destination);
+                operands.push(arithmetic_operands.destination.get_name_mut().unwrap());
             }
             Operations::Jump(_) => {}
         }

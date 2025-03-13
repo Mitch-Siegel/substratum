@@ -2,50 +2,43 @@ use std::collections::BTreeSet;
 
 use crate::midend::ir;
 
-use super::idfa_base::{self, IdfaImplementor};
+use super::idfa_base;
+pub use super::idfa_base::IdfaImplementor;
 
 pub type Fact = ir::OperandName;
 pub type BlockFacts = idfa_base::BlockFacts<Fact>;
 pub type Facts = idfa_base::Facts<Fact>;
 
-pub struct LiveVars<'a> {
+pub struct BlockArgs<'a> {
     idfa: idfa_base::Idfa<'a, Fact>,
 }
 
-impl<'a> IdfaImplementor<'a, Fact> for LiveVars<'a> {
-    fn f_transfer(facts: &mut BlockFacts, to_transfer: BTreeSet<Fact>) -> BTreeSet<Fact> {
-        let mut transferred = facts.gen_facts.clone();
-
-        for fact in &to_transfer {
-            if !facts.kill_facts.contains(fact) {
-                transferred.insert(fact.clone());
-            }
-        }
-
-        transferred
+impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
+    fn f_transfer(
+        facts: &mut idfa_base::BlockFacts<Fact>,
+        _to_transfer: BTreeSet<Fact>,
+    ) -> BTreeSet<Fact> {
+        facts.gen_facts.clone()
     }
 
-    fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut Facts) {
+    fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut super::Facts<Fact>) {
         for label in control_flow.labels() {
-            let mut block_facts = facts.for_label_mut(label);
+            let block_facts = facts.for_label_mut(label);
 
             let block = &control_flow.blocks[label];
 
             for statement in block.statements() {
                 for read in statement.read_operand_names() {
-                    block_facts.kill_facts.insert(read.clone());
+                    block_facts.gen_facts.insert(read.clone());
                 }
                 for write in statement.write_operand_names() {
-                    block_facts.gen_facts.insert(write.clone());
+                    block_facts.kill_facts.insert(write.clone());
                 }
             }
         }
     }
 
-    fn f_meet(
-        mut a: std::collections::BTreeSet<Fact>,
-        b: &std::collections::BTreeSet<Fact>,
-    ) -> std::collections::BTreeSet<Fact> {
+    fn f_meet(mut a: BTreeSet<Fact>, b: &BTreeSet<Fact>) -> BTreeSet<Fact> {
         for fact in b {
             a.insert((*fact).clone());
         }
@@ -69,7 +62,7 @@ impl<'a> IdfaImplementor<'a, Fact> for LiveVars<'a> {
         self.idfa.analyze();
     }
 
-    fn take_facts(self) -> Facts {
+    fn take_facts(self) -> super::Facts<Fact> {
         self.idfa.facts
     }
 

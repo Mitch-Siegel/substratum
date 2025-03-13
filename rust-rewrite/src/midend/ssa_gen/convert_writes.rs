@@ -26,10 +26,10 @@ impl SsaWriteConversionMetadata {
         }
     }
 
-    pub fn next_number_for_variable(&mut self, variable: &ir::NamedOperand) -> usize {
+    pub fn next_number_for_variable(&mut self, operand_name: &ir::OperandName) -> usize {
         let entry = self
             .variables
-            .entry(variable.base_name.clone())
+            .entry(operand_name.base_name.clone())
             .or_insert(0);
         let returned_write = *entry;
         *entry += 1;
@@ -37,7 +37,7 @@ impl SsaWriteConversionMetadata {
         returned_write
     }
 
-    pub fn n_writes_for_variable(&self, variable: &ir::NamedOperand) -> usize {
+    pub fn n_writes_for_variable(&self, variable: &ir::OperandName) -> usize {
         *self
             .variables
             .get(&variable.base_name.clone())
@@ -57,49 +57,18 @@ fn convert_block_writes_to_ssa(
     block: &mut ir::BasicBlock,
     mut metadata: Box<SsaWriteConversionMetadata>,
 ) -> Box<SsaWriteConversionMetadata> {
-    for statement in block.statements_mut() {
-        for operand in statement.write_operands_mut() {
-            match operand {
-                ir::Operand::Variable(name) => {
-                    name.ssa_number = Some(metadata.next_number_for_variable(name));
-                }
-                ir::Operand::Temporary(name) => {
-                    name.ssa_number = Some(metadata.next_number_for_variable(name));
-                }
-                ir::Operand::UnsignedDecimalConstant(_) => {}
-            }
-        }
-    }
-    metadata
-}
+    let old_args = block.arguments.clone();
+    block.arguments.clear();
 
-fn flip_ssa_write_numbering(
-    block: &mut ir::BasicBlock,
-    mut metadata: Box<SsaWriteConversionMetadata>,
-) -> Box<SsaWriteConversionMetadata> {
+    for argument in old_args.iter() {
+        let mut new_argument = argument.clone();
+        new_argument.ssa_number = Some(metadata.next_number_for_variable(argument));
+        block.arguments.insert(new_argument);
+    }
+
     for statement in block.statements_mut() {
-        for operand in statement.write_operands_mut() {
-            match operand {
-                ir::Operand::Variable(name) => {
-                    name.ssa_number = Some(
-                        metadata.n_writes_for_variable(name)
-                            - name.ssa_number.expect(
-                                "flip_ssa_write_numbering requires all writes to have SSA numbers",
-                            )
-                            - 1,
-                    );
-                }
-                ir::Operand::Temporary(name) => {
-                    name.ssa_number = Some(
-                        metadata.n_writes_for_variable(name)
-                            - name.ssa_number.expect(
-                                "flip_ssa_write_numbering requires all writes to have SSA numbers",
-                            )
-                            - 1,
-                    );
-                }
-                ir::Operand::UnsignedDecimalConstant(_) => {}
-            }
+        for write in statement.write_operands_mut() {
+            write.ssa_number = Some(metadata.next_number_for_variable(write));
         }
     }
     metadata

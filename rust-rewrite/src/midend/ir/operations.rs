@@ -211,7 +211,7 @@ impl BinaryOperations {
 #[derive(Debug, Serialize, Clone)]
 pub struct JumpOperation {
     pub destination_block: usize,
-    pub block_args: HashMap<NamedOperand, NamedOperand>,
+    pub block_args: HashMap<OperandName, OperandName>,
     pub condition: JumpCondition,
 }
 
@@ -223,7 +223,7 @@ impl Display for JumpOperation {
         }
         write!(
             f,
-            "{} {} ({})",
+            "{} Block{}({})",
             self.condition, self.destination_block, block_args_string
         )
     }

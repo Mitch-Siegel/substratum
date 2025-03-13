@@ -82,7 +82,7 @@ fun while_with_nested_branch() {
 
 fn main() {
     println!("Hello, world!");
-    let parsed = String::from(SSA_EXAMPLE);
+    let parsed = String::from(WHILE_LOOP);
     let mut parser = Parser::new(Lexer::new(parsed.chars()));
     let program = parser.parse();
 

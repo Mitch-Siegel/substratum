@@ -9,7 +9,7 @@ use super::ModifiedBlocks;
 
 pub struct SsaReadConversionMetadata {
     reaching_defs_facts: idfa::reaching_defs::Facts,
-    extra_kills_by_block: HashMap<usize, BTreeSet<ir::NamedOperand>>,
+    extra_kills_by_block: HashMap<usize, BTreeSet<ir::OperandName>>,
     modified_blocks: ModifiedBlocks,
     n_changed_reads: usize,
 }
@@ -26,7 +26,7 @@ impl SsaReadConversionMetadata {
     pub fn new(control_flow: &ir::ControlFlow) -> Self {
         let analysis = idfa::ReachingDefs::new(control_flow);
 
-        let mut extra_kills_by_block = HashMap::<usize, BTreeSet<ir::NamedOperand>>::new();
+        let mut extra_kills_by_block = HashMap::<usize, BTreeSet<ir::OperandName>>::new();
         for block_label in 0..control_flow.blocks.len() {
             extra_kills_by_block.insert(block_label, BTreeSet::new());
         }
@@ -41,7 +41,7 @@ impl SsaReadConversionMetadata {
 
     fn get_read_number_for_variable(
         &mut self,
-        name: &ir::NamedOperand,
+        name: &ir::OperandName,
         block_label: usize,
     ) -> Option<usize> {
         let mut highest_ssa_number = None;
@@ -66,13 +66,13 @@ impl SsaReadConversionMetadata {
 
     pub fn assign_read_number_to_operand(
         &mut self,
-        name: &mut ir::NamedOperand,
+        name: &mut ir::OperandName,
         block_label: usize,
     ) {
         let number = self.get_read_number_for_variable(name, block_label);
         if number.is_some() {
             let number = number.unwrap();
-            let new_name = ir::NamedOperand {
+            let new_name = ir::OperandName {
                 base_name: name.base_name.clone(),
                 ssa_number: Some(number),
             };
@@ -118,16 +118,8 @@ fn convert_block_reads_to_ssa<'a>(
     let mut new_block = block.clone();
 
     for statement in new_block.statements_mut() {
-        for operand in statement.read_operands_mut() {
-            match operand {
-                ir::Operand::Variable(name) => {
-                    metadata.assign_read_number_to_operand(name, label);
-                }
-                ir::Operand::Temporary(name) => {
-                    metadata.assign_read_number_to_operand(name, label);
-                }
-                ir::Operand::UnsignedDecimalConstant(_) => {}
-            }
+        for read in statement.read_operand_names_mut() {
+            metadata.assign_read_number_to_operand(read, label);
         }
     }
     metadata.modified_blocks.add_block(new_block);
@@ -136,30 +128,30 @@ fn convert_block_reads_to_ssa<'a>(
 }
 
 pub fn convert_reads_to_ssa(function: &mut symtab::Function) {
-    // let mut loop_count = 0;
-    // loop {
-    //     let mut reaching_defs = idfa::ReachingDefs::new(&function.control_flow);
+    let mut loop_count = 0;
+    loop {
+        let mut reaching_defs = idfa::ReachingDefs::new(&function.control_flow);
 
-    //     for block in &function.control_flow.blocks {
-    //         print!("{}:", block.label());
-    //         for fact in &reaching_defs.facts().for_label(block.label()).in_facts {
-    //             print!("{} ", fact);
-    //         }
-    //         println!();
-    //     }
+        for block in &function.control_flow.blocks {
+            print!("{}:", block.label());
+            for fact in &reaching_defs.facts().for_label(block.label()).in_facts {
+                print!("{} ", fact);
+            }
+            println!();
+        }
 
-    //     let read_conversion_metadata = function.control_flow.map_over_blocks_by_bfs(
-    //         convert_block_reads_to_ssa,
-    //         SsaReadConversionMetadata::new(&function.control_flow),
-    //     );
-    //     if read_conversion_metadata.n_changed_reads == 0 {
-    //         break;
-    //     } else {
-    //         for (label, block) in read_conversion_metadata.modified_blocks.take() {
-    //             function.control_flow.blocks[label] = block;
-    //         }
-    //     };
+        let read_conversion_metadata = function.control_flow.map_over_blocks_postorder(
+            convert_block_reads_to_ssa,
+            SsaReadConversionMetadata::new(&function.control_flow),
+        );
+        if read_conversion_metadata.n_changed_reads == 0 {
+            break;
+        } else {
+            for (label, block) in read_conversion_metadata.modified_blocks.take() {
+                function.control_flow.blocks[label] = block;
+            }
+        };
 
-    //     loop_count += 1;
-    // }
+        loop_count += 1;
+    }
 }

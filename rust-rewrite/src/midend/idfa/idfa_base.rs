@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt::Display,
-};
+use std::{collections::BTreeSet, fmt::Display};
 
 use crate::midend::{idfa, ir};
 

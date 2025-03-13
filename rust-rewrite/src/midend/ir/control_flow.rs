@@ -126,9 +126,15 @@ impl ControlFlow {
     pub fn to_graphviz(&self) {
         print!("digraph {{fontname=\"consolas\"; node[shape=box; fontname=\"consolas\"; nojustify=true]; splines=ortho;");
         for block in &self.blocks {
-            let mut block_string = String::from(format!("Block {}\n", block.label()));
+            let mut block_arg_string = String::new();
+            for arg in &block.arguments {
+                block_arg_string += &format!("{} ", arg);
+            }
+
+            let mut block_string =
+                String::from(format!("Block {}({})\n", block.label(), block_arg_string));
             for statement in block.statements() {
-                let stmt_str = &String::from(format!("{}\n", statement)).replace("\"", "\\\"");
+                let stmt_str = &String::from(format!("{}\\l", statement)).replace("\"", "\\\"");
                 block_string += stmt_str;
             }
 

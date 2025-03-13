@@ -5,7 +5,7 @@ use crate::midend::ir;
 use super::idfa_base;
 pub use super::idfa_base::IdfaImplementor;
 
-pub type Fact = ir::NamedOperand;
+pub type Fact = ir::OperandName;
 pub type BlockFacts = idfa_base::BlockFacts<Fact>;
 pub type Facts = idfa_base::Facts<Fact>;
 
@@ -43,32 +43,16 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
         // e.g. reaching defs on function arguments
 
         for label in control_flow.labels() {
-            let mut block_facts = facts.for_label_mut(label);
+            let block_facts = facts.for_label_mut(label);
 
             let block = &control_flow.blocks[label];
 
             for statement in block.statements() {
-                for read in statement.read_operands() {
-                    match read {
-                        ir::Operand::Variable(name) => {
-                            block_facts.kill_facts.insert(name.clone());
-                        }
-                        ir::Operand::Temporary(name) => {
-                            block_facts.kill_facts.insert(name.clone());
-                        }
-                        ir::Operand::UnsignedDecimalConstant(_) => {}
-                    }
+                for read in statement.read_operand_names() {
+                    block_facts.kill_facts.insert(read.clone());
                 }
-                for write in statement.write_operands() {
-                    match write {
-                        ir::Operand::Variable(name) => {
-                            block_facts.gen_facts.insert(name.clone());
-                        }
-                        ir::Operand::Temporary(name) => {
-                            block_facts.gen_facts.insert(name.clone());
-                        }
-                        ir::Operand::UnsignedDecimalConstant(_) => {}
-                    }
+                for write in statement.write_operand_names() {
+                    block_facts.gen_facts.insert(write.clone());
                 }
             }
         }
@@ -87,7 +71,7 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
 
     fn new(control_flow: &'a ir::ControlFlow) -> Self {
         Self {
-            idfa: idfa_base::Idfa::<'a, Fact>::new(
+            idfa: idfa_base::Idfa::new(
                 control_flow,
                 idfa_base::IdfaAnalysisDirection::Forward,
                 Self::f_find_gen_kills,
