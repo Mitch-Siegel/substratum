@@ -2,7 +2,7 @@ pub mod control_flow;
 pub mod operands;
 pub mod operations;
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::Display;
 
 use crate::frontend::sourceloc::SourceLoc;
@@ -28,21 +28,11 @@ impl Display for IrLine {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct BasicBlock {
     label: usize,
     statements: Vec<ir::IrLine>,
     pub arguments: BTreeSet<ir::OperandName>,
-}
-
-impl Clone for BasicBlock {
-    fn clone(&self) -> Self {
-        Self {
-            label: self.label.clone(),
-            statements: self.statements.clone(),
-            arguments: BTreeSet::new(),
-        }
-    }
 }
 
 impl BasicBlock {
@@ -68,14 +58,6 @@ impl BasicBlock {
 
     pub fn statements_mut(&mut self) -> &mut Vec<ir::IrLine> {
         &mut self.statements
-    }
-
-    pub fn arguments(&self) -> &BTreeSet<ir::OperandName> {
-        &self.arguments
-    }
-
-    pub fn arguments_mut(&mut self) -> &mut BTreeSet<ir::OperandName> {
-        &mut self.arguments
     }
 }
 
@@ -117,10 +99,6 @@ impl IrLine {
         )
     }
 
-    pub fn program_point(&self) -> &ProgramPoint {
-        &self.program_point
-    }
-
     pub fn read_operand_names(&self) -> Vec<&OperandName> {
         let mut operand_names: Vec<&OperandName> = Vec::new();
         match &self.operation {
@@ -139,24 +117,29 @@ impl IrLine {
                     None => {}
                 }
             }
-            Operations::Jump(jump_operands) => match &jump_operands.condition {
-                JumpCondition::Unconditional => {}
-                JumpCondition::Eq(condition_operands)
-                | JumpCondition::NE(condition_operands)
-                | JumpCondition::G(condition_operands)
-                | JumpCondition::L(condition_operands)
-                | JumpCondition::GE(condition_operands)
-                | JumpCondition::LE(condition_operands) => {
-                    match condition_operands.a.get_name() {
-                        Some(name) => operand_names.push(name),
-                        None => {}
+            Operations::Jump(jump_operands) => {
+                match &jump_operands.condition {
+                    JumpCondition::Unconditional => {}
+                    JumpCondition::Eq(condition_operands)
+                    | JumpCondition::NE(condition_operands)
+                    | JumpCondition::G(condition_operands)
+                    | JumpCondition::L(condition_operands)
+                    | JumpCondition::GE(condition_operands)
+                    | JumpCondition::LE(condition_operands) => {
+                        match condition_operands.a.get_name() {
+                            Some(name) => operand_names.push(name),
+                            None => {}
+                        }
+                        match condition_operands.b.get_name() {
+                            Some(name) => operand_names.push(name),
+                            None => {}
+                        }
                     }
-                    match condition_operands.b.get_name() {
-                        Some(name) => operand_names.push(name),
-                        None => {}
-                    }
+                };
+                for arg in jump_operands.block_args.values() {
+                    operand_names.push(arg);
                 }
-            },
+            }
         }
         operand_names
     }
@@ -179,24 +162,29 @@ impl IrLine {
                     None => {}
                 }
             }
-            Operations::Jump(jump_operands) => match &mut jump_operands.condition {
-                JumpCondition::Unconditional => {}
-                JumpCondition::Eq(condition_operands)
-                | JumpCondition::NE(condition_operands)
-                | JumpCondition::G(condition_operands)
-                | JumpCondition::L(condition_operands)
-                | JumpCondition::GE(condition_operands)
-                | JumpCondition::LE(condition_operands) => {
-                    match condition_operands.a.get_name_mut() {
-                        Some(name) => operand_names.push(name),
-                        None => {}
+            Operations::Jump(jump_operands) => {
+                match &mut jump_operands.condition {
+                    JumpCondition::Unconditional => {}
+                    JumpCondition::Eq(condition_operands)
+                    | JumpCondition::NE(condition_operands)
+                    | JumpCondition::G(condition_operands)
+                    | JumpCondition::L(condition_operands)
+                    | JumpCondition::GE(condition_operands)
+                    | JumpCondition::LE(condition_operands) => {
+                        match condition_operands.a.get_name_mut() {
+                            Some(name) => operand_names.push(name),
+                            None => {}
+                        }
+                        match condition_operands.b.get_name_mut() {
+                            Some(name) => operand_names.push(name),
+                            None => {}
+                        }
                     }
-                    match condition_operands.b.get_name_mut() {
-                        Some(name) => operand_names.push(name),
-                        None => {}
-                    }
+                };
+                for arg in jump_operands.block_args.values_mut() {
+                    operand_names.push(arg);
                 }
-            },
+            }
         }
 
         operand_names

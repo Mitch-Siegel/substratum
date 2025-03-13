@@ -1,6 +1,6 @@
 use std::{collections::BTreeSet, fmt::Display};
 
-use crate::midend::{idfa, ir};
+use crate::midend::ir;
 
 #[derive(Debug)]
 pub enum IdfaAnalysisDirection {

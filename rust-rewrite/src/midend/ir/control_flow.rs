@@ -3,9 +3,8 @@ use crate::frontend::sourceloc::SourceLoc;
 use super::ir;
 use serde::Serialize;
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashSet, VecDeque},
     fmt::Debug,
-    ops::Deref,
     usize,
 };
 
@@ -117,10 +116,6 @@ impl ControlFlow {
         };
 
         self.blocks[block].append_statement(statement);
-    }
-
-    pub fn assign_program_points(&mut self) {
-        unimplemented!();
     }
 
     pub fn to_graphviz(&self) {

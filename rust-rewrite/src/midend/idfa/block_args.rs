@@ -29,7 +29,9 @@ impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
 
             for statement in block.statements() {
                 for read in statement.read_operand_names() {
-                    block_facts.gen_facts.insert(read.clone());
+                    if !block_facts.kill_facts.contains(read) {
+                        block_facts.gen_facts.insert(read.clone());
+                    }
                 }
                 for write in statement.write_operand_names() {
                     block_facts.kill_facts.insert(write.clone());

@@ -37,13 +37,6 @@ impl SsaWriteConversionMetadata {
         returned_write
     }
 
-    pub fn n_writes_for_variable(&self, variable: &ir::OperandName) -> usize {
-        *self
-            .variables
-            .get(&variable.base_name.clone())
-            .unwrap_or(&0)
-    }
-
     pub fn next_number_for_string(&mut self, string: String) -> usize {
         let entry = self.variables.entry(string).or_insert(0);
         let returned_write = *entry;
@@ -80,7 +73,7 @@ pub fn convert_writes_to_ssa(function: &mut symtab::Function) {
         write_conversion_metadata.next_number_for_string(argument.name());
     }
 
-    write_conversion_metadata = function
+    function
         .control_flow
         .map_over_blocks_mut_postorder(convert_block_writes_to_ssa, write_conversion_metadata);
 }

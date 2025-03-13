@@ -41,6 +41,8 @@ fun while_with_nested_branch(u8 a, u16 b, u32 c) {
             counter = counter - 1;
         }
     }
+
+    a = a + b;
 }
 ";
 
@@ -82,7 +84,7 @@ fun while_with_nested_branch() {
 
 fn main() {
     println!("Hello, world!");
-    let parsed = String::from(WHILE_LOOP);
+    let parsed = String::from(WHILE_LOOP_WITH_NESTED_BRANCH);
     let mut parser = Parser::new(Lexer::new(parsed.chars()));
     let program = parser.parse();
 

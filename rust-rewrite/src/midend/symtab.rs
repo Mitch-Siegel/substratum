@@ -75,16 +75,6 @@ impl Scope {
         }
     }
 
-    pub fn new_subscope(&mut self) -> Self {
-        let mut new_indices = self.subscope_indices.clone();
-        new_indices.push(self.subscopes.len());
-        Scope {
-            subscope_indices: new_indices,
-            variables: HashMap::new(),
-            subscopes: Vec::new(),
-        }
-    }
-
     pub fn insert_variable(&mut self, mut variable: Variable) {
         variable.add_mangled_name(&self.subscope_indices);
         self.variables.insert(variable.name.clone(), variable);
