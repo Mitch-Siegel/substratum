@@ -72,14 +72,17 @@ fun while_with_nested_branch() {
     
     a = b + c;
     b = a + c;
+    if (a > b) {
     c = c + 1;
+    } else {
+     c = 1;}
     c = c + 1;
     c = c + 1;
 }";
 
 fn main() {
     println!("Hello, world!");
-    let parsed = String::from(WHILE_LOOP_WITH_NESTED_BRANCH_NO_ARGS);
+    let parsed = String::from(SSA_EXAMPLE);
     let mut parser = Parser::new(Lexer::new(parsed.chars()));
     let program = parser.parse();
 

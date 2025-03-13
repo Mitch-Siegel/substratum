@@ -37,6 +37,13 @@ impl SsaWriteConversionMetadata {
         returned_write
     }
 
+    pub fn n_writes_for_variable(&self, variable: &ir::NamedOperand) -> usize {
+        *self
+            .variables
+            .get(&variable.base_name.clone())
+            .unwrap_or(&0)
+    }
+
     pub fn next_number_for_string(&mut self, string: String) -> usize {
         let entry = self.variables.entry(string).or_insert(0);
         let returned_write = *entry;
@@ -52,7 +59,6 @@ fn convert_block_writes_to_ssa(
 ) -> Box<SsaWriteConversionMetadata> {
     for statement in block.statements_mut() {
         for operand in statement.write_operands_mut() {
-            println!("{}", operand);
             match operand {
                 ir::Operand::Variable(name) => {
                     name.ssa_number = Some(metadata.next_number_for_variable(name));
@@ -67,13 +73,45 @@ fn convert_block_writes_to_ssa(
     metadata
 }
 
+fn flip_ssa_write_numbering(
+    block: &mut ir::BasicBlock,
+    mut metadata: Box<SsaWriteConversionMetadata>,
+) -> Box<SsaWriteConversionMetadata> {
+    for statement in block.statements_mut() {
+        for operand in statement.write_operands_mut() {
+            match operand {
+                ir::Operand::Variable(name) => {
+                    name.ssa_number = Some(
+                        metadata.n_writes_for_variable(name)
+                            - name.ssa_number.expect(
+                                "flip_ssa_write_numbering requires all writes to have SSA numbers",
+                            )
+                            - 1,
+                    );
+                }
+                ir::Operand::Temporary(name) => {
+                    name.ssa_number = Some(
+                        metadata.n_writes_for_variable(name)
+                            - name.ssa_number.expect(
+                                "flip_ssa_write_numbering requires all writes to have SSA numbers",
+                            )
+                            - 1,
+                    );
+                }
+                ir::Operand::UnsignedDecimalConstant(_) => {}
+            }
+        }
+    }
+    metadata
+}
+
 pub fn convert_writes_to_ssa(function: &mut symtab::Function) {
     let mut write_conversion_metadata = SsaWriteConversionMetadata::new();
     for argument in &function.prototype.arguments {
         write_conversion_metadata.next_number_for_string(argument.name());
     }
 
-    function
+    write_conversion_metadata = function
         .control_flow
-        .map_over_blocks_mut_by_bfs(convert_block_writes_to_ssa, write_conversion_metadata);
+        .map_over_blocks_mut_postorder(convert_block_writes_to_ssa, write_conversion_metadata);
 }

@@ -127,7 +127,10 @@ where
             self.store_facts_as_last();
 
             self.control_flow
-                .map_over_blocks_by_bfs::<&mut Idfa<T>>(Self::analyze_block_forwards, self);
+                .map_over_blocks_reverse_postorder::<&mut Idfa<T>>(
+                    Self::analyze_block_forwards,
+                    self,
+                );
         }
     }
 

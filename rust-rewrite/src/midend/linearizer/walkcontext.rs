@@ -39,13 +39,27 @@ impl WalkContext {
     }
 
     pub fn append_to_current_block(&mut self, statement: ir::IrLine) {
-        self.control_flow
+        let old_current_block = self.control_flow.current_block();
+        let new_current_block = self
+            .control_flow
             .append_statement_to_current_block(statement);
-    }
 
-    pub fn append_to_block(&mut self, statement: ir::IrLine, block: usize) {
-        self.control_flow
-            .append_statement_to_block(statement, block);
+        match new_current_block {
+            Some(block) => {
+                for label in &mut self.branch_points {
+                    if *label == old_current_block {
+                        *label = block;
+                    }
+                }
+
+                for label in &mut self.convergence_points {
+                    if *label == old_current_block {
+                        *label = block;
+                    }
+                }
+            }
+            None => {}
+        }
     }
 
     fn create_branching_point(&mut self) {

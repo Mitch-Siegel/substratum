@@ -1,3 +1,5 @@
+use crate::frontend::sourceloc::SourceLoc;
+
 use super::ir;
 use serde::Serialize;
 use std::{
@@ -58,30 +60,61 @@ impl ControlFlow {
 
     pub fn next_block(&mut self) -> usize {
         self.blocks.push(ir::BasicBlock::new(self.blocks.len()));
+        self.successors.push(HashSet::new());
+        self.predecessors.push(HashSet::new());
         self.blocks.len() - 1
     }
 
-    pub fn append_statement_to_current_block(&mut self, statement: ir::IrLine) {
-        self.append_statement_to_block(statement, self.current_block);
+    pub fn append_statement_to_current_block(&mut self, statement: ir::IrLine) -> Option<usize> {
+        let new_current_block = self.append_statement_to_block(statement, self.current_block);
+        match new_current_block {
+            Some(block) => self.set_current_block(block),
+            None => {}
+        }
+        new_current_block
     }
 
-    pub fn append_statement_to_block(&mut self, statement: ir::IrLine, block: usize) {
+    fn append_statement_to_block(&mut self, statement: ir::IrLine, block: usize) -> Option<usize> {
+        let jump_not_taken_block = match &statement.operation {
+            ir::Operations::Jump(operands) => match &operands.condition {
+                ir::JumpCondition::Unconditional => None,
+                _ => Some(self.next_block()),
+            },
+            _ => None,
+        };
+
+        self.append_statement_to_block_raw(statement, block);
+
+        match &jump_not_taken_block {
+            Some(label) => {
+                let block_exit = ir::IrLine::new_jump(
+                    SourceLoc::none(),
+                    *label,
+                    ir::JumpCondition::Unconditional,
+                );
+                self.append_statement_to_block_raw(block_exit, block);
+            }
+            None => {}
+        }
+
+        jump_not_taken_block
+    }
+
+    fn append_statement_to_block_raw(&mut self, statement: ir::IrLine, block: usize) {
         match &statement.operation {
             ir::Operations::Jump(operands) => {
                 let target_block = operands.destination_block;
-                while self.predecessors.len() <= target_block {
-                    self.predecessors.push(HashSet::<usize>::new());
-                }
-
-                while self.successors.len() <= target_block {
-                    self.successors.push(HashSet::<usize>::new());
-                }
 
                 self.predecessors[target_block].insert(self.current_block);
                 self.successors[self.current_block].insert(target_block);
+
+                match &operands.condition {
+                    ir::JumpCondition::Unconditional => None,
+                    _ => Some(self.next_block()),
+                }
             }
-            _ => {}
-        }
+            _ => None,
+        };
 
         self.blocks[block].append_statement(statement);
     }
@@ -112,34 +145,47 @@ impl ControlFlow {
     }
 }
 
-enum ControlFlowRpoMutability<'a> {
-    Immutable(&'a ControlFlow),
-    Mutable(&'a mut ControlFlow),
-}
-
-struct ControlFlowRpo {
+struct ControlFlowPostorder {
     pub seen: HashSet<usize>,
     pub dfs_stack: VecDeque<usize>,
     pub postorder_stack: VecDeque<usize>,
 }
 
-impl ControlFlowRpo {
+impl ControlFlowPostorder {
     pub fn map<MetadataType>(
         control_flow: &ControlFlow,
         operation: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        mut metadata: Box<MetadataType>,
+        metadata: Box<MetadataType>,
     ) -> Box<MetadataType> {
-        let mut bfs = Self::new();
-        bfs.visit_all(control_flow, operation, metadata)
+        let mut postorder = Self::new();
+        postorder.visit_all(control_flow, operation, metadata)
     }
 
     pub fn map_mut<MetadataType>(
         control_flow: &mut ControlFlow,
         operation: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        mut metadata: Box<MetadataType>,
+        metadata: Box<MetadataType>,
     ) -> Box<MetadataType> {
-        let mut bfs = Self::new();
-        bfs.visit_all_mut(control_flow, operation, metadata)
+        let mut postorder = Self::new();
+        postorder.visit_all_mut(control_flow, operation, metadata)
+    }
+
+    pub fn map_reverse<MetadataType>(
+        control_flow: &ControlFlow,
+        operation: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
+        metadata: Box<MetadataType>,
+    ) -> Box<MetadataType> {
+        let mut postorder = Self::new();
+        postorder.visit_all_reverse(control_flow, operation, metadata)
+    }
+
+    pub fn map_reverse_mut<MetadataType>(
+        control_flow: &mut ControlFlow,
+        operation: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
+        metadata: Box<MetadataType>,
+    ) -> Box<MetadataType> {
+        let mut postorder = Self::new();
+        postorder.visit_all_reverse_mut(control_flow, operation, metadata)
     }
 
     fn new() -> Self {
@@ -156,26 +202,10 @@ impl ControlFlowRpo {
         on_visit: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
         mut metadata: Box<MetadataType>,
     ) -> Box<MetadataType> {
-        self.dfs_stack.push_back(0);
-
-        // go until done
-        while self.dfs_stack.len() > 0 {
-            match &self.dfs_stack.pop_back() {
-                Some(label) => {
-                    // only visit once
-                    if !self.was_seen(label) {
-                        self.mark_seen(label);
-
-                        self.postorder_stack.push_back(*label);
-                        self.push_all_successors(*label, control_flow);
-                    }
-                }
-                None => {}
-            }
-        }
+        self.generate_postorder_stack(control_flow);
 
         loop {
-            match self.postorder_stack.pop_back() {
+            match self.postorder_stack.pop_front() {
                 Some(block_label) => {
                     metadata = on_visit(&control_flow.blocks[block_label], metadata)
                 }
@@ -194,6 +224,70 @@ impl ControlFlowRpo {
         on_visit: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
         mut metadata: Box<MetadataType>,
     ) -> Box<MetadataType> {
+        self.generate_postorder_stack(control_flow);
+
+        loop {
+            match self.postorder_stack.pop_front() {
+                Some(block_label) => {
+                    metadata = on_visit(&mut control_flow.blocks[block_label], metadata)
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+
+        metadata
+    }
+
+    fn visit_all_reverse<MetadataType>(
+        &mut self,
+        control_flow: &ControlFlow,
+        on_visit: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
+        mut metadata: Box<MetadataType>,
+    ) -> Box<MetadataType> {
+        self.generate_postorder_stack(control_flow);
+
+        loop {
+            match self.postorder_stack.pop_back() {
+                Some(block_label) => {
+                    metadata = on_visit(&control_flow.blocks[block_label], metadata)
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+
+        metadata
+    }
+
+    fn visit_all_reverse_mut<MetadataType>(
+        &mut self,
+        control_flow: &mut ControlFlow,
+        on_visit: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
+        mut metadata: Box<MetadataType>,
+    ) -> Box<MetadataType> {
+        self.generate_postorder_stack(control_flow);
+
+        loop {
+            match self.postorder_stack.pop_back() {
+                Some(block_label) => {
+                    metadata = on_visit(&mut control_flow.blocks[block_label], metadata)
+                }
+                None => {
+                    break;
+                }
+            }
+        }
+
+        metadata
+    }
+
+    fn generate_postorder_stack(&mut self, control_flow: &ControlFlow) {
+        self.postorder_stack.clear();
+        self.dfs_stack.clear();
+
         self.dfs_stack.push_back(0);
 
         // go until done
@@ -211,19 +305,6 @@ impl ControlFlowRpo {
                 None => {}
             }
         }
-
-        loop {
-            match self.postorder_stack.pop_back() {
-                Some(block_label) => {
-                    metadata = on_visit(&mut control_flow.blocks[block_label], metadata)
-                }
-                None => {
-                    break;
-                }
-            }
-        }
-
-        metadata
     }
 
     fn was_seen(&self, block_label: &usize) -> bool {
@@ -242,7 +323,7 @@ impl ControlFlowRpo {
 }
 
 impl ControlFlow {
-    pub fn map_over_blocks_mut_by_bfs<MetadataType>(
+    pub fn map_over_blocks_mut_postorder<MetadataType>(
         &mut self,
         operation: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
         metadata: MetadataType,
@@ -251,10 +332,10 @@ impl ControlFlow {
         MetadataType: Debug,
     {
         let boxed_metadata = Box::from(metadata);
-        *ControlFlowRpo::map_mut(self, operation, boxed_metadata)
+        *ControlFlowPostorder::map_mut(self, operation, boxed_metadata)
     }
 
-    pub fn map_over_blocks_by_bfs<MetadataType>(
+    pub fn map_over_blocks_postorder<MetadataType>(
         &self,
         operation: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
         metadata: MetadataType,
@@ -263,6 +344,30 @@ impl ControlFlow {
         MetadataType: Debug,
     {
         let boxed_metadata = Box::from(metadata);
-        *ControlFlowRpo::map(self, operation, boxed_metadata)
+        *ControlFlowPostorder::map(self, operation, boxed_metadata)
+    }
+
+    pub fn map_over_blocks_mut_reverse_postorder<MetadataType>(
+        &mut self,
+        operation: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
+        metadata: MetadataType,
+    ) -> MetadataType
+    where
+        MetadataType: Debug,
+    {
+        let boxed_metadata = Box::from(metadata);
+        *ControlFlowPostorder::map_reverse_mut(self, operation, boxed_metadata)
+    }
+
+    pub fn map_over_blocks_reverse_postorder<MetadataType>(
+        &self,
+        operation: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
+        metadata: MetadataType,
+    ) -> MetadataType
+    where
+        MetadataType: Debug,
+    {
+        let boxed_metadata = Box::from(metadata);
+        *ControlFlowPostorder::map_reverse(self, operation, boxed_metadata)
     }
 }

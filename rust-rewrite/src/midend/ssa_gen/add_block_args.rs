@@ -44,9 +44,8 @@ fn add_block_arguments_for_block(
 
     let mut new_block = block.clone();
 
-    for statement in block.statements() {
-        let mut new_statement = statement.clone();
-        match &mut new_statement.operation {
+    for statement in new_block.statements_mut() {
+        match &mut statement.operation {
             ir::Operations::Jump(jump) => {
                 let destination = &jump.destination_block;
                 let target_args = metadata
@@ -78,7 +77,6 @@ fn add_block_arguments_for_block(
             }
             _ => {}
         }
-        new_block.append_statement(new_statement);
     }
 
     metadata.modified_blocks.add_block(new_block);
@@ -87,7 +85,7 @@ fn add_block_arguments_for_block(
 }
 
 pub fn add_block_arguments(function: &mut symtab::Function) {
-    let metadata = function.control_flow.map_over_blocks_by_bfs(
+    let metadata = function.control_flow.map_over_blocks_reverse_postorder(
         add_block_arguments_for_block,
         SsaBlockArgsMetadata::new(&function.control_flow),
     );
