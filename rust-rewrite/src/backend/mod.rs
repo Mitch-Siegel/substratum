@@ -1,4 +1,3 @@
-mod lifetime;
 mod regalloc;
 
 use crate::midend::*;

@@ -65,6 +65,24 @@ fun while_with_nested_branch() {
 }
 ";
 
+const NESTED_WHILE_LOOPS: &str = "
+fun while_with_nested_branch(u8 a, u16 b, u32 c) {
+    while (a < b) {
+        u8 counter;
+        counter = 0;
+        if (c > 22) {
+            counter = counter + 1;
+        } else {
+            while (counter > 0) {
+            counter = counter - 1;
+            }
+        }
+    }
+
+    a = a + b;
+}
+";
+
 const SSA_EXAMPLE: &str = "
 fun while_with_nested_branch() {
     u8 a; u16 b; u32 c;

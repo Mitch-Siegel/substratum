@@ -1,5 +1,6 @@
+use crate::midend::idfa::block_args::IdfaImplementor;
 use crate::midend::{
-    idfa::{self, block_args::IdfaImplementor},
+    idfa::{self},
     ir, symtab,
 };
 
