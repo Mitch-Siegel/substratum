@@ -20,8 +20,7 @@ use std::{
 #[derive(Debug, Serialize)]
 pub struct ControlFlow {
     pub blocks: HashMap<usize, ir::BasicBlock>,
-    pub successors: HashMap<usize, HashSet<usize>>,
-    pub predecessors: HashMap<usize, HashSet<usize>>,
+
     current_block: usize,
     // index of number of temporary variables used in this control flow (across all blocks)
     temp_num: usize,
@@ -35,8 +34,6 @@ impl ControlFlow {
         starter_blocks.insert(1, ir::BasicBlock::new(1));
         ControlFlow {
             blocks: starter_blocks,
-            successors: HashMap::<usize, HashSet<usize>>::new(),
-            predecessors: HashMap::<usize, HashSet<usize>>::new(),
             current_block: 0,
             temp_num: 0,
             max_block: 1,
@@ -71,6 +68,16 @@ impl ControlFlow {
         new_current_block
     }
 
+    pub fn block_for_label(&self, label: &usize) -> &ir::BasicBlock {
+        self.blocks.get(label).unwrap()
+    }
+
+    fn block_mut_for_label(&mut self, label: usize) -> &mut ir::BasicBlock {
+        self.blocks
+            .entry(label)
+            .or_insert(ir::BasicBlock::new(label))
+    }
+
     fn append_statement_to_block(&mut self, statement: ir::IrLine, block: usize) -> Option<usize> {
         let jump_not_taken_block = match &statement.operation {
             ir::Operations::Jump(operands) => match &operands.condition {
@@ -102,13 +109,11 @@ impl ControlFlow {
             ir::Operations::Jump(operands) => {
                 let target_block = operands.destination_block;
 
-                self.predecessors
-                    .entry(target_block)
-                    .or_insert(HashSet::new())
-                    .insert(self.current_block);
-                self.successors
-                    .entry(self.current_block)
-                    .or_insert(HashSet::new())
+                self.block_mut_for_label(target_block)
+                    .predecessors
+                    .insert(label);
+                self.block_mut_for_label(label)
+                    .successors
                     .insert(target_block);
 
                 match &operands.condition {
@@ -119,10 +124,7 @@ impl ControlFlow {
             _ => None,
         };
 
-        self.blocks
-            .entry(label)
-            .or_insert(ir::BasicBlock::new(label))
-            .append_statement(statement);
+        self.block_mut_for_label(label).statements.push(statement);
     }
 
     pub fn to_graphviz(&self) {
@@ -134,212 +136,55 @@ impl ControlFlow {
             }
 
             let mut block_string =
-                String::from(format!("Block {}({})\n", block.label(), block_arg_string));
-            for statement in block.statements() {
+                String::from(format!("Block {}({})\n", block.label, block_arg_string));
+            for statement in &block.statements {
                 let stmt_str = &String::from(format!("{}\\l", statement)).replace("\"", "\\\"");
                 block_string += stmt_str;
             }
 
-            println!("{}[label=\"{}\\l\"]; ", block.label(), block_string);
-        }
+            println!("{}[label=\"{}\\l\"]; ", block.label, block_string);
 
-        for (from_label, to_set) in &self.successors {
-            for to_label in to_set {
-                print!("{}->{};", from_label, to_label);
+            for successor in &block.successors {
+                print!("{}->{};", block.label, successor);
             }
         }
 
         println!("}}");
     }
-}
 
-struct ControlFlowPostorder {
-    pub seen: HashSet<usize>,
-    pub dfs_stack: VecDeque<usize>,
-    pub postorder_stack: VecDeque<usize>,
-}
+    fn generate_postorder_stack(&mut self, control_flow: &ControlFlow) -> VecDeque<usize> {
+        let mut postorder_stack = VecDeque::<usize>::new();
+        postorder_stack.clear();
+        let mut visited = HashSet::<usize>::new();
 
-impl ControlFlowPostorder {
-    pub fn map<MetadataType>(
-        control_flow: &ControlFlow,
-        operation: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        metadata: Box<MetadataType>,
-    ) -> Box<MetadataType> {
-        let mut postorder = Self::new();
-        postorder.visit_all(control_flow, operation, metadata)
-    }
-
-    pub fn map_mut<MetadataType>(
-        control_flow: &mut ControlFlow,
-        operation: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        metadata: Box<MetadataType>,
-    ) -> Box<MetadataType> {
-        let mut postorder = Self::new();
-        postorder.visit_all_mut(control_flow, operation, metadata)
-    }
-
-    pub fn map_reverse<MetadataType>(
-        control_flow: &ControlFlow,
-        operation: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        metadata: Box<MetadataType>,
-    ) -> Box<MetadataType> {
-        let mut postorder = Self::new();
-        postorder.visit_all_reverse(control_flow, operation, metadata)
-    }
-
-    pub fn map_reverse_mut<MetadataType>(
-        control_flow: &mut ControlFlow,
-        operation: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        metadata: Box<MetadataType>,
-    ) -> Box<MetadataType> {
-        let mut postorder = Self::new();
-        postorder.visit_all_reverse_mut(control_flow, operation, metadata)
-    }
-
-    fn new() -> Self {
-        Self {
-            seen: HashSet::<usize>::new(),
-            dfs_stack: VecDeque::<usize>::new(),
-            postorder_stack: VecDeque::<usize>::new(),
-        }
-    }
-
-    fn visit_all<MetadataType>(
-        &mut self,
-        control_flow: &ControlFlow,
-        on_visit: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        mut metadata: Box<MetadataType>,
-    ) -> Box<MetadataType> {
-        self.generate_postorder_stack(control_flow);
-
-        loop {
-            match self.postorder_stack.pop_front() {
-                Some(block_label) => {
-                    metadata = on_visit(&control_flow.blocks.get(&block_label).unwrap(), metadata)
-                }
-                None => {
-                    break;
-                }
-            }
-        }
-
-        metadata
-    }
-
-    fn visit_all_mut<MetadataType>(
-        &mut self,
-        control_flow: &mut ControlFlow,
-        on_visit: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        mut metadata: Box<MetadataType>,
-    ) -> Box<MetadataType> {
-        self.generate_postorder_stack(control_flow);
-
-        loop {
-            match self.postorder_stack.pop_front() {
-                Some(block_label) => {
-                    metadata = on_visit(
-                        &mut control_flow.blocks.get_mut(&block_label).unwrap(),
-                        metadata,
-                    )
-                }
-                None => {
-                    break;
-                }
-            }
-        }
-
-        metadata
-    }
-
-    fn visit_all_reverse<MetadataType>(
-        &mut self,
-        control_flow: &ControlFlow,
-        on_visit: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        mut metadata: Box<MetadataType>,
-    ) -> Box<MetadataType> {
-        self.generate_postorder_stack(control_flow);
-
-        loop {
-            match self.postorder_stack.pop_back() {
-                Some(block_label) => {
-                    metadata = on_visit(&control_flow.blocks.get(&block_label).unwrap(), metadata)
-                }
-                None => {
-                    break;
-                }
-            }
-        }
-
-        metadata
-    }
-
-    fn visit_all_reverse_mut<MetadataType>(
-        &mut self,
-        control_flow: &mut ControlFlow,
-        on_visit: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        mut metadata: Box<MetadataType>,
-    ) -> Box<MetadataType> {
-        self.generate_postorder_stack(control_flow);
-
-        loop {
-            match self.postorder_stack.pop_back() {
-                Some(block_label) => {
-                    metadata = on_visit(
-                        &mut control_flow.blocks.get_mut(&block_label).unwrap(),
-                        metadata,
-                    )
-                }
-                None => {
-                    break;
-                }
-            }
-        }
-
-        metadata
-    }
-
-    fn generate_postorder_stack(&mut self, control_flow: &ControlFlow) {
-        self.postorder_stack.clear();
-        self.dfs_stack.clear();
-
-        self.dfs_stack.push_back(0);
+        let mut dfs_stack = VecDeque::<usize>::new();
+        dfs_stack.push_back(0);
 
         // go until done
-        while self.dfs_stack.len() > 0 {
-            match &self.dfs_stack.pop_back() {
+        while dfs_stack.len() > 0 {
+            match dfs_stack.pop_back() {
                 Some(label) => {
                     // only visit once
-                    if !self.was_seen(label) {
-                        self.mark_seen(label);
+                    if !visited.contains(&label) {
+                        visited.insert(label);
 
-                        self.postorder_stack.push_back(*label);
-                        self.push_all_successors(*label, control_flow);
+                        postorder_stack.push_back(label);
+
+                        for successor in &control_flow.block_for_label(&label).successors {
+                            dfs_stack.push_back(*successor);
+                        }
                     }
                 }
                 None => {}
             }
         }
-    }
-
-    fn was_seen(&self, block_label: &usize) -> bool {
-        self.seen.contains(block_label)
-    }
-
-    fn push_all_successors(&mut self, block_label: usize, control_flow: &ControlFlow) {
-        match control_flow.successors.get(&block_label) {
-            Some(successor_set) => {
-                for successor in successor_set {
-                    self.dfs_stack.push_back(*successor);
-                }
-            }
-            None => {}
-        }
-    }
-
-    fn mark_seen(&mut self, block_label: &usize) {
-        self.seen.insert(*block_label);
+        postorder_stack
     }
 }
+
+struct ControlFlowPostorder {}
+
+impl ControlFlowPostorder {}
 
 // TODO: are the postorder and reverse postorder named opposite right now? Need to actually check this...
 impl ControlFlow {

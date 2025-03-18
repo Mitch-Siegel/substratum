@@ -13,7 +13,7 @@ pub fn convert_reads_to_ssa(function: &mut symtab::Function) {
             highest_ssa_numbers.insert(arg.clone().into_non_ssa(), arg.clone());
         }
 
-        for statement in block.statements_mut() {
+        for statement in &mut block.statements {
             for read in statement.read_operand_names_mut() {
                 read.ssa_number = match highest_ssa_numbers.get(read) {
                     Some(operand) => operand.ssa_number,

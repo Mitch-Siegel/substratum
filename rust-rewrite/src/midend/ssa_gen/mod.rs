@@ -41,7 +41,7 @@ fn remove_ssa_from_function(function: &mut Function) {
         for arg in old_arguments {
             block.arguments.insert(arg.into_non_ssa());
         }
-        for statement in block.statements_mut() {
+        for statement in &mut block.statements {
             for read in statement.read_operand_names_mut() {
                 read.ssa_number = None;
             }

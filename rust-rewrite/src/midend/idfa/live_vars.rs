@@ -29,7 +29,7 @@ impl<'a> IdfaImplementor<'a, Fact> for LiveVars<'a> {
         for (label, block) in &control_flow.blocks {
             let block_facts = facts.for_label_mut(*label);
 
-            for statement in block.statements() {
+            for statement in &block.statements {
                 for read in statement.read_operand_names() {
                     block_facts.kill_facts.insert(read.clone());
                 }

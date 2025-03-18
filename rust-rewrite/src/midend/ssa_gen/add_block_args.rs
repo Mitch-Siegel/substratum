@@ -17,7 +17,7 @@ pub fn add_block_arguments(function: &mut symtab::Function) {
         }
 
         for block in function.control_flow.blocks.values_mut() {
-            for statement in block.statements_mut() {
+            for statement in &mut block.statements {
                 match &mut statement.operation {
                     ir::Operations::Jump(jump) => {
                         for target_arg in args_by_block.get(&jump.destination_block).unwrap() {

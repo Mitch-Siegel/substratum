@@ -101,17 +101,12 @@ where
         block: &ir::BasicBlock,
         idfa: Box<&'b mut Idfa<'a, T>>,
     ) -> Box<&'b mut Idfa<'a, T>> {
-        let label = block.label();
+        let label = block.label;
         let mut new_in_facts = BTreeSet::<T>::new();
 
-        match idfa.control_flow.predecessors.get(&block.label()) {
-            Some(predecessor_set) => {
-                for predecessor in predecessor_set {
-                    new_in_facts =
-                        (idfa.f_meet)(new_in_facts, &idfa.facts.for_label(*predecessor).out_facts);
-                }
-            }
-            None => {}
+        for predecessor in &block.predecessors {
+            new_in_facts =
+                (idfa.f_meet)(new_in_facts, &idfa.facts.for_label(*predecessor).out_facts);
         }
 
         idfa.facts.for_label_mut(label).in_facts = new_in_facts.clone();

@@ -1,12 +1,12 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 
 use block_depths::*;
 
-use crate::midend::{ir::ControlFlow, program_point::ProgramPoint, symtab};
+use crate::midend::{ir::ControlFlow, symtab};
 
 mod block_depths;
 
-pub fn allocate_registers(scope: &symtab::Scope, control_flow: &ControlFlow) {
+pub fn allocate_registers(_scope: &symtab::Scope, control_flow: &ControlFlow) {
     println!("Allocate registers for scope");
 
     let mut blocks_by_depth = BTreeMap::<usize, BTreeSet<usize>>::new();

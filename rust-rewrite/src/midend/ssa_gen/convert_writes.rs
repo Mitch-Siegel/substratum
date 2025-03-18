@@ -59,7 +59,7 @@ fn convert_block_writes_to_ssa(
         block.arguments.insert(new_argument);
     }
 
-    for statement in block.statements_mut() {
+    for statement in &mut block.statements {
         for write in statement.write_operand_names_mut() {
             write.ssa_number = Some(metadata.next_number_for_variable(write));
         }

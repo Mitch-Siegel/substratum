@@ -33,6 +33,8 @@ pub struct BasicBlock {
     pub label: usize,
     pub statements: Vec<ir::IrLine>,
     pub arguments: BTreeSet<ir::OperandName>,
+    pub successors: BTreeSet<usize>,
+    pub predecessors: BTreeSet<usize>,
 }
 
 impl BasicBlock {
@@ -41,23 +43,9 @@ impl BasicBlock {
             statements: Vec::new(),
             label: label,
             arguments: BTreeSet::new(),
+            successors: BTreeSet::<usize>::new(),
+            predecessors: BTreeSet::<usize>::new(),
         }
-    }
-
-    pub fn append_statement(&mut self, statement: ir::IrLine) {
-        self.statements.push(statement);
-    }
-
-    pub fn label(&self) -> usize {
-        self.label
-    }
-
-    pub fn statements(&self) -> &Vec<ir::IrLine> {
-        &self.statements
-    }
-
-    pub fn statements_mut(&mut self) -> &mut Vec<ir::IrLine> {
-        &mut self.statements
     }
 }
 
