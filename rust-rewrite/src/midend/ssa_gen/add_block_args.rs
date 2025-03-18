@@ -1,3 +1,5 @@
+use std::collections::{BTreeSet, HashMap};
+
 use crate::midend::idfa::block_args::IdfaImplementor;
 use crate::midend::{
     idfa::{self},
@@ -8,18 +10,17 @@ pub fn add_block_arguments(function: &mut symtab::Function) {
     let mut block_args = idfa::BlockArgs::new(&function.control_flow).take_facts();
 
     loop {
-        let mut args_by_block = Vec::new();
-        for label in 0..function.control_flow.blocks.len() {
-            let block = &mut function.control_flow.blocks[label];
-            block.arguments = block_args.for_label(block.label()).out_facts.clone();
-            args_by_block.push(block.arguments.clone());
+        let mut args_by_block = HashMap::<usize, BTreeSet<ir::OperandName>>::new();
+        for (label, block) in &mut function.control_flow.blocks {
+            block.arguments = block_args.for_label(*label).out_facts.clone();
+            args_by_block.insert(*label, block.arguments.clone());
         }
 
-        for block in &mut function.control_flow.blocks {
+        for block in function.control_flow.blocks.values_mut() {
             for statement in block.statements_mut() {
                 match &mut statement.operation {
                     ir::Operations::Jump(jump) => {
-                        for target_arg in &args_by_block[jump.destination_block] {
+                        for target_arg in args_by_block.get(&jump.destination_block).unwrap() {
                             jump.block_args
                                 .insert(target_arg.clone(), target_arg.clone());
                         }

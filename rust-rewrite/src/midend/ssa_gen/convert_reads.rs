@@ -6,7 +6,7 @@ use crate::midend::{
 };
 
 pub fn convert_reads_to_ssa(function: &mut symtab::Function) {
-    for block in &mut function.control_flow.blocks {
+    for block in function.control_flow.blocks.values_mut() {
         let mut highest_ssa_numbers = BTreeMap::<ir::OperandName, ir::OperandName>::new();
 
         for arg in &block.arguments {

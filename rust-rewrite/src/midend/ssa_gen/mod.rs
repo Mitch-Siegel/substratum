@@ -14,6 +14,9 @@ use super::{
 };
 
 fn convert_function_to_ssa(function: &mut Function) {
+    function.control_flow.to_graphviz();
+    println!("\n");
+
     add_block_arguments(function);
     convert_writes_to_ssa(function);
     convert_reads_to_ssa(function);
@@ -31,7 +34,7 @@ pub fn convert_functions_to_ssa(functions: &mut HashMap<String, FunctionOrProtot
 }
 
 fn remove_ssa_from_function(function: &mut Function) {
-    for block in &mut function.control_flow.blocks {
+    for block in &mut function.control_flow.blocks.values_mut() {
         let old_arguments = block.arguments.clone();
         block.arguments.clear();
         block.arguments = BTreeSet::<ir::OperandName>::new();

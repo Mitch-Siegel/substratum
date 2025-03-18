@@ -42,10 +42,8 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
         //TODO: need to be able to possibly act on function arguments for gen/kill
         // e.g. reaching defs on function arguments
 
-        for label in control_flow.labels() {
-            let block_facts = facts.for_label_mut(label);
-
-            let block = &control_flow.blocks[label];
+        for (label, block) in &control_flow.blocks {
+            let block_facts = facts.for_label_mut(*label);
 
             for statement in block.statements() {
                 for read in statement.read_operand_names() {
@@ -102,8 +100,8 @@ impl<'a> ReachingDefs<'a>
 // TODO: supertrait?
 {
     pub fn print(&self) {
-        for label in 0..self.idfa.control_flow.blocks.len() {
-            let facts = self.idfa.facts.for_label(label);
+        for label in self.idfa.control_flow.blocks.keys() {
+            let facts = self.idfa.facts.for_label(*label);
             println!("{}:", label);
 
             print!("\tGEN:");

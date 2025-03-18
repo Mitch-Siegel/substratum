@@ -5,6 +5,7 @@ use crate::frontend;
 mod idfa;
 pub mod ir;
 pub mod linearizer;
+mod optimization;
 pub mod program_point;
 mod ssa_gen;
 pub mod symtab;
@@ -17,6 +18,8 @@ pub fn symbol_table_from_program(
     linearizer::linearize(&mut symtab, program);
 
     ssa_gen::convert_functions_to_ssa(&mut symtab.functions);
+
+    optimization::optimize_functions(&mut symtab.functions);
 
     symtab
 }

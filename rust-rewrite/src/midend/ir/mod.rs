@@ -30,8 +30,8 @@ impl Display for IrLine {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct BasicBlock {
-    label: usize,
-    statements: Vec<ir::IrLine>,
+    pub label: usize,
+    pub statements: Vec<ir::IrLine>,
     pub arguments: BTreeSet<ir::OperandName>,
 }
 

@@ -3,7 +3,7 @@ use crate::frontend::sourceloc::SourceLoc;
 use super::ir;
 use serde::Serialize;
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     fmt::Debug,
     usize,
 };
@@ -19,27 +19,28 @@ use std::{
 
 #[derive(Debug, Serialize)]
 pub struct ControlFlow {
-    pub blocks: Vec<ir::BasicBlock>,
-    pub successors: Vec<HashSet<usize>>,
-    pub predecessors: Vec<HashSet<usize>>,
+    pub blocks: HashMap<usize, ir::BasicBlock>,
+    pub successors: HashMap<usize, HashSet<usize>>,
+    pub predecessors: HashMap<usize, HashSet<usize>>,
     current_block: usize,
     // index of number of temporary variables used in this control flow (across all blocks)
     temp_num: usize,
+    max_block: usize,
 }
 
 impl ControlFlow {
     pub fn new() -> Self {
+        let mut starter_blocks = HashMap::<usize, ir::BasicBlock>::new();
+        starter_blocks.insert(0, ir::BasicBlock::new(0));
+        starter_blocks.insert(1, ir::BasicBlock::new(1));
         ControlFlow {
-            blocks: Vec::new(),
-            successors: Vec::<HashSet<usize>>::new(),
-            predecessors: Vec::<HashSet<usize>>::new(),
+            blocks: starter_blocks,
+            successors: HashMap::<usize, HashSet<usize>>::new(),
+            predecessors: HashMap::<usize, HashSet<usize>>::new(),
             current_block: 0,
             temp_num: 0,
+            max_block: 1,
         }
-    }
-
-    pub fn labels(&self) -> std::ops::Range<usize> {
-        0..self.blocks.len()
     }
 
     pub fn next_temp(&mut self) -> String {
@@ -49,7 +50,6 @@ impl ControlFlow {
     }
 
     pub fn set_current_block(&mut self, label: usize) {
-        assert!(label < self.blocks.len());
         self.current_block = label;
     }
 
@@ -58,10 +58,8 @@ impl ControlFlow {
     }
 
     pub fn next_block(&mut self) -> usize {
-        self.blocks.push(ir::BasicBlock::new(self.blocks.len()));
-        self.successors.push(HashSet::new());
-        self.predecessors.push(HashSet::new());
-        self.blocks.len() - 1
+        self.max_block += 1;
+        self.max_block - 1
     }
 
     pub fn append_statement_to_current_block(&mut self, statement: ir::IrLine) -> Option<usize> {
@@ -99,13 +97,19 @@ impl ControlFlow {
         jump_not_taken_block
     }
 
-    fn append_statement_to_block_raw(&mut self, statement: ir::IrLine, block: usize) {
+    fn append_statement_to_block_raw(&mut self, statement: ir::IrLine, label: usize) {
         match &statement.operation {
             ir::Operations::Jump(operands) => {
                 let target_block = operands.destination_block;
 
-                self.predecessors[target_block].insert(self.current_block);
-                self.successors[self.current_block].insert(target_block);
+                self.predecessors
+                    .entry(target_block)
+                    .or_insert(HashSet::new())
+                    .insert(self.current_block);
+                self.successors
+                    .entry(self.current_block)
+                    .or_insert(HashSet::new())
+                    .insert(target_block);
 
                 match &operands.condition {
                     ir::JumpCondition::Unconditional => None,
@@ -115,12 +119,15 @@ impl ControlFlow {
             _ => None,
         };
 
-        self.blocks[block].append_statement(statement);
+        self.blocks
+            .entry(label)
+            .or_insert(ir::BasicBlock::new(label))
+            .append_statement(statement);
     }
 
     pub fn to_graphviz(&self) {
         print!("digraph {{fontname=\"consolas\"; node[shape=box; fontname=\"consolas\"; nojustify=true]; splines=ortho;");
-        for block in &self.blocks {
+        for block in self.blocks.values() {
             let mut block_arg_string = String::new();
             for arg in &block.arguments {
                 block_arg_string += &format!("{} ", arg);
@@ -136,9 +143,9 @@ impl ControlFlow {
             println!("{}[label=\"{}\\l\"]; ", block.label(), block_string);
         }
 
-        for label in 0..self.blocks.len() {
-            for successor in self.successors.get(label).unwrap() {
-                print!("{}->{}; ", label, successor)
+        for (from_label, to_set) in &self.successors {
+            for to_label in to_set {
+                print!("{}->{};", from_label, to_label);
             }
         }
 
@@ -208,7 +215,7 @@ impl ControlFlowPostorder {
         loop {
             match self.postorder_stack.pop_front() {
                 Some(block_label) => {
-                    metadata = on_visit(&control_flow.blocks[block_label], metadata)
+                    metadata = on_visit(&control_flow.blocks.get(&block_label).unwrap(), metadata)
                 }
                 None => {
                     break;
@@ -230,7 +237,10 @@ impl ControlFlowPostorder {
         loop {
             match self.postorder_stack.pop_front() {
                 Some(block_label) => {
-                    metadata = on_visit(&mut control_flow.blocks[block_label], metadata)
+                    metadata = on_visit(
+                        &mut control_flow.blocks.get_mut(&block_label).unwrap(),
+                        metadata,
+                    )
                 }
                 None => {
                     break;
@@ -252,7 +262,7 @@ impl ControlFlowPostorder {
         loop {
             match self.postorder_stack.pop_back() {
                 Some(block_label) => {
-                    metadata = on_visit(&control_flow.blocks[block_label], metadata)
+                    metadata = on_visit(&control_flow.blocks.get(&block_label).unwrap(), metadata)
                 }
                 None => {
                     break;
@@ -274,7 +284,10 @@ impl ControlFlowPostorder {
         loop {
             match self.postorder_stack.pop_back() {
                 Some(block_label) => {
-                    metadata = on_visit(&mut control_flow.blocks[block_label], metadata)
+                    metadata = on_visit(
+                        &mut control_flow.blocks.get_mut(&block_label).unwrap(),
+                        metadata,
+                    )
                 }
                 None => {
                     break;
@@ -313,8 +326,13 @@ impl ControlFlowPostorder {
     }
 
     fn push_all_successors(&mut self, block_label: usize, control_flow: &ControlFlow) {
-        for s in &control_flow.successors[block_label] {
-            self.dfs_stack.push_back(*s);
+        match control_flow.successors.get(&block_label) {
+            Some(successor_set) => {
+                for successor in successor_set {
+                    self.dfs_stack.push_back(*successor);
+                }
+            }
+            None => {}
         }
     }
 

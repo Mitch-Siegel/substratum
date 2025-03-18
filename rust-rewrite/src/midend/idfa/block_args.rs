@@ -22,10 +22,8 @@ impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
     }
 
     fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut super::Facts<Fact>) {
-        for label in control_flow.labels() {
-            let block_facts = facts.for_label_mut(label);
-
-            let block = &control_flow.blocks[label];
+        for (label, block) in &control_flow.blocks {
+            let block_facts = facts.for_label_mut(*label);
 
             for statement in block.statements() {
                 for read in statement.read_operand_names() {

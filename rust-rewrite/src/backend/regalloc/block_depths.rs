@@ -26,17 +26,23 @@ impl<'a> BlockDepthMetadata<'a> {
 
     fn max_of_predecessors(&mut self, block_label: usize) -> usize {
         let mut max = usize::MIN;
-        for predecessor_label in &self.control_flow.predecessors[block_label] {
-            let predecessor_depth = match self.depths.get(predecessor_label) {
-                Some(depth) => *depth,
-                None => {
-                    self.unknown_predecessors_worklist
-                        .push_back(*predecessor_label);
-                    usize::MIN
-                }
-            };
 
-            max = usize::max(predecessor_depth, max);
+        match self.control_flow.predecessors.get(&block_label) {
+            Some(predecessor_set) => {
+                for predecessor_label in predecessor_set {
+                    let predecessor_depth = match self.depths.get(predecessor_label) {
+                        Some(depth) => *depth,
+                        None => {
+                            self.unknown_predecessors_worklist
+                                .push_back(*predecessor_label);
+                            usize::MIN
+                        }
+                    };
+
+                    max = usize::max(predecessor_depth, max);
+                }
+            }
+            None => {}
         }
 
         max

@@ -1,4 +1,7 @@
-use std::{collections::BTreeSet, fmt::Display};
+use std::{
+    collections::{BTreeSet, HashMap},
+    fmt::Display,
+};
 
 use crate::midend::ir;
 
@@ -32,7 +35,7 @@ pub struct Facts<T>
 where
     T: Display + PartialEq,
 {
-    facts: Vec<BlockFacts<T>>,
+    facts: HashMap<usize, BlockFacts<T>>,
 }
 
 impl<T> Facts<T>
@@ -40,20 +43,16 @@ where
     T: Display + PartialEq,
 {
     pub fn new(n_blocks: usize) -> Self {
-        let mut facts = Vec::<BlockFacts<T>>::new();
-
-        for _ in 0..=n_blocks {
-            facts.push(BlockFacts::<T>::new());
+        Self {
+            facts: HashMap::new(),
         }
-
-        Self { facts }
     }
     pub fn for_label(&self, label: usize) -> &BlockFacts<T> {
-        self.facts.get(label).unwrap()
+        self.facts.get(&label).unwrap()
     }
 
     pub fn for_label_mut(&mut self, label: usize) -> &mut BlockFacts<T> {
-        self.facts.get_mut(label).unwrap()
+        self.facts.entry(label).or_insert(BlockFacts::<T>::new())
     }
 }
 
@@ -105,9 +104,14 @@ where
         let label = block.label();
         let mut new_in_facts = BTreeSet::<T>::new();
 
-        for predecessor in &idfa.control_flow.predecessors[block.label()] {
-            new_in_facts =
-                (idfa.f_meet)(new_in_facts, &idfa.facts.for_label(*predecessor).out_facts);
+        match idfa.control_flow.predecessors.get(&block.label()) {
+            Some(predecessor_set) => {
+                for predecessor in predecessor_set {
+                    new_in_facts =
+                        (idfa.f_meet)(new_in_facts, &idfa.facts.for_label(*predecessor).out_facts);
+                }
+            }
+            None => {}
         }
 
         idfa.facts.for_label_mut(label).in_facts = new_in_facts.clone();
