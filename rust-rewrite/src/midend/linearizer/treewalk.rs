@@ -225,13 +225,14 @@ impl ContextWalk for AssignmentTree {
 impl ContextWalk for IfStatementTree {
     fn walk(self, context: &mut WalkContext) {
         // FUTURE: optimize condition walk to use different jumps
+        let condition_loc = self.condition.loc.clone();
         let condition_result = self.condition.walk(self.loc, context);
         let if_condition = ir::JumpCondition::NE(ir::operands::DualSourceOperands::from(
             condition_result,
             ir::Operand::new_as_unsigned_decimal_constant(0),
         ));
 
-        context.create_branching_point_with_convergence();
+        context.create_branching_point_with_convergence(condition_loc);
         context.create_branch(self.true_block.loc, if_condition);
         self.true_block.walk(context);
         context.finish_branch();

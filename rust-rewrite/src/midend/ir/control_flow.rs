@@ -20,11 +20,7 @@ use std::{
 #[derive(Debug, Serialize)]
 pub struct ControlFlow {
     pub blocks: HashMap<usize, ir::BasicBlock>,
-
-    current_block: usize,
-    // index of number of temporary variables used in this control flow (across all blocks)
-    temp_num: usize,
-    max_block: usize,
+    pub max_block: usize,
 }
 
 impl ControlFlow {
@@ -34,38 +30,8 @@ impl ControlFlow {
         starter_blocks.insert(1, ir::BasicBlock::new(1));
         ControlFlow {
             blocks: starter_blocks,
-            current_block: 0,
-            temp_num: 0,
             max_block: 1,
         }
-    }
-
-    pub fn next_temp(&mut self) -> String {
-        let temp_name = String::from(".T") + &self.temp_num.to_string();
-        self.temp_num += 1;
-        temp_name
-    }
-
-    pub fn set_current_block(&mut self, label: usize) {
-        self.current_block = label;
-    }
-
-    pub fn current_block(&self) -> usize {
-        self.current_block
-    }
-
-    pub fn next_block(&mut self) -> usize {
-        self.max_block += 1;
-        self.max_block - 1
-    }
-
-    pub fn append_statement_to_current_block(&mut self, statement: ir::IrLine) -> Option<usize> {
-        let new_current_block = self.append_statement_to_block(statement, self.current_block);
-        match new_current_block {
-            Some(block) => self.set_current_block(block),
-            None => {}
-        }
-        new_current_block
     }
 
     pub fn block_for_label(&self, label: &usize) -> &ir::BasicBlock {
@@ -78,30 +44,41 @@ impl ControlFlow {
             .or_insert(ir::BasicBlock::new(label))
     }
 
-    fn append_statement_to_block(&mut self, statement: ir::IrLine, block: usize) -> Option<usize> {
-        let jump_not_taken_block = match &statement.operation {
+    // appends the given statement to the block with the label provided
+    // retrurns an option to a reference to the field containing the destination label of the false jump
+    // iff the statement was a conditional jump which forced the end of the block
+    pub fn append_statement_to_block(
+        &mut self,
+        statement: ir::IrLine,
+        label: usize,
+    ) -> Option<&mut usize> {
+        let jump_always = match &statement.operation {
             ir::Operations::Jump(operands) => match &operands.condition {
-                ir::JumpCondition::Unconditional => None,
-                _ => Some(self.next_block()),
+                ir::JumpCondition::Unconditional => false,
+                _ => true,
             },
-            _ => None,
+            _ => false,
         };
 
-        self.append_statement_to_block_raw(statement, block);
+        self.append_statement_to_block_raw(statement, label);
 
-        match &jump_not_taken_block {
-            Some(label) => {
-                let block_exit = ir::IrLine::new_jump(
-                    SourceLoc::none(),
-                    *label,
-                    ir::JumpCondition::Unconditional,
-                );
-                self.append_statement_to_block_raw(block_exit, block);
+        if !jump_always {
+            let block_exit =
+                ir::IrLine::new_jump(SourceLoc::none(), label, ir::JumpCondition::Unconditional);
+            self.append_statement_to_block_raw(block_exit, label);
+
+            match self.blocks.get_mut(&label).unwrap().statements.last_mut() {
+                Some(statement) => match &mut statement.operation {
+                    ir::Operations::Jump(jump_operation) => {
+                        Some(&mut jump_operation.destination_block)
+                    }
+                    _ => panic!("Block exit jump not present"),
+                },
+                _ => panic!("Block exit jump not present"),
             }
-            None => {}
+        } else {
+            None
         }
-
-        jump_not_taken_block
     }
 
     fn append_statement_to_block_raw(&mut self, statement: ir::IrLine, label: usize) {
@@ -115,13 +92,8 @@ impl ControlFlow {
                 self.block_mut_for_label(label)
                     .successors
                     .insert(target_block);
-
-                match &operands.condition {
-                    ir::JumpCondition::Unconditional => None,
-                    _ => Some(self.next_block()),
-                }
             }
-            _ => None,
+            _ => {}
         };
 
         self.block_mut_for_label(label).statements.push(statement);
@@ -152,7 +124,55 @@ impl ControlFlow {
         println!("}}");
     }
 
-    fn generate_postorder_stack(&mut self, control_flow: &ControlFlow) -> VecDeque<usize> {
+    pub fn replace_blocks<T: IntoIterator<Item = ir::BasicBlock>>(&mut self, iter: T) {
+        let mut into = iter.into_iter();
+
+        while let Some(block) = into.next() {
+            self.max_block = usize::max(self.max_block, block.label);
+            self.blocks.insert(block.label, block);
+        }
+    }
+}
+
+struct ControlFlowPostorder {
+    postorder_stack: VecDeque<ir::BasicBlock>,
+}
+
+impl Iterator for ControlFlowPostorder {
+    type Item = ir::BasicBlock;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.postorder_stack.pop_front()
+    }
+}
+
+struct ControlFlowIter<'a> {
+    postorder_stack: VecDeque<&'a ir::BasicBlock>,
+}
+
+impl<'a> Iterator for ControlFlowIter<'a> {
+    type Item = &'a ir::BasicBlock;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.postorder_stack.pop_back()
+    }
+}
+
+pub struct ControlFlowIntoIter<T> {
+    postorder_stack: VecDeque<T>,
+}
+
+impl<T> Iterator for ControlFlowIntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.postorder_stack.pop_back()
+    }
+}
+
+// TODO: are the postorder and reverse postorder named opposite right now? Need to actually check this...
+impl ControlFlow {
+    fn generate_postorder_stack(&self) -> VecDeque<usize> {
         let mut postorder_stack = VecDeque::<usize>::new();
         postorder_stack.clear();
         let mut visited = HashSet::<usize>::new();
@@ -170,7 +190,7 @@ impl ControlFlow {
 
                         postorder_stack.push_back(label);
 
-                        for successor in &control_flow.block_for_label(&label).successors {
+                        for successor in &self.block_for_label(&label).successors {
                             dfs_stack.push_back(*successor);
                         }
                     }
@@ -180,59 +200,65 @@ impl ControlFlow {
         }
         postorder_stack
     }
+
+    pub fn iter(&self) -> ControlFlowIter<'_> {
+        let postorder_stack = self.generate_postorder_stack();
+        let mut postorder_blocks = VecDeque::new();
+        for label in postorder_stack {
+            postorder_blocks.push_back(&self.blocks[&label]);
+        }
+        ControlFlowIter {
+            postorder_stack: postorder_blocks,
+        }
+    }
 }
 
-struct ControlFlowPostorder {}
+impl<'a> IntoIterator for &'a ControlFlow {
+    type Item = &'a ir::BasicBlock;
 
-impl ControlFlowPostorder {}
+    type IntoIter = ControlFlowIntoIter<&'a ir::BasicBlock>;
 
-// TODO: are the postorder and reverse postorder named opposite right now? Need to actually check this...
-impl ControlFlow {
-    pub fn map_over_blocks_mut_postorder<MetadataType>(
-        &mut self,
-        operation: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        metadata: MetadataType,
-    ) -> MetadataType
-    where
-        MetadataType: Debug,
-    {
-        let boxed_metadata = Box::from(metadata);
-        *ControlFlowPostorder::map_mut(self, operation, boxed_metadata)
+    fn into_iter(self) -> Self::IntoIter {
+        let postorder_stack = self.generate_postorder_stack();
+        let mut postorder_blocks = VecDeque::new();
+        for label in postorder_stack {
+            postorder_blocks.push_back(self.blocks.get(&label).unwrap());
+        }
+        ControlFlowIntoIter::<&'a ir::BasicBlock> {
+            postorder_stack: postorder_blocks,
+        }
     }
+}
 
-    pub fn map_over_blocks_postorder<MetadataType>(
-        &self,
-        operation: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        metadata: MetadataType,
-    ) -> MetadataType
-    where
-        MetadataType: Debug,
-    {
-        let boxed_metadata = Box::from(metadata);
-        *ControlFlowPostorder::map(self, operation, boxed_metadata)
+impl IntoIterator for ControlFlow {
+    type Item = ir::BasicBlock;
+
+    type IntoIter = ControlFlowIntoIter<ir::BasicBlock>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let postorder_stack = self.generate_postorder_stack();
+        let mut postorder_blocks = VecDeque::new();
+        for label in postorder_stack {
+            postorder_blocks.push_back(self.blocks.get(&label).unwrap().to_owned());
+        }
+        ControlFlowIntoIter {
+            postorder_stack: postorder_blocks,
+        }
     }
+}
 
-    pub fn map_over_blocks_mut_reverse_postorder<MetadataType>(
-        &mut self,
-        operation: fn(&mut ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        metadata: MetadataType,
-    ) -> MetadataType
-    where
-        MetadataType: Debug,
-    {
-        let boxed_metadata = Box::from(metadata);
-        *ControlFlowPostorder::map_reverse_mut(self, operation, boxed_metadata)
-    }
+impl FromIterator<ir::BasicBlock> for ControlFlow {
+    fn from_iter<T: IntoIterator<Item = ir::BasicBlock>>(iter: T) -> Self {
+        let mut max_block = usize::MIN;
+        let mut blocks = HashMap::new();
 
-    pub fn map_over_blocks_reverse_postorder<MetadataType>(
-        &self,
-        operation: fn(&ir::BasicBlock, Box<MetadataType>) -> Box<MetadataType>,
-        metadata: MetadataType,
-    ) -> MetadataType
-    where
-        MetadataType: Debug,
-    {
-        let boxed_metadata = Box::from(metadata);
-        *ControlFlowPostorder::map_reverse(self, operation, boxed_metadata)
+        let mut into = iter.into_iter();
+
+        while let Some(block) = into.next() {
+            max_block = usize::max(max_block, block.label);
+            blocks.insert(block.label, block);
+        }
+
+        ControlFlow { max_block, blocks }
     }
 }

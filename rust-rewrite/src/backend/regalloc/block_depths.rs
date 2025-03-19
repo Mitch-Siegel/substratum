@@ -49,19 +49,12 @@ impl<'a> BlockDepthMetadata<'a> {
     }
 }
 
-fn find_block_depth<'a>(
-    block: &ir::BasicBlock,
-    mut metadata: Box<BlockDepthMetadata<'a>>,
-) -> Box<BlockDepthMetadata<'a>> {
-    metadata.visit(block.label);
-
-    metadata
-}
-
 pub fn find_block_depths(control_flow: &ir::ControlFlow) -> BTreeMap<usize, usize> {
     let mut metadata = BlockDepthMetadata::new(control_flow);
 
-    metadata = control_flow.map_over_blocks_postorder(find_block_depth, metadata);
+    for block in control_flow {
+        metadata.visit(block.label);
+    }
 
     while let Some(unvisited) = metadata.unknown_predecessors_worklist.pop_front() {
         metadata.visit(unvisited);

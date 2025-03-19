@@ -97,23 +97,18 @@ where
         self.facts == self.last_facts
     }
 
-    fn analyze_block_forwards<'b>(
-        block: &ir::BasicBlock,
-        idfa: Box<&'b mut Idfa<'a, T>>,
-    ) -> Box<&'b mut Idfa<'a, T>> {
+    fn analyze_block_forwards<'b>(&mut self, block: &ir::BasicBlock) {
         let label = block.label;
         let mut new_in_facts = BTreeSet::<T>::new();
 
         for predecessor in &block.predecessors {
             new_in_facts =
-                (idfa.f_meet)(new_in_facts, &idfa.facts.for_label(*predecessor).out_facts);
+                (self.f_meet)(new_in_facts, &self.facts.for_label(*predecessor).out_facts);
         }
 
-        idfa.facts.for_label_mut(label).in_facts = new_in_facts.clone();
-        let transferred = (idfa.f_transfer)(idfa.facts.for_label_mut(label), new_in_facts);
-        idfa.facts.for_label_mut(label).out_facts = transferred;
-
-        idfa
+        self.facts.for_label_mut(label).in_facts = new_in_facts.clone();
+        let transferred = (self.f_transfer)(self.facts.for_label_mut(label), new_in_facts);
+        self.facts.for_label_mut(label).out_facts = transferred;
     }
 
     fn analyze_forward(&mut self) {
@@ -122,20 +117,19 @@ where
             first_iteration = false;
             self.store_facts_as_last();
 
-            self.control_flow
-                .map_over_blocks_reverse_postorder::<&mut Idfa<T>>(
-                    Self::analyze_block_forwards,
-                    self,
-                );
+            for block in self.control_flow {
+                self.analyze_block_forwards(block);
+            }
         }
     }
 
     fn analyze_backward(&mut self) {
         let mut first_iteration = true;
-        while first_iteration || !self.reached_fixpoint() {
+        while !self.reached_fixpoint() || first_iteration {
             first_iteration = false;
-
             self.store_facts_as_last();
+
+            unimplemented!();
         }
     }
 

@@ -8,32 +8,44 @@ mod add_block_args;
 mod convert_reads;
 mod convert_writes;
 
-use super::{
-    ir,
-    symtab::{Function, FunctionOrPrototype},
-};
+use super::{ir, symtab};
 
-fn convert_function_to_ssa(function: &mut Function) {
+fn convert_function_to_ssa(mut function: symtab::Function) -> symtab::Function {
     function.control_flow.to_graphviz();
     println!("\n");
 
-    add_block_arguments(function);
-    convert_writes_to_ssa(function);
-    convert_reads_to_ssa(function);
+    add_block_arguments(&mut function);
+    function = convert_writes_to_ssa(function);
+    convert_reads_to_ssa(&mut function);
 
     function.control_flow.to_graphviz();
+
+    function
 }
 
-pub fn convert_functions_to_ssa(functions: &mut HashMap<String, FunctionOrPrototype>) {
-    for (_, function) in functions {
-        match function {
-            FunctionOrPrototype::Prototype(_) => {}
-            FunctionOrPrototype::Function(function) => convert_function_to_ssa(function),
+pub fn convert_functions_to_ssa(
+    mut functions: HashMap<String, symtab::FunctionOrPrototype>,
+) -> HashMap<String, symtab::FunctionOrPrototype> {
+    let mut new_functions = HashMap::<String, symtab::FunctionOrPrototype>::new();
+
+    for (name, function_or_prototype) in functions {
+        match function_or_prototype {
+            symtab::FunctionOrPrototype::Prototype(prototype) => {
+                new_functions.insert(name, symtab::FunctionOrPrototype::Prototype(prototype));
+            }
+            symtab::FunctionOrPrototype::Function(function) => {
+                new_functions.insert(
+                    name,
+                    symtab::FunctionOrPrototype::Function(convert_function_to_ssa(function)),
+                );
+            }
         };
     }
+
+    new_functions
 }
 
-fn remove_ssa_from_function(function: &mut Function) {
+fn remove_ssa_from_function(function: &mut symtab::Function) {
     for block in &mut function.control_flow.blocks.values_mut() {
         let old_arguments = block.arguments.clone();
         block.arguments.clear();
@@ -54,11 +66,11 @@ fn remove_ssa_from_function(function: &mut Function) {
     function.control_flow.to_graphviz();
 }
 
-pub fn remove_ssa_from_functions(functions: &mut HashMap<String, FunctionOrPrototype>) {
+pub fn remove_ssa_from_functions(functions: &mut HashMap<String, symtab::FunctionOrPrototype>) {
     for (_, function) in functions {
         match function {
-            FunctionOrPrototype::Prototype(_) => {}
-            FunctionOrPrototype::Function(function) => remove_ssa_from_function(function),
+            symtab::FunctionOrPrototype::Prototype(_) => {}
+            symtab::FunctionOrPrototype::Function(function) => remove_ssa_from_function(function),
         };
     }
 }
