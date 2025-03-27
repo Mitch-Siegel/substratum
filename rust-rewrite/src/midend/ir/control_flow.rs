@@ -1,4 +1,4 @@
-use crate::frontend::sourceloc::SourceLoc;
+use crate::{frontend::sourceloc::SourceLoc, hashmap_ooo_iter::HashMapOOOIter};
 
 use super::ir;
 use serde::Serialize;
@@ -203,12 +203,12 @@ impl ControlFlow {
 
     pub fn iter(&self) -> ControlFlowIter<'_> {
         let postorder_stack = self.generate_postorder_stack();
-        let mut postorder_blocks = VecDeque::new();
-        for label in postorder_stack {
-            postorder_blocks.push_back(&self.blocks[&label]);
-        }
+
         ControlFlowIter {
-            postorder_stack: postorder_blocks,
+            postorder_stack: postorder_stack
+                .into_iter()
+                .map(|label| self.block_for_label(&label))
+                .collect(),
         }
     }
 }
@@ -220,12 +220,12 @@ impl<'a> IntoIterator for &'a ControlFlow {
 
     fn into_iter(self) -> Self::IntoIter {
         let postorder_stack = self.generate_postorder_stack();
-        let mut postorder_blocks = VecDeque::new();
-        for label in postorder_stack {
-            postorder_blocks.push_back(self.blocks.get(&label).unwrap());
-        }
+
         ControlFlowIntoIter::<&'a ir::BasicBlock> {
-            postorder_stack: postorder_blocks,
+            postorder_stack: postorder_stack
+                .into_iter()
+                .map(|label| self.block_for_label(&label))
+                .collect(),
         }
     }
 }
@@ -235,14 +235,13 @@ impl IntoIterator for ControlFlow {
 
     type IntoIter = ControlFlowIntoIter<ir::BasicBlock>;
 
-    fn into_iter(self) -> Self::IntoIter {
+    fn into_iter(mut self) -> Self::IntoIter {
         let postorder_stack = self.generate_postorder_stack();
-        let mut postorder_blocks = VecDeque::new();
-        for label in postorder_stack {
-            postorder_blocks.push_back(self.blocks.get(&label).unwrap().to_owned());
-        }
         ControlFlowIntoIter {
-            postorder_stack: postorder_blocks,
+            postorder_stack: postorder_stack
+                .into_iter()
+                .map(|label| self.blocks.remove(&label).unwrap())
+                .collect(),
         }
     }
 }
@@ -260,5 +259,17 @@ impl FromIterator<ir::BasicBlock> for ControlFlow {
         }
 
         ControlFlow { max_block, blocks }
+    }
+}
+
+mod tests {
+    use crate::midend::ir::ControlFlow;
+
+    #[test]
+    fn starter_blocks() {
+        let cf = ControlFlow::new();
+
+        assert!(cf.blocks.len() == 2);
+        assert!(cf.max_block == 1);
     }
 }

@@ -2,6 +2,8 @@ mod backend;
 mod frontend;
 mod midend;
 
+mod hashmap_ooo_iter;
+
 use backend::generate_code;
 use frontend::{lexer::Lexer, parser::Parser};
 use midend::*;
