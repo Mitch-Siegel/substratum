@@ -45,6 +45,7 @@ impl ControlFlow {
     }
 
     // appends the given statement to the block with the label provided
+    // returns:
     // retrurns an option to a reference to the field containing the destination label of the false jump
     // iff the statement was a conditional jump which forced the end of the block
     pub fn append_statement_to_block(
@@ -52,7 +53,7 @@ impl ControlFlow {
         statement: ir::IrLine,
         label: usize,
     ) -> Option<&mut usize> {
-        let jump_always = match &statement.operation {
+        let (jump_always) = match &statement.operation {
             ir::Operations::Jump(operands) => match &operands.condition {
                 ir::JumpCondition::Unconditional => false,
                 _ => true,
@@ -263,7 +264,10 @@ impl FromIterator<ir::BasicBlock> for ControlFlow {
 }
 
 mod tests {
-    use crate::midend::ir::ControlFlow;
+    use crate::{
+        frontend::sourceloc::SourceLoc,
+        midend::ir::{ControlFlow, IrLine, JumpCondition, Operand},
+    };
 
     #[test]
     fn starter_blocks() {
@@ -271,5 +275,32 @@ mod tests {
 
         assert!(cf.blocks.len() == 2);
         assert!(cf.max_block == 1);
+    }
+
+    #[test]
+    fn get_block_for_label() {
+        let mut cf = ControlFlow::new();
+
+        assert_eq!(cf.block_for_label(&0).label, 0);
+
+        assert_eq!(cf.block_mut_for_label(0).label, 0);
+        assert_eq!(cf.block_mut_for_label(999).label, 999);
+    }
+
+    #[test]
+    fn append_statement_to_block() {
+        let mut cf = ControlFlow::new();
+
+        // unconditional jump has no false branch
+        {
+            let assignment = IrLine::new_assignment(
+                SourceLoc::none(),
+                Operand::new_as_variable("dest".into()),
+                Operand::new_as_variable("source".into()),
+            );
+            assert_eq!(cf.append_statement_to_block(assignment, 0), None);
+            let jump = IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
+            assert_eq!(cf.append_statement_to_block(jump, 0), Some(&mut 0usize));
+        }
     }
 }

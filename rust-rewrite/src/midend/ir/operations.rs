@@ -229,6 +229,16 @@ impl Display for JumpOperation {
     }
 }
 
+impl JumpOperation {
+    pub fn new(destination_block: usize, condition: JumpCondition) -> Self {
+        Self {
+            destination_block,
+            block_args: HashMap::new(),
+            condition,
+        }
+    }
+}
+
 /// ## Enum of all operations
 #[derive(Debug, Serialize, Clone)]
 pub enum Operations {
@@ -250,5 +260,18 @@ impl Display for Operations {
                 write!(f, "{}", jump)
             }
         }
+    }
+}
+
+impl Operations {
+    pub fn new_assignment(destination: Operand, source: Operand) -> Self {
+        Self::Assignment(SourceDestOperands {
+            destination,
+            source,
+        })
+    }
+
+    pub fn new_jump(destination_block: usize, condition: JumpCondition) -> Self {
+        Self::Jump(JumpOperation::new(destination_block, condition))
     }
 }

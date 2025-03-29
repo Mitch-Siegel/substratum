@@ -62,6 +62,13 @@ impl OperandName {
         }
     }
 
+    fn new_ssa(base_name: String, ssa_number: usize) -> Self {
+        Self {
+            base_name,
+            ssa_number: Some(ssa_number),
+        }
+    }
+
     pub fn name(&self) -> String {
         match self.ssa_number {
             Some(number) => {
@@ -239,7 +246,7 @@ pub struct DualSourceOperands {
 }
 
 impl DualSourceOperands {
-    pub fn from(a: Operand, b: Operand) -> Self {
+    pub fn new(a: Operand, b: Operand) -> Self {
         DualSourceOperands { a, b }
     }
 }
@@ -254,7 +261,7 @@ impl BinaryArithmeticOperands {
     pub fn from(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
         BinaryArithmeticOperands {
             destination,
-            sources: DualSourceOperands::from(source_a, source_b),
+            sources: DualSourceOperands::new(source_a, source_b),
         }
     }
 }
@@ -270,8 +277,8 @@ pub enum JumpCondition {
     Unconditional,
     Eq(DualSourceOperands),
     NE(DualSourceOperands),
-    G(DualSourceOperands),
-    L(DualSourceOperands),
+    GT(DualSourceOperands),
+    LT(DualSourceOperands),
     GE(DualSourceOperands),
     LE(DualSourceOperands),
 }
@@ -288,10 +295,10 @@ impl Display for JumpCondition {
             Self::NE(operands) => {
                 write!(f, "jne({}, {})", operands.a, operands.b)
             }
-            Self::L(operands) => {
+            Self::LT(operands) => {
                 write!(f, "jl({}, {})", operands.a, operands.b)
             }
-            Self::G(operands) => {
+            Self::GT(operands) => {
                 write!(f, "jg({}, {})", operands.a, operands.b)
             }
             Self::LE(operands) => {
@@ -301,5 +308,49 @@ impl Display for JumpCondition {
                 write!(f, "jge({}, {})", operands.a, operands.b)
             }
         }
+    }
+}
+
+mod tests {
+    use crate::midend::ir::OperandName;
+
+    #[test]
+    fn operand_name_ord() {
+        // non-ssa operand names
+        assert_eq!(
+            OperandName::new_basic("a".into()),
+            OperandName::new_basic("a".into())
+        );
+        assert_ne!(
+            OperandName::new_basic("a".into()),
+            OperandName::new_basic("b".into())
+        );
+
+        assert!(OperandName::new_basic("a".into()) < OperandName::new_basic("b".into()));
+
+        // ssa operand names
+        assert_eq!(
+            OperandName::new_ssa("a".into(), 4),
+            OperandName::new_ssa("a".into(), 4)
+        );
+        assert!(OperandName::new_ssa("a".into(), 4) < OperandName::new_ssa("a".into(), 5));
+        assert!(OperandName::new_ssa("a".into(), 4) < OperandName::new_ssa("b".into(), 4));
+
+        // mixed ssa and non-ssa
+        assert!(OperandName::new_basic("a".into()) < OperandName::new_ssa("a".into(), 1));
+        assert!(OperandName::new_ssa("a".into(), 1) > OperandName::new_basic("a".into()));
+    }
+
+    #[test]
+    fn operand_name_into_non_ssa() {
+        assert_eq!(
+            OperandName::new_basic("a".into()).into_non_ssa(),
+            OperandName::new_basic("a".into())
+        );
+
+        assert_eq!(
+            OperandName::new_ssa("a".into(), 123).into_non_ssa(),
+            OperandName::new_basic("a".into())
+        );
     }
 }

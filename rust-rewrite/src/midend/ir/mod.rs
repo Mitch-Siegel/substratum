@@ -1,6 +1,7 @@
 pub mod control_flow;
 pub mod operands;
 pub mod operations;
+mod tests;
 
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::Display;
@@ -18,7 +19,6 @@ use super::program_point::ProgramPoint;
 #[derive(Debug, Serialize, Clone)]
 pub struct IrLine {
     pub loc: SourceLoc,
-    pub program_point: ProgramPoint,
     pub operation: Operations,
 }
 
@@ -53,19 +53,12 @@ impl IrLine {
     fn new(loc: SourceLoc, operation: Operations) -> Self {
         IrLine {
             loc: loc,
-            program_point: ProgramPoint::default(),
             operation: operation,
         }
     }
 
     pub fn new_assignment(loc: SourceLoc, destination: Operand, source: Operand) -> Self {
-        Self::new(
-            loc,
-            Operations::Assignment(SourceDestOperands {
-                destination,
-                source,
-            }),
-        )
+        Self::new(loc, Operations::new_assignment(destination, source))
     }
 
     pub fn new_binary_op(loc: SourceLoc, op: BinaryOperations) -> Self {
@@ -77,14 +70,7 @@ impl IrLine {
         destination_block: usize,
         condition: operands::JumpCondition,
     ) -> Self {
-        Self::new(
-            loc,
-            Operations::Jump(operations::JumpOperation {
-                destination_block,
-                block_args: HashMap::new(),
-                condition,
-            }),
-        )
+        Self::new(loc, Operations::new_jump(destination_block, condition))
     }
 
     pub fn read_operand_names(&self) -> Vec<&OperandName> {
@@ -110,8 +96,8 @@ impl IrLine {
                     JumpCondition::Unconditional => {}
                     JumpCondition::Eq(condition_operands)
                     | JumpCondition::NE(condition_operands)
-                    | JumpCondition::G(condition_operands)
-                    | JumpCondition::L(condition_operands)
+                    | JumpCondition::GT(condition_operands)
+                    | JumpCondition::LT(condition_operands)
                     | JumpCondition::GE(condition_operands)
                     | JumpCondition::LE(condition_operands) => {
                         match condition_operands.a.get_name() {
@@ -155,8 +141,8 @@ impl IrLine {
                     JumpCondition::Unconditional => {}
                     JumpCondition::Eq(condition_operands)
                     | JumpCondition::NE(condition_operands)
-                    | JumpCondition::G(condition_operands)
-                    | JumpCondition::L(condition_operands)
+                    | JumpCondition::GT(condition_operands)
+                    | JumpCondition::LT(condition_operands)
                     | JumpCondition::GE(condition_operands)
                     | JumpCondition::LE(condition_operands) => {
                         match condition_operands.a.get_name_mut() {

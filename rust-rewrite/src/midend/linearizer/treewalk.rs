@@ -227,7 +227,7 @@ impl ContextWalk for IfStatementTree {
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc.clone();
         let condition_result = self.condition.walk(self.loc, context);
-        let if_condition = ir::JumpCondition::NE(ir::operands::DualSourceOperands::from(
+        let if_condition = ir::JumpCondition::NE(ir::operands::DualSourceOperands::new(
             condition_result,
             ir::Operand::new_as_unsigned_decimal_constant(0),
         ));

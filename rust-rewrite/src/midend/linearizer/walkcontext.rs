@@ -182,7 +182,7 @@ impl WalkContext {
 
         // FUTURE: optimize condition handling to use different jumps
         let condition_result = condition.walk(loc, self);
-        let loop_false_condition = ir::JumpCondition::Eq(ir::operands::DualSourceOperands::from(
+        let loop_false_condition = ir::JumpCondition::Eq(ir::operands::DualSourceOperands::new(
             condition_result,
             ir::Operand::new_as_unsigned_decimal_constant(0),
         ));
