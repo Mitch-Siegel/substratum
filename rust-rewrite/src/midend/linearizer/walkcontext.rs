@@ -248,9 +248,9 @@ impl WalkContext {
             .expect("WalkContext::scope() expects valid scope")
     }
 
-    pub fn lookup_variable_by_name(&self, name: &str) -> Option<&symtab::Variable> {
+    pub fn lookup_variable_by_name(&self, name: &ir::OperandName) -> Option<&symtab::Variable> {
         for scope in (&self.scopes).into_iter().rev().by_ref() {
-            match scope.lookup_variable_by_name(name) {
+            match scope.lookup_variable_by_name(&name.base_name) {
                 Some(variable) => return Some(variable),
                 None => {}
             }

@@ -69,15 +69,6 @@ impl OperandName {
         }
     }
 
-    pub fn name(&self) -> String {
-        match self.ssa_number {
-            Some(number) => {
-                format!("{}.{}", self.base_name, number)
-            }
-            None => self.base_name.clone(),
-        }
-    }
-
     pub fn into_non_ssa(mut self) -> Self {
         self.ssa_number = None;
         self
@@ -112,15 +103,7 @@ impl Display for Operand {
 
 impl PartialEq for Operand {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Variable(var_1), Self::Variable(var_2)) => var_1 == var_2,
-            (Self::Temporary(temp_1), Self::Temporary(temp_2)) => temp_1 == temp_2,
-            (
-                Self::UnsignedDecimalConstant(unsigned_decimal_constant_1),
-                Self::UnsignedDecimalConstant(unsigned_decimal_constant_2),
-            ) => unsigned_decimal_constant_1 == unsigned_decimal_constant_2,
-            _ => false,
-        }
+        self.cmp(other) == std::cmp::Ordering::Equal
     }
 }
 
@@ -151,15 +134,11 @@ impl Ord for Operand {
         match partial_result {
             Some(ordering) => ordering,
             None => match (self, other) {
-                (Operand::Variable(var_self), Operand::Temporary(temp_other)) => {
-                    var_self.cmp(temp_other)
-                }
+                (Operand::Variable(_), Operand::Temporary(_)) => std::cmp::Ordering::Greater,
                 (Operand::Variable(_), Operand::UnsignedDecimalConstant(_)) => {
                     std::cmp::Ordering::Greater
                 }
-                (Operand::Temporary(var_self), Operand::Variable(temp_other)) => {
-                    var_self.cmp(temp_other)
-                }
+                (Operand::Temporary(_), Operand::Variable(_)) => std::cmp::Ordering::Less,
                 (Operand::Temporary(_), Operand::UnsignedDecimalConstant(_)) => {
                     std::cmp::Ordering::Greater
                 }
@@ -195,13 +174,13 @@ impl Operand {
 
     pub fn type_(&self, context: &linearizer::walkcontext::WalkContext) -> Type {
         match self {
-            Operand::Variable(operand) => context
-                .lookup_variable_by_name(&operand.name())
-                .expect(format!("Use of undeclared variable {}", operand.name()).as_str())
+            Operand::Variable(name) => context
+                .lookup_variable_by_name(&name)
+                .expect(format!("Use of undeclared variable {}", name).as_str())
                 .type_(),
-            Operand::Temporary(operand) => context
-                .lookup_variable_by_name(&operand.name())
-                .expect(format!("Use of undeclared variable {}", operand.name()).as_str())
+            Operand::Temporary(name) => context
+                .lookup_variable_by_name(&name)
+                .expect(format!("Use of undeclared variable {}", name).as_str())
                 .type_()
                 .clone(),
             Operand::UnsignedDecimalConstant(value) => {
@@ -312,33 +291,45 @@ impl Display for JumpCondition {
 }
 
 mod tests {
-    use crate::midend::ir::OperandName;
+    use std::cmp::Ordering;
+
+    use crate::midend::ir::{Operand, OperandName};
 
     #[test]
     fn operand_name_ord() {
         // non-ssa operand names
         assert_eq!(
-            OperandName::new_basic("a".into()),
-            OperandName::new_basic("a".into())
+            OperandName::new_basic("a".into()).cmp(&OperandName::new_basic("a".into())),
+            Ordering::Equal
         );
-        assert_ne!(
-            OperandName::new_basic("a".into()),
-            OperandName::new_basic("b".into())
+        assert_eq!(
+            OperandName::new_basic("a".into()).cmp(&OperandName::new_basic("b".into())),
+            Ordering::Less
         );
-
-        assert!(OperandName::new_basic("a".into()) < OperandName::new_basic("b".into()));
 
         // ssa operand names
         assert_eq!(
-            OperandName::new_ssa("a".into(), 4),
-            OperandName::new_ssa("a".into(), 4)
+            OperandName::new_ssa("a".into(), 4).cmp(&OperandName::new_ssa("a".into(), 4)),
+            Ordering::Equal
         );
-        assert!(OperandName::new_ssa("a".into(), 4) < OperandName::new_ssa("a".into(), 5));
-        assert!(OperandName::new_ssa("a".into(), 4) < OperandName::new_ssa("b".into(), 4));
+        assert_eq!(
+            OperandName::new_ssa("a".into(), 4).cmp(&OperandName::new_ssa("a".into(), 5)),
+            Ordering::Less
+        );
+        assert_eq!(
+            OperandName::new_ssa("a".into(), 4).cmp(&OperandName::new_ssa("b".into(), 4)),
+            Ordering::Less
+        );
 
         // mixed ssa and non-ssa
-        assert!(OperandName::new_basic("a".into()) < OperandName::new_ssa("a".into(), 1));
-        assert!(OperandName::new_ssa("a".into(), 1) > OperandName::new_basic("a".into()));
+        assert_eq!(
+            OperandName::new_basic("a".into()).cmp(&OperandName::new_ssa("a".into(), 1)),
+            Ordering::Less
+        );
+        assert_eq!(
+            OperandName::new_ssa("a".into(), 1).cmp(&OperandName::new_basic("a".into())),
+            Ordering::Greater
+        );
     }
 
     #[test]
@@ -351,6 +342,83 @@ mod tests {
         assert_eq!(
             OperandName::new_ssa("a".into(), 123).into_non_ssa(),
             OperandName::new_basic("a".into())
+        );
+    }
+
+    #[test]
+    fn operand_eq() {
+        // variable against other types
+        assert_eq!(
+            Operand::new_as_variable("asdf".into()),
+            Operand::new_as_variable("asdf".into())
+        );
+        assert_ne!(
+            Operand::new_as_variable("asdf".into()),
+            Operand::new_as_temporary("asdf".into())
+        );
+        assert_ne!(
+            Operand::new_as_variable("asdf".into()),
+            Operand::new_as_unsigned_decimal_constant(12)
+        );
+
+        // temporary against other types
+        assert_ne!(
+            Operand::new_as_temporary("asdf".into()),
+            Operand::new_as_variable("asdf".into())
+        );
+        assert_eq!(
+            Operand::new_as_temporary("asdf".into()),
+            Operand::new_as_temporary("asdf".into())
+        );
+        assert_ne!(
+            Operand::new_as_temporary("asdf".into()),
+            Operand::new_as_unsigned_decimal_constant(12)
+        );
+
+        // unsigned decimal constant against other types
+        assert_ne!(
+            Operand::new_as_unsigned_decimal_constant(12),
+            Operand::new_as_variable("asdf".into())
+        );
+        assert_ne!(
+            Operand::new_as_unsigned_decimal_constant(12),
+            Operand::new_as_temporary("asdf".into())
+        );
+        assert_eq!(
+            Operand::new_as_unsigned_decimal_constant(12),
+            Operand::new_as_unsigned_decimal_constant(12)
+        );
+    }
+
+    #[test]
+    fn operand_get_name() {
+        assert_eq!(
+            Operand::new_as_variable("asdf".into()).get_name(),
+            Some(&OperandName::new_basic("asdf".into()))
+        );
+        assert_eq!(
+            Operand::new_as_temporary("asdf".into()).get_name(),
+            Some(&OperandName::new_basic("asdf".into()))
+        );
+        assert_eq!(
+            Operand::new_as_unsigned_decimal_constant(12).get_name(),
+            None
+        );
+    }
+
+    #[test]
+    fn operand_get_name_mut() {
+        assert_eq!(
+            Operand::new_as_variable("asdf".into()).get_name_mut(),
+            Some(&mut OperandName::new_basic("asdf".into()))
+        );
+        assert_eq!(
+            Operand::new_as_temporary("asdf".into()).get_name_mut(),
+            Some(&mut OperandName::new_basic("asdf".into()))
+        );
+        assert_eq!(
+            Operand::new_as_unsigned_decimal_constant(12).get_name_mut(),
+            None
         );
     }
 }
