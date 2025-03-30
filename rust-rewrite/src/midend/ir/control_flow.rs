@@ -265,10 +265,7 @@ impl FromIterator<ir::BasicBlock> for ControlFlow {
 }
 
 mod tests {
-    use crate::{
-        frontend::sourceloc::SourceLoc,
-        midend::ir::{ControlFlow, IrLine, JumpCondition, Operand},
-    };
+    use crate::{frontend::sourceloc::SourceLoc, midend::ir::*};
 
     #[test]
     fn starter_blocks() {
@@ -292,16 +289,45 @@ mod tests {
     fn append_statement_to_block() {
         let mut cf = ControlFlow::new();
 
-        // unconditional jump has no false branch
-        {
-            // let assignment = IrLine::new_assignment(
-            //     SourceLoc::none(),
-            //     Operand::new_as_variable("dest".into()),
-            //     Operand::new_as_variable("source".into()),
-            // );
-            // assert_eq!(cf.append_statement_to_block(assignment, 0), None);
-            // let jump = IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
-            // assert_eq!(cf.append_statement_to_block(jump, 0), Some(&mut 0usize));
-        }
+        let assignment = IrLine::new_assignment(
+            SourceLoc::none(),
+            Operand::new_as_variable("dest".into()),
+            Operand::new_as_variable("source".into()),
+        );
+        assert_eq!(cf.append_statement_to_block(assignment, 0), (None, None));
+    }
+
+    #[test]
+    fn append_unconditional_jump_to_block() {
+        let mut cf = ControlFlow::new();
+        let jump = IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
+        assert_eq!(cf.append_statement_to_block(jump, 0), (Some(1), None));
+    }
+
+    #[test]
+    fn append_conditional_jump_to_block() {
+        let mut cf = ControlFlow::new();
+        let jump = IrLine::new_jump(
+            SourceLoc::none(),
+            1,
+            JumpCondition::Eq(ir::operands::DualSourceOperands {
+                a: Operand::new_as_variable("eq_a".into()),
+                b: Operand::new_as_variable("eq_b".into()),
+            }),
+        );
+        assert_eq!(cf.append_statement_to_block(jump, 0), (Some(1), Some(2)));
+
+        let second_jump = IrLine::new_jump(
+            SourceLoc::none(),
+            1,
+            JumpCondition::Eq(ir::operands::DualSourceOperands {
+                a: Operand::new_as_variable("eq_a2".into()),
+                b: Operand::new_as_variable("eq_b2".into()),
+            }),
+        );
+        assert_eq!(
+            cf.append_statement_to_block(second_jump, 0),
+            (Some(1), Some(3))
+        );
     }
 }
