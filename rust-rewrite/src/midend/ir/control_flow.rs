@@ -44,41 +44,42 @@ impl ControlFlow {
             .or_insert(ir::BasicBlock::new(label))
     }
 
+    fn next_block(&mut self) -> usize {
+        self.max_block += 1;
+        self.max_block
+    }
+
     // appends the given statement to the block with the label provided
-    // returns:
+    // returns: (Option<usize>, Option<usize>) referring to (if the statement is a branch):
+    // block targeted by branch
+    // block control flow ends up in if the branch is not taken (conditional branches only)
     // retrurns an option to a reference to the field containing the destination label of the false jump
     // iff the statement was a conditional jump which forced the end of the block
     pub fn append_statement_to_block(
         &mut self,
         statement: ir::IrLine,
         label: usize,
-    ) -> Option<&mut usize> {
-        let (jump_always) = match &statement.operation {
-            ir::Operations::Jump(operands) => match &operands.condition {
-                ir::JumpCondition::Unconditional => false,
-                _ => true,
-            },
-            _ => false,
-        };
+    ) -> (Option<usize>, Option<usize>) {
+        self.append_statement_to_block_raw(statement.clone(), label);
 
-        self.append_statement_to_block_raw(statement, label);
-
-        if !jump_always {
-            let block_exit =
-                ir::IrLine::new_jump(SourceLoc::none(), label, ir::JumpCondition::Unconditional);
-            self.append_statement_to_block_raw(block_exit, label);
-
-            match self.blocks.get_mut(&label).unwrap().statements.last_mut() {
-                Some(statement) => match &mut statement.operation {
-                    ir::Operations::Jump(jump_operation) => {
-                        Some(&mut jump_operation.destination_block)
+        match &statement.operation {
+            ir::Operations::Jump(jump) => {
+                let target = jump.destination_block;
+                match &jump.condition {
+                    ir::JumpCondition::Unconditional => (Some(target), None),
+                    _ => {
+                        let false_label = self.next_block();
+                        let block_exit = ir::IrLine::new_jump(
+                            SourceLoc::none(),
+                            false_label,
+                            ir::JumpCondition::Unconditional,
+                        );
+                        self.append_statement_to_block_raw(block_exit, label);
+                        (Some(target), Some(false_label))
                     }
-                    _ => panic!("Block exit jump not present"),
-                },
-                _ => panic!("Block exit jump not present"),
+                }
             }
-        } else {
-            None
+            _ => (None, None),
         }
     }
 

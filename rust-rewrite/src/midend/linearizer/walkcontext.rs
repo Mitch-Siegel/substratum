@@ -43,42 +43,37 @@ impl WalkContext {
         self.control_flow
     }
 
-    pub fn append_to_current_block(&mut self, statement: ir::IrLine) {
-        // TODO: look at moving conditional jump handling entirey to this function?
-        let old_current_block = self.current_block;
-        // appending the statement, the control flow will tell us if we have a conditional jump
-        // it does this by generating an unconditional jump immediately after, and passing back (optionally)
-        // a reference to the target field of that jump for us to populate
-        let need_new_current_block = self
-            .control_flow
-            .append_statement_to_block(statement, self.current_block);
-
-        // if control_flow.append_statement_to_block() gave us something
-        let set_current_to_max = match need_new_current_block {
-            Some(jump_target_new_block) => {
-                // bump the new current block, and set the target of the follow-up unconditional jump to that block
-                let new_current = self.max_block + 1;
-                *jump_target_new_block = new_current;
-
-                // rewrite existing jumps for branch/convergence points to instead point to our new current label
-                for label in &mut self.branch_points {
-                    if *label == old_current_block {
-                        *label = *jump_target_new_block;
-                    }
-                }
-
-                for label in &mut self.convergence_points {
-                    if *label == old_current_block {
-                        *label = *jump_target_new_block;
-                    }
-                }
-
-                // set our current block and actually update the max block
-                self.current_block = self.max_block;
-                self.max_block += 1;
+    fn replace_branch_and_convergence_points(&mut self, old_block: usize, new_block: usize) {
+        for label in &mut self.branch_points {
+            if *label == old_block {
+                *label = new_block;
             }
-            None => {}
-        };
+        }
+
+        for label in &mut self.convergence_points {
+            if *label == old_block {
+                *label = new_block;
+            }
+        }
+    }
+
+    // appends the given statement to the current basic block
+    // if the statement is any sort of branch, the current block will be updated to be the target of the branch
+    // if the branch is conditional, the function returns Some(false_label) where false_label is the target of the
+    // block control flows to when the condition is not met
+    // for unconditional branches and other statements, returns None
+    pub fn append_to_current_block(&mut self, statement: ir::IrLine) -> Option<usize> {
+        match self
+            .control_flow
+            .append_statement_to_block(statement, self.current_block)
+        {
+            (Some(new_current), false_label) => {
+                self.replace_branch_and_convergence_points(self.current_block, new_current);
+                self.set_current_block(new_current);
+                false_label
+            }
+            (None, _) => None,
+        }
     }
 
     fn create_branching_point(&mut self) {
@@ -107,7 +102,7 @@ impl WalkContext {
         self.create_convergence_point(loc);
     }
 
-    pub fn create_branch(&mut self, loc: SourceLoc, condition: ir::JumpCondition) {
+    pub fn create_branch(&mut self, loc: SourceLoc, condition: ir::JumpCondition) -> Option<usize> {
         assert!(self.branch_points.len() > 0);
         assert!(self.convergence_points.len() > 0);
         assert!(*self.branch_points.last().unwrap() == self.current_block);
@@ -120,8 +115,7 @@ impl WalkContext {
         );
 
         let branch_ir = ir::IrLine::new_jump(loc, branch_target, condition);
-        self.append_to_current_block(branch_ir);
-        self.set_current_block(branch_target);
+        return self.append_to_current_block(branch_ir);
     }
 
     // assuming the control flow is branched from a branch point with a convergence block set up
@@ -143,14 +137,8 @@ impl WalkContext {
             converge_to,
             ir::JumpCondition::Unconditional,
         );
+        // ignore return value - appending an unconditional jump
         self.append_to_current_block(convergence_jump);
-
-        self.set_current_block(
-            *self
-                .branch_points
-                .last()
-                .expect("WalkContext::finish_branch expects valid branch point to return to"),
-        );
     }
 
     pub fn finish_branch_and_finalize_convergence(&mut self) {
@@ -164,10 +152,8 @@ impl WalkContext {
             converge_to,
             ir::JumpCondition::Unconditional,
         );
-
+        // ignore return value - appending an unconditional jump
         self.append_to_current_block(convergence_jump);
-
-        self.set_current_block(converge_to);
     }
 
     pub fn create_loop(
@@ -176,9 +162,18 @@ impl WalkContext {
         condition: ast::ExpressionTree,
         body: ast::CompoundStatementTree,
     ) {
-        let loop_top = self.next_block(loc);
+        // FUTURE: check branch/convergence points are consistent before vs after walking body?
+
+        let loop_entry = ir::IrLine::new_jump(
+            SourceLoc::none(),
+            self.next_block(loc),
+            ir::JumpCondition::Unconditional,
+        );
+        // ignore return value - appending an unconditional jump
+        self.append_to_current_block(loop_entry);
+
+        let loop_top = self.current_block;
         let after_loop = self.next_block(loc);
-        self.set_current_block(loop_top);
 
         // FUTURE: optimize condition handling to use different jumps
         let condition_result = condition.walk(loc, self);
@@ -188,12 +183,16 @@ impl WalkContext {
         ));
 
         let loop_false_jump = ir::IrLine::new_jump(loc, after_loop, loop_false_condition);
-        self.append_to_current_block(loop_false_jump);
+        let after_loop = self
+            .append_to_current_block(loop_false_jump)
+            .expect("Expected loop conditonal jump to return target for when condition not met");
 
         body.walk(self);
         let looping_jump = ir::IrLine::new_jump(loc, loop_top, ir::JumpCondition::Unconditional);
+        // ignore return value - appending an unconditional jump
         self.append_to_current_block(looping_jump);
 
+        // done with loop
         self.set_current_block(after_loop);
     }
 
@@ -211,9 +210,8 @@ impl WalkContext {
 
         let exit_jump =
             ir::IrLine::new_jump(loc, new_label, ir::operands::JumpCondition::Unconditional);
+        // ignore return value - appending an unconditional jump
         self.append_to_current_block(exit_jump);
-
-        self.set_current_block(new_label);
         new_label
     }
 
