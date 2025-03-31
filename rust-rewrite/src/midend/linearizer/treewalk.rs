@@ -125,7 +125,7 @@ impl OperandWalk for ArithmeticOperationTree {
         };
 
         let operation = IrLine::new_binary_op(loc, op);
-        context.append_to_current_block(operation);
+        context.append_statement_to_current_block(operation);
         temp_dest
     }
 }
@@ -189,7 +189,7 @@ impl OperandWalk for ComparisonOperationTree {
             }
         };
         let operation = IrLine::new_binary_op(loc, op);
-        context.append_to_current_block(operation);
+        context.append_statement_to_current_block(operation);
         temp_dest
     }
 }
@@ -218,7 +218,7 @@ impl ContextWalk for AssignmentTree {
             ir::Operand::new_as_variable(self.identifier),
             self.value.walk(self.loc, context),
         );
-        context.append_to_current_block(assignment_ir);
+        context.append_statement_to_current_block(assignment_ir);
     }
 }
 
@@ -226,25 +226,29 @@ impl ContextWalk for IfStatementTree {
     fn walk(self, context: &mut WalkContext) {
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc.clone();
-        let condition_result = self.condition.walk(self.loc, context);
+        let condition_result = self.condition.walk(condition_loc, context);
         let if_condition = ir::JumpCondition::NE(ir::operands::DualSourceOperands::new(
             condition_result,
             ir::Operand::new_as_unsigned_decimal_constant(0),
         ));
 
-        context.create_branching_point_with_convergence(condition_loc);
-        context.create_branch(self.true_block.loc, if_condition);
+        let (_, maybe_else_label) = context.create_if_statement(self.loc, if_condition);
         self.true_block.walk(context);
-        context.finish_branch();
+        context.converge_current_block();
 
-        match self.false_block {
-            Some(false_block) => {
-                context.create_branch(false_block.loc, ir::operands::JumpCondition::Unconditional);
-                false_block.walk(context);
+        match (maybe_else_label, self.false_block) {
+            (Some(else_label), Some(else_block)) => {
+                context.set_current_block(else_label);
+                else_block.walk(context);
+                context.converge_current_block();
             }
-            None => {}
-        }
-        context.finish_branch_and_finalize_convergence();
+            (None, None) => {}
+            (_, _) => {
+                panic!(
+                    "Mismatched else label and else block - expect to have either both or neither"
+                );
+            }
+        };
     }
 }
 

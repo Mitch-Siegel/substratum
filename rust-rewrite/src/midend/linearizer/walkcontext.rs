@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use crate::{
     frontend::{ast, sourceloc::SourceLoc},
     midend::{ir, symtab, types::Type},
@@ -7,13 +9,12 @@ use super::treewalk::*;
 
 pub struct WalkContext {
     control_flow: ir::ControlFlow,
-    branch_points: Vec<usize>,
-    convergence_points: Vec<usize>,
+    branch_points: HashMap<usize, HashSet<usize>>, // map from branch origin to set of target blocks
+    convergence_points: HashMap<usize, usize>, // map of label -> label that block should jump to when done
     scopes: Vec<symtab::Scope>,
     // index of number of temporary variables used in this control flow (across all blocks)
     temp_num: usize,
     current_block: usize,
-    max_block: usize,
 }
 
 impl WalkContext {
@@ -21,40 +22,66 @@ impl WalkContext {
         let mut starter_flow = ir::ControlFlow::new();
         WalkContext {
             control_flow: starter_flow,
-            branch_points: vec![0],
-            convergence_points: vec![1],
+            branch_points: HashMap::<usize, HashSet<usize>>::new(),
+            convergence_points: HashMap::<usize, usize>::new(),
             scopes: Vec::new(),
             temp_num: 0,
             current_block: 0,
-            max_block: 1,
         }
     }
 
     pub fn take_control_flow(mut self) -> ir::ControlFlow {
-        match self.convergence_points.last() {
-            Some(1) => {
-                self.finish_branch_and_finalize_convergence();
-            }
-            _ => {}
-        }
-
         assert!(self.branch_points.len() == 0);
         assert!(self.convergence_points.len() == 0);
         self.control_flow
     }
 
     fn replace_branch_and_convergence_points(&mut self, old_block: usize, new_block: usize) {
-        for label in &mut self.branch_points {
-            if *label == old_block {
-                *label = new_block;
-            }
-        }
+        // replace all instances of old_block with new_block in both branch and convergence point tracking
+        self.branch_points = self
+            .branch_points
+            .iter()
+            .map(|(source, dest_set)| {
+                (
+                    if *source == old_block {
+                        new_block
+                    } else {
+                        *source
+                    },
+                    dest_set
+                        .into_iter()
+                        .map(|target| {
+                            if *target == old_block {
+                                new_block
+                            } else {
+                                *target
+                            }
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
 
-        for label in &mut self.convergence_points {
-            if *label == old_block {
-                *label = new_block;
+        self.convergence_points = self
+            .convergence_points
+            .iter()
+            .map(|(from, to)| {
+                (
+                    if *from == old_block { new_block } else { *from },
+                    if *to == old_block { new_block } else { *to },
+                )
+            })
+            .collect();
+    }
+
+    pub fn append_statement_to_current_block(&mut self, statement: ir::IrLine) {
+        match &statement.operation {
+            ir::Operations::Jump(_) => {
+                panic!("WalkContext::append_statement_to_current_block does NOT support jumps!")
             }
+            _ => {}
         }
+        self.append_to_current_block(statement);
     }
 
     // appends the given statement to the current basic block
@@ -62,7 +89,7 @@ impl WalkContext {
     // if the branch is conditional, the function returns Some(false_label) where false_label is the target of the
     // block control flows to when the condition is not met
     // for unconditional branches and other statements, returns None
-    pub fn append_to_current_block(&mut self, statement: ir::IrLine) -> Option<usize> {
+    fn append_to_current_block(&mut self, statement: ir::IrLine) -> Option<usize> {
         match self
             .control_flow
             .append_statement_to_block(statement, self.current_block)
@@ -76,84 +103,96 @@ impl WalkContext {
         }
     }
 
-    fn create_branching_point(&mut self) {
-        self.branch_points.push(self.current_block);
-        println!(
-            "Create branching point from {}",
-            self.branch_points.last().unwrap()
-        );
+    // creates a branch from the current block based on a condition
+    // returns (true_label, Some(false_label)) if branch is conditional, else (true_label, None)
+    fn create_branch_from_current(&mut self) -> usize {
+        let branch_target = self.control_flow.next_block();
+
+        // TODO: re-examine to see if checking is required here
+        self.branch_points
+            .entry(self.current_block)
+            .or_default()
+            .insert(branch_target);
+        branch_target
     }
 
-    fn create_convergence_point(&mut self, loc: SourceLoc) {
-        let convergence_point = self.next_block(loc);
-        self.convergence_points.push(convergence_point);
-        println!(
-            "Create branching point to {}",
-            self.convergence_points.last().unwrap()
-        );
+    fn add_branch_from_current(&mut self, target: usize) {
+        self.branch_points
+            .entry(self.current_block)
+            .or_default()
+            .insert(target);
     }
 
-    fn set_current_block(&mut self, label: usize) {
+    fn create_convergence_point_for_branch(&mut self, branch_from: usize) {
+        let convergence_point = self.control_flow.next_block();
+
+        for branch_target in self
+            .branch_points
+            .get(&branch_from)
+            .expect("Creation of convergence points requires existence of branch")
+        {
+            match self
+                .convergence_points
+                .insert(*branch_target, convergence_point)
+            {
+                Some(existing_convergence) => panic!(
+                    "Block {} already converges to block {}",
+                    branch_target, existing_convergence
+                ),
+                None => {}
+            }
+        }
+    }
+
+    fn converge_block(&mut self, block_label: usize) {
+        let converge_to = self
+            .convergence_points
+            .remove(&block_label)
+            .expect(&format!("Block {} has no convergence point", block_label));
+
+        let convergence_jump = ir::IrLine::new_jump(
+            SourceLoc::none(),
+            converge_to,
+            ir::JumpCondition::Unconditional,
+        );
+        // ignore return value - appending an unconditional jump
+        self.control_flow
+            .append_statement_to_block(convergence_jump, block_label);
+    }
+
+    pub fn converge_current_block(&mut self) {
+        let converge_to = self
+            .convergence_points
+            .remove(&self.current_block)
+            .expect(&format!(
+                "Block {} has no convergence point",
+                self.current_block
+            ));
+
+        let convergence_jump = ir::IrLine::new_jump(
+            SourceLoc::none(),
+            converge_to,
+            ir::JumpCondition::Unconditional,
+        );
+        // ignore return value - appending an unconditional jump
+        self.append_to_current_block(convergence_jump);
+    }
+
+    pub fn set_current_block(&mut self, label: usize) {
         self.current_block = label;
     }
 
-    pub fn create_branching_point_with_convergence(&mut self, loc: SourceLoc) {
-        self.create_branching_point();
-        self.create_convergence_point(loc);
-    }
+    pub fn create_if_statement(
+        &mut self,
+        loc: SourceLoc,
+        condition: ir::JumpCondition,
+    ) -> (usize, Option<usize>) {
+        let if_label = self.create_branch_from_current();
 
-    pub fn create_branch(&mut self, loc: SourceLoc, condition: ir::JumpCondition) -> Option<usize> {
-        assert!(self.branch_points.len() > 0);
-        assert!(self.convergence_points.len() > 0);
-        assert!(*self.branch_points.last().unwrap() == self.current_block);
+        let if_condition_jump = ir::IrLine::new_jump(loc, if_label, condition);
+        let else_label = self.append_to_current_block(if_condition_jump);
 
-        let branch_target = self.next_block(loc);
-
-        println!(
-            "Create branch from {}->{}",
-            self.current_block, branch_target
-        );
-
-        let branch_ir = ir::IrLine::new_jump(loc, branch_target, condition);
-        return self.append_to_current_block(branch_ir);
-    }
-
-    // assuming the control flow is branched from a branch point with a convergence block set up
-    // append an unconditional jump from the end of the current block to the convergence block
-    // then, set the current block back to the branch point
-    pub fn finish_branch(&mut self) {
-        let converge_to = *self
-            .convergence_points
-            .last()
-            .expect("WalkContext::converge_branch expects valid convergence point");
-
-        println!(
-            "Finish branch (converge from {}->{})",
-            self.current_block, converge_to
-        );
-
-        let convergence_jump = ir::IrLine::new_jump(
-            SourceLoc::none(),
-            converge_to,
-            ir::JumpCondition::Unconditional,
-        );
-        // ignore return value - appending an unconditional jump
-        self.append_to_current_block(convergence_jump);
-    }
-
-    pub fn finish_branch_and_finalize_convergence(&mut self) {
-        let converge_to = self.convergence_points.pop().expect(
-            "WalkContext::finish_branch_and_finalize_convergence expects valid convergence point",
-        );
-        assert!(self.branch_points.pop().is_some());
-
-        let convergence_jump = ir::IrLine::new_jump(
-            SourceLoc::none(),
-            converge_to,
-            ir::JumpCondition::Unconditional,
-        );
-        // ignore return value - appending an unconditional jump
-        self.append_to_current_block(convergence_jump);
+        (if_label, else_label)
     }
 
     pub fn create_loop(
@@ -166,14 +205,14 @@ impl WalkContext {
 
         let loop_entry = ir::IrLine::new_jump(
             SourceLoc::none(),
-            self.next_block(loc),
+            self.control_flow.next_block(),
             ir::JumpCondition::Unconditional,
         );
         // ignore return value - appending an unconditional jump
         self.append_to_current_block(loop_entry);
 
         let loop_top = self.current_block;
-        let after_loop = self.next_block(loc);
+        let after_loop = self.control_flow.next_block();
 
         // FUTURE: optimize condition handling to use different jumps
         let condition_result = condition.walk(loc, self);
@@ -202,17 +241,6 @@ impl WalkContext {
         self.scope()
             .insert_variable(symtab::Variable::new(temp_name.clone(), type_));
         ir::Operand::new_as_temporary(temp_name)
-    }
-
-    // finishes the current block, adds a jump to a new block, and sets that new block as the current
-    pub fn next_block(&mut self, loc: SourceLoc) -> usize {
-        let new_label = self.control_flow.max_block + 1;
-
-        let exit_jump =
-            ir::IrLine::new_jump(loc, new_label, ir::operands::JumpCondition::Unconditional);
-        // ignore return value - appending an unconditional jump
-        self.append_to_current_block(exit_jump);
-        new_label
     }
 
     pub fn push_scope(&mut self, scope: symtab::Scope) {
@@ -254,5 +282,57 @@ impl WalkContext {
             }
         }
         None
+    }
+}
+
+mod tests {
+    use crate::{
+        frontend::{ast, sourceloc::SourceLoc},
+        midend::{ir, linearizer::walkcontext::WalkContext, symtab},
+    };
+
+    fn assert_no_branch_or_convergence(context: WalkContext) {
+        assert!(context.branch_points.len() == 0);
+        assert!(context.convergence_points.len() == 0);
+    }
+
+    #[test]
+    fn walk_context_initial_state() {
+        let context = WalkContext::new();
+        assert_no_branch_or_convergence(context);
+    }
+
+    #[test]
+    fn append_statement() {
+        let mut context = WalkContext::new();
+        let assignment = ir::IrLine::new_assignment(
+            SourceLoc::none(),
+            ir::Operand::new_as_variable("dest".into()),
+            ir::Operand::new_as_variable("source".into()),
+        );
+        context.append_statement_to_current_block(assignment);
+
+        assert_no_branch_or_convergence(context);
+    }
+
+    #[test]
+    fn create_loop() {
+        let mut context = WalkContext::new();
+        context.push_scope(symtab::Scope::new());
+
+        context.create_loop(
+            SourceLoc::none(),
+            ast::ExpressionTree {
+                loc: SourceLoc::none(),
+                expression: { ast::Expression::UnsignedDecimalConstant(123) },
+            },
+            ast::CompoundStatementTree {
+                loc: SourceLoc::none(),
+                statements: Vec::new(),
+            },
+        );
+
+        context.control_flow.to_graphviz();
+        assert_no_branch_or_convergence(context);
     }
 }

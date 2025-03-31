@@ -44,7 +44,7 @@ impl ControlFlow {
             .or_insert(ir::BasicBlock::new(label))
     }
 
-    fn next_block(&mut self) -> usize {
+    pub fn next_block(&mut self) -> usize {
         self.max_block += 1;
         self.max_block
     }
