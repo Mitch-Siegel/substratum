@@ -233,7 +233,7 @@ impl ContextWalk for IfStatementTree {
         ));
 
         let (_, maybe_else_label) =
-            context.create_conditional_branch_from_current(self.loc, if_condition);
+            context.create_conditional_branch_from_current(condition_loc, if_condition);
         self.true_block.walk(context);
         context.converge_current_block();
 
@@ -255,7 +255,11 @@ impl ContextWalk for IfStatementTree {
 
 impl ContextWalk for WhileLoopTree {
     fn walk(self, context: &mut WalkContext) {
-        context.create_loop(self.loc, self.condition, self.body);
+        let loop_done = context.create_loop(self.loc, self.condition);
+
+        self.body.walk(context);
+        context.converge_current_block();
+        context.set_current_block(loop_done);
     }
 }
 
