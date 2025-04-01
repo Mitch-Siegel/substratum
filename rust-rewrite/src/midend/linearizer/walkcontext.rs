@@ -291,7 +291,10 @@ impl WalkContext {
 }
 
 mod tests {
-    use crate::midend::linearizer::walkcontext::WalkContext;
+    use crate::{
+        frontend::{ast, sourceloc::SourceLoc},
+        midend::{ir, linearizer::walkcontext::WalkContext, symtab},
+    };
 
     fn assert_no_remaining_convergences(context: WalkContext) {
         // allow convergence to block 1 as that should be the final block in the control flow
@@ -508,36 +511,6 @@ mod tests {
 
         assert_no_remaining_convergences(context);
     }
-    // #[test]
-    // fn create_unconditional_branch() {
-    //     let mut context = WalkContext::new();
-
-    //     let branch_from = context.current_block;
-    //     let (true_label, false_label) =
-    //         context.create_conditional_branch_from_current(SourceLoc::none(), ir::JumpCondition::Unconditional);
-    //     assert_branch(&context, branch_from, true_label);
-
-    //     assert_eq!(true_label, 2);
-    //     assert_eq!(false_label, None);
-    // }
-
-    // #[test]
-    // fn create_conditional_branch() {
-    //     let mut context = WalkContext::new();
-
-    //     let (true_label, false_label) = context.create_conditional_branch_from_current(
-    //         SourceLoc::none(),
-    //         ir::JumpCondition::Eq(ir::DualSourceOperands {
-    //             a: ir::Operand::new_as_variable("eq_a".into()),
-    //             b: ir::Operand::new_as_variable("eq_b".into()),
-    //         }),
-    //     );
-    //     assert_branch(&context, 0, 2);
-    //     assert_branch(&context, 0, 3);
-
-    //     assert_eq!(true_label, 2);
-    //     assert_eq!(false_label, Some(3));
-    // }
 
     #[test]
     fn create_loop() {

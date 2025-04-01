@@ -1,7 +1,4 @@
-use crate::{
-    frontend::sourceloc::SourceLoc,
-    midend::ir::{OperandName, Operations},
-};
+use crate::{frontend::sourceloc::SourceLoc, midend::ir::*};
 
 use super::{IrLine, Operand};
 

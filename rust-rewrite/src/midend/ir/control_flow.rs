@@ -220,6 +220,7 @@ impl ControlFlow {
 }
 
 mod tests {
+    use crate::midend::ir::*;
 
     #[test]
     fn starter_blocks() {
