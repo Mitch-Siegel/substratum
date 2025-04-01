@@ -290,6 +290,7 @@ impl WalkContext {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::{
         frontend::{ast, sourceloc::SourceLoc},

@@ -290,6 +290,7 @@ impl Display for JumpCondition {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use std::cmp::Ordering;
 
