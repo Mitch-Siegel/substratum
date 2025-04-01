@@ -117,7 +117,7 @@ where
             first_iteration = false;
             self.store_facts_as_last();
 
-            for block in self.control_flow {
+            for (_, block) in &self.control_flow.blocks {
                 self.analyze_block_forwards(block);
             }
         }
@@ -126,9 +126,9 @@ where
     fn analyze_backward(&mut self) {
         // let mut first_iteration = true;
         // while !self.reached_fixpoint() || first_iteration {
-            unimplemented!();
-            // first_iteration = false;
-            // self.store_facts_as_last();
+        unimplemented!();
+        // first_iteration = false;
+        // self.store_facts_as_last();
         // }
     }
 

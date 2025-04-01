@@ -1,4 +1,7 @@
-use crate::frontend::sourceloc::SourceLoc;
+use crate::{
+    frontend::sourceloc::SourceLoc,
+    hashmap_ooo_iter::{HashMapOOOIter, HashMapOOOIterMut},
+};
 
 use super::ir;
 use serde::Serialize;
@@ -174,26 +177,26 @@ impl<T> Iterator for ControlFlowIntoIter<T> {
 
 // TODO: are the postorder and reverse postorder named opposite right now? Need to actually check this...
 impl ControlFlow {
-    fn generate_postorder_stack(&self) -> VecDeque<usize> {
-        let mut postorder_stack = VecDeque::<usize>::new();
+    fn generate_postorder_stack(&self) -> Vec<usize> {
+        let mut postorder_stack = Vec::<usize>::new();
         postorder_stack.clear();
         let mut visited = HashSet::<usize>::new();
 
-        let mut dfs_stack = VecDeque::<usize>::new();
-        dfs_stack.push_back(0);
+        let mut dfs_stack = Vec::<usize>::new();
+        dfs_stack.push(0);
 
         // go until done
         while dfs_stack.len() > 0 {
-            match dfs_stack.pop_back() {
+            match dfs_stack.pop() {
                 Some(label) => {
                     // only visit once
                     if !visited.contains(&label) {
                         visited.insert(label);
 
-                        postorder_stack.push_back(label);
+                        postorder_stack.push(label);
 
                         for successor in &self.block_for_label(&label).successors {
-                            dfs_stack.push_back(*successor);
+                            dfs_stack.push(*successor);
                         }
                     }
                 }
@@ -203,64 +206,16 @@ impl ControlFlow {
         postorder_stack
     }
 
-    pub fn iter(&self) -> ControlFlowIter<'_> {
+    pub fn blocks_postorder(&self) -> HashMapOOOIter<usize, ir::BasicBlock> {
         let postorder_stack = self.generate_postorder_stack();
 
-        ControlFlowIter {
-            postorder_stack: postorder_stack
-                .into_iter()
-                .map(|label| self.block_for_label(&label))
-                .collect(),
-        }
+        HashMapOOOIter::new(&self.blocks, postorder_stack)
     }
-}
 
-impl<'a> IntoIterator for &'a ControlFlow {
-    type Item = &'a ir::BasicBlock;
-
-    type IntoIter = ControlFlowIntoIter<&'a ir::BasicBlock>;
-
-    fn into_iter(self) -> Self::IntoIter {
+    pub fn blocks_postorder_mut(&mut self) -> HashMapOOOIterMut<usize, ir::BasicBlock> {
         let postorder_stack = self.generate_postorder_stack();
 
-        ControlFlowIntoIter::<&'a ir::BasicBlock> {
-            postorder_stack: postorder_stack
-                .into_iter()
-                .map(|label| self.block_for_label(&label))
-                .collect(),
-        }
-    }
-}
-
-impl IntoIterator for ControlFlow {
-    type Item = ir::BasicBlock;
-
-    type IntoIter = ControlFlowIntoIter<ir::BasicBlock>;
-
-    fn into_iter(mut self) -> Self::IntoIter {
-        let postorder_stack = self.generate_postorder_stack();
-        ControlFlowIntoIter {
-            postorder_stack: postorder_stack
-                .into_iter()
-                .map(|label| self.blocks.remove(&label).unwrap())
-                .collect(),
-        }
-    }
-}
-
-impl FromIterator<ir::BasicBlock> for ControlFlow {
-    fn from_iter<T: IntoIterator<Item = ir::BasicBlock>>(iter: T) -> Self {
-        let mut max_block = usize::MIN;
-        let mut blocks = HashMap::new();
-
-        let mut into = iter.into_iter();
-
-        while let Some(block) = into.next() {
-            max_block = usize::max(max_block, block.label);
-            blocks.insert(block.label, block);
-        }
-
-        ControlFlow { max_block, blocks }
+        HashMapOOOIterMut::new(&mut self.blocks, postorder_stack)
     }
 }
 

@@ -47,9 +47,9 @@ impl SsaWriteConversionMetadata {
 }
 
 fn convert_block_writes_to_ssa(
-    mut block: ir::BasicBlock,
+    block: &mut ir::BasicBlock,
     metadata: &mut SsaWriteConversionMetadata,
-) -> ir::BasicBlock {
+) {
     let old_args = block.arguments.clone();
     block.arguments.clear();
 
@@ -64,22 +64,15 @@ fn convert_block_writes_to_ssa(
             write.ssa_number = Some(metadata.next_number_for_variable(write));
         }
     }
-
-    block
 }
 
-pub fn convert_writes_to_ssa(mut function: symtab::Function) -> symtab::Function {
+pub fn convert_writes_to_ssa(function: &mut symtab::Function) {
     let mut write_conversion_metadata = SsaWriteConversionMetadata::new();
     for argument in &function.prototype.arguments {
         write_conversion_metadata.next_number_for_string(argument.name());
     }
 
-    function.control_flow = ir::ControlFlow::from_iter(
-        function
-            .control_flow
-            .into_iter()
-            .map(|block| convert_block_writes_to_ssa(block, &mut write_conversion_metadata)),
-    );
-
-    function
+    for (_, block) in function.control_flow.blocks_postorder_mut() {
+        convert_block_writes_to_ssa(block, &mut write_conversion_metadata)
+    }
 }
