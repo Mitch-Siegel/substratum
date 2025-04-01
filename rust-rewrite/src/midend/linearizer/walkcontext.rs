@@ -20,10 +20,14 @@ pub struct WalkContext {
 impl WalkContext {
     pub fn new() -> WalkContext {
         let mut starter_flow = ir::ControlFlow::new();
+
+        let mut convergence_points = HashMap::<usize, usize>::new();
+        convergence_points.insert(0, 1);
+
         WalkContext {
             control_flow: starter_flow,
             branch_points: HashMap::<usize, HashSet<usize>>::new(),
-            convergence_points: HashMap::<usize, usize>::new(),
+            convergence_points,
             scopes: Vec::new(),
             temp_num: 0,
             current_block: 0,
@@ -31,8 +35,9 @@ impl WalkContext {
     }
 
     pub fn take_control_flow(mut self) -> ir::ControlFlow {
-        assert!(self.branch_points.len() == 0);
-        assert!(self.convergence_points.len() == 0);
+        for (from, to) in self.convergence_points.clone() {
+            assert_eq!(self.converge_block(from), to); // TODO: need assert?
+        }
         self.control_flow
     }
 
@@ -104,47 +109,65 @@ impl WalkContext {
     }
 
     // creates a branch from the current block based on a condition
-    // returns (true_label, Some(false_label)) if branch is conditional, else (true_label, None)
+    // returns
     fn create_branch_from_current(&mut self) -> usize {
         let branch_target = self.control_flow.next_block();
 
-        // TODO: re-examine to see if checking is required here
+        match self.branch_points.get(&self.current_block) {
+            Some(_) => panic!("create_branch_from_current called with existing branch"),
+            None => {
+                self.branch_points
+                    .insert(self.current_block, HashSet::new());
+            }
+        };
+
         self.branch_points
-            .entry(self.current_block)
-            .or_default()
+            .get_mut(&self.current_block)
+            .unwrap()
             .insert(branch_target);
         branch_target
     }
 
     fn add_branch_from_current(&mut self, target: usize) {
         self.branch_points
-            .entry(self.current_block)
-            .or_default()
+            .get_mut(&self.current_block)
+            .expect("add_branch_from_current expects existing branch")
             .insert(target);
     }
 
-    fn create_convergence_point_for_branch(&mut self, branch_from: usize) {
-        let convergence_point = self.control_flow.next_block();
+    fn create_convergence_points_for_branch(&mut self, branch_from: usize) -> usize {
+        let convergence_point = match self.convergence_points.get(&branch_from) {
+            Some(existing_convergence) => *existing_convergence,
+            None => self.control_flow.next_block(),
+        };
 
         for branch_target in self
             .branch_points
             .get(&branch_from)
-            .expect("Creation of convergence points requires existence of branch")
+            .expect("Creation of convergence points requires existence of branches")
         {
             match self
                 .convergence_points
                 .insert(*branch_target, convergence_point)
             {
-                Some(existing_convergence) => panic!(
-                    "Block {} already converges to block {}",
-                    branch_target, existing_convergence
-                ),
+                Some(existing_convergence) => {
+                    if (existing_convergence != convergence_point) {
+                        panic!(
+                            "Block {} already converges to block {}",
+                            branch_target, existing_convergence
+                        )
+                    }
+                }
                 None => {}
             }
         }
+
+        convergence_point
     }
 
-    fn converge_block(&mut self, block_label: usize) {
+    // append an unconditional jump from the end of block_label to its convergence point
+    // return the block to which control has converged
+    fn converge_block(&mut self, block_label: usize) -> usize {
         let converge_to = self
             .convergence_points
             .remove(&block_label)
@@ -158,41 +181,35 @@ impl WalkContext {
         // ignore return value - appending an unconditional jump
         self.control_flow
             .append_statement_to_block(convergence_jump, block_label);
+        converge_to
     }
 
     pub fn converge_current_block(&mut self) {
-        let converge_to = self
-            .convergence_points
-            .remove(&self.current_block)
-            .expect(&format!(
-                "Block {} has no convergence point",
-                self.current_block
-            ));
-
-        let convergence_jump = ir::IrLine::new_jump(
-            SourceLoc::none(),
-            converge_to,
-            ir::JumpCondition::Unconditional,
-        );
-        // ignore return value - appending an unconditional jump
-        self.append_to_current_block(convergence_jump);
+        let converged_to = self.converge_block(self.current_block);
+        self.set_current_block(converged_to);
     }
 
     pub fn set_current_block(&mut self, label: usize) {
         self.current_block = label;
     }
 
-    pub fn create_if_statement(
+    pub fn create_conditional_branch_from_current(
         &mut self,
         loc: SourceLoc,
         condition: ir::JumpCondition,
     ) -> (usize, Option<usize>) {
-        let if_label = self.create_branch_from_current();
+        let true_label = self.create_branch_from_current();
 
-        let if_condition_jump = ir::IrLine::new_jump(loc, if_label, condition);
-        let else_label = self.append_to_current_block(if_condition_jump);
+        let true_condition_jump = ir::IrLine::new_jump(loc, true_label, condition);
+        let maybe_false_label = self.append_to_current_block(true_condition_jump);
+        match maybe_false_label {
+            Some(false_label) => self.add_branch_from_current(false_label),
+            None => {}
+        }
 
-        (if_label, else_label)
+        self.create_convergence_points_for_branch(self.current_block);
+
+        (true_label, maybe_false_label)
     }
 
     pub fn create_loop(
@@ -291,15 +308,29 @@ mod tests {
         midend::{ir, linearizer::walkcontext::WalkContext, symtab},
     };
 
-    fn assert_no_branch_or_convergence(context: WalkContext) {
-        assert!(context.branch_points.len() == 0);
-        assert!(context.convergence_points.len() == 0);
+    fn assert_no_remaining_convergences(context: WalkContext) {
+        // allow convergence to block 1 as that should be the final block in the control flow
+        for (from, to) in context.convergence_points {
+            assert_eq!(to, 1);
+        }
+    }
+
+    fn assert_branch(context: &WalkContext, from: usize, to: usize) {
+        let branches = context.branch_points.get(&from);
+        assert!(branches.is_some());
+        let branches = branches.unwrap();
+        assert!(branches.contains(&to));
+    }
+
+    fn assert_convergence(context: &WalkContext, from: usize, to: usize) {
+        let convergence = context.convergence_points.get(&from);
+        assert_eq!(convergence, Some(&to));
     }
 
     #[test]
     fn walk_context_initial_state() {
         let context = WalkContext::new();
-        assert_no_branch_or_convergence(context);
+        assert_no_remaining_convergences(context);
     }
 
     #[test]
@@ -312,8 +343,216 @@ mod tests {
         );
         context.append_statement_to_current_block(assignment);
 
-        assert_no_branch_or_convergence(context);
+        assert_no_remaining_convergences(context);
     }
+
+    #[test]
+    fn create_branch() {
+        let mut context = WalkContext::new();
+
+        let branch_from = context.current_block;
+        let branch_to = context.create_branch_from_current();
+        assert_branch(&context, branch_from, branch_to);
+        assert_eq!(branch_to, 2);
+    }
+
+    #[test]
+    fn add_branch() {
+        let mut context = WalkContext::new();
+
+        let branch_from = context.current_block;
+        let branch_to = context.create_branch_from_current();
+
+        let second_branch_to = context.control_flow.next_block();
+        context.add_branch_from_current(second_branch_to);
+
+        assert_branch(&context, branch_from, branch_to);
+        assert_branch(&context, branch_from, second_branch_to);
+        assert_eq!(branch_to, 2);
+        assert_eq!(second_branch_to, 3);
+    }
+
+    #[test]
+    fn simple_branch_convergence_points() {
+        let mut context = WalkContext::new();
+
+        // branch from the current block to somewhere
+        let branch_from = context.current_block;
+        let branch_to = context.create_branch_from_current();
+        assert_branch(&context, branch_from, branch_to);
+        assert_eq!(branch_to, 2);
+
+        // create our convergence point, and assert that we converge back to it
+        let converge_to = context.create_convergence_points_for_branch(branch_from);
+        assert_convergence(&context, branch_to, converge_to);
+    }
+
+    #[test]
+    fn complex_branch_convergence_points() {
+        let mut context = WalkContext::new();
+
+        // branch from the current block to somewhere
+        let branch_from = context.current_block;
+        let branch_to = context.create_branch_from_current();
+        assert_branch(&context, branch_from, branch_to);
+
+        // also branch to a second place
+        let second_branch_to = context.control_flow.next_block();
+        context.add_branch_from_current(second_branch_to);
+
+        // create the convergence point and assert that both branch targets converge to it
+        let converge_to = context.create_convergence_points_for_branch(branch_from);
+        assert_convergence(&context, branch_to, converge_to);
+        assert_convergence(&context, second_branch_to, converge_to);
+    }
+
+    #[test]
+    fn simple_multiple_branch_convergence_points() {
+        let mut context = WalkContext::new();
+
+        // branch from the current block to somewhere
+        let branch_from = context.current_block;
+        let branch_to = context.create_branch_from_current();
+        assert_branch(&context, branch_from, branch_to);
+
+        // create our convergence point, and assert that we converge back to it
+        let converge_to = context.create_convergence_points_for_branch(branch_from);
+        assert_convergence(&context, branch_to, converge_to);
+
+        // now, create a second nested branch within the first branch
+        context.set_current_block(branch_to);
+        let nested_branch_from = context.current_block;
+        let nested_branch_to = context.create_branch_from_current();
+        assert_branch(&context, nested_branch_from, nested_branch_to);
+
+        // create our convergence point, and assert that we converge back to it
+        let nested_converge_to = context.create_convergence_points_for_branch(nested_branch_from);
+        assert_convergence(&context, nested_branch_to, nested_converge_to);
+    }
+
+    // test a branch with 2 targets, nested in a branch with one target
+    #[test]
+    fn complex_multiple_branch_convergence_points() {
+        let mut context = WalkContext::new();
+
+        // branch from the current block to somewhere
+        let branch_from = context.current_block;
+        let branch_to = context.create_branch_from_current();
+        assert_branch(&context, branch_from, branch_to);
+
+        // create our convergence point, and assert that we converge back to it
+        let converge_to = context.create_convergence_points_for_branch(branch_from);
+        assert_convergence(&context, branch_to, converge_to);
+
+        // now, create a second nested branch within the first branch
+        context.set_current_block(branch_to);
+        let nested_branch_from = context.current_block;
+        let nested_branch_to = context.create_branch_from_current();
+        assert_branch(&context, nested_branch_from, nested_branch_to);
+
+        // and add to that second branch a second target
+        let second_nested_branch_to = context.control_flow.next_block();
+        context.add_branch_from_current(second_nested_branch_to);
+        assert_branch(&context, nested_branch_from, second_nested_branch_to);
+
+        // create our convergence point, and assert that we converge back to it
+        let nested_converge_to = context.create_convergence_points_for_branch(nested_branch_from);
+        assert_convergence(&context, nested_branch_to, nested_converge_to);
+        assert_convergence(&context, nested_branch_to, nested_converge_to);
+    }
+
+    // test a branch with 1 target, nested within a branch with 2 targets
+    #[test]
+    fn complex_multiple_branch_convergence_points_2() {
+        let mut context = WalkContext::new();
+
+        // branch from the current block to somewhere
+        let branch_from = context.current_block;
+        let branch_to = context.create_branch_from_current();
+        assert_branch(&context, branch_from, branch_to);
+
+        // also branch to a second place
+        let second_branch_to = context.control_flow.next_block();
+        context.add_branch_from_current(second_branch_to);
+        assert_branch(&context, branch_from, second_branch_to);
+
+        // create our convergence point, and assert that we converge back to it
+        let converge_to = context.create_convergence_points_for_branch(branch_from);
+        assert_convergence(&context, branch_to, converge_to);
+        assert_convergence(&context, second_branch_to, converge_to);
+
+        // now, create a second nested branch within the first branch
+        context.set_current_block(branch_to);
+        let nested_branch_to = context.create_branch_from_current();
+        assert_branch(&context, branch_to, nested_branch_to);
+
+        // create our convergence point, and assert that we converge back to it
+        let nested_converge_to = context.create_convergence_points_for_branch(branch_to);
+        assert_convergence(&context, branch_to, nested_converge_to);
+
+        // and re-assert our original convergence
+        assert_convergence(&context, branch_to, converge_to);
+        assert_convergence(&context, second_branch_to, converge_to);
+    }
+
+    #[test]
+    fn converge_block() {
+        let mut context = WalkContext::new();
+
+        let branch_from = context.current_block;
+        let branch_to = context.create_branch_from_current();
+        let converge_to = context.create_convergence_points_for_branch(branch_from);
+
+        assert_eq!(context.converge_block(branch_to), converge_to);
+
+        assert_no_remaining_convergences(context);
+    }
+
+    #[test]
+    fn converge_current_block() {
+        let mut context = WalkContext::new();
+
+        let branch_from = context.current_block;
+        let branch_to = context.create_branch_from_current();
+        let converge_to = context.create_convergence_points_for_branch(branch_from);
+
+        context.set_current_block(branch_to);
+        context.converge_current_block();
+
+        assert_eq!(context.current_block, converge_to);
+
+        assert_no_remaining_convergences(context);
+    }
+    // #[test]
+    // fn create_unconditional_branch() {
+    //     let mut context = WalkContext::new();
+
+    //     let branch_from = context.current_block;
+    //     let (true_label, false_label) =
+    //         context.create_conditional_branch_from_current(SourceLoc::none(), ir::JumpCondition::Unconditional);
+    //     assert_branch(&context, branch_from, true_label);
+
+    //     assert_eq!(true_label, 2);
+    //     assert_eq!(false_label, None);
+    // }
+
+    // #[test]
+    // fn create_conditional_branch() {
+    //     let mut context = WalkContext::new();
+
+    //     let (true_label, false_label) = context.create_conditional_branch_from_current(
+    //         SourceLoc::none(),
+    //         ir::JumpCondition::Eq(ir::DualSourceOperands {
+    //             a: ir::Operand::new_as_variable("eq_a".into()),
+    //             b: ir::Operand::new_as_variable("eq_b".into()),
+    //         }),
+    //     );
+    //     assert_branch(&context, 0, 2);
+    //     assert_branch(&context, 0, 3);
+
+    //     assert_eq!(true_label, 2);
+    //     assert_eq!(false_label, Some(3));
+    // }
 
     #[test]
     fn create_loop() {
@@ -332,7 +571,6 @@ mod tests {
             },
         );
 
-        context.control_flow.to_graphviz();
-        assert_no_branch_or_convergence(context);
+        assert_no_remaining_convergences(context);
     }
 }

@@ -232,7 +232,8 @@ impl ContextWalk for IfStatementTree {
             ir::Operand::new_as_unsigned_decimal_constant(0),
         ));
 
-        let (_, maybe_else_label) = context.create_if_statement(self.loc, if_condition);
+        let (_, maybe_else_label) =
+            context.create_conditional_branch_from_current(self.loc, if_condition);
         self.true_block.walk(context);
         context.converge_current_block();
 
