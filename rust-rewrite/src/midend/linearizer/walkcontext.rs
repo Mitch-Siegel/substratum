@@ -142,18 +142,11 @@ impl WalkContext {
         match self.convergence_points.insert(from, to) {
             Some(existing_convergence) => {
                 if existing_convergence != to {
-                    panic!(
-                        "Block {} already converges to block {} - can't converge to {}",
-                        from, existing_convergence, to
-                    )
+                    self.add_convergence_point_for_branch(to, existing_convergence);
                 }
             }
             None => {}
         }
-    }
-
-    fn supercede_convergence_point_for_block(&mut self, from: usize, to: usize) {
-        self.convergence_points.insert(from, to);
     }
 
     fn create_convergence_points_for_branch(&mut self, branch_from: usize) -> usize {
@@ -216,42 +209,33 @@ impl WalkContext {
             None => {}
         }
 
-        self.create_convergence_points_for_branch(self.current_block);
+        self.create_convergence_points_for_branch(branch_origin);
 
         (true_label, maybe_false_label)
     }
 
     ///returns the label which control jumps to after the loop
     pub fn create_loop(&mut self, loc: SourceLoc, condition: ast::ExpressionTree) -> usize {
-        println!("Entering loop from {}", self.current_block);
+        // first, jump to a fresh block which will be the top of the loop
         let loop_top = self.control_flow.next_block();
-
         let loop_entry = ir::IrLine::new_jump(loc, loop_top, ir::JumpCondition::Unconditional);
         // ignore return value - appending an unconditional jump
         self.append_to_current_block(loop_entry);
-        println!("Entered loop - now in {}", self.current_block);
 
         // FUTURE: optimize condition walk to use different jumps
+        // check the condition of the loop, giving us the loop body and loop done labels
         let condition_loc = condition.loc.clone();
         let condition_result = condition.walk(condition_loc, self);
-        let condition = ir::JumpCondition::NE(ir::operands::DualSourceOperands::new(
+        let loop_condition = ir::JumpCondition::NE(ir::operands::DualSourceOperands::new(
             condition_result,
             ir::Operand::new_as_unsigned_decimal_constant(0),
         ));
-        let (loop_body, loop_done_label) =
-            self.create_conditional_branch_from_current(condition_loc, condition);
+        let (_, loop_done_label) =
+            self.create_conditional_branch_from_current(condition_loc, loop_condition);
         let loop_done_label = loop_done_label.unwrap();
 
-        self.supercede_convergence_point_for_block(self.current_block, loop_top);
-        println!(
-            "loop_body: {}, loop_done: {}, current: {}",
-            loop_body, loop_done_label, self.current_block
-        );
-        println!("Convergences: {:?}", self.convergence_points);
-        println!("Branches: {:?}", self.branch_points);
-
-        // let old_convergence = *self.convergence_points.get(&self.current_block).unwrap();
-        // self.supercede_convergence_point_for_block(loop_top, old_convergence);
+        self.convergence_points.insert(self.current_block, loop_top);
+        self.converge_block(loop_done_label);
 
         loop_done_label
     }
@@ -576,9 +560,10 @@ mod tests {
         assert_ne!(before_loop, context.current_block);
         assert_ne!(loop_done, context.current_block);
 
-        context.control_flow.to_graphviz();
+        context.converge_current_block();
+        context.set_current_block(loop_done);
 
-        println!("{:?}", context.convergence_points);
+        context.control_flow.to_graphviz();
 
         assert_no_remaining_convergences(context);
     }
