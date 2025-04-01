@@ -3,7 +3,7 @@ pub mod operands;
 pub mod operations;
 mod tests;
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use std::fmt::Display;
 
 use crate::frontend::sourceloc::SourceLoc;
@@ -13,8 +13,6 @@ use serde::Serialize;
 pub use control_flow::ControlFlow;
 pub use operands::*;
 pub use operations::*;
-
-use super::program_point::ProgramPoint;
 
 #[derive(Debug, Serialize, Clone)]
 pub struct IrLine {

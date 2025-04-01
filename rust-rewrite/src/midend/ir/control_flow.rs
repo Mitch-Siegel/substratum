@@ -1,4 +1,4 @@
-use crate::{frontend::sourceloc::SourceLoc, hashmap_ooo_iter::HashMapOOOIter};
+use crate::frontend::sourceloc::SourceLoc;
 
 use super::ir;
 use serde::Serialize;
@@ -265,7 +265,6 @@ impl FromIterator<ir::BasicBlock> for ControlFlow {
 }
 
 mod tests {
-    use crate::{frontend::sourceloc::SourceLoc, midend::ir::*};
 
     #[test]
     fn starter_blocks() {

@@ -124,13 +124,12 @@ where
     }
 
     fn analyze_backward(&mut self) {
-        let mut first_iteration = true;
-        while !self.reached_fixpoint() || first_iteration {
-            first_iteration = false;
-            self.store_facts_as_last();
-
+        // let mut first_iteration = true;
+        // while !self.reached_fixpoint() || first_iteration {
             unimplemented!();
-        }
+            // first_iteration = false;
+            // self.store_facts_as_last();
+        // }
     }
 
     pub fn analyze(&mut self) {

@@ -1,9 +1,9 @@
 use crate::{
     frontend::sourceloc::SourceLoc,
-    midend::ir::{BinaryOperations, JumpCondition, OperandName, Operations},
+    midend::ir::{OperandName, Operations},
 };
 
-use super::{DualSourceOperands, IrLine, JumpOperation, Operand, SourceDestOperands};
+use super::{IrLine, Operand};
 
 #[test]
 fn ir_line_new_assignment() {

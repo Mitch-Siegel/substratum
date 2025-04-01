@@ -291,9 +291,6 @@ impl Display for JumpCondition {
 }
 
 mod tests {
-    use std::cmp::Ordering;
-
-    use crate::midend::ir::{Operand, OperandName};
 
     #[test]
     fn operand_name_ord() {

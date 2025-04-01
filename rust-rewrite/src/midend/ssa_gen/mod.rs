@@ -24,7 +24,7 @@ fn convert_function_to_ssa(mut function: symtab::Function) -> symtab::Function {
 }
 
 pub fn convert_functions_to_ssa(
-    mut functions: HashMap<String, symtab::FunctionOrPrototype>,
+    functions: HashMap<String, symtab::FunctionOrPrototype>,
 ) -> HashMap<String, symtab::FunctionOrPrototype> {
     let mut new_functions = HashMap::<String, symtab::FunctionOrPrototype>::new();
 

@@ -19,7 +19,7 @@ pub struct WalkContext {
 
 impl WalkContext {
     pub fn new() -> WalkContext {
-        let mut starter_flow = ir::ControlFlow::new();
+        let starter_flow = ir::ControlFlow::new();
 
         let mut convergence_points = HashMap::<usize, usize>::new();
         convergence_points.insert(0, 1);
@@ -291,10 +291,7 @@ impl WalkContext {
 }
 
 mod tests {
-    use crate::{
-        frontend::{ast, sourceloc::SourceLoc},
-        midend::{ir, linearizer::walkcontext::WalkContext, symtab},
-    };
+    use crate::midend::linearizer::walkcontext::WalkContext;
 
     fn assert_no_remaining_convergences(context: WalkContext) {
         // allow convergence to block 1 as that should be the final block in the control flow

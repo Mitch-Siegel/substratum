@@ -1,9 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::midend::{
-    idfa::{self, reaching_defs::IdfaImplementor},
-    ir, symtab,
-};
+use crate::midend::{idfa::reaching_defs::IdfaImplementor, ir, symtab};
 
 pub fn convert_reads_to_ssa(function: &mut symtab::Function) {
     for block in function.control_flow.blocks.values_mut() {

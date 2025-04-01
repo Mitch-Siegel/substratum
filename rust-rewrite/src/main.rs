@@ -6,7 +6,6 @@ mod hashmap_ooo_iter;
 
 use backend::generate_code;
 use frontend::{lexer::Lexer, parser::Parser};
-use midend::*;
 
 const FIB_FUN: &str = "fun fib(u8 n) -> u64
 {
