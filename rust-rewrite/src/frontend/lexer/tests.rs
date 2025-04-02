@@ -111,6 +111,26 @@ fn kw_u64() {
 }
 
 #[test]
+fn kw_i8() {
+    kw_or_ident("i8", Token::I8);
+}
+
+#[test]
+fn kw_i16() {
+    kw_or_ident("i16", Token::I16);
+}
+
+#[test]
+fn kw_i32() {
+    kw_or_ident("i32", Token::I32);
+}
+
+#[test]
+fn kw_i64() {
+    kw_or_ident("i64", Token::I64);
+}
+
+#[test]
 fn kw_fun() {
     kw_or_ident("fun", Token::Fun);
 }
