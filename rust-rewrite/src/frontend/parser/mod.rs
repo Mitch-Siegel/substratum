@@ -356,7 +356,7 @@ where
                 loop {
                     match self.peek_token() {
                         // argument declaration
-                        Token::U8 | Token::U16 | Token::U32 | Token::U64 => {
+                        Token::U8 | Token::U16 | Token::U32 | Token::U64 | Token::I8 | Token::I16 | Token::I32 | Token::I64 => {
                             arguments.push(self.parse_variable_declaration());
                             match self.peek_token() {
                                 Token::Comma => self.next_token(), // expect another argument declaration after comma
@@ -408,6 +408,22 @@ where
                 Token::U64 => {
                     self.next_token();
                     String::from("u64")
+                }
+                Token::I8 => {
+                    self.next_token();
+                    String::from("i8")
+                }
+                Token::I16 => {
+                    self.next_token();
+                    String::from("i16")
+                }
+                Token::I32 => {
+                    self.next_token();
+                    String::from("i32")
+                }
+                Token::I64 => {
+                    self.next_token();
+                    String::from("i64")
                 }
                 _ => self.unexpected_token(),
             },

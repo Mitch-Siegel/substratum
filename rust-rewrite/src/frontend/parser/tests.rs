@@ -1,12 +1,17 @@
-use super::Parser;
+#[cfg(test)]
+mod tests
+{
+use crate::Parser;
 use crate::frontend::lexer::{token::Token, *};
 use std::str::Chars;
 
+#[cfg(test)]
 fn parser_from_string(input: &str) -> Parser<Chars<'_>> {
     Parser::new(Lexer::new(input.chars()))
 }
 
 /// Expressions
+#[cfg(test)]
 fn parse_and_print_expression(input: &str) -> String {
     let mut parser = parser_from_string(input);
     let expr_string = parser.parse_expression().to_string();
@@ -124,4 +129,5 @@ fn while_loop() {
 count = (count + 1)
 "
     );
+}
 }
