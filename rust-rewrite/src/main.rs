@@ -33,8 +33,8 @@ const WHILE_LOOP: &str = "fun down_to_zero(u16 input)
 }";
 
 const WHILE_LOOP_WITH_NESTED_BRANCH: &str = "
-fun while_with_nested_branch(u8 a, u16 b, u32 c) {
-    u8 counter;
+fun while_with_nested_branch(a: u8, b: u16, c: u32) {
+    counter: u8;
     counter = 0;
     while (a < b) {
         if (c > 22) {

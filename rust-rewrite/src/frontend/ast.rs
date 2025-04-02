@@ -160,7 +160,7 @@ pub struct VariableDeclarationTree {
 }
 impl Display for VariableDeclarationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", self.typename, self.name)
+        write!(f, "{}: {}", self.name, self.typename)
     }
 }
 

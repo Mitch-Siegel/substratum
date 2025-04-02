@@ -190,6 +190,10 @@ where
                     self.advance_char();
                     Token::Semicolon
                 }
+                ':' => {
+                    self.advance_char();
+                    Token::Colon
+                }
                 '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                     let mut constant_string = String::new();
                     while self.peek_char().is_some() {

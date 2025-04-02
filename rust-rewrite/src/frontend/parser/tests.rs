@@ -84,14 +84,15 @@ mod tests {
     /// variable declarations
     fn parse_and_print_variable_declaration(input: &str) -> String {
         let mut parser = parser_from_string(input);
-        let expr_string = parser.parse_variable_declaration().to_string();
+        let ident = parser.parse_identifier();
+        let expr_string = parser.parse_variable_declaration(ident).to_string();
         parser.expect_token(Token::Eof);
         expr_string
     }
 
     #[test]
     fn u8_declaration() {
-        assert_eq!(parse_and_print_variable_declaration("u8 abc;"), "u8 abc");
+        assert_eq!(parse_and_print_variable_declaration("abc: u8"), "abc: u8");
     }
 
     #[test]

@@ -150,15 +150,17 @@ where
         let statement_tree = StatementTree {
             loc: self.current_loc(),
             statement: match self.peek_token() {
-                Token::U8 | Token::U16 | Token::U32 | Token::U64 => {
-                    let variable_declaration = self.parse_variable_declaration();
+                Token::Identifier(identifier) => {
+                    self.next_token();
+                    let statement = match self.peek_token() {
+                        Token::Colon => Statement::VariableDeclaration(
+                            self.parse_variable_declaration(identifier),
+                        ),
+                        Token::Assign => Statement::Assignment(self.parse_assignment(identifier)),
+                        _ => self.unexpected_token(),
+                    };
                     self.expect_token(Token::Semicolon);
-                    Statement::VariableDeclaration(variable_declaration)
-                }
-                Token::Identifier(_) => {
-                    let assignment = self.parse_assignment();
-                    self.expect_token(Token::Semicolon);
-                    Statement::Assignment(assignment)
+                    statement
                 }
                 Token::If => Statement::IfStatement(self.parse_if_statement()),
                 Token::While => Statement::WhileLoop(self.parse_while_loop()),
@@ -210,9 +212,9 @@ where
         }
     }
 
-    fn parse_assignment(&mut self) -> AssignmentTree {
+    fn parse_assignment(&mut self, identifier: String) -> AssignmentTree {
         let start_loc = self.current_loc();
-        let lhs = self.parse_identifier();
+        let lhs = identifier;
         self.expect_token(Token::Assign);
         AssignmentTree {
             loc: start_loc,
@@ -356,15 +358,9 @@ where
                 loop {
                     match self.peek_token() {
                         // argument declaration
-                        Token::U8
-                        | Token::U16
-                        | Token::U32
-                        | Token::U64
-                        | Token::I8
-                        | Token::I16
-                        | Token::I32
-                        | Token::I64 => {
-                            arguments.push(self.parse_variable_declaration());
+                        Token::Identifier(identifier) => {
+                            self.next_token();
+                            arguments.push(self.parse_variable_declaration(identifier));
                             match self.peek_token() {
                                 Token::Comma => self.next_token(), // expect another argument declaration after comma
                                 _ => break,                        // loop again for anything else
@@ -388,11 +384,14 @@ where
         }
     }
 
-    fn parse_variable_declaration(&mut self) -> VariableDeclarationTree {
+    fn parse_variable_declaration(&mut self, name: String) -> VariableDeclarationTree {
         VariableDeclarationTree {
             loc: self.current_loc(),
-            typename: self.parse_typename(),
-            name: self.parse_identifier(),
+            name,
+            typename: {
+                self.expect_token(Token::Colon);
+                self.parse_typename()
+            },
         }
     }
 

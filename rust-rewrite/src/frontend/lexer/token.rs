@@ -32,6 +32,7 @@ pub enum Token {
     RCurly,
     Comma,
     Semicolon,
+    Colon,
     Identifier(String),
     UnsignedDecimalConstant(usize),
     Eof,
@@ -70,6 +71,7 @@ impl PartialEq for Token {
             (Token::RCurly, Token::RCurly) => true,
             (Token::Comma, Token::Comma) => true,
             (Token::Semicolon, Token::Semicolon) => true,
+            (Token::Colon, Token::Colon) => true,
             (Token::Identifier(a), Token::Identifier(b)) => a == b,
             (Token::UnsignedDecimalConstant(a), Token::UnsignedDecimalConstant(b)) => a == b,
             (Token::Eof, Token::Eof) => true,
@@ -113,6 +115,7 @@ impl Display for Token {
             Self::RCurly => write!(f, "}}"),
             Self::Comma => write!(f, ","),
             Self::Semicolon => write!(f, ";"),
+            Self::Colon => write!(f, ":"),
             Self::Identifier(string) => write!(f, "Identifier({})", string),
             Self::UnsignedDecimalConstant(constant) => {
                 write!(f, "UnsignedDecimalConstant({})", constant)
