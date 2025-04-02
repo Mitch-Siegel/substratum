@@ -52,15 +52,7 @@ impl TableWalk for TranslationUnitTree {
 
 impl ReturnWalk<Type> for TypenameTree {
     fn walk(self) -> Type {
-        match self.name.as_str() {
-            "u8" => Type::new_u8(0),
-            "u16" => Type::new_u16(0),
-            "u32" => Type::new_u32(0),
-            "u64" => Type::new_u64(0),
-            _ => {
-                panic!("impossible type!");
-            }
-        }
+        self.type_
     }
 }
 
@@ -89,7 +81,7 @@ impl OperandWalk for ArithmeticOperationTree {
             ArithmeticOperationTree::Add(operands) => {
                 let lhs = operands.e1.walk(loc, context);
                 let rhs = operands.e2.walk(loc, context);
-                let dest = context.next_temp(lhs.type_(context));
+                let dest = context.next_temp(lhs.type_(context).clone());
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_add(dest, lhs, rhs),
@@ -98,7 +90,7 @@ impl OperandWalk for ArithmeticOperationTree {
             ArithmeticOperationTree::Subtract(operands) => {
                 let lhs = operands.e1.walk(loc, context);
                 let rhs = operands.e2.walk(loc, context);
-                let dest = context.next_temp(lhs.type_(context));
+                let dest = context.next_temp(lhs.type_(context).clone());
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_subtract(dest, lhs, rhs),
@@ -107,7 +99,7 @@ impl OperandWalk for ArithmeticOperationTree {
             ArithmeticOperationTree::Multiply(operands) => {
                 let lhs = operands.e1.walk(loc, context);
                 let rhs = operands.e2.walk(loc, context);
-                let dest = context.next_temp(lhs.type_(context));
+                let dest = context.next_temp(lhs.type_(context).clone());
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_multiply(dest, lhs, rhs),
@@ -116,7 +108,7 @@ impl OperandWalk for ArithmeticOperationTree {
             ArithmeticOperationTree::Divide(operands) => {
                 let lhs = operands.e1.walk(loc, context);
                 let rhs = operands.e2.walk(loc, context);
-                let dest = context.next_temp(lhs.type_(context));
+                let dest = context.next_temp(lhs.type_(context).clone());
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_divide(dest, lhs, rhs),
@@ -136,7 +128,7 @@ impl OperandWalk for ComparisonOperationTree {
             ComparisonOperationTree::LThan(operands) => {
                 let lhs = operands.e1.walk(loc, context);
                 let rhs = operands.e2.walk(loc, context);
-                let dest = context.next_temp(lhs.type_(context));
+                let dest = context.next_temp(lhs.type_(context).clone());
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_lthan(dest, lhs, rhs),
@@ -145,7 +137,7 @@ impl OperandWalk for ComparisonOperationTree {
             ComparisonOperationTree::GThan(operands) => {
                 let lhs = operands.e1.walk(loc, context);
                 let rhs = operands.e2.walk(loc, context);
-                let dest = context.next_temp(lhs.type_(context));
+                let dest = context.next_temp(lhs.type_(context).clone());
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_gthan(dest, lhs, rhs),
@@ -154,7 +146,7 @@ impl OperandWalk for ComparisonOperationTree {
             ComparisonOperationTree::LThanE(operands) => {
                 let lhs = operands.e1.walk(loc, context);
                 let rhs = operands.e2.walk(loc, context);
-                let dest = context.next_temp(lhs.type_(context));
+                let dest = context.next_temp(lhs.type_(context).clone());
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_lthan_e(dest, lhs, rhs),
@@ -163,7 +155,7 @@ impl OperandWalk for ComparisonOperationTree {
             ComparisonOperationTree::GThanE(operands) => {
                 let lhs = operands.e1.walk(loc, context);
                 let rhs = operands.e2.walk(loc, context);
-                let dest = context.next_temp(lhs.type_(context));
+                let dest = context.next_temp(lhs.type_(context).clone());
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_gthan_e(dest, lhs, rhs),
@@ -172,7 +164,7 @@ impl OperandWalk for ComparisonOperationTree {
             ComparisonOperationTree::Equals(operands) => {
                 let lhs = operands.e1.walk(loc, context);
                 let rhs = operands.e2.walk(loc, context);
-                let dest = context.next_temp(lhs.type_(context));
+                let dest = context.next_temp(lhs.type_(context).clone());
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_equals(dest, lhs, rhs),
@@ -181,7 +173,7 @@ impl OperandWalk for ComparisonOperationTree {
             ComparisonOperationTree::NotEquals(operands) => {
                 let lhs = operands.e1.walk(loc, context);
                 let rhs = operands.e2.walk(loc, context);
-                let dest = context.next_temp(lhs.type_(context));
+                let dest = context.next_temp(lhs.type_(context).clone());
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_not_equals(dest, lhs, rhs),

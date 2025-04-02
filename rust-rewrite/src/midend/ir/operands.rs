@@ -172,7 +172,7 @@ impl Operand {
         Operand::UnsignedDecimalConstant(constant)
     }
 
-    pub fn type_(&self, context: &linearizer::walkcontext::WalkContext) -> Type {
+    pub fn type_<'a>(&self, context: &'a linearizer::walkcontext::WalkContext) -> &'a Type {
         match self {
             Operand::Variable(name) => context
                 .lookup_variable_by_name(&name)
@@ -181,17 +181,16 @@ impl Operand {
             Operand::Temporary(name) => context
                 .lookup_variable_by_name(&name)
                 .expect(format!("Use of undeclared variable {}", name).as_str())
-                .type_()
-                .clone(),
+                .type_(),
             Operand::UnsignedDecimalConstant(value) => {
                 if *value > (u32::MAX as usize) {
-                    Type::new_u64(0)
+                    &Type::U64
                 } else if *value > (u16::MAX as usize) {
-                    Type::new_u32(0)
+                    &Type::U32
                 } else if *value > (u8::MAX as usize) {
-                    Type::new_u16(0)
+                    &Type::U16
                 } else {
-                    Type::new_u8(0)
+                    &Type::U8
                 }
             }
         }

@@ -1,4 +1,4 @@
-use crate::frontend::sourceloc::SourceLoc;
+use crate::{frontend::sourceloc::SourceLoc, midend};
 use std::fmt::Display;
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -254,11 +254,11 @@ impl Display for ExpressionTree {
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TypenameTree {
     pub loc: SourceLoc,
-    pub name: String,
+    pub type_: midend::types::Type,
 }
 
 impl Display for TypenameTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
+        write!(f, "{}", self.type_)
     }
 }

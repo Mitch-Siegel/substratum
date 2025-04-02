@@ -54,8 +54,8 @@ impl Variable {
         }
     }
 
-    pub fn type_(&self) -> Type {
-        self.type_
+    pub fn type_(&self) -> &Type {
+        &self.type_
     }
 }
 
@@ -106,7 +106,7 @@ impl Display for FunctionPrototype {
                 arguments_string = format!("{}", argument);
             }
         }
-        match self.return_type {
+        match &self.return_type {
             Some(return_type) => write!(
                 f,
                 "fun {}({}) -> {}",
