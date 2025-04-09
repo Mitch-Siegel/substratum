@@ -534,8 +534,6 @@ mod tests {
         context.converge_current_block();
         context.set_current_block(loop_done);
 
-        context.control_flow.to_graphviz();
-
         assert_no_remaining_convergences(context);
     }
 }

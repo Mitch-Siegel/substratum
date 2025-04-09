@@ -3,36 +3,10 @@ use std::cmp::Ordering;
 
 use serde::Serialize;
 
-#[derive(Copy, Clone, Debug, Serialize, Hash)]
+#[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Debug, Serialize, Hash)]
 pub struct ProgramPoint {
-    pub depth: usize, // depth in the BFS traversal of control flow
+    pub depth: usize, // depth in the DFS traversal of control flow
     pub index: usize, // index within a basic block
-}
-
-impl PartialOrd for ProgramPoint {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(
-            self.depth
-                .cmp(&other.depth)
-                .then(self.index.cmp(&other.index)),
-        )
-    }
-}
-
-impl PartialEq for ProgramPoint {
-    fn eq(&self, other: &Self) -> bool {
-        (self.depth == other.depth) && (self.index == other.index)
-    }
-}
-
-impl Eq for ProgramPoint {}
-
-impl Ord for ProgramPoint {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.depth
-            .cmp(&other.depth)
-            .then(self.index.cmp(&other.index))
-    }
 }
 
 impl ProgramPoint {
@@ -55,7 +29,7 @@ impl std::fmt::Display for ProgramPoint {
 mod tests {
     use std::cmp::Ordering;
 
-    use crate::midend::program_point::ProgramPoint;
+    use crate::backend::regalloc::program_point::ProgramPoint;
 
     #[test]
     fn test_default() {

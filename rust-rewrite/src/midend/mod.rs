@@ -6,7 +6,6 @@ mod idfa;
 pub mod ir;
 pub mod linearizer;
 mod optimization;
-pub mod program_point;
 mod ssa_gen;
 pub mod symtab;
 pub mod types;
