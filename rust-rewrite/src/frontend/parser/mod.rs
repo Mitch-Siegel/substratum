@@ -69,7 +69,6 @@ where
     }
 
     fn next_token(&mut self) -> Token {
-        println!("next token: {}", self.lexer.peek());
         return self.lexer.next();
     }
 

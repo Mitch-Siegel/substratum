@@ -60,10 +60,38 @@ impl Variable {
 }
 
 #[derive(Debug, Serialize)]
+pub struct Struct {
+    name: String,
+    fields: HashMap<String, Variable>,
+    field_order: Vec<String>,
+}
+
+impl Struct {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            fields: HashMap::new(),
+            field_order: Vec::new(),
+        }
+    }
+
+    pub fn add_field(&mut self, name: String, type_: Type) {
+        self.fields
+            .insert(name.clone(), Variable::new(name.clone(), type_));
+        self.field_order.push(name);
+    }
+
+    pub fn get_field(&self, name: &String) -> Option<&Variable> {
+        self.fields.get(name)
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct Scope {
     subscope_indices: Vec<usize>,
     variables: HashMap<String, Variable>,
     subscopes: Vec<Scope>,
+    struct_definitions: HashMap<String, Struct>,
 }
 
 impl Scope {
@@ -72,6 +100,7 @@ impl Scope {
             subscope_indices: Vec::new(),
             variables: HashMap::new(),
             subscopes: Vec::new(),
+            struct_definitions: HashMap::new(),
         }
     }
 
@@ -86,6 +115,11 @@ impl Scope {
 
     pub fn insert_subscope(&mut self, subscope: Scope) {
         self.subscopes.push(subscope);
+    }
+
+    pub fn insert_struct_definition(&mut self, definition: Struct) {
+        self.struct_definitions
+            .insert(definition.name.clone(), definition);
     }
 }
 

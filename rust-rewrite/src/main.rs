@@ -102,9 +102,12 @@ fun while_with_nested_branch() {
     c = c + 1;
 }";
 
+const STRUCT_EXAMPLE: &str = "
+struct money {dollars: u64, cents: u8}";
+
 fn main() {
     println!("Hello, world!");
-    let parsed = String::from(WHILE_LOOP_WITH_NESTED_BRANCH);
+    let parsed = String::from(STRUCT_EXAMPLE);
     let mut parser = Parser::new(Lexer::new(parsed.chars()));
     let program = parser.parse();
 

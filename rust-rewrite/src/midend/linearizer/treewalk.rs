@@ -46,8 +46,15 @@ impl TableWalk for TranslationUnitTree {
                     context.take_control_flow(),
                 ));
             }
-            TranslationUnit::StructDefinition(_struct_definition) => {
-                unimplemented!();
+            TranslationUnit::StructDefinition(struct_definition) => {
+                let mut defined_struct = symtab::Struct::new(struct_definition.name);
+                for field in struct_definition.fields {
+                    defined_struct.add_field(field.name, field.typename.walk());
+                }
+
+                symbol_table
+                    .global_scope
+                    .insert_struct_definition(defined_struct);
             }
         }
     }
