@@ -187,12 +187,12 @@ impl Display for VariableDeclarationTree {
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct AssignmentTree {
     pub loc: SourceLoc,
-    pub identifier: String,
+    pub assignee: ExpressionTree,
     pub value: ExpressionTree,
 }
 impl Display for AssignmentTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} = {}", self.identifier, self.value)
+        write!(f, "{} = {}", self.assignee, self.value)
     }
 }
 

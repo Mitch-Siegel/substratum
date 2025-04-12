@@ -185,15 +185,7 @@ where
             statement: match self.peek_token() {
                 Token::Identifier(identifier) => {
                     self.next_token();
-                    let statement = match self.peek_token() {
-                        Token::Colon => Statement::VariableDeclaration(
-                            self.parse_variable_declaration(identifier),
-                        ),
-                        Token::Assign => Statement::Assignment(self.parse_assignment(identifier)),
-                        _ => self.unexpected_token(),
-                    };
-                    self.expect_token(Token::Semicolon);
-                    statement
+                    self.parse_identifier_statement(identifier)
                 }
                 Token::If => Statement::IfStatement(self.parse_if_statement()),
                 Token::While => Statement::WhileLoop(self.parse_while_loop()),
@@ -201,6 +193,19 @@ where
             },
         };
         statement_tree
+    }
+
+    fn parse_identifier_statement(&mut self, identifier: String) -> Statement {
+        let statement = match self.peek_token() {
+            Token::Colon => {
+                Statement::VariableDeclaration(self.parse_variable_declaration(identifier))
+            }
+            Token::Assign => Statement::Assignment(self.parse_assignment(identifier)),
+
+            _ => self.unexpected_token(),
+        };
+        self.expect_token(Token::Semicolon);
+        statement
     }
 
     fn parse_if_statement(&mut self) -> IfStatementTree {
@@ -251,7 +256,7 @@ where
         self.expect_token(Token::Assign);
         AssignmentTree {
             loc: start_loc,
-            identifier: lhs,
+            assignee: self.parse_expression(),
             value: self.parse_expression(),
         }
     }
@@ -464,6 +469,10 @@ where
                 Token::I64 => {
                     self.next_token();
                     Type::I64
+                }
+                Token::Identifier(name) => {
+                    self.next_token();
+                    Type::UDT(name)
                 }
                 _ => self.unexpected_token(),
             },

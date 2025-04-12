@@ -215,9 +215,10 @@ impl OperandWalk for ExpressionTree {
 
 impl ContextWalk for AssignmentTree {
     fn walk(self, context: &mut WalkContext) {
+        let assignee_loc = self.assignee.loc.clone();
         let assignment_ir = IrLine::new_assignment(
             self.loc,
-            ir::Operand::new_as_variable(self.identifier),
+            self.assignee.walk(assignee_loc, context),
             self.value.walk(self.loc, context),
         );
         context.append_statement_to_current_block(assignment_ir);
