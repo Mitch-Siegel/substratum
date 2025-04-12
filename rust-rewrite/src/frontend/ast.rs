@@ -5,6 +5,7 @@ use std::fmt::Display;
 pub enum TranslationUnit {
     FunctionDeclaration(FunctionDeclarationTree),
     FunctionDefinition(FunctionDefinitionTree),
+    StructDefinition(StructDefinitionTree),
 }
 
 impl Display for TranslationUnit {
@@ -15,6 +16,9 @@ impl Display for TranslationUnit {
             }
             Self::FunctionDefinition(function_definition) => {
                 write!(f, "Function Definition: {}", function_definition)
+            }
+            Self::StructDefinition(struct_definition) => {
+                write!(f, "Struct Definition: {}", struct_definition)
             }
         }
     }
@@ -64,6 +68,22 @@ pub struct FunctionDefinitionTree {
 impl Display for FunctionDefinitionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Function Definition: {}, {}", self.prototype, self.body)
+    }
+}
+
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct StructDefinitionTree {
+    pub name: String,
+    pub fields: Vec<VariableDeclarationTree>,
+}
+impl Display for StructDefinitionTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut fields = String::new();
+        for field in &self.fields {
+            fields += &field.to_string();
+            fields += " ";
+        }
+        write!(f, "Struct Definition: {}: {}", self.name, fields)
     }
 }
 

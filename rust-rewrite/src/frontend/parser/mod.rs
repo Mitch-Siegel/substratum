@@ -69,6 +69,7 @@ where
     }
 
     fn next_token(&mut self) -> Token {
+        println!("next token: {}", self.lexer.peek());
         return self.lexer.next();
     }
 
@@ -106,27 +107,60 @@ where
     }
 
     fn parse_translation_unit(&mut self) -> TranslationUnitTree {
-        match self.peek_token() {
-            Token::Fun => self.parse_function_declaration_or_definition(),
-            _ => self.unexpected_token::<TranslationUnitTree>(),
+        TranslationUnitTree {
+            loc: self.current_loc(),
+            contents: match self.peek_token() {
+                Token::Fun => self.parse_function_declaration_or_definition(),
+                Token::Struct => self.parse_struct_definition(),
+                _ => self.unexpected_token::<TranslationUnit>(),
+            },
         }
     }
 
-    fn parse_function_declaration_or_definition(&mut self) -> TranslationUnitTree {
+    fn parse_function_declaration_or_definition(&mut self) -> TranslationUnit {
         let function_declaration = self.parse_function_prototype();
         match self.peek_token() {
-            Token::LCurly => TranslationUnitTree {
-                loc: function_declaration.loc,
-                contents: TranslationUnit::FunctionDefinition(FunctionDefinitionTree {
-                    prototype: function_declaration,
-                    body: self.parse_compound_statement(),
-                }),
-            },
-            _ => TranslationUnitTree {
-                loc: function_declaration.loc,
-                contents: TranslationUnit::FunctionDeclaration(function_declaration),
-            },
+            Token::LCurly => TranslationUnit::FunctionDefinition(FunctionDefinitionTree {
+                prototype: function_declaration,
+                body: self.parse_compound_statement(),
+            }),
+            _ => TranslationUnit::FunctionDeclaration(function_declaration),
         }
+    }
+
+    fn parse_struct_definition(&mut self) -> TranslationUnit {
+        let loc = self.current_loc();
+
+        self.expect_token(Token::Struct);
+        let struct_name = self.parse_identifier();
+        self.expect_token(Token::LCurly);
+
+        let mut struct_fields = Vec::new();
+
+        loop {
+            match self.peek_token() {
+                Token::Identifier(identifier) => {
+                    self.next_token();
+                    struct_fields.push(self.parse_variable_declaration(identifier));
+
+                    if matches!(self.peek_token(), Token::Comma) {
+                        self.next_token();
+                    }
+                }
+                Token::RCurly => {
+                    self.next_token();
+                    break;
+                }
+                _ => {
+                    self.unexpected_token::<()>();
+                }
+            }
+        }
+
+        TranslationUnit::StructDefinition(StructDefinitionTree {
+            name: struct_name,
+            fields: struct_fields,
+        })
     }
 
     fn parse_compound_statement(&mut self) -> CompoundStatementTree {
@@ -181,7 +215,7 @@ where
         let true_block = self.parse_compound_statement();
         let false_block = match self.peek_token() {
             Token::Else => {
-                self.expect_token(Token::Else);
+                self.next_token();
                 Some(self.parse_compound_statement())
             }
             _ => None,
@@ -237,7 +271,7 @@ where
                         Expression::UnsignedDecimalConstant(value)
                     }
                     Token::LParen => {
-                        self.expect_token(Token::LParen);
+                        self.next_token();
                         let expr = self.parse_expression();
                         self.expect_token(Token::RParen);
                         expr.expression
@@ -384,6 +418,7 @@ where
         }
     }
 
+    // TODO: pass loc of string to get true start loc of declaration
     fn parse_variable_declaration(&mut self, name: String) -> VariableDeclarationTree {
         VariableDeclarationTree {
             loc: self.current_loc(),

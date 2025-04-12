@@ -28,16 +28,16 @@ pub trait OperandWalk {
 impl TableWalk for TranslationUnitTree {
     fn walk(self, symbol_table: &mut SymbolTable) {
         match self.contents {
-            TranslationUnit::FunctionDeclaration(tree) => {
-                let declared_function = tree.walk();
+            TranslationUnit::FunctionDeclaration(function_declaration) => {
+                let declared_function = function_declaration.walk();
                 symbol_table.insert_function_prototype(declared_function);
             }
-            TranslationUnit::FunctionDefinition(tree) => {
-                let mut declared_prototype = tree.prototype.walk();
+            TranslationUnit::FunctionDefinition(function_definition) => {
+                let mut declared_prototype = function_definition.prototype.walk();
                 let mut context = WalkContext::new();
                 context.push_scope(declared_prototype.create_argument_scope());
 
-                tree.body.walk(&mut context);
+                function_definition.body.walk(&mut context);
                 let argument_scope = context.pop_last_scope();
 
                 symbol_table.insert_function(symtab::Function::new(
@@ -45,6 +45,9 @@ impl TableWalk for TranslationUnitTree {
                     argument_scope,
                     context.take_control_flow(),
                 ));
+            }
+            TranslationUnit::StructDefinition(_struct_definition) => {
+                unimplemented!();
             }
         }
     }

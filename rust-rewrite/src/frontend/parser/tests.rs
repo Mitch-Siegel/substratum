@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod tests {
+    use crate::frontend::ast::*;
     use crate::frontend::lexer::{token::Token, *};
+    use crate::frontend::sourceloc::SourceLoc;
+    use crate::midend::types::{self, Type};
     use crate::Parser;
     use std::str::Chars;
 
@@ -130,5 +133,35 @@ mod tests {
 count = (count + 1)
 "
         );
+    }
+
+    #[test]
+    fn struct_definition() {
+        let mut p = parser_from_string("struct money{\ndollars: u64,\ncents: u8}");
+
+        assert_eq!(
+            p.parse_struct_definition(),
+            TranslationUnit::StructDefinition(StructDefinitionTree {
+                name: "money".into(),
+                fields: vec![
+                    VariableDeclarationTree {
+                        loc: SourceLoc::new(2, 9),
+                        name: "dollars".into(),
+                        typename: TypenameTree {
+                            loc: SourceLoc::new(2, 13),
+                            type_: Type::U64
+                        }
+                    },
+                    VariableDeclarationTree {
+                        loc: SourceLoc::new(3, 7),
+                        name: "cents".into(),
+                        typename: TypenameTree {
+                            loc: SourceLoc::new(3, 10),
+                            type_: Type::U8
+                        }
+                    }
+                ]
+            })
+        )
     }
 }
