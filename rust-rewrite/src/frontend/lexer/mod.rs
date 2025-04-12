@@ -82,6 +82,8 @@ where
             "if" => Token::If,
             "else" => Token::Else,
             "while" => Token::While,
+            "pub" => Token::Pub,
+            "struct" => Token::Struct,
             _ => Token::Identifier(identifier),
         }
     }

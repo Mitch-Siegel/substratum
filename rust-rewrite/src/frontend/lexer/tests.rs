@@ -151,6 +151,16 @@ fn kw_while() {
 }
 
 #[test]
+fn kw_pub() {
+    kw_or_ident("pub", Token::Pub);
+}
+
+#[test]
+fn kw_struct() {
+    kw_or_ident("struct", Token::Struct);
+}
+
+#[test]
 fn ident() {
     // test out some basic identifiers - such as ones containing keywords
     kw_or_ident("foobar", Token::Identifier("foobar".to_owned()));
@@ -192,6 +202,10 @@ fn token_display_to_token() {
         Token::U16,
         Token::U32,
         Token::U64,
+        Token::I8,
+        Token::I16,
+        Token::I32,
+        Token::I64,
         Token::Plus,
         Token::Minus,
         Token::Star,
@@ -207,6 +221,8 @@ fn token_display_to_token() {
         Token::If,
         Token::Else,
         Token::While,
+        Token::Pub,
+        Token::Struct,
         Token::LParen,
         Token::RParen,
         Token::Arrow,
@@ -214,6 +230,7 @@ fn token_display_to_token() {
         Token::RCurly,
         Token::Comma,
         Token::Semicolon,
+        Token::Colon,
     ];
 
     for token in tokens {
