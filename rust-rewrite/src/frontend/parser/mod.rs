@@ -72,13 +72,13 @@ where
         return self.lexer.next();
     }
 
-    fn expect_token(&mut self, t: Token) -> Token {
-        if matches!(self.peek_token(), t) {
+    fn expect_token(&mut self, _t: Token) -> Token {
+        if matches!(self.peek_token(), _t) {
             self.next_token()
         } else {
             panic!(
                 "Expected token {} at {}, got token {} instead!",
-                t,
+                _t,
                 self.lexer.current_loc(),
                 self.peek_token()
             );

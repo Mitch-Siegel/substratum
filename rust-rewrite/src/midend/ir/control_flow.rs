@@ -128,39 +128,6 @@ impl ControlFlow {
 
         println!("}}");
     }
-
-    pub fn replace_blocks<T: IntoIterator<Item = ir::BasicBlock>>(&mut self, iter: T) {
-        let mut into = iter.into_iter();
-
-        while let Some(block) = into.next() {
-            self.max_block = usize::max(self.max_block, block.label);
-            self.blocks.insert(block.label, block);
-        }
-    }
-}
-
-struct ControlFlowPostorder {
-    postorder_stack: VecDeque<ir::BasicBlock>,
-}
-
-impl Iterator for ControlFlowPostorder {
-    type Item = ir::BasicBlock;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.postorder_stack.pop_front()
-    }
-}
-
-struct ControlFlowIter<'a> {
-    postorder_stack: VecDeque<&'a ir::BasicBlock>,
-}
-
-impl<'a> Iterator for ControlFlowIter<'a> {
-    type Item = &'a ir::BasicBlock;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.postorder_stack.pop_back()
-    }
 }
 
 pub struct ControlFlowIntoIter<T> {

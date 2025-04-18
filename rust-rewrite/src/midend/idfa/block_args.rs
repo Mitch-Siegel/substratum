@@ -14,10 +14,7 @@ pub struct BlockArgs<'a> {
 }
 
 impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
-    fn f_transfer(
-        facts: &mut idfa_base::BlockFacts<Fact>,
-        _to_transfer: BTreeSet<Fact>,
-    ) -> BTreeSet<Fact> {
+    fn f_transfer(facts: &mut BlockFacts, _to_transfer: BTreeSet<Fact>) -> BTreeSet<Fact> {
         facts.gen_facts.clone()
     }
 

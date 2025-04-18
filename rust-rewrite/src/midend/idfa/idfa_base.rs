@@ -44,7 +44,7 @@ where
 {
     pub fn new(n_blocks: usize) -> Self {
         Self {
-            facts: HashMap::new(),
+            facts: HashMap::with_capacity(n_blocks),
         }
     }
     pub fn for_label(&self, label: usize) -> &BlockFacts<T> {

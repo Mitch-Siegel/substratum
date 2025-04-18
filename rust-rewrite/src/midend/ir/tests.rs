@@ -1,7 +1,3 @@
-use crate::{frontend::sourceloc::SourceLoc, midend::ir::*};
-
-use super::{IrLine, Operand};
-
 #[test]
 fn ir_line_new_assignment() {
     let assignment = IrLine::new_assignment(
@@ -40,14 +36,17 @@ fn ir_line_new_jump() {
     assert!(matches!(jump.operation, Operations::Jump(_)));
 }
 
+#[cfg(test)]
 fn operand_from_string(name: &str) -> Operand {
     Operand::new_as_variable(name.into())
 }
 
+#[cfg(test)]
 fn line_from_op(operation: Operations) -> IrLine {
     IrLine::new(SourceLoc::new(0, 0), operation)
 }
 
+#[cfg(test)]
 fn operand_name_from_string(name: &str) -> OperandName {
     OperandName::new_basic(name.into())
 }

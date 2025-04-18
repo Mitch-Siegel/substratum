@@ -1,7 +1,4 @@
-use crate::frontend::lexer::Lexer;
-
-use super::token::Token;
-
+#[cfg(test)]
 fn assert_single_tokenization(input_str: &str, expected_token: Token) {
     println!(
         "Assert single tokenization against {} == {}",

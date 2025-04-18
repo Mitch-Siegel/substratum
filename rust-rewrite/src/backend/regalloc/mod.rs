@@ -1,8 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use block_depths::*;
-use lifetime::{Lifetime, LifetimeSet};
-use program_point::ProgramPoint;
+use lifetime::LifetimeSet;
 
 use crate::midend::{self, ir::ControlFlow, symtab};
 

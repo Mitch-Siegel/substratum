@@ -4,7 +4,7 @@ use super::symtab::{Function, FunctionOrPrototype};
 
 mod unused_blocks;
 
-fn do_optimizations_on_function(function: &mut Function) {
+fn do_optimizations_on_function(_function: &mut Function) {
     // unused_blocks::remove_unused_blocks(function);
 }
 

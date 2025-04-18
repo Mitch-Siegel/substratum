@@ -1,12 +1,6 @@
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, HashMap},
-    fmt,
-};
+use std::{collections::HashMap, fmt};
 
 use crate::midend;
-
-use super::program_point::ProgramPoint;
 
 #[derive(Clone, PartialOrd, Ord, PartialEq, Eq, Debug)]
 pub struct Lifetime {
@@ -105,12 +99,6 @@ impl LifetimeSet {
     pub fn record_write_at_index(&mut self, operand: &midend::ir::OperandName, index: &usize) {
         self.lookup_or_create_lifetime_by_name(operand)
             .record_write(index);
-    }
-
-    pub fn values(
-        &self,
-    ) -> std::collections::hash_map::Values<'_, midend::ir::OperandName, Lifetime> {
-        self.lifetimes.values()
     }
 
     pub fn print_numerical(&self) {
