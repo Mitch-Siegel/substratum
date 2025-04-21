@@ -145,20 +145,22 @@ impl<'a> Iterator for CharSource<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let c = self.read_char();
+        /*
         match &c {
             Some(ch) => print!("{}", ch),
             None => print!("NONE"),
         }
+        */
 
         c
     }
 }
 
 mod tests {
+    use crate::frontend::lexer::CharSource;
+
     #[test]
     fn string() {
-        use crate::frontend::lexer::CharSource;
-
         let char_source = CharSource::from_str(
             "the quick brown
 fox jumps
@@ -181,8 +183,6 @@ dog"
 
     #[test]
     fn string_multiple_newline() {
-        use crate::frontend::lexer::CharSource;
-
         let char_source = CharSource::from_str(
             "the quick brown
 
@@ -209,8 +209,6 @@ dog"
 
     #[test]
     fn string_newline_at_end() {
-        use crate::frontend::lexer::CharSource;
-
         let char_source = CharSource::from_str(
             "text
 
@@ -227,8 +225,6 @@ dog"
 
     #[test]
     fn string_newline_in_middle_and_at_end() {
-        use crate::frontend::lexer::CharSource;
-
         let char_source = CharSource::from_str(
             "some text
 
@@ -253,5 +249,19 @@ even more text
 
 "
         );
+    }
+
+    #[test]
+    fn empty_string() {
+        let char_source = CharSource::from_str("");
+
+        assert_eq!(char_source.into_iter().collect::<String>(), "");
+    }
+
+    #[test]
+    fn only_newline() {
+        let char_source = CharSource::from_str("\n");
+
+        assert_eq!(char_source.into_iter().collect::<String>(), "\n");
     }
 }

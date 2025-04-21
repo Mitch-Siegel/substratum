@@ -21,7 +21,6 @@ fn advance_char() {
 fn advance_to_end() {
     let mut lexer = Lexer::from_string(&"a");
     lexer.advance_char();
-    lexer.advance_char();
     assert!(lexer.peek_char() == None);
 }
 
@@ -32,7 +31,6 @@ fn test_loc_chars() {
     let mut line_lengths = Vec::new();
     let mut cols = 0;
 
-    lexer.advance_char();
     while lexer.peek_char().is_some() {
         let examined = lexer.peek_char().unwrap();
         lexer.advance_char();
@@ -166,12 +164,10 @@ fn ident() {
     let space_after = "space_after abcde";
     let space_after_ident = Token::Identifier(String::from("space_after"));
     let mut positive_match = Lexer::from_string(&space_after);
-    positive_match.advance_char();
     assert_eq!(positive_match.match_kw_or_ident(), space_after_ident);
 
     let prefix_alpha = "a".to_owned() + space_after;
     let mut negative_match = Lexer::from_string(&&prefix_alpha);
-    negative_match.advance_char();
     assert_eq!(
         negative_match.match_kw_or_ident(),
         Token::Identifier(String::from("aspace_after"))
@@ -179,17 +175,14 @@ fn ident() {
 
     let prefix_num = "1".to_owned() + space_after;
     negative_match = Lexer::from_string(&&prefix_num);
-    negative_match.advance_char();
     assert_ne!(negative_match.match_kw_or_ident(), space_after_ident);
 
     let suffix_alpha = space_after.to_owned() + "a";
     negative_match = Lexer::from_string(&&suffix_alpha);
-    negative_match.advance_char();
     assert_eq!(negative_match.match_kw_or_ident(), space_after_ident);
 
     let suffix_num = space_after.to_owned() + "1";
     negative_match = Lexer::from_string(&&suffix_num);
-    negative_match.advance_char();
     assert_eq!(negative_match.match_kw_or_ident(), space_after_ident);
 }
 

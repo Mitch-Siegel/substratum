@@ -20,10 +20,12 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     fn peek_char(&self) -> Option<char> {
+        println!("Lexer::peek_char: {:?}", self.current_char);
         self.current_char
     }
 
     fn advance_char(&mut self) {
+        println!("Lexer::advance_char: {:?}", self.current_char);
         if let Some(consumed) = self.current_char {
             if consumed == '\n' {
                 self.cur_line += 1;
@@ -40,10 +42,16 @@ impl<'a> Lexer<'a> {
     }
 
     fn from_char_source(mut char_source: CharSource<'a>) -> Self {
-        let mut created = Self {
-            cur_line: 1,
-            cur_col: 1,
-            current_char: char_source.next(),
+        let first_char = char_source.next();
+
+        let created = Self {
+            cur_line: if first_char == Some('\n') { 2 } else { 1 },
+            cur_col: if first_char.is_some() && first_char != Some('\n') {
+                2
+            } else {
+                1
+            },
+            current_char: first_char,
             current_token: None,
             char_source,
         };
@@ -60,6 +68,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn match_kw_or_ident(&mut self) -> Token {
+        println!("Lexer::match_kw_or_ident");
         let mut identifier = String::new();
 
         while let Some(c) = self.peek_char() {
@@ -89,6 +98,8 @@ impl<'a> Lexer<'a> {
             _ => Token::Identifier(identifier),
         };
 
+        println!("Lexer::match_kw_or_ident: matched {:?}", matched);
+
         matched
     }
 
@@ -106,10 +117,14 @@ impl<'a> Lexer<'a> {
         tok_true: Token,
         tok_false: Token,
     ) -> Token {
+        println!(
+            "Lexer::match_next_char_for_token_or: expected: {}, true: {}, false: {}",
+            expected, tok_true, tok_false
+        );
         match self.peek_char() {
             None => tok_false,
-            Some(char) => {
-                if char == expected {
+            Some(peeked_char) => {
+                if peeked_char == expected {
                     self.advance_char();
                     tok_true
                 } else {
@@ -120,12 +135,13 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex(&mut self) -> Token {
+        println!("Lexer::lex()");
         while self.peek_char().is_some() && self.peek_char().unwrap().is_whitespace() {
             self.advance_char();
         }
 
-        let token = if let Some(char) = self.peek_char() {
-            match char {
+        let token = if let Some(peeked_char) = self.peek_char() {
+            match peeked_char {
                 '{' => {
                     self.advance_char();
                     Token::LCurly
@@ -221,6 +237,7 @@ impl<'a> Lexer<'a> {
         } else {
             Token::Eof
         };
+        println!("Lexer::lex(): lexed {}", token);
         token
     }
 
@@ -230,9 +247,15 @@ impl<'a> Lexer<'a> {
     }
 
     pub fn lex_all(&mut self) -> Vec<Token> {
+        println!("Lexer::lex_all()");
         let mut tokens: Vec<Token> = Vec::new();
+        if self.current_token.is_none() {
+            tokens.push(self.lex());
+        }
+
         loop {
             let next_token = self.next();
+            println!("next_token: {:?}", next_token);
             match next_token {
                 Token::Eof => {
                     tokens.push(next_token);
@@ -243,6 +266,8 @@ impl<'a> Lexer<'a> {
                 }
             }
         }
+
+        println!("Lexer::lex_all(): {:?}", tokens);
 
         tokens
     }
