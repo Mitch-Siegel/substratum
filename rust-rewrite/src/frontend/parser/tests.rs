@@ -83,6 +83,7 @@ fn complex_arithmetic_expression() {
 }
 
 /// variable declarations
+#[cfg(test)]
 fn parse_and_print_variable_declaration(input: &str) -> String {
     let mut parser = parser_from_string(input);
     let ident = parser.parse_identifier();
