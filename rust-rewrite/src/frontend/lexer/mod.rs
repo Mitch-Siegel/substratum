@@ -20,11 +20,13 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     fn peek_char(&self) -> Option<char> {
+        #[cfg(feature = "loud_lexing")]
         println!("Lexer::peek_char: {:?}", self.current_char);
         self.current_char
     }
 
     fn advance_char(&mut self) {
+        #[cfg(feature = "loud_lexing")]
         println!("Lexer::advance_char: {:?}", self.current_char);
         if let Some(consumed) = self.current_char {
             if consumed == '\n' {
@@ -68,7 +70,9 @@ impl<'a> Lexer<'a> {
     }
 
     fn match_kw_or_ident(&mut self) -> Token {
+        #[cfg(feature = "loud_lexing")]
         println!("Lexer::match_kw_or_ident");
+
         let mut identifier = String::new();
 
         while let Some(c) = self.peek_char() {
@@ -98,6 +102,7 @@ impl<'a> Lexer<'a> {
             _ => Token::Identifier(identifier),
         };
 
+        #[cfg(feature = "loud_lexing")]
         println!("Lexer::match_kw_or_ident: matched {:?}", matched);
 
         matched
@@ -117,10 +122,12 @@ impl<'a> Lexer<'a> {
         tok_true: Token,
         tok_false: Token,
     ) -> Token {
+        #[cfg(feature = "loud_lexing")]
         println!(
             "Lexer::match_next_char_for_token_or: expected: {}, true: {}, false: {}",
             expected, tok_true, tok_false
         );
+
         match self.peek_char() {
             None => tok_false,
             Some(peeked_char) => {
@@ -135,7 +142,9 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex(&mut self) -> Token {
+        #[cfg(feature = "loud_lexing")]
         println!("Lexer::lex()");
+
         while self.peek_char().is_some() && self.peek_char().unwrap().is_whitespace() {
             self.advance_char();
         }
@@ -237,7 +246,10 @@ impl<'a> Lexer<'a> {
         } else {
             Token::Eof
         };
+
+        #[cfg(feature = "loud_lexing")]
         println!("Lexer::lex(): lexed {}", token);
+
         token
     }
 
