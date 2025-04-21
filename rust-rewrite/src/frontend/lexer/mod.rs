@@ -22,6 +22,7 @@ impl<'a> Lexer<'a> {
     fn peek_char(&self) -> Option<char> {
         #[cfg(feature = "loud_lexing")]
         println!("Lexer::peek_char: {:?}", self.current_char);
+
         self.current_char
     }
 
@@ -108,8 +109,17 @@ impl<'a> Lexer<'a> {
         matched
     }
 
-    pub fn peek(&self) -> Token {
-        self.current_token.clone().unwrap_or(Token::Eof)
+    pub fn peek(&mut self) -> Token {
+        if self.current_token.is_none() {
+            self.current_token = Some(self.lex());
+        }
+
+        let peeked = self.current_token.clone().unwrap_or(Token::Eof);
+
+        #[cfg(feature = "loud_lexing")]
+        println!("Lexer::peek() -> {:?}", peeked);
+
+        peeked
     }
 
     pub fn current_loc(&self) -> SourceLoc {

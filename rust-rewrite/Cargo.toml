@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 loud_lexing = []
+loud_parsing = []
 
 [dependencies]
 serde = { version = "1.0", features=["derive"] }

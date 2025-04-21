@@ -1,167 +1,163 @@
+use crate::frontend::ast::*;
+use crate::frontend::lexer::{token::Token, *};
+use crate::frontend::sourceloc::SourceLoc;
+use crate::midend::types::{self, Type};
+use crate::Parser;
+use std::str::Chars;
+
 #[cfg(test)]
-mod tests {
-    use crate::frontend::ast::*;
-    use crate::frontend::lexer::{token::Token, *};
-    use crate::frontend::sourceloc::SourceLoc;
-    use crate::midend::types::{self, Type};
-    use crate::Parser;
-    use std::str::Chars;
+fn parser_from_string<'a>(input: &'a str) -> Parser<'a> {
+    Parser::new(Lexer::from_string(input))
+}
 
-    #[cfg(test)]
-    fn parser_from_string<'a>(input: &'a str) -> Parser<'a> {
-        Parser::new(Lexer::from_string(input))
-    }
+/// Expressions
+#[cfg(test)]
+fn parse_and_print_expression(input: &str) -> String {
+    let mut parser = parser_from_string(input);
+    let expr_string = parser.parse_expression().to_string();
+    parser.expect_token(Token::Eof);
+    expr_string
+}
 
-    /// Expressions
-    #[cfg(test)]
-    fn parse_and_print_expression(input: &str) -> String {
-        let mut parser = parser_from_string(input);
-        let expr_string = parser.parse_expression().to_string();
-        parser.expect_token(Token::Eof);
-        expr_string
-    }
+#[test]
+fn basic_expression() {
+    assert_eq!(
+        parse_and_print_expression("123 + 456 + 789"),
+        "(123 + (456 + 789))"
+    );
+}
 
-    #[test]
-    fn basic_expression() {
-        assert_eq!(
-            parse_and_print_expression("123 + 456 + 789"),
-            "(123 + (456 + 789))"
-        );
-    }
+#[test]
+fn addition_and_multiplication() {
+    assert_eq!(
+        parse_and_print_expression("123 + 456 * 789"),
+        "(123 + (456 * 789))"
+    );
+}
 
-    #[test]
-    fn addition_and_multiplication() {
-        assert_eq!(
-            parse_and_print_expression("123 + 456 * 789"),
-            "(123 + (456 * 789))"
-        );
-    }
+#[test]
+fn parentheses_override_precedence() {
+    assert_eq!(
+        parse_and_print_expression("(123 + 456) * 789"),
+        "((123 + 456) * 789)"
+    );
+}
 
-    #[test]
-    fn parentheses_override_precedence() {
-        assert_eq!(
-            parse_and_print_expression("(123 + 456) * 789"),
-            "((123 + 456) * 789)"
-        );
-    }
+#[test]
+fn mixed_arithmetic_operations() {
+    assert_eq!(
+        parse_and_print_expression("1 + 2 * 3 - 4 / 5"),
+        "(1 + ((2 * 3) - (4 / 5)))"
+    );
+}
 
-    #[test]
-    fn mixed_arithmetic_operations() {
-        assert_eq!(
-            parse_and_print_expression("1 + 2 * 3 - 4 / 5"),
-            "(1 + ((2 * 3) - (4 / 5)))"
-        );
-    }
+#[test]
+fn nested_parentheses() {
+    assert_eq!(
+        parse_and_print_expression("((1 + 2) * (3 - 4)) / 5"),
+        "(((1 + 2) * (3 - 4)) / 5)"
+    );
+}
 
-    #[test]
-    fn nested_parentheses() {
-        assert_eq!(
-            parse_and_print_expression("((1 + 2) * (3 - 4)) / 5"),
-            "(((1 + 2) * (3 - 4)) / 5)"
-        );
-    }
+#[test]
+fn single_number() {
+    assert_eq!(parse_and_print_expression("42"), "42");
+}
 
-    #[test]
-    fn single_number() {
-        assert_eq!(parse_and_print_expression("42"), "42");
-    }
+#[test]
+fn single_number_parenthesized() {
+    assert_eq!(parse_and_print_expression("(42)"), "42");
+}
 
-    #[test]
-    fn single_number_parenthesized() {
-        assert_eq!(parse_and_print_expression("(42)"), "42");
-    }
+#[test]
+fn multiple_additions() {
+    assert_eq!(parse_and_print_expression("1 + 2 + 3"), "(1 + (2 + 3))");
+}
 
-    #[test]
-    fn multiple_additions() {
-        assert_eq!(parse_and_print_expression("1 + 2 + 3"), "(1 + (2 + 3))");
-    }
+#[test]
+fn complex_arithmetic_expression() {
+    assert_eq!(
+        parse_and_print_expression("3 + 4 * 2 / (1 - 5)"),
+        "(3 + (4 * (2 / (1 - 5))))"
+    );
+}
 
-    #[test]
-    fn complex_arithmetic_expression() {
-        assert_eq!(
-            parse_and_print_expression("3 + 4 * 2 / (1 - 5)"),
-            "(3 + (4 * (2 / (1 - 5))))"
-        );
-    }
+/// variable declarations
+fn parse_and_print_variable_declaration(input: &str) -> String {
+    let mut parser = parser_from_string(input);
+    let ident = parser.parse_identifier();
+    let expr_string = parser.parse_variable_declaration(ident).to_string();
+    parser.expect_token(Token::Eof);
+    expr_string
+}
 
-    /// variable declarations
-    fn parse_and_print_variable_declaration(input: &str) -> String {
-        let mut parser = parser_from_string(input);
-        let ident = parser.parse_identifier();
-        let expr_string = parser.parse_variable_declaration(ident).to_string();
-        parser.expect_token(Token::Eof);
-        expr_string
-    }
+#[test]
+fn u8_declaration() {
+    assert_eq!(parse_and_print_variable_declaration("abc: u8"), "abc: u8");
+}
 
-    #[test]
-    fn u8_declaration() {
-        assert_eq!(parse_and_print_variable_declaration("abc: u8"), "abc: u8");
-    }
-
-    #[test]
-    fn if_statement() {
-        let mut p = parser_from_string("if(a > b) {a = a + b;}");
-        assert_eq!(
-            format!("{}", p.parse_if_statement()),
-            "if (a > b)
+#[test]
+fn if_statement() {
+    let mut p = parser_from_string("if(a > b) {a = a + b;}");
+    assert_eq!(
+        format!("{}", p.parse_if_statement()),
+        "if (a > b)
 \t{Compound Statement: a = (a + b)
 }"
-        );
-    }
+    );
+}
 
-    #[test]
-    fn if_else_statement() {
-        let mut p = parser_from_string("if(a > b) {a = a + b;} else {b = b + a;}");
-        assert_eq!(
-            format!("{}", p.parse_if_statement()),
-            "if (a > b)
+#[test]
+fn if_else_statement() {
+    let mut p = parser_from_string("if(a > b) {a = a + b;} else {b = b + a;}");
+    assert_eq!(
+        format!("{}", p.parse_if_statement()),
+        "if (a > b)
 \t{Compound Statement: a = (a + b)
 } else {Compound Statement: b = (b + a)
 }"
-        );
-    }
-    // assert_eq!(p.parse_if_statement(), IfStatementTree {loc: SouceLoc::new(0, 0),
-    // condition: Expression {loc: SourceLoc::new(0, 5), expression: Expression::Comparison(ComparisonOperationTree::GThan(ArithmeticDualOperands {Box::new(ExpressionTree {loc: SourceLoc::new()})}))}});}}
+    );
+}
+// assert_eq!(p.parse_if_statement(), IfStatementTree {loc: SouceLoc::new(0, 0),
+// condition: Expression {loc: SourceLoc::new(0, 5), expression: Expression::Comparison(ComparisonOperationTree::GThan(ArithmeticDualOperands {Box::new(ExpressionTree {loc: SourceLoc::new()})}))}});}}
 
-    #[test]
-    fn while_loop() {
-        let mut p =
-            parser_from_string("while (a > b) {b = b + a; count = count + 1;} a = a + count;");
-        assert_eq!(
-            format!("{}", p.parse_while_loop()),
-            "while ((a > b)) Compound Statement: b = (b + a)
+#[test]
+fn while_loop() {
+    let mut p = parser_from_string("while (a > b) {b = b + a; count = count + 1;} a = a + count;");
+    assert_eq!(
+        format!("{}", p.parse_while_loop()),
+        "while ((a > b)) Compound Statement: b = (b + a)
 count = (count + 1)
 "
-        );
-    }
+    );
+}
 
-    #[test]
-    fn struct_definition() {
-        let mut p = parser_from_string("struct money{\ndollars: u64,\ncents: u8}");
+#[test]
+fn struct_definition() {
+    let mut p = parser_from_string("struct money{\ndollars: u64,\ncents: u8}");
 
-        assert_eq!(
-            p.parse_struct_definition(),
-            TranslationUnit::StructDefinition(StructDefinitionTree {
-                name: "money".into(),
-                fields: vec![
-                    VariableDeclarationTree {
-                        loc: SourceLoc::new(2, 9),
-                        name: "dollars".into(),
-                        typename: TypenameTree {
-                            loc: SourceLoc::new(2, 13),
-                            type_: Type::U64
-                        }
-                    },
-                    VariableDeclarationTree {
-                        loc: SourceLoc::new(3, 7),
-                        name: "cents".into(),
-                        typename: TypenameTree {
-                            loc: SourceLoc::new(3, 10),
-                            type_: Type::U8
-                        }
+    assert_eq!(
+        p.parse_struct_definition(),
+        TranslationUnit::StructDefinition(StructDefinitionTree {
+            name: "money".into(),
+            fields: vec![
+                VariableDeclarationTree {
+                    loc: SourceLoc::new(2, 9),
+                    name: "dollars".into(),
+                    typename: TypenameTree {
+                        loc: SourceLoc::new(2, 13),
+                        type_: Type::U64
                     }
-                ]
-            })
-        )
-    }
+                },
+                VariableDeclarationTree {
+                    loc: SourceLoc::new(3, 7),
+                    name: "cents".into(),
+                    typename: TypenameTree {
+                        loc: SourceLoc::new(3, 10),
+                        type_: Type::U8
+                    }
+                }
+            ]
+        })
+    )
 }

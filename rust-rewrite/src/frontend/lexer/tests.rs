@@ -10,6 +10,12 @@ fn peek_none() {
 }
 
 #[test]
+fn peek() {
+    let lexer = Lexer::from_string(&"qwerty");
+    assert!(lexer.peek_char() == Some('q'));
+}
+
+#[test]
 fn advance_char() {
     let mut lexer = Lexer::from_string(&"ab");
     assert_eq!(lexer.peek_char(), Some('a'));
