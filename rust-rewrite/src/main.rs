@@ -111,8 +111,7 @@ fun money_add_dollars(m: Money, dollars: u64) {
 
 fn main() {
     println!("Hello, world!");
-    let parsed = String::from(STRUCT_EXAMPLE);
-    let mut parser = Parser::new(Lexer::new(parsed.chars()));
+    let mut parser = Parser::new(Lexer::from_string(WHILE_LOOP_WITH_NESTED_BRANCH));
     let program = parser.parse();
 
     for t in &program {

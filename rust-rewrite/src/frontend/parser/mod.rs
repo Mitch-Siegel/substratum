@@ -8,11 +8,8 @@ use super::{
     sourceloc::SourceLoc,
 };
 
-pub struct Parser<I>
-where
-    I: Iterator<Item = char>,
-{
-    lexer: Lexer<I>,
+pub struct Parser<'a> {
+    lexer: Lexer<'a>,
 }
 
 impl ir::BinaryOperations {
@@ -53,14 +50,8 @@ impl ir::BinaryOperations {
     }
 }
 
-impl<I> Parser<I>
-where
-    I: Iterator<Item = char>,
-{
-    pub fn new(lexer: Lexer<I>) -> Self
-    where
-        I: Iterator<Item = char>,
-    {
+impl<'a> Parser<'a> {
+    pub fn new(lexer: Lexer<'a>) -> Self {
         Parser { lexer: lexer }
     }
 

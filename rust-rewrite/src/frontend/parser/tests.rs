@@ -8,8 +8,8 @@ mod tests {
     use std::str::Chars;
 
     #[cfg(test)]
-    fn parser_from_string(input: &str) -> Parser<Chars<'_>> {
-        Parser::new(Lexer::new(input.chars()))
+    fn parser_from_string<'a>(input: &'a str) -> Parser<'a> {
+        Parser::new(Lexer::from_string(input))
     }
 
     /// Expressions

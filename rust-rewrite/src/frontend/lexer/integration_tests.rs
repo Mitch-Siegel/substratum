@@ -1,10 +1,14 @@
+use super::token::*;
+
 #[cfg(test)]
 fn assert_single_tokenization(input_str: &str, expected_token: Token) {
+    use crate::frontend::lexer::*;
+
     println!(
         "Assert single tokenization against {} == {}",
         input_str, expected_token
     );
-    let result = Lexer::new(String::from(input_str).chars()).lex_all();
+    let result = Lexer::from_string(input_str).lex_all();
     assert_eq!(result, vec! {expected_token, Token::Eof});
 }
 

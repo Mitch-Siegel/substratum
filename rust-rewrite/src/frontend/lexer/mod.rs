@@ -2,25 +2,23 @@ use token::Token;
 
 use super::sourceloc::SourceLoc;
 
+pub use char_source::CharSource;
+
+mod char_source;
 mod integration_tests;
 mod tests;
 pub mod token;
 
-pub struct Lexer<I>
-where
-    I: Iterator<Item = char>,
-{
+#[derive(Debug)]
+pub struct Lexer<'a> {
     cur_line: usize,
     cur_col: usize,
     current_char: Option<char>,
     current_token: Option<Token>,
-    input: I,
+    char_source: CharSource<'a>,
 }
 
-impl<I> Lexer<I>
-where
-    I: Iterator<Item = char>,
-{
+impl<'a> Lexer<'a> {
     fn peek_char(&self) -> Option<char> {
         self.current_char
     }
@@ -34,28 +32,31 @@ where
                 self.cur_col += 1;
             }
         }
-        self.current_char = self.input.next();
+        self.current_char = self.char_source.next();
     }
 
     fn invalid_char(&self, char: char) {
         panic!("Invalid character '{}' at {}", char, self.current_loc());
     }
 
-    fn from_iterator(iterator: I) -> Self {
-        Self {
+    fn from_char_source(mut char_source: CharSource<'a>) -> Self {
+        let mut created = Self {
             cur_line: 1,
             cur_col: 1,
-            current_char: None,
+            current_char: char_source.next(),
             current_token: None,
-            input: iterator,
-        }
+            char_source,
+        };
+
+        created
     }
 
-    pub fn new(input: I) -> Self {
-        let mut created = Self::from_iterator(input);
-        created.advance_char();
-        created.next();
-        return created;
+    pub fn from_file(f: std::fs::File) -> Self {
+        Self::from_char_source(CharSource::from_file(f))
+    }
+
+    pub fn from_string(s: &'a str) -> Self {
+        Self::from_char_source(CharSource::from_str(s))
     }
 
     fn match_kw_or_ident(&mut self) -> Token {
@@ -69,7 +70,8 @@ where
                 break;
             }
         }
-        match identifier.as_str() {
+
+        let matched = match identifier.as_str() {
             "u8" => Token::U8,
             "u16" => Token::U16,
             "u32" => Token::U32,
@@ -85,7 +87,9 @@ where
             "pub" => Token::Pub,
             "struct" => Token::Struct,
             _ => Token::Identifier(identifier),
-        }
+        };
+
+        matched
     }
 
     pub fn peek(&self) -> Token {

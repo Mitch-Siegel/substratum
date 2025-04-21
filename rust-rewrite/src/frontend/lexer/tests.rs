@@ -1,31 +1,25 @@
-use crate::frontend::lexer::Lexer;
+use crate::frontend::lexer::{self, Lexer};
 use std::str::Chars;
 
 use super::token::Token;
 
-fn lexer_from_string(string: &str) -> Lexer<Chars> {
-    Lexer::<Chars<'_>>::from_iterator(string.chars())
-}
-
 #[test]
 fn peek_none() {
-    let lexer = lexer_from_string("a");
+    let lexer = Lexer::from_string(&"");
     assert!(lexer.peek_char() == None);
 }
 
 #[test]
 fn advance_char() {
-    let mut lexer = lexer_from_string("ab");
-    assert!(lexer.peek_char() == None);
+    let mut lexer = Lexer::from_string(&"ab");
+    assert_eq!(lexer.peek_char(), Some('a'));
     lexer.advance_char();
-    assert!(lexer.peek_char() == Some('a'));
-    lexer.advance_char();
-    assert!(lexer.peek_char() == Some('b'));
+    assert_eq!(lexer.peek_char(), Some('b'));
 }
 
 #[test]
 fn advance_to_end() {
-    let mut lexer = lexer_from_string("a");
+    let mut lexer = Lexer::from_string(&"a");
     lexer.advance_char();
     lexer.advance_char();
     assert!(lexer.peek_char() == None);
@@ -33,10 +27,9 @@ fn advance_to_end() {
 
 #[test]
 fn test_loc_chars() {
-    let mut lexer = lexer_from_string("the quick brown\nfox jumps\nover the lazy\ndog\n\n");
+    let mut lexer = Lexer::from_string(&"the quick brown\nfox jumps\nover the lazy\ndog\n\n");
 
     let mut line_lengths = Vec::new();
-    let mut lines = 0;
     let mut cols = 0;
 
     lexer.advance_char();
@@ -47,7 +40,6 @@ fn test_loc_chars() {
             '\n' => {
                 line_lengths.push(cols);
                 cols = 0;
-                lines += 1;
             }
             _ => {
                 cols += 1;
@@ -55,38 +47,41 @@ fn test_loc_chars() {
         }
     }
 
-    assert!(lines == 5);
-    assert!(line_lengths == vec![15, 9, 13, 3, 0]);
+    assert_eq!(line_lengths, vec![15, 9, 13, 3, 0]);
 }
 
 // helper function - do some basic prefixing and suffixing
 // ensure keyword matching behaves as expected with alpha/num pre/suffixes
 fn kw_or_ident(string: &str, expected_token: Token) {
-    let mut positive_match = lexer_from_string(string);
-    positive_match.advance_char();
+    let mut positive_match = Lexer::from_string(&string);
 
     let matched = positive_match.match_kw_or_ident();
-    assert!(matched == expected_token);
+    assert_eq!(matched, expected_token);
 
     let prefix_alpha = "a".to_owned() + string;
-    let mut negative_match = lexer_from_string(&prefix_alpha);
-    negative_match.advance_char();
-    assert!(negative_match.match_kw_or_ident() == Token::Identifier(prefix_alpha));
+    let mut negative_match = Lexer::from_string(&&prefix_alpha);
+    assert_eq!(
+        negative_match.match_kw_or_ident(),
+        Token::Identifier(prefix_alpha)
+    );
 
     let prefix_num = "1".to_owned() + string;
-    negative_match = Lexer::new(prefix_num.chars());
-    negative_match.advance_char();
-    assert!(negative_match.match_kw_or_ident() != expected_token);
+    negative_match = Lexer::from_string(&&prefix_num);
+    assert_ne!(negative_match.match_kw_or_ident(), expected_token);
 
     let suffix_alpha = string.to_owned() + "a";
-    negative_match = lexer_from_string(&suffix_alpha);
-    negative_match.advance_char();
-    assert!(negative_match.match_kw_or_ident() == Token::Identifier(suffix_alpha));
+    negative_match = Lexer::from_string(&&suffix_alpha);
+    assert_eq!(
+        negative_match.match_kw_or_ident(),
+        Token::Identifier(suffix_alpha)
+    );
 
     let suffix_num = string.to_owned() + "1";
-    negative_match = lexer_from_string(&suffix_num);
-    negative_match.advance_char();
-    assert!(negative_match.match_kw_or_ident() == Token::Identifier(suffix_num));
+    negative_match = Lexer::from_string(&&suffix_num);
+    assert_eq!(
+        negative_match.match_kw_or_ident(),
+        Token::Identifier(suffix_num)
+    );
 }
 
 // test every token
@@ -170,29 +165,32 @@ fn ident() {
     // make sure that we can correctly parse the end of identifiers
     let space_after = "space_after abcde";
     let space_after_ident = Token::Identifier(String::from("space_after"));
-    let mut positive_match = lexer_from_string(space_after);
+    let mut positive_match = Lexer::from_string(&space_after);
     positive_match.advance_char();
-    assert!(positive_match.match_kw_or_ident() == space_after_ident);
+    assert_eq!(positive_match.match_kw_or_ident(), space_after_ident);
 
     let prefix_alpha = "a".to_owned() + space_after;
-    let mut negative_match = lexer_from_string(&prefix_alpha);
+    let mut negative_match = Lexer::from_string(&&prefix_alpha);
     negative_match.advance_char();
-    assert!(negative_match.match_kw_or_ident() == Token::Identifier(String::from("aspace_after")));
+    assert_eq!(
+        negative_match.match_kw_or_ident(),
+        Token::Identifier(String::from("aspace_after"))
+    );
 
     let prefix_num = "1".to_owned() + space_after;
-    negative_match = Lexer::new(prefix_num.chars());
+    negative_match = Lexer::from_string(&&prefix_num);
     negative_match.advance_char();
-    assert!(negative_match.match_kw_or_ident() != space_after_ident);
+    assert_ne!(negative_match.match_kw_or_ident(), space_after_ident);
 
     let suffix_alpha = space_after.to_owned() + "a";
-    negative_match = lexer_from_string(&suffix_alpha);
+    negative_match = Lexer::from_string(&&suffix_alpha);
     negative_match.advance_char();
-    assert!(negative_match.match_kw_or_ident() == space_after_ident);
+    assert_eq!(negative_match.match_kw_or_ident(), space_after_ident);
 
     let suffix_num = space_after.to_owned() + "1";
-    negative_match = lexer_from_string(&suffix_num);
+    negative_match = Lexer::from_string(&&suffix_num);
     negative_match.advance_char();
-    assert!(negative_match.match_kw_or_ident() == space_after_ident);
+    assert_eq!(negative_match.match_kw_or_ident(), space_after_ident);
 }
 
 #[test]
@@ -234,8 +232,8 @@ fn token_display_to_token() {
     ];
 
     for token in tokens {
-        let lex_result = Lexer::new(format!("{}", token).chars()).lex_all();
-        assert!(lex_result.len() == 2);
-        assert!(token == lex_result[0]);
+        let lex_result = Lexer::from_string(&format!("{}", token)).lex_all();
+        assert_eq!(lex_result.len(), 2);
+        assert_eq!(token, lex_result[0]);
     }
 }

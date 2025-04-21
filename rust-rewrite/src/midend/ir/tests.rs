@@ -1,3 +1,5 @@
+use crate::midend::ir::*;
+
 #[test]
 fn ir_line_new_assignment() {
     let assignment = IrLine::new_assignment(
