@@ -17,7 +17,6 @@ pub struct CharReader<T>
 where
     T: ReadLine,
 {
-    need_newline: bool,
     line: Option<Vec<char>>,
     line_source: T,
 }
@@ -28,7 +27,6 @@ where
 {
     fn new(mut line_source: T) -> Self {
         Self {
-            need_newline: false,
             line: line_source.read_line(),
             line_source,
         }
@@ -50,12 +48,6 @@ where
                     return line.pop();
                 } else {
                     self.next_line();
-
-                    if self.line.is_some() {
-                        return Some('\n'); // newline only when there's another line coming
-                    } else {
-                        return None;
-                    }
                 }
             } else {
                 // First call or exhausted previous line
@@ -102,21 +94,20 @@ impl ReadLine for FileLineReader {
 
 #[derive(Debug)]
 pub struct StrLineReader<'a> {
-    lines: std::str::Lines<'a>,
+    lines: std::str::SplitInclusive<'a, char>,
 }
 
 impl<'a> StrLineReader<'a> {
     pub fn new(s: &'a str) -> Self {
-        Self { lines: s.lines() }
+        Self {
+            lines: s.split_inclusive('\n').to_owned(),
+        }
     }
 }
 
 impl<'a> ReadLine for StrLineReader<'a> {
     fn read_line(&mut self) -> Option<Vec<char>> {
         let line_option = self.lines.next();
-
-        println!("get_next_line: {:?}", line_option);
-
         match line_option {
             Some(string) => Some(string.chars().rev().collect()),
             None => None,
