@@ -18,6 +18,7 @@ impl Display for Mutability {
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, serde::Deserialize)]
 pub enum Type {
+    Unit,
     U8,
     U16,
     U32,
@@ -34,6 +35,7 @@ pub enum Type {
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Unit => write!(f, "()"),
             Self::U8 => write!(f, "u8"),
             Self::U16 => write!(f, "u16"),
             Self::U32 => write!(f, "u32"),

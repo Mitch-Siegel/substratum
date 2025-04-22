@@ -165,7 +165,7 @@ impl<'a> Parser<'a> {
         let function_declaration_or_definition = match self.peek_token() {
             Token::LCurly => TranslationUnit::FunctionDefinition(FunctionDefinitionTree {
                 prototype: function_declaration,
-                body: self.parse_compound_statement(),
+                body: self.parse_block_expression(),
             }),
             _ => TranslationUnit::FunctionDeclaration(function_declaration),
         };
@@ -219,7 +219,7 @@ impl<'a> Parser<'a> {
         struct_definition
     }
 
-    fn parse_compound_statement(&mut self) -> CompoundStatementTree {
+    fn parse_block_expression(&mut self) -> CompoundExpressionTree {
         #[cfg(feature = "loud_parsing")]
         self.start_parsing("compound statement");
 
@@ -234,7 +234,7 @@ impl<'a> Parser<'a> {
         }
         self.expect_token(Token::RCurly);
 
-        let compound_statement = CompoundStatementTree {
+        let compound_statement = CompoundExpressionTree {
             loc: start_loc,
             statements: statements,
         };
@@ -252,12 +252,9 @@ impl<'a> Parser<'a> {
         let statement = StatementTree {
             loc: self.current_loc(),
             statement: match self.peek_token() {
-                Token::Identifier(identifier) => {
-                    self.next_token();
-                    self.parse_identifier_statement(identifier)
+                Token::If | Token::While | Token::LCurly | Token::Identifier(_) => {
+                    Statement::Expression(self.parse_expression())
                 }
-                Token::If => Statement::IfStatement(self.parse_if_statement()),
-                Token::While => Statement::WhileLoop(self.parse_while_loop()),
                 _ => self.unexpected_token(),
             },
         };
@@ -288,7 +285,7 @@ impl<'a> Parser<'a> {
         identifier_statement
     }
 
-    fn parse_if_statement(&mut self) -> IfStatementTree {
+    fn parse_if_expression(&mut self) -> ExpressionTree {
         #[cfg(feature = "loud_parsing")]
         self.start_parsing("if statement");
 
@@ -299,29 +296,32 @@ impl<'a> Parser<'a> {
         let condition: ExpressionTree = self.parse_expression();
         self.expect_token(Token::RParen);
 
-        let true_block = self.parse_compound_statement();
+        let true_block = self.parse_block_expression();
         let false_block = match self.peek_token() {
             Token::Else => {
                 self.next_token();
-                Some(self.parse_compound_statement())
+                Some(self.parse_block_expression())
             }
             _ => None,
         };
 
-        let if_statement = IfStatementTree {
+        let if_expression = ExpressionTree {
             loc: start_loc,
-            condition,
-            true_block,
-            false_block,
+            expression: Expression::If(Box::new(IfExpressionTree {
+                loc: start_loc,
+                condition,
+                true_block,
+                false_block,
+            })),
         };
 
         #[cfg(feature = "loud_parsing")]
-        self.finish_parsing(&if_statement);
+        self.finish_parsing(&if_expression);
 
-        if_statement
+        if_expression
     }
 
-    fn parse_while_loop(&mut self) -> WhileLoopTree {
+    fn parse_while_expression(&mut self) -> WhileLoopTree {
         #[cfg(feature = "loud_parsing")]
         self.start_parsing("while loop");
 
@@ -332,7 +332,7 @@ impl<'a> Parser<'a> {
         let condition = self.parse_expression();
         self.expect_token(Token::RParen);
 
-        let body = self.parse_compound_statement();
+        let body = self.parse_block_expression();
 
         let while_loop = WhileLoopTree {
             loc: start_loc,
@@ -448,33 +448,33 @@ impl<'a> Parser<'a> {
             expr = ExpressionTree {
                 loc: start_loc,
                 expression: match operation {
-                    Token::Plus => Expression::Arithmetic(ArithmeticOperationTree::Add(operands)),
+                    Token::Plus => Expression::Arithmetic(ArithmeticExpressionTree::Add(operands)),
                     Token::Minus => {
-                        Expression::Arithmetic(ArithmeticOperationTree::Subtract(operands))
+                        Expression::Arithmetic(ArithmeticExpressionTree::Subtract(operands))
                     }
                     Token::Star => {
-                        Expression::Arithmetic(ArithmeticOperationTree::Multiply(operands))
+                        Expression::Arithmetic(ArithmeticExpressionTree::Multiply(operands))
                     }
                     Token::FSlash => {
-                        Expression::Arithmetic(ArithmeticOperationTree::Divide(operands))
+                        Expression::Arithmetic(ArithmeticExpressionTree::Divide(operands))
                     }
                     Token::LThan => {
-                        Expression::Comparison(ComparisonOperationTree::LThan(operands))
+                        Expression::Comparison(ComparisonExpressionTree::LThan(operands))
                     }
                     Token::GThan => {
-                        Expression::Comparison(ComparisonOperationTree::GThan(operands))
+                        Expression::Comparison(ComparisonExpressionTree::GThan(operands))
                     }
                     Token::LThanE => {
-                        Expression::Comparison(ComparisonOperationTree::LThanE(operands))
+                        Expression::Comparison(ComparisonExpressionTree::LThanE(operands))
                     }
                     Token::GThanE => {
-                        Expression::Comparison(ComparisonOperationTree::GThanE(operands))
+                        Expression::Comparison(ComparisonExpressionTree::GThanE(operands))
                     }
                     Token::Equals => {
-                        Expression::Comparison(ComparisonOperationTree::Equals(operands))
+                        Expression::Comparison(ComparisonExpressionTree::Equals(operands))
                     }
                     Token::NotEquals => {
-                        Expression::Comparison(ComparisonOperationTree::NotEquals(operands))
+                        Expression::Comparison(ComparisonExpressionTree::NotEquals(operands))
                     }
                     _ => self.unexpected_token(),
                 },
@@ -491,18 +491,38 @@ impl<'a> Parser<'a> {
         #[cfg(feature = "loud_parsing")]
         self.start_parsing("expression");
 
-        let lhs = self.parse_primary_expression();
+        let expr = match self.lexer.peek() {
+            Token::If => self.parse_if_expression(),
+            // Token::While => self.parse_while_expression(),
+            Token::Identifier(ident) => self.parse_identifier_expression(),
+            _ => self.unexpected_token(),
+        };
+
+        #[cfg(feature = "loud_parsing")]
+        self.finish_parsing(&expr);
+
+        expr
+    }
+
+    fn parse_identifier_expression(&mut self) -> ExpressionTree {
+        #[cfg(feature = "loud_parsing")]
+        self.start_parsing("identifier expression");
+
+        let primary_expression = ExpressionTree {
+            loc: self.current_loc(),
+            expression: Expression::Identifier(self.parse_identifier()),
+        };
         let expr = match self.peek_token() {
             Token::Plus | Token::Minus | Token::Star | Token::FSlash => {
-                self.parse_expression_min_precedence(lhs, 0)
+                self.parse_expression_min_precedence(primary_expression, 0)
             }
             Token::GThan
             | Token::GThanE
             | Token::LThan
             | Token::LThanE
             | Token::Equals
-            | Token::NotEquals => self.parse_expression_min_precedence(lhs, 0),
-            _ => lhs,
+            | Token::NotEquals => self.parse_expression_min_precedence(primary_expression, 0),
+            _ => primary_expression,
         };
 
         #[cfg(feature = "loud_parsing")]

@@ -63,7 +63,7 @@ impl Display for FunctionDeclarationTree {
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDefinitionTree {
     pub prototype: FunctionDeclarationTree,
-    pub body: CompoundStatementTree,
+    pub body: CompoundExpressionTree,
 }
 impl Display for FunctionDefinitionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -88,11 +88,11 @@ impl Display for StructDefinitionTree {
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct CompoundStatementTree {
+pub struct CompoundExpressionTree {
     pub loc: SourceLoc,
     pub statements: Vec<StatementTree>,
 }
-impl Display for CompoundStatementTree {
+impl Display for CompoundExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut statement_string = String::from("");
         for statement in &self.statements {
@@ -103,13 +103,13 @@ impl Display for CompoundStatementTree {
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct IfStatementTree {
+pub struct IfExpressionTree {
     pub loc: SourceLoc,
     pub condition: ExpressionTree,
-    pub true_block: CompoundStatementTree,
-    pub false_block: Option<CompoundStatementTree>,
+    pub true_block: CompoundExpressionTree,
+    pub false_block: Option<CompoundExpressionTree>,
 }
-impl Display for IfStatementTree {
+impl Display for IfExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.false_block {
             Some(false_block) => write!(
@@ -126,7 +126,7 @@ impl Display for IfStatementTree {
 pub struct WhileLoopTree {
     pub loc: SourceLoc,
     pub condition: ExpressionTree,
-    pub body: CompoundStatementTree,
+    pub body: CompoundExpressionTree,
 }
 impl Display for WhileLoopTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -138,8 +138,7 @@ impl Display for WhileLoopTree {
 pub enum Statement {
     VariableDeclaration(VariableDeclarationTree),
     Assignment(AssignmentTree),
-    IfStatement(IfStatementTree),
-    WhileLoop(WhileLoopTree),
+    Expression(ExpressionTree),
 }
 
 impl Display for Statement {
@@ -151,11 +150,8 @@ impl Display for Statement {
             Self::Assignment(assignment) => {
                 write!(f, "{}", assignment)
             }
-            Self::IfStatement(if_statement) => {
-                write!(f, "{}", if_statement)
-            }
-            Self::WhileLoop(while_loop) => {
-                write!(f, "{}", while_loop)
+            Self::Expression(expression) => {
+                write!(f, "{}", expression)
             }
         }
     }
@@ -203,13 +199,13 @@ pub struct ArithmeticDualOperands {
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum ArithmeticOperationTree {
+pub enum ArithmeticExpressionTree {
     Add(ArithmeticDualOperands),
     Subtract(ArithmeticDualOperands),
     Multiply(ArithmeticDualOperands),
     Divide(ArithmeticDualOperands),
 }
-impl Display for ArithmeticOperationTree {
+impl Display for ArithmeticExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Add(operands) => write!(f, "({} + {})", operands.e1, operands.e2),
@@ -221,7 +217,7 @@ impl Display for ArithmeticOperationTree {
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum ComparisonOperationTree {
+pub enum ComparisonExpressionTree {
     LThan(ArithmeticDualOperands),
     GThan(ArithmeticDualOperands),
     LThanE(ArithmeticDualOperands),
@@ -229,7 +225,7 @@ pub enum ComparisonOperationTree {
     Equals(ArithmeticDualOperands),
     NotEquals(ArithmeticDualOperands),
 }
-impl Display for ComparisonOperationTree {
+impl Display for ComparisonExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::LThan(operands) => write!(f, "({} < {})", operands.e1, operands.e2),
@@ -246,16 +242,18 @@ impl Display for ComparisonOperationTree {
 pub enum Expression {
     Identifier(String),
     UnsignedDecimalConstant(usize),
-    Arithmetic(ArithmeticOperationTree),
-    Comparison(ComparisonOperationTree),
+    Arithmetic(ArithmeticExpressionTree),
+    Comparison(ComparisonExpressionTree),
+    If(Box<IfExpressionTree>),
 }
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Identifier(identifier) => write!(f, "{}", identifier),
             Self::UnsignedDecimalConstant(constant) => write!(f, "{}", constant),
-            Self::Arithmetic(operation) => write!(f, "{}", operation),
-            Self::Comparison(operation) => write!(f, "{}", operation),
+            Self::Arithmetic(arithmetic_expression) => write!(f, "{}", arithmetic_expression),
+            Self::Comparison(comparison_expression) => write!(f, "{}", comparison_expression),
+            Self::If(if_expression) => write!(f, "{}", if_expression),
         }
     }
 }

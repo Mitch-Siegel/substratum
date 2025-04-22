@@ -225,7 +225,7 @@ impl WalkContext {
         // FUTURE: optimize condition walk to use different jumps
         // check the condition of the loop, giving us the loop body and loop done labels
         let condition_loc = condition.loc.clone();
-        let condition_result = condition.walk(condition_loc, self);
+        let condition_result: ir::Operand = condition.walk(self).into();
         let loop_condition = ir::JumpCondition::NE(ir::operands::DualSourceOperands::new(
             condition_result,
             ir::Operand::new_as_unsigned_decimal_constant(0),

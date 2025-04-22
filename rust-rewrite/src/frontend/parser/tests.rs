@@ -98,22 +98,22 @@ fn u8_declaration() {
 }
 
 #[test]
-fn if_statement() {
+fn if_expression() {
     let mut p = parser_from_string("if(a > b) {a = a + b;}");
     assert_eq!(
-        format!("{}", p.parse_if_statement()),
-        "if (a > b)
+        format!("{}", p.parse_if_expression()),
+        "if (a > b)parse_if_expression
 \t{Compound Statement: a = (a + b)
 }"
     );
 }
 
 #[test]
-fn if_else_statement() {
+fn if_else_expression() {
     let mut p = parser_from_string("if(a > b) {a = a + b;} else {b = b + a;}");
     assert_eq!(
-        format!("{}", p.parse_if_statement()),
-        "if (a > b)
+        format!("{}", p.parse_if_expression()),
+        "if (a > b)parse_if_expression
 \t{Compound Statement: a = (a + b)
 } else {Compound Statement: b = (b + a)
 }"
@@ -126,7 +126,7 @@ fn if_else_statement() {
 fn while_loop() {
     let mut p = parser_from_string("while (a > b) {b = b + a; count = count + 1;} a = a + count;");
     assert_eq!(
-        format!("{}", p.parse_while_loop()),
+        format!("{}", p.parse_while_expression()),
         "while ((a > b)) Compound Statement: b = (b + a)
 count = (count + 1)
 "

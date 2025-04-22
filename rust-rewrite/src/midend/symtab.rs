@@ -109,6 +109,12 @@ impl Scope {
         self.variables.insert(variable.name.clone(), variable);
     }
 
+    pub fn lookup_declared_variable_by_name(&self, name: &str) -> &Variable {
+        self.variables
+            .get(name)
+            .expect(&format!("Use of undeclared variable {}", name))
+    }
+
     pub fn lookup_variable_by_name(&self, name: &str) -> Option<&Variable> {
         self.variables.get(name)
     }
@@ -127,7 +133,7 @@ impl Scope {
 pub struct FunctionPrototype {
     pub name: String,
     pub arguments: Vec<Variable>,
-    pub return_type: Option<Type>,
+    pub return_type: Type,
 }
 
 impl Display for FunctionPrototype {
@@ -141,18 +147,18 @@ impl Display for FunctionPrototype {
             }
         }
         match &self.return_type {
-            Some(return_type) => write!(
+            Type::Unit => write!(f, "fun {}({})", self.name, arguments_string),
+            _ => write!(
                 f,
                 "fun {}({}) -> {}",
-                self.name, arguments_string, return_type
+                self.name, arguments_string, self.return_type
             ),
-            None => write!(f, "fun {}({})", self.name, arguments_string),
         }
     }
 }
 
 impl FunctionPrototype {
-    pub fn new(name: String, arguments: Vec<Variable>, return_type: Option<Type>) -> Self {
+    pub fn new(name: String, arguments: Vec<Variable>, return_type: Type) -> Self {
         FunctionPrototype {
             name,
             arguments,
