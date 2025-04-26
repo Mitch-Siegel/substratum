@@ -73,6 +73,7 @@ impl Display for FunctionDefinitionTree {
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StructDefinitionTree {
+    pub loc: SourceLoc,
     pub name: String,
     pub fields: Vec<VariableDeclarationTree>,
 }
@@ -98,7 +99,7 @@ impl Display for CompoundExpressionTree {
         for statement in &self.statements {
             statement_string.push_str(format!("{}\n", statement).as_str());
         }
-        write!(f, "Compound Statement: {}", statement_string)
+        write!(f, "Compound Expression: {}", statement_string)
     }
 }
 

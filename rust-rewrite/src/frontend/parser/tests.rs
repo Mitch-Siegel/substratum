@@ -102,8 +102,8 @@ fn if_expression() {
     let mut p = parser_from_string("if(a > b) {a = a + b;}");
     assert_eq!(
         format!("{}", p.parse_if_expression()),
-        "if (a > b)parse_if_expression
-\t{Compound Statement: a = (a + b)
+        "if (a > b)
+\t{Compound Expression: a = (a + b)
 }"
     );
 }
@@ -113,21 +113,19 @@ fn if_else_expression() {
     let mut p = parser_from_string("if(a > b) {a = a + b;} else {b = b + a;}");
     assert_eq!(
         format!("{}", p.parse_if_expression()),
-        "if (a > b)parse_if_expression
-\t{Compound Statement: a = (a + b)
-} else {Compound Statement: b = (b + a)
+        "if (a > b)
+\t{Compound Expression: a = (a + b)
+} else {Compound Expression: b = (b + a)
 }"
     );
 }
-// assert_eq!(p.parse_if_statement(), IfStatementTree {loc: SouceLoc::new(0, 0),
-// condition: Expression {loc: SourceLoc::new(0, 5), expression: Expression::Comparison(ComparisonOperationTree::GThan(ArithmeticDualOperands {Box::new(ExpressionTree {loc: SourceLoc::new()})}))}});}}
 
 #[test]
 fn while_loop() {
     let mut p = parser_from_string("while (a > b) {b = b + a; count = count + 1;} a = a + count;");
     assert_eq!(
         format!("{}", p.parse_while_expression()),
-        "while ((a > b)) Compound Statement: b = (b + a)
+        "while ((a > b)) Compound Expression: b = (b + a)
 count = (count + 1)
 "
     );
@@ -140,6 +138,7 @@ fn struct_definition() {
     assert_eq!(
         p.parse_struct_definition(),
         TranslationUnit::StructDefinition(StructDefinitionTree {
+            loc: SourceLoc::new(1, 2),
             name: "money".into(),
             fields: vec![
                 VariableDeclarationTree {
