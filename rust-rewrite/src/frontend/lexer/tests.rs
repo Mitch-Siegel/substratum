@@ -1,5 +1,4 @@
-use crate::frontend::lexer::{self, Lexer};
-use std::str::Chars;
+use crate::frontend::lexer::Lexer;
 
 use super::token::Token;
 

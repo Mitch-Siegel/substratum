@@ -1,9 +1,8 @@
 use crate::frontend::ast::*;
 use crate::frontend::lexer::{token::Token, *};
 use crate::frontend::sourceloc::SourceLoc;
-use crate::midend::types::{self, Type};
+use crate::midend::types::Type;
 use crate::Parser;
-use std::str::Chars;
 
 #[cfg(test)]
 fn parser_from_string<'a>(input: &'a str) -> Parser<'a> {

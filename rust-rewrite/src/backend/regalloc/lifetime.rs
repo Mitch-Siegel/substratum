@@ -113,9 +113,8 @@ impl LifetimeSet {
 
 #[cfg(test)]
 mod tests {
-    use std::cmp::Ordering;
 
-    use crate::{backend::regalloc::program_point::ProgramPoint, midend};
+    use crate::midend;
 
     use super::Lifetime;
 

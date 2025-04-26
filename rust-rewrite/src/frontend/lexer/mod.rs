@@ -5,7 +5,9 @@ use super::sourceloc::SourceLoc;
 pub use char_source::CharSource;
 
 mod char_source;
+#[cfg(test)]
 mod integration_tests;
+#[cfg(test)]
 mod tests;
 pub mod token;
 

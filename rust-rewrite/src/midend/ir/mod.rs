@@ -1,6 +1,7 @@
 pub mod control_flow;
 pub mod operands;
 pub mod operations;
+#[cfg(test)]
 mod tests;
 
 use std::collections::BTreeSet;

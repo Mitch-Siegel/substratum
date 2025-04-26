@@ -1,5 +1,4 @@
 use std::{
-    env,
     fs::File,
     io::{BufRead, BufReader},
 };
@@ -156,6 +155,7 @@ impl<'a> Iterator for CharSource<'a> {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use crate::frontend::lexer::CharSource;
 
