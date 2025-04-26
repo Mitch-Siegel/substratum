@@ -10,7 +10,6 @@ use super::{
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
-    #[cfg(feature = "loud_parsing")]
     parsing_stack: Vec<String>,
 }
 
@@ -56,7 +55,6 @@ impl<'a> Parser<'a> {
     pub fn new(lexer: Lexer<'a>) -> Self {
         Parser {
             lexer: lexer,
-            #[cfg(feature = "loud_parsing")]
             parsing_stack: Vec::new(),
         }
     }
@@ -97,20 +95,22 @@ impl<'a> Parser<'a> {
 
     fn unexpected_token<T>(&mut self) -> T {
         panic!(
-            "Unexpected token {} at {}",
+            "Unexpected token {} at {} while parsing {}",
             self.peek_token(),
-            self.current_loc()
+            self.current_loc(),
+            self.parsing_stack
+                .last()
+                .unwrap_or(&String::from("UNKNOWN"))
         );
     }
-}
 
-#[cfg(feature = "loud_parsing")]
-impl<'a> Parser<'a> {
     fn start_parsing(&mut self, what_parsing: &str) {
         for i in 0..self.parsing_stack.len() {
             print!("\t");
         }
+        #[cfg(feature = "loud_parsing")]
         println!("Start parsing {}", what_parsing);
+
         self.parsing_stack.push(String::from(what_parsing));
     }
 
@@ -125,6 +125,8 @@ impl<'a> Parser<'a> {
         for i in 0..self.parsing_stack.len() {
             print!("\t");
         }
+
+        #[cfg(feature = "loud_parsing")]
         println!("Done parsing {}: {}", parsed_description, parsed);
     }
 }
@@ -139,7 +141,6 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_translation_unit(&mut self) -> TranslationUnitTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("translation unit");
 
         let translation_unit = TranslationUnitTree {
@@ -151,14 +152,12 @@ impl<'a> Parser<'a> {
             },
         };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&translation_unit);
 
         translation_unit
     }
 
     fn parse_function_declaration_or_definition(&mut self) -> TranslationUnit {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("function declaration/definition");
 
         let function_declaration = self.parse_function_prototype();
@@ -170,14 +169,12 @@ impl<'a> Parser<'a> {
             _ => TranslationUnit::FunctionDeclaration(function_declaration),
         };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&function_declaration_or_definition);
 
         function_declaration_or_definition
     }
 
     fn parse_struct_definition(&mut self) -> TranslationUnit {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("struct definition");
 
         let loc = self.current_loc();
@@ -213,14 +210,12 @@ impl<'a> Parser<'a> {
             fields: struct_fields,
         });
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&struct_definition);
 
         struct_definition
     }
 
     fn parse_block_expression(&mut self) -> CompoundExpressionTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("compound statement");
 
         let start_loc = self.current_loc();
@@ -239,14 +234,12 @@ impl<'a> Parser<'a> {
             statements: statements,
         };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&compound_statement);
 
         compound_statement
     }
 
     fn parse_statement(&mut self) -> StatementTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("statement");
 
         let statement = StatementTree {
@@ -259,14 +252,12 @@ impl<'a> Parser<'a> {
             },
         };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&statement);
 
         statement
     }
 
     fn parse_identifier_statement(&mut self, identifier: String) -> Statement {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("identifier statement");
 
         let identifier_statement = match self.peek_token() {
@@ -279,14 +270,12 @@ impl<'a> Parser<'a> {
         };
         self.expect_token(Token::Semicolon);
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&identifier_statement);
 
         identifier_statement
     }
 
     fn parse_if_expression(&mut self) -> ExpressionTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("if statement");
 
         let start_loc = self.current_loc();
@@ -315,14 +304,12 @@ impl<'a> Parser<'a> {
             })),
         };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&if_expression);
 
         if_expression
     }
 
     fn parse_while_expression(&mut self) -> WhileLoopTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("while loop");
 
         let start_loc = self.current_loc();
@@ -340,14 +327,12 @@ impl<'a> Parser<'a> {
             body,
         };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&while_loop);
 
         while_loop
     }
 
     fn parse_assignment(&mut self, identifier: String) -> AssignmentTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("assignment");
 
         let start_loc = self.current_loc();
@@ -362,14 +347,12 @@ impl<'a> Parser<'a> {
             value: self.parse_expression(),
         };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&assignment);
 
         assignment
     }
 
     fn parse_primary_expression(&mut self) -> ExpressionTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("primary expression");
 
         let primary_expression = ExpressionTree {
@@ -395,7 +378,6 @@ impl<'a> Parser<'a> {
             },
         };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&primary_expression);
 
         primary_expression
@@ -417,12 +399,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_expression_min_precedence(
+    fn parse_binary_expression_min_precedence(
         &mut self,
         lhs: ExpressionTree,
         min_precedence: usize,
     ) -> ExpressionTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing(&format!("expression (min precedence: {})", min_precedence));
 
         let mut expr = lhs;
@@ -435,7 +416,7 @@ impl<'a> Parser<'a> {
                 &self.peek_token(),
                 ir::BinaryOperations::precedence_of_token(&operation),
             ) {
-                rhs = self.parse_expression_min_precedence(
+                rhs = self.parse_binary_expression_min_precedence(
                     rhs,
                     ir::BinaryOperations::precedence_of_token(&operation),
                 );
@@ -481,58 +462,85 @@ impl<'a> Parser<'a> {
             };
         }
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&expr);
 
         expr
     }
 
     fn parse_expression(&mut self) -> ExpressionTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("expression");
 
-        let expr = match self.lexer.peek() {
+        let mut expr = match self.peek_token() {
             Token::If => self.parse_if_expression(),
             // Token::While => self.parse_while_expression(),
             Token::Identifier(ident) => self.parse_identifier_expression(),
+            Token::UnsignedDecimalConstant(_) => self.parse_literal_expression(),
+            Token::LParen => self.parse_parenthesized_expression(),
             _ => self.unexpected_token(),
         };
 
-        #[cfg(feature = "loud_parsing")]
+        let peeked = self.peek_token();
+        match peeked {
+            Token::Plus | Token::Minus | Token::Star | Token::FSlash => {
+                let lhs = expr;
+                expr = self.parse_binary_expression_min_precedence(lhs, 0)
+            }
+
+            _ => {
+                #[cfg(feature = "loud_parsing")]
+                println!("Peeked {} after lhs {} of expression", peeked, expr);
+            }
+        }
+
         self.finish_parsing(&expr);
 
         expr
     }
 
     fn parse_identifier_expression(&mut self) -> ExpressionTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("identifier expression");
 
-        let primary_expression = ExpressionTree {
+        let expr = ExpressionTree {
             loc: self.current_loc(),
             expression: Expression::Identifier(self.parse_identifier()),
         };
-        let expr = match self.peek_token() {
-            Token::Plus | Token::Minus | Token::Star | Token::FSlash => {
-                self.parse_expression_min_precedence(primary_expression, 0)
-            }
-            Token::GThan
-            | Token::GThanE
-            | Token::LThan
-            | Token::LThanE
-            | Token::Equals
-            | Token::NotEquals => self.parse_expression_min_precedence(primary_expression, 0),
-            _ => primary_expression,
-        };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&expr);
 
         expr
     }
 
+    fn parse_literal_expression(&mut self) -> ExpressionTree {
+        self.start_parsing("literal expression");
+
+        let expr = ExpressionTree {
+            loc: self.current_loc(),
+            expression: match self.peek_token() {
+                Token::UnsignedDecimalConstant(value) => {
+                    self.next_token();
+                    Expression::UnsignedDecimalConstant(value)
+                }
+                _ => self.unexpected_token(),
+            },
+        };
+
+        self.finish_parsing(&expr);
+
+        expr
+    }
+
+    fn parse_parenthesized_expression(&mut self) -> ExpressionTree {
+        self.start_parsing("parenthesized expression");
+
+        self.expect_token(Token::LParen);
+        let parenthesized_expr = self.parse_expression();
+        self.expect_token(Token::RParen);
+
+        self.finish_parsing(&parenthesized_expr);
+        parenthesized_expr
+    }
+
     fn parse_function_prototype(&mut self) -> FunctionDeclarationTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("function prototype");
 
         let start_loc = self.current_loc();
@@ -573,7 +581,6 @@ impl<'a> Parser<'a> {
             },
         };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&prototype);
 
         prototype
@@ -581,7 +588,6 @@ impl<'a> Parser<'a> {
 
     // TODO: pass loc of string to get true start loc of declaration
     fn parse_variable_declaration(&mut self, name: String) -> VariableDeclarationTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("function prototype");
 
         let declaration = VariableDeclarationTree {
@@ -593,14 +599,12 @@ impl<'a> Parser<'a> {
             },
         };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&declaration);
 
         declaration
     }
 
     fn parse_typename(&mut self) -> TypenameTree {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("typename");
 
         let typename = TypenameTree {
@@ -646,14 +650,12 @@ impl<'a> Parser<'a> {
             },
         };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&typename);
 
         typename
     }
 
     fn parse_identifier(&mut self) -> String {
-        #[cfg(feature = "loud_parsing")]
         self.start_parsing("identifier");
 
         let identifier = match self.expect_token(Token::Identifier(String::from(""))) {
@@ -661,7 +663,6 @@ impl<'a> Parser<'a> {
             _ => self.unexpected_token::<String>(),
         };
 
-        #[cfg(feature = "loud_parsing")]
         self.finish_parsing(&identifier);
 
         identifier
