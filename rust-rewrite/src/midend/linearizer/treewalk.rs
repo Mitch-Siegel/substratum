@@ -294,8 +294,13 @@ impl Walk for IfExpressionTree {
         let (_, maybe_else_label) =
             context.create_conditional_branch_from_current(condition_loc, if_condition);
         let if_value = self.true_block.walk(context);
+
+        // create a separate, mutable value which contains the true result
         let mut result_value = if_value.clone();
-        if self.false_block.is_some() {
+
+        // if a false block exists AND the 'if' value exists
+        if self.false_block.is_some() && if_value.operand.is_some() {
+            // we need to copy the 'if' result to the common result_value at the end of the 'if' block
             let result_operand = context.next_temp(if_value.type_.clone());
             result_value = Value::from_operand(result_operand.clone(), context);
             let assign_if_result_line =
@@ -309,6 +314,7 @@ impl Walk for IfExpressionTree {
                 context.set_current_block(else_label);
                 let else_value = else_block.walk(context);
 
+                // sanity-check that both branches return the same type
                 if if_value.type_ != else_value.type_ {
                     panic!(
                         "If and Else branches return different types ({} and {}): {}",
@@ -316,12 +322,16 @@ impl Walk for IfExpressionTree {
                     );
                 }
 
-                let assign_else_result_line = ir::IrLine::new_assignment(
-                    self.loc,
-                    result_value.clone().into(),
-                    else_value.into(),
-                );
-                context.append_statement_to_current_block(assign_else_result_line);
+                // if the 'else' value exists (have already passed check to assert types are the same)
+                if else_value.operand.is_some() {
+                    // copy the 'else' result to the common result_value at the end of the 'else' block
+                    let assign_else_result_line = ir::IrLine::new_assignment(
+                        self.loc,
+                        result_value.clone().into(),
+                        else_value.into(),
+                    );
+                    context.append_statement_to_current_block(assign_else_result_line);
+                }
 
                 context.converge_current_block();
             }
