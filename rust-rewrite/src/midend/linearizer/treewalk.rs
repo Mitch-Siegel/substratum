@@ -261,7 +261,9 @@ impl Walk for ExpressionTree {
             ),
             Expression::Arithmetic(arithmetic_operation) => arithmetic_operation.walk(context),
             Expression::Comparison(comparison_operation) => comparison_operation.walk(context),
+            Expression::Assignment(assignment_expression) => assignment_expression.walk(context),
             Expression::If(if_expression) => if_expression.walk(context),
+            Expression::While(while_expression) => while_expression.walk(context),
         }
     }
 }
@@ -335,7 +337,7 @@ impl Walk for IfExpressionTree {
     }
 }
 
-impl Walk for WhileLoopTree {
+impl Walk for WhileExpressionTree {
     fn walk(self, context: &mut WalkContext) -> Value {
         let loop_done = context.create_loop(self.loc, self.condition);
 
@@ -353,10 +355,6 @@ impl Walk for StatementTree {
             Statement::VariableDeclaration(declaration_tree) => {
                 let declared_variable = declaration_tree.walk(context);
                 context.scope().insert_variable(declared_variable);
-                Value::unit()
-            }
-            Statement::Assignment(assignment_tree) => {
-                assignment_tree.walk(context);
                 Value::unit()
             }
             Statement::Expression(expression_tree) => expression_tree.walk(context),
@@ -378,7 +376,6 @@ impl Walk for CompoundExpressionTree {
                     variable_declaration_tree.walk(context);
                     Value::unit()
                 }
-                Statement::Assignment(assignment_tree) => assignment_tree.walk(context),
                 Statement::Expression(expression_tree) => expression_tree.walk(context),
             },
             None => Value::unit(),

@@ -124,7 +124,7 @@ impl<'a> Parser<'a> {
             .unwrap_or(&(SourceLoc::none(), String::from("UNKNOWN")))
             .to_owned();
         panic!(
-            "Unexpected token {} at {} while parsing {} (started at {})",
+            "Unexpected token '{}' at {} while parsing {} (started at {})",
             self.peek_token(),
             self.current_loc(),
             current_parse_str,
@@ -221,9 +221,8 @@ impl<'a> Parser<'a> {
 
         loop {
             match self.peek_token() {
-                Token::Identifier(identifier) => {
-                    self.next_token();
-                    struct_fields.push(self.parse_variable_declaration(identifier));
+                Token::Identifier(_) => {
+                    struct_fields.push(self.parse_variable_declaration());
 
                     if matches!(self.peek_token(), Token::Comma) {
                         self.next_token();
@@ -277,22 +276,16 @@ impl<'a> Parser<'a> {
         let start_loc = self.start_parsing("statement");
 
         let statement = StatementTree {
-            loc: self.current_loc(),
+            loc: start_loc,
             statement: match self.peek_token() {
-                Token::If | Token::While | Token::LCurly | Token::Identifier(_) => {
-                    let expression = self.parse_expression();
-                    match self.peek_token() {
-                        Token::Assign => {
-                            self.expect_token(Token::Assign);
-                            let rhs = self.parse_expression();
-                            Statement::Assignment(AssignmentTree {
-                                loc: start_loc,
-                                assignee: expression,
-                                value: rhs,
-                            })
-                        }
-                        _ => Statement::Expression(expression),
+                Token::Identifier(_) => match self.lookahead_token(1) {
+                    Token::Colon => {
+                        Statement::VariableDeclaration(self.parse_variable_declaration())
                     }
+                    _ => Statement::Expression(self.parse_expression()),
+                },
+                Token::If | Token::While | Token::LCurly => {
+                    Statement::Expression(self.parse_expression())
                 }
                 _ => self.unexpected_token(),
             },
@@ -340,7 +333,7 @@ impl<'a> Parser<'a> {
         if_expression
     }
 
-    fn parse_while_expression(&mut self) -> WhileLoopTree {
+    fn parse_while_expression(&mut self) -> ExpressionTree {
         let start_loc = self.start_parsing("while loop");
 
         self.expect_token(Token::While);
@@ -351,7 +344,7 @@ impl<'a> Parser<'a> {
 
         let body = self.parse_block_expression();
 
-        let while_loop = WhileLoopTree {
+        let while_loop = WhileExpressionTree {
             loc: start_loc,
             condition,
             body,
@@ -359,21 +352,26 @@ impl<'a> Parser<'a> {
 
         self.finish_parsing(&while_loop);
 
-        while_loop
+        ExpressionTree {
+            loc: start_loc,
+            expression: Expression::While(Box::from(while_loop)),
+        }
     }
 
-    fn parse_assignment(&mut self, identifier: String) -> AssignmentTree {
-        let start_loc = self.start_parsing("assignment");
+    fn parse_assignment_expression(&mut self, lhs: ExpressionTree) -> ExpressionTree {
+        self.start_parsing("assignment (rhs)");
 
-        let lhs = identifier;
         self.expect_token(Token::Assign);
-        let assignment = AssignmentTree {
-            loc: start_loc,
-            assignee: ExpressionTree {
-                loc: start_loc,
-                expression: Expression::Identifier(lhs),
-            },
-            value: self.parse_expression(),
+
+        let rhs = self.parse_expression();
+
+        let assignment = ExpressionTree {
+            loc: lhs.loc.clone(),
+            expression: Expression::Assignment(AssignmentTree {
+                loc: lhs.loc.clone(),
+                assignee: Box::from(lhs),
+                value: Box::from(rhs),
+            }),
         };
 
         self.finish_parsing(&assignment);
@@ -501,8 +499,8 @@ impl<'a> Parser<'a> {
 
         let mut expr = match self.peek_token() {
             Token::If => self.parse_if_expression(),
-            // Token::While => self.parse_while_expression(),
-            Token::Identifier(ident) => self.parse_identifier_expression(),
+            Token::While => self.parse_while_expression(),
+            Token::Identifier(_) => self.parse_identifier_expression(),
             Token::UnsignedDecimalConstant(_) => self.parse_literal_expression(),
             Token::LParen => self.parse_parenthesized_expression(),
             _ => self.unexpected_token(),
@@ -528,6 +526,13 @@ impl<'a> Parser<'a> {
                 #[cfg(feature = "loud_parsing")]
                 println!("Peeked {} after lhs {} of expression", peeked, expr);
             }
+        }
+
+        match self.peek_token() {
+            Token::Assign => {
+                expr = self.parse_assignment_expression(expr);
+            }
+            _ => {}
         }
 
         self.finish_parsing(&expr);
@@ -593,9 +598,8 @@ impl<'a> Parser<'a> {
                 loop {
                     match self.peek_token() {
                         // argument declaration
-                        Token::Identifier(identifier) => {
-                            self.next_token();
-                            arguments.push(self.parse_variable_declaration(identifier));
+                        Token::Identifier(_) => {
+                            arguments.push(self.parse_variable_declaration());
                             match self.peek_token() {
                                 Token::Comma => self.next_token(), // expect another argument declaration after comma
                                 _ => break,                        // loop again for anything else
@@ -624,12 +628,12 @@ impl<'a> Parser<'a> {
     }
 
     // TODO: pass loc of string to get true start loc of declaration
-    fn parse_variable_declaration(&mut self, name: String) -> VariableDeclarationTree {
-        let start_loc = self.start_parsing("function prototype");
+    fn parse_variable_declaration(&mut self) -> VariableDeclarationTree {
+        let start_loc = self.start_parsing("variable declaration");
 
         let declaration = VariableDeclarationTree {
             loc: start_loc,
-            name,
+            name: self.parse_identifier(),
             typename: {
                 self.expect_token(Token::Colon);
                 self.parse_typename()

@@ -124,12 +124,12 @@ impl Display for IfExpressionTree {
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct WhileLoopTree {
+pub struct WhileExpressionTree {
     pub loc: SourceLoc,
     pub condition: ExpressionTree,
     pub body: CompoundExpressionTree,
 }
-impl Display for WhileLoopTree {
+impl Display for WhileExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "while ({}) {}", self.condition, self.body)
     }
@@ -138,7 +138,6 @@ impl Display for WhileLoopTree {
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Statement {
     VariableDeclaration(VariableDeclarationTree),
-    Assignment(AssignmentTree),
     Expression(ExpressionTree),
 }
 
@@ -147,9 +146,6 @@ impl Display for Statement {
         match self {
             Self::VariableDeclaration(variable_declaration) => {
                 write!(f, "{}", variable_declaration)
-            }
-            Self::Assignment(assignment) => {
-                write!(f, "{}", assignment)
             }
             Self::Expression(expression) => {
                 write!(f, "{}", expression)
@@ -184,8 +180,8 @@ impl Display for VariableDeclarationTree {
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct AssignmentTree {
     pub loc: SourceLoc,
-    pub assignee: ExpressionTree,
-    pub value: ExpressionTree,
+    pub assignee: Box<ExpressionTree>,
+    pub value: Box<ExpressionTree>,
 }
 impl Display for AssignmentTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -245,7 +241,9 @@ pub enum Expression {
     UnsignedDecimalConstant(usize),
     Arithmetic(ArithmeticExpressionTree),
     Comparison(ComparisonExpressionTree),
+    Assignment(AssignmentTree),
     If(Box<IfExpressionTree>),
+    While(Box<WhileExpressionTree>),
 }
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -254,7 +252,9 @@ impl Display for Expression {
             Self::UnsignedDecimalConstant(constant) => write!(f, "{}", constant),
             Self::Arithmetic(arithmetic_expression) => write!(f, "{}", arithmetic_expression),
             Self::Comparison(comparison_expression) => write!(f, "{}", comparison_expression),
+            Self::Assignment(assignment_expression) => write!(f, "{}", assignment_expression),
             Self::If(if_expression) => write!(f, "{}", if_expression),
+            Self::While(while_expression) => write!(f, "{}", while_expression),
         }
     }
 }

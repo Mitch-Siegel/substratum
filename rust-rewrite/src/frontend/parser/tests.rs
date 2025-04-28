@@ -85,8 +85,7 @@ fn complex_arithmetic_expression() {
 #[cfg(test)]
 fn parse_and_print_variable_declaration(input: &str) -> String {
     let mut parser = parser_from_string(input);
-    let ident = parser.parse_identifier();
-    let expr_string = parser.parse_variable_declaration(ident).to_string();
+    let expr_string = parser.parse_variable_declaration().to_string();
     parser.expect_token(Token::Eof);
     expr_string
 }
@@ -141,7 +140,7 @@ fn struct_definition() {
             name: "money".into(),
             fields: vec![
                 VariableDeclarationTree {
-                    loc: SourceLoc::new(2, 13),
+                    loc: SourceLoc::new(2, 9),
                     name: "dollars".into(),
                     typename: TypenameTree {
                         loc: SourceLoc::new(2, 14),
@@ -149,7 +148,7 @@ fn struct_definition() {
                     }
                 },
                 VariableDeclarationTree {
-                    loc: SourceLoc::new(3, 10),
+                    loc: SourceLoc::new(3, 7),
                     name: "cents".into(),
                     typename: TypenameTree {
                         loc: SourceLoc::new(3, 11),
