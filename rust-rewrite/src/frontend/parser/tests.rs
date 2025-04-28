@@ -141,18 +141,18 @@ fn struct_definition() {
             name: "money".into(),
             fields: vec![
                 VariableDeclarationTree {
-                    loc: SourceLoc::new(2, 9),
+                    loc: SourceLoc::new(2, 13),
                     name: "dollars".into(),
                     typename: TypenameTree {
-                        loc: SourceLoc::new(2, 13),
+                        loc: SourceLoc::new(2, 14),
                         type_: Type::U64
                     }
                 },
                 VariableDeclarationTree {
-                    loc: SourceLoc::new(3, 7),
+                    loc: SourceLoc::new(3, 10),
                     name: "cents".into(),
                     typename: TypenameTree {
-                        loc: SourceLoc::new(3, 10),
+                        loc: SourceLoc::new(3, 11),
                         type_: Type::U8
                     }
                 }

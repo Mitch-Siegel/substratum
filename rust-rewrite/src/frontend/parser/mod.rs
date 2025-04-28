@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests;
 
+use std::collections::VecDeque;
+
 use crate::midend::{ir, types::Type};
 
 use super::{
@@ -11,6 +13,7 @@ use super::{
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
+    upcoming_tokens: VecDeque<Token>,
     parsing_stack: Vec<(SourceLoc, String)>,
 }
 
@@ -56,19 +59,39 @@ impl<'a> Parser<'a> {
     pub fn new(lexer: Lexer<'a>) -> Self {
         Parser {
             lexer: lexer,
+            upcoming_tokens: VecDeque::new(),
             parsing_stack: Vec::new(),
         }
     }
 
+    fn ensure_n_tokens_in_lookahead(&mut self, n: usize) {
+        while self.upcoming_tokens.len() <= n && self.lexer.peek() != Token::Eof {
+            self.upcoming_tokens.push_back(self.lexer.next());
+        }
+    }
+
+    // return the next token from the input stream without advancing
+    // utilizes lookahead_token
     fn peek_token(&mut self) -> Token {
-        let peeked = self.lexer.peek();
+        let peeked = self.lookahead_token(0);
         // #[cfg(feature = "loud_parsing")]
         // println!("Parser::peek_token() -> {}", peeked);
         return peeked;
     }
 
+    // returns the lookahead_by-th token from the input stream withing advancing, or EOF if that many tokens are not available
+    fn lookahead_token(&mut self, lookahead_by: usize) -> Token {
+        self.ensure_n_tokens_in_lookahead(lookahead_by);
+
+        self.upcoming_tokens
+            .get(lookahead_by)
+            .cloned()
+            .unwrap_or(Token::Eof)
+    }
+
     fn next_token(&mut self) -> Token {
-        let next = self.lexer.next();
+        self.ensure_n_tokens_in_lookahead(1);
+        let next = self.upcoming_tokens.pop_front().unwrap_or(Token::Eof);
         #[cfg(feature = "loud_parsing")]
         println!("Parser::next_token() -> {}", next);
         next
@@ -147,7 +170,7 @@ impl<'a> Parser<'a> {
 impl<'a> Parser<'a> {
     pub fn parse(&mut self) -> Vec<TranslationUnitTree> {
         let mut translation_units = Vec::new();
-        while self.lexer.peek() != Token::Eof {
+        while self.peek_token() != Token::Eof {
             translation_units.push(self.parse_translation_unit());
         }
         translation_units
