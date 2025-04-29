@@ -5,11 +5,14 @@ use super::sourceloc::SourceLoc;
 pub use char_source::CharSource;
 
 mod char_source;
+pub mod errors;
 #[cfg(test)]
 mod integration_tests;
 #[cfg(test)]
 mod tests;
 pub mod token;
+
+pub use errors::LexError;
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
@@ -42,10 +45,6 @@ impl<'a> Lexer<'a> {
         self.current_char = self.char_source.next();
     }
 
-    fn invalid_char(&self, char: char) {
-        panic!("Invalid character '{}' at {}", char, self.current_loc());
-    }
-
     fn from_char_source(mut char_source: CharSource<'a>) -> Self {
         let first_char = char_source.next();
 
@@ -73,6 +72,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn match_kw_or_ident(&mut self) -> Token {
+        // FUTURE: sanity-check that we match length >0 here?
         #[cfg(feature = "loud_lexing")]
         println!("Lexer::match_kw_or_ident");
 
@@ -111,9 +111,9 @@ impl<'a> Lexer<'a> {
         matched
     }
 
-    pub fn peek(&mut self) -> Token {
+    pub fn peek(&mut self) -> Result<Token, LexError> {
         if self.current_token.is_none() {
-            self.current_token = Some(self.lex());
+            self.current_token = Some(self.lex()?);
         }
 
         let peeked = self.current_token.clone().unwrap_or(Token::Eof);
@@ -121,7 +121,7 @@ impl<'a> Lexer<'a> {
         #[cfg(feature = "loud_lexing")]
         println!("Lexer::peek() -> {:?}", peeked);
 
-        peeked
+        Ok(peeked)
     }
 
     pub fn current_loc(&self) -> SourceLoc {
@@ -153,7 +153,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn lex(&mut self) -> Token {
+    fn lex(&mut self) -> Result<Token, LexError> {
         #[cfg(feature = "loud_lexing")]
         println!("Lexer::lex()");
 
@@ -165,77 +165,73 @@ impl<'a> Lexer<'a> {
             match peeked_char {
                 '{' => {
                     self.advance_char();
-                    Token::LCurly
+                    Ok(Token::LCurly)
                 }
                 '}' => {
                     self.advance_char();
-                    Token::RCurly
+                    Ok(Token::RCurly)
                 }
                 '(' => {
                     self.advance_char();
-                    Token::LParen
+                    Ok(Token::LParen)
                 }
                 ')' => {
                     self.advance_char();
-                    Token::RParen
+                    Ok(Token::RParen)
                 }
                 '+' => {
                     self.advance_char();
-                    Token::Plus
+                    Ok(Token::Plus)
                 }
                 '-' => {
                     self.advance_char();
-                    self.match_next_char_for_token_or('>', Token::Arrow, Token::Minus)
+                    Ok(self.match_next_char_for_token_or('>', Token::Arrow, Token::Minus))
                 }
                 '*' => {
                     self.advance_char();
-                    Token::Star
+                    Ok(Token::Star)
                 }
                 '/' => {
                     self.advance_char();
-                    Token::FSlash
+                    Ok(Token::FSlash)
                 }
                 '>' => {
                     self.advance_char();
-                    self.match_next_char_for_token_or('=', Token::GThanE, Token::GThan)
+                    Ok(self.match_next_char_for_token_or('=', Token::GThanE, Token::GThan))
                 }
                 '<' => {
                     self.advance_char();
-                    self.match_next_char_for_token_or('=', Token::LThanE, Token::LThan)
+                    Ok(self.match_next_char_for_token_or('=', Token::LThanE, Token::LThan))
                 }
                 '!' => {
                     self.advance_char();
                     match self.peek_char() {
-                        None => {
-                            self.invalid_char('!');
-                            Token::Eof
-                        }
-                        Some(char) => {
-                            if char == '=' {
+                        None => Err(LexError::unexpected_eof(self.current_loc())),
+                        Some(character) => {
+                            if character == '=' {
                                 self.advance_char();
-                                Token::NotEquals
+                                Ok(Token::NotEquals)
                             } else {
-                                self.invalid_char('!');
-                                Token::Eof
+                                Err(LexError::invalid_char(character, self.current_loc()))
                             }
                         }
                     }
                 }
                 '=' => {
                     self.advance_char();
-                    self.match_next_char_for_token_or('=', Token::Equals, Token::Assign)
+                    Ok(self.match_next_char_for_token_or('=', Token::Equals, Token::Assign))
                 }
                 ',' => {
                     self.advance_char();
-                    Token::Comma
+                    Ok(Token::Comma)
                 }
                 ';' => {
                     self.advance_char();
-                    Token::Semicolon
+                    Ok(Token::Semicolon)
                 }
                 ':' => {
                     self.advance_char();
-                    Token::Colon
+                    Ok(Token::Colon)
                 }
                 '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                     let mut constant_string = String::new();
@@ -248,15 +244,15 @@ impl<'a> Lexer<'a> {
                             break;
                         }
                     }
-                    Token::UnsignedDecimalConstant(
+                    Ok(Token::UnsignedDecimalConstant(
                         usize::from_str_radix(&constant_string, 10)
                             .expect("Couldn't convert unsigned decimal constant"),
-                    )
+                    ))
                 }
-                _ => self.match_kw_or_ident(),
+                _ => Ok(self.match_kw_or_ident()),
             }
         } else {
-            Token::Eof
+            Ok(Token::Eof)
         };
 
         #[cfg(feature = "loud_lexing")]
@@ -265,20 +261,20 @@ impl<'a> Lexer<'a> {
         token
     }
 
-    pub fn next(&mut self) -> Token {
-        let next_token = self.lex();
-        self.current_token.replace(next_token).unwrap_or(Token::Eof)
+    pub fn next(&mut self) -> Result<Token, LexError> {
+        let next_token = self.lex()?;
+        Ok(self.current_token.replace(next_token).unwrap_or(Token::Eof))
     }
 
-    pub fn lex_all(&mut self) -> Vec<Token> {
+    pub fn lex_all(&mut self) -> Result<Vec<Token>, LexError> {
         println!("Lexer::lex_all()");
         let mut tokens: Vec<Token> = Vec::new();
         if self.current_token.is_none() {
-            tokens.push(self.lex());
+            tokens.push(self.lex()?);
         }
 
         loop {
-            let next_token = self.next();
+            let next_token = self.next()?;
             println!("next_token: {:?}", next_token);
             match next_token {
                 Token::Eof => {
@@ -293,6 +289,6 @@ impl<'a> Lexer<'a> {
 
         println!("Lexer::lex_all(): {:?}", tokens);
 
-        tokens
+        Ok(tokens)
     }
 }

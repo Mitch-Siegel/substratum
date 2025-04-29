@@ -86,6 +86,49 @@ impl PartialEq for Token {
 
 impl Eq for Token {}
 
+impl Token {
+    pub fn name(&self) -> &str {
+        match self {
+            Self::U8 => "u8",
+            Self::U16 => "u16",
+            Self::U32 => "u32",
+            Self::U64 => "u64",
+            Self::I8 => "i8",
+            Self::I16 => "i16",
+            Self::I32 => "i32",
+            Self::I64 => "i64",
+            Self::Plus => "+",
+            Self::Minus => "-",
+            Self::Star => "*",
+            Self::FSlash => "/",
+            Self::GThan => ">",
+            Self::GThanE => ">=",
+            Self::LThan => "<",
+            Self::LThanE => "<=",
+            Self::Equals => "==",
+            Self::NotEquals => "!=",
+            Self::Assign => "=",
+            Self::Fun => "fun",
+            Self::If => "if",
+            Self::Else => "else",
+            Self::While => "while",
+            Self::Pub => "pub",
+            Self::Struct => "struct",
+            Self::LParen => "(",
+            Self::RParen => ")",
+            Self::Arrow => "->",
+            Self::LCurly => "{",
+            Self::RCurly => "}",
+            Self::Comma => ",",
+            Self::Semicolon => ";",
+            Self::Colon => ":",
+            Self::Identifier(_) => "identifier",
+            Self::UnsignedDecimalConstant(_) => "unsigned decimal constant",
+            Self::Eof => "EOF",
+        }
+    }
+}
+
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

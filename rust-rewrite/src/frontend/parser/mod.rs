@@ -11,6 +11,10 @@ use super::{
     sourceloc::SourceLoc,
 };
 
+mod errors;
+
+pub use errors::ParseError;
+
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     upcoming_tokens: VecDeque<Token>,
@@ -64,52 +68,55 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn ensure_n_tokens_in_lookahead(&mut self, n: usize) {
-        while self.upcoming_tokens.len() <= n && self.lexer.peek() != Token::Eof {
-            self.upcoming_tokens.push_back(self.lexer.next());
+    fn ensure_n_tokens_in_lookahead(&mut self, n: usize) -> Result<(), LexError> {
+        while self.upcoming_tokens.len() <= n && self.lexer.peek()? != Token::Eof {
+            self.upcoming_tokens.push_back(self.lexer.next()?);
         }
+
+        Ok(())
     }
 
     // return the next token from the input stream without advancing
     // utilizes lookahead_token
-    fn peek_token(&mut self) -> Token {
-        let peeked = self.lookahead_token(0);
+    fn peek_token(&mut self) -> Result<Token, LexError> {
+        let peeked = self.lookahead_token(0)?;
         // #[cfg(feature = "loud_parsing")]
         // println!("Parser::peek_token() -> {}", peeked);
-        return peeked;
+        return Ok(peeked);
     }
 
     // returns the lookahead_by-th token from the input stream withing advancing, or EOF if that many tokens are not available
-    fn lookahead_token(&mut self, lookahead_by: usize) -> Token {
-        self.ensure_n_tokens_in_lookahead(lookahead_by);
+    fn lookahead_token(&mut self, lookahead_by: usize) -> Result<Token, LexError> {
+        self.ensure_n_tokens_in_lookahead(lookahead_by)?;
 
-        self.upcoming_tokens
+        Ok(self
+            .upcoming_tokens
             .get(lookahead_by)
             .cloned()
-            .unwrap_or(Token::Eof)
+            .unwrap_or(Token::Eof))
     }
 
-    fn next_token(&mut self) -> Token {
-        self.ensure_n_tokens_in_lookahead(1);
+    fn next_token(&mut self) -> Result<Token, ParseError> {
+        self.ensure_n_tokens_in_lookahead(1)?;
         let next = self.upcoming_tokens.pop_front().unwrap_or(Token::Eof);
         #[cfg(feature = "loud_parsing")]
         println!("Parser::next_token() -> {}", next);
-        next
+        Ok(next)
     }
 
-    fn expect_token(&mut self, _t: Token) -> Token {
+    fn expect_token(&mut self, _expected: Token) -> Result<Token, ParseError> {
         #[cfg(feature = "loud_parsing")]
-        println!("Parser::expect_token({})", _t);
+        println!("Parser::expect_token({})", expected);
 
-        if matches!(self.peek_token(), _t) {
+        let upcoming_token = self.peek_token()?;
+        if matches!(&upcoming_token, _expected) {
             self.next_token()
         } else {
-            panic!(
-                "Expected token {} at {}, got token {} instead!",
-                _t,
-                self.lexer.current_loc(),
-                self.peek_token()
-            );
+            Err(ParseError::unexpected_token(
+                self.current_loc(),
+                upcoming_token,
+                &[_expected],
+            ))
         }
     }
 
@@ -117,23 +124,27 @@ impl<'a> Parser<'a> {
         self.lexer.current_loc()
     }
 
-    fn unexpected_token<T>(&mut self) -> T {
-        let (current_parse_loc, current_parse_str) = self
+    fn unexpected_token<T>(&mut self, expected_tokens: &[Token]) -> Result<T, ParseError> {
+        let (current_parse_loc, _current_parse_str) = self
             .parsing_stack
             .last()
             .unwrap_or(&(SourceLoc::none(), String::from("UNKNOWN")))
             .to_owned();
-        panic!(
-            "Unexpected token '{}' at {} while parsing {} (started at {})",
-            self.peek_token(),
-            self.current_loc(),
-            current_parse_str,
-            current_parse_loc
-        );
+
+        let upcoming_token = match self.peek_token() {
+            Ok(tok) => tok,
+            Err(error) => return Err(ParseError::from(error)),
+        };
+
+        Err(ParseError::unexpected_token(
+            current_parse_loc,
+            upcoming_token,
+            expected_tokens,
+        ))
     }
 
     fn start_parsing(&mut self, what_parsing: &str) -> SourceLoc {
-        for i in 0..self.parsing_stack.len() {
+        for _ in 0..self.parsing_stack.len() {
             print!("\t");
         }
         #[cfg(feature = "loud_parsing")]
@@ -144,96 +155,96 @@ impl<'a> Parser<'a> {
         self.current_loc()
     }
 
-    fn finish_parsing<T>(&mut self, parsed: &T)
+    fn finish_parsing<T>(&mut self, _parsed: &T)
     where
         T: std::fmt::Display,
     {
-        let (parse_start, parsed_description) = self
+        let (_parse_start, _parsed_description) = self
             .parsing_stack
             .pop()
             .expect("Mismatched loud parsing tracking");
-        for i in 0..self.parsing_stack.len() {
+        for _ in 0..self.parsing_stack.len() {
             print!("\t");
         }
 
         #[cfg(feature = "loud_parsing")]
         println!(
             "Done parsing {} ({}-{}): {}",
-            parsed_description,
-            parse_start,
+            _parsed_description,
+            _parse_start,
             self.current_loc(),
-            parsed
+            _parsed
         );
     }
 }
 
 impl<'a> Parser<'a> {
-    pub fn parse(&mut self) -> Vec<TranslationUnitTree> {
+    pub fn parse(&mut self) -> Result<Vec<TranslationUnitTree>, ParseError> {
         let mut translation_units = Vec::new();
-        while self.peek_token() != Token::Eof {
-            translation_units.push(self.parse_translation_unit());
+        while self.peek_token()? != Token::Eof {
+            translation_units.push(self.parse_translation_unit()?);
         }
-        translation_units
+        Ok(translation_units)
     }
 
-    fn parse_translation_unit(&mut self) -> TranslationUnitTree {
+    fn parse_translation_unit(&mut self) -> Result<TranslationUnitTree, ParseError> {
         let start_loc = self.start_parsing("translation unit");
 
         let translation_unit = TranslationUnitTree {
             loc: start_loc,
-            contents: match self.peek_token() {
-                Token::Fun => self.parse_function_declaration_or_definition(),
-                Token::Struct => self.parse_struct_definition(),
-                _ => self.unexpected_token::<TranslationUnit>(),
+            contents: match self.peek_token()? {
+                Token::Fun => self.parse_function_declaration_or_definition()?,
+                Token::Struct => self.parse_struct_definition()?,
+                _ => self.unexpected_token(&[Token::Fun, Token::Struct])?,
             },
         };
 
         self.finish_parsing(&translation_unit);
 
-        translation_unit
+        Ok(translation_unit)
     }
 
-    fn parse_function_declaration_or_definition(&mut self) -> TranslationUnit {
+    fn parse_function_declaration_or_definition(&mut self) -> Result<TranslationUnit, ParseError> {
         let _start_loc = self.start_parsing("function declaration/definition");
 
-        let function_declaration = self.parse_function_prototype();
-        let function_declaration_or_definition = match self.peek_token() {
+        let function_declaration = self.parse_function_prototype()?;
+        let function_declaration_or_definition = match self.peek_token()? {
             Token::LCurly => TranslationUnit::FunctionDefinition(FunctionDefinitionTree {
                 prototype: function_declaration,
-                body: self.parse_block_expression(),
+                body: self.parse_block_expression()?,
             }),
             _ => TranslationUnit::FunctionDeclaration(function_declaration),
         };
 
         self.finish_parsing(&function_declaration_or_definition);
 
-        function_declaration_or_definition
+        Ok(function_declaration_or_definition)
     }
 
-    fn parse_struct_definition(&mut self) -> TranslationUnit {
+    fn parse_struct_definition(&mut self) -> Result<TranslationUnit, ParseError> {
         let start_loc = self.start_parsing("struct definition");
 
-        self.expect_token(Token::Struct);
-        let struct_name = self.parse_identifier();
-        self.expect_token(Token::LCurly);
+        self.expect_token(Token::Struct)?;
+        let struct_name = self.parse_identifier()?;
+        self.expect_token(Token::LCurly)?;
 
         let mut struct_fields = Vec::new();
 
         loop {
-            match self.peek_token() {
+            match self.peek_token()? {
                 Token::Identifier(_) => {
-                    struct_fields.push(self.parse_variable_declaration());
+                    struct_fields.push(self.parse_variable_declaration()?);
 
-                    if matches!(self.peek_token(), Token::Comma) {
-                        self.next_token();
+                    if matches!(self.peek_token()?, Token::Comma) {
+                        self.next_token()?;
                     }
                 }
                 Token::RCurly => {
-                    self.next_token();
+                    self.next_token()?;
                     break;
                 }
                 _ => {
-                    self.unexpected_token::<()>();
+                    self.unexpected_token::<TranslationUnit>(&[Token::Identifier("".into())])?;
                 }
             }
         }
@@ -246,21 +257,21 @@ impl<'a> Parser<'a> {
 
         self.finish_parsing(&struct_definition);
 
-        struct_definition
+        Ok(struct_definition)
     }
 
-    fn parse_block_expression(&mut self) -> CompoundExpressionTree {
+    fn parse_block_expression(&mut self) -> Result<CompoundExpressionTree, ParseError> {
         let start_loc = self.start_parsing("compound statement");
 
-        self.expect_token(Token::LCurly);
+        self.expect_token(Token::LCurly)?;
         let mut statements: Vec<StatementTree> = Vec::new();
         loop {
-            match self.peek_token() {
+            match self.peek_token()? {
                 Token::RCurly => break,
-                _ => statements.push(self.parse_statement()),
+                _ => statements.push(self.parse_statement()?),
             }
         }
-        self.expect_token(Token::RCurly);
+        self.expect_token(Token::RCurly)?;
 
         let compound_statement = CompoundExpressionTree {
             loc: start_loc,
@@ -269,51 +280,56 @@ impl<'a> Parser<'a> {
 
         self.finish_parsing(&compound_statement);
 
-        compound_statement
+        Ok(compound_statement)
     }
 
-    fn parse_statement(&mut self) -> StatementTree {
+    fn parse_statement(&mut self) -> Result<StatementTree, ParseError> {
         let start_loc = self.start_parsing("statement");
 
         let statement = StatementTree {
             loc: start_loc,
-            statement: match self.peek_token() {
-                Token::Identifier(_) => match self.lookahead_token(1) {
+            statement: match self.peek_token()? {
+                Token::Identifier(_) => match self.lookahead_token(1)? {
                     Token::Colon => {
-                        Statement::VariableDeclaration(self.parse_variable_declaration())
+                        Statement::VariableDeclaration(self.parse_variable_declaration()?)
                     }
-                    _ => Statement::Expression(self.parse_expression()),
+                    _ => Statement::Expression(self.parse_expression()?),
                 },
                 Token::If | Token::While | Token::LCurly => {
-                    Statement::Expression(self.parse_expression())
+                    Statement::Expression(self.parse_expression()?)
                 }
-                _ => self.unexpected_token(),
+                _ => self.unexpected_token::<Statement>(&[
+                    Token::Identifier("".into()),
+                    Token::If,
+                    Token::While,
+                    Token::LCurly,
+                ])?,
             },
         };
 
-        if matches!(self.peek_token(), Token::Semicolon) {
-            self.expect_token(Token::Semicolon);
+        if matches!(self.peek_token()?, Token::Semicolon) {
+            self.expect_token(Token::Semicolon)?;
         }
 
         self.finish_parsing(&statement);
 
-        statement
+        Ok(statement)
     }
 
-    fn parse_if_expression(&mut self) -> ExpressionTree {
+    fn parse_if_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let start_loc = self.start_parsing("if statement");
 
-        self.expect_token(Token::If);
+        self.expect_token(Token::If)?;
 
-        self.expect_token(Token::LParen);
-        let condition: ExpressionTree = self.parse_expression();
-        self.expect_token(Token::RParen);
+        self.expect_token(Token::LParen)?;
+        let condition: ExpressionTree = self.parse_expression()?;
+        self.expect_token(Token::RParen)?;
 
-        let true_block = self.parse_block_expression();
-        let false_block = match self.peek_token() {
+        let true_block = self.parse_block_expression()?;
+        let false_block = match self.peek_token()? {
             Token::Else => {
-                self.next_token();
-                Some(self.parse_block_expression())
+                self.next_token()?;
+                Some(self.parse_block_expression()?)
             }
             _ => None,
         };
@@ -330,19 +346,19 @@ impl<'a> Parser<'a> {
 
         self.finish_parsing(&if_expression);
 
-        if_expression
+        Ok(if_expression)
     }
 
-    fn parse_while_expression(&mut self) -> ExpressionTree {
+    fn parse_while_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let start_loc = self.start_parsing("while loop");
 
-        self.expect_token(Token::While);
+        self.expect_token(Token::While)?;
 
-        self.expect_token(Token::LParen);
-        let condition = self.parse_expression();
-        self.expect_token(Token::RParen);
+        self.expect_token(Token::LParen)?;
+        let condition = self.parse_expression()?;
+        self.expect_token(Token::RParen)?;
 
-        let body = self.parse_block_expression();
+        let body = self.parse_block_expression()?;
 
         let while_loop = WhileExpressionTree {
             loc: start_loc,
@@ -352,18 +368,21 @@ impl<'a> Parser<'a> {
 
         self.finish_parsing(&while_loop);
 
-        ExpressionTree {
+        Ok(ExpressionTree {
             loc: start_loc,
             expression: Expression::While(Box::from(while_loop)),
-        }
+        })
     }
 
-    fn parse_assignment_expression(&mut self, lhs: ExpressionTree) -> ExpressionTree {
+    fn parse_assignment_expression(
+        &mut self,
+        lhs: ExpressionTree,
+    ) -> Result<ExpressionTree, ParseError> {
         self.start_parsing("assignment (rhs)");
 
-        self.expect_token(Token::Assign);
+        self.expect_token(Token::Assign)?;
 
-        let rhs = self.parse_expression();
+        let rhs = self.parse_expression()?;
 
         let assignment = ExpressionTree {
             loc: lhs.loc.clone(),
@@ -376,38 +395,42 @@ impl<'a> Parser<'a> {
 
         self.finish_parsing(&assignment);
 
-        assignment
+        Ok(assignment)
     }
 
-    fn parse_primary_expression(&mut self) -> ExpressionTree {
+    fn parse_primary_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let start_loc = self.start_parsing("primary expression");
 
         let primary_expression = ExpressionTree {
             loc: start_loc,
             expression: {
-                match self.peek_token() {
+                match self.peek_token()? {
                     Token::Identifier(value) => {
-                        self.next_token();
+                        self.next_token()?;
                         Expression::Identifier(value)
                     }
                     Token::UnsignedDecimalConstant(value) => {
-                        self.next_token();
+                        self.next_token()?;
                         Expression::UnsignedDecimalConstant(value)
                     }
                     Token::LParen => {
-                        self.next_token();
-                        let expr = self.parse_expression();
-                        self.expect_token(Token::RParen);
+                        self.next_token()?;
+                        let expr = self.parse_expression()?;
+                        self.expect_token(Token::RParen)?;
                         expr.expression
                     } // TODO: don't duplciate ExpressionTree here
-                    _ => self.unexpected_token(),
+                    _ => self.unexpected_token(&[
+                        Token::Identifier("".into()),
+                        Token::UnsignedDecimalConstant(0),
+                        Token::LParen,
+                    ])?,
                 }
             },
         };
 
         self.finish_parsing(&primary_expression);
 
-        primary_expression
+        Ok(primary_expression)
     }
 
     fn token_is_operator_of_at_least_precedence(token: &Token, precedence: usize) -> bool {
@@ -430,23 +453,23 @@ impl<'a> Parser<'a> {
         &mut self,
         lhs: ExpressionTree,
         min_precedence: usize,
-    ) -> ExpressionTree {
+    ) -> Result<ExpressionTree, ParseError> {
         self.start_parsing(&format!("expression (min precedence: {})", min_precedence));
         let start_loc = lhs.loc;
 
         let mut expr = lhs;
-        while Self::token_is_operator_of_at_least_precedence(&self.peek_token(), min_precedence) {
-            let operation = self.next_token();
-            let mut rhs = self.parse_primary_expression();
+        while Self::token_is_operator_of_at_least_precedence(&self.peek_token()?, min_precedence) {
+            let operation = self.next_token()?;
+            let mut rhs = self.parse_primary_expression()?;
 
             while Self::token_is_operator_of_at_least_precedence(
-                &self.peek_token(),
+                &self.peek_token()?,
                 ir::BinaryOperations::precedence_of_token(&operation),
             ) {
                 rhs = self.parse_binary_expression_min_precedence(
                     rhs,
                     ir::BinaryOperations::precedence_of_token(&operation),
-                );
+                )?;
             }
 
             let operands = ArithmeticDualOperands {
@@ -484,29 +507,46 @@ impl<'a> Parser<'a> {
                     Token::NotEquals => {
                         Expression::Comparison(ComparisonExpressionTree::NotEquals(operands))
                     }
-                    _ => self.unexpected_token(),
+                    _ => self.unexpected_token(&[
+                        Token::Plus,
+                        Token::Minus,
+                        Token::Star,
+                        Token::FSlash,
+                        Token::LThan,
+                        Token::GThan,
+                        Token::LThanE,
+                        Token::GThanE,
+                        Token::Equals,
+                        Token::NotEquals,
+                    ])?,
                 },
             };
         }
 
         self.finish_parsing(&expr);
 
-        expr
+        Ok(expr)
     }
 
-    fn parse_expression(&mut self) -> ExpressionTree {
+    fn parse_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let _start_loc = self.start_parsing("expression");
 
-        let mut expr = match self.peek_token() {
-            Token::If => self.parse_if_expression(),
-            Token::While => self.parse_while_expression(),
-            Token::Identifier(_) => self.parse_identifier_expression(),
-            Token::UnsignedDecimalConstant(_) => self.parse_literal_expression(),
-            Token::LParen => self.parse_parenthesized_expression(),
-            _ => self.unexpected_token(),
+        let mut expr = match self.peek_token()? {
+            Token::If => self.parse_if_expression()?,
+            Token::While => self.parse_while_expression()?,
+            Token::Identifier(_) => self.parse_identifier_expression()?,
+            Token::UnsignedDecimalConstant(_) => self.parse_literal_expression()?,
+            Token::LParen => self.parse_parenthesized_expression()?,
+            _ => self.unexpected_token(&[
+                Token::If,
+                Token::While,
+                Token::Identifier("".into()),
+                Token::UnsignedDecimalConstant(0),
+                Token::LParen,
+            ])?,
         };
 
-        let peeked = self.peek_token();
+        let peeked = self.peek_token()?;
         match peeked {
             Token::Plus
             | Token::Minus
@@ -519,7 +559,7 @@ impl<'a> Parser<'a> {
             | Token::Equals
             | Token::NotEquals => {
                 let lhs = expr;
-                expr = self.parse_binary_expression_min_precedence(lhs, 0)
+                expr = self.parse_binary_expression_min_precedence(lhs, 0)?
             }
 
             _ => {
@@ -528,95 +568,95 @@ impl<'a> Parser<'a> {
             }
         }
 
-        match self.peek_token() {
+        match self.peek_token()? {
             Token::Assign => {
-                expr = self.parse_assignment_expression(expr);
+                expr = self.parse_assignment_expression(expr)?;
             }
             _ => {}
         }
 
         self.finish_parsing(&expr);
 
-        expr
+        Ok(expr)
     }
 
-    fn parse_identifier_expression(&mut self) -> ExpressionTree {
+    fn parse_identifier_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let _start_loc = self.start_parsing("identifier expression");
 
         let expr = ExpressionTree {
             loc: self.current_loc(),
-            expression: Expression::Identifier(self.parse_identifier()),
+            expression: Expression::Identifier(self.parse_identifier()?),
         };
 
         self.finish_parsing(&expr);
 
-        expr
+        Ok(expr)
     }
 
-    fn parse_literal_expression(&mut self) -> ExpressionTree {
+    fn parse_literal_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let _start_loc = self.start_parsing("literal expression");
 
         let expr = ExpressionTree {
             loc: self.current_loc(),
-            expression: match self.peek_token() {
+            expression: match self.peek_token()? {
                 Token::UnsignedDecimalConstant(value) => {
-                    self.next_token();
+                    self.next_token()?;
                     Expression::UnsignedDecimalConstant(value)
                 }
-                _ => self.unexpected_token(),
+                _ => self.unexpected_token(&[Token::UnsignedDecimalConstant(0)])?,
             },
         };
 
         self.finish_parsing(&expr);
 
-        expr
+        Ok(expr)
     }
 
-    fn parse_parenthesized_expression(&mut self) -> ExpressionTree {
+    fn parse_parenthesized_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let _start_loc = self.start_parsing("parenthesized expression");
 
-        self.expect_token(Token::LParen);
-        let parenthesized_expr = self.parse_expression();
-        self.expect_token(Token::RParen);
+        self.expect_token(Token::LParen)?;
+        let parenthesized_expr = self.parse_expression()?;
+        self.expect_token(Token::RParen)?;
 
         self.finish_parsing(&parenthesized_expr);
-        parenthesized_expr
+        Ok(parenthesized_expr)
     }
 
-    fn parse_function_prototype(&mut self) -> FunctionDeclarationTree {
+    fn parse_function_prototype(&mut self) -> Result<FunctionDeclarationTree, ParseError> {
         let start_loc = self.start_parsing("function prototype");
 
         // start with fun
-        self.expect_token(Token::Fun);
+        self.expect_token(Token::Fun)?;
         let prototype = FunctionDeclarationTree {
             // grab start location and name
             loc: start_loc,
-            name: self.parse_identifier(),
+            name: self.parse_identifier()?,
             arguments: {
-                self.expect_token(Token::LParen);
+                self.expect_token(Token::LParen)?;
                 let mut arguments = Vec::<VariableDeclarationTree>::new();
                 loop {
-                    match self.peek_token() {
+                    match self.peek_token()? {
                         // argument declaration
                         Token::Identifier(_) => {
-                            arguments.push(self.parse_variable_declaration());
-                            match self.peek_token() {
-                                Token::Comma => self.next_token(), // expect another argument declaration after comma
-                                _ => break,                        // loop again for anything else
+                            arguments.push(self.parse_variable_declaration()?);
+                            match self.peek_token()? {
+                                Token::Comma => self.next_token()?, // expect another argument declaration after comma
+                                _ => break,                         // loop again for anything else
                             };
                         }
                         Token::RParen => break, // done on rparen
-                        _ => self.unexpected_token(),
+                        _ => self.unexpected_token(&[Token::Identifier("".into())])?,
                     }
                 }
                 // consume closing paren
-                self.expect_token(Token::RParen);
+                self.expect_token(Token::RParen)?;
                 arguments
             },
-            return_type: match self.peek_token() {
+            return_type: match self.peek_token()? {
                 Token::Arrow => {
-                    self.next_token();
-                    Some(self.parse_typename())
+                    self.next_token()?;
+                    Some(self.parse_typename()?)
                 }
                 _ => None,
             },
@@ -624,88 +664,98 @@ impl<'a> Parser<'a> {
 
         self.finish_parsing(&prototype);
 
-        prototype
+        Ok(prototype)
     }
 
     // TODO: pass loc of string to get true start loc of declaration
-    fn parse_variable_declaration(&mut self) -> VariableDeclarationTree {
+    fn parse_variable_declaration(&mut self) -> Result<VariableDeclarationTree, ParseError> {
         let start_loc = self.start_parsing("variable declaration");
 
         let declaration = VariableDeclarationTree {
             loc: start_loc,
-            name: self.parse_identifier(),
+            name: self.parse_identifier()?,
             typename: {
-                self.expect_token(Token::Colon);
-                self.parse_typename()
+                self.expect_token(Token::Colon)?;
+                self.parse_typename()?
             },
         };
 
         self.finish_parsing(&declaration);
 
-        declaration
+        Ok(declaration)
     }
 
-    fn parse_typename(&mut self) -> TypenameTree {
+    fn parse_typename(&mut self) -> Result<TypenameTree, ParseError> {
         let start_loc = self.start_parsing("typename");
 
         let typename = TypenameTree {
             loc: start_loc,
-            type_: match self.peek_token() {
+            type_: match self.peek_token()? {
                 Token::U8 => {
-                    self.next_token();
+                    self.next_token()?;
                     Type::U8
                 }
                 Token::U16 => {
-                    self.next_token();
+                    self.next_token()?;
                     Type::U16
                 }
                 Token::U32 => {
-                    self.next_token();
+                    self.next_token()?;
                     Type::U32
                 }
                 Token::U64 => {
-                    self.next_token();
+                    self.next_token()?;
                     Type::U64
                 }
                 Token::I8 => {
-                    self.next_token();
+                    self.next_token()?;
                     Type::I8
                 }
                 Token::I16 => {
-                    self.next_token();
+                    self.next_token()?;
                     Type::I16
                 }
                 Token::I32 => {
-                    self.next_token();
+                    self.next_token()?;
                     Type::I32
                 }
                 Token::I64 => {
-                    self.next_token();
+                    self.next_token()?;
                     Type::I64
                 }
                 Token::Identifier(name) => {
-                    self.next_token();
+                    self.next_token()?;
                     Type::UDT(name)
                 }
-                _ => self.unexpected_token(),
+                _ => self.unexpected_token(&[
+                    Token::U8,
+                    Token::U16,
+                    Token::U32,
+                    Token::U64,
+                    Token::I8,
+                    Token::I16,
+                    Token::I32,
+                    Token::I64,
+                    Token::Identifier("".into()),
+                ])?,
             },
         };
 
         self.finish_parsing(&typename);
 
-        typename
+        Ok(typename)
     }
 
-    fn parse_identifier(&mut self) -> String {
+    fn parse_identifier(&mut self) -> Result<String, ParseError> {
         let _start_loc = self.start_parsing("identifier");
 
-        let identifier = match self.expect_token(Token::Identifier(String::from(""))) {
+        let identifier = match self.expect_token(Token::Identifier(String::from("")))? {
             Token::Identifier(value) => value,
-            _ => self.unexpected_token::<String>(),
+            _ => self.unexpected_token::<String>(&[Token::Identifier("".into())])?,
         };
 
         self.finish_parsing(&identifier);
 
-        identifier
+        Ok(identifier)
     }
 }
