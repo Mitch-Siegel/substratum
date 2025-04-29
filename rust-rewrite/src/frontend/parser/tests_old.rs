@@ -13,8 +13,8 @@ fn parser_from_string<'a>(input: &'a str) -> Parser<'a> {
 #[cfg(test)]
 fn parse_and_print_expression(input: &str) -> String {
     let mut parser = parser_from_string(input);
-    let expr_string = parser.parse_expression().to_string();
-    parser.expect_token(Token::Eof);
+    let expr_string = parser.parse_expression().expect("").to_string();
+    let _ = parser.expect_token(Token::Eof);
     expr_string
 }
 
@@ -85,8 +85,8 @@ fn complex_arithmetic_expression() {
 #[cfg(test)]
 fn parse_and_print_variable_declaration(input: &str) -> String {
     let mut parser = parser_from_string(input);
-    let expr_string = parser.parse_variable_declaration().to_string();
-    parser.expect_token(Token::Eof);
+    let expr_string = parser.parse_variable_declaration().expect("").to_string();
+    let _ = parser.expect_token(Token::Eof);
     expr_string
 }
 
@@ -99,7 +99,7 @@ fn u8_declaration() {
 fn if_expression() {
     let mut p = parser_from_string("if(a > b) {a = a + b;}");
     assert_eq!(
-        format!("{}", p.parse_if_expression()),
+        format!("{}", p.parse_if_expression().expect("")),
         "if (a > b)
 \t{Compound Expression: a = (a + b)
 }"
@@ -110,7 +110,7 @@ fn if_expression() {
 fn if_else_expression() {
     let mut p = parser_from_string("if(a > b) {a = a + b;} else {b = b + a;}");
     assert_eq!(
-        format!("{}", p.parse_if_expression()),
+        format!("{}", p.parse_if_expression().expect("")),
         "if (a > b)
 \t{Compound Expression: a = (a + b)
 } else {Compound Expression: b = (b + a)
@@ -122,7 +122,7 @@ fn if_else_expression() {
 fn while_loop() {
     let mut p = parser_from_string("while (a > b) {b = b + a; count = count + 1;} a = a + count;");
     assert_eq!(
-        format!("{}", p.parse_while_expression()),
+        format!("{}", p.parse_while_expression().expect("")),
         "while ((a > b)) Compound Expression: b = (b + a)
 count = (count + 1)
 "
@@ -131,27 +131,27 @@ count = (count + 1)
 
 #[test]
 fn struct_definition() {
-    let mut p = parser_from_string("struct money{\ndollars: u64,\ncents: u8}");
+    let mut p = parser_from_string("struct money{\ndollars: u64,\ncents: u8\n}");
 
     assert_eq!(
-        p.parse_struct_definition(),
+        p.parse_struct_definition().expect(""),
         TranslationUnit::StructDefinition(StructDefinitionTree {
-            loc: SourceLoc::new(1, 2),
+            loc: SourceLoc::new(1, 1),
             name: "money".into(),
             fields: vec![
                 VariableDeclarationTree {
-                    loc: SourceLoc::new(2, 9),
+                    loc: SourceLoc::new(2, 1),
                     name: "dollars".into(),
                     typename: TypenameTree {
-                        loc: SourceLoc::new(2, 14),
+                        loc: SourceLoc::new(2, 10),
                         type_: Type::U64
                     }
                 },
                 VariableDeclarationTree {
-                    loc: SourceLoc::new(3, 7),
+                    loc: SourceLoc::new(3, 1),
                     name: "cents".into(),
                     typename: TypenameTree {
-                        loc: SourceLoc::new(3, 11),
+                        loc: SourceLoc::new(3, 8),
                         type_: Type::U8
                     }
                 }

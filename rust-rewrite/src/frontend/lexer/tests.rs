@@ -59,31 +59,31 @@ fn kw_or_ident(string: &str, expected_token: Token) {
     let mut positive_match = Lexer::from_string(&string);
 
     let matched = positive_match.match_kw_or_ident();
-    assert_eq!(matched, expected_token);
+    assert_eq!(matched, Some(expected_token.clone()));
 
     let prefix_alpha = "a".to_owned() + string;
     let mut negative_match = Lexer::from_string(&&prefix_alpha);
     assert_eq!(
         negative_match.match_kw_or_ident(),
-        Token::Identifier(prefix_alpha)
+        Some(Token::Identifier(prefix_alpha))
     );
 
     let prefix_num = "1".to_owned() + string;
     negative_match = Lexer::from_string(&&prefix_num);
-    assert_ne!(negative_match.match_kw_or_ident(), expected_token);
+    assert_ne!(negative_match.match_kw_or_ident(), Some(expected_token));
 
     let suffix_alpha = string.to_owned() + "a";
     negative_match = Lexer::from_string(&&suffix_alpha);
     assert_eq!(
         negative_match.match_kw_or_ident(),
-        Token::Identifier(suffix_alpha)
+        Some(Token::Identifier(suffix_alpha))
     );
 
     let suffix_num = string.to_owned() + "1";
     negative_match = Lexer::from_string(&&suffix_num);
     assert_eq!(
         negative_match.match_kw_or_ident(),
-        Token::Identifier(suffix_num)
+        Some(Token::Identifier(suffix_num))
     );
 }
 
@@ -169,26 +169,35 @@ fn ident() {
     let space_after = "space_after abcde";
     let space_after_ident = Token::Identifier(String::from("space_after"));
     let mut positive_match = Lexer::from_string(&space_after);
-    assert_eq!(positive_match.match_kw_or_ident(), space_after_ident);
+    assert_eq!(
+        positive_match.match_kw_or_ident(),
+        Some(space_after_ident.clone())
+    );
 
     let prefix_alpha = "a".to_owned() + space_after;
     let mut negative_match = Lexer::from_string(&&prefix_alpha);
     assert_eq!(
         negative_match.match_kw_or_ident(),
-        Token::Identifier(String::from("aspace_after"))
+        Some(Token::Identifier(String::from("aspace_after")))
     );
 
     let prefix_num = "1".to_owned() + space_after;
     negative_match = Lexer::from_string(&&prefix_num);
-    assert_ne!(negative_match.match_kw_or_ident(), space_after_ident);
+    assert_ne!(
+        negative_match.match_kw_or_ident(),
+        Some(space_after_ident.clone())
+    );
 
     let suffix_alpha = space_after.to_owned() + "a";
     negative_match = Lexer::from_string(&&suffix_alpha);
-    assert_eq!(negative_match.match_kw_or_ident(), space_after_ident);
+    assert_eq!(
+        negative_match.match_kw_or_ident(),
+        Some(space_after_ident.clone())
+    );
 
     let suffix_num = space_after.to_owned() + "1";
     negative_match = Lexer::from_string(&&suffix_num);
-    assert_eq!(negative_match.match_kw_or_ident(), space_after_ident);
+    assert_eq!(negative_match.match_kw_or_ident(), Some(space_after_ident));
 }
 
 #[test]
@@ -230,8 +239,10 @@ fn token_display_to_token() {
     ];
 
     for token in tokens {
-        let lex_result = Lexer::from_string(&format!("{}", token)).lex_all();
+        let lex_result = Lexer::from_string(&format!("{}", token))
+            .lex_all()
+            .expect("");
         assert_eq!(lex_result.len(), 2);
-        assert_eq!(token, lex_result[0]);
+        assert_eq!(token, lex_result[0].0);
     }
 }

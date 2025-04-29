@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests;
+mod tests_old;
 
 use std::collections::VecDeque;
 
@@ -19,7 +19,8 @@ pub use errors::ParseError;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
-    upcoming_tokens: VecDeque<Token>,
+    last_match: SourceLoc,
+    upcoming_tokens: VecDeque<(Token, SourceLoc)>,
     parsing_stack: Vec<(SourceLoc, String)>,
 }
 
@@ -63,15 +64,17 @@ impl ir::BinaryOperations {
 
 impl<'a> Parser<'a> {
     pub fn new(lexer: Lexer<'a>) -> Self {
+        let lexer_start_pos = lexer.current_loc();
         Parser {
             lexer: lexer,
+            last_match: lexer_start_pos,
             upcoming_tokens: VecDeque::new(),
             parsing_stack: Vec::new(),
         }
     }
 
     fn ensure_n_tokens_in_lookahead(&mut self, n: usize) -> Result<(), LexError> {
-        while self.upcoming_tokens.len() <= n && self.lexer.peek()? != Token::Eof {
+        while self.upcoming_tokens.len() <= n && self.lexer.peek()?.0 != Token::Eof {
             self.upcoming_tokens.push_back(self.lexer.next()?);
         }
 
@@ -81,49 +84,66 @@ impl<'a> Parser<'a> {
     // return the next token from the input stream without advancing
     // utilizes lookahead_token
     fn peek_token(&mut self) -> Result<Token, LexError> {
-        let peeked = self.lookahead_token(0)?;
+        match self.peek_token_with_loc() {
+            Ok((token, _)) => Ok(token),
+            Err(e) => Err(e),
+        }
+    }
+
+    fn peek_token_with_loc(&mut self) -> Result<(Token, SourceLoc), LexError> {
+        let peeked = self.lookahead_token_with_loc(0)?;
         // #[cfg(feature = "loud_parsing")]
         // println!("Parser::peek_token() -> {}", peeked);
         return Ok(peeked);
     }
 
-    // returns the lookahead_by-th token from the input stream withing advancing, or EOF if that many tokens are not available
     fn lookahead_token(&mut self, lookahead_by: usize) -> Result<Token, LexError> {
+        match self.lookahead_token_with_loc(lookahead_by) {
+            Ok((token, _)) => Ok(token),
+            Err(e) => Err(e),
+        }
+    }
+
+    // returns the lookahead_by-th token from the input stream withing advancing, or EOF if that many tokens are not available
+    fn lookahead_token_with_loc(
+        &mut self,
+        lookahead_by: usize,
+    ) -> Result<(Token, SourceLoc), LexError> {
         self.ensure_n_tokens_in_lookahead(lookahead_by)?;
 
         Ok(self
             .upcoming_tokens
             .get(lookahead_by)
             .cloned()
-            .unwrap_or(Token::Eof))
+            .unwrap_or((Token::Eof, SourceLoc::none())))
     }
 
     fn next_token(&mut self) -> Result<Token, ParseError> {
         self.ensure_n_tokens_in_lookahead(1)?;
-        let next = self.upcoming_tokens.pop_front().unwrap_or(Token::Eof);
+        let (next, start_loc) = self
+            .upcoming_tokens
+            .pop_front()
+            .unwrap_or((Token::Eof, self.lexer.current_loc()));
+        self.last_match = start_loc;
         #[cfg(feature = "loud_parsing")]
-        println!("Parser::next_token() -> {}", next);
+        println!("Parser::next_token() -> {}@{}", next, start_loc);
         Ok(next)
     }
 
     fn expect_token(&mut self, _expected: Token) -> Result<Token, ParseError> {
         #[cfg(feature = "loud_parsing")]
-        println!("Parser::expect_token({})", expected);
+        println!("Parser::expect_token({})", _expected);
 
-        let upcoming_token = self.peek_token()?;
-        if matches!(&upcoming_token, _expected) {
+        let (upcoming_token, upcoming_loc) = self.peek_token_with_loc()?;
+        if upcoming_token.eq(&_expected) {
             self.next_token()
         } else {
             Err(ParseError::unexpected_token(
-                self.current_loc(),
+                upcoming_loc,
                 upcoming_token,
                 &[_expected],
             ))
         }
-    }
-
-    fn current_loc(&self) -> SourceLoc {
-        self.lexer.current_loc()
     }
 
     fn unexpected_token<T>(&mut self, expected_tokens: &[Token]) -> Result<T, ParseError> {
@@ -145,19 +165,20 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn start_parsing(&mut self, what_parsing: &str) -> SourceLoc {
+    fn start_parsing(&mut self, what_parsing: &str) -> Result<SourceLoc, ParseError> {
         for _ in 0..self.parsing_stack.len() {
             print!("\t");
         }
         #[cfg(feature = "loud_parsing")]
         println!("Start parsing {}", what_parsing);
 
+        let start_loc = self.peek_token_with_loc()?.1;
         self.parsing_stack
-            .push((self.current_loc(), String::from(what_parsing)));
-        self.current_loc()
+            .push((start_loc, String::from(what_parsing)));
+        Ok(start_loc)
     }
 
-    fn finish_parsing<T>(&mut self, _parsed: &T)
+    fn finish_parsing<T>(&mut self, _parsed: &T) -> Result<(), ParseError>
     where
         T: std::fmt::Display,
     {
@@ -174,9 +195,11 @@ impl<'a> Parser<'a> {
             "Done parsing {} ({}-{}): {}",
             _parsed_description,
             _parse_start,
-            self.current_loc(),
+            self.peek_token_with_loc()?.1,
             _parsed
         );
+
+        Ok(())
     }
 }
 
@@ -190,7 +213,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_translation_unit(&mut self) -> Result<TranslationUnitTree, ParseError> {
-        let start_loc = self.start_parsing("translation unit");
+        let start_loc = self.start_parsing("translation unit")?;
 
         let translation_unit = TranslationUnitTree {
             loc: start_loc,
@@ -201,13 +224,13 @@ impl<'a> Parser<'a> {
             },
         };
 
-        self.finish_parsing(&translation_unit);
+        self.finish_parsing(&translation_unit)?;
 
         Ok(translation_unit)
     }
 
     fn parse_function_declaration_or_definition(&mut self) -> Result<TranslationUnit, ParseError> {
-        let _start_loc = self.start_parsing("function declaration/definition");
+        let _start_loc = self.start_parsing("function declaration/definition")?;
 
         let function_declaration = self.parse_function_prototype()?;
         let function_declaration_or_definition = match self.peek_token()? {
@@ -218,13 +241,13 @@ impl<'a> Parser<'a> {
             _ => TranslationUnit::FunctionDeclaration(function_declaration),
         };
 
-        self.finish_parsing(&function_declaration_or_definition);
+        self.finish_parsing(&function_declaration_or_definition)?;
 
         Ok(function_declaration_or_definition)
     }
 
     fn parse_struct_definition(&mut self) -> Result<TranslationUnit, ParseError> {
-        let start_loc = self.start_parsing("struct definition");
+        let start_loc = self.start_parsing("struct definition")?;
 
         self.expect_token(Token::Struct)?;
         let struct_name = self.parse_identifier()?;
@@ -257,13 +280,13 @@ impl<'a> Parser<'a> {
             fields: struct_fields,
         });
 
-        self.finish_parsing(&struct_definition);
+        self.finish_parsing(&struct_definition)?;
 
         Ok(struct_definition)
     }
 
     fn parse_statement(&mut self) -> Result<StatementTree, ParseError> {
-        let start_loc = self.start_parsing("statement");
+        let start_loc = self.start_parsing("statement")?;
 
         let statement = StatementTree {
             loc: start_loc,
@@ -290,7 +313,7 @@ impl<'a> Parser<'a> {
             self.expect_token(Token::Semicolon)?;
         }
 
-        self.finish_parsing(&statement);
+        self.finish_parsing(&statement)?;
 
         Ok(statement)
     }
@@ -312,7 +335,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_function_prototype(&mut self) -> Result<FunctionDeclarationTree, ParseError> {
-        let start_loc = self.start_parsing("function prototype");
+        let start_loc = self.start_parsing("function prototype")?;
 
         // start with fun
         self.expect_token(Token::Fun)?;
@@ -350,14 +373,14 @@ impl<'a> Parser<'a> {
             },
         };
 
-        self.finish_parsing(&prototype);
+        self.finish_parsing(&prototype)?;
 
         Ok(prototype)
     }
 
     // TODO: pass loc of string to get true start loc of declaration
     fn parse_variable_declaration(&mut self) -> Result<VariableDeclarationTree, ParseError> {
-        let start_loc = self.start_parsing("variable declaration");
+        let start_loc = self.start_parsing("variable declaration")?;
 
         let declaration = VariableDeclarationTree {
             loc: start_loc,
@@ -368,8 +391,38 @@ impl<'a> Parser<'a> {
             },
         };
 
-        self.finish_parsing(&declaration);
+        self.finish_parsing(&declaration)?;
 
         Ok(declaration)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::frontend::{
+        lexer::{token::Token, Lexer},
+        parser::{ParseError, Parser},
+        sourceloc::SourceLoc,
+    };
+
+    #[test]
+    fn expect_token() {
+        let mut p = Parser::new(Lexer::from_string("u8"));
+        let result = p.expect_token(Token::U8);
+        assert_eq!(result, Ok(Token::U8))
+    }
+
+    #[test]
+    fn expect_token_fail() {
+        let mut p = Parser::new(Lexer::from_string("abcd"));
+        let result = p.expect_token(Token::U8);
+        assert_eq!(
+            result,
+            Err(ParseError::unexpected_token(
+                SourceLoc::new(1, 1),
+                Token::Identifier("abcd".into()),
+                &[Token::U8]
+            ))
+        )
     }
 }

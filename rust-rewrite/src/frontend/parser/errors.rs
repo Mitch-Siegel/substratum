@@ -3,7 +3,7 @@ use crate::frontend::{
     sourceloc::SourceLoc,
 };
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum ParseError {
     LexError(LexError),
     UnexpectedToken(UnexpectedTokenError),
@@ -38,7 +38,7 @@ impl std::fmt::Debug for ParseError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnexpectedTokenError {
     pub loc: SourceLoc,
     pub got: Token,

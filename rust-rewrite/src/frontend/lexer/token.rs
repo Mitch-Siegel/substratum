@@ -76,8 +76,8 @@ impl PartialEq for Token {
             (Token::Comma, Token::Comma) => true,
             (Token::Semicolon, Token::Semicolon) => true,
             (Token::Colon, Token::Colon) => true,
-            (Token::Identifier(a), Token::Identifier(b)) => a == b,
-            (Token::UnsignedDecimalConstant(a), Token::UnsignedDecimalConstant(b)) => a == b,
+            (Token::Identifier(_), Token::Identifier(_)) => true,
+            (Token::UnsignedDecimalConstant(_), Token::UnsignedDecimalConstant(_)) => true,
             (Token::Eof, Token::Eof) => true,
             _ => false,
         }

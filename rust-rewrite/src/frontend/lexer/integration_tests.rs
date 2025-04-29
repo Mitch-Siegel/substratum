@@ -8,8 +8,11 @@ fn assert_single_tokenization(input_str: &str, expected_token: Token) {
         "Assert single tokenization against {} == {}",
         input_str, expected_token
     );
-    let result = Lexer::from_string(input_str).lex_all();
-    assert_eq!(result, vec! {expected_token, Token::Eof});
+    let result = Lexer::from_string(input_str).lex_all().expect("");
+    assert_eq!(
+        result,
+        vec! {(expected_token, SourceLoc::new(1, 1)), (Token::Eof, SourceLoc::new(1, 1 + input_str.len()))}
+    );
 }
 
 #[test]

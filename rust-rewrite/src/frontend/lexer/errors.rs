@@ -1,6 +1,6 @@
 use crate::frontend::sourceloc::SourceLoc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LexError {
     InvalidChar(InvalidCharError),
     UnexpectedEof(UnexpectedEofError),
@@ -29,13 +29,13 @@ impl LexError {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InvalidCharError {
     c: char,
     pos: SourceLoc,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnexpectedEofError {
     pos: SourceLoc,
 }

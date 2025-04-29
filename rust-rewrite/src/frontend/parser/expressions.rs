@@ -8,7 +8,7 @@ use super::{ParseError, Parser};
 // parsing functions which yield an ExpressionTree
 impl<'a> Parser<'a> {
     pub fn parse_block_expression(&mut self) -> Result<CompoundExpressionTree, ParseError> {
-        let start_loc = self.start_parsing("compound statement");
+        let start_loc = self.start_parsing("compound statement")?;
 
         self.expect_token(Token::LCurly)?;
         let mut statements: Vec<StatementTree> = Vec::new();
@@ -25,13 +25,13 @@ impl<'a> Parser<'a> {
             statements: statements,
         };
 
-        self.finish_parsing(&compound_statement);
+        self.finish_parsing(&compound_statement)?;
 
         Ok(compound_statement)
     }
 
     pub fn parse_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let _start_loc = self.start_parsing("expression");
+        let _start_loc = self.start_parsing("expression")?;
 
         let mut expr = match self.peek_token()? {
             Token::If => self.parse_if_expression()?,
@@ -77,24 +77,24 @@ impl<'a> Parser<'a> {
             _ => {}
         }
 
-        self.finish_parsing(&expr);
+        self.finish_parsing(&expr)?;
 
         Ok(expr)
     }
 
     pub fn parse_parenthesized_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let _start_loc = self.start_parsing("parenthesized expression");
+        let _start_loc = self.start_parsing("parenthesized expression")?;
 
         self.expect_token(Token::LParen)?;
         let parenthesized_expr = self.parse_expression()?;
         self.expect_token(Token::RParen)?;
 
-        self.finish_parsing(&parenthesized_expr);
+        self.finish_parsing(&parenthesized_expr)?;
         Ok(parenthesized_expr)
     }
 
     pub fn parse_if_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let start_loc = self.start_parsing("if statement");
+        let start_loc = self.start_parsing("if statement")?;
 
         self.expect_token(Token::If)?;
 
@@ -121,13 +121,13 @@ impl<'a> Parser<'a> {
             })),
         };
 
-        self.finish_parsing(&if_expression);
+        self.finish_parsing(&if_expression)?;
 
         Ok(if_expression)
     }
 
     pub fn parse_while_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let start_loc = self.start_parsing("while loop");
+        let start_loc = self.start_parsing("while loop")?;
 
         self.expect_token(Token::While)?;
 
@@ -143,7 +143,7 @@ impl<'a> Parser<'a> {
             body,
         };
 
-        self.finish_parsing(&while_loop);
+        self.finish_parsing(&while_loop)?;
 
         Ok(ExpressionTree {
             loc: start_loc,
@@ -155,7 +155,7 @@ impl<'a> Parser<'a> {
         &mut self,
         lhs: ExpressionTree,
     ) -> Result<ExpressionTree, ParseError> {
-        self.start_parsing("assignment (rhs)");
+        self.start_parsing("assignment (rhs)")?;
 
         self.expect_token(Token::Assign)?;
 
@@ -170,7 +170,7 @@ impl<'a> Parser<'a> {
             }),
         };
 
-        self.finish_parsing(&assignment);
+        self.finish_parsing(&assignment)?;
 
         Ok(assignment)
     }
@@ -180,7 +180,7 @@ impl<'a> Parser<'a> {
         lhs: ExpressionTree,
         min_precedence: usize,
     ) -> Result<ExpressionTree, ParseError> {
-        self.start_parsing(&format!("expression (min precedence: {})", min_precedence));
+        self.start_parsing(&format!("expression (min precedence: {})", min_precedence))?;
         let start_loc = lhs.loc;
 
         let mut expr = lhs;
@@ -249,13 +249,13 @@ impl<'a> Parser<'a> {
             };
         }
 
-        self.finish_parsing(&expr);
+        self.finish_parsing(&expr)?;
 
         Ok(expr)
     }
 
     pub fn parse_primary_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let start_loc = self.start_parsing("primary expression");
+        let start_loc = self.start_parsing("primary expression")?;
 
         let primary_expression = ExpressionTree {
             loc: start_loc,
@@ -284,29 +284,29 @@ impl<'a> Parser<'a> {
             },
         };
 
-        self.finish_parsing(&primary_expression);
+        self.finish_parsing(&primary_expression)?;
 
         Ok(primary_expression)
     }
 
     pub fn parse_identifier_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let _start_loc = self.start_parsing("identifier expression");
+        let start_loc = self.start_parsing("identifier expression")?;
 
         let expr = ExpressionTree {
-            loc: self.current_loc(),
+            loc: start_loc,
             expression: Expression::Identifier(self.parse_identifier()?),
         };
 
-        self.finish_parsing(&expr);
+        self.finish_parsing(&expr)?;
 
         Ok(expr)
     }
 
     pub fn parse_literal_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let _start_loc = self.start_parsing("literal expression");
+        let start_loc = self.start_parsing("literal expression")?;
 
         let expr = ExpressionTree {
-            loc: self.current_loc(),
+            loc: start_loc,
             expression: match self.peek_token()? {
                 Token::UnsignedDecimalConstant(value) => {
                     self.next_token()?;
@@ -316,7 +316,7 @@ impl<'a> Parser<'a> {
             },
         };
 
-        self.finish_parsing(&expr);
+        self.finish_parsing(&expr)?;
 
         Ok(expr)
     }
