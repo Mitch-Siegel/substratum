@@ -46,10 +46,6 @@ pub struct UnexpectedTokenError {
 }
 
 impl ParseError {
-    pub fn lex_error(e: LexError) -> Self {
-        Self::LexError(e)
-    }
-
     pub fn unexpected_token(loc: SourceLoc, got: Token, expected: &[Token]) -> Self {
         Self::UnexpectedToken(UnexpectedTokenError {
             loc,

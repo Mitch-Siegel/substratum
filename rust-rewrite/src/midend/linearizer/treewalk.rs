@@ -264,6 +264,8 @@ impl Walk for ExpressionTree {
             Expression::Assignment(assignment_expression) => assignment_expression.walk(context),
             Expression::If(if_expression) => if_expression.walk(context),
             Expression::While(while_expression) => while_expression.walk(context),
+            Expression::FieldExpression(field_expression) => field_expression.walk(context),
+            Expression::MethodCall(method_call) => method_call.walk(context),
         }
     }
 }
@@ -356,6 +358,18 @@ impl Walk for WhileExpressionTree {
         context.set_current_block(loop_done);
 
         Value::unit()
+    }
+}
+
+impl Walk for FieldExpressionTree {
+    fn walk(self, context: &mut WalkContext) -> Value {
+        todo!()
+    }
+}
+
+impl Walk for MethodCallExpressionTree {
+    fn walk(self, context: &mut WalkContext) -> Value {
+        todo!()
     }
 }
 

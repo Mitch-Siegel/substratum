@@ -136,6 +136,54 @@ impl Display for WhileExpressionTree {
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+
+pub struct CallParamsTree {
+    pub loc: SourceLoc,
+    pub params: Vec<ExpressionTree>,
+}
+impl Display for CallParamsTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut params = String::new();
+        for p in &self.params {
+            if params.len() > 0 {
+                params += &", ";
+            }
+            params += &format!("{}", p);
+        }
+        write!(f, "{}", params)
+    }
+}
+
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct MethodCallExpressionTree {
+    pub loc: SourceLoc,
+    pub receiver: ExpressionTree,
+    pub called_method: String,
+    pub params: CallParamsTree,
+}
+impl Display for MethodCallExpressionTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}.{}({})",
+            self.receiver, self.called_method, self.params
+        )
+    }
+}
+
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct FieldExpressionTree {
+    pub loc: SourceLoc,
+    pub receiver: ExpressionTree,
+    pub field: String,
+}
+impl Display for FieldExpressionTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.receiver, self.field)
+    }
+}
+
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Statement {
     VariableDeclaration(VariableDeclarationTree),
     Expression(ExpressionTree),
@@ -244,6 +292,8 @@ pub enum Expression {
     Assignment(AssignmentTree),
     If(Box<IfExpressionTree>),
     While(Box<WhileExpressionTree>),
+    FieldExpression(Box<FieldExpressionTree>),
+    MethodCall(Box<MethodCallExpressionTree>),
 }
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -255,6 +305,8 @@ impl Display for Expression {
             Self::Assignment(assignment_expression) => write!(f, "{}", assignment_expression),
             Self::If(if_expression) => write!(f, "{}", if_expression),
             Self::While(while_expression) => write!(f, "{}", while_expression),
+            Self::FieldExpression(field_expression) => write!(f, "{}", field_expression),
+            Self::MethodCall(method_call) => write!(f, "{}", method_call),
         }
     }
 }

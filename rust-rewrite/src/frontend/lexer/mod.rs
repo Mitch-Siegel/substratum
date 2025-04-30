@@ -282,6 +282,10 @@ impl<'a> Lexer<'a> {
                     self.advance_char();
                     Ok(Token::Comma)
                 }
+                '.' => {
+                    self.advance_char();
+                    Ok(Token::Dot)
+                }
                 ';' => {
                     self.advance_char();
                     Ok(Token::Semicolon)

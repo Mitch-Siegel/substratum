@@ -3,7 +3,7 @@ mod tests_old;
 
 use std::collections::VecDeque;
 
-use crate::midend::{ir, types::Type};
+use crate::midend::ir;
 
 use super::{
     ast::*,

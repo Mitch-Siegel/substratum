@@ -30,8 +30,31 @@ impl<'a> Parser<'a> {
         Ok(compound_statement)
     }
 
+    pub fn expression_starters() -> [Token; 5] {
+        [
+            Token::If,
+            Token::While,
+            Token::Identifier("".into()),
+            Token::UnsignedDecimalConstant(0),
+            Token::LParen,
+        ]
+    }
+
+    pub fn token_starts_expression(t: Token) -> bool {
+        match t {
+            Token::If
+            | Token::While
+            | Token::Identifier(_)
+            | Token::UnsignedDecimalConstant(0)
+            | Token::LParen => true,
+            _ => false,
+        }
+    }
+
     pub fn parse_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let _start_loc = self.start_parsing("expression")?;
+
+        assert!(Self::token_starts_expression(self.peek_token()?)); // sanity-check this method call to self-validate
 
         let mut expr = match self.peek_token()? {
             Token::If => self.parse_if_expression()?,
@@ -47,6 +70,17 @@ impl<'a> Parser<'a> {
                 Token::LParen,
             ])?,
         };
+
+        match self.peek_token()? {
+            Token::Dot => {
+                if matches!(self.lookahead_token(2)?, Token::LParen) {
+                    expr = self.parse_method_call_expression(expr)?;
+                } else {
+                    expr = self.parse_field_expression(expr)?;
+                }
+            }
+            _ => {}
+        }
 
         let peeked = self.peek_token()?;
         match peeked {
@@ -149,6 +183,73 @@ impl<'a> Parser<'a> {
             loc: start_loc,
             expression: Expression::While(Box::from(while_loop)),
         })
+    }
+
+    pub fn parse_method_call_expression(
+        &mut self,
+        lhs: ExpressionTree,
+    ) -> Result<ExpressionTree, ParseError> {
+        self.start_parsing("method call expression")?;
+        self.expect_token(Token::Dot)?;
+
+        let expr = ExpressionTree {
+            loc: lhs.loc,
+            expression: Expression::MethodCall(Box::from(MethodCallExpressionTree {
+                loc: lhs.loc,
+                receiver: lhs,
+                called_method: self.parse_identifier()?,
+                params: self.parse_call_params(true)?,
+            })),
+        };
+
+        self.finish_parsing(&expr)?;
+        Ok(expr)
+    }
+
+    pub fn parse_field_expression(
+        &mut self,
+        lhs: ExpressionTree,
+    ) -> Result<ExpressionTree, ParseError> {
+        self.start_parsing("field expression")?;
+
+        self.expect_token(Token::Dot)?;
+        let expr = ExpressionTree {
+            loc: lhs.loc,
+            expression: Expression::FieldExpression(Box::from(FieldExpressionTree {
+                loc: lhs.loc,
+                receiver: lhs,
+                field: self.parse_identifier()?,
+            })),
+        };
+
+        self.finish_parsing(&expr)?;
+
+        Ok(expr)
+    }
+
+    pub fn parse_call_params(&mut self, allow_self: bool) -> Result<CallParamsTree, ParseError> {
+        let start_loc = self.start_parsing("call params")?;
+
+        let mut params = Vec::new();
+
+        self.expect_token(Token::LParen)?;
+        while !matches!(self.peek_token()?, Token::RParen) {
+            if Self::token_starts_expression(self.peek_token()?) {
+                params.push(self.parse_expression()?);
+            } else {
+                self.unexpected_token(&Self::expression_starters())?;
+            }
+        }
+        self.expect_token(Token::RParen)?;
+
+        let params_tree = CallParamsTree {
+            loc: start_loc,
+            params,
+        };
+
+        self.finish_parsing(&params_tree)?;
+
+        Ok(params_tree)
     }
 
     pub fn parse_assignment_expression(
