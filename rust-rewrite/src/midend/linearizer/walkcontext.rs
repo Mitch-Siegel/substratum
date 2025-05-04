@@ -282,7 +282,7 @@ impl<'a> WalkContext<'a> {
     }
 
     fn all_scopes(&self) -> std::vec::IntoIter<&Scope> {
-        let mut scopes_ref: Vec<&Scope> = self.scopes.iter().collect();
+        let mut scopes_ref: Vec<&Scope> = self.scopes.iter().rev().collect();
         scopes_ref.push(&self.global_scope);
         scopes_ref.into_iter()
     }
