@@ -369,7 +369,15 @@ impl Walk for FieldExpressionTree {
     fn walk(self, context: &mut WalkContext) -> Value {
         let receiver = self.receiver.walk(context);
 
-        let receiver_definition = context.lookup_struct(&receiver.type_).expect(&format!(
+        let struct_name = match &receiver.type_ {
+            Type::UDT(type_name) => type_name,
+            _ => panic!(
+                "Field expression receiver must be of struct type (got {})",
+                receiver.type_
+            ),
+        };
+
+        let receiver_definition = context.lookup_struct(struct_name).expect(&format!(
             "Error handling for failed lookups is unimplemented: {}.{}",
             receiver.type_, self.field
         ));

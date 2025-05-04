@@ -5,6 +5,7 @@ use serde::Serialize;
 use crate::midend::types::Type;
 
 use super::{
+    errors::UndefinedSymbolError,
     type_definitions::{StructRepr, TypeDefinition, TypeRepr},
     variable::Variable,
 };
@@ -32,29 +33,38 @@ impl Scope {
         self.variables.insert(variable.name().clone(), variable);
     }
 
-    pub fn lookup_declared_variable_by_name(&self, name: &str) -> &Variable {
+    pub fn lookup_declared_variable_by_name<'a>(&'a self, name: &str) -> &'a Variable {
         self.variables
             .get(name)
             .expect(&format!("Use of undeclared variable {}", name))
     }
 
-    pub fn lookup_variable_by_name(&self, name: &str) -> Option<&Variable> {
-        self.variables.get(name)
+    pub fn lookup_variable_by_name(&self, name: &str) -> Result<&Variable, UndefinedSymbolError> {
+        self.variables
+            .get(name)
+            .ok_or(UndefinedSymbolError::variable(name))
     }
 
-    pub fn lookup_type(&self, type_: &Type) -> Option<&TypeDefinition> {
-        self.type_definitions.get(type_)
+    pub fn lookup_type<'a>(
+        &'a self,
+        type_: &Type,
+    ) -> Result<&'a TypeDefinition, UndefinedSymbolError> {
+        self.type_definitions
+            .get(type_)
+            .ok_or(UndefinedSymbolError::type_(type_))
     }
 
-    pub fn lookup_struct(&self, type_: &Type) -> Option<&StructRepr> {
-        match self.type_definitions.get(type_) {
+    pub fn lookup_struct<'a>(&'a self, name: &str) -> Result<&'a StructRepr, UndefinedSymbolError> {
+        let struct_type = Type::UDT(name.into());
+
+        match self.type_definitions.get(&struct_type) {
             Some(definition) => match &definition.repr {
-                TypeRepr::Struct(struct_definition) => return Some(struct_definition),
+                TypeRepr::Struct(struct_definition) => return Ok(struct_definition),
             },
             None => {}
         }
 
-        None
+        Err(UndefinedSymbolError::struct_(name))
     }
 
     pub fn insert_subscope(&mut self, subscope: Scope) {

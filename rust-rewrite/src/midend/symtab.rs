@@ -1,6 +1,7 @@
 use crate::midend::types::Type;
 use std::collections::HashMap;
 
+pub use errors::*;
 pub use function::*;
 pub use scope::Scope;
 use serde::Serialize;
@@ -10,6 +11,7 @@ pub use variable::*;
 
 use super::ir;
 
+mod errors;
 mod function;
 mod scope;
 mod type_definitions;

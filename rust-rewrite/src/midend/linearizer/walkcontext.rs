@@ -281,44 +281,46 @@ impl<'a> WalkContext<'a> {
             .expect("WalkContext::scope() expects valid scope")
     }
 
-    pub fn lookup_variable_by_name(&self, name: &ir::OperandName) -> Option<&symtab::Variable> {
-        for scope in (&self.scopes).into_iter().rev().by_ref() {
+    fn all_scopes(&self) -> std::vec::IntoIter<&Scope> {
+        let mut scopes_ref: Vec<&Scope> = self.scopes.iter().collect();
+        scopes_ref.push(&self.global_scope);
+        scopes_ref.into_iter()
+    }
+
+    pub fn lookup_variable_by_name(
+        &self,
+        name: &ir::OperandName,
+    ) -> Result<&symtab::Variable, UndefinedSymbolError> {
+        for scope in self.all_scopes() {
             match scope.lookup_variable_by_name(&name.base_name) {
-                Some(variable) => return Some(variable),
-                None => {}
+                Ok(variable) => return Ok(variable),
+                _ => {}
             }
         }
-        None
+
+        Err(UndefinedSymbolError::variable(&name.base_name))
     }
 
-    pub fn lookup_type(&self, type_: &Type) -> Option<&TypeDefinition> {
-        for scope in (&self.scopes).into_iter().rev().by_ref() {
+    pub fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbolError> {
+        for scope in self.all_scopes() {
             match scope.lookup_type(type_) {
-                Some(definition) => return Some(definition),
-                None => {}
+                Ok(variable) => return Ok(variable),
+                _ => {}
             }
         }
-        match self.global_scope.lookup_type(type_) {
-            Some(definition) => return Some(definition),
-            None => {}
-        }
 
-        None
+        Err(UndefinedSymbolError::type_(&type_))
     }
 
-    pub fn lookup_struct(&self, type_: &Type) -> Option<&StructRepr> {
-        for scope in (&self.scopes).into_iter().rev().by_ref() {
-            println!("Look for {} in {:?}", type_, scope);
-            match scope.lookup_type(type_) {
-                Some(definition) => match &definition.repr {
-                    TypeRepr::Struct(struct_repr) => return Some(struct_repr),
-                },
-                None => {}
+    pub fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbolError> {
+        for scope in self.all_scopes() {
+            match scope.lookup_struct(name) {
+                Ok(variable) => return Ok(variable),
+                _ => {}
             }
         }
 
-        println!("Look for {} in {:?}", type_, self.global_scope);
-        self.global_scope.lookup_struct(type_)
+        Err(UndefinedSymbolError::struct_(&name))
     }
 }
 
