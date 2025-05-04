@@ -318,14 +318,7 @@ impl<'a> WalkContext<'a> {
         }
 
         println!("Look for {} in {:?}", type_, self.global_scope);
-        match self.global_scope.lookup_type(type_) {
-            Some(definition) => match &definition.repr {
-                TypeRepr::Struct(struct_repr) => return Some(struct_repr),
-            },
-            None => {}
-        }
-
-        None
+        self.global_scope.lookup_struct(type_)
     }
 }
 
