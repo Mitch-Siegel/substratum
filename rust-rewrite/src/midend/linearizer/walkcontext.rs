@@ -2,23 +2,24 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{
     frontend::{ast, sourceloc::SourceLoc},
-    midend::{ir, symtab, types::Type},
+    midend::{ir, symtab, symtab::*, types::Type},
 };
 
 use super::treewalk::*;
 
-pub struct WalkContext {
+pub struct WalkContext<'a> {
     control_flow: ir::ControlFlow,
     branch_points: HashMap<usize, HashSet<usize>>, // map from branch origin to set of target blocks
     convergence_points: HashMap<usize, usize>, // map of label -> label that block should jump to when done
+    global_scope: &'a symtab::Scope,
     scopes: Vec<symtab::Scope>,
     // index of number of temporary variables used in this control flow (across all blocks)
     temp_num: usize,
     current_block: usize,
 }
 
-impl WalkContext {
-    pub fn new() -> WalkContext {
+impl<'a> WalkContext<'a> {
+    pub fn new(global_scope: &'a Scope) -> WalkContext<'a> {
         let starter_flow = ir::ControlFlow::new();
 
         let mut convergence_points = HashMap::<usize, usize>::new();
@@ -28,6 +29,7 @@ impl WalkContext {
             control_flow: starter_flow,
             branch_points: HashMap::<usize, HashSet<usize>>::new(),
             convergence_points,
+            global_scope,
             scopes: Vec::new(),
             temp_num: 0,
             current_block: 0,
@@ -288,6 +290,43 @@ impl WalkContext {
         }
         None
     }
+
+    pub fn lookup_type(&self, type_: &Type) -> Option<&TypeDefinition> {
+        for scope in (&self.scopes).into_iter().rev().by_ref() {
+            match scope.lookup_type(type_) {
+                Some(definition) => return Some(definition),
+                None => {}
+            }
+        }
+        match self.global_scope.lookup_type(type_) {
+            Some(definition) => return Some(definition),
+            None => {}
+        }
+
+        None
+    }
+
+    pub fn lookup_struct(&self, type_: &Type) -> Option<&StructRepr> {
+        for scope in (&self.scopes).into_iter().rev().by_ref() {
+            println!("Look for {} in {:?}", type_, scope);
+            match scope.lookup_type(type_) {
+                Some(definition) => match &definition.repr {
+                    TypeRepr::Struct(struct_repr) => return Some(struct_repr),
+                },
+                None => {}
+            }
+        }
+
+        println!("Look for {} in {:?}", type_, self.global_scope);
+        match self.global_scope.lookup_type(type_) {
+            Some(definition) => match &definition.repr {
+                TypeRepr::Struct(struct_repr) => return Some(struct_repr),
+            },
+            None => {}
+        }
+
+        None
+    }
 }
 
 #[cfg(test)]
@@ -318,13 +357,15 @@ mod tests {
 
     #[test]
     fn walk_context_initial_state() {
-        let context = WalkContext::new();
+        let global_scope = symtab::Scope::new();
+        let context = WalkContext::new(&global_scope);
         assert_no_remaining_convergences(context);
     }
 
     #[test]
     fn append_statement() {
-        let mut context = WalkContext::new();
+        let global_scope = symtab::Scope::new();
+        let mut context = WalkContext::new(&global_scope);
         let assignment = ir::IrLine::new_assignment(
             SourceLoc::none(),
             ir::Operand::new_as_variable("dest".into()),
@@ -337,7 +378,8 @@ mod tests {
 
     #[test]
     fn create_branch() {
-        let mut context = WalkContext::new();
+        let global_scope = symtab::Scope::new();
+        let mut context = WalkContext::new(&global_scope);
 
         let branch_from = context.current_block;
         let branch_to = context.create_branch_from_current();
@@ -347,7 +389,8 @@ mod tests {
 
     #[test]
     fn add_branch() {
-        let mut context = WalkContext::new();
+        let global_scope = symtab::Scope::new();
+        let mut context = WalkContext::new(&global_scope);
 
         let branch_from = context.current_block;
         let branch_to = context.create_branch_from_current();
@@ -363,7 +406,8 @@ mod tests {
 
     #[test]
     fn simple_branch_convergence_points() {
-        let mut context = WalkContext::new();
+        let global_scope = symtab::Scope::new();
+        let mut context = WalkContext::new(&global_scope);
 
         // branch from the current block to somewhere
         let branch_from = context.current_block;
@@ -378,7 +422,8 @@ mod tests {
 
     #[test]
     fn complex_branch_convergence_points() {
-        let mut context = WalkContext::new();
+        let global_scope = symtab::Scope::new();
+        let mut context = WalkContext::new(&global_scope);
 
         // branch from the current block to somewhere
         let branch_from = context.current_block;
@@ -397,7 +442,8 @@ mod tests {
 
     #[test]
     fn simple_multiple_branch_convergence_points() {
-        let mut context = WalkContext::new();
+        let global_scope = symtab::Scope::new();
+        let mut context = WalkContext::new(&global_scope);
 
         // branch from the current block to somewhere
         let branch_from = context.current_block;
@@ -422,7 +468,8 @@ mod tests {
     ///test a branch with 2 targets, nested in a branch with one target
     #[test]
     fn complex_multiple_branch_convergence_points() {
-        let mut context = WalkContext::new();
+        let global_scope = symtab::Scope::new();
+        let mut context = WalkContext::new(&global_scope);
 
         // branch from the current block to somewhere
         let branch_from = context.current_block;
@@ -453,7 +500,8 @@ mod tests {
     ///test a branch with 1 target, nested within a branch with 2 targets
     #[test]
     fn complex_multiple_branch_convergence_points_2() {
-        let mut context = WalkContext::new();
+        let global_scope = symtab::Scope::new();
+        let mut context = WalkContext::new(&global_scope);
 
         // branch from the current block to somewhere
         let branch_from = context.current_block;
@@ -486,7 +534,8 @@ mod tests {
 
     #[test]
     fn converge_block() {
-        let mut context = WalkContext::new();
+        let global_scope = symtab::Scope::new();
+        let mut context = WalkContext::new(&global_scope);
 
         let branch_from = context.current_block;
         let branch_to = context.create_branch_from_current();
@@ -499,7 +548,8 @@ mod tests {
 
     #[test]
     fn converge_current_block() {
-        let mut context = WalkContext::new();
+        let global_scope = symtab::Scope::new();
+        let mut context = WalkContext::new(&global_scope);
 
         let branch_from = context.current_block;
         let branch_to = context.create_branch_from_current();
@@ -515,7 +565,8 @@ mod tests {
 
     #[test]
     fn create_loop() {
-        let mut context = WalkContext::new();
+        let global_scope = symtab::Scope::new();
+        let mut context = WalkContext::new(&global_scope);
         context.push_scope(symtab::Scope::new());
 
         let before_loop = context.current_block;

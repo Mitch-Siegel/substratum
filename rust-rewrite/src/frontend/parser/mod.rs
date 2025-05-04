@@ -1,5 +1,5 @@
-#[cfg(test)]
-mod tests_old;
+// #[cfg(test)]
+// mod tests_old;
 
 use std::collections::VecDeque;
 
@@ -11,6 +11,7 @@ use super::{
     sourceloc::SourceLoc,
 };
 
+mod declarations;
 mod errors;
 mod expressions;
 mod single_token;
@@ -229,62 +230,6 @@ impl<'a> Parser<'a> {
         Ok(translation_unit)
     }
 
-    fn parse_function_declaration_or_definition(&mut self) -> Result<TranslationUnit, ParseError> {
-        let _start_loc = self.start_parsing("function declaration/definition")?;
-
-        let function_declaration = self.parse_function_prototype()?;
-        let function_declaration_or_definition = match self.peek_token()? {
-            Token::LCurly => TranslationUnit::FunctionDefinition(FunctionDefinitionTree {
-                prototype: function_declaration,
-                body: self.parse_block_expression()?,
-            }),
-            _ => TranslationUnit::FunctionDeclaration(function_declaration),
-        };
-
-        self.finish_parsing(&function_declaration_or_definition)?;
-
-        Ok(function_declaration_or_definition)
-    }
-
-    fn parse_struct_definition(&mut self) -> Result<TranslationUnit, ParseError> {
-        let start_loc = self.start_parsing("struct definition")?;
-
-        self.expect_token(Token::Struct)?;
-        let struct_name = self.parse_identifier()?;
-        self.expect_token(Token::LCurly)?;
-
-        let mut struct_fields = Vec::new();
-
-        loop {
-            match self.peek_token()? {
-                Token::Identifier(_) => {
-                    struct_fields.push(self.parse_variable_declaration()?);
-
-                    if matches!(self.peek_token()?, Token::Comma) {
-                        self.next_token()?;
-                    }
-                }
-                Token::RCurly => {
-                    self.next_token()?;
-                    break;
-                }
-                _ => {
-                    self.unexpected_token::<TranslationUnit>(&[Token::Identifier("".into())])?;
-                }
-            }
-        }
-
-        let struct_definition = TranslationUnit::StructDefinition(StructDefinitionTree {
-            loc: start_loc,
-            name: struct_name,
-            fields: struct_fields,
-        });
-
-        self.finish_parsing(&struct_definition)?;
-
-        Ok(struct_definition)
-    }
-
     fn parse_statement(&mut self) -> Result<StatementTree, ParseError> {
         let start_loc = self.start_parsing("statement")?;
 
@@ -376,24 +321,6 @@ impl<'a> Parser<'a> {
         self.finish_parsing(&prototype)?;
 
         Ok(prototype)
-    }
-
-    // TODO: pass loc of string to get true start loc of declaration
-    fn parse_variable_declaration(&mut self) -> Result<VariableDeclarationTree, ParseError> {
-        let start_loc = self.start_parsing("variable declaration")?;
-
-        let declaration = VariableDeclarationTree {
-            loc: start_loc,
-            name: self.parse_identifier()?,
-            typename: {
-                self.expect_token(Token::Colon)?;
-                self.parse_typename()?
-            },
-        };
-
-        self.finish_parsing(&declaration)?;
-
-        Ok(declaration)
     }
 }
 

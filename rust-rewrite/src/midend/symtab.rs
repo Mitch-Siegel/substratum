@@ -19,6 +19,25 @@ impl Display for Variable {
     }
 }
 
+#[derive(Debug, Serialize)]
+pub struct TypeDefinition {
+    type_: Type,
+    pub repr: TypeRepr,
+    methods: HashMap<String, FunctionOrPrototype>,
+    associated_functions: HashMap<String, FunctionOrPrototype>,
+}
+
+impl TypeDefinition {
+    pub fn lookup_method(&self, name: &str) -> Option<&FunctionOrPrototype> {
+        self.methods.get(name)
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub enum TypeRepr {
+    Struct(StructRepr),
+}
+
 impl Variable {
     pub fn new(name: String, type_: Type) -> Self {
         Variable {
@@ -59,14 +78,14 @@ impl Variable {
     }
 }
 
-#[derive(Debug, Serialize)]
-pub struct Struct {
+#[derive(Clone, Debug, Serialize)]
+pub struct StructRepr {
     name: String,
     fields: HashMap<String, Variable>,
     field_order: Vec<String>,
 }
 
-impl Struct {
+impl StructRepr {
     pub fn new(name: String) -> Self {
         Self {
             name,
@@ -91,7 +110,7 @@ pub struct Scope {
     subscope_indices: Vec<usize>,
     variables: HashMap<String, Variable>,
     subscopes: Vec<Scope>,
-    struct_definitions: HashMap<String, Struct>,
+    type_definitions: HashMap<Type, TypeDefinition>,
 }
 
 impl Scope {
@@ -100,7 +119,7 @@ impl Scope {
             subscope_indices: Vec::new(),
             variables: HashMap::new(),
             subscopes: Vec::new(),
-            struct_definitions: HashMap::new(),
+            type_definitions: HashMap::new(),
         }
     }
 
@@ -119,13 +138,23 @@ impl Scope {
         self.variables.get(name)
     }
 
+    pub fn lookup_type(&self, type_: &Type) -> Option<&TypeDefinition> {
+        self.type_definitions.get(type_)
+    }
+
     pub fn insert_subscope(&mut self, subscope: Scope) {
         self.subscopes.push(subscope);
     }
 
-    pub fn insert_struct_definition(&mut self, definition: Struct) {
-        self.struct_definitions
-            .insert(definition.name.clone(), definition);
+    pub fn insert_struct_definition(&mut self, defined_struct: StructRepr) {
+        let struct_type = Type::UDT(defined_struct.name.clone());
+        let def = TypeDefinition {
+            type_: struct_type.clone(),
+            repr: TypeRepr::Struct(defined_struct),
+            methods: HashMap::new(),
+            associated_functions: HashMap::new(),
+        };
+        self.type_definitions.insert(struct_type, def);
     }
 }
 

@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::fmt::Display;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, serde::Deserialize, Hash)]
 pub enum Mutability {
     Mutable,
     Immutable,
@@ -16,7 +16,7 @@ impl Display for Mutability {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, serde::Deserialize, Hash)]
 pub enum Type {
     Unit,
     U8,

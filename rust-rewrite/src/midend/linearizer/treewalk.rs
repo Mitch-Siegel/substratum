@@ -73,13 +73,15 @@ impl TableWalk for TranslationUnitTree {
     fn walk(self, symbol_table: &mut SymbolTable) {
         match self.contents {
             TranslationUnit::FunctionDeclaration(function_declaration) => {
-                let declared_function = function_declaration.walk(&mut WalkContext::new());
+                let declared_function =
+                    function_declaration.walk(&mut WalkContext::new(&symbol_table.global_scope));
                 symbol_table.insert_function_prototype(declared_function);
             }
             TranslationUnit::FunctionDefinition(function_definition) => {
-                let mut declared_prototype =
-                    function_definition.prototype.walk(&mut WalkContext::new());
-                let mut context = WalkContext::new();
+                let mut declared_prototype = function_definition
+                    .prototype
+                    .walk(&mut WalkContext::new(&symbol_table.global_scope));
+                let mut context = WalkContext::new(&symbol_table.global_scope);
                 context.push_scope(declared_prototype.create_argument_scope());
 
                 function_definition.body.walk(&mut context);
@@ -92,10 +94,12 @@ impl TableWalk for TranslationUnitTree {
                 ));
             }
             TranslationUnit::StructDefinition(struct_definition) => {
-                let mut defined_struct = symtab::Struct::new(struct_definition.name);
+                let mut defined_struct = symtab::StructRepr::new(struct_definition.name);
                 for field in struct_definition.fields {
                     // TODO: global scoping
-                    let field_type = field.typename.walk(&mut WalkContext::new());
+                    let field_type = field
+                        .typename
+                        .walk(&mut WalkContext::new(&symbol_table.global_scope));
                     defined_struct.add_field(field.name, field_type.type_);
                 }
 
@@ -363,7 +367,15 @@ impl Walk for WhileExpressionTree {
 
 impl Walk for FieldExpressionTree {
     fn walk(self, context: &mut WalkContext) -> Value {
-        todo!()
+        let receiver = self.receiver.walk(context);
+
+        let receiver_definition = context.lookup_struct(&receiver.type_).expect(&format!(
+            "Error handling for failed lookups is unimplemented: {}.{}",
+            receiver.type_, self.field
+        ));
+        let accessed_field = receiver_definition.get_field(&self.field);
+
+        Value::unit()
     }
 }
 

@@ -102,7 +102,7 @@ fun while_with_nested_branch() {
     c = c + 1;
 }";
 
-const STRUCT_EXAMPLE: &str = "struct money {
+const STRUCT_EXAMPLE: &str = "struct Money {
 dollars: u64,
 cents: u8
 }
