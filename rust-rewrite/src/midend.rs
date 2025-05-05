@@ -16,9 +16,9 @@ pub fn symbol_table_from_program(
     let mut symtab = SymbolTable::new();
     linearizer::linearize(&mut symtab, program);
 
-    ssa_gen::convert_functions_to_ssa(&mut symtab.functions);
+    // ssa_gen::convert_functions_to_ssa(&mut symtab.functions);
 
-    optimization::optimize_functions(&mut symtab.functions);
+    // optimization::optimize_functions(&mut symtab.functions);
 
     symtab
 }

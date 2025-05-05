@@ -289,11 +289,23 @@ impl Walk for ExpressionTree {
 
 impl Walk for AssignmentTree {
     fn walk(self, context: &mut WalkContext) -> Value {
-        let assignment_ir = IrLine::new_assignment(
-            self.loc,
-            self.assignee.walk(context).into(),
-            self.value.walk(context).into(),
-        );
+        let assignment_ir = match self.assignee.expression {
+            Expression::FieldExpression(field_expression_tree) => {
+                let (receiver, field) = field_expression_tree.walk(context);
+                IrLine::new_field_write(
+                    self.value.walk(context).into(),
+                    self.loc,
+                    receiver.into(),
+                    field.operand.unwrap().get_name().unwrap().base_name.clone(),
+                )
+            }
+            _ => IrLine::new_assignment(
+                self.loc,
+                self.assignee.walk(context).into(),
+                self.value.walk(context).into(),
+            ),
+        };
+
         context.append_statement_to_current_block(assignment_ir);
 
         Value::unit()

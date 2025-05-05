@@ -51,6 +51,8 @@ impl SymbolTable {
             match function {
                 FunctionOrPrototype::Function(f) => {
                     println!("{}", f.prototype);
+                    f.control_flow.to_graphviz();
+                    println!("");
                 }
                 FunctionOrPrototype::Prototype(_) => {}
             }

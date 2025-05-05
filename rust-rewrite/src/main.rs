@@ -109,7 +109,6 @@ cents: u8
 
 fun money_add_dollars(m: Money, dollars: u64) {
     m.dollars = m.dollars + dollars;
-    m.print();
 }
 ";
 
@@ -125,6 +124,7 @@ fn main() {
     let mut symtab = midend::symbol_table_from_program(program);
 
     // println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
+    println!("SYMTAB IR");
     symtab.print_ir();
 
     symtab.assign_program_points();
