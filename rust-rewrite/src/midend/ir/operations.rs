@@ -245,6 +245,8 @@ pub enum Operations {
     Assignment(SourceDestOperands),
     BinaryOperation(BinaryOperations),
     Jump(JumpOperation),
+    FieldRead(FieldReadOperands),
+    FieldWrite(FieldWriteOperands),
 }
 
 impl Display for Operations {
@@ -253,12 +255,22 @@ impl Display for Operations {
             Self::Assignment(assignment) => {
                 write!(f, "{} = {}", assignment.destination, assignment.source)
             }
-            Self::BinaryOperation(binary_operation) => {
-                write!(f, "{}", binary_operation)
-            }
-            Self::Jump(jump) => {
-                write!(f, "{}", jump)
-            }
+
+            Self::BinaryOperation(binary_operation) => write!(f, "{}", binary_operation),
+
+            Self::Jump(jump) => write!(f, "{}", jump),
+
+            Self::FieldRead(field_read) => write!(
+                f,
+                "{} = {}.{}",
+                field_read.destination, field_read.receiver, field_read.field_name
+            ),
+
+            Self::FieldWrite(field_write) => write!(
+                f,
+                "{}.{} = {}",
+                field_write.receiver, field_write.field_name, field_write.source
+            ),
         }
     }
 }
@@ -273,5 +285,21 @@ impl Operations {
 
     pub fn new_jump(destination_block: usize, condition: JumpCondition) -> Self {
         Self::Jump(JumpOperation::new(destination_block, condition))
+    }
+
+    pub fn new_field_read(receiver: Operand, field_name: String, destination: Operand) -> Self {
+        Self::FieldRead(FieldReadOperands {
+            receiver,
+            field_name,
+            destination,
+        })
+    }
+
+    pub fn new_field_write(source: Operand, receiver: Operand, field_name: String) -> Self {
+        Self::FieldWrite(FieldWriteOperands {
+            receiver,
+            field_name,
+            source,
+        })
     }
 }

@@ -72,6 +72,30 @@ impl IrLine {
         Self::new(loc, Operations::new_jump(destination_block, condition))
     }
 
+    pub fn new_field_read(
+        loc: SourceLoc,
+        receiver: Operand,
+        field_name: String,
+        destination: Operand,
+    ) -> Self {
+        Self::new(
+            loc,
+            Operations::new_field_read(receiver, field_name, destination),
+        )
+    }
+
+    pub fn new_field_write(
+        source: Operand,
+        loc: SourceLoc,
+        receiver: Operand,
+        field_name: String,
+    ) -> Self {
+        Self::new(
+            loc,
+            Operations::new_field_write(source, receiver, field_name),
+        )
+    }
+
     pub fn read_operand_names(&self) -> Vec<&OperandName> {
         let mut operand_names: Vec<&OperandName> = Vec::new();
         match &self.operation {
@@ -112,6 +136,12 @@ impl IrLine {
                 for arg in jump_operands.block_args.values() {
                     operand_names.push(arg);
                 }
+            }
+            Operations::FieldRead(field_read) => {
+                operand_names.push(field_read.receiver.get_name().unwrap());
+            }
+            Operations::FieldWrite(field_write) => {
+                operand_names.push(field_write.source.get_name().unwrap());
             }
         }
         operand_names
@@ -158,6 +188,12 @@ impl IrLine {
                     operand_names.push(arg);
                 }
             }
+            Operations::FieldRead(field_read) => {
+                operand_names.push(field_read.receiver.get_name_mut().unwrap());
+            }
+            Operations::FieldWrite(field_write) => {
+                operand_names.push(field_write.source.get_name_mut().unwrap());
+            }
         }
 
         operand_names
@@ -172,6 +208,12 @@ impl IrLine {
             Operations::BinaryOperation(operation) => {
                 let arithmetic_operands = operation.raw_operands();
                 operand_names.push(&arithmetic_operands.destination.get_name().unwrap());
+            }
+            Operations::FieldRead(field_read) => {
+                operand_names.push(field_read.receiver.get_name().unwrap());
+            }
+            Operations::FieldWrite(field_write) => {
+                operand_names.push(field_write.receiver.get_name().unwrap());
             }
             Operations::Jump(_) => {}
         }
@@ -189,7 +231,10 @@ impl IrLine {
                 let arithmetic_operands = operation.raw_operands_mut();
                 operands.push(arithmetic_operands.destination.get_name_mut().unwrap());
             }
-            Operations::Jump(_) => {}
+            Operations::FieldWrite(field_write) => {
+                operands.push(field_write.receiver.get_name_mut().unwrap());
+            }
+            Operations::Jump(_) | Operations::FieldRead(_) => {}
         }
 
         operands

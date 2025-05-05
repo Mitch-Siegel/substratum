@@ -1,3 +1,5 @@
+use std::clone;
+
 use crate::{
     frontend::{ast::*, sourceloc::SourceLoc},
     midend::{
@@ -268,7 +270,18 @@ impl Walk for ExpressionTree {
             Expression::Assignment(assignment_expression) => assignment_expression.walk(context),
             Expression::If(if_expression) => if_expression.walk(context),
             Expression::While(while_expression) => while_expression.walk(context),
-            Expression::FieldExpression(field_expression) => field_expression.walk(context),
+            Expression::FieldExpression(field_expression) => {
+                let (receiver, field) = field_expression.walk(context);
+                let destination = context.next_temp(field.type_);
+                let field_read_line = ir::IrLine::new_field_read(
+                    self.loc,
+                    receiver.into(),
+                    field.operand.unwrap().get_name().unwrap().base_name.clone(),
+                    destination.clone(),
+                );
+                context.append_statement_to_current_block(field_read_line);
+                Value::from_operand(destination, context)
+            }
             Expression::MethodCall(method_call) => method_call.walk(context),
         }
     }
@@ -365,8 +378,11 @@ impl Walk for WhileExpressionTree {
     }
 }
 
-impl Walk for FieldExpressionTree {
-    fn walk(self, context: &mut WalkContext) -> Value {
+// returns (receiver, field_info)
+// receiver is the value containing the receiver of the field access
+// field_info is a value containing name and type information of the field being accessed
+impl ReturnWalk<(Value, Value)> for FieldExpressionTree {
+    fn walk(self, context: &mut WalkContext) -> (Value, Value) {
         let receiver = self.receiver.walk(context);
 
         let struct_name = match &receiver.type_ {
@@ -381,9 +397,15 @@ impl Walk for FieldExpressionTree {
             "Error handling for failed lookups is unimplemented: {}.{}",
             receiver.type_, self.field
         ));
-        let accessed_field = receiver_definition.get_field(&self.field);
-
-        Value::unit()
+        // TODO: error handling
+        let accessed_field = receiver_definition.get_field(&self.field).unwrap();
+        (
+            receiver,
+            Value::from_type_and_name(
+                accessed_field.type_().clone(),
+                ir::Operand::Variable(ir::OperandName::new_basic(self.field)),
+            ),
+        )
     }
 }
 

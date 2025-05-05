@@ -289,6 +289,20 @@ impl Display for JumpCondition {
     }
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct FieldReadOperands {
+    pub receiver: Operand,
+    pub field_name: String,
+    pub destination: Operand,
+}
+
+#[derive(Debug, Serialize, Clone)]
+pub struct FieldWriteOperands {
+    pub receiver: Operand,
+    pub field_name: String,
+    pub source: Operand,
+}
+
 #[cfg(test)]
 mod tests {
     use std::cmp::Ordering;
