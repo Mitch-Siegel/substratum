@@ -109,6 +109,7 @@ cents: u8
 
 fun money_add_dollars(m: Money, dollars: u64) {
     m.dollars = m.dollars + dollars;
+    m.print();
 }
 ";
 

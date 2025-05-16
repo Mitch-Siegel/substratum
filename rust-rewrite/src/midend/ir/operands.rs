@@ -289,6 +289,80 @@ impl Display for JumpCondition {
     }
 }
 
+pub type OrderedArgumentList = Vec<Operand>;
+
+fn arg_list_to_string(args: &OrderedArgumentList) -> String {
+    let mut arg_string = String::new();
+    for arg in args {
+        if arg_string.len() > 0 {
+            arg_string += &",";
+        }
+
+        arg_string += &format!("{}", arg);
+    }
+    arg_string
+}
+
+/// ## Function Call Operands
+#[derive(Debug, Serialize, Clone)]
+pub struct FunctionCallOperands {
+    pub function_name: String,
+    pub arguments: OrderedArgumentList,
+    pub return_value_to: Option<Operand>,
+}
+
+impl Display for FunctionCallOperands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}({})",
+            self.function_name,
+            arg_list_to_string(&self.arguments)
+        )
+    }
+}
+
+impl FunctionCallOperands {
+    pub fn new(
+        name: &str,
+        arguments: OrderedArgumentList,
+        return_value_to: Option<Operand>,
+    ) -> Self {
+        Self {
+            function_name: name.into(),
+            arguments,
+            return_value_to,
+        }
+    }
+}
+
+/// ## Method Call Operands
+#[derive(Debug, Serialize, Clone)]
+pub struct MethodCallOperands {
+    pub receiver: Operand,
+    pub call: FunctionCallOperands,
+}
+
+impl Display for MethodCallOperands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.receiver, self.call)
+    }
+}
+
+impl MethodCallOperands {
+    pub fn new(
+        receiver: Operand,
+        method_name: &str,
+        arguments: OrderedArgumentList,
+        return_value_to: Option<Operand>,
+    ) -> Self {
+        Self {
+            receiver,
+            call: FunctionCallOperands::new(method_name, arguments, return_value_to),
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Clone)]
 pub struct FieldReadOperands {
     pub receiver: Operand,

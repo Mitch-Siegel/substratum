@@ -1,6 +1,8 @@
 use serde::Serialize;
 use std::{collections::HashMap, fmt::Display};
 
+use crate::midend::{symtab::Function, types::Type};
+
 use super::operands::*;
 
 /// ## Binary Operations
@@ -245,6 +247,8 @@ pub enum Operations {
     Assignment(SourceDestOperands),
     BinaryOperation(BinaryOperations),
     Jump(JumpOperation),
+    FunctionCall(FunctionCallOperands),
+    MethodCall(MethodCallOperands),
     FieldRead(FieldReadOperands),
     FieldWrite(FieldWriteOperands),
 }
@@ -255,17 +259,15 @@ impl Display for Operations {
             Self::Assignment(assignment) => {
                 write!(f, "{} = {}", assignment.destination, assignment.source)
             }
-
             Self::BinaryOperation(binary_operation) => write!(f, "{}", binary_operation),
-
             Self::Jump(jump) => write!(f, "{}", jump),
-
+            Self::FunctionCall(function_call) => write!(f, "{}", function_call),
+            Self::MethodCall(method_call) => write!(f, "{}", method_call),
             Self::FieldRead(field_read) => write!(
                 f,
                 "{} = {}.{}",
                 field_read.destination, field_read.receiver, field_read.field_name
             ),
-
             Self::FieldWrite(field_write) => write!(
                 f,
                 "{}.{} = {}",
@@ -285,6 +287,28 @@ impl Operations {
 
     pub fn new_jump(destination_block: usize, condition: JumpCondition) -> Self {
         Self::Jump(JumpOperation::new(destination_block, condition))
+    }
+
+    pub fn new_function_call(
+        name: &str,
+        arguments: OrderedArgumentList,
+        return_value_to: Option<Operand>,
+    ) -> Self {
+        Self::FunctionCall(FunctionCallOperands::new(name, arguments, return_value_to))
+    }
+
+    pub fn new_method_call(
+        receiver: Operand,
+        name: &str,
+        arguments: OrderedArgumentList,
+        return_value_to: Option<Operand>,
+    ) -> Self {
+        Self::MethodCall(MethodCallOperands::new(
+            receiver,
+            name,
+            arguments,
+            return_value_to,
+        ))
     }
 
     pub fn new_field_read(receiver: Operand, field_name: String, destination: Operand) -> Self {

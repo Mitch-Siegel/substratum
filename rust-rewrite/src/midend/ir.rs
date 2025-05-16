@@ -137,6 +137,23 @@ impl IrLine {
                     operand_names.push(arg);
                 }
             }
+            Operations::FunctionCall(function_call) => {
+                for arg in &function_call.arguments {
+                    match arg.get_name() {
+                        Some(arg_name) => operand_names.push(arg_name),
+                        None => (),
+                    }
+                }
+            }
+            Operations::MethodCall(method_call) => {
+                let inner_function_call = &method_call.call;
+                for arg in &inner_function_call.arguments {
+                    match arg.get_name() {
+                        Some(arg_name) => operand_names.push(arg_name),
+                        None => (),
+                    }
+                }
+            }
             Operations::FieldRead(field_read) => {
                 operand_names.push(field_read.receiver.get_name().unwrap());
             }
@@ -188,6 +205,23 @@ impl IrLine {
                     operand_names.push(arg);
                 }
             }
+            Operations::FunctionCall(function_call) => {
+                for arg in &mut function_call.arguments {
+                    match arg.get_name_mut() {
+                        Some(arg_name) => operand_names.push(arg_name),
+                        None => (),
+                    }
+                }
+            }
+            Operations::MethodCall(method_call) => {
+                let inner_function_call = &mut method_call.call;
+                for arg in &mut inner_function_call.arguments {
+                    match arg.get_name_mut() {
+                        Some(arg_name) => operand_names.push(arg_name),
+                        None => (),
+                    }
+                }
+            }
             Operations::FieldRead(field_read) => {
                 operand_names.push(field_read.receiver.get_name_mut().unwrap());
             }
@@ -203,40 +237,59 @@ impl IrLine {
         let mut operand_names: Vec<&OperandName> = Vec::new();
         match &self.operation {
             Operations::Assignment(source_dest) => {
-                operand_names.push(&source_dest.destination.get_name().unwrap())
+                operand_names.push(source_dest.destination.get_name().unwrap())
             }
             Operations::BinaryOperation(operation) => {
                 let arithmetic_operands = operation.raw_operands();
-                operand_names.push(&arithmetic_operands.destination.get_name().unwrap());
+                operand_names.push(arithmetic_operands.destination.get_name().unwrap());
             }
-            Operations::FieldRead(field_read) => {
-                operand_names.push(field_read.receiver.get_name().unwrap());
+            Operations::FunctionCall(function_call) => {
+                if let Some(retval) = &function_call.return_value_to {
+                    operand_names.push(retval.get_name().unwrap());
+                }
+            }
+            Operations::MethodCall(method_call) => {
+                let inner_function_call = &method_call.call;
+                if let Some(retval) = &inner_function_call.return_value_to {
+                    operand_names.push(retval.get_name().unwrap());
+                }
             }
             Operations::FieldWrite(field_write) => {
                 operand_names.push(field_write.receiver.get_name().unwrap());
             }
-            Operations::Jump(_) => {}
+            Operations::Jump(_) | Operations::FieldRead(_) => {}
         }
 
         operand_names
     }
 
     pub fn write_operand_names_mut(&mut self) -> Vec<&mut OperandName> {
-        let mut operands: Vec<&mut OperandName> = Vec::new();
+        let mut operand_names: Vec<&mut OperandName> = Vec::new();
         match &mut self.operation {
             Operations::Assignment(source_dest) => {
-                operands.push(source_dest.destination.get_name_mut().unwrap())
+                operand_names.push(source_dest.destination.get_name_mut().unwrap())
             }
             Operations::BinaryOperation(operation) => {
                 let arithmetic_operands = operation.raw_operands_mut();
-                operands.push(arithmetic_operands.destination.get_name_mut().unwrap());
+                operand_names.push(arithmetic_operands.destination.get_name_mut().unwrap());
+            }
+            Operations::FunctionCall(function_call) => {
+                if let Some(retval) = &mut function_call.return_value_to {
+                    operand_names.push(retval.get_name_mut().unwrap());
+                }
+            }
+            Operations::MethodCall(method_call) => {
+                let inner_function_call = &mut method_call.call;
+                if let Some(retval) = &mut inner_function_call.return_value_to {
+                    operand_names.push(retval.get_name_mut().unwrap());
+                }
             }
             Operations::FieldWrite(field_write) => {
-                operands.push(field_write.receiver.get_name_mut().unwrap());
+                operand_names.push(field_write.receiver.get_name_mut().unwrap());
             }
             Operations::Jump(_) | Operations::FieldRead(_) => {}
         }
 
-        operands
+        operand_names
     }
 }
