@@ -12,6 +12,15 @@ pub enum FunctionOrPrototype {
     Prototype(FunctionPrototype),
 }
 
+impl FunctionOrPrototype {
+    pub fn prototype(&self) -> &FunctionPrototype {
+        match self {
+            FunctionOrPrototype::Function(function) => &function.prototype,
+            FunctionOrPrototype::Prototype(function_prototype) => function_prototype,
+        }
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct Function {
     pub prototype: FunctionPrototype,
@@ -33,7 +42,7 @@ impl Function {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FunctionPrototype {
     pub name: String,
     pub arguments: Vec<Variable>,

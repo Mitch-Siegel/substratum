@@ -421,9 +421,58 @@ impl ReturnWalk<(Value, Value)> for FieldExpressionTree {
     }
 }
 
+impl ReturnWalk<Vec<Value>> for CallParamsTree {
+    fn walk(self, context: &mut WalkContext) -> Vec<Value> {
+        let mut param_values = Vec::new();
+
+        for param in self.params {
+            param_values.push(param.walk(context));
+        }
+
+        param_values
+    }
+}
+
 impl Walk for MethodCallExpressionTree {
     fn walk(self, context: &mut WalkContext) -> Value {
-        todo!()
+        let receiver = self.receiver.walk(context);
+
+        let type_definition = context.lookup_type(&receiver.type_).unwrap();
+        let called_method: symtab::FunctionPrototype = type_definition
+            .lookup_method(&self.called_method)
+            .unwrap()
+            .prototype()
+            .clone();
+
+        let return_value_to = if called_method.return_type != Type::Unit {
+            Some(context.next_temp(called_method.return_type))
+        } else {
+            None
+        };
+        // //TODO: error handling and checking
+        // assert!(called_method.arguments.len() == params.len());
+
+        let params: Vec<ir::Operand> = self
+            .params
+            .walk(context)
+            .into_iter()
+            .map(|value| value.into())
+            .collect();
+
+        let method_call_line = IrLine::new_method_call(
+            self.loc,
+            receiver.into(),
+            &called_method.name,
+            params,
+            return_value_to.clone(),
+        );
+
+        context.append_statement_to_current_block(method_call_line);
+
+        match return_value_to {
+            Some(operand) => Value::from_operand(operand, context),
+            None => Value::unit(),
+        }
     }
 }
 

@@ -72,6 +72,31 @@ impl IrLine {
         Self::new(loc, Operations::new_jump(destination_block, condition))
     }
 
+    pub fn new_function_call(
+        loc: SourceLoc,
+        name: &str,
+        arguments: OrderedArgumentList,
+        return_value_to: Option<Operand>,
+    ) -> Self {
+        Self::new(
+            loc,
+            Operations::new_function_call(name, arguments, return_value_to),
+        )
+    }
+
+    pub fn new_method_call(
+        loc: SourceLoc,
+        receiver: Operand,
+        name: &str,
+        arguments: OrderedArgumentList,
+        return_value_to: Option<Operand>,
+    ) -> Self {
+        Self::new(
+            loc,
+            Operations::new_method_call(receiver, name, arguments, return_value_to),
+        )
+    }
+
     pub fn new_field_read(
         loc: SourceLoc,
         receiver: Operand,
