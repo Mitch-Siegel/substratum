@@ -2,6 +2,7 @@ use crate::midend::types::Type;
 
 pub enum UndefinedSymbolError {
     Function(String),
+    Method(Type, String),
     Variable(String),
     Type(Type),
     Struct(String),
@@ -12,6 +13,9 @@ impl std::fmt::Display for UndefinedSymbolError {
         match self {
             UndefinedSymbolError::Function(function) => {
                 write!(f, "Undefined function {}", function)
+            }
+            UndefinedSymbolError::Method(receiver, method_name) => {
+                write!(f, "{} has no method {}", receiver, method_name)
             }
             UndefinedSymbolError::Variable(variable) => {
                 write!(f, "Undeclared variable {}", variable)
@@ -31,6 +35,10 @@ impl std::fmt::Debug for UndefinedSymbolError {
 impl UndefinedSymbolError {
     pub fn function(name: &str) -> Self {
         Self::Function(name.into())
+    }
+
+    pub fn method(receiver: &Type, method_name: &str) -> Self {
+        Self::Method(receiver.clone(), method_name.into())
     }
 
     pub fn variable(name: &str) -> Self {

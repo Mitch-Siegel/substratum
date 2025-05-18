@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::midend::types::Type;
 
-use super::{function::FunctionOrPrototype, variable::Variable};
+use super::{function::FunctionOrPrototype, variable::Variable, UndefinedSymbolError};
 
 #[derive(Debug, Serialize)]
 pub struct TypeDefinition {
@@ -24,8 +24,10 @@ impl TypeDefinition {
         }
     }
 
-    pub fn lookup_method(&self, name: &str) -> Option<&FunctionOrPrototype> {
-        self.methods.get(name)
+    pub fn lookup_method(&self, name: &str) -> Result<&FunctionOrPrototype, UndefinedSymbolError> {
+        self.methods
+            .get(name)
+            .ok_or(UndefinedSymbolError::method(&self.type_, name))
     }
 }
 
