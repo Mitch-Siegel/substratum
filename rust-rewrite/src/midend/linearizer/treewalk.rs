@@ -67,8 +67,8 @@ pub trait Walk {
     fn walk(self, context: &mut WalkContext) -> Value;
 }
 
-pub trait ReturnWalk<T> {
-    fn walk(self, context: &mut WalkContext) -> T;
+pub trait ReturnWalk<T, U> {
+    fn walk(self, context: T) -> U;
 }
 
 impl TableWalk for TranslationUnitTree {
@@ -80,20 +80,8 @@ impl TableWalk for TranslationUnitTree {
                 symbol_table.insert_function_prototype(declared_function);
             }
             TranslationUnit::FunctionDefinition(function_definition) => {
-                let mut declared_prototype = function_definition
-                    .prototype
-                    .walk(&mut WalkContext::new(&symbol_table.global_scope));
-                let mut context = WalkContext::new(&symbol_table.global_scope);
-                context.push_scope(declared_prototype.create_argument_scope());
-
-                function_definition.body.walk(&mut context);
-                let argument_scope = context.pop_last_scope();
-
-                symbol_table.insert_function(symtab::Function::new(
-                    declared_prototype,
-                    argument_scope,
-                    context.take_control_flow(),
-                ));
+                let context = WalkContext::new(&symbol_table.global_scope);
+                symbol_table.insert_function(function_definition.walk(context));
             }
             TranslationUnit::StructDefinition(struct_definition) => {
                 let mut defined_struct = symtab::StructRepr::new(struct_definition.name);
@@ -109,7 +97,45 @@ impl TableWalk for TranslationUnitTree {
                     .global_scope
                     .insert_struct_definition(defined_struct);
             }
+            TranslationUnit::Implementation(implementation) => {
+                let mut impl_context = WalkContext::new(&symbol_table.global_scope);
+                let implemented_for_type = implementation.type_name.walk(&mut impl_context).type_;
+
+                let methods: Vec<symtab::Function> = implementation
+                    .items
+                    .into_iter()
+                    .map(|item| {
+                        let impl_context = WalkContext::new(&symbol_table.global_scope);
+                        item.walk(impl_context)
+                    })
+                    .collect();
+
+                let implemented_for_mut = symbol_table
+                    .global_scope
+                    .lookup_type_mut(&implemented_for_type)
+                    .unwrap();
+
+                for method in methods {
+                    implemented_for_mut.add_method(method);
+                }
+            }
         }
+    }
+}
+
+impl<'a> ReturnWalk<WalkContext<'a>, symtab::Function> for FunctionDefinitionTree {
+    fn walk(self, mut context: WalkContext<'a>) -> symtab::Function {
+        let mut declared_prototype = self.prototype.walk(&mut context);
+        context.push_scope(declared_prototype.create_argument_scope());
+
+        self.body.walk(&mut context);
+        let argument_scope = context.pop_last_scope();
+
+        symtab::Function::new(
+            declared_prototype,
+            argument_scope,
+            context.take_control_flow(),
+        )
     }
 }
 
@@ -119,13 +145,13 @@ impl Walk for TypenameTree {
     }
 }
 
-impl ReturnWalk<symtab::Variable> for VariableDeclarationTree {
+impl<'a> ReturnWalk<&mut WalkContext<'a>, symtab::Variable> for VariableDeclarationTree {
     fn walk(self, context: &mut WalkContext) -> symtab::Variable {
         symtab::Variable::new(self.name.clone(), self.typename.walk(context).type_)
     }
 }
 
-impl ReturnWalk<symtab::FunctionPrototype> for FunctionDeclarationTree {
+impl<'a> ReturnWalk<&mut WalkContext<'a>, symtab::FunctionPrototype> for FunctionDeclarationTree {
     fn walk(self, context: &mut WalkContext) -> symtab::FunctionPrototype {
         symtab::FunctionPrototype::new(
             self.name,
@@ -393,7 +419,7 @@ impl Walk for WhileExpressionTree {
 // returns (receiver, field_info)
 // receiver is the value containing the receiver of the field access
 // field_info is a value containing name and type information of the field being accessed
-impl ReturnWalk<(Value, Value)> for FieldExpressionTree {
+impl<'a> ReturnWalk<&mut WalkContext<'a>, (Value, Value)> for FieldExpressionTree {
     fn walk(self, context: &mut WalkContext) -> (Value, Value) {
         let receiver = self.receiver.walk(context);
 
@@ -421,7 +447,7 @@ impl ReturnWalk<(Value, Value)> for FieldExpressionTree {
     }
 }
 
-impl ReturnWalk<Vec<Value>> for CallParamsTree {
+impl<'a> ReturnWalk<&mut WalkContext<'a>, Vec<Value>> for CallParamsTree {
     fn walk(self, context: &mut WalkContext) -> Vec<Value> {
         let mut param_values = Vec::new();
 

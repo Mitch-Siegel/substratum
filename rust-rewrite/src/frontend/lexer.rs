@@ -165,6 +165,7 @@ impl<'a> Lexer<'a> {
             "while" => Some(Token::While),
             "pub" => Some(Token::Pub),
             "struct" => Some(Token::Struct),
+            "impl" => Some(Token::Impl),
             _ => {
                 if identifier.len() > 0 {
                     Some(Token::Identifier(identifier))

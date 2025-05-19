@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::midend::types::Type;
 
-use super::{function::FunctionOrPrototype, variable::Variable, UndefinedSymbolError};
+use super::{function::FunctionOrPrototype, variable::Variable, Function, UndefinedSymbolError};
 
 #[derive(Debug, Serialize)]
 pub struct TypeDefinition {
@@ -28,6 +28,11 @@ impl TypeDefinition {
         self.methods
             .get(name)
             .ok_or(UndefinedSymbolError::method(&self.type_, name))
+    }
+
+    pub fn add_method(&mut self, method: Function) {
+        self.methods
+            .insert(method.name(), FunctionOrPrototype::Function(method));
     }
 }
 

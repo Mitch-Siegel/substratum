@@ -228,6 +228,7 @@ fn token_display_to_token() {
         Token::While,
         Token::Pub,
         Token::Struct,
+        Token::Impl,
         Token::LParen,
         Token::RParen,
         Token::Arrow,

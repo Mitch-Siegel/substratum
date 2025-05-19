@@ -54,6 +54,15 @@ impl Scope {
             .ok_or(UndefinedSymbolError::type_(type_))
     }
 
+    pub fn lookup_type_mut<'a>(
+        &'a mut self,
+        type_: &Type,
+    ) -> Result<&'a mut TypeDefinition, UndefinedSymbolError> {
+        self.type_definitions
+            .get_mut(type_)
+            .ok_or(UndefinedSymbolError::type_(type_))
+    }
+
     pub fn lookup_struct<'a>(&'a self, name: &str) -> Result<&'a StructRepr, UndefinedSymbolError> {
         let struct_type = Type::UDT(name.into());
 

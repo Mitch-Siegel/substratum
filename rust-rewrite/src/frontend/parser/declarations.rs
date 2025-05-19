@@ -26,18 +26,32 @@ impl<'a> Parser<'a> {
     ) -> Result<TranslationUnit, ParseError> {
         let _start_loc = self.start_parsing("function declaration/definition")?;
 
-        let function_declaration = self.parse_function_prototype()?;
-        let function_declaration_or_definition = match self.peek_token()? {
-            Token::LCurly => TranslationUnit::FunctionDefinition(FunctionDefinitionTree {
-                prototype: function_declaration,
-                body: self.parse_block_expression()?,
-            }),
-            _ => TranslationUnit::FunctionDeclaration(function_declaration),
+        let prototype = self.parse_function_prototype()?;
+
+        let decl_or_def = match self.parse_function_definition(prototype.clone()) {
+            Ok(definition) => Ok(TranslationUnit::FunctionDefinition(definition)),
+            Err(_) => Ok(TranslationUnit::FunctionDeclaration(prototype)),
         };
 
-        self.finish_parsing(&function_declaration_or_definition)?;
+        self.finish_parsing(decl_or_def.as_ref().unwrap())?;
 
-        Ok(function_declaration_or_definition)
+        decl_or_def
+    }
+
+    pub fn parse_function_definition(
+        &mut self,
+        prototype: FunctionDeclarationTree,
+    ) -> Result<FunctionDefinitionTree, ParseError> {
+        self.start_parsing("function definition")?;
+
+        let parsed_definition = FunctionDefinitionTree {
+            prototype,
+            body: self.parse_block_expression()?,
+        };
+
+        self.finish_parsing(&parsed_definition)?;
+
+        Ok(parsed_definition)
     }
 
     pub fn parse_struct_definition(&mut self) -> Result<TranslationUnit, ParseError> {
@@ -77,5 +91,29 @@ impl<'a> Parser<'a> {
         self.finish_parsing(&struct_definition)?;
 
         Ok(struct_definition)
+    }
+
+    pub fn parse_implementation(&mut self) -> Result<TranslationUnit, ParseError> {
+        let start_loc = self.start_parsing("impl block")?;
+
+        self.expect_token(Token::Impl)?;
+        let implemented_for = self.parse_typename()?;
+        self.expect_token(Token::LCurly);
+
+        let mut items: Vec<FunctionDefinitionTree> = Vec::new();
+
+        while self.peek_token()? != Token::RCurly {
+            let prototype = self.parse_function_prototype()?;
+            items.push(self.parse_function_definition(prototype)?);
+        }
+
+        let implementation = TranslationUnit::Implementation(ImplementationTree {
+            loc: start_loc,
+            type_name: implemented_for,
+            items,
+        });
+
+        self.finish_parsing(&implementation);
+        Ok(implementation)
     }
 }

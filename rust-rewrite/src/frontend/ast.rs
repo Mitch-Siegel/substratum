@@ -6,6 +6,7 @@ pub enum TranslationUnit {
     FunctionDeclaration(FunctionDeclarationTree),
     FunctionDefinition(FunctionDefinitionTree),
     StructDefinition(StructDefinitionTree),
+    Implementation(ImplementationTree),
 }
 
 impl Display for TranslationUnit {
@@ -19,6 +20,9 @@ impl Display for TranslationUnit {
             }
             Self::StructDefinition(struct_definition) => {
                 write!(f, "Struct Definition: {}", struct_definition)
+            }
+            Self::Implementation(implementation) => {
+                write!(f, "Implementation: {}", implementation)
             }
         }
     }
@@ -35,7 +39,7 @@ impl Display for TranslationUnitTree {
     }
 }
 
-#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDeclarationTree {
     pub loc: SourceLoc,
     pub name: String,
@@ -85,6 +89,23 @@ impl Display for StructDefinitionTree {
             fields += " ";
         }
         write!(f, "Struct Definition: {}: {}", self.name, fields)
+    }
+}
+
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ImplementationTree {
+    pub loc: SourceLoc,
+    pub type_name: TypenameTree,
+    pub items: Vec<FunctionDefinitionTree>,
+}
+impl Display for ImplementationTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Impl {}", self.type_name).and_then(|_| {
+            for item in &self.items {
+                write!(f, "{}", item)?
+            }
+            Ok(())
+        })
     }
 }
 
@@ -213,7 +234,7 @@ impl Display for StatementTree {
     }
 }
 
-#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct VariableDeclarationTree {
     pub loc: SourceLoc,
     pub name: String,
@@ -322,7 +343,7 @@ impl Display for ExpressionTree {
     }
 }
 
-#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TypenameTree {
     pub loc: SourceLoc,
     pub type_: midend::types::Type,

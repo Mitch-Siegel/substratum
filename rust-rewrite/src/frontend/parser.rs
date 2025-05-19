@@ -221,6 +221,7 @@ impl<'a> Parser<'a> {
             contents: match self.peek_token()? {
                 Token::Fun => self.parse_function_declaration_or_definition()?,
                 Token::Struct => self.parse_struct_definition()?,
+                Token::Impl => self.parse_implementation()?,
                 _ => self.unexpected_token(&[Token::Fun, Token::Struct])?,
             },
         };
