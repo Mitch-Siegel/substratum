@@ -86,7 +86,7 @@ fun while_with_nested_branch(u8 a, u16 b, u32 c) {
 
 const SSA_EXAMPLE: &str = "
 fun while_with_nested_branch() {
-    u8 a; u16 b; u32 c;
+    a: u8; b: u16; c: u32;
 
     a = 0;
     b = 1;
@@ -107,6 +107,11 @@ dollars: u64,
 cents: u8
 }
 
+impl Money {
+    fun new(dollars: u64, cents: u8) -> Self {
+    }
+}
+
 fun money_add_dollars(m: Money, dollars: u64) {
     m.dollars = m.dollars + dollars;
     m.print();
@@ -115,7 +120,7 @@ fun money_add_dollars(m: Money, dollars: u64) {
 
 fn main() {
     println!("Hello, world!");
-    let mut parser = Parser::new(Lexer::from_string(STRUCT_EXAMPLE));
+    let mut parser = Parser::new(Lexer::from_string(SSA_EXAMPLE));
     let program = parser.parse().expect("Error parsing input");
 
     for t in &program {

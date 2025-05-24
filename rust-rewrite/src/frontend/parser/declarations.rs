@@ -98,7 +98,7 @@ impl<'a> Parser<'a> {
 
         self.expect_token(Token::Impl)?;
         let implemented_for = self.parse_typename()?;
-        self.expect_token(Token::LCurly);
+        self.expect_token(Token::LCurly)?;
 
         let mut items: Vec<FunctionDefinitionTree> = Vec::new();
 
@@ -113,7 +113,7 @@ impl<'a> Parser<'a> {
             items,
         });
 
-        self.finish_parsing(&implementation);
+        self.finish_parsing(&implementation)?;
         Ok(implementation)
     }
 }

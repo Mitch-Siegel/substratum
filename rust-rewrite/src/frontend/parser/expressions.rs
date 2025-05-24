@@ -45,7 +45,7 @@ impl<'a> Parser<'a> {
             Token::If
             | Token::While
             | Token::Identifier(_)
-            | Token::UnsignedDecimalConstant(0)
+            | Token::UnsignedDecimalConstant(_)
             | Token::LParen => true,
             _ => false,
         }
@@ -54,7 +54,11 @@ impl<'a> Parser<'a> {
     pub fn parse_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let _start_loc = self.start_parsing("expression")?;
 
-        assert!(Self::token_starts_expression(self.peek_token()?)); // sanity-check this method call to self-validate
+        assert!(
+            Self::token_starts_expression(self.peek_token()?),
+            "{} does not start an expression",
+            self.peek_token()?
+        ); // sanity-check this method call to self-validate
 
         let mut expr = match self.peek_token()? {
             Token::If => self.parse_if_expression()?,
