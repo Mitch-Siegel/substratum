@@ -127,13 +127,13 @@ impl<'a> Parser<'a> {
             .unwrap_or((Token::Eof, self.lexer.current_loc()));
         self.last_match = start_loc;
         #[cfg(feature = "loud_parsing")]
-        println!("Parser::next_token() -> {}@{}", next, start_loc);
+        self.annotate_parsing(&format!("Parser::next_token() -> {}@{}", next, start_loc));
         Ok(next)
     }
 
     fn expect_token(&mut self, _expected: Token) -> Result<Token, ParseError> {
-        #[cfg(feature = "loud_parsing")]
-        println!("Parser::expect_token({})", _expected);
+        //#[cfg(feature = "loud_parsing")]
+        //self.annotate_parsing(&format!("Parser::expect_token({})", _expected));
 
         let (upcoming_token, upcoming_loc) = self.peek_token_with_loc()?;
         if upcoming_token.eq(&_expected) {
@@ -167,11 +167,8 @@ impl<'a> Parser<'a> {
     }
 
     fn start_parsing(&mut self, what_parsing: &str) -> Result<SourceLoc, ParseError> {
-        for _ in 0..self.parsing_stack.len() {
-            print!("\t");
-        }
         #[cfg(feature = "loud_parsing")]
-        println!("Start parsing {}", what_parsing);
+        self.annotate_parsing(&format!("Start parsing {}", what_parsing));
 
         let start_loc = self.peek_token_with_loc()?.1;
         self.parsing_stack
@@ -187,20 +184,30 @@ impl<'a> Parser<'a> {
             .parsing_stack
             .pop()
             .expect("Mismatched loud parsing tracking");
+
+        #[cfg(feature = "loud_parsing")]
+        {
+            let annotation_string = format!(
+                "Done parsing {} ({}-{}): {}",
+                _parsed_description,
+                _parse_start,
+                self.peek_token_with_loc()?.1,
+                _parsed
+            );
+
+            self.annotate_parsing(&annotation_string);
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "loud_parsing")]
+    fn annotate_parsing(&self, output: &str) {
         for _ in 0..self.parsing_stack.len() {
             print!("\t");
         }
 
-        #[cfg(feature = "loud_parsing")]
-        println!(
-            "Done parsing {} ({}-{}): {}",
-            _parsed_description,
-            _parse_start,
-            self.peek_token_with_loc()?.1,
-            _parsed
-        );
-
-        Ok(())
+        println!("{}", output);
     }
 }
 
@@ -313,7 +320,7 @@ impl<'a> Parser<'a> {
             return_type: match self.peek_token()? {
                 Token::Arrow => {
                     self.next_token()?;
-                    Some(self.parse_typename()?)
+                    Some(self.parse_type()?)
                 }
                 _ => None,
             },

@@ -12,7 +12,7 @@ impl<'a> Parser<'a> {
             name: self.parse_identifier()?,
             typename: {
                 self.expect_token(Token::Colon)?;
-                self.parse_typename()?
+                self.parse_type()?
             },
         };
 
@@ -97,7 +97,7 @@ impl<'a> Parser<'a> {
         let start_loc = self.start_parsing("impl block")?;
 
         self.expect_token(Token::Impl)?;
-        let implemented_for = self.parse_typename()?;
+        let implemented_for = self.parse_type()?;
         self.expect_token(Token::LCurly)?;
 
         let mut items: Vec<FunctionDefinitionTree> = Vec::new();
@@ -106,6 +106,8 @@ impl<'a> Parser<'a> {
             let prototype = self.parse_function_prototype()?;
             items.push(self.parse_function_definition(prototype)?);
         }
+
+        self.expect_token(Token::RCurly)?;
 
         let implementation = TranslationUnit::Implementation(ImplementationTree {
             loc: start_loc,

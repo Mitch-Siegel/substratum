@@ -1,6 +1,6 @@
 use crate::{
     frontend::{ast::*, lexer::token::Token},
-    midend::types::Type,
+    midend::types::{Mutability, Type},
 };
 
 use super::{ParseError, Parser};
@@ -20,65 +20,107 @@ impl<'a> Parser<'a> {
         Ok(identifier)
     }
 
-    pub fn parse_typename(&mut self) -> Result<TypenameTree, ParseError> {
-        let start_loc = self.start_parsing("typename")?;
+    pub fn parse_type(&mut self) -> Result<TypeTree, ParseError> {
+        let start_loc = self.start_parsing("type")?;
 
-        let typename = TypenameTree {
+        let type_tree = TypeTree {
             loc: start_loc,
-            type_: match self.peek_token()? {
-                Token::U8 => {
-                    self.next_token()?;
-                    Type::U8
-                }
-                Token::U16 => {
-                    self.next_token()?;
-                    Type::U16
-                }
-                Token::U32 => {
-                    self.next_token()?;
-                    Type::U32
-                }
-                Token::U64 => {
-                    self.next_token()?;
-                    Type::U64
-                }
-                Token::I8 => {
-                    self.next_token()?;
-                    Type::I8
-                }
-                Token::I16 => {
-                    self.next_token()?;
-                    Type::I16
-                }
-                Token::I32 => {
-                    self.next_token()?;
-                    Type::I32
-                }
-                Token::I64 => {
-                    self.next_token()?;
-                    Type::I64
-                }
-                Token::Identifier(name) => {
-                    self.next_token()?;
-                    Type::UDT(name)
-                }
-                _ => self.unexpected_token(&[
-                    Token::U8,
-                    Token::U16,
-                    Token::U32,
-                    Token::U64,
-                    Token::I8,
-                    Token::I16,
-                    Token::I32,
-                    Token::I64,
-                    Token::Identifier("".into()),
-                ])?,
-            },
+            type_: self.parse_type_inner()?,
         };
 
-        self.finish_parsing(&typename)?;
+        self.finish_parsing(&type_tree)?;
 
-        Ok(typename)
+        Ok(type_tree)
+    }
+
+    fn parse_type_inner(&mut self) -> Result<Type, ParseError> {
+        let _start_loc = self.start_parsing("typename")?;
+
+        let type_ = match self.peek_token()? {
+            Token::Reference => {
+                self.expect_token(Token::Reference)?;
+                let mutability = match self.peek_token()? {
+                    Token::Mut => {
+                        self.expect_token(Token::Mut)?;
+                        Mutability::Mutable
+                    }
+                    _ => Mutability::Immutable,
+                };
+                Type::Reference(mutability, Box::new(self.parse_type_inner()?))
+            }
+            Token::SelfUpper => {
+                self.expect_token(Token::SelfUpper)?;
+                Type::Self_
+            }
+            _ => self.parse_type_name()?,
+        };
+
+        self.finish_parsing(&type_)?;
+
+        Ok(type_)
+    }
+
+    fn parse_type_name(&mut self) -> Result<Type, ParseError> {
+        let _start_loc = self.start_parsing("type name");
+
+        let type_name = match self.peek_token()? {
+            Token::U8 => {
+                self.next_token()?;
+                Type::U8
+            }
+            Token::U16 => {
+                self.next_token()?;
+                Type::U16
+            }
+            Token::U32 => {
+                self.next_token()?;
+                Type::U32
+            }
+            Token::U64 => {
+                self.next_token()?;
+                Type::U64
+            }
+            Token::I8 => {
+                self.next_token()?;
+                Type::I8
+            }
+            Token::I16 => {
+                self.next_token()?;
+                Type::I16
+            }
+            Token::I32 => {
+                self.next_token()?;
+                Type::I32
+            }
+            Token::I64 => {
+                self.next_token()?;
+                Type::I64
+            }
+            Token::Identifier(name) => {
+                self.next_token()?;
+                Type::UDT(name)
+            }
+            Token::SelfLower => {
+                self.next_token()?;
+                Type::Self_
+            }
+            _ => self.unexpected_token(&[
+                Token::U8,
+                Token::U16,
+                Token::U32,
+                Token::U64,
+                Token::I8,
+                Token::I16,
+                Token::I32,
+                Token::I64,
+                Token::Identifier("".into()),
+                Token::SelfLower,
+            ])?,
+        };
+
+        self.finish_parsing(&type_name);
+
+        Ok(type_name)
     }
 }
 

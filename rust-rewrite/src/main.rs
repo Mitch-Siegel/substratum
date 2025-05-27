@@ -110,17 +110,19 @@ cents: u8
 impl Money {
     fun new(dollars: u64, cents: u8) -> Self {
     }
+
+    fun print(&self) {
+    }
 }
 
 fun money_add_dollars(m: Money, dollars: u64) {
     m.dollars = m.dollars + dollars;
     m.print();
-}
-";
+}";
 
 fn main() {
     println!("Hello, world!");
-    let mut parser = Parser::new(Lexer::from_string(SSA_EXAMPLE));
+    let mut parser = Parser::new(Lexer::from_string(STRUCT_EXAMPLE));
     let program = parser.parse().expect("Error parsing input");
 
     for t in &program {

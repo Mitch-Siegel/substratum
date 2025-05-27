@@ -44,7 +44,7 @@ pub struct FunctionDeclarationTree {
     pub loc: SourceLoc,
     pub name: String,
     pub arguments: Vec<VariableDeclarationTree>,
-    pub return_type: Option<TypenameTree>,
+    pub return_type: Option<TypeTree>,
 }
 impl Display for FunctionDeclarationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -95,7 +95,7 @@ impl Display for StructDefinitionTree {
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ImplementationTree {
     pub loc: SourceLoc,
-    pub type_name: TypenameTree,
+    pub type_name: TypeTree, // TODO: rename from typename?
     pub items: Vec<FunctionDefinitionTree>,
 }
 impl Display for ImplementationTree {
@@ -238,7 +238,7 @@ impl Display for StatementTree {
 pub struct VariableDeclarationTree {
     pub loc: SourceLoc,
     pub name: String,
-    pub typename: TypenameTree,
+    pub typename: TypeTree, // TODO: rename from typename?
 }
 impl Display for VariableDeclarationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -344,12 +344,12 @@ impl Display for ExpressionTree {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct TypenameTree {
+pub struct TypeTree {
     pub loc: SourceLoc,
     pub type_: midend::types::Type,
 }
 
-impl Display for TypenameTree {
+impl Display for TypeTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.type_)
     }

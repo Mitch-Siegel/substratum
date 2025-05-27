@@ -139,7 +139,7 @@ impl<'a> ReturnWalk<WalkContext<'a>, symtab::Function> for FunctionDefinitionTre
     }
 }
 
-impl Walk for TypenameTree {
+impl Walk for TypeTree {
     fn walk(self, _context: &mut WalkContext) -> Value {
         Value::from_type(self.type_)
     }
