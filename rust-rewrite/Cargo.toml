@@ -4,8 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+default = ["arch_RV64G"]
+arch_RV64G = []
+
 loud_lexing = []
 loud_parsing = []
+
 
 [dependencies]
 serde = { version = "1.0", features=["derive"] }

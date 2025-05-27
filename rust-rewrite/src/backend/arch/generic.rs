@@ -1,4 +1,7 @@
+pub mod registers;
+pub use registers::RegisterPurpose;
+pub use registers::*;
 
 pub trait TargetArchitecture {
-    pub fn registers() -> ArchitectureRegisters;
+    fn registers() -> ArchitectureRegisters;
 }

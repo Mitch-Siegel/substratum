@@ -1,5 +1,5 @@
-mod regalloc;
 mod arch;
+mod regalloc;
 
 use crate::midend;
 
