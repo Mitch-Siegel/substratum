@@ -1,6 +1,10 @@
 use serde::Serialize;
 use std::fmt::Display;
 
+use super::symtab::{self, ScopedLookups};
+
+use crate::backend;
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, serde::Deserialize, Hash)]
 pub enum Mutability {
     Mutable,
@@ -31,6 +35,46 @@ pub enum Type {
     UDT(String),
     Reference(Mutability, Box<Type>),
     Pointer(Mutability, Box<Type>),
+}
+
+impl Type {
+    // size of the type in bytes
+    pub fn size<Target: backend::arch::TargetArchitecture>(
+        &self,
+        scope_stack: &symtab::ScopeStack,
+    ) -> usize {
+        match self {
+            Type::Unit => 0,
+            Type::U8 => 1,
+            Type::U16 => 2,
+            Type::U32 => 4,
+            Type::U64 => 8,
+            Type::I8 => 1,
+            Type::I16 => 2,
+            Type::I32 => 4,
+            Type::I64 => 8,
+            Type::Self_ => scope_stack.self_type().size::<Target>(scope_stack),
+            Type::UDT(type_name) => {
+                let type_definition = scope_stack.lookup_type(self).expect(&format!(
+                    "Missing UDT definition for '{}' in Type::size()",
+                    type_name
+                ));
+
+                match &type_definition.repr {
+                    symtab::TypeRepr::Struct(struct_repr) => {
+                        let mut struct_size: usize = 0;
+                        for (_, field) in struct_repr {
+                            struct_size += field.type_().size::<Target>(scope_stack);
+                        }
+
+                        struct_size
+                    }
+                }
+            }
+            Type::Reference(_, _) => Target::word_size(),
+            Type::Pointer(_, _) => Target::word_size(),
+        }
+    }
 }
 
 impl Display for Type {

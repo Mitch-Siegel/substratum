@@ -67,3 +67,12 @@ impl StructRepr {
         self.fields.get(name)
     }
 }
+
+impl<'a> IntoIterator for &'a StructRepr {
+    type Item = (&'a String, &'a Variable);
+    type IntoIter = std::collections::hash_map::Iter<'a, String, Variable>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.iter()
+    }
+}

@@ -121,6 +121,7 @@ impl Token {
             Self::GThanE => ">=",
             Self::LThan => "<",
             Self::LThanE => "<=",
+
             Self::Equals => "==",
             Self::NotEquals => "!=",
             Self::Assign => "=",

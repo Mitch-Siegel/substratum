@@ -4,7 +4,7 @@ use crate::{
     frontend::{ast::*, sourceloc::SourceLoc},
     midend::{
         ir::{self, IrLine},
-        symtab::{self, SymbolTable},
+        symtab::{self, ScopedLookups, SymbolTable},
         types::Type,
     },
 };

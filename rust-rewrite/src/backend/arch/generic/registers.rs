@@ -6,6 +6,7 @@ pub enum RegisterSaveConvention {
     NoSave,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RegisterPurpose {
     GeneralPurpose,
     Argument,
@@ -34,17 +35,21 @@ impl Register {
 }
 
 pub struct ArchitectureRegisters {
-    registers_by_name: BTreeMap<String, Register>,
+    pub registers_by_name: BTreeMap<String, Register>,
+    pub counts_by_purpose: BTreeMap<RegisterPurpose, usize>,
 }
 
 impl ArchitectureRegisters {
     pub fn new() -> Self {
         Self {
             registers_by_name: BTreeMap::new(),
+            counts_by_purpose: BTreeMap::new(),
         }
     }
 
     pub fn add(&mut self, register: Register) {
+        *(self.counts_by_purpose.entry(register.purpose).or_default()) += 1;
+
         self.registers_by_name
             .insert(register.name.clone(), register);
     }

@@ -50,13 +50,13 @@ fun while_with_nested_branch(a: u8, b: u16, c: u32) {
 
 const WHILE_LOOP_WITH_NESTED_BRANCH_NO_ARGS: &str = "
 fun while_with_nested_branch() {
-    u8 a; u16 b; u32 c;
+    a: u8; b: u16; c: u32;
 
     a = 0;
     b = 1;
     c = 2;
     while (a < b) {
-        u8 counter;
+        counter: u8;
         if (c > 22) {
             a = a + b;
         } else {
@@ -67,9 +67,9 @@ fun while_with_nested_branch() {
 ";
 
 const NESTED_WHILE_LOOPS: &str = "
-fun while_with_nested_branch(u8 a, u16 b, u32 c) {
+fun while_with_nested_branch(a: u8, b: u64, c: u32) {
     while (a < b) {
-        u8 counter;
+        counter: u8;
         counter = 0;
         if (c > 22) {
             counter = counter + 1;
@@ -122,7 +122,7 @@ fun money_add_dollars(m: Money, dollars: u64) {
 
 fn main() {
     println!("Hello, world!");
-    let mut parser = Parser::new(Lexer::from_string(STRUCT_EXAMPLE));
+    let mut parser = Parser::new(Lexer::from_string(WHILE_LOOP_WITH_NESTED_BRANCH_NO_ARGS));
     let program = parser.parse().expect("Error parsing input");
 
     for t in &program {
