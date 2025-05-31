@@ -1,12 +1,9 @@
-use crate::midend::types::Type;
 use std::collections::HashMap;
 
-use super::ir;
 pub use errors::*;
 pub use function::*;
 pub use scope::Scope;
 use serde::Serialize;
-use std::fmt::Display;
 pub use type_definitions::*;
 pub use variable::*;
 

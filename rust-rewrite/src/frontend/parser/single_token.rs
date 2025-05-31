@@ -118,7 +118,7 @@ impl<'a> Parser<'a> {
             ])?,
         };
 
-        self.finish_parsing(&type_name);
+        self.finish_parsing(&type_name)?;
 
         Ok(type_name)
     }

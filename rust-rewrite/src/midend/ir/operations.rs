@@ -1,8 +1,6 @@
 use serde::Serialize;
 use std::{collections::HashMap, fmt::Display};
 
-use crate::midend::{symtab::Function, types::Type};
-
 use super::operands::*;
 
 /// ## Binary Operations

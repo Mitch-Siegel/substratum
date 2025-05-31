@@ -1,7 +1,4 @@
-use super::LifetimeSet;
-use crate::backend::regalloc::find_block_depths;
 use crate::backend::regalloc::lifetime::Lifetime;
-use crate::backend::regalloc::program_point::ProgramPoint;
 use crate::midend;
 use std::collections::{BTreeMap, BTreeSet};
 

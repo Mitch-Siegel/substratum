@@ -144,7 +144,7 @@ impl<'a> ScopedLookups for ScopeStack<'a> {
 
     fn lookup_type_mut(
         &mut self,
-        type_: &Type,
+        _type_: &Type,
     ) -> Result<&'a mut TypeDefinition, UndefinedSymbolError> {
         panic!("ScopeStack::lookup_type_mut not supported!");
     }

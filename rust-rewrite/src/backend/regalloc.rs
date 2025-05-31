@@ -9,7 +9,7 @@ mod program_point;
 use crate::backend::arch::generic::TargetArchitecture;
 
 pub fn heuristic(lifetime: &midend::ir::OperandName, scope: &midend::symtab::Scope) -> isize {
-    let lookup_result = scope.lookup_variable_by_name(&lifetime.base_name);
+    let _lookup_result = scope.lookup_variable_by_name(&lifetime.base_name);
 
     0
 }
@@ -26,7 +26,7 @@ fn registers_required_for_argument<Target: TargetArchitecture>(
 }
 
 pub fn allocate_registers<Target: TargetArchitecture>(
-    scope_stack: &midend::symtab::ScopeStack,
+    _scope_stack: &midend::symtab::ScopeStack,
     function: &midend::symtab::Function,
 ) {
     println!("Allocate registers for {}", function.name());
@@ -34,17 +34,16 @@ pub fn allocate_registers<Target: TargetArchitecture>(
     let lifetimes = LifetimeSet::from_control_flow(&function.control_flow);
     // let depths = find_block_depths(control_flow);
 
-    let target_registers = Target::registers();
+    let _target_registers = Target::registers();
 
-    let mut arguments = function
+    let mut _arguments = function
         .prototype
         .arguments
         .iter()
         .map(|argument| lifetimes.lookup_by_variable(argument).unwrap())
         .collect::<Vec<_>>();
 
-    let mut stack_arguments: Vec<&lifetime::Lifetime> = Vec::new();
-    for argument in arguments {}
+    let mut _stack_arguments: Vec<&lifetime::Lifetime> = Vec::new();
 
     let control_flow = &function.control_flow;
 

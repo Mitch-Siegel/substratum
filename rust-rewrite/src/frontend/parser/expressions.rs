@@ -231,7 +231,7 @@ impl<'a> Parser<'a> {
         Ok(expr)
     }
 
-    pub fn parse_call_params(&mut self, allow_self: bool) -> Result<CallParamsTree, ParseError> {
+    pub fn parse_call_params(&mut self, _allow_self: bool) -> Result<CallParamsTree, ParseError> {
         let start_loc = self.start_parsing("call params")?;
 
         let mut params = Vec::new();
