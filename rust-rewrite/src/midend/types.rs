@@ -31,7 +31,7 @@ pub enum Type {
     I16,
     I32,
     I64,
-    Self_,
+    _Self,
     UDT(String),
     Reference(Mutability, Box<Type>),
     Pointer(Mutability, Box<Type>),
@@ -53,7 +53,7 @@ impl Type {
             Type::I16 => 2,
             Type::I32 => 4,
             Type::I64 => 8,
-            Type::Self_ => scope_stack.self_type().size::<Target>(scope_stack),
+            Type::_Self => scope_stack.self_type().size::<Target>(scope_stack),
             Type::UDT(type_name) => {
                 let type_definition = scope_stack.lookup_type(self).expect(&format!(
                     "Missing UDT definition for '{}' in Type::size()",
@@ -89,7 +89,7 @@ impl Display for Type {
             Self::I16 => write!(f, "i16"),
             Self::I32 => write!(f, "i32"),
             Self::I64 => write!(f, "i64"),
-            Self::Self_ => write!(f, "self"),
+            Self::_Self => write!(f, "self"),
             Self::UDT(name) => write!(f, "user-defined type {}", name),
             Self::Reference(mutability, to) => write!(f, "&{} {}", mutability, to),
             Self::Pointer(mutability, to) => write!(f, "*{} {}", mutability, to),

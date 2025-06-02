@@ -33,7 +33,7 @@ impl<'a> Parser<'a> {
             }
             Token::SelfUpper => {
                 self.expect_token(Token::SelfUpper)?;
-                Type::Self_
+                Type::_Self
             }
             _ => self.parse_type_name()?,
         };
@@ -85,7 +85,7 @@ impl<'a> Parser<'a> {
             }
             Token::SelfLower => {
                 self.next_token()?;
-                Type::Self_
+                Type::_Self
             }
             _ => self.unexpected_token(&[
                 Token::U8,
@@ -124,13 +124,37 @@ mod tests {
             ("i32", Type::I32),
             ("i64", Type::I64),
             ("MyStruct", Type::UDT("MyStruct".into())),
-            ("self", Type::Self_),
+            ("self", Type::_Self),
         ];
 
         for (string, type_) in type_names {
             let mut p = Parser::new(Lexer::from_string(string));
             assert_eq!(p.parse_type_name(), Ok(type_));
         }
+    }
+
+    #[test]
+    fn parse_type_name_error() {
+        let mut p = Parser::new(Lexer::from_string("123"));
+        assert_eq!(
+            p.parse_type_name(),
+            Err(ParseError::unexpected_token(
+                SourceLoc::new(1, 1),
+                Token::UnsignedDecimalConstant(123),
+                &[
+                    Token::U8,
+                    Token::U16,
+                    Token::U32,
+                    Token::U64,
+                    Token::I8,
+                    Token::I16,
+                    Token::I32,
+                    Token::I64,
+                    Token::Identifier("".into()),
+                    Token::SelfLower,
+                ]
+            ))
+        );
     }
 
     #[test]
@@ -145,11 +169,32 @@ mod tests {
                 "&mut u32",
                 Type::Reference(Mutability::Mutable, Box::from(Type::U32)),
             ),
+            ("Self", Type::_Self),
+            (
+                "&Self",
+                Type::Reference(Mutability::Immutable, Box::from(Type::_Self)),
+            ),
+            (
+                "&mut Self",
+                Type::Reference(Mutability::Mutable, Box::from(Type::_Self)),
+            ),
         ];
 
         for (string, type_) in types {
             let mut p = Parser::new(Lexer::from_string(string));
             assert_eq!(p.parse_type_inner(), Ok(type_));
         }
+    }
+
+    #[test]
+    fn parse_type() {
+        let mut p = Parser::new(Lexer::from_string("u32"));
+        assert_eq!(
+            p.parse_type(),
+            Ok(TypeTree {
+                loc: SourceLoc::new(1, 1),
+                type_: Type::U32
+            })
+        );
     }
 }
