@@ -86,7 +86,7 @@ impl TableWalk for TranslationUnitTree {
                 for field in struct_definition.fields {
                     // TODO: global scoping
                     let field_type = field
-                        .typename
+                        .type_
                         .walk(&mut WalkContext::new(&symbol_table.global_scope));
                     defined_struct.add_field(field.name, field_type.type_);
                 }
@@ -97,7 +97,7 @@ impl TableWalk for TranslationUnitTree {
             }
             TranslationUnit::Implementation(implementation) => {
                 let mut impl_context = WalkContext::new(&symbol_table.global_scope);
-                let implemented_for_type = implementation.type_name.walk(&mut impl_context).type_;
+                let implemented_for_type = implementation.type_.walk(&mut impl_context).type_;
 
                 let methods: Vec<symtab::Function> = implementation
                     .items
@@ -145,7 +145,7 @@ impl Walk for TypeTree {
 
 impl<'a> ReturnWalk<&mut WalkContext<'a>, symtab::Variable> for VariableDeclarationTree {
     fn walk(self, context: &mut WalkContext) -> symtab::Variable {
-        symtab::Variable::new(self.name.clone(), self.typename.walk(context).type_)
+        symtab::Variable::new(self.name.clone(), self.type_.walk(context).type_)
     }
 }
 
@@ -158,7 +158,7 @@ impl<'a> ReturnWalk<&mut WalkContext<'a>, symtab::FunctionPrototype> for Functio
                 .map(|x| x.walk(context))
                 .collect(),
             match self.return_type {
-                Some(typename) => typename.walk(context).type_,
+                Some(type_) => type_.walk(context).type_,
                 None => Type::Unit,
             },
         )
@@ -339,7 +339,7 @@ impl Walk for AssignmentTree {
 impl Walk for IfExpressionTree {
     fn walk(self, context: &mut WalkContext) -> Value {
         // FUTURE: optimize condition walk to use different jumps
-        let condition_loc = self.condition.loc.clone();
+        let condition_loc = self.condition.loc;
         let condition_result: ir::Operand = self.condition.walk(context).into();
         let if_condition = ir::JumpCondition::NE(ir::operands::DualSourceOperands::new(
             condition_result,

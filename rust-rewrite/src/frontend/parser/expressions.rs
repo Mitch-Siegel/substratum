@@ -194,20 +194,23 @@ impl<'a> Parser<'a> {
         lhs: ExpressionTree,
     ) -> Result<ExpressionTree, ParseError> {
         self.start_parsing("method call expression")?;
+        let start_loc = lhs.loc;
+
         self.expect_token(Token::Dot)?;
 
-        let expr = ExpressionTree {
-            loc: lhs.loc,
-            expression: Expression::MethodCall(Box::from(MethodCallExpressionTree {
-                loc: lhs.loc,
-                receiver: lhs,
-                called_method: self.parse_identifier()?,
-                params: self.parse_call_params(true)?,
-            })),
-        };
+        let method_call_expression = MethodCallExpressionTree::new(
+            start_loc,
+            lhs,
+            self.parse_identifier()?,
+            self.parse_call_params(true)?,
+        );
 
-        self.finish_parsing(&expr)?;
-        Ok(expr)
+        let expression_tree = ExpressionTree::new(
+            start_loc,
+            Expression::MethodCall(Box::from(method_call_expression)),
+        );
+        self.finish_parsing(&expression_tree)?;
+        Ok(expression_tree)
     }
 
     pub fn parse_field_expression(
@@ -215,20 +218,17 @@ impl<'a> Parser<'a> {
         lhs: ExpressionTree,
     ) -> Result<ExpressionTree, ParseError> {
         self.start_parsing("field expression")?;
+        let start_loc = lhs.loc;
 
         self.expect_token(Token::Dot)?;
-        let expr = ExpressionTree {
-            loc: lhs.loc,
-            expression: Expression::FieldExpression(Box::from(FieldExpressionTree {
-                loc: lhs.loc,
-                receiver: lhs,
-                field: self.parse_identifier()?,
-            })),
-        };
+        let field_expression = FieldExpressionTree::new(start_loc, lhs, self.parse_identifier()?);
 
-        self.finish_parsing(&expr)?;
-
-        Ok(expr)
+        let expression_tree = ExpressionTree::new(
+            start_loc,
+            Expression::FieldExpression(Box::from(field_expression)),
+        );
+        self.finish_parsing(&expression_tree)?;
+        Ok(expression_tree)
     }
 
     pub fn parse_call_params(&mut self, _allow_self: bool) -> Result<CallParamsTree, ParseError> {
@@ -246,13 +246,8 @@ impl<'a> Parser<'a> {
         }
         self.expect_token(Token::RParen)?;
 
-        let params_tree = CallParamsTree {
-            loc: start_loc,
-            params,
-        };
-
+        let params_tree = CallParamsTree::new(start_loc, params);
         self.finish_parsing(&params_tree)?;
-
         Ok(params_tree)
     }
 
@@ -261,23 +256,17 @@ impl<'a> Parser<'a> {
         lhs: ExpressionTree,
     ) -> Result<ExpressionTree, ParseError> {
         self.start_parsing("assignment (rhs)")?;
+        let start_loc = lhs.loc;
 
         self.expect_token(Token::Assign)?;
 
         let rhs = self.parse_expression()?;
 
-        let assignment = ExpressionTree {
-            loc: lhs.loc.clone(),
-            expression: Expression::Assignment(AssignmentTree {
-                loc: lhs.loc.clone(),
-                assignee: Box::from(lhs),
-                value: Box::from(rhs),
-            }),
-        };
+        let assignment = AssignmentTree::new(start_loc, lhs, rhs);
 
-        self.finish_parsing(&assignment)?;
-
-        Ok(assignment)
+        let expression_tree = ExpressionTree::new(start_loc, Expression::Assignment(assignment));
+        self.finish_parsing(&expression_tree)?;
+        Ok(expression_tree)
     }
 
     pub fn parse_binary_expression_min_precedence(
@@ -362,67 +351,56 @@ impl<'a> Parser<'a> {
     pub fn parse_primary_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let start_loc = self.start_parsing("primary expression")?;
 
-        let primary_expression = ExpressionTree {
-            loc: start_loc,
-            expression: {
-                match self.peek_token()? {
-                    Token::Identifier(value) => {
-                        self.next_token()?;
-                        Expression::Identifier(value)
-                    }
-                    Token::UnsignedDecimalConstant(value) => {
-                        self.next_token()?;
-                        Expression::UnsignedDecimalConstant(value)
-                    }
-                    Token::LParen => {
-                        self.next_token()?;
-                        let expr = self.parse_expression()?;
-                        self.expect_token(Token::RParen)?;
-                        expr.expression
-                    } // TODO: don't duplciate ExpressionTree here
-                    _ => self.unexpected_token(&[
-                        Token::Identifier("".into()),
-                        Token::UnsignedDecimalConstant(0),
-                        Token::LParen,
-                    ])?,
-                }
-            },
+        let primary_expression = match self.peek_token()? {
+            Token::Identifier(value) => {
+                self.next_token()?;
+                Expression::Identifier(value)
+            }
+            Token::UnsignedDecimalConstant(value) => {
+                self.next_token()?;
+                Expression::UnsignedDecimalConstant(value)
+            }
+            Token::LParen => {
+                self.next_token()?;
+                let expr = self.parse_expression()?;
+                self.expect_token(Token::RParen)?;
+                expr.expression
+            } // TODO: don't duplciate ExpressionTree here
+            _ => self.unexpected_token(&[
+                Token::Identifier("".into()),
+                Token::UnsignedDecimalConstant(0),
+                Token::LParen,
+            ])?,
         };
 
-        self.finish_parsing(&primary_expression)?;
-
-        Ok(primary_expression)
+        let expression_tree = ExpressionTree::new(start_loc, primary_expression);
+        self.finish_parsing(&expression_tree)?;
+        Ok(expression_tree)
     }
 
     pub fn parse_identifier_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let start_loc = self.start_parsing("identifier expression")?;
 
-        let expr = ExpressionTree {
-            loc: start_loc,
-            expression: Expression::Identifier(self.parse_identifier()?),
-        };
+        let identifier = self.parse_identifier()?;
 
-        self.finish_parsing(&expr)?;
-
-        Ok(expr)
+        let expression_tree = ExpressionTree::new(start_loc, Expression::Identifier(identifier));
+        self.finish_parsing(&expression_tree)?;
+        Ok(expression_tree)
     }
 
     pub fn parse_literal_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let start_loc = self.start_parsing("literal expression")?;
 
-        let expr = ExpressionTree {
-            loc: start_loc,
-            expression: match self.peek_token()? {
-                Token::UnsignedDecimalConstant(value) => {
-                    self.next_token()?;
-                    Expression::UnsignedDecimalConstant(value)
-                }
-                _ => self.unexpected_token(&[Token::UnsignedDecimalConstant(0)])?,
-            },
+        let literal_expression = match self.peek_token()? {
+            Token::UnsignedDecimalConstant(value) => {
+                self.next_token()?;
+                Expression::UnsignedDecimalConstant(value)
+            }
+            _ => self.unexpected_token(&[Token::UnsignedDecimalConstant(0)])?,
         };
 
-        self.finish_parsing(&expr)?;
-
-        Ok(expr)
+        let expression_tree = ExpressionTree::new(start_loc, literal_expression);
+        self.finish_parsing(&expression_tree)?;
+        Ok(expression_tree)
     }
 }

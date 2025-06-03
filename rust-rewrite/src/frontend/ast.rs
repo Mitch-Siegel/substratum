@@ -33,6 +33,11 @@ pub struct TranslationUnitTree {
     pub loc: SourceLoc,
     pub contents: TranslationUnit,
 }
+impl TranslationUnitTree {
+    pub fn new(loc: SourceLoc, contents: TranslationUnit) -> Self {
+        Self { loc, contents }
+    }
+}
 impl Display for TranslationUnitTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Translation Unit: {}", self.contents)
@@ -45,6 +50,21 @@ pub struct FunctionDeclarationTree {
     pub name: String,
     pub arguments: Vec<VariableDeclarationTree>,
     pub return_type: Option<TypeTree>,
+}
+impl FunctionDeclarationTree {
+    pub fn new(
+        loc: SourceLoc,
+        name: String,
+        arguments: Vec<VariableDeclarationTree>,
+        return_type: Option<TypeTree>,
+    ) -> Self {
+        Self {
+            loc,
+            name,
+            arguments,
+            return_type,
+        }
+    }
 }
 impl Display for FunctionDeclarationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -69,6 +89,11 @@ pub struct FunctionDefinitionTree {
     pub prototype: FunctionDeclarationTree,
     pub body: CompoundExpressionTree,
 }
+impl FunctionDefinitionTree {
+    pub fn new(prototype: FunctionDeclarationTree, body: CompoundExpressionTree) -> Self {
+        Self { prototype, body }
+    }
+}
 impl Display for FunctionDefinitionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Function Definition: {}, {}", self.prototype, self.body)
@@ -80,6 +105,11 @@ pub struct StructDefinitionTree {
     pub loc: SourceLoc,
     pub name: String,
     pub fields: Vec<VariableDeclarationTree>,
+}
+impl StructDefinitionTree {
+    pub fn new(loc: SourceLoc, name: String, fields: Vec<VariableDeclarationTree>) -> Self {
+        Self { loc, name, fields }
+    }
 }
 impl Display for StructDefinitionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -95,12 +125,17 @@ impl Display for StructDefinitionTree {
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ImplementationTree {
     pub loc: SourceLoc,
-    pub type_name: TypeTree, // TODO: rename from typename?
+    pub type_: TypeTree, // TODO: rename from typename?
     pub items: Vec<FunctionDefinitionTree>,
+}
+impl ImplementationTree {
+    pub fn new(loc: SourceLoc, type_: TypeTree, items: Vec<FunctionDefinitionTree>) -> Self {
+        Self { loc, type_, items }
+    }
 }
 impl Display for ImplementationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Impl {}", self.type_name).and_then(|_| {
+        write!(f, "Impl {}", self.type_).and_then(|_| {
             for item in &self.items {
                 write!(f, "{}", item)?
             }
@@ -113,6 +148,11 @@ impl Display for ImplementationTree {
 pub struct CompoundExpressionTree {
     pub loc: SourceLoc,
     pub statements: Vec<StatementTree>,
+}
+impl CompoundExpressionTree {
+    pub fn new(loc: SourceLoc, statements: Vec<StatementTree>) -> Self {
+        Self { loc, statements }
+    }
 }
 impl Display for CompoundExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -130,6 +170,21 @@ pub struct IfExpressionTree {
     pub condition: ExpressionTree,
     pub true_block: CompoundExpressionTree,
     pub false_block: Option<CompoundExpressionTree>,
+}
+impl IfExpressionTree {
+    pub fn new(
+        loc: SourceLoc,
+        condition: ExpressionTree,
+        true_block: CompoundExpressionTree,
+        false_block: Option<CompoundExpressionTree>,
+    ) -> Self {
+        Self {
+            loc,
+            condition,
+            true_block,
+            false_block,
+        }
+    }
 }
 impl Display for IfExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -150,6 +205,15 @@ pub struct WhileExpressionTree {
     pub condition: ExpressionTree,
     pub body: CompoundExpressionTree,
 }
+impl WhileExpressionTree {
+    pub fn new(loc: SourceLoc, condition: ExpressionTree, body: CompoundExpressionTree) -> Self {
+        Self {
+            loc,
+            condition,
+            body,
+        }
+    }
+}
 impl Display for WhileExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "while ({}) {}", self.condition, self.body)
@@ -161,6 +225,11 @@ impl Display for WhileExpressionTree {
 pub struct CallParamsTree {
     pub loc: SourceLoc,
     pub params: Vec<ExpressionTree>,
+}
+impl CallParamsTree {
+    pub fn new(loc: SourceLoc, params: Vec<ExpressionTree>) -> Self {
+        Self { loc, params }
+    }
 }
 impl Display for CallParamsTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -182,6 +251,21 @@ pub struct MethodCallExpressionTree {
     pub called_method: String,
     pub params: CallParamsTree,
 }
+impl MethodCallExpressionTree {
+    pub fn new(
+        loc: SourceLoc,
+        receiver: ExpressionTree,
+        called_method: String,
+        params: CallParamsTree,
+    ) -> Self {
+        Self {
+            loc,
+            receiver,
+            called_method,
+            params,
+        }
+    }
+}
 impl Display for MethodCallExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
@@ -198,6 +282,15 @@ pub struct FieldExpressionTree {
     pub receiver: ExpressionTree,
     pub field: String,
 }
+impl FieldExpressionTree {
+    pub fn new(loc: SourceLoc, receiver: ExpressionTree, field: String) -> Self {
+        Self {
+            loc,
+            receiver,
+            field,
+        }
+    }
+}
 impl Display for FieldExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}.{}", self.receiver, self.field)
@@ -209,7 +302,6 @@ pub enum Statement {
     VariableDeclaration(VariableDeclarationTree),
     Expression(ExpressionTree),
 }
-
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -228,6 +320,11 @@ pub struct StatementTree {
     pub loc: SourceLoc,
     pub statement: Statement,
 }
+impl StatementTree {
+    pub fn new(loc: SourceLoc, statement: Statement) -> Self {
+        Self { loc, statement }
+    }
+}
 impl Display for StatementTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.statement)
@@ -238,11 +335,16 @@ impl Display for StatementTree {
 pub struct VariableDeclarationTree {
     pub loc: SourceLoc,
     pub name: String,
-    pub typename: TypeTree, // TODO: rename from typename?
+    pub type_: TypeTree,
+}
+impl VariableDeclarationTree {
+    pub fn new(loc: SourceLoc, name: String, type_: TypeTree) -> Self {
+        Self { loc, name, type_ }
+    }
 }
 impl Display for VariableDeclarationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.name, self.typename)
+        write!(f, "{}: {}", self.name, self.type_)
     }
 }
 
@@ -251,6 +353,15 @@ pub struct AssignmentTree {
     pub loc: SourceLoc,
     pub assignee: Box<ExpressionTree>,
     pub value: Box<ExpressionTree>,
+}
+impl AssignmentTree {
+    pub fn new(loc: SourceLoc, assignee: ExpressionTree, value: ExpressionTree) -> Self {
+        Self {
+            loc,
+            assignee: Box::from(assignee),
+            value: Box::from(value),
+        }
+    }
 }
 impl Display for AssignmentTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -337,6 +448,11 @@ pub struct ExpressionTree {
     pub loc: SourceLoc,
     pub expression: Expression,
 }
+impl ExpressionTree {
+    pub fn new(loc: SourceLoc, expression: Expression) -> Self {
+        Self { loc, expression }
+    }
+}
 impl Display for ExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.expression)
@@ -348,7 +464,11 @@ pub struct TypeTree {
     pub loc: SourceLoc,
     pub type_: midend::types::Type,
 }
-
+impl TypeTree {
+    pub fn new(loc: SourceLoc, type_: midend::types::Type) -> Self {
+        Self { loc, type_ }
+    }
+}
 impl Display for TypeTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.type_)

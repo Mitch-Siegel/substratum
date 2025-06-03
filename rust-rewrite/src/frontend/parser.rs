@@ -230,8 +230,8 @@ impl<'a> Parser<'a> {
             loc: start_loc,
             contents: match self.peek_token()? {
                 Token::Fun => self.parse_function_declaration_or_definition()?,
-                Token::Struct => self.parse_struct_definition()?,
-                Token::Impl => self.parse_implementation()?,
+                Token::Struct => TranslationUnit::StructDefinition(self.parse_struct_definition()?),
+                Token::Impl => TranslationUnit::Implementation(self.parse_implementation()?),
                 _ => self.unexpected_token(&[Token::Fun, Token::Struct])?,
             },
         };
@@ -288,49 +288,5 @@ impl<'a> Parser<'a> {
             | Token::NotEquals => ir::BinaryOperations::precedence_of_token(&token) >= precedence,
             _ => false,
         }
-    }
-
-    fn parse_function_prototype(&mut self) -> Result<FunctionDeclarationTree, ParseError> {
-        let start_loc = self.start_parsing("function prototype")?;
-
-        // start with fun
-        self.expect_token(Token::Fun)?;
-        let prototype = FunctionDeclarationTree {
-            // grab start location and name
-            loc: start_loc,
-            name: self.parse_identifier()?,
-            arguments: {
-                self.expect_token(Token::LParen)?;
-                let mut arguments = Vec::<VariableDeclarationTree>::new();
-                loop {
-                    match self.peek_token()? {
-                        // argument declaration
-                        Token::Identifier(_) => {
-                            arguments.push(self.parse_variable_declaration()?);
-                            match self.peek_token()? {
-                                Token::Comma => self.next_token()?, // expect another argument declaration after comma
-                                _ => break,                         // loop again for anything else
-                            };
-                        }
-                        Token::RParen => break, // done on rparen
-                        _ => self.unexpected_token(&[Token::Identifier("".into())])?,
-                    }
-                }
-                // consume closing paren
-                self.expect_token(Token::RParen)?;
-                arguments
-            },
-            return_type: match self.peek_token()? {
-                Token::Arrow => {
-                    self.next_token()?;
-                    Some(self.parse_type()?)
-                }
-                _ => None,
-            },
-        };
-
-        self.finish_parsing(&prototype)?;
-
-        Ok(prototype)
     }
 }

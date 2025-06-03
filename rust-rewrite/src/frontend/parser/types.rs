@@ -191,10 +191,7 @@ mod tests {
         let mut p = Parser::new(Lexer::from_string("u32"));
         assert_eq!(
             p.parse_type(),
-            Ok(TypeTree {
-                loc: SourceLoc::new(1, 1),
-                type_: Type::U32
-            })
+            Ok(TypeTree::new(SourceLoc::new(1, 1), Type::U32))
         );
     }
 }
