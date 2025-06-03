@@ -10,6 +10,23 @@ pub enum Mutability {
     Mutable,
     Immutable,
 }
+impl From<bool> for Mutability {
+    fn from(mutability_bool: bool) -> Self {
+        if mutability_bool {
+            Self::Mutable
+        } else {
+            Self::Immutable
+        }
+    }
+}
+impl Into<bool> for Mutability {
+    fn into(self) -> bool {
+        match self {
+            Self::Mutable => true,
+            Self::Immutable => false,
+        }
+    }
+}
 
 impl Display for Mutability {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -64,7 +81,7 @@ impl Type {
                     symtab::TypeRepr::Struct(struct_repr) => {
                         let mut struct_size: usize = 0;
                         for (_, field) in struct_repr {
-                            struct_size += field.type_().size::<Target>(scope_stack);
+                            struct_size += field.size::<Target>(scope_stack);
                         }
 
                         struct_size

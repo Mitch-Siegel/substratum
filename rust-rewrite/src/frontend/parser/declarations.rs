@@ -8,13 +8,53 @@ impl<'a> Parser<'a> {
     pub fn parse_variable_declaration(&mut self) -> Result<VariableDeclarationTree, ParseError> {
         let start_loc = self.start_parsing("variable declaration")?;
 
-        let declaration = VariableDeclarationTree::new(start_loc, self.parse_identifier()?, {
-            self.expect_token(Token::Colon)?;
-            self.parse_type()?
-        });
+        let mutable = match self.peek_token()? {
+            Token::Mut => {
+                self.expect_token(Token::Mut)?;
+                true
+            }
+            _ => false,
+        };
+
+        let declaration = VariableDeclarationTree::new(
+            start_loc,
+            self.parse_identifier()?,
+            match self.peek_token()? {
+                Token::Colon => {
+                    self.expect_token(Token::Colon)?;
+                    Some(self.parse_type()?)
+                }
+                _ => None,
+            },
+            mutable,
+        );
 
         self.finish_parsing(&declaration)?;
+        Ok(declaration)
+    }
 
+    pub fn parse_argument_declaration(&mut self) -> Result<ArgumentDeclarationTree, ParseError> {
+        let start_loc = self.start_parsing("argument declaration")?;
+
+        let mutable = match self.peek_token()? {
+            Token::Mut => {
+                self.expect_token(Token::Mut)?;
+                true
+            }
+            _ => false,
+        };
+
+        let declaration = ArgumentDeclarationTree::new(
+            start_loc,
+            self.parse_identifier()?,
+            {
+                self.expect_token(Token::Colon)?;
+                self.parse_type()?
+            },
+            mutable,
+        );
+
+        self.finish_parsing(&declaration)?;
         Ok(declaration)
     }
 
@@ -26,13 +66,12 @@ impl<'a> Parser<'a> {
         let prototype = self.parse_function_prototype(false)?;
 
         let decl_or_def = match self.parse_function_definition(prototype.clone()) {
-            Ok(definition) => Ok(TranslationUnit::FunctionDefinition(definition)),
-            Err(_) => Ok(TranslationUnit::FunctionDeclaration(prototype)),
+            Ok(definition) => TranslationUnit::FunctionDefinition(definition),
+            Err(_) => TranslationUnit::FunctionDeclaration(prototype),
         };
 
-        self.finish_parsing(decl_or_def.as_ref().unwrap())?;
-
-        decl_or_def
+        self.finish_parsing(&decl_or_def)?;
+        Ok(decl_or_def)
     }
 
     fn parse_function_prototype(
@@ -47,10 +86,10 @@ impl<'a> Parser<'a> {
         let name = self.parse_identifier()?;
 
         self.expect_token(Token::LParen)?;
-        let mut arguments = Vec::<VariableDeclarationTree>::new();
+        let mut arguments = Vec::<ArgumentDeclarationTree>::new();
 
         if allow_self_param {
-            match self.try_parse_self_param()? {
+            match self.try_parse_self_argument()? {
                 Some(self_param) => {
                     arguments.push(self_param);
                     match self.peek_token()? {
@@ -68,7 +107,7 @@ impl<'a> Parser<'a> {
             match self.peek_token()? {
                 // argument declaration
                 Token::Identifier(_) => {
-                    arguments.push(self.parse_variable_declaration()?);
+                    arguments.push(self.parse_argument_declaration()?);
                     match self.peek_token()? {
                         Token::Comma => self.next_token()?, // expect another argument declaration after comma
                         Token::RParen => break,             // loop again to handle the rparen
@@ -95,47 +134,80 @@ impl<'a> Parser<'a> {
         Ok(prototype)
     }
 
-    pub fn try_parse_self_param(&mut self) -> Result<Option<VariableDeclarationTree>, ParseError> {
-        let start_loc = self.start_parsing("self param")?;
+    pub fn try_parse_self_argument(
+        &mut self,
+    ) -> Result<Option<ArgumentDeclarationTree>, ParseError> {
+        let start_loc = self.start_parsing("self argument")?;
 
-        let self_param = match self.lookahead_token(0)? {
+        let (exists, mutable, reference) = match self.lookahead_token(0)? {
+            // just 'self'
             Token::SelfLower => {
                 self.expect_token(Token::SelfLower)?;
-                Some(VariableDeclarationTree::new(
+                (true, false, false)
+            }
+            // '&self' and '&mut self'
+            Token::Reference => match self.lookahead_token(1)? {
+                Token::SelfLower => {
+                    self.expect_token(Token::Reference)?;
+                    self.expect_token(Token::SelfLower)?;
+                    (true, false, true)
+                }
+                Token::Mut => match self.lookahead_token(2)? {
+                    Token::SelfLower => {
+                        self.expect_token(Token::Reference)?;
+                        self.expect_token(Token::Mut)?;
+                        self.expect_token(Token::SelfLower)?;
+                        (true, true, true)
+                    }
+                    _ => (false, false, false),
+                },
+                _ => (false, false, false),
+            },
+            // 'mut self'
+            Token::Mut => match self.lookahead_token(1)? {
+                Token::SelfLower => {
+                    self.expect_token(Token::Mut)?;
+                    self.expect_token(Token::SelfLower)?;
+
+                    (true, true, false)
+                }
+                _ => (false, false, false),
+            },
+            _ => (false, false, false),
+        };
+
+        let self_argument = if exists {
+            Some(if reference {
+                ArgumentDeclarationTree::new(
+                    start_loc,
+                    "self".into(),
+                    TypeTree::new(
+                        start_loc,
+                        midend::types::Type::Reference(
+                            mutable.into(),
+                            Box::from(midend::types::Type::_Self),
+                        ),
+                    ),
+                    false,
+                )
+            } else {
+                ArgumentDeclarationTree::new(
                     start_loc,
                     "self".into(),
                     TypeTree::new(start_loc, midend::types::Type::_Self),
-                ))
-            }
-            Token::Reference => match self.lookahead_token(1)? {
-                Token::SelfLower => {
-                    println!("selflower");
-                    self.expect_token(Token::Reference)?;
-                    self.expect_token(Token::SelfLower)?;
-
-                    Some(VariableDeclarationTree::new(
-                        start_loc,
-                        "self".into(),
-                        TypeTree::new(
-                            start_loc,
-                            midend::types::Type::Reference(
-                                midend::types::Mutability::Immutable,
-                                Box::new(midend::types::Type::_Self),
-                            ),
-                        ),
-                    ))
-                }
-                _ => None,
-            },
-            _ => None,
+                    mutable,
+                )
+            })
+        } else {
+            None
         };
 
-        match &self_param {
-            Some(param) => self.finish_parsing(&param)?,
+        match &self_argument {
+            Some(argument) => self.finish_parsing(&argument)?,
             None => self.finish_parsing(&"no self param")?,
         };
 
-        Ok(self_param)
+        Ok(self_argument)
     }
 
     pub fn parse_function_definition(
@@ -151,6 +223,18 @@ impl<'a> Parser<'a> {
         Ok(parsed_definition)
     }
 
+    pub fn parse_struct_field_declaration(&mut self) -> Result<StructFieldTree, ParseError> {
+        let start_loc = self.start_parsing("struct field")?;
+
+        let field_name = self.parse_identifier()?;
+        self.expect_token(Token::Colon)?;
+        let field_type = self.parse_type()?;
+
+        let field_tree = StructFieldTree::new(start_loc, field_name, field_type);
+        self.finish_parsing(&field_tree)?;
+        Ok(field_tree)
+    }
+
     pub fn parse_struct_definition(&mut self) -> Result<StructDefinitionTree, ParseError> {
         let start_loc = self.start_parsing("struct definition")?;
 
@@ -163,8 +247,7 @@ impl<'a> Parser<'a> {
         loop {
             match self.peek_token()? {
                 Token::Identifier(_) => {
-                    struct_fields.push(self.parse_variable_declaration()?);
-
+                    struct_fields.push(self.parse_struct_field_declaration()?);
                     if matches!(self.peek_token()?, Token::Comma) {
                         self.next_token()?;
                     }
@@ -221,16 +304,74 @@ mod tests {
 
     #[test]
     fn parse_variable_declaration() {
-        let mut p = Parser::new(Lexer::from_string("counter: u16"));
+        let immutable_without_type = (
+            "counter",
+            VariableDeclarationTree::new(SourceLoc::new(1, 1), "counter".into(), None, false),
+        );
+        let mutable_without_type = (
+            "mut counter",
+            VariableDeclarationTree::new(SourceLoc::new(1, 1), "counter".into(), None, true),
+        );
 
-        assert_eq!(
-            p.parse_variable_declaration(),
-            Ok(VariableDeclarationTree::new(
+        let immutable_with_type = (
+            "counter: u16",
+            VariableDeclarationTree::new(
                 SourceLoc::new(1, 1),
                 "counter".into(),
-                TypeTree::new(SourceLoc::new(1, 10), Type::U16,)
-            ))
+                Some(TypeTree::new(SourceLoc::new(1, 10), Type::U16)),
+                false,
+            ),
         );
+        let mutable_with_type = (
+            "mut counter: u16",
+            VariableDeclarationTree::new(
+                SourceLoc::new(1, 1),
+                "counter".into(),
+                Some(TypeTree::new(SourceLoc::new(1, 14), Type::U16)),
+                true,
+            ),
+        );
+
+        let declaration_permutations = vec![
+            immutable_without_type,
+            mutable_without_type,
+            immutable_with_type,
+            mutable_with_type,
+        ];
+
+        for (to_parse, expected) in declaration_permutations {
+            let mut p = Parser::new(Lexer::from_string(to_parse));
+            assert_eq!(p.parse_variable_declaration(), Ok(expected));
+        }
+    }
+
+    #[test]
+    fn argument_declaration() {
+        let immutable_argument = (
+            "input: u32",
+            ArgumentDeclarationTree::new(
+                SourceLoc::new(1, 1),
+                "input".into(),
+                TypeTree::new(SourceLoc::new(1, 8), Type::U32),
+                false,
+            ),
+        );
+        let mutable_argument = (
+            "mut input: u32",
+            ArgumentDeclarationTree::new(
+                SourceLoc::new(1, 1),
+                "input".into(),
+                TypeTree::new(SourceLoc::new(1, 12), Type::U32),
+                true,
+            ),
+        );
+
+        let argument_permutations = vec![immutable_argument, mutable_argument];
+
+        for (to_parse, expected) in argument_permutations {
+            let mut p = Parser::new(Lexer::from_string(to_parse));
+            assert_eq!(p.parse_argument_declaration(), Ok(expected));
+        }
     }
 
     #[test]
@@ -274,15 +415,17 @@ fun declared_and_defined() {}",
             SourceLoc::new(1, 1),
             "add".into(),
             vec![
-                VariableDeclarationTree::new(
+                ArgumentDeclarationTree::new(
                     SourceLoc::new(1, 9),
                     "a".into(),
                     TypeTree::new(SourceLoc::new(1, 12), Type::U32),
+                    false,
                 ),
-                VariableDeclarationTree::new(
+                ArgumentDeclarationTree::new(
                     SourceLoc::new(1, 17),
                     "b".into(),
                     TypeTree::new(SourceLoc::new(1, 20), Type::U32),
+                    false,
                 ),
             ],
             Some(TypeTree::new(SourceLoc::new(1, 28), Type::U64)),
@@ -300,10 +443,11 @@ fun declared_and_defined() {}",
         let function_result = FunctionDeclarationTree::new(
             SourceLoc::new(1, 1),
             "take_self".into(),
-            vec![VariableDeclarationTree::new(
+            vec![ArgumentDeclarationTree::new(
                 SourceLoc::new(1, 15),
                 "self".into(),
                 TypeTree::new(SourceLoc::new(1, 15), Type::_Self),
+                false,
             )],
             None,
         );
@@ -358,38 +502,72 @@ fun declared_and_defined() {}",
     }
 
     #[test]
-    fn try_parse_self_param() {
-        let nothing = ("", Ok(None));
-        let other_token = ("u8", Ok(None));
+    fn try_parse_self_argument() {
+        let nothing = ("", None);
+        let other_token = ("u8", None);
+        let non_self_basic_argument = ("a: u8", None);
+        let non_self_mutable_argument = ("mut a: u16", None);
+        let ref_mut_illegal = ("&mut u16", None);
+        let ref_illegal = ("&u16", None);
         let basic_self = (
             "self",
-            Ok(Some(VariableDeclarationTree::new(
+            Some(ArgumentDeclarationTree::new(
                 SourceLoc::new(1, 1),
                 "self".into(),
                 TypeTree::new(SourceLoc::new(1, 1), Type::_Self),
-            ))),
+                false,
+            )),
+        );
+        let mut_self = (
+            "mut self",
+            Some(ArgumentDeclarationTree::new(
+                SourceLoc::new(1, 1),
+                "self".into(),
+                TypeTree::new(SourceLoc::new(1, 1), Type::_Self),
+                true,
+            )),
         );
         let ref_self = (
             "&self",
-            Ok(Some(VariableDeclarationTree::new(
+            Some(ArgumentDeclarationTree::new(
                 SourceLoc::new(1, 1),
                 "self".into(),
                 TypeTree::new(
                     SourceLoc::new(1, 1),
                     Type::Reference(Mutability::Immutable, Box::from(Type::_Self)),
                 ),
-            ))),
+                false,
+            )),
         );
-        // TODO: how should this behave? Silently not matching will cause unexpected token errors
-        // in the caller. Maybe want to warn like rustc does?
-        let mut_ref_self = ("&mut self", Ok(None));
+        let mut_ref_self = (
+            "&mut self",
+            Some(ArgumentDeclarationTree::new(
+                SourceLoc::new(1, 1),
+                "self".into(),
+                TypeTree::new(
+                    SourceLoc::new(1, 1),
+                    Type::Reference(Mutability::Mutable, Box::from(Type::_Self)),
+                ),
+                false,
+            )),
+        );
 
-        let possible_self_param_permutations =
-            vec![nothing, other_token, basic_self, ref_self, mut_ref_self];
+        let possible_self_param_permutations = vec![
+            nothing,
+            other_token,
+            non_self_basic_argument,
+            non_self_mutable_argument,
+            ref_mut_illegal,
+            ref_illegal,
+            basic_self,
+            mut_self,
+            ref_self,
+            mut_ref_self,
+        ];
 
         for (input, expected) in possible_self_param_permutations {
             let mut p = Parser::new(Lexer::from_string(input));
-            assert_eq!(p.try_parse_self_param(), expected);
+            assert_eq!(p.try_parse_self_argument(), Ok(expected));
         }
     }
 
@@ -408,12 +586,12 @@ cents: u8
                 SourceLoc::new(1, 1),
                 "Money".into(),
                 vec![
-                    VariableDeclarationTree::new(
+                    StructFieldTree::new(
                         SourceLoc::new(2, 1),
                         "dollars".into(),
                         TypeTree::new(SourceLoc::new(2, 10), Type::I64)
                     ),
-                    VariableDeclarationTree::new(
+                    StructFieldTree::new(
                         SourceLoc::new(3, 1),
                         "cents".into(),
                         TypeTree::new(SourceLoc::new(3, 8), Type::U8)
@@ -457,18 +635,20 @@ cents: u8
             SourceLoc::new(2, 5),
             "add".into(),
             vec![
-                VariableDeclarationTree::new(
+                ArgumentDeclarationTree::new(
                     SourceLoc::new(2, 13),
                     "self".into(),
                     TypeTree::new(SourceLoc::new(2, 13), Type::_Self),
+                    false,
                 ),
-                VariableDeclarationTree::new(
+                ArgumentDeclarationTree::new(
                     SourceLoc::new(2, 19),
                     "other".into(),
                     TypeTree::new(
                         SourceLoc::new(2, 26),
                         Type::Reference(Mutability::Immutable, Box::from(Type::_Self)),
                     ),
+                    false,
                 ),
             ],
             Some(TypeTree::new(SourceLoc::new(2, 36), Type::_Self)),

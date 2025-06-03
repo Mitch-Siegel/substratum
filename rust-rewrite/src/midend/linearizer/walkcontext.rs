@@ -246,7 +246,7 @@ impl<'a> WalkContext<'a> {
         let temp_name = String::from(".T") + &self.temp_num.to_string();
         self.temp_num += 1;
         self.scope()
-            .insert_variable(symtab::Variable::new(temp_name.clone(), type_));
+            .insert_variable(symtab::Variable::new(temp_name.clone(), Some(type_)));
         ir::Operand::new_as_temporary(temp_name)
     }
 

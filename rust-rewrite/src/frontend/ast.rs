@@ -48,14 +48,14 @@ impl Display for TranslationUnitTree {
 pub struct FunctionDeclarationTree {
     pub loc: SourceLoc,
     pub name: String,
-    pub arguments: Vec<VariableDeclarationTree>,
+    pub arguments: Vec<ArgumentDeclarationTree>,
     pub return_type: Option<TypeTree>,
 }
 impl FunctionDeclarationTree {
     pub fn new(
         loc: SourceLoc,
         name: String,
-        arguments: Vec<VariableDeclarationTree>,
+        arguments: Vec<ArgumentDeclarationTree>,
         return_type: Option<TypeTree>,
     ) -> Self {
         Self {
@@ -101,13 +101,30 @@ impl Display for FunctionDefinitionTree {
 }
 
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct StructFieldTree {
+    pub loc: SourceLoc,
+    pub name: String,
+    pub type_: TypeTree,
+}
+impl StructFieldTree {
+    pub fn new(loc: SourceLoc, name: String, type_: TypeTree) -> Self {
+        Self { loc, name, type_ }
+    }
+}
+impl Display for StructFieldTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.name, self.type_)
+    }
+}
+
+#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StructDefinitionTree {
     pub loc: SourceLoc,
     pub name: String,
-    pub fields: Vec<VariableDeclarationTree>,
+    pub fields: Vec<StructFieldTree>,
 }
 impl StructDefinitionTree {
-    pub fn new(loc: SourceLoc, name: String, fields: Vec<VariableDeclarationTree>) -> Self {
+    pub fn new(loc: SourceLoc, name: String, fields: Vec<StructFieldTree>) -> Self {
         Self { loc, name, fields }
     }
 }
@@ -335,15 +352,54 @@ impl Display for StatementTree {
 pub struct VariableDeclarationTree {
     pub loc: SourceLoc,
     pub name: String,
-    pub type_: TypeTree,
+    pub type_: Option<TypeTree>,
+    pub mutable: bool,
 }
 impl VariableDeclarationTree {
-    pub fn new(loc: SourceLoc, name: String, type_: TypeTree) -> Self {
-        Self { loc, name, type_ }
+    pub fn new(loc: SourceLoc, name: String, type_: Option<TypeTree>, mutable: bool) -> Self {
+        Self {
+            loc,
+            name,
+            type_,
+            mutable,
+        }
     }
 }
 impl Display for VariableDeclarationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.mutable {
+            write!(f, "mut ")?;
+        }
+        match &self.type_ {
+            Some(type_) => write!(f, "{}: {}", self.name, type_),
+            None => write!(f, "{}", self.name),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ArgumentDeclarationTree {
+    pub loc: SourceLoc,
+    pub name: String,
+    pub type_: TypeTree,
+    pub mutable: bool,
+}
+impl ArgumentDeclarationTree {
+    pub fn new(loc: SourceLoc, name: String, type_: TypeTree, mutable: bool) -> Self {
+        Self {
+            loc,
+            name,
+            type_,
+            mutable,
+        }
+    }
+}
+impl Display for ArgumentDeclarationTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.mutable {
+            write!(f, "mut ")?;
+        }
+
         write!(f, "{}: {}", self.name, self.type_)
     }
 }

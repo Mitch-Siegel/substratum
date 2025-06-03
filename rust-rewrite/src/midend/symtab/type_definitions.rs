@@ -44,7 +44,7 @@ pub enum TypeRepr {
 #[derive(Clone, Debug, Serialize)]
 pub struct StructRepr {
     pub name: String,
-    fields: HashMap<String, Variable>,
+    fields: HashMap<String, Type>,
     field_order: Vec<String>,
 }
 
@@ -58,19 +58,18 @@ impl StructRepr {
     }
 
     pub fn add_field(&mut self, name: String, type_: Type) {
-        self.fields
-            .insert(name.clone(), Variable::new(name.clone(), type_));
+        self.fields.insert(name.clone(), type_);
         self.field_order.push(name);
     }
 
-    pub fn get_field(&self, name: &String) -> Option<&Variable> {
+    pub fn get_field_type(&self, name: &String) -> Option<&Type> {
         self.fields.get(name)
     }
 }
 
 impl<'a> IntoIterator for &'a StructRepr {
-    type Item = (&'a String, &'a Variable);
-    type IntoIter = std::collections::hash_map::Iter<'a, String, Variable>;
+    type Item = (&'a String, &'a Type);
+    type IntoIter = std::collections::hash_map::Iter<'a, String, Type>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.iter()

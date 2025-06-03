@@ -145,7 +145,18 @@ impl Walk for TypeTree {
 
 impl<'a> ReturnWalk<&mut WalkContext<'a>, symtab::Variable> for VariableDeclarationTree {
     fn walk(self, context: &mut WalkContext) -> symtab::Variable {
-        symtab::Variable::new(self.name.clone(), self.type_.walk(context).type_)
+        let variable_type = match self.type_ {
+            Some(type_tree) => Some(type_tree.walk(context).type_),
+            None => None,
+        };
+
+        symtab::Variable::new(self.name.clone(), variable_type)
+    }
+}
+
+impl<'a> ReturnWalk<&mut WalkContext<'a>, symtab::Variable> for ArgumentDeclarationTree {
+    fn walk(self, context: &mut WalkContext) -> symtab::Variable {
+        symtab::Variable::new(self.name.clone(), Some(self.type_.walk(context).type_))
     }
 }
 
@@ -434,11 +445,11 @@ impl<'a> ReturnWalk<&mut WalkContext<'a>, (Value, Value)> for FieldExpressionTre
             receiver.type_, self.field
         ));
         // TODO: error handling
-        let accessed_field = receiver_definition.get_field(&self.field).unwrap();
+        let accessed_field_type = receiver_definition.get_field_type(&self.field).unwrap();
         (
             receiver,
             Value::from_type_and_name(
-                accessed_field.type_().clone(),
+                accessed_field_type.clone(),
                 ir::Operand::Variable(ir::OperandName::new_basic(self.field)),
             ),
         )

@@ -109,7 +109,7 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::frontend::{self, ast::*, parser::*, *};
+    use crate::frontend::parser::*;
     use crate::midend::types::{Mutability, Type};
 
     #[test]
