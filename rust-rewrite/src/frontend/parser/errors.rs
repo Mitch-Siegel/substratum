@@ -3,10 +3,20 @@ use crate::frontend::{
     sourceloc::SourceLoc,
 };
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone)]
 pub enum ParseError {
     LexError(LexError),
     UnexpectedToken(UnexpectedTokenError),
+}
+
+impl PartialEq for ParseError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::LexError(a), Self::LexError(b)) => a == b,
+            (Self::UnexpectedToken(a), Self::UnexpectedToken(b)) => a == b,
+            (_, _) => false,
+        }
+    }
 }
 
 impl std::fmt::Display for ParseError {
@@ -24,8 +34,8 @@ impl std::fmt::Display for ParseError {
                 }
                 write!(
                     f,
-                    "Unexpected token '{}' at {}, expected one of [{}]",
-                    unexpected_token.got, unexpected_token.loc, expected_tokens
+                    "Unexpected token '{}' at {}, expected one of [{}] (while parsing {} starting at {})",
+                    unexpected_token.got, unexpected_token.loc, expected_tokens, unexpected_token.while_parsing, unexpected_token.while_parsing_start
                 )
             }
         }
@@ -43,14 +53,24 @@ pub struct UnexpectedTokenError {
     pub loc: SourceLoc,
     pub got: Token,
     pub expected: Vec<Token>,
+    pub while_parsing: String,
+    pub while_parsing_start: SourceLoc,
 }
 
 impl ParseError {
-    pub fn unexpected_token(loc: SourceLoc, got: Token, expected: &[Token]) -> Self {
+    pub fn unexpected_token(
+        loc: SourceLoc,
+        got: Token,
+        expected: &[Token],
+        while_parsing: String,
+        while_parsing_start: SourceLoc,
+    ) -> Self {
         Self::UnexpectedToken(UnexpectedTokenError {
             loc,
             got,
             expected: expected.to_vec(),
+            while_parsing,
+            while_parsing_start,
         })
     }
 }
@@ -58,5 +78,40 @@ impl ParseError {
 impl From<LexError> for ParseError {
     fn from(value: LexError) -> Self {
         Self::LexError(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_error_fmt() {
+        let lex_error = LexError::unexpected_eof(SourceLoc::new(1, 1));
+        assert_eq!(
+            format!("{}", lex_error),
+            format!("{}", ParseError::from(lex_error))
+        );
+
+        let unexpected_token = ParseError::unexpected_token(
+            SourceLoc::new(2, 3),
+            Token::U8,
+            &[Token::U16, Token::U32],
+            "something".into(),
+            SourceLoc::new(1, 1),
+        );
+
+        assert_eq!(
+            format!("{}", unexpected_token),
+            format!(
+                "Unexpected token '{}' at {}, expected one of ['{}', '{}'] (while parsing {} starting at {})",
+                Token::U8,
+                SourceLoc::new(2, 3),
+                Token::U16,
+                Token::U32,
+                "something",
+                SourceLoc::new(1, 1)
+            )
+        );
     }
 }

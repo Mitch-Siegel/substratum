@@ -43,7 +43,9 @@ mod tests {
             Err(ParseError::unexpected_token(
                 SourceLoc::new(1, 1),
                 Token::Struct,
-                &[Token::Identifier("".into())]
+                &[Token::Identifier("".into())],
+                "identifier".into(),
+                SourceLoc::new(1, 1),
             ))
         );
     }

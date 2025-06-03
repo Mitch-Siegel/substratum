@@ -152,7 +152,9 @@ mod tests {
                     Token::I64,
                     Token::Identifier("".into()),
                     Token::SelfLower,
-                ]
+                ],
+                "type name".into(),
+                SourceLoc::new(1, 1),
             ))
         );
     }

@@ -20,7 +20,9 @@ fn expect_token_fail() {
         Err(ParseError::unexpected_token(
             SourceLoc::new(1, 1),
             Token::Identifier("abcd".into()),
-            &[Token::U8]
+            &[Token::U8],
+            "UNKNOWN".into(),
+            SourceLoc::none(),
         ))
     )
 }

@@ -137,6 +137,11 @@ impl<'a> Parser<'a> {
     fn expect_token(&mut self, _expected: Token) -> Result<Token, ParseError> {
         //#[cfg(feature = "loud_parsing")]
         //self.annotate_parsing(&format!("Parser::expect_token({})", _expected));
+        let (current_parse_start_loc, current_parse_string) = self
+            .parsing_stack
+            .last()
+            .unwrap_or(&(SourceLoc::none(), String::from("UNKNOWN")))
+            .to_owned();
 
         let (upcoming_token, upcoming_loc) = self.peek_token_with_loc()?;
         if upcoming_token.eq(&_expected) {
@@ -146,26 +151,30 @@ impl<'a> Parser<'a> {
                 upcoming_loc,
                 upcoming_token,
                 &[_expected],
+                current_parse_string,
+                current_parse_start_loc,
             ))
         }
     }
 
     fn unexpected_token<T>(&mut self, expected_tokens: &[Token]) -> Result<T, ParseError> {
-        let (current_parse_loc, _current_parse_str) = self
+        let (current_parse_start_loc, current_parse_string) = self
             .parsing_stack
             .last()
             .unwrap_or(&(SourceLoc::none(), String::from("UNKNOWN")))
             .to_owned();
 
-        let upcoming_token = match self.peek_token() {
+        let (upcoming_token, upcoming_loc) = match self.peek_token_with_loc() {
             Ok(tok) => tok,
             Err(error) => return Err(ParseError::from(error)),
         };
 
         Err(ParseError::unexpected_token(
-            current_parse_loc,
+            upcoming_loc,
             upcoming_token,
             expected_tokens,
+            current_parse_string,
+            current_parse_start_loc,
         ))
     }
 
