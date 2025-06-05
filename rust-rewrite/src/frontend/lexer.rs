@@ -2,6 +2,7 @@ use token::Token;
 
 use super::sourceloc::SourceLoc;
 
+use crate::tracing;
 pub use char_source::CharSource;
 
 mod char_source;
@@ -72,6 +73,8 @@ impl<'a> Lexer<'a> {
     }
 
     pub fn next(&mut self) -> Result<(Token, SourceLoc), LexError> {
+        let span = tracing::span!(tracing::Level::TRACE, "");
+        let _ = tracing::ExitOnDropSpan::from(span.entered());
         let next_token = self.lex()?;
         Ok(self
             .current_token

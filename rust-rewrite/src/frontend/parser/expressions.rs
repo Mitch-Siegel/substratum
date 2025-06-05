@@ -8,7 +8,7 @@ use super::{ParseError, Parser};
 // parsing functions which yield an ExpressionTree
 impl<'a> Parser<'a> {
     pub fn parse_block_expression(&mut self) -> Result<CompoundExpressionTree, ParseError> {
-        let start_loc = self.start_parsing("compound statement")?;
+        let (start_loc, _) = self.start_parsing("compound statement")?;
 
         self.expect_token(Token::LCurly)?;
         let mut statements: Vec<StatementTree> = Vec::new();
@@ -52,7 +52,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let _start_loc = self.start_parsing("expression")?;
+        let (_start_loc, _) = self.start_parsing("expression")?;
 
         assert!(
             Self::token_starts_expression(self.peek_token()?),
@@ -121,7 +121,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_parenthesized_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let _start_loc = self.start_parsing("parenthesized expression")?;
+        let (_start_loc, _) = self.start_parsing("parenthesized expression")?;
 
         self.expect_token(Token::LParen)?;
         let parenthesized_expr = self.parse_expression()?;
@@ -132,7 +132,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_if_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let start_loc = self.start_parsing("if statement")?;
+        let (start_loc, _) = self.start_parsing("if statement")?;
 
         self.expect_token(Token::If)?;
 
@@ -165,7 +165,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_while_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let start_loc = self.start_parsing("while loop")?;
+        let (start_loc, _) = self.start_parsing("while loop")?;
 
         self.expect_token(Token::While)?;
 
@@ -232,7 +232,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_call_params(&mut self, _allow_self: bool) -> Result<CallParamsTree, ParseError> {
-        let start_loc = self.start_parsing("call params")?;
+        let (start_loc, _) = self.start_parsing("call params")?;
 
         let mut params = Vec::new();
 
@@ -349,7 +349,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_primary_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let start_loc = self.start_parsing("primary expression")?;
+        let (start_loc, _) = self.start_parsing("primary expression")?;
 
         let primary_expression = match self.peek_token()? {
             Token::Identifier(value) => {
@@ -379,7 +379,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_identifier_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let start_loc = self.start_parsing("identifier expression")?;
+        let (start_loc, _) = self.start_parsing("identifier expression")?;
 
         let identifier = self.parse_identifier()?;
 
@@ -389,7 +389,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_literal_expression(&mut self) -> Result<ExpressionTree, ParseError> {
-        let start_loc = self.start_parsing("literal expression")?;
+        let (start_loc, _) = self.start_parsing("literal expression")?;
 
         let literal_expression = match self.peek_token()? {
             Token::UnsignedDecimalConstant(value) => {

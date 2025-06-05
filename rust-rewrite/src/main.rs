@@ -5,9 +5,12 @@ mod frontend;
 mod midend;
 
 mod hashmap_ooo_iter;
+pub mod tracing;
 
 use backend::generate_code;
 use frontend::{lexer::Lexer, parser::Parser};
+
+use tracing_subscriber::{fmt::format::Pretty, prelude::*};
 
 const FIB_FUN: &str = "fun fib(u8 n) -> u64
 {
@@ -124,6 +127,11 @@ fun money_add_dollars(m: Money, dollars: u64) {
 
 fn main() {
     println!("Hello, world!");
+
+    let format = tracing_subscriber::fmt::format().pretty();
+    let fmt_layer = tracing_subscriber::fmt::layer().event_format(format);
+    let subscriber = tracing_subscriber::registry().with(fmt_layer).init();
+
     let mut parser = Parser::new(Lexer::from_string(WHILE_LOOP_WITH_NESTED_BRANCH_NO_ARGS));
     let program = parser.parse().expect("Error parsing input");
 

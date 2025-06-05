@@ -11,6 +11,8 @@ use super::{
     sourceloc::SourceLoc,
 };
 
+use crate::tracing;
+
 mod declarations;
 mod errors;
 mod expressions;
@@ -98,6 +100,7 @@ impl<'a> Parser<'a> {
         let peeked = self.lookahead_token_with_loc(0)?;
         // #[cfg(feature = "loud_parsing")]
         // println!("Parser::peek_token() -> {}", peeked);
+        tracing::trace!("Peek token: {} @ {}", peeked.0, peeked.1);
         return Ok(peeked);
     }
 
@@ -178,14 +181,22 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn start_parsing(&mut self, what_parsing: &str) -> Result<SourceLoc, ParseError> {
-        #[cfg(feature = "loud_parsing")]
-        self.annotate_parsing(&format!("Start parsing {}", what_parsing));
+    fn start_parsing(
+        &mut self,
+        what_parsing: &str,
+    ) -> Result<(SourceLoc, tracing::ExitOnDropSpan), ParseError> {
+        let my_span = tracing::span!(tracing::Level::TRACE, "parse", what_parsing);
+
+        let guard = my_span.entered();
+        let exit_on_drop_span = tracing::ExitOnDropSpan::from(guard);
 
         let start_loc = self.peek_token_with_loc()?.1;
         self.parsing_stack
             .push((start_loc, String::from(what_parsing)));
-        Ok(start_loc)
+
+        tracing::trace!("{}", start_loc);
+
+        Ok((start_loc, exit_on_drop_span))
     }
 
     fn finish_parsing<T>(&mut self, _parsed: &T) -> Result<(), ParseError>
@@ -233,7 +244,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_translation_unit(&mut self) -> Result<TranslationUnitTree, ParseError> {
-        let start_loc = self.start_parsing("translation unit")?;
+        let (start_loc, _) = self.start_parsing("translation unit")?;
 
         let translation_unit = TranslationUnitTree {
             loc: start_loc,
@@ -251,7 +262,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_statement(&mut self) -> Result<StatementTree, ParseError> {
-        let start_loc = self.start_parsing("statement")?;
+        let (start_loc, _) = self.start_parsing("statement")?;
 
         let statement = StatementTree {
             loc: start_loc,

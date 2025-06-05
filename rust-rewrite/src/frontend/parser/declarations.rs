@@ -6,7 +6,7 @@ use super::{ParseError, Parser};
 impl<'a> Parser<'a> {
     // TODO: pass loc of string to get true start loc of declaration
     pub fn parse_variable_declaration(&mut self) -> Result<VariableDeclarationTree, ParseError> {
-        let start_loc = self.start_parsing("variable declaration")?;
+        let (start_loc, _) = self.start_parsing("variable declaration")?;
 
         let mutable = match self.peek_token()? {
             Token::Mut => {
@@ -34,7 +34,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_argument_declaration(&mut self) -> Result<ArgumentDeclarationTree, ParseError> {
-        let start_loc = self.start_parsing("argument declaration")?;
+        let (start_loc, _) = self.start_parsing("argument declaration")?;
 
         let mutable = match self.peek_token()? {
             Token::Mut => {
@@ -61,7 +61,7 @@ impl<'a> Parser<'a> {
     pub fn parse_function_declaration_or_definition(
         &mut self,
     ) -> Result<TranslationUnit, ParseError> {
-        let _start_loc = self.start_parsing("function declaration/definition")?;
+        let (_start_loc, _) = self.start_parsing("function declaration/definition")?;
 
         let prototype = self.parse_function_prototype(false)?;
 
@@ -78,7 +78,7 @@ impl<'a> Parser<'a> {
         &mut self,
         allow_self_param: bool,
     ) -> Result<FunctionDeclarationTree, ParseError> {
-        let start_loc = self.start_parsing("function prototype")?;
+        let (start_loc, _) = self.start_parsing("function prototype")?;
 
         // start with fun
         self.expect_token(Token::Fun)?;
@@ -137,7 +137,7 @@ impl<'a> Parser<'a> {
     pub fn try_parse_self_argument(
         &mut self,
     ) -> Result<Option<ArgumentDeclarationTree>, ParseError> {
-        let start_loc = self.start_parsing("self argument")?;
+        let (start_loc, _) = self.start_parsing("self argument")?;
 
         let (exists, mutable, reference) = match self.lookahead_token(0)? {
             // just 'self'
@@ -224,7 +224,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_struct_field_declaration(&mut self) -> Result<StructFieldTree, ParseError> {
-        let start_loc = self.start_parsing("struct field")?;
+        let (start_loc, _) = self.start_parsing("struct field")?;
 
         let field_name = self.parse_identifier()?;
         self.expect_token(Token::Colon)?;
@@ -236,7 +236,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_struct_definition(&mut self) -> Result<StructDefinitionTree, ParseError> {
-        let start_loc = self.start_parsing("struct definition")?;
+        let (start_loc, _) = self.start_parsing("struct definition")?;
 
         self.expect_token(Token::Struct)?;
         let struct_name = self.parse_identifier()?;
@@ -268,7 +268,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_implementation(&mut self) -> Result<ImplementationTree, ParseError> {
-        let start_loc = self.start_parsing("impl block")?;
+        let (start_loc, _) = self.start_parsing("impl block")?;
 
         self.expect_token(Token::Impl)?;
         let implemented_for = self.parse_type()?;
