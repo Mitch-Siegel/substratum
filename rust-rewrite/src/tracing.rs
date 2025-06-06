@@ -1,4 +1,4 @@
-pub use tracing::{self, span, trace, Level};
+pub use tracing::{self, debug, error, event, span, trace, warn, Level};
 
 pub struct ExitOnDropSpan {
     entered_span: Option<tracing::span::EnteredSpan>,

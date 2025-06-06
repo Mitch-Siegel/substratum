@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::midend::types::Type;
 
-use super::{function::FunctionOrPrototype, variable::Variable, Function, UndefinedSymbolError};
+use super::{function::FunctionOrPrototype, Function, UndefinedSymbolError};
 
 #[derive(Debug, Serialize)]
 pub struct TypeDefinition {

@@ -185,12 +185,19 @@ impl<'a> Parser<'a> {
         &mut self,
         what_parsing: &str,
     ) -> Result<(SourceLoc, tracing::ExitOnDropSpan), ParseError> {
-        let my_span = tracing::span!(tracing::Level::TRACE, "parse", what_parsing);
+        let start_loc = self.peek_token_with_loc()?.1;
+
+        let my_span = tracing::span!(
+            tracing::Level::DEBUG,
+            "parse rule start",
+            what_parsing,
+            "{}",
+            start_loc
+        );
 
         let guard = my_span.entered();
         let exit_on_drop_span = tracing::ExitOnDropSpan::from(guard);
 
-        let start_loc = self.peek_token_with_loc()?.1;
         self.parsing_stack
             .push((start_loc, String::from(what_parsing)));
 
@@ -203,6 +210,7 @@ impl<'a> Parser<'a> {
     where
         T: std::fmt::Display,
     {
+        tracing::event!(tracing::Level::TRACE, "{}", _parsed);
         let (_parse_start, _parsed_description) = self
             .parsing_stack
             .pop()
@@ -245,6 +253,8 @@ impl<'a> Parser<'a> {
 
     fn parse_translation_unit(&mut self) -> Result<TranslationUnitTree, ParseError> {
         let (start_loc, _) = self.start_parsing("translation unit")?;
+
+        tracing::debug!("Parse translation unit starting at {}", start_loc);
 
         let translation_unit = TranslationUnitTree {
             loc: start_loc,

@@ -10,8 +10,6 @@ pub mod tracing;
 use backend::generate_code;
 use frontend::{lexer::Lexer, parser::Parser};
 
-use tracing_subscriber::{fmt::format::Pretty, prelude::*};
-
 const FIB_FUN: &str = "fun fib(u8 n) -> u64
 {
     u64 result;
@@ -125,12 +123,68 @@ fun money_add_dollars(m: Money, dollars: u64) {
     m.print();
 }";
 
+#[derive(Debug)]
+enum TraceLocation {
+    NoTrace,
+    Stdout,
+    File,
+}
+
+#[derive(Debug)]
+struct CompilerArguments {
+    trace_location: TraceLocation,
+    trace_level: tracing::Level,
+}
+
 fn main() {
     println!("Hello, world!");
 
-    let format = tracing_subscriber::fmt::format().pretty();
-    let fmt_layer = tracing_subscriber::fmt::layer().event_format(format);
-    let subscriber = tracing_subscriber::registry().with(fmt_layer).init();
+    let mut arguments = CompilerArguments {
+        trace_location: TraceLocation::NoTrace,
+        trace_level: tracing::Level::WARN,
+    };
+
+    let mut args_without_executable = std::env::args().map(|arg| arg).collect::<Vec<_>>();
+    args_without_executable.remove(0);
+
+    // TODO: real argument parsing
+    for argument in args_without_executable {
+        match argument.as_str() {
+            "trace_file" => arguments.trace_location = TraceLocation::File,
+            "trace_stdout" => arguments.trace_location = TraceLocation::Stdout,
+            "trace_level_trace" => arguments.trace_level = tracing::Level::TRACE,
+            "trace_level_debug" => arguments.trace_level = tracing::Level::DEBUG,
+            "trace_level_info" => arguments.trace_level = tracing::Level::INFO,
+            "trace_level_warn" => arguments.trace_level = tracing::Level::WARN,
+            "trace_level_error" => arguments.trace_level = tracing::Level::ERROR,
+            _ => panic!("Invalid argument '{}'", argument),
+        }
+        println!("{}", argument);
+    }
+
+    println!("{:?}", arguments);
+
+    match arguments.trace_location {
+        TraceLocation::NoTrace => (),
+        TraceLocation::Stdout => {
+            tracing_subscriber::fmt()
+                .pretty()
+                .with_writer(std::io::stdout)
+                .with_max_level(arguments.trace_level)
+                .init();
+        }
+        TraceLocation::File => {
+            let json_outfile =
+                std::fs::File::create("most_recent.json").expect("Couldn't create trace file");
+            let json_outfile = std::sync::Mutex::new(json_outfile);
+            let writer = tracing_subscriber::fmt::writer::BoxMakeWriter::new(json_outfile);
+            tracing_subscriber::fmt()
+                .json()
+                .with_writer(writer)
+                .with_max_level(arguments.trace_level)
+                .init();
+        }
+    }
 
     let mut parser = Parser::new(Lexer::from_string(WHILE_LOOP_WITH_NESTED_BRANCH_NO_ARGS));
     let program = parser.parse().expect("Error parsing input");
