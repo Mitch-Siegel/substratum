@@ -25,26 +25,47 @@ pub trait CollapseScopes {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
-pub struct ScopeRelativeAddress {
-    subscopes: Vec<usize>,
-    base_name: String,
+pub struct ScopePath {
+    indices: Vec<usize>,
 }
-
-impl ScopeRelativeAddress {
-    pub fn new(base_name: String) -> Self {
+impl ScopePath {
+    pub fn new() -> Self {
         Self {
-            subscopes: Vec::new(),
-            base_name,
+            indices: Vec::new(),
         }
     }
 
-    pub fn with_new_level(mut self, address: usize) -> Self {
-        self.subscopes.push(address);
+    pub fn with_new_parent(mut self, parent: usize) -> Self {
+        self.indices.push(parent);
         self
     }
 
     pub fn empty(&self) -> bool {
-        self.subscopes.len() == 0
+        self.indices.len() == 0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub struct ScopedName {
+    scope_path: ScopePath,
+    base_name: String,
+}
+
+impl ScopedName {
+    pub fn new(base_name: String) -> Self {
+        Self {
+            scope_path: ScopePath::new(),
+            base_name,
+        }
+    }
+
+    pub fn with_new_parent(mut self, index: usize) -> Self {
+        self.scope_path = self.scope_path.with_new_parent(index);
+        self
+    }
+
+    pub fn empty(&self) -> bool {
+        self.scope_path.empty()
     }
 }
 
@@ -53,7 +74,7 @@ pub struct Scope {
     // a 2-dimensional lookup map
     // first, from base name of the variable to all declarations matching that name
     // second, from the actual subscope address the variable comes from to the variable itself
-    variables: HashMap<String, HashMap<ScopeRelativeAddress, Variable>>,
+    variables: HashMap<String, HashMap<ScopedName, Variable>>,
     subscopes: Vec<Scope>,
     type_definitions: HashMap<Type, TypeDefinition>,
 }
@@ -71,11 +92,15 @@ impl Scope {
         self.variables
             .entry(variable.name.clone())
             .or_default()
-            .insert(ScopeRelativeAddress::new(variable.name.clone()), variable);
+            .insert(ScopedName::new(variable.name.clone()), variable);
     }
 
     pub fn insert_subscope(&mut self, subscope: Scope) {
         self.subscopes.push(subscope);
+    }
+
+    pub fn subscope_count(&self) -> usize {
+        self.subscopes.len()
     }
 
     pub fn insert_struct_definition(&mut self, defined_struct: StructRepr) {
@@ -90,7 +115,7 @@ impl ScopedLookups for Scope {
         let with_this_name = self
             .variables
             .get(name)
-            .ok_or(UndefinedSymbolError::variable(name))?;
+            .ok_or(UndefinedSymbolError::variable(name.into()))?;
 
         for (address, variable) in with_this_name {
             if address.empty() {
@@ -98,13 +123,13 @@ impl ScopedLookups for Scope {
             }
         }
 
-        Err(UndefinedSymbolError::variable(name))
+        Err(UndefinedSymbolError::variable(name.into()))
     }
 
     fn lookup_type<'a>(&'a self, type_: &Type) -> Result<&'a TypeDefinition, UndefinedSymbolError> {
         self.type_definitions
             .get(type_)
-            .ok_or(UndefinedSymbolError::type_(type_))
+            .ok_or(UndefinedSymbolError::type_(type_.clone()))
     }
 
     fn lookup_type_mut<'a>(
@@ -113,7 +138,7 @@ impl ScopedLookups for Scope {
     ) -> Result<&'a mut TypeDefinition, UndefinedSymbolError> {
         self.type_definitions
             .get_mut(type_)
-            .ok_or(UndefinedSymbolError::type_(type_))
+            .ok_or(UndefinedSymbolError::type_(type_.clone()))
     }
 
     fn lookup_struct<'a>(&'a self, name: &str) -> Result<&'a StructRepr, UndefinedSymbolError> {
@@ -126,7 +151,7 @@ impl ScopedLookups for Scope {
             None => {}
         }
 
-        Err(UndefinedSymbolError::struct_(name))
+        Err(UndefinedSymbolError::struct_(name.into()))
     }
 }
 
@@ -138,10 +163,10 @@ impl CollapseScopes for Scope {
             subscope.collapse_scopes(Some(index));
 
             for (base_name, variables_with_base_name) in subscope.variables {
-                for (address, variable) in variables_with_base_name {
+                for (name, variable) in variables_with_base_name {
                     let new_address = match subscope_number {
-                        Some(subscope_index) => address.with_new_level(subscope_index),
-                        None => address,
+                        Some(subscope_index) => name.with_new_parent(subscope_index),
+                        None => name,
                     };
                     self.variables
                         .entry(base_name.clone())
@@ -193,7 +218,7 @@ impl<'a> ScopedLookups for ScopeStack<'a> {
             }
         }
 
-        Err(UndefinedSymbolError::variable(name))
+        Err(UndefinedSymbolError::variable(name.into()))
     }
 
     fn lookup_type(&self, type_: &Type) -> Result<&'a TypeDefinition, UndefinedSymbolError> {
@@ -204,7 +229,7 @@ impl<'a> ScopedLookups for ScopeStack<'a> {
             }
         }
 
-        Err(UndefinedSymbolError::type_(type_))
+        Err(UndefinedSymbolError::type_(type_.clone()))
     }
 
     fn lookup_type_mut(
@@ -221,6 +246,6 @@ impl<'a> ScopedLookups for ScopeStack<'a> {
             }
         }
 
-        Err(UndefinedSymbolError::struct_(name))
+        Err(UndefinedSymbolError::struct_(name.into()))
     }
 }

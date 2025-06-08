@@ -78,8 +78,7 @@ impl TableWalk for TranslationUnitTree {
                 symbol_table.insert_function_prototype(declared_function);
             }
             TranslationUnit::FunctionDefinition(function_definition) => {
-                let context = WalkContext::new(&symbol_table.global_scope);
-                symbol_table.insert_function(function_definition.walk(context));
+                symbol_table.insert_function(function_definition.walk(&symbol_table.global_scope));
             }
             TranslationUnit::StructDefinition(struct_definition) => {
                 let mut defined_struct = symtab::StructRepr::new(struct_definition.name);
@@ -102,10 +101,7 @@ impl TableWalk for TranslationUnitTree {
                 let methods: Vec<symtab::Function> = implementation
                     .items
                     .into_iter()
-                    .map(|item| {
-                        let impl_context = WalkContext::new(&symbol_table.global_scope);
-                        item.walk(impl_context)
-                    })
+                    .map(|item| item.walk(&symbol_table.global_scope))
                     .collect();
 
                 let implemented_for_mut = symbol_table
@@ -121,8 +117,9 @@ impl TableWalk for TranslationUnitTree {
     }
 }
 
-impl<'a> ReturnWalk<WalkContext<'a>, symtab::Function> for FunctionDefinitionTree {
-    fn walk(self, mut context: WalkContext<'a>) -> symtab::Function {
+impl<'a> ReturnWalk<&'a symtab::Scope, symtab::Function> for FunctionDefinitionTree {
+    fn walk(self, global_scope: &'a symtab::Scope) -> symtab::Function {
+        let mut context = WalkContext::new(global_scope);
         let mut declared_prototype = self.prototype.walk(&mut context);
         context.push_scope(declared_prototype.create_argument_scope());
 

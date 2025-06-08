@@ -37,8 +37,8 @@ impl Function {
         }
     }
 
-    pub fn name(&self) -> String {
-        self.prototype.name.clone()
+    pub fn name(&self) -> &str {
+        self.prototype.name.as_str()
     }
 }
 

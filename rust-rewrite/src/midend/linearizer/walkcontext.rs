@@ -13,6 +13,9 @@ pub struct WalkContext<'a> {
     convergence_points: HashMap<usize, usize>, // map of label -> label that block should jump to when done
     global_scope: &'a symtab::Scope,
     scopes: Vec<symtab::Scope>,
+    current_scope_address: symtab::ScopePath, // relative to the topmost scope of the current
+    // function, what is the path of the scope to which
+    // we are currently linearizing
     // index of number of temporary variables used in this control flow (across all blocks)
     temp_num: usize,
     current_block: usize,
@@ -31,6 +34,7 @@ impl<'a> WalkContext<'a> {
             convergence_points,
             global_scope,
             scopes: Vec::new(),
+            current_scope_address: symtab::ScopePath::new(),
             temp_num: 0,
             current_block: 0,
         }
@@ -250,8 +254,15 @@ impl<'a> WalkContext<'a> {
         ir::Operand::new_as_temporary(temp_name)
     }
 
+    // requires at least one existing scope
     pub fn push_scope(&mut self, scope: symtab::Scope) {
-        self.scopes.push(scope)
+        let next_index = self.scopes.last().unwrap().subscope_count() + 1;
+        self.scopes.push(scope);
+
+        self.current_scope_address = self
+            .current_scope_address
+            .clone()
+            .with_new_parent(next_index);
     }
 
     pub fn pop_scope_to_subscope_of_next(&mut self) {
@@ -299,7 +310,7 @@ impl<'a> WalkContext<'a> {
             }
         }
 
-        Err(UndefinedSymbolError::variable(&name.base_name))
+        Err(UndefinedSymbolError::variable(name.base_name.clone()))
     }
 
     pub fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbolError> {
@@ -310,7 +321,7 @@ impl<'a> WalkContext<'a> {
             }
         }
 
-        Err(UndefinedSymbolError::type_(&type_))
+        Err(UndefinedSymbolError::type_(type_.clone()))
     }
 
     pub fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbolError> {
@@ -321,7 +332,7 @@ impl<'a> WalkContext<'a> {
             }
         }
 
-        Err(UndefinedSymbolError::struct_(&name))
+        Err(UndefinedSymbolError::struct_(name.into()))
     }
 }
 

@@ -25,14 +25,15 @@ impl TypeDefinition {
     }
 
     pub fn lookup_method(&self, name: &str) -> Result<&FunctionOrPrototype, UndefinedSymbolError> {
-        self.methods
-            .get(name)
-            .ok_or(UndefinedSymbolError::method(&self.type_, name))
+        self.methods.get(name).ok_or(UndefinedSymbolError::method(
+            self.type_.clone(),
+            name.into(),
+        ))
     }
 
     pub fn add_method(&mut self, method: Function) {
         self.methods
-            .insert(method.name(), FunctionOrPrototype::Function(method));
+            .insert(method.name().into(), FunctionOrPrototype::Function(method));
     }
 }
 

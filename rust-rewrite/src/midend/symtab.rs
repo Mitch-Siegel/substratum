@@ -10,10 +10,15 @@ pub use variable::*;
 
 mod errors;
 mod function;
+mod implementation;
+mod module;
 mod scope;
 mod type_definitions;
 mod variable;
-pub use scope::{CollapseScopes, ScopeStack, ScopedLookups};
+
+pub use implementation::Implementation;
+pub use module::Module;
+pub use scope::{CollapseScopes, ScopePath, ScopeStack, ScopedLookups, ScopedName};
 pub use TypeRepr;
 
 #[derive(Debug, Serialize)]
@@ -59,8 +64,10 @@ impl SymbolTable {
     }
 
     pub fn insert_function(&mut self, function: Function) {
-        self.functions
-            .insert(function.name(), FunctionOrPrototype::Function(function));
+        self.functions.insert(
+            function.name().into(),
+            FunctionOrPrototype::Function(function),
+        );
     }
 
     pub fn insert_function_prototype(&mut self, prototype: FunctionPrototype) {
