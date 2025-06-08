@@ -131,7 +131,7 @@ impl LifetimeSet {
 
     pub fn lookup_by_variable(&self, variable: &midend::symtab::Variable) -> Option<&Lifetime> {
         self.lifetimes
-            .get(&midend::ir::OperandName::new_basic(variable.name()))
+            .get(&midend::ir::OperandName::new_basic(variable.name.clone()))
     }
 
     pub fn print_numerical(&self) {

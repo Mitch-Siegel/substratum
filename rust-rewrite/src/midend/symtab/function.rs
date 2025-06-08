@@ -83,7 +83,7 @@ impl FunctionPrototype {
         let mut arg_names: Vec<String> = Vec::new();
         let mut argument_scope = Scope::new();
         for arg in &self.arguments {
-            arg_names.push(arg.name().clone());
+            arg_names.push(arg.name.clone());
             argument_scope.insert_variable(arg.clone())
         }
 

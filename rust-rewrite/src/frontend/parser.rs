@@ -11,7 +11,7 @@ use super::{
     sourceloc::SourceLoc,
 };
 
-use crate::tracing;
+use crate::trace;
 
 mod declarations;
 mod errors;
@@ -100,7 +100,7 @@ impl<'a> Parser<'a> {
         let peeked = self.lookahead_token_with_loc(0)?;
         // #[cfg(feature = "loud_parsing")]
         // println!("Parser::peek_token() -> {}", peeked);
-        tracing::trace!("Peek token: {} @ {}", peeked.0, peeked.1);
+        trace::trace!("Peek token: {} @ {}", peeked.0, peeked.1);
         return Ok(peeked);
     }
 
@@ -184,19 +184,16 @@ impl<'a> Parser<'a> {
     fn start_parsing(
         &mut self,
         what_parsing: &str,
-    ) -> Result<(SourceLoc, tracing::ExitOnDropSpan), ParseError> {
+    ) -> Result<(SourceLoc, trace::ExitOnDropSpan), ParseError> {
         let start_loc = self.peek_token_with_loc()?.1;
 
-        let my_span = tracing::span!(
+        let exit_on_drop_span = trace::span_auto!(
             tracing::Level::DEBUG,
             "parse rule start",
             what_parsing,
             "{}",
             start_loc
         );
-
-        let guard = my_span.entered();
-        let exit_on_drop_span = tracing::ExitOnDropSpan::from(guard);
 
         self.parsing_stack
             .push((start_loc, String::from(what_parsing)));

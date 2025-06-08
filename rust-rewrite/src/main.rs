@@ -1,11 +1,12 @@
 #![allow(dead_code)]
 
+mod trace;
+
 mod backend;
 mod frontend;
 mod midend;
 
 mod hashmap_ooo_iter;
-pub mod tracing;
 
 use backend::generate_code;
 use frontend::{lexer::Lexer, parser::Parser};
@@ -186,7 +187,7 @@ fn main() {
         }
     }
 
-    let mut parser = Parser::new(Lexer::from_string(WHILE_LOOP_WITH_NESTED_BRANCH_NO_ARGS));
+    let mut parser = Parser::new(Lexer::from_string(WHILE_LOOP_WITH_NESTED_BRANCH));
     let program = parser.parse().expect("Error parsing input");
 
     for t in &program {

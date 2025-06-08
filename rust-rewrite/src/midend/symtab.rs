@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::trace;
 pub use errors::*;
 pub use function::*;
 pub use scope::Scope;
@@ -12,7 +13,7 @@ mod function;
 mod scope;
 mod type_definitions;
 mod variable;
-pub use scope::{ScopeStack, ScopedLookups};
+pub use scope::{CollapseScopes, ScopeStack, ScopedLookups};
 pub use TypeRepr;
 
 #[derive(Debug, Serialize)]
@@ -67,5 +68,18 @@ impl SymbolTable {
             prototype.name.clone(),
             FunctionOrPrototype::Prototype(prototype),
         );
+    }
+
+    pub fn collapse_scopes(&mut self) {
+        let _ = trace::debug!("SymbolTable::collapse_scopes");
+
+        for (_, function) in &mut self.functions {
+            match function {
+                FunctionOrPrototype::Prototype(_) => {}
+                FunctionOrPrototype::Function(function) => {
+                    function.scope.collapse_scopes(None);
+                }
+            }
+        }
     }
 }
