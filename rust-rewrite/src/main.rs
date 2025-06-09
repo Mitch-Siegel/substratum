@@ -8,7 +8,7 @@ mod midend;
 
 mod hashmap_ooo_iter;
 
-use backend::generate_code;
+//use backend::generate_code;
 use frontend::{lexer::Lexer, parser::Parser};
 
 const FIB_FUN: &str = "fun fib(u8 n) -> u64
@@ -197,10 +197,5 @@ fn main() {
     let mut symtab = midend::symbol_table_from_program(program);
 
     // println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
-    println!("SYMTAB IR");
-    symtab.print_ir();
-
-    symtab.assign_program_points();
-
-    generate_code(symtab);
+    //generate_code(symtab);
 }

@@ -14,11 +14,11 @@ impl TargetArchitecture for RV64G {
         rv64g_registers()
     }
 
-    fn registers_required_for_argument(
-        scope_stack: &midend::symtab::ScopeStack,
-        type_: &midend::types::Type,
-    ) -> Option<usize> {
-        let size = type_.size::<Self>(scope_stack);
+    fn registers_required_for_argument<T>(context: &T, type_: &midend::types::Type) -> Option<usize>
+    where
+        T: midend::symtab::EnablesTypeSizing,
+    {
+        let size = type_.size::<Self, T>(context);
 
         let registers = Self::registers();
         let reg_size = Self::word_size();

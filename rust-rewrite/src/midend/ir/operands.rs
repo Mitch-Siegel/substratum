@@ -2,7 +2,11 @@ use std::fmt::Display;
 
 use serde::Serialize;
 
-use crate::midend::{linearizer, types::Type};
+use crate::midend::{
+    linearizer,
+    symtab::{self},
+    types::Type,
+};
 
 #[derive(Clone, Debug, Serialize, Hash)]
 pub struct OperandName {
@@ -172,14 +176,17 @@ impl Operand {
         Operand::UnsignedDecimalConstant(constant)
     }
 
-    pub fn type_<'a>(&self, context: &'a linearizer::walkcontext::WalkContext) -> &'a Type {
+    pub fn type_<'a, T>(&'a self, context: &'a T) -> &'a Type
+    where
+        T: symtab::VariableOwner,
+    {
         match self {
             Operand::Variable(name) => context
-                .lookup_variable_by_name(&name)
+                .lookup_variable_by_name(name.base_name.as_str())
                 .expect(format!("Use of undeclared variable {}", name).as_str())
                 .type_(),
             Operand::Temporary(name) => context
-                .lookup_variable_by_name(&name)
+                .lookup_variable_by_name(name.base_name.as_str())
                 .expect(format!("Use of undeclared variable {}", name).as_str())
                 .type_(),
             Operand::UnsignedDecimalConstant(value) => {

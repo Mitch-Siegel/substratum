@@ -42,7 +42,7 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
         //TODO: need to be able to possibly act on function arguments for gen/kill
         // e.g. reaching defs on function arguments
 
-        for (label, block) in &control_flow.blocks {
+        /*for (label, block) in &control_flow.blocks {
             let block_facts = facts.for_label_mut(*label);
 
             for statement in &block.statements {
@@ -53,7 +53,7 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
                     block_facts.gen_facts.insert(write.clone());
                 }
             }
-        }
+        }*/
     }
 
     fn f_meet(
@@ -100,7 +100,7 @@ impl<'a> ReachingDefs<'a>
 // TODO: supertrait?
 {
     pub fn print(&self) {
-        for label in self.idfa.control_flow.blocks.keys() {
+        /*for label in self.idfa.control_flow.blocks.keys() {
             let facts = self.idfa.facts.for_label(*label);
             println!("{}:", label);
 
@@ -127,6 +127,6 @@ impl<'a> ReachingDefs<'a>
                 print!("{} ", out_fact);
             }
             println!();
-        }
+        }*/
     }
 }

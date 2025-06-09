@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
-use crate::trace;
+use crate::{
+    midend::{ir, types::Type},
+    trace,
+};
 pub use errors::*;
 pub use function::*;
 pub use scope::Scope;
@@ -18,75 +21,82 @@ mod variable;
 
 pub use implementation::Implementation;
 pub use module::Module;
-pub use scope::{CollapseScopes, ScopePath, ScopeStack, ScopedLookups, ScopedName};
+pub use scope::{CollapseScopes, ScopePath};
 pub use TypeRepr;
 
-#[derive(Debug, Serialize)]
+/// Traits for lookup based on ownership of various symbol types
+pub trait ScopeOwner {
+    fn insert_scope(&mut self, scope: Scope);
+}
+
+pub trait BasicBlockOwner {
+    fn insert_basic_block(&mut self, block: ir::BasicBlock);
+    fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock>;
+    fn lookup_basic_block_mut(&mut self, label: usize) -> Option<&mut ir::BasicBlock>;
+}
+
+pub trait VariableOwner {
+    fn insert_variable(&mut self, variable: Variable) -> Result<(), DefinedSymbol>;
+    fn lookup_variable_by_name(&self, name: &str) -> Result<&Variable, UndefinedSymbol>;
+}
+
+pub trait TypeOwner {
+    fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol>;
+    fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol>;
+    // TODO: remove me? type shouldn't need to be mut if implementations are not stored in the type
+    // definition
+    fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol>;
+
+    fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol>;
+}
+
+pub trait FunctionOwner {
+    fn insert_function(&mut self, function: Function) -> Result<(), DefinedSymbol>;
+    fn lookup_function_prototype(&self, name: &str) -> Result<&FunctionPrototype, UndefinedSymbol>;
+    fn lookup_function(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
+    fn lookup_function_or_prototype(
+        &self,
+        name: &str,
+    ) -> Result<&FunctionOrPrototype, UndefinedSymbol>;
+}
+
+pub trait AssociatedOwner {
+    fn insert_associated(&mut self, associated: Function) -> Result<(), DefinedSymbol>;
+    // TODO: "maybe you meant..." for associated/method mismatch
+    fn lookup_associated(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
+}
+
+pub trait MethodOwner {
+    fn insert_method(&mut self, method: Function) -> Result<(), DefinedSymbol>;
+    // TODO: "maybe you meant..." for associated/method mismatch
+    fn lookup_method(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
+}
+
+pub trait ModuleOwner {
+    fn insert_module(&mut self, module: Module) -> Result<(), DefinedSymbol>;
+    fn lookup_module(&self, name: &str) -> Result<&Module, UndefinedSymbol>;
+}
+
+pub trait SelfTypeOwner {
+    fn self_type(&self) -> &Type;
+}
+
+pub trait ScopeOwnerships: BasicBlockOwner + VariableOwner + TypeOwner {}
+
+pub trait ModuleOwnerships: TypeOwner {}
+
+pub trait EnablesTypeSizing: TypeOwner + SelfTypeOwner {}
+
 pub struct SymbolTable {
-    pub global_scope: Scope,
-    pub functions: HashMap<String, FunctionOrPrototype>,
+    pub global_module: Module,
 }
 
 impl SymbolTable {
-    pub fn new() -> Self {
-        SymbolTable {
-            global_scope: Scope::new(),
-            functions: HashMap::new(),
-        }
-    }
-
-    pub fn assign_program_points(&mut self) {
-        // TODO: re-enable this when SSA implemented
-        // for function in self.functions.values_mut() {
-        //     match function {
-        //         FunctionOrPrototype::Function(f) => {
-        //             f.control_flow_mut().assign_program_points();
-        //             let mut reaching_defs = ReachingDefs::new(f.control_flow());
-        //             reaching_defs.analyze();
-        //             reaching_defs.print();
-        //         }
-        //         FunctionOrPrototype::Prototype(_) => {}
-        //     }
-        // }
-    }
-
-    pub fn print_ir(&self) {
-        for function in self.functions.values() {
-            match function {
-                FunctionOrPrototype::Function(f) => {
-                    println!("{}", f.prototype);
-                    f.control_flow.to_graphviz();
-                    println!("");
-                }
-                FunctionOrPrototype::Prototype(_) => {}
-            }
-        }
-    }
-
-    pub fn insert_function(&mut self, function: Function) {
-        self.functions.insert(
-            function.name().into(),
-            FunctionOrPrototype::Function(function),
-        );
-    }
-
-    pub fn insert_function_prototype(&mut self, prototype: FunctionPrototype) {
-        self.functions.insert(
-            prototype.name.clone(),
-            FunctionOrPrototype::Prototype(prototype),
-        );
+    pub fn new(global_module: Module) -> Self {
+        SymbolTable { global_module }
     }
 
     pub fn collapse_scopes(&mut self) {
         let _ = trace::debug!("SymbolTable::collapse_scopes");
-
-        for (_, function) in &mut self.functions {
-            match function {
-                FunctionOrPrototype::Prototype(_) => {}
-                FunctionOrPrototype::Function(function) => {
-                    function.scope.collapse_scopes(None);
-                }
-            }
-        }
     }
 }

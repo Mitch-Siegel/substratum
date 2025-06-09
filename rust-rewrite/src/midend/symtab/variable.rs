@@ -32,4 +32,8 @@ impl Variable {
     pub fn type_(&self) -> &Type {
         &self.type_.as_ref().unwrap()
     }
+
+    pub fn mangle_name_at_index(&mut self, index: usize) {
+        self.name = String::from(format!("{}_{}", index, self.name));
+    }
 }

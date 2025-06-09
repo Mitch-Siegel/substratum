@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use std::fmt::Display;
 
 use crate::frontend::sourceloc::SourceLoc;
-use crate::midend::ir;
+use crate::midend::{ir, symtab};
 use serde::Serialize;
 
 pub use control_flow::ControlFlow;
@@ -40,7 +40,7 @@ impl BasicBlock {
     pub fn new(label: usize) -> Self {
         BasicBlock {
             statements: Vec::new(),
-            label: label,
+            label,
             arguments: BTreeSet::new(),
             successors: BTreeSet::<usize>::new(),
             predecessors: BTreeSet::<usize>::new(),

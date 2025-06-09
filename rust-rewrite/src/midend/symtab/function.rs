@@ -2,9 +2,7 @@ use std::fmt::Display;
 
 use serde::Serialize;
 
-use crate::midend::{ir, types::Type};
-
-use super::{scope::Scope, variable::Variable};
+use crate::midend::{ir, symtab::*, types::Type};
 
 #[derive(Debug, Serialize)]
 pub enum FunctionOrPrototype {
@@ -79,14 +77,14 @@ impl FunctionPrototype {
         }
     }
 
-    pub fn create_argument_scope(&mut self) -> Scope {
+    pub fn create_argument_scope(&self) -> Result<Scope, DefinedSymbol> {
         let mut arg_names: Vec<String> = Vec::new();
         let mut argument_scope = Scope::new();
         for arg in &self.arguments {
             arg_names.push(arg.name.clone());
-            argument_scope.insert_variable(arg.clone())
+            argument_scope.insert_variable(arg.clone())?
         }
 
-        argument_scope
+        Ok(argument_scope)
     }
 }

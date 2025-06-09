@@ -26,6 +26,7 @@ impl<'a> IdfaImplementor<'a, Fact> for LiveVars<'a> {
     }
 
     fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut Facts) {
+        /*
         for (label, block) in &control_flow.blocks {
             let block_facts = facts.for_label_mut(*label);
 
@@ -37,7 +38,7 @@ impl<'a> IdfaImplementor<'a, Fact> for LiveVars<'a> {
                     block_facts.gen_facts.insert(write.clone());
                 }
             }
-        }
+        }*/
     }
 
     fn f_meet(

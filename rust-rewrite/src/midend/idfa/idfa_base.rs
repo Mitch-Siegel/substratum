@@ -117,9 +117,9 @@ where
             first_iteration = false;
             self.store_facts_as_last();
 
-            for (_, block) in &self.control_flow.blocks {
+            /*for (_, block) in &self.control_flow.blocks {
                 self.analyze_block_forwards(block);
-            }
+            }*/
         }
     }
 
@@ -154,8 +154,8 @@ where
         let mut idfa = Self {
             control_flow,
             direction,
-            last_facts: Facts::<T>::new(control_flow.blocks.len()),
-            facts: Facts::<T>::new(control_flow.blocks.len()),
+            last_facts: Facts::<T>::new(0 /*control_flow.blocks.len()*/),
+            facts: Facts::<T>::new(0 /*control_flow.blocks.len()*/),
             f_find_gen_kills,
             f_meet,
             f_transfer,

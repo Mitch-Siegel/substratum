@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::fmt::Display;
 
-use super::symtab::{self, ScopedLookups};
+use super::symtab::{self, ScopeOwnerships};
 
 use crate::backend;
 
@@ -56,10 +56,10 @@ pub enum Type {
 
 impl Type {
     // size of the type in bytes
-    pub fn size<Target: backend::arch::TargetArchitecture>(
-        &self,
-        scope_stack: &symtab::ScopeStack,
-    ) -> usize {
+    pub fn size<Target: backend::arch::TargetArchitecture, T>(&self, context: &T) -> usize
+    where
+        T: symtab::EnablesTypeSizing,
+    {
         match self {
             Type::Unit => 0,
             Type::U8 => 1,
@@ -70,9 +70,9 @@ impl Type {
             Type::I16 => 2,
             Type::I32 => 4,
             Type::I64 => 8,
-            Type::_Self => scope_stack.self_type().size::<Target>(scope_stack),
+            Type::_Self => context.self_type().size::<Target, T>(context),
             Type::UDT(type_name) => {
-                let type_definition = scope_stack.lookup_type(self).expect(&format!(
+                let type_definition = context.lookup_type(self).expect(&format!(
                     "Missing UDT definition for '{}' in Type::size()",
                     type_name
                 ));
@@ -81,7 +81,7 @@ impl Type {
                     symtab::TypeRepr::Struct(struct_repr) => {
                         let mut struct_size: usize = 0;
                         for (_, field) in struct_repr {
-                            struct_size += field.size::<Target>(scope_stack);
+                            struct_size += field.size::<Target, T>(context);
                         }
 
                         struct_size

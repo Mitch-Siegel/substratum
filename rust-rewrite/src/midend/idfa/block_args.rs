@@ -19,7 +19,7 @@ impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
     }
 
     fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut super::Facts<Fact>) {
-        for (label, block) in &control_flow.blocks {
+        /*for (label, block) in &control_flow.blocks {
             let block_facts = facts.for_label_mut(*label);
 
             for statement in &block.statements {
@@ -32,7 +32,7 @@ impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
                     block_facts.kill_facts.insert(write.clone());
                 }
             }
-        }
+        }*/
     }
 
     fn f_meet(mut a: BTreeSet<Fact>, b: &BTreeSet<Fact>) -> BTreeSet<Fact> {

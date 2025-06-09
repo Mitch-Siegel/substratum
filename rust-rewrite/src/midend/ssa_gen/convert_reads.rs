@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use crate::midend::{ir, symtab};
 
 pub fn convert_reads_to_ssa(function: &mut symtab::Function) {
-    for (_, block) in function.control_flow.blocks_postorder_mut() {
+    /*for (_, block) in function.control_flow.blocks_postorder_mut() {
         let mut highest_ssa_numbers = BTreeMap::<ir::OperandName, ir::OperandName>::new();
 
         for arg in &block.arguments {
@@ -31,5 +31,5 @@ pub fn convert_reads_to_ssa(function: &mut symtab::Function) {
                 highest_ssa_numbers.insert(write.clone().into_non_ssa(), write.clone());
             }
         }
-    }
+    }*/
 }

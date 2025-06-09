@@ -1,6 +1,7 @@
 use crate::{
     frontend::sourceloc::SourceLoc,
     hashmap_ooo_iter::{HashMapOOOIter, HashMapOOOIterMut},
+    midend::symtab,
 };
 
 use super::ir;
@@ -22,111 +23,113 @@ use std::{
 
 #[derive(Debug, Serialize)]
 pub struct ControlFlow {
-    pub blocks: HashMap<usize, ir::BasicBlock>,
-    pub max_block: usize,
+    // map from branch origin to (true_target, Option<false_target>)
+    branch_points: HashMap<usize, (usize, Option<usize>)>,
+    convergence_points: HashMap<usize, usize>, // map of label -> label that block should jump to when done
+    max_block: usize,
+    temp_num: usize,
 }
 
 impl ControlFlow {
-    pub fn new() -> Self {
-        let mut starter_blocks = HashMap::<usize, ir::BasicBlock>::new();
-        starter_blocks.insert(0, ir::BasicBlock::new(0));
-        starter_blocks.insert(1, ir::BasicBlock::new(1));
-        ControlFlow {
-            blocks: starter_blocks,
-            max_block: 1,
-        }
+    // returns (Self, start_block, end_block)
+    // where start_block is the first basic block in the function and end_block is the last
+    pub fn new() -> (Self, ir::BasicBlock, ir::BasicBlock) {
+        let mut convergence_points = HashMap::<usize, usize>::new();
+        convergence_points.insert(0, 1);
+
+        let start_block = ir::BasicBlock::new(0);
+        let end_block = ir::BasicBlock::new(1);
+        (
+            Self {
+                branch_points: HashMap::new(),
+                convergence_points,
+                max_block: 1,
+                temp_num: 0,
+            },
+            start_block,
+            end_block,
+        )
     }
 
-    pub fn block_for_label(&self, label: &usize) -> &ir::BasicBlock {
-        self.blocks.get(label).unwrap()
-    }
-
-    fn block_mut_for_label(&mut self, label: usize) -> &mut ir::BasicBlock {
-        self.blocks
-            .entry(label)
-            .or_insert(ir::BasicBlock::new(label))
-    }
-
-    pub fn next_block(&mut self) -> usize {
-        self.max_block += 1;
-        self.max_block
-    }
-
-    // appends the given statement to the block with the label provided
-    // returns: (Option<usize>, Option<usize>) referring to (if the statement is a branch):
-    // block targeted by branch
-    // block control flow ends up in if the branch is not taken (conditional branches only)
-    // retrurns an option to a reference to the field containing the destination label of the false jump
-    // iff the statement was a conditional jump which forced the end of the block
-    pub fn append_statement_to_block(
+    // returns (branch_target, after_branch)
+    pub fn create_unconditional_branch(
         &mut self,
-        statement: ir::IrLine,
-        label: usize,
-    ) -> (Option<usize>, Option<usize>) {
-        self.append_statement_to_block_raw(statement.clone(), label);
+        from_block: &mut ir::BasicBlock,
+        loc: SourceLoc,
+    ) -> (ir::BasicBlock, ir::BasicBlock) {
+        self.max_block += 2;
+        let mut true_block = ir::BasicBlock::new(self.max_block - 1);
+        let mut after_branch = ir::BasicBlock::new(self.max_block);
 
-        match &statement.operation {
-            ir::Operations::Jump(jump) => {
-                let target = jump.destination_block;
-                match &jump.condition {
-                    ir::JumpCondition::Unconditional => (Some(target), None),
-                    _ => {
-                        let false_label = self.next_block();
-                        let block_exit = ir::IrLine::new_jump(
-                            SourceLoc::none(),
-                            false_label,
-                            ir::JumpCondition::Unconditional,
-                        );
-                        self.append_statement_to_block_raw(block_exit, label);
-                        (Some(target), Some(false_label))
-                    }
-                }
-            }
-            _ => (None, None),
-        }
+        from_block.successors.insert(true_block.label);
+        true_block.predecessors.insert(from_block.label);
+
+        let unconditional_jump = ir::IrLine::new_jump(
+            loc,
+            true_block.label,
+            ir::operands::JumpCondition::Unconditional,
+        );
+        from_block.statements.push(unconditional_jump);
+
+        (true_block, after_branch)
     }
 
-    fn append_statement_to_block_raw(&mut self, statement: ir::IrLine, label: usize) {
-        match &statement.operation {
-            ir::Operations::Jump(operands) => {
-                let target_block = operands.destination_block;
+    // returns (condition_true_target, condition_false_target, convergence)
+    pub fn create_conditional_branch(
+        &mut self,
+        from_block: &mut ir::BasicBlock,
+        loc: SourceLoc,
+        jump_condition: ir::operands::JumpCondition,
+    ) -> (ir::BasicBlock, ir::BasicBlock, ir::BasicBlock) {
+        self.max_block += 3;
+        let mut true_block = ir::BasicBlock::new(self.max_block - 2);
+        let mut false_block = ir::BasicBlock::new(self.max_block - 1);
+        let mut convergence_block = ir::BasicBlock::new(self.max_block);
 
-                self.block_mut_for_label(target_block)
-                    .predecessors
-                    .insert(label);
-                self.block_mut_for_label(label)
-                    .successors
-                    .insert(target_block);
-            }
-            _ => {}
-        };
+        from_block.successors.insert(true_block.label);
+        from_block.successors.insert(false_block.label);
 
-        self.block_mut_for_label(label).statements.push(statement);
+        true_block.predecessors.insert(from_block.label);
+        false_block.predecessors.insert(from_block.label);
+
+        let conditional_jump = ir::IrLine::new_jump(loc, true_block.label, jump_condition);
+        from_block.statements.push(conditional_jump);
+        let unconditional_jump = ir::IrLine::new_jump(
+            loc,
+            false_block.label,
+            ir::operands::JumpCondition::Unconditional,
+        );
+        from_block.statements.push(unconditional_jump);
+
+        (true_block, false_block, convergence_block)
     }
 
-    pub fn to_graphviz(&self) {
-        print!("digraph {{fontname=\"consolas\"; node[shape=box; fontname=\"consolas\"; nojustify=true]; splines=ortho;");
-        for block in self.blocks.values() {
-            let mut block_arg_string = String::new();
-            for arg in &block.arguments {
-                block_arg_string += &format!("{} ", arg);
-            }
+    // returns (loop_top, loop_bottom, after_loop)
+    pub fn create_loop(
+        &mut self,
+        from_block: &mut ir::BasicBlock,
+        loc: SourceLoc,
+    ) -> (ir::BasicBlock, ir::BasicBlock, ir::BasicBlock) {
+        self.max_block += 3;
+        let mut loop_top = ir::BasicBlock::new(self.max_block - 2);
+        let mut loop_bottom = ir::BasicBlock::new(self.max_block - 1);
+        let mut after_loop = ir::BasicBlock::new(self.max_block);
 
-            let mut block_string =
-                String::from(format!("Block {}({})\n", block.label, block_arg_string));
-            for statement in &block.statements {
-                let stmt_str = &String::from(format!("{}\\l", statement)).replace("\"", "\\\"");
-                block_string += stmt_str;
-            }
+        /*let loop_jump = ir::new_jump(
+            loc,
+            loop_top.label,
+            ir::operands::JumpCondition::Unconditional,
+        );
 
-            println!("{}[label=\"{}\\l\"]; ", block.label, block_string);
+        from_block.successors.insert(loop_top.label);
+        // don't include the loop bottom as a predecessor of the loop top (TODO: for now?)
+        loop_top.predecessors.insert(from_block.label);
+        from_block.statements.append(loop_jump.clone());
 
-            for successor in &block.successors {
-                print!("{}->{};", block.label, successor);
-            }
-        }
+        loop_bottom.successors.insert(loop_top);
+        loop_bottom.append(loop_jump);*/
 
-        println!("}}");
+        (loop_top, loop_bottom, after_loop)
     }
 }
 
@@ -141,7 +144,7 @@ impl<T> Iterator for ControlFlowIntoIter<T> {
         self.postorder_stack.pop_back()
     }
 }
-
+/*
 // TODO: are the postorder and reverse postorder named opposite right now? Need to actually check this...
 impl ControlFlow {
     fn generate_postorder_stack(&self) -> Vec<usize> {
@@ -184,7 +187,7 @@ impl ControlFlow {
 
         HashMapOOOIterMut::new(&mut self.blocks, postorder_stack)
     }
-}
+}*/
 
 #[cfg(test)]
 mod tests {

@@ -72,7 +72,7 @@ pub fn convert_writes_to_ssa(function: &mut symtab::Function) {
         write_conversion_metadata.next_number_for_string(argument.name.as_str());
     }
 
-    for (_, block) in function.control_flow.blocks_postorder_mut() {
+    /*for (_, block) in function.control_flow.blocks_postorder_mut() {
         convert_block_writes_to_ssa(block, &mut write_conversion_metadata)
-    }
+    }*/
 }

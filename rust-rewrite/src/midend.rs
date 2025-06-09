@@ -15,10 +15,9 @@ pub fn symbol_table_from_program(
     program: Vec<frontend::ast::TranslationUnitTree>,
 ) -> symtab::SymbolTable {
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
-    let mut symtab = SymbolTable::new();
 
     tracing::debug!("Lineariaze");
-    linearizer::linearize(&mut symtab, program);
+    let mut symtab = linearizer::linearize(program);
 
     tracing::debug!("collapse scopes");
     symtab.collapse_scopes();

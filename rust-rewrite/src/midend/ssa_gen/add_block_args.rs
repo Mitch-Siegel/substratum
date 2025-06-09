@@ -9,7 +9,7 @@ use crate::midend::{
 pub fn add_block_arguments(function: &mut symtab::Function) {
     let mut block_args = idfa::BlockArgs::new(&function.control_flow).take_facts();
 
-    loop {
+    /*loop {
         let mut args_by_block = HashMap::<usize, BTreeSet<ir::OperandName>>::new();
         for (label, block) in &mut function.control_flow.blocks {
             block.arguments = block_args.for_label(*label).out_facts.clone();
@@ -36,5 +36,5 @@ pub fn add_block_arguments(function: &mut symtab::Function) {
         } else {
             break;
         }
-    }
+    }*/
 }

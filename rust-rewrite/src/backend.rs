@@ -1,8 +1,9 @@
 pub mod arch;
-mod regalloc;
+//mod regalloc;
 
 use crate::midend;
 
+/*
 pub fn generate_code_for_function<'a>(
     mut scope_stack: midend::symtab::ScopeStack<'a>,
     function: &'a mut midend::symtab::Function,
@@ -14,7 +15,7 @@ pub fn generate_code_for_function<'a>(
 }
 
 pub fn generate_code(mut symbol_table: midend::symtab::SymbolTable) {
-    let mut scope_stack = midend::symtab::ScopeStack::new();
+        let mut scope_stack = midend::symtab::ScopeStack::new();
     scope_stack.push(&symbol_table.global_scope);
     for (_, member) in &mut symbol_table.functions {
         match member {
@@ -25,3 +26,4 @@ pub fn generate_code(mut symbol_table: midend::symtab::SymbolTable) {
         }
     }
 }
+*/
