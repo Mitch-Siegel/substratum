@@ -3,7 +3,6 @@ use std::fmt::Display;
 use serde::Serialize;
 
 use crate::midend::{
-    linearizer,
     symtab::{self},
     types::Type,
 };

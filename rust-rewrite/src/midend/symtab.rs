@@ -7,7 +7,6 @@ use crate::{
 pub use errors::*;
 pub use function::*;
 pub use scope::Scope;
-use serde::Serialize;
 pub use type_definitions::*;
 pub use variable::*;
 
@@ -21,7 +20,7 @@ mod variable;
 
 pub use implementation::Implementation;
 pub use module::Module;
-pub use scope::{CollapseScopes, ScopePath};
+pub use scope::ScopePath;
 pub use TypeRepr;
 
 /// Traits for lookup based on ownership of various symbol types

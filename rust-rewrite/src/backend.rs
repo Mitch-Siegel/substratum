@@ -1,7 +1,6 @@
 pub mod arch;
 //mod regalloc;
 
-use crate::midend;
 
 /*
 pub fn generate_code_for_function<'a>(

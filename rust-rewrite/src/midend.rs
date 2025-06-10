@@ -1,4 +1,3 @@
-use symtab::SymbolTable;
 
 use crate::frontend;
 use crate::trace;

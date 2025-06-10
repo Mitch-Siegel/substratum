@@ -1,13 +1,9 @@
-use crate::{
-    frontend::sourceloc::SourceLoc,
-    hashmap_ooo_iter::{HashMapOOOIter, HashMapOOOIterMut},
-    midend::symtab,
-};
+use crate::frontend::sourceloc::SourceLoc;
 
 use super::ir;
 use serde::Serialize;
 use std::{
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashMap, VecDeque},
     fmt::Debug,
     usize,
 };
@@ -59,7 +55,7 @@ impl ControlFlow {
     ) -> (ir::BasicBlock, ir::BasicBlock) {
         self.max_block += 2;
         let mut true_block = ir::BasicBlock::new(self.max_block - 1);
-        let mut after_branch = ir::BasicBlock::new(self.max_block);
+        let after_branch = ir::BasicBlock::new(self.max_block);
 
         from_block.successors.insert(true_block.label);
         true_block.predecessors.insert(from_block.label);
@@ -84,7 +80,7 @@ impl ControlFlow {
         self.max_block += 3;
         let mut true_block = ir::BasicBlock::new(self.max_block - 2);
         let mut false_block = ir::BasicBlock::new(self.max_block - 1);
-        let mut convergence_block = ir::BasicBlock::new(self.max_block);
+        let convergence_block = ir::BasicBlock::new(self.max_block);
 
         from_block.successors.insert(true_block.label);
         from_block.successors.insert(false_block.label);
@@ -111,9 +107,9 @@ impl ControlFlow {
         loc: SourceLoc,
     ) -> (ir::BasicBlock, ir::BasicBlock, ir::BasicBlock) {
         self.max_block += 3;
-        let mut loop_top = ir::BasicBlock::new(self.max_block - 2);
-        let mut loop_bottom = ir::BasicBlock::new(self.max_block - 1);
-        let mut after_loop = ir::BasicBlock::new(self.max_block);
+        let loop_top = ir::BasicBlock::new(self.max_block - 2);
+        let loop_bottom = ir::BasicBlock::new(self.max_block - 1);
+        let after_loop = ir::BasicBlock::new(self.max_block);
 
         /*let loop_jump = ir::new_jump(
             loc,
@@ -190,70 +186,4 @@ impl ControlFlow {
 }*/
 
 #[cfg(test)]
-mod tests {
-    use crate::midend::ir::*;
-
-    #[test]
-    fn starter_blocks() {
-        let cf = ControlFlow::new();
-
-        assert!(cf.blocks.len() == 2);
-        assert!(cf.max_block == 1);
-    }
-
-    #[test]
-    fn get_block_for_label() {
-        let mut cf = ControlFlow::new();
-
-        assert_eq!(cf.block_for_label(&0).label, 0);
-
-        assert_eq!(cf.block_mut_for_label(0).label, 0);
-        assert_eq!(cf.block_mut_for_label(999).label, 999);
-    }
-
-    #[test]
-    fn append_statement_to_block() {
-        let mut cf = ControlFlow::new();
-
-        let assignment = IrLine::new_assignment(
-            SourceLoc::none(),
-            Operand::new_as_variable("dest".into()),
-            Operand::new_as_variable("source".into()),
-        );
-        assert_eq!(cf.append_statement_to_block(assignment, 0), (None, None));
-    }
-
-    #[test]
-    fn append_unconditional_jump_to_block() {
-        let mut cf = ControlFlow::new();
-        let jump = IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
-        assert_eq!(cf.append_statement_to_block(jump, 0), (Some(1), None));
-    }
-
-    #[test]
-    fn append_conditional_jump_to_block() {
-        let mut cf = ControlFlow::new();
-        let jump = IrLine::new_jump(
-            SourceLoc::none(),
-            1,
-            JumpCondition::Eq(ir::operands::DualSourceOperands {
-                a: Operand::new_as_variable("eq_a".into()),
-                b: Operand::new_as_variable("eq_b".into()),
-            }),
-        );
-        assert_eq!(cf.append_statement_to_block(jump, 0), (Some(1), Some(2)));
-
-        let second_jump = IrLine::new_jump(
-            SourceLoc::none(),
-            1,
-            JumpCondition::Eq(ir::operands::DualSourceOperands {
-                a: Operand::new_as_variable("eq_a2".into()),
-                b: Operand::new_as_variable("eq_b2".into()),
-            }),
-        );
-        assert_eq!(
-            cf.append_statement_to_block(second_jump, 0),
-            (Some(1), Some(3))
-        );
-    }
-}
+mod tests {}

@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::fmt::Display;
 
-use super::symtab::{self, ScopeOwnerships};
+use super::symtab::{self};
 
 use crate::backend;
 

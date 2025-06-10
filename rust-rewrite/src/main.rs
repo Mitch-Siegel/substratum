@@ -194,7 +194,7 @@ fn main() {
         println!("{}", t);
     }
 
-    let mut symtab = midend::symbol_table_from_program(program);
+    let symtab = midend::symbol_table_from_program(program);
 
     // println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
     //generate_code(symtab);

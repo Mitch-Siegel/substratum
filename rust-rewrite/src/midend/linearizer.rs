@@ -2,7 +2,6 @@ use treewalk::ModuleWalk;
 
 use crate::{frontend::ast::TranslationUnitTree, midend::symtab};
 
-use super::symtab::SymbolTable;
 
 pub mod functionwalkcontext;
 pub mod modulewalkcontext;

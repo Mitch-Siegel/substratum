@@ -1,13 +1,11 @@
-use std::collections::{BTreeSet, HashMap};
 
 use crate::midend::idfa::block_args::IdfaImplementor;
 use crate::midend::{
-    idfa::{self},
-    ir, symtab,
+    idfa::{self}, symtab,
 };
 
 pub fn add_block_arguments(function: &mut symtab::Function) {
-    let mut block_args = idfa::BlockArgs::new(&function.control_flow).take_facts();
+    let block_args = idfa::BlockArgs::new(&function.control_flow).take_facts();
 
     /*loop {
         let mut args_by_block = HashMap::<usize, BTreeSet<ir::OperandName>>::new();

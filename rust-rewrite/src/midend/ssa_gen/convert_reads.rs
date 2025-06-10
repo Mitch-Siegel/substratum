@@ -1,6 +1,5 @@
-use std::collections::BTreeMap;
 
-use crate::midend::{ir, symtab};
+use crate::midend::symtab;
 
 pub fn convert_reads_to_ssa(function: &mut symtab::Function) {
     /*for (_, block) in function.control_flow.blocks_postorder_mut() {

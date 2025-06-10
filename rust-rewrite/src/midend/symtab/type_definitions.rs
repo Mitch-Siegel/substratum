@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::midend::{symtab::*, types::Type};
 
-use super::{function::FunctionOrPrototype, Function};
+use super::Function;
 
 #[derive(Debug, Serialize)]
 pub struct TypeDefinition {

@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 
 use add_block_args::add_block_arguments;
 use convert_reads::convert_reads_to_ssa;
@@ -8,7 +8,7 @@ mod add_block_args;
 mod convert_reads;
 mod convert_writes;
 
-use super::{ir, symtab};
+use super::symtab;
 
 fn convert_function_to_ssa(function: &mut symtab::Function) {
     add_block_arguments(function);

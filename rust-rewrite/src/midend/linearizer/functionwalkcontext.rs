@@ -4,7 +4,7 @@ use crate::{
         ir,
         linearizer::*,
         symtab::{
-            self, AssociatedOwner, BasicBlockOwner, FunctionOwner, MethodOwner, ScopeOwner,
+            self, BasicBlockOwner, ScopeOwner,
             TypeOwner, VariableOwner,
         },
         types::Type,

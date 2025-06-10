@@ -16,7 +16,7 @@
      | ExternBlock//
                   */
 
-use crate::midend::symtab::{StructRepr, SymbolError, TypeOwner, TypeRepr};
+use crate::midend::symtab::{StructRepr, TypeOwner, TypeRepr};
 
 use crate::midend::{symtab::*, types::Type};
 
