@@ -40,7 +40,7 @@ impl Function {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct FunctionPrototype {
     pub name: String,
     pub arguments: Vec<Variable>,

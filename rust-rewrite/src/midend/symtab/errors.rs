@@ -1,5 +1,6 @@
 use crate::midend::{symtab::*, types::Type};
 
+#[derive(PartialEq, Eq)]
 pub enum SymbolError {
     Undefined(UndefinedSymbol),
     Defined(DefinedSymbol),
@@ -25,6 +26,7 @@ impl From<DefinedSymbol> for SymbolError {
     }
 }
 
+#[derive(PartialEq, Eq)]
 pub enum UndefinedSymbol {
     Function(String),
     Associated(Type, String),
@@ -97,12 +99,13 @@ impl UndefinedSymbol {
     }
 }
 
+#[derive(PartialEq, Eq)]
 pub enum DefinedSymbol {
     Function(FunctionPrototype),
     Associated(Type, FunctionPrototype),
     Method(Type, FunctionPrototype),
     Variable(Variable),
-    Type(TypeDefinition),
+    Type(TypeRepr),
     Struct(StructRepr),
     Module(String),
 }
@@ -126,7 +129,7 @@ impl std::fmt::Display for DefinedSymbol {
             Self::Variable(variable) => {
                 write!(f, "Variable {} is already defined", variable.name)
             }
-            Self::Type(type_) => write!(f, "Type {} is already defined", type_.type_()),
+            Self::Type(type_) => write!(f, "Type {} is already defined", type_.name()),
             Self::Struct(struct_) => write!(f, "Struct {} is already defined", struct_.name),
             Self::Module(module) => write!(f, "Module {} is already defined", module),
         }
@@ -156,7 +159,7 @@ impl DefinedSymbol {
         Self::Variable(variable)
     }
 
-    pub fn type_(type_: TypeDefinition) -> Self {
+    pub fn type_(type_: TypeRepr) -> Self {
         Self::Type(type_)
     }
 

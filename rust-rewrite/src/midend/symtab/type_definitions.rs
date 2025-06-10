@@ -82,12 +82,20 @@ impl MethodOwner for TypeDefinition {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub enum TypeRepr {
     Struct(StructRepr),
 }
 
-#[derive(Clone, Debug, Serialize)]
+impl TypeRepr {
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Struct(struct_repr) => struct_repr.name.as_str(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct StructRepr {
     pub name: String,
     fields: HashMap<String, Type>,

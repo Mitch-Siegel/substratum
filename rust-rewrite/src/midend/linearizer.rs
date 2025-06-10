@@ -2,12 +2,13 @@ use treewalk::ModuleWalk;
 
 use crate::{frontend::ast::TranslationUnitTree, midend::symtab};
 
-
-pub mod functionwalkcontext;
-pub mod modulewalkcontext;
+mod block_convergences;
+mod functionwalkcontext;
+mod modulewalkcontext;
 mod treewalk;
 pub mod walkcontext;
 
+use block_convergences::*;
 pub use functionwalkcontext::FunctionWalkContext;
 pub use modulewalkcontext::ModuleWalkContext;
 

@@ -31,7 +31,7 @@ impl ModuleWalkContext {
     fn pop_current_module_to_submodule_of_next(&mut self) {
         let parent = self.module_stack.pop().unwrap();
         let old = std::mem::replace(&mut self.current_module, parent);
-        self.current_module.insert_module(old);
+        self.current_module.insert_module(old).unwrap();
     }
 }
 

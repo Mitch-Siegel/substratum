@@ -7,19 +7,11 @@ use crate::midend::{
     types::Type,
 };
 
-#[derive(Clone, Debug, Serialize, Hash)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq, Hash)]
 pub struct OperandName {
     pub base_name: String,
     pub ssa_number: Option<usize>,
 }
-
-impl PartialEq for OperandName {
-    fn eq(&self, other: &Self) -> bool {
-        (self.base_name == other.base_name) && (self.ssa_number == other.ssa_number)
-    }
-}
-
-impl Eq for OperandName {}
 
 impl PartialOrd for OperandName {
     fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
@@ -78,7 +70,7 @@ impl OperandName {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Hash)]
+#[derive(Clone, Debug, Serialize, PartialEq, Eq, Hash)]
 pub enum Operand {
     Variable(OperandName),
     Temporary(OperandName),
@@ -103,14 +95,6 @@ impl Display for Operand {
         }
     }
 }
-
-impl PartialEq for Operand {
-    fn eq(&self, other: &Self) -> bool {
-        self.cmp(other) == std::cmp::Ordering::Equal
-    }
-}
-
-impl Eq for Operand {}
 
 impl PartialOrd for Operand {
     fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
@@ -223,7 +207,7 @@ impl Operand {
  groupings of operands
 */
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct DualSourceOperands {
     pub a: Operand,
     pub b: Operand,
@@ -235,7 +219,7 @@ impl DualSourceOperands {
     }
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct BinaryArithmeticOperands {
     pub destination: Operand,
     pub sources: DualSourceOperands,
@@ -250,13 +234,13 @@ impl BinaryArithmeticOperands {
     }
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct SourceDestOperands {
     pub destination: Operand,
     pub source: Operand,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub enum JumpCondition {
     Unconditional,
     Eq(DualSourceOperands),
@@ -310,7 +294,7 @@ fn arg_list_to_string(args: &OrderedArgumentList) -> String {
 }
 
 /// ## Function Call Operands
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct FunctionCallOperands {
     pub function_name: String,
     pub arguments: OrderedArgumentList,
@@ -343,7 +327,7 @@ impl FunctionCallOperands {
 }
 
 /// ## Method Call Operands
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct MethodCallOperands {
     pub receiver: Operand,
     pub call: FunctionCallOperands,
@@ -369,14 +353,14 @@ impl MethodCallOperands {
     }
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct FieldReadOperands {
     pub receiver: Operand,
     pub field_name: String,
     pub destination: Operand,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct FieldWriteOperands {
     pub receiver: Operand,
     pub field_name: String,

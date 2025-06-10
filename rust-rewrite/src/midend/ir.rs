@@ -15,7 +15,7 @@ pub use control_flow::ControlFlow;
 pub use operands::*;
 pub use operations::*;
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct IrLine {
     pub loc: SourceLoc,
     pub operation: Operations,
@@ -27,7 +27,7 @@ impl Display for IrLine {
     }
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct BasicBlock {
     pub label: usize,
     pub statements: Vec<ir::IrLine>,

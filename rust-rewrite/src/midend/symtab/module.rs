@@ -44,7 +44,7 @@ impl Module {
 impl TypeOwner for Module {
     fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol> {
         match self.type_definitions.insert(type_.type_().clone(), type_) {
-            Some(existing_type) => Err(DefinedSymbol::type_(existing_type)),
+            Some(existing_type) => Err(DefinedSymbol::type_(existing_type.repr)),
             None => Ok(()),
         }
     }

@@ -89,7 +89,7 @@ impl VariableOwner for Scope {
 impl TypeOwner for Scope {
     fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol> {
         match self.type_definitions.insert(type_.type_().clone(), type_) {
-            Some(existing_type) => Err(DefinedSymbol::type_(existing_type)),
+            Some(existing_type) => Err(DefinedSymbol::type_(existing_type.repr)),
             None => Ok(()),
         }
     }
@@ -105,6 +105,7 @@ impl TypeOwner for Scope {
             .get_mut(type_)
             .ok_or(UndefinedSymbol::type_(type_.clone()))
     }
+
     fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol> {
         let struct_type = Type::UDT(name.into());
 

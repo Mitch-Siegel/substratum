@@ -4,7 +4,7 @@ use std::{collections::HashMap, fmt::Display};
 use super::operands::*;
 
 /// ## Binary Operations
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub enum BinaryOperations {
     Add(BinaryArithmeticOperands),
     Subtract(BinaryArithmeticOperands),
@@ -208,7 +208,7 @@ impl BinaryOperations {
 }
 
 /// ## Jump
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 pub struct JumpOperation {
     pub destination_block: usize,
     pub block_args: HashMap<OperandName, OperandName>,
@@ -240,7 +240,7 @@ impl JumpOperation {
 }
 
 /// ## Enum of all operations
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 pub enum Operations {
     Assignment(SourceDestOperands),
     BinaryOperation(BinaryOperations),

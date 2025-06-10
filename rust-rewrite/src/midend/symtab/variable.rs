@@ -4,7 +4,7 @@ use serde::Serialize;
 
 use crate::midend::types::Type;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Variable {
     pub name: String,
     type_: Option<Type>,

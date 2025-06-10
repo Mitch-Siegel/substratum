@@ -3,75 +3,24 @@ use crate::{
     midend::{
         ir,
         linearizer::*,
-        symtab::{
-            self, BasicBlockOwner, ScopeOwner,
-            TypeOwner, VariableOwner,
-        },
+        symtab::{self, BasicBlockOwner, ScopeOwner, VariableOwner},
         types::Type,
     },
 };
 use std::collections::HashMap;
 
-enum ConvergenceResult {
-    NotDone(usize),       // the label of the block to converge to
-    Done(ir::BasicBlock), // the block converged to
+#[derive(Debug, PartialEq, Eq)]
+pub enum BranchError {
+    NotBranched, // not branched but expected a branch
+    Convergence(ConvergenceError),
+    NotDone(usize),
+    ExistingFalseBlock(usize, usize), // branch already exists (from_block, false_block)
+    MissingFalseBlock(usize),         // missing false block on branch (from_label)
+    ScopeHandling,
 }
-
-pub struct BlockConvergences {
-    open_convergences: HashMap<usize, usize>,
-    convergence_blocks: HashMap<usize, ir::BasicBlock>,
-}
-
-impl BlockConvergences {
-    pub fn new() -> Self {
-        Self {
-            open_convergences: HashMap::new(),
-            convergence_blocks: HashMap::new(),
-        }
-    }
-
-    pub fn add(&mut self, froms: &[usize], to: ir::BasicBlock) {
-        for from in froms {
-            match self.open_convergences.insert(*from, to.label) {
-                Some(label) => panic!("convergence point from block {} already exists", label),
-                None => (),
-            }
-        }
-    }
-
-    pub fn converge(&mut self, from: usize) -> ConvergenceResult {
-        let converge_to = self.open_convergences.remove(&from).unwrap();
-
-        let remaining_with_same_target = self
-            .open_convergences
-            .iter()
-            .map(|(_, to)| if *to == converge_to { 1 } else { 0 })
-            .sum::<usize>();
-
-        if remaining_with_same_target > 0 {
-            ConvergenceResult::NotDone(converge_to)
-        } else {
-            // manually unwrap and rewrap to ensure we actually removed something
-            ConvergenceResult::Done(self.convergence_blocks.remove(&converge_to).unwrap())
-        }
-    }
-
-    pub fn rename_source(&mut self, old: usize, new: usize) {
-        self.open_convergences = self
-            .open_convergences
-            .iter()
-            .map(|(from, to)| {
-                if *from == old {
-                    (new, *to)
-                } else {
-                    (*from, *to)
-                }
-            })
-            .collect::<HashMap<usize, usize>>();
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.open_convergences.is_empty() && self.convergence_blocks.is_empty()
+impl From<ConvergenceError> for BranchError {
+    fn from(e: ConvergenceError) -> Self {
+        Self::Convergence(e)
     }
 }
 
@@ -105,7 +54,9 @@ impl<'a> FunctionWalkContext<'a> {
     ) -> Self {
         let (control_flow, start_block, end_block) = ir::ControlFlow::new();
         let mut base_convergences = BlockConvergences::new();
-        base_convergences.add(&[start_block.label], end_block);
+        base_convergences
+            .add(&[start_block.label], end_block)
+            .unwrap();
 
         let argument_scope = prototype.create_argument_scope().unwrap();
 
@@ -119,31 +70,52 @@ impl<'a> FunctionWalkContext<'a> {
             open_branch_path: Vec::new(),
             scope_stack: Vec::new(),
             current_scope: argument_scope,
+            // TODO: remove me?
             current_scope_address: symtab::ScopePath::new(),
             temp_num: 0,
             current_block: start_block,
         }
     }
 
-    fn pop_current_scope_to_subscope_of_next(&mut self) -> Result<(), ()> {
+    fn all_scopes(&self) -> Vec<&symtab::Scope> {
+        std::iter::once(&self.current_scope)
+            .chain(self.scope_stack.iter().rev())
+            .collect()
+    }
+
+    fn all_scopes_mut(&mut self) -> Vec<&mut symtab::Scope> {
+        std::iter::once(&mut self.current_scope)
+            .chain(self.scope_stack.iter_mut().rev())
+            .collect()
+    }
+
+    fn new_subscope(&mut self) {
+        let parent = std::mem::replace(&mut self.current_scope, symtab::Scope::new());
+        self.scope_stack.push(parent);
+    }
+
+    fn pop_current_scope_to_subscope_of_next(&mut self) -> Result<(), BranchError> {
         match self.scope_stack.pop() {
             Some(next_scope) => {
                 let old_scope = std::mem::replace(&mut self.current_scope, next_scope);
                 self.current_scope.insert_scope(old_scope);
                 Ok(())
             }
-            None => Err(()),
+            None => Err(BranchError::ScopeHandling),
         }
     }
 
-    pub fn finish_true_branch_switch_to_false(&mut self) -> Result<(), ()> {
-        let branched_from = self.open_branch_path.last().unwrap();
+    pub fn finish_true_branch_switch_to_false(&mut self) -> Result<(), BranchError> {
+        let branched_from = match self.open_branch_path.last() {
+            Some(branched_from) => branched_from,
+            None => return Err(BranchError::NotBranched),
+        };
 
-        match self.open_convergences.converge(self.current_block.label) {
+        match self.open_convergences.converge(self.current_block.label)? {
             ConvergenceResult::NotDone(converge_to_label) => {
                 let false_block = match self.open_branch_false_blocks.remove(branched_from) {
                     Some(false_block) => false_block,
-                    None => return Err(()),
+                    None => return Err(BranchError::MissingFalseBlock(*branched_from)),
                 };
 
                 let convergence_jump = ir::IrLine::new_jump(
@@ -156,17 +128,20 @@ impl<'a> FunctionWalkContext<'a> {
 
                 converged_from.statements.push(convergence_jump);
                 self.current_scope.insert_basic_block(converged_from);
-
-                self.pop_current_scope_to_subscope_of_next()
+                Ok(())
             }
-            ConvergenceResult::Done(_) => Err(()),
-        }
+            ConvergenceResult::Done(_block) => Err(BranchError::MissingFalseBlock(*branched_from)),
+        }?;
+
+        self.pop_current_scope_to_subscope_of_next()?;
+        self.new_subscope();
+        Ok(())
     }
 
-    pub fn finish_branch(&mut self) -> Result<(), ()> {
+    pub fn finish_branch(&mut self) -> Result<(), BranchError> {
         let branched_from = self.open_branch_path.last().unwrap();
 
-        match self.open_convergences.converge(self.current_block.label) {
+        match self.open_convergences.converge(self.current_block.label)? {
             ConvergenceResult::Done(converge_to_block) => {
                 let convergence_jump = ir::IrLine::new_jump(
                     SourceLoc::none(),
@@ -180,31 +155,37 @@ impl<'a> FunctionWalkContext<'a> {
                 converged_from.statements.push(convergence_jump);
                 self.current_scope.insert_basic_block(converged_from);
 
-                self.pop_current_scope_to_subscope_of_next()
+                match self.pop_current_scope_to_subscope_of_next() {
+                    Ok(_) => Ok(()),
+                    Err(_) => Err(BranchError::ScopeHandling),
+                }
             }
-            ConvergenceResult::NotDone(_) => Err(()),
-        }
+            ConvergenceResult::NotDone(label) => Err(BranchError::NotDone(label)),
+        }?;
+
+        self.open_branch_path.pop().unwrap();
+        Ok(())
     }
 
     // create an unconditional branch from the current block, transparently setting the current
     // block to the target. Inserts the current block (before call) into the current scope
-    pub fn unconditional_branch_from_current(&mut self, loc: SourceLoc) {
+    pub fn unconditional_branch_from_current(&mut self, loc: SourceLoc) -> Result<(), BranchError> {
         let branch_from = &mut self.current_block;
         let (branch_target, after_branch) = self
             .control_flow
             .create_unconditional_branch(branch_from, loc);
 
         self.open_convergences
-            .rename_source(branch_from.label, branch_target.label);
+            .rename_source(branch_from.label, after_branch.label);
         self.open_convergences
-            .add(&[branch_target.label], after_branch);
+            .add(&[branch_target.label], after_branch)?;
 
         self.open_branch_path.push(self.current_block.label);
         let old_block = std::mem::replace(&mut self.current_block, branch_target);
         self.current_scope.insert_basic_block(old_block);
 
-        let parent_scope = std::mem::replace(&mut self.current_scope, symtab::Scope::new());
-        self.scope_stack.push(parent_scope);
+        self.new_subscope();
+        Ok(())
     }
 
     // create a conditional branch from the current block, transparently setting the current block
@@ -214,7 +195,7 @@ impl<'a> FunctionWalkContext<'a> {
         &mut self,
         loc: SourceLoc,
         condition: ir::JumpCondition,
-    ) {
+    ) -> Result<(), BranchError> {
         let branch_from = &mut self.current_block;
         self.open_branch_path.push(branch_from.label);
 
@@ -225,13 +206,26 @@ impl<'a> FunctionWalkContext<'a> {
         self.open_convergences
             .rename_source(branch_from.label, branch_convergence.label);
         self.open_convergences
-            .add(&[branch_true.label, branch_false.label], branch_convergence);
+            .add(&[branch_true.label, branch_false.label], branch_convergence)?;
+
+        match self
+            .open_branch_false_blocks
+            .insert(branch_from.label, branch_false)
+        {
+            Some(existing_false_block) => {
+                return Err(BranchError::ExistingFalseBlock(
+                    branch_from.label,
+                    existing_false_block.label,
+                ))
+            }
+            None => (),
+        };
 
         let old_block = std::mem::replace(&mut self.current_block, branch_true);
         self.current_scope.insert_basic_block(old_block);
 
-        let parent_scope = std::mem::replace(&mut self.current_scope, symtab::Scope::new());
-        self.scope_stack.push(parent_scope);
+        self.new_subscope();
+        Ok(())
     }
 
     pub fn create_loop(&mut self) -> usize {
@@ -241,8 +235,8 @@ impl<'a> FunctionWalkContext<'a> {
     pub fn next_temp(&mut self, type_: Type) -> ir::Operand {
         let temp_name = String::from(".T") + &self.temp_num.to_string();
         self.temp_num += 1;
-        self.current_scope
-            .insert_variable(symtab::Variable::new(temp_name.clone(), Some(type_)));
+        self.insert_variable(symtab::Variable::new(temp_name.clone(), Some(type_)))
+            .unwrap();
         ir::Operand::new_as_temporary(temp_name)
     }
 
@@ -294,7 +288,7 @@ impl<'a> symtab::VariableOwner for FunctionWalkContext<'a> {
         &self,
         name: &str,
     ) -> Result<&symtab::Variable, symtab::UndefinedSymbol> {
-        for lookup_scope in self.scope_stack.iter().rev() {
+        for lookup_scope in self.all_scopes() {
             match lookup_scope.lookup_variable_by_name(name) {
                 Ok(variable) => return Ok(variable),
                 _ => (),
@@ -314,7 +308,7 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
         &self,
         type_: &Type,
     ) -> Result<&symtab::TypeDefinition, symtab::UndefinedSymbol> {
-        for lookup_scope in self.scope_stack.iter().rev() {
+        for lookup_scope in self.all_scopes() {
             match lookup_scope.lookup_type(type_) {
                 Ok(type_) => return Ok(type_),
                 _ => (),
@@ -328,7 +322,7 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
         &mut self,
         type_: &Type,
     ) -> Result<&mut symtab::TypeDefinition, symtab::UndefinedSymbol> {
-        for lookup_scope in self.scope_stack.iter_mut().rev() {
+        for lookup_scope in self.all_scopes_mut() {
             match lookup_scope.lookup_type_mut(type_) {
                 Ok(type_) => return Ok(type_),
                 _ => (),
@@ -339,7 +333,7 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
     }
 
     fn lookup_struct(&self, name: &str) -> Result<&symtab::StructRepr, symtab::UndefinedSymbol> {
-        for lookup_scope in self.scope_stack.iter().rev() {
+        for lookup_scope in self.all_scopes() {
             match lookup_scope.lookup_struct(name) {
                 Ok(struct_) => return Ok(struct_),
                 _ => (),
@@ -366,5 +360,136 @@ impl<'a> Into<symtab::Function> for FunctionWalkContext<'a> {
         assert!(self.open_branch_path.is_empty());
 
         symtab::Function::new(self.prototype, self.current_scope, self.control_flow)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        frontend::sourceloc::SourceLoc,
+        midend::{
+            ir,
+            linearizer::{functionwalkcontext::BranchError, *},
+            symtab::{self, VariableOwner},
+            types::Type,
+        },
+    };
+    fn test_prototype() -> symtab::FunctionPrototype {
+        symtab::FunctionPrototype::new(
+            "test_function".into(),
+            vec![
+                symtab::Variable::new("a".into(), Some(Type::U16)),
+                symtab::Variable::new("b".into(), Some(Type::I32)),
+            ],
+            Type::I32,
+        )
+    }
+
+    fn test_context<'a>(context: &'a mut ModuleWalkContext) -> FunctionWalkContext<'a> {
+        FunctionWalkContext::new(context, test_prototype(), None)
+    }
+
+    #[test]
+    fn subscope_handling() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        context.new_subscope();
+        context.new_subscope();
+        assert_eq!(context.pop_current_scope_to_subscope_of_next(), Ok(()));
+        context.new_subscope();
+        assert_eq!(context.pop_current_scope_to_subscope_of_next(), Ok(()));
+        assert_eq!(context.pop_current_scope_to_subscope_of_next(), Ok(()));
+        context.new_subscope();
+        assert_eq!(context.pop_current_scope_to_subscope_of_next(), Ok(()));
+        assert_eq!(
+            context.pop_current_scope_to_subscope_of_next(),
+            Err(BranchError::ScopeHandling)
+        );
+    }
+
+    #[test]
+    fn unconditional_branch() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        let pre_branch_label = context.current_block.label;
+        context.unconditional_branch_from_current(SourceLoc::none());
+        let in_branch_label = context.current_block.label;
+        assert_ne!(in_branch_label, pre_branch_label);
+
+        assert_eq!(context.finish_branch(), Ok(()));
+        let post_branch_label = context.current_block.label;
+        assert_ne!(post_branch_label, in_branch_label);
+    }
+
+    #[test]
+    fn conditional_branch() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        let pre_branch_label = context.current_block.label;
+        assert_eq!(
+            context.conditional_branch_from_current(
+                SourceLoc::none(),
+                ir::JumpCondition::NE(ir::DualSourceOperands::new(
+                    ir::Operand::new_as_variable("a".into()),
+                    ir::Operand::new_as_variable("b".into()),
+                )),
+            ),
+            Ok(())
+        );
+        let true_branch_label = context.current_block.label;
+        assert_ne!(true_branch_label, pre_branch_label);
+
+        assert_eq!(context.finish_true_branch_switch_to_false(), Ok(()));
+        let false_branch_label = context.current_block.label;
+        assert_ne!(false_branch_label, pre_branch_label);
+
+        assert_eq!(context.finish_branch(), Ok(()));
+        let post_branch_label = context.current_block.label;
+        assert_ne!(post_branch_label, true_branch_label);
+    }
+
+    #[test]
+    fn conditional_branch_errors() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        assert_eq!(
+            context.finish_true_branch_switch_to_false(),
+            Err(BranchError::NotBranched)
+        );
+
+        assert_eq!(
+            context.unconditional_branch_from_current(SourceLoc::none()),
+            Ok(())
+        );
+
+        assert_eq!(
+            context.finish_true_branch_switch_to_false(),
+            Err(BranchError::MissingFalseBlock(0))
+        );
+
+        assert_eq!(
+            context.unconditional_branch_from_current(SourceLoc::none()),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn next_temp() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        assert_eq!(
+            context.next_temp(Type::I8),
+            ir::Operand::new_as_temporary(String::from(".T0"))
+        );
+
+        assert_eq!(
+            context.lookup_variable_by_name(".T0"),
+            Ok(&symtab::Variable::new(".T0".into(), Some(Type::I8)))
+        );
     }
 }
