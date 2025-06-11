@@ -28,17 +28,28 @@ impl ModuleWalkContext {
             .collect()
     }
 
-    fn pop_current_module_to_submodule_of_next(&mut self) {
-        let parent = self.module_stack.pop().unwrap();
+    fn new_submodule(&mut self, name: String) {
+        let parent = std::mem::replace(&mut self.current_module, symtab::Module::new(name));
+        self.module_stack.push(parent);
+    }
+
+    fn pop_current_module_to_submodule_of_next(&mut self) -> Result<(), ()> {
+        let parent = match self.module_stack.pop() {
+            Some(module) => module,
+            None => return Err(()),
+        };
         let old = std::mem::replace(&mut self.current_module, parent);
-        self.current_module.insert_module(old).unwrap();
+        match self.current_module.insert_module(old) {
+            Ok(()) => Ok(()),
+            Err(_) => Err(()),
+        }
     }
 }
 
 impl Into<symtab::SymbolTable> for ModuleWalkContext {
     fn into(mut self) -> symtab::SymbolTable {
         while !self.module_stack.is_empty() {
-            self.pop_current_module_to_submodule_of_next();
+            self.pop_current_module_to_submodule_of_next().unwrap();
         }
 
         symtab::SymbolTable::new(self.current_module)
@@ -94,13 +105,6 @@ impl symtab::FunctionOwner for ModuleWalkContext {
     fn insert_function(&mut self, function: symtab::Function) -> Result<(), symtab::DefinedSymbol> {
         self.current_module.insert_function(function)
     }
-    fn lookup_function_prototype(
-        &self,
-        name: &str,
-    ) -> Result<&symtab::FunctionPrototype, symtab::UndefinedSymbol> {
-        unimplemented!();
-    }
-
     fn lookup_function(&self, name: &str) -> Result<&symtab::Function, symtab::UndefinedSymbol> {
         for module in self.all_modules() {
             match module.lookup_function(name) {
@@ -111,12 +115,61 @@ impl symtab::FunctionOwner for ModuleWalkContext {
 
         Err(symtab::UndefinedSymbol::function(name.into()))
     }
-    fn lookup_function_or_prototype(
-        &self,
-        name: &str,
-    ) -> Result<&symtab::FunctionOrPrototype, symtab::UndefinedSymbol> {
-        unimplemented!();
+}
+
+impl symtab::ModuleOwner for ModuleWalkContext {
+    fn insert_module(&mut self, module: symtab::Module) -> Result<(), symtab::DefinedSymbol> {
+        unimplemented!("insert_module not to be used by ModuleWalkContext");
+    }
+
+    fn lookup_module(&self, name: &str) -> Result<&symtab::Module, symtab::UndefinedSymbol> {
+        for module in self.all_modules() {
+            match module.lookup_module(name) {
+                Ok(module) => return Ok(module),
+                Err(_) => (),
+            }
+        }
+
+        Err(symtab::UndefinedSymbol::module(name.into()))
     }
 }
 
 impl symtab::ModuleOwnerships for ModuleWalkContext {}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        frontend::sourceloc::SourceLoc,
+        midend::{
+            ir,
+            linearizer::{modulewalkcontext::*, *},
+            symtab::{self, VariableOwner},
+            types::Type,
+        },
+    };
+
+    #[test]
+    fn pop_current_module_to_submodule_of_next() {
+        let mut c = ModuleWalkContext::new();
+
+        c.new_submodule("A".into());
+        assert_eq!(c.pop_current_module_to_submodule_of_next(), Ok(()));
+        c.new_submodule("B".into());
+        c.new_submodule("B1".into());
+        assert_eq!(c.pop_current_module_to_submodule_of_next(), Ok(()));
+        assert_eq!(c.pop_current_module_to_submodule_of_next(), Ok(()));
+        assert_eq!(c.pop_current_module_to_submodule_of_next(), Err(()));
+    }
+
+    #[test]
+    fn type_owner() {
+        let mut c = ModuleWalkContext::new();
+        symtab::tests::test_type_owner(&mut c);
+    }
+
+    #[test]
+    fn function_owner() {
+        let mut c = ModuleWalkContext::new();
+        symtab::tests::test_function_owner(&mut c);
+    }
+}

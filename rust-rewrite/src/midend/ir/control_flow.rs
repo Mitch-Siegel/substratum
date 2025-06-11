@@ -17,7 +17,7 @@ use std::{
     of all blocks of the branchee.
 */
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ControlFlow {
     // map from branch origin to (true_target, Option<false_target>)
     branch_points: HashMap<usize, (usize, Option<usize>)>,

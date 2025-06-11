@@ -21,11 +21,12 @@ use crate::midend::symtab::{StructRepr, TypeOwner, TypeRepr};
 use crate::midend::{symtab::*, types::Type};
 
 use std::collections::HashMap;
+
+#[derive(Debug, Clone)]
 pub struct Module {
     pub name: String,
     pub functions: HashMap<String, Function>,
     pub type_definitions: HashMap<Type, TypeDefinition>,
-    pub implementations: HashMap<Type, Implementation>,
     pub modules: HashMap<String, Module>,
 }
 
@@ -35,9 +36,14 @@ impl Module {
             name,
             functions: HashMap::new(),
             type_definitions: HashMap::new(),
-            implementations: HashMap::new(),
             modules: HashMap::new(),
         }
+    }
+}
+
+impl PartialEq for Module {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
     }
 }
 
@@ -92,18 +98,9 @@ impl FunctionOwner for Module {
             None => Ok(()),
         }
     }
-    fn lookup_function_prototype(&self, name: &str) -> Result<&FunctionPrototype, UndefinedSymbol> {
-        unimplemented!();
-    }
     fn lookup_function(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
         self.functions
             .get(name)
             .ok_or(UndefinedSymbol::function(name.into()))
-    }
-    fn lookup_function_or_prototype(
-        &self,
-        name: &str,
-    ) -> Result<&FunctionOrPrototype, UndefinedSymbol> {
-        unimplemented!();
     }
 }

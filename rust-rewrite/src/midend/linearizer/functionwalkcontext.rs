@@ -240,14 +240,14 @@ impl<'a> FunctionWalkContext<'a> {
         ir::Operand::new_as_temporary(temp_name)
     }
 
-    pub fn append_statement_to_current_block(&mut self, statement: ir::IrLine) {
+    pub fn append_statement_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
         match &statement.operation {
-            ir::Operations::Jump(_) => {
-                panic!("FunctionWalkContext::append_statement_to_current_block does NOT support jumps!")
+            ir::Operations::Jump(_) => Err(()),
+            _ => {
+                self.current_block.statements.push(statement);
+                Ok(())
             }
-            _ => {}
         }
-        self.current_block.statements.push(statement);
     }
 }
 
@@ -374,6 +374,17 @@ mod tests {
             types::Type,
         },
     };
+
+    #[test]
+    fn branch_error_from_convergence_error() {
+        let convergence_error = ConvergenceError::FromBlockExists(1);
+
+        assert_eq!(
+            BranchError::from(convergence_error),
+            BranchError::Convergence(ConvergenceError::FromBlockExists(1))
+        );
+    }
+
     fn test_prototype() -> symtab::FunctionPrototype {
         symtab::FunctionPrototype::new(
             "test_function".into(),
@@ -491,5 +502,48 @@ mod tests {
             context.lookup_variable_by_name(".T0"),
             Ok(&symtab::Variable::new(".T0".into(), Some(Type::I8)))
         );
+    }
+
+    #[test]
+    fn append_statement_to_current_block() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        assert_eq!(
+            context.append_statement_to_current_block(ir::IrLine::new_binary_op(
+                SourceLoc::none(),
+                ir::BinaryOperations::new_add(
+                    ir::Operand::new_as_variable("c".into()),
+                    ir::Operand::new_as_variable("a".into()),
+                    ir::Operand::new_as_variable("b".into())
+                )
+            )),
+            Ok(())
+        );
+
+        assert_eq!(
+            context.append_statement_to_current_block(ir::IrLine::new_jump(
+                SourceLoc::none(),
+                123,
+                ir::JumpCondition::Unconditional,
+            )),
+            Err(())
+        );
+    }
+
+    #[test]
+    fn variable_owner() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        symtab::tests::test_variable_owner(&mut context);
+    }
+
+    #[test]
+    fn type_owner() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        symtab::tests::test_type_owner(&mut context);
     }
 }

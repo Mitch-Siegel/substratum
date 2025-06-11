@@ -6,13 +6,21 @@ use crate::midend::{symtab::*, types::Type};
 
 use super::Function;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TypeDefinition {
     type_: Type,
     pub repr: TypeRepr,
     methods: HashMap<String, Function>,
     associated_functions: HashMap<String, Function>,
 }
+
+impl PartialEq for TypeDefinition {
+    fn eq(&self, other: &Self) -> bool {
+        self.type_.eq(&other.type_) && self.repr.eq(&other.repr)
+    }
+}
+
+impl Eq for TypeDefinition {}
 
 impl TypeDefinition {
     pub fn new(type_: Type, repr: TypeRepr) -> Self {

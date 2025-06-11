@@ -19,7 +19,7 @@ impl FunctionOrPrototype {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Function {
     pub prototype: FunctionPrototype,
     pub scope: Scope,
@@ -37,6 +37,11 @@ impl Function {
 
     pub fn name(&self) -> &str {
         self.prototype.name.as_str()
+    }
+}
+impl PartialEq for Function {
+    fn eq(&self, other: &Self) -> bool {
+        self.prototype == other.prototype
     }
 }
 

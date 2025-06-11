@@ -29,7 +29,7 @@ impl ScopePath {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Scope {
     variables: HashMap<String, Variable>,
     subscopes: Vec<Scope>,
@@ -138,5 +138,15 @@ impl CollapseScopes for Scope {
                 index += 1;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::midend::symtab::*;
+    #[test]
+    fn basic_block_owner() {
+        let mut s = Scope::new();
+        tests::test_basic_block_owner(&mut s);
     }
 }
