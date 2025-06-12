@@ -179,13 +179,8 @@ impl<'a> ReturnWalk<&mut ModuleWalkContext, symtab::FunctionPrototype> for Funct
 
 impl ReturnWalk<&ModuleWalkContext, symtab::StructRepr> for StructDefinitionTree {
     fn walk(self, context: &ModuleWalkContext) -> symtab::StructRepr {
-        let mut repr = symtab::StructRepr::new(self.name);
-        for field in self.fields {
-            let field_type = field.type_.walk(context);
-            repr.add_field(field.name, field_type.type_);
-        }
-
-        repr
+        let fields = self.fields.into_iter().map(|field| {let field_type = field.type_.walk(context).type_; (field.name, field_type)}).collect::<Vec::<_>>();
+        symtab::StructRepr::new(self.name, fields, context).unwrap()
     }
 }
 
@@ -449,12 +444,12 @@ impl<'a> ReturnWalk<&mut FunctionWalkContext<'a>, (Value, Value)> for FieldExpre
             "Error handling for failed lookups is unimplemented: {}.{}",
             receiver.type_, self.field
         ));
-        // TODO: error handling
-        let accessed_field_type = receiver_definition.get_field_type(&self.field).unwrap();
+
+        let accessed_field = receiver_definition.lookup_field(&self.field).unwrap();
         (
             receiver,
             Value::from_type_and_name(
-                accessed_field_type.clone(),
+                accessed_field.type_.clone(),
                 ir::Operand::Variable(ir::OperandName::new_basic(self.field)),
             ),
         )

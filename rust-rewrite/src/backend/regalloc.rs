@@ -1,5 +1,5 @@
 use crate::backend::regalloc::block_depths::find_block_depths;
-use crate::midend::{self, symtab::ScopedLookups};
+use crate::midend::{self, symtab::ScopeOwnerships};
 use lifetime::LifetimeSet;
 
 mod block_depths;

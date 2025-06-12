@@ -4,7 +4,7 @@ use crate::{
         ir,
         linearizer::*,
         symtab::{self, BasicBlockOwner, ScopeOwner, VariableOwner},
-        types::Type,
+        types,
     },
 };
 use std::collections::HashMap;
@@ -26,7 +26,7 @@ impl From<ConvergenceError> for BranchError {
 
 pub struct FunctionWalkContext<'a> {
     module_context: &'a mut ModuleWalkContext,
-    self_type: Option<Type>,
+    self_type: Option<types::Type>,
     prototype: symtab::FunctionPrototype,
     control_flow: ir::ControlFlow,
     scope_stack: Vec<symtab::Scope>,
@@ -50,7 +50,7 @@ impl<'a> FunctionWalkContext<'a> {
     pub fn new(
         module_context: &'a mut ModuleWalkContext,
         prototype: symtab::FunctionPrototype,
-        self_type: Option<Type>,
+        self_type: Option<types::Type>,
     ) -> Self {
         let (control_flow, start_block, end_block) = ir::ControlFlow::new();
         let mut base_convergences = BlockConvergences::new();
@@ -232,7 +232,7 @@ impl<'a> FunctionWalkContext<'a> {
         0
     }
 
-    pub fn next_temp(&mut self, type_: Type) -> ir::Operand {
+    pub fn next_temp(&mut self, type_: types::Type) -> ir::Operand {
         let temp_name = String::from(".T") + &self.temp_num.to_string();
         self.temp_num += 1;
         self.insert_variable(symtab::Variable::new(temp_name.clone(), Some(type_)))
@@ -306,7 +306,7 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
 
     fn lookup_type(
         &self,
-        type_: &Type,
+        type_: &types::Type,
     ) -> Result<&symtab::TypeDefinition, symtab::UndefinedSymbol> {
         for lookup_scope in self.all_scopes() {
             match lookup_scope.lookup_type(type_) {
@@ -320,7 +320,7 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
 
     fn lookup_type_mut(
         &mut self,
-        type_: &Type,
+        type_: &types::Type,
     ) -> Result<&mut symtab::TypeDefinition, symtab::UndefinedSymbol> {
         for lookup_scope in self.all_scopes_mut() {
             match lookup_scope.lookup_type_mut(type_) {
@@ -345,13 +345,14 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
 }
 
 impl<'a> symtab::SelfTypeOwner for FunctionWalkContext<'a> {
-    fn self_type(&self) -> &Type {
+    fn self_type(&self) -> &types::Type {
         self.self_type.as_ref().unwrap()
     }
 }
 
 impl<'a> symtab::ScopeOwnerships for FunctionWalkContext<'a> {}
 impl<'a> symtab::ModuleOwnerships for FunctionWalkContext<'a> {}
+impl<'a> types::TypeSizingContext for FunctionWalkContext<'a> {}
 
 impl<'a> Into<symtab::Function> for FunctionWalkContext<'a> {
     fn into(self) -> symtab::Function {
@@ -371,7 +372,7 @@ mod tests {
             ir,
             linearizer::{functionwalkcontext::BranchError, *},
             symtab::{self, VariableOwner},
-            types::Type,
+            types,
         },
     };
 
@@ -389,10 +390,10 @@ mod tests {
         symtab::FunctionPrototype::new(
             "test_function".into(),
             vec![
-                symtab::Variable::new("a".into(), Some(Type::U16)),
-                symtab::Variable::new("b".into(), Some(Type::I32)),
+                symtab::Variable::new("a".into(), Some(types::Type::U16)),
+                symtab::Variable::new("b".into(), Some(types::Type::I32)),
             ],
-            Type::I32,
+            types::Type::I32,
         )
     }
 
@@ -494,13 +495,13 @@ mod tests {
         let mut context = test_context(&mut module_context);
 
         assert_eq!(
-            context.next_temp(Type::I8),
+            context.next_temp(types::Type::I8),
             ir::Operand::new_as_temporary(String::from(".T0"))
         );
 
         assert_eq!(
             context.lookup_variable_by_name(".T0"),
-            Ok(&symtab::Variable::new(".T0".into(), Some(Type::I8)))
+            Ok(&symtab::Variable::new(".T0".into(), Some(types::Type::I8)))
         );
     }
 

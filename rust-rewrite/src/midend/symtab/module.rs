@@ -1,28 +1,9 @@
-/*
-*
-*
-        Module
-     | ExternCrate
-     | UseDeclaration
-     | Function
-     | TypeAlias
-     | Struct
-     | Enumeration
-     | Union
-     | ConstantItem
-     | StaticItem
-     | Trait
-     | Implementation
-     | ExternBlock//
-                  */
 
-use crate::midend::symtab::{StructRepr, TypeOwner, TypeRepr};
-
-use crate::midend::{symtab::*, types::Type};
-
+use crate::midend::{symtab::{*, StructRepr, TypeOwner, TypeRepr}, types};
 use std::collections::HashMap;
+use serde::Serialize;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Module {
     pub name: String,
     pub functions: HashMap<String, Function>,

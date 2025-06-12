@@ -112,6 +112,7 @@ impl TypeOwner for Scope {
         match self.type_definitions.get(&struct_type) {
             Some(definition) => match &definition.repr {
                 TypeRepr::Struct(struct_definition) => return Ok(struct_definition),
+                _ => {}
             },
             None => {}
         }

@@ -35,6 +35,7 @@ pub enum UndefinedSymbol {
     Type(Type),
     Struct(String),
     Module(String),
+    Field(String),
 }
 
 impl std::fmt::Display for UndefinedSymbol {
@@ -59,6 +60,7 @@ impl std::fmt::Display for UndefinedSymbol {
             Self::Type(type_) => write!(f, "Undeclared type {}", type_),
             Self::Struct(struct_) => write!(f, "Undeclared struct {}", struct_),
             Self::Module(module) => write!(f, "Undeclared module {}", module),
+            Self::Field(field) => write!(f, "Undeclared field {}", field),
         }
     }
 }
@@ -97,6 +99,10 @@ impl UndefinedSymbol {
     pub fn module(name: String) -> Self {
         Self::Module(name)
     }
+
+    pub fn field(name: String) -> Self {
+        Self::Field(name)
+    }
 }
 
 #[derive(PartialEq, Eq)]
@@ -108,6 +114,7 @@ pub enum DefinedSymbol {
     Type(TypeRepr),
     Struct(StructRepr),
     Module(String),
+    Field(StructField),
 }
 
 impl std::fmt::Display for DefinedSymbol {
@@ -132,6 +139,7 @@ impl std::fmt::Display for DefinedSymbol {
             Self::Type(type_) => write!(f, "Type {} is already defined", type_.name()),
             Self::Struct(struct_) => write!(f, "Struct {} is already defined", struct_.name),
             Self::Module(module) => write!(f, "Module {} is already defined", module),
+            Self::Field(field) => write!(f, "Struct field {} is already defined", field),
         }
     }
 }
@@ -169,5 +177,9 @@ impl DefinedSymbol {
 
     pub fn module(module: String) -> Self {
         Self::Module(module)
+    }
+
+    pub fn field(field: StructField) -> Self {
+        Self::Field(field)
     }
 }

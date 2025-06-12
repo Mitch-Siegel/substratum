@@ -1,7 +1,6 @@
 pub mod arch;
 //mod regalloc;
 
-
 /*
 pub fn generate_code_for_function<'a>(
     mut scope_stack: midend::symtab::ScopeStack<'a>,

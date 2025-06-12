@@ -1,11 +1,9 @@
-use crate::midend::{
-    symtab::{self, FunctionOwner, ModuleOwner},
-    types::Type,
-};
+use crate::midend::{symtab::{self, ModuleOwner}, types};
 
 pub struct ModuleWalkContext {
     module_stack: Vec<symtab::Module>,
     current_module: symtab::Module,
+    intrinsics_module: symtab::Module,
 }
 
 impl ModuleWalkContext {
@@ -13,18 +11,21 @@ impl ModuleWalkContext {
         Self {
             module_stack: Vec::new(),
             current_module: symtab::Module::new("_implicit_".into()),
+            intrinsics_module: symtab::intrinsics::create_module(),
         }
     }
 
     fn all_modules(&self) -> Vec<&symtab::Module> {
         std::iter::once(&self.current_module)
             .chain(self.module_stack.iter().rev())
+            .chain(std::iter::once(&self.intrinsics_module))
             .collect()
     }
 
     fn all_modules_mut(&mut self) -> Vec<&mut symtab::Module> {
         std::iter::once(&mut self.current_module)
             .chain(self.module_stack.iter_mut().rev())
+            .chain(std::iter::once(&mut self.intrinsics_module))
             .collect()
     }
 
@@ -63,7 +64,7 @@ impl symtab::TypeOwner for ModuleWalkContext {
 
     fn lookup_type(
         &self,
-        type_: &Type,
+        type_: &types::Type,
     ) -> Result<&symtab::TypeDefinition, symtab::UndefinedSymbol> {
         for module in self.all_modules() {
             match module.lookup_type(type_) {
@@ -77,7 +78,7 @@ impl symtab::TypeOwner for ModuleWalkContext {
 
     fn lookup_type_mut(
         &mut self,
-        type_: &Type,
+        type_: &types::Type,
     ) -> Result<&mut symtab::TypeDefinition, symtab::UndefinedSymbol> {
         for module in self.all_modules_mut() {
             match module.lookup_type_mut(type_) {
@@ -134,7 +135,15 @@ impl symtab::ModuleOwner for ModuleWalkContext {
     }
 }
 
+impl symtab::SelfTypeOwner for ModuleWalkContext {
+    fn self_type(&self) -> &types::Type {
+        panic!("Modules can't have a self type!
+Need to implement error handling around self type lookups");
+    }
+}
+
 impl symtab::ModuleOwnerships for ModuleWalkContext {}
+impl types::TypeSizingContext for ModuleWalkContext {}
 
 #[cfg(test)]
 mod tests {

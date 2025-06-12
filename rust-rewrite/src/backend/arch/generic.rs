@@ -2,8 +2,6 @@ pub mod registers;
 use crate::midend;
 pub use registers::*;
 
-use crate::midend::types::Type;
-
 pub trait TargetArchitecture {
     // returns the size of the machine word in bytes
     fn word_size() -> usize;
@@ -16,7 +14,7 @@ pub trait TargetArchitecture {
     // - None if argument type may not be placed in a register
     // - Some(n) where n is the number of argument registers required if the type may be
     // placed in an argument register
-    fn registers_required_for_argument<T>(context: &T, type_: &Type) -> Option<usize>
+    fn registers_required_for_argument<T>(context: &T, type_: &midend::types::Type) -> Option<usize>
     where
-        T: midend::symtab::EnablesTypeSizing;
+        T: midend::types::TypeSizingContext;
 }

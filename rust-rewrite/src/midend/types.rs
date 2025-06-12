@@ -1,9 +1,20 @@
 use serde::Serialize;
 use std::fmt::Display;
 
-use super::symtab::{self};
-
 use crate::backend;
+use crate::midend::{symtab};
+
+pub trait TypeSizingContext: symtab::TypeOwner + symtab::SelfTypeOwner {}
+
+pub trait SizedType {
+    fn size<C>(&self, context: &C) -> Result<usize, symtab::UndefinedSymbol>
+    where
+        C: TypeSizingContext;
+
+    fn alignment<C>(&self, context: &C) -> Result<usize, symtab::UndefinedSymbol>
+    where
+        C: TypeSizingContext;
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, serde::Deserialize, Hash)]
 pub enum Mutability {
@@ -56,11 +67,12 @@ pub enum Type {
 
 impl Type {
     // size of the type in bytes
-    pub fn size<Target: backend::arch::TargetArchitecture, T>(&self, context: &T) -> usize
+    pub fn size<Target, C>(&self, context: &C) -> Result<usize, symtab::UndefinedSymbol>
     where
-        T: symtab::EnablesTypeSizing,
+        Target: backend::arch::TargetArchitecture,
+        C: TypeSizingContext,
     {
-        match self {
+        let size = match self {
             Type::Unit => 0,
             Type::U8 => 1,
             Type::U16 => 2,
@@ -70,26 +82,48 @@ impl Type {
             Type::I16 => 2,
             Type::I32 => 4,
             Type::I64 => 8,
-            Type::_Self => context.self_type().size::<Target, T>(context),
+            Type::_Self => context.self_type().size::<Target, C>(context)?,
             Type::UDT(type_name) => {
-                let type_definition = context.lookup_type(self).expect(&format!(
-                    "Missing UDT definition for '{}' in Type::size()",
-                    type_name
-                ));
-
-                match &type_definition.repr {
-                    symtab::TypeRepr::Struct(struct_repr) => {
-                        let mut struct_size: usize = 0;
-                        for (_, field) in struct_repr {
-                            struct_size += field.size::<Target, T>(context);
-                        }
-
-                        struct_size
-                    }
-                }
-            }
+                let type_definition = context.lookup_type(self)?;
+                type_definition.size(context)?
+            },
             Type::Reference(_, _) => Target::word_size(),
             Type::Pointer(_, _) => Target::word_size(),
+        };
+
+        Ok(size)
+    }
+
+    pub fn align_size_power_of_two(size: usize) -> usize {
+        if size == 0 {
+            0}else if size == 1 {1} else {
+    size.next_power_of_two()
+            }
+    }
+
+    pub fn alignment<Target, C>(&self, context: &C) -> Result<usize, symtab::UndefinedSymbol> 
+        where Target: backend::arch::TargetArchitecture, C: TypeSizingContext,
+    {
+        match self {
+            Type::Unit|
+            Type::U8|
+            Type::U16|
+            Type::U32|
+            Type::U64|
+            Type::I8|
+            Type::I16|
+            Type::I32|
+            Type::I64| Type::Reference(_, _) |
+            Type::Pointer(_, _) => {
+                Ok(Self::align_size_power_of_two(
+                        self.size::<Target, C>(context)?
+                        )
+                    )
+            },
+            Type::_Self => Ok(context.self_type().alignment::<Target, C>(context)?),
+            Type::UDT(type_name) => {
+                let type_definition = context.lookup_type(self)?;
+               Ok( type_definition.alignment(context)?)},
         }
     }
 }

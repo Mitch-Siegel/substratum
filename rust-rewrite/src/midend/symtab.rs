@@ -12,6 +12,7 @@ pub use variable::*;
 
 mod errors;
 mod function;
+pub mod intrinsics;
 mod module;
 mod scope;
 mod type_definitions;
@@ -80,8 +81,6 @@ pub trait ScopeOwnerships: BasicBlockOwner + VariableOwner + TypeOwner {}
 
 pub trait ModuleOwnerships: TypeOwner {}
 
-pub trait EnablesTypeSizing: TypeOwner + SelfTypeOwner {}
-
 pub struct SymbolTable {
     pub global_module: Module,
 }
@@ -98,7 +97,7 @@ impl SymbolTable {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::midend::symtab::*;
+    use crate::midend::{symtab::*, types};
     pub fn test_scope_owner<T>(owner: &mut T)
     where
         T: ScopeOwner,
@@ -157,9 +156,14 @@ pub mod tests {
 
     pub fn test_type_owner<T>(owner: &mut T)
     where
-        T: TypeOwner,
+        T: TypeOwner + types::TypeSizingContext,
     {
-        let example_struct_repr = StructRepr::new("TestStruct".into());
+        let example_struct_repr = StructRepr::new(
+            "TestStruct".into(),
+            vec![("first_field".into(), Type::U8)],
+            owner,
+        ).unwrap();
+        
         let mut example_type = TypeDefinition::new(
             Type::UDT("TestStruct".into()),
             TypeRepr::Struct(example_struct_repr.clone()),
