@@ -84,7 +84,7 @@ impl BlockConvergences {
 }
 
 mod tests {
-    use crate::midend::linearizer::block_convergences::*;
+    
     #[test]
     fn add() {
         let mut c = BlockConvergences::new();

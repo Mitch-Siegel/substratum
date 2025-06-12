@@ -18,7 +18,28 @@ macro_rules! span_auto {
         $crate::trace::ExitOnDropSpan::from(tracing::span!($lvl, $name).entered())
     };
 }
+
+macro_rules! span_auto_trace {
+    ($name:expr, $($fields:tt)*) => {
+        $crate::trace::ExitOnDropSpan::from(tracing::span!($crate::trace::Level::TRACE, $name, $($fields)*).entered())
+    };
+    ($name:expr) => {
+        $crate::trace::ExitOnDropSpan::from(tracing::span!($crate::trace::Level::TRACE, $name).entered())
+    };
+}
+
+macro_rules! span_auto_debug {
+    ($name:expr, $($fields:tt)*) => {
+        $crate::trace::ExitOnDropSpan::from(tracing::span!($crate::trace::Level::DEBUG, $name, $($fields)*).entered())
+    };
+    ($name:expr) => {
+        $crate::trace::ExitOnDropSpan::from(tracing::span!($crate::trace::Level::DEBUG, $name).entered())
+    };
+}
+
 pub(crate) use span_auto;
+pub(crate) use span_auto_debug;
+pub(crate) use span_auto_trace;
 
 macro_rules! trace {
     ($name:expr, $($arg:tt)*) => (tracing::trace!($name, $($arg)*));

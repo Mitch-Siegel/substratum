@@ -1,4 +1,5 @@
 use crate::{
+    trace,
     frontend::sourceloc::SourceLoc,
     midend::{
         ir,
@@ -52,6 +53,7 @@ impl<'a> FunctionWalkContext<'a> {
         prototype: symtab::FunctionPrototype,
         self_type: Option<types::Type>,
     ) -> Self {
+        trace::trace!("Create function walk context for {}", prototype);
         let (control_flow, start_block, end_block) = ir::ControlFlow::new();
         let mut base_convergences = BlockConvergences::new();
         base_convergences
@@ -257,6 +259,7 @@ impl<'a> symtab::BasicBlockOwner for FunctionWalkContext<'a> {
     }
 
     fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock> {
+        let _ = trace::span_auto!(trace::Level::TRACE, "Lookup basic block in function walk context: ", "{}", label);
         for lookup_scope in self.scope_stack.iter().rev() {
             match lookup_scope.lookup_basic_block(label) {
                 Some(block) => return Some(block),
@@ -268,6 +271,7 @@ impl<'a> symtab::BasicBlockOwner for FunctionWalkContext<'a> {
     }
 
     fn lookup_basic_block_mut(&mut self, label: usize) -> Option<&mut ir::BasicBlock> {
+        let _ = trace::span_auto!(trace::Level::TRACE, "Lookup basic block (mut) in function walk context: ", "{}", label);
         for lookup_scope in self.scope_stack.iter_mut().rev() {
             match lookup_scope.lookup_basic_block_mut(label) {
                 Some(block) => return Some(block),
@@ -308,6 +312,7 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
         &self,
         type_: &types::Type,
     ) -> Result<&symtab::TypeDefinition, symtab::UndefinedSymbol> {
+        let _ = trace::span_auto!(trace::Level::TRACE, "Lookup type in function walk context: ", "{}", type_);
         for lookup_scope in self.all_scopes() {
             match lookup_scope.lookup_type(type_) {
                 Ok(type_) => return Ok(type_),

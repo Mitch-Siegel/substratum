@@ -1,5 +1,5 @@
 
-use crate::midend::{symtab::{*, StructRepr, TypeOwner, TypeRepr}, types};
+use crate::midend::symtab::{*, StructRepr, TypeOwner, TypeRepr};
 use std::collections::HashMap;
 use serde::Serialize;
 
@@ -37,9 +37,12 @@ impl TypeOwner for Module {
     }
 
     fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol> {
-        self.type_definitions
+        let result = self.type_definitions
             .get(type_)
-            .ok_or(UndefinedSymbol::type_(type_.clone()))
+            .ok_or(UndefinedSymbol::type_(type_.clone()));
+
+        trace::trace!("Module::lookup_type: {} {} - found? {}", self.name, type_, result.is_ok());
+        result
     }
 
     fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol> {

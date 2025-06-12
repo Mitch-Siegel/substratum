@@ -1,4 +1,4 @@
-use crate::midend::{symtab::{self, ModuleOwner}, types};
+use crate::{trace, midend::{symtab::{self, ModuleOwner}, types}};
 
 pub struct ModuleWalkContext {
     module_stack: Vec<symtab::Module>,
@@ -31,6 +31,7 @@ impl ModuleWalkContext {
 
     fn new_submodule(&mut self, name: String) {
         let parent = std::mem::replace(&mut self.current_module, symtab::Module::new(name));
+        tracing::debug!("Create new submodule: {}::{}", parent.name, self.current_module.name);
         self.module_stack.push(parent);
     }
 
@@ -40,6 +41,7 @@ impl ModuleWalkContext {
             None => return Err(()),
         };
         let old = std::mem::replace(&mut self.current_module, parent);
+        tracing::debug!("Pop current module to submodule of parent: {}::{}", self.current_module.name, old.name);
         match self.current_module.insert_module(old) {
             Ok(()) => Ok(()),
             Err(_) => Err(()),
@@ -66,6 +68,7 @@ impl symtab::TypeOwner for ModuleWalkContext {
         &self,
         type_: &types::Type,
     ) -> Result<&symtab::TypeDefinition, symtab::UndefinedSymbol> {
+        let _ = trace::span_auto!(trace::Level::TRACE, "Lookup type in module walk context:", "{}", type_);
         for module in self.all_modules() {
             match module.lookup_type(type_) {
                 Ok(type_) => return Ok(type_),
@@ -147,15 +150,10 @@ impl types::TypeSizingContext for ModuleWalkContext {}
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        frontend::sourceloc::SourceLoc,
-        midend::{
-            ir,
-            linearizer::{modulewalkcontext::*, *},
-            symtab::{self, VariableOwner},
-            types::Type,
-        },
-    };
+    use crate::midend::{
+            linearizer::modulewalkcontext::*,
+            symtab::{self},
+        };
 
     #[test]
     fn pop_current_module_to_submodule_of_next() {

@@ -1,4 +1,4 @@
-use crate::midend::symtab::*;
+use crate::midend::{symtab::*, types};
 
 pub fn create_module() -> Module {
     let mut intrinsics = Module::new("_intrinsics_".into());

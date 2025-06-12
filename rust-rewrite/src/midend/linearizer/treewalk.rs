@@ -6,7 +6,10 @@ use crate::{
         symtab::{self, FunctionOwner, MethodOwner, TypeOwner, VariableOwner},
         types::Type,
     },
+    trace,
 };
+
+use name_derive::{NameReflectable, ReflectName};
 
 #[derive(Clone, Debug)]
 pub struct Value {
@@ -69,6 +72,7 @@ pub trait ReturnWalk<T, U> {
 }
 
 impl ModuleWalk for TranslationUnitTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut ModuleWalkContext) {
         match self.contents {
             TranslationUnit::FunctionDeclaration(function_declaration) => {
@@ -95,6 +99,7 @@ impl ModuleWalk for TranslationUnitTree {
 }
 
 impl ModuleWalk for ImplementationTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut ModuleWalkContext) {
         let implemented_for_type = self.type_.walk(context).type_;
 
@@ -115,6 +120,7 @@ impl ModuleWalk for ImplementationTree {
 impl ReturnWalk<&mut ModuleWalkContext, Result<symtab::Function, symtab::SymbolError>>
     for FunctionDefinitionTree
 {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(
         self,
         context: &mut ModuleWalkContext,
@@ -131,7 +137,9 @@ impl<T> ReturnWalk<&T, Value> for TypeTree
 where
     T: symtab::ModuleOwnerships,
 {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &T) -> Value {
+        trace::span_auto_trace!("TypeTree::walk()");
         // check that the type exists by looking it up
         context.lookup_type(&self.type_).unwrap();
         Value::from_type(self.type_)
@@ -142,6 +150,7 @@ impl<T> ReturnWalk<&T, symtab::Variable> for VariableDeclarationTree
 where
     T: symtab::ModuleOwnerships,
 {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &T) -> symtab::Variable {
         let variable_type = match self.type_ {
             Some(type_tree) => Some(type_tree.walk(context).type_),
@@ -156,12 +165,14 @@ impl<T> ReturnWalk<&T, symtab::Variable> for ArgumentDeclarationTree
 where
     T: symtab::ModuleOwnerships,
 {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &T) -> symtab::Variable {
         symtab::Variable::new(self.name.clone(), Some(self.type_.walk(context).type_))
     }
 }
 
 impl<'a> ReturnWalk<&mut ModuleWalkContext, symtab::FunctionPrototype> for FunctionDeclarationTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut ModuleWalkContext) -> symtab::FunctionPrototype {
         symtab::FunctionPrototype::new(
             self.name,
@@ -178,13 +189,22 @@ impl<'a> ReturnWalk<&mut ModuleWalkContext, symtab::FunctionPrototype> for Funct
 }
 
 impl ReturnWalk<&ModuleWalkContext, symtab::StructRepr> for StructDefinitionTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &ModuleWalkContext) -> symtab::StructRepr {
-        let fields = self.fields.into_iter().map(|field| {let field_type = field.type_.walk(context).type_; (field.name, field_type)}).collect::<Vec::<_>>();
+        let fields = self
+            .fields
+            .into_iter()
+            .map(|field| {
+                let field_type = field.type_.walk(context).type_;
+                (field.name, field_type)
+            })
+            .collect::<Vec<_>>();
         symtab::StructRepr::new(self.name, fields, context).unwrap()
     }
 }
 
 impl FunctionWalk for ArithmeticExpressionTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         let (temp_dest, op) = match self {
             ArithmeticExpressionTree::Add(operands) => {
@@ -233,6 +253,7 @@ impl FunctionWalk for ArithmeticExpressionTree {
 }
 
 impl FunctionWalk for ComparisonExpressionTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         let (temp_dest, op) = match self {
             ComparisonExpressionTree::LThan(operands) => {
@@ -299,6 +320,7 @@ impl FunctionWalk for ComparisonExpressionTree {
 }
 
 impl FunctionWalk for ExpressionTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         match self.expression {
             Expression::Identifier(ident) => {
@@ -331,6 +353,7 @@ impl FunctionWalk for ExpressionTree {
 }
 
 impl FunctionWalk for AssignmentTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         let assignment_ir = match self.assignee.expression {
             Expression::FieldExpression(field_expression_tree) => {
@@ -356,6 +379,7 @@ impl FunctionWalk for AssignmentTree {
 }
 
 impl FunctionWalk for IfExpressionTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc;
@@ -416,6 +440,7 @@ impl FunctionWalk for IfExpressionTree {
 }
 
 impl FunctionWalk for WhileExpressionTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         let loop_done = context.create_loop();
 
@@ -429,6 +454,7 @@ impl FunctionWalk for WhileExpressionTree {
 // receiver is the value containing the receiver of the field access
 // field_info is a value containing name and type information of the field being accessed
 impl<'a> ReturnWalk<&mut FunctionWalkContext<'a>, (Value, Value)> for FieldExpressionTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> (Value, Value) {
         let receiver = self.receiver.walk(context);
 
@@ -457,6 +483,7 @@ impl<'a> ReturnWalk<&mut FunctionWalkContext<'a>, (Value, Value)> for FieldExpre
 }
 
 impl<'a> ReturnWalk<&mut FunctionWalkContext<'a>, Vec<Value>> for CallParamsTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Vec<Value> {
         let mut param_values = Vec::new();
 
@@ -469,6 +496,7 @@ impl<'a> ReturnWalk<&mut FunctionWalkContext<'a>, Vec<Value>> for CallParamsTree
 }
 
 impl FunctionWalk for MethodCallExpressionTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         let receiver = self.receiver.walk(context);
 
@@ -512,6 +540,7 @@ impl FunctionWalk for MethodCallExpressionTree {
 }
 
 impl FunctionWalk for StatementTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         match self.statement {
             Statement::VariableDeclaration(declaration_tree) => {
@@ -525,6 +554,7 @@ impl FunctionWalk for StatementTree {
 }
 
 impl FunctionWalk for CompoundExpressionTree {
+    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(mut self, context: &mut FunctionWalkContext) -> Value {
         context.unconditional_branch_from_current(self.loc);
 
