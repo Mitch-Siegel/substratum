@@ -1,5 +1,4 @@
 use crate::{
-    trace,
     frontend::sourceloc::SourceLoc,
     midend::{
         ir,
@@ -7,6 +6,7 @@ use crate::{
         symtab::{self, BasicBlockOwner, ScopeOwner, VariableOwner},
         types,
     },
+    trace,
 };
 use std::collections::HashMap;
 
@@ -25,6 +25,20 @@ impl From<ConvergenceError> for BranchError {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum LoopError {
+    NotLooping,
+    Convergence(ConvergenceError),
+    LoopBottomNotDone(usize), // if the loop bottom convergence returns as "not done", the label
+    // which the BlockConvergences says we expect to converge to
+    LoopInsideNotDone(usize), // same as LoopBottomNotDone but for the loop body itself
+}
+impl From<ConvergenceError> for LoopError {
+    fn from(e: ConvergenceError) -> Self {
+        Self::Convergence(e)
+    }
+}
+
 pub struct FunctionWalkContext<'a> {
     module_context: &'a mut ModuleWalkContext,
     self_type: Option<types::Type>,
@@ -33,6 +47,7 @@ pub struct FunctionWalkContext<'a> {
     scope_stack: Vec<symtab::Scope>,
     current_scope: symtab::Scope,
     current_scope_address: symtab::ScopePath, // relative to the topmost scope of the current
+    open_loop_beginnings: Vec<usize>,
     // conditional branches from source block to the branch_false block.
     // creating a branch replaces current_block with the branch_tru
     // e block,
@@ -72,6 +87,7 @@ impl<'a> FunctionWalkContext<'a> {
             open_branch_path: Vec::new(),
             scope_stack: Vec::new(),
             current_scope: argument_scope,
+            open_loop_beginnings: Vec::new(),
             // TODO: remove me?
             current_scope_address: symtab::ScopePath::new(),
             temp_num: 0,
@@ -230,8 +246,90 @@ impl<'a> FunctionWalkContext<'a> {
         Ok(())
     }
 
-    pub fn create_loop(&mut self) -> usize {
-        0
+    pub fn create_loop(&mut self, loc: SourceLoc) -> Result<usize, LoopError> {
+        let (loop_top, loop_bottom, after_loop) =
+            self.control_flow.create_loop(&mut self.current_block, loc);
+
+        // track the top of the loop we are opening
+        self.open_loop_beginnings.push(loop_top.label);
+
+        // transfer control flow unconditionally to the top of the loop
+        let loop_entry_jump =
+            ir::IrLine::new_jump(loc, loop_top.label, ir::JumpCondition::Unconditional);
+        self.current_block.statements.push(loop_entry_jump);
+
+        // now the current block should be the loop's top
+        let old_block = std::mem::replace(&mut self.current_block, loop_top);
+        self.open_convergences
+            .rename_source(old_block.label, after_loop.label);
+        self.current_scope.insert_basic_block(old_block);
+
+        let after_loop_label = after_loop.label;
+
+        // NB the convergence here is handled a bit differently for loops, since we might want a
+        // condition check either at the top or at the bottom of the loop. In any case, the
+        // finish_loop() handling of the convergence mirrors this scheme so the handling is valid.
+        // the bottom of the loop should converge to after the loop
+        self.open_convergences
+            .add(&[loop_bottom.label], after_loop)?;
+
+        // the top of the loop should converge to the bottom of the loop
+        self.open_convergences
+            .add(&[self.current_block.label], loop_bottom)?;
+
+        Ok(after_loop_label)
+    }
+
+    pub fn finish_loop(
+        &mut self,
+        loc: SourceLoc,
+        loop_bottom_actions: Vec<ir::IrLine>,
+    ) -> Result<(), LoopError> {
+        // wherever the current block ends up, it should have convergence as Done to loop_bottom
+        // per create_loop() as each loop convergence is singly-associated
+        match self.open_convergences.converge(self.current_block.label)? {
+            ConvergenceResult::Done(loop_bottom) => {
+                // transfer control flow from the current block to loop_bottom
+                let loop_bottom_jump =
+                    ir::IrLine::new_jump(loc, loop_bottom.label, ir::JumpCondition::Unconditional);
+                self.current_block.statements.push(loop_bottom_jump);
+
+                // make our current block loop_bottom
+                let old_block = std::mem::replace(&mut self.current_block, loop_bottom);
+                self.current_scope.insert_basic_block(old_block);
+
+                // insert any IRs that need to be at the bottom of the loop but before the looping jump itself
+                for loop_bottom_ir in loop_bottom_actions {
+                    self.current_block.statements.push(loop_bottom_ir);
+                }
+
+                // figure out where the top of our loop is to jump back to
+                let loop_top = match self.open_loop_beginnings.pop() {
+                    Some(top) => top,
+                    None => return Err(LoopError::NotLooping),
+                };
+
+                let loop_jump =
+                    ir::IrLine::new_jump(loc, loop_top, ir::JumpCondition::Unconditional);
+                self.current_block.statements.push(loop_jump);
+
+                // now that we are in loop_bottom, create_loop() should have a convergence for us
+                // which will give us the after_loop block
+                match self.open_convergences.converge(self.current_block.label)? {
+                    ConvergenceResult::Done(after_loop) => {
+                        // transition to after_loop, assuming that the correct IR was inserted to
+                        // break out of the loop at some point within the loop or by
+                        // loop_bottom_actions
+                        let old_block = std::mem::replace(&mut self.current_block, after_loop);
+                        self.current_scope.insert_basic_block(old_block);
+
+                        Ok(())
+                    }
+                    ConvergenceResult::NotDone(label) => Err(LoopError::LoopBottomNotDone(label)),
+                }
+            }
+            ConvergenceResult::NotDone(label) => Err(LoopError::LoopInsideNotDone(label)),
+        }
     }
 
     pub fn next_temp(&mut self, type_: types::Type) -> ir::Operand {
@@ -259,7 +357,12 @@ impl<'a> symtab::BasicBlockOwner for FunctionWalkContext<'a> {
     }
 
     fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock> {
-        let _ = trace::span_auto!(trace::Level::TRACE, "Lookup basic block in function walk context: ", "{}", label);
+        let _ = trace::span_auto!(
+            trace::Level::TRACE,
+            "Lookup basic block in function walk context: ",
+            "{}",
+            label
+        );
         for lookup_scope in self.scope_stack.iter().rev() {
             match lookup_scope.lookup_basic_block(label) {
                 Some(block) => return Some(block),
@@ -271,7 +374,12 @@ impl<'a> symtab::BasicBlockOwner for FunctionWalkContext<'a> {
     }
 
     fn lookup_basic_block_mut(&mut self, label: usize) -> Option<&mut ir::BasicBlock> {
-        let _ = trace::span_auto!(trace::Level::TRACE, "Lookup basic block (mut) in function walk context: ", "{}", label);
+        let _ = trace::span_auto!(
+            trace::Level::TRACE,
+            "Lookup basic block (mut) in function walk context: ",
+            "{}",
+            label
+        );
         for lookup_scope in self.scope_stack.iter_mut().rev() {
             match lookup_scope.lookup_basic_block_mut(label) {
                 Some(block) => return Some(block),
@@ -312,7 +420,12 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
         &self,
         type_: &types::Type,
     ) -> Result<&symtab::TypeDefinition, symtab::UndefinedSymbol> {
-        let _ = trace::span_auto!(trace::Level::TRACE, "Lookup type in function walk context: ", "{}", type_);
+        let _ = trace::span_auto!(
+            trace::Level::TRACE,
+            "Lookup type in function walk context: ",
+            "{}",
+            type_
+        );
         for lookup_scope in self.all_scopes() {
             match lookup_scope.lookup_type(type_) {
                 Ok(type_) => return Ok(type_),
@@ -375,7 +488,7 @@ mod tests {
         frontend::sourceloc::SourceLoc,
         midend::{
             ir,
-            linearizer::{functionwalkcontext::BranchError, *},
+            linearizer::{functionwalkcontext::*, *},
             symtab::{self, VariableOwner},
             types,
         },
@@ -431,7 +544,10 @@ mod tests {
         let mut context = test_context(&mut module_context);
 
         let pre_branch_label = context.current_block.label;
-        context.unconditional_branch_from_current(SourceLoc::none());
+        assert_eq!(
+            context.unconditional_branch_from_current(SourceLoc::none()),
+            Ok(())
+        );
         let in_branch_label = context.current_block.label;
         assert_ne!(in_branch_label, pre_branch_label);
 
@@ -491,6 +607,125 @@ mod tests {
         assert_eq!(
             context.unconditional_branch_from_current(SourceLoc::none()),
             Ok(())
+        );
+    }
+
+    #[test]
+    fn create_and_finish_loop() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        assert_eq!(context.create_loop(SourceLoc::none()), Ok(4));
+
+        assert_eq!(context.finish_loop(SourceLoc::none(), Vec::new()), Ok(()));
+    }
+
+    #[test]
+    fn finish_loop_error() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        assert_eq!(
+            context.finish_loop(SourceLoc::none(), Vec::new()),
+            Err(LoopError::NotLooping)
+        );
+    }
+
+    #[test]
+    fn branch_with_nested_loop() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        assert_eq!(
+            context.conditional_branch_from_current(
+                SourceLoc::none(),
+                ir::JumpCondition::NE(ir::DualSourceOperands::new(
+                    ir::Operand::new_as_variable("a".into()),
+                    ir::Operand::new_as_variable("b".into()),
+                )),
+            ),
+            Ok(())
+        );
+
+        assert_eq!(context.create_loop(SourceLoc::none()), Ok(7));
+
+        assert_eq!(context.finish_loop(SourceLoc::none(), Vec::new()), Ok(()));
+
+        assert_eq!(context.finish_true_branch_switch_to_false(), Ok(()));
+
+        assert_eq!(context.finish_branch(), Ok(()));
+    }
+
+    #[test]
+    fn branch_with_nested_loop_error() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        assert_eq!(
+            context.conditional_branch_from_current(
+                SourceLoc::none(),
+                ir::JumpCondition::NE(ir::DualSourceOperands::new(
+                    ir::Operand::new_as_variable("a".into()),
+                    ir::Operand::new_as_variable("b".into()),
+                )),
+            ),
+            Ok(())
+        );
+
+        assert_eq!(context.create_loop(SourceLoc::none()), Ok(7));
+
+        assert_eq!(
+            context.finish_true_branch_switch_to_false(),
+            Err(BranchError::MissingFalseBlock(0))
+        );
+    }
+
+    #[test]
+    fn loop_with_nested_branch() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        assert_eq!(context.create_loop(SourceLoc::none()), Ok(4));
+
+        assert_eq!(
+            context.conditional_branch_from_current(
+                SourceLoc::none(),
+                ir::JumpCondition::NE(ir::DualSourceOperands::new(
+                    ir::Operand::new_as_variable("a".into()),
+                    ir::Operand::new_as_variable("b".into()),
+                )),
+            ),
+            Ok(())
+        );
+
+        assert_eq!(context.finish_true_branch_switch_to_false(), Ok(()));
+
+        assert_eq!(context.finish_branch(), Ok(()));
+
+        assert_eq!(context.finish_loop(SourceLoc::none(), Vec::new()), Ok(()));
+    }
+
+    #[test]
+    fn loop_with_nested_branch_error() {
+        let mut module_context = ModuleWalkContext::new();
+        let mut context = test_context(&mut module_context);
+
+        assert_eq!(context.create_loop(SourceLoc::none()), Ok(4));
+
+        assert_eq!(
+            context.conditional_branch_from_current(
+                SourceLoc::none(),
+                ir::JumpCondition::NE(ir::DualSourceOperands::new(
+                    ir::Operand::new_as_variable("a".into()),
+                    ir::Operand::new_as_variable("b".into()),
+                )),
+            ),
+            Ok(())
+        );
+
+        assert_eq!(
+            context.finish_loop(SourceLoc::none(), Vec::new()),
+            Err(LoopError::LoopInsideNotDone(7))
         );
     }
 

@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::fmt::Display;
 
 use crate::backend;
-use crate::midend::{symtab};
+use crate::midend::symtab;
 
 pub trait TypeSizingContext: symtab::TypeOwner + symtab::SelfTypeOwner {}
 
@@ -83,10 +83,10 @@ impl Type {
             Type::I32 => 4,
             Type::I64 => 8,
             Type::_Self => context.self_type().size::<Target, C>(context)?,
-            Type::UDT(type_name) => {
+            Type::UDT(_) => {
                 let type_definition = context.lookup_type(self)?;
                 type_definition.size(context)?
-            },
+            }
             Type::Reference(_, _) => Target::word_size(),
             Type::Pointer(_, _) => Target::word_size(),
         };
@@ -96,34 +96,38 @@ impl Type {
 
     pub fn align_size_power_of_two(size: usize) -> usize {
         if size == 0 {
-            0}else if size == 1 {1} else {
-    size.next_power_of_two()
-            }
+            0
+        } else if size == 1 {
+            1
+        } else {
+            size.next_power_of_two()
+        }
     }
 
-    pub fn alignment<Target, C>(&self, context: &C) -> Result<usize, symtab::UndefinedSymbol> 
-        where Target: backend::arch::TargetArchitecture, C: TypeSizingContext,
+    pub fn alignment<Target, C>(&self, context: &C) -> Result<usize, symtab::UndefinedSymbol>
+    where
+        Target: backend::arch::TargetArchitecture,
+        C: TypeSizingContext,
     {
         match self {
-            Type::Unit|
-            Type::U8|
-            Type::U16|
-            Type::U32|
-            Type::U64|
-            Type::I8|
-            Type::I16|
-            Type::I32|
-            Type::I64| Type::Reference(_, _) |
-            Type::Pointer(_, _) => {
-                Ok(Self::align_size_power_of_two(
-                        self.size::<Target, C>(context)?
-                        )
-                    )
-            },
+            Type::Unit
+            | Type::U8
+            | Type::U16
+            | Type::U32
+            | Type::U64
+            | Type::I8
+            | Type::I16
+            | Type::I32
+            | Type::I64
+            | Type::Reference(_, _)
+            | Type::Pointer(_, _) => Ok(Self::align_size_power_of_two(
+                self.size::<Target, C>(context)?,
+            )),
             Type::_Self => Ok(context.self_type().alignment::<Target, C>(context)?),
-            Type::UDT(type_name) => {
+            Type::UDT(_) => {
                 let type_definition = context.lookup_type(self)?;
-               Ok( type_definition.alignment(context)?)},
+                Ok(type_definition.alignment(context)?)
+            }
         }
     }
 }

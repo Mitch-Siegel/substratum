@@ -108,22 +108,26 @@ impl ControlFlow {
     ) -> (ir::BasicBlock, ir::BasicBlock, ir::BasicBlock) {
         self.max_block += 3;
         let loop_top = ir::BasicBlock::new(self.max_block - 2);
-        let loop_bottom = ir::BasicBlock::new(self.max_block - 1);
+        let mut loop_bottom = ir::BasicBlock::new(self.max_block - 1);
         let after_loop = ir::BasicBlock::new(self.max_block);
 
-        /*let loop_jump = ir::new_jump(
+        let loop_entry = ir::IrLine::new_jump(
+            loc,
+            loop_top.label,
+            ir::operands::JumpCondition::Unconditional,
+        );
+        from_block.statements.push(loop_entry);
+
+        let loop_jump = ir::IrLine::new_jump(
             loc,
             loop_top.label,
             ir::operands::JumpCondition::Unconditional,
         );
 
         from_block.successors.insert(loop_top.label);
-        // don't include the loop bottom as a predecessor of the loop top (TODO: for now?)
-        loop_top.predecessors.insert(from_block.label);
-        from_block.statements.append(loop_jump.clone());
+        from_block.statements.push(loop_jump.clone());
 
-        loop_bottom.successors.insert(loop_top);
-        loop_bottom.append(loop_jump);*/
+        loop_bottom.statements.push(loop_jump);
 
         (loop_top, loop_bottom, after_loop)
     }

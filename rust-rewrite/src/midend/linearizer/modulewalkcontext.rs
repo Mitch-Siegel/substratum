@@ -1,4 +1,10 @@
-use crate::{trace, midend::{symtab::{self, ModuleOwner}, types}};
+use crate::{
+    midend::{
+        symtab::{self, ModuleOwner},
+        types,
+    },
+    trace,
+};
 
 pub struct ModuleWalkContext {
     module_stack: Vec<symtab::Module>,
@@ -31,7 +37,11 @@ impl ModuleWalkContext {
 
     fn new_submodule(&mut self, name: String) {
         let parent = std::mem::replace(&mut self.current_module, symtab::Module::new(name));
-        tracing::debug!("Create new submodule: {}::{}", parent.name, self.current_module.name);
+        tracing::debug!(
+            "Create new submodule: {}::{}",
+            parent.name,
+            self.current_module.name
+        );
         self.module_stack.push(parent);
     }
 
@@ -41,7 +51,11 @@ impl ModuleWalkContext {
             None => return Err(()),
         };
         let old = std::mem::replace(&mut self.current_module, parent);
-        tracing::debug!("Pop current module to submodule of parent: {}::{}", self.current_module.name, old.name);
+        tracing::debug!(
+            "Pop current module to submodule of parent: {}::{}",
+            self.current_module.name,
+            old.name
+        );
         match self.current_module.insert_module(old) {
             Ok(()) => Ok(()),
             Err(_) => Err(()),
@@ -68,7 +82,12 @@ impl symtab::TypeOwner for ModuleWalkContext {
         &self,
         type_: &types::Type,
     ) -> Result<&symtab::TypeDefinition, symtab::UndefinedSymbol> {
-        let _ = trace::span_auto!(trace::Level::TRACE, "Lookup type in module walk context:", "{}", type_);
+        let _ = trace::span_auto!(
+            trace::Level::TRACE,
+            "Lookup type in module walk context:",
+            "{}",
+            type_
+        );
         for module in self.all_modules() {
             match module.lookup_type(type_) {
                 Ok(type_) => return Ok(type_),
@@ -122,7 +141,7 @@ impl symtab::FunctionOwner for ModuleWalkContext {
 }
 
 impl symtab::ModuleOwner for ModuleWalkContext {
-    fn insert_module(&mut self, module: symtab::Module) -> Result<(), symtab::DefinedSymbol> {
+    fn insert_module(&mut self, _module: symtab::Module) -> Result<(), symtab::DefinedSymbol> {
         unimplemented!("insert_module not to be used by ModuleWalkContext");
     }
 
@@ -140,8 +159,10 @@ impl symtab::ModuleOwner for ModuleWalkContext {
 
 impl symtab::SelfTypeOwner for ModuleWalkContext {
     fn self_type(&self) -> &types::Type {
-        panic!("Modules can't have a self type!
-Need to implement error handling around self type lookups");
+        panic!(
+            "Modules can't have a self type!
+Need to implement error handling around self type lookups"
+        );
     }
 }
 
@@ -151,9 +172,9 @@ impl types::TypeSizingContext for ModuleWalkContext {}
 #[cfg(test)]
 mod tests {
     use crate::midend::{
-            linearizer::modulewalkcontext::*,
-            symtab::{self},
-        };
+        linearizer::modulewalkcontext::*,
+        symtab::{self},
+    };
 
     #[test]
     fn pop_current_module_to_submodule_of_next() {
