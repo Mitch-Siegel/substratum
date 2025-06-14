@@ -83,8 +83,11 @@ impl BlockConvergences {
     }
 }
 
+#[cfg(test)]
 mod tests {
-    
+    use crate::midend::{ir, linearizer::*};
+    use std::collections::HashMap;
+
     #[test]
     fn add() {
         let mut c = BlockConvergences::new();
