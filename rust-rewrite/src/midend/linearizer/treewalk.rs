@@ -463,9 +463,27 @@ impl FunctionWalk for IfExpressionTree {
 impl FunctionWalk for WhileExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
-        let loop_done_label = context.create_loop(self.loc);
+        let loop_done_label = context.create_loop(self.loc).unwrap();
 
+        let condition = self.condition.walk(context);
+        let loop_condition_jump = ir::IrLine::new_jump(
+            self.loc,
+            loop_done_label,
+            ir::JumpCondition::Eq(ir::DualSourceOperands::new(
+                condition.into(),
+                ir::Operand::new_as_unsigned_decimal_constant(0),
+            )),
+        );
+
+        context
+            .append_statement_to_current_block(loop_condition_jump)
+            .unwrap();
+
+        context.unconditional_branch_from_current(self.loc).unwrap();
         self.body.walk(context);
+        context.finish_branch().unwrap();
+
+        context.finish_loop(self.loc, Vec::new()).unwrap();
 
         Value::unit()
     }
