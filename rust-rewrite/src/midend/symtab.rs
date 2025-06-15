@@ -1,4 +1,3 @@
-
 use crate::{
     midend::{ir, types::Type},
     trace,
@@ -14,6 +13,7 @@ mod function;
 pub mod intrinsics;
 mod module;
 mod scope;
+pub mod symtab_walker;
 mod type_definitions;
 mod variable;
 
@@ -22,54 +22,65 @@ pub use scope::ScopePath;
 pub use TypeRepr;
 
 /// Traits for lookup based on ownership of various symbol types
-pub trait ScopeOwner {
+pub trait MutScopeOwner {
     fn insert_scope(&mut self, scope: Scope);
 }
 
 pub trait BasicBlockOwner {
-    fn insert_basic_block(&mut self, block: ir::BasicBlock);
     fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock>;
+}
+pub trait MutBasicBlockOwner: BasicBlockOwner {
+    fn insert_basic_block(&mut self, block: ir::BasicBlock);
     fn lookup_basic_block_mut(&mut self, label: usize) -> Option<&mut ir::BasicBlock>;
 }
 
 pub trait VariableOwner {
-    fn insert_variable(&mut self, variable: Variable) -> Result<(), DefinedSymbol>;
     fn lookup_variable_by_name(&self, name: &str) -> Result<&Variable, UndefinedSymbol>;
+}
+pub trait MutVariableOwner: VariableOwner {
+    fn insert_variable(&mut self, variable: Variable) -> Result<(), DefinedSymbol>;
 }
 
 pub trait TypeOwner {
-    fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol>;
     fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol>;
-    // TODO: remove me? type shouldn't need to be mut if implementations are not stored in the type
-    // definition
-    fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol>;
-
     fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol>;
+}
+pub trait MutTypeOwner: TypeOwner {
+    fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol>;
+    fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol>;
 }
 
 pub trait FunctionOwner {
-    fn insert_function(&mut self, function: Function) -> Result<(), DefinedSymbol>;
     fn lookup_function(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
     fn lookup_function_prototype(&self, name: &str) -> Result<&FunctionPrototype, UndefinedSymbol> {
         Ok(&self.lookup_function(name)?.prototype)
     }
 }
+pub trait MutFunctionOwner: FunctionOwner {
+    fn insert_function(&mut self, function: Function) -> Result<(), DefinedSymbol>;
+}
 
 pub trait AssociatedOwner {
-    fn insert_associated(&mut self, associated: Function) -> Result<(), DefinedSymbol>;
     // TODO: "maybe you meant..." for associated/method mismatch
     fn lookup_associated(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
 }
+pub trait MutAssociatedOwner: AssociatedOwner {
+    fn insert_associated(&mut self, associated: Function) -> Result<(), DefinedSymbol>;
+}
 
 pub trait MethodOwner {
-    fn insert_method(&mut self, method: Function) -> Result<(), DefinedSymbol>;
     // TODO: "maybe you meant..." for associated/method mismatch
     fn lookup_method(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
 }
+pub trait MutMethodOwner: MethodOwner {
+    fn insert_method(&mut self, method: Function) -> Result<(), DefinedSymbol>;
+}
 
 pub trait ModuleOwner {
-    fn insert_module(&mut self, module: Module) -> Result<(), DefinedSymbol>;
     fn lookup_module(&self, name: &str) -> Result<&Module, UndefinedSymbol>;
+}
+pub trait MutModuleOwner: ModuleOwner {
+    fn insert_module(&mut self, module: Module) -> Result<(), DefinedSymbol>;
 }
 
 pub trait SelfTypeOwner {
@@ -77,8 +88,10 @@ pub trait SelfTypeOwner {
 }
 
 pub trait ScopeOwnerships: BasicBlockOwner + VariableOwner + TypeOwner {}
+pub trait MutScopeOwnerships: MutBasicBlockOwner + MutVariableOwner + MutTypeOwner {}
 
 pub trait ModuleOwnerships: TypeOwner {}
+pub trait MutModuleOwnerships: MutTypeOwner {}
 
 pub struct SymbolTable {
     pub global_module: Module,
@@ -99,14 +112,25 @@ pub mod tests {
     use crate::midend::{symtab::*, types};
     pub fn test_scope_owner<T>(owner: &mut T)
     where
-        T: ScopeOwner,
+        T: MutScopeOwner,
     {
         owner.insert_scope(Scope::new());
     }
 
-    pub fn test_basic_block_owner<T>(owner: &mut T)
+    pub fn test_basic_block_owner<T>(owner: &T)
     where
         T: BasicBlockOwner,
+    {
+        let block_order = [0, 4, 1, 3, 2, 7, 8, 6, 5, 9];
+
+        for label in block_order.iter().rev() {
+            assert_eq!(owner.lookup_basic_block(*label), None);
+        }
+    }
+
+    pub fn test_mut_basic_block_owner<T>(owner: &mut T)
+    where
+        T: MutBasicBlockOwner,
     {
         let block_order = [0, 4, 1, 3, 2, 7, 8, 6, 5, 9];
 
@@ -125,9 +149,22 @@ pub mod tests {
         }
     }
 
-    pub fn test_variable_owner<T>(owner: &mut T)
+    pub fn test_variable_owner<T>(owner: &T)
     where
         T: VariableOwner,
+    {
+        let example_variable = Variable::new("test_variable".into(), Some(Type::U64));
+
+        // make sure our example variable doesn't exist to start
+        assert_eq!(
+            owner.lookup_variable_by_name("test_variable"),
+            Err(UndefinedSymbol::variable("test_variable".into()))
+        );
+    }
+
+    pub fn test_mut_variable_owner<T>(owner: &mut T)
+    where
+        T: MutVariableOwner,
     {
         let example_variable = Variable::new("test_variable".into(), Some(Type::U64));
 
@@ -153,7 +190,7 @@ pub mod tests {
         );
     }
 
-    pub fn test_type_owner<T>(owner: &mut T)
+    pub fn test_type_owner<T>(owner: &T)
     where
         T: TypeOwner + types::TypeSizingContext,
     {
@@ -161,8 +198,35 @@ pub mod tests {
             "TestStruct".into(),
             vec![("first_field".into(), Type::U8)],
             owner,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
+        let mut example_type = TypeDefinition::new(
+            Type::UDT("TestStruct".into()),
+            TypeRepr::Struct(example_struct_repr.clone()),
+        );
+
+        assert_eq!(
+            owner.lookup_type(example_type.type_()),
+            Err(UndefinedSymbol::type_(example_type.type_().clone()))
+        );
+        assert_eq!(
+            owner.lookup_struct("TestStruct"),
+            Err(UndefinedSymbol::struct_("TestStruct".into()))
+        );
+    }
+
+    fn test_mut_type_owner<T>(owner: &mut T)
+    where
+        T: MutTypeOwner + types::TypeSizingContext,
+    {
+        let example_struct_repr = StructRepr::new(
+            "TestStruct".into(),
+            vec![("first_field".into(), Type::U8)],
+            owner,
+        )
+        .unwrap();
+
         let mut example_type = TypeDefinition::new(
             Type::UDT("TestStruct".into()),
             TypeRepr::Struct(example_struct_repr.clone()),
@@ -198,9 +262,29 @@ pub mod tests {
         assert_eq!(owner.lookup_struct("TestStruct"), Ok(&example_struct_repr));
     }
 
-    pub fn test_function_owner<T>(owner: &mut T)
+    pub fn test_function_owner<T>(owner: &T)
     where
         T: FunctionOwner,
+    {
+        let example_function = Function::new(
+            FunctionPrototype::new(
+                "example_function".into(),
+                vec![Variable::new("argument_1".into(), Some(Type::I32))],
+                Type::I64,
+            ),
+            Scope::new(),
+            ir::ControlFlow::new().0,
+        );
+
+        assert_eq!(
+            owner.lookup_function("example_function"),
+            Err(UndefinedSymbol::Function("example_function".into()))
+        );
+    }
+
+    pub fn test_mut_function_owner<T>(owner: &mut T)
+    where
+        T: MutFunctionOwner,
     {
         let example_function = Function::new(
             FunctionPrototype::new(
@@ -229,9 +313,21 @@ pub mod tests {
         );
     }
 
-    pub fn test_module_owner<T>(owner: &mut T)
+    pub fn test_module_owner<T>(owner: &T)
     where
         T: ModuleOwner,
+    {
+        let example_module = Module::new("A".into());
+
+        assert_eq!(
+            owner.lookup_module("A"),
+            Err(UndefinedSymbol::module("A".into()))
+        );
+    }
+
+    pub fn test_mut_module_owner<T>(owner: &mut T)
+    where
+        T: MutModuleOwner,
     {
         let example_module = Module::new("A".into());
 

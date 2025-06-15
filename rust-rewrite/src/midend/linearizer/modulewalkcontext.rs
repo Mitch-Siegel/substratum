@@ -1,6 +1,6 @@
 use crate::{
     midend::{
-        symtab::{self, ModuleOwner},
+        symtab::{self, ModuleOwner, MutModuleOwner},
         types,
     },
     trace,
@@ -74,10 +74,6 @@ impl Into<symtab::SymbolTable> for ModuleWalkContext {
 }
 
 impl symtab::TypeOwner for ModuleWalkContext {
-    fn insert_type(&mut self, type_: symtab::TypeDefinition) -> Result<(), symtab::DefinedSymbol> {
-        self.current_module.insert_type(type_)
-    }
-
     fn lookup_type(
         &self,
         type_: &types::Type,
@@ -98,6 +94,23 @@ impl symtab::TypeOwner for ModuleWalkContext {
         Err(symtab::UndefinedSymbol::type_(type_.clone()))
     }
 
+    fn lookup_struct(&self, name: &str) -> Result<&symtab::StructRepr, symtab::UndefinedSymbol> {
+        for module in self.all_modules() {
+            match module.lookup_struct(name) {
+                Ok(struct_) => return Ok(struct_),
+                Err(_) => (),
+            }
+        }
+
+        Err(symtab::UndefinedSymbol::struct_(name.into()))
+    }
+}
+
+impl symtab::MutTypeOwner for ModuleWalkContext {
+    fn insert_type(&mut self, type_: symtab::TypeDefinition) -> Result<(), symtab::DefinedSymbol> {
+        self.current_module.insert_type(type_)
+    }
+
     fn lookup_type_mut(
         &mut self,
         type_: &types::Type,
@@ -111,23 +124,9 @@ impl symtab::TypeOwner for ModuleWalkContext {
 
         Err(symtab::UndefinedSymbol::type_(type_.clone()))
     }
-
-    fn lookup_struct(&self, name: &str) -> Result<&symtab::StructRepr, symtab::UndefinedSymbol> {
-        for module in self.all_modules() {
-            match module.lookup_struct(name) {
-                Ok(struct_) => return Ok(struct_),
-                Err(_) => (),
-            }
-        }
-
-        Err(symtab::UndefinedSymbol::struct_(name.into()))
-    }
 }
 
 impl symtab::FunctionOwner for ModuleWalkContext {
-    fn insert_function(&mut self, function: symtab::Function) -> Result<(), symtab::DefinedSymbol> {
-        self.current_module.insert_function(function)
-    }
     fn lookup_function(&self, name: &str) -> Result<&symtab::Function, symtab::UndefinedSymbol> {
         for module in self.all_modules() {
             match module.lookup_function(name) {
@@ -139,12 +138,13 @@ impl symtab::FunctionOwner for ModuleWalkContext {
         Err(symtab::UndefinedSymbol::function(name.into()))
     }
 }
+impl symtab::MutFunctionOwner for ModuleWalkContext {
+    fn insert_function(&mut self, function: symtab::Function) -> Result<(), symtab::DefinedSymbol> {
+        self.current_module.insert_function(function)
+    }
+}
 
 impl symtab::ModuleOwner for ModuleWalkContext {
-    fn insert_module(&mut self, _module: symtab::Module) -> Result<(), symtab::DefinedSymbol> {
-        unimplemented!("insert_module not to be used by ModuleWalkContext");
-    }
-
     fn lookup_module(&self, name: &str) -> Result<&symtab::Module, symtab::UndefinedSymbol> {
         for module in self.all_modules() {
             match module.lookup_module(name) {

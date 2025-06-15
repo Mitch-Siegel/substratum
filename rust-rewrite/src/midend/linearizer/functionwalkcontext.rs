@@ -3,7 +3,10 @@ use crate::{
     midend::{
         ir,
         linearizer::*,
-        symtab::{self, BasicBlockOwner, ScopeOwner, VariableOwner},
+        symtab::{
+            self, BasicBlockOwner, MutBasicBlockOwner, MutScopeOwner, MutVariableOwner,
+            VariableOwner,
+        },
         types,
     },
     trace,
@@ -352,10 +355,6 @@ impl<'a> FunctionWalkContext<'a> {
 }
 
 impl<'a> symtab::BasicBlockOwner for FunctionWalkContext<'a> {
-    fn insert_basic_block(&mut self, _block: ir::BasicBlock) {
-        unimplemented!("insert_basic_block not to be used by FunctionWalkContext");
-    }
-
     fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock> {
         let _ = trace::span_auto!(
             trace::Level::TRACE,
@@ -372,30 +371,9 @@ impl<'a> symtab::BasicBlockOwner for FunctionWalkContext<'a> {
 
         None
     }
-
-    fn lookup_basic_block_mut(&mut self, label: usize) -> Option<&mut ir::BasicBlock> {
-        let _ = trace::span_auto!(
-            trace::Level::TRACE,
-            "Lookup basic block (mut) in function walk context: ",
-            "{}",
-            label
-        );
-        for lookup_scope in self.scope_stack.iter_mut().rev() {
-            match lookup_scope.lookup_basic_block_mut(label) {
-                Some(block) => return Some(block),
-                None => (),
-            }
-        }
-
-        None
-    }
 }
 
 impl<'a> symtab::VariableOwner for FunctionWalkContext<'a> {
-    fn insert_variable(&mut self, variable: symtab::Variable) -> Result<(), symtab::DefinedSymbol> {
-        self.current_scope.insert_variable(variable)
-    }
-
     fn lookup_variable_by_name(
         &self,
         name: &str,
@@ -410,12 +388,13 @@ impl<'a> symtab::VariableOwner for FunctionWalkContext<'a> {
         Err(symtab::UndefinedSymbol::variable(name.into()))
     }
 }
+impl<'a> symtab::MutVariableOwner for FunctionWalkContext<'a> {
+    fn insert_variable(&mut self, variable: symtab::Variable) -> Result<(), symtab::DefinedSymbol> {
+        self.current_scope.insert_variable(variable)
+    }
+}
 
 impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
-    fn insert_type(&mut self, type_: symtab::TypeDefinition) -> Result<(), symtab::DefinedSymbol> {
-        self.current_scope.insert_type(type_)
-    }
-
     fn lookup_type(
         &self,
         type_: &types::Type,
@@ -436,6 +415,22 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
         Err(symtab::UndefinedSymbol::type_(type_.clone()))
     }
 
+    fn lookup_struct(&self, name: &str) -> Result<&symtab::StructRepr, symtab::UndefinedSymbol> {
+        for lookup_scope in self.all_scopes() {
+            match lookup_scope.lookup_struct(name) {
+                Ok(struct_) => return Ok(struct_),
+                _ => (),
+            }
+        }
+
+        Err(symtab::UndefinedSymbol::struct_(name.into()))
+    }
+}
+impl<'a> symtab::MutTypeOwner for FunctionWalkContext<'a> {
+    fn insert_type(&mut self, type_: symtab::TypeDefinition) -> Result<(), symtab::DefinedSymbol> {
+        self.current_scope.insert_type(type_)
+    }
+
     fn lookup_type_mut(
         &mut self,
         type_: &types::Type,
@@ -448,17 +443,6 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
         }
 
         Err(symtab::UndefinedSymbol::type_(type_.clone()))
-    }
-
-    fn lookup_struct(&self, name: &str) -> Result<&symtab::StructRepr, symtab::UndefinedSymbol> {
-        for lookup_scope in self.all_scopes() {
-            match lookup_scope.lookup_struct(name) {
-                Ok(struct_) => return Ok(struct_),
-                _ => (),
-            }
-        }
-
-        Err(symtab::UndefinedSymbol::struct_(name.into()))
     }
 }
 

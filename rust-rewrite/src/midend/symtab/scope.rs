@@ -48,22 +48,24 @@ impl Scope {
     }
 }
 
-impl ScopeOwner for Scope {
+impl MutScopeOwner for Scope {
     fn insert_scope(&mut self, scope: Scope) {
         self.subscopes.push(scope);
     }
 }
 
 impl BasicBlockOwner for Scope {
+    fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock> {
+        self.basic_blocks.get(&label)
+    }
+}
+
+impl MutBasicBlockOwner for Scope {
     fn insert_basic_block(&mut self, block: ir::BasicBlock) {
         match self.basic_blocks.insert(block.label, block) {
             Some(existing_block) => panic!("Basic block {} already exists", existing_block.label),
             None => (),
         }
-    }
-
-    fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock> {
-        self.basic_blocks.get(&label)
     }
 
     fn lookup_basic_block_mut(&mut self, label: usize) -> Option<&mut ir::BasicBlock> {
@@ -72,13 +74,6 @@ impl BasicBlockOwner for Scope {
 }
 
 impl VariableOwner for Scope {
-    fn insert_variable(&mut self, variable: Variable) -> Result<(), DefinedSymbol> {
-        match self.variables.insert(variable.name.clone(), variable) {
-            Some(existing_variable) => Err(DefinedSymbol::variable(existing_variable)),
-            None => Ok(()),
-        }
-    }
-
     fn lookup_variable_by_name(&self, name: &str) -> Result<&Variable, UndefinedSymbol> {
         self.variables
             .get(name)
@@ -86,23 +81,19 @@ impl VariableOwner for Scope {
     }
 }
 
-impl TypeOwner for Scope {
-    fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol> {
-        match self.type_definitions.insert(type_.type_().clone(), type_) {
-            Some(existing_type) => Err(DefinedSymbol::type_(existing_type.repr)),
+impl MutVariableOwner for Scope {
+    fn insert_variable(&mut self, variable: Variable) -> Result<(), DefinedSymbol> {
+        match self.variables.insert(variable.name.clone(), variable) {
+            Some(existing_variable) => Err(DefinedSymbol::variable(existing_variable)),
             None => Ok(()),
         }
     }
+}
 
+impl TypeOwner for Scope {
     fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol> {
         self.type_definitions
             .get(type_)
-            .ok_or(UndefinedSymbol::type_(type_.clone()))
-    }
-
-    fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol> {
-        self.type_definitions
-            .get_mut(type_)
             .ok_or(UndefinedSymbol::type_(type_.clone()))
     }
 
@@ -118,6 +109,21 @@ impl TypeOwner for Scope {
         }
 
         Err(UndefinedSymbol::struct_(name.into()))
+    }
+}
+
+impl MutTypeOwner for Scope {
+    fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol> {
+        match self.type_definitions.insert(type_.type_().clone(), type_) {
+            Some(existing_type) => Err(DefinedSymbol::type_(existing_type.repr)),
+            None => Ok(()),
+        }
+    }
+
+    fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol> {
+        self.type_definitions
+            .get_mut(type_)
+            .ok_or(UndefinedSymbol::type_(type_.clone()))
     }
 }
 

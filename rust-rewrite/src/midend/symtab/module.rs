@@ -1,7 +1,6 @@
-
-use crate::midend::symtab::{*, StructRepr, TypeOwner, TypeRepr};
-use std::collections::HashMap;
+use crate::midend::symtab::{StructRepr, TypeOwner, TypeRepr, *};
 use serde::Serialize;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Module {
@@ -29,26 +28,19 @@ impl PartialEq for Module {
 }
 
 impl TypeOwner for Module {
-    fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol> {
-        match self.type_definitions.insert(type_.type_().clone(), type_) {
-            Some(existing_type) => Err(DefinedSymbol::type_(existing_type.repr)),
-            None => Ok(()),
-        }
-    }
-
     fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol> {
-        let result = self.type_definitions
+        let result = self
+            .type_definitions
             .get(type_)
             .ok_or(UndefinedSymbol::type_(type_.clone()));
 
-        trace::trace!("Module::lookup_type: {} {} - found? {}", self.name, type_, result.is_ok());
+        trace::trace!(
+            "Module::lookup_type: {} {} - found? {}",
+            self.name,
+            type_,
+            result.is_ok()
+        );
         result
-    }
-
-    fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol> {
-        self.type_definitions
-            .get_mut(type_)
-            .ok_or(UndefinedSymbol::type_(type_.clone()))
     }
 
     fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol> {
@@ -60,31 +52,49 @@ impl TypeOwner for Module {
         }
     }
 }
-
-impl ModuleOwner for Module {
-    fn insert_module(&mut self, module: Module) -> Result<(), DefinedSymbol> {
-        match self.modules.insert(module.name.clone(), module) {
-            Some(existing_module) => Err(DefinedSymbol::Module(existing_module.name)),
+impl MutTypeOwner for Module {
+    fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol> {
+        match self.type_definitions.insert(type_.type_().clone(), type_) {
+            Some(existing_type) => Err(DefinedSymbol::type_(existing_type.repr)),
             None => Ok(()),
         }
     }
+
+    fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol> {
+        self.type_definitions
+            .get_mut(type_)
+            .ok_or(UndefinedSymbol::type_(type_.clone()))
+    }
+}
+
+impl ModuleOwner for Module {
     fn lookup_module(&self, name: &str) -> Result<&Module, UndefinedSymbol> {
         self.modules
             .get(name)
             .ok_or(UndefinedSymbol::module(name.into()))
     }
 }
+impl MutModuleOwner for Module {
+    fn insert_module(&mut self, module: Module) -> Result<(), DefinedSymbol> {
+        match self.modules.insert(module.name.clone(), module) {
+            Some(existing_module) => Err(DefinedSymbol::Module(existing_module.name)),
+            None => Ok(()),
+        }
+    }
+}
 
 impl FunctionOwner for Module {
+    fn lookup_function(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
+        self.functions
+            .get(name)
+            .ok_or(UndefinedSymbol::function(name.into()))
+    }
+}
+impl MutFunctionOwner for Module {
     fn insert_function(&mut self, function: Function) -> Result<(), DefinedSymbol> {
         match self.functions.insert(function.name().into(), function) {
             Some(existing_function) => Err(DefinedSymbol::function(existing_function.prototype)),
             None => Ok(()),
         }
-    }
-    fn lookup_function(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
-        self.functions
-            .get(name)
-            .ok_or(UndefinedSymbol::function(name.into()))
     }
 }

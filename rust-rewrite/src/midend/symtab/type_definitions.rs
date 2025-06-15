@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use serde::Serialize;
 
-use crate::{backend, midend::{symtab::*, types}};
+use crate::{
+    backend,
+    midend::{symtab::*, types},
+};
 
 use super::Function;
 
@@ -25,14 +28,16 @@ impl Eq for TypeDefinition {}
 impl types::SizedType for TypeDefinition {
     fn size<C>(&self, context: &C) -> Result<usize, UndefinedSymbol>
     where
-        C: types::TypeSizingContext {
+        C: types::TypeSizingContext,
+    {
         self.repr.size(context)
     }
 
     fn alignment<C>(&self, context: &C) -> Result<usize, UndefinedSymbol>
     where
-        C: types::TypeSizingContext{
-            self.repr.alignment(context)
+        C: types::TypeSizingContext,
+    {
+        self.repr.alignment(context)
     }
 }
 impl TypeDefinition {
@@ -51,6 +56,13 @@ impl TypeDefinition {
 }
 
 impl AssociatedOwner for TypeDefinition {
+    fn lookup_associated(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
+        self.associated_functions
+            .get(name)
+            .ok_or(UndefinedSymbol::associated(self.type_.clone(), name.into()))
+    }
+}
+impl MutAssociatedOwner for TypeDefinition {
     fn insert_associated(&mut self, associated: Function) -> Result<(), DefinedSymbol> {
         match self.methods.get(associated.name()) {
             Some(existing_method) => Err(DefinedSymbol::Method(
@@ -71,15 +83,16 @@ impl AssociatedOwner for TypeDefinition {
             }
         }
     }
-
-    fn lookup_associated(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
-        self.associated_functions
-            .get(name)
-            .ok_or(UndefinedSymbol::associated(self.type_.clone(), name.into()))
-    }
 }
 
 impl MethodOwner for TypeDefinition {
+    fn lookup_method(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
+        self.methods
+            .get(name)
+            .ok_or(UndefinedSymbol::Method(self.type_.clone(), name.into()))
+    }
+}
+impl MutMethodOwner for TypeDefinition {
     fn insert_method(&mut self, method: Function) -> Result<(), DefinedSymbol> {
         match self.associated_functions.get(method.name()) {
             Some(existing_associated) => Err(DefinedSymbol::Associated(
@@ -94,12 +107,6 @@ impl MethodOwner for TypeDefinition {
                 None => Ok(()),
             },
         }
-    }
-
-    fn lookup_method(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
-        self.methods
-            .get(name)
-            .ok_or(UndefinedSymbol::Method(self.type_.clone(), name.into()))
     }
 }
 
@@ -193,7 +200,6 @@ impl std::fmt::Display for StructField {
         write!(f, "{}: {} (@{})", self.name, self.type_, self.offset)
     }
 }
-    
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct StructRepr {
@@ -204,7 +210,11 @@ pub struct StructRepr {
 }
 
 impl StructRepr {
-    pub fn new<C>(name: String, field_definitions: Vec<(String, types::Type)>, context: &C) -> Result<Self, DefinedSymbol>
+    pub fn new<C>(
+        name: String,
+        field_definitions: Vec<(String, types::Type)>,
+        context: &C,
+    ) -> Result<Self, DefinedSymbol>
     where
         C: types::TypeSizingContext,
     {
@@ -213,13 +223,21 @@ impl StructRepr {
         let mut max_alignment: usize = 0;
         for (name, type_) in field_definitions {
             let field_size = type_.size::<backend::arch::Target, C>(context).unwrap();
-            let field_alignment = type_.alignment::<backend::arch::Target, C>(context).unwrap();
-            
+            let field_alignment = type_
+                .alignment::<backend::arch::Target, C>(context)
+                .unwrap();
+
             let padding_bytes = field_alignment - (last_offset % field_alignment);
             last_offset += padding_bytes;
-            
 
-            trace::trace!("Insert struct field {} (type: {}, size: {}, alignment: {}, padding before: {})", name.clone(), type_.clone(), field_size, field_alignment, padding_bytes);
+            trace::trace!(
+                "Insert struct field {} (type: {}, size: {}, alignment: {}, padding before: {})",
+                name.clone(),
+                type_.clone(),
+                field_size,
+                field_alignment,
+                padding_bytes
+            );
             let field = StructField::new(name.clone(), type_, last_offset);
             match fields.insert(name, field) {
                 Some(existing_field) => return Err(DefinedSymbol::field(existing_field)),
@@ -241,7 +259,7 @@ impl StructRepr {
     pub fn lookup_field(&self, name: &str) -> Result<&StructField, UndefinedSymbol> {
         match self.fields.get(name) {
             Some(field) => Ok(field),
-            None => Err(UndefinedSymbol::field(name.into()))
+            None => Err(UndefinedSymbol::field(name.into())),
         }
     }
 }
@@ -258,15 +276,15 @@ impl<'a> IntoIterator for &'a StructRepr {
 impl types::SizedType for StructRepr {
     fn size<C>(&self, _context: &C) -> Result<usize, UndefinedSymbol>
     where
-        C: types::TypeSizingContext{
-            Ok(self.size)
+        C: types::TypeSizingContext,
+    {
+        Ok(self.size)
     }
 
     fn alignment<C>(&self, _context: &C) -> Result<usize, UndefinedSymbol>
     where
-        C: types::TypeSizingContext 
+        C: types::TypeSizingContext,
     {
         Ok(self.alignment)
     }
 }
-
