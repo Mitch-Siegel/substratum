@@ -19,6 +19,7 @@ mod variable;
 
 pub use module::Module;
 pub use scope::ScopePath;
+pub use symtab_walker::SymtabWalker;
 pub use TypeRepr;
 
 /// Traits for lookup and insertion based on ownership of various symbol types
