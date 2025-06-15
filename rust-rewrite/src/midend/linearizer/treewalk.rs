@@ -140,6 +140,7 @@ impl ReturnWalk<&mut ModuleWalkContext, Result<symtab::Function, symtab::SymbolE
         let mut function_context = FunctionWalkContext::new(context, declared_prototype, None);
 
         self.body.walk(&mut function_context);
+
         Ok(function_context.into())
     }
 }
@@ -479,7 +480,7 @@ impl FunctionWalk for WhileExpressionTree {
         );
 
         context
-            .append_statement_to_current_block(loop_condition_jump)
+            .append_jump_to_current_block(loop_condition_jump)
             .unwrap();
 
         context.unconditional_branch_from_current(self.loc).unwrap();

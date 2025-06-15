@@ -339,6 +339,16 @@ impl<'a> FunctionWalkContext<'a> {
         ir::Operand::new_as_temporary(temp_name)
     }
 
+    pub fn append_jump_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
+        match &statement.operation {
+            ir::Operations::Jump(_) => {
+                self.current_block.statements.push(statement);
+                Ok(())
+            }
+            _ => Err(()),
+        }
+    }
+
     pub fn append_statement_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
         match &statement.operation {
             ir::Operations::Jump(_) => Err(()),
@@ -482,10 +492,36 @@ impl<'a> symtab::ModuleOwnerships for FunctionWalkContext<'a> {}
 impl<'a> types::TypeSizingContext for FunctionWalkContext<'a> {}
 
 impl<'a> Into<symtab::Function> for FunctionWalkContext<'a> {
-    fn into(self) -> symtab::Function {
+    fn into(mut self) -> symtab::Function {
         assert!(self.scope_stack.is_empty());
+        match self
+            .open_convergences
+            .converge(self.current_block.label)
+            .unwrap()
+        {
+            ConvergenceResult::Done(exit_block) => {
+                let jump_to_exit_block = ir::IrLine::new_jump(
+                    SourceLoc::none(),
+                    exit_block.label,
+                    ir::JumpCondition::Unconditional,
+                );
+                self.current_block.statements.push(jump_to_exit_block);
+                let old_block = std::mem::replace(&mut self.current_block, exit_block);
+                self.current_scope.insert_basic_block(old_block);
+            }
+            ConvergenceResult::NotDone(converge_to) => {
+                panic!("FunctionWalkContext.into(symtab::Function can't converge - expecting convergence to exit block but saw unfinished convergence to {}", converge_to);
+            }
+        }
         assert!(self.open_convergences.is_empty());
         assert!(self.open_branch_path.is_empty());
+
+        while !self.scope_stack.is_empty() {
+            self.pop_current_scope_to_subscope_of_next().unwrap()
+        }
+        assert!(self.scope_stack.is_empty());
+
+        self.current_scope.insert_basic_block(self.current_block);
 
         symtab::Function::new(self.prototype, self.current_scope, self.control_flow)
     }
