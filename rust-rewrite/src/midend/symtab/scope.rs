@@ -48,6 +48,12 @@ impl Scope {
     }
 }
 
+impl ScopeOwner for Scope {
+    fn subscopes(&self) -> impl Iterator<Item = &Scope> {
+        self.subscopes.iter()
+    }
+}
+
 impl MutScopeOwner for Scope {
     fn insert_scope(&mut self, scope: Scope) {
         self.subscopes.push(scope);
@@ -55,6 +61,10 @@ impl MutScopeOwner for Scope {
 }
 
 impl BasicBlockOwner for Scope {
+    fn basic_blocks(&self) -> impl Iterator<Item = &ir::BasicBlock> {
+        self.basic_blocks.values()
+    }
+
     fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock> {
         self.basic_blocks.get(&label)
     }
@@ -74,6 +84,10 @@ impl MutBasicBlockOwner for Scope {
 }
 
 impl VariableOwner for Scope {
+    fn variables(&self) -> impl Iterator<Item = &Variable> {
+        self.variables.values()
+    }
+
     fn lookup_variable_by_name(&self, name: &str) -> Result<&Variable, UndefinedSymbol> {
         self.variables
             .get(name)
@@ -91,6 +105,10 @@ impl MutVariableOwner for Scope {
 }
 
 impl TypeOwner for Scope {
+    fn types(&self) -> impl Iterator<Item = &TypeDefinition> {
+        self.type_definitions.values()
+    }
+
     fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol> {
         self.type_definitions
             .get(type_)

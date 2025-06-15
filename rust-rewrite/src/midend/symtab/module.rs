@@ -7,7 +7,7 @@ pub struct Module {
     pub name: String,
     pub functions: HashMap<String, Function>,
     pub type_definitions: HashMap<Type, TypeDefinition>,
-    pub modules: HashMap<String, Module>,
+    pub submodules: HashMap<String, Module>,
 }
 
 impl Module {
@@ -16,7 +16,7 @@ impl Module {
             name,
             functions: HashMap::new(),
             type_definitions: HashMap::new(),
-            modules: HashMap::new(),
+            submodules: HashMap::new(),
         }
     }
 }
@@ -28,6 +28,10 @@ impl PartialEq for Module {
 }
 
 impl TypeOwner for Module {
+    fn types(&self) -> impl Iterator<Item = &TypeDefinition> {
+        self.type_definitions.values()
+    }
+
     fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol> {
         let result = self
             .type_definitions
@@ -68,15 +72,19 @@ impl MutTypeOwner for Module {
 }
 
 impl ModuleOwner for Module {
-    fn lookup_module(&self, name: &str) -> Result<&Module, UndefinedSymbol> {
-        self.modules
+    fn submodules(&self) -> impl Iterator<Item = &Module> {
+        self.submodules.values()
+    }
+
+    fn lookup_submodule(&self, name: &str) -> Result<&Module, UndefinedSymbol> {
+        self.submodules
             .get(name)
             .ok_or(UndefinedSymbol::module(name.into()))
     }
 }
 impl MutModuleOwner for Module {
     fn insert_module(&mut self, module: Module) -> Result<(), DefinedSymbol> {
-        match self.modules.insert(module.name.clone(), module) {
+        match self.submodules.insert(module.name.clone(), module) {
             Some(existing_module) => Err(DefinedSymbol::Module(existing_module.name)),
             None => Ok(()),
         }
@@ -84,6 +92,10 @@ impl MutModuleOwner for Module {
 }
 
 impl FunctionOwner for Module {
+    fn functions(&self) -> impl Iterator<Item = &Function> {
+        self.functions.values()
+    }
+
     fn lookup_function(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
         self.functions
             .get(name)

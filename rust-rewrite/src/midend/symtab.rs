@@ -21,12 +21,16 @@ pub use module::Module;
 pub use scope::ScopePath;
 pub use TypeRepr;
 
-/// Traits for lookup based on ownership of various symbol types
-pub trait MutScopeOwner {
+/// Traits for lookup and insertion based on ownership of various symbol types
+pub trait ScopeOwner {
+    fn subscopes(&self) -> impl Iterator<Item = &Scope>;
+}
+pub trait MutScopeOwner: ScopeOwner {
     fn insert_scope(&mut self, scope: Scope);
 }
 
 pub trait BasicBlockOwner {
+    fn basic_blocks(&self) -> impl Iterator<Item = &ir::BasicBlock>;
     fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock>;
 }
 pub trait MutBasicBlockOwner: BasicBlockOwner {
@@ -35,6 +39,7 @@ pub trait MutBasicBlockOwner: BasicBlockOwner {
 }
 
 pub trait VariableOwner {
+    fn variables(&self) -> impl Iterator<Item = &Variable>;
     fn lookup_variable_by_name(&self, name: &str) -> Result<&Variable, UndefinedSymbol>;
 }
 pub trait MutVariableOwner: VariableOwner {
@@ -42,6 +47,7 @@ pub trait MutVariableOwner: VariableOwner {
 }
 
 pub trait TypeOwner {
+    fn types(&self) -> impl Iterator<Item = &TypeDefinition>;
     fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol>;
     fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol>;
 }
@@ -51,6 +57,7 @@ pub trait MutTypeOwner: TypeOwner {
 }
 
 pub trait FunctionOwner {
+    fn functions(&self) -> impl Iterator<Item = &Function>;
     fn lookup_function(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
     fn lookup_function_prototype(&self, name: &str) -> Result<&FunctionPrototype, UndefinedSymbol> {
         Ok(&self.lookup_function(name)?.prototype)
@@ -61,6 +68,7 @@ pub trait MutFunctionOwner: FunctionOwner {
 }
 
 pub trait AssociatedOwner {
+    fn associated_functions(&self) -> impl Iterator<Item = &Function>;
     // TODO: "maybe you meant..." for associated/method mismatch
     fn lookup_associated(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
 }
@@ -69,6 +77,7 @@ pub trait MutAssociatedOwner: AssociatedOwner {
 }
 
 pub trait MethodOwner {
+    fn methods(&self) -> impl Iterator<Item = &Function>;
     // TODO: "maybe you meant..." for associated/method mismatch
     fn lookup_method(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
 }
@@ -77,7 +86,8 @@ pub trait MutMethodOwner: MethodOwner {
 }
 
 pub trait ModuleOwner {
-    fn lookup_module(&self, name: &str) -> Result<&Module, UndefinedSymbol>;
+    fn submodules(&self) -> impl Iterator<Item = &Module>;
+    fn lookup_submodule(&self, name: &str) -> Result<&Module, UndefinedSymbol>;
 }
 pub trait MutModuleOwner: ModuleOwner {
     fn insert_module(&mut self, module: Module) -> Result<(), DefinedSymbol>;
@@ -320,7 +330,7 @@ pub mod tests {
         let example_module = Module::new("A".into());
 
         assert_eq!(
-            owner.lookup_module("A"),
+            owner.lookup_submodule("A"),
             Err(UndefinedSymbol::module("A".into()))
         );
     }
@@ -332,7 +342,7 @@ pub mod tests {
         let example_module = Module::new("A".into());
 
         assert_eq!(
-            owner.lookup_module("A"),
+            owner.lookup_submodule("A"),
             Err(UndefinedSymbol::module("A".into()))
         );
 
@@ -342,6 +352,6 @@ pub mod tests {
             Err(DefinedSymbol::module("A".into())),
         );
 
-        assert_eq!(owner.lookup_module("A"), Ok(&example_module));
+        assert_eq!(owner.lookup_submodule("A"), Ok(&example_module));
     }
 }

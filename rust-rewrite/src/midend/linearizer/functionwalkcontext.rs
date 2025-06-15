@@ -355,6 +355,12 @@ impl<'a> FunctionWalkContext<'a> {
 }
 
 impl<'a> symtab::BasicBlockOwner for FunctionWalkContext<'a> {
+    fn basic_blocks(&self) -> impl Iterator<Item = &ir::BasicBlock> {
+        self.all_scopes()
+            .into_iter()
+            .flat_map(|scope| scope.basic_blocks())
+    }
+
     fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock> {
         let _ = trace::span_auto!(
             trace::Level::TRACE,
@@ -374,6 +380,12 @@ impl<'a> symtab::BasicBlockOwner for FunctionWalkContext<'a> {
 }
 
 impl<'a> symtab::VariableOwner for FunctionWalkContext<'a> {
+    fn variables(&self) -> impl Iterator<Item = &symtab::Variable> {
+        self.all_scopes()
+            .into_iter()
+            .flat_map(|scope| scope.variables())
+    }
+
     fn lookup_variable_by_name(
         &self,
         name: &str,
@@ -395,6 +407,13 @@ impl<'a> symtab::MutVariableOwner for FunctionWalkContext<'a> {
 }
 
 impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
+    fn types(&self) -> impl Iterator<Item = &symtab::TypeDefinition> {
+        self.all_scopes()
+            .into_iter()
+            .flat_map(|scope| scope.types())
+            .chain(self.module_context.types())
+    }
+
     fn lookup_type(
         &self,
         type_: &types::Type,

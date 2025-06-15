@@ -74,6 +74,12 @@ impl Into<symtab::SymbolTable> for ModuleWalkContext {
 }
 
 impl symtab::TypeOwner for ModuleWalkContext {
+    fn types(&self) -> impl Iterator<Item = &symtab::TypeDefinition> {
+        self.all_modules()
+            .into_iter()
+            .flat_map(|module| module.types())
+    }
+
     fn lookup_type(
         &self,
         type_: &types::Type,
@@ -127,6 +133,12 @@ impl symtab::MutTypeOwner for ModuleWalkContext {
 }
 
 impl symtab::FunctionOwner for ModuleWalkContext {
+    fn functions(&self) -> impl Iterator<Item = &symtab::Function> {
+        self.all_modules()
+            .into_iter()
+            .flat_map(|module| module.functions())
+    }
+
     fn lookup_function(&self, name: &str) -> Result<&symtab::Function, symtab::UndefinedSymbol> {
         for module in self.all_modules() {
             match module.lookup_function(name) {
@@ -145,9 +157,13 @@ impl symtab::MutFunctionOwner for ModuleWalkContext {
 }
 
 impl symtab::ModuleOwner for ModuleWalkContext {
-    fn lookup_module(&self, name: &str) -> Result<&symtab::Module, symtab::UndefinedSymbol> {
+    fn submodules(&self) -> impl Iterator<Item = &symtab::Module> {
+        self.current_module.submodules()
+    }
+
+    fn lookup_submodule(&self, name: &str) -> Result<&symtab::Module, symtab::UndefinedSymbol> {
         for module in self.all_modules() {
-            match module.lookup_module(name) {
+            match module.lookup_submodule(name) {
                 Ok(module) => return Ok(module),
                 Err(_) => (),
             }

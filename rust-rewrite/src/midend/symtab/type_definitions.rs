@@ -56,6 +56,10 @@ impl TypeDefinition {
 }
 
 impl AssociatedOwner for TypeDefinition {
+    fn associated_functions(&self) -> impl Iterator<Item = &Function> {
+        self.associated_functions.values()
+    }
+
     fn lookup_associated(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
         self.associated_functions
             .get(name)
@@ -86,6 +90,10 @@ impl MutAssociatedOwner for TypeDefinition {
 }
 
 impl MethodOwner for TypeDefinition {
+    fn methods(&self) -> impl Iterator<Item = &Function> {
+        self.methods.values()
+    }
+
     fn lookup_method(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
         self.methods
             .get(name)

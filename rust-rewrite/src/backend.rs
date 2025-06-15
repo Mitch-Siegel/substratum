@@ -19,7 +19,7 @@ pub fn generate_code_for_module(
     let mut parents_this_level = parent_modules.clone();
     parents_this_level.push(&module);
 
-    for (_, submodule) in &module.modules {
+    for (_, submodule) in &module.submodules {
         generate_code_for_module(submodule, parents_this_level.clone());
     }
 }
