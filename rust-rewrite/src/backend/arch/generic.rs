@@ -14,7 +14,10 @@ pub trait TargetArchitecture {
     // - None if argument type may not be placed in a register
     // - Some(n) where n is the number of argument registers required if the type may be
     // placed in an argument register
-    fn registers_required_for_argument<T>(context: &T, type_: &midend::types::Type) -> Option<usize>
+    fn registers_required_for_argument<T>(
+        context: &T,
+        type_: &midend::types::Type,
+    ) -> Option<usize>
     where
         T: midend::types::TypeSizingContext;
 }

@@ -4,8 +4,8 @@ use crate::{
         ir,
         linearizer::*,
         symtab::{
-            self, BasicBlockOwner, MutBasicBlockOwner, MutScopeOwner, MutVariableOwner,
-            VariableOwner,
+            self, BasicBlockOwner, MutBasicBlockOwner, MutScopeOwner, MutTypeOwner,
+            MutVariableOwner, TypeOwner, VariableOwner,
         },
         types,
     },
@@ -98,16 +98,12 @@ impl<'a> FunctionWalkContext<'a> {
         }
     }
 
-    fn all_scopes(&self) -> Vec<&symtab::Scope> {
-        std::iter::once(&self.current_scope)
-            .chain(self.scope_stack.iter().rev())
-            .collect()
+    fn all_scopes(&self) -> impl Iterator<Item = &symtab::Scope> {
+        std::iter::once(&self.current_scope).chain(self.scope_stack.iter().rev())
     }
 
-    fn all_scopes_mut(&mut self) -> Vec<&mut symtab::Scope> {
-        std::iter::once(&mut self.current_scope)
-            .chain(self.scope_stack.iter_mut().rev())
-            .collect()
+    fn all_scopes_mut(&mut self) -> impl Iterator<Item = &mut symtab::Scope> {
+        std::iter::once(&mut self.current_scope).chain(self.scope_stack.iter_mut().rev())
     }
 
     fn new_subscope(&mut self) {
@@ -418,12 +414,6 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
         &self,
         type_: &types::Type,
     ) -> Result<&symtab::TypeDefinition, symtab::UndefinedSymbol> {
-        let _ = trace::span_auto!(
-            trace::Level::TRACE,
-            "Lookup type in function walk context: ",
-            "{}",
-            type_
-        );
         for lookup_scope in self.all_scopes() {
             match lookup_scope.lookup_type(type_) {
                 Ok(type_) => return Ok(type_),
@@ -431,7 +421,7 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
             }
         }
 
-        Err(symtab::UndefinedSymbol::type_(type_.clone()))
+        self.module_context.lookup_type(type_)
     }
 
     fn lookup_struct(&self, name: &str) -> Result<&symtab::StructRepr, symtab::UndefinedSymbol> {
@@ -442,26 +432,42 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
             }
         }
 
-        Err(symtab::UndefinedSymbol::struct_(name.into()))
+        self.module_context.lookup_struct(name)
     }
 }
-impl<'a> symtab::MutTypeOwner for FunctionWalkContext<'a> {
+impl<'ctx> FunctionWalkContext<'ctx> {
+    fn lookup_type_mut_local(
+        scopes: impl Iterator<Item = &'ctx mut symtab::Scope>,
+        type_: &types::Type,
+    ) -> Option<&'ctx mut symtab::TypeDefinition> {
+        for scope in scopes {
+            if let Ok(type_definition) = scope.lookup_type_mut(type_) {
+                return Some(type_definition);
+            }
+        }
+        None
+    }
+}
+impl<'ctx> symtab::MutTypeOwner for FunctionWalkContext<'ctx> {
     fn insert_type(&mut self, type_: symtab::TypeDefinition) -> Result<(), symtab::DefinedSymbol> {
         self.current_scope.insert_type(type_)
     }
-
     fn lookup_type_mut(
         &mut self,
         type_: &types::Type,
     ) -> Result<&mut symtab::TypeDefinition, symtab::UndefinedSymbol> {
-        for lookup_scope in self.all_scopes_mut() {
-            match lookup_scope.lookup_type_mut(type_) {
-                Ok(type_) => return Ok(type_),
-                _ => (),
+        // have to manually handle the iteration here as all_scopes_mut stretches borrow lifetime
+        // to full function, which we can't have
+        for scope in
+            std::iter::once(&mut self.current_scope).chain(self.scope_stack.iter_mut().rev())
+        {
+            match scope.lookup_type_mut(type_) {
+                Ok(type_definition) => return Ok(type_definition),
+                Err(_) => (),
             }
         }
 
-        Err(symtab::UndefinedSymbol::type_(type_.clone()))
+        self.module_context.lookup_type_mut(type_)
     }
 }
 

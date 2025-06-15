@@ -91,6 +91,7 @@ impl symtab::TypeOwner for ModuleWalkContext {
             type_
         );
         for module in self.all_modules() {
+            trace::trace!("lookup type {} in module {}", type_, module.name);
             match module.lookup_type(type_) {
                 Ok(type_) => return Ok(type_),
                 Err(_) => (),
@@ -141,7 +142,8 @@ impl symtab::FunctionOwner for ModuleWalkContext {
 
     fn lookup_function(&self, name: &str) -> Result<&symtab::Function, symtab::UndefinedSymbol> {
         for module in self.all_modules() {
-            match module.lookup_function(name) {
+            let result = module.lookup_function(name);
+            match result {
                 Ok(function) => return Ok(function),
                 Err(_) => (),
             }

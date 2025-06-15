@@ -99,7 +99,7 @@ pub trait SelfTypeOwner {
 }
 
 pub trait ScopeOwnerships: BasicBlockOwner + VariableOwner + TypeOwner {}
-pub trait MutScopeOwnerships: MutBasicBlockOwner + MutVariableOwner + MutTypeOwner {}
+pub trait MutScopeOwnerships<'ctx>: MutBasicBlockOwner + MutVariableOwner + MutTypeOwner {}
 
 pub trait ModuleOwnerships: TypeOwner {}
 pub trait MutModuleOwnerships: MutTypeOwner {}

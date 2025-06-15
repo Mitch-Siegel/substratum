@@ -1,7 +1,7 @@
-
 use crate::midend::idfa::block_args::IdfaImplementor;
 use crate::midend::{
-    idfa::{self}, symtab,
+    idfa::{self},
+    symtab,
 };
 
 pub fn add_block_arguments(function: &mut symtab::Function) {
