@@ -1,4 +1,4 @@
-use crate::{frontend::sourceloc::SourceLoc, midend::ir};
+use crate::{frontend::sourceloc::SourceLoc, midend::ir, trace};
 
 use serde::Serialize;
 use std::{
@@ -44,11 +44,15 @@ impl BlockManager {
         loc: SourceLoc,
     ) -> (ir::BasicBlock, ir::BasicBlock) {
         self.max_block += 2;
-        let mut true_block = ir::BasicBlock::new(self.max_block - 1);
+        let true_block = ir::BasicBlock::new(self.max_block - 1);
         let after_branch = ir::BasicBlock::new(self.max_block);
 
-        from_block.successors.insert(true_block.label);
-        true_block.predecessors.insert(from_block.label);
+        trace::trace!(
+            "unconditional branch from block {} - true block: {}, after branch: {}",
+            from_block.label,
+            true_block.label,
+            after_branch.label
+        );
 
         let unconditional_jump = ir::IrLine::new_jump(
             loc,
@@ -68,15 +72,17 @@ impl BlockManager {
         jump_condition: ir::operands::JumpCondition,
     ) -> (ir::BasicBlock, ir::BasicBlock, ir::BasicBlock) {
         self.max_block += 3;
-        let mut true_block = ir::BasicBlock::new(self.max_block - 2);
-        let mut false_block = ir::BasicBlock::new(self.max_block - 1);
+        let true_block = ir::BasicBlock::new(self.max_block - 2);
+        let false_block = ir::BasicBlock::new(self.max_block - 1);
         let convergence_block = ir::BasicBlock::new(self.max_block);
 
-        from_block.successors.insert(true_block.label);
-        from_block.successors.insert(false_block.label);
-
-        true_block.predecessors.insert(from_block.label);
-        false_block.predecessors.insert(from_block.label);
+        trace::trace!(
+            "create conditional branch from block {} - true block: {}, false block: {}, after branch: {}",
+            from_block.label,
+            true_block.label,
+            false_block.label,
+            convergence_block.label
+        );
 
         let conditional_jump = ir::IrLine::new_jump(loc, true_block.label, jump_condition);
         from_block.statements.push(conditional_jump);
@@ -101,6 +107,14 @@ impl BlockManager {
         let mut loop_bottom = ir::BasicBlock::new(self.max_block - 1);
         let after_loop = ir::BasicBlock::new(self.max_block);
 
+        trace::trace!(
+            "create loop from block {} - loop top: {}, loop bottom: {}, after loop: {}",
+            from_block.label,
+            loop_top.label,
+            loop_bottom.label,
+            after_loop.label,
+        );
+
         let loop_entry = ir::IrLine::new_jump(
             loc,
             loop_top.label,
@@ -113,9 +127,6 @@ impl BlockManager {
             loop_top.label,
             ir::operands::JumpCondition::Unconditional,
         );
-
-        from_block.successors.insert(loop_top.label);
-        from_block.statements.push(loop_jump.clone());
 
         loop_bottom.statements.push(loop_jump);
 

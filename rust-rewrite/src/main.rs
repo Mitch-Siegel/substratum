@@ -26,7 +26,7 @@ const FIB_FUN: &str = "fun fib(u8 n) -> u64
     }
 }";
 
-const WHILE_LOOP: &str = "fun down_to_zero(u16 input)
+const WHILE_LOOP: &str = "fun down_to_zero(input: u16)
 {
     input = input;
     while(input > 0) {
@@ -169,7 +169,7 @@ fn main() {
         TraceLocation::NoTrace => (),
         TraceLocation::Stdout => {
             tracing_subscriber::fmt()
-                .pretty()
+                .event_format(trace::Print::default())
                 .with_writer(std::io::stdout)
                 .with_max_level(arguments.trace_level)
                 .init();
@@ -187,7 +187,7 @@ fn main() {
         }
     }
 
-    let mut parser = Parser::new(Lexer::from_string(WHILE_LOOP_WITH_NESTED_BRANCH));
+    let mut parser = Parser::new(Lexer::from_string(WHILE_LOOP));
     let program = parser.parse().expect("Error parsing input");
 
     for t in &program {
@@ -195,7 +195,6 @@ fn main() {
     }
 
     let symtab = midend::symbol_table_from_program(program);
-
-    // println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
+    //println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
     backend::generate_code(symtab);
 }

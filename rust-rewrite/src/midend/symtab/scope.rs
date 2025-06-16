@@ -63,6 +63,12 @@ impl Scope {
         )
     }
 
+    fn mangle_string_at_index(string: String, index: usize) -> String {
+        String::from(format!("{}_{}", index, string))
+    }
+
+    // TODO: write this as non-recursive when I'm feeling smart
+    // ($5 this stays in here unnoticed until long in the future when I'm running this under a profiler)
     fn collapse_internal(&mut self, path: ScopePath) {
         let mut index = 0;
         while self.subscopes.len() > 0 {
@@ -71,8 +77,24 @@ impl Scope {
             let subscope_path = path.clone().for_new_subscope(index);
             subscope.collapse_internal(subscope_path);
 
+            for (_, mut block) in subscope.basic_blocks {
+                for statement in &mut block {
+                    for read_operand in statement.read_operand_names_mut() {
+                        read_operand.base_name =
+                            Self::mangle_string_at_index(read_operand.base_name.clone(), index)
+                    }
+
+                    for write_operand in statement.write_operand_names_mut() {
+                        write_operand.base_name =
+                            Self::mangle_string_at_index(write_operand.base_name.clone(), index)
+                    }
+                }
+
+                self.insert_basic_block(block);
+            }
+
             for (_, mut variable) in subscope.variables {
-                variable.mangle_name_at_index(index);
+                variable.name = Self::mangle_string_at_index(variable.name, index);
                 self.variables.insert(variable.name.clone(), variable);
             }
 

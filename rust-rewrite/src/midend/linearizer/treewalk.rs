@@ -4,8 +4,8 @@ use crate::{
         ir::{self, IrLine},
         linearizer::*,
         symtab::{
-            self, FunctionOwner, MethodOwner, MutFunctionOwner, MutMethodOwner, MutTypeOwner,
-            MutVariableOwner, TypeOwner, VariableOwner,
+            self, MethodOwner, MutFunctionOwner, MutMethodOwner, MutTypeOwner, MutVariableOwner,
+            TypeOwner,
         },
         types::Type,
     },

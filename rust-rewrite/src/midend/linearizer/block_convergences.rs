@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::midend::ir;
+use crate::{midend::ir, trace};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ConvergenceResult {
@@ -29,6 +29,7 @@ impl BlockConvergences {
     }
 
     pub fn add(&mut self, froms: &[usize], to: ir::BasicBlock) -> Result<(), ConvergenceError> {
+        trace::trace!("add convergence from {:?} to {}", froms, to.label);
         for from in froms {
             match self.open_convergences.insert(*from, to.label) {
                 Some(label) => return Err(ConvergenceError::FromBlockExists(*from)),
@@ -55,8 +56,21 @@ impl BlockConvergences {
             .sum::<usize>();
 
         if remaining_with_same_target > 0 {
+            trace::trace!(
+                "converge from block {} to {} ({} open convergence(s) still target {})",
+                from,
+                converge_to,
+                remaining_with_same_target,
+                converge_to
+            );
             Ok(ConvergenceResult::NotDone(converge_to))
         } else {
+            trace::trace!(
+                "block {} converges to {} (no remaining convergences targeting {})",
+                from,
+                converge_to,
+                converge_to
+            );
             // manually unwrap and rewrap to ensure we actually removed something
             Ok(ConvergenceResult::Done(
                 self.convergence_blocks.remove(&converge_to).unwrap(),
@@ -64,12 +78,20 @@ impl BlockConvergences {
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn rename_source(&mut self, old: usize, new: usize) {
         self.open_convergences = self
             .open_convergences
             .iter()
             .map(|(from, to)| {
                 if *from == old {
+                    trace::trace!(
+                        "Rename convergence ({}->{}) to ({}->{})",
+                        from,
+                        *to,
+                        new,
+                        *to
+                    );
                     (new, *to)
                 } else {
                     (*from, *to)

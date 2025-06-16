@@ -5,6 +5,7 @@ use crate::{
 pub use errors::*;
 pub use function::*;
 pub use scope::Scope;
+pub use serde::Serialize;
 pub use type_definitions::*;
 pub use variable::*;
 
@@ -103,6 +104,7 @@ pub trait MutScopeOwnerships<'ctx>: MutBasicBlockOwner + MutVariableOwner + MutT
 pub trait ModuleOwnerships: TypeOwner {}
 pub trait MutModuleOwnerships: MutTypeOwner {}
 
+#[derive(Debug, Serialize)]
 pub struct SymbolTable {
     pub global_module: Module,
 }
@@ -163,8 +165,6 @@ pub mod tests {
     where
         T: VariableOwner,
     {
-        let example_variable = Variable::new("test_variable".into(), Some(Type::U64));
-
         // make sure our example variable doesn't exist to start
         assert_eq!(
             owner.lookup_variable_by_name("test_variable"),
@@ -211,7 +211,7 @@ pub mod tests {
         )
         .unwrap();
 
-        let mut example_type = TypeDefinition::new(
+        let example_type = TypeDefinition::new(
             Type::UDT("TestStruct".into()),
             TypeRepr::Struct(example_struct_repr.clone()),
         );
@@ -276,15 +276,6 @@ pub mod tests {
     where
         T: FunctionOwner,
     {
-        let example_function = Function::new(
-            FunctionPrototype::new(
-                "example_function".into(),
-                vec![Variable::new("argument_1".into(), Some(Type::I32))],
-                Type::I64,
-            ),
-            Scope::new(),
-        );
-
         assert_eq!(
             owner.lookup_function("example_function"),
             Err(UndefinedSymbol::Function("example_function".into()))
@@ -325,8 +316,6 @@ pub mod tests {
     where
         T: ModuleOwner,
     {
-        let example_module = Module::new("A".into());
-
         assert_eq!(
             owner.lookup_submodule("A"),
             Err(UndefinedSymbol::module("A".into()))

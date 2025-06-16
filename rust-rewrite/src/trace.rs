@@ -2,6 +2,7 @@
 
 use tracing;
 pub use tracing::Level;
+pub use tracing_print::Print;
 
 // TODO: maybe namespace this differently to avoid confusion over shadowing the tracing crate
 // macros directly

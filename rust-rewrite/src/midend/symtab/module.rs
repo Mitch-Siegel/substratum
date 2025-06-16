@@ -33,18 +33,9 @@ impl TypeOwner for Module {
     }
 
     fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol> {
-        let result = self
-            .type_definitions
+        self.type_definitions
             .get(type_)
-            .ok_or(UndefinedSymbol::type_(type_.clone()));
-
-        trace::trace!(
-            "Module::lookup_type: {} {} - found? {}",
-            self.name,
-            type_,
-            result.is_ok()
-        );
-        result
+            .ok_or(UndefinedSymbol::type_(type_.clone()))
     }
 
     fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol> {

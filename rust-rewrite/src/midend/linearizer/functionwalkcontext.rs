@@ -109,6 +109,7 @@ impl<'a> FunctionWalkContext<'a> {
     }
 
     fn pop_current_scope_to_subscope_of_next(&mut self) -> Result<(), BranchError> {
+        trace::trace!("pop current scope to subscope of next");
         match self.scope_stack.pop() {
             Some(next_scope) => {
                 let old_scope = std::mem::replace(&mut self.current_scope, next_scope);
@@ -119,7 +120,18 @@ impl<'a> FunctionWalkContext<'a> {
         }
     }
 
+    fn replace_current_block(&mut self, new_current: ir::BasicBlock) -> ir::BasicBlock {
+        trace::trace!(
+            "replace current block ({}) with block {}",
+            self.current_block.label,
+            new_current.label
+        );
+        std::mem::replace(&mut self.current_block, new_current)
+    }
+
     pub fn finish_true_branch_switch_to_false(&mut self) -> Result<(), BranchError> {
+        trace::debug!("finish true branch, switch to false");
+
         let branched_from = match self.open_branch_path.last() {
             Some(branched_from) => branched_from,
             None => return Err(BranchError::NotBranched),
@@ -138,10 +150,10 @@ impl<'a> FunctionWalkContext<'a> {
                     ir::JumpCondition::Unconditional,
                 );
 
-                let mut converged_from = std::mem::replace(&mut self.current_block, false_block);
-
+                let mut converged_from = self.replace_current_block(false_block);
                 converged_from.statements.push(convergence_jump);
                 self.current_scope.insert_basic_block(converged_from);
+
                 Ok(())
             }
             ConvergenceResult::Done(_block) => Err(BranchError::MissingFalseBlock(*branched_from)),
@@ -153,6 +165,7 @@ impl<'a> FunctionWalkContext<'a> {
     }
 
     pub fn finish_branch(&mut self) -> Result<(), BranchError> {
+        trace::debug!("finish branch");
         let branched_from = self.open_branch_path.last().unwrap();
 
         match self.open_convergences.converge(self.current_block.label)? {
@@ -163,9 +176,7 @@ impl<'a> FunctionWalkContext<'a> {
                     ir::JumpCondition::Unconditional,
                 );
 
-                let mut converged_from =
-                    std::mem::replace(&mut self.current_block, converge_to_block);
-
+                let mut converged_from = self.replace_current_block(converge_to_block);
                 converged_from.statements.push(convergence_jump);
                 self.current_scope.insert_basic_block(converged_from);
 
@@ -184,6 +195,8 @@ impl<'a> FunctionWalkContext<'a> {
     // create an unconditional branch from the current block, transparently setting the current
     // block to the target. Inserts the current block (before call) into the current scope
     pub fn unconditional_branch_from_current(&mut self, loc: SourceLoc) -> Result<(), BranchError> {
+        trace::debug!("create unconditional branch from current block");
+
         let branch_from = &mut self.current_block;
         let (branch_target, after_branch) = self
             .block_manager
@@ -195,7 +208,7 @@ impl<'a> FunctionWalkContext<'a> {
             .add(&[branch_target.label], after_branch)?;
 
         self.open_branch_path.push(self.current_block.label);
-        let old_block = std::mem::replace(&mut self.current_block, branch_target);
+        let old_block = self.replace_current_block(branch_target);
         self.current_scope.insert_basic_block(old_block);
 
         self.new_subscope();
@@ -210,6 +223,8 @@ impl<'a> FunctionWalkContext<'a> {
         loc: SourceLoc,
         condition: ir::JumpCondition,
     ) -> Result<(), BranchError> {
+        trace::debug!("create conditional branch from current block");
+
         let branch_from = &mut self.current_block;
         self.open_branch_path.push(branch_from.label);
 
@@ -235,7 +250,7 @@ impl<'a> FunctionWalkContext<'a> {
             None => (),
         };
 
-        let old_block = std::mem::replace(&mut self.current_block, branch_true);
+        let old_block = self.replace_current_block(branch_true);
         self.current_scope.insert_basic_block(old_block);
 
         self.new_subscope();
@@ -243,6 +258,8 @@ impl<'a> FunctionWalkContext<'a> {
     }
 
     pub fn create_loop(&mut self, loc: SourceLoc) -> Result<usize, LoopError> {
+        trace::debug!("create loop");
+
         let (loop_top, loop_bottom, after_loop) =
             self.block_manager.create_loop(&mut self.current_block, loc);
 
@@ -255,7 +272,7 @@ impl<'a> FunctionWalkContext<'a> {
         self.current_block.statements.push(loop_entry_jump);
 
         // now the current block should be the loop's top
-        let old_block = std::mem::replace(&mut self.current_block, loop_top);
+        let old_block = self.replace_current_block(loop_top);
         self.open_convergences
             .rename_source(old_block.label, after_loop.label);
         self.current_scope.insert_basic_block(old_block);
@@ -291,7 +308,7 @@ impl<'a> FunctionWalkContext<'a> {
                 self.current_block.statements.push(loop_bottom_jump);
 
                 // make our current block loop_bottom
-                let old_block = std::mem::replace(&mut self.current_block, loop_bottom);
+                let old_block = self.replace_current_block(loop_bottom);
                 self.current_scope.insert_basic_block(old_block);
 
                 // insert any IRs that need to be at the bottom of the loop but before the looping jump itself
@@ -316,7 +333,7 @@ impl<'a> FunctionWalkContext<'a> {
                         // transition to after_loop, assuming that the correct IR was inserted to
                         // break out of the loop at some point within the loop or by
                         // loop_bottom_actions
-                        let old_block = std::mem::replace(&mut self.current_block, after_loop);
+                        let old_block = self.replace_current_block(after_loop);
                         self.current_scope.insert_basic_block(old_block);
 
                         Ok(())
@@ -503,7 +520,7 @@ impl<'a> Into<symtab::Function> for FunctionWalkContext<'a> {
                     ir::JumpCondition::Unconditional,
                 );
                 self.current_block.statements.push(jump_to_exit_block);
-                let old_block = std::mem::replace(&mut self.current_block, exit_block);
+                let old_block = self.replace_current_block(exit_block);
                 self.current_scope.insert_basic_block(old_block);
             }
             ConvergenceResult::NotDone(converge_to) => {
@@ -518,6 +535,7 @@ impl<'a> Into<symtab::Function> for FunctionWalkContext<'a> {
         }
         assert!(self.scope_stack.is_empty());
 
+        println!("Current block is {}", self.current_block.label);
         self.current_scope.insert_basic_block(self.current_block);
 
         self.current_scope.collapse();
@@ -532,7 +550,7 @@ mod tests {
         frontend::sourceloc::SourceLoc,
         midend::{
             ir,
-            linearizer::{functionwalkcontext::*, *},
+            linearizer::functionwalkcontext::*,
             symtab::{self, VariableOwner},
             types,
         },

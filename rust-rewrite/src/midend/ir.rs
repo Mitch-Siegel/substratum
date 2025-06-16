@@ -32,8 +32,6 @@ pub struct BasicBlock {
     pub label: usize,
     pub statements: Vec<ir::IrLine>,
     pub arguments: BTreeSet<ir::OperandName>,
-    pub successors: BTreeSet<usize>,
-    pub predecessors: BTreeSet<usize>,
 }
 
 impl BasicBlock {
@@ -42,9 +40,23 @@ impl BasicBlock {
             statements: Vec::new(),
             label,
             arguments: BTreeSet::new(),
-            successors: BTreeSet::<usize>::new(),
-            predecessors: BTreeSet::<usize>::new(),
         }
+    }
+}
+
+impl<'a> IntoIterator for &'a BasicBlock {
+    type Item = &'a ir::IrLine;
+    type IntoIter = std::slice::Iter<'a, ir::IrLine>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.statements.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut BasicBlock {
+    type Item = &'a mut ir::IrLine;
+    type IntoIter = std::slice::IterMut<'a, ir::IrLine>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.statements.iter_mut()
     }
 }
 

@@ -97,11 +97,27 @@ where
         self.facts == self.last_facts
     }
 
+    fn predecessors(&self, block: &ir::BasicBlock) -> std::collections::hash_set::Iter<usize> {
+        self.control_flow
+            .predecessors
+            .get(&block.label)
+            .unwrap()
+            .iter()
+    }
+
+    fn successors(&self, block: &ir::BasicBlock) -> std::collections::hash_set::Iter<usize> {
+        self.control_flow
+            .predecessors
+            .get(&block.label)
+            .unwrap()
+            .iter()
+    }
+
     fn analyze_block_forwards<'b>(&mut self, block: &ir::BasicBlock) {
         let label = block.label;
         let mut new_in_facts = BTreeSet::<T>::new();
 
-        for predecessor in &block.predecessors {
+        for predecessor in self.predecessors(block) {
             new_in_facts =
                 (self.f_meet)(new_in_facts, &self.facts.for_label(*predecessor).out_facts);
         }

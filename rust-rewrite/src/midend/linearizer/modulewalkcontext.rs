@@ -84,14 +84,7 @@ impl symtab::TypeOwner for ModuleWalkContext {
         &self,
         type_: &types::Type,
     ) -> Result<&symtab::TypeDefinition, symtab::UndefinedSymbol> {
-        let _ = trace::span_auto!(
-            trace::Level::TRACE,
-            "Lookup type in module walk context:",
-            "{}",
-            type_
-        );
         for module in self.all_modules() {
-            trace::trace!("lookup type {} in module {}", type_, module.name);
             match module.lookup_type(type_) {
                 Ok(type_) => return Ok(type_),
                 Err(_) => (),
