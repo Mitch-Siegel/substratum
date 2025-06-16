@@ -54,7 +54,6 @@ pub fn generate_code(symbol_table: midend::symtab::SymbolTable) {
         None,
         Some(generate_code_for_associated),
         Some(generate_code_for_method),
-        None,
     );
 
     generate_code_for_module(&symbol_table.global_module, Vec::new());

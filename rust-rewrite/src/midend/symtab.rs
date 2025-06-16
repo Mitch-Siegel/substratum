@@ -18,7 +18,6 @@ mod type_definitions;
 mod variable;
 
 pub use module::Module;
-pub use scope::ScopePath;
 pub use symtab_walker::SymtabWalker;
 pub use TypeRepr;
 
@@ -284,7 +283,6 @@ pub mod tests {
                 Type::I64,
             ),
             Scope::new(),
-            ir::ControlFlow::new().0,
         );
 
         assert_eq!(
@@ -304,7 +302,6 @@ pub mod tests {
                 Type::I64,
             ),
             Scope::new(),
-            ir::ControlFlow::new().0,
         );
 
         assert_eq!(

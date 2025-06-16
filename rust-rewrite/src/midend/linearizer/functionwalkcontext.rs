@@ -46,10 +46,9 @@ pub struct FunctionWalkContext<'a> {
     module_context: &'a mut ModuleWalkContext,
     self_type: Option<types::Type>,
     prototype: symtab::FunctionPrototype,
-    control_flow: ir::ControlFlow,
+    block_manager: BlockManager,
     scope_stack: Vec<symtab::Scope>,
     current_scope: symtab::Scope,
-    current_scope_address: symtab::ScopePath, // relative to the topmost scope of the current
     open_loop_beginnings: Vec<usize>,
     // conditional branches from source block to the branch_false block.
     // creating a branch replaces current_block with the branch_tru
@@ -72,7 +71,7 @@ impl<'a> FunctionWalkContext<'a> {
         self_type: Option<types::Type>,
     ) -> Self {
         trace::trace!("Create function walk context for {}", prototype);
-        let (control_flow, start_block, end_block) = ir::ControlFlow::new();
+        let (control_flow, start_block, end_block) = BlockManager::new();
         let mut base_convergences = BlockConvergences::new();
         base_convergences
             .add(&[start_block.label], end_block)
@@ -84,15 +83,13 @@ impl<'a> FunctionWalkContext<'a> {
             module_context,
             prototype,
             self_type,
-            control_flow,
+            block_manager: control_flow,
             open_branch_false_blocks: HashMap::new(),
             open_convergences: base_convergences,
             open_branch_path: Vec::new(),
             scope_stack: Vec::new(),
             current_scope: argument_scope,
             open_loop_beginnings: Vec::new(),
-            // TODO: remove me?
-            current_scope_address: symtab::ScopePath::new(),
             temp_num: 0,
             current_block: start_block,
         }
@@ -189,7 +186,7 @@ impl<'a> FunctionWalkContext<'a> {
     pub fn unconditional_branch_from_current(&mut self, loc: SourceLoc) -> Result<(), BranchError> {
         let branch_from = &mut self.current_block;
         let (branch_target, after_branch) = self
-            .control_flow
+            .block_manager
             .create_unconditional_branch(branch_from, loc);
 
         self.open_convergences
@@ -217,7 +214,7 @@ impl<'a> FunctionWalkContext<'a> {
         self.open_branch_path.push(branch_from.label);
 
         let (branch_true, branch_false, branch_convergence) = self
-            .control_flow
+            .block_manager
             .create_conditional_branch(branch_from, loc, condition);
 
         self.open_convergences
@@ -247,7 +244,7 @@ impl<'a> FunctionWalkContext<'a> {
 
     pub fn create_loop(&mut self, loc: SourceLoc) -> Result<usize, LoopError> {
         let (loop_top, loop_bottom, after_loop) =
-            self.control_flow.create_loop(&mut self.current_block, loc);
+            self.block_manager.create_loop(&mut self.current_block, loc);
 
         // track the top of the loop we are opening
         self.open_loop_beginnings.push(loop_top.label);
@@ -523,7 +520,9 @@ impl<'a> Into<symtab::Function> for FunctionWalkContext<'a> {
 
         self.current_scope.insert_basic_block(self.current_block);
 
-        symtab::Function::new(self.prototype, self.current_scope, self.control_flow)
+        self.current_scope.collapse();
+
+        symtab::Function::new(self.prototype, self.current_scope)
     }
 }
 

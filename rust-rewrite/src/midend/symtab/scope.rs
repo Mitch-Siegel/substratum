@@ -46,6 +46,43 @@ impl Scope {
             basic_blocks: HashMap::new(),
         }
     }
+
+    pub fn take_all(
+        self,
+    ) -> (
+        HashMap<String, Variable>,
+        Vec<Scope>,
+        HashMap<Type, TypeDefinition>,
+        HashMap<usize, ir::BasicBlock>,
+    ) {
+        (
+            self.variables,
+            self.subscopes,
+            self.type_definitions,
+            self.basic_blocks,
+        )
+    }
+
+    fn collapse_internal(&mut self, path: ScopePath) {
+        let mut index = 0;
+        while self.subscopes.len() > 0 {
+            let mut subscope = self.subscopes.pop().unwrap();
+
+            let subscope_path = path.clone().for_new_subscope(index);
+            subscope.collapse_internal(subscope_path);
+
+            for (_, mut variable) in subscope.variables {
+                variable.mangle_name_at_index(index);
+                self.variables.insert(variable.name.clone(), variable);
+            }
+
+            index += 1;
+        }
+    }
+
+    pub fn collapse(&mut self) {
+        self.collapse_internal(ScopePath::new());
+    }
 }
 
 impl ScopeOwner for Scope {
@@ -142,27 +179,6 @@ impl MutTypeOwner for Scope {
         self.type_definitions
             .get_mut(type_)
             .ok_or(UndefinedSymbol::type_(type_.clone()))
-    }
-}
-
-impl CollapseScopes for Scope {
-    fn collapse_scopes(&mut self, path_from_collapsing_to: ScopePath) {
-        if !path_from_collapsing_to.empty() {
-            let mut index = 0;
-            while self.subscopes.len() > 0 {
-                let mut subscope = self.subscopes.pop().unwrap();
-
-                let subscope_path = path_from_collapsing_to.clone().for_new_subscope(index);
-                subscope.collapse_scopes(subscope_path);
-
-                for (_, mut variable) in subscope.variables {
-                    variable.mangle_name_at_index(index);
-                    self.variables.insert(variable.name.clone(), variable);
-                }
-
-                index += 1;
-            }
-        }
     }
 }
 

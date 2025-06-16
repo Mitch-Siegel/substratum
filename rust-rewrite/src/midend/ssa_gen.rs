@@ -11,9 +11,9 @@ mod convert_writes;
 use super::symtab;
 
 fn convert_function_to_ssa(function: &mut symtab::Function) {
-    add_block_arguments(function);
+    /*add_block_arguments(function);
     convert_writes_to_ssa(function);
-    convert_reads_to_ssa(function);
+    convert_reads_to_ssa(function);*/
 
     //function.control_flow.to_graphviz();
 }

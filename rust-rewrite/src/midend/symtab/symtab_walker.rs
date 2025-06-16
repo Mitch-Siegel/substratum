@@ -8,14 +8,12 @@ enum ModuleItem<'a> {
 pub struct SymtabWalker<'a, C> {
     module_stack: Vec<&'a Module>,
     start_module: &'a Module,
-    scope_stack: Vec<&'a Scope>,
 
     on_module: Option<fn(&'a Module, &Self, &mut C)>,
     on_function: Option<fn(&'a Function, &Self, &mut C)>,
     on_type_definition: Option<fn(&'a TypeDefinition, &Self, &mut C)>,
     on_associated: Option<fn(&'a Function, types::Type, &Self, &mut C)>,
     on_method: Option<fn(&'a Function, types::Type, &Self, &mut C)>,
-    on_scope: Option<fn(&'a Scope, &'a Function, &Self, &mut C)>,
 }
 
 impl<'a, C> SymtabWalker<'a, C> {
@@ -26,44 +24,23 @@ impl<'a, C> SymtabWalker<'a, C> {
         on_type_definition: Option<fn(&'a TypeDefinition, &Self, &mut C)>,
         on_associated: Option<fn(&'a Function, types::Type, &Self, &mut C)>,
         on_method: Option<fn(&'a Function, types::Type, &Self, &mut C)>,
-        on_scope: Option<fn(&'a Scope, &'a Function, &Self, &mut C)>,
     ) -> Self {
         Self {
             module_stack: Vec::new(),
             start_module,
-            scope_stack: Vec::new(),
             on_module,
             on_function,
             on_type_definition,
             on_associated: on_associated,
             on_method,
-            on_scope,
         }
-    }
-
-    fn walk_scope(&mut self, scope: &'a Scope, function: &'a Function, context: &mut C) {
-        self.scope_stack.push(scope);
-        if let Some(on_scope) = self.on_scope {
-            on_scope(scope, function, self, context);
-        }
-
-        for subscope in scope.subscopes() {
-            self.walk_scope(subscope, function, context);
-        }
-
-        for type_definition in scope.types() {
-            self.walk_type_definition(type_definition, context);
-        }
-
-        self.scope_stack.pop().unwrap();
     }
 
     fn walk_function(&mut self, function: &'a Function, context: &mut C) {
         if let Some(on_function) = self.on_function {
             on_function(function, self, context);
         }
-
-        self.walk_scope(&function.scope, function, context);
+        // TODO: type definitions here
     }
 
     fn walk_type_definition(&self, type_definition: &'a TypeDefinition, context: &mut C) {

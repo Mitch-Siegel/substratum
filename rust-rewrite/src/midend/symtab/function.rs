@@ -1,10 +1,11 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 
 use serde::Serialize;
 
 use crate::midend::{ir, symtab::*, types::Type};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub enum FunctionOrPrototype {
     Function(Function),
     Prototype(FunctionPrototype),
@@ -22,16 +23,22 @@ impl FunctionOrPrototype {
 #[derive(Debug, Clone, Serialize)]
 pub struct Function {
     pub prototype: FunctionPrototype,
-    pub scope: Scope,
+    variables: HashMap<String, Variable>,
+    type_definitions: HashMap<Type, TypeDefinition>,
     pub control_flow: ir::ControlFlow,
 }
 
 impl Function {
-    pub fn new(prototype: FunctionPrototype, scope: Scope, control_flow: ir::ControlFlow) -> Self {
+    pub fn new(prototype: FunctionPrototype, main_scope: Scope) -> Self {
+        let (variables, subscopes, type_definitions, basic_blocks) = main_scope.take_all();
+
+        assert_eq!(subscopes.len(), 0);
+
         Function {
             prototype,
-            scope,
-            control_flow,
+            variables,
+            type_definitions,
+            control_flow: ir::ControlFlow::from(basic_blocks),
         }
     }
 
