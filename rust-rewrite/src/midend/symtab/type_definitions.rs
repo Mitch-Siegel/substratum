@@ -67,6 +67,10 @@ impl AssociatedOwner for TypeDefinition {
     }
 }
 impl MutAssociatedOwner for TypeDefinition {
+    fn associated_functions_mut(&mut self) -> impl Iterator<Item = &mut Function> {
+        self.associated_functions.values_mut()
+    }
+
     fn insert_associated(&mut self, associated: Function) -> Result<(), DefinedSymbol> {
         match self.methods.get(associated.name()) {
             Some(existing_method) => Err(DefinedSymbol::Method(
@@ -101,6 +105,10 @@ impl MethodOwner for TypeDefinition {
     }
 }
 impl MutMethodOwner for TypeDefinition {
+    fn methods_mut(&mut self) -> impl Iterator<Item = &mut Function> {
+        self.methods.values_mut()
+    }
+
     fn insert_method(&mut self, method: Function) -> Result<(), DefinedSymbol> {
         match self.associated_functions.get(method.name()) {
             Some(existing_associated) => Err(DefinedSymbol::Associated(

@@ -14,12 +14,12 @@ mod function;
 pub mod intrinsics;
 mod module;
 mod scope;
-pub mod symtab_walker;
+pub mod symtab_visitor;
 mod type_definitions;
 mod variable;
 
 pub use module::Module;
-pub use symtab_walker::SymtabWalker;
+pub use symtab_visitor::SymtabVisitor;
 pub use TypeRepr;
 
 /// Traits for lookup and insertion based on ownership of various symbol types
@@ -27,6 +27,7 @@ pub trait ScopeOwner {
     fn subscopes(&self) -> impl Iterator<Item = &Scope>;
 }
 pub trait MutScopeOwner: ScopeOwner {
+    fn subscopes_mut(&mut self) -> impl Iterator<Item = &mut Scope>;
     fn insert_scope(&mut self, scope: Scope);
 }
 
@@ -35,6 +36,7 @@ pub trait BasicBlockOwner {
     fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock>;
 }
 pub trait MutBasicBlockOwner: BasicBlockOwner {
+    fn basic_blocks_mut(&mut self) -> impl Iterator<Item = &mut ir::BasicBlock>;
     fn insert_basic_block(&mut self, block: ir::BasicBlock);
     fn lookup_basic_block_mut(&mut self, label: usize) -> Option<&mut ir::BasicBlock>;
 }
@@ -44,6 +46,7 @@ pub trait VariableOwner {
     fn lookup_variable_by_name(&self, name: &str) -> Result<&Variable, UndefinedSymbol>;
 }
 pub trait MutVariableOwner: VariableOwner {
+    fn variables_mut(&mut self) -> impl Iterator<Item = &mut Variable>;
     fn insert_variable(&mut self, variable: Variable) -> Result<(), DefinedSymbol>;
 }
 
@@ -53,6 +56,7 @@ pub trait TypeOwner {
     fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol>;
 }
 pub trait MutTypeOwner: TypeOwner {
+    fn types_mut(&mut self) -> impl Iterator<Item = &mut TypeDefinition>;
     fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol>;
     fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol>;
 }
@@ -65,6 +69,7 @@ pub trait FunctionOwner {
     }
 }
 pub trait MutFunctionOwner: FunctionOwner {
+    fn functions_mut(&mut self) -> impl Iterator<Item = &mut Function>;
     fn insert_function(&mut self, function: Function) -> Result<(), DefinedSymbol>;
 }
 
@@ -74,6 +79,7 @@ pub trait AssociatedOwner {
     fn lookup_associated(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
 }
 pub trait MutAssociatedOwner: AssociatedOwner {
+    fn associated_functions_mut(&mut self) -> impl Iterator<Item = &mut Function>;
     fn insert_associated(&mut self, associated: Function) -> Result<(), DefinedSymbol>;
 }
 
@@ -83,6 +89,7 @@ pub trait MethodOwner {
     fn lookup_method(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
 }
 pub trait MutMethodOwner: MethodOwner {
+    fn methods_mut(&mut self) -> impl Iterator<Item = &mut Function>;
     fn insert_method(&mut self, method: Function) -> Result<(), DefinedSymbol>;
 }
 
@@ -91,6 +98,7 @@ pub trait ModuleOwner {
     fn lookup_submodule(&self, name: &str) -> Result<&Module, UndefinedSymbol>;
 }
 pub trait MutModuleOwner: ModuleOwner {
+    fn submodules_mut(&mut self) -> impl Iterator<Item = &mut Module>;
     fn insert_module(&mut self, module: Module) -> Result<(), DefinedSymbol>;
 }
 

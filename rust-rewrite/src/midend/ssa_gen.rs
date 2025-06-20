@@ -1,31 +1,50 @@
-use std::collections::HashMap;
-
+use std::collections::{BTreeSet, HashMap};
 
 mod add_block_args;
 mod convert_reads;
 mod convert_writes;
 
-use super::symtab;
+use add_block_args::add_block_arguments;
+use convert_reads::convert_reads_to_ssa;
+use convert_writes::convert_writes_to_ssa;
 
-fn convert_function_to_ssa(function: &mut symtab::Function) {
-    /*add_block_arguments(function);
+use crate::midend::{ir, symtab, types};
+
+fn convert_function_to_ssa(function: &mut symtab::Function, context: &mut ()) {
+    add_block_arguments(function);
     convert_writes_to_ssa(function);
-    convert_reads_to_ssa(function);*/
-
-    //function.control_flow.to_graphviz();
+    convert_reads_to_ssa(function);
 }
 
-pub fn convert_functions_to_ssa(functions: &mut HashMap<String, symtab::FunctionOrPrototype>) {
-    for (_, function_or_prototype) in functions {
-        match function_or_prototype {
-            symtab::FunctionOrPrototype::Prototype(_) => {}
-            symtab::FunctionOrPrototype::Function(function) => convert_function_to_ssa(function),
-        };
-    }
+fn convert_associated_to_ssa(
+    associated: &mut symtab::Function,
+    _associated_with: &types::Type,
+    context: &mut (),
+) {
+    convert_function_to_ssa(associated, context)
+}
+
+fn convert_method_to_ssa(
+    method: &mut symtab::Function,
+    _method_of: &types::Type,
+    context: &mut (),
+) {
+    convert_function_to_ssa(method, context);
+}
+
+pub fn convert_functions_to_ssa(symtab: &mut symtab::SymbolTable) {
+    let visitor = symtab::SymtabVisitor::new(
+        None,
+        Some(convert_function_to_ssa),
+        None,
+        Some(convert_associated_to_ssa),
+        Some(convert_method_to_ssa),
+    );
+    visitor.visit(&mut symtab.global_module, &mut ());
 }
 
 fn remove_ssa_from_function(function: &mut symtab::Function) {
-    /*for block in &mut function.control_flow.blocks.values_mut() {
+    for block in &mut function.control_flow {
         let old_arguments = block.arguments.clone();
         block.arguments.clear();
         block.arguments = BTreeSet::<ir::OperandName>::new();
@@ -42,8 +61,6 @@ fn remove_ssa_from_function(function: &mut symtab::Function) {
             }
         }
     }
-    function.control_flow.to_graphviz();
-    */
 }
 
 pub fn remove_ssa_from_functions(functions: &mut HashMap<String, symtab::FunctionOrPrototype>) {

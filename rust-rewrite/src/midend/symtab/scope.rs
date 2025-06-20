@@ -114,6 +114,10 @@ impl ScopeOwner for Scope {
 }
 
 impl MutScopeOwner for Scope {
+    fn subscopes_mut(&mut self) -> impl Iterator<Item = &mut Scope> {
+        self.subscopes.iter_mut()
+    }
+
     fn insert_scope(&mut self, scope: Scope) {
         self.subscopes.push(scope);
     }
@@ -130,6 +134,10 @@ impl BasicBlockOwner for Scope {
 }
 
 impl MutBasicBlockOwner for Scope {
+    fn basic_blocks_mut(&mut self) -> impl Iterator<Item = &mut ir::BasicBlock> {
+        self.basic_blocks.values_mut()
+    }
+
     fn insert_basic_block(&mut self, block: ir::BasicBlock) {
         match self.basic_blocks.insert(block.label, block) {
             Some(existing_block) => panic!("Basic block {} already exists", existing_block.label),
@@ -155,6 +163,10 @@ impl VariableOwner for Scope {
 }
 
 impl MutVariableOwner for Scope {
+    fn variables_mut(&mut self) -> impl Iterator<Item = &mut Variable> {
+        self.variables.values_mut()
+    }
+
     fn insert_variable(&mut self, variable: Variable) -> Result<(), DefinedSymbol> {
         match self.variables.insert(variable.name.clone(), variable) {
             Some(existing_variable) => Err(DefinedSymbol::variable(existing_variable)),
@@ -190,6 +202,10 @@ impl TypeOwner for Scope {
 }
 
 impl MutTypeOwner for Scope {
+    fn types_mut(&mut self) -> impl Iterator<Item = &mut TypeDefinition> {
+        self.type_definitions.values_mut()
+    }
+
     fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol> {
         match self.type_definitions.insert(type_.type_().clone(), type_) {
             Some(existing_type) => Err(DefinedSymbol::type_(existing_type.repr)),

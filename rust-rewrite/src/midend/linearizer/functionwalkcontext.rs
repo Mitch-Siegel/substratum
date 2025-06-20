@@ -421,6 +421,12 @@ impl<'a> symtab::VariableOwner for FunctionWalkContext<'a> {
     }
 }
 impl<'a> symtab::MutVariableOwner for FunctionWalkContext<'a> {
+    fn variables_mut(&mut self) -> impl Iterator<Item = &mut symtab::Variable> {
+        self.all_scopes_mut()
+            .into_iter()
+            .flat_map(|scope| scope.variables_mut())
+    }
+
     fn insert_variable(&mut self, variable: symtab::Variable) -> Result<(), symtab::DefinedSymbol> {
         self.current_scope.insert_variable(variable)
     }
@@ -473,6 +479,13 @@ impl<'ctx> FunctionWalkContext<'ctx> {
     }
 }
 impl<'ctx> symtab::MutTypeOwner for FunctionWalkContext<'ctx> {
+    fn types_mut(&mut self) -> impl Iterator<Item = &mut symtab::TypeDefinition> {
+        // TODO: need to capture the module context too but get around mutable borrow rules...
+        self.all_scopes_mut()
+            .into_iter()
+            .flat_map(|scope| scope.types_mut())
+    }
+
     fn insert_type(&mut self, type_: symtab::TypeDefinition) -> Result<(), symtab::DefinedSymbol> {
         self.current_scope.insert_type(type_)
     }

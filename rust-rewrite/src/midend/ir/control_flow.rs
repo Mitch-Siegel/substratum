@@ -11,7 +11,7 @@ pub struct ControlFlow {
 impl From<HashMap<usize, BasicBlock>> for ControlFlow {
     fn from(blocks: HashMap<usize, BasicBlock>) -> Self {
         let mut successors = HashMap::<usize, HashSet<usize>>::new();
-        let mut predecessors = HashMap::<usize, HashSet<usize>>::new();
+        let predecessors = HashMap::<usize, HashSet<usize>>::new();
 
         for block in blocks.values() {
             for statement in block {
@@ -39,5 +39,21 @@ impl From<HashMap<usize, BasicBlock>> for ControlFlow {
             successors,
             predecessors,
         }
+    }
+}
+
+impl<'a> IntoIterator for &'a ControlFlow {
+    type Item = &'a BasicBlock;
+    type IntoIter = std::collections::hash_map::Values<'a, usize, BasicBlock>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.blocks.values()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut ControlFlow {
+    type Item = &'a mut BasicBlock;
+    type IntoIter = std::collections::hash_map::ValuesMut<'a, usize, BasicBlock>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.blocks.values_mut()
     }
 }

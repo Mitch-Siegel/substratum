@@ -48,6 +48,10 @@ impl TypeOwner for Module {
     }
 }
 impl MutTypeOwner for Module {
+    fn types_mut(&mut self) -> impl Iterator<Item = &mut TypeDefinition> {
+        self.type_definitions.values_mut()
+    }
+
     fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol> {
         match self.type_definitions.insert(type_.type_().clone(), type_) {
             Some(existing_type) => Err(DefinedSymbol::type_(existing_type.repr)),
@@ -74,6 +78,10 @@ impl ModuleOwner for Module {
     }
 }
 impl MutModuleOwner for Module {
+    fn submodules_mut(&mut self) -> impl Iterator<Item = &mut Module> {
+        self.submodules.values_mut()
+    }
+
     fn insert_module(&mut self, module: Module) -> Result<(), DefinedSymbol> {
         match self.submodules.insert(module.name.clone(), module) {
             Some(existing_module) => Err(DefinedSymbol::Module(existing_module.name)),
@@ -94,6 +102,10 @@ impl FunctionOwner for Module {
     }
 }
 impl MutFunctionOwner for Module {
+    fn functions_mut(&mut self) -> impl Iterator<Item = &mut Function> {
+        self.functions.values_mut()
+    }
+
     fn insert_function(&mut self, function: Function) -> Result<(), DefinedSymbol> {
         match self.functions.insert(function.name().into(), function) {
             Some(existing_function) => Err(DefinedSymbol::function(existing_function.prototype)),

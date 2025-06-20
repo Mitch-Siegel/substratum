@@ -1,9 +1,6 @@
-use crate::{
-    midend::{
-        symtab::{self, ModuleOwner, MutModuleOwner},
-        types,
-    },
-    trace,
+use crate::midend::{
+    symtab::{self, ModuleOwner, MutModuleOwner},
+    types,
 };
 
 pub struct ModuleWalkContext {
@@ -107,6 +104,12 @@ impl symtab::TypeOwner for ModuleWalkContext {
 }
 
 impl symtab::MutTypeOwner for ModuleWalkContext {
+    fn types_mut(&mut self) -> impl Iterator<Item = &mut symtab::TypeDefinition> {
+        self.all_modules_mut()
+            .into_iter()
+            .flat_map(|module| module.types_mut())
+    }
+
     fn insert_type(&mut self, type_: symtab::TypeDefinition) -> Result<(), symtab::DefinedSymbol> {
         self.current_module.insert_type(type_)
     }
@@ -146,6 +149,12 @@ impl symtab::FunctionOwner for ModuleWalkContext {
     }
 }
 impl symtab::MutFunctionOwner for ModuleWalkContext {
+    fn functions_mut(&mut self) -> impl Iterator<Item = &mut symtab::Function> {
+        self.all_modules_mut()
+            .into_iter()
+            .flat_map(|module| module.functions_mut())
+    }
+
     fn insert_function(&mut self, function: symtab::Function) -> Result<(), symtab::DefinedSymbol> {
         self.current_module.insert_function(function)
     }

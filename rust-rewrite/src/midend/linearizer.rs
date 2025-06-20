@@ -7,7 +7,6 @@ mod block_manager;
 mod functionwalkcontext;
 mod modulewalkcontext;
 mod treewalk;
-pub mod walkcontext;
 
 use block_convergences::*;
 pub use block_manager::BlockManager;

@@ -21,7 +21,7 @@ pub fn symbol_table_from_program(
     symtab.collapse_scopes();
 
     tracing::debug!("convert IR to SSA");
-    // ssa_gen::convert_functions_to_ssa(&mut symtab.functions);
+    ssa_gen::convert_functions_to_ssa(&mut symtab);
 
     // optimization::optimize_functions(&mut symtab.functions);
 
