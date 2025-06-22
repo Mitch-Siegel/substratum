@@ -1,9 +1,9 @@
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeSet, HashMap, HashSet},
     fmt::Display,
 };
 
-use crate::midend::ir;
+use crate::{midend::ir, trace};
 
 #[derive(Debug)]
 pub enum IdfaAnalysisDirection {
@@ -19,8 +19,8 @@ pub struct BlockFacts<T> {
     pub kill_facts: BTreeSet<T>,
 }
 
-impl<T> BlockFacts<T> {
-    pub fn new() -> Self {
+impl<T> Default for BlockFacts<T> {
+    fn default() -> Self {
         BlockFacts {
             in_facts: BTreeSet::<T>::new(),
             out_facts: BTreeSet::<T>::new(),
@@ -47,12 +47,15 @@ where
             facts: HashMap::with_capacity(n_blocks),
         }
     }
-    pub fn for_label(&self, label: usize) -> &BlockFacts<T> {
-        self.facts.get(&label).unwrap()
+
+    // return facts for a given label
+    // requires &mut self in case of missing entry needing or_default()
+    pub fn for_label(&mut self, label: usize) -> &BlockFacts<T> {
+        self.facts.entry(label).or_default()
     }
 
     pub fn for_label_mut(&mut self, label: usize) -> &mut BlockFacts<T> {
-        self.facts.entry(label).or_insert(BlockFacts::<T>::new())
+        self.facts.entry(label).or_default()
     }
 }
 
@@ -97,29 +100,21 @@ where
         self.facts == self.last_facts
     }
 
-    fn predecessors(&self, block: &ir::BasicBlock) -> std::collections::hash_set::Iter<usize> {
-        self.control_flow
-            .predecessors
-            .get(&block.label)
-            .unwrap()
-            .iter()
+    fn predecessors(&self, block: &ir::BasicBlock) -> &HashSet<usize> {
+        self.control_flow.predecessors.get(&block.label).unwrap()
     }
 
-    fn successors(&self, block: &ir::BasicBlock) -> std::collections::hash_set::Iter<usize> {
-        self.control_flow
-            .predecessors
-            .get(&block.label)
-            .unwrap()
-            .iter()
+    fn successors(&self, block: &ir::BasicBlock) -> &HashSet<usize> {
+        self.control_flow.predecessors.get(&block.label).unwrap()
     }
 
     fn analyze_block_forwards<'b>(&mut self, block: &ir::BasicBlock) {
         let label = block.label;
         let mut new_in_facts = BTreeSet::<T>::new();
 
-        for predecessor in self.predecessors(block) {
+        for predecessor in self.predecessors(block).clone() {
             new_in_facts =
-                (self.f_meet)(new_in_facts, &self.facts.for_label(*predecessor).out_facts);
+                (self.f_meet)(new_in_facts, &self.facts.for_label(predecessor).out_facts);
         }
 
         self.facts.for_label_mut(label).in_facts = new_in_facts.clone();
@@ -128,24 +123,28 @@ where
     }
 
     fn analyze_forward(&mut self) {
-        let mut first_iteration = true;
-        while !self.reached_fixpoint() || first_iteration {
-            first_iteration = false;
+        let _ = trace::span_auto_trace!("Idfa::analyze_forward()");
+        let mut iteration: usize = 0;
+        while !self.reached_fixpoint() || (iteration == 0) {
+            trace::trace!("Iteration {} of idfa", iteration);
             self.store_facts_as_last();
 
-            /*for (_, block) in &self.control_flow.blocks {
+            for (_, block) in &self.control_flow.blocks {
                 self.analyze_block_forwards(block);
-            }*/
+            }
+            iteration += 1;
         }
     }
 
     fn analyze_backward(&mut self) {
-        // let mut first_iteration = true;
-        // while !self.reached_fixpoint() || first_iteration {
         unimplemented!();
-        // first_iteration = false;
-        // self.store_facts_as_last();
-        // }
+        /*
+        let mut iteration: usize = 0;
+        while !self.reached_fixpoint() || (iteration == 0) {
+            self.store_facts_as_last();
+            iteration += 1;
+        }
+        */
     }
 
     pub fn analyze(&mut self) {

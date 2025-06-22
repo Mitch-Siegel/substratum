@@ -11,16 +11,26 @@ pub struct ControlFlow {
 impl From<HashMap<usize, BasicBlock>> for ControlFlow {
     fn from(blocks: HashMap<usize, BasicBlock>) -> Self {
         let mut successors = HashMap::<usize, HashSet<usize>>::new();
-        let predecessors = HashMap::<usize, HashSet<usize>>::new();
+        let mut predecessors = HashMap::<usize, HashSet<usize>>::new();
 
-        for block in blocks.values() {
-            for statement in block {
+        for label in blocks.keys() {
+            predecessors.entry(*label).or_default();
+            successors.entry(*label).or_default();
+        }
+
+        for from_block in blocks.values() {
+            for statement in from_block {
                 match &statement.operation {
                     ir::Operations::Jump(jump) => {
                         successors
-                            .entry(block.label)
-                            .or_default()
+                            .get_mut(&from_block.label)
+                            .unwrap()
                             .insert(jump.destination_block);
+
+                        predecessors
+                            .get_mut(&jump.destination_block)
+                            .unwrap()
+                            .insert(from_block.label);
 
                         if !blocks.contains_key(&jump.destination_block) {
                             panic!(

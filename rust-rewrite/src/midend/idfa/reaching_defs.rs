@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 
-use crate::midend::{idfa::*, ir};
+use crate::{
+    midend::{idfa::*, ir},
+    trace,
+};
 
 pub type Fact = ir::OperandName;
 pub type BlockFacts = idfa_base::BlockFacts<Fact>;
