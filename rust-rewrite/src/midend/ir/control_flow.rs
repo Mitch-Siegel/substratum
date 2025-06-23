@@ -1,11 +1,11 @@
-use crate::{hashmap_ooo_iter::*, midend::ir::*};
-use std::collections::{HashMap, HashSet, VecDeque};
+use crate::{map_ooo_iter::*, midend::ir::*};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ControlFlow {
-    blocks: HashMap<usize, BasicBlock>,
-    successors: HashMap<usize, HashSet<usize>>,
-    predecessors: HashMap<usize, HashSet<usize>>,
+    blocks: BTreeMap<usize, BasicBlock>,
+    successors: BTreeMap<usize, BTreeSet<usize>>,
+    predecessors: BTreeMap<usize, BTreeSet<usize>>,
 }
 
 pub struct ControlFlowIntoIter<T> {
@@ -22,18 +22,18 @@ impl<T> Iterator for ControlFlowIntoIter<T> {
 
 // TODO: are the postorder and reverse postorder named opposite right now? Need to actually check this...
 impl ControlFlow {
-    pub fn successors(&self, label: &usize) -> &HashSet<usize> {
-        self.successors.get(label).unwrap()
+    pub fn successors(&self, label: &usize) -> Option<&BTreeSet<usize>> {
+        self.successors.get(label)
     }
 
-    pub fn predecessors(&self, label: &usize) -> &HashSet<usize> {
-        self.predecessors.get(label).unwrap()
+    pub fn predecessors(&self, label: &usize) -> Option<&BTreeSet<usize>> {
+        self.predecessors.get(label)
     }
 
-    fn generate_postorder_stack(&self) -> Vec<usize> {
+    fn generate_reverse_postorder_stack(&self) -> Vec<usize> {
         let mut postorder_stack = Vec::<usize>::new();
         postorder_stack.clear();
-        let mut visited = HashSet::<usize>::new();
+        let mut visited = BTreeSet::<usize>::new();
 
         let mut dfs_stack = Vec::<usize>::new();
         dfs_stack.push(0);
@@ -48,7 +48,7 @@ impl ControlFlow {
 
                         postorder_stack.push(label);
 
-                        for successor in self.successors(&label) {
+                        for successor in self.successors(&label).unwrap() {
                             dfs_stack.push(*successor);
                         }
                     }
@@ -59,35 +59,35 @@ impl ControlFlow {
         postorder_stack
     }
 
-    pub fn blocks_postorder(&self) -> HashMapOOOIter<usize, ir::BasicBlock> {
-        let postorder_stack = self.generate_postorder_stack();
+    pub fn blocks_postorder(&self) -> BTreeMapOOOIter<usize, ir::BasicBlock> {
+        let rpo_stack = self.generate_reverse_postorder_stack();
 
-        HashMapOOOIter::new(&self.blocks, postorder_stack)
+        BTreeMapOOOIter::new(&self.blocks, rpo_stack.into_iter().rev())
     }
 
-    pub fn blocks_postorder_mut(&mut self) -> HashMapOOOIterMut<usize, ir::BasicBlock> {
-        let postorder_stack = self.generate_postorder_stack();
+    pub fn blocks_postorder_mut(&mut self) -> BTreeMapOOOIterMut<usize, ir::BasicBlock> {
+        let rpo_stack = self.generate_reverse_postorder_stack();
 
-        HashMapOOOIterMut::new(&mut self.blocks, postorder_stack)
+        BTreeMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter().rev())
     }
 
-    pub fn blocks_reverse_postorder(&self) -> HashMapOOOIter<usize, ir::BasicBlock> {
-        let reverse_postorder_stack = self.generate_postorder_stack().into_iter().rev().collect();
+    pub fn blocks_reverse_postorder(&self) -> BTreeMapOOOIter<usize, ir::BasicBlock> {
+        let rpo_stack = self.generate_reverse_postorder_stack();
 
-        HashMapOOOIter::new(&self.blocks, reverse_postorder_stack)
+        BTreeMapOOOIter::new(&self.blocks, rpo_stack.into_iter())
     }
 
-    pub fn blocks_reverse_postorder_mut(&mut self) -> HashMapOOOIterMut<usize, ir::BasicBlock> {
-        let reverse_postorder_stack = self.generate_postorder_stack().into_iter().rev().collect();
+    pub fn blocks_reverse_postorder_mut(&mut self) -> BTreeMapOOOIterMut<usize, ir::BasicBlock> {
+        let rpo_stack = self.generate_reverse_postorder_stack();
 
-        HashMapOOOIterMut::new(&mut self.blocks, reverse_postorder_stack)
+        BTreeMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter())
     }
 }
 
-impl From<HashMap<usize, BasicBlock>> for ControlFlow {
-    fn from(blocks: HashMap<usize, BasicBlock>) -> Self {
-        let mut successors = HashMap::<usize, HashSet<usize>>::new();
-        let mut predecessors = HashMap::<usize, HashSet<usize>>::new();
+impl From<BTreeMap<usize, BasicBlock>> for ControlFlow {
+    fn from(blocks: BTreeMap<usize, BasicBlock>) -> Self {
+        let mut successors = BTreeMap::<usize, BTreeSet<usize>>::new();
+        let mut predecessors = BTreeMap::<usize, BTreeSet<usize>>::new();
 
         for label in blocks.keys() {
             predecessors.entry(*label).or_default();
@@ -130,7 +130,7 @@ impl From<HashMap<usize, BasicBlock>> for ControlFlow {
 
 impl<'a> IntoIterator for &'a ControlFlow {
     type Item = &'a BasicBlock;
-    type IntoIter = std::collections::hash_map::Values<'a, usize, BasicBlock>;
+    type IntoIter = std::collections::btree_map::Values<'a, usize, BasicBlock>;
     fn into_iter(self) -> Self::IntoIter {
         self.blocks.values()
     }
@@ -138,8 +138,122 @@ impl<'a> IntoIterator for &'a ControlFlow {
 
 impl<'a> IntoIterator for &'a mut ControlFlow {
     type Item = &'a mut BasicBlock;
-    type IntoIter = std::collections::hash_map::ValuesMut<'a, usize, BasicBlock>;
+    type IntoIter = std::collections::btree_map::ValuesMut<'a, usize, BasicBlock>;
     fn into_iter(self) -> Self::IntoIter {
         self.blocks.values_mut()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::midend::ir::*;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    fn test_control_flow() -> ControlFlow {
+        let mut b0 = ir::BasicBlock::new(0);
+        let mut b1 = ir::BasicBlock::new(1);
+        let mut b2 = ir::BasicBlock::new(2);
+        let b3 = ir::BasicBlock::new(3);
+
+        // 0->1
+        let jump = ir::IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
+        b0.statements.push(jump);
+
+        // 1->2 (conditional)
+        let jump = ir::IrLine::new_jump(
+            SourceLoc::none(),
+            2,
+            JumpCondition::Eq(DualSourceOperands::new(
+                ir::Operand::new_as_temporary("a".into()),
+                ir::Operand::new_as_temporary("b".into()),
+            )),
+        );
+        b1.statements.push(jump);
+        // 1->3
+        let jump = ir::IrLine::new_jump(SourceLoc::none(), 3, JumpCondition::Unconditional);
+        b1.statements.push(jump);
+
+        // 2->1
+        let jump = ir::IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
+        b2.statements.push(jump);
+
+        let blocks = vec![b0, b1, b2, b3];
+
+        ControlFlow::from(
+            blocks
+                .into_iter()
+                .map(|block| (block.label, block))
+                .collect::<BTreeMap<_, _>>(),
+        )
+    }
+
+    #[test]
+    fn successors_predecessors() {
+        let cf = test_control_flow();
+
+        assert_eq!(cf.predecessors(&0), Some(&BTreeSet::<usize>::new()));
+        assert_eq!(
+            cf.predecessors(&1),
+            Some(&([0, 2].into_iter().collect::<BTreeSet::<usize>>()))
+        );
+        assert_eq!(
+            cf.predecessors(&2),
+            Some(&([1].into_iter().collect::<BTreeSet::<usize>>()))
+        );
+        assert_eq!(
+            cf.predecessors(&3),
+            Some(&([1].into_iter().collect::<BTreeSet::<usize>>()))
+        );
+        assert_eq!(cf.predecessors(&4), None);
+
+        assert_eq!(
+            cf.successors(&0),
+            Some(&([1].into_iter().collect::<BTreeSet::<usize>>()))
+        );
+        assert_eq!(
+            cf.successors(&1),
+            Some(&([2, 3].into_iter().collect::<BTreeSet::<usize>>()))
+        );
+        assert_eq!(
+            cf.successors(&2),
+            Some(&([1].into_iter().collect::<BTreeSet::<usize>>()))
+        );
+        assert_eq!(cf.successors(&3), Some(&BTreeSet::<usize>::new()));
+        assert_eq!(cf.successors(&4), None);
+    }
+
+    #[test]
+    fn postorder() {
+        let mut cf = test_control_flow();
+
+        let expected_order: Vec<usize> = vec![2, 3, 1, 0];
+        assert_eq!(
+            cf.blocks_postorder()
+                .map(|(label, _block)| { label })
+                .collect::<Vec::<_>>(),
+            expected_order
+        );
+
+        assert_eq!(
+            cf.blocks_postorder_mut()
+                .map(|(label, _block)| { label })
+                .collect::<Vec::<_>>(),
+            expected_order
+        );
+
+        let reverse_order: Vec<usize> = vec![0, 1, 3, 2];
+        assert_eq!(
+            cf.blocks_reverse_postorder()
+                .map(|(label, _block)| { label })
+                .collect::<Vec::<_>>(),
+            reverse_order
+        );
+
+        assert_eq!(
+            cf.blocks_reverse_postorder_mut()
+                .map(|(label, _block)| { label })
+                .collect::<Vec::<_>>(),
+            reverse_order
+        );
     }
 }

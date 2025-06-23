@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeSet, HashMap},
     fmt::Display,
 };
 
@@ -100,19 +100,19 @@ where
         self.facts == self.last_facts
     }
 
-    fn predecessors(&self, block: &ir::BasicBlock) -> &HashSet<usize> {
-        self.control_flow.predecessors(&block.label)
+    fn predecessors(&self, block: &ir::BasicBlock) -> impl Iterator<Item = &'a usize> {
+        self.control_flow.predecessors(&block.label).unwrap().iter()
     }
 
-    fn successors(&self, block: &ir::BasicBlock) -> &HashSet<usize> {
-        self.control_flow.predecessors(&block.label)
+    fn successors(&self, block: &ir::BasicBlock) -> impl Iterator<Item = &'a usize> {
+        self.control_flow.predecessors(&block.label).unwrap().iter()
     }
 
     fn analyze_block_forwards<'b>(&mut self, block: &ir::BasicBlock) {
         let label = block.label;
         let mut new_in_facts = BTreeSet::<T>::new();
 
-        for predecessor in self.predecessors(block).clone() {
+        for predecessor in self.predecessors(block).cloned() {
             new_in_facts =
                 (self.f_meet)(new_in_facts, &self.facts.for_label(predecessor).out_facts);
         }

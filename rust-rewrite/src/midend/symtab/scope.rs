@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::Serialize;
 
@@ -34,7 +34,7 @@ pub struct Scope {
     variables: HashMap<String, Variable>,
     subscopes: Vec<Scope>,
     type_definitions: HashMap<Type, TypeDefinition>,
-    basic_blocks: HashMap<usize, ir::BasicBlock>,
+    basic_blocks: BTreeMap<usize, ir::BasicBlock>,
 }
 
 impl Scope {
@@ -43,7 +43,7 @@ impl Scope {
             variables: HashMap::new(),
             subscopes: Vec::new(),
             type_definitions: HashMap::new(),
-            basic_blocks: HashMap::new(),
+            basic_blocks: BTreeMap::new(),
         }
     }
 
@@ -53,7 +53,7 @@ impl Scope {
         HashMap<String, Variable>,
         Vec<Scope>,
         HashMap<Type, TypeDefinition>,
-        HashMap<usize, ir::BasicBlock>,
+        BTreeMap<usize, ir::BasicBlock>,
     ) {
         (
             self.variables,
