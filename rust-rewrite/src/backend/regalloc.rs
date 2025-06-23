@@ -1,12 +1,17 @@
 use crate::backend::regalloc::block_depths::find_block_depths;
-use crate::midend::{self, symtab::ScopeOwnerships};
+use crate::{
+    backend::*,
+    midend::{self, symtab::VariableOwner},
+};
 use lifetime::LifetimeSet;
 
+mod allocated_locations;
 mod block_depths;
 mod interference;
 mod lifetime;
 mod program_point;
-use crate::backend::arch::generic::TargetArchitecture;
+
+pub use allocation_locations::AllocatedLocations;
 
 pub fn heuristic(lifetime: &midend::ir::OperandName, scope: &midend::symtab::Scope) -> isize {
     let _lookup_result = scope.lookup_variable_by_name(&lifetime.base_name);
@@ -14,21 +19,20 @@ pub fn heuristic(lifetime: &midend::ir::OperandName, scope: &midend::symtab::Sco
     0
 }
 
-fn registers_required_for_argument<Target: TargetArchitecture>(
+fn registers_required_for_argument<Target: arch::TargetArchitecture>(
     argument_name: &midend::ir::OperandName,
-    scope_stack: &midend::symtab::ScopeStack,
+    context: &RegallocContext,
 ) -> Option<usize> {
-    let lookup_result = scope_stack
+    let lookup_result = context
         .lookup_variable_by_name(&argument_name.base_name)
         .expect("Function argument missing from scope stack");
 
-    Target::registers_required_for_argument(scope_stack, lookup_result.type_())
+    Target::registers_required_for_argument(context, lookup_result.type_())
 }
 
-pub fn allocate_registers<Target: TargetArchitecture>(
-    _scope_stack: &midend::symtab::ScopeStack,
+pub fn allocate_registers<Target: arch::TargetArchitecture>(
     function: &midend::symtab::Function,
-) {
+) -> AllocatedLocations {
     println!("Allocate registers for {}", function.name());
 
     let lifetimes = LifetimeSet::from_control_flow(&function.control_flow);

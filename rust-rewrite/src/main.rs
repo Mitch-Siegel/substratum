@@ -196,5 +196,5 @@ fn main() {
 
     let symtab = midend::symbol_table_from_program(program);
     //println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
-    backend::generate_code(symtab);
+    backend::do_backend(symtab);
 }

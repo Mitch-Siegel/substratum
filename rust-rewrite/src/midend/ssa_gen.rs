@@ -35,6 +35,7 @@ fn convert_method_to_ssa(
 pub fn convert_functions_to_ssa(symtab: &mut symtab::SymbolTable) {
     let visitor = symtab::SymtabVisitor::new(
         None,
+        None,
         Some(convert_function_to_ssa),
         None,
         Some(convert_associated_to_ssa),

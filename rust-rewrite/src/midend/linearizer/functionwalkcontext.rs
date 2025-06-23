@@ -545,7 +545,6 @@ impl<'a> Into<symtab::Function> for FunctionWalkContext<'a> {
         }
         assert!(self.scope_stack.is_empty());
 
-        println!("Current block is {}", self.current_block.label);
         self.current_scope.insert_basic_block(self.current_block);
 
         self.current_scope.collapse();

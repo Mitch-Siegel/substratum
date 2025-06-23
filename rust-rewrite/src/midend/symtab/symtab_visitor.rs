@@ -2,6 +2,7 @@ use crate::midend::{symtab::*, types};
 
 pub struct SymtabVisitor<C> {
     on_module: Option<fn(&mut Module, &mut C)>,
+    on_module_done: Option<fn(&mut Module, &mut C)>,
     on_function: Option<fn(&mut Function, &mut C)>,
     on_type_definition: Option<fn(&mut TypeDefinition, &mut C)>,
     on_associated: Option<fn(&mut Function, &types::Type, &mut C)>,
@@ -11,6 +12,7 @@ pub struct SymtabVisitor<C> {
 impl<C> SymtabVisitor<C> {
     pub fn new(
         on_module: Option<fn(&mut Module, &mut C)>,
+        on_module_done: Option<fn(&mut Module, &mut C)>,
         on_function: Option<fn(&mut Function, &mut C)>,
         on_type_definition: Option<fn(&mut TypeDefinition, &mut C)>,
         on_associated: Option<fn(&mut Function, &types::Type, &mut C)>,
@@ -18,6 +20,7 @@ impl<C> SymtabVisitor<C> {
     ) -> Self {
         Self {
             on_module,
+            on_module_done,
             on_function,
             on_type_definition,
             on_associated: on_associated,
@@ -53,14 +56,14 @@ impl<C> SymtabVisitor<C> {
     }
 
     fn visit_module(&self, module: &mut Module, context: &mut C) {
-        // first, visit all submodules
-        for submodule in module.submodules_mut() {
-            self.visit_module(submodule, context);
-        }
-
-        // then do the on_module for the top level module
+        // first, call on_module if we have it
         if let Some(on_module) = self.on_module {
             on_module(module, context)
+        }
+
+        // then, visit all submodules
+        for submodule in module.submodules_mut() {
+            self.visit_module(submodule, context);
         }
 
         for function in module.functions_mut() {
@@ -72,6 +75,11 @@ impl<C> SymtabVisitor<C> {
             for type_definition in module.types_mut() {
                 on_type_definition(type_definition, context);
             }
+        }
+
+        // lastly, if we have an on_module_done, do it
+        if let Some(on_module_done) = self.on_module_done {
+            on_module_done(module, context);
         }
     }
 
