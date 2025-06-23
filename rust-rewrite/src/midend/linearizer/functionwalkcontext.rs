@@ -3,10 +3,7 @@ use crate::{
     midend::{
         ir,
         linearizer::*,
-        symtab::{
-            self, BasicBlockOwner, MutBasicBlockOwner, MutScopeOwner, MutTypeOwner,
-            MutVariableOwner, TypeOwner, VariableOwner,
-        },
+        symtab::{self, MutBasicBlockOwner, MutScopeOwner, MutTypeOwner, MutVariableOwner},
         types,
     },
     trace,
@@ -165,8 +162,8 @@ impl<'a> FunctionWalkContext<'a> {
     }
 
     pub fn finish_branch(&mut self) -> Result<(), BranchError> {
-        trace::debug!("finish branch");
         let branched_from = self.open_branch_path.last().unwrap();
+        trace::debug!("finish branch from block {}", branched_from);
 
         match self.open_convergences.converge(self.current_block.label)? {
             ConvergenceResult::Done(converge_to_block) => {

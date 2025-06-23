@@ -1,11 +1,7 @@
 use crate::{frontend::sourceloc::SourceLoc, midend::ir, trace};
 
 use serde::Serialize;
-use std::{
-    collections::{HashMap, VecDeque},
-    fmt::Debug,
-    usize,
-};
+use std::{collections::HashMap, fmt::Debug, usize};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct BlockManager {
@@ -133,62 +129,6 @@ impl BlockManager {
         (loop_top, loop_bottom, after_loop)
     }
 }
-
-pub struct ControlFlowIntoIter<T> {
-    postorder_stack: VecDeque<T>,
-}
-
-impl<T> Iterator for ControlFlowIntoIter<T> {
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.postorder_stack.pop_back()
-    }
-}
-/*
-// TODO: are the postorder and reverse postorder named opposite right now? Need to actually check this...
-impl ControlFlow {
-    fn generate_postorder_stack(&self) -> Vec<usize> {
-        let mut postorder_stack = Vec::<usize>::new();
-        postorder_stack.clear();
-        let mut visited = HashSet::<usize>::new();
-
-        let mut dfs_stack = Vec::<usize>::new();
-        dfs_stack.push(0);
-
-        // go until done
-        while dfs_stack.len() > 0 {
-            match dfs_stack.pop() {
-                Some(label) => {
-                    // only visit once
-                    if !visited.contains(&label) {
-                        visited.insert(label);
-
-                        postorder_stack.push(label);
-
-                        for successor in &self.block_for_label(&label).successors {
-                            dfs_stack.push(*successor);
-                        }
-                    }
-                }
-                None => {}
-            }
-        }
-        postorder_stack
-    }
-
-    pub fn blocks_postorder(&self) -> HashMapOOOIter<usize, ir::BasicBlock> {
-        let postorder_stack = self.generate_postorder_stack();
-
-        HashMapOOOIter::new(&self.blocks, postorder_stack)
-    }
-
-    pub fn blocks_postorder_mut(&mut self) -> HashMapOOOIterMut<usize, ir::BasicBlock> {
-        let postorder_stack = self.generate_postorder_stack();
-
-        HashMapOOOIterMut::new(&mut self.blocks, postorder_stack)
-    }
-}*/
 
 #[cfg(test)]
 mod tests {}

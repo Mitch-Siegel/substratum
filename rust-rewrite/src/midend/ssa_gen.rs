@@ -10,7 +10,7 @@ use convert_writes::convert_writes_to_ssa;
 
 use crate::midend::{ir, symtab, types};
 
-fn convert_function_to_ssa(function: &mut symtab::Function, context: &mut ()) {
+fn convert_function_to_ssa(function: &mut symtab::Function, _: &mut ()) {
     add_block_arguments(function);
     convert_writes_to_ssa(function);
     convert_reads_to_ssa(function);

@@ -78,7 +78,7 @@ pub struct Idfa<'a, T>
 where
     T: Display + PartialEq,
 {
-    pub control_flow: &'a ir::ControlFlow,
+    control_flow: &'a ir::ControlFlow,
     direction: IdfaAnalysisDirection,
     last_facts: Facts<T>,
     pub facts: Facts<T>,
@@ -101,11 +101,11 @@ where
     }
 
     fn predecessors(&self, block: &ir::BasicBlock) -> &HashSet<usize> {
-        self.control_flow.predecessors.get(&block.label).unwrap()
+        self.control_flow.predecessors(&block.label)
     }
 
     fn successors(&self, block: &ir::BasicBlock) -> &HashSet<usize> {
-        self.control_flow.predecessors.get(&block.label).unwrap()
+        self.control_flow.predecessors(&block.label)
     }
 
     fn analyze_block_forwards<'b>(&mut self, block: &ir::BasicBlock) {
@@ -129,7 +129,7 @@ where
             trace::trace!("Iteration {} of idfa", iteration);
             self.store_facts_as_last();
 
-            for (_, block) in &self.control_flow.blocks {
+            for block in self.control_flow {
                 self.analyze_block_forwards(block);
             }
             iteration += 1;

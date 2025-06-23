@@ -1,11 +1,87 @@
-use crate::midend::ir::*;
-use std::collections::{HashMap, HashSet};
+use crate::{hashmap_ooo_iter::*, midend::ir::*};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ControlFlow {
-    pub blocks: HashMap<usize, BasicBlock>,
-    pub successors: HashMap<usize, HashSet<usize>>,
-    pub predecessors: HashMap<usize, HashSet<usize>>,
+    blocks: HashMap<usize, BasicBlock>,
+    successors: HashMap<usize, HashSet<usize>>,
+    predecessors: HashMap<usize, HashSet<usize>>,
+}
+
+pub struct ControlFlowIntoIter<T> {
+    postorder_stack: VecDeque<T>,
+}
+
+impl<T> Iterator for ControlFlowIntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.postorder_stack.pop_back()
+    }
+}
+
+// TODO: are the postorder and reverse postorder named opposite right now? Need to actually check this...
+impl ControlFlow {
+    pub fn successors(&self, label: &usize) -> &HashSet<usize> {
+        self.successors.get(label).unwrap()
+    }
+
+    pub fn predecessors(&self, label: &usize) -> &HashSet<usize> {
+        self.predecessors.get(label).unwrap()
+    }
+
+    fn generate_postorder_stack(&self) -> Vec<usize> {
+        let mut postorder_stack = Vec::<usize>::new();
+        postorder_stack.clear();
+        let mut visited = HashSet::<usize>::new();
+
+        let mut dfs_stack = Vec::<usize>::new();
+        dfs_stack.push(0);
+
+        // go until done
+        while dfs_stack.len() > 0 {
+            match dfs_stack.pop() {
+                Some(label) => {
+                    // only visit once
+                    if !visited.contains(&label) {
+                        visited.insert(label);
+
+                        postorder_stack.push(label);
+
+                        for successor in self.successors(&label) {
+                            dfs_stack.push(*successor);
+                        }
+                    }
+                }
+                None => {}
+            }
+        }
+        postorder_stack
+    }
+
+    pub fn blocks_postorder(&self) -> HashMapOOOIter<usize, ir::BasicBlock> {
+        let postorder_stack = self.generate_postorder_stack();
+
+        HashMapOOOIter::new(&self.blocks, postorder_stack)
+    }
+
+    pub fn blocks_postorder_mut(&mut self) -> HashMapOOOIterMut<usize, ir::BasicBlock> {
+        let postorder_stack = self.generate_postorder_stack();
+
+        HashMapOOOIterMut::new(&mut self.blocks, postorder_stack)
+    }
+
+    pub fn blocks_reverse_postorder(&self) -> HashMapOOOIter<usize, ir::BasicBlock> {
+        let reverse_postorder_stack = self.generate_postorder_stack().into_iter().rev().collect();
+
+        HashMapOOOIter::new(&self.blocks, reverse_postorder_stack)
+    }
+
+    pub fn blocks_reverse_postorder_mut(&mut self) -> HashMapOOOIterMut<usize, ir::BasicBlock> {
+        let reverse_postorder_stack = self.generate_postorder_stack().into_iter().rev().collect();
+
+        HashMapOOOIterMut::new(&mut self.blocks, reverse_postorder_stack)
+    }
 }
 
 impl From<HashMap<usize, BasicBlock>> for ControlFlow {

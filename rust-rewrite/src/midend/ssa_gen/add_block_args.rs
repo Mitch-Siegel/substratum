@@ -10,12 +10,12 @@ pub fn add_block_arguments(function: &mut symtab::Function) {
 
     loop {
         let mut args_by_block = HashMap::<usize, BTreeSet<ir::OperandName>>::new();
-        for (label, block) in &mut function.control_flow.blocks {
-            block.arguments = block_args.for_label(*label).out_facts.clone();
-            args_by_block.insert(*label, block.arguments.clone());
+        for block in &mut function.control_flow {
+            block.arguments = block_args.for_label(block.label).out_facts.clone();
+            args_by_block.insert(block.label, block.arguments.clone());
         }
 
-        for block in function.control_flow.blocks.values_mut() {
+        for block in &mut function.control_flow {
             for statement in &mut block.statements {
                 match &mut statement.operation {
                     ir::Operations::Jump(jump) => {

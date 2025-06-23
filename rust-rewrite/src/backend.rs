@@ -6,7 +6,7 @@ struct CodegenContext {}
 
 fn generate_code_for_function(
     function: &mut midend::symtab::Function,
-    context: &mut CodegenContext,
+    _context: &mut CodegenContext,
 ) {
     trace::debug!("Generate code for function {}", function.name());
 }
@@ -14,7 +14,7 @@ fn generate_code_for_function(
 fn generate_code_for_associated(
     associated: &mut midend::symtab::Function,
     associated_with: &midend::types::Type,
-    context: &mut CodegenContext,
+    _context: &mut CodegenContext,
 ) {
     trace::debug!(
         "Generate code for associated {}::{}",
@@ -26,7 +26,7 @@ fn generate_code_for_associated(
 fn generate_code_for_method(
     method: &mut midend::symtab::Function,
     method_of: &midend::types::Type,
-    context: &mut CodegenContext,
+    _context: &mut CodegenContext,
 ) {
     trace::debug!("Generate code for method {}.{}", method_of, method.name());
 }

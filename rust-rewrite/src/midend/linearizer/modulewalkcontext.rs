@@ -1,5 +1,5 @@
 use crate::midend::{
-    symtab::{self, ModuleOwner, MutModuleOwner},
+    symtab::{self, MutModuleOwner},
     types,
 };
 

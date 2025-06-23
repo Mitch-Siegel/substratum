@@ -1,9 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::{
-    midend::{idfa::*, ir},
-    trace,
-};
+use crate::midend::{idfa::*, ir};
 
 pub type Fact = ir::OperandName;
 pub type BlockFacts = idfa_base::BlockFacts<Fact>;
@@ -19,8 +16,8 @@ impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
     }
 
     fn f_find_gen_kills(control_flow: &'a ir::ControlFlow, facts: &mut super::Facts<Fact>) {
-        /*for (label, block) in &control_flow.blocks {
-            let block_facts = facts.for_label_mut(*label);
+        for block in control_flow {
+            let block_facts = facts.for_label_mut(block.label);
 
             for statement in &block.statements {
                 for read in statement.read_operand_names() {
@@ -32,7 +29,7 @@ impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
                     block_facts.kill_facts.insert(write.clone());
                 }
             }
-        }*/
+        }
     }
 
     fn f_meet(mut a: BTreeSet<Fact>, b: &BTreeSet<Fact>) -> BTreeSet<Fact> {

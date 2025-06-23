@@ -32,7 +32,7 @@ impl BlockConvergences {
         trace::trace!("add convergence from {:?} to {}", froms, to.label);
         for from in froms {
             match self.open_convergences.insert(*from, to.label) {
-                Some(label) => return Err(ConvergenceError::FromBlockExists(*from)),
+                Some(_) => return Err(ConvergenceError::FromBlockExists(*from)),
                 None => (),
             }
         }

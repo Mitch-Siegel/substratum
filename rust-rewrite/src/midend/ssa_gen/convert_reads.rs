@@ -1,7 +1,11 @@
-use crate::midend::symtab;
+use crate::{
+    midend::{ir, symtab},
+    trace,
+};
+use std::collections::BTreeMap;
 
 pub fn convert_reads_to_ssa(function: &mut symtab::Function) {
-    /*for (_, block) in function.control_flow.blocks_postorder_mut() {
+    for (_, block) in function.control_flow.blocks_postorder_mut() {
         let mut highest_ssa_numbers = BTreeMap::<ir::OperandName, ir::OperandName>::new();
 
         for arg in &block.arguments {
@@ -13,7 +17,7 @@ pub fn convert_reads_to_ssa(function: &mut symtab::Function) {
                 read.ssa_number = match highest_ssa_numbers.get(read) {
                     Some(operand) => operand.ssa_number,
                     None => {
-                        println!("{} has no ssa number (yet)", read);
+                        trace::trace!("{} has no ssa number (yet)", read);
                         None
                     }
                 };
@@ -29,5 +33,5 @@ pub fn convert_reads_to_ssa(function: &mut symtab::Function) {
                 highest_ssa_numbers.insert(write.clone().into_non_ssa(), write.clone());
             }
         }
-    }*/
+    }
 }

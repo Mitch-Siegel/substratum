@@ -1,9 +1,6 @@
 use std::collections::BTreeSet;
 
-use crate::{
-    midend::{idfa::*, ir},
-    trace,
-};
+use crate::midend::{idfa::*, ir};
 
 pub type Fact = ir::OperandName;
 pub type BlockFacts = idfa_base::BlockFacts<Fact>;
@@ -42,8 +39,8 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
         //TODO: need to be able to possibly act on function arguments for gen/kill
         // e.g. reaching defs on function arguments
 
-        /*for (label, block) in &control_flow.blocks {
-            let block_facts = facts.for_label_mut(*label);
+        for block in control_flow {
+            let block_facts = facts.for_label_mut(block.label);
 
             for statement in &block.statements {
                 for read in statement.read_operand_names() {
@@ -53,7 +50,7 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
                     block_facts.gen_facts.insert(write.clone());
                 }
             }
-        }*/
+        }
     }
 
     fn f_meet(
