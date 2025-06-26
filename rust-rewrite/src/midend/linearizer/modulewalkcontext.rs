@@ -90,17 +90,6 @@ impl symtab::TypeOwner for ModuleWalkContext {
 
         Err(symtab::UndefinedSymbol::type_(type_.clone()))
     }
-
-    fn lookup_struct(&self, name: &str) -> Result<&symtab::StructRepr, symtab::UndefinedSymbol> {
-        for module in self.all_modules() {
-            match module.lookup_struct(name) {
-                Ok(struct_) => return Ok(struct_),
-                Err(_) => (),
-            }
-        }
-
-        Err(symtab::UndefinedSymbol::struct_(name.into()))
-    }
 }
 
 impl symtab::MutTypeOwner for ModuleWalkContext {

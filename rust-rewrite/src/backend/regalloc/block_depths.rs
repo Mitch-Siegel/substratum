@@ -27,7 +27,7 @@ impl<'a> BlockDepthMetadata<'a> {
     fn max_of_predecessors(&mut self, block_label: usize) -> usize {
         let mut max = usize::MIN;
 
-        for predecessor_label in &self.control_flow.block_for_label(&block_label).predecessors {
+        for predecessor_label in self.control_flow.predecessors(&block_label).unwrap() {
             let predecessor_depth = match self.depths.get(predecessor_label) {
                 Some(depth) => *depth,
                 None => {

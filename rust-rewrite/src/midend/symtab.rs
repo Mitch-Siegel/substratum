@@ -19,7 +19,7 @@ mod type_definitions;
 mod variable;
 
 pub use module::Module;
-pub use symtab_visitor::SymtabVisitor;
+pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
 pub use TypeRepr;
 
 /// Traits for lookup and insertion based on ownership of various symbol types
@@ -53,7 +53,12 @@ pub trait MutVariableOwner: VariableOwner {
 pub trait TypeOwner {
     fn types(&self) -> impl Iterator<Item = &TypeDefinition>;
     fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol>;
-    fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol>;
+    fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol> {
+        match &self.lookup_type(&Type::UDT(name.into()))?.repr {
+            TypeRepr::Struct(struct_repr) => Ok(struct_repr),
+            _ => Err(UndefinedSymbol::struct_(name.into())),
+        }
+    }
 }
 pub trait MutTypeOwner: TypeOwner {
     fn types_mut(&mut self) -> impl Iterator<Item = &mut TypeDefinition>;

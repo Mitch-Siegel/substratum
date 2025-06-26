@@ -10,8 +10,10 @@ mod block_depths;
 mod interference;
 mod lifetime;
 mod program_point;
+mod regalloc_context;
 
-pub use allocation_locations::AllocatedLocations;
+pub use allocated_locations::AllocatedLocations;
+use regalloc_context::RegallocContext;
 
 pub fn heuristic(lifetime: &midend::ir::OperandName, scope: &midend::symtab::Scope) -> isize {
     let _lookup_result = scope.lookup_variable_by_name(&lifetime.base_name);
@@ -19,10 +21,13 @@ pub fn heuristic(lifetime: &midend::ir::OperandName, scope: &midend::symtab::Sco
     0
 }
 
-fn registers_required_for_argument<Target: arch::TargetArchitecture>(
+fn registers_required_for_argument<'a, C, Target: arch::TargetArchitecture>(
     argument_name: &midend::ir::OperandName,
-    context: &RegallocContext,
-) -> Option<usize> {
+    context: &RegallocContext<'a, C>,
+) -> Option<usize>
+where
+    C: midend::types::TypeSizingContext,
+{
     let lookup_result = context
         .lookup_variable_by_name(&argument_name.base_name)
         .expect("Function argument missing from scope stack");
@@ -56,4 +61,5 @@ pub fn allocate_registers<Target: arch::TargetArchitecture>(
     let depths = find_block_depths(control_flow);
 
     println!("{:?}", depths);
+    AllocatedLocations::new()
 }

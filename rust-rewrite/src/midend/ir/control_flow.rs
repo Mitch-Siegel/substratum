@@ -1,4 +1,7 @@
-use crate::{map_ooo_iter::*, midend::ir::*};
+use crate::{
+    map_ooo_iter::*,
+    midend::{ir::*, symtab},
+};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 #[derive(Debug, Clone, Serialize)]
@@ -81,6 +84,16 @@ impl ControlFlow {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
         BTreeMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter())
+    }
+}
+
+impl symtab::BasicBlockOwner for ControlFlow {
+    fn basic_blocks(&self) -> impl Iterator<Item = &ir::BasicBlock> {
+        self.blocks.values()
+    }
+
+    fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock> {
+        self.blocks.get(&label)
     }
 }
 

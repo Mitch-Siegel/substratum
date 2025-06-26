@@ -92,8 +92,8 @@ impl LifetimeSet {
 
         let mut lifetimes = Self::new();
 
-        for (label, block) in &control_flow.blocks {
-            lifetimes.add_from_block(block, block_depths[label]);
+        for block in control_flow {
+            lifetimes.add_from_block(block, block_depths[&block.label]);
         }
 
         lifetimes

@@ -185,20 +185,6 @@ impl TypeOwner for Scope {
             .get(type_)
             .ok_or(UndefinedSymbol::type_(type_.clone()))
     }
-
-    fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol> {
-        let struct_type = Type::UDT(name.into());
-
-        match self.type_definitions.get(&struct_type) {
-            Some(definition) => match &definition.repr {
-                TypeRepr::Struct(struct_definition) => return Ok(struct_definition),
-                _ => {}
-            },
-            None => {}
-        }
-
-        Err(UndefinedSymbol::struct_(name.into()))
-    }
 }
 
 impl MutTypeOwner for Scope {

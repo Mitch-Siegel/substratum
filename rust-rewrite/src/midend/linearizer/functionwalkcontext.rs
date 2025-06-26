@@ -450,17 +450,6 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
 
         self.module_context.lookup_type(type_)
     }
-
-    fn lookup_struct(&self, name: &str) -> Result<&symtab::StructRepr, symtab::UndefinedSymbol> {
-        for lookup_scope in self.all_scopes() {
-            match lookup_scope.lookup_struct(name) {
-                Ok(struct_) => return Ok(struct_),
-                _ => (),
-            }
-        }
-
-        self.module_context.lookup_struct(name)
-    }
 }
 impl<'ctx> FunctionWalkContext<'ctx> {
     fn lookup_type_mut_local(

@@ -1,18 +1,16 @@
 use crate::midend::{symtab::*, types};
 
-pub struct SymtabVisitor<C> {
+pub struct MutSymtabVisitor<C> {
     on_module: Option<fn(&mut Module, &mut C)>,
-    on_module_done: Option<fn(&mut Module, &mut C)>,
     on_function: Option<fn(&mut Function, &mut C)>,
     on_type_definition: Option<fn(&mut TypeDefinition, &mut C)>,
     on_associated: Option<fn(&mut Function, &types::Type, &mut C)>,
     on_method: Option<fn(&mut Function, &types::Type, &mut C)>,
 }
 
-impl<C> SymtabVisitor<C> {
+impl<C> MutSymtabVisitor<C> {
     pub fn new(
         on_module: Option<fn(&mut Module, &mut C)>,
-        on_module_done: Option<fn(&mut Module, &mut C)>,
         on_function: Option<fn(&mut Function, &mut C)>,
         on_type_definition: Option<fn(&mut TypeDefinition, &mut C)>,
         on_associated: Option<fn(&mut Function, &types::Type, &mut C)>,
@@ -20,7 +18,6 @@ impl<C> SymtabVisitor<C> {
     ) -> Self {
         Self {
             on_module,
-            on_module_done,
             on_function,
             on_type_definition,
             on_associated: on_associated,
@@ -76,14 +73,126 @@ impl<C> SymtabVisitor<C> {
                 on_type_definition(type_definition, context);
             }
         }
-
-        // lastly, if we have an on_module_done, do it
-        if let Some(on_module_done) = self.on_module_done {
-            on_module_done(module, context);
-        }
     }
 
     pub fn visit(self, module: &mut Module, context: &mut C) {
         self.visit_module(module, context);
     }
 }
+
+pub struct SymtabVisitor<'a, C> {
+    parent_modules: Vec<&'a Module>,
+    on_module: Option<fn(&Module, &Self, &mut C)>,
+    on_function: Option<fn(&Function, &Self, &mut C)>,
+    on_type_definition: Option<fn(&TypeDefinition, &Self, &mut C)>,
+    on_associated: Option<fn(&Function, &types::Type, &Self, &mut C)>,
+    on_method: Option<fn(&Function, &types::Type, &Self, &mut C)>,
+}
+
+impl<'a, C> SymtabVisitor<'a, C> {
+    pub fn new(
+        on_module: Option<fn(&Module, &Self, &mut C)>,
+        on_function: Option<fn(&Function, &Self, &mut C)>,
+        on_type_definition: Option<fn(&TypeDefinition, &Self, &mut C)>,
+        on_associated: Option<fn(&Function, &types::Type, &Self, &mut C)>,
+        on_method: Option<fn(&Function, &types::Type, &Self, &mut C)>,
+    ) -> Self {
+        Self {
+            parent_modules: Vec::new(),
+            on_module,
+            on_function,
+            on_type_definition,
+            on_associated: on_associated,
+            on_method,
+        }
+    }
+
+    fn all_modules(&self) -> impl Iterator<Item = &'a Module> {
+        self.parent_modules
+            .iter()
+            .rev()
+            .map(|module: &&Module| *module)
+            .collect::<Vec<_>>()
+            .into_iter()
+    }
+
+    fn visit_function(&self, function: &Function, context: &mut C) {
+        if let Some(on_function) = self.on_function {
+            on_function(function, self, context);
+        }
+        // TODO: type definitions here
+    }
+
+    fn visit_type_definition(&self, type_definition: &TypeDefinition, context: &mut C) {
+        if let Some(on_type_definition) = self.on_type_definition {
+            on_type_definition(type_definition, self, context);
+        }
+
+        let defined_type = type_definition.type_().clone();
+
+        if let Some(on_associated) = self.on_associated {
+            for associated in type_definition.associated_functions() {
+                on_associated(associated, &defined_type, self, context);
+            }
+        }
+
+        if let Some(on_method) = self.on_method {
+            for method in type_definition.methods() {
+                on_method(method, &defined_type, self, context);
+            }
+        }
+    }
+
+    fn visit_module(&mut self, module: &'a Module, context: &mut C) {
+        // first, call on_module if we have it
+        if let Some(on_module) = self.on_module {
+            on_module(module, self, context)
+        }
+
+        self.parent_modules.push(module);
+
+        // then, visit all submodules
+        for submodule in module.submodules() {
+            self.visit_module(submodule, context);
+        }
+
+        for function in module.functions() {
+            self.visit_function(function, context);
+        }
+
+        // type defintions within the module
+        if let Some(on_type_definition) = self.on_type_definition {
+            for type_definition in module.types() {
+                on_type_definition(type_definition, self, context);
+            }
+        }
+
+        self.parent_modules.pop().unwrap();
+    }
+
+    pub fn visit(mut self, module: &'a Module, context: &mut C) {
+        self.visit_module(module, context);
+    }
+}
+
+impl<'a, C> TypeOwner for SymtabVisitor<'a, C> {
+    fn types(&self) -> impl Iterator<Item = &TypeDefinition> {
+        self.parent_modules
+            .iter()
+            .rev()
+            .flat_map(|module| module.types())
+    }
+
+    fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol> {
+        for module in self.all_modules() {
+            match module.lookup_type(type_) {
+                Ok(type_) => return Ok(type_),
+                Err(_) => (),
+            }
+        }
+
+        Err(UndefinedSymbol::type_(type_.clone()))
+    }
+}
+
+impl<'a, C> ModuleOwnerships for SymtabVisitor<'a, C> {}
