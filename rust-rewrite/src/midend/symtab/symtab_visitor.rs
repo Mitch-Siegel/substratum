@@ -195,4 +195,22 @@ impl<'a, C> TypeOwner for SymtabVisitor<'a, C> {
     }
 }
 
+impl<'a, C> SelfTypeOwner for SymtabVisitor<'a, C> {
+    fn self_type(&self) -> &types::Type {
+        unimplemented!()
+    }
+}
+
+impl<'a, C> VariableOwner for SymtabVisitor<'a, C> {
+    fn variables(&self) -> impl Iterator<Item = &Variable> {
+        std::iter::empty()
+    }
+
+    fn lookup_variable_by_name(&self, name: &str) -> Result<&Variable, UndefinedSymbol> {
+        Err(UndefinedSymbol::variable(name.into()))
+    }
+}
+
 impl<'a, C> ModuleOwnerships for SymtabVisitor<'a, C> {}
+impl<'a, C> types::TypeSizingContext for SymtabVisitor<'a, C> {}
+impl<'a, C> VariableSizingContext for SymtabVisitor<'a, C> {}

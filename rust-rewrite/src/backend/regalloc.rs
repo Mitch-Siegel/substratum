@@ -1,3 +1,5 @@
+use std::collections::{BTreeMap, BTreeSet};
+
 use crate::backend::regalloc::block_depths::find_block_depths;
 use crate::{
     backend::*,
@@ -13,10 +15,14 @@ mod program_point;
 mod regalloc_context;
 
 pub use allocated_locations::AllocatedLocations;
-use regalloc_context::RegallocContext;
+pub use lifetime::*;
+pub use regalloc_context::*;
 
-pub fn heuristic(lifetime: &midend::ir::OperandName, scope: &midend::symtab::Scope) -> isize {
-    let _lookup_result = scope.lookup_variable_by_name(&lifetime.base_name);
+pub fn heuristic<C>(lifetime: &Lifetime, context: &C) -> isize
+where
+    C: midend::types::TypeSizingContext,
+{
+    let _lookup_result = lifetime.type_.size::<arch::Target, C>(context);
 
     0
 }
@@ -26,7 +32,7 @@ fn registers_required_for_argument<'a, C, Target: arch::TargetArchitecture>(
     context: &RegallocContext<'a, C>,
 ) -> Option<usize>
 where
-    C: midend::types::TypeSizingContext,
+    C: midend::symtab::VariableSizingContext,
 {
     let lookup_result = context
         .lookup_variable_by_name(&argument_name.base_name)
@@ -35,26 +41,58 @@ where
     Target::registers_required_for_argument(context, lookup_result.type_())
 }
 
-pub fn allocate_registers<Target: arch::TargetArchitecture>(
-    function: &midend::symtab::Function,
-) -> AllocatedLocations {
-    println!("Allocate registers for {}", function.name());
+pub fn allocate_registers<Target: arch::TargetArchitecture, C>(
+    context: RegallocContext<C>,
+) -> AllocatedLocations
+where
+    C: midend::symtab::VariableSizingContext,
+{
+    println!("Allocate registers for {}", context.function.name());
 
-    let lifetimes = LifetimeSet::from_control_flow(&function.control_flow);
+    let lifetimes = LifetimeSet::new(context.function, &context);
     // let depths = find_block_depths(control_flow);
 
     let _target_registers = Target::registers();
 
-    let mut _arguments = function
+    let mut arguments = context
+        .function
         .prototype
         .arguments
         .iter()
         .map(|argument| lifetimes.lookup_by_variable(argument).unwrap())
-        .collect::<Vec<_>>();
+        .collect::<BTreeSet<_>>();
 
-    let mut _stack_arguments: Vec<&lifetime::Lifetime> = Vec::new();
+    let mut _stack_arguments: BTreeSet<&lifetime::Lifetime> = BTreeSet::new();
 
-    let control_flow = &function.control_flow;
+    let argument_heuristics = arguments
+        .iter()
+        .map(|argument| {
+            let heuristic = heuristic(argument, &context);
+
+            (*argument, heuristic)
+        })
+        .collect::<BTreeMap<&Lifetime, isize>>();
+
+    if arguments.len()
+        > *_target_registers
+            .counts_by_purpose
+            .get(&arch::generic::registers::RegisterPurpose::Argument)
+            .unwrap()
+    {
+        let mut reverse_map = argument_heuristics
+            .iter()
+            .map(|(k, v)| (*v, *k))
+            .collect::<BTreeMap<isize, &Lifetime>>();
+
+        let to_spill = reverse_map.first_entry().unwrap().get().to_owned();
+
+        arguments.remove(to_spill);
+        _stack_arguments.insert(to_spill);
+
+        println!("need to spill - selected lifetime {}", to_spill.name);
+    }
+
+    let control_flow = &context.function.control_flow;
 
     // println!("interference graph: {:?}", graph);
 

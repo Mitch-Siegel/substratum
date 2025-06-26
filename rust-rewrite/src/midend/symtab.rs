@@ -1,5 +1,8 @@
 use crate::{
-    midend::{ir, types::Type},
+    midend::{
+        ir,
+        types::{self, Type},
+    },
     trace,
 };
 pub use errors::*;
@@ -54,7 +57,13 @@ pub trait TypeOwner {
     fn types(&self) -> impl Iterator<Item = &TypeDefinition>;
     fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol>;
     fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol> {
-        match &self.lookup_type(&Type::UDT(name.into()))?.repr {
+        let lookup_type_result = self.lookup_type(&Type::UDT(name.into()));
+        let type_definition = match lookup_type_result {
+            Ok(type_definition) => type_definition,
+            Err(_) => return Err(UndefinedSymbol::struct_(name.into())),
+        };
+
+        match &type_definition.repr {
             TypeRepr::Struct(struct_repr) => Ok(struct_repr),
             _ => Err(UndefinedSymbol::struct_(name.into())),
         }
@@ -116,6 +125,8 @@ pub trait MutScopeOwnerships<'ctx>: MutBasicBlockOwner + MutVariableOwner + MutT
 
 pub trait ModuleOwnerships: TypeOwner {}
 pub trait MutModuleOwnerships: MutTypeOwner {}
+
+pub trait VariableSizingContext: types::TypeSizingContext + VariableOwner {}
 
 #[derive(Debug, Serialize)]
 pub struct SymbolTable {

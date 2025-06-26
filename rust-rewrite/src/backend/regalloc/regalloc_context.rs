@@ -6,7 +6,7 @@ where
 {
     parent_modules: &'a C,
     self_type: Option<&'a midend::types::Type>,
-    function: &'a midend::symtab::Function,
+    pub function: &'a midend::symtab::Function,
 }
 
 impl<'a, C> RegallocContext<'a, C>
@@ -70,6 +70,11 @@ where
 }
 
 impl<'a, C> midend::types::TypeSizingContext for RegallocContext<'a, C> where
-    C: midend::types::TypeSizingContext
+    C: midend::symtab::VariableSizingContext
+{
+}
+
+impl<'a, C> midend::symtab::VariableSizingContext for RegallocContext<'a, C> where
+    C: midend::symtab::VariableSizingContext
 {
 }

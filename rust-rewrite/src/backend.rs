@@ -3,23 +3,22 @@ use crate::{midend, trace};
 mod codegen;
 mod regalloc;
 
-struct CodegenContext {
-    modules: Vec<std::rc::Rc<midend::symtab::Module>>,
-}
-
 fn do_backend_for_function(
     function: &midend::symtab::Function,
-    _visitor: &midend::symtab::SymtabVisitor<CodegenContext>,
-    _context: &mut CodegenContext,
+    visitor: &midend::symtab::SymtabVisitor<()>,
+    _context: &mut (),
 ) {
+    let allocation = regalloc::allocate_registers::<arch::Target, midend::symtab::SymtabVisitor<()>>(
+        regalloc::RegallocContext::new(visitor, None, function),
+    );
     trace::debug!("Do backend for function {}", function.name());
 }
 
 fn do_backend_for_associated(
     associated: &midend::symtab::Function,
     associated_with: &midend::types::Type,
-    _visitor: &midend::symtab::SymtabVisitor<CodegenContext>,
-    _context: &mut CodegenContext,
+    _visitor: &midend::symtab::SymtabVisitor<()>,
+    _context: &mut (),
 ) {
     trace::debug!(
         "Do backend for associated {}::{}",
@@ -31,14 +30,14 @@ fn do_backend_for_associated(
 fn do_backend_for_method(
     method: &midend::symtab::Function,
     method_of: &midend::types::Type,
-    _visitor: &midend::symtab::SymtabVisitor<CodegenContext>,
-    _context: &mut CodegenContext,
+    _visitor: &midend::symtab::SymtabVisitor<()>,
+    _context: &mut (),
 ) {
     trace::debug!("Do backend for method {}.{}", method_of, method.name());
 }
 
 pub fn do_backend<'a>(mut symbol_table: midend::symtab::SymbolTable) {
-    let visitor = midend::symtab::SymtabVisitor::<CodegenContext>::new(
+    let visitor = midend::symtab::SymtabVisitor::<()>::new(
         None,
         Some(do_backend_for_function),
         None,
@@ -46,10 +45,5 @@ pub fn do_backend<'a>(mut symbol_table: midend::symtab::SymbolTable) {
         Some(do_backend_for_method),
     );
 
-    visitor.visit(
-        &mut symbol_table.global_module,
-        &mut CodegenContext {
-            modules: Vec::new(),
-        },
-    );
+    visitor.visit(&mut symbol_table.global_module, &mut ());
 }
