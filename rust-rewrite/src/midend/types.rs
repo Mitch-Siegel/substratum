@@ -68,6 +68,26 @@ pub enum Type {
 }
 
 impl Type {
+    pub fn is_integral<C>(&self, context: &C) -> Result<bool, symtab::UndefinedSymbol>
+    where
+        C: TypeSizingContext,
+    {
+        match self {
+            Type::Unit => Ok(false),
+            Type::U8
+            | Type::U16
+            | Type::U32
+            | Type::U64
+            | Type::I8
+            | Type::I16
+            | Type::I32
+            | Type::I64 => Ok(true),
+            Type::_Self => context.self_type().is_integral(context),
+            Type::UDT(_) => Ok(false),
+            Type::Reference(_, _) | Type::Pointer(_, _) => Ok(true),
+        }
+    }
+
     // size of the type in bytes
     pub fn size<Target, C>(&self, context: &C) -> Result<usize, symtab::UndefinedSymbol>
     where

@@ -169,7 +169,8 @@ fn main() {
         TraceLocation::NoTrace => (),
         TraceLocation::Stdout => {
             tracing_subscriber::fmt()
-                .event_format(trace::Print::default())
+                //.event_format(trace::Print::default())
+                .pretty()
                 .with_writer(std::io::stdout)
                 .with_max_level(arguments.trace_level)
                 .init();

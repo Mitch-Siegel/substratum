@@ -1,9 +1,12 @@
 use crate::backend::regalloc::program_point::ProgramPoint;
 use std::{collections::HashMap, fmt};
 
-use crate::midend::{
-    self,
-    symtab::{BasicBlockOwner, VariableSizingContext},
+use crate::{
+    midend::{
+        self,
+        symtab::{BasicBlockOwner, VariableSizingContext},
+    },
+    trace,
 };
 
 use super::block_depths::find_block_depths;
@@ -114,21 +117,14 @@ impl LifetimeSet {
     where
         C: midend::symtab::VariableSizingContext,
     {
-        if !self.lifetimes.contains_key(name) {
-            self.lifetimes.insert(
-                name.clone(),
-                Lifetime::new(
-                    name.clone(),
-                    context
-                        .lookup_variable_by_name(&name.base_name)
-                        .unwrap()
-                        .type_()
-                        .clone(),
-                ),
-            );
-        }
-
-        self.lifetimes.get_mut(name).unwrap()
+        self.lifetimes.entry(name.clone()).or_insert(Lifetime::new(
+            name.clone(),
+            context
+                .lookup_variable_by_name(&name.base_name)
+                .unwrap()
+                .type_()
+                .clone(),
+        ))
     }
 
     pub fn record_read_at_point<C>(

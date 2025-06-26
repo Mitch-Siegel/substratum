@@ -43,7 +43,7 @@ pub fn convert_functions_to_ssa(symtab: &mut symtab::SymbolTable) {
     visitor.visit(&mut symtab.global_module, &mut ());
 }
 
-fn remove_ssa_from_function(function: &mut symtab::Function) {
+fn remove_ssa(function: &mut symtab::Function) {
     for block in &mut function.control_flow {
         let old_arguments = block.arguments.clone();
         block.arguments.clear();
@@ -63,11 +63,33 @@ fn remove_ssa_from_function(function: &mut symtab::Function) {
     }
 }
 
-pub fn remove_ssa_from_functions(functions: &mut HashMap<String, symtab::FunctionOrPrototype>) {
-    for (_, function) in functions {
-        match function {
-            symtab::FunctionOrPrototype::Prototype(_) => {}
-            symtab::FunctionOrPrototype::Function(function) => remove_ssa_from_function(function),
-        };
-    }
+fn remove_ssa_from_function(function: &mut symtab::Function, _: &mut ()) {
+    remove_ssa(function);
+}
+
+fn remove_ssa_from_associated(
+    associated: &mut symtab::Function,
+    _associated_with: &types::Type,
+    _context: &mut (),
+) {
+    remove_ssa(associated);
+}
+
+fn remove_ssa_from_method(
+    method: &mut symtab::Function,
+    _method_of: &types::Type,
+    _context: &mut (),
+) {
+    remove_ssa(method);
+}
+
+pub fn remove_ssa_from_functions(symtab: &mut symtab::SymbolTable) {
+    let visitor = symtab::MutSymtabVisitor::new(
+        None,
+        Some(remove_ssa_from_function),
+        None,
+        Some(remove_ssa_from_associated),
+        Some(remove_ssa_from_method),
+    );
+    visitor.visit(&mut symtab.global_module, &mut ());
 }

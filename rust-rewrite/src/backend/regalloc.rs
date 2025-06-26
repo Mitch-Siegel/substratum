@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::backend::arch::generic::registers;
 use crate::backend::regalloc::block_depths::find_block_depths;
 use crate::{
     backend::*,
@@ -22,23 +23,14 @@ pub fn heuristic<C>(lifetime: &Lifetime, context: &C) -> isize
 where
     C: midend::types::TypeSizingContext,
 {
-    let _lookup_result = lifetime.type_.size::<arch::Target, C>(context);
+    let size = lifetime.type_.size::<arch::Target, C>(context).unwrap();
 
-    0
-}
+    let write_weight = 10;
+    let read_weight = 4;
+    let size_weight = 3;
 
-fn registers_required_for_argument<'a, C, Target: arch::TargetArchitecture>(
-    argument_name: &midend::ir::OperandName,
-    context: &RegallocContext<'a, C>,
-) -> Option<usize>
-where
-    C: midend::symtab::VariableSizingContext,
-{
-    let lookup_result = context
-        .lookup_variable_by_name(&argument_name.base_name)
-        .expect("Function argument missing from scope stack");
-
-    Target::registers_required_for_argument(context, lookup_result.type_())
+    (lifetime.n_reads as isize * read_weight) + (lifetime.n_writes as isize * write_weight)
+        - (size as isize * size_weight)
 }
 
 pub fn allocate_registers<Target: arch::TargetArchitecture, C>(
@@ -47,9 +39,11 @@ pub fn allocate_registers<Target: arch::TargetArchitecture, C>(
 where
     C: midend::symtab::VariableSizingContext,
 {
-    println!("Allocate registers for {}", context.function.name());
+    trace::trace!("Allocate registers for {}", context.function.name());
 
     let lifetimes = LifetimeSet::new(context.function, &context);
+
+    let mut locations = AllocatedLocations::new();
     // let depths = find_block_depths(control_flow);
 
     let _target_registers = Target::registers();
@@ -59,37 +53,61 @@ where
         .prototype
         .arguments
         .iter()
+        .rev()
         .map(|argument| lifetimes.lookup_by_variable(argument).unwrap())
-        .collect::<BTreeSet<_>>();
+        .collect::<Vec<_>>();
 
-    let mut _stack_arguments: BTreeSet<&lifetime::Lifetime> = BTreeSet::new();
+    let mut remaining_argument_registers = _target_registers
+        .for_purpose(&arch::generic::RegisterPurpose::Argument)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>();
+    let mut arg_register_index = 0;
+    while let Some(argument) = arguments.pop() {
+        // still have argument registers
+        let argument_size = argument
+            .type_
+            .size::<Target, RegallocContext<C>>(&context)
+            .unwrap();
+        let registers_for_argument = argument_size.div_ceil(Target::word_size());
 
-    let argument_heuristics = arguments
-        .iter()
-        .map(|argument| {
-            let heuristic = heuristic(argument, &context);
+        let argument_to_register =
+            if argument.type_.is_integral(&context).unwrap() || registers_for_argument <= 2 {
+                if remaining_argument_registers.len() >= registers_for_argument {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
 
-            (*argument, heuristic)
-        })
-        .collect::<BTreeMap<&Lifetime, isize>>();
+        trace::trace!(
+            "Argument {}: size {} would require {} registers - to register? {}",
+            argument.name,
+            argument_size,
+            registers_for_argument,
+            argument_to_register
+        );
 
-    if arguments.len()
-        > *_target_registers
-            .counts_by_purpose
-            .get(&arch::generic::registers::RegisterPurpose::Argument)
-            .unwrap()
-    {
-        let mut reverse_map = argument_heuristics
-            .iter()
-            .map(|(k, v)| (*v, *k))
-            .collect::<BTreeMap<isize, &Lifetime>>();
+        if argument_to_register {
+            if registers_for_argument == 1 {
+                locations.assign_to_register(
+                    argument.name.clone(),
+                    remaining_argument_registers.pop().unwrap().clone(),
+                );
+            } else {
+                let range = remaining_argument_registers
+                    .drain(0..registers_for_argument)
+                    .map(|register| register.clone())
+                    .collect::<Vec<_>>();
 
-        let to_spill = reverse_map.first_entry().unwrap().get().to_owned();
-
-        arguments.remove(to_spill);
-        _stack_arguments.insert(to_spill);
-
-        println!("need to spill - selected lifetime {}", to_spill.name);
+                locations.assign_to_register_range(argument.name.clone(), range.as_slice());
+            }
+        } else {
+            locations.assign_to_stack_argument(argument.name.clone(), 123);
+        }
     }
 
     let control_flow = &context.function.control_flow;
@@ -99,5 +117,6 @@ where
     let depths = find_block_depths(control_flow);
 
     println!("{:?}", depths);
+    println!("{:?}", locations);
     AllocatedLocations::new()
 }

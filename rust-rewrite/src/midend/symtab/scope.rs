@@ -70,6 +70,8 @@ impl Scope {
     // TODO: write this as non-recursive when I'm feeling smart
     // ($5 this stays in here unnoticed until long in the future when I'm running this under a profiler)
     fn collapse_internal(&mut self, path: ScopePath) {
+        let _span = trace::span_auto_debug!("Scope::collapse_internal", "{:?}", path);
+        trace::debug!("Start collapsing scope");
         let mut index = 0;
         while self.subscopes.len() > 0 {
             let mut subscope = self.subscopes.pop().unwrap();
@@ -77,29 +79,50 @@ impl Scope {
             let subscope_path = path.clone().for_new_subscope(index);
             subscope.collapse_internal(subscope_path);
 
+            let mut renames: HashMap<String, String> = HashMap::new();
+            for (old_name, mut variable) in subscope.variables {
+                variable.name = Self::mangle_string_at_index(variable.name, index);
+                trace::debug!("Rename variable {} -> {}", old_name, variable.name);
+                renames.insert(old_name, variable.name.clone());
+                self.variables.insert(variable.name.clone(), variable);
+            }
+
             for (_, mut block) in subscope.basic_blocks {
                 for statement in &mut block {
                     for read_operand in statement.read_operand_names_mut() {
-                        read_operand.base_name =
-                            Self::mangle_string_at_index(read_operand.base_name.clone(), index)
+                        match renames.get(&read_operand.base_name) {
+                            Some(new_name) => {
+                                trace::trace!(
+                                    "Rename read operand {} -> {}",
+                                    read_operand.base_name,
+                                    new_name
+                                );
+                                read_operand.base_name = new_name.clone();
+                            }
+                            None => {}
+                        }
                     }
 
                     for write_operand in statement.write_operand_names_mut() {
-                        write_operand.base_name =
-                            Self::mangle_string_at_index(write_operand.base_name.clone(), index)
+                        match renames.get(&write_operand.base_name) {
+                            Some(new_name) => {
+                                trace::trace!(
+                                    "Rename written operand {} -> {}",
+                                    write_operand.base_name,
+                                    new_name
+                                );
+                                write_operand.base_name = new_name.clone();
+                            }
+                            None => {}
+                        }
                     }
                 }
 
                 self.insert_basic_block(block);
             }
-
-            for (_, mut variable) in subscope.variables {
-                variable.name = Self::mangle_string_at_index(variable.name, index);
-                self.variables.insert(variable.name.clone(), variable);
-            }
-
             index += 1;
         }
+        trace::debug!("Done collapsing scope");
     }
 
     pub fn collapse(&mut self) {

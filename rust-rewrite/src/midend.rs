@@ -24,6 +24,10 @@ pub fn symbol_table_from_program(
     ssa_gen::convert_functions_to_ssa(&mut symtab);
 
     // optimization::optimize_functions(&mut symtab.functions);
+    //
+
+    tracing::debug!("convert IR back from SSA");
+    ssa_gen::remove_ssa_from_functions(&mut symtab);
 
     symtab
 }
