@@ -176,12 +176,10 @@ fn main() {
                 .init();
         }
         TraceLocation::File => {
-            let json_outfile =
-                std::fs::File::create("most_recent.json").expect("Couldn't create trace file");
-            let json_outfile = std::sync::Mutex::new(json_outfile);
+            let outfile = std::fs::File::create("most_recent").expect("Couldn't create trace file");
+            let json_outfile = std::sync::Mutex::new(outfile);
             let writer = tracing_subscriber::fmt::writer::BoxMakeWriter::new(json_outfile);
             tracing_subscriber::fmt()
-                .json()
                 .with_writer(writer)
                 .with_max_level(arguments.trace_level)
                 .init();
@@ -197,5 +195,6 @@ fn main() {
 
     let symtab = midend::symbol_table_from_program(program);
     //println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
+    //println!("{:#?}", &symtab);
     backend::do_backend(symtab);
 }

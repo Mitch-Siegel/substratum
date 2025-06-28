@@ -16,6 +16,14 @@ impl SourceLoc {
     pub fn new(line: usize, col: usize) -> Self {
         SourceLoc { line, col }
     }
+
+    pub fn as_string(&self) -> String {
+        String::from(format!("{}:{}", self.line, self.col))
+    }
+
+    pub fn valid(&self) -> bool {
+        self.line != 0 && self.col != 0
+    }
 }
 
 impl Display for SourceLoc {

@@ -34,11 +34,14 @@ impl Function {
 
         assert_eq!(subscopes.len(), 0);
 
+        let control_flow = ir::ControlFlow::from(basic_blocks);
+        trace::info!("{}", control_flow.graphviz_string());
+
         Function {
             prototype,
             variables,
             type_definitions,
-            control_flow: ir::ControlFlow::from(basic_blocks),
+            control_flow,
         }
     }
 

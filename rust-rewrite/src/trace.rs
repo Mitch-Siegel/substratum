@@ -54,6 +54,12 @@ macro_rules! debug {
 }
 pub(crate) use debug;
 
+macro_rules! info {
+    ($name:expr, $($arg:tt)*) => (tracing::info!($name, $($arg)*));
+    ($name:expr) => (tracing::info!($name))
+}
+pub(crate) use info;
+
 macro_rules! event {
     ($name:expr, $($arg:tt)*) => (tracing::event!($name, $($arg)*));
     ($name:expr) => (tracing::event!($name))

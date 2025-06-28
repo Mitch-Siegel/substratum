@@ -85,6 +85,27 @@ impl ControlFlow {
 
         BTreeMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter())
     }
+
+    pub fn graphviz_string(&self) -> String {
+        let mut graphviz_string = String::from("digraph {\n");
+
+        for (label, block) in self.blocks_postorder() {
+            let block_loc = block
+                .into_iter()
+                .filter(|&statement| statement.loc.valid())
+                .map(|statement| statement.loc)
+                .next()
+                .unwrap_or(SourceLoc::none());
+            graphviz_string += &format!("{}[label=\"{}at{}\"];\n", label, label, block_loc);
+            for successor in self.successors(&label).unwrap() {
+                graphviz_string += &format!("{}->{};", label, *successor);
+            }
+            graphviz_string += "\n";
+        }
+
+        graphviz_string += "}";
+        graphviz_string
+    }
 }
 
 impl symtab::BasicBlockOwner for ControlFlow {
