@@ -9,7 +9,7 @@ pub fn add_block_arguments(function: &mut symtab::Function) {
     let mut block_args = idfa::BlockArgs::new(&function.control_flow).take_facts();
 
     loop {
-        let mut args_by_block = HashMap::<usize, BTreeSet<ir::OperandName>>::new();
+        let mut args_by_block = HashMap::<usize, BTreeSet<ir::ValueId>>::new();
         for block in &mut function.control_flow {
             block.arguments = block_args.for_label(block.label).out_facts.clone();
             args_by_block.insert(block.label, block.arguments.clone());

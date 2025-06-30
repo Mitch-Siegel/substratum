@@ -31,7 +31,7 @@ impl Display for IrLine {
 pub struct BasicBlock {
     pub label: usize,
     pub statements: Vec<ir::IrLine>,
-    pub arguments: BTreeSet<ir::OperandName>,
+    pub arguments: BTreeSet<ir::ValueId>,
 }
 
 impl BasicBlock {
@@ -133,20 +133,20 @@ impl IrLine {
         )
     }
 
-    pub fn read_operand_names(&self) -> Vec<&OperandName> {
-        let mut operand_names: Vec<&OperandName> = Vec::new();
+    pub fn read_operand_names(&self) -> Vec<&ValueId> {
+        let mut operand_names: Vec<&ValueId> = Vec::new();
         match &self.operation {
-            Operations::Assignment(source_dest) => match &source_dest.source.get_name() {
+            Operations::Assignment(source_dest) => match &source_dest.source.value_id() {
                 Some(name) => operand_names.push(name),
                 None => {}
             },
             Operations::BinaryOperation(operation) => {
                 let sources = &operation.raw_operands().sources;
-                match sources.a.get_name() {
+                match sources.a.value_id() {
                     Some(name) => operand_names.push(name),
                     None => {}
                 }
-                match sources.b.get_name() {
+                match sources.b.value_id() {
                     Some(name) => operand_names.push(name),
                     None => {}
                 }
@@ -160,11 +160,11 @@ impl IrLine {
                     | JumpCondition::LT(condition_operands)
                     | JumpCondition::GE(condition_operands)
                     | JumpCondition::LE(condition_operands) => {
-                        match condition_operands.a.get_name() {
+                        match condition_operands.a.value_id() {
                             Some(name) => operand_names.push(name),
                             None => {}
                         }
-                        match condition_operands.b.get_name() {
+                        match condition_operands.b.value_id() {
                             Some(name) => operand_names.push(name),
                             None => {}
                         }
@@ -176,7 +176,7 @@ impl IrLine {
             }
             Operations::FunctionCall(function_call) => {
                 for arg in &function_call.arguments {
-                    match arg.get_name() {
+                    match arg.value_id() {
                         Some(arg_name) => operand_names.push(arg_name),
                         None => (),
                     }
@@ -185,36 +185,36 @@ impl IrLine {
             Operations::MethodCall(method_call) => {
                 let inner_function_call = &method_call.call;
                 for arg in &inner_function_call.arguments {
-                    match arg.get_name() {
+                    match arg.value_id() {
                         Some(arg_name) => operand_names.push(arg_name),
                         None => (),
                     }
                 }
             }
             Operations::FieldRead(field_read) => {
-                operand_names.push(field_read.receiver.get_name().unwrap());
+                operand_names.push(field_read.receiver.value_id().unwrap());
             }
             Operations::FieldWrite(field_write) => {
-                operand_names.push(field_write.source.get_name().unwrap());
+                operand_names.push(field_write.source.value_id().unwrap());
             }
         }
         operand_names
     }
 
-    pub fn read_operand_names_mut(&mut self) -> Vec<&mut OperandName> {
-        let mut operand_names: Vec<&mut OperandName> = Vec::new();
+    pub fn read_operand_names_mut(&mut self) -> Vec<&mut ValueId> {
+        let mut operand_names: Vec<&mut ValueId> = Vec::new();
         match &mut self.operation {
-            Operations::Assignment(source_dest) => match source_dest.source.get_name_mut() {
+            Operations::Assignment(source_dest) => match source_dest.source.value_id_mut() {
                 Some(name) => operand_names.push(name),
                 None => {}
             },
             Operations::BinaryOperation(operation) => {
                 let sources = &mut operation.raw_operands_mut().sources;
-                match sources.a.get_name_mut() {
+                match sources.a.value_id_mut() {
                     Some(name) => operand_names.push(name),
                     None => {}
                 }
-                match sources.b.get_name_mut() {
+                match sources.b.value_id_mut() {
                     Some(name) => operand_names.push(name),
                     None => {}
                 }
@@ -228,11 +228,11 @@ impl IrLine {
                     | JumpCondition::LT(condition_operands)
                     | JumpCondition::GE(condition_operands)
                     | JumpCondition::LE(condition_operands) => {
-                        match condition_operands.a.get_name_mut() {
+                        match condition_operands.a.value_id_mut() {
                             Some(name) => operand_names.push(name),
                             None => {}
                         }
-                        match condition_operands.b.get_name_mut() {
+                        match condition_operands.b.value_id_mut() {
                             Some(name) => operand_names.push(name),
                             None => {}
                         }
@@ -244,7 +244,7 @@ impl IrLine {
             }
             Operations::FunctionCall(function_call) => {
                 for arg in &mut function_call.arguments {
-                    match arg.get_name_mut() {
+                    match arg.value_id_mut() {
                         Some(arg_name) => operand_names.push(arg_name),
                         None => (),
                     }
@@ -253,46 +253,46 @@ impl IrLine {
             Operations::MethodCall(method_call) => {
                 let inner_function_call = &mut method_call.call;
                 for arg in &mut inner_function_call.arguments {
-                    match arg.get_name_mut() {
+                    match arg.value_id_mut() {
                         Some(arg_name) => operand_names.push(arg_name),
                         None => (),
                     }
                 }
             }
             Operations::FieldRead(field_read) => {
-                operand_names.push(field_read.receiver.get_name_mut().unwrap());
+                operand_names.push(field_read.receiver.value_id_mut().unwrap());
             }
             Operations::FieldWrite(field_write) => {
-                operand_names.push(field_write.source.get_name_mut().unwrap());
+                operand_names.push(field_write.source.value_id_mut().unwrap());
             }
         }
 
         operand_names
     }
 
-    pub fn write_operand_names(&self) -> Vec<&OperandName> {
-        let mut operand_names: Vec<&OperandName> = Vec::new();
+    pub fn write_operand_names(&self) -> Vec<&ValueId> {
+        let mut operand_names: Vec<&ValueId> = Vec::new();
         match &self.operation {
             Operations::Assignment(source_dest) => {
-                operand_names.push(source_dest.destination.get_name().unwrap())
+                operand_names.push(source_dest.destination.value_id().unwrap())
             }
             Operations::BinaryOperation(operation) => {
                 let arithmetic_operands = operation.raw_operands();
-                operand_names.push(arithmetic_operands.destination.get_name().unwrap());
+                operand_names.push(arithmetic_operands.destination.value_id().unwrap());
             }
             Operations::FunctionCall(function_call) => {
                 if let Some(retval) = &function_call.return_value_to {
-                    operand_names.push(retval.get_name().unwrap());
+                    operand_names.push(retval.value_id().unwrap());
                 }
             }
             Operations::MethodCall(method_call) => {
                 let inner_function_call = &method_call.call;
                 if let Some(retval) = &inner_function_call.return_value_to {
-                    operand_names.push(retval.get_name().unwrap());
+                    operand_names.push(retval.value_id().unwrap());
                 }
             }
             Operations::FieldWrite(field_write) => {
-                operand_names.push(field_write.receiver.get_name().unwrap());
+                operand_names.push(field_write.receiver.value_id().unwrap());
             }
             Operations::Jump(_) | Operations::FieldRead(_) => {}
         }
@@ -300,29 +300,29 @@ impl IrLine {
         operand_names
     }
 
-    pub fn write_operand_names_mut(&mut self) -> Vec<&mut OperandName> {
-        let mut operand_names: Vec<&mut OperandName> = Vec::new();
+    pub fn write_operand_names_mut(&mut self) -> Vec<&mut ValueId> {
+        let mut operand_names: Vec<&mut ValueId> = Vec::new();
         match &mut self.operation {
             Operations::Assignment(source_dest) => {
-                operand_names.push(source_dest.destination.get_name_mut().unwrap())
+                operand_names.push(source_dest.destination.value_id_mut().unwrap())
             }
             Operations::BinaryOperation(operation) => {
                 let arithmetic_operands = operation.raw_operands_mut();
-                operand_names.push(arithmetic_operands.destination.get_name_mut().unwrap());
+                operand_names.push(arithmetic_operands.destination.value_id_mut().unwrap());
             }
             Operations::FunctionCall(function_call) => {
                 if let Some(retval) = &mut function_call.return_value_to {
-                    operand_names.push(retval.get_name_mut().unwrap());
+                    operand_names.push(retval.value_id_mut().unwrap());
                 }
             }
             Operations::MethodCall(method_call) => {
                 let inner_function_call = &mut method_call.call;
                 if let Some(retval) = &mut inner_function_call.return_value_to {
-                    operand_names.push(retval.get_name_mut().unwrap());
+                    operand_names.push(retval.value_id_mut().unwrap());
                 }
             }
             Operations::FieldWrite(field_write) => {
-                operand_names.push(field_write.receiver.get_name_mut().unwrap());
+                operand_names.push(field_write.receiver.value_id_mut().unwrap());
             }
             Operations::Jump(_) | Operations::FieldRead(_) => {}
         }

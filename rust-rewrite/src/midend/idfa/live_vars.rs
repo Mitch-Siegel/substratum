@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::midend::{idfa::*, ir};
 
-pub type Fact = ir::OperandName;
+pub type Fact = ir::ValueId;
 pub type BlockFacts = idfa_base::BlockFacts<Fact>;
 pub type Facts = idfa_base::Facts<Fact>;
 

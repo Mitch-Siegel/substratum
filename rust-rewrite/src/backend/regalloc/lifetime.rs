@@ -13,8 +13,8 @@ use super::block_depths::find_block_depths;
 
 #[derive(Clone, PartialOrd, Ord, PartialEq, Eq, Debug)]
 pub struct Lifetime {
-    pub name: midend::ir::OperandName,
-    pub type_: midend::types::Type,
+    pub name: midend::ir::ValueId,
+    pub type_: midend::types::ResolvedType,
     pub start: ProgramPoint,
     pub end: ProgramPoint,
     pub n_reads: usize,
@@ -22,7 +22,7 @@ pub struct Lifetime {
 }
 
 impl Lifetime {
-    pub fn new(name: midend::ir::OperandName, type_: midend::types::Type) -> Self {
+    pub fn new(name: midend::ir::ValueId, type_: midend::types::ResolvedType) -> Self {
         Lifetime {
             name,
             type_,
@@ -71,7 +71,7 @@ impl std::fmt::Display for Lifetime {
 }
 
 pub struct LifetimeSet {
-    lifetimes: HashMap<midend::ir::OperandName, Lifetime>,
+    lifetimes: HashMap<midend::ir::ValueId, Lifetime>,
 }
 
 impl LifetimeSet {
@@ -111,7 +111,7 @@ impl LifetimeSet {
 
     fn lookup_or_create_lifetime_by_name<C>(
         &mut self,
-        name: &midend::ir::OperandName,
+        name: &midend::ir::ValueId,
         context: &C,
     ) -> &mut Lifetime
     where
@@ -129,7 +129,7 @@ impl LifetimeSet {
 
     pub fn record_read_at_point<C>(
         &mut self,
-        operand: &midend::ir::OperandName,
+        operand: &midend::ir::ValueId,
         context: &C,
         point: &ProgramPoint,
     ) where
@@ -141,7 +141,7 @@ impl LifetimeSet {
 
     pub fn record_write_at_point<C>(
         &mut self,
-        operand: &midend::ir::OperandName,
+        operand: &midend::ir::ValueId,
         context: &C,
         point: &ProgramPoint,
     ) where
@@ -153,7 +153,7 @@ impl LifetimeSet {
 
     pub fn lookup_by_variable(&self, variable: &midend::symtab::Variable) -> Option<&Lifetime> {
         self.lifetimes
-            .get(&midend::ir::OperandName::new_basic(variable.name.clone()))
+            .get(&midend::ir::ValueId::new_basic(variable.name.clone()))
     }
 
     pub fn print_numerical(&self) {
@@ -177,8 +177,8 @@ mod tests {
     #[test]
     fn test_lifetime_range() {
         let mut dummy_lifetime = Lifetime::new(
-            midend::ir::OperandName::new_basic("dummy".into()),
-            midend::types::Type::I64,
+            midend::ir::ValueId::new_basic("dummy".into()),
+            midend::types::ResolvedType::I64,
         );
 
         dummy_lifetime.record_read(&ProgramPoint::new(0, 1));
@@ -195,8 +195,8 @@ mod tests {
     #[test]
     fn test_lifetime_format() {
         let mut dummy_lifetime = Lifetime::new(
-            midend::ir::OperandName::new_basic("my_variable".into()),
-            midend::types::Type::U8,
+            midend::ir::ValueId::new_basic("my_variable".into()),
+            midend::types::ResolvedType::U8,
         );
 
         let start_point = ProgramPoint::new(0, 2);
@@ -214,8 +214,8 @@ mod tests {
     #[test]
     fn test_lifetime_live_at() {
         let mut dummy_lifetime = Lifetime::new(
-            midend::ir::OperandName::new_basic("dummy".into()),
-            midend::types::Type::I32,
+            midend::ir::ValueId::new_basic("dummy".into()),
+            midend::types::ResolvedType::I32,
         );
 
         assert!(!dummy_lifetime.live_at(&ProgramPoint::new(0, 0)));

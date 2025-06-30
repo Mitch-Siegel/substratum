@@ -183,9 +183,9 @@ impl<'a> Parser<'a> {
                     "self".into(),
                     TypeTree::new(
                         start_loc,
-                        midend::types::Type::Reference(
+                        midend::types::ResolvedType::Reference(
                             mutable.into(),
-                            Box::from(midend::types::Type::_Self),
+                            Box::from(midend::types::ResolvedType::_Self),
                         ),
                     ),
                     false,
@@ -194,7 +194,7 @@ impl<'a> Parser<'a> {
                 ArgumentDeclarationTree::new(
                     start_loc,
                     "self".into(),
-                    TypeTree::new(start_loc, midend::types::Type::_Self),
+                    TypeTree::new(start_loc, midend::types::ResolvedType::_Self),
                     mutable,
                 )
             })
@@ -208,6 +208,50 @@ impl<'a> Parser<'a> {
         };
 
         Ok(self_argument)
+    }
+
+    fn try_parse_generic_params(&mut self) -> Result<Option<GenericParamsTree>, ParseError> {
+        let (start_loc, _span) = self.start_parsing("generic params")?;
+
+        match self.peek_token()? {
+            Token::LThan => {
+                self.expect_token(Token::LThan)?;
+            }
+            _ => return Ok(None),
+        }
+
+        let mut params = Vec::new();
+
+        loop {
+            let param_loc = self.peek_token_with_loc()?.1;
+            match self.peek_token()? {
+                Token::Identifier(_) => {
+                    let type_name = self.parse_identifier()?;
+                    params.push(GenericParamTree {
+                        loc: param_loc,
+                        param: GenericParam::TypeParam(TypeParamTree {
+                            loc: param_loc,
+                            name: type_name,
+                        }),
+                    });
+
+                    match self.peek_token()? {
+                        Token::Comma => {
+                            self.expect_token(Token::Comma)?;
+                        }
+                        _ => (),
+                    }
+                }
+                Token::GThan => break,
+                _ => self.unexpected_token(&[Token::Identifier("".into())])?,
+            }
+        }
+
+        self.expect_token(Token::GThan)?;
+        Ok(Some(GenericParamsTree {
+            loc: start_loc,
+            params,
+        }))
     }
 
     pub fn parse_function_definition(
@@ -240,6 +284,7 @@ impl<'a> Parser<'a> {
 
         self.expect_token(Token::Struct)?;
         let struct_name = self.parse_identifier()?;
+        let generic_params = self.try_parse_generic_params()?;
         self.expect_token(Token::LCurly)?;
 
         let mut struct_fields = Vec::new();
@@ -262,7 +307,8 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let struct_definition = StructDefinitionTree::new(start_loc, struct_name, struct_fields);
+        let struct_definition =
+            StructDefinitionTree::new(start_loc, struct_name, struct_fields, generic_params);
         self.finish_parsing(&struct_definition)?;
         Ok(struct_definition)
     }
@@ -298,7 +344,7 @@ mod tests {
             parser::{ParseError, Token},
             sourceloc::SourceLoc,
         },
-        midend::types::{Mutability, Type},
+        midend::types::{Mutability, ResolvedType},
         Lexer,
     };
 
@@ -318,7 +364,7 @@ mod tests {
             VariableDeclarationTree::new(
                 SourceLoc::new(1, 1),
                 "counter".into(),
-                Some(TypeTree::new(SourceLoc::new(1, 10), Type::U16)),
+                Some(TypeTree::new(SourceLoc::new(1, 10), ResolvedType::U16)),
                 false,
             ),
         );
@@ -327,7 +373,7 @@ mod tests {
             VariableDeclarationTree::new(
                 SourceLoc::new(1, 1),
                 "counter".into(),
-                Some(TypeTree::new(SourceLoc::new(1, 14), Type::U16)),
+                Some(TypeTree::new(SourceLoc::new(1, 14), ResolvedType::U16)),
                 true,
             ),
         );
@@ -352,7 +398,7 @@ mod tests {
             ArgumentDeclarationTree::new(
                 SourceLoc::new(1, 1),
                 "input".into(),
-                TypeTree::new(SourceLoc::new(1, 8), Type::U32),
+                TypeTree::new(SourceLoc::new(1, 8), ResolvedType::U32),
                 false,
             ),
         );
@@ -361,7 +407,7 @@ mod tests {
             ArgumentDeclarationTree::new(
                 SourceLoc::new(1, 1),
                 "input".into(),
-                TypeTree::new(SourceLoc::new(1, 12), Type::U32),
+                TypeTree::new(SourceLoc::new(1, 12), ResolvedType::U32),
                 true,
             ),
         );
@@ -418,17 +464,17 @@ fun declared_and_defined() {}",
                 ArgumentDeclarationTree::new(
                     SourceLoc::new(1, 9),
                     "a".into(),
-                    TypeTree::new(SourceLoc::new(1, 12), Type::U32),
+                    TypeTree::new(SourceLoc::new(1, 12), ResolvedType::U32),
                     false,
                 ),
                 ArgumentDeclarationTree::new(
                     SourceLoc::new(1, 17),
                     "b".into(),
-                    TypeTree::new(SourceLoc::new(1, 20), Type::U32),
+                    TypeTree::new(SourceLoc::new(1, 20), ResolvedType::U32),
                     false,
                 ),
             ],
-            Some(TypeTree::new(SourceLoc::new(1, 28), Type::U64)),
+            Some(TypeTree::new(SourceLoc::new(1, 28), ResolvedType::U64)),
         );
 
         let mut p = Parser::new(Lexer::from_string("fun add(a: u32, b: u32) -> u64"));
@@ -446,7 +492,7 @@ fun declared_and_defined() {}",
             vec![ArgumentDeclarationTree::new(
                 SourceLoc::new(1, 15),
                 "self".into(),
-                TypeTree::new(SourceLoc::new(1, 15), Type::_Self),
+                TypeTree::new(SourceLoc::new(1, 15), ResolvedType::_Self),
                 false,
             )],
             None,
@@ -514,7 +560,7 @@ fun declared_and_defined() {}",
             Some(ArgumentDeclarationTree::new(
                 SourceLoc::new(1, 1),
                 "self".into(),
-                TypeTree::new(SourceLoc::new(1, 1), Type::_Self),
+                TypeTree::new(SourceLoc::new(1, 1), ResolvedType::_Self),
                 false,
             )),
         );
@@ -523,7 +569,7 @@ fun declared_and_defined() {}",
             Some(ArgumentDeclarationTree::new(
                 SourceLoc::new(1, 1),
                 "self".into(),
-                TypeTree::new(SourceLoc::new(1, 1), Type::_Self),
+                TypeTree::new(SourceLoc::new(1, 1), ResolvedType::_Self),
                 true,
             )),
         );
@@ -534,7 +580,7 @@ fun declared_and_defined() {}",
                 "self".into(),
                 TypeTree::new(
                     SourceLoc::new(1, 1),
-                    Type::Reference(Mutability::Immutable, Box::from(Type::_Self)),
+                    ResolvedType::Reference(Mutability::Immutable, Box::from(ResolvedType::_Self)),
                 ),
                 false,
             )),
@@ -546,7 +592,7 @@ fun declared_and_defined() {}",
                 "self".into(),
                 TypeTree::new(
                     SourceLoc::new(1, 1),
-                    Type::Reference(Mutability::Mutable, Box::from(Type::_Self)),
+                    ResolvedType::Reference(Mutability::Mutable, Box::from(ResolvedType::_Self)),
                 ),
                 false,
             )),
@@ -589,12 +635,12 @@ cents: u8
                     StructFieldTree::new(
                         SourceLoc::new(2, 1),
                         "dollars".into(),
-                        TypeTree::new(SourceLoc::new(2, 10), Type::I64)
+                        TypeTree::new(SourceLoc::new(2, 10), ResolvedType::I64)
                     ),
                     StructFieldTree::new(
                         SourceLoc::new(3, 1),
                         "cents".into(),
-                        TypeTree::new(SourceLoc::new(3, 8), Type::U8)
+                        TypeTree::new(SourceLoc::new(3, 8), ResolvedType::U8)
                     )
                 ]
             ))
@@ -638,7 +684,7 @@ cents: u8
                 ArgumentDeclarationTree::new(
                     SourceLoc::new(2, 13),
                     "self".into(),
-                    TypeTree::new(SourceLoc::new(2, 13), Type::_Self),
+                    TypeTree::new(SourceLoc::new(2, 13), ResolvedType::_Self),
                     false,
                 ),
                 ArgumentDeclarationTree::new(
@@ -646,12 +692,15 @@ cents: u8
                     "other".into(),
                     TypeTree::new(
                         SourceLoc::new(2, 26),
-                        Type::Reference(Mutability::Immutable, Box::from(Type::_Self)),
+                        ResolvedType::Reference(
+                            Mutability::Immutable,
+                            Box::from(ResolvedType::_Self),
+                        ),
                     ),
                     false,
                 ),
             ],
-            Some(TypeTree::new(SourceLoc::new(2, 36), Type::_Self)),
+            Some(TypeTree::new(SourceLoc::new(2, 36), ResolvedType::_Self)),
         );
 
         let implemented_add = FunctionDefinitionTree::new(
@@ -659,7 +708,8 @@ cents: u8
             CompoundExpressionTree::new(SourceLoc::new(2, 41), vec![]),
         );
 
-        let implemented_for = TypeTree::new(SourceLoc::new(1, 6), Type::UDT("Money".into()));
+        let implemented_for =
+            TypeTree::new(SourceLoc::new(1, 6), ResolvedType::UDT("Money".into()));
 
         assert_eq!(
             p.parse_implementation(),

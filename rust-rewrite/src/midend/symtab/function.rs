@@ -3,7 +3,7 @@ use std::fmt::Display;
 
 use serde::Serialize;
 
-use crate::midend::{ir, symtab::*, types::Type};
+use crate::midend::{ir, symtab::*, types};
 
 #[derive(Debug)]
 pub enum FunctionOrPrototype {
@@ -24,24 +24,37 @@ impl FunctionOrPrototype {
 pub struct Function {
     pub prototype: FunctionPrototype,
     variables: HashMap<String, Variable>,
-    type_definitions: HashMap<Type, TypeDefinition>,
+    type_definitions: HashMap<ResolvedType, ResolvedTypeDefinition>,
     pub control_flow: ir::ControlFlow,
+    pub names_by_value_id: HashMap<ir::ValueId, String>,
+    pub types_by_value_id: HashMap<ir::ValueId, types::UnresolvedType>,
 }
 
 impl Function {
-    pub fn new(prototype: FunctionPrototype, main_scope: Scope) -> Self {
+    pub fn new(
+        prototype: FunctionPrototype,
+        main_scope: Scope,
+        names_by_value_id: HashMap<ir::ValueId, String>,
+    ) -> Self {
         let (variables, subscopes, type_definitions, basic_blocks) = main_scope.take_all();
 
         assert_eq!(subscopes.len(), 0);
 
         let control_flow = ir::ControlFlow::from(basic_blocks);
-        trace::info!("{}", control_flow.graphviz_string());
+        trace::trace!("{}", control_flow.graphviz_string());
+
+        let types_by_value_id = names_by_value_id
+            .iter()
+            .map(|(value_id, name)| (*value_id, variables.get(name).unwrap().type_().clone()))
+            .collect::<HashMap<usize, types::UnresolvedType>>();
 
         Function {
             prototype,
             variables,
             type_definitions,
             control_flow,
+            names_by_value_id,
+            types_by_value_id,
         }
     }
 
@@ -68,11 +81,14 @@ impl VariableOwner for Function {
 }
 
 impl TypeOwner for Function {
-    fn types(&self) -> impl Iterator<Item = &TypeDefinition> {
+    fn types(&self) -> impl Iterator<Item = &ResolvedTypeDefinition> {
         self.type_definitions.values()
     }
 
-    fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol> {
+    fn lookup_type(
+        &self,
+        type_: &ResolvedType,
+    ) -> Result<&ResolvedTypeDefinition, UndefinedSymbol> {
         self.type_definitions
             .get(type_)
             .ok_or(UndefinedSymbol::type_(type_.clone()))
@@ -93,7 +109,7 @@ impl BasicBlockOwner for Function {
 pub struct FunctionPrototype {
     pub name: String,
     pub arguments: Vec<Variable>,
-    pub return_type: Type,
+    pub return_type: UnresolvedType,
 }
 
 impl Display for FunctionPrototype {
@@ -107,7 +123,9 @@ impl Display for FunctionPrototype {
             }
         }
         match &self.return_type {
-            Type::Unit => write!(f, "fun {}({})", self.name, arguments_string),
+            types::UnresolvedType::Primitive(types::PrimitiveType::Unit) => {
+                write!(f, "fun {}({})", self.name, arguments_string)
+            }
             _ => write!(
                 f,
                 "fun {}({}) -> {}",
@@ -118,7 +136,7 @@ impl Display for FunctionPrototype {
 }
 
 impl FunctionPrototype {
-    pub fn new(name: String, arguments: Vec<Variable>, return_type: Type) -> Self {
+    pub fn new(name: String, arguments: Vec<Variable>, return_type: ResolvedType) -> Self {
         FunctionPrototype {
             name,
             arguments,

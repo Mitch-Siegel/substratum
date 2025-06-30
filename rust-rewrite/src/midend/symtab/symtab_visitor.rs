@@ -3,18 +3,18 @@ use crate::midend::{symtab::*, types};
 pub struct MutSymtabVisitor<C> {
     on_module: Option<fn(&mut Module, &mut C)>,
     on_function: Option<fn(&mut Function, &mut C)>,
-    on_type_definition: Option<fn(&mut TypeDefinition, &mut C)>,
-    on_associated: Option<fn(&mut Function, &types::Type, &mut C)>,
-    on_method: Option<fn(&mut Function, &types::Type, &mut C)>,
+    on_type_definition: Option<fn(&mut ResolvedTypeDefinition, &mut C)>,
+    on_associated: Option<fn(&mut Function, &types::ResolvedType, &mut C)>,
+    on_method: Option<fn(&mut Function, &types::ResolvedType, &mut C)>,
 }
 
 impl<C> MutSymtabVisitor<C> {
     pub fn new(
         on_module: Option<fn(&mut Module, &mut C)>,
         on_function: Option<fn(&mut Function, &mut C)>,
-        on_type_definition: Option<fn(&mut TypeDefinition, &mut C)>,
-        on_associated: Option<fn(&mut Function, &types::Type, &mut C)>,
-        on_method: Option<fn(&mut Function, &types::Type, &mut C)>,
+        on_type_definition: Option<fn(&mut ResolvedTypeDefinition, &mut C)>,
+        on_associated: Option<fn(&mut Function, &types::ResolvedType, &mut C)>,
+        on_method: Option<fn(&mut Function, &types::ResolvedType, &mut C)>,
     ) -> Self {
         Self {
             on_module,
@@ -32,7 +32,7 @@ impl<C> MutSymtabVisitor<C> {
         // TODO: type definitions here
     }
 
-    fn visit_type_definition(&self, type_definition: &mut TypeDefinition, context: &mut C) {
+    fn visit_type_definition(&self, type_definition: &mut ResolvedTypeDefinition, context: &mut C) {
         if let Some(on_type_definition) = self.on_type_definition {
             on_type_definition(type_definition, context);
         }
@@ -84,18 +84,18 @@ pub struct SymtabVisitor<'a, C> {
     parent_modules: Vec<&'a Module>,
     on_module: Option<fn(&Module, &Self, &mut C)>,
     on_function: Option<fn(&Function, &Self, &mut C)>,
-    on_type_definition: Option<fn(&TypeDefinition, &Self, &mut C)>,
-    on_associated: Option<fn(&Function, &types::Type, &Self, &mut C)>,
-    on_method: Option<fn(&Function, &types::Type, &Self, &mut C)>,
+    on_type_definition: Option<fn(&ResolvedTypeDefinition, &Self, &mut C)>,
+    on_associated: Option<fn(&Function, &types::ResolvedType, &Self, &mut C)>,
+    on_method: Option<fn(&Function, &types::ResolvedType, &Self, &mut C)>,
 }
 
 impl<'a, C> SymtabVisitor<'a, C> {
     pub fn new(
         on_module: Option<fn(&Module, &Self, &mut C)>,
         on_function: Option<fn(&Function, &Self, &mut C)>,
-        on_type_definition: Option<fn(&TypeDefinition, &Self, &mut C)>,
-        on_associated: Option<fn(&Function, &types::Type, &Self, &mut C)>,
-        on_method: Option<fn(&Function, &types::Type, &Self, &mut C)>,
+        on_type_definition: Option<fn(&ResolvedTypeDefinition, &Self, &mut C)>,
+        on_associated: Option<fn(&Function, &types::ResolvedType, &Self, &mut C)>,
+        on_method: Option<fn(&Function, &types::ResolvedType, &Self, &mut C)>,
     ) -> Self {
         Self {
             parent_modules: Vec::new(),
@@ -123,7 +123,7 @@ impl<'a, C> SymtabVisitor<'a, C> {
         // TODO: type definitions here
     }
 
-    fn visit_type_definition(&self, type_definition: &TypeDefinition, context: &mut C) {
+    fn visit_type_definition(&self, type_definition: &ResolvedTypeDefinition, context: &mut C) {
         if let Some(on_type_definition) = self.on_type_definition {
             on_type_definition(type_definition, self, context);
         }
@@ -176,14 +176,17 @@ impl<'a, C> SymtabVisitor<'a, C> {
 }
 
 impl<'a, C> TypeOwner for SymtabVisitor<'a, C> {
-    fn types(&self) -> impl Iterator<Item = &TypeDefinition> {
+    fn types(&self) -> impl Iterator<Item = &ResolvedTypeDefinition> {
         self.parent_modules
             .iter()
             .rev()
             .flat_map(|module| module.types())
     }
 
-    fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol> {
+    fn lookup_type(
+        &self,
+        type_: &ResolvedType,
+    ) -> Result<&ResolvedTypeDefinition, UndefinedSymbol> {
         for module in self.all_modules() {
             match module.lookup_type(type_) {
                 Ok(type_) => return Ok(type_),
@@ -196,7 +199,7 @@ impl<'a, C> TypeOwner for SymtabVisitor<'a, C> {
 }
 
 impl<'a, C> SelfTypeOwner for SymtabVisitor<'a, C> {
-    fn self_type(&self) -> &types::Type {
+    fn self_type(&self) -> &types::ResolvedType {
         unimplemented!()
     }
 }

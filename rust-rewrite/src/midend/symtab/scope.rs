@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use serde::Serialize;
 
-use crate::midend::{symtab::*, types::Type};
+use crate::midend::{symtab::*, types::ResolvedType};
 
 pub trait CollapseScopes {
     fn collapse_scopes(&mut self, path_from_collapsing_to: ScopePath);
@@ -33,7 +33,7 @@ impl ScopePath {
 pub struct Scope {
     variables: HashMap<String, Variable>,
     subscopes: Vec<Scope>,
-    type_definitions: HashMap<Type, TypeDefinition>,
+    type_definitions: HashMap<ResolvedType, ResolvedTypeDefinition>,
     basic_blocks: BTreeMap<usize, ir::BasicBlock>,
 }
 
@@ -52,7 +52,7 @@ impl Scope {
     ) -> (
         HashMap<String, Variable>,
         Vec<Scope>,
-        HashMap<Type, TypeDefinition>,
+        HashMap<ResolvedType, ResolvedTypeDefinition>,
         BTreeMap<usize, ir::BasicBlock>,
     ) {
         (
@@ -199,11 +199,14 @@ impl MutVariableOwner for Scope {
 }
 
 impl TypeOwner for Scope {
-    fn types(&self) -> impl Iterator<Item = &TypeDefinition> {
+    fn types(&self) -> impl Iterator<Item = &ResolvedTypeDefinition> {
         self.type_definitions.values()
     }
 
-    fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol> {
+    fn lookup_type(
+        &self,
+        type_: &ResolvedType,
+    ) -> Result<&ResolvedTypeDefinition, UndefinedSymbol> {
         self.type_definitions
             .get(type_)
             .ok_or(UndefinedSymbol::type_(type_.clone()))
@@ -211,18 +214,21 @@ impl TypeOwner for Scope {
 }
 
 impl MutTypeOwner for Scope {
-    fn types_mut(&mut self) -> impl Iterator<Item = &mut TypeDefinition> {
+    fn types_mut(&mut self) -> impl Iterator<Item = &mut ResolvedTypeDefinition> {
         self.type_definitions.values_mut()
     }
 
-    fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol> {
+    fn insert_type(&mut self, type_: ResolvedTypeDefinition) -> Result<(), DefinedSymbol> {
         match self.type_definitions.insert(type_.type_().clone(), type_) {
             Some(existing_type) => Err(DefinedSymbol::type_(existing_type.repr)),
             None => Ok(()),
         }
     }
 
-    fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol> {
+    fn lookup_type_mut(
+        &mut self,
+        type_: &ResolvedType,
+    ) -> Result<&mut ResolvedTypeDefinition, UndefinedSymbol> {
         self.type_definitions
             .get_mut(type_)
             .ok_or(UndefinedSymbol::type_(type_.clone()))

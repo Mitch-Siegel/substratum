@@ -7,7 +7,7 @@ use crate::{
             self, MethodOwner, MutFunctionOwner, MutMethodOwner, MutTypeOwner, MutVariableOwner,
             TypeOwner,
         },
-        types::Type,
+        types::ResolvedType,
     },
 };
 
@@ -15,26 +15,26 @@ use name_derive::NameReflectable;
 
 #[derive(Clone, Debug)]
 pub struct Value {
-    pub type_: Type,
+    pub type_: ResolvedType,
     pub operand: Option<ir::Operand>,
 }
 
 impl Value {
     pub fn unit() -> Self {
         Self {
-            type_: Type::Unit,
+            type_: ResolvedType::Unit,
             operand: None,
         }
     }
 
-    pub fn from_type(type_: Type) -> Self {
+    pub fn from_type(type_: ResolvedType) -> Self {
         Self {
             type_,
             operand: None,
         }
     }
 
-    pub fn from_type_and_name(type_: Type, operand: ir::Operand) -> Self {
+    pub fn from_type_and_name(type_: ResolvedType, operand: ir::Operand) -> Self {
         Self {
             type_,
             operand: Some(operand),
@@ -55,8 +55,8 @@ impl Into<ir::Operand> for Value {
     }
 }
 
-impl Into<Type> for Value {
-    fn into(self) -> Type {
+impl Into<ResolvedType> for Value {
+    fn into(self) -> ResolvedType {
         self.type_
     }
 }
@@ -96,9 +96,9 @@ impl ModuleWalk for TranslationUnitTree {
             TranslationUnit::StructDefinition(struct_definition) => {
                 let struct_repr = struct_definition.walk(context);
                 context
-                    .insert_type(symtab::TypeDefinition::new(
-                        Type::UDT(struct_repr.name.clone()),
-                        symtab::TypeRepr::Struct(struct_repr),
+                    .insert_type(symtab::ResolvedTypeDefinition::new(
+                        ResolvedType::UDT(struct_repr.name.clone()),
+                        symtab::UnresolvedTypeRepr::Struct(struct_repr),
                     ))
                     .unwrap();
             }
@@ -193,15 +193,15 @@ impl<'a> ReturnWalk<&mut ModuleWalkContext, symtab::FunctionPrototype> for Funct
                 .collect(),
             match self.return_type {
                 Some(type_) => type_.walk(context).type_,
-                None => Type::Unit,
+                None => ResolvedType::Unit,
             },
         )
     }
 }
 
-impl ReturnWalk<&ModuleWalkContext, symtab::StructRepr> for StructDefinitionTree {
+impl ReturnWalk<&ModuleWalkContext, symtab::UnresolvedStructRepr> for StructDefinitionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &ModuleWalkContext) -> symtab::StructRepr {
+    fn walk(self, context: &ModuleWalkContext) -> symtab::UnresolvedStructRepr {
         let fields = self
             .fields
             .into_iter()
@@ -210,7 +210,7 @@ impl ReturnWalk<&ModuleWalkContext, symtab::StructRepr> for StructDefinitionTree
                 (field.name, field_type)
             })
             .collect::<Vec<_>>();
-        symtab::StructRepr::new(self.name, fields, context).unwrap()
+        symtab::UnresolvedStructRepr::new(self.name, fields, context).unwrap()
     }
 }
 
@@ -356,7 +356,7 @@ impl FunctionWalk for ExpressionTree {
                 let field_read_line = ir::IrLine::new_field_read(
                     self.loc,
                     receiver.into(),
-                    field.operand.unwrap().get_name().unwrap().base_name.clone(),
+                    field.operand.unwrap().value_id().unwrap().base_name.clone(),
                     destination.clone(),
                 );
                 context
@@ -379,7 +379,7 @@ impl FunctionWalk for AssignmentTree {
                     self.value.walk(context).into(),
                     self.loc,
                     receiver.into(),
-                    field.operand.unwrap().get_name().unwrap().base_name.clone(),
+                    field.operand.unwrap().value_id().unwrap().base_name.clone(),
                 )
             }
             _ => IrLine::new_assignment(
@@ -502,7 +502,7 @@ impl<'a> ReturnWalk<&mut FunctionWalkContext<'a>, (Value, Value)> for FieldExpre
         let receiver = self.receiver.walk(context);
 
         let struct_name = match &receiver.type_ {
-            Type::UDT(type_name) => type_name,
+            ResolvedType::UDT(type_name) => type_name,
             _ => panic!(
                 "Field expression receiver must be of struct type (got {})",
                 receiver.type_
@@ -519,7 +519,7 @@ impl<'a> ReturnWalk<&mut FunctionWalkContext<'a>, (Value, Value)> for FieldExpre
             receiver,
             Value::from_type_and_name(
                 accessed_field.type_.clone(),
-                ir::Operand::Variable(ir::OperandName::new_basic(self.field)),
+                ir::Operand::Variable(ir::ValueId::new_basic(self.field)),
             ),
         )
     }
@@ -550,7 +550,7 @@ impl FunctionWalk for MethodCallExpressionTree {
             .prototype
             .clone();
 
-        let return_value_to = if called_method.return_type != Type::Unit {
+        let return_value_to = if called_method.return_type != ResolvedType::Unit {
             Some(context.next_temp(called_method.return_type))
         } else {
             None

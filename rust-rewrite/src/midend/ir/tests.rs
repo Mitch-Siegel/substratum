@@ -49,8 +49,8 @@ fn line_from_op(operation: Operations) -> IrLine {
 }
 
 #[cfg(test)]
-fn operand_name_from_string(name: &str) -> OperandName {
-    OperandName::new_basic(name.into())
+fn operand_name_from_string(name: &str) -> ValueId {
+    ValueId::new_basic(name.into())
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn read_operand_names() {
             operand_from_string("eq_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names(), Vec::<&OperandName>::new());
+    assert_eq!(op.write_operand_names(), Vec::<&ValueId>::new());
     assert_eq!(
         op.read_operand_names(),
         vec![
@@ -112,7 +112,7 @@ fn read_operand_names() {
             operand_from_string("ne_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names(), Vec::<&OperandName>::new());
+    assert_eq!(op.write_operand_names(), Vec::<&ValueId>::new());
     assert_eq!(
         op.read_operand_names(),
         vec![
@@ -129,7 +129,7 @@ fn read_operand_names() {
             operand_from_string("gt_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names(), Vec::<&OperandName>::new());
+    assert_eq!(op.write_operand_names(), Vec::<&ValueId>::new());
     assert_eq!(
         op.read_operand_names(),
         vec![
@@ -146,7 +146,7 @@ fn read_operand_names() {
             operand_from_string("lt_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names(), Vec::<&OperandName>::new());
+    assert_eq!(op.write_operand_names(), Vec::<&ValueId>::new());
     assert_eq!(
         op.read_operand_names(),
         vec![
@@ -163,7 +163,7 @@ fn read_operand_names() {
             operand_from_string("ge_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names(), Vec::<&OperandName>::new());
+    assert_eq!(op.write_operand_names(), Vec::<&ValueId>::new());
     assert_eq!(
         op.read_operand_names(),
         vec![
@@ -180,7 +180,7 @@ fn read_operand_names() {
             operand_from_string("le_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names(), Vec::<&OperandName>::new());
+    assert_eq!(op.write_operand_names(), Vec::<&ValueId>::new());
     assert_eq!(
         op.read_operand_names(),
         vec![
@@ -232,7 +232,7 @@ fn read_operand_names_mut() {
             operand_from_string("eq_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names_mut(), Vec::<&OperandName>::new());
+    assert_eq!(op.write_operand_names_mut(), Vec::<&ValueId>::new());
     assert_eq!(
         op.read_operand_names_mut(),
         vec![
@@ -249,7 +249,7 @@ fn read_operand_names_mut() {
             operand_from_string("ne_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names_mut(), Vec::<&OperandName>::new());
+    assert_eq!(op.write_operand_names_mut(), Vec::<&ValueId>::new());
     assert_eq!(
         op.read_operand_names_mut(),
         vec![
@@ -266,7 +266,7 @@ fn read_operand_names_mut() {
             operand_from_string("gt_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names_mut(), Vec::<&OperandName>::new());
+    assert_eq!(op.write_operand_names_mut(), Vec::<&ValueId>::new());
     assert_eq!(
         op.read_operand_names_mut(),
         vec![
@@ -283,7 +283,7 @@ fn read_operand_names_mut() {
             operand_from_string("lt_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names_mut(), Vec::<&OperandName>::new());
+    assert_eq!(op.write_operand_names_mut(), Vec::<&ValueId>::new());
     assert_eq!(
         op.read_operand_names_mut(),
         vec![
@@ -300,7 +300,7 @@ fn read_operand_names_mut() {
             operand_from_string("ge_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names_mut(), Vec::<&OperandName>::new());
+    assert_eq!(op.write_operand_names_mut(), Vec::<&ValueId>::new());
     assert_eq!(
         op.read_operand_names_mut(),
         vec![
@@ -317,7 +317,7 @@ fn read_operand_names_mut() {
             operand_from_string("le_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names_mut(), Vec::<&OperandName>::new());
+    assert_eq!(op.write_operand_names_mut(), Vec::<&ValueId>::new());
     assert_eq!(
         op.read_operand_names_mut(),
         vec![

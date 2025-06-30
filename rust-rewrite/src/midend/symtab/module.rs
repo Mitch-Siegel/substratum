@@ -6,7 +6,7 @@ use std::collections::HashMap;
 pub struct Module {
     pub name: String,
     pub functions: HashMap<String, Function>,
-    pub type_definitions: HashMap<Type, TypeDefinition>,
+    pub type_definitions: HashMap<ResolvedType, ResolvedTypeDefinition>,
     pub submodules: HashMap<String, Module>,
 }
 
@@ -28,29 +28,35 @@ impl PartialEq for Module {
 }
 
 impl TypeOwner for Module {
-    fn types(&self) -> impl Iterator<Item = &TypeDefinition> {
+    fn types(&self) -> impl Iterator<Item = &ResolvedTypeDefinition> {
         self.type_definitions.values()
     }
 
-    fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol> {
+    fn lookup_type(
+        &self,
+        type_: &ResolvedType,
+    ) -> Result<&ResolvedTypeDefinition, UndefinedSymbol> {
         self.type_definitions
             .get(type_)
             .ok_or(UndefinedSymbol::type_(type_.clone()))
     }
 }
 impl MutTypeOwner for Module {
-    fn types_mut(&mut self) -> impl Iterator<Item = &mut TypeDefinition> {
+    fn types_mut(&mut self) -> impl Iterator<Item = &mut ResolvedTypeDefinition> {
         self.type_definitions.values_mut()
     }
 
-    fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol> {
+    fn insert_type(&mut self, type_: ResolvedTypeDefinition) -> Result<(), DefinedSymbol> {
         match self.type_definitions.insert(type_.type_().clone(), type_) {
             Some(existing_type) => Err(DefinedSymbol::type_(existing_type.repr)),
             None => Ok(()),
         }
     }
 
-    fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol> {
+    fn lookup_type_mut(
+        &mut self,
+        type_: &ResolvedType,
+    ) -> Result<&mut ResolvedTypeDefinition, UndefinedSymbol> {
         self.type_definitions
             .get_mut(type_)
             .ok_or(UndefinedSymbol::type_(type_.clone()))

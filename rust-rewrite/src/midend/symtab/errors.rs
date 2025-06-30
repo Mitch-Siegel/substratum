@@ -1,4 +1,4 @@
-use crate::midend::{symtab::*, types::Type};
+use crate::midend::{symtab::*, types::ResolvedType};
 
 #[derive(PartialEq, Eq)]
 pub enum SymbolError {
@@ -29,10 +29,10 @@ impl From<DefinedSymbol> for SymbolError {
 #[derive(PartialEq, Eq)]
 pub enum UndefinedSymbol {
     Function(String),
-    Associated(Type, String),
-    Method(Type, String),
+    Associated(ResolvedType, String),
+    Method(ResolvedType, String),
     Variable(String),
-    Type(Type),
+    Type(ResolvedType),
     Struct(String),
     Module(String),
     Field(String),
@@ -76,11 +76,11 @@ impl UndefinedSymbol {
         Self::Function(name.into())
     }
 
-    pub fn associated(associated_with: Type, method_name: String) -> Self {
+    pub fn associated(associated_with: ResolvedType, method_name: String) -> Self {
         Self::Associated(associated_with, method_name)
     }
 
-    pub fn method(receiver: Type, method_name: String) -> Self {
+    pub fn method(receiver: ResolvedType, method_name: String) -> Self {
         Self::Method(receiver, method_name)
     }
 
@@ -88,7 +88,7 @@ impl UndefinedSymbol {
         Self::Variable(name)
     }
 
-    pub fn type_(type_: Type) -> Self {
+    pub fn type_(type_: ResolvedType) -> Self {
         Self::Type(type_)
     }
 
@@ -108,13 +108,13 @@ impl UndefinedSymbol {
 #[derive(PartialEq, Eq)]
 pub enum DefinedSymbol {
     Function(FunctionPrototype),
-    Associated(Type, FunctionPrototype),
-    Method(Type, FunctionPrototype),
+    Associated(ResolvedType, FunctionPrototype),
+    Method(ResolvedType, FunctionPrototype),
     Variable(Variable),
-    Type(TypeRepr),
-    Struct(StructRepr),
+    Type(UnresolvedTypeRepr),
+    Struct(UnresolvedStructRepr),
     Module(String),
-    Field(StructField),
+    Field(UnresolvedStructField),
 }
 
 impl std::fmt::Display for DefinedSymbol {
@@ -155,11 +155,11 @@ impl DefinedSymbol {
         Self::Function(prototype)
     }
 
-    pub fn associated(associated_with: Type, prototype: FunctionPrototype) -> Self {
+    pub fn associated(associated_with: ResolvedType, prototype: FunctionPrototype) -> Self {
         Self::Associated(associated_with, prototype)
     }
 
-    pub fn method(receiver: Type, prototype: FunctionPrototype) -> Self {
+    pub fn method(receiver: ResolvedType, prototype: FunctionPrototype) -> Self {
         Self::Method(receiver, prototype)
     }
 
@@ -167,11 +167,11 @@ impl DefinedSymbol {
         Self::Variable(variable)
     }
 
-    pub fn type_(type_: TypeRepr) -> Self {
+    pub fn type_(type_: UnresolvedTypeRepr) -> Self {
         Self::Type(type_)
     }
 
-    pub fn struct_(struct_: StructRepr) -> Self {
+    pub fn struct_(struct_: UnresolvedStructRepr) -> Self {
         Self::Struct(struct_)
     }
 
@@ -179,7 +179,7 @@ impl DefinedSymbol {
         Self::Module(module)
     }
 
-    pub fn field(field: StructField) -> Self {
+    pub fn field(field: UnresolvedStructField) -> Self {
         Self::Field(field)
     }
 }

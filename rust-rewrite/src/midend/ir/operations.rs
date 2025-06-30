@@ -211,7 +211,7 @@ impl BinaryOperations {
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 pub struct JumpOperation {
     pub destination_block: usize,
-    pub block_args: HashMap<OperandName, OperandName>,
+    pub block_args: HashMap<ValueId, ValueId>,
     pub condition: JumpCondition,
 }
 

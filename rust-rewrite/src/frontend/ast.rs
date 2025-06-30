@@ -51,6 +51,29 @@ impl Display for TranslationUnitTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TypeParamTree {
+    pub loc: SourceLoc,
+    pub name: String,
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum GenericParam {
+    TypeParam(TypeParamTree),
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct GenericParamTree {
+    pub loc: SourceLoc,
+    pub param: GenericParam,
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct GenericParamsTree {
+    pub loc: SourceLoc,
+    pub params: Vec<GenericParamTree>,
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDeclarationTree {
     pub loc: SourceLoc,
     pub name: String,
@@ -128,10 +151,21 @@ pub struct StructDefinitionTree {
     pub loc: SourceLoc,
     pub name: String,
     pub fields: Vec<StructFieldTree>,
+    pub generic_params: Option<GenericParamsTree>,
 }
 impl StructDefinitionTree {
-    pub fn new(loc: SourceLoc, name: String, fields: Vec<StructFieldTree>) -> Self {
-        Self { loc, name, fields }
+    pub fn new(
+        loc: SourceLoc,
+        name: String,
+        fields: Vec<StructFieldTree>,
+        generic_params: Option<GenericParamsTree>,
+    ) -> Self {
+        Self {
+            loc,
+            name,
+            fields,
+            generic_params,
+        }
     }
 }
 impl Display for StructDefinitionTree {
@@ -523,10 +557,10 @@ impl Display for ExpressionTree {
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TypeTree {
     pub loc: SourceLoc,
-    pub type_: midend::types::Type,
+    pub type_: midend::types::ResolvedType,
 }
 impl TypeTree {
-    pub fn new(loc: SourceLoc, type_: midend::types::Type) -> Self {
+    pub fn new(loc: SourceLoc, type_: midend::types::ResolvedType) -> Self {
         Self { loc, type_ }
     }
 }

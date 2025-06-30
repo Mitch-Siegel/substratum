@@ -1,7 +1,7 @@
 use crate::{
     midend::{
         ir,
-        types::{self, Type},
+        types::{self, ResolvedType},
     },
     trace,
 };
@@ -23,7 +23,8 @@ mod variable;
 
 pub use module::Module;
 pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
-pub use TypeRepr;
+pub use ResolvedTypeRepr;
+pub use UnresolvedTypeRepr;
 
 /// Traits for lookup and insertion based on ownership of various symbol types
 pub trait ScopeOwner {
@@ -54,25 +55,29 @@ pub trait MutVariableOwner: VariableOwner {
 }
 
 pub trait TypeOwner {
-    fn types(&self) -> impl Iterator<Item = &TypeDefinition>;
-    fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol>;
-    fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol> {
-        let lookup_type_result = self.lookup_type(&Type::UDT(name.into()));
+    fn types(&self) -> impl Iterator<Item = &ResolvedTypeDefinition>;
+    fn lookup_type(&self, type_: &ResolvedType)
+        -> Result<&ResolvedTypeDefinition, UndefinedSymbol>;
+    fn lookup_struct(&self, name: &str) -> Result<&UnresolvedStructRepr, UndefinedSymbol> {
+        let lookup_type_result = self.lookup_type(&ResolvedType::UDT(name.into()));
         let type_definition = match lookup_type_result {
             Ok(type_definition) => type_definition,
             Err(_) => return Err(UndefinedSymbol::struct_(name.into())),
         };
 
         match &type_definition.repr {
-            TypeRepr::Struct(struct_repr) => Ok(struct_repr),
+            UnresolvedTypeRepr::Struct(struct_repr) => Ok(struct_repr),
             _ => Err(UndefinedSymbol::struct_(name.into())),
         }
     }
 }
 pub trait MutTypeOwner: TypeOwner {
-    fn types_mut(&mut self) -> impl Iterator<Item = &mut TypeDefinition>;
-    fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol>;
-    fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol>;
+    fn types_mut(&mut self) -> impl Iterator<Item = &mut ResolvedTypeDefinition>;
+    fn insert_type(&mut self, type_: ResolvedTypeDefinition) -> Result<(), DefinedSymbol>;
+    fn lookup_type_mut(
+        &mut self,
+        type_: &ResolvedType,
+    ) -> Result<&mut ResolvedTypeDefinition, UndefinedSymbol>;
 }
 
 pub trait FunctionOwner {
@@ -117,7 +122,7 @@ pub trait MutModuleOwner: ModuleOwner {
 }
 
 pub trait SelfTypeOwner {
-    fn self_type(&self) -> &Type;
+    fn self_type(&self) -> &ResolvedType;
 }
 
 pub trait ScopeOwnerships: BasicBlockOwner + VariableOwner + TypeOwner {}
@@ -200,7 +205,7 @@ pub mod tests {
     where
         T: MutVariableOwner,
     {
-        let example_variable = Variable::new("test_variable".into(), Some(Type::U64));
+        let example_variable = Variable::new("test_variable".into(), Some(ResolvedType::U64));
 
         // make sure our example variable doesn't exist to start
         assert_eq!(
@@ -228,16 +233,16 @@ pub mod tests {
     where
         T: TypeOwner + types::TypeSizingContext,
     {
-        let example_struct_repr = StructRepr::new(
+        let example_struct_repr = UnresolvedStructRepr::new(
             "TestStruct".into(),
-            vec![("first_field".into(), Type::U8)],
+            vec![("first_field".into(), ResolvedType::U8)],
             owner,
         )
         .unwrap();
 
-        let example_type = TypeDefinition::new(
-            Type::UDT("TestStruct".into()),
-            TypeRepr::Struct(example_struct_repr.clone()),
+        let example_type = ResolvedTypeDefinition::new(
+            ResolvedType::UDT("TestStruct".into()),
+            UnresolvedTypeRepr::Struct(example_struct_repr.clone()),
         );
 
         assert_eq!(
@@ -254,16 +259,16 @@ pub mod tests {
     where
         T: MutTypeOwner + types::TypeSizingContext,
     {
-        let example_struct_repr = StructRepr::new(
+        let example_struct_repr = UnresolvedStructRepr::new(
             "TestStruct".into(),
-            vec![("first_field".into(), Type::U8)],
+            vec![("first_field".into(), ResolvedType::U8)],
             owner,
         )
         .unwrap();
 
-        let mut example_type = TypeDefinition::new(
-            Type::UDT("TestStruct".into()),
-            TypeRepr::Struct(example_struct_repr.clone()),
+        let mut example_type = ResolvedTypeDefinition::new(
+            ResolvedType::UDT("TestStruct".into()),
+            UnresolvedTypeRepr::Struct(example_struct_repr.clone()),
         );
 
         assert_eq!(
@@ -313,8 +318,8 @@ pub mod tests {
         let example_function = Function::new(
             FunctionPrototype::new(
                 "example_function".into(),
-                vec![Variable::new("argument_1".into(), Some(Type::I32))],
-                Type::I64,
+                vec![Variable::new("argument_1".into(), Some(ResolvedType::I32))],
+                ResolvedType::I64,
             ),
             Scope::new(),
         );
