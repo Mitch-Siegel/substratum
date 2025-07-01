@@ -14,10 +14,7 @@ impl TargetArchitecture for RV64G {
         rv64g_registers()
     }
 
-    fn registers_required_for_argument<T>(
-        context: &T,
-        type_: &midend::types::ResolvedType,
-    ) -> Option<usize>
+    fn registers_required_for_argument<T>(context: &T, type_: &midend::types::Type) -> Option<usize>
     where
         T: midend::types::TypeSizingContext,
     {

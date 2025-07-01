@@ -18,7 +18,7 @@ fn convert_function_to_ssa(function: &mut symtab::Function, _: &mut ()) {
 
 fn convert_associated_to_ssa(
     associated: &mut symtab::Function,
-    _associated_with: &types::ResolvedType,
+    _associated_with: &types::Type,
     context: &mut (),
 ) {
     convert_function_to_ssa(associated, context)
@@ -26,7 +26,7 @@ fn convert_associated_to_ssa(
 
 fn convert_method_to_ssa(
     method: &mut symtab::Function,
-    _method_of: &types::ResolvedType,
+    _method_of: &types::Type,
     context: &mut (),
 ) {
     convert_function_to_ssa(method, context);
@@ -47,7 +47,7 @@ fn remove_ssa(function: &mut symtab::Function) {
     for block in &mut function.control_flow {
         let old_arguments = block.arguments.clone();
         block.arguments.clear();
-        block.arguments = BTreeSet::<ir::ValueId>::new();
+        block.arguments = BTreeSet::<ir::OperandName>::new();
         for arg in old_arguments {
             block.arguments.insert(arg.into_non_ssa());
         }
@@ -69,7 +69,7 @@ fn remove_ssa_from_function(function: &mut symtab::Function, _: &mut ()) {
 
 fn remove_ssa_from_associated(
     associated: &mut symtab::Function,
-    _associated_with: &types::ResolvedType,
+    _associated_with: &types::Type,
     _context: &mut (),
 ) {
     remove_ssa(associated);
@@ -77,7 +77,7 @@ fn remove_ssa_from_associated(
 
 fn remove_ssa_from_method(
     method: &mut symtab::Function,
-    _method_of: &types::ResolvedType,
+    _method_of: &types::Type,
     _context: &mut (),
 ) {
     remove_ssa(method);

@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 pub fn convert_reads_to_ssa(function: &mut symtab::Function) {
     for (_, block) in function.control_flow.blocks_postorder_mut() {
-        let mut highest_ssa_numbers = BTreeMap::<ir::ValueId, ir::ValueId>::new();
+        let mut highest_ssa_numbers = BTreeMap::<ir::OperandName, ir::OperandName>::new();
 
         for arg in &block.arguments {
             highest_ssa_numbers.insert(arg.clone().into_non_ssa(), arg.clone());

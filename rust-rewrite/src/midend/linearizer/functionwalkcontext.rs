@@ -41,12 +41,11 @@ impl From<ConvergenceError> for LoopError {
 
 pub struct FunctionWalkContext<'a> {
     module_context: &'a mut ModuleWalkContext,
-    self_type: Option<types::ResolvedType>,
+    self_type: Option<types::Type>,
     prototype: symtab::FunctionPrototype,
     block_manager: BlockManager,
     scope_stack: Vec<symtab::Scope>,
     current_scope: symtab::Scope,
-    local_value_ids: HashMap<String, ir::ValueId>,
     open_loop_beginnings: Vec<usize>,
     // conditional branches from source block to the branch_false block.
     // creating a branch replaces current_block with the branch_tru
@@ -66,7 +65,7 @@ impl<'a> FunctionWalkContext<'a> {
     pub fn new(
         module_context: &'a mut ModuleWalkContext,
         prototype: symtab::FunctionPrototype,
-        self_type: Option<types::ResolvedType>,
+        self_type: Option<types::Type>,
     ) -> Self {
         trace::trace!("Create function walk context for {}", prototype);
         let (control_flow, start_block, end_block) = BlockManager::new();
@@ -87,7 +86,6 @@ impl<'a> FunctionWalkContext<'a> {
             open_branch_path: Vec::new(),
             scope_stack: Vec::new(),
             current_scope: argument_scope,
-            local_value_ids: HashMap::new(),
             open_loop_beginnings: Vec::new(),
             temp_num: 0,
             current_block: start_block,
@@ -344,23 +342,12 @@ impl<'a> FunctionWalkContext<'a> {
         }
     }
 
-    pub fn value_id_for_name(&mut self, name: &str) -> ir::ValueId {
-        match self.local_value_ids.get(name) {
-            Some(id) => *id,
-            None => {
-                let new_id = self.local_value_ids.len();
-                self.local_value_ids.insert(name.into(), new_id);
-                new_id
-            }
-        }
-    }
-
-    pub fn next_temp(&mut self, type_: types::ResolvedType) -> ir::Operand {
+    pub fn next_temp(&mut self, type_: types::Type) -> ir::Operand {
         let temp_name = String::from(".T") + &self.temp_num.to_string();
         self.temp_num += 1;
         self.insert_variable(symtab::Variable::new(temp_name.clone(), Some(type_)))
             .unwrap();
-        ir::Operand::new_as_temporary(self.value_id_for_name(&temp_name))
+        ir::Operand::new_as_temporary(temp_name)
     }
 
     pub fn append_jump_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
@@ -443,7 +430,7 @@ impl<'a> symtab::MutVariableOwner for FunctionWalkContext<'a> {
 }
 
 impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
-    fn types(&self) -> impl Iterator<Item = &symtab::ResolvedTypeDefinition> {
+    fn types(&self) -> impl Iterator<Item = &symtab::TypeDefinition> {
         self.all_scopes()
             .into_iter()
             .flat_map(|scope| scope.types())
@@ -452,8 +439,8 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
 
     fn lookup_type(
         &self,
-        type_: &types::ResolvedType,
-    ) -> Result<&symtab::ResolvedTypeDefinition, symtab::UndefinedSymbol> {
+        type_: &types::Type,
+    ) -> Result<&symtab::TypeDefinition, symtab::UndefinedSymbol> {
         for lookup_scope in self.all_scopes() {
             match lookup_scope.lookup_type(type_) {
                 Ok(type_) => return Ok(type_),
@@ -467,8 +454,8 @@ impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
 impl<'ctx> FunctionWalkContext<'ctx> {
     fn lookup_type_mut_local(
         scopes: impl Iterator<Item = &'ctx mut symtab::Scope>,
-        type_: &types::ResolvedType,
-    ) -> Option<&'ctx mut symtab::ResolvedTypeDefinition> {
+        type_: &types::Type,
+    ) -> Option<&'ctx mut symtab::TypeDefinition> {
         for scope in scopes {
             if let Ok(type_definition) = scope.lookup_type_mut(type_) {
                 return Some(type_definition);
@@ -478,24 +465,20 @@ impl<'ctx> FunctionWalkContext<'ctx> {
     }
 }
 impl<'ctx> symtab::MutTypeOwner for FunctionWalkContext<'ctx> {
-    fn types_mut(&mut self) -> impl Iterator<Item = &mut symtab::ResolvedTypeDefinition> {
+    fn types_mut(&mut self) -> impl Iterator<Item = &mut symtab::TypeDefinition> {
         // TODO: need to capture the module context too but get around mutable borrow rules...
         self.all_scopes_mut()
             .into_iter()
             .flat_map(|scope| scope.types_mut())
     }
 
-    fn insert_type(
-        &mut self,
-        type_: symtab::ResolvedTypeDefinition,
-    ) -> Result<(), symtab::DefinedSymbol> {
+    fn insert_type(&mut self, type_: symtab::TypeDefinition) -> Result<(), symtab::DefinedSymbol> {
         self.current_scope.insert_type(type_)
     }
-
     fn lookup_type_mut(
         &mut self,
-        type_: &types::ResolvedType,
-    ) -> Result<&mut symtab::ResolvedTypeDefinition, symtab::UndefinedSymbol> {
+        type_: &types::Type,
+    ) -> Result<&mut symtab::TypeDefinition, symtab::UndefinedSymbol> {
         // have to manually handle the iteration here as all_scopes_mut stretches borrow lifetime
         // to full function, which we can't have
         for scope in
@@ -512,7 +495,7 @@ impl<'ctx> symtab::MutTypeOwner for FunctionWalkContext<'ctx> {
 }
 
 impl<'a> symtab::SelfTypeOwner for FunctionWalkContext<'a> {
-    fn self_type(&self) -> &types::ResolvedType {
+    fn self_type(&self) -> &types::Type {
         self.self_type.as_ref().unwrap()
     }
 }
@@ -555,14 +538,7 @@ impl<'a> Into<symtab::Function> for FunctionWalkContext<'a> {
 
         self.current_scope.collapse();
 
-        symtab::Function::new(
-            self.prototype,
-            self.current_scope,
-            self.local_value_ids
-                .into_iter()
-                .map(|(name, id)| (id, name))
-                .collect(),
-        )
+        symtab::Function::new(self.prototype, self.current_scope)
     }
 }
 
@@ -592,10 +568,10 @@ mod tests {
         symtab::FunctionPrototype::new(
             "test_function".into(),
             vec![
-                symtab::Variable::new("a".into(), Some(types::PrimitiveType::U16.into())),
-                symtab::Variable::new("b".into(), Some(types::PrimitiveType::I32.into())),
+                symtab::Variable::new("a".into(), Some(types::Type::U16)),
+                symtab::Variable::new("b".into(), Some(types::Type::I32)),
             ],
-            types::PrimitiveType::I32.into(),
+            types::Type::I32,
         )
     }
 
@@ -650,8 +626,8 @@ mod tests {
             context.conditional_branch_from_current(
                 SourceLoc::none(),
                 ir::JumpCondition::NE(ir::DualSourceOperands::new(
-                    ir::Operand::new_as_variable(0),
-                    ir::Operand::new_as_variable(1),
+                    ir::Operand::new_as_variable("a".into()),
+                    ir::Operand::new_as_variable("b".into()),
                 )),
             ),
             Ok(())
@@ -724,8 +700,8 @@ mod tests {
             context.conditional_branch_from_current(
                 SourceLoc::none(),
                 ir::JumpCondition::NE(ir::DualSourceOperands::new(
-                    ir::Operand::new_as_variable(0),
-                    ir::Operand::new_as_variable(1),
+                    ir::Operand::new_as_variable("a".into()),
+                    ir::Operand::new_as_variable("b".into()),
                 )),
             ),
             Ok(())
@@ -749,8 +725,8 @@ mod tests {
             context.conditional_branch_from_current(
                 SourceLoc::none(),
                 ir::JumpCondition::NE(ir::DualSourceOperands::new(
-                    ir::Operand::new_as_variable(0),
-                    ir::Operand::new_as_variable(1),
+                    ir::Operand::new_as_variable("a".into()),
+                    ir::Operand::new_as_variable("b".into()),
                 )),
             ),
             Ok(())
@@ -775,8 +751,8 @@ mod tests {
             context.conditional_branch_from_current(
                 SourceLoc::none(),
                 ir::JumpCondition::NE(ir::DualSourceOperands::new(
-                    ir::Operand::new_as_variable(0),
-                    ir::Operand::new_as_variable(1),
+                    ir::Operand::new_as_variable("a".into()),
+                    ir::Operand::new_as_variable("b".into()),
                 )),
             ),
             Ok(())
@@ -800,8 +776,8 @@ mod tests {
             context.conditional_branch_from_current(
                 SourceLoc::none(),
                 ir::JumpCondition::NE(ir::DualSourceOperands::new(
-                    ir::Operand::new_as_variable(0),
-                    ir::Operand::new_as_variable(1),
+                    ir::Operand::new_as_variable("a".into()),
+                    ir::Operand::new_as_variable("b".into()),
                 )),
             ),
             Ok(())
@@ -819,16 +795,13 @@ mod tests {
         let mut context = test_context(&mut module_context);
 
         assert_eq!(
-            context.next_temp(types::PrimitiveType::I8.into()),
-            ir::Operand::new_as_temporary(0)
+            context.next_temp(types::Type::I8),
+            ir::Operand::new_as_temporary(String::from(".T0"))
         );
 
         assert_eq!(
             context.lookup_variable_by_name(".T0"),
-            Ok(&symtab::Variable::new(
-                ".T0".into(),
-                Some(types::PrimitiveType::I8.into())
-            ))
+            Ok(&symtab::Variable::new(".T0".into(), Some(types::Type::I8)))
         );
     }
 
@@ -841,9 +814,9 @@ mod tests {
             context.append_statement_to_current_block(ir::IrLine::new_binary_op(
                 SourceLoc::none(),
                 ir::BinaryOperations::new_add(
-                    ir::Operand::new_as_variable(2),
-                    ir::Operand::new_as_variable(0),
-                    ir::Operand::new_as_variable(1)
+                    ir::Operand::new_as_variable("c".into()),
+                    ir::Operand::new_as_variable("a".into()),
+                    ir::Operand::new_as_variable("b".into())
                 )
             )),
             Ok(())

@@ -124,11 +124,6 @@ fun money_add_dollars(m: Money, dollars: u64) {
     m.print();
 }";
 
-const GENERIC_STRUCT: &str = "struct ThingHolder<T> {
-    data: T,
-    times_accessed: u64,
-    }";
-
 #[derive(Debug)]
 enum TraceLocation {
     NoTrace,
@@ -191,7 +186,7 @@ fn main() {
         }
     }
 
-    let mut parser = Parser::new(Lexer::from_string(GENERIC_STRUCT));
+    let mut parser = Parser::new(Lexer::from_string(WHILE_LOOP));
     let program = parser.parse().expect("Error parsing input");
 
     for t in &program {

@@ -71,7 +71,7 @@ impl Into<symtab::SymbolTable> for ModuleWalkContext {
 }
 
 impl symtab::TypeOwner for ModuleWalkContext {
-    fn types(&self) -> impl Iterator<Item = &symtab::ResolvedTypeDefinition> {
+    fn types(&self) -> impl Iterator<Item = &symtab::TypeDefinition> {
         self.all_modules()
             .into_iter()
             .flat_map(|module| module.types())
@@ -79,8 +79,8 @@ impl symtab::TypeOwner for ModuleWalkContext {
 
     fn lookup_type(
         &self,
-        type_: &types::ResolvedType,
-    ) -> Result<&symtab::ResolvedTypeDefinition, symtab::UndefinedSymbol> {
+        type_: &types::Type,
+    ) -> Result<&symtab::TypeDefinition, symtab::UndefinedSymbol> {
         for module in self.all_modules() {
             match module.lookup_type(type_) {
                 Ok(type_) => return Ok(type_),
@@ -93,23 +93,20 @@ impl symtab::TypeOwner for ModuleWalkContext {
 }
 
 impl symtab::MutTypeOwner for ModuleWalkContext {
-    fn types_mut(&mut self) -> impl Iterator<Item = &mut symtab::ResolvedTypeDefinition> {
+    fn types_mut(&mut self) -> impl Iterator<Item = &mut symtab::TypeDefinition> {
         self.all_modules_mut()
             .into_iter()
             .flat_map(|module| module.types_mut())
     }
 
-    fn insert_type(
-        &mut self,
-        type_: symtab::ResolvedTypeDefinition,
-    ) -> Result<(), symtab::DefinedSymbol> {
+    fn insert_type(&mut self, type_: symtab::TypeDefinition) -> Result<(), symtab::DefinedSymbol> {
         self.current_module.insert_type(type_)
     }
 
     fn lookup_type_mut(
         &mut self,
-        type_: &types::ResolvedType,
-    ) -> Result<&mut symtab::ResolvedTypeDefinition, symtab::UndefinedSymbol> {
+        type_: &types::Type,
+    ) -> Result<&mut symtab::TypeDefinition, symtab::UndefinedSymbol> {
         for module in self.all_modules_mut() {
             match module.lookup_type_mut(type_) {
                 Ok(type_) => return Ok(type_),
@@ -170,7 +167,7 @@ impl symtab::ModuleOwner for ModuleWalkContext {
 }
 
 impl symtab::SelfTypeOwner for ModuleWalkContext {
-    fn self_type(&self) -> &types::ResolvedType {
+    fn self_type(&self) -> &types::Type {
         panic!(
             "Modules can't have a self type!
 Need to implement error handling around self type lookups"

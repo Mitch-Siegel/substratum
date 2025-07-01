@@ -3,7 +3,7 @@ use crate::midend;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub struct InterferenceGraph {
-    graph: BTreeMap<midend::ir::ValueId, BTreeSet<midend::ir::ValueId>>,
+    graph: BTreeMap<midend::ir::OperandName, BTreeSet<midend::ir::OperandName>>,
     max_degree: usize,
 }
 
@@ -17,8 +17,8 @@ impl InterferenceGraph {
 
     pub fn record_interference(
         &mut self,
-        operand_a: &midend::ir::ValueId,
-        operand_b: &midend::ir::ValueId,
+        operand_a: &midend::ir::OperandName,
+        operand_b: &midend::ir::OperandName,
     ) {
         self.graph
             .entry(operand_a.clone())
@@ -37,8 +37,8 @@ impl InterferenceGraph {
 
     pub fn remove(
         &mut self,
-        operand: &midend::ir::ValueId,
-    ) -> Option<BTreeSet<midend::ir::ValueId>> {
+        operand: &midend::ir::OperandName,
+    ) -> Option<BTreeSet<midend::ir::OperandName>> {
         let removed = self.graph.remove(operand);
 
         self.max_degree = usize::MIN;
@@ -52,15 +52,21 @@ impl InterferenceGraph {
 
     pub fn iter(
         &self,
-    ) -> std::collections::btree_map::Iter<'_, midend::ir::ValueId, BTreeSet<midend::ir::ValueId>>
-    {
+    ) -> std::collections::btree_map::Iter<
+        '_,
+        midend::ir::OperandName,
+        BTreeSet<midend::ir::OperandName>,
+    > {
         self.graph.iter()
     }
 
     pub fn keys(
         &self,
-    ) -> std::collections::btree_map::Keys<'_, midend::ir::ValueId, BTreeSet<midend::ir::ValueId>>
-    {
+    ) -> std::collections::btree_map::Keys<
+        '_,
+        midend::ir::OperandName,
+        BTreeSet<midend::ir::OperandName>,
+    > {
         self.graph.keys()
     }
 }

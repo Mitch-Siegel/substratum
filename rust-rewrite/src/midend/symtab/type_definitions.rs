@@ -1,6 +1,6 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::{
     backend,
@@ -10,139 +10,22 @@ use crate::{
 use super::Function;
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ResolvedTypeDefinition {
-    type_: types::ResolvedType,
-    pub repr: ResolvedTypeRepr,
-    methods: HashMap<String, ResolvedFunction>,
-    associated_functions: HashMap<String, ResolvedFunction>,
-}
-
-impl PartialEq for ResolvedTypeDefinition {
-    fn eq(&self, other: &Self) -> bool {
-        self.type_.eq(&other.type_) && self.repr.eq(&other.repr)
-    }
-}
-
-impl Eq for ResolvedTypeDefinition {}
-
-impl ResolvedTypeDefinition {
-    fn size<C>(&self, context: &C) -> Result<usize, UndefinedSymbol>
-    where
-        C: types::TypeSizingContext,
-    {
-        self.repr.size(context)
-    }
-
-    fn alignment<C>(&self, context: &C) -> Result<usize, UndefinedSymbol>
-    where
-        C: types::TypeSizingContext,
-    {
-        self.repr.alignment(context)
-    }
-}
-impl ResolvedTypeDefinition {
-    pub fn new(type_: types::ResolvedType, repr: UnresolvedTypeRepr) -> Self {
-        ResolvedTypeDefinition {
-            type_,
-            repr,
-            methods: HashMap::new(),
-            associated_functions: HashMap::new(),
-        }
-    }
-
-    pub fn type_(&self) -> &types::ResolvedType {
-        &self.type_
-    }
-}
-
-impl AssociatedOwner for ResolvedTypeDefinition {
-    fn associated_functions(&self) -> impl Iterator<Item = &Function> {
-        self.associated_functions.values()
-    }
-
-    fn lookup_associated(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
-        self.associated_functions
-            .get(name)
-            .ok_or(UndefinedSymbol::associated(self.type_.clone(), name.into()))
-    }
-}
-impl MutAssociatedOwner for ResolvedTypeDefinition {
-    fn associated_functions_mut(&mut self) -> impl Iterator<Item = &mut Function> {
-        self.associated_functions.values_mut()
-    }
-
-    fn insert_associated(&mut self, associated: Function) -> Result<(), DefinedSymbol> {
-        match self.methods.get(associated.name()) {
-            Some(existing_method) => Err(DefinedSymbol::Method(
-                self.type_.clone(),
-                existing_method.prototype.clone(),
-            )),
-            None => {
-                match self
-                    .associated_functions
-                    .insert(associated.name().into(), associated)
-                {
-                    Some(existing_associated) => Err(DefinedSymbol::associated(
-                        self.type_.clone(),
-                        existing_associated.prototype,
-                    )),
-                    None => Ok(()),
-                }
-            }
-        }
-    }
-}
-
-impl MethodOwner for ResolvedTypeDefinition {
-    fn methods(&self) -> impl Iterator<Item = &Function> {
-        self.methods.values()
-    }
-
-    fn lookup_method(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
-        self.methods
-            .get(name)
-            .ok_or(UndefinedSymbol::Method(self.type_.clone(), name.into()))
-    }
-}
-impl MutMethodOwner for ResolvedTypeDefinition {
-    fn methods_mut(&mut self) -> impl Iterator<Item = &mut Function> {
-        self.methods.values_mut()
-    }
-
-    fn insert_method(&mut self, method: Function) -> Result<(), DefinedSymbol> {
-        match self.associated_functions.get(method.name()) {
-            Some(existing_associated) => Err(DefinedSymbol::Associated(
-                self.type_.clone(),
-                existing_associated.prototype.clone(),
-            )),
-            None => match self.methods.insert(method.name().into(), method) {
-                Some(existing_method) => Err(DefinedSymbol::method(
-                    self.type_.clone(),
-                    existing_method.prototype,
-                )),
-                None => Ok(()),
-            },
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct UnresolvedTypeDefinition {
-    type_: types::UnresolvedType,
-    pub repr: UnresolvedTypeRepr,
+pub struct TypeDefinition {
+    type_: types::Type,
+    pub repr: TypeRepr,
     methods: HashMap<String, Function>,
     associated_functions: HashMap<String, Function>,
 }
 
-impl PartialEq for UnresolvedTypeDefinition {
+impl PartialEq for TypeDefinition {
     fn eq(&self, other: &Self) -> bool {
         self.type_.eq(&other.type_) && self.repr.eq(&other.repr)
     }
 }
 
-impl Eq for UnresolvedTypeDefinition {}
+impl Eq for TypeDefinition {}
 
-impl ResolvedTypeDefinition {
+impl types::SizedType for TypeDefinition {
     fn size<C>(&self, context: &C) -> Result<usize, UndefinedSymbol>
     where
         C: types::TypeSizingContext,
@@ -157,9 +40,9 @@ impl ResolvedTypeDefinition {
         self.repr.alignment(context)
     }
 }
-impl UnresolvedTypeDefinition {
-    pub fn new(type_: types::ResolvedType, repr: UnresolvedTypeRepr) -> Self {
-        Self {
+impl TypeDefinition {
+    pub fn new(type_: types::Type, repr: TypeRepr) -> Self {
+        TypeDefinition {
             type_,
             repr,
             methods: HashMap::new(),
@@ -167,12 +50,12 @@ impl UnresolvedTypeDefinition {
         }
     }
 
-    pub fn type_(&self) -> &types::ResolvedType {
+    pub fn type_(&self) -> &types::Type {
         &self.type_
     }
 }
 
-impl AssociatedOwner for ResolvedTypeDefinition {
+impl AssociatedOwner for TypeDefinition {
     fn associated_functions(&self) -> impl Iterator<Item = &Function> {
         self.associated_functions.values()
     }
@@ -183,7 +66,7 @@ impl AssociatedOwner for ResolvedTypeDefinition {
             .ok_or(UndefinedSymbol::associated(self.type_.clone(), name.into()))
     }
 }
-impl MutAssociatedOwner for ResolvedTypeDefinition {
+impl MutAssociatedOwner for TypeDefinition {
     fn associated_functions_mut(&mut self) -> impl Iterator<Item = &mut Function> {
         self.associated_functions.values_mut()
     }
@@ -210,7 +93,7 @@ impl MutAssociatedOwner for ResolvedTypeDefinition {
     }
 }
 
-impl MethodOwner for ResolvedTypeDefinition {
+impl MethodOwner for TypeDefinition {
     fn methods(&self) -> impl Iterator<Item = &Function> {
         self.methods.values()
     }
@@ -221,7 +104,7 @@ impl MethodOwner for ResolvedTypeDefinition {
             .ok_or(UndefinedSymbol::Method(self.type_.clone(), name.into()))
     }
 }
-impl MutMethodOwner for ResolvedTypeDefinition {
+impl MutMethodOwner for TypeDefinition {
     fn methods_mut(&mut self) -> impl Iterator<Item = &mut Function> {
         self.methods.values_mut()
     }
@@ -243,14 +126,14 @@ impl MutMethodOwner for ResolvedTypeDefinition {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
-pub enum UnresolvedTypeRepr {
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub enum TypeRepr {
     UnsignedInteger(PrimitiveIntegerRepr),
     SignedInteger(PrimitiveIntegerRepr),
-    Struct(UnresolvedStructRepr),
+    Struct(StructRepr),
 }
 
-impl UnresolvedTypeRepr {
+impl TypeRepr {
     pub fn name(&self) -> String {
         match self {
             Self::UnsignedInteger(repr) => format!("u{}", repr.size),
@@ -260,8 +143,8 @@ impl UnresolvedTypeRepr {
     }
 }
 
-impl UnresolvedTypeRepr {
-    pub fn size<C>(&self, context: &C) -> usize
+impl types::SizedType for TypeRepr {
+    fn size<C>(&self, context: &C) -> Result<usize, UndefinedSymbol>
     where
         C: types::TypeSizingContext,
     {
@@ -272,7 +155,7 @@ impl UnresolvedTypeRepr {
         }
     }
 
-    pub fn alignment<C>(&self, context: &C) -> Result<usize, UndefinedSymbol>
+    fn alignment<C>(&self, context: &C) -> Result<usize, UndefinedSymbol>
     where
         C: types::TypeSizingContext,
     {
@@ -284,13 +167,7 @@ impl UnresolvedTypeRepr {
     }
 }
 
-pub enum ResolvedTypeRepr {
-    UnsignedInteger(PrimitiveIntegerRepr),
-    SignedInteger(PrimitiveIntegerRepr),
-    Struct(ResolvedStructRepr),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct PrimitiveIntegerRepr {
     size: usize,
 }
@@ -313,37 +190,19 @@ impl types::SizedType for PrimitiveIntegerRepr {
     where
         C: types::TypeSizingContext,
     {
-        Ok(types::ResolvedType::align_size_power_of_two(self.size))
+        Ok(types::Type::align_size_power_of_two(self.size))
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
-pub struct UnresolvedStructField {
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct StructField {
     pub name: String,
-    pub type_: types::ResolvedType,
-}
-
-impl UnresolvedStructField {
-    pub fn new(name: String, type_: types::ResolvedType) -> Self {
-        Self { name, type_ }
-    }
-}
-
-impl std::fmt::Display for UnresolvedStructField {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.name, self.type_,)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
-pub struct ResolvedStructField {
-    pub name: String,
-    pub type_: types::ResolvedType,
+    pub type_: types::Type,
     pub offset: usize,
 }
 
-impl ResolvedStructField {
-    pub fn new(name: String, type_: types::ResolvedType, offset: usize) -> Self {
+impl StructField {
+    pub fn new(name: String, type_: types::Type, offset: usize) -> Self {
         Self {
             name,
             type_,
@@ -352,30 +211,68 @@ impl ResolvedStructField {
     }
 }
 
-impl std::fmt::Display for ResolvedStructField {
+impl std::fmt::Display for StructField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {} (@{})", self.name, self.type_, self.offset)
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
-pub struct UnresolvedStructRepr {
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct StructRepr {
     pub name: String,
-    fields: BTreeMap<String, UnresolvedStructField>,
+    fields: HashMap<String, StructField>,
+    size: usize,
+    alignment: usize,
 }
 
-impl UnresolvedStructRepr {
+impl StructRepr {
     pub fn new<C>(
         name: String,
-        field_definitions: Vec<(String, types::UnresolvedType)>,
-    ) -> Result<Self, DefinedSymbol> {
+        field_definitions: Vec<(String, types::Type)>,
+        context: &C,
+    ) -> Result<Self, DefinedSymbol>
+    where
+        C: types::TypeSizingContext,
+    {
+        let mut last_offset = 0;
+        let mut fields = HashMap::<String, StructField>::new();
+        let mut max_alignment: usize = 0;
+        for (name, type_) in field_definitions {
+            let field_size = type_.size::<backend::arch::Target, C>(context).unwrap();
+            let field_alignment = type_
+                .alignment::<backend::arch::Target, C>(context)
+                .unwrap();
+
+            let padding_bytes = field_alignment - (last_offset % field_alignment);
+            last_offset += padding_bytes;
+
+            trace::trace!(
+                "Insert struct field {} (type: {}, size: {}, alignment: {}, padding before: {})",
+                name.clone(),
+                type_.clone(),
+                field_size,
+                field_alignment,
+                padding_bytes
+            );
+            let field = StructField::new(name.clone(), type_, last_offset);
+            match fields.insert(name, field) {
+                Some(existing_field) => return Err(DefinedSymbol::field(existing_field)),
+                None => (),
+            }
+
+            last_offset += field_size;
+            max_alignment = max_alignment.max(field_alignment);
+        }
+
         Ok(Self {
             name,
-            fields: field_definitions.into_iter().collect(),
+            fields,
+            size: last_offset,
+            alignment: max_alignment,
         })
     }
 
-    pub fn lookup_field(&self, name: &str) -> Result<&UnresolvedStructField, UndefinedSymbol> {
+    pub fn lookup_field(&self, name: &str) -> Result<&StructField, UndefinedSymbol> {
         match self.fields.get(name) {
             Some(field) => Ok(field),
             None => Err(UndefinedSymbol::field(name.into())),
@@ -383,16 +280,27 @@ impl UnresolvedStructRepr {
     }
 }
 
-impl<'a> IntoIterator for &'a UnresolvedStructRepr {
-    type Item = (&'a String, &'a UnresolvedStructField);
-    type IntoIter = std::collections::hash_map::Iter<'a, String, UnresolvedStructField>;
+impl<'a> IntoIterator for &'a StructRepr {
+    type Item = (&'a String, &'a StructField);
+    type IntoIter = std::collections::hash_map::Iter<'a, String, StructField>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.iter()
     }
 }
 
-pub struct ResolvedStructRepr {
-    pub name: String,
-    fields: BTreeMap<String, ResolvedStructField>,
+impl types::SizedType for StructRepr {
+    fn size<C>(&self, _context: &C) -> Result<usize, UndefinedSymbol>
+    where
+        C: types::TypeSizingContext,
+    {
+        Ok(self.size)
+    }
+
+    fn alignment<C>(&self, _context: &C) -> Result<usize, UndefinedSymbol>
+    where
+        C: types::TypeSizingContext,
+    {
+        Ok(self.alignment)
+    }
 }

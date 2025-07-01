@@ -26,7 +26,7 @@ impl SsaWriteConversionMetadata {
         }
     }
 
-    pub fn next_number_for_variable(&mut self, operand_name: &ir::ValueId) -> usize {
+    pub fn next_number_for_variable(&mut self, operand_name: &ir::OperandName) -> usize {
         let entry = self
             .variables
             .entry(operand_name.base_name.clone())

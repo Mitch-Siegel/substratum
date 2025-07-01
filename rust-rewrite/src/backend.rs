@@ -16,7 +16,7 @@ fn do_backend_for_function(
 
 fn do_backend_for_associated(
     associated: &midend::symtab::Function,
-    associated_with: &midend::types::ResolvedType,
+    associated_with: &midend::types::Type,
     _visitor: &midend::symtab::SymtabVisitor<()>,
     _context: &mut (),
 ) {
@@ -29,7 +29,7 @@ fn do_backend_for_associated(
 
 fn do_backend_for_method(
     method: &midend::symtab::Function,
-    method_of: &midend::types::ResolvedType,
+    method_of: &midend::types::Type,
     _visitor: &midend::symtab::SymtabVisitor<()>,
     _context: &mut (),
 ) {

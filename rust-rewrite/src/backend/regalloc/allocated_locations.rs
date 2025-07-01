@@ -10,7 +10,7 @@ pub enum Location {
 
 #[derive(Debug)]
 pub struct AllocatedLocations {
-    locations: HashMap<midend::ir::ValueId, Location>,
+    locations: HashMap<midend::ir::OperandName, Location>,
 }
 
 impl AllocatedLocations {
@@ -22,7 +22,7 @@ impl AllocatedLocations {
 
     pub fn assign_to_register(
         &mut self,
-        name: midend::ir::ValueId,
+        name: midend::ir::OperandName,
         register: arch::generic::Register,
     ) {
         self.locations.insert(name, Location::Register(register));
@@ -30,14 +30,14 @@ impl AllocatedLocations {
 
     pub fn assign_to_register_range(
         &mut self,
-        name: midend::ir::ValueId,
+        name: midend::ir::OperandName,
         register_range: &[arch::generic::Register],
     ) {
         self.locations
             .insert(name, Location::RegisterRange(Vec::from(register_range)));
     }
 
-    pub fn assign_to_stack_argument(&mut self, name: midend::ir::ValueId, offset: isize) {
+    pub fn assign_to_stack_argument(&mut self, name: midend::ir::OperandName, offset: isize) {
         self.locations.insert(name, Location::StackArgument(offset));
     }
 }

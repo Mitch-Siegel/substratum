@@ -2,12 +2,12 @@ use std::fmt::Display;
 
 use serde::Serialize;
 
-use crate::midend::types;
+use crate::midend::types::Type;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Variable {
     pub name: String,
-    type_: Option<types::UnresolvedType>,
+    type_: Option<Type>,
 }
 
 impl Display for Variable {
@@ -25,11 +25,11 @@ impl Display for Variable {
 }
 
 impl Variable {
-    pub fn new(name: String, type_: Option<types::UnresolvedType>) -> Self {
+    pub fn new(name: String, type_: Option<Type>) -> Self {
         Variable { name, type_ }
     }
 
-    pub fn type_(&self) -> &types::UnresolvedType {
+    pub fn type_(&self) -> &Type {
         &self.type_.as_ref().unwrap()
     }
 

@@ -1,4 +1,4 @@
-use crate::midend::types::{Mutability, ResolvedType};
+use crate::midend::types::{Mutability, Type};
 
 use crate::frontend::parser::*;
 
@@ -16,7 +16,7 @@ impl<'a> Parser<'a> {
         Ok(type_tree)
     }
 
-    fn parse_type_inner(&mut self) -> Result<ResolvedType, ParseError> {
+    fn parse_type_inner(&mut self) -> Result<Type, ParseError> {
         let (_start_loc, _) = self.start_parsing("typename")?;
 
         let type_ = match self.peek_token()? {
@@ -29,11 +29,11 @@ impl<'a> Parser<'a> {
                     }
                     _ => Mutability::Immutable,
                 };
-                ResolvedType::Reference(mutability, Box::new(self.parse_type_inner()?))
+                Type::Reference(mutability, Box::new(self.parse_type_inner()?))
             }
             Token::SelfUpper => {
                 self.expect_token(Token::SelfUpper)?;
-                ResolvedType::_Self
+                Type::_Self
             }
             _ => self.parse_type_name()?,
         };
@@ -43,49 +43,49 @@ impl<'a> Parser<'a> {
         Ok(type_)
     }
 
-    fn parse_type_name(&mut self) -> Result<ResolvedType, ParseError> {
+    fn parse_type_name(&mut self) -> Result<Type, ParseError> {
         let (_start_loc, _) = self.start_parsing("type name")?;
 
         let type_name = match self.peek_token()? {
             Token::U8 => {
                 self.next_token()?;
-                ResolvedType::U8
+                Type::U8
             }
             Token::U16 => {
                 self.next_token()?;
-                ResolvedType::U16
+                Type::U16
             }
             Token::U32 => {
                 self.next_token()?;
-                ResolvedType::U32
+                Type::U32
             }
             Token::U64 => {
                 self.next_token()?;
-                ResolvedType::U64
+                Type::U64
             }
             Token::I8 => {
                 self.next_token()?;
-                ResolvedType::I8
+                Type::I8
             }
             Token::I16 => {
                 self.next_token()?;
-                ResolvedType::I16
+                Type::I16
             }
             Token::I32 => {
                 self.next_token()?;
-                ResolvedType::I32
+                Type::I32
             }
             Token::I64 => {
                 self.next_token()?;
-                ResolvedType::I64
+                Type::I64
             }
             Token::Identifier(name) => {
                 self.next_token()?;
-                ResolvedType::UDT(name)
+                Type::UDT(name)
             }
             Token::SelfLower => {
                 self.next_token()?;
-                ResolvedType::_Self
+                Type::_Self
             }
             _ => self.unexpected_token(&[
                 Token::U8,
@@ -110,21 +110,21 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use crate::frontend::parser::*;
-    use crate::midend::types::{Mutability, ResolvedType};
+    use crate::midend::types::{Mutability, Type};
 
     #[test]
     fn parse_type_name() {
         let type_names = [
-            ("u8", ResolvedType::U8),
-            ("u16", ResolvedType::U16),
-            ("u32", ResolvedType::U32),
-            ("u64", ResolvedType::U64),
-            ("i8", ResolvedType::I8),
-            ("i16", ResolvedType::I16),
-            ("i32", ResolvedType::I32),
-            ("i64", ResolvedType::I64),
-            ("MyStruct", ResolvedType::UDT("MyStruct".into())),
-            ("self", ResolvedType::_Self),
+            ("u8", Type::U8),
+            ("u16", Type::U16),
+            ("u32", Type::U32),
+            ("u64", Type::U64),
+            ("i8", Type::I8),
+            ("i16", Type::I16),
+            ("i32", Type::I32),
+            ("i64", Type::I64),
+            ("MyStruct", Type::UDT("MyStruct".into())),
+            ("self", Type::_Self),
         ];
 
         for (string, type_) in type_names {
@@ -162,23 +162,23 @@ mod tests {
     #[test]
     fn parse_type_inner() {
         let types = [
-            ("u32", ResolvedType::U32),
+            ("u32", Type::U32),
             (
                 "&u32",
-                ResolvedType::Reference(Mutability::Immutable, Box::from(ResolvedType::U32)),
+                Type::Reference(Mutability::Immutable, Box::from(Type::U32)),
             ),
             (
                 "&mut u32",
-                ResolvedType::Reference(Mutability::Mutable, Box::from(ResolvedType::U32)),
+                Type::Reference(Mutability::Mutable, Box::from(Type::U32)),
             ),
-            ("Self", ResolvedType::_Self),
+            ("Self", Type::_Self),
             (
                 "&Self",
-                ResolvedType::Reference(Mutability::Immutable, Box::from(ResolvedType::_Self)),
+                Type::Reference(Mutability::Immutable, Box::from(Type::_Self)),
             ),
             (
                 "&mut Self",
-                ResolvedType::Reference(Mutability::Mutable, Box::from(ResolvedType::_Self)),
+                Type::Reference(Mutability::Mutable, Box::from(Type::_Self)),
             ),
         ];
 
@@ -193,7 +193,7 @@ mod tests {
         let mut p = Parser::new(Lexer::from_string("u32"));
         assert_eq!(
             p.parse_type(),
-            Ok(TypeTree::new(SourceLoc::new(1, 1), ResolvedType::U32))
+            Ok(TypeTree::new(SourceLoc::new(1, 1), Type::U32))
         );
     }
 }

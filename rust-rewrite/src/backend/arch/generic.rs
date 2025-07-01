@@ -16,7 +16,7 @@ pub trait TargetArchitecture {
     // placed in an argument register
     fn registers_required_for_argument<T>(
         context: &T,
-        type_: &midend::types::ResolvedType,
+        type_: &midend::types::Type,
     ) -> Option<usize>
     where
         T: midend::types::TypeSizingContext;
