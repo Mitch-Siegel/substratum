@@ -17,8 +17,8 @@ pub fn symbol_table_from_program(
     tracing::debug!("Linearize");
     let mut symtab = linearizer::linearize(program);
 
-    tracing::debug!("collapse scopes");
-    symtab.collapse_scopes();
+    //tracing::debug!("collapse scopes");
+    //symtab.collapse_scopes();
 
     tracing::debug!("convert IR to SSA");
     ssa_gen::convert_functions_to_ssa(&mut symtab);

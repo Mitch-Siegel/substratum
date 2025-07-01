@@ -5,28 +5,7 @@ use serde::Serialize;
 use crate::midend::{symtab::*, types::Type};
 
 pub trait CollapseScopes {
-    fn collapse_scopes(&mut self, path_from_collapsing_to: ScopePath);
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
-pub struct ScopePath {
-    indices: Vec<usize>,
-}
-impl ScopePath {
-    pub fn new() -> Self {
-        Self {
-            indices: Vec::new(),
-        }
-    }
-
-    pub fn for_new_subscope(mut self, parent: usize) -> Self {
-        self.indices.push(parent);
-        self
-    }
-
-    pub fn empty(&self) -> bool {
-        self.indices.len() == 0
-    }
+    fn collapse_scopes(&mut self, path_from_collapsing_to: DefPath);
 }
 
 #[derive(Debug, Clone, Serialize)]

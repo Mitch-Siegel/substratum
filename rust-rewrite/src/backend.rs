@@ -1,6 +1,6 @@
 pub mod arch;
 use crate::{midend, trace};
-mod codegen;
+/*mod codegen;
 mod regalloc;
 
 fn do_backend_for_function(
@@ -46,4 +46,4 @@ pub fn do_backend<'a>(mut symbol_table: midend::symtab::SymbolTable) {
     );
 
     visitor.visit(&mut symbol_table.global_module, &mut ());
-}
+}*/

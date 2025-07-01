@@ -3,7 +3,7 @@ use crate::{
     midend::{
         ir,
         linearizer::*,
-        symtab::{self, MutBasicBlockOwner, MutScopeOwner, MutTypeOwner, MutVariableOwner},
+        symtab::{self, DefContext},
         types,
     },
     trace,
@@ -40,12 +40,12 @@ impl From<ConvergenceError> for LoopError {
 }
 
 pub struct FunctionWalkContext<'a> {
-    module_context: &'a mut ModuleWalkContext,
+    symtab: &'a mut symtab::SymbolTable,
+    def_path: symtab::DefPath,
     self_type: Option<types::Type>,
     prototype: symtab::FunctionPrototype,
     block_manager: BlockManager,
-    scope_stack: Vec<symtab::Scope>,
-    current_scope: symtab::Scope,
+    relative_local_def_path: symtab::DefPath,
     open_loop_beginnings: Vec<usize>,
     // conditional branches from source block to the branch_false block.
     // creating a branch replaces current_block with the branch_tru
@@ -63,7 +63,7 @@ pub struct FunctionWalkContext<'a> {
 
 impl<'a> FunctionWalkContext<'a> {
     pub fn new(
-        module_context: &'a mut ModuleWalkContext,
+        parent_context: &'a mut symtab::BasicDefContext,
         prototype: symtab::FunctionPrototype,
         self_type: Option<types::Type>,
     ) -> Self {
@@ -74,35 +74,28 @@ impl<'a> FunctionWalkContext<'a> {
             .add(&[start_block.label], end_block)
             .unwrap();
 
-        let argument_scope = prototype.create_argument_scope().unwrap();
-
+        let def_path = parent_context.definition_path();
         Self {
-            module_context,
+            symtab: parent_context.symtab_mut(),
+            def_path,
             prototype,
             self_type,
             block_manager: control_flow,
             open_branch_false_blocks: HashMap::new(),
             open_convergences: base_convergences,
             open_branch_path: Vec::new(),
-            scope_stack: Vec::new(),
-            current_scope: argument_scope,
+            relative_local_def_path: symtab::DefPath::new(),
             open_loop_beginnings: Vec::new(),
             temp_num: 0,
             current_block: start_block,
         }
     }
 
-    fn all_scopes(&self) -> impl Iterator<Item = &symtab::Scope> {
-        std::iter::once(&self.current_scope).chain(self.scope_stack.iter().rev())
-    }
-
-    fn all_scopes_mut(&mut self) -> impl Iterator<Item = &mut symtab::Scope> {
-        std::iter::once(&mut self.current_scope).chain(self.scope_stack.iter_mut().rev())
-    }
-
     fn new_subscope(&mut self) {
-        let parent = std::mem::replace(&mut self.current_scope, symtab::Scope::new());
-        self.scope_stack.push(parent);
+        self.relative_local_def_path
+            .push(symtab::DefPathComponent::Scope(
+                self.symtab.next_subscope(self.absolute_local_def_path()),
+            ));
     }
 
     fn pop_current_scope_to_subscope_of_next(&mut self) -> Result<(), BranchError> {
@@ -345,7 +338,12 @@ impl<'a> FunctionWalkContext<'a> {
     pub fn next_temp(&mut self, type_: types::Type) -> ir::Operand {
         let temp_name = String::from(".T") + &self.temp_num.to_string();
         self.temp_num += 1;
-        self.insert_variable(symtab::Variable::new(temp_name.clone(), Some(type_)))
+        let definition_path = self.definition_path();
+        self.symtab
+            .create_variable(
+                definition_path,
+                symtab::Variable::new(temp_name.clone(), Some(type_)),
+            )
             .unwrap();
         ir::Operand::new_as_temporary(temp_name)
     }
@@ -371,480 +369,17 @@ impl<'a> FunctionWalkContext<'a> {
     }
 }
 
-impl<'a> symtab::BasicBlockOwner for FunctionWalkContext<'a> {
-    fn basic_blocks(&self) -> impl Iterator<Item = &ir::BasicBlock> {
-        self.all_scopes()
-            .into_iter()
-            .flat_map(|scope| scope.basic_blocks())
+impl<'a> symtab::DefContext for FunctionWalkContext<'a> {
+    fn symtab(&self) -> &symtab::SymbolTable {
+        &self.symtab
     }
 
-    fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock> {
-        let _ = trace::span_auto!(
-            trace::Level::TRACE,
-            "Lookup basic block in function walk context: ",
-            "{}",
-            label
-        );
-        for lookup_scope in self.scope_stack.iter().rev() {
-            match lookup_scope.lookup_basic_block(label) {
-                Some(block) => return Some(block),
-                None => (),
-            }
-        }
-
-        None
-    }
-}
-
-impl<'a> symtab::VariableOwner for FunctionWalkContext<'a> {
-    fn variables(&self) -> impl Iterator<Item = &symtab::Variable> {
-        self.all_scopes()
-            .into_iter()
-            .flat_map(|scope| scope.variables())
+    fn symtab_mut(&mut self) -> &mut symtab::SymbolTable {
+        &mut self.symtab
     }
 
-    fn lookup_variable_by_name(
-        &self,
-        name: &str,
-    ) -> Result<&symtab::Variable, symtab::UndefinedSymbol> {
-        for lookup_scope in self.all_scopes() {
-            match lookup_scope.lookup_variable_by_name(name) {
-                Ok(variable) => return Ok(variable),
-                _ => (),
-            }
-        }
-
-        Err(symtab::UndefinedSymbol::variable(name.into()))
-    }
-}
-impl<'a> symtab::MutVariableOwner for FunctionWalkContext<'a> {
-    fn variables_mut(&mut self) -> impl Iterator<Item = &mut symtab::Variable> {
-        self.all_scopes_mut()
-            .into_iter()
-            .flat_map(|scope| scope.variables_mut())
-    }
-
-    fn insert_variable(&mut self, variable: symtab::Variable) -> Result<(), symtab::DefinedSymbol> {
-        self.current_scope.insert_variable(variable)
-    }
-}
-
-impl<'a> symtab::TypeOwner for FunctionWalkContext<'a> {
-    fn types(&self) -> impl Iterator<Item = &symtab::TypeDefinition> {
-        self.all_scopes()
-            .into_iter()
-            .flat_map(|scope| scope.types())
-            .chain(self.module_context.types())
-    }
-
-    fn lookup_type(
-        &self,
-        type_: &types::Type,
-    ) -> Result<&symtab::TypeDefinition, symtab::UndefinedSymbol> {
-        for lookup_scope in self.all_scopes() {
-            match lookup_scope.lookup_type(type_) {
-                Ok(type_) => return Ok(type_),
-                _ => (),
-            }
-        }
-
-        self.module_context.lookup_type(type_)
-    }
-}
-impl<'ctx> FunctionWalkContext<'ctx> {
-    fn lookup_type_mut_local(
-        scopes: impl Iterator<Item = &'ctx mut symtab::Scope>,
-        type_: &types::Type,
-    ) -> Option<&'ctx mut symtab::TypeDefinition> {
-        for scope in scopes {
-            if let Ok(type_definition) = scope.lookup_type_mut(type_) {
-                return Some(type_definition);
-            }
-        }
-        None
-    }
-}
-impl<'ctx> symtab::MutTypeOwner for FunctionWalkContext<'ctx> {
-    fn types_mut(&mut self) -> impl Iterator<Item = &mut symtab::TypeDefinition> {
-        // TODO: need to capture the module context too but get around mutable borrow rules...
-        self.all_scopes_mut()
-            .into_iter()
-            .flat_map(|scope| scope.types_mut())
-    }
-
-    fn insert_type(&mut self, type_: symtab::TypeDefinition) -> Result<(), symtab::DefinedSymbol> {
-        self.current_scope.insert_type(type_)
-    }
-    fn lookup_type_mut(
-        &mut self,
-        type_: &types::Type,
-    ) -> Result<&mut symtab::TypeDefinition, symtab::UndefinedSymbol> {
-        // have to manually handle the iteration here as all_scopes_mut stretches borrow lifetime
-        // to full function, which we can't have
-        for scope in
-            std::iter::once(&mut self.current_scope).chain(self.scope_stack.iter_mut().rev())
-        {
-            match scope.lookup_type_mut(type_) {
-                Ok(type_definition) => return Ok(type_definition),
-                Err(_) => (),
-            }
-        }
-
-        self.module_context.lookup_type_mut(type_)
-    }
-}
-
-impl<'a> symtab::SelfTypeOwner for FunctionWalkContext<'a> {
-    fn self_type(&self) -> &types::Type {
-        self.self_type.as_ref().unwrap()
-    }
-}
-
-impl<'a> symtab::ScopeOwnerships for FunctionWalkContext<'a> {}
-impl<'a> symtab::ModuleOwnerships for FunctionWalkContext<'a> {}
-impl<'a> types::TypeSizingContext for FunctionWalkContext<'a> {}
-
-impl<'a> Into<symtab::Function> for FunctionWalkContext<'a> {
-    fn into(mut self) -> symtab::Function {
-        assert!(self.scope_stack.is_empty());
-        match self
-            .open_convergences
-            .converge(self.current_block.label)
-            .unwrap()
-        {
-            ConvergenceResult::Done(exit_block) => {
-                let jump_to_exit_block = ir::IrLine::new_jump(
-                    SourceLoc::none(),
-                    exit_block.label,
-                    ir::JumpCondition::Unconditional,
-                );
-                self.current_block.statements.push(jump_to_exit_block);
-                let old_block = self.replace_current_block(exit_block);
-                self.current_scope.insert_basic_block(old_block);
-            }
-            ConvergenceResult::NotDone(converge_to) => {
-                panic!("FunctionWalkContext.into(symtab::Function can't converge - expecting convergence to exit block but saw unfinished convergence to {}", converge_to);
-            }
-        }
-        assert!(self.open_convergences.is_empty());
-        assert!(self.open_branch_path.is_empty());
-
-        while !self.scope_stack.is_empty() {
-            self.pop_current_scope_to_subscope_of_next().unwrap()
-        }
-        assert!(self.scope_stack.is_empty());
-
-        self.current_scope.insert_basic_block(self.current_block);
-
-        self.current_scope.collapse();
-
-        symtab::Function::new(self.prototype, self.current_scope)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        frontend::sourceloc::SourceLoc,
-        midend::{
-            ir,
-            linearizer::functionwalkcontext::*,
-            symtab::{self, VariableOwner},
-            types,
-        },
-    };
-
-    #[test]
-    fn branch_error_from_convergence_error() {
-        let convergence_error = ConvergenceError::FromBlockExists(1);
-
-        assert_eq!(
-            BranchError::from(convergence_error),
-            BranchError::Convergence(ConvergenceError::FromBlockExists(1))
-        );
-    }
-
-    fn test_prototype() -> symtab::FunctionPrototype {
-        symtab::FunctionPrototype::new(
-            "test_function".into(),
-            vec![
-                symtab::Variable::new("a".into(), Some(types::Type::U16)),
-                symtab::Variable::new("b".into(), Some(types::Type::I32)),
-            ],
-            types::Type::I32,
-        )
-    }
-
-    fn test_context<'a>(context: &'a mut ModuleWalkContext) -> FunctionWalkContext<'a> {
-        FunctionWalkContext::new(context, test_prototype(), None)
-    }
-
-    #[test]
-    fn subscope_handling() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        context.new_subscope();
-        context.new_subscope();
-        assert_eq!(context.pop_current_scope_to_subscope_of_next(), Ok(()));
-        context.new_subscope();
-        assert_eq!(context.pop_current_scope_to_subscope_of_next(), Ok(()));
-        assert_eq!(context.pop_current_scope_to_subscope_of_next(), Ok(()));
-        context.new_subscope();
-        assert_eq!(context.pop_current_scope_to_subscope_of_next(), Ok(()));
-        assert_eq!(
-            context.pop_current_scope_to_subscope_of_next(),
-            Err(BranchError::ScopeHandling)
-        );
-    }
-
-    #[test]
-    fn unconditional_branch() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        let pre_branch_label = context.current_block.label;
-        assert_eq!(
-            context.unconditional_branch_from_current(SourceLoc::none()),
-            Ok(())
-        );
-        let in_branch_label = context.current_block.label;
-        assert_ne!(in_branch_label, pre_branch_label);
-
-        assert_eq!(context.finish_branch(), Ok(()));
-        let post_branch_label = context.current_block.label;
-        assert_ne!(post_branch_label, in_branch_label);
-    }
-
-    #[test]
-    fn conditional_branch() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        let pre_branch_label = context.current_block.label;
-        assert_eq!(
-            context.conditional_branch_from_current(
-                SourceLoc::none(),
-                ir::JumpCondition::NE(ir::DualSourceOperands::new(
-                    ir::Operand::new_as_variable("a".into()),
-                    ir::Operand::new_as_variable("b".into()),
-                )),
-            ),
-            Ok(())
-        );
-        let true_branch_label = context.current_block.label;
-        assert_ne!(true_branch_label, pre_branch_label);
-
-        assert_eq!(context.finish_true_branch_switch_to_false(), Ok(()));
-        let false_branch_label = context.current_block.label;
-        assert_ne!(false_branch_label, pre_branch_label);
-
-        assert_eq!(context.finish_branch(), Ok(()));
-        let post_branch_label = context.current_block.label;
-        assert_ne!(post_branch_label, true_branch_label);
-    }
-
-    #[test]
-    fn conditional_branch_errors() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        assert_eq!(
-            context.finish_true_branch_switch_to_false(),
-            Err(BranchError::NotBranched)
-        );
-
-        assert_eq!(
-            context.unconditional_branch_from_current(SourceLoc::none()),
-            Ok(())
-        );
-
-        assert_eq!(
-            context.finish_true_branch_switch_to_false(),
-            Err(BranchError::MissingFalseBlock(0))
-        );
-
-        assert_eq!(
-            context.unconditional_branch_from_current(SourceLoc::none()),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn create_and_finish_loop() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        assert_eq!(context.create_loop(SourceLoc::none()), Ok(4));
-
-        assert_eq!(context.finish_loop(SourceLoc::none(), Vec::new()), Ok(()));
-    }
-
-    #[test]
-    fn finish_loop_error() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        assert_eq!(
-            context.finish_loop(SourceLoc::none(), Vec::new()),
-            Err(LoopError::NotLooping)
-        );
-    }
-
-    #[test]
-    fn branch_with_nested_loop() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        assert_eq!(
-            context.conditional_branch_from_current(
-                SourceLoc::none(),
-                ir::JumpCondition::NE(ir::DualSourceOperands::new(
-                    ir::Operand::new_as_variable("a".into()),
-                    ir::Operand::new_as_variable("b".into()),
-                )),
-            ),
-            Ok(())
-        );
-
-        assert_eq!(context.create_loop(SourceLoc::none()), Ok(7));
-
-        assert_eq!(context.finish_loop(SourceLoc::none(), Vec::new()), Ok(()));
-
-        assert_eq!(context.finish_true_branch_switch_to_false(), Ok(()));
-
-        assert_eq!(context.finish_branch(), Ok(()));
-    }
-
-    #[test]
-    fn branch_with_nested_loop_error() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        assert_eq!(
-            context.conditional_branch_from_current(
-                SourceLoc::none(),
-                ir::JumpCondition::NE(ir::DualSourceOperands::new(
-                    ir::Operand::new_as_variable("a".into()),
-                    ir::Operand::new_as_variable("b".into()),
-                )),
-            ),
-            Ok(())
-        );
-
-        assert_eq!(context.create_loop(SourceLoc::none()), Ok(7));
-
-        assert_eq!(
-            context.finish_true_branch_switch_to_false(),
-            Err(BranchError::MissingFalseBlock(0))
-        );
-    }
-
-    #[test]
-    fn loop_with_nested_branch() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        assert_eq!(context.create_loop(SourceLoc::none()), Ok(4));
-
-        assert_eq!(
-            context.conditional_branch_from_current(
-                SourceLoc::none(),
-                ir::JumpCondition::NE(ir::DualSourceOperands::new(
-                    ir::Operand::new_as_variable("a".into()),
-                    ir::Operand::new_as_variable("b".into()),
-                )),
-            ),
-            Ok(())
-        );
-
-        assert_eq!(context.finish_true_branch_switch_to_false(), Ok(()));
-
-        assert_eq!(context.finish_branch(), Ok(()));
-
-        assert_eq!(context.finish_loop(SourceLoc::none(), Vec::new()), Ok(()));
-    }
-
-    #[test]
-    fn loop_with_nested_branch_error() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        assert_eq!(context.create_loop(SourceLoc::none()), Ok(4));
-
-        assert_eq!(
-            context.conditional_branch_from_current(
-                SourceLoc::none(),
-                ir::JumpCondition::NE(ir::DualSourceOperands::new(
-                    ir::Operand::new_as_variable("a".into()),
-                    ir::Operand::new_as_variable("b".into()),
-                )),
-            ),
-            Ok(())
-        );
-
-        assert_eq!(
-            context.finish_loop(SourceLoc::none(), Vec::new()),
-            Err(LoopError::LoopInsideNotDone(7))
-        );
-    }
-
-    #[test]
-    fn next_temp() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        assert_eq!(
-            context.next_temp(types::Type::I8),
-            ir::Operand::new_as_temporary(String::from(".T0"))
-        );
-
-        assert_eq!(
-            context.lookup_variable_by_name(".T0"),
-            Ok(&symtab::Variable::new(".T0".into(), Some(types::Type::I8)))
-        );
-    }
-
-    #[test]
-    fn append_statement_to_current_block() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        assert_eq!(
-            context.append_statement_to_current_block(ir::IrLine::new_binary_op(
-                SourceLoc::none(),
-                ir::BinaryOperations::new_add(
-                    ir::Operand::new_as_variable("c".into()),
-                    ir::Operand::new_as_variable("a".into()),
-                    ir::Operand::new_as_variable("b".into())
-                )
-            )),
-            Ok(())
-        );
-
-        assert_eq!(
-            context.append_statement_to_current_block(ir::IrLine::new_jump(
-                SourceLoc::none(),
-                123,
-                ir::JumpCondition::Unconditional,
-            )),
-            Err(())
-        );
-    }
-
-    #[test]
-    fn variable_owner() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        symtab::tests::test_variable_owner(&mut context);
-    }
-
-    #[test]
-    fn type_owner() {
-        let mut module_context = ModuleWalkContext::new();
-        let mut context = test_context(&mut module_context);
-
-        symtab::tests::test_type_owner(&mut context);
+    fn definition_path(&self) -> symtab::DefPath {
+        self.def_path
+            .clone_with_join(self.relative_local_def_path.clone())
     }
 }

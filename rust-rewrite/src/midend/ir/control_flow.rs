@@ -108,16 +108,6 @@ impl ControlFlow {
     }
 }
 
-impl symtab::BasicBlockOwner for ControlFlow {
-    fn basic_blocks(&self) -> impl Iterator<Item = &ir::BasicBlock> {
-        self.blocks.values()
-    }
-
-    fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock> {
-        self.blocks.get(&label)
-    }
-}
-
 impl From<BTreeMap<usize, BasicBlock>> for ControlFlow {
     fn from(blocks: BTreeMap<usize, BasicBlock>) -> Self {
         let mut successors = BTreeMap::<usize, BTreeSet<usize>>::new();

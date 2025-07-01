@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashMap};
 
-mod add_block_args;
+/*mod add_block_args;
 mod convert_reads;
 mod convert_writes;
 
@@ -92,4 +92,4 @@ pub fn remove_ssa_from_functions(symtab: &mut symtab::SymbolTable) {
         Some(remove_ssa_from_method),
     );
     visitor.visit(&mut symtab.global_module, &mut ());
-}
+}*/

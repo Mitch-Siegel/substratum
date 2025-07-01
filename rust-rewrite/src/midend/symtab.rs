@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use crate::{
     midend::{
         ir,
@@ -7,362 +9,204 @@ use crate::{
 };
 pub use errors::*;
 pub use function::*;
-pub use scope::Scope;
 pub use serde::Serialize;
 pub use type_definitions::*;
 pub use variable::*;
 
+mod def_path;
+pub mod defcontext;
 mod errors;
 mod function;
 pub mod intrinsics;
-mod module;
-mod scope;
 pub mod symtab_visitor;
 mod type_definitions;
 mod variable;
 
-pub use module::Module;
+pub use def_path::*;
+pub use defcontext::*;
 pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
 pub use TypeRepr;
 
-/// Traits for lookup and insertion based on ownership of various symbol types
-pub trait ScopeOwner {
-    fn subscopes(&self) -> impl Iterator<Item = &Scope>;
-}
-pub trait MutScopeOwner: ScopeOwner {
-    fn subscopes_mut(&mut self) -> impl Iterator<Item = &mut Scope>;
-    fn insert_scope(&mut self, scope: Scope);
-}
-
-pub trait BasicBlockOwner {
-    fn basic_blocks(&self) -> impl Iterator<Item = &ir::BasicBlock>;
-    fn lookup_basic_block(&self, label: usize) -> Option<&ir::BasicBlock>;
-}
-pub trait MutBasicBlockOwner: BasicBlockOwner {
-    fn basic_blocks_mut(&mut self) -> impl Iterator<Item = &mut ir::BasicBlock>;
-    fn insert_basic_block(&mut self, block: ir::BasicBlock);
-    fn lookup_basic_block_mut(&mut self, label: usize) -> Option<&mut ir::BasicBlock>;
+#[derive(Debug)]
+pub enum SymbolDef {
+    Module(String),
+    Type(TypeId),
+    Function(Function),
+    Scope(usize),
+    Variable(Variable),
+    BasicBlock(ir::BasicBlock),
 }
 
-pub trait VariableOwner {
-    fn variables(&self) -> impl Iterator<Item = &Variable>;
-    fn lookup_variable_by_name(&self, name: &str) -> Result<&Variable, UndefinedSymbol>;
-}
-pub trait MutVariableOwner: VariableOwner {
-    fn variables_mut(&mut self) -> impl Iterator<Item = &mut Variable>;
-    fn insert_variable(&mut self, variable: Variable) -> Result<(), DefinedSymbol>;
-}
 
-pub trait TypeOwner {
-    fn types(&self) -> impl Iterator<Item = &TypeDefinition>;
-    fn lookup_type(&self, type_: &Type) -> Result<&TypeDefinition, UndefinedSymbol>;
-    fn lookup_struct(&self, name: &str) -> Result<&StructRepr, UndefinedSymbol> {
-        let lookup_type_result = self.lookup_type(&Type::UDT(name.into()));
-        let type_definition = match lookup_type_result {
-            Ok(type_definition) => type_definition,
-            Err(_) => return Err(UndefinedSymbol::struct_(name.into())),
-        };
-
-        match &type_definition.repr {
-            TypeRepr::Struct(struct_repr) => Ok(struct_repr),
-            _ => Err(UndefinedSymbol::struct_(name.into())),
+impl std::fmt::Display for SymbolDef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Module(name) => write!(f, "{}", name),
+            Self::Type(id) => write!(f, "{}", id),
+            Self::Function(function) => write!(f, "{}", function.name()),
+            Self::Scope(scope) => write!(f, "scope{}", scope),
+            Self::Variable(variable) => write!(f, "{}", variable.name),
+            Self::BasicBlock(block) => write!(f, "{}", block.label),
         }
     }
 }
-pub trait MutTypeOwner: TypeOwner {
-    fn types_mut(&mut self) -> impl Iterator<Item = &mut TypeDefinition>;
-    fn insert_type(&mut self, type_: TypeDefinition) -> Result<(), DefinedSymbol>;
-    fn lookup_type_mut(&mut self, type_: &Type) -> Result<&mut TypeDefinition, UndefinedSymbol>;
-}
 
-pub trait FunctionOwner {
-    fn functions(&self) -> impl Iterator<Item = &Function>;
-    fn lookup_function(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
-    fn lookup_function_prototype(&self, name: &str) -> Result<&FunctionPrototype, UndefinedSymbol> {
-        Ok(&self.lookup_function(name)?.prototype)
-    }
-}
-pub trait MutFunctionOwner: FunctionOwner {
-    fn functions_mut(&mut self) -> impl Iterator<Item = &mut Function>;
-    fn insert_function(&mut self, function: Function) -> Result<(), DefinedSymbol>;
-}
 
-pub trait AssociatedOwner {
-    fn associated_functions(&self) -> impl Iterator<Item = &Function>;
-    // TODO: "maybe you meant..." for associated/method mismatch
-    fn lookup_associated(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
-}
-pub trait MutAssociatedOwner: AssociatedOwner {
-    fn associated_functions_mut(&mut self) -> impl Iterator<Item = &mut Function>;
-    fn insert_associated(&mut self, associated: Function) -> Result<(), DefinedSymbol>;
-}
-
-pub trait MethodOwner {
-    fn methods(&self) -> impl Iterator<Item = &Function>;
-    // TODO: "maybe you meant..." for associated/method mismatch
-    fn lookup_method(&self, name: &str) -> Result<&Function, UndefinedSymbol>;
-}
-pub trait MutMethodOwner: MethodOwner {
-    fn methods_mut(&mut self) -> impl Iterator<Item = &mut Function>;
-    fn insert_method(&mut self, method: Function) -> Result<(), DefinedSymbol>;
-}
-
-pub trait ModuleOwner {
-    fn submodules(&self) -> impl Iterator<Item = &Module>;
-    fn lookup_submodule(&self, name: &str) -> Result<&Module, UndefinedSymbol>;
-}
-pub trait MutModuleOwner: ModuleOwner {
-    fn submodules_mut(&mut self) -> impl Iterator<Item = &mut Module>;
-    fn insert_module(&mut self, module: Module) -> Result<(), DefinedSymbol>;
-}
-
-pub trait SelfTypeOwner {
-    fn self_type(&self) -> &Type;
-}
-
-pub trait ScopeOwnerships: BasicBlockOwner + VariableOwner + TypeOwner {}
-pub trait MutScopeOwnerships<'ctx>: MutBasicBlockOwner + MutVariableOwner + MutTypeOwner {}
-
-pub trait ModuleOwnerships: TypeOwner {}
-pub trait MutModuleOwnerships: MutTypeOwner {}
-
-pub trait VariableSizingContext: types::TypeSizingContext + VariableOwner {}
-
-#[derive(Debug, Serialize)]
 pub struct SymbolTable {
-    pub global_module: Module,
+    types: TypeInterner,
+    defs: HashMap<DefPath, SymbolDef>,
+    children: HashMap<DefPath, HashSet<DefPath>>,
 }
 
 impl SymbolTable {
-    pub fn new(global_module: Module) -> Self {
-        SymbolTable { global_module }
-    }
-
-    pub fn collapse_scopes(&mut self) {
-        let _ = trace::debug!("SymbolTable::collapse_scopes");
-    }
-}
-
-#[cfg(test)]
-pub mod tests {
-    use crate::midend::{symtab::*, types};
-    pub fn test_scope_owner<T>(owner: &mut T)
-    where
-        T: MutScopeOwner,
-    {
-        owner.insert_scope(Scope::new());
-    }
-
-    pub fn test_basic_block_owner<T>(owner: &T)
-    where
-        T: BasicBlockOwner,
-    {
-        let block_order = [0, 4, 1, 3, 2, 7, 8, 6, 5, 9];
-
-        for label in block_order.iter().rev() {
-            assert_eq!(owner.lookup_basic_block(*label), None);
+    pub fn new() -> Self {
+        Self {
+            types: TypeInterner::new(),
+            defs: HashMap::new(),
+            children: HashMap::new(),
         }
     }
 
-    pub fn test_mut_basic_block_owner<T>(owner: &mut T)
-    where
-        T: MutBasicBlockOwner,
-    {
-        let block_order = [0, 4, 1, 3, 2, 7, 8, 6, 5, 9];
+    fn insert(&mut self, def_path: DefPath, symbol: SymbolDef) -> Result<(), ()>{
+        self
+            .children
+            .entry(def_path.parent())
+            .or_default()
+            .insert(def_path.clone());
 
-        for label in block_order.iter().rev() {
-            assert_eq!(owner.lookup_basic_block(*label), None);
-            assert_eq!(owner.lookup_basic_block_mut(*label), None);
+        match self.defs.insert(def_path, symbol) {
+            Some(_) => Err(()),
+            None => Ok(()),
         }
 
-        for label in &block_order {
-            owner.insert_basic_block(ir::BasicBlock::new(*label));
+    }
+
+    fn lookup(&self, mut def_path: DefPath, symbol: &DefPathComponent) -> Option<&SymbolDef> {
+        while !def_path.is_empty() {
+            let component_def_path = def_path.clone_with_new_last(symbol.clone());
+            match self.defs.get(&component_def_path) {
+                Some(def) => return Some(def),
+                None => (),
+            }
+            def_path.pop();
         }
 
-        for label in block_order.iter().rev() {
-            assert_eq!(owner.lookup_basic_block(*label).unwrap().label, *label);
-            assert_eq!(owner.lookup_basic_block_mut(*label).unwrap().label, *label);
+        None
+    }
+
+    fn lookup_absolute(&self, absolute_def_path: &DefPath) -> Option<&SymbolDef> {
+        self.defs.get(absolute_def_path)
+    }
+
+    pub fn lookup_module(
+        &self,
+        def_path: &DefPath,
+        name: &str,
+    ) -> Result<DefPath, UndefinedSymbol> {
+        let full_def_path = def_path.clone_with_new_last(DefPathComponent::Module(name.into()))
+
+        match self.lookup_absolute(&full_def_path) {
+            Some(_) => Ok(full_def_path),
+            None => Err(UndefinedSymbol::Module(name.into())),
         }
     }
 
-    pub fn test_variable_owner<T>(owner: &T)
-    where
-        T: VariableOwner,
-    {
-        // make sure our example variable doesn't exist to start
-        assert_eq!(
-            owner.lookup_variable_by_name("test_variable"),
-            Err(UndefinedSymbol::variable("test_variable".into()))
-        );
+    pub fn next_subscope(&self, def_path: DefPath) -> usize {
+        self.children
+            .get(&def_path)
+            .unwrap()
+            .iter()
+            .filter(|definition| match definition.last().unwrap() {
+                DefPathComponent::Scope(_) => true,
+                _ => false,
+            })
+            .count()
     }
 
-    pub fn test_mut_variable_owner<T>(owner: &mut T)
-    where
-        T: MutVariableOwner,
-    {
-        let example_variable = Variable::new("test_variable".into(), Some(Type::U64));
-
-        // make sure our example variable doesn't exist to start
-        assert_eq!(
-            owner.lookup_variable_by_name("test_variable"),
-            Err(UndefinedSymbol::variable("test_variable".into()))
-        );
-
-        // insert a variable
-        assert_eq!(owner.insert_variable(example_variable.clone()), Ok(()));
-
-        // trying to insert it again should error, it's already defined
-        assert_eq!(
-            owner.insert_variable(example_variable.clone()),
-            Err(DefinedSymbol::variable(example_variable.clone()))
-        );
-
-        // now, looking it up should return ok
-        assert_eq!(
-            owner.lookup_variable_by_name("test_variable"),
-            Ok(&example_variable)
-        );
+    pub fn create_module(&mut self, def_path: DefPath, name: String) -> Result<(), DefinedSymbol> {
+        let module_component = DefPathComponent::Module(name.clone());
+        assert!(def_path.can_own(&module_component));
+        match self.insert(def_path, SymbolDef::Module(name.clone())) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(DefinedSymbol::Module(name)),
+        }
     }
 
-    pub fn test_type_owner<T>(owner: &T)
-    where
-        T: TypeOwner + types::TypeSizingContext,
-    {
-        let example_struct_repr = StructRepr::new(
-            "TestStruct".into(),
-            vec![("first_field".into(), Type::U8)],
-            owner,
-        )
-        .unwrap();
-
-        let example_type = TypeDefinition::new(
-            Type::UDT("TestStruct".into()),
-            TypeRepr::Struct(example_struct_repr.clone()),
-        );
-
-        assert_eq!(
-            owner.lookup_type(example_type.type_()),
-            Err(UndefinedSymbol::type_(example_type.type_().clone()))
-        );
-        assert_eq!(
-            owner.lookup_struct("TestStruct"),
-            Err(UndefinedSymbol::struct_("TestStruct".into()))
-        );
+    pub fn lookup_type(
+        &self,
+        def_path: &DefPath,
+        type_: &types::Type,
+    ) -> Result<&TypeDefinition, UndefinedSymbol> {
+        match self
+            .lookup(def_path.clone(), &DefPathComponent::Type(type_.clone()))
+            .ok_or(UndefinedSymbol::Type(type_.clone()))?
+        {
+            SymbolDef::Type(id) => Ok(self.types.get_by_id(id).unwrap()),
+            _ => Err(UndefinedSymbol::Type(type_.clone())),
+        }
     }
 
-    fn test_mut_type_owner<T>(owner: &mut T)
-    where
-        T: MutTypeOwner + types::TypeSizingContext,
-    {
-        let example_struct_repr = StructRepr::new(
-            "TestStruct".into(),
-            vec![("first_field".into(), Type::U8)],
-            owner,
-        )
-        .unwrap();
-
-        let mut example_type = TypeDefinition::new(
-            Type::UDT("TestStruct".into()),
-            TypeRepr::Struct(example_struct_repr.clone()),
-        );
-
-        assert_eq!(
-            owner.lookup_type(example_type.type_()),
-            Err(UndefinedSymbol::type_(example_type.type_().clone()))
-        );
-        assert_eq!(
-            owner.lookup_struct("TestStruct"),
-            Err(UndefinedSymbol::struct_("TestStruct".into()))
-        );
-
-        assert_eq!(
-            owner.lookup_type_mut(example_type.type_()),
-            Err(UndefinedSymbol::type_(example_type.type_().clone()))
-        );
-
-        assert_eq!(owner.insert_type(example_type.clone()), Ok(()));
-        assert_eq!(
-            owner.insert_type(example_type.clone()),
-            Err(DefinedSymbol::type_(example_type.repr.clone()))
-        );
-
-        assert_eq!(owner.lookup_type(example_type.type_()), Ok(&example_type));
-
-        assert_eq!(
-            owner.lookup_type_mut(example_type.type_()),
-            Ok(&mut example_type)
-        );
-
-        assert_eq!(owner.lookup_struct("TestStruct"), Ok(&example_struct_repr));
+    pub fn lookup_struct(&self, def_path: DefPath, name: &str) -> Result<&StructRepr, UndefinedSymbol> {
+        unimplemented!();
     }
 
-    pub fn test_function_owner<T>(owner: &T)
-    where
-        T: FunctionOwner,
-    {
-        assert_eq!(
-            owner.lookup_function("example_function"),
-            Err(UndefinedSymbol::Function("example_function".into()))
-        );
+    pub fn create_type(
+        &mut self,
+        mut def_path: DefPath,
+        type_: types::Type,
+        definition: TypeDefinition,
+        generic_params: GenericParams,
+    ) -> Result<(), SymbolError> {
+        let type_component = DefPathComponent::Type(type_.clone());
+        assert!(def_path.can_own(&type_component));
+
+        def_path.push(type_component);
+        let type_key = TypeKey::new(def_path.clone(), generic_params);
+
+        let type_symbol = SymbolDef::Type(self.types.insert(type_key, definition)?);
+        self.insert(def_path, type_symbol);
+        Ok(())
     }
 
-    pub fn test_mut_function_owner<T>(owner: &mut T)
-    where
-        T: MutFunctionOwner,
-    {
-        let example_function = Function::new(
-            FunctionPrototype::new(
-                "example_function".into(),
-                vec![Variable::new("argument_1".into(), Some(Type::I32))],
-                Type::I64,
-            ),
-            Scope::new(),
-        );
-
-        assert_eq!(
-            owner.lookup_function("example_function"),
-            Err(UndefinedSymbol::Function("example_function".into()))
-        );
-
-        assert_eq!(owner.insert_function(example_function.clone()), Ok(()));
-        assert_eq!(
-            owner.insert_function(example_function.clone()),
-            Err(DefinedSymbol::function(example_function.prototype.clone()))
-        );
-
-        assert_eq!(
-            owner.lookup_function("example_function"),
-            Ok(&example_function)
-        );
+    pub fn lookup_variable(
+        &self,
+        def_path: DefPath,
+        name: &str,
+    ) -> Result<&Variable, UndefinedSymbol> {
+        match self
+            .lookup(def_path, &DefPathComponent::Variable(name.into()))
+            .ok_or(UndefinedSymbol::Variable(name.into()))?
+        {
+            SymbolDef::Variable(variable) => Ok(variable),
+            _ => Err(UndefinedSymbol::Variable(name.into())),
+        }
     }
 
-    pub fn test_module_owner<T>(owner: &T)
-    where
-        T: ModuleOwner,
-    {
-        assert_eq!(
-            owner.lookup_submodule("A"),
-            Err(UndefinedSymbol::module("A".into()))
-        );
+    pub fn create_variable(
+        &mut self,
+        mut def_path: DefPath,
+        variable: Variable,
+    ) -> Result<(), DefinedSymbol> {
+        let variable_component = DefPathComponent::Variable(variable.name.clone());
+
+        def_path.push(variable_component);
+        match self.insert(def_path.clone(), SymbolDef::Variable(variable)) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(DefinedSymbol::Variable(def_path)),
+        }
     }
 
-    pub fn test_mut_module_owner<T>(owner: &mut T)
-    where
-        T: MutModuleOwner,
-    {
-        let example_module = Module::new("A".into());
+    pub fn create_function(
+        &mut self, 
+        mut def_path: DefPath,
+        function: Function,
+    ) -> Result<(), DefinedSymbol> {
+        let function_component = DefPathComponent::Function(function.name().into());
 
-        assert_eq!(
-            owner.lookup_submodule("A"),
-            Err(UndefinedSymbol::module("A".into()))
-        );
-
-        assert_eq!(owner.insert_module(example_module.clone()), Ok(()));
-        assert_eq!(
-            owner.insert_module(example_module.clone()),
-            Err(DefinedSymbol::module("A".into())),
-        );
-
-        assert_eq!(owner.lookup_submodule("A"), Ok(&example_module));
+        def_path.push(function_component);
+        match self.insert(def_path.clone(), SymbolDef::Function(function.clone())) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(DefinedSymbol::Function(function.prototype)),
+        }
     }
 }

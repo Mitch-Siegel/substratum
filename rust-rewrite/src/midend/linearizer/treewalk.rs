@@ -3,10 +3,7 @@ use crate::{
     midend::{
         ir::{self, IrLine},
         linearizer::*,
-        symtab::{
-            self, MethodOwner, MutFunctionOwner, MutMethodOwner, MutTypeOwner, MutVariableOwner,
-            TypeOwner,
-        },
+        symtab::{self, DefContext},
         types::Type,
     },
 };
@@ -62,20 +59,27 @@ impl Into<Type> for Value {
 }
 
 pub trait ModuleWalk {
-    fn walk(self, context: &mut ModuleWalkContext);
+    fn walk(self, context: &mut symtab::BasicDefContext);
 }
 
 pub trait FunctionWalk {
     fn walk(self, context: &mut FunctionWalkContext) -> Value;
 }
 
-pub trait ReturnWalk<T, U> {
-    fn walk(self, context: T) -> U;
+pub trait ReturnWalk<U> {
+    fn walk(self) -> U;
+}
+
+pub trait ContextReturnWalk<C, U>
+where
+    C: symtab::DefContext,
+{
+    fn walk(self, context: &mut C) -> U;
 }
 
 impl ModuleWalk for TranslationUnitTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut ModuleWalkContext) {
+    fn walk(self, context: &mut symtab::BasicDefContext) {
         match self.contents {
             TranslationUnit::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
@@ -111,8 +115,8 @@ impl ModuleWalk for TranslationUnitTree {
 
 impl ModuleWalk for ImplementationTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut ModuleWalkContext) {
-        let implemented_for_type = self.type_.walk(context).type_;
+    fn walk(self, context: &mut symtab::BasicDefContext) {
+        let implemented_for_type = self.type_.walk().type_;
 
         let methods: Vec<symtab::Function> = self
             .items
@@ -120,51 +124,51 @@ impl ModuleWalk for ImplementationTree {
             .map(|item| item.walk(context).unwrap())
             .collect();
 
-        let implemented_for_mut = context.lookup_type_mut(&implemented_for_type).unwrap();
+        let def_path = context.definition_path();
+        let implemented_for = context
+            .symtab()
+            .lookup_type(&def_path, &implemented_for_type)
+            .unwrap();
+
+        let implemented_for_path = def_path.clone_with_new_last(symtab::DefPathComponent::Type(
+            implemented_for.type_().clone(),
+        ));
 
         for method in methods {
-            implemented_for_mut.insert_method(method).unwrap();
+            context
+                .symtab_mut()
+                .create_function(implemented_for_path.clone(), method)
+                .unwrap();
         }
     }
 }
 
-impl ReturnWalk<&mut ModuleWalkContext, Result<symtab::Function, symtab::SymbolError>>
+impl<'a>
+    ContextReturnWalk<symtab::BasicDefContext<'a>, Result<symtab::Function, symtab::SymbolError>>
     for FunctionDefinitionTree
 {
-    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(
-        self,
-        context: &mut ModuleWalkContext,
-    ) -> Result<symtab::Function, symtab::SymbolError> {
-        let declared_prototype = self.prototype.walk(context);
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(self, context: &mut symtab::BasicDefContext) {
+        let declared_prototype = self.prototype.walk();
         let mut function_context = FunctionWalkContext::new(context, declared_prototype, None);
 
         self.body.walk(&mut function_context);
-
-        Ok(function_context.into())
     }
 }
 
-impl<T> ReturnWalk<&T, Value> for TypeTree
-where
-    T: symtab::ModuleOwnerships,
-{
-    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &T) -> Value {
+impl ReturnWalk<Value> for TypeTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(self) -> Value {
         // check that the type exists by looking it up
-        context.lookup_type(&self.type_).unwrap();
         Value::from_type(self.type_)
     }
 }
 
-impl<T> ReturnWalk<&T, symtab::Variable> for VariableDeclarationTree
-where
-    T: symtab::ModuleOwnerships,
-{
-    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &T) -> symtab::Variable {
+impl ReturnWalk<symtab::Variable> for VariableDeclarationTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(self) -> symtab::Variable {
         let variable_type = match self.type_ {
-            Some(type_tree) => Some(type_tree.walk(context).type_),
+            Some(type_tree) => Some(type_tree.walk().type_),
             None => None,
         };
 
@@ -172,45 +176,39 @@ where
     }
 }
 
-impl<T> ReturnWalk<&T, symtab::Variable> for ArgumentDeclarationTree
-where
-    T: symtab::ModuleOwnerships,
-{
-    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &T) -> symtab::Variable {
-        symtab::Variable::new(self.name.clone(), Some(self.type_.walk(context).type_))
+impl ReturnWalk<symtab::Variable> for ArgumentDeclarationTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(self) -> symtab::Variable {
+        symtab::Variable::new(self.name.clone(), Some(self.type_.walk().type_))
     }
 }
 
-impl<'a> ReturnWalk<&mut ModuleWalkContext, symtab::FunctionPrototype> for FunctionDeclarationTree {
-    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut ModuleWalkContext) -> symtab::FunctionPrototype {
+impl<'a> ReturnWalk<symtab::FunctionPrototype> for FunctionDeclarationTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(self) -> symtab::FunctionPrototype {
         symtab::FunctionPrototype::new(
             self.name,
-            self.arguments
-                .into_iter()
-                .map(|x| x.walk(context))
-                .collect(),
+            self.arguments.into_iter().map(|x| x.walk()).collect(),
             match self.return_type {
-                Some(type_) => type_.walk(context).type_,
+                Some(type_) => type_.walk().type_,
                 None => Type::Unit,
             },
         )
     }
 }
 
-impl ReturnWalk<&ModuleWalkContext, symtab::StructRepr> for StructDefinitionTree {
-    #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &ModuleWalkContext) -> symtab::StructRepr {
+impl ReturnWalk<symtab::StructRepr> for StructDefinitionTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(self) -> symtab::StructRepr {
         let fields = self
             .fields
             .into_iter()
             .map(|field| {
-                let field_type = field.type_.walk(context).type_;
+                let field_type = field.type_.walk().type_;
                 (field.name, field_type)
             })
             .collect::<Vec<_>>();
-        symtab::StructRepr::new(self.name, fields, context).unwrap()
+        symtab::StructRepr::new(self.name, fields).unwrap()
     }
 }
 
@@ -496,23 +494,27 @@ impl FunctionWalk for WhileExpressionTree {
 // returns (receiver, field_info)
 // receiver is the value containing the receiver of the field access
 // field_info is a value containing name and type information of the field being accessed
-impl<'a> ReturnWalk<&mut FunctionWalkContext<'a>, (Value, Value)> for FieldExpressionTree {
+impl<'a> ContextReturnWalk<FunctionWalkContext<'a>, (Value, Value)> for FieldExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> (Value, Value) {
         let receiver = self.receiver.walk(context);
 
         let struct_name = match &receiver.type_ {
-            Type::UDT(type_name) => type_name,
+            Type::Named(type_name) => type_name,
             _ => panic!(
                 "Field expression receiver must be of struct type (got {})",
                 receiver.type_
             ),
         };
 
-        let receiver_definition = context.lookup_struct(struct_name).expect(&format!(
-            "Error handling for failed lookups is unimplemented: {}.{}",
-            receiver.type_, self.field
-        ));
+        let def_path = context.definition_path();
+        let receiver_definition = context
+            .symtab()
+            .lookup_struct(def_path, struct_name)
+            .expect(&format!(
+                "Error handling for failed lookups is unimplemented: {}.{}",
+                receiver.type_, self.field
+            ));
 
         let accessed_field = receiver_definition.lookup_field(&self.field).unwrap();
         (
@@ -525,7 +527,7 @@ impl<'a> ReturnWalk<&mut FunctionWalkContext<'a>, (Value, Value)> for FieldExpre
     }
 }
 
-impl<'a> ReturnWalk<&mut FunctionWalkContext<'a>, Vec<Value>> for CallParamsTree {
+impl<'a> ContextReturnWalk<FunctionWalkContext<'a>, Vec<Value>> for CallParamsTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Vec<Value> {
         let mut param_values = Vec::new();
@@ -543,12 +545,17 @@ impl FunctionWalk for MethodCallExpressionTree {
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         let receiver = self.receiver.walk(context);
 
-        let type_definition = context.lookup_type(&receiver.type_).unwrap();
-        let called_method: symtab::FunctionPrototype = type_definition
-            .lookup_method(&self.called_method)
-            .unwrap()
-            .prototype
-            .clone();
+        let def_path = context.definition_path();
+        let type_definition = context
+            .symtab()
+            .lookup_type(&def_path, &receiver.type_)
+            .unwrap();
+        let called_method: symtab::FunctionPrototype = unimplemented!();
+        /*type_definition
+        .lookup_method(def_path, &self.called_method)
+        .unwrap()
+        .prototype
+        .clone();*/
 
         let return_value_to = if called_method.return_type != Type::Unit {
             Some(context.next_temp(called_method.return_type))
@@ -589,8 +596,12 @@ impl FunctionWalk for StatementTree {
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         match self.statement {
             Statement::VariableDeclaration(declaration_tree) => {
-                let declared_variable = declaration_tree.walk(context);
-                context.insert_variable(declared_variable).unwrap();
+                let declared_variable = declaration_tree.walk();
+                let def_path = context.definition_path();
+                context
+                    .symtab_mut()
+                    .create_variable(def_path, declared_variable)
+                    .unwrap();
                 Value::unit()
             }
             Statement::Expression(expression_tree) => expression_tree.walk(context),
@@ -611,7 +622,7 @@ impl FunctionWalk for CompoundExpressionTree {
         let last_statement_value = match last_statement {
             Some(statement_tree) => match statement_tree.statement {
                 Statement::VariableDeclaration(variable_declaration_tree) => {
-                    variable_declaration_tree.walk(context);
+                    variable_declaration_tree.walk();
                     Value::unit()
                 }
                 Statement::Expression(expression_tree) => expression_tree.walk(context),

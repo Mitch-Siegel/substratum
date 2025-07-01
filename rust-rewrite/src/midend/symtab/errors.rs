@@ -4,12 +4,14 @@ use crate::midend::{symtab::*, types::Type};
 pub enum SymbolError {
     Undefined(UndefinedSymbol),
     Defined(DefinedSymbol),
+    CantOwn(String, String),
 }
 impl std::fmt::Debug for SymbolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Undefined(undefined) => write!(f, "{}", undefined),
             Self::Defined(defined) => write!(f, "{}", defined),
+            Self::CantOwn(owner, ownee) => write!(f, "{} can't own {}", owner, ownee),
         }
     }
 }
@@ -110,9 +112,9 @@ pub enum DefinedSymbol {
     Function(FunctionPrototype),
     Associated(Type, FunctionPrototype),
     Method(Type, FunctionPrototype),
-    Variable(Variable),
-    Type(TypeRepr),
-    Struct(StructRepr),
+    Variable(DefPath),
+    Type(DefPath),
+    Struct(DefPath),
     Module(String),
     Field(StructField),
 }
@@ -134,10 +136,10 @@ impl std::fmt::Display for DefinedSymbol {
                 write!(f, "Method {}.{} is already defined", receiver, prototype)
             }
             Self::Variable(variable) => {
-                write!(f, "Variable {} is already defined", variable.name)
+                write!(f, "Variable {} is already defined", variable)
             }
-            Self::Type(type_) => write!(f, "Type {} is already defined", type_.name()),
-            Self::Struct(struct_) => write!(f, "Struct {} is already defined", struct_.name),
+            Self::Type(type_) => write!(f, "Type {} is already defined", type_),
+            Self::Struct(struct_) => write!(f, "Struct {} is already defined", struct_),
             Self::Module(module) => write!(f, "Module {} is already defined", module),
             Self::Field(field) => write!(f, "Struct field {} is already defined", field),
         }
@@ -163,15 +165,15 @@ impl DefinedSymbol {
         Self::Method(receiver, prototype)
     }
 
-    pub fn variable(variable: Variable) -> Self {
+    pub fn variable(variable: DefPath) -> Self {
         Self::Variable(variable)
     }
 
-    pub fn type_(type_: TypeRepr) -> Self {
+    pub fn type_(type_: DefPath) -> Self {
         Self::Type(type_)
     }
 
-    pub fn struct_(struct_: StructRepr) -> Self {
+    pub fn struct_(struct_: DefPath) -> Self {
         Self::Struct(struct_)
     }
 

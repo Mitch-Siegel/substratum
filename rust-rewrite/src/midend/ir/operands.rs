@@ -159,9 +159,9 @@ impl Operand {
         Operand::UnsignedDecimalConstant(constant)
     }
 
-    pub fn type_<'a, T>(&'a self, context: &'a T) -> &'a Type
+    pub fn type_<'a, C>(&'a self, context: &'a C) -> &'a Type
     where
-        T: symtab::VariableOwner,
+        C: symtab::DefContext,
     {
         match self {
             Operand::Variable(name) => context

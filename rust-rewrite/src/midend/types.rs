@@ -1,23 +1,12 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::Display;
 
 use crate::backend;
 use crate::midend::symtab;
 
-pub trait TypeSizingContext: symtab::TypeOwner + symtab::SelfTypeOwner {}
-
-pub trait SizedType {
-    fn size<C>(&self, context: &C) -> Result<usize, symtab::UndefinedSymbol>
-    where
-        C: TypeSizingContext;
-
-    fn alignment<C>(&self, context: &C) -> Result<usize, symtab::UndefinedSymbol>
-    where
-        C: TypeSizingContext;
-}
-
 #[derive(
-    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, serde::Deserialize, Hash,
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, serde::Deserialize, Hash
 )]
 pub enum Mutability {
     Mutable,
@@ -61,16 +50,16 @@ pub enum Type {
     I16,
     I32,
     I64,
+    GenericParam(String),
     _Self,
-    UDT(String),
+    Named(String),
+    UserDefined(symtab::TypeId),
     Reference(Mutability, Box<Type>),
     Pointer(Mutability, Box<Type>),
 }
 
 impl Type {
     pub fn is_integral<C>(&self, context: &C) -> Result<bool, symtab::UndefinedSymbol>
-    where
-        C: TypeSizingContext,
     {
         match self {
             Type::Unit => Ok(false),
@@ -82,17 +71,18 @@ impl Type {
             | Type::I16
             | Type::I32
             | Type::I64 => Ok(true),
-            Type::_Self => context.self_type().is_integral(context),
-            Type::UDT(_) => Ok(false),
+            Type::GenericParam(_) => Ok(false),
+            Type::_Self => unimplemented!(),
+            Type::Named(_) => Ok(false),
+            Type::UserDefined(_) => Ok(false),
             Type::Reference(_, _) | Type::Pointer(_, _) => Ok(true),
         }
     }
 
     // size of the type in bytes
-    pub fn size<Target, C>(&self, context: &C) -> Result<usize, symtab::UndefinedSymbol>
+    pub fn size<Target>(&self, interner: &symtab::TypeInterner) -> Result<usize, symtab::UndefinedSymbol>
     where
         Target: backend::arch::TargetArchitecture,
-        C: TypeSizingContext,
     {
         let size = match self {
             Type::Unit => 0,
@@ -104,11 +94,10 @@ impl Type {
             Type::I16 => 2,
             Type::I32 => 4,
             Type::I64 => 8,
-            Type::_Self => context.self_type().size::<Target, C>(context)?,
-            Type::UDT(_) => {
-                let type_definition = context.lookup_type(self)?;
-                type_definition.size(context)?
-            }
+            Type::GenericParam(param) => panic!("Can't size generic param {}", param),
+            Type::_Self => panic!("Can't size Self type"),
+            Type::Named(name) => panic!("Can't size named type {}", name)
+            Type::UserDefined(id) => unimplemented!(), /*interner.get_by_id(id).unwrap()*/
             Type::Reference(_, _) => Target::word_size(),
             Type::Pointer(_, _) => Target::word_size(),
         };
@@ -129,28 +118,8 @@ impl Type {
     pub fn alignment<Target, C>(&self, context: &C) -> Result<usize, symtab::UndefinedSymbol>
     where
         Target: backend::arch::TargetArchitecture,
-        C: TypeSizingContext,
     {
-        match self {
-            Type::Unit
-            | Type::U8
-            | Type::U16
-            | Type::U32
-            | Type::U64
-            | Type::I8
-            | Type::I16
-            | Type::I32
-            | Type::I64
-            | Type::Reference(_, _)
-            | Type::Pointer(_, _) => Ok(Self::align_size_power_of_two(
-                self.size::<Target, C>(context)?,
-            )),
-            Type::_Self => Ok(context.self_type().alignment::<Target, C>(context)?),
-            Type::UDT(_) => {
-                let type_definition = context.lookup_type(self)?;
-                Ok(type_definition.alignment(context)?)
-            }
-        }
+        unimplemented!();
     }
 }
 
@@ -166,8 +135,10 @@ impl Display for Type {
             Self::I16 => write!(f, "i16"),
             Self::I32 => write!(f, "i32"),
             Self::I64 => write!(f, "i64"),
+            Self::GenericParam(name) => write!(f, "{}", name),
             Self::_Self => write!(f, "self"),
-            Self::UDT(name) => write!(f, "user-defined type {}", name),
+            Self::UserDefined(typeid) => write!(f, "type{}", typeid),
+            Self::Named(name) => write!(f, "user-defined type {}", name),
             Self::Reference(mutability, to) => write!(f, "&{} {}", mutability, to),
             Self::Pointer(mutability, to) => write!(f, "*{} {}", mutability, to),
         }

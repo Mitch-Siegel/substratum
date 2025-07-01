@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     backend,
@@ -9,12 +9,72 @@ use crate::{
 
 use super::Function;
 
+pub type TypeId = usize;
+pub type GenericParams = Vec<Type>;
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct TypeKey {
+    pub definition_path: DefPath,
+    pub generic_params: GenericParams,
+}
+
+impl TypeKey {
+    pub fn new(definition_path: DefPath, generic_params: GenericParams) -> Self {
+        Self {
+            definition_path,
+            generic_params,
+        }
+    }
+}
+
+pub struct TypeInterner {
+    ids: HashMap<TypeKey, TypeId>,
+    types: HashMap<TypeId, TypeDefinition>,
+}
+
+impl TypeInterner {
+    pub fn new() -> Self {
+        Self {
+            ids: HashMap::new(),
+            types: HashMap::new(),
+        }
+    }
+
+    pub fn insert(
+        &mut self,
+        key: TypeKey,
+        definition: TypeDefinition,
+    ) -> Result<TypeId, DefinedSymbol> {
+        let defined_type = definition.type_.clone();
+
+        let next_id = self.ids.len();
+        let id = match self.ids.insert(key.clone(), next_id) {
+            Some(existing_id) => return Err(DefinedSymbol::Type(key.definition_path)),
+            None => next_id,
+        };
+
+        match self.types.insert(next_id, definition) {
+            Some(existing_definition) => return Err(DefinedSymbol::Type(key.definition_path)),
+            None => (),
+        };
+
+        Ok(next_id)
+    }
+
+    pub fn get_by_id(&self, id: &TypeId) -> Option<&TypeDefinition> {
+        self.types.get(id)
+    }
+
+    pub fn get_by_key(&self, key: &TypeKey) -> Option<&TypeDefinition> {
+        let id_from_key = self.ids.get(key)?;
+        self.types.get(id_from_key)
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct TypeDefinition {
     type_: types::Type,
     pub repr: TypeRepr,
-    methods: HashMap<String, Function>,
-    associated_functions: HashMap<String, Function>,
 }
 
 impl PartialEq for TypeDefinition {
@@ -25,29 +85,9 @@ impl PartialEq for TypeDefinition {
 
 impl Eq for TypeDefinition {}
 
-impl types::SizedType for TypeDefinition {
-    fn size<C>(&self, context: &C) -> Result<usize, UndefinedSymbol>
-    where
-        C: types::TypeSizingContext,
-    {
-        self.repr.size(context)
-    }
-
-    fn alignment<C>(&self, context: &C) -> Result<usize, UndefinedSymbol>
-    where
-        C: types::TypeSizingContext,
-    {
-        self.repr.alignment(context)
-    }
-}
 impl TypeDefinition {
     pub fn new(type_: types::Type, repr: TypeRepr) -> Self {
-        TypeDefinition {
-            type_,
-            repr,
-            methods: HashMap::new(),
-            associated_functions: HashMap::new(),
-        }
+        TypeDefinition { type_, repr }
     }
 
     pub fn type_(&self) -> &types::Type {
@@ -55,78 +95,7 @@ impl TypeDefinition {
     }
 }
 
-impl AssociatedOwner for TypeDefinition {
-    fn associated_functions(&self) -> impl Iterator<Item = &Function> {
-        self.associated_functions.values()
-    }
-
-    fn lookup_associated(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
-        self.associated_functions
-            .get(name)
-            .ok_or(UndefinedSymbol::associated(self.type_.clone(), name.into()))
-    }
-}
-impl MutAssociatedOwner for TypeDefinition {
-    fn associated_functions_mut(&mut self) -> impl Iterator<Item = &mut Function> {
-        self.associated_functions.values_mut()
-    }
-
-    fn insert_associated(&mut self, associated: Function) -> Result<(), DefinedSymbol> {
-        match self.methods.get(associated.name()) {
-            Some(existing_method) => Err(DefinedSymbol::Method(
-                self.type_.clone(),
-                existing_method.prototype.clone(),
-            )),
-            None => {
-                match self
-                    .associated_functions
-                    .insert(associated.name().into(), associated)
-                {
-                    Some(existing_associated) => Err(DefinedSymbol::associated(
-                        self.type_.clone(),
-                        existing_associated.prototype,
-                    )),
-                    None => Ok(()),
-                }
-            }
-        }
-    }
-}
-
-impl MethodOwner for TypeDefinition {
-    fn methods(&self) -> impl Iterator<Item = &Function> {
-        self.methods.values()
-    }
-
-    fn lookup_method(&self, name: &str) -> Result<&Function, UndefinedSymbol> {
-        self.methods
-            .get(name)
-            .ok_or(UndefinedSymbol::Method(self.type_.clone(), name.into()))
-    }
-}
-impl MutMethodOwner for TypeDefinition {
-    fn methods_mut(&mut self) -> impl Iterator<Item = &mut Function> {
-        self.methods.values_mut()
-    }
-
-    fn insert_method(&mut self, method: Function) -> Result<(), DefinedSymbol> {
-        match self.associated_functions.get(method.name()) {
-            Some(existing_associated) => Err(DefinedSymbol::Associated(
-                self.type_.clone(),
-                existing_associated.prototype.clone(),
-            )),
-            None => match self.methods.insert(method.name().into(), method) {
-                Some(existing_method) => Err(DefinedSymbol::method(
-                    self.type_.clone(),
-                    existing_method.prototype,
-                )),
-                None => Ok(()),
-            },
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialOrd, Ord, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TypeRepr {
     UnsignedInteger(PrimitiveIntegerRepr),
     SignedInteger(PrimitiveIntegerRepr),
@@ -143,31 +112,7 @@ impl TypeRepr {
     }
 }
 
-impl types::SizedType for TypeRepr {
-    fn size<C>(&self, context: &C) -> Result<usize, UndefinedSymbol>
-    where
-        C: types::TypeSizingContext,
-    {
-        match self {
-            Self::UnsignedInteger(repr) => repr.size(context),
-            Self::SignedInteger(repr) => repr.size(context),
-            Self::Struct(repr) => repr.size(context),
-        }
-    }
-
-    fn alignment<C>(&self, context: &C) -> Result<usize, UndefinedSymbol>
-    where
-        C: types::TypeSizingContext,
-    {
-        match self {
-            Self::UnsignedInteger(repr) => repr.alignment(context),
-            Self::SignedInteger(repr) => repr.alignment(context),
-            Self::Struct(repr) => repr.alignment(context),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PrimitiveIntegerRepr {
     size: usize,
 }
@@ -178,97 +123,60 @@ impl PrimitiveIntegerRepr {
     }
 }
 
-impl types::SizedType for PrimitiveIntegerRepr {
-    fn size<C>(&self, _context: &C) -> Result<usize, UndefinedSymbol>
-    where
-        C: TypeOwner,
-    {
-        Ok(self.size)
-    }
-
-    fn alignment<C>(&self, _context: &C) -> Result<usize, UndefinedSymbol>
-    where
-        C: types::TypeSizingContext,
-    {
-        Ok(types::Type::align_size_power_of_two(self.size))
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StructField {
     pub name: String,
     pub type_: types::Type,
-    pub offset: usize,
+    pub offset: Option<usize>,
 }
 
 impl StructField {
-    pub fn new(name: String, type_: types::Type, offset: usize) -> Self {
+    pub fn new(name: String, type_: types::Type) -> Self {
         Self {
             name,
             type_,
-            offset,
+            offset: None,
         }
     }
 }
 
 impl std::fmt::Display for StructField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {} (@{})", self.name, self.type_, self.offset)
+        match self.offset {
+            Some(offset) => write!(f, "{}: {} (@{})", self.name, self.type_, offset),
+            None => write!(f, "{}: {}", self.name, self.type_),
+        }
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StructRepr {
     pub name: String,
-    fields: HashMap<String, StructField>,
-    size: usize,
-    alignment: usize,
+    fields: BTreeMap<String, StructField>,
+    size: Option<usize>,
+    alignment: Option<usize>,
 }
 
 impl StructRepr {
-    pub fn new<C>(
+    pub fn new(
         name: String,
         field_definitions: Vec<(String, types::Type)>,
-        context: &C,
-    ) -> Result<Self, DefinedSymbol>
-    where
-        C: types::TypeSizingContext,
-    {
-        let mut last_offset = 0;
-        let mut fields = HashMap::<String, StructField>::new();
-        let mut max_alignment: usize = 0;
+    ) -> Result<Self, DefinedSymbol> {
+        let mut fields = BTreeMap::<String, StructField>::new();
         for (name, type_) in field_definitions {
-            let field_size = type_.size::<backend::arch::Target, C>(context).unwrap();
-            let field_alignment = type_
-                .alignment::<backend::arch::Target, C>(context)
-                .unwrap();
-
-            let padding_bytes = field_alignment - (last_offset % field_alignment);
-            last_offset += padding_bytes;
-
-            trace::trace!(
-                "Insert struct field {} (type: {}, size: {}, alignment: {}, padding before: {})",
-                name.clone(),
-                type_.clone(),
-                field_size,
-                field_alignment,
-                padding_bytes
-            );
-            let field = StructField::new(name.clone(), type_, last_offset);
+            trace::trace!("Insert struct field {} (type: {})", name, type_,);
+            let field = StructField::new(name.clone(), type_);
             match fields.insert(name, field) {
                 Some(existing_field) => return Err(DefinedSymbol::field(existing_field)),
                 None => (),
             }
-
-            last_offset += field_size;
-            max_alignment = max_alignment.max(field_alignment);
         }
 
         Ok(Self {
             name,
             fields,
-            size: last_offset,
-            alignment: max_alignment,
+            size: None,
+            alignment: None,
         })
     }
 
@@ -282,25 +190,9 @@ impl StructRepr {
 
 impl<'a> IntoIterator for &'a StructRepr {
     type Item = (&'a String, &'a StructField);
-    type IntoIter = std::collections::hash_map::Iter<'a, String, StructField>;
+    type IntoIter = std::collections::btree_map::Iter<'a, String, StructField>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.iter()
-    }
-}
-
-impl types::SizedType for StructRepr {
-    fn size<C>(&self, _context: &C) -> Result<usize, UndefinedSymbol>
-    where
-        C: types::TypeSizingContext,
-    {
-        Ok(self.size)
-    }
-
-    fn alignment<C>(&self, _context: &C) -> Result<usize, UndefinedSymbol>
-    where
-        C: types::TypeSizingContext,
-    {
-        Ok(self.alignment)
     }
 }
