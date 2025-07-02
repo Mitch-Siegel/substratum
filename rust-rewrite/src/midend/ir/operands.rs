@@ -159,33 +159,6 @@ impl Operand {
         Operand::UnsignedDecimalConstant(constant)
     }
 
-    pub fn type_<'a, C>(&'a self, context: &'a C) -> &'a Type
-    where
-        C: symtab::DefContext,
-    {
-        match self {
-            Operand::Variable(name) => context
-                .lookup_variable_by_name(name.base_name.as_str())
-                .expect(format!("Use of undeclared variable {}", name).as_str())
-                .type_(),
-            Operand::Temporary(name) => context
-                .lookup_variable_by_name(name.base_name.as_str())
-                .expect(format!("Use of undeclared variable {}", name).as_str())
-                .type_(),
-            Operand::UnsignedDecimalConstant(value) => {
-                if *value > (u32::MAX as usize) {
-                    &Type::U64
-                } else if *value > (u16::MAX as usize) {
-                    &Type::U32
-                } else if *value > (u8::MAX as usize) {
-                    &Type::U16
-                } else {
-                    &Type::U8
-                }
-            }
-        }
-    }
-
     pub fn get_name(&self) -> Option<&OperandName> {
         match self {
             Operand::Variable(operand_name) => Some(operand_name),

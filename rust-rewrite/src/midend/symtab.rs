@@ -27,7 +27,7 @@ pub use defcontext::*;
 pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
 pub use TypeRepr;
 
-pub trait Symbol<'a>
+pub trait Symbol<'a>: Sized
 where
     &'a Self: From<DefinitionResolver<'a>>,
     Self: 'a,
@@ -147,6 +147,7 @@ pub struct SymbolDefGenerator<'a, S>
 where
     S: Symbol<'a>,
     &'a S: From<DefinitionResolver<'a>>,
+    SymbolDefGenerator<'a, S>: Into<SymbolDef>,
 {
     pub def_path: DefPath<'a>,
     pub type_interner: &'a mut TypeInterner<'a>,
@@ -157,6 +158,7 @@ impl<'a, S> SymbolDefGenerator<'a, S>
 where
     S: Symbol<'a>,
     &'a S: From<DefinitionResolver<'a>>,
+    SymbolDefGenerator<'a, S>: Into<SymbolDef>,
 {
     pub fn new(
         def_path: DefPath<'a>,
@@ -209,21 +211,27 @@ impl<'a> SymbolTable<'a> {
         }
     }
 
-    pub fn insert<S>(&mut self, def_path: DefPath, symbol: S) -> Result<(), SymbolError>
+    pub fn insert<S>(&'a mut self, def_path: DefPath<'a>, symbol: S) -> Result<(), SymbolError>
     where
         S: Symbol<'a>,
         &'a S: From<DefinitionResolver<'a>>,
         SymbolDefGenerator<'a, S>: Into<SymbolDef>,
     {
-        let full_def_path = def_path.with_component((symbol.symbol_key()).clone().into());
+        let full_def_path = def_path
+            .clone()
+            .with_component((symbol.symbol_key()).clone().into());
         self.children
-            .entry(def_path)
+            .entry(def_path.clone())
             .or_default()
             .insert(full_def_path.clone());
 
         match self.defs.insert(
             full_def_path,
-            Into::<SymbolDef>::into(SymbolDefGenerator::new(def_path, &mut self.types, symbol)),
+            Into::<SymbolDef>::into(SymbolDefGenerator::new(
+                def_path.clone(),
+                &mut self.types,
+                symbol,
+            )),
         ) {
             Some(already_defined) => Err(SymbolError::Defined(def_path)),
             None => Ok(()),
@@ -232,7 +240,7 @@ impl<'a> SymbolTable<'a> {
 
     fn lookup<S>(
         &'a self,
-        def_path: DefPath,
+        def_path: DefPath<'a>,
         key: &<S as Symbol<'a>>::SymbolKey,
     ) -> Result<&'a S, SymbolError>
     where

@@ -81,7 +81,7 @@ impl<'a> Parser<'a> {
             }
             Token::Identifier(name) => {
                 self.next_token()?;
-                Type::UDT(name)
+                Type::Named(name)
             }
             Token::SelfLower => {
                 self.next_token()?;
@@ -123,7 +123,7 @@ mod tests {
             ("i16", Type::I16),
             ("i32", Type::I32),
             ("i64", Type::I64),
-            ("MyStruct", Type::UDT("MyStruct".into())),
+            ("MyStruct", Type::Named("MyStruct".into())),
             ("self", Type::_Self),
         ];
 

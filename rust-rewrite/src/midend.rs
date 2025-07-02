@@ -3,31 +3,31 @@ use crate::trace;
 
 mod idfa;
 pub mod ir;
-pub mod linearizer;
+//pub mod linearizer;
 mod optimization;
-mod ssa_gen;
+//mod ssa_gen;
 pub mod symtab;
 pub mod types;
 
-pub fn symbol_table_from_program(
+pub fn symbol_table_from_program<'a>(
     program: Vec<frontend::ast::TranslationUnitTree>,
-) -> symtab::SymbolTable {
+) -> symtab::SymbolTable<'a> {
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
     tracing::debug!("Linearize");
-    let mut symtab = linearizer::linearize(program);
+    //let mut symtab = linearizer::linearize(program);
 
     //tracing::debug!("collapse scopes");
     //symtab.collapse_scopes();
 
     tracing::debug!("convert IR to SSA");
-    ssa_gen::convert_functions_to_ssa(&mut symtab);
+    //ssa_gen::convert_functions_to_ssa(&mut symtab);
 
     // optimization::optimize_functions(&mut symtab.functions);
     //
 
     tracing::debug!("convert IR back from SSA");
-    ssa_gen::remove_ssa_from_functions(&mut symtab);
+    //ssa_gen::remove_ssa_from_functions(&mut symtab);
 
-    symtab
+    symtab::SymbolTable::new()
 }

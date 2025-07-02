@@ -26,21 +26,21 @@ impl<'a> TypeInterner<'a> {
     }
 
     pub fn insert(
-        &mut self,
-        def_path: DefPath,
+        &'a mut self,
+        def_path: DefPath<'a>,
         definition: TypeDefinition,
     ) -> Result<TypeId, SymbolError> {
-        assert!(def_path.is_type());
+        assert!(&def_path.is_type());
 
         let next_id = self.ids.len();
         let key = definition.symbol_key();
         let id = match self.ids.insert(key.clone(), next_id) {
-            Some(existing_id) => return Err(SymbolError::Defined(def_path)),
+            Some(existing_id) => return Err(SymbolError::Defined(def_path.clone())),
             None => next_id,
         };
 
         match self.types.insert(next_id, definition) {
-            Some(existing_definition) => return Err(SymbolError::Defined(def_path)),
+            Some(existing_definition) => return Err(SymbolError::Defined(def_path.clone())),
             None => (),
         };
 
@@ -183,7 +183,7 @@ impl StructRepr {
     pub fn new(
         name: String,
         field_definitions: Vec<(String, types::Type)>,
-    ) -> Result<Self, &StructField> {
+    ) -> Result<Self, StructField> {
         let mut fields = BTreeMap::<String, StructField>::new();
         for (name, type_) in field_definitions {
             trace::trace!("Insert struct field {} (type: {})", name, type_,);

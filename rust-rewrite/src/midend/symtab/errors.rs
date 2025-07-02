@@ -1,12 +1,12 @@
 use crate::midend::{symtab::*, types::Type};
 
 #[derive(PartialEq, Eq)]
-pub enum SymbolError {
-    Undefined(DefPath),
-    Defined(DefPath),
-    CantOwn(DefPathComponent, DefPathComponent),
+pub enum SymbolError<'a> {
+    Undefined(DefPath<'a>),
+    Defined(DefPath<'a>),
+    CantOwn(DefPathComponent<'a>, DefPathComponent<'a>),
 }
-impl std::fmt::Debug for SymbolError {
+impl<'a> std::fmt::Debug for SymbolError<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Undefined(path) => write!(f, "{}", path),

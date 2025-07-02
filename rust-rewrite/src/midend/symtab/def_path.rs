@@ -114,7 +114,7 @@ impl<'a> DefPath<'a> {
         self.components.is_empty()
     }
 
-    pub fn last(&'a self) -> Option<&'a DefPathComponent<'a>> {
+    pub fn last(&self) -> Option<&DefPathComponent<'a>> {
         self.components.last()
     }
 
@@ -135,7 +135,7 @@ impl<'a> DefPath<'a> {
         }
     }
 
-    pub fn is_type(&'a self) -> bool {
+    pub fn is_type(&self) -> bool {
         match self.last() {
             Some(DefPathComponent::Type(_)) => true,
             _ => false,

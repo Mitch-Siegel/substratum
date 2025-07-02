@@ -6,7 +6,7 @@ use crate::backend;
 use crate::midend::symtab;
 
 #[derive(
-    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, serde::Deserialize, Hash
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, serde::Deserialize, Hash,
 )]
 pub enum Mutability {
     Mutable,
@@ -59,8 +59,7 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn is_integral<C>(&self, context: &C) -> Result<bool, symtab::UndefinedSymbol>
-    {
+    pub fn is_integral<C>(&self, context: &C) -> Result<bool, symtab::SymbolError> {
         match self {
             Type::Unit => Ok(false),
             Type::U8
@@ -80,7 +79,10 @@ impl Type {
     }
 
     // size of the type in bytes
-    pub fn size<Target>(&self, interner: &symtab::TypeInterner) -> Result<usize, symtab::UndefinedSymbol>
+    pub fn size<Target>(
+        &self,
+        interner: &symtab::TypeInterner,
+    ) -> Result<usize, symtab::SymbolError>
     where
         Target: backend::arch::TargetArchitecture,
     {
@@ -96,7 +98,7 @@ impl Type {
             Type::I64 => 8,
             Type::GenericParam(param) => panic!("Can't size generic param {}", param),
             Type::_Self => panic!("Can't size Self type"),
-            Type::Named(name) => panic!("Can't size named type {}", name)
+            Type::Named(name) => panic!("Can't size named type {}", name),
             Type::UserDefined(id) => unimplemented!(), /*interner.get_by_id(id).unwrap()*/
             Type::Reference(_, _) => Target::word_size(),
             Type::Pointer(_, _) => Target::word_size(),
@@ -115,7 +117,7 @@ impl Type {
         }
     }
 
-    pub fn alignment<Target, C>(&self, context: &C) -> Result<usize, symtab::UndefinedSymbol>
+    pub fn alignment<Target, C>(&self, context: &C) -> Result<usize, symtab::SymbolError>
     where
         Target: backend::arch::TargetArchitecture,
     {
@@ -144,4 +146,3 @@ impl Display for Type {
         }
     }
 }
-
