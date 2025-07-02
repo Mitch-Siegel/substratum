@@ -10,191 +10,23 @@ use crate::{
 pub use errors::*;
 pub use function::*;
 pub use serde::Serialize;
-pub use type_definitions::*;
 pub use variable::*;
 
 mod def_path;
 pub mod defcontext;
 mod errors;
-mod function;
 pub mod intrinsics;
+pub mod symbol;
 pub mod symtab_visitor;
-mod type_definitions;
-mod variable;
+pub mod type_interner;
 
 pub use def_path::*;
 pub use defcontext::*;
+pub use module::Module;
+pub use scope::Scope;
+use symbol::*;
 pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
-pub use TypeRepr;
-
-pub trait Symbol<'a>: Sized
-where
-    &'a Self: From<DefinitionResolver<'a>>,
-    Self: 'a,
-    Self::SymbolKey: Clone,
-    SymbolDefGenerator<'a, Self>: Into<SymbolDef>,
-{
-    type SymbolKey: Into<DefPathComponent<'a>>;
-
-    fn symbol_key(&self) -> &Self::SymbolKey;
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ModuleName(String);
-impl std::fmt::Display for ModuleName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Module {
-    name: ModuleName,
-}
-impl<'a> From<DefinitionResolver<'a>> for &'a Module {
-    fn from(resolver: DefinitionResolver<'a>) -> Self {
-        match resolver.to_resolve {
-            SymbolDef::Module(module) => module,
-            symbol => panic!("Unexpected symbol seen for module: {}", symbol),
-        }
-    }
-}
-
-impl<'a> Into<DefPathComponent<'a>> for &Module {
-    fn into(self) -> DefPathComponent<'a> {
-        DefPathComponent::Module(self.symbol_key().clone())
-    }
-}
-impl<'a> Into<SymbolDef> for SymbolDefGenerator<'a, Module> {
-    fn into(self) -> SymbolDef {
-        SymbolDef::Module(self.to_generate_def_for)
-    }
-}
-impl<'a> Symbol<'a> for Module {
-    type SymbolKey = ModuleName;
-    fn symbol_key(&self) -> &Self::SymbolKey {
-        &self.name
-    }
-}
-impl std::fmt::Display for Module {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ScopeIndex(usize);
-impl std::fmt::Display for ScopeIndex {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Scope {
-    index: ScopeIndex,
-}
-impl<'a> From<DefinitionResolver<'a>> for &'a Scope {
-    fn from(resolver: DefinitionResolver<'a>) -> Self {
-        match resolver.to_resolve {
-            SymbolDef::Scope(scope) => scope,
-            symbol => panic!("Unexpected symbol seen for scope: {}", symbol),
-        }
-    }
-}
-
-impl<'a> Into<DefPathComponent<'a>> for &Scope {
-    fn into(self) -> DefPathComponent<'a> {
-        DefPathComponent::Scope(self.symbol_key().clone())
-    }
-}
-
-impl<'a> Into<SymbolDef> for SymbolDefGenerator<'a, Scope> {
-    fn into(self) -> SymbolDef {
-        SymbolDef::Scope(self.to_generate_def_for)
-    }
-}
-
-impl<'a> Into<SymbolDef> for Scope {
-    fn into(self) -> SymbolDef {
-        SymbolDef::Scope(self)
-    }
-}
-impl<'a> Symbol<'a> for Scope {
-    type SymbolKey = ScopeIndex;
-    fn symbol_key(&self) -> &Self::SymbolKey {
-        &self.index
-    }
-}
-impl std::fmt::Display for Scope {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.index)
-    }
-}
-
-pub struct DefinitionResolver<'a> {
-    pub type_interner: &'a TypeInterner<'a>,
-    pub to_resolve: &'a SymbolDef,
-}
-impl<'a> DefinitionResolver<'a> {
-    pub fn new(type_interner: &'a TypeInterner<'a>, to_resolve: &'a SymbolDef) -> Self {
-        Self {
-            type_interner,
-            to_resolve,
-        }
-    }
-}
-
-pub struct SymbolDefGenerator<'a, S>
-where
-    S: Symbol<'a>,
-    &'a S: From<DefinitionResolver<'a>>,
-    SymbolDefGenerator<'a, S>: Into<SymbolDef>,
-{
-    pub def_path: DefPath<'a>,
-    pub type_interner: &'a mut TypeInterner<'a>,
-    pub to_generate_def_for: S,
-}
-
-impl<'a, S> SymbolDefGenerator<'a, S>
-where
-    S: Symbol<'a>,
-    &'a S: From<DefinitionResolver<'a>>,
-    SymbolDefGenerator<'a, S>: Into<SymbolDef>,
-{
-    pub fn new(
-        def_path: DefPath<'a>,
-        type_interner: &'a mut TypeInterner<'a>,
-        to_generate_def_for: S,
-    ) -> Self {
-        Self {
-            def_path,
-            type_interner,
-            to_generate_def_for,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum SymbolDef {
-    Module(Module),
-    Type(TypeId),
-    Function(Function),
-    Scope(Scope),
-    Variable(Variable),
-    BasicBlock(ir::BasicBlock),
-}
-
-impl std::fmt::Display for SymbolDef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Module(module) => write!(f, "{}", module),
-            Self::Type(id) => write!(f, "{}", id),
-            Self::Function(function) => write!(f, "{}", function.name()),
-            Self::Scope(scope) => write!(f, "scope{}", scope),
-            Self::Variable(variable) => write!(f, "{}", variable.name),
-            Self::BasicBlock(block) => write!(f, "{}", block.label),
-        }
-    }
-}
+pub use type_interner::*;
 
 pub struct SymbolTable<'a> {
     types: TypeInterner<'a>,
@@ -214,8 +46,8 @@ impl<'a> SymbolTable<'a> {
     pub fn insert<S>(&'a mut self, def_path: DefPath<'a>, symbol: S) -> Result<(), SymbolError>
     where
         S: Symbol<'a>,
-        &'a S: From<DefinitionResolver<'a>>,
-        SymbolDefGenerator<'a, S>: Into<SymbolDef>,
+        &'a S: From<DefResolver<'a>>,
+        DefGenerator<'a, S>: Into<SymbolDef>,
     {
         let full_def_path = def_path
             .clone()
@@ -227,11 +59,7 @@ impl<'a> SymbolTable<'a> {
 
         match self.defs.insert(
             full_def_path,
-            Into::<SymbolDef>::into(SymbolDefGenerator::new(
-                def_path.clone(),
-                &mut self.types,
-                symbol,
-            )),
+            Into::<SymbolDef>::into(DefGenerator::new(def_path.clone(), &mut self.types, symbol)),
         ) {
             Some(already_defined) => Err(SymbolError::Defined(def_path)),
             None => Ok(()),
@@ -245,17 +73,15 @@ impl<'a> SymbolTable<'a> {
     ) -> Result<&'a S, SymbolError>
     where
         S: Symbol<'a>,
-        &'a S: From<DefinitionResolver<'a>>,
-        SymbolDefGenerator<'a, S>: Into<SymbolDef>,
+        &'a S: From<DefResolver<'a>>,
+        DefGenerator<'a, S>: Into<SymbolDef>,
     {
         let mut scan_def_path = def_path.clone();
         while !scan_def_path.is_empty() {
             let mut component_def_path = scan_def_path.clone();
             component_def_path.push((*key).clone().into());
             match self.defs.get(&component_def_path) {
-                Some(def) => {
-                    return Ok(<&S>::from(DefinitionResolver::<'a>::new(&self.types, def)))
-                }
+                Some(def) => return Ok(<&S>::from(DefResolver::<'a>::new(&self.types, def))),
                 None => (),
             }
             scan_def_path.pop();

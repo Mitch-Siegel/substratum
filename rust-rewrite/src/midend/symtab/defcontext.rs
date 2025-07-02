@@ -28,8 +28,8 @@ pub trait DefContext<'a> {
     fn lookup<S>(&'a self, key: &<S as Symbol<'a>>::SymbolKey) -> Result<&'a S, SymbolError>
     where
         S: Symbol<'a>,
-        &'a S: From<DefinitionResolver<'a>>,
-        SymbolDefGenerator<'a, S>: Into<SymbolDef>,
+        &'a S: From<DefResolver<'a>>,
+        DefGenerator<'a, S>: Into<SymbolDef>,
     {
         self.symtab().lookup::<S>(self.def_path(), key)
     }

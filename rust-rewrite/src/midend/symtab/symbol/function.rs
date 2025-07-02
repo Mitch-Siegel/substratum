@@ -39,8 +39,8 @@ impl Function {
     }
 }
 
-impl<'a> From<DefinitionResolver<'a>> for &'a Function {
-    fn from(resolver: DefinitionResolver<'a>) -> Self {
+impl<'a> From<DefResolver<'a>> for &'a Function {
+    fn from(resolver: DefResolver<'a>) -> Self {
         match resolver.to_resolve {
             SymbolDef::Function(function) => function,
             symbol => panic!("Unexpected symbol seen for function: {}", symbol),
@@ -48,7 +48,7 @@ impl<'a> From<DefinitionResolver<'a>> for &'a Function {
     }
 }
 
-impl<'a> Into<SymbolDef> for SymbolDefGenerator<'a, Function> {
+impl<'a> Into<SymbolDef> for DefGenerator<'a, Function> {
     fn into(self) -> SymbolDef {
         SymbolDef::Function(self.to_generate_def_for)
     }

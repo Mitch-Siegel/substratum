@@ -38,8 +38,8 @@ impl Variable {
     }
 }
 
-impl<'a> From<DefinitionResolver<'a>> for &'a Variable {
-    fn from(resolver: DefinitionResolver<'a>) -> Self {
+impl<'a> From<DefResolver<'a>> for &'a Variable {
+    fn from(resolver: DefResolver<'a>) -> Self {
         match resolver.to_resolve {
             SymbolDef::Variable(variable) => variable,
             symbol => panic!("Unexpected symbol seen for variable: {}", symbol),
@@ -47,7 +47,7 @@ impl<'a> From<DefinitionResolver<'a>> for &'a Variable {
     }
 }
 
-impl<'a> Into<SymbolDef> for SymbolDefGenerator<'a, Variable> {
+impl<'a> Into<SymbolDef> for DefGenerator<'a, Variable> {
     fn into(self) -> SymbolDef {
         SymbolDef::Variable(self.to_generate_def_for)
     }

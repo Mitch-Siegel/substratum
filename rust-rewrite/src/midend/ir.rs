@@ -44,22 +44,22 @@ impl BasicBlock {
     }
 }
 
-impl<'a> From<symtab::DefinitionResolver<'a>> for &'a BasicBlock {
-    fn from(resolver: symtab::DefinitionResolver<'a>) -> Self {
+impl<'a> From<symtab::symbol::DefResolver<'a>> for &'a BasicBlock {
+    fn from(resolver: symtab::symbol::DefResolver<'a>) -> Self {
         match resolver.to_resolve {
-            symtab::SymbolDef::BasicBlock(block) => block,
+            symtab::symbol::SymbolDef::BasicBlock(block) => block,
             symbol => panic!("Unexpected symbol seen for basic block: {}", symbol),
         }
     }
 }
 
-impl<'a> Into<symtab::SymbolDef> for symtab::SymbolDefGenerator<'a, BasicBlock> {
-    fn into(self) -> symtab::SymbolDef {
-        symtab::SymbolDef::BasicBlock(self.to_generate_def_for)
+impl<'a> Into<symtab::symbol::SymbolDef> for symtab::symbol::DefGenerator<'a, BasicBlock> {
+    fn into(self) -> symtab::symbol::SymbolDef {
+        symtab::symbol::SymbolDef::BasicBlock(self.to_generate_def_for)
     }
 }
 
-impl<'a> symtab::Symbol<'a> for BasicBlock {
+impl<'a> symtab::symbol::Symbol<'a> for BasicBlock {
     type SymbolKey = usize;
     fn symbol_key(&self) -> &Self::SymbolKey {
         &self.label
