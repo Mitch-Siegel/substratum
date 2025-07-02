@@ -1,16 +1,16 @@
-use crate::midend::types;
+use crate::midend::{symtab::*, types};
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum DefPathComponent {
-    Module(String),
-    Type(types::Type),
-    Function(String),
-    Scope(usize),
-    Variable(String),
-    BasicBlock(usize),
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum DefPathComponent<'a> {
+    Module(<Module as Symbol<'a>>::SymbolKey),
+    Type(<TypeDefinition as Symbol<'a>>::SymbolKey),
+    Function(<Function as Symbol<'a>>::SymbolKey),
+    Scope(<Scope as Symbol<'a>>::SymbolKey),
+    Variable(<Variable as Symbol<'a>>::SymbolKey),
+    BasicBlock(<ir::BasicBlock as Symbol<'a>>::SymbolKey),
 }
 
-impl DefPathComponent {
+impl<'a> DefPathComponent<'a> {
     pub fn can_own(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Module(_), Self::Module(_)) => true,
@@ -26,9 +26,51 @@ impl DefPathComponent {
             (_, _) => false,
         }
     }
+
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Module(_) => "module",
+            Self::Type(_) => "type",
+            Self::Function(_) => "function",
+            Self::Scope(_) => "scope",
+            Self::Variable(_) => "variable",
+            Self::BasicBlock(_) => "basic block",
+        }
+    }
 }
 
-impl std::fmt::Display for DefPathComponent {
+impl<'a> From<<Module as Symbol<'a>>::SymbolKey> for DefPathComponent<'a> {
+    fn from(module_key: <Module as Symbol>::SymbolKey) -> Self {
+        Self::Module(module_key)
+    }
+}
+impl<'a> From<<TypeDefinition as Symbol<'a>>::SymbolKey> for DefPathComponent<'a> {
+    fn from(type_definition_key: <TypeDefinition as Symbol>::SymbolKey) -> Self {
+        Self::Type(type_definition_key)
+    }
+}
+impl<'a> From<<Function as Symbol<'a>>::SymbolKey> for DefPathComponent<'a> {
+    fn from(function_key: <Function as Symbol>::SymbolKey) -> Self {
+        Self::Function(function_key)
+    }
+}
+impl<'a> From<<Scope as Symbol<'a>>::SymbolKey> for DefPathComponent<'a> {
+    fn from(scope_key: <Scope as Symbol>::SymbolKey) -> Self {
+        Self::Scope(scope_key)
+    }
+}
+impl<'a> From<<Variable as Symbol<'a>>::SymbolKey> for DefPathComponent<'a> {
+    fn from(variable_key: <Variable as Symbol>::SymbolKey) -> Self {
+        Self::Variable(variable_key)
+    }
+}
+impl<'a> From<<ir::BasicBlock as Symbol<'a>>::SymbolKey> for DefPathComponent<'a> {
+    fn from(block_key: <ir::BasicBlock as Symbol>::SymbolKey) -> Self {
+        Self::BasicBlock(block_key)
+    }
+}
+
+impl<'a> std::fmt::Display for DefPathComponent<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Module(module) => write!(f, "{}", module),
@@ -41,12 +83,27 @@ impl std::fmt::Display for DefPathComponent {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DefPath {
-    components: Vec<DefPathComponent>,
+impl<'a> std::fmt::Debug for DefPathComponent<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(", self.name())?;
+        match self {
+            Self::Module(module) => write!(f, "{}", module),
+            Self::Type(type_) => write!(f, "{}", type_),
+            Self::Function(function) => write!(f, "{}", function),
+            Self::Scope(scope) => write!(f, "{}", scope),
+            Self::Variable(variable) => write!(f, "{}", variable),
+            Self::BasicBlock(block) => write!(f, "{}", block),
+        }?;
+        write!(f, ")")
+    }
 }
 
-impl DefPath {
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DefPath<'a> {
+    components: Vec<DefPathComponent<'a>>,
+}
+
+impl<'a> DefPath<'a> {
     pub fn new() -> Self {
         Self {
             components: Vec::new(),
@@ -57,53 +114,41 @@ impl DefPath {
         self.components.is_empty()
     }
 
-    pub fn last(&self) -> Option<&DefPathComponent> {
+    pub fn last(&'a self) -> Option<&'a DefPathComponent<'a>> {
         self.components.last()
     }
 
-    pub fn pop(&mut self) -> Option<DefPathComponent> {
+    pub fn pop(&mut self) -> Option<DefPathComponent<'a>> {
         self.components.pop()
     }
 
-    pub fn push(&mut self, component: DefPathComponent) {
+    pub fn push(&mut self, component: DefPathComponent<'a>) {
         assert!(self.can_own(&component));
 
         self.components.push(component);
     }
 
-    pub fn join(&mut self, other: DefPath) {
-        for other_component in other.components.into_iter().rev() {
-            self.push(other_component);
-        }
-    }
-
-    pub fn can_own(&self, component: &DefPathComponent) -> bool {
+    pub fn can_own(&self, component: &DefPathComponent<'a>) -> bool {
         match self.components.last() {
             Some(last_component) => last_component.can_own(&component),
             None => matches!(component, DefPathComponent::Module(_)),
         }
     }
 
-    pub fn parent(&self) -> Self {
-        let mut parent = self.clone();
-        parent.pop();
-        parent
+    pub fn is_type(&'a self) -> bool {
+        match self.last() {
+            Some(DefPathComponent::Type(_)) => true,
+            _ => false,
+        }
     }
 
-    pub fn clone_with_new_last(&self, last: DefPathComponent) -> Self {
-        let mut new_path = self.clone();
-        new_path.push(last);
-        new_path
-    }
-
-    pub fn clone_with_join(&self, other: DefPath) -> Self {
-        let mut new_path = self.clone();
-        new_path.join(other);
-        new_path
+    pub fn with_component(mut self, component: DefPathComponent<'a>) -> Self {
+        self.push(component);
+        self
     }
 }
 
-impl std::fmt::Display for DefPath {
+impl<'a> std::fmt::Display for DefPath<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut first = true;
         for component in &self.components {
@@ -117,7 +162,7 @@ impl std::fmt::Display for DefPath {
     }
 }
 
-impl std::fmt::Debug for DefPath {
+impl<'a> std::fmt::Debug for DefPath<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut first = true;
         for component in &self.components {

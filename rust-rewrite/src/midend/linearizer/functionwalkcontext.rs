@@ -74,7 +74,7 @@ impl<'a> FunctionWalkContext<'a> {
             .add(&[start_block.label], end_block)
             .unwrap();
 
-        let def_path = parent_context.definition_path();
+        let def_path = parent_context.def_path();
         Self {
             symtab: parent_context.symtab_mut(),
             def_path,
@@ -338,7 +338,7 @@ impl<'a> FunctionWalkContext<'a> {
     pub fn next_temp(&mut self, type_: types::Type) -> ir::Operand {
         let temp_name = String::from(".T") + &self.temp_num.to_string();
         self.temp_num += 1;
-        let definition_path = self.definition_path();
+        let definition_path = self.def_path();
         self.symtab
             .create_variable(
                 definition_path,
@@ -378,7 +378,7 @@ impl<'a> symtab::DefContext for FunctionWalkContext<'a> {
         &mut self.symtab
     }
 
-    fn definition_path(&self) -> symtab::DefPath {
+    fn def_path(&self) -> symtab::DefPath {
         self.def_path
             .clone_with_join(self.relative_local_def_path.clone())
     }

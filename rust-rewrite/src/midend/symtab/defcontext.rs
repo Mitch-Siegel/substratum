@@ -1,11 +1,8 @@
-use crate::midend::{
-    symtab::{self, SymbolTable},
-    types,
-};
+use crate::midend::{symtab::*, types};
 
 pub struct BasicDefContext<'a> {
     symtab: &'a mut SymbolTable,
-    definition_path: symtab::DefPath,
+    definition_path: DefPath,
 }
 
 impl<'a> std::fmt::Debug for BasicDefContext<'a> {
@@ -18,11 +15,11 @@ impl<'a> BasicDefContext<'a> {
     pub fn new(symtab: &'a mut SymbolTable) -> Self {
         Self {
             symtab,
-            definition_path: symtab::DefPath::new(),
+            definition_path: DefPath::new(),
         }
     }
 
-    pub fn with_child_def_path(&'a mut self, child_def_path: symtab::DefPath) -> Self {
+    pub fn with_child_def_path(&'a mut self, child_def_path: DefPath) -> Self {
         Self {
             symtab: self.symtab,
             definition_path: self.definition_path.clone_with_join(child_def_path),
@@ -31,21 +28,30 @@ impl<'a> BasicDefContext<'a> {
 }
 
 pub trait DefContext {
-    fn symtab(&self) -> &symtab::SymbolTable;
-    fn symtab_mut(&mut self) -> &mut symtab::SymbolTable;
-    fn definition_path(&self) -> symtab::DefPath;
+    fn symtab(&self) -> &SymbolTable;
+    fn symtab_mut(&mut self) -> &mut SymbolTable;
+    fn def_path(&self) -> DefPath;
+
+    fn lookup<'a, S>(&'a self, key: &<S as Symbol<'a>>::SymbolKey) -> Result<&'a S, SymbolError>
+    where
+        S: Symbol<'a>,
+        &'a S: From<DefinitionResolver<'a>>,
+        SymbolDefGenerator<'a, S>: Into<SymbolDef>,
+    {
+        self.symtab().lookup::<S>(self.def_path(), key)
+    }
 }
 
 impl<'a> DefContext for BasicDefContext<'a> {
-    fn symtab(&self) -> &symtab::SymbolTable {
+    fn symtab(&self) -> &SymbolTable {
         &self.symtab
     }
 
-    fn symtab_mut(&mut self) -> &mut symtab::SymbolTable {
+    fn symtab_mut(&mut self) -> &mut SymbolTable {
         &mut self.symtab
     }
 
-    fn definition_path(&self) -> symtab::DefPath {
+    fn def_path(&self) -> DefPath {
         self.definition_path.clone()
     }
 }

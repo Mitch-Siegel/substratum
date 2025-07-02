@@ -38,13 +38,36 @@ impl Function {
         self.prototype.name.as_str()
     }
 }
+
+impl<'a> From<DefinitionResolver<'a>> for &'a Function {
+    fn from(resolver: DefinitionResolver<'a>) -> Self {
+        match resolver.to_resolve {
+            SymbolDef::Function(function) => function,
+            symbol => panic!("Unexpected symbol seen for function: {}", symbol),
+        }
+    }
+}
+
+impl<'a> Into<SymbolDef> for SymbolDefGenerator<'a, Function> {
+    fn into(self) -> SymbolDef {
+        SymbolDef::Function(self.to_generate_def_for)
+    }
+}
+
+impl<'a> Symbol<'a> for Function {
+    type SymbolKey = FunctionPrototype;
+    fn symbol_key(&self) -> &Self::SymbolKey {
+        &self.prototype
+    }
+}
+
 impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
         self.prototype == other.prototype
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct FunctionPrototype {
     pub name: String,
     pub arguments: Vec<Variable>,

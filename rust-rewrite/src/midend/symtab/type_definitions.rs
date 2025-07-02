@@ -12,27 +12,12 @@ use super::Function;
 pub type TypeId = usize;
 pub type GenericParams = Vec<Type>;
 
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct TypeKey {
-    pub definition_path: DefPath,
-    pub generic_params: GenericParams,
-}
-
-impl TypeKey {
-    pub fn new(definition_path: DefPath, generic_params: GenericParams) -> Self {
-        Self {
-            definition_path,
-            generic_params,
-        }
-    }
-}
-
-pub struct TypeInterner {
-    ids: HashMap<TypeKey, TypeId>,
+pub struct TypeInterner<'a> {
+    ids: HashMap<<TypeDefinition as Symbol<'a>>::SymbolKey, TypeId>,
     types: HashMap<TypeId, TypeDefinition>,
 }
 
-impl TypeInterner {
+impl<'a> TypeInterner<'a> {
     pub fn new() -> Self {
         Self {
             ids: HashMap::new(),
@@ -42,19 +27,20 @@ impl TypeInterner {
 
     pub fn insert(
         &mut self,
-        key: TypeKey,
+        def_path: DefPath,
         definition: TypeDefinition,
-    ) -> Result<TypeId, DefinedSymbol> {
-        let defined_type = definition.type_.clone();
+    ) -> Result<TypeId, SymbolError> {
+        assert!(def_path.is_type());
 
         let next_id = self.ids.len();
+        let key = definition.symbol_key();
         let id = match self.ids.insert(key.clone(), next_id) {
-            Some(existing_id) => return Err(DefinedSymbol::Type(key.definition_path)),
+            Some(existing_id) => return Err(SymbolError::Defined(def_path)),
             None => next_id,
         };
 
         match self.types.insert(next_id, definition) {
-            Some(existing_definition) => return Err(DefinedSymbol::Type(key.definition_path)),
+            Some(existing_definition) => return Err(SymbolError::Defined(def_path)),
             None => (),
         };
 
@@ -65,7 +51,10 @@ impl TypeInterner {
         self.types.get(id)
     }
 
-    pub fn get_by_key(&self, key: &TypeKey) -> Option<&TypeDefinition> {
+    pub fn get_by_key(
+        &self,
+        key: &<TypeDefinition as Symbol<'a>>::SymbolKey,
+    ) -> Option<&TypeDefinition> {
         let id_from_key = self.ids.get(key)?;
         self.types.get(id_from_key)
     }
@@ -77,14 +66,6 @@ pub struct TypeDefinition {
     pub repr: TypeRepr,
 }
 
-impl PartialEq for TypeDefinition {
-    fn eq(&self, other: &Self) -> bool {
-        self.type_.eq(&other.type_) && self.repr.eq(&other.repr)
-    }
-}
-
-impl Eq for TypeDefinition {}
-
 impl TypeDefinition {
     pub fn new(type_: types::Type, repr: TypeRepr) -> Self {
         TypeDefinition { type_, repr }
@@ -94,6 +75,47 @@ impl TypeDefinition {
         &self.type_
     }
 }
+
+impl<'a> From<DefinitionResolver<'a>> for &'a TypeDefinition {
+    fn from(resolver: DefinitionResolver<'a>) -> Self {
+        match resolver.to_resolve {
+            SymbolDef::Type(type_id) => resolver.type_interner.get_by_id(type_id).unwrap(),
+            symbol => panic!("Unexpected symbol seen for type: {}", symbol),
+        }
+    }
+}
+
+impl<'a> Into<DefPathComponent<'a>> for &TypeDefinition {
+    fn into(self) -> DefPathComponent<'a> {
+        DefPathComponent::Type(self.symbol_key().clone())
+    }
+}
+
+impl<'a> Into<SymbolDef> for SymbolDefGenerator<'a, TypeDefinition> {
+    fn into(self) -> SymbolDef {
+        let type_id = self
+            .type_interner
+            .insert(self.def_path, self.to_generate_def_for)
+            .unwrap();
+        SymbolDef::Type(type_id)
+    }
+}
+
+impl<'a> Symbol<'a> for TypeDefinition {
+    type SymbolKey = types::Type;
+
+    fn symbol_key(&self) -> &Self::SymbolKey {
+        self.type_()
+    }
+}
+
+impl PartialEq for TypeDefinition {
+    fn eq(&self, other: &Self) -> bool {
+        self.type_.eq(&other.type_) && self.repr.eq(&other.repr)
+    }
+}
+
+impl Eq for TypeDefinition {}
 
 #[derive(Clone, Debug, PartialOrd, Ord, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TypeRepr {
@@ -161,13 +183,13 @@ impl StructRepr {
     pub fn new(
         name: String,
         field_definitions: Vec<(String, types::Type)>,
-    ) -> Result<Self, DefinedSymbol> {
+    ) -> Result<Self, &StructField> {
         let mut fields = BTreeMap::<String, StructField>::new();
         for (name, type_) in field_definitions {
             trace::trace!("Insert struct field {} (type: {})", name, type_,);
             let field = StructField::new(name.clone(), type_);
             match fields.insert(name, field) {
-                Some(existing_field) => return Err(DefinedSymbol::field(existing_field)),
+                Some(existing_field) => return Err(existing_field),
                 None => (),
             }
         }
@@ -180,10 +202,10 @@ impl StructRepr {
         })
     }
 
-    pub fn lookup_field(&self, name: &str) -> Result<&StructField, UndefinedSymbol> {
+    pub fn lookup_field(&self, name: &str) -> Result<&StructField, String> {
         match self.fields.get(name) {
             Some(field) => Ok(field),
-            None => Err(UndefinedSymbol::field(name.into())),
+            None => Err(name.into()),
         }
     }
 }

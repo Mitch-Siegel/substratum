@@ -95,13 +95,13 @@ impl ModuleWalk for TranslationUnitTree {
             }
             TranslationUnit::FunctionDefinition(function_definition) => {
                 let defined_function = function_definition.walk(context).unwrap();
-                context.insert_function(defined_function).unwrap();
+                context.create_function(defined_function).unwrap();
             }
             TranslationUnit::StructDefinition(struct_definition) => {
                 let struct_repr = struct_definition.walk(context);
                 context
-                    .insert_type(symtab::TypeDefinition::new(
-                        Type::UDT(struct_repr.name.clone()),
+                    .create_type(symtab::TypeDefinition::new(
+                        Type::Named(struct_repr.name.clone()),
                         symtab::TypeRepr::Struct(struct_repr),
                     ))
                     .unwrap();
@@ -124,15 +124,13 @@ impl ModuleWalk for ImplementationTree {
             .map(|item| item.walk(context).unwrap())
             .collect();
 
-        let def_path = context.definition_path();
+        let def_path = context.def_path();
         let implemented_for = context
             .symtab()
             .lookup_type(&def_path, &implemented_for_type)
             .unwrap();
 
-        let implemented_for_path = def_path.clone_with_new_last(symtab::DefPathComponent::Type(
-            implemented_for.type_().clone(),
-        ));
+        let implemented_for_path = def_path.clone().with_type(implemented_for.type_().clone());
 
         for method in methods {
             context
@@ -507,7 +505,7 @@ impl<'a> ContextReturnWalk<FunctionWalkContext<'a>, (Value, Value)> for FieldExp
             ),
         };
 
-        let def_path = context.definition_path();
+        let def_path = context.def_path();
         let receiver_definition = context
             .symtab()
             .lookup_struct(def_path, struct_name)
@@ -545,7 +543,7 @@ impl FunctionWalk for MethodCallExpressionTree {
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         let receiver = self.receiver.walk(context);
 
-        let def_path = context.definition_path();
+        let def_path = context.def_path();
         let type_definition = context
             .symtab()
             .lookup_type(&def_path, &receiver.type_)
@@ -597,10 +595,10 @@ impl FunctionWalk for StatementTree {
         match self.statement {
             Statement::VariableDeclaration(declaration_tree) => {
                 let declared_variable = declaration_tree.walk();
-                let def_path = context.definition_path();
+                let def_path = context.def_path();
                 context
                     .symtab_mut()
-                    .create_variable(def_path, declared_variable)
+                    .insert::<symtab::Variable>(def_path, declared_variable)
                     .unwrap();
                 Value::unit()
             }
