@@ -105,13 +105,9 @@ mod tests {
             Ok(())
         );
 
-        /*
         assert_eq!(
             symtab.insert(DefPath::new(), Module::new("test_mod".into())),
-            Err(SymbolError::Defined(DefPath::new().with_component(
-                DefPathComponent::Module(ModuleName("test_mod".into()))
-            )))
+            Err(SymbolError::Defined(DefPath::new().with_component(DefPathComponent::Module(ModuleName("test_mod".into()))))
         );
-        */
     }
 }

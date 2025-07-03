@@ -1,7 +1,7 @@
 use crate::midend::symtab::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ModuleName(String);
+pub struct ModuleName(pub String);
 impl std::fmt::Display for ModuleName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -11,6 +11,15 @@ impl std::fmt::Display for ModuleName {
 pub struct Module {
     name: ModuleName,
 }
+
+impl Module {
+    pub fn new(name: String) -> Self {
+        Self {
+            name: ModuleName(name),
+        }
+    }
+}
+
 impl<'a> From<DefResolver<'a>> for &'a Module {
     fn from(resolver: DefResolver<'a>) -> Self {
         match resolver.to_resolve {

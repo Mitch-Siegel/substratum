@@ -659,7 +659,7 @@ cents: u8
             CompoundExpressionTree::new(SourceLoc::new(2, 41), vec![]),
         );
 
-        let implemented_for = TypeTree::new(SourceLoc::new(1, 6), Type::UDT("Money".into()));
+        let implemented_for = TypeTree::new(SourceLoc::new(1, 6), Type::Named("Money".into()));
 
         assert_eq!(
             p.parse_implementation(),

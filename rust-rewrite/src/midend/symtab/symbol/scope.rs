@@ -1,7 +1,7 @@
 use crate::midend::symtab::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ScopeIndex(usize);
+pub struct ScopeIndex(pub usize);
 impl std::fmt::Display for ScopeIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)

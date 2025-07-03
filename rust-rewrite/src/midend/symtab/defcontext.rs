@@ -21,9 +21,9 @@ impl<'a> BasicDefContext<'a> {
 }
 
 pub trait DefContext<'a> {
-    fn symtab(&'a self) -> &'a SymbolTable<'a>;
-    fn symtab_mut(&'a mut self) -> &'a mut SymbolTable<'a>;
-    fn def_path(&'a self) -> DefPath<'a>;
+    fn symtab(&self) -> &SymbolTable<'a>;
+    fn symtab_mut(&mut self) -> &mut SymbolTable<'a>;
+    fn def_path(&self) -> DefPath<'a>;
 
     fn lookup<S>(&'a self, key: &<S as Symbol<'a>>::SymbolKey) -> Result<&'a S, SymbolError>
     where
@@ -33,21 +33,29 @@ pub trait DefContext<'a> {
     {
         self.symtab().lookup::<S>(self.def_path(), key)
     }
+
+    fn insert<S>(&'a mut self, symbol: S) -> Result<(), SymbolError>
+    where
+        S: Symbol<'a>,
+        &'a S: From<DefResolver<'a>>,
+        DefGenerator<'a, S>: Into<SymbolDef>,
+    {
+        let def_path = self.def_path();
+        let symtab_mut = self.symtab_mut();
+        symtab_mut.insert::<S>(def_path, symbol)
+    }
 }
 
-impl<'a, 'b> DefContext<'b> for BasicDefContext<'a>
-where
-    'b: 'a,
-{
-    fn symtab(&'b self) -> &'b SymbolTable<'b> {
+impl<'a> DefContext<'a> for BasicDefContext<'a> {
+    fn symtab(&self) -> &SymbolTable<'a> {
         &self.symtab
     }
 
-    fn symtab_mut(&'b mut self) -> &'b mut SymbolTable<'b> {
+    fn symtab_mut(&mut self) -> &mut SymbolTable<'a> {
         &mut self.symtab
     }
 
-    fn def_path(&'b self) -> DefPath<'b> {
+    fn def_path(&self) -> DefPath<'a> {
         self.definition_path.clone()
     }
 }
