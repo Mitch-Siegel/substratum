@@ -1,8 +1,8 @@
 use crate::midend::{symtab::*, types};
 
 pub struct BasicDefContext<'a> {
-    symtab: &'a mut SymbolTable<'a>,
-    definition_path: DefPath<'a>,
+    symtab: &'a mut SymbolTable,
+    definition_path: DefPath,
 }
 
 impl<'a> std::fmt::Debug for BasicDefContext<'a> {
@@ -12,7 +12,7 @@ impl<'a> std::fmt::Debug for BasicDefContext<'a> {
 }
 
 impl<'a> BasicDefContext<'a> {
-    pub fn new(symtab: &'a mut SymbolTable<'a>) -> Self {
+    pub fn new(symtab: &'a mut SymbolTable) -> Self {
         Self {
             symtab,
             definition_path: DefPath::new(),
@@ -20,25 +20,25 @@ impl<'a> BasicDefContext<'a> {
     }
 }
 
-pub trait DefContext<'a> {
-    fn symtab(&self) -> &SymbolTable<'a>;
-    fn symtab_mut(&mut self) -> &mut SymbolTable<'a>;
-    fn def_path(&self) -> DefPath<'a>;
+pub trait DefContext {
+    fn symtab(&self) -> &SymbolTable;
+    fn symtab_mut(&mut self) -> &mut SymbolTable;
+    fn def_path(&self) -> DefPath;
 
-    fn lookup<S>(&'a self, key: &<S as Symbol<'a>>::SymbolKey) -> Result<&'a S, SymbolError>
+    fn lookup<S>(&self, key: &<S as Symbol>::SymbolKey) -> Result<&S, SymbolError>
     where
-        S: Symbol<'a>,
-        &'a S: From<DefResolver<'a>>,
-        DefGenerator<'a, S>: Into<SymbolDef>,
+        S: Symbol,
+        for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
         self.symtab().lookup::<S>(self.def_path(), key)
     }
 
-    fn insert<S>(&'a mut self, symbol: S) -> Result<(), SymbolError>
+    fn insert<S>(&mut self, symbol: S) -> Result<(), SymbolError>
     where
-        S: Symbol<'a>,
-        &'a S: From<DefResolver<'a>>,
-        DefGenerator<'a, S>: Into<SymbolDef>,
+        S: Symbol,
+        for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
         let def_path = self.def_path();
         let symtab_mut = self.symtab_mut();
@@ -46,16 +46,16 @@ pub trait DefContext<'a> {
     }
 }
 
-impl<'a> DefContext<'a> for BasicDefContext<'a> {
-    fn symtab(&self) -> &SymbolTable<'a> {
+impl<'a> DefContext for BasicDefContext<'a> {
+    fn symtab(&self) -> &SymbolTable {
         &self.symtab
     }
 
-    fn symtab_mut(&mut self) -> &mut SymbolTable<'a> {
+    fn symtab_mut(&mut self) -> &mut SymbolTable {
         &mut self.symtab
     }
 
-    fn def_path(&self) -> DefPath<'a> {
+    fn def_path(&self) -> DefPath {
         self.definition_path.clone()
     }
 }

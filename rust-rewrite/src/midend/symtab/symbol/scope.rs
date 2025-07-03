@@ -20,8 +20,8 @@ impl<'a> From<DefResolver<'a>> for &'a Scope {
     }
 }
 
-impl<'a> Into<DefPathComponent<'a>> for &Scope {
-    fn into(self) -> DefPathComponent<'a> {
+impl Into<DefPathComponent> for &Scope {
+    fn into(self) -> DefPathComponent {
         DefPathComponent::Scope(self.symbol_key().clone())
     }
 }
@@ -32,12 +32,12 @@ impl<'a> Into<SymbolDef> for DefGenerator<'a, Scope> {
     }
 }
 
-impl<'a> Into<SymbolDef> for Scope {
+impl Into<SymbolDef> for Scope {
     fn into(self) -> SymbolDef {
         SymbolDef::Scope(self)
     }
 }
-impl<'a> Symbol<'a> for Scope {
+impl Symbol for Scope {
     type SymbolKey = ScopeIndex;
     fn symbol_key(&self) -> &Self::SymbolKey {
         &self.index

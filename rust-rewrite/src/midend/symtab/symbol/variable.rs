@@ -53,7 +53,7 @@ impl<'a> Into<SymbolDef> for DefGenerator<'a, Variable> {
     }
 }
 
-impl<'a> Symbol<'a> for Variable {
+impl Symbol for Variable {
     type SymbolKey = String;
     fn symbol_key(&self) -> &Self::SymbolKey {
         &self.name

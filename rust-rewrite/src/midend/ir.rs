@@ -59,7 +59,7 @@ impl<'a> Into<symtab::symbol::SymbolDef> for symtab::symbol::DefGenerator<'a, Ba
     }
 }
 
-impl<'a> symtab::symbol::Symbol<'a> for BasicBlock {
+impl<'a> symtab::symbol::Symbol for BasicBlock {
     type SymbolKey = usize;
     fn symbol_key(&self) -> &Self::SymbolKey {
         &self.label

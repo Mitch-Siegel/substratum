@@ -3,12 +3,12 @@ use crate::midend::symtab::*;
 pub type TypeId = usize;
 pub type GenericParams = Vec<Type>;
 
-pub struct TypeInterner<'a> {
-    ids: HashMap<<TypeDefinition as Symbol<'a>>::SymbolKey, TypeId>,
+pub struct TypeInterner {
+    ids: HashMap<<TypeDefinition as Symbol>::SymbolKey, TypeId>,
     types: HashMap<TypeId, TypeDefinition>,
 }
 
-impl<'a> TypeInterner<'a> {
+impl TypeInterner {
     pub fn new() -> Self {
         Self {
             ids: HashMap::new(),
@@ -17,8 +17,8 @@ impl<'a> TypeInterner<'a> {
     }
 
     pub fn insert(
-        &'a mut self,
-        def_path: DefPath<'a>,
+        &mut self,
+        def_path: DefPath,
         definition: TypeDefinition,
     ) -> Result<TypeId, SymbolError> {
         assert!(&def_path.is_type());
@@ -44,7 +44,7 @@ impl<'a> TypeInterner<'a> {
 
     pub fn get_by_key(
         &self,
-        key: &<TypeDefinition as Symbol<'a>>::SymbolKey,
+        key: &<TypeDefinition as Symbol>::SymbolKey,
     ) -> Option<&TypeDefinition> {
         let id_from_key = self.ids.get(key)?;
         self.types.get(id_from_key)

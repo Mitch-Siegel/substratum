@@ -9,9 +9,9 @@ mod optimization;
 pub mod symtab;
 pub mod types;
 
-pub fn symbol_table_from_program<'a>(
+pub fn symbol_table_from_program(
     program: Vec<frontend::ast::TranslationUnitTree>,
-) -> symtab::SymbolTable<'a> {
+) -> symtab::SymbolTable {
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
     tracing::debug!("Linearize");

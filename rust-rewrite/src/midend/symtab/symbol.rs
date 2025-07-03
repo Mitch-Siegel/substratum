@@ -12,22 +12,22 @@ pub use scope::*;
 pub use type_definition::*;
 pub use variable::*;
 
-pub trait Symbol<'a>: Sized + 'a
+pub trait Symbol: Sized
 where
-    &'a Self: From<DefResolver<'a>>,
-    DefGenerator<'a, Self>: Into<SymbolDef>,
+    for<'a> &'a Self: From<DefResolver<'a>>,
+    for<'a> DefGenerator<'a, Self>: Into<SymbolDef>,
 {
-    type SymbolKey: Clone + Into<DefPathComponent<'a>>;
+    type SymbolKey: Clone + Into<DefPathComponent>;
 
     fn symbol_key(&self) -> &Self::SymbolKey;
 }
 
 pub struct DefResolver<'a> {
-    pub type_interner: &'a TypeInterner<'a>,
+    pub type_interner: &'a TypeInterner,
     pub to_resolve: &'a SymbolDef,
 }
 impl<'a> DefResolver<'a> {
-    pub fn new(type_interner: &'a TypeInterner<'a>, to_resolve: &'a SymbolDef) -> Self {
+    pub fn new(type_interner: &'a TypeInterner, to_resolve: &'a SymbolDef) -> Self {
         Self {
             type_interner,
             to_resolve,
@@ -37,24 +37,24 @@ impl<'a> DefResolver<'a> {
 
 pub struct DefGenerator<'a, S>
 where
-    S: Symbol<'a>,
-    &'a S: From<DefResolver<'a>>,
-    DefGenerator<'a, S>: Into<SymbolDef>,
+    S: Symbol,
+    for<'b> &'b S: From<DefResolver<'b>>,
+    for<'b> DefGenerator<'b, S>: Into<SymbolDef>,
 {
-    pub def_path: DefPath<'a>,
-    pub type_interner: &'a mut TypeInterner<'a>,
+    pub def_path: DefPath,
+    pub type_interner: &'a mut TypeInterner,
     pub to_generate_def_for: S,
 }
 
 impl<'a, S> DefGenerator<'a, S>
 where
-    S: Symbol<'a>,
-    &'a S: From<DefResolver<'a>>,
-    DefGenerator<'a, S>: Into<SymbolDef>,
+    S: Symbol,
+    for<'b> &'b S: From<DefResolver<'b>>,
+    for<'b> DefGenerator<'b, S>: Into<SymbolDef>,
 {
     pub fn new(
-        def_path: DefPath<'a>,
-        type_interner: &'a mut TypeInterner<'a>,
+        def_path: DefPath,
+        type_interner: &'a mut TypeInterner,
         to_generate_def_for: S,
     ) -> Self {
         Self {

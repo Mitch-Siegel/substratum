@@ -36,8 +36,8 @@ impl<'a> From<DefResolver<'a>> for &'a TypeDefinition {
     }
 }
 
-impl<'a> Into<DefPathComponent<'a>> for &TypeDefinition {
-    fn into(self) -> DefPathComponent<'a> {
+impl Into<DefPathComponent> for &TypeDefinition {
+    fn into(self) -> DefPathComponent {
         DefPathComponent::Type(self.symbol_key().clone())
     }
 }
@@ -52,7 +52,7 @@ impl<'a> Into<SymbolDef> for DefGenerator<'a, TypeDefinition> {
     }
 }
 
-impl<'a> Symbol<'a> for TypeDefinition {
+impl Symbol for TypeDefinition {
     type SymbolKey = types::Type;
 
     fn symbol_key(&self) -> &Self::SymbolKey {

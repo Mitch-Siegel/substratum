@@ -28,13 +28,13 @@ use symbol::*;
 pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
 pub use type_interner::*;
 
-pub struct SymbolTable<'a> {
-    types: TypeInterner<'a>,
-    defs: HashMap<DefPath<'a>, SymbolDef>,
-    children: HashMap<DefPath<'a>, HashSet<DefPath<'a>>>,
+pub struct SymbolTable {
+    types: TypeInterner,
+    defs: HashMap<DefPath, SymbolDef>,
+    children: HashMap<DefPath, HashSet<DefPath>>,
 }
 
-impl<'a> SymbolTable<'a> {
+impl SymbolTable {
     pub fn new() -> Self {
         Self {
             types: TypeInterner::new(),
@@ -43,11 +43,11 @@ impl<'a> SymbolTable<'a> {
         }
     }
 
-    pub fn insert<S>(&'a mut self, def_path: DefPath<'a>, symbol: S) -> Result<(), SymbolError>
+    pub fn insert<S>(&mut self, def_path: DefPath, symbol: S) -> Result<(), SymbolError>
     where
-        S: Symbol<'a>,
-        &'a S: From<DefResolver<'a>>,
-        DefGenerator<'a, S>: Into<SymbolDef>,
+        S: Symbol,
+        for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
         let full_def_path = def_path
             .clone()
@@ -67,21 +67,21 @@ impl<'a> SymbolTable<'a> {
     }
 
     fn lookup<S>(
-        &'a self,
-        def_path: DefPath<'a>,
-        key: &<S as Symbol<'a>>::SymbolKey,
-    ) -> Result<&'a S, SymbolError>
+        &self,
+        def_path: DefPath,
+        key: &<S as Symbol>::SymbolKey,
+    ) -> Result<&S, SymbolError>
     where
-        S: Symbol<'a>,
-        &'a S: From<DefResolver<'a>>,
-        DefGenerator<'a, S>: Into<SymbolDef>,
+        S: Symbol,
+        for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
         let mut scan_def_path = def_path.clone();
         while !scan_def_path.is_empty() {
             let mut component_def_path = scan_def_path.clone();
             component_def_path.push((*key).clone().into());
             match self.defs.get(&component_def_path) {
-                Some(def) => return Ok(<&S>::from(DefResolver::<'a>::new(&self.types, def))),
+                Some(def) => return Ok(<&S>::from(DefResolver::new(&self.types, def))),
                 None => (),
             }
             scan_def_path.pop();
