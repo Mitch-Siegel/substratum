@@ -11,8 +11,25 @@ impl std::fmt::Display for ScopeIndex {
 pub struct Scope {
     index: ScopeIndex,
 }
+
+impl Scope {
+    pub fn new(index: usize) -> Self {
+        Self {
+            index: ScopeIndex(index),
+        }
+    }
+}
+
 impl<'a> From<DefResolver<'a>> for &'a Scope {
     fn from(resolver: DefResolver<'a>) -> Self {
+        match resolver.to_resolve {
+            SymbolDef::Scope(scope) => scope,
+            symbol => panic!("Unexpected symbol seen for scope: {}", symbol),
+        }
+    }
+}
+impl<'a> From<MutDefResolver<'a>> for &'a mut Scope {
+    fn from(resolver: MutDefResolver<'a>) -> Self {
         match resolver.to_resolve {
             SymbolDef::Scope(scope) => scope,
             symbol => panic!("Unexpected symbol seen for scope: {}", symbol),

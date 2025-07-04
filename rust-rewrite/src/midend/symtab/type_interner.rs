@@ -42,11 +42,23 @@ impl TypeInterner {
         self.types.get(id)
     }
 
+    pub fn get_mut_by_id(&mut self, id: &TypeId) -> Option<&mut TypeDefinition> {
+        self.types.get_mut(id)
+    }
+
     pub fn get_by_key(
         &self,
         key: &<TypeDefinition as Symbol>::SymbolKey,
     ) -> Option<&TypeDefinition> {
         let id_from_key = self.ids.get(key)?;
         self.types.get(id_from_key)
+    }
+
+    pub fn get_mut_by_key(
+        &mut self,
+        key: &<TypeDefinition as Symbol>::SymbolKey,
+    ) -> Option<&mut TypeDefinition> {
+        let id_from_key = self.ids.get(key)?;
+        self.types.get_mut(id_from_key)
     }
 }

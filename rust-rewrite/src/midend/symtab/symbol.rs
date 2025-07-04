@@ -15,6 +15,7 @@ pub use variable::*;
 pub trait Symbol: Sized
 where
     for<'a> &'a Self: From<DefResolver<'a>>,
+    for<'a> &'a mut Self: From<MutDefResolver<'a>>,
     for<'a> DefGenerator<'a, Self>: Into<SymbolDef>,
 {
     type SymbolKey: Clone + Into<DefPathComponent>;
@@ -23,11 +24,24 @@ where
 }
 
 pub struct DefResolver<'a> {
-    pub type_interner: &'a TypeInterner,
     pub to_resolve: &'a SymbolDef,
+    pub type_interner: &'a TypeInterner,
 }
 impl<'a> DefResolver<'a> {
     pub fn new(type_interner: &'a TypeInterner, to_resolve: &'a SymbolDef) -> Self {
+        Self {
+            type_interner,
+            to_resolve,
+        }
+    }
+}
+
+pub struct MutDefResolver<'a> {
+    pub to_resolve: &'a mut SymbolDef,
+    pub type_interner: &'a mut TypeInterner,
+}
+impl<'a, 'b> MutDefResolver<'a> {
+    pub fn new(to_resolve: &'a mut SymbolDef, type_interner: &'a mut TypeInterner) -> Self {
         Self {
             type_interner,
             to_resolve,
@@ -39,6 +53,7 @@ pub struct DefGenerator<'a, S>
 where
     S: Symbol,
     for<'b> &'b S: From<DefResolver<'b>>,
+    for<'b> &'b mut S: From<MutDefResolver<'b>>,
     for<'b> DefGenerator<'b, S>: Into<SymbolDef>,
 {
     pub def_path: DefPath,
@@ -50,6 +65,7 @@ impl<'a, S> DefGenerator<'a, S>
 where
     S: Symbol,
     for<'b> &'b S: From<DefResolver<'b>>,
+    for<'b> &'b mut S: From<MutDefResolver<'b>>,
     for<'b> DefGenerator<'b, S>: Into<SymbolDef>,
 {
     pub fn new(

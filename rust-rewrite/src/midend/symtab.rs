@@ -43,10 +43,11 @@ impl SymbolTable {
         }
     }
 
-    pub fn insert<S>(&mut self, def_path: DefPath, symbol: S) -> Result<(), SymbolError>
+    pub fn insert<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a, 'b> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
         let full_def_path = def_path
@@ -58,22 +59,23 @@ impl SymbolTable {
             .insert(full_def_path.clone());
 
         match self.defs.insert(
-            full_def_path,
+            full_def_path.clone(),
             Into::<SymbolDef>::into(DefGenerator::new(def_path.clone(), &mut self.types, symbol)),
         ) {
             Some(already_defined) => Err(SymbolError::Defined(def_path)),
-            None => Ok(()),
+            None => Ok(full_def_path),
         }
     }
 
     fn lookup<S>(
         &self,
-        def_path: DefPath,
+        def_path: &DefPath,
         key: &<S as Symbol>::SymbolKey,
     ) -> Result<&S, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
         let mut scan_def_path = def_path.clone();
@@ -88,8 +90,71 @@ impl SymbolTable {
         }
 
         Err(SymbolError::Undefined(
-            def_path.with_component((*key).clone().into())?,
+            def_path.clone().with_component((*key).clone().into())?,
         ))
+    }
+
+    fn get_resolver_mut<'a>(&'a mut self, path: &DefPath) -> Option<MutDefResolver<'a>> {
+        let def = self.defs.get_mut(path)?;
+        Some(MutDefResolver::new(def, &mut self.types))
+    }
+
+    fn lookup_mut<S>(
+        &mut self,
+        def_path: &DefPath,
+        key: &<S as Symbol>::SymbolKey,
+    ) -> Result<&mut S, SymbolError>
+    where
+        S: Symbol,
+        for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a> &'a mut S: From<MutDefResolver<'a>>,
+        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
+    {
+        let mut scan_def_path = def_path.clone();
+        let defs_ptr = &mut self.defs as *mut HashMap<DefPath, SymbolDef>;
+        let types_ptr = &mut self.types as *mut TypeInterner;
+
+        while !scan_def_path.is_empty() {
+            let full_path = scan_def_path
+                .clone()
+                .with_component((*key).clone().into())?;
+
+            unsafe {
+                let defs = &mut *defs_ptr;
+                if let Some(symbol) = defs.get_mut(&full_path) {
+                    let types = &mut *types_ptr;
+
+                    let resolver = MutDefResolver::new(symbol, types);
+                    return Ok(<&mut S>::from(resolver));
+                }
+            }
+            scan_def_path.pop();
+        }
+
+        Err(SymbolError::Undefined(
+            def_path
+                .clone()
+                .with_component((*key).clone().into())
+                .unwrap(),
+        ))
+    }
+
+    fn lookup_at<S>(
+        &self,
+        def_path: &DefPath,
+        key: &<S as Symbol>::SymbolKey,
+    ) -> Result<&S, SymbolError>
+    where
+        S: Symbol,
+        for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a> &'a mut S: From<MutDefResolver<'a>>,
+        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
+    {
+        let component_def_path = def_path.clone().with_component((*key).clone().into())?;
+        match self.defs.get(&component_def_path) {
+            Some(def) => return Ok(<&S>::from(DefResolver::new(&self.types, def))),
+            None => Err(SymbolError::Undefined(component_def_path)),
+        }
     }
 }
 
@@ -101,8 +166,10 @@ mod tests {
         let mut symtab = SymbolTable::new();
 
         assert_eq!(
-            symtab.insert(DefPath::new(), Module::new("test_mod".into())),
-            Ok(())
+            symtab.insert(DefPath::empty(), Module::new("test_mod".into())),
+            Ok(DefPath::empty()
+                .with_component(DefPathComponent::Module(ModuleName("test_mod".into())))
+                .unwrap())
         );
 
         /*

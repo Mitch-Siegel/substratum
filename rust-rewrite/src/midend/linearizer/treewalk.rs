@@ -12,7 +12,7 @@ use name_derive::NameReflectable;
 
 #[derive(Clone, Debug)]
 pub struct Value {
-    pub type_: Type,
+    pub type_: TypeId,
     pub operand: Option<ir::Operand>,
 }
 
@@ -38,12 +38,12 @@ impl Value {
         }
     }
 
-    pub fn from_operand(operand: ir::Operand, context: &FunctionWalkContext) -> Self {
+    /*pub fn from_operand(operand: ir::Operand, context: &FunctionWalkContext) -> Self {
         Self {
             type_: operand.type_(context).clone(),
             operand: Some(operand),
-        }
-    }
+            }
+    }*/
 }
 
 impl Into<ir::Operand> for Value {

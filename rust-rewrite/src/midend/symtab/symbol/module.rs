@@ -28,6 +28,14 @@ impl<'a> From<DefResolver<'a>> for &'a Module {
         }
     }
 }
+impl<'a> From<MutDefResolver<'a>> for &'a mut Module {
+    fn from(resolver: MutDefResolver<'a>) -> Self {
+        match resolver.to_resolve {
+            SymbolDef::Module(module) => module,
+            symbol => panic!("Unexpected symbol seen for module: {}", symbol),
+        }
+    }
+}
 
 impl Into<DefPathComponent> for &Module {
     fn into(self) -> DefPathComponent {

@@ -52,6 +52,14 @@ impl<'a> From<symtab::symbol::DefResolver<'a>> for &'a BasicBlock {
         }
     }
 }
+impl<'a> From<symtab::symbol::MutDefResolver<'a>> for &'a mut BasicBlock {
+    fn from(resolver: symtab::symbol::MutDefResolver<'a>) -> Self {
+        match resolver.to_resolve {
+            symtab::symbol::SymbolDef::BasicBlock(block) => block,
+            symbol => panic!("Unexpected symbol seen for basic block: {}", symbol),
+        }
+    }
+}
 
 impl<'a> Into<symtab::symbol::SymbolDef> for symtab::symbol::DefGenerator<'a, BasicBlock> {
     fn into(self) -> symtab::symbol::SymbolDef {

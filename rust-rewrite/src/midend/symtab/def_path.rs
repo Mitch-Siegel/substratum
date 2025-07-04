@@ -105,12 +105,21 @@ impl<'a> std::fmt::Debug for DefPathComponent {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DefPath {
+    parent_component: DefPathComponent,
     components: Vec<DefPathComponent>,
 }
 
 impl DefPath {
-    pub fn new() -> Self {
+    pub fn new(parent_component: DefPathComponent) -> Self {
         Self {
+            parent_component,
+            components: Vec::new(),
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            parent_component: DefPathComponent::Empty,
             components: Vec::new(),
         }
     }
@@ -134,6 +143,13 @@ impl DefPath {
         } else {
             Err(SymbolError::CantOwn(self.last().clone(), component))
         }
+    }
+
+    pub fn join(mut self, other: DefPath) -> Result<Self, SymbolError> {
+        for component in other.components.into_iter().rev() {
+            self.push(component)?;
+        }
+        Ok(self)
     }
 
     pub fn can_own(&self, component: &DefPathComponent) -> bool {
@@ -183,4 +199,3 @@ impl std::fmt::Debug for DefPath {
         Ok(())
     }
 }
-

@@ -46,6 +46,14 @@ impl<'a> From<DefResolver<'a>> for &'a Variable {
         }
     }
 }
+impl<'a> From<MutDefResolver<'a>> for &'a mut Variable {
+    fn from(resolver: MutDefResolver<'a>) -> Self {
+        match resolver.to_resolve {
+            SymbolDef::Variable(variable) => variable,
+            symbol => panic!("Unexpected symbol seen for variable: {}", symbol),
+        }
+    }
+}
 
 impl<'a> Into<SymbolDef> for DefGenerator<'a, Variable> {
     fn into(self) -> SymbolDef {

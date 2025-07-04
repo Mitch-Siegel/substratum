@@ -23,11 +23,11 @@ impl FunctionOrPrototype {
 #[derive(Debug, Clone, Serialize)]
 pub struct Function {
     pub prototype: FunctionPrototype,
-    pub control_flow: ir::ControlFlow,
+    pub control_flow: Option<ir::ControlFlow>,
 }
 
 impl Function {
-    pub fn new(prototype: FunctionPrototype, control_flow: ir::ControlFlow) -> Self {
+    pub fn new(prototype: FunctionPrototype, control_flow: Option<ir::ControlFlow>) -> Self {
         Function {
             prototype,
             control_flow,
@@ -41,6 +41,14 @@ impl Function {
 
 impl<'a> From<DefResolver<'a>> for &'a Function {
     fn from(resolver: DefResolver<'a>) -> Self {
+        match resolver.to_resolve {
+            SymbolDef::Function(function) => function,
+            symbol => panic!("Unexpected symbol seen for function: {}", symbol),
+        }
+    }
+}
+impl<'a> From<MutDefResolver<'a>> for &'a mut Function {
+    fn from(resolver: MutDefResolver<'a>) -> Self {
         match resolver.to_resolve {
             SymbolDef::Function(function) => function,
             symbol => panic!("Unexpected symbol seen for function: {}", symbol),
