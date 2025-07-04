@@ -51,7 +51,7 @@ impl SymbolTable {
     {
         let full_def_path = def_path
             .clone()
-            .with_component((symbol.symbol_key()).clone().into());
+            .with_component((symbol.symbol_key()).clone().into())?;
         self.children
             .entry(def_path.clone())
             .or_default()
@@ -79,7 +79,7 @@ impl SymbolTable {
         let mut scan_def_path = def_path.clone();
         while !scan_def_path.is_empty() {
             let mut component_def_path = scan_def_path.clone();
-            component_def_path.push((*key).clone().into());
+            component_def_path.push((*key).clone().into())?;
             match self.defs.get(&component_def_path) {
                 Some(def) => return Ok(<&S>::from(DefResolver::new(&self.types, def))),
                 None => (),
@@ -88,7 +88,7 @@ impl SymbolTable {
         }
 
         Err(SymbolError::Undefined(
-            def_path.with_component((*key).clone().into()),
+            def_path.with_component((*key).clone().into())?,
         ))
     }
 }

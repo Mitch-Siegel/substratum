@@ -2,6 +2,7 @@ use crate::midend::{symtab::*, types};
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DefPathComponent {
+    Empty,
     Module(<Module as Symbol>::SymbolKey),
     Type(<TypeDefinition as Symbol>::SymbolKey),
     Function(<Function as Symbol>::SymbolKey),
@@ -13,6 +14,7 @@ pub enum DefPathComponent {
 impl DefPathComponent {
     pub fn can_own(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::Empty, Self::Module(_)) => true,
             (Self::Module(_), Self::Module(_)) => true,
             (Self::Module(_), Self::Type(_)) => true,
             (Self::Module(_), Self::Function(_)) => true,
@@ -29,6 +31,7 @@ impl DefPathComponent {
 
     pub fn name(&self) -> &str {
         match self {
+            Self::Empty => "empty",
             Self::Module(_) => "module",
             Self::Type(_) => "type",
             Self::Function(_) => "function",
@@ -73,6 +76,7 @@ impl<'a> From<<ir::BasicBlock as Symbol>::SymbolKey> for DefPathComponent {
 impl<'a> std::fmt::Display for DefPathComponent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Empty => write!(f, "empty"),
             Self::Module(module) => write!(f, "{}", module),
             Self::Type(type_) => write!(f, "{}", type_),
             Self::Function(function) => write!(f, "{}", function),
@@ -87,6 +91,7 @@ impl<'a> std::fmt::Debug for DefPathComponent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}(", self.name())?;
         match self {
+            Self::Empty => write!(f, "empty"),
             Self::Module(module) => write!(f, "{}", module),
             Self::Type(type_) => write!(f, "{}", type_),
             Self::Function(function) => write!(f, "{}", function),
@@ -114,18 +119,21 @@ impl DefPath {
         self.components.is_empty()
     }
 
-    pub fn last(&self) -> Option<&DefPathComponent> {
-        self.components.last()
+    pub fn last(&self) -> &DefPathComponent {
+        self.components.last().unwrap_or(&DefPathComponent::Empty)
     }
 
     pub fn pop(&mut self) -> Option<DefPathComponent> {
         self.components.pop()
     }
 
-    pub fn push(&mut self, component: DefPathComponent) {
-        assert!(self.can_own(&component));
-
-        self.components.push(component);
+    pub fn push(&mut self, component: DefPathComponent) -> Result<(), SymbolError> {
+        if self.can_own(&component) {
+            self.components.push(component);
+            Ok(())
+        } else {
+            Err(SymbolError::CantOwn(self.last().clone(), component))
+        }
     }
 
     pub fn can_own(&self, component: &DefPathComponent) -> bool {
@@ -137,14 +145,14 @@ impl DefPath {
 
     pub fn is_type(&self) -> bool {
         match self.last() {
-            Some(DefPathComponent::Type(_)) => true,
+            DefPathComponent::Type(_) => true,
             _ => false,
         }
     }
 
-    pub fn with_component(mut self, component: DefPathComponent) -> Self {
-        self.push(component);
-        self
+    pub fn with_component(mut self, component: DefPathComponent) -> Result<Self, SymbolError> {
+        self.push(component)?;
+        Ok(self)
     }
 }
 
@@ -175,3 +183,4 @@ impl std::fmt::Debug for DefPath {
         Ok(())
     }
 }
+
