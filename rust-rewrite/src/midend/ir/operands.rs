@@ -2,179 +2,7 @@ use std::fmt::Display;
 
 use serde::Serialize;
 
-use crate::midend::{
-    symtab::{self},
-    types::Type,
-};
-
-#[derive(Clone, Debug, Serialize, PartialEq, Eq, Hash)]
-pub struct OperandName {
-    pub base_name: String,
-    pub ssa_number: Option<usize>,
-}
-
-impl PartialOrd for OperandName {
-    fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
-        Some(
-            self.base_name
-                .cmp(&other.base_name)
-                .then(match self.ssa_number {
-                    Some(self_ssa_number) => match other.ssa_number {
-                        Some(other_ssa_number) => self_ssa_number.cmp(&other_ssa_number),
-                        None => std::cmp::Ordering::Greater,
-                    },
-                    None => match other.ssa_number {
-                        Some(_) => std::cmp::Ordering::Less,
-                        None => std::cmp::Ordering::Equal,
-                    },
-                }),
-        )
-    }
-}
-
-impl Ord for OperandName {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
-    }
-}
-
-impl Display for OperandName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.ssa_number {
-            Some(number) => {
-                write!(f, "{}.{}", self.base_name, number)
-            }
-            None => write!(f, "{}", self.base_name),
-        }
-    }
-}
-
-impl OperandName {
-    pub fn new_basic(base_name: String) -> Self {
-        Self {
-            base_name,
-            ssa_number: None,
-        }
-    }
-
-    fn new_ssa(base_name: String, ssa_number: usize) -> Self {
-        Self {
-            base_name,
-            ssa_number: Some(ssa_number),
-        }
-    }
-
-    pub fn into_non_ssa(mut self) -> Self {
-        self.ssa_number = None;
-        self
-    }
-}
-
-#[derive(Clone, Debug, Serialize, PartialEq, Eq, Hash)]
-pub enum Operand {
-    Variable(OperandName),
-    Temporary(OperandName),
-    UnsignedDecimalConstant(usize),
-}
-
-impl Display for Operand {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Variable(name) => {
-                // write!(f, "[V {}]", name)
-                write!(f, "{}", name)
-            }
-            Self::Temporary(name) => {
-                // write!(f, "[T {}]", name)
-                write!(f, "{}", name)
-            }
-            Self::UnsignedDecimalConstant(value) => {
-                // write!(f, "[C {}]", value)
-                write!(f, "{}", value)
-            }
-        }
-    }
-}
-
-impl PartialOrd for Operand {
-    fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
-        match (self, other) {
-            (Operand::Variable(var_self), Operand::Variable(var_other)) => {
-                Some(var_self.cmp(var_other))
-            }
-            (Operand::Temporary(temp_self), Operand::Temporary(temp_other)) => {
-                Some(temp_self.cmp(temp_other))
-            }
-            (
-                Operand::UnsignedDecimalConstant(value_self),
-                Operand::UnsignedDecimalConstant(value_other),
-            ) => Some(value_self.cmp(value_other)),
-            (_, _) => None,
-        }
-    }
-}
-
-impl Ord for Operand {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let partial_result = self.partial_cmp(other);
-
-        match partial_result {
-            Some(ordering) => ordering,
-            None => match (self, other) {
-                (Operand::Variable(_), Operand::Temporary(_)) => std::cmp::Ordering::Greater,
-                (Operand::Variable(_), Operand::UnsignedDecimalConstant(_)) => {
-                    std::cmp::Ordering::Greater
-                }
-                (Operand::Temporary(_), Operand::Variable(_)) => std::cmp::Ordering::Less,
-                (Operand::Temporary(_), Operand::UnsignedDecimalConstant(_)) => {
-                    std::cmp::Ordering::Greater
-                }
-                (Operand::UnsignedDecimalConstant(_), Operand::Variable(_)) => {
-                    std::cmp::Ordering::Less
-                }
-                (Operand::UnsignedDecimalConstant(_), Operand::Temporary(_)) => {
-                    std::cmp::Ordering::Less
-                }
-
-                (Operand::Variable(_), Operand::Variable(_))
-                | (Operand::Temporary(_), Operand::Temporary(_))
-                | (Operand::UnsignedDecimalConstant(_), Operand::UnsignedDecimalConstant(_)) => {
-                    panic!("Non-covered case in Operand::cmp")
-                }
-            },
-        }
-    }
-}
-
-impl Operand {
-    pub fn new_as_variable(identifier: String) -> Self {
-        Operand::Variable(OperandName::new_basic(identifier))
-    }
-
-    pub fn new_as_temporary(identifier: String) -> Self {
-        Operand::Temporary(OperandName::new_basic(identifier))
-    }
-
-    pub fn new_as_unsigned_decimal_constant(constant: usize) -> Self {
-        Operand::UnsignedDecimalConstant(constant)
-    }
-
-    pub fn get_name(&self) -> Option<&OperandName> {
-        match self {
-            Operand::Variable(operand_name) => Some(operand_name),
-            Operand::Temporary(operand_name) => Some(operand_name),
-            Operand::UnsignedDecimalConstant(_) => None,
-        }
-    }
-
-    pub fn get_name_mut(&mut self) -> Option<&mut OperandName> {
-        match self {
-            Operand::Variable(operand_name) => Some(operand_name),
-            Operand::Temporary(operand_name) => Some(operand_name),
-            Operand::UnsignedDecimalConstant(_) => None,
-        }
-    }
-}
+use crate::midend::{ir::*, *};
 
 /*
  groupings of operands
@@ -182,24 +10,24 @@ impl Operand {
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct DualSourceOperands {
-    pub a: Operand,
-    pub b: Operand,
+    pub a: ValueId,
+    pub b: ValueId,
 }
 
 impl DualSourceOperands {
-    pub fn new(a: Operand, b: Operand) -> Self {
+    pub fn new(a: ValueId, b: ValueId) -> Self {
         DualSourceOperands { a, b }
     }
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct BinaryArithmeticOperands {
-    pub destination: Operand,
+    pub destination: ValueId,
     pub sources: DualSourceOperands,
 }
 
 impl BinaryArithmeticOperands {
-    pub fn from(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
+    pub fn from(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Self {
         BinaryArithmeticOperands {
             destination,
             sources: DualSourceOperands::new(source_a, source_b),
@@ -209,8 +37,8 @@ impl BinaryArithmeticOperands {
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct SourceDestOperands {
-    pub destination: Operand,
-    pub source: Operand,
+    pub destination: ValueId,
+    pub source: ValueId,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
@@ -252,7 +80,7 @@ impl Display for JumpCondition {
     }
 }
 
-pub type OrderedArgumentList = Vec<Operand>;
+pub type OrderedArgumentList = Vec<ValueId>;
 
 fn arg_list_to_string(args: &OrderedArgumentList) -> String {
     let mut arg_string = String::new();
@@ -271,7 +99,7 @@ fn arg_list_to_string(args: &OrderedArgumentList) -> String {
 pub struct FunctionCallOperands {
     pub function_name: String,
     pub arguments: OrderedArgumentList,
-    pub return_value_to: Option<Operand>,
+    pub return_value_to: Option<ValueId>,
 }
 
 impl Display for FunctionCallOperands {
@@ -289,7 +117,7 @@ impl FunctionCallOperands {
     pub fn new(
         name: &str,
         arguments: OrderedArgumentList,
-        return_value_to: Option<Operand>,
+        return_value_to: Option<ValueId>,
     ) -> Self {
         Self {
             function_name: name.into(),
@@ -302,7 +130,7 @@ impl FunctionCallOperands {
 /// ## Method Call Operands
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct MethodCallOperands {
-    pub receiver: Operand,
+    pub receiver: ValueId,
     pub call: FunctionCallOperands,
 }
 
@@ -314,10 +142,10 @@ impl Display for MethodCallOperands {
 
 impl MethodCallOperands {
     pub fn new(
-        receiver: Operand,
+        receiver: ValueId,
         method_name: &str,
         arguments: OrderedArgumentList,
-        return_value_to: Option<Operand>,
+        return_value_to: Option<ValueId>,
     ) -> Self {
         Self {
             receiver,
@@ -328,16 +156,16 @@ impl MethodCallOperands {
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct FieldReadOperands {
-    pub receiver: Operand,
+    pub receiver: ValueId,
     pub field_name: String,
-    pub destination: Operand,
+    pub destination: ValueId,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct FieldWriteOperands {
-    pub receiver: Operand,
+    pub receiver: ValueId,
     pub field_name: String,
-    pub source: Operand,
+    pub source: ValueId,
 }
 
 #[cfg(test)]
@@ -350,35 +178,35 @@ mod tests {
     fn operand_name_ord() {
         // non-ssa operand names
         assert_eq!(
-            OperandName::new_basic("a".into()).cmp(&OperandName::new_basic("a".into())),
+            ValueId::new_basic("a".into()).cmp(&ValueId::new_basic("a".into())),
             Ordering::Equal
         );
         assert_eq!(
-            OperandName::new_basic("a".into()).cmp(&OperandName::new_basic("b".into())),
+            ValueId::new_basic("a".into()).cmp(&ValueId::new_basic("b".into())),
             Ordering::Less
         );
 
         // ssa operand names
         assert_eq!(
-            OperandName::new_ssa("a".into(), 4).cmp(&OperandName::new_ssa("a".into(), 4)),
+            ValueId::new_ssa("a".into(), 4).cmp(&ValueId::new_ssa("a".into(), 4)),
             Ordering::Equal
         );
         assert_eq!(
-            OperandName::new_ssa("a".into(), 4).cmp(&OperandName::new_ssa("a".into(), 5)),
+            ValueId::new_ssa("a".into(), 4).cmp(&ValueId::new_ssa("a".into(), 5)),
             Ordering::Less
         );
         assert_eq!(
-            OperandName::new_ssa("a".into(), 4).cmp(&OperandName::new_ssa("b".into(), 4)),
+            ValueId::new_ssa("a".into(), 4).cmp(&ValueId::new_ssa("b".into(), 4)),
             Ordering::Less
         );
 
         // mixed ssa and non-ssa
         assert_eq!(
-            OperandName::new_basic("a".into()).cmp(&OperandName::new_ssa("a".into(), 1)),
+            ValueId::new_basic("a".into()).cmp(&ValueId::new_ssa("a".into(), 1)),
             Ordering::Less
         );
         assert_eq!(
-            OperandName::new_ssa("a".into(), 1).cmp(&OperandName::new_basic("a".into())),
+            ValueId::new_ssa("a".into(), 1).cmp(&ValueId::new_basic("a".into())),
             Ordering::Greater
         );
     }
@@ -386,13 +214,13 @@ mod tests {
     #[test]
     fn operand_name_into_non_ssa() {
         assert_eq!(
-            OperandName::new_basic("a".into()).into_non_ssa(),
-            OperandName::new_basic("a".into())
+            ValueId::new_basic("a".into()).into_non_ssa(),
+            ValueId::new_basic("a".into())
         );
 
         assert_eq!(
-            OperandName::new_ssa("a".into(), 123).into_non_ssa(),
-            OperandName::new_basic("a".into())
+            ValueId::new_ssa("a".into(), 123).into_non_ssa(),
+            ValueId::new_basic("a".into())
         );
     }
 
@@ -400,59 +228,59 @@ mod tests {
     fn operand_eq() {
         // variable against other types
         assert_eq!(
-            Operand::new_as_variable("asdf".into()),
-            Operand::new_as_variable("asdf".into())
+            ValueId::new_as_variable("asdf".into()),
+            ValueId::new_as_variable("asdf".into())
         );
         assert_ne!(
-            Operand::new_as_variable("asdf".into()),
-            Operand::new_as_temporary("asdf".into())
+            ValueId::new_as_variable("asdf".into()),
+            ValueId::new_as_temporary("asdf".into())
         );
         assert_ne!(
-            Operand::new_as_variable("asdf".into()),
-            Operand::new_as_unsigned_decimal_constant(12)
+            ValueId::new_as_variable("asdf".into()),
+            ValueId::new_as_unsigned_decimal_constant(12)
         );
 
         // temporary against other types
         assert_ne!(
-            Operand::new_as_temporary("asdf".into()),
-            Operand::new_as_variable("asdf".into())
+            ValueId::new_as_temporary("asdf".into()),
+            ValueId::new_as_variable("asdf".into())
         );
         assert_eq!(
-            Operand::new_as_temporary("asdf".into()),
-            Operand::new_as_temporary("asdf".into())
+            ValueId::new_as_temporary("asdf".into()),
+            ValueId::new_as_temporary("asdf".into())
         );
         assert_ne!(
-            Operand::new_as_temporary("asdf".into()),
-            Operand::new_as_unsigned_decimal_constant(12)
+            ValueId::new_as_temporary("asdf".into()),
+            ValueId::new_as_unsigned_decimal_constant(12)
         );
 
         // unsigned decimal constant against other types
         assert_ne!(
-            Operand::new_as_unsigned_decimal_constant(12),
-            Operand::new_as_variable("asdf".into())
+            ValueId::new_as_unsigned_decimal_constant(12),
+            ValueId::new_as_variable("asdf".into())
         );
         assert_ne!(
-            Operand::new_as_unsigned_decimal_constant(12),
-            Operand::new_as_temporary("asdf".into())
+            ValueId::new_as_unsigned_decimal_constant(12),
+            ValueId::new_as_temporary("asdf".into())
         );
         assert_eq!(
-            Operand::new_as_unsigned_decimal_constant(12),
-            Operand::new_as_unsigned_decimal_constant(12)
+            ValueId::new_as_unsigned_decimal_constant(12),
+            ValueId::new_as_unsigned_decimal_constant(12)
         );
     }
 
     #[test]
     fn operand_get_name() {
         assert_eq!(
-            Operand::new_as_variable("asdf".into()).get_name(),
-            Some(&OperandName::new_basic("asdf".into()))
+            ValueId::new_as_variable("asdf".into()).get_name(),
+            Some(&ValueId::new_basic("asdf".into()))
         );
         assert_eq!(
-            Operand::new_as_temporary("asdf".into()).get_name(),
-            Some(&OperandName::new_basic("asdf".into()))
+            ValueId::new_as_temporary("asdf".into()).get_name(),
+            Some(&ValueId::new_basic("asdf".into()))
         );
         assert_eq!(
-            Operand::new_as_unsigned_decimal_constant(12).get_name(),
+            ValueId::new_as_unsigned_decimal_constant(12).get_name(),
             None
         );
     }
@@ -460,15 +288,15 @@ mod tests {
     #[test]
     fn operand_get_name_mut() {
         assert_eq!(
-            Operand::new_as_variable("asdf".into()).get_name_mut(),
-            Some(&mut OperandName::new_basic("asdf".into()))
+            ValueId::new_as_variable("asdf".into()).get_name_mut(),
+            Some(&mut ValueId::new_basic("asdf".into()))
         );
         assert_eq!(
-            Operand::new_as_temporary("asdf".into()).get_name_mut(),
-            Some(&mut OperandName::new_basic("asdf".into()))
+            ValueId::new_as_temporary("asdf".into()).get_name_mut(),
+            Some(&mut ValueId::new_basic("asdf".into()))
         );
         assert_eq!(
-            Operand::new_as_unsigned_decimal_constant(12).get_name_mut(),
+            ValueId::new_as_unsigned_decimal_constant(12).get_name_mut(),
             None
         );
     }

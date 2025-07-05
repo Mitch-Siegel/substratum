@@ -1,4 +1,4 @@
-use treewalk::ModuleWalk;
+use treewalk::Walk;
 
 use crate::{frontend::ast::TranslationUnitTree, midend::symtab};
 

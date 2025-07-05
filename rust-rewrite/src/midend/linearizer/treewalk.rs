@@ -1,83 +1,23 @@
 use crate::{
     frontend::{ast::*, sourceloc::SourceLoc},
-    midend::{
-        ir::{self, IrLine},
-        linearizer::*,
-        symtab::{self, DefContext},
-        types::Type,
-    },
+    midend::{*, linearizer::*},
 };
 
 use name_derive::NameReflectable;
 
-#[derive(Clone, Debug)]
-pub struct Value {
-    pub type_: TypeId,
-    pub operand: Option<ir::Operand>,
+pub trait Walk {
+    fn walk(self, context: &mut impl symtab::DefContext);
 }
 
-impl Value {
-    pub fn unit() -> Self {
-        Self {
-            type_: Type::Unit,
-            operand: None,
-        }
-    }
-
-    pub fn from_type(type_: Type) -> Self {
-        Self {
-            type_,
-            operand: None,
-        }
-    }
-
-    pub fn from_type_and_name(type_: Type, operand: ir::Operand) -> Self {
-        Self {
-            type_,
-            operand: Some(operand),
-        }
-    }
-
-    /*pub fn from_operand(operand: ir::Operand, context: &FunctionWalkContext) -> Self {
-        Self {
-            type_: operand.type_(context).clone(),
-            operand: Some(operand),
-            }
-    }*/
-}
-
-impl Into<ir::Operand> for Value {
-    fn into(self) -> ir::Operand {
-        self.operand.unwrap()
-    }
-}
-
-impl Into<Type> for Value {
-    fn into(self) -> Type {
-        self.type_
-    }
-}
-
-pub trait ModuleWalk {
-    fn walk(self, context: &mut symtab::BasicDefContext);
-}
-
-pub trait FunctionWalk {
-    fn walk(self, context: &mut FunctionWalkContext) -> Value;
+pub trait ValueWalk {
+    fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId;
 }
 
 pub trait ReturnWalk<U> {
-    fn walk(self) -> U;
+    fn walk(self, context: &mut impl symtab::DefContext) -> U;
 }
 
-pub trait ContextReturnWalk<C, U>
-where
-    C: symtab::DefContext,
-{
-    fn walk(self, context: &mut C) -> U;
-}
-
-impl ModuleWalk for TranslationUnitTree {
+impl Walk for TranslationUnitTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut symtab::BasicDefContext) {
         match self.contents {
@@ -95,12 +35,14 @@ impl ModuleWalk for TranslationUnitTree {
             }
             TranslationUnit::FunctionDefinition(function_definition) => {
                 let defined_function = function_definition.walk(context).unwrap();
-                context.create_function(defined_function).unwrap();
+                context
+                    .insert::<symtab::Function>(defined_function)
+                    .unwrap();
             }
             TranslationUnit::StructDefinition(struct_definition) => {
                 let struct_repr = struct_definition.walk(context);
                 context
-                    .create_type(symtab::TypeDefinition::new(
+                    .insert::<symtab::TypeDefinition>(symtab::TypeDefinition::new(
                         Type::Named(struct_repr.name.clone()),
                         symtab::TypeRepr::Struct(struct_repr),
                     ))
@@ -113,7 +55,7 @@ impl ModuleWalk for TranslationUnitTree {
     }
 }
 
-impl ModuleWalk for ImplementationTree {
+impl Walk for ImplementationTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut symtab::BasicDefContext) {
         let implemented_for_type = self.type_.walk().type_;
@@ -125,17 +67,14 @@ impl ModuleWalk for ImplementationTree {
             .collect();
 
         let def_path = context.def_path();
-        let implemented_for = context
-            .symtab()
-            .lookup_type(&def_path, &implemented_for_type)
+        let (implemented_for, implemented_for_path) = context
+            .lookup_with_path::<symtab::TypeDefinition>(&implemented_for_type)
             .unwrap();
-
-        let implemented_for_path = def_path.clone().with_type(implemented_for.type_().clone());
 
         for method in methods {
             context
                 .symtab_mut()
-                .create_function(implemented_for_path.clone(), method)
+                .insert::<symtab::Function>(implemented_for_path, method)
                 .unwrap();
         }
     }
@@ -148,7 +87,8 @@ impl<'a>
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut symtab::BasicDefContext) {
         let declared_prototype = self.prototype.walk();
-        let mut function_context = FunctionWalkContext::new(context, declared_prototype, None);
+        let mut function_context =
+            FunctionWalkContext::new(context, declared_prototype, None).unwrap();
 
         self.body.walk(&mut function_context);
     }
@@ -210,41 +150,41 @@ impl ReturnWalk<symtab::StructRepr> for StructDefinitionTree {
     }
 }
 
-impl FunctionWalk for ArithmeticExpressionTree {
+impl Walk for ArithmeticExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         let (temp_dest, op) = match self {
             ArithmeticExpressionTree::Add(operands) => {
-                let lhs: ir::Operand = operands.e1.walk(context).into();
-                let rhs: ir::Operand = operands.e2.walk(context).into();
-                let dest = context.next_temp(lhs.type_(context).clone());
+                let lhs: ir::ValueId = operands.e1.walk(context).into();
+                let rhs: ir::ValueId = operands.e2.walk(context).into();
+                let dest = context.next_temp(None);
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_add(dest, lhs, rhs),
                 )
             }
             ArithmeticExpressionTree::Subtract(operands) => {
-                let lhs: ir::Operand = operands.e1.walk(context).into();
-                let rhs: ir::Operand = operands.e2.walk(context).into();
-                let dest: ir::Operand = context.next_temp(lhs.type_(context).clone());
+                let lhs: ir::ValueId = operands.e1.walk(context).into();
+                let rhs: ir::ValueId = operands.e2.walk(context).into();
+                let dest: ir::ValueId = context.next_temp(None);
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_subtract(dest, lhs, rhs),
                 )
             }
             ArithmeticExpressionTree::Multiply(operands) => {
-                let lhs: ir::Operand = operands.e1.walk(context).into();
-                let rhs: ir::Operand = operands.e2.walk(context).into();
-                let dest = context.next_temp(lhs.type_(context).clone());
+                let lhs: ir::ValueId = operands.e1.walk(context).into();
+                let rhs: ir::ValueId = operands.e2.walk(context).into();
+                let dest = context.next_temp(None);
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_multiply(dest, lhs, rhs),
                 )
             }
             ArithmeticExpressionTree::Divide(operands) => {
-                let lhs: ir::Operand = operands.e1.walk(context).into();
-                let rhs: ir::Operand = operands.e2.walk(context).into();
-                let dest = context.next_temp(lhs.type_(context).clone());
+                let lhs: ir::ValueId = operands.e1.walk(context).into();
+                let rhs: ir::ValueId = operands.e2.walk(context).into();
+                let dest = context.next_temp(None);
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_divide(dest, lhs, rhs),
@@ -261,59 +201,59 @@ impl FunctionWalk for ArithmeticExpressionTree {
     }
 }
 
-impl FunctionWalk for ComparisonExpressionTree {
+impl Walk for ComparisonExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Value {
         let (temp_dest, op) = match self {
             ComparisonExpressionTree::LThan(operands) => {
-                let lhs: ir::Operand = operands.e1.walk(context).into();
-                let rhs: ir::Operand = operands.e2.walk(context).into();
-                let dest = context.next_temp(lhs.type_(context).clone());
+                let lhs: ir::ValueId = operands.e1.walk(context).into();
+                let rhs: ir::ValueId = operands.e2.walk(context).into();
+                let dest = context.next_temp(None);
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_lthan(dest, lhs, rhs),
                 )
             }
             ComparisonExpressionTree::GThan(operands) => {
-                let lhs: ir::Operand = operands.e1.walk(context).into();
-                let rhs: ir::Operand = operands.e2.walk(context).into();
-                let dest = context.next_temp(lhs.type_(context).clone());
+                let lhs: ir::ValueId = operands.e1.walk(context).into();
+                let rhs: ir::ValueId = operands.e2.walk(context).into();
+                let dest = context.next_temp(None);
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_gthan(dest, lhs, rhs),
                 )
             }
             ComparisonExpressionTree::LThanE(operands) => {
-                let lhs: ir::Operand = operands.e1.walk(context).into();
-                let rhs: ir::Operand = operands.e2.walk(context).into();
-                let dest = context.next_temp(lhs.type_(context).clone());
+                let lhs: ir::ValueId = operands.e1.walk(context).into();
+                let rhs: ir::ValueId = operands.e2.walk(context).into();
+                let dest = context.next_temp(None);
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_lthan_e(dest, lhs, rhs),
                 )
             }
             ComparisonExpressionTree::GThanE(operands) => {
-                let lhs: ir::Operand = operands.e1.walk(context).into();
-                let rhs: ir::Operand = operands.e2.walk(context).into();
-                let dest = context.next_temp(lhs.type_(context).clone());
+                let lhs: ir::ValueId = operands.e1.walk(context).into();
+                let rhs: ir::ValueId = operands.e2.walk(context).into();
+                let dest = context.next_temp(None);
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_gthan_e(dest, lhs, rhs),
                 )
             }
             ComparisonExpressionTree::Equals(operands) => {
-                let lhs: ir::Operand = operands.e1.walk(context).into();
-                let rhs: ir::Operand = operands.e2.walk(context).into();
-                let dest = context.next_temp(lhs.type_(context).clone());
+                let lhs: ir::ValueId = operands.e1.walk(context).into();
+                let rhs: ir::ValueId = operands.e2.walk(context).into();
+                let dest = context.next_temp(None);
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_equals(dest, lhs, rhs),
                 )
             }
             ComparisonExpressionTree::NotEquals(operands) => {
-                let lhs: ir::Operand = operands.e1.walk(context).into();
-                let rhs: ir::Operand = operands.e2.walk(context).into();
-                let dest = context.next_temp(lhs.type_(context).clone());
+                let lhs: ir::ValueId = operands.e1.walk(context).into();
+                let rhs: ir::ValueId = operands.e2.walk(context).into();
+                let dest = context.next_temp(None);
                 (
                     dest.clone(),
                     ir::operations::BinaryOperations::new_not_equals(dest, lhs, rhs),
@@ -330,17 +270,15 @@ impl FunctionWalk for ComparisonExpressionTree {
     }
 }
 
-impl FunctionWalk for ExpressionTree {
+impl ValueWalk for ExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> Value {
+    fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         match self.expression {
             Expression::Identifier(ident) => {
-                Value::from_operand(ir::Operand::new_as_variable(ident), context)
+                let (_, variable_path) = context.lookup_with_path::<symtab::Variable>(ident).unwrap();
+                context.value_for_variable(variable_path)
             }
-            Expression::UnsignedDecimalConstant(constant) => Value::from_operand(
-                ir::Operand::new_as_unsigned_decimal_constant(constant),
-                context,
-            ),
+            Expression::UnsignedDecimalConstant(constant) => context.value_id_for_constant(constant)
             Expression::Arithmetic(arithmetic_operation) => arithmetic_operation.walk(context),
             Expression::Comparison(comparison_operation) => comparison_operation.walk(context),
             Expression::Assignment(assignment_expression) => assignment_expression.walk(context),
@@ -358,27 +296,26 @@ impl FunctionWalk for ExpressionTree {
                 context
                     .append_statement_to_current_block(field_read_line)
                     .unwrap();
-                Value::from_operand(destination, context)
             }
             Expression::MethodCall(method_call) => method_call.walk(context),
         }
     }
 }
 
-impl FunctionWalk for AssignmentTree {
+impl ValueWalk for AssignmentTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> Value {
+    fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         let assignment_ir = match self.assignee.expression {
             Expression::FieldExpression(field_expression_tree) => {
                 let (receiver, field) = field_expression_tree.walk(context);
-                IrLine::new_field_write(
+                ir::IrLine::new_field_write(
                     self.value.walk(context).into(),
                     self.loc,
                     receiver.into(),
                     field.operand.unwrap().get_name().unwrap().base_name.clone(),
                 )
             }
-            _ => IrLine::new_assignment(
+            _ => ir::IrLine::new_assignment(
                 self.loc,
                 self.assignee.walk(context).into(),
                 self.value.walk(context).into(),
@@ -389,19 +326,19 @@ impl FunctionWalk for AssignmentTree {
             .append_statement_to_current_block(assignment_ir)
             .unwrap();
 
-        Value::unit()
+        context.unit_value_id()
     }
 }
 
-impl FunctionWalk for IfExpressionTree {
+impl ValueWalk for IfExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> Value {
+    fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc;
-        let condition_result: ir::Operand = self.condition.walk(context).into();
+        let condition_result: ir::ValueId = self.condition.walk(context).into();
         let if_condition = ir::JumpCondition::NE(ir::operands::DualSourceOperands::new(
             condition_result,
-            ir::Operand::new_as_unsigned_decimal_constant(0),
+            context.value_id_for_constant(0)
         ));
 
         context
@@ -415,10 +352,9 @@ impl FunctionWalk for IfExpressionTree {
         // if a false block exists AND the 'if' value exists
         if self.false_block.is_some() && if_value.operand.is_some() {
             // we need to copy the 'if' result to the common result_value at the end of the 'if' block
-            let result_operand = context.next_temp(if_value.type_.clone());
-            result_value = Value::from_operand(result_operand.clone(), context);
+            let result_value= context.next_temp(if_value.type_.clone());
             let assign_if_result_line =
-                ir::IrLine::new_assignment(self.loc, result_operand, if_value.clone().into());
+                ir::IrLine::new_assignment(self.loc, result_value, if_value);
             context
                 .append_statement_to_current_block(assign_if_result_line)
                 .unwrap();
@@ -460,9 +396,9 @@ impl FunctionWalk for IfExpressionTree {
     }
 }
 
-impl FunctionWalk for WhileExpressionTree {
+impl ValueWalk for WhileExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> Value {
+    fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         let loop_done_label = context.create_loop(self.loc).unwrap();
 
         let condition = self.condition.walk(context);
@@ -471,7 +407,7 @@ impl FunctionWalk for WhileExpressionTree {
             loop_done_label,
             ir::JumpCondition::Eq(ir::DualSourceOperands::new(
                 condition.into(),
-                ir::Operand::new_as_unsigned_decimal_constant(0),
+                ir::ValueId::new_as_unsigned_decimal_constant(0),
             )),
         );
 
@@ -485,20 +421,20 @@ impl FunctionWalk for WhileExpressionTree {
 
         context.finish_loop(self.loc, Vec::new()).unwrap();
 
-        Value::unit()
+        context.unit_value_id()
     }
 }
 
 // returns (receiver, field_info)
-// receiver is the value containing the receiver of the field access
-// field_info is a value containing name and type information of the field being accessed
-impl<'a> ContextReturnWalk<FunctionWalkContext<'a>, (Value, Value)> for FieldExpressionTree {
+// receiver is the value id for the receiver of the field access
+// field_info is a value id for the field being accessed
+impl ReturnWalk<(ir::ValueId, String)> for FieldExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> (Value, Value) {
+    fn walk(self, context: &mut FunctionWalkContext) -> (ir::ValueId, ir::ValueId) {
         let receiver = self.receiver.walk(context);
 
         let struct_name = match &receiver.type_ {
-            Type::Named(type_name) => type_name,
+            types::Type::Named(type_name) => type_name,
             _ => panic!(
                 "Field expression receiver must be of struct type (got {})",
                 receiver.type_
@@ -507,27 +443,28 @@ impl<'a> ContextReturnWalk<FunctionWalkContext<'a>, (Value, Value)> for FieldExp
 
         let def_path = context.def_path();
         let receiver_definition = context
-            .symtab()
-            .lookup_struct(def_path, struct_name)
+            .lookup::<symtab::TypeDefinition>(&types::Type::Named(struct_name.into()))
             .expect(&format!(
                 "Error handling for failed lookups is unimplemented: {}.{}",
                 receiver.type_, self.field
             ));
 
-        let accessed_field = receiver_definition.lookup_field(&self.field).unwrap();
+        let struct_receiver = match receiver_definition.repr {
+            symtab::TypeRepr::Struct(struct_definition) => struct_definition,
+            non_struct_repr => panic!("Named type {} is not a struct", non_struct_repr.name()), 
+        }
+
+        let accessed_field = struct_receiver.lookup_field(&self.field).unwrap();
         (
             receiver,
-            Value::from_type_and_name(
-                accessed_field.type_.clone(),
-                ir::Operand::Variable(ir::OperandName::new_basic(self.field)),
-            ),
+            accessed_field.name.clone()
         )
     }
 }
 
-impl<'a> ContextReturnWalk<FunctionWalkContext<'a>, Vec<Value>> for CallParamsTree {
+impl<'a> ReturnWalk<Vec<ir::ValueId>> for CallParamsTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> Vec<Value> {
+    fn walk(self, context: &mut FunctionWalkContext) -> Vec<ir::ValueId> {
         let mut param_values = Vec::new();
 
         for param in self.params {
@@ -538,9 +475,9 @@ impl<'a> ContextReturnWalk<FunctionWalkContext<'a>, Vec<Value>> for CallParamsTr
     }
 }
 
-impl FunctionWalk for MethodCallExpressionTree {
+impl ValueWalk for MethodCallExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> Value {
+    fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         let receiver = self.receiver.walk(context);
 
         let def_path = context.def_path();
@@ -555,7 +492,7 @@ impl FunctionWalk for MethodCallExpressionTree {
         .prototype
         .clone();*/
 
-        let return_value_to = if called_method.return_type != Type::Unit {
+        let return_value_to = if called_method.return_type != types::Type::Unit {
             Some(context.next_temp(called_method.return_type))
         } else {
             None
@@ -563,14 +500,14 @@ impl FunctionWalk for MethodCallExpressionTree {
         // //TODO: error handling and checking
         // assert!(called_method.arguments.len() == params.len());
 
-        let params: Vec<ir::Operand> = self
+        let params: Vec<ir::ValueId> = self
             .params
             .walk(context)
             .into_iter()
             .map(|value| value.into())
             .collect();
 
-        let method_call_line = IrLine::new_method_call(
+        let method_call_line = ir::IrLine::new_method_call(
             self.loc,
             receiver.into(),
             &called_method.name,
@@ -583,33 +520,34 @@ impl FunctionWalk for MethodCallExpressionTree {
             .unwrap();
 
         match return_value_to {
-            Some(operand) => Value::from_operand(operand, context),
-            None => Value::unit(),
+            Some(value_id) => value_id,
+            None => context.unit_value_id(),
         }
     }
 }
 
-impl FunctionWalk for StatementTree {
+impl ValueWalk for StatementTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> Value {
+    fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         match self.statement {
             Statement::VariableDeclaration(declaration_tree) => {
-                let declared_variable = declaration_tree.walk();
+                let declared_variable = declaration_tree.walk(context);
                 let def_path = context.def_path();
                 context
                     .symtab_mut()
                     .insert::<symtab::Variable>(def_path, declared_variable)
                     .unwrap();
-                Value::unit()
+                context.unit_value_id()
+                
             }
             Statement::Expression(expression_tree) => expression_tree.walk(context),
         }
     }
 }
 
-impl FunctionWalk for CompoundExpressionTree {
+impl ValueWalk for CompoundExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(mut self, context: &mut FunctionWalkContext) -> Value {
+    fn walk(mut self, context: &mut FunctionWalkContext) -> ir::ValueId {
         context.unconditional_branch_from_current(self.loc).unwrap();
 
         let last_statement = self.statements.pop();
@@ -620,12 +558,12 @@ impl FunctionWalk for CompoundExpressionTree {
         let last_statement_value = match last_statement {
             Some(statement_tree) => match statement_tree.statement {
                 Statement::VariableDeclaration(variable_declaration_tree) => {
-                    variable_declaration_tree.walk();
-                    Value::unit()
+                    variable_declaration_tree.walk(context);
+                    context.unit_value_id()
                 }
                 Statement::Expression(expression_tree) => expression_tree.walk(context),
             },
-            None => Value::unit(),
+            None => context.unit_value_id(),
         };
 
         context.finish_branch().unwrap();

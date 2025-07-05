@@ -3,8 +3,14 @@ use crate::midend::symtab::*;
 pub type TypeId = usize;
 pub type GenericParams = Vec<Type>;
 
+#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub struct TypeKey {
+    def_path: DefPath,
+    type_: types::Type,
+}
+
 pub struct TypeInterner {
-    ids: HashMap<<TypeDefinition as Symbol>::SymbolKey, TypeId>,
+    ids: HashMap<TypeKey, TypeId>,
     types: HashMap<TypeId, TypeDefinition>,
 }
 
@@ -24,8 +30,13 @@ impl TypeInterner {
         assert!(&def_path.is_type());
 
         let next_id = self.ids.len();
-        let key = definition.symbol_key();
-        let id = match self.ids.insert(key.clone(), next_id) {
+        let id = match self.ids.insert(
+            TypeKey {
+                def_path: def_path.clone(),
+                type_: definition.type_().clone(),
+            },
+            next_id,
+        ) {
             Some(existing_id) => return Err(SymbolError::Defined(def_path.clone())),
             None => next_id,
         };

@@ -188,8 +188,8 @@ mod tests {
             SourceLoc::none(),
             2,
             JumpCondition::Eq(DualSourceOperands::new(
-                ir::Operand::new_as_temporary("a".into()),
-                ir::Operand::new_as_temporary("b".into()),
+                ir::ValueId::new_as_temporary("a".into()),
+                ir::ValueId::new_as_temporary("b".into()),
             )),
         );
         b1.statements.push(jump);

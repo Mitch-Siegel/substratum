@@ -96,7 +96,7 @@ impl Display for BinaryOperations {
 }
 
 impl BinaryOperations {
-    pub fn new_add(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
+    pub fn new_add(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Self {
         BinaryOperations::Add(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -104,7 +104,7 @@ impl BinaryOperations {
         ))
     }
 
-    pub fn new_subtract(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
+    pub fn new_subtract(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Self {
         BinaryOperations::Subtract(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -112,7 +112,7 @@ impl BinaryOperations {
         ))
     }
 
-    pub fn new_multiply(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
+    pub fn new_multiply(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Self {
         BinaryOperations::Multiply(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -120,7 +120,7 @@ impl BinaryOperations {
         ))
     }
 
-    pub fn new_divide(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
+    pub fn new_divide(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Self {
         BinaryOperations::Divide(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -128,7 +128,7 @@ impl BinaryOperations {
         ))
     }
 
-    pub fn new_lthan(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
+    pub fn new_lthan(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Self {
         BinaryOperations::LThan(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -136,7 +136,7 @@ impl BinaryOperations {
         ))
     }
 
-    pub fn new_gthan(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
+    pub fn new_gthan(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Self {
         BinaryOperations::GThan(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -144,7 +144,7 @@ impl BinaryOperations {
         ))
     }
 
-    pub fn new_lthan_e(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
+    pub fn new_lthan_e(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Self {
         BinaryOperations::LThanE(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -152,7 +152,7 @@ impl BinaryOperations {
         ))
     }
 
-    pub fn new_gthan_e(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
+    pub fn new_gthan_e(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Self {
         BinaryOperations::GThanE(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -160,7 +160,7 @@ impl BinaryOperations {
         ))
     }
 
-    pub fn new_equals(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
+    pub fn new_equals(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Self {
         BinaryOperations::Equals(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -168,7 +168,7 @@ impl BinaryOperations {
         ))
     }
 
-    pub fn new_not_equals(destination: Operand, source_a: Operand, source_b: Operand) -> Self {
+    pub fn new_not_equals(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Self {
         BinaryOperations::NotEquals(BinaryArithmeticOperands::from(
             destination,
             source_a,
@@ -211,7 +211,7 @@ impl BinaryOperations {
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 pub struct JumpOperation {
     pub destination_block: usize,
-    pub block_args: HashMap<OperandName, OperandName>,
+    pub block_args: HashMap<ValueId, ValueId>,
     pub condition: JumpCondition,
 }
 
@@ -276,7 +276,7 @@ impl Display for Operations {
 }
 
 impl Operations {
-    pub fn new_assignment(destination: Operand, source: Operand) -> Self {
+    pub fn new_assignment(destination: ValueId, source: ValueId) -> Self {
         Self::Assignment(SourceDestOperands {
             destination,
             source,
@@ -290,16 +290,16 @@ impl Operations {
     pub fn new_function_call(
         name: &str,
         arguments: OrderedArgumentList,
-        return_value_to: Option<Operand>,
+        return_value_to: Option<ValueId>,
     ) -> Self {
         Self::FunctionCall(FunctionCallOperands::new(name, arguments, return_value_to))
     }
 
     pub fn new_method_call(
-        receiver: Operand,
+        receiver: ValueId,
         name: &str,
         arguments: OrderedArgumentList,
-        return_value_to: Option<Operand>,
+        return_value_to: Option<ValueId>,
     ) -> Self {
         Self::MethodCall(MethodCallOperands::new(
             receiver,
@@ -309,7 +309,7 @@ impl Operations {
         ))
     }
 
-    pub fn new_field_read(receiver: Operand, field_name: String, destination: Operand) -> Self {
+    pub fn new_field_read(receiver: ValueId, field_name: String, destination: ValueId) -> Self {
         Self::FieldRead(FieldReadOperands {
             receiver,
             field_name,
@@ -317,7 +317,7 @@ impl Operations {
         })
     }
 
-    pub fn new_field_write(source: Operand, receiver: Operand, field_name: String) -> Self {
+    pub fn new_field_write(source: ValueId, receiver: ValueId, field_name: String) -> Self {
         Self::FieldWrite(FieldWriteOperands {
             receiver,
             field_name,

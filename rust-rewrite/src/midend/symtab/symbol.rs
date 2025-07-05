@@ -41,10 +41,10 @@ pub struct MutDefResolver<'a> {
     pub type_interner: &'a mut TypeInterner,
 }
 impl<'a, 'b> MutDefResolver<'a> {
-    pub fn new(to_resolve: &'a mut SymbolDef, type_interner: &'a mut TypeInterner) -> Self {
+    pub fn new(type_interner: &'a mut TypeInterner, to_resolve: &'a mut SymbolDef) -> Self {
         Self {
-            type_interner,
             to_resolve,
+            type_interner,
         }
     }
 }

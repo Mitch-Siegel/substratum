@@ -47,6 +47,7 @@ pub struct FunctionWalkContext<'a> {
     block_manager: BlockManager,
     // definition path starting after this function
     relative_local_def_path: symtab::DefPath,
+    values: ir::ValueInterner,
     open_loop_beginnings: Vec<usize>,
     // conditional branches from source block to the branch_false block.
     // creating a branch replaces current_block with the branch_tru
@@ -57,8 +58,6 @@ pub struct FunctionWalkContext<'a> {
     open_convergences: BlockConvergences,
     // branch path of basic block labels targeted by the branches which got us to current_block
     open_branch_path: Vec<usize>,
-    // index of number of temporary variables used in this control flow (across all blocks)
-    temp_num: usize,
     // key for DefPathComponent::BasicBlock from self.def_path
     current_block: usize,
 }
@@ -95,8 +94,10 @@ impl<'a> FunctionWalkContext<'a> {
             open_convergences: base_convergences,
             open_branch_path: Vec::new(),
             relative_local_def_path: symtab::DefPath::new(my_def_path_component),
+            values: ir::ValueInterner::new(
+                parent_context.id_for_type::<symtab::TypeDefinition>(types::Type::Unit),
+            ),
             open_loop_beginnings: Vec::new(),
-            temp_num: 0,
             current_block: start_block_label,
         })
     }
@@ -120,22 +121,33 @@ impl<'a> FunctionWalkContext<'a> {
         }
     }
 
-    fn replace_current_block(&mut self, new_current: ir::BasicBlock) {
-        trace::trace!(
-            "replace current block ({}) with block {}",
-            self.lookup_at::<ir::BasicBlock>(self.global_def_path, &self.current_block)
-                .unwrap()
-                .label,
-            new_current.label,
-        );
-        self.current_block = new_current.label;
+    fn replace_current_block(&mut self, new_current: ir::BasicBlock) -> &mut ir::BasicBlock {
+        let old_current_label = self.current_block;
+        let new_current_label = new_current.label;
+        self.current_block = new_current_label;
         self.insert_at::<ir::BasicBlock>(self.global_def_path.clone(), new_current)
             .unwrap();
+
+        let global_def_path = self.global_def_path.clone();
+        let old_current = self
+            .lookup_at_mut::<ir::BasicBlock>(&global_def_path, &old_current_label)
+            .unwrap();
+        trace::trace!(
+            "replace current block ({}) with block {}",
+            old_current.label,
+            new_current_label,
+        );
+
+        old_current
     }
 
     fn current_block_mut(&mut self) -> &mut ir::BasicBlock {
-        self.lookup_mut::<ir::BasicBlock>(&self.current_block)
-            .unwrap()
+        let current_block = self.current_block;
+        self.lookup_mut::<ir::BasicBlock>(&current_block).unwrap()
+    }
+
+    pub fn unit_value_id(&self) -> ir::ValueId {
+        self.values.unit_value_id()
     }
 
     pub fn finish_true_branch_switch_to_false(&mut self) -> Result<(), BranchError> {
@@ -146,10 +158,7 @@ impl<'a> FunctionWalkContext<'a> {
             None => return Err(BranchError::NotBranched),
         };
 
-        match self
-            .open_convergences
-            .converge(self.current_block_path.label)?
-        {
+        match self.open_convergences.converge(self.current_block)? {
             ConvergenceResult::NotDone(converge_to_label) => {
                 let false_block = match self.open_branch_false_blocks.remove(branched_from) {
                     Some(false_block) => false_block,
@@ -365,17 +374,9 @@ impl<'a> FunctionWalkContext<'a> {
         }
     }
 
-    pub fn next_temp(&mut self, type_: types::Type) -> ir::Operand {
-        let temp_name = String::from(".T") + &self.temp_num.to_string();
-        self.temp_num += 1;
-        let definition_path = self.def_path();
-        self.symtab
-            .insert::<symtab::Variable>(
-                definition_path,
-                symtab::Variable::new(temp_name.clone(), Some(type_)),
-            )
-            .unwrap();
-        ir::Operand::new_as_temporary(temp_name)
+    pub fn next_temp(&mut self, type_: Option<types::Type>) -> ir::ValueId {
+        self.values
+            .insert(ir::Value::new(ir::ValueKind::Temporary, type_))
     }
 
     pub fn append_jump_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {

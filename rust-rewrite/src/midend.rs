@@ -3,7 +3,7 @@ use crate::trace;
 
 mod idfa;
 pub mod ir;
-//pub mod linearizer;
+pub mod linearizer;
 mod optimization;
 //mod ssa_gen;
 pub mod symtab;
@@ -15,7 +15,7 @@ pub fn symbol_table_from_program(
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
     tracing::debug!("Linearize");
-    //let mut symtab = linearizer::linearize(program);
+    let mut symtab = linearizer::linearize(program);
 
     //tracing::debug!("collapse scopes");
     //symtab.collapse_scopes();

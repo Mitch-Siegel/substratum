@@ -3,6 +3,7 @@ pub mod operands;
 pub mod operations;
 #[cfg(test)]
 mod tests;
+pub mod value;
 
 use std::collections::BTreeSet;
 use std::fmt::Display;
@@ -14,6 +15,7 @@ use serde::Serialize;
 pub use control_flow::ControlFlow;
 pub use operands::*;
 pub use operations::*;
+pub use value::*;
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct IrLine {
@@ -30,8 +32,8 @@ impl Display for IrLine {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct BasicBlock {
     pub label: usize,
-    pub statements: Vec<ir::IrLine>,
-    pub arguments: BTreeSet<ir::OperandName>,
+    pub statements: Vec<IrLine>,
+    pub arguments: BTreeSet<ValueId>,
 }
 
 impl BasicBlock {
@@ -98,7 +100,7 @@ impl IrLine {
         }
     }
 
-    pub fn new_assignment(loc: SourceLoc, destination: Operand, source: Operand) -> Self {
+    pub fn new_assignment(loc: SourceLoc, destination: ValueId, source: ValueId) -> Self {
         Self::new(loc, Operations::new_assignment(destination, source))
     }
 
@@ -118,7 +120,7 @@ impl IrLine {
         loc: SourceLoc,
         name: &str,
         arguments: OrderedArgumentList,
-        return_value_to: Option<Operand>,
+        return_value_to: Option<ValueId>,
     ) -> Self {
         Self::new(
             loc,
@@ -128,10 +130,10 @@ impl IrLine {
 
     pub fn new_method_call(
         loc: SourceLoc,
-        receiver: Operand,
+        receiver: ValueId,
         name: &str,
         arguments: OrderedArgumentList,
-        return_value_to: Option<Operand>,
+        return_value_to: Option<ValueId>,
     ) -> Self {
         Self::new(
             loc,
@@ -141,9 +143,9 @@ impl IrLine {
 
     pub fn new_field_read(
         loc: SourceLoc,
-        receiver: Operand,
+        receiver: ValueId,
         field_name: String,
-        destination: Operand,
+        destination: ValueId,
     ) -> Self {
         Self::new(
             loc,
@@ -152,9 +154,9 @@ impl IrLine {
     }
 
     pub fn new_field_write(
-        source: Operand,
+        source: ValueId,
         loc: SourceLoc,
-        receiver: Operand,
+        receiver: ValueId,
         field_name: String,
     ) -> Self {
         Self::new(
@@ -163,8 +165,8 @@ impl IrLine {
         )
     }
 
-    pub fn read_operand_names(&self) -> Vec<&OperandName> {
-        let mut operand_names: Vec<&OperandName> = Vec::new();
+    pub fn read_operand_names(&self) -> Vec<&ValueId> {
+        let mut operand_names: Vec<&ValueId> = Vec::new();
         match &self.operation {
             Operations::Assignment(source_dest) => match &source_dest.source.get_name() {
                 Some(name) => operand_names.push(name),
@@ -231,8 +233,8 @@ impl IrLine {
         operand_names
     }
 
-    pub fn read_operand_names_mut(&mut self) -> Vec<&mut OperandName> {
-        let mut operand_names: Vec<&mut OperandName> = Vec::new();
+    pub fn read_operand_names_mut(&mut self) -> Vec<&mut ValueId> {
+        let mut operand_names: Vec<&mut ValueId> = Vec::new();
         match &mut self.operation {
             Operations::Assignment(source_dest) => match source_dest.source.get_name_mut() {
                 Some(name) => operand_names.push(name),
@@ -300,8 +302,8 @@ impl IrLine {
         operand_names
     }
 
-    pub fn write_operand_names(&self) -> Vec<&OperandName> {
-        let mut operand_names: Vec<&OperandName> = Vec::new();
+    pub fn write_operand_names(&self) -> Vec<&ValueId> {
+        let mut operand_names: Vec<&ValueId> = Vec::new();
         match &self.operation {
             Operations::Assignment(source_dest) => {
                 operand_names.push(source_dest.destination.get_name().unwrap())
@@ -330,8 +332,8 @@ impl IrLine {
         operand_names
     }
 
-    pub fn write_operand_names_mut(&mut self) -> Vec<&mut OperandName> {
-        let mut operand_names: Vec<&mut OperandName> = Vec::new();
+    pub fn write_operand_names_mut(&mut self) -> Vec<&mut ValueId> {
+        let mut operand_names: Vec<&mut ValueId> = Vec::new();
         match &mut self.operation {
             Operations::Assignment(source_dest) => {
                 operand_names.push(source_dest.destination.get_name_mut().unwrap())

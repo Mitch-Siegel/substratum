@@ -26,6 +26,10 @@ pub trait DefContext {
     fn def_path(&self) -> DefPath;
     fn def_path_mut(&mut self) -> &mut DefPath;
 
+    fn id_for_type(&self, type_: types::Type) -> Result<TypeId, SymbolError> {
+        self.symtab().id_for_type(&self.def_path(), type_)
+    }
+
     fn lookup<S>(&self, key: &<S as Symbol>::SymbolKey) -> Result<&S, SymbolError>
     where
         S: Symbol,
@@ -34,6 +38,19 @@ pub trait DefContext {
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
         self.symtab().lookup::<S>(&self.def_path(), key)
+    }
+
+    fn lookup_with_path<S>(
+        &self,
+        key: &<S as Symbol>::SymbolKey,
+    ) -> Result<(&S, DefPath), SymbolError>
+    where
+        S: Symbol,
+        for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a> &'a mut S: From<MutDefResolver<'a>>,
+        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
+    {
+        self.symtab().lookup_with_path::<S>(&self.def_path(), key)
     }
 
     fn lookup_mut<S>(&mut self, key: &<S as Symbol>::SymbolKey) -> Result<&mut S, SymbolError>
@@ -59,6 +76,20 @@ pub trait DefContext {
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
         self.symtab().lookup_at::<S>(def_path, key)
+    }
+
+    fn lookup_at_mut<S>(
+        &mut self,
+        def_path: &DefPath,
+        key: &<S as Symbol>::SymbolKey,
+    ) -> Result<&mut S, SymbolError>
+    where
+        S: Symbol,
+        for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a> &'a mut S: From<MutDefResolver<'a>>,
+        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
+    {
+        self.symtab_mut().lookup_at_mut::<S>(def_path, key)
     }
 
     // add a DefPathComponent for 'symbol' at the end of the current def path
