@@ -1,43 +1,47 @@
 use crate::midend::{symtab::*, types};
 
-pub struct BasicDefContext<'s> {
-    symtab: &'s mut SymbolTable,
+pub struct BasicDefContext {
+    symtab: Box<SymbolTable>,
     definition_path: DefPath,
 }
 
-impl<'s> std::fmt::Debug for BasicDefContext<'s> {
+impl std::fmt::Debug for BasicDefContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "DefContext @ {}", self.definition_path)
     }
 }
 
-impl<'s> BasicDefContext<'s> {
-    pub fn new(symtab: &'s mut SymbolTable) -> Self {
+impl BasicDefContext {
+    pub fn new(symtab: Box<SymbolTable>) -> Self {
         Self {
             symtab,
             definition_path: DefPath::empty(),
         }
     }
+
+    pub fn with_path(symtab: Box<SymbolTable>, definition_path: DefPath) -> Self {
+        Self {
+            symtab,
+            definition_path,
+        }
+    }
 }
 
-pub trait DefContext<'b, 's>: std::fmt::Debug
-where
-    's: 'b,
-{
-    fn symtab(&'b self) -> &'s SymbolTable;
-    fn symtab_mut(&'b mut self) -> &'s mut SymbolTable;
+pub trait DefContext: std::fmt::Debug {
+    fn symtab(&self) -> &SymbolTable;
+    fn symtab_mut(&mut self) -> &mut SymbolTable;
     fn def_path(&self) -> DefPath;
     fn def_path_mut(&mut self) -> &mut DefPath;
 
-    fn id_for_type(&'b self, type_: &types::Type) -> Result<TypeId, SymbolError> {
+    fn id_for_type(&self, type_: &types::Type) -> Result<TypeId, SymbolError> {
         self.symtab().id_for_type(&self.def_path(), type_)
     }
 
-    fn type_for_id(&'b self, id: &TypeId) -> Option<&TypeDefinition> {
+    fn type_for_id(&self, id: &TypeId) -> Option<&TypeDefinition> {
         self.symtab().type_for_id(id)
     }
 
-    fn lookup<S>(&'b self, key: &<S as Symbol>::SymbolKey) -> Result<&S, SymbolError>
+    fn lookup<S>(&self, key: &<S as Symbol>::SymbolKey) -> Result<&S, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
@@ -48,9 +52,9 @@ where
     }
 
     fn lookup_with_path<S>(
-        &'b self,
+        &self,
         key: &<S as Symbol>::SymbolKey,
-    ) -> Result<(&'s S, DefPath), SymbolError>
+    ) -> Result<(&S, DefPath), SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
@@ -60,7 +64,7 @@ where
         self.symtab().lookup_with_path::<S>(&self.def_path(), key)
     }
 
-    fn lookup_mut<S>(&'b mut self, key: &<S as Symbol>::SymbolKey) -> Result<&'s mut S, SymbolError>
+    fn lookup_mut<S>(&mut self, key: &<S as Symbol>::SymbolKey) -> Result<&mut S, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
@@ -72,10 +76,10 @@ where
     }
 
     fn lookup_at<S>(
-        &'b self,
+        &self,
         def_path: &DefPath,
         key: &<S as Symbol>::SymbolKey,
-    ) -> Result<&'s S, SymbolError>
+    ) -> Result<&S, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
@@ -86,10 +90,10 @@ where
     }
 
     fn lookup_at_mut<S>(
-        &'b mut self,
+        &mut self,
         def_path: &DefPath,
         key: &<S as Symbol>::SymbolKey,
-    ) -> Result<&'s mut S, SymbolError>
+    ) -> Result<&mut S, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
@@ -100,7 +104,7 @@ where
     }
 
     // add a DefPathComponent for 'symbol' at the end of the current def path
-    fn insert<S>(&'b mut self, symbol: S) -> Result<DefPath, SymbolError>
+    fn insert<S>(&mut self, symbol: S) -> Result<DefPath, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
@@ -112,7 +116,7 @@ where
         symtab_mut.insert::<S>(def_path, symbol)
     }
 
-    fn insert_at<S>(&'b mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
+    fn insert_at<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
@@ -121,18 +125,16 @@ where
     {
         self.symtab_mut().insert::<S>(def_path, symbol)
     }
+
+    fn take(self) -> Result<(Box<SymbolTable>, DefPath), ()>;
 }
 
-impl<'a, 's> DefContext<'a, 's> for BasicDefContext<'s>
-where
-    's: 'a,
-    'a: 's,
-{
-    fn symtab(&'a self) -> &'s SymbolTable {
+impl DefContext for BasicDefContext {
+    fn symtab(&self) -> &SymbolTable {
         &self.symtab
     }
 
-    fn symtab_mut(&'a mut self) -> &'s mut SymbolTable {
+    fn symtab_mut(&mut self) -> &mut SymbolTable {
         &mut self.symtab
     }
 
@@ -142,5 +144,9 @@ where
 
     fn def_path_mut(&mut self) -> &mut DefPath {
         &mut self.definition_path
+    }
+
+    fn take(self) -> Result<(Box<SymbolTable>, DefPath), ()> {
+        Ok((self.symtab, self.definition_path))
     }
 }

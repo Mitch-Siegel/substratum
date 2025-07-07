@@ -1,6 +1,9 @@
-use treewalk::Walk;
+use treewalk::CustomReturnWalk;
 
-use crate::{frontend::ast::TranslationUnitTree, midend::symtab};
+use crate::{
+    frontend::*,
+    midend::{symtab::DefContext, *},
+};
 
 mod block_convergences;
 mod block_manager;
@@ -11,12 +14,12 @@ use block_convergences::*;
 pub use block_manager::BlockManager;
 pub use functionwalkcontext::FunctionWalkContext;
 
-pub fn linearize(program: Vec<TranslationUnitTree>) -> symtab::SymbolTable {
+pub fn linearize(program: Vec<frontend::ast::TranslationUnitTree>) -> Box<symtab::SymbolTable> {
     let mut symtab = symtab::SymbolTable::new();
-    let mut context = symtab::BasicDefContext::new(&mut symtab);
+    let mut context = symtab::BasicDefContext::new(Box::new(symtab));
     for translation_unit in program {
-        translation_unit.walk(&mut context);
+        context = translation_unit.walk(context);
     }
 
-    symtab
+    context.take().unwrap().0
 }

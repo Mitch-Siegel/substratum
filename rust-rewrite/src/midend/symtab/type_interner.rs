@@ -1,6 +1,7 @@
 use crate::midend::symtab::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct TypeId {
     id: usize,
 }
@@ -38,6 +39,10 @@ impl TypeInterner {
         }
     }
 
+    fn next_id(&self) -> TypeId {
+        TypeId { id: self.ids.len() }
+    }
+
     pub fn insert(
         &mut self,
         def_path: DefPath,
@@ -45,7 +50,7 @@ impl TypeInterner {
     ) -> Result<TypeId, SymbolError> {
         assert!(&def_path.is_type());
 
-        let next_id = self.ids.len();
+        let next_id = self.next_id();
         let id = match self.ids.insert(TypeKey::new(def_path.clone()), next_id) {
             Some(_) => return Err(SymbolError::Defined(def_path.clone())),
             None => next_id,
