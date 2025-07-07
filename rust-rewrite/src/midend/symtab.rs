@@ -49,9 +49,7 @@ impl SymbolTable {
             let mut component_def_path = scan_def_path.clone();
             component_def_path.push((*type_).clone().into())?;
             match self.defs.get(&component_def_path) {
-                Some(SymbolDef::Type(type_definition)) => {
-                    return Ok(self.types.get(type_definition.type_))
-                }
+                Some(SymbolDef::Type(type_id)) => return Ok(*type_id),
                 _ => (),
             }
             scan_def_path.pop();
@@ -60,6 +58,10 @@ impl SymbolTable {
         Err(SymbolError::Undefined(
             def_path.clone().with_component((*type_).clone().into())?,
         ))
+    }
+
+    pub fn type_for_id(&self, id: &TypeId) -> Option<&TypeDefinition> {
+        self.types.get_by_id(id)
     }
 
     pub fn insert<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>

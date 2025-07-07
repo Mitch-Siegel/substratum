@@ -1,12 +1,28 @@
 use crate::midend::symtab::*;
 
-pub type TypeId = usize;
+#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub struct TypeId {
+    id: usize,
+}
+
+impl std::fmt::Display for TypeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.id)
+    }
+}
+
 pub type GenericParams = Vec<Type>;
 
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct TypeKey {
     def_path: DefPath,
-    type_: types::Type,
+}
+
+impl TypeKey {
+    pub fn new(def_path: DefPath) -> Self {
+        assert!(def_path.is_type());
+        Self { def_path }
+    }
 }
 
 pub struct TypeInterner {
@@ -30,19 +46,13 @@ impl TypeInterner {
         assert!(&def_path.is_type());
 
         let next_id = self.ids.len();
-        let id = match self.ids.insert(
-            TypeKey {
-                def_path: def_path.clone(),
-                type_: definition.type_().clone(),
-            },
-            next_id,
-        ) {
-            Some(existing_id) => return Err(SymbolError::Defined(def_path.clone())),
+        let id = match self.ids.insert(TypeKey::new(def_path.clone()), next_id) {
+            Some(_) => return Err(SymbolError::Defined(def_path.clone())),
             None => next_id,
         };
 
         match self.types.insert(next_id, definition) {
-            Some(existing_definition) => return Err(SymbolError::Defined(def_path.clone())),
+            Some(_) => return Err(SymbolError::Defined(def_path.clone())),
             None => (),
         };
 
@@ -57,18 +67,12 @@ impl TypeInterner {
         self.types.get_mut(id)
     }
 
-    pub fn get_by_key(
-        &self,
-        key: &<TypeDefinition as Symbol>::SymbolKey,
-    ) -> Option<&TypeDefinition> {
+    pub fn get(&self, key: &TypeKey) -> Option<&TypeDefinition> {
         let id_from_key = self.ids.get(key)?;
         self.types.get(id_from_key)
     }
 
-    pub fn get_mut_by_key(
-        &mut self,
-        key: &<TypeDefinition as Symbol>::SymbolKey,
-    ) -> Option<&mut TypeDefinition> {
+    pub fn get_mut(&mut self, key: &TypeKey) -> Option<&mut TypeDefinition> {
         let id_from_key = self.ids.get(key)?;
         self.types.get_mut(id_from_key)
     }

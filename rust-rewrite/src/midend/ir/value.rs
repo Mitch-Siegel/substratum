@@ -20,13 +20,16 @@ impl ValueId {
         Self { index }
     }
 }
+
+#[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum ValueKind {
-    Argument(u32),
+    Argument(usize),
     Variable(symtab::DefPath),
-    Temporary,
+    Temporary(usize),
     Constant(usize),
 }
 
+#[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct Value {
     pub kind: ValueKind,
     pub type_: Option<symtab::TypeId>,

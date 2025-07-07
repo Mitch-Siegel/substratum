@@ -39,8 +39,8 @@ impl From<ConvergenceError> for LoopError {
     }
 }
 
-pub struct FunctionWalkContext<'a> {
-    symtab: &'a mut symtab::SymbolTable,
+pub struct FunctionWalkContext {
+    symtab: symtab::SymbolTable,
     // definition path from the root of the symbol table to this function
     global_def_path: symtab::DefPath,
     self_type: Option<types::Type>,
@@ -62,9 +62,10 @@ pub struct FunctionWalkContext<'a> {
     current_block: usize,
 }
 
-impl<'a> FunctionWalkContext<'a> {
+impl FunctionWalkContext {
     pub fn new(
-        parent_context: &'a mut symtab::BasicDefContext,
+        mut symtab: symtab::SymbolTable,
+        parent_def_path: symtab::DefPath,
         prototype: symtab::FunctionPrototype,
         self_type: Option<types::Type>,
     ) -> Result<Self, symtab::SymbolError> {
@@ -76,17 +77,25 @@ impl<'a> FunctionWalkContext<'a> {
             .unwrap();
 
         let start_block_label = start_block.label;
-        let my_def_path =
-            parent_context.insert::<symtab::Function>(symtab::Function::new(prototype, None))?;
+        let my_def_path = {
+            symtab.insert::<symtab::Function>(
+                parent_def_path,
+                symtab::Function::new(prototype, None),
+            )?
+        };
         let my_def_path_component = my_def_path.last().clone();
 
-        parent_context
-            .insert::<ir::BasicBlock>(start_block)
+        symtab
+            .insert::<ir::BasicBlock>(my_def_path.clone(), start_block)
             .unwrap();
+        let values = ir::ValueInterner::new(
+            symtab
+                .id_for_type(&my_def_path, &types::Type::Unit)
+                .unwrap(),
+        );
 
-        let def_path = parent_context.def_path();
         Ok(Self {
-            symtab: parent_context.symtab_mut(),
+            symtab,
             global_def_path: my_def_path,
             self_type,
             block_manager: control_flow,
@@ -94,9 +103,7 @@ impl<'a> FunctionWalkContext<'a> {
             open_convergences: base_convergences,
             open_branch_path: Vec::new(),
             relative_local_def_path: symtab::DefPath::new(my_def_path_component),
-            values: ir::ValueInterner::new(
-                parent_context.id_for_type::<symtab::TypeDefinition>(types::Type::Unit),
-            ),
+            values,
             open_loop_beginnings: Vec::new(),
             current_block: start_block_label,
         })
@@ -121,16 +128,19 @@ impl<'a> FunctionWalkContext<'a> {
         }
     }
 
-    fn replace_current_block(&mut self, new_current: ir::BasicBlock) -> &mut ir::BasicBlock {
+    fn replace_current_block(
+        &mut self,
+        new_current: ir::BasicBlock,
+    ) -> <ir::BasicBlock as symtab::Symbol>::SymbolKey {
         let old_current_label = self.current_block;
         let new_current_label = new_current.label;
         self.current_block = new_current_label;
-        self.insert_at::<ir::BasicBlock>(self.global_def_path.clone(), new_current)
+        let global_def_path = self.global_def_path.clone();
+        self.insert_at::<ir::BasicBlock>(global_def_path.clone(), new_current)
             .unwrap();
 
-        let global_def_path = self.global_def_path.clone();
         let old_current = self
-            .lookup_at_mut::<ir::BasicBlock>(&global_def_path, &old_current_label)
+            .lookup_at::<ir::BasicBlock>(&global_def_path, &old_current_label)
             .unwrap();
         trace::trace!(
             "replace current block ({}) with block {}",
@@ -138,16 +148,46 @@ impl<'a> FunctionWalkContext<'a> {
             new_current_label,
         );
 
-        old_current
+        old_current.label
     }
 
-    fn current_block_mut(&mut self) -> &mut ir::BasicBlock {
+    fn current_block_mut<'b>(&'b mut self) -> &'b mut ir::BasicBlock
+    where
+        'b: 'a,
+    {
         let current_block = self.current_block;
         self.lookup_mut::<ir::BasicBlock>(&current_block).unwrap()
     }
 
+    fn current_block(&self) -> &ir::BasicBlock {
+        let current_block = self.current_block;
+        self.lookup::<ir::BasicBlock>(&current_block).unwrap()
+    }
+
     pub fn unit_value_id(&self) -> ir::ValueId {
-        self.values.unit_value_id()
+        ir::ValueInterner::unit_value_id()
+    }
+
+    pub fn value_for_variable(&mut self, variable_def_path: &symtab::DefPath) -> &ir::ValueId {
+        self.values.id_for_variable(variable_def_path).unwrap()
+    }
+
+    pub fn value_for_id(&mut self, id: &ir::ValueId) -> Option<&ir::Value> {
+        self.values.get(id)
+    }
+
+    pub fn value_id_for_constant(&mut self, constant: usize) -> &ir::ValueId {
+        self.values.id_for_constant(constant)
+    }
+
+    pub fn type_for_value_id(&mut self, id: &ir::ValueId) -> &symtab::TypeDefinition {
+        let value = self.value_for_id(id).unwrap().clone();
+        self.type_for_id(&value.type_.unwrap()).unwrap()
+    }
+
+    pub fn type_id_for_value_id(&mut self, id: &ir::ValueId) -> symtab::TypeId {
+        let value = self.value_for_id(id).unwrap();
+        value.type_.unwrap()
     }
 
     pub fn finish_true_branch_switch_to_false(&mut self) -> Result<(), BranchError> {
@@ -173,7 +213,6 @@ impl<'a> FunctionWalkContext<'a> {
 
                 let mut converged_from = self.replace_current_block(false_block);
                 converged_from.statements.push(convergence_jump);
-                self.current_scope.insert_basic_block(converged_from);
 
                 Ok(())
             }
@@ -249,7 +288,7 @@ impl<'a> FunctionWalkContext<'a> {
     ) -> Result<(), BranchError> {
         trace::debug!("create conditional branch from current block");
 
-        let branch_from = &mut self.current_block_path;
+        let branch_from = self.current_block_mut();
         self.open_branch_path.push(branch_from.label);
 
         let (branch_true, branch_false, branch_convergence) = self
@@ -275,7 +314,6 @@ impl<'a> FunctionWalkContext<'a> {
         };
 
         let old_block = self.replace_current_block(branch_true);
-        self.current_scope.insert_basic_block(old_block);
 
         self.new_subscope();
         Ok(())
@@ -284,9 +322,9 @@ impl<'a> FunctionWalkContext<'a> {
     pub fn create_loop(&mut self, loc: SourceLoc) -> Result<usize, LoopError> {
         trace::debug!("create loop");
 
-        let (loop_top, loop_bottom, after_loop) = self
-            .block_manager
-            .create_loop(&mut self.current_block_path, loc);
+        let current_block_mut = self.current_block_mut();
+        let (loop_top, loop_bottom, after_loop) =
+            self.block_manager.create_loop(current_block_mut, loc);
 
         // track the top of the loop we are opening
         self.open_loop_beginnings.push(loop_top.label);
@@ -294,13 +332,12 @@ impl<'a> FunctionWalkContext<'a> {
         // transfer control flow unconditionally to the top of the loop
         let loop_entry_jump =
             ir::IrLine::new_jump(loc, loop_top.label, ir::JumpCondition::Unconditional);
-        self.current_block_path.statements.push(loop_entry_jump);
+        self.current_block_mut().statements.push(loop_entry_jump);
 
         // now the current block should be the loop's top
-        let old_block = self.replace_current_block(loop_top);
+        let old_block_label = self.replace_current_block(loop_top).label;
         self.open_convergences
-            .rename_source(old_block.label, after_loop.label);
-        self.current_scope.insert_basic_block(old_block);
+            .rename_source(old_block_label, after_loop.label);
 
         let after_loop_label = after_loop.label;
 
@@ -313,7 +350,7 @@ impl<'a> FunctionWalkContext<'a> {
 
         // the top of the loop should converge to the bottom of the loop
         self.open_convergences
-            .add(&[self.current_block_path.label], loop_bottom)?;
+            .add(&[self.current_block], loop_bottom)?;
 
         Ok(after_loop_label)
     }
@@ -325,23 +362,19 @@ impl<'a> FunctionWalkContext<'a> {
     ) -> Result<(), LoopError> {
         // wherever the current block ends up, it should have convergence as Done to loop_bottom
         // per create_loop() as each loop convergence is singly-associated
-        match self
-            .open_convergences
-            .converge(self.current_block_path.label)?
-        {
+        match self.open_convergences.converge(self.current_block)? {
             ConvergenceResult::Done(loop_bottom) => {
                 // transfer control flow from the current block to loop_bottom
                 let loop_bottom_jump =
                     ir::IrLine::new_jump(loc, loop_bottom.label, ir::JumpCondition::Unconditional);
-                self.current_block_path.statements.push(loop_bottom_jump);
+                self.current_block_mut().statements.push(loop_bottom_jump);
 
                 // make our current block loop_bottom
                 let old_block = self.replace_current_block(loop_bottom);
-                self.current_scope.insert_basic_block(old_block);
 
                 // insert any IRs that need to be at the bottom of the loop but before the looping jump itself
                 for loop_bottom_ir in loop_bottom_actions {
-                    self.current_block_path.statements.push(loop_bottom_ir);
+                    self.current_block_mut().statements.push(loop_bottom_ir);
                 }
 
                 // figure out where the top of our loop is to jump back to
@@ -352,14 +385,11 @@ impl<'a> FunctionWalkContext<'a> {
 
                 let loop_jump =
                     ir::IrLine::new_jump(loc, loop_top, ir::JumpCondition::Unconditional);
-                self.current_block_path.statements.push(loop_jump);
+                self.current_block_mut().statements.push(loop_jump);
 
                 // now that we are in loop_bottom, create_loop() should have a convergence for us
                 // which will give us the after_loop block
-                match self
-                    .open_convergences
-                    .converge(self.current_block_path.label)?
-                {
+                match self.open_convergences.converge(self.current_block)? {
                     ConvergenceResult::Done(after_loop) => {
                         // transition to after_loop, assuming that the correct IR was inserted to
                         // break out of the loop at some point within the loop or by
@@ -375,8 +405,16 @@ impl<'a> FunctionWalkContext<'a> {
     }
 
     pub fn next_temp(&mut self, type_: Option<types::Type>) -> ir::ValueId {
-        self.values
-            .insert(ir::Value::new(ir::ValueKind::Temporary, type_))
+        match type_ {
+            Some(known_type) => {
+                let known_type_id = self
+                    .symtab()
+                    .id_for_type(&self.def_path(), &known_type)
+                    .unwrap();
+                self.values.next_temp(Some(known_type_id))
+            }
+            None => self.values.next_temp(None),
+        }
     }
 
     pub fn append_jump_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
@@ -400,12 +438,18 @@ impl<'a> FunctionWalkContext<'a> {
     }
 }
 
-impl<'a> symtab::DefContext for FunctionWalkContext<'a> {
-    fn symtab(&self) -> &symtab::SymbolTable {
+impl std::fmt::Debug for FunctionWalkContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Function walk context @ {}", self.def_path())
+    }
+}
+
+impl<'s> symtab::DefContext<'s, 's> for FunctionWalkContext {
+    fn symtab(&'s self) -> &'s symtab::SymbolTable {
         &self.symtab
     }
 
-    fn symtab_mut(&mut self) -> &mut symtab::SymbolTable {
+    fn symtab_mut(&'s mut self) -> &'s mut symtab::SymbolTable {
         &mut self.symtab
     }
 
