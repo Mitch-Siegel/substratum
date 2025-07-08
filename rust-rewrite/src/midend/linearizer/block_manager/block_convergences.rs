@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{midend::ir, trace};
+use crate::{midend::linearizer::block_manager::*, trace};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ConvergenceResult {
@@ -8,16 +8,10 @@ pub enum ConvergenceResult {
     Done(ir::BasicBlock), // the block converged to
 }
 
+#[derive(Debug)]
 pub struct BlockConvergences {
     open_convergences: HashMap<usize, usize>,
     convergence_blocks: HashMap<usize, ir::BasicBlock>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum ConvergenceError {
-    FromBlockExists(usize),
-    ToBlockExists(usize),
-    NonexistentFrom(usize),
 }
 
 impl BlockConvergences {

@@ -5,12 +5,10 @@ use crate::{
     midend::{symtab::DefContext, *},
 };
 
-mod block_convergences;
 mod block_manager;
 mod functionwalkcontext;
 mod treewalk;
 
-use block_convergences::*;
 pub use block_manager::BlockManager;
 pub use functionwalkcontext::FunctionWalkContext;
 

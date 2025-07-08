@@ -88,7 +88,7 @@ impl SymbolTable {
         }
     }
 
-    fn lookup<S>(
+    pub fn lookup<S>(
         &self,
         def_path: &DefPath,
         key: &<S as Symbol>::SymbolKey,
@@ -115,7 +115,7 @@ impl SymbolTable {
         ))
     }
 
-    fn lookup_with_path<S>(
+    pub fn lookup_with_path<S>(
         &self,
         def_path: &DefPath,
         key: &<S as Symbol>::SymbolKey,
@@ -152,7 +152,7 @@ impl SymbolTable {
         Some(MutDefResolver::new(&mut self.types, def))
     }
 
-    fn lookup_mut<S>(
+    pub fn lookup_mut<S>(
         &mut self,
         def_path: &DefPath,
         key: &<S as Symbol>::SymbolKey,
@@ -192,7 +192,7 @@ impl SymbolTable {
         ))
     }
 
-    fn lookup_at<S>(
+    pub fn lookup_at<S>(
         &self,
         def_path: &DefPath,
         key: &<S as Symbol>::SymbolKey,
