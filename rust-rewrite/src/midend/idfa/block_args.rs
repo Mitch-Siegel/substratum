@@ -20,12 +20,12 @@ impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
             let block_facts = facts.for_label_mut(block.label);
 
             for statement in &block.statements {
-                for read in statement.read_operand_names() {
+                for read in statement.read_value_ids() {
                     if !block_facts.kill_facts.contains(read) {
                         block_facts.gen_facts.insert(read.clone());
                     }
                 }
-                for write in statement.write_operand_names() {
+                for write in statement.write_value_ids() {
                     block_facts.kill_facts.insert(write.clone());
                 }
             }

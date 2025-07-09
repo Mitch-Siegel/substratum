@@ -61,11 +61,11 @@ fn read_operand_names() {
         source: operand_from_string("assignment_source"),
     }));
     assert_eq!(
-        op.write_operand_names(),
+        op.write_value_ids(),
         vec![&operand_name_from_string("assignment_destination")]
     );
     assert_eq!(
-        op.read_operand_names(),
+        op.read_value_ids(),
         vec![&operand_name_from_string("assignment_source")]
     );
 
@@ -76,11 +76,11 @@ fn read_operand_names() {
         operand_from_string("binary_op_source_b"),
     )));
     assert_eq!(
-        op.write_operand_names(),
+        op.write_value_ids(),
         vec![&operand_name_from_string("binary_op_destination")]
     );
     assert_eq!(
-        op.read_operand_names(),
+        op.read_value_ids(),
         vec![
             &operand_name_from_string("binary_op_source_a"),
             &operand_name_from_string("binary_op_source_b")
@@ -95,9 +95,9 @@ fn read_operand_names() {
             operand_from_string("eq_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names(), Vec::<&ValueId>::new());
+    assert_eq!(op.write_value_ids(), Vec::<&ValueId>::new());
     assert_eq!(
-        op.read_operand_names(),
+        op.read_value_ids(),
         vec![
             &operand_name_from_string("eq_a"),
             &operand_name_from_string("eq_b")
@@ -112,9 +112,9 @@ fn read_operand_names() {
             operand_from_string("ne_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names(), Vec::<&ValueId>::new());
+    assert_eq!(op.write_value_ids(), Vec::<&ValueId>::new());
     assert_eq!(
-        op.read_operand_names(),
+        op.read_value_ids(),
         vec![
             &operand_name_from_string("ne_a"),
             &operand_name_from_string("ne_b")
@@ -129,9 +129,9 @@ fn read_operand_names() {
             operand_from_string("gt_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names(), Vec::<&ValueId>::new());
+    assert_eq!(op.write_value_ids(), Vec::<&ValueId>::new());
     assert_eq!(
-        op.read_operand_names(),
+        op.read_value_ids(),
         vec![
             &operand_name_from_string("gt_a"),
             &operand_name_from_string("gt_b")
@@ -146,9 +146,9 @@ fn read_operand_names() {
             operand_from_string("lt_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names(), Vec::<&ValueId>::new());
+    assert_eq!(op.write_value_ids(), Vec::<&ValueId>::new());
     assert_eq!(
-        op.read_operand_names(),
+        op.read_value_ids(),
         vec![
             &operand_name_from_string("lt_a"),
             &operand_name_from_string("lt_b")
@@ -163,9 +163,9 @@ fn read_operand_names() {
             operand_from_string("ge_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names(), Vec::<&ValueId>::new());
+    assert_eq!(op.write_value_ids(), Vec::<&ValueId>::new());
     assert_eq!(
-        op.read_operand_names(),
+        op.read_value_ids(),
         vec![
             &operand_name_from_string("ge_a"),
             &operand_name_from_string("ge_b")
@@ -180,9 +180,9 @@ fn read_operand_names() {
             operand_from_string("le_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names(), Vec::<&ValueId>::new());
+    assert_eq!(op.write_value_ids(), Vec::<&ValueId>::new());
     assert_eq!(
-        op.read_operand_names(),
+        op.read_value_ids(),
         vec![
             &operand_name_from_string("le_a"),
             &operand_name_from_string("le_b")
@@ -198,11 +198,11 @@ fn read_operand_names_mut() {
         source: operand_from_string("assignment_source"),
     }));
     assert_eq!(
-        op.write_operand_names_mut(),
+        op.write_value_ids_mut(),
         vec![&operand_name_from_string("assignment_destination")]
     );
     assert_eq!(
-        op.read_operand_names_mut(),
+        op.read_value_ids_mut(),
         vec![&operand_name_from_string("assignment_source")]
     );
 
@@ -213,11 +213,11 @@ fn read_operand_names_mut() {
         operand_from_string("binary_op_source_b"),
     )));
     assert_eq!(
-        op.write_operand_names_mut(),
+        op.write_value_ids_mut(),
         vec![&operand_name_from_string("binary_op_destination")]
     );
     assert_eq!(
-        op.read_operand_names_mut(),
+        op.read_value_ids_mut(),
         vec![
             &operand_name_from_string("binary_op_source_a"),
             &operand_name_from_string("binary_op_source_b")
@@ -232,9 +232,9 @@ fn read_operand_names_mut() {
             operand_from_string("eq_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names_mut(), Vec::<&ValueId>::new());
+    assert_eq!(op.write_value_ids_mut(), Vec::<&ValueId>::new());
     assert_eq!(
-        op.read_operand_names_mut(),
+        op.read_value_ids_mut(),
         vec![
             &operand_name_from_string("eq_a"),
             &operand_name_from_string("eq_b")
@@ -249,9 +249,9 @@ fn read_operand_names_mut() {
             operand_from_string("ne_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names_mut(), Vec::<&ValueId>::new());
+    assert_eq!(op.write_value_ids_mut(), Vec::<&ValueId>::new());
     assert_eq!(
-        op.read_operand_names_mut(),
+        op.read_value_ids_mut(),
         vec![
             &operand_name_from_string("ne_a"),
             &operand_name_from_string("ne_b")
@@ -266,9 +266,9 @@ fn read_operand_names_mut() {
             operand_from_string("gt_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names_mut(), Vec::<&ValueId>::new());
+    assert_eq!(op.write_value_ids_mut(), Vec::<&ValueId>::new());
     assert_eq!(
-        op.read_operand_names_mut(),
+        op.read_value_ids_mut(),
         vec![
             &operand_name_from_string("gt_a"),
             &operand_name_from_string("gt_b")
@@ -283,9 +283,9 @@ fn read_operand_names_mut() {
             operand_from_string("lt_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names_mut(), Vec::<&ValueId>::new());
+    assert_eq!(op.write_value_ids_mut(), Vec::<&ValueId>::new());
     assert_eq!(
-        op.read_operand_names_mut(),
+        op.read_value_ids_mut(),
         vec![
             &operand_name_from_string("lt_a"),
             &operand_name_from_string("lt_b")
@@ -300,9 +300,9 @@ fn read_operand_names_mut() {
             operand_from_string("ge_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names_mut(), Vec::<&ValueId>::new());
+    assert_eq!(op.write_value_ids_mut(), Vec::<&ValueId>::new());
     assert_eq!(
-        op.read_operand_names_mut(),
+        op.read_value_ids_mut(),
         vec![
             &operand_name_from_string("ge_a"),
             &operand_name_from_string("ge_b")
@@ -317,9 +317,9 @@ fn read_operand_names_mut() {
             operand_from_string("le_b"),
         )),
     )));
-    assert_eq!(op.write_operand_names_mut(), Vec::<&ValueId>::new());
+    assert_eq!(op.write_value_ids_mut(), Vec::<&ValueId>::new());
     assert_eq!(
-        op.read_operand_names_mut(),
+        op.read_value_ids_mut(),
         vec![
             &operand_name_from_string("le_a"),
             &operand_name_from_string("le_b")
