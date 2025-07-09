@@ -21,8 +21,8 @@ pub trait ReturnWalk<U> {
     fn walk(self, context: &mut impl symtab::DefContext) -> U;
 }
 
-pub trait ReturnFunctionWalk<U> {
-    fn walk(self, context: &mut FunctionWalkContext) -> U;
+pub trait ReturnFunctionWalk<'a, U> {
+    fn walk(self, context: &'a mut FunctionWalkContext) -> U;
 }
 
 pub trait CustomReturnWalk<C, U> {
@@ -440,9 +440,10 @@ impl ValueWalk for WhileExpressionTree {
 // returns (receiver, field_info)
 // receiver is the value id for the receiver of the field access
 // field_info is a value id for the field being accessed
-impl ReturnFunctionWalk<(ir::ValueId, &symtab::StructField)> for FieldExpressionTree {
+impl<'a> ReturnFunctionWalk<'a, (ir::ValueId, &'a symtab::StructField)> for FieldExpressionTree 
+{
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> (ir::ValueId, &symtab::StructField) {
+    fn walk(self, context: &'a mut FunctionWalkContext) -> (ir::ValueId, &'a symtab::StructField) {
         let receiver = self.receiver.walk(context);
 
         let struct_name = match context.value_for_id(&receiver).unwrap().type_ {
@@ -499,20 +500,15 @@ impl ValueWalk for MethodCallExpressionTree {
         let receiver = self.receiver.walk(context);
 
         let def_path = context.def_path();
-        let type_definition = context.type_for_id(&context.value_for_id(&receiver).unwrap().type_.unwrap()).unwrap()
-        let called_method: symtab::FunctionPrototype = unimplemented!();
-        /*type_definition
-        .lookup_method(def_path, &self.called_method)
-        .unwrap()
-        .prototype
-        .clone();
+        let receiver_type= context.type_for_value_id(&receiver);
+        let called_method = context.lookup_implemented_function(receiver_type, &self.called_method).unwrap();
 
         let return_value_to = if called_method.return_type != types::Type::Unit {
-            Some(context.next_temp(called_method.return_type))
+            Some(context.next_temp(Some(called_method.return_type)))
         } else {
             None
         };
-        */
+        
         // //TODO: error handling and checking
         // assert!(called_method.arguments.len() == params.len());
 
@@ -526,7 +522,7 @@ impl ValueWalk for MethodCallExpressionTree {
         let method_call_line = ir::IrLine::new_method_call(
             self.loc,
             receiver.into(),
-            &called_method.name,
+            &called_method.name(),
             params,
             return_value_to.clone(),
         );

@@ -63,9 +63,9 @@ impl<'a> Into<SymbolDef> for DefGenerator<'a, Function> {
 }
 
 impl Symbol for Function {
-    type SymbolKey = FunctionPrototype;
+    type SymbolKey = String;
     fn symbol_key(&self) -> &Self::SymbolKey {
-        &self.prototype
+        &self.prototype.name
     }
 }
 

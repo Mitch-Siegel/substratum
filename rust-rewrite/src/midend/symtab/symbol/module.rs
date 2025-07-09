@@ -1,12 +1,15 @@
 use crate::midend::symtab::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ModuleName(pub String);
+pub struct ModuleName {
+    pub name: String,
+}
 impl std::fmt::Display for ModuleName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.name)
     }
 }
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Module {
     name: ModuleName,
@@ -15,7 +18,7 @@ pub struct Module {
 impl Module {
     pub fn new(name: String) -> Self {
         Self {
-            name: ModuleName(name),
+            name: ModuleName { name },
         }
     }
 }

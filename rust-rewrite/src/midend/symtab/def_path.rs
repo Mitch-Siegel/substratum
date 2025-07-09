@@ -9,6 +9,7 @@ pub enum DefPathComponent {
     Scope(<Scope as Symbol>::SymbolKey),
     Variable(<Variable as Symbol>::SymbolKey),
     BasicBlock(<ir::BasicBlock as Symbol>::SymbolKey),
+    Implementation(<Implementation as Symbol>::SymbolKey),
 }
 
 impl DefPathComponent {
@@ -20,8 +21,10 @@ impl DefPathComponent {
             (Self::Module(_), Self::Function(_)) => true,
             (Self::Module(_), Self::Variable(_)) => true,
             (Self::Module(_), _) => false,
-            (Self::Type(_), Self::Function(_)) => true,
+            (Self::Type(_), Self::Implementation(_)) => true,
             (Self::Type(_), _) => false,
+            (Self::Implementation(_), Self::Function(_)) => true,
+            (Self::Implementation(_), _) => false,
             (Self::Function(_), Self::Scope(_)) => true,
             (Self::Function(_), Self::Variable(_)) => true,
             (Self::Function(_), Self::BasicBlock(_)) => true,
@@ -38,6 +41,7 @@ impl DefPathComponent {
             Self::Scope(_) => "scope",
             Self::Variable(_) => "variable",
             Self::BasicBlock(_) => "basic block",
+            Self::Implementation(_) => "implementation",
         }
     }
 }
@@ -55,6 +59,11 @@ impl<'a> From<<TypeDefinition as Symbol>::SymbolKey> for DefPathComponent {
 impl<'a> From<<Function as Symbol>::SymbolKey> for DefPathComponent {
     fn from(function_key: <Function as Symbol>::SymbolKey) -> Self {
         Self::Function(function_key)
+    }
+}
+impl<'a> From<<Implementation as Symbol>::SymbolKey> for DefPathComponent {
+    fn from(implementation_key: <Implementation as Symbol>::SymbolKey) -> Self {
+        Self::Implementation(implementation_key)
     }
 }
 impl<'a> From<<Scope as Symbol>::SymbolKey> for DefPathComponent {
@@ -83,6 +92,7 @@ impl<'a> std::fmt::Display for DefPathComponent {
             Self::Scope(scope) => write!(f, "{}", scope),
             Self::Variable(variable) => write!(f, "{}", variable),
             Self::BasicBlock(block) => write!(f, "{}", block),
+            Self::Implementation(implementation) => write!(f, "{}", implementation),
         }
     }
 }
@@ -92,12 +102,13 @@ impl<'a> std::fmt::Debug for DefPathComponent {
         write!(f, "{}(", self.name())?;
         match self {
             Self::Empty => write!(f, "empty"),
-            Self::Module(module) => write!(f, "{}", module),
-            Self::Type(type_) => write!(f, "{}", type_),
-            Self::Function(function) => write!(f, "{}", function),
-            Self::Scope(scope) => write!(f, "{}", scope),
-            Self::Variable(variable) => write!(f, "{}", variable),
-            Self::BasicBlock(block) => write!(f, "{}", block),
+            Self::Module(module) => write!(f, "{:?}", module),
+            Self::Type(type_) => write!(f, "{:?}", type_),
+            Self::Function(function) => write!(f, "{:?}", function),
+            Self::Scope(scope) => write!(f, "{:?}", scope),
+            Self::Variable(variable) => write!(f, "{:?}", variable),
+            Self::BasicBlock(block) => write!(f, "{:?}", block),
+            Self::Implementation(implementation) => write!(f, "{:?}", implementation),
         }?;
         write!(f, ")")
     }
@@ -169,6 +180,18 @@ impl DefPath {
     pub fn with_component(mut self, component: DefPathComponent) -> Result<Self, SymbolError> {
         self.push(component)?;
         Ok(self)
+    }
+
+    pub fn parent_type_definition(mut self) -> Option<Self> {
+        while !self.is_empty() && !self.is_type() {
+            self.pop();
+        }
+
+        if self.is_empty() {
+            None
+        } else {
+            Some(self)
+        }
     }
 }
 

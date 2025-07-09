@@ -126,6 +126,17 @@ pub trait DefContext: std::fmt::Debug {
         self.symtab_mut().insert::<S>(def_path, symbol)
     }
 
+    fn lookup_implemented_function(
+        &self,
+        receiver_type: &types::Type,
+        name: &String,
+    ) -> Result<&Function, SymbolError> {
+        let (_, receiver_type_definition_path) =
+            self.lookup_with_path::<TypeDefinition>(receiver_type)?;
+
+        self.lookup_at::<Function>(&receiver_type_definition_path, name)
+    }
+
     fn take(self) -> Result<(Box<SymbolTable>, DefPath), ()>;
 }
 

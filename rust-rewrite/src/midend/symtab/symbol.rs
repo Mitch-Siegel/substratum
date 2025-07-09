@@ -1,12 +1,14 @@
 use crate::midend::symtab::*;
 
 pub mod function;
+pub mod implementation;
 pub mod module;
 pub mod scope;
 pub mod type_definition;
 pub mod variable;
 
 pub use function::*;
+pub use implementation::*;
 pub use module::*;
 pub use scope::*;
 pub use type_definition::*;
@@ -89,6 +91,7 @@ pub enum SymbolDef {
     Scope(Scope),
     Variable(Variable),
     BasicBlock(ir::BasicBlock),
+    Implementation(Implementation),
 }
 
 impl std::fmt::Display for SymbolDef {
@@ -100,6 +103,7 @@ impl std::fmt::Display for SymbolDef {
             Self::Scope(scope) => write!(f, "scope{}", scope),
             Self::Variable(variable) => write!(f, "{}", variable.name),
             Self::BasicBlock(block) => write!(f, "{}", block.label),
+            Self::Implementation(implementation) => write!(f, "{}", implementation),
         }
     }
 }
