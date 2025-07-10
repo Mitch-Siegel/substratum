@@ -1,6 +1,6 @@
 use crate::{
     frontend::{ast::*, sourceloc::SourceLoc},
-    midend::{*, linearizer::*, symtab::DefContext},
+    midend::{linearizer::*, symtab::DefContext, *},
 };
 
 use name_derive::NameReflectable;
@@ -46,7 +46,7 @@ impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for Tran
                 context.insert_function_prototype(declared_function);*/
             }
             TranslationUnit::FunctionDefinition(function_definition) => {
-                context= function_definition.walk(context);
+                context = function_definition.walk(context);
             }
             TranslationUnit::StructDefinition(struct_definition) => {
                 let struct_repr = struct_definition.walk(&mut context);
@@ -68,11 +68,10 @@ impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for Tran
 
 impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for ImplementationTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, mut context: symtab::BasicDefContext) -> symtab::BasicDefContext{
+    fn walk(self, mut context: symtab::BasicDefContext) -> symtab::BasicDefContext {
         let implemented_for_type = self.type_.walk(&mut context);
 
         // TODO: modify context's type path
-        
 
         for item in self.items {
             context = item.walk(context);
@@ -82,10 +81,7 @@ impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for Impl
     }
 }
 
-impl
-    CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext>
-    for FunctionDefinitionTree
-{
+impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for FunctionDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, mut context: symtab::BasicDefContext) -> symtab::BasicDefContext {
         let declared_prototype = self.prototype.walk(&mut context);
@@ -114,8 +110,11 @@ impl ValueWalk for VariableDeclarationTree {
             None => None,
         };
 
-        let declared_variable: symtab::Variable = symtab::Variable::new(self.name.clone(), variable_type);
-        let variable_path: symtab::DefPath = context.insert::<symtab::Variable>(declared_variable).unwrap();
+        let declared_variable: symtab::Variable =
+            symtab::Variable::new(self.name.clone(), variable_type);
+        let variable_path: symtab::DefPath = context
+            .insert::<symtab::Variable>(declared_variable)
+            .unwrap();
         *context.value_for_variable(&variable_path)
     }
 }
@@ -125,9 +124,8 @@ impl ReturnWalk<symtab::Variable> for ArgumentDeclarationTree {
     fn walk(self, context: &mut impl symtab::DefContext) -> symtab::Variable {
         let variable_type: types::Type = self.type_.walk(context);
 
-        let declared_argument= symtab::Variable::new(self.name.clone(), Some(variable_type));
+        let declared_argument = symtab::Variable::new(self.name.clone(), Some(variable_type));
         declared_argument
-        
     }
 }
 
@@ -136,7 +134,10 @@ impl ReturnWalk<symtab::FunctionPrototype> for FunctionDeclarationTree {
     fn walk(self, context: &mut impl symtab::DefContext) -> symtab::FunctionPrototype {
         symtab::FunctionPrototype::new(
             self.name,
-            self.arguments.into_iter().map(|x| x.walk(context)).collect(),
+            self.arguments
+                .into_iter()
+                .map(|x| x.walk(context))
+                .collect(),
             match self.return_type {
                 Some(type_) => type_.walk(context),
                 None => types::Type::Unit,
@@ -285,10 +286,14 @@ impl ValueWalk for ExpressionTree {
     fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         match self.expression {
             Expression::Identifier(ident) => {
-                let (_, variable_path) = context.lookup_with_path::<symtab::Variable>(&ident).unwrap();
+                let (_, variable_path) = context
+                    .lookup_with_path::<symtab::Variable>(&ident)
+                    .unwrap();
                 *context.value_for_variable(&variable_path)
             }
-            Expression::UnsignedDecimalConstant(constant) => *context.value_id_for_constant(constant),
+            Expression::UnsignedDecimalConstant(constant) => {
+                *context.value_id_for_constant(constant)
+            }
             Expression::Arithmetic(arithmetic_operation) => arithmetic_operation.walk(context),
             Expression::Comparison(comparison_operation) => comparison_operation.walk(context),
             Expression::Assignment(assignment_expression) => assignment_expression.walk(context),
@@ -296,11 +301,12 @@ impl ValueWalk for ExpressionTree {
             Expression::While(while_expression) => while_expression.walk(context),
             Expression::FieldExpression(field_expression) => {
                 let (receiver, field) = field_expression.walk(context);
-                let destination = context.next_temp(Some(field.type_.clone()));
+                let (field_type, field_name) = (field.type_.clone(), field.name.clone());
+                let destination = context.next_temp(Some(field_type));
                 let field_read_line = ir::IrLine::new_field_read(
                     self.loc,
                     receiver.into(),
-                    field.name.clone(),
+                    field_name,
                     destination.clone(),
                 );
                 context
@@ -319,11 +325,12 @@ impl ValueWalk for AssignmentTree {
         let assignment_ir = match self.assignee.expression {
             Expression::FieldExpression(field_expression_tree) => {
                 let (receiver, field) = field_expression_tree.walk(context);
+                let field_name = field.name.clone();
                 ir::IrLine::new_field_write(
                     self.value.walk(context).into(),
                     self.loc,
                     receiver.into(),
-                    field.name.clone(),
+                    field_name,
                 )
             }
             _ => ir::IrLine::new_assignment(
@@ -349,7 +356,7 @@ impl ValueWalk for IfExpressionTree {
         let condition_result: ir::ValueId = self.condition.walk(context).into();
         let if_condition = ir::JumpCondition::NE(ir::operands::DualSourceOperands::new(
             condition_result,
-            *context.value_id_for_constant(0)
+            *context.value_id_for_constant(0),
         ));
 
         context
@@ -364,7 +371,7 @@ impl ValueWalk for IfExpressionTree {
         if self.false_block.is_some() {
             // we need to copy the 'if' result to the common result_value at the end of the 'if' block
             let result_value_type = context.type_for_value_id(&result_value).clone();
-            let result_value= context.next_temp(Some(result_value_type));
+            let result_value = context.next_temp(Some(result_value_type));
             let assign_if_result_line =
                 ir::IrLine::new_assignment(self.loc, result_value, if_value_id);
             context
@@ -389,15 +396,15 @@ impl ValueWalk for IfExpressionTree {
                 }
 
                 // if the 'else' value exists (have already passed check to assert types are the same)
-                    // copy the 'else' result to the common result_value at the end of the 'else' block
-                    let assign_else_result_line = ir::IrLine::new_assignment(
-                        self.loc,
-                        result_value.clone().into(),
-                        else_value_id,
-                    );
-                    context
-                        .append_statement_to_current_block(assign_else_result_line)
-                        .unwrap();
+                // copy the 'else' result to the common result_value at the end of the 'else' block
+                let assign_else_result_line = ir::IrLine::new_assignment(
+                    self.loc,
+                    result_value.clone().into(),
+                    else_value_id,
+                );
+                context
+                    .append_statement_to_current_block(assign_else_result_line)
+                    .unwrap();
             }
             None => {}
         };
@@ -440,24 +447,23 @@ impl ValueWalk for WhileExpressionTree {
 // returns (receiver, field_info)
 // receiver is the value id for the receiver of the field access
 // field_info is a value id for the field being accessed
-impl<'a> ReturnFunctionWalk<'a, (ir::ValueId, &'a symtab::StructField)> for FieldExpressionTree 
-{
+impl<'a> ReturnFunctionWalk<'a, (ir::ValueId, &'a symtab::StructField)> for FieldExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &'a mut FunctionWalkContext) -> (ir::ValueId, &'a symtab::StructField) {
         let receiver = self.receiver.walk(context);
 
         let struct_name = match context.value_for_id(&receiver).unwrap().type_ {
             Some(type_id) => {
-                let struct_type =                context.type_for_id(&type_id).unwrap();
+                let struct_type = context.type_for_id(&type_id).unwrap();
                 match &struct_type.repr {
-                    symtab::TypeRepr::Struct(struct_repr) => &struct_repr.name, 
-                    other_repr =>
-                        panic!("Field expression receiver must be of struct type (got {})", other_repr.name()),
+                    symtab::TypeRepr::Struct(struct_repr) => &struct_repr.name,
+                    other_repr => panic!(
+                        "Field expression receiver must be of struct type (got {})",
+                        other_repr.name()
+                    ),
                 }
-            },
-            _ => panic!(
-                "unknown type of field receiver",
-            ),
+            }
+            _ => panic!("unknown type of field receiver",),
         };
 
         let def_path = context.def_path();
@@ -470,18 +476,15 @@ impl<'a> ReturnFunctionWalk<'a, (ir::ValueId, &'a symtab::StructField)> for Fiel
 
         let struct_receiver = match &receiver_definition.repr {
             symtab::TypeRepr::Struct(struct_definition) => struct_definition,
-            non_struct_repr => panic!("Named type {} is not a struct", non_struct_repr.name()), 
-        }
+            non_struct_repr => panic!("Named type {} is not a struct", non_struct_repr.name()),
+        };
 
         let accessed_field = struct_receiver.lookup_field(&self.field).unwrap();
-        (
-            receiver,
-            accessed_field
-        )
+        (receiver, accessed_field)
     }
 }
 
-impl ReturnFunctionWalk<Vec<ir::ValueId>> for CallParamsTree {
+impl<'a> ReturnFunctionWalk<'a, Vec<ir::ValueId>> for CallParamsTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> Vec<ir::ValueId> {
         let mut param_values = Vec::new();
@@ -500,15 +503,19 @@ impl ValueWalk for MethodCallExpressionTree {
         let receiver = self.receiver.walk(context);
 
         let def_path = context.def_path();
-        let receiver_type= context.type_for_value_id(&receiver);
-        let called_method = context.lookup_implemented_function(receiver_type, &self.called_method).unwrap();
+        let receiver_type = context.type_for_value_id(&receiver).clone();
+        let called_method = context
+            .lookup_implemented_function(&receiver_type, &self.called_method)
+            .unwrap();
+        let return_type = called_method.prototype.return_type.clone();
+        let method_name = String::from(called_method.name());
 
-        let return_value_to = if called_method.return_type != types::Type::Unit {
-            Some(context.next_temp(Some(called_method.return_type)))
+        let return_value_to = if return_type != types::Type::Unit {
+            Some(context.next_temp(Some(return_type)))
         } else {
             None
         };
-        
+
         // //TODO: error handling and checking
         // assert!(called_method.arguments.len() == params.len());
 
@@ -522,7 +529,7 @@ impl ValueWalk for MethodCallExpressionTree {
         let method_call_line = ir::IrLine::new_method_call(
             self.loc,
             receiver.into(),
-            &called_method.name(),
+            &method_name,
             params,
             return_value_to.clone(),
         );
@@ -542,9 +549,7 @@ impl ValueWalk for StatementTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         match self.statement {
-            Statement::VariableDeclaration(declaration_tree) => {
-                declaration_tree.walk(context)
-            }
+            Statement::VariableDeclaration(declaration_tree) => declaration_tree.walk(context),
             Statement::Expression(expression_tree) => expression_tree.walk(context),
         }
     }

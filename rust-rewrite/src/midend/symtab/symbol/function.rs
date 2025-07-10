@@ -1,9 +1,29 @@
 use std::collections::HashMap;
-use std::fmt::Display;
 
 use serde::Serialize;
 
 use crate::midend::{ir, symtab::*, types::Type};
+
+#[derive(Clone, Hash, PartialOrd, Ord, PartialEq, Eq, Serialize)]
+pub struct FunctionName {
+    pub name: String,
+}
+
+impl FunctionName {
+    pub fn as_str(&self) -> &str {
+        self.name.as_str()
+    }
+}
+impl std::fmt::Display for FunctionName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+impl std::fmt::Debug for FunctionName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
 
 #[derive(Debug)]
 pub enum FunctionOrPrototype {
@@ -63,7 +83,7 @@ impl<'a> Into<SymbolDef> for DefGenerator<'a, Function> {
 }
 
 impl Symbol for Function {
-    type SymbolKey = String;
+    type SymbolKey = FunctionName;
     fn symbol_key(&self) -> &Self::SymbolKey {
         &self.prototype.name
     }
@@ -77,12 +97,12 @@ impl PartialEq for Function {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct FunctionPrototype {
-    pub name: String,
+    pub name: FunctionName,
     pub arguments: Vec<Variable>,
     pub return_type: Type,
 }
 
-impl Display for FunctionPrototype {
+impl std::fmt::Display for FunctionPrototype {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut arguments_string = String::new();
         for argument in &self.arguments {
@@ -93,11 +113,13 @@ impl Display for FunctionPrototype {
             }
         }
         match &self.return_type {
-            Type::Unit => write!(f, "fun {}({})", self.name, arguments_string),
+            Type::Unit => write!(f, "fun {}({})", self.name.as_str(), arguments_string),
             _ => write!(
                 f,
                 "fun {}({}) -> {}",
-                self.name, arguments_string, self.return_type
+                self.name.as_str(),
+                arguments_string,
+                self.return_type
             ),
         }
     }
@@ -106,7 +128,7 @@ impl Display for FunctionPrototype {
 impl FunctionPrototype {
     pub fn new(name: String, arguments: Vec<Variable>, return_type: Type) -> Self {
         FunctionPrototype {
-            name,
+            name: FunctionName { name },
             arguments,
             return_type,
         }

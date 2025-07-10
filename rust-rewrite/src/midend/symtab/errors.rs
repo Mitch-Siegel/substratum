@@ -2,16 +2,20 @@ use crate::midend::{symtab::*, types::Type};
 
 #[derive(PartialEq, Eq)]
 pub enum SymbolError {
-    Undefined(DefPath),
+    Undefined(DefPath, DefPathComponent),
     Defined(DefPath),
     CantOwn(DefPathComponent, DefPathComponent),
 }
 impl std::fmt::Debug for SymbolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Undefined(path) => write!(f, "{}", path),
+            Self::Undefined(path, component) => write!(
+                f,
+                "Undefined symbol {:?} at definition path {}",
+                component, path
+            ),
             Self::Defined(path) => write!(f, "{}", path),
-            Self::CantOwn(owner, ownee) => write!(f, "{} can't own {}", owner, ownee),
+            Self::CantOwn(owner, ownee) => write!(f, "{:?} can't own {:?}", owner, ownee),
         }
     }
 }

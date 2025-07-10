@@ -129,12 +129,15 @@ pub trait DefContext: std::fmt::Debug {
     fn lookup_implemented_function(
         &self,
         receiver_type: &types::Type,
-        name: &String,
+        name: &str,
     ) -> Result<&Function, SymbolError> {
         let (_, receiver_type_definition_path) =
             self.lookup_with_path::<TypeDefinition>(receiver_type)?;
 
-        self.lookup_at::<Function>(&receiver_type_definition_path, name)
+        self.lookup_at::<Function>(
+            &receiver_type_definition_path,
+            &FunctionName { name: name.into() },
+        )
     }
 
     fn take(self) -> Result<(Box<SymbolTable>, DefPath), ()>;
