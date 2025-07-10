@@ -90,7 +90,12 @@ impl FunctionWalkContext {
             .unwrap();
 
         let old_current = self
-            .lookup_at_mut::<ir::BasicBlock>(&global_def_path, &old_current_label)
+            .lookup_at_mut::<ir::BasicBlock>(
+                &global_def_path
+                    .clone()
+                    .with_component(DefPathComponent::BasicBlock(old_current_label))
+                    .unwrap(),
+            )
             .unwrap();
         trace::trace!(
             "replace current block ({}) with block {}",

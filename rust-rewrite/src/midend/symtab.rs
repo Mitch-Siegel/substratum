@@ -44,6 +44,27 @@ impl SymbolTable {
     pub fn new() -> Self {
         let mut symtab = Self::default();
         intrinsics::create_intrinsics(&mut symtab);
+
+        let implicit_module_path = symtab
+            .insert(DefPath::empty(), Module::new("implicit".into()))
+            .unwrap();
+
+        symtab
+            .insert(
+                implicit_module_path,
+                Import::new(
+                    "intrinsics".into(),
+                    DefPath::empty()
+                        .with_component(
+                            ModuleName {
+                                name: "intrinsics".into(),
+                            }
+                            .into(),
+                        )
+                        .unwrap(),
+                ),
+            )
+            .unwrap();
         symtab
     }
 
@@ -99,6 +120,31 @@ impl SymbolTable {
             Some(already_defined) => Err(SymbolError::Defined(def_path)),
             None => Ok(full_def_path),
         }
+    }
+
+    fn resolve_use_statements_at_path<S>(
+        &self,
+        def_path: &DefPath,
+        key: &<S as Symbol>::SymbolKey,
+    ) -> Result<&S, SymbolError>
+    where
+        S: Symbol,
+        for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a> &'a mut S: From<MutDefResolver<'a>>,
+        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
+    {
+        let key_component = Into::<DefPathComponent>::into(key.clone());
+        for child_path in self.children.get(def_path).unwrap() {
+            if let DefPathComponent::Import(_) = child_path.last() {
+                if let SymbolDef::Import(import) = self.defs.get(child_path).unwrap() {
+                    if *import.qualified_path.last() == key_component {
+                        return Ok(self.lookup_at::<S>(&import.qualified_path).unwrap());
+                    }
+                }
+            }
+        }
+
+        Err(SymbolError::Undefined(def_path.clone(), key_component))
     }
 
     pub fn lookup<S>(
@@ -211,44 +257,35 @@ impl SymbolTable {
         Err(SymbolError::Undefined(def_path.clone(), key_component))
     }
 
-    pub fn lookup_at<S>(
-        &self,
-        def_path: &DefPath,
-        key: &<S as Symbol>::SymbolKey,
-    ) -> Result<&S, SymbolError>
+    pub fn lookup_at<S>(&self, def_path: &DefPath) -> Result<&S, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
-        let key_component = Into::<DefPathComponent>::into(key.clone());
-        let component_def_path = def_path
-            .clone()
-            .with_component(key_component.clone())
-            .unwrap();
-        match self.defs.get(&component_def_path) {
+        match self.defs.get(&def_path) {
             Some(def) => return Ok(<&S>::from(DefResolver::new(&self.types, def))),
-            None => Err(SymbolError::Undefined(def_path.clone(), key_component)),
+            None => Err(SymbolError::Undefined(
+                def_path.clone(),
+                def_path.last().clone(),
+            )),
         }
     }
 
-    fn lookup_at_mut<S>(
-        &mut self,
-        def_path: &DefPath,
-        key: &<S as Symbol>::SymbolKey,
-    ) -> Result<&mut S, SymbolError>
+    fn lookup_at_mut<S>(&mut self, def_path: &DefPath) -> Result<&mut S, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
-        let key_component = Into::<DefPathComponent>::into(key.clone());
-        let component_def_path = def_path.clone().with_component(key_component.clone())?;
-        match self.defs.get_mut(&component_def_path) {
+        match self.defs.get_mut(&def_path) {
             Some(def) => return Ok(<&mut S>::from(MutDefResolver::new(&mut self.types, def))),
-            None => Err(SymbolError::Undefined(def_path.clone(), key_component)),
+            None => Err(SymbolError::Undefined(
+                def_path.clone(),
+                def_path.last().clone(),
+            )),
         }
     }
 }

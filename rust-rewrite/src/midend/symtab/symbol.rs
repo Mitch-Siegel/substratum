@@ -2,6 +2,7 @@ use crate::midend::symtab::*;
 
 pub mod function;
 pub mod implementation;
+pub mod import;
 pub mod module;
 pub mod scope;
 pub mod type_definition;
@@ -9,6 +10,7 @@ pub mod variable;
 
 pub use function::*;
 pub use implementation::*;
+pub use import::*;
 pub use module::*;
 pub use scope::*;
 pub use type_definition::*;
@@ -87,11 +89,12 @@ where
 pub enum SymbolDef {
     Module(Module),
     Type(TypeId),
+    Implementation(Implementation),
     Function(Function),
     Scope(Scope),
+    Import(Import),
     Variable(Variable),
     BasicBlock(ir::BasicBlock),
-    Implementation(Implementation),
 }
 
 impl std::fmt::Display for SymbolDef {
@@ -99,11 +102,12 @@ impl std::fmt::Display for SymbolDef {
         match self {
             Self::Module(module) => write!(f, "{}", module),
             Self::Type(id) => write!(f, "{}", id),
+            Self::Implementation(implementation) => write!(f, "{}", implementation),
             Self::Function(function) => write!(f, "{}", function.name()),
             Self::Scope(scope) => write!(f, "scope{}", scope),
+            Self::Import(import) => write!(f, "import {}", import),
             Self::Variable(variable) => write!(f, "{}", variable.name),
             Self::BasicBlock(block) => write!(f, "{}", block.label),
-            Self::Implementation(implementation) => write!(f, "{}", implementation),
         }
     }
 }

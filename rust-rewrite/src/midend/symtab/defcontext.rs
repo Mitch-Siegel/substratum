@@ -75,32 +75,24 @@ pub trait DefContext: std::fmt::Debug {
         self.symtab_mut().lookup_mut::<S>(&def_path, key)
     }
 
-    fn lookup_at<S>(
-        &self,
-        def_path: &DefPath,
-        key: &<S as Symbol>::SymbolKey,
-    ) -> Result<&S, SymbolError>
+    fn lookup_at<S>(&self, def_path: &DefPath) -> Result<&S, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
-        self.symtab().lookup_at::<S>(def_path, key)
+        self.symtab().lookup_at::<S>(def_path)
     }
 
-    fn lookup_at_mut<S>(
-        &mut self,
-        def_path: &DefPath,
-        key: &<S as Symbol>::SymbolKey,
-    ) -> Result<&mut S, SymbolError>
+    fn lookup_at_mut<S>(&mut self, def_path: &DefPath) -> Result<&mut S, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
-        self.symtab_mut().lookup_at_mut::<S>(def_path, key)
+        self.symtab_mut().lookup_at_mut::<S>(def_path)
     }
 
     // add a DefPathComponent for 'symbol' at the end of the current def path
@@ -135,8 +127,10 @@ pub trait DefContext: std::fmt::Debug {
             self.lookup_with_path::<TypeDefinition>(receiver_type)?;
 
         self.lookup_at::<Function>(
-            &receiver_type_definition_path,
-            &FunctionName { name: name.into() },
+            &receiver_type_definition_path
+                .clone()
+                .with_component(FunctionName { name: name.into() }.into())
+                .unwrap(),
         )
     }
 
