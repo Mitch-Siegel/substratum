@@ -30,13 +30,21 @@ pub struct SymbolTable {
     children: HashMap<DefPath, HashSet<DefPath>>,
 }
 
-impl SymbolTable {
-    pub fn new() -> Self {
+impl Default for SymbolTable {
+    fn default() -> Self {
         Self {
             types: TypeInterner::new(),
             defs: HashMap::new(),
             children: HashMap::new(),
         }
+    }
+}
+
+impl SymbolTable {
+    pub fn new() -> Self {
+        let mut symtab = Self::default();
+        intrinsics::create_intrinsics(&mut symtab);
+        symtab
     }
 
     pub fn id_for_type(
@@ -82,7 +90,11 @@ impl SymbolTable {
 
         match self.defs.insert(
             full_def_path.clone(),
-            Into::<SymbolDef>::into(DefGenerator::new(def_path.clone(), &mut self.types, symbol)),
+            Into::<SymbolDef>::into(DefGenerator::new(
+                full_def_path.clone(),
+                &mut self.types,
+                symbol,
+            )),
         ) {
             Some(already_defined) => Err(SymbolError::Defined(def_path)),
             None => Ok(full_def_path),

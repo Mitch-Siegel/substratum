@@ -78,6 +78,7 @@ impl Eq for TypeDefinition {}
 
 #[derive(Clone, Debug, PartialOrd, Ord, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TypeRepr {
+    Unit,
     UnsignedInteger(PrimitiveIntegerRepr),
     SignedInteger(PrimitiveIntegerRepr),
     Struct(StructRepr),
@@ -86,6 +87,7 @@ pub enum TypeRepr {
 impl TypeRepr {
     pub fn name(&self) -> String {
         match self {
+            Self::Unit => String::from("()"),
             Self::UnsignedInteger(repr) => format!("u{}", repr.size),
             Self::SignedInteger(repr) => format!("i{}", repr.size),
             Self::Struct(struct_repr) => struct_repr.name.clone(),
