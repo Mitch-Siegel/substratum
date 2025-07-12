@@ -8,7 +8,6 @@ use crate::{
     },
     trace,
 };
-use std::collections::HashMap;
 pub struct FunctionWalkContext {
     symtab: Box<symtab::SymbolTable>,
     // definition path from the root of the symbol table to this function
@@ -62,14 +61,14 @@ impl FunctionWalkContext {
         })
     }
 
-    fn new_subscope(&mut self) {
+    fn new_subscope(&mut self) -> Result<(), symtab::SymbolError> {
         self.relative_local_def_path.push(
             self.symtab
                 .insert::<symtab::Scope>(self.def_path(), symtab::Scope::new(0))
                 .unwrap()
                 .pop()
                 .unwrap(),
-        );
+        )
     }
 
     fn pop_current_scope(&mut self) -> Result<(), block_manager::BranchError> {
@@ -166,7 +165,8 @@ impl FunctionWalkContext {
             .unwrap();
         self.replace_current_block(false_block);
         self.pop_current_scope()?;
-        self.new_subscope();
+        // scope management should be automatic within this module
+        self.new_subscope().unwrap();
         Ok(())
     }
 
@@ -188,8 +188,7 @@ impl FunctionWalkContext {
         match self.pop_current_scope() {
             Ok(_) => Ok(()),
             Err(_) => Err(block_manager::BranchError::ScopeHandling),
-        };
-        Ok(())
+        }
     }
 
     // create an unconditional branch from the current block, transparently setting the current
@@ -218,7 +217,9 @@ impl FunctionWalkContext {
             .unwrap();
 
         self.replace_current_block(branched_to_block);
-        self.new_subscope();
+
+        // scope management should be automatic within this module
+        self.new_subscope().unwrap();
         Ok(())
     }
 
@@ -250,7 +251,8 @@ impl FunctionWalkContext {
             .unwrap();
 
         self.replace_current_block(true_block);
-        self.new_subscope();
+        // scope management should be automatic within this module
+        self.new_subscope().unwrap();
         Ok(())
     }
 

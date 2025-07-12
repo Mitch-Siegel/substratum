@@ -1,4 +1,4 @@
-use crate::midend::{symtab::*, types};
+//use crate::midend::{symtab::*, types};
 
 pub struct MutSymtabVisitor<C> {
     data: C,

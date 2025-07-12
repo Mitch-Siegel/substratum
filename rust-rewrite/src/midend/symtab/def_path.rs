@@ -1,4 +1,4 @@
-use crate::midend::{symtab::*, types};
+use crate::midend::symtab::*;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DefPathComponent {

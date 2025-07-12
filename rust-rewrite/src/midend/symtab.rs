@@ -1,14 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::{
-    midend::{
-        ir,
-        types::{self, Type},
-    },
-    trace,
-};
+use crate::{midend::ir, trace};
 pub use errors::*;
-pub use serde::Serialize;
 
 mod def_path;
 pub mod defcontext;
@@ -21,7 +14,7 @@ pub mod type_interner;
 pub use def_path::*;
 pub use defcontext::*;
 pub use symbol::*;
-pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
+//pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
 pub use type_interner::*;
 
 pub struct SymbolTable {
@@ -117,7 +110,7 @@ impl SymbolTable {
                 symbol,
             )),
         ) {
-            Some(already_defined) => Err(SymbolError::Defined(def_path)),
+            Some(_already_defined) => Err(SymbolError::Defined(def_path)),
             None => Ok(full_def_path),
         }
     }
@@ -290,6 +283,7 @@ impl SymbolTable {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 

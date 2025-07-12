@@ -1,5 +1,5 @@
 pub mod arch;
-use crate::{midend, trace};
+//use crate::{midend, trace};
 /*mod codegen;
 mod regalloc;
 

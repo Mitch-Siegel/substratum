@@ -1,7 +1,4 @@
-use crate::{
-    map_ooo_iter::*,
-    midend::{ir::*, symtab},
-};
+use crate::{map_ooo_iter::*, midend::ir::*};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 #[derive(Debug, Clone, Serialize)]

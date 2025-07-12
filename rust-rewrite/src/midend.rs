@@ -15,7 +15,7 @@ pub fn symbol_table_from_program(
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
     tracing::debug!("Linearize");
-    let mut symtab = linearizer::linearize(program);
+    let _symtab = linearizer::linearize(program);
 
     //tracing::debug!("collapse scopes");
     //symtab.collapse_scopes();

@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use serde::Serialize;
 
-use crate::midend::{ir::*, *};
+use crate::midend::ir::*;
 
 /*
  groupings of operands

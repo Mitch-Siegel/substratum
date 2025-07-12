@@ -1,4 +1,4 @@
-use crate::midend::{symtab::*, types::Type};
+use crate::midend::symtab::*;
 
 #[derive(PartialEq, Eq)]
 pub enum SymbolError {

@@ -1,13 +1,10 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt::Display;
 
 use crate::backend;
 use crate::midend::symtab;
 
-#[derive(
-    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, serde::Deserialize, Hash,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize, Hash)]
 pub enum Mutability {
     Mutable,
     Immutable,
@@ -59,7 +56,7 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn is_integral<C>(&self, context: &C) -> Result<bool, symtab::SymbolError> {
+    pub fn is_integral<C>(&self, _context: &C) -> Result<bool, symtab::SymbolError> {
         match self {
             Type::Unit => Ok(false),
             Type::U8
@@ -81,7 +78,7 @@ impl Type {
     // size of the type in bytes
     pub fn size<Target>(
         &self,
-        interner: &symtab::TypeInterner,
+        _interner: &symtab::TypeInterner,
     ) -> Result<usize, symtab::SymbolError>
     where
         Target: backend::arch::TargetArchitecture,
@@ -96,10 +93,17 @@ impl Type {
             Type::I16 => 2,
             Type::I32 => 4,
             Type::I64 => 8,
-            Type::GenericParam(param) => panic!("Can't size generic param {}", param),
+            Type::GenericParam(param) => {
+                unimplemented!("Sizing generic param  not supported yet (param {})", param)
+            }
             Type::_Self => panic!("Can't size Self type"),
             Type::Named(name) => panic!("Can't size named type {}", name),
-            Type::UserDefined(id) => unimplemented!(), /*interner.get_by_id(id).unwrap()*/
+            Type::UserDefined(id) => {
+                unimplemented!(
+                    "Sizing user-defined types not supported yet (type id {})",
+                    id
+                )
+            } /*interner.get_by_id(id).unwrap()*/
             Type::Reference(_, _) => Target::word_size(),
             Type::Pointer(_, _) => Target::word_size(),
         };
@@ -117,7 +121,7 @@ impl Type {
         }
     }
 
-    pub fn alignment<Target, C>(&self, context: &C) -> Result<usize, symtab::SymbolError>
+    pub fn alignment<Target, C>(&self, _context: &C) -> Result<usize, symtab::SymbolError>
     where
         Target: backend::arch::TargetArchitecture,
     {

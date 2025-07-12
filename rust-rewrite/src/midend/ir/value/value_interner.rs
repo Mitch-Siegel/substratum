@@ -1,4 +1,4 @@
-use crate::midend::{ir::value::*, ir::*, *};
+use crate::midend::ir::value::*;
 use std::collections::HashMap;
 
 pub struct ValueInterner {

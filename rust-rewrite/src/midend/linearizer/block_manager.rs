@@ -1,7 +1,6 @@
 use crate::{frontend::sourceloc::SourceLoc, midend::ir, trace};
 
-use serde::Serialize;
-use std::{collections::HashMap, fmt::Debug, thread::current, usize};
+use std::{collections::HashMap, fmt::Debug};
 
 pub mod block_convergences;
 mod branch_error;
@@ -45,10 +44,11 @@ impl BlockManager {
     // returns (Self, start_block)
     // where start_block is the first basic block in the function
     pub fn new() -> (Self, ir::BasicBlock) {
+        // set up the initlal convergence - must always end up at the end_block
         let start_block = ir::BasicBlock::new(0);
         let end_block = ir::BasicBlock::new(1);
         let mut convergences = BlockConvergences::new();
-        convergences.add(&[start_block.label], end_block);
+        convergences.add(&[start_block.label], end_block).unwrap();
 
         (
             Self {

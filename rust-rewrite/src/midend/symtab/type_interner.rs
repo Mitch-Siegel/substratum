@@ -1,4 +1,4 @@
-use crate::midend::symtab::*;
+use crate::midend::{symtab::*, types};
 use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -12,7 +12,7 @@ impl std::fmt::Display for TypeId {
     }
 }
 
-pub type GenericParams = Vec<Type>;
+pub type GenericParams = Vec<types::Type>;
 
 #[derive(PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct TypeKey {
@@ -51,7 +51,9 @@ impl TypeInterner {
         assert!(&def_path.is_type());
 
         let next_id = self.next_id();
-        let id = match self.ids.insert(TypeKey::new(def_path.clone()), next_id) {
+        // Ensure that we never overwrite any type
+        let overwritten_id = self.ids.insert(TypeKey::new(def_path.clone()), next_id);
+        match overwritten_id {
             Some(_) => return Err(SymbolError::Defined(def_path.clone())),
             None => next_id,
         };

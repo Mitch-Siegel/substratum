@@ -14,9 +14,10 @@ impl TargetArchitecture for RV64G {
         rv64g_registers()
     }
 
-    fn registers_required_for_argument(type_: &midend::types::Type) -> Option<usize> {
+    fn registers_required_for_argument(_type_: &midend::types::Type) -> Option<usize> {
         unimplemented!();
         //let size = type_.size::<Self, C>(context).unwrap();
+        /*
         let size = 123;
 
         let registers = Self::registers();
@@ -27,5 +28,7 @@ impl TargetArchitecture for RV64G {
         } else {
             None
         }
+        I
+        */
     }
 }

@@ -193,7 +193,7 @@ fn main() {
         println!("{}", t);
     }
 
-    let symtab = midend::symbol_table_from_program(program);
+    let _symtab = midend::symbol_table_from_program(program);
     //println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
     //println!("{:#?}", &symtab);
     //backend::do_backend(symtab);

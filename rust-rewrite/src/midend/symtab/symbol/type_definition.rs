@@ -1,11 +1,8 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    backend,
-    midend::{symtab::*, types},
-};
+use crate::midend::{symtab::*, types};
 
 pub mod struct_definition;
 

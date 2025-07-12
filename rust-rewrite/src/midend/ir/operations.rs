@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::{collections::HashMap, fmt::Display};
 
-use crate::midend::{ir::*, *};
+use crate::midend::ir::*;
 
 /// ## Binary Operations
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]

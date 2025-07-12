@@ -1,6 +1,6 @@
 use crate::{
     frontend::{ast::*, sourceloc::SourceLoc},
-    midend::{linearizer::*, symtab::DefContext, *},
+    midend::{linearizer::*, symtab::DefContext},
 };
 
 use name_derive::NameReflectable;
@@ -69,7 +69,7 @@ impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for Tran
 impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for ImplementationTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, mut context: symtab::BasicDefContext) -> symtab::BasicDefContext {
-        let implemented_for_type = self.type_.walk(&mut context);
+        let _implemented_for_type = self.type_.walk(&mut context);
 
         // TODO: modify context's type path
 
@@ -365,7 +365,7 @@ impl ValueWalk for IfExpressionTree {
         let if_value_id = self.true_block.walk(context);
 
         // create a separate, mutable value which contains the true result
-        let mut result_value = if_value_id.clone();
+        let result_value = if_value_id.clone();
 
         // if a false block exists AND the 'if' value exists
         if self.false_block.is_some() {
@@ -381,6 +381,7 @@ impl ValueWalk for IfExpressionTree {
 
         context.finish_true_branch_switch_to_false().unwrap();
 
+        // handle branch linearization and assignment to the result value
         match self.false_block {
             Some(else_block) => {
                 let else_value_id = else_block.walk(context);
@@ -466,7 +467,6 @@ impl<'a> ReturnFunctionWalk<'a, (ir::ValueId, &'a symtab::StructField)> for Fiel
             _ => panic!("unknown type of field receiver",),
         };
 
-        let def_path = context.def_path();
         let receiver_definition = context
             .lookup::<symtab::TypeDefinition>(&types::Type::Named(struct_name.clone()))
             .expect(&format!(
@@ -502,7 +502,6 @@ impl ValueWalk for MethodCallExpressionTree {
     fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         let receiver = self.receiver.walk(context);
 
-        let def_path = context.def_path();
         let receiver_type = context.type_for_value_id(&receiver).clone();
         let called_method = context
             .lookup_implemented_function(&receiver_type, &self.called_method)
