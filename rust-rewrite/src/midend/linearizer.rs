@@ -9,7 +9,7 @@ mod treewalk;
 pub use block_manager::BlockManager;
 pub use functionwalkcontext::FunctionWalkContext;
 
-pub fn linearize(program: Vec<frontend::ast::TranslationUnitTree>) -> Box<symtab::SymbolTable> {
+pub fn linearize(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {
     let symtab = symtab::SymbolTable::new();
     let mut context = symtab::BasicDefContext::new(Box::new(symtab));
     context
@@ -18,8 +18,8 @@ pub fn linearize(program: Vec<frontend::ast::TranslationUnitTree>) -> Box<symtab
             name: "example_module".into(),
         }))
         .unwrap();
-    for translation_unit in program {
-        context = translation_unit.walk(context);
+    for module in program {
+        context = module.walk(context);
     }
 
     context.take().unwrap().0

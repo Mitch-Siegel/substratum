@@ -7,15 +7,31 @@ pub trait AstName {
     fn ast_name(&self) -> String;
 }
 
+#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ModuleTree {
+    pub name: String,
+    pub items: Vec<Item>,
+}
+
+impl Display for ModuleTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Module {}", self.name)?;
+        for item in &self.items {
+            writeln!(f, " - {}", item)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum TranslationUnit {
+pub enum Item {
     FunctionDeclaration(FunctionDeclarationTree),
     FunctionDefinition(FunctionDefinitionTree),
     StructDefinition(StructDefinitionTree),
     Implementation(ImplementationTree),
 }
 
-impl Display for TranslationUnit {
+impl Display for Item {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::FunctionDeclaration(function_declaration) => {
@@ -31,22 +47,6 @@ impl Display for TranslationUnit {
                 write!(f, "Implementation: {}", implementation)
             }
         }
-    }
-}
-
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct TranslationUnitTree {
-    pub loc: SourceLoc,
-    pub contents: TranslationUnit,
-}
-impl TranslationUnitTree {
-    pub fn new(loc: SourceLoc, contents: TranslationUnit) -> Self {
-        Self { loc, contents }
-    }
-}
-impl Display for TranslationUnitTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Translation Unit: {}", self.contents)
     }
 }
 

@@ -129,6 +129,11 @@ fn kw_i64() {
 }
 
 #[test]
+fn kw_mod() {
+    kw_or_ident("mod", Token::Mod);
+}
+
+#[test]
 fn kw_fun() {
     kw_or_ident("fun", Token::Fun);
 }

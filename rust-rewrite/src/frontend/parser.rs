@@ -240,32 +240,49 @@ impl<'a> Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn parse(&mut self) -> Result<Vec<TranslationUnitTree>, ParseError> {
-        let mut translation_units = Vec::new();
+    pub fn parse(&mut self) -> Result<Vec<ModuleTree>, ParseError> {
+        let mut modules = Vec::new();
         while self.peek_token()? != Token::Eof {
-            translation_units.push(self.parse_translation_unit()?);
+            modules.push(self.parse_module()?);
         }
-        Ok(translation_units)
+        Ok(modules)
     }
 
-    fn parse_translation_unit(&mut self) -> Result<TranslationUnitTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("translation unit")?;
+    fn parse_module(&mut self) -> Result<ModuleTree, ParseError> {
+        let (start_loc, _) = self.start_parsing("module")?;
 
-        tracing::debug!("Parse translation unit starting at {}", start_loc);
+        tracing::debug!("Parse module starting at {}", start_loc);
+        let name = self.parse_identifier()?;
+        self.expect_token(Token::LCurly)?;
 
-        let translation_unit = TranslationUnitTree {
-            loc: start_loc,
-            contents: match self.peek_token()? {
-                Token::Fun => self.parse_function_declaration_or_definition()?,
-                Token::Struct => TranslationUnit::StructDefinition(self.parse_struct_definition()?),
-                Token::Impl => TranslationUnit::Implementation(self.parse_implementation()?),
+        let mut items = Vec::<Item>::new();
+        loop {
+            match self.peek_token()? {
+                Token::Fun => {
+                    let function_definition_item =
+                        self.parse_function_declaration_or_definition()?;
+                    items.push(function_definition_item);
+                }
+                Token::Struct => {
+                    let struct_definition = self.parse_struct_definition()?;
+                    let struct_definition_item = Item::StructDefinition(struct_definition);
+                    items.push(struct_definition_item);
+                }
+                Token::Impl => {
+                    let implementation = self.parse_implementation()?;
+                    let impl_item = Item::Implementation(implementation);
+                    items.push(impl_item);
+                }
+                Token::RCurly => break,
                 _ => self.unexpected_token(&[Token::Fun, Token::Struct])?,
-            },
-        };
+            }
+        }
+        self.expect_token(Token::RCurly)?;
 
-        self.finish_parsing(&translation_unit)?;
+        let module_tree = ModuleTree { name, items };
+        self.finish_parsing(&module_tree)?;
 
-        Ok(translation_unit)
+        Ok(module_tree)
     }
 
     fn parse_statement(&mut self) -> Result<StatementTree, ParseError> {

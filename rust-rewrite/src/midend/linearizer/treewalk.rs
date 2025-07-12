@@ -29,39 +29,54 @@ pub trait CustomReturnWalk<C, U> {
     fn walk(self, context: C) -> U;
 }
 
-impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for TranslationUnitTree {
+impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for ModuleTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, mut context: symtab::BasicDefContext) -> symtab::BasicDefContext {
-        match self.contents {
-            TranslationUnit::FunctionDeclaration(function_declaration) => {
-                unimplemented!(
-                    "Function declaration without definitions not yet supported: {}",
-                    function_declaration.name
-                );
-                /*
-                let function_context = FunctionWalkContext::new(context);
-                let declared_function = function_declaration.walk(function_context);
+        context
+            .def_path_mut()
+            .push(symtab::DefPathComponent::Module(symtab::ModuleName {
+                name: self.name.clone(),
+            }))
+            .unwrap();
 
-                    function_declaration.walk(&mut WalkContext::new(&context.global_scope));
-                context.insert_function_prototype(declared_function);*/
-            }
-            TranslationUnit::FunctionDefinition(function_definition) => {
-                context = function_definition.walk(context);
-            }
-            TranslationUnit::StructDefinition(struct_definition) => {
-                let struct_repr = struct_definition.walk(&mut context);
-                context
-                    .insert::<symtab::TypeDefinition>(symtab::TypeDefinition::new(
-                        types::Type::Named(struct_repr.name.clone()),
-                        symtab::TypeRepr::Struct(struct_repr),
-                    ))
-                    .unwrap();
-            }
-            TranslationUnit::Implementation(implementation) => {
-                context = implementation.walk(context);
+        for item in self.items {
+            match item {
+                Item::FunctionDeclaration(function_declaration) => {
+                    unimplemented!(
+                        "Function declaration without definitions not yet supported: {}",
+                        function_declaration.name
+                    );
+                    /*
+                    let function_context = FunctionWalkContext::new(context);
+                    let declared_function = function_declaration.walk(function_context);
+
+                        function_declaration.walk(&mut WalkContext::new(&context.global_scope));
+                    context.insert_function_prototype(declared_function);*/
+                }
+                Item::FunctionDefinition(function_definition) => {
+                    context = function_definition.walk(context);
+                }
+                Item::StructDefinition(struct_definition) => {
+                    let struct_repr = struct_definition.walk(&mut context);
+                    context
+                        .insert::<symtab::TypeDefinition>(symtab::TypeDefinition::new(
+                            types::Type::Named(struct_repr.name.clone()),
+                            symtab::TypeRepr::Struct(struct_repr),
+                        ))
+                        .unwrap();
+                }
+                Item::Implementation(implementation) => {
+                    context = implementation.walk(context);
+                }
             }
         }
 
+        assert_eq!(
+            context.def_path_mut().pop(),
+            Some(symtab::DefPathComponent::Module(symtab::ModuleName {
+                name: self.name
+            })),
+        );
         context
     }
 }

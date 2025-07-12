@@ -58,16 +58,14 @@ impl<'a> Parser<'a> {
         Ok(declaration)
     }
 
-    pub fn parse_function_declaration_or_definition(
-        &mut self,
-    ) -> Result<TranslationUnit, ParseError> {
+    pub fn parse_function_declaration_or_definition(&mut self) -> Result<Item, ParseError> {
         let (_start_loc, _) = self.start_parsing("function declaration/definition")?;
 
         let prototype = self.parse_function_prototype(false)?;
 
         let decl_or_def = match self.parse_function_definition(prototype.clone()) {
-            Ok(definition) => TranslationUnit::FunctionDefinition(definition),
-            Err(_) => TranslationUnit::FunctionDeclaration(prototype),
+            Ok(definition) => Item::FunctionDefinition(definition),
+            Err(_) => Item::FunctionDeclaration(prototype),
         };
 
         self.finish_parsing(&decl_or_def)?;
@@ -383,29 +381,25 @@ fun declared_and_defined() {}",
 
         assert_eq!(
             p.parse_function_declaration_or_definition(),
-            Ok(TranslationUnit::FunctionDeclaration(
-                FunctionDeclarationTree::new(
-                    SourceLoc::new(1, 1),
-                    "declared_only".into(),
-                    vec![],
-                    None,
-                )
-            ))
+            Ok(Item::FunctionDeclaration(FunctionDeclarationTree::new(
+                SourceLoc::new(1, 1),
+                "declared_only".into(),
+                vec![],
+                None,
+            )))
         );
 
         assert_eq!(
             p.parse_function_declaration_or_definition(),
-            Ok(TranslationUnit::FunctionDefinition(
-                FunctionDefinitionTree::new(
-                    FunctionDeclarationTree::new(
-                        SourceLoc::new(2, 1),
-                        "declared_and_defined".into(),
-                        vec![],
-                        None,
-                    ),
-                    CompoundExpressionTree::new(SourceLoc::new(2, 28), vec![],)
-                )
-            ))
+            Ok(Item::FunctionDefinition(FunctionDefinitionTree::new(
+                FunctionDeclarationTree::new(
+                    SourceLoc::new(2, 1),
+                    "declared_and_defined".into(),
+                    vec![],
+                    None,
+                ),
+                CompoundExpressionTree::new(SourceLoc::new(2, 28), vec![],)
+            )))
         );
     }
 
