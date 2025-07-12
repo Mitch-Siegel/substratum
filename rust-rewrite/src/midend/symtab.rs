@@ -36,28 +36,8 @@ impl Default for SymbolTable {
 impl SymbolTable {
     pub fn new() -> Self {
         let mut symtab = Self::default();
-        intrinsics::create_intrinsics(&mut symtab);
+        intrinsics::create_core(&mut symtab);
 
-        let implicit_module_path = symtab
-            .insert(DefPath::empty(), Module::new("implicit".into()))
-            .unwrap();
-
-        symtab
-            .insert(
-                implicit_module_path,
-                Import::new(
-                    "intrinsics".into(),
-                    DefPath::empty()
-                        .with_component(
-                            ModuleName {
-                                name: "intrinsics".into(),
-                            }
-                            .into(),
-                        )
-                        .unwrap(),
-                ),
-            )
-            .unwrap();
         symtab
     }
 
@@ -294,7 +274,9 @@ mod tests {
         assert_eq!(
             symtab.insert(DefPath::empty(), Module::new("test_mod".into())),
             Ok(DefPath::empty()
-                .with_component(DefPathComponent::Module(ModuleName("test_mod".into())))
+                .with_component(DefPathComponent::Module(ModuleName {
+                    name: "test_mod".into()
+                }))
                 .unwrap())
         );
 

@@ -1,16 +1,16 @@
 use crate::midend::{symtab::*, types};
 
-fn create_intrinsic_types(symtab: &mut SymbolTable) {
-    let intrinsic_base_def_path = DefPath::empty()
+fn create_core_types(symtab: &mut SymbolTable) {
+    let core_def_path = DefPath::empty()
         .with_component(DefPathComponent::Module(ModuleName {
-            name: "intrinsics".into(),
+            name: "core".into(),
         }))
         .unwrap();
 
     {
         let unit_definition = TypeDefinition::new(types::Type::Unit, TypeRepr::Unit);
         symtab
-            .insert(intrinsic_base_def_path.clone(), unit_definition)
+            .insert(core_def_path.clone(), unit_definition)
             .unwrap();
     }
 
@@ -26,7 +26,7 @@ fn create_intrinsic_types(symtab: &mut SymbolTable) {
         );
 
         symtab
-            .insert(intrinsic_base_def_path.clone(), unsigned_definition)
+            .insert(core_def_path.clone(), unsigned_definition)
             .unwrap();
     }
 
@@ -42,11 +42,31 @@ fn create_intrinsic_types(symtab: &mut SymbolTable) {
         );
 
         symtab
-            .insert(intrinsic_base_def_path.clone(), signed_definition)
+            .insert(core_def_path.clone(), signed_definition)
             .unwrap();
     }
 }
 
-pub fn create_intrinsics(symtab: &mut SymbolTable) {
-    create_intrinsic_types(symtab);
+pub fn create_core(symtab: &mut SymbolTable) {
+    let core_module_path = symtab
+        .insert(DefPath::empty(), Module::new("implicit".into()))
+        .unwrap();
+    symtab
+        .insert(
+            core_module_path,
+            Import::new(
+                "core".into(),
+                DefPath::empty()
+                    .with_component(
+                        ModuleName {
+                            name: "core".into(),
+                        }
+                        .into(),
+                    )
+                    .unwrap(),
+            ),
+        )
+        .unwrap();
+
+    create_core_types(symtab);
 }
