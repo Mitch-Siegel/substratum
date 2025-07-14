@@ -291,9 +291,9 @@ impl<'a> Parser<'a> {
                     Token::LCurly => {
                         let ModuleResult {
                             module_tree,
-                            module_worklist: child_worklist,
+                            module_worklist: mut child_worklist,
                         } = self.parse_module_item()?;
-                        module_worklist.union(&child_worklist);
+                        module_worklist.append(&mut child_worklist);
                         items.push(Item::Module(module_tree));
                     }
                     Token::Semicolon => {

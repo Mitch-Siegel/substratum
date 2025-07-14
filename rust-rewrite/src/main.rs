@@ -198,17 +198,19 @@ fn main() {
         let filename_to_parse = module_worklist.pop_last().unwrap();
         let filepath_to_parse = std::path::Path::new(&filename_to_parse);
         let input_file = std::fs::File::open(filename_to_parse.clone()).unwrap();
-        let mut parser = frontend::parser::Parser::new(frontend::Lexer::from_file(
+        let mut parser = frontend::Parser::new(frontend::Lexer::from_file(
             &filepath_to_parse,
             std::fs::File::from(input_file),
         ));
 
         let frontend::parser::ModuleResult {
             module_tree,
-            module_worklist,
+            module_worklist: mut parsed_worklist,
         } = parser
             .parse()
             .expect(&format!("Error in file {}", filename_to_parse));
+
+        module_worklist.append(&mut parsed_worklist);
 
         for t in &module_tree.items {
             println!("{}", t);
