@@ -177,10 +177,10 @@ impl<'a> Parser<'a> {
         let self_argument = if exists {
             Some(if reference {
                 ArgumentDeclarationTree::new(
-                    start_loc,
+                    start_loc.clone(),
                     "self".into(),
                     TypeTree::new(
-                        start_loc,
+                        start_loc.clone(),
                         midend::types::Type::Reference(
                             mutable.into(),
                             Box::from(midend::types::Type::_Self),
@@ -190,7 +190,7 @@ impl<'a> Parser<'a> {
                 )
             } else {
                 ArgumentDeclarationTree::new(
-                    start_loc,
+                    start_loc.clone(),
                     "self".into(),
                     TypeTree::new(start_loc, midend::types::Type::_Self),
                     mutable,

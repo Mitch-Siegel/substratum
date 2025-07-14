@@ -9,11 +9,11 @@ mod optimization;
 pub mod symtab;
 pub mod types;
 
-pub fn symbol_table_from_program(program: Vec<frontend::ast::ModuleTree>) -> symtab::SymbolTable {
+pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> symtab::SymbolTable {
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
     tracing::debug!("Linearize");
-    let _symtab = linearizer::linearize(program);
+    let _symtab = linearizer::linearize(modules);
 
     //tracing::debug!("collapse scopes");
     //symtab.collapse_scopes();

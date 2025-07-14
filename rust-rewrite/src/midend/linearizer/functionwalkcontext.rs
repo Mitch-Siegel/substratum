@@ -296,7 +296,7 @@ impl FunctionWalkContext {
                     symtab
                         .lookup_mut::<ir::BasicBlock>(&def_path, current_block)
                         .unwrap(),
-                    loc,
+                    loc.clone(),
                 )
                 .unwrap();
             // make our current block loop_bottom

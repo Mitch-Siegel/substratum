@@ -150,7 +150,7 @@ impl<'a> Parser<'a> {
         };
 
         let if_expression = ExpressionTree {
-            loc: start_loc,
+            loc: start_loc.clone(),
             expression: Expression::If(Box::new(IfExpressionTree {
                 loc: start_loc,
                 condition,
@@ -176,7 +176,7 @@ impl<'a> Parser<'a> {
         let body = self.parse_block_expression()?;
 
         let while_loop = WhileExpressionTree {
-            loc: start_loc,
+            loc: start_loc.clone(),
             condition,
             body,
         };
@@ -194,12 +194,12 @@ impl<'a> Parser<'a> {
         lhs: ExpressionTree,
     ) -> Result<ExpressionTree, ParseError> {
         self.start_parsing("method call expression")?;
-        let start_loc = lhs.loc;
+        let start_loc = lhs.loc.clone();
 
         self.expect_token(Token::Dot)?;
 
         let method_call_expression = MethodCallExpressionTree::new(
-            start_loc,
+            start_loc.clone(),
             lhs,
             self.parse_identifier()?,
             self.parse_call_params(true)?,
@@ -218,10 +218,11 @@ impl<'a> Parser<'a> {
         lhs: ExpressionTree,
     ) -> Result<ExpressionTree, ParseError> {
         self.start_parsing("field expression")?;
-        let start_loc = lhs.loc;
+        let start_loc = lhs.loc.clone();
 
         self.expect_token(Token::Dot)?;
-        let field_expression = FieldExpressionTree::new(start_loc, lhs, self.parse_identifier()?);
+        let field_expression =
+            FieldExpressionTree::new(start_loc.clone(), lhs, self.parse_identifier()?);
 
         let expression_tree = ExpressionTree::new(
             start_loc,
@@ -256,13 +257,13 @@ impl<'a> Parser<'a> {
         lhs: ExpressionTree,
     ) -> Result<ExpressionTree, ParseError> {
         self.start_parsing("assignment (rhs)")?;
-        let start_loc = lhs.loc;
+        let start_loc = lhs.loc.clone();
 
         self.expect_token(Token::Assign)?;
 
         let rhs = self.parse_expression()?;
 
-        let assignment = AssignmentTree::new(start_loc, lhs, rhs);
+        let assignment = AssignmentTree::new(start_loc.clone(), lhs, rhs);
 
         let expression_tree = ExpressionTree::new(start_loc, Expression::Assignment(assignment));
         self.finish_parsing(&expression_tree)?;
@@ -275,7 +276,7 @@ impl<'a> Parser<'a> {
         min_precedence: usize,
     ) -> Result<ExpressionTree, ParseError> {
         self.start_parsing(&format!("expression (min precedence: {})", min_precedence))?;
-        let start_loc = lhs.loc;
+        let start_loc = lhs.loc.clone();
 
         let mut expr = lhs;
         while Self::token_is_operator_of_at_least_precedence(&self.peek_token()?, min_precedence) {
@@ -297,7 +298,7 @@ impl<'a> Parser<'a> {
                 e2: Box::new(rhs),
             };
             expr = ExpressionTree {
-                loc: start_loc,
+                loc: start_loc.clone(),
                 expression: match operation {
                     Token::Plus => Expression::Arithmetic(ArithmeticExpressionTree::Add(operands)),
                     Token::Minus => {

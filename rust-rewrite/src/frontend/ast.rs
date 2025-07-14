@@ -29,6 +29,7 @@ pub enum Item {
     FunctionDefinition(FunctionDefinitionTree),
     StructDefinition(StructDefinitionTree),
     Implementation(ImplementationTree),
+    Module(ModuleTree),
 }
 
 impl Display for Item {
@@ -45,6 +46,9 @@ impl Display for Item {
             }
             Self::Implementation(implementation) => {
                 write!(f, "Implementation: {}", implementation)
+            }
+            Self::Module(module) => {
+                write!(f, "Module: {}", module)
             }
         }
     }

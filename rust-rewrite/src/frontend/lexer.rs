@@ -17,22 +17,24 @@ pub use errors::LexError;
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
+    cur_file: String, // TODO: needs to become PathBuf at some point
+    char_source: CharSource<'a>,
     cur_line: usize,
     cur_col: usize,
     current_char: Option<char>,
     current_token: Option<(Token, SourceLoc)>,
-    char_source: CharSource<'a>,
 }
 
 // public methods:
 impl<'a> Lexer<'a> {
-    pub fn from_char_source(mut char_source: CharSource<'a>) -> Self {
+    pub fn from_char_source(file: &std::path::Path, mut char_source: CharSource<'a>) -> Self {
         let first_char = char_source.next();
 
         let start_line = if first_char == Some('\n') { 2 } else { 1 };
         let start_col = 1;
 
         let created = Self {
+            cur_file: file.to_str().unwrap().into(),
             cur_line: start_line,
             cur_col: start_col,
             current_char: first_char,
@@ -43,12 +45,15 @@ impl<'a> Lexer<'a> {
         created
     }
 
-    pub fn from_file(f: std::fs::File) -> Self {
-        Self::from_char_source(CharSource::from_file(f))
+    pub fn from_file(file_name: &std::path::Path, f: std::fs::File) -> Self {
+        Self::from_char_source(file_name, CharSource::from_file(f))
     }
 
     pub fn from_string(s: &'a str) -> Self {
-        Self::from_char_source(CharSource::from_str(s))
+        Self::from_char_source(
+            std::path::Path::new(&String::new()),
+            CharSource::from_str(s),
+        )
     }
 
     pub fn peek(&mut self) -> Result<(Token, SourceLoc), LexError> {
@@ -56,10 +61,14 @@ impl<'a> Lexer<'a> {
             self.current_token = Some(self.lex()?);
         }
 
-        let peeked = self
-            .current_token
-            .clone()
-            .unwrap_or((Token::Eof, SourceLoc::new(self.cur_line, self.cur_col)));
+        let peeked = self.current_token.clone().unwrap_or((
+            Token::Eof,
+            SourceLoc::new(
+                std::path::Path::new(&self.cur_file),
+                self.cur_line,
+                self.cur_col,
+            ),
+        ));
 
         #[cfg(feature = "loud_lexing")]
         println!("Lexer::peek() -> {:?}", peeked);
@@ -69,16 +78,24 @@ impl<'a> Lexer<'a> {
 
     // returns the position to which the input has been read
     pub fn current_loc(&self) -> SourceLoc {
-        SourceLoc::new(self.cur_line, self.cur_col)
+        SourceLoc::new(
+            std::path::Path::new(&self.cur_file),
+            self.cur_line,
+            self.cur_col,
+        )
     }
 
     pub fn next(&mut self) -> Result<(Token, SourceLoc), LexError> {
         let _ = trace::span_auto!(tracing::Level::TRACE, "");
         let next_token = self.lex()?;
-        Ok(self
-            .current_token
-            .replace(next_token)
-            .unwrap_or((Token::Eof, SourceLoc::new(self.cur_line, self.cur_col))))
+        Ok(self.current_token.replace(next_token).unwrap_or((
+            Token::Eof,
+            SourceLoc::new(
+                std::path::Path::new(&self.cur_file),
+                self.cur_line,
+                self.cur_col,
+            ),
+        )))
     }
 
     pub fn lex_all(&mut self) -> Result<Vec<(Token, SourceLoc)>, LexError> {
@@ -223,7 +240,11 @@ impl<'a> Lexer<'a> {
         println!("Lexer::lex()");
 
         self.trim_whitespace();
-        let match_start = SourceLoc::new(self.cur_line, self.cur_col);
+        let match_start = SourceLoc::new(
+            std::path::Path::new(&self.cur_file),
+            self.cur_line,
+            self.cur_col,
+        );
 
         let token = if let Some(peeked_char) = self.peek_char() {
             match peeked_char {

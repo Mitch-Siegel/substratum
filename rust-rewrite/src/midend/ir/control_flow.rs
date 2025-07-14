@@ -87,12 +87,13 @@ impl ControlFlow {
         let mut graphviz_string = String::from("digraph {\n");
 
         for (label, block) in self.blocks_postorder() {
+            let loc_none = SourceLoc::none();
             let block_loc = block
                 .into_iter()
                 .filter(|&statement| statement.loc.valid())
-                .map(|statement| statement.loc)
+                .map(|statement| &statement.loc)
                 .next()
-                .unwrap_or(SourceLoc::none());
+                .unwrap_or(&loc_none);
             graphviz_string += &format!("{}[label=\"{}at{}\"];\n", label, label, block_loc);
             for successor in self.successors(&label).unwrap() {
                 graphviz_string += &format!("{}->{};", label, *successor);

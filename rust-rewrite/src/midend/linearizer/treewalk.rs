@@ -68,6 +68,9 @@ impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for Modu
                 Item::Implementation(implementation) => {
                     context = implementation.walk(context);
                 }
+                Item::Module(module) => {
+                    context = module.walk(context);
+                }
             }
         }
 
@@ -367,7 +370,7 @@ impl ValueWalk for IfExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         // FUTURE: optimize condition walk to use different jumps
-        let condition_loc = self.condition.loc;
+        let condition_loc = self.condition.loc.clone();
         let condition_result: ir::ValueId = self.condition.walk(context).into();
         let if_condition = ir::JumpCondition::NE(ir::operands::DualSourceOperands::new(
             condition_result,
@@ -375,7 +378,7 @@ impl ValueWalk for IfExpressionTree {
         ));
 
         context
-            .conditional_branch_from_current(condition_loc, if_condition)
+            .conditional_branch_from_current(condition_loc.clone(), if_condition)
             .unwrap();
         let if_value_id = self.true_block.walk(context);
 
@@ -388,7 +391,7 @@ impl ValueWalk for IfExpressionTree {
             let result_value_type = context.type_for_value_id(&result_value).clone();
             let result_value = context.next_temp(Some(result_value_type));
             let assign_if_result_line =
-                ir::IrLine::new_assignment(self.loc, result_value, if_value_id);
+                ir::IrLine::new_assignment(self.loc.clone(), result_value, if_value_id);
             context
                 .append_statement_to_current_block(assign_if_result_line)
                 .unwrap();
@@ -414,7 +417,7 @@ impl ValueWalk for IfExpressionTree {
                 // if the 'else' value exists (have already passed check to assert types are the same)
                 // copy the 'else' result to the common result_value at the end of the 'else' block
                 let assign_else_result_line = ir::IrLine::new_assignment(
-                    self.loc,
+                    self.loc.clone(),
                     result_value.clone().into(),
                     else_value_id,
                 );
@@ -434,11 +437,11 @@ impl ValueWalk for IfExpressionTree {
 impl ValueWalk for WhileExpressionTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
-        let loop_done_label = context.create_loop(self.loc).unwrap();
+        let loop_done_label = context.create_loop(self.loc.clone()).unwrap();
 
         let condition = self.condition.walk(context);
         let loop_condition_jump = ir::IrLine::new_jump(
-            self.loc,
+            self.loc.clone(),
             loop_done_label,
             ir::JumpCondition::Eq(ir::DualSourceOperands::new(
                 condition.into(),
@@ -450,11 +453,13 @@ impl ValueWalk for WhileExpressionTree {
             .append_jump_to_current_block(loop_condition_jump)
             .unwrap();
 
-        context.unconditional_branch_from_current(self.loc).unwrap();
+        context
+            .unconditional_branch_from_current(self.loc.clone())
+            .unwrap();
         self.body.walk(context);
         context.finish_branch().unwrap();
 
-        context.finish_loop(self.loc, Vec::new()).unwrap();
+        context.finish_loop(self.loc.clone(), Vec::new()).unwrap();
 
         context.unit_value_id()
     }

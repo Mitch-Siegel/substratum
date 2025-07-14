@@ -118,7 +118,7 @@ impl BlockManager {
             convergence_block.label
         );
 
-        let conditional_jump = ir::IrLine::new_jump(loc, true_block.label, jump_condition);
+        let conditional_jump = ir::IrLine::new_jump(loc.clone(), true_block.label, jump_condition);
         from_block.statements.push(conditional_jump);
         let unconditional_jump = ir::IrLine::new_jump(
             loc,
@@ -222,14 +222,14 @@ impl BlockManager {
         );
 
         let loop_entry = ir::IrLine::new_jump(
-            loc,
+            loc.clone(),
             loop_top.label,
             ir::operands::JumpCondition::Unconditional,
         );
         before_loop_block.statements.push(loop_entry);
 
         let loop_jump = ir::IrLine::new_jump(
-            loc,
+            loc.clone(),
             loop_top.label,
             ir::operands::JumpCondition::Unconditional,
         );

@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::collections::BTreeSet;
+
 mod trace;
 
 mod backend;
@@ -9,7 +11,6 @@ mod midend;
 mod map_ooo_iter;
 
 //use backend::generate_code;
-use frontend::{lexer::Lexer, parser::Parser};
 
 const FIB_FUN: &str = "fun fib(u8 n) -> u64
 {
@@ -148,6 +149,8 @@ fn main() {
     let mut args_without_executable = std::env::args().map(|arg| arg).collect::<Vec<_>>();
     args_without_executable.remove(0);
 
+    let mut input_file = String::new();
+
     // TODO: real argument parsing
     for argument in args_without_executable {
         match argument.as_str() {
@@ -158,7 +161,7 @@ fn main() {
             "trace_level_info" => arguments.trace_level = tracing::Level::INFO,
             "trace_level_warn" => arguments.trace_level = tracing::Level::WARN,
             "trace_level_error" => arguments.trace_level = tracing::Level::ERROR,
-            _ => panic!("Invalid argument '{}'", argument),
+            input_file_argument => input_file = input_file_argument.into(),
         }
         println!("{}", argument);
     }
@@ -186,14 +189,35 @@ fn main() {
         }
     }
 
-    let mut parser = Parser::new(Lexer::from_string(WHILE_LOOP));
-    let program = parser.parse().expect("Error parsing input");
+    assert!(input_file.len() > 0, "Input file must be provided!");
+    let mut module_worklist = BTreeSet::<String>::new();
+    module_worklist.insert(input_file);
+    let mut modules = Vec::<frontend::ast::ModuleTree>::new();
 
-    for t in &program {
-        println!("{}", t);
+    while module_worklist.len() > 0 {
+        let filename_to_parse = module_worklist.pop_last().unwrap();
+        let filepath_to_parse = std::path::Path::new(&filename_to_parse);
+        let input_file = std::fs::File::open(filename_to_parse.clone()).unwrap();
+        let mut parser = frontend::parser::Parser::new(frontend::Lexer::from_file(
+            &filepath_to_parse,
+            std::fs::File::from(input_file),
+        ));
+
+        let frontend::parser::ModuleResult {
+            module_tree,
+            module_worklist,
+        } = parser
+            .parse()
+            .expect(&format!("Error in file {}", filename_to_parse));
+
+        for t in &module_tree.items {
+            println!("{}", t);
+        }
+
+        modules.push(module_tree);
     }
 
-    let _symtab = midend::symbol_table_from_program(program);
+    let _symtab = midend::symbol_table_from_modules(modules);
     //println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
     //println!("{:#?}", &symtab);
     //backend::do_backend(symtab);

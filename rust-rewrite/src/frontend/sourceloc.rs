@@ -2,42 +2,49 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceLoc {
-    file: std::rc::Rc<std::path::PathBuf>,
-    line: usize,
-    col: usize,
+    pub path: String,
+    pub module: String,
+    pub line: usize,
+    pub col: usize,
 }
 
 impl SourceLoc {
     pub fn none() -> Self {
         SourceLoc {
-            file: std::rc::Rc::new(std::path::Path::new("").into()),
+            path: "".into(),
+            module: "".into(),
             line: 0,
             col: 0,
         }
     }
 
-    pub fn new(file: std::rc::Rc<std::path::PathBuf>, line: usize, col: usize) -> Self {
-        SourceLoc { file, line, col }
+    pub fn new(path: &std::path::Path, line: usize, col: usize) -> Self {
+        SourceLoc {
+            path: path.to_str().unwrap().into(),
+            module: path.file_name().unwrap().to_str().unwrap().into(),
+            line,
+            col,
+        }
+    }
+
+    pub fn with_new_position(mut self, line: usize, col: usize) -> Self {
+        self.line = line;
+        self.col = col;
+        self
     }
 
     pub fn as_string(&self) -> String {
-        String::from(format!(
-            "{} - {}:{}",
-            self.file.display(),
-            self.line,
-            self.col
-        ))
+        String::from(format!("{} - {}:{}", self.module, self.line, self.col))
     }
 
     pub fn valid(&self) -> bool {
         self.line != 0 && self.col != 0
     }
 
-    pub fn module(&self) -> String {
-        let file_name = self.file.file_name().unwrap();
-        file_name.to_str().unwrap().into()
+    pub fn module(&self) -> &str {
+        &self.module
     }
 }
 
