@@ -98,19 +98,20 @@ pub trait DefContext: std::fmt::Debug {
     // add a DefPathComponent for 'symbol' at the end of the current def path
     fn insert<S>(&mut self, symbol: S) -> Result<DefPath, SymbolError>
     where
-        S: Symbol,
+        S: Symbol + std::fmt::Debug,
         for<'a> &'a S: From<DefResolver<'a>>,
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
         let def_path = self.def_path();
+        println!("insert {:?} at \"{:?}\"", symbol, def_path);
         let symtab_mut = self.symtab_mut();
         symtab_mut.insert::<S>(def_path, symbol)
     }
 
     fn insert_at<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
     where
-        S: Symbol,
+        S: Symbol + std::fmt::Debug,
         for<'a> &'a S: From<DefResolver<'a>>,
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,

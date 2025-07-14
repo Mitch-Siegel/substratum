@@ -189,6 +189,13 @@ impl DefPath {
         }
     }
 
+    pub fn is_module(&self) -> bool {
+        match self.last() {
+            DefPathComponent::Module(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn with_component(mut self, component: DefPathComponent) -> Result<Self, SymbolError> {
         self.push(component)?;
         Ok(self)
@@ -209,13 +216,11 @@ impl DefPath {
 
 impl std::fmt::Display for DefPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut first = true;
-        for component in &self.components {
+        for (index, component) in self.components.iter().enumerate() {
             write!(f, "{}", component)?;
-            if !first {
+            if index < (self.components.len() - 1) {
                 write!(f, "::")?;
             }
-            first = false;
         }
         Ok(())
     }

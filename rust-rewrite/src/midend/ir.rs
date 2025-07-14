@@ -8,7 +8,7 @@ pub mod value;
 use std::collections::BTreeSet;
 use std::fmt::Display;
 
-use crate::frontend::sourceloc::SourceLoc;
+use crate::frontend::sourceloc::SourceLocWithMod;
 use crate::midend::{ir, symtab};
 use serde::Serialize;
 
@@ -19,7 +19,7 @@ pub use value::*;
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct IrLine {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub operation: Operations,
 }
 
@@ -93,23 +93,23 @@ impl<'a> IntoIterator for &'a mut BasicBlock {
 }
 
 impl IrLine {
-    fn new(loc: SourceLoc, operation: Operations) -> Self {
+    fn new(loc: SourceLocWithMod, operation: Operations) -> Self {
         IrLine {
             loc: loc,
             operation: operation,
         }
     }
 
-    pub fn new_assignment(loc: SourceLoc, destination: ValueId, source: ValueId) -> Self {
+    pub fn new_assignment(loc: SourceLocWithMod, destination: ValueId, source: ValueId) -> Self {
         Self::new(loc, Operations::new_assignment(destination, source))
     }
 
-    pub fn new_binary_op(loc: SourceLoc, op: BinaryOperations) -> Self {
+    pub fn new_binary_op(loc: SourceLocWithMod, op: BinaryOperations) -> Self {
         Self::new(loc, Operations::BinaryOperation(op))
     }
 
     pub fn new_jump(
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
         destination_block: usize,
         condition: operands::JumpCondition,
     ) -> Self {
@@ -117,7 +117,7 @@ impl IrLine {
     }
 
     pub fn new_function_call(
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
         name: &str,
         arguments: OrderedArgumentList,
         return_value_to: Option<ValueId>,
@@ -129,7 +129,7 @@ impl IrLine {
     }
 
     pub fn new_method_call(
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
         receiver: ValueId,
         name: &str,
         arguments: OrderedArgumentList,
@@ -142,7 +142,7 @@ impl IrLine {
     }
 
     pub fn new_field_read(
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
         receiver: ValueId,
         field_name: String,
         destination: ValueId,
@@ -155,7 +155,7 @@ impl IrLine {
 
     pub fn new_field_write(
         source: ValueId,
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
         receiver: ValueId,
         field_name: String,
     ) -> Self {

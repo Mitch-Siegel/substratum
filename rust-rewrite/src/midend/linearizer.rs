@@ -12,13 +12,8 @@ pub use functionwalkcontext::FunctionWalkContext;
 pub fn linearize(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {
     let symtab = symtab::SymbolTable::new();
     let mut context = symtab::BasicDefContext::new(Box::new(symtab));
-    context
-        .def_path_mut()
-        .push(symtab::DefPathComponent::Module(symtab::ModuleName {
-            name: "example_module".into(),
-        }))
-        .unwrap();
     for module in program {
+        trace::trace!("walk module {}", module.name);
         context = module.walk(context);
     }
 

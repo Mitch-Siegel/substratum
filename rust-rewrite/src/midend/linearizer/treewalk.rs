@@ -1,5 +1,5 @@
 use crate::{
-    frontend::{ast::*, sourceloc::SourceLoc},
+    frontend::{ast::*, sourceloc::SourceLocWithMod},
     midend::{linearizer::*, symtab::DefContext},
 };
 
@@ -32,11 +32,19 @@ pub trait CustomReturnWalk<C, U> {
 impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for ModuleTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, mut context: symtab::BasicDefContext) -> symtab::BasicDefContext {
+        tracing::trace!(
+            "Create symtab module \"{}\" at \"{}\"",
+            self.name,
+            context.def_path()
+        );
         context
             .def_path_mut()
             .push(symtab::DefPathComponent::Module(symtab::ModuleName {
                 name: self.name.clone(),
             }))
+            .unwrap();
+        context
+            .insert(symtab::symbol::Module::new(self.name.clone()))
             .unwrap();
 
         for item in self.items {
@@ -222,7 +230,7 @@ impl ValueWalk for ArithmeticExpressionTree {
         };
 
         // TODO: associate location with arithmetic expression trees
-        let operation = ir::IrLine::new_binary_op(SourceLoc::none(), op);
+        let operation = ir::IrLine::new_binary_op(SourceLocWithMod::none(), op);
         context
             .append_statement_to_current_block(operation)
             .unwrap();
@@ -291,7 +299,7 @@ impl ValueWalk for ComparisonExpressionTree {
         };
 
         // TODO: association location with comparison expression tree
-        let operation = ir::IrLine::new_binary_op(SourceLoc::none(), op);
+        let operation = ir::IrLine::new_binary_op(SourceLocWithMod::none(), op);
         context
             .append_statement_to_current_block(operation)
             .unwrap();

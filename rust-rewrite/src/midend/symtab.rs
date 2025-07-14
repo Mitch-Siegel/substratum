@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use crate::{midend::ir, trace};
 pub use errors::*;
@@ -19,17 +19,30 @@ pub use type_interner::*;
 
 pub struct SymbolTable {
     types: TypeInterner,
-    defs: HashMap<DefPath, SymbolDef>,
-    children: HashMap<DefPath, HashSet<DefPath>>,
+    defs: BTreeMap<DefPath, SymbolDef>,
+    children: BTreeMap<DefPath, HashSet<DefPath>>,
 }
 
 impl Default for SymbolTable {
     fn default() -> Self {
         Self {
             types: TypeInterner::new(),
-            defs: HashMap::new(),
-            children: HashMap::new(),
+            defs: BTreeMap::new(),
+            children: BTreeMap::new(),
         }
+    }
+}
+
+impl std::fmt::Debug for SymbolTable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        //writeln!(f, "types: {:?}", self.types)?;
+        writeln!(f, "definitions:")?;
+
+        for (path, def) in &self.defs {
+            writeln!(f, "{}:{:?}", path, def)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -69,7 +82,7 @@ impl SymbolTable {
 
     pub fn insert<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
     where
-        S: Symbol,
+        S: Symbol + std::fmt::Debug,
         for<'a> &'a S: From<DefResolver<'a>>,
         for<'a, 'b> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
@@ -81,6 +94,8 @@ impl SymbolTable {
             .entry(def_path.clone())
             .or_default()
             .insert(full_def_path.clone());
+
+        trace::trace!("insert at {} - {:?}", def_path, symbol);
 
         match self.defs.insert(
             full_def_path.clone(),
@@ -204,7 +219,7 @@ impl SymbolTable {
         let mut scan_def_path = def_path.clone();
         let key_component = Into::<DefPathComponent>::into(key.clone());
 
-        let defs_ptr = &mut self.defs as *mut HashMap<DefPath, SymbolDef>;
+        let defs_ptr = &mut self.defs as *mut BTreeMap<DefPath, SymbolDef>;
         let types_ptr = &mut self.types as *mut TypeInterner;
 
         while !scan_def_path.is_empty() {

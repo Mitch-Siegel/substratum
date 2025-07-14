@@ -1,5 +1,5 @@
 use crate::{
-    frontend::sourceloc::SourceLoc,
+    frontend::sourceloc::SourceLocWithMod,
     midend::{
         ir,
         linearizer::*,
@@ -195,7 +195,7 @@ impl FunctionWalkContext {
     // block to the target. Inserts the current block (before call) into the current scope
     pub fn unconditional_branch_from_current(
         &mut self,
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
     ) -> Result<(), block_manager::BranchError> {
         trace::debug!("create unconditional branch from current block");
 
@@ -228,7 +228,7 @@ impl FunctionWalkContext {
     // creates a new subscope for the true branch
     pub fn conditional_branch_from_current(
         &mut self,
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
         condition: ir::JumpCondition,
     ) -> Result<(), block_manager::BranchError> {
         trace::debug!("create conditional branch from current block");
@@ -256,7 +256,10 @@ impl FunctionWalkContext {
         Ok(())
     }
 
-    pub fn create_loop(&mut self, loc: SourceLoc) -> Result<usize, block_manager::LoopError> {
+    pub fn create_loop(
+        &mut self,
+        loc: SourceLocWithMod,
+    ) -> Result<usize, block_manager::LoopError> {
         trace::debug!("create loop");
 
         let def_path = self.def_path();
@@ -279,7 +282,7 @@ impl FunctionWalkContext {
 
     pub fn finish_loop(
         &mut self,
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
         loop_bottom_actions: Vec<ir::IrLine>,
     ) -> Result<(), block_manager::LoopError> {
         let def_path = self.def_path();

@@ -1,4 +1,4 @@
-use crate::{frontend::sourceloc::SourceLoc, midend};
+use crate::{frontend::sourceloc::SourceLocWithMod, midend};
 use std::fmt::Display;
 
 use name_derive::{NameReflectable, ReflectName};
@@ -56,14 +56,14 @@ impl Display for Item {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDeclarationTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub name: String,
     pub arguments: Vec<ArgumentDeclarationTree>,
     pub return_type: Option<TypeTree>,
 }
 impl FunctionDeclarationTree {
     pub fn new(
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
         name: String,
         arguments: Vec<ArgumentDeclarationTree>,
         return_type: Option<TypeTree>,
@@ -112,12 +112,12 @@ impl Display for FunctionDefinitionTree {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StructFieldTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub name: String,
     pub type_: TypeTree,
 }
 impl StructFieldTree {
-    pub fn new(loc: SourceLoc, name: String, type_: TypeTree) -> Self {
+    pub fn new(loc: SourceLocWithMod, name: String, type_: TypeTree) -> Self {
         Self { loc, name, type_ }
     }
 }
@@ -129,12 +129,12 @@ impl Display for StructFieldTree {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StructDefinitionTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub name: String,
     pub fields: Vec<StructFieldTree>,
 }
 impl StructDefinitionTree {
-    pub fn new(loc: SourceLoc, name: String, fields: Vec<StructFieldTree>) -> Self {
+    pub fn new(loc: SourceLocWithMod, name: String, fields: Vec<StructFieldTree>) -> Self {
         Self { loc, name, fields }
     }
 }
@@ -151,12 +151,12 @@ impl Display for StructDefinitionTree {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ImplementationTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub type_: TypeTree, // TODO: rename from typename?
     pub items: Vec<FunctionDefinitionTree>,
 }
 impl ImplementationTree {
-    pub fn new(loc: SourceLoc, type_: TypeTree, items: Vec<FunctionDefinitionTree>) -> Self {
+    pub fn new(loc: SourceLocWithMod, type_: TypeTree, items: Vec<FunctionDefinitionTree>) -> Self {
         Self { loc, type_, items }
     }
 }
@@ -173,11 +173,11 @@ impl Display for ImplementationTree {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CompoundExpressionTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub statements: Vec<StatementTree>,
 }
 impl CompoundExpressionTree {
-    pub fn new(loc: SourceLoc, statements: Vec<StatementTree>) -> Self {
+    pub fn new(loc: SourceLocWithMod, statements: Vec<StatementTree>) -> Self {
         Self { loc, statements }
     }
 }
@@ -193,14 +193,14 @@ impl Display for CompoundExpressionTree {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct IfExpressionTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub condition: ExpressionTree,
     pub true_block: CompoundExpressionTree,
     pub false_block: Option<CompoundExpressionTree>,
 }
 impl IfExpressionTree {
     pub fn new(
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
         condition: ExpressionTree,
         true_block: CompoundExpressionTree,
         false_block: Option<CompoundExpressionTree>,
@@ -228,12 +228,16 @@ impl Display for IfExpressionTree {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct WhileExpressionTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub condition: ExpressionTree,
     pub body: CompoundExpressionTree,
 }
 impl WhileExpressionTree {
-    pub fn new(loc: SourceLoc, condition: ExpressionTree, body: CompoundExpressionTree) -> Self {
+    pub fn new(
+        loc: SourceLocWithMod,
+        condition: ExpressionTree,
+        body: CompoundExpressionTree,
+    ) -> Self {
         Self {
             loc,
             condition,
@@ -249,11 +253,11 @@ impl Display for WhileExpressionTree {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CallParamsTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub params: Vec<ExpressionTree>,
 }
 impl CallParamsTree {
-    pub fn new(loc: SourceLoc, params: Vec<ExpressionTree>) -> Self {
+    pub fn new(loc: SourceLocWithMod, params: Vec<ExpressionTree>) -> Self {
         Self { loc, params }
     }
 }
@@ -272,14 +276,14 @@ impl Display for CallParamsTree {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MethodCallExpressionTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub receiver: ExpressionTree,
     pub called_method: String,
     pub params: CallParamsTree,
 }
 impl MethodCallExpressionTree {
     pub fn new(
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
         receiver: ExpressionTree,
         called_method: String,
         params: CallParamsTree,
@@ -304,12 +308,12 @@ impl Display for MethodCallExpressionTree {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FieldExpressionTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub receiver: ExpressionTree,
     pub field: String,
 }
 impl FieldExpressionTree {
-    pub fn new(loc: SourceLoc, receiver: ExpressionTree, field: String) -> Self {
+    pub fn new(loc: SourceLocWithMod, receiver: ExpressionTree, field: String) -> Self {
         Self {
             loc,
             receiver,
@@ -343,11 +347,11 @@ impl Display for Statement {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StatementTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub statement: Statement,
 }
 impl StatementTree {
-    pub fn new(loc: SourceLoc, statement: Statement) -> Self {
+    pub fn new(loc: SourceLocWithMod, statement: Statement) -> Self {
         Self { loc, statement }
     }
 }
@@ -359,13 +363,18 @@ impl Display for StatementTree {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct VariableDeclarationTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub name: String,
     pub type_: Option<TypeTree>,
     pub mutable: bool,
 }
 impl VariableDeclarationTree {
-    pub fn new(loc: SourceLoc, name: String, type_: Option<TypeTree>, mutable: bool) -> Self {
+    pub fn new(
+        loc: SourceLocWithMod,
+        name: String,
+        type_: Option<TypeTree>,
+        mutable: bool,
+    ) -> Self {
         Self {
             loc,
             name,
@@ -388,13 +397,13 @@ impl Display for VariableDeclarationTree {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ArgumentDeclarationTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub name: String,
     pub type_: TypeTree,
     pub mutable: bool,
 }
 impl ArgumentDeclarationTree {
-    pub fn new(loc: SourceLoc, name: String, type_: TypeTree, mutable: bool) -> Self {
+    pub fn new(loc: SourceLocWithMod, name: String, type_: TypeTree, mutable: bool) -> Self {
         Self {
             loc,
             name,
@@ -415,12 +424,12 @@ impl Display for ArgumentDeclarationTree {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct AssignmentTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub assignee: Box<ExpressionTree>,
     pub value: Box<ExpressionTree>,
 }
 impl AssignmentTree {
-    pub fn new(loc: SourceLoc, assignee: ExpressionTree, value: ExpressionTree) -> Self {
+    pub fn new(loc: SourceLocWithMod, assignee: ExpressionTree, value: ExpressionTree) -> Self {
         Self {
             loc,
             assignee: Box::from(assignee),
@@ -510,11 +519,11 @@ impl Display for Expression {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ExpressionTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub expression: Expression,
 }
 impl ExpressionTree {
-    pub fn new(loc: SourceLoc, expression: Expression) -> Self {
+    pub fn new(loc: SourceLocWithMod, expression: Expression) -> Self {
         Self { loc, expression }
     }
 }
@@ -526,11 +535,11 @@ impl Display for ExpressionTree {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TypeTree {
-    pub loc: SourceLoc,
+    pub loc: SourceLocWithMod,
     pub type_: midend::types::Type,
 }
 impl TypeTree {
-    pub fn new(loc: SourceLoc, type_: midend::types::Type) -> Self {
+    pub fn new(loc: SourceLocWithMod, type_: midend::types::Type) -> Self {
         Self { loc, type_ }
     }
 }

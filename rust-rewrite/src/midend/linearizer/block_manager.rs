@@ -1,4 +1,4 @@
-use crate::{frontend::sourceloc::SourceLoc, midend::ir, trace};
+use crate::{frontend::sourceloc::SourceLocWithMod, midend::ir, trace};
 
 use std::{collections::HashMap, fmt::Debug};
 
@@ -68,7 +68,7 @@ impl BlockManager {
     pub fn create_unconditional_branch(
         &mut self,
         from_block: &mut ir::BasicBlock,
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
     ) -> Result<ir::BasicBlock, BranchError> {
         self.max_block += 2;
         let true_block = ir::BasicBlock::new(self.max_block - 1);
@@ -102,7 +102,7 @@ impl BlockManager {
     pub fn create_conditional_branch(
         &mut self,
         from_block: &mut ir::BasicBlock,
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
         jump_condition: ir::operands::JumpCondition,
     ) -> Result<ir::BasicBlock, BranchError> {
         self.max_block += 3;
@@ -167,7 +167,7 @@ impl BlockManager {
                 };
 
                 let convergence_jump = ir::IrLine::new_jump(
-                    SourceLoc::none(),
+                    SourceLocWithMod::none(),
                     converge_to_label,
                     ir::JumpCondition::Unconditional,
                 );
@@ -190,7 +190,7 @@ impl BlockManager {
         match self.convergences.converge(current_block.label)? {
             ConvergenceResult::Done(converge_to_block) => {
                 let convergence_jump = ir::IrLine::new_jump(
-                    SourceLoc::none(),
+                    SourceLocWithMod::none(),
                     converge_to_block.label,
                     ir::JumpCondition::Unconditional,
                 );
@@ -206,7 +206,7 @@ impl BlockManager {
     pub fn create_loop(
         &mut self,
         before_loop_block: &mut ir::BasicBlock,
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
     ) -> Result<(ir::BasicBlock, usize), LoopError> {
         self.max_block += 3;
         let loop_top = ir::BasicBlock::new(self.max_block - 2);
@@ -265,7 +265,7 @@ impl BlockManager {
     pub fn finish_loop_1(
         &mut self,
         current_block: &mut ir::BasicBlock,
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
     ) -> Result<ir::BasicBlock, LoopError> {
         // wherever the current block ends up, it should have convergence as Done to loop_bottom
         // per create_loop() as each loop convergence is singly-associated
@@ -286,7 +286,7 @@ impl BlockManager {
     pub fn finish_loop_2(
         &mut self,
         current_block: &mut ir::BasicBlock,
-        loc: SourceLoc,
+        loc: SourceLocWithMod,
         loop_bottom_actions: Vec<ir::IrLine>,
     ) -> Result<ir::BasicBlock, LoopError> {
         // insert any IRs that need to be at the bottom of the loop but before the looping jump itself

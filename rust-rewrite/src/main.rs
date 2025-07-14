@@ -197,17 +197,23 @@ fn main() {
     while module_worklist.len() > 0 {
         let filename_to_parse = module_worklist.pop_last().unwrap();
         let filepath_to_parse = std::path::Path::new(&filename_to_parse);
+        let module_name: String = filepath_to_parse
+            .file_stem()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .into();
         let input_file = std::fs::File::open(filename_to_parse.clone()).unwrap();
-        let mut parser = frontend::Parser::new(frontend::Lexer::from_file(
-            &filepath_to_parse,
-            std::fs::File::from(input_file),
-        ));
+        let mut parser = frontend::Parser::new(
+            module_name.clone(),
+            frontend::Lexer::from_file(&filepath_to_parse, std::fs::File::from(input_file)),
+        );
 
         let frontend::parser::ModuleResult {
             module_tree,
             module_worklist: mut parsed_worklist,
         } = parser
-            .parse()
+            .parse(module_name)
             .expect(&format!("Error in file {}", filename_to_parse));
 
         module_worklist.append(&mut parsed_worklist);
@@ -219,8 +225,8 @@ fn main() {
         modules.push(module_tree);
     }
 
-    let _symtab = midend::symbol_table_from_modules(modules);
+    let symtab = midend::symbol_table_from_modules(modules);
     //println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
-    //println!("{:#?}", &symtab);
+    println!("{:#?}", &symtab);
     //backend::do_backend(symtab);
 }

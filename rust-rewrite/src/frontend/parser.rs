@@ -8,7 +8,7 @@ use crate::midend::ir;
 use super::{
     ast::*,
     lexer::{token::Token, *},
-    sourceloc::SourceLoc,
+    sourceloc::{SourceLoc, SourceLocWithMod},
 };
 
 use crate::trace;
@@ -25,6 +25,7 @@ pub use errors::ParseError;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
+    module_parse_stack: Vec<String>,
     last_match: SourceLoc,
     upcoming_tokens: VecDeque<(Token, SourceLoc)>,
     parsing_stack: Vec<(SourceLoc, String)>,
@@ -69,10 +70,11 @@ impl ir::BinaryOperations {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(lexer: Lexer<'a>) -> Self {
+    pub fn new(module_name: String, lexer: Lexer<'a>) -> Self {
         let lexer_start_pos = lexer.current_loc();
         Parser {
             lexer: lexer,
+            module_parse_stack: vec![module_name],
             last_match: lexer_start_pos,
             upcoming_tokens: VecDeque::new(),
             parsing_stack: Vec::new(),
@@ -184,7 +186,7 @@ impl<'a> Parser<'a> {
     fn start_parsing(
         &mut self,
         what_parsing: &str,
-    ) -> Result<(SourceLoc, trace::ExitOnDropSpan), ParseError> {
+    ) -> Result<(SourceLocWithMod, trace::ExitOnDropSpan), ParseError> {
         let start_loc = self.peek_token_with_loc()?.1;
 
         let exit_on_drop_span = trace::span_auto!(
@@ -200,7 +202,10 @@ impl<'a> Parser<'a> {
 
         tracing::trace!("{}", start_loc);
 
-        Ok((start_loc, exit_on_drop_span))
+        Ok((
+            SourceLocWithMod::new(start_loc, self.module_parse_stack.last().unwrap().clone()),
+            exit_on_drop_span,
+        ))
     }
 
     fn finish_parsing<T>(&mut self, _parsed: &T) -> Result<(), ParseError>
@@ -245,9 +250,8 @@ pub struct ModuleResult {
 }
 
 impl<'a> Parser<'a> {
-    pub fn parse(&mut self) -> Result<ModuleResult, ParseError> {
-        let implicit_module_name = self.lexer.current_loc().module;
-        self.parse_module_contents(implicit_module_name)
+    pub fn parse(&mut self, module_name: String) -> Result<ModuleResult, ParseError> {
+        self.parse_module_contents(module_name)
     }
 
     fn parse_module_item(&mut self) -> Result<ModuleResult, ParseError> {
@@ -259,13 +263,15 @@ impl<'a> Parser<'a> {
         self.expect_token(Token::LCurly)?;
         let module_result = self.parse_module_contents(name)?;
         self.expect_token(Token::RCurly)?;
-        self.finish_parsing(&module_result.module_tree)?;
 
+        self.finish_parsing(&module_result.module_tree)?;
         Ok(module_result)
     }
 
     fn parse_module_contents(&mut self, module_name: String) -> Result<ModuleResult, ParseError> {
         self.start_parsing("module contents")?;
+
+        self.module_parse_stack.push(module_name.clone());
 
         let mut module_worklist = BTreeSet::<String>::new();
         let mut items = Vec::<Item>::new();
@@ -287,30 +293,38 @@ impl<'a> Parser<'a> {
                     items.push(impl_item);
                 }
                 Token::RCurly => break,
-                Token::Mod => match self.lookahead_token(3)? {
-                    Token::LCurly => {
-                        let ModuleResult {
-                            module_tree,
-                            module_worklist: mut child_worklist,
-                        } = self.parse_module_item()?;
-                        module_worklist.append(&mut child_worklist);
-                        items.push(Item::Module(module_tree));
-                    }
-                    Token::Semicolon => {
-                        self.expect_token(Token::Mod)?;
-                        let mut current_file =
-                            std::path::PathBuf::from(self.lexer.current_loc().path.clone());
-                        let module_name = self.parse_identifier()?;
+                // TODO: break out to separate routine
+                Token::Mod => {
+                    let la3 = self.lookahead_token(3)?;
+                    trace::warning!("la3: {}", la3);
+                    match self.lookahead_token(2)? {
+                        Token::LCurly => {
+                            let ModuleResult {
+                                module_tree,
+                                module_worklist: mut child_worklist,
+                            } = self.parse_module_item()?;
+                            module_worklist.append(&mut child_worklist);
+                            items.push(Item::Module(module_tree));
+                        }
+                        Token::Semicolon => {
+                            self.expect_token(Token::Mod)?;
+                            let mut current_file =
+                                std::path::PathBuf::from(self.lexer.current_loc().path.clone());
+                            let module_name = self.parse_identifier()?;
 
-                        current_file.set_file_name(module_name);
-                        current_file.set_extension("");
-                        module_worklist.insert(current_file.to_str().unwrap().into());
+                            current_file.set_file_name(module_name);
+                            current_file.set_extension("");
+                            module_worklist.insert(current_file.to_str().unwrap().into());
+                        }
+                        _ => self.unexpected_token(&[Token::LCurly, Token::Mod])?,
                     }
-                    _ => self.unexpected_token(&[Token::RCurly, Token::Mod])?,
-                },
+                }
+                Token::Eof => break,
                 _ => self.unexpected_token(&[Token::Fun, Token::Struct, Token::Impl])?,
             }
         }
+
+        assert_eq!(self.module_parse_stack.pop().unwrap(), module_name);
 
         let module_tree = ModuleTree {
             name: module_name,

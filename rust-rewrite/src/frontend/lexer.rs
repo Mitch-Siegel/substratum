@@ -78,8 +78,11 @@ impl<'a> Lexer<'a> {
 
     // returns the position to which the input has been read
     pub fn current_loc(&self) -> SourceLoc {
+        let cur_file_path = std::path::Path::new(&self.cur_file);
+        let cur_file_stem = cur_file_path.file_stem().unwrap();
+
         SourceLoc::new(
-            std::path::Path::new(&self.cur_file),
+            std::path::Path::new(cur_file_stem),
             self.cur_line,
             self.cur_col,
         )
@@ -88,14 +91,10 @@ impl<'a> Lexer<'a> {
     pub fn next(&mut self) -> Result<(Token, SourceLoc), LexError> {
         let _ = trace::span_auto!(tracing::Level::TRACE, "");
         let next_token = self.lex()?;
-        Ok(self.current_token.replace(next_token).unwrap_or((
-            Token::Eof,
-            SourceLoc::new(
-                std::path::Path::new(&self.cur_file),
-                self.cur_line,
-                self.cur_col,
-            ),
-        )))
+        Ok(self
+            .current_token
+            .replace(next_token)
+            .unwrap_or((Token::Eof, self.current_loc())))
     }
 
     pub fn lex_all(&mut self) -> Result<Vec<(Token, SourceLoc)>, LexError> {

@@ -13,7 +13,7 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
     tracing::debug!("Linearize");
-    let _symtab = linearizer::linearize(modules);
+    let symtab = linearizer::linearize(modules);
 
     //tracing::debug!("collapse scopes");
     //symtab.collapse_scopes();
@@ -27,5 +27,5 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
     tracing::debug!("convert IR back from SSA");
     //ssa_gen::remove_ssa_from_functions(&mut symtab);
 
-    symtab::SymbolTable::new()
+    *symtab
 }

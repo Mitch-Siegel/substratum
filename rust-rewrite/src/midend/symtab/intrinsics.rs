@@ -49,7 +49,7 @@ fn create_core_types(symtab: &mut SymbolTable) {
 
 pub fn create_core(symtab: &mut SymbolTable) {
     let core_module_path = symtab
-        .insert(DefPath::empty(), Module::new("implicit".into()))
+        .insert(DefPath::empty(), Module::new("core".into()))
         .unwrap();
     symtab
         .insert(

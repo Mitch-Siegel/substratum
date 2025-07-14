@@ -1,5 +1,6 @@
 use crate::midend::{symtab::*, types};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct TypeId {
