@@ -56,10 +56,55 @@ impl Display for Item {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct GenericParamTree {
+    pub loc: SourceLocWithMod,
+    pub name: String,
+}
+impl GenericParamTree {
+    pub fn new(loc: SourceLocWithMod, name: String) -> Self {
+        Self { loc, name }
+    }
+}
+impl Display for GenericParamTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct GenericParamsListTree {
+    pub loc: SourceLocWithMod,
+    pub params: Vec<GenericParamTree>,
+}
+
+impl GenericParamsListTree {
+    pub fn new(loc: SourceLocWithMod, params: Vec<GenericParamTree>) -> Self {
+        Self { loc, params }
+    }
+}
+impl Display for GenericParamsListTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut first = true;
+        for param in &self.params {
+            if !first {
+                write!(f, ", ")?;
+            } else {
+                first = false;
+            }
+
+            write!(f, "{}", param)?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDeclarationTree {
     pub loc: SourceLocWithMod,
     pub name: String,
     pub arguments: Vec<ArgumentDeclarationTree>,
+    pub generic_params: Option<GenericParamsListTree>,
     pub return_type: Option<TypeTree>,
 }
 impl FunctionDeclarationTree {
@@ -67,12 +112,14 @@ impl FunctionDeclarationTree {
         loc: SourceLocWithMod,
         name: String,
         arguments: Vec<ArgumentDeclarationTree>,
+        generic_params: Option<GenericParamsListTree>,
         return_type: Option<TypeTree>,
     ) -> Self {
         Self {
             loc,
             name,
             arguments,
+            generic_params,
             return_type,
         }
     }
@@ -84,11 +131,16 @@ impl Display for FunctionDeclarationTree {
             arg_string.push_str(format!("{}\n", argument).as_str());
         }
 
+        let generic_params_string = match &self.generic_params {
+            Some(params) => String::from(format!("<{}>", params)),
+            None => String::new(),
+        };
+
         match &self.return_type {
             Some(typename_tree) => write!(
                 f,
-                "Function Declaration: {}({})->{}",
-                self.name, arg_string, typename_tree
+                "Function Declaration: {}{}({})->{}",
+                self.name, generic_params_string, arg_string, typename_tree
             ),
             None => write!(f, "Function Declaration: {}({})", self.name, arg_string),
         }
@@ -129,13 +181,47 @@ impl Display for StructFieldTree {
 }
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct StructDefinitionTree {
+pub struct IdentifierWithGenericsTree {
     pub loc: SourceLocWithMod,
     pub name: String,
+    pub generic_params: Option<GenericParamsListTree>,
+}
+impl IdentifierWithGenericsTree {
+    pub fn new(
+        loc: SourceLocWithMod,
+        name: String,
+        generic_params: Option<GenericParamsListTree>,
+    ) -> Self {
+        Self {
+            loc,
+            name,
+            generic_params,
+        }
+    }
+}
+impl Display for IdentifierWithGenericsTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let generic_params_string = match &self.generic_params {
+            Some(params) => String::from(format!("<{}>", params)),
+            None => String::new(),
+        };
+
+        write!(f, "{}{}", self.name, generic_params_string)
+    }
+}
+
+#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct StructDefinitionTree {
+    pub loc: SourceLocWithMod,
+    pub name: IdentifierWithGenericsTree,
     pub fields: Vec<StructFieldTree>,
 }
 impl StructDefinitionTree {
-    pub fn new(loc: SourceLocWithMod, name: String, fields: Vec<StructFieldTree>) -> Self {
+    pub fn new(
+        loc: SourceLocWithMod,
+        name: IdentifierWithGenericsTree,
+        fields: Vec<StructFieldTree>,
+    ) -> Self {
         Self { loc, name, fields }
     }
 }
@@ -146,6 +232,7 @@ impl Display for StructDefinitionTree {
             fields += &field.to_string();
             fields += " ";
         }
+
         write!(f, "Struct Definition: {}: {}", self.name, fields)
     }
 }
@@ -153,17 +240,33 @@ impl Display for StructDefinitionTree {
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ImplementationTree {
     pub loc: SourceLocWithMod,
-    pub type_: TypeTree, // TODO: rename from typename?
+    pub generic_params: Option<GenericParamsListTree>,
+    pub for_: IdentifierWithGenericsTree,
     pub items: Vec<FunctionDefinitionTree>,
 }
 impl ImplementationTree {
-    pub fn new(loc: SourceLocWithMod, type_: TypeTree, items: Vec<FunctionDefinitionTree>) -> Self {
-        Self { loc, type_, items }
+    pub fn new(
+        loc: SourceLocWithMod,
+        generic_params: Option<GenericParamsListTree>,
+        for_: IdentifierWithGenericsTree,
+        items: Vec<FunctionDefinitionTree>,
+    ) -> Self {
+        Self {
+            loc,
+            generic_params,
+            for_,
+            items,
+        }
     }
 }
 impl Display for ImplementationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Impl {}", self.type_).and_then(|_| {
+        let generic_params_string = match &self.generic_params {
+            Some(params) => String::from(format!("<{}>", params)),
+            None => String::new(),
+        };
+
+        write!(f, "Impl{} {}", generic_params_string, self.for_).and_then(|_| {
             for item in &self.items {
                 write!(f, "{}", item)?
             }

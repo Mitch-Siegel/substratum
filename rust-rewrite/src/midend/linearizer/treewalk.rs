@@ -2,6 +2,7 @@ use crate::{
     frontend::{ast::*, sourceloc::SourceLocWithMod},
     midend::{linearizer::*, symtab::DefContext},
 };
+use std::collections::BTreeSet;
 
 use name_derive::NameReflectable;
 
@@ -95,8 +96,6 @@ impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for Modu
 impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for ImplementationTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, mut context: symtab::BasicDefContext) -> symtab::BasicDefContext {
-        let _implemented_for_type = self.type_.walk(&mut context);
-
         // TODO: modify context's type path
 
         for item in self.items {
@@ -183,7 +182,23 @@ impl ReturnWalk<symtab::StructRepr> for StructDefinitionTree {
                 (field.name, field_type)
             })
             .collect::<Vec<_>>();
-        symtab::StructRepr::new(self.name, fields).unwrap()
+
+        let string_name = self.name.name;
+        let mut generic_params_set = BTreeSet::<String>::new();
+        let generic_params: Vec<String> = match self.name.generic_params {
+            Some(params) => params
+                .params
+                .into_iter()
+                .map(|param| {
+                    if !generic_params_set.insert(param.name.clone()) {
+                        panic!("Duplicate generic parameter {} @ {}", param.name, param.loc)
+                    }
+                    param.name
+                })
+                .collect(),
+            None => Vec::new(),
+        };
+        symtab::StructRepr::new(string_name, generic_params, fields).unwrap()
     }
 }
 

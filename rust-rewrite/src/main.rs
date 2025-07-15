@@ -218,7 +218,7 @@ fn main() {
         let filename_to_parse = module_worklist.pop_last().unwrap();
         let filepath_to_parse = std::path::Path::new(&filename_to_parse);
 
-        let (input_file, module_path, opened_path, module_name) = {
+        let (input_file, module_path, _opened_path, module_name) = {
             let _ = trace::span_auto_debug!("Parse worklist item {}", filename_to_parse);
             let (module_name, module_parent_path) = file_path_to_module_name(&filepath_to_parse);
 

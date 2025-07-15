@@ -29,6 +29,7 @@ impl std::fmt::Display for StructField {
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StructRepr {
     pub name: String,
+    generic_params: Vec<String>,
     fields: BTreeMap<String, StructField>,
     size: Option<usize>,
     alignment: Option<usize>,
@@ -37,6 +38,7 @@ pub struct StructRepr {
 impl StructRepr {
     pub fn new(
         name: String,
+        generic_params: Vec<String>,
         field_definitions: Vec<(String, types::Type)>,
     ) -> Result<Self, StructField> {
         let mut fields = BTreeMap::<String, StructField>::new();
@@ -51,6 +53,7 @@ impl StructRepr {
 
         Ok(Self {
             name,
+            generic_params,
             fields,
             size: None,
             alignment: None,

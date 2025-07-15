@@ -70,7 +70,7 @@ impl ir::BinaryOperations {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(module_name: String, module_path: &std::path::Path, lexer: Lexer<'a>) -> Self {
+    pub fn new(_module_name: String, module_path: &std::path::Path, lexer: Lexer<'a>) -> Self {
         let lexer_start_pos = lexer.current_loc();
         let mut module_hierarchy = Vec::new();
         for component in module_path.iter() {
@@ -275,7 +275,7 @@ impl<'a> Parser<'a> {
         &mut self,
         parent_module_path: &std::path::Path,
     ) -> Result<ModuleResult, ParseError> {
-        let (start_loc, _) = self.start_parsing("module item")?;
+        let (_, _) = self.start_parsing("module item")?;
 
         trace::debug!(
             "module item parent module path: \"{}\"",
