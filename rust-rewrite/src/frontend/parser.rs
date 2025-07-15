@@ -241,20 +241,26 @@ impl<'a> Parser<'a> {
 
 impl<'a> Parser<'a> {
     pub fn parse(&mut self) -> Result<Vec<ModuleTree>, ParseError> {
-        let mut modules = Vec::new();
-        while self.peek_token()? != Token::Eof {
-            modules.push(self.parse_module()?);
-        }
-        Ok(modules)
+        let implicit_module_name = self.lexer.current_loc().file;
+        self.parse_module_contents(implicit_module_name)
     }
 
-    fn parse_module(&mut self) -> Result<ModuleTree, ParseError> {
+    fn parse_module_item(&mut self) -> Result<ModuleTree, ParseError> {
         let (start_loc, _) = self.start_parsing("module")?;
 
         tracing::debug!("Parse module starting at {}", start_loc);
+        self.expect_token(Token::Mod)?;
         let name = self.parse_identifier()?;
         self.expect_token(Token::LCurly)?;
+        let module_tree = self.parse_module_contents(name)?;
+        self.expect_token(Token::RCurly)?;
+        self.finish_parsing(&module_tree)?;
 
+        Ok(module_tree)
+    }
+
+    fn parse_module_contents(&mut self, module_name: String) -> Result<ModuleTree, ParseError> {
+        self.start_parsing("module contents")?;
         let mut items = Vec::<Item>::new();
         loop {
             match self.peek_token()? {
@@ -274,14 +280,15 @@ impl<'a> Parser<'a> {
                     items.push(impl_item);
                 }
                 Token::RCurly => break,
-                _ => self.unexpected_token(&[Token::Fun, Token::Struct])?,
+                _ => self.unexpected_token(&[Token::Fun, Token::Struct, Token::Impl])?,
             }
         }
-        self.expect_token(Token::RCurly)?;
 
-        let module_tree = ModuleTree { name, items };
+        let module_tree = ModuleTree {
+            name: module_name,
+            items,
+        };
         self.finish_parsing(&module_tree)?;
-
         Ok(module_tree)
     }
 
