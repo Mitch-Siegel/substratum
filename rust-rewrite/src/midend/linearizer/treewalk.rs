@@ -38,13 +38,13 @@ impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for Modu
             context.def_path()
         );
         context
+            .insert(symtab::symbol::Module::new(self.name.clone()))
+            .unwrap();
+        context
             .def_path_mut()
             .push(symtab::DefPathComponent::Module(symtab::ModuleName {
                 name: self.name.clone(),
             }))
-            .unwrap();
-        context
-            .insert(symtab::symbol::Module::new(self.name.clone()))
             .unwrap();
 
         for item in self.items {

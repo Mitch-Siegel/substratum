@@ -9,6 +9,7 @@ pub trait AstName {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ModuleTree {
+    pub module_path: Vec<String>,
     pub name: String,
     pub items: Vec<Item>,
 }

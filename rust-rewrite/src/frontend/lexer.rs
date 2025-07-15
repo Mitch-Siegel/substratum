@@ -78,11 +78,8 @@ impl<'a> Lexer<'a> {
 
     // returns the position to which the input has been read
     pub fn current_loc(&self) -> SourceLoc {
-        let cur_file_path = std::path::Path::new(&self.cur_file);
-        let cur_file_stem = cur_file_path.file_stem().unwrap();
-
         SourceLoc::new(
-            std::path::Path::new(cur_file_stem),
+            std::path::Path::new(&self.cur_file),
             self.cur_line,
             self.cur_col,
         )

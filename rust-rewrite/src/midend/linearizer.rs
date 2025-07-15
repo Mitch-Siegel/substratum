@@ -10,12 +10,27 @@ pub use block_manager::BlockManager;
 pub use functionwalkcontext::FunctionWalkContext;
 
 pub fn linearize(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {
-    let symtab = symtab::SymbolTable::new();
-    let mut context = symtab::BasicDefContext::new(Box::new(symtab));
+    let mut symtab = Box::new(symtab::SymbolTable::new());
     for module in program {
-        trace::trace!("walk module {}", module.name);
+        let mut module_def_path = symtab::DefPath::empty();
+        for module_name in module.module_path.as_slice().split_last().unwrap().1 {
+            module_def_path
+                .push(symtab::DefPathComponent::Module(symtab::ModuleName {
+                    name: module_name.clone(),
+                }))
+                .unwrap();
+        }
+
+        trace::debug!(
+            "walk module \"{}\": {:?} (defpath {})",
+            module.name,
+            module.module_path,
+            module_def_path
+        );
+        let mut context = symtab::BasicDefContext::with_path(symtab, module_def_path);
         context = module.walk(context);
+        symtab = context.take().unwrap().0;
     }
 
-    context.take().unwrap().0
+    symtab
 }

@@ -1,0 +1,7 @@
+
+mod TestModule {
+    struct test_thing {
+        data: u64
+        }
+}
+

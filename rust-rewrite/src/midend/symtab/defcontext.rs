@@ -104,7 +104,6 @@ pub trait DefContext: std::fmt::Debug {
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
         let def_path = self.def_path();
-        println!("insert {:?} at \"{:?}\"", symbol, def_path);
         let symtab_mut = self.symtab_mut();
         symtab_mut.insert::<S>(def_path, symbol)
     }

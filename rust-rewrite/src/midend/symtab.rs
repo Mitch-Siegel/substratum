@@ -39,7 +39,7 @@ impl std::fmt::Debug for SymbolTable {
         writeln!(f, "definitions:")?;
 
         for (path, def) in &self.defs {
-            writeln!(f, "{}:{:?}", path, def)?;
+            writeln!(f, "defpath {} - {:?}", path, def)?;
         }
 
         Ok(())

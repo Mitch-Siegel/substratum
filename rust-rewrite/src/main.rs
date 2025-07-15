@@ -138,6 +138,25 @@ struct CompilerArguments {
     trace_level: tracing::Level,
 }
 
+fn file_path_to_module_name(filepath_to_parse: &std::path::Path) -> (String, &std::path::Path) {
+    let stem: String = filepath_to_parse
+        .file_stem()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .into();
+    let module_name: String = match stem.as_str() {
+        "mod" | "lib" => filepath_to_parse.parent().unwrap().to_str().unwrap().into(),
+        _ => stem,
+    };
+    (
+        module_name,
+        filepath_to_parse
+            .parent()
+            .unwrap_or(std::path::Path::new("")),
+    )
+}
+
 fn main() {
     println!("Hello, world!");
 
@@ -191,21 +210,68 @@ fn main() {
 
     assert!(input_file.len() > 0, "Input file must be provided!");
     let mut module_worklist = BTreeSet::<String>::new();
-    module_worklist.insert(input_file);
+    let (_, worklist_item) = file_path_to_module_name(&std::path::Path::new(&input_file));
+    module_worklist.insert(worklist_item.to_str().unwrap().into());
     let mut modules = Vec::<frontend::ast::ModuleTree>::new();
 
     while module_worklist.len() > 0 {
         let filename_to_parse = module_worklist.pop_last().unwrap();
         let filepath_to_parse = std::path::Path::new(&filename_to_parse);
-        let module_name: String = filepath_to_parse
-            .file_stem()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .into();
-        let input_file = std::fs::File::open(filename_to_parse.clone()).unwrap();
+
+        let (input_file, module_path, opened_path, module_name) = {
+            let _ = trace::span_auto_debug!("Parse worklist item {}", filename_to_parse);
+            let (module_name, module_parent_path) = file_path_to_module_name(&filepath_to_parse);
+
+            trace::debug!(
+                "Module name: \"{}\", parent path: \"{}\"",
+                module_name,
+                module_parent_path.display()
+            );
+
+            // first, try from [worklist_item].sb
+            let direct_source_file = module_parent_path
+                .join(module_name.clone())
+                .with_extension("sb");
+            trace::trace!("Try file \"{}\"", direct_source_file.display());
+
+            let (opened_file, opened_path) =
+                if let Ok(file) = std::fs::File::open(direct_source_file.clone()) {
+                    trace::trace!("success");
+                    (file, direct_source_file)
+                } else {
+                    // then, try from [worklist_item]/mod.sb
+                    let module_source_file = module_parent_path
+                        .join(module_name.clone())
+                        .join("mod")
+                        .with_extension("sb");
+                    trace::trace!("Try file \"{}\"", module_source_file.display());
+
+                    if let Ok(file) = std::fs::File::open(module_source_file.clone()) {
+                        (file, module_source_file)
+                    } else {
+                        let library_source_file = module_parent_path
+                            .join(module_name.clone())
+                            .join("lib")
+                            .with_extension("sb");
+                        trace::trace!("Try file \"{}\"", library_source_file.display());
+                        (
+                            std::fs::File::open(library_source_file.clone()).unwrap(),
+                            library_source_file,
+                        )
+                    }
+                };
+
+            (opened_file, module_parent_path, opened_path, module_name)
+        };
+
+        trace::debug!(
+            "Next up from module worklist: {} - module name {}",
+            filename_to_parse,
+            module_name
+        );
         let mut parser = frontend::Parser::new(
             module_name.clone(),
+            module_path,
             frontend::Lexer::from_file(&filepath_to_parse, std::fs::File::from(input_file)),
         );
 
@@ -213,7 +279,7 @@ fn main() {
             module_tree,
             module_worklist: mut parsed_worklist,
         } = parser
-            .parse(module_name)
+            .parse(module_path, module_name)
             .expect(&format!("Error in file {}", filename_to_parse));
 
         module_worklist.append(&mut parsed_worklist);
@@ -227,6 +293,6 @@ fn main() {
 
     let symtab = midend::symbol_table_from_modules(modules);
     //println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
-    println!("{:#?}", &symtab);
+    println!("{:?}", &symtab);
     //backend::do_backend(symtab);
 }
