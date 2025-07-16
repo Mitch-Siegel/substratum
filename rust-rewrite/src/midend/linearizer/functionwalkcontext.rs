@@ -12,6 +12,7 @@ pub struct FunctionWalkContext {
     symtab: Box<symtab::SymbolTable>,
     // definition path from the root of the symbol table to this function
     global_def_path: symtab::DefPath,
+    generics: symtab::GenericParamsContext,
     self_type: Option<types::Type>,
     block_manager: BlockManager,
     // definition path starting after this function
@@ -29,7 +30,7 @@ impl FunctionWalkContext {
     ) -> Result<Self, symtab::SymbolError> {
         trace::trace!("Create function walk context for {}", prototype);
 
-        let (mut symtab, parent_def_path) = parent_context.take().unwrap();
+        let (mut symtab, parent_def_path, generics) = parent_context.take().unwrap();
 
         let (block_manager, start_block) = BlockManager::new();
         let start_block_label = start_block.label;
@@ -52,6 +53,7 @@ impl FunctionWalkContext {
 
         Ok(Self {
             symtab,
+            generics,
             global_def_path: my_def_path,
             self_type,
             block_manager: block_manager,
@@ -389,15 +391,29 @@ impl symtab::DefContext for FunctionWalkContext {
         &mut self.relative_local_def_path
     }
 
-    fn take(self) -> Result<(Box<symtab::SymbolTable>, symtab::DefPath), ()> {
+    fn generics_mut(&mut self) -> &mut symtab::GenericParamsContext {
+        &mut self.generics
+    }
+
+    fn take(
+        self,
+    ) -> Result<
+        (
+            Box<symtab::SymbolTable>,
+            symtab::DefPath,
+            symtab::GenericParamsContext,
+        ),
+        (),
+    > {
+        assert!(self.relative_local_def_path.is_empty());
         // TODO: manage control flow, etc...
-        Ok((self.symtab, self.global_def_path))
+        Ok((self.symtab, self.global_def_path, self.generics))
     }
 }
 
 impl Into<symtab::BasicDefContext> for FunctionWalkContext {
     fn into(self) -> symtab::BasicDefContext {
-        let (symtab, path) = self.take().unwrap();
-        symtab::BasicDefContext::with_path(symtab, path)
+        let (symtab, path, generics) = self.take().unwrap();
+        symtab::BasicDefContext::with_path(symtab, path, generics)
     }
 }

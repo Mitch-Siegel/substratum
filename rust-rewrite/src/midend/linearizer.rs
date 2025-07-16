@@ -27,7 +27,11 @@ pub fn linearize(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolT
             module.module_path,
             module_def_path
         );
-        let mut context = symtab::BasicDefContext::with_path(symtab, module_def_path);
+        let mut context = symtab::BasicDefContext::with_path(
+            symtab,
+            module_def_path,
+            symtab::GenericParamsContext::new(),
+        );
         context = module.walk(context);
         symtab = context.take().unwrap().0;
     }

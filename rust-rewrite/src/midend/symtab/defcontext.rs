@@ -1,8 +1,65 @@
 use crate::midend::{symtab::*, types};
 
+use std::collections::{BTreeSet, HashMap};
+
+pub struct GenericParamsContext {
+    params_by_path: HashMap<DefPath, BTreeSet<String>>,
+    all_params: BTreeSet<String>,
+}
+
+impl GenericParamsContext {
+    pub fn new() -> Self {
+        Self {
+            params_by_path: HashMap::new(),
+            all_params: BTreeSet::new(),
+        }
+    }
+
+    pub fn add_params_at_path(
+        &mut self,
+        def_path: DefPath,
+        params: BTreeSet<String>,
+    ) -> Result<(), BTreeSet<String>> {
+        let duplicated: BTreeSet<String> = self
+            .all_params
+            .intersection(&params)
+            .map(|param| param.clone())
+            .collect();
+        if duplicated.len() > 0 {
+            return Err(duplicated);
+        }
+
+        self.all_params.append(&mut params.clone());
+        match self.params_by_path.insert(def_path.clone(), params) {
+            Some(existing_params) => panic!(
+                "existing params at defpath {}: {:?}!",
+                def_path, existing_params
+            ),
+            None => (),
+        }
+
+        Ok(())
+    }
+
+    fn remove_params_at_path(&mut self, def_path: DefPath) -> Result<BTreeSet<String>, ()> {
+        let params_at_path = match self.params_by_path.remove(&def_path) {
+            Some(params) => params,
+            None => return Err(()),
+        };
+
+        for param in &params_at_path {
+            if !self.all_params.remove(param) {
+                return Err(());
+            }
+        }
+        Ok(params_at_path)
+    }
+}
+
 pub struct BasicDefContext {
     symtab: Box<SymbolTable>,
     definition_path: DefPath,
+    generics: GenericParamsContext,
 }
 
 impl std::fmt::Debug for BasicDefContext {
@@ -16,13 +73,19 @@ impl BasicDefContext {
         Self {
             symtab,
             definition_path: DefPath::empty(),
+            generics: GenericParamsContext::new(),
         }
     }
 
-    pub fn with_path(symtab: Box<SymbolTable>, definition_path: DefPath) -> Self {
+    pub fn with_path(
+        symtab: Box<SymbolTable>,
+        definition_path: DefPath,
+        generics: GenericParamsContext,
+    ) -> Self {
         Self {
             symtab,
             definition_path,
+            generics: generics,
         }
     }
 }
@@ -32,6 +95,21 @@ pub trait DefContext: std::fmt::Debug {
     fn symtab_mut(&mut self) -> &mut SymbolTable;
     fn def_path(&self) -> DefPath;
     fn def_path_mut(&mut self) -> &mut DefPath;
+    fn generics_mut(&mut self) -> &mut GenericParamsContext;
+
+    fn push_def_path(&mut self, component: DefPathComponent, generic_params: BTreeSet<String>) {
+        self.def_path_mut().push(component).unwrap();
+        let new_def_path = self.def_path();
+        self.generics_mut()
+            .add_params_at_path(new_def_path, generic_params)
+            .unwrap();
+    }
+
+    fn pop_def_path(&mut self) -> DefPathComponent {
+        let def_path = self.def_path();
+        self.generics_mut().remove_params_at_path(def_path).unwrap();
+        self.def_path_mut().pop().unwrap()
+    }
 
     fn id_for_type(&self, type_: &types::Type) -> Result<TypeId, SymbolError> {
         self.symtab().id_for_type(&self.def_path(), type_)
@@ -134,7 +212,7 @@ pub trait DefContext: std::fmt::Debug {
         )
     }
 
-    fn take(self) -> Result<(Box<SymbolTable>, DefPath), ()>;
+    fn take(self) -> Result<(Box<SymbolTable>, DefPath, GenericParamsContext), ()>;
 }
 
 impl DefContext for BasicDefContext {
@@ -154,7 +232,11 @@ impl DefContext for BasicDefContext {
         &mut self.definition_path
     }
 
-    fn take(self) -> Result<(Box<SymbolTable>, DefPath), ()> {
-        Ok((self.symtab, self.definition_path))
+    fn generics_mut(&mut self) -> &mut GenericParamsContext {
+        &mut self.generics
+    }
+
+    fn take(self) -> Result<(Box<SymbolTable>, DefPath, GenericParamsContext), ()> {
+        Ok((self.symtab, self.definition_path, self.generics))
     }
 }
