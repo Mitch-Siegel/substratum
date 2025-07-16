@@ -164,6 +164,11 @@ fn kw_struct() {
 }
 
 #[test]
+fn kw_enum() {
+    kw_or_ident("enum", Token::Enum);
+}
+
+#[test]
 fn ident() {
     // test out some basic identifiers - such as ones containing keywords
     kw_or_ident("foobar", Token::Identifier("foobar".to_owned()));

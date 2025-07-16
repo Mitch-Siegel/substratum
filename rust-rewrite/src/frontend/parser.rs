@@ -314,6 +314,11 @@ impl<'a> Parser<'a> {
                     let struct_definition_item = Item::StructDefinition(struct_definition);
                     items.push(struct_definition_item);
                 }
+                Token::Enum => {
+                    let enum_definition = self.parse_enum_definition()?;
+                    let enum_definition_item = Item::EnumDefinition(enum_definition);
+                    items.push(enum_definition_item)
+                }
                 Token::Impl => {
                     let implementation = self.parse_implementation()?;
                     let impl_item = Item::Implementation(implementation);

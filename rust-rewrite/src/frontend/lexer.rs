@@ -181,6 +181,7 @@ impl<'a> Lexer<'a> {
             "while" => Some(Token::While),
             "pub" => Some(Token::Pub),
             "struct" => Some(Token::Struct),
+            "enum" => Some(Token::Enum),
             "impl" => Some(Token::Impl),
             "mut" => Some(Token::Mut),
             "self" => Some(Token::SelfLower),

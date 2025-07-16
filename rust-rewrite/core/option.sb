@@ -1,4 +1,9 @@
 
+enum Option<T> {
+    Some(T),
+    None,
+}
+
 mod TestModule {
     struct test_thing {
         data: u64

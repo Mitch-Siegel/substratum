@@ -65,14 +65,17 @@ impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for Modu
                 Item::FunctionDefinition(function_definition) => {
                     context = function_definition.walk(context);
                 }
-                Item::StructDefinition(struct_definition) => {
-                    let struct_repr = struct_definition.walk(&mut context);
+                Item::StructDefinition(struct_tree) => {
+                    let struct_repr = struct_tree.walk(&mut context);
                     context
                         .insert::<symtab::TypeDefinition>(symtab::TypeDefinition::new(
                             types::Type::Named(struct_repr.name.clone()),
                             symtab::TypeRepr::Struct(struct_repr),
                         ))
                         .unwrap();
+                }
+                Item::EnumDefinition(enum_tree) => {
+                    unimplemented!("enum definition walk not implemented: {:?}", enum_tree);
                 }
                 Item::Implementation(implementation) => {
                     context = implementation.walk(context);

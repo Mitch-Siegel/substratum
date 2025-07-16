@@ -29,6 +29,7 @@ pub enum Item {
     FunctionDeclaration(FunctionDeclarationTree),
     FunctionDefinition(FunctionDefinitionTree),
     StructDefinition(StructDefinitionTree),
+    EnumDefinition(EnumDefinitionTree),
     Implementation(ImplementationTree),
     Module(ModuleTree),
 }
@@ -44,6 +45,9 @@ impl Display for Item {
             }
             Self::StructDefinition(struct_definition) => {
                 write!(f, "Struct Definition: {}", struct_definition)
+            }
+            Self::EnumDefinition(enum_definition) => {
+                write!(f, "Enum Definition: {}", enum_definition)
             }
             Self::Implementation(implementation) => {
                 write!(f, "Implementation: {}", implementation)
@@ -234,6 +238,57 @@ impl Display for StructDefinitionTree {
         }
 
         write!(f, "Struct Definition: {}: {}", self.name, fields)
+    }
+}
+
+#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct EnumVariantTree {
+    pub loc: SourceLocWithMod,
+    pub name: String,
+    pub data: Option<TypeTree>,
+}
+impl EnumVariantTree {
+    pub fn new(loc: SourceLocWithMod, name: String, data: Option<TypeTree>) -> Self {
+        Self { loc, name, data }
+    }
+}
+impl Display for EnumVariantTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.data {
+            Some(variant_type) => write!(f, "{}: {}", self.name, variant_type),
+            None => write!(f, "{}", self.name),
+        }
+    }
+}
+
+#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct EnumDefinitionTree {
+    pub loc: SourceLocWithMod,
+    pub name: IdentifierWithGenericsTree,
+    pub variants: Vec<EnumVariantTree>,
+}
+impl EnumDefinitionTree {
+    pub fn new(
+        loc: SourceLocWithMod,
+        name: IdentifierWithGenericsTree,
+        variants: Vec<EnumVariantTree>,
+    ) -> Self {
+        Self {
+            loc,
+            name,
+            variants,
+        }
+    }
+}
+impl Display for EnumDefinitionTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut fields = String::new();
+        for variant in &self.variants {
+            fields += &variant.to_string();
+            fields += " ";
+        }
+
+        write!(f, "Enum Definition: {}: {}", self.name, fields)
     }
 }
 
