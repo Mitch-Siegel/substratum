@@ -39,7 +39,16 @@ impl std::fmt::Debug for SymbolTable {
         writeln!(f, "definitions:")?;
 
         for (path, def) in &self.defs {
-            writeln!(f, "defpath {} - {:?}", path, def)?;
+            match def {
+                SymbolDef::Type(type_id) => writeln!(
+                    f,
+                    "defpath {} - {:?} ({:?})",
+                    path,
+                    def,
+                    self.types.get_by_id(type_id).unwrap()
+                )?,
+                _ => writeln!(f, "defpath {} - {:?}", path, def)?,
+            }
         }
 
         Ok(())

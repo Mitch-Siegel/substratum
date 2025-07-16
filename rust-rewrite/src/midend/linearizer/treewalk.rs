@@ -75,7 +75,13 @@ impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for Modu
                         .unwrap();
                 }
                 Item::EnumDefinition(enum_tree) => {
-                    unimplemented!("enum definition walk not implemented: {:?}", enum_tree);
+                    let enum_repr = enum_tree.walk(&mut context);
+                    context
+                        .insert::<symtab::TypeDefinition>(symtab::TypeDefinition::new(
+                            types::Type::Named(enum_repr.name.clone()),
+                            symtab::TypeRepr::Enum(enum_repr),
+                        ))
+                        .unwrap();
                 }
                 Item::Implementation(implementation) => {
                     context = implementation.walk(context);
@@ -202,6 +208,40 @@ impl ReturnWalk<symtab::StructRepr> for StructDefinitionTree {
             None => Vec::new(),
         };
         symtab::StructRepr::new(string_name, generic_params, fields).unwrap()
+    }
+}
+
+impl ReturnWalk<symtab::EnumRepr> for EnumDefinitionTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(self, context: &mut impl symtab::DefContext) -> symtab::EnumRepr {
+        let variants = self
+            .variants
+            .into_iter()
+            .map(|variant| {
+                let variant_data_type = match variant.data {
+                    Some(data_type) => Some(data_type.walk(context)),
+                    None => None,
+                };
+                (variant.name, variant_data_type)
+            })
+            .collect::<Vec<_>>();
+
+        let string_name = self.name.name;
+        let mut generic_params_set = BTreeSet::<String>::new();
+        let generic_params: Vec<String> = match self.name.generic_params {
+            Some(params) => params
+                .params
+                .into_iter()
+                .map(|param| {
+                    if !generic_params_set.insert(param.name.clone()) {
+                        panic!("Duplicate generic parameter {} @ {}", param.name, param.loc)
+                    }
+                    param.name
+                })
+                .collect(),
+            None => Vec::new(),
+        };
+        symtab::EnumRepr::new(string_name, generic_params, variants).unwrap()
     }
 }
 

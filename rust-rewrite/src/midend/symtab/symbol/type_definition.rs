@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::midend::{symtab::*, types};
 
+pub mod enum_definition;
 pub mod struct_definition;
 
+pub use enum_definition::*;
 pub use struct_definition::*;
 
 #[derive(Debug, Clone, Serialize)]
@@ -79,6 +81,7 @@ pub enum TypeRepr {
     UnsignedInteger(PrimitiveIntegerRepr),
     SignedInteger(PrimitiveIntegerRepr),
     Struct(StructRepr),
+    Enum(EnumRepr),
 }
 
 impl TypeRepr {
@@ -88,6 +91,7 @@ impl TypeRepr {
             Self::UnsignedInteger(repr) => format!("u{}", repr.size),
             Self::SignedInteger(repr) => format!("i{}", repr.size),
             Self::Struct(struct_repr) => struct_repr.name.clone(),
+            Self::Enum(enum_repr) => enum_repr.name.clone(),
         }
     }
 }

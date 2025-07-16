@@ -30,6 +30,7 @@ impl std::fmt::Display for StructField {
 pub struct StructRepr {
     pub name: String,
     generic_params: Vec<String>,
+    field_order: Vec<String>,
     fields: BTreeMap<String, StructField>,
     size: Option<usize>,
     alignment: Option<usize>,
@@ -41,6 +42,11 @@ impl StructRepr {
         generic_params: Vec<String>,
         field_definitions: Vec<(String, types::Type)>,
     ) -> Result<Self, StructField> {
+        let field_order: Vec<String> = field_definitions
+            .iter()
+            .map(|(name, _)| name.clone())
+            .collect();
+
         let mut fields = BTreeMap::<String, StructField>::new();
         for (name, type_) in field_definitions {
             trace::trace!("Insert struct field {} (type: {})", name, type_,);
@@ -54,6 +60,7 @@ impl StructRepr {
         Ok(Self {
             name,
             generic_params,
+            field_order,
             fields,
             size: None,
             alignment: None,
