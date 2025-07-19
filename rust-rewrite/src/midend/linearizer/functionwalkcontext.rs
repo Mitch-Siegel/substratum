@@ -391,6 +391,10 @@ impl symtab::DefContext for FunctionWalkContext {
         &mut self.relative_local_def_path
     }
 
+    fn generics(&self) -> &symtab::GenericParamsContext {
+        &self.generics
+    }
+
     fn generics_mut(&mut self) -> &mut symtab::GenericParamsContext {
         &mut self.generics
     }

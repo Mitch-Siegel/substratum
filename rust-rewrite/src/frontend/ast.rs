@@ -106,24 +106,21 @@ impl Display for GenericParamsListTree {
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDeclarationTree {
     pub loc: SourceLocWithMod,
-    pub name: String,
+    pub name: IdentifierWithGenericsTree,
     pub arguments: Vec<ArgumentDeclarationTree>,
-    pub generic_params: Option<GenericParamsListTree>,
     pub return_type: Option<TypeTree>,
 }
 impl FunctionDeclarationTree {
     pub fn new(
         loc: SourceLocWithMod,
-        name: String,
+        name: IdentifierWithGenericsTree,
         arguments: Vec<ArgumentDeclarationTree>,
-        generic_params: Option<GenericParamsListTree>,
         return_type: Option<TypeTree>,
     ) -> Self {
         Self {
             loc,
             name,
             arguments,
-            generic_params,
             return_type,
         }
     }
@@ -135,16 +132,11 @@ impl Display for FunctionDeclarationTree {
             arg_string.push_str(format!("{}\n", argument).as_str());
         }
 
-        let generic_params_string = match &self.generic_params {
-            Some(params) => String::from(format!("<{}>", params)),
-            None => String::new(),
-        };
-
         match &self.return_type {
             Some(typename_tree) => write!(
                 f,
-                "Function Declaration: {}{}({})->{}",
-                self.name, generic_params_string, arg_string, typename_tree
+                "Function Declaration: {}({})->{}",
+                self.name, arg_string, typename_tree
             ),
             None => write!(f, "Function Declaration: {}({})", self.name, arg_string),
         }
@@ -184,7 +176,7 @@ impl Display for StructFieldTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct IdentifierWithGenericsTree {
     pub loc: SourceLocWithMod,
     pub name: String,

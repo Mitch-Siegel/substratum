@@ -102,6 +102,35 @@ impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for Modu
     }
 }
 
+impl CustomReturnWalk<(), Vec<String>> for Option<GenericParamsListTree> {
+    #[tracing::instrument(skip(self), level = "trace")]
+    fn walk(self, _: ()) -> Vec<String> {
+        let mut generic_params_set = BTreeSet::<String>::new();
+        let generic_params: Vec<String> = match self {
+            Some(params) => params
+                .params
+                .into_iter()
+                .map(|param| {
+                    if !generic_params_set.insert(param.name.clone()) {
+                        panic!("Duplicate generic parameter {} @ {}", param.name, param.loc)
+                    }
+                    param.name
+                })
+                .collect(),
+            None => Vec::new(),
+        };
+
+        generic_params
+    }
+}
+
+impl CustomReturnWalk<(), (String, Vec<String>)> for IdentifierWithGenericsTree {
+    #[tracing::instrument(skip(self), level = "trace")]
+    fn walk(self, _: ()) -> (String, Vec<String>) {
+        (self.name, self.generic_params.walk(()))
+    }
+}
+
 impl CustomReturnWalk<symtab::BasicDefContext, symtab::BasicDefContext> for ImplementationTree {
     #[tracing::instrument(skip(self, context), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, mut context: symtab::BasicDefContext) -> symtab::BasicDefContext {
@@ -166,8 +195,14 @@ impl ReturnWalk<symtab::Variable> for ArgumentDeclarationTree {
 impl ReturnWalk<symtab::FunctionPrototype> for FunctionDeclarationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut impl symtab::DefContext) -> symtab::FunctionPrototype {
+        let (string_name, generic_params) = self.name.walk(());
+        let function_def_path_component =
+            symtab::DefPathComponent::Function(symtab::FunctionName {
+                name: string_name.clone(),
+            });
+        context.push_def_path(function_def_path_component.clone(), &generic_params);
         symtab::FunctionPrototype::new(
-            self.name,
+            string_name,
             self.arguments
                 .into_iter()
                 .map(|x| x.walk(context))
@@ -183,6 +218,11 @@ impl ReturnWalk<symtab::FunctionPrototype> for FunctionDeclarationTree {
 impl ReturnWalk<symtab::StructRepr> for StructDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut impl symtab::DefContext) -> symtab::StructRepr {
+        let (string_name, generic_params) = self.name.walk(());
+        let type_def_path_component =
+            symtab::DefPathComponent::Type(types::Type::Named(string_name.clone()));
+        context.push_def_path(type_def_path_component.clone(), &generic_params);
+
         let fields = self
             .fields
             .into_iter()
@@ -192,21 +232,7 @@ impl ReturnWalk<symtab::StructRepr> for StructDefinitionTree {
             })
             .collect::<Vec<_>>();
 
-        let string_name = self.name.name;
-        let mut generic_params_set = BTreeSet::<String>::new();
-        let generic_params: Vec<String> = match self.name.generic_params {
-            Some(params) => params
-                .params
-                .into_iter()
-                .map(|param| {
-                    if !generic_params_set.insert(param.name.clone()) {
-                        panic!("Duplicate generic parameter {} @ {}", param.name, param.loc)
-                    }
-                    param.name
-                })
-                .collect(),
-            None => Vec::new(),
-        };
+        context.pop_def_path(type_def_path_component).unwrap();
         symtab::StructRepr::new(string_name, generic_params, fields).unwrap()
     }
 }
@@ -214,6 +240,11 @@ impl ReturnWalk<symtab::StructRepr> for StructDefinitionTree {
 impl ReturnWalk<symtab::EnumRepr> for EnumDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut impl symtab::DefContext) -> symtab::EnumRepr {
+        let (string_name, generic_params) = self.name.walk(());
+        let type_def_path_component =
+            symtab::DefPathComponent::Type(types::Type::Named(string_name.clone()));
+        context.push_def_path(type_def_path_component.clone(), &generic_params);
+
         let variants = self
             .variants
             .into_iter()
@@ -226,21 +257,7 @@ impl ReturnWalk<symtab::EnumRepr> for EnumDefinitionTree {
             })
             .collect::<Vec<_>>();
 
-        let string_name = self.name.name;
-        let mut generic_params_set = BTreeSet::<String>::new();
-        let generic_params: Vec<String> = match self.name.generic_params {
-            Some(params) => params
-                .params
-                .into_iter()
-                .map(|param| {
-                    if !generic_params_set.insert(param.name.clone()) {
-                        panic!("Duplicate generic parameter {} @ {}", param.name, param.loc)
-                    }
-                    param.name
-                })
-                .collect(),
-            None => Vec::new(),
-        };
+        context.pop_def_path(type_def_path_component).unwrap();
         symtab::EnumRepr::new(string_name, generic_params, variants).unwrap()
     }
 }
@@ -553,12 +570,15 @@ impl<'a> ReturnFunctionWalk<'a, (ir::ValueId, &'a symtab::StructField)> for Fiel
             _ => panic!("unknown type of field receiver",),
         };
 
+        let receiver_type = context.resolve_type_name(struct_name).expect(&format!(
+            "Error handling for failed lookups is unimplemented: {}.{}",
+            struct_name, self.field
+        ));
+
+        // TODO: handle generic params
         let receiver_definition = context
-            .lookup::<symtab::TypeDefinition>(&types::Type::Named(struct_name.clone()))
-            .expect(&format!(
-                "Error handling for failed lookups is unimplemented: {}.{}",
-                struct_name, self.field
-            ));
+            .lookup::<symtab::TypeDefinition>(&receiver_type)
+            .unwrap();
 
         let struct_receiver = match &receiver_definition.repr {
             symtab::TypeRepr::Struct(struct_definition) => struct_definition,

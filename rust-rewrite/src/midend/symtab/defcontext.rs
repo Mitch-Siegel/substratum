@@ -54,6 +54,10 @@ impl GenericParamsContext {
         }
         Ok(params_at_path)
     }
+
+    fn get(&self, def_path: &DefPath) -> Option<&BTreeSet<String>> {
+        self.params_by_path.get(def_path)
+    }
 }
 
 pub struct BasicDefContext {
@@ -95,20 +99,37 @@ pub trait DefContext: std::fmt::Debug {
     fn symtab_mut(&mut self) -> &mut SymbolTable;
     fn def_path(&self) -> DefPath;
     fn def_path_mut(&mut self) -> &mut DefPath;
+    fn generics(&self) -> &GenericParamsContext;
     fn generics_mut(&mut self) -> &mut GenericParamsContext;
 
-    fn push_def_path(&mut self, component: DefPathComponent, generic_params: BTreeSet<String>) {
+    fn push_def_path(&mut self, component: DefPathComponent, generic_params: &Vec<String>) {
+        let params_set = generic_params
+            .iter()
+            .map(|param| param.clone())
+            .collect::<BTreeSet<String>>();
+        assert_eq!(
+            params_set.len(),
+            generic_params.len(),
+            "Unchecked duplicate generic param"
+        );
+
         self.def_path_mut().push(component).unwrap();
         let new_def_path = self.def_path();
         self.generics_mut()
-            .add_params_at_path(new_def_path, generic_params)
+            .add_params_at_path(new_def_path, params_set)
             .unwrap();
     }
 
-    fn pop_def_path(&mut self) -> DefPathComponent {
+    fn pop_def_path(&mut self, expect: DefPathComponent) -> Result<(), ()> {
         let def_path = self.def_path();
         self.generics_mut().remove_params_at_path(def_path).unwrap();
-        self.def_path_mut().pop().unwrap()
+        let popped = self.def_path_mut().pop().unwrap();
+
+        if popped == expect {
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 
     fn id_for_type(&self, type_: &types::Type) -> Result<TypeId, SymbolError> {
@@ -117,6 +138,42 @@ pub trait DefContext: std::fmt::Debug {
 
     fn type_for_id(&self, id: &TypeId) -> Option<&TypeDefinition> {
         self.symtab().type_for_id(id)
+    }
+
+    // resolves a string type name to either a defined type or a generic param
+    fn resolve_type_name(&self, name: &str) -> Result<types::Type, SymbolError> {
+        // first, lookup the type in the symbol table
+        let (mut type_, found_def_path) = match self
+            .lookup_with_path::<TypeDefinition>(&types::Type::Named(name.into()))
+        {
+            // if we find it, grab its type and defpath, otherwise create a dummy type and path
+            Ok((type_definition, def_path)) => (Some(type_definition.type_().clone()), def_path),
+            Err(_) => (None, DefPath::empty()),
+        };
+
+        // next, search the generics
+        // we may search any generic path *longer than* the def path we found a type definition at
+        // this covers cases where more deeply scoped generic parameter names shadow more shallowly
+        // scoped named type definitions
+        let mut search_def_path = self.def_path();
+        while search_def_path.len() > found_def_path.len() {
+            match self.generics().get(&search_def_path) {
+                Some(params) => match params.get(name) {
+                    Some(param) => {
+                        type_ = Some(types::Type::GenericParam(param.clone()));
+                        break;
+                    }
+                    None => (),
+                },
+                None => (),
+            }
+            search_def_path.pop().unwrap();
+        }
+
+        type_.ok_or(SymbolError::Undefined(
+            self.def_path(),
+            DefPathComponent::Type(types::Type::Named(name.into())),
+        ))
     }
 
     fn lookup<S>(&self, key: &<S as Symbol>::SymbolKey) -> Result<&S, SymbolError>
@@ -230,6 +287,10 @@ impl DefContext for BasicDefContext {
 
     fn def_path_mut(&mut self) -> &mut DefPath {
         &mut self.definition_path
+    }
+
+    fn generics(&self) -> &GenericParamsContext {
+        &self.generics
     }
 
     fn generics_mut(&mut self) -> &mut GenericParamsContext {

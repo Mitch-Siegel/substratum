@@ -144,8 +144,7 @@ impl<'a> Parser<'a> {
         // start with fun
         self.expect_token(Token::Fun)?;
 
-        let name = self.parse_identifier()?;
-        let generic_params = self.try_parse_generic_params_list()?;
+        let name = self.parse_identifier_with_generic_params()?;
 
         self.expect_token(Token::LParen)?;
         let mut arguments = Vec::<ArgumentDeclarationTree>::new();
@@ -191,8 +190,7 @@ impl<'a> Parser<'a> {
             _ => None,
         };
 
-        let prototype =
-            FunctionDeclarationTree::new(start_loc, name, arguments, generic_params, return_type);
+        let prototype = FunctionDeclarationTree::new(start_loc, name, arguments, return_type);
         self.finish_parsing(&prototype)?;
         Ok(prototype)
     }
