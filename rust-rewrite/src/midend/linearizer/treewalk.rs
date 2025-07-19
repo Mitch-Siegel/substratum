@@ -161,7 +161,22 @@ impl ReturnWalk<types::Type> for TypeTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut impl symtab::DefContext) -> types::Type {
         // TODO: check that the type exists by looking it up
-        self.type_
+        match self.type_ {
+            types::Type::Unit
+            | types::Type::U8
+            | types::Type::U16
+            | types::Type::U32
+            | types::Type::U64
+            | types::Type::I8
+            | types::Type::I16
+            | types::Type::I32
+            | types::Type::I64 => self.type_,
+            types::Type::_Self => self.type_,
+            types::Type::Named(name) => context.resolve_type_name(name.as_str()).unwrap(),
+            // TODO: resolve reference/pointer correctly
+            types::Type::Reference(_, _) | types::Type::Pointer(_, _) => self.type_,
+            _ => panic!("Unexpected type seen in type tree: {}", self.type_),
+        }
     }
 }
 
