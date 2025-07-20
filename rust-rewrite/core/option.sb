@@ -4,9 +4,13 @@ enum Option<T> {
     None,
 }
 
-mod TestModule {
-    struct test_thing {
-        data: u64
-        }
+
+impl<T> Option<T> {
+    fun unwrap(self) -> T {
+        match self {
+            Self::Some(val) => val,
+            None => unwrap_failed(),
+    }
 }
+
 

@@ -19,6 +19,7 @@ impl DefPathComponent {
             (Self::Empty, Self::Module(_)) => true,
             (Self::Module(_), Self::Module(_)) => true,
             (Self::Module(_), Self::Type(_)) => true,
+            (Self::Module(_), Self::Implementation(_)) => true,
             (Self::Module(_), Self::Function(_)) => true,
             (Self::Module(_), Self::Import(_)) => true,
             (Self::Module(_), Self::Variable(_)) => true,
@@ -168,7 +169,7 @@ impl DefPath {
             self.components.push(component);
             Ok(())
         } else {
-            Err(SymbolError::CantOwn(self.last().clone(), component))
+            Err(SymbolError::CantOwn(self.clone(), component))
         }
     }
 

@@ -2,11 +2,16 @@ use crate::midend::symtab::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ImplementationName {
-    pub name: String,
+    pub implemented_for: TypeId,
+    pub generic_params: Vec<String>,
 }
 impl std::fmt::Display for ImplementationName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
+        write!(
+            f,
+            "impl<{:?}> {}",
+            self.generic_params, self.implemented_for
+        )
     }
 }
 
@@ -16,9 +21,12 @@ pub struct Implementation {
 }
 
 impl Implementation {
-    pub fn new(name: String) -> Self {
+    pub fn new(implemented_for: TypeId, generic_params: Vec<String>) -> Self {
         Self {
-            name: ImplementationName { name },
+            name: ImplementationName {
+                implemented_for,
+                generic_params,
+            },
         }
     }
 }

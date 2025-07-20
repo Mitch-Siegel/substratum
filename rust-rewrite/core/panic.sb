@@ -1,0 +1,4 @@
+
+fn panic(string: u8) {
+
+}

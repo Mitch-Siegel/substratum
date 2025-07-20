@@ -113,6 +113,7 @@ pub trait DefContext: std::fmt::Debug {
             "Unchecked duplicate generic param"
         );
 
+        trace::trace!("push {:?} to defcontext defpath", component);
         self.def_path_mut().push(component).unwrap();
         let new_def_path = self.def_path();
         self.generics_mut()
@@ -124,6 +125,8 @@ pub trait DefContext: std::fmt::Debug {
         let def_path = self.def_path();
         self.generics_mut().remove_params_at_path(def_path).unwrap();
         let popped = self.def_path_mut().pop().unwrap();
+
+        trace::trace!("pop {:?} from defcontext defpath", popped);
 
         if popped == expect {
             Ok(())
@@ -240,6 +243,7 @@ pub trait DefContext: std::fmt::Debug {
     {
         let def_path = self.def_path();
         let symtab_mut = self.symtab_mut();
+        trace::trace!("insert {:?} at {:?}", symbol, def_path);
         symtab_mut.insert::<S>(def_path, symbol)
     }
 

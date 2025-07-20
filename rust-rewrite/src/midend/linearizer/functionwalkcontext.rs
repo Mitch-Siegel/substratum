@@ -12,11 +12,11 @@ pub struct FunctionWalkContext {
     symtab: Box<symtab::SymbolTable>,
     // definition path from the root of the symbol table to this function
     global_def_path: symtab::DefPath,
+    // definition path from the root of the symbol table to wherever we are in the function
+    full_def_path: symtab::DefPath,
     generics: symtab::GenericParamsContext,
     self_type: Option<types::Type>,
     block_manager: BlockManager,
-    // definition path starting after this function
-    relative_local_def_path: symtab::DefPath,
     values: ir::ValueInterner,
     // key for DefPathComponent::BasicBlock from self.def_path
     current_block: usize,
@@ -40,7 +40,6 @@ impl FunctionWalkContext {
                 symtab::Function::new(prototype, None),
             )?
         };
-        let my_def_path_component = my_def_path.last().clone();
 
         symtab
             .insert::<ir::BasicBlock>(my_def_path.clone(), start_block)
@@ -54,17 +53,17 @@ impl FunctionWalkContext {
         Ok(Self {
             symtab,
             generics,
-            global_def_path: my_def_path,
+            global_def_path: my_def_path.clone(),
+            full_def_path: my_def_path,
             self_type,
             block_manager: block_manager,
-            relative_local_def_path: symtab::DefPath::new(my_def_path_component),
             values,
             current_block: start_block_label,
         })
     }
 
     fn new_subscope(&mut self) -> Result<(), symtab::SymbolError> {
-        self.relative_local_def_path.push(
+        self.full_def_path.push(
             self.symtab
                 .insert::<symtab::Scope>(self.def_path(), symtab::Scope::new(0))
                 .unwrap()
@@ -76,7 +75,7 @@ impl FunctionWalkContext {
     fn pop_current_scope(&mut self) -> Result<(), block_manager::BranchError> {
         trace::trace!("pop current scope");
 
-        match self.relative_local_def_path.pop() {
+        match self.full_def_path.pop() {
             Some(symtab::DefPathComponent::Scope(_)) => Ok(()),
             _ => Err(block_manager::BranchError::NotBranched),
         }
@@ -381,14 +380,11 @@ impl symtab::DefContext for FunctionWalkContext {
     }
 
     fn def_path(&self) -> symtab::DefPath {
-        self.global_def_path
-            .clone()
-            .join(self.relative_local_def_path.clone())
-            .unwrap()
+        self.full_def_path.clone()
     }
 
     fn def_path_mut(&mut self) -> &mut symtab::DefPath {
-        &mut self.relative_local_def_path
+        &mut self.full_def_path
     }
 
     fn generics(&self) -> &symtab::GenericParamsContext {
@@ -409,7 +405,7 @@ impl symtab::DefContext for FunctionWalkContext {
         ),
         (),
     > {
-        assert!(self.relative_local_def_path.is_empty());
+        assert!(self.full_def_path.len() == self.global_def_path.len());
         // TODO: manage control flow, etc...
         Ok((self.symtab, self.global_def_path, self.generics))
     }
@@ -417,7 +413,11 @@ impl symtab::DefContext for FunctionWalkContext {
 
 impl Into<symtab::BasicDefContext> for FunctionWalkContext {
     fn into(self) -> symtab::BasicDefContext {
-        let (symtab, path, generics) = self.take().unwrap();
+        let (symtab, mut path, generics) = self.take().unwrap();
+        assert!(matches!(
+            path.pop().unwrap(),
+            symtab::DefPathComponent::Function(_)
+        ));
         symtab::BasicDefContext::with_path(symtab, path, generics)
     }
 }

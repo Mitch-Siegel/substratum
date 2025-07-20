@@ -4,7 +4,7 @@ use crate::midend::symtab::*;
 pub enum SymbolError {
     Undefined(DefPath, DefPathComponent),
     Defined(DefPath),
-    CantOwn(DefPathComponent, DefPathComponent),
+    CantOwn(DefPath, DefPathComponent),
 }
 impl std::fmt::Debug for SymbolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -15,7 +15,9 @@ impl std::fmt::Debug for SymbolError {
                 component, path
             ),
             Self::Defined(path) => write!(f, "{}", path),
-            Self::CantOwn(owner, ownee) => write!(f, "{:?} can't own {:?}", owner, ownee),
+            Self::CantOwn(owner, ownee) => {
+                write!(f, "DefPath \"{:?}\" can't own {:?}", owner, ownee)
+            }
         }
     }
 }
