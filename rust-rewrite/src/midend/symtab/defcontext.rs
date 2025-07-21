@@ -273,6 +273,17 @@ pub trait DefContext: std::fmt::Debug {
         )
     }
 
+    fn self_variable_path(&self) -> Option<DefPath> {
+        let mut search_def_path = self.def_path();
+        while !search_def_path.is_empty() {
+            if search_def_path.is_type() {
+                return Some(search_def_path);
+            }
+            search_def_path.pop().unwrap();
+        }
+        None
+    }
+
     fn take(self) -> Result<(Box<SymbolTable>, DefPath, GenericParamsContext), ()>;
 }
 

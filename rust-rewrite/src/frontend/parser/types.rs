@@ -4,7 +4,7 @@ use crate::frontend::parser::*;
 
 impl<'a> Parser<'a> {
     pub fn parse_type(&mut self) -> Result<TypeTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("type")?;
+        let (start_loc, _span) = self.start_parsing("type")?;
 
         let type_tree = TypeTree {
             loc: start_loc,
@@ -17,7 +17,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type_inner(&mut self) -> Result<Type, ParseError> {
-        let (_start_loc, _) = self.start_parsing("typename")?;
+        let (_start_loc, _span) = self.start_parsing("typename")?;
 
         let type_ = match self.peek_token()? {
             Token::Reference => {
@@ -44,7 +44,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type_name(&mut self) -> Result<Type, ParseError> {
-        let (_start_loc, _) = self.start_parsing("type name")?;
+        let (_start_loc, _span) = self.start_parsing("type name")?;
 
         let type_name = match self.peek_token()? {
             Token::U8 => {

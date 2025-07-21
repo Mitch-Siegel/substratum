@@ -96,6 +96,10 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    fn current_module(&self) -> &str {
+        self.module_parse_stack.last().unwrap().as_str()
+    }
+
     // return the next token from the input stream without advancing
     // utilizes lookahead_token
     fn peek_token(&mut self) -> Result<Token, LexError> {
@@ -146,7 +150,7 @@ impl<'a> Parser<'a> {
         Ok(next)
     }
 
-    fn expect_token(&mut self, _expected: Token) -> Result<Token, ParseError> {
+    fn expect_token(&mut self, expected: Token) -> Result<Token, ParseError> {
         //#[cfg(feature = "loud_parsing")]
         //self.annotate_parsing(&format!("Parser::expect_token({})", _expected));
         let (current_parse_start_loc, current_parse_string) = self
@@ -156,16 +160,23 @@ impl<'a> Parser<'a> {
             .to_owned();
 
         let (upcoming_token, upcoming_loc) = self.peek_token_with_loc()?;
-        if upcoming_token.eq(&_expected) {
-            self.next_token()
+        if upcoming_token.eq(&expected) {
+            Ok(self.next_token()?)
         } else {
             Err(ParseError::unexpected_token(
                 upcoming_loc,
                 upcoming_token,
-                &[_expected],
+                &[expected],
                 current_parse_string,
                 current_parse_start_loc,
             ))
+        }
+    }
+
+    fn expect_token_with_loc(&mut self, expected: Token) -> Result<(Token, SourceLoc), ParseError> {
+        match self.expect_token(expected) {
+            Ok(token) => Ok((token, self.last_match.clone())),
+            Err(e) => Err(e),
         }
     }
 
@@ -225,11 +236,16 @@ impl<'a> Parser<'a> {
     where
         T: std::fmt::Display,
     {
-        tracing::event!(tracing::Level::TRACE, "{}", _parsed);
-        let (_parse_start, _parsed_description) = self
+        let (_parse_start, parsed_description) = self
             .parsing_stack
             .pop()
             .expect("Mismatched loud parsing tracking");
+        tracing::event!(
+            tracing::Level::TRACE,
+            "Finish parsing {}: {}",
+            parsed_description,
+            _parsed
+        );
 
         #[cfg(feature = "loud_parsing")]
         {
@@ -275,7 +291,7 @@ impl<'a> Parser<'a> {
         &mut self,
         parent_module_path: &std::path::Path,
     ) -> Result<ModuleResult, ParseError> {
-        let (_, _) = self.start_parsing("module item")?;
+        let (_, _span) = self.start_parsing("module item")?;
 
         trace::debug!(
             "module item parent module path: \"{}\"",
@@ -381,7 +397,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_statement(&mut self) -> Result<StatementTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("statement")?;
+        let (start_loc, _span) = self.start_parsing("statement")?;
 
         let statement = StatementTree {
             loc: start_loc,
@@ -392,7 +408,7 @@ impl<'a> Parser<'a> {
                     }
                     _ => Statement::Expression(self.parse_expression()?),
                 },
-                Token::If | Token::While | Token::LCurly => {
+                Token::If | Token::Match | Token::While | Token::LCurly => {
                     Statement::Expression(self.parse_expression()?)
                 }
                 _ => self.unexpected_token::<Statement>(&[

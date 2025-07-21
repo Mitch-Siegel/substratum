@@ -85,7 +85,7 @@ impl ReadLine for FileLineReader {
         };
 
         match line_option {
-            Some(string) => Some(string.chars().rev().collect()),
+            Some(string) => Some(string.chars().rev().chain(std::iter::once('\n')).collect()),
             None => None,
         }
     }

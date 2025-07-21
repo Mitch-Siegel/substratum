@@ -149,6 +149,11 @@ fn kw_else() {
 }
 
 #[test]
+fn kw_match() {
+    kw_or_ident("match", Token::Match);
+}
+
+#[test]
 fn kw_while() {
     kw_or_ident("while", Token::While);
 }

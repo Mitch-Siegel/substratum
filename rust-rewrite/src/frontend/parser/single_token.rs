@@ -5,7 +5,7 @@ use super::{ParseError, Parser};
 // parsing functions which only consume a single token
 impl<'a> Parser<'a> {
     pub fn parse_identifier(&mut self) -> Result<String, ParseError> {
-        let (_start_loc, _) = self.start_parsing("identifier")?;
+        let (_start_loc, _span) = self.start_parsing("identifier")?;
 
         let identifier = match self.expect_token(Token::Identifier(String::from("")))? {
             Token::Identifier(value) => value,

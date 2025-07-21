@@ -8,8 +8,9 @@ enum Option<T> {
 impl<T> Option<T> {
     fun unwrap(self) -> T {
         match self {
-            Self::Some(val) => val,
-            None => unwrap_failed(),
+            Some(val) => val,
+            None => self.unwrap_failed(),
+        }
     }
 }
 

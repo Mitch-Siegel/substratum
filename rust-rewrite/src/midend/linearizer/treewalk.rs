@@ -417,6 +417,10 @@ impl ValueWalk for ExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         match self.expression {
+            Expression::SelfLower => {
+                *context.value_for_variable(&context.self_variable_path().unwrap())
+            }
+
             Expression::Identifier(ident) => {
                 let (_, variable_path) = context
                     .lookup_with_path::<symtab::Variable>(&ident)
@@ -430,6 +434,9 @@ impl ValueWalk for ExpressionTree {
             Expression::Comparison(comparison_operation) => comparison_operation.walk(context),
             Expression::Assignment(assignment_expression) => assignment_expression.walk(context),
             Expression::If(if_expression) => if_expression.walk(context),
+            Expression::Match(match_expression) => {
+                unimplemented!("walk for match expressions not yet implemented!")
+            }
             Expression::While(while_expression) => while_expression.walk(context),
             Expression::FieldExpression(field_expression) => {
                 let (receiver, field) = field_expression.walk(context);

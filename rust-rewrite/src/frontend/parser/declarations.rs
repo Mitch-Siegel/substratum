@@ -6,7 +6,7 @@ use super::{ParseError, Parser};
 impl<'a> Parser<'a> {
     // TODO: pass loc of string to get true start loc of declaration
     pub fn parse_variable_declaration(&mut self) -> Result<VariableDeclarationTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("variable declaration")?;
+        let (start_loc, _span) = self.start_parsing("variable declaration")?;
 
         let mutable = match self.peek_token()? {
             Token::Mut => {
@@ -34,7 +34,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_argument_declaration(&mut self) -> Result<ArgumentDeclarationTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("argument declaration")?;
+        let (start_loc, _span) = self.start_parsing("argument declaration")?;
 
         let mutable = match self.peek_token()? {
             Token::Mut => {
@@ -59,7 +59,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_generic_param(&mut self) -> Result<GenericParamTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("generic param")?;
+        let (start_loc, _span) = self.start_parsing("generic param")?;
 
         let param = match self.peek_token()? {
             Token::Identifier(_) => {
@@ -76,7 +76,7 @@ impl<'a> Parser<'a> {
     pub fn try_parse_generic_params_list(
         &mut self,
     ) -> Result<Option<GenericParamsListTree>, ParseError> {
-        let (start_loc, _) = self.start_parsing("generic params list")?;
+        let (start_loc, _span) = self.start_parsing("generic params list")?;
         let maybe_params_tree = match self.peek_token()? {
             Token::LThan => {
                 self.expect_token(Token::LThan)?;
@@ -111,7 +111,7 @@ impl<'a> Parser<'a> {
     pub fn parse_identifier_with_generic_params(
         &mut self,
     ) -> Result<IdentifierWithGenericsTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("identifier with generic params")?;
+        let (start_loc, _span) = self.start_parsing("identifier with generic params")?;
 
         let name = self.parse_identifier()?;
         let generic_params = self.try_parse_generic_params_list()?;
@@ -122,7 +122,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_function_declaration_or_definition(&mut self) -> Result<Item, ParseError> {
-        let (_start_loc, _) = self.start_parsing("function declaration/definition")?;
+        let (_start_loc, _span) = self.start_parsing("function declaration/definition")?;
 
         let prototype = self.parse_function_prototype(false)?;
 
@@ -139,7 +139,7 @@ impl<'a> Parser<'a> {
         &mut self,
         allow_self_param: bool,
     ) -> Result<FunctionDeclarationTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("function prototype")?;
+        let (start_loc, _span) = self.start_parsing("function prototype")?;
 
         // start with fun
         self.expect_token(Token::Fun)?;
@@ -198,7 +198,7 @@ impl<'a> Parser<'a> {
     pub fn try_parse_self_argument(
         &mut self,
     ) -> Result<Option<ArgumentDeclarationTree>, ParseError> {
-        let (start_loc, _) = self.start_parsing("self argument")?;
+        let (start_loc, _span) = self.start_parsing("self argument")?;
 
         let (exists, mutable, reference) = match self.lookahead_token(0)? {
             // just 'self'
@@ -285,7 +285,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_struct_field_declaration(&mut self) -> Result<StructFieldTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("struct field")?;
+        let (start_loc, _span) = self.start_parsing("struct field")?;
 
         let field_name = self.parse_identifier()?;
         self.expect_token(Token::Colon)?;
@@ -297,7 +297,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_struct_definition(&mut self) -> Result<StructDefinitionTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("struct definition")?;
+        let (start_loc, _span) = self.start_parsing("struct definition")?;
 
         self.expect_token(Token::Struct)?;
         let struct_name = self.parse_identifier_with_generic_params()?;
@@ -329,7 +329,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_enum_variant(&mut self) -> Result<EnumVariantTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("enum variant")?;
+        let (start_loc, _span) = self.start_parsing("enum variant")?;
 
         let name = self.parse_identifier()?;
         let variant_data = match self.peek_token()? {
@@ -349,7 +349,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_enum_definition(&mut self) -> Result<EnumDefinitionTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("enum definition")?;
+        let (start_loc, _span) = self.start_parsing("enum definition")?;
 
         self.expect_token(Token::Enum)?;
         let name = self.parse_identifier_with_generic_params()?;
@@ -381,7 +381,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_implementation(&mut self) -> Result<ImplementationTree, ParseError> {
-        let (start_loc, _) = self.start_parsing("impl block")?;
+        let (start_loc, _span) = self.start_parsing("impl block")?;
 
         self.expect_token(Token::Impl)?;
         let generic_params = self.try_parse_generic_params_list()?;

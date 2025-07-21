@@ -178,6 +178,7 @@ impl<'a> Lexer<'a> {
             "fun" => Some(Token::Fun),
             "if" => Some(Token::If),
             "else" => Some(Token::Else),
+            "match" => Some(Token::Match),
             "while" => Some(Token::While),
             "pub" => Some(Token::Pub),
             "struct" => Some(Token::Struct),
@@ -305,7 +306,14 @@ impl<'a> Lexer<'a> {
                 }
                 '=' => {
                     self.advance_char();
-                    Ok(self.match_next_char_for_token_or('=', Token::Equals, Token::Assign))
+                    Ok(match self.peek_char() {
+                        Some('=') => Token::Equals,
+                        Some('>') => {
+                            self.advance_char();
+                            Token::FatArrow
+                        }
+                        _ => Token::Assign,
+                    })
                 }
                 ',' => {
                     self.advance_char();

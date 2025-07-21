@@ -378,6 +378,81 @@ impl Display for IfExpressionTree {
 }
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum Pattern {
+    LiteralPattern(ExpressionTree),
+    IdentifierPattern(String),
+    // TODO: PathInExpression
+    TupleStructPattern(String, Vec<Box<PatternTree>>),
+}
+
+#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct PatternTree {
+    pub loc: SourceLocWithMod,
+    pub pattern: Pattern,
+}
+impl PatternTree {
+    pub fn new(loc: SourceLocWithMod, pattern: Pattern) -> Self {
+        Self { loc, pattern }
+    }
+}
+
+impl Display for PatternTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.pattern)
+    }
+}
+
+#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct MatchArmTree {
+    pub loc: SourceLocWithMod,
+    pub pattern: PatternTree,
+    pub expression: CompoundExpressionTree,
+}
+impl MatchArmTree {
+    pub fn new(
+        loc: SourceLocWithMod,
+        pattern: PatternTree,
+        expression: CompoundExpressionTree,
+    ) -> Self {
+        Self {
+            loc,
+            pattern,
+            expression,
+        }
+    }
+}
+impl Display for MatchArmTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} => {}", self.pattern, self.expression)
+    }
+}
+
+#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct MatchExpressionTree {
+    pub loc: SourceLocWithMod,
+    pub scrutinee_expression: ExpressionTree,
+    pub arms: Vec<MatchArmTree>,
+}
+impl MatchExpressionTree {
+    pub fn new(
+        loc: SourceLocWithMod,
+        scrutinee_expression: ExpressionTree,
+        arms: Vec<MatchArmTree>,
+    ) -> Self {
+        Self {
+            loc,
+            scrutinee_expression,
+            arms,
+        }
+    }
+}
+impl Display for MatchExpressionTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "match {} {{{:?}}}", self.scrutinee_expression, self.arms)
+    }
+}
+
+#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct WhileExpressionTree {
     pub loc: SourceLocWithMod,
     pub condition: ExpressionTree,
@@ -642,12 +717,14 @@ impl Display for ComparisonExpressionTree {
 
 #[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Expression {
+    SelfLower,
     Identifier(String),
     UnsignedDecimalConstant(usize),
     Arithmetic(ArithmeticExpressionTree),
     Comparison(ComparisonExpressionTree),
     Assignment(AssignmentTree),
     If(Box<IfExpressionTree>),
+    Match(Box<MatchExpressionTree>),
     While(Box<WhileExpressionTree>),
     FieldExpression(Box<FieldExpressionTree>),
     MethodCall(Box<MethodCallExpressionTree>),
@@ -655,12 +732,14 @@ pub enum Expression {
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::SelfLower => write!(f, "self"),
             Self::Identifier(identifier) => write!(f, "{}", identifier),
             Self::UnsignedDecimalConstant(constant) => write!(f, "{}", constant),
             Self::Arithmetic(arithmetic_expression) => write!(f, "{}", arithmetic_expression),
             Self::Comparison(comparison_expression) => write!(f, "{}", comparison_expression),
             Self::Assignment(assignment_expression) => write!(f, "{}", assignment_expression),
             Self::If(if_expression) => write!(f, "{}", if_expression),
+            Self::Match(match_expression) => write!(f, "{}", match_expression),
             Self::While(while_expression) => write!(f, "{}", while_expression),
             Self::FieldExpression(field_expression) => write!(f, "{}", field_expression),
             Self::MethodCall(method_call) => write!(f, "{}", method_call),
