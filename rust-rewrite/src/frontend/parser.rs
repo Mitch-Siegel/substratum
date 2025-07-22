@@ -13,9 +13,11 @@ use super::{
 
 use crate::trace;
 
+mod module;
+pub use module::ModuleResult;
+
 mod declarations;
 mod errors;
-mod expressions;
 mod single_token;
 #[cfg(test)]
 mod tests;
@@ -273,11 +275,6 @@ impl<'a> Parser<'a> {
     }
 }
 
-pub struct ModuleResult {
-    pub module_tree: ModuleTree,
-    pub module_worklist: BTreeSet<String>,
-}
-
 impl<'a> Parser<'a> {
     pub fn parse(
         &mut self,
@@ -285,115 +282,6 @@ impl<'a> Parser<'a> {
         module_name: String,
     ) -> Result<ModuleResult, ParseError> {
         self.parse_module_contents(parent_module_path, module_name)
-    }
-
-    fn parse_module_item(
-        &mut self,
-        parent_module_path: &std::path::Path,
-    ) -> Result<ModuleResult, ParseError> {
-        let (_, _span) = self.start_parsing("module item")?;
-
-        trace::debug!(
-            "module item parent module path: \"{}\"",
-            parent_module_path.display()
-        );
-        self.expect_token(Token::Mod)?;
-        let name = self.parse_identifier()?;
-        self.expect_token(Token::LCurly)?;
-        let module_result = self.parse_module_contents(parent_module_path, name)?;
-        self.expect_token(Token::RCurly)?;
-
-        self.finish_parsing(&module_result.module_tree)?;
-        Ok(module_result)
-    }
-
-    fn parse_module_contents(
-        &mut self,
-        module_path: &std::path::Path,
-        module_name: String,
-    ) -> Result<ModuleResult, ParseError> {
-        self.start_parsing("module contents")?;
-
-        self.module_parse_stack.push(module_name.clone());
-
-        let mut module_worklist = BTreeSet::<String>::new();
-        let mut items = Vec::<Item>::new();
-        loop {
-            match self.peek_token()? {
-                Token::Fun => {
-                    let function_definition_item =
-                        self.parse_function_declaration_or_definition()?;
-                    items.push(function_definition_item);
-                }
-                Token::Struct => {
-                    let struct_definition = self.parse_struct_definition()?;
-                    let struct_definition_item = Item::StructDefinition(struct_definition);
-                    items.push(struct_definition_item);
-                }
-                Token::Enum => {
-                    let enum_definition = self.parse_enum_definition()?;
-                    let enum_definition_item = Item::EnumDefinition(enum_definition);
-                    items.push(enum_definition_item)
-                }
-                Token::Impl => {
-                    let implementation = self.parse_implementation()?;
-                    let impl_item = Item::Implementation(implementation);
-                    items.push(impl_item);
-                }
-                Token::RCurly => break,
-                // TODO: break out to separate routine
-                Token::Mod => {
-                    let current_parsing_module_path = module_path.join(module_name.clone());
-                    match self.lookahead_token(2)? {
-                        Token::LCurly => {
-                            let ModuleResult {
-                                module_tree,
-                                module_worklist: mut child_worklist,
-                            } = self.parse_module_item(&current_parsing_module_path)?;
-                            module_worklist.append(&mut child_worklist);
-                            items.push(Item::Module(module_tree));
-                        }
-                        Token::Semicolon => {
-                            self.expect_token(Token::Mod)?;
-                            let module_name = self.parse_identifier()?;
-
-                            let worklist_string: String = current_parsing_module_path
-                                .clone()
-                                .join(module_name)
-                                .to_str()
-                                .unwrap()
-                                .into();
-                            trace::debug!("Add module worklist string: \"{}\"", worklist_string);
-                            module_worklist.insert(worklist_string);
-                            self.expect_token(Token::Semicolon)?;
-                        }
-                        _ => self.unexpected_token(&[Token::LCurly, Token::Mod])?,
-                    }
-                }
-                Token::Eof => break,
-                _ => self.unexpected_token(&[Token::Fun, Token::Struct, Token::Impl])?,
-            }
-        }
-
-        assert_eq!(self.module_parse_stack.pop().unwrap(), module_name);
-
-        let module_path_vec: Vec<String> = module_path
-            .iter()
-            .map(|path_component| path_component.to_str().unwrap().into())
-            .chain(std::iter::once(module_name.as_str().into()))
-            .map(|module| module)
-            .collect();
-
-        let module_tree = ModuleTree {
-            module_path: module_path_vec,
-            name: module_name,
-            items,
-        };
-        self.finish_parsing(&module_tree)?;
-        Ok(ModuleResult {
-            module_tree,
-            module_worklist,
-        })
     }
 
     fn parse_statement(&mut self) -> Result<StatementTree, ParseError> {
