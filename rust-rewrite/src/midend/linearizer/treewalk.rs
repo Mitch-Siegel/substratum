@@ -197,7 +197,7 @@ impl ReturnWalk<types::Type> for TypeTree {
     }
 }
 
-impl ValueWalk for VariableDeclarationTree {
+impl ValueWalk for LetTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         let variable_type = match self.type_ {
@@ -692,7 +692,8 @@ impl ValueWalk for StatementTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId {
         match self.statement {
-            Statement::VariableDeclaration(declaration_tree) => declaration_tree.walk(context),
+            Statement::Item(_) => unimplemented!(),
+            Statement::Let(let_tree) => let_tree.walk(context),
             Statement::Expression(expression_tree) => expression_tree.walk(context),
         }
     }
@@ -709,13 +710,7 @@ impl ValueWalk for CompoundExpressionTree {
         }
 
         let last_statement_value = match last_statement {
-            Some(statement_tree) => match statement_tree.statement {
-                Statement::VariableDeclaration(variable_declaration_tree) => {
-                    variable_declaration_tree.walk(context);
-                    context.unit_value_id()
-                }
-                Statement::Expression(expression_tree) => expression_tree.walk(context),
-            },
+            Some(statement_tree) => statement_tree.walk(context),
             None => context.unit_value_id(),
         };
 

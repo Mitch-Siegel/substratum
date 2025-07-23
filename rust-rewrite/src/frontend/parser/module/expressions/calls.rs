@@ -1,4 +1,4 @@
-use crate::frontend::parser::{module::expressions::*, *};
+use crate::frontend::parser::module::expressions::*;
 
 mod method_call;
 

@@ -7,7 +7,7 @@ pub trait AstName {
     fn ast_name(&self) -> String;
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ModuleTree {
     pub module_path: Vec<String>,
     pub name: String,
@@ -24,7 +24,7 @@ impl Display for ModuleTree {
     }
 }
 
-#[derive(Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
 pub enum Item {
     FunctionDeclaration(FunctionDeclarationTree),
     FunctionDefinition(FunctionDefinitionTree),
@@ -143,7 +143,7 @@ impl Display for FunctionDeclarationTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDefinitionTree {
     pub prototype: FunctionDeclarationTree,
     pub body: CompoundExpressionTree,
@@ -159,7 +159,7 @@ impl Display for FunctionDefinitionTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StructFieldTree {
     pub loc: SourceLocWithMod,
     pub name: String,
@@ -206,7 +206,7 @@ impl Display for IdentifierWithGenericsTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StructDefinitionTree {
     pub loc: SourceLocWithMod,
     pub name: IdentifierWithGenericsTree,
@@ -233,7 +233,7 @@ impl Display for StructDefinitionTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnumVariantTree {
     pub loc: SourceLocWithMod,
     pub name: String,
@@ -253,7 +253,7 @@ impl Display for EnumVariantTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnumDefinitionTree {
     pub loc: SourceLocWithMod,
     pub name: IdentifierWithGenericsTree,
@@ -284,7 +284,7 @@ impl Display for EnumDefinitionTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ImplementationTree {
     pub loc: SourceLocWithMod,
     pub generic_params: Option<GenericParamsListTree>,
@@ -322,7 +322,7 @@ impl Display for ImplementationTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CompoundExpressionTree {
     pub loc: SourceLocWithMod,
     pub statements: Vec<StatementTree>,
@@ -342,7 +342,7 @@ impl Display for CompoundExpressionTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct IfExpressionTree {
     pub loc: SourceLocWithMod,
     pub condition: ExpressionTree,
@@ -377,7 +377,7 @@ impl Display for IfExpressionTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Pattern {
     LiteralPattern(ExpressionTree),
     IdentifierPattern(String),
@@ -385,7 +385,7 @@ pub enum Pattern {
     TupleStructPattern(String, Vec<Box<PatternTree>>),
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PatternTree {
     pub loc: SourceLocWithMod,
     pub pattern: Pattern,
@@ -402,7 +402,7 @@ impl Display for PatternTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MatchArmTree {
     pub loc: SourceLocWithMod,
     pub pattern: PatternTree,
@@ -427,7 +427,7 @@ impl Display for MatchArmTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MatchExpressionTree {
     pub loc: SourceLocWithMod,
     pub scrutinee_expression: ExpressionTree,
@@ -452,7 +452,7 @@ impl Display for MatchExpressionTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct WhileExpressionTree {
     pub loc: SourceLocWithMod,
     pub condition: ExpressionTree,
@@ -477,7 +477,7 @@ impl Display for WhileExpressionTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CallParamsTree {
     pub loc: SourceLocWithMod,
     pub params: Vec<ExpressionTree>,
@@ -500,7 +500,7 @@ impl Display for CallParamsTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MethodCallExpressionTree {
     pub loc: SourceLocWithMod,
     pub receiver: ExpressionTree,
@@ -532,7 +532,7 @@ impl Display for MethodCallExpressionTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FieldExpressionTree {
     pub loc: SourceLocWithMod,
     pub receiver: ExpressionTree,
@@ -553,25 +553,23 @@ impl Display for FieldExpressionTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Statement {
-    VariableDeclaration(VariableDeclarationTree),
+    Item(ItemTree),
+    Let(LetTree),
     Expression(ExpressionTree),
 }
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::VariableDeclaration(variable_declaration) => {
-                write!(f, "{}", variable_declaration)
-            }
-            Self::Expression(expression) => {
-                write!(f, "{}", expression)
-            }
+            Self::Item(item) => write!(f, "{}", item),
+            Self::Let(let_) => write!(f, "{}", let_),
+            Self::Expression(expression) => write!(f, "{}", expression),
         }
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StatementTree {
     pub loc: SourceLocWithMod,
     pub statement: Statement,
@@ -588,35 +586,55 @@ impl Display for StatementTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct VariableDeclarationTree {
+pub struct ItemTree {
+    pub loc: SourceLocWithMod,
+}
+
+impl Display for ItemTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.loc)
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct LetTree {
     pub loc: SourceLocWithMod,
     pub name: String,
     pub type_: Option<TypeTree>,
     pub mutable: bool,
+    pub value: Option<ExpressionTree>,
 }
-impl VariableDeclarationTree {
+impl LetTree {
     pub fn new(
         loc: SourceLocWithMod,
         name: String,
         type_: Option<TypeTree>,
         mutable: bool,
+        value: Option<ExpressionTree>,
     ) -> Self {
         Self {
             loc,
             name,
             type_,
             mutable,
+            value,
         }
     }
 }
-impl Display for VariableDeclarationTree {
+impl Display for LetTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.type_ {
+            Some(type_) => write!(f, "let {}: {}", self.name, type_)?,
+            None => write!(f, "let {}", self.name)?,
+        }
+
         if self.mutable {
             write!(f, "mut ")?;
         }
+
         match &self.type_ {
-            Some(type_) => write!(f, "{}: {}", self.name, type_),
-            None => write!(f, "{}", self.name),
+            Some(type_) => write!(f, ": {}", type_),
+            None => write!(f, ": ?"),
         }
     }
 }
@@ -648,7 +666,7 @@ impl Display for ArgumentDeclarationTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct AssignmentTree {
     pub loc: SourceLocWithMod,
     pub assignee: Box<ExpressionTree>,
@@ -669,13 +687,13 @@ impl Display for AssignmentTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ArithmeticDualOperands {
     pub e1: Box<ExpressionTree>,
     pub e2: Box<ExpressionTree>,
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ArithmeticExpressionTree {
     Add(ArithmeticDualOperands),
     Subtract(ArithmeticDualOperands),
@@ -693,7 +711,7 @@ impl Display for ArithmeticExpressionTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum ComparisonExpressionTree {
     LThan(ArithmeticDualOperands),
     GThan(ArithmeticDualOperands),
@@ -715,7 +733,7 @@ impl Display for ComparisonExpressionTree {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Expression {
     SelfLower,
     Identifier(String),
@@ -747,7 +765,7 @@ impl Display for Expression {
     }
 }
 
-#[derive(ReflectName, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ExpressionTree {
     pub loc: SourceLocWithMod,
     pub expression: Expression,

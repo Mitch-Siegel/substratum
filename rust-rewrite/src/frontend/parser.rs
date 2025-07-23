@@ -290,12 +290,7 @@ impl<'a> Parser<'a> {
         let statement = StatementTree {
             loc: start_loc,
             statement: match self.peek_token()? {
-                Token::Identifier(_) => match self.lookahead_token(1)? {
-                    Token::Colon => {
-                        Statement::VariableDeclaration(self.parse_variable_declaration()?)
-                    }
-                    _ => Statement::Expression(self.parse_expression()?),
-                },
+                Token::Identifier(_) => Statement::Expression(self.parse_expression()?),
                 Token::If | Token::Match | Token::While | Token::LCurly => {
                     Statement::Expression(self.parse_expression()?)
                 }

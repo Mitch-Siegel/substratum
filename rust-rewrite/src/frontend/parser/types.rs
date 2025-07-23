@@ -83,7 +83,7 @@ impl<'a> Parser<'a> {
                 self.next_token()?;
                 Type::Named(name)
             }
-            Token::SelfLower => {
+            Token::SelfUpper => {
                 self.next_token()?;
                 Type::_Self
             }

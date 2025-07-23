@@ -22,7 +22,7 @@ impl<'a> Parser<'a> {
         let (start_loc, _span) = self.start_parsing("function prototype")?;
 
         // start with fun
-        self.expect_token(Token::Fun)?;
+        self.expect_token(Token::Fn_)?;
 
         let name = self.parse_identifier_with_generic_params()?;
 

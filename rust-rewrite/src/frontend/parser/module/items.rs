@@ -2,6 +2,7 @@ use crate::frontend::parser::*;
 
 mod enum_definition;
 mod function;
+mod generics;
 mod implementation;
 mod module_item;
 mod struct_definition;

@@ -135,7 +135,7 @@ fn kw_mod() {
 
 #[test]
 fn kw_fun() {
-    kw_or_ident("fun", Token::Fun);
+    kw_or_ident("fun", Token::Fn_);
 }
 
 #[test]
@@ -241,7 +241,7 @@ fn token_display_to_token() {
         Token::Equals,
         Token::NotEquals,
         Token::Assign,
-        Token::Fun,
+        Token::Fn_,
         Token::If,
         Token::Else,
         Token::While,

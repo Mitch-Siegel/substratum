@@ -175,7 +175,7 @@ impl<'a> Lexer<'a> {
             "i32" => Some(Token::I32),
             "i64" => Some(Token::I64),
             "mod" => Some(Token::Mod),
-            "fun" => Some(Token::Fun),
+            "fun" => Some(Token::Fn_),
             "if" => Some(Token::If),
             "else" => Some(Token::Else),
             "match" => Some(Token::Match),

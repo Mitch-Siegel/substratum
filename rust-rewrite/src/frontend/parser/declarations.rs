@@ -5,34 +5,6 @@ use super::{ParseError, Parser};
 
 impl<'a> Parser<'a> {
     // TODO: pass loc of string to get true start loc of declaration
-    pub fn parse_variable_declaration(&mut self) -> Result<VariableDeclarationTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("variable declaration")?;
-
-        let mutable = match self.peek_token()? {
-            Token::Mut => {
-                self.expect_token(Token::Mut)?;
-                true
-            }
-            _ => false,
-        };
-
-        let declaration = VariableDeclarationTree::new(
-            start_loc,
-            self.parse_identifier()?,
-            match self.peek_token()? {
-                Token::Colon => {
-                    self.expect_token(Token::Colon)?;
-                    Some(self.parse_type()?)
-                }
-                _ => None,
-            },
-            mutable,
-        );
-
-        self.finish_parsing(&declaration)?;
-        Ok(declaration)
-    }
-
     pub fn parse_argument_declaration(&mut self) -> Result<ArgumentDeclarationTree, ParseError> {
         let (start_loc, _span) = self.start_parsing("argument declaration")?;
 
@@ -76,16 +48,16 @@ mod tests {
     fn parse_variable_declaration() {
         let immutable_without_type = (
             "counter",
-            VariableDeclarationTree::new(SourceLoc::new(1, 1), "counter".into(), None, false),
+            LetTree::new(SourceLoc::new(1, 1), "counter".into(), None, false),
         );
         let mutable_without_type = (
             "mut counter",
-            VariableDeclarationTree::new(SourceLoc::new(1, 1), "counter".into(), None, true),
+            LetTree::new(SourceLoc::new(1, 1), "counter".into(), None, true),
         );
 
         let immutable_with_type = (
             "counter: u16",
-            VariableDeclarationTree::new(
+            LetTree::new(
                 SourceLoc::new(1, 1),
                 "counter".into(),
                 Some(TypeTree::new(SourceLoc::new(1, 10), Type::U16)),
@@ -94,7 +66,7 @@ mod tests {
         );
         let mutable_with_type = (
             "mut counter: u16",
-            VariableDeclarationTree::new(
+            LetTree::new(
                 SourceLoc::new(1, 1),
                 "counter".into(),
                 Some(TypeTree::new(SourceLoc::new(1, 14), Type::U16)),

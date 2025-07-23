@@ -23,7 +23,7 @@ impl<'a> Parser<'a> {
         let mut items = Vec::<Item>::new();
         loop {
             match self.peek_token()? {
-                Token::Fun => {
+                Token::Fn_ => {
                     let function_definition_item =
                         self.parse_function_declaration_or_definition()?;
                     items.push(function_definition_item);
@@ -71,7 +71,7 @@ impl<'a> Parser<'a> {
                     }
                 }
                 Token::Eof => break,
-                _ => self.unexpected_token(&[Token::Fun, Token::Struct, Token::Impl])?,
+                _ => self.unexpected_token(&[Token::Fn_, Token::Struct, Token::Impl])?,
             }
         }
 
