@@ -97,7 +97,7 @@ impl<'a> Parser<'a> {
                 Token::I32,
                 Token::I64,
                 Token::Identifier("".into()),
-                Token::SelfLower,
+                Token::SelfUpper,
             ])?,
         };
 
