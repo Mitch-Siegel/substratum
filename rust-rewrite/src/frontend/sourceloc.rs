@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceLoc {
-    pub path: String,
+    pub file: String,
     pub line: usize,
     pub col: usize,
 }
@@ -12,7 +12,7 @@ pub struct SourceLoc {
 impl SourceLoc {
     pub fn none() -> Self {
         SourceLoc {
-            path: "".into(),
+            file: "".into(),
             line: 0,
             col: 0,
         }
@@ -20,7 +20,7 @@ impl SourceLoc {
 
     pub fn new(path: &std::path::Path, line: usize, col: usize) -> Self {
         SourceLoc {
-            path: path.to_str().unwrap().into(),
+            file: path.to_str().unwrap().into(),
             line,
             col,
         }
@@ -33,11 +33,21 @@ impl SourceLoc {
     }
 
     pub fn as_string(&self) -> String {
-        String::from(format!("{}:{}", self.line, self.col))
+        String::from(format!("{} {}:{}", self.file, self.line, self.col))
     }
 
     pub fn valid(&self) -> bool {
         self.line != 0 && self.col != 0
+    }
+}
+
+impl From<&'static std::panic::Location<'static>> for SourceLoc {
+    fn from(location: &'static std::panic::Location<'static>) -> Self {
+        Self {
+            file: location.file().to_string(),
+            line: location.line() as usize,
+            col: location.column() as usize,
+        }
     }
 }
 

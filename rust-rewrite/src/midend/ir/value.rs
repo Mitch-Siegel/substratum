@@ -2,7 +2,6 @@ use crate::midend::{ir::*, *};
 
 mod value_interner;
 
-pub use value_interner::*;
 
 #[derive(Copy, Clone, Debug, Serialize, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct ValueId {

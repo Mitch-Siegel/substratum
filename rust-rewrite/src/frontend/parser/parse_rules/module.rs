@@ -1,4 +1,4 @@
-use crate::frontend::parser::{parse_rules::*, *};
+use crate::frontend::parser::parse_rules::*;
 
 pub struct ModuleResult {
     pub module_tree: ModuleTree,
@@ -15,11 +15,11 @@ impl<'a, 'p> ModuleParser<'a, 'p> {
 
         self.module_parse_stack.push(module_name.clone());
 
-        let mut module_worklist = BTreeSet::<String>::new();
+        let module_worklist = BTreeSet::<String>::new();
         let mut items = Vec::<Item>::new();
         loop {
             match self.peek_token()? {
-                Token::RCurly => break,
+                Token::RCurly | Token::Eof => break,
                 _ => items.push(
                     self.item_parser()
                         .parse_item(module_name.clone(), module_path)?,

@@ -146,6 +146,7 @@ impl<'a> Parser<'a> {
         Ok(next)
     }
 
+    #[track_caller]
     fn expect_token(&mut self, expected: Token) -> Result<Token, ParseError> {
         //#[cfg(feature = "loud_parsing")]
         //self.annotate_parsing(&format!("Parser::expect_token({})", _expected));
@@ -165,6 +166,7 @@ impl<'a> Parser<'a> {
                 &[expected],
                 current_parse_string,
                 current_parse_start_loc,
+                SourceLoc::from(std::panic::Location::caller()),
             ))
         }
     }
@@ -176,6 +178,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    #[track_caller]
     fn unexpected_token<T>(&mut self, expected_tokens: &[Token]) -> Result<T, ParseError> {
         let (current_parse_start_loc, current_parse_string) = self
             .parsing_stack
@@ -194,6 +197,7 @@ impl<'a> Parser<'a> {
             expected_tokens,
             current_parse_string,
             current_parse_start_loc,
+            SourceLoc::from(std::panic::Location::caller()),
         ))
     }
 

@@ -1,4 +1,4 @@
-use crate::frontend::parser::{parse_rules::*, *};
+use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
     fn token_is_operator_of_at_least_precedence(token: &Token, precedence: usize) -> bool {

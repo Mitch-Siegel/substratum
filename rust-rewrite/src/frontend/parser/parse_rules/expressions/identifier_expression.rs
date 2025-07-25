@@ -1,4 +1,4 @@
-use crate::frontend::parser::{parse_rules::*, *};
+use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
     pub fn parse_identifier_expression(&mut self) -> Result<ExpressionTree, ParseError> {

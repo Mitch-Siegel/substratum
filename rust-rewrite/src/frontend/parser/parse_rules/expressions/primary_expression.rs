@@ -1,4 +1,4 @@
-use crate::frontend::parser::{parse_rules::*, *};
+use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
     pub fn parse_primary_expression(&mut self) -> Result<ast::ExpressionTree, ParseError> {

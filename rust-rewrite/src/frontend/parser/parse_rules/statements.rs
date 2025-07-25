@@ -1,10 +1,7 @@
-use crate::{
-    frontend::{
+use crate::frontend::{
         ast,
-        parser::{parse_rules::*, *},
-    },
-    midend::ir,
-};
+        parser::parse_rules::*,
+    };
 
 // parsing functions which yield an ExpressionTree
 mod let_statement;

@@ -1,4 +1,4 @@
-use crate::frontend::ast::{expressions::*, *};
+use crate::frontend::ast::expressions::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct IfExpressionTree {

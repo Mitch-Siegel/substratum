@@ -34,8 +34,8 @@ impl std::fmt::Display for ParseError {
                 }
                 write!(
                     f,
-                    "Unexpected token '{}' at {}, expected one of [{}] (while parsing {} starting at {})",
-                    unexpected_token.got, unexpected_token.loc, expected_tokens, unexpected_token.while_parsing, unexpected_token.while_parsing_start
+                    "Unexpected token '{}' at {}, expected one of [{}] (while parsing {} starting at {}) (error generated at {})",
+                    unexpected_token.got, unexpected_token.loc, expected_tokens, unexpected_token.while_parsing, unexpected_token.while_parsing_start, unexpected_token.parser_source_location
                 )
             }
         }
@@ -55,6 +55,7 @@ pub struct UnexpectedTokenError {
     pub expected: Vec<Token>,
     pub while_parsing: String,
     pub while_parsing_start: SourceLoc,
+    pub parser_source_location: SourceLoc,
 }
 
 impl ParseError {
@@ -64,6 +65,7 @@ impl ParseError {
         expected: &[Token],
         while_parsing: String,
         while_parsing_start: SourceLoc,
+        parser_source_location: SourceLoc,
     ) -> Self {
         Self::UnexpectedToken(UnexpectedTokenError {
             loc,
@@ -71,6 +73,7 @@ impl ParseError {
             expected: expected.to_vec(),
             while_parsing,
             while_parsing_start,
+            parser_source_location,
         })
     }
 }

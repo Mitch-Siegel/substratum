@@ -1,4 +1,4 @@
-use crate::frontend::parser::{parse_rules::*, *};
+use crate::frontend::parser::parse_rules::*;
 
 mod enum_definition;
 mod function;
@@ -47,7 +47,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                     Token::LCurly => {
                         let parse_rules::module::ModuleResult {
                             module_tree,
-                            module_worklist: mut child_worklist,
+                            module_worklist: child_worklist,
                         } = self.parse_module_item(&current_parsing_module_path)?;
                         Ok(Item::Module((Some(module_tree), child_worklist)))
                     }

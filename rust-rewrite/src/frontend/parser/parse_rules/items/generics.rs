@@ -1,4 +1,4 @@
-use crate::frontend::parser::{parse_rules::*, *};
+use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ItemParser<'a, 'p> {
     pub fn parse_generic_param(&mut self) -> Result<ast::generics::GenericParamTree, ParseError> {

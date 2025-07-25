@@ -1,4 +1,4 @@
-use crate::frontend::parser::{parse_rules::*, *};
+use crate::frontend::parser::parse_rules::*;
 
 impl<'a> Parser<'a> {
     pub fn parse_let_statement(&mut self) -> Result<ast::statements::LetTree, ParseError> {

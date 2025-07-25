@@ -1,5 +1,5 @@
 use crate::{
-    frontend::parser::{parse_rules::*, *},
+    frontend::parser::parse_rules::*,
     midend,
 };
 

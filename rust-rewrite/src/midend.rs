@@ -1,5 +1,3 @@
-use crate::frontend;
-use crate::trace;
 
 mod idfa;
 pub mod ir;
