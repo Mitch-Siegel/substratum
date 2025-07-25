@@ -3,7 +3,7 @@
 
 use std::collections::{BTreeSet, VecDeque};
 
-use crate::midend::ir;
+use crate::{frontend::ast, midend::ir};
 
 use super::{
     ast::*,
@@ -11,18 +11,12 @@ use super::{
     sourceloc::{SourceLoc, SourceLocWithMod},
 };
 
-use crate::trace;
-
-mod module;
-pub use module::ModuleResult;
-
-mod declarations;
 mod errors;
-mod single_token;
-#[cfg(test)]
-mod tests;
-mod types;
+mod parse_rules;
 
+pub use parse_rules::module::ModuleResult;
+
+use crate::trace;
 pub use errors::ParseError;
 
 pub struct Parser<'a> {
@@ -280,51 +274,8 @@ impl<'a> Parser<'a> {
         &mut self,
         parent_module_path: &std::path::Path,
         module_name: String,
-    ) -> Result<ModuleResult, ParseError> {
-        self.parse_module_contents(parent_module_path, module_name)
-    }
-
-    fn parse_statement(&mut self) -> Result<StatementTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("statement")?;
-
-        let statement = StatementTree {
-            loc: start_loc,
-            statement: match self.peek_token()? {
-                Token::Identifier(_) => Statement::Expression(self.parse_expression()?),
-                Token::If | Token::Match | Token::While | Token::LCurly => {
-                    Statement::Expression(self.parse_expression()?)
-                }
-                _ => self.unexpected_token::<Statement>(&[
-                    Token::Identifier("".into()),
-                    Token::If,
-                    Token::While,
-                    Token::LCurly,
-                ])?,
-            },
-        };
-
-        if matches!(self.peek_token()?, Token::Semicolon) {
-            self.expect_token(Token::Semicolon)?;
-        }
-
-        self.finish_parsing(&statement)?;
-
-        Ok(statement)
-    }
-
-    fn token_is_operator_of_at_least_precedence(token: &Token, precedence: usize) -> bool {
-        match token {
-            Token::Plus
-            | Token::Minus
-            | Token::Star
-            | Token::FSlash
-            | Token::LThan
-            | Token::GThan
-            | Token::LThanE
-            | Token::GThanE
-            | Token::Equals
-            | Token::NotEquals => ir::BinaryOperations::precedence_of_token(&token) >= precedence,
-            _ => false,
-        }
+    ) -> Result<parse_rules::module::ModuleResult, ParseError> {
+        self.module_parser()
+            .parse_module_contents(parent_module_path, module_name)
     }
 }

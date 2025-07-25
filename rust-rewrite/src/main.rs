@@ -291,8 +291,8 @@ fn main() {
         modules.push(module_tree);
     }
 
-    let symtab = midend::symbol_table_from_modules(modules);
+    //let symtab = midend::symbol_table_from_modules(modules);
     //println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
-    println!("{:?}", &symtab);
+    //println!("{:?}", &symtab);
     //backend::do_backend(symtab);
 }

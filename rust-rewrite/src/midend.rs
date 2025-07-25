@@ -3,12 +3,13 @@ use crate::trace;
 
 mod idfa;
 pub mod ir;
-pub mod linearizer;
+//pub mod linearizer;
 mod optimization;
 //mod ssa_gen;
 pub mod symtab;
 pub mod types;
 
+/*
 pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> symtab::SymbolTable {
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
@@ -29,3 +30,4 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
 
     *symtab
 }
+*/
