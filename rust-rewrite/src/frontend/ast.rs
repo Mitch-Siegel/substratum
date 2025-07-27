@@ -1,4 +1,14 @@
-use crate::{frontend::sourceloc::SourceLocWithMod, midend};
+use crate::{
+    frontend::sourceloc::SourceLocWithMod,
+    midend::{
+        self,
+        linearizer::{
+            def_context::{self, DefContext},
+            BasicReturnWalk, CustomReturnWalk, FunctionWalkContext, ReturnFunctionWalk, ReturnWalk,
+            ValueWalk, Walk,
+        },
+    },
+};
 use std::fmt::Display;
 
 use name_derive::{NameReflectable, ReflectName};
@@ -11,37 +21,11 @@ pub mod statements;
 pub mod types;
 
 pub use expressions::{Expression, ExpressionTree};
-pub use items::Item;
+pub use items::{Item, ItemTree};
 pub use module::ModuleTree;
 pub use statements::StatementTree;
+pub use types::TypeTree;
 
 pub trait AstName {
     fn ast_name(&self) -> String;
-}
-
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct ItemTree {
-    pub loc: SourceLocWithMod,
-}
-
-impl Display for ItemTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.loc)
-    }
-}
-
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct TypeTree {
-    pub loc: SourceLocWithMod,
-    pub type_: midend::types::Type,
-}
-impl TypeTree {
-    pub fn new(loc: SourceLocWithMod, type_: midend::types::Type) -> Self {
-        Self { loc, type_ }
-    }
-}
-impl Display for TypeTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.type_)
-    }
 }

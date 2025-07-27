@@ -2,8 +2,8 @@ use crate::{
     frontend::sourceloc::SourceLocWithMod,
     midend::{
         ir,
-        linearizer::*,
-        symtab::{self, DefContext, DefPathComponent},
+        linearizer::{DefContext, *},
+        symtab::{self, DefPathComponent},
         types,
     },
     trace,
@@ -14,7 +14,7 @@ pub struct FunctionWalkContext {
     global_def_path: symtab::DefPath,
     // definition path from the root of the symbol table to wherever we are in the function
     full_def_path: symtab::DefPath,
-    generics: symtab::GenericParamsContext,
+    generics: GenericParamsContext,
     self_type: Option<types::Type>,
     block_manager: BlockManager,
     values: ir::ValueInterner,
@@ -24,7 +24,7 @@ pub struct FunctionWalkContext {
 
 impl FunctionWalkContext {
     pub fn new(
-        parent_context: symtab::BasicDefContext,
+        parent_context: BasicDefContext,
         prototype: symtab::FunctionPrototype,
         self_type: Option<types::Type>,
     ) -> Result<Self, symtab::SymbolError> {
@@ -370,7 +370,7 @@ impl std::fmt::Debug for FunctionWalkContext {
     }
 }
 
-impl symtab::DefContext for FunctionWalkContext {
+impl DefContext for FunctionWalkContext {
     fn symtab(&self) -> &symtab::SymbolTable {
         &self.symtab
     }
@@ -387,11 +387,11 @@ impl symtab::DefContext for FunctionWalkContext {
         &mut self.full_def_path
     }
 
-    fn generics(&self) -> &symtab::GenericParamsContext {
+    fn generics(&self) -> &GenericParamsContext {
         &self.generics
     }
 
-    fn generics_mut(&mut self) -> &mut symtab::GenericParamsContext {
+    fn generics_mut(&mut self) -> &mut GenericParamsContext {
         &mut self.generics
     }
 
@@ -401,7 +401,7 @@ impl symtab::DefContext for FunctionWalkContext {
         (
             Box<symtab::SymbolTable>,
             symtab::DefPath,
-            symtab::GenericParamsContext,
+            GenericParamsContext,
         ),
         (),
     > {
@@ -411,13 +411,10 @@ impl symtab::DefContext for FunctionWalkContext {
     }
 }
 
-impl Into<symtab::BasicDefContext> for FunctionWalkContext {
-    fn into(self) -> symtab::BasicDefContext {
+impl Into<BasicDefContext> for FunctionWalkContext {
+    fn into(self) -> BasicDefContext {
         let (symtab, mut path, generics) = self.take().unwrap();
-        assert!(matches!(
-            path.pop().unwrap(),
-            symtab::DefPathComponent::Function(_)
-        ));
-        symtab::BasicDefContext::with_path(symtab, path, generics)
+        assert!(matches!(path.pop().unwrap(), DefPathComponent::Function(_)));
+        BasicDefContext::with_path(symtab, path, generics)
     }
 }

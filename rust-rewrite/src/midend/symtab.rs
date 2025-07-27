@@ -4,7 +4,6 @@ use crate::{midend::ir, trace};
 pub use errors::*;
 
 mod def_path;
-pub mod defcontext;
 mod errors;
 pub mod intrinsics;
 pub mod symbol;
@@ -12,7 +11,6 @@ pub mod symtab_visitor;
 pub mod type_interner;
 
 pub use def_path::*;
-pub use defcontext::*;
 pub use symbol::*;
 //pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
 pub use type_interner::*;
@@ -270,7 +268,7 @@ impl SymbolTable {
         }
     }
 
-    fn lookup_at_mut<S>(&mut self, def_path: &DefPath) -> Result<&mut S, SymbolError>
+    pub fn lookup_at_mut<S>(&mut self, def_path: &DefPath) -> Result<&mut S, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,

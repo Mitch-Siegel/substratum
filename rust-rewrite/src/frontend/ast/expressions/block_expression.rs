@@ -19,3 +19,24 @@ impl Display for BlockExpressionTree {
         write!(f, "Block Expression: {}", statement_string)
     }
 }
+
+impl ValueWalk for BlockExpressionTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(mut self, context: &mut FunctionWalkContext) -> midend::ir::ValueId {
+        context.unconditional_branch_from_current(self.loc).unwrap();
+
+        let last_statement = self.statements.pop();
+        for statement in self.statements {
+            statement.walk(context);
+        }
+
+        let last_statement_value = match last_statement {
+            Some(statement_tree) => statement_tree.walk(context),
+            None => context.unit_value_id(),
+        };
+
+        context.finish_branch().unwrap();
+
+        last_statement_value
+    }
+}

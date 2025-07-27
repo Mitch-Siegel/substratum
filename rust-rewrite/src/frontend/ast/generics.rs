@@ -1,4 +1,5 @@
 use crate::frontend::ast::*;
+use std::collections::BTreeSet;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GenericParamTree {
@@ -44,6 +45,25 @@ impl Display for GenericParamsListTree {
     }
 }
 
+impl CustomReturnWalk<(), Vec<String>> for GenericParamsListTree {
+    #[tracing::instrument(skip(self), level = "trace")]
+    fn walk(self, _: ()) -> Vec<String> {
+        let mut generic_params_set = BTreeSet::<String>::new();
+        let generic_params: Vec<String> = self
+            .params
+            .into_iter()
+            .map(|param| {
+                if !generic_params_set.insert(param.name.clone()) {
+                    panic!("Duplicate generic parameter {} @ {}", param.name, param.loc)
+                }
+                param.name
+            })
+            .collect();
+
+        generic_params
+    }
+}
+
 #[derive(ReflectName, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct IdentifierWithGenericsTree {
     pub loc: SourceLocWithMod,
@@ -71,5 +91,18 @@ impl Display for IdentifierWithGenericsTree {
         };
 
         write!(f, "{}{}", self.name, generic_params_string)
+    }
+}
+
+impl CustomReturnWalk<(), (String, Vec<String>)> for IdentifierWithGenericsTree {
+    #[tracing::instrument(skip(self), level = "trace")]
+    fn walk(self, _: ()) -> (String, Vec<String>) {
+        (
+            self.name,
+            match self.generic_params {
+                Some(params) => params.walk(()),
+                None => Vec::new(),
+            },
+        )
     }
 }

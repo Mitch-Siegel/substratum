@@ -17,6 +17,7 @@ impl ArgumentDeclarationTree {
         }
     }
 }
+
 impl Display for ArgumentDeclarationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.mutable {
@@ -24,6 +25,17 @@ impl Display for ArgumentDeclarationTree {
         }
 
         write!(f, "{}: {}", self.name, self.type_)
+    }
+}
+
+impl ReturnWalk<midend::symtab::Variable> for ArgumentDeclarationTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(self, context: &mut impl midend::linearizer::DefContext) -> midend::symtab::Variable {
+        let variable_type: midend::types::Type = self.type_.walk(context);
+
+        let declared_argument =
+            midend::symtab::Variable::new(self.name.clone(), Some(variable_type));
+        declared_argument
     }
 }
 
@@ -67,6 +79,31 @@ impl Display for FunctionDeclarationTree {
     }
 }
 
+impl ReturnWalk<midend::symtab::FunctionPrototype> for FunctionDeclarationTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(
+        self,
+        context: &mut impl midend::linearizer::DefContext,
+    ) -> midend::symtab::FunctionPrototype {
+        let (string_name, generic_params) = self.name.walk(());
+        let function_def_path_component =
+            midend::symtab::DefPathComponent::Function(midend::symtab::FunctionName {
+                name: string_name.clone(),
+            });
+        midend::symtab::FunctionPrototype::new(
+            string_name,
+            self.arguments
+                .into_iter()
+                .map(|x| x.walk(context))
+                .collect(),
+            match self.return_type {
+                Some(type_) => type_.walk(context),
+                None => midend::types::Type::Unit,
+            },
+        )
+    }
+}
+
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDefinitionTree {
     pub prototype: FunctionDeclarationTree,
@@ -80,5 +117,24 @@ impl FunctionDefinitionTree {
 impl Display for FunctionDefinitionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Function Definition: {}, {}", self.prototype, self.body)
+    }
+}
+
+impl CustomReturnWalk<midend::linearizer::BasicDefContext, midend::linearizer::BasicDefContext>
+    for FunctionDefinitionTree
+{
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(
+        self,
+        mut context: midend::linearizer::BasicDefContext,
+    ) -> midend::linearizer::BasicDefContext {
+        let declared_prototype = self.prototype.walk(&mut context);
+        let mut function_context =
+            midend::linearizer::FunctionWalkContext::new(context, declared_prototype, None)
+                .unwrap();
+
+        self.body.walk(&mut function_context);
+
+        function_context.into()
     }
 }

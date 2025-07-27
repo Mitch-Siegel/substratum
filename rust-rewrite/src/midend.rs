@@ -1,7 +1,6 @@
-
 mod idfa;
 pub mod ir;
-//pub mod linearizer;
+pub mod linearizer;
 mod optimization;
 //mod ssa_gen;
 pub mod symtab;

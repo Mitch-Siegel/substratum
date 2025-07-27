@@ -50,3 +50,28 @@ impl Display for EnumDefinitionTree {
         write!(f, "Enum Definition: {}: {}", self.name, fields)
     }
 }
+
+impl ReturnWalk<midend::symtab::EnumRepr> for EnumDefinitionTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(self, context: &mut impl midend::linearizer::DefContext) -> midend::symtab::EnumRepr {
+        let (string_name, generic_params) = self.name.walk(());
+        let type_def_path_component =
+            midend::symtab::DefPathComponent::Type(midend::types::Type::Named(string_name.clone()));
+        context.push_def_path(type_def_path_component.clone(), &generic_params);
+
+        let variants = self
+            .variants
+            .into_iter()
+            .map(|variant| {
+                let variant_data_type = match variant.data {
+                    Some(data_type) => Some(data_type.walk(context)),
+                    None => None,
+                };
+                (variant.name, variant_data_type)
+            })
+            .collect::<Vec<_>>();
+
+        context.pop_def_path(type_def_path_component).unwrap();
+        midend::symtab::EnumRepr::new(string_name, generic_params, variants).unwrap()
+    }
+}

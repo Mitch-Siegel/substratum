@@ -1,13 +1,37 @@
-use treewalk::CustomReturnWalk;
-
-use crate::midend::{symtab::DefContext, *};
+use crate::{frontend, midend::*, trace};
 
 mod block_manager;
+pub mod def_context;
 mod functionwalkcontext;
 mod treewalk;
 
 pub use block_manager::BlockManager;
+pub use def_context::{BasicDefContext, DefContext, GenericParamsContext};
 pub use functionwalkcontext::FunctionWalkContext;
+
+pub trait Walk {
+    fn walk(self, context: &mut impl DefContext);
+}
+
+pub trait ValueWalk {
+    fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId;
+}
+
+pub trait BasicReturnWalk<U> {
+    fn walk(self, context: &mut BasicDefContext) -> U;
+}
+
+pub trait ReturnWalk<U> {
+    fn walk(self, context: &mut impl DefContext) -> U;
+}
+
+pub trait ReturnFunctionWalk<'a, U> {
+    fn walk(self, context: &'a mut FunctionWalkContext) -> U;
+}
+
+pub trait CustomReturnWalk<C, U> {
+    fn walk(self, context: C) -> U;
+}
 
 pub fn linearize(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {
     let mut symtab = Box::new(symtab::SymbolTable::new());
@@ -27,10 +51,10 @@ pub fn linearize(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolT
             module.module_path,
             module_def_path
         );
-        let mut context = symtab::BasicDefContext::with_path(
+        let mut context = BasicDefContext::with_path(
             symtab,
             module_def_path,
-            symtab::GenericParamsContext::new(),
+            def_context::GenericParamsContext::new(),
         );
         context = module.walk(context);
         symtab = context.take().unwrap().0;

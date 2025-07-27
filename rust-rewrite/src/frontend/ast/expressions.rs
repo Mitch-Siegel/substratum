@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend};
 
 pub mod arithmetic;
 pub mod assignment;
@@ -64,5 +64,50 @@ impl ExpressionTree {
 impl Display for ExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.expression)
+    }
+}
+
+impl midend::linearizer::ValueWalk for ExpressionTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
+    fn walk(self, context: &mut midend::linearizer::FunctionWalkContext) -> midend::ir::ValueId {
+        match self.expression {
+            Expression::SelfLower => {
+                *context.value_for_variable(&context.self_variable_path().unwrap())
+            }
+
+            Expression::Identifier(ident) => {
+                let (_, variable_path) = context
+                    .lookup_with_path::<midend::symtab::Variable>(&ident)
+                    .unwrap();
+                *context.value_for_variable(&variable_path)
+            }
+            Expression::UnsignedDecimalConstant(constant) => {
+                *context.value_id_for_constant(constant)
+            }
+            Expression::Arithmetic(arithmetic_operation) => arithmetic_operation.walk(context),
+            Expression::Comparison(comparison_operation) => comparison_operation.walk(context),
+            Expression::Assignment(assignment_expression) => assignment_expression.walk(context),
+            Expression::If(if_expression) => if_expression.walk(context),
+            Expression::Match(match_expression) => {
+                unimplemented!("walk for match expressions not yet implemented!")
+            }
+            Expression::While(while_expression) => while_expression.walk(context),
+            Expression::FieldExpression(field_expression) => {
+                let (receiver, field) = field_expression.walk(context);
+                let (field_type, field_name) = (field.type_.clone(), field.name.clone());
+                let destination = context.next_temp(Some(field_type));
+                let field_read_line = midend::ir::IrLine::new_field_read(
+                    self.loc,
+                    receiver.into(),
+                    field_name,
+                    destination.clone(),
+                );
+                context
+                    .append_statement_to_current_block(field_read_line)
+                    .unwrap();
+                destination
+            }
+            Expression::MethodCall(method_call) => method_call.walk(context),
+        }
     }
 }
