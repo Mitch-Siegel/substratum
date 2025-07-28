@@ -209,6 +209,7 @@ impl IrLine {
             Operations::FieldWrite(field_write) => {
                 value_ids.push(&field_write.source);
             }
+            Operations::Switch(switch) => value_ids.push(&switch.scrutinee),
         }
         value_ids
     }
@@ -256,6 +257,7 @@ impl IrLine {
             Operations::FieldWrite(field_write) => {
                 value_ids.push(&mut field_write.source);
             }
+            Operations::Switch(switch) => value_ids.push(&mut switch.scrutinee),
         }
 
         value_ids
@@ -283,7 +285,7 @@ impl IrLine {
             Operations::FieldWrite(field_write) => {
                 value_ids.push(&field_write.receiver);
             }
-            Operations::Jump(_) | Operations::FieldRead(_) => {}
+            Operations::Jump(_) | Operations::FieldRead(_) | Operations::Switch(_) => {}
         }
 
         value_ids
@@ -311,7 +313,7 @@ impl IrLine {
             Operations::FieldWrite(field_write) => {
                 value_ids.push(&mut field_write.receiver);
             }
-            Operations::Jump(_) | Operations::FieldRead(_) => {}
+            Operations::Jump(_) | Operations::FieldRead(_) | Operations::Switch(_) => {}
         }
 
         value_ids

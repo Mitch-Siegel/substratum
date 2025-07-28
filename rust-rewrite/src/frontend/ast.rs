@@ -3,9 +3,8 @@ use crate::{
     midend::{
         self,
         linearizer::{
-            def_context::{self, DefContext},
-            BasicReturnWalk, CustomReturnWalk, FunctionWalkContext, ReturnFunctionWalk, ReturnWalk,
-            ValueWalk, Walk,
+            def_context::DefContext, CustomReturnWalk, FunctionWalkContext, ReturnFunctionWalk,
+            ReturnWalk, ValueWalk,
         },
     },
 };

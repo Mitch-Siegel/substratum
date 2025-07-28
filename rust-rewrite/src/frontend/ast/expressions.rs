@@ -88,9 +88,8 @@ impl midend::linearizer::ValueWalk for ExpressionTree {
             Expression::Comparison(comparison_operation) => comparison_operation.walk(context),
             Expression::Assignment(assignment_expression) => assignment_expression.walk(context),
             Expression::If(if_expression) => if_expression.walk(context),
-            Expression::Match(match_expression) => {
-                unimplemented!("walk for match expressions not yet implemented!")
-            }
+            Expression::Match(match_expression) => match_expression.walk(context),
+
             Expression::While(while_expression) => while_expression.walk(context),
             Expression::FieldExpression(field_expression) => {
                 let (receiver, field) = field_expression.walk(context);

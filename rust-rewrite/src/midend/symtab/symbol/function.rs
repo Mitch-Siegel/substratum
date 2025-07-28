@@ -96,6 +96,7 @@ impl PartialEq for Function {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct FunctionPrototype {
     pub name: FunctionName,
+    pub generic_params: Vec<String>,
     pub arguments: Vec<Variable>,
     pub return_type: Type,
 }
@@ -124,9 +125,15 @@ impl std::fmt::Display for FunctionPrototype {
 }
 
 impl FunctionPrototype {
-    pub fn new(name: String, arguments: Vec<Variable>, return_type: Type) -> Self {
+    pub fn new(
+        name: String,
+        generic_params: Vec<String>,
+        arguments: Vec<Variable>,
+        return_type: Type,
+    ) -> Self {
         FunctionPrototype {
             name: FunctionName { name },
+            generic_params,
             arguments,
             return_type,
         }

@@ -249,6 +249,7 @@ pub enum Operations {
     MethodCall(MethodCallOperands),
     FieldRead(FieldReadOperands),
     FieldWrite(FieldWriteOperands),
+    Switch(SwitchOperands),
 }
 
 impl Display for Operations {
@@ -270,6 +271,11 @@ impl Display for Operations {
                 f,
                 "{}.{} = {}",
                 field_write.receiver, field_write.field_name, field_write.source
+            ),
+            Self::Switch(switch) => write!(
+                f,
+                "switch {} (default {}): {:?}",
+                switch.scrutinee, switch.default_label, switch.cases
             ),
         }
     }

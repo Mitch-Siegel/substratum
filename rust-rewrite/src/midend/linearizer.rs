@@ -3,7 +3,6 @@ use crate::{frontend, midend::*, trace};
 mod block_manager;
 pub mod def_context;
 mod functionwalkcontext;
-mod treewalk;
 
 pub use block_manager::BlockManager;
 pub use def_context::{BasicDefContext, DefContext, GenericParamsContext};

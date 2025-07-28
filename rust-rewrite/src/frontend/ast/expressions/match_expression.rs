@@ -25,6 +25,23 @@ impl Display for PatternTree {
     }
 }
 
+impl<'a> ReturnFunctionWalk<'a, midend::ir::ValueId> for PatternTree {
+    fn walk(self, context: &'a mut FunctionWalkContext) -> midend::ir::ValueId {
+        match self.pattern {
+            Pattern::LiteralPattern(literal_expression) => literal_expression.walk(context),
+            Pattern::IdentifierPattern(identifier) => *context.value_for_variable(
+                &context
+                    .def_path()
+                    .with_component(midend::symtab::DefPathComponent::Variable(identifier))
+                    .unwrap(),
+            ),
+            Pattern::TupleStructPattern(_struct_name, _fields) => {
+                unimplemented!()
+            }
+        }
+    }
+}
+
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MatchArmTree {
     pub loc: SourceLocWithMod,
@@ -47,6 +64,15 @@ impl MatchArmTree {
 impl Display for MatchArmTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} => {}", self.pattern, self.expression)
+    }
+}
+impl<'a> ReturnFunctionWalk<'a, (midend::ir::ValueId, BlockExpressionTree)> for MatchArmTree {
+    fn walk(
+        self,
+        context: &'a mut FunctionWalkContext,
+    ) -> (midend::ir::ValueId, BlockExpressionTree) {
+        let pattern_value = self.pattern.walk(context);
+        (pattern_value, self.expression)
     }
 }
 
@@ -72,5 +98,19 @@ impl MatchExpressionTree {
 impl Display for MatchExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "match {} {{{:?}}}", self.scrutinee_expression, self.arms)
+    }
+}
+
+impl ValueWalk for MatchExpressionTree {
+    fn walk(self, context: &mut midend::linearizer::FunctionWalkContext) -> midend::ir::ValueId {
+        let _scrutinee_value = self.scrutinee_expression.walk(context);
+        let result_value = context.next_temp(None);
+
+        for arm in self.arms {
+            let _pattern_loc = arm.loc.clone();
+            let (_matched_value, _expression) = arm.walk(context);
+        }
+
+        result_value
     }
 }

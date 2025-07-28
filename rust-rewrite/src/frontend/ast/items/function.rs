@@ -86,21 +86,19 @@ impl ReturnWalk<midend::symtab::FunctionPrototype> for FunctionDeclarationTree {
         context: &mut impl midend::linearizer::DefContext,
     ) -> midend::symtab::FunctionPrototype {
         let (string_name, generic_params) = self.name.walk(());
-        let function_def_path_component =
-            midend::symtab::DefPathComponent::Function(midend::symtab::FunctionName {
-                name: string_name.clone(),
-            });
-        midend::symtab::FunctionPrototype::new(
-            string_name,
-            self.arguments
-                .into_iter()
-                .map(|x| x.walk(context))
-                .collect(),
-            match self.return_type {
-                Some(type_) => type_.walk(context),
-                None => midend::types::Type::Unit,
-            },
-        )
+
+        let arguments = self
+            .arguments
+            .into_iter()
+            .map(|arg| arg.walk(context))
+            .collect();
+
+        let return_type = match self.return_type {
+            Some(type_) => type_.walk(context),
+            None => midend::types::Type::Unit,
+        };
+
+        midend::symtab::FunctionPrototype::new(string_name, generic_params, arguments, return_type)
     }
 }
 

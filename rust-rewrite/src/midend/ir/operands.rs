@@ -168,6 +168,13 @@ pub struct FieldWriteOperands {
     pub source: ValueId,
 }
 
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+pub struct SwitchOperands {
+    pub scrutinee: ValueId,
+    pub default_label: usize,
+    pub cases: Vec<(ValueId, usize)>,
+}
+
 #[cfg(test)]
 mod tests {
     use std::cmp::Ordering;
