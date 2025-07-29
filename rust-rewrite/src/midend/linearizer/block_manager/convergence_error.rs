@@ -3,4 +3,5 @@ pub enum ConvergenceError {
     FromBlockExists(usize),
     ToBlockExists(usize),
     NonexistentFrom(usize),
+    NonexistentTo(usize),
 }

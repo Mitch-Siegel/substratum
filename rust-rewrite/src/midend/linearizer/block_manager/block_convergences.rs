@@ -37,6 +37,22 @@ impl BlockConvergences {
         }
     }
 
+    pub fn supplement(&mut self, froms: &[usize], to_label: usize) -> Result<(), ConvergenceError> {
+        trace::trace!("supplement convergence to {} with {:?}", to_label, froms);
+        if !self.convergence_blocks.contains_key(&to_label) {
+            return Err(ConvergenceError::NonexistentTo(to_label));
+        }
+
+        for from in froms {
+            match self.open_convergences.insert(*from, to_label) {
+                Some(_) => return Err(ConvergenceError::FromBlockExists(*from)),
+                None => (),
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn converge(&mut self, from: usize) -> Result<ConvergenceResult, ConvergenceError> {
         let converge_to = match self.open_convergences.remove(&from) {
             Some(label) => label,
@@ -92,6 +108,10 @@ impl BlockConvergences {
                 }
             })
             .collect::<HashMap<usize, usize>>();
+    }
+
+    pub fn convergence_label_of_block(&self, block: &usize) -> Option<&usize> {
+        self.open_convergences.get(block)
     }
 
     pub fn is_empty(&self) -> bool {

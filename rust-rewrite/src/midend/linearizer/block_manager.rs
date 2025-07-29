@@ -11,6 +11,31 @@ pub use block_convergences::ConvergenceResult;
 pub use branch_error::BranchError;
 pub use convergence_error::ConvergenceError;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BranchKind {
+    Unconditional,
+    ConditionalTrue(ir::BasicBlock), // currently on the true branch of a conditional. Owns the
+    // block targeted by the false branch
+    ConditionalFalse, // currently on the false branch of a conditional
+    Switch(usize),    // within a switch but not one of its cases - owns the label of the switch
+    // block
+    SwitchCase(ir::BasicBlock), // within a switch and inside one of its cases - owns the
+    // switch block
+    Loop,
+}
+
+#[derive(Debug)]
+struct Branch {
+    from_label: usize,
+    kind: BranchKind,
+}
+
+impl Branch {
+    pub fn new(from_label: usize, kind: BranchKind) -> Self {
+        Self { from_label, kind }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum LoopError {
     NotLooping,
@@ -31,13 +56,8 @@ pub struct BlockManager {
     convergences: BlockConvergences,
     max_block: usize,
     temp_num: usize,
-    open_loop_beginnings: Vec<usize>,
     // branch path of basic block labels targeted by the branches which got us to current_block
-    open_branch_path: Vec<usize>,
-    // conditional branches from source block to the branch_false block.
-    // creating a branch replaces current_block with the branch_true block,
-    // but we also need to track the branch_false block if it exists
-    open_branch_false_blocks: HashMap<usize, ir::BasicBlock>,
+    open_branch_path: Vec<Branch>,
 }
 
 impl BlockManager {
@@ -56,12 +76,24 @@ impl BlockManager {
                 convergences,
                 max_block: 1,
                 temp_num: 0,
-                open_loop_beginnings: Vec::new(),
                 open_branch_path: Vec::new(),
-                open_branch_false_blocks: HashMap::new(),
             },
             start_block,
         )
+    }
+
+    fn last_branch(&self) -> Result<&Branch, BranchError> {
+        match self.open_branch_path.last() {
+            Some(branch) => Ok(branch),
+            None => Err(BranchError::NotBranched),
+        }
+    }
+
+    fn pop_last_branch(&mut self) -> Result<Branch, BranchError> {
+        match self.open_branch_path.pop() {
+            Some(branch) => Ok(branch),
+            None => Err(BranchError::NotBranched),
+        }
     }
 
     // returns (branch_target, after_branch)
@@ -79,7 +111,8 @@ impl BlockManager {
             .rename_source(from_block.label, after_branch.label);
         self.convergences.add(&[true_block.label], after_branch)?;
 
-        self.open_branch_path.push(from_block.label);
+        self.open_branch_path
+            .push(Branch::new(from_block.label, BranchKind::Unconditional));
 
         trace::trace!(
             "unconditional branch from block {} - true block: {}, after branch: {}",
@@ -127,25 +160,15 @@ impl BlockManager {
         );
         from_block.statements.push(unconditional_jump);
 
-        self.open_branch_path.push(from_block.label);
-
         self.convergences
             .rename_source(from_block.label, convergence_block.label);
         self.convergences
             .add(&[true_block.label, false_block.label], convergence_block)?;
 
-        match self
-            .open_branch_false_blocks
-            .insert(from_block.label, false_block)
-        {
-            Some(existing_false_block) => {
-                return Err(BranchError::ExistingFalseBlock(
-                    from_block.label,
-                    existing_false_block.label,
-                ))
-            }
-            None => (),
-        };
+        self.open_branch_path.push(Branch::new(
+            from_block.label,
+            BranchKind::ConditionalTrue(false_block),
+        ));
 
         Ok(true_block)
     }
@@ -154,18 +177,15 @@ impl BlockManager {
         &mut self,
         current_block: &mut ir::BasicBlock,
     ) -> Result<ir::BasicBlock, BranchError> {
-        let branched_from = match self.open_branch_path.last() {
-            Some(branched_from) => branched_from,
-            None => return Err(BranchError::NotBranched),
-        };
+        let finished_branch = self.pop_last_branch()?;
+        let branched_from = finished_branch.from_label;
+        let false_block = match finished_branch.kind {
+            BranchKind::ConditionalTrue(false_block) => Ok(false_block),
+            kind => Err(BranchError::WrongKind(kind)),
+        }?;
 
         match self.convergences.converge(current_block.label)? {
             ConvergenceResult::NotDone(converge_to_label) => {
-                let false_block = match self.open_branch_false_blocks.remove(branched_from) {
-                    Some(false_block) => false_block,
-                    None => return Err(BranchError::MissingFalseBlock(*branched_from)),
-                };
-
                 let convergence_jump = ir::IrLine::new_jump(
                     SourceLocWithMod::none(),
                     converge_to_label,
@@ -173,19 +193,31 @@ impl BlockManager {
                 );
 
                 current_block.statements.push(convergence_jump);
-
-                Ok(false_block)
+                Ok(())
             }
-            ConvergenceResult::Done(_block) => Err(BranchError::MissingFalseBlock(*branched_from)),
-        }
+            ConvergenceResult::Done(_block) => Err(BranchError::MissingFalseBlock(branched_from)),
+        }?;
+
+        self.open_branch_path
+            .push(Branch::new(branched_from, BranchKind::ConditionalFalse));
+
+        Ok(false_block)
     }
 
     pub fn finish_branch(
         &mut self,
         current_block: &mut ir::BasicBlock,
     ) -> Result<ir::BasicBlock, BranchError> {
-        let branched_from = self.open_branch_path.last().unwrap();
+        let branched_from = self.last_branch()?.from_label;
         trace::debug!("finish branch from block {}", branched_from);
+
+        match self.open_branch_path.pop() {
+            Some(branch) => match branch.kind {
+                BranchKind::Unconditional | BranchKind::ConditionalFalse => Ok(()),
+                kind => Err(BranchError::WrongKind(kind)),
+            },
+            None => Err(BranchError::NotBranched),
+        }?;
 
         match self.convergences.converge(current_block.label)? {
             ConvergenceResult::Done(converge_to_block) => {
@@ -237,7 +269,10 @@ impl BlockManager {
         loop_bottom.statements.push(loop_jump);
 
         // track the top of the loop we are opening
-        self.open_loop_beginnings.push(loop_top.label);
+        self.open_branch_path.push(Branch {
+            from_label: loop_top.label,
+            kind: BranchKind::Loop,
+        });
 
         // transfer control flow unconditionally to the top of the loop
         let loop_entry_jump =
@@ -288,17 +323,20 @@ impl BlockManager {
         current_block: &mut ir::BasicBlock,
         loc: SourceLocWithMod,
         loop_bottom_actions: Vec<ir::IrLine>,
-    ) -> Result<ir::BasicBlock, LoopError> {
+    ) -> Result<ir::BasicBlock, BranchError> {
         // insert any IRs that need to be at the bottom of the loop but before the looping jump itself
         for loop_bottom_ir in loop_bottom_actions {
             current_block.statements.push(loop_bottom_ir);
         }
 
         // figure out where the top of our loop is to jump back to
-        let loop_top = match self.open_loop_beginnings.pop() {
-            Some(top) => top,
-            None => return Err(LoopError::NotLooping),
-        };
+        let loop_top = match self.open_branch_path.pop() {
+            Some(branch) => match branch.kind {
+                BranchKind::Loop => Ok(branch.from_label),
+                kind => Err(BranchError::WrongKind(kind)),
+            },
+            None => return Err(BranchError::NotBranched),
+        }?;
 
         let loop_jump = ir::IrLine::new_jump(loc, loop_top, ir::JumpCondition::Unconditional);
         current_block.statements.push(loop_jump);
@@ -312,8 +350,92 @@ impl BlockManager {
                 // loop_bottom_actions
                 Ok(after_loop)
             }
-            ConvergenceResult::NotDone(label) => Err(LoopError::LoopBottomNotDone(label)),
+            ConvergenceResult::NotDone(label) => Err(BranchError::ConvergenceNotDone(label)),
         }
+    }
+
+    pub fn create_switch(
+        &mut self,
+        current_block: &mut ir::BasicBlock,
+        loc: SourceLocWithMod,
+    ) -> Result<ir::BasicBlock, BranchError> {
+        self.max_block += 2;
+        let switch_block = ir::BasicBlock::new(self.max_block - 1);
+        let convergence_block = ir::BasicBlock::new(self.max_block);
+
+        trace::trace!(
+            "create switch block {} - after switch: {}",
+            switch_block.label,
+            convergence_block.label,
+        );
+
+        let unconditional_jump = ir::IrLine::new_jump(
+            loc,
+            switch_block.label,
+            ir::operands::JumpCondition::Unconditional,
+        );
+        current_block.statements.push(unconditional_jump);
+
+        self.convergences
+            .rename_source(current_block.label, convergence_block.label);
+        self.convergences
+            .add(&[switch_block.label], convergence_block)?;
+
+        self.open_branch_path.push(Branch::new(
+            current_block.label,
+            BranchKind::Switch(switch_block.label),
+        ));
+
+        Ok(switch_block)
+    }
+
+    pub fn create_switch_arm(
+        &mut self,
+        switch_block: &mut ir::BasicBlock,
+    ) -> Result<ir::BasicBlock, BranchError> {
+        // verify that we are in the correct state to create a new arm
+        match &self.last_branch()?.kind {
+            BranchKind::Switch(expected_label) => {
+                if switch_block.label == *expected_label {
+                    Ok(()) // branched AND branch kind is a switch AND labels match
+                } else {
+                    Err(BranchError::SwitchBlockMismatch(
+                        *expected_label,
+                        switch_block.label,
+                    ))
+                }
+            }
+            kind => Err(BranchError::WrongKind(kind.clone())),
+        }?;
+
+        self.max_block += 1;
+        let case_block = ir::BasicBlock::new(self.max_block);
+        let after_switch_label = self
+            .convergences
+            .convergence_label_of_block(&switch_block.label)
+            .unwrap();
+        self.convergences
+            .supplement(&[case_block.label], *after_switch_label)?;
+
+        Ok(case_block)
+    }
+
+    pub fn finish_switch_case(
+        &mut self,
+        case_block: &ir::BasicBlock,
+    ) -> Result<ir::BasicBlock, BranchError> {
+        let switch_block = match self.pop_last_branch()?.kind {
+            BranchKind::SwitchCase(switch_block) => Ok(switch_block),
+            kind => Err(BranchError::WrongKind(kind)),
+        }?;
+
+        match self.convergences.converge(case_block.label)? {
+            ConvergenceResult::NotDone(_) => Ok(()),
+            ConvergenceResult::Done(block) => Err(BranchError::ConvergenceDone(block)),
+        }?;
+
+        self.open_branch_path.pop().unwrap();
+        Ok(switch_block)
     }
 }
 
