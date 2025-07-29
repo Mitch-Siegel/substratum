@@ -103,12 +103,29 @@ impl Display for MatchExpressionTree {
 
 impl ValueWalk for MatchExpressionTree {
     fn walk(self, context: &mut midend::linearizer::FunctionWalkContext) -> midend::ir::ValueId {
+        context.create_switch(self.loc).unwrap();
+
         let _scrutinee_value = self.scrutinee_expression.walk(context);
         let result_value = context.next_temp(None);
 
+        let mut arm_values = Vec::new();
+
         for arm in self.arms {
+            let case_label = context.create_switch_case().unwrap();
             let _pattern_loc = arm.loc.clone();
-            let (_matched_value, _expression) = arm.walk(context);
+            let (_matched_value, expression) = arm.walk(context);
+            arm_values.push(expression.walk(context));
+            context.finish_switch_case().unwrap();
+
+            let case_jump = midend::ir::IrLine::new_jump(
+                _pattern_loc,
+                case_label,
+                midend::ir::JumpCondition::Eq(midend::ir::DualSourceOperands::new(
+                    _matched_value,
+                    _scrutinee_value,
+                )),
+            );
+            context.append_jump_to_current_block(case_jump).unwrap();
         }
 
         result_value

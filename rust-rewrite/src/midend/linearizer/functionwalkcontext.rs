@@ -374,7 +374,8 @@ impl FunctionWalkContext {
         Ok(())
     }
 
-    pub fn create_switch_case(&mut self) -> Result<(), block_manager::BranchError> {
+    // returns the label of the first block in the case
+    pub fn create_switch_case(&mut self) -> Result<usize, block_manager::BranchError> {
         let case_block = {
             let def_path = self.def_path();
             let FunctionWalkContext {
@@ -388,13 +389,14 @@ impl FunctionWalkContext {
                 symtab
                     .lookup_mut::<ir::BasicBlock>(&def_path, current_block)
                     .unwrap(),
-            )?
-        };
+            )
+        }?;
 
         self.new_subscope().unwrap();
+        let case_label = case_block.label;
         let _ = self.replace_current_block(case_block);
 
-        Ok(())
+        Ok(case_label)
     }
 
     pub fn finish_switch_case(&mut self) -> Result<(), block_manager::BranchError> {
