@@ -19,8 +19,8 @@ pub enum BranchKind {
     ConditionalFalse, // currently on the false branch of a conditional
     Switch(usize),    // within a switch but not one of its cases - owns the label of the switch
     // block
-    SwitchCase(ir::BasicBlock), // within a switch and inside one of its cases - owns the
-    // switch block
+    SwitchCase(usize), // within a switch and inside one of its cases - owns the
+    // label of the switch block
     Loop,
 }
 
@@ -389,7 +389,7 @@ impl BlockManager {
         Ok(switch_block)
     }
 
-    pub fn create_switch_arm(
+    pub fn create_switch_case(
         &mut self,
         switch_block: &mut ir::BasicBlock,
     ) -> Result<ir::BasicBlock, BranchError> {
@@ -420,11 +420,12 @@ impl BlockManager {
         Ok(case_block)
     }
 
+    // returns the label of the switch block
     pub fn finish_switch_case(
         &mut self,
         case_block: &ir::BasicBlock,
-    ) -> Result<ir::BasicBlock, BranchError> {
-        let switch_block = match self.pop_last_branch()?.kind {
+    ) -> Result<usize, BranchError> {
+        let switch_label = match self.pop_last_branch()?.kind {
             BranchKind::SwitchCase(switch_block) => Ok(switch_block),
             kind => Err(BranchError::WrongKind(kind)),
         }?;
@@ -435,7 +436,35 @@ impl BlockManager {
         }?;
 
         self.open_branch_path.pop().unwrap();
-        Ok(switch_block)
+        Ok(switch_label)
+    }
+
+    pub fn finish_switch(
+        &mut self,
+        switch_block: &mut ir::BasicBlock,
+    ) -> Result<ir::BasicBlock, BranchError> {
+        let last_branch = self.pop_last_branch()?;
+
+        match last_branch.kind {
+            BranchKind::Switch(expected_label) => {
+                if switch_block.label == expected_label {
+                    Ok(())
+                } else {
+                    Err(BranchError::SwitchBlockMismatch(
+                        expected_label,
+                        switch_block.label,
+                    ))
+                }
+            }
+            kind => Err(BranchError::WrongKind(kind.clone())),
+        }?;
+
+        match self.convergences.converge(switch_block.label)? {
+            ConvergenceResult::Done(after_switch_block) => Ok(after_switch_block),
+            ConvergenceResult::NotDone(after_switch_label) => {
+                Err(BranchError::ConvergenceNotDone(after_switch_label))
+            }
+        }
     }
 }
 

@@ -106,6 +106,23 @@ impl FunctionWalkContext {
         old_current
     }
 
+    fn set_current_block(&mut self, label: usize) {
+        // sanity check - look up the block to ensure it exists
+        let _lookup_result = self
+            .lookup_at_mut::<ir::BasicBlock>(
+                &self
+                    .global_def_path
+                    .clone()
+                    .with_component(DefPathComponent::BasicBlock(label))
+                    .unwrap(),
+            )
+            .unwrap();
+
+        trace::trace!("set current block from {} to {}", self.current_block, label);
+
+        self.current_block = label;
+    }
+
     fn current_block_mut(&mut self) -> &mut ir::BasicBlock {
         let current_block = self.current_block;
         self.lookup_mut::<ir::BasicBlock>(&current_block).unwrap()
@@ -149,6 +166,7 @@ impl FunctionWalkContext {
 
     pub fn finish_true_branch_switch_to_false(&mut self) -> Result<(), block_manager::BranchError> {
         trace::debug!("finish true branch, switch to false");
+
         let def_path = self.def_path();
         let FunctionWalkContext {
             block_manager,
@@ -327,6 +345,99 @@ impl FunctionWalkContext {
 
             self.replace_current_block(after_loop);
         }
+        Ok(())
+    }
+
+    pub fn create_switch(
+        &mut self,
+        loc: SourceLocWithMod,
+    ) -> Result<(), block_manager::BranchError> {
+        let switch_block = {
+            let def_path = self.def_path();
+            let FunctionWalkContext {
+                block_manager,
+                symtab,
+                current_block,
+                ..
+            } = self;
+            block_manager.create_switch(
+                symtab
+                    .lookup_mut::<ir::BasicBlock>(&def_path, current_block)
+                    .unwrap(),
+                loc,
+            )?
+        };
+
+        self.new_subscope().unwrap();
+        let _ = self.replace_current_block(switch_block);
+
+        Ok(())
+    }
+
+    pub fn create_switch_case(&mut self) -> Result<(), block_manager::BranchError> {
+        let case_block = {
+            let def_path = self.def_path();
+            let FunctionWalkContext {
+                block_manager,
+                symtab,
+                current_block,
+                ..
+            } = self;
+
+            block_manager.create_switch_case(
+                symtab
+                    .lookup_mut::<ir::BasicBlock>(&def_path, current_block)
+                    .unwrap(),
+            )?
+        };
+
+        self.new_subscope().unwrap();
+        let _ = self.replace_current_block(case_block);
+
+        Ok(())
+    }
+
+    pub fn finish_switch_case(&mut self) -> Result<(), block_manager::BranchError> {
+        let switch_label = {
+            let def_path = self.def_path();
+            let FunctionWalkContext {
+                block_manager,
+                symtab,
+                current_block,
+                ..
+            } = self;
+
+            block_manager.finish_switch_case(
+                symtab
+                    .lookup_mut::<ir::BasicBlock>(&def_path, current_block)
+                    .unwrap(),
+            )?
+        };
+
+        self.set_current_block(switch_label);
+        self.pop_current_scope()
+    }
+
+    pub fn finish_switch(&mut self) -> Result<(), block_manager::BranchError> {
+        let after_switch_block = {
+            let def_path = self.def_path();
+            let FunctionWalkContext {
+                symtab,
+                current_block,
+                ..
+            } = self;
+
+            let switch_block = symtab
+                .lookup_mut::<ir::BasicBlock>(&def_path, current_block)
+                .unwrap();
+
+            self.block_manager.finish_switch(switch_block)?
+        };
+
+        self.pop_current_scope().unwrap();
+
+        let _ = self.replace_current_block(after_switch_block);
+
         Ok(())
     }
 
