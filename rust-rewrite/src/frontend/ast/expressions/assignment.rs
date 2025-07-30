@@ -26,13 +26,27 @@ impl ValueWalk for AssignmentTree {
     fn walk(self, context: &mut FunctionWalkContext) -> midend::ir::ValueId {
         let assignment_ir = match self.assignee.expression {
             Expression::FieldExpression(field_expression_tree) => {
+                let field_loc = field_expression_tree.loc.clone();
                 let (receiver, field) = field_expression_tree.walk(context);
                 let field_name = field.name.clone();
-                midend::ir::IrLine::new_field_write(
-                    self.value.walk(context).into(),
-                    self.loc,
-                    receiver.into(),
+                let field_type = field.type_.clone();
+
+                let field_pointer_temp = context.next_temp(Some(field_type));
+
+                let field_pointer_line = midend::ir::IrLine::new_get_field_pointer(
+                    field_loc,
+                    receiver,
                     field_name,
+                    field_pointer_temp,
+                );
+                context
+                    .append_statement_to_current_block(field_pointer_line)
+                    .unwrap();
+
+                midend::ir::IrLine::new_store(
+                    self.loc,
+                    self.value.walk(context).into(),
+                    field_pointer_temp,
                 )
             }
             _ => midend::ir::IrLine::new_assignment(

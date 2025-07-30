@@ -247,8 +247,10 @@ pub enum Operations {
     Jump(JumpOperation),
     FunctionCall(FunctionCallOperands),
     MethodCall(MethodCallOperands),
-    FieldRead(FieldReadOperands),
-    FieldWrite(FieldWriteOperands),
+    Load(LoadOperands),
+    Store(StoreOperands),
+    ComputeFieldAddress(FieldAddressOperands),
+    GetFieldPointer(FieldPointerOperands),
     Switch(SwitchOperands),
 }
 
@@ -262,15 +264,17 @@ impl Display for Operations {
             Self::Jump(jump) => write!(f, "{}", jump),
             Self::FunctionCall(function_call) => write!(f, "{}", function_call),
             Self::MethodCall(method_call) => write!(f, "{}", method_call),
-            Self::FieldRead(field_read) => write!(
+            Self::Load(load) => write!(f, "{} = *{}", load.destination, load.pointer),
+            Self::Store(store) => write!(f, "*{} = {}", store.pointer, store.source),
+            Self::ComputeFieldAddress(field_address) => write!(
+                f,
+                "{} = {} + {}",
+                field_address.destination, field_address.receiver, field_address.offset
+            ),
+            Self::GetFieldPointer(field_read) => write!(
                 f,
                 "{} = {}.{}",
                 field_read.destination, field_read.receiver, field_read.field_name
-            ),
-            Self::FieldWrite(field_write) => write!(
-                f,
-                "{}.{} = {}",
-                field_write.receiver, field_write.field_name, field_write.source
             ),
             Self::Switch(switch) => write!(
                 f,
@@ -315,19 +319,34 @@ impl Operations {
         ))
     }
 
-    pub fn new_field_read(receiver: ValueId, field_name: String, destination: ValueId) -> Self {
-        Self::FieldRead(FieldReadOperands {
+    pub fn new_compute_field_address(
+        receiver: ValueId,
+        offset: usize,
+        destination: ValueId,
+    ) -> Self {
+        Self::ComputeFieldAddress(FieldAddressOperands {
+            receiver,
+            offset,
+            destination,
+        })
+    }
+
+    pub fn get_field_pointer(receiver: ValueId, field_name: String, destination: ValueId) -> Self {
+        Self::GetFieldPointer(FieldPointerOperands {
             receiver,
             field_name,
             destination,
         })
     }
 
-    pub fn new_field_write(source: ValueId, receiver: ValueId, field_name: String) -> Self {
-        Self::FieldWrite(FieldWriteOperands {
-            receiver,
-            field_name,
-            source,
+    pub fn new_load(pointer: ValueId, destination: ValueId) -> Self {
+        Self::Load(LoadOperands {
+            pointer,
+            destination,
         })
+    }
+
+    pub fn new_store(source: ValueId, pointer: ValueId) -> Self {
+        Self::Store(StoreOperands { source, pointer })
     }
 }

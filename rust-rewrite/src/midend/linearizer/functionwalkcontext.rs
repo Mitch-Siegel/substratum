@@ -23,12 +23,28 @@ pub struct FunctionWalkContext {
 }
 
 impl FunctionWalkContext {
+    #[tracing::instrument(level = "debug")]
     pub fn new(
         parent_context: BasicDefContext,
         prototype: symtab::FunctionPrototype,
-        self_type: Option<types::Type>,
     ) -> Result<Self, symtab::SymbolError> {
-        trace::trace!("Create function walk context for {}", prototype);
+        let self_type: Option<types::Type> = match parent_context.self_type_id() {
+            Some(id) => Some(
+                parent_context
+                    .symtab()
+                    .type_for_id(&id)
+                    .unwrap()
+                    .type_()
+                    .clone(),
+            ),
+            None => None,
+        };
+
+        trace::trace!(
+            "Self type for function {} is {:?}",
+            prototype.name,
+            self_type
+        );
 
         let (mut symtab, parent_def_path, generics) = parent_context.take().unwrap();
 
@@ -37,13 +53,20 @@ impl FunctionWalkContext {
         let my_def_path = {
             symtab.insert::<symtab::Function>(
                 parent_def_path,
-                symtab::Function::new(prototype, None),
+                symtab::Function::new(prototype.clone(), None),
             )?
         };
 
         symtab
             .insert::<ir::BasicBlock>(my_def_path.clone(), start_block)
             .unwrap();
+
+        for argument in prototype.arguments {
+            symtab
+                .insert::<symtab::Variable>(my_def_path.clone(), argument.clone())
+                .unwrap();
+        }
+
         let values = ir::ValueInterner::new(
             symtab
                 .id_for_type(&my_def_path, &types::Type::Unit)
@@ -60,6 +83,21 @@ impl FunctionWalkContext {
             values,
             current_block: start_block_label,
         })
+    }
+
+    pub fn self_variable(&mut self) -> Option<&ir::ValueId> {
+        let self_variable_path = self
+            .global_def_path
+            .clone()
+            .with_component(DefPathComponent::Variable("self".into()))
+            .unwrap();
+
+        match self.lookup_at::<symtab::Variable>(&self_variable_path) {
+            Ok(_) => (),
+            Err(_) => return None,
+        }
+
+        Some(self.values.id_for_variable_or_insert(self_variable_path))
     }
 
     fn new_subscope(&mut self) -> Result<(), symtab::SymbolError> {
@@ -142,7 +180,7 @@ impl FunctionWalkContext {
     }
 
     pub fn value_for_id(&mut self, id: &ir::ValueId) -> Option<&ir::Value> {
-        self.values.get(id)
+        self.values.value_for_id(id)
     }
 
     pub fn value_id_for_constant(&mut self, constant: usize) -> &ir::ValueId {

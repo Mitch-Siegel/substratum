@@ -33,6 +33,7 @@ impl DefPathComponent {
             (Self::Function(_), Self::Import(_)) => true,
             (Self::Function(_), Self::Variable(_)) => true,
             (Self::Function(_), Self::BasicBlock(_)) => true,
+            (Self::Scope(_), Self::Scope(_)) => true,
             (_, _) => false,
         }
     }

@@ -102,7 +102,7 @@ impl SymbolTable {
             .or_default()
             .insert(full_def_path.clone());
 
-        trace::trace!("insert at {} - {:?}", def_path, symbol);
+        trace::debug!("insert at {} - {:?}", def_path, symbol);
 
         match self.defs.insert(
             full_def_path.clone(),

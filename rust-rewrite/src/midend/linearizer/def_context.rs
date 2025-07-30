@@ -148,7 +148,7 @@ pub trait DefContext: std::fmt::Debug {
 
     // resolves a string type name to either a defined type or a generic param
     fn resolve_type_name(&self, name: &str) -> Result<types::Type, SymbolError> {
-        // first, lookup the type in the symbol table
+        // first, lookup the type in the Symbol table
         let (mut type_, found_def_path) = match self
             .lookup_with_path::<TypeDefinition>(&types::Type::Named(name.into()))
         {
@@ -276,14 +276,27 @@ pub trait DefContext: std::fmt::Debug {
         )
     }
 
-    fn self_variable_path(&self) -> Option<DefPath> {
+    fn self_type_id(&self) -> Option<TypeId> {
         let mut search_def_path = self.def_path();
-        while !search_def_path.is_empty() {
-            if search_def_path.is_type() {
-                return Some(search_def_path);
+        loop {
+            match search_def_path.last() {
+                // lookup required
+                DefPathComponent::Type(_) => {
+                    let definition = self.lookup_at::<TypeDefinition>(&search_def_path).unwrap();
+                    let type_id = self.id_for_type(definition.type_()).unwrap();
+                    return Some(type_id);
+                }
+                // trivial case - just grab whatever we're implementing for
+                DefPathComponent::Implementation(implementation) => {
+                    return Some(implementation.implemented_for)
+                }
+                DefPathComponent::Empty => break,
+                _ => {
+                    search_def_path.pop().unwrap();
+                }
             }
-            search_def_path.pop().unwrap();
         }
+
         None
     }
 

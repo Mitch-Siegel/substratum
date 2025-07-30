@@ -141,7 +141,19 @@ impl IrLine {
         )
     }
 
-    pub fn new_field_read(
+    pub fn new_compute_field_address(
+        loc: SourceLocWithMod,
+        receiver: ValueId,
+        field_offset: usize,
+        destination: ValueId,
+    ) -> Self {
+        Self::new(
+            loc,
+            Operations::new_compute_field_address(receiver, field_offset, destination),
+        )
+    }
+
+    pub fn new_get_field_pointer(
         loc: SourceLocWithMod,
         receiver: ValueId,
         field_name: String,
@@ -149,20 +161,16 @@ impl IrLine {
     ) -> Self {
         Self::new(
             loc,
-            Operations::new_field_read(receiver, field_name, destination),
+            Operations::get_field_pointer(receiver, field_name, destination),
         )
     }
 
-    pub fn new_field_write(
-        source: ValueId,
-        loc: SourceLocWithMod,
-        receiver: ValueId,
-        field_name: String,
-    ) -> Self {
-        Self::new(
-            loc,
-            Operations::new_field_write(source, receiver, field_name),
-        )
+    pub fn new_load(loc: SourceLocWithMod, pointer: ValueId, destination: ValueId) -> Self {
+        Self::new(loc, Operations::new_load(pointer, destination))
+    }
+
+    pub fn new_store(loc: SourceLocWithMod, source: ValueId, pointer: ValueId) -> Self {
+        Self::new(loc, Operations::new_store(source, pointer))
     }
 
     pub fn read_value_ids(&self) -> Vec<&ValueId> {
@@ -203,12 +211,16 @@ impl IrLine {
                     value_ids.push(arg);
                 }
             }
-            Operations::FieldRead(field_read) => {
-                value_ids.push(&field_read.receiver);
+            Operations::Load(load) => {
+                value_ids.push(&load.pointer);
             }
-            Operations::FieldWrite(field_write) => {
-                value_ids.push(&field_write.source);
+            Operations::Store(store) => {
+                value_ids.push(&store.source);
             }
+            Operations::ComputeFieldAddress(field_address) => {
+                value_ids.push(&field_address.receiver)
+            }
+            Operations::GetFieldPointer(field_pointer) => value_ids.push(&field_pointer.receiver),
             Operations::Switch(switch) => value_ids.push(&switch.scrutinee),
         }
         value_ids
@@ -251,11 +263,17 @@ impl IrLine {
                     value_ids.push(arg)
                 }
             }
-            Operations::FieldRead(field_read) => {
-                value_ids.push(&mut field_read.receiver);
+            Operations::Load(load) => {
+                value_ids.push(&mut load.destination);
             }
-            Operations::FieldWrite(field_write) => {
-                value_ids.push(&mut field_write.source);
+            Operations::Store(store) => {
+                value_ids.push(&mut store.pointer); // TODO: accurately track this?
+            }
+            Operations::ComputeFieldAddress(field_address) => {
+                value_ids.push(&mut field_address.receiver)
+            }
+            Operations::GetFieldPointer(field_pointer) => {
+                value_ids.push(&mut field_pointer.receiver)
             }
             Operations::Switch(switch) => value_ids.push(&mut switch.scrutinee),
         }
@@ -282,10 +300,14 @@ impl IrLine {
                     value_ids.push(retval);
                 }
             }
-            Operations::FieldWrite(field_write) => {
-                value_ids.push(&field_write.receiver);
+            Operations::ComputeFieldAddress(field_address) => {
+                value_ids.push(&field_address.receiver)
             }
-            Operations::Jump(_) | Operations::FieldRead(_) | Operations::Switch(_) => {}
+            Operations::GetFieldPointer(field_pointer) => value_ids.push(&field_pointer.receiver),
+            Operations::Store(store) => {
+                value_ids.push(&store.pointer);
+            }
+            Operations::Jump(_) | Operations::Load(_) | Operations::Switch(_) => {}
         }
 
         value_ids
@@ -310,10 +332,19 @@ impl IrLine {
                     value_ids.push(retval);
                 }
             }
-            Operations::FieldWrite(field_write) => {
-                value_ids.push(&mut field_write.receiver);
+            Operations::Store(store) => {
+                value_ids.push(&mut store.pointer);
             }
-            Operations::Jump(_) | Operations::FieldRead(_) | Operations::Switch(_) => {}
+            Operations::Load(load) => {
+                value_ids.push(&mut load.destination);
+            }
+            Operations::ComputeFieldAddress(field_address) => {
+                value_ids.push(&mut field_address.destination);
+            }
+            Operations::GetFieldPointer(field_pointer) => {
+                value_ids.push(&mut field_pointer.destination);
+            }
+            Operations::Jump(_) | Operations::Switch(_) => {}
         }
 
         value_ids

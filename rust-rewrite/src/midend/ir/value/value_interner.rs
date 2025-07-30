@@ -30,16 +30,21 @@ impl ValueInterner {
         self.insert(temp_value).unwrap()
     }
 
-    pub fn get(&self, id: &ValueId) -> Option<&Value> {
+    pub fn value_for_id(&self, id: &ValueId) -> Option<&Value> {
         self.values.get(id.index)
     }
 
-    pub fn get_mut(&mut self, id: &ValueId) -> Option<&mut Value> {
+    pub fn value_mut_for_id(&mut self, id: &ValueId) -> Option<&mut Value> {
         self.values.get_mut(id.index)
     }
 
     pub fn id_for_variable(&self, variable_def_path: &symtab::DefPath) -> Option<&ValueId> {
         self.variables.get(variable_def_path)
+    }
+
+    pub fn id_for_variable_or_insert(&mut self, variable_def_path: symtab::DefPath) -> &ValueId {
+        let next_id = self.next_id();
+        self.variables.entry(variable_def_path).or_insert(next_id)
     }
 
     fn next_id(&self) -> ValueId {

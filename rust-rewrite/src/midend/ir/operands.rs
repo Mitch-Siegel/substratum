@@ -155,17 +155,29 @@ impl MethodCallOperands {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct FieldReadOperands {
-    pub receiver: ValueId,
-    pub field_name: String,
+pub struct LoadOperands {
+    pub pointer: ValueId,
     pub destination: ValueId,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct FieldWriteOperands {
+pub struct StoreOperands {
+    pub pointer: ValueId,
+    pub source: ValueId,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+pub struct FieldAddressOperands {
+    pub receiver: ValueId,
+    pub offset: usize,
+    pub destination: ValueId,
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+pub struct FieldPointerOperands {
     pub receiver: ValueId,
     pub field_name: String,
-    pub source: ValueId,
+    pub destination: ValueId,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]

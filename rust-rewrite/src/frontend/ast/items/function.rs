@@ -127,9 +127,9 @@ impl CustomReturnWalk<midend::linearizer::BasicDefContext, midend::linearizer::B
         mut context: midend::linearizer::BasicDefContext,
     ) -> midend::linearizer::BasicDefContext {
         let declared_prototype = self.prototype.walk(&mut context);
+
         let mut function_context =
-            midend::linearizer::FunctionWalkContext::new(context, declared_prototype, None)
-                .unwrap();
+            midend::linearizer::FunctionWalkContext::new(context, declared_prototype).unwrap();
 
         self.body.walk(&mut function_context);
 

@@ -71,10 +71,14 @@ impl midend::linearizer::ValueWalk for ExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut midend::linearizer::FunctionWalkContext) -> midend::ir::ValueId {
         match self.expression {
-            Expression::SelfLower => {
-                *context.value_for_variable(&context.self_variable_path().unwrap())
-            }
-
+            Expression::SelfLower => match context.self_variable() {
+                Some(id) => *id,
+                None => panic!(
+                    "'self' expression is not valid ({}) (defpath {})",
+                    self.loc,
+                    context.def_path()
+                ),
+            },
             Expression::Identifier(ident) => {
                 let (_, variable_path) = context
                     .lookup_with_path::<midend::symtab::Variable>(&ident)
@@ -94,17 +98,17 @@ impl midend::linearizer::ValueWalk for ExpressionTree {
             Expression::FieldExpression(field_expression) => {
                 let (receiver, field) = field_expression.walk(context);
                 let (field_type, field_name) = (field.type_.clone(), field.name.clone());
-                let destination = context.next_temp(Some(field_type));
-                let field_read_line = midend::ir::IrLine::new_field_read(
+                let field_pointer_temp = context.next_temp(Some(field_type));
+                let field_read_line = midend::ir::IrLine::new_get_field_pointer(
                     self.loc,
                     receiver.into(),
                     field_name,
-                    destination.clone(),
+                    field_pointer_temp.clone(),
                 );
                 context
                     .append_statement_to_current_block(field_read_line)
                     .unwrap();
-                destination
+                field_pointer_temp
             }
             Expression::MethodCall(method_call) => method_call.walk(context),
         }
