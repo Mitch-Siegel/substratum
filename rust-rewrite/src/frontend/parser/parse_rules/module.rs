@@ -15,15 +15,23 @@ impl<'a, 'p> ModuleParser<'a, 'p> {
 
         self.module_parse_stack.push(module_name.clone());
 
-        let module_worklist = BTreeSet::<String>::new();
+        let mut module_worklist = BTreeSet::<String>::new();
         let mut items = Vec::<Item>::new();
         loop {
             match self.peek_token()? {
                 Token::RCurly | Token::Eof => break,
-                _ => items.push(
-                    self.item_parser()
-                        .parse_item(module_name.clone(), module_path)?,
-                ),
+                _ => {
+                    let parsed_item = self
+                        .item_parser()
+                        .parse_item(module_name.clone(), module_path)?;
+                    match &parsed_item {
+                        Item::Module((_, child_worklist)) => {
+                            module_worklist.append(&mut child_worklist.clone());
+                        }
+                        _ => (),
+                    }
+                    items.push(parsed_item);
+                }
             }
         }
 
