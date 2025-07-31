@@ -22,12 +22,10 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
                         self.expect_token(Token::RParen)?;
                         ast::expressions::match_expression::Pattern::TupleStructPattern(
                             ident,
-                            vec![Box::new(
-                                ast::expressions::match_expression::PatternTree::new(
-                                    tuple_contents_loc,
-                                    ast::expressions::match_expression::Pattern::IdentifierPattern(
-                                        single_tuple_contents,
-                                    ),
+                            vec![ast::expressions::match_expression::PatternTree::new(
+                                tuple_contents_loc,
+                                ast::expressions::match_expression::Pattern::IdentifierPattern(
+                                    single_tuple_contents,
                                 ),
                             )],
                         )

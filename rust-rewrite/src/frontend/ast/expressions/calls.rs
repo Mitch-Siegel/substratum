@@ -75,7 +75,7 @@ impl ValueWalk for MethodCallExpressionTree {
     fn walk(self, context: &mut FunctionWalkContext) -> midend::ir::ValueId {
         let receiver = self.receiver.walk(context);
 
-        let receiver_type = context.type_for_value_id(&receiver).clone();
+        let receiver_type = context.type_for_value_id(&receiver).unwrap();
         let called_method = context
             .lookup_implemented_function(&receiver_type, &self.called_method)
             .unwrap();

@@ -53,6 +53,7 @@ pub enum Type {
     UserDefined(symtab::TypeId),
     Reference(Mutability, Box<Type>),
     Pointer(Mutability, Box<Type>),
+    Tuple(Vec<Type>),
 }
 
 impl Type {
@@ -72,6 +73,7 @@ impl Type {
             Type::Named(_) => Ok(false),
             Type::UserDefined(_) => Ok(false),
             Type::Reference(_, _) | Type::Pointer(_, _) => Ok(true),
+            Type::Tuple(_) => Ok(false),
         }
     }
 
@@ -106,6 +108,10 @@ impl Type {
             } /*interner.get_by_id(id).unwrap()*/
             Type::Reference(_, _) => Target::word_size(),
             Type::Pointer(_, _) => Target::word_size(),
+            Type::Tuple(elements) => elements
+                .iter()
+                .map(|element| element.size::<Target>(_interner).unwrap())
+                .sum(),
         };
 
         Ok(size)
@@ -147,6 +153,13 @@ impl Display for Type {
             Self::Named(name) => write!(f, "user-defined type {}", name),
             Self::Reference(mutability, to) => write!(f, "&{} {}", mutability, to),
             Self::Pointer(mutability, to) => write!(f, "*{} {}", mutability, to),
+            Self::Tuple(elements) => {
+                write!(f, "(")?;
+                for element in elements {
+                    write!(f, "{}, ", element)?;
+                }
+                write!(f, ")")
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 
-use crate::{midend::ir, trace};
+use crate::{midend::*, trace};
 pub use errors::*;
 
 mod def_path;
@@ -83,8 +83,15 @@ impl SymbolTable {
         Err(SymbolError::Undefined(def_path.clone(), type_component))
     }
 
-    pub fn type_for_id(&self, id: &TypeId) -> Option<&TypeDefinition> {
+    pub fn type_definition_for_id(&self, id: &TypeId) -> Option<&TypeDefinition> {
         self.types.get_by_id(id)
+    }
+
+    pub fn type_for_id(&self, id: &TypeId) -> Option<&types::Type> {
+        match self.type_definition_for_id(id) {
+            Some(definition) => Some(definition.type_()),
+            None => None,
+        }
     }
 
     pub fn insert<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>

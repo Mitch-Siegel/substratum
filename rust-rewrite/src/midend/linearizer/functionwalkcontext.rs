@@ -32,7 +32,7 @@ impl FunctionWalkContext {
             Some(id) => Some(
                 parent_context
                     .symtab()
-                    .type_for_id(&id)
+                    .type_definition_for_id(&id)
                     .unwrap()
                     .type_()
                     .clone(),
@@ -175,11 +175,18 @@ impl FunctionWalkContext {
         ir::ValueInterner::unit_value_id()
     }
 
-    pub fn value_for_variable(&mut self, variable_def_path: &symtab::DefPath) -> &ir::ValueId {
+    pub fn value_for_variable(&self, variable_def_path: &symtab::DefPath) -> &ir::ValueId {
         self.values.id_for_variable(variable_def_path).unwrap()
     }
 
-    pub fn value_for_id(&mut self, id: &ir::ValueId) -> Option<&ir::Value> {
+    pub fn id_for_variable_or_insert(
+        &mut self,
+        variable_def_path: symtab::DefPath,
+    ) -> &ir::ValueId {
+        self.values.id_for_variable_or_insert(variable_def_path)
+    }
+
+    pub fn value_for_id(&self, id: &ir::ValueId) -> Option<&ir::Value> {
         self.values.value_for_id(id)
     }
 
@@ -187,19 +194,25 @@ impl FunctionWalkContext {
         self.values.id_for_constant(constant)
     }
 
-    pub fn type_definition_for_value_id(&mut self, id: &ir::ValueId) -> &symtab::TypeDefinition {
+    pub fn type_definition_for_value_id(
+        &self,
+        id: &ir::ValueId,
+    ) -> Option<&symtab::TypeDefinition> {
         let value = self.value_for_id(id).unwrap().clone();
-        self.type_for_id(&value.type_.unwrap()).unwrap()
+        self.type_for_id(&value.type_.unwrap())
     }
 
-    pub fn type_for_value_id(&mut self, id: &ir::ValueId) -> &types::Type {
-        let type_id = self.value_for_id(id).unwrap().type_.unwrap();
-        self.type_for_id(&type_id).unwrap().type_()
-    }
-
-    pub fn type_id_for_value_id(&mut self, id: &ir::ValueId) -> symtab::TypeId {
+    pub fn type_id_for_value_id(&self, id: &ir::ValueId) -> symtab::TypeId {
         let value = self.value_for_id(id).unwrap();
         value.type_.unwrap()
+    }
+
+    pub fn type_for_value_id(&self, id: &ir::ValueId) -> Option<types::Type> {
+        let type_id = self.type_id_for_value_id(id);
+        match self.symtab().type_for_id(&type_id) {
+            Some(type_ref) => Some(type_ref.clone()),
+            None => None,
+        }
     }
 
     pub fn finish_true_branch_switch_to_false(&mut self) -> Result<(), block_manager::BranchError> {

@@ -53,4 +53,8 @@ impl EnumRepr {
             alignment: None,
         })
     }
+
+    pub fn get_variant(&self, variant_name: &String) -> Option<&EnumVariant> {
+        self.variants.get(variant_name)
+    }
 }

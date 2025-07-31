@@ -61,7 +61,7 @@ impl ValueWalk for IfExpressionTree {
         if self.false_block.is_some() {
             // we need to copy the 'if' result to the common result_value at the end of the 'if' block
             let result_value_type = context.type_for_value_id(&result_value).clone();
-            let result_value = context.next_temp(Some(result_value_type));
+            let result_value = context.next_temp(result_value_type);
             let assign_if_result_line =
                 midend::ir::IrLine::new_assignment(self.loc.clone(), result_value, if_value_id);
             context

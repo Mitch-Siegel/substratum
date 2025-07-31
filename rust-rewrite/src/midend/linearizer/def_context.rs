@@ -143,7 +143,7 @@ pub trait DefContext: std::fmt::Debug {
     }
 
     fn type_for_id(&self, id: &TypeId) -> Option<&TypeDefinition> {
-        self.symtab().type_for_id(id)
+        self.symtab().type_definition_for_id(id)
     }
 
     // resolves a string type name to either a defined type or a generic param
