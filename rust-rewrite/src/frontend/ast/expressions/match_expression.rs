@@ -70,7 +70,7 @@ fn destructure_enum_variant(
         None => panic!("Enum {} has no variant {}", enum_def.name, variant_name),
     };
 
-    let variant_ptr_value = context.next_temp(variant.type_.clone());
+    let variant_ptr_value = context.next_temp(Some(variant.type_()));
 
     let variant_access_line = midend::ir::IrLine::new_get_field_pointer(
         SourceLocWithMod::none(),

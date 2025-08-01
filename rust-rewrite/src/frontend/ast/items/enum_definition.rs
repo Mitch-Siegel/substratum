@@ -1,20 +1,31 @@
 use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum EnumVariantData {
+    TupleData(Vec<TypeTree>),
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct EnumVariantDataTree {
+    pub loc: SourceLocWithMod,
+    pub data: EnumVariantData,
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnumVariantTree {
     pub loc: SourceLocWithMod,
     pub name: String,
-    pub data: Option<TypeTree>,
+    pub data: Option<EnumVariantDataTree>,
 }
 impl EnumVariantTree {
-    pub fn new(loc: SourceLocWithMod, name: String, data: Option<TypeTree>) -> Self {
+    pub fn new(loc: SourceLocWithMod, name: String, data: Option<EnumVariantDataTree>) -> Self {
         Self { loc, name, data }
     }
 }
 impl Display for EnumVariantTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.data {
-            Some(variant_type) => write!(f, "{}: {}", self.name, variant_type),
+            Some(variant_data) => write!(f, "{}: {:?}", self.name, variant_data),
             None => write!(f, "{}", self.name),
         }
     }
@@ -59,13 +70,13 @@ impl ReturnWalk<midend::symtab::EnumRepr> for EnumDefinitionTree {
             midend::symtab::DefPathComponent::Type(midend::types::Type::Named(string_name.clone()));
         context.push_def_path(type_def_path_component.clone(), &generic_params);
 
-        let variants = self
+        let variants: Vec<(String, midend::symtab::EnumVariantRepr)> = self
             .variants
             .into_iter()
             .map(|variant| {
                 let variant_data_type = match variant.data {
-                    Some(data_type) => Some(data_type.walk(context)),
-                    None => None,
+                    Some(variant_item) => variant_item.walk(context),
+                    None => midend::symtab::EnumVariantRepr::Unit,
                 };
                 (variant.name, variant_data_type)
             })
