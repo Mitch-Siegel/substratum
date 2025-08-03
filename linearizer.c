@@ -180,10 +180,9 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
         {
             if (fieldOf == NULL)
             {
-
                 if ((scope->parentFunction != NULL) &&
                     (scope->parentFunction->implementedFor != NULL) &&
-                    (scope->parentScope == scope->parentFunction->implementedFor->parentScope) &&
+                    (scope == scope->parentFunction->mainScope) &&
                     (scope->parentFunction->implementedFor->genericType == G_BASE) &&
                     (list_find(scope->parentFunction->implementedFor->generic.base.paramNames, tree->value) != NULL))
                 {
@@ -235,7 +234,7 @@ struct Type walk_non_pointer_type_name(struct Scope *scope,
 
     case T_GENERIC_INSTANCE:
     {
-        struct TypeEntry *instance = walk_type_name_or_generic_instantiation(scope, tree);
+        struct TypeEntry *instance = walk_type_name_or_generic_instantiation(scope, tree, fieldOf);
         if (instance->genericType != G_INSTANCE)
         {
             log_tree(LOG_FATAL, tree, "walk_type_name_or_generic_instantiation returned non-generic-instance %s!", instance->baseName);
@@ -1173,7 +1172,8 @@ void walk_return(struct Ast *tree,
     {
         walk_sub_expression(tree->child, block, scope, tacIndex, &returnOperands->returnValue);
 
-        if (type_compare_allow_implicit_widening(tac_operand_get_type(&returnLine->operands.return_.returnValue), &scope->parentFunction->returnType))
+        if (type_compare_allow_implicit_widening(tac_operand_get_type(&returnLine->operands.return_.returnValue), &scope->parentFunction->returnType) &&
+            type_compare_allow_self(tac_operand_get_type(&returnLine->operands.return_.returnValue), scope->parentFunction, &scope->parentFunction->returnType, scope->parentFunction))
         {
             char *expectedReturnType = type_get_name(&scope->parentFunction->returnType);
             char *actualReturnType = type_get_name(tac_operand_get_type(&returnLine->operands.return_.returnValue));
@@ -1779,7 +1779,26 @@ ssize_t walk_match_case_block(struct Ast *statement,
 
     if (statement != NULL)
     {
-        walk_statement(statement, &caseBlock, scope, tacIndex, labelNum, controlConvergesToLabel);
+        switch (statement->type)
+        {
+            // don't need to actually do a walk_scope to create our own new scope
+            // it will have been created for us in the caller
+        case T_COMPOUND_STATEMENT:
+        {
+            struct Ast *caseStatementRunner = statement->child;
+            while (caseStatementRunner != NULL)
+            {
+                walk_statement(caseStatementRunner, &caseBlock, scope, tacIndex, labelNum, controlConvergesToLabel);
+                caseStatementRunner = caseStatementRunner->sibling;
+            }
+        }
+        break;
+
+        default:
+        {
+            walk_statement(statement, &caseBlock, scope, tacIndex, labelNum, controlConvergesToLabel);
+        }
+        }
     }
 
     // make sure every case ends up at the convergence block after the match
@@ -1888,7 +1907,7 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
 
         basic_block_append(block, matchJump, tacIndex);
 
-        struct Scope *armScope = scope;
+        struct Scope *armScope = scope_create_sub_scope(scope);
 
         struct BasicBlock *caseBlock = basic_block_new((*labelNum)++);
 
@@ -1906,10 +1925,9 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
                          matchedMember->name);
             }
 
-            armScope = scope_create_sub_scope(scope);
             struct VariableEntry *dataVariable = scope_create_variable(armScope, matchedDataName, &matchedMember->type, false, A_PUBLIC);
 
-            struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(matchedDataName, caseBlock, scope, tacIndex, matchedAgainstEnum);
+            struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(matchedDataName, caseBlock, armScope, tacIndex, matchedAgainstEnum);
             struct TACLine *compAddrOfEnumData = new_tac_line(TT_ADD, matchedDataName);
             compAddrOfEnumData->operands.arithmetic.sourceA = *addrOfMatchedAgainst;
 
@@ -1918,7 +1936,7 @@ void walk_enum_match_arm(struct Ast *matchedValueTree,
             compAddrOfEnumData->operands.arithmetic.sourceB.permutation = VP_LITERAL_VAL;
             compAddrOfEnumData->operands.arithmetic.sourceB.castAsType.basicType = select_variable_type_for_number(sizeof(size_t));
 
-            tac_operand_populate_as_temp(scope, &compAddrOfEnumData->operands.arithmetic.destination, tac_operand_get_type(&compAddrOfEnumData->operands.arithmetic.sourceA));
+            tac_operand_populate_as_temp(armScope, &compAddrOfEnumData->operands.arithmetic.destination, tac_operand_get_type(&compAddrOfEnumData->operands.arithmetic.sourceA));
             basic_block_append(caseBlock, compAddrOfEnumData, tacIndex);
 
             // then, do the actual load from the computed address to the temporary
@@ -2634,10 +2652,8 @@ void walk_struct_initializer(struct Ast *tree,
         struct StructField *expectedField = deque_at(initializedStruct->fieldLocations, initFieldIdx);
         if ((initializedField->offset != expectedField->offset) || (strcmp(initializedField->variable->name, expectedField->variable->name) != 0))
         {
-            log(LOG_FATAL, "Initializer element %zu of struct %s should be %s, not %s", initFieldIdx + 1, initializedStruct->name, expectedField->variable->name, initializedField->variable->name);
+            log_tree(LOG_FATAL, initRunner, "Initializer element %zu of struct %s should be %s, not %s", initFieldIdx + 1, initializedStruct->name, expectedField->variable->name, initializedField->variable->name);
         }
-
-        struct TACOperand initializedValue = {0};
 
         struct TACLine *fieldStore = new_tac_line(TT_FIELD_STORE, initRunner);
         fieldStore->operands.fieldStore.destination = *initializedOperand;
@@ -2656,7 +2672,7 @@ void walk_struct_initializer(struct Ast *tree,
             // make sure the subexpression has a sane type to be stored in the field we are initializing
             if (type_compare_allow_implicit_widening(tac_operand_get_type(&fieldStore->operands.fieldStore.source), &initializedField->variable->type))
             {
-                log_tree(LOG_FATAL, initToTree, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, initializedField->variable->name, type_get_name(tac_operand_get_type(&initializedValue)), type_get_name(&initializedField->variable->type));
+                log_tree(LOG_FATAL, initToTree, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, initializedField->variable->name, type_get_name(tac_operand_get_type(&fieldStore->operands.fieldStore.source)), type_get_name(&initializedField->variable->type));
             }
         }
         basic_block_append(block, fieldStore, tacIndex);
@@ -2829,15 +2845,36 @@ void walk_initializer(struct Ast *tree,
 
     case TP_ENUM:
     {
-        if ((initializedTypeNameTree->child->type != T_IDENTIFIER) && (initializedTypeNameTree->child->type != T_CAP_SELF))
-        {
-            log_tree(LOG_FATAL, initializedTypeNameTree, "Expected identifier for enum type name, got %s", token_get_name(initializedTypeNameTree->child->type));
-        }
         struct Ast *initializedMemberTree = initializedTypeNameTree->sibling;
         struct Ast *memberInitializers = initializedMemberTree->sibling;
-        struct EnumMember *initializedMember = enum_lookup_member(initializedTypeEntry->data.asEnum, initializedMemberTree);
+        switch (initializedTypeNameTree->child->type)
+        {
+        case T_IDENTIFIER:
+        case T_CAP_SELF:
+        {
+            struct EnumMember *initializedMember = enum_lookup_member(initializedTypeEntry->data.asEnum, initializedMemberTree);
 
-        walk_enum_initializer(memberInitializers, tree, block, scope, tacIndex, initialized, initializedMember);
+            walk_enum_initializer(memberInitializers, tree, block, scope, tacIndex, initialized, initializedMember);
+        }
+        break;
+
+        case T_GENERIC_INSTANCE:
+        {
+            struct TypeEntry *rhsType = walk_type_name_or_generic_instantiation(scope, initializedTypeNameTree->child, NULL);
+
+            if (type_entry_compare(initializedTypeEntry, rhsType))
+            {
+                log_tree(LOG_FATAL, initializedTypeNameTree, "Initialized type %s doesn't match expected type %s", type_entry_name(initializedTypeEntry), type_entry_name(rhsType));
+            }
+
+            struct EnumMember *initializedMember = enum_lookup_member(initializedTypeEntry->data.asEnum, initializedMemberTree);
+            walk_enum_initializer(memberInitializers, tree, block, scope, tacIndex, initialized, initializedMember);
+        }
+        break;
+
+        default:
+            log_tree(LOG_FATAL, initializedTypeNameTree, "Expected identifier for enum type name, got %s", token_get_name(initializedTypeNameTree->child->type));
+        }
     }
     break;
     }
@@ -3203,21 +3240,24 @@ Deque *walk_argument_pushes(struct Ast *argumentRunner,
                      type_get_name(tac_operand_get_type(argOperand)));
         }
 
-        // allow us to automatically widen
-        if (type_get_size(tac_operand_get_type(argOperand), scope) <= type_get_size(&expectedArgument->type, scope))
+        if (!((tac_operand_get_type(argOperand)->basicType == VT_GENERIC_PARAM) || (expectedArgument->type.basicType == VT_GENERIC_PARAM)))
         {
-            argOperand->castAsType = expectedArgument->type;
-        }
-        else
-        {
-            char *convertFromType = type_get_name(tac_operand_get_type(argOperand));
-            char *convertToType = type_get_name(&expectedArgument->type);
-            log_tree(LOG_FATAL, pushedArgument,
-                     "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s",
-                     expectedArgument->name,
-                     calledFunction->name,
-                     convertFromType,
-                     convertToType);
+            // allow us to automatically widen if neither are generic params
+            if (type_get_size(tac_operand_get_type(argOperand), scope) <= type_get_size(&expectedArgument->type, scope))
+            {
+                argOperand->castAsType = expectedArgument->type;
+            }
+            else
+            {
+                char *convertFromType = type_get_name(tac_operand_get_type(argOperand));
+                char *convertToType = type_get_name(&expectedArgument->type);
+                log_tree(LOG_FATAL, pushedArgument,
+                         "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s",
+                         expectedArgument->name,
+                         calledFunction->name,
+                         convertFromType,
+                         convertToType);
+            }
         }
     }
     iterator_free(calledFunctionArgumentIterator);
@@ -3251,6 +3291,9 @@ bool handle_struct_return(struct Ast *callTree,
     {
         struct TACOperand intermediateReturnObject = {0};
         tac_operand_populate_as_temp(scope, &intermediateReturnObject, &calledFunction->returnType);
+
+        // attempt to immediately resolve any VT_SELF returns so that they register as the correct type in the calling scope
+        type_try_resolve_vt_self(tac_operand_get_type(&intermediateReturnObject), calledFunction->implementedFor);
         log_tree(LOG_DEBUG, callTree, "Call to %s returns struct in %s", calledFunction->name, intermediateReturnObject.name.str);
 
         *destinationOperand = intermediateReturnObject;
@@ -3298,6 +3341,7 @@ void walk_function_call(struct Ast *tree,
     struct TACLine *callLine = new_tac_line(TT_FUNCTION_CALL, tree);
     if (!haveStructReturn && (destinationOperand != NULL))
     {
+        // blindly populate the temp return value destination operand
         tac_operand_populate_as_temp(scope, destinationOperand, &calledFunction->returnType);
         callLine->operands.functionCall.returnValue = *destinationOperand;
     }
@@ -3380,7 +3424,10 @@ void walk_method_call(struct Ast *tree,
     struct TACLine *callLine = new_tac_line(TT_METHOD_CALL, tree);
     if (!haveStructReturn && (destinationOperand != NULL))
     {
+        // blindly populate the temp return value destination operand
         tac_operand_populate_as_temp(scope, destinationOperand, &calledFunction->returnType);
+        // attempt to immediately resolve any VT_SELF returns so that they register as the correct type in the calling scope
+        type_try_resolve_vt_self(tac_operand_get_type(destinationOperand), calledFunction->implementedFor);
         callLine->operands.methodCall.returnValue = *destinationOperand;
     }
     callLine->operands.methodCall.calledOn = *calledOnOperand;
@@ -3390,7 +3437,7 @@ void walk_method_call(struct Ast *tree,
     basic_block_append(block, callLine, tacIndex);
 }
 
-List *walk_generic_parameters(struct Ast *tree, struct Scope *scope)
+List *walk_generic_parameters(struct Ast *tree, struct Scope *scope, struct TypeEntry *fieldOf)
 {
     log_tree(LOG_DEBUG, tree, "walk_generic_parameters");
 
@@ -3406,7 +3453,7 @@ List *walk_generic_parameters(struct Ast *tree, struct Scope *scope)
     {
         struct Type *param = malloc(sizeof(struct Type));
         type_init(param);
-        walk_type_name(paramRunner, scope, param, NULL);
+        walk_type_name(paramRunner, scope, param, fieldOf);
         list_append(paramsList, param);
 
         paramRunner = paramRunner->sibling;
@@ -3415,7 +3462,7 @@ List *walk_generic_parameters(struct Ast *tree, struct Scope *scope)
     return paramsList;
 }
 
-struct TypeEntry *walk_type_name_or_generic_instantiation(struct Scope *scope, struct Ast *tree)
+struct TypeEntry *walk_type_name_or_generic_instantiation(struct Scope *scope, struct Ast *tree, struct TypeEntry *fieldOf)
 {
     log_tree(LOG_DEBUG, tree, "walk_type_name_or_generic_instantiation");
 
@@ -3428,17 +3475,37 @@ struct TypeEntry *walk_type_name_or_generic_instantiation(struct Scope *scope, s
 
     case T_GENERIC_INSTANCE:
     {
-
         struct Ast *structNameTree = tree->child;
-        List *genericParams = walk_generic_parameters(tree->child->sibling, scope);
+        List *genericParams = walk_generic_parameters(tree->child->sibling, scope, fieldOf);
         struct TypeEntry *baseGenericType = scope_lookup_struct_by_name_tree(scope, structNameTree);
-        returnedType = type_entry_get_or_create_generic_instantiation(baseGenericType, genericParams);
-        if (returnedType->generic.instance.parameters != genericParams)
+
+        switch (baseGenericType->genericType)
         {
-            list_free(genericParams);
+        case G_NONE:
+        {
+            char *paramsStr = sprint_generic_params(genericParams);
+            char *typeName = type_get_name(&baseGenericType->type);
+            log_tree(LOG_FATAL, tree, "Attempt to instantiate generic %s<%s> of non-generic type %s", baseGenericType->baseName, paramsStr, typeName);
         }
+        break;
+
+        case G_BASE:
+            returnedType = type_entry_get_or_create_generic_instantiation(baseGenericType, genericParams);
+
+            if (returnedType->generic.instance.parameters != genericParams)
+            {
+                list_free(genericParams);
+            }
+            break;
+
+        case G_INSTANCE:
+            char *paramsStr = sprint_generic_params(genericParams);
+            char *typeName = type_get_name(&baseGenericType->type);
+            log_tree(LOG_FATAL, tree, "Attempt to instantiate generic %s<%s> of generic instance type %s", baseGenericType->baseName, paramsStr, typeName);
+            break;
+        }
+        break;
     }
-    break;
 
     default:
         log_tree(LOG_FATAL, tree, "Malformed AST (%s) seen in walk_type_name_or_generic_instantiation!", token_get_name(tree->type));
@@ -3467,7 +3534,7 @@ void walk_associated_call(struct Ast *tree,
     struct TypeEntry *associatedWith = NULL;
     struct Ast *callTree = tree->child->sibling;
 
-    associatedWith = walk_type_name_or_generic_instantiation(scope, structTypeTree);
+    associatedWith = walk_type_name_or_generic_instantiation(scope, structTypeTree, NULL);
 
     struct FunctionEntry *calledFunction = type_entry_lookup_associated_function(associatedWith, callTree->child, scope);
 
@@ -3484,7 +3551,10 @@ void walk_associated_call(struct Ast *tree,
     struct TACLine *callLine = new_tac_line(TT_ASSOCIATED_CALL, tree);
     if (!haveStructReturn && (destinationOperand != NULL))
     {
+        // blindly populate the temp return value destination operand
         tac_operand_populate_as_temp(scope, destinationOperand, &calledFunction->returnType);
+        // attempt to immediately resolve any VT_SELF returns so that they register as the correct type in the calling scope
+        type_try_resolve_vt_self(tac_operand_get_type(destinationOperand), associatedWith);
         callLine->operands.associatedCall.returnValue = *destinationOperand;
     }
     callLine->operands.associatedCall.functionName = calledFunction->name;

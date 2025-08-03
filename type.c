@@ -131,6 +131,40 @@ ssize_t type_compare(struct Type *typeA, struct Type *typeB)
     return 0;
 }
 
+// speical logic to compare types for functions, with handling for VT_SELF
+ssize_t type_compare_allow_self(struct Type *typeA,
+                                struct FunctionEntry *functionA,
+                                struct Type *typeB,
+                                struct FunctionEntry *functionB)
+{
+    // start off with a normal type compare
+    ssize_t diff = type_compare(typeA, typeB);
+
+    // if they appear to be different, resolve VT_SELF and try again
+    if (diff)
+    {
+        struct Type resolvedTypeA = type_duplicate_non_pointer(typeA);
+        struct Type resolvedTypeB = type_duplicate_non_pointer(typeB);
+
+        if ((functionA->implementedFor != NULL))
+        {
+            type_try_resolve_vt_self_unchecked(&resolvedTypeA, functionA->implementedFor);
+        }
+
+        if ((functionB->implementedFor != NULL))
+        {
+            type_try_resolve_vt_self_unchecked(&resolvedTypeB, functionB->implementedFor);
+        }
+
+        diff = type_compare(&resolvedTypeA, &resolvedTypeB);
+
+        type_deinit(&resolvedTypeA);
+        type_deinit(&resolvedTypeB);
+    }
+
+    return diff;
+}
+
 size_t type_hash(struct Type *type)
 {
     size_t hash = 0;
@@ -756,6 +790,29 @@ size_t scope_compute_padding_for_alignment(struct Scope *scope, struct Type *ali
     return paddingRequired;
 }
 
+// returns true if a type is a generic parameter
+// recurses through generic parameters if the type is a generic instance, also returns true if any instance parameters are generic parameters as well
+bool type_is_generic(struct Type *type)
+{
+    bool isGeneric = false;
+    if ((type_is_struct_object(type) || type_is_enum_object(type)) && type->nonArray.complexType.genericParams)
+    {
+        Iterator *paramIter = NULL;
+        for (paramIter = list_begin(type->nonArray.complexType.genericParams); iterator_gettable(paramIter); iterator_next(paramIter))
+        {
+            struct Type *paramType = iterator_get(paramIter);
+            isGeneric |= type_is_generic(paramType);
+        }
+        iterator_free(paramIter);
+    }
+    else if (type->basicType == VT_GENERIC_PARAM)
+    {
+        isGeneric = true;
+    }
+
+    return isGeneric;
+}
+
 void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
 {
     char *typeName = type_get_name(type);
@@ -776,19 +833,15 @@ void type_try_resolve_generic(struct Type *type, HashTable *paramsMap, char *res
     {
         type_try_resolve_generic(type->array.type, paramsMap, resolvedStructName, resolvedParams);
     }
-    else if ((type->basicType == VT_STRUCT) && (!strcmp(type->nonArray.complexType.name, resolvedStructName)))
+    else if (((type->basicType == VT_STRUCT) || (type->basicType == VT_ENUM)) && (!strcmp(type->nonArray.complexType.name, resolvedStructName)))
     {
         type->nonArray.complexType.genericParams = resolvedParams;
     }
 }
 
-void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
+// attempt to resolve a VT_SELF to the type of the given type entry
+void type_try_resolve_vt_self_unchecked(struct Type *type, struct TypeEntry *typeEntry)
 {
-    if (typeEntry->genericType == G_BASE)
-    {
-        InternalError("type_try_resolve_vt_self called with a type entry which is a generic base type!");
-    }
-
     if (type->basicType == VT_SELF)
     {
         type->basicType = typeEntry->type.basicType;
@@ -802,6 +855,18 @@ void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
             type->nonArray.complexType.genericParams = NULL;
         }
     }
+}
+
+// first, check if the type entry is a generic base type - if so, error
+// then, attempt to resolve VT_SELF
+void type_try_resolve_vt_self(struct Type *type, struct TypeEntry *typeEntry)
+{
+    if (typeEntry->genericType == G_BASE)
+    {
+        InternalError("type_try_resolve_vt_self called with a type entry which is a generic base type!");
+    }
+
+    type_try_resolve_vt_self_unchecked(type, typeEntry);
 }
 
 void compare_generic_param_names(struct Ast *genericParamsTree, List *actualParamNames, List *expectedParamNames, char *genericType, char *genericName)

@@ -157,6 +157,24 @@ void type_entry_free(struct TypeEntry *entry)
     free(entry);
 }
 
+ssize_t type_entry_compare(struct TypeEntry *entryA, struct TypeEntry *entryB)
+{
+    ssize_t diff = 0;
+    diff = strcmp(entryA->baseName, entryB->baseName);
+    if (diff)
+    {
+        return diff;
+    }
+
+    diff = entryA->permutation - entryB->permutation;
+    if (diff)
+    {
+        return diff;
+    }
+
+    return type_compare(&entryA->type, &entryB->type);
+}
+
 char *type_entry_name(struct TypeEntry *entry)
 {
     char *name = type_get_name(&entry->type);
@@ -452,14 +470,22 @@ struct TypeEntry *type_entry_get_or_create_generic_instantiation(struct TypeEntr
     {
         char *paramStr = sprint_generic_params(paramsList);
         log(LOG_DEBUG, "No instance of %s<%s> exists - creating", baseType->baseName, paramStr);
-        free(paramStr);
 
         instance = type_entry_clone_generic_base_as_instance(baseType, baseType->baseName);
 
         instance->generic.instance.parameters = paramsList;
         instance->type.nonArray.complexType.genericParams = paramsList;
 
-        type_entry_resolve_generics(instance, baseType->generic.base.paramNames, paramsList);
+        if (!type_is_generic(&instance->type))
+        {
+            log(LOG_DEBUG, "Instance of %s<%s> has no generic parameters which themselves are generics, ok to resolve", baseType->baseName, paramStr);
+            type_entry_resolve_generics(instance, baseType->generic.base.paramNames, paramsList);
+        }
+        else
+        {
+            log(LOG_DEBUG, "Instance of %s<%s> has generic parameters which themselves are generics, don't resolve", baseType->baseName, paramStr);
+        }
+        free(paramStr);
 
         // type_entry_resolve_capital_self(instance);
 
