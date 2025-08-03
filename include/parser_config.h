@@ -5,60 +5,32 @@
 struct LinkedList;
 struct ParseProgress;
 
-void trackCharacter(struct LinkedList *charsPerLine, int trackedCharacter);
+void track_character(struct ParseProgress *auxil, int trackedCharacter);
 
-void manageSourceLocation(struct ParseProgress *auxil, char *matchedString, size_t charsConsumed, struct LinkedList *charsPerLine, size_t *curLineP, size_t *curColP);
+void manage_location(struct ParseProgress *auxil, char *matchedString, bool isSourceLocation);
 
-void parserError(struct ParseProgress *auxil);
+#define manage_source_location(auxil, matchedString) manage_location(auxil, matchedString, true)
+#define manage_non_source_location(auxil, matchedString) manage_location(auxil, matchedString, false)
 
-void setCurrentFile(char **curFileP, char *fileName);
+void parser_error(struct ParseProgress *auxil);
 
-#define UPCOMING_CHARS_THIS_LINE(auxil) (*(size_t *)((auxil)->charsRemainingPerLine->head->data))
-#define UPCOMING_CHARS_LAST_LINE(auxil) (*(size_t *)((auxil)->charsRemainingPerLine->tail->data))
+void set_current_file(struct ParseProgress *auxil, char *preprocessorLine, u32 lineNum, char *fileName);
 
-#define PCC_GETCHAR(auxil) ({                                     \
-    int inChar = fgetc((auxil)->f);                               \
-    if ((inChar) == '\n')                                         \
-    {                                                             \
-        (auxil)->curLineRaw++;                                    \
-        (auxil)->curColRaw = 0;                                   \
-    }                                                             \
-    else                                                          \
-    {                                                             \
-        (auxil)->curColRaw++;                                     \
-    }                                                             \
-    if ((inChar) == EOF)                                          \
-    {                                                             \
-        (auxil)->eofReceived = 1;                                 \
-    }                                                             \
-    else                                                          \
-    {                                                             \
-        trackCharacter((auxil)->charsRemainingPerLine, (inChar)); \
-    }                                                             \
-    (inChar);                                                     \
+#define CHARS_THIS_LINE(auxil) (*(size_t *)((auxil)->charsRemainingPerLine->head->data))
+#define CHARS_LAST_LINE(auxil) (*(size_t *)((auxil)->charsRemainingPerLine->tail->data))
+
+#define PCC_GETCHAR(auxil) ({             \
+    int inChar = fgetc((auxil)->f);       \
+    if ((inChar) == EOF)                  \
+    {                                     \
+        (auxil)->eofReceived = 1;         \
+    }                                     \
+    else                                  \
+    {                                     \
+        track_character(auxil, (inChar)); \
+    }                                     \
+    (inChar);                             \
 })
-
-/*#define PCC_DEBUG(auxil, event, rule, level, pos, buffer, length)                                                              \
-    {                                                                                                                          \
-        for (size_t i = 0; i < level; i++)                                                                                     \
-        {                                                                                                                      \
-            printf("-   ");                                                                                                    \
-        }                                                                                                                      \
-        printf("PCC @ %s:%d:%2d - %s:%s %lu", auxil->curFile, auxil->curLine, auxil->curCol, dbgEventNames[event], rule, pos); \
-        printf("[");                                                                                                           \
-        for (size_t i = 0; i < length; i++)                                                                                    \
-        {                                                                                                                      \
-            if (buffer[i] == '\n')                                                                                             \
-            {                                                                                                                  \
-                printf("\\n");                                                                                                 \
-            }                                                                                                                  \
-            else                                                                                                               \
-            {                                                                                                                  \
-                printf("%c", buffer[i]);                                                                                       \
-            }                                                                                                                  \
-        }                                                                                                                      \
-        printf("]\n");                                                                                                         \
-    }*/
 
 #define PCC_ERROR(auxil)                                                   \
     {                                                                      \
@@ -85,40 +57,16 @@ void setCurrentFile(char **curFileP, char *fileName);
             }                                                              \
             fputc('\n', stderr);                                           \
         }                                                                  \
-        parserError(auxil);                                                \
+        parser_error(auxil);                                               \
     }
 
-#define AST_S(original, newrightmost) AST_ConstructAddSibling(original, newrightmost)
-#define AST_C(parent, child) AST_ConstructAddChild(parent, child)
-#define AST_N(auxil, token, value, location)                                                                                                                      \
-    ({                                                                                                                                                            \
-        struct AST *created = NULL;                                                                                                                               \
-        if (strlen((value)) > 0)                                                                                                                                  \
-        {                                                                                                                                                         \
-            if ((auxil)->lastMatchLocation == 0)                                                                                                                  \
-            {                                                                                                                                                     \
-                manageSourceLocation((auxil), (value), ((location) + 1) - strlen((value)), (auxil)->charsRemainingPerLine, &(auxil)->curLine, &(auxil)->curCol);  \
-                (auxil)->lastMatchLocation = (location);                                                                                                          \
-            }                                                                                                                                                     \
-            created = AST_New(token, Dictionary_LookupOrInsert((auxil)->dict, (value)), (auxil)->curFile, (auxil)->curLine, (auxil)->curCol);                     \
-            manageSourceLocation((auxil), (value), (location) - (auxil)->lastMatchLocation, (auxil)->charsRemainingPerLine, &(auxil)->curLine, &(auxil)->curCol); \
-            (auxil)->lastMatchLocation = (location);                                                                                                              \
-        }                                                                                                                                                         \
-        else                                                                                                                                                      \
-        {                                                                                                                                                         \
-            created = AST_New(token, Dictionary_LookupOrInsert((auxil)->dict, (value)), (auxil)->curFile, (auxil)->curLine, (auxil)->curCol);                     \
-        }                                                                                                                                                         \
-        created;                                                                                                                                                  \
+#define AST_S(original, newrightmost) ast_construct_add_sibling(original, newrightmost)
+#define AST_C(parent, child) ast_construct_add_child(parent, child)
+#define AST_N(auxil, token, value, location)                                                                                                            \
+    ({                                                                                                                                                  \
+        struct Ast *created = ast_new(token, dictionary_lookup_or_insert((auxil)->dict, (value)), (auxil)->curFile, (auxil)->curLine, (auxil)->curCol); \
+        manage_source_location(auxil, value);                                                                                                           \
+        created;                                                                                                                                        \
     })
-
-// #ifndef AST_S
-// #define AST_S(original, newrightmost) ({struct AST *constructed = AST_ConstructAddSibling(original, newrightmost); printf("AST_S@ %s:%d -  %p, %p: %p\n", __FILE__, __LINE__, original, newrightmost, constructed); constructed; })
-// #endif
-// #ifndef AST_C
-// #define AST_C(parent, child) ({struct AST *constructed = AST_ConstructAddChild(parent, child); printf("AST_C@ %s:%d - %p, %p: %p\n", __FILE__, __LINE__, parent, child, constructed); constructed; })
-// #endif
-// #ifndef AST_N
-// #define AST_N(token, value) ({struct AST *created = AST_New(token, Dictionary_LookupOrInsert(auxil->dict, value), auxil->curFile, auxil->curLine, auxil->curCol); printf("AST_N@ %s:%d -  %s, %s: %p\n", __FILE__, __LINE__, getTokenName(token), value, created); created; })
-// #endif
 
 #endif

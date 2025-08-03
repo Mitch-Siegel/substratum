@@ -1,183 +1,183 @@
 #include "idfa.h"
+#include "log.h"
 #include "symtab_basicblock.h"
 #include "util.h"
 
-struct Set **generateSuccessors(struct BasicBlock **blocks, size_t nBlocks)
-{
-    struct Set **blockSuccessors = malloc(nBlocks * sizeof(struct LinkedList *));
+#include "mbcl/set.h"
 
-    for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
+// returns an array of sets - index i in the array is a set containing the blocks which are successors of block i
+Array *generate_successors(Array *blocks)
+{
+    Array *blockSuccessors = array_new((MBCL_DATA_FREE_FUNCTION)set_free, blocks->size);
+    for (size_t blockIndex = 0; blockIndex < blocks->size; blockIndex++)
     {
         // block pointers will be unique, so we can directly compare them
-        blockSuccessors[blockIndex] = Set_New(ssizet_compare, NULL);
+        Set *thisblockSuccessors = set_new(NULL, pointer_compare);
+        array_emplace(blockSuccessors, blockIndex, thisblockSuccessors);
 
-        struct Set *thisblockSuccessors = blockSuccessors[blockIndex];
+        struct BasicBlock *thisBlock = array_at(blocks, blockIndex);
 
-        for (struct LinkedListNode *tacRunner = blocks[blockIndex]->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
+        Iterator *successorRunner = NULL;
+        for (successorRunner = set_begin(thisBlock->successors); iterator_gettable(successorRunner); iterator_next(successorRunner))
         {
-            struct TACLine *thisTAC = tacRunner->data;
-            switch (thisTAC->operation)
-            {
-            case tt_beq:
-            case tt_bne:
-            case tt_bgeu:
-            case tt_bltu:
-            case tt_bgtu:
-            case tt_bleu:
-            case tt_beqz:
-            case tt_bnez:
-            case tt_jmp:
-                Set_Insert(thisblockSuccessors, blocks[thisTAC->operands[0].name.val]);
-                break;
-
-            default:
-                break;
-            }
+            ssize_t *successorLabel = iterator_get(successorRunner);
+            set_insert(thisblockSuccessors, array_at(blocks, *successorLabel));
         }
+        iterator_free(successorRunner);
     }
 
     return blockSuccessors;
 }
 
-struct Set **generatePredecessors(struct BasicBlock **blocks, struct Set **successors, size_t nBlocks)
+Array *generate_predecessors(Array *blocks, Array *successors)
 {
-    struct Set **blockPredecessors = malloc(nBlocks * sizeof(struct LinkedList *));
+    Array *blockPredecessors = array_new((MBCL_DATA_FREE_FUNCTION)set_free, blocks->size);
 
-    for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
+    for (size_t blockIndex = 0; blockIndex < blocks->size; blockIndex++)
     {
         // block pointers will always be unique, so we can directly compare them
-        blockPredecessors[blockIndex] = Set_New(ssizet_compare, NULL);
+        array_emplace(blockPredecessors, blockIndex, set_new(NULL, pointer_compare));
     }
 
-    for (size_t blockIndex = 0; blockIndex < nBlocks; blockIndex++)
+    for (size_t blockIndex = 0; blockIndex < blocks->size; blockIndex++)
     {
-        for (struct LinkedListNode *successorRunner = successors[blockIndex]->elements->head; successorRunner != NULL; successorRunner = successorRunner->next)
+        Iterator *successorRunner = NULL;
+        for (successorRunner = set_begin(array_at(successors, blockIndex)); iterator_gettable(successorRunner); iterator_next(successorRunner))
         {
-            struct BasicBlock *successor = successorRunner->data;
-            Set_Insert(blockPredecessors[successor->labelNum], blocks[blockIndex]);
+            struct BasicBlock *successor = iterator_get(successorRunner);
+            set_insert(array_at(blockPredecessors, successor->labelNum), array_at(blocks, blockIndex));
         }
+        iterator_free(successorRunner);
     }
 
     return blockPredecessors;
 }
 
-struct IdfaContext *IdfaContext_Create(struct LinkedList *blocks)
+struct IdfaContext *idfa_context_create(char *name, List *blocks)
 {
     struct IdfaContext *wip = malloc(sizeof(struct IdfaContext));
-    wip->nBlocks = blocks->size;
-    wip->blocks = malloc(wip->nBlocks * sizeof(struct BasicBlock *));
+    wip->name = name;
+    size_t nBlocks = blocks->size;
+    wip->nBlocks = nBlocks;
+    wip->blocks = array_new(NULL, nBlocks);
 
-    for (struct LinkedListNode *blockRunner = blocks->head; blockRunner != NULL; blockRunner = blockRunner->next)
+    Iterator *blockRunner = NULL;
+    for (blockRunner = list_begin(blocks); iterator_gettable(blockRunner); iterator_next(blockRunner))
     {
-        struct BasicBlock *thisBlock = blockRunner->data;
-        if (thisBlock->labelNum >= wip->nBlocks)
+        struct BasicBlock *thisBlock = iterator_get(blockRunner);
+        if (thisBlock->labelNum >= nBlocks)
         {
-            ErrorAndExit(ERROR_INTERNAL, "Block label number %zu exceeds number of blocks %zu in IdfaContext_Create", thisBlock->labelNum, blocks->size);
+            InternalError("Block label number %zu exceeds number of blocks %zu in IdfaContext_Create", thisBlock->labelNum, blocks->size);
         }
-        wip->blocks[thisBlock->labelNum] = thisBlock;
+        array_emplace(wip->blocks, thisBlock->labelNum, thisBlock);
     }
+    iterator_free(blockRunner);
 
-    wip->successors = generateSuccessors(wip->blocks, wip->nBlocks);
-    wip->predecessors = generatePredecessors(wip->blocks, wip->successors, wip->nBlocks);
+    wip->successors = generate_successors(wip->blocks);
+    wip->predecessors = generate_predecessors(wip->blocks, wip->successors);
 
     return wip;
 }
 
-void IdfaContext_Free(struct IdfaContext *context)
+void idfa_context_free(struct IdfaContext *context)
 {
-    free(context->blocks);
-    for (size_t blockIndex = 0; blockIndex < context->nBlocks; blockIndex++)
-    {
-        Set_Free(context->successors[blockIndex]);
-        Set_Free(context->predecessors[blockIndex]);
-    }
-    free(context->successors);
-    free(context->predecessors);
+    array_free(context->blocks);
+    array_free(context->predecessors);
+    array_free(context->successors);
     free(context);
 }
 
-struct Idfa *Idfa_Create(struct IdfaContext *context,
-                         struct Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts),
+struct Idfa *idfa_create(struct IdfaContext *context,
+                         Set *(*fTransfer)(struct Idfa *idfa, struct BasicBlock *block, Set *facts),
                          void (*findGenKills)(struct Idfa *idfa),
-                         enum IdfaAnalysisDirection direction,
+                         enum IDFA_ANALYSIS_DIRECTION direction,
                          ssize_t (*compareFacts)(void *factA, void *factB),
-                         void (*printFact)(void *factData),
-                         struct Set *(*fMeet)(struct Set *factsA, struct Set *factsB))
+                         char *(*sprintFact)(void *factData),
+                         Set *(*fMeet)(Set *factsA, Set *factsB))
 {
     struct Idfa *wip = malloc(sizeof(struct Idfa));
     wip->context = context;
     wip->compareFacts = compareFacts;
-    wip->printFact = printFact;
+    wip->sprintFact = sprintFact;
     wip->fTransfer = fTransfer;
     wip->findGenKills = findGenKills;
     wip->fMeet = fMeet;
     wip->direction = direction;
 
-    wip->facts.in = malloc(wip->context->nBlocks * sizeof(struct Set *));
-    wip->facts.out = malloc(wip->context->nBlocks * sizeof(struct Set *));
-    wip->facts.gen = malloc(wip->context->nBlocks * sizeof(struct Set *));
-    wip->facts.kill = malloc(wip->context->nBlocks * sizeof(struct Set *));
+    // fixme: pointer for set_free
+    wip->facts.in = array_new((void (*)(void *))rb_tree_free, wip->context->blocks->size);
+    wip->facts.out = array_new((void (*)(void *))rb_tree_free, wip->context->blocks->size);
+    wip->facts.gen = array_new((void (*)(void *))rb_tree_free, wip->context->blocks->size);
+    wip->facts.kill = array_new((void (*)(void *))rb_tree_free, wip->context->blocks->size);
 
     for (size_t i = 0; i < wip->context->nBlocks; i++)
     {
-        wip->facts.in[i] = Set_New(wip->compareFacts, NULL);
-        wip->facts.out[i] = Set_New(wip->compareFacts, NULL);
-        wip->facts.gen[i] = Set_New(wip->compareFacts, NULL);
-        wip->facts.kill[i] = Set_New(wip->compareFacts, NULL);
+        array_emplace(wip->facts.in, i, set_new(NULL, wip->compareFacts));
+        array_emplace(wip->facts.out, i, set_new(NULL, wip->compareFacts));
+        array_emplace(wip->facts.gen, i, set_new(NULL, wip->compareFacts));
+        array_emplace(wip->facts.kill, i, set_new(NULL, wip->compareFacts));
     }
 
-    Idfa_Analyze(wip);
+    idfa_analyze(wip);
 
     return wip;
 }
 
-void Idfa_printFactsForBlock(struct Idfa *idfa, size_t blockIndex)
+void idfa_print_facts_for_block(struct Idfa *idfa, size_t blockIndex)
 {
     printf("Block %zu facts:\n", blockIndex);
 
     printf("\tGen: ");
-    for (struct LinkedListNode *factRunner = idfa->facts.gen[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
+    Iterator *factRunner = NULL;
+    for (factRunner = set_begin(array_at(idfa->facts.gen, blockIndex)); iterator_gettable(factRunner); iterator_next(factRunner))
     {
-        printf("[");
-        idfa->printFact(factRunner->data);
-        printf("] ");
+        char *sprintedFact = idfa->sprintFact(iterator_get(factRunner));
+        printf("[%s] ", sprintedFact);
+        free(sprintedFact);
     }
+    iterator_free(factRunner);
+    factRunner = NULL;
 
     printf("\n\tKill: ");
-    for (struct LinkedListNode *factRunner = idfa->facts.kill[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
+    for (factRunner = set_begin(array_at(idfa->facts.kill, blockIndex)); iterator_gettable(factRunner); iterator_next(factRunner))
     {
-        printf("[");
-        idfa->printFact(factRunner->data);
-        printf("] ");
+        char *sprintedFact = idfa->sprintFact(iterator_get(factRunner));
+        printf("[%s] ", sprintedFact);
+        free(sprintedFact);
     }
+    iterator_free(factRunner);
+    factRunner = NULL;
 
     printf("\n\tIn: ");
-    for (struct LinkedListNode *factRunner = idfa->facts.in[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
+    for (factRunner = set_begin(array_at(idfa->facts.in, blockIndex)); iterator_gettable(factRunner); iterator_next(factRunner))
     {
-        printf("[");
-        idfa->printFact(factRunner->data);
-        printf("] ");
+        char *sprintedFact = idfa->sprintFact(iterator_get(factRunner));
+        printf("[%s] ", sprintedFact);
+        free(sprintedFact);
     }
+    iterator_free(factRunner);
+    factRunner = NULL;
 
     printf("\n\tOut: ");
-    for (struct LinkedListNode *factRunner = idfa->facts.out[blockIndex]->elements->head; factRunner != NULL; factRunner = factRunner->next)
+    for (factRunner = set_begin(array_at(idfa->facts.out, blockIndex)); iterator_gettable(factRunner); iterator_next(factRunner))
     {
-        printf("[");
-        idfa->printFact(factRunner->data);
-        printf("] ");
+        char *sprintedFact = idfa->sprintFact(iterator_get(factRunner));
+        printf("[%s] ", sprintedFact);
+        free(sprintedFact);
     }
     printf("\n\n");
+    iterator_free(factRunner);
 }
 
-void Idfa_printFacts(struct Idfa *idfa)
+void idfa_print_facts(struct Idfa *idfa)
 {
     for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
     {
-        Idfa_printFactsForBlock(idfa, blockIndex);
+        idfa_print_facts_for_block(idfa, blockIndex);
     }
 }
 
-void Idfa_AnalyzeForwards(struct Idfa *idfa)
+void idfa_analyze_forwards(struct Idfa *idfa)
 {
     idfa->findGenKills(idfa);
     size_t iteration = 0;
@@ -190,101 +190,110 @@ void Idfa_AnalyzeForwards(struct Idfa *idfa)
         // skip the entry block as we go using predecessors
         for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
         {
+            printf("analyze block %zu\n", blockIndex);
             // get rid of our previous "in" facts as we will generate them again
             // Idfa_printFactsForBlock(idfa, blockIndex);
-            struct Set *oldInFacts = idfa->facts.in[blockIndex];
+            Set *oldInFacts = array_at(idfa->facts.in, blockIndex);
 
             // re-generate our "in" facts from the union of the "out" facts of all predecessors
-            struct Set *newInFacts = NULL;
-            for (struct LinkedListNode *predecessorRunner = idfa->context->predecessors[blockIndex]->elements->head; predecessorRunner != NULL; predecessorRunner = predecessorRunner->next)
+            Set *newInFacts = NULL;
+            Iterator *predecessorRunner = NULL;
+            for (predecessorRunner = set_begin(array_at(idfa->context->predecessors, blockIndex)); iterator_gettable(predecessorRunner); iterator_next(predecessorRunner))
             {
-                struct BasicBlock *predecessor = predecessorRunner->data;
-                struct Set *predOuts = idfa->facts.out[predecessor->labelNum];
+                struct BasicBlock *predecessor = iterator_get(predecessorRunner);
+                Set *predOuts = array_at(idfa->facts.out, predecessor->labelNum);
+                set_verify(predOuts);
 
                 if (newInFacts == NULL)
                 {
-                    newInFacts = Set_Copy(predOuts);
+                    idfa_print_facts_for_block(idfa, blockIndex);
+                    // idfa_print_facts(idfa);
+                    printf("\n");
+                    printf("copy predouts from %zu\n", predecessor->labelNum);
+                    fflush(stdout);
+                    newInFacts = set_copy(predOuts);
                 }
                 else
                 {
-                    struct Set *metInFacts = idfa->fMeet(newInFacts, predOuts);
-                    Set_Free(newInFacts);
+                    Set *metInFacts = idfa->fMeet(newInFacts, predOuts);
+                    set_verify(metInFacts);
+                    set_free(newInFacts);
                     newInFacts = metInFacts;
                 }
             }
+            iterator_free(predecessorRunner);
+
             if (newInFacts == NULL)
             {
-                newInFacts = Set_New(oldInFacts->compareFunction, oldInFacts->dataFreeFunction);
+                newInFacts = set_new(oldInFacts->freeData, oldInFacts->compareData);
             }
-            Set_Free(oldInFacts);
-            idfa->facts.in[blockIndex] = newInFacts;
+            set_free(oldInFacts);
+            array_emplace(idfa->facts.in, blockIndex, newInFacts);
 
-            struct Set *transferred = idfa->fTransfer(idfa, idfa->context->blocks[blockIndex], newInFacts);
-            if (transferred->elements->size != idfa->facts.out[blockIndex]->elements->size)
+            Set *transferred = idfa->fTransfer(idfa, array_at(idfa->context->blocks, blockIndex), newInFacts);
+            set_verify(transferred);
+            if (transferred->size != ((Set *)array_at(idfa->facts.out, blockIndex))->size)
             {
                 nChangedOutputs++;
             }
-
-            Set_Free(idfa->facts.out[blockIndex]);
-            idfa->facts.out[blockIndex] = transferred;
+            set_free(array_at(idfa->facts.out, blockIndex));
+            array_emplace(idfa->facts.out, blockIndex, transferred);
         }
+
+        printf("END OF ITERATION %zu:\n", iteration);
+        idfa_print_facts(idfa);
+        printf("\n");
 
         iteration++;
     } while (nChangedOutputs > 0);
+
+    log(LOG_WARNING, "idfa reached fixpoint");
 }
 
-void Idfa_AnalyzeBackwards(struct Idfa *idfa)
+void idfa_analyze_backwards(struct Idfa *idfa)
 {
-    ErrorAndExit(ERROR_INTERNAL, "Backwards dataflow analysis not implemented");
+    InternalError("Backwards dataflow analysis not implemented");
 }
 
-void Idfa_Analyze(struct Idfa *idfa)
+void idfa_analyze(struct Idfa *idfa)
 {
     switch (idfa->direction)
     {
-    case d_forwards:
-        Idfa_AnalyzeForwards(idfa);
+    case D_FORWARDS:
+        idfa_analyze_forwards(idfa);
         break;
 
-    case d_backwards:
-        Idfa_AnalyzeBackwards(idfa);
+    case D_BACKWARDS:
+        idfa_analyze_backwards(idfa);
         break;
     }
 }
 
-void Idfa_Redo(struct Idfa *idfa)
+void idfa_redo(struct Idfa *idfa)
 {
     for (size_t i = 0; i < idfa->context->nBlocks; i++)
     {
-        Set_Free(idfa->facts.in[i]);
-        idfa->facts.in[i] = Set_New(idfa->compareFacts, NULL);
+        set_free(array_at(idfa->facts.in, i));
+        array_emplace(idfa->facts.in, i, set_new(NULL, idfa->compareFacts));
 
-        Set_Free(idfa->facts.out[i]);
-        idfa->facts.out[i] = Set_New(idfa->compareFacts, NULL);
+        set_free(array_at(idfa->facts.out, i));
+        array_emplace(idfa->facts.out, i, set_new(NULL, idfa->compareFacts));
 
-        Set_Free(idfa->facts.gen[i]);
-        idfa->facts.gen[i] = Set_New(idfa->compareFacts, NULL);
+        set_free(array_at(idfa->facts.gen, i));
+        array_emplace(idfa->facts.gen, i, set_new(NULL, idfa->compareFacts));
 
-        Set_Free(idfa->facts.kill[i]);
-        idfa->facts.kill[i] = Set_New(idfa->compareFacts, NULL);
+        set_free(array_at(idfa->facts.kill, i));
+        array_emplace(idfa->facts.kill, i, set_new(NULL, idfa->compareFacts));
     }
-    Idfa_Analyze(idfa);
+    idfa_analyze(idfa);
 }
 
-void Idfa_Free(struct Idfa *idfa)
+void idfa_free(struct Idfa *idfa)
 {
-    for (size_t i = 0; i < idfa->context->nBlocks; i++)
-    {
-        Set_Free(idfa->facts.in[i]);
-        Set_Free(idfa->facts.out[i]);
-        Set_Free(idfa->facts.gen[i]);
-        Set_Free(idfa->facts.kill[i]);
-    }
-
-    free(idfa->facts.in);
-    free(idfa->facts.out);
-    free(idfa->facts.gen);
-    free(idfa->facts.kill);
+    array_free(idfa->facts.in);
+    array_free(idfa->facts.out);
+    array_free(idfa->facts.gen);
+    array_free(idfa->facts.kill);
 
     free(idfa);
 }

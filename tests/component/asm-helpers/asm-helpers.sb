@@ -1,0 +1,52 @@
+#include "tests-common.sb"
+
+fun printPointer(u8 *toPrint) -> u8
+{
+    printNum(*toPrint, 1);
+}
+
+fun Increment(u8 toIncrement) -> u8 asm {
+    a0 = readvar(toIncrement)
+    addi a0, a0, 1
+}
+
+fun testAsmReadWrite()
+{
+    u8 a = 12;
+    printNum(a, 1);
+    a = Increment(a);
+    printNum(a, 1);
+
+    asm {
+        t0 = readvar(a)
+        add t0, t0, t0
+        a = writevar(t0)
+    }
+
+    printNum(a, 1);
+}
+
+fun testSpilledAsmReadWrite()
+{
+    u8 a = 12;
+    printPointer(&a);
+    a = Increment(a);
+    printPointer(&a);
+
+    asm {
+        t0 = readvar(a)
+        add t0, t0, t0
+        a = writevar(t0)
+    }
+
+    printPointer(&a);
+}
+
+fun main()
+{
+    testAsmReadWrite();
+    testSpilledAsmReadWrite();
+    
+
+    exit();
+}

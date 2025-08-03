@@ -1,23 +1,26 @@
 #include "symtab_variable.h"
 
+#include "log.h"
 #include "symtab_function.h"
 #include "util.h"
 
-// create a variable within the given scope
-struct VariableEntry *createVariable(struct Scope *scope,
-                                     struct AST *name,
-                                     struct Type *type,
-                                     u8 isGlobal,
-                                     size_t declaredAt,
-                                     u8 isArgument)
+// TODO: examine isGlobal - can it be related to scope->parentscope instead?
+struct VariableEntry *variable_entry_new(char *name,
+                                         struct Type *type,
+                                         bool isGlobal,
+                                         bool isArgument,
+                                         enum ACCESS accessibility)
 {
+    if (isArgument && (accessibility != A_PUBLIC))
+    {
+        InternalError("createVariable called with isArgument == 1 and accessibility != a_public - illegal arguments");
+    }
+
     struct VariableEntry *newVariable = malloc(sizeof(struct VariableEntry));
     newVariable->type = *type;
     newVariable->stackOffset = 0;
     newVariable->mustSpill = 0;
-    newVariable->name = name->value;
-
-    newVariable->type.initializeTo = NULL;
+    newVariable->name = name;
 
     if (isGlobal)
     {
@@ -32,70 +35,32 @@ struct VariableEntry *createVariable(struct Scope *scope,
     newVariable->isExtern = 0;
     newVariable->isStringLiteral = 0;
 
-    if (Scope_contains(scope, name->value))
-    {
-        ErrorWithAST(ERROR_CODE, name, "Redifinition of symbol %s!\n", name->value);
-    }
-
-    // if we have an argument, it will be trivially spilled because it is passed in on the stack
-    if (isArgument)
-    {
-        // compute the padding necessary for alignment of this argument
-        scope->parentFunction->argStackSize += Scope_ComputePaddingForAlignment(scope, type, scope->parentFunction->argStackSize);
-
-        // put our argument's offset at the newly-aligned stack size, then add the size of the argument to the argument stack size
-        if (scope->parentFunction->argStackSize > I64_MAX)
-        {
-            // TODO: implementation dependent size of size_t
-            ErrorAndExit(ERROR_INTERNAL, "Function %s has argument stack size too large (%zd bytes)!\n", scope->parentFunction->name, scope->parentFunction->argStackSize);
-        }
-        newVariable->stackOffset = (ssize_t)scope->parentFunction->argStackSize;
-        scope->parentFunction->argStackSize += getSizeOfType(scope, type);
-
-        Scope_insert(scope, name->value, newVariable, e_argument);
-    }
-    else
-    {
-        Scope_insert(scope, name->value, newVariable, e_variable);
-    }
-
     return newVariable;
 }
 
-struct VariableEntry *lookupVarByString(struct Scope *scope, char *name)
+void variable_entry_free(struct VariableEntry *variable)
 {
-    struct ScopeMember *lookedUp = Scope_lookup(scope, name);
-    if (lookedUp == NULL)
-    {
-        ErrorAndExit(ERROR_INTERNAL, "Lookup of variable [%s] by string name failed!\n", name);
-    }
-
-    switch (lookedUp->type)
-    {
-    case e_argument:
-    case e_variable:
-        return lookedUp->entry;
-
-    default:
-        ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up variable [%s]!\n", name);
-    }
+    type_deinit(&variable->type);
+    free(variable);
 }
 
-struct VariableEntry *lookupVar(struct Scope *scope, struct AST *name)
+void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t depth)
 {
-    struct ScopeMember *lookedUp = Scope_lookup(scope, name->value);
-    if (lookedUp == NULL)
+    for (size_t depthPrint = 0; depthPrint < depth; depthPrint++)
     {
-        ErrorWithAST(ERROR_CODE, name, "Use of undeclared variable '%s'\n", name->value);
+        fprintf(outFile, "\t");
     }
+    char *typeName = type_get_name(&variable->type);
+    fprintf(outFile, "%s %s\n", typeName, variable->name);
+    free(typeName);
+}
 
-    switch (lookedUp->type)
+void variable_entry_try_resolve_generic(struct VariableEntry *variable, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
+{
+    type_try_resolve_generic(&variable->type, paramsMap, resolvedStructName, resolvedParams);
+    if ((strcmp(variable->name, OUT_OBJECT_POINTER_NAME) == 0) ||
+        (strcmp(variable->name, "self") == 0))
     {
-    case e_argument:
-    case e_variable:
-        return lookedUp->entry;
-
-    default:
-        ErrorAndExit(ERROR_INTERNAL, "Lookup returned unexpected symbol table entry type when looking up variable [%s]!\n", name->value);
+        variable->type.pointerLevel = 1;
     }
 }

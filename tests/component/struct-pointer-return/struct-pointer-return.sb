@@ -1,0 +1,28 @@
+#include "tests-common.sb"
+
+struct Money
+{
+    public u32 dollars;
+    public u8 cents;
+};
+
+fun PrintMoney(Money *m) -> Money *
+{
+    putc('$');
+    printNum(m.dollars, 0);
+    putc('.');
+    printNum(m.cents, 1);
+    return m;
+}
+
+fun main()
+{
+    Money twelveDollars;
+    twelveDollars.dollars = 12;
+    twelveDollars.cents = 0;
+    PrintMoney(&twelveDollars).cents = 1;
+    printNum(PrintMoney(&twelveDollars).cents, 1);
+    twelveDollars.cents = 0;
+    PrintMoney(&twelveDollars);
+    exit();
+}

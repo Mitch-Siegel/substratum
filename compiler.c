@@ -7,16 +7,22 @@
 
 #include "ast.h"
 #include "codegen.h"
+#include "drop.h"
 #include "linearizer.h"
+#include "log.h"
+#include "regalloc.h"
 #include "ssa.h"
 #include "substratum_defs.h"
 #include "symtab.h"
 #include "tac.h"
 #include "util.h"
 
-struct Dictionary *parseDict = NULL;
+#include "codegen_riscv.h"
+#include "regalloc_riscv.h"
 
-u8 currentVerbosity = 0;
+#include <mbcl/stack.h>
+
+struct Dictionary *parseDict = NULL;
 
 void usage()
 {
@@ -26,17 +32,15 @@ void usage()
     printf("\n");
 }
 
-struct Stack *parseProgressStack = NULL;
-struct Stack *parsedAsts = NULL;
-struct LinkedList *includePath = NULL;
-struct LinkedList *inputFiles = NULL;
+Stack *parseProgressStack = NULL;
+Stack *parsedAsts = NULL;
+List *includePath = NULL;
+List *inputFiles = NULL;
 
-struct Config config;
-
-void runPreprocessor(char *inFileName)
+void run_preprocessor(char *inFileName)
 {
-    const u32 basePreprocessorParamCount = 6;
-    char **preprocessorArgv = malloc(((includePath->size * 2) + basePreprocessorParamCount) * sizeof(char *));
+    const u32 BASE_PREPROCESSOR_PARAM_COUNT = 6;
+    char **preprocessorArgv = malloc(((includePath->size * 2) + BASE_PREPROCESSOR_PARAM_COUNT) * sizeof(char *));
     u32 preprocessorArgI = 0;
 
     preprocessorArgv[preprocessorArgI++] = "gcc";
@@ -53,34 +57,37 @@ void runPreprocessor(char *inFileName)
         preprocessorArgv[preprocessorArgI++] = "- ";
     }
 
-    for (struct LinkedListNode *includePathRunner = includePath->head; includePathRunner != NULL; includePathRunner = includePathRunner->next)
+    Iterator *includePathRunner = NULL;
+    for (includePathRunner = list_begin(includePath); iterator_gettable(includePathRunner); iterator_next(includePathRunner))
     {
         preprocessorArgv[preprocessorArgI++] = "-I";
-        preprocessorArgv[preprocessorArgI++] = includePathRunner->data;
+        preprocessorArgv[preprocessorArgI++] = iterator_get(includePathRunner);
     }
+    iterator_free(includePathRunner);
 
     preprocessorArgv[preprocessorArgI++] = NULL;
 
     if (execvp(preprocessorArgv[0], preprocessorArgv) < 0)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Failed to execute preprocessor: %s\n", strerror(errno));
+        InternalError("Failed to execute preprocessor: %s", strerror(errno));
     }
-    ErrorAndExit(ERROR_INTERNAL, "Returned from exec of preprocessor!\n");
+    InternalError("Returned from exec of preprocessor!");
 }
 
-struct AST *parseFile(char *inFileName)
+struct Ast *parse_file(char *inFileName)
 {
     struct ParseProgress fileProgress;
     memset(&fileProgress, 0, sizeof(struct ParseProgress));
-    fileProgress.curLine = 0;
-    fileProgress.curCol = 0;
-    fileProgress.curLineRaw = 0;
-    fileProgress.curColRaw = 0;
-    fileProgress.curFile = NULL;
-    fileProgress.charsRemainingPerLine = LinkedList_New();
-    size_t *lineZeroChars = malloc(sizeof(size_t));
-    *lineZeroChars = 0;
-    LinkedList_Append(fileProgress.charsRemainingPerLine, lineZeroChars);
+    fileProgress.curLine = 1;
+    fileProgress.curCol = 1;
+    fileProgress.curLineRaw = 1;
+    fileProgress.curColRaw = 1;
+    fileProgress.curFile = dictionary_lookup_or_insert(parseDict, inFileName);
+    fileProgress.charsRemainingPerLine = list_new(free, NULL);
+
+    size_t *firstLineChars = malloc(sizeof(size_t));
+    *firstLineChars = 0;
+    list_append(fileProgress.charsRemainingPerLine, firstLineChars);
 
     fileProgress.dict = parseDict;
 
@@ -90,20 +97,20 @@ struct AST *parseFile(char *inFileName)
     int preprocessorPipe[2] = {0};
     if (pipe(preprocessorPipe) < 0)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Unable to make pipe for preprocessor: %s\n", strerror(errno));
+        InternalError("Unable to make pipe for preprocessor: %s", strerror(errno));
     }
 
     pid = fork();
     if (pid == -1)
     {
-        ErrorAndExit(ERROR_INTERNAL, "Couldn't fork to run preprocessor!\n");
+        InternalError("Couldn't fork to run preprocessor!");
     }
     else if (pid == 0)
     {
         dup2(preprocessorPipe[1], STDOUT_FILENO);
         close(preprocessorPipe[0]); // duplicated
         close(preprocessorPipe[1]); // not needed - we don't read from stdout
-        runPreprocessor(inFileName);
+        run_preprocessor(inFileName);
     }
     else
     {
@@ -112,14 +119,14 @@ struct AST *parseFile(char *inFileName)
         close(preprocessorPipe[0]); // duplicated
         if (waitpid(pid, NULL, 0) != pid)
         {
-            ErrorAndExit(ERROR_INTERNAL, "Error waiting for preprocessor (pid %d): %s", pid, strerror(errno));
+            InternalError("Error waiting for preprocessor (pid %d): %s", pid, strerror(errno));
         }
     }
 
     fileProgress.f = stdin;
 
-    struct AST *parsed = NULL;
-    struct AST *translationUnit = NULL;
+    struct Ast *parsed = NULL;
+    struct Ast *translationUnit = NULL;
     while (pcc_parse(parseContext, &translationUnit))
     {
         parsed = AST_S(parsed, translationUnit);
@@ -127,7 +134,7 @@ struct AST *parseFile(char *inFileName)
 
     pcc_destroy(parseContext);
 
-    LinkedList_Free(fileProgress.charsRemainingPerLine, free);
+    list_free(fileProgress.charsRemainingPerLine);
 
     return parsed;
 }
@@ -137,7 +144,7 @@ int main(int argc, char **argv)
     char *inFileName = "stdin";
     char *outFileName = "stdout";
 
-    includePath = LinkedList_New();
+    includePath = list_new(free, NULL);
 
     int option;
     while ((option = getopt(argc, argv, "i:o:O:l:r:c:v:I:")) != EOF)
@@ -154,101 +161,92 @@ int main(int argc, char **argv)
 
         case 'v':
         {
-            size_t nVFlags = strlen(optarg);
-            if (nVFlags == 1)
+            int level = atoi(optarg);
+            switch (level)
             {
-                int stageVerbosities = atoi(optarg);
-                if (stageVerbosities < 0 || stageVerbosities > VERBOSITY_MAX)
-                {
-                    printf("Illegal value %d specified for verbosity!\n", stageVerbosities);
-                    usage();
-                    ErrorAndExit(ERROR_INVOCATION, ":(");
-                }
+            case LOG_DEBUG:
+            case LOG_INFO:
+            case LOG_WARNING:
+            case LOG_ERROR:
+            case LOG_FATAL:
+                set_log_level(level);
+                break;
 
-                for (int i = 0; i < STAGE_MAX; i++)
-                {
-                    config.stageVerbosities[i] = stageVerbosities;
-                }
-            }
-            else if (nVFlags == STAGE_MAX)
-            {
-                for (int i = 0; i < STAGE_MAX; i++)
-                {
-                    char thisVerbosityStr[2] = {'\0', '\0'};
-                    thisVerbosityStr[0] = optarg[i];
-                    config.stageVerbosities[i] = atoi(thisVerbosityStr);
-                }
-            }
-            else
-            {
-                printf("Unexpected number of verbosities (%lu) provided\nExpected either 1 to set all levels, or %d to set each level independently\n", nVFlags, STAGE_MAX);
+            default:
+                log(LOG_ERROR, "Unexpected log level %d - expected %d-%d\n", level, LOG_DEBUG, LOG_FATAL);
                 usage();
-                ErrorAndExit(ERROR_INVOCATION, ":(");
+                exit(1);
             }
         }
         break;
 
         case 'I':
         {
-            LinkedList_Append(includePath, strdup(optarg));
+            list_append(includePath, strdup(optarg));
         }
         break;
 
         default:
+            log(LOG_ERROR, "Invalid argument flag \"%c\"", option);
             usage();
-            ErrorAndExit(ERROR_INVOCATION, ":(");
+            exit(1);
         }
     }
 
-    printf("Running with verbosity: ");
-    for (int i = 0; i < STAGE_MAX; i++)
+    log(LOG_INFO, "Output will be generated to %s", outFileName);
+
+    parseProgressStack = stack_new(NULL);
+
+    const int N_PARSE_DICT_BUCKETS = 1;
+    // parseDict = dictionary_new(N_PARSE_DICT_BUCKETS, (void *(*)(void *))strdup, hash_string, (ssize_t(*)(void *, void *))strcmp, free);
+    parseDict = dictionary_new(free, (ssize_t(*)(void *, void *))strcmp, hash_string, N_PARSE_DICT_BUCKETS, (void *(*)(void *))strdup);
+
+    struct Ast *program = parse_file(inFileName);
+    list_free(includePath);
+
+    // TODO: option to enable/disable ast dump
     {
-        printf("%d ", config.stageVerbosities[i]);
-    }
-    printf("\n");
-
-    printf("Output will be generated to %s\n\n", outFileName);
-
-    parseProgressStack = Stack_New();
-
-    currentVerbosity = config.stageVerbosities[STAGE_PARSE];
-
-    const int nParseDictBuckets = 10;
-    parseDict = Dictionary_New(nParseDictBuckets);
-
-    struct AST *program = parseFile(inFileName);
-    LinkedList_Free(includePath, free);
-
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
-        printf("Here's the AST(s) we parsed: %p\n", program);
-        AST_Print(program, 0);
+        FILE *astOutFile = NULL;
+        astOutFile = fopen("ast.dot", "wb");
+        if (astOutFile == NULL)
+        {
+            InternalError("Unable to open output file ast.dot");
+        }
+        ast_dump(astOutFile, program);
     }
 
-    currentVerbosity = config.stageVerbosities[STAGE_LINEARIZE];
+    log(LOG_INFO, "Generating symbol table from AST");
+    struct SymbolTable *theTable = walk_program(program);
 
-    if (currentVerbosity > VERBOSITY_SILENT)
+    // TODO: option to enable/disable symtab dump
+    // log(LOG_DEBUG, "Symbol table before linearization/scope collapse:");
+    // symbol_table_print(theTable, stderr, 0);
+
+    // TODO: option to enable/disable symtab dump
     {
-        printf("Generating symbol table from AST");
-    }
-    struct SymbolTable *theTable = walkProgram(program);
-
-    if (currentVerbosity > VERBOSITY_MINIMAL)
-    {
-        printf("\nSymbol table before scope collapse:\n");
-        SymbolTable_print(theTable, 1);
-        printf("Collapsing scopes\n");
+        FILE *symtabOutFile = NULL;
+        symtabOutFile = fopen("symtab.dot", "wb");
+        if (symtabOutFile == NULL)
+        {
+            InternalError("Unable to open output file symtab.dot");
+        }
+        symbol_table_dump_dot(symtabOutFile, theTable, false);
     }
 
-    SymbolTable_collapseScopes(theTable, parseDict);
+    add_drops(theTable);
 
-    // generateSsa(theTable);
+    // symbol_table_print(theTable, stderr, 0);
 
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("Symbol table after linearization/scope collapse:\n");
-        SymbolTable_print(theTable, 1);
-    }
+    log(LOG_INFO, "Collapsing scopes");
+    symbol_table_collapse_scopes(theTable, parseDict);
+
+    // generate_ssa(theTable);
+
+    // TODO: option to enable/disable symtab dump
+    // log(LOG_DEBUG, "Symbol table after linearization/scope collapse:");
+    // symbol_table_print(theTable, stderr, true);
+
+    symbol_table_print_cfgs(theTable, "control-flows");
 
     FILE *outFile = stdout;
 
@@ -257,16 +255,11 @@ int main(int argc, char **argv)
         outFile = fopen(outFileName, "wb");
         if (outFile == NULL)
         {
-            ErrorAndExit(ERROR_INTERNAL, "Unable to open output file %s\n", outFileName);
+            InternalError("Unable to open output file %s", outFileName);
         }
     }
 
-    currentVerbosity = config.stageVerbosities[STAGE_CODEGEN];
-
-    if (currentVerbosity > VERBOSITY_SILENT)
-    {
-        printf("Generating code\n");
-    }
+    log(LOG_INFO, "Generating code");
 
     {
         char *boilerplateAsm1[] = {
@@ -279,7 +272,7 @@ int main(int argc, char **argv)
             fprintf(outFile, "%s\n", boilerplateAsm1[asmIndex]);
         }
 
-        fprintf(outFile, "\t.file 0 \"%s\"\n", inFileName);
+        fprintf(outFile, "\t.file 1 \"%s\"\n", inFileName);
 
         char *boilerplateAsm2[] = {
             "\t.attribute unaligned_access, 0",
@@ -290,17 +283,27 @@ int main(int argc, char **argv)
             fprintf(outFile, "%s\n", boilerplateAsm2[asmIndex]);
         }
 
-        fprintf(outFile, "\t.file 1 \"%s\"\n", inFileName);
+        fprintf(outFile, "\t.file 2 \"%s\"\n", inFileName);
     }
-    generateCodeForProgram(theTable, outFile);
 
-    SymbolTable_free(theTable);
+    setupMachineInfo = riscv_setup_machine_info;
+    struct MachineInfo *info = setupMachineInfo();
+
+    allocate_registers_for_program(theTable, info);
+
+    // symbol_table_print(theTable, stderr, true);
+
+    generate_code_for_program(theTable, outFile, info, riscv_emit_prologue, riscv_emit_epilogue, riscv_generate_code_for_basic_block);
+
+    machine_info_free(info);
+
+    symbol_table_free(theTable);
 
     fclose(outFile);
-    AST_Free(program);
+    ast_free(program);
 
-    // TempList_Free(temps);
-    Dictionary_Free(parseDict);
+    // TempListFree(temps);
+    dictionary_free(parseDict);
 
     return 0;
 }

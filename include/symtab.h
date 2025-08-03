@@ -6,10 +6,13 @@
 #include "tac.h"
 #include "util.h"
 
+#include "enum_desc.h"
+#include "struct_desc.h"
 #include "symtab_basicblock.h"
-#include "symtab_class.h"
 #include "symtab_function.h"
 #include "symtab_scope.h"
+#include "symtab_trait.h"
+#include "symtab_type.h"
 #include "symtab_variable.h"
 
 #pragma once
@@ -28,22 +31,29 @@ only string names are available and any bad lookups should be caused by internal
  */
 
 // symbol table functions
-struct SymbolTable *SymbolTable_new(char *name);
+struct SymbolTable *symbol_table_new(char *name);
 
-void SymbolTable_print(struct SymbolTable *table,
-                       char printTAC);
+void symbol_table_print(struct SymbolTable *table,
+                        FILE *outFile,
+                        bool printTac);
 
-void SymbolTable_collapseScopesRec(struct Scope *scope,
-                                   struct Dictionary *dict,
-                                   size_t depth);
+void symbol_table_dump_dot(FILE *outFile,
+                           struct SymbolTable *table,
+                           bool printTAC);
 
-void SymbolTable_collapseScopes(struct SymbolTable *table,
-                                struct Dictionary *dict);
+void symbol_table_print_cfgs(struct SymbolTable *table, char *outDir);
 
-void SymbolTable_free(struct SymbolTable *table);
+Set *symbol_table_collapse_scopes_rec(struct Scope *scope,
+                                      struct Dictionary *dict,
+                                      size_t depth);
+
+void symbol_table_collapse_scopes(struct SymbolTable *table,
+                                  struct Dictionary *dict);
+
+void symbol_table_free(struct SymbolTable *table);
 
 // AST walk functions
 
 // scrape down a chain of nested child star tokens, expecting something at the bottom
-size_t scrapePointers(struct AST *pointerAST,
-                      struct AST **resultDestination);
+size_t scrape_pointers(struct Ast *pointerAst,
+                       struct Ast **resultDestination);

@@ -3,6 +3,6 @@
 
 #include "idfa.h"
 
-struct Idfa *analyzeLiveVars(struct IdfaContext *context);
+struct Idfa *analyze_live_vars(struct IdfaContext *context);
 
 #endif

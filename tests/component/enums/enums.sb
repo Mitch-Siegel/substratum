@@ -1,0 +1,33 @@
+#include "tests-common.sb"
+
+enum Direction {
+    North,
+    South,
+    East,
+    West,
+}
+
+fun printDirection(Direction d) {
+    match(d)
+    {
+        North: printStr("North\n");
+        South: printStr("South\n");
+        East: printStr("East\n");
+        West: printStr("West\n");
+    }
+}
+
+
+fun testBasicEnums()
+{
+    printDirection(Direction::North{});
+    printDirection(Direction::East{});
+    printDirection(Direction::South{});
+    printDirection(Direction::West{});
+}
+
+fun main()
+{
+    testBasicEnums();
+    exit();
+}

@@ -2,22 +2,22 @@
 
 fun printDuplicateStrings()
 {
-    u8 *string = "the quick brown fox jumps over the lazy dog";
+    u8 *string = "the quick brown fox jumps over the lazy dog" as u8 *;
     printStr(string);
-    uart_putc(10);
-    string = "some other string with wacky characters: !@#$%^&*()_+[;]";
+    putc('\n');
+    string = "some other string with wacky characters: !@#$%^&*()_+[;]" as u8 *;
     printStr(string);
-    uart_putc(10);
-    string = "the quick brown fox jumps over the lazy dog";
+    putc('\n');
+    string = "the quick brown fox jumps over the lazy dog" as u8 *;
     printStr(string);
-    uart_putc(10);
+    putc('\n');
 }
 
 // tests string literals declared at more deeply nested scopes
 fun printIsEven(u8 number)
 {
-    printHex(number);
-    uart_putc(':');
+    printHex(number, 0);
+    putc(':');
     if(number % 2 == 0)
     {
         printStr("even");
@@ -34,14 +34,14 @@ fun printIsEven(u8 number)
             printStr("buzz");
         }
     }
-    uart_putc('\n');
+    putc('\n');
 }
 
 
 fun main()
 {
-    printStr("Hello, world!");
-    uart_putc(10);
+    printStr("Hello, world!" as u8 *);
+    putc('\n');
     printDuplicateStrings();
     u8 i = 0;
     while(i < 16)

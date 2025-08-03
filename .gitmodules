@@ -1,3 +1,6 @@
 [submodule "substratum-preprocessor"]
 	path = substratum-preprocessor
 	url = git@github.com:Mitch-Siegel/substratum-preprocessor.git
+[submodule "mbcl"]
+	path = mbcl
+	url = git@github.com:Mitch-Siegel/mbcl.git

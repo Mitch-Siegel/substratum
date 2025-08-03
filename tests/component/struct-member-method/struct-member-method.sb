@@ -1,0 +1,37 @@
+#include "tests-common.sb"
+
+struct PrintsANumber {
+    public u32 number;
+};
+
+impl PrintsANumber {
+    public fun Print(self)
+    {
+        printNum(self.number, 1);
+    }
+};
+
+struct HasAStruct {
+    public PrintsANumber printerA;
+};
+
+impl HasAStruct {
+    public fun Print(self) {
+        self.printerA.Print();
+    }
+}
+
+HasAStruct global;
+
+fun main()
+{
+    HasAStruct h;
+    h.printerA.number = 1234;
+    h.printerA.Print();
+    h.Print();
+
+    global.printerA.number = 4321;
+    global.printerA.Print();
+    global.Print();
+    exit();
+}

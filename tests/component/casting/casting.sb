@@ -1,94 +1,92 @@
 #include "tests-common.sb"
 
-class eights
+struct eights
 {
-    u8 a;
-    u8 b;
-    u8 c;
-    u8 d;
+    public u8 a;
+    public u8 b;
+    public u8 c;
+    public u8 d;
 };
 
-class sixteens
+struct sixteens
 {
-    u8 a;
-    u16 b;
-    u8 c;
+    public u8 a;
+    public u16 b;
+    public u8 c;
 };
 
 fun testBasicCasting()
 {
     u64 largeValue = 0x1234567890abcdef;
-    printHex((u64)largeValue);
-    uart_putc('\n');
-    printHex((u32)largeValue);
-    uart_putc('\n');
-    printHex((u16)largeValue);
-    uart_putc('\n');
-    printHex((u8)largeValue);
-    uart_putc('\n');
+    printHex(largeValue as u64, 1);
+    printHex(largeValue as u32, 1);
+    printHex(largeValue as u16, 1);
+    printHex(largeValue as u8, 1);
+}
+
+fun testBasicCasting2()
+{
+    u64 junk = 0xffffffffffffffff;
+    u8 smallValue  = 0xee;
+    u64 junk2 = 0xffffffffffffffff;
+    printHex(smallValue as u64, 1);
+    printHex(smallValue as u32, 1);
+    printHex(smallValue as u16, 1);
+    printHex(smallValue as u8, 1);
 }
 
 fun testCastStoring()
 {
     u64 largerValue = 0xFFFFFFFFFFFFFFFF;
-    printHex(largerValue);
-    uart_putc('\n');
-    largerValue = (u32)largerValue;
-    printHex(largerValue);
-    uart_putc('\n');
-    largerValue = (u16)largerValue;
-    printHex(largerValue);
-    uart_putc('\n');
+    printHex(largerValue, 1);
+
+    largerValue = largerValue as u32;
+    printHex(largerValue, 1);
+
+    largerValue = largerValue as u16;
+    printHex(largerValue, 1);
+
     largerValue += 2;
-    printHex(largerValue);
-    uart_putc('\n');
-    largerValue = (u8)largerValue;
-    printHex(largerValue);
-    uart_putc('\n');
+    printHex(largerValue, 1);
+
+    largerValue = largerValue as u8;
+    printHex(largerValue, 1);
 }
 
-fun testClassPointerCasting()
+fun testStructPointerCasting()
 {
     eights e;
 
-    sixteens *sp = (sixteens *)&e;
+    sixteens *sp = (&e) as sixteens *;
     e.a = 0x12;
     e.b = 0x34;
     e.c = 0x56;
     e.d = 0x78;
 
-    printHex(e.a);
-    uart_putc('\n');
-    printHex(e.b);
-    uart_putc('\n');
-    printHex(e.c);
-    uart_putc('\n');
-    printHex(e.d);
-    uart_putc('\n');
+    printHex(e.a, 1);
+    printHex(e.b, 1);
+    printHex(e.c, 1);
+    printHex(e.d, 1);
 
-    printHex(sp->a);
-    uart_putc('\n');
-    printHex(sp->b);
-    uart_putc('\n');
+    printHex(sp.a, 1);
+    printHex(sp.b, 1);
 
-    sp->b = 0xffff;
-    printHex(e.a);
-    uart_putc('\n');
-    printHex(e.b);
-    uart_putc('\n');
-    printHex(e.c);
-    uart_putc('\n');
-    printHex(e.d);
-    uart_putc('\n');
+    sp.b = 0xffff;
+    printHex(e.a, 1);
+    printHex(e.b, 1);
+    printHex(e.c, 1);
+    printHex(e.d, 1);
 }
 
 
 fun main()
 {
     testBasicCasting();
-    uart_putc('\n');
+    putc('\n');
+    testBasicCasting2();
+    putc('\n');
     testCastStoring();
-    uart_putc('\n');
-    testClassPointerCasting();
+    putc('\n');
+    testStructPointerCasting();
     exit();
 }

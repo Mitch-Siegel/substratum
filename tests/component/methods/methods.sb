@@ -1,0 +1,45 @@
+#include "tests-common.sb"
+
+struct Stack {
+    u8 topIndex;
+    u8[256] data;
+}
+
+impl Stack {
+    public fun Init(self) {
+        self.topIndex = 0;
+    }
+
+    public fun Push(self, u8 value) {
+        self.data[self.topIndex] = value;
+        self.topIndex += 1;
+    }
+
+    public fun Pop(self) -> u8{
+        self.topIndex -= 1;
+        return self.data[self.topIndex];
+    }
+
+    public fun Size(self) -> u8 {
+        return self.topIndex;
+    }
+}
+
+
+fun main() {
+    Stack testStack;
+    testStack.Init();
+    u8 i = 0;
+    while(i < 10)
+    {
+        testStack.Push(10 * i);
+        i += 1;
+    }
+
+    while(testStack.Size() > 0)
+    {
+        printNum(testStack.Pop(), 1);
+    }
+
+    exit();
+}

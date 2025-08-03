@@ -1,0 +1,62 @@
+#include "tests-common.sb"
+
+fun testSizeofTypes()
+{
+    printHex(sizeof(u8), 1);
+    printHex(sizeof(u16), 1);
+    printHex(sizeof(u32), 1);
+    printHex(sizeof(u64), 1);
+    printHex(sizeof(u8 *), 1);
+    printHex(sizeof(u16 *), 1);
+    printHex(sizeof(u32 *), 1);
+    printHex(sizeof(u64 *), 1);
+    putc('\n');
+}
+
+fun testSizeofArrays()
+{
+    printHex(sizeof(u8[10]), 1);
+    printHex(sizeof(u16[10]), 1);
+    printHex(sizeof(u32[10]), 1);
+    printHex(sizeof(u64[10]), 1);
+    putc('\n');
+}
+
+struct twoBytes
+{
+    u8 a;
+    u8 b;
+}
+
+// TODO: alignment not implemented yet, but will change when it is
+struct needsPadding
+{
+    u8 a;
+    u32 b;
+}
+
+fun testSizeofStructs()
+{
+    printHex(sizeof(twoBytes), 1);
+    printHex(sizeof(needsPadding), 1);
+    printHex(sizeof(twoBytes *), 1);
+    printHex(sizeof(needsPadding *), 1);
+    putc('\n');
+};
+
+fun testSizeofIdentifiers()
+{
+    twoBytes t;
+    needsPadding p;
+    printHex(sizeof(t), 1);
+    printHex(sizeof(p), 1);
+}
+
+fun main()
+{
+    testSizeofTypes();
+    testSizeofArrays();
+    testSizeofStructs();
+    testSizeofIdentifiers();
+    exit();
+}

@@ -1,69 +1,86 @@
 #include "linearizer.h"
 #include "codegen_generic.h"
 #include "linearizer_generic.h"
-
+#include "log.h"
 #include "symtab.h"
 
 #include <ctype.h>
 
 /*
- * These functions walk the AST and convert it to three-address code
+ TODO: fix TAC index tracking across branches and loops,
+ such that for a given branch or loop, the TAC index immediately after is the maximum of the TAC indices of all branches and loops,
+ and that each parallel branch has parallel TAC indices
+ */
+
+/*
+ * These functions Walk the AST and convert it to three-address code
  */
 struct TempList *temps;
 extern struct Dictionary *parseDict;
-struct SymbolTable *walkProgram(struct AST *program)
+const u8 TYPE_DICT_SIZE = 100;
+struct SymbolTable *walk_program(struct Ast *program)
 {
-    struct SymbolTable *programTable = SymbolTable_new("Program");
-    struct BasicBlock *globalBlock = Scope_lookup(programTable->globalScope, "globalblock")->entry;
-    struct BasicBlock *asmBlock = BasicBlock_new(1);
-    Scope_addBasicBlock(programTable->globalScope, asmBlock);
-    temps = TempList_New();
+    struct SymbolTable *programTable = symbol_table_new("Program");
+    struct BasicBlock *globalBlock = scope_lookup(programTable->globalScope, "globalblock", E_BASICBLOCK)->entry;
+    struct BasicBlock *asmBlock = basic_block_new(1);
+    scope_add_basic_block(programTable->globalScope, asmBlock);
+    temps = temp_list_new();
 
-    size_t globalTACIndex = 0;
-    size_t globalTempNum = 0;
+    size_t globalTacIndex = 0;
 
-    struct AST *programRunner = program;
+    struct Ast *programRunner = program;
     while (programRunner != NULL)
     {
         switch (programRunner->type)
         {
-        case t_variable_declaration:
-            // walkVariableDeclaration sets isGlobal for us by checking if there is no parent scope
-            walkVariableDeclaration(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
+        case T_VARIABLE_DECLARATION:
+            // walk_variable_declaration sets isGlobal for us by checking if there is no parent scope
+            walk_variable_declaration(programRunner, programTable->globalScope, &globalTacIndex, false);
             break;
 
-        case t_extern:
+        case T_EXTERN:
         {
-            struct VariableEntry *declaredVariable = walkVariableDeclaration(programRunner->child, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum, 0);
-            declaredVariable->isExtern = 1;
+            walk_extern(programRunner, programTable->globalScope, &globalTacIndex);
         }
         break;
 
-        case t_class:
-        {
-            walkClassDeclaration(programRunner, globalBlock, programTable->globalScope);
-            break;
-        }
-        break;
-
-        case t_assign:
-            walkAssignment(programRunner, globalBlock, programTable->globalScope, &globalTACIndex, &globalTempNum);
+        case T_STRUCT:
+            walk_struct_declaration(programRunner, programTable->globalScope, NULL);
             break;
 
-        case t_fun:
-            walkFunctionDeclaration(programRunner, programTable->globalScope);
+        case T_ENUM:
+            walk_enum_declaration(programRunner, globalBlock, programTable->globalScope, NULL);
+            break;
+
+        case T_ASSIGN:
+            walk_assignment(programRunner, globalBlock, programTable->globalScope, &globalTacIndex);
+            break;
+
+        case T_IMPL:
+            walk_implementation_block(programRunner, programTable->globalScope);
+            break;
+
+        case T_FUN:
+            walk_function_declaration(programRunner, programTable->globalScope, NULL, A_PUBLIC, false);
+            break;
+
+        case T_GENERIC:
+            walk_generic(programRunner, programTable->globalScope);
             break;
 
         // ignore asm blocks
-        case t_asm:
-            walkAsmBlock(programRunner, asmBlock, programTable->globalScope, &globalTACIndex, &globalTempNum);
+        case T_ASM:
+            walk_asm_block(programRunner, asmBlock, programTable->globalScope, &globalTacIndex);
+            break;
+
+        case T_TRAIT:
+            walk_trait_declaration(programRunner, programTable->globalScope);
             break;
 
         default:
-            ErrorAndExit(ERROR_INTERNAL,
-                         "Error walking AST - got %s with type %s\n",
-                         programRunner->value,
-                         getTokenName(programRunner->type));
+            InternalError("Malformed AST in WalkProgram: got %s with type %s",
+                          programRunner->value,
+                          token_get_name(programRunner->type));
             break;
         }
         programRunner = programRunner->sibling;
@@ -72,656 +89,1325 @@ struct SymbolTable *walkProgram(struct AST *program)
     return programTable;
 }
 
-void walkTypeName(struct AST *tree, struct Scope *scope, struct Type *populateTypeTo)
+void check_any_type_use(struct Type *type, struct Ast *typeTree)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    // if declaring something with the 'any' type, make sure it's only as a pointer (as its intended use is to point to unstructured data)
+    if (type->basicType == VT_ARRAY || type->basicType == VT_ANY)
     {
-        printf("walkTypeName: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+        struct Type anyCheckRunner = *type;
+        while (anyCheckRunner.basicType == VT_ARRAY)
+        {
+            anyCheckRunner = *anyCheckRunner.array.type;
+        }
 
-    if (tree->type != t_type_name)
+        if ((anyCheckRunner.pointerLevel == 0) && (anyCheckRunner.basicType == VT_ANY))
+        {
+            if (type->basicType == VT_ARRAY)
+            {
+                log_tree(LOG_FATAL, typeTree, "Use of the type 'any' in arrays is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as 'any *', 'any **', etc...)");
+            }
+            else
+            {
+                log_tree(LOG_FATAL, typeTree, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as 'any *', 'any **', etc...)");
+            }
+        }
+    }
+}
+
+void walk_extern(struct Ast *tree, struct Scope *scope, size_t *tacIndex)
+{
+    log_tree(LOG_DEBUG, tree, "walk_extern");
+    if (tree->type != T_EXTERN)
     {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkTypeName!\n", getTokenName(tree->type));
+        InternalError("Wrong AST (%s) passed to walk_extern!", token_get_name(tree->type));
     }
-
-    memset(populateTypeTo, 0, sizeof(struct Type));
-
-    struct AST *className = NULL;
 
     switch (tree->child->type)
     {
-    case t_any:
-        populateTypeTo->basicType = vt_any;
-        break;
+    case T_VARIABLE_DECLARATION:
+    {
+        struct VariableEntry *declaredVariable = walk_variable_declaration(tree->child, scope, tacIndex, false);
+        declaredVariable->isExtern = 1;
+    }
+    break;
 
-    case t_u8:
-        populateTypeTo->basicType = vt_u8;
-        break;
-
-    case t_u16:
-        populateTypeTo->basicType = vt_u16;
-        break;
-
-    case t_u32:
-        populateTypeTo->basicType = vt_u32;
-        break;
-
-    case t_u64:
-        populateTypeTo->basicType = vt_u64;
-        break;
-
-    case t_identifier:
-        populateTypeTo->basicType = vt_class;
-
-        className = tree->child;
-        if (className->type != t_identifier)
+    case T_FUN:
+    {
+        struct FunctionEntry *externFun = walk_function_declaration(tree->child, scope, NULL, A_PUBLIC, false);
+        if (externFun->isDefined)
         {
-            ErrorWithAST(ERROR_INTERNAL,
-                         className,
-                         "Malformed AST seen in declaration!\nExpected class name as child of \"class\", saw %s (%s)!",
-                         className->value,
-                         getTokenName(className->type));
+            log_tree(LOG_FATAL, tree, "Function %s is declared as extern but has definition!");
         }
-        populateTypeTo->classType.name = className->value;
-        break;
+    }
+    break;
 
     default:
-        ErrorWithAST(ERROR_INTERNAL, tree, "Malformed AST seen in declaration!");
+        log_tree(LOG_FATAL, tree, "Malformed AST (%s) seen in walk_extern", token_get_name(tree->child->type));
     }
+}
 
-    struct AST *declaredArray = NULL;
-    populateTypeTo->indirectionLevel = scrapePointers(tree->child, &declaredArray);
-
-    // if declaring something with the 'any' type, make sure it's only as a pointer (as its intended use is to point to unstructured data)
-    if (populateTypeTo->basicType == vt_any)
+struct Type walk_non_pointer_type_name(struct Scope *scope,
+                                       struct Ast *tree,
+                                       struct TypeEntry *fieldOf)
+{
+    struct Type wipType = {0};
+    type_init(&wipType);
+    switch (tree->type)
     {
-        if (populateTypeTo->indirectionLevel == 0)
+    case T_ANY:
+        wipType.basicType = VT_ANY;
+        break;
+
+    case T_U8:
+        wipType.basicType = VT_U8;
+        break;
+
+    case T_U16:
+        wipType.basicType = VT_U16;
+        break;
+
+    case T_U32:
+        wipType.basicType = VT_U32;
+        break;
+
+    case T_U64:
+        wipType.basicType = VT_U64;
+        break;
+
+    case T_IDENTIFIER:
+    {
+        while (scope != NULL)
         {
-            ErrorWithAST(ERROR_CODE, tree->child, "Use of the type 'any' without indirection is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
+            if (fieldOf == NULL)
+            {
+                if ((scope->parentFunction != NULL) &&
+                    (scope->parentFunction->implementedFor != NULL) &&
+                    (scope == scope->parentFunction->mainScope) &&
+                    (scope->parentFunction->implementedFor->genericType == G_BASE) &&
+                    (list_find(scope->parentFunction->implementedFor->generic.base.paramNames, tree->value) != NULL))
+                {
+                    wipType.basicType = VT_GENERIC_PARAM;
+                    wipType.nonArray.complexType.name = tree->value;
+                    return wipType;
+                }
+            }
+            else
+            {
+                if (fieldOf->genericType == G_BASE)
+                {
+                    if (list_find(fieldOf->generic.base.paramNames, tree->value) != NULL)
+                    {
+                        wipType.basicType = VT_GENERIC_PARAM;
+                        wipType.nonArray.complexType.name = tree->value;
+                        return wipType;
+                    }
+                }
+            }
+
+            struct ScopeMember *lookedUp = scope_lookup_no_parent(scope, tree->value, E_TYPE);
+            if (lookedUp != NULL)
+            {
+                struct TypeEntry *lookedUpType = lookedUp->entry;
+                wipType = lookedUpType->type;
+                break;
+            }
+
+            scope = scope->parentScope;
         }
-        else if (populateTypeTo->arraySize > 0)
+
+        if (wipType.basicType == VT_NULL)
         {
-            ErrorWithAST(ERROR_CODE, declaredArray, "Use of the type 'any' in arrays is forbidden!\n'any' is meant to represent unstructured data as a pointer type only\n(declare as `any *`, `any **`, etc...)\n");
+            log_tree(LOG_FATAL, tree, "%s does not name a type!", tree->value);
         }
+    }
+    break;
+
+    case T_CAP_SELF:
+    {
+        wipType.basicType = VT_SELF;
+        if ((scope->parentFunction == NULL) || (scope->parentFunction->implementedFor == NULL))
+        {
+            log_tree(LOG_FATAL, tree, "Use of 'Self' outside of impl scope!");
+        }
+    }
+    break;
+
+    case T_GENERIC_INSTANCE:
+    {
+        struct TypeEntry *instance = walk_type_name_or_generic_instantiation(scope, tree, fieldOf);
+        if (instance->genericType != G_INSTANCE)
+        {
+            log_tree(LOG_FATAL, tree, "walk_type_name_or_generic_instantiation returned non-generic-instance %s!", instance->baseName);
+        }
+
+        wipType = instance->type;
+    }
+    break;
+
+    default:
+        log_tree(LOG_FATAL, tree, "Malformed AST (%s) seen in walk_non_pointer_type_name!", token_get_name(tree->type));
     }
 
-    // don't allow declaration of variables of undeclared class or array of undeclared class (except pointers)
-    if ((populateTypeTo->basicType == vt_class) && (populateTypeTo->indirectionLevel == 0))
+    return wipType;
+}
+
+void walk_type_name(struct Ast *tree, struct Scope *scope,
+                    struct Type *populateTypeTo,
+                    struct TypeEntry *fieldOf)
+{
+    log_tree(LOG_DEBUG, tree, "walk_type_name");
+    if (tree->type != T_TYPE_NAME)
     {
-        // the lookup will bail out if an attempt is made to use an undeclared class
-        lookupClass(scope, className);
+        InternalError("Wrong AST (%s) passed to walk_type_name!", token_get_name(tree->type));
     }
+
+    type_init(populateTypeTo);
+
+    *populateTypeTo = walk_non_pointer_type_name(scope, tree->child, fieldOf);
+
+    struct Ast *declaredArray = NULL;
+    populateTypeTo->pointerLevel = scrape_pointers(tree->child, &declaredArray);
+
+    check_any_type_use(populateTypeTo, tree->child);
 
     // if we are declaring an array, set the string with the size as the second operand
     if (declaredArray != NULL)
     {
-        if (declaredArray->type != t_array_index)
+        if (declaredArray->type != T_ARRAY_INDEX)
         {
-            AST_Print(declaredArray, 0);
-            ErrorWithAST(ERROR_INTERNAL, declaredArray, "Unexpected AST at end of pointer declarations!");
+            log_tree(LOG_FATAL, declaredArray, "Unexpected AST at end of pointer declarations!");
         }
         char *arraySizeString = declaredArray->child->value;
         // TODO: abstract this
         int declaredArraySize = atoi(arraySizeString);
 
-        populateTypeTo->arraySize = declaredArraySize;
-    }
-    else
-    {
-        populateTypeTo->arraySize = 0;
+        struct Type *arrayedType = type_duplicate(populateTypeTo);
+
+        // TODO: multidimensional array declarations
+        populateTypeTo->basicType = VT_ARRAY;
+        populateTypeTo->array.size = declaredArraySize;
+        populateTypeTo->array.type = arrayedType;
+        populateTypeTo->array.initializeArrayTo = NULL;
     }
 }
 
-struct VariableEntry *walkVariableDeclaration(struct AST *tree,
-                                              struct BasicBlock *block,
-                                              struct Scope *scope,
-                                              const size_t *TACIndex,
-                                              const size_t *tempNum,
-                                              char isArgument)
+struct VariableEntry *walk_variable_declaration(struct Ast *tree,
+                                                struct Scope *scope,
+                                                const size_t *tacIndex,
+                                                const u8 isArgument)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_variable_declaration");
+
+    if (tree->type != T_VARIABLE_DECLARATION)
     {
-        printf("walkVariableDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_variable_declaration!", token_get_name(tree->type));
     }
 
-    if (tree->type != t_variable_declaration)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkVariableDeclaration!\n", getTokenName(tree->type));
-    }
+    struct Type declaredType = {0};
 
-    struct Type declaredType;
-
-    /* 'class' trees' children are the class name
+    /* 'struct' trees' children are the struct name
      * other variables' children are the pointer or variable name
-     * so we need to start at tree->child for non-class or tree->child->sibling for classes
+     * so we need to start at tree->child for non-struct or tree->child->sibling for structs
      */
 
-    if (tree->child->type != t_type_name)
+    if (tree->child->type != T_TYPE_NAME)
     {
-        ErrorWithAST(ERROR_INTERNAL, tree->child, "Malformed AST seen in declaration!");
+        log_tree(LOG_FATAL, tree->child, "Malformed AST (%s) seen in declaration!", token_get_name(tree->child->type));
     }
 
-    walkTypeName(tree->child, scope, &declaredType);
+    if (scope->parentFunction == NULL)
+    {
+        walk_type_name(tree->child, scope, &declaredType, NULL);
+    }
+    else
+    {
+        walk_type_name(tree->child, scope, &declaredType, scope->parentFunction->implementedFor);
+    }
 
-    // automatically set as a global if there is no parent scope (declaring at the outermost scope)
-    struct VariableEntry *declaredVariable = createVariable(scope,
-                                                            tree->child->sibling,
-                                                            &declaredType,
-                                                            (u8)(scope->parentScope == NULL),
-                                                            *TACIndex,
-                                                            isArgument);
+    struct VariableEntry *declaredVariable = NULL;
+
+    if (isArgument)
+    {
+        declaredVariable = scope_create_argument(scope, tree->child->sibling,
+                                                 &declaredType,
+                                                 A_PUBLIC);
+    }
+    else
+    {
+        // automatically set as a global if there is no parent scope (declaring at the outermost scope)
+        declaredVariable = scope_create_variable(scope,
+                                                 tree->child->sibling,
+                                                 &declaredType,
+                                                 (scope->parentScope == NULL),
+                                                 A_PUBLIC);
+    }
 
     return declaredVariable;
 }
 
-void walkArgumentDeclaration(struct AST *tree,
-                             struct BasicBlock *block,
-                             size_t *TACIndex,
-                             size_t *tempNum,
-                             struct FunctionEntry *fun)
+struct VariableEntry *walk_field_declaration(struct Ast *tree,
+                                             struct Scope *scope,
+                                             const size_t *tacIndex,
+                                             const enum ACCESS accessibility,
+                                             struct TypeEntry *fieldOf)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_field_declaration");
+
+    if (tree->type != T_VARIABLE_DECLARATION)
     {
-        printf("walkArgumentDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_field_declaration!", token_get_name(tree->type));
     }
 
-    struct VariableEntry *declaredArgument = walkVariableDeclaration(tree, block, fun->mainScope, TACIndex, tempNum, 1);
+    struct Type declaredType = {0};
 
-    Stack_Push(fun->arguments, declaredArgument);
+    /* 'struct' trees' children are the struct name
+     * other variables' children are the pointer or variable name
+     * so we need to start at tree->child for non-struct or tree->child->sibling for structs
+     */
+
+    if (tree->child->type != T_TYPE_NAME)
+    {
+        log_tree(LOG_FATAL, tree->child, "Malformed AST (%s) seen in declaration!", token_get_name(tree->child->type));
+    }
+
+    walk_type_name(tree->child, scope, &declaredType, fieldOf);
+
+    struct VariableEntry *declaredVariable = NULL;
+
+    // automatically set as a global if there is no parent scope (declaring at the outermost scope)
+    declaredVariable = scope_create_variable(scope,
+                                             tree->child->sibling,
+                                             &declaredType,
+                                             (scope->parentScope == NULL),
+                                             accessibility);
+
+    return declaredVariable;
 }
 
-void walkFunctionDeclaration(struct AST *tree,
-                             struct Scope *scope)
+void walk_argument_declaration(struct Ast *tree,
+                               size_t *tacIndex,
+                               struct FunctionEntry *fun)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "WalkArgumentDeclaration");
+
+    struct VariableEntry *declaredArgument = walk_variable_declaration(tree, fun->mainScope, tacIndex, true);
+
+    deque_push_back(fun->arguments, declaredArgument);
+}
+
+void verify_function_signatures(struct Ast *tree, struct FunctionEntry *existingFunc, struct FunctionEntry *parsedFunc)
+{
+    // nothing to do if no existing function
+    if (existingFunc == NULL)
     {
-        printf("walkFunctionDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        return;
+    }
+    // check that if a prototype declaration exists, that our parsed declaration matches it exactly
+    u8 mismatch = 0;
+
+    if ((type_compare(&parsedFunc->returnType, &existingFunc->returnType)))
+    {
+        mismatch = 1;
     }
 
-    if (tree->type != t_fun)
+    // ensure we have both the same number of bytes of arguments and same number of arguments
+    if (!mismatch &&
+        (existingFunc->arguments->size == parsedFunc->arguments->size))
     {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionDeclaration!\n", getTokenName(tree->type));
+        // if we have same number of bytes and same number, ensure everything is exactly the same
+        for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
+        {
+            struct VariableEntry *existingArg = deque_at(existingFunc->arguments, argIndex);
+            struct VariableEntry *parsedArg = deque_at(parsedFunc->arguments, argIndex);
+            // ensure all arguments in order have same name, type, indirection level
+            if ((strcmp(existingArg->name, parsedArg->name) != 0) ||
+                (type_compare(&existingArg->type, &parsedArg->type)))
+            {
+                mismatch = 1;
+                break;
+            }
+        }
+    }
+    else
+    {
+        log(LOG_DEBUG, "Mismatch in number of arguments between parsed function %s and existing function %s", parsedFunc->name, existingFunc->name);
+        mismatch = 1;
+    }
+
+    if (mismatch)
+    {
+        printf("\nConflicting declarations of function:\n");
+
+        // TODO: print correctly with deque
+        char *existingReturnType = type_get_name(&existingFunc->returnType);
+        printf("\t%s %s(", existingReturnType, existingFunc->name);
+        free(existingReturnType);
+        for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
+        {
+            struct VariableEntry *existingArg = deque_at(existingFunc->arguments, argIndex);
+
+            char *argType = type_get_name(&existingArg->type);
+            printf("%s %s", argType, existingArg->name);
+            free(argType);
+
+            if (argIndex < existingFunc->arguments->size - 1)
+            {
+                printf(", ");
+            }
+            else
+            {
+                printf(")");
+            }
+        }
+
+        char *parsedReturnType = type_get_name(&parsedFunc->returnType);
+        printf("\n\t%s %s(", parsedReturnType, parsedFunc->name);
+        free(parsedReturnType);
+        for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
+        {
+            struct VariableEntry *parsedArg = deque_at(parsedFunc->arguments, argIndex);
+
+            char *argType = type_get_name(&parsedArg->type);
+            printf("%s %s", argType, parsedArg->name);
+            free(argType);
+
+            // TODO: iterator_has_next();
+            if (argIndex < existingFunc->arguments->size - 1)
+            {
+                printf(", ");
+            }
+            else
+            {
+                printf(")");
+            }
+        }
+        printf("\n");
+
+        log_tree(LOG_FATAL, tree, " ");
+    }
+}
+
+void insert_self_method_argument(struct FunctionEntry *function, struct VariableEntry *selfArgument)
+{
+    if (function->arguments->size > 0)
+    {
+        struct VariableEntry *firstArgument = deque_at(function->arguments, 0);
+        if (strcmp(firstArgument->name, OUT_OBJECT_POINTER_NAME) == 0)
+        {
+            struct VariableEntry *outObjPtr = deque_pop_front(function->arguments);
+            deque_push_front(function->arguments, selfArgument);
+            deque_push_front(function->arguments, outObjPtr);
+        }
+        else
+        {
+            deque_push_front(function->arguments, selfArgument);
+        }
+    }
+    else
+    {
+        deque_push_front(function->arguments, selfArgument);
+    }
+}
+
+List *walk_generic_parameter_names(struct Ast *tree)
+{
+    log_tree(LOG_DEBUG, tree, "walk_generic_parameter_names");
+
+    if (tree->type != T_GENERIC_PARAMETER_NAMES)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic_parameter_names!", token_get_name(tree->type));
+    }
+
+    List *parameters = list_new(NULL, (ssize_t(*)(void *, void *))strcmp);
+
+    struct Ast *genericRunner = tree->child;
+    while (genericRunner != NULL)
+    {
+        if (genericRunner->type != T_IDENTIFIER)
+        {
+            log_tree(LOG_FATAL, genericRunner, "Malformed AST seen in walk_generic_parameter_names!");
+        }
+
+        if (list_find(parameters, genericRunner->value) != NULL)
+        {
+            log_tree(LOG_FATAL, genericRunner, "Redifinition of generic parameter %s!", genericRunner->value);
+        }
+
+        list_append(parameters, genericRunner->value);
+
+        genericRunner = genericRunner->sibling;
+    }
+
+    return parameters;
+}
+
+struct FunctionEntry *walk_function_declaration(struct Ast *tree,
+                                                struct Scope *scope,
+                                                struct TypeEntry *implementedFor,
+                                                enum ACCESS accessibility,
+                                                bool forTrait)
+{
+    log_tree(LOG_DEBUG, tree, "walk_function_declaration");
+
+    if (tree->type != T_FUN)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_function_declaration!", token_get_name(tree->type));
     }
 
     // skip past the argumnent declarations to the return type declaration
-    struct AST *returnTypeTree = tree->child;
+    struct Ast *returnTypeTree = tree->child;
 
     // functions return nothing in the default case
-    struct Type returnType;
-    memset(&returnType, 0, sizeof(struct Type));
+    struct Ast *functionNameTree = NULL;
 
-    struct AST *functionNameTree = NULL;
-
+    struct FunctionEntry *parsedFunc = NULL;
     // if the function returns something, its return type will be the first child of the 'fun' token
-    if (returnTypeTree->type == t_type_name)
+    if (returnTypeTree->type == T_TYPE_NAME)
     {
-        walkTypeName(returnTypeTree, scope, &returnType);
-
-        // if we are returning a class, ensure that we're returning some sort of pointer, not a whole object
-        if ((returnType.basicType == vt_class) && (returnType.indirectionLevel == 0))
-        {
-            // use tree->child to get the original returnTypeTree AST as scrapePointers may have modified it
-            ErrorWithAST(ERROR_CODE, tree->child, "Return of class object types is not supported!\n");
-        }
-
         functionNameTree = returnTypeTree->sibling;
+        parsedFunc = function_entry_new(scope, functionNameTree, implementedFor);
+
+        walk_type_name(returnTypeTree, parsedFunc->mainScope, &parsedFunc->returnType, implementedFor);
     }
     else
     {
         // there actually is no return type tree, we just go directly to argument declarations
         functionNameTree = returnTypeTree;
+        parsedFunc = function_entry_new(scope, functionNameTree, implementedFor);
     }
 
     // child is the lparen, function name is the child of the lparen
-    struct ScopeMember *lookedUpFunction = Scope_lookup(scope, functionNameTree->value);
-    struct FunctionEntry *parsedFunc = NULL;
+    struct ScopeMember *lookedUpFunction = scope_lookup(scope, functionNameTree->value, E_FUNCTION);
     struct FunctionEntry *existingFunc = NULL;
+    struct FunctionEntry *returnedFunc = NULL;
 
     if (lookedUpFunction != NULL)
     {
         existingFunc = lookedUpFunction->entry;
-        parsedFunc = FunctionEntry_new(scope, functionNameTree, &returnType);
+        returnedFunc = existingFunc;
     }
     else
     {
-        parsedFunc = createFunction(scope, functionNameTree, &returnType);
-        parsedFunc->mainScope->parentScope = scope;
+        if (!forTrait)
+        {
+            scope_insert(scope, functionNameTree->value, parsedFunc, E_FUNCTION, accessibility);
+        }
+        returnedFunc = parsedFunc;
     }
 
-    struct AST *argumentRunner = functionNameTree->sibling;
-    size_t TACIndex = 0;
-    size_t tempNum = 0;
-    struct BasicBlock *block = BasicBlock_new(0);
-    while ((argumentRunner != NULL) && (argumentRunner->type != t_compound_statement) && (argumentRunner->type != t_asm))
+    if (type_is_object(&parsedFunc->returnType))
+    {
+        struct Type outPointerType = type_duplicate_non_pointer(&parsedFunc->returnType);
+        outPointerType.pointerLevel++;
+        struct Ast outPointerTree = *tree;
+        outPointerTree.type = T_IDENTIFIER;
+        outPointerTree.value = OUT_OBJECT_POINTER_NAME;
+        outPointerTree.child = NULL;
+        outPointerTree.sibling = NULL;
+        struct VariableEntry *outPointerArgument = scope_create_argument(parsedFunc->mainScope, &outPointerTree, &outPointerType, A_PUBLIC);
+        deque_push_front(parsedFunc->arguments, outPointerArgument);
+    }
+
+    struct Ast *argumentRunner = functionNameTree->sibling;
+    size_t tacIndex = 0;
+    struct BasicBlock *block = basic_block_new(0);
+    while ((argumentRunner != NULL) && (argumentRunner->type != T_COMPOUND_STATEMENT) && (argumentRunner->type != T_ASM))
     {
         switch (argumentRunner->type)
         {
         // looking at argument declarations
-        case t_variable_declaration:
+        case T_VARIABLE_DECLARATION:
         {
-            walkArgumentDeclaration(argumentRunner, block, &TACIndex, &tempNum, parsedFunc);
+            walk_argument_declaration(argumentRunner, &tacIndex, parsedFunc);
+        }
+        break;
+
+        case T_SELF:
+        {
+            if ((implementedFor == NULL) && !forTrait)
+            {
+                log_tree(LOG_FATAL, argumentRunner, "Malformed AST within function declaration - saw self when (implementedFor == NULL) && (forTrait == false)");
+            }
+            struct Type selfType;
+            type_init(&selfType);
+            type_set_basic_type(&selfType, VT_SELF, NULL, 1);
+            struct VariableEntry *selfArgument = scope_create_argument(parsedFunc->mainScope, argumentRunner, &selfType, A_PUBLIC);
+
+            insert_self_method_argument(parsedFunc, selfArgument);
         }
         break;
 
         default:
-            ErrorAndExit(ERROR_INTERNAL, "Malformed AST within function - expected function name and main scope only!\nMalformed node was of type %s with value [%s]\n", getTokenName(argumentRunner->type), argumentRunner->value);
+            InternalError("Malformed AST within function - expected function name and main scope only!\nMalformed node was of type %s with value [%s]", token_get_name(argumentRunner->type), argumentRunner->value);
         }
         argumentRunner = argumentRunner->sibling;
     }
 
-    while (parsedFunc->argStackSize % STACK_ALIGN_BYTES)
-    {
-        parsedFunc->argStackSize++;
-    }
-
-    // if we are parsing a declaration which precedes a definition, there may be an existing declaration (prototype)
     if (existingFunc != NULL)
     {
-        // check that if a prototype declaration exists, that our parsed declaration matches it exactly
-        u8 mismatch = 0;
-
-        if ((Type_Compare(&parsedFunc->returnType, &existingFunc->returnType)))
+        if (function_entry_compare(existingFunc, parsedFunc))
         {
-            mismatch = 1;
-        }
-
-        // ensure we have both the same number of bytes of arguments and same number of arguments
-        if (!mismatch &&
-            (existingFunc->argStackSize == parsedFunc->argStackSize) &&
-            (existingFunc->arguments->size == parsedFunc->arguments->size))
-        {
-            // if we have same number of bytes and same number, ensure everything is exactly the same
-            for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
-            {
-                struct VariableEntry *existingArg = existingFunc->arguments->data[argIndex];
-                struct VariableEntry *parsedArg = parsedFunc->arguments->data[argIndex];
-                // ensure all arguments in order have same name, type, indirection level
-                if ((strcmp(existingArg->name, parsedArg->name) != 0) ||
-                    (Type_Compare(&existingArg->type, &parsedArg->type)))
-                {
-                    mismatch = 1;
-                    break;
-                }
-            }
-        }
-        else
-        {
-            mismatch = 1;
-        }
-
-        if (mismatch)
-        {
-            printf("\nConflicting declarations of function:\n");
-
-            char *existingReturnType = Type_GetName(&existingFunc->returnType);
-            printf("\t%s %s(", existingReturnType, existingFunc->name);
-            free(existingReturnType);
-            for (size_t argIndex = 0; argIndex < existingFunc->arguments->size; argIndex++)
-            {
-                struct VariableEntry *existingArg = existingFunc->arguments->data[argIndex];
-
-                char *argType = Type_GetName(&existingArg->type);
-                printf("%s %s", argType, existingArg->name);
-                free(argType);
-
-                if (argIndex < existingFunc->arguments->size - 1)
-                {
-                    printf(", ");
-                }
-                else
-                {
-                    printf(")");
-                }
-            }
-            char *parsedReturnType = Type_GetName(&parsedFunc->returnType);
-            printf("\n\t%s %s(", parsedReturnType, parsedFunc->name);
-            free(parsedReturnType);
-            for (size_t argIndex = 0; argIndex < parsedFunc->arguments->size; argIndex++)
-            {
-                struct VariableEntry *parsedArg = parsedFunc->arguments->data[argIndex];
-
-                char *argType = Type_GetName(&parsedArg->type);
-                printf("%s %s", argType, parsedArg->name);
-                free(argType);
-
-                if (argIndex < parsedFunc->arguments->size - 1)
-                {
-                    printf(", ");
-                }
-                else
-                {
-                    printf(")");
-                }
-            }
-            printf("\n");
-
-            ErrorWithAST(ERROR_CODE, tree, " ");
+            char *existingSignature = sprint_function_signature(existingFunc);
+            char *parsedSignature = sprint_function_signature(parsedFunc);
+            log_tree(LOG_FATAL, tree, "Conflicting declarations of function %s\nExisting: %s\n  Parsed: %s!", parsedFunc->name, existingSignature, parsedSignature);
         }
     }
-    // free the basic block we used to walk declarations of arguments
-    BasicBlock_free(block);
 
-    struct AST *definition = argumentRunner;
+    // free the basic block we used to Walk declarations of arguments
+    basic_block_free(block);
+
+    struct Ast *definition = argumentRunner;
     if (definition != NULL)
     {
-        struct FunctionEntry *walkedFunction = NULL;
         if (existingFunc != NULL)
         {
-            FunctionEntry_free(parsedFunc);
+            function_entry_free(parsedFunc);
             existingFunc->isDefined = 1;
-            walkFunctionDefinition(definition, existingFunc);
-            walkedFunction = existingFunc;
+            walk_function_definition(definition, existingFunc);
         }
         else
         {
             parsedFunc->isDefined = 1;
-            walkFunctionDefinition(definition, parsedFunc);
-            walkedFunction = parsedFunc;
-        }
-
-        for (struct LinkedListNode *runner = walkedFunction->BasicBlockList->head; runner != NULL; runner = runner->next)
-        {
-            struct BasicBlock *checkedBlock = runner->data;
-            u8 firstCheck = 1;
-            size_t prevTacIndex = 0;
-            // iterate TAC lines backwards, because the last line with a duplicate number is actually the problem
-            // (because we should post-increment the index to number recursive linearzations correctly)
-            for (struct LinkedListNode *TACRunner = checkedBlock->TACList->tail; TACRunner != NULL; TACRunner = TACRunner->prev)
-            {
-                struct TACLine *checkedTAC = TACRunner->data;
-                if (!firstCheck)
-                {
-                    if ((checkedTAC->index + 1) != prevTacIndex)
-                    {
-                        printBasicBlock(checkedBlock, 0);
-                        char *printedTACLine = sPrintTACLine(checkedTAC);
-                        ErrorAndExit(ERROR_INTERNAL, "TAC line allocated at %s:%d doesn't obey ordering - numbering goes from 0x%lx to 0x%lx:\n\t%s\n",
-                                     checkedTAC->allocFile,
-                                     checkedTAC->allocLine,
-                                     checkedTAC->index,
-                                     prevTacIndex,
-                                     printedTACLine);
-                    }
-                }
-                else
-                {
-                    firstCheck = 0;
-                }
-                prevTacIndex = checkedTAC->index;
-            }
+            walk_function_definition(definition, parsedFunc);
         }
     }
+
+    return returnedFunc;
 }
 
-void walkFunctionDefinition(struct AST *tree,
-                            struct FunctionEntry *fun)
+void walk_function_definition(struct Ast *tree,
+                              struct FunctionEntry *fun)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_function_definition");
+
+    if ((tree->type != T_COMPOUND_STATEMENT) && (tree->type != T_ASM))
     {
-        printf("walkFunctionDefinition: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_function_definition!", token_get_name(tree->type));
     }
 
-    if ((tree->type != t_compound_statement) && (tree->type != t_asm))
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionDefinition!\n", getTokenName(tree->type));
-    }
+    size_t tacIndex = 0;
+    ssize_t labelNum = FUNCTION_EXIT_BLOCK_LABEL + 1;
+    struct BasicBlock *exitBlock = basic_block_new(FUNCTION_EXIT_BLOCK_LABEL);
 
-    size_t TACIndex = 0;
-    size_t tempNum = 0;
-    ssize_t labelNum = 1;
-    struct BasicBlock *block = BasicBlock_new(0);
-    Scope_addBasicBlock(fun->mainScope, block);
+    struct BasicBlock *entryBlock = basic_block_new(labelNum);
+    labelNum++;
 
-    if (tree->type == t_compound_statement)
+    scope_add_basic_block(fun->mainScope, entryBlock);
+    if (tree->type == T_COMPOUND_STATEMENT)
     {
-        walkScope(tree, block, fun->mainScope, &TACIndex, &tempNum, &labelNum, -1);
+        // TODO: fix controlConvergesTo scheme
+        // currently, control always ends jumping to a label for an empty block directly above the function_done label - this sucks.
+        walk_scope(tree, entryBlock, fun->mainScope, &tacIndex, &labelNum, exitBlock->labelNum);
     }
     else
     {
         fun->isAsmFun = 1;
-        walkAsmBlock(tree, block, fun->mainScope, &TACIndex, &tempNum);
+        walk_asm_block(tree, entryBlock, fun->mainScope, &tacIndex);
+        struct TACLine *jumpToExit = new_tac_line(TT_JMP, tree);
+        jumpToExit->operands.jump.label = FUNCTION_EXIT_BLOCK_LABEL;
+        basic_block_append(entryBlock, jumpToExit, &tacIndex);
+    }
+    scope_add_basic_block(fun->mainScope, exitBlock);
+}
+
+struct FunctionEntry *walk_implemented_function(struct Ast *tree,
+                                                struct TypeEntry *implementedFor,
+                                                enum ACCESS accessibility)
+{
+    log(LOG_DEBUG, "walk_implemented_function", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+
+    if (tree->type != T_FUN)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_implemented_function!", token_get_name(tree->type));
+    }
+
+    struct FunctionEntry *walkedMethod = walk_function_declaration(tree, implementedFor->implemented, implementedFor, accessibility, false);
+    type_entry_add_implemented(implementedFor, walkedMethod, accessibility);
+
+    if (walkedMethod->arguments->size > 0)
+    {
+        struct VariableEntry *potentialSelfArg = deque_at(walkedMethod->arguments, 0);
+
+        // if the first arg to the function is the address of a struct which we are returning
+        // try and see if the second argument is self (if it exists)
+        if (!strcmp(potentialSelfArg->name, OUT_OBJECT_POINTER_NAME) && (walkedMethod->arguments->size > 1))
+        {
+            potentialSelfArg = deque_at(walkedMethod->arguments, 1);
+        }
+
+        if ((potentialSelfArg->type.basicType == VT_SELF) ||
+            ((potentialSelfArg->type.basicType == VT_STRUCT) && (strcmp(potentialSelfArg->type.nonArray.complexType.name, implementedFor->baseName) == 0)))
+        {
+            if (strcmp(potentialSelfArg->name, "self") == 0)
+            {
+                walkedMethod->isMethod = true;
+            }
+        }
+    }
+
+    return walkedMethod;
+}
+
+void walk_implementation(struct Ast *tree, struct TypeEntry *implementedFor)
+{
+    switch (tree->type)
+    {
+    case T_FUN:
+        walk_implemented_function(tree, implementedFor, A_PRIVATE);
+        break;
+
+    case T_PUBLIC:
+        walk_implemented_function(tree->child, implementedFor, A_PUBLIC);
+        break;
+
+    default:
+        log_tree(LOG_FATAL, tree, "Malformed AST seen %s (%s) in walk_implementation!", token_get_name(tree->type), tree->value);
     }
 }
 
-void walkClassDeclaration(struct AST *tree,
-                          struct BasicBlock *block,
-                          struct Scope *scope)
+void walk_basic_impl(struct Ast *tree, struct Scope *scope)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log(LOG_DEBUG, "walk_basic_impl", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+
+    if (tree->type != T_IMPL)
     {
-        printf("walkClassDeclaration: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_basic_impl!", token_get_name(tree->type));
     }
 
-    if (tree->type != t_class)
+    struct Ast *implementedTypeTree = tree->child;
+    if (implementedTypeTree->type != T_TYPE_NAME)
     {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkClassDefinition!\n", getTokenName(tree->type));
+        log_tree(LOG_FATAL, implementedTypeTree, "Malformed AST seen in walk_basic_impl!");
+    }
+
+    struct Type implementedType = {0};
+    walk_type_name(implementedTypeTree, scope, &implementedType, NULL);
+
+    if (((implementedType.basicType != VT_STRUCT) && (implementedType.basicType != VT_ENUM)) || (implementedType.pointerLevel != 0))
+    {
+        log_tree(LOG_FATAL, implementedTypeTree, "Implementation block for type %s not supported yet!", type_get_name(&implementedType));
+    }
+
+    struct TypeEntry *implementedFor = scope_lookup_type(scope, &implementedType);
+
+    struct Ast *implementationRunner = implementedTypeTree->sibling;
+    while (implementationRunner != NULL)
+    {
+        walk_implementation(implementationRunner, implementedFor);
+        implementationRunner = implementationRunner->sibling;
+    }
+
+    if (implementedFor->genericType != G_BASE)
+    {
+        log(LOG_DEBUG, "Resolving capital 'Self' for non-generic-base %s at end of implementation block", implementedFor->baseName);
+        type_entry_resolve_capital_self(implementedFor);
+    }
+}
+
+void walk_trait_impl(struct Ast *tree, struct Scope *scope)
+{
+    log(LOG_DEBUG, "walk_trait_impl", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+
+    if (tree->type != T_IMPL)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_trait_impl!", token_get_name(tree->type));
+    }
+
+    struct Ast *traitForTree = tree->child;
+    if (traitForTree->type != T_FOR)
+    {
+        log_tree(LOG_FATAL, traitForTree, "Malformed AST seen in walk_trait_impl!");
+    }
+
+    struct Ast *traitNameTree = traitForTree->child;
+    if (traitNameTree->type != T_IDENTIFIER)
+    {
+        log_tree(LOG_FATAL, traitNameTree, "Malformed AST seen in walk_trait_impl!");
+    }
+    struct TraitEntry *implementedTrait = scope_lookup_trait(scope, traitNameTree);
+
+    struct Ast *implementedTypeTree = traitForTree->child->sibling;
+    if (implementedTypeTree->type != T_TYPE_NAME)
+    {
+        log_tree(LOG_FATAL, implementedTypeTree, "Malformed AST seen in walk_trait_impl!");
+    }
+
+    struct Type implementedType = {0};
+    walk_type_name(implementedTypeTree, scope, &implementedType, NULL);
+
+    struct TypeEntry *implementedFor = scope_lookup_type(scope, &implementedType);
+
+    Set *implementedPrivate = set_new(NULL, function_entry_compare);
+    Set *implementedPublic = set_new(NULL, function_entry_compare);
+
+    struct Ast *traitBodyRunner = traitForTree->sibling;
+    while (traitBodyRunner != NULL)
+    {
+        switch (traitBodyRunner->type)
+        {
+        case T_FUN:
+            set_insert(implementedPrivate, walk_implemented_function(traitBodyRunner, implementedFor, A_PRIVATE));
+            break;
+
+        case T_PUBLIC:
+            set_insert(implementedPublic, walk_implemented_function(traitBodyRunner->child, implementedFor, A_PUBLIC));
+            break;
+
+        default:
+            log_tree(LOG_FATAL, traitBodyRunner, "Malformed AST seen in walk_trait_impl!");
+        }
+        traitBodyRunner = traitBodyRunner->sibling;
+    }
+
+    // important to do this before resolution of capital 'Self' this relies on function_entry_compare and any VT_SELF still being pre-resolution
+    type_entry_verify_trait(tree, implementedFor, implementedTrait, implementedPrivate, implementedPublic);
+    type_entry_add_trait(implementedFor, implementedTrait);
+
+    if (implementedFor->genericType != G_BASE)
+    {
+        log(LOG_DEBUG, "Resolving capital 'Self' for %s at end of trait implementation block", implementedFor->baseName);
+        type_entry_resolve_capital_self(implementedFor);
+    }
+}
+
+void walk_implementation_block(struct Ast *tree, struct Scope *scope)
+{
+    log(LOG_DEBUG, "walk_implementation_block", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+
+    if (tree->type != T_IMPL)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_implementation_block!", token_get_name(tree->type));
+    }
+
+    switch (tree->child->type)
+    {
+    case T_TYPE_NAME:
+        walk_basic_impl(tree, scope);
+        break;
+
+    case T_FOR:
+        walk_trait_impl(tree, scope);
+        break;
+
+    default:
+        log_tree(LOG_FATAL, tree->child, "Malformed AST seen in walk_implementation_block!");
+    }
+}
+
+struct StructDesc *walk_struct_declaration(struct Ast *tree,
+                                           struct Scope *scope,
+                                           List *genericParams)
+{
+    log_tree(LOG_DEBUG, tree, "walk_struct_declaration");
+
+    if (tree->type != T_STRUCT)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to WalkStructDefinition!", token_get_name(tree->type));
     }
     size_t dummyNum = 0;
 
-    struct ClassEntry *declaredClass = createClass(scope, tree->child->value);
-
-    struct AST *classBody = tree->child->sibling;
-
-    if (classBody->type != t_class_body)
+    struct TypeEntry *declaredType = NULL;
+    struct StructDesc *declaredStruct = NULL;
+    if (tree->child->type == T_IDENTIFIER)
     {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Malformed AST seen in walkClassDefinition!\n");
+        if (genericParams != NULL)
+        {
+            declaredType = scope_create_generic_base_struct(scope, tree->child->value, genericParams);
+        }
+        else
+        {
+            declaredType = scope_create_struct(scope, tree->child->value);
+        }
+    }
+    else
+    {
+        log_tree(LOG_FATAL, tree->child, "Malformed AST (%s) seen in walk_struct_declaration!", token_get_name(tree->child->type));
     }
 
-    struct AST *classBodyRunner = classBody->child;
-    while (classBodyRunner != NULL)
+    declaredStruct = declaredType->data.asStruct;
+
+    struct Ast *structBody = tree->child->sibling;
+
+    if (structBody->type != T_STRUCT_BODY)
     {
-        switch (classBodyRunner->type)
+        log_tree(LOG_FATAL, tree, "Malformed AST seen in WalkStructDefinition!");
+    }
+
+    struct Ast *structBodyRunner = structBody->child;
+    while (structBodyRunner != NULL)
+    {
+        switch (structBodyRunner->type)
         {
-        case t_variable_declaration:
+        case T_VARIABLE_DECLARATION:
         {
-            struct VariableEntry *declaredMember = walkVariableDeclaration(classBodyRunner, block, declaredClass->members, &dummyNum, &dummyNum, 0);
-            assignOffsetToMemberVariable(declaredClass, declaredMember);
+            struct VariableEntry *declaredField = walk_field_declaration(structBodyRunner, declaredStruct->members, &dummyNum, A_PRIVATE, declaredType);
+            struct_add_field(declaredStruct, declaredField);
+        }
+        break;
+
+        case T_PUBLIC:
+        {
+            struct VariableEntry *declaredField = walk_field_declaration(structBodyRunner->child, declaredStruct->members, &dummyNum, A_PUBLIC, declaredType);
+            struct_add_field(declaredStruct, declaredField);
         }
         break;
 
         default:
-            ErrorWithAST(ERROR_INTERNAL, classBodyRunner, "Wrong AST (%s) seen in body of class definition!\n", getTokenName(classBodyRunner->type));
+            log_tree(LOG_FATAL, structBodyRunner, "Wrong AST (%s) seen in body of struct definition!", token_get_name(structBodyRunner->type));
         }
 
-        classBodyRunner = classBodyRunner->sibling;
+        structBodyRunner = structBodyRunner->sibling;
+    }
+
+    if (declaredType->genericType != G_BASE)
+    {
+        log(LOG_DEBUG, "Resolving capital 'Self' and assigning offsets to fields for non-generic-base struct %s ", declaredStruct->name);
+        type_entry_resolve_capital_self(declaredType);
+        struct_assign_offsets_to_fields(declaredStruct);
+    }
+
+    return declaredStruct;
+}
+
+void walk_generic(struct Ast *tree,
+                  struct Scope *scope)
+{
+    log_tree(LOG_DEBUG, tree, "walk_generic");
+
+    if (tree->type != T_GENERIC)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic!", token_get_name(tree->type));
+    }
+
+    struct Ast *genericThing = tree->child->sibling;
+    struct Ast *genericParamsTree = tree->child;
+
+    List *genericParams = walk_generic_parameter_names(genericParamsTree);
+
+    switch (genericThing->type)
+    {
+    case T_STRUCT:
+    {
+        walk_struct_declaration(genericThing, scope, genericParams);
+    }
+    break;
+
+    case T_ENUM:
+    {
+        walk_enum_declaration(genericThing, NULL, scope, genericParams);
+    }
+    break;
+
+    case T_IMPL:
+    {
+        struct Ast *implementedTypeTree = genericThing->child;
+        if ((implementedTypeTree->type != T_TYPE_NAME) && (implementedTypeTree->type != T_FOR))
+        {
+            log_tree(LOG_FATAL, implementedTypeTree, "Malformed AST seen in walk_generic!");
+        }
+
+        if (implementedTypeTree->type == T_FOR)
+        {
+            walk_trait_impl(genericThing, scope);
+        }
+        else
+        {
+            struct Type implementedType = {0};
+            walk_type_name(implementedTypeTree, scope, &implementedType, NULL);
+
+            if (((implementedType.basicType != VT_STRUCT) && (implementedType.basicType != VT_ENUM)) || (implementedType.pointerLevel != 0))
+            {
+                log_tree(LOG_FATAL, implementedTypeTree, "Implementation block for type %s not supported yet!", type_get_name(&implementedType));
+            }
+
+            struct TypeEntry *implementedTypeEntry = scope_lookup_type(scope, &implementedType);
+            compare_generic_param_names(genericParamsTree, genericParams, implementedTypeEntry->generic.instance.parameters, "struct", implementedTypeEntry->baseName);
+
+            struct Ast *implementationRunner = genericThing->child->sibling;
+            while (implementationRunner != NULL)
+            {
+                walk_implementation(implementationRunner, implementedTypeEntry);
+                implementationRunner = implementationRunner->sibling;
+            }
+            list_free(genericParams);
+        }
+    }
+    break;
+
+    default:
+        log_tree(LOG_FATAL, genericThing, "Malformed AST (%s) seen as thing being genericized under T_GENERIC!", token_get_name(genericThing->type));
     }
 }
 
-void walkStatement(struct AST *tree,
-                   struct BasicBlock **blockP,
-                   struct Scope *scope,
-                   size_t *TACIndex,
-                   size_t *tempNum,
-                   ssize_t *labelNum,
-                   ssize_t controlConvergesToLabel)
+void walk_trait_declaration(struct Ast *tree, struct Scope *scope)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_trait_declaration");
+
+    if (tree->type != T_TRAIT)
     {
-        printf("walkStatement: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_trait_declaration!", token_get_name(tree->type));
     }
+
+    struct Ast *traitName = tree->child;
+    struct Ast *traitBodyRunner = traitName->sibling;
+
+    struct TraitEntry *declaredTrait = scope_create_trait(scope, traitName->value);
+
+    while (traitBodyRunner != NULL)
+    {
+        struct FunctionEntry *implemented = NULL;
+
+        bool isPublic = false;
+        switch (traitBodyRunner->type)
+        {
+        case T_FUN:
+            implemented = walk_function_declaration(traitBodyRunner, NULL, NULL, A_PRIVATE, true);
+            break;
+
+        case T_PUBLIC:
+            isPublic = true;
+            if (traitBodyRunner->child->type != T_FUN)
+            {
+                log_tree(LOG_FATAL, traitBodyRunner, "Malformed AST (%s) seen in trait body!", token_get_name(traitBodyRunner->child->type));
+            }
+            implemented = walk_function_declaration(traitBodyRunner->child, NULL, NULL, A_PUBLIC, true);
+            break;
+
+        default:
+            log_tree(LOG_FATAL, traitBodyRunner, "Malformed AST (%s) seen in trait body!", token_get_name(traitBodyRunner->type));
+        }
+
+        if (implemented->isDefined)
+        {
+            log_tree(LOG_FATAL, traitBodyRunner, "Trait declaration of %s must be a prototype only!", implemented->name);
+        }
+
+        if (isPublic)
+        {
+            trait_add_public_function(declaredTrait, implemented);
+        }
+        else
+        {
+            trait_add_private_function(declaredTrait, implemented);
+        }
+
+        traitBodyRunner = traitBodyRunner->sibling;
+    }
+}
+
+void walk_enum_declaration(struct Ast *tree,
+                           struct BasicBlock *block,
+                           struct Scope *scope,
+                           List *genericParams)
+{
+    log_tree(LOG_DEBUG, tree, "walk_enum_declaration");
+
+    if (tree->type != T_ENUM)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_enum_declaration!", token_get_name(tree->type));
+    }
+
+    struct Ast *enumName = tree->child;
+
+    struct TypeEntry *declaredType = NULL;
+    struct EnumDesc *declaredEnum = NULL;
+
+    if (genericParams != NULL)
+    {
+        declaredType = scope_create_generic_base_enum(scope, enumName->value, genericParams);
+    }
+    else
+    {
+        declaredType = scope_create_enum(scope, enumName->value);
+    }
+    declaredEnum = declaredType->data.asEnum;
+
+    for (struct Ast *enumRunner = enumName->sibling; enumRunner != NULL; enumRunner = enumRunner->sibling)
+    {
+        if (enumRunner->type != T_IDENTIFIER)
+        {
+            InternalError("Malformed AST (%s) seen while Walking enum element delcarations", token_get_name(enumRunner->type));
+        }
+
+        struct Type memberType;
+        type_init(&memberType);
+
+        if (enumRunner->child != NULL)
+        {
+            walk_type_name(enumRunner->child, scope, &memberType, declaredType);
+        }
+
+        log(LOG_DEBUG, "Adding enum member %s to enum %s", enumRunner->value, declaredEnum->name);
+        enum_add_member(declaredEnum, enumRunner, &memberType);
+    }
+
+    if (declaredType->genericType != G_BASE)
+    {
+        log(LOG_DEBUG, "Resolving capital 'Self' and calculating union size to fields for non-generic-base enum %s ", declaredEnum->name);
+        type_entry_resolve_capital_self(declaredType);
+        enum_desc_calculate_union_size(declaredEnum);
+    }
+}
+
+void walk_return(struct Ast *tree,
+                 struct Scope *scope,
+                 struct BasicBlock *block,
+                 size_t *tacIndex)
+{
+    if (scope->parentFunction == NULL)
+    {
+        log_tree(LOG_FATAL, tree, "'return' statements are only allowed within functions");
+    }
+
+    // if the program uses a bare return statement in a function which returns a value, error out
+    if ((scope->parentFunction->returnType.basicType != VT_NULL) && (tree->child == NULL))
+    {
+        log_tree(LOG_FATAL, tree, "No expression after return statement in function %s returning %s", scope->parentFunction->name, type_get_name(&scope->parentFunction->returnType));
+    }
+
+    struct TACLine *returnLine = new_tac_line(TT_RETURN, tree);
+    struct TacReturn *returnOperands = &returnLine->operands.return_;
+
+    if (tree->child != NULL)
+    {
+        walk_sub_expression(tree->child, block, scope, tacIndex, &returnOperands->returnValue);
+
+        if (type_compare_allow_implicit_widening(tac_operand_get_type(&returnLine->operands.return_.returnValue), &scope->parentFunction->returnType) &&
+            type_compare_allow_self(tac_operand_get_type(&returnLine->operands.return_.returnValue), scope->parentFunction, &scope->parentFunction->returnType, scope->parentFunction))
+        {
+            char *expectedReturnType = type_get_name(&scope->parentFunction->returnType);
+            char *actualReturnType = type_get_name(tac_operand_get_type(&returnLine->operands.return_.returnValue));
+            log_tree(LOG_FATAL, tree->child, "Returned type %s does not match expected return type of %s", actualReturnType, expectedReturnType);
+        }
+
+        if (type_is_object(&scope->parentFunction->returnType))
+        {
+            struct TACOperand *copiedFrom = &returnOperands->returnValue;
+            struct TACOperand addressCopiedTo = {0};
+            struct VariableEntry *outStructPointer = scope_lookup_var_by_string(scope, OUT_OBJECT_POINTER_NAME);
+            tac_operand_populate_from_variable(&addressCopiedTo, outStructPointer);
+
+            struct TACLine *structReturnStore = new_tac_line(TT_STORE, tree);
+            struct TacStore *storeOperands = &structReturnStore->operands.store;
+            storeOperands->source = *copiedFrom;
+
+            tac_operand_populate_from_variable(&storeOperands->address, outStructPointer);
+
+            basic_block_append(block, structReturnStore, tacIndex);
+
+            memset(&returnOperands->returnValue, 0, sizeof(struct TACOperand));
+        }
+    }
+
+    basic_block_append(block, returnLine, tacIndex);
+
+    if (tree->sibling != NULL)
+    {
+        log_tree(LOG_FATAL, tree->sibling, "Code after return statement is unreachable!");
+    }
+}
+
+void walk_statement(struct Ast *tree,
+                    struct BasicBlock **blockP,
+                    struct Scope *scope,
+                    size_t *tacIndex,
+                    ssize_t *labelNum,
+                    ssize_t controlConvergesToLabel)
+{
+    log_tree(LOG_DEBUG, tree, "WalkStatement");
 
     switch (tree->type)
     {
-    case t_variable_declaration:
-        walkVariableDeclaration(tree, *blockP, scope, TACIndex, tempNum, 0);
+    case T_VARIABLE_DECLARATION:
+        walk_variable_declaration(tree, scope, tacIndex, false);
         break;
 
-    case t_extern:
-        ErrorWithAST(ERROR_CODE, tree, "'extern' is only allowed at the global scope.\n");
+    case T_EXTERN:
+        log_tree(LOG_FATAL, tree, "'extern' is only allowed at the global scope.");
         break;
 
-    case t_assign:
-        walkAssignment(tree, *blockP, scope, TACIndex, tempNum);
+    case T_ASSIGN:
+        walk_assignment(tree, *blockP, scope, tacIndex);
         break;
 
-    case t_plus_equals:
-    case t_minus_equals:
-    case t_times_equals:
-    case t_divide_equals:
-    case t_modulo_equals:
-    case t_bitwise_and_equals:
-    case t_bitwise_or_equals:
-    case t_bitwise_xor_equals:
-    case t_lshift_equals:
-    case t_rshift_equals:
-        walkArithmeticAssignment(tree, *blockP, scope, TACIndex, tempNum);
+    case T_PLUS_EQUALS:
+    case T_MINUS_EQUALS:
+    case T_TIMES_EQUALS:
+    case T_DIVIDE_EQUALS:
+    case T_MODULO_EQUALS:
+    case T_BITWISE_AND_EQUALS:
+    case T_BITWISE_OR_EQUALS:
+    case T_BITWISE_XOR_EQUALS:
+    case T_LSHIFT_EQUALS:
+    case T_RSHIFT_EQUALS:
+        walk_arithmetic_assignment(tree, *blockP, scope, tacIndex);
         break;
 
-    case t_while:
+    case T_WHILE:
     {
-        struct BasicBlock *afterWhileBlock = BasicBlock_new((*labelNum)++);
-        walkWhileLoop(tree, *blockP, scope, TACIndex, tempNum, labelNum, afterWhileBlock->labelNum);
+        struct BasicBlock *afterWhileBlock = basic_block_new((*labelNum)++);
+        walk_while_loop(tree, *blockP, scope, tacIndex, labelNum, afterWhileBlock->labelNum);
         *blockP = afterWhileBlock;
-        Scope_addBasicBlock(scope, afterWhileBlock);
+        scope_add_basic_block(scope, afterWhileBlock);
     }
     break;
 
-    case t_if:
+    case T_IF:
     {
-        struct BasicBlock *afterIfBlock = BasicBlock_new((*labelNum)++);
-        walkIfStatement(tree, *blockP, scope, TACIndex, tempNum, labelNum, afterIfBlock->labelNum);
+        struct BasicBlock *afterIfBlock = basic_block_new((*labelNum)++);
+        walk_if_statement(tree, *blockP, scope, tacIndex, labelNum, afterIfBlock->labelNum);
         *blockP = afterIfBlock;
-        Scope_addBasicBlock(scope, afterIfBlock);
+        scope_add_basic_block(scope, afterIfBlock);
     }
     break;
 
-    case t_function_call:
-        walkFunctionCall(tree, *blockP, scope, TACIndex, tempNum, NULL);
+    case T_FOR:
+    {
+        struct BasicBlock *afterForBlock = basic_block_new((*labelNum)++);
+        walk_for_loop(tree, *blockP, scope, tacIndex, labelNum, afterForBlock->labelNum);
+        *blockP = afterForBlock;
+        scope_add_basic_block(scope, afterForBlock);
+    }
+    break;
+
+    case T_MATCH:
+    {
+        struct BasicBlock *afterMatchBlock = basic_block_new((*labelNum)++);
+        walk_match_statement(tree, *blockP, scope, tacIndex, labelNum, afterMatchBlock->labelNum);
+        *blockP = afterMatchBlock;
+        scope_add_basic_block(scope, afterMatchBlock);
+    }
+    break;
+
+    case T_FUNCTION_CALL:
+        walk_function_call(tree, *blockP, scope, tacIndex, NULL);
+        break;
+
+    case T_METHOD_CALL:
+        walk_method_call(tree, *blockP, scope, tacIndex, NULL);
+        break;
+
+    case T_ASSOCIATED_CALL:
+        walk_associated_call(tree, *blockP, scope, tacIndex, NULL);
         break;
 
     // subscope
-    case t_compound_statement:
+    case T_COMPOUND_STATEMENT:
     {
         // TODO: is there a bug here for simple scopes within code (not attached to if/while/etc... statements? TAC dump for the scopes test seems to indicate so?)
-        struct Scope *subScope = Scope_createSubScope(scope);
-        struct BasicBlock *afterSubScopeBlock = BasicBlock_new((*labelNum)++);
-        walkScope(tree, *blockP, subScope, TACIndex, tempNum, labelNum, afterSubScopeBlock->labelNum);
+        struct Scope *subScope = scope_create_sub_scope(scope);
+        struct BasicBlock *afterSubScopeBlock = basic_block_new((*labelNum)++);
+        walk_scope(tree, *blockP, subScope, tacIndex, labelNum, afterSubScopeBlock->labelNum);
         *blockP = afterSubScopeBlock;
-        Scope_addBasicBlock(scope, afterSubScopeBlock);
+        scope_add_basic_block(scope, afterSubScopeBlock);
     }
     break;
 
-    case t_return:
-    {
-        struct TACLine *returnLine = newTACLine(*TACIndex, tt_return, tree);
-        if (tree->child != NULL)
-        {
-            walkSubExpression(tree->child, *blockP, scope, TACIndex, tempNum, &returnLine->operands[0]);
-        }
+    case T_RETURN:
+        walk_return(tree, scope, *blockP, tacIndex);
+        break;
 
-        returnLine->index = (*TACIndex)++;
-
-        BasicBlock_append(*blockP, returnLine);
-
-        if (tree->sibling != NULL)
-        {
-            ErrorWithAST(ERROR_CODE, tree->sibling, "Code after return statement is unreachable!\n");
-        }
-    }
-    break;
-
-    case t_asm:
-        walkAsmBlock(tree, *blockP, scope, TACIndex, tempNum);
+    case T_ASM:
+        walk_asm_block(tree, *blockP, scope, tacIndex);
         break;
 
     default:
-        ErrorWithAST(ERROR_INTERNAL, tree, "Unexpected AST type (%s - %s) seen in walkStatement!\n", getTokenName(tree->type), tree->value);
+        log_tree(LOG_FATAL, tree, "Unexpected AST type (%s - %s) seen in WalkStatement!", token_get_name(tree->type), tree->value);
     }
 }
 
-void walkScope(struct AST *tree,
-               struct BasicBlock *block,
-               struct Scope *scope,
-               size_t *TACIndex,
-               size_t *tempNum,
-               ssize_t *labelNum,
-               ssize_t controlConvergesToLabel)
+void walk_scope(struct Ast *tree,
+                struct BasicBlock *block,
+                struct Scope *scope,
+                size_t *tacIndex,
+                ssize_t *labelNum,
+                ssize_t controlConvergesToLabel)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_scope");
+
+    if (tree->type != T_COMPOUND_STATEMENT)
     {
-        printf("walkScope: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
-    if (tree->type != t_compound_statement)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkScope!\n", getTokenName(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_scope!", token_get_name(tree->type));
     }
 
-    struct AST *scopeRunner = tree->child;
+    struct Ast *scopeRunner = tree->child;
     while (scopeRunner != NULL)
     {
-        walkStatement(scopeRunner, &block, scope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+        walk_statement(scopeRunner, &block, scope, tacIndex, labelNum, controlConvergesToLabel);
         scopeRunner = scopeRunner->sibling;
     }
 
-    if (controlConvergesToLabel > 0)
+    if (controlConvergesToLabel >= 0)
     {
-        struct TACLine *controlConvergeJmp = newTACLine((*TACIndex)++, tt_jmp, tree);
-        controlConvergeJmp->operands[0].name.val = controlConvergesToLabel;
-        BasicBlock_append(block, controlConvergeJmp);
+        struct TACLine *controlConvergeJmp = new_tac_line(TT_JMP, tree);
+        struct TacJump *jumpOperands = &controlConvergeJmp->operands.jump;
+        jumpOperands->label = controlConvergesToLabel;
+        basic_block_append(block, controlConvergeJmp, tacIndex);
     }
 }
 
-struct BasicBlock *walkLogicalOperator(struct AST *tree,
-                                       struct BasicBlock *block,
-                                       struct Scope *scope,
-                                       size_t *TACIndex,
-                                       size_t *tempNum,
-                                       ssize_t *labelNum,
-                                       ssize_t falseJumpLabelNum)
+struct BasicBlock *walk_logical_operator(struct Ast *tree,
+                                         struct BasicBlock *block,
+                                         struct Scope *scope,
+                                         size_t *tacIndex,
+                                         ssize_t *labelNum,
+                                         ssize_t falseJumpLabelNum)
 {
+    log_tree(LOG_DEBUG, tree, "WalkLogicalOperator");
+
     switch (tree->type)
     {
-    case t_logical_and:
+    case T_LOGICAL_AND:
     {
         // if either condition is false, immediately jump to the false label
-        block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
-        block = walkConditionCheck(tree->child->sibling, block, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
+        block = walk_condition_check(tree->child, block, scope, tacIndex, labelNum, falseJumpLabelNum);
+        block = walk_condition_check(tree->child->sibling, block, scope, tacIndex, labelNum, falseJumpLabelNum);
     }
     break;
 
-    case t_logical_or:
+    case T_LOGICAL_OR:
     {
         // this block will only be hit if the first condition comes back false
-        struct BasicBlock *checkSecondConditionBlock = BasicBlock_new((*labelNum)++);
-        Scope_addBasicBlock(scope, checkSecondConditionBlock);
+        struct BasicBlock *checkSecondConditionBlock = basic_block_new((*labelNum)++);
+        scope_add_basic_block(scope, checkSecondConditionBlock);
 
         // this is the block in which execution will end up if the condition is true
-        struct BasicBlock *trueBlock = BasicBlock_new((*labelNum)++);
-        Scope_addBasicBlock(scope, trueBlock);
-        block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, checkSecondConditionBlock->labelNum);
+        struct BasicBlock *trueBlock = basic_block_new((*labelNum)++);
+        scope_add_basic_block(scope, trueBlock);
+        block = walk_condition_check(tree->child, block, scope, tacIndex, labelNum, checkSecondConditionBlock->labelNum);
 
         // if we pass the first condition (don't jump to checkSecondConditionBlock), short-circuit directly to the true block
-        struct TACLine *firstConditionTrueJump = newTACLine((*TACIndex)++, tt_jmp, tree->child);
-        firstConditionTrueJump->operands[0].name.val = trueBlock->labelNum;
-        BasicBlock_append(block, firstConditionTrueJump);
+        struct TACLine *firstConditionTrueJump = new_tac_line(TT_JMP, tree->child);
+        firstConditionTrueJump->operands.jump.label = trueBlock->labelNum;
+        basic_block_append(block, firstConditionTrueJump, tacIndex);
 
-        // walk the second condition to checkSecondConditionBlock
-        block = walkConditionCheck(tree->child->sibling, checkSecondConditionBlock, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
+        // Walk the second condition to checkSecondConditionBlock
+        block = walk_condition_check(tree->child->sibling, checkSecondConditionBlock, scope, tacIndex, labelNum, falseJumpLabelNum);
 
         // jump from whatever block the second condition check ends up in (passing path) to our block
         // this ensures that regardless of which condition is true (first or second) execution always end up in the same block
-        struct TACLine *secondConditionTrueJump = newTACLine((*TACIndex)++, tt_jmp, tree->child->sibling);
-        secondConditionTrueJump->operands[0].name.val = trueBlock->labelNum;
-        BasicBlock_append(block, secondConditionTrueJump);
+        struct TACLine *secondConditionTrueJump = new_tac_line(TT_JMP, tree->child->sibling);
+        secondConditionTrueJump->operands.jump.label = trueBlock->labelNum;
+        basic_block_append(block, secondConditionTrueJump, tacIndex);
 
         block = trueBlock;
     }
     break;
 
-    case t_logical_not:
+    case T_LOGICAL_NOT:
     {
-        // walkConditionCheck already does everything we need it to
+        // walk_condition_check already does everything we need it to
         // so just create a block representing the opposite of the condition we are testing
-        // then, tell walkConditionCheck to go there if our subcondition is false (!subcondition is true)
-        struct BasicBlock *inverseConditionBlock = BasicBlock_new((*labelNum)++);
-        Scope_addBasicBlock(scope, inverseConditionBlock);
+        // then, tell walk_condition_check to go there if our subcondition is false (!subcondition is true)
+        struct BasicBlock *inverseConditionBlock = basic_block_new((*labelNum)++);
+        scope_add_basic_block(scope, inverseConditionBlock);
 
-        block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, inverseConditionBlock->labelNum);
+        block = walk_condition_check(tree->child, block, scope, tacIndex, labelNum, inverseConditionBlock->labelNum);
 
         // subcondition is true (!subcondition is false), then control flow should end up at the original conditionFalseJump destination
-        struct TACLine *conditionFalseJump = newTACLine((*TACIndex)++, tt_jmp, tree->child);
-        conditionFalseJump->operands[0].name.val = falseJumpLabelNum;
-        BasicBlock_append(block, conditionFalseJump);
+        struct TACLine *conditionFalseJump = new_tac_line(TT_JMP, tree->child);
+        conditionFalseJump->operands.jump.label = falseJumpLabelNum;
+        basic_block_append(block, conditionFalseJump, tacIndex);
 
         // return the tricky block we created to be jumped to when our subcondition is false, or that the condition we are linearizing at this level is true
         block = inverseConditionBlock;
@@ -729,815 +1415,1506 @@ struct BasicBlock *walkLogicalOperator(struct AST *tree,
     break;
 
     default:
-        ErrorAndExit(ERROR_INTERNAL, "Logical operator %s (%s) not supported yet\n",
-                     getTokenName(tree->type),
-                     tree->value);
+        InternalError("Logical operator %s (%s) not supported yet",
+                      token_get_name(tree->type),
+                      tree->value);
     }
 
     return block;
 }
 
-struct BasicBlock *walkConditionCheck(struct AST *tree,
-                                      struct BasicBlock *block,
-                                      struct Scope *scope,
-                                      size_t *TACIndex,
-                                      size_t *tempNum,
-                                      ssize_t *labelNum,
-                                      ssize_t falseJumpLabelNum)
+struct BasicBlock *walk_condition_check(struct Ast *tree,
+                                        struct BasicBlock *block,
+                                        struct Scope *scope,
+                                        size_t *tacIndex,
+                                        ssize_t *labelNum,
+                                        ssize_t falseJumpLabelNum)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkConditionCheck: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    log_tree(LOG_DEBUG, tree, "walk_condition_check");
 
-    struct TACLine *condFalseJump = newTACLine(*TACIndex, tt_jmp, tree);
-    condFalseJump->operands[0].name.val = falseJumpLabelNum;
+    struct TACLine *condFalseJump = new_tac_line(TT_BEQ, tree);
+    condFalseJump->operands.conditionalBranch.label = falseJumpLabelNum;
 
     // switch once to decide the jump type
     switch (tree->type)
     {
-    case t_equals:
-        condFalseJump->operation = tt_bne;
+    case T_EQUALS:
+        condFalseJump->operation = TT_BNE;
         break;
 
-    case t_not_equals:
-        condFalseJump->operation = tt_beq;
+    case T_NOT_EQUALS:
+        condFalseJump->operation = TT_BEQ;
         break;
 
-    case t_less_than:
-        condFalseJump->operation = tt_bgeu;
+    case T_LESS_THAN:
+        condFalseJump->operation = TT_BGEU;
         break;
 
-    case t_greater_than:
-        condFalseJump->operation = tt_bleu;
+    case T_GREATER_THAN:
+        condFalseJump->operation = TT_BLEU;
         break;
 
-    case t_less_than_equals:
-        condFalseJump->operation = tt_bgtu;
+    case T_LESS_THAN_EQUALS:
+        condFalseJump->operation = TT_BGTU;
         break;
 
-    case t_greater_than_equals:
-        condFalseJump->operation = tt_bltu;
+    case T_GREATER_THAN_EQUALS:
+        condFalseJump->operation = TT_BLTU;
         break;
 
-    case t_logical_and:
-    case t_logical_or:
-    case t_logical_not:
-        block = walkLogicalOperator(tree, block, scope, TACIndex, tempNum, labelNum, falseJumpLabelNum);
+    case T_LOGICAL_AND:
+    case T_LOGICAL_OR:
+    case T_LOGICAL_NOT:
+        block = walk_logical_operator(tree, block, scope, tacIndex, labelNum, falseJumpLabelNum);
         break;
 
     default:
-        condFalseJump->operation = tt_bne;
+        condFalseJump->operation = TT_BNE;
         break;
     }
 
-    // switch a second time to actually walk the condition
+    // switch a second time to actually Walk the condition
     switch (tree->type)
     {
     // arithmetic comparisons
-    case t_equals:
-    case t_not_equals:
-    case t_less_than:
-    case t_greater_than:
-    case t_less_than_equals:
-    case t_greater_than_equals:
+    case T_EQUALS:
+    case T_NOT_EQUALS:
+    case T_LESS_THAN:
+    case T_GREATER_THAN:
+    case T_LESS_THAN_EQUALS:
+    case T_GREATER_THAN_EQUALS:
         // standard operators (==, !=, <, >, <=, >=)
         {
             switch (tree->child->type)
             {
-            case t_logical_and:
-            case t_logical_or:
-            case t_logical_not:
-                ErrorWithAST(ERROR_CODE, tree->child, "Use of comparison operators on results of logical operators is not supported!\n");
+            case T_LOGICAL_AND:
+            case T_LOGICAL_OR:
+            case T_LOGICAL_NOT:
+                log_tree(LOG_FATAL, tree->child, "Use of comparison operators on results of logical operators is not supported!");
                 break;
 
             default:
-                walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
+                walk_sub_expression(tree->child, block, scope, tacIndex, &condFalseJump->operands.conditionalBranch.sourceA);
                 break;
             }
 
             switch (tree->child->sibling->type)
             {
-            case t_logical_and:
-            case t_logical_or:
-            case t_logical_not:
-                ErrorWithAST(ERROR_CODE, tree->child->sibling, "Use of comparison operators on results of logical operators is not supported!\n");
+            case T_LOGICAL_AND:
+            case T_LOGICAL_OR:
+            case T_LOGICAL_NOT:
+                log_tree(LOG_FATAL, tree->child->sibling, "Use of comparison operators on results of logical operators is not supported!");
                 break;
 
             default:
-                walkSubExpression(tree->child->sibling, block, scope, TACIndex, tempNum, &condFalseJump->operands[2]);
+                walk_sub_expression(tree->child->sibling, block, scope, tacIndex, &condFalseJump->operands.conditionalBranch.sourceB);
                 break;
             }
         }
         break;
 
-    case t_logical_and:
-    case t_logical_or:
-    case t_logical_not:
+    case T_LOGICAL_AND:
+    case T_LOGICAL_OR:
+    case T_LOGICAL_NOT:
         free(condFalseJump);
         condFalseJump = NULL;
         break;
 
-    case t_identifier:
-    case t_add:
-    case t_subtract:
-    case t_multiply:
-    case t_divide:
-    case t_modulo:
-    case t_lshift:
-    case t_rshift:
-    case t_bitwise_and:
-    case t_bitwise_or:
-    case t_bitwise_not:
-    case t_bitwise_xor:
-    case t_dereference:
-    case t_address_of:
-    case t_cast:
-    case t_dot:
-    case t_arrow:
-    case t_function_call:
+    case T_IDENTIFIER:
+    case T_ADD:
+    case T_SUBTRACT:
+    case T_MULTIPLY:
+    case T_DIVIDE:
+    case T_MODULO:
+    case T_LSHIFT:
+    case T_RSHIFT:
+    case T_BITWISE_AND:
+    case T_BITWISE_OR:
+    case T_BITWISE_NOT:
+    case T_BITWISE_XOR:
+    case T_DEREFERENCE:
+    case T_ADDRESS_OF:
+    case T_CAST:
+    case T_DOT:
+    case T_FUNCTION_CALL:
     {
-        condFalseJump->operation = tt_beq;
-        walkSubExpression(tree, block, scope, TACIndex, tempNum, &condFalseJump->operands[1]);
+        condFalseJump->operation = TT_BEQ;
+        walk_sub_expression(tree, block, scope, tacIndex, &condFalseJump->operands.conditionalBranch.sourceA);
 
-        condFalseJump->operands[2].type.basicType = vt_u8;
-        condFalseJump->operands[2].permutation = vp_literal;
-        condFalseJump->operands[2].name.str = "0";
+        condFalseJump->operands.conditionalBranch.sourceB.castAsType.basicType = VT_U8;
+        condFalseJump->operands.conditionalBranch.sourceB.permutation = VP_LITERAL_VAL;
+        condFalseJump->operands.conditionalBranch.sourceB.name.str = 0;
     }
     break;
 
     default:
     {
-        ErrorAndExit(ERROR_INTERNAL, "Comparison operator %s (%s) not supported yet\n",
-                     getTokenName(tree->type),
-                     tree->value);
+        InternalError("Comparison operator %s (%s) not supported yet",
+                      token_get_name(tree->type),
+                      tree->value);
     }
     break;
     }
 
     if (condFalseJump != NULL)
     {
-        condFalseJump->index = (*TACIndex)++;
-        BasicBlock_append(block, condFalseJump);
+        basic_block_append(block, condFalseJump, tacIndex);
     }
     return block;
 }
 
-void walkWhileLoop(struct AST *tree,
-                   struct BasicBlock *block,
-                   struct Scope *scope,
-                   size_t *TACIndex,
-                   size_t *tempNum,
-                   ssize_t *labelNum,
-                   ssize_t controlConvergesToLabel)
+void walk_while_loop(struct Ast *tree,
+                     struct BasicBlock *block,
+                     struct Scope *scope,
+                     size_t *tacIndex,
+                     ssize_t *labelNum,
+                     ssize_t controlConvergesToLabel)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_while_loop");
+
+    if (tree->type != T_WHILE)
     {
-        printf("walkWhileLoop: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
-    if (tree->type != t_while)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkWhileLoop!\n", getTokenName(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_while_loop!", token_get_name(tree->type));
     }
 
     struct BasicBlock *beforeWhileBlock = block;
 
-    struct TACLine *enterWhileJump = newTACLine((*TACIndex)++, tt_jmp, tree);
-    enterWhileJump->operands[0].name.val = *labelNum;
-    BasicBlock_append(beforeWhileBlock, enterWhileJump);
+    struct TACLine *enterWhileJump = new_tac_line(TT_JMP, tree);
+    enterWhileJump->operands.jump.label = *labelNum;
+    basic_block_append(beforeWhileBlock, enterWhileJump, tacIndex);
 
     // create a subscope from which we will work
-    struct Scope *whileScope = Scope_createSubScope(scope);
-    struct BasicBlock *whileBlock = BasicBlock_new((*labelNum)++);
-    Scope_addBasicBlock(whileScope, whileBlock);
+    struct Scope *whileScope = scope_create_sub_scope(scope);
+    struct BasicBlock *whileBlock = basic_block_new((*labelNum)++);
+    scope_add_basic_block(whileScope, whileBlock);
 
-    struct TACLine *whileDo = newTACLine((*TACIndex)++, tt_do, tree);
-    BasicBlock_append(whileBlock, whileDo);
+    struct TACLine *whileDo = new_tac_line(TT_DO, tree);
+    basic_block_append(whileBlock, whileDo, tacIndex);
 
-    whileBlock = walkConditionCheck(tree->child, whileBlock, whileScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+    whileBlock = walk_condition_check(tree->child, whileBlock, whileScope, tacIndex, labelNum, controlConvergesToLabel);
 
     ssize_t endWhileLabel = (*labelNum)++;
 
-    struct AST *whileBody = tree->child->sibling;
-    if (whileBody->type == t_compound_statement)
+    struct Ast *whileBody = tree->child->sibling;
+    if (whileBody->type == T_COMPOUND_STATEMENT)
     {
-        walkScope(whileBody, whileBlock, whileScope, TACIndex, tempNum, labelNum, endWhileLabel);
+        walk_scope(whileBody, whileBlock, whileScope, tacIndex, labelNum, endWhileLabel);
     }
     else
     {
-        walkStatement(whileBody, &whileBlock, whileScope, TACIndex, tempNum, labelNum, endWhileLabel);
+        walk_statement(whileBody, &whileBlock, whileScope, tacIndex, labelNum, endWhileLabel);
     }
 
-    struct TACLine *whileLoopJump = newTACLine((*TACIndex)++, tt_jmp, tree);
-    whileLoopJump->operands[0].name.val = enterWhileJump->operands[0].name.val;
+    struct TACLine *whileLoopJump = new_tac_line(TT_JMP, tree);
+    whileLoopJump->operands.jump.label = enterWhileJump->operands.jump.label;
 
-    block = BasicBlock_new(endWhileLabel);
-    Scope_addBasicBlock(scope, block);
+    block = basic_block_new(endWhileLabel);
+    scope_add_basic_block(scope, block);
 
-    struct TACLine *whileEndDo = newTACLine((*TACIndex)++, tt_enddo, tree);
-    BasicBlock_append(block, whileLoopJump);
-    BasicBlock_append(block, whileEndDo);
+    struct TACLine *whileEndDo = new_tac_line(TT_ENDDO, tree);
+    basic_block_append(block, whileLoopJump, tacIndex);
+    basic_block_append(block, whileEndDo, tacIndex);
 }
 
-void walkIfStatement(struct AST *tree,
-                     struct BasicBlock *block,
-                     struct Scope *scope,
-                     size_t *TACIndex,
-                     size_t *tempNum,
-                     ssize_t *labelNum,
-                     ssize_t controlConvergesToLabel)
+void walk_if_statement(struct Ast *tree,
+                       struct BasicBlock *block,
+                       struct Scope *scope,
+                       size_t *tacIndex,
+                       ssize_t *labelNum,
+                       ssize_t controlConvergesToLabel)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_if_statement");
+
+    if (tree->type != T_IF)
     {
-        printf("walkIfStatement: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_if_statement!", token_get_name(tree->type));
     }
 
-    if (tree->type != t_if)
+    size_t maxExitTACIndex = *tacIndex;
+
+    struct Scope *ifScope = scope_create_sub_scope(scope);
+    struct BasicBlock *ifBlock = basic_block_new((*labelNum)++);
+    scope_add_basic_block(ifScope, ifBlock);
+
+    struct TACLine *enterIfJump = new_tac_line(TT_JMP, tree);
+    enterIfJump->operands.jump.label = ifBlock->labelNum;
+
+    ssize_t falseJumpLabelNum = controlConvergesToLabel;
+    struct Ast *elseTree = tree->child->sibling->sibling;
+    if (elseTree != NULL)
     {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkIfStatement!\n", getTokenName(tree->type));
+        falseJumpLabelNum = (*labelNum)++;
     }
+
+    block = walk_condition_check(tree->child, block, scope, tacIndex, labelNum, falseJumpLabelNum);
+
+    size_t ifTACIndex = *tacIndex;
+
+    basic_block_append(block, enterIfJump, tacIndex);
+
+    struct Ast *ifBody = tree->child->sibling;
+    if (ifBody->type == T_COMPOUND_STATEMENT)
+    {
+        walk_scope(ifBody, ifBlock, ifScope, &ifTACIndex, labelNum, controlConvergesToLabel);
+    }
+    else
+    {
+        walk_statement(ifBody, &ifBlock, ifScope, &ifTACIndex, labelNum, controlConvergesToLabel);
+    }
+
+    maxExitTACIndex = MAX(maxExitTACIndex, ifTACIndex);
 
     // if we have an else block
-    if (tree->child->sibling->sibling != NULL)
+    if (elseTree != NULL)
     {
-        ssize_t elseLabel = (*labelNum)++;
-        block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, elseLabel);
+        struct Scope *elseScope = scope_create_sub_scope(scope);
+        struct BasicBlock *elseBlock = basic_block_new(falseJumpLabelNum);
 
-        struct Scope *ifScope = Scope_createSubScope(scope);
-        struct BasicBlock *ifBlock = BasicBlock_new((*labelNum)++);
-        Scope_addBasicBlock(ifScope, ifBlock);
+        size_t elseTACIndex = *tacIndex;
 
-        struct TACLine *enterIfJump = newTACLine((*TACIndex)++, tt_jmp, tree);
-        enterIfJump->operands[0].name.val = ifBlock->labelNum;
-        BasicBlock_append(block, enterIfJump);
+        scope_add_basic_block(elseScope, elseBlock);
 
-        struct AST *ifBody = tree->child->sibling;
-        if (ifBody->type == t_compound_statement)
+        if (elseTree->type == T_COMPOUND_STATEMENT)
         {
-            walkScope(ifBody, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+            walk_scope(elseTree, elseBlock, elseScope, &elseTACIndex, labelNum, controlConvergesToLabel);
         }
         else
         {
-            walkStatement(ifBody, &ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+            walk_statement(elseTree, &elseBlock, elseScope, &elseTACIndex, labelNum, controlConvergesToLabel);
         }
 
-        struct Scope *elseScope = Scope_createSubScope(scope);
-        struct BasicBlock *elseBlock = BasicBlock_new(elseLabel);
-        Scope_addBasicBlock(elseScope, elseBlock);
-
-        struct AST *elseBody = tree->child->sibling->sibling;
-        if (elseBody->type == t_compound_statement)
-        {
-            walkScope(elseBody, elseBlock, elseScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
-        }
-        else
-        {
-            walkStatement(elseBody, &elseBlock, elseScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
-        }
+        maxExitTACIndex = MAX(maxExitTACIndex, elseTACIndex);
     }
-    // no else block
+
+    *tacIndex = MAX(*tacIndex, maxExitTACIndex);
+}
+
+void walk_for_loop(struct Ast *tree,
+                   struct BasicBlock *block,
+                   struct Scope *scope,
+                   size_t *tacIndex,
+                   ssize_t *labelNum,
+                   ssize_t controlConvergesToLabel)
+{
+    log_tree(LOG_DEBUG, tree, "walk_for_loop");
+
+    if (tree->type != T_FOR)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_for_loop!", token_get_name(tree->type));
+    }
+
+    struct Scope *forScope = scope_create_sub_scope(scope);
+    struct BasicBlock *beforeForBlock = basic_block_new((*labelNum)++);
+    scope_add_basic_block(forScope, beforeForBlock);
+
+    struct TACLine *enterForScopeJump = new_tac_line(TT_JMP, tree);
+    enterForScopeJump->operands.jump.label = beforeForBlock->labelNum;
+    basic_block_append(block, enterForScopeJump, tacIndex);
+
+    struct Ast *forStartExpression = tree->child;
+    struct Ast *forCondition = tree->child->sibling;
+
+    //                       for   e1      e2       e3
+    struct Ast *forAction = tree->child->sibling->sibling;
+    // if the third expression has no sibling, it isn't actually a third expression but the body (and there is no third expression)
+    if (forAction->sibling == NULL)
+    {
+        forAction = NULL;
+    }
+    walk_statement(forStartExpression, &beforeForBlock, forScope, tacIndex, labelNum, controlConvergesToLabel);
+
+    struct TACLine *enterForJump = new_tac_line(TT_JMP, tree);
+    enterForJump->operands.jump.label = (*labelNum);
+    basic_block_append(beforeForBlock, enterForJump, tacIndex);
+
+    // create a subscope from which we will work
+    struct BasicBlock *forBlock = basic_block_new((*labelNum)++);
+
+    struct TACLine *whileDo = new_tac_line(TT_DO, tree);
+    basic_block_append(forBlock, whileDo, tacIndex);
+    scope_add_basic_block(forScope, forBlock);
+
+    forBlock = walk_condition_check(forCondition, forBlock, forScope, tacIndex, labelNum, controlConvergesToLabel);
+
+    ssize_t endForLabel = (*labelNum)++;
+
+    struct Ast *forBody = tree->child;
+    while (forBody->sibling != NULL)
+    {
+        forBody = forBody->sibling;
+    }
+    if (forBody->type == T_COMPOUND_STATEMENT)
+    {
+        walk_scope(forBody, forBlock, forScope, tacIndex, labelNum, endForLabel);
+    }
     else
     {
-        block = walkConditionCheck(tree->child, block, scope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+        walk_statement(forBody, &forBlock, forScope, tacIndex, labelNum, endForLabel);
+    }
 
-        struct Scope *ifScope = Scope_createSubScope(scope);
-        struct BasicBlock *ifBlock = BasicBlock_new((*labelNum)++);
-        Scope_addBasicBlock(ifScope, ifBlock);
+    struct BasicBlock *forActionBlock = basic_block_new(endForLabel);
+    scope_add_basic_block(forScope, forActionBlock);
 
-        struct TACLine *enterIfJump = newTACLine((*TACIndex)++, tt_jmp, tree);
-        enterIfJump->operands[0].name.val = ifBlock->labelNum;
-        BasicBlock_append(block, enterIfJump);
+    if (forAction != NULL)
+    {
+        walk_statement(forAction, &forActionBlock, forScope, tacIndex, labelNum, controlConvergesToLabel);
+    }
 
-        struct AST *ifBody = tree->child->sibling;
-        if (ifBody->type == t_compound_statement)
+    struct TACLine *forLoopJump = new_tac_line(TT_JMP, tree);
+    forLoopJump->operands.jump.label = enterForJump->operands.jump.label;
+
+    struct TACLine *forEndDo = new_tac_line(TT_ENDDO, tree);
+    basic_block_append(forActionBlock, forLoopJump, tacIndex);
+    basic_block_append(forActionBlock, forEndDo, tacIndex);
+}
+
+ssize_t walk_match_case_block(struct Ast *statement,
+                              struct BasicBlock *caseBlock,
+                              struct Scope *scope,
+                              size_t *tacIndex,
+                              ssize_t *labelNum,
+                              ssize_t controlConvergesToLabel)
+{
+    ssize_t caseEntryLabel = caseBlock->labelNum;
+
+    if (statement != NULL)
+    {
+        switch (statement->type)
         {
-            walkScope(ifBody, ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+            // don't need to actually do a walk_scope to create our own new scope
+            // it will have been created for us in the caller
+        case T_COMPOUND_STATEMENT:
+        {
+            struct Ast *caseStatementRunner = statement->child;
+            while (caseStatementRunner != NULL)
+            {
+                walk_statement(caseStatementRunner, &caseBlock, scope, tacIndex, labelNum, controlConvergesToLabel);
+                caseStatementRunner = caseStatementRunner->sibling;
+            }
+        }
+        break;
+
+        default:
+        {
+            walk_statement(statement, &caseBlock, scope, tacIndex, labelNum, controlConvergesToLabel);
+        }
+        }
+    }
+
+    // make sure every case ends up at the convergence block after the match
+    struct TACLine *exitCaseJump = new_tac_line(TT_JMP, statement);
+    exitCaseJump->operands.jump.label = controlConvergesToLabel;
+    basic_block_append(caseBlock, exitCaseJump, tacIndex);
+
+    return caseEntryLabel;
+}
+
+void check_match_cases(struct Ast *matchTree, struct Type *matchedType, struct EnumDesc *matchedEnum, Set *matchedValues)
+{
+    size_t stateSpaceSize = 0;
+    switch (matchedType->basicType)
+    {
+    case VT_U8:
+        stateSpaceSize = U8_MAX + 1;
+        break;
+    case VT_U16:
+        stateSpaceSize = U16_MAX + 1;
+        break;
+    case VT_U32:
+        stateSpaceSize = U32_MAX + 1;
+        break;
+    case VT_U64:
+        // realistically there is never a worry about overflow unless someone manually writes every single match case for u64
+        log_tree(LOG_FATAL, matchTree, "There is no conceivable way you wrote U64_MAX match cases for this match against a u64. Something is broken.");
+        break;
+    case VT_ENUM:
+    case VT_SELF:
+        stateSpaceSize = matchedEnum->members->size;
+        break;
+    case VT_ANY:
+        break;
+    case VT_NULL:
+        InternalError("VT_NULL seen as type of matched expression");
+    case VT_STRUCT:
+        InternalError("VT_STRUCT seen as type of matched expression");
+    case VT_ARRAY:
+        InternalError("VT_STRUCT seen as type of matched expression");
+    case VT_GENERIC_PARAM:
+        InternalError("VT_GENERIC_PARAM seen as type of matched expression");
+        InternalError("VT_SELF seen as type of matched expression");
+    }
+
+    size_t missingCases = matchedValues->size - stateSpaceSize;
+
+    if (missingCases > 0)
+    {
+        char *pluralString = "";
+        if (missingCases > 1)
+        {
+            pluralString = "s";
+        }
+        log_tree(LOG_FATAL, matchTree, "Missing %zu match case%s for type %s", stateSpaceSize - matchedValues->size, pluralString, type_get_name(matchedType));
+    }
+}
+
+void walk_enum_match_arm(struct Ast *matchedValueTree,
+                         struct BasicBlock *block,
+                         struct Scope *scope,
+                         size_t *tacIndex,
+                         ssize_t *labelNum,
+                         ssize_t controlConvergesToLabel,
+                         struct Ast *actionTree,
+                         bool *haveUnderscoreCase,
+                         struct Ast **underscoreAction,
+                         struct TACOperand *matchedAgainstEnum,
+                         struct TACOperand *matchedAgainstNumerical,
+                         struct EnumDesc *matchedEnum,
+                         Set *matchedValues)
+{
+    // only allow underscore or identifier trees
+    switch (matchedValueTree->type)
+    {
+    case T_UNDERSCORE:
+        if (*haveUnderscoreCase)
+        {
+            log_tree(LOG_FATAL, matchedValueTree, "Duplicated underscore case");
+        }
+        *haveUnderscoreCase = true;
+        *underscoreAction = actionTree;
+        break;
+
+    case T_IDENTIFIER:
+    {
+        struct EnumMember *matchedMember = enum_lookup_member(matchedEnum, matchedValueTree);
+
+        if (set_find(matchedValues, &matchedMember->numerical) != NULL)
+        {
+            log_tree(LOG_FATAL, matchedValueTree, "Duplicated match case %s", matchedValueTree->value);
+        }
+
+        size_t *matchedValuePointer = malloc(sizeof(size_t));
+        *matchedValuePointer = matchedMember->numerical;
+        set_insert(matchedValues, matchedValuePointer);
+
+        struct TACLine *matchJump = new_tac_line(TT_BEQ, matchedValueTree);
+
+        matchJump->operands.conditionalBranch.sourceA.name.val = *matchedValuePointer;
+        matchJump->operands.conditionalBranch.sourceA.castAsType = *tac_operand_get_type(matchedAgainstNumerical);
+        matchJump->operands.conditionalBranch.sourceA.permutation = VP_LITERAL_VAL;
+
+        matchJump->operands.conditionalBranch.sourceB = *matchedAgainstNumerical;
+        matchJump->operands.conditionalBranch.sourceB.castAsType.basicType = VT_U64; // TODO: size_t definition?
+
+        basic_block_append(block, matchJump, tacIndex);
+
+        struct Scope *armScope = scope_create_sub_scope(scope);
+
+        struct BasicBlock *caseBlock = basic_block_new((*labelNum)++);
+
+        // if we are mapping the type tagged as this enum/union member to an identifier
+        if (matchedValueTree->child != NULL)
+        {
+            struct Ast *matchedDataName = matchedValueTree->child;
+
+            // make sure we actually expect to map to some type for this member
+            if (matchedMember->type.basicType == VT_NULL)
+            {
+                log_tree(LOG_FATAL, matchedDataName, "Attempt to map data in enum %s member %s to identifier %s, but member %s has no associated data", matchedEnum->name,
+                         matchedMember->name,
+                         matchedDataName->value,
+                         matchedMember->name);
+            }
+
+            struct VariableEntry *dataVariable = scope_create_variable(armScope, matchedDataName, &matchedMember->type, false, A_PUBLIC);
+
+            struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(matchedDataName, caseBlock, armScope, tacIndex, matchedAgainstEnum);
+            struct TACLine *compAddrOfEnumData = new_tac_line(TT_ADD, matchedDataName);
+            compAddrOfEnumData->operands.arithmetic.sourceA = *addrOfMatchedAgainst;
+
+            // the actual data of the enum is at base + sizeof(size_t), so compute that address
+            compAddrOfEnumData->operands.arithmetic.sourceB.name.val = sizeof(size_t);
+            compAddrOfEnumData->operands.arithmetic.sourceB.permutation = VP_LITERAL_VAL;
+            compAddrOfEnumData->operands.arithmetic.sourceB.castAsType.basicType = select_variable_type_for_number(sizeof(size_t));
+
+            tac_operand_populate_as_temp(armScope, &compAddrOfEnumData->operands.arithmetic.destination, tac_operand_get_type(&compAddrOfEnumData->operands.arithmetic.sourceA));
+            basic_block_append(caseBlock, compAddrOfEnumData, tacIndex);
+
+            // then, do the actual load from the computed address to the temporary
+            struct TACLine *dataExtractionLine = new_tac_line(TT_LOAD, matchedDataName);
+            tac_operand_populate_from_variable(&dataExtractionLine->operands.load.destination, dataVariable);
+
+            dataExtractionLine->operands.load.address = compAddrOfEnumData->operands.addrof.destination;
+            dataExtractionLine->operands.load.address.castAsType = matchedMember->type;
+            dataExtractionLine->operands.load.address.castAsType.pointerLevel++;
+
+            basic_block_append(caseBlock, dataExtractionLine, tacIndex);
+        }
+        scope_add_basic_block(armScope, caseBlock);
+        matchJump->operands.conditionalBranch.label = walk_match_case_block(actionTree, caseBlock, armScope, tacIndex, labelNum, controlConvergesToLabel);
+    }
+    break;
+
+    default:
+        log_tree(LOG_FATAL, matchedValueTree, "Match against %s invalid for match against enum %s", matchedValueTree->value, matchedEnum->name);
+        break;
+    }
+}
+
+void walk_non_enum_match_arm(struct Ast *matchedValueTree,
+                             struct BasicBlock *block,
+                             struct Scope *scope,
+                             size_t *tacIndex,
+                             ssize_t *labelNum,
+                             ssize_t controlConvergesToLabel,
+                             struct Ast *actionTree,
+                             bool *haveUnderscoreCase,
+                             struct Ast **underscoreAction,
+                             struct TACOperand *matchedAgainstEnum,
+                             struct TACOperand *matchedAgainstNumerical,
+                             struct Type *matchedType,
+                             Set *matchedValues)
+{
+    // only allow underscore or constant trees
+    switch (matchedValueTree->type)
+    {
+    case T_UNDERSCORE:
+        if (*haveUnderscoreCase)
+        {
+            log_tree(LOG_FATAL, matchedValueTree, "Duplicated underscore case");
+        }
+        *haveUnderscoreCase = true;
+        *underscoreAction = actionTree;
+        break;
+
+    case T_CONSTANT:
+    case T_CHAR_LITERAL:
+    {
+        size_t matchedValue;
+        if (matchedValueTree->type == T_CHAR_LITERAL)
+        {
+            matchedValue = (size_t)matchedValueTree->value[0];
+        }
+
+        else
+        {
+            if (strncmp(matchedValueTree->value, "0x", 2) == 0)
+            {
+                matchedValue = parse_hex_constant(matchedValueTree->value);
+            }
+            else
+            {
+                // TODO: abstract this
+                matchedValue = atoi(matchedValueTree->value);
+            }
+        }
+
+        if (set_find(matchedValues, &matchedValue) != NULL)
+        {
+            log_tree(LOG_FATAL, matchedValueTree, "Duplicated match case %s", matchedValueTree->value);
+        }
+
+        size_t *matchedValuePointer = malloc(sizeof(size_t));
+        *matchedValuePointer = matchedValue;
+        set_insert(matchedValues, matchedValuePointer);
+
+        struct TACLine *matchJump = new_tac_line(TT_BEQ, matchedValueTree);
+
+        // TODO: tac_operand_populate_as_literal
+        matchJump->operands.conditionalBranch.sourceA.permutation = VP_LITERAL_VAL;
+        matchJump->operands.conditionalBranch.sourceA.name.val = matchedValue;
+        matchJump->operands.conditionalBranch.sourceA.castAsType = *tac_operand_get_type(matchedAgainstNumerical);
+
+        matchJump->operands.conditionalBranch.sourceB = *matchedAgainstNumerical;
+
+        basic_block_append(block, matchJump, tacIndex);
+
+        struct BasicBlock *caseBlock = basic_block_new((*labelNum)++);
+        scope_add_basic_block(scope, caseBlock);
+        matchJump->operands.conditionalBranch.label = walk_match_case_block(actionTree, caseBlock, scope, tacIndex, labelNum, controlConvergesToLabel);
+    }
+    break;
+
+    case T_IDENTIFIER:
+        log_tree(LOG_FATAL, matchedValueTree, "Match against identifier %s invalid for match against type %s", matchedValueTree->value, type_get_name(matchedType));
+        break;
+
+    default:
+        log_tree(LOG_FATAL, matchedValueTree, "Malformed AST (%s) seen in cases of match statement!", token_get_name(matchedValueTree->type));
+    }
+}
+
+void walk_match_statement(struct Ast *tree,
+                          struct BasicBlock *block,
+                          struct Scope *scope,
+                          size_t *tacIndex,
+                          ssize_t *labelNum,
+                          ssize_t controlConvergesToLabel)
+{
+    log_tree(LOG_DEBUG, tree, "walk_match_statement");
+
+    if (tree->type != T_MATCH)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_match_statement!", token_get_name(tree->type));
+    }
+
+    struct Ast *matchedExpression = tree->child;
+
+    struct Ast *matchRunner = matchedExpression->sibling;
+
+    Set *matchedValues = set_new(free, sizet_pointer_compare);
+
+    struct TACOperand matchedAgainst = {0};
+    walk_sub_expression(matchedExpression, block, scope, tacIndex, &matchedAgainst);
+
+    size_t maxExitTacIndex = *tacIndex;
+
+    struct TACOperand matchedAgainstNumerical;
+    // if matching against an enum, we need to do some manipulation to extract the actual numerical value associated with the enum
+    if (type_is_enum_object(tac_operand_get_type(&matchedAgainst)))
+    {
+        struct TACOperand *addrOfMatchedAgainst = get_addr_of_operand(tree, block, scope, tacIndex, &matchedAgainst);
+        addrOfMatchedAgainst->castAsType.basicType = VT_U64; // TODO: size_t define
+        addrOfMatchedAgainst->castAsType.pointerLevel = 1;
+
+        struct TACLine *loadMatchedAgainst = new_tac_line(TT_LOAD, tree);
+
+        loadMatchedAgainst->operands.load.address = *addrOfMatchedAgainst;
+
+        struct Type matchedAgainstType = type_duplicate_non_pointer(tac_operand_get_type(addrOfMatchedAgainst));
+        matchedAgainstType.pointerLevel--;
+        tac_operand_populate_as_temp(scope, &loadMatchedAgainst->operands.load.destination, &matchedAgainstType);
+        matchedAgainstNumerical = loadMatchedAgainst->operands.load.destination;
+        basic_block_append(block, loadMatchedAgainst, tacIndex);
+    }
+    else // not matching against an enum, so just cast to a size_t
+    {
+        matchedAgainstNumerical = matchedAgainst;
+        matchedAgainstNumerical.castAsType.basicType = VT_U64; // TODO: size_t define
+        matchedAgainstNumerical.castAsType.pointerLevel = 0;
+    }
+
+    struct Type *matchedType = tac_operand_get_type(&matchedAgainst);
+
+    if (matchedType->pointerLevel > 0)
+    {
+        log_tree(LOG_FATAL, tree, "Match against pointer type (%s) forbidden!", type_get_name(matchedType));
+    }
+
+    if (type_is_struct_object(matchedType))
+    {
+        // not in an impl block
+        if ((scope->parentFunction->implementedFor == NULL) ||
+            // AND not matching a t_self when the type for which we are implementing is an enum
+            ((matchedType->basicType == VT_SELF) && (scope->parentFunction->implementedFor->permutation != TP_ENUM)))
+        {
+            log_tree(LOG_FATAL, tree, "Match against struct type (%s) forbidden!", type_get_name(matchedType));
+        }
+    }
+
+    struct EnumDesc *matchedEnum = NULL;
+    if (matchedType->basicType == VT_ENUM)
+    {
+        matchedEnum = scope_lookup_enum_by_type(scope, matchedType);
+    }
+    else if (matchedType->basicType == VT_SELF)
+    {
+        matchedEnum = scope->parentFunction->implementedFor->data.asEnum;
+    }
+
+    if (matchedType->pointerLevel == 0)
+    {
+        switch (matchedType->basicType)
+        {
+        case VT_STRUCT:
+        case VT_ARRAY:
+            log_tree(LOG_FATAL, matchedExpression, "Matched expression has struct type %s - can't match structs or arrays", type_get_name(matchedType));
+            break;
+
+        case VT_ANY:
+        case VT_NULL:
+        case VT_GENERIC_PARAM:
+            InternalError("Illegal type %s seen from matched expresssion linearization", type_get_name(matchedType));
+            break;
+
+        case VT_U8:
+        case VT_U16:
+        case VT_U32:
+        case VT_U64:
+        case VT_ENUM:
+        case VT_SELF:
+            break;
+        }
+    }
+
+    // need a flag because in the event that the underscore case is an empty statement (semicolon) there will be no tree
+    bool haveUnderscoreCase = false;
+    struct Ast *underscoreAction = NULL;
+
+    while (matchRunner != NULL)
+    {
+        // match arms may resolve to empty statements, which will have no associated AST.
+        // if there is an actual tree associated with this match arm, track it
+        struct Ast *matchArmAction = NULL;
+        if (matchRunner->child->child != NULL)
+        {
+            matchArmAction = matchRunner->child->child;
+        }
+
+        // TODO: only linearize each match arm action once instead of in each call to walk_*_match_arm
+        struct Ast *matchedValueRunner = matchRunner->child->sibling;
+
+        // for each case matched
+        while (matchedValueRunner != NULL)
+        {
+            (*tacIndex) += 1;
+            size_t armTacIndex = *tacIndex;
+            // if we are matching against an enum
+            if ((matchedType->basicType == VT_ENUM) || (matchedType->basicType == VT_SELF))
+            {
+                walk_enum_match_arm(matchedValueRunner,
+                                    block,
+                                    scope,
+                                    &armTacIndex,
+                                    labelNum,
+                                    controlConvergesToLabel,
+                                    matchArmAction,
+                                    &haveUnderscoreCase,
+                                    &underscoreAction,
+                                    &matchedAgainst,
+                                    &matchedAgainstNumerical,
+                                    matchedEnum,
+                                    matchedValues);
+            }
+            else // not matching against an enum
+            {
+                walk_non_enum_match_arm(matchedValueRunner,
+                                        block,
+                                        scope,
+                                        &armTacIndex,
+                                        labelNum,
+                                        controlConvergesToLabel,
+                                        matchArmAction,
+                                        &haveUnderscoreCase,
+                                        &underscoreAction,
+                                        &matchedAgainst,
+                                        &matchedAgainstNumerical,
+                                        matchedType,
+                                        matchedValues);
+            }
+
+            maxExitTacIndex = MAX(maxExitTacIndex, armTacIndex);
+            matchedValueRunner = matchedValueRunner->sibling;
+        }
+        matchRunner = matchRunner->sibling;
+    }
+
+    // if there is a catch-all underscore, fall through to its block at the very end of all our comparisons
+    if (haveUnderscoreCase)
+    {
+        struct TACLine *underscoreJump = NULL;
+        if (underscoreAction != NULL)
+        {
+            underscoreJump = new_tac_line(TT_JMP, underscoreAction);
+            struct BasicBlock *caseBlock = basic_block_new((*labelNum)++);
+            scope_add_basic_block(scope, caseBlock);
+            size_t underscoreTacIndex = (*tacIndex + 1);
+            underscoreJump->operands.jump.label = walk_match_case_block(underscoreAction, caseBlock, scope, &underscoreTacIndex, labelNum, controlConvergesToLabel);
+            maxExitTacIndex = MAX(maxExitTacIndex, underscoreTacIndex);
         }
         else
         {
-            walkStatement(ifBody, &ifBlock, ifScope, TACIndex, tempNum, labelNum, controlConvergesToLabel);
+            underscoreJump = new_tac_line(TT_JMP, tree);
+            underscoreJump->operands.jump.label = controlConvergesToLabel;
         }
+        basic_block_append(block, underscoreJump, tacIndex);
+    }
+    // no catch-all underscore, make sure that all possible cases are enumerated
+    else
+    {
+        check_match_cases(tree, matchedType, matchedEnum, matchedValues);
+    }
+
+    struct TACLine *matchDoneJump = new_tac_line(TT_JMP, tree);
+    matchDoneJump->operands.jump.label = controlConvergesToLabel;
+    basic_block_append(block, matchDoneJump, tacIndex);
+
+    // reconcile tac index, remember that we may have had more branching operations than tac lines in any given match arm so the actual tacIndex itself may be the max
+    *tacIndex = MAX(*tacIndex, maxExitTacIndex);
+
+    set_free(matchedValues);
+}
+
+void check_assignment_operand_types(struct Ast *tree,
+                                    struct Type *sourceType,
+                                    struct Type *destType)
+{
+    if (type_compare_allow_implicit_widening(sourceType, destType))
+    {
+        log_tree(LOG_FATAL, tree, "Assignment from type %s to type %s is not allowed!", type_get_name(sourceType), type_get_name(destType));
     }
 }
 
-void walkDotOperatorAssignment(struct AST *tree,
-                               struct BasicBlock *block,
-                               struct Scope *scope,
-                               size_t *TACIndex,
-                               size_t *tempNum,
-                               struct TACLine *wipAssignment,
-                               struct TACOperand *assignedValue)
+void walk_assignment(struct Ast *tree,
+                     struct BasicBlock *block,
+                     struct Scope *scope,
+                     size_t *tacIndex)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_assignment");
+
+    if (tree->type != T_ASSIGN)
     {
-        printf("walkDotOperatorAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_assignment!", token_get_name(tree->type));
     }
 
-    if (tree->type != t_dot)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDotOperatorAssignment!\n", getTokenName(tree->type));
-    }
-
-    struct AST *class = tree->child;
-    // the RHS is what member we are accessing
-    struct AST *member = tree->child->sibling;
-
-    if (member->type != t_identifier)
-    {
-        ErrorWithAST(ERROR_CODE, member, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", tree->value, getTokenName(tree->type));
-    }
-
-    wipAssignment->operation = tt_store_off;
-    switch (class->type)
-    {
-
-    case t_dereference:
-        ErrorWithAST(ERROR_CODE, class, "Use of the dot operator assignment on dereferenced values is not supported\nAssign using object->member instead of (*object).member\n");
-
-    case t_array_index:
-    {
-        // let walkArrayRef do the heavy lifting for us
-        struct TACLine *arrayRefToDot = walkArrayRef(class, block, scope, TACIndex, tempNum);
-
-        // before we convert our array ref to an LEA to get the address of the class we're dotting, check to make sure everything is good
-        struct Type nonDecayedType = *TAC_GetTypeOfOperand(arrayRefToDot, 1);
-        nonDecayedType.arraySize = 0;
-        checkAccessedClassForDot(tree, scope, &nonDecayedType);
-
-        // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
-        convertArrayRefLoadToLea(arrayRefToDot);
-
-        // copy the TAC operand containing the address on which we will dot
-        copyTACOperandDecayArrays(&wipAssignment->operands[0], &arrayRefToDot->operands[0]);
-    }
-    break;
-
-    case t_identifier:
-    {
-        // construct a TAC line responsible for figuring out the address of what we're dotting since it's not a pointer already
-        struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
-        getAddressForDot->operands[0].permutation = vp_temp;
-        getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-
-        // walk the LHS of the dot operator using walkSubExpression
-        walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
-
-        // look up the identifier by name, make sure it's not a pointer (ensure a dot operator is valid on it)
-        checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
-
-        // copy the operand from [1] to [0] for the implicit address-of, incrementing the indirection level
-        copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
-        TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
-
-        // assign TAC index and append the address-of before the actual assignment
-        getAddressForDot->index = (*TACIndex)++;
-        BasicBlock_append(block, getAddressForDot);
-
-        // copy the TAC operands for the direct part of the assignment
-        copyTACOperandDecayArrays(&wipAssignment->operands[0], &getAddressForDot->operands[0]);
-    }
-    break;
-
-    case t_arrow:
-    case t_dot:
-    {
-        struct TACLine *memberAccess = walkMemberAccess(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0], 0);
-        struct Type *readType = TAC_GetTypeOfOperand(memberAccess, 0);
-        checkAccessedClassForDot(class, scope, readType);
-
-        // if our arrow or dot operator results in getting a full class instead of a pointer
-        if ((readType->basicType == vt_class) &&
-            ((readType->indirectionLevel == 0) &&
-             (readType->arraySize == 0)))
-        {
-            // retroatcively convert the read to an LEA so we have the address we're about to write to
-            memberAccess->operation = tt_lea_off;
-            TAC_GetTypeOfOperand(memberAccess, 0)->indirectionLevel++;
-            TAC_GetTypeOfOperand(memberAccess, 1)->indirectionLevel++;
-            TAC_GetTypeOfOperand(wipAssignment, 0)->indirectionLevel++;
-        }
-    }
-    break;
-
-    default:
-        ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operator only!\n", class->value, getTokenName(class->type));
-    }
-
-    // check to see that what we expect to treat as our class pointer is actually a class
-    struct ClassEntry *writtenClass = lookupClassByType(scope, TAC_GetTypeOfOperand(wipAssignment, 0));
-
-    struct ClassMemberOffset *accessedMember = lookupMemberVariable(writtenClass, member);
-
-    wipAssignment->operands[1].type.basicType = vt_u32;
-    wipAssignment->operands[1].permutation = vp_literal;
-    wipAssignment->operands[1].name.val = accessedMember->offset;
-
-    wipAssignment->operands[2] = *assignedValue;
-
-    // cast the class pointer to the type we are actually reading out of the class
-    wipAssignment->operands[0].castAsType = accessedMember->variable->type;
-}
-
-void walkArrowOperatorAssignment(struct AST *tree,
-                                 struct BasicBlock *block,
-                                 struct Scope *scope,
-                                 size_t *TACIndex,
-                                 size_t *tempNum,
-                                 struct TACLine *wipAssignment,
-                                 struct TACOperand *assignedValue)
-{
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkArrowOperatorAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
-
-    if (tree->type != t_arrow)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkArrowOperatorAssignment!\n", getTokenName(tree->type));
-    }
-
-    struct AST *class = tree->child;
-    // the RHS is what member we are accessing
-    struct AST *member = tree->child->sibling;
-
-    if (member->type != t_identifier)
-    {
-        ErrorAndExit(ERROR_CODE, "Expected identifier on RHS of dot operator, got %s (%s) instead!\n", tree->value, getTokenName(tree->type));
-    }
-
-    wipAssignment->operation = tt_store_off;
-    switch (class->type)
-    {
-    case t_array_index:
-    {
-        // let walkArrayRef do the heavy lifting for us
-        struct TACLine *arrayRefToArrow = walkArrayRef(class, block, scope, TACIndex, tempNum);
-
-        // before we convert our array ref to an LEA to get the address of the class we're dotting, check to make sure everything is good
-        struct Type nonDecayedType = *TAC_GetTypeOfOperand(arrayRefToArrow, 1);
-        nonDecayedType.arraySize = 0;
-        checkAccessedClassForArrow(tree, scope, &nonDecayedType);
-
-        // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
-        convertArrayRefLoadToLea(arrayRefToArrow);
-
-        // copy the TAC operand containing the address on which we will dot
-        copyTACOperandDecayArrays(&wipAssignment->operands[0], &arrayRefToArrow->operands[0]);
-    }
-    break;
-
-    case t_identifier:
-    {
-        walkSubExpression(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0]);
-        struct VariableEntry *classVariable = lookupVar(scope, class);
-
-        checkAccessedClassForArrow(class, scope, &classVariable->type);
-    }
-    break;
-
-    // nothing special to do for these, just treat as subexpression and check the ultimate type of the subexpression to ensure we can actually arrow it
-    case t_dereference:
-    case t_function_call:
-    {
-        walkSubExpression(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0]);
-
-        checkAccessedClassForArrow(class, scope, TAC_GetTypeOfOperand(wipAssignment, 0));
-    }
-    break;
-
-    case t_arrow:
-    case t_dot:
-    {
-        struct TACLine *memberAccess = walkMemberAccess(class, block, scope, TACIndex, tempNum, &wipAssignment->operands[0], 0);
-        struct Type *readType = TAC_GetTypeOfOperand(memberAccess, 0);
-
-        if ((readType->indirectionLevel != 1))
-        {
-            char *typeName = Type_GetName(readType);
-            ErrorWithAST(ERROR_CODE, class, "Can't use dot operator on non-indirect type %s\n", typeName);
-        }
-
-        checkAccessedClassForArrow(class, scope, readType);
-
-        // if our arrow or dot operator results in getting a full class instead of a pointer
-        if ((readType->basicType == vt_class) &&
-            ((readType->indirectionLevel == 0) &&
-             (readType->arraySize == 0)))
-        {
-            // retroatcively convert the read to an LEA so we have the address we're about to write to
-            memberAccess->operation = tt_lea_off;
-            TAC_GetTypeOfOperand(memberAccess, 0)->indirectionLevel++;
-            TAC_GetTypeOfOperand(memberAccess, 1)->indirectionLevel++;
-            TAC_GetTypeOfOperand(wipAssignment, 0)->indirectionLevel++;
-        }
-    }
-    break;
-
-    default:
-        ErrorAndExit(ERROR_CODE, "Unecpected token %s (%s) seen on LHS of dot operator which itself is LHS of assignment!\n\tExpected identifier, dot operator, or arrow operator only!\n", class->value, getTokenName(class->type));
-    }
-
-    // check to see that what we expect to treat as our class pointer is actually a class
-    struct ClassEntry *writtenClass = lookupClassByType(scope, TAC_GetTypeOfOperand(wipAssignment, 0));
-
-    struct ClassMemberOffset *accessedMember = lookupMemberVariable(writtenClass, member);
-
-    wipAssignment->operands[1].type.basicType = vt_u32;
-    wipAssignment->operands[1].permutation = vp_literal;
-    wipAssignment->operands[1].name.val = accessedMember->offset;
-
-    wipAssignment->operands[2] = *assignedValue;
-
-    // cast the class pointer to the type we are actually reading out of the class
-    wipAssignment->operands[0].castAsType = accessedMember->variable->type;
-}
-
-void walkAssignment(struct AST *tree,
-                    struct BasicBlock *block,
-                    struct Scope *scope,
-                    size_t *TACIndex,
-                    size_t *tempNum)
-{
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
-
-    if (tree->type != t_assign)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkAssignment!\n", getTokenName(tree->type));
-    }
-
-    struct AST *lhs = tree->child;
-    struct AST *rhs = tree->child->sibling;
+    struct Ast *lhs = tree->child;
+    struct Ast *rhs = tree->child->sibling;
 
     // don't increment the index until after we deal with nested expressions
-    struct TACLine *assignment = newTACLine((*TACIndex), tt_assign, tree);
+    struct TACLine *assignment = new_tac_line(TT_ASSIGN, tree);
 
-    struct TACOperand assignedValue;
-    memset(&assignedValue, 0, sizeof(struct TACOperand));
+    struct TACOperand assignedValue = {0};
 
-    // walk the RHS of the assignment as a subexpression and save the operand for later
-    walkSubExpression(rhs, block, scope, TACIndex, tempNum, &assignedValue);
+    // if we have anything but an initializer on the RHS, Walk it as a subexpression and save for later
+    if (rhs->type != T_INITIALIZER)
+    {
+        walk_sub_expression(rhs, block, scope, tacIndex, &assignedValue);
+    }
 
     struct VariableEntry *assignedVariable = NULL;
     switch (lhs->type)
     {
-    case t_variable_declaration:
-        assignedVariable = walkVariableDeclaration(lhs, block, scope, TACIndex, tempNum, 0);
-        populateTACOperandFromVariable(&assignment->operands[0], assignedVariable);
-        assignment->operands[1] = assignedValue;
+    case T_VARIABLE_DECLARATION:
+        assignedVariable = walk_variable_declaration(lhs, scope, tacIndex, 0);
+        tac_operand_populate_from_variable(&assignment->operands.assign.destination, assignedVariable);
+        assignment->operands.assign.source = assignedValue;
 
-        if (assignedVariable->type.arraySize > 0)
+        if (assignedVariable->type.basicType == VT_ARRAY)
         {
-            char *arrayName = Type_GetName(&assignedVariable->type);
-            ErrorWithAST(ERROR_CODE, tree, "Assignment to local array variable %s with type %s is not allowed!\n", assignedVariable->name, arrayName);
+            char *arrayName = type_get_name(&assignedVariable->type);
+            log_tree(LOG_FATAL, tree, "Assignment to local array variable %s with type %s is not allowed!", assignedVariable->name, arrayName);
         }
         break;
 
-    case t_identifier:
-        assignedVariable = lookupVar(scope, lhs);
-        populateTACOperandFromVariable(&assignment->operands[0], assignedVariable);
-        assignment->operands[1] = assignedValue;
+    case T_IDENTIFIER:
+        assignedVariable = scope_lookup_var(scope, lhs);
+        tac_operand_populate_from_variable(&assignment->operands.assign.destination, assignedVariable);
+        assignment->operands.assign.source = assignedValue;
         break;
 
     // TODO: generate optimized addressing modes for arithmetic
-    case t_dereference:
+    case T_DEREFERENCE:
     {
-        struct AST *writtenPointer = lhs->child;
+        struct Ast *writtenPointer = lhs->child;
+        assignment->operation = TT_STORE;
         switch (writtenPointer->type)
         {
-        case t_add:
-        case t_subtract:
-            walkPointerArithmetic(writtenPointer, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+        case T_ADD:
+        case T_SUBTRACT:
+            walk_pointer_arithmetic(writtenPointer, block, scope, tacIndex, &assignment->operands.store.address);
             break;
 
         default:
-            walkSubExpression(writtenPointer, block, scope, TACIndex, tempNum, &assignment->operands[0]);
+            walk_sub_expression(writtenPointer, block, scope, tacIndex, &assignment->operands.store.address);
             break;
         }
-        assignment->operation = tt_store;
-        assignment->operands[1] = assignedValue;
+        assignment->operands.store.source = assignedValue;
     }
     break;
 
-    case t_array_index:
+    case T_ARRAY_INDEX:
     {
-        struct AST *arrayBase = lhs->child;
-        struct AST *arrayIndex = lhs->child->sibling;
-        struct Type *arrayType = NULL;
-
-        assignment->operation = tt_store_arr;
-
-        // if our array is simply an identifier, do a standard lookup to find it
-        if (arrayBase->type == t_identifier)
+        assignment->operation = TT_ARRAY_STORE;
+        switch (lhs->child->type)
         {
-            struct VariableEntry *arrayVariable = lookupVar(scope, arrayBase);
-            arrayType = &arrayVariable->type;
-            if ((arrayType->indirectionLevel < 1) &&
-                (arrayType->arraySize == 0))
-            {
-                ErrorWithAST(ERROR_CODE, arrayBase, "Use of non-pointer variable %s as array!\n", arrayBase->value);
-            }
-            populateTACOperandFromVariable(&assignment->operands[0], arrayVariable);
-        }
-        // otherwise, our array base comes from some sort of subexpression
-        else
+        case T_DOT:
         {
-            walkSubExpression(arrayBase, block, scope, TACIndex, tempNum, &assignment->operands[0]);
-            arrayType = TAC_GetTypeOfOperand(assignment, 0);
-
-            if ((arrayType->indirectionLevel < 1) &&
-                (arrayType->arraySize == 0))
-            {
-                ErrorWithAST(ERROR_CODE, arrayBase, "Use of non-pointer expression as array!\n");
-            }
+            struct TACLine *arrayFieldAccess = walk_field_access(lhs->child, block, scope, tacIndex, &assignment->operands.arrayStore.array, 0);
+            convert_field_load_to_lea(arrayFieldAccess, &assignment->operands.arrayStore.array);
         }
-
-        assignment->operands[2].permutation = vp_literal;
-        assignment->operands[2].type.indirectionLevel = 0;
-        assignment->operands[2].type.basicType = vt_u8;
-        struct Type decayedType;
-        copyTypeDecayArrays(&decayedType, arrayType);
-        assignment->operands[2].name.val = alignSize(getSizeOfDereferencedType(scope, &decayedType));
-
-        walkSubExpression(arrayIndex, block, scope, TACIndex, tempNum, &assignment->operands[1]);
-
-        assignment->operands[3] = assignedValue;
-    }
-    break;
-
-    case t_dot:
-        walkDotOperatorAssignment(lhs, block, scope, TACIndex, tempNum, assignment, &assignedValue);
         break;
 
-    case t_arrow:
-        walkArrowOperatorAssignment(lhs, block, scope, TACIndex, tempNum, assignment, &assignedValue);
+        case T_ARRAY_INDEX:
+        {
+            struct TACLine *arrayArrayAccess = walk_array_read(lhs->child, block, scope, tacIndex);
+            convert_array_load_to_lea(arrayArrayAccess, &assignment->operands.arrayStore.array);
+        }
+        break;
+
+        default:
+        {
+            walk_sub_expression(lhs->child, block, scope, tacIndex, &assignment->operands.arrayStore.array);
+        }
+        }
+        walk_sub_expression(lhs->child->sibling, block, scope, tacIndex, &assignment->operands.arrayStore.index);
+        assignment->operands.arrayStore.source = assignedValue;
+    }
+    break;
+
+    case T_DOT:
+    {
+        assignment->operation = TT_FIELD_STORE;
+        if (lhs->child->type == T_DOT)
+        {
+            struct TACLine *dotRead = walk_field_access(lhs->child, block, scope, tacIndex, &assignment->operands.fieldStore.destination, 0);
+            convert_field_load_to_lea(dotRead, &assignment->operands.fieldStore.destination);
+        }
+        else
+        {
+            walk_sub_expression(lhs->child, block, scope, tacIndex, &assignment->operands.fieldStore.destination);
+        }
+        // TODO: more verbose error handling if the lhs->child subexpression is not a struct, or has wrong pointer level
+        struct StructDesc *writtenStruct = scope_lookup_struct_by_type_or_pointer(scope, tac_operand_get_type(&assignment->operands.fieldStore.destination));
+        struct StructField *writtenField = struct_lookup_field(writtenStruct, lhs->child->sibling, scope);
+        assignment->operands.fieldStore.fieldName = writtenField->variable->name;
+        assignment->operands.fieldStore.source = assignedValue;
+    }
+    break;
+
+    default:
+        log_tree(LOG_FATAL, lhs, "Unexpected AST (%s) seen in walk_assignment!", lhs->value);
+        break;
+    }
+
+    switch (assignment->operation)
+    {
+    case TT_ASSIGN:
+        if (rhs->type == T_INITIALIZER)
+        {
+            walk_initializer(rhs, block, scope, tacIndex, &assignment->operands.assign.destination);
+            free(assignment);
+            assignment = NULL;
+        }
+        else
+        {
+            check_assignment_operand_types(tree,
+                                           tac_operand_get_type(&assignment->operands.assign.source),
+                                           tac_operand_get_type(&assignment->operands.assign.destination));
+        }
+        break;
+
+    case TT_STORE:
+        if (rhs->type == T_INITIALIZER)
+        {
+            walk_initializer(rhs, block, scope, tacIndex, &assignment->operands.store.source);
+            free(assignment);
+            assignment = NULL;
+        }
+        else
+        {
+            struct Type ptrType = type_duplicate_non_pointer(tac_operand_get_type(&assignment->operands.store.address));
+            if (ptrType.pointerLevel > 0)
+            {
+                ptrType.pointerLevel--;
+            }
+            else
+            {
+                log_tree(LOG_FATAL, tree, "Non-pointer type %s seen in lhs of store operation!", type_get_name(&ptrType));
+            }
+
+            check_assignment_operand_types(tree,
+                                           tac_operand_get_type(&assignment->operands.store.source),
+                                           &ptrType);
+            type_deinit(&ptrType);
+        }
+        break;
+
+    case TT_ARRAY_STORE:
+        if (rhs->type == T_INITIALIZER)
+        {
+            walk_initializer(rhs, block, scope, tacIndex, &assignment->operands.arrayStore.source);
+            free(assignment);
+            assignment = NULL;
+        }
+        else
+        {
+            // if more deeply nested levels of linearization gave us a pointer to an array, this is valid in the TAC
+            // but the assignment type check will fail, so we need to strip down a pointer level from the array type
+            struct Type arrayType = type_duplicate_non_pointer(tac_operand_get_type(&assignment->operands.arrayStore.array));
+            if (arrayType.pointerLevel > 0)
+            {
+                arrayType.pointerLevel--;
+            }
+            check_assignment_operand_types(tree,
+                                           tac_operand_get_type(&assignment->operands.arrayStore.source),
+                                           &arrayType);
+            type_deinit(&arrayType);
+        }
+        break;
+
+    case TT_FIELD_STORE:
+        if (rhs->type == T_INITIALIZER)
+        {
+            walk_initializer(rhs, block, scope, tacIndex, &assignment->operands.fieldStore.source);
+            free(assignment);
+            assignment = NULL;
+        }
+        else
+        {
+            struct StructDesc *writtenStruct = scope_lookup_struct_by_type_or_pointer(scope, tac_operand_get_type(&assignment->operands.fieldStore.destination));
+            struct StructField *writtenField = struct_lookup_field(writtenStruct, lhs->child->sibling, scope);
+            check_assignment_operand_types(tree,
+                                           tac_operand_get_type(&assignment->operands.fieldStore.source),
+                                           &writtenField->variable->type);
+        }
         break;
 
     default:
-        ErrorWithAST(ERROR_INTERNAL, lhs, "Unexpected AST (%s) seen in walkAssignment!\n", lhs->value);
-        break;
+        log_tree(LOG_FATAL, tree, "Unexpected assignment operation (%s) seen in walk_assignment!", tac_operation_get_name(assignment->operation));
     }
 
     if (assignment != NULL)
     {
-        assignment->index = (*TACIndex)++;
-        BasicBlock_append(block, assignment);
+        basic_block_append(block, assignment, tacIndex);
     }
 }
 
-void walkArithmeticAssignment(struct AST *tree,
-                              struct BasicBlock *block,
-                              struct Scope *scope,
-                              size_t *TACIndex,
-                              size_t *tempNum)
+void walk_arithmetic_assignment(struct Ast *tree,
+                                struct BasicBlock *block,
+                                struct Scope *scope,
+                                size_t *tacIndex)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkArithmeticAssignment: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    log_tree(LOG_DEBUG, tree, "walk_arithmetic_assignment");
 
-    struct AST fakeArith = *tree;
+    struct Ast fakeArith = *tree;
     switch (tree->type)
     {
-    case t_plus_equals:
-        fakeArith.type = t_add;
+    case T_PLUS_EQUALS:
+        fakeArith.type = T_ADD;
         fakeArith.value = "+";
         break;
 
-    case t_minus_equals:
-        fakeArith.type = t_subtract;
+    case T_MINUS_EQUALS:
+        fakeArith.type = T_SUBTRACT;
         fakeArith.value = "-";
         break;
 
-    case t_times_equals:
-        fakeArith.type = t_multiply;
+    case T_TIMES_EQUALS:
+        fakeArith.type = T_MULTIPLY;
         fakeArith.value = "*";
         break;
 
-    case t_divide_equals:
-        fakeArith.type = t_divide;
+    case T_DIVIDE_EQUALS:
+        fakeArith.type = T_DIVIDE;
         fakeArith.value = "/";
         break;
 
-    case t_modulo_equals:
-        fakeArith.type = t_modulo;
+    case T_MODULO_EQUALS:
+        fakeArith.type = T_MODULO;
         fakeArith.value = "%";
         break;
 
-    case t_bitwise_and_equals:
-        fakeArith.type = t_bitwise_and;
+    case T_BITWISE_AND_EQUALS:
+        fakeArith.type = T_BITWISE_AND;
         fakeArith.value = "&";
         break;
 
-    case t_bitwise_or_equals:
-        fakeArith.type = t_bitwise_or;
+    case T_BITWISE_OR_EQUALS:
+        fakeArith.type = T_BITWISE_OR;
         fakeArith.value = "|";
         break;
 
-    case t_bitwise_xor_equals:
-        fakeArith.type = t_bitwise_xor;
+    case T_BITWISE_XOR_EQUALS:
+        fakeArith.type = T_BITWISE_XOR;
         fakeArith.value = "^";
         break;
 
-    case t_lshift_equals:
-        fakeArith.type = t_lshift;
+    case T_LSHIFT_EQUALS:
+        fakeArith.type = T_LSHIFT;
         fakeArith.value = "<<";
         break;
 
-    case t_rshift_equals:
-        fakeArith.type = t_rshift;
+    case T_RSHIFT_EQUALS:
+        fakeArith.type = T_RSHIFT;
         fakeArith.value = ">>";
         break;
 
     default:
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkArithmeticAssignment!\n", getTokenName(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_arithmetic_assignment!", token_get_name(tree->type));
     }
 
     // our fake arithmetic ast will have the child of the arithmetic assignment operator
     // this effectively duplicates the LHS of the assignment to the first operand of the arithmetic operator
-    struct AST *lhs = tree->child;
+    struct Ast *lhs = tree->child;
     fakeArith.child = lhs;
 
-    struct AST fakelhs = *lhs;
+    struct Ast fakelhs = *lhs;
     fakelhs.sibling = &fakeArith;
 
-    struct AST fakeAssignment = *tree;
+    struct Ast fakeAssignment = *tree;
     fakeAssignment.value = "=";
-    fakeAssignment.type = t_assign;
+    fakeAssignment.type = T_ASSIGN;
 
     fakeAssignment.child = &fakelhs;
 
-    walkAssignment(&fakeAssignment, block, scope, TACIndex, tempNum);
+    walk_assignment(&fakeAssignment, block, scope, tacIndex);
 }
 
-struct TACOperand *walkBitwiseNot(struct AST *tree,
-                                  struct BasicBlock *block,
-                                  struct Scope *scope,
-                                  size_t *TACIndex,
-                                  size_t *tempNum)
+struct TACOperand *walk_bitwise_not(struct Ast *tree,
+                                    struct BasicBlock *block,
+                                    struct Scope *scope,
+                                    size_t *tacIndex)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "WalkBitwiseNot");
+
+    if (tree->type != T_BITWISE_NOT)
     {
-        printf("walkBitwiseNot: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to WalkBitwiseNot!", token_get_name(tree->type));
     }
 
-    if (tree->type != t_bitwise_not)
+    // generically set to TT_ADD, we will actually set the operation within switch cases
+    struct TACLine *bitwiseNotLine = new_tac_line(TT_BITWISE_NOT, tree);
+
+    walk_sub_expression(tree->child, block, scope, tacIndex, &bitwiseNotLine->operands.arithmetic.sourceA);
+    tac_operand_populate_as_temp(scope, &bitwiseNotLine->operands.arithmetic.sourceA, tac_operand_get_type(&bitwiseNotLine->operands.arithmetic.sourceA));
+
+    struct Type *operandAType = tac_operand_get_type(&bitwiseNotLine->operands.arithmetic.sourceA);
+
+    // TODO: consistent bitwise arithmetic checking, print type name
+    if ((operandAType->pointerLevel > 0) || (operandAType->basicType == VT_ARRAY))
     {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkBitwiseNot!\n", getTokenName(tree->type));
+        log_tree(LOG_FATAL, tree, "Bitwise arithmetic on pointers is not allowed!");
     }
 
-    // generically set to tt_add, we will actually set the operation within switch cases
-    struct TACLine *bitwiseNotLine = newTACLine(*TACIndex, tt_bitwise_not, tree);
+    basic_block_append(block, bitwiseNotLine, tacIndex);
 
-    bitwiseNotLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-    bitwiseNotLine->operands[0].permutation = vp_temp;
-
-    walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &bitwiseNotLine->operands[1]);
-    copyTACOperandTypeDecayArrays(&bitwiseNotLine->operands[0], &bitwiseNotLine->operands[1]);
-
-    struct TACOperand *operandA = &bitwiseNotLine->operands[1];
-    if ((operandA->type.indirectionLevel > 0))
-    {
-        ErrorWithAST(ERROR_CODE, tree, "Bitwise arithmetic on pointers is not allowed!\n");
-    }
-
-    bitwiseNotLine->index = (*TACIndex)++;
-    BasicBlock_append(block, bitwiseNotLine);
-
-    return &bitwiseNotLine->operands[0];
+    return &bitwiseNotLine->operands.arithmetic.destination;
 }
 
-void walkSubExpression(struct AST *tree,
-                       struct BasicBlock *block,
-                       struct Scope *scope,
-                       size_t *TACIndex,
-                       size_t *tempNum,
-                       struct TACOperand *destinationOperand)
+void ensure_all_fields_initialized(struct Ast *tree, size_t initFieldIdx, struct StructDesc *initializedStruct)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    // TODO: fix direct data access of stack
+    // if all fields of the struct are not initialized, this is an error
+    if (initFieldIdx < initializedStruct->fieldLocations->size)
     {
-        printf("walkSubExpression: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        char *fieldsString = malloc(1);
+        fieldsString[0] = '\0';
+
+        // go through the remaining fields, construct a string with the type and name of all missing fields
+        while (initFieldIdx < initializedStruct->fieldLocations->size)
+        {
+            struct StructField *unInitField = deque_at(initializedStruct->fieldLocations, initFieldIdx);
+
+            char *unInitTypeName = type_get_name(&unInitField->variable->type);
+            size_t origLen = strlen(fieldsString);
+            size_t addlSize = strlen(unInitTypeName) + strlen(unInitField->variable->name) + 2;
+            char *separatorString = "";
+            if (initFieldIdx + 1 < initializedStruct->fieldLocations->size)
+            {
+                addlSize += 2;
+                separatorString = ", ";
+            }
+            char *longerFieldsString = realloc(fieldsString, origLen + addlSize);
+            if (longerFieldsString == NULL)
+            {
+                InternalError("Couldn't realloc fieldsString");
+            }
+            fieldsString = longerFieldsString;
+
+            sprintf(fieldsString + origLen, "%s %s%s", unInitTypeName, unInitField->variable->name, separatorString);
+            free(unInitTypeName);
+
+            initFieldIdx++;
+        }
+
+        log_tree(LOG_FATAL, tree, "Missing initializers for fields(s) of %s: %s", initializedStruct->name, fieldsString);
     }
+}
+
+void walk_struct_initializer(struct Ast *tree,
+                             struct BasicBlock *block,
+                             struct Scope *scope,
+                             size_t *tacIndex,
+                             struct TACOperand *initializedOperand,
+                             struct Type *initializedType,
+                             struct StructDesc *initializedStruct)
+{
+    size_t initFieldIdx = 0;
+    for (struct Ast *initRunner = tree; initRunner != NULL; initRunner = initRunner->sibling)
+    {
+        // sanity check initializer parse
+        if (initRunner->type != T_ASSIGN)
+        {
+            InternalError("Malformed AST seen inside struct initializer, expected T_ASSIGN, with first child as T_IDENTIFIER, got %s with first child as %s", token_get_name(initRunner->type));
+        }
+
+        struct Ast *initFieldTree = initRunner->child;
+        struct Ast *initToTree = initFieldTree->sibling;
+
+        if (initFieldTree->type != T_IDENTIFIER)
+        {
+            InternalError("Malformed AST for initializer, expected identifier on LHS but got %s", token_get_name(initFieldTree->type));
+        }
+
+        // first, attempt to look up the field by tree in order to throw an error in the case of a nonexistent one being referenced
+        struct StructField *initializedField = struct_lookup_field(initializedStruct, initFieldTree, scope);
+
+        // next, check the ordering index for the field we are expecting to initialize
+        struct StructField *expectedField = deque_at(initializedStruct->fieldLocations, initFieldIdx);
+        if ((initializedField->offset != expectedField->offset) || (strcmp(initializedField->variable->name, expectedField->variable->name) != 0))
+        {
+            log_tree(LOG_FATAL, initRunner, "Initializer element %zu of struct %s should be %s, not %s", initFieldIdx + 1, initializedStruct->name, expectedField->variable->name, initializedField->variable->name);
+        }
+
+        struct TACLine *fieldStore = new_tac_line(TT_FIELD_STORE, initRunner);
+        fieldStore->operands.fieldStore.destination = *initializedOperand;
+        fieldStore->operands.fieldStore.fieldName = initializedField->variable->name;
+
+        if (initToTree->type == T_INITIALIZER)
+        {
+            // we are initializing the field directly from its address, recurse
+            tac_operand_populate_as_temp(scope, &fieldStore->operands.fieldStore.source, &initializedField->variable->type);
+            walk_initializer(initToTree, block, scope, tacIndex, &fieldStore->operands.fieldStore.source);
+        }
+        else
+        {
+            walk_sub_expression(initToTree, block, scope, tacIndex, &fieldStore->operands.fieldStore.source);
+
+            // make sure the subexpression has a sane type to be stored in the field we are initializing
+            if (type_compare_allow_implicit_widening(tac_operand_get_type(&fieldStore->operands.fieldStore.source), &initializedField->variable->type))
+            {
+                log_tree(LOG_FATAL, initToTree, "Initializer expression for field %s.%s has type %s but expected type %s", initializedStruct->name, initializedField->variable->name, type_get_name(tac_operand_get_type(&fieldStore->operands.fieldStore.source)), type_get_name(&initializedField->variable->type));
+            }
+        }
+        basic_block_append(block, fieldStore, tacIndex);
+
+        initFieldIdx++;
+    }
+    ensure_all_fields_initialized(tree, initFieldIdx, initializedStruct);
+}
+
+void walk_enum_initializer(struct Ast *tree,
+                           struct Ast *initializerTree,
+                           struct BasicBlock *block,
+                           struct Scope *scope,
+                           size_t *tacIndex,
+                           struct TACOperand *initializedOperand,
+                           struct EnumMember *fromMember)
+{
+    struct Type *enumType = tac_operand_get_type(initializedOperand);
+    struct TypeEntry *enumTypeEntry = scope_lookup_type_remove_pointer(scope, enumType);
+    struct EnumDesc *fromEnum = enumTypeEntry->data.asEnum;
+
+    struct TACOperand *destAddr = initializedOperand;
+
+    // the first sizeof(size_t) bytes of this enum are the numerical index of the member with which we are dealing
+    struct TACLine *writeEnumNumericalLine = new_tac_line(TT_STORE, initializerTree);
+    writeEnumNumericalLine->operands.store.address = *destAddr;
+
+    writeEnumNumericalLine->operands.store.source.name.val = fromMember->numerical;
+    writeEnumNumericalLine->operands.store.source.castAsType.basicType = select_variable_type_for_number(fromMember->numerical); // TODO: define for size_t
+    writeEnumNumericalLine->operands.store.source.permutation = VP_LITERAL_VAL;
+
+    // treat our enum dest addr as actually a pointer to the numerical index of what member it is
+    writeEnumNumericalLine->operands.store.address.castAsType = *tac_operand_get_type(&writeEnumNumericalLine->operands.store.source);
+    writeEnumNumericalLine->operands.store.address.castAsType.pointerLevel++;
+    basic_block_append(block, writeEnumNumericalLine, tacIndex);
+
+    // if there is some sort of initializer for the data tagged to this enum member
+    if (tree != NULL)
+    {
+        // make sure that the enum member actually expects data
+        if (fromMember->type.basicType == VT_NULL)
+        {
+            log_tree(LOG_FATAL, initializerTree, "Attempt to populate data of enum %s member %s, which expects no data", fromEnum->name, fromMember->name);
+        }
+
+        // compute the address where the actual data lives in this enum object (base address + sizeof(size_t))
+        struct TACLine *enumDataAddrCompLine = new_tac_line(TT_ADD, initializerTree);
+
+        struct Type pointerToFromMemberType = fromMember->type;
+        pointerToFromMemberType.pointerLevel++;
+        tac_operand_populate_as_temp(scope, &enumDataAddrCompLine->operands.arithmetic.destination, &pointerToFromMemberType);
+
+        enumDataAddrCompLine->operands.arithmetic.sourceA = *destAddr;
+
+        enumDataAddrCompLine->operands.arithmetic.sourceB.permutation = VP_LITERAL_VAL;
+        enumDataAddrCompLine->operands.arithmetic.sourceB.name.val = sizeof(size_t);
+        enumDataAddrCompLine->operands.arithmetic.sourceB.castAsType.basicType = select_variable_type_for_number(sizeof(size_t));
+
+        basic_block_append(block, enumDataAddrCompLine, tacIndex);
+
+        if (type_is_struct_object(&fromMember->type))
+        {
+            // log_tree(LOG_FATAL, tree->child, "Cannot initialize struct object %s in enum %s member %s", type_get_name(&fromMember->type), fromEnum->name, fromMember->name);
+            struct StructDesc *fromStruct = scope_lookup_struct_by_type(scope, &fromMember->type);
+            walk_struct_initializer(tree, block, scope, tacIndex, &enumDataAddrCompLine->operands.arithmetic.destination, &fromMember->type, fromStruct);
+        }
+        else
+        {
+            struct TACLine *enumDataAssignLine = new_tac_line(TT_STORE, tree);
+            enumDataAssignLine->operands.store.address = enumDataAddrCompLine->operands.arithmetic.destination;
+            enumDataAssignLine->operands.store.address.castAsType = fromMember->type;
+            enumDataAssignLine->operands.store.address.castAsType.pointerLevel++;
+
+            walk_sub_expression(tree, block, scope, tacIndex, &enumDataAssignLine->operands.store.source);
+            struct Type *subExprDataType = tac_operand_get_type(&enumDataAssignLine->operands.store.source);
+
+            if (type_compare_allow_implicit_widening(subExprDataType, &fromMember->type))
+            {
+                log_tree(LOG_FATAL, tree, "Invalid assignment of data from enum %s member %s (expect type %s) to type %s",
+                         fromEnum->name,
+                         fromMember->name,
+                         type_get_name(&fromMember->type),
+                         type_get_name(subExprDataType));
+            }
+            basic_block_append(block, enumDataAssignLine, tacIndex);
+        }
+    }
+    else // no data tagged to this enum member
+    {
+        // make sure that the enum member doesn't expect any data, error otherwise
+        if (fromMember->type.basicType != VT_NULL)
+        {
+            log_tree(LOG_FATAL, initializerTree, "Unpopulated data of enum %s member %s, which expects data of type %s", fromEnum->name, fromMember->name, type_get_name(&fromMember->type));
+        }
+    }
+}
+
+void walk_initializer(struct Ast *tree,
+                      struct BasicBlock *block,
+                      struct Scope *scope,
+                      size_t *tacIndex,
+                      struct TACOperand *initialized)
+{
+    if (tree->type != T_INITIALIZER)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_initializer!", token_get_name(tree->type));
+    }
+
+    struct Ast *initializedTypeNameTree = tree->child;
+    struct Type initializedType = {0};
+
+    struct TypeEntry *implFor = NULL;
+    if (scope->parentFunction != NULL)
+    {
+        implFor = scope->parentFunction->implementedFor;
+    }
+
+    walk_type_name(initializedTypeNameTree, scope, &initializedType, implFor);
+    struct TypeEntry *initializedTypeEntry = scope_lookup_type(scope, &initializedType);
+
+    // make sure we initialize only a struct/enum or a * if we already know the type of what we should be initializing
+    if (tac_operand_get_type(initialized)->basicType != VT_NULL)
+    {
+        struct Type *intendedType = type_duplicate(tac_operand_get_type(initialized));
+        if (intendedType->basicType == VT_SELF)
+        {
+            intendedType->basicType = initializedTypeEntry->type.basicType;
+            intendedType->nonArray.complexType.name = initializedTypeEntry->baseName;
+            if (initializedTypeEntry->genericType == G_INSTANCE)
+            {
+                intendedType->nonArray.complexType.genericParams = initializedTypeEntry->generic.instance.parameters;
+            }
+        }
+
+        if (!type_is_struct_object(intendedType) && !((intendedType->basicType == VT_STRUCT) && (intendedType->pointerLevel == 1)) &&
+            !type_is_enum_object(intendedType) && !((intendedType->basicType == VT_ENUM) && (intendedType->pointerLevel == 1)))
+        {
+            log_tree(LOG_FATAL, tree, "Cannot use initializer type %s which is neither a struct or an enum", type_get_name(intendedType));
+        }
+
+        if (type_compare(&initializedTypeEntry->type, intendedType) != 0)
+        {
+            log_tree(LOG_FATAL, tree, "Initializer type for struct %s does not match declared type %s", type_get_name(&initializedTypeEntry->type), type_get_name(intendedType));
+        }
+        type_free(intendedType);
+    }
+    else
+    {
+        tac_operand_populate_as_temp(scope, initialized, &initializedTypeEntry->type);
+    }
+
+    // automagically get the address of whatever we are initializing if it is a regular struct
+    // TODO: test initializing pointers directly? Is this desirable behavior like allowing struct.field for both structs and struct*s or is this nonsense?
+    if (type_is_object(tac_operand_get_type(initialized)))
+    {
+        initialized = get_addr_of_operand(tree, block, scope, tacIndex, initialized);
+    }
+
+    switch (initializedTypeEntry->permutation)
+    {
+    case TP_PRIMITIVE:
+        log_tree(LOG_FATAL, tree, "Cannot initialize a primitive type");
+
+    case TP_STRUCT:
+    {
+        struct Ast *memberInitializers = tree->child->sibling;
+        walk_struct_initializer(memberInitializers, block, scope, tacIndex, initialized, &initializedType, initializedTypeEntry->data.asStruct);
+    }
+    break;
+
+    case TP_ENUM:
+    {
+        struct Ast *initializedMemberTree = initializedTypeNameTree->sibling;
+        struct Ast *memberInitializers = initializedMemberTree->sibling;
+        switch (initializedTypeNameTree->child->type)
+        {
+        case T_IDENTIFIER:
+        case T_CAP_SELF:
+        {
+            struct EnumMember *initializedMember = enum_lookup_member(initializedTypeEntry->data.asEnum, initializedMemberTree);
+
+            walk_enum_initializer(memberInitializers, tree, block, scope, tacIndex, initialized, initializedMember);
+        }
+        break;
+
+        case T_GENERIC_INSTANCE:
+        {
+            struct TypeEntry *rhsType = walk_type_name_or_generic_instantiation(scope, initializedTypeNameTree->child, NULL);
+
+            if (type_entry_compare(initializedTypeEntry, rhsType))
+            {
+                log_tree(LOG_FATAL, initializedTypeNameTree, "Initialized type %s doesn't match expected type %s", type_entry_name(initializedTypeEntry), type_entry_name(rhsType));
+            }
+
+            struct EnumMember *initializedMember = enum_lookup_member(initializedTypeEntry->data.asEnum, initializedMemberTree);
+            walk_enum_initializer(memberInitializers, tree, block, scope, tacIndex, initialized, initializedMember);
+        }
+        break;
+
+        default:
+            log_tree(LOG_FATAL, initializedTypeNameTree, "Expected identifier for enum type name, got %s", token_get_name(initializedTypeNameTree->child->type));
+        }
+    }
+    break;
+    }
+}
+
+void walk_sub_expression(struct Ast *tree,
+                         struct BasicBlock *block,
+                         struct Scope *scope,
+                         size_t *tacIndex,
+                         struct TACOperand *destinationOperand)
+{
+    log_tree(LOG_DEBUG, tree, "walk_sub_expression");
 
     switch (tree->type)
     {
         // variable read
-    case t_identifier:
+    case T_SELF:
     {
-        struct VariableEntry *readVariable = lookupVar(scope, tree);
-        populateTACOperandFromVariable(destinationOperand, readVariable);
+        struct VariableEntry *readVariable = scope_lookup_var(scope, tree);
+        tac_operand_populate_from_variable(destinationOperand, readVariable);
     }
     break;
 
-    case t_constant:
+    // identifier = variable name
+    case T_IDENTIFIER:
+    {
+        struct VariableEntry *readVariable = scope_lookup_var(scope, tree);
+        tac_operand_populate_from_variable(destinationOperand, readVariable);
+    }
+    break;
+
+    // FIXME: there exists some code path where we can reach this point with garbage in types, resulting in a crash when printing TAC operand types
+    case T_CONSTANT:
+        type_init(&destinationOperand->castAsType);
         destinationOperand->name.str = tree->value;
-        destinationOperand->type.basicType = selectVariableTypeForLiteral(tree->value);
-        destinationOperand->permutation = vp_literal;
+        destinationOperand->castAsType.basicType = select_variable_type_for_literal(tree->value);
+        destinationOperand->permutation = VP_LITERAL_STR;
         break;
 
-    case t_char_literal:
+    case T_CHAR_LITERAL:
     {
         size_t literalLen = strlen(tree->value);
         char literalAsNumber[sprintedNumberLength];
@@ -1549,7 +2926,7 @@ void walkSubExpression(struct AST *tree,
         {
             if (tree->value[0] != '\\')
             {
-                ErrorWithAST(ERROR_INTERNAL, tree, "Saw t_char_literal with escape character value of %s - expected first char to be \\!\n", tree->value);
+                log_tree(LOG_FATAL, tree, "Saw T_CHAR_LITERAL with escape character value of %s - expected first char to be \\!", tree->value);
             }
 
             char escapeCharValue = 0;
@@ -1589,1014 +2966,1253 @@ void walkSubExpression(struct AST *tree,
                 break;
 
             default:
-                ErrorWithAST(ERROR_CODE, tree, "Unexpected escape character: %s\n", tree->value);
+                log_tree(LOG_FATAL, tree, "Unexpected escape character: %s", tree->value);
             }
 
             sprintf(literalAsNumber, "%d", escapeCharValue);
         }
         else
         {
-            ErrorWithAST(ERROR_INTERNAL, tree, "Saw t_char_literal with string length of %lu (value '%s')!\n", literalLen, tree->value);
+            log_tree(LOG_FATAL, tree, "Saw T_CHAR_LITERAL with string length of %lu (value '%s')!", literalLen, tree->value);
         }
 
-        destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, literalAsNumber);
-        destinationOperand->type.basicType = vt_u8;
-        destinationOperand->permutation = vp_literal;
+        destinationOperand->name.str = dictionary_lookup_or_insert(parseDict, literalAsNumber);
+        destinationOperand->castAsType.basicType = VT_U8;
+        destinationOperand->permutation = VP_LITERAL_STR;
     }
     break;
 
-    case t_string_literal:
-        walkStringLiteral(tree, block, scope, destinationOperand);
+    case T_STRING_LITERAL:
+        walk_string_literal(tree, block, scope, destinationOperand);
         break;
 
-    case t_function_call:
-        walkFunctionCall(tree, block, scope, TACIndex, tempNum, destinationOperand);
-        break;
-
-    case t_dot:
-    case t_arrow:
+    case T_FUNCTION_CALL:
     {
-        walkMemberAccess(tree, block, scope, TACIndex, tempNum, destinationOperand, 0);
+        walk_function_call(tree, block, scope, tacIndex, destinationOperand);
     }
     break;
 
-    case t_add:
-    case t_subtract:
-    case t_multiply:
-    case t_divide:
-    case t_modulo:
-    case t_lshift:
-    case t_rshift:
-    case t_less_than:
-    case t_greater_than:
-    case t_less_than_equals:
-    case t_greater_than_equals:
-    case t_bitwise_or:
-    case t_bitwise_xor:
+    case T_METHOD_CALL:
     {
-        struct TACOperand *expressionResult = walkExpression(tree, block, scope, TACIndex, tempNum);
+        walk_method_call(tree, block, scope, tacIndex, destinationOperand);
+    }
+    break;
+
+    case T_ASSOCIATED_CALL:
+    {
+        walk_associated_call(tree, block, scope, tacIndex, destinationOperand);
+    }
+    break;
+
+    case T_DOT:
+    {
+        walk_field_access(tree, block, scope, tacIndex, destinationOperand, 0);
+    }
+    break;
+
+    case T_ADD:
+    case T_SUBTRACT:
+    case T_MULTIPLY:
+    case T_DIVIDE:
+    case T_MODULO:
+    case T_LSHIFT:
+    case T_RSHIFT:
+    case T_LESS_THAN:
+    case T_GREATER_THAN:
+    case T_LESS_THAN_EQUALS:
+    case T_GREATER_THAN_EQUALS:
+    case T_BITWISE_OR:
+    case T_BITWISE_XOR:
+    {
+        struct TACOperand *expressionResult = walk_expression(tree, block, scope, tacIndex);
         *destinationOperand = *expressionResult;
     }
     break;
 
-    case t_bitwise_not:
+    case T_BITWISE_NOT:
     {
-        struct TACOperand *bitwiseNotResult = walkBitwiseNot(tree, block, scope, TACIndex, tempNum);
+        struct TACOperand *bitwiseNotResult = walk_bitwise_not(tree, block, scope, tacIndex);
         *destinationOperand = *bitwiseNotResult;
     }
     break;
 
     // array reference
-    case t_array_index:
+    case T_ARRAY_INDEX:
     {
-        struct TACLine *arrayRefLine = walkArrayRef(tree, block, scope, TACIndex, tempNum);
-        *destinationOperand = arrayRefLine->operands[0];
+        struct TACLine *arrayRefLine = walk_array_read(tree, block, scope, tacIndex);
+        *destinationOperand = arrayRefLine->operands.arrayLoad.destination;
+        if (type_is_object(tac_operand_get_type(&arrayRefLine->operands.arrayLoad.destination)))
+        {
+            convert_array_load_to_lea(arrayRefLine, destinationOperand);
+        }
     }
     break;
 
-    case t_dereference:
+    case T_DEREFERENCE:
     {
-        struct TACOperand *dereferenceResult = walkDereference(tree, block, scope, TACIndex, tempNum);
+        struct TACOperand *dereferenceResult = walk_dereference(tree, block, scope, tacIndex);
         *destinationOperand = *dereferenceResult;
     }
     break;
 
-    case t_address_of:
+    case T_ADDRESS_OF:
     {
-        struct TACOperand *addrOfResult = walkAddrOf(tree, block, scope, TACIndex, tempNum);
+        struct TACOperand *addrOfResult = walk_addr_of(tree, block, scope, tacIndex);
         *destinationOperand = *addrOfResult;
     }
     break;
 
-    case t_bitwise_and:
+    case T_BITWISE_AND:
     {
-        struct TACOperand *expressionResult = walkExpression(tree, block, scope, TACIndex, tempNum);
+        struct TACOperand *expressionResult = walk_expression(tree, block, scope, tacIndex);
         *destinationOperand = *expressionResult;
     }
     break;
 
-    case t_cast:
+    // TODO: helper function for casting - can better enforce validity of casting with true array types
+    case T_CAST:
     {
-        struct TACOperand expressionResult;
+        struct TACOperand expressionResult = {0};
 
-        // walk the right child of the cast, the subexpression we are casting
-        walkSubExpression(tree->child->sibling, block, scope, TACIndex, tempNum, &expressionResult);
+        // Walk the right child of the cast, the subexpression we are casting
+        walk_sub_expression(tree->child->sibling, block, scope, tacIndex, &expressionResult);
+
+        struct Type castTo;
+        type_init(&castTo);
         // set the result's cast as type based on the child of the cast, the type we are casting to
-        walkTypeName(tree->child, scope, &expressionResult.castAsType);
+        walk_type_name(tree->child, scope, &castTo, NULL);
 
-        if ((expressionResult.castAsType.basicType == vt_class) &&
-            (expressionResult.castAsType.indirectionLevel == 0))
+        // TODO: allow casting to arrays?
+        if (type_is_object(&expressionResult.castAsType))
         {
-            char *castToType = Type_GetName(&expressionResult.castAsType);
-            ErrorWithAST(ERROR_CODE, tree->child, "Casting to a class (%s) is not allowed!", castToType);
+            char *castToType = type_get_name(&expressionResult.castAsType);
+            log_tree(LOG_FATAL, tree->child, "Casting to an object (%s) is not allowed!", castToType);
         }
 
+        struct Type *castFrom = tac_operand_get_non_cast_type(&expressionResult);
+
         // If necessary, lop bits off the big end of the value with an explicit bitwise and operation, storing to an intermediate temp
-        if (Type_CompareAllowImplicitWidening(&expressionResult.castAsType, &destinationOperand->type) && (expressionResult.castAsType.indirectionLevel == 0))
+        if (type_compare_allow_implicit_widening(castFrom, &castTo) && (castTo.pointerLevel == 0))
         {
-            struct TACLine *castBitManipulation = newTACLine((*TACIndex)++, tt_bitwise_and, tree);
+            struct TACLine *castBitManipulation = new_tac_line(TT_BITWISE_AND, tree);
 
             // RHS of the assignment is whatever we are storing, what is being cast
-            castBitManipulation->operands[1] = expressionResult;
+            castBitManipulation->operands.arithmetic.sourceA = expressionResult;
 
             // construct the bit pattern we will use in order to properly mask off the extra bits (TODO: will not hold for unsigned types)
-            castBitManipulation->operands[2].permutation = vp_literal;
-            castBitManipulation->operands[2].type.basicType = vt_u32;
+            // TODO: rectify to use VP_LITERAL_VAL
+            castBitManipulation->operands.arithmetic.sourceB.permutation = VP_LITERAL_VAL;
+            castBitManipulation->operands.arithmetic.sourceB.castAsType.basicType = VT_U64; // TODO: define for size_t type
 
-            char literalAndValue[sprintedNumberLength];
-            // manually generate a string with an 'F' hex digit for each 4 bits in the mask
-            sprintf(literalAndValue, "0x");
-            const u8 bitsPerByte = 8; // TODO: move to substratum_defs?
-            size_t maskBitWidth = (bitsPerByte * getSizeOfType(scope, TAC_GetTypeOfOperand(castBitManipulation, 1)));
-            size_t maskBit = 0;
-            for (maskBit = 0; maskBit < maskBitWidth; maskBit += 4)
+            size_t castToWidth = type_get_size(&castTo, scope);
+            switch (castToWidth)
             {
-                literalAndValue[2 + (maskBit / 4)] = 'F';
-                literalAndValue[3 + (maskBit / 4)] = '\0';
+            case sizeof(u8):
+                castBitManipulation->operands.arithmetic.sourceB.name.val = U8_MAX;
+                break;
+            case sizeof(u16):
+                castBitManipulation->operands.arithmetic.sourceB.name.val = U16_MAX;
+                break;
+            case sizeof(u32):
+                castBitManipulation->operands.arithmetic.sourceB.name.val = U32_MAX;
+                break;
+            case sizeof(u64):
+                castBitManipulation->operands.arithmetic.sourceB.name.val = U64_MAX;
+                break;
+            default:
+                InternalError("Type case to size not equal to any integral type size (%zu)!", castToWidth);
             }
 
-            castBitManipulation->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, literalAndValue);
-
             // destination of our bit manipulation is a temporary variable with the type to which we are casting
-            castBitManipulation->operands[0].permutation = vp_temp;
-            castBitManipulation->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-            castBitManipulation->operands[0].type = *TAC_GetTypeOfOperand(castBitManipulation, 1);
+            // TODO: this pattern is repeated anywhere arithmetic temps are dealt with, consider a helper function
+            tac_operand_populate_as_temp(scope, &castBitManipulation->operands.arithmetic.destination, tac_operand_get_type(&castBitManipulation->operands.arithmetic.sourceA));
 
             // attach our bit manipulation operation to the end of the basic block
-            BasicBlock_append(block, castBitManipulation);
+            basic_block_append(block, castBitManipulation, tacIndex);
             // set the destination operation of this subexpression to read the manipulated value we just wrote
-            *destinationOperand = castBitManipulation->operands[0];
+            castBitManipulation->operands.arithmetic.destination.castAsType = castTo;
+            *destinationOperand = castBitManipulation->operands.arithmetic.destination;
         }
         else
         {
             // no bit manipulation required, simply set the destination operand to the result of the casted subexpression (with cast as type set by us)
+            expressionResult.castAsType = castTo;
             *destinationOperand = expressionResult;
         }
     }
     break;
 
-    case t_sizeof:
-        walkSizeof(tree, block, scope, destinationOperand);
+    case T_SIZEOF:
+        walk_sizeof(tree, block, scope, tacIndex, destinationOperand);
+        break;
+
+    case T_INITIALIZER:
+        walk_initializer(tree, block, scope, tacIndex, destinationOperand);
         break;
 
     default:
-        ErrorWithAST(ERROR_INTERNAL, tree, "Incorrect AST type (%s) seen while linearizing subexpression!\n", getTokenName(tree->type));
+        log_tree(LOG_FATAL, tree, "Incorrect AST type (%s) seen while linearizing subexpression!", token_get_name(tree->type));
         break;
     }
 }
 
-void walkFunctionCall(struct AST *tree,
-                      struct BasicBlock *block,
-                      struct Scope *scope,
-                      size_t *TACIndex,
-                      size_t *tempNum,
-                      struct TACOperand *destinationOperand)
+void check_function_return_use(struct Ast *tree,
+                               struct TACOperand *destinationOperand,
+                               struct FunctionEntry *calledFunction)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkFunctionCall: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
-
-    if (tree->type != t_function_call)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkFunctionCall!\n", getTokenName(tree->type));
-    }
-
-    scope->parentFunction->callsOtherFunction = 1;
-
-    struct FunctionEntry *calledFunction = lookupFun(scope, tree->child);
-
     if ((destinationOperand != NULL) &&
-        ((calledFunction->returnType.basicType == vt_null) &&
-         (calledFunction->returnType.indirectionLevel == 0)))
+        (calledFunction->returnType.basicType == VT_NULL))
     {
-        char *typeName = Type_GetName(&calledFunction->returnType);
-        ErrorWithAST(ERROR_CODE, tree, "Attempt to use return value of function %s (returning %s)\n", calledFunction->name, typeName);
+        log_tree(LOG_FATAL, tree, "Attempt to use return value of function %s which does not return anything!", calledFunction->name);
+    }
+}
+
+Deque *walk_argument_pushes(struct Ast *argumentRunner,
+                            struct FunctionEntry *calledFunction,
+                            struct BasicBlock *block,
+                            struct Scope *scope,
+                            size_t *tacIndex,
+                            struct TACOperand *destinationOperand)
+{
+    log(LOG_DEBUG, "WalkArgumentPushes");
+
+    u8 argumentNumOffset = 0;
+    if (calledFunction->isMethod)
+    {
+        log(LOG_DEBUG, "%s is a method - increment argnumoffset", calledFunction->name);
+
+        argumentNumOffset++;
+    }
+    if (type_is_object(&calledFunction->returnType))
+    {
+        log(LOG_DEBUG, "%s is returns an object - increment argnumoffset", calledFunction->name);
+        argumentNumOffset++;
     }
 
-    struct Stack *argumentTrees = Stack_New();
-    struct AST *argumentRunner = tree->child->sibling;
+    // save first argument so we can generate meaningful error messages if we mismatch argument count
+    struct Ast *lastArgument = argumentRunner;
+    Deque *argumentPushes = deque_new(NULL);
+
+    Deque *argumentTrees = deque_new(NULL);
     while (argumentRunner != NULL)
     {
-        Stack_Push(argumentTrees, argumentRunner);
+        deque_push_back(argumentTrees, argumentRunner);
+        lastArgument = argumentRunner;
         argumentRunner = argumentRunner->sibling;
     }
 
-    struct Stack *argumentPushes = Stack_New();
-    if (argumentTrees->size != calledFunction->arguments->size)
+    if (argumentTrees->size != (calledFunction->arguments->size - argumentNumOffset))
     {
-        ErrorWithAST(ERROR_CODE, tree,
-                     "Error in call to function %s - expected %zu arguments, saw %zu!\n",
-                     calledFunction->name,
-                     calledFunction->arguments->size,
-                     argumentTrees->size);
+        log_tree(LOG_FATAL, lastArgument,
+                 "Error in call to function %s - expected %zu arguments, saw %zu!",
+                 calledFunction->name,
+                 calledFunction->arguments->size,
+                 argumentTrees->size);
     }
 
-    size_t argIndex = calledFunction->arguments->size - 1;
+    Iterator *calledFunctionArgumentIterator = deque_front(calledFunction->arguments);
+
+    // account for offsetting the number of arguments for self and out pointers
+    while (argumentNumOffset > 0)
+    {
+        iterator_next(calledFunctionArgumentIterator);
+        argumentNumOffset--;
+    }
+
     while (argumentTrees->size > 0)
     {
-        struct AST *pushedArgument = Stack_Pop(argumentTrees);
-        struct TACLine *push = newTACLine(*TACIndex, tt_stack_store, pushedArgument);
-        Stack_Push(argumentPushes, push);
-        walkSubExpression(pushedArgument, block, scope, TACIndex, tempNum, &push->operands[0]);
+        struct Ast *pushedArgument = deque_pop_front(argumentTrees);
+        struct TACOperand *argOperand = malloc(sizeof(struct TACOperand));
+        memset(argOperand, 0, sizeof(struct TACOperand));
+        deque_push_back(argumentPushes, argOperand);
+        walk_sub_expression(pushedArgument, block, scope, tacIndex, argOperand);
 
-        struct VariableEntry *expectedArgument = calledFunction->arguments->data[argIndex];
+        struct VariableEntry *expectedArgument = iterator_get(calledFunctionArgumentIterator);
+        iterator_next(calledFunctionArgumentIterator);
 
-        if (Type_CompareAllowImplicitWidening(TAC_GetTypeOfOperand(push, 0), &expectedArgument->type))
+        if (type_compare_allow_implicit_widening(tac_operand_get_type(argOperand), &expectedArgument->type))
         {
-            ErrorWithAST(ERROR_CODE, pushedArgument,
-                         "Error in argument %s passed to function %s!\n\tExpected %s, got %s\n",
-                         expectedArgument->name,
-                         calledFunction->name,
-                         Type_GetName(&expectedArgument->type),
-                         Type_GetName(TAC_GetTypeOfOperand(push, 0)));
+            log_tree(LOG_FATAL, pushedArgument,
+                     "Error in argument %s passed to function %s!\n\tExpected %s, got %s",
+                     expectedArgument->name,
+                     calledFunction->name,
+                     type_get_name(&expectedArgument->type),
+                     type_get_name(tac_operand_get_type(argOperand)));
         }
 
-        struct TACOperand decayed;
-        copyTACOperandDecayArrays(&decayed, &push->operands[0]);
-
-        // allow us to automatically widen
-        if (getSizeOfType(scope, TACOperand_GetType(&decayed)) <= getSizeOfType(scope, &expectedArgument->type))
+        if (!((tac_operand_get_type(argOperand)->basicType == VT_GENERIC_PARAM) || (expectedArgument->type.basicType == VT_GENERIC_PARAM)))
         {
-            push->operands[0].castAsType = expectedArgument->type;
-        }
-        else
-        {
-            char *convertFromType = Type_GetName(&push->operands[0].type);
-            char *convertToType = Type_GetName(&expectedArgument->type);
-            ErrorWithAST(ERROR_CODE, pushedArgument,
-                         "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s\n",
+            // allow us to automatically widen if neither are generic params
+            if (type_get_size(tac_operand_get_type(argOperand), scope) <= type_get_size(&expectedArgument->type, scope))
+            {
+                argOperand->castAsType = expectedArgument->type;
+            }
+            else
+            {
+                char *convertFromType = type_get_name(tac_operand_get_type(argOperand));
+                char *convertToType = type_get_name(&expectedArgument->type);
+                log_tree(LOG_FATAL, pushedArgument,
+                         "Potential narrowing conversion passed to argument %s of function %s\n\tConversion from %s to %s",
                          expectedArgument->name,
                          calledFunction->name,
                          convertFromType,
                          convertToType);
+            }
         }
-
-        push->operands[1].name.val = expectedArgument->stackOffset;
-        push->operands[1].type.basicType = vt_u64;
-        push->operands[1].permutation = vp_literal;
-
-        argIndex--;
     }
-    Stack_Free(argumentTrees);
+    iterator_free(calledFunctionArgumentIterator);
 
-    if (calledFunction->arguments->size > 0)
-    {
-        struct TACLine *reserveStackSpaceForCall = newTACLine((*TACIndex)++, tt_stack_reserve, tree->child);
-        if (calledFunction->argStackSize > I64_MAX)
-        {
-            // TODO: implementation dependent size of size_t
-            ErrorAndExit(ERROR_INTERNAL, "Function %s has arg stack size too large (%zd bytes)!\n", calledFunction->name, calledFunction->argStackSize);
-        }
-        reserveStackSpaceForCall->operands[0].name.val = (ssize_t)calledFunction->argStackSize;
-        BasicBlock_append(block, reserveStackSpaceForCall);
-    }
+    deque_free(argumentTrees);
 
-    while (argumentPushes->size > 0)
-    {
-        struct TACLine *push = Stack_Pop(argumentPushes);
-        push->index = (*TACIndex)++;
-        BasicBlock_append(block, push);
-    }
-    Stack_Free(argumentPushes);
-
-    struct TACLine *call = newTACLine((*TACIndex)++, tt_call, tree);
-    call->operands[1].name.str = calledFunction->name;
-    BasicBlock_append(block, call);
-
-    if (destinationOperand != NULL)
-    {
-        call->operands[0].type = calledFunction->returnType;
-        call->operands[0].type.indirectionLevel = calledFunction->returnType.indirectionLevel;
-        call->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-        call->operands[0].permutation = vp_temp;
-
-        *destinationOperand = call->operands[0];
-    }
+    return argumentPushes;
 }
 
-struct TACLine *walkMemberAccess(struct AST *tree,
-                                 struct BasicBlock *block,
-                                 struct Scope *scope,
-                                 size_t *TACIndex,
-                                 size_t *tempNum,
-                                 struct TACOperand *srcDestOperand,
-                                 size_t depth)
+// returns true if the function returns a struct and the return value has been handled, false otherwise
+bool handle_struct_return(struct Ast *callTree,
+                          struct FunctionEntry *calledFunction,
+                          struct BasicBlock *block,
+                          struct Scope *scope,
+                          size_t *tacIndex,
+                          Deque *argumentPushes,
+                          struct TACOperand *destinationOperand)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    if (!type_is_object(&calledFunction->returnType))
     {
-        printf("walkMemberAccess: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        return false;
     }
 
-    if ((tree->type != t_dot) && (tree->type != t_arrow))
+    log(LOG_DEBUG, "handleStructReturn for called function %s", calledFunction->name);
+
+    struct TACOperand *outPointerArg = malloc(sizeof(struct TACOperand));
+    memset(outPointerArg, 0, sizeof(struct TACOperand));
+
+    // if we actually use the return value of the function
+    if (destinationOperand != NULL)
     {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDotOperator!\n", getTokenName(tree->type));
+        struct TACOperand intermediateReturnObject = {0};
+        tac_operand_populate_as_temp(scope, &intermediateReturnObject, &calledFunction->returnType);
+
+        // attempt to immediately resolve any VT_SELF returns so that they register as the correct type in the calling scope
+        type_try_resolve_vt_self(tac_operand_get_type(&intermediateReturnObject), calledFunction->implementedFor);
+        log_tree(LOG_DEBUG, callTree, "Call to %s returns struct in %s", calledFunction->name, intermediateReturnObject.name.str);
+
+        *destinationOperand = intermediateReturnObject;
+        struct TACOperand *addrOfReturnObject = get_addr_of_operand(callTree, block, scope, tacIndex, &intermediateReturnObject);
+
+        *outPointerArg = *addrOfReturnObject;
+    }
+    else
+    {
+        log(LOG_FATAL, "Unused return value for function %s returning %s", calledFunction->name, type_get_name(&calledFunction->returnType));
+    }
+    deque_push_front(argumentPushes, outPointerArg);
+
+    return true;
+}
+
+void walk_function_call(struct Ast *tree,
+                        struct BasicBlock *block,
+                        struct Scope *scope,
+                        size_t *tacIndex,
+                        struct TACOperand *destinationOperand)
+{
+    log_tree(LOG_DEBUG, tree, "walk_function_call");
+
+    if (tree->type != T_FUNCTION_CALL)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_function_call!", token_get_name(tree->type));
     }
 
-    struct AST *lhs = tree->child;
-    struct AST *rhs = lhs->sibling;
+    scope->parentFunction->callsOtherFunction = 1;
 
-    if (rhs->type != t_identifier)
+    struct FunctionEntry *calledFunction = scope_lookup_fun(scope, tree->child);
+
+    check_function_return_use(tree, destinationOperand, calledFunction);
+
+    Deque *argumentPushes = walk_argument_pushes(tree->child->sibling,
+                                                 calledFunction,
+                                                 block,
+                                                 scope,
+                                                 tacIndex,
+                                                 destinationOperand);
+
+    bool haveStructReturn = handle_struct_return(tree, calledFunction, block, scope, tacIndex, argumentPushes, destinationOperand);
+
+    struct TACLine *callLine = new_tac_line(TT_FUNCTION_CALL, tree);
+    if (!haveStructReturn && (destinationOperand != NULL))
     {
-        ErrorWithAST(ERROR_CODE, rhs,
-                     "Expected identifier on RHS of %s operator, got %s (%s) instead!\n",
-                     getTokenName(tree->type),
-                     rhs->value,
-                     getTokenName(rhs->type));
+        // blindly populate the temp return value destination operand
+        tac_operand_populate_as_temp(scope, destinationOperand, &calledFunction->returnType);
+        callLine->operands.functionCall.returnValue = *destinationOperand;
+    }
+    callLine->operands.functionCall.functionName = calledFunction->name;
+    callLine->operands.functionCall.arguments = argumentPushes;
+    basic_block_append(block, callLine, tacIndex);
+}
+
+void walk_method_call(struct Ast *tree,
+                      struct BasicBlock *block,
+                      struct Scope *scope,
+                      size_t *tacIndex,
+                      struct TACOperand *destinationOperand)
+{
+    log_tree(LOG_DEBUG, tree, "walk_method_call");
+
+    if (tree->type != T_METHOD_CALL)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_method_call!", token_get_name(tree->type));
     }
 
-    struct TACLine *accessLine = NULL;
+    scope->parentFunction->callsOtherFunction = 1;
 
-    switch (lhs->type)
+    // don't need to track scope->parentFunction->callsOtherFunction as walk_function_call will do this on our behalf
+    struct Ast *structTree = tree->child->child;
+    struct Ast *callTree = tree->child->child->sibling;
+
+    struct TACOperand *calledOnOperand = malloc(sizeof(struct TACOperand));
+
+    switch (structTree->type)
     {
-    // in the case that we are dot/arrow-ing a LHS which is a dot or arrow, walkMemberAccess will generate the TAC line for the *read* which gets us the address to dot/arrow on
-    case t_dot:
-    case t_arrow:
-        accessLine = walkMemberAccess(lhs, block, scope, TACIndex, tempNum, srcDestOperand, depth + 1);
-        break;
+        // if we have struct.field.method() make sure we convert the struct.field load to an LEA
+    case T_DOT:
+    {
+        struct TACLine *fieldAccessLine = walk_field_access(structTree, block, scope, tacIndex, calledOnOperand, 0);
+        convert_field_load_to_lea(fieldAccessLine, calledOnOperand);
+    }
+    break;
 
-    // for all other cases, we can  populate the LHS using walkSubExpression as it is just a more basic read
     default:
     {
-        // the LHS of the dot/arrow is the class instance being accessed
-        struct AST *class = tree->child;
-        // the RHS is what member we are accessing
-        struct AST *member = tree->child->sibling;
-
-        // TODO: check more deeply what's being arrow/dotted? Shortlist: dereference, array index, identifier, maybe some pointer arithmetic?
-        //		 	- things like (myObjectPointer & 0xFFFFFFF0)->member are obviously wrong, so probably should disallow
-        // prevent silly things like (&a)->b
-        if ((class->type == t_address_of) && (tree->type == t_arrow))
+        walk_sub_expression(structTree, block, scope, tacIndex, calledOnOperand);
+        struct Type *structType = tac_operand_get_type(calledOnOperand);
+        if ((structType->basicType != VT_STRUCT) && (structType->basicType != VT_SELF))
         {
-            ErrorWithAST(ERROR_CODE, class, "Use of arrow operator after address-of operator `(&a)->b` is not supported.\nUse `a.b` instead\n");
+            char *nonStructType = type_get_name(tac_operand_get_type(calledOnOperand));
+            log_tree(LOG_FATAL, structTree, "Attempt to call method %s on non-struct type %s", callTree->child->value, nonStructType);
         }
-
-        if (member->type != t_identifier)
-        {
-            ErrorWithAST(ERROR_CODE, member,
-                         "Expected identifier on RHS of %s operator, got %s (%s) instead!\n",
-                         (tree->type == t_dot ? "dot" : "arrow"),
-                         member->value,
-                         getTokenName(member->type));
-        }
-
-        // our access line is a completely new TAC line, which is a load operation with an offset, storing the load result to a temp
-        accessLine = newTACLine(*TACIndex, tt_load_off, tree);
-        accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-        accessLine->operands[0].permutation = vp_temp;
-
-        // if we are at the bottom of potentially-nested dot/arrow operators,
-        // we need the base address of the object we're accessing the member from
-        if (tree->type == t_dot)
-        {
-            // we may need to do some manipulation of the subexpression depending on what exactly we're dotting
-            switch (class->type)
-            {
-            case t_dereference:
-            {
-                struct TACOperand dummyOperand;
-                walkSubExpression(class, block, scope, TACIndex, tempNum, &dummyOperand);
-
-                char *indirectTypeName = Type_GetName(TACOperand_GetType(&dummyOperand));
-                ErrorWithAST(ERROR_CODE, class, "Use of dot operator on indirect type %s not supported - use arrow operator instead!\n", indirectTypeName);
-            }
-            break;
-
-            case t_array_index:
-            {
-                // let walkArrayRef do the heavy lifting for us
-                struct TACLine *arrayRefToDot = walkArrayRef(class, block, scope, TACIndex, tempNum);
-
-                // before we convert our array ref to an LEA to get the address of the class we're dotting, check to make sure everything is good
-                struct Type nonDecayedType = *TAC_GetTypeOfOperand(arrayRefToDot, 1);
-                nonDecayedType.arraySize = 0;
-                checkAccessedClassForDot(tree, scope, &nonDecayedType);
-
-                // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
-                convertArrayRefLoadToLea(arrayRefToDot);
-
-                // copy the TAC operand containing the address on which we will dot
-                copyTACOperandDecayArrays(&accessLine->operands[1], &arrayRefToDot->operands[0]);
-            };
-            break;
-
-            case t_identifier:
-            {
-                struct TACLine *getAddressForDot = newTACLine(*TACIndex, tt_addrof, tree);
-                getAddressForDot->operands[0].permutation = vp_temp;
-                getAddressForDot->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-
-                walkSubExpression(class, block, scope, TACIndex, tempNum, &getAddressForDot->operands[1]);
-
-                if (getAddressForDot->operands[1].permutation != vp_temp)
-                {
-                    // while this check is duplicated in the checks immediately following the switch,
-                    // we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
-                    checkAccessedClassForDot(class, scope, &getAddressForDot->operands[1].type);
-                }
-
-                copyTACOperandTypeDecayArrays(&getAddressForDot->operands[0], &getAddressForDot->operands[1]);
-                TAC_GetTypeOfOperand(getAddressForDot, 0)->indirectionLevel++;
-
-                getAddressForDot->index = (*TACIndex)++;
-                BasicBlock_append(block, getAddressForDot);
-                copyTACOperandDecayArrays(&accessLine->operands[1], &getAddressForDot->operands[0]);
-            }
-            break;
-
-            default:
-                ErrorWithAST(ERROR_CODE, class, "Dot operator member access on disallowed tree type %s", getTokenName(class->type));
-                break;
-            }
-        }
-        else
-        {
-            walkSubExpression(class, block, scope, TACIndex, tempNum, &accessLine->operands[1]);
-
-            // while this check is duplicated in the checks immediately following the switch,
-            // we may be able to print more verbose error info if we are directly member-accessing an identifier, so do it here.
-            checkAccessedClassForArrow(class, scope, &accessLine->operands[1].type);
-            copyTACOperandTypeDecayArrays(&accessLine->operands[0], &accessLine->operands[1]);
-        }
-
-        accessLine->operands[2].type.basicType = vt_u32;
-        accessLine->operands[2].permutation = vp_literal;
     }
     break;
     }
 
-    // if we have an arrow, the first thing we need to do is "jump through" the indirection
-    // this if statement basically "finalizes" the load before the arrow operator,
-    // then sets up a new access solely for the arrow
-    if (tree->type == t_arrow)
+    struct FunctionEntry *calledFunction = type_entry_lookup_implemented(scope_lookup_type_remove_pointer(scope, tac_operand_get_type(calledOnOperand)), scope, callTree->child);
+
+    check_function_return_use(tree, destinationOperand, calledFunction);
+
+    Deque *argumentPushes = walk_argument_pushes(tree->child->child->sibling->child->sibling,
+                                                 calledFunction,
+                                                 block,
+                                                 scope,
+                                                 tacIndex,
+                                                 destinationOperand);
+
+    if (tac_operand_get_type(calledOnOperand)->basicType == VT_ARRAY)
     {
-        // if the existing load operation actually applies an offset, it is necessary to actually "jump through" the indirection by dereferencing at that offset
-        // to do this, we cement the existing access for good and then create a new load TAC instruction which will apply only the offset from this arrow operator
-        if (accessLine->operands[2].name.val > 0)
+        char *nonDottableType = type_get_name(tac_operand_get_type(calledOnOperand));
+        log_tree(LOG_FATAL, callTree, "Attempt to call method %s on non-dottable type %s", calledFunction->name, nonDottableType);
+    }
+
+    // if struct we are calling method on is not indirect, automagically insert an intermediate address-of
+    if (tac_operand_get_type(calledOnOperand)->pointerLevel == 0)
+    {
+        *calledOnOperand = *get_addr_of_operand(tree, block, scope, tacIndex, calledOnOperand);
+    }
+
+    deque_push_front(argumentPushes, calledOnOperand);
+
+    bool haveStructReturn = handle_struct_return(tree, calledFunction, block, scope, tacIndex, argumentPushes, destinationOperand);
+
+    struct TACLine *callLine = new_tac_line(TT_METHOD_CALL, tree);
+    if (!haveStructReturn && (destinationOperand != NULL))
+    {
+        // blindly populate the temp return value destination operand
+        tac_operand_populate_as_temp(scope, destinationOperand, &calledFunction->returnType);
+        // attempt to immediately resolve any VT_SELF returns so that they register as the correct type in the calling scope
+        type_try_resolve_vt_self(tac_operand_get_type(destinationOperand), calledFunction->implementedFor);
+        callLine->operands.methodCall.returnValue = *destinationOperand;
+    }
+    callLine->operands.methodCall.calledOn = *calledOnOperand;
+    callLine->operands.methodCall.methodName = calledFunction->name;
+    callLine->operands.methodCall.arguments = argumentPushes;
+
+    basic_block_append(block, callLine, tacIndex);
+}
+
+List *walk_generic_parameters(struct Ast *tree, struct Scope *scope, struct TypeEntry *fieldOf)
+{
+    log_tree(LOG_DEBUG, tree, "walk_generic_parameters");
+
+    if (tree->type != T_GENERIC_PARAMETERS)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_generic_parameters!", token_get_name(tree->type));
+    }
+
+    List *paramsList = list_new((void (*)(void *))type_free, NULL);
+
+    struct Ast *paramRunner = tree->child;
+    while (paramRunner != NULL)
+    {
+        struct Type *param = malloc(sizeof(struct Type));
+        type_init(param);
+        walk_type_name(paramRunner, scope, param, fieldOf);
+        list_append(paramsList, param);
+
+        paramRunner = paramRunner->sibling;
+    }
+
+    return paramsList;
+}
+
+struct TypeEntry *walk_type_name_or_generic_instantiation(struct Scope *scope, struct Ast *tree, struct TypeEntry *fieldOf)
+{
+    log_tree(LOG_DEBUG, tree, "walk_type_name_or_generic_instantiation");
+
+    struct TypeEntry *returnedType = NULL;
+    switch (tree->type)
+    {
+    case T_IDENTIFIER:
+        returnedType = scope_lookup_struct_by_name_tree(scope, tree);
+        break;
+
+    case T_GENERIC_INSTANCE:
+    {
+        struct Ast *structNameTree = tree->child;
+        List *genericParams = walk_generic_parameters(tree->child->sibling, scope, fieldOf);
+        struct TypeEntry *baseGenericType = scope_lookup_struct_by_name_tree(scope, structNameTree);
+
+        switch (baseGenericType->genericType)
         {
-            // index and add the existing offset
-            accessLine->index = (*TACIndex)++;
-            BasicBlock_append(block, accessLine);
+        case G_NONE:
+        {
+            char *paramsStr = sprint_generic_params(genericParams);
+            char *typeName = type_get_name(&baseGenericType->type);
+            log_tree(LOG_FATAL, tree, "Attempt to instantiate generic %s<%s> of non-generic type %s", baseGenericType->baseName, paramsStr, typeName);
+        }
+        break;
 
-            // understand some info about what we're actually reading at this offset, keep track of the old access
-            struct Type *existingReadType = TAC_GetTypeOfOperand(accessLine, 0);
-            struct TACLine *oldAccessLine = accessLine;
+        case G_BASE:
+            returnedType = type_entry_get_or_create_generic_instantiation(baseGenericType, genericParams);
 
-            // the LHS of our arrow must be some sort of class pointer, otherwise we shouldn't be able to use the arrow operator on it!
-            if ((existingReadType->basicType == vt_class) && (existingReadType->indirectionLevel == 0))
+            if (returnedType->generic.instance.parameters != genericParams)
             {
-                // convert the old access to a lea - we don't want to dereference the class, we just need a pointer to it
-                oldAccessLine->operation = tt_lea_off;
+                list_free(genericParams);
             }
-            else if (existingReadType->basicType != vt_class) // we are currently walking a member access using the arrow operator on something that's not a class pointer
+            break;
+
+        case G_INSTANCE:
+            char *paramsStr = sprint_generic_params(genericParams);
+            char *typeName = type_get_name(&baseGenericType->type);
+            log_tree(LOG_FATAL, tree, "Attempt to instantiate generic %s<%s> of generic instance type %s", baseGenericType->baseName, paramsStr, typeName);
+            break;
+        }
+        break;
+    }
+
+    default:
+        log_tree(LOG_FATAL, tree, "Malformed AST (%s) seen in walk_type_name_or_generic_instantiation!", token_get_name(tree->type));
+    }
+
+    return returnedType;
+}
+
+void walk_associated_call(struct Ast *tree,
+                          struct BasicBlock *block,
+                          struct Scope *scope,
+                          size_t *tacIndex,
+                          struct TACOperand *destinationOperand)
+{
+    log_tree(LOG_DEBUG, tree, "walk_associated_call");
+
+    if (tree->type != T_ASSOCIATED_CALL)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_associated_call!", token_get_name(tree->type));
+    }
+
+    scope->parentFunction->callsOtherFunction = 1;
+
+    // don't need to track scope->parentFunction->callsOtherFunction as walk_function_call will do this on our behalf
+    struct Ast *structTypeTree = tree->child->child;
+    struct TypeEntry *associatedWith = NULL;
+    struct Ast *callTree = tree->child->sibling;
+
+    associatedWith = walk_type_name_or_generic_instantiation(scope, structTypeTree, NULL);
+
+    struct FunctionEntry *calledFunction = type_entry_lookup_associated_function(associatedWith, callTree->child, scope);
+
+    check_function_return_use(tree, destinationOperand, calledFunction);
+
+    Deque *argumentPushes = walk_argument_pushes(tree->child->sibling->child->sibling,
+                                                 calledFunction,
+                                                 block,
+                                                 scope,
+                                                 tacIndex,
+                                                 destinationOperand);
+    bool haveStructReturn = handle_struct_return(tree, calledFunction, block, scope, tacIndex, argumentPushes, destinationOperand);
+
+    struct TACLine *callLine = new_tac_line(TT_ASSOCIATED_CALL, tree);
+    if (!haveStructReturn && (destinationOperand != NULL))
+    {
+        // blindly populate the temp return value destination operand
+        tac_operand_populate_as_temp(scope, destinationOperand, &calledFunction->returnType);
+        // attempt to immediately resolve any VT_SELF returns so that they register as the correct type in the calling scope
+        type_try_resolve_vt_self(tac_operand_get_type(destinationOperand), associatedWith);
+        callLine->operands.associatedCall.returnValue = *destinationOperand;
+    }
+    callLine->operands.associatedCall.functionName = calledFunction->name;
+
+    type_init(&callLine->operands.associatedCall.associatedWith);
+    callLine->operands.associatedCall.associatedWith.basicType = VT_STRUCT;
+    callLine->operands.associatedCall.associatedWith.nonArray.complexType.name = associatedWith->baseName;
+    if (associatedWith->genericType == G_INSTANCE)
+    {
+        callLine->operands.associatedCall.associatedWith.nonArray.complexType.genericParams = associatedWith->generic.instance.parameters;
+    }
+
+    callLine->operands.associatedCall.arguments = argumentPushes;
+
+    basic_block_append(block, callLine, tacIndex);
+}
+
+struct TACLine *walk_field_access(struct Ast *tree,
+                                  struct BasicBlock *block,
+                                  struct Scope *scope,
+                                  size_t *tacIndex,
+                                  struct TACOperand *destinationOperand,
+                                  size_t depth)
+{
+    log_tree(LOG_DEBUG, tree, "walk_field_access");
+
+    if (tree->type != T_DOT)
+    {
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_field_access!", token_get_name(tree->type));
+    }
+
+    struct Ast *lhs = tree->child;
+    struct Ast *rhs = lhs->sibling;
+
+    // must always have [lhs].[rhs] where lhs is some subexpression which resolves to a struct and rhs is the identifier for the struct field
+    if (rhs->type != T_IDENTIFIER)
+    {
+        log_tree(LOG_FATAL, rhs,
+                 "Expected identifier on RHS of %s operator, got %s (%s) instead!",
+                 token_get_name(tree->type),
+                 rhs->value,
+                 token_get_name(rhs->type));
+    }
+
+    struct TACLine *accessLine = NULL;
+    // the LHS of the dot is the struct instance being accessed
+    // the RHS is what field we are accessing
+    struct Ast *fieldTree = tree->child->sibling;
+
+    if (fieldTree->type != T_IDENTIFIER)
+    {
+        log_tree(LOG_FATAL, fieldTree,
+                 "Expected identifier on RHS of dot operator, got %s (%s) instead!",
+                 fieldTree->value,
+                 token_get_name(fieldTree->type));
+    }
+
+    // our access line is a completely new TAC line, which is a load operation with an offset, storing the load result to a temp
+    accessLine = new_tac_line(TT_FIELD_LOAD, tree);
+
+    // we may need to do some manipulation of the subexpression depending on what exactly we're dotting
+    switch (lhs->type)
+    {
+    case T_DEREFERENCE:
+    {
+        // let walk_dereference do the heavy lifting for us
+        struct TACOperand *dereferencedOperand = walk_dereference(lhs, block, scope, tacIndex);
+
+        // make sure we are generally dotting something sane
+        struct Type *accessedType = tac_operand_get_type(dereferencedOperand);
+
+        check_accessed_struct_for_dot(lhs, scope, accessedType);
+
+        // additional check so that if we dereference a struct single-pointer we force not putting the dereference there
+        // effectively, ban things like a = (*object).field where object is a Struct *
+        if (accessedType->pointerLevel == 0)
+        {
+            char *dereferencedTypeName = type_get_name(accessedType);
+            log_tree(LOG_FATAL, lhs, "Use of dereference on single-indirect type %s before dot '(*struct).field' is prohibited - just use 'struct.field' instead", dereferencedTypeName);
+        }
+
+        accessLine->operands.fieldLoad.source = *dereferencedOperand;
+    }
+    break;
+
+    case T_ARRAY_INDEX:
+    {
+        // let walk_array_read do the heavy lifting for us
+        struct TACLine *arrayRefToDot = walk_array_read(lhs, block, scope, tacIndex);
+
+        // before we convert our array ref to an LEA to get the address of the struct we're dotting, check to make sure everything is good
+        check_accessed_struct_for_dot(tree, scope, tac_operand_get_type(&arrayRefToDot->operands.arrayLoad.destination));
+
+        // now that we know we are dotting something valid, we will just use the array reference as an address calculation for the base of whatever we're dotting
+        convert_array_load_to_lea(arrayRefToDot, &accessLine->operands.fieldLoad.source);
+    }
+    break;
+
+    case T_FUNCTION_CALL:
+    {
+        walk_function_call(lhs, block, scope, tacIndex, &accessLine->operands.fieldLoad.source);
+    }
+    break;
+
+    case T_METHOD_CALL:
+    {
+        walk_method_call(lhs, block, scope, tacIndex, &accessLine->operands.fieldLoad.source);
+    }
+    break;
+
+    case T_SELF:
+    case T_IDENTIFIER:
+    {
+        // if we are dotting an identifier, insert an address-of if it is not a pointer already
+        struct VariableEntry *dottedVariable = scope_lookup_var(scope, lhs);
+
+        if (dottedVariable->type.pointerLevel == 0)
+        {
+            struct TACOperand dottedOperand = {0};
+
+            walk_sub_expression(lhs, block, scope, tacIndex, &dottedOperand);
+
+            if (dottedOperand.permutation != VP_TEMP)
             {
-                char *existingReadTypeName = Type_GetName(existingReadType);
-                ErrorWithAST(ERROR_CODE, tree, "Use of arrow operator '->' on non-class-pointer type %s!\n", existingReadTypeName);
+                // while this check is duplicated in the checks immediately following the switch,
+                // we may be able to print more verbose error info if we are directly accessing a struct identifier, so do it here.
+                check_accessed_struct_for_dot(lhs, scope, tac_operand_get_type(&dottedOperand));
             }
 
-            accessLine = newTACLine(*TACIndex, tt_load_off, tree);
-
-            copyTACOperandDecayArrays(&accessLine->operands[1], &oldAccessLine->operands[0]);
-
-            accessLine->operands[0].permutation = vp_temp;
-            accessLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-
-            accessLine->operands[2].type.basicType = vt_u32;
-            accessLine->operands[2].permutation = vp_literal;
-            // BasicBlock_append(block, accessLine);
+            accessLine->operands.fieldLoad.source = *get_addr_of_operand(lhs, block, scope, tacIndex, &dottedOperand);
         }
         else
         {
-            accessLine->operation = tt_load_off;
+            walk_sub_expression(lhs, block, scope, tacIndex, &accessLine->operands.fieldLoad.source);
         }
     }
+    break;
 
-    // get the ClassEntry and ClassMemberOffset of what we're accessing within and the member we access
-    struct ClassEntry *accessedClass = lookupClassByType(scope, TAC_GetTypeOfOperand(accessLine, 1));
-    struct ClassMemberOffset *accessedMember = lookupMemberVariable(accessedClass, rhs);
+    case T_DOT:
+    {
+        struct TACLine *recursiveFieldAccess = walk_field_access(lhs, block, scope, tacIndex, &accessLine->operands.fieldLoad.source, 0);
+        convert_field_load_to_lea(recursiveFieldAccess, &accessLine->operands.fieldLoad.source);
+    }
+    break;
 
-    // populate type information (use cast for the first operand as we are treating a class as a pointer to something else with a given offset)
-    accessLine->operands[1].castAsType = accessedMember->variable->type;
-    accessLine->operands[0].type = *TAC_GetTypeOfOperand(accessLine, 1);               // copy type info to the temp we're reading to
-    copyTACOperandTypeDecayArrays(&accessLine->operands[0], &accessLine->operands[0]); // decay arrays in-place so we only have pointers instead of arrays
+    default:
+        log_tree(LOG_FATAL, lhs, "Dot operator field access on disallowed tree type %s", token_get_name(lhs->type));
+        break;
+    }
 
-    accessLine->operands[2].name.val += accessedMember->offset;
+    struct Type *accessedType = tac_operand_get_type(&accessLine->operands.fieldLoad.source);
+    if ((accessedType->basicType != VT_STRUCT) && (accessedType->basicType != VT_SELF))
+    {
+        char *accessedTypeName = type_get_name(accessedType);
+        log_tree(LOG_FATAL, tree, "Use of dot operator for field access on non-struct type %s", accessedTypeName);
+    }
+
+    // get the StructDesc and StructField of what we're accessing within and the field we access
+    struct StructDesc *accessedStruct = scope_lookup_struct_by_type_or_pointer(scope, accessedType);
+    struct StructField *accessedField = struct_lookup_field(accessedStruct, rhs, scope);
+
+    // populate type information (use cast for the first operand as we are treating a struct as a pointer to something else with a given offset)
+    tac_operand_populate_as_temp(scope, &accessLine->operands.fieldLoad.destination, &accessedField->variable->type);
+
+    accessLine->operands.fieldLoad.fieldName = accessedField->variable->name;
 
     if (depth == 0)
     {
-        accessLine->index = (*TACIndex)++;
-        BasicBlock_append(block, accessLine);
-        *srcDestOperand = accessLine->operands[0];
+        basic_block_append(block, accessLine, tacIndex);
+        *destinationOperand = accessLine->operands.fieldLoad.destination;
+    }
+    else
+    {
+        convert_field_load_to_lea(accessLine, destinationOperand);
     }
 
     return accessLine;
 }
 
-void walkNonPointerArithmetic(struct AST *tree,
-                              struct BasicBlock *block,
-                              struct Scope *scope,
-                              size_t *TACIndex,
-                              size_t *tempNum,
-                              struct TACLine *expression)
+void walk_non_pointer_arithmetic(struct Ast *tree,
+                                 struct BasicBlock *block,
+                                 struct Scope *scope,
+                                 size_t *tacIndex,
+                                 struct TACLine *expression)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkNonPointerArithmetic: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    log_tree(LOG_DEBUG, tree, "WalkNonPointerArithmetic");
 
     switch (tree->type)
     {
-    case t_multiply:
+    case T_MULTIPLY:
         expression->reorderable = 1;
-        expression->operation = tt_mul;
+        expression->operation = TT_MUL;
         break;
 
-    case t_bitwise_and:
+    case T_BITWISE_AND:
         expression->reorderable = 1;
-        expression->operation = tt_bitwise_and;
+        expression->operation = TT_BITWISE_AND;
         break;
 
-    case t_bitwise_or:
+    case T_BITWISE_OR:
         expression->reorderable = 1;
-        expression->operation = tt_bitwise_or;
+        expression->operation = TT_BITWISE_OR;
         break;
 
-    case t_bitwise_xor:
+    case T_BITWISE_XOR:
         expression->reorderable = 1;
-        expression->operation = tt_bitwise_xor;
+        expression->operation = TT_BITWISE_XOR;
         break;
 
-    case t_bitwise_not:
+    case T_BITWISE_NOT:
         expression->reorderable = 1;
-        expression->operation = tt_bitwise_not;
+        expression->operation = TT_BITWISE_NOT;
         break;
 
-    case t_divide:
-        expression->operation = tt_div;
+    case T_DIVIDE:
+        expression->operation = TT_DIV;
         break;
 
-    case t_modulo:
-        expression->operation = tt_modulo;
+    case T_MODULO:
+        expression->operation = TT_MODULO;
         break;
 
-    case t_lshift:
-        expression->operation = tt_lshift;
+    case T_LSHIFT:
+        expression->operation = TT_LSHIFT;
         break;
 
-    case t_rshift:
-        expression->operation = tt_rshift;
+    case T_RSHIFT:
+        expression->operation = TT_RSHIFT;
         break;
 
     default:
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkNonPointerArithmetic!\n", getTokenName(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to WalkNonPointerArithmetic!", token_get_name(tree->type));
         break;
     }
 
-    walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &expression->operands[1]);
-    walkSubExpression(tree->child->sibling, block, scope, TACIndex, tempNum, &expression->operands[2]);
+    walk_sub_expression(tree->child, block, scope, tacIndex, &expression->operands.arithmetic.sourceA);
+    walk_sub_expression(tree->child->sibling, block, scope, tacIndex, &expression->operands.arithmetic.sourceB);
 
-    for (u8 operandIndex = 1; operandIndex < 2; operandIndex++)
+    struct Type *checkedType = tac_operand_get_type(&expression->operands.arithmetic.sourceA);
+    if ((checkedType->pointerLevel > 0) || (checkedType->basicType == VT_ARRAY))
     {
-        struct Type *checkedType = TAC_GetTypeOfOperand(expression, operandIndex);
-        if ((checkedType->indirectionLevel > 0) || (checkedType->arraySize > 0))
-        {
-            char *typeName = Type_GetName(checkedType);
-            ErrorWithAST(ERROR_CODE, tree->child, "Arithmetic operation attempted on type %s, %s is only allowed on non-indirect types", typeName, tree->value);
-        }
+        char *typeName = type_get_name(checkedType);
+        log_tree(LOG_FATAL, tree->child, "Arithmetic operation attempted on type %s, %s is only allowed on non-indirect types", typeName, tree->value);
     }
 
-    if (getSizeOfType(scope, TAC_GetTypeOfOperand(expression, 1)) > getSizeOfType(scope, TAC_GetTypeOfOperand(expression, 2)))
+    checkedType = tac_operand_get_type(&expression->operands.arithmetic.sourceB);
+    if ((checkedType->pointerLevel > 0) || (checkedType->basicType == VT_ARRAY))
     {
-        copyTACOperandTypeDecayArrays(&expression->operands[0], &expression->operands[1]);
-    }
-    else
-    {
-        copyTACOperandTypeDecayArrays(&expression->operands[0], &expression->operands[2]);
+        char *typeName = type_get_name(checkedType);
+        log_tree(LOG_FATAL, tree->child, "Arithmetic operation attempted on type %s, %s is only allowed on non-indirect types", typeName, tree->value);
     }
 }
 
-struct TACOperand *walkExpression(struct AST *tree,
-                                  struct BasicBlock *block,
-                                  struct Scope *scope,
-                                  size_t *TACIndex,
-                                  size_t *tempNum)
+struct TACOperand *walk_expression(struct Ast *tree,
+                                   struct BasicBlock *block,
+                                   struct Scope *scope,
+                                   size_t *tacIndex)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkExpression: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    log_tree(LOG_DEBUG, tree, "walk_expression");
 
-    // generically set to tt_add, we will actually set the operation within switch cases
-    struct TACLine *expression = newTACLine(*TACIndex, tt_subtract, tree);
-
-    expression->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-    expression->operands[0].permutation = vp_temp;
+    // generically set to TT_ADD, we will actually set the operation within switch cases
+    struct TACLine *expression = new_tac_line(TT_SUBTRACT, tree);
 
     u8 fallingThrough = 0;
 
     switch (tree->type)
     {
     // basic arithmetic
-    case t_multiply:
-    case t_bitwise_and:
-    case t_bitwise_or:
-    case t_bitwise_xor:
-    case t_bitwise_not:
-    case t_divide:
-    case t_modulo:
-    case t_lshift:
-    case t_rshift:
-        walkNonPointerArithmetic(tree, block, scope, TACIndex, tempNum, expression);
+    case T_MULTIPLY:
+    case T_BITWISE_AND:
+    case T_BITWISE_OR:
+    case T_BITWISE_XOR:
+    case T_BITWISE_NOT:
+    case T_DIVIDE:
+    case T_MODULO:
+    case T_LSHIFT:
+    case T_RSHIFT:
+        walk_non_pointer_arithmetic(tree, block, scope, tacIndex, expression);
         break;
 
-    case t_add:
-        expression->operation = tt_add;
+    case T_ADD:
+        expression->operation = TT_ADD;
         expression->reorderable = 1;
         fallingThrough = 1;
-    case t_subtract:
+    case T_SUBTRACT:
     {
         if (!fallingThrough)
         {
-            expression->operation = tt_subtract;
+            expression->operation = TT_SUBTRACT;
             fallingThrough = 1;
         }
 
-        walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &expression->operands[1]);
+        walk_sub_expression(tree->child, block, scope, tacIndex, &expression->operands.arithmetic.sourceA);
 
-        if (TAC_GetTypeOfOperand(expression, 1)->indirectionLevel > 0)
+        // TODO: explicitly disallow arithmetic on array types?
+        if (tac_operand_get_type(&expression->operands.arithmetic.sourceA)->pointerLevel > 0)
         {
-            struct TACLine *scaleMultiply = setUpScaleMultiplication(tree, scope, TACIndex, tempNum, TAC_GetTypeOfOperand(expression, 1));
-            walkSubExpression(tree->child->sibling, block, scope, TACIndex, tempNum, &scaleMultiply->operands[1]);
+            struct TACOperand offset;
 
-            scaleMultiply->operands[0].type = scaleMultiply->operands[1].type;
-            copyTACOperandDecayArrays(&expression->operands[2], &scaleMultiply->operands[0]);
+            walk_sub_expression(tree->child->sibling, block, scope, tacIndex, &offset);
+            struct TACLine *scaleMultiply = set_up_scale_multiplication(tree, block, scope, tacIndex, tac_operand_get_type(&expression->operands.arithmetic.sourceA), tac_operand_get_type(&offset));
+            scaleMultiply->operands.arithmetic.sourceA = offset;
 
-            scaleMultiply->index = (*TACIndex)++;
-            BasicBlock_append(block, scaleMultiply);
+            tac_operand_populate_as_temp(scope, &scaleMultiply->operands.arithmetic.destination, tac_operand_get_type(&offset));
+            expression->operands.arithmetic.sourceB = scaleMultiply->operands.arithmetic.destination;
+
+            basic_block_append(block, scaleMultiply, tacIndex);
         }
         else
         {
-            walkSubExpression(tree->child->sibling, block, scope, TACIndex, tempNum, &expression->operands[2]);
+            walk_sub_expression(tree->child->sibling, block, scope, tacIndex, &expression->operands.arithmetic.sourceB);
         }
 
-        struct TACOperand *operandA = &expression->operands[1];
-        struct TACOperand *operandB = &expression->operands[2];
-        if ((operandA->type.indirectionLevel > 0) && (operandB->type.indirectionLevel > 0))
-        {
-            ErrorWithAST(ERROR_CODE, tree, "Arithmetic between 2 pointers is not allowed!\n");
-        }
-
-        // TODO generate errors for bad pointer arithmetic here
-        if (getSizeOfType(scope, TACOperand_GetType(operandA)) > getSizeOfType(scope, TACOperand_GetType(operandB)))
-        {
-            copyTACOperandTypeDecayArrays(&expression->operands[0], operandA);
-        }
-        else
-        {
-            copyTACOperandTypeDecayArrays(&expression->operands[0], operandB);
-        }
+        // TODO: generate errors for array types
     }
     break;
 
     default:
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkExpression!\n", getTokenName(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_expression!", token_get_name(tree->type));
     }
 
-    expression->index = (*TACIndex)++;
-    BasicBlock_append(block, expression);
+    struct Type *operandAType = tac_operand_get_type(&expression->operands.arithmetic.sourceA);
+    struct Type *operandBType = tac_operand_get_type(&expression->operands.arithmetic.sourceB);
+    if ((operandAType->pointerLevel > 0) && (operandBType->pointerLevel > 0))
+    {
+        log_tree(LOG_FATAL, tree, "Arithmetic between 2 pointers is not allowed!");
+    }
 
-    return &expression->operands[0];
+    // TODO generate errors for bad pointer arithmetic here
+    if ((type_get_size(operandAType, scope) > type_get_size(operandBType, scope)) || (operandAType->pointerLevel > 0))
+    {
+        tac_operand_populate_as_temp(scope, &expression->operands.arithmetic.destination, operandAType);
+    }
+    else
+    {
+        tac_operand_populate_as_temp(scope, &expression->operands.arithmetic.destination, operandBType);
+    }
+
+    basic_block_append(block, expression, tacIndex);
+
+    return &expression->operands.arithmetic.destination;
 }
 
-struct TACLine *walkArrayRef(struct AST *tree,
-                             struct BasicBlock *block,
-                             struct Scope *scope,
-                             size_t *TACIndex,
-                             size_t *tempNum)
+struct TACLine *walk_array_read(struct Ast *tree,
+                                struct BasicBlock *block,
+                                struct Scope *scope,
+                                size_t *tacIndex)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_array_read");
+
+    if (tree->type != T_ARRAY_INDEX)
     {
-        printf("walkArrayRef: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_array_read!", token_get_name(tree->type));
     }
 
-    if (tree->type != t_array_index)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkArrayRef!\n", getTokenName(tree->type));
-    }
+    struct Ast *arrayBase = tree->child;
+    struct Ast *arrayIndex = tree->child->sibling;
 
-    struct AST *arrayBase = tree->child;
-    struct AST *arrayIndex = tree->child->sibling;
-
-    struct TACLine *arrayRefTAC = newTACLine((*TACIndex), tt_load_arr, tree);
+    struct TACLine *arrayRefTac = new_tac_line(TT_ARRAY_LOAD, tree);
     struct Type *arrayBaseType = NULL;
+
+    bool subtractLeaLevel = false;
 
     switch (arrayBase->type)
     {
     // if the array base is an identifier, we can just look it up
-    case t_identifier:
-        struct VariableEntry *arrayVariable = lookupVar(scope, arrayBase);
-        populateTACOperandFromVariable(&arrayRefTAC->operands[1], arrayVariable);
-        arrayBaseType = TAC_GetTypeOfOperand(arrayRefTAC, 1);
+    case T_IDENTIFIER:
+    {
+        struct VariableEntry *arrayVariable = scope_lookup_var(scope, arrayBase);
+        tac_operand_populate_from_variable(&arrayRefTac->operands.arrayLoad.array, arrayVariable);
+        arrayBaseType = tac_operand_get_type(&arrayRefTac->operands.arrayLoad.array);
 
         // sanity check - can print the name of the variable if incorrectly accessing an identifier
         // TODO: check against size of array if index is constant?
-        if ((arrayBaseType->arraySize == 0) && (arrayBaseType->indirectionLevel == 0))
+        if ((arrayBaseType->pointerLevel == 0) && (arrayBaseType->basicType != VT_ARRAY))
         {
-            ErrorWithAST(ERROR_CODE, arrayBase, "Array reference on non-indirect variable %s %s\n", Type_GetName(arrayBaseType), arrayBase->value);
+            log_tree(LOG_FATAL, arrayBase, "Array reference on non-indirect variable %s %s", type_get_name(arrayBaseType), arrayBase->value);
         }
-        break;
+    }
+    break;
 
-    // otherwise, we need to walk the subexpression to get the array base
+    // FIXME: multidimensional array accesses will break in the same way that struct.arrayField[123] did before specifically checking
+    case T_DOT:
+    {
+        struct TACLine *arrayBaseAccessLine = walk_field_access(arrayBase, block, scope, tacIndex, &arrayRefTac->operands.arrayLoad.array, 0);
+        subtractLeaLevel = convert_field_load_to_lea(arrayBaseAccessLine, &arrayBaseAccessLine->operands.arrayLoad.destination);
+        arrayBaseType = tac_operand_get_type(&arrayBaseAccessLine->operands.fieldLoad.destination);
+    }
+    break;
+
+    // otherwise, we need to Walk the subexpression to get the array base
     default:
     {
-        walkSubExpression(arrayBase, block, scope, TACIndex, tempNum, &arrayRefTAC->operands[1]);
-        arrayBaseType = TAC_GetTypeOfOperand(arrayRefTAC, 1);
+        walk_sub_expression(arrayBase, block, scope, tacIndex, &arrayRefTac->operands.arrayLoad.array);
+        arrayBaseType = tac_operand_get_type(&arrayRefTac->operands.arrayLoad.array);
 
         // sanity check - can only print the type of the base if incorrectly accessing a non-identifier through a subexpression
-        if ((arrayBaseType->arraySize == 0) && (arrayBaseType->indirectionLevel == 0))
+        if ((arrayBaseType->pointerLevel == 0) && (arrayBaseType->basicType != VT_ARRAY))
         {
-            ErrorWithAST(ERROR_CODE, arrayBase, "Array reference on non-indirect type %s\n", Type_GetName(arrayBaseType));
+            log_tree(LOG_FATAL, arrayBase, "Array reference on non-indirect type %s", type_get_name(arrayBaseType));
         }
     }
     break;
     }
 
-    copyTACOperandDecayArrays(&arrayRefTAC->operands[0], &arrayRefTAC->operands[1]);
-    arrayRefTAC->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-    arrayRefTAC->operands[0].permutation = vp_temp;
-    arrayRefTAC->operands[0].type.indirectionLevel--;
+    struct Type arrayMemberType = *tac_operand_get_type(&arrayRefTac->operands.arrayLoad.array);
 
-    if (arrayIndex->type == t_constant)
+    if ((!type_is_array_object(arrayBaseType)) && (arrayBaseType->pointerLevel == 0))
     {
-        // if referencing an array of classes, implicitly convert to an LEA to avoid copying the entire class to a temp
-        if ((arrayBaseType->basicType == vt_class) && (arrayBaseType->indirectionLevel == 0))
-        {
-            arrayRefTAC->operation = tt_lea_off;
-            arrayRefTAC->operands[0].type.indirectionLevel++;
-        }
-        else
-        {
-            arrayRefTAC->operation = tt_load_off;
-        }
-
-        // TODO: abstract this
-        int indexSize = atoi(arrayIndex->value);
-        indexSize *= 1 << alignSize(getSizeOfDereferencedType(scope, arrayBaseType));
-
-        arrayRefTAC->operands[2].name.val = indexSize;
-        arrayRefTAC->operands[2].permutation = vp_literal;
-        arrayRefTAC->operands[2].type.basicType = selectVariableTypeForNumber(arrayRefTAC->operands[2].name.val);
-    }
-    // otherwise, the index is either a variable or subexpression
-    else
-    {
-        // if referencing an array of classes, implicitly convert to an LEA to avoid copying the entire class to a temp
-        if ((arrayBaseType->basicType == vt_class) && (arrayBaseType->indirectionLevel == 0))
-        {
-            arrayRefTAC->operation = tt_lea_arr;
-            arrayRefTAC->operands[0].type.indirectionLevel++;
-        }
-        // set the scale for the array access
-
-        arrayRefTAC->operands[3].name.val = alignSize(getSizeOfDereferencedType(scope, arrayBaseType));
-        arrayRefTAC->operands[3].permutation = vp_literal;
-        arrayRefTAC->operands[3].type.basicType = selectVariableTypeForNumber(arrayRefTAC->operands[3].name.val);
-
-        walkSubExpression(arrayIndex, block, scope, TACIndex, tempNum, &arrayRefTAC->operands[2]);
+        InternalError("Array-referenced type has non-indirect type of %s", type_get_name(tac_operand_get_type(&arrayRefTac->operands.arrayLoad.array)));
     }
 
-    arrayRefTAC->index = (*TACIndex)++;
-    BasicBlock_append(block, arrayRefTAC);
-    return arrayRefTAC;
+    if (subtractLeaLevel)
+    {
+        arrayMemberType.pointerLevel--;
+    }
+
+    if (arrayMemberType.pointerLevel == 0)
+    {
+        type_single_decay(&arrayMemberType);
+    }
+    arrayMemberType.pointerLevel--;
+    tac_operand_populate_as_temp(scope, &arrayRefTac->operands.arrayLoad.destination, &arrayMemberType);
+
+    walk_sub_expression(arrayIndex, block, scope, tacIndex, &arrayRefTac->operands.arrayLoad.index);
+
+    tac_operand_populate_as_temp(scope, &arrayRefTac->operands.arrayLoad.destination, &arrayMemberType);
+
+    basic_block_append(block, arrayRefTac, tacIndex);
+    return arrayRefTac;
 }
 
-struct TACOperand *walkDereference(struct AST *tree,
-                                   struct BasicBlock *block,
-                                   struct Scope *scope,
-                                   size_t *TACIndex,
-                                   size_t *tempNum)
+struct TACOperand *walk_dereference(struct Ast *tree,
+                                    struct BasicBlock *block,
+                                    struct Scope *scope,
+                                    size_t *tacIndex)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_dereference");
+
+    if (tree->type != T_DEREFERENCE)
     {
-        printf("walkDereference: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_dereference!", token_get_name(tree->type));
     }
 
-    if (tree->type != t_dereference)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkDereference!\n", getTokenName(tree->type));
-    }
-
-    struct TACLine *dereference = newTACLine(*tempNum, tt_load, tree);
+    struct TACLine *dereference = new_tac_line(TT_LOAD, tree);
 
     switch (tree->child->type)
     {
-    case t_add:
-    case t_subtract:
+    case T_ADD:
+    case T_SUBTRACT:
     {
-        walkPointerArithmetic(tree->child, block, scope, TACIndex, tempNum, &dereference->operands[1]);
+        walk_pointer_arithmetic(tree->child, block, scope, tacIndex, &dereference->operands.load.address);
     }
     break;
 
     default:
-        walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &dereference->operands[1]);
+        walk_sub_expression(tree->child, block, scope, tacIndex, &dereference->operands.load.address);
         break;
     }
 
-    copyTACOperandDecayArrays(&dereference->operands[0], &dereference->operands[1]);
-    TAC_GetTypeOfOperand(dereference, 0)->indirectionLevel--;
-    dereference->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-    dereference->operands[0].permutation = vp_temp;
+    struct Type *dereferencedType = tac_operand_get_type(&dereference->operands.load.address);
+    if (type_is_array_object(dereferencedType))
+    {
+        log_tree(LOG_FATAL, tree, "Dereferencing array of type %s is not allowed!", type_get_name(dereferencedType));
+    }
+    else if (dereferencedType->pointerLevel == 0)
+    {
+        log_tree(LOG_FATAL, tree, "Dereference on non-pointer type %s is not allowed!", type_get_name(dereferencedType));
+    }
 
-    dereference->index = (*TACIndex)++;
-    BasicBlock_append(block, dereference);
+    struct Type typeAfterDereference = *tac_operand_get_type(&dereference->operands.load.address);
+    typeAfterDereference.pointerLevel--;
+    tac_operand_populate_as_temp(scope, &dereference->operands.load.destination, &typeAfterDereference);
 
-    return &dereference->operands[0];
+    basic_block_append(block, dereference, tacIndex);
+
+    return &dereference->operands.load.destination;
 }
 
-struct TACOperand *walkAddrOf(struct AST *tree,
-                              struct BasicBlock *block,
-                              struct Scope *scope,
-                              size_t *TACIndex,
-                              size_t *tempNum)
+struct TACOperand *walk_addr_of(struct Ast *tree,
+                                struct BasicBlock *block,
+                                struct Scope *scope,
+                                size_t *tacIndex)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_addr_of");
+
+    if (tree->type != T_ADDRESS_OF)
     {
-        printf("walkAddrOf: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to WalkAddressOf!", token_get_name(tree->type));
     }
 
-    if (tree->type != t_address_of)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkAddressOf!\n", getTokenName(tree->type));
-    }
-
-    struct TACLine *addrOfLine = newTACLine(*TACIndex, tt_addrof, tree);
-    addrOfLine->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-    addrOfLine->operands[0].permutation = vp_temp;
+    // TODO: helper function for getting address of
+    struct TACLine *addrOfLine = new_tac_line(TT_ADDROF, tree);
 
     switch (tree->child->type)
     {
-    // look up the variable entry and ensure that we will spill it to the stack since we take its address
-    case t_identifier:
+    // look up the variable entry for what address is taken of to generate verbose errors if it doesn't exist
+    case T_IDENTIFIER:
     {
-        struct VariableEntry *addrTakenOf = lookupVar(scope, tree->child);
-        if (addrTakenOf->type.arraySize > 0)
+        struct VariableEntry *addrTakenOf = scope_lookup_var(scope, tree->child);
+        if (addrTakenOf->type.basicType == VT_ARRAY)
         {
-            ErrorWithAST(ERROR_CODE, tree->child, "Can't take address of local array %s!\n", addrTakenOf->name);
+            log_tree(LOG_FATAL, tree->child, "Can't take address of local array %s!", addrTakenOf->name);
         }
-        addrTakenOf->mustSpill = 1;
-        walkSubExpression(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1]);
+        walk_sub_expression(tree->child, block, scope, tacIndex, &addrOfLine->operands.addrof.source);
     }
     break;
 
-    case t_array_index:
+    case T_ARRAY_INDEX:
     {
-        // use walkArrayRef to generate the access we need, just the direct accessing load to an lea to calculate the address we would have loaded from
-        struct TACLine *arrayRefLine = walkArrayRef(tree->child, block, scope, TACIndex, tempNum);
-        convertArrayRefLoadToLea(arrayRefLine);
-
+        // use walk_array_read to generate the access we need, just the direct accessing load to an lea to calculate the address we would have loaded from
+        struct TACLine *arrayRefLine = walk_array_read(tree->child, block, scope, tacIndex);
+        convert_array_load_to_lea(arrayRefLine, NULL);
         // early return, no need for explicit address-of TAC
-        freeTAC(addrOfLine);
+        free_tac(addrOfLine);
         addrOfLine = NULL;
-
-        return &arrayRefLine->operands[0];
+        arrayRefLine->operands.arrayLoad.array.name.variable->mustSpill = true;
+        return &arrayRefLine->operands.arrayLoad.destination;
     }
     break;
 
-    case t_dot:
-    case t_arrow:
+    case T_DOT:
     {
-        // walkMemberAccess can do everything we need
+        // walk_field_access can do everything we need
         // the only thing we have to do is ensure we have an LEA at the end instead of a direct read in the case of the dot operator
-        struct TACLine *memberAccessLine = walkMemberAccess(tree->child, block, scope, TACIndex, tempNum, &addrOfLine->operands[1], 0);
-
-        memberAccessLine->operation = tt_lea_off;
-        memberAccessLine->operands[0].type.indirectionLevel++;
-        memberAccessLine->operands[1].castAsType.indirectionLevel++;
-        addrOfLine->operands[0].type.indirectionLevel++;
-
+        struct TACLine *fieldAccessLine = walk_field_access(tree->child, block, scope, tacIndex, &addrOfLine->operands.addrof.source, 0);
+        convert_field_load_to_lea(fieldAccessLine, &addrOfLine->operands.addrof.source);
         // free the line created at the top of this function and return early
-        freeTAC(addrOfLine);
-        return &memberAccessLine->operands[0];
+        free_tac(addrOfLine);
+
+        fieldAccessLine->operands.fieldLoad.source.name.variable->mustSpill = true;
+        return &fieldAccessLine->operands.fieldLoad.destination;
     }
     break;
 
     default:
-        ErrorWithAST(ERROR_CODE, tree, "Address of operator is not supported for non-identifiers! Saw %s\n", getTokenName(tree->child->type));
+        log_tree(LOG_FATAL, tree, "Address of operator is not supported for non-identifiers! Saw %s", token_get_name(tree->child->type));
     }
 
-    addrOfLine->operands[0].type = *TAC_GetTypeOfOperand(addrOfLine, 1);
-    addrOfLine->operands[0].type.indirectionLevel++;
-    addrOfLine->operands[0].type.arraySize = 0;
+    addrOfLine->operands.addrof.source.name.variable->mustSpill = 1;
 
-    addrOfLine->index = (*TACIndex)++;
-    BasicBlock_append(block, addrOfLine);
+    struct Type typeOfAddress = *tac_operand_get_type(&addrOfLine->operands.addrof.source);
+    typeOfAddress.pointerLevel++;
+    tac_operand_populate_as_temp(scope, &addrOfLine->operands.addrof.destination, &typeOfAddress);
+    basic_block_append(block, addrOfLine, tacIndex);
 
-    return &addrOfLine->operands[0];
+    return &addrOfLine->operands.addrof.destination;
 }
 
-void walkPointerArithmetic(struct AST *tree,
-                           struct BasicBlock *block,
-                           struct Scope *scope,
-                           size_t *TACIndex,
-                           size_t *tempNum,
-                           struct TACOperand *destinationOperand)
+void walk_pointer_arithmetic(struct Ast *tree,
+                             struct BasicBlock *block,
+                             struct Scope *scope,
+                             size_t *tacIndex,
+                             struct TACOperand *destinationOperand)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_pointer_arithmetic");
+
+    if ((tree->type != T_ADD) && (tree->type != T_SUBTRACT))
     {
-        printf("walkPointerArithmetic: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_pointer_arithmetic!", token_get_name(tree->type));
     }
 
-    if ((tree->type != t_add) && (tree->type != t_subtract))
+    struct Ast *pointerArithLhs = tree->child;
+    struct Ast *pointerArithRhs = tree->child->sibling;
+
+    struct TACLine *pointerArithmetic = new_tac_line(TT_ADD, tree->child);
+    if (tree->type == T_SUBTRACT)
     {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkPointerArithmetic!\n", getTokenName(tree->type));
+        pointerArithmetic->operation = TT_SUBTRACT;
     }
 
-    struct AST *pointerArithLHS = tree->child;
-    struct AST *pointerArithRHS = tree->child->sibling;
+    walk_sub_expression(pointerArithLhs, block, scope, tacIndex, &pointerArithmetic->operands.arithmetic.sourceA);
 
-    struct TACLine *pointerArithmetic = newTACLine(*TACIndex, tt_add, tree->child);
-    if (tree->type == t_subtract)
-    {
-        pointerArithmetic->operation = tt_subtract;
-    }
+    struct Type *pointerArithLhsType = tac_operand_get_type(&pointerArithmetic->operands.arithmetic.sourceA);
+    tac_operand_populate_as_temp(scope, &pointerArithmetic->operands.arithmetic.destination, pointerArithLhsType);
 
-    walkSubExpression(pointerArithLHS, block, scope, TACIndex, tempNum, &pointerArithmetic->operands[1]);
-    copyTACOperandDecayArrays(&pointerArithmetic->operands[0], &pointerArithmetic->operands[1]);
-    pointerArithmetic->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
+    struct TACLine *scaleMultiplication = set_up_scale_multiplication(pointerArithRhs,
+                                                                      block,
+                                                                      scope,
+                                                                      tacIndex,
+                                                                      pointerArithLhsType,
+                                                                      pointerArithLhsType);
+    walk_sub_expression(pointerArithRhs, block, scope, tacIndex, &scaleMultiplication->operands.arithmetic.sourceA);
+    tac_operand_populate_as_temp(scope, &pointerArithmetic->operands.arithmetic.destination, pointerArithLhsType);
 
-    pointerArithmetic->operands[0].permutation = vp_temp;
+    pointerArithmetic->operands.arithmetic.sourceB = scaleMultiplication->operands.arithmetic.destination;
 
-    struct TACLine *scaleMultiplication = setUpScaleMultiplication(pointerArithRHS,
-                                                                   scope,
-                                                                   TACIndex,
-                                                                   tempNum,
-                                                                   TAC_GetTypeOfOperand(pointerArithmetic, 1));
+    basic_block_append(block, scaleMultiplication, tacIndex);
+    basic_block_append(block, pointerArithmetic, tacIndex);
 
-    walkSubExpression(pointerArithRHS, block, scope, TACIndex, tempNum, &scaleMultiplication->operands[1]);
-
-    copyTACOperandTypeDecayArrays(&scaleMultiplication->operands[0], &scaleMultiplication->operands[1]);
-
-    copyTACOperandDecayArrays(&pointerArithmetic->operands[2], &scaleMultiplication->operands[0]);
-
-    scaleMultiplication->index = (*TACIndex)++;
-    BasicBlock_append(block, scaleMultiplication);
-    pointerArithmetic->index = (*TACIndex)++;
-    BasicBlock_append(block, pointerArithmetic);
-
-    *destinationOperand = pointerArithmetic->operands[0];
+    *destinationOperand = pointerArithmetic->operands.arithmetic.destination;
 }
 
-void walkAsmBlock(struct AST *tree,
-                  struct BasicBlock *block,
-                  struct Scope *scope,
-                  size_t *TACIndex,
-                  size_t *tempNum)
+void walk_asm_block(struct Ast *tree,
+                    struct BasicBlock *block,
+                    struct Scope *scope,
+                    size_t *tacIndex)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_asm_block");
+
+    if (tree->type != T_ASM)
     {
-        printf("walkAsmBlock: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_asm_block!", token_get_name(tree->type));
     }
 
-    if (tree->type != t_asm)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkAsmBlock!\n", getTokenName(tree->type));
-    }
-
-    struct AST *asmRunner = tree->child;
+    struct Ast *asmRunner = tree->child;
     while (asmRunner != NULL)
     {
-        if (asmRunner->type != t_asm)
+        struct TACLine *asmLine = NULL;
+        switch (asmRunner->type)
         {
-            ErrorWithAST(ERROR_INTERNAL, tree, "Non-asm seen as contents of ASM block!\n");
+        case T_ASM:
+        {
+            asmLine = new_tac_line(TT_ASM, asmRunner);
+            asmLine->operands.asm_.asmString = asmRunner->value;
         }
+        break;
 
-        struct TACLine *asmLine = newTACLine((*TACIndex)++, tt_asm, asmRunner);
-        asmLine->operands[0].name.str = asmRunner->value;
+        case T_ASM_READVAR:
+        {
+            asmLine = new_tac_line(TT_ASM_LOAD, asmRunner);
+            walk_sub_expression(asmRunner->child->sibling, block, scope, tacIndex, &asmLine->operands.asmLoad.sourceOperand);
+            asmLine->operands.asmLoad.destRegisterName = asmRunner->child->value;
+        }
+        break;
 
-        BasicBlock_append(block, asmLine);
+        case T_ASM_WRITEVAR:
+        {
+            asmLine = new_tac_line(TT_ASM_STORE, asmRunner);
+            tac_operand_populate_from_variable(&asmLine->operands.asmStore.destinationOperand, scope_lookup_var(scope, asmRunner->child));
+            asmLine->operands.asmStore.sourceRegisterName = asmRunner->child->sibling->value;
+        }
+        break;
+
+        default:
+            log_tree(LOG_FATAL, tree, "Non-asm seen as contents of ASM block!");
+        }
+        basic_block_append(block, asmLine, tacIndex);
 
         asmRunner = asmRunner->sibling;
     }
 }
 
-void walkStringLiteral(struct AST *tree,
-                       struct BasicBlock *block,
-                       struct Scope *scope,
-                       struct TACOperand *destinationOperand)
+void walk_string_literal(struct Ast *tree,
+                         struct BasicBlock *block,
+                         struct Scope *scope,
+                         struct TACOperand *destinationOperand)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
-    {
-        printf("walkStringLiteral: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
-    }
+    log_tree(LOG_DEBUG, tree, "walk_string_literal");
 
-    if (tree->type != t_string_literal)
+    if (tree->type != T_STRING_LITERAL)
     {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkStringLiteral!\n", getTokenName(tree->type));
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_string_literal!", token_get_name(tree->type));
     }
 
     // it inserts underscores in place of spaces and other modifications to turn the literal into a name that the symtab can use
     // but first, it copies the string exactly as-is so it knows what the string object should be initialized to
-    char *stringName = tree->value;
+    char *stringName = strdup(tree->value);
     char *stringValue = strdup(stringName);
     size_t stringLength = strlen(stringName);
 
@@ -2612,9 +4228,9 @@ void walkStringLiteral(struct AST *tree,
             {
                 // for any non-whitespace character, map it to lower/uppercase alphabetic characters
                 // this should avoid collisions with renamed strings to the point that it isn't a problem
-                const u16 charsInAlphabet = 26;
-                char altVal = (char)(stringName[charIndex] % (charsInAlphabet * 1));
-                if (altVal > (charsInAlphabet - 1))
+                const u16 CHARS_IN_ALPHABET = 26;
+                char altVal = (char)(stringName[charIndex] % (CHARS_IN_ALPHABET * 1));
+                if (altVal > (CHARS_IN_ALPHABET - 1))
                 {
                     stringName[charIndex] = (char)(altVal + 'A');
                 }
@@ -2627,102 +4243,103 @@ void walkStringLiteral(struct AST *tree,
     }
 
     struct VariableEntry *stringLiteralEntry = NULL;
-    struct ScopeMember *existingMember = Scope_lookup(scope, stringName);
+    struct ScopeMember *existingMember = scope_lookup(scope, stringName, E_VARIABLE);
 
     // if we already have a string literal for this thing, nothing else to do
     if (existingMember == NULL)
     {
-        struct AST fakeStringTree;
+        char *origStringName = stringName;
+        stringName = dictionary_lookup_or_insert(parseDict, stringName);
+        free(origStringName);
+
+        struct Ast fakeStringTree;
         fakeStringTree.value = stringName;
         fakeStringTree.sourceFile = tree->sourceFile;
         fakeStringTree.sourceLine = tree->sourceLine;
         fakeStringTree.sourceCol = tree->sourceCol;
 
-        struct Type stringType;
-        stringType.basicType = vt_u8;
-        stringType.arraySize = stringLength;
-        stringType.indirectionLevel = 0;
+        struct Type stringType = {0};
+        type_set_basic_type(&stringType, VT_ARRAY, NULL, 0);
+        struct Type charType;
+        type_init(&charType);
+        charType.basicType = VT_U8;
+        stringType.array.type = type_duplicate(&charType);
+        stringType.array.size = stringLength;
 
-        stringLiteralEntry = createVariable(scope, &fakeStringTree, &stringType, 1, 0, 0);
-        stringLiteralEntry->isStringLiteral = 1;
+        stringLiteralEntry = scope_create_variable(scope, &fakeStringTree, &stringType, true, A_PUBLIC);
+        stringLiteralEntry->isStringLiteral = true;
 
         struct Type *realStringType = &stringLiteralEntry->type;
-        realStringType->initializeArrayTo = malloc(stringLength * sizeof(char *));
+        if (realStringType->array.initializeArrayTo != NULL)
+        {
+            InternalError("String literal already initialized!");
+        }
+        realStringType->array.initializeArrayTo = malloc(stringLength * sizeof(char *));
+        char **strArray = (char **)realStringType->array.initializeArrayTo;
         for (size_t charIndex = 0; charIndex < stringLength; charIndex++)
         {
-            realStringType->initializeArrayTo[charIndex] = malloc(1);
-            *realStringType->initializeArrayTo[charIndex] = stringValue[charIndex];
+            strArray[charIndex] = malloc(sizeof(char));
+            *strArray[charIndex] = stringValue[charIndex];
         }
     }
     else
     {
+        free(stringName);
         stringLiteralEntry = existingMember->entry;
     }
 
     free(stringValue);
-    populateTACOperandFromVariable(destinationOperand, stringLiteralEntry);
-    destinationOperand->name.str = stringName;
-    destinationOperand->type.arraySize = stringLength;
+    tac_operand_populate_from_variable(destinationOperand, stringLiteralEntry);
 }
 
-void walkSizeof(struct AST *tree,
-                struct BasicBlock *block,
-                struct Scope *scope,
-                struct TACOperand *destinationOperand)
+void walk_sizeof(struct Ast *tree,
+                 struct BasicBlock *block,
+                 struct Scope *scope,
+                 size_t *tacIndex,
+                 struct TACOperand *destinationOperand)
 {
-    if (currentVerbosity == VERBOSITY_MAX)
+    log_tree(LOG_DEBUG, tree, "walk_sizeof");
+
+    if (tree->type != T_SIZEOF)
     {
-        printf("walkSizeof: %s:%d:%d\n", tree->sourceFile, tree->sourceLine, tree->sourceCol);
+        log_tree(LOG_FATAL, tree, "Wrong AST (%s) passed to walk_sizeof!", token_get_name(tree->type));
     }
 
-    if (tree->type != t_sizeof)
-    {
-        ErrorWithAST(ERROR_INTERNAL, tree, "Wrong AST (%s) passed to walkSizeof!\n", getTokenName(tree->type));
-    }
-
-    size_t sizeInBytes = 0;
+    struct TACLine *sizeofLine = new_tac_line(TT_SIZEOF, tree);
+    struct TacSizeof *operands = &sizeofLine->operands.sizeof_;
+    struct Type sizeType = {0};
+    type_set_basic_type(&sizeType, VT_U64, NULL, 0);
+    tac_operand_populate_as_temp(scope, &operands->destination, &sizeType);
 
     switch (tree->child->type)
     {
-    // if we see an identifier, it may be an identifier or a class name
-    case t_identifier:
+    // if we see an identifier, it may be an identifier or a struct name
+    case T_IDENTIFIER:
     {
         // do a generic scope lookup on the identifier
-        struct ScopeMember *lookedUpIdentifier = Scope_lookup(scope, tree->child->value);
-
-        // if it looks up nothing, or it's a variable
-        if ((lookedUpIdentifier == NULL) || (lookedUpIdentifier->type == e_variable))
+        struct VariableEntry *lookedUpVariable = scope_lookup_var_by_string(scope, tree->child->value);
+        if (lookedUpVariable != NULL)
         {
-            // Scope_lookupVar is not redundant as it will give us a 'use of undeclared' error in the case where we looked up nothing
-            struct VariableEntry *getSizeof = lookupVar(scope, tree->child);
-
-            sizeInBytes = getSizeOfType(scope, &getSizeof->type);
+            operands->type = type_duplicate_non_pointer(&lookedUpVariable->type);
         }
-        // we looked something up but it's not a variable
         else
         {
-            struct ClassEntry *getSizeof = lookupClass(scope, tree->child);
-
-            sizeInBytes = getSizeof->totalSize;
+            struct Type identifierType = walk_non_pointer_type_name(scope, tree->child, scope->parentFunction->implementedFor);
+            operands->type = identifierType;
         }
     }
     break;
 
-    case t_type_name:
+    case T_TYPE_NAME:
     {
-        struct Type getSizeof;
-        walkTypeName(tree->child, scope, &getSizeof);
-
-        sizeInBytes = getSizeOfType(scope, &getSizeof);
+        walk_type_name(tree->child, scope, &operands->type, NULL);
     }
     break;
+
     default:
-        ErrorWithAST(ERROR_CODE, tree, "sizeof is only supported on type names and identifiers!\n");
+        log_tree(LOG_FATAL, tree, "sizeof is only supported on type names and identifiers!");
     }
 
-    char sizeString[sprintedNumberLength];
-    snprintf(sizeString, sprintedNumberLength - 1, "%zu", sizeInBytes);
-    destinationOperand->type.basicType = vt_u8;
-    destinationOperand->permutation = vp_literal;
-    destinationOperand->name.str = Dictionary_LookupOrInsert(parseDict, sizeString);
+    basic_block_append(block, sizeofLine, tacIndex);
+    *destinationOperand = operands->destination;
 }

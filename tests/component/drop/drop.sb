@@ -1,0 +1,73 @@
+#include "tests-common.sb"
+
+trait Print
+{
+    public fun print(self);
+}
+
+struct Droppable
+{
+    u64 number;
+}
+
+impl Droppable
+{
+    public fun from_number(u64 number) -> Droppable
+    {
+        return Droppable {number = number};
+    }
+}
+
+impl Drop for Droppable
+{
+    fun drop(self)
+    {
+        printStr("Dropping droppable with number " as u8 *);
+        printNum(self.number, 1);
+    }
+}
+
+impl Print for Droppable
+{
+    public fun print(self)
+    {
+        printStr("Droppable with number " as u8 *);
+        printNum(self.number, 1);
+    }
+}
+
+struct DefaultDroppable
+{
+    Droppable d;
+    u8 importantData;
+}
+
+impl DefaultDroppable
+{
+    public fun new(u64 subDroppableNumber, u8 important) -> DefaultDroppable
+    {
+        return DefaultDroppable{d = Droppable::from_number(subDroppableNumber), importantData = important};
+    }
+}
+
+impl Print for DefaultDroppable
+{
+    public fun print(self)
+    {
+        printStr("DefaultDroppable with important data " as u8*);
+        printNum(self.importantData, 1);
+        putc('\t');
+        self.d.print();
+    }
+}
+
+fun main()
+{
+    Droppable d = Droppable::from_number(1);
+    d.print();
+    Droppable d2 = Droppable::from_number(2);
+    d2.print();
+
+    DefaultDroppable d3 = DefaultDroppable::new(99, 6);
+    d3.print();
+}

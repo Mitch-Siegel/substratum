@@ -1,0 +1,11 @@
+#include "tests-common.sb"
+
+fun doIt() {
+    putc('a');
+}
+
+
+fun main() {
+    doIt();
+    exit();
+}

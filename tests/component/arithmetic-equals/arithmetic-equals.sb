@@ -3,22 +3,22 @@
 fun main()
 {
     u32 value = 1;
-    printNum(value);
+    printNum(value, 1);
     value -= 1;
-    printNum(value);
+    printNum(value, 1);
     value += 1;
-    printNum(value);
+    printNum(value, 1);
     value *= 10;
-    printNum(value);
+    printNum(value, 1);
     value /= 5;
-    printNum(value);
+    printNum(value, 1);
     value |= 64;
-    printNum(value);
+    printNum(value, 1);
     value ^= 127;
-    printNum(value);
+    printNum(value, 1);
     value &= 255;
-    printNum(value);
+    printNum(value, 1);
     value %= 7;
-    printNum(value);
+    printNum(value, 1);
     exit();
 }

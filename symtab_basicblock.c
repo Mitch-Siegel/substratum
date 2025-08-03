@@ -1,58 +1,152 @@
 #include "symtab_basicblock.h"
+#include "struct_desc.h"
 
-struct BasicBlock *BasicBlock_new(ssize_t labelNum)
+#include "log.h"
+
+struct BasicBlock *basic_block_new(ssize_t labelNum)
 {
     struct BasicBlock *wip = malloc(sizeof(struct BasicBlock));
-    wip->TACList = LinkedList_New();
+    wip->successors = set_new(free, ssizet_compare);
+    wip->TACList = list_new((void (*)(void *))free_tac, NULL);
     wip->labelNum = labelNum;
     return wip;
 }
 
-void BasicBlock_free(struct BasicBlock *block)
+void basic_block_add_successor(struct BasicBlock *block, ssize_t successor)
 {
-    LinkedList_Free(block->TACList, freeTAC);
+    ssize_t *successorPtr = malloc(sizeof(ssize_t));
+    *successorPtr = successor;
+    if (!set_try_insert(block->successors, successorPtr))
+    {
+        free(successorPtr);
+    }
+}
+
+void basic_block_free(struct BasicBlock *block)
+{
+    set_free(block->successors);
+    list_free(block->TACList);
     free(block);
 }
 
-void BasicBlock_append(struct BasicBlock *block, struct TACLine *line)
+void basic_block_append(struct BasicBlock *block, struct TACLine *line, size_t *tacIndex)
 {
-    LinkedList_Append(block->TACList, line);
+    if (tac_line_is_jump(line))
+    {
+        ssize_t branchTarget = tac_get_jump_target(line);
+        log(LOG_DEBUG, "Adding branch target %zd to block %zd", branchTarget, block->labelNum);
+        basic_block_add_successor(block, branchTarget);
+    }
+
+    line->index = (*tacIndex)++;
+    list_append(block->TACList, line);
+    char *sprintedAddedLine = sprint_tac_line(line);
+    log(LOG_DEBUG, "Append TAC %s", sprintedAddedLine);
+    free(sprintedAddedLine);
 }
 
-void BasicBlock_prepend(struct BasicBlock *block, struct TACLine *line)
+void basic_block_prepend(struct BasicBlock *block, struct TACLine *line)
 {
     if (block->TACList->size > 0)
     {
         struct TACLine *first = block->TACList->head->data;
         if (line->index != first->index)
         {
-            ErrorAndExit(ERROR_INTERNAL, "BasicBlock_prepend called with line index %zu - must be %zu (same as start of block!)!\n", line->index, first->index);
+            InternalError("BasicBlock_prepend called with line index %zu - must be %zu (same as start of block!)!", line->index, first->index);
         }
     }
 
-    LinkedList_Prepend(block->TACList, line);
+    if (tac_line_is_jump(line))
+    {
+        ssize_t branchTarget = tac_get_jump_target(line);
+        log(LOG_DEBUG, "Adding branch target %zd to block %zd", branchTarget, block->labelNum);
+        basic_block_add_successor(block, branchTarget);
+    }
+
+    list_prepend(block->TACList, line);
 }
 
-void printBasicBlock(struct BasicBlock *block, size_t indentLevel)
+void print_basic_block(struct BasicBlock *block, size_t indentLevel)
 {
     for (size_t indentPrint = 0; indentPrint < indentLevel; indentPrint++)
     {
         printf("\t");
     }
     printf("BASIC BLOCK %zu\n", block->labelNum);
-    for (struct LinkedListNode *runner = block->TACList->head; runner != NULL; runner = runner->next)
+
+    Iterator *tacRunner = NULL;
+    for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
     {
-        struct TACLine *this = runner->data;
+        struct TACLine *thisLine = iterator_get(tacRunner);
         for (size_t indentPrint = 0; indentPrint < indentLevel; indentPrint++)
         {
             printf("\t");
         }
 
-        if (runner->data != NULL)
-        {
-            printTACLine(this);
-            printf("\n");
-        }
+        print_tac_line(thisLine);
+        printf("\n");
     }
+    iterator_free(tacRunner);
     printf("\n");
+}
+
+void basic_block_resolve_capital_self(struct BasicBlock *block, struct TypeEntry *typeEntry)
+{
+    Iterator *blockIter = NULL;
+    for (blockIter = list_begin(block->TACList); iterator_gettable(blockIter); iterator_next(blockIter))
+    {
+        struct TACLine *line = iterator_get(blockIter);
+
+        struct OperandUsages operandUsages = get_operand_usages(line);
+        while (operandUsages.reads->size > 0)
+        {
+            struct TACOperand *readOperand = deque_pop_front(operandUsages.reads);
+            type_try_resolve_vt_self(&readOperand->castAsType, typeEntry);
+        }
+
+        while (operandUsages.writes->size > 0)
+        {
+            struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
+            type_try_resolve_vt_self(&writtenOperand->castAsType, typeEntry);
+        }
+
+        if (line->operation == TT_SIZEOF)
+        {
+            type_try_resolve_vt_self(&line->operands.sizeof_.type, typeEntry);
+        }
+
+        deque_free(operandUsages.reads);
+        deque_free(operandUsages.writes);
+    }
+    iterator_free(blockIter);
+}
+
+void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams)
+{
+    Iterator *tacRunner = NULL;
+    for (tacRunner = list_begin(block->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
+    {
+        struct TACLine *resolvedLine = iterator_get(tacRunner);
+        struct OperandUsages operandUsages = get_operand_usages(resolvedLine);
+        while (operandUsages.reads->size > 0)
+        {
+            struct TACOperand *readOperand = deque_pop_front(operandUsages.reads);
+            type_try_resolve_generic(&readOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
+        }
+
+        while (operandUsages.writes->size > 0)
+        {
+            struct TACOperand *writtenOperand = deque_pop_front(operandUsages.writes);
+            type_try_resolve_generic(&writtenOperand->castAsType, paramsMap, resolvedStructName, resolvedParams);
+        }
+
+        if (resolvedLine->operation == TT_SIZEOF)
+        {
+            type_try_resolve_generic(&resolvedLine->operands.sizeof_.type, paramsMap, resolvedStructName, resolvedParams);
+        }
+
+        deque_free(operandUsages.reads);
+        deque_free(operandUsages.writes);
+    }
+    iterator_free(tacRunner);
 }

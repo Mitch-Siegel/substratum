@@ -28,10 +28,10 @@ programs: $(TEST_NAME).output
    		echo "Test '$(TEST_NAME)' failed"; \
 		echo "matched output:"; \
 		echo $$GREP_OUTPUT; \
-		echo "full output:" ;\
-		cat $@ ;\
-		echo "expected output:" ;\
-		cat $(word 2,$^) ;\
+		echo "expected output:"; \
+		cat $(word 2,$^); \
+		echo "actual output:"; \
+		cat $@; \
 		exit 1; \
 		else \
 		echo "Test '$(TEST_NAME)' passed"; \

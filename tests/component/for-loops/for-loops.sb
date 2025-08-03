@@ -1,0 +1,20 @@
+#include "tests-common.sb"
+
+fun main()
+{
+    for(u8 i = '0'; i <= '9'; i += 1)
+    {
+        putc(i);
+    }
+    putc('\n');
+
+    u8 j;
+    for(j = '0'; j <= '9';)
+    {
+        putc(j);
+        j += 2;
+    }
+    putc('\n');
+
+    exit();
+}

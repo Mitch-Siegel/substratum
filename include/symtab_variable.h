@@ -14,22 +14,22 @@ struct VariableEntry
     // if this variable has the address-of operator used on it or is a global variable
     // we need to denote that it *must* live in memory so it isn't lost
     // and can have an address
-    u8 mustSpill;
-    u8 isGlobal;
-    u8 isExtern;
-    u8 isStringLiteral;
+    bool mustSpill;
+    bool isGlobal;
+    bool isExtern;
+    bool isStringLiteral;
 };
 
-struct VariableEntry *createVariable(struct Scope *scope,
-                                     struct AST *name,
-                                     struct Type *type,
-                                     u8 isGlobal,
-                                     size_t declaredAt,
-                                     u8 isArgument);
+struct VariableEntry *variable_entry_new(char *name,
+                                         struct Type *type,
+                                         bool isGlobal,
+                                         bool isArgument,
+                                         enum ACCESS accessibility);
 
-struct VariableEntry *lookupVarByString(struct Scope *scope,
-                                        char *name);
+void variable_entry_free(struct VariableEntry *variable);
 
-struct VariableEntry *lookupVar(struct Scope *scope,
-                                struct AST *name);
+void variable_entry_print(struct VariableEntry *variable, FILE *outFile, size_t depth);
+
+void variable_entry_try_resolve_generic(struct VariableEntry *variable, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams);
+
 #endif
