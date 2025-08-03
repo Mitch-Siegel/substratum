@@ -1,0 +1,6 @@
+
+fun UsesUndeclaredClass(){
+    Point p;
+    p.x = 0;
+    p.y = 1;
+}

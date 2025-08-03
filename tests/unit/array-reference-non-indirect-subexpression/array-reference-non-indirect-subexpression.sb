@@ -1,0 +1,9 @@
+
+class HasNoArrray {
+    u16 notAnArray;
+};
+
+fun UsesArrayRefOnNonIndirectSubexpression(){
+    HasNoArrray hna;
+    hna.notAnArray[0] = 5;
+}

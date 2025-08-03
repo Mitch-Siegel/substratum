@@ -1,0 +1,9 @@
+class Vec2 {
+    u8 x;
+    u8 y;
+};
+
+fun UsesNonexistentMember(){
+    Vec2 v;
+    v.z = 123;
+}

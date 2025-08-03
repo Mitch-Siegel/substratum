@@ -10,6 +10,7 @@ SBCC_BUILD_DIR = ../../build
 COMPONENT_TEST_COVERAGE_NAME = "component-test-coverage"
 
 ALL_TESTS_DIRS = $(filter-out $(COMMON_DIR) $(COVERAGE_DIR) ./ .., $(sort $(dir $(wildcard ./*/))))
+
 ALL_TESTS = $(patsubst ./%/,%,$(ALL_TESTS_DIRS))
 ALL_TESTS_OUTPUTS = $(foreach test,$(ALL_TESTS), $(test)/$(test).output)
 ALL_TESTS_ELFS = $(foreach test,$(ALL_TESTS), $(test)/$(test).elf)
@@ -26,7 +27,7 @@ all: $(ALL_TESTS_OUTPUTS) always
 
 coverage: $(ALL_TESTS_ELFS)
 	mkdir -p $(COVERAGE_DIR)
-	lcov $(addprefix -a ,$(shell find -name "*.cov")) -o $(COVERAGE_DIR)/$(COMPONENT_TEST_COVERAGE_NAME).info
+	lcov --ignore-errors empty $(addprefix -a ,$(shell find . -name "*.cov")) -o $(COVERAGE_DIR)/$(COMPONENT_TEST_COVERAGE_NAME).info
 
 coverage-report: coverage
 	genhtml $(COVERAGE_DIR)/$(COMPONENT_TEST_COVERAGE_NAME).info -o $(COVERAGE_DIR)/$(COMPONENT_TEST_COVERAGE_NAME)-report
