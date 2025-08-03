@@ -1,0 +1,54 @@
+#include "tests-common.sb"
+
+struct Money {
+    u64 dollars;
+    u8 cents;
+};
+
+impl Money {
+    // TODO: pass m2 by value
+    public fun Add(self, Money *m2) -> Money{
+        Money added;
+        added.cents = self.cents + m2.cents;
+
+        added.dollars = self.dollars + m2.dollars;
+        if(added.cents >= 100)
+        {
+            added.dollars += 1;
+            added.cents %= 100;
+        }
+
+        return added;        
+    }
+
+    public fun SetValue(self, u64 dollars, u8 cents)
+    {
+        self.dollars = dollars;
+        self.cents = cents;
+    }
+
+    public fun Print(self)
+    {
+        putc('$');
+        printNum(self.dollars as u32, 0);
+        putc('.');
+        printNum(self.cents, 1);
+    }
+};
+
+fun main()
+{
+    Money myBalance;
+
+    myBalance.SetValue(13, 33);
+    myBalance.Print();
+
+    Money myPaycheck;
+    myPaycheck.SetValue(999, 99);
+    myPaycheck.Print();
+
+    Money newBalance = myBalance.Add(&myPaycheck);
+    newBalance.Print();
+
+    exit();
+}

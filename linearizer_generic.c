@@ -1,148 +1,203 @@
 #include "linearizer_generic.h"
 
+#include "enum_desc.h"
 #include "log.h"
+#include "symtab_basicblock.h"
 #include "symtab_variable.h"
 #include "tac.h"
 #include "type.h"
 #include "util.h"
 #include <stdlib.h>
 
-enum basicTypes selectVariableTypeForNumber(size_t num)
+enum BASIC_TYPES select_variable_type_for_number(size_t num)
 {
-    const size_t eightBitMax = 255;
-    const size_t sixteenBitMax = 65535;
+    const size_t EIGHT_BIT_MAX = 255;
+    const size_t SIXTEEN_BIT_MAX = 65535;
 
-    enum basicTypes selectedType = vt_u32;
-    if (num <= eightBitMax)
+    enum BASIC_TYPES selectedType = VT_U32;
+    if (num <= EIGHT_BIT_MAX)
     {
-        selectedType = vt_u8;
+        selectedType = VT_U8;
     }
-    else if (num <= sixteenBitMax)
+    else if (num <= SIXTEEN_BIT_MAX)
     {
-        selectedType = vt_u16;
+        selectedType = VT_U16;
     }
     else
     {
-        selectedType = vt_u32;
+        selectedType = VT_U32;
     }
 
     return selectedType;
 }
 
-enum basicTypes selectVariableTypeForLiteral(char *literal)
+enum BASIC_TYPES select_variable_type_for_literal(char *literal)
 {
     // TODO: abstraction layer
     i32 literalAsNumber = atoi(literal);
-    return selectVariableTypeForNumber(literalAsNumber);
-}
-
-void populateTACOperandFromVariable(struct TACOperand *operandToPopulate, struct VariableEntry *populateFrom)
-{
-    operandToPopulate->type = populateFrom->type;
-    operandToPopulate->name.str = populateFrom->name;
-    operandToPopulate->permutation = vp_standard;
-}
-
-extern struct TempList *temps;
-void populateTACOperandAsTemp(struct TACOperand *operandToPopulate, size_t *tempNum)
-{
-    operandToPopulate->name.str = TempList_Get(temps, (*tempNum)++);
-    operandToPopulate->permutation = vp_temp;
-}
-
-void copyTypeDecayArrays(struct Type *dest, struct Type *src)
-{
-    *dest = *src;
-    Type_DecayArrays(dest);
-}
-
-void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src)
-{
-    *dest = *src;
-    copyTACOperandTypeDecayArrays(dest, src);
-}
-
-void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *src)
-{
-    copyTypeDecayArrays(TACOperand_GetType(dest), TACOperand_GetType(src));
+    return select_variable_type_for_number(literalAsNumber);
 }
 
 extern struct Dictionary *parseDict;
-struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale)
+
+extern struct TempList *temps;
+
+struct TACOperand *get_sizeof_type(struct Ast *tree,
+                                   struct BasicBlock *block,
+                                   struct Scope *scope,
+                                   size_t *tacIndex,
+                                   struct Type *getSizeof)
 {
-    struct TACLine *scaleMultiplication = newTACLine(tt_mul, tree);
+    struct TACLine *sizeofLine = new_tac_line(TT_SIZEOF, tree);
+    struct TacSizeof *operands = &sizeofLine->operands.sizeof_;
+    struct Type sizeType = {0};
+    type_set_basic_type(&sizeType, VT_U64, NULL, 0);
+    tac_operand_populate_as_temp(scope, &operands->destination, &sizeType);
+    operands->type = type_duplicate_non_pointer(getSizeof);
+    basic_block_append(block, sizeofLine, tacIndex);
+    return &operands->destination;
+}
 
-    scaleMultiplication->operands[0].name.str = TempList_Get(temps, (*tempNum)++);
-    scaleMultiplication->operands[0].permutation = vp_temp;
+struct TACOperand *get_addr_of_operand(struct Ast *tree,
+                                       struct BasicBlock *block,
+                                       struct Scope *scope,
+                                       size_t *tacIndex,
+                                       struct TACOperand *getAddrOf)
+{
+    struct TACLine *addrOfLine = new_tac_line(TT_ADDROF, tree);
 
-    char scaleVal[sprintedNumberLength];
-    snprintf(scaleVal, sprintedNumberLength - 1, "%zu", Type_GetSizeWhenDereferenced(pointerTypeOfToScale, scope));
-    scaleMultiplication->operands[2].name.str = Dictionary_LookupOrInsert(parseDict, scaleVal);
-    scaleMultiplication->operands[2].permutation = vp_literal;
-    scaleMultiplication->operands[2].type.basicType = vt_u32;
+    getAddrOf->name.variable->mustSpill = true;
+    addrOfLine->operands.addrof.source = *getAddrOf;
+    struct TacAddrOf *operands = &addrOfLine->operands.addrof;
+    operands->source = *getAddrOf;
+
+    struct Type typeOfAddress = type_duplicate_non_pointer(tac_operand_get_type(getAddrOf));
+    typeOfAddress.pointerLevel++;
+
+    tac_operand_populate_as_temp(scope, &operands->destination, &typeOfAddress);
+
+    *tac_operand_get_type(&operands->destination) = *tac_operand_get_type(&operands->source);
+
+    tac_operand_get_type(&operands->destination)->pointerLevel++;
+    basic_block_append(block, addrOfLine, tacIndex);
+
+    return &operands->destination;
+}
+
+struct TACLine *set_up_scale_multiplication(struct Ast *tree,
+                                            struct BasicBlock *block,
+                                            struct Scope *scope,
+                                            size_t *TACIndex,
+                                            struct Type *pointerTypeOfToScale,
+                                            struct Type *offsetType)
+{
+    struct TACLine *scaleMultiplication = new_tac_line(TT_MUL, tree);
+
+    tac_operand_populate_as_temp(scope, &scaleMultiplication->operands.arithmetic.destination, offsetType);
+
+    struct Type dereferencedType = type_duplicate_non_pointer(pointerTypeOfToScale);
+    dereferencedType.pointerLevel--;
+    scaleMultiplication->operands.arithmetic.sourceB = *get_sizeof_type(tree, block, scope, TACIndex, &dereferencedType);
+    type_deinit(&dereferencedType);
 
     return scaleMultiplication;
 }
 
-void checkAccessedStructForDot(struct AST *tree, struct Scope *scope, struct Type *type)
+void check_accessed_struct_for_dot(struct Ast *tree, struct Scope *scope, struct Type *type)
 {
     // check that we actually refer to a struct on the LHS of the dot
-    if (type->basicType != vt_struct)
+    if ((type->basicType != VT_STRUCT) && (type->basicType != VT_SELF))
     {
-        char *typeName = Type_GetName(type);
+        char *typeName = type_get_name(type);
         // if we *are* looking at an identifier, print the identifier name and the type name
-        if (tree->type == t_identifier)
+        if (tree->type == T_IDENTIFIER)
         {
-            LogTree(LOG_FATAL, tree, "Can't use dot operator on %s (%s) - not a struct!", tree->value, typeName);
+            log_tree(LOG_FATAL, tree, "Can't use dot operator on %s (%s) - not a struct!", tree->value, typeName);
         }
         // if we are *not* looking at an identifier, just print the type name
         else
         {
-            LogTree(LOG_FATAL, tree, "Can't use dot operator on %s - not a struct!", typeName);
+            log_tree(LOG_FATAL, tree, "Can't use dot operator on %s - not a struct!", typeName);
         }
     }
 
     if (type->pointerLevel > 1)
     {
-        char *tooDeepPointerType = Type_GetName(type);
-        LogTree(LOG_FATAL, tree, "Can't use dot operator on type %s - not a struct or struct pointer!", tooDeepPointerType);
+        char *tooDeepPointerType = type_get_name(type);
+        log_tree(LOG_FATAL, tree, "Can't use dot operator on type %s - not a struct or struct pointer!", tooDeepPointerType);
     }
 }
 
-void convertLoadToLea(struct TACLine *loadLine, struct TACOperand *dest)
+bool convert_array_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
 {
+    bool changed = false;
+    struct Type *loaded = tac_operand_get_type(&loadLine->operands.arrayLoad.destination);
     // if we have a load instruction, convert it to the corresponding lea instrutcion
     // leave existing lea instructions alone
     switch (loadLine->operation)
     {
-    case tt_load_arr:
-        loadLine->operation = tt_lea_arr;
+    case TT_ARRAY_LOAD:
+        loadLine->operation = TT_ARRAY_LEA;
+        // increment indirection level as we just converted from a load to a lea
+        // if pointing into a variable (such as in the case of temporaries), will update the type of the temp itself
+        loaded->pointerLevel++;
+        changed = true;
         break;
 
-    case tt_load_off:
-        loadLine->operation = tt_lea_off;
-        break;
-
-    case tt_lea_off:
-    case tt_lea_arr:
+    case TT_ARRAY_LEA:
         break;
 
     default:
-        InternalError("Unexpected TAC operation %s seen in convertArrayRefLoadToLea!", getAsmOp(loadLine->operation));
+        InternalError("Unexpected TAC operation %s seen in convert_array_load_to_lea!", tac_operation_get_name(loadLine->operation));
         break;
     }
 
-    // increment indirection level as we just converted from a load to a lea
-    TAC_GetTypeOfOperand(loadLine, 0)->pointerLevel++;
-
     // in case we are converting struct.member_which_is_struct.a, special case so that both operands guaranteed to have pointer type and thus be primitives for codegen
-    if(loadLine->operands[1].castAsType.basicType == vt_struct)
+    if (loadLine->operands.arrayLoad.array.castAsType.basicType == VT_STRUCT)
     {
-        loadLine->operands[1].castAsType.pointerLevel++;
+        loadLine->operands.arrayLoad.array.castAsType.pointerLevel++;
     }
 
     if (dest != NULL)
     {
-        *dest = loadLine->operands[0];
+        *dest = loadLine->operands.arrayLoad.destination;
     }
+
+    return changed;
+}
+
+bool convert_field_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest)
+{
+    bool changed = false;
+    // if we have a load instruction, convert it to the corresponding lea instrutcion
+    // leave existing lea instructions alone
+    struct Type *loaded = tac_operand_get_type(&loadLine->operands.fieldLoad.destination);
+    switch (loadLine->operation)
+    {
+    case TT_FIELD_LOAD:
+        loadLine->operation = TT_FIELD_LEA;
+        loaded->pointerLevel++;
+        changed = true;
+        break;
+
+    case TT_FIELD_LEA:
+        break;
+
+    default:
+        InternalError("Unexpected TAC operation %s seen in convert_field_load_to_lea!", tac_operation_get_name(loadLine->operation));
+        break;
+    }
+
+    // in case we are converting struct.member_which_is_struct.a, special case so that both operands guaranteed to have pointer type and thus be primitives for codegen
+    if (loadLine->operands.fieldLoad.source.castAsType.basicType == VT_STRUCT)
+    {
+        loadLine->operands.fieldLoad.source.castAsType.pointerLevel++;
+    }
+
+    if (dest != NULL)
+    {
+        *dest = loadLine->operands.fieldLoad.destination;
+    }
+
+    return changed;
 }

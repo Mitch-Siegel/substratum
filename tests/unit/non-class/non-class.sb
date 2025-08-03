@@ -1,0 +1,5 @@
+fun UsesNonClass(){
+    u8 p;
+    p.x = 0;
+    p.y = 1;
+}

@@ -4,113 +4,130 @@
 #include "substratum_defs.h"
 #include <stdio.h>
 
-enum token
+enum TOKEN
 {
-    t_identifier,
-    t_constant,
-    t_char_literal,
-    t_string_literal,
-    t_extern,
-    t_sizeof,
-    t_asm,
+    T_IDENTIFIER,
+    T_CONSTANT,
+    T_CHAR_LITERAL,
+    T_STRING_LITERAL,
+    T_EXTERN,
+    T_SIZEOF,
+    T_ASM,
+    T_ASM_READVAR,
+    T_ASM_WRITEVAR,
     // types
-    t_variable_declaration,
-    t_type_name,
-    t_any,
-    t_u8,
-    t_u16,
-    t_u32,
-    t_u64,
-    t_struct,
+    T_VARIABLE_DECLARATION,
+    T_TYPE_NAME,
+    T_ANY,
+    T_U8,
+    T_U16,
+    T_U32,
+    T_U64,
+    T_STRUCT,
+    T_TRAIT,
+    // generics
+    T_GENERIC,
+    T_GENERIC_PARAMETER_NAMES,
+    T_GENERIC_PARAMETERS,
+    T_GENERIC_INSTANCE,
     // struct
-    t_struct_body,
-    t_impl,
-    t_self,
-    t_public,
-    t_method_call,
+    T_STRUCT_BODY,
+    T_IMPL,
+    T_SELF,
+    T_CAP_SELF,
+    T_PUBLIC,
+    T_METHOD_CALL,
+    T_INITIALIZER,
+    T_ENUM_INITIALIZER,
+    T_ENUM,
     //
-    t_compound_statement,
+    T_COMPOUND_STATEMENT,
     //
     // function
-    t_fun,
-    t_return,
+    T_FUN,
+    T_RETURN,
     // control flow
-    t_if,
-    t_else,
-    t_while,
-    t_for,
-    t_do,
+    T_IF,
+    T_ELSE,
+    T_WHILE,
+    T_FOR,
+    T_MATCH,
+    T_MATCH_ARM,
+    T_MATCH_ARM_ACTION,
+    T_DO,
     //
-    t_array_index,
-    t_function_call,
+    T_ARRAY_INDEX,
+    T_FUNCTION_CALL,
     // arithmetic operators
     // basic arithmetic
-    t_add,
-    t_subtract,
-    t_multiply,
-    t_divide,
-    t_modulo,
-    t_lshift,
-    t_rshift,
+    T_ADD,
+    T_SUBTRACT,
+    T_MULTIPLY,
+    T_DIVIDE,
+    T_MODULO,
+    T_LSHIFT,
+    T_RSHIFT,
     // arithmetic assignment
-    t_plus_equals,
-    t_minus_equals,
-    t_times_equals,
-    t_divide_equals,
-    t_modulo_equals,
-    t_bitwise_and_equals,
-    t_bitwise_or_equals,
-    t_bitwise_xor_equals,
-    t_lshift_equals,
-    t_rshift_equals,
+    T_PLUS_EQUALS,
+    T_MINUS_EQUALS,
+    T_TIMES_EQUALS,
+    T_DIVIDE_EQUALS,
+    T_MODULO_EQUALS,
+    T_BITWISE_AND_EQUALS,
+    T_BITWISE_OR_EQUALS,
+    T_BITWISE_XOR_EQUALS,
+    T_LSHIFT_EQUALS,
+    T_RSHIFT_EQUALS,
     // comparison operators
-    t_less_than,
-    t_greater_than,
-    t_less_than_equals,
-    t_greater_than_equals,
-    t_equals,
-    t_not_equals,
+    T_LESS_THAN,
+    T_GREATER_THAN,
+    T_LESS_THAN_EQUALS,
+    T_GREATER_THAN_EQUALS,
+    T_EQUALS,
+    T_NOT_EQUALS,
     // logical operators
-    t_logical_and,
-    t_logical_or,
-    t_logical_not,
+    T_LOGICAL_AND,
+    T_LOGICAL_OR,
+    T_LOGICAL_NOT,
     // bitwise operators
-    t_bitwise_and,
-    t_bitwise_or,
-    t_bitwise_not,
-    t_bitwise_xor,
+    T_BITWISE_AND,
+    T_BITWISE_OR,
+    T_BITWISE_NOT,
+    T_BITWISE_XOR,
     // ternary
-    t_ternary,
+    T_TERNARY,
     // memory operators
-    t_dereference,
-    t_address_of,
+    T_DEREFERENCE,
+    T_ADDRESS_OF,
     // assignment
-    t_assign,
+    T_ASSIGN,
     //
-    t_cast,
-    t_comma,
-    t_dot,
-    t_semicolon,
-    t_colon,
-    t_left_paren,
-    t_right_paren,
-    t_left_curly,
-    t_right_curly,
-    t_left_bracket,
-    t_right_bracket,
-    t_file,
-    t_line,
-    t_EOF,
+    T_CAST,
+    T_COMMA,
+    T_DOT,
+    T_SEMICOLON,
+    T_COLON,
+    T_UNDERSCORE,
+    T_ASSOCIATED_CALL,
+    T_LEFT_PAREN,
+    T_RIGHT_PAREN,
+    T_LEFT_CURLY,
+    T_RIGHT_CURLY,
+    T_LEFT_BRACKET,
+    T_RIGHT_BRACKET,
+    T_FILE,
+    T_LINE,
+    T_EOF,
 };
 
-char *getTokenName(enum token type);
+char *token_get_name(enum TOKEN type);
 
-struct AST
+struct Ast
 {
     char *value;
-    enum token type;
-    struct AST *child;
-    struct AST *sibling;
+    enum TOKEN type;
+    struct Ast *child;
+    struct Ast *sibling;
     u32 sourceLine;
     u32 sourceCol;
     char *sourceFile;
@@ -118,18 +135,18 @@ struct AST
 
 // instantiate a new AST with given type and value
 // the sourceLine and sourceCol fields will be automatically populated
-struct AST *AST_New(enum token type, char *value, char *curFile, u32 curLine, u32 curCol);
+struct Ast *ast_new(enum TOKEN type, char *value, char *curFile, u32 curLine, u32 curCol);
 
-void AST_InsertSibling(struct AST *tree, struct AST *newSibling);
+void ast_insert_sibling(struct Ast *tree, struct Ast *newSibling);
 
-void AST_InsertChild(struct AST *tree, struct AST *newChild);
+void ast_insert_child(struct Ast *tree, struct Ast *newChild);
 
-struct AST *AST_ConstructAddSibling(struct AST *tree, struct AST *newSibling);
+struct Ast *ast_construct_add_sibling(struct Ast *tree, struct Ast *newSibling);
 
-struct AST *AST_ConstructAddChild(struct AST *tree, struct AST *newChild);
+struct Ast *ast_construct_add_child(struct Ast *tree, struct Ast *newChild);
 
-void AST_Print(struct AST *tree, size_t depth);
+void ast_print(struct Ast *tree, size_t depth);
 
-void AST_Dump(FILE *outFile, struct AST *tree);
+void ast_dump(FILE *outFile, struct Ast *tree);
 
-void AST_Free(struct AST *tree);
+void ast_free(struct Ast *tree);

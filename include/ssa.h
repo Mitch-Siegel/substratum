@@ -3,6 +3,6 @@
 
 struct SymbolTable;
 
-void generateSsa(struct SymbolTable *theTable);
+void generate_ssa(struct SymbolTable *theTable);
 
 #endif

@@ -1,0 +1,67 @@
+#ifndef _STDSB_PTR_SBH_
+#define _STDSB_PTR_SBH_
+
+struct<T> Ptr
+{
+    T *data;
+}
+
+impl<T> Ptr{
+    public fun from_address(T *addr) -> Self
+    {
+        Self created;
+        created.data = addr;
+        return created;
+    }
+
+    public fun raw(self) -> T *
+    {
+        return self.data;
+    }
+
+    public fun dangling() -> Self
+    {
+        return Self {data = 0 as T*};
+    }
+
+    public fun add(self, u64 index) -> Self
+    {
+        return Self {data = self.data + index};
+    }
+
+    public fun write(Self dst, T src)
+    {
+        *dst.data = src;
+    }
+
+    public fun read(Self src) -> T
+    {
+        return *src.data;
+    }
+
+    public fun copy(Self src, Self dst, u64 count)
+    {
+        for(u64 idx = 0; idx < count; idx += 1)
+        {
+            *dst.add(idx).raw() = *src.add(idx).raw();
+
+            count -= 1;
+        }
+    }
+
+    public fun write_bytes(self, u8 value, u64 count)
+    {
+        u8 *raw_addr = self.data as u8 *;
+        for(u64 element = 0; element < count; element += 1)
+        {
+            for(u64 byteIdx = 0; byteIdx < sizeof(T); byteIdx += 1)
+            {
+                *raw_addr = value;
+                raw_addr += 1;
+            }
+        }
+    }
+
+}
+
+#endif

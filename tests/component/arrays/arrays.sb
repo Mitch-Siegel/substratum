@@ -11,15 +11,15 @@ fun testu8Array()
         u8 readBack = array[i];
         if (readBack != i)
         {
-            uart_putc('!');
+            putc('!');
         }
         else
         {
-            uart_putc('0' + readBack);
+            putc('0' + readBack);
         }
         i = i + 1;
     }
-    uart_putc(10);
+    putc('\n');
 }
 
 fun testu16Array()
@@ -31,18 +31,18 @@ fun testu16Array()
         array[i] = 65535;
         array[i] = 256 + i;
         u16 readBack = array[i];
-        u8 toPrint = readBack;
+        u8 toPrint = readBack as u8;
         if((readBack != (256 + i)))
         {
-            uart_putc('!');
+            putc('!');
         }
         else
         {
-            uart_putc('0' + toPrint);
+            putc('0' + toPrint);
         }
         i = i + 1;
     }
-    uart_putc(10);
+    putc('\n');
 }
 
 fun testu32Array()
@@ -54,18 +54,18 @@ fun testu32Array()
         array[i] = 4294967295;
         array[i] = 65536 + i;
         u32 readBack = array[i];
-        u8 toPrint = readBack;
+        u8 toPrint = readBack as u8;
         if(readBack != 65536 + i)
         {
-            uart_putc('!');
+            putc('!');
         }
         else
         {
-            uart_putc('0' + toPrint);
+            putc('0' + toPrint);
         }
         i = i + 1;
     }
-    uart_putc(10);
+    putc('\n');
 }
 
 // ensure address calculation on array indices agrees with pointer arithmetic
@@ -77,38 +77,38 @@ fun testArrAddr()
 
     if((&bigArrToAddr[4]) == (&bigArrToAddr[0] + 4))
     {
-        uart_putc('T');
+        putc('T');
     }
     else
     {
-        uart_putc('F');
+        putc('F');
     }
 
     if((&bigArrToAddr[0]) == (bigArrToAddr))
     {
-        uart_putc('T');
+        putc('T');
     }
     else
     {
-        uart_putc('F');
+        putc('F');
     }
 
     if((&medArrToAddr[4]) == (&medArrToAddr[0] + 4))
     {
-        uart_putc('T');
+        putc('T');
     }
     else
     {
-        uart_putc('F');
+        putc('F');
     }
 
     if((&smallArrToAddr[4]) == (&smallArrToAddr[0] + 4))
     {
-        uart_putc('T');
+        putc('T');
     }
     else
     {
-        uart_putc('F');
+        putc('F');
     }
 }
 
@@ -118,6 +118,6 @@ fun main()
     testu16Array();
     testu32Array();
     testArrAddr();
-    uart_putc('\n');
+    putc('\n');
     exit();
 }

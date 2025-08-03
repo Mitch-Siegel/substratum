@@ -4,9 +4,13 @@
 
 #include "substratum_defs.h"
 
+#include "mbcl/array.h"
+#include "mbcl/hash_table.h"
+#include "mbcl/list.h"
+
 #pragma once
 
-enum CompilerErrors
+enum COMPILER_ERRORS
 {
     ERROR_INVOCATION = 1, // user has made an error with arguments or other parameters
     ERROR_CODE,           // there is an error in the code which prevents a complete compilation
@@ -22,55 +26,29 @@ struct ParseProgress
     size_t curColRaw;
     FILE *f;
     struct Dictionary *dict;
-    struct LinkedList *charsRemainingPerLine;
+    List *charsRemainingPerLine;
     size_t lastMatchLocation; // location of last parser match relative to pcc buffer
     char eofReceived;
 };
 
-u8 alignSize(size_t nBytes);
+u8 align_size(size_t nBytes);
 
-size_t unalignSize(u8 nBits);
+size_t unalign_size(u8 nBits);
 
-// directly compares dataA to dataB
+// compares dataA and dataB as the values held by ssize_t pointers
 ssize_t ssizet_compare(void *dataA, void *dataB);
+
+// directly compares the pointers dataA and dataB
+ssize_t pointer_compare(void *dataA, void *dataB);
+
+ssize_t sizet_pointer_compare(void *dataA, void *dataB);
+
+size_t parse_hex_constant(char *hexConstant);
 
 /*
  *
  *
  */
-
-struct HashTableEntry
-{
-    void *key;
-    void *value;
-    ssize_t (*compareFunction)(void *keyA, void *keyB);
-    void (*keyFreeFunction)(void *key);
-    void (*valueFreeFunction)(void *value);
-};
-
-struct HashTable
-{
-    struct Set **buckets;
-    size_t nBuckets;
-    size_t (*hashFunction)(void *key);
-    ssize_t (*compareFunction)(void *keyA, void *keyB);
-    void (*keyFreeFunction)(void *data);
-    void (*valueFreeFunction)(void *data);
-};
-
-struct HashTable *HashTable_New(size_t nBuckets,
-                                size_t (*hashFunction)(void *key),
-                                ssize_t (*compareFunction)(void *keyA, void *keyB),
-                                void (*keyFreeFunction)(void *data),
-                                void (*valueFreeFunction)(void *data));
-
-void *HashTable_Lookup(struct HashTable *table, void *key);
-
-void HashTable_Insert(struct HashTable *table, void *key, void *value);
-
-void *HashTable_Delete(struct HashTable *table, void *key);
-
-void HashTable_Free(struct HashTable *table);
 
 /*
  * Dictionary for tracking strings
@@ -79,119 +57,28 @@ void HashTable_Free(struct HashTable *table);
  */
 struct Dictionary
 {
-    struct HashTable *table;
     void *(*duplicateFunction)(void *data);
+    HashTable *table;
 };
 
-size_t hashString(void *data);
+size_t hash_string(void *data);
 
-struct Dictionary *Dictionary_New(size_t nBuckets,
-                                  void *(*duplicateFunction)(void *),
-                                  size_t (*hashFunction)(void *data),
-                                  ssize_t (*compareFunction)(void *dataA, void *dataB),
-                                  void (*dataFreeFunction)(void *));
+struct Dictionary *dictionary_new(MBCL_DATA_FREE_FUNCTION freeData,
+                                  MBCL_DATA_COMPARE_FUNCTION compareKey,
+                                  size_t (*hashData)(void *data),
+                                  size_t nBuckets,
+                                  void *(*duplicateFunction)(void *));
 
-void *Dictionary_Insert(struct Dictionary *dict, void *value);
+void *dictionary_insert(struct Dictionary *dict, void *value);
 
-void *Dictionary_LookupOrInsert(struct Dictionary *dict, void *value);
+void *dictionary_lookup_or_insert(struct Dictionary *dict, void *value);
 
-void Dictionary_Free(struct Dictionary *dict);
-
-/*
- * Stack data structure
- *
- */
-
-#define STACK_DEFAULT_ALLOCATION 20
-#define STACK_SCALE_FACTOR 2
-
-struct Stack
-{
-    void **data;
-    size_t size;
-    size_t allocated;
-};
-
-struct Stack *Stack_New();
-
-void Stack_Free(struct Stack *stack);
-
-void Stack_Push(struct Stack *stack, void *data);
-
-void *Stack_Pop(struct Stack *stack);
-
-void *Stack_Peek(struct Stack *stack);
+void dictionary_free(struct Dictionary *dict);
 
 /*
  * Unordered List data structure
  *
  */
-
-struct LinkedListNode
-{
-    struct LinkedListNode *next;
-    struct LinkedListNode *prev;
-    void *data;
-};
-
-struct LinkedList
-{
-    struct LinkedListNode *head;
-    struct LinkedListNode *tail;
-    size_t size;
-};
-
-struct LinkedList *LinkedList_New();
-
-void LinkedList_Free(struct LinkedList *list, void (*dataFreeFunction)());
-
-void LinkedList_Append(struct LinkedList *list, void *element);
-
-void LinkedList_Prepend(struct LinkedList *list, void *element);
-
-// join all elements of list 'after' after those of list 'before' in list 'before'
-void LinkedList_Join(struct LinkedList *before, struct LinkedList *after);
-
-void *LinkedList_Delete(struct LinkedList *list, ssize_t (*compareFunction)(), void *element);
-
-void *LinkedList_Find(struct LinkedList *list, ssize_t (*compareFunction)(), void *element);
-
-void *LinkedList_PopFront(struct LinkedList *list);
-
-void *LinkedList_PopBack(struct LinkedList *list);
-
-/*
- * Set data structure
- */
-
-struct Set
-{
-    struct LinkedList *elements;
-    ssize_t (*compareFunction)(void *elementA, void *elementB);
-    void(*dataFreeFunction);
-};
-
-struct Set *Set_New(ssize_t (*compareFunction)(void *elementA, void *elementB), void(*dataFreeFunction));
-
-void Set_Insert(struct Set *set, void *element);
-
-void Set_Delete(struct Set *set, void *element);
-
-void *Set_Find(struct Set *set, void *element);
-
-void Set_Clear(struct Set *toClear);
-
-void Set_Merge(struct Set *into, struct Set *from);
-
-struct Set *Set_Copy(struct Set *set);
-
-// given two input sets, construct and return a third set containing data from the union of the two
-struct Set *Set_Union(struct Set *setA, struct Set *setB);
-
-// given two input sets, construct and return a third set containing data from the intersection of the two
-struct Set *Set_Intersection(struct Set *setA, struct Set *setB);
-
-void Set_Free(struct Set *set);
 
 /*
  * TempList is a struct containing string names for TAC temps by number (eg t0, t1, t2, etc...)
@@ -201,14 +88,14 @@ void Set_Free(struct Set *set);
 
 struct TempList
 {
-    struct Stack *temps;
+    Array temps;
 };
 
 // get the string for a given temp num
-char *TempList_Get(struct TempList *tempList, size_t tempNum);
+char *temp_list_get(struct TempList *tempList, size_t tempNum);
 
 // create a new templist
-struct TempList *TempList_New();
+struct TempList *temp_list_new();
 
 // free the templist
-void TempList_Free(struct TempList *toFree);
+void temp_list_free(struct TempList *toFree);

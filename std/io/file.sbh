@@ -1,0 +1,26 @@
+#ifndef _STDSB_FILE_SBH_
+#define _STDSB_FILE_SBH_
+
+#include <string.sbh>
+
+struct File
+{
+    u32 filedes;
+}
+
+impl File
+{
+    public fun open_rdonly(String path) -> Self;
+
+    public fun open_wronly(String path) -> Self;
+
+    public fun open_rdwr(String path) -> Self;
+
+    public fun read(self, Ptr::<u8> dst, u64 count) -> u64; // TODO: usize, isize
+
+    public fun write(self, Ptr::<u8> src, u64 count) -> u64; // TODO: usize, isize
+
+    fun close(self);
+}
+
+#endif

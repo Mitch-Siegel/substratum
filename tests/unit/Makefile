@@ -9,7 +9,8 @@ COVERAGE_DIR = ./coverage/
 SBCC_BUILD_DIR = ../../build
 UNIT_TEST_COVERAGE_NAME = unit-test-coverage
 
-ALL_TESTS_DIRS = $(filter-out $(COMMON_DIR) $(COVERAGE_DIR), $(wildcard ./*/))
+
+ALL_TESTS_DIRS = $(filter-out $(COMMON_DIR) $(COVERAGE_DIR) ./ ../, $(sort $(dir $(wildcard ./*/))))
 ALL_TESTS = $(patsubst ./%/,%,$(ALL_TESTS_DIRS))
 ALL_TESTS_OUTPUTS = $(foreach test,$(ALL_TESTS), $(test)/$(test).output)
 ALL_TESTS_ELFS = $(foreach test,$(ALL_TESTS), $(test)/$(test).elf)
@@ -32,7 +33,7 @@ coverage-report: coverage
 	genhtml $(COVERAGE_DIR)/$(UNIT_TEST_COVERAGE_NAME).info -o $(COVERAGE_DIR)/$(UNIT_TEST_COVERAGE_NAME)-report
 
 $(ALL_TESTS_OUTPUTS):
-	$(MAKE) -C $(subst /,,$(dir $@)) $(subst /,,$(dir $@)).output
+	$(MAKE) -C $(subst /,,$(dir $@)) $(subst /,,$(dir $@)).output COVERAGE=y
 
 info:
 	$(info "ALL_TESTS_DIRS: $(ALL_TESTS_DIRS)")

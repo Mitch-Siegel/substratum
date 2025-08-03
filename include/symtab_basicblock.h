@@ -4,20 +4,34 @@
 #include "tac.h"
 #include "util.h"
 
+#include "mbcl/list.h"
+#include "mbcl/set.h"
+
+#define FUNCTION_EXIT_BLOCK_LABEL ((ssize_t)0)
+
+struct StructDesc;
+
 struct BasicBlock
 {
-    struct LinkedList *TACList;
+    List *TACList;
+    Set *successors;  // set of ssize_t labels of blocks with control flow pointing from this block
     ssize_t labelNum; // ssize_t because some linearization functions take a label number < 0 as a signal to structure control flow
 };
 
-struct BasicBlock *BasicBlock_new(ssize_t labelNum);
+struct BasicBlock *basic_block_new(ssize_t labelNum);
 
-void BasicBlock_free(struct BasicBlock *block);
+void basic_block_add_successor(struct BasicBlock *block, ssize_t successor);
 
-void BasicBlock_append(struct BasicBlock *block, struct TACLine *line, size_t *tempNum);
+void basic_block_free(struct BasicBlock *block);
 
-void BasicBlock_prepend(struct BasicBlock *block, struct TACLine *line);
+void basic_block_append(struct BasicBlock *block, struct TACLine *line, size_t *tacIndex);
 
-void printBasicBlock(struct BasicBlock *block, size_t indentLevel);
+void basic_block_prepend(struct BasicBlock *block, struct TACLine *line);
+
+void print_basic_block(struct BasicBlock *block, size_t indentLevel);
+
+void basic_block_resolve_capital_self(struct BasicBlock *block, struct TypeEntry *typeEntry);
+
+void basic_block_resolve_generics(struct BasicBlock *block, HashTable *paramsMap, char *resolvedStructName, List *resolvedParams);
 
 #endif

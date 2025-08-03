@@ -1,0 +1,5 @@
+
+fun UsesArrayRefOnNonIndirect(){
+    u16 notAnArray;
+    notAnArray[0] = 5;
+}

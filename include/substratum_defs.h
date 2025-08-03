@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdint.h>
 #include <unistd.h>
 
@@ -21,5 +22,15 @@ typedef int8_t i8;
 #define I16_MAX INT16_MAX
 #define I8_MAX INT8_MAX
 
-#define MACHINE_REGISTER_SIZE_BYTES ((size_t)8)
-#define MACHINE_REGISTER_COUNT 32
+#define false 0
+#define true 1
+
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+
+// TODO: replace this with sizeof(size_t): effectively XLEN
+#define MACHINE_REGISTER_SIZE_BYTES 8
+
+#define sprintedNumberLength 32
+
+#define OUT_OBJECT_POINTER_NAME "__out_obj_pointer"

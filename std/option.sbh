@@ -1,0 +1,45 @@
+
+#ifndef _STDSB_OPTION_SBH_
+#define _STDSB_OPTION_SBH_
+
+#include "panic.sbh"
+
+#include "string.sbh"
+
+enum<T> Option
+{
+    Some: T,
+    None
+};
+
+impl<T> Option
+{
+    public fun is_some(self) -> u8
+    {
+        match(*self)
+        {
+            Some(data): {return 1;}
+            None: {return 0;}
+        }
+    }
+
+    public fun is_none(self) -> u8
+    {
+        match(*self)
+        {
+            Some(data): {return 0;}
+            None: {return 1;}
+        }
+    }
+
+    public fun unwrap(self) -> T
+    {
+        match(*self)
+        {
+            Some(data): {return data;}
+            None: {panic(String::from_ascii("Attempt to unwrap None option!" as u8*));}
+        }
+    }
+}
+
+#endif

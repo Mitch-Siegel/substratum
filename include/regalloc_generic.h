@@ -4,63 +4,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "substratum_defs.h"
 #include "type.h"
+
+#include "mbcl/array.h"
+#include "mbcl/list.h"
+#include "mbcl/set.h"
 
 struct TACOperand;
 struct TACLine;
 struct LinkedList;
 struct Scope;
 
-// definitions for what we intend to use as scratch registers when applicable
-#define TEMP_0 5 // t0
-#define TEMP_1 6 // t1
-#define TEMP_2 7 // t2
-#define RETURN_REGISTER 10
-#define START_ALLOCATING_FROM a1
-#define MACHINE_REGISTER_COUNT 32
-
-enum riscvRegisters
+enum WRITEBACK_LOCATION
 {
-    zero,
-    ra,
-    sp,
-    gp,
-    tp,
-    t0,
-    t1,
-    t2,
-    fp,
-    s1,
-    a0,
-    a1,
-    a2,
-    a3,
-    a4,
-    a5,
-    a6,
-    a7,
-    s2,
-    s3,
-    s4,
-    s5,
-    s6,
-    s7,
-    s8,
-    s9,
-    s10,
-    s11,
-    t3,
-    t4,
-    t5,
-    t6,
-};
-
-enum WritebackLocation
-{
-    wb_register,
-    wb_stack,
-    wb_global,
-    wb_unknown,
+    WB_REGISTER,
+    WB_STACK,
+    WB_GLOBAL,
+    WB_UNKNOWN,
 };
 
 struct Lifetime
@@ -68,84 +29,122 @@ struct Lifetime
     size_t start, end, nwrites, nreads;
     char *name;
     struct Type type;
-    enum WritebackLocation wbLocation;
-    ssize_t stackLocation;
-    unsigned char registerLocation;
-    u8 inRegister, onStack, isArgument;
+    enum WRITEBACK_LOCATION wbLocation;
+    union
+    {
+        ssize_t stackOffset;
+        struct Register *regLocation;
+    } writebackInfo;
+    u8 isArgument;
 };
 
-struct Lifetime *newLifetime(char *name,
-                             struct Type *type,
-                             size_t start,
-                             u8 isGlobal,
-                             u8 mustSpill);
+struct Lifetime *lifetime_find_by_name(Set *allLifetimes, char *lifetimeName);
 
-ssize_t compareLifetimes(struct Lifetime *compared, char *variable);
+struct Lifetime *lifetime_find(Set *allLifetimes, struct TACOperand *operand);
+
+struct Lifetime *lifetime_new(char *name,
+                              struct Type *type,
+                              size_t start,
+                              u8 isGlobal,
+                              u8 mustSpill);
+
+size_t lifetime_hash(struct Lifetime *lifetime);
+
+ssize_t lifetime_compare(struct Lifetime *lifetimeA, struct Lifetime *lifetimeB);
+
+bool lifetime_is_live_at_index(struct Lifetime *lifetime, size_t index);
+
+bool lifetime_is_live_after_index(struct Lifetime *lifetime, size_t index);
 
 // update the lifetime start/end indices
 // returns pointer to the lifetime corresponding to the passed variable name
-struct Lifetime *updateOrInsertLifetime(struct LinkedList *ltList,
-                                        char *name,
-                                        struct Type *type,
-                                        size_t newEnd,
-                                        u8 isGlobal,
-                                        u8 mustSpill);
+struct Lifetime *update_or_insert_lifetime(Set *lifetimes,
+                                           char *name,
+                                           struct Type *type,
+                                           size_t newEnd,
+                                           u8 isGlobal,
+                                           u8 mustSpill);
 
 // wrapper function for updateOrInsertLifetime
 //  increments write count for the given variable
-void recordVariableWrite(struct LinkedList *ltList,
-                         struct TACOperand *writtenOperand,
-                         struct Scope *scope,
-                         size_t newEnd);
+void record_variable_write(Set *lifetimes,
+                           struct TACOperand *writtenOperand,
+                           struct Scope *scope,
+                           size_t newEnd);
 
 // wrapper function for updateOrInsertLifetime
 //  increments read count for the given variable
-void recordVariableRead(struct LinkedList *ltList,
-                        struct TACOperand *readOperand,
-                        struct Scope *scope,
-                        size_t newEnd);
+void record_variable_read(Set *lifetimes,
+                          struct TACOperand *readOperand,
+                          struct Scope *scope,
+                          size_t newEnd);
 
-struct LinkedList *findLifetimes(struct Scope *scope, struct LinkedList *basicBlockList);
+Set *find_lifetimes(struct Scope *scope, List *basicBlockList);
+
+struct Register
+{
+    struct Lifetime *containedLifetime; // lifetime contained within this register
+    u8 index;                           // numerical index of this register
+    char *name;                         // string name of this register (as it appears in asm)
+};
+
+struct Register *register_new(u8 index);
+
+bool register_is_live(struct Register *reg, size_t index);
+
+ssize_t register_compare(void *dataA, void *dataB);
+
+struct MachineInfo
+{
+    // specifically required for register allocation - may be a subset of the entire machine register set
+    struct Register *returnAddress;
+    struct Register *stackPointer;
+    struct Register *framePointer;
+    struct Register *returnValue;
+    Array temps;
+    Array tempsOccupied;
+    Array arguments;
+    Array generalPurpose;
+
+    // all registers (whether or not they fall into the above categories) must have a calling convention defined
+    Array no_save;
+    Array callee_save;
+    Array caller_save;
+
+    // basic info about the registers
+    Array allRegisters;
+};
+
+extern struct MachineInfo *(*setupMachineInfo)();
+
+struct MachineInfo *machine_info_new(u8 maxReg,
+                                     u8 n_temps,
+                                     u8 n_arguments,
+                                     u8 n_general_purpose,
+                                     u8 n_no_save,
+                                     u8 n_callee_save,
+                                     u8 n_caller_save);
+
+void machine_info_free(struct MachineInfo *info);
+
+struct Register *find_register_by_name(struct MachineInfo *info, char *name);
 
 // things more related to codegen than specifically register allocation
 
-struct CodegenMetadata
+struct RegallocMetadata
 {
     struct FunctionEntry *function; // symbol table entry for the function the register allocation data is for
+    struct Scope *scope;            // scope at which we are generating (identical to function->mainScope if in a function)
 
-    struct LinkedList *allLifetimes; // every lifetime that exists within this function based on variables and TAC operands
+    Set *allLifetimes; // every lifetime that exists within this function based on variables and TAC operands (puplated during regalloc)
 
-    // array allocated (of size largestTacIndex) for liveness analysis
-    // index i contains a linkedList of all lifetimes active at TAC index i
-    struct LinkedList **lifetimeOverlaps;
-
-    // tracking for lifetimes which live in registers
-    struct LinkedList *registerLifetimes;
+    Set *touchedRegisters;
 
     // largest TAC index for any basic block within the function
     size_t largestTacIndex;
 
-    // flag registers which should be used as scratch in case we have spilled variables (not always used, but can have up to 3)
-    u8 reservedRegisterCount;
-    u8 reservedRegisters[3];
-
-    // flag registers which have *ever* been used so we know what to callee-save
-    char touchedRegisters[MACHINE_REGISTER_COUNT];
-
-    u8 nRegistersCalleeSaved;
-
-    size_t localStackSize;      // number of bytes required to store store all local stack variables of a function (aligned to MACHINE_REGISTER_SIZE_BYTES because callee-saved registers are at the stack addresses directly below these)
-    size_t calleeSaveStackSize; // number of bytes required to store all callee-saved registers (aligned to MACHINE_REGISTER_SIZE_BYTES by starting from localStackSize and only storing MACHINE_REGISTER_SIZE_BYTES at a time)
-
-    size_t totalStackSize; // total number of bytes the function decrements the stack pointer to store all locals and callee-saved registers (aligned to STACK_ALIGN_BYTES)
+    ssize_t argStackSize;
+    ssize_t localStackSize;
 };
-
-// populate a linkedlist array so that the list at index i contains all lifetimes active at TAC index i
-// then determine which variables should be spilled
-size_t generateLifetimeOverlaps(struct CodegenMetadata *metadata);
-
-// assign registers to variables which have registers
-// assign spill addresses to variables which are spilled
-void assignRegisters(struct CodegenMetadata *metadata);
 
 #endif

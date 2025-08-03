@@ -1,0 +1,10 @@
+#include <proc.sbh>
+
+#define LINUX_RISCV_EXIT 93 # syscall number for exit
+
+fun exit(u32 status) asm
+{
+    li a7, LINUX_RISCV_EXIT          
+    a0 = readvar(status)
+    ecall
+}

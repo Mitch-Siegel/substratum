@@ -1,0 +1,45 @@
+#include <stdout.sbh>
+#include <linux_io.sbh>
+
+#define STDOUT_FILENO 0
+
+fun putc(u32 filedes, u8 c) -> u32
+{
+	return linux_write(filedes, &c, 1);
+}
+
+impl Stdout
+{
+    public fun print_str(String toPrint)
+    {
+        linux_write(0, toPrint.contents().raw(), toPrint.len());
+    }
+
+    public fun print_hex(u64 toPrint)
+    {
+		putc(STDOUT_FILENO, '0');
+		putc(STDOUT_FILENO, 'x');
+		u8 i = 0;
+		while(i < 8)
+		{
+			u8 thisByte = ((toPrint >> ((7 - i) * 8)) & 0xff) as u8;
+			u8 j = 0;
+			while(j < 2)
+			{
+				u8 thisNibble = (thisByte >> ((1 - j) * 4)) & 0xf;
+				if(thisNibble < 10)
+				{
+					putc(STDOUT_FILENO, '0' + thisNibble);
+				}
+				else
+				{
+					putc(STDOUT_FILENO, 'A' + (thisNibble- 10));
+				}
+				j = j + 1;
+			}
+
+
+			i = i + 1;
+		}
+	}
+}

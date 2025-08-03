@@ -7,7 +7,7 @@ struct PrintsANumber {
 impl PrintsANumber {
     public fun Print(self)
     {
-        printNum(self.number);
+        printNum(self.number, 1);
     }
 };
 

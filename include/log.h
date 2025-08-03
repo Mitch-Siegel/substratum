@@ -3,9 +3,9 @@
 
 #include "substratum_defs.h"
 
-struct AST;
+struct Ast;
 
-enum LogLevel
+enum LOG_LEVEL
 {
     LOG_DEBUG,
     LOG_INFO,
@@ -14,18 +14,16 @@ enum LogLevel
     LOG_FATAL
 };
 
-void setLogLevel(enum LogLevel newLevel);
+void set_log_level(enum LOG_LEVEL newLevel);
 
-void LogFunction(const char *file, size_t line, enum LogLevel level, const char *format, ...);
+void log_function(const char *file, size_t line, enum LOG_LEVEL level, const char *format, ...);
 
-void LogTreeFunction(const char *file, size_t line, enum LogLevel level, struct AST *tree, const char *format, ...);
+void log_tree_function(const char *file, size_t line, enum LOG_LEVEL level, struct Ast *tree, const char *format, ...);
 
-void InternalErrorFunction(const char *file, size_t line, const char *format, ...);
-
-#define Log(level, format, ...) LogFunction(__FILE__, __LINE__, level, format, ##__VA_ARGS__)
-#define LogTree(level, tree, format, ...) LogTreeFunction(__FILE__, __LINE__, level, tree, format, ##__VA_ARGS__)
-#define InternalError(format, ...)                                     \
-    LogFunction(__FILE__, __LINE__, LOG_FATAL, format, ##__VA_ARGS__); \
+#define log(level, format, ...) log_function(__FILE__, __LINE__, level, format, ##__VA_ARGS__)
+#define log_tree(level, tree, format, ...) log_tree_function(__FILE__, __LINE__, level, tree, format, ##__VA_ARGS__)
+#define InternalError(format, ...)                                      \
+    log_function(__FILE__, __LINE__, LOG_FATAL, format, ##__VA_ARGS__); \
     exit(1)
 
 #endif

@@ -4,37 +4,46 @@
 #include "substratum_defs.h"
 struct TACOperand;
 struct VariableEntry;
+struct EnumDesc;
 struct Type;
-struct AST;
+struct Ast;
 struct Scope;
 struct TACLine;
+struct BasicBlock;
 
-#define sprintedNumberLength 32
+enum BASIC_TYPES select_variable_type_for_number(size_t num);
 
-enum basicTypes selectVariableTypeForNumber(size_t num);
+enum BASIC_TYPES select_variable_type_for_literal(char *literal);
 
-enum basicTypes selectVariableTypeForLiteral(char *literal);
+struct TACOperand *get_sizeof_type(struct Ast *tree,
+                                   struct BasicBlock *block,
+                                   struct Scope *scope,
+                                   size_t *tacIndex,
+                                   struct Type *getSizeof);
 
-void populateTACOperandFromVariable(struct TACOperand *operandToPopulate, struct VariableEntry *populateFrom);
+struct TACOperand *get_addr_of_operand(struct Ast *tree,
+                                       struct BasicBlock *block,
+                                       struct Scope *scope,
+                                       size_t *tacIndex,
+                                       struct TACOperand *getAddrOf);
 
-void populateTACOperandAsTemp(struct TACOperand *operandToPopulate, size_t *tempNum);
-
-// copy a type, turning any array size > 0 into an increment of indirectionlevel
-void copyTypeDecayArrays(struct Type *dest, struct Type *src);
-
-// copy over the entire TACOperand, all fields are changed
-void copyTACOperandDecayArrays(struct TACOperand *dest, struct TACOperand *src);
-
-// copy over only the type and castAsType fields, decaying array sizes to simple pointer types
-void copyTACOperandTypeDecayArrays(struct TACOperand *dest, struct TACOperand *src);
-
-struct TACLine *setUpScaleMultiplication(struct AST *tree, struct Scope *scope, const size_t *TACIndex, size_t *tempNum, struct Type *pointerTypeOfToScale);
+struct TACLine *set_up_scale_multiplication(struct Ast *tree,
+                                            struct BasicBlock *block,
+                                            struct Scope *scope,
+                                            size_t *TACIndex,
+                                            struct Type *pointerTypeOfToScale,
+                                            struct Type *offsetType);
 
 // check the LHS of any dot operator make sure it is both a struct and has an indirection level of at most `
 // special case handling for when tree is an identifier vs a subexpression
-void checkAccessedStructForDot(struct AST *tree, struct Scope *scope, struct Type *type);
+void check_accessed_struct_for_dot(struct Ast *tree, struct Scope *scope, struct Type *type);
 
-// in the case that we know we just walked an array ref or member access, convert its direct load to an LEA (for cases such as &thing[0] and foo[1].bar)
-void convertLoadToLea(struct TACLine *loadLine, struct TACOperand *dest);
+// in the case that we know we just walked an array ref, convert its direct load to an LEA (for cases such as &thing[0] and foo[1].bar)
+// returns true if a conversion occurred, false if not
+bool convert_array_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest);
+
+// in the case that we know we just walked a struct field load, but we know we actually want a pointer to the data
+// returns true if a conversion occurred, false if not
+bool convert_field_load_to_lea(struct TACLine *loadLine, struct TACOperand *dest);
 
 #endif

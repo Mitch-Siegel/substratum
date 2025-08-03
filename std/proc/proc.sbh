@@ -1,0 +1,6 @@
+#ifndef _STDSB_PROC_SBH_
+#define _STDSB_PROC_SBH_
+
+fun exit(u32 status);
+
+#endif

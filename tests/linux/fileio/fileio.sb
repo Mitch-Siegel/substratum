@@ -1,0 +1,9 @@
+#include <proc.sbh>
+#include <file.sbh>
+#include <stdout.sbh>
+fun main()
+{
+    Stdout::print_hex(1234);
+    Stdout::print_str(String::from_ascii("What The Shit!" as u8*));
+    exit(123);
+}

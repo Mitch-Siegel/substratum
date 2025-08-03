@@ -7,44 +7,35 @@ struct AllSizes1
     public u8 first;
     public u16 second;
     public u32 third;
-};
+}
 
 fun TestStruct1(u32 write32, u16 write16, u8 write8)
 {
     AllSizes1 a;
-    a.first = write32;
-    a.second = write32;
-    a.third = write32;
+    a.first = write32 as u8;
+    a.second = write32 as u16;
+    a.third = write32 as u32;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 
-    a.first = write16;
-    a.second = write16;
-    a.third = write16;
+    a.first = write16 as u8;
+    a.second = write16 as u16;
+    a.third = write16 as u32;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 
-    a.first = write8;
-    a.second = write8;
-    a.third = write8;
+    a.first = write8 as u8;
+    a.second = write8 as u16;
+    a.third = write8 as u32;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
+	putc('\n');
 }
 
 struct AllSizes2
@@ -52,44 +43,35 @@ struct AllSizes2
     public u8 first;
     public u32 second;
     public u16 third;
-};
+}
 
 fun TestStruct2(u32 write32, u16 write16, u8 write8)
 {
     AllSizes2 a;
-    a.first = write32;
-    a.second = write32;
-    a.third = write32;
+    a.first = write32 as u8;
+    a.second = write32 as u32;
+    a.third = write32 as u16;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 
-    a.first = write16;
-    a.second = write16;
-    a.third = write16;
+    a.first =  write16 as u8;
+    a.second = write16 as u32;
+    a.third = write16 as u16;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 
-    a.first = write8;
-    a.second = write8;
-    a.third = write8;
+    a.first =  write8 as u8;
+    a.second = write8 as u32;
+    a.third = write8 as u16;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
+	putc('\n');
 }
 
 struct AllSizes3
@@ -97,44 +79,35 @@ struct AllSizes3
     public u16 first;
     public u8 second;
     public u32 third;
-};
+}
 
 fun TestStruct3(u32 write32, u16 write16, u8 write8)
 {
     AllSizes3 a;
-    a.first = write32;
-    a.second = write32;
-    a.third = write32;
+    a.first = write32 as u16;
+    a.second = write32 as u8;
+    a.third = write32 as u32;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 
-    a.first = write16;
-    a.second = write16;
-    a.third = write16;
+    a.first = write16 as u16;
+    a.second = write16 as u8;
+    a.third = write16 as u32;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 
-    a.first = write8;
-    a.second = write8;
-    a.third = write8;
+    a.first = write8 as u16;
+    a.second = write8 as u8;
+    a.third = write8 as u32;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
+	putc('\n');
 }
 
 struct AllSizes4
@@ -142,44 +115,35 @@ struct AllSizes4
     public u16 first;
     public u32 second;
     public u8 third;
-};
+}
 
 fun TestStruct4(u32 write32, u16 write16, u8 write8)
 {
     AllSizes4 a;
-    a.first = write32;
-    a.second = write32;
-    a.third = write32;
+    a.first = write32 as u16;
+    a.second = write32 as u32;
+    a.third = write32 as u8;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 
-    a.first = write16;
-    a.second = write16;
-    a.third = write16;
+    a.first = write16 as u16;
+    a.second = write16 as u32;
+    a.third = write16 as u8;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 
-    a.first = write8;
-    a.second = write8;
-    a.third = write8;
+    a.first = write8 as u16;
+    a.second = write8 as u32;
+    a.third = write8 as u8;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
+	putc('\n');
 }
 
 struct AllSizes5
@@ -187,44 +151,35 @@ struct AllSizes5
     public u32 first;
     public u8 second;
     public u16 third;
-};
+}
 
 fun TestStruct5(u32 write32, u16 write16, u8 write8)
 {
     AllSizes5 a;
-    a.first = write32;
-    a.second = write32;
-    a.third = write32;
+    a.first = write32 as u32;
+    a.second = write32 as u8;
+    a.third = write32 as u16;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 
-    a.first = write16;
-    a.second = write16;
-    a.third = write16;
+    a.first = write16 as u32;
+    a.second = write16 as u8;
+    a.third = write16 as u16;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 
-    a.first = write8;
-    a.second = write8;
-    a.third = write8;
+    a.first = write8 as u32;
+    a.second = write8 as u8;
+    a.third = write8 as u16;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
+	putc('\n');
 }
 
 struct AllSizes6
@@ -232,43 +187,34 @@ struct AllSizes6
     public u32 first;
     public u16 second;
     public u8 third;
-};
+}
 
 fun TestStruct6(u32 write32, u16 write16, u8 write8)
 {
     AllSizes6 a;
-    a.first = write32;
-    a.second = write32;
-    a.third = write32;
+    a.first = write32 as u32;
+    a.second = write32 as u16;
+    a.third = write32 as u8;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 
-    a.first = write16;
-    a.second = write16;
-    a.third = write16;
+    a.first = write16 as u32;
+    a.second = write16 as u16;
+    a.third = write16 as u8;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 
-    a.first = write8;
-    a.second = write8;
-    a.third = write8;
+    a.first = write8 as u32;
+    a.second = write8 as u16;
+    a.third = write8 as u8;
 
-    printHex(a.first);
-	uart_putc('\n');
-    printHex(a.second);
-	uart_putc('\n');
-    printHex(a.third);
-	uart_putc('\n');
+    printHex(a.first, 1);
+    printHex(a.second, 1);
+    printHex(a.third, 1);
 }
 
 fun main()

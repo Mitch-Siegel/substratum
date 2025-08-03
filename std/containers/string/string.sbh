@@ -1,0 +1,23 @@
+#ifndef _STDSB_STRING_SBH_
+#define _STDSB_STRING_SBH_
+
+#include "ptr.sbh"
+
+struct String
+{
+    Ptr::<u8> bytes;
+    u64 len;
+}
+
+impl String
+{
+    public fun len(self) -> u64;
+
+    public fun from_ascii(u8 *ascii) -> Self;
+
+    public fun append(self, String other);
+
+    public fun contents(self) -> Ptr::<u8>;
+}
+
+#endif

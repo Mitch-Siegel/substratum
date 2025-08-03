@@ -4,69 +4,62 @@
 #include "symtab_basicblock.h"
 #include "util.h"
 
-struct Set *liveVars_transfer(struct Idfa *idfa, struct BasicBlock *block, struct Set *facts)
+Set *live_vars_transfer(struct Idfa *idfa, struct BasicBlock *block, Set *facts)
 {
-    struct Set *transferred = Set_Copy(idfa->facts.gen[block->labelNum]);
+    Set *transferred = set_copy(array_at(idfa->facts.gen, block->labelNum));
 
-    for (struct LinkedListNode *factRunner = facts->elements->head; factRunner != NULL; factRunner = factRunner->next)
+    Iterator *factRunner = NULL;
+    for (factRunner = set_begin(facts); iterator_gettable(factRunner); iterator_next(factRunner))
     {
-        struct TACOperand *examinedFact = factRunner->data;
+        struct TACOperand *examinedFact = iterator_get(factRunner);
         // transfer anything not killed
-        if (Set_Find(idfa->facts.kill[block->labelNum], examinedFact) == NULL)
+        if (set_find(array_at(idfa->facts.kill, block->labelNum), examinedFact) == NULL)
         {
-            Set_Insert(transferred, examinedFact);
+            set_insert(transferred, examinedFact);
         }
     }
 
     return transferred;
 }
 
-void liveVars_findGenKills(struct Idfa *idfa)
+void live_vars_find_gen_kills(struct Idfa *idfa)
 {
-    for (size_t blockIndex = 0; blockIndex < idfa->context->nBlocks; blockIndex++)
+    for (size_t blockIndex = 0; blockIndex < idfa->context->blocks->size; blockIndex++)
     {
-        struct BasicBlock *genKillBlock = idfa->context->blocks[blockIndex];
-        for (struct LinkedListNode *tacRunner = genKillBlock->TACList->head; tacRunner != NULL; tacRunner = tacRunner->next)
+        struct BasicBlock *genKillBlock = array_at(idfa->context->blocks, blockIndex);
+        Iterator *tacRunner = NULL;
+        for (tacRunner = list_begin(genKillBlock->TACList); iterator_gettable(tacRunner); iterator_next(tacRunner))
         {
-            struct TACLine *genKillLine = tacRunner->data;
-            for (u8 operandIndex = 0; operandIndex < 4; operandIndex++)
+            struct TACLine *genKillLine = iterator_get(tacRunner);
+            struct OperandUsages genKillLineUsages = get_operand_usages(genKillLine);
+
+            while (genKillLineUsages.reads->size > 0)
             {
-                switch (getUseOfOperand(genKillLine, operandIndex))
-                {
-                case u_unused:
-                    break;
-
-                case u_read:
-                    Set_Insert(idfa->facts.kill[blockIndex], &genKillLine->operands[operandIndex]);
-                    if (genKillLine->operands[operandIndex].name.str == NULL)
-                    {
-                        InternalError("NULL OPERAND");
-                    }
-                    break;
-
-                case u_write:
-                    if (genKillLine->operands[operandIndex].name.str == NULL)
-                    {
-                        InternalError("NULL OPERAND");
-                    }
-                    Set_Insert(idfa->facts.gen[blockIndex], &genKillLine->operands[operandIndex]);
-
-                    break;
-                }
+                struct TACOperand *readOperand = deque_pop_front(genKillLineUsages.reads);
+                set_insert(array_at(idfa->facts.kill, blockIndex), readOperand);
             }
+
+            while (genKillLineUsages.writes->size > 0)
+            {
+                struct TACOperand *writeOperand = deque_pop_front(genKillLineUsages.writes);
+                set_insert(array_at(idfa->facts.gen, blockIndex), writeOperand);
+            }
+
+            deque_free(genKillLineUsages.reads);
+            deque_free(genKillLineUsages.writes);
         }
     }
 }
 
-struct Idfa *analyzeLiveVars(struct IdfaContext *context)
+struct Idfa *analyze_live_vars(struct IdfaContext *context)
 {
-    struct Idfa *liveVarsIdfa = Idfa_Create(context,
-                                            liveVars_transfer,
-                                            liveVars_findGenKills,
-                                            d_forwards,
-                                            TACOperand_Compare,
-                                            printTACOperand,
-                                            Set_Union);
+    struct Idfa *liveVarsIdfa = idfa_create(context,
+                                            live_vars_transfer,
+                                            live_vars_find_gen_kills,
+                                            D_FORWARDS,
+                                            tac_operand_compare,
+                                            tac_operand_sprint,
+                                            set_union);
 
     return liveVarsIdfa;
 }

@@ -1,0 +1,44 @@
+#include <file.sbh>
+#include <stdout.sbh>
+#include <linux_io.sbh>
+
+impl File
+{
+    public fun open_rdonly(String path) -> Self
+    {
+        u32 result = linux_open(path.contents().raw(), LINUX_O_RDONLY);
+		Stdout::print_hex(result);
+        if(result > 0x80000000)
+        {
+            Stdout::print_str(String::from_ascii("Bad return from open syscall: " as u8*));
+            Stdout::print_hex(result);
+        }
+
+        return File {filedes = result};
+    }
+
+    public fun open_wronly(String path) -> Self
+    {
+
+    }
+
+    public fun open_rdwr(String path) -> Self
+    {
+
+    }
+
+    public fun read(self, Ptr::<u8> dst, u64 count) -> u64 // TODO: usize, isize
+    {
+		return linux_read(self.filedes, dst.raw(), count);
+    }
+
+    public fun write(self, Ptr::<u8> src, u64 count) -> u64 // TODO: usize, isize
+    {
+
+    }
+
+    fun close(self)
+    {
+
+    }
+}

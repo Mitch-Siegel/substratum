@@ -1,0 +1,5 @@
+
+fun __assert_fail(u8 *file, u32 line, u8 *condition);
+
+#define assert(condition) if(!condition) {__assert_fail(__FILE__ as u8*, __LINE__, #condition as u8 *); }
+#define nassert(condition) if(condition) {__assert_fail(__FILE__ as u8*, __LINE__, #condition as u8 *); }

@@ -4,7 +4,9 @@
 #include "ast.h"
 #include "util.h"
 
-char *token_names[t_EOF + 1] = {
+#include "mbcl/stack.h"
+
+char *tokenNames[T_EOF + 1] = {
     "t_identifier",
     "t_constant",
     "t_char_literal",
@@ -12,19 +14,30 @@ char *token_names[t_EOF + 1] = {
     "t_extern",
     "t_sizeof",
     "t_asm",
+    "t_asm_readvar",
+    "t_asm_writevar",
     "t_variable_declaration",
     "t_type_name",
-    "t_void",
+    "t_any",
     "t_u8",
     "t_u16",
     "t_u32",
     "t_u64",
     "t_struct",
+    "t_trait",
+    "t_generic",
+    "t_generic_parameter_names",
+    "t_generic_paraemters",
+    "t_generic_instance",
     "t_struct_body",
     "t_impl",
     "t_self",
+    "t_cap_self",
     "t_public",
     "t_method_call",
+    "t_initializer",
+    "t_enum_initializer",
+    "t_enum",
     "t_compound_statement",
     "t_fun",
     "t_return",
@@ -32,6 +45,9 @@ char *token_names[t_EOF + 1] = {
     "t_else",
     "t_while",
     "t_for",
+    "t_match",
+    "t_match_arm",
+    "t_match_arm_action",
     "t_do",
     "t_array_index",
     "t_function_call",
@@ -74,6 +90,8 @@ char *token_names[t_EOF + 1] = {
     "t_dot",
     "t_semicolon",
     "t_colon",
+    "t_underscore",
+    "t_associated_call",
     "t_left_paren",
     "t_right_paren",
     "t_left_curly",
@@ -85,14 +103,14 @@ char *token_names[t_EOF + 1] = {
     "t_EOF",
 };
 
-char *getTokenName(enum token type)
+char *token_get_name(enum TOKEN type)
 {
-    return token_names[type];
+    return tokenNames[type];
 }
 
-struct AST *AST_New(enum token type, char *value, char *curFile, u32 curLine, u32 curCol)
+struct Ast *ast_new(enum TOKEN type, char *value, char *curFile, u32 curLine, u32 curCol)
 {
-    struct AST *wip = malloc(sizeof(struct AST));
+    struct Ast *wip = malloc(sizeof(struct Ast));
     wip->child = NULL;
     wip->sibling = NULL;
     wip->type = type;
@@ -103,9 +121,9 @@ struct AST *AST_New(enum token type, char *value, char *curFile, u32 curLine, u3
     return wip;
 }
 
-void AST_InsertSibling(struct AST *tree, struct AST *newSibling)
+void ast_insert_sibling(struct Ast *tree, struct Ast *newSibling)
 {
-    struct AST *runner = tree;
+    struct Ast *runner = tree;
     while (runner->sibling != NULL)
     {
         runner = runner->sibling;
@@ -114,7 +132,7 @@ void AST_InsertSibling(struct AST *tree, struct AST *newSibling)
     runner->sibling = newSibling;
 }
 
-void AST_InsertChild(struct AST *tree, struct AST *newChild)
+void ast_insert_child(struct Ast *tree, struct Ast *newChild)
 {
     if (tree->child == NULL)
     {
@@ -122,32 +140,32 @@ void AST_InsertChild(struct AST *tree, struct AST *newChild)
     }
     else
     {
-        AST_InsertSibling(tree->child, newChild);
+        ast_insert_sibling(tree->child, newChild);
     }
 }
 
-struct AST *AST_ConstructAddSibling(struct AST *tree, struct AST *newSibling)
+struct Ast *ast_construct_add_sibling(struct Ast *tree, struct Ast *newSibling)
 {
     if (tree == NULL)
     {
         return newSibling;
     }
 
-    AST_InsertSibling(tree, newSibling);
+    ast_insert_sibling(tree, newSibling);
     return tree;
 }
 
-struct AST *AST_ConstructAddChild(struct AST *tree, struct AST *newChild)
+struct Ast *ast_construct_add_child(struct Ast *tree, struct Ast *newChild)
 {
-    AST_InsertChild(tree, newChild);
+    ast_insert_child(tree, newChild);
     return tree;
 }
 
-void AST_Print(struct AST *tree, size_t depth)
+void ast_print(struct Ast *tree, size_t depth)
 {
     if (tree->sibling != NULL)
     {
-        AST_Print(tree->sibling, depth);
+        ast_print(tree->sibling, depth);
     }
 
     for (size_t indentPrint = 0; indentPrint < depth; indentPrint++)
@@ -155,22 +173,28 @@ void AST_Print(struct AST *tree, size_t depth)
         printf("\t");
     }
 
-    printf("%d:%d - %s:%s\n", tree->sourceLine, tree->sourceCol, getTokenName(tree->type), tree->value);
+    printf("%d:%d - %s:%s\n", tree->sourceLine, tree->sourceCol, token_get_name(tree->type), tree->value);
     if (tree->child != NULL)
     {
-        AST_Print(tree->child, depth + 1);
+        ast_print(tree->child, depth + 1);
     }
 }
 
-void AST_TraverseForDump(FILE *outFile, struct AST *parent, struct AST *tree, size_t depth, struct Stack *ranks)
+void ast_traverse_for_dump(FILE *outFile, struct Ast *parent, struct Ast *tree, size_t depth, Stack *ranks)
 {
+    if (tree == NULL)
+    {
+        return;
+    }
+
     if (ranks->size <= depth)
     {
-        Stack_Push(ranks, Stack_New());
+        stack_push(ranks, stack_new(NULL));
     }
-    Stack_Push(ranks->data[depth], tree);
+    Stack *currentRank = stack_peek(ranks);
+    stack_push(currentRank, tree);
 
-    fprintf(outFile, "%zu[label=\"%s\"]\n", (size_t)tree, strcmp(tree->value, "") ? tree->value : getTokenName(tree->type));
+    fprintf(outFile, "%zu[label=\"%s\"]\n", (size_t)tree, strcmp(tree->value, "") ? tree->value : token_get_name(tree->type));
     if (parent != NULL)
     {
         fprintf(outFile, "%zu->%zu\n", (size_t)parent, (size_t)tree);
@@ -178,53 +202,53 @@ void AST_TraverseForDump(FILE *outFile, struct AST *parent, struct AST *tree, si
 
     if (tree->sibling != NULL)
     {
-        AST_TraverseForDump(outFile, parent, tree->sibling, depth, ranks);
+        ast_traverse_for_dump(outFile, parent, tree->sibling, depth, ranks);
     }
 
     if (tree->child != NULL)
     {
-        AST_TraverseForDump(outFile, tree, tree->child, depth + 1, ranks);
+        ast_traverse_for_dump(outFile, tree, tree->child, depth + 1, ranks);
     }
 }
 
-void AST_Dump(FILE *outFile, struct AST *tree)
+void ast_dump(FILE *outFile, struct Ast *tree)
 {
-    struct Stack *ranks = Stack_New();
+    Stack *ranks = stack_new((void (*)(void *))stack_free);
     fprintf(outFile, "digraph ast {\n");
     fprintf(outFile, "edge[dir=forwrad]\n");
-    AST_TraverseForDump(outFile, NULL, tree, 0, ranks);
+    ast_traverse_for_dump(outFile, NULL, tree, 0, ranks);
 
-    for (size_t rank = 0; rank < ranks->size; rank++)
+    Iterator *rankIterator = NULL;
+    for (rankIterator = stack_bottom(ranks); iterator_gettable(rankIterator); iterator_next(rankIterator))
     {
         fprintf(outFile, "{rank = same; ");
-        struct Stack *thisRank = ranks->data[rank];
-        for (size_t nodeIndex = 0; nodeIndex < thisRank->size; nodeIndex++)
+        Stack *thisRank = iterator_get(rankIterator);
+        Iterator *nodeIterator = NULL;
+        for (nodeIterator = stack_bottom(thisRank); iterator_gettable(nodeIterator); iterator_next(nodeIterator))
         {
-            struct AST *nodeThisRank = thisRank->data[nodeIndex];
+            struct Ast *nodeThisRank = iterator_get(nodeIterator);
             fprintf(outFile, "%zu; ", (size_t)nodeThisRank);
         }
         fprintf(outFile, "}\n");
+        iterator_free(nodeIterator);
     }
+    iterator_free(rankIterator);
 
     fprintf(outFile, "}\n");
 
-    while (ranks->size > 0)
-    {
-        Stack_Free(Stack_Pop(ranks));
-    }
-    Stack_Free(ranks);
+    stack_free(ranks);
 }
 
-void AST_Free(struct AST *tree)
+void ast_free(struct Ast *tree)
 {
-    struct AST *runner = tree;
+    struct Ast *runner = tree;
     while (runner != NULL)
     {
         if (runner->child != NULL)
         {
-            AST_Free(runner->child);
+            ast_free(runner->child);
         }
-        struct AST *old = runner;
+        struct Ast *old = runner;
         runner = runner->sibling;
         free(old);
     }
