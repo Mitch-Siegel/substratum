@@ -115,7 +115,6 @@ impl<'a> CustomReturnWalk<MatchArmWalkContext<'a>, midend::ir::ValueId> for Patt
 
                 binding_value
             }
-
             Pattern::TupleStructPattern(_struct_name, _fields) => {
                 let destructured_definition =
                     match context.ctx.type_definition_for_value_id(&context.scrutinee) {
@@ -131,7 +130,8 @@ impl<'a> CustomReturnWalk<MatchArmWalkContext<'a>, midend::ir::ValueId> for Patt
                         _struct_name,
                         _fields,
                     ),
-                    other => panic!("can't destructure non-enum repr {}", other.name()),
+                    midend::symtab::TypeRepr::Unit => (),
+                    other => panic!("can't destructure non-enum repr {:?} ({})", other, self.loc),
                 }
 
                 midend::ir::ValueId::new(123)

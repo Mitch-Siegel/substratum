@@ -11,6 +11,24 @@ pub struct EnumVariantDataTree {
     pub data: EnumVariantData,
 }
 
+impl ReturnWalk<midend::symtab::enum_definition::EnumVariantRepr> for EnumVariantDataTree {
+    fn walk(
+        self,
+        context: &mut impl DefContext,
+    ) -> midend::symtab::enum_definition::EnumVariantRepr {
+        match self.data {
+            EnumVariantData::TupleData(elements) => {
+                midend::symtab::enum_definition::EnumVariantRepr::Tuple(
+                    elements
+                        .into_iter()
+                        .map(|type_tree| type_tree.walk(context))
+                        .collect(),
+                )
+            }
+        }
+    }
+}
+
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnumVariantTree {
     pub loc: SourceLocWithMod,
@@ -28,6 +46,17 @@ impl Display for EnumVariantTree {
             Some(variant_data) => write!(f, "{}: {:?}", self.name, variant_data),
             None => write!(f, "{}", self.name),
         }
+    }
+}
+
+impl ReturnWalk<midend::symtab::enum_definition::EnumVariant> for EnumVariantTree {
+    fn walk(self, context: &mut impl DefContext) -> midend::symtab::enum_definition::EnumVariant {
+        let data = match self.data {
+            Some(variant_data) => variant_data.walk(context),
+            None => midend::symtab::enum_definition::EnumVariantRepr::Unit,
+        };
+
+        midend::symtab::enum_definition::EnumVariant::new(self.name, data)
     }
 }
 
