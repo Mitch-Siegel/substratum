@@ -1,4 +1,6 @@
 
+#include <layout.sbh>
+
 struct Mem
 {
 
@@ -6,7 +8,9 @@ struct Mem
 
 impl Mem
 {
-    public fun alloc(u64 size) -> u8 *;
+    public fun alloc(Layout layout) -> u8 *;
+
+    public fun realloc(u8 *ptr, Layout old, u64 newSize) -> u8 *;
 
     public fun dealloc(u8 *ptr);
 }

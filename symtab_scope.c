@@ -1216,7 +1216,7 @@ Deque *clone_function_arguments(Deque *toClone)
     return cloned;
 }
 
-struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *clonedTo)
+struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *clonedFrom, struct Scope *clonedTo)
 {
     struct BasicBlock *clone = basic_block_new(toClone->labelNum);
 
@@ -1247,7 +1247,13 @@ struct BasicBlock *basic_block_clone(struct BasicBlock *toClone, struct Scope *c
 
         case TT_ASSOCIATED_CALL:
         {
-            clonedLine->operands.associatedCall.associatedWith = clonedTo->parentFunction->implementedFor->type;
+            // if the basic block contains an associated call within the current impl (effectively a Self::whateverFunction() if such a thing were to exist)
+            if ((clonedFrom->parentFunction != NULL) && (clonedFrom->parentFunction->implementedFor != NULL) &&
+                !type_compare(&clonedFrom->parentFunction->implementedFor->type, &clonedLine->operands.associatedCall.associatedWith))
+            {
+                // swap it over to instead point to the new clonedTo scope's parent function "impl for" type
+                // clonedLine->operands.associatedCall.associatedWith = clonedTo->parentFunction->implementedFor->type;
+            }
             clonedLine->operands.associatedCall.arguments = clone_function_arguments(lineToClone->operands.associatedCall.arguments);
         }
         break;
@@ -1372,7 +1378,7 @@ void scope_clone_to(struct Scope *clonedTo, struct Scope *toClone, struct TypeEn
         case E_BASICBLOCK:
         {
             struct BasicBlock *clonedBlock = memberToClone->entry;
-            entry = basic_block_clone(clonedBlock, clonedTo);
+            entry = basic_block_clone(clonedBlock, toClone, clonedTo);
         }
         break;
 

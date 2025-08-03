@@ -1,0 +1,44 @@
+#ifndef _STDSB_LAYOUT_SBH_
+#define _STDSB_LAYOUT_SBH_
+
+struct Layout
+{
+    u64 size;
+    u64 align;
+}
+
+impl Layout
+{
+    public fun from_size_align(u64 size, u64 align) -> Self
+    {
+        return Layout {size = size,
+                       align = align};
+    }
+
+    public fun size(self) -> u64
+    {
+        return self.size;
+    }
+}
+
+struct<T> TypeLayout
+{
+}
+
+
+impl<T> TypeLayout{
+
+
+    public fun new() -> Layout
+    {
+        // TODO: alignof TAC operation like sizeof
+        return Layout::from_size_align(sizeof(T), 1);
+    }
+
+    public fun array(u64 elements) -> Layout
+    {
+        return Layout::from_size_align(sizeof(T) * elements, sizeof(T));
+    }
+}
+
+#endif

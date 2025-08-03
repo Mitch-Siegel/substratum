@@ -106,7 +106,7 @@ struct TACLine *set_up_scale_multiplication(struct Ast *tree,
 void check_accessed_struct_for_dot(struct Ast *tree, struct Scope *scope, struct Type *type)
 {
     // check that we actually refer to a struct on the LHS of the dot
-    if (type->basicType != VT_STRUCT)
+    if ((type->basicType != VT_STRUCT) && (type->basicType != VT_SELF))
     {
         char *typeName = type_get_name(type);
         // if we *are* looking at an identifier, print the identifier name and the type name

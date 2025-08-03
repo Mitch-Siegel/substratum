@@ -29,6 +29,7 @@ void usage()
     printf("Substratum language compiler: Usage\n");
     printf("-i (infile) : specify input substratum file to compile\n");
     printf("-o (outfile): specify output file to generate object code to\n");
+    printf("-s: emit a _start label with a call to main if compiling a file with a 'main' function\n");
     printf("\n");
 }
 
@@ -141,13 +142,14 @@ struct Ast *parse_file(char *inFileName)
 
 int main(int argc, char **argv)
 {
+    bool emitStart = false;
     char *inFileName = "stdin";
     char *outFileName = "stdout";
 
     includePath = list_new(free, NULL);
 
     int option;
-    while ((option = getopt(argc, argv, "i:o:O:l:r:c:v:I:")) != EOF)
+    while ((option = getopt(argc, argv, "i:o:O:l:r:c:v:I:s")) != EOF)
     {
         switch (option)
         {
@@ -185,6 +187,10 @@ int main(int argc, char **argv)
             list_append(includePath, strdup(optarg));
         }
         break;
+
+        case 's':
+            emitStart = true;
+            break;
 
         default:
             log(LOG_ERROR, "Invalid argument flag \"%c\"", option);
@@ -293,7 +299,7 @@ int main(int argc, char **argv)
 
     // symbol_table_print(theTable, stderr, true);
 
-    generate_code_for_program(theTable, outFile, info, riscv_emit_prologue, riscv_emit_epilogue, riscv_generate_code_for_basic_block);
+    generate_code_for_program(theTable, outFile, info, riscv_emit_prologue, riscv_emit_epilogue, riscv_generate_code_for_basic_block, emitStart);
 
     machine_info_free(info);
 

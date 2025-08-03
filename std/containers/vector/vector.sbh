@@ -1,0 +1,127 @@
+#ifndef _STDSB_VECTOR_SBH_
+#define _STDSB_VECTOR_SBH_
+
+#include <assert.sbh>
+#include <layout.sbh>
+#include <alloc.sbh>
+
+struct<T> Vector
+{
+    //Ptr::<T> ptr;
+    u64 cap;
+    u64 len;
+
+}
+
+impl<T> Vector {
+    /*
+    public fun new() -> Self {
+        nassert(sizeof(T) == 0);
+        return Vector::<T> { ptr = Ptr::<T>::dangling(),
+                             cap = 0,
+                             len = 0};
+    }
+
+    fun grow(self)
+    {
+        u64 newCap = 1;
+
+        if(self.cap > 0)
+        {
+            newCap = self.cap * 2;
+        }
+
+        Layout newLayout = TypeLayout::<T>::array(newCap);
+        // TODO: signs - assert against isize max
+
+        Ptr::<T> newPtr = Ptr::<T>::dangling();
+        if(self.cap == 0)
+        {
+            newPtr = Ptr::<T>::from_address(Mem::alloc(newLayout) as T*);
+        }
+        else
+        {
+            Layout oldLayout = TypeLayout::<T>::array(self.cap);
+            Ptr::<T> oldPtr = self.ptr;
+            newPtr = Ptr::<T>::from_address(Mem::realloc(self.ptr.raw() as u8*, oldLayout, newLayout.size()) as T*);
+        }
+
+        if(newPtr.raw() == 0)
+        {
+            panic(String::from_ascii("null pointer in vector grow" as u8*));
+        }
+        self.ptr = newPtr;
+    }
+
+    public fun push(self, T element)
+    {
+        if(self.len == self.cap)
+        {
+            self.grow();
+        }
+
+        self.ptr.add(self.len).write(element);
+
+        self.len += 1;
+    }
+
+    public fun pop(self) -> Option::<T>
+    {
+        if(self.len == 0)
+        {
+            return Option::<T>::None{};
+        }
+        else
+        {
+            self.len -= 1;
+            return Option::<T>::Some{ self.ptr.add(self.len).read() };
+        }
+    }
+
+    public fun insert(self, u64 index, T element)
+    {
+        nassert(index > self.len);
+        if(self.len == self.cap)
+        {
+            self.grow();
+        }
+
+        Ptr::<T>::copy(self.ptr.add(index),
+                       self.ptr.add(index + 1),
+                       self.len - index);
+
+        Ptr::<T>::write(self.ptr.add(index), element);
+        self.len += 1;
+    }
+
+    public fun remove(self, u64 index) -> T
+    {
+        assert(index < self.len);
+        self.len -= 1;
+        T result = Ptr::<T>::read(self.ptr.add(index));
+        Ptr::<T>::copy(self.ptr.add(index + 1),
+                    self.ptr.add(index),
+                    self.len - index);
+        return result;
+    }
+    */
+}
+
+
+impl<T> Drop for Vec
+{
+    fun drop(self)
+    {
+        if(self.cap != 0)
+        {
+            while(self.len > 0)
+            {
+                self.pop();
+            }
+            Layout layout = TypeLayout::<T>::array(self.cap);
+            mem::dealloc(self.ptr.raw() as u8 *, layout);
+        }
+    }
+}
+
+#endif

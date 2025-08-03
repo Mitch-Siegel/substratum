@@ -33,7 +33,7 @@ coverage-report: coverage
 	genhtml $(COVERAGE_DIR)/$(UNIT_TEST_COVERAGE_NAME).info -o $(COVERAGE_DIR)/$(UNIT_TEST_COVERAGE_NAME)-report
 
 $(ALL_TESTS_OUTPUTS):
-	$(MAKE) -C $(subst /,,$(dir $@)) $(subst /,,$(dir $@)).output
+	$(MAKE) -C $(subst /,,$(dir $@)) $(subst /,,$(dir $@)).output COVERAGE=y
 
 info:
 	$(info "ALL_TESTS_DIRS: $(ALL_TESTS_DIRS)")

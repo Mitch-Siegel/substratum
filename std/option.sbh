@@ -1,3 +1,7 @@
+
+#ifndef _STDSB_OPTION_SBH_
+#define _STDSB_OPTION_SBH_
+
 #include "panic.sbh"
 
 #include "string.sbh"
@@ -37,3 +41,5 @@ impl<T> Option
         }
     }
 }
+
+#endif

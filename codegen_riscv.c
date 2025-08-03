@@ -758,6 +758,9 @@ void riscv_emit_argument_stores(struct CodegenState *state,
                 riscv_emit_immediate_add(NULL, state, info, destAddrReg, info->stackPointer, argLifetime->writebackInfo.stackOffset);
 
                 riscv_generate_internal_copy(NULL, state, sourceAddrReg, destAddrReg, scratch, type_get_size(tac_operand_get_type(argOperand), metadata->scope));
+
+                try_release_scratch_register(info, sourceAddrReg);
+                try_release_scratch_register(info, destAddrReg);
             }
             else
             {

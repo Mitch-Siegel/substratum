@@ -469,7 +469,7 @@ struct TypeEntry *type_entry_get_or_create_generic_instantiation(struct TypeEntr
     if (instance == NULL)
     {
         char *paramStr = sprint_generic_params(paramsList);
-        log(LOG_DEBUG, "No instance of %s<%s> exists - creating", baseType->baseName, paramStr);
+        log(LOG_DEBUG, "No instance of generic %s<%s> exists - creating", baseType->baseName, paramStr);
 
         instance = type_entry_clone_generic_base_as_instance(baseType, baseType->baseName);
 
@@ -479,6 +479,7 @@ struct TypeEntry *type_entry_get_or_create_generic_instantiation(struct TypeEntr
         if (!type_is_generic(&instance->type))
         {
             log(LOG_DEBUG, "Instance of %s<%s> has no generic parameters which themselves are generics, ok to resolve", baseType->baseName, paramStr);
+            type_entry_resolve_capital_self(instance);
             type_entry_resolve_generics(instance, baseType->generic.base.paramNames, paramsList);
         }
         else
