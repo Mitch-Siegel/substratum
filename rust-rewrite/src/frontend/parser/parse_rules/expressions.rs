@@ -48,8 +48,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
 
         let mut expr = match self.peek_token()? {
             Token::SelfLower => {
-                let basic_loc = self.expect_token_with_loc(Token::SelfLower)?.1;
-                let self_loc = SourceLocWithMod::new(basic_loc, self.current_module().into());
+                let self_loc = self.expect_token_with_loc(Token::SelfLower)?.1;
 
                 let self_expression = ExpressionTree::new(self_loc, Expression::SelfLower);
                 match self.lookahead_token(2)? {

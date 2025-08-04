@@ -2,12 +2,12 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StructFieldTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub name: String,
     pub type_: TypeTree,
 }
 impl StructFieldTree {
-    pub fn new(loc: SourceLocWithMod, name: String, type_: TypeTree) -> Self {
+    pub fn new(loc: SourceLoc, name: String, type_: TypeTree) -> Self {
         Self { loc, name, type_ }
     }
 }
@@ -29,14 +29,14 @@ impl ReturnWalk<(String, midend::types::Type)> for StructFieldTree {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StructDefinitionTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub name: generics::IdentifierWithGenericsTree,
     pub fields: Vec<StructFieldTree>,
 }
 
 impl StructDefinitionTree {
     pub fn new(
-        loc: SourceLocWithMod,
+        loc: SourceLoc,
         name: generics::IdentifierWithGenericsTree,
         fields: Vec<StructFieldTree>,
     ) -> Self {

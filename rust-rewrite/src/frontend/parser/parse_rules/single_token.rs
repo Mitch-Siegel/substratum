@@ -25,24 +25,34 @@ mod tests {
         parser::{ParseError, Parser},
         sourceloc::SourceLoc,
     };
+    use std::path::Path;
 
     #[test]
     fn parse_identifier() {
-        let mut p = Parser::new(Lexer::from_string("my_identifier"));
+        let mut p = Parser::new(
+            "".into(),
+            Path::new(""),
+            Lexer::from_string("my_identifier"),
+        );
         assert_eq!(p.parse_identifier(), Ok("my_identifier".into()));
     }
 
     #[test]
     fn parse_identifier_error() {
-        let mut p = Parser::new(Lexer::from_string("struct"));
+        let mut p = Parser::new("".into(), Path::new(""), Lexer::from_string("struct"));
         assert_eq!(
             p.parse_identifier(),
             Err(ParseError::unexpected_token(
-                SourceLoc::new(1, 1),
+                SourceLoc::new(Path::new(""), 1, 1),
                 Token::Struct,
                 &[Token::Identifier("".into())],
                 "identifier".into(),
-                SourceLoc::new(1, 1),
+                SourceLoc::new(Path::new(""), 1, 1),
+                SourceLoc::new(
+                    Path::new("src/frontend/parser/parse_rules/single_token.rs"),
+                    10,
+                    37
+                ),
             ))
         );
     }

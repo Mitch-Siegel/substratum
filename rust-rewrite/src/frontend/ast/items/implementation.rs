@@ -2,7 +2,7 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ImplementationTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub generic_params: Option<generics::GenericParamsListTree>,
     pub for_: generics::IdentifierWithGenericsTree,
     pub items: Vec<items::FunctionDefinitionTree>,
@@ -10,7 +10,7 @@ pub struct ImplementationTree {
 
 impl ImplementationTree {
     pub fn new(
-        loc: SourceLocWithMod,
+        loc: SourceLoc,
         generic_params: Option<generics::GenericParamsListTree>,
         for_: generics::IdentifierWithGenericsTree,
         items: Vec<items::FunctionDefinitionTree>,

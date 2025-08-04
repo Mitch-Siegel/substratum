@@ -56,32 +56,3 @@ impl Display for SourceLoc {
         write!(f, "{}", self.as_string())
     }
 }
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceLocWithMod {
-    pub raw_loc: SourceLoc,
-    pub module: String,
-}
-
-impl SourceLocWithMod {
-    pub fn new(raw_loc: SourceLoc, module: String) -> Self {
-        Self { raw_loc, module }
-    }
-
-    pub fn none() -> Self {
-        Self {
-            raw_loc: SourceLoc::none(),
-            module: String::new(),
-        }
-    }
-
-    pub fn valid(&self) -> bool {
-        self.raw_loc.valid() && self.module.len() > 0
-    }
-}
-
-impl Display for SourceLocWithMod {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "module {}: {}", self.module, self.raw_loc)
-    }
-}

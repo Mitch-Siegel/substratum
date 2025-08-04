@@ -2,12 +2,12 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CallParamsTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub params: Vec<ExpressionTree>,
 }
 
 impl CallParamsTree {
-    pub fn new(loc: SourceLocWithMod, params: Vec<ExpressionTree>) -> Self {
+    pub fn new(loc: SourceLoc, params: Vec<ExpressionTree>) -> Self {
         Self { loc, params }
     }
 }
@@ -40,14 +40,14 @@ impl<'a> ReturnFunctionWalk<'a, Vec<midend::ir::ValueId>> for CallParamsTree {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MethodCallExpressionTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub receiver: ExpressionTree,
     pub called_method: String,
     pub params: CallParamsTree,
 }
 impl MethodCallExpressionTree {
     pub fn new(
-        loc: SourceLocWithMod,
+        loc: SourceLoc,
         receiver: ExpressionTree,
         called_method: String,
         params: CallParamsTree,

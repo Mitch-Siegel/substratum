@@ -2,13 +2,13 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ArgumentDeclarationTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub name: String,
     pub type_: TypeTree,
     pub mutable: bool,
 }
 impl ArgumentDeclarationTree {
-    pub fn new(loc: SourceLocWithMod, name: String, type_: TypeTree, mutable: bool) -> Self {
+    pub fn new(loc: SourceLoc, name: String, type_: TypeTree, mutable: bool) -> Self {
         Self {
             loc,
             name,
@@ -41,14 +41,14 @@ impl ReturnWalk<midend::symtab::Variable> for ArgumentDeclarationTree {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDeclarationTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub name: generics::IdentifierWithGenericsTree,
     pub arguments: Vec<ArgumentDeclarationTree>,
     pub return_type: Option<TypeTree>,
 }
 impl FunctionDeclarationTree {
     pub fn new(
-        loc: SourceLocWithMod,
+        loc: SourceLoc,
         name: generics::IdentifierWithGenericsTree,
         arguments: Vec<ArgumentDeclarationTree>,
         return_type: Option<TypeTree>,

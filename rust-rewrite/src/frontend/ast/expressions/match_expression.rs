@@ -10,11 +10,11 @@ pub enum Pattern {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PatternTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub pattern: Pattern,
 }
 impl PatternTree {
-    pub fn new(loc: SourceLocWithMod, pattern: Pattern) -> Self {
+    pub fn new(loc: SourceLoc, pattern: Pattern) -> Self {
         Self { loc, pattern }
     }
 }
@@ -73,7 +73,7 @@ fn destructure_enum_variant(
     let variant_ptr_value = context.next_temp(Some(variant.type_()));
 
     let variant_access_line = midend::ir::IrLine::new_get_field_pointer(
-        SourceLocWithMod::none(),
+        SourceLoc::none(),
         enum_value,
         variant_name,
         variant_ptr_value,
@@ -142,16 +142,12 @@ impl<'a> CustomReturnWalk<MatchArmWalkContext<'a>, midend::ir::ValueId> for Patt
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MatchArmTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub pattern: PatternTree,
     pub expression: BlockExpressionTree,
 }
 impl MatchArmTree {
-    pub fn new(
-        loc: SourceLocWithMod,
-        pattern: PatternTree,
-        expression: BlockExpressionTree,
-    ) -> Self {
+    pub fn new(loc: SourceLoc, pattern: PatternTree, expression: BlockExpressionTree) -> Self {
         Self {
             loc,
             pattern,
@@ -175,13 +171,13 @@ impl<'a> CustomReturnWalk<MatchArmWalkContext<'a>, (midend::ir::ValueId, BlockEx
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MatchExpressionTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub scrutinee_expression: ExpressionTree,
     pub arms: Vec<MatchArmTree>,
 }
 impl MatchExpressionTree {
     pub fn new(
-        loc: SourceLocWithMod,
+        loc: SourceLoc,
         scrutinee_expression: ExpressionTree,
         arms: Vec<MatchArmTree>,
     ) -> Self {

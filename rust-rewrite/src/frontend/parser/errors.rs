@@ -87,33 +87,35 @@ impl From<LexError> for ParseError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn parse_error_fmt() {
-        let lex_error = LexError::unexpected_eof(SourceLoc::new(1, 1));
+        let lex_error = LexError::unexpected_eof(SourceLoc::new(Path::new(""), 1, 1));
         assert_eq!(
             format!("{}", lex_error),
             format!("{}", ParseError::from(lex_error))
         );
 
         let unexpected_token = ParseError::unexpected_token(
-            SourceLoc::new(2, 3),
+            SourceLoc::new(std::path::Path::new(""), 2, 3),
             Token::U8,
             &[Token::U16, Token::U32],
             "something".into(),
-            SourceLoc::new(1, 1),
+            SourceLoc::new(Path::new(""), 1, 1),
+            SourceLoc::new(Path::new(""), 1, 1),
         );
 
         assert_eq!(
             format!("{}", unexpected_token),
             format!(
-                "Unexpected token '{}' at {}, expected one of ['{}', '{}'] (while parsing {} starting at {})",
+                "Unexpected token '{}' at {}, expected one of ['{}', '{}'] (while parsing {} starting at {}) (error generated at  1:1)",
                 Token::U8,
-                SourceLoc::new(2, 3),
+                SourceLoc::new(Path::new(""), 2, 3),
                 Token::U16,
                 Token::U32,
                 "something",
-                SourceLoc::new(1, 1)
+                SourceLoc::new(Path::new(""), 1, 1)
             )
         );
     }

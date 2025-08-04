@@ -7,7 +7,7 @@ pub enum EnumVariantData {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnumVariantDataTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub data: EnumVariantData,
 }
 
@@ -31,12 +31,12 @@ impl ReturnWalk<midend::symtab::enum_definition::EnumVariantRepr> for EnumVarian
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnumVariantTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub name: String,
     pub data: Option<EnumVariantDataTree>,
 }
 impl EnumVariantTree {
-    pub fn new(loc: SourceLocWithMod, name: String, data: Option<EnumVariantDataTree>) -> Self {
+    pub fn new(loc: SourceLoc, name: String, data: Option<EnumVariantDataTree>) -> Self {
         Self { loc, name, data }
     }
 }
@@ -62,13 +62,13 @@ impl ReturnWalk<midend::symtab::enum_definition::EnumVariant> for EnumVariantTre
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnumDefinitionTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub name: generics::IdentifierWithGenericsTree,
     pub variants: Vec<EnumVariantTree>,
 }
 impl EnumDefinitionTree {
     pub fn new(
-        loc: SourceLocWithMod,
+        loc: SourceLoc,
         name: generics::IdentifierWithGenericsTree,
         variants: Vec<EnumVariantTree>,
     ) -> Self {

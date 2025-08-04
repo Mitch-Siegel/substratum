@@ -2,7 +2,7 @@ use crate::frontend::ast::expressions::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct IfExpressionTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub condition: ExpressionTree,
     pub true_block: BlockExpressionTree,
     pub false_block: Option<BlockExpressionTree>,
@@ -10,7 +10,7 @@ pub struct IfExpressionTree {
 
 impl IfExpressionTree {
     pub fn new(
-        loc: SourceLocWithMod,
+        loc: SourceLoc,
         condition: ExpressionTree,
         true_block: BlockExpressionTree,
         false_block: Option<BlockExpressionTree>,

@@ -2,11 +2,11 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BlockExpressionTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub statements: Vec<StatementTree>,
 }
 impl BlockExpressionTree {
-    pub fn new(loc: SourceLocWithMod, statements: Vec<StatementTree>) -> Self {
+    pub fn new(loc: SourceLoc, statements: Vec<StatementTree>) -> Self {
         Self { loc, statements }
     }
 }

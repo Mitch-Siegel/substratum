@@ -53,11 +53,11 @@ impl Display for Expression {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ExpressionTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub expression: Expression,
 }
 impl ExpressionTree {
-    pub fn new(loc: SourceLocWithMod, expression: Expression) -> Self {
+    pub fn new(loc: SourceLoc, expression: Expression) -> Self {
         Self { loc, expression }
     }
 }

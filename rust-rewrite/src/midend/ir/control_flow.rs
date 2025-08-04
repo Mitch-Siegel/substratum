@@ -87,7 +87,7 @@ impl ControlFlow {
         let mut graphviz_string = String::from("digraph {\n");
 
         for (label, block) in self.blocks_postorder() {
-            let loc_none = SourceLocWithMod::none();
+            let loc_none = SourceLoc::none();
             let block_loc = block
                 .into_iter()
                 .filter(|&statement| statement.loc.valid())
@@ -178,25 +178,25 @@ mod tests {
         let b3 = ir::BasicBlock::new(3);
 
         // 0->1
-        let jump = ir::IrLine::new_jump(SourceLocWithMod::none(), 1, JumpCondition::Unconditional);
+        let jump = ir::IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
         b0.statements.push(jump);
 
         // 1->2 (conditional)
         let jump = ir::IrLine::new_jump(
-            SourceLocWithMod::none(),
+            SourceLoc::none(),
             2,
             JumpCondition::Eq(DualSourceOperands::new(
-                ir::ValueId::new_as_temporary("a".into()),
-                ir::ValueId::new_as_temporary("b".into()),
+                ir::ValueId::new(0),
+                ir::ValueId::new(1),
             )),
         );
         b1.statements.push(jump);
         // 1->3
-        let jump = ir::IrLine::new_jump(SourceLocWithMod::none(), 3, JumpCondition::Unconditional);
+        let jump = ir::IrLine::new_jump(SourceLoc::none(), 3, JumpCondition::Unconditional);
         b1.statements.push(jump);
 
         // 2->1
-        let jump = ir::IrLine::new_jump(SourceLocWithMod::none(), 1, JumpCondition::Unconditional);
+        let jump = ir::IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
         b2.statements.push(jump);
 
         let blocks = vec![b0, b1, b2, b3];

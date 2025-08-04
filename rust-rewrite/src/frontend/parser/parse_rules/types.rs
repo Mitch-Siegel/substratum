@@ -111,6 +111,7 @@ impl<'a> Parser<'a> {
 mod tests {
     use crate::frontend::parser::*;
     use crate::midend::types::{Mutability, Type};
+    use std::path::Path;
 
     #[test]
     fn parse_type_name() {
@@ -124,22 +125,22 @@ mod tests {
             ("i32", Type::I32),
             ("i64", Type::I64),
             ("MyStruct", Type::Named("MyStruct".into())),
-            ("self", Type::_Self),
+            ("Self", Type::_Self),
         ];
 
         for (string, type_) in type_names {
-            let mut p = Parser::new(Lexer::from_string(string));
+            let mut p = Parser::new("".into(), Path::new(""), Lexer::from_string(string));
             assert_eq!(p.parse_type_name(), Ok(type_));
         }
     }
 
     #[test]
     fn parse_type_name_error() {
-        let mut p = Parser::new(Lexer::from_string("123"));
+        let mut p = Parser::new("".into(), Path::new(""), Lexer::from_string("123"));
         assert_eq!(
             p.parse_type_name(),
             Err(ParseError::unexpected_token(
-                SourceLoc::new(1, 1),
+                SourceLoc::new(Path::new(""), 1, 1),
                 Token::UnsignedDecimalConstant(123),
                 &[
                     Token::U8,
@@ -151,10 +152,15 @@ mod tests {
                     Token::I32,
                     Token::I64,
                     Token::Identifier("".into()),
-                    Token::SelfLower,
+                    Token::SelfUpper,
                 ],
                 "type name".into(),
-                SourceLoc::new(1, 1),
+                SourceLoc::new(Path::new(""), 1, 1),
+                SourceLoc::new(
+                    Path::new("src/frontend/parser/parse_rules/types.rs"),
+                    90,
+                    23
+                ),
             ))
         );
     }
@@ -183,17 +189,20 @@ mod tests {
         ];
 
         for (string, type_) in types {
-            let mut p = Parser::new(Lexer::from_string(string));
+            let mut p = Parser::new("".into(), Path::new(""), Lexer::from_string(string));
             assert_eq!(p.parse_type_inner(), Ok(type_));
         }
     }
 
     #[test]
     fn parse_type() {
-        let mut p = Parser::new(Lexer::from_string("u32"));
+        let mut p = Parser::new("".into(), Path::new(""), Lexer::from_string("u32"));
         assert_eq!(
             p.parse_type(),
-            Ok(TypeTree::new(SourceLoc::new(1, 1), Type::U32))
+            Ok(TypeTree::new(
+                SourceLoc::new(Path::new(""), 1, 1),
+                Type::U32
+            ))
         );
     }
 }

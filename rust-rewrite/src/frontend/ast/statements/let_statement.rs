@@ -2,7 +2,7 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LetTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub name: String,
     pub type_: Option<TypeTree>,
     pub mutable: bool,
@@ -11,7 +11,7 @@ pub struct LetTree {
 
 impl LetTree {
     pub fn new(
-        loc: SourceLocWithMod,
+        loc: SourceLoc,
         name: String,
         type_: Option<TypeTree>,
         mutable: bool,

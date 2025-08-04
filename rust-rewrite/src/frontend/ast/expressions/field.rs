@@ -2,13 +2,13 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FieldExpressionTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub receiver: ExpressionTree,
     pub field: String,
 }
 
 impl FieldExpressionTree {
-    pub fn new(loc: SourceLocWithMod, receiver: ExpressionTree, field: String) -> Self {
+    pub fn new(loc: SourceLoc, receiver: ExpressionTree, field: String) -> Self {
         Self {
             loc,
             receiver,

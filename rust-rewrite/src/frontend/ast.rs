@@ -1,5 +1,5 @@
 use crate::{
-    frontend::sourceloc::SourceLocWithMod,
+    frontend::sourceloc::SourceLoc,
     midend::{
         self,
         linearizer::{

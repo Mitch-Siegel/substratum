@@ -22,12 +22,12 @@ impl Display for Statement {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StatementTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub statement: Statement,
 }
 
 impl StatementTree {
-    pub fn new(loc: SourceLocWithMod, statement: Statement) -> Self {
+    pub fn new(loc: SourceLoc, statement: Statement) -> Self {
         Self { loc, statement }
     }
 }

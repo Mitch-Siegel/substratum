@@ -2,17 +2,13 @@ use crate::frontend::ast::expressions::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct WhileExpressionTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub condition: ExpressionTree,
     pub body: BlockExpressionTree,
 }
 
 impl WhileExpressionTree {
-    pub fn new(
-        loc: SourceLocWithMod,
-        condition: ExpressionTree,
-        body: BlockExpressionTree,
-    ) -> Self {
+    pub fn new(loc: SourceLoc, condition: ExpressionTree, body: BlockExpressionTree) -> Self {
         Self {
             loc,
             condition,

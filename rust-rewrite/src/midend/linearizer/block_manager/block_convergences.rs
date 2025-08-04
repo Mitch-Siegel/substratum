@@ -121,7 +121,10 @@ impl BlockConvergences {
 
 #[cfg(test)]
 mod tests {
-    use crate::midend::{ir, linearizer::*};
+    use crate::midend::{
+        ir,
+        linearizer::{self, block_manager::*},
+    };
     use std::collections::HashMap;
 
     #[test]

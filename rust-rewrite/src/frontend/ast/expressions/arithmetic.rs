@@ -89,7 +89,7 @@ impl ValueWalk for ComparisonExpressionTree {
         };
 
         // TODO: association location with comparison expression tree
-        let operation = midend::ir::IrLine::new_binary_op(SourceLocWithMod::none(), op);
+        let operation = midend::ir::IrLine::new_binary_op(SourceLoc::none(), op);
         context
             .append_statement_to_current_block(operation)
             .unwrap();
@@ -158,7 +158,7 @@ impl ValueWalk for ArithmeticExpressionTree {
         };
 
         // TODO: associate location with arithmetic expression trees
-        let operation = midend::ir::IrLine::new_binary_op(SourceLocWithMod::none(), op);
+        let operation = midend::ir::IrLine::new_binary_op(SourceLoc::none(), op);
         context
             .append_statement_to_current_block(operation)
             .unwrap();

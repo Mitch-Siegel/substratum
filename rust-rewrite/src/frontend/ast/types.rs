@@ -2,12 +2,12 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct TypeTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub type_: midend::types::Type,
 }
 
 impl TypeTree {
-    pub fn new(loc: SourceLocWithMod, type_: midend::types::Type) -> Self {
+    pub fn new(loc: SourceLoc, type_: midend::types::Type) -> Self {
         Self { loc, type_ }
     }
 }

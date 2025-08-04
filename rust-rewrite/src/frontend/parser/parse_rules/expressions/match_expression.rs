@@ -15,10 +15,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
                         self.expect_token(Token::LParen)?;
                         // only support single destructuring for now
                         let single_tuple_contents = self.parse_identifier()?;
-                        let tuple_contents_loc = SourceLocWithMod::new(
-                            self.last_match.clone(),
-                            self.current_module().into(),
-                        );
+                        let tuple_contents_loc = self.last_match.clone();
                         self.expect_token(Token::RParen)?;
                         ast::expressions::match_expression::Pattern::TupleStructPattern(
                             ident,

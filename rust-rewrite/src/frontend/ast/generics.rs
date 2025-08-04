@@ -3,11 +3,11 @@ use std::collections::BTreeSet;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GenericParamTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub name: String,
 }
 impl GenericParamTree {
-    pub fn new(loc: SourceLocWithMod, name: String) -> Self {
+    pub fn new(loc: SourceLoc, name: String) -> Self {
         Self { loc, name }
     }
 }
@@ -19,12 +19,12 @@ impl Display for GenericParamTree {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GenericParamsListTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub params: Vec<GenericParamTree>,
 }
 
 impl GenericParamsListTree {
-    pub fn new(loc: SourceLocWithMod, params: Vec<GenericParamTree>) -> Self {
+    pub fn new(loc: SourceLoc, params: Vec<GenericParamTree>) -> Self {
         Self { loc, params }
     }
 }
@@ -66,13 +66,13 @@ impl CustomReturnWalk<(), Vec<String>> for GenericParamsListTree {
 
 #[derive(ReflectName, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct IdentifierWithGenericsTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub name: String,
     pub generic_params: Option<generics::GenericParamsListTree>,
 }
 impl IdentifierWithGenericsTree {
     pub fn new(
-        loc: SourceLocWithMod,
+        loc: SourceLoc,
         name: String,
         generic_params: Option<generics::GenericParamsListTree>,
     ) -> Self {

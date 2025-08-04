@@ -8,7 +8,7 @@ use crate::{frontend::ast, midend::ir};
 use super::{
     ast::*,
     lexer::{token::Token, *},
-    sourceloc::{SourceLoc, SourceLocWithMod},
+    sourceloc::SourceLoc,
 };
 
 mod errors;
@@ -204,7 +204,7 @@ impl<'a> Parser<'a> {
     fn start_parsing(
         &mut self,
         what_parsing: &str,
-    ) -> Result<(SourceLocWithMod, trace::ExitOnDropSpan), ParseError> {
+    ) -> Result<(SourceLoc, trace::ExitOnDropSpan), ParseError> {
         let start_loc = self.peek_token_with_loc()?.1;
 
         let exit_on_drop_span = trace::span_auto!(
@@ -220,16 +220,7 @@ impl<'a> Parser<'a> {
 
         tracing::trace!("{}", start_loc);
 
-        Ok((
-            SourceLocWithMod::new(
-                start_loc,
-                self.module_parse_stack
-                    .last()
-                    .unwrap_or(&String::new())
-                    .clone(),
-            ),
-            exit_on_drop_span,
-        ))
+        Ok((start_loc, exit_on_drop_span))
     }
 
     fn finish_parsing<T>(&mut self, _parsed: &T) -> Result<(), ParseError>

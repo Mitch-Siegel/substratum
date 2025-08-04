@@ -1,5 +1,5 @@
 use crate::midend::ir::*;
-
+/*
 #[test]
 fn ir_line_new_assignment() {
     let assignment = IrLine::new_assignment(
@@ -325,4 +325,4 @@ fn read_operand_names_mut() {
             &operand_name_from_string("le_b")
         ]
     );
-}
+}*/

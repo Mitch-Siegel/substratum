@@ -2,12 +2,12 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct AssignmentTree {
-    pub loc: SourceLocWithMod,
+    pub loc: SourceLoc,
     pub assignee: Box<ExpressionTree>,
     pub value: Box<ExpressionTree>,
 }
 impl AssignmentTree {
-    pub fn new(loc: SourceLocWithMod, assignee: ExpressionTree, value: ExpressionTree) -> Self {
+    pub fn new(loc: SourceLoc, assignee: ExpressionTree, value: ExpressionTree) -> Self {
         Self {
             loc,
             assignee: Box::from(assignee),
