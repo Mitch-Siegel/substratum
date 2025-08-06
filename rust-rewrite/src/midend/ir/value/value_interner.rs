@@ -1,4 +1,4 @@
-use crate::midend::ir::value::*;
+use crate::midend::{ir::value::*, linearizer::def_context};
 use std::collections::HashMap;
 
 pub struct ValueInterner {
@@ -34,17 +34,28 @@ impl ValueInterner {
         self.values.get(id.index)
     }
 
-    pub fn value_mut_for_id(&mut self, id: &ValueId) -> Option<&mut Value> {
-        self.values.get_mut(id.index)
-    }
-
     pub fn id_for_variable(&self, variable_def_path: &symtab::DefPath) -> Option<&ValueId> {
         self.variables.get(variable_def_path)
     }
 
-    pub fn id_for_variable_or_insert(&mut self, variable_def_path: symtab::DefPath) -> &ValueId {
+    pub fn id_for_variable_or_insert(
+        &mut self,
+        variable_def_path: symtab::DefPath,
+        variable_type_id: Option<symtab::TypeId>,
+    ) -> ValueId {
         let next_id = self.next_id();
-        self.variables.entry(variable_def_path).or_insert(next_id)
+        match self.variables.get(&variable_def_path) {
+            Some(id) => *id,
+            None => {
+                self.variables.insert(variable_def_path.clone(), next_id);
+                self.values.push(Value::new(
+                    ValueKind::Variable(variable_def_path.clone()),
+                    variable_type_id,
+                ));
+                self.variables.entry(variable_def_path).or_insert(next_id);
+                next_id
+            }
+        }
     }
 
     fn next_id(&self) -> ValueId {

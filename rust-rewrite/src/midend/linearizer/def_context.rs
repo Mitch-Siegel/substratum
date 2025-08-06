@@ -138,8 +138,12 @@ pub trait DefContext: std::fmt::Debug {
         }
     }
 
-    fn id_for_type(&self, type_: &types::Type) -> Result<TypeId, SymbolError> {
-        self.symtab().id_for_type(&self.def_path(), type_)
+    fn id_for_type(&self, type_: Option<&types::Type>) -> Result<Option<TypeId>, SymbolError> {
+        let id_option = match type_ {
+            Some(t) => Some(self.symtab().id_for_type(&self.def_path(), t)?),
+            None => None,
+        };
+        Ok(id_option)
     }
 
     fn type_for_id(&self, id: &TypeId) -> Option<&TypeDefinition> {
@@ -283,8 +287,7 @@ pub trait DefContext: std::fmt::Debug {
                 // lookup required
                 DefPathComponent::Type(_) => {
                     let definition = self.lookup_at::<TypeDefinition>(&search_def_path).unwrap();
-                    let type_id = self.id_for_type(definition.type_()).unwrap();
-                    return Some(type_id);
+                    return self.id_for_type(Some(definition.type_())).unwrap();
                 }
                 // trivial case - just grab whatever we're implementing for
                 DefPathComponent::Implementation(implementation) => {

@@ -29,8 +29,8 @@ impl Variable {
         Variable { name, type_ }
     }
 
-    pub fn type_(&self) -> &Type {
-        &self.type_.as_ref().unwrap()
+    pub fn type_(&self) -> Option<&Type> {
+        self.type_.as_ref()
     }
 
     pub fn mangle_name_at_index(&mut self, index: usize) {

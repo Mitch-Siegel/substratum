@@ -52,7 +52,10 @@ impl CustomReturnWalk<midend::linearizer::BasicDefContext, midend::linearizer::B
         let implemented_for_type = context
             .resolve_type_name(&implemented_for_string_name)
             .unwrap();
-        let implemented_for_type_id = context.id_for_type(&implemented_for_type).unwrap();
+        let implemented_for_type_id = context
+            .id_for_type(Some(&implemented_for_type))
+            .unwrap()
+            .unwrap();
 
         let generic_params: Vec<String> = match self.generic_params {
             Some(params) => params.walk(()),

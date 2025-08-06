@@ -72,7 +72,7 @@ impl midend::linearizer::ValueWalk for ExpressionTree {
     fn walk(self, context: &mut midend::linearizer::FunctionWalkContext) -> midend::ir::ValueId {
         match self.expression {
             Expression::SelfLower => match context.self_variable() {
-                Some(id) => *id,
+                Some(id) => id,
                 None => panic!(
                     "'self' expression is not valid ({}) (defpath {})",
                     self.loc,

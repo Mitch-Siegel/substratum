@@ -85,19 +85,28 @@ impl FunctionWalkContext {
         })
     }
 
-    pub fn self_variable(&mut self) -> Option<&ir::ValueId> {
+    pub fn self_variable(&mut self) -> Option<ir::ValueId> {
         let self_variable_path = self
             .global_def_path
             .clone()
             .with_component(DefPathComponent::Variable("self".into()))
             .unwrap();
 
-        match self.lookup_at::<symtab::Variable>(&self_variable_path) {
-            Ok(_) => (),
+        let self_variable_definition = match self.lookup_at::<symtab::Variable>(&self_variable_path)
+        {
+            Ok(def) => def,
             Err(_) => return None,
-        }
+        };
 
-        Some(self.values.id_for_variable_or_insert(self_variable_path))
+        let self_type_id = self
+            .id_for_type(self_variable_definition.type_())
+            .unwrap()
+            .expect("self variable must have type id");
+
+        Some(
+            self.values
+                .id_for_variable_or_insert(self_variable_path, Some(self_type_id)),
+        )
     }
 
     fn new_subscope(&mut self) -> Result<(), symtab::SymbolError> {
@@ -179,11 +188,14 @@ impl FunctionWalkContext {
         self.values.id_for_variable(variable_def_path).unwrap()
     }
 
-    pub fn id_for_variable_or_insert(
-        &mut self,
-        variable_def_path: symtab::DefPath,
-    ) -> &ir::ValueId {
-        self.values.id_for_variable_or_insert(variable_def_path)
+    pub fn id_for_variable_or_insert(&mut self, variable_def_path: symtab::DefPath) -> ir::ValueId {
+        let variable_def = self
+            .lookup_at::<symtab::Variable>(&variable_def_path)
+            .expect("Variable must be defined to get its ValueId");
+        let variable_type_id = self.id_for_type(variable_def.type_()).unwrap();
+
+        self.values
+            .id_for_variable_or_insert(variable_def_path, variable_type_id)
     }
 
     pub fn value_for_id(&self, id: &ir::ValueId) -> Option<&ir::Value> {
