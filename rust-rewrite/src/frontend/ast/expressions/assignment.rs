@@ -28,15 +28,12 @@ impl ValueWalk for AssignmentTree {
             Expression::FieldExpression(field_expression_tree) => {
                 let field_loc = field_expression_tree.loc.clone();
                 let (receiver, field) = field_expression_tree.walk(context);
-                let field_name = field.name.clone();
-                let field_type = field.type_.clone();
-
-                let field_pointer_temp = context.next_temp(Some(field_type));
+                let field_pointer_temp = context.next_temp();
 
                 let field_pointer_line = midend::ir::IrLine::new_get_field_pointer(
                     field_loc,
                     receiver,
-                    field_name,
+                    field,
                     field_pointer_temp,
                 );
                 context

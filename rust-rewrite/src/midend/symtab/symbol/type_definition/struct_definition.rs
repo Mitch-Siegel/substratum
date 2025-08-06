@@ -3,12 +3,12 @@ use crate::midend::symtab::type_definition::*;
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StructField {
     pub name: String,
-    pub type_: types::Type,
+    pub type_: types::Syntactic,
     pub offset: Option<usize>,
 }
 
 impl StructField {
-    pub fn new(name: String, type_: types::Type) -> Self {
+    pub fn new(name: String, type_: types::Syntactic) -> Self {
         Self {
             name,
             type_,
@@ -40,7 +40,7 @@ impl StructRepr {
     pub fn new(
         name: String,
         generic_params: Vec<String>,
-        field_definitions: Vec<(String, types::Type)>,
+        field_definitions: Vec<(String, types::Syntactic)>,
     ) -> Result<Self, StructField> {
         let field_order: Vec<String> = field_definitions
             .iter()

@@ -1,8 +1,17 @@
+use crate::frontend::ast::*;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
 use crate::backend;
 use crate::midend::symtab;
+
+pub mod semantic_types;
+pub mod syntactic_types;
+pub mod type_interner;
+
+pub use semantic_types::Semantic;
+pub use syntactic_types::Syntactic;
+pub use type_interner::Interner;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize, Hash)]
 pub enum Mutability {
@@ -36,130 +45,9 @@ impl Display for Mutability {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, serde::Deserialize, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Type {
-    Unit,
-    U8,
-    U16,
-    U32,
-    U64,
-    I8,
-    I16,
-    I32,
-    I64,
-    GenericParam(String),
-    _Self,
-    Named(String),
-    UserDefined(symtab::TypeId),
-    Reference(Mutability, Box<Type>),
-    Pointer(Mutability, Box<Type>),
-    Tuple(Vec<Type>),
-}
-
-impl Type {
-    pub fn is_integral<C>(&self, _context: &C) -> Result<bool, symtab::SymbolError> {
-        match self {
-            Type::Unit => Ok(false),
-            Type::U8
-            | Type::U16
-            | Type::U32
-            | Type::U64
-            | Type::I8
-            | Type::I16
-            | Type::I32
-            | Type::I64 => Ok(true),
-            Type::GenericParam(_) => Ok(false),
-            Type::_Self => unimplemented!(),
-            Type::Named(_) => Ok(false),
-            Type::UserDefined(_) => Ok(false),
-            Type::Reference(_, _) | Type::Pointer(_, _) => Ok(true),
-            Type::Tuple(_) => Ok(false),
-        }
-    }
-
-    // size of the type in bytes
-    pub fn size<Target>(
-        &self,
-        _interner: &symtab::TypeInterner,
-    ) -> Result<usize, symtab::SymbolError>
-    where
-        Target: backend::arch::TargetArchitecture,
-    {
-        let size = match self {
-            Type::Unit => 0,
-            Type::U8 => 1,
-            Type::U16 => 2,
-            Type::U32 => 4,
-            Type::U64 => 8,
-            Type::I8 => 1,
-            Type::I16 => 2,
-            Type::I32 => 4,
-            Type::I64 => 8,
-            Type::GenericParam(param) => {
-                unimplemented!("Sizing generic param  not supported yet (param {})", param)
-            }
-            Type::_Self => panic!("Can't size Self type"),
-            Type::Named(name) => panic!("Can't size named type {}", name),
-            Type::UserDefined(id) => {
-                unimplemented!(
-                    "Sizing user-defined types not supported yet (type id {})",
-                    id
-                )
-            } /*interner.get_by_id(id).unwrap()*/
-            Type::Reference(_, _) => Target::word_size(),
-            Type::Pointer(_, _) => Target::word_size(),
-            Type::Tuple(elements) => elements
-                .iter()
-                .map(|element| element.size::<Target>(_interner).unwrap())
-                .sum(),
-        };
-
-        Ok(size)
-    }
-
-    pub fn align_size_power_of_two(size: usize) -> usize {
-        if size == 0 {
-            0
-        } else if size == 1 {
-            1
-        } else {
-            size.next_power_of_two()
-        }
-    }
-
-    pub fn alignment<Target, C>(&self, _context: &C) -> Result<usize, symtab::SymbolError>
-    where
-        Target: backend::arch::TargetArchitecture,
-    {
-        unimplemented!();
-    }
-}
-
-impl Display for Type {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Unit => write!(f, "()"),
-            Self::U8 => write!(f, "u8"),
-            Self::U16 => write!(f, "u16"),
-            Self::U32 => write!(f, "u32"),
-            Self::U64 => write!(f, "u64"),
-            Self::I8 => write!(f, "i8"),
-            Self::I16 => write!(f, "i16"),
-            Self::I32 => write!(f, "i32"),
-            Self::I64 => write!(f, "i64"),
-            Self::GenericParam(name) => write!(f, "{}", name),
-            Self::_Self => write!(f, "self"),
-            Self::UserDefined(typeid) => write!(f, "type{}", typeid),
-            Self::Named(name) => write!(f, "user-defined type {}", name),
-            Self::Reference(mutability, to) => write!(f, "&{} {}", mutability, to),
-            Self::Pointer(mutability, to) => write!(f, "*{} {}", mutability, to),
-            Self::Tuple(elements) => {
-                write!(f, "(")?;
-                for element in elements {
-                    write!(f, "{}, ", element)?;
-                }
-                write!(f, ")")
-            }
-        }
-    }
+    Unknown,
+    Syntactic(Syntactic),
+    Semantic(Semantic),
 }

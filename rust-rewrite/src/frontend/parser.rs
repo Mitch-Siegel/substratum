@@ -274,3 +274,21 @@ impl<'a> Parser<'a> {
             .parse_module_contents(parent_module_path, module_name)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::frontend::{parser::*, *};
+
+    pub fn test_parser_loc(line: usize, col: usize) -> SourceLoc {
+        SourceLoc::new(std::path::Path::new("test_module"), line, col)
+    }
+
+    pub fn test_parser<'a>(input: &'a str) -> Parser<'a> {
+        let module_path = std::path::Path::new("test_module");
+        Parser::new(
+            "test_module".into(),
+            module_path,
+            lexer::Lexer::<'a>::from_string(&input),
+        )
+    }
+}

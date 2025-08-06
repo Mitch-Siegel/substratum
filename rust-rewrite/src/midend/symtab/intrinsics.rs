@@ -8,17 +8,17 @@ fn create_core_types(symtab: &mut SymbolTable) {
         .unwrap();
 
     {
-        let unit_definition = TypeDefinition::new(types::Type::Unit, TypeRepr::Unit);
+        let unit_definition = TypeDefinition::new(types::Syntactic::Unit, TypeRepr::Unit);
         symtab
             .insert(core_def_path.clone(), unit_definition)
             .unwrap();
     }
 
     for (type_, size) in [
-        (types::Type::U8, 1),
-        (types::Type::U16, 2),
-        (types::Type::U32, 4),
-        (types::Type::U64, 8),
+        (types::Syntactic::U8, 1),
+        (types::Syntactic::U16, 2),
+        (types::Syntactic::U32, 4),
+        (types::Syntactic::U64, 8),
     ] {
         let unsigned_definition = TypeDefinition::new(
             type_.clone(),
@@ -31,10 +31,10 @@ fn create_core_types(symtab: &mut SymbolTable) {
     }
 
     for (type_, size) in [
-        (types::Type::I8, 1),
-        (types::Type::I16, 2),
-        (types::Type::I32, 4),
-        (types::Type::I64, 8),
+        (types::Syntactic::I8, 1),
+        (types::Syntactic::I16, 2),
+        (types::Syntactic::I32, 4),
+        (types::Syntactic::I64, 8),
     ] {
         let signed_definition = TypeDefinition::new(
             type_.clone(),

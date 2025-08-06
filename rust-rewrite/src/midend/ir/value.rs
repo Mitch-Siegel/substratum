@@ -31,11 +31,11 @@ pub enum ValueKind {
 #[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct Value {
     pub kind: ValueKind,
-    pub type_: Option<symtab::TypeId>,
+    pub type_: Option<types::Semantic>,
 }
 
 impl Value {
-    pub fn new(kind: ValueKind, type_: Option<symtab::TypeId>) -> Self {
+    pub fn new(kind: ValueKind, type_: Option<types::Semantic>) -> Self {
         Self { kind, type_ }
     }
 }

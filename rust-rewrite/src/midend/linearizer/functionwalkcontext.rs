@@ -15,7 +15,7 @@ pub struct FunctionWalkContext {
     // definition path from the root of the symbol table to wherever we are in the function
     full_def_path: symtab::DefPath,
     generics: GenericParamsContext,
-    self_type: Option<types::Type>,
+    self_type: Option<types::Syntactic>,
     block_manager: BlockManager,
     values: ir::ValueInterner,
     // key for DefPathComponent::BasicBlock from self.def_path
@@ -28,17 +28,7 @@ impl FunctionWalkContext {
         parent_context: BasicDefContext,
         prototype: symtab::FunctionPrototype,
     ) -> Result<Self, symtab::SymbolError> {
-        let self_type: Option<types::Type> = match parent_context.self_type_id() {
-            Some(id) => Some(
-                parent_context
-                    .symtab()
-                    .type_definition_for_id(&id)
-                    .unwrap()
-                    .type_()
-                    .clone(),
-            ),
-            None => None,
-        };
+        let self_type = parent_context.self_type();
 
         trace::trace!(
             "Self type for function {} is {:?}",
@@ -52,7 +42,7 @@ impl FunctionWalkContext {
         let start_block_label = start_block.label;
         let my_def_path = {
             symtab.insert::<symtab::Function>(
-                parent_def_path,
+                parent_def_path.clone(),
                 symtab::Function::new(prototype.clone(), None),
             )?
         };
@@ -67,11 +57,12 @@ impl FunctionWalkContext {
                 .unwrap();
         }
 
-        let values = ir::ValueInterner::new(
-            symtab
-                .id_for_type(&my_def_path, &types::Type::Unit)
-                .unwrap(),
-        );
+        let (_, unit_type_path) = symtab
+            .lookup_with_path::<symtab::TypeDefinition>(&parent_def_path, &types::Syntactic::Unit)
+            .unwrap();
+        let unit_type = symtab.types.get_semantic(&unit_type_path).unwrap();
+
+        let values = ir::ValueInterner::new(unit_type);
 
         Ok(Self {
             symtab,
@@ -98,15 +89,7 @@ impl FunctionWalkContext {
             Err(_) => return None,
         };
 
-        let self_type_id = self
-            .id_for_type(self_variable_definition.type_())
-            .unwrap()
-            .expect("self variable must have type id");
-
-        Some(
-            self.values
-                .id_for_variable_or_insert(self_variable_path, Some(self_type_id)),
-        )
+        Some(self.values.id_for_variable_or_insert(self_variable_path))
     }
 
     fn new_subscope(&mut self) -> Result<(), symtab::SymbolError> {
@@ -188,14 +171,15 @@ impl FunctionWalkContext {
         self.values.id_for_variable(variable_def_path).unwrap()
     }
 
-    pub fn id_for_variable_or_insert(&mut self, variable_def_path: symtab::DefPath) -> ir::ValueId {
+    pub fn value_for_variable_or_insert(
+        &mut self,
+        variable_def_path: symtab::DefPath,
+    ) -> ir::ValueId {
         let variable_def = self
             .lookup_at::<symtab::Variable>(&variable_def_path)
             .expect("Variable must be defined to get its ValueId");
-        let variable_type_id = self.id_for_type(variable_def.type_()).unwrap();
 
-        self.values
-            .id_for_variable_or_insert(variable_def_path, variable_type_id)
+        self.values.id_for_variable_or_insert(variable_def_path)
     }
 
     pub fn value_for_id(&self, id: &ir::ValueId) -> Option<&ir::Value> {
@@ -211,20 +195,7 @@ impl FunctionWalkContext {
         id: &ir::ValueId,
     ) -> Option<&symtab::TypeDefinition> {
         let value = self.value_for_id(id).unwrap().clone();
-        self.type_for_id(&value.type_.unwrap())
-    }
-
-    pub fn type_id_for_value_id(&self, id: &ir::ValueId) -> symtab::TypeId {
-        let value = self.value_for_id(id).unwrap();
-        value.type_.unwrap()
-    }
-
-    pub fn type_for_value_id(&self, id: &ir::ValueId) -> Option<types::Type> {
-        let type_id = self.type_id_for_value_id(id);
-        match self.symtab().type_for_id(&type_id) {
-            Some(type_ref) => Some(type_ref.clone()),
-            None => None,
-        }
+        self.definition_for_semantic_type(&value.type_.unwrap())
     }
 
     pub fn finish_true_branch_switch_to_false(&mut self) -> Result<(), block_manager::BranchError> {
@@ -500,17 +471,8 @@ impl FunctionWalkContext {
         Ok(())
     }
 
-    pub fn next_temp(&mut self, type_: Option<types::Type>) -> ir::ValueId {
-        match type_ {
-            Some(known_type) => {
-                let known_type_id = self
-                    .symtab()
-                    .id_for_type(&self.def_path(), &known_type)
-                    .unwrap();
-                self.values.next_temp(Some(known_type_id))
-            }
-            None => self.values.next_temp(None),
-        }
+    pub fn next_temp(&mut self) -> ir::ValueId {
+        self.values.next_temp()
     }
 
     pub fn append_jump_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {

@@ -1,7 +1,4 @@
-use crate::{
-    frontend::parser::parse_rules::*,
-    midend,
-};
+use crate::{frontend::parser::parse_rules::*, midend};
 
 impl<'a, 'p> ItemParser<'a, 'p> {
     pub fn parse_function_declaration_or_definition(&mut self) -> Result<ast::Item, ParseError> {
@@ -128,9 +125,9 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                     "self".into(),
                     TypeTree::new(
                         start_loc.clone(),
-                        midend::types::Type::Reference(
+                        midend::types::Syntactic::Reference(
                             mutable.into(),
-                            Box::from(midend::types::Type::_Self),
+                            Box::from(midend::types::Syntactic::_Self),
                         ),
                     ),
                     false,
@@ -139,7 +136,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                 ast::items::function::ArgumentDeclarationTree::new(
                     start_loc.clone(),
                     "self".into(),
-                    TypeTree::new(start_loc, midend::types::Type::_Self),
+                    TypeTree::new(start_loc, midend::types::Syntactic::_Self),
                     mutable,
                 )
             })

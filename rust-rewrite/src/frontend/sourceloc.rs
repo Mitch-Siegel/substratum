@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SourceLoc {
     pub file: String,
     pub line: usize,
@@ -32,10 +32,6 @@ impl SourceLoc {
         self
     }
 
-    pub fn as_string(&self) -> String {
-        String::from(format!("{} {}:{}", self.file, self.line, self.col))
-    }
-
     pub fn valid(&self) -> bool {
         self.line != 0 && self.col != 0
     }
@@ -53,6 +49,12 @@ impl From<&'static std::panic::Location<'static>> for SourceLoc {
 
 impl Display for SourceLoc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_string())
+        write!(f, "{}: {}:{}", self.file, self.line, self.col)
+    }
+}
+
+impl std::fmt::Debug for SourceLoc {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }

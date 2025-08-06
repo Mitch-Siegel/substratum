@@ -25,6 +25,9 @@ pub use module::ModuleTree;
 pub use statements::StatementTree;
 pub use types::TypeTree;
 
+#[cfg(test)]
+pub mod builder;
+
 pub trait AstName {
     fn ast_name(&self) -> String;
 }

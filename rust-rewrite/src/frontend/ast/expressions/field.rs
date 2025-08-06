@@ -26,19 +26,14 @@ impl Display for FieldExpressionTree {
 // returns (receiver, field_info)
 // receiver is the value id for the receiver of the field access
 // field_info is a value id for the field being accessed
-impl<'a> ReturnFunctionWalk<'a, (midend::ir::ValueId, &'a midend::symtab::StructField)>
-    for FieldExpressionTree
-{
+impl<'a> ReturnFunctionWalk<'a, (midend::ir::ValueId, String)> for FieldExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(
-        self,
-        context: &'a mut FunctionWalkContext,
-    ) -> (midend::ir::ValueId, &'a midend::symtab::StructField) {
+    fn walk(self, context: &'a mut FunctionWalkContext) -> (midend::ir::ValueId, String) {
         let receiver = self.receiver.walk(context);
 
         let struct_name = match context.value_for_id(&receiver).unwrap().type_ {
             Some(type_id) => {
-                let struct_type = context.type_for_id(&type_id).unwrap();
+                let struct_type = context.definition_for_semantic_type(&type_id).unwrap();
                 match &struct_type.repr {
                     midend::symtab::TypeRepr::Struct(struct_repr) => &struct_repr.name,
                     other_repr => panic!(
@@ -55,17 +50,6 @@ impl<'a> ReturnFunctionWalk<'a, (midend::ir::ValueId, &'a midend::symtab::Struct
             struct_name, self.field
         ));
 
-        // TODO: handle generic params
-        let receiver_definition = context
-            .lookup::<midend::symtab::TypeDefinition>(&receiver_type)
-            .unwrap();
-
-        let struct_receiver = match &receiver_definition.repr {
-            midend::symtab::TypeRepr::Struct(struct_definition) => struct_definition,
-            non_struct_repr => panic!("Named type {} is not a struct", non_struct_repr.name()),
-        };
-
-        let accessed_field = struct_receiver.lookup_field(&self.field).unwrap();
-        (receiver, accessed_field)
+        (receiver, self.field)
     }
 }

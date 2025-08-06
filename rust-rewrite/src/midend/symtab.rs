@@ -8,15 +8,13 @@ mod errors;
 pub mod intrinsics;
 pub mod symbol;
 pub mod symtab_visitor;
-pub mod type_interner;
 
 pub use def_path::*;
 pub use symbol::*;
 //pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
-pub use type_interner::*;
 
 pub struct SymbolTable {
-    types: TypeInterner,
+    pub types: types::Interner,
     defs: BTreeMap<DefPath, SymbolDef>,
     children: BTreeMap<DefPath, HashSet<DefPath>>,
 }
@@ -24,7 +22,7 @@ pub struct SymbolTable {
 impl Default for SymbolTable {
     fn default() -> Self {
         Self {
-            types: TypeInterner::new(),
+            types: types::Interner::new(),
             defs: BTreeMap::new(),
             children: BTreeMap::new(),
         }
@@ -43,7 +41,7 @@ impl std::fmt::Debug for SymbolTable {
                     "defpath {} - {:?} ({:?})",
                     path,
                     def,
-                    self.types.get_by_id(type_id).unwrap()
+                    self.types.get_definition(type_id).unwrap()
                 )?,
                 _ => writeln!(f, "defpath {} - {:?}", path, def)?,
             }
@@ -59,39 +57,6 @@ impl SymbolTable {
         intrinsics::create_core(&mut symtab);
 
         symtab
-    }
-
-    pub fn id_for_type(
-        &self,
-        def_path: &DefPath,
-        type_: &<TypeDefinition as Symbol>::SymbolKey,
-    ) -> Result<TypeId, SymbolError> {
-        let mut scan_def_path = def_path.clone();
-        let type_component: DefPathComponent = Into::<DefPathComponent>::into(type_.clone());
-        while !scan_def_path.is_empty() {
-            if scan_def_path.can_own(&type_component) {
-                let mut component_def_path = scan_def_path.clone();
-                component_def_path.push(type_component.clone()).unwrap();
-                match self.defs.get(&component_def_path) {
-                    Some(SymbolDef::Type(type_id)) => return Ok(*type_id),
-                    _ => (),
-                }
-            }
-            scan_def_path.pop();
-        }
-
-        Err(SymbolError::Undefined(def_path.clone(), type_component))
-    }
-
-    pub fn type_definition_for_id(&self, id: &TypeId) -> Option<&TypeDefinition> {
-        self.types.get_by_id(id)
-    }
-
-    pub fn type_for_id(&self, id: &TypeId) -> Option<&types::Type> {
-        match self.type_definition_for_id(id) {
-            Some(definition) => Some(definition.type_()),
-            None => None,
-        }
     }
 
     pub fn insert<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
@@ -234,7 +199,7 @@ impl SymbolTable {
         let key_component = Into::<DefPathComponent>::into(key.clone());
 
         let defs_ptr = &mut self.defs as *mut BTreeMap<DefPath, SymbolDef>;
-        let types_ptr = &mut self.types as *mut TypeInterner;
+        let types_ptr = &mut self.types as *mut types::Interner;
 
         while !scan_def_path.is_empty() {
             if scan_def_path.can_own(&key_component) {

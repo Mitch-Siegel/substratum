@@ -75,18 +75,7 @@ impl ValueWalk for MethodCallExpressionTree {
     fn walk(self, context: &mut FunctionWalkContext) -> midend::ir::ValueId {
         let receiver = self.receiver.walk(context);
 
-        let receiver_type = context.type_for_value_id(&receiver).unwrap();
-        let called_method = context
-            .lookup_implemented_function(&receiver_type, &self.called_method)
-            .unwrap();
-        let return_type = called_method.prototype.return_type.clone();
-        let method_name = String::from(called_method.name());
-
-        let return_value_to = if return_type != midend::types::Type::Unit {
-            Some(context.next_temp(Some(return_type)))
-        } else {
-            None
-        };
+        let return_value_to = context.next_temp();
 
         // //TODO: error handling and checking
         // assert!(called_method.arguments.len() == params.len());
@@ -101,7 +90,7 @@ impl ValueWalk for MethodCallExpressionTree {
         let method_call_line = midend::ir::IrLine::new_method_call(
             self.loc,
             receiver.into(),
-            &method_name,
+            self.called_method,
             params,
             return_value_to.clone(),
         );
@@ -110,9 +99,6 @@ impl ValueWalk for MethodCallExpressionTree {
             .append_statement_to_current_block(method_call_line)
             .unwrap();
 
-        match return_value_to {
-            Some(value_id) => value_id,
-            None => context.unit_value_id(),
-        }
+        return_value_to
     }
 }

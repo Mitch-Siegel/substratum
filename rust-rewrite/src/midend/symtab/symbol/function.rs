@@ -98,7 +98,7 @@ pub struct FunctionPrototype {
     pub name: FunctionName,
     pub generic_params: Vec<String>,
     pub arguments: Vec<Variable>,
-    pub return_type: Type,
+    pub return_type: types::Syntactic,
 }
 
 impl std::fmt::Display for FunctionPrototype {
@@ -112,7 +112,7 @@ impl std::fmt::Display for FunctionPrototype {
             }
         }
         match &self.return_type {
-            Type::Unit => write!(f, "fun {}({})", self.name.as_str(), arguments_string),
+            types::Syntactic::Unit => write!(f, "fun {}({})", self.name.as_str(), arguments_string),
             _ => write!(
                 f,
                 "fun {}({}) -> {}",
@@ -129,7 +129,7 @@ impl FunctionPrototype {
         name: String,
         generic_params: Vec<String>,
         arguments: Vec<Variable>,
-        return_type: Type,
+        return_type: types::Syntactic,
     ) -> Self {
         FunctionPrototype {
             name: FunctionName { name },

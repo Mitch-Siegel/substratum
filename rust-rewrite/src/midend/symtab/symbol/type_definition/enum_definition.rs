@@ -3,7 +3,7 @@ use crate::midend::symtab::type_definition::*;
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum EnumVariantRepr {
     Unit,
-    Tuple(Vec<types::Type>),
+    Tuple(Vec<types::Syntactic>),
     // TODO: struct-like enums
     //   break out StructRepr logic to minimal subset for reuse here?
 }
@@ -26,17 +26,17 @@ impl EnumVariant {
         }
     }
 
-    pub fn new_tuple(name: String, elements: Vec<types::Type>) -> Self {
+    pub fn new_tuple(name: String, elements: Vec<types::Syntactic>) -> Self {
         Self {
             name,
             data: EnumVariantRepr::Tuple(elements),
         }
     }
 
-    pub fn type_(&self) -> types::Type {
+    pub fn type_(&self) -> types::Syntactic {
         match &self.data {
-            EnumVariantRepr::Unit => types::Type::Unit,
-            EnumVariantRepr::Tuple(elements) => types::Type::Tuple(elements.clone()),
+            EnumVariantRepr::Unit => types::Syntactic::Unit,
+            EnumVariantRepr::Tuple(elements) => types::Syntactic::Tuple(elements.clone()),
         }
     }
 }

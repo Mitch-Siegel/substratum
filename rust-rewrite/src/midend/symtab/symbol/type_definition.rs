@@ -12,16 +12,16 @@ pub use struct_definition::*;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TypeDefinition {
-    type_: types::Type,
+    type_: types::Syntactic,
     pub repr: TypeRepr,
 }
 
 impl TypeDefinition {
-    pub fn new(type_: types::Type, repr: TypeRepr) -> Self {
+    pub fn new(type_: types::Syntactic, repr: TypeRepr) -> Self {
         TypeDefinition { type_, repr }
     }
 
-    pub fn type_(&self) -> &types::Type {
+    pub fn type_(&self) -> &types::Syntactic {
         &self.type_
     }
 }
@@ -29,7 +29,7 @@ impl TypeDefinition {
 impl<'a> From<DefResolver<'a>> for &'a TypeDefinition {
     fn from(resolver: DefResolver<'a>) -> Self {
         match resolver.to_resolve {
-            SymbolDef::Type(type_id) => resolver.type_interner.get_by_id(type_id).unwrap(),
+            SymbolDef::Type(type_id) => resolver.type_interner.get_definition(type_id).unwrap(),
             symbol => panic!("Unexpected symbol seen for type: {}", symbol),
         }
     }
@@ -37,7 +37,7 @@ impl<'a> From<DefResolver<'a>> for &'a TypeDefinition {
 impl<'a> From<MutDefResolver<'a>> for &'a mut TypeDefinition {
     fn from(resolver: MutDefResolver<'a>) -> Self {
         match resolver.to_resolve {
-            SymbolDef::Type(type_id) => resolver.type_interner.get_mut_by_id(type_id).unwrap(),
+            SymbolDef::Type(type_id) => resolver.type_interner.get_definition_mut(type_id).unwrap(),
             symbol => panic!("Unexpected symbol seen for type: {}", symbol),
         }
     }
@@ -60,7 +60,7 @@ impl<'a> Into<SymbolDef> for DefGenerator<'a, TypeDefinition> {
 }
 
 impl Symbol for TypeDefinition {
-    type SymbolKey = types::Type;
+    type SymbolKey = types::Syntactic;
 
     fn symbol_key(&self) -> &Self::SymbolKey {
         self.type_()

@@ -1,4 +1,4 @@
-use crate::midend::symtab::*;
+use crate::midend::{symtab::*, types};
 
 pub mod function;
 pub mod implementation;
@@ -29,10 +29,10 @@ where
 
 pub struct DefResolver<'a> {
     pub to_resolve: &'a SymbolDef,
-    pub type_interner: &'a TypeInterner,
+    pub type_interner: &'a types::Interner,
 }
 impl<'a> DefResolver<'a> {
-    pub fn new(type_interner: &'a TypeInterner, to_resolve: &'a SymbolDef) -> Self {
+    pub fn new(type_interner: &'a types::Interner, to_resolve: &'a SymbolDef) -> Self {
         Self {
             type_interner,
             to_resolve,
@@ -42,10 +42,10 @@ impl<'a> DefResolver<'a> {
 
 pub struct MutDefResolver<'a> {
     pub to_resolve: &'a mut SymbolDef,
-    pub type_interner: &'a mut TypeInterner,
+    pub type_interner: &'a mut types::Interner,
 }
 impl<'a, 'b> MutDefResolver<'a> {
-    pub fn new(type_interner: &'a mut TypeInterner, to_resolve: &'a mut SymbolDef) -> Self {
+    pub fn new(type_interner: &'a mut types::Interner, to_resolve: &'a mut SymbolDef) -> Self {
         Self {
             to_resolve,
             type_interner,
@@ -61,7 +61,7 @@ where
     for<'b> DefGenerator<'b, S>: Into<SymbolDef>,
 {
     pub def_path: DefPath,
-    pub type_interner: &'a mut TypeInterner,
+    pub type_interner: &'a mut types::Interner,
     pub to_generate_def_for: S,
 }
 
@@ -74,7 +74,7 @@ where
 {
     pub fn new(
         def_path: DefPath,
-        type_interner: &'a mut TypeInterner,
+        type_interner: &'a mut types::Interner,
         to_generate_def_for: S,
     ) -> Self {
         Self {
@@ -88,7 +88,7 @@ where
 #[derive(Debug)]
 pub enum SymbolDef {
     Module(Module),
-    Type(TypeId),
+    Type(types::Semantic),
     Implementation(Implementation),
     Function(Function),
     Scope(Scope),

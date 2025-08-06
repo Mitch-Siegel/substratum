@@ -18,7 +18,7 @@ pub use if_expression::IfExpressionTree;
 pub use match_expression::MatchExpressionTree;
 pub use while_expression::WhileExpressionTree;
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Expression {
     SelfLower,
     Identifier(String),
@@ -48,6 +48,12 @@ impl Display for Expression {
             Self::FieldExpression(field_expression) => write!(f, "{}", field_expression),
             Self::MethodCall(method_call) => write!(f, "{}", method_call),
         }
+    }
+}
+
+impl std::fmt::Debug for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
@@ -97,12 +103,11 @@ impl midend::linearizer::ValueWalk for ExpressionTree {
             Expression::While(while_expression) => while_expression.walk(context),
             Expression::FieldExpression(field_expression) => {
                 let (receiver, field) = field_expression.walk(context);
-                let (field_type, field_name) = (field.type_.clone(), field.name.clone());
-                let field_pointer_temp = context.next_temp(Some(field_type));
+                let field_pointer_temp = context.next_temp();
                 let field_read_line = midend::ir::IrLine::new_get_field_pointer(
                     self.loc,
                     receiver.into(),
-                    field_name,
+                    field,
                     field_pointer_temp.clone(),
                 );
                 context

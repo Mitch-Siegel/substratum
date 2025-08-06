@@ -7,7 +7,7 @@ use crate::midend::{symtab::*, types::Type};
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct Variable {
     pub name: String,
-    type_: Option<Type>,
+    type_: Option<types::Syntactic>,
 }
 
 impl Display for Variable {
@@ -25,11 +25,11 @@ impl Display for Variable {
 }
 
 impl Variable {
-    pub fn new(name: String, type_: Option<Type>) -> Self {
+    pub fn new(name: String, type_: Option<types::Syntactic>) -> Self {
         Variable { name, type_ }
     }
 
-    pub fn type_(&self) -> Option<&Type> {
+    pub fn type_(&self) -> Option<&types::Syntactic> {
         self.type_.as_ref()
     }
 

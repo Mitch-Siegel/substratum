@@ -9,8 +9,8 @@ pub struct ValueInterner {
 }
 
 impl ValueInterner {
-    pub fn new(unit_type_id: symtab::TypeId) -> Self {
-        let unit_value = Value::new(ValueKind::Temporary(0), Some(unit_type_id));
+    pub fn new(unit_type: types::Semantic) -> Self {
+        let unit_value = Value::new(ValueKind::Temporary(0), Some(unit_type));
 
         Self {
             values: vec![unit_value],
@@ -24,8 +24,8 @@ impl ValueInterner {
         ValueId::new(0)
     }
 
-    pub fn next_temp(&mut self, type_: Option<symtab::TypeId>) -> ValueId {
-        let temp_value = Value::new(ValueKind::Temporary(self.temp_count), type_);
+    pub fn next_temp(&mut self) -> ValueId {
+        let temp_value = Value::new(ValueKind::Temporary(self.temp_count), None);
         self.temp_count += 1;
         self.insert(temp_value).unwrap()
     }
@@ -38,11 +38,7 @@ impl ValueInterner {
         self.variables.get(variable_def_path)
     }
 
-    pub fn id_for_variable_or_insert(
-        &mut self,
-        variable_def_path: symtab::DefPath,
-        variable_type_id: Option<symtab::TypeId>,
-    ) -> ValueId {
+    pub fn id_for_variable_or_insert(&mut self, variable_def_path: symtab::DefPath) -> ValueId {
         let next_id = self.next_id();
         match self.variables.get(&variable_def_path) {
             Some(id) => *id,
@@ -50,7 +46,7 @@ impl ValueInterner {
                 self.variables.insert(variable_def_path.clone(), next_id);
                 self.values.push(Value::new(
                     ValueKind::Variable(variable_def_path.clone()),
-                    variable_type_id,
+                    None,
                 ));
                 self.variables.entry(variable_def_path).or_insert(next_id);
                 next_id

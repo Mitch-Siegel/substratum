@@ -60,8 +60,7 @@ impl ValueWalk for IfExpressionTree {
         // if a false block exists AND the 'if' value exists
         if self.false_block.is_some() {
             // we need to copy the 'if' result to the common result_value at the end of the 'if' block
-            let result_value_type = context.type_for_value_id(&result_value).clone();
-            let result_value = context.next_temp(result_value_type);
+            let result_value = context.next_temp();
             let assign_if_result_line =
                 midend::ir::IrLine::new_assignment(self.loc.clone(), result_value, if_value_id);
             context
@@ -75,16 +74,6 @@ impl ValueWalk for IfExpressionTree {
         match self.false_block {
             Some(else_block) => {
                 let else_value_id = else_block.walk(context);
-
-                // sanity-check that both branches return the same type
-                let if_type_id = context.type_id_for_value_id(&if_value_id);
-                let else_type_id = context.type_id_for_value_id(&else_value_id);
-                if if_type_id != else_type_id {
-                    panic!(
-                        "If and Else branches return different types ({:?} and {:?}): {}",
-                        if_type_id, else_type_id, self.loc
-                    );
-                }
 
                 // if the 'else' value exists (have already passed check to assert types are the same)
                 // copy the 'else' result to the common result_value at the end of the 'else' block

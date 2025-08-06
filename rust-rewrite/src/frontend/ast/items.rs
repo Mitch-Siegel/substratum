@@ -83,7 +83,7 @@ impl CustomReturnWalk<midend::linearizer::BasicDefContext, midend::linearizer::B
                 let struct_repr = struct_tree.walk(&mut context);
                 context
                     .insert::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
-                        midend::types::Type::Named(struct_repr.name.clone()),
+                        midend::types::Syntactic::Named(struct_repr.name.clone()),
                         midend::symtab::TypeRepr::Struct(struct_repr),
                     ))
                     .unwrap();
@@ -93,7 +93,7 @@ impl CustomReturnWalk<midend::linearizer::BasicDefContext, midend::linearizer::B
                 let enum_repr = enum_tree.walk(&mut context);
                 context
                     .insert::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
-                        midend::types::Type::Named(enum_repr.name.clone()),
+                        midend::types::Syntactic::Named(enum_repr.name.clone()),
                         midend::symtab::TypeRepr::Enum(enum_repr),
                     ))
                     .unwrap();

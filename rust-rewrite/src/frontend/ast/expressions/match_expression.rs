@@ -35,27 +35,7 @@ fn destructure_tuple(
     value: midend::ir::ValueId,
     element_patterns: Vec<PatternTree>,
 ) {
-    let tuple_type = match context.type_for_value_id(&value) {
-        Some(type_) => type_,
-        None => panic!("Undefined tuple tupe"),
-    };
-
-    match tuple_type {
-        midend::types::Type::Tuple(elements) => {
-            if elements.len() != element_patterns.len() {
-                panic!(
-                    "Expected {} elements in tuple pattern destructuring, found {}",
-                    elements.len(),
-                    element_patterns.len()
-                );
-            }
-
-            for (element, pattern) in elements.iter().zip(element_patterns.iter()) {
-                trace::warning!("element: {:?}, pattern {:?}", element, pattern);
-            }
-        }
-        other => panic!("Unexpected type {} - expected tuple to destructure", other),
-    }
+    unimplemented!();
 }
 
 fn destructure_enum_variant(
@@ -70,7 +50,7 @@ fn destructure_enum_variant(
         None => panic!("Enum {} has no variant {}", enum_def.name, variant_name),
     };
 
-    let variant_ptr_value = context.next_temp(Some(variant.type_()));
+    let variant_ptr_value = context.next_temp();
 
     let variant_access_line = midend::ir::IrLine::new_get_field_pointer(
         SourceLoc::none(),
@@ -90,10 +70,7 @@ impl<'a> CustomReturnWalk<MatchArmWalkContext<'a>, midend::ir::ValueId> for Patt
         match self.pattern {
             Pattern::LiteralPattern(literal_expression) => literal_expression.walk(context.ctx),
             Pattern::IdentifierPattern(identifier) => {
-                let variable = midend::symtab::Variable::new(
-                    identifier,
-                    context.ctx.type_for_value_id(&context.scrutinee),
-                );
+                let variable = midend::symtab::Variable::new(identifier, None);
 
                 let identifier_binding = context
                     .ctx
@@ -102,7 +79,7 @@ impl<'a> CustomReturnWalk<MatchArmWalkContext<'a>, midend::ir::ValueId> for Patt
 
                 let binding_value = context
                     .ctx
-                    .id_for_variable_or_insert(identifier_binding)
+                    .value_for_variable_or_insert(identifier_binding)
                     .clone();
 
                 let binding_assignment_line =
@@ -199,7 +176,7 @@ impl ValueWalk for MatchExpressionTree {
         context.create_switch(self.loc).unwrap();
 
         let scrutinee_value = self.scrutinee_expression.walk(context);
-        let result_value = context.next_temp(None);
+        let result_value = context.next_temp();
 
         let mut arm_values = Vec::new();
 

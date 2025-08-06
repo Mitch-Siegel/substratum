@@ -31,7 +31,7 @@ impl Display for ArgumentDeclarationTree {
 impl ReturnWalk<midend::symtab::Variable> for ArgumentDeclarationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut impl midend::linearizer::DefContext) -> midend::symtab::Variable {
-        let variable_type: midend::types::Type = self.type_.walk(context);
+        let variable_type: midend::types::Syntactic = self.type_.walk(context);
 
         let declared_argument =
             midend::symtab::Variable::new(self.name.clone(), Some(variable_type));
@@ -95,7 +95,7 @@ impl ReturnWalk<midend::symtab::FunctionPrototype> for FunctionDeclarationTree {
 
         let return_type = match self.return_type {
             Some(type_) => type_.walk(context),
-            None => midend::types::Type::Unit,
+            None => midend::types::Syntactic::Unit,
         };
 
         midend::symtab::FunctionPrototype::new(string_name, generic_params, arguments, return_type)

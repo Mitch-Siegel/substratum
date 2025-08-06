@@ -95,8 +95,9 @@ impl ReturnWalk<midend::symtab::EnumRepr> for EnumDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut impl midend::linearizer::DefContext) -> midend::symtab::EnumRepr {
         let (string_name, generic_params) = self.name.walk(());
-        let type_def_path_component =
-            midend::symtab::DefPathComponent::Type(midend::types::Type::Named(string_name.clone()));
+        let type_def_path_component = midend::symtab::DefPathComponent::Type(
+            midend::types::Syntactic::Named(string_name.clone()),
+        );
         context.push_def_path(type_def_path_component.clone(), &generic_params);
 
         let variants: Vec<(String, midend::symtab::EnumVariantRepr)> = self

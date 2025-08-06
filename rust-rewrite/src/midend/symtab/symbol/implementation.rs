@@ -2,7 +2,7 @@ use crate::midend::symtab::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ImplementationName {
-    pub implemented_for: TypeId,
+    pub implemented_for: types::Syntactic,
     pub generic_params: Vec<String>,
 }
 impl std::fmt::Display for ImplementationName {
@@ -21,7 +21,7 @@ pub struct Implementation {
 }
 
 impl Implementation {
-    pub fn new(implemented_for: TypeId, generic_params: Vec<String>) -> Self {
+    pub fn new(implemented_for: types::Syntactic, generic_params: Vec<String>) -> Self {
         Self {
             name: ImplementationName {
                 implemented_for,
@@ -53,6 +53,7 @@ impl Into<DefPathComponent> for &Implementation {
         DefPathComponent::Implementation(self.symbol_key().clone())
     }
 }
+
 impl<'a> Into<SymbolDef> for DefGenerator<'a, Implementation> {
     fn into(self) -> SymbolDef {
         SymbolDef::Implementation(self.to_generate_def_for)

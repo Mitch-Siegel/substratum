@@ -298,7 +298,7 @@ impl Operations {
     }
 
     pub fn new_function_call(
-        name: &str,
+        name: String,
         arguments: OrderedArgumentList,
         return_value_to: Option<ValueId>,
     ) -> Self {
@@ -307,7 +307,7 @@ impl Operations {
 
     pub fn new_method_call(
         receiver: ValueId,
-        name: &str,
+        name: String,
         arguments: OrderedArgumentList,
         return_value_to: Option<ValueId>,
     ) -> Self {

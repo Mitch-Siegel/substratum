@@ -118,7 +118,7 @@ impl IrLine {
 
     pub fn new_function_call(
         loc: SourceLoc,
-        name: &str,
+        name: String,
         arguments: OrderedArgumentList,
         return_value_to: Option<ValueId>,
     ) -> Self {
@@ -131,13 +131,13 @@ impl IrLine {
     pub fn new_method_call(
         loc: SourceLoc,
         receiver: ValueId,
-        name: &str,
+        name: String,
         arguments: OrderedArgumentList,
-        return_value_to: Option<ValueId>,
+        return_value_to: ValueId,
     ) -> Self {
         Self::new(
             loc,
-            Operations::new_method_call(receiver, name, arguments, return_value_to),
+            Operations::new_method_call(receiver, name, arguments, Some(return_value_to)),
         )
     }
 

@@ -115,12 +115,12 @@ impl Display for FunctionCallOperands {
 
 impl FunctionCallOperands {
     pub fn new(
-        name: &str,
+        name: String,
         arguments: OrderedArgumentList,
         return_value_to: Option<ValueId>,
     ) -> Self {
         Self {
-            function_name: name.into(),
+            function_name: name,
             arguments,
             return_value_to,
         }
@@ -143,7 +143,7 @@ impl Display for MethodCallOperands {
 impl MethodCallOperands {
     pub fn new(
         receiver: ValueId,
-        method_name: &str,
+        method_name: String,
         arguments: OrderedArgumentList,
         return_value_to: Option<ValueId>,
     ) -> Self {

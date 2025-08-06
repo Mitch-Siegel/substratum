@@ -138,23 +138,15 @@ pub trait DefContext: std::fmt::Debug {
         }
     }
 
-    fn id_for_type(&self, type_: Option<&types::Type>) -> Result<Option<TypeId>, SymbolError> {
-        let id_option = match type_ {
-            Some(t) => Some(self.symtab().id_for_type(&self.def_path(), t)?),
-            None => None,
-        };
-        Ok(id_option)
-    }
-
-    fn type_for_id(&self, id: &TypeId) -> Option<&TypeDefinition> {
-        self.symtab().type_definition_for_id(id)
+    fn definition_for_semantic_type(&self, type_: &types::Semantic) -> Option<&TypeDefinition> {
+        self.symtab().types.get_definition(type_)
     }
 
     // resolves a string type name to either a defined type or a generic param
-    fn resolve_type_name(&self, name: &str) -> Result<types::Type, SymbolError> {
+    fn resolve_type_name(&self, name: &str) -> Result<types::Syntactic, SymbolError> {
         // first, lookup the type in the Symbol table
         let (mut type_, found_def_path) = match self
-            .lookup_with_path::<TypeDefinition>(&types::Type::Named(name.into()))
+            .lookup_with_path::<TypeDefinition>(&types::Syntactic::Named(name.into()))
         {
             // if we find it, grab its type and defpath, otherwise create a dummy type and path
             Ok((type_definition, def_path)) => (Some(type_definition.type_().clone()), def_path),
@@ -170,7 +162,7 @@ pub trait DefContext: std::fmt::Debug {
             match self.generics().get(&search_def_path) {
                 Some(params) => match params.get(name) {
                     Some(param) => {
-                        type_ = Some(types::Type::GenericParam(param.clone()));
+                        type_ = Some(types::Syntactic::GenericParam(param.clone()));
                         break;
                     }
                     None => (),
@@ -182,7 +174,7 @@ pub trait DefContext: std::fmt::Debug {
 
         type_.ok_or(SymbolError::Undefined(
             self.def_path(),
-            DefPathComponent::Type(types::Type::Named(name.into())),
+            DefPathComponent::Type(types::Syntactic::Named(name.into())),
         ))
     }
 
@@ -266,7 +258,7 @@ pub trait DefContext: std::fmt::Debug {
 
     fn lookup_implemented_function(
         &self,
-        receiver_type: &types::Type,
+        receiver_type: &types::Syntactic,
         name: &str,
     ) -> Result<&Function, SymbolError> {
         let (_, receiver_type_definition_path) =
@@ -280,18 +272,18 @@ pub trait DefContext: std::fmt::Debug {
         )
     }
 
-    fn self_type_id(&self) -> Option<TypeId> {
+    fn self_type(&self) -> Option<types::Syntactic> {
         let mut search_def_path = self.def_path();
         loop {
             match search_def_path.last() {
                 // lookup required
                 DefPathComponent::Type(_) => {
                     let definition = self.lookup_at::<TypeDefinition>(&search_def_path).unwrap();
-                    return self.id_for_type(Some(definition.type_())).unwrap();
+                    return Some(definition.type_().clone());
                 }
                 // trivial case - just grab whatever we're implementing for
                 DefPathComponent::Implementation(implementation) => {
-                    return Some(implementation.implemented_for)
+                    return Some(implementation.implemented_for.clone())
                 }
                 DefPathComponent::Empty => break,
                 _ => {

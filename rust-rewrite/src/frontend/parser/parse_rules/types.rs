@@ -1,4 +1,4 @@
-use crate::midend::types::{Mutability, Type};
+use crate::midend::types;
 
 use crate::frontend::parser::*;
 
@@ -16,7 +16,7 @@ impl<'a> Parser<'a> {
         Ok(type_tree)
     }
 
-    fn parse_type_inner(&mut self) -> Result<Type, ParseError> {
+    fn parse_type_inner(&mut self) -> Result<types::Syntactic, ParseError> {
         let (_start_loc, _span) = self.start_parsing("typename")?;
 
         let type_ = match self.peek_token()? {
@@ -25,15 +25,15 @@ impl<'a> Parser<'a> {
                 let mutability = match self.peek_token()? {
                     Token::Mut => {
                         self.expect_token(Token::Mut)?;
-                        Mutability::Mutable
+                        types::Mutability::Mutable
                     }
-                    _ => Mutability::Immutable,
+                    _ => types::Mutability::Immutable,
                 };
-                Type::Reference(mutability, Box::new(self.parse_type_inner()?))
+                types::Syntactic::Reference(mutability, Box::new(self.parse_type_inner()?))
             }
             Token::SelfUpper => {
                 self.expect_token(Token::SelfUpper)?;
-                Type::_Self
+                types::Syntactic::_Self
             }
             _ => self.parse_type_name()?,
         };
@@ -43,49 +43,49 @@ impl<'a> Parser<'a> {
         Ok(type_)
     }
 
-    fn parse_type_name(&mut self) -> Result<Type, ParseError> {
+    fn parse_type_name(&mut self) -> Result<types::Syntactic, ParseError> {
         let (_start_loc, _span) = self.start_parsing("type name")?;
 
         let type_name = match self.peek_token()? {
             Token::U8 => {
                 self.next_token()?;
-                Type::U8
+                types::Syntactic::U8
             }
             Token::U16 => {
                 self.next_token()?;
-                Type::U16
+                types::Syntactic::U16
             }
             Token::U32 => {
                 self.next_token()?;
-                Type::U32
+                types::Syntactic::U32
             }
             Token::U64 => {
                 self.next_token()?;
-                Type::U64
+                types::Syntactic::U64
             }
             Token::I8 => {
                 self.next_token()?;
-                Type::I8
+                types::Syntactic::I8
             }
             Token::I16 => {
                 self.next_token()?;
-                Type::I16
+                types::Syntactic::I16
             }
             Token::I32 => {
                 self.next_token()?;
-                Type::I32
+                types::Syntactic::I32
             }
             Token::I64 => {
                 self.next_token()?;
-                Type::I64
+                types::Syntactic::I64
             }
             Token::Identifier(name) => {
                 self.next_token()?;
-                Type::Named(name)
+                types::Syntactic::Named(name)
             }
             Token::SelfUpper => {
                 self.next_token()?;
-                Type::_Self
+                types::Syntactic::_Self
             }
             _ => self.unexpected_token(&[
                 Token::U8,
@@ -116,16 +116,16 @@ mod tests {
     #[test]
     fn parse_type_name() {
         let type_names = [
-            ("u8", Type::U8),
-            ("u16", Type::U16),
-            ("u32", Type::U32),
-            ("u64", Type::U64),
-            ("i8", Type::I8),
-            ("i16", Type::I16),
-            ("i32", Type::I32),
-            ("i64", Type::I64),
-            ("MyStruct", Type::Named("MyStruct".into())),
-            ("Self", Type::_Self),
+            ("u8", types::Syntactic::U8),
+            ("u16", types::Syntactic::U16),
+            ("u32", types::Syntactic::U32),
+            ("u64", types::Syntactic::U64),
+            ("i8", types::Syntactic::I8),
+            ("i16", types::Syntactic::I16),
+            ("i32", types::Syntactic::I32),
+            ("i64", types::Syntactic::I64),
+            ("MyStruct", types::Syntactic::Named("MyStruct".into())),
+            ("Self", types::Syntactic::_Self),
         ];
 
         for (string, type_) in type_names {
@@ -168,23 +168,23 @@ mod tests {
     #[test]
     fn parse_type_inner() {
         let types = [
-            ("u32", Type::U32),
+            ("u32", types::Syntactic::U32),
             (
                 "&u32",
-                Type::Reference(Mutability::Immutable, Box::from(Type::U32)),
+                types::Syntactic::Reference(Mutability::Immutable, Box::from(Type::U32)),
             ),
             (
                 "&mut u32",
-                Type::Reference(Mutability::Mutable, Box::from(Type::U32)),
+                types::Syntactic::Reference(Mutability::Mutable, Box::from(Type::U32)),
             ),
-            ("Self", Type::_Self),
+            ("Self", types::Syntactic::_Self),
             (
                 "&Self",
-                Type::Reference(Mutability::Immutable, Box::from(Type::_Self)),
+                types::Syntactic::Reference(Mutability::Immutable, Box::from(Type::_Self)),
             ),
             (
                 "&mut Self",
-                Type::Reference(Mutability::Mutable, Box::from(Type::_Self)),
+                types::Syntactic::Reference(Mutability::Mutable, Box::from(Type::_Self)),
             ),
         ];
 
@@ -201,7 +201,7 @@ mod tests {
             p.parse_type(),
             Ok(TypeTree::new(
                 SourceLoc::new(Path::new(""), 1, 1),
-                Type::U32
+                types::Syntactic::U32
             ))
         );
     }
