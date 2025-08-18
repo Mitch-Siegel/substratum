@@ -45,60 +45,42 @@ impl ValueWalk for ComparisonExpressionTree {
                 let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
                 let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
                 let dest = context.next_temp();
-                (
-                    dest.clone(),
-                    midend::ir::operations::BinaryOperations::new_lthan(dest, lhs, rhs),
-                )
+                (dest.clone(), midend::ir::lowered::new_lt(dest, lhs, rhs))
             }
             ComparisonExpressionTree::GThan(operands) => {
                 let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
                 let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
                 let dest = context.next_temp();
-                (
-                    dest.clone(),
-                    midend::ir::operations::BinaryOperations::new_gthan(dest, lhs, rhs),
-                )
+                (dest.clone(), midend::ir::lowered::new_gt(dest, lhs, rhs))
             }
             ComparisonExpressionTree::LThanE(operands) => {
                 let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
                 let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
                 let dest = context.next_temp();
-                (
-                    dest.clone(),
-                    midend::ir::operations::BinaryOperations::new_lthan_e(dest, lhs, rhs),
-                )
+                (dest.clone(), midend::ir::lowered::new_le(dest, lhs, rhs))
             }
             ComparisonExpressionTree::GThanE(operands) => {
                 let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
                 let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
                 let dest = context.next_temp();
-                (
-                    dest.clone(),
-                    midend::ir::operations::BinaryOperations::new_gthan_e(dest, lhs, rhs),
-                )
+                (dest.clone(), midend::ir::lowered::new_ge(dest, lhs, rhs))
             }
             ComparisonExpressionTree::Equals(operands) => {
                 let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
                 let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
                 let dest = context.next_temp();
-                (
-                    dest.clone(),
-                    midend::ir::operations::BinaryOperations::new_equals(dest, lhs, rhs),
-                )
+                (dest.clone(), midend::ir::lowered::new_eq(dest, lhs, rhs))
             }
             ComparisonExpressionTree::NotEquals(operands) => {
                 let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
                 let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
                 let dest = context.next_temp();
-                (
-                    dest.clone(),
-                    midend::ir::operations::BinaryOperations::new_not_equals(dest, lhs, rhs),
-                )
+                (dest.clone(), midend::ir::lowered::new_ne(dest, lhs, rhs))
             }
         };
 
         // TODO: association location with comparison expression tree
-        let operation = midend::ir::IrLine::new_binary_op(SourceLoc::none(), op);
+        let operation = midend::ir::IrLine::new(SourceLoc::none(), op);
         context
             .append_statement_to_current_block(operation)
             .unwrap();
@@ -132,37 +114,25 @@ impl ValueWalk for ArithmeticExpressionTree {
                 let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
                 let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
                 let dest = context.next_temp();
-                (
-                    dest.clone(),
-                    midend::ir::operations::BinaryOperations::new_add(dest, lhs, rhs),
-                )
+                (dest.clone(), midend::ir::lowered::new_add(dest, lhs, rhs))
             }
             ArithmeticExpressionTree::Subtract(operands) => {
                 let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
                 let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
                 let dest: midend::ir::ValueId = context.next_temp();
-                (
-                    dest.clone(),
-                    midend::ir::operations::BinaryOperations::new_subtract(dest, lhs, rhs),
-                )
+                (dest.clone(), midend::ir::lowered::new_sub(dest, lhs, rhs))
             }
             ArithmeticExpressionTree::Multiply(operands) => {
                 let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
                 let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
                 let dest = context.next_temp();
-                (
-                    dest.clone(),
-                    midend::ir::operations::BinaryOperations::new_multiply(dest, lhs, rhs),
-                )
+                (dest.clone(), midend::ir::lowered::new_mul(dest, lhs, rhs))
             }
             ArithmeticExpressionTree::Divide(operands) => {
                 let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
                 let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
                 let dest = context.next_temp();
-                (
-                    dest.clone(),
-                    midend::ir::operations::BinaryOperations::new_divide(dest, lhs, rhs),
-                )
+                (dest.clone(), midend::ir::lowered::new_div(dest, lhs, rhs))
             }
         };
 

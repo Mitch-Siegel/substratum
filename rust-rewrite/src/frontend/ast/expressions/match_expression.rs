@@ -194,10 +194,12 @@ impl ValueWalk for MatchExpressionTree {
             let case_jump = midend::ir::IrLine::new_jump(
                 _pattern_loc,
                 case_label,
-                midend::ir::JumpCondition::Eq(midend::ir::DualSourceOperands::new(
-                    _matched_value,
-                    scrutinee_value,
-                )),
+                midend::ir::lowered::operands::JumpCondition::Eq(
+                    midend::ir::lowered::operands::DualSourceOperands::new(
+                        _matched_value,
+                        scrutinee_value,
+                    ),
+                ),
             );
             context.append_jump_to_current_block(case_jump).unwrap();
         }

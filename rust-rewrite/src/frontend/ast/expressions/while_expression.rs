@@ -32,10 +32,12 @@ impl ValueWalk for WhileExpressionTree {
         let loop_condition_jump = midend::ir::IrLine::new_jump(
             self.loc.clone(),
             loop_done_label,
-            midend::ir::JumpCondition::Eq(midend::ir::DualSourceOperands::new(
-                condition.into(),
-                *context.value_id_for_constant(0),
-            )),
+            midend::ir::lowered::operands::JumpCondition::Eq(
+                midend::ir::lowered::operands::DualSourceOperands::new(
+                    condition.into(),
+                    *context.value_id_for_constant(0),
+                ),
+            ),
         );
 
         context

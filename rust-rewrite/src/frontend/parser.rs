@@ -27,44 +27,6 @@ pub struct Parser<'a> {
     parsing_stack: Vec<(SourceLoc, String)>,
 }
 
-impl ir::BinaryOperations {
-    pub fn get_precedence(&self) -> usize {
-        match self {
-            Self::Add(_) => 1,
-            Self::Subtract(_) => 1,
-            Self::Multiply(_) => 2,
-            Self::Divide(_) => 2,
-            Self::LThan(_) => 3,
-            Self::GThan(_) => 3,
-            Self::LThanE(_) => 3,
-            Self::GThanE(_) => 3,
-            Self::Equals(_) => 4,
-            Self::NotEquals(_) => 4,
-        }
-    }
-
-    pub fn precedence_of_token(token: &Token) -> usize {
-        match token {
-            Token::Plus => 1,
-            Token::Minus => 1,
-            Token::Star => 2,
-            Token::FSlash => 2,
-            Token::LThan => 3,
-            Token::GThan => 3,
-            Token::LThanE => 3,
-            Token::GThanE => 3,
-            Token::Equals => 4,
-            Token::NotEquals => 4,
-            _ => {
-                panic!(
-                    "Invalid token {} passed to BinaryOperations::precedence_of_token",
-                    token
-                );
-            }
-        }
-    }
-}
-
 impl<'a> Parser<'a> {
     pub fn new(_module_name: String, module_path: &std::path::Path, lexer: Lexer<'a>) -> Self {
         let lexer_start_pos = lexer.current_loc();

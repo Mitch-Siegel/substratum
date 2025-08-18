@@ -21,21 +21,6 @@ impl DualSourceOperands {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct BinaryArithmeticOperands {
-    pub destination: ValueId,
-    pub sources: DualSourceOperands,
-}
-
-impl BinaryArithmeticOperands {
-    pub fn from(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Self {
-        BinaryArithmeticOperands {
-            destination,
-            sources: DualSourceOperands::new(source_a, source_b),
-        }
-    }
-}
-
-#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct SourceDestOperands {
     pub destination: ValueId,
     pub source: ValueId,

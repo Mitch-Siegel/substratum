@@ -1,6 +1,27 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
+    pub fn precedence_of_token(token: &Token) -> usize {
+        match token {
+            Token::Plus => 1,
+            Token::Minus => 1,
+            Token::Star => 2,
+            Token::FSlash => 2,
+            Token::LThan => 3,
+            Token::GThan => 3,
+            Token::LThanE => 3,
+            Token::GThanE => 3,
+            Token::Equals => 4,
+            Token::NotEquals => 4,
+            _ => {
+                panic!(
+                    "Invalid token {} passed to BinaryOperations::precedence_of_token",
+                    token
+                );
+            }
+        }
+    }
+
     fn token_is_operator_of_at_least_precedence(token: &Token, precedence: usize) -> bool {
         match token {
             Token::Plus
@@ -12,7 +33,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
             | Token::LThanE
             | Token::GThanE
             | Token::Equals
-            | Token::NotEquals => ir::BinaryOperations::precedence_of_token(&token) >= precedence,
+            | Token::NotEquals => Self::precedence_of_token(&token) >= precedence,
             _ => false,
         }
     }
@@ -32,11 +53,11 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
 
             while Self::token_is_operator_of_at_least_precedence(
                 &self.peek_token()?,
-                ir::BinaryOperations::precedence_of_token(&operation),
+                Self::precedence_of_token(&operation),
             ) {
                 rhs = self.parse_binary_expression_min_precedence(
                     rhs,
-                    ir::BinaryOperations::precedence_of_token(&operation),
+                    Self::precedence_of_token(&operation),
                 )?;
             }
 

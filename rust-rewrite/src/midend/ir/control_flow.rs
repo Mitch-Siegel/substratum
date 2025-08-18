@@ -119,7 +119,7 @@ impl From<BTreeMap<usize, BasicBlock>> for ControlFlow {
         for from_block in blocks.values() {
             for statement in from_block {
                 match &statement.operation {
-                    ir::Operations::Jump(jump) => {
+                    Operation::Lowered(lowered::Operation::Jump(jump)) => {
                         successors
                             .get_mut(&from_block.label)
                             .unwrap()

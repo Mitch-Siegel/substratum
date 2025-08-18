@@ -1,8 +1,8 @@
 pub mod control_flow;
-pub mod operands;
-pub mod operations;
+pub mod lowered;
 #[cfg(test)]
 mod tests;
+pub mod unlowered;
 pub mod value;
 
 use std::collections::BTreeSet;
@@ -13,14 +13,27 @@ use crate::midend::{ir, symtab};
 use serde::Serialize;
 
 pub use control_flow::ControlFlow;
-pub use operands::*;
-pub use operations::*;
 pub use value::*;
+
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+pub enum Operation {
+    Lowered(lowered::Operation),
+    Unlowered(unlowered::Operation),
+}
+
+impl Display for Operation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Lowered(lowered) => write!(f, "{}", lowered),
+            Self::Unlowered(unlowered) => write!(f, "{}", unlowered),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct IrLine {
     pub loc: SourceLoc,
-    pub operation: Operations,
+    pub operation: Operation,
 }
 
 impl Display for IrLine {
@@ -93,38 +106,46 @@ impl<'a> IntoIterator for &'a mut BasicBlock {
 }
 
 impl IrLine {
-    fn new(loc: SourceLoc, operation: Operations) -> Self {
+    fn new(loc: SourceLoc, operation: Operation) -> Self {
         IrLine {
             loc: loc,
             operation: operation,
         }
     }
-
-    pub fn new_assignment(loc: SourceLoc, destination: ValueId, source: ValueId) -> Self {
-        Self::new(loc, Operations::new_assignment(destination, source))
+    fn new_lowered(loc: SourceLoc, operation: lowered::Operation) -> Self {
+        IrLine {
+            loc: loc,
+            operation: Operation::Lowered(operation),
+        }
+    }
+    fn new_unlowered(loc: SourceLoc, operation: unlowered::Operation) -> Self {
+        IrLine {
+            loc: loc,
+            operation: Operation::Unlowered(operation),
+        }
     }
 
-    pub fn new_binary_op(loc: SourceLoc, op: BinaryOperations) -> Self {
-        Self::new(loc, Operations::BinaryOperation(op))
+    pub fn new_assignment(loc: SourceLoc, destination: ValueId, source: ValueId) -> Self {
+        Self::new_lowered(loc, lowered::new_assignment(destination, source))
     }
 
     pub fn new_jump(
         loc: SourceLoc,
         destination_block: usize,
-        condition: operands::JumpCondition,
+        condition: lowered::operands::JumpCondition,
     ) -> Self {
-        Self::new(loc, Operations::new_jump(destination_block, condition))
+        Self::new(loc, lowered::new_jump(destination_block, condition))
     }
 
     pub fn new_function_call(
         loc: SourceLoc,
         name: String,
-        arguments: OrderedArgumentList,
+        arguments: lowered::operands::OrderedArgumentList,
         return_value_to: Option<ValueId>,
     ) -> Self {
-        Self::new(
+        Self::new_lowered(
             loc,
-            Operations::new_function_call(name, arguments, return_value_to),
+            lowered::new_function_call(name, arguments, return_value_to),
         )
     }
 
@@ -132,12 +153,12 @@ impl IrLine {
         loc: SourceLoc,
         receiver: ValueId,
         name: String,
-        arguments: OrderedArgumentList,
+        arguments: lowered::operands::OrderedArgumentList,
         return_value_to: ValueId,
     ) -> Self {
-        Self::new(
+        Self::new_lowered(
             loc,
-            Operations::new_method_call(receiver, name, arguments, Some(return_value_to)),
+            lowered::new_method_call(receiver, name, arguments, Some(return_value_to)),
         )
     }
 
@@ -149,7 +170,7 @@ impl IrLine {
     ) -> Self {
         Self::new(
             loc,
-            Operations::new_compute_field_address(receiver, field_offset, destination),
+            lowered::new_compute_field_address(receiver, field_offset, destination),
         )
     }
 
@@ -161,16 +182,16 @@ impl IrLine {
     ) -> Self {
         Self::new(
             loc,
-            Operations::get_field_pointer(receiver, field_name, destination),
+            lowered::get_field_pointer(receiver, field_name, destination),
         )
     }
 
     pub fn new_load(loc: SourceLoc, pointer: ValueId, destination: ValueId) -> Self {
-        Self::new(loc, Operations::new_load(pointer, destination))
+        Self::new(loc, lowered::new_load(pointer, destination))
     }
 
     pub fn new_store(loc: SourceLoc, source: ValueId, pointer: ValueId) -> Self {
-        Self::new(loc, Operations::new_store(source, pointer))
+        Self::new(loc, lowered::new_store(source, pointer))
     }
 
     pub fn read_value_ids(&self) -> Vec<&ValueId> {
