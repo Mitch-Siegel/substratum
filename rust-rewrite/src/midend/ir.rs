@@ -168,7 +168,7 @@ impl IrLine {
         field_offset: usize,
         destination: ValueId,
     ) -> Self {
-        Self::new(
+        Self::new_lowered(
             loc,
             lowered::new_compute_field_address(receiver, field_offset, destination),
         )
@@ -180,194 +180,32 @@ impl IrLine {
         field_name: String,
         destination: ValueId,
     ) -> Self {
-        Self::new(
+        Self::new_lowered(
             loc,
             lowered::get_field_pointer(receiver, field_name, destination),
         )
     }
 
     pub fn new_load(loc: SourceLoc, pointer: ValueId, destination: ValueId) -> Self {
-        Self::new(loc, lowered::new_load(pointer, destination))
+        Self::new_lowered(loc, lowered::new_load(pointer, destination))
     }
 
     pub fn new_store(loc: SourceLoc, source: ValueId, pointer: ValueId) -> Self {
-        Self::new(loc, lowered::new_store(source, pointer))
+        Self::new_lowered(loc, lowered::new_store(source, pointer))
     }
 
-    pub fn read_value_ids(&self) -> Vec<&ValueId> {
+    pub fn read_value_ids(&self) -> Vec<ValueId> {
         let mut value_ids: Vec<&ValueId> = Vec::new();
         match &self.operation {
-            Operations::Assignment(source_dest) => value_ids.push(&source_dest.source),
-            Operations::BinaryOperation(operation) => {
-                let sources = &operation.raw_operands().sources;
-
-                value_ids.push(&sources.a);
-                value_ids.push(&sources.b);
-            }
-            Operations::Jump(jump_operands) => {
-                match &jump_operands.condition {
-                    JumpCondition::Unconditional => {}
-                    JumpCondition::Eq(condition_operands)
-                    | JumpCondition::NE(condition_operands)
-                    | JumpCondition::GT(condition_operands)
-                    | JumpCondition::LT(condition_operands)
-                    | JumpCondition::GE(condition_operands)
-                    | JumpCondition::LE(condition_operands) => {
-                        value_ids.push(&condition_operands.a);
-                        value_ids.push(&condition_operands.b);
-                    }
-                };
-                for arg in jump_operands.block_args.values() {
-                    value_ids.push(arg);
-                }
-            }
-            Operations::FunctionCall(function_call) => {
-                for arg in &function_call.arguments {
-                    value_ids.push(arg);
-                }
-            }
-            Operations::MethodCall(method_call) => {
-                let inner_function_call = &method_call.call;
-                for arg in &inner_function_call.arguments {
-                    value_ids.push(arg);
-                }
-            }
-            Operations::Load(load) => {
-                value_ids.push(&load.pointer);
-            }
-            Operations::Store(store) => {
-                value_ids.push(&store.source);
-            }
-            Operations::ComputeFieldAddress(field_address) => {
-                value_ids.push(&field_address.receiver)
-            }
-            Operations::GetFieldPointer(field_pointer) => value_ids.push(&field_pointer.receiver),
-            Operations::Switch(switch) => value_ids.push(&switch.scrutinee),
+            Operation::Lowered(lowered) => lowered.read_value_ids(),
+            Operation::Unlowered(unlowered) => unlowered.read_value_ids(),
         }
-        value_ids
     }
 
-    pub fn read_value_ids_mut(&mut self) -> Vec<&mut ValueId> {
-        let mut value_ids: Vec<&mut ValueId> = Vec::new();
-        match &mut self.operation {
-            Operations::Assignment(source_dest) => value_ids.push(&mut source_dest.source),
-            Operations::BinaryOperation(operation) => {
-                let sources = &mut operation.raw_operands_mut().sources;
-                value_ids.push(&mut sources.a);
-                value_ids.push(&mut sources.b);
-            }
-            Operations::Jump(jump_operands) => {
-                match &mut jump_operands.condition {
-                    JumpCondition::Unconditional => {}
-                    JumpCondition::Eq(condition_operands)
-                    | JumpCondition::NE(condition_operands)
-                    | JumpCondition::GT(condition_operands)
-                    | JumpCondition::LT(condition_operands)
-                    | JumpCondition::GE(condition_operands)
-                    | JumpCondition::LE(condition_operands) => {
-                        value_ids.push(&mut condition_operands.a);
-                        value_ids.push(&mut condition_operands.b);
-                    }
-                };
-                for arg in jump_operands.block_args.values_mut() {
-                    value_ids.push(arg);
-                }
-            }
-            Operations::FunctionCall(function_call) => {
-                for arg in &mut function_call.arguments {
-                    value_ids.push(arg);
-                }
-            }
-            Operations::MethodCall(method_call) => {
-                let inner_function_call = &mut method_call.call;
-                for arg in &mut inner_function_call.arguments {
-                    value_ids.push(arg)
-                }
-            }
-            Operations::Load(load) => {
-                value_ids.push(&mut load.destination);
-            }
-            Operations::Store(store) => {
-                value_ids.push(&mut store.pointer); // TODO: accurately track this?
-            }
-            Operations::ComputeFieldAddress(field_address) => {
-                value_ids.push(&mut field_address.receiver)
-            }
-            Operations::GetFieldPointer(field_pointer) => {
-                value_ids.push(&mut field_pointer.receiver)
-            }
-            Operations::Switch(switch) => value_ids.push(&mut switch.scrutinee),
-        }
-
-        value_ids
-    }
-
-    pub fn write_value_ids(&self) -> Vec<&ValueId> {
-        let mut value_ids: Vec<&ValueId> = Vec::new();
+    pub fn write_value_ids(&self) -> Vec<ValueId> {
         match &self.operation {
-            Operations::Assignment(source_dest) => value_ids.push(&source_dest.destination),
-            Operations::BinaryOperation(operation) => {
-                let arithmetic_operands = operation.raw_operands();
-                value_ids.push(&arithmetic_operands.destination);
-            }
-            Operations::FunctionCall(function_call) => {
-                if let Some(retval) = &function_call.return_value_to {
-                    value_ids.push(retval);
-                }
-            }
-            Operations::MethodCall(method_call) => {
-                let inner_function_call = &method_call.call;
-                if let Some(retval) = &inner_function_call.return_value_to {
-                    value_ids.push(retval);
-                }
-            }
-            Operations::ComputeFieldAddress(field_address) => {
-                value_ids.push(&field_address.receiver)
-            }
-            Operations::GetFieldPointer(field_pointer) => value_ids.push(&field_pointer.receiver),
-            Operations::Store(store) => {
-                value_ids.push(&store.pointer);
-            }
-            Operations::Jump(_) | Operations::Load(_) | Operations::Switch(_) => {}
+            Operation::Lowered(lowered) => lowered.write_value_ids(),
+            Operation::Unlowered(unlowered) => unlowered.write_value_ids(),
         }
-
-        value_ids
-    }
-
-    pub fn write_value_ids_mut(&mut self) -> Vec<&mut ValueId> {
-        let mut value_ids: Vec<&mut ValueId> = Vec::new();
-        match &mut self.operation {
-            Operations::Assignment(source_dest) => value_ids.push(&mut source_dest.destination),
-            Operations::BinaryOperation(operation) => {
-                let arithmetic_operands = operation.raw_operands_mut();
-                value_ids.push(&mut arithmetic_operands.destination);
-            }
-            Operations::FunctionCall(function_call) => {
-                if let Some(retval) = &mut function_call.return_value_to {
-                    value_ids.push(retval);
-                }
-            }
-            Operations::MethodCall(method_call) => {
-                let inner_function_call = &mut method_call.call;
-                if let Some(retval) = &mut inner_function_call.return_value_to {
-                    value_ids.push(retval);
-                }
-            }
-            Operations::Store(store) => {
-                value_ids.push(&mut store.pointer);
-            }
-            Operations::Load(load) => {
-                value_ids.push(&mut load.destination);
-            }
-            Operations::ComputeFieldAddress(field_address) => {
-                value_ids.push(&mut field_address.destination);
-            }
-            Operations::GetFieldPointer(field_pointer) => {
-                value_ids.push(&mut field_pointer.destination);
-            }
-            Operations::Jump(_) | Operations::Switch(_) => {}
-        }
-
-        value_ids
     }
 }
