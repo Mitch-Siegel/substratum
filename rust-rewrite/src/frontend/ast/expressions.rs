@@ -94,8 +94,32 @@ impl midend::linearizer::ValueWalk for ExpressionTree {
             Expression::UnsignedDecimalConstant(constant) => {
                 *context.value_id_for_constant(constant)
             }
-            Expression::Arithmetic(arithmetic_operation) => arithmetic_operation.walk(context),
-            Expression::Comparison(comparison_operation) => comparison_operation.walk(context),
+            Expression::Arithmetic(arithmetic_operation) => {
+                let operands = arithmetic_operation.walk(context);
+                let destination = context.next_temp();
+                let expression_statement = midend::ir::IrLine::new_binary_arithmetic_expression(
+                    SourceLoc::none(), // FIXME: loc tracking for arithmetic expressions
+                    destination,
+                    operands,
+                );
+                context
+                    .append_statement_to_current_block(expression_statement)
+                    .unwrap();
+                destination
+            }
+            Expression::Comparison(comparison_operation) => {
+                let operands = comparison_operation.walk(context);
+                let destination = context.next_temp();
+                let comparison_statement = midend::ir::IrLine::new_binary_comparison_expression(
+                    SourceLoc::none(), // FIXME: loc tracking for arithmetic expressions
+                    destination,
+                    operands,
+                );
+                context
+                    .append_statement_to_current_block(comparison_statement)
+                    .unwrap();
+                destination
+            }
             Expression::Assignment(assignment_expression) => assignment_expression.walk(context),
             Expression::If(if_expression) => if_expression.walk(context),
             Expression::Match(match_expression) => match_expression.walk(context),

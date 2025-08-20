@@ -43,10 +43,11 @@ impl ValueWalk for IfExpressionTree {
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc.clone();
         let condition_result: midend::ir::ValueId = self.condition.walk(context).into();
-        let if_condition = midend::ir::lowered::operands::JumpCondition::NE(
-            midend::ir::lowered::operands::DualSourceOperands::new(
+        let if_condition = midend::ir::lowered::operands::JumpCondition::Conditional(
+            midend::ir::lowered::operands::BinaryComparisonOperands::new(
                 condition_result,
                 *context.value_id_for_constant(0),
+                midend::ir::lowered::operands::BinaryComparisonKind::NE,
             ),
         );
 

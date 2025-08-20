@@ -282,7 +282,7 @@ impl FunctionWalkContext {
     pub fn conditional_branch_from_current(
         &mut self,
         loc: SourceLoc,
-        condition: ir::JumpCondition,
+        condition: ir::lowered::operands::JumpCondition,
     ) -> Result<(), block_manager::BranchError> {
         trace::debug!("create conditional branch from current block");
         let def_path = self.def_path();

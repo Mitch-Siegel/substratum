@@ -3,7 +3,7 @@ pub mod operands;
 pub mod operations;
 
 use crate::midend::ir::*;
-use operands::*;
+pub use operands::*;
 use operations::*;
 use std::fmt::Display;
 
@@ -11,8 +11,8 @@ use std::fmt::Display;
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
 pub enum Operation {
     Assignment(SourceDestOperands),
-    BinaryArithmetic(BinaryArithmeticOperands),
-    BinaryComparison(BinaryComparisonOperands),
+    BinaryArithmetic(BinaryArithmeticExpressionOperands),
+    BinaryComparison(BinaryComparisonExpressionOperands),
     Jump(JumpOperation),
     FunctionCall(FunctionCallOperands),
     MethodCall(MethodCallOperands),
@@ -27,25 +27,20 @@ impl Operation {
     pub fn read_value_ids(&self) -> Vec<ValueId> {
         match self {
             Self::Assignment(source_dest) => vec![source_dest.source],
-            Self::BinaryArithmetic(arithmetic) => {
-                let sources = &arithmetic.sources;
-                vec![sources.a, sources.b]
+            Self::BinaryArithmetic(expr) => {
+                let sources = &expr.arithmetic.sources;
+                vec![sources.lhs, sources.rhs]
             }
-            Self::Jump(jump_operands) => {
+            Self::Jump(jump) => {
                 let mut operands = Vec::new();
-                match &jump_operands.condition {
-                    lowered::operands::JumpCondition::Unconditional => {}
-                    lowered::operands::JumpCondition::Eq(condition_operands)
-                    | lowered::operands::JumpCondition::NE(condition_operands)
-                    | lowered::operands::JumpCondition::GT(condition_operands)
-                    | lowered::operands::JumpCondition::LT(condition_operands)
-                    | lowered::operands::JumpCondition::GE(condition_operands)
-                    | lowered::operands::JumpCondition::LE(condition_operands) => {
-                        operands.push(condition_operands.a);
-                        operands.push(condition_operands.b);
+                match &jump.condition {
+                    lowered::operands::JumpCondition::Conditional(condition) => {
+                        operands.push(condition.sources.lhs);
+                        operands.push(condition.sources.lhs);
                     }
+                    lowered::operands::JumpCondition::Unconditional => {}
                 };
-                for arg in jump_operands.block_args.values() {
+                for arg in jump.block_args.values() {
                     operands.push(*arg);
                 }
                 operands
@@ -138,81 +133,23 @@ pub fn new_assignment(destination: ValueId, source: ValueId) -> Operation {
     })
 }
 
-pub fn new_add(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Operation {
-    Operation::BinaryArithmetic(BinaryArithmeticOperands::new_add(
+pub fn new_binary_arithmetic_expression(
+    destination: ValueId,
+    operands: BinaryArithmeticOperands,
+) -> Operation {
+    Operation::BinaryArithmetic(BinaryArithmeticExpressionOperands::new(
         destination,
-        source_a,
-        source_b,
+        operands,
     ))
 }
 
-pub fn new_sub(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Operation {
-    Operation::BinaryArithmetic(BinaryArithmeticOperands::new_sub(
+pub fn new_binary_comparison_expression(
+    destination: ValueId,
+    operands: BinaryArithmeticOperands,
+) -> Operation {
+    Operation::BinaryArithmetic(BinaryComparisonExpressionOperands::new(
         destination,
-        source_a,
-        source_b,
-    ))
-}
-pub fn new_mul(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Operation {
-    Operation::BinaryArithmetic(BinaryArithmeticOperands::new_mul(
-        destination,
-        source_a,
-        source_b,
-    ))
-}
-pub fn new_div(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Operation {
-    Operation::BinaryArithmetic(BinaryArithmeticOperands::new_div(
-        destination,
-        source_a,
-        source_b,
-    ))
-}
-
-pub fn new_lt(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Operation {
-    Operation::BinaryComparison(BinaryComparisonOperands::new_lt(
-        destination,
-        source_a,
-        source_b,
-    ))
-}
-
-pub fn new_gt(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Operation {
-    Operation::BinaryComparison(BinaryComparisonOperands::new_gt(
-        destination,
-        source_a,
-        source_b,
-    ))
-}
-
-pub fn new_le(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Operation {
-    Operation::BinaryComparison(BinaryComparisonOperands::new_le(
-        destination,
-        source_a,
-        source_b,
-    ))
-}
-
-pub fn new_ge(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Operation {
-    Operation::BinaryComparison(BinaryComparisonOperands::new_ge(
-        destination,
-        source_a,
-        source_b,
-    ))
-}
-
-pub fn new_eq(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Operation {
-    Operation::BinaryComparison(BinaryComparisonOperands::new_eq(
-        destination,
-        source_a,
-        source_b,
-    ))
-}
-
-pub fn new_ne(destination: ValueId, source_a: ValueId, source_b: ValueId) -> Operation {
-    Operation::BinaryComparison(BinaryComparisonOperands::new_ne(
-        destination,
-        source_a,
-        source_b,
+        operands,
     ))
 }
 

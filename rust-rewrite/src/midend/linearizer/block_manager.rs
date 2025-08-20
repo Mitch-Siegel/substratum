@@ -124,7 +124,7 @@ impl BlockManager {
         let unconditional_jump = ir::IrLine::new_jump(
             loc,
             true_block.label,
-            ir::operands::JumpCondition::Unconditional,
+            ir::lowered::operands::JumpCondition::Unconditional,
         );
         from_block.statements.push(unconditional_jump);
 
@@ -136,7 +136,7 @@ impl BlockManager {
         &mut self,
         from_block: &mut ir::BasicBlock,
         loc: SourceLoc,
-        jump_condition: ir::operands::JumpCondition,
+        jump_condition: ir::lowered::operands::JumpCondition,
     ) -> Result<ir::BasicBlock, BranchError> {
         self.max_block += 3;
         let true_block = ir::BasicBlock::new(self.max_block - 2);
@@ -156,7 +156,7 @@ impl BlockManager {
         let unconditional_jump = ir::IrLine::new_jump(
             loc,
             false_block.label,
-            ir::operands::JumpCondition::Unconditional,
+            ir::lowered::operands::JumpCondition::Unconditional,
         );
         from_block.statements.push(unconditional_jump);
 
@@ -189,7 +189,7 @@ impl BlockManager {
                 let convergence_jump = ir::IrLine::new_jump(
                     SourceLoc::none(),
                     converge_to_label,
-                    ir::JumpCondition::Unconditional,
+                    ir::lowered::operands::JumpCondition::Unconditional,
                 );
 
                 current_block.statements.push(convergence_jump);
@@ -224,7 +224,7 @@ impl BlockManager {
                 let convergence_jump = ir::IrLine::new_jump(
                     SourceLoc::none(),
                     converge_to_block.label,
-                    ir::JumpCondition::Unconditional,
+                    ir::lowered::operands::JumpCondition::Unconditional,
                 );
 
                 current_block.statements.push(convergence_jump);
@@ -256,14 +256,14 @@ impl BlockManager {
         let loop_entry = ir::IrLine::new_jump(
             loc.clone(),
             loop_top.label,
-            ir::operands::JumpCondition::Unconditional,
+            ir::lowered::operands::JumpCondition::Unconditional,
         );
         before_loop_block.statements.push(loop_entry);
 
         let loop_jump = ir::IrLine::new_jump(
             loc.clone(),
             loop_top.label,
-            ir::operands::JumpCondition::Unconditional,
+            ir::lowered::operands::JumpCondition::Unconditional,
         );
 
         loop_bottom.statements.push(loop_jump);
@@ -275,8 +275,11 @@ impl BlockManager {
         });
 
         // transfer control flow unconditionally to the top of the loop
-        let loop_entry_jump =
-            ir::IrLine::new_jump(loc, loop_top.label, ir::JumpCondition::Unconditional);
+        let loop_entry_jump = ir::IrLine::new_jump(
+            loc,
+            loop_top.label,
+            ir::lowered::operands::JumpCondition::Unconditional,
+        );
         before_loop_block.statements.push(loop_entry_jump);
 
         // now the current block should be the loop's top
@@ -307,8 +310,11 @@ impl BlockManager {
         match self.convergences.converge(current_block.label)? {
             ConvergenceResult::Done(loop_bottom) => {
                 // transfer control flow from the current block to loop_bottom
-                let loop_bottom_jump =
-                    ir::IrLine::new_jump(loc, loop_bottom.label, ir::JumpCondition::Unconditional);
+                let loop_bottom_jump = ir::IrLine::new_jump(
+                    loc,
+                    loop_bottom.label,
+                    ir::lowered::JumpCondition::Unconditional,
+                );
                 current_block.statements.push(loop_bottom_jump);
 
                 Ok(loop_bottom)
@@ -338,7 +344,11 @@ impl BlockManager {
             None => return Err(BranchError::NotBranched),
         }?;
 
-        let loop_jump = ir::IrLine::new_jump(loc, loop_top, ir::JumpCondition::Unconditional);
+        let loop_jump = ir::IrLine::new_jump(
+            loc,
+            loop_top,
+            ir::lowered::operands::JumpCondition::Unconditional,
+        );
         current_block.statements.push(loop_jump);
 
         // now that we are in loop_bottom, create_loop() should have a convergence for us
@@ -372,7 +382,7 @@ impl BlockManager {
         let unconditional_jump = ir::IrLine::new_jump(
             loc,
             switch_block.label,
-            ir::operands::JumpCondition::Unconditional,
+            ir::lowered::operands::JumpCondition::Unconditional,
         );
         current_block.statements.push(unconditional_jump);
 

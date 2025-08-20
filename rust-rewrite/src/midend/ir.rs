@@ -129,12 +129,34 @@ impl IrLine {
         Self::new_lowered(loc, lowered::new_assignment(destination, source))
     }
 
+    pub fn new_binary_arithmetic_expression(
+        loc: SourceLoc,
+        destination: ValueId,
+        operands: lowered::operands::BinaryArithmeticOperands,
+    ) -> Self {
+        Self::new_lowered(
+            loc,
+            lowered::new_binary_arithmetic_expression(destination, operands),
+        )
+    }
+
+    pub fn new_binary_comparison_expression(
+        loc: SourceLoc,
+        destination: ValueId,
+        operands: lowered::operands::BinaryComparisonOperands,
+    ) -> Self {
+        Self::new_lowered(
+            loc,
+            lowered::new_binary_comparison_expression(destination, operands),
+        )
+    }
+
     pub fn new_jump(
         loc: SourceLoc,
         destination_block: usize,
         condition: lowered::operands::JumpCondition,
     ) -> Self {
-        Self::new(loc, lowered::new_jump(destination_block, condition))
+        Self::new_lowered(loc, lowered::new_jump(destination_block, condition))
     }
 
     pub fn new_function_call(

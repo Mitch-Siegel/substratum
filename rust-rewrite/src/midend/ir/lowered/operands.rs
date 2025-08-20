@@ -9,14 +9,79 @@ use crate::midend::ir::*;
 */
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct DualSourceOperands {
-    pub a: ValueId,
-    pub b: ValueId,
+pub enum BinaryArithmeticKind {
+    Add,
+    Sub,
+    Mul,
+    Div,
 }
 
-impl DualSourceOperands {
+impl Display for BinaryArithmeticKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Add => "+",
+                Self::Sub => "-",
+                Self::Mul => "*",
+                Self::Div => "/",
+            }
+        )
+    }
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+pub struct BinaryArithmeticExpressionOperands {
+    pub destination: ValueId,
+    pub arithmetic: BinaryArithmeticOperands,
+}
+
+impl BinaryArithmeticExpressionOperands {
+    pub fn new(destination: ValueId, arithmetic: BinaryArithmeticOperands) -> Self {
+        Self {
+            destination,
+            arithmetic,
+        }
+    }
+}
+
+impl Display for BinaryArithmeticExpressionOperands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} = {}", self.destination, self.arithmetic)
+    }
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+pub struct BinaryArithmeticOperands {
+    pub sources: BinarySourceOperands,
+    pub kind: BinaryArithmeticKind,
+}
+
+impl Display for BinaryArithmeticOperands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {} {}", self.sources.lhs, self.kind, self.sources.rhs)
+    }
+}
+
+impl BinaryArithmeticOperands {
+    pub fn new(lhs: ValueId, rhs: ValueId, kind: BinaryArithmeticKind) -> Self {
+        Self {
+            sources: BinarySourceOperands::new(lhs, rhs),
+            kind,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+pub struct BinarySourceOperands {
+    pub lhs: ValueId,
+    pub rhs: ValueId,
+}
+
+impl BinarySourceOperands {
     pub fn new(a: ValueId, b: ValueId) -> Self {
-        DualSourceOperands { a, b }
+        BinarySourceOperands { lhs: a, rhs: b }
     }
 }
 
@@ -27,14 +92,78 @@ pub struct SourceDestOperands {
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+pub enum BinaryComparisonKind {
+    LT,
+    GT,
+    LE,
+    GE,
+    EQ,
+    NE,
+}
+
+impl Display for BinaryComparisonKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::LT => "<",
+                Self::GT => ">",
+                Self::LE => "<=",
+                Self::GE => ">=",
+                Self::EQ => "==",
+                Self::NE => "!=",
+            }
+        )
+    }
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+pub struct BinaryComparisonExpressionOperands {
+    pub destination: ValueId,
+    pub comparison: BinaryComparisonOperands,
+}
+
+impl BinaryComparisonExpressionOperands {
+    pub fn new(destination: ValueId, comparison: BinaryComparisonOperands) -> Self {
+        Self {
+            destination,
+            comparison,
+        }
+    }
+}
+
+impl Display for BinaryComparisonExpressionOperands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} = {}", self.destination, self.comparison)
+    }
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+pub struct BinaryComparisonOperands {
+    pub sources: BinarySourceOperands,
+    pub kind: BinaryComparisonKind,
+}
+
+impl Display for BinaryComparisonOperands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {} {}", self.sources.lhs, self.kind, self.sources.rhs)
+    }
+}
+
+impl BinaryComparisonOperands {
+    pub fn new(source_a: ValueId, source_b: ValueId, kind: BinaryComparisonKind) -> Self {
+        Self {
+            sources: BinarySourceOperands::new(source_a, source_b),
+            kind,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub enum JumpCondition {
     Unconditional,
-    Eq(DualSourceOperands),
-    NE(DualSourceOperands),
-    GT(DualSourceOperands),
-    LT(DualSourceOperands),
-    GE(DualSourceOperands),
-    LE(DualSourceOperands),
+    Conditional(BinaryComparisonOperands),
 }
 
 impl Display for JumpCondition {
@@ -43,24 +172,50 @@ impl Display for JumpCondition {
             Self::Unconditional => {
                 write!(f, "jmp")
             }
-            Self::Eq(operands) => {
-                write!(f, "jeq({}, {})", operands.a, operands.b)
-            }
-            Self::NE(operands) => {
-                write!(f, "jne({}, {})", operands.a, operands.b)
-            }
-            Self::LT(operands) => {
-                write!(f, "jl({}, {})", operands.a, operands.b)
-            }
-            Self::GT(operands) => {
-                write!(f, "jg({}, {})", operands.a, operands.b)
-            }
-            Self::LE(operands) => {
-                write!(f, "jle({}, {})", operands.a, operands.b)
-            }
-            Self::GE(operands) => {
-                write!(f, "jge({}, {})", operands.a, operands.b)
-            }
+            Self::Conditional(condition) => match condition.kind {
+                BinaryComparisonKind::LT => {
+                    write!(
+                        f,
+                        "jl({}, {})",
+                        condition.sources.lhs, condition.sources.rhs
+                    )
+                }
+                BinaryComparisonKind::GT => {
+                    write!(
+                        f,
+                        "jg({}, {})",
+                        condition.sources.lhs, condition.sources.rhs
+                    )
+                }
+                BinaryComparisonKind::LE => {
+                    write!(
+                        f,
+                        "jle({}, {})",
+                        condition.sources.lhs, condition.sources.rhs
+                    )
+                }
+                BinaryComparisonKind::GE => {
+                    write!(
+                        f,
+                        "jge({}, {})",
+                        condition.sources.lhs, condition.sources.rhs
+                    )
+                }
+                BinaryComparisonKind::EQ => {
+                    write!(
+                        f,
+                        "jeq({}, {})",
+                        condition.sources.lhs, condition.sources.rhs
+                    )
+                }
+                BinaryComparisonKind::NE => {
+                    write!(
+                        f,
+                        "jne({}, {})",
+                        condition.sources.lhs, condition.sources.rhs
+                    )
+                }
+            },
         }
     }
 }
