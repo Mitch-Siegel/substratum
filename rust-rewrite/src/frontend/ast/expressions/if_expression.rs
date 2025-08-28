@@ -1,6 +1,6 @@
 use crate::frontend::ast::expressions::*;
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct IfExpressionTree {
     pub loc: SourceLoc,
     pub condition: ExpressionTree,

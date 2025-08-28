@@ -1,6 +1,6 @@
 use crate::frontend::ast::*;
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FieldExpressionTree {
     pub loc: SourceLoc,
     pub receiver: ExpressionTree,

@@ -18,7 +18,7 @@ pub use if_expression::IfExpressionTree;
 pub use match_expression::MatchExpressionTree;
 pub use while_expression::WhileExpressionTree;
 
-#[derive(ReflectName, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Expression {
     SelfLower,
     Identifier(String),
@@ -57,7 +57,7 @@ impl std::fmt::Debug for Expression {
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ExpressionTree {
     pub loc: SourceLoc,
     pub expression: Expression,

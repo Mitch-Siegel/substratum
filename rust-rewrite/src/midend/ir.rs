@@ -216,6 +216,16 @@ impl IrLine {
         Self::new_lowered(loc, lowered::new_store(source, pointer))
     }
 
+    //
+    // unlowered IR constructors
+    //
+    pub fn new_match(loc: SourceLoc, arms: Vec<unlowered::operands::MatchArm>) -> Self {
+        Self::new_unlowered(loc, unlowered::new_match(arms))
+    }
+
+    //
+    // general utility functions
+    //
     pub fn read_value_ids(&self) -> Vec<ValueId> {
         let mut value_ids: Vec<&ValueId> = Vec::new();
         match &self.operation {

@@ -1,6 +1,6 @@
 use crate::frontend::ast::*;
 
-#[derive(ReflectName, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TypeTree {
     pub loc: SourceLoc,
     pub type_: midend::types::Syntactic,

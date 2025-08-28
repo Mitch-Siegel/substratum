@@ -11,7 +11,7 @@ pub use function::{FunctionDeclarationTree, FunctionDefinitionTree};
 pub use implementation::ImplementationTree;
 pub use struct_definition::StructDefinitionTree;
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ItemTree {
     pub loc: SourceLoc,
 }

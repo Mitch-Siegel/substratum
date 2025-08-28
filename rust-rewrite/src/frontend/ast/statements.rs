@@ -4,7 +4,7 @@ pub mod let_statement;
 
 pub use let_statement::*;
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Statement {
     Item(ItemTree),
     Let(LetTree),
@@ -20,7 +20,7 @@ impl Display for Statement {
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct StatementTree {
     pub loc: SourceLoc,
     pub statement: Statement,

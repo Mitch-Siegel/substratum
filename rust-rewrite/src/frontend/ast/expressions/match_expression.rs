@@ -1,6 +1,6 @@
 use crate::{frontend::ast::expressions::*, trace};
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Pattern {
     LiteralPattern(ExpressionTree),
     IdentifierPattern(String),
@@ -8,7 +8,28 @@ pub enum Pattern {
     TupleStructPattern(String, Vec<PatternTree>),
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+impl<'a> ReturnFunctionWalk<'a, ()> for Pattern {
+    fn walk(self, context: &'a mut FunctionWalkContext) -> () {
+        match self {
+            Self::LiteralPattern(_) => (),
+            Self::IdentifierPattern(name) => {
+                context
+                    .insert::<midend::symtab::Variable>(midend::symtab::Variable::new(
+                        name.clone(),
+                        None,
+                    ))
+                    .unwrap();
+            }
+            Self::TupleStructPattern(_struct_name, field_patterns) => {
+                for field in field_patterns.clone() {
+                    field.walk(context);
+                }
+            }
+        };
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PatternTree {
     pub loc: SourceLoc,
     pub pattern: Pattern,
@@ -25,99 +46,14 @@ impl Display for PatternTree {
     }
 }
 
-struct MatchArmWalkContext<'a> {
-    pub ctx: &'a mut FunctionWalkContext,
-    pub scrutinee: midend::ir::ValueId,
-}
-
-fn destructure_tuple(
-    context: &FunctionWalkContext,
-    value: midend::ir::ValueId,
-    element_patterns: Vec<PatternTree>,
-) {
-    unimplemented!();
-}
-
-fn destructure_enum_variant(
-    context: &mut FunctionWalkContext,
-    enum_value: midend::ir::ValueId,
-    enum_def: &midend::symtab::EnumRepr,
-    variant_name: String,
-    elements: Vec<PatternTree>,
-) {
-    let variant = match enum_def.get_variant(&variant_name) {
-        Some(exists) => exists,
-        None => panic!("Enum {} has no variant {}", enum_def.name, variant_name),
-    };
-
-    let variant_ptr_value = context.next_temp();
-
-    let variant_access_line = midend::ir::IrLine::new_get_field_pointer(
-        SourceLoc::none(),
-        enum_value,
-        variant_name,
-        variant_ptr_value,
-    );
-    context
-        .append_statement_to_current_block(variant_access_line)
-        .unwrap();
-
-    destructure_tuple(context, variant_ptr_value, elements);
-}
-
-impl<'a> CustomReturnWalk<MatchArmWalkContext<'a>, midend::ir::ValueId> for PatternTree {
-    fn walk(self, context: MatchArmWalkContext) -> midend::ir::ValueId {
-        match self.pattern {
-            Pattern::LiteralPattern(literal_expression) => literal_expression.walk(context.ctx),
-            Pattern::IdentifierPattern(identifier) => {
-                let variable = midend::symtab::Variable::new(identifier, None);
-
-                let identifier_binding = context
-                    .ctx
-                    .insert::<midend::symtab::Variable>(variable)
-                    .unwrap();
-
-                let binding_value = context
-                    .ctx
-                    .value_for_variable_or_insert(identifier_binding)
-                    .clone();
-
-                let binding_assignment_line =
-                    midend::ir::IrLine::new_assignment(self.loc, binding_value, context.scrutinee);
-
-                context
-                    .ctx
-                    .append_statement_to_current_block(binding_assignment_line)
-                    .unwrap();
-
-                binding_value
-            }
-            Pattern::TupleStructPattern(_struct_name, _fields) => {
-                let destructured_definition =
-                    match context.ctx.type_definition_for_value_id(&context.scrutinee) {
-                        Some(definition) => definition,
-                        None => panic!("Tuple destructuring on unknown type ({})", self.loc),
-                    };
-
-                match &destructured_definition.repr {
-                    midend::symtab::TypeRepr::Enum(repr) => destructure_enum_variant(
-                        context.ctx,
-                        context.scrutinee,
-                        &repr.clone(),
-                        _struct_name,
-                        _fields,
-                    ),
-                    midend::symtab::TypeRepr::Unit => (),
-                    other => panic!("can't destructure non-enum repr {:?} ({})", other, self.loc),
-                }
-
-                midend::ir::ValueId::new(123)
-            }
-        }
+impl CustomReturnWalk<&mut FunctionWalkContext, PatternTree> for PatternTree {
+    fn walk(self, context: &mut FunctionWalkContext) -> PatternTree {
+        self.pattern.clone().walk(context);
+        self
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MatchArmTree {
     pub loc: SourceLoc,
     pub pattern: PatternTree,
@@ -137,21 +73,21 @@ impl Display for MatchArmTree {
         write!(f, "{} => {}", self.pattern, self.expression)
     }
 }
-impl<'a> CustomReturnWalk<MatchArmWalkContext<'a>, (midend::ir::ValueId, BlockExpressionTree)>
-    for MatchArmTree
-{
-    fn walk(self, context: MatchArmWalkContext<'a>) -> (midend::ir::ValueId, BlockExpressionTree) {
-        let pattern_value = self.pattern.walk(context);
-        (pattern_value, self.expression)
+impl<'a> ReturnFunctionWalk<'a, (PatternTree, midend::ir::ValueId)> for MatchArmTree {
+    fn walk(self, context: &'a mut FunctionWalkContext) -> (PatternTree, midend::ir::ValueId) {
+        let pattern = self.pattern.walk(context);
+        let arm_value = self.expression.walk(context);
+        (pattern, arm_value)
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MatchExpressionTree {
     pub loc: SourceLoc,
     pub scrutinee_expression: ExpressionTree,
     pub arms: Vec<MatchArmTree>,
 }
+
 impl MatchExpressionTree {
     pub fn new(
         loc: SourceLoc,
@@ -173,37 +109,32 @@ impl Display for MatchExpressionTree {
 
 impl ValueWalk for MatchExpressionTree {
     fn walk(self, context: &mut midend::linearizer::FunctionWalkContext) -> midend::ir::ValueId {
-        context.create_switch(self.loc).unwrap();
+        let match_loc = self.loc;
+        context.create_switch(match_loc.clone()).unwrap();
 
         let scrutinee_value = self.scrutinee_expression.walk(context);
+
+        // TODO: consolidate each arm's result into result_value
         let result_value = context.next_temp();
 
         let mut arm_values = Vec::new();
 
         for arm in self.arms {
-            let case_label = context.create_switch_case().unwrap();
+            let arm_label = context.create_switch_case().unwrap();
             let _pattern_loc = arm.loc.clone();
-            let arm_context = MatchArmWalkContext {
-                ctx: context,
-                scrutinee: scrutinee_value.clone(),
-            };
-            let (_matched_value, expression) = arm.walk(arm_context);
-            arm_values.push(expression.walk(context));
+            let (pattern, result_value) = arm.walk(context);
             context.finish_switch_case().unwrap();
 
-            let case_jump = midend::ir::IrLine::new_jump(
-                _pattern_loc,
-                case_label,
-                midend::ir::lowered::operands::JumpCondition::Conditional(
-                    midend::ir::lowered::operands::BinaryComparisonOperands::new(
-                        _matched_value,
-                        scrutinee_value,
-                        midend::ir::lowered::operands::BinaryComparisonKind::EQ,
-                    ),
-                ),
-            );
-            context.append_jump_to_current_block(case_jump).unwrap();
+            arm_values.push(midend::ir::unlowered::operands::MatchArm {
+                pattern,
+                arm_label,
+                result_value,
+            });
         }
+
+        context
+            .append_statement_to_current_block(midend::ir::IrLine::new_match(match_loc, arm_values))
+            .unwrap();
 
         result_value
     }

@@ -1,6 +1,6 @@
 use crate::frontend::ast::*;
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallParamsTree {
     pub loc: SourceLoc,
     pub params: Vec<ExpressionTree>,
@@ -38,7 +38,7 @@ impl<'a> ReturnFunctionWalk<'a, Vec<midend::ir::ValueId>> for CallParamsTree {
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MethodCallExpressionTree {
     pub loc: SourceLoc,
     pub receiver: ExpressionTree,

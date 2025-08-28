@@ -1,6 +1,6 @@
 use crate::frontend::ast::*;
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ArithmeticDualOperands {
     pub e1: Box<ExpressionTree>,
     pub e2: Box<ExpressionTree>,
@@ -15,7 +15,7 @@ impl ArithmeticDualOperands {
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ComparisonExpressionTree {
     LThan(ArithmeticDualOperands),
     GThan(ArithmeticDualOperands),
@@ -104,7 +104,7 @@ impl<'a> ReturnFunctionWalk<'a, midend::ir::lowered::operands::BinaryComparisonO
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ArithmeticExpressionTree {
     Add(ArithmeticDualOperands),
     Subtract(ArithmeticDualOperands),
