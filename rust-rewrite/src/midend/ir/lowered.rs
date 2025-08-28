@@ -27,8 +27,12 @@ impl Operation {
     pub fn read_value_ids(&self) -> Vec<ValueId> {
         match self {
             Self::Assignment(source_dest) => vec![source_dest.source],
-            Self::BinaryArithmetic(expr) => {
-                let sources = &expr.arithmetic.sources;
+            Self::BinaryArithmetic(arithmetic) => {
+                let sources = &arithmetic.arithmetic.sources;
+                vec![sources.lhs, sources.rhs]
+            }
+            Self::BinaryComparison(comparison) => {
+                let sources = &comparison.comparison.sources;
                 vec![sources.lhs, sources.rhs]
             }
             Self::Jump(jump) => {
@@ -59,11 +63,11 @@ impl Operation {
         }
     }
 
-    fn write_value_ids(&self) -> Vec<ValueId> {
+    pub fn write_value_ids(&self) -> Vec<ValueId> {
         match self {
             Self::Assignment(assignment) => vec![assignment.destination],
             Self::BinaryArithmetic(arithmetic) => vec![arithmetic.destination],
-
+            Self::BinaryComparison(comparison) => vec![comparison.destination],
             Self::FunctionCall(function_call) => {
                 if let Some(retval) = &function_call.return_value_to {
                     vec![*retval]
@@ -145,11 +149,11 @@ pub fn new_binary_arithmetic_expression(
 
 pub fn new_binary_comparison_expression(
     destination: ValueId,
-    operands: BinaryArithmeticOperands,
+    comparison: BinaryComparisonOperands,
 ) -> Operation {
-    Operation::BinaryArithmetic(BinaryComparisonExpressionOperands::new(
+    Operation::BinaryComparison(BinaryComparisonExpressionOperands::new(
         destination,
-        operands,
+        comparison,
     ))
 }
 
