@@ -89,6 +89,13 @@ impl SymbolTable {
         }
     }
 
+    pub fn children(&self, def_path: &DefPath) -> HashSet<&DefPath> {
+        match self.children.get(def_path) {
+            Some(paths) => paths.iter().map(|path_ref| path_ref).collect(),
+            None => HashSet::new(),
+        }
+    }
+
     fn resolve_use_statements_at_path<S>(
         &self,
         def_path: &DefPath,

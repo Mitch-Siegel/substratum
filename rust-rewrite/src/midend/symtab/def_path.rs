@@ -34,6 +34,7 @@ impl DefPathComponent {
             (Self::Function(_), Self::Variable(_)) => true,
             (Self::Function(_), Self::BasicBlock(_)) => true,
             (Self::Scope(_), Self::Scope(_)) => true,
+            (Self::Scope(_), Self::Variable(_)) => true,
             (_, _) => false,
         }
     }

@@ -93,9 +93,19 @@ impl FunctionWalkContext {
     }
 
     fn new_subscope(&mut self) -> Result<(), symtab::SymbolError> {
+        let next_subscope_index = self
+            .symtab()
+            .children(&self.def_path())
+            .into_iter()
+            .filter(|path| match path.last() {
+                DefPathComponent::Scope(_) => true,
+                _ => false,
+            })
+            .count();
+
         self.full_def_path.push(
             self.symtab
-                .insert::<symtab::Scope>(self.def_path(), symtab::Scope::new(0))
+                .insert::<symtab::Scope>(self.def_path(), symtab::Scope::new(next_subscope_index))
                 .unwrap()
                 .pop()
                 .unwrap(),
@@ -168,7 +178,12 @@ impl FunctionWalkContext {
     }
 
     pub fn value_for_variable(&self, variable_def_path: &symtab::DefPath) -> &ir::ValueId {
-        self.values.id_for_variable(variable_def_path).unwrap()
+        self.values
+            .id_for_variable(variable_def_path)
+            .expect(&format!(
+                "Variable at def path {} has no ValueID",
+                variable_def_path
+            ))
     }
 
     pub fn value_for_variable_or_insert(

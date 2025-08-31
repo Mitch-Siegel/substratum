@@ -14,7 +14,7 @@ impl std::fmt::Debug for SymbolError {
                 "Undefined symbol {:?} at definition path {}",
                 component, path
             ),
-            Self::Defined(path) => write!(f, "{}", path),
+            Self::Defined(path) => write!(f, "DefPath {} is already defined", path),
             Self::CantOwn(owner, ownee) => {
                 write!(f, "DefPath \"{:?}\" can't own {:?}", owner, ownee)
             }

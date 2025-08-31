@@ -25,6 +25,6 @@ impl std::fmt::Display for Operation {
     }
 }
 
-pub fn new_match(arms: Vec<MatchArm>) -> Operation {
-    Operation::Match(MatchOperands { arms })
+pub fn new_match(scrutinee: ValueId, arms: Vec<MatchArm>) -> Operation {
+    Operation::Match(MatchOperands { scrutinee, arms })
 }

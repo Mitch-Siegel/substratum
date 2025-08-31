@@ -10,5 +10,6 @@ pub struct MatchArm {
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct MatchOperands {
+    pub scrutinee: ValueId,
     pub arms: Vec<MatchArm>,
 }

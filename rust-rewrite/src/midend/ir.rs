@@ -219,8 +219,12 @@ impl IrLine {
     //
     // unlowered IR constructors
     //
-    pub fn new_match(loc: SourceLoc, arms: Vec<unlowered::operands::MatchArm>) -> Self {
-        Self::new_unlowered(loc, unlowered::new_match(arms))
+    pub fn new_match(
+        loc: SourceLoc,
+        scrutinee: ValueId,
+        arms: Vec<unlowered::operands::MatchArm>,
+    ) -> Self {
+        Self::new_unlowered(loc, unlowered::new_match(scrutinee, arms))
     }
 
     //

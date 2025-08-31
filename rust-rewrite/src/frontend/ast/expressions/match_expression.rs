@@ -9,16 +9,20 @@ pub enum Pattern {
 }
 
 impl<'a> ReturnFunctionWalk<'a, ()> for Pattern {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &'a mut FunctionWalkContext) -> () {
         match self {
             Self::LiteralPattern(_) => (),
             Self::IdentifierPattern(name) => {
-                context
+                let variable_def_path = context
                     .insert::<midend::symtab::Variable>(midend::symtab::Variable::new(
                         name.clone(),
                         None,
                     ))
                     .unwrap();
+                // TODO: examine if there's a better way to just declare variables and give them a
+                // ValueID in one go?
+                context.value_for_variable_or_insert(variable_def_path);
             }
             Self::TupleStructPattern(_struct_name, field_patterns) => {
                 for field in field_patterns.clone() {
@@ -47,6 +51,7 @@ impl Display for PatternTree {
 }
 
 impl CustomReturnWalk<&mut FunctionWalkContext, PatternTree> for PatternTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut FunctionWalkContext) -> PatternTree {
         self.pattern.clone().walk(context);
         self
@@ -74,6 +79,7 @@ impl Display for MatchArmTree {
     }
 }
 impl<'a> ReturnFunctionWalk<'a, (PatternTree, midend::ir::ValueId)> for MatchArmTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &'a mut FunctionWalkContext) -> (PatternTree, midend::ir::ValueId) {
         let pattern = self.pattern.walk(context);
         let arm_value = self.expression.walk(context);
@@ -108,6 +114,7 @@ impl Display for MatchExpressionTree {
 }
 
 impl ValueWalk for MatchExpressionTree {
+    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &mut midend::linearizer::FunctionWalkContext) -> midend::ir::ValueId {
         let match_loc = self.loc;
         context.create_switch(match_loc.clone()).unwrap();
@@ -120,6 +127,7 @@ impl ValueWalk for MatchExpressionTree {
         let mut arm_values = Vec::new();
 
         for arm in self.arms {
+            trace::warning!("start arm");
             let arm_label = context.create_switch_case().unwrap();
             let _pattern_loc = arm.loc.clone();
             let (pattern, result_value) = arm.walk(context);
@@ -130,12 +138,18 @@ impl ValueWalk for MatchExpressionTree {
                 arm_label,
                 result_value,
             });
+            trace::warning!("finish arm");
         }
 
         context
-            .append_statement_to_current_block(midend::ir::IrLine::new_match(match_loc, arm_values))
+            .append_statement_to_current_block(midend::ir::IrLine::new_match(
+                match_loc,
+                scrutinee_value,
+                arm_values,
+            ))
             .unwrap();
 
+        context.finish_switch().unwrap();
         result_value
     }
 }

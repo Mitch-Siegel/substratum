@@ -181,7 +181,10 @@ impl BlockManager {
         let branched_from = finished_branch.from_label;
         let false_block = match finished_branch.kind {
             BranchKind::ConditionalTrue(false_block) => Ok(false_block),
-            kind => Err(BranchError::WrongKind(kind)),
+            kind => Err(BranchError::WrongKind(
+                kind,
+                vec![BranchKind::ConditionalTrue(ir::BasicBlock::new(0))],
+            )),
         }?;
 
         match self.convergences.converge(current_block.label)? {
@@ -214,7 +217,10 @@ impl BlockManager {
         match self.open_branch_path.pop() {
             Some(branch) => match branch.kind {
                 BranchKind::Unconditional | BranchKind::ConditionalFalse => Ok(()),
-                kind => Err(BranchError::WrongKind(kind)),
+                kind => Err(BranchError::WrongKind(
+                    kind,
+                    vec![BranchKind::Unconditional, BranchKind::ConditionalFalse],
+                )),
             },
             None => Err(BranchError::NotBranched),
         }?;
@@ -339,7 +345,7 @@ impl BlockManager {
         let loop_top = match self.open_branch_path.pop() {
             Some(branch) => match branch.kind {
                 BranchKind::Loop => Ok(branch.from_label),
-                kind => Err(BranchError::WrongKind(kind)),
+                kind => Err(BranchError::WrongKind(kind, vec![BranchKind::Loop])),
             },
             None => return Err(BranchError::NotBranched),
         }?;
@@ -415,7 +421,10 @@ impl BlockManager {
                     ))
                 }
             }
-            kind => Err(BranchError::WrongKind(kind.clone())),
+            kind => Err(BranchError::WrongKind(
+                kind.clone(),
+                vec![BranchKind::Switch(0)],
+            )),
         }?;
 
         self.max_block += 1;
@@ -427,6 +436,11 @@ impl BlockManager {
         self.convergences
             .supplement(&[case_block.label], *after_switch_label)?;
 
+        self.open_branch_path.push(Branch::new(
+            switch_block.label,
+            BranchKind::SwitchCase(switch_block.label),
+        ));
+
         Ok(case_block)
     }
 
@@ -437,7 +451,10 @@ impl BlockManager {
     ) -> Result<usize, BranchError> {
         let switch_label = match self.pop_last_branch()?.kind {
             BranchKind::SwitchCase(switch_block) => Ok(switch_block),
-            kind => Err(BranchError::WrongKind(kind)),
+            kind => Err(BranchError::WrongKind(
+                kind,
+                vec![BranchKind::SwitchCase(0)],
+            )),
         }?;
 
         match self.convergences.converge(case_block.label)? {
@@ -445,7 +462,6 @@ impl BlockManager {
             ConvergenceResult::Done(block) => Err(BranchError::ConvergenceDone(block)),
         }?;
 
-        self.open_branch_path.pop().unwrap();
         Ok(switch_label)
     }
 
@@ -466,7 +482,7 @@ impl BlockManager {
                     ))
                 }
             }
-            kind => Err(BranchError::WrongKind(kind.clone())),
+            kind => Err(BranchError::WrongKind(kind, vec![BranchKind::Switch(0)])),
         }?;
 
         match self.convergences.converge(switch_block.label)? {
