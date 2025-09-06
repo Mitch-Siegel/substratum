@@ -185,7 +185,10 @@ impl FunctionWalkContext {
         self.definition_for_semantic_type(&value.type_.unwrap())
     }
 
-    pub fn finish_true_branch_switch_to_false(&mut self) -> Result<(), block_manager::BranchError> {
+    pub fn finish_true_branch_switch_to_false(
+        &mut self,
+        loc: SourceLoc,
+    ) -> Result<(), block_manager::BranchError> {
         trace::debug!("finish true branch, switch to false");
 
         let def_path = self.def_path();
@@ -197,7 +200,7 @@ impl FunctionWalkContext {
         } = self;
 
         let false_block = block_manager
-            .finish_true_branch_switch_to_false(self.current_block)
+            .finish_true_branch_switch_to_false(self.current_block, loc)
             .unwrap();
         self.replace_current_block(false_block);
         self.pop_current_scope()?;
@@ -206,7 +209,7 @@ impl FunctionWalkContext {
         Ok(())
     }
 
-    pub fn finish_branch(&mut self) -> Result<(), block_manager::BranchError> {
+    pub fn finish_branch(&mut self, loc: SourceLoc) -> Result<(), block_manager::BranchError> {
         let def_path = self.def_path();
         let FunctionWalkContext {
             block_manager,
@@ -215,7 +218,7 @@ impl FunctionWalkContext {
             ..
         } = self;
 
-        let after_branch = block_manager.finish_branch(self.current_block)?;
+        let after_branch = block_manager.finish_branch(self.current_block, loc)?;
         self.replace_current_block(after_branch);
         match self.pop_current_scope() {
             Ok(_) => Ok(()),
@@ -353,7 +356,7 @@ impl FunctionWalkContext {
         Ok(case_label)
     }
 
-    pub fn finish_switch_case(&mut self) -> Result<(), block_manager::BranchError> {
+    pub fn finish_switch_case(&mut self, loc: SourceLoc) -> Result<(), block_manager::BranchError> {
         let switch_label = {
             let def_path = self.def_path();
             let FunctionWalkContext {
@@ -363,15 +366,15 @@ impl FunctionWalkContext {
                 ..
             } = self;
 
-            block_manager.finish_switch_case(self.current_block)?
+            block_manager.finish_switch_case(self.current_block, loc)?
         };
 
         self.set_current_block(switch_label);
         self.pop_current_scope()
     }
 
-    pub fn finish_switch(&mut self) -> Result<(), block_manager::BranchError> {
-        let after_switch = self.block_manager.finish_switch(self.current_block)?;
+    pub fn finish_switch(&mut self, loc: SourceLoc) -> Result<(), block_manager::BranchError> {
+        let after_switch = self.block_manager.finish_switch(self.current_block, loc)?;
 
         self.pop_current_scope().unwrap();
 

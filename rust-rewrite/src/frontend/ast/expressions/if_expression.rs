@@ -70,7 +70,9 @@ impl ValueWalk for IfExpressionTree {
                 .unwrap();
         }
 
-        context.finish_true_branch_switch_to_false().unwrap();
+        context
+            .finish_true_branch_switch_to_false(condition_loc)
+            .unwrap();
 
         // handle branch linearization and assignment to the result value
         match self.false_block {
@@ -91,7 +93,7 @@ impl ValueWalk for IfExpressionTree {
             None => {}
         };
 
-        context.finish_branch().unwrap();
+        context.finish_branch(self.loc).unwrap();
 
         result_value
     }

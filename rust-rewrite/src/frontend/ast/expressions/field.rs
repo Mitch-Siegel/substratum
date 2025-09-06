@@ -45,7 +45,7 @@ impl<'a> ReturnFunctionWalk<'a, (midend::ir::ValueId, String)> for FieldExpressi
             _ => panic!("unknown type of field receiver",),
         };
 
-        let receiver_type = context.resolve_type_name(struct_name).expect(&format!(
+        let _receiver_type = context.resolve_type_name(struct_name).expect(&format!(
             "Error handling for failed lookups is unimplemented: {}.{}",
             struct_name, self.field
         ));

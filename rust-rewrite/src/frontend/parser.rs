@@ -3,21 +3,21 @@
 
 use std::collections::{BTreeSet, VecDeque};
 
-use crate::{frontend::ast, midend::ir};
-
-use super::{
-    ast::*,
-    lexer::{token::Token, *},
-    sourceloc::SourceLoc,
+use crate::{
+    frontend::{
+        ast::*,
+        lexer::{token::Token, LexError},
+        sourceloc::SourceLoc,
+        *,
+    },
+    trace,
 };
 
 mod errors;
 mod parse_rules;
 
-pub use parse_rules::module::ModuleResult;
-
-use crate::trace;
 pub use errors::ParseError;
+pub use parse_rules::module::ModuleResult;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,

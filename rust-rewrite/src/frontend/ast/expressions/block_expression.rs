@@ -23,7 +23,9 @@ impl Display for BlockExpressionTree {
 impl ValueWalk for BlockExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(mut self, context: &mut FunctionWalkContext) -> midend::ir::ValueId {
-        context.unconditional_branch_from_current(self.loc).unwrap();
+        context
+            .unconditional_branch_from_current(self.loc.clone())
+            .unwrap();
 
         let last_statement = self.statements.pop();
         for statement in self.statements {
@@ -35,7 +37,7 @@ impl ValueWalk for BlockExpressionTree {
             None => context.unit_value_id(),
         };
 
-        context.finish_branch().unwrap();
+        context.finish_branch(self.loc).unwrap();
 
         last_statement_value
     }

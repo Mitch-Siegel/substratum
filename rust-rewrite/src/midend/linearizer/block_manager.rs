@@ -105,7 +105,11 @@ impl BlockManager {
 
     // wrapper around calls to self.convergences.converge(from)
     // automatically appends an unconditional jump from 'from' to wherever it converges to
-    fn converge_with_jump(&mut self, from: usize) -> Result<ConvergenceResult, ConvergenceError> {
+    fn converge_with_jump(
+        &mut self,
+        from: usize,
+        loc: SourceLoc,
+    ) -> Result<ConvergenceResult, ConvergenceError> {
         let result = self.convergences.converge(from)?;
 
         let converge_to = match &result {
@@ -113,11 +117,8 @@ impl BlockManager {
             ConvergenceResult::NotDone(label) => *label,
         };
 
-        let convergence_jump = ir::IrLine::new_jump(
-            SourceLoc::none(),
-            converge_to,
-            ir::lowered::JumpCondition::Unconditional,
-        );
+        let convergence_jump =
+            ir::IrLine::new_jump(loc, converge_to, ir::lowered::JumpCondition::Unconditional);
         self.get_mut(&from)
             .unwrap()
             .statements
@@ -210,6 +211,7 @@ impl BlockManager {
     pub fn finish_true_branch_switch_to_false(
         &mut self,
         true_end_label: usize,
+        loc: SourceLoc,
     ) -> Result<usize, BranchError> {
         let finished_branch = self.pop_last_branch()?;
         let branched_from = finished_branch.from_label;
@@ -221,9 +223,9 @@ impl BlockManager {
             )),
         }?;
 
-        match self.converge_with_jump(true_end_label)? {
-            ConvergenceResult::NotDone(converge_to_label) => Ok(()),
-            ConvergenceResult::Done(_block) => Err(BranchError::MissingFalseBlock(branched_from)),
+        match self.converge_with_jump(true_end_label, loc)? {
+            ConvergenceResult::NotDone(_) => Ok(()),
+            ConvergenceResult::Done(_) => Err(BranchError::MissingFalseBlock(branched_from)),
         }?;
 
         self.open_branch_path
@@ -234,7 +236,11 @@ impl BlockManager {
         Ok(false_label)
     }
 
-    pub fn finish_branch(&mut self, branch_end_label: usize) -> Result<usize, BranchError> {
+    pub fn finish_branch(
+        &mut self,
+        branch_end_label: usize,
+        loc: SourceLoc,
+    ) -> Result<usize, BranchError> {
         let branched_from = self.last_branch()?.from_label;
         trace::debug!("finish branch from block {}", branched_from);
 
@@ -249,7 +255,7 @@ impl BlockManager {
             None => Err(BranchError::NotBranched),
         }?;
 
-        match self.converge_with_jump(branch_end_label)? {
+        match self.converge_with_jump(branch_end_label, loc)? {
             ConvergenceResult::Done(converge_to_block) => {
                 let converge_to_label = converge_to_block.label;
                 self.blocks.insert(converge_to_label, converge_to_block);
@@ -335,7 +341,7 @@ impl BlockManager {
     ) -> Result<usize, LoopError> {
         // wherever the current block ends up, it should have convergence as Done to loop_bottom
         // per create_loop() as each loop convergence is singly-associated
-        match self.converge_with_jump(loop_end_pre_bottom)? {
+        match self.converge_with_jump(loop_end_pre_bottom, loc)? {
             ConvergenceResult::Done(loop_bottom) => {
                 // transfer control flow from the current block to loop_bottom
                 let loop_bottom_label = loop_bottom.label;
@@ -369,7 +375,7 @@ impl BlockManager {
         }?;
 
         let loop_jump = ir::IrLine::new_jump(
-            loc,
+            loc.clone(),
             loop_top,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
@@ -379,7 +385,7 @@ impl BlockManager {
 
         // now that we are in loop_bottom, create_loop() should have a convergence for us
         // which will give us the after_loop block
-        match self.converge_with_jump(loop_bottom)? {
+        match self.converge_with_jump(loop_bottom, loc)? {
             ConvergenceResult::Done(after_loop) => {
                 // transition to after_loop, assuming that the correct IR was inserted to
                 // break out of the loop at some point within the loop or by
@@ -473,6 +479,7 @@ impl BlockManager {
     pub fn finish_switch_case(
         &mut self,
         last_block_label_in_case: usize,
+        loc: SourceLoc,
     ) -> Result<usize, BranchError> {
         let switch_label = match self.pop_last_branch()?.kind {
             BranchKind::SwitchCase(label) => Ok(label),
@@ -482,7 +489,7 @@ impl BlockManager {
             )),
         }?;
 
-        match self.converge_with_jump(last_block_label_in_case)? {
+        match self.converge_with_jump(last_block_label_in_case, loc)? {
             ConvergenceResult::NotDone(label) => Ok(()),
             ConvergenceResult::Done(block) => Err(BranchError::ConvergenceDone(block)),
         }?;
@@ -491,7 +498,11 @@ impl BlockManager {
     }
 
     // returns the label of the block after the switch
-    pub fn finish_switch(&mut self, switch_label: usize) -> Result<usize, BranchError> {
+    pub fn finish_switch(
+        &mut self,
+        switch_label: usize,
+        loc: SourceLoc,
+    ) -> Result<usize, BranchError> {
         let last_branch = self.pop_last_branch()?;
 
         match last_branch.kind {
@@ -508,7 +519,7 @@ impl BlockManager {
             kind => Err(BranchError::WrongKind(kind, vec![BranchKind::Switch(0)])),
         }?;
 
-        match self.converge_with_jump(switch_label)? {
+        match self.converge_with_jump(switch_label, loc)? {
             ConvergenceResult::Done(after_switch_block) => {
                 let after_switch_label = after_switch_block.label;
 
@@ -522,7 +533,7 @@ impl BlockManager {
     }
 
     pub fn finish(&mut self, before_final_block: usize) -> Result<(), BranchError> {
-        match self.converge_with_jump(before_final_block)? {
+        match self.converge_with_jump(before_final_block, SourceLoc::none())? {
             ConvergenceResult::Done(block) => {
                 self.blocks.insert(block.label, block);
                 Ok(())

@@ -1,3 +1,3 @@
-use crate::midend::{ir::*, *};
+use crate::midend::*;
 
-pub fn lower_symtab(symtab: &mut symtab::SymbolTable) {}
+pub fn lower_symtab(_symtab: &mut symtab::SymbolTable) {}

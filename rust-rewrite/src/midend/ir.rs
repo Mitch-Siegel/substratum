@@ -9,7 +9,7 @@ pub mod value;
 use std::collections::BTreeSet;
 use std::fmt::Display;
 
-use crate::{frontend::sourceloc::SourceLoc, midend::*, trace};
+use crate::{frontend::sourceloc::SourceLoc, midend::*};
 use serde::Serialize;
 
 pub use control_flow::ControlFlow;
@@ -201,7 +201,6 @@ impl IrLine {
     // general utility functions
     //
     pub fn read_value_ids(&self) -> Vec<ValueId> {
-        let mut value_ids: Vec<&ValueId> = Vec::new();
         match &self.operation {
             Operation::Lowered(lowered) => lowered.read_value_ids(),
             Operation::Unlowered(unlowered) => unlowered.read_value_ids(),

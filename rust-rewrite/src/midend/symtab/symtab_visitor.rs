@@ -1,4 +1,4 @@
-use crate::midend::{symtab::*, *};
+use crate::midend::symtab::*;
 
 pub struct MutBasicBlockVisitor<C> {
     data: C,

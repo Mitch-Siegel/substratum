@@ -1,5 +1,4 @@
 pub mod generic;
-pub use generic::TargetArchitecture;
 
 #[cfg(feature = "arch_RV64G")]
 pub mod riscv;

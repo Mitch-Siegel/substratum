@@ -49,7 +49,7 @@ impl ValueWalk for WhileExpressionTree {
             .unconditional_branch_from_current(self.loc.clone())
             .unwrap();
         self.body.walk(context);
-        context.finish_branch().unwrap();
+        context.finish_branch(self.loc.clone()).unwrap();
 
         context.finish_loop(self.loc.clone(), Vec::new()).unwrap();
 

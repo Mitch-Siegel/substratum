@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::midend::{ir, symtab::*, types::Type};
+use crate::midend::{ir, symtab::*};
 
 #[derive(Clone, Hash, PartialOrd, Ord, PartialEq, Eq, Serialize)]
 pub struct FunctionName {

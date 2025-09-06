@@ -131,7 +131,7 @@ impl ValueWalk for MatchExpressionTree {
             let arm_label = context.create_switch_case().unwrap();
             let _pattern_loc = arm.loc.clone();
             let (pattern, result_value) = arm.walk(context);
-            context.finish_switch_case().unwrap();
+            context.finish_switch_case(match_loc.clone()).unwrap();
 
             arm_values.push(midend::ir::unlowered::operands::MatchArm {
                 pattern,
@@ -143,7 +143,7 @@ impl ValueWalk for MatchExpressionTree {
 
         context
             .append_statement_to_current_block(midend::ir::IrLine::new_match(
-                match_loc,
+                match_loc.clone(),
                 scrutinee_value,
                 arm_values,
             ))
@@ -151,7 +151,7 @@ impl ValueWalk for MatchExpressionTree {
 
         // FIXME: (?) Convergence currently exists from the switch block itself to the after-switch
         // block, resulting in an unreachable jump instruction after the unlowered match IR.
-        context.finish_switch().unwrap();
+        context.finish_switch(match_loc).unwrap();
         result_value
     }
 }
