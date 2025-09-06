@@ -149,6 +149,8 @@ impl ValueWalk for MatchExpressionTree {
             ))
             .unwrap();
 
+        // FIXME: (?) Convergence currently exists from the switch block itself to the after-switch
+        // block, resulting in an unreachable jump instruction after the unlowered match IR.
         context.finish_switch().unwrap();
         result_value
     }

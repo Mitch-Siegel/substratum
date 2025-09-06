@@ -37,6 +37,7 @@ impl BlockConvergences {
         }
     }
 
+    // given an existing point to which control converges, add another path it converges from
     pub fn supplement(&mut self, froms: &[usize], to_label: usize) -> Result<(), ConvergenceError> {
         trace::trace!("supplement convergence to {} with {:?}", to_label, froms);
         if !self.convergence_blocks.contains_key(&to_label) {
