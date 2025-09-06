@@ -520,6 +520,34 @@ impl BlockManager {
             }
         }
     }
+
+    pub fn finish(&mut self, before_final_block: usize) -> Result<(), BranchError> {
+        match self.convergences.converge(before_final_block)? {
+            ConvergenceResult::Done(block) => {
+                self.blocks.insert(block.label, block);
+                Ok(())
+            }
+            ConvergenceResult::NotDone(e) => Err(BranchError::NotDone(e)),
+        }
+    }
+}
+
+impl TryInto<ir::ControlFlow> for BlockManager {
+    type Error = ();
+    fn try_into(self) -> Result<ir::ControlFlow, Self::Error> {
+        if self.open_branch_path.len() > 0 {
+            trace::error!("Failing due to open branch path length > 0");
+            return Err(());
+        }
+
+        if !self.convergences.is_empty() {
+            trace::error!("Failing due to unresolved convergences");
+            return Err(());
+        }
+
+        let cf = ir::ControlFlow::from(self.blocks);
+        Ok(cf)
+    }
 }
 
 #[cfg(test)]

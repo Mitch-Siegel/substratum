@@ -435,27 +435,43 @@ impl DefContext for FunctionWalkContext {
     fn generics_mut(&mut self) -> &mut GenericParamsContext {
         &mut self.generics
     }
+}
 
+impl FunctionWalkContext {
     fn take(
-        self,
+        mut self,
     ) -> Result<
         (
             Box<symtab::SymbolTable>,
             symtab::DefPath,
             GenericParamsContext,
+            ir::ControlFlow,
         ),
         (),
     > {
         assert!(self.full_def_path.len() == self.global_def_path.len());
-        // TODO: manage control flow, etc...
-        Ok((self.symtab, self.global_def_path, self.generics))
+
+        let cf: ir::ControlFlow = self.block_manager.try_into()?;
+
+        Ok((self.symtab, self.global_def_path, self.generics, cf))
     }
 }
 
 impl Into<BasicDefContext> for FunctionWalkContext {
-    fn into(self) -> BasicDefContext {
-        let (symtab, mut path, generics) = self.take().unwrap();
+    fn into(mut self) -> BasicDefContext {
+        self.block_manager.finish(self.current_block).unwrap();
+
+        let (mut symtab, mut path, generics, cf) = self.take().unwrap();
+        let walked_function = symtab.lookup_at_mut::<symtab::Function>(&path).unwrap();
+        if let Some(existing_cf) = walked_function.control_flow.replace(cf) {
+            panic!(
+                "Control flow already exists for function {}",
+                walked_function.name()
+            );
+        }
+
         assert!(matches!(path.pop().unwrap(), DefPathComponent::Function(_)));
+
         BasicDefContext::with_path(symtab, path, generics)
     }
 }

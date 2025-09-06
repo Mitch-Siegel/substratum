@@ -95,6 +95,10 @@ impl BasicDefContext {
             generics: generics,
         }
     }
+
+    pub fn take(self) -> Result<(Box<SymbolTable>, DefPath, GenericParamsContext), ()> {
+        Ok((self.symtab, self.definition_path, self.generics))
+    }
 }
 
 pub trait DefContext: std::fmt::Debug {
@@ -294,8 +298,6 @@ pub trait DefContext: std::fmt::Debug {
 
         None
     }
-
-    fn take(self) -> Result<(Box<SymbolTable>, DefPath, GenericParamsContext), ()>;
 }
 
 impl DefContext for BasicDefContext {
@@ -321,9 +323,5 @@ impl DefContext for BasicDefContext {
 
     fn generics_mut(&mut self) -> &mut GenericParamsContext {
         &mut self.generics
-    }
-
-    fn take(self) -> Result<(Box<SymbolTable>, DefPath, GenericParamsContext), ()> {
-        Ok((self.symtab, self.definition_path, self.generics))
     }
 }

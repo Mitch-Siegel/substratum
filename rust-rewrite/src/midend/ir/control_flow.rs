@@ -1,11 +1,11 @@
 use crate::{map_ooo_iter::*, midend::ir::*};
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, VecDeque};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ControlFlow {
-    blocks: BTreeMap<usize, BasicBlock>,
-    successors: BTreeMap<usize, BTreeSet<usize>>,
-    predecessors: BTreeMap<usize, BTreeSet<usize>>,
+    blocks: HashMap<usize, BasicBlock>,
+    successors: HashMap<usize, BTreeSet<usize>>,
+    predecessors: HashMap<usize, BTreeSet<usize>>,
 }
 
 pub struct ControlFlowIntoIter<T> {
@@ -59,28 +59,28 @@ impl ControlFlow {
         postorder_stack
     }
 
-    pub fn blocks_postorder(&self) -> BTreeMapOOOIter<usize, ir::BasicBlock> {
+    pub fn blocks_postorder(&self) -> HashMapOOOIter<usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
-        BTreeMapOOOIter::new(&self.blocks, rpo_stack.into_iter().rev())
+        HashMapOOOIter::new(&self.blocks, rpo_stack.into_iter().rev())
     }
 
-    pub fn blocks_postorder_mut(&mut self) -> BTreeMapOOOIterMut<usize, ir::BasicBlock> {
+    pub fn blocks_postorder_mut(&mut self) -> HashMapOOOIterMut<usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
-        BTreeMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter().rev())
+        HashMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter().rev())
     }
 
-    pub fn blocks_reverse_postorder(&self) -> BTreeMapOOOIter<usize, ir::BasicBlock> {
+    pub fn blocks_reverse_postorder(&self) -> HashMapOOOIter<usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
-        BTreeMapOOOIter::new(&self.blocks, rpo_stack.into_iter())
+        HashMapOOOIter::new(&self.blocks, rpo_stack.into_iter())
     }
 
-    pub fn blocks_reverse_postorder_mut(&mut self) -> BTreeMapOOOIterMut<usize, ir::BasicBlock> {
+    pub fn blocks_reverse_postorder_mut(&mut self) -> HashMapOOOIterMut<usize, ir::BasicBlock> {
         let rpo_stack = self.generate_reverse_postorder_stack();
 
-        BTreeMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter())
+        HashMapOOOIterMut::new(&mut self.blocks, rpo_stack.into_iter())
     }
 
     pub fn graphviz_string(&self) -> String {
@@ -106,10 +106,10 @@ impl ControlFlow {
     }
 }
 
-impl From<BTreeMap<usize, BasicBlock>> for ControlFlow {
-    fn from(blocks: BTreeMap<usize, BasicBlock>) -> Self {
-        let mut successors = BTreeMap::<usize, BTreeSet<usize>>::new();
-        let mut predecessors = BTreeMap::<usize, BTreeSet<usize>>::new();
+impl From<HashMap<usize, BasicBlock>> for ControlFlow {
+    fn from(blocks: HashMap<usize, BasicBlock>) -> Self {
+        let mut successors = HashMap::<usize, BTreeSet<usize>>::new();
+        let mut predecessors = HashMap::<usize, BTreeSet<usize>>::new();
 
         for label in blocks.keys() {
             predecessors.entry(*label).or_default();
@@ -152,7 +152,7 @@ impl From<BTreeMap<usize, BasicBlock>> for ControlFlow {
 
 impl<'a> IntoIterator for &'a ControlFlow {
     type Item = &'a BasicBlock;
-    type IntoIter = std::collections::btree_map::Values<'a, usize, BasicBlock>;
+    type IntoIter = std::collections::hash_map::Values<'a, usize, BasicBlock>;
     fn into_iter(self) -> Self::IntoIter {
         self.blocks.values()
     }
@@ -160,7 +160,7 @@ impl<'a> IntoIterator for &'a ControlFlow {
 
 impl<'a> IntoIterator for &'a mut ControlFlow {
     type Item = &'a mut BasicBlock;
-    type IntoIter = std::collections::btree_map::ValuesMut<'a, usize, BasicBlock>;
+    type IntoIter = std::collections::hash_map::ValuesMut<'a, usize, BasicBlock>;
     fn into_iter(self) -> Self::IntoIter {
         self.blocks.values_mut()
     }
@@ -169,7 +169,7 @@ impl<'a> IntoIterator for &'a mut ControlFlow {
 #[cfg(test)]
 mod tests {
     use crate::midend::ir::*;
-    use std::collections::{BTreeMap, BTreeSet};
+    use std::collections::{BTreeSet, HashMap};
 
     fn test_control_flow() -> ControlFlow {
         let mut b0 = ir::BasicBlock::new(0);
@@ -205,7 +205,7 @@ mod tests {
             blocks
                 .into_iter()
                 .map(|block| (block.label, block))
-                .collect::<BTreeMap<_, _>>(),
+                .collect::<HashMap<_, _>>(),
         )
     }
 
