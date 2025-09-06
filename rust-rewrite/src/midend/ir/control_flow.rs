@@ -30,6 +30,10 @@ impl ControlFlow {
         self.predecessors.get(label)
     }
 
+    pub fn blocks(&self) -> impl Iterator<Item = (&usize, &BasicBlock)> {
+        self.blocks.iter()
+    }
+
     fn generate_reverse_postorder_stack(&self) -> Vec<usize> {
         let mut postorder_stack = Vec::<usize>::new();
         postorder_stack.clear();
@@ -38,7 +42,6 @@ impl ControlFlow {
         let mut dfs_stack = Vec::<usize>::new();
         dfs_stack.push(0);
 
-        // go until done
         while dfs_stack.len() > 0 {
             match dfs_stack.pop() {
                 Some(label) => {
@@ -86,7 +89,7 @@ impl ControlFlow {
     pub fn graphviz_string(&self) -> String {
         let mut graphviz_string = String::from("digraph {\n");
 
-        for (label, block) in self.blocks_postorder() {
+        for (label, block) in self.blocks() {
             let loc_none = SourceLoc::none();
             let block_loc = block
                 .into_iter()
@@ -94,7 +97,13 @@ impl ControlFlow {
                 .map(|statement| &statement.loc)
                 .next()
                 .unwrap_or(&loc_none);
-            graphviz_string += &format!("{}[label=\"{}at{}\"];\n", label, label, block_loc);
+
+            graphviz_string += &format!("{}[label=\"{}at{}\n", label, label, block_loc);
+            for statement in block {
+                graphviz_string += &format!("{}\n", statement);
+            }
+            graphviz_string += "\"];\n";
+
             for successor in self.successors(&label).unwrap() {
                 graphviz_string += &format!("{}->{};", label, *successor);
             }
@@ -135,6 +144,18 @@ impl From<HashMap<usize, BasicBlock>> for ControlFlow {
                                 "Invalid jump target to nonexistent block {}",
                                 jump.destination_block
                             );
+                        }
+                    }
+                    Operation::Unlowered(unlowered::Operation::Match(m)) => {
+                        for arm in &m.arms {
+                            successors
+                                .get_mut(&from_block.label)
+                                .unwrap()
+                                .insert(arm.arm_label);
+                            predecessors
+                                .get_mut(&arm.arm_label)
+                                .unwrap()
+                                .insert(from_block.label);
                         }
                     }
                     _ => (),

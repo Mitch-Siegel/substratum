@@ -12,8 +12,16 @@ pub struct MutSymtabVisitor<C> {
 }
 
 impl<C> MutSymtabVisitor<C> {
-    pub fn new(data: C) -> Self {
-        Self { data }
+    pub fn visit(
+        symtab: &mut SymbolTable,
+        on_symbol: fn(&DefPath, &mut SymbolDef, &mut C),
+        mut data: C,
+    ) -> C {
+        for (path, def) in symtab.defs_mut() {
+            on_symbol(path, def, &mut data);
+        }
+
+        data
     }
 }
 
@@ -22,7 +30,15 @@ pub struct SymtabVisitor<'a, C> {
 }
 
 impl<'a, C> SymtabVisitor<'a, C> {
-    pub fn new(data: &'a C) -> Self {
-        Self { data }
+    pub fn visit(
+        symtab: &SymbolTable,
+        on_symbol: fn(&DefPath, &SymbolDef, &mut C),
+        mut data: C,
+    ) -> C {
+        for (path, def) in symtab.defs() {
+            on_symbol(path, def, &mut data);
+        }
+
+        data
     }
 }

@@ -9,8 +9,7 @@ pub mod value;
 use std::collections::BTreeSet;
 use std::fmt::Display;
 
-use crate::frontend::sourceloc::SourceLoc;
-use crate::midend::{ir, symtab};
+use crate::{frontend::sourceloc::SourceLoc, midend::*, trace};
 use serde::Serialize;
 
 pub use control_flow::ControlFlow;

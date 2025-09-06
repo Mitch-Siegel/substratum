@@ -96,6 +96,14 @@ impl SymbolTable {
         }
     }
 
+    pub fn defs(&self) -> impl Iterator<Item = (&DefPath, &SymbolDef)> {
+        self.defs.iter()
+    }
+
+    pub fn defs_mut(&mut self) -> impl Iterator<Item = (&DefPath, &mut SymbolDef)> {
+        self.defs.iter_mut()
+    }
+
     fn resolve_use_statements_at_path<S>(
         &self,
         def_path: &DefPath,
