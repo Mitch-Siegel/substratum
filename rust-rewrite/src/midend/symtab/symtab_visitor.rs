@@ -1,4 +1,11 @@
-//use crate::midend::{symtab::*, types};
+use crate::midend::{symtab::*, *};
+
+pub struct MutBasicBlockVisitor<C> {
+    data: C,
+    on_block: fn(&mut ir::BasicBlock, &mut C),
+}
+
+impl<C> MutBasicBlockVisitor<C> {}
 
 pub struct MutSymtabVisitor<C> {
     data: C,

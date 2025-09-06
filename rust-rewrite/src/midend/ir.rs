@@ -1,5 +1,6 @@
 pub mod control_flow;
 pub mod lowered;
+pub mod lowering;
 #[cfg(test)]
 mod tests;
 pub mod unlowered;
@@ -56,36 +57,6 @@ impl BasicBlock {
             label,
             arguments: BTreeSet::new(),
         }
-    }
-}
-
-impl<'a> From<symtab::symbol::DefResolver<'a>> for &'a BasicBlock {
-    fn from(resolver: symtab::symbol::DefResolver<'a>) -> Self {
-        match resolver.to_resolve {
-            symtab::symbol::SymbolDef::BasicBlock(block) => block,
-            symbol => panic!("Unexpected symbol seen for basic block: {}", symbol),
-        }
-    }
-}
-impl<'a> From<symtab::symbol::MutDefResolver<'a>> for &'a mut BasicBlock {
-    fn from(resolver: symtab::symbol::MutDefResolver<'a>) -> Self {
-        match resolver.to_resolve {
-            symtab::symbol::SymbolDef::BasicBlock(block) => block,
-            symbol => panic!("Unexpected symbol seen for basic block: {}", symbol),
-        }
-    }
-}
-
-impl<'a> Into<symtab::symbol::SymbolDef> for symtab::symbol::DefGenerator<'a, BasicBlock> {
-    fn into(self) -> symtab::symbol::SymbolDef {
-        symtab::symbol::SymbolDef::BasicBlock(self.to_generate_def_for)
-    }
-}
-
-impl<'a> symtab::symbol::Symbol for BasicBlock {
-    type SymbolKey = usize;
-    fn symbol_key(&self) -> &Self::SymbolKey {
-        &self.label
     }
 }
 

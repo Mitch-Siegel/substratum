@@ -10,7 +10,6 @@ pub enum DefPathComponent {
     Scope(<Scope as Symbol>::SymbolKey),
     Import(<Import as Symbol>::SymbolKey),
     Variable(<Variable as Symbol>::SymbolKey),
-    BasicBlock(<ir::BasicBlock as Symbol>::SymbolKey),
 }
 
 impl DefPathComponent {
@@ -32,7 +31,6 @@ impl DefPathComponent {
             (Self::Function(_), Self::Scope(_)) => true,
             (Self::Function(_), Self::Import(_)) => true,
             (Self::Function(_), Self::Variable(_)) => true,
-            (Self::Function(_), Self::BasicBlock(_)) => true,
             (Self::Scope(_), Self::Scope(_)) => true,
             (Self::Scope(_), Self::Variable(_)) => true,
             (_, _) => false,
@@ -49,7 +47,6 @@ impl DefPathComponent {
             Self::Scope(_) => "scope",
             Self::Import(_) => "import",
             Self::Variable(_) => "variable",
-            Self::BasicBlock(_) => "basic block",
         }
     }
 }
@@ -89,11 +86,6 @@ impl<'a> From<<Variable as Symbol>::SymbolKey> for DefPathComponent {
         Self::Variable(variable_key)
     }
 }
-impl<'a> From<<ir::BasicBlock as Symbol>::SymbolKey> for DefPathComponent {
-    fn from(block_key: <ir::BasicBlock as Symbol>::SymbolKey) -> Self {
-        Self::BasicBlock(block_key)
-    }
-}
 
 impl<'a> std::fmt::Display for DefPathComponent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -106,7 +98,6 @@ impl<'a> std::fmt::Display for DefPathComponent {
             Self::Scope(scope) => write!(f, "{}", scope),
             Self::Import(import) => write!(f, "{}", import),
             Self::Variable(variable) => write!(f, "{}", variable),
-            Self::BasicBlock(block) => write!(f, "{}", block),
         }
     }
 }
@@ -123,7 +114,6 @@ impl<'a> std::fmt::Debug for DefPathComponent {
             Self::Scope(scope) => write!(f, "{:?}", scope),
             Self::Import(import) => write!(f, "{:?}", import),
             Self::Variable(variable) => write!(f, "{:?}", variable),
-            Self::BasicBlock(block) => write!(f, "{:?}", block),
         }?;
         write!(f, ")")
     }

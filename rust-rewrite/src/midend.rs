@@ -12,7 +12,9 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
     tracing::debug!("Linearize");
-    let symtab = linearizer::linearize(modules);
+    let mut symtab = linearizer::linearize(modules);
+
+    ir::lowering::lower_symtab(&mut symtab);
 
     //tracing::debug!("collapse scopes");
     //symtab.collapse_scopes();
