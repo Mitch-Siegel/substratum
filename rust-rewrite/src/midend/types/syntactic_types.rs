@@ -21,10 +21,9 @@ pub enum Syntactic {
 
 impl Syntactic {
     pub fn resolve(&self, context: &impl linearizer::DefContext) -> Option<Semantic> {
-        let (definition, path) = match context.lookup_with_path::<symtab::TypeDefinition>(self) {
-            Ok((def, path)) => (def, path),
-            Err(_) => return None,
-        };
+        let (_def, path) = context
+            .lookup_with_path::<symtab::TypeDefinition>(self)
+            .ok()?;
 
         context.symtab().types.get_semantic(&path)
     }

@@ -16,10 +16,10 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
 
     let _ = symtab::symtab_visitor::SymtabVisitor::visit(
         &symtab,
-        |path, symbol, _| match symbol {
+        |_path, symbol, _| match symbol {
             symtab::SymbolDef::Function(f) => {
                 if let Some(cf) = &f.control_flow {
-                    for (label, block) in cf.blocks() {
+                    for (label, _block) in cf.blocks() {
                         println!("Block {}", label);
                     }
                     {

@@ -490,7 +490,7 @@ impl BlockManager {
         }?;
 
         match self.converge_with_jump(last_block_label_in_case, loc)? {
-            ConvergenceResult::NotDone(label) => Ok(()),
+            ConvergenceResult::NotDone(_) => Ok(()),
             ConvergenceResult::Done(block) => Err(BranchError::ConvergenceDone(block)),
         }?;
 
