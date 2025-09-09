@@ -55,6 +55,20 @@ impl Function {
     pub fn name(&self) -> &str {
         self.prototype.name.as_str()
     }
+
+    pub fn is_fully_lowered(&self) -> bool {
+        if let Some(cf) = &self.control_flow {
+            for block in cf {
+                for statement in block {
+                    match statement.operation {
+                        ir::Operation::Lowered(_) => (),
+                        ir::Operation::Unlowered(_) => return false,
+                    }
+                }
+            }
+        }
+        true
+    }
 }
 
 impl<'a> From<DefResolver<'a>> for &'a Function {

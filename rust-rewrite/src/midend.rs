@@ -41,6 +41,7 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
     );
 
     ir::lowering::lower_symtab(&mut symtab);
+    ir::lowering::assert_lowered(&symtab);
 
     //tracing::debug!("collapse scopes");
     //symtab.collapse_scopes();

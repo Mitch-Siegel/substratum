@@ -43,7 +43,7 @@ impl Display for Syntactic {
             Self::I64 => write!(f, "i64"),
             Self::GenericParam(name) => write!(f, "{}", name),
             Self::_Self => write!(f, "self"),
-            Self::Named(name) => write!(f, "user-defined type {}", name),
+            Self::Named(name) => write!(f, "{}", name),
             Self::Reference(mutability, to) => write!(f, "&{} {}", mutability, to),
             Self::Pointer(mutability, to) => write!(f, "*{} {}", mutability, to),
             Self::Tuple(elements) => {
