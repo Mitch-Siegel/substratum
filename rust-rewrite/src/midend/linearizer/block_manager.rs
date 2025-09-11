@@ -22,6 +22,9 @@ pub enum BranchKind {
     SwitchCase(usize), // within a switch and inside one of its cases - owns the
     // label of the switch block
     Loop,
+    BlockSplit(Vec<ir::IrLine>), // a block has been split into two. The statements after the split
+                                 // (not including the statement which was split on) are owned by
+                                 // the BlockSplit.
 }
 
 #[derive(Debug)]
@@ -55,7 +58,6 @@ pub struct BlockManager {
     branch_points: HashMap<usize, (usize, Option<usize>)>,
     convergences: BlockConvergences,
     max_block: usize,
-    temp_num: usize,
     // branch path of basic block labels targeted by the branches which got us to current_block
     open_branch_path: Vec<Branch>,
     blocks: HashMap<usize, ir::BasicBlock>,
@@ -77,12 +79,32 @@ impl BlockManager {
                 branch_points: HashMap::new(),
                 convergences,
                 max_block: 1,
-                temp_num: 0,
                 open_branch_path: Vec::new(),
                 blocks: vec![(start_block.label, start_block)].into_iter().collect(),
             },
             start_label,
         )
+    }
+
+    pub fn with_existing_blocks(mut from_blocks: impl Iterator<Item = ir::BasicBlock>) -> Self {
+        let mut max_block = 0;
+        let mut blocks = HashMap::<usize, ir::BasicBlock>::new();
+        while let Some(block) = from_blocks.next() {
+            max_block = max_block.max(block.label);
+
+            match blocks.insert(block.label, block) {
+                Some(existing) => panic!("Block label {} duplicated", existing.label),
+                None => (),
+            }
+        }
+
+        Self {
+            branch_points: HashMap::new(),
+            convergences: BlockConvergences::new(),
+            max_block,
+            open_branch_path: Vec::new(),
+            blocks,
+        }
     }
 
     pub fn get_mut(&mut self, label: &usize) -> Option<&mut ir::BasicBlock> {
@@ -543,6 +565,48 @@ impl BlockManager {
     }
 }
 
+/// implementation of manipulation functions such as splitting
+impl BlockManager {
+    pub fn split_block_at_statement(
+        &mut self,
+        block: usize,
+        stmt_idx: usize,
+    ) -> Result<(usize, ir::IrLine), BranchError> {
+        let split_block = self.get_mut(&block).unwrap();
+        let mut after_split = split_block.split_at(stmt_idx);
+        let at_split = after_split.remove(0);
+
+        self.open_branch_path
+            .push(Branch::new(block, BranchKind::BlockSplit(after_split)));
+
+        let split_to_block = self
+            .create_unconditional_branch(block, at_split.loc.clone())
+            .unwrap();
+        Ok((split_to_block, at_split))
+    }
+
+    pub fn finish_block_split(
+        &mut self,
+        split_end_label: usize,
+        loc: SourceLoc,
+    ) -> Result<usize, BranchError> {
+        let after_split_label = self.finish_branch(split_end_label, loc).unwrap();
+
+        let last_branch = self.pop_last_branch()?;
+        match last_branch.kind {
+            BranchKind::BlockSplit(mut after_split_stmts) => {
+                let after_split_block = self.get_mut(&after_split_label).unwrap();
+                after_split_block.statements.append(&mut after_split_stmts);
+                Ok(after_split_label)
+            }
+            wrong => Err(BranchError::WrongKind(
+                wrong,
+                vec![BranchKind::BlockSplit(Vec::new())],
+            )),
+        }
+    }
+}
+
 impl TryInto<ir::ControlFlow> for BlockManager {
     type Error = ();
     fn try_into(self) -> Result<ir::ControlFlow, Self::Error> {
@@ -558,6 +622,12 @@ impl TryInto<ir::ControlFlow> for BlockManager {
 
         let cf = ir::ControlFlow::from(self.blocks);
         Ok(cf)
+    }
+}
+
+impl From<ir::ControlFlow> for BlockManager {
+    fn from(cf: ir::ControlFlow) -> Self {
+        Self::with_existing_blocks(cf.into_iter().map(|(_, block)| block))
     }
 }
 

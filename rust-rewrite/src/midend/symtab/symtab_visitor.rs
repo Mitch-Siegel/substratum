@@ -29,8 +29,15 @@ pub struct SymtabVisitor<'a, C> {
     data: &'a C,
 }
 
-impl<'a, C> SymtabVisitor<'a, C> {
-    pub fn visit(
+impl<'a, C> SymtabVisitor<'a, C>
+where
+    C: Default,
+{
+    pub fn visit(symtab: &SymbolTable, on_symbol: fn(&DefPath, &SymbolDef, &mut C)) -> C {
+        Self::visit_with_starting_data(symtab, on_symbol, C::default())
+    }
+
+    pub fn visit_with_starting_data(
         symtab: &SymbolTable,
         on_symbol: fn(&DefPath, &SymbolDef, &mut C),
         mut data: C,

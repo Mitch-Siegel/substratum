@@ -98,7 +98,7 @@ impl ControlFlow {
                 .next()
                 .unwrap_or(&loc_none);
 
-            graphviz_string += &format!("{}[label=\"{}at{}\n", label, label, block_loc);
+            graphviz_string += &format!("{}[label=\"{}\n{}\n", label, label, block_loc);
             for statement in block {
                 graphviz_string += &format!("{}\n", statement);
             }
@@ -168,6 +168,14 @@ impl From<HashMap<usize, BasicBlock>> for ControlFlow {
             successors,
             predecessors,
         }
+    }
+}
+
+impl IntoIterator for ControlFlow {
+    type Item = (usize, BasicBlock);
+    type IntoIter = std::collections::hash_map::IntoIter<usize, BasicBlock>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.blocks.into_iter()
     }
 }
 

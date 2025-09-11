@@ -57,6 +57,20 @@ impl BasicBlock {
             arguments: BTreeSet::new(),
         }
     }
+
+    pub fn with_statements(label: usize, statements: Vec<ir::IrLine>) -> Self {
+        Self {
+            label,
+            statements,
+            arguments: BTreeSet::new(),
+        }
+    }
+
+    /// split the block at statement with specified index, returning vec of that statement and any
+    /// following it
+    pub fn split_at(&mut self, idx: usize) -> Vec<IrLine> {
+        self.statements.split_off(idx)
+    }
 }
 
 impl<'a> IntoIterator for &'a BasicBlock {
@@ -82,6 +96,14 @@ impl IrLine {
             operation: operation,
         }
     }
+
+    pub fn is_lowered(&self) -> bool {
+        match self.operation {
+            Operation::Lowered(_) => true,
+            Operation::Unlowered(_) => false,
+        }
+    }
+
     fn new_lowered(loc: SourceLoc, operation: lowered::Operation) -> Self {
         IrLine {
             loc: loc,

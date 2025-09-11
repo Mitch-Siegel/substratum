@@ -56,7 +56,7 @@ impl Function {
         self.prototype.name.as_str()
     }
 
-    pub fn is_fully_lowered(&self) -> bool {
+    pub fn is_lowered(&self) -> bool {
         if let Some(cf) = &self.control_flow {
             for block in cf {
                 for statement in block {
