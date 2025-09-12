@@ -15,7 +15,6 @@ pub struct FunctionWalkContext {
     // definition path from the root of the symbol table to wherever we are in the function
     full_def_path: symtab::DefPath,
     generics: GenericParamsContext,
-    self_type: Option<types::Syntactic>,
     block_manager: BlockManager,
     values: ir::ValueInterner,
     // key for DefPathComponent::BasicBlock from self.def_path
@@ -64,7 +63,6 @@ impl FunctionWalkContext {
             generics,
             global_def_path: my_def_path.clone(),
             full_def_path: my_def_path,
-            self_type,
             block_manager: block_manager,
             values,
             current_block: start_block_label,
@@ -174,14 +172,6 @@ impl FunctionWalkContext {
         self.values.id_for_constant(constant)
     }
 
-    pub fn type_definition_for_value_id(
-        &self,
-        id: &ir::ValueId,
-    ) -> Option<&symtab::TypeDefinition> {
-        let value = self.value_for_id(id).unwrap().clone();
-        self.definition_for_semantic_type(&value.type_.unwrap())
-    }
-
     pub fn finish_true_branch_switch_to_false(
         &mut self,
         loc: SourceLoc,
@@ -248,7 +238,7 @@ impl FunctionWalkContext {
         Ok(())
     }
 
-    pub fn create_loop(&mut self, loc: SourceLoc) -> Result<usize, block_manager::LoopError> {
+    pub fn create_loop(&mut self, loc: SourceLoc) -> Result<usize, block_manager::BranchError> {
         trace::debug!("create loop");
 
         let (loop_top_block, after_loop_label) = self
@@ -264,7 +254,7 @@ impl FunctionWalkContext {
         &mut self,
         loc: SourceLoc,
         loop_bottom_actions: Vec<ir::IrLine>,
-    ) -> Result<(), block_manager::LoopError> {
+    ) -> Result<(), block_manager::BranchError> {
         let loop_bottom = self
             .block_manager
             .finish_loop_1(self.current_block, loc.clone())
@@ -411,6 +401,6 @@ impl Into<BasicDefContext> for FunctionWalkContext {
 
         assert!(matches!(path.pop().unwrap(), DefPathComponent::Function(_)));
 
-        BasicDefContext::with_path(symtab, path, generics)
+        BasicDefContext::new(symtab, path, generics)
     }
 }

@@ -7,10 +7,11 @@ mod def_path;
 mod errors;
 pub mod intrinsics;
 pub mod symbol;
-pub mod symtab_visitor;
+pub mod visitor;
 
 pub use def_path::*;
 pub use symbol::*;
+pub use visitor::*;
 //pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
 
 pub struct SymbolTable {
@@ -108,7 +109,7 @@ impl SymbolTable {
         &self,
         def_path: &DefPath,
         key: &<S as Symbol>::SymbolKey,
-    ) -> Result<&S, SymbolError>
+    ) -> Result<(&S, DefPath), SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
@@ -116,11 +117,22 @@ impl SymbolTable {
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
         let key_component = Into::<DefPathComponent>::into(key.clone());
-        for child_path in self.children.get(def_path).unwrap() {
+        let children = match self.children.get(def_path) {
+            Some(c) => Ok(c),
+            None => Err(SymbolError::Undefined(
+                def_path.clone(),
+                key_component.clone(),
+            )),
+        }?;
+
+        for child_path in children {
             if let DefPathComponent::Import(_) = child_path.last() {
                 if let SymbolDef::Import(import) = self.defs.get(child_path).unwrap() {
                     if *import.qualified_path.last() == key_component {
-                        return Ok(self.lookup_at::<S>(&import.qualified_path).unwrap());
+                        return Ok((
+                            self.lookup_at::<S>(&import.qualified_path).unwrap(),
+                            import.qualified_path.clone(),
+                        ));
                     }
                 }
             }
@@ -140,23 +152,10 @@ impl SymbolTable {
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
-        let mut scan_def_path = def_path.clone();
-        let key_component = Into::<DefPathComponent>::into(key.clone());
-        while !scan_def_path.is_empty() {
-            if scan_def_path.can_own(&key_component) {
-                let component_def_path = scan_def_path
-                    .clone()
-                    .with_component(key_component.clone())
-                    .unwrap();
-                match self.defs.get(&component_def_path) {
-                    Some(def) => return Ok(<&S>::from(DefResolver::new(&self.types, def))),
-                    None => (),
-                }
-            }
-            scan_def_path.pop();
+        match self.lookup_with_path(def_path, key) {
+            Ok((symbol, _)) => Ok(symbol),
+            Err(e) => Err(e),
         }
-
-        Err(SymbolError::Undefined(def_path.clone(), key_component))
     }
 
     pub fn lookup_with_path<S>(
@@ -188,15 +187,14 @@ impl SymbolTable {
                     None => (),
                 }
             }
+            match self.resolve_use_statements_at_path(&scan_def_path, key) {
+                Ok(symbol) => return Ok(symbol),
+                Err(_) => (),
+            };
             scan_def_path.pop();
         }
 
         Err(SymbolError::Undefined(def_path.clone(), key_component))
-    }
-
-    fn get_resolver_mut<'a>(&'a mut self, path: &DefPath) -> Option<MutDefResolver<'a>> {
-        let def = self.defs.get_mut(path)?;
-        Some(MutDefResolver::new(&mut self.types, def))
     }
 
     pub fn lookup_mut<S>(

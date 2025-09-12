@@ -76,15 +76,7 @@ impl std::fmt::Debug for BasicDefContext {
 }
 
 impl BasicDefContext {
-    pub fn new(symtab: Box<SymbolTable>) -> Self {
-        Self {
-            symtab,
-            definition_path: DefPath::empty(),
-            generics: GenericParamsContext::new(),
-        }
-    }
-
-    pub fn with_path(
+    pub fn new(
         symtab: Box<SymbolTable>,
         definition_path: DefPath,
         generics: GenericParamsContext,

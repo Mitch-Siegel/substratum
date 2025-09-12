@@ -52,7 +52,7 @@ pub fn linearize(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolT
             module.module_path,
             module_def_path
         );
-        let mut context = BasicDefContext::with_path(
+        let mut context = BasicDefContext::new(
             symtab,
             module_def_path,
             def_context::GenericParamsContext::new(),

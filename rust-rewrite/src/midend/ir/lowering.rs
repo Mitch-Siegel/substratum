@@ -20,8 +20,7 @@ fn check_symbol_for_lowering(
 }
 
 pub fn lower_symtab(symtab: &mut symtab::SymbolTable) {
-    let functions_to_lower =
-        symtab::symtab_visitor::SymtabVisitor::visit(symtab, check_symbol_for_lowering);
+    let functions_to_lower = symtab::Visitor::visit(symtab, check_symbol_for_lowering);
 
     for to_lower in functions_to_lower.0 {
         lower_function(to_lower, symtab);
@@ -43,5 +42,5 @@ fn assert_symbol_lowered(def_path: &symtab::DefPath, symbol: &symtab::SymbolDef,
 }
 
 pub fn assert_lowered(symtab: &symtab::SymbolTable) {
-    symtab::symtab_visitor::SymtabVisitor::visit(symtab, assert_symbol_lowered);
+    symtab::Visitor::visit(symtab, assert_symbol_lowered);
 }

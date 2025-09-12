@@ -7,6 +7,7 @@ pub use hash_map_ooo_iter::*;
  * TODO: make this more library-like by genericizing errors?
  */
 
+#[allow(dead_code)]
 mod hash_map_ooo_iter {
     use std::collections::{HashMap, HashSet, VecDeque};
     use std::hash::Hash;
@@ -136,6 +137,7 @@ mod hash_map_ooo_iter {
     }
 }
 
+#[allow(dead_code)]
 mod btree_map_ooo_iter {
     use std::collections::{BTreeMap, BTreeSet, VecDeque};
     fn check_btree_key_order<'a, K, V>(

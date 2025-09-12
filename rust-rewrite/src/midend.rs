@@ -9,7 +9,7 @@ pub mod symtab;
 pub mod types;
 
 fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
-    let _ = symtab::symtab_visitor::SymtabVisitor::<String>::visit_with_starting_data(
+    let _ = symtab::Visitor::visit_with_starting_data(
         symtab,
         |_path, symbol, suffix| match symbol {
             symtab::SymbolDef::Function(f) => {

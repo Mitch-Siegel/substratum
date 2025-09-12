@@ -1,18 +1,10 @@
 use crate::midend::symtab::*;
 
-pub struct MutBasicBlockVisitor<C> {
-    data: C,
-    on_block: fn(&mut ir::BasicBlock, &mut C),
-}
+pub struct MutVisitor {}
 
-impl<C> MutBasicBlockVisitor<C> {}
-
-pub struct MutSymtabVisitor<C> {
-    data: C,
-}
-
-impl<C> MutSymtabVisitor<C> {
-    pub fn visit(
+#[allow(dead_code)]
+impl MutVisitor {
+    pub fn visit<C>(
         symtab: &mut SymbolTable,
         on_symbol: fn(&DefPath, &mut SymbolDef, &mut C),
         mut data: C,
@@ -25,19 +17,17 @@ impl<C> MutSymtabVisitor<C> {
     }
 }
 
-pub struct SymtabVisitor<'a, C> {
-    data: &'a C,
-}
+pub struct Visitor {}
 
-impl<'a, C> SymtabVisitor<'a, C>
-where
-    C: Default,
-{
-    pub fn visit(symtab: &SymbolTable, on_symbol: fn(&DefPath, &SymbolDef, &mut C)) -> C {
+impl Visitor {
+    pub fn visit<C>(symtab: &SymbolTable, on_symbol: fn(&DefPath, &SymbolDef, &mut C)) -> C
+    where
+        C: Default,
+    {
         Self::visit_with_starting_data(symtab, on_symbol, C::default())
     }
 
-    pub fn visit_with_starting_data(
+    pub fn visit_with_starting_data<C>(
         symtab: &SymbolTable,
         on_symbol: fn(&DefPath, &SymbolDef, &mut C),
         mut data: C,

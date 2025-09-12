@@ -1,18 +1,17 @@
 use std::collections::HashMap;
 
-use super::symtab::{Function, FunctionOrPrototype};
+use super::symtab::Function;
 
 mod unused_blocks;
 
+#[allow(dead_code)]
 fn do_optimizations_on_function(_function: &mut Function) {
     // unused_blocks::remove_unused_blocks(function);
 }
 
-pub fn optimize_functions(functions: &mut HashMap<String, FunctionOrPrototype>) {
+#[allow(dead_code)]
+pub fn optimize_functions(functions: &mut HashMap<String, Function>) {
     for (_, function) in functions {
-        match function {
-            FunctionOrPrototype::Prototype(_) => {}
-            FunctionOrPrototype::Function(function) => do_optimizations_on_function(function),
-        };
+        do_optimizations_on_function(function);
     }
 }

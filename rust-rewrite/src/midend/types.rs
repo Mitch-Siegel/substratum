@@ -40,10 +40,3 @@ impl Display for Mutability {
         }
     }
 }
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Type {
-    Unknown,
-    Syntactic(Syntactic),
-    Semantic(Semantic),
-}

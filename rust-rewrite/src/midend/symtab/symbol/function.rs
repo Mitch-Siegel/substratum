@@ -23,21 +23,6 @@ impl std::fmt::Debug for FunctionName {
     }
 }
 
-#[derive(Debug)]
-pub enum FunctionOrPrototype {
-    Function(Function),
-    Prototype(FunctionPrototype),
-}
-
-impl FunctionOrPrototype {
-    pub fn prototype(&self) -> &FunctionPrototype {
-        match self {
-            FunctionOrPrototype::Function(function) => &function.prototype,
-            FunctionOrPrototype::Prototype(function_prototype) => function_prototype,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize)]
 pub struct Function {
     pub prototype: FunctionPrototype,
