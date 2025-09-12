@@ -35,7 +35,7 @@ impl ValueWalk for WhileExpressionTree {
             midend::ir::lowered::operands::JumpCondition::Conditional(
                 midend::ir::lowered::operands::BinaryComparisonOperands::new(
                     condition.into(),
-                    *context.value_id_for_constant(0),
+                    *context.values_mut().id_for_constant(0),
                     midend::ir::lowered::operands::BinaryComparisonKind::EQ,
                 ),
             ),
@@ -53,6 +53,6 @@ impl ValueWalk for WhileExpressionTree {
 
         context.finish_loop(self.loc.clone(), Vec::new()).unwrap();
 
-        context.unit_value_id()
+        midend::ir::ValueInterner::unit_value_id()
     }
 }

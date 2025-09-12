@@ -15,8 +15,7 @@ pub struct FunctionWalkContext {
     // definition path from the root of the symbol table to wherever we are in the function
     full_def_path: symtab::DefPath,
     generics: GenericParamsContext,
-    block_manager: BlockManager,
-    values: ir::ValueInterner,
+    block_manager: ir::BlockManager,
     // key for DefPathComponent::BasicBlock from self.def_path
     current_block: usize,
 }
@@ -37,7 +36,12 @@ impl FunctionWalkContext {
 
         let (mut symtab, parent_def_path, generics) = parent_context.take().unwrap();
 
-        let (block_manager, start_block_label) = BlockManager::new();
+        let (_, unit_type_path) = symtab
+            .lookup_with_path::<symtab::TypeDefinition>(&parent_def_path, &types::Syntactic::Unit)
+            .unwrap();
+        let unit_type_id = symtab.types.get_semantic(&unit_type_path).unwrap();
+
+        let (block_manager, start_block_label) = ir::BlockManager::new(unit_type_id);
         let my_def_path = {
             symtab.insert::<symtab::Function>(
                 parent_def_path.clone(),
@@ -51,22 +55,18 @@ impl FunctionWalkContext {
                 .unwrap();
         }
 
-        let (_, unit_type_path) = symtab
-            .lookup_with_path::<symtab::TypeDefinition>(&parent_def_path, &types::Syntactic::Unit)
-            .unwrap();
-        let unit_type = symtab.types.get_semantic(&unit_type_path).unwrap();
-
-        let values = ir::ValueInterner::new(unit_type);
-
         Ok(Self {
             symtab,
             generics,
             global_def_path: my_def_path.clone(),
             full_def_path: my_def_path,
             block_manager: block_manager,
-            values,
             current_block: start_block_label,
         })
+    }
+
+    pub fn values_mut(&mut self) -> &mut ir::ValueInterner {
+        self.block_manager.values_mut()
     }
 
     pub fn self_variable(&mut self) -> Option<ir::ValueId> {
@@ -81,7 +81,7 @@ impl FunctionWalkContext {
             Err(_) => return None,
         };
 
-        Some(self.values.id_for_variable_or_insert(self_variable_path))
+        Some(self.values_mut().id_for_variable(self_variable_path))
     }
 
     fn new_subscope(&mut self) -> Result<(), symtab::SymbolError> {
@@ -104,12 +104,12 @@ impl FunctionWalkContext {
         )
     }
 
-    fn pop_current_scope(&mut self) -> Result<(), block_manager::BranchError> {
+    fn pop_current_scope(&mut self) -> Result<(), ir::block_manager::BranchError> {
         trace::trace!("pop current scope");
 
         match self.full_def_path.pop() {
             Some(symtab::DefPathComponent::Scope(_)) => Ok(()),
-            _ => Err(block_manager::BranchError::NotBranched),
+            _ => Err(ir::block_manager::BranchError::NotBranched),
         }
     }
 
@@ -141,41 +141,10 @@ impl FunctionWalkContext {
         self.block_manager.get_mut(&self.current_block).unwrap()
     }
 
-    pub fn unit_value_id(&self) -> ir::ValueId {
-        ir::ValueInterner::unit_value_id()
-    }
-
-    pub fn value_for_variable(&self, variable_def_path: &symtab::DefPath) -> &ir::ValueId {
-        self.values
-            .id_for_variable(variable_def_path)
-            .expect(&format!(
-                "Variable at def path {} has no ValueID",
-                variable_def_path
-            ))
-    }
-
-    pub fn value_for_variable_or_insert(
-        &mut self,
-        variable_def_path: symtab::DefPath,
-    ) -> ir::ValueId {
-        self.lookup_at::<symtab::Variable>(&variable_def_path)
-            .expect("Variable must be defined to get its ValueId");
-
-        self.values.id_for_variable_or_insert(variable_def_path)
-    }
-
-    pub fn value_for_id(&self, id: &ir::ValueId) -> Option<&ir::Value> {
-        self.values.value_for_id(id)
-    }
-
-    pub fn value_id_for_constant(&mut self, constant: usize) -> &ir::ValueId {
-        self.values.id_for_constant(constant)
-    }
-
     pub fn finish_true_branch_switch_to_false(
         &mut self,
         loc: SourceLoc,
-    ) -> Result<(), block_manager::BranchError> {
+    ) -> Result<(), ir::block_manager::BranchError> {
         trace::debug!("finish true branch, switch to false");
 
         let false_block = self
@@ -189,12 +158,12 @@ impl FunctionWalkContext {
         Ok(())
     }
 
-    pub fn finish_branch(&mut self, loc: SourceLoc) -> Result<(), block_manager::BranchError> {
+    pub fn finish_branch(&mut self, loc: SourceLoc) -> Result<(), ir::block_manager::BranchError> {
         let after_branch = self.block_manager.finish_branch(self.current_block, loc)?;
         self.replace_current_block(after_branch);
         match self.pop_current_scope() {
             Ok(_) => Ok(()),
-            Err(_) => Err(block_manager::BranchError::ScopeHandling),
+            Err(_) => Err(ir::block_manager::BranchError::ScopeHandling),
         }
     }
 
@@ -203,7 +172,7 @@ impl FunctionWalkContext {
     pub fn unconditional_branch_from_current(
         &mut self,
         loc: SourceLoc,
-    ) -> Result<(), block_manager::BranchError> {
+    ) -> Result<(), ir::block_manager::BranchError> {
         trace::debug!("create unconditional branch from current block");
 
         let branched_to_block = self
@@ -225,7 +194,7 @@ impl FunctionWalkContext {
         &mut self,
         loc: SourceLoc,
         condition: ir::lowered::operands::JumpCondition,
-    ) -> Result<(), block_manager::BranchError> {
+    ) -> Result<(), ir::block_manager::BranchError> {
         trace::debug!("create conditional branch from current block");
         let true_block = self
             .block_manager
@@ -238,7 +207,7 @@ impl FunctionWalkContext {
         Ok(())
     }
 
-    pub fn create_loop(&mut self, loc: SourceLoc) -> Result<usize, block_manager::BranchError> {
+    pub fn create_loop(&mut self, loc: SourceLoc) -> Result<usize, ir::block_manager::BranchError> {
         trace::debug!("create loop");
 
         let (loop_top_block, after_loop_label) = self
@@ -254,7 +223,7 @@ impl FunctionWalkContext {
         &mut self,
         loc: SourceLoc,
         loop_bottom_actions: Vec<ir::IrLine>,
-    ) -> Result<(), block_manager::BranchError> {
+    ) -> Result<(), ir::block_manager::BranchError> {
         let loop_bottom = self
             .block_manager
             .finish_loop_1(self.current_block, loc.clone())
@@ -271,7 +240,7 @@ impl FunctionWalkContext {
         Ok(())
     }
 
-    pub fn create_switch(&mut self, loc: SourceLoc) -> Result<(), block_manager::BranchError> {
+    pub fn create_switch(&mut self, loc: SourceLoc) -> Result<(), ir::block_manager::BranchError> {
         let switch_block = self.block_manager.create_switch(self.current_block, loc)?;
 
         self.new_subscope().unwrap();
@@ -281,7 +250,7 @@ impl FunctionWalkContext {
     }
 
     // returns the label of the first block in the case
-    pub fn create_switch_case(&mut self) -> Result<usize, block_manager::BranchError> {
+    pub fn create_switch_case(&mut self) -> Result<usize, ir::block_manager::BranchError> {
         let case_label = self.block_manager.create_switch_case(self.current_block)?;
 
         self.new_subscope().unwrap();
@@ -290,7 +259,10 @@ impl FunctionWalkContext {
         Ok(case_label)
     }
 
-    pub fn finish_switch_case(&mut self, loc: SourceLoc) -> Result<(), block_manager::BranchError> {
+    pub fn finish_switch_case(
+        &mut self,
+        loc: SourceLoc,
+    ) -> Result<(), ir::block_manager::BranchError> {
         let switch_label = self
             .block_manager
             .finish_switch_case(self.current_block, loc)?;
@@ -299,7 +271,7 @@ impl FunctionWalkContext {
         self.pop_current_scope()
     }
 
-    pub fn finish_switch(&mut self, loc: SourceLoc) -> Result<(), block_manager::BranchError> {
+    pub fn finish_switch(&mut self, loc: SourceLoc) -> Result<(), ir::block_manager::BranchError> {
         let after_switch = self.block_manager.finish_switch(self.current_block, loc)?;
 
         self.pop_current_scope().unwrap();
@@ -307,10 +279,6 @@ impl FunctionWalkContext {
         let _ = self.replace_current_block(after_switch);
 
         Ok(())
-    }
-
-    pub fn next_temp(&mut self) -> ir::ValueId {
-        self.values.next_temp()
     }
 
     pub fn append_jump_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
@@ -380,7 +348,7 @@ impl FunctionWalkContext {
     > {
         assert!(self.full_def_path.len() == self.global_def_path.len());
 
-        let cf: ir::ControlFlow = self.block_manager.try_into()?;
+        let cf = ir::ControlFlow::from(self.block_manager);
 
         Ok((self.symtab, self.global_def_path, self.generics, cf))
     }

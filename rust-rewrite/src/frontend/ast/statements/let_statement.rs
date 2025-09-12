@@ -58,6 +58,6 @@ impl ValueWalk for LetTree {
         let variable_path: midend::symtab::DefPath = context
             .insert::<midend::symtab::Variable>(declared_variable)
             .unwrap();
-        *context.value_for_variable(&variable_path)
+        context.values_mut().id_for_variable(variable_path)
     }
 }

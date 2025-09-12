@@ -22,7 +22,7 @@ impl<'a> ReturnFunctionWalk<'a, ()> for Pattern {
                     .unwrap();
                 // TODO: examine if there's a better way to just declare variables and give them a
                 // ValueID in one go?
-                context.value_for_variable_or_insert(variable_def_path);
+                context.values_mut().id_for_variable(variable_def_path);
             }
             Self::TupleStructPattern(_struct_name, field_patterns) => {
                 for field in field_patterns.clone() {
@@ -122,7 +122,7 @@ impl ValueWalk for MatchExpressionTree {
         let scrutinee_value = self.scrutinee_expression.walk(context);
 
         // TODO: consolidate each arm's result into result_value
-        let result_value = context.next_temp();
+        let result_value = context.values_mut().next_temp();
 
         let mut arm_values = Vec::new();
 

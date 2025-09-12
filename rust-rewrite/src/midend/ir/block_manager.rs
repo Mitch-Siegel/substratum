@@ -1,4 +1,8 @@
-use crate::{frontend::sourceloc::SourceLoc, midend::ir, trace};
+use crate::{
+    frontend::sourceloc::SourceLoc,
+    midend::{ir::*, *},
+    trace,
+};
 
 use std::{collections::HashMap, fmt::Debug};
 
@@ -15,7 +19,7 @@ pub use convergence_error::ConvergenceError;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BranchKind {
     Unconditional,
-    ConditionalTrue(ir::BasicBlock), // currently on the true branch of a conditional. Owns the
+    ConditionalTrue(BasicBlock), // currently on the true branch of a conditional. Owns the
     // block targeted by the false branch
     ConditionalFalse, // currently on the false branch of a conditional
     Switch(usize),    // within a switch but not one of its cases - owns the label of the switch
@@ -23,9 +27,9 @@ pub enum BranchKind {
     SwitchCase(usize), // within a switch and inside one of its cases - owns the
     // label of the switch block
     Loop,
-    BlockSplit(Vec<ir::IrLine>), // a block has been split into two. The statements after the split
-                                 // (not including the statement which was split on) are owned by
-                                 // the BlockSplit.
+    BlockSplit(Vec<IrLine>), // a block has been split into two. The statements after the split
+                             // (not including the statement which was split on) are owned by
+                             // the BlockSplit.
 }
 
 #[derive(Debug)]
@@ -47,16 +51,17 @@ pub struct BlockManager {
     max_block: usize,
     // branch path of basic block labels targeted by the branches which got us to current_block
     open_branch_path: Vec<Branch>,
-    blocks: HashMap<usize, ir::BasicBlock>,
+    blocks: HashMap<usize, BasicBlock>,
+    values: ValueInterner,
 }
 
 impl BlockManager {
     // returns (Self, start_block)
     // where start_block is the first basic block in the function
-    pub fn new() -> (Self, usize) {
+    pub fn new(unit_type: types::Semantic) -> (Self, usize) {
         // set up the initlal convergence - must always end up at the end_block
-        let start_block = ir::BasicBlock::new(0);
-        let end_block = ir::BasicBlock::new(1);
+        let start_block = BasicBlock::new(0);
+        let end_block = BasicBlock::new(1);
         let mut convergences = BlockConvergences::new();
         convergences.add(&[start_block.label], end_block).unwrap();
 
@@ -67,21 +72,35 @@ impl BlockManager {
                 max_block: 1,
                 open_branch_path: Vec::new(),
                 blocks: vec![(start_block.label, start_block)].into_iter().collect(),
+                values: ValueInterner::new(unit_type),
             },
             start_label,
         )
     }
 
-    pub fn with_existing_blocks(mut from_blocks: impl Iterator<Item = ir::BasicBlock>) -> Self {
-        let mut max_block = 0;
-        let mut blocks = HashMap::<usize, ir::BasicBlock>::new();
-        while let Some(block) = from_blocks.next() {
-            max_block = max_block.max(block.label);
+    pub fn try_take(self) -> Result<(HashMap<usize, BasicBlock>, ValueInterner), &'static str> {
+        if self.open_branch_path.len() > 0 {
+            let msg = "Failing due to open branch path length > 0";
+            trace::error!("{}", msg);
+            return Err(msg);
+        }
 
-            match blocks.insert(block.label, block) {
-                Some(existing) => panic!("Block label {} duplicated", existing.label),
-                None => (),
-            }
+        if !self.convergences.is_empty() {
+            let msg = "Failing due to unresolved convergences";
+            trace::error!("{}", msg);
+            return Err(msg);
+        }
+
+        Ok((self.blocks, self.values))
+    }
+
+    pub fn with_existing_blocks(
+        blocks: HashMap<usize, BasicBlock>,
+        existing_values: ValueInterner,
+    ) -> Self {
+        let mut max_block = 0;
+        for label in blocks.keys() {
+            max_block = max_block.max(*label);
         }
 
         Self {
@@ -89,10 +108,19 @@ impl BlockManager {
             max_block,
             open_branch_path: Vec::new(),
             blocks,
+            values: existing_values,
         }
     }
 
-    pub fn get_mut(&mut self, label: &usize) -> Option<&mut ir::BasicBlock> {
+    pub fn values(&self) -> &ValueInterner {
+        &self.values
+    }
+
+    pub fn values_mut(&mut self) -> &mut ValueInterner {
+        &mut self.values
+    }
+
+    pub fn get_mut(&mut self, label: &usize) -> Option<&mut BasicBlock> {
         self.blocks.get_mut(label)
     }
 
@@ -125,7 +153,7 @@ impl BlockManager {
         };
 
         let convergence_jump =
-            ir::IrLine::new_jump(loc, converge_to, ir::lowered::JumpCondition::Unconditional);
+            IrLine::new_jump(loc, converge_to, ir::lowered::JumpCondition::Unconditional);
         self.get_mut(&from)
             .unwrap()
             .statements
@@ -151,7 +179,7 @@ impl BlockManager {
         &mut self,
         block: usize,
         stmt_idx: usize,
-    ) -> Result<(usize, ir::IrLine), BranchError> {
+    ) -> Result<(usize, IrLine), BranchError> {
         let split_block = self.get_mut(&block).unwrap();
         let mut after_split = split_block.split_at(stmt_idx);
         let at_split = after_split.remove(0);
@@ -187,27 +215,10 @@ impl BlockManager {
     }
 }
 
-impl TryInto<ir::ControlFlow> for BlockManager {
-    type Error = ();
-    fn try_into(self) -> Result<ir::ControlFlow, Self::Error> {
-        if self.open_branch_path.len() > 0 {
-            trace::error!("Failing due to open branch path length > 0");
-            return Err(());
-        }
-
-        if !self.convergences.is_empty() {
-            trace::error!("Failing due to unresolved convergences");
-            return Err(());
-        }
-
-        let cf = ir::ControlFlow::from(self.blocks);
-        Ok(cf)
-    }
-}
-
-impl From<ir::ControlFlow> for BlockManager {
-    fn from(cf: ir::ControlFlow) -> Self {
-        Self::with_existing_blocks(cf.into_iter().map(|(_, block)| block))
+impl From<ControlFlow> for BlockManager {
+    fn from(cf: ControlFlow) -> Self {
+        let (blocks, values) = cf.take();
+        Self::with_existing_blocks(blocks, values)
     }
 }
 

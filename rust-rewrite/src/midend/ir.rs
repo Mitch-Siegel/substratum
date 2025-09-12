@@ -1,3 +1,4 @@
+pub mod block_manager;
 pub mod control_flow;
 pub mod lowered;
 pub mod lowering;
@@ -12,6 +13,7 @@ use std::fmt::Display;
 use crate::{frontend::sourceloc::SourceLoc, midend::*};
 use serde::Serialize;
 
+pub use block_manager::BlockManager;
 pub use control_flow::ControlFlow;
 pub use value::*;
 

@@ -46,7 +46,7 @@ impl ValueWalk for IfExpressionTree {
         let if_condition = midend::ir::lowered::operands::JumpCondition::Conditional(
             midend::ir::lowered::operands::BinaryComparisonOperands::new(
                 condition_result,
-                *context.value_id_for_constant(0),
+                *context.values_mut().id_for_constant(0),
                 midend::ir::lowered::operands::BinaryComparisonKind::NE,
             ),
         );
@@ -62,7 +62,7 @@ impl ValueWalk for IfExpressionTree {
         // if a false block exists AND the 'if' value exists
         if self.false_block.is_some() {
             // we need to copy the 'if' result to the common result_value at the end of the 'if' block
-            let result_value = context.next_temp();
+            let result_value = context.values_mut().next_temp();
             let assign_if_result_line =
                 midend::ir::IrLine::new_assignment(self.loc.clone(), result_value, if_value_id);
             context

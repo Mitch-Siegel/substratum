@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{midend::linearizer::block_manager::*, trace};
+use crate::{midend::ir::block_manager::*, trace};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ConvergenceResult {

@@ -1,4 +1,4 @@
-use crate::midend::linearizer::block_manager::*;
+use crate::midend::ir::block_manager::*;
 
 /// Conditional and unconditional branches
 impl BlockManager {

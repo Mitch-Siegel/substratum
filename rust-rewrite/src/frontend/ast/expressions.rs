@@ -89,14 +89,14 @@ impl midend::linearizer::ValueWalk for ExpressionTree {
                 let (_, variable_path) = context
                     .lookup_with_path::<midend::symtab::Variable>(&ident)
                     .unwrap();
-                *context.value_for_variable(&variable_path)
+                context.values_mut().id_for_variable(variable_path)
             }
             Expression::UnsignedDecimalConstant(constant) => {
-                *context.value_id_for_constant(constant)
+                *context.values_mut().id_for_constant(constant)
             }
             Expression::Arithmetic(arithmetic_operation) => {
                 let operands = arithmetic_operation.walk(context);
-                let destination = context.next_temp();
+                let destination = context.values_mut().next_temp();
                 let expression_statement = midend::ir::IrLine::new_binary_arithmetic_expression(
                     SourceLoc::none(), // FIXME: loc tracking for arithmetic expressions
                     destination,
@@ -109,7 +109,7 @@ impl midend::linearizer::ValueWalk for ExpressionTree {
             }
             Expression::Comparison(comparison_operation) => {
                 let operands = comparison_operation.walk(context);
-                let destination = context.next_temp();
+                let destination = context.values_mut().next_temp();
                 let comparison_statement = midend::ir::IrLine::new_binary_comparison_expression(
                     SourceLoc::none(), // FIXME: loc tracking for arithmetic expressions
                     destination,
@@ -127,7 +127,7 @@ impl midend::linearizer::ValueWalk for ExpressionTree {
             Expression::While(while_expression) => while_expression.walk(context),
             Expression::FieldExpression(field_expression) => {
                 let (receiver, field) = field_expression.walk(context);
-                let field_pointer_temp = context.next_temp();
+                let field_pointer_temp = context.values_mut().next_temp();
                 let field_read_line = midend::ir::IrLine::new_get_field_pointer(
                     self.loc,
                     receiver.into(),

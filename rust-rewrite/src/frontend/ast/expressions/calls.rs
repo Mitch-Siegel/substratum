@@ -75,7 +75,7 @@ impl ValueWalk for MethodCallExpressionTree {
     fn walk(self, context: &mut FunctionWalkContext) -> midend::ir::ValueId {
         let receiver = self.receiver.walk(context);
 
-        let return_value_to = context.next_temp();
+        let return_value_to = context.values_mut().next_temp();
 
         // //TODO: error handling and checking
         // assert!(called_method.arguments.len() == params.len());

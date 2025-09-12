@@ -23,7 +23,7 @@ impl std::fmt::Debug for FunctionName {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct Function {
     pub prototype: FunctionPrototype,
     pub control_flow: Option<ir::ControlFlow>,

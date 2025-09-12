@@ -1,4 +1,4 @@
-use crate::midend::linearizer::block_manager::*;
+use crate::midend::ir::block_manager::*;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BranchError {

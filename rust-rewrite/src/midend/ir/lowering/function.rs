@@ -37,7 +37,7 @@ pub fn lower_function(def_path: symtab::DefPath, symtab: &mut symtab::SymbolTabl
 
     trace::trace!("the following statements need lowering: {:?}", unlowered);
 
-    let mut manager = linearizer::BlockManager::from(cf);
+    let mut manager: BlockManager = cf.into();
 
     while unlowered.len() > 0 {
         let block = *unlowered.keys().next().unwrap();

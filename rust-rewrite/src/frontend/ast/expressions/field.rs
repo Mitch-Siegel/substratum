@@ -31,7 +31,7 @@ impl<'a> ReturnFunctionWalk<'a, (midend::ir::ValueId, String)> for FieldExpressi
     fn walk(self, context: &'a mut FunctionWalkContext) -> (midend::ir::ValueId, String) {
         let receiver = self.receiver.walk(context);
 
-        let struct_name = match context.value_for_id(&receiver).unwrap().type_ {
+        let struct_name = match context.values_mut().value_for_id(&receiver).unwrap().type_ {
             Some(type_id) => {
                 let struct_type = context.definition_for_semantic_type(&type_id).unwrap();
                 match &struct_type.repr {

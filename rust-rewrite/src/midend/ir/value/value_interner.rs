@@ -1,6 +1,7 @@
 use crate::midend::ir::value::*;
 use std::collections::HashMap;
 
+#[derive(Debug, Clone)]
 pub struct ValueInterner {
     values: Vec<Value>,
     ids: HashMap<Value, ValueId>,
@@ -34,11 +35,7 @@ impl ValueInterner {
         self.values.get(id.index)
     }
 
-    pub fn id_for_variable(&self, variable_def_path: &symtab::DefPath) -> Option<&ValueId> {
-        self.variables.get(variable_def_path)
-    }
-
-    pub fn id_for_variable_or_insert(&mut self, variable_def_path: symtab::DefPath) -> ValueId {
+    pub fn id_for_variable(&mut self, variable_def_path: symtab::DefPath) -> ValueId {
         let next_id = self.next_id();
         match self.variables.get(&variable_def_path) {
             Some(id) => *id,

@@ -1,11 +1,12 @@
 use crate::{map_ooo_iter::*, midend::ir::*};
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct ControlFlow {
     blocks: HashMap<usize, BasicBlock>,
     successors: HashMap<usize, BTreeSet<usize>>,
     predecessors: HashMap<usize, BTreeSet<usize>>,
+    values: ValueInterner,
 }
 
 pub struct ControlFlowIntoIter<T> {
@@ -22,6 +23,65 @@ impl<T> Iterator for ControlFlowIntoIter<T> {
 
 // TODO: are the postorder and reverse postorder named opposite right now? Need to actually check this...
 impl ControlFlow {
+    pub fn new(blocks: HashMap<usize, BasicBlock>, values: ValueInterner) -> Self {
+        let mut successors = HashMap::<usize, BTreeSet<usize>>::new();
+        let mut predecessors = HashMap::<usize, BTreeSet<usize>>::new();
+
+        for label in blocks.keys() {
+            predecessors.entry(*label).or_default();
+            successors.entry(*label).or_default();
+        }
+
+        for from_block in blocks.values() {
+            for statement in from_block {
+                match &statement.operation {
+                    Operation::Lowered(lowered::Operation::Jump(jump)) => {
+                        successors
+                            .get_mut(&from_block.label)
+                            .unwrap()
+                            .insert(jump.destination_block);
+
+                        predecessors
+                            .get_mut(&jump.destination_block)
+                            .unwrap()
+                            .insert(from_block.label);
+
+                        if !blocks.contains_key(&jump.destination_block) {
+                            panic!(
+                                "Invalid jump target to nonexistent block {}",
+                                jump.destination_block
+                            );
+                        }
+                    }
+                    Operation::Unlowered(unlowered::Operation::Match(m)) => {
+                        for arm in &m.arms {
+                            successors
+                                .get_mut(&from_block.label)
+                                .unwrap()
+                                .insert(arm.arm_label);
+                            predecessors
+                                .get_mut(&arm.arm_label)
+                                .unwrap()
+                                .insert(from_block.label);
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        Self {
+            blocks,
+            successors,
+            predecessors,
+            values,
+        }
+    }
+
+    pub fn take(self) -> (HashMap<usize, BasicBlock>, ValueInterner) {
+        (self.blocks, self.values)
+    }
+
     pub fn successors(&self, label: &usize) -> Option<&BTreeSet<usize>> {
         self.successors.get(label)
     }
@@ -115,62 +175,6 @@ impl ControlFlow {
     }
 }
 
-impl From<HashMap<usize, BasicBlock>> for ControlFlow {
-    fn from(blocks: HashMap<usize, BasicBlock>) -> Self {
-        let mut successors = HashMap::<usize, BTreeSet<usize>>::new();
-        let mut predecessors = HashMap::<usize, BTreeSet<usize>>::new();
-
-        for label in blocks.keys() {
-            predecessors.entry(*label).or_default();
-            successors.entry(*label).or_default();
-        }
-
-        for from_block in blocks.values() {
-            for statement in from_block {
-                match &statement.operation {
-                    Operation::Lowered(lowered::Operation::Jump(jump)) => {
-                        successors
-                            .get_mut(&from_block.label)
-                            .unwrap()
-                            .insert(jump.destination_block);
-
-                        predecessors
-                            .get_mut(&jump.destination_block)
-                            .unwrap()
-                            .insert(from_block.label);
-
-                        if !blocks.contains_key(&jump.destination_block) {
-                            panic!(
-                                "Invalid jump target to nonexistent block {}",
-                                jump.destination_block
-                            );
-                        }
-                    }
-                    Operation::Unlowered(unlowered::Operation::Match(m)) => {
-                        for arm in &m.arms {
-                            successors
-                                .get_mut(&from_block.label)
-                                .unwrap()
-                                .insert(arm.arm_label);
-                            predecessors
-                                .get_mut(&arm.arm_label)
-                                .unwrap()
-                                .insert(from_block.label);
-                        }
-                    }
-                    _ => (),
-                }
-            }
-        }
-
-        Self {
-            blocks,
-            successors,
-            predecessors,
-        }
-    }
-}
-
 impl IntoIterator for ControlFlow {
     type Item = (usize, BasicBlock);
     type IntoIter = std::collections::hash_map::IntoIter<usize, BasicBlock>;
@@ -192,6 +196,13 @@ impl<'a> IntoIterator for &'a mut ControlFlow {
     type IntoIter = std::collections::hash_map::ValuesMut<'a, usize, BasicBlock>;
     fn into_iter(self) -> Self::IntoIter {
         self.blocks.values_mut()
+    }
+}
+
+impl From<BlockManager> for ControlFlow {
+    fn from(manager: BlockManager) -> Self {
+        let (blocks, values) = manager.try_take().unwrap();
+        Self::new(blocks, values)
     }
 }
 

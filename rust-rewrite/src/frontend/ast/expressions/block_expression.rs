@@ -34,7 +34,7 @@ impl ValueWalk for BlockExpressionTree {
 
         let last_statement_value = match last_statement {
             Some(statement_tree) => statement_tree.walk(context),
-            None => context.unit_value_id(),
+            None => midend::ir::ValueInterner::unit_value_id(),
         };
 
         context.finish_branch(self.loc).unwrap();
