@@ -5,6 +5,7 @@ use std::{
 
 use crate::{midend::ir, trace};
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum IdfaAnalysisDirection {
     Forward,
@@ -50,8 +51,8 @@ where
 
     // return facts for a given label
     // requires &mut self in case of missing entry needing or_default()
-    pub fn for_label(&mut self, label: usize) -> &BlockFacts<T> {
-        self.facts.entry(label).or_default()
+    pub fn for_label(&self, label: &usize) -> Option<&BlockFacts<T>> {
+        self.facts.get(label)
     }
 
     pub fn for_label_mut(&mut self, label: usize) -> &mut BlockFacts<T> {
@@ -59,6 +60,7 @@ where
     }
 }
 
+#[allow(dead_code)]
 pub trait IdfaImplementor<'a, T>
 where
     T: Display + PartialEq,
@@ -87,6 +89,7 @@ where
     f_transfer: fn(facts: &mut BlockFacts<T>, to_transfer: BTreeSet<T>) -> BTreeSet<T>,
 }
 
+#[allow(dead_code)]
 impl<'a, T> Idfa<'a, T>
 where
     Facts<T>: PartialEq,
@@ -113,8 +116,10 @@ where
         let mut new_in_facts = BTreeSet::<T>::new();
 
         for predecessor in self.predecessors(block).cloned() {
-            new_in_facts =
-                (self.f_meet)(new_in_facts, &self.facts.for_label(predecessor).out_facts);
+            new_in_facts = (self.f_meet)(
+                new_in_facts,
+                &self.facts.for_label_mut(predecessor).out_facts,
+            );
         }
 
         self.facts.for_label_mut(label).in_facts = new_in_facts.clone();
@@ -179,5 +184,9 @@ where
         idfa.analyze();
 
         idfa
+    }
+
+    pub fn blocks(&self) -> impl Iterator<Item = &ir::BasicBlock> {
+        self.control_flow.blocks().map(|(_, block)| block)
     }
 }

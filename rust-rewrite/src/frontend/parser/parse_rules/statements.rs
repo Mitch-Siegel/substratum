@@ -1,7 +1,4 @@
-use crate::frontend::{
-        ast,
-        parser::parse_rules::*,
-    };
+use crate::frontend::{ast, parser::parse_rules::*};
 
 // parsing functions which yield an ExpressionTree
 mod let_statement;
@@ -13,6 +10,9 @@ impl<'a, 'p> StatementParser<'a, 'p> {
         let statement = ast::StatementTree {
             loc: start_loc,
             statement: match self.peek_token()? {
+                Token::Let => {
+                    ast::statements::Statement::Let(self.statement_parser().parse_let_statement()?)
+                }
                 Token::Identifier(_) => ast::statements::Statement::Expression(
                     self.expression_parser().parse_expression()?,
                 ),

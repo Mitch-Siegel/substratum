@@ -55,7 +55,6 @@ impl From<ConvergenceError> for LoopError {
 #[derive(Debug)]
 pub struct BlockManager {
     // map from branch origin to (true_target, Option<false_target>)
-    branch_points: HashMap<usize, (usize, Option<usize>)>,
     convergences: BlockConvergences,
     max_block: usize,
     // branch path of basic block labels targeted by the branches which got us to current_block
@@ -76,7 +75,6 @@ impl BlockManager {
         let start_label = start_block.label;
         (
             Self {
-                branch_points: HashMap::new(),
                 convergences,
                 max_block: 1,
                 open_branch_path: Vec::new(),
@@ -99,7 +97,6 @@ impl BlockManager {
         }
 
         Self {
-            branch_points: HashMap::new(),
             convergences: BlockConvergences::new(),
             max_block,
             open_branch_path: Vec::new(),

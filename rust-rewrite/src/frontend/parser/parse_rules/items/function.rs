@@ -65,7 +65,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         let return_type = match self.peek_token()? {
             Token::Arrow => {
                 self.next_token()?;
-                Some(self.parse_type()?)
+                Some(self.type_parser().parse_type()?)
             }
             _ => None,
         };

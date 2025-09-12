@@ -22,7 +22,7 @@ impl<'a> Parser<'a> {
             self.parse_identifier()?,
             {
                 self.expect_token(Token::Colon)?;
-                self.parse_type()?
+                self.type_parser().parse_type()?
             },
             mutable,
         );

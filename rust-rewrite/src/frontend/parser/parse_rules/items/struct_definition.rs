@@ -8,7 +8,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
 
         let field_name = self.parse_identifier()?;
         self.expect_token(Token::Colon)?;
-        let field_type = self.parse_type()?;
+        let field_type = self.type_parser().parse_type()?;
 
         let field_tree =
             ast::items::struct_definition::StructFieldTree::new(start_loc, field_name, field_type);

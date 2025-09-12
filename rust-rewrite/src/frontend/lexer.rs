@@ -49,6 +49,7 @@ impl<'a> Lexer<'a> {
         Self::from_char_source(file_name, CharSource::from_file(f))
     }
 
+    #[allow(dead_code)]
     pub fn from_string(s: &'a str) -> Self {
         Self::from_char_source(
             std::path::Path::new(&String::new()),
@@ -94,6 +95,7 @@ impl<'a> Lexer<'a> {
             .unwrap_or((Token::Eof, self.current_loc())))
     }
 
+    #[allow(dead_code)]
     pub fn lex_all(&mut self) -> Result<Vec<(Token, SourceLoc)>, LexError> {
         println!("Lexer::lex_all()");
         let mut tokens: Vec<(Token, SourceLoc)> = Vec::new();
@@ -187,6 +189,7 @@ impl<'a> Lexer<'a> {
             "mut" => Some(Token::Mut),
             "self" => Some(Token::SelfLower),
             "Self" => Some(Token::SelfUpper),
+            "let" => Some(Token::Let),
             _ => {
                 if identifier.len() > 0 {
                     Some(Token::Identifier(identifier))

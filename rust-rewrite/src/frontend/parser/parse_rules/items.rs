@@ -20,16 +20,6 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         Ok(Item::StructDefinition(self.parse_struct_definition()?))
     }
 
-    fn parse_function_definition_item(
-        &mut self,
-        allow_self_param: bool,
-    ) -> Result<Item, ParseError> {
-        let prototype = self.parse_function_prototype(allow_self_param)?;
-        Ok(Item::FunctionDefinition(
-            self.parse_function_definition(prototype)?,
-        ))
-    }
-
     pub fn parse_item(
         &mut self,
         module_name: String,

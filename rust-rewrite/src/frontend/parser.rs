@@ -54,10 +54,6 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn current_module(&self) -> &str {
-        self.module_parse_stack.last().unwrap().as_str()
-    }
-
     // return the next token from the input stream without advancing
     // utilizes lookahead_token
     fn peek_token(&mut self) -> Result<Token, LexError> {

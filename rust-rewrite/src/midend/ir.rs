@@ -90,13 +90,6 @@ impl<'a> IntoIterator for &'a mut BasicBlock {
 }
 
 impl IrLine {
-    fn new(loc: SourceLoc, operation: Operation) -> Self {
-        IrLine {
-            loc: loc,
-            operation: operation,
-        }
-    }
-
     pub fn is_lowered(&self) -> bool {
         match self.operation {
             Operation::Lowered(_) => true,

@@ -93,37 +93,38 @@ impl<'a> IdfaImplementor<'a, Fact> for ReachingDefs<'a> {
     }
 }
 
-impl<'a> ReachingDefs<'a>
-// TODO: supertrait?
-{
-    pub fn print(&self) {
-        /*for label in self.idfa.control_flow.blocks.keys() {
-            let facts = self.idfa.facts.for_label(*label);
-            println!("{}:", label);
+impl<'a> std::fmt::Display for ReachingDefs<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for block in self.idfa.blocks() {
+            let label = block.label;
+            let facts = self.idfa.facts.for_label(&label).unwrap();
+            write!(f, "{}:", label)?;
 
-            print!("\tGEN:");
+            write!(f, "\tGEN:")?;
             for gen_fact in &facts.gen_facts {
-                print!("{} ", gen_fact);
+                write!(f, "{} ", gen_fact)?;
             }
-            println!();
+            writeln!(f)?;
 
-            print!("\tKILL:");
+            write!(f, "\tKILL:")?;
             for kill_fact in &facts.kill_facts {
-                print!("{} ", kill_fact);
+                write!(f, "{} ", kill_fact)?;
             }
-            println!();
+            writeln!(f)?;
 
-            print!("\tIN:");
+            write!(f, "\tIN:")?;
             for in_fact in &facts.in_facts {
-                print!("{} ", in_fact);
+                write!(f, "{} ", in_fact)?;
             }
-            println!();
+            writeln!(f)?;
 
-            print!("\tOUT:");
+            write!(f, "\tOUT:")?;
             for out_fact in &facts.out_facts {
-                print!("{} ", out_fact);
+                write!(f, "{} ", out_fact)?;
             }
-            println!();
-        }*/
+            writeln!(f)?;
+        }
+
+        Ok(())
     }
 }

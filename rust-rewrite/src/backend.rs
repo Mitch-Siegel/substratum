@@ -1,4 +1,4 @@
-pub mod arch;
+//pub mod arch;
 //use crate::{midend, trace};
 /*mod codegen;
 mod regalloc;

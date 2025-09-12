@@ -20,6 +20,7 @@ impl ValueId {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum ValueKind {
     Argument(usize),

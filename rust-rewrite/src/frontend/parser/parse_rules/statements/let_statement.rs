@@ -1,6 +1,6 @@
 use crate::frontend::parser::parse_rules::*;
 
-impl<'a> Parser<'a> {
+impl<'a, 'p> StatementParser<'a, 'p> {
     pub fn parse_let_statement(&mut self) -> Result<ast::statements::LetTree, ParseError> {
         let (start_loc, _span) = self.start_parsing("let statement")?;
 
@@ -17,7 +17,7 @@ impl<'a> Parser<'a> {
         let type_ = match self.peek_token()? {
             Token::Colon => {
                 self.expect_token(Token::Colon)?;
-                Some(self.parse_type()?)
+                Some(self.type_parser().parse_type()?)
             }
             _ => None,
         };

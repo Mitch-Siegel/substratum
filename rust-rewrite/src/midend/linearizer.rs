@@ -8,6 +8,7 @@ pub use block_manager::BlockManager;
 pub use def_context::{BasicDefContext, DefContext, GenericParamsContext};
 pub use functionwalkcontext::FunctionWalkContext;
 
+#[allow(dead_code)]
 pub trait Walk {
     fn walk(self, context: &mut impl DefContext);
 }
@@ -16,6 +17,7 @@ pub trait ValueWalk {
     fn walk(self, context: &mut FunctionWalkContext) -> ir::ValueId;
 }
 
+#[allow(dead_code)]
 pub trait BasicReturnWalk<U> {
     fn walk(self, context: &mut BasicDefContext) -> U;
 }

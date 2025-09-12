@@ -7,7 +7,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         self.expect_token(Token::LParen)?;
         let mut tuple_elements = Vec::new();
         loop {
-            tuple_elements.push(self.parse_type()?);
+            tuple_elements.push(self.type_parser().parse_type()?);
             match self.peek_token()? {
                 Token::Comma => {
                     self.expect_token(Token::Comma)?;

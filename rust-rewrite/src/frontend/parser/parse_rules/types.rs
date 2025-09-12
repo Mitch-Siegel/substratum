@@ -1,8 +1,8 @@
 use crate::midend::types;
 
-use crate::frontend::parser::*;
+use crate::frontend::parser::parse_rules::*;
 
-impl<'a> Parser<'a> {
+impl<'a, 'p> TypeParser<'a, 'p> {
     pub fn parse_type(&mut self) -> Result<TypeTree, ParseError> {
         let (start_loc, _span) = self.start_parsing("type")?;
 

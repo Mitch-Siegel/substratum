@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::collections::BTreeSet;
 
 mod trace;
@@ -11,8 +9,9 @@ mod midend;
 mod map_ooo_iter;
 
 //use backend::generate_code;
-
-const FIB_FUN: &str = "fun fib(u8 n) -> u64
+mod example_inputs {
+    #![allow(dead_code)]
+    const FIB_FUN: &str = "fun fib(u8 n) -> u64
 {
     u64 result;
     result = 0;
@@ -27,7 +26,7 @@ const FIB_FUN: &str = "fun fib(u8 n) -> u64
     }
 }";
 
-const WHILE_LOOP: &str = "fun down_to_zero(input: u16)
+    const WHILE_LOOP: &str = "fun down_to_zero(input: u16)
 {
     input = input;
     while(input > 0) {
@@ -37,7 +36,7 @@ const WHILE_LOOP: &str = "fun down_to_zero(input: u16)
     input = input + 1;
 }";
 
-const WHILE_LOOP_WITH_NESTED_BRANCH: &str = "
+    const WHILE_LOOP_WITH_NESTED_BRANCH: &str = "
 fun while_with_nested_branch(a: u8, b: u16, c: u32) {
     counter: u8;
     counter = 0;
@@ -53,7 +52,7 @@ fun while_with_nested_branch(a: u8, b: u16, c: u32) {
 }
 ";
 
-const WHILE_LOOP_WITH_NESTED_BRANCH_NO_ARGS: &str = "
+    const WHILE_LOOP_WITH_NESTED_BRANCH_NO_ARGS: &str = "
 fun while_with_nested_branch() {
     a: u8; b: u16; c: u32;
 
@@ -71,7 +70,7 @@ fun while_with_nested_branch() {
 }
 ";
 
-const NESTED_WHILE_LOOPS: &str = "
+    const NESTED_WHILE_LOOPS: &str = "
 fun while_with_nested_branch(a: u8, b: u64, c: u32) {
     while (a < b) {
         counter: u8;
@@ -89,7 +88,7 @@ fun while_with_nested_branch(a: u8, b: u64, c: u32) {
 }
 ";
 
-const SSA_EXAMPLE: &str = "
+    const SSA_EXAMPLE: &str = "
 fun while_with_nested_branch() {
     a: u8; b: u16; c: u32;
 
@@ -107,7 +106,7 @@ fun while_with_nested_branch() {
     c = c + 1;
 }";
 
-const STRUCT_EXAMPLE: &str = "struct Money {
+    const STRUCT_EXAMPLE: &str = "struct Money {
 dollars: u64,
 cents: u8
 }
@@ -124,6 +123,7 @@ fun money_add_dollars(m: Money, dollars: u64) {
     m.dollars = m.dollars + dollars;
     m.print();
 }";
+}
 
 #[derive(Debug)]
 enum TraceLocation {
