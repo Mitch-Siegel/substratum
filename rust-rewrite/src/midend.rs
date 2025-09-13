@@ -44,7 +44,7 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
 
     functions_to_graphviz(&symtab, "_unlowered".into());
 
-    ir::lowering::lower_symtab(&mut symtab);
+    symtab = ir::lowering::lower_symtab(symtab);
     ir::lowering::assert_lowered(&symtab);
     functions_to_graphviz(&symtab, "".into());
 

@@ -65,6 +65,23 @@ impl FunctionWalkContext {
         })
     }
 
+    pub fn from_existing(
+        symtab: Box<symtab::SymbolTable>,
+        full_def_path: symtab::DefPath,
+        generics: GenericParamsContext,
+        block_manager: ir::BlockManager,
+        current_block: usize,
+    ) -> Self {
+        Self {
+            symtab,
+            generics,
+            global_def_path: full_def_path.clone().parent_function().unwrap(),
+            full_def_path,
+            block_manager,
+            current_block,
+        }
+    }
+
     pub fn values_mut(&mut self) -> &mut ir::ValueInterner {
         self.block_manager.values_mut()
     }
@@ -335,22 +352,25 @@ impl DefContext for FunctionWalkContext {
 }
 
 impl FunctionWalkContext {
-    fn take(
+    pub fn take(
         self,
     ) -> Result<
         (
             Box<symtab::SymbolTable>,
             symtab::DefPath,
             GenericParamsContext,
-            ir::ControlFlow,
+            ir::BlockManager,
         ),
         (),
     > {
         assert!(self.full_def_path.len() == self.global_def_path.len());
 
-        let cf = ir::ControlFlow::from(self.block_manager);
-
-        Ok((self.symtab, self.global_def_path, self.generics, cf))
+        Ok((
+            self.symtab,
+            self.global_def_path,
+            self.generics,
+            self.block_manager,
+        ))
     }
 }
 
@@ -358,9 +378,12 @@ impl Into<BasicDefContext> for FunctionWalkContext {
     fn into(mut self) -> BasicDefContext {
         self.block_manager.finish(self.current_block).unwrap();
 
-        let (mut symtab, mut path, generics, cf) = self.take().unwrap();
+        let (mut symtab, mut path, generics, manager) = self.take().unwrap();
         let walked_function = symtab.lookup_at_mut::<symtab::Function>(&path).unwrap();
-        if let Some(_existing_cf) = walked_function.control_flow.replace(cf) {
+        if let Some(_existing_cf) = walked_function
+            .control_flow
+            .replace(ir::ControlFlow::from(manager))
+        {
             panic!(
                 "Control flow already exists for function {}",
                 walked_function.name()

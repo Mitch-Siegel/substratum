@@ -17,7 +17,7 @@ pub use block_manager::BlockManager;
 pub use control_flow::ControlFlow;
 pub use value::*;
 
-#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Operation {
     Lowered(lowered::Operation),
     Unlowered(unlowered::Operation),
@@ -32,7 +32,7 @@ impl Display for Operation {
     }
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct IrLine {
     pub loc: SourceLoc,
     pub operation: Operation,
@@ -44,7 +44,7 @@ impl Display for IrLine {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BasicBlock {
     pub label: usize,
     pub statements: Vec<IrLine>,
@@ -207,11 +207,12 @@ impl IrLine {
     // unlowered IR constructors
     //
     pub fn new_match(
+        def_path: symtab::DefPath,
         loc: SourceLoc,
         scrutinee: ValueId,
         arms: Vec<unlowered::operands::MatchArm>,
     ) -> Self {
-        Self::new_unlowered(loc, unlowered::new_match(scrutinee, arms))
+        Self::new_unlowered(loc, unlowered::new_match(def_path, scrutinee, arms))
     }
 
     //

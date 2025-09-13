@@ -16,22 +16,28 @@ pub fn find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usize>> {
     unlowered
 }
 
-pub fn lower_function(def_path: symtab::DefPath, symtab: &mut symtab::SymbolTable) {
+pub fn lower_function(
+    def_path: symtab::DefPath,
+    mut symtab: Box<symtab::SymbolTable>,
+) -> Box<symtab::SymbolTable> {
     let _span = trace::span_auto_debug!("Lower function ", "{}", def_path.last());
-    let function = symtab.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
 
-    let (cf, mut unlowered) = match &function.control_flow {
-        Some(cf) => {
-            let unlowered = find_unlowered_irs(&cf);
-            if unlowered.len() == 0 {
-                trace::trace!("No unlowered statements in control flow, skipping");
-                return;
+    let (cf, mut unlowered) = {
+        let function = symtab.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
+
+        match &function.control_flow {
+            Some(cf) => {
+                let unlowered = find_unlowered_irs(&cf);
+                if unlowered.len() == 0 {
+                    trace::trace!("No unlowered statements in control flow, skipping");
+                    return symtab;
+                }
+                (function.control_flow.take().unwrap(), unlowered)
             }
-            (function.control_flow.take().unwrap(), unlowered)
-        }
-        None => {
-            trace::trace!("No control flow, nothing to lower.");
-            return;
+            None => {
+                trace::trace!("No control flow, nothing to lower.");
+                return symtab;
+            }
         }
     };
 
@@ -43,11 +49,17 @@ pub fn lower_function(def_path: symtab::DefPath, symtab: &mut symtab::SymbolTabl
         let block = *unlowered.keys().next().unwrap();
         let idx = *unlowered.get(&block).unwrap().iter().next().unwrap();
 
-        let (split_to_block, line_to_deal_with) =
-            manager.split_block_at_statement(block, idx).unwrap();
+        let (split_to_block, to_lower) = manager.split_block_at_statement(block, idx).unwrap();
+
+        match to_lower.operation {
+            ir::Operation::Unlowered(op) => {
+                (symtab, manager) = op.lower(symtab, manager, split_to_block);
+            }
+            ir::Operation::Lowered(_) => panic!("Can't lower lowered IR"),
+        }
 
         let after_split_block = manager
-            .finish_block_split(split_to_block, line_to_deal_with.loc)
+            .finish_block_split(split_to_block, to_lower.loc)
             .unwrap();
 
         let labels_this_block = unlowered.get_mut(&block).unwrap();
@@ -88,5 +100,9 @@ pub fn lower_function(def_path: symtab::DefPath, symtab: &mut symtab::SymbolTabl
         }
     }
 
-    function.control_flow.replace(manager.try_into().unwrap());
+    {
+        let function = symtab.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
+        function.control_flow.replace(manager.try_into().unwrap());
+    }
+    symtab
 }

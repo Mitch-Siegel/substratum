@@ -53,18 +53,20 @@ impl ControlFlow {
                             );
                         }
                     }
-                    Operation::Unlowered(unlowered::Operation::Match(m)) => {
-                        for arm in &m.arms {
-                            successors
-                                .get_mut(&from_block.label)
-                                .unwrap()
-                                .insert(arm.arm_label);
-                            predecessors
-                                .get_mut(&arm.arm_label)
-                                .unwrap()
-                                .insert(from_block.label);
+                    Operation::Unlowered(ul) => match &ul.ty {
+                        unlowered::OperationType::Match(m) => {
+                            for arm in &m.arms {
+                                successors
+                                    .get_mut(&from_block.label)
+                                    .unwrap()
+                                    .insert(arm.arm_label);
+                                predecessors
+                                    .get_mut(&arm.arm_label)
+                                    .unwrap()
+                                    .insert(from_block.label);
+                            }
                         }
-                    }
+                    },
                     _ => (),
                 }
             }

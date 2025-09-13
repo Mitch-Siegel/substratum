@@ -193,6 +193,13 @@ impl DefPath {
         }
     }
 
+    pub fn is_function(&self) -> bool {
+        match self.last() {
+            DefPathComponent::Function(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn with_component(mut self, component: DefPathComponent) -> Result<Self, SymbolError> {
         self.push(component)?;
         Ok(self)
@@ -200,6 +207,18 @@ impl DefPath {
 
     pub fn parent_type_definition(mut self) -> Option<Self> {
         while !self.is_empty() && !self.is_type() {
+            self.pop();
+        }
+
+        if self.is_empty() {
+            None
+        } else {
+            Some(self)
+        }
+    }
+
+    pub fn parent_function(mut self) -> Option<Self> {
+        while !self.is_empty() && !self.is_function() {
             self.pop();
         }
 
