@@ -21,7 +21,7 @@ impl TypeDefinition {
         TypeDefinition { type_, repr }
     }
 
-    pub fn syntactic_type(&self) -> &types::Syntactic {
+    pub fn syntactic(&self) -> &types::Syntactic {
         &self.type_
     }
 }
@@ -63,7 +63,7 @@ impl Symbol for TypeDefinition {
     type SymbolKey = types::Syntactic;
 
     fn symbol_key(&self) -> &Self::SymbolKey {
-        self.type_()
+        self.syntactic()
     }
 }
 

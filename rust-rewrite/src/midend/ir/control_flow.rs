@@ -66,6 +66,7 @@ impl ControlFlow {
                                     .insert(from_block.label);
                             }
                         }
+                        _ => (),
                     },
                     _ => (),
                 }

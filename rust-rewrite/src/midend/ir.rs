@@ -207,12 +207,24 @@ impl IrLine {
     // unlowered IR constructors
     //
     pub fn new_match(
-        def_path: symtab::DefPath,
         loc: SourceLoc,
+        def_path: symtab::DefPath,
         scrutinee: ValueId,
         arms: Vec<unlowered::operands::MatchArm>,
     ) -> Self {
         Self::new_unlowered(loc, unlowered::new_match(def_path, scrutinee, arms))
+    }
+
+    pub fn new_discriminant(
+        loc: SourceLoc,
+        def_path: symtab::DefPath,
+        enum_value: ValueId,
+        destination: ValueId,
+    ) -> Self {
+        Self::new_unlowered(
+            loc,
+            unlowered::new_discriminant(def_path, enum_value, destination),
+        )
     }
 
     //

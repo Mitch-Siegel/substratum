@@ -53,7 +53,7 @@ pub fn lower_function(
 
         match to_lower.operation {
             ir::Operation::Unlowered(op) => {
-                (symtab, manager) = op.lower(symtab, manager, split_to_block);
+                (symtab, manager) = op.lower(symtab, manager, split_to_block, to_lower.loc.clone());
             }
             ir::Operation::Lowered(_) => panic!("Can't lower lowered IR"),
         }

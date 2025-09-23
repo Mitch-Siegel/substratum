@@ -1,6 +1,12 @@
 use crate::midend::ir::value::*;
 use std::collections::HashMap;
 
+#[derive(Debug)]
+pub enum ValueError {
+    NoSuchValueId,
+    ValueHasNoType,
+}
+
 #[derive(Debug, Clone)]
 pub struct ValueInterner {
     values: Vec<Value>,
@@ -31,8 +37,20 @@ impl ValueInterner {
         self.insert(temp_value).unwrap()
     }
 
-    pub fn value_for_id(&self, id: &ValueId) -> Option<&Value> {
-        self.values.get(id.index)
+    pub fn next_temp_with_type(&mut self, ty_: types::Semantic) -> ValueId {
+        let temp_value = Value::new(ValueKind::Temporary(self.temp_count), Some(ty_));
+        self.temp_count += 1;
+        self.insert(temp_value).unwrap()
+    }
+
+    pub fn value_for_id(&self, id: &ValueId) -> Result<&Value, ValueError> {
+        self.values.get(id.index).ok_or(ValueError::NoSuchValueId)
+    }
+
+    pub fn semantic_for_id(&self, id: &ValueId) -> Result<types::Semantic, ValueError> {
+        self.value_for_id(id)?
+            .type_
+            .ok_or(ValueError::ValueHasNoType)
     }
 
     pub fn id_for_variable(&mut self, variable_def_path: symtab::DefPath) -> ValueId {

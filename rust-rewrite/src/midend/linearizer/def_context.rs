@@ -1,5 +1,5 @@
 use crate::{
-    midend::{symtab::*, types},
+    midend::{symtab::*, types, *},
     trace,
 };
 
@@ -141,13 +141,14 @@ pub trait DefContext: std::fmt::Debug {
     // resolves a string type name to either a defined type or a generic param
     fn resolve_type_name(&self, name: &str) -> Result<types::Syntactic, SymbolError> {
         // first, lookup the type in the Symbol table
-        let (mut type_, found_def_path) = match self
-            .lookup_with_path::<TypeDefinition>(&types::Syntactic::Named(name.into()))
-        {
-            // if we find it, grab its type and defpath, otherwise create a dummy type and path
-            Ok((type_definition, def_path)) => (Some(type_definition.type_().clone()), def_path),
-            Err(_) => (None, DefPath::empty()),
-        };
+        let (mut type_, found_def_path) =
+            match self.lookup_with_path::<TypeDefinition>(&types::Syntactic::Named(name.into())) {
+                // if we find it, grab its type and defpath, otherwise create a dummy type and path
+                Ok((type_definition, def_path)) => {
+                    (Some(type_definition.syntactic().clone()), def_path)
+                }
+                Err(_) => (None, DefPath::empty()),
+            };
 
         // next, search the generics
         // we may search any generic path *longer than* the def path we found a type definition at
@@ -268,6 +269,11 @@ pub trait DefContext: std::fmt::Debug {
         )
     }
 
+    fn semantic_type_for_syntactic(&self, ty_: &types::Syntactic) -> Option<types::Semantic> {
+        let (_, path) = self.lookup_with_path::<symtab::TypeDefinition>(ty_).ok()?;
+        self.symtab().types.get_semantic(&path)
+    }
+
     fn self_type(&self) -> Option<types::Syntactic> {
         let mut search_def_path = self.def_path();
         loop {
@@ -275,7 +281,7 @@ pub trait DefContext: std::fmt::Debug {
                 // lookup required
                 DefPathComponent::Type(_) => {
                     let definition = self.lookup_at::<TypeDefinition>(&search_def_path).unwrap();
-                    return Some(definition.type_().clone());
+                    return Some(definition.syntactic().clone());
                 }
                 // trivial case - just grab whatever we're implementing for
                 DefPathComponent::Implementation(implementation) => {

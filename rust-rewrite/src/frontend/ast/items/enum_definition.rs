@@ -49,17 +49,6 @@ impl Display for EnumVariantTree {
     }
 }
 
-impl ReturnWalk<midend::symtab::enum_definition::EnumVariant> for EnumVariantTree {
-    fn walk(self, context: &mut impl DefContext) -> midend::symtab::enum_definition::EnumVariant {
-        let data = match self.data {
-            Some(variant_data) => variant_data.walk(context),
-            None => midend::symtab::enum_definition::EnumVariantRepr::Unit,
-        };
-
-        midend::symtab::enum_definition::EnumVariant::new(self.name, data)
-    }
-}
-
 #[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnumDefinitionTree {
     pub loc: SourceLoc,

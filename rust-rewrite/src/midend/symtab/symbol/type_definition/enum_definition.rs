@@ -10,34 +10,45 @@ pub enum EnumVariantRepr {
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EnumVariant {
+    pub discriminant: usize,
     pub name: String,
     pub data: EnumVariantRepr,
 }
 
 impl EnumVariant {
-    pub fn new(name: String, data: EnumVariantRepr) -> Self {
-        Self { name, data }
+    pub fn new(discriminant: usize, name: String, data: EnumVariantRepr) -> Self {
+        Self {
+            discriminant,
+            name,
+            data,
+        }
     }
 
-    pub fn new_unit(name: String) -> Self {
+    pub fn new_unit(discriminant: usize, name: String) -> Self {
         Self {
+            discriminant,
             name,
             data: EnumVariantRepr::Unit,
         }
     }
 
-    pub fn new_tuple(name: String, elements: Vec<types::Syntactic>) -> Self {
+    pub fn new_tuple(discriminant: usize, name: String, elements: Vec<types::Syntactic>) -> Self {
         Self {
+            discriminant,
             name,
             data: EnumVariantRepr::Tuple(elements),
         }
     }
 
-    pub fn type_(&self) -> types::Syntactic {
+    pub fn syntactic(&self) -> types::Syntactic {
         match &self.data {
             EnumVariantRepr::Unit => types::Syntactic::Unit,
             EnumVariantRepr::Tuple(elements) => types::Syntactic::Tuple(elements.clone()),
         }
+    }
+
+    pub fn data(&self) -> &EnumVariantRepr {
+        &self.data
     }
 }
 
@@ -56,6 +67,7 @@ pub struct EnumRepr {
     pub name: String,
     generic_params: Vec<String>,
     variants: BTreeMap<String, EnumVariant>,
+    discriminants: BTreeMap<String, usize>,
     size: Option<usize>,
     alignment: Option<usize>,
 }
@@ -67,21 +79,31 @@ impl EnumRepr {
         variant_definitions: Vec<(String, EnumVariantRepr)>,
     ) -> Result<Self, EnumVariant> {
         let mut variants = BTreeMap::<String, EnumVariant>::new();
-        for (name, type_) in variant_definitions {
-            let variant = EnumVariant::new(name.clone(), type_);
+        for (discriminant, (name, type_)) in variant_definitions.into_iter().enumerate() {
+            let variant = EnumVariant::new(discriminant, name.clone(), type_);
             match variants.insert(name, variant) {
                 Some(existing_variant) => return Err(existing_variant),
                 None => (),
             }
         }
 
+        let discriminants: BTreeMap<String, usize> = variants
+            .values()
+            .map(|variant| (variant.name.clone(), variant.discriminant))
+            .collect();
+
         Ok(Self {
             name,
             generic_params,
             variants,
+            discriminants,
             size: None,
             alignment: None,
         })
+    }
+
+    pub fn variants(&self) -> &BTreeMap<String, EnumVariant> {
+        &self.variants
     }
 
     pub fn get_variant(&self, variant_name: &String) -> Option<&EnumVariant> {

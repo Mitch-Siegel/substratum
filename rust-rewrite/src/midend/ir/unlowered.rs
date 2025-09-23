@@ -5,7 +5,7 @@ use operands::*;
 
 #[enum_delegate::register]
 pub trait Lowerable {
-    fn lower(self, context: &mut linearizer::FunctionWalkContext);
+    fn lower(self, context: &mut linearizer::FunctionWalkContext, loc: SourceLoc);
 }
 
 #[derive(PartialEq, Eq, Clone)]
@@ -20,6 +20,7 @@ impl Operation {
         symtab: Box<symtab::SymbolTable>,
         manager: BlockManager,
         current_block: usize,
+        loc: SourceLoc,
     ) -> (Box<symtab::SymbolTable>, BlockManager) {
         let parent_function_def_path = self.def_path.clone().parent_function().unwrap();
 
@@ -42,7 +43,7 @@ impl Operation {
             ctx.push_def_path(to_push, &Vec::new());
         }
 
-        self.ty.lower(&mut ctx);
+        self.ty.lower(&mut ctx, loc);
 
         while ctx.def_path().len() > parent_function_def_path.len() {
             ctx.pop_def_path(ctx.def_path().last().clone()).unwrap();
@@ -69,6 +70,7 @@ impl std::fmt::Debug for Operation {
 #[enum_delegate::implement(Lowerable)]
 pub enum OperationType {
     Match(MatchOperands),
+    Discriminant(DiscriminantOperands),
 }
 
 impl Operation {
@@ -85,6 +87,7 @@ impl std::fmt::Display for OperationType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Match(_m) => write!(f, "match"),
+            Self::Discriminant(_d) => write!(f, "discriminant"),
         }
     }
 }
@@ -93,5 +96,19 @@ pub fn new_match(def_path: symtab::DefPath, scrutinee: ValueId, arms: Vec<MatchA
     Operation {
         def_path,
         ty: OperationType::Match(MatchOperands { scrutinee, arms }),
+    }
+}
+
+pub fn new_discriminant(
+    def_path: symtab::DefPath,
+    destination: ValueId,
+    enum_receiver: ValueId,
+) -> Operation {
+    Operation {
+        def_path,
+        ty: OperationType::Discriminant(DiscriminantOperands {
+            destination,
+            enum_receiver,
+        }),
     }
 }
