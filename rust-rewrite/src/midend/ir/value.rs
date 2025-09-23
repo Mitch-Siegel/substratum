@@ -39,4 +39,11 @@ impl Value {
     pub fn new(kind: ValueKind, type_: Option<types::Semantic>) -> Self {
         Self { kind, type_ }
     }
+
+    pub fn ty(&self) -> Result<types::Semantic, ()> {
+        match self.type_ {
+            Some(ty) => Ok(ty),
+            None => Err(()),
+        }
+    }
 }

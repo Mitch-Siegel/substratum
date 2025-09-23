@@ -2,18 +2,18 @@ use crate::{frontend::ast::expressions::*, trace};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Pattern {
-    LiteralPattern(ExpressionTree),
-    IdentifierPattern(String),
+    Literal(ExpressionTree),
+    Identifier(String),
     // TODO: PathInExpression
-    TupleStructPattern(String, Vec<PatternTree>),
+    TupleStruct(String, Vec<PatternTree>),
 }
 
 impl<'a> ReturnFunctionWalk<'a, ()> for Pattern {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(self, context: &'a mut FunctionWalkContext) -> () {
         match self {
-            Self::LiteralPattern(_) => (),
-            Self::IdentifierPattern(name) => {
+            Self::Literal(_) => (),
+            Self::Identifier(name) => {
                 let variable_def_path = context
                     .insert::<midend::symtab::Variable>(midend::symtab::Variable::new(
                         name.clone(),
@@ -24,7 +24,7 @@ impl<'a> ReturnFunctionWalk<'a, ()> for Pattern {
                 // ValueID in one go?
                 context.values_mut().id_for_variable(variable_def_path);
             }
-            Self::TupleStructPattern(_struct_name, field_patterns) => {
+            Self::TupleStruct(_struct_name, field_patterns) => {
                 for field in field_patterns.clone() {
                     field.walk(context);
                 }

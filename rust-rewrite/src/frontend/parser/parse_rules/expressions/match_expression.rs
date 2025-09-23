@@ -17,21 +17,21 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
                         let single_tuple_contents = self.parse_identifier()?;
                         let tuple_contents_loc = self.last_match.clone();
                         self.expect_token(Token::RParen)?;
-                        ast::expressions::match_expression::Pattern::TupleStructPattern(
+                        ast::expressions::match_expression::Pattern::TupleStruct(
                             ident,
                             vec![ast::expressions::match_expression::PatternTree::new(
                                 tuple_contents_loc,
-                                ast::expressions::match_expression::Pattern::IdentifierPattern(
+                                ast::expressions::match_expression::Pattern::Identifier(
                                     single_tuple_contents,
                                 ),
                             )],
                         )
                     }
-                    _ => ast::expressions::match_expression::Pattern::IdentifierPattern(ident),
+                    _ => ast::expressions::match_expression::Pattern::Identifier(ident),
                 }
             }
             Token::UnsignedDecimalConstant(_) => {
-                ast::expressions::match_expression::Pattern::LiteralPattern(
+                ast::expressions::match_expression::Pattern::Literal(
                     self.parse_literal_expression()?,
                 )
             }

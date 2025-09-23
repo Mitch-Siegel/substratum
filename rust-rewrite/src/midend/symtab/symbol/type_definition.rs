@@ -21,7 +21,7 @@ impl TypeDefinition {
         TypeDefinition { type_, repr }
     }
 
-    pub fn type_(&self) -> &types::Syntactic {
+    pub fn syntactic_type(&self) -> &types::Syntactic {
         &self.type_
     }
 }

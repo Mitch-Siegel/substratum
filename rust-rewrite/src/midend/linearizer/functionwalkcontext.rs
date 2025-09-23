@@ -82,6 +82,10 @@ impl FunctionWalkContext {
         }
     }
 
+    pub fn values(&self) -> &ir::ValueInterner {
+        self.block_manager.values()
+    }
+
     pub fn values_mut(&mut self) -> &mut ir::ValueInterner {
         self.block_manager.values_mut()
     }
