@@ -19,7 +19,7 @@ impl<'a> IdfaImplementor<'a, Fact> for BlockArgs<'a> {
         for block in control_flow {
             let block_facts = facts.for_label_mut(block.label);
 
-            for statement in &block.statements {
+            for statement in block {
                 for read in statement.read_value_ids() {
                     if !block_facts.kill_facts.contains(&read) {
                         block_facts.gen_facts.insert(read.clone());

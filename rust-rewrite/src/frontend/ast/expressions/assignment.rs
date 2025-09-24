@@ -32,6 +32,7 @@ impl ValueWalk for AssignmentTree {
 
                 let field_pointer_line = midend::ir::IrLine::new_get_field_pointer(
                     field_loc,
+                    context.def_path(),
                     receiver,
                     field,
                     field_pointer_temp,

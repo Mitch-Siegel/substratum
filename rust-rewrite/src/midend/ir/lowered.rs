@@ -1,30 +1,28 @@
 use serde::Serialize;
 pub mod operands;
-pub mod operations;
 
 use crate::midend::ir::*;
 pub use operands::*;
-use operations::*;
 use std::fmt::Display;
 
 /// ## Enum of all operations
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+#[enum_delegate::implement(OperandTypePropagation)]
 pub enum Operation {
-    Assignment(SourceDestOperands),
+    Assignment(AssignmentOperands),
     BinaryArithmetic(BinaryArithmeticExpressionOperands),
     BinaryComparison(BinaryComparisonExpressionOperands),
-    Jump(JumpOperation),
+    Jump(JumpOperands),
     FunctionCall(FunctionCallOperands),
     MethodCall(MethodCallOperands),
     Load(LoadOperands),
     Store(StoreOperands),
     ComputeFieldAddress(FieldAddressOperands),
-    GetFieldPointer(FieldPointerOperands),
     Switch(SwitchOperands),
 }
 
-impl Operation {
-    pub fn read_value_ids(&self) -> Vec<ValueId> {
+impl IrOperation for Operation {
+    fn read_value_ids(&self) -> Vec<ValueId> {
         match self {
             Self::Assignment(source_dest) => vec![source_dest.source],
             Self::BinaryArithmetic(arithmetic) => {
@@ -58,12 +56,11 @@ impl Operation {
                 vec![store.source]
             }
             Self::ComputeFieldAddress(field_address) => vec![field_address.receiver],
-            Self::GetFieldPointer(field_pointer) => vec![field_pointer.receiver],
             Self::Switch(switch) => vec![switch.scrutinee],
         }
     }
 
-    pub fn write_value_ids(&self) -> Vec<ValueId> {
+    fn write_value_ids(&self) -> Vec<ValueId> {
         match self {
             Self::Assignment(assignment) => vec![assignment.destination],
             Self::BinaryArithmetic(arithmetic) => vec![arithmetic.destination],
@@ -84,7 +81,6 @@ impl Operation {
                 }
             }
             Self::ComputeFieldAddress(field_address) => vec![field_address.receiver],
-            Self::GetFieldPointer(field_pointer) => vec![field_pointer.receiver],
             Self::Load(load) => {
                 vec![load.destination]
             }
@@ -115,11 +111,6 @@ impl Display for Operation {
                 f,
                 "{} = {} + {}",
                 field_address.destination, field_address.receiver, field_address.offset
-            ),
-            Self::GetFieldPointer(field_read) => write!(
-                f,
-                "{} = {}.{}",
-                field_read.destination, field_read.receiver, field_read.field_name
             ),
             Self::Switch(switch) => write!(
                 f,
@@ -158,7 +149,7 @@ pub fn new_binary_comparison_expression(
 }
 
 pub fn new_jump(destination_block: usize, condition: JumpCondition) -> Operation {
-    Operation::Jump(JumpOperation::new(destination_block, condition))
+    Operation::Jump(JumpOperands::new(destination_block, condition))
 }
 
 pub fn new_function_call(
@@ -191,14 +182,6 @@ pub fn new_compute_field_address(
     Operation::ComputeFieldAddress(FieldAddressOperands {
         receiver,
         offset,
-        destination,
-    })
-}
-
-pub fn get_field_pointer(receiver: ValueId, field_name: String, destination: ValueId) -> Operation {
-    Operation::GetFieldPointer(FieldPointerOperands {
-        receiver,
-        field_name,
         destination,
     })
 }

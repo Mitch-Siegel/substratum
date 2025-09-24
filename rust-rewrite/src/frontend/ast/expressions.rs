@@ -130,6 +130,7 @@ impl midend::linearizer::ValueWalk for ExpressionTree {
                 let field_pointer_temp = context.values_mut().next_temp();
                 let field_read_line = midend::ir::IrLine::new_get_field_pointer(
                     self.loc,
+                    context.def_path(),
                     receiver.into(),
                     field,
                     field_pointer_temp.clone(),

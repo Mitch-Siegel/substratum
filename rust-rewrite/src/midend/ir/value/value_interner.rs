@@ -4,7 +4,8 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub enum ValueError {
     NoSuchValueId,
-    ValueHasNoType,
+    HasNoType,
+    AlreadyHasType,
 }
 
 #[derive(Debug, Clone)]
@@ -47,10 +48,14 @@ impl ValueInterner {
         self.values.get(id.index).ok_or(ValueError::NoSuchValueId)
     }
 
+    pub fn value_mut_for_id(&mut self, id: &ValueId) -> Result<&mut Value, ValueError> {
+        self.values
+            .get_mut(id.index)
+            .ok_or(ValueError::NoSuchValueId)
+    }
+
     pub fn semantic_for_id(&self, id: &ValueId) -> Result<types::Semantic, ValueError> {
-        self.value_for_id(id)?
-            .type_
-            .ok_or(ValueError::ValueHasNoType)
+        self.value_for_id(id)?.ty.ok_or(ValueError::HasNoType)
     }
 
     pub fn id_for_variable(&mut self, variable_def_path: symtab::DefPath) -> ValueId {

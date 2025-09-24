@@ -54,6 +54,12 @@ impl Operation {
     }
 }
 
+impl OperandTypePropagation for Operation {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        self.ty.propagate_types(ctx)
+    }
+}
+
 impl std::fmt::Display for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "{}", self.ty)
@@ -71,6 +77,17 @@ impl std::fmt::Debug for Operation {
 pub enum OperationType {
     Match(MatchOperands),
     Discriminant(DiscriminantOperands),
+    GetFieldPointer(FieldPointerOperands),
+}
+
+impl OperandTypePropagation for OperationType {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        match self {
+            Self::Match(_) => true,
+            Self::Discriminant(d) => d.propagate_types(ctx),
+            Self::GetFieldPointer(f) => f.propagate_types(ctx),
+        }
+    }
 }
 
 impl Operation {
@@ -88,6 +105,7 @@ impl std::fmt::Display for OperationType {
         match self {
             Self::Match(_m) => write!(f, "match"),
             Self::Discriminant(_d) => write!(f, "discriminant"),
+            Self::GetFieldPointer(_) => write!(f, "getfieldptr"),
         }
     }
 }
@@ -109,6 +127,22 @@ pub fn new_discriminant(
         ty: OperationType::Discriminant(DiscriminantOperands {
             destination,
             enum_receiver,
+        }),
+    }
+}
+
+pub fn new_get_field_pointer(
+    def_path: symtab::DefPath,
+    receiver: ValueId,
+    field_name: String,
+    destination: ValueId,
+) -> Operation {
+    Operation {
+        def_path,
+        ty: OperationType::GetFieldPointer(FieldPointerOperands {
+            receiver,
+            field_name,
+            destination,
         }),
     }
 }

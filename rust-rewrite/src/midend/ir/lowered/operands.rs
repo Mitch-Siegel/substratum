@@ -1,6 +1,6 @@
-use std::fmt::Display;
-
 use serde::Serialize;
+use std::collections::HashMap;
+use std::fmt::Display;
 
 use crate::midend::ir::*;
 
@@ -43,6 +43,12 @@ impl BinaryArithmeticExpressionOperands {
             destination,
             arithmetic,
         }
+    }
+}
+
+impl OperandTypePropagation for BinaryArithmeticExpressionOperands {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        true
     }
 }
 
@@ -91,6 +97,14 @@ pub struct SourceDestOperands {
     pub source: ValueId,
 }
 
+pub type AssignmentOperands = SourceDestOperands;
+impl OperandTypePropagation for AssignmentOperands {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        unimplemented!();
+        true
+    }
+}
+
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub enum BinaryComparisonKind {
     LT,
@@ -130,6 +144,12 @@ impl BinaryComparisonExpressionOperands {
             destination,
             comparison,
         }
+    }
+}
+
+impl OperandTypePropagation for BinaryComparisonExpressionOperands {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        true
     }
 }
 
@@ -220,6 +240,43 @@ impl Display for JumpCondition {
     }
 }
 
+#[derive(Debug, Serialize, Clone, PartialEq, Eq)]
+pub struct JumpOperands {
+    pub destination_block: usize,
+    pub block_args: HashMap<ValueId, ValueId>,
+    pub condition: JumpCondition,
+}
+
+impl JumpOperands {
+    pub fn new(destination_block: usize, condition: JumpCondition) -> Self {
+        Self {
+            destination_block,
+            block_args: HashMap::new(),
+            condition,
+        }
+    }
+}
+
+impl OperandTypePropagation for JumpOperands {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        true
+    }
+}
+
+impl Display for JumpOperands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut block_args_string = String::new();
+        for (arg, operand) in &self.block_args {
+            block_args_string += &format!("{}:{} ", arg, operand);
+        }
+        write!(
+            f,
+            "{} Block{}({})",
+            self.condition, self.destination_block, block_args_string
+        )
+    }
+}
+
 pub type OrderedArgumentList = Vec<ValueId>;
 
 fn arg_list_to_string(args: &OrderedArgumentList) -> String {
@@ -242,17 +299,6 @@ pub struct FunctionCallOperands {
     pub return_value_to: Option<ValueId>,
 }
 
-impl Display for FunctionCallOperands {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}({})",
-            self.function_name,
-            arg_list_to_string(&self.arguments)
-        )
-    }
-}
-
 impl FunctionCallOperands {
     pub fn new(
         name: String,
@@ -267,17 +313,28 @@ impl FunctionCallOperands {
     }
 }
 
+impl OperandTypePropagation for FunctionCallOperands {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        true
+    }
+}
+
+impl Display for FunctionCallOperands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}({})",
+            self.function_name,
+            arg_list_to_string(&self.arguments)
+        )
+    }
+}
+
 /// ## Method Call Operands
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct MethodCallOperands {
     pub receiver: ValueId,
     pub call: FunctionCallOperands,
-}
-
-impl Display for MethodCallOperands {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.receiver, self.call)
-    }
 }
 
 impl MethodCallOperands {
@@ -294,16 +351,40 @@ impl MethodCallOperands {
     }
 }
 
+impl OperandTypePropagation for MethodCallOperands {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        true
+    }
+}
+
+impl Display for MethodCallOperands {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.receiver, self.call)
+    }
+}
+
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct LoadOperands {
     pub pointer: ValueId,
     pub destination: ValueId,
 }
 
+impl OperandTypePropagation for LoadOperands {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        true
+    }
+}
+
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct StoreOperands {
     pub pointer: ValueId,
     pub source: ValueId,
+}
+
+impl OperandTypePropagation for StoreOperands {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        true
+    }
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
@@ -313,11 +394,10 @@ pub struct FieldAddressOperands {
     pub destination: ValueId,
 }
 
-#[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct FieldPointerOperands {
-    pub receiver: ValueId,
-    pub field_name: String,
-    pub destination: ValueId,
+impl OperandTypePropagation for FieldAddressOperands {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        true
+    }
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
@@ -325,6 +405,12 @@ pub struct SwitchOperands {
     pub scrutinee: ValueId,
     pub default_label: usize,
     pub cases: Vec<(ValueId, usize)>,
+}
+
+impl OperandTypePropagation for SwitchOperands {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

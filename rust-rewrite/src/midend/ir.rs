@@ -23,6 +23,15 @@ pub enum Operation {
     Unlowered(unlowered::Operation),
 }
 
+impl OperandTypePropagation for Operation {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        match self {
+            Self::Lowered(l) => l.propagate_types(ctx),
+            Self::Unlowered(ul) => ul.propagate_types(ctx),
+        }
+    }
+}
+
 impl Display for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -47,23 +56,28 @@ impl Display for IrLine {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BasicBlock {
     pub label: usize,
-    pub statements: Vec<IrLine>,
+    statements: Vec<IrLine>,
+    // lines which may not have had any type propagation done on their ValueIds
+    unpropagated_lines: BTreeSet<usize>,
     pub arguments: BTreeSet<ValueId>,
 }
 
 impl BasicBlock {
     pub fn new(label: usize) -> Self {
         BasicBlock {
-            statements: Vec::new(),
             label,
+            statements: Vec::new(),
+            unpropagated_lines: BTreeSet::new(),
             arguments: BTreeSet::new(),
         }
     }
 
     pub fn with_statements(label: usize, statements: Vec<ir::IrLine>) -> Self {
+        let unpropagated_lines: BTreeSet<usize> = (0..statements.len()).into_iter().collect();
         Self {
             label,
             statements,
+            unpropagated_lines,
             arguments: BTreeSet::new(),
         }
     }
@@ -71,7 +85,32 @@ impl BasicBlock {
     /// split the block at statement with specified index, returning vec of that statement and any
     /// following it
     pub fn split_at(&mut self, idx: usize) -> Vec<IrLine> {
+        for no_longer_unpropagated in idx..self.statements.len() {
+            self.unpropagated_lines.remove(&no_longer_unpropagated);
+        }
         self.statements.split_off(idx)
+    }
+
+    pub fn append(&mut self, line: IrLine) {
+        self.statements.push(line)
+    }
+
+    pub fn statements(&self) -> impl Iterator<Item = &IrLine> {
+        self.statements.iter()
+    }
+
+    pub fn propagate_types(
+        &mut self,
+        symtab: Box<symtab::SymbolTable>,
+        values: &mut ValueInterner,
+    ) -> Box<symtab::SymbolTable> {
+        // TODO: make basic blocks own their own def path
+        let ctx = TypePropagationContext::new(symtab, values, symtab::DefPath::empty());
+        while self.unpropagated_lines.len() > 0 {
+            let idx_to_propagate = self.unpropagated_lines.pop_first().unwrap();
+            self.statements[idx_to_propagate].propagate_types(&ctx);
+        }
+        ctx.take()
     }
 }
 
@@ -98,7 +137,16 @@ impl IrLine {
             Operation::Unlowered(_) => false,
         }
     }
+}
 
+impl OperandTypePropagation for IrLine {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        self.operation.propagate_types(ctx)
+    }
+}
+
+// IrLine constructors
+impl IrLine {
     fn new_lowered(loc: SourceLoc, operation: lowered::Operation) -> Self {
         IrLine {
             loc: loc,
@@ -183,18 +231,6 @@ impl IrLine {
         )
     }
 
-    pub fn new_get_field_pointer(
-        loc: SourceLoc,
-        receiver: ValueId,
-        field_name: String,
-        destination: ValueId,
-    ) -> Self {
-        Self::new_lowered(
-            loc,
-            lowered::get_field_pointer(receiver, field_name, destination),
-        )
-    }
-
     pub fn new_load(loc: SourceLoc, pointer: ValueId, destination: ValueId) -> Self {
         Self::new_lowered(loc, lowered::new_load(pointer, destination))
     }
@@ -227,6 +263,18 @@ impl IrLine {
         )
     }
 
+    pub fn new_get_field_pointer(
+        loc: SourceLoc,
+        def_path: symtab::DefPath,
+        receiver: ValueId,
+        field_name: String,
+        destination: ValueId,
+    ) -> Self {
+        Self::new_unlowered(
+            loc,
+            unlowered::new_get_field_pointer(def_path, receiver, field_name, destination),
+        )
+    }
     //
     // general utility functions
     //
@@ -243,4 +291,67 @@ impl IrLine {
             Operation::Unlowered(unlowered) => unlowered.write_value_ids(),
         }
     }
+}
+
+struct TypePropagationContext<'a> {
+    symtab: Box<symtab::SymbolTable>,
+    values: &'a mut ValueInterner,
+    def_path: symtab::DefPath,
+}
+
+impl<'a> TypePropagationContext<'a> {
+    pub fn new(
+        symtab: Box<symtab::SymbolTable>,
+        values: &'a mut ValueInterner,
+        def_path: symtab::DefPath,
+    ) -> Self {
+        Self {
+            symtab,
+            values,
+            def_path,
+        }
+    }
+
+    pub fn take(self) -> Box<symtab::SymbolTable> {
+        self.symtab
+    }
+}
+
+enum TypePropagationError {
+    ValueError(value::ValueError),
+}
+
+impl From<ValueError> for TypePropagationError {
+    fn from(ve: ValueError) -> Self {
+        Self::ValueError(ve)
+    }
+}
+
+impl<'a> TypePropagationContext<'a> {
+    pub fn type_for_value(&self, value_id: &ValueId) -> Option<types::Semantic> {
+        match self.values.semantic_for_id(value_id) {
+            Ok(ty) => Some(ty),
+            _ => None,
+        }
+    }
+
+    pub fn assign_type_to_value(
+        &mut self,
+        value_id: &ValueId,
+        ty: types::Semantic,
+    ) -> Result<(), TypePropagationError> {
+        let value = self.values.value_mut_for_id(value_id)?;
+        value.set_type(ty)?;
+        Ok(())
+    }
+}
+
+#[enum_delegate::register]
+pub trait OperandTypePropagation {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool;
+}
+
+pub trait IrOperation: OperandTypePropagation {
+    fn read_value_ids(&self) -> Vec<ValueId>;
+    fn write_value_ids(&self) -> Vec<ValueId>;
 }

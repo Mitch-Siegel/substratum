@@ -305,7 +305,7 @@ impl FunctionWalkContext {
     pub fn append_jump_to_current_block(&mut self, statement: ir::IrLine) -> Result<(), ()> {
         match &statement.operation {
             ir::Operation::Lowered(ir::lowered::Operation::Jump(_)) => {
-                self.current_block_mut().statements.push(statement);
+                self.current_block_mut().append(statement);
                 Ok(())
             }
             _ => Err(()),
@@ -316,7 +316,7 @@ impl FunctionWalkContext {
         match &statement.operation {
             ir::Operation::Lowered(ir::lowered::Operation::Jump(_)) => Err(()),
             _ => {
-                self.current_block_mut().statements.push(statement);
+                self.current_block_mut().append(statement);
                 Ok(())
             }
         }

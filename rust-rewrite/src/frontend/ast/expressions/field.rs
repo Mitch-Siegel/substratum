@@ -31,25 +31,6 @@ impl<'a> ReturnFunctionWalk<'a, (midend::ir::ValueId, String)> for FieldExpressi
     fn walk(self, context: &'a mut FunctionWalkContext) -> (midend::ir::ValueId, String) {
         let receiver = self.receiver.walk(context);
 
-        let struct_name = match context.values_mut().value_for_id(&receiver).unwrap().type_ {
-            Some(type_id) => {
-                let struct_type = context.definition_for_semantic_type(&type_id).unwrap();
-                match &struct_type.repr {
-                    midend::symtab::TypeRepr::Struct(struct_repr) => &struct_repr.name,
-                    other_repr => panic!(
-                        "Field expression receiver must be of struct type (got {})",
-                        other_repr.name()
-                    ),
-                }
-            }
-            _ => panic!("unknown type of field receiver",),
-        };
-
-        let _receiver_type = context.resolve_type_name(struct_name).expect(&format!(
-            "Error handling for failed lookups is unimplemented: {}.{}",
-            struct_name, self.field
-        ));
-
         (receiver, self.field)
     }
 }

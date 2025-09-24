@@ -1,7 +1,6 @@
 use crate::midend::{
     ir::unlowered::*,
     linearizer::{CustomReturnWalk, ValueWalk},
-    symtab::TypeDefinition,
     *,
 };
 
@@ -192,5 +191,11 @@ impl Lowerable for MatchOperands {
                 matched_type_definition
             ),
         }
+    }
+}
+
+impl OperandTypePropagation for MatchOperands {
+    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+        true
     }
 }
