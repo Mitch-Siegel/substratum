@@ -53,8 +53,8 @@ impl ControlFlow {
                             );
                         }
                     }
-                    Operation::Unlowered(ul) => match &ul.ty {
-                        unlowered::OperationType::Match(m) => {
+                    Operation::Unlowered(ul) => match &ul {
+                        unlowered::Operation::Match(m) => {
                             for arm in &m.arms {
                                 successors
                                     .get_mut(&from_block.label)

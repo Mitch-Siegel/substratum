@@ -12,8 +12,7 @@ pub struct FunctionWalkContext {
     symtab: Box<symtab::SymbolTable>,
     // definition path from the root of the symbol table to this function
     global_def_path: symtab::DefPath,
-    // definition path from the root of the symbol table to wherever we are in the function
-    full_def_path: symtab::DefPath,
+    current_local_def_path: symtab::DefPath,
     generics: GenericParamsContext,
     block_manager: ir::BlockManager,
     // key for DefPathComponent::BasicBlock from self.def_path
@@ -41,13 +40,14 @@ impl FunctionWalkContext {
             .unwrap();
         let unit_type_id = symtab.types.get_semantic(&unit_type_path).unwrap();
 
-        let (block_manager, start_block_label) = ir::BlockManager::new(unit_type_id);
         let my_def_path = {
             symtab.insert::<symtab::Function>(
                 parent_def_path.clone(),
                 symtab::Function::new(prototype.clone(), None),
             )?
         };
+        let (block_manager, start_block_label) =
+            ir::BlockManager::new(unit_type_id, my_def_path.clone());
 
         for argument in prototype.arguments {
             symtab
@@ -59,7 +59,7 @@ impl FunctionWalkContext {
             symtab,
             generics,
             global_def_path: my_def_path.clone(),
-            full_def_path: my_def_path,
+            current_local_def_path: my_def_path,
             block_manager: block_manager,
             current_block: start_block_label,
         })
@@ -67,16 +67,16 @@ impl FunctionWalkContext {
 
     pub fn from_existing(
         symtab: Box<symtab::SymbolTable>,
-        full_def_path: symtab::DefPath,
         generics: GenericParamsContext,
+        full_local_def_path: symtab::DefPath,
         block_manager: ir::BlockManager,
         current_block: usize,
     ) -> Self {
         Self {
             symtab,
             generics,
-            global_def_path: full_def_path.clone().parent_function().unwrap(),
-            full_def_path,
+            global_def_path: full_local_def_path.clone().parent_function().unwrap(),
+            current_local_def_path: full_local_def_path,
             block_manager,
             current_block,
         }
@@ -105,7 +105,8 @@ impl FunctionWalkContext {
         Some(self.values_mut().id_for_variable(self_variable_path))
     }
 
-    fn new_subscope(&mut self) -> Result<(), symtab::SymbolError> {
+    // reserves a subscope, returning its defpath
+    fn reserve_subscope(&mut self) -> symtab::DefPath {
         let next_subscope_index = self
             .symtab()
             .children(&self.def_path())
@@ -116,29 +117,15 @@ impl FunctionWalkContext {
             })
             .count();
 
-        self.full_def_path.push(
-            self.symtab
-                .insert::<symtab::Scope>(self.def_path(), symtab::Scope::new(next_subscope_index))
-                .unwrap()
-                .pop()
-                .unwrap(),
-        )
-    }
-
-    fn pop_current_scope(&mut self) -> Result<(), ir::block_manager::BranchError> {
-        trace::trace!("pop current scope");
-
-        match self.full_def_path.pop() {
-            Some(symtab::DefPathComponent::Scope(_)) => Ok(()),
-            _ => Err(ir::block_manager::BranchError::NotBranched),
-        }
+        self.symtab
+            .insert::<symtab::Scope>(self.def_path(), symtab::Scope::new(next_subscope_index))
+            .unwrap()
     }
 
     // takes the label of the block to be made 'current'
     // returns mutable reference to the block which was previously current
     fn replace_current_block(&mut self, new_current: usize) -> &mut ir::BasicBlock {
         let old_current = self.current_block;
-        self.current_block = new_current;
 
         trace::trace!(
             "replace current block ({}) with block {}",
@@ -146,16 +133,31 @@ impl FunctionWalkContext {
             new_current,
         );
 
+        let old_current_block = self.block_manager.get_mut(&old_current).unwrap();
+        let expected_def_path = old_current_block.def_path().clone();
+        assert!(
+            (self.def_path() == expected_def_path)
+                || self.def_path().is_prefix_of(&expected_def_path)
+        );
+        self.current_local_def_path = self
+            .block_manager
+            .get(&self.current_block)
+            .unwrap()
+            .def_path()
+            .clone();
+
+        self.current_block = new_current;
         self.block_manager.get_mut(&old_current).unwrap()
     }
 
     fn set_current_block(&mut self, label: usize) {
         // sanity check - look up the block to ensure it exists
-        let _lookup_result = self.block_manager.get_mut(&label).unwrap();
+        let lookup_result = self.block_manager.get_mut(&label).unwrap();
 
         trace::trace!("set current block from {} to {}", self.current_block, label);
 
         self.current_block = label;
+        self.current_local_def_path = lookup_result.def_path().clone();
     }
 
     fn current_block_mut(&mut self) -> &mut ir::BasicBlock {
@@ -173,19 +175,13 @@ impl FunctionWalkContext {
             .finish_true_branch_switch_to_false(self.current_block, loc)
             .unwrap();
         self.replace_current_block(false_block);
-        self.pop_current_scope()?;
-        // scope management should be automatic within this module
-        self.new_subscope().unwrap();
         Ok(())
     }
 
     pub fn finish_branch(&mut self, loc: SourceLoc) -> Result<(), ir::block_manager::BranchError> {
         let after_branch = self.block_manager.finish_branch(self.current_block, loc)?;
         self.replace_current_block(after_branch);
-        match self.pop_current_scope() {
-            Ok(_) => Ok(()),
-            Err(_) => Err(ir::block_manager::BranchError::ScopeHandling),
-        }
+        Ok(())
     }
 
     // create an unconditional branch from the current block, transparently setting the current
@@ -196,15 +192,20 @@ impl FunctionWalkContext {
     ) -> Result<(), ir::block_manager::BranchError> {
         trace::debug!("create unconditional branch from current block");
 
+        let true_scope = self.reserve_subscope();
+
         let branched_to_block = self
             .block_manager
-            .create_unconditional_branch(self.current_block, loc)
+            .create_unconditional_branch(
+                self.current_block,
+                loc,
+                self.def_path().clone(),
+                true_scope,
+            )
             .unwrap();
 
         self.replace_current_block(branched_to_block);
 
-        // scope management should be automatic within this module
-        self.new_subscope().unwrap();
         Ok(())
     }
 
@@ -217,23 +218,34 @@ impl FunctionWalkContext {
         condition: ir::lowered::operands::JumpCondition,
     ) -> Result<(), ir::block_manager::BranchError> {
         trace::debug!("create conditional branch from current block");
+
+        let true_scope = self.reserve_subscope();
+        let false_scope = self.reserve_subscope();
+
         let true_block = self
             .block_manager
-            .create_conditional_branch(self.current_block, loc, condition)
+            .create_conditional_branch(
+                self.current_block,
+                loc,
+                condition,
+                self.def_path(),
+                true_scope,
+                false_scope,
+            )
             .unwrap();
 
         self.replace_current_block(true_block);
-        // scope management should be automatic within this module
-        self.new_subscope().unwrap();
         Ok(())
     }
 
     pub fn create_loop(&mut self, loc: SourceLoc) -> Result<usize, ir::block_manager::BranchError> {
         trace::debug!("create loop");
 
+        let loop_scope = self.reserve_subscope();
+
         let (loop_top_block, after_loop_label) = self
             .block_manager
-            .create_loop(self.current_block, loc)
+            .create_loop(self.current_block, loc, self.def_path(), loop_scope)
             .unwrap();
         self.replace_current_block(loop_top_block);
 
@@ -262,19 +274,28 @@ impl FunctionWalkContext {
     }
 
     pub fn create_switch(&mut self, loc: SourceLoc) -> Result<(), ir::block_manager::BranchError> {
-        let switch_block = self.block_manager.create_switch(self.current_block, loc)?;
+        let switch_scope = self.reserve_subscope();
 
-        self.new_subscope().unwrap();
-        let _ = self.replace_current_block(switch_block);
+        let switch_block = self.block_manager.create_switch(
+            self.current_block,
+            loc,
+            self.def_path(),
+            switch_scope,
+        )?;
+
+        self.replace_current_block(switch_block);
 
         Ok(())
     }
 
     // returns the label of the first block in the case
     pub fn create_switch_case(&mut self) -> Result<usize, ir::block_manager::BranchError> {
-        let case_label = self.block_manager.create_switch_case(self.current_block)?;
+        let case_scope = self.reserve_subscope();
 
-        self.new_subscope().unwrap();
+        let case_label = self
+            .block_manager
+            .create_switch_case(self.current_block, case_scope)?;
+
         let _ = self.replace_current_block(case_label);
 
         Ok(case_label)
@@ -289,15 +310,13 @@ impl FunctionWalkContext {
             .finish_switch_case(self.current_block, loc)?;
 
         self.set_current_block(switch_label);
-        self.pop_current_scope()
+        Ok(())
     }
 
     pub fn finish_switch(&mut self, loc: SourceLoc) -> Result<(), ir::block_manager::BranchError> {
         let after_switch = self.block_manager.finish_switch(self.current_block, loc)?;
 
-        self.pop_current_scope().unwrap();
-
-        let _ = self.replace_current_block(after_switch);
+        self.replace_current_block(after_switch);
 
         Ok(())
     }
@@ -339,11 +358,11 @@ impl DefContext for FunctionWalkContext {
     }
 
     fn def_path(&self) -> symtab::DefPath {
-        self.full_def_path.clone()
+        self.current_local_def_path.clone()
     }
 
     fn def_path_mut(&mut self) -> &mut symtab::DefPath {
-        &mut self.full_def_path
+        &mut self.current_local_def_path
     }
 
     fn generics(&self) -> &GenericParamsContext {
@@ -367,7 +386,7 @@ impl FunctionWalkContext {
         ),
         (),
     > {
-        assert!(self.full_def_path.len() == self.global_def_path.len());
+        assert!(self.current_local_def_path.len() == self.global_def_path.len());
 
         Ok((
             self.symtab,

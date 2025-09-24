@@ -148,6 +148,23 @@ impl DefPath {
         self.components.is_empty()
     }
 
+    fn idx(&self, idx: usize) -> &DefPathComponent {
+        &self.components[idx]
+    }
+
+    pub fn is_prefix_of(&self, other: &DefPath) -> bool {
+        if self.len() >= other.len() {
+            return false;
+        }
+
+        for idx in 0..self.len() {
+            if self.idx(idx) != other.idx(idx) {
+                return false;
+            }
+        }
+        true
+    }
+
     pub fn last(&self) -> &DefPathComponent {
         self.components.last().unwrap_or(&DefPathComponent::Empty)
     }

@@ -56,6 +56,7 @@ impl Display for IrLine {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BasicBlock {
     pub label: usize,
+    def_path: symtab::DefPath,
     statements: Vec<IrLine>,
     // lines which may not have had any type propagation done on their ValueIds
     unpropagated_lines: BTreeSet<usize>,
@@ -63,23 +64,33 @@ pub struct BasicBlock {
 }
 
 impl BasicBlock {
-    pub fn new(label: usize) -> Self {
+    pub fn new(label: usize, def_path: symtab::DefPath) -> Self {
         BasicBlock {
             label,
+            def_path,
             statements: Vec::new(),
             unpropagated_lines: BTreeSet::new(),
             arguments: BTreeSet::new(),
         }
     }
 
-    pub fn with_statements(label: usize, statements: Vec<ir::IrLine>) -> Self {
+    pub fn with_statements(
+        label: usize,
+        def_path: symtab::DefPath,
+        statements: Vec<ir::IrLine>,
+    ) -> Self {
         let unpropagated_lines: BTreeSet<usize> = (0..statements.len()).into_iter().collect();
         Self {
             label,
+            def_path,
             statements,
             unpropagated_lines,
             arguments: BTreeSet::new(),
         }
+    }
+
+    pub fn def_path(&self) -> &symtab::DefPath {
+        &self.def_path
     }
 
     /// split the block at statement with specified index, returning vec of that statement and any
@@ -244,11 +255,10 @@ impl IrLine {
     //
     pub fn new_match(
         loc: SourceLoc,
-        def_path: symtab::DefPath,
         scrutinee: ValueId,
         arms: Vec<unlowered::operands::MatchArm>,
     ) -> Self {
-        Self::new_unlowered(loc, unlowered::new_match(def_path, scrutinee, arms))
+        Self::new_unlowered(loc, unlowered::new_match(scrutinee, arms))
     }
 
     pub fn new_discriminant(
@@ -257,22 +267,18 @@ impl IrLine {
         enum_value: ValueId,
         destination: ValueId,
     ) -> Self {
-        Self::new_unlowered(
-            loc,
-            unlowered::new_discriminant(def_path, enum_value, destination),
-        )
+        Self::new_unlowered(loc, unlowered::new_discriminant(enum_value, destination))
     }
 
     pub fn new_get_field_pointer(
         loc: SourceLoc,
-        def_path: symtab::DefPath,
         receiver: ValueId,
         field_name: String,
         destination: ValueId,
     ) -> Self {
         Self::new_unlowered(
             loc,
-            unlowered::new_get_field_pointer(def_path, receiver, field_name, destination),
+            unlowered::new_get_field_pointer(receiver, field_name, destination),
         )
     }
     //

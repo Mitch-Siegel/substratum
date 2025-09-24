@@ -7,10 +7,12 @@ impl BlockManager {
         &mut self,
         from: usize,
         loc: SourceLoc,
+        parent_def_path: symtab::DefPath,
+        true_def_path: symtab::DefPath,
     ) -> Result<usize, BranchError> {
         self.max_block += 2;
-        let true_block = ir::BasicBlock::new(self.max_block - 1);
-        let after_branch = ir::BasicBlock::new(self.max_block);
+        let true_block = ir::BasicBlock::new(self.max_block - 1, true_def_path);
+        let after_branch = ir::BasicBlock::new(self.max_block, parent_def_path);
         let after_branch_label = after_branch.label;
 
         self.convergences.rename_source(from, after_branch.label);
@@ -45,11 +47,14 @@ impl BlockManager {
         from: usize,
         loc: SourceLoc,
         jump_condition: ir::lowered::operands::JumpCondition,
+        parent_def_path: symtab::DefPath,
+        true_def_path: symtab::DefPath,
+        false_def_path: symtab::DefPath,
     ) -> Result<usize, BranchError> {
         self.max_block += 3;
-        let true_block = ir::BasicBlock::new(self.max_block - 2);
-        let false_block = ir::BasicBlock::new(self.max_block - 1);
-        let convergence_block = ir::BasicBlock::new(self.max_block);
+        let true_block = ir::BasicBlock::new(self.max_block - 2, true_def_path);
+        let false_block = ir::BasicBlock::new(self.max_block - 1, false_def_path);
+        let convergence_block = ir::BasicBlock::new(self.max_block, parent_def_path);
 
         trace::trace!(
             "create conditional branch from block {} - true block: {}, false block: {}, after branch: {}",
@@ -94,7 +99,10 @@ impl BlockManager {
             BranchKind::ConditionalTrue(false_block) => Ok(false_block),
             kind => Err(BranchError::WrongKind(
                 kind,
-                vec![BranchKind::ConditionalTrue(ir::BasicBlock::new(0))],
+                vec![BranchKind::ConditionalTrue(ir::BasicBlock::new(
+                    0,
+                    symtab::DefPath::empty(),
+                ))],
             )),
         }?;
 
@@ -148,11 +156,13 @@ impl BlockManager {
         &mut self,
         before_loop: usize,
         loc: SourceLoc,
+        parent_def_path: symtab::DefPath,
+        loop_def_path: symtab::DefPath,
     ) -> Result<(usize, usize), BranchError> {
         self.max_block += 3;
-        let loop_top = ir::BasicBlock::new(self.max_block - 2);
-        let mut loop_bottom = ir::BasicBlock::new(self.max_block - 1);
-        let after_loop = ir::BasicBlock::new(self.max_block);
+        let loop_top = ir::BasicBlock::new(self.max_block - 2, loop_def_path.clone());
+        let mut loop_bottom = ir::BasicBlock::new(self.max_block - 1, loop_def_path);
+        let after_loop = ir::BasicBlock::new(self.max_block, parent_def_path);
 
         trace::trace!(
             "create loop from block {} - loop top: {}, loop bottom: {}, after loop: {}",
@@ -291,10 +301,12 @@ impl BlockManager {
         &mut self,
         before_switch: usize,
         loc: SourceLoc,
+        parent_def_path: symtab::DefPath,
+        switch_def_path: symtab::DefPath,
     ) -> Result<usize, BranchError> {
         self.max_block += 2;
-        let switch_block = ir::BasicBlock::new(self.max_block - 1);
-        let convergence_block = ir::BasicBlock::new(self.max_block);
+        let switch_block = ir::BasicBlock::new(self.max_block - 1, switch_def_path);
+        let convergence_block = ir::BasicBlock::new(self.max_block, parent_def_path);
 
         trace::trace!(
             "create switch block {} - after switch: {}",
@@ -327,7 +339,11 @@ impl BlockManager {
 
     /// Create a switch case (must be within the switch base label itself), returning the label of
     /// the first block in that case
-    pub fn create_switch_case(&mut self, switch_label: usize) -> Result<usize, BranchError> {
+    pub fn create_switch_case(
+        &mut self,
+        switch_label: usize,
+        case_def_path: symtab::DefPath,
+    ) -> Result<usize, BranchError> {
         // verify that we are in the correct state to create a new arm
         match &self.last_branch()?.kind {
             BranchKind::Switch(expected_label) => {
@@ -348,7 +364,7 @@ impl BlockManager {
         }?;
 
         self.max_block += 1;
-        let case_block = ir::BasicBlock::new(self.max_block);
+        let case_block = ir::BasicBlock::new(self.max_block, case_def_path);
         let after_switch_label = self
             .convergences
             .convergence_label_of_block(&switch_label)

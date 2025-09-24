@@ -58,10 +58,10 @@ pub struct BlockManager {
 impl BlockManager {
     // returns (Self, start_block)
     // where start_block is the first basic block in the function
-    pub fn new(unit_type: types::Semantic) -> (Self, usize) {
+    pub fn new(unit_type: types::Semantic, def_path: symtab::DefPath) -> (Self, usize) {
         // set up the initlal convergence - must always end up at the end_block
-        let start_block = BasicBlock::new(0);
-        let end_block = BasicBlock::new(1);
+        let start_block = BasicBlock::new(0, def_path.clone());
+        let end_block = BasicBlock::new(1, def_path);
         let mut convergences = BlockConvergences::new();
         convergences.add(&[start_block.label], end_block).unwrap();
 
@@ -118,6 +118,10 @@ impl BlockManager {
 
     pub fn values_mut(&mut self) -> &mut ValueInterner {
         &mut self.values
+    }
+
+    pub fn get(&self, label: &usize) -> Option<&BasicBlock> {
+        self.blocks.get(label)
     }
 
     pub fn get_mut(&mut self, label: &usize) -> Option<&mut BasicBlock> {
@@ -181,6 +185,7 @@ impl BlockManager {
         stmt_idx: usize,
     ) -> Result<(usize, IrLine), BranchError> {
         let split_block = self.get_mut(&block).unwrap();
+        let def_path = split_block.def_path.clone();
         let mut after_split = split_block.split_at(stmt_idx);
         let at_split = after_split.remove(0);
 
@@ -188,7 +193,7 @@ impl BlockManager {
             .push(Branch::new(block, BranchKind::BlockSplit(after_split)));
 
         let split_to_block = self
-            .create_unconditional_branch(block, at_split.loc.clone())
+            .create_unconditional_branch(block, at_split.loc.clone(), def_path.clone(), def_path)
             .unwrap();
         Ok((split_to_block, at_split))
     }

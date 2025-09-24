@@ -144,7 +144,6 @@ impl ValueWalk for MatchExpressionTree {
         context
             .append_statement_to_current_block(midend::ir::IrLine::new_match(
                 match_loc.clone(),
-                context.def_path(),
                 scrutinee_value,
                 arm_values,
             ))

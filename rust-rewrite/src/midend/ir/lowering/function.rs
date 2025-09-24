@@ -1,4 +1,8 @@
-use crate::midend::{ir::*, *};
+use crate::midend::{
+    ir::{unlowered::Lowerable, *},
+    linearizer::GenericParamsContext,
+    *,
+};
 use std::collections::{HashMap, HashSet};
 
 pub fn find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usize>> {
@@ -51,12 +55,22 @@ pub fn lower_function(
 
         let (split_to_block, to_lower) = manager.split_block_at_statement(block, idx).unwrap();
 
+        let mut ctx = linearizer::FunctionWalkContext::from_existing(
+            symtab,
+            GenericParamsContext::new(),
+            manager.get(&block).unwrap().def_path().clone(),
+            manager,
+            block,
+        );
+
         match to_lower.operation {
             ir::Operation::Unlowered(op) => {
-                (symtab, manager) = op.lower(symtab, manager, split_to_block, to_lower.loc.clone());
+                op.lower(&mut ctx, to_lower.loc.clone());
             }
             ir::Operation::Lowered(_) => panic!("Can't lower lowered IR"),
         }
+
+        (symtab, _, _, manager) = ctx.take().unwrap();
 
         let after_split_block = manager
             .finish_block_split(split_to_block, to_lower.loc)

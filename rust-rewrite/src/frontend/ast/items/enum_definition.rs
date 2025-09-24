@@ -87,6 +87,8 @@ impl ReturnWalk<midend::symtab::EnumRepr> for EnumDefinitionTree {
         let type_def_path_component = midend::symtab::DefPathComponent::Type(
             midend::types::Syntactic::Named(string_name.clone()),
         );
+
+        // TODO: handle generic params
         context.push_def_path(type_def_path_component.clone(), &generic_params);
 
         let variants: Vec<(String, midend::symtab::EnumVariantRepr)> = self
@@ -101,6 +103,7 @@ impl ReturnWalk<midend::symtab::EnumRepr> for EnumDefinitionTree {
             })
             .collect::<Vec<_>>();
 
+        // TODO: handle generic params
         context.pop_def_path(type_def_path_component).unwrap();
         midend::symtab::EnumRepr::new(string_name, generic_params, variants).unwrap()
     }
