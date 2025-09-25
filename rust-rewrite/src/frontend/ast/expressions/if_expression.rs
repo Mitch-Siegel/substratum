@@ -37,24 +37,34 @@ impl Display for IfExpressionTree {
     }
 }
 
-impl ValueWalk for IfExpressionTree {
+impl Walk<midend::ir::ValueId> for IfExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> midend::ir::ValueId {
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc.clone();
-        let condition_result: midend::ir::ValueId = self.condition.walk(context).into();
+        let condition_result: midend::ir::ValueId = self.condition.walk(ctx).into();
         let if_condition = midend::ir::lowered::operands::JumpCondition::Conditional(
             midend::ir::lowered::operands::BinaryComparisonOperands::new(
                 condition_result,
-                *context.values_mut().id_for_constant(0),
+                *ctx.function().values_mut().id_for_constant(0),
                 midend::ir::lowered::operands::BinaryComparisonKind::NE,
             ),
         );
 
-        context
-            .conditional_branch_from_current(condition_loc.clone(), if_condition)
+        let parent_scope_def_path = ctx.def_path().clone();
+        let true_scope_def_path = ctx.reserve_subscope();
+        let false_scope_def_path = ctx.reserve_subscope();
+
+        ctx.function()
+            .conditional_branch_from_current(
+                condition_loc.clone(),
+                if_condition,
+                parent_scope_def_path,
+                true_scope_def_path,
+                false_scope_def_path,
+            )
             .unwrap();
-        let if_value_id = self.true_block.walk(context);
+        let if_value_id = self.true_block.walk(ctx);
 
         // create a separate, mutable value which contains the true result
         let result_value = if_value_id.clone();
@@ -62,22 +72,22 @@ impl ValueWalk for IfExpressionTree {
         // if a false block exists AND the 'if' value exists
         if self.false_block.is_some() {
             // we need to copy the 'if' result to the common result_value at the end of the 'if' block
-            let result_value = context.values_mut().next_temp();
+            let result_value = ctx.function().values_mut().next_temp();
             let assign_if_result_line =
                 midend::ir::IrLine::new_assignment(self.loc.clone(), result_value, if_value_id);
-            context
+            ctx.function()
                 .append_statement_to_current_block(assign_if_result_line)
                 .unwrap();
         }
 
-        context
+        ctx.function()
             .finish_true_branch_switch_to_false(condition_loc)
             .unwrap();
 
         // handle branch linearization and assignment to the result value
         match self.false_block {
             Some(else_block) => {
-                let else_value_id = else_block.walk(context);
+                let else_value_id = else_block.walk(ctx);
 
                 // if the 'else' value exists (have already passed check to assert types are the same)
                 // copy the 'else' result to the common result_value at the end of the 'else' block
@@ -86,14 +96,14 @@ impl ValueWalk for IfExpressionTree {
                     result_value.clone().into(),
                     else_value_id,
                 );
-                context
+                ctx.function()
                     .append_statement_to_current_block(assign_else_result_line)
                     .unwrap();
             }
             None => {}
         };
 
-        context.finish_branch(self.loc).unwrap();
+        ctx.function().finish_branch(self.loc).unwrap();
 
         result_value
     }

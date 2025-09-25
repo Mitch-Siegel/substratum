@@ -73,73 +73,71 @@ impl Display for ExpressionTree {
     }
 }
 
-impl midend::linearizer::ValueWalk for ExpressionTree {
+impl midend::linearizer::Walk<midend::ir::ValueId> for ExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut midend::linearizer::FunctionWalkContext) -> midend::ir::ValueId {
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
         match self.expression {
-            Expression::SelfLower => match context.self_variable() {
-                Some(id) => id,
-                None => panic!(
-                    "'self' expression is not valid ({}) (defpath {})",
-                    self.loc,
-                    context.def_path()
-                ),
-            },
+            Expression::SelfLower => {
+                let self_variable_path = ctx.self_variable().unwrap();
+                ctx.function()
+                    .values_mut()
+                    .id_for_variable(self_variable_path)
+            }
             Expression::Identifier(ident) => {
-                let (_, variable_path) = context
+                let (_, variable_path) = ctx
                     .lookup_with_path::<midend::symtab::Variable>(&ident)
                     .unwrap();
-                context.values_mut().id_for_variable(variable_path)
+                ctx.function().values_mut().id_for_variable(variable_path)
             }
             Expression::UnsignedDecimalConstant(constant) => {
-                *context.values_mut().id_for_constant(constant)
+                *ctx.function().values_mut().id_for_constant(constant)
             }
             Expression::Arithmetic(arithmetic_operation) => {
-                let operands = arithmetic_operation.walk(context);
-                let destination = context.values_mut().next_temp();
+                let operands = arithmetic_operation.walk(ctx);
+                let destination = ctx.function().values_mut().next_temp();
                 let expression_statement = midend::ir::IrLine::new_binary_arithmetic_expression(
                     SourceLoc::none(), // FIXME: loc tracking for arithmetic expressions
                     destination,
                     operands,
                 );
-                context
+                ctx.function()
                     .append_statement_to_current_block(expression_statement)
                     .unwrap();
                 destination
             }
             Expression::Comparison(comparison_operation) => {
-                let operands = comparison_operation.walk(context);
-                let destination = context.values_mut().next_temp();
+                let operands = comparison_operation.walk(ctx);
+                let destination = ctx.function().values_mut().next_temp();
                 let comparison_statement = midend::ir::IrLine::new_binary_comparison_expression(
                     SourceLoc::none(), // FIXME: loc tracking for arithmetic expressions
                     destination,
                     operands,
                 );
-                context
+                ctx.function()
                     .append_statement_to_current_block(comparison_statement)
                     .unwrap();
                 destination
             }
-            Expression::Assignment(assignment_expression) => assignment_expression.walk(context),
-            Expression::If(if_expression) => if_expression.walk(context),
-            Expression::Match(match_expression) => match_expression.walk(context),
+            Expression::Assignment(assignment_expression) => assignment_expression.walk(ctx),
+            Expression::If(if_expression) => if_expression.walk(ctx),
+            Expression::Match(match_expression) => match_expression.walk(ctx),
 
-            Expression::While(while_expression) => while_expression.walk(context),
+            Expression::While(while_expression) => while_expression.walk(ctx),
             Expression::FieldExpression(field_expression) => {
-                let (receiver, field) = field_expression.walk(context);
-                let field_pointer_temp = context.values_mut().next_temp();
+                let (receiver, field) = field_expression.walk(ctx);
+                let field_pointer_temp = ctx.function().values_mut().next_temp();
                 let field_read_line = midend::ir::IrLine::new_get_field_pointer(
                     self.loc,
                     receiver.into(),
                     field,
                     field_pointer_temp.clone(),
                 );
-                context
+                ctx.function()
                     .append_statement_to_current_block(field_read_line)
                     .unwrap();
                 field_pointer_temp
             }
-            Expression::MethodCall(method_call) => method_call.walk(context),
+            Expression::MethodCall(method_call) => method_call.walk(ctx),
         }
     }
 }

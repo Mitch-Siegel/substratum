@@ -8,7 +8,7 @@ pub struct FieldPointerOperands {
 }
 
 impl Lowerable for FieldPointerOperands {
-    fn lower<'a>(self, context: &'a mut linearizer::FunctionWalkContext, loc: SourceLoc) {
+    fn lower(self, _ctx: &mut linearizer::WalkContext, loc: SourceLoc) {
         unimplemented!();
     }
 }

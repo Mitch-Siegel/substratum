@@ -8,13 +8,13 @@ pub enum Pattern {
     TupleStruct(String, Vec<PatternTree>),
 }
 
-impl<'a> ReturnFunctionWalk<'a, ()> for Pattern {
+impl Walk<()> for Pattern {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &'a mut FunctionWalkContext) -> () {
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> () {
         match self {
             Self::Literal(_) => (),
             Self::Identifier(name) => {
-                let variable_def_path = context
+                let variable_def_path = ctx
                     .insert::<midend::symtab::Variable>(midend::symtab::Variable::new(
                         name.clone(),
                         None,
@@ -22,11 +22,13 @@ impl<'a> ReturnFunctionWalk<'a, ()> for Pattern {
                     .unwrap();
                 // TODO: examine if there's a better way to just declare variables and give them a
                 // ValueID in one go?
-                context.values_mut().id_for_variable(variable_def_path);
+                ctx.function()
+                    .values_mut()
+                    .id_for_variable(variable_def_path);
             }
             Self::TupleStruct(_struct_name, field_patterns) => {
                 for field in field_patterns.clone() {
-                    field.walk(context);
+                    field.walk(ctx);
                 }
             }
         };
@@ -50,10 +52,10 @@ impl Display for PatternTree {
     }
 }
 
-impl CustomReturnWalk<&mut FunctionWalkContext, PatternTree> for PatternTree {
+impl Walk<PatternTree> for PatternTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> PatternTree {
-        self.pattern.clone().walk(context);
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> PatternTree {
+        self.pattern.clone().walk(ctx);
         self
     }
 }
@@ -78,9 +80,12 @@ impl Display for MatchArmTree {
         write!(f, "{} => {}", self.pattern, self.expression)
     }
 }
-impl<'a> ReturnFunctionWalk<'a, (PatternTree, midend::ir::ValueId)> for MatchArmTree {
+impl Walk<(PatternTree, midend::ir::ValueId)> for MatchArmTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &'a mut FunctionWalkContext) -> (PatternTree, midend::ir::ValueId) {
+    fn walk(
+        self,
+        context: &mut midend::linearizer::WalkContext,
+    ) -> (PatternTree, midend::ir::ValueId) {
         let pattern = self.pattern.walk(context);
         let arm_value = self.expression.walk(context);
         (pattern, arm_value)
@@ -113,25 +118,41 @@ impl Display for MatchExpressionTree {
     }
 }
 
-impl ValueWalk for MatchExpressionTree {
+impl midend::linearizer::Walk<midend::ir::ValueId> for MatchExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut midend::linearizer::FunctionWalkContext) -> midend::ir::ValueId {
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
         let match_loc = self.loc;
-        context.create_switch(match_loc.clone()).unwrap();
 
-        let scrutinee_value = self.scrutinee_expression.walk(context);
+        let parent_scope_def_path = ctx.def_path().clone();
+        let switch_scope_def_path = ctx.reserve_subscope();
+
+        ctx.function()
+            .create_switch(
+                match_loc.clone(),
+                parent_scope_def_path,
+                switch_scope_def_path,
+            )
+            .unwrap();
+
+        let scrutinee_value = self.scrutinee_expression.walk(ctx);
 
         // TODO: consolidate each arm's result into result_value
-        let result_value = context.values_mut().next_temp();
+        let result_value = ctx.function().values_mut().next_temp();
 
         let mut arm_values = Vec::new();
 
         for arm in self.arms {
             trace::warning!("start arm");
-            let arm_label = context.create_switch_case().unwrap();
+            let case_scope_def_path = ctx.reserve_subscope();
+            let arm_label = ctx
+                .function()
+                .create_switch_case(case_scope_def_path)
+                .unwrap();
             let _pattern_loc = arm.loc.clone();
-            let (pattern, result_value) = arm.walk(context);
-            context.finish_switch_case(match_loc.clone()).unwrap();
+            let (pattern, result_value) = arm.walk(ctx);
+            ctx.function()
+                .finish_switch_case(match_loc.clone())
+                .unwrap();
 
             arm_values.push(midend::ir::unlowered::operands::MatchArm {
                 pattern,
@@ -141,7 +162,7 @@ impl ValueWalk for MatchExpressionTree {
             trace::warning!("finish arm");
         }
 
-        context
+        ctx.function()
             .append_statement_to_current_block(midend::ir::IrLine::new_match(
                 match_loc.clone(),
                 scrutinee_value,
@@ -151,7 +172,7 @@ impl ValueWalk for MatchExpressionTree {
 
         // FIXME: (?) Convergence currently exists from the switch block itself to the after-switch
         // block, resulting in an unreachable jump instruction after the unlowered match IR.
-        context.finish_switch(match_loc).unwrap();
+        ctx.function().finish_switch(match_loc).unwrap();
         result_value
     }
 }

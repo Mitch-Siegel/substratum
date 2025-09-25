@@ -28,9 +28,9 @@ impl Display for ArgumentDeclarationTree {
     }
 }
 
-impl ReturnWalk<midend::symtab::Variable> for ArgumentDeclarationTree {
+impl midend::linearizer::Walk<midend::symtab::Variable> for ArgumentDeclarationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut impl midend::linearizer::DefContext) -> midend::symtab::Variable {
+    fn walk(self, context: &mut midend::linearizer::WalkContext) -> midend::symtab::Variable {
         let variable_type: midend::types::Syntactic = self.type_.walk(context);
 
         let declared_argument =
@@ -79,11 +79,11 @@ impl Display for FunctionDeclarationTree {
     }
 }
 
-impl ReturnWalk<midend::symtab::FunctionPrototype> for FunctionDeclarationTree {
+impl midend::linearizer::Walk<midend::symtab::FunctionPrototype> for FunctionDeclarationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(
         self,
-        context: &mut impl midend::linearizer::DefContext,
+        context: &mut midend::linearizer::WalkContext,
     ) -> midend::symtab::FunctionPrototype {
         let (string_name, generic_params) = self.name.walk(());
 
@@ -118,21 +118,14 @@ impl Display for FunctionDefinitionTree {
     }
 }
 
-impl CustomReturnWalk<midend::linearizer::BasicDefContext, midend::linearizer::BasicDefContext>
-    for FunctionDefinitionTree
-{
+impl midend::linearizer::Walk<()> for FunctionDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(
-        self,
-        mut context: midend::linearizer::BasicDefContext,
-    ) -> midend::linearizer::BasicDefContext {
-        let declared_prototype = self.prototype.walk(&mut context);
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> () {
+        let declared_prototype = self.prototype.walk(ctx);
+        let function_name = declared_prototype.name.clone();
 
-        let mut function_context =
-            midend::linearizer::FunctionWalkContext::new(context, declared_prototype).unwrap();
-
-        self.body.walk(&mut function_context);
-
-        function_context.into()
+        ctx.create_function(declared_prototype).unwrap();
+        self.body.walk(ctx);
+        ctx.finish_function(function_name);
     }
 }

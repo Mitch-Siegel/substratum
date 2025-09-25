@@ -37,18 +37,16 @@ impl Display for ComparisonExpressionTree {
     }
 }
 
-impl<'a> ReturnFunctionWalk<'a, midend::ir::lowered::operands::BinaryComparisonOperands>
-    for ComparisonExpressionTree
-{
+impl Walk<midend::ir::lowered::operands::BinaryComparisonOperands> for ComparisonExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(
         self,
-        context: &mut FunctionWalkContext,
+        ctx: &mut midend::linearizer::WalkContext,
     ) -> midend::ir::lowered::operands::BinaryComparisonOperands {
         match self {
             ComparisonExpressionTree::LThan(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
-                let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
+                let lhs: midend::ir::ValueId = operands.e1.walk(ctx).into();
+                let rhs: midend::ir::ValueId = operands.e2.walk(ctx).into();
                 midend::ir::lowered::operands::BinaryComparisonOperands::new(
                     lhs,
                     rhs,
@@ -56,8 +54,8 @@ impl<'a> ReturnFunctionWalk<'a, midend::ir::lowered::operands::BinaryComparisonO
                 )
             }
             ComparisonExpressionTree::GThan(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
-                let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
+                let lhs: midend::ir::ValueId = operands.e1.walk(ctx).into();
+                let rhs: midend::ir::ValueId = operands.e2.walk(ctx).into();
                 midend::ir::lowered::operands::BinaryComparisonOperands::new(
                     lhs,
                     rhs,
@@ -65,8 +63,8 @@ impl<'a> ReturnFunctionWalk<'a, midend::ir::lowered::operands::BinaryComparisonO
                 )
             }
             ComparisonExpressionTree::LThanE(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
-                let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
+                let lhs: midend::ir::ValueId = operands.e1.walk(ctx).into();
+                let rhs: midend::ir::ValueId = operands.e2.walk(ctx).into();
                 midend::ir::lowered::operands::BinaryComparisonOperands::new(
                     lhs,
                     rhs,
@@ -74,8 +72,8 @@ impl<'a> ReturnFunctionWalk<'a, midend::ir::lowered::operands::BinaryComparisonO
                 )
             }
             ComparisonExpressionTree::GThanE(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
-                let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
+                let lhs: midend::ir::ValueId = operands.e1.walk(ctx).into();
+                let rhs: midend::ir::ValueId = operands.e2.walk(ctx).into();
                 midend::ir::lowered::operands::BinaryComparisonOperands::new(
                     lhs,
                     rhs,
@@ -83,8 +81,8 @@ impl<'a> ReturnFunctionWalk<'a, midend::ir::lowered::operands::BinaryComparisonO
                 )
             }
             ComparisonExpressionTree::Equals(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
-                let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
+                let lhs: midend::ir::ValueId = operands.e1.walk(ctx).into();
+                let rhs: midend::ir::ValueId = operands.e2.walk(ctx).into();
                 midend::ir::lowered::operands::BinaryComparisonOperands::new(
                     lhs,
                     rhs,
@@ -92,8 +90,8 @@ impl<'a> ReturnFunctionWalk<'a, midend::ir::lowered::operands::BinaryComparisonO
                 )
             }
             ComparisonExpressionTree::NotEquals(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
-                let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
+                let lhs: midend::ir::ValueId = operands.e1.walk(ctx).into();
+                let rhs: midend::ir::ValueId = operands.e2.walk(ctx).into();
                 midend::ir::lowered::operands::BinaryComparisonOperands::new(
                     lhs,
                     rhs,
@@ -122,18 +120,16 @@ impl Display for ArithmeticExpressionTree {
     }
 }
 
-impl<'a> ReturnFunctionWalk<'a, midend::ir::lowered::operands::BinaryArithmeticOperands>
-    for ArithmeticExpressionTree
-{
+impl Walk<midend::ir::lowered::operands::BinaryArithmeticOperands> for ArithmeticExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn walk(
         self,
-        context: &mut FunctionWalkContext,
+        ctx: &mut midend::linearizer::WalkContext,
     ) -> midend::ir::lowered::operands::BinaryArithmeticOperands {
         match self {
             ArithmeticExpressionTree::Add(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
-                let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
+                let lhs: midend::ir::ValueId = operands.e1.walk(ctx).into();
+                let rhs: midend::ir::ValueId = operands.e2.walk(ctx).into();
                 midend::ir::lowered::operands::BinaryArithmeticOperands::new(
                     lhs,
                     rhs,
@@ -141,8 +137,8 @@ impl<'a> ReturnFunctionWalk<'a, midend::ir::lowered::operands::BinaryArithmeticO
                 )
             }
             ArithmeticExpressionTree::Subtract(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
-                let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
+                let lhs: midend::ir::ValueId = operands.e1.walk(ctx).into();
+                let rhs: midend::ir::ValueId = operands.e2.walk(ctx).into();
                 midend::ir::lowered::operands::BinaryArithmeticOperands::new(
                     lhs,
                     rhs,
@@ -150,8 +146,8 @@ impl<'a> ReturnFunctionWalk<'a, midend::ir::lowered::operands::BinaryArithmeticO
                 )
             }
             ArithmeticExpressionTree::Multiply(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
-                let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
+                let lhs: midend::ir::ValueId = operands.e1.walk(ctx).into();
+                let rhs: midend::ir::ValueId = operands.e2.walk(ctx).into();
                 midend::ir::lowered::operands::BinaryArithmeticOperands::new(
                     lhs,
                     rhs,
@@ -159,8 +155,8 @@ impl<'a> ReturnFunctionWalk<'a, midend::ir::lowered::operands::BinaryArithmeticO
                 )
             }
             ArithmeticExpressionTree::Divide(operands) => {
-                let lhs: midend::ir::ValueId = operands.e1.walk(context).into();
-                let rhs: midend::ir::ValueId = operands.e2.walk(context).into();
+                let lhs: midend::ir::ValueId = operands.e1.walk(ctx).into();
+                let rhs: midend::ir::ValueId = operands.e2.walk(ctx).into();
                 midend::ir::lowered::operands::BinaryArithmeticOperands::new(
                     lhs,
                     rhs,

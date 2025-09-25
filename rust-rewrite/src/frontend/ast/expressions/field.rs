@@ -26,10 +26,10 @@ impl Display for FieldExpressionTree {
 // returns (receiver, field_info)
 // receiver is the value id for the receiver of the field access
 // field_info is a value id for the field being accessed
-impl<'a> ReturnFunctionWalk<'a, (midend::ir::ValueId, String)> for FieldExpressionTree {
+impl Walk<(midend::ir::ValueId, String)> for FieldExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &'a mut FunctionWalkContext) -> (midend::ir::ValueId, String) {
-        let receiver = self.receiver.walk(context);
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> (midend::ir::ValueId, String) {
+        let receiver = self.receiver.walk(ctx);
 
         (receiver, self.field)
     }

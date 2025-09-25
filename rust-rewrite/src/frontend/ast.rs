@@ -1,12 +1,6 @@
 use crate::{
     frontend::sourceloc::SourceLoc,
-    midend::{
-        self,
-        linearizer::{
-            def_context::DefContext, CustomReturnWalk, FunctionWalkContext, ReturnFunctionWalk,
-            ReturnWalk, ValueWalk,
-        },
-    },
+    midend::{self, linearizer::CustomWalk, linearizer::Walk},
 };
 use std::fmt::Display;
 

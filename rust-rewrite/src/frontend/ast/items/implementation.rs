@@ -40,18 +40,11 @@ impl Display for ImplementationTree {
     }
 }
 
-impl CustomReturnWalk<midend::linearizer::BasicDefContext, midend::linearizer::BasicDefContext>
-    for ImplementationTree
-{
+impl midend::linearizer::Walk<()> for ImplementationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(
-        self,
-        mut context: midend::linearizer::BasicDefContext,
-    ) -> midend::linearizer::BasicDefContext {
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> () {
         let (implemented_for_string_name, _implemented_for_generic_params) = self.for_.walk(());
-        let implemented_for_type = context
-            .resolve_type_name(&implemented_for_string_name)
-            .unwrap();
+        let implemented_for_type = ctx.resolve_type_name(&implemented_for_string_name).unwrap();
 
         let generic_params: Vec<String> = match self.generic_params {
             Some(params) => params.walk(()),
@@ -63,14 +56,12 @@ impl CustomReturnWalk<midend::linearizer::BasicDefContext, midend::linearizer::B
                 implemented_for: implemented_for_type,
                 generic_params: generic_params.clone(),
             });
-        context.push_def_path(impl_def_path_component.clone(), &generic_params);
+        ctx.push_def_path(impl_def_path_component.clone(), &generic_params);
 
         for item in self.items {
-            context = item.walk(context);
+            item.walk(ctx);
         }
 
-        context.pop_def_path(impl_def_path_component).unwrap();
-
-        context
+        ctx.pop_def_path(impl_def_path_component).unwrap();
     }
 }

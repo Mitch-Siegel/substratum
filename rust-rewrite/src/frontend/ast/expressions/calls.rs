@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::linearizer::Walk};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallParamsTree {
@@ -25,13 +25,13 @@ impl Display for CallParamsTree {
     }
 }
 
-impl<'a> ReturnFunctionWalk<'a, Vec<midend::ir::ValueId>> for CallParamsTree {
+impl Walk<Vec<midend::ir::ValueId>> for CallParamsTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> Vec<midend::ir::ValueId> {
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> Vec<midend::ir::ValueId> {
         let mut param_values = Vec::new();
 
         for param in self.params {
-            param_values.push(param.walk(context));
+            param_values.push(param.walk(ctx));
         }
 
         param_values
@@ -70,19 +70,19 @@ impl Display for MethodCallExpressionTree {
     }
 }
 
-impl ValueWalk for MethodCallExpressionTree {
+impl Walk<midend::ir::ValueId> for MethodCallExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut FunctionWalkContext) -> midend::ir::ValueId {
-        let receiver = self.receiver.walk(context);
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
+        let receiver = self.receiver.walk(ctx);
 
-        let return_value_to = context.values_mut().next_temp();
+        let return_value_to = ctx.function().values_mut().next_temp();
 
         // //TODO: error handling and checking
         // assert!(called_method.arguments.len() == params.len());
 
         let params: Vec<midend::ir::ValueId> = self
             .params
-            .walk(context)
+            .walk(ctx)
             .into_iter()
             .map(|value| value.into())
             .collect();
@@ -95,7 +95,7 @@ impl ValueWalk for MethodCallExpressionTree {
             return_value_to.clone(),
         );
 
-        context
+        ctx.function()
             .append_statement_to_current_block(method_call_line)
             .unwrap();
 

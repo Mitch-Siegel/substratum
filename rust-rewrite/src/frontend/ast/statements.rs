@@ -38,13 +38,13 @@ impl Display for StatementTree {
     }
 }
 
-impl ValueWalk for StatementTree {
+impl midend::linearizer::Walk<midend::ir::ValueId> for StatementTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut midend::linearizer::FunctionWalkContext) -> midend::ir::ValueId {
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
         match self.statement {
             Statement::Item(_) => unimplemented!(),
-            Statement::Let(let_tree) => let_tree.walk(context),
-            Statement::Expression(expression_tree) => expression_tree.walk(context),
+            Statement::Let(let_tree) => let_tree.walk(ctx),
+            Statement::Expression(expression_tree) => expression_tree.walk(ctx),
         }
     }
 }

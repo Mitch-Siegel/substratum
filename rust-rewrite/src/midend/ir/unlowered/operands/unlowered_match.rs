@@ -1,11 +1,7 @@
-use crate::midend::{
-    ir::unlowered::*,
-    linearizer::{CustomReturnWalk, ValueWalk},
-    *,
-};
+use crate::midend::{ir::unlowered::*, *};
 
 struct MatchArmContext<'a> {
-    pub ctx: &'a mut linearizer::FunctionWalkContext,
+    pub ctx: &'a mut linearizer::WalkContext,
     pub scrutinee: ValueId,
 }
 
@@ -13,7 +9,7 @@ struct MatchArmResult<'a> {
     pub arm_label: usize, // the label of the arm to which we should jump if matched
     pub result_value: ValueId,
     pub comparison_value: ValueId,
-    pub ctx: &'a mut linearizer::FunctionWalkContext,
+    pub ctx: &'a mut linearizer::WalkContext,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
@@ -24,7 +20,7 @@ pub struct MatchArm {
 }
 
 fn match_enum_destructure(
-    ctx: &mut linearizer::FunctionWalkContext,
+    ctx: &mut linearizer::WalkContext,
     scrutinee: ValueId,
     destructured_enum: &symtab::type_definition::EnumRepr,
     variant_name: String,
@@ -57,7 +53,7 @@ fn match_enum_destructure(
 
             for (pattern_tree, member) in nested_patterns.into_iter().zip(members.iter()) {
                 let pattern_tree = pattern_tree.walk(ctx);
-                let tuple_member_value = ctx.values_mut().next_temp();
+                let tuple_member_value = ctx.function().values_mut().next_temp();
 
                 let (member_type, type_def_path) = ctx
                     .lookup_with_path::<symtab::TypeDefinition>(member)
@@ -75,22 +71,24 @@ fn match_enum_destructure(
 fn match_pattern_to_truth_value(
     pattern: frontend::ast::expressions::match_expression::Pattern,
     scrutinee: ValueId,
-    ctx: &mut linearizer::FunctionWalkContext,
+    ctx: &mut linearizer::WalkContext,
 ) -> ValueId {
     use frontend::ast::expressions::match_expression::Pattern;
     match pattern {
         Pattern::Literal(literal) => literal.walk(ctx),
         Pattern::Identifier(name) => {
             let (_, def_path) = ctx.lookup_with_path::<symtab::Variable>(&name).unwrap();
-            ctx.values_mut().id_for_variable(def_path)
+            ctx.function().values_mut().id_for_variable(def_path)
         }
         Pattern::TupleStruct(name, nested_patterns) => {
-            let scrutinee_value = ctx.values().value_for_id(&scrutinee).unwrap();
             let scrutinee_type = ctx
-                .symtab()
-                .types
-                .get_definition(&scrutinee_value.ty().unwrap())
+                .function()
+                .values()
+                .value_for_id(&scrutinee)
+                .unwrap()
+                .ty()
                 .unwrap();
+            let scrutinee_type = ctx.symtab().types.get_definition(&scrutinee_type).unwrap();
 
             match scrutinee_type.repr.clone() {
                 symtab::type_definition::TypeRepr::Enum(destructured_enum) => {
@@ -110,7 +108,7 @@ fn match_pattern_to_truth_value(
     }
 }
 
-impl<'a> linearizer::CustomReturnWalk<MatchArmContext<'a>, MatchArmResult<'a>> for MatchArm {
+impl<'a> linearizer::CustomWalk<MatchArmContext<'a>, MatchArmResult<'a>> for MatchArm {
     fn walk(self, arm_context: MatchArmContext<'a>) -> MatchArmResult<'a> {
         let MatchArmContext::<'a> { ctx, scrutinee } = arm_context;
 
@@ -130,7 +128,9 @@ impl<'a> linearizer::CustomReturnWalk<MatchArmContext<'a>, MatchArmResult<'a>> f
                 ),
             ),
         );
-        ctx.append_jump_to_current_block(comparison_jump).unwrap();
+        ctx.function()
+            .append_jump_to_current_block(comparison_jump)
+            .unwrap();
 
         MatchArmResult {
             arm_label: self.arm_label,
@@ -142,30 +142,33 @@ impl<'a> linearizer::CustomReturnWalk<MatchArmContext<'a>, MatchArmResult<'a>> f
 }
 
 fn match_enum(
-    mut context: &mut linearizer::FunctionWalkContext,
+    mut ctx: &mut linearizer::WalkContext,
     match_loc: SourceLoc,
     match_operands: MatchOperands,
 ) {
     // TODO: architecture based discriminant size based on word size?
-    let discriminant_type = context
+    let discriminant_type = ctx
         .semantic_type_for_syntactic(&types::Syntactic::U64)
         .unwrap();
-    let discriminant = context.values_mut().next_temp_with_type(discriminant_type);
+    let discriminant = ctx
+        .function()
+        .values_mut()
+        .next_temp_with_type(discriminant_type);
 
     let discriminant_line = ir::IrLine::new_discriminant(
         match_loc,
-        context.def_path(),
+        ctx.def_path().clone(),
         discriminant,
         match_operands.scrutinee,
     );
 
     for arm in match_operands.arms {
         let result = arm.walk(MatchArmContext {
-            ctx: context,
+            ctx,
             scrutinee: match_operands.scrutinee,
         });
 
-        context = result.ctx;
+        ctx = result.ctx;
     }
 }
 
@@ -176,8 +179,12 @@ pub struct MatchOperands {
 }
 
 impl Lowerable for MatchOperands {
-    fn lower<'a>(self, context: &'a mut linearizer::FunctionWalkContext, loc: SourceLoc) {
-        let matched_type = context.values().semantic_for_id(&self.scrutinee).unwrap();
+    fn lower(self, context: &mut linearizer::WalkContext, loc: SourceLoc) {
+        let matched_type = context
+            .function()
+            .values()
+            .semantic_for_id(&self.scrutinee)
+            .unwrap();
         let matched_type_definition = context
             .symtab()
             .types

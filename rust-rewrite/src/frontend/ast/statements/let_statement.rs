@@ -45,19 +45,19 @@ impl Display for LetTree {
     }
 }
 
-impl ValueWalk for LetTree {
+impl Walk<midend::ir::ValueId> for LetTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut midend::linearizer::FunctionWalkContext) -> midend::ir::ValueId {
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
         let variable_type = match self.type_ {
-            Some(type_tree) => Some(type_tree.walk(context)),
+            Some(type_tree) => Some(type_tree.walk(ctx)),
             None => None,
         };
 
         let declared_variable: midend::symtab::Variable =
             midend::symtab::Variable::new(self.name.clone(), variable_type);
-        let variable_path: midend::symtab::DefPath = context
+        let variable_path: midend::symtab::DefPath = ctx
             .insert::<midend::symtab::Variable>(declared_variable)
             .unwrap();
-        context.values_mut().id_for_variable(variable_path)
+        ctx.function().values_mut().id_for_variable(variable_path)
     }
 }

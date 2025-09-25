@@ -1,11 +1,15 @@
-use crate::midend::{ir::*, linearizer::DefContext};
+use crate::midend::{
+    ir::*,
+    linearizer::{CustomWalk, Walk},
+    *,
+};
 
 pub mod operands;
 use operands::*;
 
 #[enum_delegate::register]
 pub trait Lowerable {
-    fn lower(self, context: &mut linearizer::FunctionWalkContext, loc: SourceLoc);
+    fn lower(self, context: &mut linearizer::WalkContext, loc: SourceLoc);
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

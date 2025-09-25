@@ -17,14 +17,9 @@ impl Display for ModuleTree {
     }
 }
 
-impl CustomReturnWalk<midend::linearizer::BasicDefContext, midend::linearizer::BasicDefContext>
-    for ModuleTree
-{
+impl midend::linearizer::Walk<()> for ModuleTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(
-        self,
-        mut context: midend::linearizer::BasicDefContext,
-    ) -> midend::linearizer::BasicDefContext {
+    fn walk(self, context: &mut midend::linearizer::WalkContext) -> () {
         tracing::trace!(
             "Create symtab module \"{}\" at \"{}\"",
             self.name,
@@ -33,25 +28,21 @@ impl CustomReturnWalk<midend::linearizer::BasicDefContext, midend::linearizer::B
         context
             .insert(midend::symtab::symbol::Module::new(self.name.clone()))
             .unwrap();
-        context
-            .def_path_mut()
-            .push(midend::symtab::DefPathComponent::Module(
-                midend::symtab::ModuleName {
-                    name: self.name.clone(),
-                },
-            ))
-            .unwrap();
+        context.push_def_path(
+            midend::symtab::DefPathComponent::Module(midend::symtab::ModuleName {
+                name: self.name.clone(),
+            }),
+            &Vec::new(),
+        );
 
         for item in self.items {
-            context = item.walk(context)
+            item.walk(context)
         }
 
-        assert_eq!(
-            context.def_path_mut().pop(),
-            Some(midend::symtab::DefPathComponent::Module(
-                midend::symtab::ModuleName { name: self.name }
-            )),
-        );
         context
+            .pop_def_path(midend::symtab::DefPathComponent::Module(
+                midend::symtab::ModuleName { name: self.name },
+            ))
+            .unwrap();
     }
 }

@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, midend::linearizer::Walk};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct BlockExpressionTree {
@@ -20,24 +20,30 @@ impl Display for BlockExpressionTree {
     }
 }
 
-impl ValueWalk for BlockExpressionTree {
+impl Walk<midend::ir::ValueId> for BlockExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(mut self, context: &mut FunctionWalkContext) -> midend::ir::ValueId {
-        context
-            .unconditional_branch_from_current(self.loc.clone())
+    fn walk(mut self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
+        let parent_def_path = ctx.def_path().clone();
+        let true_scope_def_path = ctx.reserve_subscope();
+        ctx.function()
+            .unconditional_branch_from_current(
+                self.loc.clone(),
+                parent_def_path,
+                true_scope_def_path,
+            )
             .unwrap();
 
         let last_statement = self.statements.pop();
         for statement in self.statements {
-            statement.walk(context);
+            statement.walk(ctx);
         }
 
         let last_statement_value = match last_statement {
-            Some(statement_tree) => statement_tree.walk(context),
+            Some(statement_tree) => statement_tree.walk(ctx),
             None => midend::ir::ValueInterner::unit_value_id(),
         };
 
-        context.finish_branch(self.loc).unwrap();
+        ctx.function().finish_branch(self.loc).unwrap();
 
         last_statement_value
     }

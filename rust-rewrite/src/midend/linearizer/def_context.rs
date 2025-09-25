@@ -1,5 +1,5 @@
 use crate::{
-    midend::{symtab::*, types, *},
+    midend::{linearizer::*, symtab::*, types, *},
     trace,
 };
 
@@ -63,19 +63,20 @@ impl GenericParamsContext {
     }
 }
 
-pub struct BasicDefContext {
+pub struct WalkContext {
     symtab: Box<SymbolTable>,
     definition_path: DefPath,
+    functions: HashMap<DefPath, FunctionWalkContext>,
     generics: GenericParamsContext,
 }
 
-impl std::fmt::Debug for BasicDefContext {
+impl std::fmt::Debug for WalkContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "DefContext @ {}", self.definition_path)
     }
 }
 
-impl BasicDefContext {
+impl WalkContext {
     pub fn new(
         symtab: Box<SymbolTable>,
         definition_path: DefPath,
@@ -84,24 +85,119 @@ impl BasicDefContext {
         Self {
             symtab,
             definition_path,
+            functions: HashMap::new(),
             generics: generics,
+        }
+    }
+
+    pub fn from_existing(
+        symtab: Box<SymbolTable>,
+        generics: GenericParamsContext,
+        definition_path: DefPath,
+        manager: ir::BlockManager,
+        block: usize,
+    ) -> Self {
+        let functions: HashMap<DefPath, FunctionWalkContext> = std::iter::once((
+            definition_path.clone(),
+            FunctionWalkContext::from_existing(manager, block),
+        ))
+        .collect();
+
+        Self {
+            symtab,
+            definition_path,
+            functions,
+            generics,
         }
     }
 
     pub fn take(self) -> Result<(Box<SymbolTable>, DefPath, GenericParamsContext), ()> {
         Ok((self.symtab, self.definition_path, self.generics))
     }
-}
 
-pub trait DefContext: std::fmt::Debug {
-    fn symtab(&self) -> &SymbolTable;
-    fn symtab_mut(&mut self) -> &mut SymbolTable;
-    fn def_path(&self) -> DefPath;
-    fn def_path_mut(&mut self) -> &mut DefPath;
-    fn generics(&self) -> &GenericParamsContext;
-    fn generics_mut(&mut self) -> &mut GenericParamsContext;
+    pub fn symtab(&self) -> &SymbolTable {
+        &self.symtab
+    }
 
-    fn push_def_path(&mut self, component: DefPathComponent, generic_params: &Vec<String>) {
+    pub fn symtab_mut(&mut self) -> &mut SymbolTable {
+        &mut self.symtab
+    }
+
+    pub fn def_path(&self) -> &DefPath {
+        &self.definition_path
+    }
+
+    //fn def_path_mut(&mut self) -> &mut DefPath
+    //
+    pub fn generics(&self) -> &GenericParamsContext {
+        &self.generics
+    }
+
+    fn generics_mut(&mut self) -> &mut GenericParamsContext {
+        &mut self.generics
+    }
+
+    pub fn create_function(&mut self, prototype: FunctionPrototype) -> Result<(), SymbolError> {
+        let (_, unit_type_path) = self
+            .lookup_with_path::<symtab::TypeDefinition>(&types::Syntactic::Unit)
+            .unwrap();
+        let unit_type_id = self
+            .symtab_mut()
+            .types
+            .get_semantic(&unit_type_path)
+            .unwrap();
+
+        self.insert_at::<symtab::Function>(
+            self.def_path().clone(),
+            symtab::Function::new(prototype.clone(), None),
+        )?;
+
+        let function_path_component = symtab::DefPathComponent::Function(prototype.name.clone());
+        self.push_def_path(function_path_component, &prototype.generic_params);
+
+        for argument in prototype.arguments.clone() {
+            self.insert::<symtab::Variable>(argument.clone()).unwrap();
+        }
+
+        match self.functions.insert(
+            self.def_path().clone(),
+            FunctionWalkContext::new(prototype, self.def_path().clone(), unit_type_id),
+        ) {
+            Some(p) => panic!("Existing prototype!"),
+            None => Ok(()),
+        }
+    }
+
+    pub fn finish_function(&mut self, expected_name: FunctionName) -> Result<(), ()> {
+        let def_path = self.def_path().clone();
+        let function_context = self.functions.remove(&def_path).unwrap();
+        let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
+        match function.control_flow.replace(function_context.take()) {
+            Some(existing_cf) => return Err(()),
+            None => (),
+        }
+        self.pop_def_path(DefPathComponent::Function(expected_name));
+        Ok(())
+    }
+
+    pub fn function(&mut self) -> &mut FunctionWalkContext {
+        let mut scan_def_path = self.def_path().clone();
+        while scan_def_path.len() > 0 {
+            if self.functions.contains_key(&scan_def_path) {
+                break;
+            } else {
+                scan_def_path.pop().unwrap();
+            }
+        }
+
+        if scan_def_path.len() > 0 {
+            self.functions.get_mut(&scan_def_path).unwrap()
+        } else {
+            panic!("DefContext::function() called with no active function!");
+        }
+    }
+
+    pub fn push_def_path(&mut self, component: DefPathComponent, generic_params: &Vec<String>) {
         let params_set = generic_params
             .iter()
             .map(|param| param.clone())
@@ -113,17 +209,17 @@ pub trait DefContext: std::fmt::Debug {
         );
 
         trace::warning!("push {:?} to defcontext defpath", component);
-        self.def_path_mut().push(component).unwrap();
-        let new_def_path = self.def_path();
+        self.definition_path.push(component).unwrap();
+        let new_def_path = self.def_path().clone();
         self.generics_mut()
             .add_params_at_path(new_def_path, params_set)
             .unwrap();
     }
 
-    fn pop_def_path(&mut self, expect: DefPathComponent) -> Result<(), ()> {
-        let def_path = self.def_path();
+    pub fn pop_def_path(&mut self, expect: DefPathComponent) -> Result<(), ()> {
+        let def_path = self.def_path().clone();
         self.generics_mut().remove_params_at_path(def_path).unwrap();
-        let popped = self.def_path_mut().pop().unwrap();
+        let popped = self.definition_path.pop().unwrap();
 
         trace::warning!("pop {:?} from defcontext defpath", popped);
 
@@ -134,12 +230,38 @@ pub trait DefContext: std::fmt::Debug {
         }
     }
 
+    // reserves a subscope, returning its defpath
+    pub fn reserve_subscope(&mut self) -> symtab::DefPath {
+        let next_subscope_index = self
+            .symtab()
+            .children(&self.def_path())
+            .into_iter()
+            .filter(|path| match path.last() {
+                DefPathComponent::Scope(_) => true,
+                _ => false,
+            })
+            .count();
+
+        self.symtab
+            .insert::<symtab::Scope>(
+                self.def_path().clone(),
+                symtab::Scope::new(next_subscope_index),
+            )
+            .unwrap()
+    }
+
+    pub fn self_variable(&self) -> Result<DefPath, SymbolError> {
+        Ok(self
+            .lookup_with_path::<symtab::Variable>(&String::from("self"))?
+            .1)
+    }
+
     fn definition_for_semantic_type(&self, type_: &types::Semantic) -> Option<&TypeDefinition> {
         self.symtab().types.get_definition(type_)
     }
 
     // resolves a string type name to either a defined type or a generic param
-    fn resolve_type_name(&self, name: &str) -> Result<types::Syntactic, SymbolError> {
+    pub fn resolve_type_name(&self, name: &str) -> Result<types::Syntactic, SymbolError> {
         // first, lookup the type in the Symbol table
         let (mut type_, found_def_path) =
             match self.lookup_with_path::<TypeDefinition>(&types::Syntactic::Named(name.into())) {
@@ -154,7 +276,7 @@ pub trait DefContext: std::fmt::Debug {
         // we may search any generic path *longer than* the def path we found a type definition at
         // this covers cases where more deeply scoped generic parameter names shadow more shallowly
         // scoped named type definitions
-        let mut search_def_path = self.def_path();
+        let mut search_def_path = self.def_path().clone();
         while search_def_path.len() > found_def_path.len() {
             match self.generics().get(&search_def_path) {
                 Some(params) => match params.get(name) {
@@ -170,7 +292,7 @@ pub trait DefContext: std::fmt::Debug {
         }
 
         type_.ok_or(SymbolError::Undefined(
-            self.def_path(),
+            self.def_path().clone(),
             DefPathComponent::Type(types::Syntactic::Named(name.into())),
         ))
     }
@@ -185,7 +307,7 @@ pub trait DefContext: std::fmt::Debug {
         self.symtab().lookup::<S>(&self.def_path(), key)
     }
 
-    fn lookup_with_path<S>(
+    pub fn lookup_with_path<S>(
         &self,
         key: &<S as Symbol>::SymbolKey,
     ) -> Result<(&S, DefPath), SymbolError>
@@ -205,7 +327,7 @@ pub trait DefContext: std::fmt::Debug {
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
-        let def_path = self.def_path();
+        let def_path = self.def_path().clone();
         self.symtab_mut().lookup_mut::<S>(&def_path, key)
     }
 
@@ -230,14 +352,14 @@ pub trait DefContext: std::fmt::Debug {
     }
 
     // add a DefPathComponent for 'symbol' at the end of the current def path
-    fn insert<S>(&mut self, symbol: S) -> Result<DefPath, SymbolError>
+    pub fn insert<S>(&mut self, symbol: S) -> Result<DefPath, SymbolError>
     where
         S: Symbol + std::fmt::Debug,
         for<'a> &'a S: From<DefResolver<'a>>,
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
-        let def_path = self.def_path();
+        let def_path = self.def_path().clone();
         let symtab_mut = self.symtab_mut();
         trace::trace!("insert {:?} at {:?}", symbol, def_path);
         symtab_mut.insert::<S>(def_path, symbol)
@@ -269,13 +391,13 @@ pub trait DefContext: std::fmt::Debug {
         )
     }
 
-    fn semantic_type_for_syntactic(&self, ty_: &types::Syntactic) -> Option<types::Semantic> {
+    pub fn semantic_type_for_syntactic(&self, ty_: &types::Syntactic) -> Option<types::Semantic> {
         let (_, path) = self.lookup_with_path::<symtab::TypeDefinition>(ty_).ok()?;
         self.symtab().types.get_semantic(&path)
     }
 
     fn self_type(&self) -> Option<types::Syntactic> {
-        let mut search_def_path = self.def_path();
+        let mut search_def_path = self.def_path().clone();
         loop {
             match search_def_path.last() {
                 // lookup required
@@ -295,31 +417,5 @@ pub trait DefContext: std::fmt::Debug {
         }
 
         None
-    }
-}
-
-impl DefContext for BasicDefContext {
-    fn symtab(&self) -> &SymbolTable {
-        &self.symtab
-    }
-
-    fn symtab_mut(&mut self) -> &mut SymbolTable {
-        &mut self.symtab
-    }
-
-    fn def_path(&self) -> DefPath {
-        self.definition_path.clone()
-    }
-
-    fn def_path_mut(&mut self) -> &mut DefPath {
-        &mut self.definition_path
-    }
-
-    fn generics(&self) -> &GenericParamsContext {
-        &self.generics
-    }
-
-    fn generics_mut(&mut self) -> &mut GenericParamsContext {
-        &mut self.generics
     }
 }

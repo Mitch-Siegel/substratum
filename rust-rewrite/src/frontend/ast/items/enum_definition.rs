@@ -11,10 +11,12 @@ pub struct EnumVariantDataTree {
     pub data: EnumVariantData,
 }
 
-impl ReturnWalk<midend::symtab::enum_definition::EnumVariantRepr> for EnumVariantDataTree {
+impl midend::linearizer::Walk<midend::symtab::enum_definition::EnumVariantRepr>
+    for EnumVariantDataTree
+{
     fn walk(
         self,
-        context: &mut impl DefContext,
+        context: &mut midend::linearizer::WalkContext,
     ) -> midend::symtab::enum_definition::EnumVariantRepr {
         match self.data {
             EnumVariantData::TupleData(elements) => {
@@ -80,31 +82,29 @@ impl Display for EnumDefinitionTree {
     }
 }
 
-impl ReturnWalk<midend::symtab::EnumRepr> for EnumDefinitionTree {
+impl midend::linearizer::Walk<midend::symtab::EnumRepr> for EnumDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut impl midend::linearizer::DefContext) -> midend::symtab::EnumRepr {
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::symtab::EnumRepr {
         let (string_name, generic_params) = self.name.walk(());
         let type_def_path_component = midend::symtab::DefPathComponent::Type(
             midend::types::Syntactic::Named(string_name.clone()),
         );
 
-        // TODO: handle generic params
-        context.push_def_path(type_def_path_component.clone(), &generic_params);
+        ctx.push_def_path(type_def_path_component.clone(), &generic_params);
 
         let variants: Vec<(String, midend::symtab::EnumVariantRepr)> = self
             .variants
             .into_iter()
             .map(|variant| {
                 let variant_data_type = match variant.data {
-                    Some(variant_item) => variant_item.walk(context),
+                    Some(variant_item) => variant_item.walk(ctx),
                     None => midend::symtab::EnumVariantRepr::Unit,
                 };
                 (variant.name, variant_data_type)
             })
             .collect::<Vec<_>>();
 
-        // TODO: handle generic params
-        context.pop_def_path(type_def_path_component).unwrap();
+        ctx.pop_def_path(type_def_path_component);
         midend::symtab::EnumRepr::new(string_name, generic_params, variants).unwrap()
     }
 }

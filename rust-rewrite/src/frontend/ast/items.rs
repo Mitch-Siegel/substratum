@@ -58,13 +58,8 @@ impl Display for Item {
     }
 }
 
-impl CustomReturnWalk<midend::linearizer::BasicDefContext, midend::linearizer::BasicDefContext>
-    for Item
-{
-    fn walk(
-        self,
-        mut context: midend::linearizer::BasicDefContext,
-    ) -> midend::linearizer::BasicDefContext {
+impl midend::linearizer::Walk<()> for Item {
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> () {
         match self {
             Item::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
@@ -78,31 +73,27 @@ impl CustomReturnWalk<midend::linearizer::BasicDefContext, midend::linearizer::B
                     function_declaration.walk(&mut WalkContext::new(&context.global_scope));
                 context.insert_function_prototype(declared_function);*/
             }
-            Item::FunctionDefinition(function_definition) => function_definition.walk(context),
+            Item::FunctionDefinition(function_definition) => function_definition.walk(ctx),
             Item::StructDefinition(struct_tree) => {
-                let struct_repr = struct_tree.walk(&mut context);
-                context
-                    .insert::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
-                        midend::types::Syntactic::Named(struct_repr.name.clone()),
-                        midend::symtab::TypeRepr::Struct(struct_repr),
-                    ))
-                    .unwrap();
-                context
+                let struct_repr = struct_tree.walk(ctx);
+                ctx.insert::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
+                    midend::types::Syntactic::Named(struct_repr.name.clone()),
+                    midend::symtab::TypeRepr::Struct(struct_repr),
+                ))
+                .unwrap();
             }
             Item::EnumDefinition(enum_tree) => {
-                let enum_repr = enum_tree.walk(&mut context);
-                context
-                    .insert::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
-                        midend::types::Syntactic::Named(enum_repr.name.clone()),
-                        midend::symtab::TypeRepr::Enum(enum_repr),
-                    ))
-                    .unwrap();
-                context
+                let enum_repr = enum_tree.walk(ctx);
+                ctx.insert::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
+                    midend::types::Syntactic::Named(enum_repr.name.clone()),
+                    midend::symtab::TypeRepr::Enum(enum_repr),
+                ))
+                .unwrap();
             }
-            Item::Implementation(implementation) => implementation.walk(context),
+            Item::Implementation(implementation) => implementation.walk(ctx),
             Item::Module((module, _)) => match module {
-                Some(m) => m.walk(context),
-                None => context,
+                Some(m) => m.walk(ctx),
+                None => (),
             },
         }
     }

@@ -45,7 +45,7 @@ impl Display for GenericParamsListTree {
     }
 }
 
-impl CustomReturnWalk<(), Vec<String>> for GenericParamsListTree {
+impl midend::linearizer::CustomWalk<(), Vec<String>> for GenericParamsListTree {
     #[tracing::instrument(skip(self), level = "trace")]
     fn walk(self, _: ()) -> Vec<String> {
         let mut generic_params_set = BTreeSet::<String>::new();
@@ -94,7 +94,7 @@ impl Display for IdentifierWithGenericsTree {
     }
 }
 
-impl CustomReturnWalk<(), (String, Vec<String>)> for IdentifierWithGenericsTree {
+impl midend::linearizer::CustomWalk<(), (String, Vec<String>)> for IdentifierWithGenericsTree {
     #[tracing::instrument(skip(self), level = "trace")]
     fn walk(self, _: ()) -> (String, Vec<String>) {
         (

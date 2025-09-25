@@ -26,39 +26,47 @@ pub fn lower_function(
 ) -> Box<symtab::SymbolTable> {
     let _span = trace::span_auto_debug!("Lower function ", "{}", def_path.last());
 
-    let (cf, mut unlowered) = {
-        let function = symtab.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
+    loop {
+        let (cf, mut unlowered, function_name) = {
+            let function = symtab.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
 
-        match &function.control_flow {
-            Some(cf) => {
-                let unlowered = find_unlowered_irs(&cf);
-                if unlowered.len() == 0 {
-                    trace::trace!("No unlowered statements in control flow, skipping");
-                    return symtab;
+            match &function.control_flow {
+                Some(cf) => {
+                    let unlowered = find_unlowered_irs(&cf);
+                    if unlowered.len() == 0 {
+                        trace::trace!("No unlowered statements in control flow, skipping");
+                        break;
+                    }
+                    (
+                        function.control_flow.take().unwrap(),
+                        unlowered,
+                        symtab::FunctionName::new(function.name().into()),
+                    )
                 }
-                (function.control_flow.take().unwrap(), unlowered)
+                None => {
+                    trace::trace!("No control flow, nothing to lower.");
+                    break;
+                }
             }
-            None => {
-                trace::trace!("No control flow, nothing to lower.");
-                return symtab;
-            }
-        }
-    };
+        };
 
-    trace::trace!("the following statements need lowering: {:?}", unlowered);
+        trace::trace!("the following statements need lowering: {:?}", unlowered);
 
-    let mut manager: BlockManager = cf.into();
+        let mut manager: BlockManager = cf.into();
 
-    while unlowered.len() > 0 {
         let block = *unlowered.keys().next().unwrap();
         let idx = *unlowered.get(&block).unwrap().iter().next().unwrap();
 
         let (split_to_block, to_lower) = manager.split_block_at_statement(block, idx).unwrap();
 
-        let mut ctx = linearizer::FunctionWalkContext::from_existing(
+        let after_split_block = manager
+            .finish_block_split(split_to_block, to_lower.loc.clone())
+            .unwrap();
+
+        let mut ctx = linearizer::WalkContext::from_existing(
             symtab,
             GenericParamsContext::new(),
-            manager.get(&block).unwrap().def_path().clone(),
+            def_path.clone(),
             manager,
             block,
         );
@@ -69,12 +77,6 @@ pub fn lower_function(
             }
             ir::Operation::Lowered(_) => panic!("Can't lower lowered IR"),
         }
-
-        (symtab, _, _, manager) = ctx.take().unwrap();
-
-        let after_split_block = manager
-            .finish_block_split(split_to_block, to_lower.loc)
-            .unwrap();
 
         let labels_this_block = unlowered.get_mut(&block).unwrap();
         labels_this_block.remove(&idx);
@@ -112,11 +114,10 @@ pub fn lower_function(
                 .or_default()
                 .insert(after_split_idx);
         }
+
+        ctx.finish_function(function_name.clone());
+        symtab = ctx.take().unwrap().0;
     }
 
-    {
-        let function = symtab.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
-        function.control_flow.replace(manager.try_into().unwrap());
-    }
     symtab
 }

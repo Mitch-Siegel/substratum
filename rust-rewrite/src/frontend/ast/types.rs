@@ -24,9 +24,9 @@ impl std::fmt::Debug for TypeTree {
     }
 }
 
-impl ReturnWalk<midend::types::Syntactic> for TypeTree {
+impl midend::linearizer::Walk<midend::types::Syntactic> for TypeTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut impl midend::linearizer::DefContext) -> midend::types::Syntactic {
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::types::Syntactic {
         // TODO: check that the type exists by looking it up
         match self.type_ {
             midend::types::Syntactic::Unit
@@ -39,9 +39,7 @@ impl ReturnWalk<midend::types::Syntactic> for TypeTree {
             | midend::types::Syntactic::I32
             | midend::types::Syntactic::I64 => self.type_,
             midend::types::Syntactic::_Self => self.type_,
-            midend::types::Syntactic::Named(name) => {
-                context.resolve_type_name(name.as_str()).unwrap()
-            }
+            midend::types::Syntactic::Named(name) => ctx.resolve_type_name(name.as_str()).unwrap(),
             // TODO: resolve reference/pointer correctly
             midend::types::Syntactic::Reference(_, _) | midend::types::Syntactic::Pointer(_, _) => {
                 self.type_
