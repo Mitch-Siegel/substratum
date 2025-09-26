@@ -32,7 +32,7 @@ pub enum BranchKind {
                              // the BlockSplit.
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Branch {
     from_label: usize,
     kind: BranchKind,
@@ -44,7 +44,7 @@ impl Branch {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlockManager {
     // map from branch origin to (true_target, Option<false_target>)
     convergences: BlockConvergences,

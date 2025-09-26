@@ -8,7 +8,7 @@ pub enum ConvergenceResult {
     Done(ir::BasicBlock), // the block converged to
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BlockConvergences {
     open_convergences: HashMap<usize, usize>,
     convergence_blocks: HashMap<usize, ir::BasicBlock>,

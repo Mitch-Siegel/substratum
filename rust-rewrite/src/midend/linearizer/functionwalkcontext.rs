@@ -265,6 +265,10 @@ impl FunctionWalkContext {
             }
         }
     }
+
+    pub fn finish(&mut self) {
+        self.block_manager.finish(self.current_block).unwrap();
+    }
 }
 
 impl std::fmt::Debug for FunctionWalkContext {

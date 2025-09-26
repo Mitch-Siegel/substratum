@@ -170,6 +170,7 @@ impl WalkContext {
 
     pub fn finish_function(&mut self, expected_name: FunctionName) -> Result<(), ()> {
         let def_path = self.def_path().clone();
+        self.function().finish();
         let function_context = self.functions.remove(&def_path).unwrap();
         let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
         match function.control_flow.replace(function_context.take()) {

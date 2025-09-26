@@ -170,6 +170,8 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for MatchExpressionTree {
             ))
             .unwrap();
 
+        trace::warning!("finish match");
+
         // FIXME: (?) Convergence currently exists from the switch block itself to the after-switch
         // block, resulting in an unreachable jump instruction after the unlowered match IR.
         ctx.function().finish_switch(match_loc).unwrap();
