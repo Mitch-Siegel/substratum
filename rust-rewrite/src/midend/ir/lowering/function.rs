@@ -115,7 +115,7 @@ pub fn lower_function(
                 .insert(after_split_idx);
         }
 
-        ctx.finish_function(function_name.clone());
+        ctx.finish_function(function_name.clone()).unwrap();
         symtab = ctx.take().unwrap().0;
     }
 

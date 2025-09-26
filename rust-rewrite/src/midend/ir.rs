@@ -261,12 +261,7 @@ impl IrLine {
         Self::new_unlowered(loc, unlowered::new_match(scrutinee, arms))
     }
 
-    pub fn new_discriminant(
-        loc: SourceLoc,
-        def_path: symtab::DefPath,
-        enum_value: ValueId,
-        destination: ValueId,
-    ) -> Self {
+    pub fn new_discriminant(loc: SourceLoc, enum_value: ValueId, destination: ValueId) -> Self {
         Self::new_unlowered(loc, unlowered::new_discriminant(enum_value, destination))
     }
 
@@ -299,7 +294,7 @@ impl IrLine {
     }
 }
 
-struct TypePropagationContext<'a> {
+pub struct TypePropagationContext<'a> {
     symtab: Box<symtab::SymbolTable>,
     values: &'a mut ValueInterner,
     def_path: symtab::DefPath,
@@ -323,7 +318,7 @@ impl<'a> TypePropagationContext<'a> {
     }
 }
 
-enum TypePropagationError {
+pub enum TypePropagationError {
     ValueError(value::ValueError),
 }
 

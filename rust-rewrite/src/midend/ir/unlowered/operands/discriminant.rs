@@ -10,20 +10,19 @@ pub struct DiscriminantOperands {
 impl Lowerable for DiscriminantOperands {
     fn lower(self, ctx: &mut linearizer::WalkContext, loc: SourceLoc) {
         // sanity check
-        let receiver_type = ctx
+        let _receiver_type = ctx
             .function()
             .values_mut()
             .value_for_id(&self.enum_receiver)
             .unwrap();
         // TODO: type propagation and checking to verify this thing is actually an enum
 
-        let discriminant_line = ir::IrLine::new_load(loc, self.enum_receiver, self.destination);
+        let _discriminant_line = ir::IrLine::new_load(loc, self.enum_receiver, self.destination);
     }
 }
 
 impl OperandTypePropagation for DiscriminantOperands {
-    fn propagate_types<'a>(&self, ctx: &TypePropagationContext<'a>) -> bool {
+    fn propagate_types<'a>(&self, _ctx: &TypePropagationContext<'a>) -> bool {
         unimplemented!();
-        true
     }
 }

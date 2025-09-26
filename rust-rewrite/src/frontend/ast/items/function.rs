@@ -126,6 +126,6 @@ impl midend::linearizer::Walk<()> for FunctionDefinitionTree {
 
         ctx.create_function(declared_prototype).unwrap();
         self.body.walk(ctx);
-        ctx.finish_function(function_name);
+        ctx.finish_function(function_name).unwrap();
     }
 }

@@ -104,7 +104,7 @@ impl midend::linearizer::Walk<midend::symtab::EnumRepr> for EnumDefinitionTree {
             })
             .collect::<Vec<_>>();
 
-        ctx.pop_def_path(type_def_path_component);
+        ctx.pop_def_path(type_def_path_component).unwrap();
         midend::symtab::EnumRepr::new(string_name, generic_params, variants).unwrap()
     }
 }

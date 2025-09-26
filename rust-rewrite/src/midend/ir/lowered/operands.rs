@@ -47,8 +47,8 @@ impl BinaryArithmeticExpressionOperands {
 }
 
 impl OperandTypePropagation for BinaryArithmeticExpressionOperands {
-    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
-        true
+    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+        unimplemented!();
     }
 }
 
@@ -99,9 +99,8 @@ pub struct SourceDestOperands {
 
 pub type AssignmentOperands = SourceDestOperands;
 impl OperandTypePropagation for AssignmentOperands {
-    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
         unimplemented!();
-        true
     }
 }
 
@@ -148,8 +147,8 @@ impl BinaryComparisonExpressionOperands {
 }
 
 impl OperandTypePropagation for BinaryComparisonExpressionOperands {
-    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
-        true
+    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+        unimplemented!()
     }
 }
 
@@ -258,8 +257,8 @@ impl JumpOperands {
 }
 
 impl OperandTypePropagation for JumpOperands {
-    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
-        true
+    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+        unimplemented!();
     }
 }
 
@@ -314,8 +313,8 @@ impl FunctionCallOperands {
 }
 
 impl OperandTypePropagation for FunctionCallOperands {
-    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
-        true
+    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+        unimplemented!()
     }
 }
 
@@ -352,8 +351,8 @@ impl MethodCallOperands {
 }
 
 impl OperandTypePropagation for MethodCallOperands {
-    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
-        true
+    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+        unimplemented!();
     }
 }
 
@@ -370,8 +369,8 @@ pub struct LoadOperands {
 }
 
 impl OperandTypePropagation for LoadOperands {
-    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
-        true
+    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+        unimplemented!();
     }
 }
 
@@ -382,8 +381,8 @@ pub struct StoreOperands {
 }
 
 impl OperandTypePropagation for StoreOperands {
-    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
-        true
+    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+        unimplemented!();
     }
 }
 
@@ -395,8 +394,8 @@ pub struct FieldAddressOperands {
 }
 
 impl OperandTypePropagation for FieldAddressOperands {
-    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
-        true
+    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+        unimplemented!();
     }
 }
 
@@ -408,8 +407,8 @@ pub struct SwitchOperands {
 }
 
 impl OperandTypePropagation for SwitchOperands {
-    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
-        true
+    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+        unimplemented!();
     }
 }
 

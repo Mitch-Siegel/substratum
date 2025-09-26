@@ -1,4 +1,4 @@
-use crate::midend::{ir::unlowered::*, *};
+use crate::midend::ir::unlowered::*;
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct FieldPointerOperands {
@@ -8,14 +8,13 @@ pub struct FieldPointerOperands {
 }
 
 impl Lowerable for FieldPointerOperands {
-    fn lower(self, _ctx: &mut linearizer::WalkContext, loc: SourceLoc) {
+    fn lower(self, _ctx: &mut linearizer::WalkContext, _loc: SourceLoc) {
         unimplemented!();
     }
 }
 
 impl OperandTypePropagation for FieldPointerOperands {
-    fn propagate_types<'a>(&self, ctx: &TypePropagationContext<'a>) -> bool {
+    fn propagate_types<'a>(&self, _ctx: &TypePropagationContext<'a>) -> bool {
         unimplemented!();
-        true
     }
 }

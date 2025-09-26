@@ -1,5 +1,5 @@
 use crate::{
-    midend::{linearizer::*, symtab::*, types, *},
+    midend::{linearizer::*, symtab::*},
     trace,
 };
 
@@ -163,7 +163,10 @@ impl WalkContext {
             self.def_path().clone(),
             FunctionWalkContext::new(prototype, self.def_path().clone(), unit_type_id),
         ) {
-            Some(p) => panic!("Existing prototype!"),
+            Some(_) => panic!(
+                "Function {} has already been inserted to symtab",
+                self.def_path()
+            ),
             None => Ok(()),
         }
     }
@@ -174,10 +177,10 @@ impl WalkContext {
         let function_context = self.functions.remove(&def_path).unwrap();
         let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
         match function.control_flow.replace(function_context.take()) {
-            Some(existing_cf) => return Err(()),
+            Some(_) => return Err(()),
             None => (),
         }
-        self.pop_def_path(DefPathComponent::Function(expected_name));
+        self.pop_def_path(DefPathComponent::Function(expected_name))?;
         Ok(())
     }
 

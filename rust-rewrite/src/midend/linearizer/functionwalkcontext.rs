@@ -2,8 +2,7 @@ use crate::{
     frontend::sourceloc::SourceLoc,
     midend::{
         ir,
-        linearizer::*,
-        symtab::{self, DefPathComponent},
+        symtab::{self},
         types,
     },
     trace,
@@ -62,7 +61,7 @@ impl FunctionWalkContext {
 
     fn set_current_block(&mut self, label: usize) -> &symtab::DefPath {
         // sanity check - look up the block to ensure it exists
-        let lookup_result = self.block_manager.get_mut(&label).unwrap();
+        self.block_manager.get_mut(&label).unwrap();
 
         trace::trace!("set current block from {} to {}", self.current_block, label);
 

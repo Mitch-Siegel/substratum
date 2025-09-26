@@ -1,4 +1,4 @@
-use crate::midend::{ir::unlowered::*, *};
+use crate::midend::ir::unlowered::*;
 
 struct MatchArmContext<'a> {
     pub ctx: &'a mut linearizer::WalkContext,
@@ -21,7 +21,7 @@ pub struct MatchArm {
 
 fn match_enum_destructure(
     ctx: &mut linearizer::WalkContext,
-    scrutinee: ValueId,
+    _scrutinee: ValueId,
     destructured_enum: &symtab::type_definition::EnumRepr,
     variant_name: String,
     nested_patterns: Vec<frontend::ast::expressions::match_expression::PatternTree>,
@@ -49,13 +49,13 @@ fn match_enum_destructure(
                 );
             }
 
-            let mut tuple_byte: usize = 0;
+            let mut _tuple_byte: usize = 0;
 
             for (pattern_tree, member) in nested_patterns.into_iter().zip(members.iter()) {
-                let pattern_tree = pattern_tree.walk(ctx);
-                let tuple_member_value = ctx.function().values_mut().next_temp();
+                let _pattern_tree = pattern_tree.walk(ctx);
+                let _tuple_member_value = ctx.function().values_mut().next_temp();
 
-                let (member_type, type_def_path) = ctx
+                let (_member_type, _type_def_path) = ctx
                     .lookup_with_path::<symtab::TypeDefinition>(member)
                     .unwrap();
 
@@ -155,12 +155,8 @@ fn match_enum(
         .values_mut()
         .next_temp_with_type(discriminant_type);
 
-    let discriminant_line = ir::IrLine::new_discriminant(
-        match_loc,
-        ctx.def_path().clone(),
-        discriminant,
-        match_operands.scrutinee,
-    );
+    let _discriminant_line =
+        ir::IrLine::new_discriminant(match_loc, discriminant, match_operands.scrutinee);
 
     for arm in match_operands.arms {
         let result = arm.walk(MatchArmContext {
@@ -202,7 +198,7 @@ impl Lowerable for MatchOperands {
 }
 
 impl OperandTypePropagation for MatchOperands {
-    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
-        true
+    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+        unimplemented!();
     }
 }
