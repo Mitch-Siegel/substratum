@@ -2,30 +2,17 @@ use crate::midend::ir::*;
 
 #[enum_delegate::register]
 pub trait OperandTypeInference {
-    fn infer_types(&self, ctx: &TypeInferenceContext) -> bool;
+    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool;
 }
 
 pub struct TypeInferenceContext<'a> {
-    symtab: Box<symtab::SymbolTable>,
-    values: &'a mut ValueInterner,
-    def_path: symtab::DefPath,
+    pub symtab: &'a mut symtab::SymbolTable,
+    pub values: &'a mut ValueInterner,
 }
 
 impl<'a> TypeInferenceContext<'a> {
-    pub fn new(
-        symtab: Box<symtab::SymbolTable>,
-        values: &'a mut ValueInterner,
-        def_path: symtab::DefPath,
-    ) -> Self {
-        Self {
-            symtab,
-            values,
-            def_path,
-        }
-    }
-
-    pub fn take(self) -> Box<symtab::SymbolTable> {
-        self.symtab
+    pub fn new(symtab: &'a mut symtab::SymbolTable, values: &'a mut ValueInterner) -> Self {
+        Self { symtab, values }
     }
 }
 

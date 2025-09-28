@@ -14,7 +14,7 @@ impl Lowerable for FieldPointerOperands {
 }
 
 impl OperandTypeInference for FieldPointerOperands {
-    fn infer_types<'a>(&self, _ctx: &TypeInferenceContext<'a>) -> bool {
+    fn infer_types<'a>(&mut self, _ctx: &TypeInferenceContext<'a>) -> bool {
         unimplemented!();
     }
 }

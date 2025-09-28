@@ -178,6 +178,41 @@ impl ControlFlow {
     }
 }
 
+impl ControlFlow {
+    pub fn infer_types(
+        &mut self,
+        mut symtab: Box<symtab::SymbolTable>,
+    ) -> (bool, Box<symtab::SymbolTable>) {
+        let mut block_order: BTreeSet<usize> = self
+            .generate_reverse_postorder_stack()
+            .into_iter()
+            .collect();
+
+        let (values, blocks) = (&mut self.values, &mut self.blocks);
+        let ctx = TypeInferenceContext::new(&mut symtab, values);
+        loop {
+            let old_size = block_order.len();
+
+            block_order = block_order
+                .iter()
+                .map(
+                    |label| match blocks.get_mut(label).unwrap().infer_types(&ctx) {
+                        true => None,
+                        false => Some(label),
+                    },
+                )
+                .flatten()
+                .cloned()
+                .collect();
+            if old_size == block_order.len() {
+                break;
+            }
+        }
+
+        (block_order.len() == 0, symtab)
+    }
+}
+
 impl IntoIterator for ControlFlow {
     type Item = (usize, BasicBlock);
     type IntoIter = std::collections::hash_map::IntoIter<usize, BasicBlock>;

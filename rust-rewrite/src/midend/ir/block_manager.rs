@@ -217,6 +217,29 @@ impl BlockManager {
     }
 }
 
+/// Implementation of type inference machinery
+impl BlockManager {
+    pub fn infer_types(&mut self, symtab: &mut symtab::SymbolTable) {
+        let (values, blocks) = (&mut self.values, &mut self.blocks);
+
+        let ctx = TypeInferenceContext::new(symtab, values);
+        let mut require_reanalysis: BTreeSet<usize> = blocks.keys().cloned().collect();
+
+        while require_reanalysis.len() > 0 {
+            require_reanalysis = require_reanalysis
+                .into_iter()
+                .map(
+                    |label| match blocks.get_mut(&label).unwrap().infer_types(&ctx) {
+                        true => None,
+                        false => Some(label),
+                    },
+                )
+                .flatten()
+                .collect();
+        }
+    }
+}
+
 impl From<ControlFlow> for BlockManager {
     fn from(cf: ControlFlow) -> Self {
         let (blocks, values) = cf.take();

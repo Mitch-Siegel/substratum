@@ -27,11 +27,13 @@ pub fn lower_function(
     let _span = trace::span_auto_debug!("Lower function ", "{}", def_path.last());
 
     loop {
-        let (cf, mut unlowered, function_name) = {
+        let (mut cf, mut unlowered, function_name) = {
             let function = symtab.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
 
-            match &function.control_flow {
+            match &mut function.control_flow {
                 Some(cf) => {
+                    trace::trace!("run type inference");
+
                     let unlowered = find_unlowered_irs(&cf);
                     if unlowered.len() == 0 {
                         trace::trace!("No unlowered statements in control flow, skipping");
@@ -49,6 +51,8 @@ pub fn lower_function(
                 }
             }
         };
+
+        symtab = cf.infer_types(symtab).1;
 
         trace::trace!("the following statements need lowering: {:?}", unlowered);
 

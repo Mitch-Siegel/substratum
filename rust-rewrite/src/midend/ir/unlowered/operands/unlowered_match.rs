@@ -198,7 +198,7 @@ impl Lowerable for MatchOperands {
 }
 
 impl OperandTypeInference for MatchOperands {
-    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }

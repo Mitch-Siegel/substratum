@@ -22,7 +22,7 @@ impl Lowerable for DiscriminantOperands {
 }
 
 impl OperandTypeInference for DiscriminantOperands {
-    fn infer_types<'a>(&self, _ctx: &TypeInferenceContext<'a>) -> bool {
+    fn infer_types<'a>(&mut self, _ctx: &TypeInferenceContext<'a>) -> bool {
         unimplemented!();
     }
 }

@@ -47,7 +47,7 @@ impl BinaryArithmeticExpressionOperands {
 }
 
 impl OperandTypeInference for BinaryArithmeticExpressionOperands {
-    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -99,7 +99,7 @@ pub struct SourceDestOperands {
 
 pub type AssignmentOperands = SourceDestOperands;
 impl OperandTypeInference for AssignmentOperands {
-    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -147,7 +147,7 @@ impl BinaryComparisonExpressionOperands {
 }
 
 impl OperandTypeInference for BinaryComparisonExpressionOperands {
-    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!()
     }
 }
@@ -257,7 +257,7 @@ impl JumpOperands {
 }
 
 impl OperandTypeInference for JumpOperands {
-    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -313,7 +313,7 @@ impl FunctionCallOperands {
 }
 
 impl OperandTypeInference for FunctionCallOperands {
-    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!()
     }
 }
@@ -351,7 +351,7 @@ impl MethodCallOperands {
 }
 
 impl OperandTypeInference for MethodCallOperands {
-    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -369,7 +369,7 @@ pub struct LoadOperands {
 }
 
 impl OperandTypeInference for LoadOperands {
-    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -381,7 +381,7 @@ pub struct StoreOperands {
 }
 
 impl OperandTypeInference for StoreOperands {
-    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -394,7 +394,7 @@ pub struct FieldAddressOperands {
 }
 
 impl OperandTypeInference for FieldAddressOperands {
-    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -407,7 +407,7 @@ pub struct SwitchOperands {
 }
 
 impl OperandTypeInference for SwitchOperands {
-    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }

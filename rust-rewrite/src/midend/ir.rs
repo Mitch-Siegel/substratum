@@ -60,7 +60,7 @@ impl IrLine {
 }
 
 impl OperandTypeInference for IrLine {
-    fn infer_types(&self, ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
         self.operation.infer_types(ctx)
     }
 }

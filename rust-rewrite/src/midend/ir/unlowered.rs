@@ -21,7 +21,7 @@ pub enum Operation {
 }
 
 impl OperandTypeInference for Operation {
-    fn infer_types(&self, ctx: &TypeInferenceContext) -> bool {
+    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
         match self {
             Self::Match(m) => m.infer_types(ctx),
             Self::Discriminant(d) => d.infer_types(ctx),

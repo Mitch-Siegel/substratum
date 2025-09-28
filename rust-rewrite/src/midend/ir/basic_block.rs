@@ -60,19 +60,23 @@ impl BasicBlock {
     pub fn statements(&self) -> impl Iterator<Item = &IrLine> {
         self.statements.iter()
     }
+}
 
-    pub fn infer_types(
-        &mut self,
-        symtab: Box<symtab::SymbolTable>,
-        values: &mut ValueInterner,
-    ) -> Box<symtab::SymbolTable> {
-        // TODO: make basic blocks own their own def path
-        let ctx = TypeInferenceContext::new(symtab, values, symtab::DefPath::empty());
-        while self.unpropagated_lines.len() > 0 {
-            let idx_to_propagate = self.unpropagated_lines.pop_first().unwrap();
-            self.statements[idx_to_propagate].infer_types(&ctx);
-        }
-        ctx.take()
+impl OperandTypeInference for BasicBlock {
+    fn infer_types(&mut self, ctx: &TypeInferenceContext) -> bool {
+        self.unpropagated_lines = self
+            .unpropagated_lines
+            .iter()
+            .map(
+                |line_idx| match self.statements[*line_idx].infer_types(ctx) {
+                    true => None,
+                    false => Some(line_idx),
+                },
+            )
+            .flatten()
+            .cloned()
+            .collect();
+        self.unpropagated_lines.len() == 0
     }
 }
 
