@@ -265,8 +265,14 @@ impl FunctionWalkContext {
         }
     }
 
-    pub fn finish(&mut self) {
-        self.block_manager.finish(self.current_block).unwrap();
+    pub fn resolve_final_convergence(&mut self) {
+        self.block_manager
+            .resolve_final_convergence(self.current_block)
+            .unwrap();
+    }
+
+    pub fn ensure_finished(&mut self) -> Result<(), ir::block_manager::BranchError> {
+        self.block_manager.ensure_finished()
     }
 }
 

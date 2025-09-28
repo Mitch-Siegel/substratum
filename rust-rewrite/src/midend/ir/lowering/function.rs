@@ -67,9 +67,18 @@ pub fn lower_function(
             .finish_block_split(split_to_block, to_lower.loc.clone())
             .unwrap();
 
+        let mut dummy_generics = GenericParamsContext::new();
+        let mut dummy_def_path = def_path.clone();
+        while dummy_def_path.len() > 0 {
+            dummy_generics
+                .add_params_at_path(dummy_def_path.clone(), BTreeSet::new())
+                .unwrap();
+            dummy_def_path.pop().unwrap();
+        }
+
         let mut ctx = linearizer::WalkContext::from_existing(
             symtab,
-            GenericParamsContext::new(),
+            dummy_generics,
             def_path.clone(),
             manager,
             block,
@@ -119,7 +128,7 @@ pub fn lower_function(
                 .insert(after_split_idx);
         }
 
-        ctx.finish_function(function_name.clone()).unwrap();
+        ctx.refinish_function(function_name.clone()).unwrap();
         symtab = ctx.take().unwrap().0;
     }
 

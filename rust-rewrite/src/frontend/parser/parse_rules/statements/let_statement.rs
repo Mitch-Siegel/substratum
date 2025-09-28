@@ -23,8 +23,8 @@ impl<'a, 'p> StatementParser<'a, 'p> {
         };
 
         let value = match self.peek_token()? {
-            Token::Equals => {
-                self.expect_token(Token::Equals)?;
+            Token::Assign => {
+                self.expect_token(Token::Assign)?;
                 Some(self.expression_parser().parse_expression()?)
             }
             _ => None,

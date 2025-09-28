@@ -173,14 +173,32 @@ impl WalkContext {
 
     pub fn finish_function(&mut self, expected_name: FunctionName) -> Result<(), ()> {
         let def_path = self.def_path().clone();
-        self.function().finish();
+        self.function().resolve_final_convergence();
+        self.function().ensure_finished().unwrap();
         let function_context = self.functions.remove(&def_path).unwrap();
         let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
         match function.control_flow.replace(function_context.take()) {
             Some(_) => return Err(()),
             None => (),
         }
-        self.pop_def_path(DefPathComponent::Function(expected_name))?;
+        self.pop_def_path(DefPathComponent::Function(expected_name))
+            .unwrap();
+        Ok(())
+    }
+
+    // finish a function which has already had the finish() called once, assert that no branches
+    // are open
+    pub fn refinish_function(&mut self, expected_name: FunctionName) -> Result<(), ()> {
+        let def_path = self.def_path().clone();
+        self.function().ensure_finished().unwrap();
+        let function_context = self.functions.remove(&def_path).unwrap();
+        let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
+        match function.control_flow.replace(function_context.take()) {
+            Some(_) => return Err(()),
+            None => (),
+        }
+        self.pop_def_path(DefPathComponent::Function(expected_name))
+            .unwrap();
         Ok(())
     }
 
@@ -220,7 +238,10 @@ impl WalkContext {
             .unwrap();
     }
 
-    pub fn pop_def_path(&mut self, expect: DefPathComponent) -> Result<(), ()> {
+    pub fn pop_def_path(
+        &mut self,
+        expect: DefPathComponent,
+    ) -> Result<(), (DefPathComponent, DefPathComponent)> {
         let def_path = self.def_path().clone();
         self.generics_mut().remove_params_at_path(def_path).unwrap();
         let popped = self.definition_path.pop().unwrap();
@@ -230,7 +251,7 @@ impl WalkContext {
         if popped == expect {
             Ok(())
         } else {
-            Err(())
+            Err((popped, expect))
         }
     }
 

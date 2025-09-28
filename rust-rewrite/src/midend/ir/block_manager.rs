@@ -163,13 +163,23 @@ impl BlockManager {
         Ok(result)
     }
 
-    pub fn finish(&mut self, before_final_block: usize) -> Result<(), BranchError> {
+    pub fn resolve_final_convergence(
+        &mut self,
+        before_final_block: usize,
+    ) -> Result<(), BranchError> {
         match self.converge_with_jump(before_final_block, SourceLoc::none())? {
             ConvergenceResult::Done(block) => {
                 self.blocks.insert(block.label, block);
                 Ok(())
             }
             ConvergenceResult::NotDone(e) => Err(BranchError::NotDone(e)),
+        }
+    }
+
+    pub fn ensure_finished(&self) -> Result<(), BranchError> {
+        match self.open_branch_path.last() {
+            None => Ok(()),
+            Some(unfinished) => Err(BranchError::NotDone(unfinished.from_label)),
         }
     }
 }

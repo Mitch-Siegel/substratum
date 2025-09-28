@@ -176,6 +176,9 @@ pub struct MatchOperands {
 
 impl Lowerable for MatchOperands {
     fn lower(self, context: &mut linearizer::WalkContext, loc: SourceLoc) {
+        // TODO: implement actual match decision tree logic
+        return;
+
         let matched_type = context
             .function()
             .values()
