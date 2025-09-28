@@ -13,8 +13,8 @@ impl Lowerable for FieldPointerOperands {
     }
 }
 
-impl OperandTypePropagation for FieldPointerOperands {
-    fn propagate_types<'a>(&self, _ctx: &TypePropagationContext<'a>) -> bool {
+impl OperandTypeInference for FieldPointerOperands {
+    fn infer_types<'a>(&self, _ctx: &TypeInferenceContext<'a>) -> bool {
         unimplemented!();
     }
 }

@@ -34,7 +34,7 @@ impl BlockManager {
             ir::lowered::operands::JumpCondition::Unconditional,
         );
         let from_block = self.get_mut(&from).unwrap();
-        from_block.statements.push(unconditional_jump);
+        from_block.push(unconditional_jump);
 
         let true_block_label = true_block.label;
         self.blocks.insert(true_block_label, true_block);
@@ -66,13 +66,13 @@ impl BlockManager {
 
         let conditional_jump = ir::IrLine::new_jump(loc.clone(), true_block.label, jump_condition);
         let from_block = self.get_mut(&from).unwrap();
-        from_block.statements.push(conditional_jump);
+        from_block.push(conditional_jump);
         let unconditional_jump = ir::IrLine::new_jump(
             loc,
             false_block.label,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
-        from_block.statements.push(unconditional_jump);
+        from_block.push(unconditional_jump);
 
         self.convergences
             .rename_source(from, convergence_block.label);
@@ -184,7 +184,7 @@ impl BlockManager {
             ir::lowered::operands::JumpCondition::Unconditional,
         );
         let before_loop_block = self.get_mut(&before_loop).unwrap();
-        before_loop_block.statements.push(loop_entry);
+        before_loop_block.push(loop_entry);
 
         let loop_jump = ir::IrLine::new_jump(
             loc.clone(),
@@ -192,7 +192,7 @@ impl BlockManager {
             ir::lowered::operands::JumpCondition::Unconditional,
         );
 
-        loop_bottom.statements.push(loop_jump);
+        loop_bottom.push(loop_jump);
 
         // transfer control flow unconditionally to the top of the loop
         let loop_entry_jump = ir::IrLine::new_jump(
@@ -200,7 +200,7 @@ impl BlockManager {
             loop_top.label,
             ir::lowered::operands::JumpCondition::Unconditional,
         );
-        before_loop_block.statements.push(loop_entry_jump);
+        before_loop_block.push(loop_entry_jump);
 
         // now the current block should be the loop's top
         self.convergences
@@ -255,7 +255,7 @@ impl BlockManager {
         let loop_bottom_block = self.get_mut(&loop_bottom).unwrap();
         // insert any IRs that need to be at the bottom of the loop but before the looping jump itself
         for loop_bottom_ir in loop_bottom_actions {
-            loop_bottom_block.statements.push(loop_bottom_ir);
+            loop_bottom_block.push(loop_bottom_ir);
         }
 
         // figure out where the top of our loop is to jump back to
@@ -274,7 +274,7 @@ impl BlockManager {
         );
 
         let loop_bottom_block = self.get_mut(&loop_bottom).unwrap();
-        loop_bottom_block.statements.push(loop_jump);
+        loop_bottom_block.push(loop_jump);
 
         // now that we are in loop_bottom, create_loop() should have a convergence for us
         // which will give us the after_loop block
@@ -320,7 +320,7 @@ impl BlockManager {
             ir::lowered::operands::JumpCondition::Unconditional,
         );
         let before_switch_block = self.get_mut(&before_switch).unwrap();
-        before_switch_block.statements.push(unconditional_jump);
+        before_switch_block.push(unconditional_jump);
 
         self.convergences
             .rename_source(before_switch, convergence_block.label);

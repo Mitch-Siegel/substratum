@@ -46,8 +46,8 @@ impl BinaryArithmeticExpressionOperands {
     }
 }
 
-impl OperandTypePropagation for BinaryArithmeticExpressionOperands {
-    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+impl OperandTypeInference for BinaryArithmeticExpressionOperands {
+    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -98,8 +98,8 @@ pub struct SourceDestOperands {
 }
 
 pub type AssignmentOperands = SourceDestOperands;
-impl OperandTypePropagation for AssignmentOperands {
-    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+impl OperandTypeInference for AssignmentOperands {
+    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -146,8 +146,8 @@ impl BinaryComparisonExpressionOperands {
     }
 }
 
-impl OperandTypePropagation for BinaryComparisonExpressionOperands {
-    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+impl OperandTypeInference for BinaryComparisonExpressionOperands {
+    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!()
     }
 }
@@ -256,8 +256,8 @@ impl JumpOperands {
     }
 }
 
-impl OperandTypePropagation for JumpOperands {
-    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+impl OperandTypeInference for JumpOperands {
+    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -312,8 +312,8 @@ impl FunctionCallOperands {
     }
 }
 
-impl OperandTypePropagation for FunctionCallOperands {
-    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+impl OperandTypeInference for FunctionCallOperands {
+    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!()
     }
 }
@@ -350,8 +350,8 @@ impl MethodCallOperands {
     }
 }
 
-impl OperandTypePropagation for MethodCallOperands {
-    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+impl OperandTypeInference for MethodCallOperands {
+    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -368,8 +368,8 @@ pub struct LoadOperands {
     pub destination: ValueId,
 }
 
-impl OperandTypePropagation for LoadOperands {
-    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+impl OperandTypeInference for LoadOperands {
+    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -380,8 +380,8 @@ pub struct StoreOperands {
     pub source: ValueId,
 }
 
-impl OperandTypePropagation for StoreOperands {
-    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+impl OperandTypeInference for StoreOperands {
+    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -393,8 +393,8 @@ pub struct FieldAddressOperands {
     pub destination: ValueId,
 }
 
-impl OperandTypePropagation for FieldAddressOperands {
-    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+impl OperandTypeInference for FieldAddressOperands {
+    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
@@ -406,8 +406,8 @@ pub struct SwitchOperands {
     pub cases: Vec<(ValueId, usize)>,
 }
 
-impl OperandTypePropagation for SwitchOperands {
-    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+impl OperandTypeInference for SwitchOperands {
+    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }

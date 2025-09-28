@@ -20,12 +20,12 @@ pub enum Operation {
     GetFieldPointer(FieldPointerOperands),
 }
 
-impl OperandTypePropagation for Operation {
-    fn propagate_types(&self, ctx: &TypePropagationContext) -> bool {
+impl OperandTypeInference for Operation {
+    fn infer_types(&self, ctx: &TypeInferenceContext) -> bool {
         match self {
-            Self::Match(m) => m.propagate_types(ctx),
-            Self::Discriminant(d) => d.propagate_types(ctx),
-            Self::GetFieldPointer(f) => f.propagate_types(ctx),
+            Self::Match(m) => m.infer_types(ctx),
+            Self::Discriminant(d) => d.infer_types(ctx),
+            Self::GetFieldPointer(f) => f.infer_types(ctx),
         }
     }
 }

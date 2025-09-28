@@ -158,10 +158,7 @@ impl BlockManager {
 
         let convergence_jump =
             IrLine::new_jump(loc, converge_to, ir::lowered::JumpCondition::Unconditional);
-        self.get_mut(&from)
-            .unwrap()
-            .statements
-            .push(convergence_jump);
+        self.get_mut(&from).unwrap().push(convergence_jump);
 
         Ok(result)
     }
@@ -185,7 +182,7 @@ impl BlockManager {
         stmt_idx: usize,
     ) -> Result<(usize, IrLine), BranchError> {
         let split_block = self.get_mut(&block).unwrap();
-        let def_path = split_block.def_path.clone();
+        let def_path = split_block.def_path().clone();
         let mut after_split = split_block.split_at(stmt_idx);
         let at_split = after_split.remove(0);
 
@@ -209,7 +206,7 @@ impl BlockManager {
         match last_branch.kind {
             BranchKind::BlockSplit(mut after_split_stmts) => {
                 let after_split_block = self.get_mut(&after_split_label).unwrap();
-                after_split_block.statements.append(&mut after_split_stmts);
+                after_split_block.append(&mut after_split_stmts);
                 Ok(after_split_label)
             }
             wrong => Err(BranchError::WrongKind(

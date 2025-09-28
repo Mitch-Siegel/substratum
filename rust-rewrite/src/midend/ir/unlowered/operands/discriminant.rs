@@ -21,8 +21,8 @@ impl Lowerable for DiscriminantOperands {
     }
 }
 
-impl OperandTypePropagation for DiscriminantOperands {
-    fn propagate_types<'a>(&self, _ctx: &TypePropagationContext<'a>) -> bool {
+impl OperandTypeInference for DiscriminantOperands {
+    fn infer_types<'a>(&self, _ctx: &TypeInferenceContext<'a>) -> bool {
         unimplemented!();
     }
 }

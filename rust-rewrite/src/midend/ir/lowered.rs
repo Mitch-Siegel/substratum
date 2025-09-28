@@ -7,7 +7,7 @@ use std::fmt::Display;
 
 /// ## Enum of all operations
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
-#[enum_delegate::implement(OperandTypePropagation)]
+#[enum_delegate::implement(OperandTypeInference)]
 pub enum Operation {
     Assignment(AssignmentOperands),
     BinaryArithmetic(BinaryArithmeticExpressionOperands),

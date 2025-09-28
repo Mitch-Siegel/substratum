@@ -197,8 +197,8 @@ impl Lowerable for MatchOperands {
     }
 }
 
-impl OperandTypePropagation for MatchOperands {
-    fn propagate_types(&self, _ctx: &TypePropagationContext) -> bool {
+impl OperandTypeInference for MatchOperands {
+    fn infer_types(&self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
