@@ -63,7 +63,7 @@ impl GenericParamsContext {
     }
 }
 
-pub struct WalkContext<'a> {
+pub struct WalkContext {
     symtab: Box<SymbolTable>,
     definition_path: DefPath,
     functions: HashMap<DefPath, FunctionWalkContext>,
