@@ -144,13 +144,6 @@ impl<'a> Iterator for CharSource<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let c = self.read_char();
-        /*
-        match &c {
-            Some(ch) => print!("{}", ch),
-            None => print!("NONE"),
-        }
-        */
-
         c
     }
 }

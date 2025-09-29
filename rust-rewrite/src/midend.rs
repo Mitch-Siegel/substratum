@@ -14,9 +14,6 @@ fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
         |_path, symbol, suffix| match symbol {
             symtab::SymbolDef::Function(f) => {
                 if let Some(cf) = &f.control_flow {
-                    for (label, _block) in cf.blocks() {
-                        println!("Block {}", label);
-                    }
                     {
                         use std::io::Write;
                         let path_string = format!("graphviz/{}{}.txt", f.name(), suffix);
@@ -25,7 +22,6 @@ fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
                         let mut file = std::fs::File::create(filepath).unwrap();
                         file.write(cf.graphviz_string().as_bytes()).unwrap();
                     }
-                    println!("{}", cf.graphviz_string());
                 } else {
                     panic!();
                 }

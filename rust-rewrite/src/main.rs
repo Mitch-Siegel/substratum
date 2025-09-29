@@ -158,8 +158,6 @@ fn file_path_to_module_name(filepath_to_parse: &std::path::Path) -> (String, &st
 }
 
 fn main() {
-    println!("Hello, world!");
-
     let mut arguments = CompilerArguments {
         trace_location: TraceLocation::NoTrace,
         trace_level: tracing::Level::WARN,
@@ -284,15 +282,9 @@ fn main() {
 
         module_worklist.append(&mut parsed_worklist);
 
-        for t in &module_tree.items {
-            println!("{}", t);
-        }
-
         modules.push(module_tree);
     }
 
     let symtab = midend::symbol_table_from_modules(modules);
-    //println!("{}", serde_json::to_string_pretty(&symtab).unwrap());
-    println!("{:?}", &symtab);
     //backend::do_backend(symtab);
 }
