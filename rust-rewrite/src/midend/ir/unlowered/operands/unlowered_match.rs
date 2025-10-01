@@ -43,11 +43,11 @@ fn lower_pattern<'a>(
         Pattern::TupleStruct(name, subpatterns) => {
             let scrutinee_type = arm_ctx
                 .ctx
-                .function()
+                .function_mut()
                 .values()
                 .semantic_for_id(&arm_ctx.scrutinee)
                 .expect("Scrutinee type not known!");
-            let scrutinee_variable_def_path = match arm_ctx.ctx.function().values().def_path_for_id(&arm_ctx.scrutinee) {
+            let scrutinee_variable_def_path = match arm_ctx.ctx.function_mut().values().def_path_for_id(&arm_ctx.scrutinee) {
         Ok(opt) => opt.cloned(),
         Err(e)=> None 
             };
@@ -106,10 +106,12 @@ pub struct MatchOperands {
 
 impl Lowerable for MatchOperands {
     fn lower(self, ctx: &mut linearizer::WalkContext, loc: SourceLoc) {
+        ctx.function().values().diag(ctx.symtab());
+        panic!("");
         // TODO: implement actual match decision tree logic
 
         let matched_type = ctx
-            .function()
+            .function_mut()
             .values()
             .semantic_for_id(&self.scrutinee)
             .unwrap();
@@ -127,6 +129,8 @@ impl Lowerable for MatchOperands {
             .collect();
 
         println!("{:#?}", walked_patterns);
+
+
 
         return;
     }

@@ -7,6 +7,8 @@ use crate::{
     },
     trace,
 };
+use std::collections::HashMap;
+
 pub struct FunctionWalkContext {
     // definition path from the root of the symbol table to this function
     block_manager: ir::BlockManager,
@@ -20,8 +22,20 @@ impl FunctionWalkContext {
         prototype: symtab::FunctionPrototype,
         def_path: symtab::DefPath,
         unit_type: types::Semantic,
+        arg_def_paths: Vec<symtab::DefPath>,
     ) -> Self {
-        let (block_manager, start_block_label) = ir::BlockManager::new(unit_type, def_path.clone());
+        let (mut block_manager, start_block_label) =
+            ir::BlockManager::new(unit_type, def_path.clone());
+
+        for arg in arg_def_paths {
+            let id = block_manager.values_mut().id_for_variable(arg.clone());
+            println!(
+                "arg {}: id {}: value {:?}",
+                arg,
+                id,
+                block_manager.values().value_for_id(&id).unwrap()
+            );
+        }
 
         Self {
             block_manager: block_manager,

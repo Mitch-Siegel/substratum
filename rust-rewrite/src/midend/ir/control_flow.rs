@@ -176,6 +176,10 @@ impl ControlFlow {
         graphviz_string += "}";
         graphviz_string
     }
+
+    pub fn values(&self) -> &ValueInterner {
+        &self.values
+    }
 }
 
 impl ControlFlow {

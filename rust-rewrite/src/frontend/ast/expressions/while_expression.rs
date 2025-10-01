@@ -29,7 +29,7 @@ impl Walk<midend::ir::ValueId> for WhileExpressionTree {
         let parent_scope_def_path = ctx.def_path().clone();
         let loop_scope_def_path = ctx.reserve_subscope();
         let loop_done_label = ctx
-            .function()
+            .function_mut()
             .create_loop(self.loc.clone(), parent_scope_def_path, loop_scope_def_path)
             .unwrap();
 
@@ -40,18 +40,18 @@ impl Walk<midend::ir::ValueId> for WhileExpressionTree {
             midend::ir::lowered::operands::JumpCondition::Conditional(
                 midend::ir::lowered::operands::BinaryComparisonOperands::new(
                     condition.into(),
-                    *ctx.function().values_mut().id_for_constant(0),
+                    *ctx.function_mut().values_mut().id_for_constant(0),
                     midend::ir::lowered::operands::BinaryComparisonKind::EQ,
                 ),
             ),
         );
 
-        ctx.function()
+        ctx.function_mut()
             .append_jump_to_current_block(loop_condition_jump)
             .unwrap();
 
         let parent_def_path = ctx.def_path().clone();
-        ctx.function()
+        ctx.function_mut()
             .unconditional_branch_from_current(
                 self.loc.clone(),
                 parent_def_path.clone(),
@@ -59,9 +59,9 @@ impl Walk<midend::ir::ValueId> for WhileExpressionTree {
             )
             .unwrap();
         self.body.walk(ctx);
-        ctx.function().finish_branch(self.loc.clone()).unwrap();
+        ctx.function_mut().finish_branch(self.loc.clone()).unwrap();
 
-        ctx.function()
+        ctx.function_mut()
             .finish_loop(self.loc.clone(), Vec::new())
             .unwrap();
 

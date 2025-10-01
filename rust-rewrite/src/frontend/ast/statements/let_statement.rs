@@ -58,6 +58,8 @@ impl Walk<midend::ir::ValueId> for LetTree {
         let variable_path: midend::symtab::DefPath = ctx
             .insert::<midend::symtab::Variable>(declared_variable)
             .unwrap();
-        ctx.function().values_mut().id_for_variable(variable_path)
+        ctx.function_mut()
+            .values_mut()
+            .id_for_variable(variable_path)
     }
 }

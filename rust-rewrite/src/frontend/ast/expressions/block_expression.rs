@@ -25,7 +25,7 @@ impl Walk<midend::ir::ValueId> for BlockExpressionTree {
     fn walk(mut self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
         let parent_def_path = ctx.def_path().clone();
         let true_scope_def_path = ctx.reserve_subscope();
-        ctx.function()
+        ctx.function_mut()
             .unconditional_branch_from_current(
                 self.loc.clone(),
                 parent_def_path,
@@ -43,7 +43,7 @@ impl Walk<midend::ir::ValueId> for BlockExpressionTree {
             None => midend::ir::ValueInterner::unit_value_id(),
         };
 
-        ctx.function().finish_branch(self.loc).unwrap();
+        ctx.function_mut().finish_branch(self.loc).unwrap();
 
         last_statement_value
     }

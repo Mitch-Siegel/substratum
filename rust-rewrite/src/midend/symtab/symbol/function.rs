@@ -96,7 +96,7 @@ impl PartialEq for Function {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FunctionPrototype {
     pub name: FunctionName,
     pub generic_params: Vec<String>,

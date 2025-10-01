@@ -30,12 +30,10 @@ impl Display for ArgumentDeclarationTree {
 
 impl midend::linearizer::Walk<midend::symtab::Variable> for ArgumentDeclarationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut midend::linearizer::WalkContext) -> midend::symtab::Variable {
-        let variable_type: midend::types::Syntactic = self.type_.walk(context);
+    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::symtab::Variable {
+        let variable_type: midend::types::Syntactic = self.type_.walk(ctx);
 
-        let declared_argument =
-            midend::symtab::Variable::new(self.name.clone(), Some(variable_type));
-        declared_argument
+        midend::symtab::Variable::new(self.name.clone(), Some(variable_type))
     }
 }
 

@@ -75,7 +75,7 @@ impl Walk<midend::ir::ValueId> for MethodCallExpressionTree {
     fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
         let receiver = self.receiver.walk(ctx);
 
-        let return_value_to = ctx.function().values_mut().next_temp();
+        let return_value_to = ctx.function_mut().values_mut().next_temp();
 
         // //TODO: error handling and checking
         // assert!(called_method.arguments.len() == params.len());
@@ -95,7 +95,7 @@ impl Walk<midend::ir::ValueId> for MethodCallExpressionTree {
             return_value_to.clone(),
         );
 
-        ctx.function()
+        ctx.function_mut()
             .append_statement_to_current_block(method_call_line)
             .unwrap();
 

@@ -155,13 +155,23 @@ impl WalkContext {
         let function_path_component = symtab::DefPathComponent::Function(prototype.name.clone());
         self.push_def_path(function_path_component, &prototype.generic_params);
 
-        for argument in prototype.arguments.clone() {
-            self.insert::<symtab::Variable>(argument.clone()).unwrap();
-        }
+        let arg_def_paths = prototype
+            .arguments
+            .iter()
+            .map(|arg| {
+                println!("Handle argument {:?}", arg);
+                self.insert::<symtab::Variable>(arg.clone()).unwrap()
+            })
+            .collect();
 
         match self.functions.insert(
             self.def_path().clone(),
-            FunctionWalkContext::new(prototype, self.def_path().clone(), unit_type_id),
+            FunctionWalkContext::new(
+                prototype,
+                self.def_path().clone(),
+                unit_type_id,
+                arg_def_paths,
+            ),
         ) {
             Some(_) => panic!(
                 "Function {} has already been inserted to symtab",
@@ -173,8 +183,8 @@ impl WalkContext {
 
     pub fn finish_function(&mut self, expected_name: FunctionName) -> Result<(), ()> {
         let def_path = self.def_path().clone();
-        self.function().resolve_final_convergence();
-        self.function().ensure_finished().unwrap();
+        self.function_mut().resolve_final_convergence();
+        self.function_mut().ensure_finished().unwrap();
         let function_context = self.functions.remove(&def_path).unwrap();
         let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
         match function.control_flow.replace(function_context.take()) {
@@ -190,7 +200,7 @@ impl WalkContext {
     // are open
     pub fn refinish_function(&mut self, expected_name: FunctionName) -> Result<(), ()> {
         let def_path = self.def_path().clone();
-        self.function().ensure_finished().unwrap();
+        self.function_mut().ensure_finished().unwrap();
         let function_context = self.functions.remove(&def_path).unwrap();
         let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
         match function.control_flow.replace(function_context.take()) {
@@ -202,7 +212,24 @@ impl WalkContext {
         Ok(())
     }
 
-    pub fn function(&mut self) -> &mut FunctionWalkContext {
+    pub fn function(&self) -> &FunctionWalkContext {
+        let mut scan_def_path = self.def_path().clone();
+        while scan_def_path.len() > 0 {
+            if self.functions.contains_key(&scan_def_path) {
+                break;
+            } else {
+                scan_def_path.pop().unwrap();
+            }
+        }
+
+        if scan_def_path.len() > 0 {
+            self.functions.get(&scan_def_path).unwrap()
+        } else {
+            panic!("DefContext::function() called with no active function!");
+        }
+    }
+
+    pub fn function_mut(&mut self) -> &mut FunctionWalkContext {
         let mut scan_def_path = self.def_path().clone();
         while scan_def_path.len() > 0 {
             if self.functions.contains_key(&scan_def_path) {
@@ -215,7 +242,7 @@ impl WalkContext {
         if scan_def_path.len() > 0 {
             self.functions.get_mut(&scan_def_path).unwrap()
         } else {
-            panic!("DefContext::function() called with no active function!");
+            panic!("DefContext::function_mut() called with no active function!");
         }
     }
 

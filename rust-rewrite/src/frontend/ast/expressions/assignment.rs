@@ -28,7 +28,7 @@ impl Walk<midend::ir::ValueId> for AssignmentTree {
             Expression::FieldExpression(field_expression_tree) => {
                 let field_loc = field_expression_tree.loc.clone();
                 let (receiver, field) = field_expression_tree.walk(ctx);
-                let field_pointer_temp = ctx.function().values_mut().next_temp();
+                let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
 
                 let field_pointer_line = midend::ir::IrLine::new_get_field_pointer(
                     field_loc,
@@ -36,7 +36,7 @@ impl Walk<midend::ir::ValueId> for AssignmentTree {
                     field,
                     field_pointer_temp,
                 );
-                ctx.function()
+                ctx.function_mut()
                     .append_statement_to_current_block(field_pointer_line)
                     .unwrap();
 
@@ -53,7 +53,7 @@ impl Walk<midend::ir::ValueId> for AssignmentTree {
             ),
         };
 
-        ctx.function()
+        ctx.function_mut()
             .append_statement_to_current_block(assignment_ir)
             .unwrap();
 

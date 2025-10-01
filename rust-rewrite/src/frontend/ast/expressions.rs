@@ -79,7 +79,7 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for ExpressionTree {
         match self.expression {
             Expression::SelfLower => {
                 let self_variable_path = ctx.self_variable().unwrap();
-                ctx.function()
+                ctx.function_mut()
                     .values_mut()
                     .id_for_variable(self_variable_path)
             }
@@ -87,33 +87,35 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for ExpressionTree {
                 let (_, variable_path) = ctx
                     .lookup_with_path::<midend::symtab::Variable>(&ident)
                     .unwrap();
-                ctx.function().values_mut().id_for_variable(variable_path)
+                ctx.function_mut()
+                    .values_mut()
+                    .id_for_variable(variable_path)
             }
             Expression::UnsignedDecimalConstant(constant) => {
-                *ctx.function().values_mut().id_for_constant(constant)
+                *ctx.function_mut().values_mut().id_for_constant(constant)
             }
             Expression::Arithmetic(arithmetic_operation) => {
                 let operands = arithmetic_operation.walk(ctx);
-                let destination = ctx.function().values_mut().next_temp();
+                let destination = ctx.function_mut().values_mut().next_temp();
                 let expression_statement = midend::ir::IrLine::new_binary_arithmetic_expression(
                     SourceLoc::none(), // FIXME: loc tracking for arithmetic expressions
                     destination,
                     operands,
                 );
-                ctx.function()
+                ctx.function_mut()
                     .append_statement_to_current_block(expression_statement)
                     .unwrap();
                 destination
             }
             Expression::Comparison(comparison_operation) => {
                 let operands = comparison_operation.walk(ctx);
-                let destination = ctx.function().values_mut().next_temp();
+                let destination = ctx.function_mut().values_mut().next_temp();
                 let comparison_statement = midend::ir::IrLine::new_binary_comparison_expression(
                     SourceLoc::none(), // FIXME: loc tracking for arithmetic expressions
                     destination,
                     operands,
                 );
-                ctx.function()
+                ctx.function_mut()
                     .append_statement_to_current_block(comparison_statement)
                     .unwrap();
                 destination
@@ -125,14 +127,14 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for ExpressionTree {
             Expression::While(while_expression) => while_expression.walk(ctx),
             Expression::FieldExpression(field_expression) => {
                 let (receiver, field) = field_expression.walk(ctx);
-                let field_pointer_temp = ctx.function().values_mut().next_temp();
+                let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
                 let field_read_line = midend::ir::IrLine::new_get_field_pointer(
                     self.loc,
                     receiver.into(),
                     field,
                     field_pointer_temp.clone(),
                 );
-                ctx.function()
+                ctx.function_mut()
                     .append_statement_to_current_block(field_read_line)
                     .unwrap();
                 field_pointer_temp

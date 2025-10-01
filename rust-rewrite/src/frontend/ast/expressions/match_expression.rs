@@ -22,7 +22,7 @@ impl Walk<()> for Pattern {
                     .unwrap();
                 // TODO: examine if there's a better way to just declare variables and give them a
                 // ValueID in one go?
-                ctx.function()
+                ctx.function_mut()
                     .values_mut()
                     .id_for_variable(variable_def_path);
             }
@@ -126,7 +126,7 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for MatchExpressionTree {
         let parent_scope_def_path = ctx.def_path().clone();
         let switch_scope_def_path = ctx.reserve_subscope();
 
-        ctx.function()
+        ctx.function_mut()
             .create_switch(
                 match_loc.clone(),
                 parent_scope_def_path,
@@ -137,7 +137,7 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for MatchExpressionTree {
         let scrutinee_value = self.scrutinee_expression.walk(ctx);
 
         // TODO: consolidate each arm's result into result_value
-        let result_value = ctx.function().values_mut().next_temp();
+        let result_value = ctx.function_mut().values_mut().next_temp();
 
         let mut arm_values = Vec::new();
 
@@ -145,12 +145,12 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for MatchExpressionTree {
             trace::warning!("start arm");
             let case_scope_def_path = ctx.reserve_subscope();
             let arm_label = ctx
-                .function()
+                .function_mut()
                 .create_switch_case(case_scope_def_path)
                 .unwrap();
             let _pattern_loc = arm.loc.clone();
             let (pattern, result_value) = arm.walk(ctx);
-            ctx.function()
+            ctx.function_mut()
                 .finish_switch_case(match_loc.clone())
                 .unwrap();
 
@@ -162,7 +162,7 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for MatchExpressionTree {
             trace::warning!("finish arm");
         }
 
-        ctx.function()
+        ctx.function_mut()
             .append_statement_to_current_block(midend::ir::IrLine::new_match(
                 match_loc.clone(),
                 scrutinee_value,
@@ -174,7 +174,7 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for MatchExpressionTree {
 
         // FIXME: (?) Convergence currently exists from the switch block itself to the after-switch
         // block, resulting in an unreachable jump instruction after the unlowered match IR.
-        ctx.function().finish_switch(match_loc).unwrap();
+        ctx.function_mut().finish_switch(match_loc).unwrap();
         result_value
     }
 }

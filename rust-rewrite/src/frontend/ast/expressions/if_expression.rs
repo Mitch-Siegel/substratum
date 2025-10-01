@@ -46,7 +46,7 @@ impl Walk<midend::ir::ValueId> for IfExpressionTree {
         let if_condition = midend::ir::lowered::operands::JumpCondition::Conditional(
             midend::ir::lowered::operands::BinaryComparisonOperands::new(
                 condition_result,
-                *ctx.function().values_mut().id_for_constant(0),
+                *ctx.function_mut().values_mut().id_for_constant(0),
                 midend::ir::lowered::operands::BinaryComparisonKind::NE,
             ),
         );
@@ -55,7 +55,7 @@ impl Walk<midend::ir::ValueId> for IfExpressionTree {
         let true_scope_def_path = ctx.reserve_subscope();
         let false_scope_def_path = ctx.reserve_subscope();
 
-        ctx.function()
+        ctx.function_mut()
             .conditional_branch_from_current(
                 condition_loc.clone(),
                 if_condition,
@@ -72,15 +72,15 @@ impl Walk<midend::ir::ValueId> for IfExpressionTree {
         // if a false block exists AND the 'if' value exists
         if self.false_block.is_some() {
             // we need to copy the 'if' result to the common result_value at the end of the 'if' block
-            let result_value = ctx.function().values_mut().next_temp();
+            let result_value = ctx.function_mut().values_mut().next_temp();
             let assign_if_result_line =
                 midend::ir::IrLine::new_assignment(self.loc.clone(), result_value, if_value_id);
-            ctx.function()
+            ctx.function_mut()
                 .append_statement_to_current_block(assign_if_result_line)
                 .unwrap();
         }
 
-        ctx.function()
+        ctx.function_mut()
             .finish_true_branch_switch_to_false(condition_loc)
             .unwrap();
 
@@ -96,14 +96,14 @@ impl Walk<midend::ir::ValueId> for IfExpressionTree {
                     result_value.clone().into(),
                     else_value_id,
                 );
-                ctx.function()
+                ctx.function_mut()
                     .append_statement_to_current_block(assign_else_result_line)
                     .unwrap();
             }
             None => {}
         };
 
-        ctx.function().finish_branch(self.loc).unwrap();
+        ctx.function_mut().finish_branch(self.loc).unwrap();
 
         result_value
     }

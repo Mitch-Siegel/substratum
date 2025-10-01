@@ -59,17 +59,17 @@ impl ValueInterner {
     }
 
     pub fn id_for_variable(&mut self, variable_def_path: symtab::DefPath) -> ValueId {
-        let next_id = self.next_id();
         match self.variables.get(&variable_def_path) {
             Some(id) => *id,
             None => {
-                self.variables.insert(variable_def_path.clone(), next_id);
-                self.values.push(Value::new(
-                    ValueKind::Variable(variable_def_path.clone()),
-                    None,
-                ));
-                self.variables.entry(variable_def_path).or_insert(next_id);
-                next_id
+                let id = self
+                    .insert(Value::new(
+                        ValueKind::Variable(variable_def_path.clone()),
+                        None,
+                    ))
+                    .unwrap();
+                self.variables.insert(variable_def_path.clone(), id);
+                id
             }
         }
     }
@@ -93,7 +93,7 @@ impl ValueInterner {
         self.ids.entry(constant_value).or_insert(next_id)
     }
 
-    pub fn insert(&mut self, value: Value) -> Result<ValueId, ()> {
+    fn insert(&mut self, value: Value) -> Result<ValueId, ()> {
         match self.ids.get(&value) {
             Some(_) => Err(()),
             None => {
@@ -107,6 +107,14 @@ impl ValueInterner {
                 self.ids.insert(value.clone(), new_id);
                 Ok(new_id)
             }
+        }
+    }
+}
+
+impl ValueInterner {
+    pub fn diag(&self, symtab: &symtab::SymbolTable) {
+        for (v, id) in self.ids.iter() {
+            println!("{}: {:?}", id, v);
         }
     }
 }

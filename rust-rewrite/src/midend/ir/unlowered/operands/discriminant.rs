@@ -11,7 +11,7 @@ impl Lowerable for DiscriminantOperands {
     fn lower(self, ctx: &mut linearizer::WalkContext, loc: SourceLoc) {
         // sanity check
         let _receiver_type = ctx
-            .function()
+            .function_mut()
             .values_mut()
             .value_for_id(&self.enum_receiver)
             .unwrap();
