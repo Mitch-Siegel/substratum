@@ -74,6 +74,13 @@ impl ValueInterner {
         }
     }
 
+    pub fn def_path_for_id(&self, id: &ValueId) -> Result<Option<&symtab::DefPath>, ValueError> {
+        match &self.value_for_id(id)?.kind {
+            ValueKind::Variable(def_path) => Ok(Some(def_path)),
+            _ => Ok(None),
+        }
+    }
+
     fn next_id(&self) -> ValueId {
         ValueId {
             index: self.ids.len(),

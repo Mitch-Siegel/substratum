@@ -19,153 +19,83 @@ pub struct MatchArm {
     pub result_value: ValueId,
 }
 
-fn match_enum_destructure(
-    ctx: &mut linearizer::WalkContext,
-    _scrutinee: ValueId,
-    destructured_enum: &symtab::type_definition::EnumRepr,
-    variant_name: String,
-    nested_patterns: Vec<frontend::ast::expressions::match_expression::PatternTree>,
-) {
-    let variant = destructured_enum
-        .get_variant(&variant_name)
-        .expect(&format!(
-            "Enum {} has no variant {}",
-            destructured_enum.name, variant_name
-        ));
-
-    match variant.data() {
-        symtab::EnumVariantRepr::Unit => panic!(
-            "{}::{} has no variant data",
-            destructured_enum.name, variant_name
-        ),
-        symtab::EnumVariantRepr::Tuple(members) => {
-            if members.len() != nested_patterns.len() {
-                panic!(
-                    "{}::{} has {} tuple members, but saw {} in match",
-                    destructured_enum.name,
-                    variant_name,
-                    members.len(),
-                    nested_patterns.len()
-                );
-            }
-
-            let mut _tuple_byte: usize = 0;
-
-            for (pattern_tree, member) in nested_patterns.into_iter().zip(members.iter()) {
-                let _pattern_tree = pattern_tree.walk(ctx);
-                let _tuple_member_value = ctx.function().values_mut().next_temp();
-
-                let (_member_type, _type_def_path) = ctx
-                    .lookup_with_path::<symtab::TypeDefinition>(member)
-                    .unwrap();
-
-                //tuple_byte += ctx.symtab().types.
-
-                //let tuple_member = ir::IrLine::new_compute_field_address(pattern_tree.loc, tuple_member_value
-                //let truth_value = match_pattern_to_truth_value(pattern_tree.pattern,
-            }
-        }
-    }
-}
-
-fn match_pattern_to_truth_value(
+fn lower_pattern<'a>(
     pattern: frontend::ast::expressions::match_expression::Pattern,
-    scrutinee: ValueId,
-    ctx: &mut linearizer::WalkContext,
-) -> ValueId {
+    arm_ctx: &mut MatchArmContext<'a>,
+) -> LoweredPattern {
     use frontend::ast::expressions::match_expression::Pattern;
     match pattern {
-        Pattern::Literal(literal) => literal.walk(ctx),
-        Pattern::Identifier(name) => {
-            let (_, def_path) = ctx.lookup_with_path::<symtab::Variable>(&name).unwrap();
-            ctx.function().values_mut().id_for_variable(def_path)
+        Pattern::Literal(expr) => {
+            let value = expr.walk(arm_ctx.ctx);
+            LoweredPattern::Constructor(
+                PatternConstructor::Constant(
+                    123, /*arm_ctx
+                        .ctx
+                        .function()
+                        .values()
+                        .value_for_constant(value)
+                        .unwrap(),*/
+                ),
+                Vec::new(),
+            )
         }
-        Pattern::TupleStruct(name, nested_patterns) => {
-            let scrutinee_type = ctx
+        Pattern::Identifier(name) => LoweredPattern::Identifier(name),
+        Pattern::TupleStruct(name, subpatterns) => {
+            let scrutinee_type = arm_ctx
+                .ctx
                 .function()
                 .values()
-                .value_for_id(&scrutinee)
-                .unwrap()
-                .ty()
+                .semantic_for_id(&arm_ctx.scrutinee)
+                .expect("Scrutinee type not known!");
+            let scrutinee_variable_def_path = match arm_ctx.ctx.function().values().def_path_for_id(&arm_ctx.scrutinee) {
+        Ok(opt) => opt.cloned(),
+        Err(e)=> None 
+            };
+
+            let scrutinee_type_def = arm_ctx
+                .ctx
+                .symtab()
+                .types
+                .get_definition(&scrutinee_type)
                 .unwrap();
-            let scrutinee_type = ctx.symtab().types.get_definition(&scrutinee_type).unwrap();
 
-            match scrutinee_type.repr.clone() {
-                symtab::type_definition::TypeRepr::Enum(destructured_enum) => {
-                    match_enum_destructure(
-                        ctx,
-                        scrutinee,
-                        &destructured_enum,
-                        name,
-                        nested_patterns,
-                    )
-                }
-                other => panic!("Invalid type {} in tuple struct match", other.name()),
-            }
-
-            unimplemented!("tuple struct pattern match not implemented yet");
-        }
-    }
-}
-
-impl<'a> linearizer::CustomWalk<MatchArmContext<'a>, MatchArmResult<'a>> for MatchArm {
-    fn walk(self, arm_context: MatchArmContext<'a>) -> MatchArmResult<'a> {
-        let MatchArmContext::<'a> { ctx, scrutinee } = arm_context;
-
-        let (loc, truth_value) = (
-            self.pattern.loc,
-            match_pattern_to_truth_value(self.pattern.pattern, scrutinee, ctx),
-        );
-
-        let comparison_jump = ir::IrLine::new_jump(
-            loc,
-            self.arm_label,
-            lowered::JumpCondition::Conditional(
-                ir::lowered::operands::BinaryComparisonOperands::new(
-                    scrutinee,
-                    truth_value,
-                    lowered::operands::BinaryComparisonKind::EQ,
+            match &scrutinee_type_def.repr {
+                symtab::TypeRepr::Enum(_e) => LoweredPattern::Constructor(
+                    PatternConstructor::EnumVariant {
+                        ty_: scrutinee_type,
+                        variant: name,
+                    },
+                    subpatterns
+                        .into_iter()
+                        .map(|p| lower_pattern(p.pattern, arm_ctx))
+                        .collect(),
                 ),
-            ),
-        );
-        ctx.function()
-            .append_jump_to_current_block(comparison_jump)
-            .unwrap();
-
-        MatchArmResult {
-            arm_label: self.arm_label,
-            result_value: self.result_value,
-            comparison_value: truth_value,
-            ctx,
+                other => panic!(
+                    "Match for type repr {:?} unsupported (matching tuple struct {} from scrutinee value (defpath {:?}))",
+                    other, name, scrutinee_variable_def_path 
+                ),
+            }
         }
     }
 }
 
-fn match_enum(
-    mut ctx: &mut linearizer::WalkContext,
-    match_loc: SourceLoc,
-    match_operands: MatchOperands,
-) {
-    // TODO: architecture based discriminant size based on word size?
-    let discriminant_type = ctx
-        .semantic_type_for_syntactic(&types::Syntactic::U64)
-        .unwrap();
-    let discriminant = ctx
-        .function()
-        .values_mut()
-        .next_temp_with_type(discriminant_type);
+#[derive(Debug)]
+pub enum PatternConstructor {
+    EnumVariant {
+        ty_: types::Semantic,
+        variant: String,
+    },
+    Struct {
+        ty_: types::Semantic,
+    },
+    Constant(usize),
+}
 
-    let _discriminant_line =
-        ir::IrLine::new_discriminant(match_loc, discriminant, match_operands.scrutinee);
-
-    for arm in match_operands.arms {
-        let result = arm.walk(MatchArmContext {
-            ctx,
-            scrutinee: match_operands.scrutinee,
-        });
-
-        ctx = result.ctx;
-    }
+#[derive(Debug)]
+pub enum LoweredPattern {
+    Constructor(PatternConstructor, Vec<LoweredPattern>), // fields = subpatterns
+    Identifier(String),
+    Wildcard,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -175,28 +105,30 @@ pub struct MatchOperands {
 }
 
 impl Lowerable for MatchOperands {
-    fn lower(self, context: &mut linearizer::WalkContext, loc: SourceLoc) {
+    fn lower(self, ctx: &mut linearizer::WalkContext, loc: SourceLoc) {
         // TODO: implement actual match decision tree logic
-        return;
 
-        let matched_type = context
+        let matched_type = ctx
             .function()
             .values()
             .semantic_for_id(&self.scrutinee)
             .unwrap();
-        let matched_type_definition = context
-            .symtab()
-            .types
-            .get_definition(&matched_type)
-            .unwrap();
+        let matched_type_definition = ctx.symtab().types.get_definition(&matched_type).unwrap();
 
-        match matched_type_definition.repr {
-            symtab::TypeRepr::Enum(_) => match_enum(context, loc, self),
-            _ => panic!(
-                "Type {:?} not supported for matching",
-                matched_type_definition
-            ),
-        }
+        let mut match_arm_ctx = MatchArmContext {
+            ctx,
+            scrutinee: self.scrutinee,
+        };
+
+        let walked_patterns: Vec<LoweredPattern> = self
+            .arms
+            .into_iter()
+            .map(|arm| lower_pattern(arm.pattern.pattern, &mut match_arm_ctx))
+            .collect();
+
+        println!("{:#?}", walked_patterns);
+
+        return;
     }
 }
 
