@@ -5,7 +5,7 @@ use std::collections::HashMap;
 pub enum ValueError {
     NoSuchValueId,
     HasNoType,
-    AlreadyHasType,
+    AlreadyHasType(types::Semantic),
 }
 
 #[derive(Debug, Clone)]
@@ -68,7 +68,6 @@ impl ValueInterner {
                         None,
                     ))
                     .unwrap();
-                self.variables.insert(variable_def_path.clone(), id);
                 id
             }
         }
@@ -105,8 +104,23 @@ impl ValueInterner {
                         .is_none());
                 }
                 self.ids.insert(value.clone(), new_id);
+                self.values.push(value);
                 Ok(new_id)
             }
+        }
+    }
+}
+
+/// Type addition to existing values
+impl ValueInterner {
+    pub fn assign_type_to_id(
+        &mut self,
+        id: &ValueId,
+        ty_: types::Semantic,
+    ) -> Result<types::Semantic, ValueError> {
+        match self.value_mut_for_id(id)?.ty.replace(ty_) {
+            Some(existing_type) => Err(ValueError::AlreadyHasType(existing_type)),
+            None => Ok(ty_),
         }
     }
 }

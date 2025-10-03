@@ -180,6 +180,10 @@ impl ControlFlow {
     pub fn values(&self) -> &ValueInterner {
         &self.values
     }
+
+    pub fn values_mut(&mut self) -> &mut ValueInterner {
+        &mut self.values
+    }
 }
 
 impl ControlFlow {

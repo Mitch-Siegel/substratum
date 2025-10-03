@@ -42,7 +42,7 @@ impl Value {
 
     pub fn set_type(&mut self, ty: types::Semantic) -> Result<(), ValueError> {
         match self.ty.replace(ty) {
-            Some(_) => Err(ValueError::AlreadyHasType),
+            Some(existing_type) => Err(ValueError::AlreadyHasType(existing_type)),
             None => Ok(()),
         }
     }

@@ -443,11 +443,6 @@ impl WalkContext {
         )
     }
 
-    pub fn semantic_type_for_syntactic(&self, ty_: &types::Syntactic) -> Option<types::Semantic> {
-        let (_, path) = self.lookup_with_path::<symtab::TypeDefinition>(ty_).ok()?;
-        self.symtab().types.get_semantic(&path)
-    }
-
     fn self_type(&self) -> Option<types::Syntactic> {
         let mut search_def_path = self.def_path().clone();
         loop {

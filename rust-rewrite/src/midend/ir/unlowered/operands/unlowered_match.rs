@@ -106,8 +106,6 @@ pub struct MatchOperands {
 
 impl Lowerable for MatchOperands {
     fn lower(self, ctx: &mut linearizer::WalkContext, loc: SourceLoc) {
-        ctx.function().values().diag(ctx.symtab());
-        panic!("");
         // TODO: implement actual match decision tree logic
 
         let matched_type = ctx
@@ -117,6 +115,7 @@ impl Lowerable for MatchOperands {
             .unwrap();
         let matched_type_definition = ctx.symtab().types.get_definition(&matched_type).unwrap();
 
+        ctx.function().values().diag(ctx.symtab());
         let mut match_arm_ctx = MatchArmContext {
             ctx,
             scrutinee: self.scrutinee,
@@ -128,6 +127,7 @@ impl Lowerable for MatchOperands {
             .map(|arm| lower_pattern(arm.pattern.pattern, &mut match_arm_ctx))
             .collect();
 
+        ctx.function().values().diag(ctx.symtab());
         println!("{:#?}", walked_patterns);
 
 

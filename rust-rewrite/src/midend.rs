@@ -1,4 +1,5 @@
 use crate::{frontend, trace};
+use std::collections::BTreeMap;
 
 mod idfa;
 pub mod ir;
@@ -32,6 +33,62 @@ fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
     );
 }
 
+fn get_all_function_arguments(
+    path: &symtab::DefPath,
+    def: &symtab::SymbolDef,
+    ctx: &mut BTreeMap<symtab::DefPath, Vec<symtab::DefPath>>,
+) {
+    match def {
+        symtab::SymbolDef::Function(f) => {
+            let entry = ctx.entry(path.clone()).or_default();
+            for arg in &f.prototype.arguments {
+                entry.push(
+                    path.clone()
+                        .with_component(symtab::DefPathComponent::Variable(arg.name.clone()))
+                        .unwrap(),
+                );
+            }
+        }
+        _ => (),
+    }
+}
+
+fn assign_types_to_function_arguments(
+    symtab: &mut symtab::SymbolTable,
+    all_arguments: BTreeMap<symtab::DefPath, Vec<symtab::DefPath>>,
+) {
+    for (function_path, arguments) in all_arguments.into_iter() {
+        let arg_types: BTreeMap<symtab::DefPath, types::Semantic> = arguments
+            .into_iter()
+            .map(|arg_path| {
+                let argument = symtab.lookup_at::<symtab::Variable>(&arg_path).unwrap();
+                let argument_type = symtab
+                    .semantic_type_for_syntactic(
+                        &function_path,
+                        argument
+                            .type_()
+                            .expect("function arguments must have a type"),
+                    )
+                    .unwrap();
+                (arg_path, argument_type)
+            })
+            .collect();
+
+        let function = symtab
+            .lookup_at_mut::<symtab::Function>(&function_path)
+            .unwrap();
+
+        if let Some(cf) = &mut function.control_flow {
+            let values = cf.values_mut();
+            for (arg, ty_) in arg_types {
+                println!("assign type {} to arg {:?}", ty_, arg);
+                let arg_value = values.id_for_variable(arg);
+                values.assign_type_to_id(&arg_value, ty_).unwrap();
+            }
+        }
+    }
+}
+
 pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> symtab::SymbolTable {
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
@@ -40,6 +97,8 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
 
     functions_to_graphviz(&symtab, "_unlowered".into());
 
+    let all_arguments = symtab::Visitor::visit(&symtab, get_all_function_arguments);
+    assign_types_to_function_arguments(&mut symtab, all_arguments);
     symtab = ir::lowering::lower_symtab(symtab);
     ir::lowering::assert_lowered(&symtab);
     functions_to_graphviz(&symtab, "".into());

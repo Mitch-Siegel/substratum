@@ -270,6 +270,18 @@ impl SymbolTable {
     }
 }
 
+/// Type handling helper functions
+impl SymbolTable {
+    pub fn semantic_type_for_syntactic(
+        &self,
+        search_def_path: &DefPath,
+        ty_: &types::Syntactic,
+    ) -> Result<types::Semantic, SymbolError> {
+        let (_, path) = self.lookup_with_path::<TypeDefinition>(search_def_path, ty_)?;
+        Ok(self.types.get_semantic(&path).unwrap())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
