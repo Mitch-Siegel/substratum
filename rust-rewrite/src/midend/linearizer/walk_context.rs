@@ -383,7 +383,7 @@ impl WalkContext {
         self.symtab_mut().lookup_mut::<S>(&def_path, key)
     }
 
-    fn lookup_at<S>(&self, def_path: &DefPath) -> Result<&S, SymbolError>
+    pub fn lookup_at<S>(&self, def_path: &DefPath) -> Result<&S, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,

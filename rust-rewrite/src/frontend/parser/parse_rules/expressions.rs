@@ -5,11 +5,11 @@ mod assignment;
 mod block_expression;
 mod calls;
 mod field;
-mod identifier_expression;
 mod if_expression;
 mod literal_expression;
 mod match_expression;
 mod parenthesized_expression;
+mod path_in_expression;
 mod primary_expression;
 mod while_expression;
 
@@ -59,7 +59,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
             Token::If => self.parse_if_expression()?,
             Token::Match => self.parse_match_expression()?,
             Token::While => self.parse_while_expression()?,
-            Token::Identifier(_) => self.parse_identifier_expression()?,
+            Token::Identifier(_) => self.parse_path_in_expression()?,
             Token::UnsignedDecimalConstant(_) => self.parse_literal_expression()?,
             Token::LParen => self.parse_parenthesized_expression()?,
             _ => self.unexpected_token(&[

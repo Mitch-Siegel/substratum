@@ -1,7 +1,7 @@
 use crate::frontend::ast::*;
 use std::collections::BTreeSet;
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct GenericParamTree {
     pub loc: SourceLoc,
     pub name: String,
@@ -17,7 +17,7 @@ impl Display for GenericParamTree {
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct GenericParamsListTree {
     pub loc: SourceLoc,
     pub params: Vec<GenericParamTree>,

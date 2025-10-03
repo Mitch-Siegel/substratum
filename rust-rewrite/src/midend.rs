@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 mod idfa;
 pub mod ir;
 pub mod linearizer;
+mod monomorphization;
 mod optimization;
 //mod ssa_gen;
 pub mod symtab;
@@ -98,6 +99,8 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
     functions_to_graphviz(&symtab, "_unlowered".into());
 
     let all_arguments = symtab::Visitor::visit(&symtab, get_all_function_arguments);
+
+    monomorphization::monomorphize_generics(&mut symtab);
     assign_types_to_function_arguments(&mut symtab, all_arguments);
     symtab = ir::lowering::lower_symtab(symtab);
     ir::lowering::assert_lowered(&symtab);

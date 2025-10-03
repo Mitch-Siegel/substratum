@@ -166,7 +166,7 @@ impl<'a> Parser<'a> {
         let start_loc = self.peek_token_with_loc()?.1;
 
         let exit_on_drop_span = trace::span_auto!(
-            tracing::Level::DEBUG,
+            tracing::Level::TRACE,
             "parse rule start",
             what_parsing,
             "{}",
@@ -190,7 +190,7 @@ impl<'a> Parser<'a> {
             .pop()
             .expect("Mismatched loud parsing tracking");
         tracing::event!(
-            tracing::Level::TRACE,
+            tracing::Level::DEBUG,
             "Finish parsing {}: {}",
             parsed_description,
             _parsed

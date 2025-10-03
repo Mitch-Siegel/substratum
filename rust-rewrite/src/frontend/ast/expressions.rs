@@ -7,6 +7,7 @@ pub mod calls;
 pub mod field;
 pub mod if_expression;
 pub mod match_expression;
+pub mod path_in_expression;
 pub mod while_expression;
 
 pub use arithmetic::{ArithmeticExpressionTree, ComparisonExpressionTree};
@@ -16,12 +17,13 @@ pub use calls::MethodCallExpressionTree;
 pub use field::FieldExpressionTree;
 pub use if_expression::IfExpressionTree;
 pub use match_expression::MatchExpressionTree;
+pub use path_in_expression::*;
 pub use while_expression::WhileExpressionTree;
 
 #[derive(ReflectName, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Expression {
     SelfLower,
-    Identifier(String),
+    PathInExpression(PathInExpressionTree),
     UnsignedDecimalConstant(usize),
     Arithmetic(ArithmeticExpressionTree),
     Comparison(ComparisonExpressionTree),
@@ -37,7 +39,7 @@ impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::SelfLower => write!(f, "self"),
-            Self::Identifier(identifier) => write!(f, "{}", identifier),
+            Self::PathInExpression(path) => write!(f, "{}", path),
             Self::UnsignedDecimalConstant(constant) => write!(f, "{}", constant),
             Self::Arithmetic(arithmetic_expression) => write!(f, "{}", arithmetic_expression),
             Self::Comparison(comparison_expression) => write!(f, "{}", comparison_expression),
@@ -83,9 +85,11 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for ExpressionTree {
                     .values_mut()
                     .id_for_variable(self_variable_path)
             }
-            Expression::Identifier(ident) => {
-                let (_, variable_path) = ctx
-                    .lookup_with_path::<midend::symtab::Variable>(&ident)
+            Expression::PathInExpression(path) => {
+                let variable_path = path.walk(ctx);
+
+                let _variable = ctx
+                    .lookup_at::<midend::symtab::Variable>(&variable_path)
                     .unwrap();
                 ctx.function_mut()
                     .values_mut()

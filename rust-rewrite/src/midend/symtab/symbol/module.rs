@@ -4,6 +4,13 @@ use crate::midend::symtab::*;
 pub struct ModuleName {
     pub name: String,
 }
+
+impl ModuleName {
+    pub fn new(name: String) -> Self {
+        Self { name }
+    }
+}
+
 impl std::fmt::Display for ModuleName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name)

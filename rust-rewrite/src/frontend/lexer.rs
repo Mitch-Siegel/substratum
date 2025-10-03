@@ -190,6 +190,7 @@ impl<'a> Lexer<'a> {
             "self" => Some(Token::SelfLower),
             "Self" => Some(Token::SelfUpper),
             "let" => Some(Token::Let),
+            "super" => Some(Token::Super),
             _ => {
                 if identifier.len() > 0 {
                     Some(Token::Identifier(identifier))
@@ -332,7 +333,7 @@ impl<'a> Lexer<'a> {
                 }
                 ':' => {
                     self.advance_char();
-                    Ok(Token::Colon)
+                    Ok(self.match_next_char_for_token_or(':', Token::PathSep, Token::Colon))
                 }
                 '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' => {
                     let mut constant_string = String::new();

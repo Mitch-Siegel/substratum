@@ -11,7 +11,11 @@ impl<'a, 'p> StatementParser<'a, 'p> {
             loc: start_loc,
             statement: match self.peek_token()? {
                 Token::Let => {
-                    ast::statements::Statement::Let(self.statement_parser().parse_let_statement()?)
+                    let let_stmt = ast::statements::Statement::Let(
+                        self.statement_parser().parse_let_statement()?,
+                    );
+                    self.expect_token(Token::Semicolon)?;
+                    let_stmt
                 }
                 Token::Identifier(_) => ast::statements::Statement::Expression(
                     self.expression_parser().parse_expression()?,
@@ -29,10 +33,6 @@ impl<'a, 'p> StatementParser<'a, 'p> {
                 ])?,
             },
         };
-
-        if matches!(self.peek_token()?, Token::Semicolon) {
-            self.expect_token(Token::Semicolon)?;
-        }
 
         self.finish_parsing(&statement)?;
 
