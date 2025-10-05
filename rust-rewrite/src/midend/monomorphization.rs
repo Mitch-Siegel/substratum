@@ -1,6 +1,6 @@
 use crate::midend::*;
 
-fn collect_generics(def_path: &symtab::DefPath, symbol: &symtab::SymbolDef, ctx: &mut ()) {
+fn collect_generics(def_path: &symtab::DefPath, symbol: &symtab::SymbolDef, _ctx: &mut ()) {
     match symbol {
         symtab::SymbolDef::Variable(v) => {
             if let Some(ty) = v.type_() {

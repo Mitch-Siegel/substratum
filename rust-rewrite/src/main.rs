@@ -285,6 +285,6 @@ fn main() {
         modules.push(module_tree);
     }
 
-    let symtab = midend::symbol_table_from_modules(modules);
+    let _symtab = midend::symbol_table_from_modules(modules);
     //backend::do_backend(symtab);
 }

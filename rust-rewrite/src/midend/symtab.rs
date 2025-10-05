@@ -60,6 +60,9 @@ impl SymbolTable {
         symtab
     }
 
+    /// insert the given symbol at the given path
+    /// assumes that the def_path is the full, global DefPath under which S will be inserted
+    /// automatically adds the DefPathComponent for S to the end of def_path
     pub fn insert<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
     where
         S: Symbol + std::fmt::Debug,
@@ -141,6 +144,8 @@ impl SymbolTable {
         Err(SymbolError::Undefined(def_path.clone(), key_component))
     }
 
+    /// perform a scoped lookup of key at def_path, checking def_path and all its parents for key
+    /// returns a reference to the symbol
     pub fn lookup<S>(
         &self,
         def_path: &DefPath,
@@ -158,6 +163,8 @@ impl SymbolTable {
         }
     }
 
+    /// perform a scoped lookup of key at def_path, checking def_path and all its parents for key
+    /// returns a reference to the symbol alongside the defpath at which the symbol was found
     pub fn lookup_with_path<S>(
         &self,
         def_path: &DefPath,
@@ -197,6 +204,8 @@ impl SymbolTable {
         Err(SymbolError::Undefined(def_path.clone(), key_component))
     }
 
+    /// perform a scoped lookup of key at def_path, checking def_path and all its parents for key
+    /// returns a mutable reference to the symbol
     pub fn lookup_mut<S>(
         &mut self,
         def_path: &DefPath,
@@ -237,6 +246,7 @@ impl SymbolTable {
         Err(SymbolError::Undefined(def_path.clone(), key_component))
     }
 
+    /// perform a lookup at the exact path specified, returning a reference to the symbol
     pub fn lookup_at<S>(&self, def_path: &DefPath) -> Result<&S, SymbolError>
     where
         S: Symbol,
@@ -253,6 +263,7 @@ impl SymbolTable {
         }
     }
 
+    /// perform a lookup at the exact path specified, returning a mutable reference to the symbol
     pub fn lookup_at_mut<S>(&mut self, def_path: &DefPath) -> Result<&mut S, SymbolError>
     where
         S: Symbol,
@@ -267,6 +278,40 @@ impl SymbolTable {
                 def_path.last().clone(),
             )),
         }
+    }
+
+    pub fn lookup_under<S>(
+        &mut self,
+        def_path: &DefPath,
+        child_path: DefPath,
+    ) -> Result<&S, SymbolError>
+    where
+        S: Symbol,
+        for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a> &'a mut S: From<MutDefResolver<'a>>,
+        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
+    {
+        let mut scan_parent_path = def_path.clone();
+        loop {
+            if scan_parent_path.can_own(child_path.first()) {
+                let scan_def_path = scan_parent_path.clone().join(child_path.clone()).unwrap();
+
+                match self.lookup_at::<S>(&scan_def_path) {
+                    Ok(symbol) => return Ok(symbol),
+                    Err(_) => (),
+                }
+            }
+
+            if scan_parent_path.is_empty() {
+                break;
+            }
+            scan_parent_path.pop().unwrap();
+        }
+
+        Err(SymbolError::Undefined(
+            child_path.clone(),
+            child_path.last().clone(),
+        ))
     }
 }
 

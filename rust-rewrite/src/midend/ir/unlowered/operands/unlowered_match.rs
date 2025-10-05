@@ -26,7 +26,7 @@ fn lower_pattern<'a>(
     use frontend::ast::expressions::match_expression::Pattern;
     match pattern {
         Pattern::Literal(expr) => {
-            let value = expr.walk(arm_ctx.ctx);
+            let _value = expr.walk(arm_ctx.ctx);
             LoweredPattern::Constructor(
                 PatternConstructor::Constant(
                     123, /*arm_ctx
@@ -49,7 +49,7 @@ fn lower_pattern<'a>(
                 .expect("Scrutinee type not known!");
             let scrutinee_variable_def_path = match arm_ctx.ctx.function_mut().values().def_path_for_id(&arm_ctx.scrutinee) {
         Ok(opt) => opt.cloned(),
-        Err(e)=> None 
+        Err(_e)=> None 
             };
 
             let scrutinee_type_def = arm_ctx
@@ -105,7 +105,7 @@ pub struct MatchOperands {
 }
 
 impl Lowerable for MatchOperands {
-    fn lower(self, ctx: &mut linearizer::WalkContext, loc: SourceLoc) {
+    fn lower(self, ctx: &mut linearizer::WalkContext, _loc: SourceLoc) {
         // TODO: implement actual match decision tree logic
 
         let matched_type = ctx
@@ -113,7 +113,7 @@ impl Lowerable for MatchOperands {
             .values()
             .semantic_for_id(&self.scrutinee)
             .unwrap();
-        let matched_type_definition = ctx.symtab().types.get_definition(&matched_type).unwrap();
+        let _matched_type_definition = ctx.symtab().types.get_definition(&matched_type).unwrap();
 
         ctx.function().values().diag(ctx.symtab());
         let mut match_arm_ctx = MatchArmContext {

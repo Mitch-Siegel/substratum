@@ -165,6 +165,10 @@ impl DefPath {
         true
     }
 
+    pub fn first(&self) -> &DefPathComponent {
+        self.components.first().unwrap_or(&DefPathComponent::Empty)
+    }
+
     pub fn last(&self) -> &DefPathComponent {
         self.components.last().unwrap_or(&DefPathComponent::Empty)
     }

@@ -1,8 +1,4 @@
-use crate::midend::{
-    ir::*,
-    linearizer::{CustomWalk, Walk},
-    *,
-};
+use crate::midend::{ir::*, linearizer::Walk, *};
 
 pub mod operands;
 use operands::*;

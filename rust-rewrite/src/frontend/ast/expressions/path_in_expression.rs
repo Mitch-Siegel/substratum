@@ -57,14 +57,14 @@ impl
 {
     fn walk(
         self,
-        (ctx, current_path_expr): (
+        (_ctx, current_path_expr): (
             &mut midend::linearizer::WalkContext,
             &mut midend::symtab::DefPath,
         ),
     ) -> () {
         match self.ident_tree.ident {
             PathIdentSegment::Ident(ident) => {
-                let next_component = if let Some(generic_args) = self.generic_args {
+                let next_component = if let Some(_generic_args) = self.generic_args {
                     midend::symtab::DefPathComponent::Type(midend::types::Syntactic::Named(ident))
                 } else {
                     midend::symtab::DefPathComponent::Module(midend::symtab::ModuleName::new(ident))
@@ -101,16 +101,46 @@ impl std::fmt::Display for PathInExpressionTree {
     }
 }
 
-impl midend::linearizer::CustomWalk<&mut midend::linearizer::WalkContext, midend::symtab::DefPath>
+pub enum ResolvedPath {
+    _Local(midend::ir::ValueId),       // a binding to a local value
+    _General(midend::symtab::DefPath), // a relative defpath to look up, potentially scoped under the context's current
+    // def path or any of its parent paths
+    _Global(midend::symtab::DefPath), // an absolute defpath to look up
+}
+
+impl midend::linearizer::CustomWalk<&mut midend::linearizer::WalkContext, ResolvedPath>
     for PathInExpressionTree
 {
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::symtab::DefPath {
+    fn walk(self, _ctx: &mut midend::linearizer::WalkContext) -> ResolvedPath {
+        unimplemented!();
+
+        /*
         let mut expr_path = ctx.def_path().clone();
-        for segment in self.segments {
-            // FUTURE: when implementing other path segment types (crate, etc...?) this probably
-            // needs a refactor
-            segment.walk((ctx, &mut expr_path));
-        }
-        expr_path
+        let first = &self.segments[0].ident_tree.ident;
+        match first {
+            PathIdentSegment::Super => {
+                expr_path.pop().unwrap();
+                for segment in self.segments {
+                    segment.walk((ctx, &mut expr_path));
+                }
+
+                ResolvedPath::General(expr_path)
+            }
+            PathIdentSegment::Ident(name) => {
+                if self.segments.len() == 1 {
+                    ResolvedPath::Local(ctx.lookup::<symtab::Variable>(name)?)
+                } else {
+                    unimplemented!()
+                }
+                ResolvedPath::Local(
+                ctx.lookup::<midend::symtab::Variable>(name))
+
+                let mut defpath = ctx.def_path().clone();
+                for segment in self.segments {
+                    segment.walk((ctx, &mut defpath));
+                }
+                ResolvedPath::General(defpath)
+            }
+        }*/
     }
 }

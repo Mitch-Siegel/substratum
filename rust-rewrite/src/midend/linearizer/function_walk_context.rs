@@ -7,7 +7,6 @@ use crate::{
     },
     trace,
 };
-use std::collections::HashMap;
 
 pub struct FunctionWalkContext {
     // definition path from the root of the symbol table to this function

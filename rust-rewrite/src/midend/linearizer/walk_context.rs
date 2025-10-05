@@ -349,7 +349,7 @@ impl WalkContext {
         ))
     }
 
-    fn lookup<S>(&self, key: &<S as Symbol>::SymbolKey) -> Result<&S, SymbolError>
+    pub fn lookup<S>(&self, key: &<S as Symbol>::SymbolKey) -> Result<&S, SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,

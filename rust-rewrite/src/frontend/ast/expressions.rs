@@ -85,7 +85,10 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for ExpressionTree {
                     .values_mut()
                     .id_for_variable(self_variable_path)
             }
-            Expression::PathInExpression(path) => {
+            Expression::PathInExpression(_path) => {
+                unimplemented!();
+
+                /*
                 let variable_path = path.walk(ctx);
 
                 let _variable = ctx
@@ -93,7 +96,7 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for ExpressionTree {
                     .unwrap();
                 ctx.function_mut()
                     .values_mut()
-                    .id_for_variable(variable_path)
+                    .id_for_variable(variable_path)*/
             }
             Expression::UnsignedDecimalConstant(constant) => {
                 *ctx.function_mut().values_mut().id_for_constant(constant)

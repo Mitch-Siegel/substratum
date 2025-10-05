@@ -126,7 +126,7 @@ impl ValueInterner {
 }
 
 impl ValueInterner {
-    pub fn diag(&self, symtab: &symtab::SymbolTable) {
+    pub fn diag(&self, _symtab: &symtab::SymbolTable) {
         for (v, id) in self.ids.iter() {
             println!("{}: {:?}", id, v);
         }
