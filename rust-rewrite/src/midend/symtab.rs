@@ -16,7 +16,7 @@ pub use visitor::*;
 
 pub struct SymbolTable {
     pub types: types::Interner,
-    defs: BTreeMap<DefPath, SymbolDef>,
+    symbols: BTreeMap<DefPath, Option<SymbolDef>>,
     children: BTreeMap<DefPath, HashSet<DefPath>>,
 }
 
@@ -24,7 +24,7 @@ impl Default for SymbolTable {
     fn default() -> Self {
         Self {
             types: types::Interner::new(),
-            defs: BTreeMap::new(),
+            symbols: BTreeMap::new(),
             children: BTreeMap::new(),
         }
     }
@@ -35,9 +35,9 @@ impl std::fmt::Debug for SymbolTable {
         //writeln!(f, "types: {:?}", self.types)?;
         writeln!(f, "definitions:")?;
 
-        for (path, def) in &self.defs {
+        for (path, def) in &self.symbols {
             match def {
-                SymbolDef::Type(type_id) => writeln!(
+                Some(SymbolDef::Type(type_id)) => writeln!(
                     f,
                     "defpath {} - {:?} ({:?})",
                     path,
@@ -80,15 +80,14 @@ impl SymbolTable {
 
         trace::debug!("insert at {} - {:?}", def_path, symbol);
 
-        match self.defs.insert(
+        let symbol = Into::<SymbolDef>::into(DefGenerator::new(
             full_def_path.clone(),
-            Into::<SymbolDef>::into(DefGenerator::new(
-                full_def_path.clone(),
-                &mut self.types,
-                symbol,
-            )),
-        ) {
-            Some(_already_defined) => Err(SymbolError::Defined(def_path)),
+            &mut self.types,
+            symbol,
+        ));
+
+        match self.symbols.insert(full_def_path.clone(), Some(symbol)) {
+            Some(_already_defined) => Err(SymbolError::AlreadyDefined(def_path)),
             None => Ok(full_def_path),
         }
     }
@@ -101,11 +100,23 @@ impl SymbolTable {
     }
 
     pub fn defs(&self) -> impl Iterator<Item = (&DefPath, &SymbolDef)> {
-        self.defs.iter()
+        self.symbols
+            .iter()
+            .map(|(path, maybe_def)| match maybe_def {
+                Some(def) => Some((path, def)),
+                None => None,
+            })
+            .flatten()
     }
 
     pub fn defs_mut(&mut self) -> impl Iterator<Item = (&DefPath, &mut SymbolDef)> {
-        self.defs.iter_mut()
+        self.symbols
+            .iter_mut()
+            .map(|(path, maybe_def)| match maybe_def {
+                Some(def) => Some((path, def)),
+                None => None,
+            })
+            .flatten()
     }
 
     fn resolve_use_statements_at_path<S>(
@@ -130,7 +141,7 @@ impl SymbolTable {
 
         for child_path in children {
             if let DefPathComponent::Import(_) = child_path.last() {
-                if let SymbolDef::Import(import) = self.defs.get(child_path).unwrap() {
+                if let Some(SymbolDef::Import(import)) = self.symbols.get(child_path).unwrap() {
                     if *import.qualified_path.last() == key_component {
                         return Ok((
                             self.lookup_at::<S>(&import.qualified_path).unwrap(),
@@ -184,14 +195,12 @@ impl SymbolTable {
                     .clone()
                     .with_component(key_component.clone())
                     .unwrap();
-                match self.defs.get(&component_def_path) {
-                    Some(def) => {
-                        return Ok((
-                            <&S>::from(DefResolver::new(&self.types, def)),
-                            component_def_path,
-                        ))
+                match self.symbols.get(&component_def_path) {
+                    Some(Some(def)) => {
+                        let resolver = DefResolver::new(&self.types, def);
+                        return Ok((<&S>::from(resolver), component_def_path));
                     }
-                    None => (),
+                    Some(None) | None => (),
                 }
             }
             match self.resolve_use_statements_at_path(&scan_def_path, key) {
@@ -220,7 +229,7 @@ impl SymbolTable {
         let mut scan_def_path = def_path.clone();
         let key_component = Into::<DefPathComponent>::into(key.clone());
 
-        let defs_ptr = &mut self.defs as *mut BTreeMap<DefPath, SymbolDef>;
+        let defs_ptr = &mut self.symbols as *mut BTreeMap<DefPath, Option<SymbolDef>>;
         let types_ptr = &mut self.types as *mut types::Interner;
 
         while !scan_def_path.is_empty() {
@@ -232,7 +241,7 @@ impl SymbolTable {
 
                 unsafe {
                     let defs = &mut *defs_ptr;
-                    if let Some(symbol) = defs.get_mut(&component_def_path) {
+                    if let Some(Some(symbol)) = defs.get_mut(&component_def_path) {
                         let types = &mut *types_ptr;
 
                         let resolver = MutDefResolver::new(types, symbol);
@@ -254,8 +263,15 @@ impl SymbolTable {
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
-        match self.defs.get(&def_path) {
-            Some(def) => return Ok(<&S>::from(DefResolver::new(&self.types, def))),
+        match self.symbols.get(&def_path) {
+            Some(Some(def)) => {
+                let resolver = DefResolver::new(&self.types, def);
+                return Ok(<&S>::from(resolver));
+            }
+            Some(None) => Err(SymbolError::Undeclared(
+                def_path.clone(),
+                def_path.last().clone(),
+            )),
             None => Err(SymbolError::Undefined(
                 def_path.clone(),
                 def_path.last().clone(),
@@ -271,8 +287,15 @@ impl SymbolTable {
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
-        match self.defs.get_mut(&def_path) {
-            Some(def) => return Ok(<&mut S>::from(MutDefResolver::new(&mut self.types, def))),
+        match self.symbols.get_mut(&def_path) {
+            Some(Some(def)) => {
+                let resolver = MutDefResolver::new(&mut self.types, def);
+                return Ok(<&mut S>::from(resolver));
+            }
+            Some(None) => Err(SymbolError::Undeclared(
+                def_path.clone(),
+                def_path.last().clone(),
+            )),
             None => Err(SymbolError::Undefined(
                 def_path.clone(),
                 def_path.last().clone(),

@@ -29,12 +29,12 @@ impl Interner {
         // Ensure that we never overwrite any type
         let overwritten_id = self.ids.insert(def_path.clone(), next_id);
         match overwritten_id {
-            Some(_) => return Err(SymbolError::Defined(def_path.clone())),
+            Some(_) => return Err(SymbolError::AlreadyDefined(def_path.clone())),
             None => next_id,
         };
 
         match self.types.insert(next_id, definition) {
-            Some(_) => return Err(SymbolError::Defined(def_path.clone())),
+            Some(_) => return Err(SymbolError::AlreadyDefined(def_path.clone())),
             None => (),
         };
 
