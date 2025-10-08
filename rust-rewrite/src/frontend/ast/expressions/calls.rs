@@ -1,4 +1,4 @@
-use crate::{frontend::ast::*, midend::linearizer::Walk};
+use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallParamsTree {
@@ -25,13 +25,13 @@ impl Display for CallParamsTree {
     }
 }
 
-impl Walk<Vec<midend::ir::ValueId>> for CallParamsTree {
+impl treewalk::Linearize<Vec<midend::ir::ValueId>> for CallParamsTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> Vec<midend::ir::ValueId> {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> Vec<midend::ir::ValueId> {
         let mut param_values = Vec::new();
 
         for param in self.params {
-            param_values.push(param.walk(ctx));
+            param_values.push(param.linearize(ctx));
         }
 
         param_values
@@ -70,10 +70,10 @@ impl Display for MethodCallExpressionTree {
     }
 }
 
-impl Walk<midend::ir::ValueId> for MethodCallExpressionTree {
+impl treewalk::Linearize<midend::ir::ValueId> for MethodCallExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
-        let receiver = self.receiver.walk(ctx);
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
+        let receiver = self.receiver.linearize(ctx);
 
         let return_value_to = ctx.function_mut().values_mut().next_temp();
 
@@ -82,7 +82,7 @@ impl Walk<midend::ir::ValueId> for MethodCallExpressionTree {
 
         let params: Vec<midend::ir::ValueId> = self
             .params
-            .walk(ctx)
+            .linearize(ctx)
             .into_iter()
             .map(|value| value.into())
             .collect();

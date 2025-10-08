@@ -46,7 +46,7 @@ impl std::fmt::Display for PathExprSegmentTree {
     }
 }
 
-impl
+/*impl
     midend::linearizer::CustomWalk<
         (
             &mut midend::linearizer::WalkContext,
@@ -80,7 +80,7 @@ impl
             }
         }
     }
-}
+}*/
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PathInExpressionTree {
@@ -108,10 +108,8 @@ pub enum ResolvedPath {
     _Global(midend::symtab::DefPath), // an absolute defpath to look up
 }
 
-impl midend::linearizer::CustomWalk<&mut midend::linearizer::WalkContext, ResolvedPath>
-    for PathInExpressionTree
-{
-    fn walk(self, _ctx: &mut midend::linearizer::WalkContext) -> ResolvedPath {
+impl treewalk::Linearize<ResolvedPath> for PathInExpressionTree {
+    fn linearize(self, _ctx: &mut treewalk::linearizer::LinearizeCtx) -> ResolvedPath {
         unimplemented!();
 
         /*

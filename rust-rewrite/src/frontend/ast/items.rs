@@ -58,8 +58,8 @@ impl Display for Item {
     }
 }
 
-impl midend::linearizer::Walk<()> for Item {
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> () {
+impl treewalk::Linearize<()> for Item {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
         match self {
             Item::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
@@ -73,9 +73,9 @@ impl midend::linearizer::Walk<()> for Item {
                     function_declaration.walk(&mut WalkContext::new(&context.global_scope));
                 context.insert_function_prototype(declared_function);*/
             }
-            Item::FunctionDefinition(function_definition) => function_definition.walk(ctx),
+            Item::FunctionDefinition(function_definition) => function_definition.linearize(ctx),
             Item::StructDefinition(struct_tree) => {
-                let struct_repr = struct_tree.walk(ctx);
+                let struct_repr = struct_tree.linearize(ctx);
                 ctx.insert::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
                     midend::types::Syntactic::Named(struct_repr.name.clone()),
                     midend::symtab::TypeRepr::Struct(struct_repr),
@@ -83,16 +83,16 @@ impl midend::linearizer::Walk<()> for Item {
                 .unwrap();
             }
             Item::EnumDefinition(enum_tree) => {
-                let enum_repr = enum_tree.walk(ctx);
+                let enum_repr = enum_tree.linearize(ctx);
                 ctx.insert::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
                     midend::types::Syntactic::Named(enum_repr.name.clone()),
                     midend::symtab::TypeRepr::Enum(enum_repr),
                 ))
                 .unwrap();
             }
-            Item::Implementation(implementation) => implementation.walk(ctx),
+            Item::Implementation(implementation) => implementation.linearize(ctx),
             Item::Module((module, _)) => match module {
-                Some(m) => m.walk(ctx),
+                Some(m) => m.linearize(ctx),
                 None => (),
             },
         }

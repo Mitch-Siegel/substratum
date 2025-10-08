@@ -17,9 +17,9 @@ impl Display for ModuleTree {
     }
 }
 
-impl midend::linearizer::Walk<()> for ModuleTree {
+impl treewalk::Linearize<()> for ModuleTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, context: &mut midend::linearizer::WalkContext) -> () {
+    fn linearize(self, context: &mut treewalk::LinearizeCtx) -> () {
         tracing::trace!(
             "Create symtab module \"{}\" at \"{}\"",
             self.name,
@@ -36,7 +36,7 @@ impl midend::linearizer::Walk<()> for ModuleTree {
         );
 
         for item in self.items {
-            item.walk(context)
+            item.linearize(context)
         }
 
         context

@@ -24,9 +24,9 @@ impl std::fmt::Debug for TypeTree {
     }
 }
 
-impl midend::linearizer::Walk<midend::types::Syntactic> for TypeTree {
+impl treewalk::Linearize<midend::types::Syntactic> for TypeTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::types::Syntactic {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
         // TODO: check that the type exists by looking it up
         match self.type_ {
             midend::types::Syntactic::Unit

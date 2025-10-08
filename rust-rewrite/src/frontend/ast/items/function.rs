@@ -28,10 +28,10 @@ impl Display for ArgumentDeclarationTree {
     }
 }
 
-impl midend::linearizer::Walk<midend::symtab::Variable> for ArgumentDeclarationTree {
+impl treewalk::Linearize<midend::symtab::Variable> for ArgumentDeclarationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::symtab::Variable {
-        let variable_type: midend::types::Syntactic = self.type_.walk(ctx);
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::Variable {
+        let variable_type: midend::types::Syntactic = self.type_.linearize(ctx);
 
         midend::symtab::Variable::new(self.name.clone(), Some(variable_type))
     }
@@ -77,22 +77,19 @@ impl Display for FunctionDeclarationTree {
     }
 }
 
-impl midend::linearizer::Walk<midend::symtab::FunctionPrototype> for FunctionDeclarationTree {
+impl treewalk::Linearize<midend::symtab::FunctionPrototype> for FunctionDeclarationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(
-        self,
-        context: &mut midend::linearizer::WalkContext,
-    ) -> midend::symtab::FunctionPrototype {
-        let (string_name, generic_params) = self.name.walk(());
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::FunctionPrototype {
+        let (string_name, generic_params) = self.name.linearize(ctx);
 
         let arguments = self
             .arguments
             .into_iter()
-            .map(|arg| arg.walk(context))
+            .map(|arg| arg.linearize(ctx))
             .collect();
 
         let return_type = match self.return_type {
-            Some(type_) => type_.walk(context),
+            Some(type_) => type_.linearize(ctx),
             None => midend::types::Syntactic::Unit,
         };
 
@@ -116,14 +113,14 @@ impl Display for FunctionDefinitionTree {
     }
 }
 
-impl midend::linearizer::Walk<()> for FunctionDefinitionTree {
+impl treewalk::Linearize<()> for FunctionDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> () {
-        let declared_prototype = self.prototype.walk(ctx);
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
+        let declared_prototype = self.prototype.linearize(ctx);
         let function_name = declared_prototype.name.clone();
 
         ctx.create_function(declared_prototype).unwrap();
-        self.body.walk(ctx);
+        self.body.linearize(ctx);
         ctx.finish_function(function_name).unwrap();
     }
 }

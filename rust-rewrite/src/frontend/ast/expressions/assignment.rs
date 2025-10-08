@@ -1,4 +1,4 @@
-use crate::{frontend::ast::*, midend::linearizer::Walk};
+use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct AssignmentTree {
@@ -21,13 +21,13 @@ impl Display for AssignmentTree {
     }
 }
 
-impl Walk<midend::ir::ValueId> for AssignmentTree {
+impl treewalk::Linearize<midend::ir::ValueId> for AssignmentTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let assignment_ir = match self.assignee.expression {
             Expression::FieldExpression(field_expression_tree) => {
                 let field_loc = field_expression_tree.loc.clone();
-                let (receiver, field) = field_expression_tree.walk(ctx);
+                let (receiver, field) = field_expression_tree.linearize(ctx);
                 let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
 
                 let field_pointer_line = midend::ir::IrLine::new_get_field_pointer(
@@ -42,14 +42,14 @@ impl Walk<midend::ir::ValueId> for AssignmentTree {
 
                 midend::ir::IrLine::new_store(
                     self.loc,
-                    self.value.walk(ctx).into(),
+                    self.value.linearize(ctx).into(),
                     field_pointer_temp,
                 )
             }
             _ => midend::ir::IrLine::new_assignment(
                 self.loc,
-                self.assignee.walk(ctx).into(),
-                self.value.walk(ctx).into(),
+                self.assignee.linearize(ctx).into(),
+                self.value.linearize(ctx).into(),
             ),
         };
 

@@ -1,4 +1,4 @@
-use crate::{frontend::ast::*, midend::linearizer::Walk};
+use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct BlockExpressionTree {
@@ -20,9 +20,9 @@ impl Display for BlockExpressionTree {
     }
 }
 
-impl Walk<midend::ir::ValueId> for BlockExpressionTree {
+impl treewalk::Linearize<midend::ir::ValueId> for BlockExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(mut self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
+    fn linearize(mut self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let parent_def_path = ctx.def_path().clone();
         let true_scope_def_path = ctx.reserve_subscope();
         ctx.function_mut()
@@ -35,11 +35,11 @@ impl Walk<midend::ir::ValueId> for BlockExpressionTree {
 
         let last_statement = self.statements.pop();
         for statement in self.statements {
-            statement.walk(ctx);
+            statement.linearize(ctx);
         }
 
         let last_statement_value = match last_statement {
-            Some(statement_tree) => statement_tree.walk(ctx),
+            Some(statement_tree) => statement_tree.linearize(ctx),
             None => midend::ir::ValueInterner::unit_value_id(),
         };
 

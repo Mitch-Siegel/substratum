@@ -23,9 +23,9 @@ impl Display for WhileExpressionTree {
     }
 }
 
-impl Walk<midend::ir::ValueId> for WhileExpressionTree {
+impl treewalk::Linearize<midend::ir::ValueId> for WhileExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let parent_scope_def_path = ctx.def_path().clone();
         let loop_scope_def_path = ctx.reserve_subscope();
         let loop_done_label = ctx
@@ -33,7 +33,7 @@ impl Walk<midend::ir::ValueId> for WhileExpressionTree {
             .create_loop(self.loc.clone(), parent_scope_def_path, loop_scope_def_path)
             .unwrap();
 
-        let condition = self.condition.walk(ctx);
+        let condition = self.condition.linearize(ctx);
         let loop_condition_jump = midend::ir::IrLine::new_jump(
             self.loc.clone(),
             loop_done_label,
@@ -58,7 +58,7 @@ impl Walk<midend::ir::ValueId> for WhileExpressionTree {
                 parent_def_path,
             )
             .unwrap();
-        self.body.walk(ctx);
+        self.body.linearize(ctx);
         ctx.function_mut().finish_branch(self.loc.clone()).unwrap();
 
         ctx.function_mut()

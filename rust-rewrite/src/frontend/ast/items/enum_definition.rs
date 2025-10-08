@@ -11,19 +11,17 @@ pub struct EnumVariantDataTree {
     pub data: EnumVariantData,
 }
 
-impl midend::linearizer::Walk<midend::symtab::enum_definition::EnumVariantRepr>
-    for EnumVariantDataTree
-{
-    fn walk(
+impl treewalk::Linearize<midend::symtab::enum_definition::EnumVariantRepr> for EnumVariantDataTree {
+    fn linearize(
         self,
-        context: &mut midend::linearizer::WalkContext,
+        context: &mut treewalk::LinearizeCtx,
     ) -> midend::symtab::enum_definition::EnumVariantRepr {
         match self.data {
             EnumVariantData::TupleData(elements) => {
                 midend::symtab::enum_definition::EnumVariantRepr::Tuple(
                     elements
                         .into_iter()
-                        .map(|type_tree| type_tree.walk(context))
+                        .map(|type_tree| type_tree.linearize(context))
                         .collect(),
                 )
             }
@@ -82,10 +80,10 @@ impl Display for EnumDefinitionTree {
     }
 }
 
-impl midend::linearizer::Walk<midend::symtab::EnumRepr> for EnumDefinitionTree {
+impl treewalk::Linearize<midend::symtab::EnumRepr> for EnumDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::symtab::EnumRepr {
-        let (string_name, generic_params) = self.name.walk(());
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::EnumRepr {
+        let (string_name, generic_params) = self.name.linearize(ctx);
         let type_def_path_component = midend::symtab::DefPathComponent::Type(
             midend::types::Syntactic::Named(string_name.clone()),
         );
@@ -97,7 +95,7 @@ impl midend::linearizer::Walk<midend::symtab::EnumRepr> for EnumDefinitionTree {
             .into_iter()
             .map(|variant| {
                 let variant_data_type = match variant.data {
-                    Some(variant_item) => variant_item.walk(ctx),
+                    Some(variant_item) => variant_item.linearize(ctx),
                     None => midend::symtab::EnumVariantRepr::Unit,
                 };
                 (variant.name, variant_data_type)

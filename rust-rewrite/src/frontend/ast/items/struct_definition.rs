@@ -17,9 +17,9 @@ impl Display for StructFieldTree {
     }
 }
 
-impl Walk<(String, midend::types::Syntactic)> for StructFieldTree {
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> (String, midend::types::Syntactic) {
-        let field_type = self.type_.walk(ctx);
+impl treewalk::Linearize<(String, midend::types::Syntactic)> for StructFieldTree {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> (String, midend::types::Syntactic) {
+        let field_type = self.type_.linearize(ctx);
         (self.name, field_type)
     }
 }
@@ -53,10 +53,10 @@ impl Display for StructDefinitionTree {
     }
 }
 
-impl Walk<midend::symtab::StructRepr> for StructDefinitionTree {
+impl treewalk::Linearize<midend::symtab::StructRepr> for StructDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::symtab::StructRepr {
-        let (string_name, generic_params) = self.name.walk(());
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::StructRepr {
+        let (string_name, generic_params) = self.name.linearize(ctx);
         let type_def_path_component = midend::symtab::DefPathComponent::Type(
             midend::types::Syntactic::Named(string_name.clone()),
         );
@@ -65,7 +65,7 @@ impl Walk<midend::symtab::StructRepr> for StructDefinitionTree {
         let fields = self
             .fields
             .into_iter()
-            .map(|field| field.walk(ctx))
+            .map(|field| field.linearize(ctx))
             .collect::<Vec<_>>();
 
         ctx.pop_def_path(type_def_path_component).unwrap();

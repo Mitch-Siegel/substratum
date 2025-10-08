@@ -20,7 +20,7 @@ pub enum Syntactic {
 }
 
 impl Syntactic {
-    pub fn resolve(&self, ctx: &linearizer::WalkContext) -> Option<Semantic> {
+    pub fn resolve(&self, ctx: &treewalk::LinearizeCtx) -> Option<Semantic> {
         let (_def, path) = ctx.lookup_with_path::<symtab::TypeDefinition>(self).ok()?;
 
         ctx.symtab().types.get_semantic(&path)

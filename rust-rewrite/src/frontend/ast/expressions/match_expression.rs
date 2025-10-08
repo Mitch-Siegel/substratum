@@ -8,9 +8,9 @@ pub enum Pattern {
     TupleStruct(String, Vec<PatternTree>),
 }
 
-impl Walk<()> for Pattern {
+impl treewalk::Linearize<()> for Pattern {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> () {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
         match self {
             Self::Literal(_) => (),
             Self::Identifier(name) => {
@@ -28,7 +28,7 @@ impl Walk<()> for Pattern {
             }
             Self::TupleStruct(_struct_name, field_patterns) => {
                 for field in field_patterns.clone() {
-                    field.walk(ctx);
+                    field.linearize(ctx);
                 }
             }
         };
@@ -52,10 +52,10 @@ impl Display for PatternTree {
     }
 }
 
-impl Walk<PatternTree> for PatternTree {
+impl treewalk::Linearize<PatternTree> for PatternTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> PatternTree {
-        self.pattern.clone().walk(ctx);
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> PatternTree {
+        self.pattern.clone().linearize(ctx);
         self
     }
 }
@@ -80,14 +80,11 @@ impl Display for MatchArmTree {
         write!(f, "{} => {}", self.pattern, self.expression)
     }
 }
-impl Walk<(PatternTree, midend::ir::ValueId)> for MatchArmTree {
+impl treewalk::Linearize<(PatternTree, midend::ir::ValueId)> for MatchArmTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(
-        self,
-        context: &mut midend::linearizer::WalkContext,
-    ) -> (PatternTree, midend::ir::ValueId) {
-        let pattern = self.pattern.walk(context);
-        let arm_value = self.expression.walk(context);
+    fn linearize(self, context: &mut treewalk::LinearizeCtx) -> (PatternTree, midend::ir::ValueId) {
+        let pattern = self.pattern.linearize(context);
+        let arm_value = self.expression.linearize(context);
         (pattern, arm_value)
     }
 }
@@ -118,9 +115,9 @@ impl Display for MatchExpressionTree {
     }
 }
 
-impl midend::linearizer::Walk<midend::ir::ValueId> for MatchExpressionTree {
+impl treewalk::Linearize<midend::ir::ValueId> for MatchExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let match_loc = self.loc;
 
         let parent_scope_def_path = ctx.def_path().clone();
@@ -134,7 +131,7 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for MatchExpressionTree {
             )
             .unwrap();
 
-        let scrutinee_value = self.scrutinee_expression.walk(ctx);
+        let scrutinee_value = self.scrutinee_expression.linearize(ctx);
 
         // TODO: consolidate each arm's result into result_value
         let result_value = ctx.function_mut().values_mut().next_temp();
@@ -149,7 +146,7 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for MatchExpressionTree {
                 .create_switch_case(case_scope_def_path)
                 .unwrap();
             let _pattern_loc = arm.loc.clone();
-            let (pattern, result_value) = arm.walk(ctx);
+            let (pattern, result_value) = arm.linearize(ctx);
             ctx.function_mut()
                 .finish_switch_case(match_loc.clone())
                 .unwrap();

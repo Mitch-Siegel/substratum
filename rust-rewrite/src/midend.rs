@@ -3,9 +3,9 @@ use std::collections::BTreeMap;
 
 mod idfa;
 pub mod ir;
-pub mod linearizer;
 mod monomorphization;
 mod optimization;
+pub mod treewalk;
 //mod ssa_gen;
 pub mod symtab;
 pub mod types;
@@ -94,7 +94,7 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
     tracing::debug!("Linearize");
-    let mut symtab = linearizer::linearize(modules);
+    let mut symtab = treewalk::walk(modules);
 
     functions_to_graphviz(&symtab, "_unlowered".into());
 

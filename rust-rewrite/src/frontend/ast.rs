@@ -1,6 +1,6 @@
 use crate::{
     frontend::sourceloc::SourceLoc,
-    midend::{self, linearizer::CustomWalk, linearizer::Walk},
+    midend::{self, treewalk},
 };
 use std::fmt::Display;
 

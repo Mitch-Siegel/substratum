@@ -1,7 +1,7 @@
 use crate::midend::ir::unlowered::*;
 
 struct MatchArmContext<'a> {
-    pub ctx: &'a mut linearizer::WalkContext,
+    pub ctx: &'a mut treewalk::LinearizeCtx,
     pub scrutinee: ValueId,
 }
 
@@ -9,7 +9,7 @@ struct MatchArmResult<'a> {
     pub arm_label: usize, // the label of the arm to which we should jump if matched
     pub result_value: ValueId,
     pub comparison_value: ValueId,
-    pub ctx: &'a mut linearizer::WalkContext,
+    pub ctx: &'a mut treewalk::LinearizeCtx,
 }
 
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
@@ -26,7 +26,7 @@ fn lower_pattern<'a>(
     use frontend::ast::expressions::match_expression::Pattern;
     match pattern {
         Pattern::Literal(expr) => {
-            let _value = expr.walk(arm_ctx.ctx);
+            let _value = expr.linearize(arm_ctx.ctx);
             LoweredPattern::Constructor(
                 PatternConstructor::Constant(
                     123, /*arm_ctx
@@ -105,7 +105,7 @@ pub struct MatchOperands {
 }
 
 impl Lowerable for MatchOperands {
-    fn lower(self, ctx: &mut linearizer::WalkContext, _loc: SourceLoc) {
+    fn lower(self, ctx: &mut treewalk::LinearizeCtx, _loc: SourceLoc) {
         // TODO: implement actual match decision tree logic
 
         let matched_type = ctx

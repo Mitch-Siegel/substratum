@@ -40,14 +40,15 @@ impl Display for ImplementationTree {
     }
 }
 
-impl midend::linearizer::Walk<()> for ImplementationTree {
+impl treewalk::Linearize<()> for ImplementationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> () {
-        let (implemented_for_string_name, _implemented_for_generic_params) = self.for_.walk(());
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
+        let (implemented_for_string_name, _implemented_for_generic_params) =
+            self.for_.linearize(ctx);
         let implemented_for_type = ctx.resolve_type_name(&implemented_for_string_name).unwrap();
 
         let generic_params: Vec<String> = match self.generic_params {
-            Some(params) => params.walk(()),
+            Some(params) => params.linearize(ctx),
             None => Vec::new(),
         };
 
@@ -59,7 +60,7 @@ impl midend::linearizer::Walk<()> for ImplementationTree {
         ctx.push_def_path(impl_def_path_component.clone(), &generic_params);
 
         for item in self.items {
-            item.walk(ctx);
+            item.linearize(ctx);
         }
 
         ctx.pop_def_path(impl_def_path_component).unwrap();

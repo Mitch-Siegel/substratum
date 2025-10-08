@@ -1,5 +1,5 @@
 use crate::{
-    midend::{linearizer::*, symtab::*},
+    midend::{symtab::*, treewalk::linearizer::*, *},
     trace,
 };
 
@@ -63,20 +63,20 @@ impl GenericParamsContext {
     }
 }
 
-pub struct WalkContext {
+pub struct LinearizeCtx {
     symtab: Box<SymbolTable>,
     definition_path: DefPath,
-    functions: HashMap<DefPath, FunctionWalkContext>,
+    functions: HashMap<DefPath, FunctionLinearizeCtx>,
     generics: GenericParamsContext,
 }
 
-impl std::fmt::Debug for WalkContext {
+impl std::fmt::Debug for LinearizeCtx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "DefContext @ {}", self.definition_path)
     }
 }
 
-impl WalkContext {
+impl LinearizeCtx {
     pub fn new(
         symtab: Box<SymbolTable>,
         definition_path: DefPath,
@@ -97,9 +97,9 @@ impl WalkContext {
         manager: ir::BlockManager,
         block: usize,
     ) -> Self {
-        let functions: HashMap<DefPath, FunctionWalkContext> = std::iter::once((
+        let functions: HashMap<DefPath, FunctionLinearizeCtx> = std::iter::once((
             definition_path.clone(),
-            FunctionWalkContext::from_existing(manager, block),
+            FunctionLinearizeCtx::from_existing(manager, block),
         ))
         .collect();
 
@@ -166,7 +166,7 @@ impl WalkContext {
 
         match self.functions.insert(
             self.def_path().clone(),
-            FunctionWalkContext::new(
+            FunctionLinearizeCtx::new(
                 prototype,
                 self.def_path().clone(),
                 unit_type_id,
@@ -212,7 +212,7 @@ impl WalkContext {
         Ok(())
     }
 
-    pub fn function(&self) -> &FunctionWalkContext {
+    pub fn function(&self) -> &FunctionLinearizeCtx {
         let mut scan_def_path = self.def_path().clone();
         while scan_def_path.len() > 0 {
             if self.functions.contains_key(&scan_def_path) {
@@ -229,7 +229,7 @@ impl WalkContext {
         }
     }
 
-    pub fn function_mut(&mut self) -> &mut FunctionWalkContext {
+    pub fn function_mut(&mut self) -> &mut FunctionLinearizeCtx {
         let mut scan_def_path = self.def_path().clone();
         while scan_def_path.len() > 0 {
             if self.functions.contains_key(&scan_def_path) {

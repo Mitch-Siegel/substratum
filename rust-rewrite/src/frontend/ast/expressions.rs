@@ -75,9 +75,9 @@ impl Display for ExpressionTree {
     }
 }
 
-impl midend::linearizer::Walk<midend::ir::ValueId> for ExpressionTree {
+impl treewalk::Linearize<midend::ir::ValueId> for ExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
         match self.expression {
             Expression::SelfLower => {
                 let self_variable_path = ctx.self_variable().unwrap();
@@ -102,7 +102,7 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for ExpressionTree {
                 *ctx.function_mut().values_mut().id_for_constant(constant)
             }
             Expression::Arithmetic(arithmetic_operation) => {
-                let operands = arithmetic_operation.walk(ctx);
+                let operands = arithmetic_operation.linearize(ctx);
                 let destination = ctx.function_mut().values_mut().next_temp();
                 let expression_statement = midend::ir::IrLine::new_binary_arithmetic_expression(
                     SourceLoc::none(), // FIXME: loc tracking for arithmetic expressions
@@ -115,7 +115,7 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for ExpressionTree {
                 destination
             }
             Expression::Comparison(comparison_operation) => {
-                let operands = comparison_operation.walk(ctx);
+                let operands = comparison_operation.linearize(ctx);
                 let destination = ctx.function_mut().values_mut().next_temp();
                 let comparison_statement = midend::ir::IrLine::new_binary_comparison_expression(
                     SourceLoc::none(), // FIXME: loc tracking for arithmetic expressions
@@ -127,13 +127,13 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for ExpressionTree {
                     .unwrap();
                 destination
             }
-            Expression::Assignment(assignment_expression) => assignment_expression.walk(ctx),
-            Expression::If(if_expression) => if_expression.walk(ctx),
-            Expression::Match(match_expression) => match_expression.walk(ctx),
+            Expression::Assignment(assignment_expression) => assignment_expression.linearize(ctx),
+            Expression::If(if_expression) => if_expression.linearize(ctx),
+            Expression::Match(match_expression) => match_expression.linearize(ctx),
 
-            Expression::While(while_expression) => while_expression.walk(ctx),
+            Expression::While(while_expression) => while_expression.linearize(ctx),
             Expression::FieldExpression(field_expression) => {
-                let (receiver, field) = field_expression.walk(ctx);
+                let (receiver, field) = field_expression.linearize(ctx);
                 let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
                 let field_read_line = midend::ir::IrLine::new_get_field_pointer(
                     self.loc,
@@ -146,7 +146,7 @@ impl midend::linearizer::Walk<midend::ir::ValueId> for ExpressionTree {
                     .unwrap();
                 field_pointer_temp
             }
-            Expression::MethodCall(method_call) => method_call.walk(ctx),
+            Expression::MethodCall(method_call) => method_call.linearize(ctx),
         }
     }
 }

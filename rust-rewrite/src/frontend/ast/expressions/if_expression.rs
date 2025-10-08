@@ -37,12 +37,12 @@ impl Display for IfExpressionTree {
     }
 }
 
-impl Walk<midend::ir::ValueId> for IfExpressionTree {
+impl treewalk::Linearize<midend::ir::ValueId> for IfExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc.clone();
-        let condition_result: midend::ir::ValueId = self.condition.walk(ctx).into();
+        let condition_result: midend::ir::ValueId = self.condition.linearize(ctx).into();
         let if_condition = midend::ir::lowered::operands::JumpCondition::Conditional(
             midend::ir::lowered::operands::BinaryComparisonOperands::new(
                 condition_result,
@@ -64,7 +64,7 @@ impl Walk<midend::ir::ValueId> for IfExpressionTree {
                 false_scope_def_path,
             )
             .unwrap();
-        let if_value_id = self.true_block.walk(ctx);
+        let if_value_id = self.true_block.linearize(ctx);
 
         // create a separate, mutable value which contains the true result
         let result_value = if_value_id.clone();
@@ -87,7 +87,7 @@ impl Walk<midend::ir::ValueId> for IfExpressionTree {
         // handle branch linearization and assignment to the result value
         match self.false_block {
             Some(else_block) => {
-                let else_value_id = else_block.walk(ctx);
+                let else_value_id = else_block.linearize(ctx);
 
                 // if the 'else' value exists (have already passed check to assert types are the same)
                 // copy the 'else' result to the common result_value at the end of the 'else' block

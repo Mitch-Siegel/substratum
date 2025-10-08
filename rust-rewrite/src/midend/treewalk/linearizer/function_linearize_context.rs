@@ -1,21 +1,13 @@
-use crate::{
-    frontend::sourceloc::SourceLoc,
-    midend::{
-        ir,
-        symtab::{self},
-        types,
-    },
-    trace,
-};
+use crate::{frontend::sourceloc::SourceLoc, midend::*, trace};
 
-pub struct FunctionWalkContext {
+pub struct FunctionLinearizeCtx {
     // definition path from the root of the symbol table to this function
     block_manager: ir::BlockManager,
     // key for DefPathComponent::BasicBlock from self.def_path
     current_block: usize,
 }
 
-impl FunctionWalkContext {
+impl FunctionLinearizeCtx {
     #[tracing::instrument(level = "debug")]
     pub fn new(
         prototype: symtab::FunctionPrototype,
@@ -289,13 +281,13 @@ impl FunctionWalkContext {
     }
 }
 
-impl std::fmt::Debug for FunctionWalkContext {
+impl std::fmt::Debug for FunctionLinearizeCtx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Function walk context {:?}", self.block_manager)
     }
 }
 
-impl FunctionWalkContext {
+impl FunctionLinearizeCtx {
     // TODO: emplace control flow for function at call site
     pub fn take(self) -> ir::ControlFlow {
         ir::ControlFlow::from(self.block_manager)

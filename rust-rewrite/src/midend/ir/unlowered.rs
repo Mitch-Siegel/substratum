@@ -1,11 +1,11 @@
-use crate::midend::{ir::*, linearizer::Walk, *};
+use crate::midend::{ir::*, treewalk::Linearize, *};
 
 pub mod operands;
 use operands::*;
 
 #[enum_delegate::register]
 pub trait Lowerable {
-    fn lower(self, context: &mut linearizer::WalkContext, loc: SourceLoc);
+    fn lower(self, context: &mut treewalk::LinearizeCtx, loc: SourceLoc);
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

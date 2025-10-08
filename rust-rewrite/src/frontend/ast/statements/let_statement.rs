@@ -45,11 +45,11 @@ impl Display for LetTree {
     }
 }
 
-impl Walk<midend::ir::ValueId> for LetTree {
+impl treewalk::Linearize<midend::ir::ValueId> for LetTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn walk(self, ctx: &mut midend::linearizer::WalkContext) -> midend::ir::ValueId {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let variable_type = match self.type_ {
-            Some(type_tree) => Some(type_tree.walk(ctx)),
+            Some(type_tree) => Some(type_tree.linearize(ctx)),
             None => None,
         };
 

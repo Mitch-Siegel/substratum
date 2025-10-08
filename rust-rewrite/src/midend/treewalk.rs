@@ -1,20 +1,12 @@
 use crate::{frontend, midend::*, trace};
 
-mod function_walk_context;
-pub mod walk_context;
+pub mod linearizer;
+pub use linearizer::Linearize;
+pub use linearizer::*;
 
-pub use function_walk_context::FunctionWalkContext;
-pub use walk_context::{GenericParamsContext, WalkContext};
+pub trait TreeWalk<T>: Linearize<T> {}
 
-pub trait Walk<T> {
-    fn walk(self, context: &mut WalkContext) -> T;
-}
-
-pub trait CustomWalk<C, T> {
-    fn walk(self, context: C) -> T;
-}
-
-pub fn linearize(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {
+pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {
     let mut symtab = Box::new(symtab::SymbolTable::new());
     for module in program {
         let mut module_def_path = symtab::DefPath::empty();
@@ -32,8 +24,8 @@ pub fn linearize(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolT
             module.module_path,
             module_def_path
         );
-        let mut ctx = WalkContext::new(symtab, module_def_path, GenericParamsContext::new());
-        module.walk(&mut ctx);
+        let mut ctx = LinearizeCtx::new(symtab, module_def_path, GenericParamsContext::new());
+        module.linearize(&mut ctx);
         symtab = ctx.take().unwrap().0;
     }
 

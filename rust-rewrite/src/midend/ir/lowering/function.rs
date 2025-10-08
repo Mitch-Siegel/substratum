@@ -1,6 +1,6 @@
 use crate::midend::{
     ir::{unlowered::Lowerable, *},
-    linearizer::GenericParamsContext,
+    treewalk::linearizer::GenericParamsContext,
     *,
 };
 use std::collections::{HashMap, HashSet};
@@ -76,7 +76,7 @@ pub fn lower_function(
             dummy_def_path.pop().unwrap();
         }
 
-        let mut ctx = linearizer::WalkContext::from_existing(
+        let mut ctx = treewalk::LinearizeCtx::from_existing(
             symtab,
             dummy_generics,
             def_path.clone(),

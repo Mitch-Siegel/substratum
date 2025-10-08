@@ -8,7 +8,7 @@ pub struct DiscriminantOperands {
 }
 
 impl Lowerable for DiscriminantOperands {
-    fn lower(self, ctx: &mut linearizer::WalkContext, loc: SourceLoc) {
+    fn lower(self, ctx: &mut treewalk::LinearizeCtx, loc: SourceLoc) {
         // sanity check
         let _receiver_type = ctx
             .function_mut()
