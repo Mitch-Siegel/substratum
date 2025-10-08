@@ -55,6 +55,7 @@ pub struct EnumDefinitionTree {
     pub name: generics::IdentifierWithGenericsTree,
     pub variants: Vec<EnumVariantTree>,
 }
+
 impl EnumDefinitionTree {
     pub fn new(
         loc: SourceLoc,
@@ -68,6 +69,7 @@ impl EnumDefinitionTree {
         }
     }
 }
+
 impl Display for EnumDefinitionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut fields = String::new();
@@ -77,6 +79,15 @@ impl Display for EnumDefinitionTree {
         }
 
         write!(f, "Enum Definition: {}: {}", self.name, fields)
+    }
+}
+
+impl treewalk::CollectSymbols for EnumDefinitionTree {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        ctx.declare(midend::symtab::DefPathComponent::Type(
+            midend::types::Syntactic::Named(self.name.name.clone()),
+        ))
+        .unwrap();
     }
 }
 

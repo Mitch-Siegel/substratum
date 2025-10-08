@@ -1,6 +1,6 @@
 use crate::midend::{
     ir::{unlowered::Lowerable, *},
-    treewalk::linearizer::GenericParamsContext,
+    treewalk::GenericParamsContext,
     *,
 };
 use std::collections::{HashMap, HashSet};

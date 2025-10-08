@@ -20,6 +20,12 @@ impl Display for BlockExpressionTree {
     }
 }
 
+impl treewalk::CollectSymbols for BlockExpressionTree {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        unimplemented!();
+    }
+}
+
 impl treewalk::Linearize<midend::ir::ValueId> for BlockExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(mut self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {

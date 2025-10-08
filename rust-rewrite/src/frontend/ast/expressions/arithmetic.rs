@@ -43,7 +43,7 @@ impl treewalk::Linearize<midend::ir::lowered::operands::BinaryComparisonOperands
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: &mut treewalk::linearizer::LinearizeCtx,
+        ctx: &mut treewalk::LinearizeCtx,
     ) -> midend::ir::lowered::operands::BinaryComparisonOperands {
         match self {
             ComparisonExpressionTree::LThan(operands) => {
@@ -128,7 +128,7 @@ impl treewalk::Linearize<midend::ir::lowered::operands::BinaryArithmeticOperands
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: &mut treewalk::linearizer::LinearizeCtx,
+        ctx: &mut treewalk::LinearizeCtx,
     ) -> midend::ir::lowered::operands::BinaryArithmeticOperands {
         match self {
             ArithmeticExpressionTree::Add(operands) => {

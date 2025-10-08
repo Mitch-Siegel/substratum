@@ -109,7 +109,7 @@ pub enum ResolvedPath {
 }
 
 impl treewalk::Linearize<ResolvedPath> for PathInExpressionTree {
-    fn linearize(self, _ctx: &mut treewalk::linearizer::LinearizeCtx) -> ResolvedPath {
+    fn linearize(self, _ctx: &mut treewalk::LinearizeCtx) -> ResolvedPath {
         unimplemented!();
 
         /*

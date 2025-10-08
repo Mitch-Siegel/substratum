@@ -44,6 +44,7 @@ pub struct FunctionDeclarationTree {
     pub arguments: Vec<ArgumentDeclarationTree>,
     pub return_type: Option<TypeTree>,
 }
+
 impl FunctionDeclarationTree {
     pub fn new(
         loc: SourceLoc,
@@ -59,6 +60,7 @@ impl FunctionDeclarationTree {
         }
     }
 }
+
 impl Display for FunctionDeclarationTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut arg_string = String::from("");
@@ -73,6 +75,15 @@ impl Display for FunctionDeclarationTree {
                 self.name, arg_string, typename_tree
             ),
             None => write!(f, "Function Declaration: {}({})", self.name, arg_string),
+        }
+    }
+}
+
+impl treewalk::CollectSymbols for FunctionDeclarationTree {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        for arg in &self.arguments {
+            ctx.declare(midend::symtab::DefPathComponent::Variable(arg.name.clone()))
+                .unwrap();
         }
     }
 }
@@ -110,6 +121,22 @@ impl FunctionDefinitionTree {
 impl Display for FunctionDefinitionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Function Definition: {}, {}", self.prototype, self.body)
+    }
+}
+
+impl treewalk::CollectSymbols for FunctionDefinitionTree {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        let function_component = midend::symtab::DefPathComponent::Function(
+            midend::symtab::FunctionName::new(self.prototype.name.name.clone()),
+        );
+
+        ctx.declare(function_component.clone()).unwrap();
+        ctx.push_def_path(function_component.clone()).unwrap();
+
+        self.prototype.collect_symbols(ctx);
+        self.body.collect_symbols(ctx);
+
+        ctx.pop_def_path(function_component).unwrap();
     }
 }
 

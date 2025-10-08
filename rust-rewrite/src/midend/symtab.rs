@@ -77,6 +77,38 @@ impl SymbolTable {
         }
     }
 
+    pub fn lookup_decl(
+        &mut self,
+        def_path: DefPath,
+        key_component: DefPathComponent,
+    ) -> Result<DefPath, SymbolError> {
+        let mut scan_def_path = def_path.clone();
+        while !scan_def_path.is_empty() {
+            if scan_def_path.can_own(&key_component) {
+                let component_def_path = scan_def_path
+                    .clone()
+                    .with_component(key_component.clone())
+                    .unwrap();
+                match self.symbols.get(&component_def_path) {
+                    Some(Some(_)) | Some(None) => {
+                        return Ok(component_def_path);
+                    }
+                    None => (),
+                }
+            }
+
+            unimplemented!("use statement rework required");
+            /*
+            match self.resolve_use_statements_at_path(&scan_def_path, key) {
+                Ok(symbol) => return Ok(symbol),
+                Err(_) => (),
+            };*/
+            scan_def_path.pop();
+        }
+
+        Err(SymbolError::Undefined(def_path.clone(), key_component))
+    }
+
     /// define the given symbol at the given path
     /// assumes that the def_path is the full, global DefPath under which S will be inserted
     /// automatically adds the DefPathComponent for S to the end of def_path

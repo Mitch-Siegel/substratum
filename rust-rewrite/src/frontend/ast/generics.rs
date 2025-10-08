@@ -45,9 +45,9 @@ impl Display for GenericParamsListTree {
     }
 }
 
-impl treewalk::linearizer::Linearize<Vec<String>> for GenericParamsListTree {
+impl treewalk::Linearize<Vec<String>> for GenericParamsListTree {
     #[tracing::instrument(skip(self), level = "trace")]
-    fn linearize(self, _: &mut treewalk::linearizer::LinearizeCtx) -> Vec<String> {
+    fn linearize(self, _: &mut treewalk::LinearizeCtx) -> Vec<String> {
         let mut generic_params_set = BTreeSet::<String>::new();
         let generic_params: Vec<String> = self
             .params
@@ -94,9 +94,9 @@ impl Display for IdentifierWithGenericsTree {
     }
 }
 
-impl treewalk::linearizer::Linearize<(String, Vec<String>)> for IdentifierWithGenericsTree {
+impl treewalk::Linearize<(String, Vec<String>)> for IdentifierWithGenericsTree {
     #[tracing::instrument(skip(self), level = "trace")]
-    fn linearize(self, ctx: &mut treewalk::linearizer::LinearizeCtx) -> (String, Vec<String>) {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> (String, Vec<String>) {
         (
             self.name,
             match self.generic_params {

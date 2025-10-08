@@ -17,6 +17,21 @@ impl Display for ModuleTree {
     }
 }
 
+impl treewalk::CollectSymbols for ModuleTree {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        let module_component = midend::symtab::DefPathComponent::Module(
+            midend::symtab::ModuleName::new(self.name.clone()),
+        );
+        ctx.declare(module_component.clone()).unwrap();
+
+        ctx.push_def_path(module_component.clone()).unwrap();
+        for item in &self.items {
+            item.collect_symbols(ctx);
+        }
+        ctx.pop_def_path(module_component).unwrap()
+    }
+}
+
 impl treewalk::Linearize<()> for ModuleTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, context: &mut treewalk::LinearizeCtx) -> () {

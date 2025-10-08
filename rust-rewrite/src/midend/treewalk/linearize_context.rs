@@ -1,5 +1,5 @@
 use crate::{
-    midend::{symtab::*, treewalk::linearizer::*, *},
+    midend::{symtab::*, treewalk::*},
     trace,
 };
 
@@ -265,6 +265,7 @@ impl LinearizeCtx {
             .unwrap();
     }
 
+    // FUTURE: error type for pop def path here and in symbol collection context?
     pub fn pop_def_path(
         &mut self,
         expect: DefPathComponent,

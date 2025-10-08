@@ -40,6 +40,12 @@ impl Display for ImplementationTree {
     }
 }
 
+impl treewalk::CollectSymbols for ImplementationTree {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        unimplemented!();
+    }
+}
+
 impl treewalk::Linearize<()> for ImplementationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {

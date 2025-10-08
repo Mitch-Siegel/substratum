@@ -53,6 +53,15 @@ impl Display for StructDefinitionTree {
     }
 }
 
+impl treewalk::CollectSymbols for StructDefinitionTree {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        ctx.declare(midend::symtab::DefPathComponent::Type(
+            midend::types::Syntactic::Named(self.name.name.clone()),
+        ))
+        .unwrap();
+    }
+}
+
 impl treewalk::Linearize<midend::symtab::StructRepr> for StructDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::StructRepr {

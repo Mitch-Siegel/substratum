@@ -58,6 +58,29 @@ impl Display for Item {
     }
 }
 
+impl treewalk::CollectSymbols for Item {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        match self {
+            Item::FunctionDeclaration(function_declaration) => {
+                unimplemented!(
+                    "Function declaration without definitions not yet supported: {}",
+                    function_declaration.name
+                )
+            }
+            Item::FunctionDefinition(function_definition) => {
+                function_definition.collect_symbols(ctx)
+            }
+            Item::StructDefinition(struct_tree) => struct_tree.collect_symbols(ctx),
+            Item::EnumDefinition(enum_tree) => enum_tree.collect_symbols(ctx),
+            Item::Implementation(implementation) => implementation.collect_symbols(ctx),
+            Item::Module((module, _)) => match module {
+                Some(m) => m.collect_symbols(ctx),
+                None => (),
+            },
+        }
+    }
+}
+
 impl treewalk::Linearize<()> for Item {
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
         match self {
