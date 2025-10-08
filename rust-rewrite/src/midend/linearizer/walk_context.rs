@@ -295,7 +295,7 @@ impl WalkContext {
             .count();
 
         self.symtab
-            .insert::<symtab::Scope>(
+            .define::<symtab::Scope>(
                 self.def_path().clone(),
                 symtab::Scope::new(next_subscope_index),
             )
@@ -414,7 +414,7 @@ impl WalkContext {
         let def_path = self.def_path().clone();
         let symtab_mut = self.symtab_mut();
         trace::trace!("insert {:?} at {:?}", symbol, def_path);
-        symtab_mut.insert::<S>(def_path, symbol)
+        symtab_mut.define::<S>(def_path, symbol)
     }
 
     fn insert_at<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
@@ -424,7 +424,7 @@ impl WalkContext {
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
-        self.symtab_mut().insert::<S>(def_path, symbol)
+        self.symtab_mut().define::<S>(def_path, symbol)
     }
 
     fn lookup_implemented_function(

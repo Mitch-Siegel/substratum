@@ -10,7 +10,7 @@ fn create_core_types(symtab: &mut SymbolTable) {
     {
         let unit_definition = TypeDefinition::new(types::Syntactic::Unit, TypeRepr::Unit);
         symtab
-            .insert(core_def_path.clone(), unit_definition)
+            .define(core_def_path.clone(), unit_definition)
             .unwrap();
     }
 
@@ -26,7 +26,7 @@ fn create_core_types(symtab: &mut SymbolTable) {
         );
 
         symtab
-            .insert(core_def_path.clone(), unsigned_definition)
+            .define(core_def_path.clone(), unsigned_definition)
             .unwrap();
     }
 
@@ -42,7 +42,7 @@ fn create_core_types(symtab: &mut SymbolTable) {
         );
 
         symtab
-            .insert(core_def_path.clone(), signed_definition)
+            .define(core_def_path.clone(), signed_definition)
             .unwrap();
     }
 }

@@ -16,6 +16,7 @@ pub use visitor::*;
 
 pub struct SymbolTable {
     pub types: types::Interner,
+    // mapping of symbols to declarations (None) or definitions (Some)
     symbols: BTreeMap<DefPath, Option<SymbolDef>>,
     children: BTreeMap<DefPath, HashSet<DefPath>>,
 }
@@ -60,10 +61,26 @@ impl SymbolTable {
         symtab
     }
 
-    /// insert the given symbol at the given path
+    pub fn declare(&mut self, def_path: DefPath) -> Result<DefPath, SymbolError> {
+        let mut parent_def_path = def_path.clone();
+        parent_def_path.pop();
+
+        self.children
+            .entry(parent_def_path)
+            .or_default()
+            .insert(def_path.clone());
+
+        match self.symbols.insert(def_path.clone(), None) {
+            Some(Some(_already_defined)) => Err(SymbolError::AlreadyDefined(def_path)),
+            Some(None) => Err(SymbolError::AlreadyDeclared(def_path)),
+            None => Ok(def_path),
+        }
+    }
+
+    /// define the given symbol at the given path
     /// assumes that the def_path is the full, global DefPath under which S will be inserted
     /// automatically adds the DefPathComponent for S to the end of def_path
-    pub fn insert<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
+    pub fn define<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
     where
         S: Symbol + std::fmt::Debug,
         for<'a> &'a S: From<DefResolver<'a>>,
@@ -87,8 +104,8 @@ impl SymbolTable {
         ));
 
         match self.symbols.insert(full_def_path.clone(), Some(symbol)) {
-            Some(_already_defined) => Err(SymbolError::AlreadyDefined(def_path)),
-            None => Ok(full_def_path),
+            Some(Some(_already_defined)) => Err(SymbolError::AlreadyDefined(def_path)),
+            Some(None) | None => Ok(full_def_path),
         }
     }
 
@@ -359,7 +376,7 @@ mod tests {
         let mut symtab = SymbolTable::new();
 
         assert_eq!(
-            symtab.insert(DefPath::empty(), Module::new("test_mod".into())),
+            symtab.define(DefPath::empty(), Module::new("test_mod".into())),
             Ok(DefPath::empty()
                 .with_component(DefPathComponent::Module(ModuleName {
                     name: "test_mod".into()
