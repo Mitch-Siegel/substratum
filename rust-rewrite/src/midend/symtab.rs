@@ -79,34 +79,26 @@ impl SymbolTable {
 
     pub fn lookup_decl(
         &mut self,
-        def_path: DefPath,
-        key_component: DefPathComponent,
+        def_path: &DefPath,
+        key_component: &DefPathComponent,
     ) -> Result<DefPath, SymbolError> {
-        let mut scan_def_path = def_path.clone();
-        while !scan_def_path.is_empty() {
-            if scan_def_path.can_own(&key_component) {
-                let component_def_path = scan_def_path
-                    .clone()
-                    .with_component(key_component.clone())
-                    .unwrap();
-                match self.symbols.get(&component_def_path) {
-                    Some(Some(_)) | Some(None) => {
-                        return Ok(component_def_path);
-                    }
-                    None => (),
-                }
-            }
+        let paths_to_search = self.build_search_path_from_def_path(def_path);
 
-            unimplemented!("use statement rework required");
-            /*
-            match self.resolve_use_statements_at_path(&scan_def_path, key) {
-                Ok(symbol) => return Ok(symbol),
-                Err(_) => (),
-            };*/
-            scan_def_path.pop();
+        for path in paths_to_search {
+            let component_def_path = path.clone().with_component(key_component.clone()).unwrap();
+
+            match self.symbols.get(&component_def_path) {
+                Some(Some(_)) | Some(None) => {
+                    return Ok(component_def_path);
+                }
+                None => (),
+            }
         }
 
-        Err(SymbolError::Undefined(def_path.clone(), key_component))
+        Err(SymbolError::Undefined(
+            def_path.clone(),
+            key_component.clone(),
+        ))
     }
 
     /// define the given symbol at the given path
@@ -168,40 +160,44 @@ impl SymbolTable {
             .flatten()
     }
 
-    fn resolve_use_statements_at_path<S>(
-        &self,
-        def_path: &DefPath,
-        key: &<S as Symbol>::SymbolKey,
-    ) -> Result<(&S, DefPath), SymbolError>
-    where
-        S: Symbol,
-        for<'a> &'a S: From<DefResolver<'a>>,
-        for<'a> &'a mut S: From<MutDefResolver<'a>>,
-        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
-    {
-        let key_component = Into::<DefPathComponent>::into(key.clone());
-        let children = match self.children.get(def_path) {
-            Some(c) => Ok(c),
-            None => Err(SymbolError::Undefined(
-                def_path.clone(),
-                key_component.clone(),
-            )),
-        }?;
+    // TODO: build this smarter so it can lazily evaluate
+    fn build_search_path_from_def_path<'a>(&'a self, def_path: &DefPath) -> Vec<&'a DefPath> {
+        let mut search_paths = Vec::new();
+        let mut search_def_path = def_path.clone();
 
-        for child_path in children {
-            if let DefPathComponent::Import(_) = child_path.last() {
-                if let Some(SymbolDef::Import(import)) = self.symbols.get(child_path).unwrap() {
-                    if *import.qualified_path.last() == key_component {
-                        return Ok((
-                            self.lookup_at::<S>(&import.qualified_path).unwrap(),
-                            import.qualified_path.clone(),
-                        ));
+        while !search_def_path.is_empty() {
+            let last_component = search_def_path.pop().unwrap();
+
+            let old_search_path = search_def_path
+                .clone()
+                .with_component(last_component)
+                .unwrap();
+
+            let search_path_ref = self
+                .children
+                .get(&search_def_path)
+                .unwrap()
+                .get(&old_search_path)
+                .unwrap();
+
+            search_paths.push(search_path_ref);
+            let search_children = match self.children.get(&search_def_path) {
+                Some(c) => c,
+                None => continue,
+            };
+
+            for child in search_children {
+                if let DefPathComponent::Import(_) = child.last() {
+                    if let Some(SymbolDef::Import(import)) = self.symbols.get(child).unwrap() {
+                        search_paths.push(&import.qualified_path);
                     }
                 }
             }
+
+            search_def_path.pop().unwrap();
         }
 
-        Err(SymbolError::Undefined(def_path.clone(), key_component))
+        search_paths
     }
 
     /// perform a scoped lookup of key at def_path, checking def_path and all its parents for key
@@ -236,27 +232,19 @@ impl SymbolTable {
         for<'a> &'a mut S: From<MutDefResolver<'a>>,
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
-        let mut scan_def_path = def_path.clone();
+        let paths_to_search = self.build_search_path_from_def_path(def_path);
         let key_component = Into::<DefPathComponent>::into(key.clone());
-        while !scan_def_path.is_empty() {
-            if scan_def_path.can_own(&key_component) {
-                let component_def_path = scan_def_path
-                    .clone()
-                    .with_component(key_component.clone())
-                    .unwrap();
-                match self.symbols.get(&component_def_path) {
-                    Some(Some(def)) => {
-                        let resolver = DefResolver::new(&self.types, def);
-                        return Ok((<&S>::from(resolver), component_def_path));
-                    }
-                    Some(None) | None => (),
+
+        for path in paths_to_search {
+            let component_def_path = path.clone().with_component(key_component.clone()).unwrap();
+
+            match self.symbols.get(&component_def_path) {
+                Some(Some(def)) => {
+                    let resolver = DefResolver::new(&self.types, def);
+                    return Ok((<&S>::from(resolver), component_def_path));
                 }
+                Some(None) | None => (),
             }
-            match self.resolve_use_statements_at_path(&scan_def_path, key) {
-                Ok(symbol) => return Ok(symbol),
-                Err(_) => (),
-            };
-            scan_def_path.pop();
         }
 
         Err(SymbolError::Undefined(def_path.clone(), key_component))
