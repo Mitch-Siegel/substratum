@@ -14,7 +14,7 @@ pub mod statements;
 pub mod types;
 
 pub use expressions::{Expression, ExpressionTree};
-pub use items::{Item, ItemTree};
+pub use items::Item;
 pub use module::ModuleTree;
 pub use statements::StatementTree;
 pub use types::TypeTree;

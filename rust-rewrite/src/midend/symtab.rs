@@ -78,7 +78,7 @@ impl SymbolTable {
     }
 
     pub fn lookup_decl(
-        &mut self,
+        &self,
         def_path: &DefPath,
         key_component: &DefPathComponent,
     ) -> Result<DefPath, SymbolError> {

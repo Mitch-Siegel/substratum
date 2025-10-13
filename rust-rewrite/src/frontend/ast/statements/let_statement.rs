@@ -45,6 +45,15 @@ impl Display for LetTree {
     }
 }
 
+impl treewalk::CollectSymbols for LetTree {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        ctx.declare(midend::symtab::DefPathComponent::Variable(
+            self.name.clone(),
+        ))
+        .unwrap();
+    }
+}
+
 impl treewalk::Linearize<midend::ir::ValueId> for LetTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {

@@ -1,11 +1,11 @@
 use crate::frontend::ast::*;
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum EnumVariantData {
     TupleData(Vec<TypeTree>),
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EnumVariantDataTree {
     pub loc: SourceLoc,
     pub data: EnumVariantData,
@@ -29,7 +29,7 @@ impl treewalk::Linearize<midend::symtab::enum_definition::EnumVariantRepr> for E
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EnumVariantTree {
     pub loc: SourceLoc,
     pub name: String,
@@ -49,7 +49,7 @@ impl Display for EnumVariantTree {
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EnumDefinitionTree {
     pub loc: SourceLoc,
     pub name: generics::IdentifierWithGenericsTree,

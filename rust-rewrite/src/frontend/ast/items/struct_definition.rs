@@ -1,6 +1,6 @@
 use crate::frontend::ast::*;
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct StructFieldTree {
     pub loc: SourceLoc,
     pub name: String,
@@ -24,7 +24,7 @@ impl treewalk::Linearize<(String, midend::types::Syntactic)> for StructFieldTree
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct StructDefinitionTree {
     pub loc: SourceLoc,
     pub name: generics::IdentifierWithGenericsTree,

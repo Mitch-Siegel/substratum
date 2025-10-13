@@ -20,6 +20,13 @@ impl CollectCtx {
         self.symtab
     }
 
+    pub fn lookup_decl(
+        &self,
+        symbol: symtab::DefPathComponent,
+    ) -> Result<symtab::DefPath, symtab::SymbolError> {
+        self.symtab.lookup_decl(&self.definition_path, &symbol)
+    }
+
     pub fn declare(
         &mut self,
         symbol_component: symtab::DefPathComponent,
@@ -49,5 +56,43 @@ impl CollectCtx {
         } else {
             Err((popped, expect))
         }
+    }
+
+    pub fn declare_variable(
+        &mut self,
+        name: String,
+    ) -> Result<symtab::DefPath, symtab::SymbolError> {
+        self.symtab.declare(
+            self.definition_path
+                .clone()
+                .with_component(symtab::DefPathComponent::Variable(name))
+                .unwrap(),
+        )
+    }
+
+    pub fn new_subscope(&mut self) -> Result<usize, symtab::SymbolError> {
+        let children_of_current = self.symtab.children(&self.definition_path);
+
+        let next_subscope_idx = children_of_current
+            .into_iter()
+            .filter(|child_path| match child_path.last() {
+                symtab::DefPathComponent::Scope(_) => true,
+                _ => false,
+            })
+            .count();
+
+        let next_subscope_component =
+            symtab::DefPathComponent::Scope(symtab::ScopeIndex::new(next_subscope_idx));
+        self.push_def_path(next_subscope_component)?;
+        Ok(next_subscope_idx)
+    }
+
+    pub fn finish_subscope(
+        &mut self,
+        subscope_idx: usize,
+    ) -> Result<(), (symtab::DefPathComponent, symtab::DefPathComponent)> {
+        self.pop_def_path(symtab::DefPathComponent::Scope(symtab::ScopeIndex::new(
+            subscope_idx,
+        )))
     }
 }

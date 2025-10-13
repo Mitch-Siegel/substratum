@@ -106,7 +106,7 @@ impl Display for GenericArgsListTree {
     }
 }
 
-#[derive(ReflectName, Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct IdentifierWithGenericsTree {
     pub loc: SourceLoc,
     pub name: String,

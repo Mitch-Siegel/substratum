@@ -11,18 +11,7 @@ pub use function::{FunctionDeclarationTree, FunctionDefinitionTree};
 pub use implementation::ImplementationTree;
 pub use struct_definition::StructDefinitionTree;
 
-#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ItemTree {
-    pub loc: SourceLoc,
-}
-
-impl Display for ItemTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.loc)
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
 pub enum Item {
     FunctionDeclaration(FunctionDeclarationTree),
     FunctionDefinition(FunctionDefinitionTree),

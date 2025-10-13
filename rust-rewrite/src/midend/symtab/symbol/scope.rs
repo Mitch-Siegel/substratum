@@ -2,11 +2,19 @@ use crate::midend::symtab::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ScopeIndex(pub usize);
+
+impl ScopeIndex {
+    pub fn new(index: usize) -> Self {
+        Self(index)
+    }
+}
+
 impl std::fmt::Display for ScopeIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Scope {
     index: ScopeIndex,

@@ -8,6 +8,22 @@ pub enum Pattern {
     TupleStruct(String, Vec<PatternTree>),
 }
 
+impl treewalk::CollectSymbols for Pattern {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        match self {
+            Self::Literal(expr) => expr.collect_symbols(ctx),
+            Self::Identifier(name) => {
+                ctx.declare_variable(name.clone()).unwrap();
+            }
+            Self::TupleStruct(_, subpatterns) => {
+                for pattern in subpatterns {
+                    pattern.collect_symbols(ctx);
+                }
+            }
+        }
+    }
+}
+
 impl treewalk::Linearize<()> for Pattern {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
@@ -52,6 +68,12 @@ impl Display for PatternTree {
     }
 }
 
+impl treewalk::CollectSymbols for PatternTree {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        self.pattern.collect_symbols(ctx);
+    }
+}
+
 impl treewalk::Linearize<PatternTree> for PatternTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> PatternTree {
@@ -66,6 +88,7 @@ pub struct MatchArmTree {
     pub pattern: PatternTree,
     pub expression: BlockExpressionTree,
 }
+
 impl MatchArmTree {
     pub fn new(loc: SourceLoc, pattern: PatternTree, expression: BlockExpressionTree) -> Self {
         Self {
@@ -75,11 +98,22 @@ impl MatchArmTree {
         }
     }
 }
+
 impl Display for MatchArmTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} => {}", self.pattern, self.expression)
     }
 }
+
+impl treewalk::CollectSymbols for MatchArmTree {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        let arm_subscope_idx = ctx.new_subscope().unwrap();
+        self.pattern.collect_symbols(ctx);
+        self.expression.collect_symbols(ctx);
+        ctx.finish_subscope(arm_subscope_idx).unwrap();
+    }
+}
+
 impl treewalk::Linearize<(PatternTree, midend::ir::ValueId)> for MatchArmTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, context: &mut treewalk::LinearizeCtx) -> (PatternTree, midend::ir::ValueId) {

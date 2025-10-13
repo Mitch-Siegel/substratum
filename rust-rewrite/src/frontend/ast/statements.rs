@@ -6,7 +6,7 @@ pub use let_statement::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Statement {
-    Item(ItemTree),
+    Item(Item),
     Let(LetTree),
     Expression(ExpressionTree),
 }
@@ -35,6 +35,16 @@ impl StatementTree {
 impl Display for StatementTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.statement)
+    }
+}
+
+impl treewalk::CollectSymbols for StatementTree {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        match &self.statement {
+            Statement::Let(let_stmt) => let_stmt.collect_symbols(ctx),
+            Statement::Item(item) => item.collect_symbols(ctx),
+            Statement::Expression(expr) => expr.collect_symbols(ctx),
+        }
     }
 }
 

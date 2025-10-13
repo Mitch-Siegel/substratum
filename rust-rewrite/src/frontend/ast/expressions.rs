@@ -64,14 +64,48 @@ pub struct ExpressionTree {
     pub loc: SourceLoc,
     pub expression: Expression,
 }
+
 impl ExpressionTree {
     pub fn new(loc: SourceLoc, expression: Expression) -> Self {
         Self { loc, expression }
     }
 }
+
 impl Display for ExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.expression)
+    }
+}
+
+impl treewalk::CollectSymbols for ExpressionTree {
+    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        match &self.expression {
+            Expression::If(if_expr) => {
+                if_expr.condition.collect_symbols(ctx);
+                if_expr.true_block.collect_symbols(ctx);
+                if let Some(false_block) = &if_expr.false_block {
+                    false_block.collect_symbols(ctx);
+                }
+            }
+            Expression::While(while_expr) => {
+                while_expr.condition.collect_symbols(ctx);
+                while_expr.body.collect_symbols(ctx);
+            }
+            Expression::Match(match_expr) => {
+                match_expr.scrutinee_expression.collect_symbols(ctx);
+                for arm in &match_expr.arms {
+                    arm.collect_symbols(ctx);
+                }
+            }
+            Expression::SelfLower
+            | Expression::PathInExpression(_)
+            | Expression::UnsignedDecimalConstant(_)
+            | Expression::Arithmetic(_)
+            | Expression::Comparison(_)
+            | Expression::Assignment(_)
+            | Expression::FieldExpression(_)
+            | Expression::Call(_) => (),
+        }
     }
 }
 

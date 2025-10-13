@@ -1,6 +1,6 @@
 use crate::frontend::ast::*;
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ArgumentDeclarationTree {
     pub loc: SourceLoc,
     pub name: String,
@@ -37,7 +37,7 @@ impl treewalk::Linearize<midend::symtab::Variable> for ArgumentDeclarationTree {
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDeclarationTree {
     pub loc: SourceLoc,
     pub name: generics::IdentifierWithGenericsTree,
@@ -108,7 +108,7 @@ impl treewalk::Linearize<midend::symtab::FunctionPrototype> for FunctionDeclarat
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDefinitionTree {
     pub prototype: FunctionDeclarationTree,
     pub body: expressions::BlockExpressionTree,
