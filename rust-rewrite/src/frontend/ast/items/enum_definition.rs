@@ -52,19 +52,22 @@ impl Display for EnumVariantTree {
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EnumDefinitionTree {
     pub loc: SourceLoc,
-    pub name: generics::IdentifierWithGenericsTree,
+    pub name: String,
+    pub generic_params: Option<generics::GenericParamsListTree>,
     pub variants: Vec<EnumVariantTree>,
 }
 
 impl EnumDefinitionTree {
     pub fn new(
         loc: SourceLoc,
-        name: generics::IdentifierWithGenericsTree,
+        name: String,
+        generic_params: Option<generics::GenericParamsListTree>,
         variants: Vec<EnumVariantTree>,
     ) -> Self {
         Self {
             loc,
             name,
+            generic_params,
             variants,
         }
     }
@@ -85,7 +88,7 @@ impl Display for EnumDefinitionTree {
 impl treewalk::CollectSymbols for EnumDefinitionTree {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
         ctx.declare(midend::symtab::DefPathComponent::Type(
-            midend::types::Syntactic::Named(self.name.name.clone()),
+            midend::types::Syntactic::Named(self.name.clone()),
         ))
         .unwrap();
     }
@@ -94,10 +97,14 @@ impl treewalk::CollectSymbols for EnumDefinitionTree {
 impl treewalk::Linearize<midend::symtab::EnumRepr> for EnumDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::EnumRepr {
-        let (string_name, generic_params) = self.name.linearize(ctx);
         let type_def_path_component = midend::symtab::DefPathComponent::Type(
-            midend::types::Syntactic::Named(string_name.clone()),
+            midend::types::Syntactic::Named(self.name.clone()),
         );
+
+        let generic_params = match self.generic_params {
+            Some(params) => params.linearize(ctx),
+            None => Vec::new(),
+        };
 
         ctx.push_def_path(type_def_path_component.clone(), &generic_params);
 
@@ -114,6 +121,6 @@ impl treewalk::Linearize<midend::symtab::EnumRepr> for EnumDefinitionTree {
             .collect::<Vec<_>>();
 
         ctx.pop_def_path(type_def_path_component).unwrap();
-        midend::symtab::EnumRepr::new(string_name, generic_params, variants).unwrap()
+        midend::symtab::EnumRepr::new(self.name, generic_params, variants).unwrap()
     }
 }

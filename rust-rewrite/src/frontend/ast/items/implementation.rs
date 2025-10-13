@@ -4,7 +4,8 @@ use crate::frontend::ast::*;
 pub struct ImplementationTree {
     pub loc: SourceLoc,
     pub generic_params: Option<generics::GenericParamsListTree>,
-    pub for_: generics::IdentifierWithGenericsTree,
+    pub for_: String,
+    pub implemented_for_generic_params: Option<generics::GenericParamsListTree>,
     pub items: Vec<items::FunctionDefinitionTree>,
 }
 
@@ -12,13 +13,15 @@ impl ImplementationTree {
     pub fn new(
         loc: SourceLoc,
         generic_params: Option<generics::GenericParamsListTree>,
-        for_: generics::IdentifierWithGenericsTree,
+        for_: String,
+        implemented_for_generic_params: Option<generics::GenericParamsListTree>,
         items: Vec<items::FunctionDefinitionTree>,
     ) -> Self {
         Self {
             loc,
             generic_params,
             for_,
+            implemented_for_generic_params,
             items,
         }
     }
@@ -31,7 +34,17 @@ impl Display for ImplementationTree {
             None => String::new(),
         };
 
-        write!(f, "Impl{} {}", generic_params_string, self.for_).and_then(|_| {
+        let for_generic_params_string = match &self.implemented_for_generic_params {
+            Some(params) => String::from(format!("<{}>", params)),
+            None => String::new(),
+        };
+
+        write!(
+            f,
+            "Impl{} {}{}",
+            generic_params_string, self.for_, for_generic_params_string
+        )
+        .and_then(|_| {
             for item in &self.items {
                 write!(f, "{}", item)?
             }
@@ -49,19 +62,23 @@ impl treewalk::CollectSymbols for ImplementationTree {
 impl treewalk::Linearize<()> for ImplementationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
-        let (implemented_for_string_name, _implemented_for_generic_params) =
-            self.for_.linearize(ctx);
-        let implemented_for_type = ctx.resolve_type_name(&implemented_for_string_name).unwrap();
+        let implemented_for_type = ctx.resolve_type_name(&self.for_).unwrap();
 
         let generic_params: Vec<String> = match self.generic_params {
             Some(params) => params.linearize(ctx),
             None => Vec::new(),
         };
 
+        let implemented_for_generic_params = match self.implemented_for_generic_params {
+            Some(params) => params.linearize(ctx),
+            None => Vec::new(),
+        };
+
         let impl_def_path_component =
             midend::symtab::DefPathComponent::Implementation(midend::symtab::ImplementationName {
-                implemented_for: implemented_for_type,
                 generic_params: generic_params.clone(),
+                implemented_for: implemented_for_type,
+                implemented_for_generic_params: implemented_for_generic_params,
             });
         ctx.push_def_path(impl_def_path_component.clone(), &generic_params);
 

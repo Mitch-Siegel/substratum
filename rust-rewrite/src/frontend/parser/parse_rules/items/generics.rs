@@ -90,18 +90,4 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         }
         Ok(maybe_args_tree)
     }
-
-    pub fn parse_identifier_with_generic_params(
-        &mut self,
-    ) -> Result<ast::generics::IdentifierWithGenericsTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("identifier with generic params")?;
-
-        let name = self.parse_identifier()?;
-        let generic_params = self.try_parse_generic_params_list()?;
-
-        let ident_tree =
-            ast::generics::IdentifierWithGenericsTree::new(start_loc, name, generic_params);
-        self.finish_parsing(&ident_tree)?;
-        Ok(ident_tree)
-    }
 }

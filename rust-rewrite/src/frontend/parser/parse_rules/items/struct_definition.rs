@@ -22,7 +22,8 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         let (start_loc, _span) = self.start_parsing("struct definition")?;
 
         self.expect_token(Token::Struct)?;
-        let struct_name = self.parse_identifier_with_generic_params()?;
+        let struct_name = self.parse_identifier()?;
+        let generic_params = self.try_parse_generic_params_list()?;
         self.expect_token(Token::LCurly)?;
 
         let mut struct_fields = Vec::new();
@@ -45,8 +46,12 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             }
         }
 
-        let struct_definition =
-            ast::items::StructDefinitionTree::new(start_loc, struct_name, struct_fields);
+        let struct_definition = ast::items::StructDefinitionTree::new(
+            start_loc,
+            struct_name,
+            generic_params,
+            struct_fields,
+        );
         self.finish_parsing(&struct_definition)?;
         Ok(struct_definition)
     }

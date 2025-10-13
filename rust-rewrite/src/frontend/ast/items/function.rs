@@ -40,7 +40,8 @@ impl treewalk::Linearize<midend::symtab::Variable> for ArgumentDeclarationTree {
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDeclarationTree {
     pub loc: SourceLoc,
-    pub name: generics::IdentifierWithGenericsTree,
+    pub name: String,
+    pub generic_params: Option<generics::GenericParamsListTree>,
     pub arguments: Vec<ArgumentDeclarationTree>,
     pub return_type: Option<TypeTree>,
 }
@@ -48,13 +49,15 @@ pub struct FunctionDeclarationTree {
 impl FunctionDeclarationTree {
     pub fn new(
         loc: SourceLoc,
-        name: generics::IdentifierWithGenericsTree,
+        name: String,
+        generic_params: Option<generics::GenericParamsListTree>,
         arguments: Vec<ArgumentDeclarationTree>,
         return_type: Option<TypeTree>,
     ) -> Self {
         Self {
             loc,
             name,
+            generic_params,
             arguments,
             return_type,
         }
@@ -91,7 +94,10 @@ impl treewalk::CollectSymbols for FunctionDeclarationTree {
 impl treewalk::Linearize<midend::symtab::FunctionPrototype> for FunctionDeclarationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::FunctionPrototype {
-        let (string_name, generic_params) = self.name.linearize(ctx);
+        let generic_params = match self.generic_params {
+            Some(params) => params.linearize(ctx),
+            None => Vec::new(),
+        };
 
         let arguments = self
             .arguments
@@ -104,7 +110,7 @@ impl treewalk::Linearize<midend::symtab::FunctionPrototype> for FunctionDeclarat
             None => midend::types::Syntactic::Unit,
         };
 
-        midend::symtab::FunctionPrototype::new(string_name, generic_params, arguments, return_type)
+        midend::symtab::FunctionPrototype::new(self.name, generic_params, arguments, return_type)
     }
 }
 
@@ -127,7 +133,7 @@ impl Display for FunctionDefinitionTree {
 impl treewalk::CollectSymbols for FunctionDefinitionTree {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
         let function_component = midend::symtab::DefPathComponent::Function(
-            midend::symtab::FunctionName::new(self.prototype.name.name.clone()),
+            midend::symtab::FunctionName::new(self.prototype.name.clone()),
         );
 
         ctx.declare(function_component.clone()).unwrap();

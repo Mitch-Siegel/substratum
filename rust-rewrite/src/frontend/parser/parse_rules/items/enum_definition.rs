@@ -59,7 +59,8 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         let (start_loc, _span) = self.start_parsing("enum definition")?;
 
         self.expect_token(Token::Enum)?;
-        let name = self.parse_identifier_with_generic_params()?;
+        let name = self.parse_identifier()?;
+        let generic_params = self.try_parse_generic_params_list()?;
         self.expect_token(Token::LCurly)?;
 
         let mut variants = Vec::<ast::items::enum_definition::EnumVariantTree>::new();
@@ -82,8 +83,12 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         }
         self.expect_token(Token::RCurly)?;
 
-        let enum_definition_tree =
-            ast::items::enum_definition::EnumDefinitionTree::new(start_loc, name, variants);
+        let enum_definition_tree = ast::items::enum_definition::EnumDefinitionTree::new(
+            start_loc,
+            name,
+            generic_params,
+            variants,
+        );
         self.finish_parsing(&enum_definition_tree)?;
         Ok(enum_definition_tree)
     }

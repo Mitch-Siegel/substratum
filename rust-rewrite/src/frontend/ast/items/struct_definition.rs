@@ -27,17 +27,24 @@ impl treewalk::Linearize<(String, midend::types::Syntactic)> for StructFieldTree
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct StructDefinitionTree {
     pub loc: SourceLoc,
-    pub name: generics::IdentifierWithGenericsTree,
+    pub name: String,
+    pub generic_params: Option<generics::GenericParamsListTree>,
     pub fields: Vec<StructFieldTree>,
 }
 
 impl StructDefinitionTree {
     pub fn new(
         loc: SourceLoc,
-        name: generics::IdentifierWithGenericsTree,
+        name: String,
+        generic_params: Option<generics::GenericParamsListTree>,
         fields: Vec<StructFieldTree>,
     ) -> Self {
-        Self { loc, name, fields }
+        Self {
+            loc,
+            name,
+            generic_params,
+            fields,
+        }
     }
 }
 
@@ -56,7 +63,7 @@ impl Display for StructDefinitionTree {
 impl treewalk::CollectSymbols for StructDefinitionTree {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
         ctx.declare(midend::symtab::DefPathComponent::Type(
-            midend::types::Syntactic::Named(self.name.name.clone()),
+            midend::types::Syntactic::Named(self.name.clone()),
         ))
         .unwrap();
     }
@@ -65,9 +72,13 @@ impl treewalk::CollectSymbols for StructDefinitionTree {
 impl treewalk::Linearize<midend::symtab::StructRepr> for StructDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::StructRepr {
-        let (string_name, generic_params) = self.name.linearize(ctx);
+        let generic_params = match self.generic_params {
+            Some(params) => params.linearize(ctx),
+            None => Vec::new(),
+        };
+
         let type_def_path_component = midend::symtab::DefPathComponent::Type(
-            midend::types::Syntactic::Named(string_name.clone()),
+            midend::types::Syntactic::Named(self.name.clone()),
         );
         ctx.push_def_path(type_def_path_component.clone(), &generic_params);
 
@@ -78,6 +89,6 @@ impl treewalk::Linearize<midend::symtab::StructRepr> for StructDefinitionTree {
             .collect::<Vec<_>>();
 
         ctx.pop_def_path(type_def_path_component).unwrap();
-        midend::symtab::StructRepr::new(string_name, generic_params, fields).unwrap()
+        midend::symtab::StructRepr::new(self.name, generic_params, fields).unwrap()
     }
 }

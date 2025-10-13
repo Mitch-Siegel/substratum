@@ -24,7 +24,8 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         // start with fun
         self.expect_token(Token::Fn_)?;
 
-        let name = self.parse_identifier_with_generic_params()?;
+        let name = self.parse_identifier()?;
+        let generic_params = self.try_parse_generic_params_list()?;
 
         self.expect_token(Token::LParen)?;
         let mut arguments = Vec::<ast::items::function::ArgumentDeclarationTree>::new();
@@ -70,8 +71,13 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             _ => None,
         };
 
-        let prototype =
-            ast::items::FunctionDeclarationTree::new(start_loc, name, arguments, return_type);
+        let prototype = ast::items::FunctionDeclarationTree::new(
+            start_loc,
+            name,
+            generic_params,
+            arguments,
+            return_type,
+        );
         self.finish_parsing(&prototype)?;
         Ok(prototype)
     }
