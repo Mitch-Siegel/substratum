@@ -114,28 +114,15 @@ impl IrLine {
         Self::new_lowered(loc, lowered::new_jump(destination_block, condition))
     }
 
-    pub fn new_function_call(
+    pub fn new_call(
         loc: SourceLoc,
-        name: String,
-        arguments: lowered::operands::OrderedArgumentList,
-        return_value_to: Option<ValueId>,
-    ) -> Self {
-        Self::new_lowered(
-            loc,
-            lowered::new_function_call(name, arguments, return_value_to),
-        )
-    }
-
-    pub fn new_method_call(
-        loc: SourceLoc,
-        receiver: ValueId,
-        name: String,
+        function_operand: ValueId,
         arguments: lowered::operands::OrderedArgumentList,
         return_value_to: ValueId,
     ) -> Self {
         Self::new_lowered(
             loc,
-            lowered::new_method_call(receiver, name, arguments, Some(return_value_to)),
+            lowered::new_call(function_operand, arguments, Some(return_value_to)),
         )
     }
 

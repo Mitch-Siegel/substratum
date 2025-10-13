@@ -39,41 +39,32 @@ impl treewalk::Linearize<Vec<midend::ir::ValueId>> for CallParamsTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct MethodCallExpressionTree {
+pub struct CallExpressionTree {
     pub loc: SourceLoc,
-    pub receiver: ExpressionTree,
-    pub called_method: String,
+    pub function_operand: ExpressionTree,
     pub params: CallParamsTree,
 }
-impl MethodCallExpressionTree {
-    pub fn new(
-        loc: SourceLoc,
-        receiver: ExpressionTree,
-        called_method: String,
-        params: CallParamsTree,
-    ) -> Self {
+
+impl CallExpressionTree {
+    pub fn new(loc: SourceLoc, function_operand: ExpressionTree, params: CallParamsTree) -> Self {
         Self {
             loc,
-            receiver,
-            called_method,
+            function_operand,
             params,
         }
     }
 }
-impl Display for MethodCallExpressionTree {
+
+impl Display for CallExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}.{}({})",
-            self.receiver, self.called_method, self.params
-        )
+        write!(f, "{}({})", self.function_operand, self.params)
     }
 }
 
-impl treewalk::Linearize<midend::ir::ValueId> for MethodCallExpressionTree {
+impl treewalk::Linearize<midend::ir::ValueId> for CallExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
-        let receiver = self.receiver.linearize(ctx);
+        let function_operand = self.function_operand.linearize(ctx);
 
         let return_value_to = ctx.function_mut().values_mut().next_temp();
 
@@ -87,10 +78,9 @@ impl treewalk::Linearize<midend::ir::ValueId> for MethodCallExpressionTree {
             .map(|value| value.into())
             .collect();
 
-        let method_call_line = midend::ir::IrLine::new_method_call(
+        let method_call_line = midend::ir::IrLine::new_call(
             self.loc,
-            receiver.into(),
-            self.called_method,
+            function_operand.into(),
             params,
             return_value_to.clone(),
         );

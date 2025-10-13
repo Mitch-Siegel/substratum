@@ -6,6 +6,8 @@ use crate::frontend::{ast::*, *};
 pub enum PathIdentSegment {
     Ident(String),
     Super,
+    SelfLower,
+    SelfUpper,
 }
 
 impl std::fmt::Display for PathIdentSegment {
@@ -13,6 +15,8 @@ impl std::fmt::Display for PathIdentSegment {
         match self {
             PathIdentSegment::Ident(ident) => write!(f, "{}", ident),
             PathIdentSegment::Super => write!(f, "super"),
+            PathIdentSegment::SelfLower => write!(f, "self"),
+            PathIdentSegment::SelfUpper => write!(f, "Self"),
         }
     }
 }
@@ -33,7 +37,7 @@ impl std::fmt::Display for PathIdentSegmentTree {
 pub struct PathExprSegmentTree {
     pub loc: SourceLoc,
     pub ident_tree: PathIdentSegmentTree,
-    pub generic_args: Option<ast::generics::GenericParamsListTree>,
+    pub generic_args: Option<ast::generics::GenericArgsListTree>,
 }
 
 impl std::fmt::Display for PathExprSegmentTree {

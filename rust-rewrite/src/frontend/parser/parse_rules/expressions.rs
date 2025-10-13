@@ -13,103 +13,58 @@ mod path_in_expression;
 mod primary_expression;
 mod while_expression;
 
-fn expression_starters() -> [Token; 5] {
-    [
-        Token::If,
-        Token::While,
-        Token::Identifier("".into()),
-        Token::UnsignedDecimalConstant(0),
-        Token::LParen,
-    ]
-}
-
-fn token_starts_expression(t: Token) -> bool {
-    match t {
-        Token::SelfLower
-        | Token::If
-        | Token::Match
-        | Token::While
-        | Token::Identifier(_)
-        | Token::UnsignedDecimalConstant(_)
-        | Token::LParen => true,
-        _ => false,
-    }
-}
-
 impl<'a, 'p> ExpressionParser<'a, 'p> {
     pub fn parse_expression(&mut self) -> Result<ExpressionTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("expression")?;
 
-        assert!(
-            token_starts_expression(self.peek_token()?),
-            "{} does not start an expression",
-            self.peek_token()?
-        ); // sanity-check this method call to self-validate
-
         let mut expr = match self.peek_token()? {
-            Token::SelfLower => {
-                let self_loc = self.expect_token_with_loc(Token::SelfLower)?.1;
-
-                let self_expression = ExpressionTree::new(self_loc, Expression::SelfLower);
-                match self.lookahead_token(2)? {
-                    Token::Dot => self.parse_method_call_expression(self_expression)?,
-                    _ => self_expression,
-                }
-            }
+            Token::SelfLower | Token::Identifier(_) => self.parse_path_in_expression()?,
             Token::If => self.parse_if_expression()?,
             Token::Match => self.parse_match_expression()?,
             Token::While => self.parse_while_expression()?,
-            Token::Identifier(_) => self.parse_path_in_expression()?,
             Token::UnsignedDecimalConstant(_) => self.parse_literal_expression()?,
             Token::LParen => self.parse_parenthesized_expression()?,
             _ => self.unexpected_token(&[
-                Token::If,
-                Token::While,
+                Token::SelfLower,
                 Token::Identifier("".into()),
+                Token::If,
+                Token::Match,
+                Token::While,
                 Token::UnsignedDecimalConstant(0),
                 Token::LParen,
             ])?,
         };
 
-        match self.peek_token()? {
-            Token::Dot => {
-                if matches!(self.lookahead_token(2)?, Token::LParen) {
-                    expr = self.parse_method_call_expression(expr)?;
-                } else {
+        loop {
+            trace::trace!("Expression builder loop top");
+            match self.peek_token()? {
+                Token::Dot => {
                     expr = self.parse_field_expression(expr)?;
                 }
-            }
-            _ => {}
-        }
-
-        let peeked = self.peek_token()?;
-        match peeked {
-            Token::Plus
-            | Token::Minus
-            | Token::Star
-            | Token::FSlash
-            | Token::LThan
-            | Token::GThan
-            | Token::LThanE
-            | Token::GThanE
-            | Token::Equals
-            | Token::NotEquals => {
-                let lhs = expr;
-                expr = self.parse_binary_expression(lhs)?
-            }
-
-            _ => {
-                #[cfg(feature = "loud_parsing")]
-                println!("Peeked {} after lhs {} of expression", peeked, expr);
+                Token::LParen => {
+                    expr = self.parse_call_expression(expr)?;
+                }
+                Token::Plus
+                | Token::Minus
+                | Token::Star
+                | Token::FSlash
+                | Token::LThan
+                | Token::GThan
+                | Token::LThanE
+                | Token::GThanE
+                | Token::Equals
+                | Token::NotEquals => expr = self.parse_binary_expression(expr)?,
+                _ => break,
             }
         }
 
+        /*
         match self.peek_token()? {
             Token::Assign => {
                 expr = self.parse_assignment_expression(expr)?;
             }
             _ => {}
-        }
+        }*/
 
         self.finish_parsing(&expr)?;
 

@@ -28,6 +28,7 @@ impl GenericParamsListTree {
         Self { loc, params }
     }
 }
+
 impl Display for GenericParamsListTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut first = true;
@@ -44,7 +45,6 @@ impl Display for GenericParamsListTree {
         Ok(())
     }
 }
-
 impl treewalk::Linearize<Vec<String>> for GenericParamsListTree {
     #[tracing::instrument(skip(self), level = "trace")]
     fn linearize(self, _: &mut treewalk::LinearizeCtx) -> Vec<String> {
@@ -61,6 +61,48 @@ impl treewalk::Linearize<Vec<String>> for GenericParamsListTree {
             .collect();
 
         generic_params
+    }
+}
+
+impl treewalk::Linearize<Vec<midend::types::Syntactic>> for GenericArgsListTree {
+    #[tracing::instrument(skip(self), level = "trace")]
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> Vec<midend::types::Syntactic> {
+        let generic_args: Vec<midend::types::Syntactic> = self
+            .args
+            .into_iter()
+            .map(|param| param.linearize(ctx))
+            .collect();
+
+        generic_args
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct GenericArgsListTree {
+    pub loc: SourceLoc,
+    pub args: Vec<TypeTree>,
+}
+
+impl GenericArgsListTree {
+    pub fn new(loc: SourceLoc, args: Vec<TypeTree>) -> Self {
+        Self { loc, args }
+    }
+}
+
+impl Display for GenericArgsListTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut first = true;
+        for param in &self.args {
+            if !first {
+                write!(f, ", ")?;
+            } else {
+                first = false;
+            }
+
+            write!(f, "{}", param)?;
+        }
+
+        Ok(())
     }
 }
 

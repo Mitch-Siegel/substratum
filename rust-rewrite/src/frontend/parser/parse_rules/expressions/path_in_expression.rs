@@ -7,8 +7,21 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         let (loc, _span) = self.start_parsing("path ident segment")?;
 
         let ident = match self.peek_token()? {
-            Token::Identifier(ident) => ast::expressions::PathIdentSegment::Ident(ident),
-            Token::Super => ast::expressions::PathIdentSegment::Super,
+            Token::Identifier(_) => {
+                ast::expressions::PathIdentSegment::Ident(self.parse_identifier()?)
+            }
+            Token::Super => {
+                self.expect_token(Token::Super)?;
+                ast::expressions::PathIdentSegment::Super
+            }
+            Token::SelfLower => {
+                self.expect_token(Token::SelfLower)?;
+                ast::expressions::PathIdentSegment::SelfLower
+            }
+            Token::SelfUpper => {
+                self.expect_token(Token::SelfUpper)?;
+                ast::expressions::PathIdentSegment::SelfUpper
+            }
             _ => self.unexpected_token(&[Token::Identifier("".into()), Token::Super])?,
         };
 
@@ -25,15 +38,16 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
 
         let ident_tree = self.parse_ident_segment()?;
         let generic_args = match self.peek_token()? {
-            Token::PathSep => match self.lookahead_token(2)? {
+            Token::PathSep => match self.lookahead_token(1)? {
                 Token::LThan => {
-                    self.expect_token(Token::PathSep);
-                    self.item_parser().try_parse_generic_params_list()?
+                    self.expect_token(Token::PathSep)?;
+                    self.item_parser().try_parse_generic_args_list()?
                 }
                 _ => None,
             },
             _ => None,
         };
+        trace::trace!("Path expr generics: {:?}", generic_args);
 
         let segment_tree = ast::expressions::PathExprSegmentTree {
             loc,
@@ -49,13 +63,14 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
 
         let mut segments = vec![self.parse_path_expr_segment()?];
         loop {
-            match self.next_token()? {
+            match self.peek_token()? {
                 Token::PathSep => {
                     self.expect_token(Token::PathSep)?;
                     segments.push(self.parse_path_expr_segment()?);
                 }
                 _ => break,
             }
+            println!("{:?}", segments);
         }
 
         let path_in_expr_tree = ast::expressions::PathInExpressionTree {

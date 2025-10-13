@@ -54,6 +54,43 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         Ok(maybe_params_tree)
     }
 
+    pub fn try_parse_generic_args_list(
+        &mut self,
+    ) -> Result<Option<ast::generics::GenericArgsListTree>, ParseError> {
+        let (start_loc, _span) = self.start_parsing("generic args list")?;
+        let maybe_args_tree = match self.peek_token()? {
+            Token::LThan => {
+                self.expect_token(Token::LThan)?;
+                let mut args_list: Vec<TypeTree> = Vec::new();
+                loop {
+                    match self.peek_token()? {
+                        Token::GThan => break,
+                        _ => {
+                            args_list.push(self.type_parser().parse_type()?);
+                            match self.peek_token()? {
+                                Token::Comma => {
+                                    self.expect_token(Token::Comma)?;
+                                }
+                                _ => (),
+                            }
+                        }
+                    }
+                }
+                self.expect_token(Token::GThan)?;
+                Some(ast::generics::GenericArgsListTree::new(
+                    start_loc, args_list,
+                ))
+            }
+            _ => None,
+        };
+
+        match &maybe_args_tree {
+            Some(args_tree) => self.finish_parsing(args_tree)?,
+            None => self.finish_parsing(&String::from("no generic args"))?,
+        }
+        Ok(maybe_args_tree)
+    }
+
     pub fn parse_identifier_with_generic_params(
         &mut self,
     ) -> Result<ast::generics::IdentifierWithGenericsTree, ParseError> {

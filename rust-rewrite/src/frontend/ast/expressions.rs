@@ -13,7 +13,7 @@ pub mod while_expression;
 pub use arithmetic::{ArithmeticExpressionTree, ComparisonExpressionTree};
 pub use assignment::AssignmentTree;
 pub use block_expression::BlockExpressionTree;
-pub use calls::MethodCallExpressionTree;
+pub use calls::CallExpressionTree;
 pub use field::FieldExpressionTree;
 pub use if_expression::IfExpressionTree;
 pub use match_expression::MatchExpressionTree;
@@ -32,7 +32,7 @@ pub enum Expression {
     Match(Box<MatchExpressionTree>),
     While(Box<WhileExpressionTree>),
     FieldExpression(Box<FieldExpressionTree>),
-    MethodCall(Box<MethodCallExpressionTree>),
+    Call(Box<CallExpressionTree>),
 }
 
 impl Display for Expression {
@@ -48,7 +48,7 @@ impl Display for Expression {
             Self::Match(match_expression) => write!(f, "{}", match_expression),
             Self::While(while_expression) => write!(f, "{}", while_expression),
             Self::FieldExpression(field_expression) => write!(f, "{}", field_expression),
-            Self::MethodCall(method_call) => write!(f, "{}", method_call),
+            Self::Call(function_call) => write!(f, "{}", function_call),
         }
     }
 }
@@ -146,7 +146,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for ExpressionTree {
                     .unwrap();
                 field_pointer_temp
             }
-            Expression::MethodCall(method_call) => method_call.linearize(ctx),
+            Expression::Call(call) => call.linearize(ctx),
         }
     }
 }

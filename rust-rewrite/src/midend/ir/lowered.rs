@@ -13,8 +13,8 @@ pub enum Operation {
     BinaryArithmetic(BinaryArithmeticExpressionOperands),
     BinaryComparison(BinaryComparisonExpressionOperands),
     Jump(JumpOperands),
-    FunctionCall(FunctionCallOperands),
-    MethodCall(MethodCallOperands),
+    FunctionCall(CallParams),
+    Call(CallOperands),
     Load(LoadOperands),
     Store(StoreOperands),
     ComputeFieldAddress(FieldAddressOperands),
@@ -48,7 +48,7 @@ impl IrOperation for Operation {
                 operands
             }
             Self::FunctionCall(function_call) => function_call.arguments.clone(),
-            Self::MethodCall(method_call) => method_call.call.arguments.clone(),
+            Self::Call(call) => call.params.arguments.clone(),
             Self::Load(load) => {
                 vec![load.pointer]
             }
@@ -72,9 +72,9 @@ impl IrOperation for Operation {
                     vec![]
                 }
             }
-            Self::MethodCall(method_call) => {
-                let inner_function_call = &method_call.call;
-                if let Some(retval) = &inner_function_call.return_value_to {
+            Self::Call(call) => {
+                let inner_function_call = &call;
+                if let Some(retval) = &inner_function_call.params.return_value_to {
                     vec![*retval]
                 } else {
                     vec![]
@@ -104,7 +104,7 @@ impl Display for Operation {
             Self::BinaryComparison(comparison) => write!(f, "{}", comparison),
             Self::Jump(jump) => write!(f, "{}", jump),
             Self::FunctionCall(function_call) => write!(f, "{}", function_call),
-            Self::MethodCall(method_call) => write!(f, "{}", method_call),
+            Self::Call(call) => write!(f, "{}", call),
             Self::Load(load) => write!(f, "{} = *{}", load.destination, load.pointer),
             Self::Store(store) => write!(f, "*{} = {}", store.pointer, store.source),
             Self::ComputeFieldAddress(field_address) => write!(
@@ -152,23 +152,13 @@ pub fn new_jump(destination_block: usize, condition: JumpCondition) -> Operation
     Operation::Jump(JumpOperands::new(destination_block, condition))
 }
 
-pub fn new_function_call(
-    name: String,
+pub fn new_call(
+    function_operand: ValueId,
     arguments: OrderedArgumentList,
     return_value_to: Option<ValueId>,
 ) -> Operation {
-    Operation::FunctionCall(FunctionCallOperands::new(name, arguments, return_value_to))
-}
-
-pub fn new_method_call(
-    receiver: ValueId,
-    name: String,
-    arguments: OrderedArgumentList,
-    return_value_to: Option<ValueId>,
-) -> Operation {
-    Operation::MethodCall(MethodCallOperands::new(
-        receiver,
-        name,
+    Operation::Call(CallOperands::new(
+        function_operand,
         arguments,
         return_value_to,
     ))

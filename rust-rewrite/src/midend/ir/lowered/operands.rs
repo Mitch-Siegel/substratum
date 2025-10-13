@@ -292,73 +292,66 @@ fn arg_list_to_string(args: &OrderedArgumentList) -> String {
 
 /// ## Function Call Operands
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct FunctionCallOperands {
-    pub function_name: String,
+pub struct CallParams {
     pub arguments: OrderedArgumentList,
     pub return_value_to: Option<ValueId>,
 }
 
-impl FunctionCallOperands {
-    pub fn new(
-        name: String,
-        arguments: OrderedArgumentList,
-        return_value_to: Option<ValueId>,
-    ) -> Self {
+impl CallParams {
+    pub fn new(arguments: OrderedArgumentList, return_value_to: Option<ValueId>) -> Self {
         Self {
-            function_name: name,
             arguments,
             return_value_to,
         }
     }
 }
 
-impl OperandTypeInference for FunctionCallOperands {
+impl OperandTypeInference for CallParams {
     fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!()
     }
 }
 
-impl Display for FunctionCallOperands {
+impl Display for CallParams {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}({})",
-            self.function_name,
-            arg_list_to_string(&self.arguments)
-        )
+        write!(f, "({})", arg_list_to_string(&self.arguments))?;
+        if let Some(retval) = self.return_value_to {
+            write!(f, " -> {}", retval)?;
+        }
+
+        Ok(())
     }
 }
 
 /// ## Method Call Operands
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
-pub struct MethodCallOperands {
-    pub receiver: ValueId,
-    pub call: FunctionCallOperands,
+pub struct CallOperands {
+    pub function_operand: ValueId,
+    pub params: CallParams,
 }
 
-impl MethodCallOperands {
+impl CallOperands {
     pub fn new(
-        receiver: ValueId,
-        method_name: String,
+        function_operand: ValueId,
         arguments: OrderedArgumentList,
         return_value_to: Option<ValueId>,
     ) -> Self {
         Self {
-            receiver,
-            call: FunctionCallOperands::new(method_name, arguments, return_value_to),
+            function_operand,
+            params: CallParams::new(arguments, return_value_to),
         }
     }
 }
 
-impl OperandTypeInference for MethodCallOperands {
+impl OperandTypeInference for CallOperands {
     fn infer_types(&mut self, _ctx: &TypeInferenceContext) -> bool {
         unimplemented!();
     }
 }
 
-impl Display for MethodCallOperands {
+impl Display for CallOperands {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.receiver, self.call)
+        write!(f, "{}.{}", self.function_operand, self.params)
     }
 }
 
