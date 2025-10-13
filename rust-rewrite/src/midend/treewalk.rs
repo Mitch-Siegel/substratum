@@ -26,6 +26,10 @@ pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable>
 
     symtab = collect_ctx.take();
 
+    println!("{:?}", symtab);
+
+    unimplemented!();
+
     for module in program {
         let mut module_def_path = symtab::DefPath::empty();
         for module_name in module.module_path.as_slice().split_last().unwrap().1 {

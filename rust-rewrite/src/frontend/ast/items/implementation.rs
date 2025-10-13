@@ -55,7 +55,30 @@ impl Display for ImplementationTree {
 
 impl treewalk::CollectSymbols for ImplementationTree {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
-        unimplemented!();
+        let generic_params_as_vec = match &self.generic_params {
+            Some(params) => params.clone().as_vec(),
+            None => Vec::new(),
+        };
+
+        let implemented_for_generic_params_as_vec = match &self.implemented_for_generic_params {
+            Some(params) => params.clone().as_vec(),
+            None => Vec::new(),
+        };
+
+        let impl_def_path_component = midend::symtab::DefPathComponent::Implementation(
+            midend::symtab::ImplementationName::new(
+                generic_params_as_vec,
+                midend::types::Syntactic::Named(self.for_.clone()),
+                implemented_for_generic_params_as_vec,
+            ),
+        );
+
+        ctx.push_def_path(impl_def_path_component.clone()).unwrap();
+        for item in &self.items {
+            item.collect_symbols(ctx);
+        }
+
+        ctx.pop_def_path(impl_def_path_component).unwrap();
     }
 }
 
@@ -74,12 +97,13 @@ impl treewalk::Linearize<()> for ImplementationTree {
             None => Vec::new(),
         };
 
-        let impl_def_path_component =
-            midend::symtab::DefPathComponent::Implementation(midend::symtab::ImplementationName {
-                generic_params: generic_params.clone(),
-                implemented_for: implemented_for_type,
-                implemented_for_generic_params: implemented_for_generic_params,
-            });
+        let impl_def_path_component = midend::symtab::DefPathComponent::Implementation(
+            midend::symtab::ImplementationName::new(
+                generic_params.clone(),
+                implemented_for_type,
+                implemented_for_generic_params,
+            ),
+        );
         ctx.push_def_path(impl_def_path_component.clone(), &generic_params);
 
         for item in self.items {

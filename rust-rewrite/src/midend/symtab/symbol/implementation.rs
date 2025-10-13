@@ -6,6 +6,21 @@ pub struct ImplementationName {
     pub implemented_for: types::Syntactic,
     pub implemented_for_generic_params: Vec<String>,
 }
+
+impl ImplementationName {
+    pub fn new(
+        generic_params: Vec<String>,
+        implemented_for: types::Syntactic,
+        implemented_for_generic_params: Vec<String>,
+    ) -> Self {
+        Self {
+            generic_params,
+            implemented_for,
+            implemented_for_generic_params,
+        }
+    }
+}
+
 impl std::fmt::Display for ImplementationName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(

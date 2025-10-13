@@ -27,6 +27,17 @@ impl GenericParamsListTree {
     pub fn new(loc: SourceLoc, params: Vec<GenericParamTree>) -> Self {
         Self { loc, params }
     }
+
+    pub fn as_vec(self) -> Vec<String> {
+        self.params.into_iter().map(|param| param.name).collect()
+    }
+
+    pub fn as_vec_with_locs(self) -> Vec<(String, SourceLoc)> {
+        self.params
+            .into_iter()
+            .map(|param| (param.name, param.loc))
+            .collect()
+    }
 }
 
 impl Display for GenericParamsListTree {
@@ -49,18 +60,17 @@ impl treewalk::Linearize<Vec<String>> for GenericParamsListTree {
     #[tracing::instrument(skip(self), level = "trace")]
     fn linearize(self, _: &mut treewalk::LinearizeCtx) -> Vec<String> {
         let mut generic_params_set = BTreeSet::<String>::new();
-        let generic_params: Vec<String> = self
-            .params
-            .into_iter()
-            .map(|param| {
-                if !generic_params_set.insert(param.name.clone()) {
-                    panic!("Duplicate generic parameter {} @ {}", param.name, param.loc)
-                }
-                param.name
-            })
-            .collect();
 
-        generic_params
+        let generic_params_vec = self.as_vec_with_locs();
+        generic_params_vec
+            .into_iter()
+            .map(|(param, loc)| {
+                if !generic_params_set.insert(param.clone()) {
+                    panic!("Duplicate generic parameter {} @ {}", param, loc)
+                }
+                param
+            })
+            .collect()
     }
 }
 

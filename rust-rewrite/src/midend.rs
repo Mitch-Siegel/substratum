@@ -109,13 +109,13 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
     //tracing::debug!("collapse scopes");
     //symtab.collapse_scopes();
 
-    tracing::debug!("convert IR to SSA");
+    //tracing::debug!("convert IR to SSA");
     //ssa_gen::convert_functions_to_ssa(&mut symtab);
 
     // optimization::optimize_functions(&mut symtab.functions);
     //
 
-    tracing::debug!("convert IR back from SSA");
+    //tracing::debug!("convert IR back from SSA");
     //ssa_gen::remove_ssa_from_functions(&mut symtab);
 
     *symtab
