@@ -35,8 +35,6 @@ pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable>
         assert_eq!(taken.1, module_def_path);
     }
 
-    println!("{:?}", symtab);
-    panic!();
     symtab.collect_impls();
 
     for module in program {

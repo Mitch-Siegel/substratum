@@ -23,11 +23,37 @@ impl ImplementationName {
 
 impl std::fmt::Display for ImplementationName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "impl<{:?}> {}<{:?}>",
-            self.generic_params, self.implemented_for, self.implemented_for_generic_params,
-        )
+        write!(f, "impl")?;
+
+        if self.generic_params.len() > 0 {
+            write!(f, "<")?;
+            let mut first = true;
+            for param in &self.generic_params {
+                if !first {
+                    first = false;
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", param)?;
+            }
+            write!(f, ">")?;
+        }
+
+        write!(f, " {}", self.implemented_for)?;
+
+        if self.implemented_for_generic_params.len() > 0 {
+            write!(f, "<")?;
+            let mut first = true;
+            for param in &self.implemented_for_generic_params {
+                if !first {
+                    first = false;
+                    write!(f, ", ")?;
+                }
+                write!(f, "{}", param)?;
+            }
+            write!(f, ">")
+        } else {
+            Ok(())
+        }
     }
 }
 

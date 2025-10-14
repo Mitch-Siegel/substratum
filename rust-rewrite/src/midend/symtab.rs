@@ -166,26 +166,24 @@ impl SymbolTable {
         let mut search_def_path = def_path.clone();
 
         while !search_def_path.is_empty() {
-            let last_component = search_def_path.pop().unwrap();
+            let old_search_path = search_def_path.clone();
+            let _ = search_def_path.pop().unwrap();
 
-            let old_search_path = search_def_path
-                .clone()
-                .with_component(last_component)
-                .unwrap();
-
+            // get a reference to the true instance of the old search def path (owned by the symtab
+            // itself)
             let search_path_ref = self
                 .children
                 .get(&search_def_path)
                 .unwrap()
                 .get(&old_search_path)
                 .unwrap();
-
             search_paths.push(search_path_ref);
-            let search_children = match self.children.get(&search_def_path) {
-                Some(c) => c,
-                None => continue,
-            };
 
+            // get the children of the current search def path (they must exist, we just popped
+            // from a child path to make search_def_path the parent of where we just were)
+            let search_children = self.children.get(&search_def_path).unwrap();
+
+            // if there are any imports, we need to record them
             for child in search_children {
                 if let DefPathComponent::Import(_) = child.last() {
                     if let Some(SymbolDef::Import(import)) = self.symbols.get(child).unwrap() {
@@ -193,8 +191,6 @@ impl SymbolTable {
                     }
                 }
             }
-
-            search_def_path.pop().unwrap();
         }
 
         search_paths
