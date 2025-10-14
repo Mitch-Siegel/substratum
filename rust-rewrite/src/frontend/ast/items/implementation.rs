@@ -73,7 +73,10 @@ impl treewalk::CollectSymbols for ImplementationTree {
             ),
         );
 
+        // declare the impl, then push it to the defpath
+        ctx.declare(impl_def_path_component.clone()).unwrap();
         ctx.push_def_path(impl_def_path_component.clone()).unwrap();
+
         for item in &self.items {
             item.collect_symbols(ctx);
         }

@@ -236,14 +236,17 @@ impl SymbolTable {
         let key_component = Into::<DefPathComponent>::into(key.clone());
 
         for path in paths_to_search {
-            let component_def_path = path.clone().with_component(key_component.clone()).unwrap();
+            if path.can_own(&key_component) {
+                let component_def_path =
+                    path.clone().with_component(key_component.clone()).unwrap();
 
-            match self.symbols.get(&component_def_path) {
-                Some(Some(def)) => {
-                    let resolver = DefResolver::new(&self.types, def);
-                    return Ok((<&S>::from(resolver), component_def_path));
+                match self.symbols.get(&component_def_path) {
+                    Some(Some(def)) => {
+                        let resolver = DefResolver::new(&self.types, def);
+                        return Ok((<&S>::from(resolver), component_def_path));
+                    }
+                    Some(None) | None => (),
                 }
-                Some(None) | None => (),
             }
         }
 
@@ -384,6 +387,21 @@ impl SymbolTable {
     ) -> Result<types::Semantic, SymbolError> {
         let (_, path) = self.lookup_with_path::<TypeDefinition>(search_def_path, ty_)?;
         Ok(self.types.get_semantic(&path).unwrap())
+    }
+}
+
+/// Post symbol-collection implementation linking
+impl SymbolTable {
+    pub fn collect_impls(&mut self) {
+        let _impls: HashSet<(&DefPath, &ImplementationName)> = self
+            .symbols
+            .iter()
+            .map(|(path, _)| match path.last() {
+                DefPathComponent::Implementation(impl_name) => Some((path, impl_name)),
+                _ => None,
+            })
+            .flatten()
+            .collect();
     }
 }
 

@@ -19,16 +19,25 @@ pub trait Linearize<T> {
 pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {
     let mut symtab = Box::new(symtab::SymbolTable::new());
 
-    let mut collect_ctx = CollectCtx::new(symtab);
     for module in &program {
+        let mut module_def_path = symtab::DefPath::empty();
+        for module_name in module.module_path.as_slice().split_last().unwrap().1 {
+            module_def_path
+                .push(symtab::DefPathComponent::Module(symtab::ModuleName {
+                    name: module_name.clone(),
+                }))
+                .unwrap();
+        }
+        let mut collect_ctx = CollectCtx::new(symtab, module_def_path.clone());
         module.collect_symbols(&mut collect_ctx);
+        let taken = collect_ctx.take();
+        symtab = taken.0;
+        assert_eq!(taken.1, module_def_path);
     }
 
-    symtab = collect_ctx.take();
-
     println!("{:?}", symtab);
-
-    unimplemented!();
+    panic!();
+    symtab.collect_impls();
 
     for module in program {
         let mut module_def_path = symtab::DefPath::empty();
@@ -46,9 +55,10 @@ pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable>
             module.module_path,
             module_def_path
         );
-        let mut ctx = LinearizeCtx::new(symtab, module_def_path, GenericParamsContext::new());
-        module.linearize(&mut ctx);
-        symtab = ctx.take().unwrap().0;
+        let mut linearize_ctx =
+            LinearizeCtx::new(symtab, module_def_path, GenericParamsContext::new());
+        module.linearize(&mut linearize_ctx);
+        symtab = linearize_ctx.take().unwrap().0;
     }
 
     symtab

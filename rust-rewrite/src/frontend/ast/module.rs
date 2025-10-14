@@ -19,12 +19,15 @@ impl Display for ModuleTree {
 
 impl treewalk::CollectSymbols for ModuleTree {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+        println!("collect for module {}", self.name);
+        println!("{:?}", ctx.def_path());
         let module_component = midend::symtab::DefPathComponent::Module(
             midend::symtab::ModuleName::new(self.name.clone()),
         );
         ctx.declare(module_component.clone()).unwrap();
 
         ctx.push_def_path(module_component.clone()).unwrap();
+
         for item in &self.items {
             item.collect_symbols(ctx);
         }

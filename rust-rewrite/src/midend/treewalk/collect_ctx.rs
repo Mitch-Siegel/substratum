@@ -1,4 +1,4 @@
-use crate::midend::treewalk::*;
+use crate::midend::{symtab::DefPath, treewalk::*};
 
 pub struct CollectCtx {
     symtab: Box<symtab::SymbolTable>,
@@ -6,18 +6,19 @@ pub struct CollectCtx {
 }
 
 impl CollectCtx {
-    pub fn new(symtab: Box<symtab::SymbolTable>) -> Self {
+    pub fn new(symtab: Box<symtab::SymbolTable>, definition_path: symtab::DefPath) -> Self {
         Self {
             symtab,
-            definition_path: symtab::DefPath::empty(),
+            definition_path,
         }
     }
 
-    pub fn take(self) -> Box<symtab::SymbolTable> {
-        if !self.definition_path.is_empty() {
-            panic!("symbol collection context defpath not empty");
-        }
-        self.symtab
+    pub fn take(self) -> (Box<symtab::SymbolTable>, symtab::DefPath) {
+        (self.symtab, self.definition_path)
+    }
+
+    pub fn def_path(&self) -> &DefPath {
+        &self.definition_path
     }
 
     pub fn lookup_decl(
