@@ -56,7 +56,7 @@ fn lower_pattern<'a>(
                 .ctx
                 .symtab()
                 .types
-                .get_definition(&scrutinee_type)
+                .get_type_definition(&scrutinee_type)
                 .unwrap();
 
             match &scrutinee_type_def.repr {
@@ -113,7 +113,7 @@ impl Lowerable for MatchOperands {
             .values()
             .semantic_for_id(&self.scrutinee)
             .unwrap();
-        let _matched_type_definition = ctx.symtab().types.get_definition(&matched_type).unwrap();
+        let _matched_type_definition = ctx.symtab().types.get_type_definition(&matched_type).unwrap();
 
         ctx.function().values().diag(ctx.symtab());
         let mut match_arm_ctx = MatchArmContext {

@@ -43,7 +43,7 @@ impl std::fmt::Debug for SymbolTable {
                     "defpath {} - {:?} ({:?})",
                     path,
                     def,
-                    self.types.get_definition(type_id).unwrap()
+                    self.types.get_type_definition(type_id).unwrap()
                 )?,
                 _ => writeln!(f, "defpath {} - {:?}", path, def)?,
             }
@@ -382,7 +382,7 @@ impl SymbolTable {
         ty_: &types::Syntactic,
     ) -> Result<types::Semantic, SymbolError> {
         let (_, path) = self.lookup_with_path::<TypeDefinition>(search_def_path, ty_)?;
-        Ok(self.types.get_semantic(&path).unwrap())
+        Ok(self.types.semantic_for_defpath(&path).unwrap())
     }
 }
 

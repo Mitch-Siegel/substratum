@@ -29,7 +29,9 @@ impl TypeDefinition {
 impl<'a> From<DefResolver<'a>> for &'a TypeDefinition {
     fn from(resolver: DefResolver<'a>) -> Self {
         match resolver.to_resolve {
-            SymbolDef::Type(type_id) => resolver.type_interner.get_definition(type_id).unwrap(),
+            SymbolDef::Type(type_id) => {
+                resolver.type_interner.get_type_definition(type_id).unwrap()
+            }
             symbol => panic!("Unexpected symbol seen for type: {}", symbol),
         }
     }
@@ -37,7 +39,10 @@ impl<'a> From<DefResolver<'a>> for &'a TypeDefinition {
 impl<'a> From<MutDefResolver<'a>> for &'a mut TypeDefinition {
     fn from(resolver: MutDefResolver<'a>) -> Self {
         match resolver.to_resolve {
-            SymbolDef::Type(type_id) => resolver.type_interner.get_definition_mut(type_id).unwrap(),
+            SymbolDef::Type(type_id) => resolver
+                .type_interner
+                .get_type_definition_mut(type_id)
+                .unwrap(),
             symbol => panic!("Unexpected symbol seen for type: {}", symbol),
         }
     }
@@ -53,7 +58,7 @@ impl<'a> Into<SymbolDef> for DefGenerator<'a, TypeDefinition> {
     fn into(self) -> SymbolDef {
         let type_id = self
             .type_interner
-            .insert(self.def_path, self.to_generate_def_for)
+            .insert_type(self.def_path, self.to_generate_def_for)
             .unwrap();
         SymbolDef::Type(type_id)
     }

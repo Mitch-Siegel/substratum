@@ -26,6 +26,7 @@ pub enum ValueKind {
     Argument(usize),
     Variable(symtab::DefPath),
     Temporary(usize),
+    StaticFunction(symtab::DefPath),
     Constant(usize),
 }
 

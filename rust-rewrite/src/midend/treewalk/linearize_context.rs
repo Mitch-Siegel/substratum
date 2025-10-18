@@ -144,7 +144,7 @@ impl LinearizeCtx {
         let unit_type_id = self
             .symtab_mut()
             .types
-            .get_semantic(&unit_type_path)
+            .semantic_for_defpath(&unit_type_path)
             .unwrap();
 
         self.insert_at::<symtab::Function>(
@@ -310,7 +310,7 @@ impl LinearizeCtx {
     }
 
     fn definition_for_semantic_type(&self, type_: &types::Semantic) -> Option<&TypeDefinition> {
-        self.symtab().types.get_definition(type_)
+        self.symtab().types.get_type_definition(type_)
     }
 
     // resolves a string type name to either a defined type or a generic param

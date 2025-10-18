@@ -17,13 +17,14 @@ pub enum Syntactic {
     Reference(Mutability, Box<Syntactic>),
     Pointer(Mutability, Box<Syntactic>),
     Tuple(Vec<Syntactic>),
+    Function(Vec<Syntactic>, Box<Syntactic>), // (arguments, return_type)
 }
 
 impl Syntactic {
     pub fn resolve(&self, ctx: &treewalk::LinearizeCtx) -> Option<Semantic> {
         let (_def, path) = ctx.lookup_with_path::<symtab::TypeDefinition>(self).ok()?;
 
-        ctx.symtab().types.get_semantic(&path)
+        ctx.symtab().types.semantic_for_defpath(&path)
     }
 }
 
@@ -50,6 +51,13 @@ impl Display for Syntactic {
                     write!(f, "{}, ", element)?;
                 }
                 write!(f, ")")
+            }
+            Self::Function(args, return_type) => {
+                write!(f, "fn(")?;
+                for arg in args {
+                    write!(f, "{}, ", arg)?;
+                }
+                write!(f, ") -> {}", return_type)
             }
         }
     }

@@ -50,42 +50,6 @@ impl std::fmt::Display for PathExprSegmentTree {
     }
 }
 
-/*impl
-    midend::linearizer::CustomWalk<
-        (
-            &mut midend::linearizer::WalkContext,
-            &mut midend::symtab::DefPath,
-        ),
-        (),
-    > for PathExprSegmentTree
-{
-    fn walk(
-        self,
-        (_ctx, current_path_expr): (
-            &mut midend::linearizer::WalkContext,
-            &mut midend::symtab::DefPath,
-        ),
-    ) -> () {
-        match self.ident_tree.ident {
-            PathIdentSegment::Ident(ident) => {
-                let next_component = if let Some(_generic_args) = self.generic_args {
-                    midend::symtab::DefPathComponent::Type(midend::types::Syntactic::Named(ident))
-                } else {
-                    midend::symtab::DefPathComponent::Module(midend::symtab::ModuleName::new(ident))
-                };
-
-                current_path_expr.push(next_component).unwrap();
-            }
-            PathIdentSegment::Super => {
-                current_path_expr.pop().expect(&format!(
-                    "pathidentsegment 'super' at {} is operating on empty path",
-                    self.loc
-                ));
-            }
-        }
-    }
-}*/
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PathInExpressionTree {
     pub loc: SourceLoc,
@@ -105,15 +69,8 @@ impl std::fmt::Display for PathInExpressionTree {
     }
 }
 
-pub enum ResolvedPath {
-    _Local(midend::ir::ValueId),       // a binding to a local value
-    _General(midend::symtab::DefPath), // a relative defpath to look up, potentially scoped under the context's current
-    // def path or any of its parent paths
-    _Global(midend::symtab::DefPath), // an absolute defpath to look up
-}
-
-impl treewalk::Linearize<ResolvedPath> for PathInExpressionTree {
-    fn linearize(self, _ctx: &mut treewalk::LinearizeCtx) -> ResolvedPath {
+impl treewalk::Linearize<midend::ir::ValueId> for PathInExpressionTree {
+    fn linearize(self, _ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
         unimplemented!();
 
         /*
