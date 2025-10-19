@@ -1,12 +1,10 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
-    fn parse_ident_segment(
-        &mut self,
-    ) -> Result<ast::expressions::PathIdentSegmentTree, ParseError> {
+    fn parse_ident_segment(&mut self) -> Result<ast::expressions::PathIdentSegment, ParseError> {
         let (loc, _span) = self.start_parsing("path ident segment")?;
 
-        let ident = match self.peek_token()? {
+        let segment = match self.peek_token()? {
             Token::Identifier(_) => {
                 ast::expressions::PathIdentSegment::Ident(self.parse_identifier()?)
             }
@@ -25,10 +23,8 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
             _ => self.unexpected_token(&[Token::Identifier("".into()), Token::Super])?,
         };
 
-        let segment_tree = ast::expressions::PathIdentSegmentTree { loc, ident };
-
-        self.finish_parsing(&segment_tree)?;
-        Ok(segment_tree)
+        self.finish_parsing(&segment)?;
+        Ok(segment)
     }
 
     fn parse_path_expr_segment(
@@ -51,7 +47,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
 
         let segment_tree = ast::expressions::PathExprSegmentTree {
             loc,
-            ident_tree,
+            ident: ident_tree,
             generic_args,
         };
         self.finish_parsing(&segment_tree)?;

@@ -31,9 +31,9 @@ impl Display for ArgumentDeclarationTree {
 impl treewalk::Linearize<midend::symtab::Variable> for ArgumentDeclarationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::Variable {
-        let variable_type: midend::types::Syntactic = self.type_.linearize(ctx);
+        let arg_type: midend::types::Syntactic = self.type_.linearize(ctx);
 
-        midend::symtab::Variable::new(self.name.clone(), Some(variable_type))
+        midend::symtab::Variable::new(self.name.clone(), Some(arg_type))
     }
 }
 
@@ -119,11 +119,13 @@ pub struct FunctionDefinitionTree {
     pub prototype: FunctionDeclarationTree,
     pub body: expressions::BlockExpressionTree,
 }
+
 impl FunctionDefinitionTree {
     pub fn new(prototype: FunctionDeclarationTree, body: expressions::BlockExpressionTree) -> Self {
         Self { prototype, body }
     }
 }
+
 impl Display for FunctionDefinitionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Function Definition: {}, {}", self.prototype, self.body)

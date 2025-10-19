@@ -22,27 +22,24 @@ impl std::fmt::Display for PathIdentSegment {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PathIdentSegmentTree {
-    pub loc: SourceLoc,
-    pub ident: PathIdentSegment,
-}
-
-impl std::fmt::Display for PathIdentSegmentTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.ident)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PathExprSegmentTree {
     pub loc: SourceLoc,
-    pub ident_tree: PathIdentSegmentTree,
+    pub ident: PathIdentSegment,
     pub generic_args: Option<ast::generics::GenericArgsListTree>,
+}
+
+impl PathExprSegmentTree {
+    fn expect_no_generics(&self) -> Result<(), String> {
+        match &self.generic_args {
+            Some(args) => Err(format!("found generic args at {}, expected none", args.loc)),
+            None => Ok(()),
+        }
+    }
 }
 
 impl std::fmt::Display for PathExprSegmentTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.ident_tree)?;
+        write!(f, "{}", self.ident)?;
         if let Some(args) = &self.generic_args {
             write!(f, "<{}>", args)?;
         }
@@ -69,37 +66,77 @@ impl std::fmt::Display for PathInExpressionTree {
     }
 }
 
+fn walk_ident_segment(
+    ident: String,
+    expr_path: &mut midend::symtab::DefPath,
+    ctx: &mut treewalk::LinearizeCtx,
+) -> Result<(), String> {
+    let mut search_def_path = ctx.def_path().clone();
+
+    loop {
+        if let Ok(search_subpath) = search_def_path.clone().join(expr_path.clone()) {
+            let function_component = midend::symtab::DefPathComponent::Function(
+                midend::symtab::FunctionName::new(ident.clone()),
+            );
+            if let Ok(function_path) = search_subpath
+                .clone()
+                .with_component(function_component.clone())
+            {
+                if let Ok(_) = ctx.symtab().lookup_decl_at(&function_path) {
+                    expr_path.push(function_component).unwrap();
+                    return Ok(());
+                }
+            }
+
+            let variable_component = midend::symtab::DefPathComponent::Variable(ident.clone());
+            if let Ok(variable_path) = search_subpath
+                .clone()
+                .with_component(variable_component.clone())
+            {
+                if let Ok(_) = ctx.symtab().lookup_decl_at(&variable_path) {
+                    expr_path.push(variable_component).unwrap();
+                    return Ok(());
+                }
+            }
+        }
+
+        if search_def_path.len() == 0 {
+            break;
+        } else {
+            search_def_path.pop().unwrap();
+        }
+    }
+
+    Err(format!(
+        "cannot find function or variable {} in scope {}",
+        ident, expr_path
+    ))
+}
+
 impl treewalk::Linearize<midend::ir::ValueId> for PathInExpressionTree {
-    fn linearize(self, _ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
-        unimplemented!();
-
-        /*
-        let mut expr_path = ctx.def_path().clone();
-        let first = &self.segments[0].ident_tree.ident;
-        match first {
-            PathIdentSegment::Super => {
-                expr_path.pop().unwrap();
-                for segment in self.segments {
-                    segment.walk((ctx, &mut expr_path));
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
+        let mut expr_path = midend::symtab::DefPath::empty();
+        for segment in self.segments.into_iter() {
+            match segment.ident {
+                PathIdentSegment::Super => {
+                    match expr_path.pop() {
+                        Some(_) => (),
+                        None => panic!(
+                            "path segment 'Super' on invalid/empty path at {}",
+                            segment.loc
+                        ),
+                    }
+                    segment.expect_no_generics().unwrap();
                 }
-
-                ResolvedPath::General(expr_path)
+                PathIdentSegment::Ident(name) => {
+                    walk_ident_segment(name, &mut expr_path, ctx).unwrap();
+                }
+                PathIdentSegment::SelfLower => {
+                    walk_ident_segment(String::from("self"), &mut expr_path, ctx).unwrap();
+                }
+                PathIdentSegment::SelfUpper => {}
             }
-            PathIdentSegment::Ident(name) => {
-                if self.segments.len() == 1 {
-                    ResolvedPath::Local(ctx.lookup::<symtab::Variable>(name)?)
-                } else {
-                    unimplemented!()
-                }
-                ResolvedPath::Local(
-                ctx.lookup::<midend::symtab::Variable>(name))
-
-                let mut defpath = ctx.def_path().clone();
-                for segment in self.segments {
-                    segment.walk((ctx, &mut defpath));
-                }
-                ResolvedPath::General(defpath)
-            }
-        }*/
+        }
+        midend::ir::ValueId::new(1)
     }
 }

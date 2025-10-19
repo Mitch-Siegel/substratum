@@ -44,7 +44,7 @@ impl treewalk::Linearize<()> for ModuleTree {
             context.def_path()
         );
         context
-            .insert(midend::symtab::symbol::Module::new(self.name.clone()))
+            .define(midend::symtab::symbol::Module::new(self.name.clone()))
             .unwrap();
         context.push_def_path(
             midend::symtab::DefPathComponent::Module(midend::symtab::ModuleName {

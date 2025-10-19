@@ -101,6 +101,17 @@ impl SymbolTable {
         ))
     }
 
+    pub fn lookup_decl_at(&self, def_path: &DefPath) -> Result<(), SymbolError> {
+        match self.symbols.get(&def_path) {
+            Some(_symbol) => Ok(()),
+            None => {
+                let mut owned_def_path = def_path.clone();
+                let last = owned_def_path.pop().unwrap();
+                Err(SymbolError::Undeclared(owned_def_path, last))
+            }
+        }
+    }
+
     /// define the given symbol at the given path
     /// assumes that the def_path is the full, global DefPath under which S will be inserted
     /// automatically adds the DefPathComponent for S to the end of def_path
@@ -138,6 +149,10 @@ impl SymbolTable {
             Some(paths) => paths.iter().map(|path_ref| path_ref).collect(),
             None => HashSet::new(),
         }
+    }
+
+    pub fn decls(&self) -> impl Iterator<Item = &DefPath> {
+        self.symbols.iter().map(|(path, _)| path)
     }
 
     pub fn defs(&self) -> impl Iterator<Item = (&DefPath, &SymbolDef)> {

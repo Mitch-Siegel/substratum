@@ -88,7 +88,7 @@ impl treewalk::Linearize<()> for Item {
             Item::FunctionDefinition(function_definition) => function_definition.linearize(ctx),
             Item::StructDefinition(struct_tree) => {
                 let struct_repr = struct_tree.linearize(ctx);
-                ctx.insert::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
+                ctx.define::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
                     midend::types::Syntactic::Named(struct_repr.name.clone()),
                     midend::symtab::TypeRepr::Struct(struct_repr),
                 ))
@@ -96,7 +96,7 @@ impl treewalk::Linearize<()> for Item {
             }
             Item::EnumDefinition(enum_tree) => {
                 let enum_repr = enum_tree.linearize(ctx);
-                ctx.insert::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
+                ctx.define::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
                     midend::types::Syntactic::Named(enum_repr.name.clone()),
                     midend::symtab::TypeRepr::Enum(enum_repr),
                 ))

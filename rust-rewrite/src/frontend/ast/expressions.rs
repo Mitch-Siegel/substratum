@@ -119,19 +119,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for ExpressionTree {
                     .values_mut()
                     .id_for_variable(self_variable_path)
             }
-            Expression::PathInExpression(_path) => {
-                unimplemented!();
-
-                /*
-                let variable_path = path.walk(ctx);
-
-                let _variable = ctx
-                    .lookup_at::<midend::symtab::Variable>(&variable_path)
-                    .unwrap();
-                ctx.function_mut()
-                    .values_mut()
-                    .id_for_variable(variable_path)*/
-            }
+            Expression::PathInExpression(path) => path.linearize(ctx),
             Expression::UnsignedDecimalConstant(constant) => {
                 *ctx.function_mut().values_mut().id_for_constant(constant)
             }

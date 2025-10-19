@@ -138,16 +138,12 @@ impl LinearizeCtx {
     }
 
     pub fn create_function(&mut self, prototype: FunctionPrototype) -> Result<(), SymbolError> {
-        let (_, unit_type_path) = self
-            .lookup_with_path::<symtab::TypeDefinition>(&types::Syntactic::Unit)
-            .unwrap();
         let unit_type_id = self
-            .symtab_mut()
-            .types
-            .semantic_for_defpath(&unit_type_path)
+            .symtab()
+            .semantic_type_for_syntactic(&self.definition_path, &types::Syntactic::Unit)
             .unwrap();
 
-        self.insert_at::<symtab::Function>(
+        self.define_at::<symtab::Function>(
             self.def_path().clone(),
             symtab::Function::new(prototype.clone(), None),
         )?;
@@ -160,7 +156,7 @@ impl LinearizeCtx {
             .iter()
             .map(|arg| {
                 println!("Handle argument {:?}", arg);
-                self.insert::<symtab::Variable>(arg.clone()).unwrap()
+                self.define::<symtab::Variable>(arg.clone()).unwrap()
             })
             .collect();
 
@@ -405,7 +401,7 @@ impl LinearizeCtx {
     }
 
     // add a DefPathComponent for 'symbol' at the end of the current def path
-    pub fn insert<S>(&mut self, symbol: S) -> Result<DefPath, SymbolError>
+    pub fn define<S>(&mut self, symbol: S) -> Result<DefPath, SymbolError>
     where
         S: Symbol + std::fmt::Debug,
         for<'a> &'a S: From<DefResolver<'a>>,
@@ -414,11 +410,11 @@ impl LinearizeCtx {
     {
         let def_path = self.def_path().clone();
         let symtab_mut = self.symtab_mut();
-        trace::trace!("insert {:?} at {:?}", symbol, def_path);
+        trace::trace!("define {:?} at {:?}", symbol, def_path);
         symtab_mut.define::<S>(def_path, symbol)
     }
 
-    fn insert_at<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
+    fn define_at<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
     where
         S: Symbol + std::fmt::Debug,
         for<'a> &'a S: From<DefResolver<'a>>,

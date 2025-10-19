@@ -31,7 +31,7 @@ impl treewalk::Linearize<()> for Pattern {
             Self::Literal(_) => (),
             Self::Identifier(name) => {
                 let variable_def_path = ctx
-                    .insert::<midend::symtab::Variable>(midend::symtab::Variable::new(
+                    .define::<midend::symtab::Variable>(midend::symtab::Variable::new(
                         name.clone(),
                         None,
                     ))

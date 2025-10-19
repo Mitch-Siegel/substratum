@@ -65,7 +65,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for LetTree {
         let declared_variable: midend::symtab::Variable =
             midend::symtab::Variable::new(self.name.clone(), variable_type);
         let variable_path: midend::symtab::DefPath = ctx
-            .insert::<midend::symtab::Variable>(declared_variable)
+            .define::<midend::symtab::Variable>(declared_variable)
             .unwrap();
         ctx.function_mut()
             .values_mut()

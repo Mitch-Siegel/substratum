@@ -2,6 +2,8 @@ use crate::midend::symtab::*;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SymbolError {
+    // TODO: is there any good reason for the path and component to be separated for
+    // undeclared/undefined errors?
     Undeclared(DefPath, DefPathComponent),
     Undefined(DefPath, DefPathComponent),
     AlreadyDeclared(DefPath),

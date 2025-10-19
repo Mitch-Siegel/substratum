@@ -15,7 +15,7 @@ pub enum DefPathComponent {
 impl DefPathComponent {
     pub fn can_own(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Empty, Self::Module(_)) => true,
+            (Self::Empty, _) => true,
             (Self::Module(_), Self::Module(_)) => true,
             (Self::Module(_), Self::Type(_)) => true,
             (Self::Module(_), Self::Implementation(_)) => true,
@@ -196,7 +196,7 @@ impl DefPath {
     pub fn can_own(&self, component: &DefPathComponent) -> bool {
         match self.components.last() {
             Some(last_component) => last_component.can_own(&component),
-            None => matches!(component, DefPathComponent::Module(_)),
+            None => DefPathComponent::Empty.can_own(&component),
         }
     }
 

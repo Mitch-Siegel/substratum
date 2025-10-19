@@ -93,7 +93,7 @@ fn assign_types_to_function_arguments(
 pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> symtab::SymbolTable {
     let _ = trace::span_auto!(trace::Level::DEBUG, "Generate symbol table from AST");
 
-    tracing::debug!("Linearize");
+    tracing::debug!("Walk AST");
     let mut symtab = treewalk::walk(modules);
 
     functions_to_graphviz(&symtab, "_unlowered".into());
