@@ -67,8 +67,25 @@ impl treewalk::Linearize<midend::ir::ValueId> for LetTree {
         let variable_path: midend::symtab::DefPath = ctx
             .define::<midend::symtab::Variable>(declared_variable)
             .unwrap();
-        ctx.function_mut()
+
+        let declared_id = ctx
+            .function_mut()
             .values_mut()
-            .id_for_variable(variable_path)
+            .id_for_variable(variable_path);
+
+        match self.value {
+            Some(expr) => {
+                let expr_loc = expr.loc.clone();
+                let expr_value = expr.linearize(ctx);
+                let assignment_line =
+                    midend::ir::IrLine::new_assignment(expr_loc, declared_id, expr_value);
+                ctx.function_mut()
+                    .append_statement_to_current_block(assignment_line)
+                    .unwrap();
+            }
+            None => (),
+        }
+
+        declared_id
     }
 }

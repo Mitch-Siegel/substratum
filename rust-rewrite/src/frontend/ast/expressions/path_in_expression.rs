@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::frontend::{ast::*, *};
+use crate::{
+    frontend::{ast::*, *},
+    trace,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PathIdentSegment {
@@ -29,8 +32,8 @@ pub struct PathExprSegmentTree {
 }
 
 impl PathExprSegmentTree {
-    fn expect_no_generics(&self) -> Result<(), String> {
-        match &self.generic_args {
+    fn expect_no_generics(self) -> Result<(), String> {
+        match self.generic_args {
             Some(args) => Err(format!("found generic args at {}, expected none", args.loc)),
             None => Ok(()),
         }
@@ -70,53 +73,110 @@ fn walk_ident_segment(
     ident: String,
     expr_path: &mut midend::symtab::DefPath,
     ctx: &mut treewalk::LinearizeCtx,
-) -> Result<(), String> {
-    let mut search_def_path = ctx.def_path().clone();
+) -> Result<bool, String> {
+    let function_component = midend::symtab::DefPathComponent::Function(
+        midend::symtab::FunctionName::new(ident.clone()),
+    );
 
-    loop {
-        if let Ok(search_subpath) = search_def_path.clone().join(expr_path.clone()) {
-            let function_component = midend::symtab::DefPathComponent::Function(
-                midend::symtab::FunctionName::new(ident.clone()),
-            );
-            if let Ok(function_path) = search_subpath
-                .clone()
-                .with_component(function_component.clone())
-            {
-                if let Ok(_) = ctx.symtab().lookup_decl_at(&function_path) {
-                    expr_path.push(function_component).unwrap();
-                    return Ok(());
-                }
-            }
+    let type_component =
+        midend::symtab::DefPathComponent::Type(midend::types::Syntactic::Named(ident.clone()));
 
-            let variable_component = midend::symtab::DefPathComponent::Variable(ident.clone());
-            if let Ok(variable_path) = search_subpath
-                .clone()
-                .with_component(variable_component.clone())
+    let variable_component = midend::symtab::DefPathComponent::Variable(ident.clone());
+
+    let function_result = match expr_path.clone().with_component(function_component.clone()) {
+        Ok(function_path) => {
+            match ctx
+                .symtab()
+                .lookup_under::<midend::symtab::symbol::Function>(ctx.def_path(), function_path)
             {
-                if let Ok(_) = ctx.symtab().lookup_decl_at(&variable_path) {
-                    expr_path.push(variable_component).unwrap();
-                    return Ok(());
-                }
+                Ok(s) => Some(s.0),
+                _ => None,
             }
         }
+        Err(_) => None,
+    };
 
-        if search_def_path.len() == 0 {
-            break;
-        } else {
-            search_def_path.pop().unwrap();
+    let type_result = match expr_path.clone().with_component(type_component.clone()) {
+        Ok(type_path) => {
+            match ctx
+                .symtab()
+                .lookup_under::<midend::symtab::symbol::TypeDefinition>(ctx.def_path(), type_path)
+            {
+                Ok(s) => Some(s.0),
+                _ => None,
+            }
         }
+        Err(_) => None,
+    };
+
+    let variable_result = match expr_path.clone().with_component(variable_component.clone()) {
+        Ok(variable_path) => {
+            match ctx
+                .symtab()
+                .lookup_under::<midend::symtab::symbol::Variable>(ctx.def_path(), variable_path)
+            {
+                Ok(s) => Some(s.0),
+                _ => None,
+            }
+        }
+        Err(_) => None,
+    };
+
+    let mut results: Vec<midend::symtab::DefPath> =
+        vec![type_result, function_result, variable_result]
+            .into_iter()
+            .flatten()
+            .collect();
+
+    results.sort_by(|path_a, path_b| path_a.len().cmp(&path_b.len()));
+
+    match results.pop() {
+        Some(mut path) => {
+            let last = path.pop().unwrap();
+            let must_end_path = match last {
+                midend::symtab::DefPathComponent::Variable(_)
+                | midend::symtab::DefPathComponent::Function(_) => true,
+                _ => false,
+            };
+            expr_path.push(last).unwrap();
+            Ok(must_end_path)
+        }
+        None => Err(format!(
+            "cannot find symbol {} in scope {}",
+            ident, expr_path
+        )),
     }
+}
 
-    Err(format!(
-        "cannot find function or variable {} in scope {}",
-        ident, expr_path
-    ))
+fn record_monomorphization(
+    path: &midend::symtab::DefPath,
+    maybe_generics: Option<ast::generics::GenericArgsListTree>,
+) {
+    let generics = match maybe_generics {
+        Some(g) => g,
+        None => return,
+    };
+
+    use midend::symtab::DefPathComponent;
+
+    match path.last() {
+        DefPathComponent::Type(_) => {}
+        DefPathComponent::Function(_) => {}
+        _ => panic!(),
+    }
 }
 
 impl treewalk::Linearize<midend::ir::ValueId> for PathInExpressionTree {
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
+        let _span = trace::span_auto_debug!(
+            "treewalk::linearize for PathInexpressionTree @",
+            "{}",
+            self.loc
+        );
         let mut expr_path = midend::symtab::DefPath::empty();
-        for segment in self.segments.into_iter() {
+        let mut segments = self.segments.into_iter();
+        while let Some(segment) = segments.next() {
+            trace::warning!("{}", expr_path);
             match segment.ident {
                 PathIdentSegment::Super => {
                     match expr_path.pop() {
@@ -129,13 +189,33 @@ impl treewalk::Linearize<midend::ir::ValueId> for PathInExpressionTree {
                     segment.expect_no_generics().unwrap();
                 }
                 PathIdentSegment::Ident(name) => {
-                    walk_ident_segment(name, &mut expr_path, ctx).unwrap();
+                    let must_end = walk_ident_segment(name, &mut expr_path, ctx).unwrap();
+                    record_monomorphization(&expr_path, segment.generic_args);
+                    if must_end && (segments.size_hint().0 > 0) {
+                        panic!(
+                            "path {} (ends with {}) has additional unexpected segments",
+                            expr_path,
+                            expr_path.last().name()
+                        )
+                    }
                 }
                 PathIdentSegment::SelfLower => {
-                    walk_ident_segment(String::from("self"), &mut expr_path, ctx).unwrap();
+                    let must_end =
+                        walk_ident_segment(String::from("self"), &mut expr_path, ctx).unwrap();
+                    record_monomorphization(&expr_path, segment.generic_args);
+                    if must_end && (segments.size_hint().0 > 0) {
+                        panic!(
+                            "path {} (ends with {}) has additional unexpected segments",
+                            expr_path,
+                            expr_path.last().name()
+                        )
+                    }
                 }
-                PathIdentSegment::SelfUpper => {}
+                PathIdentSegment::SelfUpper => {
+                    unimplemented!("path segment 'Self' not supported");
+                }
             }
+            trace::warning!("iteration end path: {}", expr_path);
         }
         midend::ir::ValueId::new(1)
     }

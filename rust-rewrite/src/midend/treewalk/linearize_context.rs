@@ -253,7 +253,7 @@ impl LinearizeCtx {
             "Unchecked duplicate generic param"
         );
 
-        trace::warning!("push {:?} to defcontext defpath", component);
+        trace::debug!("push {:?} to defcontext defpath", component);
         self.definition_path.push(component).unwrap();
         let new_def_path = self.def_path().clone();
         self.generics_mut()
@@ -270,7 +270,7 @@ impl LinearizeCtx {
         self.generics_mut().remove_params_at_path(def_path).unwrap();
         let popped = self.definition_path.pop().unwrap();
 
-        trace::warning!("pop {:?} from defcontext defpath", popped);
+        trace::debug!("pop {:?} from defcontext defpath", popped);
 
         if popped == expect {
             Ok(())

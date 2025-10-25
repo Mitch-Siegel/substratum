@@ -355,10 +355,10 @@ impl SymbolTable {
     }
 
     pub fn lookup_under<S>(
-        &mut self,
+        &self,
         def_path: &DefPath,
         child_path: DefPath,
-    ) -> Result<&S, SymbolError>
+    ) -> Result<(DefPath, &S), SymbolError>
     where
         S: Symbol,
         for<'a> &'a S: From<DefResolver<'a>>,
@@ -371,7 +371,7 @@ impl SymbolTable {
                 let scan_def_path = scan_parent_path.clone().join(child_path.clone()).unwrap();
 
                 match self.lookup_at::<S>(&scan_def_path) {
-                    Ok(symbol) => return Ok(symbol),
+                    Ok(symbol) => return Ok((scan_def_path, symbol)),
                     Err(_) => (),
                 }
             }
