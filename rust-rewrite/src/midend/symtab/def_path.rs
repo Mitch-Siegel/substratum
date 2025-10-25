@@ -226,6 +226,13 @@ impl DefPath {
         Ok(self)
     }
 
+    pub fn parent(mut self) -> Option<Self> {
+        match self.pop() {
+            Some(_) => Some(self),
+            None => None,
+        }
+    }
+
     pub fn parent_type_definition(mut self) -> Option<Self> {
         while !self.is_empty() && !self.is_type() {
             self.pop();

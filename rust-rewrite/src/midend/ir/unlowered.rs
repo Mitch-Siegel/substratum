@@ -31,7 +31,11 @@ impl std::fmt::Display for Operation {
         match self {
             Self::Match(_) => write!(f, "match"),
             Self::Discriminant(_) => write!(f, "discriminant"),
-            Self::GetFieldPointer(_) => write!(f, "field pointer"),
+            Self::GetFieldPointer(fp) => write!(
+                f,
+                "field pointer ({} = &{}.{})",
+                fp.destination, fp.receiver, fp.field_name
+            ),
         }
     }
 }

@@ -98,12 +98,18 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
 
     functions_to_graphviz(&symtab, "_unlowered".into());
 
+    for path in symtab.decls() {
+        println!("{}", path);
+    }
+    /*
     let all_arguments = symtab::Visitor::visit(&symtab, get_all_function_arguments);
 
     monomorphization::monomorphize_generics(&mut symtab);
     assign_types_to_function_arguments(&mut symtab, all_arguments);
+    */
     symtab = ir::lowering::lower_symtab(symtab);
     ir::lowering::assert_lowered(&symtab);
+
     functions_to_graphviz(&symtab, "".into());
 
     //tracing::debug!("collapse scopes");
