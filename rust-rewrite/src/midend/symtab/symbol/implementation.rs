@@ -2,16 +2,16 @@ use crate::midend::symtab::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ImplementationName {
-    pub generic_params: Vec<String>,
+    pub generic_params: types::GenericParamsList,
     pub implemented_for: types::Syntactic,
-    pub implemented_for_generic_params: Vec<String>,
+    pub implemented_for_generic_params: types::GenericParamsList,
 }
 
 impl ImplementationName {
     pub fn new(
-        generic_params: Vec<String>,
+        generic_params: types::GenericParamsList,
         implemented_for: types::Syntactic,
-        implemented_for_generic_params: Vec<String>,
+        implemented_for_generic_params: types::GenericParamsList,
     ) -> Self {
         Self {
             generic_params,
@@ -64,9 +64,9 @@ pub struct Implementation {
 
 impl Implementation {
     pub fn new(
-        generic_params: Vec<String>,
+        generic_params: types::GenericParamsList,
         implemented_for: types::Syntactic,
-        implemented_for_generic_params: Vec<String>,
+        implemented_for_generic_params: types::GenericParamsList,
     ) -> Self {
         Self {
             name: ImplementationName {

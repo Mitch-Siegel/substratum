@@ -29,7 +29,7 @@ impl std::fmt::Display for StructField {
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct StructRepr {
     pub name: String,
-    generic_params: Vec<String>,
+    pub generic_params: types::GenericParamsList,
     field_order: Vec<String>,
     fields: BTreeMap<String, StructField>,
     size: Option<usize>,
@@ -39,7 +39,7 @@ pub struct StructRepr {
 impl StructRepr {
     pub fn new(
         name: String,
-        generic_params: Vec<String>,
+        generic_params: types::GenericParamsList,
         field_definitions: Vec<(String, types::Syntactic)>,
     ) -> Result<Self, StructField> {
         let field_order: Vec<String> = field_definitions

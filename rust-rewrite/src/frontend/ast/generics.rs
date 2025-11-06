@@ -38,6 +38,19 @@ impl GenericParamsListTree {
             .map(|param| (param.name, param.loc))
             .collect()
     }
+
+    pub fn linearize_ctxless(self) -> Vec<(SourceLoc, midend::types::GenericParam)> {
+        let generic_params_vec = self.as_vec_with_locs();
+        generic_params_vec
+            .into_iter()
+            .map(|(param, loc)| {
+                (
+                    loc,
+                    midend::types::type_interner::GenericParam::TypeParam(param),
+                )
+            })
+            .collect()
+    }
 }
 
 impl Display for GenericParamsListTree {
@@ -56,21 +69,24 @@ impl Display for GenericParamsListTree {
         Ok(())
     }
 }
-impl treewalk::Linearize<Vec<String>> for GenericParamsListTree {
-    #[tracing::instrument(skip(self), level = "trace")]
-    fn linearize(self, _: &mut treewalk::LinearizeCtx) -> Vec<String> {
-        let mut generic_params_set = BTreeSet::<String>::new();
 
-        let generic_params_vec = self.as_vec_with_locs();
-        generic_params_vec
+impl treewalk::Linearize<midend::types::GenericParamsList> for GenericParamsListTree {
+    #[tracing::instrument(skip(self), level = "trace")]
+    fn linearize(self, _: &mut treewalk::LinearizeCtx) -> midend::types::GenericParamsList {
+        let mut generic_params_set = BTreeSet::<midend::types::GenericParam>::new();
+
+        let ctxless = self.linearize_ctxless();
+
+        ctxless
             .into_iter()
-            .map(|(param, loc)| {
+            .map(|(loc, param)| {
                 if !generic_params_set.insert(param.clone()) {
-                    panic!("Duplicate generic parameter {} @ {}", param, loc)
+                    panic!("duplicate generic parameter {} @ {}", param, loc)
                 }
+
                 param
             })
-            .collect()
+            .collect::<midend::types::GenericParamsList>()
     }
 }
 

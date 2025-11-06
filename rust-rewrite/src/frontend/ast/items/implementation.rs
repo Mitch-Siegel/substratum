@@ -56,14 +56,25 @@ impl Display for ImplementationTree {
 impl treewalk::CollectSymbols for ImplementationTree {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
         let generic_params_as_vec = match &self.generic_params {
-            Some(params) => params.clone().as_vec(),
-            None => Vec::new(),
+            Some(params) => params
+                .clone()
+                .linearize_ctxless()
+                .into_iter()
+                .map(|(_, p)| p)
+                .collect(),
+            None => midend::types::GenericParamsList::new(),
         };
 
-        let implemented_for_generic_params_as_vec = match &self.implemented_for_generic_params {
-            Some(params) => params.clone().as_vec(),
-            None => Vec::new(),
-        };
+        let implemented_for_generic_params_as_vec: midend::types::GenericParamsList =
+            match &self.implemented_for_generic_params {
+                Some(params) => params
+                    .clone()
+                    .linearize_ctxless()
+                    .into_iter()
+                    .map(|(_, p)| p)
+                    .collect(),
+                None => Vec::new(),
+            };
 
         let impl_def_path_component = midend::symtab::DefPathComponent::Implementation(
             midend::symtab::ImplementationName::new(
@@ -90,15 +101,16 @@ impl treewalk::Linearize<()> for ImplementationTree {
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
         let implemented_for_type = ctx.resolve_type_name(&self.for_).unwrap();
 
-        let generic_params: Vec<String> = match self.generic_params {
+        let generic_params: midend::types::GenericParamsList = match self.generic_params {
             Some(params) => params.linearize(ctx),
             None => Vec::new(),
         };
 
-        let implemented_for_generic_params = match self.implemented_for_generic_params {
-            Some(params) => params.linearize(ctx),
-            None => Vec::new(),
-        };
+        let implemented_for_generic_params: midend::types::GenericParamsList =
+            match self.implemented_for_generic_params {
+                Some(params) => params.linearize(ctx),
+                None => Vec::new(),
+            };
 
         let impl_def_path_component = midend::symtab::DefPathComponent::Implementation(
             midend::symtab::ImplementationName::new(

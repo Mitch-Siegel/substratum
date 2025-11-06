@@ -8,7 +8,11 @@ fn create_core_types(symtab: &mut SymbolTable) {
         .unwrap();
 
     {
-        let unit_definition = TypeDefinition::new(types::Syntactic::Unit, TypeRepr::Unit);
+        let unit_definition = TypeDefinition::new(
+            types::Syntactic::Unit,
+            types::GenericParamsList::new(),
+            TypeRepr::Unit,
+        );
         symtab
             .define(core_def_path.clone(), unit_definition)
             .unwrap();
@@ -22,6 +26,7 @@ fn create_core_types(symtab: &mut SymbolTable) {
     ] {
         let unsigned_definition = TypeDefinition::new(
             type_.clone(),
+            types::GenericParamsList::new(),
             TypeRepr::UnsignedInteger(PrimitiveIntegerRepr::new(size)),
         );
 
@@ -38,6 +43,7 @@ fn create_core_types(symtab: &mut SymbolTable) {
     ] {
         let signed_definition = TypeDefinition::new(
             type_.clone(),
+            types::GenericParamsList::new(),
             TypeRepr::SignedInteger(PrimitiveIntegerRepr::new(size)),
         );
 

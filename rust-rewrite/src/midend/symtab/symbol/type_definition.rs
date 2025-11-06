@@ -13,12 +13,21 @@ pub use struct_definition::*;
 #[derive(Debug, Clone, Serialize)]
 pub struct TypeDefinition {
     type_: types::Syntactic,
+    generic_params: types::GenericParamsList,
     pub repr: TypeRepr,
 }
 
 impl TypeDefinition {
-    pub fn new(type_: types::Syntactic, repr: TypeRepr) -> Self {
-        TypeDefinition { type_, repr }
+    pub fn new(
+        type_: types::Syntactic,
+        generic_params: Vec<types::type_interner::GenericParam>,
+        repr: TypeRepr,
+    ) -> Self {
+        TypeDefinition {
+            type_,
+            generic_params,
+            repr,
+        }
     }
 
     pub fn syntactic(&self) -> &types::Syntactic {

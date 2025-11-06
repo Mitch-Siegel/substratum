@@ -72,9 +72,9 @@ impl treewalk::CollectSymbols for StructDefinitionTree {
 impl treewalk::Linearize<midend::symtab::StructRepr> for StructDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::StructRepr {
-        let generic_params = match self.generic_params {
+        let generic_params: midend::types::GenericParamsList = match self.generic_params {
             Some(params) => params.linearize(ctx),
-            None => Vec::new(),
+            None => midend::types::GenericParamsList::new(),
         };
 
         let type_def_path_component = midend::symtab::DefPathComponent::Type(

@@ -6,8 +6,8 @@ use crate::{
 use std::collections::{BTreeSet, HashMap};
 
 pub struct GenericParamsContext {
-    params_by_path: HashMap<DefPath, BTreeSet<String>>,
-    all_params: BTreeSet<String>,
+    params_by_path: HashMap<DefPath, BTreeSet<types::GenericParam>>,
+    all_params: BTreeSet<types::GenericParam>,
 }
 
 impl GenericParamsContext {
@@ -21,9 +21,9 @@ impl GenericParamsContext {
     pub fn add_params_at_path(
         &mut self,
         def_path: DefPath,
-        params: BTreeSet<String>,
-    ) -> Result<(), BTreeSet<String>> {
-        let duplicated: BTreeSet<String> = self
+        params: BTreeSet<types::GenericParam>,
+    ) -> Result<(), BTreeSet<types::GenericParam>> {
+        let duplicated: BTreeSet<types::GenericParam> = self
             .all_params
             .intersection(&params)
             .map(|param| param.clone())
@@ -44,7 +44,10 @@ impl GenericParamsContext {
         Ok(())
     }
 
-    fn remove_params_at_path(&mut self, def_path: DefPath) -> Result<BTreeSet<String>, ()> {
+    fn remove_params_at_path(
+        &mut self,
+        def_path: DefPath,
+    ) -> Result<BTreeSet<types::GenericParam>, ()> {
         let params_at_path = match self.params_by_path.remove(&def_path) {
             Some(params) => params,
             None => return Err(()),
@@ -58,7 +61,7 @@ impl GenericParamsContext {
         Ok(params_at_path)
     }
 
-    fn get(&self, def_path: &DefPath) -> Option<&BTreeSet<String>> {
+    fn get(&self, def_path: &DefPath) -> Option<&BTreeSet<types::GenericParam>> {
         self.params_by_path.get(def_path)
     }
 }
@@ -242,11 +245,15 @@ impl LinearizeCtx {
         }
     }
 
-    pub fn push_def_path(&mut self, component: DefPathComponent, generic_params: &Vec<String>) {
+    pub fn push_def_path(
+        &mut self,
+        component: DefPathComponent,
+        generic_params: &types::GenericParamsList,
+    ) {
         let params_set = generic_params
             .iter()
             .map(|param| param.clone())
-            .collect::<BTreeSet<String>>();
+            .collect::<BTreeSet<types::GenericParam>>();
         assert_eq!(
             params_set.len(),
             generic_params.len(),
@@ -328,11 +335,13 @@ impl LinearizeCtx {
         let mut search_def_path = self.def_path().clone();
         while search_def_path.len() > found_def_path.len() {
             match self.generics().get(&search_def_path) {
-                Some(params) => match params.get(name) {
-                    Some(param) => {
-                        type_ = Some(types::Syntactic::GenericParam(param.clone()));
-                        break;
-                    }
+                Some(params) => match params.get(&types::GenericParam::TypeParam(name.into())) {
+                    Some(param) => match param {
+                        types::GenericParam::TypeParam(type_param_name) => {
+                            type_ = Some(types::Syntactic::GenericParam(type_param_name.clone()));
+                            break;
+                        }
+                    },
                     None => (),
                 },
                 None => (),
