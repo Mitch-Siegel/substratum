@@ -21,10 +21,16 @@ pub enum Syntactic {
 }
 
 impl Syntactic {
-    pub fn resolve(&self, ctx: &treewalk::LinearizeCtx) -> Option<Semantic> {
+    pub fn resolve(
+        &self,
+        generic_params: types::ParamSubstMap,
+        ctx: &treewalk::LinearizeCtx,
+    ) -> Option<Semantic> {
         let (_def, path) = ctx.lookup_with_path::<symtab::TypeDefinition>(self).ok()?;
 
-        ctx.symtab().types.semantic_for_defpath(&path)
+        ctx.symtab()
+            .types
+            .semantic_for_defpath(path, generic_params)
     }
 }
 

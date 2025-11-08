@@ -59,7 +59,11 @@ fn create_enum_variant_constructor(
 
     let (mut block_mgr, current_block) = midend::ir::BlockManager::new(
         symtab
-            .semantic_type_for_syntactic(&enum_path, &midend::types::Syntactic::Unit)
+            .semantic_type_for_syntactic(
+                &enum_path,
+                midend::types::ParamSubstMap::empty(),
+                &midend::types::Syntactic::Unit,
+            )
             .unwrap(),
         function_path.clone(),
     );

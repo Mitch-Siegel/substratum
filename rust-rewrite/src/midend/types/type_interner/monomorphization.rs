@@ -17,77 +17,91 @@ impl std::fmt::Display for GenericParam {
 
 pub type GenericParamsList = Vec<GenericParam>;
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 enum ParamSubst {
     Concrete(types::Semantic),
     Dependent(GenericParam),
 }
 
-#[derive(Debug, Default, Hash, PartialEq, Eq)]
-pub struct ParamSubstMap(BTreeMap<GenericParam, ParamSubst>);
+#[derive(Debug, Clone, Default, Hash, PartialEq, Eq)]
+pub struct ParamSubstMap {
+    pub substitutions: BTreeMap<GenericParam, ParamSubst>,
+}
+
 impl ParamSubstMap {
+    pub fn new(substitutions: Vec<(GenericParam, ParamSubst)>) -> Self {
+        Self {
+            substitutions: substitutions.into_iter().collect(),
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self::new(Vec::new())
+    }
+
     pub fn is_concrete(&self) -> bool {
-        self.0
+        self.substitutions
             .iter()
             .filter_map(|(_, subst)| match subst {
                 ParamSubst::Concrete(_) => Some(()),
                 ParamSubst::Dependent(_) => None,
             })
             .count()
-            == self.0.len()
+            == self.substitutions.len()
+    }
+
+    // given a set of params, convert this map into a map containing *only* keys for the params, or
+    // Err if not all params exist as keys
+    pub fn minimal_over_params(
+        mut self,
+        params: HashSet<GenericParam>,
+    ) -> Result<Self, &'static str> {
+        self.substitutions = self
+            .substitutions
+            .into_iter()
+            .map(|(k, v)| {
+                if params.contains(&k) {
+                    Some((k, v))
+                } else {
+                    None
+                }
+            })
+            .flatten()
+            .collect();
+
+        Ok(self)
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
-pub struct MonomorphSet {
-    instances: HashMap<ParamSubstMap, Option<types::Semantic>>,
+#[derive(Debug)]
+pub struct InstanceSet {
+    underlying_definition: symtab::TypeDefinition,
+    instances: HashSet<ParamSubstMap>,
 }
 
-impl MonomorphSet {
-    pub fn new() -> Self {
+impl InstanceSet {
+    pub fn new(underlying_definition: symtab::TypeDefinition) -> Self {
         Self {
-            instances: HashMap::new(),
+            underlying_definition,
+            instances: std::iter::once(ParamSubstMap::empty()).collect(),
         }
     }
 
-    pub fn insert(&mut self, params: ParamSubstMap, ty_: Option<types::Semantic>) {
-        match self.instances.insert(params, ty_) {
-            Some(_existing) => panic!("existing generic monomorphization"),
-            None => (),
-        }
-    }
-}
-
-pub struct MonomorphManager {
-    monomorphs: HashMap<DefPath, MonomorphSet>,
-}
-
-impl MonomorphManager {
-    pub fn new() -> Self {
-        Self {
-            monomorphs: HashMap::new(),
+    pub fn insert(&mut self, params: ParamSubstMap) -> Result<(), ()> {
+        if self.instances.insert(params) {
+            Err(())
+        } else {
+            Ok(())
         }
     }
 
-    pub fn add_concrete_monomorph(
-        &mut self,
-        def_path: DefPath,
-        params: ParamSubstMap,
-        ty_: types::Semantic,
-    ) {
-        assert!(params.is_concrete());
-        self.monomorphs
-            .entry(def_path)
-            .or_default()
-            .insert(params, Some(ty_));
-    }
-
-    pub fn add_dependent_monomorph(&mut self, def_path: DefPath, params: ParamSubstMap) {
-        assert!(!params.is_concrete());
-
-        self.monomorphs
-            .entry(def_path)
-            .or_default()
-            .insert(params, None);
+    pub fn get_underlying(
+        &self,
+        params: &ParamSubstMap,
+    ) -> Result<&symtab::TypeDefinition, String> {
+        match self.instances.get(params) {
+            Some(_) => Ok(&self.underlying_definition),
+            _ => Err("no instance recorded for given params".into()),
+        }
     }
 }

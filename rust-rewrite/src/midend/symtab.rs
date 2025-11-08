@@ -395,10 +395,14 @@ impl SymbolTable {
     pub fn semantic_type_for_syntactic(
         &self,
         search_def_path: &DefPath,
+        generic_params: types::ParamSubstMap,
         ty_: &types::Syntactic,
     ) -> Result<types::Semantic, SymbolError> {
         let (_, path) = self.lookup_with_path::<TypeDefinition>(search_def_path, ty_)?;
-        Ok(self.types.semantic_for_defpath(&path).unwrap())
+        Ok(self
+            .types
+            .semantic_for_defpath(path, generic_params)
+            .unwrap())
     }
 }
 

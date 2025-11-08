@@ -66,6 +66,7 @@ fn assign_types_to_function_arguments(
                 let argument_type = symtab
                     .semantic_type_for_syntactic(
                         &function_path,
+                        types::ParamSubstMap::empty(),
                         argument
                             .type_()
                             .expect("function arguments must have a type"),

@@ -1,5 +1,5 @@
 use crate::{
-    midend::{symtab::*, treewalk::*},
+    midend::{symtab::*, treewalk::*, *},
     trace,
 };
 
@@ -143,7 +143,11 @@ impl LinearizeCtx {
     pub fn create_function(&mut self, prototype: FunctionPrototype) -> Result<(), SymbolError> {
         let unit_type_id = self
             .symtab()
-            .semantic_type_for_syntactic(&self.definition_path, &types::Syntactic::Unit)
+            .semantic_type_for_syntactic(
+                &self.definition_path,
+                types::ParamSubstMap::empty(),
+                &types::Syntactic::Unit,
+            )
             .unwrap();
 
         self.define_at::<symtab::Function>(
@@ -313,7 +317,7 @@ impl LinearizeCtx {
     }
 
     fn definition_for_semantic_type(&self, type_: &types::Semantic) -> Option<&TypeDefinition> {
-        self.symtab().types.get_type_definition(type_)
+        Some(self.symtab().types.get_type_definition(type_).unwrap())
     }
 
     // resolves a string type name to either a defined type or a generic param

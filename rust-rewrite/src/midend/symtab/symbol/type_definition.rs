@@ -47,13 +47,14 @@ impl<'a> From<DefResolver<'a>> for &'a TypeDefinition {
 }
 impl<'a> From<MutDefResolver<'a>> for &'a mut TypeDefinition {
     fn from(resolver: MutDefResolver<'a>) -> Self {
-        match resolver.to_resolve {
+        panic!("type definitions may not be mutated");
+        /*match resolver.to_resolve {
             SymbolDef::Type(type_id) => resolver
                 .type_interner
                 .get_type_definition_mut(type_id)
                 .unwrap(),
             symbol => panic!("Unexpected symbol seen for type: {}", symbol),
-        }
+        }*/
     }
 }
 

@@ -43,30 +43,46 @@ impl SemanticFunction {
     }
 }
 
-impl TryFrom<(Syntactic, &symtab::DefPath, &symtab::SymbolTable)> for SemanticFunction {
+impl
+    TryFrom<(
+        Syntactic,
+        ParamSubstMap,
+        &symtab::DefPath,
+        &symtab::SymbolTable,
+    )> for SemanticFunction
+{
     type Error = SemanticFunctionError;
     fn try_from(
-        value: (Syntactic, &symtab::DefPath, &symtab::SymbolTable),
+        value: (
+            Syntactic,
+            ParamSubstMap,
+            &symtab::DefPath,
+            &symtab::SymbolTable,
+        ),
     ) -> Result<Self, Self::Error> {
-        let (syntactic, def_path, symtab) = value;
+        let (syntactic, generic_params, def_path, symtab) = value;
 
         match &syntactic {
             Syntactic::Function(args, return_type) => {
                 let mut semantic_args = Vec::<Semantic>::new();
                 for arg in args.iter() {
-                    match symtab.semantic_type_for_syntactic(def_path, arg) {
+                    match symtab.semantic_type_for_syntactic(def_path, generic_params.clone(), arg)
+                    {
                         Ok(ty_) => semantic_args.push(ty_),
                         _ => Err(SemanticFunctionError::UnresolvableType(arg.clone()))?,
                     }
                 }
 
-                let semantic_return_type =
-                    match symtab.semantic_type_for_syntactic(def_path, &return_type) {
-                        Ok(ty_) => ty_,
-                        _ => Err(SemanticFunctionError::UnresolvableType(
-                            *return_type.clone(),
-                        ))?,
-                    };
+                let semantic_return_type = match symtab.semantic_type_for_syntactic(
+                    def_path,
+                    generic_params,
+                    &return_type,
+                ) {
+                    Ok(ty_) => ty_,
+                    _ => Err(SemanticFunctionError::UnresolvableType(
+                        *return_type.clone(),
+                    ))?,
+                };
 
                 Ok(Self::new(syntactic, semantic_args, semantic_return_type))
             }
