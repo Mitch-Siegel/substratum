@@ -6,18 +6,26 @@ pub trait OperandTypeInference {
 }
 
 pub struct TypeInferenceContext<'a> {
-    pub symtab: &'a mut symtab::SymbolTable,
-    pub values: &'a mut ValueInterner,
+    pub _symtab: &'a mut symtab::SymbolTable,
+    pub _values: &'a mut ValueInterner,
 }
 
 impl<'a> TypeInferenceContext<'a> {
-    pub fn new(symtab: &'a mut symtab::SymbolTable, values: &'a mut ValueInterner) -> Self {
-        Self { symtab, values }
+    pub fn new(_symtab: &'a mut symtab::SymbolTable, _values: &'a mut ValueInterner) -> Self {
+        Self { _symtab, _values }
     }
 }
 
 pub enum TypePropagationError {
     ValueError(value::ValueError),
+}
+
+impl std::fmt::Display for TypePropagationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ValueError(ve) => write!(f, "{}", ve),
+        }
+    }
 }
 
 impl From<ValueError> for TypePropagationError {
@@ -27,19 +35,19 @@ impl From<ValueError> for TypePropagationError {
 }
 
 impl<'a> TypeInferenceContext<'a> {
-    pub fn type_for_value(&self, value_id: &ValueId) -> Option<types::Semantic> {
-        match self.values.semantic_for_id(value_id) {
+    pub fn _type_for_value(&self, value_id: &ValueId) -> Option<types::Semantic> {
+        match self._values.semantic_for_id(value_id) {
             Ok(ty) => Some(ty),
             _ => None,
         }
     }
 
-    pub fn assign_type_to_value(
+    pub fn _assign_type_to_value(
         &mut self,
         value_id: &ValueId,
         ty: types::Semantic,
     ) -> Result<(), TypePropagationError> {
-        let value = self.values.value_mut_for_id(value_id)?;
+        let value = self._values.value_mut_for_id(value_id)?;
         value.set_type(ty)?;
         Ok(())
     }

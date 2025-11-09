@@ -1,6 +1,6 @@
-use crate::midend::{symtab::*, *};
+use crate::midend::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GenericParam {
@@ -18,7 +18,7 @@ impl std::fmt::Display for GenericParam {
 pub type GenericParamsList = Vec<GenericParam>;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-enum ParamSubst {
+pub enum ParamSubst {
     Concrete(types::Semantic),
     Dependent(GenericParam),
 }
@@ -87,12 +87,8 @@ impl InstanceSet {
         }
     }
 
-    pub fn insert(&mut self, params: ParamSubstMap) -> Result<(), ()> {
-        if self.instances.insert(params) {
-            Err(())
-        } else {
-            Ok(())
-        }
+    pub fn insert(&mut self, params: ParamSubstMap) -> bool {
+        self.instances.insert(params)
     }
 
     pub fn get_underlying(

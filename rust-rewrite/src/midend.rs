@@ -1,9 +1,7 @@
 use crate::{frontend, trace};
-use std::collections::BTreeMap;
 
 mod idfa;
 pub mod ir;
-mod monomorphization;
 mod optimization;
 pub mod treewalk;
 //mod ssa_gen;
@@ -32,63 +30,6 @@ fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
         },
         suffix,
     );
-}
-
-fn get_all_function_arguments(
-    path: &symtab::DefPath,
-    def: &symtab::SymbolDef,
-    ctx: &mut BTreeMap<symtab::DefPath, Vec<symtab::DefPath>>,
-) {
-    match def {
-        symtab::SymbolDef::Function(f) => {
-            let entry = ctx.entry(path.clone()).or_default();
-            for arg in &f.prototype.arguments {
-                entry.push(
-                    path.clone()
-                        .with_component(symtab::DefPathComponent::Variable(arg.name.clone()))
-                        .unwrap(),
-                );
-            }
-        }
-        _ => (),
-    }
-}
-
-fn assign_types_to_function_arguments(
-    symtab: &mut symtab::SymbolTable,
-    all_arguments: BTreeMap<symtab::DefPath, Vec<symtab::DefPath>>,
-) {
-    for (function_path, arguments) in all_arguments.into_iter() {
-        let arg_types: BTreeMap<symtab::DefPath, types::Semantic> = arguments
-            .into_iter()
-            .map(|arg_path| {
-                let argument = symtab.lookup_at::<symtab::Variable>(&arg_path).unwrap();
-                let argument_type = symtab
-                    .semantic_type_for_syntactic(
-                        &function_path,
-                        types::ParamSubstMap::empty(),
-                        argument
-                            .type_()
-                            .expect("function arguments must have a type"),
-                    )
-                    .unwrap();
-                (arg_path, argument_type)
-            })
-            .collect();
-
-        let function = symtab
-            .lookup_at_mut::<symtab::Function>(&function_path)
-            .unwrap();
-
-        if let Some(cf) = &mut function.control_flow {
-            let values = cf.values_mut();
-            for (arg, ty_) in arg_types {
-                println!("assign type {} to arg {:?}", ty_, arg);
-                let arg_value = values.id_for_variable(arg);
-                values.assign_type_to_id(&arg_value, ty_).unwrap();
-            }
-        }
-    }
 }
 
 pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> symtab::SymbolTable {

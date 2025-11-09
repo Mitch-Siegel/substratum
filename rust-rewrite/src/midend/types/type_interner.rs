@@ -5,7 +5,6 @@ pub mod monomorphization;
 pub mod semantic_function;
 
 pub use monomorphization::*;
-pub use semantic_function::*;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 struct DefPathWithParamSubsts {
@@ -75,6 +74,38 @@ impl Interner {
         self.reverse_id_mappings
             .get(&DefPathWithParamSubsts::new(def_path, param_substs))
             .cloned()
+    }
+
+    pub fn record_monomorphization(
+        &mut self,
+        def_path: symtab::DefPath,
+        generic_params: ParamSubstMap,
+    ) -> Result<Semantic, symtab::SymbolError> {
+        let instances = match self.generic_instances.get_mut(&def_path) {
+            Some(i) => Ok(i),
+            None => {
+                let mut parent_path = def_path.clone();
+                let last_component = parent_path.pop().unwrap();
+                Err(symtab::SymbolError::Undefined(parent_path, last_component))
+            }
+        }?;
+
+        let path_with_params = DefPathWithParamSubsts::new(def_path, generic_params.clone());
+
+        if instances.insert(generic_params) {
+            let next_id = self.next_id();
+            assert!(self
+                .id_mappings
+                .insert(next_id, path_with_params.clone())
+                .is_none());
+            assert!(self
+                .reverse_id_mappings
+                .insert(path_with_params.clone(), next_id)
+                .is_none());
+            Ok(next_id)
+        } else {
+            Ok(*self.reverse_id_mappings.get(&path_with_params).unwrap())
+        }
     }
 
     pub fn get_type_definition(&self, id: &Semantic) -> Result<&symtab::TypeDefinition, String> {

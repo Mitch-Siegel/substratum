@@ -5,13 +5,6 @@ struct MatchArmContext<'a> {
     pub scrutinee: ValueId,
 }
 
-struct MatchArmResult<'a> {
-    pub arm_label: usize, // the label of the arm to which we should jump if matched
-    pub result_value: ValueId,
-    pub comparison_value: ValueId,
-    pub ctx: &'a mut treewalk::LinearizeCtx,
-}
-
 #[derive(Debug, Serialize, PartialEq, Eq, Clone)]
 pub struct MatchArm {
     pub pattern: frontend::ast::expressions::match_expression::PatternTree,
@@ -62,7 +55,7 @@ fn lower_pattern<'a>(
             match &scrutinee_type_def.repr {
                 symtab::TypeRepr::Enum(_e) => LoweredPattern::Constructor(
                     PatternConstructor::EnumVariant {
-                        ty_: scrutinee_type,
+                        ty: scrutinee_type,
                         variant: name,
                     },
                     subpatterns
@@ -82,20 +75,52 @@ fn lower_pattern<'a>(
 #[derive(Debug)]
 pub enum PatternConstructor {
     EnumVariant {
-        ty_: types::Semantic,
+        ty: types::Semantic,
         variant: String,
     },
-    Struct {
-        ty_: types::Semantic,
-    },
+    /*Struct {
+        ty: types::Semantic,
+    },*/
     Constant(usize),
+}
+
+impl std::fmt::Display for PatternConstructor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EnumVariant{ty, variant} => write!(f, "enum variant {}::{}", ty, variant),
+            //Self::Struct{ty} => write!(f, "struct {}", ty),
+            Self::Constant(constant) => write!(f, "constant {}", constant),
+        }
+    }
 }
 
 #[derive(Debug)]
 pub enum LoweredPattern {
     Constructor(PatternConstructor, Vec<LoweredPattern>), // fields = subpatterns
     Identifier(String),
-    Wildcard,
+    //Wildcard,
+}
+
+impl std::fmt::Display for LoweredPattern {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Constructor(pat, subpats) => {write!(f, "{} [", pat)?;
+                let mut first = true;
+                for subpat in subpats {
+                    if !first {
+                        write!(f, ", {}", subpat)?;
+                    }
+                    else {
+                        write!(f, "{}", subpat)?;
+                        first = false;
+                    }
+                }
+                write!(f, "]")
+            }
+            Self::Identifier(ident) => write!(f, "{}", ident),
+            //Self::Wildcard => write!(f, "*"),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]

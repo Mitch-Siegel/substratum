@@ -37,10 +37,6 @@ impl SemanticFunction {
             return_value,
         }
     }
-
-    pub fn syntactic(&self) -> &Syntactic {
-        &self.syntactic
-    }
 }
 
 impl

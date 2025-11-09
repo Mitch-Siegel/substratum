@@ -21,13 +21,6 @@ impl CollectCtx {
         &self.definition_path
     }
 
-    pub fn lookup_decl(
-        &self,
-        symbol: symtab::DefPathComponent,
-    ) -> Result<symtab::DefPath, symtab::SymbolError> {
-        self.symtab.lookup_decl(&self.definition_path, &symbol)
-    }
-
     pub fn declare(
         &mut self,
         symbol_component: symtab::DefPathComponent,

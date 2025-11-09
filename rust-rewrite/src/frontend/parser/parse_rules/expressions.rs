@@ -1,7 +1,6 @@
 use crate::frontend::parser::parse_rules::*;
 
 mod arithmetic;
-mod assignment;
 mod block_expression;
 mod calls;
 mod field;

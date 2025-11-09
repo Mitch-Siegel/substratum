@@ -110,7 +110,9 @@ fn create_enum_variant_constructor(
 
     let ctor_function =
         midend::symtab::Function::new(prototype, Some(midend::ir::ControlFlow::from(block_mgr)));
-    symtab.define(function_path.parent().unwrap(), ctor_function);
+    symtab
+        .define(function_path.parent().unwrap(), ctor_function)
+        .unwrap();
 }
 
 impl treewalk::Linearize<midend::symtab::enum_definition::EnumVariantRepr> for EnumVariantDataTree {

@@ -10,7 +10,6 @@ pub mod symbol;
 pub mod visitor;
 
 pub use def_path::*;
-use monomorphization::*;
 pub use symbol::*;
 pub use visitor::*;
 //pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};

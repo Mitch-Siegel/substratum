@@ -152,7 +152,7 @@ fn record_monomorphization(
     path: &midend::symtab::DefPath,
     maybe_generics: Option<ast::generics::GenericArgsListTree>,
 ) {
-    let generics = match maybe_generics {
+    let _generics = match maybe_generics {
         Some(g) => g,
         None => return,
     };

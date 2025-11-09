@@ -46,7 +46,7 @@ impl<'a> From<DefResolver<'a>> for &'a TypeDefinition {
     }
 }
 impl<'a> From<MutDefResolver<'a>> for &'a mut TypeDefinition {
-    fn from(resolver: MutDefResolver<'a>) -> Self {
+    fn from(_resolver: MutDefResolver<'a>) -> Self {
         panic!("type definitions may not be mutated");
         /*match resolver.to_resolve {
             SymbolDef::Type(type_id) => resolver

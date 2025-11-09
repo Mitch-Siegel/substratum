@@ -1,5 +1,5 @@
 use crate::{
-    midend::{symtab::*, treewalk::*, *},
+    midend::{symtab::*, treewalk::*},
     trace,
 };
 
@@ -316,10 +316,6 @@ impl LinearizeCtx {
             .1)
     }
 
-    fn definition_for_semantic_type(&self, type_: &types::Semantic) -> Option<&TypeDefinition> {
-        Some(self.symtab().types.get_type_definition(type_).unwrap())
-    }
-
     // resolves a string type name to either a defined type or a generic param
     pub fn resolve_type_name(&self, name: &str) -> Result<types::Syntactic, SymbolError> {
         // first, lookup the type in the Symbol table
@@ -382,6 +378,7 @@ impl LinearizeCtx {
         self.symtab().lookup_with_path::<S>(&self.def_path(), key)
     }
 
+    #[allow(dead_code)]
     fn lookup_mut<S>(&mut self, key: &<S as Symbol>::SymbolKey) -> Result<&mut S, SymbolError>
     where
         S: Symbol,
@@ -437,22 +434,7 @@ impl LinearizeCtx {
         self.symtab_mut().define::<S>(def_path, symbol)
     }
 
-    fn lookup_implemented_function(
-        &self,
-        receiver_type: &types::Syntactic,
-        name: &str,
-    ) -> Result<&Function, SymbolError> {
-        let (_, receiver_type_definition_path) =
-            self.lookup_with_path::<TypeDefinition>(receiver_type)?;
-
-        self.lookup_at::<Function>(
-            &receiver_type_definition_path
-                .clone()
-                .with_component(FunctionName { name: name.into() }.into())
-                .unwrap(),
-        )
-    }
-
+    #[allow(dead_code)]
     fn self_type(&self) -> Option<types::Syntactic> {
         let mut search_def_path = self.def_path().clone();
         loop {

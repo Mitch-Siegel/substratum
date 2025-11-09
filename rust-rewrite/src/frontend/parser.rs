@@ -129,13 +129,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn expect_token_with_loc(&mut self, expected: Token) -> Result<(Token, SourceLoc), ParseError> {
-        match self.expect_token(expected) {
-            Ok(token) => Ok((token, self.last_match.clone())),
-            Err(e) => Err(e),
-        }
-    }
-
     #[track_caller]
     fn unexpected_token<T>(&mut self, expected_tokens: &[Token]) -> Result<T, ParseError> {
         let (current_parse_start_loc, current_parse_string) = self

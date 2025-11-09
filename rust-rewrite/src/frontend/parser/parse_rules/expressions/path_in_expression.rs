@@ -2,7 +2,7 @@ use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
     fn parse_ident_segment(&mut self) -> Result<ast::expressions::PathIdentSegment, ParseError> {
-        let (loc, _span) = self.start_parsing("path ident segment")?;
+        let (_loc, _span) = self.start_parsing("path ident segment")?;
 
         let segment = match self.peek_token()? {
             Token::Identifier(_) => {

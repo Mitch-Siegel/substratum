@@ -3,9 +3,23 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub enum ValueError {
-    NoSuchValueId,
-    HasNoType,
-    AlreadyHasType(types::Semantic),
+    NoSuchValueId(ValueId),
+    IdHasNoType(ValueId),
+    ValueHasNoType,
+    ValueAlreadyHasType(types::Semantic),
+    IdAlreadyHasType(ValueId, types::Semantic),
+}
+
+impl std::fmt::Display for ValueError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NoSuchValueId(id) => write!(f, "no such value id ({})", id),
+            Self::IdHasNoType(id) => write!(f, "value id ({}) has no type", id),
+            Self::ValueHasNoType => write!(f, "value has no type"),
+            Self::ValueAlreadyHasType(ty) => write!(f, "value already has type {}", ty),
+            Self::IdAlreadyHasType(id, ty) => write!(f, "value id {} already has type {}", id, ty),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -38,26 +52,38 @@ impl ValueInterner {
         self.insert(temp_value).unwrap()
     }
 
-    pub fn next_temp_with_type(&mut self, ty_: types::Semantic) -> ValueId {
-        let temp_value = Value::new(ValueKind::Temporary(self.temp_count), Some(ty_));
+    pub fn next_temp_with_type(&mut self, ty: types::Semantic) -> ValueId {
+        let temp_value = Value::new(ValueKind::Temporary(self.temp_count), Some(ty));
         self.temp_count += 1;
         self.insert(temp_value).unwrap()
     }
 
-    pub fn value_for_id(&self, id: &ValueId) -> Result<&Value, ValueError> {
-        self.values.get(id.index).ok_or(ValueError::NoSuchValueId)
-    }
-
-    pub fn value_mut_for_id(&mut self, id: &ValueId) -> Result<&mut Value, ValueError> {
+    /// given a ValueId, return a reference to the full backing Value (or NoSuchValueId error
+    /// if not interned)
+    pub fn value_for_id(&self, val: &ValueId) -> Result<&Value, ValueError> {
         self.values
-            .get_mut(id.index)
-            .ok_or(ValueError::NoSuchValueId)
+            .get(val.index)
+            .ok_or(ValueError::NoSuchValueId(*val))
     }
 
-    pub fn semantic_for_id(&self, id: &ValueId) -> Result<types::Semantic, ValueError> {
-        self.value_for_id(id)?.ty.ok_or(ValueError::HasNoType)
+    /// given a ValueId, return a mutable reference to the full backing value (or NoSuchValueId
+    /// error if not interned)
+    pub fn value_mut_for_id(&mut self, val: &ValueId) -> Result<&mut Value, ValueError> {
+        self.values
+            .get_mut(val.index)
+            .ok_or(ValueError::NoSuchValueId(*val))
     }
 
+    /// given a ValueId, return the semantic type of the value (or HasNoType error if type is
+    /// unknown)
+    pub fn semantic_for_id(&self, val: &ValueId) -> Result<types::Semantic, ValueError> {
+        self.value_for_id(val)?
+            .ty
+            .ok_or(ValueError::IdHasNoType(*val))
+    }
+
+    /// given the DefPath of a variable, return its ValueID. Requires &mut self as this method may
+    /// generate a new ValueId if one does not already exist for the variable
     pub fn id_for_variable(&mut self, variable_def_path: symtab::DefPath) -> ValueId {
         match self.variables.get(&variable_def_path) {
             Some(id) => *id,
@@ -73,6 +99,9 @@ impl ValueInterner {
         }
     }
 
+    /// given a ValueId, return an option containing the DefPath of the associated variable, or
+    /// None if the backing value has a kind other than Variable. Returns NoSuchValueId in
+    /// error cases
     pub fn def_path_for_id(&self, id: &ValueId) -> Result<Option<&symtab::DefPath>, ValueError> {
         match &self.value_for_id(id)?.kind {
             ValueKind::Variable(def_path) => Ok(Some(def_path)),
@@ -115,12 +144,12 @@ impl ValueInterner {
 impl ValueInterner {
     pub fn assign_type_to_id(
         &mut self,
-        id: &ValueId,
-        ty_: types::Semantic,
+        val: &ValueId,
+        ty: types::Semantic,
     ) -> Result<types::Semantic, ValueError> {
-        match self.value_mut_for_id(id)?.ty.replace(ty_) {
-            Some(existing_type) => Err(ValueError::AlreadyHasType(existing_type)),
-            None => Ok(ty_),
+        match self.value_mut_for_id(val)?.ty.replace(ty) {
+            Some(existing_type) => Err(ValueError::IdAlreadyHasType(*val, existing_type)),
+            None => Ok(ty),
         }
     }
 }
