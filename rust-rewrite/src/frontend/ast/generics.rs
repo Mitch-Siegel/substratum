@@ -90,19 +90,6 @@ impl treewalk::Linearize<midend::types::GenericParamsList> for GenericParamsList
     }
 }
 
-impl treewalk::Linearize<Vec<midend::types::Syntactic>> for GenericArgsListTree {
-    #[tracing::instrument(skip(self), level = "trace")]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> Vec<midend::types::Syntactic> {
-        let generic_args: Vec<midend::types::Syntactic> = self
-            .args
-            .into_iter()
-            .map(|param| param.linearize(ctx))
-            .collect();
-
-        generic_args
-    }
-}
-
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct GenericArgsListTree {
     pub loc: SourceLoc,
@@ -112,6 +99,35 @@ pub struct GenericArgsListTree {
 impl GenericArgsListTree {
     pub fn new(loc: SourceLoc, args: Vec<TypeTree>) -> Self {
         Self { loc, args }
+    }
+}
+
+impl midend::treewalk::Linearize<Vec<midend::types::ParamSubst>> for GenericArgsListTree {
+    #[tracing::instrument(skip(self), level = "trace")]
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> Vec<midend::types::ParamSubst> {
+        let generic_args: Vec<midend::types::ParamSubst> = self
+            .args
+            .into_iter()
+            .map(|param| {
+                let param_type = param.linearize(ctx);
+                match param_type {
+                    midend::types::Syntactic::GenericParam(param_name) => {
+                        midend::types::ParamSubst::Dependent(
+                            midend::types::GenericParam::TypeParam(param_name),
+                        )
+                    }
+                    _ => midend::types::ParamSubst::Concrete(
+                        ctx.semantic_type_for_syntactic(
+                            param_type,
+                            midend::types::ParamSubstMap::empty(),
+                        )
+                        .unwrap(),
+                    ),
+                }
+            })
+            .collect();
+
+        generic_args
     }
 }
 

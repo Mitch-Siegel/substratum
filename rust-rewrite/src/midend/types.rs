@@ -7,7 +7,7 @@ pub mod type_interner;
 
 pub use semantic_types::Semantic;
 pub use syntactic_types::Syntactic;
-pub use type_interner::{GenericParam, GenericParamsList, Interner, ParamSubstMap};
+pub use type_interner::{GenericParam, GenericParamsList, Interner, ParamSubst, ParamSubstMap};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Serialize, Deserialize, Hash)]
 pub enum Mutability {

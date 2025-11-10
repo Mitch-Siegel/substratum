@@ -317,7 +317,7 @@ impl LinearizeCtx {
     }
 
     // resolves a string type name to either a defined type or a generic param
-    pub fn resolve_type_name(&self, name: &str) -> Result<types::Syntactic, SymbolError> {
+    pub fn disambiguate_named_type(&self, name: &str) -> Result<types::Syntactic, SymbolError> {
         // first, lookup the type in the Symbol table
         let (mut type_, found_def_path) =
             match self.lookup_with_path::<TypeDefinition>(&types::Syntactic::Named(name.into())) {
@@ -353,6 +353,19 @@ impl LinearizeCtx {
             self.def_path().clone(),
             DefPathComponent::Type(types::Syntactic::Named(name.into())),
         ))
+    }
+
+    pub fn semantic_type_for_syntactic(
+        &self,
+        ty: types::Syntactic,
+        params: types::ParamSubstMap,
+    ) -> Result<types::Semantic, symtab::SymbolError> {
+        let (_, type_path) = self.lookup_with_path::<symtab::TypeDefinition>(&ty)?;
+        Ok(self
+            .symtab()
+            .types
+            .semantic_for_defpath(type_path, params)
+            .unwrap())
     }
 
     pub fn lookup<S>(&self, key: &<S as Symbol>::SymbolKey) -> Result<&S, SymbolError>

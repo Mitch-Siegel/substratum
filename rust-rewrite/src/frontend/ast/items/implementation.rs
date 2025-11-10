@@ -99,7 +99,7 @@ impl treewalk::CollectSymbols for ImplementationTree {
 impl treewalk::Linearize<()> for ImplementationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
-        let implemented_for_type = ctx.resolve_type_name(&self.for_).unwrap();
+        let implemented_for_type = ctx.disambiguate_named_type(&self.for_).unwrap();
 
         let generic_params: midend::types::GenericParamsList = match self.generic_params {
             Some(params) => params.linearize(ctx),

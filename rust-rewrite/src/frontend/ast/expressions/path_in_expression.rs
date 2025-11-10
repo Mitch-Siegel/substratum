@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     frontend::{ast::*, *},
+    midend::treewalk::Linearize,
     trace,
 };
 
@@ -149,19 +150,28 @@ fn walk_ident_segment(
 }
 
 fn record_monomorphization(
+    ctx: &mut treewalk::LinearizeCtx,
     path: &midend::symtab::DefPath,
     maybe_generics: Option<ast::generics::GenericArgsListTree>,
 ) {
-    let _generics = match maybe_generics {
-        Some(g) => g,
+    let generics = match maybe_generics {
+        Some(g) => g.linearize(ctx),
         None => return,
     };
 
     use midend::symtab::DefPathComponent;
 
     match path.last() {
-        DefPathComponent::Type(_) => {}
-        DefPathComponent::Function(_) => {}
+        DefPathComponent::Type(_) | DefPathComponent::Function(_) => {
+            let substs = midend::types::ParamSubstMap::empty();
+            for param in generics {
+                // TODO: map parameters as instantiated to expected parameters of type
+            }
+            ctx.symtab_mut()
+                .types
+                .record_monomorphization(path.clone(), substs)
+                .unwrap();
+        }
         _ => panic!(),
     }
 }
@@ -190,7 +200,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for PathInExpressionTree {
                 }
                 PathIdentSegment::Ident(name) => {
                     let must_end = walk_ident_segment(name, &mut expr_path, ctx).unwrap();
-                    record_monomorphization(&expr_path, segment.generic_args);
+                    record_monomorphization(ctx, &expr_path, segment.generic_args);
                     if must_end && (segments.size_hint().0 > 0) {
                         panic!(
                             "path {} (ends with {}) has additional unexpected segments",
@@ -202,7 +212,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for PathInExpressionTree {
                 PathIdentSegment::SelfLower => {
                     let must_end =
                         walk_ident_segment(String::from("self"), &mut expr_path, ctx).unwrap();
-                    record_monomorphization(&expr_path, segment.generic_args);
+                    record_monomorphization(ctx, &expr_path, segment.generic_args);
                     if must_end && (segments.size_hint().0 > 0) {
                         panic!(
                             "path {} (ends with {}) has additional unexpected segments",

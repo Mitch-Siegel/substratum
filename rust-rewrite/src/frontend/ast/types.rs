@@ -39,7 +39,9 @@ impl treewalk::Linearize<midend::types::Syntactic> for TypeTree {
             | midend::types::Syntactic::I32
             | midend::types::Syntactic::I64 => self.type_,
             midend::types::Syntactic::_Self => self.type_,
-            midend::types::Syntactic::Named(name) => ctx.resolve_type_name(name.as_str()).unwrap(),
+            midend::types::Syntactic::Named(name) => {
+                ctx.disambiguate_named_type(name.as_str()).unwrap()
+            }
             // TODO: resolve reference/pointer correctly
             midend::types::Syntactic::Reference(_, _) | midend::types::Syntactic::Pointer(_, _) => {
                 self.type_
