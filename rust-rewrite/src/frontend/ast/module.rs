@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::{frontend::ast::*, trace};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ModuleTree {
@@ -19,8 +19,12 @@ impl Display for ModuleTree {
 
 impl treewalk::CollectSymbols for ModuleTree {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
-        println!("collect for module {}", self.name);
-        println!("{:?}", ctx.def_path());
+        trace::span_auto_debug!(
+            "collect for module ",
+            "{} ({:?}",
+            self.name,
+            self.module_path
+        );
         let module_component = midend::symtab::DefPathComponent::Module(
             midend::symtab::ModuleName::new(self.name.clone()),
         );

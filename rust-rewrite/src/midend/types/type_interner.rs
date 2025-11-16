@@ -1,5 +1,5 @@
 use crate::midend::{types::*, *};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 pub mod monomorphization;
 pub mod semantic_function;
@@ -18,6 +18,18 @@ impl DefPathWithParamSubsts {
             def_path,
             param_substs,
         }
+    }
+}
+
+impl std::fmt::Display for DefPathWithParamSubsts {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}::<{}>", self.def_path, self.param_substs)
+    }
+}
+
+impl std::fmt::Debug for DefPathWithParamSubsts {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}::<{:?}>", self.def_path, self.param_substs)
     }
 }
 
@@ -66,6 +78,7 @@ impl Interner {
         Ok(next_id)
     }
 
+    #[tracing::instrument(skip(self), level = "debug")]
     pub fn semantic_for_defpath(
         &self,
         def_path: symtab::DefPath,
@@ -76,6 +89,7 @@ impl Interner {
             .cloned()
     }
 
+    #[tracing::instrument(skip(self), level = "debug")]
     pub fn record_monomorphization(
         &mut self,
         def_path: symtab::DefPath,
@@ -84,6 +98,7 @@ impl Interner {
         let instances = match self.generic_instances.get_mut(&def_path) {
             Some(i) => Ok(i),
             None => {
+                trace::trace!("no generic instances exist for defpath {:?}", def_path);
                 let mut parent_path = def_path.clone();
                 let last_component = parent_path.pop().unwrap();
                 Err(symtab::SymbolError::Undefined(parent_path, last_component))
@@ -93,6 +108,11 @@ impl Interner {
         let path_with_params = DefPathWithParamSubsts::new(def_path, generic_params.clone());
 
         if instances.insert(generic_params) {
+            trace::info!(
+                "insert new monomorphization instance {}::<{:?}>",
+                path_with_params.def_path.last(),
+                path_with_params.param_substs
+            );
             let next_id = self.next_id();
             assert!(self
                 .id_mappings
@@ -104,12 +124,15 @@ impl Interner {
                 .is_none());
             Ok(next_id)
         } else {
+            trace::trace!("return existing instance params");
             Ok(*self.reverse_id_mappings.get(&path_with_params).unwrap())
         }
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn get_type_definition(&self, id: &Semantic) -> Result<&symtab::TypeDefinition, String> {
         let path_with_params = self.id_mappings.get(id).ok_or("no type mapping for ID")?;
+        trace::trace!("semantic type {} maps to {:?}", id, path_with_params);
         let instance_set = self
             .generic_instances
             .get(&path_with_params.def_path)
@@ -124,5 +147,36 @@ impl Interner {
 
     pub fn get_syntactic(&self, id: &Semantic) -> Result<&Syntactic, String> {
         Ok(self.get_type_definition(id)?.syntactic())
+    }
+
+    pub fn all_monomorphizations(&self) -> HashMap<symtab::DefPath, HashSet<Vec<&ParamSubst>>> {
+        let mut instances = HashMap::<symtab::DefPath, HashSet<Vec<&ParamSubst>>>::new();
+
+        for (path, instance_set) in &self.generic_instances {
+            let mut queue = Vec::new();
+            for fundamental_instance in instance_set.instance_iter() {
+                queue.push(fundamental_instance);
+            }
+
+            while !queue.is_empty() {
+                let instance_params_map = queue.pop().unwrap();
+                if instance_params_map.is_concrete() {
+                    let generic_params = instance_set
+                        .get_underlying(instance_params_map)
+                        .unwrap()
+                        .generic_params();
+
+                    let substs = instance_params_map
+                        .substitutions_in_order(generic_params)
+                        .unwrap();
+
+                    instances.entry(path.clone()).or_default().insert(substs);
+                } else {
+                    panic!("somehow got a non-concrete instance");
+                }
+            }
+        }
+
+        instances
     }
 }

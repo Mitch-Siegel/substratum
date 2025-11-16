@@ -30,12 +30,17 @@ impl TypeDefinition {
         }
     }
 
+    pub fn generic_params(&self) -> &types::GenericParamsList {
+        &self.generic_params
+    }
+
     pub fn syntactic(&self) -> &types::Syntactic {
         &self.type_
     }
 }
 
 impl<'a> From<DefResolver<'a>> for &'a TypeDefinition {
+    #[tracing::instrument(skip(resolver))]
     fn from(resolver: DefResolver<'a>) -> Self {
         match resolver.to_resolve {
             SymbolDef::Type(type_id) => {

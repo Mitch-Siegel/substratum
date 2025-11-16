@@ -43,6 +43,15 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
     for path in symtab.decls() {
         println!("{}", path);
     }
+
+    for (path, instances) in symtab.types.all_monomorphizations() {
+        println!("{}", path);
+        for i in instances {
+            println!("\t{:?}", i);
+        }
+    }
+    panic!("done printing instances");
+
     /*
     let all_arguments = symtab::Visitor::visit(&symtab, get_all_function_arguments);
 

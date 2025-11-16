@@ -19,10 +19,6 @@ pub trait Linearize<T> {
 pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {
     let mut symtab = Box::new(symtab::SymbolTable::new());
 
-    for module in &program {
-        println!("{:#?}", module);
-    }
-
     trace::debug!("collect symbols");
 
     for module in &program {

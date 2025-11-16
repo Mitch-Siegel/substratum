@@ -60,12 +60,6 @@ macro_rules! info {
 }
 pub(crate) use info;
 
-macro_rules! event {
-    ($name:expr, $($arg:tt)*) => (tracing::event!($name, $($arg)*));
-    ($name:expr) => (tracing::event!($name))
-}
-pub(crate) use event;
-
 macro_rules! warning {
     ($name:expr, $($arg:tt)*) => (tracing::warn!($name, $($arg)*));
     ($name:expr) => (tracing::warn!($name))

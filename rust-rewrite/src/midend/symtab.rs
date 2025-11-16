@@ -130,7 +130,7 @@ impl SymbolTable {
             .or_default()
             .insert(full_def_path.clone());
 
-        trace::debug!("insert at {} - {:?}", def_path, symbol);
+        trace::debug!("insert at {} - {:?}", def_path, symbol.symbol_key());
 
         let symbol = Into::<SymbolDef>::into(DefGenerator::new(
             full_def_path.clone(),
@@ -232,6 +232,7 @@ impl SymbolTable {
 
     /// perform a scoped lookup of key at def_path, checking def_path and all its parents for key
     /// returns a reference to the symbol alongside the defpath at which the symbol was found
+    #[tracing::instrument(skip(self), level = "debug")]
     pub fn lookup_with_path<S>(
         &self,
         def_path: &DefPath,
@@ -254,6 +255,7 @@ impl SymbolTable {
                 match self.symbols.get(&component_def_path) {
                     Some(Some(def)) => {
                         let resolver = DefResolver::new(&self.types, def);
+                        trace::debug!("found key {:?} at defpath {:?}", key, component_def_path);
                         return Ok((<&S>::from(resolver), component_def_path));
                     }
                     Some(None) | None => (),
@@ -261,6 +263,11 @@ impl SymbolTable {
             }
         }
 
+        trace::debug!(
+            "unable to find key {:?} at defpath {:?} or any of its parents",
+            key,
+            def_path
+        );
         Err(SymbolError::Undefined(def_path.clone(), key_component))
     }
 
@@ -391,6 +398,7 @@ impl SymbolTable {
 
 /// Type handling helper functions
 impl SymbolTable {
+    #[tracing::instrument(skip(self), level = "debug")]
     pub fn semantic_type_for_syntactic(
         &self,
         search_def_path: &DefPath,
@@ -398,6 +406,11 @@ impl SymbolTable {
         ty_: &types::Syntactic,
     ) -> Result<types::Semantic, SymbolError> {
         let (_, path) = self.lookup_with_path::<TypeDefinition>(search_def_path, ty_)?;
+        trace::trace!(
+            "found definition of syntactic type {} at defpath {}",
+            ty_,
+            path
+        );
         Ok(self
             .types
             .semantic_for_defpath(path, generic_params)

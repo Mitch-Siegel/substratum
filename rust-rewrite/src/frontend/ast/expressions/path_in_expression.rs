@@ -161,19 +161,38 @@ fn record_monomorphization(
 
     use midend::symtab::DefPathComponent;
 
-    match path.last() {
-        DefPathComponent::Type(_) | DefPathComponent::Function(_) => {
-            let substs = midend::types::ParamSubstMap::empty();
-            for param in generics {
-                // TODO: map parameters as instantiated to expected parameters of type
-            }
-            ctx.symtab_mut()
-                .types
-                .record_monomorphization(path.clone(), substs)
-                .unwrap();
-        }
+    let generic_params = match path.last() {
+        DefPathComponent::Type(_) => ctx
+            .lookup_at::<midend::symtab::TypeDefinition>(path)
+            .unwrap()
+            .generic_params()
+            .clone(),
+        DefPathComponent::Function(_) => ctx
+            .lookup_at::<midend::symtab::Function>(path)
+            .unwrap()
+            .prototype
+            .generic_params
+            .clone(),
         _ => panic!(),
+    };
+
+    // bare-minimum assertion that param counts are correct
+    if generics.len() != generic_params.len() {
+        panic!(
+            "expected {} params for {} ({:?}), only found {}",
+            generic_params.len(),
+            path,
+            generic_params,
+            generics.len()
+        );
     }
+
+    let substs =
+        midend::types::ParamSubstMap::new(generic_params.into_iter().zip(generics.into_iter()));
+    ctx.symtab_mut()
+        .types
+        .record_monomorphization(path.clone(), substs)
+        .unwrap();
 }
 
 impl treewalk::Linearize<midend::ir::ValueId> for PathInExpressionTree {

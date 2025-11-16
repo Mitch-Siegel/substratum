@@ -22,7 +22,7 @@ where
     for<'a> &'a mut Self: From<MutDefResolver<'a>>,
     for<'a> DefGenerator<'a, Self>: Into<SymbolDef>,
 {
-    type SymbolKey: Clone + Into<DefPathComponent>;
+    type SymbolKey: std::fmt::Debug + Clone + Into<DefPathComponent>;
 
     fn symbol_key(&self) -> &Self::SymbolKey;
 }
