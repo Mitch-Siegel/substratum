@@ -14,6 +14,7 @@ pub enum Mutability {
     Mutable,
     Immutable,
 }
+
 impl From<bool> for Mutability {
     fn from(mutability_bool: bool) -> Self {
         if mutability_bool {
@@ -23,6 +24,7 @@ impl From<bool> for Mutability {
         }
     }
 }
+
 impl Into<bool> for Mutability {
     fn into(self) -> bool {
         match self {

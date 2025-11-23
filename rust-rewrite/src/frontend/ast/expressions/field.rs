@@ -3,12 +3,12 @@ use crate::frontend::ast::*;
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FieldExpressionTree {
     pub loc: SourceLoc,
-    pub receiver: ExpressionTree,
+    pub receiver: Expression,
     pub field: String,
 }
 
 impl FieldExpressionTree {
-    pub fn new(loc: SourceLoc, receiver: ExpressionTree, field: String) -> Self {
+    pub fn new(loc: SourceLoc, receiver: Expression, field: String) -> Self {
         Self {
             loc,
             receiver,

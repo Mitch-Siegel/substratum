@@ -26,7 +26,6 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             implemented_for_generic_params,
             items,
         );
-        self.finish_parsing(&implementation)?;
-        Ok(implementation)
+        self.finish_parsing(implementation)
     }
 }

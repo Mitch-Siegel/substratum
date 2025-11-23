@@ -6,7 +6,7 @@ pub struct LetTree {
     pub name: String,
     pub type_: Option<TypeTree>,
     pub mutable: bool,
-    pub value: Option<ExpressionTree>,
+    pub value: Option<Expression>,
 }
 
 impl LetTree {
@@ -15,7 +15,7 @@ impl LetTree {
         name: String,
         type_: Option<TypeTree>,
         mutable: bool,
-        value: Option<ExpressionTree>,
+        value: Option<Expression>,
     ) -> Self {
         Self {
             loc,
@@ -75,7 +75,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for LetTree {
 
         match self.value {
             Some(expr) => {
-                let expr_loc = expr.loc.clone();
+                let expr_loc = expr.loc().clone();
                 let expr_value = expr.linearize(ctx);
                 let assignment_line =
                     midend::ir::IrLine::new_assignment(expr_loc, declared_id, expr_value);

@@ -2,7 +2,7 @@ use crate::{frontend::ast::expressions::*, trace};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Pattern {
-    Literal(ExpressionTree),
+    Literal(Expression),
     Identifier(String),
     // TODO: PathInExpression
     TupleStruct(String, Vec<PatternTree>),
@@ -126,16 +126,12 @@ impl treewalk::Linearize<(PatternTree, midend::ir::ValueId)> for MatchArmTree {
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MatchExpressionTree {
     pub loc: SourceLoc,
-    pub scrutinee_expression: ExpressionTree,
+    pub scrutinee_expression: Expression,
     pub arms: Vec<MatchArmTree>,
 }
 
 impl MatchExpressionTree {
-    pub fn new(
-        loc: SourceLoc,
-        scrutinee_expression: ExpressionTree,
-        arms: Vec<MatchArmTree>,
-    ) -> Self {
+    pub fn new(loc: SourceLoc, scrutinee_expression: Expression, arms: Vec<MatchArmTree>) -> Self {
         Self {
             loc,
             scrutinee_expression,

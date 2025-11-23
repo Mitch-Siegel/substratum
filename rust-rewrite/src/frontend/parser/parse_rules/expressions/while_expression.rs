@@ -1,7 +1,9 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
-    pub fn parse_while_expression(&mut self) -> Result<ast::ExpressionTree, ParseError> {
+    pub fn parse_while_expression(
+        &mut self,
+    ) -> Result<ast::expressions::WhileExpressionTree, ParseError> {
         let (start_loc, _span) = self.start_parsing("while loop")?;
 
         self.expect_token(Token::While)?;
@@ -18,11 +20,6 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
             body,
         };
 
-        self.finish_parsing(&while_loop)?;
-
-        Ok(ExpressionTree {
-            loc: start_loc,
-            expression: ast::Expression::While(Box::from(while_loop)),
-        })
+        self.finish_parsing(while_loop)
     }
 }

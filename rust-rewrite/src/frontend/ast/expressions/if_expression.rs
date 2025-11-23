@@ -3,7 +3,7 @@ use crate::frontend::ast::expressions::*;
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct IfExpressionTree {
     pub loc: SourceLoc,
-    pub condition: ExpressionTree,
+    pub condition: Expression,
     pub true_block: BlockExpressionTree,
     pub false_block: Option<BlockExpressionTree>,
 }
@@ -11,7 +11,7 @@ pub struct IfExpressionTree {
 impl IfExpressionTree {
     pub fn new(
         loc: SourceLoc,
-        condition: ExpressionTree,
+        condition: Expression,
         true_block: BlockExpressionTree,
         false_block: Option<BlockExpressionTree>,
     ) -> Self {
@@ -41,7 +41,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for IfExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
         // FUTURE: optimize condition walk to use different jumps
-        let condition_loc = self.condition.loc.clone();
+        let condition_loc = self.condition.loc().clone();
         let condition_result: midend::ir::ValueId = self.condition.linearize(ctx).into();
         let if_condition = midend::ir::lowered::operands::JumpCondition::Conditional(
             midend::ir::lowered::operands::BinaryComparisonOperands::new(

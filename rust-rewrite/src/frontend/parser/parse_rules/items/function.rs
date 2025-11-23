@@ -1,4 +1,4 @@
-use crate::{frontend::parser::parse_rules::*, midend};
+use crate::frontend::{ast, parser::parse_rules::*};
 
 impl<'a, 'p> ItemParser<'a, 'p> {
     pub fn parse_function_declaration_or_definition(&mut self) -> Result<ast::Item, ParseError> {
@@ -11,8 +11,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             Err(_) => Item::FunctionDeclaration(prototype),
         };
 
-        self.finish_parsing(&decl_or_def)?;
-        Ok(decl_or_def)
+        self.finish_parsing(decl_or_def)
     }
 
     pub fn parse_function_prototype(
@@ -78,8 +77,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             arguments,
             return_type,
         );
-        self.finish_parsing(&prototype)?;
-        Ok(prototype)
+        self.finish_parsing(prototype)
     }
 
     fn try_parse_self_argument(
@@ -125,37 +123,56 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         };
 
         let self_argument = if exists {
-            Some(if reference {
+            let self_argument = if reference {
                 ast::items::function::ArgumentDeclarationTree::new(
                     start_loc.clone(),
                     "self".into(),
-                    TypeTree::new(
-                        start_loc.clone(),
-                        midend::types::Syntactic::Reference(
-                            mutable.into(),
-                            Box::from(midend::types::Syntactic::_Self),
-                        ),
-                    ),
+                    ast::types::TypeTree::TypeNoBounds(ast::types::TypeNoBounds::ReferenceType(
+                        ast::types::ReferenceTypeTree {
+                            loc: start_loc.clone(),
+                            mutability: mutable.into(),
+                            type_: Box::new(ast::types::TypeNoBounds::TypePath(
+                                ast::types::TypePath::ItemPath(ast::types::TypeItemPathTree {
+                                    loc: start_loc.clone(),
+                                    starts_global: false,
+                                    segments: vec![ast::types::TypePathSegmentTree {
+                                        ident_segment:
+                                            ast::expressions::PathIdentSegment::SelfLower(
+                                                start_loc.clone(),
+                                            ),
+                                        generic_args: None,
+                                    }],
+                                }),
+                            )),
+                        },
+                    )),
                     false,
                 )
             } else {
                 ast::items::function::ArgumentDeclarationTree::new(
                     start_loc.clone(),
                     "self".into(),
-                    TypeTree::new(start_loc, midend::types::Syntactic::_Self),
-                    mutable,
+                    ast::types::TypeTree::TypeNoBounds(ast::types::TypeNoBounds::TypePath(
+                        ast::types::TypePath::ItemPath(ast::types::TypeItemPathTree {
+                            loc: start_loc.clone(),
+                            starts_global: false,
+                            segments: vec![ast::types::TypePathSegmentTree {
+                                ident_segment: ast::expressions::PathIdentSegment::SelfLower(
+                                    start_loc.clone(),
+                                ),
+                                generic_args: None,
+                            }],
+                        }),
+                    )),
+                    false,
                 )
-            })
+            };
+            Some(self_argument)
         } else {
             None
         };
 
-        match &self_argument {
-            Some(argument) => self.finish_parsing(&argument)?,
-            None => self.finish_parsing(&"no self param")?,
-        };
-
-        Ok(self_argument)
+        self.finish_parsing(self_argument)
     }
 
     pub fn parse_function_definition(
@@ -167,7 +184,6 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         let function_body = self.parse_block_expression()?;
 
         let parsed_definition = ast::items::FunctionDefinitionTree::new(prototype, function_body);
-        self.finish_parsing(&parsed_definition)?;
-        Ok(parsed_definition)
+        self.finish_parsing(parsed_definition)
     }
 }

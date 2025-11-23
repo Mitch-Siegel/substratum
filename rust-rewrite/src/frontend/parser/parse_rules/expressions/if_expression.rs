@@ -1,13 +1,15 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
-    pub fn parse_if_expression(&mut self) -> Result<ast::ExpressionTree, ParseError> {
+    pub fn parse_if_expression(
+        &mut self,
+    ) -> Result<ast::expressions::IfExpressionTree, ParseError> {
         let (start_loc, _span) = self.start_parsing("if expression")?;
 
         self.expect_token(Token::If)?;
 
         self.expect_token(Token::LParen)?;
-        let condition: ExpressionTree = self.parse_expression()?;
+        let condition: Expression = self.parse_expression()?;
         self.expect_token(Token::RParen)?;
 
         let true_block = self.parse_block_expression()?;
@@ -19,18 +21,13 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
             _ => None,
         };
 
-        let if_expression = ExpressionTree {
-            loc: start_loc.clone(),
-            expression: ast::Expression::If(Box::new(ast::expressions::IfExpressionTree {
-                loc: start_loc,
-                condition,
-                true_block,
-                false_block,
-            })),
+        let if_expression = ast::expressions::IfExpressionTree {
+            loc: start_loc,
+            condition,
+            true_block,
+            false_block,
         };
 
-        self.finish_parsing(&if_expression)?;
-
-        Ok(if_expression)
+        self.finish_parsing(if_expression)
     }
 }

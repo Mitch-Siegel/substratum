@@ -3,11 +3,11 @@ use crate::frontend::ast::*;
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct AssignmentTree {
     pub loc: SourceLoc,
-    pub assignee: Box<ExpressionTree>,
-    pub value: Box<ExpressionTree>,
+    pub assignee: Box<Expression>,
+    pub value: Box<Expression>,
 }
 impl AssignmentTree {
-    pub fn new(loc: SourceLoc, assignee: ExpressionTree, value: ExpressionTree) -> Self {
+    pub fn new(loc: SourceLoc, assignee: Expression, value: Expression) -> Self {
         Self {
             loc,
             assignee: Box::from(assignee),
@@ -24,7 +24,7 @@ impl Display for AssignmentTree {
 impl treewalk::Linearize<midend::ir::ValueId> for AssignmentTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
-        let assignment_ir = match self.assignee.expression {
+        let assignment_ir = match *self.assignee {
             Expression::FieldExpression(field_expression_tree) => {
                 let field_loc = field_expression_tree.loc.clone();
                 let (receiver, field) = field_expression_tree.linearize(ctx);

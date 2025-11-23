@@ -7,6 +7,7 @@ pub struct ArgumentDeclarationTree {
     pub type_: TypeTree,
     pub mutable: bool,
 }
+
 impl ArgumentDeclarationTree {
     pub fn new(loc: SourceLoc, name: String, type_: TypeTree, mutable: bool) -> Self {
         Self {

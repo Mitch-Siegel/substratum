@@ -1,52 +1,150 @@
 use crate::frontend::ast::*;
 
-#[derive(ReflectName, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct TypeTree {
+use super::expressions::PathIdentSegment;
+
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TypeTree {
+    TypeNoBounds(TypeNoBounds),
+}
+
+impl std::fmt::Display for TypeTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::TypeNoBounds(tnb) => write!(f, "TypeNoBounds({})", tnb),
+        }
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TypeNoBounds {
+    ParenthesizedType(Box<TypeTree>),
+    TypePath(TypePath),
+    TupleType(Vec<TypeTree>),
+    ReferenceType(ReferenceTypeTree),
+    ArrayType(ArrayTypeTree),
+    InferredType(SourceLoc),
+}
+
+impl std::fmt::Display for TypeNoBounds {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ParenthesizedType(inner) => write!(f, "({})", inner),
+            Self::TypePath(path) => write!(f, "{}", path),
+            Self::TupleType(tuple) => {
+                let mut first = true;
+                for member in tuple {
+                    if !first {
+                        write!(f, ", {}", member)?;
+                    } else {
+                        first = false;
+                        write!(f, "{}", member)?;
+                    }
+                }
+                Ok(())
+            }
+            Self::ReferenceType(reference) => write!(f, "{}", reference),
+            Self::ArrayType(array) => write!(f, "{}", array),
+            Self::InferredType(_) => write!(f, "_"),
+        }
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum TypePath {
+    Primitive(PrimitiveTypePathTree),
+    ItemPath(TypeItemPathTree),
+}
+
+impl std::fmt::Display for TypePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Primitive(primitive) => write!(f, "{}", primitive),
+            Self::ItemPath(item) => write!(f, "{}", item),
+        }
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct PrimitiveTypePathTree {
     pub loc: SourceLoc,
     pub type_: midend::types::Syntactic,
 }
 
-impl TypeTree {
-    pub fn new(loc: SourceLoc, type_: midend::types::Syntactic) -> Self {
-        Self { loc, type_ }
-    }
-}
-
-impl Display for TypeTree {
+impl std::fmt::Display for PrimitiveTypePathTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.type_)
     }
 }
 
-impl std::fmt::Debug for TypeTree {
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct TypeItemPathTree {
+    pub loc: SourceLoc,
+    pub starts_global: bool,
+    pub segments: Vec<TypePathSegmentTree>,
+}
+
+impl std::fmt::Display for TypeItemPathTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", serde_json::to_string(self).unwrap())
+        let mut first = true;
+        for segment in &self.segments {
+            if !first || self.starts_global {
+                write!(f, "::{}", segment)?;
+            } else {
+                first = false;
+                write!(f, "{}", segment)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct TypePathSegmentTree {
+    pub ident_segment: PathIdentSegment,
+    pub generic_args: Option<generics::GenericArgsListTree>,
+}
+
+impl TypePathSegmentTree {
+    pub fn loc(&self) -> &SourceLoc {
+        self.ident_segment.loc()
+    }
+}
+
+impl std::fmt::Display for TypePathSegmentTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.ident_segment)?;
+        match &self.generic_args {
+            Some(generics) => write!(f, "::{}", generics),
+            None => Ok(()),
+        }
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ReferenceTypeTree {
+    pub loc: SourceLoc,
+    pub mutability: midend::types::Mutability,
+    pub type_: Box<TypeNoBounds>,
+}
+
+impl std::fmt::Display for ReferenceTypeTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "&{} {}", self.mutability, self.type_)
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ArrayTypeTree {}
+
+impl std::fmt::Display for ArrayTypeTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "")
     }
 }
 
 impl treewalk::Linearize<midend::types::Syntactic> for TypeTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
-        // TODO: check that the type exists by looking it up
-        match self.type_ {
-            midend::types::Syntactic::Unit
-            | midend::types::Syntactic::U8
-            | midend::types::Syntactic::U16
-            | midend::types::Syntactic::U32
-            | midend::types::Syntactic::U64
-            | midend::types::Syntactic::I8
-            | midend::types::Syntactic::I16
-            | midend::types::Syntactic::I32
-            | midend::types::Syntactic::I64 => self.type_,
-            midend::types::Syntactic::_Self => self.type_,
-            midend::types::Syntactic::Named(name) => {
-                ctx.disambiguate_named_type(name.as_str()).unwrap()
-            }
-            // TODO: resolve reference/pointer correctly
-            midend::types::Syntactic::Reference(_, _) | midend::types::Syntactic::Pointer(_, _) => {
-                self.type_
-            }
-            _ => panic!("Unexpected type seen in type tree: {}", self.type_),
-        }
+        unimplemented!();
     }
 }

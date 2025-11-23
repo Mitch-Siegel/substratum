@@ -1,5 +1,5 @@
 use crate::frontend::parser::parse_rules::*;
-
+#[derive(Debug)]
 pub struct ModuleResult {
     pub module_tree: ModuleTree,
     pub module_worklist: BTreeSet<String>,
@@ -49,10 +49,12 @@ impl<'a, 'p> ModuleParser<'a, 'p> {
             name: module_name,
             items,
         };
-        self.finish_parsing(&module_tree)?;
-        Ok(ModuleResult {
+
+        let module_result = ModuleResult {
             module_tree,
             module_worklist,
-        })
+        };
+
+        self.finish_parsing(module_result)
     }
 }

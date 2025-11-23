@@ -27,7 +27,6 @@ impl<'a> Parser<'a> {
             mutable,
         );
 
-        self.finish_parsing(&declaration)?;
-        Ok(declaration)
+        self.finish_parsing(declaration)
     }
 }

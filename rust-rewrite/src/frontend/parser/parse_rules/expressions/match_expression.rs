@@ -1,4 +1,4 @@
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::{ast::expressions::MatchExpressionTree, parser::parse_rules::*};
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
     fn parse_matched_pattern(
@@ -42,11 +42,10 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         };
 
         let pattern_tree = ast::expressions::match_expression::PatternTree::new(start_loc, pattern);
-        self.finish_parsing(&pattern_tree)?;
-        Ok(pattern_tree)
+        self.finish_parsing(pattern_tree)
     }
 
-    pub fn parse_match_expression(&mut self) -> Result<ExpressionTree, ParseError> {
+    pub fn parse_match_expression(&mut self) -> Result<MatchExpressionTree, ParseError> {
         let (start_loc, _span) = self.start_parsing("match")?;
 
         self.expect_token(Token::Match)?;
@@ -65,9 +64,9 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
                         _ => {
                             let single_expression = self.parse_expression()?;
                             ast::expressions::BlockExpressionTree::new(
-                                single_expression.loc.clone(),
+                                single_expression.loc().clone(),
                                 vec![StatementTree::new(
-                                    single_expression.loc.clone(),
+                                    single_expression.loc().clone(),
                                     ast::statements::Statement::Expression(single_expression),
                                 )],
                             )
@@ -92,18 +91,12 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
 
         self.expect_token(Token::RCurly)?;
 
-        let match_expression = ExpressionTree::new(
-            start_loc.clone(),
-            Expression::Match(Box::new(
-                ast::expressions::match_expression::MatchExpressionTree::new(
-                    start_loc,
-                    scrutinee_expression,
-                    arms,
-                ),
-            )),
+        let match_expression = ast::expressions::match_expression::MatchExpressionTree::new(
+            start_loc,
+            scrutinee_expression,
+            arms,
         );
 
-        self.finish_parsing(&match_expression)?;
-        Ok(match_expression)
+        self.finish_parsing(match_expression)
     }
 }

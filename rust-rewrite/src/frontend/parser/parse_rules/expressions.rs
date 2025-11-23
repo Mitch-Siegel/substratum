@@ -13,14 +13,16 @@ mod primary_expression;
 mod while_expression;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
-    pub fn parse_expression(&mut self) -> Result<ExpressionTree, ParseError> {
+    pub fn parse_expression(&mut self) -> Result<Expression, ParseError> {
         let (_start_loc, _span) = self.start_parsing("expression")?;
 
         let mut expr = match self.peek_token()? {
-            Token::SelfLower | Token::Identifier(_) => self.parse_path_in_expression()?,
-            Token::If => self.parse_if_expression()?,
-            Token::Match => self.parse_match_expression()?,
-            Token::While => self.parse_while_expression()?,
+            Token::SelfLower | Token::Identifier(_) => {
+                Expression::PathInExpression(self.parse_path_in_expression()?)
+            }
+            Token::If => Expression::If(Box::new(self.parse_if_expression()?)),
+            Token::Match => Expression::Match(Box::new(self.parse_match_expression()?)),
+            Token::While => Expression::While(Box::new(self.parse_while_expression()?)),
             Token::UnsignedDecimalConstant(_) => self.parse_literal_expression()?,
             Token::LParen => self.parse_parenthesized_expression()?,
             _ => self.unexpected_token(&[
@@ -57,17 +59,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
             }
         }
 
-        /*
-        match self.peek_token()? {
-            Token::Assign => {
-                expr = self.parse_assignment_expression(expr)?;
-            }
-            _ => {}
-        }*/
-
-        self.finish_parsing(&expr)?;
-
-        Ok(expr)
+        self.finish_parsing(expr)
     }
 }
 

@@ -25,16 +25,15 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         self.expect_token(Token::RParen)?;
 
         let params_tree = ast::expressions::calls::CallParamsTree::new(start_loc, params);
-        self.finish_parsing(&params_tree)?;
-        Ok(params_tree)
+        self.finish_parsing(params_tree)
     }
 
     pub fn parse_call_expression(
         &mut self,
-        function_operand: ExpressionTree,
-    ) -> Result<ExpressionTree, ParseError> {
+        function_operand: Expression,
+    ) -> Result<Expression, ParseError> {
         self.start_parsing("method call expression")?;
-        let start_loc = function_operand.loc.clone();
+        let start_loc = function_operand.loc().clone();
 
         let call_params = self.parse_call_params(true)?;
 
@@ -44,9 +43,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
             call_params,
         );
 
-        let expression_tree =
-            ExpressionTree::new(start_loc, Expression::Call(Box::from(call_expression_tree)));
-        self.finish_parsing(&expression_tree)?;
-        Ok(expression_tree)
+        let expression_tree = Expression::Call(Box::from(call_expression_tree));
+        self.finish_parsing(expression_tree)
     }
 }

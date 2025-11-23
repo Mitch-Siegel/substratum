@@ -104,6 +104,18 @@ impl<'a> Parser<'a> {
         Ok(next)
     }
 
+    fn next_token_with_loc(&mut self) -> Result<(Token, SourceLoc), ParseError> {
+        self.ensure_n_tokens_in_lookahead(1)?;
+        let next = self
+            .upcoming_tokens
+            .pop_front()
+            .unwrap_or((Token::Eof, self.lexer.current_loc()));
+        self.last_match = next.1.clone();
+        #[cfg(feature = "loud_parsing")]
+        self.annotate_parsing(&format!("Parser::next_token() -> {}@{}", next, start_loc));
+        Ok(next)
+    }
+
     #[track_caller]
     fn expect_token(&mut self, expected: Token) -> Result<Token, ParseError> {
         //#[cfg(feature = "loud_parsing")]
@@ -174,9 +186,9 @@ impl<'a> Parser<'a> {
         Ok((start_loc, exit_on_drop_span))
     }
 
-    fn finish_parsing<T>(&mut self, _parsed: &T) -> Result<(), ParseError>
+    fn finish_parsing<T>(&mut self, parsed: T) -> Result<T, ParseError>
     where
-        T: std::fmt::Display,
+        T: std::fmt::Debug,
     {
         let (_parse_start, parsed_description) = self
             .parsing_stack
@@ -184,9 +196,9 @@ impl<'a> Parser<'a> {
             .expect("Mismatched loud parsing tracking");
         tracing::event!(
             tracing::Level::DEBUG,
-            "Finish parsing {}: {}",
+            "Finish parsing {}: {:?}",
             parsed_description,
-            _parsed
+            parsed
         );
 
         #[cfg(feature = "loud_parsing")]
@@ -202,7 +214,7 @@ impl<'a> Parser<'a> {
             self.annotate_parsing(&annotation_string);
         }
 
-        Ok(())
+        Ok(parsed)
     }
 
     #[cfg(feature = "loud_parsing")]

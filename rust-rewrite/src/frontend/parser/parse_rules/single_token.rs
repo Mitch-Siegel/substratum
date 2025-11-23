@@ -12,9 +12,7 @@ impl<'a> Parser<'a> {
             _ => self.unexpected_token::<String>(&[Token::Identifier("".into())])?,
         };
 
-        self.finish_parsing(&identifier)?;
-
-        Ok(identifier)
+        self.finish_parsing(identifier)
     }
 }
 

@@ -3,11 +3,11 @@ use crate::frontend::ast::*;
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallParamsTree {
     pub loc: SourceLoc,
-    pub params: Vec<ExpressionTree>,
+    pub params: Vec<Expression>,
 }
 
 impl CallParamsTree {
-    pub fn new(loc: SourceLoc, params: Vec<ExpressionTree>) -> Self {
+    pub fn new(loc: SourceLoc, params: Vec<Expression>) -> Self {
         Self { loc, params }
     }
 }
@@ -41,12 +41,12 @@ impl treewalk::Linearize<Vec<midend::ir::ValueId>> for CallParamsTree {
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallExpressionTree {
     pub loc: SourceLoc,
-    pub function_operand: ExpressionTree,
+    pub function_operand: Expression,
     pub params: CallParamsTree,
 }
 
 impl CallExpressionTree {
-    pub fn new(loc: SourceLoc, function_operand: ExpressionTree, params: CallParamsTree) -> Self {
+    pub fn new(loc: SourceLoc, function_operand: Expression, params: CallParamsTree) -> Self {
         Self {
             loc,
             function_operand,

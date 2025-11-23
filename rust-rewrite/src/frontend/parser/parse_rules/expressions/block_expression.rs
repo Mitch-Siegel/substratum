@@ -21,8 +21,6 @@ impl<'a> Parser<'a> {
             statements: statements,
         };
 
-        self.finish_parsing(&compound_statement)?;
-
-        Ok(compound_statement)
+        self.finish_parsing(compound_statement)
     }
 }

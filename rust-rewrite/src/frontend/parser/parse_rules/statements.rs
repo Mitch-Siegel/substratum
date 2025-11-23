@@ -34,8 +34,6 @@ impl<'a, 'p> StatementParser<'a, 'p> {
             },
         };
 
-        self.finish_parsing(&statement)?;
-
-        Ok(statement)
+        self.finish_parsing(statement)
     }
 }

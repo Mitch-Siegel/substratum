@@ -3,12 +3,12 @@ use crate::frontend::ast::expressions::*;
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct WhileExpressionTree {
     pub loc: SourceLoc,
-    pub condition: ExpressionTree,
+    pub condition: Expression,
     pub body: BlockExpressionTree,
 }
 
 impl WhileExpressionTree {
-    pub fn new(loc: SourceLoc, condition: ExpressionTree, body: BlockExpressionTree) -> Self {
+    pub fn new(loc: SourceLoc, condition: Expression, body: BlockExpressionTree) -> Self {
         Self {
             loc,
             condition,

@@ -12,10 +12,10 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             _ => self.unexpected_token(&[Token::Identifier("".into())])?,
         };
 
-        self.finish_parsing(&param)?;
-        Ok(param)
+        self.finish_parsing(param)
     }
 
+    // parses the generic parameters to be taken by a type
     pub fn try_parse_generic_params_list(
         &mut self,
     ) -> Result<Option<ast::generics::GenericParamsListTree>, ParseError> {
@@ -47,13 +47,10 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             _ => None,
         };
 
-        match &maybe_params_tree {
-            Some(params_tree) => self.finish_parsing(params_tree)?,
-            None => self.finish_parsing(&String::from("no generic params"))?,
-        }
-        Ok(maybe_params_tree)
+        self.finish_parsing(maybe_params_tree)
     }
 
+    // parses the generic parameters passed in to a type
     pub fn try_parse_generic_args_list(
         &mut self,
     ) -> Result<Option<ast::generics::GenericArgsListTree>, ParseError> {
@@ -84,10 +81,6 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             _ => None,
         };
 
-        match &maybe_args_tree {
-            Some(args_tree) => self.finish_parsing(args_tree)?,
-            None => self.finish_parsing(&String::from("no generic args"))?,
-        }
-        Ok(maybe_args_tree)
+        self.finish_parsing(maybe_args_tree)
     }
 }

@@ -1,52 +1,158 @@
-use crate::midend::types;
+use crate::frontend::ast::types::PrimitiveTypePathTree;
+use crate::midend::{self, types};
 
-use crate::frontend::parser::parse_rules::*;
+use crate::frontend::{ast, parser::parse_rules::*};
 
 impl<'a, 'p> TypeParser<'a, 'p> {
     pub fn parse_type(&mut self) -> Result<TypeTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("type")?;
+        let (_start_loc, _span) = self.start_parsing("type")?;
 
-        let type_tree = TypeTree {
-            loc: start_loc,
-            type_: self.parse_type_inner()?,
-        };
+        let type_tree = TypeTree::TypeNoBounds(self.parse_type_no_bounds()?);
 
-        self.finish_parsing(&type_tree)?;
-
-        Ok(type_tree)
+        self.finish_parsing(type_tree)
     }
 
-    fn parse_type_inner(&mut self) -> Result<types::Syntactic, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("typename")?;
+    fn parse_type_no_bounds(&mut self) -> Result<ast::types::TypeNoBounds, ParseError> {
+        let (_start_loc, _span) = self.start_parsing("type no bounds")?;
 
-        let type_ = match self.peek_token()? {
+        let type_no_bounds = match self.peek_token()? {
+            Token::LParen => self.parse_parenthesized_type_or_tuple()?,
             Token::Reference => {
-                self.expect_token(Token::Reference)?;
-                let mutability = match self.peek_token()? {
-                    Token::Mut => {
-                        self.expect_token(Token::Mut)?;
-                        types::Mutability::Mutable
-                    }
-                    _ => types::Mutability::Immutable,
-                };
-                types::Syntactic::Reference(mutability, Box::new(self.parse_type_inner()?))
+                ast::types::TypeNoBounds::ReferenceType(self.parse_reference_type()?)
             }
-            Token::SelfUpper => {
-                self.expect_token(Token::SelfUpper)?;
-                types::Syntactic::_Self
-            }
-            _ => self.parse_type_name()?,
+            Token::Identifier(_)
+            | Token::U8
+            | Token::U16
+            | Token::U32
+            | Token::U64
+            | Token::I8
+            | Token::I16
+            | Token::I32
+            | Token::I64
+            | Token::SelfUpper => ast::types::TypeNoBounds::TypePath(self.parse_type_path()?),
+            _ => self.unexpected_token(&[Token::LParen])?,
         };
 
-        self.finish_parsing(&type_)?;
-
-        Ok(type_)
+        self.finish_parsing(type_no_bounds)
     }
 
-    fn parse_type_name(&mut self) -> Result<types::Syntactic, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("type name")?;
+    fn parse_parenthesized_type_or_tuple(
+        &mut self,
+    ) -> Result<ast::types::TypeNoBounds, ParseError> {
+        let (start_loc, _span) = self.start_parsing("parenthesized type or tuple")?;
 
-        let type_name = match self.peek_token()? {
+        self.expect_token(Token::LParen)?;
+        let inner_type = match self.peek_token()? {
+            Token::RParen => {
+                self.expect_token(Token::RParen)?;
+                ast::types::TypeNoBounds::TupleType(Vec::new())
+            }
+            _ => {
+                let inner_type = self.parse_type()?;
+                match self.peek_token()? {
+                    Token::Comma => self.parse_tuple_type(inner_type)?,
+                    Token::RParen => {
+                        self.expect_token(Token::RParen)?;
+                        ast::types::TypeNoBounds::ParenthesizedType(Box::from(inner_type))
+                    }
+                    _ => self.unexpected_token(&[Token::Comma, Token::RParen])?,
+                }
+            }
+        };
+
+        self.finish_parsing(inner_type)
+    }
+
+    fn parse_tuple_type(
+        &mut self,
+        first_type: TypeTree,
+    ) -> Result<ast::types::TypeNoBounds, ParseError> {
+        let (_start_loc, _span) = self.start_parsing("tuple type")?;
+        self.expect_token(Token::Comma)?;
+
+        let mut tuple_members = vec![first_type];
+        loop {
+            match self.peek_token()? {
+                Token::RParen => {
+                    self.expect_token(Token::RParen)?;
+                    break;
+                }
+                _ => tuple_members.push(self.parse_type()?),
+            }
+        }
+
+        let tuple_type = ast::types::TypeNoBounds::TupleType(tuple_members);
+
+        self.finish_parsing(tuple_type)
+    }
+
+    fn parse_reference_type(&mut self) -> Result<ast::types::ReferenceTypeTree, ParseError> {
+        let (start_loc, _span) = self.start_parsing("reference type")?;
+
+        self.expect_token(Token::Reference)?;
+        let mutability = match self.peek_token()? {
+            Token::Mut => {
+                self.expect_token(Token::Mut)?;
+                midend::types::Mutability::Mutable
+            }
+            _ => midend::types::Mutability::Immutable,
+        };
+
+        let reference_tree = ast::types::ReferenceTypeTree {
+            loc: start_loc,
+            mutability,
+            type_: Box::new(self.parse_type_no_bounds()?),
+        };
+
+        self.finish_parsing(reference_tree)
+    }
+
+    fn parse_type_path(&mut self) -> Result<ast::types::TypePath, ParseError> {
+        let (start_loc, _span) = self.start_parsing("type path")?;
+
+        let type_path = match self.peek_token()? {
+            Token::U8
+            | Token::U16
+            | Token::U32
+            | Token::U64
+            | Token::I8
+            | Token::I16
+            | Token::I32
+            | Token::I64 => ast::types::TypePath::Primitive(self.parse_primitive_type_path()?),
+            Token::SelfUpper => {
+                self.next_token()?;
+                ast::types::TypePath::Primitive(ast::types::PrimitiveTypePathTree {
+                    loc: start_loc,
+                    type_: types::Syntactic::_Self,
+                })
+            }
+            Token::SelfLower | Token::Identifier(_) => {
+                ast::types::TypePath::ItemPath(self.parse_item_type_path_tree(false)?)
+            }
+            Token::PathSep => ast::types::TypePath::ItemPath(self.parse_item_type_path_tree(true)?),
+            _ => self.unexpected_token(&[
+                Token::U8,
+                Token::U16,
+                Token::U32,
+                Token::U64,
+                Token::I8,
+                Token::I16,
+                Token::I32,
+                Token::I64,
+                Token::SelfUpper,
+                Token::SelfLower,
+                Token::Identifier("".into()),
+                Token::PathSep,
+            ])?,
+        };
+
+        self.finish_parsing(type_path)
+    }
+
+    fn parse_primitive_type_path(&mut self) -> Result<PrimitiveTypePathTree, ParseError> {
+        let (start_loc, _span) = self.start_parsing("type path")?;
+
+        let primitive = match self.peek_token()? {
             Token::U8 => {
                 self.next_token()?;
                 types::Syntactic::U8
@@ -79,14 +185,6 @@ impl<'a, 'p> TypeParser<'a, 'p> {
                 self.next_token()?;
                 types::Syntactic::I64
             }
-            Token::Identifier(name) => {
-                self.next_token()?;
-                types::Syntactic::Named(name)
-            }
-            Token::SelfUpper => {
-                self.next_token()?;
-                types::Syntactic::_Self
-            }
             _ => self.unexpected_token(&[
                 Token::U8,
                 Token::U16,
@@ -96,14 +194,62 @@ impl<'a, 'p> TypeParser<'a, 'p> {
                 Token::I16,
                 Token::I32,
                 Token::I64,
-                Token::Identifier("".into()),
-                Token::SelfUpper,
             ])?,
         };
 
-        self.finish_parsing(&type_name)?;
+        let primitive_path = PrimitiveTypePathTree {
+            loc: start_loc,
+            type_: primitive,
+        };
+        self.finish_parsing(primitive_path)
+    }
 
-        Ok(type_name)
+    fn parse_item_type_path_tree(
+        &mut self,
+        starts_global: bool,
+    ) -> Result<ast::types::TypeItemPathTree, ParseError> {
+        let (start_loc, _span) = self.start_parsing("path to type item")?;
+
+        let mut require_path_sep = starts_global;
+
+        let mut segments = Vec::new();
+        loop {
+            if require_path_sep {
+                self.expect_token(Token::PathSep)?;
+                require_path_sep = false;
+            }
+
+            match self.peek_token()? {
+                Token::Identifier(_) | Token::Super | Token::SelfLower | Token::SelfUpper => {
+                    let ident_segment = self.expression_parser().parse_path_ident_segment()?;
+                    let generic_args = match self.peek_token()? {
+                        Token::PathSep => {
+                            self.expect_token(Token::PathSep)?;
+                            self.item_parser().try_parse_generic_args_list()?
+                        }
+                        _ => None,
+                    };
+
+                    if generic_args.is_some() {
+                        require_path_sep = true;
+                    }
+
+                    let path_segment = ast::types::TypePathSegmentTree {
+                        ident_segment,
+                        generic_args,
+                    };
+                    segments.push(path_segment);
+                }
+                _ => break,
+            }
+        }
+
+        let type_item_path_tree = ast::types::TypeItemPathTree {
+            loc: start_loc,
+            starts_global,
+            segments,
+        };
+        self.finish_parsing(type_item_path_tree)
     }
 }
 

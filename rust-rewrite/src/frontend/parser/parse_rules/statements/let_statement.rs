@@ -31,7 +31,6 @@ impl<'a, 'p> StatementParser<'a, 'p> {
         };
 
         let let_tree = ast::statements::LetTree::new(start_loc, name, type_, mutable, value);
-        self.finish_parsing(&let_tree)?;
-        Ok(let_tree)
+        self.finish_parsing(let_tree)
     }
 }

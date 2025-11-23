@@ -12,8 +12,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
 
         let field_tree =
             ast::items::struct_definition::StructFieldTree::new(start_loc, field_name, field_type);
-        self.finish_parsing(&field_tree)?;
-        Ok(field_tree)
+        self.finish_parsing(field_tree)
     }
 
     pub fn parse_struct_definition(
@@ -52,7 +51,6 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             generic_params,
             struct_fields,
         );
-        self.finish_parsing(&struct_definition)?;
-        Ok(struct_definition)
+        self.finish_parsing(struct_definition)
     }
 }

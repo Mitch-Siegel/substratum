@@ -8,7 +8,7 @@ pub use let_statement::*;
 pub enum Statement {
     Item(Item),
     Let(LetTree),
-    Expression(ExpressionTree),
+    Expression(Expression),
 }
 impl Display for Statement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -22,9 +22,8 @@ pub use while_expression::WhileExpressionTree;
 
 #[derive(ReflectName, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Expression {
-    SelfLower,
     PathInExpression(PathInExpressionTree),
-    UnsignedDecimalConstant(usize),
+    UnsignedDecimalConstant(SourceLoc, usize),
     Arithmetic(ArithmeticExpressionTree),
     Comparison(ComparisonExpressionTree),
     Assignment(AssignmentTree),
@@ -35,12 +34,28 @@ pub enum Expression {
     Call(Box<CallExpressionTree>),
 }
 
+impl Expression {
+    pub fn loc(&self) -> &SourceLoc {
+        match self {
+            Self::PathInExpression(e) => &e.loc,
+            Self::UnsignedDecimalConstant(l, _) => l,
+            Self::Arithmetic(e) => e.loc(),
+            Self::Comparison(e) => e.loc(),
+            Self::Assignment(e) => &e.loc,
+            Self::If(e) => &e.loc,
+            Self::Match(e) => &e.loc,
+            Self::While(e) => &e.loc,
+            Self::FieldExpression(e) => &e.loc,
+            Self::Call(e) => &e.loc,
+        }
+    }
+}
+
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::SelfLower => write!(f, "self"),
             Self::PathInExpression(path) => write!(f, "{}", path),
-            Self::UnsignedDecimalConstant(constant) => write!(f, "{}", constant),
+            Self::UnsignedDecimalConstant(_, constant) => write!(f, "{}", constant),
             Self::Arithmetic(arithmetic_expression) => write!(f, "{}", arithmetic_expression),
             Self::Comparison(comparison_expression) => write!(f, "{}", comparison_expression),
             Self::Assignment(assignment_expression) => write!(f, "{}", assignment_expression),
@@ -59,71 +74,46 @@ impl std::fmt::Debug for Expression {
     }
 }
 
-#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ExpressionTree {
-    pub loc: SourceLoc,
-    pub expression: Expression,
-}
-
-impl ExpressionTree {
-    pub fn new(loc: SourceLoc, expression: Expression) -> Self {
-        Self { loc, expression }
-    }
-}
-
-impl Display for ExpressionTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.expression)
-    }
-}
-
-impl treewalk::CollectSymbols for ExpressionTree {
+impl treewalk::CollectSymbols for Expression {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
-        match &self.expression {
-            Expression::If(if_expr) => {
+        match &self {
+            Self::If(if_expr) => {
                 if_expr.condition.collect_symbols(ctx);
                 if_expr.true_block.collect_symbols(ctx);
                 if let Some(false_block) = &if_expr.false_block {
                     false_block.collect_symbols(ctx);
                 }
             }
-            Expression::While(while_expr) => {
+            Self::While(while_expr) => {
                 while_expr.condition.collect_symbols(ctx);
                 while_expr.body.collect_symbols(ctx);
             }
-            Expression::Match(match_expr) => {
+            Self::Match(match_expr) => {
                 match_expr.scrutinee_expression.collect_symbols(ctx);
                 for arm in &match_expr.arms {
                     arm.collect_symbols(ctx);
                 }
             }
-            Expression::SelfLower
-            | Expression::PathInExpression(_)
-            | Expression::UnsignedDecimalConstant(_)
-            | Expression::Arithmetic(_)
-            | Expression::Comparison(_)
-            | Expression::Assignment(_)
-            | Expression::FieldExpression(_)
-            | Expression::Call(_) => (),
+            Self::PathInExpression(_)
+            | Self::UnsignedDecimalConstant(_, _)
+            | Self::Arithmetic(_)
+            | Self::Comparison(_)
+            | Self::Assignment(_)
+            | Self::FieldExpression(_)
+            | Self::Call(_) => (),
         }
     }
 }
 
-impl treewalk::Linearize<midend::ir::ValueId> for ExpressionTree {
+impl treewalk::Linearize<midend::ir::ValueId> for Expression {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
-        match self.expression {
-            Expression::SelfLower => {
-                let self_variable_path = ctx.self_variable().unwrap();
-                ctx.function_mut()
-                    .values_mut()
-                    .id_for_variable(self_variable_path)
-            }
-            Expression::PathInExpression(path) => path.linearize(ctx),
-            Expression::UnsignedDecimalConstant(constant) => {
+        match self {
+            Self::PathInExpression(path) => path.linearize(ctx),
+            Self::UnsignedDecimalConstant(_, constant) => {
                 *ctx.function_mut().values_mut().id_for_constant(constant)
             }
-            Expression::Arithmetic(arithmetic_operation) => {
+            Self::Arithmetic(arithmetic_operation) => {
                 let operands = arithmetic_operation.linearize(ctx);
                 let destination = ctx.function_mut().values_mut().next_temp();
                 let expression_statement = midend::ir::IrLine::new_binary_arithmetic_expression(
@@ -136,7 +126,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for ExpressionTree {
                     .unwrap();
                 destination
             }
-            Expression::Comparison(comparison_operation) => {
+            Self::Comparison(comparison_operation) => {
                 let operands = comparison_operation.linearize(ctx);
                 let destination = ctx.function_mut().values_mut().next_temp();
                 let comparison_statement = midend::ir::IrLine::new_binary_comparison_expression(
@@ -149,16 +139,17 @@ impl treewalk::Linearize<midend::ir::ValueId> for ExpressionTree {
                     .unwrap();
                 destination
             }
-            Expression::Assignment(assignment_expression) => assignment_expression.linearize(ctx),
-            Expression::If(if_expression) => if_expression.linearize(ctx),
-            Expression::Match(match_expression) => match_expression.linearize(ctx),
+            Self::Assignment(assignment_expression) => assignment_expression.linearize(ctx),
+            Self::If(if_expression) => if_expression.linearize(ctx),
+            Self::Match(match_expression) => match_expression.linearize(ctx),
 
-            Expression::While(while_expression) => while_expression.linearize(ctx),
-            Expression::FieldExpression(field_expression) => {
+            Self::While(while_expression) => while_expression.linearize(ctx),
+            Self::FieldExpression(field_expression) => {
+                let field_loc = field_expression.loc.clone();
                 let (receiver, field) = field_expression.linearize(ctx);
                 let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
                 let field_read_line = midend::ir::IrLine::new_get_field_pointer(
-                    self.loc,
+                    field_loc,
                     receiver.into(),
                     field,
                     field_pointer_temp.clone(),
@@ -168,7 +159,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for ExpressionTree {
                     .unwrap();
                 field_pointer_temp
             }
-            Expression::Call(call) => call.linearize(ctx),
+            Self::Call(call) => call.linearize(ctx),
         }
     }
 }

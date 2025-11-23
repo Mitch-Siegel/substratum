@@ -1,30 +1,31 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
-    fn parse_ident_segment(&mut self) -> Result<ast::expressions::PathIdentSegment, ParseError> {
-        let (_loc, _span) = self.start_parsing("path ident segment")?;
+    pub fn parse_path_ident_segment(
+        &mut self,
+    ) -> Result<ast::expressions::PathIdentSegment, ParseError> {
+        let (loc, _span) = self.start_parsing("path ident segment")?;
 
         let segment = match self.peek_token()? {
             Token::Identifier(_) => {
-                ast::expressions::PathIdentSegment::Ident(self.parse_identifier()?)
+                ast::expressions::PathIdentSegment::Ident(loc, self.parse_identifier()?)
             }
             Token::Super => {
                 self.expect_token(Token::Super)?;
-                ast::expressions::PathIdentSegment::Super
+                ast::expressions::PathIdentSegment::Super(loc)
             }
             Token::SelfLower => {
                 self.expect_token(Token::SelfLower)?;
-                ast::expressions::PathIdentSegment::SelfLower
+                ast::expressions::PathIdentSegment::SelfLower(loc)
             }
             Token::SelfUpper => {
                 self.expect_token(Token::SelfUpper)?;
-                ast::expressions::PathIdentSegment::SelfUpper
+                ast::expressions::PathIdentSegment::SelfUpper(loc)
             }
             _ => self.unexpected_token(&[Token::Identifier("".into()), Token::Super])?,
         };
 
-        self.finish_parsing(&segment)?;
-        Ok(segment)
+        self.finish_parsing(segment)
     }
 
     fn parse_path_expr_segment(
@@ -32,7 +33,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
     ) -> Result<ast::expressions::PathExprSegmentTree, ParseError> {
         let (loc, _span) = self.start_parsing("path expr segment")?;
 
-        let ident_tree = self.parse_ident_segment()?;
+        let ident_tree = self.parse_path_ident_segment()?;
         let generic_args = match self.peek_token()? {
             Token::PathSep => match self.lookahead_token(1)? {
                 Token::LThan => {
@@ -46,15 +47,15 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         trace::trace!("Path expr generics: {:?}", generic_args);
 
         let segment_tree = ast::expressions::PathExprSegmentTree {
-            loc,
             ident: ident_tree,
             generic_args,
         };
-        self.finish_parsing(&segment_tree)?;
-        Ok(segment_tree)
+        self.finish_parsing(segment_tree)
     }
 
-    pub fn parse_path_in_expression(&mut self) -> Result<ExpressionTree, ParseError> {
+    pub fn parse_path_in_expression(
+        &mut self,
+    ) -> Result<ast::expressions::PathInExpressionTree, ParseError> {
         let (loc, _span) = self.start_parsing("path in expression")?;
 
         let mut segments = vec![self.parse_path_expr_segment()?];
@@ -74,9 +75,6 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
             segments,
         };
 
-        let expression_tree =
-            ExpressionTree::new(loc, ast::Expression::PathInExpression(path_in_expr_tree));
-        self.finish_parsing(&expression_tree)?;
-        Ok(expression_tree)
+        self.finish_parsing(path_in_expr_tree)
     }
 }

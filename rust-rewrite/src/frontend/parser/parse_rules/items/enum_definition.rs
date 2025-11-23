@@ -4,6 +4,8 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     fn parse_tuple_enum_variant(
         &mut self,
     ) -> Result<ast::items::enum_definition::EnumVariantData, ParseError> {
+        let (_start_loc, _span) = self.start_parsing("tuple enum variant")?;
+
         self.expect_token(Token::LParen)?;
         let mut tuple_elements = Vec::new();
         loop {
@@ -19,16 +21,16 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             }
         }
         self.expect_token(Token::RParen)?;
-        Ok(ast::items::enum_definition::EnumVariantData::TupleData(
-            tuple_elements,
-        ))
+        let tuple_data = ast::items::enum_definition::EnumVariantData::TupleData(tuple_elements);
+
+        self.finish_parsing(tuple_data)
     }
 
     fn parse_enum_variant_data(
         &mut self,
     ) -> Result<Option<ast::items::enum_definition::EnumVariantDataTree>, ParseError> {
         let (start_loc, _span) = self.start_parsing("enum variant data")?;
-        let data = match self.peek_token()? {
+        let variant_data = match self.peek_token()? {
             Token::LParen => Some(ast::items::enum_definition::EnumVariantDataTree {
                 loc: start_loc,
                 data: self.parse_tuple_enum_variant()?,
@@ -36,7 +38,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             _ => None,
         };
 
-        Ok(data)
+        self.finish_parsing(variant_data)
     }
 
     pub fn parse_enum_variant(
@@ -49,8 +51,8 @@ impl<'a, 'p> ItemParser<'a, 'p> {
 
         let enum_variant_tree =
             ast::items::enum_definition::EnumVariantTree::new(start_loc, name, variant_data);
-        self.finish_parsing(&enum_variant_tree)?;
-        Ok(enum_variant_tree)
+
+        self.finish_parsing(enum_variant_tree)
     }
 
     pub fn parse_enum_definition(
@@ -89,7 +91,6 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             generic_params,
             variants,
         );
-        self.finish_parsing(&enum_definition_tree)?;
-        Ok(enum_definition_tree)
+        self.finish_parsing(enum_definition_tree)
     }
 }

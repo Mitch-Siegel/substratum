@@ -13,7 +13,7 @@ pub mod module;
 pub mod statements;
 pub mod types;
 
-pub use expressions::{Expression, ExpressionTree};
+pub use expressions::Expression;
 pub use items::Item;
 pub use module::ModuleTree;
 pub use statements::StatementTree;

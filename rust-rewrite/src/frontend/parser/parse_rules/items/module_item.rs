@@ -19,7 +19,6 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             .parse_module_contents(parent_module_path, name)?;
         self.expect_token(Token::RCurly)?;
 
-        self.finish_parsing(&module_result.module_tree)?;
-        Ok(module_result)
+        self.finish_parsing(module_result)
     }
 }
