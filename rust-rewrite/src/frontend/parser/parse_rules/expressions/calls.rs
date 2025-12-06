@@ -9,7 +9,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
 
         let mut params = Vec::new();
 
-        self.expect_token(Token::LParen)?;
+        let open_paren_loc = self.expect_token(Token::LParen)?;
         while self.peek_token()? != Token::RParen {
             params.push(self.parse_expression()?);
             if self.peek_token()? == Token::Comma {
@@ -22,9 +22,13 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
                 break;
             }
         }
-        self.expect_token(Token::RParen)?;
+        let close_paren_loc = self.expect_token(Token::RParen)?;
 
-        let params_tree = ast::expressions::calls::CallParamsTree::new(start_loc, params);
+        let params_tree = ast::expressions::calls::CallParamsTree {
+            open_paren_loc,
+            params,
+            close_paren_loc,
+        };
         self.finish_parsing(params_tree)
     }
 
@@ -35,13 +39,12 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         self.start_parsing("method call expression")?;
         let start_loc = function_operand.loc().clone();
 
-        let call_params = self.parse_call_params(true)?;
+        let params = self.parse_call_params(true)?;
 
-        let call_expression_tree = ast::expressions::CallExpressionTree::new(
-            start_loc.clone(),
+        let call_expression_tree = ast::expressions::CallExpressionTree {
             function_operand,
-            call_params,
-        );
+            params,
+        };
 
         let expression_tree = Expression::Call(Box::from(call_expression_tree));
         self.finish_parsing(expression_tree)

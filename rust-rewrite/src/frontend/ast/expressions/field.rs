@@ -2,18 +2,13 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FieldExpressionTree {
-    pub loc: SourceLoc,
     pub receiver: Expression,
-    pub field: String,
+    pub field: IdentifierTree,
 }
 
-impl FieldExpressionTree {
-    pub fn new(loc: SourceLoc, receiver: Expression, field: String) -> Self {
-        Self {
-            loc,
-            receiver,
-            field,
-        }
+impl Ast for FieldExpressionTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.receiver.loc().merge(&self.field.loc()).unwrap()
     }
 }
 
@@ -31,6 +26,6 @@ impl treewalk::Linearize<(midend::ir::ValueId, String)> for FieldExpressionTree 
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> (midend::ir::ValueId, String) {
         let receiver = self.receiver.linearize(ctx);
 
-        (receiver, self.field)
+        (receiver, self.field.linearize(ctx))
     }
 }

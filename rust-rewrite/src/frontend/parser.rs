@@ -7,7 +7,7 @@ use crate::{
     frontend::{
         ast::*,
         lexer::{token::Token, LexError},
-        sourceloc::SourceLoc,
+        sourceloc::*,
         *,
     },
     trace,
@@ -21,9 +21,9 @@ pub use parse_rules::module::ModuleResult;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
-    module_parse_stack: Vec<String>,
-    last_match: SourceLoc,
-    upcoming_tokens: VecDeque<(Token, SourceLoc)>,
+    module_parse_stack: Vec<IdentifierTree>,
+    last_match: SourceSpan,
+    upcoming_tokens: VecDeque<(Token, SourceSpan)>,
     parsing_stack: Vec<(SourceLoc, String)>,
 }
 
@@ -32,7 +32,10 @@ impl<'a> Parser<'a> {
         let lexer_start_pos = lexer.current_loc();
         let mut module_hierarchy = Vec::new();
         for component in module_path.iter() {
-            module_hierarchy.push(component.to_str().unwrap().into())
+            module_hierarchy.push(IdentifierTree {
+                loc: lexer_start_pos.clone().into(),
+                value: component.to_str().unwrap().into(),
+            })
         }
 
         trace::debug!("Module hierarchy: {:?}", module_hierarchy);
@@ -40,7 +43,7 @@ impl<'a> Parser<'a> {
         Parser {
             lexer: lexer,
             module_parse_stack: module_hierarchy,
-            last_match: lexer_start_pos,
+            last_match: lexer_start_pos.into(),
             upcoming_tokens: VecDeque::new(),
             parsing_stack: Vec::new(),
         }
@@ -63,7 +66,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn peek_token_with_loc(&mut self) -> Result<(Token, SourceLoc), LexError> {
+    fn peek_token_with_loc(&mut self) -> Result<(Token, sourceloc::SourceSpan), LexError> {
         let peeked = self.lookahead_token_with_loc(0)?;
         // #[cfg(feature = "loud_parsing")]
         // println!("Parser::peek_token() -> {}", peeked);
@@ -82,14 +85,14 @@ impl<'a> Parser<'a> {
     fn lookahead_token_with_loc(
         &mut self,
         lookahead_by: usize,
-    ) -> Result<(Token, SourceLoc), LexError> {
+    ) -> Result<(Token, SourceSpan), LexError> {
         self.ensure_n_tokens_in_lookahead(lookahead_by)?;
 
         Ok(self
             .upcoming_tokens
             .get(lookahead_by)
             .cloned()
-            .unwrap_or((Token::Eof, SourceLoc::none())))
+            .unwrap_or((Token::Eof, self.lexer.current_loc().into())))
     }
 
     fn next_token(&mut self) -> Result<Token, ParseError> {
@@ -97,19 +100,19 @@ impl<'a> Parser<'a> {
         let (next, start_loc) = self
             .upcoming_tokens
             .pop_front()
-            .unwrap_or((Token::Eof, self.lexer.current_loc()));
+            .unwrap_or((Token::Eof, self.lexer.current_loc().into()));
         self.last_match = start_loc;
         #[cfg(feature = "loud_parsing")]
         self.annotate_parsing(&format!("Parser::next_token() -> {}@{}", next, start_loc));
         Ok(next)
     }
 
-    fn next_token_with_loc(&mut self) -> Result<(Token, SourceLoc), ParseError> {
+    fn next_token_with_loc(&mut self) -> Result<(Token, SourceSpan), ParseError> {
         self.ensure_n_tokens_in_lookahead(1)?;
         let next = self
             .upcoming_tokens
             .pop_front()
-            .unwrap_or((Token::Eof, self.lexer.current_loc()));
+            .unwrap_or((Token::Eof, self.lexer.current_loc().into()));
         self.last_match = next.1.clone();
         #[cfg(feature = "loud_parsing")]
         self.annotate_parsing(&format!("Parser::next_token() -> {}@{}", next, start_loc));
@@ -117,7 +120,7 @@ impl<'a> Parser<'a> {
     }
 
     #[track_caller]
-    fn expect_token(&mut self, expected: Token) -> Result<Token, ParseError> {
+    fn expect_token(&mut self, expected: Token) -> Result<SourceSpan, ParseError> {
         //#[cfg(feature = "loud_parsing")]
         //self.annotate_parsing(&format!("Parser::expect_token({})", _expected));
         let (current_parse_start_loc, current_parse_string) = self
@@ -128,10 +131,10 @@ impl<'a> Parser<'a> {
 
         let (upcoming_token, upcoming_loc) = self.peek_token_with_loc()?;
         if upcoming_token.eq(&expected) {
-            Ok(self.next_token()?)
+            Ok(self.next_token_with_loc()?.1)
         } else {
             Err(ParseError::unexpected_token(
-                upcoming_loc,
+                upcoming_loc.start(),
                 upcoming_token,
                 &[expected],
                 current_parse_string,
@@ -155,7 +158,7 @@ impl<'a> Parser<'a> {
         };
 
         Err(ParseError::unexpected_token(
-            upcoming_loc,
+            upcoming_loc.start(),
             upcoming_token,
             expected_tokens,
             current_parse_string,
@@ -168,7 +171,7 @@ impl<'a> Parser<'a> {
         &mut self,
         what_parsing: &str,
     ) -> Result<(SourceLoc, trace::ExitOnDropSpan), ParseError> {
-        let start_loc = self.peek_token_with_loc()?.1;
+        let start_loc = self.peek_token_with_loc()?.1.start();
 
         let exit_on_drop_span = trace::span_auto!(
             tracing::Level::TRACE,
@@ -230,11 +233,20 @@ impl<'a> Parser<'a> {
 impl<'a> Parser<'a> {
     pub fn parse(
         &mut self,
+        mod_keyword_loc: sourceloc::SourceSpan,
         parent_module_path: &std::path::Path,
         module_name: String,
     ) -> Result<parse_rules::module::ModuleResult, ParseError> {
-        self.module_parser()
-            .parse_module_contents(parent_module_path, module_name)
+        let module_name_tree = ast::IdentifierTree {
+            loc: mod_keyword_loc.clone(),
+            value: module_name,
+        };
+
+        self.module_parser().parse_module_contents(
+            mod_keyword_loc,
+            parent_module_path,
+            module_name_tree,
+        )
     }
 }
 

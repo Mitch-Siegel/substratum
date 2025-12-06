@@ -3,8 +3,25 @@ use crate::{frontend::ast::*, trace};
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ModuleTree {
     pub module_path: Vec<String>,
-    pub name: String,
-    pub items: Vec<Item>,
+    pub mod_keyword_loc: sourceloc::SourceSpan,
+    pub name: IdentifierTree,
+    pub items: Vec<ItemTree>,
+}
+
+impl Ast for ModuleTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        let mut loc = self
+            .mod_keyword_loc
+            .clone()
+            .merge(&self.name.loc())
+            .unwrap();
+
+        for item in &self.items {
+            loc = loc.merge(&item.loc()).unwrap()
+        }
+
+        loc
+    }
 }
 
 impl Display for ModuleTree {
@@ -26,7 +43,7 @@ impl treewalk::CollectSymbols for ModuleTree {
             self.module_path
         );
         let module_component = midend::symtab::DefPathComponent::Module(
-            midend::symtab::ModuleName::new(self.name.clone()),
+            midend::symtab::ModuleName::new(self.name.value.clone()),
         );
         ctx.declare(module_component.clone()).unwrap();
 
@@ -41,30 +58,31 @@ impl treewalk::CollectSymbols for ModuleTree {
 
 impl treewalk::Linearize<()> for ModuleTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, context: &mut treewalk::LinearizeCtx) -> () {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
         tracing::trace!(
             "Create symtab module \"{}\" at \"{}\"",
             self.name,
-            context.def_path()
+            ctx.def_path()
         );
-        context
-            .define(midend::symtab::symbol::Module::new(self.name.clone()))
+
+        let module_name = self.name.linearize(ctx);
+
+        ctx.define(midend::symtab::symbol::Module::new(module_name.clone()))
             .unwrap();
-        context.push_def_path(
+        ctx.push_def_path(
             midend::symtab::DefPathComponent::Module(midend::symtab::ModuleName {
-                name: self.name.clone(),
+                name: module_name.clone(),
             }),
             &Vec::new(),
         );
 
         for item in self.items {
-            item.linearize(context)
+            item.linearize(ctx)
         }
 
-        context
-            .pop_def_path(midend::symtab::DefPathComponent::Module(
-                midend::symtab::ModuleName { name: self.name },
-            ))
-            .unwrap();
+        ctx.pop_def_path(midend::symtab::DefPathComponent::Module(
+            midend::symtab::ModuleName { name: module_name },
+        ))
+        .unwrap();
     }
 }

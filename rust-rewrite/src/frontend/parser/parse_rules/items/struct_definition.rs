@@ -6,12 +6,11 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     ) -> Result<ast::items::struct_definition::StructFieldTree, ParseError> {
         let (start_loc, _span) = self.start_parsing("struct field")?;
 
-        let field_name = self.parse_identifier()?;
+        let name = self.parse_identifier()?;
         self.expect_token(Token::Colon)?;
-        let field_type = self.type_parser().parse_type()?;
+        let type_ = self.type_parser().parse_type()?;
 
-        let field_tree =
-            ast::items::struct_definition::StructFieldTree::new(start_loc, field_name, field_type);
+        let field_tree = ast::items::struct_definition::StructFieldTree { name, type_ };
         self.finish_parsing(field_tree)
     }
 
@@ -20,23 +19,22 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     ) -> Result<ast::items::StructDefinitionTree, ParseError> {
         let (start_loc, _span) = self.start_parsing("struct definition")?;
 
-        self.expect_token(Token::Struct)?;
-        let struct_name = self.parse_identifier()?;
+        let struct_keyword_loc = self.expect_token(Token::Struct)?;
+        let name = self.parse_identifier()?;
         let generic_params = self.try_parse_generic_params_list()?;
         self.expect_token(Token::LCurly)?;
 
-        let mut struct_fields = Vec::new();
+        let mut fields = Vec::new();
 
         loop {
             match self.peek_token()? {
                 Token::Identifier(_) => {
-                    struct_fields.push(self.parse_struct_field_declaration()?);
+                    fields.push(self.parse_struct_field_declaration()?);
                     if matches!(self.peek_token()?, Token::Comma) {
                         self.next_token()?;
                     }
                 }
                 Token::RCurly => {
-                    self.next_token()?;
                     break;
                 }
                 _ => {
@@ -45,12 +43,15 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             }
         }
 
-        let struct_definition = ast::items::StructDefinitionTree::new(
-            start_loc,
-            struct_name,
+        let close_brace_loc = self.expect_token(Token::RCurly)?;
+
+        let struct_definition = ast::items::StructDefinitionTree {
+            struct_keyword_loc,
+            name,
             generic_params,
-            struct_fields,
-        );
+            fields,
+            close_brace_loc,
+        };
         self.finish_parsing(struct_definition)
     }
 }

@@ -1,8 +1,4 @@
-use token::Token;
-
-use super::sourceloc::SourceLoc;
-
-use crate::trace;
+use crate::{frontend::sourceloc::*, trace};
 pub use char_source::CharSource;
 
 mod char_source;
@@ -14,15 +10,16 @@ mod tests;
 pub mod token;
 
 pub use errors::LexError;
+use token::Token;
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
     cur_file: String, // TODO: needs to become PathBuf at some point
     char_source: CharSource<'a>,
-    cur_line: usize,
-    cur_col: usize,
+    cur_line: u32,
+    cur_col: u32,
     current_char: Option<char>,
-    current_token: Option<(Token, SourceLoc)>,
+    current_token: Option<(Token, SourceSpan)>,
 }
 
 // public methods:
@@ -57,19 +54,21 @@ impl<'a> Lexer<'a> {
         )
     }
 
-    pub fn peek(&mut self) -> Result<(Token, SourceLoc), LexError> {
+    pub fn peek(&mut self) -> Result<(Token, SourceSpan), LexError> {
         if self.current_token.is_none() {
             self.current_token = Some(self.lex()?);
         }
 
-        let peeked = self.current_token.clone().unwrap_or((
-            Token::Eof,
-            SourceLoc::new(
-                std::path::Path::new(&self.cur_file),
-                self.cur_line,
-                self.cur_col,
-            ),
-        ));
+        let peeked = match self.current_token.clone() {
+            Some(t) => t,
+            None => {
+                let eof_point = SourcePoint::new(self.cur_line, self.cur_col);
+                (
+                    Token::Eof,
+                    SourceSpan::new(self.cur_file.clone(), eof_point.clone(), eof_point),
+                )
+            }
+        };
 
         #[cfg(feature = "loud_lexing")]
         println!("Lexer::peek() -> {:?}", peeked);
@@ -80,25 +79,24 @@ impl<'a> Lexer<'a> {
     // returns the position to which the input has been read
     pub fn current_loc(&self) -> SourceLoc {
         SourceLoc::new(
-            std::path::Path::new(&self.cur_file),
-            self.cur_line,
-            self.cur_col,
+            self.cur_file.clone(),
+            SourcePoint::new(self.cur_line, self.cur_col),
         )
     }
 
-    pub fn next(&mut self) -> Result<(Token, SourceLoc), LexError> {
+    pub fn next(&mut self) -> Result<(Token, SourceSpan), LexError> {
         let _ = trace::span_auto!(tracing::Level::TRACE, "");
         let next_token = self.lex()?;
         Ok(self
             .current_token
             .replace(next_token)
-            .unwrap_or((Token::Eof, self.current_loc())))
+            .unwrap_or((Token::Eof, SourceSpan::from(self.current_loc()))))
     }
 
     #[allow(dead_code)]
-    pub fn lex_all(&mut self) -> Result<Vec<(Token, SourceLoc)>, LexError> {
+    pub fn lex_all(&mut self) -> Result<Vec<(Token, SourceSpan)>, LexError> {
         println!("Lexer::lex_all()");
-        let mut tokens: Vec<(Token, SourceLoc)> = Vec::new();
+        let mut tokens: Vec<(Token, SourceSpan)> = Vec::new();
         if self.current_token.is_none() {
             tokens.push(self.lex()?);
         }
@@ -237,16 +235,12 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn lex(&mut self) -> Result<(Token, SourceLoc), LexError> {
+    fn lex(&mut self) -> Result<(Token, SourceSpan), LexError> {
         #[cfg(feature = "loud_lexing")]
         println!("Lexer::lex()");
 
         self.trim_whitespace();
-        let match_start = SourceLoc::new(
-            std::path::Path::new(&self.cur_file),
-            self.cur_line,
-            self.cur_col,
-        );
+        let match_start = SourcePoint::new(self.cur_line, self.cur_col);
 
         let token = if let Some(peeked_char) = self.peek_char() {
             match peeked_char {
@@ -369,7 +363,11 @@ impl<'a> Lexer<'a> {
             Ok(tok) => {
                 #[cfg(feature = "loud_lexing")]
                 println!("Lexer::lex(): lexed '{}'@{}", tok.name(), match_start);
-                Ok((tok, match_start))
+                let match_end = SourcePoint::new(self.cur_line, self.cur_col);
+                Ok((
+                    tok,
+                    SourceSpan::new(self.cur_file.clone(), match_start, match_end),
+                ))
             }
             Err(e) => {
                 #[cfg(feature = "loud_lexing")]

@@ -1,22 +1,75 @@
-use crate::{frontend::ast::expressions::*, trace};
+use crate::{
+    frontend::{ast::expressions::*, *},
+    trace,
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum Pattern {
-    Literal(Expression),
-    Identifier(String),
-    // TODO: PathInExpression
-    TupleStruct(String, Vec<PatternTree>),
+pub struct TupleStructTree {
+    pub name: IdentifierTree,
+    pub subpatterns: Vec<PatternTree>,
+    pub close_paren_loc: sourceloc::SourceSpan,
 }
 
-impl treewalk::CollectSymbols for Pattern {
+impl std::fmt::Display for TupleStructTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(", self.name)?;
+        let mut first = true;
+        for subpattern in &self.subpatterns {
+            if first {
+                write!(f, "{}", subpattern)?;
+                first = false;
+            } else {
+                write!(f, ", {}", subpattern)?;
+            }
+        }
+
+        write!(f, ")")
+    }
+}
+
+impl Ast for TupleStructTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.name.loc().merge(&self.close_paren_loc).unwrap()
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PatternTree {
+    Literal(Expression),
+    Identifier(IdentifierTree),
+    // TODO: PathInExpression
+    TupleStruct(TupleStructTree),
+}
+
+impl Ast for PatternTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        match self {
+            Self::Literal(e) => e.loc(),
+            Self::Identifier(i) => i.loc(),
+            Self::TupleStruct(t) => t.loc(),
+        }
+    }
+}
+
+impl std::fmt::Display for PatternTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Literal(e) => write!(f, "{}", e),
+            Self::Identifier(i) => write!(f, "{}", i),
+            Self::TupleStruct(t) => write!(f, "{}", t),
+        }
+    }
+}
+
+impl treewalk::CollectSymbols for PatternTree {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
         match self {
             Self::Literal(expr) => expr.collect_symbols(ctx),
-            Self::Identifier(name) => {
-                ctx.declare_variable(name.clone()).unwrap();
+            Self::Identifier(ident) => {
+                ctx.declare_variable(ident.value.clone()).unwrap();
             }
-            Self::TupleStruct(_, subpatterns) => {
-                for pattern in subpatterns {
+            Self::TupleStruct(t) => {
+                for pattern in &t.subpatterns {
                     pattern.collect_symbols(ctx);
                 }
             }
@@ -24,15 +77,16 @@ impl treewalk::CollectSymbols for Pattern {
     }
 }
 
-impl treewalk::Linearize<()> for Pattern {
+impl treewalk::Linearize<PatternTree> for PatternTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
-        match self {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> PatternTree {
+        match self.clone() {
             Self::Literal(_) => (),
-            Self::Identifier(name) => {
+            Self::Identifier(ident) => {
+                let variable_name = ident.linearize(ctx);
                 let variable_def_path = ctx
                     .define::<midend::symtab::Variable>(midend::symtab::Variable::new(
-                        name.clone(),
+                        variable_name,
                         None,
                     ))
                     .unwrap();
@@ -42,60 +96,25 @@ impl treewalk::Linearize<()> for Pattern {
                     .values_mut()
                     .id_for_variable(variable_def_path);
             }
-            Self::TupleStruct(_struct_name, field_patterns) => {
-                for field in field_patterns.clone() {
+            Self::TupleStruct(tuple_struct) => {
+                for field in tuple_struct.subpatterns.clone() {
                     field.linearize(ctx);
                 }
             }
         };
-    }
-}
-
-#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct PatternTree {
-    pub loc: SourceLoc,
-    pub pattern: Pattern,
-}
-impl PatternTree {
-    pub fn new(loc: SourceLoc, pattern: Pattern) -> Self {
-        Self { loc, pattern }
-    }
-}
-
-impl Display for PatternTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.pattern)
-    }
-}
-
-impl treewalk::CollectSymbols for PatternTree {
-    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
-        self.pattern.collect_symbols(ctx);
-    }
-}
-
-impl treewalk::Linearize<PatternTree> for PatternTree {
-    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> PatternTree {
-        self.pattern.clone().linearize(ctx);
         self
     }
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MatchArmTree {
-    pub loc: SourceLoc,
     pub pattern: PatternTree,
     pub expression: BlockExpressionTree,
 }
 
 impl MatchArmTree {
-    pub fn new(loc: SourceLoc, pattern: PatternTree, expression: BlockExpressionTree) -> Self {
-        Self {
-            loc,
-            pattern,
-            expression,
-        }
+    pub fn loc(&self) -> sourceloc::SourceSpan {
+        self.pattern.loc().merge(&self.expression.loc()).unwrap()
     }
 }
 
@@ -125,20 +144,27 @@ impl treewalk::Linearize<(PatternTree, midend::ir::ValueId)> for MatchArmTree {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MatchExpressionTree {
-    pub loc: SourceLoc,
+    pub match_keyword_loc: sourceloc::SourceSpan,
     pub scrutinee_expression: Expression,
     pub arms: Vec<MatchArmTree>,
 }
 
-impl MatchExpressionTree {
-    pub fn new(loc: SourceLoc, scrutinee_expression: Expression, arms: Vec<MatchArmTree>) -> Self {
-        Self {
-            loc,
-            scrutinee_expression,
-            arms,
+impl Ast for MatchExpressionTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        let mut loc = self
+            .match_keyword_loc
+            .clone()
+            .merge(&self.scrutinee_expression.loc())
+            .unwrap();
+
+        for arm in &self.arms {
+            loc = loc.merge(&arm.loc()).unwrap();
         }
+
+        loc
     }
 }
+
 impl Display for MatchExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "match {} {{{:?}}}", self.scrutinee_expression, self.arms)
@@ -148,14 +174,14 @@ impl Display for MatchExpressionTree {
 impl treewalk::Linearize<midend::ir::ValueId> for MatchExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
-        let match_loc = self.loc;
+        let match_loc = self.loc();
 
         let parent_scope_def_path = ctx.def_path().clone();
         let switch_scope_def_path = ctx.reserve_subscope();
 
         ctx.function_mut()
             .create_switch(
-                match_loc.clone(),
+                match_loc.clone().start(),
                 parent_scope_def_path,
                 switch_scope_def_path,
             )
@@ -170,15 +196,16 @@ impl treewalk::Linearize<midend::ir::ValueId> for MatchExpressionTree {
 
         for arm in self.arms {
             trace::warning!("start arm");
+            let arm_loc = arm.loc();
+
             let case_scope_def_path = ctx.reserve_subscope();
             let arm_label = ctx
                 .function_mut()
                 .create_switch_case(case_scope_def_path)
                 .unwrap();
-            let _pattern_loc = arm.loc.clone();
             let (pattern, result_value) = arm.linearize(ctx);
             ctx.function_mut()
-                .finish_switch_case(match_loc.clone())
+                .finish_switch_case(arm_loc.end())
                 .unwrap();
 
             arm_values.push(midend::ir::unlowered::operands::MatchArm {
@@ -191,7 +218,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for MatchExpressionTree {
 
         ctx.function_mut()
             .append_statement_to_current_block(midend::ir::IrLine::new_match(
-                match_loc.clone(),
+                match_loc.clone().start(),
                 scrutinee_value,
                 arm_values,
             ))
@@ -201,7 +228,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for MatchExpressionTree {
 
         // FIXME: (?) Convergence currently exists from the switch block itself to the after-switch
         // block, resulting in an unreachable jump instruction after the unlowered match IR.
-        ctx.function_mut().finish_switch(match_loc).unwrap();
+        ctx.function_mut().finish_switch(match_loc.end()).unwrap();
         result_value
     }
 }

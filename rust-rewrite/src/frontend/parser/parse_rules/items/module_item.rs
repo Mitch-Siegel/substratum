@@ -11,12 +11,16 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             "module item parent module path: \"{}\"",
             parent_module_path.display()
         );
-        self.expect_token(Token::Mod)?;
+
+        let mod_keyword_loc = self.expect_token(Token::Mod)?;
+
         let name = self.parse_identifier()?;
         self.expect_token(Token::LCurly)?;
-        let module_result = self
-            .module_parser()
-            .parse_module_contents(parent_module_path, name)?;
+        let module_result = self.module_parser().parse_module_contents(
+            mod_keyword_loc,
+            parent_module_path,
+            name,
+        )?;
         self.expect_token(Token::RCurly)?;
 
         self.finish_parsing(module_result)

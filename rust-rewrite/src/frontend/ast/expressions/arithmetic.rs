@@ -1,4 +1,4 @@
-use crate::frontend::ast::*;
+use crate::frontend::{ast::*, *};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ArithmeticDualOperands {
@@ -13,6 +13,10 @@ impl ArithmeticDualOperands {
             e2: Box::new(e2),
         }
     }
+
+    pub fn loc(&self) -> sourceloc::SourceSpan {
+        self.e1.loc().merge(&self.e2.loc()).unwrap()
+    }
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -25,15 +29,15 @@ pub enum ComparisonExpressionTree {
     NotEquals(ArithmeticDualOperands),
 }
 
-impl ComparisonExpressionTree {
-    pub fn loc(&self) -> &SourceLoc {
+impl Ast for ComparisonExpressionTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::LThan(operands)
             | Self::GThan(operands)
             | Self::LThanE(operands)
             | Self::GThanE(operands)
             | Self::Equals(operands)
-            | Self::NotEquals(operands) => operands.e1.loc(),
+            | Self::NotEquals(operands) => operands.loc(),
         }
     }
 }
@@ -126,10 +130,10 @@ pub enum ArithmeticExpressionTree {
     Divide(ArithmeticDualOperands),
 }
 
-impl ArithmeticExpressionTree {
-    pub fn loc(&self) -> &SourceLoc {
+impl Ast for ArithmeticExpressionTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
         match self {
-            Self::Add(o) | Self::Subtract(o) | Self::Multiply(o) | Self::Divide(o) => o.e1.loc(),
+            Self::Add(o) | Self::Subtract(o) | Self::Multiply(o) | Self::Divide(o) => o.loc(),
         }
     }
 }

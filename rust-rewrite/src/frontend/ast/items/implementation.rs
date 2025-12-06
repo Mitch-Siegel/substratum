@@ -2,28 +2,20 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ImplementationTree {
-    pub loc: SourceLoc,
+    pub impl_keyword_loc: sourceloc::SourceSpan,
     pub generic_params: Option<generics::GenericParamsListTree>,
-    pub for_: String,
+    pub for_: IdentifierTree,
     pub implemented_for_generic_params: Option<generics::GenericParamsListTree>,
     pub items: Vec<items::FunctionDefinitionTree>,
+    pub close_brace_loc: sourceloc::SourceSpan,
 }
 
-impl ImplementationTree {
-    pub fn new(
-        loc: SourceLoc,
-        generic_params: Option<generics::GenericParamsListTree>,
-        for_: String,
-        implemented_for_generic_params: Option<generics::GenericParamsListTree>,
-        items: Vec<items::FunctionDefinitionTree>,
-    ) -> Self {
-        Self {
-            loc,
-            generic_params,
-            for_,
-            implemented_for_generic_params,
-            items,
-        }
+impl Ast for ImplementationTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.impl_keyword_loc
+            .clone()
+            .merge(&self.close_brace_loc)
+            .unwrap()
     }
 }
 
@@ -79,7 +71,7 @@ impl treewalk::CollectSymbols for ImplementationTree {
         let impl_def_path_component = midend::symtab::DefPathComponent::Implementation(
             midend::symtab::ImplementationName::new(
                 generic_params_as_vec,
-                midend::types::Syntactic::Named(self.for_.clone()),
+                midend::types::Syntactic::Named(self.for_.value.clone()),
                 implemented_for_generic_params_as_vec,
             ),
         );
@@ -99,12 +91,14 @@ impl treewalk::CollectSymbols for ImplementationTree {
 impl treewalk::Linearize<()> for ImplementationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
-        let implemented_for_type = ctx.disambiguate_named_type(&self.for_).unwrap();
+        let for_name = self.for_.linearize(ctx);
+
+        let implemented_for_type = ctx.disambiguate_named_type(&for_name).unwrap();
         match implemented_for_type {
             midend::types::Syntactic::Named(_) => (),
             _ => panic!(
                 "unexpected disambiguation of name {} to type {}",
-                self.for_, implemented_for_type
+                for_name, implemented_for_type
             ),
         }
 

@@ -1,15 +1,18 @@
-use crate::frontend::lexer::token::Token;
+use crate::frontend::{lexer::token::Token, *};
 
 use super::{ParseError, Parser};
 
 // parsing functions which only consume a single token
 impl<'a> Parser<'a> {
-    pub fn parse_identifier(&mut self) -> Result<String, ParseError> {
+    pub fn parse_identifier(&mut self) -> Result<ast::IdentifierTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("identifier")?;
 
-        let identifier = match self.expect_token(Token::Identifier(String::from("")))? {
-            Token::Identifier(value) => value,
-            _ => self.unexpected_token::<String>(&[Token::Identifier("".into())])?,
+        let identifier = match self.peek_token()? {
+            Token::Identifier(value) => {
+                let loc = self.expect_token(Token::Identifier("".into()))?;
+                ast::IdentifierTree { value, loc }
+            }
+            _ => self.unexpected_token(&[Token::Identifier("".into())])?,
         };
 
         self.finish_parsing(identifier)

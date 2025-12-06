@@ -8,18 +8,18 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
 
         let segment = match self.peek_token()? {
             Token::Identifier(_) => {
-                ast::expressions::PathIdentSegment::Ident(loc, self.parse_identifier()?)
+                ast::expressions::PathIdentSegment::Ident(self.parse_identifier()?)
             }
             Token::Super => {
-                self.expect_token(Token::Super)?;
+                let loc = self.expect_token(Token::Super)?;
                 ast::expressions::PathIdentSegment::Super(loc)
             }
             Token::SelfLower => {
-                self.expect_token(Token::SelfLower)?;
+                let loc = self.expect_token(Token::SelfLower)?;
                 ast::expressions::PathIdentSegment::SelfLower(loc)
             }
             Token::SelfUpper => {
-                self.expect_token(Token::SelfUpper)?;
+                let loc = self.expect_token(Token::SelfUpper)?;
                 ast::expressions::PathIdentSegment::SelfUpper(loc)
             }
             _ => self.unexpected_token(&[Token::Identifier("".into()), Token::Super])?,
@@ -56,7 +56,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
     pub fn parse_path_in_expression(
         &mut self,
     ) -> Result<ast::expressions::PathInExpressionTree, ParseError> {
-        let (loc, _span) = self.start_parsing("path in expression")?;
+        let (_start_loc, _span) = self.start_parsing("path in expression")?;
 
         let mut segments = vec![self.parse_path_expr_segment()?];
         loop {
@@ -70,10 +70,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
             println!("{:?}", segments);
         }
 
-        let path_in_expr_tree = ast::expressions::PathInExpressionTree {
-            loc: loc.clone(),
-            segments,
-        };
+        let path_in_expr_tree = ast::expressions::PathInExpressionTree { segments };
 
         self.finish_parsing(path_in_expr_tree)
     }

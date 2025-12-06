@@ -6,8 +6,8 @@ impl<'a, 'p> ItemParser<'a, 'p> {
 
         let param = match self.peek_token()? {
             Token::Identifier(_) => {
-                let param_name = self.parse_identifier()?;
-                ast::generics::GenericParamTree::new(start_loc, param_name)
+                let name = self.parse_identifier()?;
+                ast::generics::GenericParamTree { name }
             }
             _ => self.unexpected_token(&[Token::Identifier("".into())])?,
         };
@@ -22,13 +22,13 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         let (start_loc, _span) = self.start_parsing("generic params list")?;
         let maybe_params_tree = match self.peek_token()? {
             Token::LThan => {
-                self.expect_token(Token::LThan)?;
-                let mut params_list: Vec<ast::generics::GenericParamTree> = Vec::new();
+                let open_angle_bracket_loc = self.expect_token(Token::LThan)?;
+                let mut params: Vec<ast::generics::GenericParamTree> = Vec::new();
                 loop {
                     match self.peek_token()? {
                         Token::GThan => break,
                         _ => {
-                            params_list.push(self.parse_generic_param()?);
+                            params.push(self.parse_generic_param()?);
                             match self.peek_token()? {
                                 Token::Comma => {
                                     self.expect_token(Token::Comma)?;
@@ -38,11 +38,13 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                         }
                     }
                 }
-                self.expect_token(Token::GThan)?;
-                Some(ast::generics::GenericParamsListTree::new(
-                    start_loc,
-                    params_list,
-                ))
+                let close_angle_bracket_loc = self.expect_token(Token::GThan)?;
+
+                Some(ast::generics::GenericParamsListTree {
+                    open_angle_bracket_loc,
+                    params,
+                    close_angle_bracket_loc,
+                })
             }
             _ => None,
         };
@@ -57,13 +59,13 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         let (start_loc, _span) = self.start_parsing("generic args list")?;
         let maybe_args_tree = match self.peek_token()? {
             Token::LThan => {
-                self.expect_token(Token::LThan)?;
-                let mut args_list: Vec<TypeTree> = Vec::new();
+                let open_angle_bracket_loc = self.expect_token(Token::LThan)?;
+                let mut args: Vec<TypeTree> = Vec::new();
                 loop {
                     match self.peek_token()? {
                         Token::GThan => break,
                         _ => {
-                            args_list.push(self.type_parser().parse_type()?);
+                            args.push(self.type_parser().parse_type()?);
                             match self.peek_token()? {
                                 Token::Comma => {
                                     self.expect_token(Token::Comma)?;
@@ -73,10 +75,13 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                         }
                     }
                 }
-                self.expect_token(Token::GThan)?;
-                Some(ast::generics::GenericArgsListTree::new(
-                    start_loc, args_list,
-                ))
+                let close_angle_bracket_loc = self.expect_token(Token::GThan)?;
+
+                Some(ast::generics::GenericArgsListTree {
+                    open_angle_bracket_loc,
+                    args,
+                    close_angle_bracket_loc,
+                })
             }
             _ => None,
         };

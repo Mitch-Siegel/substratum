@@ -17,15 +17,14 @@ impl<'a> Parser<'a> {
             _ => false,
         };
 
-        let declaration = ast::items::function::ArgumentDeclarationTree::new(
-            start_loc,
-            self.parse_identifier()?,
-            {
+        let declaration = ast::items::function::ArgumentDeclarationTree {
+            name: self.parse_identifier()?,
+            type_: {
                 self.expect_token(Token::Colon)?;
                 self.type_parser().parse_type()?
             },
             mutable,
-        );
+        };
 
         self.finish_parsing(declaration)
     }

@@ -267,17 +267,18 @@ fn main() {
             filename_to_parse,
             module_name
         );
-        let mut parser = frontend::Parser::new(
-            module_name.clone(),
-            module_path,
-            frontend::Lexer::from_file(&filepath_to_parse, std::fs::File::from(input_file)),
-        );
+
+        let lexer = frontend::Lexer::from_file(&filepath_to_parse, std::fs::File::from(input_file));
+
+        let lexer_start_loc = lexer.current_loc();
+
+        let mut parser = frontend::Parser::new(module_name.clone(), module_path, lexer);
 
         let frontend::parser::ModuleResult {
             module_tree,
             module_worklist: mut parsed_worklist,
         } = parser
-            .parse(module_path, module_name)
+            .parse(lexer_start_loc.into(), module_path, module_name)
             .expect(&format!("Error in file {}", filename_to_parse));
 
         module_worklist.append(&mut parsed_worklist);

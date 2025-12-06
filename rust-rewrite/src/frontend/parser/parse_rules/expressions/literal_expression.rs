@@ -6,8 +6,8 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
 
         let literal_expression = match self.peek_token()? {
             Token::UnsignedDecimalConstant(value) => {
-                self.next_token()?;
-                ast::expressions::Expression::UnsignedDecimalConstant(start_loc, value)
+                let loc = self.expect_token(Token::UnsignedDecimalConstant(0))?;
+                ast::expressions::Expression::UnsignedDecimalConstant(loc, value)
             }
             _ => self.unexpected_token(&[Token::UnsignedDecimalConstant(0)])?,
         };

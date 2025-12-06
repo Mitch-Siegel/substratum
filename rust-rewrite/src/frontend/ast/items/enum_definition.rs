@@ -1,14 +1,53 @@
-use crate::{frontend::ast::*, midend::symtab::ImplementationName};
+use crate::{
+    frontend::{ast::*, *},
+    midend::symtab::ImplementationName,
+};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum EnumVariantData {
-    TupleData(Vec<TypeTree>),
+pub struct TupleDataTree {
+    pub open_paren_loc: sourceloc::SourceSpan,
+    pub element_types: Vec<TypeTree>,
+    pub close_paren_loc: sourceloc::SourceSpan,
+}
+
+impl treewalk::Linearize<midend::symtab::enum_definition::EnumVariantRepr> for TupleDataTree {
+    fn linearize(
+        self,
+        ctx: &mut treewalk::LinearizeCtx,
+    ) -> midend::symtab::enum_definition::EnumVariantRepr {
+        midend::symtab::enum_definition::EnumVariantRepr::Tuple(
+            self.element_types
+                .into_iter()
+                .map(|type_tree| {
+                    type_tree
+                        .linearize(ctx)
+                        .expect("tuple members must have types")
+                })
+                .collect(),
+        )
+    }
+}
+
+impl Ast for TupleDataTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.open_paren_loc
+            .clone()
+            .merge(&self.close_paren_loc)
+            .unwrap()
+    }
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct EnumVariantDataTree {
-    pub loc: SourceLoc,
-    pub data: EnumVariantData,
+pub enum EnumVariantDataTree {
+    TupleData(TupleDataTree),
+}
+
+impl Ast for EnumVariantDataTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        match self {
+            Self::TupleData(tuple) => tuple.loc(),
+        }
+    }
 }
 
 fn create_enum_variant_constructor(
@@ -17,6 +56,7 @@ fn create_enum_variant_constructor(
     enum_name: &String,
     variant_name: &String,
     arg_types: Vec<midend::types::Syntactic>,
+    loc: sourceloc::SourceLoc,
 ) {
     // create variables for each argument, named by index
     let args: Vec<midend::symtab::Variable> = arg_types
@@ -91,14 +131,13 @@ fn create_enum_variant_constructor(
         let arg_value = block_mgr.values_mut().id_for_variable(arg_def_path);
         let field_temp = block_mgr.values_mut().next_temp();
         let field_get_line = midend::ir::IrLine::new_get_field_pointer(
-            SourceLoc::none(),
+            loc.clone(),
             constructed_object_value,
             arg.name.clone(),
             field_temp,
         );
 
-        let field_store_line =
-            midend::ir::IrLine::new_store(SourceLoc::none(), arg_value, field_temp);
+        let field_store_line = midend::ir::IrLine::new_store(loc.clone(), arg_value, field_temp);
 
         block_mgr
             .get_mut(&current_block)
@@ -118,32 +157,29 @@ fn create_enum_variant_constructor(
 impl treewalk::Linearize<midend::symtab::enum_definition::EnumVariantRepr> for EnumVariantDataTree {
     fn linearize(
         self,
-        context: &mut treewalk::LinearizeCtx,
+        ctx: &mut treewalk::LinearizeCtx,
     ) -> midend::symtab::enum_definition::EnumVariantRepr {
-        match self.data {
-            EnumVariantData::TupleData(elements) => {
-                midend::symtab::enum_definition::EnumVariantRepr::Tuple(
-                    elements
-                        .into_iter()
-                        .map(|type_tree| type_tree.linearize(context))
-                        .collect(),
-                )
-            }
+        match self {
+            EnumVariantDataTree::TupleData(elements) => elements.linearize(ctx),
         }
     }
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EnumVariantTree {
-    pub loc: SourceLoc,
-    pub name: String,
+    pub name: IdentifierTree,
     pub data: Option<EnumVariantDataTree>,
 }
-impl EnumVariantTree {
-    pub fn new(loc: SourceLoc, name: String, data: Option<EnumVariantDataTree>) -> Self {
-        Self { loc, name, data }
+
+impl Ast for EnumVariantTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        match &self.data {
+            Some(data) => self.name.loc().merge(&data.loc()).unwrap(),
+            None => self.name.loc(),
+        }
     }
 }
+
 impl Display for EnumVariantTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.data {
@@ -155,25 +191,29 @@ impl Display for EnumVariantTree {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EnumDefinitionTree {
-    pub loc: SourceLoc,
-    pub name: String,
+    pub enum_keyword_loc: sourceloc::SourceSpan,
+    pub name: IdentifierTree,
     pub generic_params: Option<generics::GenericParamsListTree>,
     pub variants: Vec<EnumVariantTree>,
 }
 
-impl EnumDefinitionTree {
-    pub fn new(
-        loc: SourceLoc,
-        name: String,
-        generic_params: Option<generics::GenericParamsListTree>,
-        variants: Vec<EnumVariantTree>,
-    ) -> Self {
-        Self {
-            loc,
-            name,
-            generic_params,
-            variants,
+impl Ast for EnumDefinitionTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        let mut loc = self
+            .enum_keyword_loc
+            .clone()
+            .merge(&self.name.loc())
+            .unwrap();
+
+        if let Some(params) = &self.generic_params {
+            loc = loc.merge(&params.loc()).unwrap();
         }
+
+        for variant in &self.variants {
+            loc = loc.merge(&variant.loc()).unwrap();
+        }
+
+        loc
     }
 }
 
@@ -192,7 +232,7 @@ impl Display for EnumDefinitionTree {
 impl treewalk::CollectSymbols for EnumDefinitionTree {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
         ctx.declare(midend::symtab::DefPathComponent::Type(
-            midend::types::Syntactic::Named(self.name.clone()),
+            midend::types::Syntactic::Named(self.name.value.clone()),
         ))
         .unwrap();
     }
@@ -201,9 +241,9 @@ impl treewalk::CollectSymbols for EnumDefinitionTree {
 impl treewalk::Linearize<midend::symtab::EnumRepr> for EnumDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::EnumRepr {
-        let type_def_path_component = midend::symtab::DefPathComponent::Type(
-            midend::types::Syntactic::Named(self.name.clone()),
-        );
+        let name = self.name.linearize(ctx);
+        let type_def_path_component =
+            midend::symtab::DefPathComponent::Type(midend::types::Syntactic::Named(name.clone()));
 
         let generic_params = match self.generic_params {
             Some(params) => params.linearize(ctx),
@@ -216,6 +256,8 @@ impl treewalk::Linearize<midend::symtab::EnumRepr> for EnumDefinitionTree {
             .variants
             .into_iter()
             .map(|variant| {
+                let variant_loc = variant.loc();
+
                 let variant_data_type = match variant.data {
                     Some(variant_item) => variant_item.linearize(ctx),
                     None => midend::symtab::EnumVariantRepr::Unit,
@@ -226,19 +268,22 @@ impl treewalk::Linearize<midend::symtab::EnumRepr> for EnumDefinitionTree {
                     midend::symtab::EnumVariantRepr::Unit => Vec::new(),
                 };
 
+                let variant_name = variant.name.linearize(ctx);
+
                 let enum_def_path = ctx.def_path().clone();
                 create_enum_variant_constructor(
                     ctx.symtab_mut(),
                     enum_def_path,
-                    &self.name,
-                    &variant.name,
+                    &name,
+                    &variant_name,
                     arg_types,
+                    variant_loc.start(),
                 );
-                (variant.name, variant_data_type)
+                (variant_name, variant_data_type)
             })
             .collect::<Vec<_>>();
 
         ctx.pop_def_path(type_def_path_component).unwrap();
-        midend::symtab::EnumRepr::new(self.name, generic_params, variants).unwrap()
+        midend::symtab::EnumRepr::new(name, generic_params, variants).unwrap()
     }
 }

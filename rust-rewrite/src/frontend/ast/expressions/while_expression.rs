@@ -2,18 +2,17 @@ use crate::frontend::ast::expressions::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct WhileExpressionTree {
-    pub loc: SourceLoc,
+    pub while_keyword_loc: sourceloc::SourceSpan,
     pub condition: Expression,
     pub body: BlockExpressionTree,
 }
 
-impl WhileExpressionTree {
-    pub fn new(loc: SourceLoc, condition: Expression, body: BlockExpressionTree) -> Self {
-        Self {
-            loc,
-            condition,
-            body,
-        }
+impl Ast for WhileExpressionTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.while_keyword_loc
+            .clone()
+            .merge(&self.body.loc())
+            .unwrap()
     }
 }
 
@@ -26,16 +25,23 @@ impl Display for WhileExpressionTree {
 impl treewalk::Linearize<midend::ir::ValueId> for WhileExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
+        let loc = self.loc();
+
         let parent_scope_def_path = ctx.def_path().clone();
         let loop_scope_def_path = ctx.reserve_subscope();
         let loop_done_label = ctx
             .function_mut()
-            .create_loop(self.loc.clone(), parent_scope_def_path, loop_scope_def_path)
+            .create_loop(
+                loc.clone().start(),
+                parent_scope_def_path,
+                loop_scope_def_path,
+            )
             .unwrap();
 
+        let condition_loc = self.condition.loc();
         let condition = self.condition.linearize(ctx);
         let loop_condition_jump = midend::ir::IrLine::new_jump(
-            self.loc.clone(),
+            condition_loc.end(),
             loop_done_label,
             midend::ir::lowered::operands::JumpCondition::Conditional(
                 midend::ir::lowered::operands::BinaryComparisonOperands::new(
@@ -53,16 +59,17 @@ impl treewalk::Linearize<midend::ir::ValueId> for WhileExpressionTree {
         let parent_def_path = ctx.def_path().clone();
         ctx.function_mut()
             .unconditional_branch_from_current(
-                self.loc.clone(),
+                loc.clone().end(),
                 parent_def_path.clone(),
                 parent_def_path,
             )
             .unwrap();
         self.body.linearize(ctx);
-        ctx.function_mut().finish_branch(self.loc.clone()).unwrap();
+
+        ctx.function_mut().finish_branch(loc.clone().end()).unwrap();
 
         ctx.function_mut()
-            .finish_loop(self.loc.clone(), Vec::new())
+            .finish_loop(loc.end(), Vec::new())
             .unwrap();
 
         midend::ir::ValueInterner::unit_value_id()

@@ -1,14 +1,18 @@
-use crate::frontend::ast::*;
+use crate::frontend::{ast::*, *};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallParamsTree {
-    pub loc: SourceLoc,
+    pub open_paren_loc: sourceloc::SourceSpan,
     pub params: Vec<Expression>,
+    pub close_paren_loc: sourceloc::SourceSpan,
 }
 
-impl CallParamsTree {
-    pub fn new(loc: SourceLoc, params: Vec<Expression>) -> Self {
-        Self { loc, params }
+impl Ast for CallParamsTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.open_paren_loc
+            .clone()
+            .merge(&self.close_paren_loc)
+            .unwrap()
     }
 }
 
@@ -40,18 +44,16 @@ impl treewalk::Linearize<Vec<midend::ir::ValueId>> for CallParamsTree {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CallExpressionTree {
-    pub loc: SourceLoc,
     pub function_operand: Expression,
     pub params: CallParamsTree,
 }
 
 impl CallExpressionTree {
-    pub fn new(loc: SourceLoc, function_operand: Expression, params: CallParamsTree) -> Self {
-        Self {
-            loc,
-            function_operand,
-            params,
-        }
+    pub fn loc(&self) -> sourceloc::SourceSpan {
+        self.function_operand
+            .loc()
+            .merge(&self.params.loc())
+            .unwrap()
     }
 }
 
@@ -64,6 +66,8 @@ impl Display for CallExpressionTree {
 impl treewalk::Linearize<midend::ir::ValueId> for CallExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
+        let call_start = self.loc().start();
+
         let function_operand = self.function_operand.linearize(ctx);
 
         let return_value_to = ctx.function_mut().values_mut().next_temp();
@@ -79,7 +83,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for CallExpressionTree {
             .collect();
 
         let method_call_line = midend::ir::IrLine::new_call(
-            self.loc,
+            call_start,
             function_operand.into(),
             params,
             return_value_to.clone(),

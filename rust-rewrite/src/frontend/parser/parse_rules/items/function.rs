@@ -1,14 +1,16 @@
 use crate::frontend::{ast, parser::parse_rules::*};
 
 impl<'a, 'p> ItemParser<'a, 'p> {
-    pub fn parse_function_declaration_or_definition(&mut self) -> Result<ast::Item, ParseError> {
+    pub fn parse_function_declaration_or_definition(
+        &mut self,
+    ) -> Result<ast::ItemTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("function declaration/definition")?;
 
         let prototype = self.parse_function_prototype(false)?;
 
         let decl_or_def = match self.parse_function_definition(prototype.clone()) {
-            Ok(definition) => Item::FunctionDefinition(definition),
-            Err(_) => Item::FunctionDeclaration(prototype),
+            Ok(definition) => ItemTree::FunctionDefinition(definition),
+            Err(_) => ItemTree::FunctionDeclaration(prototype),
         };
 
         self.finish_parsing(decl_or_def)
@@ -21,7 +23,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         let (start_loc, _span) = self.start_parsing("function prototype")?;
 
         // start with fun
-        self.expect_token(Token::Fn_)?;
+        let fn_keyword_loc = self.expect_token(Token::Fn_)?;
 
         let name = self.parse_identifier()?;
         let generic_params = self.try_parse_generic_params_list()?;
@@ -60,7 +62,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             }
         }
         // consume closing paren
-        self.expect_token(Token::RParen)?;
+        let args_close_paren_loc = self.expect_token(Token::RParen)?;
 
         let return_type = match self.peek_token()? {
             Token::Arrow => {
@@ -70,19 +72,22 @@ impl<'a, 'p> ItemParser<'a, 'p> {
             _ => None,
         };
 
-        let prototype = ast::items::FunctionDeclarationTree::new(
-            start_loc,
+        let prototype = ast::items::FunctionDeclarationTree {
+            fn_keyword_loc,
             name,
             generic_params,
             arguments,
+            args_close_paren_loc,
             return_type,
-        );
+        };
         self.finish_parsing(prototype)
     }
 
     fn try_parse_self_argument(
         &mut self,
     ) -> Result<Option<ast::items::function::ArgumentDeclarationTree>, ParseError> {
+        // TODO: fix loc tracking in this function
+
         let (start_loc, _span) = self.start_parsing("self argument")?;
 
         let (exists, mutable, reference) = match self.lookahead_token(0)? {
@@ -124,48 +129,55 @@ impl<'a, 'p> ItemParser<'a, 'p> {
 
         let self_argument = if exists {
             let self_argument = if reference {
-                ast::items::function::ArgumentDeclarationTree::new(
-                    start_loc.clone(),
-                    "self".into(),
-                    ast::types::TypeTree::TypeNoBounds(ast::types::TypeNoBounds::ReferenceType(
-                        ast::types::ReferenceTypeTree {
-                            loc: start_loc.clone(),
-                            mutability: mutable.into(),
-                            type_: Box::new(ast::types::TypeNoBounds::TypePath(
-                                ast::types::TypePath::ItemPath(ast::types::TypeItemPathTree {
-                                    loc: start_loc.clone(),
-                                    starts_global: false,
-                                    segments: vec![ast::types::TypePathSegmentTree {
-                                        ident_segment:
-                                            ast::expressions::PathIdentSegment::SelfLower(
-                                                start_loc.clone(),
-                                            ),
-                                        generic_args: None,
-                                    }],
-                                }),
-                            )),
-                        },
-                    )),
-                    false,
-                )
+                ast::items::function::ArgumentDeclarationTree {
+                    name: IdentifierTree {
+                        loc: start_loc.clone().into(),
+                        value: "self".into(),
+                    },
+
+                    type_: ast::types::TypeTree::TypeNoBounds(
+                        ast::types::TypeNoBoundsTree::ReferenceType(
+                            ast::types::ReferenceTypeTree {
+                                reference_token_loc: start_loc.clone().into(),
+                                mutability: mutable.into(),
+                                type_: Box::new(ast::types::TypeNoBoundsTree::TypePath(
+                                    ast::types::TypePath::ItemPath(ast::types::TypeItemPathTree {
+                                        starts_global: None,
+                                        segments: vec![ast::types::TypePathSegmentTree {
+                                            ident_segment:
+                                                ast::expressions::PathIdentSegment::SelfLower(
+                                                    start_loc.into(),
+                                                ),
+                                            generic_args: None,
+                                        }],
+                                    }),
+                                )),
+                            },
+                        ),
+                    ),
+                    mutable: false,
+                }
             } else {
-                ast::items::function::ArgumentDeclarationTree::new(
-                    start_loc.clone(),
-                    "self".into(),
-                    ast::types::TypeTree::TypeNoBounds(ast::types::TypeNoBounds::TypePath(
-                        ast::types::TypePath::ItemPath(ast::types::TypeItemPathTree {
-                            loc: start_loc.clone(),
-                            starts_global: false,
-                            segments: vec![ast::types::TypePathSegmentTree {
-                                ident_segment: ast::expressions::PathIdentSegment::SelfLower(
-                                    start_loc.clone(),
-                                ),
-                                generic_args: None,
-                            }],
-                        }),
-                    )),
-                    false,
-                )
+                ast::items::function::ArgumentDeclarationTree {
+                    name: IdentifierTree {
+                        loc: start_loc.clone().into(),
+                        value: "self".into(),
+                    },
+                    type_: ast::types::TypeTree::TypeNoBounds(
+                        ast::types::TypeNoBoundsTree::TypePath(ast::types::TypePath::ItemPath(
+                            ast::types::TypeItemPathTree {
+                                starts_global: None,
+                                segments: vec![ast::types::TypePathSegmentTree {
+                                    ident_segment: ast::expressions::PathIdentSegment::SelfLower(
+                                        start_loc.into(),
+                                    ),
+                                    generic_args: None,
+                                }],
+                            },
+                        )),
+                    ),
+                    mutable: false,
+                }
             };
             Some(self_argument)
         } else {
@@ -181,9 +193,9 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     ) -> Result<ast::items::FunctionDefinitionTree, ParseError> {
         self.start_parsing("function definition")?;
 
-        let function_body = self.parse_block_expression()?;
+        let body = self.parse_block_expression()?;
 
-        let parsed_definition = ast::items::FunctionDefinitionTree::new(prototype, function_body);
+        let parsed_definition = ast::items::FunctionDefinitionTree { prototype, body };
         self.finish_parsing(parsed_definition)
     }
 }

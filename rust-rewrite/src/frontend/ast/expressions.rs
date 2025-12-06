@@ -23,7 +23,7 @@ pub use while_expression::WhileExpressionTree;
 #[derive(ReflectName, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Expression {
     PathInExpression(PathInExpressionTree),
-    UnsignedDecimalConstant(SourceLoc, usize),
+    UnsignedDecimalConstant(sourceloc::SourceSpan, usize),
     Arithmetic(ArithmeticExpressionTree),
     Comparison(ComparisonExpressionTree),
     Assignment(AssignmentTree),
@@ -35,18 +35,18 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn loc(&self) -> &SourceLoc {
+    pub fn loc(&self) -> sourceloc::SourceSpan {
         match self {
-            Self::PathInExpression(e) => &e.loc,
-            Self::UnsignedDecimalConstant(l, _) => l,
+            Self::PathInExpression(e) => e.loc(),
+            Self::UnsignedDecimalConstant(l, _) => l.clone(),
             Self::Arithmetic(e) => e.loc(),
             Self::Comparison(e) => e.loc(),
-            Self::Assignment(e) => &e.loc,
-            Self::If(e) => &e.loc,
-            Self::Match(e) => &e.loc,
-            Self::While(e) => &e.loc,
-            Self::FieldExpression(e) => &e.loc,
-            Self::Call(e) => &e.loc,
+            Self::Assignment(e) => e.loc(),
+            Self::If(e) => e.loc(),
+            Self::Match(e) => e.loc(),
+            Self::While(e) => e.loc(),
+            Self::FieldExpression(e) => e.loc(),
+            Self::Call(e) => e.loc(),
         }
     }
 }
@@ -113,11 +113,12 @@ impl treewalk::Linearize<midend::ir::ValueId> for Expression {
             Self::UnsignedDecimalConstant(_, constant) => {
                 *ctx.function_mut().values_mut().id_for_constant(constant)
             }
-            Self::Arithmetic(arithmetic_operation) => {
-                let operands = arithmetic_operation.linearize(ctx);
+            Self::Arithmetic(arith) => {
+                let loc = arith.loc();
+                let operands = arith.linearize(ctx);
                 let destination = ctx.function_mut().values_mut().next_temp();
                 let expression_statement = midend::ir::IrLine::new_binary_arithmetic_expression(
-                    SourceLoc::none(), // FIXME: loc tracking for arithmetic expressions
+                    loc.start(),
                     destination,
                     operands,
                 );
@@ -126,11 +127,12 @@ impl treewalk::Linearize<midend::ir::ValueId> for Expression {
                     .unwrap();
                 destination
             }
-            Self::Comparison(comparison_operation) => {
-                let operands = comparison_operation.linearize(ctx);
+            Self::Comparison(cmp) => {
+                let loc = cmp.loc();
+                let operands = cmp.linearize(ctx);
                 let destination = ctx.function_mut().values_mut().next_temp();
                 let comparison_statement = midend::ir::IrLine::new_binary_comparison_expression(
-                    SourceLoc::none(), // FIXME: loc tracking for arithmetic expressions
+                    loc.start(),
                     destination,
                     operands,
                 );
@@ -145,11 +147,11 @@ impl treewalk::Linearize<midend::ir::ValueId> for Expression {
 
             Self::While(while_expression) => while_expression.linearize(ctx),
             Self::FieldExpression(field_expression) => {
-                let field_loc = field_expression.loc.clone();
+                let field_loc = field_expression.loc();
                 let (receiver, field) = field_expression.linearize(ctx);
                 let field_pointer_temp = ctx.function_mut().values_mut().next_temp();
                 let field_read_line = midend::ir::IrLine::new_get_field_pointer(
-                    field_loc,
+                    field_loc.start(),
                     receiver.into(),
                     field,
                     field_pointer_temp.clone(),

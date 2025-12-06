@@ -4,7 +4,8 @@ impl<'a, 'p> StatementParser<'a, 'p> {
     pub fn parse_let_statement(&mut self) -> Result<ast::statements::LetTree, ParseError> {
         let (start_loc, _span) = self.start_parsing("let statement")?;
 
-        self.expect_token(Token::Let)?;
+        let let_keyword_loc = self.expect_token(Token::Let)?;
+
         let mutable = match self.peek_token()? {
             Token::Mut => {
                 self.expect_token(Token::Mut)?;
@@ -22,15 +23,16 @@ impl<'a, 'p> StatementParser<'a, 'p> {
             _ => None,
         };
 
-        let value = match self.peek_token()? {
-            Token::Assign => {
-                self.expect_token(Token::Assign)?;
-                Some(self.expression_parser().parse_expression()?)
-            }
-            _ => None,
-        };
+        self.expect_token(Token::Assign)?;
+        let value = self.expression_parser().parse_expression()?;
 
-        let let_tree = ast::statements::LetTree::new(start_loc, name, type_, mutable, value);
+        let let_tree = ast::statements::LetTree {
+            let_keyword_loc,
+            name,
+            type_,
+            mutable,
+            value,
+        };
         self.finish_parsing(let_tree)
     }
 }

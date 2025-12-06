@@ -6,7 +6,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
     ) -> Result<ast::expressions::IfExpressionTree, ParseError> {
         let (start_loc, _span) = self.start_parsing("if expression")?;
 
-        self.expect_token(Token::If)?;
+        let if_keyword_loc = self.expect_token(Token::If)?;
 
         self.expect_token(Token::LParen)?;
         let condition: Expression = self.parse_expression()?;
@@ -22,7 +22,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         };
 
         let if_expression = ast::expressions::IfExpressionTree {
-            loc: start_loc,
+            if_keyword_loc,
             condition,
             true_block,
             false_block,

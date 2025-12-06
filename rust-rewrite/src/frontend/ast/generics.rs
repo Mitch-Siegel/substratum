@@ -3,14 +3,15 @@ use std::collections::BTreeSet;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct GenericParamTree {
-    pub loc: SourceLoc,
-    pub name: String,
+    pub name: IdentifierTree,
 }
-impl GenericParamTree {
-    pub fn new(loc: SourceLoc, name: String) -> Self {
-        Self { loc, name }
+
+impl Ast for GenericParamTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.name.loc()
     }
 }
+
 impl Display for GenericParamTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name)
@@ -19,37 +20,46 @@ impl Display for GenericParamTree {
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct GenericParamsListTree {
-    pub loc: SourceLoc,
+    pub open_angle_bracket_loc: sourceloc::SourceSpan,
     pub params: Vec<GenericParamTree>,
+    pub close_angle_bracket_loc: sourceloc::SourceSpan,
 }
 
 impl GenericParamsListTree {
-    pub fn new(loc: SourceLoc, params: Vec<GenericParamTree>) -> Self {
-        Self { loc, params }
-    }
-
-    pub fn as_vec(self) -> Vec<String> {
+    pub fn as_vec(self) -> Vec<IdentifierTree> {
         self.params.into_iter().map(|param| param.name).collect()
     }
 
-    pub fn as_vec_with_locs(self) -> Vec<(String, SourceLoc)> {
+    pub fn as_vec_with_locs(self) -> Vec<(IdentifierTree, sourceloc::SourceSpan)> {
         self.params
             .into_iter()
-            .map(|param| (param.name, param.loc))
+            .map(|param| {
+                let param_loc = param.loc();
+                (param.name, param_loc)
+            })
             .collect()
     }
 
-    pub fn linearize_ctxless(self) -> Vec<(SourceLoc, midend::types::GenericParam)> {
+    pub fn linearize_ctxless(self) -> Vec<(sourceloc::SourceSpan, midend::types::GenericParam)> {
         let generic_params_vec = self.as_vec_with_locs();
         generic_params_vec
             .into_iter()
-            .map(|(param, loc)| {
+            .map(|(param_name, loc)| {
                 (
                     loc,
-                    midend::types::type_interner::GenericParam::TypeParam(param),
+                    midend::types::type_interner::GenericParam::TypeParam(param_name.value),
                 )
             })
             .collect()
+    }
+}
+
+impl Ast for GenericParamsListTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.open_angle_bracket_loc
+            .clone()
+            .merge(&self.close_angle_bracket_loc)
+            .unwrap()
     }
 }
 
@@ -81,7 +91,7 @@ impl treewalk::Linearize<midend::types::GenericParamsList> for GenericParamsList
             .into_iter()
             .map(|(loc, param)| {
                 if !generic_params_set.insert(param.clone()) {
-                    panic!("duplicate generic parameter {} @ {}", param, loc)
+                    panic!("duplicate generic parameter {} @ {}", param, loc.start())
                 }
 
                 param
@@ -92,13 +102,17 @@ impl treewalk::Linearize<midend::types::GenericParamsList> for GenericParamsList
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct GenericArgsListTree {
-    pub loc: SourceLoc,
+    pub open_angle_bracket_loc: sourceloc::SourceSpan,
     pub args: Vec<TypeTree>,
+    pub close_angle_bracket_loc: sourceloc::SourceSpan,
 }
 
-impl GenericArgsListTree {
-    pub fn new(loc: SourceLoc, args: Vec<TypeTree>) -> Self {
-        Self { loc, args }
+impl Ast for GenericArgsListTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.open_angle_bracket_loc
+            .clone()
+            .merge(&self.close_angle_bracket_loc)
+            .unwrap()
     }
 }
 
@@ -109,7 +123,9 @@ impl midend::treewalk::Linearize<Vec<midend::types::ParamSubst>> for GenericArgs
             .args
             .into_iter()
             .map(|param| {
-                let param_type = param.linearize(ctx);
+                let param_type = param
+                    .linearize(ctx)
+                    .expect("generic params must have a type");
                 match param_type {
                     midend::types::Syntactic::GenericParam(param_name) => {
                         midend::types::ParamSubst::Dependent(

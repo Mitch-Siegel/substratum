@@ -2,15 +2,16 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct StructFieldTree {
-    pub loc: SourceLoc,
-    pub name: String,
+    pub name: IdentifierTree,
     pub type_: TypeTree,
 }
-impl StructFieldTree {
-    pub fn new(loc: SourceLoc, name: String, type_: TypeTree) -> Self {
-        Self { loc, name, type_ }
+
+impl Ast for StructFieldTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.name.loc().merge(&self.type_.loc()).unwrap()
     }
 }
+
 impl Display for StructFieldTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {}", self.name, self.type_)
@@ -19,32 +20,29 @@ impl Display for StructFieldTree {
 
 impl treewalk::Linearize<(String, midend::types::Syntactic)> for StructFieldTree {
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> (String, midend::types::Syntactic) {
-        let field_type = self.type_.linearize(ctx);
-        (self.name, field_type)
+        let field_type = self
+            .type_
+            .linearize(ctx)
+            .expect("struct field types may not be '_'");
+        (self.name.linearize(ctx), field_type)
     }
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct StructDefinitionTree {
-    pub loc: SourceLoc,
-    pub name: String,
+    pub struct_keyword_loc: sourceloc::SourceSpan,
+    pub name: IdentifierTree,
     pub generic_params: Option<generics::GenericParamsListTree>,
     pub fields: Vec<StructFieldTree>,
+    pub close_brace_loc: sourceloc::SourceSpan,
 }
 
-impl StructDefinitionTree {
-    pub fn new(
-        loc: SourceLoc,
-        name: String,
-        generic_params: Option<generics::GenericParamsListTree>,
-        fields: Vec<StructFieldTree>,
-    ) -> Self {
-        Self {
-            loc,
-            name,
-            generic_params,
-            fields,
-        }
+impl Ast for StructDefinitionTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.struct_keyword_loc
+            .clone()
+            .merge(&self.close_brace_loc)
+            .unwrap()
     }
 }
 
@@ -63,7 +61,7 @@ impl Display for StructDefinitionTree {
 impl treewalk::CollectSymbols for StructDefinitionTree {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
         ctx.declare(midend::symtab::DefPathComponent::Type(
-            midend::types::Syntactic::Named(self.name.clone()),
+            midend::types::Syntactic::Named(self.name.value.clone()),
         ))
         .unwrap();
     }
@@ -77,8 +75,10 @@ impl treewalk::Linearize<midend::symtab::StructRepr> for StructDefinitionTree {
             None => midend::types::GenericParamsList::new(),
         };
 
+        let struct_name = self.name.linearize(ctx);
+
         let type_def_path_component = midend::symtab::DefPathComponent::Type(
-            midend::types::Syntactic::Named(self.name.clone()),
+            midend::types::Syntactic::Named(struct_name.clone()),
         );
         ctx.push_def_path(type_def_path_component.clone(), &generic_params);
 
@@ -89,6 +89,6 @@ impl treewalk::Linearize<midend::symtab::StructRepr> for StructDefinitionTree {
             .collect::<Vec<_>>();
 
         ctx.pop_def_path(type_def_path_component).unwrap();
-        midend::symtab::StructRepr::new(self.name, generic_params, fields).unwrap()
+        midend::symtab::StructRepr::new(struct_name, generic_params, fields).unwrap()
     }
 }

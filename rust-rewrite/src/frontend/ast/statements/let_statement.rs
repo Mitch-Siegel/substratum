@@ -2,28 +2,19 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct LetTree {
-    pub loc: SourceLoc,
-    pub name: String,
+    pub let_keyword_loc: sourceloc::SourceSpan,
+    pub name: IdentifierTree,
     pub type_: Option<TypeTree>,
     pub mutable: bool,
-    pub value: Option<Expression>,
+    pub value: Expression,
 }
 
-impl LetTree {
-    pub fn new(
-        loc: SourceLoc,
-        name: String,
-        type_: Option<TypeTree>,
-        mutable: bool,
-        value: Option<Expression>,
-    ) -> Self {
-        Self {
-            loc,
-            name,
-            type_,
-            mutable,
-            value,
-        }
+impl Ast for LetTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.let_keyword_loc
+            .clone()
+            .merge(&self.value.loc())
+            .unwrap()
     }
 }
 
@@ -48,7 +39,7 @@ impl Display for LetTree {
 impl treewalk::CollectSymbols for LetTree {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
         ctx.declare(midend::symtab::DefPathComponent::Variable(
-            self.name.clone(),
+            self.name.value.clone(),
         ))
         .unwrap();
     }
@@ -58,12 +49,12 @@ impl treewalk::Linearize<midend::ir::ValueId> for LetTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let variable_type = match self.type_ {
-            Some(type_tree) => Some(type_tree.linearize(ctx)),
+            Some(type_tree) => type_tree.linearize(ctx),
             None => None,
         };
 
         let declared_variable: midend::symtab::Variable =
-            midend::symtab::Variable::new(self.name.clone(), variable_type);
+            midend::symtab::Variable::new(self.name.linearize(ctx), variable_type);
         let variable_path: midend::symtab::DefPath = ctx
             .define::<midend::symtab::Variable>(declared_variable)
             .unwrap();
@@ -73,18 +64,13 @@ impl treewalk::Linearize<midend::ir::ValueId> for LetTree {
             .values_mut()
             .id_for_variable(variable_path);
 
-        match self.value {
-            Some(expr) => {
-                let expr_loc = expr.loc().clone();
-                let expr_value = expr.linearize(ctx);
-                let assignment_line =
-                    midend::ir::IrLine::new_assignment(expr_loc, declared_id, expr_value);
-                ctx.function_mut()
-                    .append_statement_to_current_block(assignment_line)
-                    .unwrap();
-            }
-            None => (),
-        }
+        let expr_loc = self.value.loc().clone();
+        let expr_value = self.value.linearize(ctx);
+        let assignment_line =
+            midend::ir::IrLine::new_assignment(expr_loc.start(), declared_id, expr_value);
+        ctx.function_mut()
+            .append_statement_to_current_block(assignment_line)
+            .unwrap();
 
         declared_id
     }

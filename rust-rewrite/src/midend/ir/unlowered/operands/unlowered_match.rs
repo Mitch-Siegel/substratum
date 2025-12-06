@@ -13,12 +13,12 @@ pub struct MatchArm {
 }
 
 fn lower_pattern<'a>(
-    pattern: frontend::ast::expressions::match_expression::Pattern,
+    pattern: frontend::ast::expressions::match_expression::PatternTree,
     arm_ctx: &mut MatchArmContext<'a>,
 ) -> LoweredPattern {
-    use frontend::ast::expressions::match_expression::Pattern;
+    use frontend::ast::expressions::match_expression::PatternTree;
     match pattern {
-        Pattern::Literal(expr) => {
+        PatternTree::Literal(expr) => {
             let _value = expr.linearize(arm_ctx.ctx);
             LoweredPattern::Constructor(
                 PatternConstructor::Constant(
@@ -32,8 +32,8 @@ fn lower_pattern<'a>(
                 Vec::new(),
             )
         }
-        Pattern::Identifier(name) => LoweredPattern::Identifier(name),
-        Pattern::TupleStruct(name, subpatterns) => {
+        PatternTree::Identifier(name) => LoweredPattern::Identifier(name.linearize(arm_ctx.ctx)),
+        PatternTree::TupleStruct(tuple_struct) => {
             let scrutinee_type = arm_ctx
                 .ctx
                 .function_mut()
@@ -44,6 +44,10 @@ fn lower_pattern<'a>(
         Ok(opt) => opt.cloned(),
         Err(_e)=> None 
             };
+
+            let variant = tuple_struct.name.linearize(arm_ctx.ctx);
+
+            let subpatterns = tuple_struct.subpatterns.into_iter().map(|subpattern| lower_pattern(subpattern, arm_ctx)).collect();
 
             let scrutinee_type_def = arm_ctx
                 .ctx
@@ -56,16 +60,13 @@ fn lower_pattern<'a>(
                 symtab::TypeRepr::Enum(_e) => LoweredPattern::Constructor(
                     PatternConstructor::EnumVariant {
                         ty: scrutinee_type,
-                        variant: name,
+                        variant
                     },
                     subpatterns
-                        .into_iter()
-                        .map(|p| lower_pattern(p.pattern, arm_ctx))
-                        .collect(),
                 ),
                 other => panic!(
                     "Match for type repr {:?} unsupported (matching tuple struct {} from scrutinee value (defpath {:?}))",
-                    other, name, scrutinee_variable_def_path 
+                    other, variant, scrutinee_variable_def_path 
                 ),
             }
         }
@@ -149,7 +150,7 @@ impl Lowerable for MatchOperands {
         let walked_patterns: Vec<LoweredPattern> = self
             .arms
             .into_iter()
-            .map(|arm| lower_pattern(arm.pattern.pattern, &mut match_arm_ctx))
+            .map(|arm| lower_pattern(arm.pattern, &mut match_arm_ctx))
             .collect();
 
         ctx.function().values().diag(ctx.symtab());

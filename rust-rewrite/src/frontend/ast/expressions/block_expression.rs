@@ -2,14 +2,20 @@ use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct BlockExpressionTree {
-    pub loc: SourceLoc,
+    pub open_brace_loc: sourceloc::SourceSpan,
     pub statements: Vec<StatementTree>,
+    pub close_brace_loc: sourceloc::SourceSpan,
 }
-impl BlockExpressionTree {
-    pub fn new(loc: SourceLoc, statements: Vec<StatementTree>) -> Self {
-        Self { loc, statements }
+
+impl Ast for BlockExpressionTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.open_brace_loc
+            .clone()
+            .merge(&self.close_brace_loc.clone())
+            .unwrap()
     }
 }
+
 impl Display for BlockExpressionTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut statement_string = String::from("");
@@ -35,7 +41,7 @@ impl treewalk::Linearize<midend::ir::ValueId> for BlockExpressionTree {
         let true_scope_def_path = ctx.reserve_subscope();
         ctx.function_mut()
             .unconditional_branch_from_current(
-                self.loc.clone(),
+                self.open_brace_loc.start(),
                 parent_def_path,
                 true_scope_def_path,
             )
@@ -51,7 +57,9 @@ impl treewalk::Linearize<midend::ir::ValueId> for BlockExpressionTree {
             None => midend::ir::ValueInterner::unit_value_id(),
         };
 
-        ctx.function_mut().finish_branch(self.loc).unwrap();
+        ctx.function_mut()
+            .finish_branch(self.close_brace_loc.end())
+            .unwrap();
 
         last_statement_value
     }

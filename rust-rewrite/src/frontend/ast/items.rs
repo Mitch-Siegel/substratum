@@ -12,16 +12,37 @@ pub use implementation::ImplementationTree;
 pub use struct_definition::StructDefinitionTree;
 
 #[derive(Debug, PartialEq, Eq, Clone, serde::Serialize, serde::Deserialize)]
-pub enum Item {
+pub enum ItemTree {
     FunctionDeclaration(FunctionDeclarationTree),
     FunctionDefinition(FunctionDefinitionTree),
     StructDefinition(StructDefinitionTree),
     EnumDefinition(EnumDefinitionTree),
     Implementation(ImplementationTree),
-    Module((Option<module::ModuleTree>, BTreeSet<String>)),
+    Module(
+        (
+            Result<module::ModuleTree, sourceloc::SourceSpan>,
+            BTreeSet<String>,
+        ),
+    ),
 }
 
-impl Display for Item {
+impl Ast for ItemTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        match self {
+            Self::FunctionDeclaration(fdecl) => fdecl.loc(),
+            Self::FunctionDefinition(fdef) => fdef.loc(),
+            Self::StructDefinition(sd) => sd.loc(),
+            Self::EnumDefinition(ed) => ed.loc(),
+            Self::Implementation(i) => i.loc(),
+            Self::Module((module, child_modules)) => match module {
+                Ok(module_tree) => module_tree.loc(),
+                Err(loc) => loc.clone(),
+            },
+        }
+    }
+}
+
+impl Display for ItemTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::FunctionDeclaration(function_declaration) => {
@@ -40,40 +61,40 @@ impl Display for Item {
                 write!(f, "Implementation: {}", implementation)
             }
             Self::Module((module, child_modules)) => match module {
-                Some(parsed) => write!(f, "Module: {}", parsed),
-                None => write!(f, "Module: {}", child_modules.first().unwrap()),
+                Ok(parsed) => write!(f, "Module: {}", parsed),
+                Err(_) => write!(f, "Module: {}", child_modules.first().unwrap()),
             },
         }
     }
 }
 
-impl treewalk::CollectSymbols for Item {
+impl treewalk::CollectSymbols for ItemTree {
     fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
         match self {
-            Item::FunctionDeclaration(function_declaration) => {
+            ItemTree::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
                     "Function declaration without definitions not yet supported: {}",
                     function_declaration.name
                 )
             }
-            Item::FunctionDefinition(function_definition) => {
+            ItemTree::FunctionDefinition(function_definition) => {
                 function_definition.collect_symbols(ctx)
             }
-            Item::StructDefinition(struct_tree) => struct_tree.collect_symbols(ctx),
-            Item::EnumDefinition(enum_tree) => enum_tree.collect_symbols(ctx),
-            Item::Implementation(implementation) => implementation.collect_symbols(ctx),
-            Item::Module((module, _)) => match module {
-                Some(m) => m.collect_symbols(ctx),
-                None => (),
+            ItemTree::StructDefinition(struct_tree) => struct_tree.collect_symbols(ctx),
+            ItemTree::EnumDefinition(enum_tree) => enum_tree.collect_symbols(ctx),
+            ItemTree::Implementation(implementation) => implementation.collect_symbols(ctx),
+            ItemTree::Module((module, _)) => match module {
+                Ok(m) => m.collect_symbols(ctx),
+                Err(_) => (),
             },
         }
     }
 }
 
-impl treewalk::Linearize<()> for Item {
+impl treewalk::Linearize<()> for ItemTree {
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
         match self {
-            Item::FunctionDeclaration(function_declaration) => {
+            ItemTree::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
                     "Function declaration without definitions not yet supported: {}",
                     function_declaration.name
@@ -85,8 +106,8 @@ impl treewalk::Linearize<()> for Item {
                     function_declaration.walk(&mut WalkContext::new(&context.global_scope));
                 context.insert_function_prototype(declared_function);*/
             }
-            Item::FunctionDefinition(function_definition) => function_definition.linearize(ctx),
-            Item::StructDefinition(struct_tree) => {
+            ItemTree::FunctionDefinition(function_definition) => function_definition.linearize(ctx),
+            ItemTree::StructDefinition(struct_tree) => {
                 let struct_repr = struct_tree.linearize(ctx);
 
                 ctx.define::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
@@ -96,7 +117,7 @@ impl treewalk::Linearize<()> for Item {
                 ))
                 .unwrap();
             }
-            Item::EnumDefinition(enum_tree) => {
+            ItemTree::EnumDefinition(enum_tree) => {
                 let enum_repr = enum_tree.linearize(ctx);
 
                 ctx.define::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
@@ -106,10 +127,10 @@ impl treewalk::Linearize<()> for Item {
                 ))
                 .unwrap();
             }
-            Item::Implementation(implementation) => implementation.linearize(ctx),
-            Item::Module((module, _)) => match module {
-                Some(m) => m.linearize(ctx),
-                None => (),
+            ItemTree::Implementation(implementation) => implementation.linearize(ctx),
+            ItemTree::Module((module, _)) => match module {
+                Ok(m) => m.linearize(ctx),
+                Err(_) => (),
             },
         }
     }
