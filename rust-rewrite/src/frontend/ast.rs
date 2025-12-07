@@ -1,6 +1,6 @@
 use crate::{
     frontend::*,
-    midend::{self, treewalk},
+    midend,
 };
 use std::fmt::Display;
 
@@ -18,12 +18,12 @@ pub use items::ItemTree;
 pub use module::ModuleTree;
 pub use statements::StatementTree;
 pub use types::TypeTree;
+pub use generics::*;
 
 #[cfg(test)]
 pub mod builder;
 
-#[enum_delegate::register]
-pub trait Ast {
+pub trait Ast<LinearizeResult>: midend::treewalk::Treewalk<LinearizeResult> {
     fn loc(&self) -> sourceloc::SourceSpan;
 }
 
@@ -33,20 +33,20 @@ pub struct IdentifierTree {
     pub value: String,
 }
 
-impl Ast for IdentifierTree {
+impl Ast<String> for IdentifierTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.loc.clone()
+    }
+}
+
+impl midend::treewalk::Treewalk<String> for IdentifierTree {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> String {
+        self.value
     }
 }
 
 impl std::fmt::Display for IdentifierTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.value)
-    }
-}
-
-impl treewalk::Linearize<String> for IdentifierTree {
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> String {
-        self.value
     }
 }

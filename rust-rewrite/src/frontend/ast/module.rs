@@ -8,7 +8,7 @@ pub struct ModuleTree {
     pub items: Vec<ItemTree>,
 }
 
-impl Ast for ModuleTree {
+impl Ast<()> for ModuleTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         let mut loc = self
             .mod_keyword_loc
@@ -24,18 +24,8 @@ impl Ast for ModuleTree {
     }
 }
 
-impl Display for ModuleTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Module {}", self.name)?;
-        for item in &self.items {
-            writeln!(f, " - {}", item)?;
-        }
-        Ok(())
-    }
-}
-
-impl treewalk::CollectSymbols for ModuleTree {
-    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+impl midend::treewalk::Treewalk<()> for ModuleTree {
+    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
         trace::span_auto_debug!(
             "collect for module ",
             "{} ({:?}",
@@ -54,11 +44,9 @@ impl treewalk::CollectSymbols for ModuleTree {
         }
         ctx.pop_def_path(module_component).unwrap()
     }
-}
 
-impl treewalk::Linearize<()> for ModuleTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
         tracing::trace!(
             "Create symtab module \"{}\" at \"{}\"",
             self.name,
@@ -84,5 +72,15 @@ impl treewalk::Linearize<()> for ModuleTree {
             midend::symtab::ModuleName { name: module_name },
         ))
         .unwrap();
+    }
+}
+
+impl Display for ModuleTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Module {}", self.name)?;
+        for item in &self.items {
+            writeln!(f, " - {}", item)?;
+        }
+        Ok(())
     }
 }

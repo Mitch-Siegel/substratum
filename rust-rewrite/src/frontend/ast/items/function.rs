@@ -7,7 +7,7 @@ pub struct ArgumentDeclarationTree {
     pub mutable: bool,
 }
 
-impl Ast for ArgumentDeclarationTree {
+impl Ast<midend::symtab::Variable> for ArgumentDeclarationTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.name.loc().merge(&self.type_.loc()).unwrap()
     }
@@ -23,9 +23,9 @@ impl Display for ArgumentDeclarationTree {
     }
 }
 
-impl treewalk::Linearize<midend::symtab::Variable> for ArgumentDeclarationTree {
+impl midend::treewalk::Treewalk<midend::symtab::Variable> for ArgumentDeclarationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::Variable {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::symtab::Variable {
         let arg_type: midend::types::Syntactic = self
             .type_
             .linearize(ctx)
@@ -45,7 +45,7 @@ pub struct FunctionDeclarationTree {
     pub return_type: Option<TypeTree>,
 }
 
-impl Ast for FunctionDeclarationTree {
+impl Ast<midend::symtab::FunctionPrototype> for FunctionDeclarationTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         let mut loc = self.name.loc().merge(&self.args_close_paren_loc).unwrap();
         if let Some(return_type) = &self.return_type {
@@ -55,26 +55,8 @@ impl Ast for FunctionDeclarationTree {
     }
 }
 
-impl Display for FunctionDeclarationTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut arg_string = String::from("");
-        for argument in &self.arguments {
-            arg_string.push_str(format!("{}\n", argument).as_str());
-        }
-
-        match &self.return_type {
-            Some(typename_tree) => write!(
-                f,
-                "Function Declaration: {}({})->{}",
-                self.name, arg_string, typename_tree
-            ),
-            None => write!(f, "Function Declaration: {}({})", self.name, arg_string),
-        }
-    }
-}
-
-impl treewalk::CollectSymbols for FunctionDeclarationTree {
-    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+impl midend::treewalk::Treewalk<midend::symtab::FunctionPrototype> for FunctionDeclarationTree {
+    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
         for arg in &self.arguments {
             ctx.declare(midend::symtab::DefPathComponent::Variable(
                 arg.name.value.clone(),
@@ -82,11 +64,8 @@ impl treewalk::CollectSymbols for FunctionDeclarationTree {
             .unwrap();
         }
     }
-}
 
-impl treewalk::Linearize<midend::symtab::FunctionPrototype> for FunctionDeclarationTree {
-    #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::FunctionPrototype {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::symtab::FunctionPrototype {
         let generic_params = match self.generic_params {
             Some(params) => params.linearize(ctx),
             None => Vec::new(),
@@ -114,13 +93,32 @@ impl treewalk::Linearize<midend::symtab::FunctionPrototype> for FunctionDeclarat
     }
 }
 
+impl Display for FunctionDeclarationTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut arg_string = String::from("");
+        for argument in &self.arguments {
+            arg_string.push_str(format!("{}\n", argument).as_str());
+        }
+
+        match &self.return_type {
+            Some(typename_tree) => write!(
+                f,
+                "Function Declaration: {}({})->{}",
+                self.name, arg_string, typename_tree
+            ),
+            None => write!(f, "Function Declaration: {}({})", self.name, arg_string),
+        }
+    }
+}
+
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionDefinitionTree {
     pub prototype: FunctionDeclarationTree,
     pub body: expressions::BlockExpressionTree,
 }
 
-impl Ast for FunctionDefinitionTree {
+// TODO: get this returning the Function rather than inserting automatically
+impl Ast<()> for FunctionDefinitionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.prototype.loc().merge(&self.body.loc()).unwrap()
     }
@@ -132,8 +130,8 @@ impl Display for FunctionDefinitionTree {
     }
 }
 
-impl treewalk::CollectSymbols for FunctionDefinitionTree {
-    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+impl midend::treewalk::Treewalk<()> for FunctionDefinitionTree {
+    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
         let function_component = midend::symtab::DefPathComponent::Function(
             midend::symtab::FunctionName::new(self.prototype.name.value.clone()),
         );
@@ -146,11 +144,9 @@ impl treewalk::CollectSymbols for FunctionDefinitionTree {
 
         ctx.pop_def_path(function_component).unwrap();
     }
-}
 
-impl treewalk::Linearize<()> for FunctionDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
         let declared_prototype = self.prototype.linearize(ctx);
         let function_name = declared_prototype.name.clone();
 

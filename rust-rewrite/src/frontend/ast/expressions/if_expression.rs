@@ -8,7 +8,7 @@ pub struct IfExpressionTree {
     pub false_block: Option<BlockExpressionTree>,
 }
 
-impl Ast for IfExpressionTree {
+impl Ast<midend::ir::ValueId> for IfExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         let mut loc_span = self
             .if_keyword_loc
@@ -37,9 +37,9 @@ impl Display for IfExpressionTree {
     }
 }
 
-impl treewalk::Linearize<midend::ir::ValueId> for IfExpressionTree {
+impl midend::treewalk::Treewalk<midend::ir::ValueId> for IfExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
         // FUTURE: optimize condition walk to use different jumps
         let condition_loc = self.condition.loc();
         let if_loc = self.loc();

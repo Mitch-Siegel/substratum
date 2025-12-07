@@ -26,7 +26,7 @@ pub enum ItemTree {
     ),
 }
 
-impl Ast for ItemTree {
+impl Ast<()> for ItemTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::FunctionDeclaration(fdecl) => fdecl.loc(),
@@ -42,34 +42,8 @@ impl Ast for ItemTree {
     }
 }
 
-impl Display for ItemTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::FunctionDeclaration(function_declaration) => {
-                write!(f, "Function Declaration: {}", function_declaration)
-            }
-            Self::FunctionDefinition(function_definition) => {
-                write!(f, "Function Definition: {}", function_definition)
-            }
-            Self::StructDefinition(struct_definition) => {
-                write!(f, "Struct Definition: {}", struct_definition)
-            }
-            Self::EnumDefinition(enum_definition) => {
-                write!(f, "Enum Definition: {}", enum_definition)
-            }
-            Self::Implementation(implementation) => {
-                write!(f, "Implementation: {}", implementation)
-            }
-            Self::Module((module, child_modules)) => match module {
-                Ok(parsed) => write!(f, "Module: {}", parsed),
-                Err(_) => write!(f, "Module: {}", child_modules.first().unwrap()),
-            },
-        }
-    }
-}
-
-impl treewalk::CollectSymbols for ItemTree {
-    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+impl midend::treewalk::Treewalk<()> for ItemTree {
+    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
         match self {
             ItemTree::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
@@ -89,10 +63,8 @@ impl treewalk::CollectSymbols for ItemTree {
             },
         }
     }
-}
 
-impl treewalk::Linearize<()> for ItemTree {
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
         match self {
             ItemTree::FunctionDeclaration(function_declaration) => {
                 unimplemented!(
@@ -131,6 +103,33 @@ impl treewalk::Linearize<()> for ItemTree {
             ItemTree::Module((module, _)) => match module {
                 Ok(m) => m.linearize(ctx),
                 Err(_) => (),
+            },
+        }
+    }
+}
+
+
+impl Display for ItemTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::FunctionDeclaration(function_declaration) => {
+                write!(f, "Function Declaration: {}", function_declaration)
+            }
+            Self::FunctionDefinition(function_definition) => {
+                write!(f, "Function Definition: {}", function_definition)
+            }
+            Self::StructDefinition(struct_definition) => {
+                write!(f, "Struct Definition: {}", struct_definition)
+            }
+            Self::EnumDefinition(enum_definition) => {
+                write!(f, "Enum Definition: {}", enum_definition)
+            }
+            Self::Implementation(implementation) => {
+                write!(f, "Implementation: {}", implementation)
+            }
+            Self::Module((module, child_modules)) => match module {
+                Ok(parsed) => write!(f, "Module: {}", parsed),
+                Err(_) => write!(f, "Module: {}", child_modules.first().unwrap()),
             },
         }
     }

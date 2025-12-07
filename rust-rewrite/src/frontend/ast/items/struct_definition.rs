@@ -6,25 +6,25 @@ pub struct StructFieldTree {
     pub type_: TypeTree,
 }
 
-impl Ast for StructFieldTree {
+impl Ast<(String, midend::types::Syntactic)> for StructFieldTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.name.loc().merge(&self.type_.loc()).unwrap()
     }
 }
 
-impl Display for StructFieldTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.name, self.type_)
-    }
-}
-
-impl treewalk::Linearize<(String, midend::types::Syntactic)> for StructFieldTree {
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> (String, midend::types::Syntactic) {
+impl midend::treewalk::Treewalk<(String, midend::types::Syntactic)> for StructFieldTree {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> (String, midend::types::Syntactic) {
         let field_type = self
             .type_
             .linearize(ctx)
             .expect("struct field types may not be '_'");
         (self.name.linearize(ctx), field_type)
+    }
+}
+ 
+impl Display for StructFieldTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.name, self.type_)
     }
 }
 
@@ -37,7 +37,7 @@ pub struct StructDefinitionTree {
     pub close_brace_loc: sourceloc::SourceSpan,
 }
 
-impl Ast for StructDefinitionTree {
+impl Ast<midend::symtab::StructRepr> for StructDefinitionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.struct_keyword_loc
             .clone()
@@ -58,18 +58,16 @@ impl Display for StructDefinitionTree {
     }
 }
 
-impl treewalk::CollectSymbols for StructDefinitionTree {
-    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+impl midend::treewalk::Treewalk<midend::symtab::StructRepr> for StructDefinitionTree {
+    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
         ctx.declare(midend::symtab::DefPathComponent::Type(
             midend::types::Syntactic::Named(self.name.value.clone()),
         ))
         .unwrap();
     }
-}
 
-impl treewalk::Linearize<midend::symtab::StructRepr> for StructDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::StructRepr {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::symtab::StructRepr {
         let generic_params: midend::types::GenericParamsList = match self.generic_params {
             Some(params) => params.linearize(ctx),
             None => midend::types::GenericParamsList::new(),

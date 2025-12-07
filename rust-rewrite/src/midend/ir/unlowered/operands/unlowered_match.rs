@@ -1,4 +1,4 @@
-use crate::midend::ir::unlowered::*;
+use crate::midend::{ir::unlowered::*, treewalk::Treewalk};
 
 struct MatchArmContext<'a> {
     pub ctx: &'a mut treewalk::LinearizeCtx,
@@ -19,7 +19,7 @@ fn lower_pattern<'a>(
     use frontend::ast::expressions::match_expression::PatternTree;
     match pattern {
         PatternTree::Literal(expr) => {
-            let _value = expr.linearize(arm_ctx.ctx);
+            expr.linearize(arm_ctx.ctx);
             LoweredPattern::Constructor(
                 PatternConstructor::Constant(
                     123, /*arm_ctx

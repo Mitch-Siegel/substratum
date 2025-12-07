@@ -9,7 +9,7 @@ pub struct LetTree {
     pub value: Expression,
 }
 
-impl Ast for LetTree {
+impl Ast<()> for LetTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.let_keyword_loc
             .clone()
@@ -36,18 +36,16 @@ impl Display for LetTree {
     }
 }
 
-impl treewalk::CollectSymbols for LetTree {
-    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+impl midend::treewalk::Treewalk<()> for LetTree {
+    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
         ctx.declare(midend::symtab::DefPathComponent::Variable(
             self.name.value.clone(),
         ))
         .unwrap();
     }
-}
 
-impl treewalk::Linearize<midend::ir::ValueId> for LetTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
         let variable_type = match self.type_ {
             Some(type_tree) => type_tree.linearize(ctx),
             None => None,
@@ -71,7 +69,5 @@ impl treewalk::Linearize<midend::ir::ValueId> for LetTree {
         ctx.function_mut()
             .append_statement_to_current_block(assignment_line)
             .unwrap();
-
-        declared_id
     }
 }

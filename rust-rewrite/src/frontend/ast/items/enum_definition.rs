@@ -10,10 +10,21 @@ pub struct TupleDataTree {
     pub close_paren_loc: sourceloc::SourceSpan,
 }
 
-impl treewalk::Linearize<midend::symtab::enum_definition::EnumVariantRepr> for TupleDataTree {
+impl Ast<midend::symtab::enum_definition::EnumVariantRepr> for TupleDataTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.open_paren_loc
+            .clone()
+            .merge(&self.close_paren_loc)
+            .unwrap()
+    }
+}
+
+impl midend::treewalk::Treewalk<midend::symtab::enum_definition::EnumVariantRepr>
+    for TupleDataTree
+{
     fn linearize(
         self,
-        ctx: &mut treewalk::LinearizeCtx,
+        ctx: &mut midend::treewalk::LinearizeCtx,
     ) -> midend::symtab::enum_definition::EnumVariantRepr {
         midend::symtab::enum_definition::EnumVariantRepr::Tuple(
             self.element_types
@@ -28,24 +39,28 @@ impl treewalk::Linearize<midend::symtab::enum_definition::EnumVariantRepr> for T
     }
 }
 
-impl Ast for TupleDataTree {
-    fn loc(&self) -> sourceloc::SourceSpan {
-        self.open_paren_loc
-            .clone()
-            .merge(&self.close_paren_loc)
-            .unwrap()
-    }
-}
-
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum EnumVariantDataTree {
     TupleData(TupleDataTree),
 }
 
-impl Ast for EnumVariantDataTree {
+impl Ast<midend::symtab::enum_definition::EnumVariantRepr> for EnumVariantDataTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::TupleData(tuple) => tuple.loc(),
+        }
+    }
+}
+
+impl midend::treewalk::Treewalk<midend::symtab::enum_definition::EnumVariantRepr>
+    for EnumVariantDataTree
+{
+    fn linearize(
+        self,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> midend::symtab::enum_definition::EnumVariantRepr {
+        match self {
+            EnumVariantDataTree::TupleData(elements) => elements.linearize(ctx),
         }
     }
 }
@@ -154,29 +169,37 @@ fn create_enum_variant_constructor(
         .unwrap();
 }
 
-impl treewalk::Linearize<midend::symtab::enum_definition::EnumVariantRepr> for EnumVariantDataTree {
-    fn linearize(
-        self,
-        ctx: &mut treewalk::LinearizeCtx,
-    ) -> midend::symtab::enum_definition::EnumVariantRepr {
-        match self {
-            EnumVariantDataTree::TupleData(elements) => elements.linearize(ctx),
-        }
-    }
-}
-
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EnumVariantTree {
     pub name: IdentifierTree,
     pub data: Option<EnumVariantDataTree>,
 }
 
-impl Ast for EnumVariantTree {
+impl Ast<(String, midend::symtab::enum_definition::EnumVariantRepr)> for EnumVariantTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match &self.data {
             Some(data) => self.name.loc().merge(&data.loc()).unwrap(),
             None => self.name.loc(),
         }
+    }
+}
+
+impl midend::treewalk::Treewalk<(String, midend::symtab::enum_definition::EnumVariantRepr)>
+    for EnumVariantTree
+{
+    fn linearize(
+        self,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> (String, midend::symtab::enum_definition::EnumVariantRepr) {
+        let variant_loc = self.loc();
+        let variant_data_type = match self.data {
+            Some(variant_item) => variant_item.linearize(ctx),
+            None => midend::symtab::EnumVariantRepr::Unit,
+        };
+
+        let variant_name = self.name.linearize(ctx);
+
+        (variant_name, variant_data_type)
     }
 }
 
@@ -197,7 +220,7 @@ pub struct EnumDefinitionTree {
     pub variants: Vec<EnumVariantTree>,
 }
 
-impl Ast for EnumDefinitionTree {
+impl Ast<midend::symtab::EnumRepr> for EnumDefinitionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         let mut loc = self
             .enum_keyword_loc
@@ -217,30 +240,16 @@ impl Ast for EnumDefinitionTree {
     }
 }
 
-impl Display for EnumDefinitionTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut fields = String::new();
-        for variant in &self.variants {
-            fields += &variant.to_string();
-            fields += " ";
-        }
-
-        write!(f, "Enum Definition: {}: {}", self.name, fields)
-    }
-}
-
-impl treewalk::CollectSymbols for EnumDefinitionTree {
-    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+impl midend::treewalk::Treewalk<midend::symtab::EnumRepr> for EnumDefinitionTree {
+    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
         ctx.declare(midend::symtab::DefPathComponent::Type(
             midend::types::Syntactic::Named(self.name.value.clone()),
         ))
         .unwrap();
     }
-}
 
-impl treewalk::Linearize<midend::symtab::EnumRepr> for EnumDefinitionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::symtab::EnumRepr {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::symtab::EnumRepr {
         let name = self.name.linearize(ctx);
         let type_def_path_component =
             midend::symtab::DefPathComponent::Type(midend::types::Syntactic::Named(name.clone()));
@@ -257,18 +266,11 @@ impl treewalk::Linearize<midend::symtab::EnumRepr> for EnumDefinitionTree {
             .into_iter()
             .map(|variant| {
                 let variant_loc = variant.loc();
-
-                let variant_data_type = match variant.data {
-                    Some(variant_item) => variant_item.linearize(ctx),
-                    None => midend::symtab::EnumVariantRepr::Unit,
-                };
-
-                let arg_types = match &variant_data_type {
+                let (variant_name, variant_repr) = variant.linearize(ctx);
+                let arg_types = match &variant_repr {
                     midend::symtab::EnumVariantRepr::Tuple(types) => types.clone(),
                     midend::symtab::EnumVariantRepr::Unit => Vec::new(),
                 };
-
-                let variant_name = variant.name.linearize(ctx);
 
                 let enum_def_path = ctx.def_path().clone();
                 create_enum_variant_constructor(
@@ -279,11 +281,24 @@ impl treewalk::Linearize<midend::symtab::EnumRepr> for EnumDefinitionTree {
                     arg_types,
                     variant_loc.start(),
                 );
-                (variant_name, variant_data_type)
+
+                (variant_name, variant_repr)
             })
             .collect::<Vec<_>>();
 
         ctx.pop_def_path(type_def_path_component).unwrap();
         midend::symtab::EnumRepr::new(name, generic_params, variants).unwrap()
+    }
+}
+
+impl Display for EnumDefinitionTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut fields = String::new();
+        for variant in &self.variants {
+            fields += &variant.to_string();
+            fields += " ";
+        }
+
+        write!(f, "Enum Definition: {}: {}", self.name, fields)
     }
 }

@@ -1,4 +1,4 @@
-use crate::midend::{ir::*, treewalk::Linearize, *};
+use crate::midend::{ir::*, *};
 
 pub mod operands;
 use operands::*;

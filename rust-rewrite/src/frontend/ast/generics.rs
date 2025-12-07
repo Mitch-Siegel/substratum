@@ -6,9 +6,15 @@ pub struct GenericParamTree {
     pub name: IdentifierTree,
 }
 
-impl Ast for GenericParamTree {
+impl Ast<String> for GenericParamTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.name.loc()
+    }
+}
+
+impl midend::treewalk::Treewalk<String> for GenericParamTree {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> String {
+        self.name.linearize(ctx)
     }
 }
 
@@ -54,7 +60,7 @@ impl GenericParamsListTree {
     }
 }
 
-impl Ast for GenericParamsListTree {
+impl Ast<midend::types::GenericParamsList> for GenericParamsListTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.open_angle_bracket_loc
             .clone()
@@ -80,9 +86,9 @@ impl Display for GenericParamsListTree {
     }
 }
 
-impl treewalk::Linearize<midend::types::GenericParamsList> for GenericParamsListTree {
+impl midend::treewalk::Treewalk<midend::types::GenericParamsList> for GenericParamsListTree {
     #[tracing::instrument(skip(self), level = "trace")]
-    fn linearize(self, _: &mut treewalk::LinearizeCtx) -> midend::types::GenericParamsList {
+    fn linearize(self, _: &mut midend::treewalk::LinearizeCtx) -> midend::types::GenericParamsList {
         let mut generic_params_set = BTreeSet::<midend::types::GenericParam>::new();
 
         let ctxless = self.linearize_ctxless();
@@ -107,7 +113,7 @@ pub struct GenericArgsListTree {
     pub close_angle_bracket_loc: sourceloc::SourceSpan,
 }
 
-impl Ast for GenericArgsListTree {
+impl Ast<Vec<midend::types::ParamSubst>> for GenericArgsListTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.open_angle_bracket_loc
             .clone()
@@ -116,9 +122,9 @@ impl Ast for GenericArgsListTree {
     }
 }
 
-impl midend::treewalk::Linearize<Vec<midend::types::ParamSubst>> for GenericArgsListTree {
+impl midend::treewalk::Treewalk<Vec<midend::types::ParamSubst>> for GenericArgsListTree {
     #[tracing::instrument(skip(self), level = "trace")]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> Vec<midend::types::ParamSubst> {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> Vec<midend::types::ParamSubst> {
         let generic_args: Vec<midend::types::ParamSubst> = self
             .args
             .into_iter()

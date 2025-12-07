@@ -2,9 +2,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     frontend::{ast::*, *},
-    midend::treewalk::Linearize,
+    midend::{self, treewalk::Treewalk},
     trace,
 };
+
+enum PathExprSegmentAction {
+    Super,
+    Ident(String, Option<GenericArgsListTree>),
+    SelfLower,
+    SelfUpper,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PathIdentSegment {
@@ -14,7 +21,7 @@ pub enum PathIdentSegment {
     SelfUpper(sourceloc::SourceSpan),
 }
 
-impl Ast for PathIdentSegment {
+impl Ast<()> for PathIdentSegment {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::Ident(ident) => ident.loc(),
@@ -22,6 +29,12 @@ impl Ast for PathIdentSegment {
             Self::SelfUpper(loc) => loc.clone(),
             Self::SelfLower(loc) => loc.clone(),
         }
+    }
+}
+
+impl midend::treewalk::Treewalk<()> for PathIdentSegment {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
+        unreachable!()
     }
 }
 
@@ -42,11 +55,34 @@ pub struct PathExprSegmentTree {
     pub generic_args: Option<ast::generics::GenericArgsListTree>,
 }
 
-impl Ast for PathExprSegmentTree {
+impl Ast<PathExprSegmentAction> for PathExprSegmentTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match &self.generic_args {
             Some(generic_args) => self.ident.loc().merge(&generic_args.loc()).unwrap(),
             None => self.ident.loc(),
+        }
+    }
+}
+
+impl midend::treewalk::Treewalk<PathExprSegmentAction> for PathExprSegmentTree {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> PathExprSegmentAction {
+        match self.ident {
+            PathIdentSegment::Super(_) => {
+                self.expect_no_generics().unwrap();
+                PathExprSegmentAction::Super
+            }
+            PathIdentSegment::Ident(ident) => {
+                PathExprSegmentAction::Ident(ident.linearize(ctx), self.generic_args)
+            }
+            PathIdentSegment::SelfLower(_) => {
+                self.expect_no_generics().unwrap();
+                PathExprSegmentAction::SelfLower
+                
+            },
+            PathIdentSegment::SelfUpper(_) => {
+                self.expect_no_generics().unwrap();
+                PathExprSegmentAction::SelfUpper
+            }
         }
     }
 }
@@ -78,7 +114,7 @@ pub struct PathInExpressionTree {
     pub segments: Vec<PathExprSegmentTree>,
 }
 
-impl Ast for PathInExpressionTree {
+impl Ast<midend::ir::ValueId> for PathInExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         let mut seg_iter = self.segments.iter();
         let mut loc_span = seg_iter
@@ -91,6 +127,64 @@ impl Ast for PathInExpressionTree {
         }
 
         loc_span
+    }
+}
+
+impl midend::treewalk::Treewalk<midend::ir::ValueId> for PathInExpressionTree {
+    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+        ()
+    }
+
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
+        let _span = trace::span_auto_debug!(
+            "treewalk::linearize for PathInexpressionTree @",
+            "{:?}",
+            self.loc()
+        );
+        let mut expr_path = midend::symtab::DefPath::empty();
+        let mut expr_path_loc: sourceloc::SourceSpan = self.loc().start().into();
+        let mut segments = self.segments.into_iter();
+        while let Some(segment) = segments.next() {
+            trace::warning!("{}", expr_path);
+            let segment_loc = segment.loc();
+            let must_end = match segment.linearize(ctx) {
+                PathExprSegmentAction::Super => {
+                    match expr_path.pop() {
+                        Some(_) => (),
+                        None => panic!(
+                            "path segment 'Super' on invalid/empty path at {}",
+                            segment_loc.start()
+                        ),
+                    }
+                    false
+                },
+                PathExprSegmentAction::Ident(name, maybe_generics) => {
+                    let must_end = walk_ident_segment(name, &mut expr_path, ctx).unwrap();
+                    record_monomorphization(ctx, &expr_path, maybe_generics);
+                    must_end
+                },
+                PathExprSegmentAction::SelfLower => {
+                    unimplemented!("'self' in path expression ({}) not implemented", segment_loc);
+                },
+                PathExprSegmentAction::SelfUpper => {
+                    unimplemented!("'Self' in path expression ({}) not implemented", segment_loc);
+                }
+            };
+
+            if must_end && (segments.size_hint().0 > 0) {
+                        panic!(
+                            "path {} at {} has additional unexpected segment(s): {}@{}",
+                            expr_path,
+                            expr_path_loc,
+                            expr_path.last().name(),
+                            segment_loc,
+                        )
+                    }
+
+            expr_path_loc = expr_path_loc.merge(&segment_loc).unwrap();
+            trace::trace!("iteration end path: {}", expr_path);
+        }
+        midend::ir::ValueId::new(1)
     }
 }
 
@@ -110,7 +204,7 @@ impl std::fmt::Display for PathInExpressionTree {
 fn walk_ident_segment(
     ident: String,
     expr_path: &mut midend::symtab::DefPath,
-    ctx: &mut treewalk::LinearizeCtx,
+    ctx: &mut midend::treewalk::LinearizeCtx,
 ) -> Result<bool, String> {
     let function_component = midend::symtab::DefPathComponent::Function(
         midend::symtab::FunctionName::new(ident.clone()),
@@ -187,10 +281,11 @@ fn walk_ident_segment(
 }
 
 fn record_monomorphization(
-    ctx: &mut treewalk::LinearizeCtx,
+    ctx: &mut midend::treewalk::LinearizeCtx,
     path: &midend::symtab::DefPath,
     maybe_generics: Option<ast::generics::GenericArgsListTree>,
 ) {
+    // TODO: checking for correct number of params
     let generics = match maybe_generics {
         Some(g) => g.linearize(ctx),
         None => return,
@@ -230,61 +325,4 @@ fn record_monomorphization(
         .types
         .record_monomorphization(path.clone(), substs)
         .unwrap();
-}
-
-impl treewalk::Linearize<midend::ir::ValueId> for PathInExpressionTree {
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
-        let _span = trace::span_auto_debug!(
-            "treewalk::linearize for PathInexpressionTree @",
-            "{:?}",
-            self.loc()
-        );
-        let mut expr_path = midend::symtab::DefPath::empty();
-        let mut segments = self.segments.into_iter();
-        while let Some(segment) = segments.next() {
-            trace::warning!("{}", expr_path);
-            match segment.ident {
-                PathIdentSegment::Super(_) => {
-                    match expr_path.pop() {
-                        Some(_) => (),
-                        None => panic!(
-                            "path segment 'Super' on invalid/empty path at {}",
-                            segment.loc().start()
-                        ),
-                    }
-                    segment.expect_no_generics().unwrap();
-                }
-                PathIdentSegment::Ident(ident) => {
-                    let name = ident.linearize(ctx);
-                    let must_end = walk_ident_segment(name, &mut expr_path, ctx).unwrap();
-                    record_monomorphization(ctx, &expr_path, segment.generic_args);
-                    if must_end && (segments.size_hint().0 > 0) {
-                        panic!(
-                            "path {} (ends with {}) has additional unexpected segments",
-                            expr_path,
-                            expr_path.last().name()
-                        )
-                    }
-                }
-                PathIdentSegment::SelfLower(loc) => {
-                    let must_end =
-                        walk_ident_segment(String::from("self"), &mut expr_path, ctx).unwrap();
-                    record_monomorphization(ctx, &expr_path, segment.generic_args);
-                    if must_end && (segments.size_hint().0 > 0) {
-                        panic!(
-                            "path {} at {} (ends with {}) has additional unexpected segments",
-                            expr_path,
-                            loc.start(),
-                            expr_path.last().name()
-                        )
-                    }
-                }
-                PathIdentSegment::SelfUpper(loc) => {
-                    unimplemented!("path segment 'Self' at {} not supported", loc.start());
-                }
-            }
-            trace::warning!("iteration end path: {}", expr_path);
-        }
-        midend::ir::ValueId::new(1)
-    }
 }

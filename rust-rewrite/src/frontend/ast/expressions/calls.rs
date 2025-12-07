@@ -7,7 +7,7 @@ pub struct CallParamsTree {
     pub close_paren_loc: sourceloc::SourceSpan,
 }
 
-impl Ast for CallParamsTree {
+impl Ast<Vec<midend::ir::ValueId>> for CallParamsTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.open_paren_loc
             .clone()
@@ -29,9 +29,9 @@ impl Display for CallParamsTree {
     }
 }
 
-impl treewalk::Linearize<Vec<midend::ir::ValueId>> for CallParamsTree {
+impl midend::treewalk::Treewalk<Vec<midend::ir::ValueId>> for CallParamsTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> Vec<midend::ir::ValueId> {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> Vec<midend::ir::ValueId> {
         let mut param_values = Vec::new();
 
         for param in self.params {
@@ -48,8 +48,8 @@ pub struct CallExpressionTree {
     pub params: CallParamsTree,
 }
 
-impl CallExpressionTree {
-    pub fn loc(&self) -> sourceloc::SourceSpan {
+impl Ast<midend::ir::ValueId> for CallExpressionTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
         self.function_operand
             .loc()
             .merge(&self.params.loc())
@@ -57,15 +57,9 @@ impl CallExpressionTree {
     }
 }
 
-impl Display for CallExpressionTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}({})", self.function_operand, self.params)
-    }
-}
-
-impl treewalk::Linearize<midend::ir::ValueId> for CallExpressionTree {
+impl midend::treewalk::Treewalk<midend::ir::ValueId> for CallExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let call_start = self.loc().start();
 
         let function_operand = self.function_operand.linearize(ctx);
@@ -94,5 +88,11 @@ impl treewalk::Linearize<midend::ir::ValueId> for CallExpressionTree {
             .unwrap();
 
         return_value_to
+    }
+}
+
+impl Display for CallExpressionTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}({})", self.function_operand, self.params)
     }
 }

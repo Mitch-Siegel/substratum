@@ -1,4 +1,4 @@
-use crate::frontend::{ast::*, *};
+use crate::frontend::{ast::*};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ArithmeticDualOperands {
@@ -29,7 +29,7 @@ pub enum ComparisonExpressionTree {
     NotEquals(ArithmeticDualOperands),
 }
 
-impl Ast for ComparisonExpressionTree {
+impl Ast<midend::ir::lowered::operands::BinaryComparisonOperands> for ComparisonExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::LThan(operands)
@@ -42,26 +42,13 @@ impl Ast for ComparisonExpressionTree {
     }
 }
 
-impl Display for ComparisonExpressionTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::LThan(operands) => write!(f, "({} < {})", operands.e1, operands.e2),
-            Self::GThan(operands) => write!(f, "({} > {})", operands.e1, operands.e2),
-            Self::LThanE(operands) => write!(f, "({} <= {})", operands.e1, operands.e2),
-            Self::GThanE(operands) => write!(f, "({} >= {})", operands.e1, operands.e2),
-            Self::Equals(operands) => write!(f, "({} == {})", operands.e1, operands.e2),
-            Self::NotEquals(operands) => write!(f, "({} != {})", operands.e1, operands.e2),
-        }
-    }
-}
-
-impl treewalk::Linearize<midend::ir::lowered::operands::BinaryComparisonOperands>
+impl midend::treewalk::Treewalk<midend::ir::lowered::operands::BinaryComparisonOperands>
     for ComparisonExpressionTree
 {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: &mut treewalk::LinearizeCtx,
+        ctx: &mut midend::treewalk::LinearizeCtx,
     ) -> midend::ir::lowered::operands::BinaryComparisonOperands {
         match self {
             ComparisonExpressionTree::LThan(operands) => {
@@ -122,6 +109,19 @@ impl treewalk::Linearize<midend::ir::lowered::operands::BinaryComparisonOperands
     }
 }
 
+impl Display for ComparisonExpressionTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::LThan(operands) => write!(f, "({} < {})", operands.e1, operands.e2),
+            Self::GThan(operands) => write!(f, "({} > {})", operands.e1, operands.e2),
+            Self::LThanE(operands) => write!(f, "({} <= {})", operands.e1, operands.e2),
+            Self::GThanE(operands) => write!(f, "({} >= {})", operands.e1, operands.e2),
+            Self::Equals(operands) => write!(f, "({} == {})", operands.e1, operands.e2),
+            Self::NotEquals(operands) => write!(f, "({} != {})", operands.e1, operands.e2),
+        }
+    }
+}
+
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ArithmeticExpressionTree {
     Add(ArithmeticDualOperands),
@@ -130,7 +130,7 @@ pub enum ArithmeticExpressionTree {
     Divide(ArithmeticDualOperands),
 }
 
-impl Ast for ArithmeticExpressionTree {
+impl Ast<midend::ir::lowered::operands::BinaryArithmeticOperands> for ArithmeticExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::Add(o) | Self::Subtract(o) | Self::Multiply(o) | Self::Divide(o) => o.loc(),
@@ -149,13 +149,13 @@ impl Display for ArithmeticExpressionTree {
     }
 }
 
-impl treewalk::Linearize<midend::ir::lowered::operands::BinaryArithmeticOperands>
+impl midend::treewalk::Treewalk<midend::ir::lowered::operands::BinaryArithmeticOperands>
     for ArithmeticExpressionTree
 {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(
         self,
-        ctx: &mut treewalk::LinearizeCtx,
+        ctx: &mut midend::treewalk::LinearizeCtx,
     ) -> midend::ir::lowered::operands::BinaryArithmeticOperands {
         match self {
             ArithmeticExpressionTree::Add(operands) => {

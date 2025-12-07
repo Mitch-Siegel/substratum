@@ -1,4 +1,4 @@
-use crate::{frontend::ast::*, midend};
+use crate::{frontend::ast::*, midend::{self, treewalk::Treewalk}};
 
 pub mod arithmetic;
 pub mod assignment;
@@ -34,8 +34,8 @@ pub enum Expression {
     Call(Box<CallExpressionTree>),
 }
 
-impl Expression {
-    pub fn loc(&self) -> sourceloc::SourceSpan {
+impl Ast<midend::ir::ValueId> for Expression {
+    fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::PathInExpression(e) => e.loc(),
             Self::UnsignedDecimalConstant(l, _) => l.clone(),
@@ -51,63 +51,26 @@ impl Expression {
     }
 }
 
-impl Display for Expression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl midend::treewalk::Treewalk<midend::ir::ValueId> for Expression {
+    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
         match self {
-            Self::PathInExpression(path) => write!(f, "{}", path),
-            Self::UnsignedDecimalConstant(_, constant) => write!(f, "{}", constant),
-            Self::Arithmetic(arithmetic_expression) => write!(f, "{}", arithmetic_expression),
-            Self::Comparison(comparison_expression) => write!(f, "{}", comparison_expression),
-            Self::Assignment(assignment_expression) => write!(f, "{}", assignment_expression),
-            Self::If(if_expression) => write!(f, "{}", if_expression),
-            Self::Match(match_expression) => write!(f, "{}", match_expression),
-            Self::While(while_expression) => write!(f, "{}", while_expression),
-            Self::FieldExpression(field_expression) => write!(f, "{}", field_expression),
-            Self::Call(function_call) => write!(f, "{}", function_call),
-        }
-    }
-}
-
-impl std::fmt::Debug for Expression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
-impl treewalk::CollectSymbols for Expression {
-    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
-        match &self {
             Self::If(if_expr) => {
-                if_expr.condition.collect_symbols(ctx);
-                if_expr.true_block.collect_symbols(ctx);
-                if let Some(false_block) = &if_expr.false_block {
-                    false_block.collect_symbols(ctx);
-                }
+                if_expr.collect_symbols(ctx);
             }
-            Self::While(while_expr) => {
-                while_expr.condition.collect_symbols(ctx);
-                while_expr.body.collect_symbols(ctx);
-            }
-            Self::Match(match_expr) => {
-                match_expr.scrutinee_expression.collect_symbols(ctx);
-                for arm in &match_expr.arms {
-                    arm.collect_symbols(ctx);
-                }
-            }
-            Self::PathInExpression(_)
+            Self::While(while_expr) => while_expr.collect_symbols(ctx),
+            Self::Match(match_expr) => match_expr.collect_symbols(ctx),
+            Self::PathInExpression(p) => p.collect_symbols(ctx),
+            Self::Arithmetic(a) => a.collect_symbols(ctx),
+            Self::Comparison(c) => c.collect_symbols(ctx),
+            Self::Assignment(a) => a.collect_symbols(ctx),
+            Self::FieldExpression(_)
             | Self::UnsignedDecimalConstant(_, _)
-            | Self::Arithmetic(_)
-            | Self::Comparison(_)
-            | Self::Assignment(_)
-            | Self::FieldExpression(_)
             | Self::Call(_) => (),
         }
     }
-}
 
-impl treewalk::Linearize<midend::ir::ValueId> for Expression {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
         match self {
             Self::PathInExpression(path) => path.linearize(ctx),
             Self::UnsignedDecimalConstant(_, constant) => {
@@ -162,6 +125,29 @@ impl treewalk::Linearize<midend::ir::ValueId> for Expression {
                 field_pointer_temp
             }
             Self::Call(call) => call.linearize(ctx),
+        }
+    }
+}
+
+impl std::fmt::Debug for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
+impl Display for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::PathInExpression(path) => write!(f, "{}", path),
+            Self::UnsignedDecimalConstant(_, constant) => write!(f, "{}", constant),
+            Self::Arithmetic(arithmetic_expression) => write!(f, "{}", arithmetic_expression),
+            Self::Comparison(comparison_expression) => write!(f, "{}", comparison_expression),
+            Self::Assignment(assignment_expression) => write!(f, "{}", assignment_expression),
+            Self::If(if_expression) => write!(f, "{}", if_expression),
+            Self::Match(match_expression) => write!(f, "{}", match_expression),
+            Self::While(while_expression) => write!(f, "{}", while_expression),
+            Self::FieldExpression(field_expression) => write!(f, "{}", field_expression),
+            Self::Call(function_call) => write!(f, "{}", function_call),
         }
     }
 }

@@ -8,12 +8,10 @@ pub use collect_ctx::CollectCtx;
 pub use function_linearize_context::FunctionLinearizeCtx;
 pub use linearize_context::{GenericParamsContext, LinearizeCtx};
 
-pub trait CollectSymbols {
-    fn collect_symbols(&self, ctx: &mut CollectCtx);
-}
+pub trait Treewalk<LinearizeResult> {
+    fn collect_symbols(&self, ctx: &mut CollectCtx) {unreachable!("collect_symbols() called on AST without implementation")}
 
-pub trait Linearize<T> {
-    fn linearize(self, ctx: &mut LinearizeCtx) -> T;
+    fn linearize(self, ctx: &mut LinearizeCtx) -> LinearizeResult;
 }
 
 pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable> {

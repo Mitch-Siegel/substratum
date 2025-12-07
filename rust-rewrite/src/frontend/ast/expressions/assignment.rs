@@ -6,7 +6,7 @@ pub struct AssignmentTree {
     pub value: Box<Expression>,
 }
 
-impl Ast for AssignmentTree {
+impl Ast<midend::ir::ValueId> for AssignmentTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.assignee.loc().merge(&self.value.loc()).unwrap()
     }
@@ -18,9 +18,9 @@ impl Display for AssignmentTree {
     }
 }
 
-impl treewalk::Linearize<midend::ir::ValueId> for AssignmentTree {
+impl midend::treewalk::Treewalk<midend::ir::ValueId> for AssignmentTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let assignment_start = self.loc().start();
 
         let assignment_ir = match *self.assignee {

@@ -7,7 +7,7 @@ pub struct WhileExpressionTree {
     pub body: BlockExpressionTree,
 }
 
-impl Ast for WhileExpressionTree {
+impl Ast<midend::ir::ValueId> for WhileExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.while_keyword_loc
             .clone()
@@ -16,15 +16,14 @@ impl Ast for WhileExpressionTree {
     }
 }
 
-impl Display for WhileExpressionTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "while ({}) {}", self.condition, self.body)
+impl midend::treewalk::Treewalk<midend::ir::ValueId> for WhileExpressionTree {
+    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+        self.condition.collect_symbols(ctx);
+        self.body.collect_symbols(ctx);
     }
-}
 
-impl treewalk::Linearize<midend::ir::ValueId> for WhileExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let loc = self.loc();
 
         let parent_scope_def_path = ctx.def_path().clone();
@@ -73,5 +72,11 @@ impl treewalk::Linearize<midend::ir::ValueId> for WhileExpressionTree {
             .unwrap();
 
         midend::ir::ValueInterner::unit_value_id()
+    }
+}
+
+impl Display for WhileExpressionTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "while ({}) {}", self.condition, self.body)
     }
 }

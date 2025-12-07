@@ -7,7 +7,7 @@ pub struct BlockExpressionTree {
     pub close_brace_loc: sourceloc::SourceSpan,
 }
 
-impl Ast for BlockExpressionTree {
+impl Ast<midend::ir::ValueId> for BlockExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.open_brace_loc
             .clone()
@@ -26,17 +26,15 @@ impl Display for BlockExpressionTree {
     }
 }
 
-impl treewalk::CollectSymbols for BlockExpressionTree {
-    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+impl midend::treewalk::Treewalk<midend::ir::ValueId> for BlockExpressionTree {
+    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
         for stmt in &self.statements {
             stmt.collect_symbols(ctx);
         }
     }
-}
 
-impl treewalk::Linearize<midend::ir::ValueId> for BlockExpressionTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(mut self, ctx: &mut treewalk::LinearizeCtx) -> midend::ir::ValueId {
+    fn linearize(mut self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
         let parent_def_path = ctx.def_path().clone();
         let true_scope_def_path = ctx.reserve_subscope();
         ctx.function_mut()
@@ -53,7 +51,9 @@ impl treewalk::Linearize<midend::ir::ValueId> for BlockExpressionTree {
         }
 
         let last_statement_value = match last_statement {
-            Some(statement_tree) => statement_tree.linearize(ctx),
+            Some(statement_tree) => statement_tree
+                .linearize(ctx)
+                .unwrap_or(midend::ir::ValueInterner::unit_value_id()),
             None => midend::ir::ValueInterner::unit_value_id(),
         };
 

@@ -10,7 +10,7 @@ pub struct ImplementationTree {
     pub close_brace_loc: sourceloc::SourceSpan,
 }
 
-impl Ast for ImplementationTree {
+impl Ast<()> for ImplementationTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.impl_keyword_loc
             .clone()
@@ -19,34 +19,8 @@ impl Ast for ImplementationTree {
     }
 }
 
-impl Display for ImplementationTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let generic_params_string = match &self.generic_params {
-            Some(params) => String::from(format!("<{}>", params)),
-            None => String::new(),
-        };
-
-        let for_generic_params_string = match &self.implemented_for_generic_params {
-            Some(params) => String::from(format!("<{}>", params)),
-            None => String::new(),
-        };
-
-        write!(
-            f,
-            "Impl{} {}{}",
-            generic_params_string, self.for_, for_generic_params_string
-        )
-        .and_then(|_| {
-            for item in &self.items {
-                write!(f, "{}", item)?
-            }
-            Ok(())
-        })
-    }
-}
-
-impl treewalk::CollectSymbols for ImplementationTree {
-    fn collect_symbols(&self, ctx: &mut treewalk::CollectCtx) {
+impl midend::treewalk::Treewalk<()> for ImplementationTree {
+    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
         let generic_params_as_vec = match &self.generic_params {
             Some(params) => params
                 .clone()
@@ -86,11 +60,9 @@ impl treewalk::CollectSymbols for ImplementationTree {
 
         ctx.pop_def_path(impl_def_path_component).unwrap();
     }
-}
 
-impl treewalk::Linearize<()> for ImplementationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> () {
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
         let for_name = self.for_.linearize(ctx);
 
         let implemented_for_type = ctx.disambiguate_named_type(&for_name).unwrap();
@@ -127,5 +99,31 @@ impl treewalk::Linearize<()> for ImplementationTree {
         }
 
         ctx.pop_def_path(impl_def_path_component).unwrap();
+    }
+}
+
+impl Display for ImplementationTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let generic_params_string = match &self.generic_params {
+            Some(params) => String::from(format!("<{}>", params)),
+            None => String::new(),
+        };
+
+        let for_generic_params_string = match &self.implemented_for_generic_params {
+            Some(params) => String::from(format!("<{}>", params)),
+            None => String::new(),
+        };
+
+        write!(
+            f,
+            "Impl{} {}{}",
+            generic_params_string, self.for_, for_generic_params_string
+        )
+        .and_then(|_| {
+            for item in &self.items {
+                write!(f, "{}", item)?
+            }
+            Ok(())
+        })
     }
 }
