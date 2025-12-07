@@ -4,7 +4,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
     pub fn parse_while_expression(
         &mut self,
     ) -> Result<ast::expressions::WhileExpressionTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("while loop")?;
+        let (_start_loc, _span) = self.start_parsing("while loop")?;
 
         let while_keyword_loc = self.expect_token(Token::While)?;
 

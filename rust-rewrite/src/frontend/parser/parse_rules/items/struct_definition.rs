@@ -4,7 +4,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     fn parse_struct_field_declaration(
         &mut self,
     ) -> Result<ast::items::struct_definition::StructFieldTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("struct field")?;
+        let (_start_loc, _span) = self.start_parsing("struct field")?;
 
         let name = self.parse_identifier()?;
         self.expect_token(Token::Colon)?;
@@ -17,7 +17,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     pub fn parse_struct_definition(
         &mut self,
     ) -> Result<ast::items::StructDefinitionTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("struct definition")?;
+        let (_start_loc, _span) = self.start_parsing("struct definition")?;
 
         let struct_keyword_loc = self.expect_token(Token::Struct)?;
         let name = self.parse_identifier()?;

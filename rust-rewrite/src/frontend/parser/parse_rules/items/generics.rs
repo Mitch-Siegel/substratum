@@ -2,7 +2,7 @@ use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ItemParser<'a, 'p> {
     pub fn parse_generic_param(&mut self) -> Result<ast::generics::GenericParamTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("generic param")?;
+        let (_start_loc, _span) = self.start_parsing("generic param")?;
 
         let param = match self.peek_token()? {
             Token::Identifier(_) => {
@@ -19,7 +19,8 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     pub fn try_parse_generic_params_list(
         &mut self,
     ) -> Result<Option<ast::generics::GenericParamsListTree>, ParseError> {
-        let (start_loc, _span) = self.start_parsing("generic params list")?;
+        let (_start_loc, _span) = self.start_parsing("generic params list")?;
+
         let maybe_params_tree = match self.peek_token()? {
             Token::LThan => {
                 let open_angle_bracket_loc = self.expect_token(Token::LThan)?;
@@ -56,7 +57,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     pub fn try_parse_generic_args_list(
         &mut self,
     ) -> Result<Option<ast::generics::GenericArgsListTree>, ParseError> {
-        let (start_loc, _span) = self.start_parsing("generic args list")?;
+        let (_start_loc, _span) = self.start_parsing("generic args list")?;
         let maybe_args_tree = match self.peek_token()? {
             Token::LThan => {
                 let open_angle_bracket_loc = self.expect_token(Token::LThan)?;

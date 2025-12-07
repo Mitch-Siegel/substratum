@@ -2,7 +2,7 @@ use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> StatementParser<'a, 'p> {
     pub fn parse_let_statement(&mut self) -> Result<ast::statements::LetTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("let statement")?;
+        let (_start_loc, _span) = self.start_parsing("let statement")?;
 
         let let_keyword_loc = self.expect_token(Token::Let)?;
 

@@ -1,7 +1,4 @@
-use crate::{
-    frontend::{ast::*, *},
-    midend::symtab::ImplementationName,
-};
+use crate::{frontend::ast::*, midend::symtab::ImplementationName};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TupleDataTree {
@@ -191,7 +188,6 @@ impl midend::treewalk::Treewalk<(String, midend::symtab::enum_definition::EnumVa
         self,
         ctx: &mut midend::treewalk::LinearizeCtx,
     ) -> (String, midend::symtab::enum_definition::EnumVariantRepr) {
-        let variant_loc = self.loc();
         let variant_data_type = match self.data {
             Some(variant_item) => variant_item.linearize(ctx),
             None => midend::symtab::EnumVariantRepr::Unit,

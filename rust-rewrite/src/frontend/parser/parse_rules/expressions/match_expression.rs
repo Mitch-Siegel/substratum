@@ -4,7 +4,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
     fn parse_matched_pattern(
         &mut self,
     ) -> Result<ast::expressions::match_expression::PatternTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("pattern")?;
+        let (_start_loc, _span) = self.start_parsing("pattern")?;
 
         let pattern_tree = match self.peek_token()? {
             // TODO: PathInExpression
@@ -15,7 +15,6 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
                         self.expect_token(Token::LParen)?;
                         // only support single destructuring for now
                         let single_tuple_contents = self.parse_identifier()?;
-                        let tuple_contents_loc = self.last_match.clone();
                         let close_paren_loc = self.expect_token(Token::RParen)?;
                         ast::expressions::match_expression::PatternTree::TupleStruct(
                             ast::expressions::match_expression::TupleStructTree {
@@ -47,7 +46,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
     }
 
     pub fn parse_match_expression(&mut self) -> Result<MatchExpressionTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("match")?;
+        let (_start_loc, _span) = self.start_parsing("match expression")?;
 
         let match_keyword_loc = self.expect_token(Token::Match)?;
         let scrutinee_expression = self.parse_expression()?;

@@ -7,7 +7,7 @@ impl<'a> Parser<'a> {
     pub fn parse_argument_declaration(
         &mut self,
     ) -> Result<ast::items::function::ArgumentDeclarationTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("argument declaration")?;
+        let (_start_loc, _span) = self.start_parsing("argument declaration")?;
 
         let mutable = match self.peek_token()? {
             Token::Mut => {

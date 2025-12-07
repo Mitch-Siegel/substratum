@@ -4,7 +4,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
     pub fn parse_path_ident_segment(
         &mut self,
     ) -> Result<ast::expressions::PathIdentSegment, ParseError> {
-        let (loc, _span) = self.start_parsing("path ident segment")?;
+        let (_start_loc, _span) = self.start_parsing("path ident segment")?;
 
         let segment = match self.peek_token()? {
             Token::Identifier(_) => {
@@ -31,7 +31,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
     fn parse_path_expr_segment(
         &mut self,
     ) -> Result<ast::expressions::PathExprSegmentTree, ParseError> {
-        let (loc, _span) = self.start_parsing("path expr segment")?;
+        let (_start_loc, _span) = self.start_parsing("path expr segment")?;
 
         let ident_tree = self.parse_path_ident_segment()?;
         let generic_args = match self.peek_token()? {

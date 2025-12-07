@@ -37,6 +37,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         &mut self,
     ) -> Result<Option<ast::items::enum_definition::EnumVariantDataTree>, ParseError> {
         let (_start_loc, _span) = self.start_parsing("enum variant data")?;
+
         let variant_data = match self.peek_token()? {
             Token::LParen => Some(self.parse_tuple_enum_variant()?),
             _ => None,
@@ -48,7 +49,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     pub fn parse_enum_variant(
         &mut self,
     ) -> Result<ast::items::enum_definition::EnumVariantTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("enum variant")?;
+        let (_start_loc, _span) = self.start_parsing("enum variant")?;
 
         let name = self.parse_identifier()?;
         let data = self.parse_enum_variant_data()?;
@@ -61,7 +62,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
     pub fn parse_enum_definition(
         &mut self,
     ) -> Result<ast::items::enum_definition::EnumDefinitionTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("enum definition")?;
+        let (_start_loc, _span) = self.start_parsing("enum definition")?;
 
         let enum_keyword_loc = self.expect_token(Token::Enum)?;
         let name = self.parse_identifier()?;

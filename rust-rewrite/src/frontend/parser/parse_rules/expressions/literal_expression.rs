@@ -2,7 +2,7 @@ use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
     pub fn parse_literal_expression(&mut self) -> Result<ast::Expression, ParseError> {
-        let (start_loc, _span) = self.start_parsing("literal expression")?;
+        let (_start_loc, _span) = self.start_parsing("literal expression")?;
 
         let literal_expression = match self.peek_token()? {
             Token::UnsignedDecimalConstant(value) => {

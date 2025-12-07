@@ -1,7 +1,4 @@
-use crate::{
-    frontend::*,
-    midend,
-};
+use crate::{frontend::*, midend};
 use std::fmt::Display;
 
 use name_derive::{NameReflectable, ReflectName};
@@ -14,11 +11,11 @@ pub mod statements;
 pub mod types;
 
 pub use expressions::Expression;
+pub use generics::*;
 pub use items::ItemTree;
 pub use module::ModuleTree;
 pub use statements::StatementTree;
 pub use types::TypeTree;
-pub use generics::*;
 
 #[cfg(test)]
 pub mod builder;
@@ -40,7 +37,7 @@ impl Ast<String> for IdentifierTree {
 }
 
 impl midend::treewalk::Treewalk<String> for IdentifierTree {
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> String {
+    fn linearize(self, _ctx: &mut midend::treewalk::LinearizeCtx) -> String {
         self.value
     }
 }

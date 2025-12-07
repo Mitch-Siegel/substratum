@@ -26,7 +26,7 @@ impl Ast<()> for ModuleTree {
 
 impl midend::treewalk::Treewalk<()> for ModuleTree {
     fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
-        trace::span_auto_debug!(
+        let _span = trace::span_auto_debug!(
             "collect for module ",
             "{} ({:?}",
             self.name,

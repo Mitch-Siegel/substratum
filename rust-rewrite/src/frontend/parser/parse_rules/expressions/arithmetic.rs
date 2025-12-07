@@ -43,7 +43,8 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         lhs: Expression,
         min_precedence: usize,
     ) -> Result<Expression, ParseError> {
-        self.start_parsing(&format!("expression (min precedence: {})", min_precedence))?;
+        let (_start_loc, _span) =
+            self.start_parsing(&format!("expression (min precedence: {})", min_precedence))?;
 
         let mut expr = lhs;
         while Self::token_is_operator_of_at_least_precedence(&self.peek_token()?, min_precedence) {

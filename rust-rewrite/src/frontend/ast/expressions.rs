@@ -1,4 +1,7 @@
-use crate::{frontend::ast::*, midend::{self, treewalk::Treewalk}};
+use crate::{
+    frontend::ast::*,
+    midend::{self},
+};
 
 pub mod arithmetic;
 pub mod assignment;
@@ -63,9 +66,7 @@ impl midend::treewalk::Treewalk<midend::ir::ValueId> for Expression {
             Self::Arithmetic(a) => a.collect_symbols(ctx),
             Self::Comparison(c) => c.collect_symbols(ctx),
             Self::Assignment(a) => a.collect_symbols(ctx),
-            Self::FieldExpression(_)
-            | Self::UnsignedDecimalConstant(_, _)
-            | Self::Call(_) => (),
+            Self::FieldExpression(_) | Self::UnsignedDecimalConstant(_, _) | Self::Call(_) => (),
         }
     }
 
@@ -151,3 +152,4 @@ impl Display for Expression {
         }
     }
 }
+

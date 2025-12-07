@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    frontend::{ast::*, *},
+    frontend::ast::*,
     midend::{self, treewalk::Treewalk},
     trace,
 };
@@ -33,7 +33,7 @@ impl Ast<()> for PathIdentSegment {
 }
 
 impl midend::treewalk::Treewalk<()> for PathIdentSegment {
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
+    fn linearize(self, _ctx: &mut midend::treewalk::LinearizeCtx) -> () {
         unreachable!()
     }
 }
@@ -77,8 +77,7 @@ impl midend::treewalk::Treewalk<PathExprSegmentAction> for PathExprSegmentTree {
             PathIdentSegment::SelfLower(_) => {
                 self.expect_no_generics().unwrap();
                 PathExprSegmentAction::SelfLower
-                
-            },
+            }
             PathIdentSegment::SelfUpper(_) => {
                 self.expect_no_generics().unwrap();
                 PathExprSegmentAction::SelfUpper
@@ -131,7 +130,7 @@ impl Ast<midend::ir::ValueId> for PathInExpressionTree {
 }
 
 impl midend::treewalk::Treewalk<midend::ir::ValueId> for PathInExpressionTree {
-    fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+    fn collect_symbols(&self, _ctx: &mut midend::treewalk::CollectCtx) {
         ()
     }
 
@@ -157,29 +156,35 @@ impl midend::treewalk::Treewalk<midend::ir::ValueId> for PathInExpressionTree {
                         ),
                     }
                     false
-                },
+                }
                 PathExprSegmentAction::Ident(name, maybe_generics) => {
                     let must_end = walk_ident_segment(name, &mut expr_path, ctx).unwrap();
                     record_monomorphization(ctx, &expr_path, maybe_generics);
                     must_end
-                },
+                }
                 PathExprSegmentAction::SelfLower => {
-                    unimplemented!("'self' in path expression ({}) not implemented", segment_loc);
-                },
+                    unimplemented!(
+                        "'self' in path expression ({}) not implemented",
+                        segment_loc
+                    );
+                }
                 PathExprSegmentAction::SelfUpper => {
-                    unimplemented!("'Self' in path expression ({}) not implemented", segment_loc);
+                    unimplemented!(
+                        "'Self' in path expression ({}) not implemented",
+                        segment_loc
+                    );
                 }
             };
 
             if must_end && (segments.size_hint().0 > 0) {
-                        panic!(
-                            "path {} at {} has additional unexpected segment(s): {}@{}",
-                            expr_path,
-                            expr_path_loc,
-                            expr_path.last().name(),
-                            segment_loc,
-                        )
-                    }
+                panic!(
+                    "path {} at {} has additional unexpected segment(s): {}@{}",
+                    expr_path,
+                    expr_path_loc,
+                    expr_path.last().name(),
+                    segment_loc,
+                )
+            }
 
             expr_path_loc = expr_path_loc.merge(&segment_loc).unwrap();
             trace::trace!("iteration end path: {}", expr_path);
@@ -326,3 +331,4 @@ fn record_monomorphization(
         .record_monomorphization(path.clone(), substs)
         .unwrap();
 }
+

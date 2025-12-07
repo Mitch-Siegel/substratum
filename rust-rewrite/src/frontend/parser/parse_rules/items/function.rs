@@ -20,7 +20,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         &mut self,
         allow_self_param: bool,
     ) -> Result<ast::items::FunctionDeclarationTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("function prototype")?;
+        let (_start_loc, _span) = self.start_parsing("function prototype")?;
 
         // start with fun
         let fn_keyword_loc = self.expect_token(Token::Fn_)?;
@@ -191,7 +191,7 @@ impl<'a, 'p> ItemParser<'a, 'p> {
         &mut self,
         prototype: ast::items::FunctionDeclarationTree,
     ) -> Result<ast::items::FunctionDefinitionTree, ParseError> {
-        self.start_parsing("function definition")?;
+        let (_start_loc, _span) = self.start_parsing("function definition")?;
 
         let body = self.parse_block_expression()?;
 

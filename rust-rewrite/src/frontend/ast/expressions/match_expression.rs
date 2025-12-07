@@ -1,7 +1,4 @@
-use crate::{
-    frontend::{ast::expressions::*, *},
-    trace,
-};
+use crate::{frontend::ast::expressions::*, trace};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TupleStructTree {
@@ -34,7 +31,7 @@ impl Ast<PatternTree> for TupleStructTree {
 }
 
 impl midend::treewalk::Treewalk<PatternTree> for TupleStructTree {
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> PatternTree {
+    fn linearize(self, _ctx: &mut midend::treewalk::LinearizeCtx) -> PatternTree {
         PatternTree::TupleStruct(self)
         /*
         for field in tuple_struct.subpatterns.clone() {

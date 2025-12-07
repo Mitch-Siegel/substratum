@@ -2,7 +2,7 @@ use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ItemParser<'a, 'p> {
     pub fn parse_implementation(&mut self) -> Result<ast::items::ImplementationTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("impl block")?;
+        let (_start_loc, _span) = self.start_parsing("impl block")?;
 
         let impl_keyword_loc = self.expect_token(Token::Impl)?;
         let generic_params = self.try_parse_generic_params_list()?;

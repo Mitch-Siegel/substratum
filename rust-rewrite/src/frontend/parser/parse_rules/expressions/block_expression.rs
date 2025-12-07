@@ -4,7 +4,7 @@ impl<'a> Parser<'a> {
     pub fn parse_block_expression(
         &mut self,
     ) -> Result<ast::expressions::BlockExpressionTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("compound statement")?;
+        let (_start_loc, _span) = self.start_parsing("compound statement")?;
 
         let open_brace_loc = self.expect_token(Token::LCurly)?;
         let mut statements: Vec<StatementTree> = Vec::new();

@@ -12,7 +12,7 @@ impl<'a, 'p> ModuleParser<'a, 'p> {
         module_path: &std::path::Path,
         name: IdentifierTree,
     ) -> Result<ModuleResult, ParseError> {
-        self.start_parsing("module contents")?;
+        let (_start_loc, _span) = self.start_parsing("module contents")?;
 
         self.module_parse_stack.push(name.clone());
 

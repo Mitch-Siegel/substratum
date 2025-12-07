@@ -50,7 +50,7 @@ pub fn symbol_table_from_modules(modules: Vec<frontend::ast::ModuleTree>) -> sym
             println!("\t{:?}", i);
         }
     }
-    panic!("done printing instances");
+    println!("done printing instances");
 
     /*
     let all_arguments = symtab::Visitor::visit(&symtab, get_all_function_arguments);

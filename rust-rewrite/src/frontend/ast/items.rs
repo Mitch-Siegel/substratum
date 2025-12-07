@@ -34,7 +34,7 @@ impl Ast<()> for ItemTree {
             Self::StructDefinition(sd) => sd.loc(),
             Self::EnumDefinition(ed) => ed.loc(),
             Self::Implementation(i) => i.loc(),
-            Self::Module((module, child_modules)) => match module {
+            Self::Module((module, _)) => match module {
                 Ok(module_tree) => module_tree.loc(),
                 Err(loc) => loc.clone(),
             },
@@ -107,7 +107,6 @@ impl midend::treewalk::Treewalk<()> for ItemTree {
         }
     }
 }
-
 
 impl Display for ItemTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

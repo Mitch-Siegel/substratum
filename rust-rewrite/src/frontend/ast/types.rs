@@ -10,15 +10,18 @@ pub enum TypeTree {
 impl Ast<Option<midend::types::Syntactic>> for TypeTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
-            Self::TypeNoBounds(tnb) => tnb.loc()
+            Self::TypeNoBounds(tnb) => tnb.loc(),
         }
     }
 }
 
 impl midend::treewalk::Treewalk<Option<midend::types::Syntactic>> for TypeTree {
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> Option<midend::types::Syntactic> {
+    fn linearize(
+        self,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> Option<midend::types::Syntactic> {
         match self {
-            Self::TypeNoBounds(tnb) => tnb.linearize(ctx)
+            Self::TypeNoBounds(tnb) => tnb.linearize(ctx),
         }
     }
 }
@@ -48,7 +51,10 @@ impl Ast<Option<midend::types::Syntactic>> for ParenthesizedTypeTree {
 }
 
 impl midend::treewalk::Treewalk<Option<midend::types::Syntactic>> for ParenthesizedTypeTree {
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> Option<midend::types::Syntactic> {
+    fn linearize(
+        self,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> Option<midend::types::Syntactic> {
         self.inner_type.linearize(ctx)
     }
 }
@@ -77,7 +83,12 @@ impl Ast<midend::types::Syntactic> for TupleTypeTree {
 
 impl midend::treewalk::Treewalk<midend::types::Syntactic> for TupleTypeTree {
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
-        unimplemented!();
+        let members = self
+            .members
+            .into_iter()
+            .map(|member| member.linearize(ctx).expect("tuple types may not be '_'"))
+            .collect();
+        midend::types::Syntactic::Tuple(members)
     }
 }
 
@@ -142,11 +153,11 @@ impl midend::treewalk::Treewalk<Option<midend::types::Syntactic>> for TypeNoBoun
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> Option<midend::types::Syntactic> {
         match self {
             Self::ParenthesizedType(p) => p.linearize(ctx),
-            Self::TypePath(tp) => unimplemented!(),
-            Self::TupleType(tt) => unimplemented!(),
-            Self::ReferenceType(r) => unimplemented!(),
-            Self::ArrayType(a) => unimplemented!(),
-            Self::InferredType(i) => unimplemented!(),
+            Self::TypePath(tp) => Some(tp.linearize(ctx)),
+            Self::TupleType(tt) => Some(tt.linearize(ctx)),
+            Self::ReferenceType(r) => Some(r.linearize(ctx)),
+            Self::ArrayType(a) => Some(a.linearize(ctx)),
+            Self::InferredType(i) => i.linearize(ctx),
         }
     }
 }
@@ -312,7 +323,14 @@ impl Ast<midend::types::Syntactic> for ReferenceTypeTree {
 
 impl midend::treewalk::Treewalk<midend::types::Syntactic> for ReferenceTypeTree {
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
-        midend::types::Syntactic::Reference(self.mutability, Box::new(self.type_.linearize(ctx).expect("reference types may not be '_'")))
+        midend::types::Syntactic::Reference(
+            self.mutability,
+            Box::new(
+                self.type_
+                    .linearize(ctx)
+                    .expect("reference types may not be '_'"),
+            ),
+        )
     }
 }
 

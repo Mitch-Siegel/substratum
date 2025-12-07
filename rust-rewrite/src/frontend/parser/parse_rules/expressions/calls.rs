@@ -5,7 +5,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         &mut self,
         _allow_self: bool,
     ) -> Result<ast::expressions::calls::CallParamsTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("call params")?;
+        let (_start_loc, _span) = self.start_parsing("call params")?;
 
         let mut params = Vec::new();
 
@@ -36,8 +36,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
         &mut self,
         function_operand: Expression,
     ) -> Result<Expression, ParseError> {
-        self.start_parsing("method call expression")?;
-        let start_loc = function_operand.loc().clone();
+        let (_start_loc, _span) = self.start_parsing("method call expression")?;
 
         let params = self.parse_call_params(true)?;
 

@@ -9,7 +9,9 @@ pub use function_linearize_context::FunctionLinearizeCtx;
 pub use linearize_context::{GenericParamsContext, LinearizeCtx};
 
 pub trait Treewalk<LinearizeResult> {
-    fn collect_symbols(&self, ctx: &mut CollectCtx) {unreachable!("collect_symbols() called on AST without implementation")}
+    fn collect_symbols(&self, _ctx: &mut CollectCtx) {
+        unreachable!("collect_symbols() called on AST without implementation")
+    }
 
     fn linearize(self, ctx: &mut LinearizeCtx) -> LinearizeResult;
 }

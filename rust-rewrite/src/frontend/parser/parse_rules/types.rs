@@ -39,7 +39,7 @@ impl<'a, 'p> TypeParser<'a, 'p> {
     fn parse_parenthesized_type_or_tuple(
         &mut self,
     ) -> Result<ast::types::TypeNoBoundsTree, ParseError> {
-        let (start_loc, _span) = self.start_parsing("parenthesized type or tuple")?;
+        let (_start_loc, _span) = self.start_parsing("parenthesized type or tuple")?;
 
         let open_paren_loc = self.expect_token(Token::LParen)?;
         let inner_type = match self.peek_token()? {

@@ -2,8 +2,7 @@ use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
     pub fn parse_field_expression(&mut self, lhs: Expression) -> Result<Expression, ParseError> {
-        self.start_parsing("field expression")?;
-        let start_loc = lhs.loc().clone();
+        let (_start_loc, _span) = self.start_parsing("field expression")?;
 
         self.expect_token(Token::Dot)?;
         let field_expression = ast::expressions::FieldExpressionTree {
