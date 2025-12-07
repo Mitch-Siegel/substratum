@@ -1,6 +1,4 @@
 use super::token::*;
-use std::path::Path;
-
 #[cfg(test)]
 fn assert_single_tokenization(input_str: &str, expected_token: Token) {
     use crate::frontend::lexer::*;
@@ -12,7 +10,30 @@ fn assert_single_tokenization(input_str: &str, expected_token: Token) {
     let result = Lexer::from_string(input_str).lex_all().expect("");
     assert_eq!(
         result,
-        vec! {(expected_token, SourceLoc::new(&Path::new(""), 1, 1)), (Token::Eof, SourceLoc::new(&Path::new(""), 1, 1 + input_str.len()))}
+        vec![
+            (
+                expected_token,
+                SourceSpan::new(
+                    String::new(),
+                    SourcePoint { line: 1, col: 1 },
+                    SourcePoint {
+                        line: 1,
+                        col: 1 + TryInto::<u32>::try_into(input_str.len()).unwrap()
+                    }
+                )
+            ),
+            (
+                Token::Eof,
+                SourceLoc::new(
+                    String::new(),
+                    SourcePoint {
+                        line: 1,
+                        col: 1 + TryInto::<u32>::try_into(input_str.len()).unwrap()
+                    }
+                )
+                .into()
+            )
+        ]
     );
 }
 

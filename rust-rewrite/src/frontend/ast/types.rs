@@ -341,7 +341,12 @@ impl std::fmt::Display for ReferenceTypeTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct ArrayTypeTree {}
+pub struct ArrayTypeTree {
+    pub open_bracket_loc: sourceloc::SourceSpan,
+    pub inner_type: Box<TypeTree>,
+    pub array_size: Expression,
+    pub close_bracket_loc: sourceloc::SourceSpan,
+}
 
 impl Ast<midend::types::Syntactic> for ArrayTypeTree {
     fn loc(&self) -> sourceloc::SourceSpan {

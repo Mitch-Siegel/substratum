@@ -122,16 +122,16 @@ impl BlockConvergences {
 
 #[cfg(test)]
 mod tests {
-    use crate::midend::{
-        ir,
-        linearizer::{self, block_manager::*},
-    };
+    use crate::midend::{ir::block_manager::*, symtab::DefPath};
     use std::collections::HashMap;
 
     #[test]
     fn add() {
         let mut c = BlockConvergences::new();
-        assert_eq!(c.add(&[0, 1, 2], ir::BasicBlock::new(3)), Ok(()));
+        assert_eq!(
+            c.add(&[0, 1, 2], BasicBlock::new(3, DefPath::empty())),
+            Ok(())
+        );
 
         let expected_convergences = [(0, 3), (1, 3), (2, 3)]
             .into_iter()
@@ -142,12 +142,12 @@ mod tests {
         assert_eq!(c.convergence_blocks.get(&3).unwrap().label, 3);
 
         assert_eq!(
-            c.add(&[4], ir::BasicBlock::new(3)),
+            c.add(&[4], ir::BasicBlock::new(3, DefPath::empty())),
             Err(ConvergenceError::ToBlockExists(3))
         );
 
         assert_eq!(
-            c.add(&[0], ir::BasicBlock::new(4)),
+            c.add(&[0], ir::BasicBlock::new(4, DefPath::empty())),
             Err(ConvergenceError::FromBlockExists(0))
         );
     }
@@ -155,7 +155,10 @@ mod tests {
     #[test]
     fn converge_and_is_empty() {
         let mut c = BlockConvergences::new();
-        assert_eq!(c.add(&[0, 1, 2], ir::BasicBlock::new(3)), Ok(()));
+        assert_eq!(
+            c.add(&[0, 1, 2], ir::BasicBlock::new(3, DefPath::empty())),
+            Ok(())
+        );
         assert_eq!(c.is_empty(), false);
 
         assert_eq!(c.converge(4), Err(ConvergenceError::NonexistentFrom(4)));
@@ -164,7 +167,10 @@ mod tests {
         assert_eq!(c.converge(0), Ok(ConvergenceResult::NotDone(3)));
         assert_eq!(
             c.converge(1),
-            Ok(ConvergenceResult::Done(ir::BasicBlock::new(3)))
+            Ok(ConvergenceResult::Done(ir::BasicBlock::new(
+                3,
+                DefPath::empty()
+            )))
         );
         assert_eq!(c.is_empty(), true);
 
@@ -174,7 +180,10 @@ mod tests {
     #[test]
     fn rename_source() {
         let mut c = BlockConvergences::new();
-        assert_eq!(c.add(&[0, 1, 2], ir::BasicBlock::new(3)), Ok(()));
+        assert_eq!(
+            c.add(&[0, 1, 2], ir::BasicBlock::new(3, DefPath::empty())),
+            Ok(())
+        );
 
         c.rename_source(0, 4);
 

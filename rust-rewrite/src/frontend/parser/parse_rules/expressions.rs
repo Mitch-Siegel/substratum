@@ -66,10 +66,7 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
 #[cfg(test)]
 mod tests {
     use crate::frontend::ast::builder as ast_builder;
-    use crate::frontend::{
-        parser::{parse_rules::*, tests::*, *},
-        *,
-    };
+    use crate::frontend::parser::{parse_rules::*, tests::*};
 
     pub fn example_expression() -> String {
         "(a + b * 2)".into()
@@ -80,49 +77,17 @@ mod tests {
         let expression = example_expression();
         let mut p = test_parser(&expression);
         assert_eq!(
-            p.expression_parser().parse_expression(),
-            Ok(ast_builder::add(
-                1,
-                2,
-                ast_builder::id(1, 2, "a"),
-                ast_builder::mul(
-                    1,
-                    4,
-                    ast_builder::id(1, 4, "b"),
-                    ast_builder::unsigned_decimal_constant(1, 6, 2)
-                )
-            ))
-        );
-        /*assert_eq!(
-            p.expression_parser().parse_expression(),
-            Ok(ast::ExpressionTree::new(
-                test_parser_loc(1, 1),
-                ast::Expression::Arithmetic(ast::expressions::ArithmeticExpressionTree::Add(
-                    ast::expressions::arithmetic::ArithmeticDualOperands::new(
-                        ExpressionTree::new(
-                            test_parser_loc(1, 2),
-                            ast::Expression::Identifier("a".into())
-                        ),
-                        ExpressionTree::new(
-                            test_parser_loc(1, 4),
-                            Expression::Arithmetic(
-                                ast::expressions::ArithmeticExpressionTree::Multiply(
-                                    ast::expressions::arithmetic::ArithmeticDualOperands::new(
-                                        ExpressionTree::new(
-                                            test_parser_loc(1, 4),
-                                            ast::Expression::Identifier("b".into())
-                                        ),
-                                        ExpressionTree::new(
-                                            test_parser_loc(1, 6),
-                                            ast::Expression::UnsignedDecimalConstant(2)
-                                        )
-                                    )
-                                )
-                            )
-                        )
+            format!("{:?}", p.expression_parser().parse_expression()),
+            format!(
+                "{:?}",
+                Ok::<_, ParseError>(ast_builder::add(
+                    ast_builder::id(1, 2, "a"),
+                    ast_builder::mul(
+                        ast_builder::id(1, 6, "b"),
+                        ast_builder::unsigned_decimal_constant(1, 10, 2)
                     )
                 ))
-            ))
-        );*/
+            )
+        );
     }
 }

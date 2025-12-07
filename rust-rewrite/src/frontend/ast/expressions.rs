@@ -23,7 +23,7 @@ pub use match_expression::MatchExpressionTree;
 pub use path_in_expression::*;
 pub use while_expression::WhileExpressionTree;
 
-#[derive(ReflectName, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, ReflectName, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Expression {
     PathInExpression(PathInExpressionTree),
     UnsignedDecimalConstant(sourceloc::SourceSpan, usize),
@@ -130,12 +130,6 @@ impl midend::treewalk::Treewalk<midend::ir::ValueId> for Expression {
     }
 }
 
-impl std::fmt::Debug for Expression {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self)
-    }
-}
-
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -152,4 +146,3 @@ impl Display for Expression {
         }
     }
 }
-

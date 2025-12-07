@@ -64,7 +64,7 @@ impl From<&'static std::panic::Location<'static>> for SourceLoc {
 
 impl Display for SourceLoc {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}: {}", self.file, self.point)
+        write!(f, "{}:{}", self.file, self.point)
     }
 }
 

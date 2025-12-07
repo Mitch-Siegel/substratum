@@ -22,9 +22,10 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use crate::frontend::{
+        ast::IdentifierTree,
         lexer::{token::Token, Lexer},
         parser::{ParseError, Parser},
-        sourceloc::SourceLoc,
+        sourceloc::{SourceLoc, SourcePoint, SourceSpan},
     };
     use std::path::Path;
 
@@ -35,7 +36,17 @@ mod tests {
             Path::new(""),
             Lexer::from_string("my_identifier"),
         );
-        assert_eq!(p.parse_identifier(), Ok("my_identifier".into()));
+        assert_eq!(
+            p.parse_identifier(),
+            Ok(IdentifierTree {
+                loc: SourceSpan::new(
+                    String::new(),
+                    SourcePoint { line: 1, col: 1 },
+                    SourcePoint { line: 1, col: 14 }
+                ),
+                value: "my_identifier".into()
+            })
+        );
     }
 
     #[test]
@@ -44,15 +55,14 @@ mod tests {
         assert_eq!(
             p.parse_identifier(),
             Err(ParseError::unexpected_token(
-                SourceLoc::new(Path::new(""), 1, 1),
+                SourceLoc::new(String::new(), SourcePoint { line: 1, col: 1 }),
                 Token::Struct,
                 &[Token::Identifier("".into())],
                 "identifier".into(),
-                SourceLoc::new(Path::new(""), 1, 1),
+                SourceLoc::new(String::new(), SourcePoint { line: 1, col: 1 }),
                 SourceLoc::new(
-                    Path::new("src/frontend/parser/parse_rules/single_token.rs"),
-                    10,
-                    37
+                    String::from("src/frontend/parser/parse_rules/single_token.rs"),
+                    SourcePoint { line: 15, col: 23 }
                 ),
             ))
         );

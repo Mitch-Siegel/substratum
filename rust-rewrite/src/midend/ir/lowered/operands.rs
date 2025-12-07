@@ -406,8 +406,4 @@ impl OperandTypeInference for SwitchOperands {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::cmp::Ordering;
-
-    use crate::midend::ir::*;
-}
+mod tests {}

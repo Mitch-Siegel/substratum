@@ -254,45 +254,54 @@ impl From<BlockManager> for ControlFlow {
 
 #[cfg(test)]
 mod tests {
-    use crate::midend::ir::*;
+    use crate::{
+        frontend::sourceloc::SourceLoc,
+        midend::{
+            ir::{
+                lowered::{BinaryComparisonKind, BinaryComparisonOperands, JumpCondition},
+                BasicBlock, ControlFlow, IrLine, ValueId, ValueInterner,
+            },
+            symtab::DefPath,
+            types::Semantic,
+        },
+    };
     use std::collections::{BTreeSet, HashMap};
 
     fn test_control_flow() -> ControlFlow {
-        let mut b0 = ir::BasicBlock::new(0);
-        let mut b1 = ir::BasicBlock::new(1);
-        let mut b2 = ir::BasicBlock::new(2);
-        let b3 = ir::BasicBlock::new(3);
+        let mut b0 = BasicBlock::new(0, DefPath::empty());
+        let mut b1 = BasicBlock::new(1, DefPath::empty());
+        let mut b2 = BasicBlock::new(2, DefPath::empty());
+        let b3 = BasicBlock::new(3, DefPath::empty());
 
         // 0->1
-        let jump = ir::IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
-        b0.statements.push(jump);
+        let jump = IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
+        b0.push(jump);
 
         // 1->2 (conditional)
-        let jump = ir::IrLine::new_jump(
+        let jump = IrLine::new_jump(
             SourceLoc::none(),
             2,
-            JumpCondition::Eq(DualSourceOperands::new(
-                ir::ValueId::new(0),
-                ir::ValueId::new(1),
+            JumpCondition::Conditional(BinaryComparisonOperands::new(
+                ValueId::new(0),
+                ValueId::new(1),
+                BinaryComparisonKind::EQ,
             )),
         );
-        b1.statements.push(jump);
+        b1.push(jump);
         // 1->3
-        let jump = ir::IrLine::new_jump(SourceLoc::none(), 3, JumpCondition::Unconditional);
-        b1.statements.push(jump);
+        let jump = IrLine::new_jump(SourceLoc::none(), 3, JumpCondition::Unconditional);
+        b1.push(jump);
 
         // 2->1
-        let jump = ir::IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
-        b2.statements.push(jump);
+        let jump = IrLine::new_jump(SourceLoc::none(), 1, JumpCondition::Unconditional);
+        b2.push(jump);
 
-        let blocks = vec![b0, b1, b2, b3];
+        let blocks: HashMap<usize, BasicBlock> = vec![b0, b1, b2, b3]
+            .into_iter()
+            .map(|block| (block.label, block))
+            .collect();
 
-        ControlFlow::from(
-            blocks
-                .into_iter()
-                .map(|block| (block.label, block))
-                .collect::<HashMap<_, _>>(),
-        )
+        ControlFlow::new(blocks, ValueInterner::new(Semantic { id: 0 }))
     }
 
     #[test]

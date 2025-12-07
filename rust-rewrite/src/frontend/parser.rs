@@ -1,6 +1,3 @@
-// #[cfg(test)]
-// mod tests_old;
-
 use std::collections::{BTreeSet, VecDeque};
 
 use crate::{
@@ -252,16 +249,12 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::frontend::{parser::*, *};
-
-    pub fn test_parser_loc(line: usize, col: usize) -> SourceLoc {
-        SourceLoc::new(std::path::Path::new("test_module"), line, col)
-    }
+    use crate::frontend::parser::*;
 
     pub fn test_parser<'a>(input: &'a str) -> Parser<'a> {
-        let module_path = std::path::Path::new("test_module");
+        let module_path = std::path::Path::new("");
         Parser::new(
-            "test_module".into(),
+            "".into(),
             module_path,
             lexer::Lexer::<'a>::from_string(&input),
         )

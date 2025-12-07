@@ -1,61 +1,111 @@
-use crate::frontend::ast::{
-    expressions::{arithmetic::ArithmeticDualOperands, ArithmeticExpressionTree},
-    Expression, ExpressionTree,
+use crate::frontend::{
+    ast::{
+        expressions::{arithmetic::*, *},
+        types::{
+            PrimitiveTypePathTree, TypeItemPathTree, TypeNoBoundsTree, TypePath,
+            TypePathSegmentTree,
+        },
+        Expression, *,
+    },
+    sourceloc::{SourcePoint, SourceSpan},
 };
-use crate::frontend::sourceloc::SourceLoc;
 
-pub fn test_loc(line: usize, col: usize) -> SourceLoc {
-    SourceLoc::new(std::path::Path::new("test_module"), line, col)
-}
+use super::types::ReferenceTypeTree;
 
-pub fn expr(line: usize, col: usize, e: Expression) -> ExpressionTree {
-    ExpressionTree::new(test_loc(line, col), e)
-}
-
-pub fn id(line: usize, col: usize, name: &str) -> ExpressionTree {
-    expr(line, col, Expression::Identifier(name.into()))
-}
-
-pub fn unsigned_decimal_constant(line: usize, col: usize, value: usize) -> ExpressionTree {
-    expr(line, col, Expression::UnsignedDecimalConstant(value))
-}
-
-pub fn add(line: usize, col: usize, lhs: ExpressionTree, rhs: ExpressionTree) -> ExpressionTree {
-    expr(
-        line,
-        col,
-        Expression::Arithmetic(ArithmeticExpressionTree::Add(ArithmeticDualOperands::new(
-            lhs, rhs,
-        ))),
+pub fn test_span(start_line: u32, start_col: u32, end_line: u32, end_col: u32) -> SourceSpan {
+    SourceSpan::new(
+        String::from(""),
+        SourcePoint::new(start_line, start_col),
+        SourcePoint::new(end_line, end_col),
     )
 }
 
-pub fn sub(line: usize, col: usize, lhs: ExpressionTree, rhs: ExpressionTree) -> ExpressionTree {
-    expr(
-        line,
-        col,
-        Expression::Arithmetic(ArithmeticExpressionTree::Subtract(
-            ArithmeticDualOperands::new(lhs, rhs),
-        )),
+pub fn id(line: u32, col: u32, name: &str) -> Expression {
+    Expression::PathInExpression(PathInExpressionTree {
+        segments: vec![PathExprSegmentTree {
+            ident: PathIdentSegment::Ident(IdentifierTree {
+                loc: test_span(
+                    line,
+                    col,
+                    line,
+                    col + TryInto::<u32>::try_into(name.len()).unwrap(),
+                ),
+                value: name.into(),
+            }),
+            generic_args: None,
+        }],
+    })
+}
+
+pub fn unsigned_decimal_constant(line: u32, col: u32, value: usize) -> Expression {
+    Expression::UnsignedDecimalConstant(
+        test_span(
+            line,
+            col,
+            line,
+            col + TryInto::<u32>::try_into(format!("{}", value).len()).unwrap(),
+        ),
+        value,
     )
 }
 
-pub fn mul(line: usize, col: usize, lhs: ExpressionTree, rhs: ExpressionTree) -> ExpressionTree {
-    expr(
-        line,
-        col,
-        Expression::Arithmetic(ArithmeticExpressionTree::Multiply(
-            ArithmeticDualOperands::new(lhs, rhs),
-        )),
-    )
+pub fn add(lhs: Expression, rhs: Expression) -> Expression {
+    Expression::Arithmetic(ArithmeticExpressionTree::Add(ArithmeticDualOperands::new(
+        lhs, rhs,
+    )))
 }
 
-pub fn div(line: usize, col: usize, lhs: ExpressionTree, rhs: ExpressionTree) -> ExpressionTree {
-    expr(
-        line,
-        col,
-        Expression::Arithmetic(ArithmeticExpressionTree::Divide(
-            ArithmeticDualOperands::new(lhs, rhs),
-        )),
-    )
+pub fn mul(lhs: Expression, rhs: Expression) -> Expression {
+    Expression::Arithmetic(ArithmeticExpressionTree::Multiply(
+        ArithmeticDualOperands::new(lhs, rhs),
+    ))
+}
+
+pub fn primitive_type(
+    start_line: u32,
+    start_col: u32,
+    type_: midend::types::Syntactic,
+) -> TypeNoBoundsTree {
+    TypeNoBoundsTree::TypePath(TypePath::Primitive(PrimitiveTypePathTree {
+        loc: test_span(
+            start_line,
+            start_col,
+            start_line,
+            start_col + TryInto::<u32>::try_into(format!("{}", type_).len()).unwrap(),
+        ),
+        type_: type_,
+    }))
+}
+
+pub fn named_type(start_line: u32, start_col: u32, name: &str) -> TypeTree {
+    TypeTree::TypeNoBounds(TypeNoBoundsTree::TypePath(TypePath::ItemPath(
+        TypeItemPathTree {
+            starts_global: None,
+            segments: vec![TypePathSegmentTree {
+                ident_segment: PathIdentSegment::Ident(IdentifierTree {
+                    loc: test_span(
+                        start_line,
+                        start_col,
+                        start_line,
+                        start_col + TryInto::<u32>::try_into(name.len()).unwrap(),
+                    ),
+                    value: name.into(),
+                }),
+                generic_args: None,
+            }],
+        },
+    )))
+}
+
+pub fn reference_of_type(
+    line: u32,
+    col: u32,
+    mutability: midend::types::Mutability,
+    inner_type: TypeNoBoundsTree,
+) -> ReferenceTypeTree {
+    ReferenceTypeTree {
+        reference_token_loc: test_span(line, col, line, col + 1),
+        mutability,
+        type_: Box::new(inner_type),
+    }
 }

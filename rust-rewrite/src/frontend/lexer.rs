@@ -10,7 +10,7 @@ mod tests;
 pub mod token;
 
 pub use errors::LexError;
-use token::Token;
+pub use token::Token;
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
@@ -252,6 +252,14 @@ impl<'a> Lexer<'a> {
                     self.advance_char();
                     Ok(Token::RCurly)
                 }
+                '[' => {
+                    self.advance_char();
+                    Ok(Token::LBracket)
+                }
+                ']' => {
+                    self.advance_char();
+                    Ok(Token::RBracket)
+                }
                 '(' => {
                     self.advance_char();
                     Ok(Token::LParen)
@@ -357,13 +365,13 @@ impl<'a> Lexer<'a> {
             Ok(Token::Eof)
         };
 
+        let match_end = SourcePoint::new(self.cur_line, self.cur_col);
         self.trim_whitespace();
 
         match token {
             Ok(tok) => {
                 #[cfg(feature = "loud_lexing")]
                 println!("Lexer::lex(): lexed '{}'@{}", tok.name(), match_start);
-                let match_end = SourcePoint::new(self.cur_line, self.cur_col);
                 Ok((
                     tok,
                     SourceSpan::new(self.cur_file.clone(), match_start, match_end),

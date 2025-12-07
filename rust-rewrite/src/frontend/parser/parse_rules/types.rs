@@ -1,4 +1,3 @@
-use crate::frontend::ast::types::PrimitiveTypePathTree;
 use crate::midend::{self, types};
 
 use crate::frontend::{ast, parser::parse_rules::*};
@@ -16,10 +15,6 @@ impl<'a, 'p> TypeParser<'a, 'p> {
         let (_start_loc, _span) = self.start_parsing("type no bounds")?;
 
         let type_no_bounds = match self.peek_token()? {
-            Token::LParen => self.parse_parenthesized_type_or_tuple()?,
-            Token::Reference => {
-                ast::types::TypeNoBoundsTree::ReferenceType(self.parse_reference_type()?)
-            }
             Token::Identifier(_)
             | Token::U8
             | Token::U16
@@ -30,7 +25,27 @@ impl<'a, 'p> TypeParser<'a, 'p> {
             | Token::I32
             | Token::I64
             | Token::SelfUpper => ast::types::TypeNoBoundsTree::TypePath(self.parse_type_path()?),
-            _ => self.unexpected_token(&[Token::LParen])?,
+            Token::LParen => self.parse_parenthesized_type_or_tuple()?,
+            Token::Reference => {
+                ast::types::TypeNoBoundsTree::ReferenceType(self.parse_reference_type()?)
+            }
+            Token::LBracket => ast::types::TypeNoBoundsTree::ArrayType(self.parse_array_type()?),
+
+            _ => self.unexpected_token(&[
+                Token::Identifier("".into()),
+                Token::U8,
+                Token::U16,
+                Token::U32,
+                Token::U64,
+                Token::I8,
+                Token::I16,
+                Token::I32,
+                Token::I64,
+                Token::SelfUpper,
+                Token::LParen,
+                Token::Reference,
+                Token::LBracket,
+            ])?,
         };
 
         self.finish_parsing(type_no_bounds)
@@ -83,6 +98,13 @@ impl<'a, 'p> TypeParser<'a, 'p> {
                     break;
                 }
                 _ => members.push(self.parse_type()?),
+            }
+
+            match self.peek_token()? {
+                Token::Comma => {
+                    self.expect_token(Token::Comma)?;
+                }
+                _ => (),
             }
         }
         let close_paren_loc = self.expect_token(Token::RParen)?;
@@ -176,7 +198,9 @@ impl<'a, 'p> TypeParser<'a, 'p> {
         self.finish_parsing(type_path)
     }
 
-    fn parse_primitive_type_path(&mut self) -> Result<PrimitiveTypePathTree, ParseError> {
+    fn parse_primitive_type_path(
+        &mut self,
+    ) -> Result<ast::types::PrimitiveTypePathTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("type path")?;
 
         let (loc, primitive) = match self.peek_token()? {
@@ -200,7 +224,7 @@ impl<'a, 'p> TypeParser<'a, 'p> {
             ])?,
         };
 
-        let primitive_path = PrimitiveTypePathTree {
+        let primitive_path = ast::types::PrimitiveTypePathTree {
             loc,
             type_: primitive,
         };
@@ -258,104 +282,123 @@ impl<'a, 'p> TypeParser<'a, 'p> {
         };
         self.finish_parsing(type_item_path_tree)
     }
+
+    fn parse_array_type(&mut self) -> Result<ast::types::ArrayTypeTree, ParseError> {
+        let (_start_loc, _span) = self.start_parsing("array type")?;
+
+        let open_bracket_loc = self.expect_token(Token::LBracket)?;
+        let inner_type = Box::new(self.parse_type()?);
+        self.expect_token(Token::Semicolon)?;
+        let array_size = self.expression_parser().parse_expression()?;
+        let close_bracket_loc = self.expect_token(Token::RBracket)?;
+
+        let array_tree = ast::types::ArrayTypeTree {
+            open_bracket_loc,
+            inner_type,
+            array_size,
+            close_bracket_loc,
+        };
+        self.finish_parsing(array_tree)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::frontend::parser::*;
-    use crate::midend::types::Mutability;
-    use std::path::Path;
+    use crate::{
+        frontend::{
+            ast::{
+                builder,
+                types::{
+                    ArrayTypeTree, ParenthesizedTypeTree, PrimitiveTypePathTree, TupleTypeTree,
+                    TypeNoBoundsTree, TypePath, TypeTree,
+                },
+            },
+            parser::tests::test_parser,
+        },
+        midend::types::{Mutability, Syntactic},
+    };
 
     #[test]
-    fn parse_type_name() {
-        let type_names = [
-            ("u8", types::Syntactic::U8),
-            ("u16", types::Syntactic::U16),
-            ("u32", types::Syntactic::U32),
-            ("u64", types::Syntactic::U64),
-            ("i8", types::Syntactic::I8),
-            ("i16", types::Syntactic::I16),
-            ("i32", types::Syntactic::I32),
-            ("i64", types::Syntactic::I64),
-            ("MyStruct", types::Syntactic::Named("MyStruct".into())),
-            ("Self", types::Syntactic::_Self),
-        ];
-
-        for (string, type_) in type_names {
-            let mut p = Parser::new("".into(), Path::new(""), Lexer::from_string(string));
-            assert_eq!(p.parse_type_name(), Ok(type_));
-        }
+    fn parse_parenthesized_type() {
+        let mut p = test_parser("(u64)".into());
+        assert_eq!(
+            p.type_parser().parse_parenthesized_type_or_tuple(),
+            Ok(TypeNoBoundsTree::ParenthesizedType(ParenthesizedTypeTree {
+                open_paren_loc: builder::test_span(1, 1, 1, 2).into(),
+                inner_type: Box::new(TypeTree::TypeNoBounds(TypeNoBoundsTree::TypePath(
+                    TypePath::Primitive(PrimitiveTypePathTree {
+                        loc: builder::test_span(1, 2, 1, 5),
+                        type_: Syntactic::U64
+                    })
+                ))),
+                close_paren_loc: builder::test_span(1, 5, 1, 6).into(),
+            }))
+        );
     }
 
     #[test]
-    fn parse_type_name_error() {
-        let mut p = Parser::new("".into(), Path::new(""), Lexer::from_string("123"));
+    fn parse_tuple_type() {
+        let mut p = test_parser("(u64, MyStruct, i8)".into());
         assert_eq!(
-            p.parse_type_name(),
-            Err(ParseError::unexpected_token(
-                SourceLoc::new(Path::new(""), 1, 1),
-                Token::UnsignedDecimalConstant(123),
-                &[
-                    Token::U8,
-                    Token::U16,
-                    Token::U32,
-                    Token::U64,
-                    Token::I8,
-                    Token::I16,
-                    Token::I32,
-                    Token::I64,
-                    Token::Identifier("".into()),
-                    Token::SelfUpper,
+            p.type_parser().parse_parenthesized_type_or_tuple(),
+            Ok(TypeNoBoundsTree::TupleType(TupleTypeTree {
+                open_paren_loc: builder::test_span(1, 1, 1, 2),
+                members: vec![
+                    TypeTree::TypeNoBounds(builder::primitive_type(1, 2, Syntactic::U64)),
+                    builder::named_type(1, 7, "MyStruct"),
+                    TypeTree::TypeNoBounds(builder::primitive_type(1, 17, Syntactic::I8))
                 ],
-                "type name".into(),
-                SourceLoc::new(Path::new(""), 1, 1),
-                SourceLoc::new(
-                    Path::new("src/frontend/parser/parse_rules/types.rs"),
-                    90,
-                    23
-                ),
+                close_paren_loc: builder::test_span(1, 19, 1, 20),
+            }))
+        );
+    }
+
+    #[test]
+    fn parse_single_element_tuple_type() {
+        let mut p = test_parser("(u64, )".into());
+        assert_eq!(
+            p.type_parser().parse_parenthesized_type_or_tuple(),
+            Ok(TypeNoBoundsTree::TupleType(TupleTypeTree {
+                open_paren_loc: builder::test_span(1, 1, 1, 2),
+                members: vec![TypeTree::TypeNoBounds(builder::primitive_type(
+                    1,
+                    2,
+                    Syntactic::U64
+                )),],
+                close_paren_loc: builder::test_span(1, 7, 1, 8),
+            }))
+        );
+    }
+
+    #[test]
+    fn parse_reference_type() {
+        let mut p = test_parser("&mut i32".into());
+        assert_eq!(
+            p.type_parser().parse_reference_type(),
+            Ok(builder::reference_of_type(
+                1,
+                1,
+                Mutability::Mutable,
+                builder::primitive_type(1, 6, Syntactic::I32)
             ))
         );
     }
 
     #[test]
-    fn parse_type_inner() {
-        let types = [
-            ("u32", types::Syntactic::U32),
-            (
-                "&u32",
-                types::Syntactic::Reference(Mutability::Immutable, Box::from(Type::U32)),
-            ),
-            (
-                "&mut u32",
-                types::Syntactic::Reference(Mutability::Mutable, Box::from(Type::U32)),
-            ),
-            ("Self", types::Syntactic::_Self),
-            (
-                "&Self",
-                types::Syntactic::Reference(Mutability::Immutable, Box::from(Type::_Self)),
-            ),
-            (
-                "&mut Self",
-                types::Syntactic::Reference(Mutability::Mutable, Box::from(Type::_Self)),
-            ),
-        ];
-
-        for (string, type_) in types {
-            let mut p = Parser::new("".into(), Path::new(""), Lexer::from_string(string));
-            assert_eq!(p.parse_type_inner(), Ok(type_));
-        }
-    }
-
-    #[test]
-    fn parse_type() {
-        let mut p = Parser::new("".into(), Path::new(""), Lexer::from_string("u32"));
+    fn parse_array_type() {
+        let mut p = test_parser("[u8; 45]".into());
         assert_eq!(
-            p.parse_type(),
-            Ok(TypeTree::new(
-                SourceLoc::new(Path::new(""), 1, 1),
-                types::Syntactic::U32
-            ))
+            p.type_parser().parse_array_type(),
+            Ok(ArrayTypeTree {
+                open_bracket_loc: builder::test_span(1, 1, 1, 2),
+                inner_type: Box::new(TypeTree::TypeNoBounds(builder::primitive_type(
+                    1,
+                    2,
+                    Syntactic::U8
+                ))),
+                array_size: builder::unsigned_decimal_constant(1, 6, 45),
+                close_bracket_loc: builder::test_span(1, 8, 1, 9),
+            })
         );
     }
 }

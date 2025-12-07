@@ -253,6 +253,8 @@ fn token_display_to_token() {
         Token::Arrow,
         Token::LCurly,
         Token::RCurly,
+        Token::LBracket,
+        Token::RBracket,
         Token::Comma,
         Token::Semicolon,
         Token::Colon,
