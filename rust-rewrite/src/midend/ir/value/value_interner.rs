@@ -26,7 +26,7 @@ impl std::fmt::Display for ValueError {
 pub struct ValueInterner {
     values: Vec<Value>,
     ids: HashMap<Value, ValueId>,
-    variables: HashMap<symtab::DefPath, ValueId>,
+    pathed_ids: HashMap<symtab::DefPath, ValueId>,
     temp_count: usize,
 }
 
@@ -37,7 +37,7 @@ impl ValueInterner {
         Self {
             values: vec![unit_value],
             ids: HashMap::new(),
-            variables: HashMap::new(),
+            pathed_ids: HashMap::new(),
             temp_count: 1,
         }
     }
@@ -82,17 +82,14 @@ impl ValueInterner {
             .ok_or(ValueError::IdHasNoType(*val))
     }
 
-    /// given the DefPath of a variable, return its ValueID. Requires &mut self as this method may
+    /// given the DefPath, return its ValueID. Requires &mut self as this method may
     /// generate a new ValueId if one does not already exist for the variable
-    pub fn id_for_variable(&mut self, variable_def_path: symtab::DefPath) -> ValueId {
-        match self.variables.get(&variable_def_path) {
+    pub fn id_for_path(&mut self, def_path: symtab::DefPath) -> ValueId {
+        match self.pathed_ids.get(&def_path) {
             Some(id) => *id,
             None => {
                 let id = self
-                    .insert(Value::new(
-                        ValueKind::Variable(variable_def_path.clone()),
-                        None,
-                    ))
+                    .insert(Value::new(ValueKind::Variable(def_path.clone()), None))
                     .unwrap();
                 id
             }
@@ -128,7 +125,7 @@ impl ValueInterner {
                 let new_id = self.next_id();
                 if let ValueKind::Variable(variable_path) = &value.kind {
                     assert!(self
-                        .variables
+                        .pathed_ids
                         .insert(variable_path.clone(), new_id)
                         .is_none());
                 }

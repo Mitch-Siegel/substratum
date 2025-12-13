@@ -8,7 +8,7 @@ pub struct IfExpressionTree {
     pub false_block: Option<BlockExpressionTree>,
 }
 
-impl Ast<midend::ir::ValueId> for IfExpressionTree {
+impl Ast for IfExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         let mut loc_span = self
             .if_keyword_loc

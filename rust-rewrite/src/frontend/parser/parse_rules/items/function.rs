@@ -142,14 +142,15 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                                 mutability: mutable.into(),
                                 type_: Box::new(ast::types::TypeNoBoundsTree::TypePath(
                                     ast::types::TypePath::ItemPath(ast::types::TypeItemPathTree {
-                                        starts_global: None,
-                                        segments: vec![ast::types::TypePathSegmentTree {
-                                            ident_segment:
-                                                ast::expressions::PathIdentSegment::SelfLower(
+                                        underlying_path: ast::path::PathTree {
+                                            starts_global: None,
+                                            segments: vec![ast::path::PathSegmentTree {
+                                                ident: ast::path::IdentSegment::SelfLower(
                                                     start_loc.into(),
                                                 ),
-                                            generic_args: None,
-                                        }],
+                                                data: None,
+                                            }],
+                                        },
                                     }),
                                 )),
                             },
@@ -166,13 +167,13 @@ impl<'a, 'p> ItemParser<'a, 'p> {
                     type_: ast::types::TypeTree::TypeNoBounds(
                         ast::types::TypeNoBoundsTree::TypePath(ast::types::TypePath::ItemPath(
                             ast::types::TypeItemPathTree {
-                                starts_global: None,
-                                segments: vec![ast::types::TypePathSegmentTree {
-                                    ident_segment: ast::expressions::PathIdentSegment::SelfLower(
-                                        start_loc.into(),
-                                    ),
-                                    generic_args: None,
-                                }],
+                                underlying_path: ast::path::PathTree {
+                                    starts_global: None,
+                                    segments: vec![ast::path::PathSegmentTree {
+                                        ident: ast::path::IdentSegment::SelfLower(start_loc.into()),
+                                        data: None,
+                                    }],
+                                },
                             },
                         )),
                     ),

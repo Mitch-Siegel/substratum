@@ -11,7 +11,7 @@ pub enum StatementTree {
     Expression(Expression),
 }
 
-impl Ast<Option<midend::ir::ValueId>> for StatementTree {
+impl Ast for StatementTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::Item(item) => item.loc(),
@@ -34,7 +34,10 @@ impl midend::treewalk::Treewalk<Option<midend::ir::ValueId>> for StatementTree {
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> Option<midend::ir::ValueId> {
         match self {
             Self::Item(_) => unimplemented!(),
-            Self::Let(let_tree) => {let_tree.linearize(ctx); None},
+            Self::Let(let_tree) => {
+                let_tree.linearize(ctx);
+                None
+            }
             Self::Expression(expression_tree) => Some(expression_tree.linearize(ctx)),
         }
     }

@@ -37,7 +37,7 @@ pub enum Expression {
     Call(Box<CallExpressionTree>),
 }
 
-impl Ast<midend::ir::ValueId> for Expression {
+impl Ast for Expression {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::PathInExpression(e) => e.loc(),

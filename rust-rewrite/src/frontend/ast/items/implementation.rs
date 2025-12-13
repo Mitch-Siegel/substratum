@@ -10,7 +10,7 @@ pub struct ImplementationTree {
     pub close_brace_loc: sourceloc::SourceSpan,
 }
 
-impl Ast<()> for ImplementationTree {
+impl Ast for ImplementationTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.impl_keyword_loc
             .clone()

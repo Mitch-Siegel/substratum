@@ -82,7 +82,7 @@ pub fn named_type(start_line: u32, start_col: u32, name: &str) -> TypeTree {
         TypeItemPathTree {
             starts_global: None,
             segments: vec![TypePathSegmentTree {
-                ident_segment: PathIdentSegment::Ident(IdentifierTree {
+                ident: PathIdentSegment::Ident(IdentifierTree {
                     loc: test_span(
                         start_line,
                         start_col,

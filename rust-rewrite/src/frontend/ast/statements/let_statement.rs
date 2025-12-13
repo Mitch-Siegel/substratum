@@ -9,7 +9,7 @@ pub struct LetTree {
     pub value: Expression,
 }
 
-impl Ast<()> for LetTree {
+impl Ast for LetTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.let_keyword_loc
             .clone()
@@ -57,10 +57,7 @@ impl midend::treewalk::Treewalk<()> for LetTree {
             .define::<midend::symtab::Variable>(declared_variable)
             .unwrap();
 
-        let declared_id = ctx
-            .function_mut()
-            .values_mut()
-            .id_for_variable(variable_path);
+        let declared_id = ctx.function_mut().values_mut().id_for_path(variable_path);
 
         let expr_loc = self.value.loc().clone();
         let expr_value = self.value.linearize(ctx);

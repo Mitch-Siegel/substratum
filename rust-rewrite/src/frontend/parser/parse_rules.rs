@@ -4,6 +4,7 @@ mod declarations;
 mod expressions;
 mod items;
 pub mod module;
+mod path;
 mod single_token;
 mod statements;
 mod types;
@@ -17,6 +18,8 @@ pub struct ModuleParser<'a, 'p>(&'p mut Parser<'a>);
 pub struct StatementParser<'a, 'p>(&'p mut Parser<'a>);
 
 pub struct TypeParser<'a, 'p>(&'p mut Parser<'a>);
+
+pub struct PathParser<'a, 'p>(&'p mut Parser<'a>);
 
 impl<'a, 'p> std::ops::Deref for ExpressionParser<'a, 'p> {
     type Target = Parser<'a>;
@@ -79,6 +82,18 @@ impl<'a, 'p> std::ops::DerefMut for TypeParser<'a, 'p> {
     }
 }
 
+impl<'a, 'p> std::ops::Deref for PathParser<'a, 'p> {
+    type Target = Parser<'a>;
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+impl<'a, 'p> std::ops::DerefMut for PathParser<'a, 'p> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0
+    }
+}
+
 impl<'a> Parser<'a> {
     pub fn expression_parser(&mut self) -> ExpressionParser<'a, '_> {
         ExpressionParser(self)
@@ -98,5 +113,9 @@ impl<'a> Parser<'a> {
 
     pub fn type_parser(&mut self) -> TypeParser<'a, '_> {
         TypeParser(self)
+    }
+
+    pub fn path_parser(&mut self) -> PathParser<'a, '_> {
+        PathParser(self)
     }
 }

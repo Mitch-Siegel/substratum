@@ -1,56 +1,24 @@
 use crate::frontend::parser::parse_rules::*;
 
 impl<'a, 'p> ExpressionParser<'a, 'p> {
-    pub fn parse_path_ident_segment(
-        &mut self,
-    ) -> Result<ast::expressions::PathIdentSegment, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("path ident segment")?;
+    fn try_parse_expr_segment_data(
+        parser: &mut Parser,
+    ) -> Result<Option<GenericArgsListTree>, ParseError> {
+        let (_start_loc, _span) = parser.start_parsing("optional path segment data")?;
 
-        let segment = match self.peek_token()? {
-            Token::Identifier(_) => {
-                ast::expressions::PathIdentSegment::Ident(self.parse_identifier()?)
-            }
-            Token::Super => {
-                let loc = self.expect_token(Token::Super)?;
-                ast::expressions::PathIdentSegment::Super(loc)
-            }
-            Token::SelfLower => {
-                let loc = self.expect_token(Token::SelfLower)?;
-                ast::expressions::PathIdentSegment::SelfLower(loc)
-            }
-            Token::SelfUpper => {
-                let loc = self.expect_token(Token::SelfUpper)?;
-                ast::expressions::PathIdentSegment::SelfUpper(loc)
-            }
-            _ => self.unexpected_token(&[Token::Identifier("".into()), Token::Super])?,
-        };
-
-        self.finish_parsing(segment)
-    }
-
-    fn parse_path_expr_segment(
-        &mut self,
-    ) -> Result<ast::expressions::PathExprSegmentTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("path expr segment")?;
-
-        let ident_tree = self.parse_path_ident_segment()?;
-        let generic_args = match self.peek_token()? {
-            Token::PathSep => match self.lookahead_token(1)? {
+        let maybe_data = match parser.peek_token()? {
+            Token::PathSep => match parser.lookahead_token(1)? {
                 Token::LThan => {
-                    self.expect_token(Token::PathSep)?;
-                    self.item_parser().try_parse_generic_args_list()?
+                    parser.expect_token(Token::PathSep)?;
+                    Some(parser.item_parser().parse_generic_args_list()?)
                 }
                 _ => None,
             },
+            Token::LThan => Some(parser.item_parser().parse_generic_args_list()?),
             _ => None,
         };
-        trace::trace!("Path expr generics: {:?}", generic_args);
 
-        let segment_tree = ast::expressions::PathExprSegmentTree {
-            ident: ident_tree,
-            generic_args,
-        };
-        self.finish_parsing(segment_tree)
+        parser.finish_parsing(maybe_data)
     }
 
     pub fn parse_path_in_expression(
@@ -58,19 +26,11 @@ impl<'a, 'p> ExpressionParser<'a, 'p> {
     ) -> Result<ast::expressions::PathInExpressionTree, ParseError> {
         let (_start_loc, _span) = self.start_parsing("path in expression")?;
 
-        let mut segments = vec![self.parse_path_expr_segment()?];
-        loop {
-            match self.peek_token()? {
-                Token::PathSep => {
-                    self.expect_token(Token::PathSep)?;
-                    segments.push(self.parse_path_expr_segment()?);
-                }
-                _ => break,
-            }
-            println!("{:?}", segments);
-        }
+        let underlying_path = self
+            .path_parser()
+            .parse_path(Self::try_parse_expr_segment_data)?;
 
-        let path_in_expr_tree = ast::expressions::PathInExpressionTree { segments };
+        let path_in_expr_tree = ast::expressions::PathInExpressionTree { underlying_path };
 
         self.finish_parsing(path_in_expr_tree)
     }

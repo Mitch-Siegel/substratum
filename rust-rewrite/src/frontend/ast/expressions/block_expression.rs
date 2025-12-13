@@ -7,7 +7,7 @@ pub struct BlockExpressionTree {
     pub close_brace_loc: sourceloc::SourceSpan,
 }
 
-impl Ast<midend::ir::ValueId> for BlockExpressionTree {
+impl Ast for BlockExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.open_brace_loc
             .clone()

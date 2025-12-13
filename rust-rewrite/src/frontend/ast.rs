@@ -7,6 +7,7 @@ pub mod expressions;
 pub mod generics;
 pub mod items;
 pub mod module;
+pub mod path;
 pub mod statements;
 pub mod types;
 
@@ -20,7 +21,7 @@ pub use types::TypeTree;
 #[cfg(test)]
 pub mod builder;
 
-pub trait Ast<LinearizeResult>: midend::treewalk::Treewalk<LinearizeResult> {
+pub trait Ast {
     fn loc(&self) -> sourceloc::SourceSpan;
 }
 
@@ -30,7 +31,7 @@ pub struct IdentifierTree {
     pub value: String,
 }
 
-impl Ast<String> for IdentifierTree {
+impl Ast for IdentifierTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.loc.clone()
     }

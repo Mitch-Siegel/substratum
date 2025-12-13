@@ -6,14 +6,17 @@ pub struct StructFieldTree {
     pub type_: TypeTree,
 }
 
-impl Ast<(String, midend::types::Syntactic)> for StructFieldTree {
+impl Ast for StructFieldTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.name.loc().merge(&self.type_.loc()).unwrap()
     }
 }
 
 impl midend::treewalk::Treewalk<(String, midend::types::Syntactic)> for StructFieldTree {
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> (String, midend::types::Syntactic) {
+    fn linearize(
+        self,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> (String, midend::types::Syntactic) {
         let field_type = self
             .type_
             .linearize(ctx)
@@ -21,7 +24,7 @@ impl midend::treewalk::Treewalk<(String, midend::types::Syntactic)> for StructFi
         (self.name.linearize(ctx), field_type)
     }
 }
- 
+
 impl Display for StructFieldTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}: {}", self.name, self.type_)
@@ -37,7 +40,7 @@ pub struct StructDefinitionTree {
     pub close_brace_loc: sourceloc::SourceSpan,
 }
 
-impl Ast<midend::symtab::StructRepr> for StructDefinitionTree {
+impl Ast for StructDefinitionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.struct_keyword_loc
             .clone()

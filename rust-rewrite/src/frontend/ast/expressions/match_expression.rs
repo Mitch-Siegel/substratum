@@ -24,7 +24,7 @@ impl std::fmt::Display for TupleStructTree {
     }
 }
 
-impl Ast<PatternTree> for TupleStructTree {
+impl Ast for TupleStructTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.name.loc().merge(&self.close_paren_loc).unwrap()
     }
@@ -49,7 +49,7 @@ pub enum PatternTree {
     TupleStruct(TupleStructTree),
 }
 
-impl Ast<PatternTree> for PatternTree {
+impl Ast for PatternTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::Literal(e) => e.loc(),
@@ -100,7 +100,7 @@ impl midend::treewalk::Treewalk<PatternTree> for PatternTree {
                 // ValueID in one go?
                 ctx.function_mut()
                     .values_mut()
-                    .id_for_variable(variable_def_path);
+                    .id_for_path(variable_def_path);
             }
             Self::TupleStruct(tuple_struct) => {
                 tuple_struct.linearize(ctx);
@@ -116,7 +116,7 @@ pub struct MatchArmTree {
     pub expression: BlockExpressionTree,
 }
 
-impl Ast<(PatternTree, midend::ir::ValueId)> for MatchArmTree {
+impl Ast for MatchArmTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.pattern.loc().merge(&self.expression.loc()).unwrap()
     }
@@ -154,7 +154,7 @@ pub struct MatchExpressionTree {
     pub arms: Vec<MatchArmTree>,
 }
 
-impl Ast<midend::ir::ValueId> for MatchExpressionTree {
+impl Ast for MatchExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         let mut loc = self
             .match_keyword_loc

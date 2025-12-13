@@ -26,7 +26,7 @@ pub enum ItemTree {
     ),
 }
 
-impl Ast<()> for ItemTree {
+impl Ast for ItemTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::FunctionDeclaration(fdecl) => fdecl.loc(),

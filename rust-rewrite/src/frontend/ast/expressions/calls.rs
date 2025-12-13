@@ -7,7 +7,7 @@ pub struct CallParamsTree {
     pub close_paren_loc: sourceloc::SourceSpan,
 }
 
-impl Ast<Vec<midend::ir::ValueId>> for CallParamsTree {
+impl Ast for CallParamsTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.open_paren_loc
             .clone()
@@ -48,7 +48,7 @@ pub struct CallExpressionTree {
     pub params: CallParamsTree,
 }
 
-impl Ast<midend::ir::ValueId> for CallExpressionTree {
+impl Ast for CallExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.function_operand
             .loc()

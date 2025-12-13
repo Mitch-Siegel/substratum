@@ -7,7 +7,7 @@ pub struct TupleDataTree {
     pub close_paren_loc: sourceloc::SourceSpan,
 }
 
-impl Ast<midend::symtab::enum_definition::EnumVariantRepr> for TupleDataTree {
+impl Ast for TupleDataTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.open_paren_loc
             .clone()
@@ -41,7 +41,7 @@ pub enum EnumVariantDataTree {
     TupleData(TupleDataTree),
 }
 
-impl Ast<midend::symtab::enum_definition::EnumVariantRepr> for EnumVariantDataTree {
+impl Ast for EnumVariantDataTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::TupleData(tuple) => tuple.loc(),
@@ -127,9 +127,7 @@ fn create_enum_variant_constructor(
         .define(function_path.clone(), constructed_object)
         .unwrap();
 
-    let constructed_object_value = block_mgr
-        .values_mut()
-        .id_for_variable(constructed_object_path);
+    let constructed_object_value = block_mgr.values_mut().id_for_path(constructed_object_path);
 
     /*
      * for each argument:
@@ -140,7 +138,7 @@ fn create_enum_variant_constructor(
      */
     for arg in &prototype.arguments {
         let arg_def_path = symtab.define(function_path.clone(), arg.clone()).unwrap();
-        let arg_value = block_mgr.values_mut().id_for_variable(arg_def_path);
+        let arg_value = block_mgr.values_mut().id_for_path(arg_def_path);
         let field_temp = block_mgr.values_mut().next_temp();
         let field_get_line = midend::ir::IrLine::new_get_field_pointer(
             loc.clone(),
@@ -172,7 +170,7 @@ pub struct EnumVariantTree {
     pub data: Option<EnumVariantDataTree>,
 }
 
-impl Ast<(String, midend::symtab::enum_definition::EnumVariantRepr)> for EnumVariantTree {
+impl Ast for EnumVariantTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match &self.data {
             Some(data) => self.name.loc().merge(&data.loc()).unwrap(),
@@ -216,7 +214,7 @@ pub struct EnumDefinitionTree {
     pub variants: Vec<EnumVariantTree>,
 }
 
-impl Ast<midend::symtab::EnumRepr> for EnumDefinitionTree {
+impl Ast for EnumDefinitionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         let mut loc = self
             .enum_keyword_loc

@@ -7,7 +7,7 @@ pub struct ArgumentDeclarationTree {
     pub mutable: bool,
 }
 
-impl Ast<midend::symtab::Variable> for ArgumentDeclarationTree {
+impl Ast for ArgumentDeclarationTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.name.loc().merge(&self.type_.loc()).unwrap()
     }
@@ -45,7 +45,7 @@ pub struct FunctionDeclarationTree {
     pub return_type: Option<TypeTree>,
 }
 
-impl Ast<midend::symtab::FunctionPrototype> for FunctionDeclarationTree {
+impl Ast for FunctionDeclarationTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         let mut loc = self.name.loc().merge(&self.args_close_paren_loc).unwrap();
         if let Some(return_type) = &self.return_type {
@@ -65,7 +65,10 @@ impl midend::treewalk::Treewalk<midend::symtab::FunctionPrototype> for FunctionD
         }
     }
 
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::symtab::FunctionPrototype {
+    fn linearize(
+        self,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> midend::symtab::FunctionPrototype {
         let generic_params = match self.generic_params {
             Some(params) => params.linearize(ctx),
             None => Vec::new(),
@@ -118,7 +121,7 @@ pub struct FunctionDefinitionTree {
 }
 
 // TODO: get this returning the Function rather than inserting automatically
-impl Ast<()> for FunctionDefinitionTree {
+impl Ast for FunctionDefinitionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.prototype.loc().merge(&self.body.loc()).unwrap()
     }

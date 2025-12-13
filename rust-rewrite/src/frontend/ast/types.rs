@@ -1,13 +1,11 @@
 use crate::{frontend::ast::*, midend::treewalk};
 
-use super::expressions::PathIdentSegment;
-
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TypeTree {
     TypeNoBounds(TypeNoBoundsTree),
 }
 
-impl Ast<Option<midend::types::Syntactic>> for TypeTree {
+impl Ast for TypeTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::TypeNoBounds(tnb) => tnb.loc(),
@@ -41,7 +39,7 @@ pub struct ParenthesizedTypeTree {
     pub close_paren_loc: sourceloc::SourceSpan,
 }
 
-impl Ast<Option<midend::types::Syntactic>> for ParenthesizedTypeTree {
+impl Ast for ParenthesizedTypeTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.open_paren_loc
             .clone()
@@ -72,7 +70,7 @@ pub struct TupleTypeTree {
     pub close_paren_loc: sourceloc::SourceSpan,
 }
 
-impl Ast<midend::types::Syntactic> for TupleTypeTree {
+impl Ast for TupleTypeTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.open_paren_loc
             .clone()
@@ -114,7 +112,7 @@ pub struct InferredTypeTree {
     pub loc: sourceloc::SourceSpan,
 }
 
-impl Ast<Option<midend::types::Syntactic>> for InferredTypeTree {
+impl Ast for InferredTypeTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.loc.clone()
     }
@@ -136,7 +134,7 @@ pub enum TypeNoBoundsTree {
     InferredType(InferredTypeTree),
 }
 
-impl Ast<Option<midend::types::Syntactic>> for TypeNoBoundsTree {
+impl Ast for TypeNoBoundsTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::ParenthesizedType(inner) => inner.loc(),
@@ -181,7 +179,7 @@ pub enum TypePath {
     ItemPath(TypeItemPathTree),
 }
 
-impl Ast<midend::types::Syntactic> for TypePath {
+impl Ast for TypePath {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::Primitive(p) => p.loc(),
@@ -214,7 +212,7 @@ pub struct PrimitiveTypePathTree {
     pub type_: midend::types::Syntactic,
 }
 
-impl Ast<midend::types::Syntactic> for PrimitiveTypePathTree {
+impl Ast for PrimitiveTypePathTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.loc.clone()
     }
@@ -233,75 +231,46 @@ impl std::fmt::Display for PrimitiveTypePathTree {
 }
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct TypeItemPathTree {
-    pub starts_global: Option<sourceloc::SourceSpan>,
-    pub segments: Vec<TypePathSegmentTree>,
+pub enum TypePathSegmentData {
+    GenericArgs(GenericArgsListTree),
 }
 
-impl Ast<midend::types::Syntactic> for TypeItemPathTree {
+impl Ast for TypePathSegmentData {
     fn loc(&self) -> sourceloc::SourceSpan {
-        let mut segments = self.segments.iter();
-        let mut loc = if let Some(global_path_sep_loc) = &self.starts_global {
-            assert!(
-                segments.size_hint().0 > 0,
-                "TypeItemPathTree must have at least one segment"
-            );
-            global_path_sep_loc.clone()
-        } else {
-            segments
-                .next()
-                .expect("TypeItemPathTree must have at least one segment")
-                .loc()
-        };
-
-        while let Some(segment) = segments.next() {
-            loc = loc.merge(&segment.loc()).unwrap();
+        match self {
+            Self::GenericArgs(g) => g.loc(),
         }
+    }
+}
 
-        loc
+impl Display for TypePathSegmentData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::GenericArgs(generics) => write!(f, "<{}>", generics),
+        }
+    }
+}
+
+#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct TypeItemPathTree {
+    pub underlying_path: path::PathTree<TypePathSegmentData>,
+}
+
+impl Ast for TypeItemPathTree {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        self.underlying_path.loc()
     }
 }
 
 impl midend::treewalk::Treewalk<midend::types::Syntactic> for TypeItemPathTree {
-    fn linearize(self, _: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
+    fn linearize(self, _ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
         unimplemented!();
     }
 }
 
 impl std::fmt::Display for TypeItemPathTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut first = true;
-        for segment in &self.segments {
-            if !first || self.starts_global.is_some() {
-                write!(f, "::{}", segment)?;
-            } else {
-                first = false;
-                write!(f, "{}", segment)?;
-            }
-        }
-        Ok(())
-    }
-}
-
-#[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct TypePathSegmentTree {
-    pub ident_segment: PathIdentSegment,
-    pub generic_args: Option<generics::GenericArgsListTree>,
-}
-
-impl TypePathSegmentTree {
-    pub fn loc(&self) -> sourceloc::SourceSpan {
-        self.ident_segment.loc()
-    }
-}
-
-impl std::fmt::Display for TypePathSegmentTree {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.ident_segment)?;
-        match &self.generic_args {
-            Some(generics) => write!(f, "::{}", generics),
-            None => Ok(()),
-        }
+        write!(f, "{}", self.underlying_path)
     }
 }
 
@@ -312,7 +281,7 @@ pub struct ReferenceTypeTree {
     pub type_: Box<TypeNoBoundsTree>,
 }
 
-impl Ast<midend::types::Syntactic> for ReferenceTypeTree {
+impl Ast for ReferenceTypeTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.reference_token_loc
             .clone()
@@ -348,7 +317,7 @@ pub struct ArrayTypeTree {
     pub close_bracket_loc: sourceloc::SourceSpan,
 }
 
-impl Ast<midend::types::Syntactic> for ArrayTypeTree {
+impl Ast for ArrayTypeTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         unimplemented!();
     }

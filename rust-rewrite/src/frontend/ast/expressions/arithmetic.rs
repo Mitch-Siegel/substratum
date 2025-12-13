@@ -1,4 +1,4 @@
-use crate::frontend::{ast::*};
+use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ArithmeticDualOperands {
@@ -29,7 +29,7 @@ pub enum ComparisonExpressionTree {
     NotEquals(ArithmeticDualOperands),
 }
 
-impl Ast<midend::ir::lowered::operands::BinaryComparisonOperands> for ComparisonExpressionTree {
+impl Ast for ComparisonExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::LThan(operands)
@@ -130,7 +130,7 @@ pub enum ArithmeticExpressionTree {
     Divide(ArithmeticDualOperands),
 }
 
-impl Ast<midend::ir::lowered::operands::BinaryArithmeticOperands> for ArithmeticExpressionTree {
+impl Ast for ArithmeticExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         match self {
             Self::Add(o) | Self::Subtract(o) | Self::Multiply(o) | Self::Divide(o) => o.loc(),

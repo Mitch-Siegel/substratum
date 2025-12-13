@@ -8,7 +8,7 @@ pub struct ModuleTree {
     pub items: Vec<ItemTree>,
 }
 
-impl Ast<()> for ModuleTree {
+impl Ast for ModuleTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         let mut loc = self
             .mod_keyword_loc

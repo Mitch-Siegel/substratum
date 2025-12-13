@@ -1,0 +1,523 @@
+use std::collections::HashMap;
+
+use crate::{
+    frontend::ast::*,
+    midend::{self, treewalk::Treewalk},
+};
+use serde::{Deserialize, Serialize};
+
+pub enum PathSegmentAction<T> {
+    Super(Option<T>),
+    Ident(String, Option<T>),
+    SelfLower(Option<T>),
+    SelfUpper(Option<T>),
+}
+
+impl<T> std::fmt::Display for PathSegmentAction<T>
+where
+    T: std::fmt::Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let maybe_data = match self {
+            Self::Super(d) => {
+                write!(f, "Super")?;
+                d
+            }
+            Self::Ident(i, d) => {
+                write!(f, "{}", i)?;
+                d
+            }
+            Self::SelfLower(d) => {
+                write!(f, "self")?;
+                d
+            }
+            Self::SelfUpper(d) => {
+                write!(f, "Self")?;
+                d
+            }
+        };
+
+        if let Some(data) = maybe_data {
+            write!(f, "::{}", data)?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IdentSegment {
+    Ident(IdentifierTree),
+    Super(sourceloc::SourceSpan),
+    SelfLower(sourceloc::SourceSpan),
+    SelfUpper(sourceloc::SourceSpan),
+}
+
+impl Ast for IdentSegment {
+    fn loc(&self) -> sourceloc::SourceSpan {
+        match self {
+            Self::Ident(ident) => ident.loc(),
+            Self::Super(loc) => loc.clone(),
+            Self::SelfUpper(loc) => loc.clone(),
+            Self::SelfLower(loc) => loc.clone(),
+        }
+    }
+}
+
+impl std::fmt::Display for IdentSegment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IdentSegment::Ident(ident) => write!(f, "{}", ident),
+            IdentSegment::Super(_) => write!(f, "super"),
+            IdentSegment::SelfLower(_) => write!(f, "self"),
+            IdentSegment::SelfUpper(_) => write!(f, "Self"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PathSegmentTree<T>
+where
+    T: Ast,
+{
+    pub ident: IdentSegment,
+    pub data: Option<T>,
+}
+
+impl<T> Ast for PathSegmentTree<T>
+where
+    T: Ast,
+{
+    fn loc(&self) -> sourceloc::SourceSpan {
+        match &self.data {
+            Some(data) => self.ident.loc().merge(&data.loc()).unwrap(),
+            None => self.ident.loc(),
+        }
+    }
+}
+
+impl<T> midend::treewalk::Treewalk<PathSegmentAction<T>> for PathSegmentTree<T>
+where
+    T: Ast,
+{
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> PathSegmentAction<T> {
+        match self.ident {
+            IdentSegment::Super(_) => PathSegmentAction::Super(self.data),
+            IdentSegment::Ident(ident) => PathSegmentAction::Ident(ident.linearize(ctx), self.data),
+            IdentSegment::SelfLower(_) => PathSegmentAction::SelfLower(self.data),
+            IdentSegment::SelfUpper(_) => PathSegmentAction::SelfUpper(self.data),
+        }
+    }
+}
+
+impl<T> std::fmt::Display for PathSegmentTree<T>
+where
+    T: Ast + Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.ident)?;
+        if let Some(args) = &self.data {
+            write!(f, "<{}>", args)?;
+        }
+        Ok(())
+    }
+}
+
+pub struct LinearizedPathTree<T> {
+    pub path: midend::symtab::DefPath,
+    pub segment_data: HashMap<midend::symtab::DefPath, T>,
+}
+
+impl<T> LinearizedPathTree<T> {
+    fn new() -> Self {
+        Self {
+            path: midend::symtab::DefPath::empty(),
+            segment_data: HashMap::new(),
+        }
+    }
+
+    fn with_component(
+        mut self,
+        component: midend::symtab::DefPathComponent,
+        maybe_data: Option<T>,
+    ) -> Result<Self, midend::symtab::SymbolError> {
+        self.path.push(component)?;
+
+        if let Some(data) = maybe_data {
+            assert!(
+                self.segment_data.insert(self.path.clone(), data).is_none(),
+                "duplicate insertion of path {} in segment",
+                self.path
+            );
+        }
+
+        Ok(self)
+    }
+
+    fn into_super(
+        mut self,
+        maybe_data: Option<T>,
+        segment_loc: sourceloc::SourceSpan,
+    ) -> Result<Self, String>
+    where
+        T: std::fmt::Display,
+    {
+        self.path.pop().ok_or(format!(
+            "no more \"super\"s available in path at {}",
+            segment_loc
+        ))?;
+
+        if let Some(data) = maybe_data {
+            if let Some(existing) = self.segment_data.insert(self.path.clone(), data) {
+                Err(format!(
+                    "path {} already has {} specified",
+                    self.path, existing
+                ))?;
+            }
+        }
+        Ok(self)
+    }
+
+    pub fn map_data<OnData>(
+        mut self,
+        mut on_data: OnData,
+    ) -> Result<midend::symtab::DefPath, String>
+    where
+        OnData: FnMut(&midend::symtab::DefPath, Option<T>),
+    {
+        let mut search_path = self.path.clone();
+        while search_path.len() > 0 {
+            on_data(&search_path, self.segment_data.remove(&search_path));
+            search_path.pop().unwrap();
+        }
+
+        match self.segment_data.len() {
+            0 => Ok(self.path),
+            other => Err(format!(
+                "{} entries unaccounted for in segment data for path {}",
+                other, self.path
+            )),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PathTree<T>
+where
+    T: Ast,
+{
+    pub starts_global: Option<sourceloc::SourceSpan>,
+    pub segments: Vec<PathSegmentTree<T>>,
+}
+
+impl<T> Ast for PathTree<T>
+where
+    T: Ast,
+{
+    fn loc(&self) -> sourceloc::SourceSpan {
+        let mut seg_iter = self.segments.iter();
+        let mut loc_span = seg_iter
+            .next()
+            .expect("PathTree must have at least one segment")
+            .loc();
+
+        while let Some(segment) = seg_iter.next() {
+            loc_span = loc_span.merge(&segment.loc()).unwrap();
+        }
+
+        loc_span
+    }
+}
+
+impl<T> Display for PathTree<T>
+where
+    T: Ast + Display,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.starts_global.is_some() {
+            write!(f, "::")?;
+        }
+
+        let mut first = true;
+        for segment in &self.segments {
+            if first {
+                write!(f, "{}", segment)?;
+                first = false;
+            } else {
+                write!(f, "::{}", segment)?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+pub fn walk_ident_segment(
+    segment_loc: &sourceloc::SourceSpan,
+    size_hint: usize,
+    ident: String,
+    mut expr_path: midend::symtab::DefPath,
+    ctx: &mut midend::treewalk::LinearizeCtx,
+) -> Result<midend::symtab::DefPath, String> {
+    let function_component = midend::symtab::DefPathComponent::Function(
+        midend::symtab::FunctionName::new(ident.clone()),
+    );
+
+    let type_component =
+        midend::symtab::DefPathComponent::Type(midend::types::Syntactic::Named(ident.clone()));
+
+    let variable_component = midend::symtab::DefPathComponent::Variable(ident.clone());
+
+    let function_result = match expr_path.clone().with_component(function_component.clone()) {
+        Ok(function_path) => {
+            match ctx
+                .symtab()
+                .lookup_under::<midend::symtab::symbol::Function>(ctx.def_path(), function_path)
+            {
+                Ok(s) => Some(s.0),
+                _ => None,
+            }
+        }
+        Err(_) => None,
+    };
+
+    let type_result = match expr_path.clone().with_component(type_component.clone()) {
+        Ok(type_path) => {
+            match ctx
+                .symtab()
+                .lookup_under::<midend::symtab::symbol::TypeDefinition>(ctx.def_path(), type_path)
+            {
+                Ok(s) => Some(s.0),
+                _ => None,
+            }
+        }
+        Err(_) => None,
+    };
+
+    let variable_result = match expr_path.clone().with_component(variable_component.clone()) {
+        Ok(variable_path) => {
+            match ctx
+                .symtab()
+                .lookup_under::<midend::symtab::symbol::Variable>(ctx.def_path(), variable_path)
+            {
+                Ok(s) => Some(s.0),
+                _ => None,
+            }
+        }
+        Err(_) => None,
+    };
+
+    let mut results: Vec<midend::symtab::DefPath> =
+        vec![type_result, function_result, variable_result]
+            .into_iter()
+            .flatten()
+            .collect();
+
+    results.sort_by(|path_a, path_b| path_a.len().cmp(&path_b.len()));
+
+    match results.pop() {
+        Some(mut path) => {
+            let last = path.pop().unwrap();
+            let must_end_path = match last {
+                midend::symtab::DefPathComponent::Variable(_)
+                | midend::symtab::DefPathComponent::Function(_) => true,
+                _ => false,
+            };
+
+            expr_path.push(last).unwrap();
+            if must_end_path && (size_hint > 0) {
+                Err(format!(
+                    "{} {} must end path {} but saw path segments after {}",
+                    expr_path.last().name(),
+                    expr_path.last(),
+                    expr_path,
+                    segment_loc
+                ))
+            } else {
+                Ok(expr_path)
+            }
+        }
+        None => Err(format!(
+            "cannot find symbol {} in scope {} (@{})",
+            ident, expr_path, segment_loc,
+        )),
+    }
+}
+
+enum PathWalkState<T> {
+    Start,
+    StartGlobal,
+    LeadingLowerSupers(LinearizedPathTree<T>),
+    RequireIdent(LinearizedPathTree<T>),
+}
+
+impl<T> PathWalkState<T>
+where
+    T: Ast + std::fmt::Display,
+{
+    fn error(action: PathSegmentAction<T>, loc: sourceloc::SourceSpan) -> ! {
+        panic!(
+            "path segment {} is not allowed in this position ({})",
+            action, loc
+        );
+    }
+
+    fn start(
+        segment: PathSegmentTree<T>,
+        size_hint: usize,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> Result<Self, String> {
+        let segment_loc = segment.loc();
+        let empty_path = LinearizedPathTree::new();
+        let next_state = match segment.linearize(ctx) {
+            PathSegmentAction::Ident(ident, maybe_data) => {
+                let mut path = walk_ident_segment(
+                    &segment_loc,
+                    size_hint,
+                    ident,
+                    empty_path.path.clone(),
+                    ctx,
+                )?;
+
+                PathWalkState::LeadingLowerSupers(
+                    empty_path
+                        .with_component(path.pop().unwrap(), maybe_data)
+                        .unwrap(),
+                )
+            }
+            PathSegmentAction::SelfLower(maybe_data) => PathWalkState::LeadingLowerSupers(
+                empty_path
+                    .with_component(
+                        midend::symtab::DefPathComponent::Type(midend::types::Syntactic::_Self),
+                        maybe_data,
+                    )
+                    .unwrap(),
+            ),
+            other => Self::error(other, segment_loc),
+        };
+
+        Ok(next_state)
+    }
+
+    fn start_global(
+        segment: PathSegmentTree<T>,
+        size_hint: usize,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> Result<Self, String> {
+        let segment_loc = segment.loc();
+        let empty_path = LinearizedPathTree::new();
+        let next_state = match segment.linearize(ctx) {
+            PathSegmentAction::Ident(ident, maybe_data) => {
+                let mut path = walk_ident_segment(
+                    &segment_loc,
+                    size_hint,
+                    ident,
+                    empty_path.path.clone(),
+                    ctx,
+                )?;
+
+                PathWalkState::RequireIdent(
+                    empty_path
+                        .with_component(path.pop().unwrap(), maybe_data)
+                        .unwrap(),
+                )
+            }
+            other => Self::error(other, segment_loc),
+        };
+
+        Ok(next_state)
+    }
+
+    fn leading_lower_supers(
+        segment: PathSegmentTree<T>,
+        size_hint: usize,
+        state: LinearizedPathTree<T>,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> Result<Self, String> {
+        let segment_loc = segment.loc();
+        let next_state = match segment.linearize(ctx) {
+            PathSegmentAction::Ident(ident, maybe_data) => {
+                let mut path =
+                    walk_ident_segment(&segment_loc, size_hint, ident, state.path.clone(), ctx)?;
+
+                PathWalkState::RequireIdent(
+                    state
+                        .with_component(path.pop().unwrap(), maybe_data)
+                        .unwrap(),
+                )
+            }
+            PathSegmentAction::Super(maybe_data) => {
+                PathWalkState::LeadingLowerSupers(state.into_super(maybe_data, segment_loc)?)
+            }
+            other => Self::error(other, segment_loc),
+        };
+
+        Ok(next_state)
+    }
+
+    fn require_ident(
+        segment: PathSegmentTree<T>,
+        size_hint: usize,
+        state: LinearizedPathTree<T>,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> Result<Self, String> {
+        let segment_loc = segment.loc();
+        let next_state = match segment.linearize(ctx) {
+            PathSegmentAction::Ident(ident, maybe_data) => {
+                let mut path =
+                    walk_ident_segment(&segment_loc, size_hint, ident, state.path.clone(), ctx)?;
+
+                PathWalkState::RequireIdent(
+                    state
+                        .with_component(path.pop().unwrap(), maybe_data)
+                        .unwrap(),
+                )
+            }
+            other => Self::error(other, segment_loc),
+        };
+
+        Ok(next_state)
+    }
+
+    fn transition(
+        self,
+        segment: PathSegmentTree<T>,
+        size_hint: usize,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> Result<Self, String> {
+        match self {
+            PathWalkState::Start => Self::start(segment, size_hint, ctx),
+            PathWalkState::StartGlobal => Self::start_global(segment, size_hint, ctx),
+            PathWalkState::LeadingLowerSupers(state) => {
+                Self::leading_lower_supers(segment, size_hint, state, ctx)
+            }
+            PathWalkState::RequireIdent(state) => {
+                Self::require_ident(segment, size_hint, state, ctx)
+            }
+        }
+    }
+}
+
+impl<T> midend::treewalk::Treewalk<LinearizedPathTree<T>> for PathTree<T>
+where
+    T: Ast + std::fmt::Display,
+{
+    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> LinearizedPathTree<T> {
+        let mut walk_state = if self.starts_global.is_some() {
+            PathWalkState::<T>::StartGlobal
+        } else {
+            PathWalkState::<T>::Start
+        };
+
+        let mut segments = self.segments.into_iter();
+        while let Some(segment) = segments.next() {
+            walk_state = walk_state
+                .transition(segment, segments.size_hint().0, ctx)
+                .unwrap();
+        }
+
+        LinearizedPathTree {
+            path: midend::symtab::DefPath::empty(),
+            segment_data: HashMap::new(),
+        }
+    }
+}

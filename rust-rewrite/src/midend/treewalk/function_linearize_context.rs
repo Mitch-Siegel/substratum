@@ -19,7 +19,7 @@ impl FunctionLinearizeCtx {
             ir::BlockManager::new(unit_type, def_path.clone());
 
         for arg in arg_def_paths {
-            let id = block_manager.values_mut().id_for_variable(arg.clone());
+            let id = block_manager.values_mut().id_for_path(arg.clone());
             println!(
                 "arg {}: id {}: value {:?}",
                 arg,

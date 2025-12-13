@@ -6,7 +6,7 @@ pub struct FieldExpressionTree {
     pub field: IdentifierTree,
 }
 
-impl Ast<(midend::ir::ValueId, String)> for FieldExpressionTree {
+impl Ast for FieldExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.receiver.loc().merge(&self.field.loc()).unwrap()
     }

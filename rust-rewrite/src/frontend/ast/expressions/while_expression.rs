@@ -7,7 +7,7 @@ pub struct WhileExpressionTree {
     pub body: BlockExpressionTree,
 }
 
-impl Ast<midend::ir::ValueId> for WhileExpressionTree {
+impl Ast for WhileExpressionTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.while_keyword_loc
             .clone()
@@ -80,3 +80,4 @@ impl Display for WhileExpressionTree {
         write!(f, "while ({}) {}", self.condition, self.body)
     }
 }
+

@@ -6,7 +6,7 @@ pub struct GenericParamTree {
     pub name: IdentifierTree,
 }
 
-impl Ast<String> for GenericParamTree {
+impl Ast for GenericParamTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.name.loc()
     }
@@ -60,7 +60,7 @@ impl GenericParamsListTree {
     }
 }
 
-impl Ast<midend::types::GenericParamsList> for GenericParamsListTree {
+impl Ast for GenericParamsListTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.open_angle_bracket_loc
             .clone()
@@ -113,7 +113,7 @@ pub struct GenericArgsListTree {
     pub close_angle_bracket_loc: sourceloc::SourceSpan,
 }
 
-impl Ast<Vec<midend::types::ParamSubst>> for GenericArgsListTree {
+impl Ast for GenericArgsListTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.open_angle_bracket_loc
             .clone()

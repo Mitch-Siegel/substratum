@@ -6,7 +6,7 @@ pub struct AssignmentTree {
     pub value: Box<Expression>,
 }
 
-impl Ast<midend::ir::ValueId> for AssignmentTree {
+impl Ast for AssignmentTree {
     fn loc(&self) -> sourceloc::SourceSpan {
         self.assignee.loc().merge(&self.value.loc()).unwrap()
     }

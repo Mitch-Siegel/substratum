@@ -175,10 +175,9 @@ impl<'a, 'p> TypeParser<'a, 'p> {
                     type_: types::Syntactic::_Self,
                 })
             }
-            Token::SelfLower | Token::Identifier(_) => {
-                ast::types::TypePath::ItemPath(self.parse_item_type_path_tree(false)?)
+            Token::SelfLower | Token::Identifier(_) | Token::PathSep => {
+                ast::types::TypePath::ItemPath(self.parse_item_type_path_tree()?)
             }
-            Token::PathSep => ast::types::TypePath::ItemPath(self.parse_item_type_path_tree(true)?),
             _ => self.unexpected_token(&[
                 Token::U8,
                 Token::U16,
@@ -231,55 +230,37 @@ impl<'a, 'p> TypeParser<'a, 'p> {
         self.finish_parsing(primitive_path)
     }
 
-    fn parse_item_type_path_tree(
-        &mut self,
-        starts_global: bool,
-    ) -> Result<ast::types::TypeItemPathTree, ParseError> {
-        let (_start_loc, _span) = self.start_parsing("path to type item")?;
+    fn try_parse_type_item_path_segment_data(
+        parser: &mut Parser,
+    ) -> Result<Option<ast::types::TypePathSegmentData>, ParseError> {
+        let (_start_loc, _span) = parser.start_parsing("optional path segment data")?;
 
-        let starts_global = if starts_global {
-            Some(self.expect_token(Token::PathSep)?)
-        } else {
-            None
-        };
-
-        let mut require_path_sep = false;
-        let mut segments = Vec::new();
-        loop {
-            if require_path_sep {
-                self.expect_token(Token::PathSep)?;
-                require_path_sep = false;
-            }
-
-            match self.peek_token()? {
-                Token::Identifier(_) | Token::Super | Token::SelfLower | Token::SelfUpper => {
-                    let ident_segment = self.expression_parser().parse_path_ident_segment()?;
-                    let generic_args = match self.peek_token()? {
-                        Token::PathSep => {
-                            self.expect_token(Token::PathSep)?;
-                            self.item_parser().try_parse_generic_args_list()?
-                        }
-                        _ => None,
-                    };
-
-                    if generic_args.is_some() {
-                        require_path_sep = true;
-                    }
-
-                    let path_segment = ast::types::TypePathSegmentTree {
-                        ident_segment,
-                        generic_args,
-                    };
-                    segments.push(path_segment);
+        let maybe_data = match parser.peek_token()? {
+            Token::PathSep => match parser.lookahead_token(1)? {
+                Token::LThan => {
+                    parser.expect_token(Token::PathSep)?;
+                    Some(ast::types::TypePathSegmentData::GenericArgs(
+                        parser.item_parser().parse_generic_args_list()?,
+                    ))
                 }
-                _ => break,
-            }
-        }
-
-        let type_item_path_tree = ast::types::TypeItemPathTree {
-            starts_global,
-            segments,
+                _ => None,
+            },
+            Token::LThan => Some(ast::types::TypePathSegmentData::GenericArgs(
+                parser.item_parser().parse_generic_args_list()?,
+            )),
+            _ => None,
         };
+
+        parser.finish_parsing(maybe_data)
+    }
+
+    fn parse_item_type_path_tree(&mut self) -> Result<ast::types::TypeItemPathTree, ParseError> {
+        let (_start_loc, _span) = self.start_parsing("path to type item")?;
+        let underlying_path = self
+            .path_parser()
+            .parse_path(Self::try_parse_type_item_path_segment_data)?;
+
+        let type_item_path_tree = ast::types::TypeItemPathTree { underlying_path };
         self.finish_parsing(type_item_path_tree)
     }
 
