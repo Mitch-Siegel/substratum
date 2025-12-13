@@ -77,3 +77,75 @@ impl<'a, 'p> PathParser<'a, 'p> {
         self.finish_parsing(segment)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::frontend::{
+        ast::{builder::*, IdentifierTree},
+        lexer::Token,
+        parser::{tests::test_parser, ParseError, Parser},
+    };
+
+    fn no_parse_extra_data(_: &mut Parser) -> Result<Option<IdentifierTree>, ParseError> {
+        Ok(None)
+    }
+
+    #[test]
+    fn parse_path() {
+        let mut parser = test_parser("::example::self::of::super::path::Self".into());
+        assert_eq!(
+            parser.path_parser().parse_path(no_parse_extra_data),
+            Ok(path(
+                vec![
+                    path_ident_segment("example", test_loc(1, 3), None),
+                    path_self_lower_segment(test_loc(1, 12), None),
+                    path_ident_segment("of", test_loc(1, 18), None),
+                    path_super_segment(test_loc(1, 22), None),
+                    path_ident_segment("path", test_loc(1, 29), None),
+                    path_self_upper_segment(test_loc(1, 35), None),
+                ],
+                Some(test_span(1, 1, 1, 3))
+            ))
+        );
+    }
+
+    #[test]
+    fn parse_path_no_global() {
+        let mut parser = test_parser("example::self::of::super::path::Self".into());
+        assert_eq!(
+            parser.path_parser().parse_path(no_parse_extra_data),
+            Ok(path(
+                vec![
+                    path_ident_segment("example", test_loc(1, 1), None),
+                    path_self_lower_segment(test_loc(1, 10), None),
+                    path_ident_segment("of", test_loc(1, 16), None),
+                    path_super_segment(test_loc(1, 20), None),
+                    path_ident_segment("path", test_loc(1, 27), None),
+                    path_self_upper_segment(test_loc(1, 33), None),
+                ],
+                None,
+            ))
+        );
+    }
+
+    #[test]
+    fn bad_kw_in_path() {
+        let mut parser = test_parser("if path::thing".into());
+        assert_eq!(
+            parser.path_parser().parse_path(no_parse_extra_data),
+            Err(ParseError::unexpected_token(
+                test_loc(1, 1),
+                Token::If,
+                &[
+                    Token::Identifier("".into()),
+                    Token::Super,
+                    Token::SelfLower,
+                    Token::SelfUpper
+                ],
+                "path ident segment".into(),
+                test_loc(1, 1),
+                test_loc(0, 0),
+            ))
+        );
+    }
+}

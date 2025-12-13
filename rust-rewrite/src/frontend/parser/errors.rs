@@ -48,7 +48,7 @@ impl std::fmt::Debug for ParseError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct UnexpectedTokenError {
     pub loc: SourceLoc,
     pub got: Token,
@@ -56,6 +56,16 @@ pub struct UnexpectedTokenError {
     pub while_parsing: String,
     pub while_parsing_start: SourceLoc,
     pub parser_source_location: SourceLoc,
+}
+
+impl PartialEq for UnexpectedTokenError {
+    fn eq(&self, other: &Self) -> bool {
+        self.loc == other.loc
+            && self.got == other.got
+            && self.expected == other.expected
+            && self.while_parsing == other.while_parsing
+            && self.while_parsing_start == other.while_parsing_start
+    }
 }
 
 impl ParseError {
