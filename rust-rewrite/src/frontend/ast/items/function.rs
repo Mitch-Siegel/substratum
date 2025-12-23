@@ -23,15 +23,23 @@ impl Display for ArgumentDeclarationTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::symtab::Variable> for ArgumentDeclarationTree {
+impl midend::treewalk::Treewalk<midend::symtab::values::LocalBinding> for ArgumentDeclarationTree {
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::symtab::Variable {
+    fn linearize(
+        self,
+        ctx: &mut midend::treewalk::LinearizeCtx,
+    ) -> midend::symtab::values::LocalBinding {
         let arg_type: midend::types::Syntactic = self
             .type_
             .linearize(ctx)
             .expect("argument types may not be '_'");
 
-        midend::symtab::Variable::new(self.name.linearize(ctx), Some(arg_type))
+        let arg = midend::symtab::values::binding::Variable::new(
+            self.name.linearize(ctx),
+            Some(arg_type),
+        );
+
+        midend::symtab::values::LocalBinding::FunctionParam(arg)
     }
 }
 
@@ -135,9 +143,8 @@ impl Display for FunctionDefinitionTree {
 
 impl midend::treewalk::Treewalk<()> for FunctionDefinitionTree {
     fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
-        let function_component = midend::symtab::DefPathComponent::Function(
-            midend::symtab::FunctionName::new(self.prototype.name.value.clone()),
-        );
+        let function_component =
+            midend::symtab::DefPathComponent::Value(self.prototype.name.value.clone());
 
         ctx.declare(function_component.clone()).unwrap();
         ctx.push_def_path(function_component.clone()).unwrap();

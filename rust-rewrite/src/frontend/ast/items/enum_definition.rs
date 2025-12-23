@@ -1,4 +1,4 @@
-use crate::{frontend::ast::*, midend::symtab::ImplementationName};
+use crate::frontend::ast::*;
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct TupleDataTree {
@@ -16,14 +16,14 @@ impl Ast for TupleDataTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::symtab::enum_definition::EnumVariantRepr>
+impl midend::treewalk::Treewalk<midend::symtab::types::enumeration::EnumVariantRepr>
     for TupleDataTree
 {
     fn linearize(
         self,
         ctx: &mut midend::treewalk::LinearizeCtx,
-    ) -> midend::symtab::enum_definition::EnumVariantRepr {
-        midend::symtab::enum_definition::EnumVariantRepr::Tuple(
+    ) -> midend::symtab::types::EnumVariantRepr {
+        midend::symtab::types::EnumVariantRepr::Tuple(
             self.element_types
                 .into_iter()
                 .map(|type_tree| {
@@ -49,13 +49,13 @@ impl Ast for EnumVariantDataTree {
     }
 }
 
-impl midend::treewalk::Treewalk<midend::symtab::enum_definition::EnumVariantRepr>
+impl midend::treewalk::Treewalk<midend::symtab::types::enumeration::EnumVariantRepr>
     for EnumVariantDataTree
 {
     fn linearize(
         self,
         ctx: &mut midend::treewalk::LinearizeCtx,
-    ) -> midend::symtab::enum_definition::EnumVariantRepr {
+    ) -> midend::symtab::types::enumeration::EnumVariantRepr {
         match self {
             EnumVariantDataTree::TupleData(elements) => elements.linearize(ctx),
         }
@@ -94,13 +94,13 @@ fn create_enum_variant_constructor(
         .unwrap();
 
     function_path
-        .push(midend::symtab::DefPathComponent::Function(
-            midend::symtab::FunctionName::new(variant_name.clone()),
+        .push(midend::symtab::DefPathComponent::Value(
+            variant_name.clone(),
         ))
         .unwrap();
 
     // create the function prototype, declare the function, and set up to create IR
-    let prototype = midend::symtab::FunctionPrototype::new(
+    let prototype = midend::symtab::values::function::FunctionPrototype::new(
         variant_name.clone(),
         Vec::new(),
         args,
@@ -157,8 +157,10 @@ fn create_enum_variant_constructor(
 
     block_mgr.resolve_final_convergence(current_block).unwrap();
 
-    let ctor_function =
-        midend::symtab::Function::new(prototype, Some(midend::ir::ControlFlow::from(block_mgr)));
+    let ctor_function = midend::symtab::values::Function::new(
+        prototype,
+        Some(midend::ir::ControlFlow::from(block_mgr)),
+    );
     symtab
         .define(function_path.parent().unwrap(), ctor_function)
         .unwrap();
@@ -179,16 +181,16 @@ impl Ast for EnumVariantTree {
     }
 }
 
-impl midend::treewalk::Treewalk<(String, midend::symtab::enum_definition::EnumVariantRepr)>
+impl midend::treewalk::Treewalk<(String, midend::symtab::types::enumeration::EnumVariantRepr)>
     for EnumVariantTree
 {
     fn linearize(
         self,
         ctx: &mut midend::treewalk::LinearizeCtx,
-    ) -> (String, midend::symtab::enum_definition::EnumVariantRepr) {
+    ) -> (String, midend::symtab::types::enumeration::EnumVariantRepr) {
         let variant_data_type = match self.data {
             Some(variant_item) => variant_item.linearize(ctx),
-            None => midend::symtab::EnumVariantRepr::Unit,
+            None => midend::symtab::types::enumeration::EnumVariantRepr::Unit,
         };
 
         let variant_name = self.name.linearize(ctx);

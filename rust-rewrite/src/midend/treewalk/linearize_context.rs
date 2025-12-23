@@ -7,6 +7,7 @@ use std::collections::{BTreeSet, HashMap};
 
 pub struct GenericParamsContext {
     params_by_path: HashMap<DefPath, BTreeSet<types::GenericParam>>,
+    paths_by_param: HashMap<types::GenericParam, BTreeSet<DefPath>>,
     all_params: BTreeSet<types::GenericParam>,
 }
 
@@ -14,6 +15,7 @@ impl GenericParamsContext {
     pub fn new() -> Self {
         Self {
             params_by_path: HashMap::new(),
+            paths_by_param: HashMap::new(),
             all_params: BTreeSet::new(),
         }
     }
@@ -33,6 +35,12 @@ impl GenericParamsContext {
         }
 
         self.all_params.append(&mut params.clone());
+        for param in &params {
+            self.paths_by_param
+                .entry(param.clone())
+                .or_default()
+                .insert(def_path.clone());
+        }
         match self.params_by_path.insert(def_path.clone(), params) {
             Some(existing_params) => panic!(
                 "existing params at defpath {}: {:?}!",
@@ -57,12 +65,22 @@ impl GenericParamsContext {
             if !self.all_params.remove(param) {
                 return Err(());
             }
+            match self.paths_by_param.get_mut(param) {
+                Some(paths) => {
+                    paths.remove(&def_path);
+                }
+                None => return Err(()),
+            }
         }
         Ok(params_at_path)
     }
 
     fn get(&self, def_path: &DefPath) -> Option<&BTreeSet<types::GenericParam>> {
         self.params_by_path.get(def_path)
+    }
+
+    pub fn paths_for_param(&self, param: &types::GenericParam) -> Option<&BTreeSet<DefPath>> {
+        self.paths_by_param.get(param)
     }
 }
 
@@ -421,6 +439,20 @@ impl LinearizeCtx {
         for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
     {
         self.symtab_mut().lookup_at_mut::<S>(def_path)
+    }
+
+    // lookup 'child_path' under self.def_path() (or parents of self.def_path())
+    pub fn lookup_under<S>(
+        &mut self,
+        child_path: DefPath,
+    ) -> Result<(symtab::DefPath, &S), SymbolError>
+    where
+        S: Symbol,
+        for<'a> &'a S: From<DefResolver<'a>>,
+        for<'a> &'a mut S: From<MutDefResolver<'a>>,
+        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
+    {
+        self.symtab().lookup_under::<S>(self.def_path(), child_path)
     }
 
     // add a DefPathComponent for 'symbol' at the end of the current def path

@@ -251,95 +251,30 @@ where
     }
 }
 
+pub fn walk_middle_ident_segment(
+    segment_loc: &sourceloc::SourceSpan,
+    ident: String,
+    mut expr_path: midend::symtab::DefPath,
+) -> Result<midend::symtab::DefPath, String> {
+    let type_component = midend::symtab::DefPathComponent::Type(ident);
+    match expr_path.with_component(type_component) {
+        Ok(new_path) => Ok(new_path),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 pub fn walk_ident_segment(
     segment_loc: &sourceloc::SourceSpan,
+    ident: midend::symtab::DefPathComponent,
     size_hint: usize,
-    ident: String,
     mut expr_path: midend::symtab::DefPath,
     ctx: &mut midend::treewalk::LinearizeCtx,
 ) -> Result<midend::symtab::DefPath, String> {
-    let function_component = midend::symtab::DefPathComponent::Function(
-        midend::symtab::FunctionName::new(ident.clone()),
-    );
-
-    let type_component =
-        midend::symtab::DefPathComponent::Type(midend::types::Syntactic::Named(ident.clone()));
-
-    let variable_component = midend::symtab::DefPathComponent::Variable(ident.clone());
-
-    let function_result = match expr_path.clone().with_component(function_component.clone()) {
-        Ok(function_path) => {
-            match ctx
-                .symtab()
-                .lookup_under::<midend::symtab::symbol::Function>(ctx.def_path(), function_path)
-            {
-                Ok(s) => Some(s.0),
-                _ => None,
-            }
-        }
-        Err(_) => None,
-    };
-
-    let type_result = match expr_path.clone().with_component(type_component.clone()) {
-        Ok(type_path) => {
-            match ctx
-                .symtab()
-                .lookup_under::<midend::symtab::symbol::TypeDefinition>(ctx.def_path(), type_path)
-            {
-                Ok(s) => Some(s.0),
-                _ => None,
-            }
-        }
-        Err(_) => None,
-    };
-
-    let variable_result = match expr_path.clone().with_component(variable_component.clone()) {
-        Ok(variable_path) => {
-            match ctx
-                .symtab()
-                .lookup_under::<midend::symtab::symbol::Variable>(ctx.def_path(), variable_path)
-            {
-                Ok(s) => Some(s.0),
-                _ => None,
-            }
-        }
-        Err(_) => None,
-    };
-
-    let mut results: Vec<midend::symtab::DefPath> =
-        vec![type_result, function_result, variable_result]
-            .into_iter()
-            .flatten()
-            .collect();
-
-    results.sort_by(|path_a, path_b| path_a.len().cmp(&path_b.len()));
-
-    match results.pop() {
-        Some(mut path) => {
-            let last = path.pop().unwrap();
-            let must_end_path = match last {
-                midend::symtab::DefPathComponent::Variable(_)
-                | midend::symtab::DefPathComponent::Function(_) => true,
-                _ => false,
-            };
-
-            expr_path.push(last).unwrap();
-            if must_end_path && (size_hint > 0) {
-                Err(format!(
-                    "{} {} must end path {} but saw path segments after {}",
-                    expr_path.last().name(),
-                    expr_path.last(),
-                    expr_path,
-                    segment_loc
-                ))
-            } else {
-                Ok(expr_path)
-            }
-        }
-        None => Err(format!(
-            "cannot find symbol {} in scope {} (@{})",
-            ident, expr_path, segment_loc,
-        )),
+    if size_hint == 0 {
+        expr_path = expr_path.with_component(ident).unwrap();
+        match ctx.lookup
+    } else {
+        walk_middle_ident_segment(segment_loc, ident.raw(), expr_path)
     }
 }
 

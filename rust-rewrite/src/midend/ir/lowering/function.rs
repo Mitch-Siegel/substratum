@@ -28,7 +28,7 @@ pub fn lower_function(
 
     loop {
         let (mut cf, mut unlowered, function_name) = {
-            let function = symtab.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
+            let function = symtab.lookup_value_at_mut(&def_path).unwrap();
 
             match &mut function.control_flow {
                 Some(cf) => {
@@ -42,7 +42,7 @@ pub fn lower_function(
                     (
                         function.control_flow.take().unwrap(),
                         unlowered,
-                        symtab::FunctionName::new(function.name().into()),
+                        function.name().into(),
                     )
                 }
                 None => {

@@ -2,31 +2,6 @@ use serde::Serialize;
 
 use crate::midend::{ir, symtab::*};
 
-#[derive(Clone, Hash, PartialOrd, Ord, PartialEq, Eq, Serialize)]
-pub struct FunctionName {
-    pub name: String,
-}
-
-impl FunctionName {
-    pub fn new(name: String) -> Self {
-        Self { name }
-    }
-
-    pub fn as_str(&self) -> &str {
-        self.name.as_str()
-    }
-}
-impl std::fmt::Display for FunctionName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
-    }
-}
-impl std::fmt::Debug for FunctionName {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.name)
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Function {
     pub prototype: FunctionPrototype,
@@ -98,7 +73,7 @@ impl PartialEq for Function {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FunctionPrototype {
-    pub name: FunctionName,
+    pub name: String,
     pub generic_params: types::GenericParamsList,
     pub arguments: Vec<Variable>,
     pub return_type: types::Syntactic,

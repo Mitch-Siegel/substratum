@@ -2,118 +2,39 @@ use crate::midend::symtab::*;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum DefPathComponent {
-    Empty,
-    Module(<Module as Symbol>::SymbolKey),
-    Type(<TypeDefinition as Symbol>::SymbolKey),
-    Implementation(<Implementation as Symbol>::SymbolKey),
-    Function(<Function as Symbol>::SymbolKey),
-    Scope(<Scope as Symbol>::SymbolKey),
-    Import(<Import as Symbol>::SymbolKey),
-    Variable(<Variable as Symbol>::SymbolKey),
+    Type(String),
+    Value(String),
+    Macro(String),
 }
 
 impl DefPathComponent {
     pub fn can_own(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Empty, _) => true,
-            (Self::Module(_), Self::Module(_)) => true,
-            (Self::Module(_), Self::Type(_)) => true,
-            (Self::Module(_), Self::Implementation(_)) => true,
-            (Self::Module(_), Self::Function(_)) => true,
-            (Self::Module(_), Self::Import(_)) => true,
-            (Self::Module(_), Self::Variable(_)) => true,
-            (Self::Module(_), _) => false,
-            (Self::Type(_), Self::Implementation(_)) => true,
-            (Self::Type(_), _) => false,
-            (Self::Implementation(_), Self::Function(_)) => true,
-            (Self::Implementation(_), Self::Import(_)) => true,
-            (Self::Implementation(_), _) => false,
-            (Self::Function(_), Self::Scope(_)) => true,
-            (Self::Function(_), Self::Import(_)) => true,
-            (Self::Function(_), Self::Variable(_)) => true,
-            (Self::Scope(_), Self::Scope(_)) => true,
-            (Self::Scope(_), Self::Variable(_)) => true,
+            (Self::Type(_), _) => true,
             (_, _) => false,
         }
     }
 
-    pub fn name(&self) -> &str {
+    pub fn raw(&self) -> &str {
         match self {
-            Self::Empty => "empty",
-            Self::Module(_) => "module",
-            Self::Type(_) => "type",
-            Self::Implementation(_) => "implementation",
-            Self::Function(_) => "function",
-            Self::Scope(_) => "scope",
-            Self::Import(_) => "import",
-            Self::Variable(_) => "variable",
+            Self::Type(name) | Self::Value(name) | Self::Macro(name) => &name,
         }
-    }
-}
-
-impl<'a> From<<Module as Symbol>::SymbolKey> for DefPathComponent {
-    fn from(module_key: <Module as Symbol>::SymbolKey) -> Self {
-        Self::Module(module_key)
-    }
-}
-impl<'a> From<<TypeDefinition as Symbol>::SymbolKey> for DefPathComponent {
-    fn from(type_definition_key: <TypeDefinition as Symbol>::SymbolKey) -> Self {
-        Self::Type(type_definition_key)
-    }
-}
-impl<'a> From<<Function as Symbol>::SymbolKey> for DefPathComponent {
-    fn from(function_key: <Function as Symbol>::SymbolKey) -> Self {
-        Self::Function(function_key)
-    }
-}
-impl<'a> From<<Implementation as Symbol>::SymbolKey> for DefPathComponent {
-    fn from(implementation_key: <Implementation as Symbol>::SymbolKey) -> Self {
-        Self::Implementation(implementation_key)
-    }
-}
-impl<'a> From<<Scope as Symbol>::SymbolKey> for DefPathComponent {
-    fn from(scope_key: <Scope as Symbol>::SymbolKey) -> Self {
-        Self::Scope(scope_key)
-    }
-}
-impl<'a> From<<Import as Symbol>::SymbolKey> for DefPathComponent {
-    fn from(use_key: <Import as Symbol>::SymbolKey) -> Self {
-        Self::Import(use_key)
-    }
-}
-impl<'a> From<<Variable as Symbol>::SymbolKey> for DefPathComponent {
-    fn from(variable_key: <Variable as Symbol>::SymbolKey) -> Self {
-        Self::Variable(variable_key)
     }
 }
 
 impl<'a> std::fmt::Display for DefPathComponent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Empty => write!(f, "empty"),
-            Self::Module(module) => write!(f, "{}", module),
-            Self::Type(type_) => write!(f, "{}", type_),
-            Self::Implementation(implementation) => write!(f, "{}", implementation),
-            Self::Function(function) => write!(f, "{}", function),
-            Self::Scope(scope) => write!(f, "{}", scope),
-            Self::Import(import) => write!(f, "{}", import),
-            Self::Variable(variable) => write!(f, "{}", variable),
-        }
+        write!(f, "{}", self.raw())
     }
 }
 
 impl<'a> std::fmt::Debug for DefPathComponent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(", self.name())?;
+        write!(f, "{}(", self.raw())?;
         match self {
-            Self::Empty => write!(f, "empty"),
-            Self::Module(module) => write!(f, "{:?}", module),
-            Self::Type(type_) => write!(f, "{:?}", type_),
-            Self::Implementation(implementation) => write!(f, "{:?}", implementation),
-            Self::Function(function) => write!(f, "{:?}", function),
-            Self::Scope(scope) => write!(f, "{:?}", scope),
-            Self::Import(import) => write!(f, "{:?}", import),
-            Self::Variable(variable) => write!(f, "{:?}", variable),
+            Self::Type(name) => write!(f, "T:{}", name),
+            Self::Value(name) => write!(f, "V:{}", name),
+            Self::Macro(name) => write!(f, "M:{}", name),
         }?;
         write!(f, ")")
     }
@@ -121,21 +42,12 @@ impl<'a> std::fmt::Debug for DefPathComponent {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DefPath {
-    parent_component: DefPathComponent,
     components: Vec<DefPathComponent>,
 }
 
 impl DefPath {
-    pub fn new(parent_component: DefPathComponent) -> Self {
-        Self {
-            parent_component,
-            components: Vec::new(),
-        }
-    }
-
     pub fn empty() -> Self {
         Self {
-            parent_component: DefPathComponent::Empty,
             components: Vec::new(),
         }
     }
@@ -165,12 +77,12 @@ impl DefPath {
         true
     }
 
-    pub fn first(&self) -> &DefPathComponent {
-        self.components.first().unwrap_or(&DefPathComponent::Empty)
+    pub fn first(&self) -> Option<&DefPathComponent> {
+        self.components.first()
     }
 
-    pub fn last(&self) -> &DefPathComponent {
-        self.components.last().unwrap_or(&DefPathComponent::Empty)
+    pub fn last(&self) -> Option<&DefPathComponent> {
+        self.components.last()
     }
 
     pub fn pop(&mut self) -> Option<DefPathComponent> {
@@ -202,21 +114,21 @@ impl DefPath {
 
     pub fn is_type(&self) -> bool {
         match self.last() {
-            DefPathComponent::Type(_) => true,
+            Some(DefPathComponent::Type(_)) => true,
             _ => false,
         }
     }
 
-    pub fn is_module(&self) -> bool {
+    pub fn is_value(&self) -> bool {
         match self.last() {
-            DefPathComponent::Module(_) => true,
+            Some(DefPathComponent::Value(_)) => true,
             _ => false,
         }
     }
 
-    pub fn is_function(&self) -> bool {
+    pub fn is_macro(&self) -> bool {
         match self.last() {
-            DefPathComponent::Function(_) => true,
+            Some(DefPathComponent::Macro(_)) => true,
             _ => false,
         }
     }
@@ -233,28 +145,9 @@ impl DefPath {
         }
     }
 
-    pub fn parent_type_definition(mut self) -> Option<Self> {
-        while !self.is_empty() && !self.is_type() {
-            self.pop();
-        }
-
-        if self.is_empty() {
-            None
-        } else {
-            Some(self)
-        }
-    }
-
-    pub fn parent_function(mut self) -> Option<Self> {
-        while !self.is_empty() && !self.is_function() {
-            self.pop();
-        }
-
-        if self.is_empty() {
-            None
-        } else {
-            Some(self)
-        }
+    pub fn split_last(mut self) -> (Self, Option<DefPathComponent>) {
+        let last = self.pop();
+        (self, last)
     }
 }
 

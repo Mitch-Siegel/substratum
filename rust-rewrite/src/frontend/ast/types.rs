@@ -263,7 +263,34 @@ impl Ast for TypeItemPathTree {
 }
 
 impl midend::treewalk::Treewalk<midend::types::Syntactic> for TypeItemPathTree {
-    fn linearize(self, _ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
+    fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
+        let up = self.underlying_path.linearize(ctx);
+        let (subpath, last) = up.path.split_last();
+        let last_raw = last.unwrap().raw();
+        let maybe_type_path = match ctx.lookup_type(subpath, last_raw) {
+            Ok((path, _)) => Some(path),
+            _ => None,
+        };
+
+        let maybe_generic = match up.path.len() {
+            1 => match up.path.last() {
+                midend::symtab::DefPathComponent::Type(midend::types::Syntactic::Named(name)) => {
+                    match ctx
+                        .generics()
+                        .paths_for_param(&midend::types::GenericParam::TypeParam(name.clone()))
+                    {
+                        Some(paths) => Some(paths.first().unwrap()),
+                        _ => None,
+                    }
+                }
+                _ => None,
+            },
+            _ => None,
+        };
+
+        tracing::warn!("as type: {:?}", maybe_type_path);
+        tracing::warn!("as generic: {:?}", maybe_generic);
+
         unimplemented!();
     }
 }

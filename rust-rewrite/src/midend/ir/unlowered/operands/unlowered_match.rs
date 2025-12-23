@@ -57,7 +57,8 @@ fn lower_pattern<'a>(
                 .unwrap();
 
             match &scrutinee_type_def.repr {
-                symtab::TypeRepr::Enum(_e) => LoweredPattern::Constructor(
+                symtab::SymbolRepr::Type(symtab::Type::Enum(_e)) =>
+                    LoweredPattern::Constructor(
                     PatternConstructor::EnumVariant {
                         ty: scrutinee_type,
                         variant

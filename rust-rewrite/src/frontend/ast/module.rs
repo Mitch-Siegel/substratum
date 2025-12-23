@@ -32,9 +32,7 @@ impl midend::treewalk::Treewalk<()> for ModuleTree {
             self.name,
             self.module_path
         );
-        let module_component = midend::symtab::DefPathComponent::Module(
-            midend::symtab::ModuleName::new(self.name.value.clone()),
-        );
+        let module_component = midend::symtab::DefPathComponent::Type(self.name.value.clone());
         ctx.declare(module_component.clone()).unwrap();
 
         ctx.push_def_path(module_component.clone()).unwrap();
@@ -55,7 +53,7 @@ impl midend::treewalk::Treewalk<()> for ModuleTree {
 
         let module_name = self.name.linearize(ctx);
 
-        ctx.define(midend::symtab::symbol::Module::new(module_name.clone()))
+        ctx.define(midend::symtab::types::Module::new(module_name.clone()))
             .unwrap();
         ctx.push_def_path(
             midend::symtab::DefPathComponent::Module(midend::symtab::ModuleName {
@@ -68,10 +66,8 @@ impl midend::treewalk::Treewalk<()> for ModuleTree {
             item.linearize(ctx)
         }
 
-        ctx.pop_def_path(midend::symtab::DefPathComponent::Module(
-            midend::symtab::ModuleName { name: module_name },
-        ))
-        .unwrap();
+        ctx.pop_def_path(midend::symtab::DefPathComponent::Type(module_name))
+            .unwrap();
     }
 }
 

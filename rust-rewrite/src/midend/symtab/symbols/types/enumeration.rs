@@ -1,4 +1,5 @@
-use crate::midend::symtab::type_definition::*;
+use crate::midend::{symtab::*, *};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum EnumVariantRepr {

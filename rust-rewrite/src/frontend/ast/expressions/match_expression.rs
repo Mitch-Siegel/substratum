@@ -91,10 +91,7 @@ impl midend::treewalk::Treewalk<PatternTree> for PatternTree {
             Self::Identifier(ident) => {
                 let variable_name = ident.linearize(ctx);
                 let variable_def_path = ctx
-                    .define::<midend::symtab::Variable>(midend::symtab::Variable::new(
-                        variable_name,
-                        None,
-                    ))
+                    .define(midend::symtab::values::Variable::new(variable_name, None))
                     .unwrap();
                 // TODO: examine if there's a better way to just declare variables and give them a
                 // ValueID in one go?

@@ -82,22 +82,13 @@ impl midend::treewalk::Treewalk<()> for ItemTree {
             ItemTree::StructDefinition(struct_tree) => {
                 let struct_repr = struct_tree.linearize(ctx);
 
-                ctx.define::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
-                    midend::types::Syntactic::Named(struct_repr.name.clone()),
-                    struct_repr.generic_params.clone(),
-                    midend::symtab::TypeRepr::Struct(struct_repr),
-                ))
-                .unwrap();
+                ctx.define(midend::symtab::Type::Struct(struct_repr))
+                    .unwrap();
             }
             ItemTree::EnumDefinition(enum_tree) => {
                 let enum_repr = enum_tree.linearize(ctx);
 
-                ctx.define::<midend::symtab::TypeDefinition>(midend::symtab::TypeDefinition::new(
-                    midend::types::Syntactic::Named(enum_repr.name.clone()),
-                    enum_repr.generic_params.clone(),
-                    midend::symtab::TypeRepr::Enum(enum_repr),
-                ))
-                .unwrap();
+                ctx.define(midend::symtab::Type::Enum(enum_repr)).unwrap();
             }
             ItemTree::Implementation(implementation) => implementation.linearize(ctx),
             ItemTree::Module((module, _)) => match module {

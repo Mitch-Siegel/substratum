@@ -58,11 +58,11 @@ impl std::fmt::Display for ImplementationName {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Implementation {
+pub struct ImplRepr {
     name: ImplementationName,
 }
 
-impl Implementation {
+impl ImplRepr {
     pub fn new(
         generic_params: types::GenericParamsList,
         implemented_for: types::Syntactic,
@@ -78,7 +78,7 @@ impl Implementation {
     }
 }
 
-impl<'a> From<DefResolver<'a>> for &'a Implementation {
+impl<'a> From<DefResolver<'a>> for &'a ImplRepr {
     fn from(resolver: DefResolver<'a>) -> Self {
         match resolver.to_resolve {
             SymbolDef::Implementation(module) => module,
@@ -86,7 +86,7 @@ impl<'a> From<DefResolver<'a>> for &'a Implementation {
         }
     }
 }
-impl<'a> From<MutDefResolver<'a>> for &'a mut Implementation {
+impl<'a> From<MutDefResolver<'a>> for &'a mut ImplRepr {
     fn from(resolver: MutDefResolver<'a>) -> Self {
         match resolver.to_resolve {
             SymbolDef::Implementation(module) => module,
@@ -95,24 +95,24 @@ impl<'a> From<MutDefResolver<'a>> for &'a mut Implementation {
     }
 }
 
-impl Into<DefPathComponent> for &Implementation {
+impl Into<DefPathComponent> for &ImplRepr {
     fn into(self) -> DefPathComponent {
         DefPathComponent::Implementation(self.symbol_key().clone())
     }
 }
 
-impl<'a> Into<SymbolDef> for DefGenerator<'a, Implementation> {
+impl<'a> Into<SymbolDef> for DefGenerator<'a, ImplRepr> {
     fn into(self) -> SymbolDef {
         SymbolDef::Implementation(self.to_generate_def_for)
     }
 }
-impl Symbol for Implementation {
+impl Symbol for ImplRepr {
     type SymbolKey = ImplementationName;
     fn symbol_key(&self) -> &Self::SymbolKey {
         &self.name
     }
 }
-impl std::fmt::Display for Implementation {
+impl std::fmt::Display for ImplRepr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name)
     }

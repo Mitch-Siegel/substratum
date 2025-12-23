@@ -1,8 +1,6 @@
+use crate::midend::symtab::{Symbol, *};
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
-
-use serde::Serialize;
-
-use crate::midend::symtab::*;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct Variable {
@@ -38,32 +36,23 @@ impl Variable {
     }
 }
 
-impl<'a> From<DefResolver<'a>> for &'a Variable {
-    fn from(resolver: DefResolver<'a>) -> Self {
-        match resolver.to_resolve {
-            SymbolDef::Variable(variable) => variable,
-            symbol => panic!("Unexpected symbol seen for variable: {}", symbol),
-        }
-    }
-}
-impl<'a> From<MutDefResolver<'a>> for &'a mut Variable {
-    fn from(resolver: MutDefResolver<'a>) -> Self {
-        match resolver.to_resolve {
-            SymbolDef::Variable(variable) => variable,
-            symbol => panic!("Unexpected symbol seen for variable: {}", symbol),
-        }
-    }
+pub enum LocalBinding {
+    FunctionParam(Variable),
+    Let(Variable),
 }
 
-impl<'a> Into<SymbolDef> for DefGenerator<'a, Variable> {
-    fn into(self) -> SymbolDef {
-        SymbolDef::Variable(self.to_generate_def_for)
+impl Symbol for LocalBinding {
+    fn name(&self) -> &str {
+        match self {
+            Self::FunctionParam(v) | Self::Let(v) => &v.name,
+        }
     }
-}
 
-impl Symbol for Variable {
-    type SymbolKey = String;
-    fn symbol_key(&self) -> &Self::SymbolKey {
-        &self.name
+    fn path_component(&self) -> DefPathComponent {
+        DefPathComponent::Value(self.name().clone())
+    }
+
+    fn into_repr(self) -> SymbolRepr {
+        SymbolRepr::Value(Value::LocalBinding(self))
     }
 }

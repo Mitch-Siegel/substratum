@@ -1,13 +1,14 @@
-use crate::midend::symtab::type_definition::*;
+use crate::midend::symtab::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct StructField {
+pub struct FieldRepr {
     pub name: String,
     pub type_: types::Syntactic,
     pub offset: Option<usize>,
 }
 
-impl StructField {
+impl FieldRepr {
     pub fn new(name: String, type_: types::Syntactic) -> Self {
         Self {
             name,
@@ -17,7 +18,7 @@ impl StructField {
     }
 }
 
-impl std::fmt::Display for StructField {
+impl std::fmt::Display for FieldRepr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.offset {
             Some(offset) => write!(f, "{}: {} (@{})", self.name, self.type_, offset),
@@ -31,7 +32,7 @@ pub struct StructRepr {
     pub name: String,
     pub generic_params: types::GenericParamsList,
     field_order: Vec<String>,
-    fields: BTreeMap<String, StructField>,
+    fields: BTreeMap<String, FieldRepr>,
     size: Option<usize>,
     alignment: Option<usize>,
 }
@@ -41,16 +42,16 @@ impl StructRepr {
         name: String,
         generic_params: types::GenericParamsList,
         field_definitions: Vec<(String, types::Syntactic)>,
-    ) -> Result<Self, StructField> {
+    ) -> Result<Self, FieldRepr> {
         let field_order: Vec<String> = field_definitions
             .iter()
             .map(|(name, _)| name.clone())
             .collect();
 
-        let mut fields = BTreeMap::<String, StructField>::new();
+        let mut fields = BTreeMap::<String, FieldRepr>::new();
         for (name, type_) in field_definitions {
             trace::trace!("Insert struct field {} (type: {})", name, type_,);
-            let field = StructField::new(name.clone(), type_);
+            let field = FieldRepr::new(name.clone(), type_);
             match fields.insert(name, field) {
                 Some(existing_field) => return Err(existing_field),
                 None => (),
@@ -67,7 +68,7 @@ impl StructRepr {
         })
     }
 
-    pub fn lookup_field(&self, name: &str) -> Result<&StructField, String> {
+    pub fn lookup_field(&self, name: &str) -> Result<&FieldRepr, String> {
         match self.fields.get(name) {
             Some(field) => Ok(field),
             None => Err(name.into()),
@@ -76,8 +77,8 @@ impl StructRepr {
 }
 
 impl<'a> IntoIterator for &'a StructRepr {
-    type Item = (&'a String, &'a StructField);
-    type IntoIter = std::collections::btree_map::Iter<'a, String, StructField>;
+    type Item = (&'a String, &'a FieldRepr);
+    type IntoIter = std::collections::btree_map::Iter<'a, String, FieldRepr>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.iter()
