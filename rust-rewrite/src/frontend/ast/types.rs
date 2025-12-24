@@ -264,6 +264,8 @@ impl Ast for TypeItemPathTree {
 
 impl midend::treewalk::Treewalk<midend::types::Syntactic> for TypeItemPathTree {
     fn linearize(self, ctx: &mut treewalk::LinearizeCtx) -> midend::types::Syntactic {
+        unimplemented!();
+        /*
         let up = self.underlying_path.linearize(ctx);
         let (subpath, last) = up.path.split_last();
         let last_raw = last.unwrap().raw();
@@ -291,7 +293,7 @@ impl midend::treewalk::Treewalk<midend::types::Syntactic> for TypeItemPathTree {
         tracing::warn!("as type: {:?}", maybe_type_path);
         tracing::warn!("as generic: {:?}", maybe_generic);
 
-        unimplemented!();
+        */
     }
 }
 

@@ -40,14 +40,25 @@ fn lower_pattern<'a>(
                 .values()
                 .semantic_for_id(&arm_ctx.scrutinee)
                 .expect("Scrutinee type not known!");
-            let scrutinee_variable_def_path = match arm_ctx.ctx.function_mut().values().def_path_for_id(&arm_ctx.scrutinee) {
-        Ok(opt) => opt.cloned(),
-        Err(_e)=> None 
+            let scrutinee_variable_def_path = match arm_ctx
+                .ctx
+                .function_mut()
+                .values()
+                .def_path_for_id(&arm_ctx.scrutinee)
+            {
+                Ok(opt) => opt.cloned(),
+                Err(_e) => None,
             };
 
             let variant = tuple_struct.name.linearize(arm_ctx.ctx);
 
-            let subpatterns = tuple_struct.subpatterns.into_iter().map(|subpattern| lower_pattern(subpattern, arm_ctx)).collect();
+            unimplemented!();
+            /*
+            let subpatterns = tuple_struct
+                .subpatterns
+                .into_iter()
+                .map(|subpattern| lower_pattern(subpattern, arm_ctx))
+                .collect();
 
             let scrutinee_type_def = arm_ctx
                 .ctx
@@ -56,8 +67,9 @@ fn lower_pattern<'a>(
                 .get_type_definition(&scrutinee_type)
                 .unwrap();
 
+
             match &scrutinee_type_def.repr {
-                symtab::SymbolRepr::Type(symtab::Type::Enum(_e)) =>
+                symtab::SymbolDef::Type(symtab::Type::Enum(_e)) =>
                     LoweredPattern::Constructor(
                     PatternConstructor::EnumVariant {
                         ty: scrutinee_type,
@@ -67,9 +79,10 @@ fn lower_pattern<'a>(
                 ),
                 other => panic!(
                     "Match for type repr {:?} unsupported (matching tuple struct {} from scrutinee value (defpath {:?}))",
-                    other, variant, scrutinee_variable_def_path 
+                    other, variant, scrutinee_variable_def_path
                 ),
             }
+            */
         }
     }
 }
@@ -89,7 +102,7 @@ pub enum PatternConstructor {
 impl std::fmt::Display for PatternConstructor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::EnumVariant{ty, variant} => write!(f, "enum variant {}::{}", ty, variant),
+            Self::EnumVariant { ty, variant } => write!(f, "enum variant {}::{}", ty, variant),
             //Self::Struct{ty} => write!(f, "struct {}", ty),
             Self::Constant(constant) => write!(f, "constant {}", constant),
         }
@@ -106,13 +119,13 @@ pub enum LoweredPattern {
 impl std::fmt::Display for LoweredPattern {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Constructor(pat, subpats) => {write!(f, "{} [", pat)?;
+            Self::Constructor(pat, subpats) => {
+                write!(f, "{} [", pat)?;
                 let mut first = true;
                 for subpat in subpats {
                     if !first {
                         write!(f, ", {}", subpat)?;
-                    }
-                    else {
+                    } else {
                         write!(f, "{}", subpat)?;
                         first = false;
                     }
@@ -140,7 +153,11 @@ impl Lowerable for MatchOperands {
             .values()
             .semantic_for_id(&self.scrutinee)
             .unwrap();
-        let _matched_type_definition = ctx.symtab().types.get_type_definition(&matched_type).unwrap();
+        let _matched_type_definition = ctx
+            .symtab()
+            .types
+            .get_type_definition(&matched_type)
+            .unwrap();
 
         ctx.function().values().diag(ctx.symtab());
         let mut match_arm_ctx = MatchArmContext {
@@ -156,8 +173,6 @@ impl Lowerable for MatchOperands {
 
         ctx.function().values().diag(ctx.symtab());
         println!("{:#?}", walked_patterns);
-
-
 
         return;
     }

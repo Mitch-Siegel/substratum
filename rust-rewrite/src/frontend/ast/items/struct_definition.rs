@@ -63,14 +63,19 @@ impl Display for StructDefinitionTree {
 
 impl midend::treewalk::Treewalk<midend::symtab::StructRepr> for StructDefinitionTree {
     fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+        unimplemented!();
+        /*
         ctx.declare(midend::symtab::DefPathComponent::Type(
-            midend::types::Syntactic::Named(self.name.value.clone()),
+            midend::types::Syntactic::Named(self.name.clone()),
         ))
         .unwrap();
+        */
     }
 
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::symtab::StructRepr {
+        unimplemented!();
+        /*
         let generic_params: midend::types::GenericParamsList = match self.generic_params {
             Some(params) => params.linearize(ctx),
             None => midend::types::GenericParamsList::new(),
@@ -91,5 +96,6 @@ impl midend::treewalk::Treewalk<midend::symtab::StructRepr> for StructDefinition
 
         ctx.pop_def_path(type_def_path_component).unwrap();
         midend::symtab::StructRepr::new(struct_name, generic_params, fields).unwrap()
+        */
     }
 }

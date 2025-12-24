@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     frontend::ast::*,
-    midend::{self, treewalk::Treewalk},
+    midend::{self, symtab::Path, treewalk::Treewalk},
 };
 use serde::{Deserialize, Serialize};
 
@@ -123,21 +123,21 @@ where
 }
 
 pub struct LinearizedPathTree<T> {
-    pub path: midend::symtab::DefPath,
-    pub segment_data: HashMap<midend::symtab::DefPath, T>,
+    pub path: midend::symtab::RawPath,
+    pub segment_data: HashMap<midend::symtab::RawPath, T>,
 }
 
 impl<T> LinearizedPathTree<T> {
     fn new() -> Self {
         Self {
-            path: midend::symtab::DefPath::empty(),
+            path: midend::symtab::RawPath::empty(),
             segment_data: HashMap::new(),
         }
     }
 
     fn with_component(
         mut self,
-        component: midend::symtab::DefPathComponent,
+        component: midend::symtab::PathSegment,
         maybe_data: Option<T>,
     ) -> Result<Self, midend::symtab::SymbolError> {
         self.path.push(component)?;
@@ -180,9 +180,9 @@ impl<T> LinearizedPathTree<T> {
     pub fn map_data<OnData>(
         mut self,
         mut on_data: OnData,
-    ) -> Result<midend::symtab::DefPath, String>
+    ) -> Result<midend::symtab::RawPath, String>
     where
-        OnData: FnMut(&midend::symtab::DefPath, Option<T>),
+        OnData: FnMut(&midend::symtab::RawPath, Option<T>),
     {
         let mut search_path = self.path.clone();
         while search_path.len() > 0 {
@@ -256,26 +256,31 @@ pub fn walk_middle_ident_segment(
     ident: String,
     mut expr_path: midend::symtab::DefPath,
 ) -> Result<midend::symtab::DefPath, String> {
+    unimplemented!();
+    /*
     let type_component = midend::symtab::DefPathComponent::Type(ident);
     match expr_path.with_component(type_component) {
         Ok(new_path) => Ok(new_path),
         Err(e) => Err(e.to_string()),
     }
+    */
 }
 
 pub fn walk_ident_segment(
     segment_loc: &sourceloc::SourceSpan,
-    ident: midend::symtab::DefPathComponent,
+    ident: midend::symtab::PathSegment,
     size_hint: usize,
     mut expr_path: midend::symtab::DefPath,
     ctx: &mut midend::treewalk::LinearizeCtx,
 ) -> Result<midend::symtab::DefPath, String> {
+    unimplemented!();
+    /*
     if size_hint == 0 {
         expr_path = expr_path.with_component(ident).unwrap();
-        match ctx.lookup
     } else {
         walk_middle_ident_segment(segment_loc, ident.raw(), expr_path)
     }
+    */
 }
 
 enum PathWalkState<T> {
@@ -301,6 +306,8 @@ where
         size_hint: usize,
         ctx: &mut midend::treewalk::LinearizeCtx,
     ) -> Result<Self, String> {
+        unimplemented!();
+        /*
         let segment_loc = segment.loc();
         let empty_path = LinearizedPathTree::new();
         let next_state = match segment.linearize(ctx) {
@@ -331,6 +338,7 @@ where
         };
 
         Ok(next_state)
+        */
     }
 
     fn start_global(
@@ -338,6 +346,8 @@ where
         size_hint: usize,
         ctx: &mut midend::treewalk::LinearizeCtx,
     ) -> Result<Self, String> {
+        unimplemented!();
+        /*
         let segment_loc = segment.loc();
         let empty_path = LinearizedPathTree::new();
         let next_state = match segment.linearize(ctx) {
@@ -360,6 +370,7 @@ where
         };
 
         Ok(next_state)
+        */
     }
 
     fn leading_lower_supers(
@@ -368,6 +379,8 @@ where
         state: LinearizedPathTree<T>,
         ctx: &mut midend::treewalk::LinearizeCtx,
     ) -> Result<Self, String> {
+        unimplemented!();
+        /*
         let segment_loc = segment.loc();
         let next_state = match segment.linearize(ctx) {
             PathSegmentAction::Ident(ident, maybe_data) => {
@@ -387,6 +400,7 @@ where
         };
 
         Ok(next_state)
+        */
     }
 
     fn require_ident(
@@ -395,6 +409,8 @@ where
         state: LinearizedPathTree<T>,
         ctx: &mut midend::treewalk::LinearizeCtx,
     ) -> Result<Self, String> {
+        unimplemented!();
+        /*
         let segment_loc = segment.loc();
         let next_state = match segment.linearize(ctx) {
             PathSegmentAction::Ident(ident, maybe_data) => {
@@ -411,6 +427,7 @@ where
         };
 
         Ok(next_state)
+        */
     }
 
     fn transition(
@@ -450,9 +467,7 @@ where
                 .unwrap();
         }
 
-        LinearizedPathTree {
-            path: midend::symtab::DefPath::empty(),
-            segment_data: HashMap::new(),
-        }
+        unimplemented!();
+        LinearizedPathTree::new()
     }
 }

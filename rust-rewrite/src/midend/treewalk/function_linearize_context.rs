@@ -10,7 +10,7 @@ pub struct FunctionLinearizeCtx {
 impl FunctionLinearizeCtx {
     #[tracing::instrument(level = "debug")]
     pub fn new(
-        prototype: symtab::FunctionPrototype,
+        prototype: symtab::values::function::FunctionPrototype,
         def_path: symtab::DefPath,
         unit_type: types::Semantic,
         arg_def_paths: Vec<symtab::DefPath>,

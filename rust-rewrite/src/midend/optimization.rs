@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::midend::symtab::values::Function;
+use crate::midend::symtab::Function;
 
 mod unused_blocks;
 

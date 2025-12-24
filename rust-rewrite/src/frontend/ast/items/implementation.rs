@@ -21,7 +21,9 @@ impl Ast for ImplementationTree {
 
 impl midend::treewalk::Treewalk<()> for ImplementationTree {
     fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
-        let generic_params_as_vec = match &self.generic_params {
+        unimplemented!();
+        /*
+         let generic_params_as_vec = match &self.generic_params {
             Some(params) => params
                 .clone()
                 .linearize_ctxless()
@@ -59,10 +61,13 @@ impl midend::treewalk::Treewalk<()> for ImplementationTree {
         }
 
         ctx.pop_def_path(impl_def_path_component).unwrap();
+        */
     }
 
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
+        unimplemented!();
+        /*
         let for_name = self.for_.linearize(ctx);
 
         let implemented_for_type = ctx.disambiguate_named_type(&for_name).unwrap();
@@ -99,6 +104,7 @@ impl midend::treewalk::Treewalk<()> for ImplementationTree {
         }
 
         ctx.pop_def_path(impl_def_path_component).unwrap();
+        */
     }
 }
 

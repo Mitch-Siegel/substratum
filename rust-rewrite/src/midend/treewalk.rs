@@ -22,6 +22,8 @@ pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable>
     trace::debug!("collect symbols");
 
     for module in &program {
+        unimplemented!();
+        /*
         let mut module_def_path = symtab::DefPath::empty();
         for module_name in module.module_path.as_slice().split_last().unwrap().1 {
             module_def_path
@@ -29,19 +31,24 @@ pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable>
                     name: module_name.clone(),
                 }))
                 .unwrap();
+
         }
         let mut collect_ctx = CollectCtx::new(symtab, module_def_path.clone());
         module.collect_symbols(&mut collect_ctx);
         let taken = collect_ctx.take();
         symtab = taken.0;
         assert_eq!(taken.1, module_def_path);
+        */
     }
 
-    symtab.collect_impls();
+    unimplemented!();
+    //symtab.collect_impls();
 
     trace::debug!("linearize");
 
     for module in program {
+        unimplemented!();
+        /*
         let mut module_def_path = symtab::DefPath::empty();
         for module_name in module.module_path.as_slice().split_last().unwrap().1 {
             module_def_path
@@ -61,6 +68,7 @@ pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable>
             LinearizeCtx::new(symtab, module_def_path, GenericParamsContext::new());
         module.linearize(&mut linearize_ctx);
         symtab = linearize_ctx.take().unwrap().0;
+        */
     }
 
     symtab

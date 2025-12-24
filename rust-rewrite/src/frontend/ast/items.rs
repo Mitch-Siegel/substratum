@@ -82,13 +82,18 @@ impl midend::treewalk::Treewalk<()> for ItemTree {
             ItemTree::StructDefinition(struct_tree) => {
                 let struct_repr = struct_tree.linearize(ctx);
 
+                unimplemented!();
+                /*
                 ctx.define(midend::symtab::Type::Struct(struct_repr))
                     .unwrap();
+                */
             }
             ItemTree::EnumDefinition(enum_tree) => {
                 let enum_repr = enum_tree.linearize(ctx);
-
+                unimplemented!();
+                /*
                 ctx.define(midend::symtab::Type::Enum(enum_repr)).unwrap();
+                */
             }
             ItemTree::Implementation(implementation) => implementation.linearize(ctx),
             ItemTree::Module((module, _)) => match module {

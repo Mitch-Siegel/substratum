@@ -1,6 +1,9 @@
 use std::collections::{BTreeMap, HashSet};
 
-use crate::{midend::*, trace};
+use crate::{
+    midend::{self, *},
+    trace,
+};
 pub use errors::*;
 
 mod def_path;
@@ -10,21 +13,21 @@ pub mod symbols;
 pub mod visitor;
 
 pub use def_path::*;
-pub use symbols::{types, values, *};
+pub use symbols::*;
 pub use visitor::*;
 //pub use symtab_visitor::{MutSymtabVisitor, SymtabVisitor};
 
 pub struct SymbolTable {
-    pub types: types::Interner,
+    pub types: midend::types::Interner,
     // mapping of symbols to declarations (None) or definitions (Some)
-    symbols: BTreeMap<DefPath, Option<SymbolRepr>>,
+    symbols: BTreeMap<DefPath, Option<SymbolDef>>,
     children: BTreeMap<DefPath, HashSet<DefPath>>,
 }
 
 impl Default for SymbolTable {
     fn default() -> Self {
         Self {
-            types: types::Interner::new(),
+            types: midend::types::Interner::new(),
             symbols: BTreeMap::new(),
             children: BTreeMap::new(),
         }
@@ -55,6 +58,8 @@ impl SymbolTable {
     }
 
     pub fn declare(&mut self, def_path: DefPath) -> Result<DefPath, SymbolError> {
+        unimplemented!();
+        /*
         let mut parent_def_path = def_path.clone();
         parent_def_path.pop();
 
@@ -68,30 +73,7 @@ impl SymbolTable {
             Some(None) => Err(SymbolError::AlreadyDeclared(def_path)),
             None => Ok(def_path),
         }
-    }
-
-    /// define the given symbol at the given path
-    /// assumes that the def_path is the full, global DefPath under which S will be inserted
-    /// automatically adds the DefPathComponent for S to the end of def_path
-    pub fn define<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
-    where
-        S: Symbol + std::fmt::Debug,
-    {
-        let full_def_path = def_path.clone().with_component(symbol.path_component())?;
-        self.children
-            .entry(def_path.clone())
-            .or_default()
-            .insert(full_def_path.clone());
-
-        trace::debug!("insert at {} - {:?}", def_path, symbol.path_component());
-
-        match self
-            .symbols
-            .insert(full_def_path.clone(), Some(symbol.into_repr()))
-        {
-            Some(Some(_already_defined)) => Err(SymbolError::AlreadyDefined(def_path)),
-            Some(None) | None => Ok(full_def_path),
-        }
+        */
     }
 
     pub fn children(&self, def_path: &DefPath) -> HashSet<&DefPath> {
@@ -105,7 +87,7 @@ impl SymbolTable {
         self.symbols.iter().map(|(path, _)| path)
     }
 
-    pub fn defs(&self) -> impl Iterator<Item = (&DefPath, &SymbolRepr)> {
+    pub fn defs(&self) -> impl Iterator<Item = (&DefPath, &SymbolDef)> {
         self.symbols
             .iter()
             .map(|(path, maybe_def)| match maybe_def {
@@ -115,7 +97,7 @@ impl SymbolTable {
             .flatten()
     }
 
-    pub fn defs_mut(&mut self) -> impl Iterator<Item = (&DefPath, &mut SymbolRepr)> {
+    pub fn defs_mut(&mut self) -> impl Iterator<Item = (&DefPath, &mut SymbolDef)> {
         self.symbols
             .iter_mut()
             .map(|(path, maybe_def)| match maybe_def {
@@ -125,12 +107,13 @@ impl SymbolTable {
             .flatten()
     }
 
+    /*
     fn lookup_with_path(
         &self,
         def_path: &DefPath,
         subpath: DefPath,
-        key: DefPathComponent,
-    ) -> Result<(&SymbolRepr, DefPath), SymbolError> {
+        key: PathSegment,
+    ) -> Result<(&SymbolDef, DefPath), SymbolError> {
         let mut search_def_path = def_path.clone();
         let subpath_with_component = subpath.with_component(key.clone())?;
 
@@ -162,8 +145,8 @@ impl SymbolTable {
         &mut self,
         def_path: &DefPath,
         subpath: DefPath,
-        key: DefPathComponent,
-    ) -> Result<(&mut SymbolRepr, DefPath), SymbolError> {
+        key: PathSegment,
+    ) -> Result<(&mut SymbolDef, DefPath), SymbolError> {
         let mut search_def_path = def_path.clone();
         let subpath_with_component = subpath.with_component(key.clone())?;
 
@@ -196,10 +179,9 @@ impl SymbolTable {
         def_path: &DefPath,
         subpath: DefPath,
         name: String,
-    ) -> Result<(&SymbolRepr, DefPath), SymbolError> {
-        let (repr, path) =
-            self.lookup_with_path(def_path, subpath, DefPathComponent::Type(name))?;
-        assert!(matches!(repr, SymbolRepr::Type(_)));
+    ) -> Result<(&SymbolDef, DefPath), SymbolError> {
+        let (repr, path) = self.lookup_with_path(def_path, subpath, PathSegment::Type(name))?;
+        assert!(matches!(repr, SymbolDef::Type(_)));
         Ok((repr, path))
     }
 
@@ -208,12 +190,12 @@ impl SymbolTable {
         def_path: &DefPath,
         subpath: DefPath,
         name: String,
-    ) -> Result<(&SymbolRepr, DefPath), SymbolError> {
-        let (repr, path) =
-            self.lookup_with_path(def_path, subpath, DefPathComponent::Value(name))?;
-        assert!(matches!(repr, SymbolRepr::Value(_)));
+    ) -> Result<(&SymbolDef, DefPath), SymbolError> {
+        let (repr, path) = self.lookup_with_path(def_path, subpath, PathSegment::Value(name))?;
+        assert!(matches!(repr, SymbolDef::Value(_)));
         Ok((repr, path))
     }
+    */
 }
 
 /// Type handling helper functions
@@ -222,9 +204,11 @@ impl SymbolTable {
     pub fn semantic_type_for_syntactic(
         &self,
         search_def_path: &DefPath,
-        generic_params: types::ParamSubstMap,
-        ty_: &types::Syntactic,
-    ) -> Result<types::Semantic, SymbolError> {
+        generic_params: midend::types::ParamSubstMap,
+        ty_: &midend::types::Syntactic,
+    ) -> Result<midend::types::Semantic, SymbolError> {
+        unimplemented!();
+        /*
         let (_, path) = self.lookup_type(search_def_path, ty_)?;
         trace::trace!(
             "found definition of syntactic type {} at defpath {}",
@@ -235,6 +219,7 @@ impl SymbolTable {
             .types
             .semantic_for_defpath(path, generic_params)
             .unwrap())
+        */
     }
 }
 
@@ -249,7 +234,7 @@ mod tests {
         assert_eq!(
             symtab.define(DefPath::empty(), Module::new("test_mod".into())),
             Ok(DefPath::empty()
-                .with_component(DefPathComponent::Module(ModuleName {
+                .with_component(PathSegment::Module(ModuleName {
                     name: "test_mod".into()
                 }))
                 .unwrap())

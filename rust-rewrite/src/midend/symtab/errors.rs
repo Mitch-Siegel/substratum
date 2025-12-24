@@ -4,30 +4,28 @@ use crate::midend::symtab::*;
 pub enum SymbolError {
     // TODO: is there any good reason for the path and component to be separated for
     // undeclared/undefined errors?
-    Undeclared(DefPath, DefPathComponent),
-    Undefined(DefPath, DefPathComponent),
+    Undeclared(DefPath),
+    Undefined(DefPath),
     AlreadyDeclared(DefPath),
     AlreadyDefined(DefPath),
-    CantOwn(DefPath, DefPathComponent),
+    PathError(PathError),
+}
+
+impl From<PathError> for SymbolError {
+    fn from(value: PathError) -> Self {
+        SymbolError::PathError(value)
+    }
 }
 
 impl std::fmt::Display for SymbolError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Undefined(path, component) => write!(
-                f,
-                "undeclared symbol {} at definition path {}",
-                component, path
-            ),
-            Self::Undeclared(path, component) => write!(
-                f,
-                "undeclared symbol {} at definition path {}",
-                component, path
-            ),
+            Self::Undefined(path) => write!(f, "undefined symbol {}", path),
+            Self::Undeclared(path) => write!(f, "undeclared symbol {}", path),
             Self::AlreadyDeclared(path) => write!(f, "DefPath {} is already declared", path),
             Self::AlreadyDefined(path) => write!(f, "DefPath {} is already defined", path),
-            Self::CantOwn(owner, ownee) => {
-                write!(f, "DefPath \"{:?}\" can't own {:?}", owner, ownee)
+            Self::PathError(pe) => {
+                write!(f, "{}", pe)
             }
         }
     }

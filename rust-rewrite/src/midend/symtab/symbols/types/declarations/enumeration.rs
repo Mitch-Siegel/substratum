@@ -66,7 +66,6 @@ impl std::fmt::Display for EnumVariant {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EnumRepr {
     pub name: String,
-    pub generic_params: types::GenericParamsList,
     variants: BTreeMap<String, EnumVariant>,
     discriminants: BTreeMap<String, usize>,
     size: Option<usize>,
@@ -76,7 +75,6 @@ pub struct EnumRepr {
 impl EnumRepr {
     pub fn new(
         name: String,
-        generic_params: types::GenericParamsList,
         variant_definitions: Vec<(String, EnumVariantRepr)>,
     ) -> Result<Self, EnumVariant> {
         let mut variants = BTreeMap::<String, EnumVariant>::new();
@@ -95,7 +93,6 @@ impl EnumRepr {
 
         Ok(Self {
             name,
-            generic_params,
             variants,
             discriminants,
             size: None,
@@ -109,5 +106,11 @@ impl EnumRepr {
 
     pub fn get_variant(&self, variant_name: &String) -> Option<&EnumVariant> {
         self.variants.get(variant_name)
+    }
+}
+
+impl std::fmt::Display for EnumRepr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "enum {}", self.name)
     }
 }

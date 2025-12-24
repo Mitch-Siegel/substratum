@@ -1,6 +1,9 @@
 use serde::Serialize;
 
-use crate::midend::{ir, symtab::*};
+use crate::midend::{
+    symtab::{Symbol, *},
+    *,
+};
 
 #[derive(Debug, Clone)]
 pub struct Function {
@@ -35,33 +38,28 @@ impl Function {
     }
 }
 
-impl<'a> From<DefResolver<'a>> for &'a Function {
-    fn from(resolver: DefResolver<'a>) -> Self {
-        match resolver.to_resolve {
-            SymbolDef::Function(function) => function,
-            symbol => panic!("Unexpected symbol seen for function: {}", symbol),
-        }
-    }
-}
-impl<'a> From<MutDefResolver<'a>> for &'a mut Function {
-    fn from(resolver: MutDefResolver<'a>) -> Self {
-        match resolver.to_resolve {
-            SymbolDef::Function(function) => function,
-            symbol => panic!("Unexpected symbol seen for function: {}", symbol),
-        }
-    }
-}
-
-impl<'a> Into<SymbolDef> for DefGenerator<'a, Function> {
-    fn into(self) -> SymbolDef {
-        SymbolDef::Function(self.to_generate_def_for)
-    }
-}
-
 impl Symbol for Function {
-    type SymbolKey = FunctionName;
-    fn symbol_key(&self) -> &Self::SymbolKey {
+    fn name(&self) -> &str {
         &self.prototype.name
+    }
+
+    fn path_segment(&self) -> PathSegment {
+        PathSegment::Value(self.name().into())
+    }
+
+    fn into_repr(self) -> SymbolDef {
+        SymbolDef::Value(Value::Function(self))
+    }
+}
+
+impl std::fmt::Display for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} - has cf? {}",
+            self.prototype,
+            self.control_flow.is_some()
+        )
     }
 }
 
@@ -110,7 +108,7 @@ impl FunctionPrototype {
         return_type: types::Syntactic,
     ) -> Self {
         FunctionPrototype {
-            name: FunctionName { name },
+            name: name,
             generic_params,
             arguments,
             return_type,

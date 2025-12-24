@@ -137,12 +137,12 @@ impl std::fmt::Debug for ParamSubstMap {
 
 #[derive(Debug)]
 pub struct InstanceSet {
-    underlying_definition: symtab::TypeDefinition,
+    underlying_definition: symtab::TypeDecl,
     instances: HashSet<ParamSubstMap>,
 }
 
 impl InstanceSet {
-    pub fn new(underlying_definition: symtab::TypeDefinition) -> Self {
+    pub fn new(underlying_definition: symtab::TypeDecl) -> Self {
         // special case for non-generic types. We must still be able to call get_underlying, which
         // requires lookup to succeed (only) when an empty substitution map is passed
         let instances = if underlying_definition.generic_params().len() == 0 {
@@ -160,10 +160,7 @@ impl InstanceSet {
         self.instances.insert(params)
     }
 
-    pub fn get_underlying(
-        &self,
-        params: &ParamSubstMap,
-    ) -> Result<&symtab::TypeDefinition, String> {
+    pub fn get_underlying(&self, params: &ParamSubstMap) -> Result<&symtab::TypeDecl, String> {
         trace::trace!(
             "get underlying type definition {} for generic params {}",
             self.underlying_definition.syntactic(),

@@ -38,14 +38,19 @@ impl Display for LetTree {
 
 impl midend::treewalk::Treewalk<()> for LetTree {
     fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+        unimplemented!();
+        /*
         ctx.declare(midend::symtab::DefPathComponent::Variable(
             self.name.value.clone(),
         ))
         .unwrap();
+        */
     }
 
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> () {
+        unimplemented!();
+        /*
         let variable_type = match self.type_ {
             Some(type_tree) => type_tree.linearize(ctx),
             None => None,
@@ -66,5 +71,6 @@ impl midend::treewalk::Treewalk<()> for LetTree {
         ctx.function_mut()
             .append_statement_to_current_block(assignment_line)
             .unwrap();
+        */
     }
 }

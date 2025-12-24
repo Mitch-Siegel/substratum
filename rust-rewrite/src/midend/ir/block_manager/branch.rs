@@ -93,6 +93,8 @@ impl BlockManager {
         true_end_label: usize,
         loc: SourceLoc,
     ) -> Result<usize, BranchError> {
+        unimplemented!();
+        /*
         let finished_branch = self.pop_last_branch()?;
         let branched_from = finished_branch.from_label;
         let false_block = match finished_branch.kind {
@@ -100,8 +102,7 @@ impl BlockManager {
             kind => Err(BranchError::WrongKind(
                 kind,
                 vec![BranchKind::ConditionalTrue(ir::BasicBlock::new(
-                    0,
-                    symtab::DefPath::empty(),
+                    0, def_path,
                 ))],
             )),
         }?;
@@ -117,6 +118,7 @@ impl BlockManager {
         let false_label = false_block.label;
         self.blocks.insert(false_label, false_block);
         Ok(false_label)
+        */
     }
 
     pub fn finish_branch(

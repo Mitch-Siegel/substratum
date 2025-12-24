@@ -12,7 +12,7 @@ fn functions_to_graphviz(symtab: &symtab::SymbolTable, suffix: String) {
     let _ = symtab::Visitor::visit_with_starting_data(
         symtab,
         |_path, symbol, suffix| match symbol {
-            symtab::SymbolDef::Function(f) => {
+            symtab::SymbolDef::Value(symtab::Value::Function(f)) => {
                 if let Some(cf) = &f.control_flow {
                     {
                         use std::io::Write;

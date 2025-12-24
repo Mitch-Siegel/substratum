@@ -90,14 +90,7 @@ impl midend::treewalk::Treewalk<PatternTree> for PatternTree {
             Self::Literal(_) => (),
             Self::Identifier(ident) => {
                 let variable_name = ident.linearize(ctx);
-                let variable_def_path = ctx
-                    .define(midend::symtab::values::Variable::new(variable_name, None))
-                    .unwrap();
-                // TODO: examine if there's a better way to just declare variables and give them a
-                // ValueID in one go?
-                ctx.function_mut()
-                    .values_mut()
-                    .id_for_path(variable_def_path);
+                unimplemented!();
             }
             Self::TupleStruct(tuple_struct) => {
                 tuple_struct.linearize(ctx);
@@ -127,10 +120,13 @@ impl Display for MatchArmTree {
 
 impl midend::treewalk::Treewalk<(PatternTree, midend::ir::ValueId)> for MatchArmTree {
     fn collect_symbols(&self, ctx: &mut midend::treewalk::CollectCtx) {
+        unimplemented!();
+        /*
         let arm_subscope_idx = ctx.new_subscope().unwrap();
         self.pattern.collect_symbols(ctx);
         self.expression.collect_symbols(ctx);
         ctx.finish_subscope(arm_subscope_idx).unwrap();
+        */
     }
 
     #[tracing::instrument(skip(self), level = "trace", fields(tree_name = Self::reflect_name()))]

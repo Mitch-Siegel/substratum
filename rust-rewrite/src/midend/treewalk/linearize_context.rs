@@ -158,7 +158,12 @@ impl LinearizeCtx {
         &mut self.generics
     }
 
-    pub fn create_function(&mut self, prototype: FunctionPrototype) -> Result<(), SymbolError> {
+    pub fn create_function(
+        &mut self,
+        prototype: symtab::values::function::FunctionPrototype,
+    ) -> Result<(), SymbolError> {
+        unimplemented!();
+        /*
         let unit_type_id = self
             .symtab()
             .semantic_type_for_syntactic(
@@ -200,40 +205,46 @@ impl LinearizeCtx {
             ),
             None => Ok(()),
         }
+        */
     }
 
-    pub fn finish_function(&mut self, expected_name: FunctionName) -> Result<(), ()> {
-        let def_path = self.def_path().clone();
-        self.function_mut().resolve_final_convergence();
-        self.function_mut().ensure_finished().unwrap();
-        let function_context = self.functions.remove(&def_path).unwrap();
-        let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
-        match function.control_flow.replace(function_context.take()) {
-            Some(_) => return Err(()),
-            None => (),
+    pub fn finish_function(&mut self, expected_name: String) -> Result<(), ()> {
+        unimplemented!();
+        /*
+            let def_path = self.def_path().clone();
+            self.function_mut().resolve_final_convergence();
+            self.function_mut().ensure_finished().unwrap();
+            let function_context = self.functions.remove(&def_path).unwrap();
+            let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
+            match function.control_flow.replace(function_context.take()) {
+                Some(_) => return Err(()),
+                None => (),
+            }
+            self.pop_def_path(DefPathComponent::Function(expected_name))
+                .unwrap();
+            Ok(())
         }
-        self.pop_def_path(DefPathComponent::Function(expected_name))
-            .unwrap();
-        Ok(())
-    }
 
-    // finish a function which has already had the finish() called once, assert that no branches
-    // are open
-    pub fn refinish_function(&mut self, expected_name: FunctionName) -> Result<(), ()> {
-        let def_path = self.def_path().clone();
-        self.function_mut().ensure_finished().unwrap();
-        let function_context = self.functions.remove(&def_path).unwrap();
-        let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
-        match function.control_flow.replace(function_context.take()) {
-            Some(_) => return Err(()),
-            None => (),
-        }
-        self.pop_def_path(DefPathComponent::Function(expected_name))
-            .unwrap();
-        Ok(())
+        // finish a function which has already had the finish() called once, assert that no branches
+        // are open
+        pub fn refinish_function(&mut self, expected_name: FunctionName) -> Result<(), ()> {
+            let def_path = self.def_path().clone();
+            self.function_mut().ensure_finished().unwrap();
+            let function_context = self.functions.remove(&def_path).unwrap();
+            let function = self.lookup_at_mut::<symtab::Function>(&def_path).unwrap();
+            match function.control_flow.replace(function_context.take()) {
+                Some(_) => return Err(()),
+                None => (),
+            }
+            self.pop_def_path(DefPathComponent::Function(expected_name))
+                .unwrap();
+            Ok(())
+        */
     }
 
     pub fn function(&self) -> &FunctionLinearizeCtx {
+        unimplemented!();
+        /*
         let mut scan_def_path = self.def_path().clone();
         while scan_def_path.len() > 0 {
             if self.functions.contains_key(&scan_def_path) {
@@ -248,9 +259,12 @@ impl LinearizeCtx {
         } else {
             panic!("DefContext::function() called with no active function!");
         }
+        */
     }
 
     pub fn function_mut(&mut self) -> &mut FunctionLinearizeCtx {
+        unimplemented!();
+        /*
         let mut scan_def_path = self.def_path().clone();
         while scan_def_path.len() > 0 {
             if self.functions.contains_key(&scan_def_path) {
@@ -265,13 +279,16 @@ impl LinearizeCtx {
         } else {
             panic!("DefContext::function_mut() called with no active function!");
         }
+        */
     }
 
     pub fn push_def_path(
         &mut self,
-        component: DefPathComponent,
+        component: PathSegment,
         generic_params: &types::GenericParamsList,
     ) {
+        unimplemented!();
+        /*
         let params_set = generic_params
             .iter()
             .map(|param| param.clone())
@@ -288,13 +305,13 @@ impl LinearizeCtx {
         self.generics_mut()
             .add_params_at_path(new_def_path, params_set)
             .unwrap();
+        */
     }
 
     // FUTURE: error type for pop def path here and in symbol collection context?
-    pub fn pop_def_path(
-        &mut self,
-        expect: DefPathComponent,
-    ) -> Result<(), (DefPathComponent, DefPathComponent)> {
+    pub fn pop_def_path(&mut self, expect: PathSegment) -> Result<(), (PathSegment, PathSegment)> {
+        unimplemented!();
+        /*
         let def_path = self.def_path().clone();
         self.generics_mut().remove_params_at_path(def_path).unwrap();
         let popped = self.definition_path.pop().unwrap();
@@ -306,10 +323,13 @@ impl LinearizeCtx {
         } else {
             Err((popped, expect))
         }
+        */
     }
 
     // reserves a subscope, returning its defpath
     pub fn reserve_subscope(&mut self) -> symtab::DefPath {
+        unimplemented!();
+        /*
         let next_subscope_index = self
             .symtab()
             .children(&self.def_path())
@@ -326,16 +346,22 @@ impl LinearizeCtx {
                 symtab::Scope::new(next_subscope_index),
             )
             .unwrap()
+        */
     }
 
     pub fn self_variable(&self) -> Result<DefPath, SymbolError> {
+        unimplemented!();
+        /*
         Ok(self
             .lookup_with_path::<symtab::Variable>(&String::from("self"))?
             .1)
+        */
     }
 
     // resolves a string type name to either a defined type or a generic param
     pub fn disambiguate_named_type(&self, name: &str) -> Result<types::Syntactic, SymbolError> {
+        unimplemented!();
+        /*
         // first, lookup the type in the Symbol table
         let (mut type_, found_def_path) =
             match self.lookup_with_path::<TypeDefinition>(&types::Syntactic::Named(name.into())) {
@@ -371,6 +397,7 @@ impl LinearizeCtx {
             self.def_path().clone(),
             DefPathComponent::Type(types::Syntactic::Named(name.into())),
         ))
+        */
     }
 
     pub fn semantic_type_for_syntactic(
@@ -378,109 +405,21 @@ impl LinearizeCtx {
         ty: types::Syntactic,
         params: types::ParamSubstMap,
     ) -> Result<types::Semantic, symtab::SymbolError> {
+        unimplemented!();
+        /*
         let (_, type_path) = self.lookup_with_path::<symtab::TypeDefinition>(&ty)?;
         Ok(self
             .symtab()
             .types
             .semantic_for_defpath(type_path, params)
             .unwrap())
-    }
-
-    pub fn lookup<S>(&self, key: &<S as Symbol>::SymbolKey) -> Result<&S, SymbolError>
-    where
-        S: Symbol,
-        for<'a> &'a S: From<DefResolver<'a>>,
-        for<'a> &'a mut S: From<MutDefResolver<'a>>,
-        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
-    {
-        self.symtab().lookup::<S>(&self.def_path(), key)
-    }
-
-    pub fn lookup_with_path<S>(
-        &self,
-        key: &<S as Symbol>::SymbolKey,
-    ) -> Result<(&S, DefPath), SymbolError>
-    where
-        S: Symbol,
-        for<'a> &'a S: From<DefResolver<'a>>,
-        for<'a> &'a mut S: From<MutDefResolver<'a>>,
-        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
-    {
-        self.symtab().lookup_with_path::<S>(&self.def_path(), key)
-    }
-
-    #[allow(dead_code)]
-    fn lookup_mut<S>(&mut self, key: &<S as Symbol>::SymbolKey) -> Result<&mut S, SymbolError>
-    where
-        S: Symbol,
-        for<'a> &'a S: From<DefResolver<'a>>,
-        for<'a> &'a mut S: From<MutDefResolver<'a>>,
-        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
-    {
-        let def_path = self.def_path().clone();
-        self.symtab_mut().lookup_mut::<S>(&def_path, key)
-    }
-
-    pub fn lookup_at<S>(&self, def_path: &DefPath) -> Result<&S, SymbolError>
-    where
-        S: Symbol,
-        for<'a> &'a S: From<DefResolver<'a>>,
-        for<'a> &'a mut S: From<MutDefResolver<'a>>,
-        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
-    {
-        self.symtab().lookup_at::<S>(def_path)
-    }
-
-    fn lookup_at_mut<S>(&mut self, def_path: &DefPath) -> Result<&mut S, SymbolError>
-    where
-        S: Symbol,
-        for<'a> &'a S: From<DefResolver<'a>>,
-        for<'a> &'a mut S: From<MutDefResolver<'a>>,
-        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
-    {
-        self.symtab_mut().lookup_at_mut::<S>(def_path)
-    }
-
-    // lookup 'child_path' under self.def_path() (or parents of self.def_path())
-    pub fn lookup_under<S>(
-        &mut self,
-        child_path: DefPath,
-    ) -> Result<(symtab::DefPath, &S), SymbolError>
-    where
-        S: Symbol,
-        for<'a> &'a S: From<DefResolver<'a>>,
-        for<'a> &'a mut S: From<MutDefResolver<'a>>,
-        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
-    {
-        self.symtab().lookup_under::<S>(self.def_path(), child_path)
-    }
-
-    // add a DefPathComponent for 'symbol' at the end of the current def path
-    pub fn define<S>(&mut self, symbol: S) -> Result<DefPath, SymbolError>
-    where
-        S: Symbol + std::fmt::Debug,
-        for<'a> &'a S: From<DefResolver<'a>>,
-        for<'a> &'a mut S: From<MutDefResolver<'a>>,
-        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
-    {
-        let def_path = self.def_path().clone();
-        let symtab_mut = self.symtab_mut();
-        trace::trace!("define {:?} at {:?}", symbol, def_path);
-        symtab_mut.define::<S>(def_path, symbol)
-    }
-
-    fn define_at<S>(&mut self, def_path: DefPath, symbol: S) -> Result<DefPath, SymbolError>
-    where
-        S: Symbol + std::fmt::Debug,
-        for<'a> &'a S: From<DefResolver<'a>>,
-        for<'a> &'a mut S: From<MutDefResolver<'a>>,
-        for<'a> DefGenerator<'a, S>: Into<SymbolDef>,
-    {
-        self.symtab_mut().define::<S>(def_path, symbol)
+        */
     }
 
     #[allow(dead_code)]
     fn self_type(&self) -> Option<types::Syntactic> {
+        unimplemented!();
+        /*
         let mut search_def_path = self.def_path().clone();
         loop {
             match search_def_path.last() {
@@ -501,5 +440,6 @@ impl LinearizeCtx {
         }
 
         None
+        */
     }
 }

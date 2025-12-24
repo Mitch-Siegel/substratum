@@ -1,5 +1,6 @@
 use crate::midend::{
     ir::{unlowered::Lowerable, *},
+    symtab::Path,
     treewalk::GenericParamsContext,
     *,
 };
@@ -27,7 +28,11 @@ pub fn lower_function(
     let _span = trace::span_auto_debug!("Lower function ", "{}", def_path.last());
 
     loop {
+        unimplemented!();
+        /*
         let (mut cf, mut unlowered, function_name) = {
+
+
             let function = symtab.lookup_value_at_mut(&def_path).unwrap();
 
             match &mut function.control_flow {
@@ -50,6 +55,7 @@ pub fn lower_function(
                     break;
                 }
             }
+
         };
 
         symtab = cf.infer_types(symtab).1;
@@ -130,6 +136,7 @@ pub fn lower_function(
 
         ctx.refinish_function(function_name.clone()).unwrap();
         symtab = ctx.take().unwrap().0;
+        */
     }
 
     symtab

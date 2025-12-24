@@ -1,4 +1,4 @@
-use crate::midend::{types::*, *};
+use crate::midend::{symtab::Path, types::*, *};
 use std::collections::{HashMap, HashSet};
 
 pub mod monomorphization;
@@ -57,7 +57,7 @@ impl Interner {
     pub fn insert_type(
         &mut self,
         def_path: symtab::DefPath,
-        definition: symtab::TypeDefinition,
+        definition: symtab::TypeDecl,
     ) -> Result<Semantic, symtab::SymbolError> {
         assert!(&def_path.is_type());
 
@@ -99,9 +99,7 @@ impl Interner {
             Some(i) => Ok(i),
             None => {
                 trace::trace!("no generic instances exist for defpath {:?}", def_path);
-                let mut parent_path = def_path.clone();
-                let last_component = parent_path.pop().unwrap();
-                Err(symtab::SymbolError::Undefined(parent_path, last_component))
+                Err(symtab::SymbolError::Undefined(def_path.clone()))
             }
         }?;
 
@@ -130,7 +128,7 @@ impl Interner {
     }
 
     #[tracing::instrument(skip(self))]
-    pub fn get_type_definition(&self, id: &Semantic) -> Result<&symtab::TypeDefinition, String> {
+    pub fn get_type_definition(&self, id: &Semantic) -> Result<&symtab::TypeDecl, String> {
         let path_with_params = self.id_mappings.get(id).ok_or("no type mapping for ID")?;
         trace::trace!("semantic type {} maps to {:?}", id, path_with_params);
         let instance_set = self
@@ -145,7 +143,7 @@ impl Interner {
         instance_set.get_underlying(&path_with_params.param_substs)
     }
 
-    pub fn get_syntactic(&self, id: &Semantic) -> Result<&Syntactic, String> {
+    pub fn get_syntactic(&self, id: &Semantic) -> Result<Syntactic, String> {
         Ok(self.get_type_definition(id)?.syntactic())
     }
 

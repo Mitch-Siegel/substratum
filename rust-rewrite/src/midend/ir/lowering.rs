@@ -8,11 +8,11 @@ struct FunctionsToLower(Vec<symtab::DefPath>);
 
 fn check_symbol_for_lowering(
     def_path: &symtab::DefPath,
-    symbol: &symtab::SymbolRepr,
+    symbol: &symtab::SymbolDef,
     to_lower: &mut FunctionsToLower,
 ) {
     match symbol {
-        symtab::SymbolRepr::Value(symtab::Value::Function(_)) => {
+        symtab::SymbolDef::Value(symtab::Value::Function(_)) => {
             to_lower.0.push(def_path.clone());
         }
         _ => (),
@@ -29,9 +29,9 @@ pub fn lower_symtab(mut symtab: Box<symtab::SymbolTable>) -> Box<symtab::SymbolT
     symtab
 }
 
-fn assert_symbol_lowered(def_path: &symtab::DefPath, symbol: &symtab::SymbolRepr, _: &mut ()) {
+fn assert_symbol_lowered(def_path: &symtab::DefPath, symbol: &symtab::SymbolDef, _: &mut ()) {
     match symbol {
-        symtab::SymbolRepr::Value(symtab::Value::Function(function)) => {
+        symtab::SymbolDef::Value(symtab::Value::Function(function)) => {
             assert!(
                 function.is_lowered(),
                 "Function '{}' (with defpath '{}' is not fully lowered",

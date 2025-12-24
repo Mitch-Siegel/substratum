@@ -1,6 +1,8 @@
 use crate::midend::{symtab::*, types};
 
 fn create_core_types(symtab: &mut SymbolTable) {
+    unimplemented!();
+    /*
     let core_def_path = DefPath::empty()
         .with_component(DefPathComponent::Module(ModuleName {
             name: "core".into(),
@@ -51,6 +53,7 @@ fn create_core_types(symtab: &mut SymbolTable) {
             .define(core_def_path.clone(), signed_definition)
             .unwrap();
     }
+    */
 }
 
 pub fn create_core(symtab: &mut SymbolTable) {

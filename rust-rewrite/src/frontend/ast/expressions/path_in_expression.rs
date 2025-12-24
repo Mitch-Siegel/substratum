@@ -26,6 +26,8 @@ impl midend::treewalk::Treewalk<midend::ir::ValueId> for PathInExpressionTree {
     }
 
     fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
+        unimplemented!();
+        /*
         let _span = trace::span_auto_debug!(
             "treewalk::linearize for PathInexpressionTree @",
             "{:?}",
@@ -38,6 +40,7 @@ impl midend::treewalk::Treewalk<midend::ir::ValueId> for PathInExpressionTree {
             .unwrap();
 
         ctx.function_mut().values_mut().id_for_path(path)
+        */
     }
 }
 
@@ -52,8 +55,10 @@ pub fn record_monomorphization(
     path: &midend::symtab::DefPath,
     maybe_generics: Option<ast::generics::GenericArgsListTree>,
 ) {
+    unimplemented!();
+
     // TODO: checking for correct number of params
-    let generics = match maybe_generics {
+    /*let generics = match maybe_generics {
         Some(g) => g.linearize(ctx),
         None => return,
     };
@@ -91,5 +96,5 @@ pub fn record_monomorphization(
     ctx.symtab_mut()
         .types
         .record_monomorphization(path.clone(), substs)
-        .unwrap();
+        .unwrap();*/
 }

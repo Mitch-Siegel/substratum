@@ -1,14 +1,10 @@
 use crate::midend::symtab::{Symbol, *};
 
-pub mod enumeration;
-pub mod implementation;
+pub mod declarations;
 pub mod module;
-pub mod structure;
 
-pub use enumeration::{EnumRepr, EnumVariantRepr};
-pub use implementation::ImplRepr;
+pub use declarations::*;
 pub use module::Module;
-pub use structure::StructRepr;
 
 #[derive(Debug)]
 pub enum Type {
@@ -16,13 +12,11 @@ pub enum Type {
     //UseDeclaration
 
     //TypeAlias
-    Struct(StructRepr),
-    Enum(EnumRepr),
+    TypeDecl(TypeDecl),
     //Union
     //ConstantItem
     //StaticItem
     //Trait
-    Implementation(ImplRepr),
     GenericTypeParam(()),
     //ExternBlock
 }
@@ -31,18 +25,26 @@ impl Symbol for Type {
     fn name(&self) -> &str {
         match self {
             Self::Module(m) => &m.name,
-            Self::Struct(s) => &s.name,
-            Self::Enum(e) => &e.name,
-            Self::Implementation(i) => i.name(),
+            Self::TypeDecl(td) => td.name(),
             Self::GenericTypeParam(_) => "generic type params",
         }
     }
 
-    fn into_repr(self) -> SymbolRepr {
-        SymbolRepr::Type(self)
+    fn into_repr(self) -> SymbolDef {
+        SymbolDef::Type(self)
     }
 
-    fn path_component(&self) -> DefPathComponent {
-        DefPathComponent::Type(self.name().into())
+    fn path_segment(&self) -> PathSegment {
+        PathSegment::Type(self.name().into())
+    }
+}
+
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Module(m) => write!(f, "{}", m),
+            Self::TypeDecl(td) => write!(f, "{}", td),
+            Self::GenericTypeParam(_) => write!(f, "generic type param"),
+        }
     }
 }

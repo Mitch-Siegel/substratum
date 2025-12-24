@@ -3,19 +3,20 @@ use crate::midend::symtab::*;
 pub mod types;
 pub mod values;
 
-pub use types::{EnumRepr, StructRepr, Type};
-pub use values::{Function, Value};
+pub use types::*;
+pub use values::*;
 
 #[enum_delegate::implement(Symbol)]
-pub enum SymbolRepr {
+#[derive(Debug)]
+pub enum SymbolDef {
     Type(Type),
     Value(Value),
 }
 
-impl std::fmt::Display for SymbolRepr {
+impl std::fmt::Display for SymbolDef {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Item(i) => write!(f, "item {}", i),
+            Self::Type(t) => write!(f, "type {}", t),
             Self::Value(v) => write!(f, "value {}", v),
         }
     }
@@ -25,7 +26,7 @@ impl std::fmt::Display for SymbolRepr {
 pub trait Symbol {
     fn name(&self) -> &str;
 
-    fn path_component(&self) -> DefPathComponent;
+    fn path_segment(&self) -> PathSegment;
 
-    fn into_repr(self) -> SymbolRepr;
+    fn into_repr(self) -> SymbolDef;
 }

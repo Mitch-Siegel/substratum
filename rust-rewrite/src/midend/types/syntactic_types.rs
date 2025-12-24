@@ -26,11 +26,14 @@ impl Syntactic {
         generic_params: types::ParamSubstMap,
         ctx: &treewalk::LinearizeCtx,
     ) -> Option<Semantic> {
+        unimplemented!();
+        /*
         let (_def, path) = ctx.lookup_with_path::<symtab::TypeDefinition>(self).ok()?;
 
         ctx.symtab()
             .types
             .semantic_for_defpath(path, generic_params)
+        */
     }
 }
 
