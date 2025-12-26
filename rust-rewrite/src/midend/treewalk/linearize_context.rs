@@ -133,11 +133,11 @@ impl LinearizeCtx {
         Ok((self.symtab, self.definition_path, self.generics))
     }
 
-    pub fn symtab(&self) -> &SymbolTable {
+    fn symtab(&self) -> &SymbolTable {
         &self.symtab
     }
 
-    pub fn symtab_mut(&mut self) -> &mut SymbolTable {
+    fn symtab_mut(&mut self) -> &mut SymbolTable {
         &mut self.symtab
     }
 
@@ -155,9 +155,14 @@ impl LinearizeCtx {
         &mut self.generics
     }
 
+    pub fn define_type(&mut self, symbol: Type) -> Result<DefPath, SymbolError> {
+        self.symtab
+            .define_type(self.definition_path.clone(), symbol)
+    }
+
     pub fn create_function(
         &mut self,
-        prototype: symtab::values::function::FunctionPrototype,
+        _prototype: symtab::values::function::FunctionPrototype,
     ) -> Result<(), SymbolError> {
         unimplemented!();
         /*
@@ -205,7 +210,7 @@ impl LinearizeCtx {
         */
     }
 
-    pub fn finish_function(&mut self, expected_name: String) -> Result<(), ()> {
+    pub fn finish_function(&mut self, _expected_name: String) -> Result<(), ()> {
         unimplemented!();
         /*
             let def_path = self.def_path().clone();
@@ -281,8 +286,8 @@ impl LinearizeCtx {
 
     pub fn push_def_path(
         &mut self,
-        component: PathSegment,
-        generic_params: &types::GenericParamsList,
+        _component: PathSegment,
+        _generic_params: &types::GenericParamsList,
     ) {
         unimplemented!();
         /*
@@ -306,7 +311,7 @@ impl LinearizeCtx {
     }
 
     // FUTURE: error type for pop def path here and in symbol collection context?
-    pub fn pop_def_path(&mut self, expect: PathSegment) -> Result<(), (PathSegment, PathSegment)> {
+    pub fn pop_def_path(&mut self, _expect: PathSegment) -> Result<(), (PathSegment, PathSegment)> {
         unimplemented!();
         /*
         let def_path = self.def_path().clone();
@@ -356,7 +361,7 @@ impl LinearizeCtx {
     }
 
     // resolves a string type name to either a defined type or a generic param
-    pub fn disambiguate_named_type(&self, name: &str) -> Result<types::Syntactic, SymbolError> {
+    pub fn disambiguate_named_type(&self, _name: &str) -> Result<types::Syntactic, SymbolError> {
         unimplemented!();
         /*
         // first, lookup the type in the Symbol table
@@ -399,8 +404,8 @@ impl LinearizeCtx {
 
     pub fn semantic_type_for_syntactic(
         &self,
-        ty: types::Syntactic,
-        params: types::ParamSubstMap,
+        _ty: types::Syntactic,
+        _params: types::ParamSubstMap,
     ) -> Result<types::Semantic, symtab::SymbolError> {
         unimplemented!();
         /*

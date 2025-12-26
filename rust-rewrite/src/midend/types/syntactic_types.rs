@@ -23,8 +23,8 @@ pub enum Syntactic {
 impl Syntactic {
     pub fn resolve(
         &self,
-        generic_params: types::ParamSubstMap,
-        ctx: &treewalk::LinearizeCtx,
+        _generic_params: types::ParamSubstMap,
+        _ctx: &treewalk::LinearizeCtx,
     ) -> Option<Semantic> {
         unimplemented!();
         /*

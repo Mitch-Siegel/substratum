@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum EnumVariantRepr {
     Unit,
-    Tuple(Vec<types::Syntactic>),
+    Tuple(Vec<midend::types::Syntactic>),
     // TODO: struct-like enums
     //   break out StructRepr logic to minimal subset for reuse here?
 }
@@ -33,7 +33,11 @@ impl EnumVariant {
         }
     }
 
-    pub fn new_tuple(discriminant: usize, name: String, elements: Vec<types::Syntactic>) -> Self {
+    pub fn new_tuple(
+        discriminant: usize,
+        name: String,
+        elements: Vec<midend::types::Syntactic>,
+    ) -> Self {
         Self {
             discriminant,
             name,
@@ -41,10 +45,10 @@ impl EnumVariant {
         }
     }
 
-    pub fn syntactic(&self) -> types::Syntactic {
+    pub fn syntactic(&self) -> midend::types::Syntactic {
         match &self.data {
-            EnumVariantRepr::Unit => types::Syntactic::Unit,
-            EnumVariantRepr::Tuple(elements) => types::Syntactic::Tuple(elements.clone()),
+            EnumVariantRepr::Unit => midend::types::Syntactic::Unit,
+            EnumVariantRepr::Tuple(elements) => midend::types::Syntactic::Tuple(elements.clone()),
         }
     }
 

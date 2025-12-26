@@ -1,7 +1,4 @@
-use crate::{
-    frontend::ast::*,
-    midend::symtab::{FunctionPrototype, Symtab},
-};
+use crate::{frontend::ast::*, midend};
 
 #[derive(ReflectName, Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ArgumentDeclarationTree {

@@ -134,7 +134,7 @@ impl<T> LinearizedPathTree<T> {
         self
     }
 
-    pub fn map_data<OnData>(self, on_data: OnData) -> ()
+    pub fn map_data<OnData>(self, _on_data: OnData) -> ()
 //Result<midend::symtab::RawPath, String>
     //where
     //    OnData: FnMut(&midend::symtab::RawPath, Option<T>),
@@ -210,9 +210,9 @@ where
 }
 
 pub fn walk_middle_ident_segment(
-    segment_loc: &sourceloc::SourceSpan,
-    ident: String,
-    expr_path: midend::symtab::DefPath,
+    _segment_loc: &sourceloc::SourceSpan,
+    _ident: String,
+    _expr_path: midend::symtab::DefPath,
 ) -> Result<midend::symtab::DefPath, String> {
     unimplemented!();
     /*
@@ -225,11 +225,11 @@ pub fn walk_middle_ident_segment(
 }
 
 pub fn walk_ident_segment(
-    segment_loc: &sourceloc::SourceSpan,
-    ident: midend::symtab::PathSegment,
-    size_hint: usize,
-    expr_path: midend::symtab::DefPath,
-    ctx: &mut midend::treewalk::LinearizeCtx,
+    _segment_loc: &sourceloc::SourceSpan,
+    _ident: midend::symtab::PathSegment,
+    _size_hint: usize,
+    _expr_path: midend::symtab::DefPath,
+    _ctx: &mut midend::treewalk::LinearizeCtx,
 ) -> Result<midend::symtab::DefPath, String> {
     unimplemented!();
     /*
@@ -260,9 +260,9 @@ where
     }
 
     fn start(
-        segment: PathSegmentTree<T>,
-        size_hint: usize,
-        ctx: &mut midend::treewalk::LinearizeCtx,
+        _segment: PathSegmentTree<T>,
+        _size_hint: usize,
+        _ctx: &mut midend::treewalk::LinearizeCtx,
     ) -> Result<Self, String> {
         unimplemented!();
         /*
@@ -300,9 +300,9 @@ where
     }
 
     fn start_global(
-        segment: PathSegmentTree<T>,
-        size_hint: usize,
-        ctx: &mut midend::treewalk::LinearizeCtx,
+        _segment: PathSegmentTree<T>,
+        _size_hint: usize,
+        _ctx: &mut midend::treewalk::LinearizeCtx,
     ) -> Result<Self, String> {
         unimplemented!();
         /*
@@ -332,10 +332,10 @@ where
     }
 
     fn leading_lower_supers(
-        segment: PathSegmentTree<T>,
-        size_hint: usize,
-        state: LinearizedPathTree<T>,
-        ctx: &mut midend::treewalk::LinearizeCtx,
+        _segment: PathSegmentTree<T>,
+        _size_hint: usize,
+        _state: LinearizedPathTree<T>,
+        _ctx: &mut midend::treewalk::LinearizeCtx,
     ) -> Result<Self, String> {
         unimplemented!();
         /*
@@ -362,10 +362,10 @@ where
     }
 
     fn require_ident(
-        segment: PathSegmentTree<T>,
-        size_hint: usize,
-        state: LinearizedPathTree<T>,
-        ctx: &mut midend::treewalk::LinearizeCtx,
+        _segment: PathSegmentTree<T>,
+        _size_hint: usize,
+        _state: LinearizedPathTree<T>,
+        _ctx: &mut midend::treewalk::LinearizeCtx,
     ) -> Result<Self, String> {
         unimplemented!();
         /*
@@ -426,6 +426,5 @@ where
         }
 
         unimplemented!();
-        LinearizedPathTree::new()
     }
 }

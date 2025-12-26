@@ -266,7 +266,7 @@ impl Ast for TypeItemPathTree {
 }
 
 impl midend::treewalk::Linearize<midend::types::Syntactic> for TypeItemPathTree {
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::types::Syntactic {
+    fn linearize(self, _ctx: &mut midend::treewalk::LinearizeCtx) -> midend::types::Syntactic {
         unimplemented!();
         /*
         let up = self.underlying_path.linearize(ctx);

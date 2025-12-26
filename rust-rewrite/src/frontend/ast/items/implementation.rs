@@ -22,49 +22,9 @@ impl Ast for ImplementationTree {
 impl midend::treewalk::Collect for ImplementationTree {
     fn collect_symbols(
         &self,
-        mut ctx: midend::treewalk::CollectCtx,
+        ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
-        unimplemented!();
-        /*
-         let generic_params_as_vec = match &self.generic_params {
-            Some(params) => params
-                .clone()
-                .linearize_ctxless()
-                .into_iter()
-                .map(|(_, p)| p)
-                .collect(),
-            None => midend::types::GenericParamsList::new(),
-        };
-
-        let implemented_for_generic_params_as_vec: midend::types::GenericParamsList =
-            match &self.implemented_for_generic_params {
-                Some(params) => params
-                    .clone()
-                    .linearize_ctxless()
-                    .into_iter()
-                    .map(|(_, p)| p)
-                    .collect(),
-                None => Vec::new(),
-            };
-
-        let impl_def_path_component = midend::symtab::DefPathComponent::Implementation(
-            midend::symtab::ImplementationName::new(
-                generic_params_as_vec,
-                midend::types::Syntactic::Named(self.for_.value.clone()),
-                implemented_for_generic_params_as_vec,
-            ),
-        );
-
-        // declare the impl, then push it to the defpath
-        ctx.declare(impl_def_path_component.clone()).unwrap();
-        ctx.push_def_path(impl_def_path_component.clone()).unwrap();
-
-        for item in &self.items {
-            item.collect_symbols(ctx);
-        }
-
-        ctx.pop_def_path(impl_def_path_component).unwrap();
-        */
+        return Ok(ctx.take());
     }
 }
 

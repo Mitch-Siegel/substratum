@@ -5,7 +5,7 @@ use std::fmt::Display;
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Hash)]
 pub struct Variable {
     pub name: String,
-    type_: Option<types::Syntactic>,
+    type_: Option<midend::types::Syntactic>,
 }
 
 impl Display for Variable {
@@ -23,11 +23,11 @@ impl Display for Variable {
 }
 
 impl Variable {
-    pub fn new(name: String, type_: Option<types::Syntactic>) -> Self {
+    pub fn new(name: String, type_: Option<midend::types::Syntactic>) -> Self {
         Variable { name, type_ }
     }
 
-    pub fn type_(&self) -> Option<&types::Syntactic> {
+    pub fn type_(&self) -> Option<&midend::types::Syntactic> {
         self.type_.as_ref()
     }
 

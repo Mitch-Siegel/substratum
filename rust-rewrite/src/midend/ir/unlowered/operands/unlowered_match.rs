@@ -1,7 +1,4 @@
-use crate::midend::{
-    ir::unlowered::*,
-    treewalk::{Collect, Linearize},
-};
+use crate::midend::{ir::unlowered::*, treewalk::Linearize};
 
 struct MatchArmContext<'a> {
     pub ctx: &'a mut treewalk::LinearizeCtx,
@@ -37,13 +34,13 @@ fn lower_pattern<'a>(
         }
         PatternTree::Identifier(name) => LoweredPattern::Identifier(name.linearize(arm_ctx.ctx)),
         PatternTree::TupleStruct(tuple_struct) => {
-            let scrutinee_type = arm_ctx
+            let _scrutinee_type = arm_ctx
                 .ctx
                 .function_mut()
                 .values()
                 .semantic_for_id(&arm_ctx.scrutinee)
                 .expect("Scrutinee type not known!");
-            let scrutinee_variable_def_path = match arm_ctx
+            let _scrutinee_variable_def_path = match arm_ctx
                 .ctx
                 .function_mut()
                 .values()
@@ -53,7 +50,7 @@ fn lower_pattern<'a>(
                 Err(_e) => None,
             };
 
-            let variant = tuple_struct.name.linearize(arm_ctx.ctx);
+            let _variant = tuple_struct.name.linearize(arm_ctx.ctx);
 
             unimplemented!();
             /*
@@ -148,14 +145,17 @@ pub struct MatchOperands {
 }
 
 impl Lowerable for MatchOperands {
-    fn lower(self, ctx: &mut treewalk::LinearizeCtx, _loc: SourceLoc) {
+    fn lower(self, _ctx: &mut treewalk::LinearizeCtx, _loc: SourceLoc) {
         // TODO: implement actual match decision tree logic
+        unimplemented!();
 
+        /*
         let matched_type = ctx
             .function_mut()
             .values()
             .semantic_for_id(&self.scrutinee)
             .unwrap();
+
         let _matched_type_definition = ctx
             .symtab()
             .types
@@ -178,6 +178,7 @@ impl Lowerable for MatchOperands {
         println!("{:#?}", walked_patterns);
 
         return;
+        */
     }
 }
 

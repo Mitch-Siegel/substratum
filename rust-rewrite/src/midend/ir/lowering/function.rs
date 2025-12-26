@@ -1,8 +1,4 @@
-use crate::midend::{
-    ir::*,
-    symtab::Path,
-    *,
-};
+use crate::midend::{ir::*, symtab::Path, *};
 use std::collections::{HashMap, HashSet};
 
 pub fn find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usize>> {
@@ -22,7 +18,7 @@ pub fn find_unlowered_irs(cf: &ControlFlow) -> HashMap<usize, HashSet<usize>> {
 
 pub fn lower_function(
     def_path: symtab::DefPath,
-    symtab: Box<symtab::SymbolTable>,
+    _symtab: Box<symtab::SymbolTable>,
 ) -> Box<symtab::SymbolTable> {
     let _span = trace::span_auto_debug!("Lower function ", "{}", def_path.last());
 
@@ -138,5 +134,5 @@ pub fn lower_function(
         */
     }
 
-    symtab
+    // symtab
 }

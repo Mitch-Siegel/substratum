@@ -59,12 +59,12 @@ impl midend::treewalk::Linearize<midend::symtab::EnumVariantRepr> for EnumVarian
 }
 
 fn create_enum_variant_constructor(
-    symtab: &mut midend::symtab::SymbolTable,
-    enum_path: midend::symtab::DefPath,
-    enum_name: &String,
-    variant_name: &String,
-    arg_types: Vec<midend::types::Syntactic>,
-    loc: sourceloc::SourceLoc,
+    _symtab: &mut midend::symtab::SymbolTable,
+    _enum_path: midend::symtab::DefPath,
+    _enum_name: &String,
+    _variant_name: &String,
+    _arg_types: Vec<midend::types::Syntactic>,
+    _loc: sourceloc::SourceLoc,
 ) {
     unimplemented!();
     // create variables for each argument, named by index

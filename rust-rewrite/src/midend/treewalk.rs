@@ -52,7 +52,7 @@ pub fn walk(program: Vec<frontend::ast::ModuleTree>) -> Box<symtab::SymbolTable>
 
     for module in &program {
         let path = path_from_module(module);
-        let mut collect_ctx = CollectCtx::new(symtab, path.clone());
+        let collect_ctx = CollectCtx::new(symtab, path.clone());
 
         symtab = module.collect_symbols(collect_ctx).unwrap();
     }

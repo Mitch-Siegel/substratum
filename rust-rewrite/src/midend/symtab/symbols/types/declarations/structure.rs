@@ -4,12 +4,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FieldRepr {
     pub name: String,
-    pub type_: types::Syntactic,
+    pub type_: midend::types::Syntactic,
     pub offset: Option<usize>,
 }
 
 impl FieldRepr {
-    pub fn new(name: String, type_: types::Syntactic) -> Self {
+    pub fn new(name: String, type_: midend::types::Syntactic) -> Self {
         Self {
             name,
             type_,
@@ -39,7 +39,7 @@ pub struct StructRepr {
 impl StructRepr {
     pub fn new(
         name: String,
-        field_definitions: Vec<(String, types::Syntactic)>,
+        field_definitions: Vec<(String, midend::types::Syntactic)>,
     ) -> Result<Self, FieldRepr> {
         let field_order: Vec<String> = field_definitions
             .iter()

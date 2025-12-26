@@ -121,11 +121,15 @@ impl SymbolTable {
             .flatten()
     }
 
-    fn define_type(&mut self, parent_path: DefPath, symbol: Type) -> Result<DefPath, SymbolError> {
+    pub fn define_type(
+        &mut self,
+        parent_path: DefPath,
+        symbol: Type,
+    ) -> Result<DefPath, SymbolError> {
         self.define(parent_path, SymbolDef::Type(symbol))
     }
 
-    fn define_value(
+    pub fn define_value(
         &mut self,
         parent_path: DefPath,
         symbol: Value,

@@ -100,7 +100,7 @@ impl midend::treewalk::Linearize<PatternTree> for PatternTree {
         match self.clone() {
             Self::Literal(_) => (),
             Self::Identifier(ident) => {
-                let variable_name = ident.linearize(ctx);
+                let _variable_name = ident.linearize(ctx);
                 unimplemented!();
             }
             Self::TupleStruct(tuple_struct) => {
@@ -132,7 +132,7 @@ impl Display for MatchArmTree {
 impl midend::treewalk::Collect for MatchArmTree {
     fn collect_symbols(
         &self,
-        mut ctx: midend::treewalk::CollectCtx,
+        mut _ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
         unimplemented!();
         /*

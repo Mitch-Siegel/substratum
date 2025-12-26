@@ -29,7 +29,7 @@ impl midend::treewalk::Collect for PathInExpressionTree {
 }
 
 impl midend::treewalk::Linearize<midend::ir::ValueId> for PathInExpressionTree {
-    fn linearize(self, ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
+    fn linearize(self, _ctx: &mut midend::treewalk::LinearizeCtx) -> midend::ir::ValueId {
         unimplemented!();
         /*
         let _span = trace::span_auto_debug!(
@@ -55,9 +55,9 @@ impl std::fmt::Display for PathInExpressionTree {
 }
 
 pub fn record_monomorphization(
-    ctx: &mut midend::treewalk::LinearizeCtx,
-    path: &midend::symtab::DefPath,
-    maybe_generics: Option<ast::generics::GenericArgsListTree>,
+    _ctx: &mut midend::treewalk::LinearizeCtx,
+    _path: &midend::symtab::DefPath,
+    _maybe_generics: Option<ast::generics::GenericArgsListTree>,
 ) {
     unimplemented!();
 

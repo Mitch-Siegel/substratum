@@ -57,7 +57,7 @@ impl Ast for Expression {
 impl midend::treewalk::Collect for Expression {
     fn collect_symbols(
         &self,
-        mut ctx: midend::treewalk::CollectCtx,
+        ctx: midend::treewalk::CollectCtx,
     ) -> midend::treewalk::CollectResult {
         match self {
             Self::If(if_expr) => if_expr.collect_symbols(ctx),

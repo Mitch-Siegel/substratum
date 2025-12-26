@@ -1,4 +1,4 @@
-use crate::midend::{symtab::*, *};
+use crate::midend::symtab::*;
 
 #[derive(Clone, Debug)]
 pub enum BuiltinType {

@@ -57,10 +57,10 @@ impl midend::treewalk::Linearize<()> for ModuleTree {
             ctx.def_path()
         );
         unimplemented!();
+        /*
 
         let module_name = self.name.linearize(ctx);
 
-        /*
         ctx.define(midend::symtab::types::Module::new(module_name.clone()))
             .unwrap();
         ctx.push_def_path(

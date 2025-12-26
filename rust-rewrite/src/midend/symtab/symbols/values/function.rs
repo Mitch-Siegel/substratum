@@ -1,4 +1,3 @@
-
 use crate::midend::symtab::{Symbol, *};
 
 #[derive(Debug, Clone)]
@@ -68,9 +67,9 @@ impl PartialEq for Function {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FunctionPrototype {
     pub name: String,
-    pub generic_params: types::GenericParamsList,
+    pub generic_params: midend::types::GenericParamsList,
     pub arguments: Vec<Variable>,
-    pub return_type: types::Syntactic,
+    pub return_type: midend::types::Syntactic,
 }
 
 impl std::fmt::Display for FunctionPrototype {
@@ -84,7 +83,9 @@ impl std::fmt::Display for FunctionPrototype {
             }
         }
         match &self.return_type {
-            types::Syntactic::Unit => write!(f, "fun {}({})", self.name.as_str(), arguments_string),
+            midend::types::Syntactic::Unit => {
+                write!(f, "fun {}({})", self.name.as_str(), arguments_string)
+            }
             _ => write!(
                 f,
                 "fun {}({}) -> {}",
@@ -99,9 +100,9 @@ impl std::fmt::Display for FunctionPrototype {
 impl FunctionPrototype {
     pub fn new(
         name: String,
-        generic_params: types::GenericParamsList,
+        generic_params: midend::types::GenericParamsList,
         arguments: Vec<Variable>,
-        return_type: types::Syntactic,
+        return_type: midend::types::Syntactic,
     ) -> Self {
         FunctionPrototype {
             name: name,

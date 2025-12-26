@@ -90,8 +90,8 @@ impl BlockManager {
     // returns the label of the false branch or BranchError
     pub fn finish_true_branch_switch_to_false(
         &mut self,
-        true_end_label: usize,
-        loc: SourceLoc,
+        _true_end_label: usize,
+        _loc: SourceLoc,
     ) -> Result<usize, BranchError> {
         unimplemented!();
         /*
